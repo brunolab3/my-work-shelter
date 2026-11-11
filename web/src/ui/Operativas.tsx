@@ -110,7 +110,7 @@ export function PanelPlanning() {
     else if (e.code === 'KeyA') { setAgenda(x => !x); SFX.conmutar(); }
     else if (e.code === 'KeyR') refrescar();
     else if (e.code === 'ArrowRight' || e.code === 'KeyD') { setDay(d => Math.min(6, d + 1)); setI(0); SFX.tick(); }
-    else if (e.code === 'ArrowLeft' || e.code === 'KeyA') { setDay(d => Math.max(0, d - 1)); setI(0); SFX.tick(); }
+    else if (e.code === 'ArrowLeft') { setDay(d => Math.max(0, d - 1)); setI(0); SFX.tick(); }   // (la A es agenda/semana)
     else if (e.code === 'ArrowDown' || e.code === 'KeyS') { setI(x => Math.min(lista.length - 1, x + 1)); SFX.tick(); }
     else if (e.code === 'ArrowUp' || e.code === 'KeyW') { setI(x => Math.max(0, x - 1)); SFX.tick(); }
     else if ((e.code === 'Enter' || e.code === 'KeyE') && sel) sel.videollamada ? openOutside(sel.videollamada) : openNotice(sel);
