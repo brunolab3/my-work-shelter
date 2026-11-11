@@ -506,7 +506,7 @@ export function splitByWords(g: CanvasRenderingContext2D, texto: string, ancho: 
   return lineas.slice(0, maxLines);
 }
 
-// Tablero de Linear de la pantalla grande de Logística: columnas por estado con fichas (asignado y estimación)
+// Tablero de tareas de la pantalla grande de Logística: columnas por estado con fichas (asignado y estimación)
 // que llenan la altura aunque haya pocas, y abajo la gráfica del ciclo (lo que queda frente al ideal, día a día).
 export interface BoardCard { id: string; titulo: string; prioridad?: number; sub?: string; asignado?: string; estimacion?: number; color?: string }   // color: el de su tarea (shared/tareas.ts)
 export interface BoardCycle { nombre: string; progreso: number; inicio?: number; fin?: number; reach?: number[]; hecho?: number[] }

@@ -57,7 +57,7 @@ export const WORLD: Record<string, Texto> = {
   'world.readTheNotices': { es: 'Leer los avisos', en: 'Read the notices' },
   'world.tuneTheRadio': { es: 'Sintonizar la radio', en: 'Tune the radio' },
   'world.viewTheCalendar': { es: 'Ver el calendario', en: 'View the calendar' },
-  'world.linearBoard': { es: 'Tablero de Linear', en: 'Linear board' },
+  'world.linearBoard': { es: 'Tablero de tareas', en: 'Task board' },
   'world.gitClient': { es: 'Cliente de git', en: 'Git client' },
   'world.yourGithubContributions': { es: 'Tus contribuciones en GitHub', en: 'Your GitHub contributions' },
   'world.grabAGunAndShoot': { es: 'Coger un arma y tirar', en: 'Grab a gun and shoot' },
