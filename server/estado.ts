@@ -7,7 +7,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { INITIAL_ROOMS, INITIAL_DWELLERS } from '../shared/refugioInicial.ts';
 import { GAME_NAME } from '../shared/protocolo.ts';
-import { tonesForRepeated } from '../shared/reclutas.ts';
+import { tonesForRepeated, distinctLooks } from '../shared/reclutas.ts';
 import { distribute, placeRoom, isRoomOfRepo, PLANNING_ROOM } from '../shared/disposicion.ts';
 import { sanitizeLook, type Look } from '../shared/aspecto.ts';
 import { SOURCES } from './integraciones/adaptadores.ts';
@@ -190,12 +190,14 @@ export class Store {
     if (e && addRoomsOfService(this.estado)) this.guardar();
     // habitantes de serie que falten en un refugio guardado, solo si su sala está vacía: una sala, un habitante
     if (e) for (const h of INITIAL_DWELLERS) if (!this.estado.habitantes.some(x => x.id === h.id || x.salaId === h.salaId) && this.estado.salas.some(sl => sl.id === h.salaId)) this.estado.habitantes.push({ ...h });
+    distinctLooks(this.estado.habitantes, this.estado.supervisor);   // nadie con la pinta del Supervisor ni de otro
     ensureFolders(this.estado);
   }
-  cambiar(f: (e: ShelterState) => void) { f(this.estado); ensureFolders(this.estado); this.guardar(); }
+  // tras cualquier cambio (un recluta, el Supervisor cambia de aspecto…), nadie se queda con la pinta de otro
+  cambiar(f: (e: ShelterState) => void) { f(this.estado); distinctLooks(this.estado.habitantes, this.estado.supervisor); ensureFolders(this.estado); this.guardar(); }
   guardar() { if (this.pending) return; this.pending = setTimeout(() => { this.pending = null; this.saveAlready(); }, 400); }
   saveAlready() { const tmp = this.archivo + '.tmp'; writeFileSync(tmp, JSON.stringify(this.estado, null, 1), { mode: 0o600 }); chmodSync(tmp, 0o600); renameSync(tmp, this.archivo); }
-  reiniciar() { this.estado = initialState(); ensureFolders(this.estado); this.saveAlready(); }
+  reiniciar() { this.estado = initialState(); distinctLooks(this.estado.habitantes, this.estado.supervisor); ensureFolders(this.estado); this.saveAlready(); }
 }
 
 // El estado guardado se valida campo a campo: lo que no cuadra se descarta o vuelve a su valor inicial.

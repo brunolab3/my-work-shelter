@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { generateRecruit, LOOKS, tonesForRepeated } from './reclutas.ts';
+import { generateRecruit, LOOKS, tonesForRepeated, distinctLooks } from './reclutas.ts';
+import { lookOf } from './aspecto.ts';
 import { INITIAL_DWELLERS } from './refugioInicial.ts';
 
 describe('reclutas', () => {
@@ -59,5 +60,24 @@ describe('reclutas seguidos', () => {
     expect(hs.find(h => h.id === 'nestor')?.tone).toBeUndefined();
     expect(hs.find(h => h.id === 'marga')?.tone).toBeGreaterThan(0);
     expect(hs.find(h => h.id === 'marga')?.tone).not.toBe(162);
+  });
+  it('nadie lleva la pinta del Supervisor ni la de otro habitante, y el aspecto nuevo es estable', () => {
+    const hs = () => [{ id: 'nestor', tipo: 'Survivalist' }, { id: 'marga', tipo: 'Hoarder' }, { id: 'ondina', tipo: 'Hoarder' }, { id: 'dora', tipo: 'Survivalist' }, { id: 'remi', tipo: 'Engineer' }, { id: 'mona', tipo: 'Octocat' }, { id: 'mona2', tipo: 'Octocat' }] as { id: string; tipo: string; aspecto?: any }[];
+    const a = hs();
+    expect(distinctLooks(a, { personaje: 'Hoarder' })).toBe(true);
+    const by = (id: string) => a.find(h => h.id === id)!;
+    // la del modelo del Supervisor y las repetidas reciben aspecto propio; las primeras de su modelo y la Octocat, no
+    expect(by('marga').aspecto).toBeDefined(); expect(by('ondina').aspecto).toBeDefined(); expect(by('dora').aspecto).toBeDefined();
+    expect(by('nestor').aspecto).toBeUndefined(); expect(by('remi').aspecto).toBeUndefined(); expect(by('mona2').aspecto).toBeUndefined();
+    const claves = a.filter(h => h.tipo !== 'Octocat').map(h => JSON.stringify(lookOf(h)));
+    expect(new Set([...claves, JSON.stringify(lookOf({ tipo: 'Hoarder' }))]).size).toBe(claves.length + 1);
+    const b = hs(); distinctLooks(b, { personaje: 'Hoarder' });
+    expect(b).toEqual(a);
+    expect(distinctLooks(a, { personaje: 'Hoarder' })).toBe(false);
+  });
+  it('si el Supervisor lleva el modelo del Arquitecto, el Arquitecto también cambia', () => {
+    const a = [{ id: 'nestor', tipo: 'Survivalist' }] as { id: string; tipo: string; aspecto?: any }[];
+    distinctLooks(a, { personaje: 'Survivalist' });
+    expect(a[0].aspecto).toBeDefined();
   });
 });

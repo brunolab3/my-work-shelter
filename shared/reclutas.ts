@@ -1,5 +1,5 @@
 // Reclutas: nombre, mote, aspecto y ficha de quien llega a la Puerta Principal. Sin inferencia: listas y azar con semilla.
-import { lookOnRandom, type Look } from './aspecto.ts';
+import { lookOf, lookOnRandom, type Look } from './aspecto.ts';
 export interface RecruitCard { id: string; nombre: string; mote: string; tipo: string; bio: string; voz: number; tone?: number; aspecto?: Look }
 
 const NAMES = ['Adela', 'Benito', 'Casilda', 'Damián', 'Elvira', 'Fausto', 'Gertru', 'Hilario', 'Inés', 'Jacinto', 'Leonor', 'Matías', 'Nieves', 'Olegario', 'Paca', 'Quique', 'Rosario', 'Saturnino', 'Trini', 'Ulises', 'Valentina', 'Wenceslao', 'Ximena', 'Yago', 'Zoila', 'Amparo', 'Baltasar', 'Celia', 'Dimas', 'Encarna', 'Filomena', 'Gaspar', 'Herminia', 'Isidro', 'Jimena', 'Lázaro', 'Macarena', 'Nicanor', 'Orencio', 'Pilar'];
@@ -59,4 +59,24 @@ export function tonesForRepeated<T extends { id?: string; tipo: string; tone?: n
     usados(h.tipo).add(tone);
     return { ...h, tone };
   });
+}
+
+/** Nadie se confunde con el Supervisor ni con otro habitante: quien va con el mismo modelo de serie que el Supervisor (si
+ *  él va de serie), o con el mismo que otro habitante sin aspecto propio, o con el mismo aspecto por piezas que otro,
+ *  recibe uno por piezas al azar, con semilla en su id (el mismo cada vez). Los de LOOK_ORIGINAL se quedan con el suyo
+ *  antes que nadie (salvo si es el del Supervisor). La Octocat es como es. Cambia la lista; devuelve si cambió alguien. */
+export function distinctLooks(habitantes: { id: string; tipo: string; aspecto?: Look }[], supervisor: { personaje: string; aspecto?: Look }): boolean {
+  const clave = (tipo: string, a?: Look) => (a ? JSON.stringify(a) : 'serie:' + tipo);
+  const vistos = new Set([clave(supervisor.personaje, supervisor.aspecto)]);
+  const orden = [...habitantes.filter(h => LOOK_ORIGINAL.has(h.id)), ...habitantes.filter(h => !LOOK_ORIGINAL.has(h.id))];
+  let cambiado = false;
+  for (const h of orden) {
+    if (h.tipo === 'Octocat') continue;
+    if (!vistos.has(clave(h.tipo, h.aspecto))) { vistos.add(clave(h.tipo, h.aspecto)); continue; }
+    const especie = lookOf({ tipo: h.tipo }).especie;
+    let semilla = [...h.id].reduce((n, c) => (n * 31 + c.charCodeAt(0)) >>> 0, 17), a: Look;
+    do a = lookOnRandom(azar(semilla++), especie); while (vistos.has(clave(h.tipo, a)));
+    h.aspecto = a; vistos.add(clave(h.tipo, a)); cambiado = true;
+  }
+  return cambiado;
 }
