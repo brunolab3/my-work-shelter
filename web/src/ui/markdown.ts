@@ -32,6 +32,9 @@ export function markdown(texto: string): string {
   return limpio.replace(/<pre><code([^>]*)>/g, '<div class="codigo"><button class="copiar" data-copiar tabindex="-1">' + t('windows.copy') + '</button><pre><code$1>').replace(/<\/code><\/pre>/g, '</code></pre></div>');
 }
 
+// una sola línea (la descripción de una opción): sin el <p> que la rodea
+export const markdownLine = (texto: string) => markdown(texto).replace(/^<p>([\s\S]*)<\/p>\s*$/, '$1');
+
 // un enlace a un archivo del Mac: lo abre el servidor (antes que nada: si no, la ventana abriría el juego otra vez)
 addEventListener('click', e => {
   const a = (e.target as HTMLElement).closest?.('a[data-local]') as HTMLAnchorElement | null;

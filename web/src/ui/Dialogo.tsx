@@ -22,7 +22,7 @@ import { MODELS, EFFORTS, PERMISSION_MODES } from '@shared/protocolo';
 import { t, tIs } from '@shared/idioma';
 import { juego, type DwellerSummary } from './estadoJuego';
 import { vivo, cliente, loadLog } from '../red/cliente';
-import { markdown } from './markdown';
+import { markdown, markdownLine } from './markdown';
 import { RequestView, ToolText } from './textoPlano';
 import { teclado } from '../motor/teclado';
 import { SFX } from '../audio/sonido';
@@ -794,7 +794,7 @@ function Pending({ s, p, tab, hid, salir }: { s: SessionSummary; p: PendingReque
   const [responses, setResponses] = useState<Record<string, string>>({});
   const [pq, setPq] = useState(0);
   const responder = (decision: 'si' | 'siempre' | 'no', mensaje?: string, answer?: Record<string, string>) => { cliente.enviar({ t: 'responder', sesionId: s.id, peticionId: p.id, decision, mensaje, responses: answer }); SFX.clic(); };
-  let items: { texto: string; pista?: string; peligro?: boolean; f: () => void }[] = [];
+  let items: { texto: React.ReactNode; pista?: React.ReactNode; peligro?: boolean; clase?: string; f: () => void }[] = [];
   const preg = p.tipo === 'pregunta' ? p.preguntas?.[pq] : undefined;
   if (p.tipo === 'permiso') items = [
     { texto: t('windows.yes'), f: () => responder('si') },
@@ -812,7 +812,8 @@ function Pending({ s, p, tab, hid, salir }: { s: SessionSummary; p: PendingReque
     { texto: t('windows.keepPlanningILlTell'), peligro: true, f: () => setReason('') },
   ];
   else if (preg) items = [
-    ...preg.options.map(o => ({ texto: o.label, pista: o.description, f: () => { const r = { ...responses, [preg.question]: o.label }; setResponses(r); if (pq + 1 < (p.preguntas?.length ?? 0)) setPq(pq + 1); else responder('si', undefined, r); } })),
+    // las respuestas de una pregunta pueden ser largas o llevar enlaces: enteras, en varias líneas (clase «larga»)
+    ...preg.options.map(o => ({ texto: o.label, pista: o.description ? <span dangerouslySetInnerHTML={{ __html: markdownLine(o.description) }} /> : undefined, clase: 'larga', f: () => { const r = { ...responses, [preg.question]: o.label }; setResponses(r); if (pq + 1 < (p.preguntas?.length ?? 0)) setPq(pq + 1); else responder('si', undefined, r); } })),
     { texto: t('windows.somethingElse'), f: () => setReason('') },
     { texto: t('windows.skipTheQuestion'), peligro: true, f: () => responder('no', 'El usuario ha preferido no responder.') },
   ];
@@ -820,7 +821,9 @@ function Pending({ s, p, tab, hid, salir }: { s: SessionSummary; p: PendingReque
   const [i, setI] = useMenuBase(items.length, k => items[k]?.f(), e => motivo !== null && e.code !== 'Escape' ? false : undefined, salir);
   return (
     <div className={'peticion ' + p.tipo}>
-      <div className="peticion-titulo">{p.ofHelper ? t('windows.aHelperNombreAsks', { nombre: p.ofHelper }) : ''}{preg ? preg.question : p.titulo}</div>
+      <div className="peticion-titulo">{p.ofHelper ? t('windows.aHelperNombreAsks', { nombre: p.ofHelper }) : ''}{preg ? null : p.titulo}</div>
+      {/* la pregunta es prosa de Claude: en markdown (enlaces que se abren, listas), con su propio scroll si es muy larga */}
+      {preg && <div className="peticion-pregunta" dangerouslySetInnerHTML={{ __html: markdown(preg.question) }} />}
       {/* lo que pide una herramienta, siempre en texto plano (textoPlano.tsx); el plan, que es prosa, en markdown */}
       {(p.tipo === 'permiso' || p.tipo === 'confianza') && (p.entrada?.length || p.motivo) ? <RequestView blocks={p.entrada ?? []} motivo={p.motivo} /> : null}
       {p.tipo === 'plan' && p.detalle && <div className="peticion-detalle" dangerouslySetInnerHTML={{ __html: markdown(p.detalle) }} />}

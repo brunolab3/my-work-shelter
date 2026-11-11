@@ -41,7 +41,7 @@ export function Opciones({ items, i, setI, onChoose }: { items: ItemMenu[]; i: n
   return (
     <ul className="opciones-consola" ref={ref}>
       {items.map((it, k) => (
-        <li key={k} className={(k === i ? 'activa' : '') + (it.peligro ? ' peligro' : '') + (it.apagado ? ' apagado' : '') + (it.clase ? ' ' + it.clase : '')} onMouseEnter={() => setI(k)} onClick={() => { SFX.clic(); onChoose(k); }}>
+        <li key={k} className={(k === i ? 'activa' : '') + (it.peligro ? ' peligro' : '') + (it.apagado ? ' apagado' : '') + (it.clase ? ' ' + it.clase : '')} onMouseEnter={() => setI(k)} onClick={e => { if ((e.target as HTMLElement).closest('a')) return; SFX.clic(); onChoose(k); }}>
           <span className="cursor">{k === i ? '▶' : ' '}</span><span className="txt">{it.texto}</span>{it.pista && <small>{it.pista}</small>}
         </li>
       ))}

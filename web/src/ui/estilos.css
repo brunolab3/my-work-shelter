@@ -298,6 +298,13 @@ html, body { margin: 0; height: 100%; background: var(--fondo); overflow: hidden
 .peticion { margin: .6em 0; padding: .6em .75em; border: 1px solid #ffb000; border-radius: 3px; background: rgba(255,176,0,.06); }
 .peticion-titulo { color: #ffc24a; text-shadow: 0 0 6px rgba(255,176,0,.45); font-weight: 600; margin-bottom: .4em; }
 .peticion-detalle { max-height: 38vh; overflow: auto; }
+.peticion-pregunta { color: #ffc24a; text-shadow: 0 0 6px rgba(255,176,0,.45); font-weight: 600; margin-bottom: .4em; max-height: 38vh; overflow: auto; overflow-wrap: anywhere; }
+.peticion-pregunta > :first-child { margin-top: 0; } .peticion-pregunta > :last-child { margin-bottom: 0; }
+.peticion-titulo:empty { display: none; }
+/* respuestas largas de una pregunta: el texto entero, en varias líneas, y su descripción debajo */
+.opciones-consola li.larga { flex-wrap: wrap; }
+.opciones-consola li.larga .txt { white-space: normal; overflow-wrap: anywhere; flex: 1 1 0; min-width: 0; }
+.opciones-consola li.larga small { flex: 1 0 100%; max-width: none; margin-left: calc(1.6em / .78); text-align: left; white-space: normal; overflow: visible; overflow-wrap: anywhere; }
 .peticion.plan .peticion-detalle { max-height: 46vh; }
 /* vista previa de un permiso (textoPlano.tsx): texto plano; el diff, línea a línea; lo invisible, marcado */
 .peticion-detalle .vista-ruta, .peticion-detalle .vista-texto { margin: 0 0 .4em; white-space: pre-wrap; word-break: break-word; }
