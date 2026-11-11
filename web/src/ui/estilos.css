@@ -395,6 +395,7 @@ html, body { margin: 0; height: 100%; background: var(--fondo); overflow: hidden
 .boton-taller { font: 600 calc(var(--u) * 0.8) var(--t-mono); color: #1b1a17; background: linear-gradient(#cfc3a8, #a3967a); border: 0; border-radius: 3px; padding: .3em .8em; box-shadow: 0 2px 0 #5f574a; cursor: pointer; }
 .boton-taller.activa { outline: 2px solid var(--fosforo); outline-offset: 2px; }
 .boton-taller:disabled { opacity: .5; }
+.boton-taller.peligro { background: linear-gradient(#e0a08f, #b5644f); }
 .pestanas { display: flex; gap: .4em; align-items: center; margin-bottom: .6em; flex-wrap: wrap; } .pestanas .derecha { margin-left: auto; font-size: .8em; }
 .feed { flex: 1; min-height: 0; display: grid; grid-template-columns: 1.35fr 1fr; gap: 1em; }
 .feed-lista { list-style: none; margin: 0; padding: 0; }
@@ -526,6 +527,8 @@ html, body { margin: 0; height: 100%; background: var(--fondo); overflow: hidden
 .teletipo { max-width: min(38vw, 34em); font: 500 calc(var(--u) * 0.8) var(--t-mono); color: var(--fosforo); background: #06120c; border: 1px solid rgba(157,255,184,.4); border-left: 4px solid var(--fosforo); padding: .45em .7em; border-radius: 2px; box-shadow: 0 6px 18px rgba(0,0,0,.6); animation: entrar-teletipo .25s ease-out; cursor: pointer; text-shadow: 0 0 6px rgba(157,255,184,.35); }
 .teletipo.error { color: #ffb39a; border-color: rgba(255,90,74,.5); border-left-color: var(--rojo); }
 .teletipo.aviso { color: #ffc24a; border-left-color: #ffb000; }
+.teletipo.pregunta { cursor: default; }
+.teletipo.pregunta .botonera { display: flex; gap: .5em; justify-content: flex-end; margin-top: .5em; }
 @keyframes entrar-teletipo { from { transform: translateX(20px); opacity: 0; } }
 .pantalla-carga { position: fixed; inset: 0; z-index: 400000; background: radial-gradient(ellipse at 50% 45%, #1d1a16, #070605 70%); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: calc(var(--u) * 1); transition: opacity .8s; }
 .pantalla-carga.fuera { opacity: 0; pointer-events: none; }

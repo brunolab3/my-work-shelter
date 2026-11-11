@@ -1,10 +1,11 @@
 // Limpieza de las tareas terminadas: cuando todos los PR de una tarea en el repo de una sala están fusionados o cerrados
-// (ninguno abierto ni en borrador) y en la sala sigue algún worktree de esa tarea, se le pide al
-// habitante de la sala, en la conversación de su copia principal (la abierta ahí, la última retomada o una nueva; un
-// worktree no puede quitarse a sí mismo), que los limpie sin plan: comprobar que no queda trabajo sin subir y quitarlos. Se mira cada
-// pocos minutos con GitHub conectado (main.ts); cada worktree se avisa una sola vez (DATOS/limpieza-tareas.json). Si no
-// hay conversación que lo reciba (límite de sesiones), se vuelve a intentar.
-// Quitar los worktrees lo hace el habitante desde su conversación (con los permisos de la sesión): aquí no se borra nada.
+// (ninguno abierto ni en borrador) y en la sala sigue algún worktree de esa tarea, el juego lo quita solo, sin preguntar:
+// antes comprueba con git que no queda otro trabajo (cambios sin commit, ni ignorados; stash de su rama; commits que no
+// estén en el remoto ni en la rama del PR en GitHub) y que no hay una conversación abierta en él. Quita el worktree
+// (`git worktree remove`, sin forzar) y su rama local; la del remoto se queda (un PR cerrado se puede reabrir). Con una
+// conversación abierta, espera a que se cierre. Si queda trabajo, pregunta una vez al Supervisor si lo quita igualmente
+// (y entonces sí, forzando); en cada vuelta se vuelve a mirar (guardado lo que había, se quita sin preguntar). Cada cinco
+// minutos con GitHub conectado (main.ts); lo ya preguntado, en DATOS/limpieza-tareas.json.
 import { existsSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
 import path from 'node:path';
 import type { PRBoard } from '../shared/tablero.ts';
@@ -39,31 +40,39 @@ export function finishedTasks(sala: RoomCleanup, prs: PRBoard[]): FinishedTask[]
   return out.sort((a, b) => a.tarea.localeCompare(b.tarea));
 }
 
-/** El mensaje para el habitante de la sala: las tareas terminadas, sus worktrees y que proponga limpiarlos */
-export function cleanupMessage(repo: string, tareas: FinishedTask[], sesiones: SessionSummary[]): string {
-  const abierta = (ruta: string) => sesiones.some(s => s.estado !== 'cerrada' && path.resolve(s.worktree ?? s.cwd) === path.resolve(ruta));
-  return [
-    t('prompt.cleanup.title', { repo }),
-    '',
-    ...tareas.flatMap(x => [
-      t('prompt.cleanup.task', { tarea: x.tarea, prs: x.prs.map(p => `#${p.numero}` + (p.estado === 'fusionado' ? '' : t('prompt.cleanup.closed'))).join(', ') }),
-      ...x.worktrees.map(w => `   - \`${w.ruta}\`${w.rama ? ` (${w.rama})` : ''}`
-        + (w.cambios ? t('prompt.cleanup.changes', { n: w.cambios }) : '')
-        + (abierta(w.ruta) ? t('prompt.cleanup.open') : '')),
-    ]),
-    '',
-    t('prompt.cleanup.ask'),
-  ].join('\n');
+/** Lo que impide quitar un worktree (vacío: se puede quitar). `git` lanza si el comando falla */
+export type Leftover = { tipo: 'cambios' | 'stash' | 'commits'; n: number } | { tipo: 'conversacion' };
+export async function leftovers(git: (cwd: string, args: string[]) => Promise<string>, w: InfoWorktree, prs: PRBoard[], sesiones: SessionSummary[]): Promise<Leftover[]> {
+  const out: Leftover[] = [];
+  const dir = path.resolve(w.ruta);
+  if (sesiones.some(s => s.estado !== 'cerrada' && (path.resolve(s.worktree ?? s.cwd) + path.sep).startsWith(dir + path.sep))) out.push({ tipo: 'conversacion' });
+  const lineas = (t: string) => t.split('\n').filter(Boolean);
+  const cambios = lineas(await git(w.ruta, ['status', '--porcelain'])).length;
+  if (cambios) out.push({ tipo: 'cambios', n: cambios });
+  // el stash es del repo entero: cuentan los guardados en esta rama («WIP on rama:» u «On rama:»)
+  const stash = w.rama ? lineas(await git(w.ruta, ['stash', 'list', '--format=%gs'])).filter(l => l.startsWith(`WIP on ${w.rama}:`) || l.startsWith(`On ${w.rama}:`)).length : 0;
+  if (stash) out.push({ tipo: 'stash', n: stash });
+  // commits fuera del remoto: valen si están en la rama de alguno de sus PR en GitHub (fusionado con squash, la rama del
+  // remoto borrada…)
+  const fuera = lineas(await git(w.ruta, ['rev-list', 'HEAD', '--not', '--remotes'])).length;
+  if (fuera) {
+    let enPR = false;
+    for (const p of prs) if (p.cabeza && !enPR) enPR = await git(w.ruta, ['merge-base', '--is-ancestor', 'HEAD', p.cabeza]).then(() => true, () => false);
+    if (!enPR) out.push({ tipo: 'commits', n: fuera });
+  }
+  return out;
 }
 
 export interface CtxCleanup {
   connection(): Promise<{ real: boolean; token?: string }>;
-  prs(c: { real: boolean; token?: string }): Promise<PRBoard[]>;   // abiertos y fusionados o cerrados hace poco
+  prs(c: { real: boolean; token?: string }): Promise<PRBoard[]>;   // abiertos, y fusionados o cerrados hace poco
   salas(): Promise<RoomCleanup[]>;
   sesiones(): SessionSummary[];
-  /** a la conversación de la copia principal de la sala (abierta, retomada o nueva); false si no se ha podido */
-  enviar(salaId: string, cwd: string, texto: string): Promise<boolean>;
-  delivered(salaId: string, tareas: FinishedTask[]): void;   // el robot mensajero y un aviso al Supervisor
+  git(cwd: string, args: string[]): Promise<string>;              // lanza si el comando falla
+  quitado(salaId: string, tarea: FinishedTask, w: InfoWorktree): void;              // aviso al Supervisor
+  /** pregunta al Supervisor (una vez) si lo quita igualmente; `quitar` lo hace, si dice que sí */
+  preguntar(salaId: string, tarea: FinishedTask, w: InfoWorktree, que: Leftover[], quitar: () => Promise<void>): void;
+  cambiado(): void;                                               // los worktrees de las salas han cambiado
 }
 
 export class TasksCleanup {
@@ -79,17 +88,40 @@ export class TasksCleanup {
     const c = await this.ctx.connection();
     if (!c.real) return;
     const prs = await this.ctx.prs(c);
-    const ya = new Set(this.avisados);
-    let cambio = false;
-    const clave = (sala: RoomCleanup, w: InfoWorktree, x: FinishedTask) => `${sala.id}|${x.tarea}|${path.resolve(w.ruta)}`;
-    for (const sala of await this.ctx.salas()) {
-      // solo lo nuevo: las tareas con algún worktree sin avisar, y de ellas esos worktrees
-      const nuevas = finishedTasks(sala, prs).map(x => ({ ...x, worktrees: x.worktrees.filter(w => !ya.has(clave(sala, w, x))) })).filter(x => x.worktrees.length);
-      if (!nuevas.length) continue;
-      if (!(await this.ctx.enviar(sala.id, sala.ruta, cleanupMessage(sala.repo ?? sala.nombre, nuevas, this.ctx.sesiones())).catch(() => false))) continue;
-      this.avisados.push(...nuevas.flatMap(x => x.worktrees.map(w => clave(sala, w, x)))); cambio = true;
-      this.ctx.delivered(sala.id, nuevas);
+    let avisos = false, quitados = false;
+    for (const sala of await this.ctx.salas()) for (const tarea of finishedTasks(sala, prs)) for (const w of tarea.worktrees) {
+      try {
+        const que = await leftovers(this.ctx.git, w, tarea.prs, this.ctx.sesiones());
+        if (!que.length) {
+          await this.quitar(sala, tarea, w, false);
+          quitados = true;
+          continue;
+        }
+        if (que.some(x => x.tipo === 'conversacion')) continue;   // se espera a que se cierre
+        // se pregunta una vez por lo que queda (si cambia, otra)
+        const clave = `${sala.id}|${tarea.tarea}|${path.resolve(w.ruta)}|${que.map(x => x.tipo + ('n' in x ? x.n : '')).join(',')}`;
+        if (this.avisados.includes(clave)) continue;
+        this.avisados.push(clave); avisos = true;
+        this.ctx.preguntar(sala.id, tarea, w, que, async () => {
+          // sigue siendo un worktree de la sala, y sin conversación abierta (puede haber pasado un rato)
+          const lista = await this.ctx.git(sala.ruta, ['worktree', 'list', '--porcelain']);
+          if (!lista.split('\n').includes('worktree ' + w.ruta)) return;
+          if ((await leftovers(this.ctx.git, w, tarea.prs, this.ctx.sesiones())).some(x => x.tipo === 'conversacion')) throw new Error('hay una conversación abierta en él');
+          await this.quitar(sala, tarea, w, true);
+          this.ctx.cambiado();
+        });
+      } catch (e) {
+        console.error(`Limpieza de ${w.ruta}:`, String((e as Error).message).split('\n')[0]);
+      }
     }
-    if (cambio) this.guardar();
+    if (avisos) this.guardar();
+    if (quitados) this.ctx.cambiado();
+  }
+
+  /** Quita el worktree (forzando solo si el Supervisor lo ha dicho) y su rama local */
+  private async quitar(sala: RoomCleanup, tarea: FinishedTask, w: InfoWorktree, forzar: boolean) {
+    await this.ctx.git(sala.ruta, ['worktree', 'remove', ...(forzar ? ['--force'] : []), w.ruta]);
+    if (w.rama) await this.ctx.git(sala.ruta, ['branch', '-D', w.rama]).catch(() => '');
+    this.ctx.quitado(sala.id, tarea, w);
   }
 }

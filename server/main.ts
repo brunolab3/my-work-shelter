@@ -4,7 +4,7 @@ import http from 'node:http';
 import path from 'node:path';
 import os from 'node:os';
 import { createReadStream, existsSync, statSync, mkdirSync, writeFileSync, readdirSync, rmSync, readFileSync } from 'node:fs';
-import { randomBytes, timingSafeEqual } from 'node:crypto';
+import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { execFile, execFileSync, spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { WebSocketServer, type WebSocket } from 'ws';
@@ -406,9 +406,18 @@ setInterval(() => {
   for (const s of still.slice(0, Math.max(0, vivas - 12))) sesiones.cerrar(s.id);
 }, 60_000).unref();
 
+// avisos que preguntan sí o no al Supervisor (protocolo: NoticeQuestion): se quedan a la vista hasta contestarlos y la
+// respuesta llega con la acción aviso.responder. Si el servidor se reinicia antes, la pregunta se pierde (no se hace nada)
+const preguntas = new Map<string, (si: boolean) => Promise<void>>();
+function ask(texto: string, botones: { si: string; no: string }, respuesta: (si: boolean) => Promise<void>) {
+  const id = randomUUID();
+  preguntas.set(id, respuesta);
+  broadcast({ t: 'aviso', nivel: 'aviso', texto, pregunta: { id, ...botones } });
+}
+
 // un mensaje a la conversación de una sala en una carpeta (su copia principal o un worktree): la abierta ahí; si no, se
 // retoma la última de ahí (si no sigue abierta fuera) o se empieza una
-async function sendToFolder(salaId: string, cwd: string, texto: string, permisos: 'plan' | 'default') {
+async function sendToFolder(salaId: string, cwd: string, texto: string, permisos: 'plan') {
   const h = almacen.estado.habitantes.find(x => x.salaId === salaId); if (!h) return false;
   const dir = path.resolve(cwd);
   const abierta = sesiones.lista().find(x => x.estado !== 'cerrada' && x.salaId === salaId && path.resolve(x.worktree ?? x.cwd) === dir);
@@ -445,8 +454,8 @@ const revisionesPR = new ReviewsPR(DATOS, {
 });
 setInterval(() => { revisionesPR.sondear().catch(err => console.error('Revisiones de PR:', String((err as Error).message).split('\n')[0])); }, 60_000).unref();
 
-// las tareas con todos sus PR fusionados o cerrados (limpiezaTareas.ts), cada cinco minutos con GitHub conectado: al habitante de
-// la sala, en su copia principal (un worktree no puede quitarse a sí mismo), para que quite los que no tengan otro trabajo
+// las tareas con todos sus PR fusionados o cerrados (limpiezaTareas.ts), cada cinco minutos con GitHub conectado: el juego
+// quita solo sus worktrees si no queda otro trabajo en ellos (si queda, avisa de qué)
 const limpiezaTareas = new TasksCleanup(DATOS, {
   connection: connectionGitHub,
   prs: async c => {
@@ -459,12 +468,19 @@ const limpiezaTareas = new TasksCleanup(DATOS, {
   },
   salas: repoRooms,
   sesiones: () => sesiones.lista(),
-  enviar: (salaId, cwd, texto) => sendToFolder(salaId, cwd, texto, 'default'),
-  delivered: (salaId, tareas) => {
-    broadcast({ t: 'mensajero', desde: 'git', a: [salaId], motivo: 'revision' });
+  git: (cwd, args) => new Promise((ok, mal) => execFile('git', ['-C', cwd, ...args], { timeout: 60_000, env: entornoGit() }, (err, o, e) => err ? mal(new Error(String(e || err.message).trim())) : ok(String(o)))),
+  quitado: (salaId, tarea, w) => {
     const sala = almacen.estado.salas.find(s => s.id === salaId)?.nombre ?? salaId;
-    broadcast({ t: 'aviso', nivel: 'info', texto: t('server.cleanupDelivered', { tareas: tareas.map(x => x.tarea).join(', '), sala }) });
+    broadcast({ t: 'aviso', nivel: 'info', texto: t('server.cleanupRemoved', { tarea: tarea.tarea, sala, nombre: path.basename(w.ruta), rama: w.rama || '—' }) });
   },
+  preguntar: (salaId, tarea, w, que, quitar) => {
+    const sala = almacen.estado.salas.find(s => s.id === salaId)?.nombre ?? salaId;
+    const texto = que.map(x => x.tipo === 'conversacion' ? t('server.cleanupLeftOpen') : t(x.tipo === 'cambios' ? 'server.cleanupLeftChanges' : x.tipo === 'stash' ? 'server.cleanupLeftStash' : 'server.cleanupLeftCommits', { n: x.n })).join(', ');
+    ask(t('server.cleanupLeft', { tarea: tarea.tarea, sala, ruta: w.ruta, que: texto }), { si: t('server.cleanupRemoveAnyway'), no: t('server.cleanupKeep') }, async si => {
+      if (si) await quitar().catch(e => broadcast({ t: 'aviso', nivel: 'error', texto: t('server.cleanupCouldNot', { ruta: w.ruta, error: String((e as Error).message).split('\n')[0].slice(0, 160) }) }));
+    });
+  },
+  cambiado: () => { refreshRepos().catch(() => {}); },
 });
 setInterval(() => { limpiezaTareas.sondear().catch(err => console.error('Limpieza de tareas:', String((err as Error).message).split('\n')[0])); }, 5 * 60_000).unref();
 
@@ -668,6 +684,7 @@ async function accion(nombre: string, d: Record<string, any> = {}): Promise<unkn
     case 'adjunto.miniatura': return adjuntos.miniatura(String(d.ruta || ''));
     // un adjunto del cuaderno: imágenes y PDF en Vista Previa, texto en el editor de texto, lo demás en el Finder (abrir.ts)
     // un enlace a un archivo del Mac en una respuesta (web/src/ui/markdown.ts): sin ejecutar nada (abrir.ts)
+    case 'aviso.responder': { const f = preguntas.get(String(d.id ?? '')); preguntas.delete(String(d.id ?? '')); if (f) await f(!!d.si); return true; }
     case 'enlace.local': return openLink(String(d.ruta ?? ''), os.homedir());
     case 'enlace.revelar': return revealLocal(String(d.ruta ?? ''), os.homedir());
     case 'adjunto.abrir': { const r = String(d.ruta || ''); if (!adjuntos.propio(r)) throw new Error(t('server.thatAttachmentIsGoneThey')); await openAttachment(adjuntos.dir, path.resolve(r)); return true; }

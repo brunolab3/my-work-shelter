@@ -36,8 +36,13 @@ let shownWelcome = false;
 export function Avisos() {
   const avisos = vivo.usar(e => e.avisos);
   const [removed, setRemoved] = useState<Set<number>>(new Set());
-  useEffect(() => { const ultimo = avisos[avisos.length - 1]; if (!ultimo) return; ultimo.nivel === 'error' ? SFX.error() : SFX.lowNotice(); const t = setTimeout(() => setRemoved(q => new Set([...q, ultimo.id])), ultimo.nivel === 'error' ? 9000 : 5000); return () => clearTimeout(t); }, [avisos.length]);
-  return <div className="teletipos">{avisos.filter(a => !removed.has(a.id)).map(a => <div key={a.id} className={'teletipo interactivo ' + a.nivel} onClick={() => setRemoved(q => new Set([...q, a.id]))}>{a.texto}</div>)}</div>;
+  // los que preguntan se quedan hasta contestarlos (la respuesta va al servidor: acción aviso.responder)
+  useEffect(() => { const ultimo = avisos[avisos.length - 1]; if (!ultimo) return; ultimo.nivel === 'error' ? SFX.error() : SFX.lowNotice(); if (ultimo.pregunta) return; const t = setTimeout(() => setRemoved(q => new Set([...q, ultimo.id])), ultimo.nivel === 'error' ? 9000 : 5000); return () => clearTimeout(t); }, [avisos.length]);
+  const quitar = (id: number) => { setRemoved(q => new Set([...q, id])); vivo.set(e => ({ avisos: e.avisos.filter(a => a.id !== id) })); };
+  const responder = (a: (typeof avisos)[number], si: boolean) => { cliente.accion('aviso.responder', { id: a.pregunta!.id, si }).catch(() => SFX.noAllowed()); SFX.clic(); quitar(a.id); };
+  return <div className="teletipos">{avisos.filter(a => !removed.has(a.id)).map(a => a.pregunta
+    ? <div key={a.id} className={'teletipo interactivo pregunta ' + a.nivel}>{a.texto}<div className="botonera"><button className="boton-taller" onClick={() => responder(a, false)}>{a.pregunta.no}</button><button className="boton-taller peligro" onClick={() => responder(a, true)}>{a.pregunta.si}</button></div></div>
+    : <div key={a.id} className={'teletipo interactivo ' + a.nivel} onClick={() => setRemoved(q => new Set([...q, a.id]))}>{a.texto}</div>)}</div>;
 }
 
 // ---------------------------------------------------------------- pantalla de carga (hasta que la primera sala está lista)

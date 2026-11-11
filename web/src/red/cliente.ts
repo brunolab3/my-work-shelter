@@ -1,5 +1,5 @@
 // Conexión con el servidor local del refugio: WebSocket con reconexión, peticiones con respuesta y almacén de datos vivos.
-import type { ClientMessage, ServerMessage, SessionSummary, LogInput, InfoRepo, Visitante, MusicState } from '@shared/protocolo';
+import type { ClientMessage, ServerMessage, SessionSummary, LogInput, InfoRepo, Visitante, MusicState, NoticeQuestion } from '@shared/protocolo';
 import { Store } from '../ui/almacen';
 
 export interface LiveData {
@@ -17,7 +17,7 @@ export interface LiveData {
   notificaciones: any[];
   eventos: any[];
   integraciones: Record<string, any>;
-  avisos: { id: number; nivel: string; texto: string }[];
+  avisos: { id: number; nivel: string; texto: string; pregunta?: NoticeQuestion }[];
   musica: MusicState | null;              // lo que suena en la discoteca (Spotify web; lo pone Discoteca.tsx)
 }
 
@@ -101,7 +101,8 @@ class Client {
       case 'eventos': vivo.set({ eventos: m.lista }); break;
       case 'integracion': vivo.set(e => ({ integraciones: { ...e.integraciones, [m.id]: m.estado } })); break;
       case 'estado': vivo.set({ estado: m.estado }); break;
-      case 'aviso': vivo.set(e => ({ avisos: [...e.avisos.slice(-4), { id: Date.now() + Math.random(), nivel: m.nivel, texto: m.texto }] })); break;
+      // los que preguntan no se pierden entre los demás: se quedan hasta contestarlos
+      case 'aviso': vivo.set(e => ({ avisos: [...e.avisos.filter((a, i, l) => a.pregunta || i >= l.length - 4), { id: Date.now() + Math.random(), nivel: m.nivel, texto: m.texto, pregunta: m.pregunta }] })); break;
       case 'recargar': location.reload(); break;
       case 'reiniciando': vivo.set({ reiniciando: true }); break;
     }

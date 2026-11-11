@@ -313,7 +313,7 @@ export function github(rutas: string[], forzar = false, connection: { real: bool
 // tareas de demoPanelJira().
 const QUERY_PRS = (desde: string) => `query {
   prs: search(query: "is:pr author:@me archived:false updated:>=${desde} sort:updated-desc", type: ISSUE, first: 60) { nodes { ... on PullRequest {
-    number title body url isDraft state updatedAt reviewDecision headRefName baseRefName repository { nameWithOwner }
+    number title body url isDraft state updatedAt reviewDecision headRefName headRefOid baseRefName repository { nameWithOwner }
     commits(last: 1) { nodes { commit { statusCheckRollup { state } } } } } } }
 }`;
 export function prsOfGitHub(j: any): PRBoard[] {
@@ -321,7 +321,7 @@ export function prsOfGitHub(j: any): PRBoard[] {
     numero: n.number, titulo: n.title, url: n.url, repo: n.repository?.nameWithOwner ?? '', rama: n.headRefName ?? '',
     estado: n.state === 'MERGED' ? 'fusionado' : n.state === 'CLOSED' ? 'cerrado' : n.isDraft ? 'borrador' : 'abierto',
     revision: n.reviewDecision ?? undefined, checks: n.commits?.nodes?.[0]?.commit?.statusCheckRollup?.state ?? undefined, actualizado: Date.parse(n.updatedAt),
-    base: n.baseRefName ?? undefined, dependencias: dependenciasEnTexto(`${n.title ?? ''}\n${n.body ?? ''}`, n.repository?.nameWithOwner ?? ''),
+    base: n.baseRefName ?? undefined, cabeza: n.headRefOid ?? undefined, dependencias: dependenciasEnTexto(`${n.title ?? ''}\n${n.body ?? ''}`, n.repository?.nameWithOwner ?? ''),
   }));
 }
 export function demoPRsBoard(): PRBoard[] {
@@ -347,7 +347,7 @@ export async function prsTablero(connection: { real: boolean; off?: boolean; tok
 // todos tus PR sin fusionar (para organizar las salas por tareas: server/organizar.ts), con su base y descripción
 const OPEN_QUERY = `query {
   prs: search(query: "is:pr is:open author:@me archived:false sort:updated-desc", type: ISSUE, first: 100) { nodes { ... on PullRequest {
-    number title body url isDraft state updatedAt reviewDecision headRefName baseRefName repository { nameWithOwner }
+    number title body url isDraft state updatedAt reviewDecision headRefName headRefOid baseRefName repository { nameWithOwner }
     commits(last: 1) { nodes { commit { statusCheckRollup { state } } } } } } }
 }`;
 export async function prsOpen(connection: { real: boolean; off?: boolean; token?: string }): Promise<{ prs: PRBoard[]; demo?: boolean }> {

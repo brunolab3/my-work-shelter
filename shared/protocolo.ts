@@ -155,7 +155,7 @@ export type ServerMessage =
   | { t: 'eventos'; lista: unknown[] }
   | { t: 'integracion'; id: string; estado: unknown }
   | { t: 'estado'; estado: Record<string, unknown> }
-  | { t: 'aviso'; nivel: 'info' | 'aviso' | 'error'; texto: string }
+  | { t: 'aviso'; nivel: 'info' | 'aviso' | 'error'; texto: string; pregunta?: NoticeQuestion }   // con pregunta, se queda hasta contestarla
   | { t: 'voz'; id: string; estado: 'descargando' | 'listo' | 'parcial' | 'final' | 'error'; texto?: string }   // lo transcrito de un dictado
   | { t: 'mensajero'; desde: string; a: string[]; motivo: 'reparto' | 'cambio' | 'propuesta' | 'revision'; worktree?: string }   // el robot que lleva el plan de sala en sala (o una revisión de un PR desde Control de Versiones, en mano al holograma de su worktree)
   | { t: 'recargar' }
@@ -182,3 +182,7 @@ export const PERMISSION_MODES = [
   { valor: 'auto', texto: 'Automático', pista: 'Decide el clasificador del modo automático' },
   { valor: 'bypassPermissions', texto: 'Sin límites', pista: 'Se salta todos los permisos (cuidado)' },
 ];
+
+/** Un aviso que pregunta sí o no al Supervisor (p. ej. quitar un worktree con cambios sin guardar): la respuesta vuelve
+ *  con la acción `aviso.responder` */
+export interface NoticeQuestion { id: string; si: string; no: string }

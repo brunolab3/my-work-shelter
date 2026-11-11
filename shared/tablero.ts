@@ -16,6 +16,7 @@ export interface PRBoard {
   revision?: 'APPROVED' | 'CHANGES_REQUESTED' | 'REVIEW_REQUIRED';
   checks?: 'SUCCESS' | 'FAILURE' | 'ERROR' | 'PENDING' | 'EXPECTED';
   actualizado: number;
+  cabeza?: string;             // el último commit de su rama en GitHub (server/limpiezaTareas.ts: lo del worktree ya está ahí)
   base?: string;               // la rama sobre la que va (si es la de otro PR, va apilado encima: shared/despliegue.ts)
   dependencias?: string[];     // los PR («org/repo#N», o «rama:<rama>» si los nombra por su rama) de los que dice depender su descripción
 }
