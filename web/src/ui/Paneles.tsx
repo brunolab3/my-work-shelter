@@ -267,7 +267,7 @@ const INFO_ROOM: Record<string, string> = {
   galeria: 'Galería de tiro para despejarse un rato. Guarda los récords.',
   discoteca: 'La música para currar, en la planta de ocio. La cabina del DJ abre Spotify, que suena aquí dentro: elige lo que quieras y minimízalo; la pletina de abajo a la izquierda sigue con lo que suena y los mandos.',
   chapa: 'Barbería y ropería del refugio. En el sillón de Fito se cambia el aspecto del Supervisor o de cualquier habitante: humano o robot, cara, pelo, barba, ropa, sombreros, gafas, mochilas y colores. P lo abre desde cualquier sitio. La Octocat es como es.',
-  coordinacion: 'Sala de planificación: la carpeta raíz con todos tus repos. Desde el tablero de Jira (P en una tarea por hacer) su habitante analiza la tarea viendo todos los repos y traza el plan contigo; con el plan aprobado, la reparte a la sala de cada repo, cada parte en su worktree, para seguirla allí.',
+  coordinacion: 'Sala de logística: la carpeta raíz con todos tus repos. Desde el tablero de Jira (P en una tarea por hacer) su habitante analiza la tarea viendo todos los repos y traza el plan contigo; con el plan aprobado, la reparte a la sala de cada repo, cada parte en su worktree, para seguirla allí.',
 };
 const INFO_REPO = 'Sala de un repositorio: sus habitantes trabajan aquí con Claude Code. Desde el panel de la sala se abre una terminal en la carpeta o se trabaja en una copia aparte (un worktree), que aparece en la sala como el holograma de quien la creó.';
 const ROOM_KEY: Record<string, string> = { comunicaciones: 'N', planificacion: 'C', logistica: 'L', chapa: 'P' };
@@ -341,7 +341,7 @@ const CONTROLS: [string, string][] = [
   ['M', 'plano: viaje rápido y obras (O o «Editar»: arrastrar salas y plantas a su sitio)'], ['Tab', 'qué pasa ahora: ocupados, notificaciones y próximo evento'],
   ['Q', 'ir directo al primer habitante que te espera'], ['T', 'terminal real de la sala (shell sobre PTY)'],
   ['R', 'cuaderno: transcripción completa de una conversación'], ['I', 'inventario, guía de campo y tienda'],
-  ['N / C / L', 'ir a comunicaciones, planificación o logística'], ['G', 'cliente de git (en una sala de repo, con su repo)'], ['P', 'Chapa y Pintura: cambiar el aspecto (tuyo o de un habitante)'],
+  ['N / C / L', 'ir a comunicaciones, agenda o planificación'], ['G', 'cliente de git (en una sala de repo, con su repo)'], ['P', 'Chapa y Pintura: cambiar el aspecto (tuyo o de un habitante)'],
   ['⌘K', 'buscador, desde cualquier sitio: conversaciones abiertas y recientes, acciones (con su tecla), habitantes y salas; escribe y Enter'],
   ['Esc', 'cierra lo abierto; en el refugio, el menú del juego: opciones, atajos, reiniciar, salir a la superficie y salir'],
 ];

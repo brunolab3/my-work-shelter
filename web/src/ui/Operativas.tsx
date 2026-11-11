@@ -56,7 +56,7 @@ export function PanelCommunications({ onlySource }: { onlySource?: string } = {}
   }, [lista, sel, f]);
   const withoutSee = (fu: string) => todas.filter(n => !n.vista && (fu === 'todas' || n.fuente === fu)).length;
   return (
-    <Device rotulo={onlySource ? t('panels.logisticsFuente', { fuente: SOURCES[onlySource].toUpperCase() }) : t('panels.communicationsNoticeBoard')} ancho={78} alto piloto={withoutSee('todas') ? 'esperando' : 'ociosa'}>
+    <Device rotulo={onlySource ? t('panels.planningFuente', { fuente: SOURCES[onlySource].toUpperCase() }) : t('panels.communicationsNoticeBoard')} ancho={78} alto piloto={withoutSee('todas') ? 'esperando' : 'ociosa'}>
       {!onlySource && <div className="pestanas">{filters.map((x, k) => <button key={x} className={'chip' + (k === f ? ' on' : '')} onClick={() => { setF(k); setI(0); }}>{x === 'todas' ? t('panels.all') : SOURCES[x]}{withoutSee(x) ? ' · ' + t('panels.nUnseen', { n: withoutSee(x) }) : ''}{x !== 'todas' && ints[x]?.estado === 'demo' ? ' ' + t('panels.demo') : ''}</button>)}
         <span className="tenue derecha">{onlyNew ? t('panels.onlyUnseen') : t('panels.all2')} · {t('panels.nToggles')}</span></div>}
       <div className="feed">
@@ -116,7 +116,7 @@ export function PanelPlanning() {
     else if ((e.code === 'Enter' || e.code === 'KeyE') && sel) sel.videollamada ? openOutside(sel.videollamada) : openNotice(sel);
   }, [lista, sel]);
   return (
-    <Device rotulo={t('panels.planningCalendar')} ancho={80}>
+    <Device rotulo={t('panels.agendaCalendar')} ancho={80}>
       <p>{proximo ? <>{t('panels.next')} <b>{proximo.titulo}</b> <span className="tenue">· {proximo.inicio <= ahora ? t('windows.justNow') : fmtDayShort.format(proximo.inicio) + ' ' + fmtHour.format(proximo.inicio)} · {SOURCES[proximo.fuente]}</span></> : <span className="tenue">{t('panels.noUpcomingEvents')}</span>}</p>
       {aviso && <p className="tenue">{aviso}</p>}
       {agenda ? <ul className="agenda">{eventos.filter(ev => ev.fin > ahora).sort((a, b) => a.inicio - b.inicio).slice(0, 14).map(ev => (
@@ -179,7 +179,7 @@ export function PanelLogistics() {
   if (vista === 'avisos') return <PanelCommunications onlySource="linear" />;
   if (vista === 'tablero') return <BoardLinear volver={() => setView('menu')} />;
   return (
-    <Device rotulo={t('panels.logistics')} ancho={56} piloto={st?.estado === 'conectada' ? 'trabajando' : 'esperando'}>
+    <Device rotulo={t('panels.planning')} ancho={56} piloto={st?.estado === 'conectada' ? 'trabajando' : 'esperando'}>
       <p className="voz">{withLinear ? t('panels.theBoardsShowWhatJira') : t('panels.theBoardShowsYourJira')}</p>
       <ul className="opciones-consola">{items.map((it, k) => <li key={k} className={k === i ? 'activa' : ''} onMouseEnter={() => setI(k)} onClick={() => it.f()}><span className="cursor">{k === i ? '▶' : ' '}</span><span>{it.texto}</span></li>)}</ul>
       <Keys><kbd>↑↓</kbd>{t('menu.select')} <kbd>Enter</kbd>{t('panels.use')} <kbd>Esc</kbd>{t('menu.close')}</Keys>
@@ -196,7 +196,7 @@ export const coordinationRooms = (): any[] => ((vivo.get().estado?.salas ?? []) 
   .sort((a, b) => Number(b.id === PLANNING_ROOM) - Number(a.id === PLANNING_ROOM));
 export async function planTask(tarea: TaskJira, salaId?: string): Promise<string | null> {
   const sala = coordinationRooms().find(s => !salaId || s.id === salaId);
-  if (!sala) return t('panels.thereIsNoPlanningRoom');
+  if (!sala) return t('panels.thereIsNoLogisticsRoom');
   const h = ((vivo.get().estado?.habitantes ?? []) as any[]).find(x => x.salaId === sala.id);
   if (!h) return t('panels.theRoomSalaHasNo', { sala: sala.nombre });
   // con la descripción, si Jira la da (en DEMO no hay)
@@ -255,7 +255,7 @@ export function BoardJira({ volver, coordinacion }: { volver: () => void; coordi
   }, [columnas, col, i, taskSel, selPrs, startBy, coord?.id]);
   const demo = jira?.demo || gh?.demo;
   return (
-    <Device rotulo={`${coordinacion ? (coord?.nombre ?? t('panels.planning')).toUpperCase() + ' · ' + t('panels.split') : t('panels.logistics')} · ${t('panels.myJiraTasks')}${demo ? ' · DEMO' : ''}`} ancho={96} alto onClose={volver}>
+    <Device rotulo={`${coordinacion ? (coord?.nombre ?? t('panels.logistics')).toUpperCase() + ' · ' + t('panels.split') : t('panels.planning')} · ${t('panels.myJiraTasks')}${demo ? ' · DEMO' : ''}`} ancho={96} alto onClose={volver}>
       {error && <p className="aviso-consola">{error}</p>}
       {aviso && <p className="aviso-consola">{aviso}</p>}
       {coordinacion && <p className="voz">{coord ? t('panels.pickATaskToStart') : t('panels.pickATaskToStart2')}</p>}
@@ -279,7 +279,7 @@ export function BoardJira({ volver, coordinacion }: { volver: () => void; coordi
         ))}
       </div>
       {crossing.withoutTask.length > 0 && <p className="tenue">{t('panels.nPrsWithoutAJira', { n: crossing.withoutTask.length })}</p>}
-      {startBy && <div className="botonera"><button className="boton-taller" onClick={() => planificar(taskSel)} title={t('panels.planClaveInSalaWith', { clave: taskSel!.clave, sala: coord?.nombre ?? t('panels.thePlanningRoom') })}>{coord ? t('panels.pPlanClaveInSala', { clave: taskSel!.clave, sala: coord.nombre }) : t('panels.pPlanClaveAndSplit', { clave: taskSel!.clave })}</button></div>}
+      {startBy && <div className="botonera"><button className="boton-taller" onClick={() => planificar(taskSel)} title={t('panels.planClaveInSalaWith', { clave: taskSel!.clave, sala: coord?.nombre ?? t('panels.theLogisticsRoom') })}>{coord ? t('panels.pPlanClaveInSala', { clave: taskSel!.clave, sala: coord.nombre }) : t('panels.pPlanClaveAndSplit', { clave: taskSel!.clave })}</button></div>}
       {selPrs.length > 0 && <div className="botonera">{selPrs.slice(0, 9).map((p, k) => <button key={p.url} className="boton-taller" onClick={() => openOutside(p.url)} title={p.titulo}>{k + 1} · {p.repo}#{p.numero}</button>)}</div>}
       <Keys><kbd>←→</kbd>{t('panels.column')} <kbd>↑↓</kbd>{t('panels.task')} <kbd>Enter</kbd>{t('panels.openTheTask')} {selPrs.length > 0 && <><kbd>1–{Math.min(9, selPrs.length)}</kbd>{t('panels.openThePr')} </>}{startBy && <><kbd>P</kbd>{t('panels.planAndSplit')} </>}<kbd>T</kbd>{t('panels.allYourPrs')} <kbd>H</kbd>{seeDone ? t('panels.hideDone') : t('panels.showDone')} <kbd>R</kbd>{t('panels.reload')} <kbd>Esc</kbd>{t('menu.back')}</Keys>
     </Device>
@@ -317,7 +317,7 @@ function BoardLinear({ volver }: { volver: () => void }) {
     else if (e.code === 'KeyT') { setSeeTeam(x => !x); setCol(0); setI(0); SFX.conmutar(); }
   }, [grupos, col, i, sel, proyecto, proyectos, seeTeam]);
   return (
-    <Device rotulo={`${t('panels.logistics')} · ${seeTeam ? t('panels.teamBoard') + ' ' + (equipo?.equipo ?? '') : t('panels.myIssues')}${datos?.demo ? ' · DEMO' : ''}`} ancho={92} alto onClose={volver}>
+    <Device rotulo={`${t('panels.planning')} · ${seeTeam ? t('panels.teamBoard') + ' ' + (equipo?.equipo ?? '') : t('panels.myIssues')}${datos?.demo ? ' · DEMO' : ''}`} ancho={92} alto onClose={volver}>
       {error && <p className="aviso-consola">{error}</p>}
       {!datos && !error && <p className="tenue">{t('panels.readingLinear')}</p>}
       {ciclo && <div className="ciclo-linear"><b>{ciclo.nombre}</b><span className="medidor"><span style={{ width: `${ciclo.progreso}%` }} /></span><span>{ciclo.progreso} % · {t('panels.ends')} {new Date(ciclo.fin).toLocaleDateString(LOC, { weekday: 'long', day: 'numeric', month: 'short' })}</span></div>}

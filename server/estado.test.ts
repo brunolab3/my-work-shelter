@@ -13,7 +13,7 @@ describe('estado guardado', () => {
     expect(s.salas.find(x => x.id === 'mio')?.ruta).toBe('/tmp/mio');
     expect(addRoomsOfService(s)).toBe(false);
   });
-  it('la sala de planificación es de serie: su carpeta es la raíz de repos y, con la disposición a mano, entra junto a control de versiones', () => {
+  it('la sala de logística (planificar y repartir) es de serie: su carpeta es la raíz de repos y, con la disposición a mano, entra junto a control de versiones', () => {
     const viejo: any = initialState();
     viejo.raizRepos = '/tmp/mis-repos';
     viejo.salas = moveFloor(viejo.salas.filter((s: any) => s.id !== 'tareas'), 1, 2);   // movida a mano
@@ -22,7 +22,7 @@ describe('estado guardado', () => {
     expect(addRoomsOfService(s)).toBe(true);
     ensureFolders(s);
     const git = s.salas.find(x => x.id === 'git')!, tareas = s.salas.find(x => x.id === 'tareas')!;
-    expect(tareas).toMatchObject({ tipo: 'coordinacion', nombre: 'Planificación', ruta: '/tmp/mis-repos', planta: git.planta, lado: git.lado, orden: git.orden + 1 });
+    expect(tareas).toMatchObject({ tipo: 'coordinacion', nombre: 'Logística', ruta: '/tmp/mis-repos', planta: git.planta, lado: git.lado, orden: git.orden + 1 });
     s.raizRepos = '/tmp/otros'; ensureFolders(s);
     expect(s.salas.find(x => x.id === 'tareas')!.ruta).toBe('/tmp/otros');
   });
@@ -75,6 +75,15 @@ describe('estado guardado', () => {
     const withName = (nombre: string) => { const e: any = initialState(); e.salas = e.salas.map((x: any) => x.tipo === 'planificacion' ? { ...x, nombre } : x); return sanear(e).salas.find(x => x.tipo === 'planificacion')?.nombre; };
     expect(withName('Planificación')).toBe('Agenda');
     expect(withName('Calendario')).toBe('Calendario');
+  });
+  it('el tablero de tareas que se llamaba «Logística» pasa a «Planificación» y la sala que reparte (y sus alas), al revés; otro nombre se respeta', () => {
+    const e: any = initialState();
+    e.salas = e.salas.map((x: any) => x.id === 'logistica' ? { ...x, nombre: 'Logística' } : x.id === 'tareas' ? { ...x, nombre: 'Planificación' } : x);
+    e.salas.push({ ...e.salas.find((x: any) => x.id === 'tareas'), id: 'ala', nombre: 'Planificación clientes', manual: true, planta: 9 });
+    const s = sanear(e);
+    const name = (id: string) => s.salas.find(x => x.id === id)?.nombre;
+    expect([name('logistica'), name('tareas'), name('ala')]).toEqual(['Planificación', 'Logística', 'Logística clientes']);
+    expect(sanear(s).salas.find(x => x.id === 'logistica')?.nombre).toBe('Planificación');
   });
   it('toda sala tiene carpeta de trabajo: la suya o, en las especiales, una propia fuera del repo del juego', () => {
     const e = initialState();

@@ -127,7 +127,7 @@ export function notifyRoom(ctx: CtxAssignment, o: AssignmentOptions, { clave, sa
   if (!p) return { ok: false, texto: `No hay ningún plan repartido para ${clave}.` };
   const parte = partOf(p, sala);
   if (!parte) return { ok: false, texto: `«${sala}» no trabaja en ${p.id} (partes: ${p.partes.map(x => x.sala).join(', ')}).` };
-  return { ok: true, texto: notifyParts(ctx, o.salaId, p, [{ parte, texto: `${heading(p)} Mensaje de la sala de planificación: ${mensaje.trim()}` }], 'cambio') };
+  return { ok: true, texto: notifyParts(ctx, o.salaId, p, [{ parte, texto: `${heading(p)} Mensaje de la sala de logística: ${mensaje.trim()}` }], 'cambio') };
 }
 // los avisos van con la clave de la tarea delante: así cada sala sabe de qué trabajo es (puede llevar varios)
 const heading = (p: Plan) => `📋 [${p.clave ?? p.id}]`;
@@ -152,13 +152,13 @@ function notifyParts(ctx: Pick<CtxAssignment, 'avisar' | 'mensajero' | 'sesionDe
   return `Avisadas: ${notified.map(x => x.sala).join(', ') || 'ninguna'}.${sin.length ? ` Sin conversación abierta (leerán el plan al retomar): ${sin.map(x => x.sala).join(', ')}.` : ''}`;
 }
 
-/** Las herramientas del plan compartido en la sala de cada parte: leerlo y proponer cambios a la sala de planificación */
+/** Las herramientas del plan compartido en la sala de cada parte: leerlo y proponer cambios a la sala de logística */
 export function mcpPlan(ctx: Pick<CtxAssignment, 'planes' | 'avisar' | 'mensajero'>, o: { salaId: string; sala: string }) {
   const suyo = (id?: string) => (id ? ctx.planes.get(id) : ctx.planes.ofRoom(o.salaId)[0]);
   return createSdkMcpServer({
     name: 'plan', version: '1.0.0',
     tools: [
-      tool('plan_compartido', 'work-shelter: el plan compartido del que tu trabajo es una parte (repartido desde la sala de planificación): versión, quién hace cada parte, cambios y el plan entero. Léelo al empezar y cada vez que te avisen de que ha cambiado.',
+      tool('plan_compartido', 'work-shelter: el plan compartido del que tu trabajo es una parte (repartido desde la sala de logística): versión, quién hace cada parte, cambios y el plan entero. Léelo al empezar y cada vez que te avisen de que ha cambiado.',
         { id: z.string().optional().describe('id o clave del plan (por defecto, el último en el que está esta sala)') },
         async ({ id }) => {
           const p = suyo(id);
@@ -166,7 +166,7 @@ export function mcpPlan(ctx: Pick<CtxAssignment, 'planes' | 'avisar' | 'mensajer
           const otros = ctx.planes.ofRoom(o.salaId).filter(x => x !== p).slice(0, 5);
           return texto(textPlan(p, o.salaId) + (otros.length ? `\n\n(Otros planes de esta sala: ${otros.map(x => x.id).join(', ')})` : ''));
         }, { alwaysLoad: true, annotations: { readOnlyHint: true } }),
-      tool('proponer_cambio_plan', 'work-shelter: propone un cambio del plan compartido a la sala de planificación (el plan solo lo cambia ella: si lo acepta, llega a todas las salas). Úsalo cuando tu parte no encaje con el plan o descubras algo que afecta a otras salas.',
+      tool('proponer_cambio_plan', 'work-shelter: propone un cambio del plan compartido a la sala de logística (el plan solo lo cambia ella: si lo acepta, llega a todas las salas). Úsalo cuando tu parte no encaje con el plan o descubras algo que afecta a otras salas.',
         {
           propuesta: z.string().describe('qué cambiarías del plan y por qué, y a qué salas afecta'),
           id: z.string().optional().describe('id o clave del plan (por defecto, el último en el que está esta sala)'),
@@ -176,7 +176,7 @@ export function mcpPlan(ctx: Pick<CtxAssignment, 'planes' | 'avisar' | 'mensajer
           if (!p) return { ...texto('Esta sala no tiene ningún plan compartido.'), isError: true };
           const ok = !!p.coordinationSession && ctx.avisar(p.coordinationSession, `${heading(p)} ${o.sala} propone un cambio al plan (versión ${p.version}):\n\n${propuesta.trim()}\n\nComéntalo con el Supervisor y, si sale adelante, actualízalo con actualizar_plan: llega a todas las salas.`);
           if (ok) ctx.mensajero(o.salaId, [p.coordinacion], 'propuesta');
-          return ok ? texto('Propuesta enviada a la sala de planificación. Sigue con lo que no dependa de ella; si el plan cambia, te llegará un aviso.')
+          return ok ? texto('Propuesta enviada a la sala de logística. Sigue con lo que no dependa de ella; si el plan cambia, te llegará un aviso.')
             : { ...texto('La conversación de planificación ya no está abierta: cuéntale la propuesta al Supervisor aquí mismo.'), isError: true };
         }, { alwaysLoad: true }),
     ],

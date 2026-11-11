@@ -26,7 +26,7 @@ everything goes out anyway after 20 s.
 - **To bring them back:** exit with `/exit` in iTerm and, in the game, talk to the dweller → "Resume a previous job".
   While they're still open outside, the archive marks them with ↗ and the game won't resume them (two Claude Codes
   writing the same conversation would corrupt it).
-- Outside they lack what only exists in the game: the Logistics Linear MCP, the Planning tools and the shelter's
+- Outside they lack what only exists in the game: the Planning Linear MCP, the Logistics tools and the shelter's
   instructions.
 
 ## Terminals

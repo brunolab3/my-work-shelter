@@ -193,7 +193,7 @@ export async function furnishLogistics(ctx: Contexto) {
   ctx.sobre(ammo, R.acc('ammo_crate'), { pos: [-4.3, 0, zB + 0.45], escala: K * 0.9, rot: -0.2 });
   const baul = P(R.sf('Props_Chest'), { pos: [5.25, 0, zB + 1.2], alto: 0.8, rot: -0.2 });
   ctx.sobre(baul, R.sv('FlareGun'), { pos: [5.25, 0, zB + 1.2], alto: 0.12, rotX: -Math.PI / 2, rotZ: 0.6 });
-  signInWall(g, cartel(['SI NO ESTÁ', 'EN UN TICKET,', 'NO PASÓ'], 'LOGÍSTICA · WORK-SHELTER', '#ead2c8', '#5e2423', 'engranaje', semilla), -5.0, 2.7, 0.56, 0.78, zB + 0.33, 0.03);
+  signInWall(g, cartel(['SI NO ESTÁ', 'EN UN TICKET,', 'NO PASÓ'], 'PLANIFICACIÓN · WORK-SHELTER', '#ead2c8', '#5e2423', 'engranaje', semilla), -5.0, 2.7, 0.56, 0.78, zB + 0.33, 0.03);
   const panel = new PanelRoom(); panel.titulo = 'TABLEROS'; panel.color = v.pantalla; ctx.panel = panel;
   mancha(g, 0, 1.1, 1.2, semilla);
   ctx.sala.walkZones = [[-1.9, -1.5], [1.5, 2.2]];

@@ -202,6 +202,15 @@ export class Store {
 
 // El estado guardado se valida campo a campo: lo que no cuadra se descarta o vuelve a su valor inicial.
 // Si falta lo imprescindible (salas), se lanza y el almacén aparta la copia y arranca de cero.
+// nombres de antes: la agenda se llamaba «Planificación»; y el tablero de tareas (tipo 'logistica') y la sala que
+// planifica y reparte (tipo 'coordinacion', y sus alas) llevaban el nombre la una de la otra
+function savedName(tipo: string, nombre: string): string {
+  if (tipo === 'planificacion' && nombre === 'Planificación') return 'Agenda';
+  if (tipo === 'logistica' && nombre === 'Logística') return 'Planificación';
+  if (tipo === 'coordinacion' && (nombre === 'Planificación' || nombre.startsWith('Planificación '))) return 'Logística' + nombre.slice('Planificación'.length);
+  return nombre;
+}
+
 export function sanear(e: any): ShelterState {
   const ini = initialState();
   if (!e || typeof e !== 'object') throw new Error('no es un objeto');
@@ -209,8 +218,7 @@ export function sanear(e: any): ShelterState {
   const str = (v: unknown, def: string) => (typeof v === 'string' ? v : def);
   // el sitio de cada sala se recalcula (así un refugio de antes se recoloca al cargar), salvo si se movió a mano en el plano
   const leidas = (arr(e.salas) ?? []).filter((x: any) => x && typeof x.id === 'string' && typeof x.tipo === 'string' && Number.isInteger(x.planta) && x.planta >= 0 && (x.lado === 'izq' || x.lado === 'der') && Number.isInteger(x.orden) && x.orden >= 0)
-    // la agenda se llamaba «Planificación»: la planificación de tareas es ahora la sala de coordinación
-    .map((x: any) => ({ id: x.id, tipo: x.tipo, nombre: x.tipo === 'planificacion' && x.nombre === 'Planificación' ? 'Agenda' : str(x.nombre, x.id), ruta: typeof x.ruta === 'string' ? x.ruta : undefined, planta: x.planta, lado: x.lado, orden: x.orden, ...(x.manual === true ? { manual: true } : {}), variant: str(x.variant, 'neutro'), estilo: typeof x.estilo === 'string' ? x.estilo : undefined,
+    .map((x: any) => ({ id: x.id, tipo: x.tipo, nombre: savedName(x.tipo, str(x.nombre, x.id)), ruta: typeof x.ruta === 'string' ? x.ruta : undefined, planta: x.planta, lado: x.lado, orden: x.orden, ...(x.manual === true ? { manual: true } : {}), variant: str(x.variant, 'neutro'), estilo: typeof x.estilo === 'string' ? x.estilo : undefined,
       // el área de un repo de antes sale de su tipo de proyecto (luego se cambia en el panel de la sala)
       ...(isRoomOfRepo(x.tipo) && x.id !== PLANNING_ROOM ? { area: isArea(x.area) ? x.area : areaByType(typeof x.ruta === 'string' ? projectType(x.ruta) : '') } : {}),
       ...(isRoomOfRepo(x.tipo) && x.decorado ? { decorado: sanitizeDecor(x.decorado).decorado ?? undefined } : {}) }) as SavedRoom);

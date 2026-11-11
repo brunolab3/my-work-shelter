@@ -172,7 +172,7 @@ You choose the Overseer's look, the shelter's name and your **repos root**, pre-
   built. Then you can ask for touch-ups in the same conversation ("put a plant by the desk"), or go back to the stock
   scene. The scene is data the game validates, never code: see [`docs/decorados.md`](docs/decorados.md).
 - The service rooms: the Command Bridge (the game's own repo), the Vault (integrations and settings), Communications,
-  Calendar, Logistics (where you start: your Jira tasks with their PRs), Planning, Version Control (git and GitHub), the
+  Calendar, Planning (where you start: your Jira tasks with their PRs), Logistics, Version Control (git and GitHub), the
   Main Gate, Hydroponics, Disco, Shooting Gallery and Body Shop (change looks).
 
 ## Controls
@@ -191,7 +191,7 @@ Everything is in the game with **F1**, and each thing's keys show in the top bar
 | T | the room's real terminal (shell on a PTY) |
 | R | notebook: full transcript of a conversation |
 | I | backpack: inventory, field guide, shop and records |
-| N / C / L | go to Communications, Calendar or Logistics |
+| N / C / L | go to Communications, Calendar or Planning |
 | G | git client |
 | P | Body Shop: change looks (yours or a dweller's) |
 | ⌘K | finder, from anywhere: conversations, actions, dwellers and rooms |
@@ -214,13 +214,13 @@ question without interrupting; Ctrl+C (or `/stop`) stops the dweller; ⌘U or dr
   from their panel.
 - **Visitors**: a Claude Code session open outside the game (a terminal, the Claude app) in that folder or one of its
   worktrees shows up as a combat robot (in the task's color if it's a task worktree); E brings it back in.
-- **Planning**: plan a Jira task with every repo in view and split it across rooms. Its dweller proposes a plan per
+- **Logistics**: plan a Jira task with every repo in view and split it across rooms. Its dweller proposes a plan per
   repo; once approved, each part starts in its repo's room, in its own worktree with the task key in the branch. The
-  plan is shared: parts read it, Planning updates it and notifies the affected rooms, and a messenger robot carries
+  plan is shared: parts read it, Logistics updates it and notifies the affected rooms, and a messenger robot carries
   each delivery. Each task has a color you see on boards, screens and holograms. Its big screen is the **deployment
   plan**: your PRs by state, with blockers as arrows and the order they can be merged in; PRs of the same task are
   grouped in a block of its color in each column.
-- **Logistics**: your Jira tasks by state with their PRs (from GitHub), ready to plan with P. **Organize by tasks**
+- **Planning**: your Jira tasks by state with their PRs (from GitHub), ready to plan with P. **Organize by tasks**
   (a repo room's panel, or ⌘K for all rooms) gives each task with PRs its own worktree and conversation.
 - **Reviews of your PRs**: with GitHub connected, every minute new reviews and comments from others on your open PRs go
   to the conversation working that branch (or its task's worktree); the dweller proposes what to fix and reply and
@@ -260,16 +260,16 @@ try the game first, "Switch to DEMO" (simulated data, marked DEMO):
 | **Discord** | messages from the channels you choose and your mentions | your own bot (never your account token) |
 | **Slack** | messages from your channels, DMs and mentions | your own app with a bot or user token |
 | **GitHub** | notifications (reviews, mentions, assignments, CI); your PRs and their reviews | the `gh` session or a classic token with `notifications` |
-| **Jira** | your tasks for the Logistics board and Planning | your site, email and an API token |
+| **Jira** | your tasks for the Planning board and Logistics | your site, email and an API token |
 
 **Microsoft 365 (Outlook)** and **Linear** are also implemented but switched off in this version (`desactivada` in
 `shared/fuentes.ts`; remove the flag to turn them back on).
 
 Everything is **read-only outwards** with minimal permissions: the game doesn't reply to mail or chats or create
-events. The only writes are Linear (when on, through the conversation with the Logistics dweller and with your
+events. The only writes are Linear (when on, through the conversation with the Planning dweller and with your
 permission), git push/pull/fetch from the git client (only with your button) and the Slack remote control's own
 messages. The repo ships nobody's client IDs or credentials. Secrets are stored in the **macOS keychain** (service
-`work-shelter-public`), never in the repo or the game's data. Technical details, fields, Planning and the Linear MCP
+`work-shelter-public`), never in the repo or the game's data. Technical details, fields, Logistics and the Linear MCP
 setup for Claude Code and Codex: [`docs/integraciones-uso.md`](docs/integraciones-uso.md).
 
 ## Privacy and security

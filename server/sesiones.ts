@@ -268,7 +268,7 @@ export class Sessions extends EventEmitter {
   private async lanzar(x: Session, reanudar?: string, queue = new Cola<SDKUserMessage>()) {
     x.entrada = queue; x.viva = true;
     const opciones: Options = { ...this.optionsBase(x, reanudar), canUseTool: this.canUse(x) };
-    // el habitante de Logística trabaja con el MCP oficial de Linear (la clave, si la hay, va por el entorno)
+    // el habitante de Planificación (el tablero de tareas) trabaja con el MCP oficial de Linear (la clave, si la hay, va por el entorno)
     if (x.r.salaId === 'logistica' && activa('linear')) {
       try { const { mcpLinear, environmentMcpLinear } = await import('./integraciones/linear.ts'); opciones.mcpServers = { ...(opciones.mcpServers ?? {}), ...(await mcpLinear()) }; opciones.env = { ...opciones.env, ...(await environmentMcpLinear()) }; }
       catch (e) { console.warn('MCP de Linear no disponible:', (e as Error).message); }

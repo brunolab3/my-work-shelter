@@ -131,7 +131,7 @@ export function DeploymentBoard({ salaId, volver }: { salaId: string; volver: ()
   const relation = (u: string) => !sel || u === sel.url ? '' : bloqueos.some(b => b.de === sel.url && b.por === u) ? ' bloquea-sel' : bloqueos.some(b => b.por === sel.url && b.de === u) ? ' espera-sel' : '';
   const inSel = (b: Blocker) => !!sel && (b.de === sel.url || b.por === sel.url);
   return (
-    <Device rotulo={`${(sala?.nombre ?? t('panels.planning')).toUpperCase()} · ${t('world.deploymentPlan')}${gh?.demo ? ' · DEMO' : ''}`} ancho={110} alto onClose={volver}>
+    <Device rotulo={`${(sala?.nombre ?? t('panels.logistics')).toUpperCase()} · ${t('world.deploymentPlan')}${gh?.demo ? ' · DEMO' : ''}`} ancho={110} alto onClose={volver}>
       {aviso && <p className="aviso-consola" onClick={() => setNotice('')}>{aviso}</p>}
       {gh?.error && <p className="tenue">{gh.error}</p>}
       {!gh && <p className="tenue">{t('panels.readingYourGithubPullRequests')}</p>}

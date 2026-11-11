@@ -13,14 +13,14 @@ export const INITIAL_ROOMS: InitialRoom[] = distribute<Omit<InitialRoom, 'planta
   { id: 'camara', tipo: 'camara', nombre: 'Cámara acorazada', variant: 'acorazada' },
   { id: 'puente', tipo: 'puente', nombre: 'Puente de Mando', variant: 'puente' },
   { id: 'comunicaciones', tipo: 'comunicaciones', nombre: 'Comunicaciones', variant: 'comms' },
-  // el tipo 'planificacion' es la agenda (calendario) y 'logistica', la logística (tableros de Linear)
+  // el tipo 'planificacion' es la agenda (calendario) y 'logistica', la sala «Planificación» (el tablero de tareas)
   { id: 'planificacion', tipo: 'planificacion', nombre: 'Agenda', variant: 'plan' },
-  { id: 'logistica', tipo: 'logistica', nombre: 'Logística', variant: 'logistica' },
+  { id: 'logistica', tipo: 'logistica', nombre: 'Planificación', variant: 'logistica' },
   // git y GitHub: el cliente de git del refugio para todos los repos, la matriz de contribuciones y los pull requests
   { id: 'git', tipo: 'git', nombre: 'Control de Versiones', variant: 'logistica' },
   // planificar tareas de Jira con todos los repos a la vista y repartirlas por salas (tipo 'coordinacion'): su carpeta es
   // la raíz de repos del refugio (la de la cámara acorazada; el servidor la pone)
-  { id: PLANNING_ROOM, tipo: 'coordinacion', nombre: 'Planificación', variant: 'logistica' },
+  { id: PLANNING_ROOM, tipo: 'coordinacion', nombre: 'Logística', variant: 'logistica' },
   { id: 'hidroponia', tipo: 'hidroponia', nombre: 'Hidroponía', variant: 'comms' },
   // la discoteca, en la planta de ocio entre los cultivos y el ascensor: la música del refugio (Spotify) para currar
   { id: 'discoteca', tipo: 'discoteca', nombre: 'Discoteca', variant: 'neutro' },
@@ -29,7 +29,7 @@ export const INITIAL_ROOMS: InitialRoom[] = distribute<Omit<InitialRoom, 'planta
   { id: 'chapa', tipo: 'chapa', nombre: 'Chapa y Pintura', variant: 'neutro' },
 ]);
 
-/** La sala donde empieza el Supervisor: Logística, con el tablero de tareas (una sala de servicio: no se retira) */
+/** La sala donde empieza el Supervisor: Planificación, con el tablero de tareas (una sala de servicio: no se retira) */
 export const ROOM_SUPERVISOR = 'logistica';
 
 /** Qué es cada sala especial (por tipo): se lee en el plano y, en mayúsculas, bajo el nombre del cartel */

@@ -1,7 +1,7 @@
 # Integrations: how they work, what the Vault asks for, and the Linear MCP
 
 What each connector in `server/integraciones/` does, what the Vault asks for, where each piece of data is stored, how
-Planning and PR reviews use them, and how to connect Linear's official MCP in Claude Code and in Codex. Step-by-step
+Logistics and PR reviews use them, and how to connect Linear's official MCP in Claude Code and in Codex. Step-by-step
 guides for getting each credential are also inside the game (Vault → the source).
 
 ## Principles
@@ -11,7 +11,7 @@ guides for getting each credential are also inside the game (Vault → the sourc
   with an error and its reason. In real mode without complete data, the state is *not configured* and says what's
   missing.
 - **Read-only outwards.** No connector sends emails, messages or events, and the permissions requested are read
-  permissions. The only write is Linear, done by the Logistics dweller's conversation with the official MCP (you acting
+  permissions. The only write is Linear, done by the Planning dweller's conversation with the official MCP (you acting
   through it), not by the game.
 - **Nobody's identifiers.** Each user creates their own app (Microsoft Entra, Google Cloud, Discord bot, Slack app)
   and pastes its data. The repo ships no client IDs, tokens or URLs of any organisation.
@@ -30,8 +30,8 @@ why the permissions requested are minimal and read-only.
 ## Switched-off sources
 
 A source with `desactivada: true` in `shared/fuentes.ts` creates no connector and doesn't appear in the Vault, the
-notice board, the calendar or Logistics (`ACTIVE_SOURCES`); its code is still there. Currently **Microsoft 365** and
-**Linear** are off (without Linear, the Logistics dweller doesn't carry its MCP either). To turn one back on, remove
+notice board, the calendar or Planning (`ACTIVE_SOURCES`); its code is still there. Currently **Microsoft 365** and
+**Linear** are off (without Linear, the Planning dweller doesn't carry its MCP either). To turn one back on, remove
 the flag.
 
 ## Adding a new source
@@ -177,7 +177,7 @@ no quota). High priority: review requested, mentioned, assigned, security alerts
 Unread inbox notifications (the last 100; no archived or snoozed) every 60 s; my issues and cycles every 5 min.
 
 **Jira** — Jira Cloud REST v3 with basic auth (email + API token), read-only. It brings no notices to the board
-(`withoutNotices` in `shared/fuentes.ts`): it feeds the Logistics board.
+(`withoutNotices` in `shared/fuentes.ts`): it feeds the Planning board.
 
 | Field | Label | Secret | Help |
 |---|---|---|---|
@@ -192,27 +192,27 @@ the client by the Jira key in the branch or title (`cruzarTablero` in `shared/ta
 
 Action `tarea` (`{ clave }`) → the task with its description as text (`textoDeADF`), for planning it.
 
-## Planning, tasks and PRs
+## Logistics, tasks and PRs
 
-**The Planning room.** A stock room (id `tareas`, `PLANNING_ROOM` in `shared/disposicion.ts`, type `coordinacion`,
+**The Logistics room.** A stock room (id `tareas`, `PLANNING_ROOM` in `shared/disposicion.ts`, type `coordinacion`,
 floor -2 next to Version Control; its dweller is Inés). The Calendar room, type `planificacion`, is just the calendar.
 Its folder is always the shelter's repos root (`raizRepos`, in the Vault), so its dweller sees every repo; it can't be
 retired or linked to another folder. More `coordinacion` rooms (wings: any folder with several repos inside) can be
 recruited at the Main Gate, and choosing the repos root adds them automatically.
 
-**Planning and splitting a task.** On the board (from Logistics or from the Planning room panel), a "To do" task is
-planned with P: the Planning dweller starts in plan mode with the task and its description (`promptPlanificar`), looks
+**Planning and splitting a task.** On the board (from Planning or from the Logistics room panel), a "To do" task is
+planned with P: the Logistics dweller starts in plan mode with the task and its description (`promptPlanificar`), looks
 at every repo and proposes a plan per repo. Once approved, it splits it with the game's tools `salas_del_refugio` and
 `repartir_trabajo` (`server/reparto.ts`, in-process MCP, only in coordination rooms): the Overseer confirms and each
 part starts a conversation in its repo's room, in its own worktree whose branch carries the key (so its PRs show up in
 the task). The card says which rooms already have something going for that task.
 
 **Shared plan.** `repartir_trabajo` saves the whole plan (`server/planes.ts`, `DATOS/planes.json`, with versions and
-history); Planning rereads it with `leer_plan` and each part with `plan_compartido` (MCP `plan` in the rooms that have
-a part). From Planning, `actualizar_plan` issues a new version and sends a message to the conversation of each affected
+history); Logistics rereads it with `leer_plan` and each part with `plan_compartido` (MCP `plan` in the rooms that have
+a part). From Logistics, `actualizar_plan` issues a new version and sends a message to the conversation of each affected
 room (with `afectadas`, only to those and with what concerns each), and `avisar_sala` sends a message without changing
 the plan; both identify the task by its key (`📋 [ABC-123] …`) and go to the part's conversation or, if it's gone, to
-the one open in the task's worktree. From a part, `proponer_cambio_plan` takes the proposal to Planning's
+the one open in the task's worktree. From a part, `proponer_cambio_plan` takes the proposal to Logistics'
 conversation. Each delivery is made in view by a messenger robot carrying the blueprints (`web/src/mundo/mensajero.ts`,
 message `mensajero`).
 
@@ -226,10 +226,10 @@ one (checkout, fix and rebase the ones above). The plan is shown first and Enter
 conversations than the live-session limit.
 
 **Each task's color.** Each task (Jira key; without one, `PR-<number>`) has a color from a 16-color palette
-(`shared/tareas.ts`) handed out by Logistics: when reading the Jira board, the server gives each task its own and it
+(`shared/tareas.ts`) handed out by Planning: when reading the Jira board, the server gives each task its own and it
 travels with it (`server/coloresTareas.ts`, `DATOS/colores-tareas.json`; non-Jira ones, with the `tareas.colores`
 action): a new task gets the least used among those seen in the last two weeks. It's the same on the Jira board, the
-deployment board, the Pull requests tab, organise, the Logistics and Planning screens and the hologram (and label) of
+deployment board, the Pull requests tab, organise, the Planning and Logistics screens and the hologram (and label) of
 the copy working the task, and visitors from that worktree wear it too: at a glance you see which task has sessions in
 which room.
 
@@ -245,7 +245,7 @@ a visible notice (who reviewed, which PR, which room and branch) and the messeng
 Control to the hologram of that worktree (to the dweller, if it's the main copy). Anything from before connecting
 isn't sent; what's delivered is recorded in `revisiones-pr.json` (data folder).
 
-**Deployment plan.** On the big screen of the Planning room (its stock scene, without a dressing:
+**Deployment plan.** On the big screen of the Logistics room (its stock scene, without a dressing:
 `web/src/mundo/salas/despliegue.ts`; a click on it opens it), in the room panel or with ⌘K "Deployment plan": your PRs
 by state (draft, in review, changes requested, approved, merged) with the blockers between them as arrows and the order
 they can be merged in, by waves (`shared/despliegue.ts`, `web/src/ui/Despliegue.tsx`). In each column, the PRs of the
@@ -256,7 +256,7 @@ or description says so ("depends on #12", "blocked by org/repo#7", the PR link) 
 the plan in plan mode without touching the repos. The list of your PRs and those awaiting your review is in Version
 Control (Pull requests tab of the git client; T from the Jira board).
 
-## Linear's official MCP for the Logistics dweller
+## Linear's official MCP for the Planning dweller
 
 `server/integraciones/linear.ts` exports:
 
@@ -299,10 +299,10 @@ url = "https://mcp.linear.app/mcp"
 connectors with a mocked `fetch`, an in-memory keychain, the OAuth localhost return and a simulated Discord Gateway on
 `127.0.0.1`. The fixtures are synthetic (invented people, companies and domains; no credentials).
 
-## Known limit: the Linear key in the Logistics dweller's environment
+## Known limit: the Linear key in the Planning dweller's environment
 
 So that Linear's official MCP authenticates without putting the key in the arguments (visible with `ps`), the shelter
-passes it in the `SHELTER_LINEAR_CLAVE` variable of the Logistics Claude Code process. Its tools inherit that variable
+passes it in the `SHELTER_LINEAR_CLAVE` variable of the Planning Claude Code process. Its tools inherit that variable
 too (`Bash`, hooks, other MCPs): an `env` run by the dweller would show it in the transcript. If you don't want that
 risk, don't save a Linear key in the Vault: the official MCP will ask you to authorise it via OAuth in the browser the
-first time, and the Logistics board will stay in DEMO.
+first time, and the Planning board will stay in DEMO.

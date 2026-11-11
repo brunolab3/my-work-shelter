@@ -503,7 +503,7 @@ async function accion(nombre: string, d: Record<string, any> = {}): Promise<unkn
     case 'vincularSala': {
       const sr = e.salas.find(s => s.id === d.salaId);
       if (!sr || !isRoomOfRepo(sr.tipo)) throw new Error(t('server.onlyRepoRoomsCanBe'));
-      if (sr.id === PLANNING_ROOM) throw new Error(t('server.thePlanningRoomSFolder'));
+      if (sr.id === PLANNING_ROOM) throw new Error(t('server.theLogisticsRoomSFolder'));
       const ruta = path.resolve(expand(String(d.ruta || '')));
       if (ruta === path.parse(ruta).root || ruta === os.homedir()) throw new Error(t('server.thatFolderIsTooBroad'));
       if (!existsSync(ruta) || !statSync(ruta).isDirectory()) throw new Error(t('server.thatFolderDoesNotExist'));
@@ -794,9 +794,9 @@ function abrirEn(app: string, ruta: string) {
 
 // Un habitante puede llevar varios trabajos a la vez (una pestaña del intercomunicador por conversación). Solo
 // limita el máximo de sesiones vivas del refugio.
-// una carpeta con varios repos es la sala de planificación de tareas (la agenda es otra: el calendario); si ya hay
-// una, la nueva lleva también el nombre de su carpeta
-const wingName = (salas: { tipo: string; nombre: string }[], ruta: string) => salas.some(s => s.tipo === 'coordinacion' && s.nombre.startsWith('Planificación')) ? `Planificación ${path.basename(ruta)}` : 'Planificación';
+// una carpeta con varios repos es una sala de logística (planifica y reparte tareas entre sus repos); si ya hay una,
+// la nueva lleva también el nombre de su carpeta
+const wingName = (salas: { tipo: string; nombre: string }[], ruta: string) => salas.some(s => s.tipo === 'coordinacion' && s.nombre.startsWith('Logística')) ? `Logística ${path.basename(ruta)}` : 'Logística';
 const pathsList = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string').slice(0, 20) : []);
 // ws: quien lo pide (sin él, lo lanza el propio refugio: el reparto desde una sala de coordinación)
 async function startWork(ws: WebSocket | undefined, m: Extract<ClientMessage, { t: 'empezar' }>): Promise<string> {

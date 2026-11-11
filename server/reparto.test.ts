@@ -124,7 +124,7 @@ describe('plan compartido', () => {
   it('un mensaje a una sala por la clave de la tarea va a su conversación; si ya está cerrada, lo dice', async () => {
     const { ctx, avisos } = await repartido(['s-api']);
     expect(notifyRoom(ctx, OPTION, { clave: 'ABC-12', sala: 'web', mensaje: 'espera al contrato' }).texto).toContain('Avisadas: Web');
-    expect(avisos[0]).toEqual({ sesionId: 's-web', texto: '📋 [ABC-12] Mensaje de la sala de planificación: espera al contrato' });
+    expect(avisos[0]).toEqual({ sesionId: 's-web', texto: '📋 [ABC-12] Mensaje de la sala de logística: espera al contrato' });
     expect(notifyRoom(ctx, OPTION, { clave: 'ABC-12', sala: 'api', mensaje: 'm' }).texto).toContain('Sin conversación abierta');
     expect(notifyRoom(ctx, OPTION, { clave: 'XYZ-1', sala: 'api', mensaje: 'm' }).ok).toBe(false);
   });

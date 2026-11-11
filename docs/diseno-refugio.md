@@ -7,7 +7,7 @@
 - A room's place isn't chosen by hand: `distribute` (`shared/disposicion.ts`) computes it from the rooms there are. The server applies it when loading the saved state, when recruiting and when retiring a room (unless the Overseer moved rooms by hand from the map: then the layout stays manual until reset):
   - PB: the Main Gate, alone, left of the elevator. You come in and go out through it.
   - -1: Vault | Command Bridge.
-  - -2: Communications (outer) and Calendar (next to the elevator) | Logistics, Version Control and Planning.
+  - -2: Communications (outer) and Calendar (next to the elevator) | Planning, Version Control and Logistics.
   - -3: the repos, in alphabetical order from left to right and split across both sides (half, rounded up, on the left). 8 fit per floor; if there are more, they continue on -4 and so on.
   - The last floor: leisure (Hydroponics and Disco | Shooting Gallery and Body Shop).
 - Street: the wasteland terrain at ground-floor height, with the sky (gradient and silhouettes of hills and dead trees from the KayKit nature pack). At street level stand the Main Gate, with the "REFUGIO 42" sign on the roof, and the elevator tower.
@@ -32,10 +32,10 @@
 | Stock repo: Foundry (Rust and Go) | Brick forge with hood and chimney | rust red, copper | the room's recruit | anvil on a stump, crucible, quenching tub |
 | Stock repo: Archive (no code) | Tall shelf of boxes | ochre | the room's recruit | card file with terminal, reading table |
 | Repo with a set dressing ("Adapt the room to the repo") | Whatever its dweller designs with the game's props | its own | the room's | `shared/decorado.ts`, `docs/decorados.md`; can also start from the hand-made web workshop, shop window, brand archive or screening room |
-| Planning (type `coordinacion`, folder = repos root) | Wall screen with the deployment plan (click opens the board) | — | Inés «Divide y Vencerás» | plan table where work is split; plans Jira tasks across repos. Wings (folders with several repos) are also `coordinacion` rooms |
+| Logistics (type `coordinacion`, folder = repos root) | Wall screen with the deployment plan (click opens the board) | — | Inés «Divide y Vencerás» | plan table where work is split; plans Jira tasks across repos. Wings (folders with several repos) are also `coordinacion` rooms |
 | Communications | Radio switchboard with antennas and pneumatic tube | green | Ondina | screen with the real notification feed |
 | Calendar (type `planificacion`) | Week calendar board (real events) | blue | Calixto | clocks, map table |
-| Logistics (type `logistica`) | Tactical screen with the Jira board and your PRs | red | CM-4 (Clanker) | console arc; the Overseer starts here |
+| Planning (type `logistica`) | Tactical screen with the Jira board and your PRs | red | CM-4 (Clanker) | console arc; the Overseer starts here |
 | Version Control (type `git`) | Git client for every repo in the shelter | graphite, green | the Octocat (own model, animated by code) | contribution matrix and pull requests |
 | Command Bridge | Live holographic model of the shelter on a projector (the game's repo) | graphite and brass | Néstor «El Arquitecto» (Survivalist, original look) | code columns, power core (the generator), plan table |
 | Vault | Wall of safe-deposit boxes, one per integration with its pilot light, behind a laser barrier | steel and red | Hanzo «Doble Factor» (4GTN with katana) | biometric scanner, turret and drone, gold reserve, shelter cameras |

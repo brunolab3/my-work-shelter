@@ -81,14 +81,14 @@ const GUIDES: Record<SourceId, { que: string; pasos: React.ReactNode[] }> = {
     ],
   },
   linear: {
-    que: 'notificaciones e incidencias asignadas; el habitante de Logística usa el MCP oficial de Linear para escribir',
+    que: 'notificaciones e incidencias asignadas; el habitante de Planificación usa el MCP oficial de Linear para escribir',
     pasos: [
       <>{t('panels.inLinearSettingsAccountSecurity')} <b>Personal API keys</b> {t('panels.newKeyReadOnlyIs')}.</>,
-      <>{t('panels.forTheLogisticsDwellerTo')}.</>,
+      <>{t('panels.forThePlanningDwellerTo')}.</>,
     ],
   },
   jira: {
-    que: 'tus tareas asignadas y su estado, para el tablero de Logística, cruzadas con tus pull requests de GitHub (solo lectura)',
+    que: 'tus tareas asignadas y su estado, para el tablero de Planificación, cruzadas con tus pull requests de GitHub (solo lectura)',
     pasos: [
       <>{t('panels.in')} {enlace('https://id.atlassian.com/manage-profile/security/api-tokens', 'id.atlassian.com → Seguridad → Tokens de API')} → <b>{t('panels.createApiToken')}</b> {t('panels.theRegularOneNoScopes')}.</>,
       <>{t('panels.pasteYourJiraSiteE')}. <code>empresa.atlassian.net</code>), {t('panels.yourAtlassianEmailAndThe')} <b>{t('windows.save')}</b>.</>,

@@ -115,7 +115,7 @@ export async function furnishDeployment(ctx: Contexto) {
   screen.position.set(0, YT, zB + 0.43); g.add(screen);
   screen.userData.interactivo = 'despliegue'; screen.userData.vista = 'despliegue';   // un clic en la pantalla abre el tablero (refugio.ts, clic)
   // a la izquierda, el panel de la sala en un monitor de pared y el puesto del planificador, con lo que hace en su pantalla
-  const panel = new PanelRoom(); panel.titulo = 'PLANIFICACIÓN'; panel.color = v.pantalla; ctx.panel = panel;
+  const panel = new PanelRoom(); panel.titulo = 'LOGÍSTICA'; panel.color = v.pantalla; ctx.panel = panel;
   ctx.aparato('panel', await monitorWall(ctx, -4.6, 2.3, 1.1, panel.tex, 1.2, 0.2));
   const pStation = new PhosphorScreen(384, 256, v.pantalla); pStation.speed = 24; screenReal(ctx, pStation, 'actividad'); ctx.sala.pantallas.push(pStation);
   await workStation(ctx, { id: 'puesto', x: -3.05, z: -0.7, giro: 0.8, tex: pStation.tex, silla: R.mueble('chair_desk_A'),
@@ -140,7 +140,7 @@ export async function furnishDeployment(ctx: Contexto) {
   const locker = P(R.sf('Props_Shelf_Tall'), { pos: [5.45, 0, zB + 0.5], alto: 2.3, rot: 0 });
   for (const [k, y] of [0.6, 1.05, 1.5].entries()) ctx.sobre(locker, R.mueble('book_set'), { pos: [5.4 + (k % 2) * 0.15, 0, zB + 0.5], ancho: 0.55, rot: k * 0.2 }, { desde: y });
   P(R.cy('Computer_Large'), { pos: [4.5, 0, zB + 0.55], alto: 2.2, rot: -0.3 });
-  signInWall(g, cartel(['NADA SE FUSIONA', 'SIN SABER', 'QUÉ ESPERA'], 'PLANIFICACIÓN · WORK-SHELTER', '#d2ead8', '#1f4a2c', 'engranaje', semilla), 4.1, 2.8, 0.56, 0.78, zB + 0.33, -0.03);
+  signInWall(g, cartel(['NADA SE FUSIONA', 'SIN SABER', 'QUÉ ESPERA'], 'LOGÍSTICA · WORK-SHELTER', '#d2ead8', '#1f4a2c', 'engranaje', semilla), 4.1, 2.8, 0.56, 0.78, zB + 0.33, -0.03);
   mancha(g, 0, 1.1, 1.2, semilla);
   ctx.sala.walkZones = [[-1.9, -1.5], [1.5, 2.2]];
   ctx.sparks = new THREE.Vector3(3.0, 1.2, zB + 1.5);
