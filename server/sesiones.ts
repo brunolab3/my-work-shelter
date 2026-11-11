@@ -5,6 +5,7 @@
 import os from 'node:os';
 import path from 'node:path';
 import { lastActivity, projectFolder } from './repos.ts';
+import { mcpReview } from './comparar.ts';
 import { readFileSync } from 'node:fs';
 import { EventEmitter } from 'node:events';
 import { randomUUID } from 'node:crypto';
@@ -281,6 +282,8 @@ export class Sessions extends EventEmitter {
     if (repartir) opciones.mcpServers = { ...(opciones.mcpServers ?? {}), reparto: repartir };
     const plan = this.resolutor.mcpPlan?.(x.r.salaId);
     if (plan) opciones.mcpServers = { ...(opciones.mcpServers ?? {}), plan };
+    // la página de comparación de sus cambios, para revisarlos con notas en el juego antes de subirlos (server/comparar.ts)
+    opciones.mcpServers = { ...(opciones.mcpServers ?? {}), revision: mcpReview(() => x.r.cwd) };
     x.q = query({ prompt: queue, options: opciones });
     x.viva = true; x.closing = false;
     this.consume(x, x.q);
@@ -497,6 +500,8 @@ export class Sessions extends EventEmitter {
       if (nombre.startsWith('mcp__refugio__')) { resolver({ behavior: 'allow', updatedInput: e }); return; }
       // las de reparto confirman ellas mismas lo que lanzan (confirmar()), con el trabajo ya resuelto a sus salas
       if (nombre.startsWith('mcp__reparto__')) { resolver({ behavior: 'allow', updatedInput: e }); return; }
+      // la comparación solo lee el repo y escribe su página en la carpeta del juego
+      if (nombre.startsWith('mcp__revision__')) { resolver({ behavior: 'allow', updatedInput: e }); return; }
       if (nombre.startsWith('mcp__plan__')) { resolver({ behavior: 'allow', updatedInput: e }); return; }   // leer el plan y proponer cambios: a la sala de planificación, no fuera
       const id = randomUUID();
       const ofHelper = op.agentID ? [...x.ayudantes.values()].find(a => a.id === op.agentID || x.taskAHelper.get(op.agentID!) === a.id)?.descripcion ?? 'un ayudante' : undefined;
