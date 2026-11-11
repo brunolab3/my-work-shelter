@@ -4,7 +4,8 @@
 // pruebas (arranca el juego con SHELTER_DATOS=/ruta/temporal), nunca contra el tuyo.
 import WebSocket from 'ws';
 const puerto = process.env.SHELTER_PUERTO || 3778;
-const sala = process.argv[2] || 'ripgrep';
+// la sala: la que se pase o la primera de repo del refugio (ya no hay salas de ejemplo con nombre fijo)
+let sala = process.argv[2];
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 const token = readFileSync(path.join(process.env.SHELTER_DATOS || path.join(import.meta.dirname, '..', '.data'), 'token'), 'utf8').trim();
@@ -16,7 +17,10 @@ ws.on('message', raw => {
   const m = JSON.parse(String(raw));
   if (m.t === 'bienvenida') {
     log('bienvenida: claude', m.claudeOk, m.versionClaude, 'salas', m.estado.salas.length);
-    ws.send(JSON.stringify({ t: 'empezar', dwellerId: 'vera', salaId: sala, prompt: 'Ejecuta exactamente este comando con la herramienta Bash: `echo refugio > /tmp/refugio-qa.txt && cat /tmp/refugio-qa.txt` y dime en una frase el resultado. Nada más.', opciones: { permisos: 'default' } }));
+    sala ??= m.estado.salas.find(s => s.tipo === 'repo')?.id;
+    const dwellerId = m.estado.habitantes.find(h => h.salaId === sala)?.id;
+    if (!sala || !dwellerId) { log('No hay sala de repo con habitante: recluta una o pásala como argumento'); process.exit(1); }
+    ws.send(JSON.stringify({ t: 'empezar', dwellerId, salaId: sala, prompt: 'Ejecuta exactamente este comando con la herramienta Bash: `echo refugio > /tmp/refugio-qa.txt && cat /tmp/refugio-qa.txt` y dime en una frase el resultado. Nada más.', opciones: { permisos: 'default' } }));
   } else if (m.t === 'sesion') {
     const s = m.sesion; sesionId = s.id;
     if (s.pending && phase === 0) { phase = 1; log('PERMISO:', s.pending.titulo, '\n' + (s.pending.entrada ?? []).map(b => b.texto).join('\n')); ws.send(JSON.stringify({ t: 'responder', sesionId, peticionId: s.pending.id, decision: 'si' })); }

@@ -1,10 +1,10 @@
 // Disposición inicial del refugio (compartida por el servidor y el cliente sin conexión).
-// Las salas de repo de serie son cuatro repos públicos de ejemplo (`origen` en GitHub): el servidor los clona la primera
-// vez en la carpeta de datos de la app y completa su ruta (server/ejemplos.ts).
+// Sin salas de repo de serie: entran solas los repos de la raíz de repos que se elige en la bienvenida (y al cambiarla
+// en la cámara acorazada), y los demás, por la Puerta Principal.
 import { tonesForRepeated } from './reclutas.ts';
 import type { Look } from './aspecto.ts';
 import { distribute, PLANNING_ROOM } from './disposicion.ts';
-export interface InitialRoom { origen?: string; id: string; tipo: 'repo' | 'coordinacion' | 'comunicaciones' | 'planificacion' | 'logistica' | 'git' | 'puente' | 'camara' | 'puerta' | 'hidroponia' | 'galeria' | 'discoteca' | 'chapa'; nombre: string; carpeta?: string; planta: number; lado: 'izq' | 'der'; orden: number; variant: string; estilo?: string }
+export interface InitialRoom { id: string; tipo: 'repo' | 'coordinacion' | 'comunicaciones' | 'planificacion' | 'logistica' | 'git' | 'puente' | 'camara' | 'puerta' | 'hidroponia' | 'galeria' | 'discoteca' | 'chapa'; nombre: string; planta: number; lado: 'izq' | 'der'; orden: number; variant: string; estilo?: string }
 export interface InitialDweller { id: string; nombre: string; mote: string; tipo: string; bio: string; salaId: string; voz: number; tinte?: string; tone?: number; aspecto?: Look }
 
 // el sitio de cada sala (planta, lado, orden) lo decide `distribuir`: aquí solo qué salas hay
@@ -21,13 +21,6 @@ export const INITIAL_ROOMS: InitialRoom[] = distribute<Omit<InitialRoom, 'planta
   // planificar tareas de Jira con todos los repos a la vista y repartirlas por salas (tipo 'coordinacion'): su carpeta es
   // la raíz de repos del refugio (la de la cámara acorazada; el servidor la pone)
   { id: PLANNING_ROOM, tipo: 'coordinacion', nombre: 'Planificación', variant: 'logistica' },
-  // cuatro repos públicos muy conocidos, uno de cada clase, cada uno en la plantilla de su tipo de proyecto (la misma que
-  // le toca a cualquier repo que recluta la Puerta). Se retiran o se vinculan a un repo tuyo desde el panel de la sala, y
-  // su habitante la decora a su gusto con «Adaptar la sala al repo»
-  { id: 'express', tipo: 'repo', nombre: 'express', carpeta: 'express', origen: 'expressjs/express', variant: 'web', estilo: 'estudio' },
-  { id: 'requests', tipo: 'repo', nombre: 'requests', carpeta: 'requests', origen: 'psf/requests', variant: 'comms', estilo: 'laboratorio' },
-  { id: 'ripgrep', tipo: 'repo', nombre: 'ripgrep', carpeta: 'ripgrep', origen: 'BurntSushi/ripgrep', variant: 'logistica', estilo: 'fundicion' },
-  { id: 'awesome', tipo: 'repo', nombre: 'awesome', carpeta: 'awesome', origen: 'sindresorhus/awesome', variant: 'taller', estilo: 'archivo' },
   { id: 'hidroponia', tipo: 'hidroponia', nombre: 'Hidroponía', variant: 'comms' },
   // la discoteca, en la planta de ocio entre los cultivos y el ascensor: la música del refugio (Spotify) para currar
   { id: 'discoteca', tipo: 'discoteca', nombre: 'Discoteca', variant: 'neutro' },
@@ -57,10 +50,6 @@ export const LOOK_FITO: Look = { especie: 'humano', piezas: { cara: 'cara.ToySol
 export const INITIAL_DWELLERS: InitialDweller[] = tonesForRepeated([
   H('nestor', 'Néstor', 'El Arquitecto', 'Survivalist', 'puente', 'Trazó los planos del refugio cuando aún era un agujero en la roca. Perdió un ojo leyendo código minificado; con el otro ve el refugio entero en su código fuente.', 85),
   H('hanzo', 'Hanzo', 'Doble Factor', '4GTN', 'camara', 'Samurái de la cámara acorazada. Corta en dos cualquier token que asome en un commit y pide el segundo factor hasta para darte los buenos días.', 95),
-  H('remi', 'Remi', 'Llave Inglesa', 'Engineer', 'express', 'Compila a mano por si acaso. Desconfía de todo lo que no tenga tests.', 110),
-  H('lola', 'Lola', 'Prueba y Error', 'Protagonist_A', 'requests', 'Lo prueba todo dos veces en el terrario antes de soltarlo. Habla con las APIs como otros hablan con las plantas, y le contestan.', 220),
-  H('marga', 'Marga', 'Lista de Listas', 'Hoarder', 'awesome', 'Lo archiva todo: enlaces, cajas, cables y rumores. Si existe, lo tiene en una lista; si no existe, también.', 180),
-  H('vera', 'Vera', 'Aguja en el Pajar', 'SpaceRanger', 'ripgrep', 'Encuentra una línea en cien mil archivos antes de que acabes de pedírsela. Forja sus propias expresiones regulares.', 200),
   H('ondina', 'Ondina', 'Bandeja de Entrada', 'Hoarder', 'comunicaciones', 'Escucha la radio, el correo y los rumores. Sobre todo los rumores.', 190),
   H('calixto', 'Calixto', 'Reunión Que Pudo Ser Un Correo', 'Engineer', 'planificacion', 'Tiene el calendario más ordenado del refugio y ningún hueco libre.', 120),
   H('mona', 'Octocat', 'La Octogata', 'Octocat', 'git', 'Mitad gata, mitad pulpo, toda control de versiones. Con un tentáculo prepara, con otro hace commit y con un tercero ya está haciendo push. Lleva la cuenta de sus contribuciones y no consiente un force push a main.', 205),

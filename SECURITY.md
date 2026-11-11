@@ -1,81 +1,80 @@
-# Seguridad
+# Security
 
-## Antes de nada: úsalo bajo tu responsabilidad
+## First of all: use it at your own risk
 
-work-shelter es una propuesta experimental que se publica **tal cual, sin garantía de ningún tipo** (ver
-[`LICENSE`](LICENSE)). Nadie revisa ni certifica su seguridad, no hay compromiso de mantenimiento ni de corregir nada
-en ningún plazo, y lo que describe este documento son las precauciones que el código **intenta** tomar, no promesas.
+work-shelter is an experimental proposal published **as is, without warranty of any kind** (see
+[`LICENSE`](LICENSE)). Nobody reviews or certifies its security, there is no commitment to maintain it or fix anything
+within any timeframe, and what this document describes are the precautions the code **tries** to take, not promises.
 
-El juego maneja agentes que ejecutan órdenes en tu Mac con tus permisos, guarda credenciales de tus servicios y abre
-navegadores con tus sesiones. Si lo instalas, lo usas, lo modificas o lo distribuyes, **la responsabilidad de lo que
-pase (con tu equipo, tus datos, tus cuentas o las de tu organización) es tuya**. Revisa el código antes de usarlo con
-nada que te importe.
+The game drives agents that run commands on your Mac with your permissions, stores credentials for your services and
+opens browsers with your sessions. If you install, use, modify or distribute it, **you are responsible for whatever
+happens (to your machine, your data, your accounts or your organisation's)**. Review the code before using it with
+anything you care about.
 
-## Cómo avisar de un problema
+## Reporting a problem
 
-No hay canal de avisos: como el resto del proyecto, no se leen issues, pull requests ni avisos de seguridad (ver
-«Sin pull requests ni issues» en el [README](README.md)). Si encuentras algo, arréglalo en tu fork y, si te parece
-útil, cuéntalo donde prefieras para que otros lo sepan.
+There is no reporting channel: like the rest of the project, issues, pull requests and security advisories are not
+read (see "No pull requests or issues" in the [README](README.md)). If you find something, fix it in your fork and, if
+you think it's useful, tell people wherever you like.
 
-## Precauciones que toma el código
+## Precautions the code takes
 
-Está pensado como aplicación local para una sola persona en su Mac:
+It is designed as a local application for a single person on their Mac:
 
-- **El servidor del juego** escucha en `127.0.0.1:3778`, rechaza otros `Host` (contra DNS rebinding) y, en el
-  WebSocket, exige el `Origin` del juego y un secreto aleatorio que se genera en cada arranque. El secreto no se pasa a
-  las sesiones de Claude Code, a las terminales ni a los procesos que lanza el juego (git, `gh`, Chrome).
-- **Archivos**: el explorador, el cliente de git y los adjuntos trabajan dentro de las carpetas de las salas.
-- **Órdenes**: se lanzan con `execFile`/`spawn`, con los argumentos separados. El git que el juego lanza solo (el estado
-  de cada sala, cada 20 s) ignora el `core.fsmonitor` de la configuración local del repo, y los diffs van sin
-  `textconv` ni diff externo.
-- **Permisos de los habitantes**: se muestran como texto literal (el comando o el diff, con los caracteres invisibles a
-  la vista) y los resuelves tú.
-- **Confianza en las carpetas**: si un repo trae configuración de proyecto de Claude Code (`.claude/` con ajustes,
-  hooks, reglas, comandos o agentes, `.mcp.json`, `CLAUDE.md`), el juego pregunta antes de cargarla, salvo que ya hayas
-  aceptado esa carpeta en Claude Code o en el juego. Los repos de ejemplo también se preguntan: son de fuera.
-- **Electron**: `contextIsolation`, sin `nodeIntegration`, la ventana principal confinada a su origen y los navegadores
-  internos (`<webview>`) en su propia sesión, solo `https` y sin precarga.
-- **Secretos**: en el llavero de macOS, no en el repo ni en `.data/`; las integraciones piden permisos de solo lectura.
-- **Mando a distancia por Slack** (opcional, con tu propia app; `server/mando.ts` y `server/slackMando.ts`): por Socket
-  Mode (sin puertos abiertos: el servidor abre la conexión hacia Slack), con solo `chat:write` e `im:history` y el
-  evento `message.im`. Manda las peticiones de aprobación tal cual las ve el diálogo (invisibles a la vista, tokens
-  tapados, nada que no quepa entero se puede aprobar) con sí/no, nunca «siempre»; cada botón vale solo mientras esa
-  petición siga pendiente, y al responder el mensaje se queda sin el contenido. Nunca manda lo que se habla. Solo obedece al espacio de trabajo, al mensaje directo y a
-  la persona que emparejas con un código de un solo uso (10 minutos; cinco intentos fallidos lo caducan). Es otra app
-  que la de los avisos de Slack, que sigue siendo de solo lectura. Riesgos: Slack no cifra de extremo a extremo y
-  guarda los mensajes con las normas del espacio de trabajo (en el de una empresa, sus administradores y su retención
-  los alcanzan: pregunta antes); quien tenga tu móvil desbloqueado con Slack puede aprobar. Si pierdes los tokens,
-  revócalos en api.slack.com/apps: con ellos se leen esos mensajes y se pueden recibir tus pulsaciones en otro sitio,
-  pero no fingir una tuya ante el refugio.
+- **The game server** listens on `127.0.0.1:3778`, rejects other `Host` headers (against DNS rebinding) and, on the
+  WebSocket, requires the game's `Origin` and a random secret generated at every start. The secret is not passed to
+  Claude Code sessions, terminals or processes the game launches (git, `gh`, Chrome).
+- **Files**: the explorer, the git client and attachments work inside the rooms' folders.
+- **Commands**: launched with `execFile`/`spawn`, with separate arguments. The git the game runs on its own (each
+  room's status, every 20 s) ignores `core.fsmonitor` from the repo's local config, and diffs run without `textconv`
+  or an external diff.
+- **Dwellers' permissions**: shown as literal text (the command or the diff, with invisible characters made visible)
+  and you resolve them.
+- **Folder trust**: if a repo ships Claude Code project config (`.claude/` with settings, hooks, rules, commands or
+  agents, `.mcp.json`, `CLAUDE.md`), the game asks before loading it, unless you already accepted that folder in
+  Claude Code or in the game. This includes repos the repos root adds as rooms automatically.
+- **Electron**: `contextIsolation`, no `nodeIntegration`, the main window confined to its origin and the internal
+  browsers (`<webview>`) in their own session, `https` only and no preload.
+- **Secrets**: in the macOS keychain, not in the repo or in `.data/`; integrations ask for read-only permissions.
+- **Slack remote control** (optional, with your own app; `server/mando.ts` and `server/slackMando.ts`): over Socket
+  Mode (no open ports: the server opens the connection to Slack), with only `chat:write` and `im:history` and the
+  `message.im` event. It sends approval requests exactly as the dialog shows them (invisible characters made visible,
+  tokens masked, anything that doesn't fit whole can't be approved) with yes/no, never "always"; each button is only
+  valid while that request is pending, and once answered the message is stripped of its content. It never sends what's
+  said. It only obeys the workspace, the direct message and the person you pair with a one-time code (10 minutes; five
+  failed attempts expire it). It's a different app from the Slack notices one, which stays read-only. Risks: Slack is
+  not end-to-end encrypted and keeps messages under the workspace's rules (in a company's, its admins and retention
+  reach them: ask first); anyone with your unlocked phone and Slack can approve. If you lose the tokens, revoke them
+  at api.slack.com/apps: with them those messages can be read and your taps received elsewhere, but not one of yours
+  faked towards the shelter.
 
-## Riesgos conocidos
+## Known risks
 
-Lo que **no** cubre, por diseño o porque nadie lo ha resuelto:
+What it **doesn't** cover, by design or because nobody has solved it:
 
-- **Los habitantes son Claude Code con tus permisos**: lo que apruebes se ejecuta en tu Mac. Los modos «editar sin
-  preguntar» y «saltar permisos» hacen exactamente eso.
-- **Carpetas de fuera**: la pregunta de confianza solo cubre la configuración de Claude Code. Una carpeta ajena puede
-  traer otras cosas que se ejecutan al tocarla, como filtros o ganchos en su `.git/config`, o tareas que abra tu editor.
-  No vincules como sala una carpeta en la que no confíes.
-- **El Puente de Mando** trabaja sobre el código del propio juego, y ese código se ejecuta al reiniciar o al abrir la
-  app (incluido `npm ci` si cambia `package-lock.json`). Aprobar ediciones ahí equivale a aprobar que se ejecuten.
-- **La instalación con `curl … | bash`** ejecuta `instalar.sh` tal como esté en GitHub en ese momento y, después, el
-  código del repo que descarga. Léelo antes si quieres, o clona el repo y usa `./shelter instalar-app`.
-- **La app instalada** (`/Applications/work-shelter-public.app`) carga el código de la carpeta del juego
-  (`~/.work-shelter-public` con el instalador, o la carpeta desde la que la instalaste): quien pueda escribir en esa
-  carpeta puede cambiar lo que hace la app. Volver a ejecutar el instalador trae y ejecuta lo último que haya en el
-  repo.
-- **Modo desarrollo** (`npm run dev`): Vite sirve los archivos de la carpeta del juego a cualquier proceso local, y entre
-  ellos está `.data/token`, el secreto con el que se maneja el refugio (terminales incluidas). Úsalo solo en un equipo
-  donde te fíes de todo lo que corre y, si quieres, con `SHELTER_DATOS` apuntando fuera del repo.
-- **El Chrome de Spotify y el del inicio de sesión con Google** se manejan por su protocolo de depuración, abierto en
-  un puerto de `127.0.0.1` mientras están en marcha. Otro proceso o usuario del mismo Mac podría conectarse y llegar a
-  esas sesiones.
-- **Los navegadores internos** se confinan al dominio de cada web, pero los inicios de sesión de terceros
-  (Microsoft, Google, Okta, Auth0…) y sus redirecciones pueden llevar a páginas que no son del sitio, sin barra de
-  direcciones a la vista.
-- **Otros procesos de tu usuario** pueden leer los secretos del llavero sin aviso (los guarda `/usr/bin/security`).
-- **La clave de Linear**, si la guardas, va en el entorno del habitante de Logística, cuyo MCP puede escribir en Linear
-  (ver `docs/integraciones-uso.md`).
-- **Otras cuentas de macOS** en el mismo equipo no se han tenido en cuenta a fondo: si compartes el Mac, asume que
-  pueden llegar a más de lo que deberían.
+- **Dwellers are Claude Code with your permissions**: whatever you approve runs on your Mac. The "edit without asking"
+  and "skip permissions" modes do exactly that.
+- **Outside folders**: the trust question only covers Claude Code configuration. A foreign folder can bring other
+  things that run when touched, such as filters or hooks in its `.git/config`, or tasks your editor opens. Don't link
+  as a room a folder you don't trust, and keep only repos you trust directly inside the repos root: each one becomes a
+  room automatically.
+- **The Command Bridge** works on the game's own code, and that code runs on restart or when the app opens (including
+  `npm ci` if `package-lock.json` changes). Approving edits there amounts to approving that they run.
+- **Installing with `curl … | bash`** runs `instalar.sh` as it is on GitHub at that moment and, afterwards, the code of
+  the repo it downloads. Read it first if you like, or clone the repo and use `./shelter instalar-app`.
+- **The installed app** (`/Applications/work-shelter-public.app`) loads the code from the game's folder
+  (`~/.work-shelter-public` with the installer, or the folder you installed it from): whoever can write to that folder
+  can change what the app does. Running the installer again fetches and runs the latest in the repo.
+- **Development mode** (`npm run dev`): Vite serves the game folder's files to any local process, and among them is
+  `.data/token`, the secret that controls the shelter (terminals included). Use it only on a machine where you trust
+  everything running and, if you like, with `SHELTER_DATOS` pointing outside the repo.
+- **The Spotify Chrome and the Google sign-in Chrome** are driven through their debugging protocol, open on a
+  `127.0.0.1` port while they run. Another process or user on the same Mac could connect and reach those sessions.
+- **The internal browsers** are confined to each site's domain, but third-party sign-ins (Microsoft, Google, Okta,
+  Auth0…) and their redirects can lead to pages that aren't the site's, with no address bar in view.
+- **Other processes of your user** can read the keychain secrets without warning (they're stored by
+  `/usr/bin/security`).
+- **The Linear key**, if you save it, goes into the environment of the Logistics dweller, whose MCP can write to
+  Linear (see `docs/integraciones-uso.md`).
+- **Other macOS accounts** on the same machine haven't been considered thoroughly: if you share the Mac, assume they
+  may reach more than they should.

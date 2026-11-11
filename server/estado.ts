@@ -12,7 +12,6 @@ import { distribute, placeRoom, isRoomOfRepo, PLANNING_ROOM } from '../shared/di
 import { sanitizeLook, type Look } from '../shared/aspecto.ts';
 import { SOURCES } from './integraciones/adaptadores.ts';
 import { sanitizeDecor, type Decorado } from '../shared/decorado.ts';
-import { examplePath } from './ejemplos.ts';
 import { projectType } from './repos.ts';
 import { areaByType, isArea, type AreaRepo } from '../shared/sectores.ts';
 import { isLanguage, type Idioma } from '../shared/idioma.ts';
@@ -111,7 +110,7 @@ export interface ShelterState {
   habitantes: SavedDweller[];
   jugador: Player;
   // campos: datos NO secretos de cada fuente (URL, IDs…); secretos: solo los NOMBRES de lo guardado en el llavero
-  integraciones: Record<string, { modo: 'demo' | 'real'; opciones?: Record<string, unknown>; campos?: Record<string, string>; secrets?: string[] }>;
+  integraciones: Record<string, { modo: 'off' | 'demo' | 'real'; opciones?: Record<string, unknown>; campos?: Record<string, string>; secrets?: string[] }>;
   viewsNotifications: string[];
   ajustes: Record<string, unknown>;
 }
@@ -126,8 +125,8 @@ export function rootReposDefault() {
 
 export function initialState(): ShelterState {
   const gameRoot = path.resolve(import.meta.dirname, '..');
-  // las salas de repo de serie son los repos de ejemplo, en la carpeta de datos de la app (los clona ejemplos.ts)
-  const salas: SavedRoom[] = INITIAL_ROOMS.map(({ carpeta, origen: _, ...x }) => ({ ...x, ruta: x.tipo === 'puente' ? gameRoot : carpeta ? examplePath(carpeta) : undefined }));
+  // sin salas de repo: las trae la raíz de repos al elegirla en la bienvenida
+  const salas: SavedRoom[] = INITIAL_ROOMS.map(x => ({ ...x, ruta: x.tipo === 'puente' ? gameRoot : undefined }));
   const habitantes: SavedDweller[] = INITIAL_DWELLERS.map(h => ({ ...h }));
   const raizRepos = rootReposDefault();
   for (const s of salas) if (s.id === PLANNING_ROOM) s.ruta = reposRoot({ raizRepos });
@@ -136,7 +135,9 @@ export function initialState(): ShelterState {
     supervisor: { personaje: 'Protagonist_B', nombre: 'Supervisor', accesorios: [] },
     raizRepos, limiteSesiones: 6, salas, habitantes,
     jugador: { scrap: 40, inventario: {}, outfit: [], tienda: [], records: {}, achievements: [], finishedTasks: 0, toolsCalls: 0, cultivos: [{ especie: 'Lettuce', phase: 3, progreso: 0 }, { especie: 'Carrot', phase: 4, progreso: 0 }, { especie: 'Corn', phase: 2, progreso: 0 }] },
-    integraciones: Object.fromEntries(SOURCES.map(f => [f, { modo: 'demo' as const }])),
+    // sin datos de mentira: cada fuente, apagada hasta que se conecta en la cámara acorazada (o se elige DEMO). Ni las que
+    // no piden nada (Mail y Calendario del Mac, GitHub con gh) leen nada sin que lo digas
+    integraciones: Object.fromEntries(SOURCES.map(f => [f, { modo: 'off' as const }])),
     viewsNotifications: [], ajustes: {},
   };
 }
@@ -150,7 +151,7 @@ export function folderOf(s: SavedRoom) { return s.ruta ?? path.join(ROOMS_FOLDER
 /** Salas de servicio de serie que le faltan a un refugio guardado: entran en su sitio (el resto se recoloca). */
 export function addRoomsOfService(e: ShelterState) {
   const faltan = INITIAL_ROOMS.filter(s => s.id === PLANNING_ROOM ? !e.salas.some(x => x.id === s.id) : !isRoomOfRepo(s.tipo) && !e.salas.some(x => x.tipo === s.tipo || x.id === s.id));
-  if (faltan.length) e.salas = distribute([...e.salas, ...faltan.map(({ carpeta: _, origen: __, ...x }) => ({ ...x }) as SavedRoom)]);
+  if (faltan.length) e.salas = distribute([...e.salas, ...faltan.map(x => ({ ...x }) as SavedRoom)]);
   // con la disposición a mano, las nuevas irían al final de los repos: cada una, junto a la que tiene al lado de serie
   if (faltan.length && e.salas.some(s => s.manual)) for (const f of faltan) {
     const stock = (orden?: number) => INITIAL_ROOMS.find(i => i.id !== f.id && i.planta === f.planta && i.lado === f.lado && (orden === undefined || i.orden === orden));
@@ -228,7 +229,7 @@ export function sanear(e: any): ShelterState {
   };
   if (!jugador.cultivos.length) jugador.cultivos = ini.jugador.cultivos;
   const integraciones = e.integraciones && typeof e.integraciones === 'object' ? e.integraciones : ini.integraciones;
-  for (const k of Object.keys(ini.integraciones)) if (!integraciones[k] || typeof integraciones[k] !== 'object') integraciones[k] = { modo: 'demo' };
+  for (const k of Object.keys(ini.integraciones)) if (!integraciones[k] || typeof integraciones[k] !== 'object') integraciones[k] = { modo: 'off' };
   for (const k of Object.keys(integraciones)) if (!(SOURCES as readonly string[]).includes(k)) delete integraciones[k];   // fuentes que no son del catálogo
   const sup = e.supervisor && typeof e.supervisor === 'object' ? e.supervisor : {};
   return {

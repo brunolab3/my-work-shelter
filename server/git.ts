@@ -282,7 +282,8 @@ export function githubDemo(): DataGitHub {
 }
 
 let cache: DataGitHub | null = null; let cacheOf = ''; let asking: Promise<DataGitHub> | null = null;
-export function github(rutas: string[], forzar = false, connection: { real: boolean; token?: string } = { real: false }): Promise<DataGitHub> {
+export function github(rutas: string[], forzar = false, connection: { real: boolean; off?: boolean; token?: string } = { real: false }): Promise<DataGitHub> {
+  if (connection.off) return localContributions(rutas);   // GitHub apagado: tus commits locales, nada de prueba
   if (!connection.real) return Promise.resolve(githubDemo());
   const de = connection.token ? 'token' : 'gh';
   if (cache && cacheOf === de && !forzar && Date.now() - cache.ts < 15 * 60_000) return Promise.resolve(cache);
@@ -335,7 +336,8 @@ export function demoPRsBoard(): PRBoard[] {
     pr(9, 'Ordenar la lista por temas', 'refugio/awesome', 'ordenar-temas', 'abierto', 8, 'REVIEW_REQUIRED', 'SUCCESS'),
   ].map(p => ({ ...p, base: p.numero === 18 ? 'sesiones-persistentes' : 'main', dependencias: p.numero === 42 ? ['refugio/express#39', 'refugio/ripgrep#51'] : [] }));   // #18 apilado sobre #17; #42 espera a #39 y #51
 }
-export async function prsTablero(connection: { real: boolean; token?: string }): Promise<{ prs: PRBoard[]; demo?: boolean; error?: string }> {
+export async function prsTablero(connection: { real: boolean; off?: boolean; token?: string }): Promise<{ prs: PRBoard[]; demo?: boolean; error?: string }> {
+  if (connection.off) return { prs: [], error: 'Conecta GitHub en la cámara acorazada (tu token o la sesión de gh) para ver tus pull requests.' };
   if (!connection.real) return { prs: demoPRsBoard(), demo: true, error: 'DEMO: conecta GitHub en la cámara acorazada (tu token o la sesión de gh) para ver tus pull requests.' };
   const desde = new Date(Date.now() - 14 * 86_400_000).toISOString().slice(0, 10);
   try { return { prs: prsOfGitHub(JSON.parse(await gh(['api', 'graphql', '-f', 'query=' + QUERY_PRS(desde)], connection.token))) }; }
@@ -348,7 +350,8 @@ const OPEN_QUERY = `query {
     number title body url isDraft state updatedAt reviewDecision headRefName baseRefName repository { nameWithOwner }
     commits(last: 1) { nodes { commit { statusCheckRollup { state } } } } } } }
 }`;
-export async function prsOpen(connection: { real: boolean; token?: string }): Promise<{ prs: PRBoard[]; demo?: boolean }> {
+export async function prsOpen(connection: { real: boolean; off?: boolean; token?: string }): Promise<{ prs: PRBoard[]; demo?: boolean }> {
+  if (connection.off) return { prs: [] };
   if (!connection.real) return { prs: demoPRsBoard().filter(p => p.estado === 'abierto' || p.estado === 'borrador'), demo: true };
   return { prs: prsOfGitHub(JSON.parse(await gh(['api', 'graphql', '-f', 'query=' + OPEN_QUERY], connection.token))) };
 }

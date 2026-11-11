@@ -1,111 +1,113 @@
-# Salir a la superficie
+# Going to the surface
 
-Para cuando el juego se cae o no conviene que se vea: todo lo que tienes abierto en el refugio (conversaciones con
-los habitantes y terminales) sigue en una terminal normal de tu escritorio. Usa iTerm si está instalado; si no,
-Terminal (`SHELTER_TERMINAL=terminal` o `iterm` para elegir). En el juego, todo esto está también en el Manual del
-Supervisor (F1), sección «A la superficie».
+For when the game crashes or shouldn't be seen: everything you have open in the shelter (conversations with dwellers
+and terminals) carries on in a normal terminal on your desktop. It uses iTerm if installed; otherwise, Terminal
+(`SHELTER_TERMINAL=terminal` or `iterm` to choose). In the game, all of this is also in the Overseer's Manual (F1),
+section "To the surface (outside the game)".
 
-## Las cuatro maneras
+## The four ways
 
-| Cómo | Qué saca |
+| How | What it takes out |
 | --- | --- |
-| **⇧⌥⌘Esc** (desde cualquier app) | Todo. El juego desaparece al momento (ventana, icono del Dock y sonido) y lo abierto sale a una ventana nueva de iTerm, una pestaña por cosa. La misma tecla, abrir la app o un clic en su icono lo devuelve tal como estaba. |
-| **Botón ↗ o ⌘⇧E** en un intercomunicador o una terminal | Solo la pestaña activa, a una pestaña de la ventana de iTerm que tengas delante. |
-| **`./shelter superficie`** (en la carpeta del juego) | Todo. Con el juego abierto se lo pide a él; con el juego caído, retoma las conversaciones que quedaron abiertas y engancha las terminales que sigan vivas. `--lista` solo enseña qué hay. |
-| **Sola, si el juego se cae** | Si la ventana desaparece sin pasar por «Salir» y no vuelve en 20 s, todo sale a tu escritorio antes de que el refugio se apague. Si solo se cuelga la página, la ventana se recarga sola y no sale nada. |
+| **⇧⌥⌘Esc** (from any app) | Everything. The game vanishes at once (window, Dock icon and sound) and whatever is open goes to a new iTerm window, one tab each. The same key, opening the app or clicking its icon brings it back as it was. |
+| **↗ button or ⌘⇧E** in an intercom or a terminal | Only the active tab, to a tab of the iTerm window in front. |
+| **`./shelter superficie`** (in the game folder) | Everything. With the game open it asks the game; with the game down, it resumes the conversations left open and attaches the terminals still alive. `--lista` only shows what there is. |
+| **By itself, if the game crashes** | If the window disappears without going through "Leave the shelter" and doesn't come back within 20 s, everything goes to your desktop before the shelter shuts down. If only the page hangs, the window reloads by itself and nothing goes out. |
 
-Ojo: **⇧⌥⌘Esc mantenido 3 segundos** es el «forzar salida» de macOS. Púlsala rápido. Si llegara a cerrar el juego,
-a los 20 s todo sale igualmente.
+Careful: **⇧⌥⌘Esc held for 3 seconds** is macOS's "force quit". Press it quickly. If it ever closes the game,
+everything goes out anyway after 20 s.
 
-## Conversaciones
+## Conversations
 
-- Se cierran en el juego y se abren fuera con `cd <carpeta> && claude --resume <id>`, con el mismo modelo, esfuerzo
-  y permisos. Al salir de Claude Code te quedas en la carpeta del proyecto, con tu shell y tu historial.
-- Si estaban trabajando o esperando un permiso, se interrumpen y fuera se les pide que sigan con lo que estaban
-  haciendo.
-- **Para traerlas de vuelta:** sal con `/exit` en iTerm y, en el juego, habla con el habitante → «Retomar un trabajo
-  anterior». Mientras sigan abiertas fuera, el archivo las marca con ↗ y el juego no deja retomarlas (dos Claude Code
-  escribiendo la misma conversación la corromperían).
-- Fuera no tienen lo que solo existe en el juego: el MCP de Linear de Logística y las instrucciones del refugio.
+- They close in the game and open outside with `cd <folder> && claude --resume <id>`, with the same model, effort
+  and permissions. When you leave Claude Code you stay in the project folder, with your shell and your history.
+- If they were working or waiting for a permission, they're interrupted and, outside, asked to carry on with what they
+  were doing.
+- **To bring them back:** exit with `/exit` in iTerm and, in the game, talk to the dweller → "Resume a previous job".
+  While they're still open outside, the archive marks them with ↗ and the game won't resume them (two Claude Codes
+  writing the same conversation would corrupt it).
+- Outside they lack what only exists in the game: the Logistics Linear MCP, the Planning tools and the shelter's
+  instructions.
 
-## Terminales
+## Terminals
 
-- No es una copia: es la misma terminal (el mismo shell, con lo que tenga en marcha) en el juego y fuera a la vez. Lo
-  que escribas en un sitio se ve en el otro.
-- Mientras esté abierta fuera, manda el tamaño de la ventana de fuera, y en el juego la pestaña lleva ↗ y pone
-  «también en tu escritorio».
-- Sobrevive aunque cierres el juego mientras siga abierta fuera. Al volver a abrir el juego, reaparece en su pestaña.
-- Cerrar la pestaña de iTerm la suelta: sigue en el juego (con el juego cerrado, se cierra sola a los 10 minutos). `exit` la termina en los dos sitios.
-- A mano: `./shelter enganchar <id>` (el id es el de la pestaña del juego, p. ej. `sala:express` o `sala:express::2`).
+- It's not a copy: it's the same terminal (the same shell, with whatever it's running) in the game and outside at
+  once. What you type in one place shows in the other.
+- While open outside, the outside window's size rules, and in the game the tab carries ↗ and says "also on your
+  desktop".
+- It survives closing the game while still open outside. When you reopen the game, it reappears in its tab.
+- Closing the iTerm tab releases it: it stays in the game (with the game closed, it closes itself after 10 minutes).
+  `exit` ends it in both places.
+- By hand: `./shelter enganchar <id>` (the id is the game tab's, e.g. `sala:my-api` or `sala:my-api::2`).
 
-## La primera vez
+## The first time
 
-macOS pide permiso para que work-shelter maneje iTerm. Si lo deniegas, permítelo en Ajustes del Sistema ›
-Privacidad y seguridad › Automatización.
+macOS asks permission for work-shelter to control iTerm. If you deny it, allow it in System Settings › Privacy &
+Security › Automation.
 
-## Para quien toca el código
+## For whoever touches the code
 
-`server/escritorio.ts` (comandos y AppleScript), `server/superficie.ts` (`./shelter superficie` y `enganchar`), la
-acción `superficie.sacar` en `server/main.ts`, `Sesiones.sacar` en `server/sesiones.ts`, los clientes de fuera del
-anfitrión en `server/anfitrionTerminales.ts` y la tecla de pánico en `electron/main.cjs`. QA:
-`node scripts/qa-superficie.mjs` (servidor propio en 3793; `SHELTER_ESCRITORIO_PRUEBA` apunta lo que abriría en vez
-de abrir ventanas).
+`server/escritorio.ts` (commands and AppleScript), `server/superficie.ts` (`./shelter superficie` and `enganchar`),
+the `superficie.sacar` action in `server/main.ts`, `Sessions.sacar` in `server/sesiones.ts`, the outside clients of
+the host in `server/anfitrionTerminales.ts` and the panic key in `electron/main.cjs`. QA:
+`node scripts/qa-superficie.mjs` (own server on 3793; `SHELTER_ESCRITORIO_PRUEBA` logs what it would open instead of
+opening windows).
 
-## A la app de Claude
+## To the Claude app
 
-El botón ✳ del intercomunicador (o «Seguir … en la app de Claude» en ⌘K) cierra la conversación en el refugio y la
-abre en la app de escritorio de Claude con su enlace `claude://resume?session=<id>`, que la importa en su lista (lee la
-misma transcripción de `~/.claude/projects`). Para volver a traerla, «Retomar un trabajo anterior» en su habitante
-(cerrándola antes en la app, para no escribirla en dos sitios). Servidor: `superficie.appClaude` (`server/main.ts`) y
-`abrirEnAppClaude` (`server/escritorio.ts`; con `SHELTER_ESCRITORIO_PRUEBA` apunta el enlace en vez de abrirlo).
+The ✳ button in the intercom (or "Continue … in the Claude app" in ⌘K) closes the conversation in the shelter and
+opens it in the Claude desktop app with its link `claude://resume?session=<id>`, which imports it into its list (it
+reads the same transcript in `~/.claude/projects`). To bring it back, "Resume a previous job" on its dweller (closing
+it in the app first, so it isn't written in two places). Server: `superficie.appClaude` (`server/main.ts`) and
+`openInAppClaude` (`server/escritorio.ts`; with `SHELTER_ESCRITORIO_PRUEBA` it logs the link instead of opening it).
 
-## Remote Control de una sala
+## Remote Control for a room
 
-En el panel de una sala de repo, «Encender Remote Control» deja un `claude remote-control --permission-mode auto` en
-su carpeta, con el nombre «<sala> · work-shelter»: desde la pestaña Code de la app de Claude en el móvil o desde
-claude.ai/code se abren sesiones de ese repo que corren en este Mac. Es un proceso aparte (`server/controlRemoto.ts`):
-sobrevive a reiniciar o cerrar el juego, se apunta en `DATOS/control-remoto/` y, al arrancar el servidor, se vuelve a
-encender si se había caído; se apaga desde el mismo panel o al retirar o vincular la sala. La primera vez Claude Code
-pide aceptar Remote Control: el juego lo detecta, lo para y explica cómo aceptarlo una vez en la terminal de la sala.
-Las conversaciones del intercomunicador no salen ahí (van por el SDK, sin Remote Control).
+In a repo room's panel, "Turn on Remote Control" leaves a `claude remote-control --permission-mode auto` running in
+its folder, named "<room> · work-shelter": from the Code tab of the Claude app on your phone or from claude.ai/code you
+open sessions on that repo that run on this Mac. It's a separate process (`server/controlRemoto.ts`): it survives
+restarting or closing the game, is recorded in `DATOS/control-remoto/` and, when the server starts, is turned back on
+if it had died; it's turned off from the same panel or when the room is retired or relinked. The first time, Claude
+Code asks you to accept Remote Control: the game detects it, stops it and explains how to accept it once in the
+room's terminal. Intercom conversations don't show up there (they go through the SDK, without Remote Control).
 
-## Al móvil con Remote Control
+## To the phone with Remote Control
 
-El botón 📱 del intercomunicador (o «Seguir … en el móvil» en ⌘K) saca esa conversación a una pestaña de iTerm con
-`claude --resume <id> --remote-control "<repo>:<TAREA>"` (la tarea del worktree o la clave del título; sin ella,
-`<repo>:<título>`; `remoteName` en `shared/tareas.ts`): sigue en tu Mac y se abre, con ese nombre, desde la app de
-Claude del móvil o claude.ai/code. Abierta fuera, es un visitante de su sala: desde el robot se trae de vuelta. «Todo al móvil» (menú de Esc o ⌘K) hace lo mismo con todas las conversaciones
-abiertas, en una ventana nueva; las terminales se quedan en el juego. Como al salir a la superficie, la conversación se
-cierra antes en el refugio. Necesita el Mac despierto. Servidor: `superficie.sacar` con `remoto` (`server/main.ts`) y
-`resumeCommand` (`server/escritorio.ts`).
+The 📱 button in the intercom (or "Continue … on your phone (Remote Control)" in ⌘K) takes that conversation to an
+iTerm tab with `claude --resume <id> --remote-control "<repo>:<TASK>"` (the worktree's task or the key in the title;
+without one, `<repo>:<title>`; `remoteName` in `shared/tareas.ts`): it keeps running on your Mac and opens, under that
+name, from the Claude app on your phone or claude.ai/code. While open outside it's a visitor in its room: bring it
+back from the robot. "Everything to your phone" (Esc menu or ⌘K) does the same with every open conversation, in a new
+window; terminals stay in the game. As when going to the surface, the conversation closes in the shelter first. It
+needs the Mac awake. Server: `superficie.sacar` with `remoto` (`server/main.ts`) and `resumeCommand`
+(`server/escritorio.ts`).
 
-## Mando a distancia por Slack
+## Slack remote control
 
-Para no salir del refugio cuando un habitante te necesita y no estás delante: «Slack (mando a distancia)» en la cámara
-acorazada, con las demás integraciones (no es una fuente de avisos: no lee nada). Copias el manifiesto, creas la app
-desde él en api.slack.com/apps (Socket Mode, solo `chat:write` e `im:history`, evento `message.im`), generas el token
-de la app (`xapp-`, con `connections:write`), la instalas (token del bot, `xoxb-`) y pegas los dos (al llavero, cuentas
-`slackRemote.appToken` y `slackRemote.botToken`). Para emparejar, le mandas al bot por privado el código que enseña el
-juego (un solo uso, 10 minutos; cinco intentos fallidos lo caducan).
+So you don't have to be in the shelter when a dweller needs you and you're away: "Slack (remote control)" in the
+Vault, with the other integrations (it's not a notice source: it reads nothing). You copy the manifest, create the app
+from it at api.slack.com/apps (Socket Mode, only `chat:write` and `im:history`, event `message.im`), generate the app
+token (`xapp-`, with `connections:write`), install it (bot token, `xoxb-`) and paste both (into the keychain, accounts
+`slackRemote.appToken` and `slackRemote.botToken`). To pair, send the bot a direct message with the code the game
+shows (one use, 10 minutes; five failed attempts expire it).
 
-- **Aprobaciones**: el bot solo escribe por su cuenta cuando una conversación pide aprobación (permiso, plan, pregunta o
-  confianza), con la petición tal cual la enseña el diálogo del juego y sus botones: sí / no (nunca «sí, siempre»), y en
-  las preguntas una opción por botón, de una en una (las de varias respuestas, en el refugio). Se responde en el propio
-  refugio: la conversación sigue aquí. Lo que no cabe entero (unos 3500 caracteres) no se puede aprobar desde el móvil.
-  Al responder, aquí o allí, el mensaje se queda en una línea sin el contenido, y sus botones dejan de valer. La
-  respuesta a cada botón llega como mensaje que solo ves tú.
-- **Lista**: escribiendo cualquier cosa, las salas con sus conversaciones abiertas (habitante, título, estado y hora de
-  fin), con un botón 📱 por conversación (y otro para todas) que la pasa a Remote Control para seguirla en la app de
-  Claude.
+- **Approvals**: the bot only writes on its own when a conversation asks for approval (permission, plan, question or
+  trust), with the request exactly as the game's dialog shows it and its buttons: yes / no (never "yes, always"), and
+  for questions one option per button, one at a time (multi-answer ones, in the shelter). It's answered in the shelter
+  itself: the conversation keeps going here. Anything that doesn't fit whole (about 3500 characters) can't be approved
+  from the phone. Once answered, here or there, the message shrinks to one line without the content, and its buttons
+  stop working. The reply to each button arrives as a message only you see.
+- **List**: writing anything returns the rooms with their open conversations (dweller, title, state and end time),
+  with a 📱 button per conversation (and another for all) that hands it over to Remote Control to continue in the
+  Claude app.
 
-Lo que sale: los rótulos y, para aprobar, la petición en bloques de texto plano (nada se interpreta como formato), con
-los caracteres invisibles a la vista (⟦U+XXXX⟧) y los secretos con forma de token tapados (solo caracteres de token:
-tapar nunca esconde código); la notificación, solo con la primera línea (quién lo pide), nunca el comando. Nunca lo que
-se habla. Es otra app que la de los avisos de Slack (`integraciones/slack.ts`), que sigue siendo de solo lectura. Slack
-no cifra de extremo a extremo y guarda los mensajes con las normas del espacio de trabajo: en el de una empresa,
-pregunta antes. Solo obedece al espacio de trabajo, al mensaje directo y a la persona emparejados; lo demás se ignora
-sin responder. Sin puertos abiertos: Socket Mode (el servidor abre un WebSocket hacia Slack y lo reabre si Slack lo pide
-o se cae). Solo lo escucha el refugio de verdad (sin `SHELTER_DATOS`; los de prueba, con `SHELTER_SLACK=1`). Código: lo
-común en `server/mando.ts`, lo de Slack en `server/slackMando.ts` (pruebas en `server/slackMando.test.ts`), acciones
-`slackRemote.*` y su vista `SlackRemoteView` en la cámara (`web/src/ui/Camara.tsx`); los invisibles, en
-`shared/visible.ts` (los mismos del diálogo).
+What goes out: the labels and, to approve, the request in plain-text blocks (nothing is interpreted as formatting),
+with invisible characters made visible (⟦U+XXXX⟧) and token-shaped secrets masked (token characters only: masking
+never hides code); the notification carries only the first line (who's asking), never the command. Never what's said.
+It's a different app from the Slack notices one (`integraciones/slack.ts`), which stays read-only. Slack is not
+end-to-end encrypted and keeps messages under the workspace's rules: in a company's, ask first. It only obeys the
+paired workspace, direct message and person; everything else is ignored without reply. No open ports: Socket Mode (the
+server opens a WebSocket to Slack and reopens it if Slack asks or it drops). Only the real shelter listens (without
+`SHELTER_DATOS`; test ones, with `SHELTER_SLACK=1`). Code: the common part in `server/mando.ts`, the Slack part in
+`server/slackMando.ts` (tests in `server/slackMando.test.ts`), actions `slackRemote.*` and its view `SlackRemoteView`
+in the Vault (`web/src/ui/Camara.tsx`); invisible characters in `shared/visible.ts` (the same as the dialog).

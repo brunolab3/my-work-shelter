@@ -23,7 +23,7 @@ export interface Evento {
   lugar?: string; videollamada?: string; enlace?: string; organizador?: string; demo?: boolean;
 }
 export interface SourceState {
-  modo: 'demo' | 'real'; estado: 'demo' | 'conectada' | 'error' | 'sin-configurar'; detalle?: string; ultima?: number; campos?: Record<string, string>;
+  modo: 'off' | 'demo' | 'real'; estado: 'demo' | 'conectada' | 'error' | 'sin-configurar'; detalle?: string; ultima?: number; campos?: Record<string, string>;
 }
 
 // Avisos del conector real a las integraciones: 'estado' (difundir su estado), 'sondear' (hay datos nuevos ya, p. ej.
@@ -61,10 +61,13 @@ class SourceAdapter implements Adapter {
   }
   estado(): SourceState {
     if (this.modo === 'demo') return { modo: 'demo', estado: 'demo', detalle: t('server.simulatedDataDemoSetIt'), ultima: this.ultima };
+    if (this.modo === 'off') return { modo: 'off', estado: 'sin-configurar', detalle: t('server.sourceOffConnectIt') };
     if (this.real) { const e = this.real.estado(); return { ...e, modo: 'real', ultima: e.ultima ?? this.ultima }; }
     return { modo: 'real', estado: this.error ? 'error' : 'sin-configurar', detalle: this.error, ultima: this.ultima };
   }
   async sondear() {
+    // apagada: no lee nada (ni toca el conector real); lo que hubiera de ella se vacía
+    if (this.modo === 'off') return { notificaciones: [], eventos: CALENDAR_SOURCES.includes(this.id) ? [] : undefined, complete: true };
     this.ultima = Date.now();
     if (this.modo === 'demo') { this.error = undefined; return { notificaciones: demoNotifications(this.id), eventos: CALENDAR_SOURCES.includes(this.id) ? demoEvents(this.id) : undefined }; }
     const r = await this.withReal(); if (!r) throw new Error(this.error || 'Conector no disponible');
@@ -74,5 +77,5 @@ class SourceAdapter implements Adapter {
   async configurar(c: Record<string, string>) { const r = await this.withReal(); if (!r) return { ok: false, detalle: this.error || 'Conector no disponible' }; return r.configurar(c); }
   reiniciar() { this.error = undefined; this.real?.reiniciar(); }
   parar() { this.real?.parar?.(); }
-  async accion(n: string, d: Record<string, any>) { if (this.modo === 'demo' && this.id === 'linear' && n === 'panel') return demoPanelLinear(); if (this.modo === 'demo' && this.id === 'linear' && n === 'tablero') return demoBoardLinear(); if (this.modo === 'demo' && this.id === 'jira' && n === 'panel') return demoPanelJira(); const r = await this.withReal(); if (!r?.accion) throw new Error(t('server.actionNotAvailable')); return r.accion(n, d); }
+  async accion(n: string, d: Record<string, any>) { if (this.modo === 'demo' && this.id === 'linear' && n === 'panel') return demoPanelLinear(); if (this.modo === 'demo' && this.id === 'linear' && n === 'tablero') return demoBoardLinear(); if (this.modo === 'demo' && this.id === 'jira' && n === 'panel') return demoPanelJira(); if (this.modo === 'off' && (n === 'panel' || n === 'tablero')) throw new Error(t('server.sourceOffConnectIt')); const r = await this.withReal(); if (!r?.accion) throw new Error(t('server.actionNotAvailable')); return r.accion(n, d); }
 }

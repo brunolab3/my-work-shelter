@@ -1,7 +1,8 @@
 // El servidor de verdad, en un puerto y una carpeta de datos propios: rutas malformadas, orígenes, token y mensajes hostiles.
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { spawn, type ChildProcess } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import WebSocket from 'ws';
@@ -92,22 +93,61 @@ describe('servidor local', () => {
     ws.send(JSON.stringify({ t: 'hola', version: 'prueba' }));
     const carpeta = mkdtempSync(path.join(tmpdir(), 'refugio-vincular-'));
     writeFileSync(path.join(carpeta, 'Cargo.toml'), '[package]\nname = "x"\n');
+    // dos salas de repo propias (el refugio nuevo no trae ninguna)
+    const a = mkdtempSync(path.join(tmpdir(), 'refugio-sala-a-')), b = mkdtempSync(path.join(tmpdir(), 'refugio-sala-b-'));
+    ask('reclutar', { ruta: a }, 'ra'); ask('reclutar', { ruta: b }, 'rb'); await espera(1200);
+    const idA = responses.find(m => m.peticion === 'ra')?.datos?.id, idB = responses.find(m => m.peticion === 'rb')?.datos?.id;
+    expect(idA && idB).toBeTruthy();
+    const antes = responses.filter(m => m.t === 'estado').pop().estado;
+    const habitanteA = antes.habitantes.find((h: any) => h.salaId === idA)?.id; expect(habitanteA).toBeTruthy();
     ask('vincularSala', { salaId: 'puerta', ruta: carpeta }, 'servicio');
-    ask('vincularSala', { salaId: 'requests', ruta: '/' }, 'raiz');
-    ask('vincularSala', { salaId: 'requests', ruta: path.join(carpeta, 'no-existe') }, 'falta');
-    ask('vincularSala', { salaId: 'requests', ruta: carpeta }, 'vin');
+    ask('vincularSala', { salaId: idA, ruta: '/' }, 'raiz');
+    ask('vincularSala', { salaId: idA, ruta: path.join(carpeta, 'no-existe') }, 'falta');
+    ask('vincularSala', { salaId: idA, ruta: carpeta }, 'vin');
     await espera(1500);
-    ask('vincularSala', { salaId: 'express', ruta: carpeta }, 'repetida');
+    ask('vincularSala', { salaId: idB, ruta: carpeta }, 'repetida');
     ask('sala.quitarDecorado', { salaId: 'puerta' }, 'quitar');
     await espera(600);
     for (const p of ['servicio', 'raiz', 'falta', 'repetida', 'quitar']) expect(responses.find(m => m.peticion === p)?.error, p).toBeTruthy();
     expect(responses.find(m => m.peticion === 'vin')?.error).toBeFalsy();
     const ultimo = responses.filter(m => m.t === 'estado' || m.t === 'bienvenida').pop().estado;
-    const sala = ultimo.salas.find((s: any) => s.id === 'requests');
+    const sala = ultimo.salas.find((s: any) => s.id === idA);
     expect(sala).toMatchObject({ ruta: carpeta, nombre: path.basename(carpeta), tipo: 'repo' });
     expect(sala.decorado).toBeUndefined();
-    expect(ultimo.habitantes.find((h: any) => h.id === 'lola')?.salaId).toBe('requests');
-    expect(responses.filter(m => m.t === 'repos').pop()?.repos?.requests?.tipo).toBe('rust');
-    ws.close(); rmSync(carpeta, { recursive: true, force: true });
+    expect(ultimo.habitantes.find((h: any) => h.id === habitanteA)?.salaId).toBe(idA);
+    expect(responses.filter(m => m.t === 'repos').pop()?.repos?.[idA]?.tipo).toBe('rust');
+    for (const id of [idA, idB]) ask('retirarSala', { salaId: id }, 'fin-' + id);
+    await espera(800);
+    ws.close(); for (const d of [carpeta, a, b]) rmSync(d, { recursive: true, force: true });
   }, 15_000);
+  it('un refugio nuevo empieza sin salas de repo ni datos DEMO, y la raíz elegida trae sus repos y retira las de fuera', async () => {
+    const ws = await abrir(`?t=${token}`) as WebSocket;
+    const responses: any[] = []; ws.on('message', d => responses.push(JSON.parse(String(d))));
+    const ask = (nombre: string, datos: any, peticion: string) => ws.send(JSON.stringify({ t: 'accion', nombre, peticion, datos }));
+    ws.send(JSON.stringify({ t: 'hola', version: 'prueba' })); await espera(600);
+    const inicial = responses.find(m => m.t === 'bienvenida').estado;
+    expect(inicial.salas.filter((s: any) => s.tipo === 'repo')).toEqual([]);
+    // ni datos de prueba ni fuentes que lean solas (Mail y Calendario del Mac, GitHub con gh): todas apagadas
+    expect(new Set(Object.values(inicial.integraciones).map((i: any) => i.modo))).toEqual(new Set(['off']));
+    expect(responses.filter(m => m.t === 'notificaciones').pop()?.lista ?? []).toEqual([]);
+    ask('git.prsTablero', {}, 'prs'); await espera(600);
+    expect(responses.find(m => m.peticion === 'prs')?.datos).toMatchObject({ prs: [] });
+    expect(responses.find(m => m.peticion === 'prs')?.datos?.demo).toBeFalsy();
+    // una raíz con dos repos de git, una carpeta suelta y un ala (dos repos dentro), y una sala de antes fuera de ella
+    const raiz = mkdtempSync(path.join(tmpdir(), 'refugio-raiz-'));
+    for (const r of ['api', 'web', 'ala/uno', 'ala/dos']) { mkdirSync(path.join(raiz, r), { recursive: true }); execFileSync('git', ['init', '-q'], { cwd: path.join(raiz, r) }); }
+    mkdirSync(path.join(raiz, 'notas'));
+    const fuera = mkdtempSync(path.join(tmpdir(), 'refugio-fuera-'));
+    ask('reclutar', { ruta: fuera }, 'fuera'); await espera(800);
+    const idFuera = responses.find(m => m.peticion === 'fuera')?.datos?.id; expect(idFuera).toBeTruthy();
+    ask('guardar', { parche: { raizRepos: raiz } }, 'g'); await espera(2500);
+    expect(responses.find(m => m.peticion === 'g')?.error).toBeFalsy();
+    const ultimo = responses.filter(m => m.t === 'estado').pop().estado;
+    const rutas = ultimo.salas.filter((s: any) => s.tipo === 'repo' || (s.tipo === 'coordinacion' && s.id !== 'tareas')).map((s: any) => s.ruta).sort();
+    expect(rutas).toEqual(['ala', 'api', 'web'].map(r => path.join(raiz, r)));
+    expect(ultimo.salas.some((s: any) => s.id === idFuera)).toBe(false);
+    expect(ultimo.habitantes.some((h: any) => h.salaId === idFuera)).toBe(false);
+    for (const s of ultimo.salas.filter((x: any) => rutas.includes(x.ruta))) expect(ultimo.habitantes.some((h: any) => h.salaId === s.id)).toBe(true);
+    ws.close(); for (const d of [raiz, fuera]) rmSync(d, { recursive: true, force: true });
+  }, 20_000);
 });

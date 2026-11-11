@@ -4,11 +4,17 @@ import { INITIAL_ROOMS } from './refugioInicial.ts';
 
 const sitio = (s: { planta: number; lado: string; orden: number }) => `${s.planta}${s.lado}${s.orden}`;
 const repo = (nombre: string) => ({ id: nombre, tipo: 'repo', nombre });
+// el refugio de serie ya no trae salas de repo: aquí, con cuatro, como uno que ya ha tomado su raíz de repos
+const SERIE = distribute([...INITIAL_ROOMS, ...['express', 'requests', 'ripgrep', 'awesome'].map(repo)] as any[]) as any[];
 
 describe('disposición del refugio', () => {
+  it('sin salas de repo de serie, el ocio sube a la planta de debajo de la planificación', () => {
+    expect(INITIAL_ROOMS.some(s => s.tipo === 'repo')).toBe(false);
+    expect(INITIAL_ROOMS.find(s => s.id === 'galeria')!.planta).toBe(3);
+  });
   it('la inicial: PB puerta; -1 cámara acorazada | Puente de Mando; -2 comunicaciones, planificación | logística, control de versiones; -3 repos; -4 cultivos, discoteca | galería de tiro', () => {
-    const en = (id: string) => sitio(INITIAL_ROOMS.find(s => s.id === id)!);
-    expect(INITIAL_ROOMS.filter(s => s.planta === 0).map(s => s.id)).toEqual(['puerta']);
+    const en = (id: string) => sitio(SERIE.find(s => s.id === id)!);
+    expect(SERIE.filter(s => s.planta === 0).map(s => s.id)).toEqual(['puerta']);
     expect(en('puerta')).toBe('0izq0');
     expect([en('camara'), en('puente')]).toEqual(['1izq0', '1der0']);
     expect([en('comunicaciones'), en('planificacion'), en('logistica'), en('git'), en('tareas')]).toEqual(['2izq1', '2izq0', '2der0', '2der1', '2der2']);
@@ -17,14 +23,14 @@ describe('disposición del refugio', () => {
     expect([en('hidroponia'), en('discoteca'), en('galeria'), en('chapa')]).toEqual(['4izq1', '4izq0', '4der0', '4der1']);
   });
   it('un recluta nuevo entra por orden alfabético y nadie comparte hueco', () => {
-    const s = distribute([...INITIAL_ROOMS, repo('Banco')]);
+    const s = distribute([...SERIE, repo('Banco')]);
     const fila = s.filter(x => x.planta === 3).sort((a, b) => (a.lado === b.lado ? (a.lado === 'izq' ? b.orden - a.orden : a.orden - b.orden) : a.lado === 'izq' ? -1 : 1)).map(x => x.nombre);
     expect(fila).toEqual(['awesome', 'Banco', 'express', 'requests', 'ripgrep']);
     expect(new Set(s.map(sitio)).size).toBe(s.length);
     expect(s.find(x => x.id === 'galeria')!.planta).toBe(4);
   });
   it('con más repos de los que caben, siguen en la planta de debajo y el ocio baja con ellos', () => {
-    const s = distribute([...INITIAL_ROOMS, ...Array.from({ length: REPOS_BY_FLOOR }, (_, i) => repo('z' + i))]);
+    const s = distribute([...SERIE, ...Array.from({ length: REPOS_BY_FLOOR }, (_, i) => repo('z' + i))]);
     expect(s.filter(x => x.planta === 3)).toHaveLength(REPOS_BY_FLOOR);
     expect(s.find(x => x.id === 'galeria')!.planta).toBe(5);
     expect(new Set(s.map(sitio)).size).toBe(s.length);
@@ -38,7 +44,7 @@ describe('disposición del refugio', () => {
 });
 
 describe('disposición a mano (obras desde el plano)', () => {
-  const base = distribute(INITIAL_ROOMS);
+  const base = distribute(SERIE);
   const en = (salas: any[], id: string) => sitio(salas.find(s => s.id === id)!);
   const unique = (salas: any[]) => expect(new Set(salas.map(sitio)).size).toBe(salas.length);
 

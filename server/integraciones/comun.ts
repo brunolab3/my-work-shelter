@@ -63,7 +63,7 @@ export class ConfigSource {
   async olvidar() {
     for (const n of this.guardados()) await this.setSecret(n, null);
     this.cache.clear();
-    this.almacen.cambiar(e => { const r = e.integraciones[this.id] ??= { modo: 'demo' }; r.campos = {}; r.secrets = []; r.modo = 'demo'; });
+    this.almacen.cambiar(e => { const r = e.integraciones[this.id] ??= { modo: 'demo' }; r.campos = {}; r.secrets = []; r.modo = 'off'; });
   }
   forgetCache() { this.cache.clear(); }
   descripcion() { return { campos: this.campos, valores: this.publicos(), guardados: this.guardados() }; }

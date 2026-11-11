@@ -1,45 +1,46 @@
-# Diseño del refugio
+# Shelter design
 
-## Disposición
-- Hueco del ascensor en x = 0 (3,4 m con paredes). Salas a la izquierda (x < 0) y a la derecha (x > 0) del ascensor; `orden` 0 junto al ascensor, 1 la siguiente.
-- Cada sala mide 12 m (3 módulos) + pilares del corte (MARCO = 0,45 m). Centro de una sala: `x = ±(1,7 + MARCO + 6 + orden·(12 + MARCO))`.
-- Plantas: `y = −planta · PLANTA` (PLANTA = 4,43 + 0,85). Se rotulan PB, -1, -2… (`rotuloPlanta`). La planta baja está a pie de calle.
-- El sitio de cada sala no se elige a mano: lo calcula `distribuir` (`shared/disposicion.ts`) a partir de las salas que hay. El servidor lo aplica al cargar el estado guardado, al reclutar y al retirar una sala:
-  - PB: la puerta, sola, a la izquierda del ascensor. Se entra y se sale por ella.
-  - -1: cámara acorazada | Puente de Mando.
-  - -2: comunicaciones (fuera) y agenda (junto al ascensor) | logística y control de versiones.
-  - -3: los repos, en orden alfabético de izquierda a derecha y repartidos a los dos lados (la mitad redondeando hacia arriba a la izquierda). Caben 8 por planta; si hay más, siguen en la -4 y así.
-  - La última planta: ocio (hidroponía y discoteca | galería de tiro y Chapa y Pintura).
-- Calle: el terreno del yermo a la altura de la planta baja, con el cielo (degradado y siluetas de colinas y árboles secos del pack de naturaleza KayKit). A pie de calle quedan la puerta, con el rótulo «REFUGIO 42» en el tejado, y la torre del ascensor.
-- Roca: una cara de corte con estratos de la calle hacia abajo, con agujeros para las salas y el hueco del ascensor; las zonas sin excavar son roca (sin cuevas por ahora).
+## Layout
+- Elevator shaft at x = 0 (3.4 m with walls). Rooms to the left (x < 0) and right (x > 0) of the elevator; `orden` 0 next to the elevator, 1 the next one.
+- Each room is 12 m wide (3 modules) + the cutaway pillars (FRAME = 0.45 m). A room's centre: `x = ±(1.7 + FRAME + 6 + orden·(12 + FRAME))`.
+- Floors: `y = −planta · FLOOR` (FLOOR = 4.43 + 0.85). Labelled PB (ground), -1, -2… (`floorCaption`). The ground floor is at street level.
+- A room's place isn't chosen by hand: `distribute` (`shared/disposicion.ts`) computes it from the rooms there are. The server applies it when loading the saved state, when recruiting and when retiring a room (unless the Overseer moved rooms by hand from the map: then the layout stays manual until reset):
+  - PB: the Main Gate, alone, left of the elevator. You come in and go out through it.
+  - -1: Vault | Command Bridge.
+  - -2: Communications (outer) and Calendar (next to the elevator) | Logistics, Version Control and Planning.
+  - -3: the repos, in alphabetical order from left to right and split across both sides (half, rounded up, on the left). 8 fit per floor; if there are more, they continue on -4 and so on.
+  - The last floor: leisure (Hydroponics and Disco | Shooting Gallery and Body Shop).
+- Street: the wasteland terrain at ground-floor height, with the sky (gradient and silhouettes of hills and dead trees from the KayKit nature pack). At street level stand the Main Gate, with the "REFUGIO 42" sign on the roof, and the elevator tower.
+- Rock: a cut face with strata from the street down, with holes for the rooms and the elevator shaft; unexcavated areas are rock (no caves for now).
 
-## Circulación
-- Cada planta tiene un carril de paso (z ≈ 1,2) que atraviesa sus salas por puertas en los tabiques (paredes laterales con hueco de puerta) y llega al ascensor.
-- El ascensor tiene una cabina que sube y baja de verdad (con puertas, sonido, campanilla). Los personajes entran, la cabina viaja y salen.
-- Grafo de navegación: nodos por planta (puertas, centro de cada sala, rellano del ascensor) y aristas verticales por el ascensor. Ruta = A* sobre ese grafo; el desplazamiento horizontal usa los clips de marcha y el vertical la cabina.
-- Supervisor: A/D (←→) por la planta, W/S (↑↓) en profundidad dentro de una sala; en el rellano del ascensor, W/S llaman a la cabina para subir o bajar. Clic en el suelo de una sala: ir allí (con ascensor si hace falta).
+## Circulation
+- Each floor has a walkway (z ≈ 1.2) that crosses its rooms through doors in the partitions (side walls with a door gap) and reaches the elevator.
+- The elevator has a cabin that really goes up and down (with doors, sound, chime). Characters get in, the cabin travels and they get out.
+- Navigation graph: nodes per floor (doors, centre of each room, elevator landing) and vertical edges through the elevator. Route = A* over that graph; horizontal movement uses the walk clips and vertical movement the cabin.
+- Overseer: A/D (←→) along the floor, W/S (↑↓) in depth inside a room; on the elevator landing, W/S call the cabin to go up or down. Click on a room's floor: go there (by elevator if needed).
 
-## Luz con muchas salas (rendimiento)
-- Un reparto fijo de luces dinámicas (6 focos, 1 con sombra, y 1 puntual para la pieza protagonista) que se asignan cada medio segundo a las lámparas más cercanas a la cámara. El número de luces nunca cambia (los shaders no se recompilan).
-- Las lámparas sin luz asignada muestran su bombilla emisiva y una poza falsa (decal aditivo) para que de lejos parezcan encendidas.
-- La sombra del sol sigue al encuadre de la cámara.
+## Light with many rooms (performance)
+- A fixed set of dynamic lights (6 spots, 1 with shadow, and 1 point light for the centrepiece) assigned every half second to the lamps nearest the camera. The number of lights never changes (shaders aren't recompiled).
+- Lamps without an assigned light show their emissive bulb and a fake pool (additive decal) so they look lit from afar.
+- The sun's shadow follows the camera framing.
 
-## Tipos de sala (personalidad propia, material fijado)
-| Tipo | Pieza protagonista | Acorde | Habitante | Notas |
+## Room types (own personality, fixed art)
+| Type | Centrepiece | Palette | Dweller | Notes |
 |---|---|---|---|---|
-| Repo de serie: Estudio (express; web y Node) | Rack de servidores con pilotos y muro de pantallas | óxido, fósforo | Remi | sofá; la plantilla de los repos web y Node |
-| Repo de serie: Laboratorio (requests; Python) | Terrario de cristal | oliva, verde | Lola | mesa de pruebas con fregadero, invernadero de bandejas |
-| Repo de serie: Fundición (ripgrep; Rust y Go) | Forja de ladrillo con campana y chimenea | rojo óxido, cobre | Vera | yunque sobre tocón, crisol, tina de temple |
-| Repo de serie: Archivo (awesome; sin código) | Estantería alta de cajas | ocre | Marga | fichero con terminal, mesa de consulta |
-| Repo con decorado («Adaptar la sala al repo») | La que diseñe su habitante con el atrezo del juego | el suyo | el de la sala | `shared/decorado.ts`, `docs/decorados.md`; también puede partir del taller web, el escaparate, el archivo de marca o la sala de proyección hechos a mano |
-| Comunicaciones | Centralita de radio con antenas y tubo neumático | verde | Ondina | pantalla con el feed real de notificaciones |
-| Agenda | Pizarra-calendario de la semana (eventos reales) | azul | Calixto | relojes, mesa con mapa |
-| Logística (tipo `logistica`) | Pantalla táctica con el tablero de Linear | rojo | CM-4 (Clanker) | consolas en arco |
-| Control de Versiones (tipo `git`) | Cliente de git de todos los repos del refugio | grafito, verde | la Octocat (modelo propio, animada por código) | matriz de contribuciones y pull requests |
-| Puente de Mando | Maqueta holográfica del refugio en vivo sobre un proyector (el repo del juego) | grafito y latón | Néstor «El Arquitecto» (Survivalist, aspecto original) | columnas de código, núcleo de energía (el generador), mesa de planos |
-| Cámara acorazada | Pared de cajas de seguridad, una por integración con su piloto, tras una barrera láser | acero y rojo | Hanzo «Doble Factor» (4GTN con katana) | escáner biométrico, torreta y dron, reserva de oro, cámaras del refugio |
-| Puerta Principal | Puerta-engranaje gigante | acero, amarillo | Guardián (androide 4GTN) | reclutamiento; cola de reclutas (carpetas sugeridas) |
-| Hidroponía | Bancales de cultivo que crecen con las herramientas | verde, magenta (luces de cultivo) | Fermín | actividad: cosechar |
-| Discoteca | Cabina del DJ (Spotify) | neón | DJ-80 | pista de baile con bailarines |
-| Galería de tiro | Dianas y mostrador | rojo, amarillo | Dora | actividad: tiro al blanco (primera iteración, a medias: ver README) |
-| Chapa y Pintura | Barbería y ropería: cambiar de aspecto | verde agua | Fito | probador (`web/src/ui/Probador.tsx`) |
+| Stock repo: Studio (web and Node) | Server rack with pilot lights and a wall of screens | rust, phosphor | the room's recruit | sofa |
+| Stock repo: Laboratory (Python) | Glass terrarium | olive, green | the room's recruit | test bench with sink, tray greenhouse |
+| Stock repo: Foundry (Rust and Go) | Brick forge with hood and chimney | rust red, copper | the room's recruit | anvil on a stump, crucible, quenching tub |
+| Stock repo: Archive (no code) | Tall shelf of boxes | ochre | the room's recruit | card file with terminal, reading table |
+| Repo with a set dressing ("Adapt the room to the repo") | Whatever its dweller designs with the game's props | its own | the room's | `shared/decorado.ts`, `docs/decorados.md`; can also start from the hand-made web workshop, shop window, brand archive or screening room |
+| Planning (type `coordinacion`, folder = repos root) | Wall screen with the deployment plan (click opens the board) | — | Inés «Divide y Vencerás» | plan table where work is split; plans Jira tasks across repos. Wings (folders with several repos) are also `coordinacion` rooms |
+| Communications | Radio switchboard with antennas and pneumatic tube | green | Ondina | screen with the real notification feed |
+| Calendar (type `planificacion`) | Week calendar board (real events) | blue | Calixto | clocks, map table |
+| Logistics (type `logistica`) | Tactical screen with the Jira board and your PRs | red | CM-4 (Clanker) | console arc; the Overseer starts here |
+| Version Control (type `git`) | Git client for every repo in the shelter | graphite, green | the Octocat (own model, animated by code) | contribution matrix and pull requests |
+| Command Bridge | Live holographic model of the shelter on a projector (the game's repo) | graphite and brass | Néstor «El Arquitecto» (Survivalist, original look) | code columns, power core (the generator), plan table |
+| Vault | Wall of safe-deposit boxes, one per integration with its pilot light, behind a laser barrier | steel and red | Hanzo «Doble Factor» (4GTN with katana) | biometric scanner, turret and drone, gold reserve, shelter cameras |
+| Main Gate | Giant gear door | steel, yellow | Guardián (4GTN android) | recruiting; queue of recruits (suggested folders) |
+| Hydroponics | Crop beds that grow with tool use | green, magenta (grow lights) | Fermín | activity: harvest |
+| Disco | DJ booth (Spotify) | neon | DJ-80 | dance floor with dancers |
+| Shooting Gallery | Targets and counter | red, yellow | Dora | activity: target shooting (first iteration, unfinished: see README) |
+| Body Shop | Barber's and wardrobe: change looks | aqua | Fito | fitting room (`web/src/ui/Probador.tsx`) |

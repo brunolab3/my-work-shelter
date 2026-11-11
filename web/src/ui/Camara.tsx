@@ -159,6 +159,8 @@ function FormIntegration({ ficha, valuesIni, savedIni, volver }: { ficha: Integr
     ...(oauth ? [{ id: 'conectar', texto: st?.estado === 'conectada' ? t('panels.switchAccount') : t('panels.connectWithOauth', { oauth: oauth ?? '' }) }, ...(st?.estado === 'conectada' ? [{ id: 'desconectar', texto: t('panels.signOut') }] : [])] : []),
     ...(INFO_SOURCE[ficha.id].canales && st?.estado === 'conectada' ? [{ id: 'canales', texto: t('panels.chooseChannels') }] : []),
     { id: 'modo', texto: real ? t('panels.switchToDemo') : t('panels.useRealData') },
+    // apagada (como empieza un refugio nuevo): también se puede probar con datos DEMO
+    ...(st?.modo === 'off' ? [{ id: 'demo', texto: t('panels.switchToDemo') }] : []),
   ];
   const [canales, setChannels] = useState<{ id: string | number; nombre: string; servidor?: string; elegido: boolean }[] | null>(null);
   const n = ficha.campos.length + acciones.length;
@@ -171,6 +173,7 @@ function FormIntegration({ ficha, valuesIni, savedIni, volver }: { ficha: Integr
       else if (id === 'conectar') { await cliente.accion('integracion.conectar', { fuente: ficha.id }); setMsg({ ok: true, texto: t('panels.oauthHasBeenOpenedIn', { oauth: oauth ?? '' }) }); }
       else if (id === 'desconectar') { await cliente.accion('integracion.desconectar', { fuente: ficha.id }); setMsg({ ok: true, texto: t('panels.signedOut') }); }
       else if (id === 'modo') { await cliente.accion('integracion.modo', { fuente: ficha.id, modo: real ? 'demo' : 'real' }); SFX.conmutar(); }
+      else if (id === 'demo') { await cliente.accion('integracion.modo', { fuente: ficha.id, modo: 'demo' }); SFX.conmutar(); }
       else if (id === 'canales') { setChannels(await cliente.accion<any[]>('integracion.canales', { fuente: ficha.id })); }
     } catch (e) { setMsg({ ok: false, texto: (e as Error).message }); SFX.error(); }
     setBusy(false);

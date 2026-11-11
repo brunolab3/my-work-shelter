@@ -151,6 +151,7 @@ export const SERVIDOR: Record<string, Texto> = {
   'server.thereIsATerminalOpen': { es: 'Hay una terminal abierta dentro de la copia. Ciérrala antes de desecharla.', en: 'There is a terminal open inside the copy. Close it before discarding the copy.' },
   'server.theCopyHasUnsavedChanges': { es: 'La copia tiene cambios sin guardar: confirma que quieres perderlos.', en: 'The copy has unsaved changes: confirm you want to lose them.' },
   'server.theCopyIsLockedBy': { es: 'La copia está bloqueada por git y no se ha podido liberar.', en: 'The copy is locked by git and could not be released.' },
+  'server.sourceOffConnectIt': { es: 'Apagada: conéctala en la cámara acorazada (o elige DEMO para ver datos de prueba).', en: 'Off: connect it in the vault (or choose DEMO to see sample data).' },
   'server.simulatedDataDemoSetIt': { es: 'Datos simulados (DEMO). Configúralo en la cámara acorazada para ver los reales.', en: 'Simulated data (DEMO). Set it up in the vault to see the real one.' },
   'server.actionNotAvailable': { es: 'Acción no disponible', en: 'Action not available' },
   'server.macCalendarOnlyWorksOn': { es: 'Calendario del Mac solo funciona en macOS.', en: 'Mac Calendar only works on macOS.' },

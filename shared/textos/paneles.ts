@@ -622,6 +622,8 @@ export const PANELS: Record<string, Texto> = {
   'panels.inChromePaintEverythingCan': { es: ', en Chapa y Pintura, se cambia todo)', en: ', in Chrome & Paint, everything can be changed)' },
   'panels.shelterName2': { es: 'nombre del refugio', en: 'shelter name' },
   'panels.openTheShelter': { es: 'Abrir el refugio', en: 'Open the shelter' },
+  'panels.welcomeReposRoot': { es: 'raíz de repos', en: 'repos root' },
+  'panels.welcomeReposRootHint': { es: 'Cada repo de git de esta carpeta entra como una sala (los demás, por la Puerta Principal). Al abrir el refugio vas a la cámara acorazada a conectar tu correo, chats y tableros: no hay datos de prueba.', en: 'Every git repo in this folder becomes a room (others come in through the Main Door). When you open the shelter you go to the vault to connect your mail, chats and boards: there is no demo data.' },
   'panels.openTheShelterThen': { es: 'abrir el refugio · luego', en: 'open the shelter · then' },
   'panels.showsAllTheControls': { es: 'enseña todos los controles', en: 'shows all the controls' },
   'panels.salaHasNoDweller': { es: '{sala} no tiene habitante.', en: '{sala} has no dweller.' },

@@ -6,14 +6,14 @@ import { chromium } from 'playwright';
 import { withToken } from './token.mjs';
 const url = process.argv[2] || 'http://127.0.0.1:5173/';
 const salida = process.argv[3] || '_capturas/dialogo';
-const quien = process.argv[4] || 'remi';
+const quien = process.argv[4];   // sin él, el habitante de la primera sala de repo
 const encargo = process.argv[5] || 'Ejecuta exactamente `git log --oneline -3` con Bash y resume en una frase qué se hizo en el último commit.';
 const b = await chromium.launch({ args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist'] });
 const pg = await b.newPage({ viewport: { width: 1600, height: 900 } });
 const logs = []; pg.on('console', m => logs.push(m.text())); pg.on('pageerror', e => logs.push('PAGEERROR ' + e.message));
 await pg.goto(withToken(url)); await pg.evaluate(async () => { await window.__ready(); });
 await pg.waitForTimeout(1500);
-await pg.evaluate(q => { const r = window.__refugio; r.interact(r.habitantes.find(h => h.id.id === q)); }, quien);
+await pg.evaluate(q => { const r = window.__refugio; r.interact(r.habitantes.find(h => q ? h.id.id === q : h.sala.tipo === 'repo')); }, quien);
 await pg.waitForTimeout(900); await pg.screenshot({ path: `${salida}_1_menu.png` });
 await pg.keyboard.press('Enter'); await pg.waitForTimeout(500);
 await pg.keyboard.type(encargo, { delay: 5 }); await pg.screenshot({ path: `${salida}_2_encargo.png` });

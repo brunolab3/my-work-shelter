@@ -69,7 +69,7 @@ await wait(1500); await foto('9-supervisor-robot');
 // ---- un habitante desde su intercomunicador; la Octocat no
 const r = await pg.evaluate(async () => { try { await window.__client.accion('aspecto.guardar', { quien: 'mona', aspecto: { especie: 'humano', piezas: {}, colores: {} } }); return 'guardado'; } catch (e) { return String(e.message ?? e); } });
 ok(/Octocat/.test(r), 'la Octocat no se deja cambiar: ' + r);
-const malo = await pg.evaluate(async () => { try { await window.__client.accion('aspecto.guardar', { quien: 'remi', aspecto: { especie: 'humano', piezas: { cara: 'no-existe', torso: 'torso.Knight' }, colores: { piel: 'rojo' } } }); return window.__live.get().estado.habitantes.find(h => h.id === 'remi').aspecto; } catch (e) { return String(e.message ?? e); } });
+const malo = await pg.evaluate(async () => { try { await window.__client.accion('aspecto.guardar', { quien: 'guardian', aspecto: { especie: 'humano', piezas: { cara: 'no-existe', torso: 'torso.Knight' }, colores: { piel: 'rojo' } } }); return window.__live.get().estado.habitantes.find(h => h.id === 'remi').aspecto; } catch (e) { return String(e.message ?? e); } });
 ok(malo?.piezas?.cara && malo.piezas.cara !== 'no-existe' && !malo.colores.piel && malo.piezas.torso === 'torso.Knight', 'el servidor sanea lo que no existe');
 
 console.log(errores.length ? 'ERRORES:\n' + errores.slice(0, 12).join('\n') : 'sin errores en la página');

@@ -1,344 +1,356 @@
 # work-shelter
 
-> **Versión de [brunolab3](https://github.com/brunolab3), basada en [DavidTorrijos/work-shelter-public](https://github.com/DavidTorrijos/work-shelter-public).**
-> El juego original es de **David Torrijos** (licencia MIT, ver [`LICENSE`](LICENSE)); este repo publica mis cambios
-> encima. El original no acepta pull requests ni issues: lo que haya que comentar de esta versión, aquí.
->
-> *This is [brunolab3](https://github.com/brunolab3)'s version of [work-shelter-public](https://github.com/DavidTorrijos/work-shelter-public)
-> by David Torrijos (MIT). The original does not accept contributions; please don't open PRs or issues there about this version.*
+> **[brunolab3](https://github.com/brunolab3)'s version, based on [DavidTorrijos/work-shelter-public](https://github.com/DavidTorrijos/work-shelter-public).**
+> The original game is by **David Torrijos** (MIT licence, see [`LICENSE`](LICENSE)); this repo publishes my changes on
+> top. The original does not accept pull requests or issues: anything about this version goes here.
 
 <p align="center">
-  <a href="docs/media/trailer.mp4"><img src="docs/media/teaser.webp" alt="Avance de work-shelter: el refugio en corte, sus salas y sus habitantes trabajando" width="100%"></a>
+  <a href="docs/media/trailer.mp4"><img src="docs/media/teaser.webp" alt="work-shelter teaser: the shelter in cutaway, its rooms and its dwellers at work" width="100%"></a>
   <br>
-  <a href="docs/media/trailer.mp4"><b>▶ Ver el tráiler completo</b></a> (2 min, con sonido)
+  <a href="docs/media/trailer.mp4"><b>▶ Watch the full trailer</b></a> (2 min, with sound)
 </p>
 
-**Un refugio subterráneo jugable que es tu interfaz de trabajo sobre [Claude Code](https://docs.claude.com/claude-code).**
-Cada repositorio es una sala excavada en la roca y sus habitantes son sesiones reales de Claude Code en esa carpeta.
-Tú eres el Supervisor: recorres pasillos y ascensores, hablas con los habitantes, apruebas permisos, abres terminales
-y lees el correo, los chats y el calendario sin salir del refugio.
+**A playable underground shelter that is your work interface on top of [Claude Code](https://docs.claude.com/claude-code).**
+Each repository is a room dug into the rock and its dwellers are real Claude Code sessions in that folder. You are the
+Overseer: you walk corridors and elevators, talk to dwellers, approve permissions, open terminals and read your mail,
+chats and calendar without leaving the shelter.
 
-> *English summary:* work-shelter is a Fallout-Shelter-style 3D management game (three.js + Electron, macOS) that is
-> really a UI for real Claude Code sessions: each repo is a room, each inhabitant is a Claude Code session, talking is
-> working. It runs entirely on your Mac with your existing Claude Code login (no API keys, no telemetry). The game and
-> its docs are in Spanish. **It is an opinionated first proposal, not a product**: fork it and make it yours. Some
-> parts (the shooting gallery and the in-game economy) are deliberately left as an unfinished first iteration.
-> Install as a macOS app: `curl -fsSL https://raw.githubusercontent.com/brunolab3/my-work-shelter/main/instalar.sh | bash`.
+- **Everything on your Mac.** The server only listens on `127.0.0.1`, there's no telemetry and the game uses no API
+  keys or inference of its own: dwellers work with **your** installed Claude Code, with your session, your settings,
+  your `CLAUDE.md`, your hooks and your MCP servers.
+- **It's a real game**: dwellers with routines and personalities, elevators, crops, a shooting gallery, a shop, a
+  barber's to change looks… and everything is keyboard-driven.
+- **Almost no setup**: on first launch you tell it where your repos live and each one becomes a room; integrations
+  start off (no fake data) and the Vault opens so you connect yours. Spanish or English (Options → Language).
 
-- **Todo en tu Mac.** El servidor solo escucha en `127.0.0.1`, no hay telemetría y el juego no usa claves de API ni
-  inferencia propia: los habitantes trabajan con **tu** Claude Code instalado, con tu sesión, tus ajustes, tu
-  `CLAUDE.md`, tus hooks y tus servidores MCP.
-- **Es un juego de verdad**: habitantes con rutina y personalidad, ascensores, cultivos, galería de tiro, tienda,
-  peluquería para cambiar de aspecto… y todo se maneja con el teclado.
-- **Funciona sin configurar nada**: en el primer arranque el refugio trae cuatro repos de ejemplo y las
-  integraciones en modo DEMO.
+## What this is (and isn't)
 
-## Qué es esto (y qué no)
+work-shelter is **an initial proposal**: one possible way of working with coding agents if, instead of a list of tabs,
+you had a place to move around, with people inside doing things. It works end to end, but it isn't a product and
+doesn't try to be:
 
-work-shelter es **una propuesta inicial**: una forma posible de trabajar con agentes de código si, en vez de una
-lista de pestañas, tuvieras un sitio por el que moverte, con gente dentro haciendo cosas. Funciona de punta a punta,
-pero no es un producto ni pretende serlo:
+- **There's no roadmap or maintenance promise.** What's there is what it is. If something doesn't suit you, change it.
+- **Make it yours.** Fork it and take it wherever you like: another style, another game on top, other integrations,
+  an agent other than Claude Code, removing half the things. The licence is MIT precisely for that.
+- **It's meant to be changed by an agent.** [`AGENTS.md`](AGENTS.md) describes the architecture for Claude Code and
+  Codex, and the shelter itself has a room, the **Command Bridge**, whose dweller works on the game's repo: you ask it
+  for a change from inside and apply it without closing anything.
+- **The choices are debatable.** macOS only, shelter aesthetics, read-only integrations… They're choices of this
+  version, not principles of the project (except the privacy and security ones, which are worth keeping: see below).
 
-- **No hay hoja de ruta ni promesa de mantenimiento.** Lo que hay es lo que es. Si algo no te encaja, cámbialo.
-- **Hazlo tuyo.** Haz un fork y llévalo a donde quieras: otro estilo, otro juego encima, otras integraciones, otro
-  agente que no sea Claude Code, quitar la mitad de las cosas. La licencia es MIT precisamente para eso.
-- **Está pensado para que lo cambie un agente.** [`AGENTS.md`](AGENTS.md) describe la arquitectura para Claude Code y
-  Codex, y el propio refugio tiene una sala, el **Puente de Mando**, cuyo habitante trabaja sobre el repo del juego:
-  le pides un cambio desde dentro y lo aplicas sin cerrar nada.
-- **Las decisiones son opinables.** Todo en español, solo macOS, estética de refugio, integraciones de solo lectura…
-  Son elecciones de esta versión, no principios del proyecto (salvo las de privacidad y seguridad, que conviene
-  conservar: ver más abajo).
+### No pull requests or issues
 
-### Sin pull requests ni issues
+It's published for you to use and change, not as a community project: **pull requests and issues are neither read nor
+accepted, and there's no support**. Nothing personal; it's the only way to share it without it becoming a second job.
+If you improve it, publish it in your fork and tell people so others can find it: it'll be a pleasure to see it
+spread.
 
-Se publica para que lo uses y lo cambies, no como proyecto comunitario: **no leo ni acepto pull requests ni issues, y
-no hay soporte**. No es nada personal, es la única forma de compartirlo sin que se convierta en un segundo trabajo. Si
-lo mejoras, publícalo en tu fork y cuéntalo por ahí para que otros lo encuentren: será un placer que circule.
+### What's half-done
 
-### Lo que está a medias
+Two parts of the game are **an unfinished first iteration** and are left that way on purpose, open for whoever wants
+to redo them their own way:
 
-Dos partes del juego son **una primera iteración sin terminar** y se dejan así a propósito, abiertas para quien las
-quiera rehacer a su manera:
+- **The shooting gallery** (`web/src/mundo/tiro.ts`, `ShootingRound` in `web/src/ui/Actividades.tsx`). The sight only
+  moves horizontally (the height is fixed, that of the row of targets) and a hit is decided by comparing the sight's
+  on-screen `x` with each target's, with a tolerance; there's no ray or depth. It shows: some shots that should land
+  don't, and vice versa. The client computes the points and the server only bounds them (`juego.tiro` in
+  `server/juego.ts`). Obvious ideas: a free two-axis sight with a `Raycaster` against the targets, targets at different
+  heights and distances, and having the server receive the shots instead of the result.
+- **The economy** (`server/juego.ts`, `shared/catalogo.ts`). The currency is scrap: each task a dweller finishes gives
+  10–50 and sometimes a part for the field guide; tool calls make the crops grow; the gallery, the radio and the
+  generator give a bit more; and the shop spends it on accessories, weapons and seeds. The pieces exist, the numbers
+  add up and the server is the authority, but **it's not clear what it's for and it's dull**: no progression, nothing
+  worth unlocking, no clear link between what you work on and what you get. It's there for someone to give it meaning
+  (or remove it: the rest of the shelter doesn't depend on it).
 
-- **La galería de tiro** (`web/src/mundo/tiro.ts`, `RondaTiro` en `web/src/ui/Actividades.tsx`). La mira solo se
-  mueve en horizontal (la altura es fija, la de la fila de blancos) y el acierto se decide comparando la `x` en
-  pantalla de la mira con la de cada blanco, con una tolerancia; no hay rayo ni profundidad. Se nota: hay tiros que
-  deberían entrar y no entran, y al revés. Los puntos los calcula el cliente y el servidor solo los acota
-  (`juego.tiro` en `server/juego.ts`). Ideas obvias: mira libre en dos ejes con `Raycaster` contra los blancos,
-  blancos a distintas alturas y distancias, y que el servidor reciba los disparos en vez del resultado.
-- **La economía** (`server/juego.ts`, `shared/catalogo.ts`). La moneda es la chatarra: cada tarea terminada por un
-  habitante da 10–50 y a veces una pieza para la guía de campo; las llamadas a herramientas hacen crecer los cultivos;
-  la galería, la radio y el generador dan un poco más; y en la tienda se gasta en accesorios, armas y semillas. Las
-  piezas existen, los números cuadran y el servidor es la autoridad, pero **no se entiende bien para qué sirve y es
-  sosa**: no hay progresión, ni nada que desbloquear que importe, ni relación clara entre lo que trabajas y lo que
-  obtienes. Está para que alguien le dé sentido (o la quite: el resto del refugio no depende de ella).
+If you redo either, the rest of the game only touches them through the protocol's `juego.*` actions and the shelter's
+`jugador` state.
 
-Si rehaces cualquiera de las dos, el resto del juego solo las toca por las acciones `juego.*` del protocolo y el
-estado `jugador` del refugio.
+### What about Codex?
 
-### ¿Y con Codex?
+Today each dweller is a **Claude Code** session. Codex can already work *on* the game's code (it reads
+[`AGENTS.md`](AGENTS.md), just like Claude Code), but it can't *be* a dweller: that's not done yet, and it's exactly the
+kind of change the Command Bridge is for. The easiest way is to ask **Néstor**, its dweller (floor -1), as you'd ask
+for anything else. For example:
 
-Hoy cada habitante es una sesión de **Claude Code**. Codex ya puede trabajar *sobre* el código del juego (lee
-[`AGENTS.md`](AGENTS.md), igual que Claude Code), pero no puede *ser* un habitante: eso está sin hacer, y es justo el
-tipo de cambio para el que está pensado el Puente de Mando. La forma más cómoda es pedírselo a **Néstor**, su habitante
-(planta -1), como le pedirías cualquier otra cosa. Por ejemplo:
+> I want dwellers to be able to be Codex sessions as well as Claude Code, choosing the agent per room. Before touching
+> anything, read AGENTS.md, inventory everything that depends on Claude Code today and propose a phased plan. The first
+> phase: a Codex conversation in one room, with its permissions going through the game's dialog. Claude Code has to
+> keep working exactly the same, and Codex must use my own session (no API keys).
 
-> Quiero que los habitantes puedan ser sesiones de Codex además de Claude Code, eligiendo el agente por sala. Antes de
-> tocar nada, lee AGENTS.md, haz inventario de todo lo que hoy depende de Claude Code y proponme un plan por fases.
-> La primera fase: una conversación con Codex en una sala, con sus permisos pasando por el diálogo del juego. Claude
-> Code tiene que seguir funcionando exactamente igual, y Codex debe usar mi propia sesión (nada de claves de API).
+Some tips:
 
-Algunos consejos:
+- **Go in phases** and test each one before moving on: let it propose the plan, discuss it and approve phase by phase.
+  After each, "Apply the game's changes" (interface) or "Restart the game" (server) from inside the shelter.
+- **Commit before each phase** so you can go back if the shelter stops starting. If it breaks so badly you can't get
+  in, open Claude Code or Codex in a terminal in the game's folder and ask from there.
+- **Remind it what it mustn't lose**: nothing leaves your Mac except to the agent itself, you keep approving
+  permissions, and conversations can be resumed outside the game ("go to the surface").
+- You need Codex installed and signed in, just like Claude Code.
 
-- **Ve por fases** y prueba cada una antes de seguir: deja que te proponga el plan, discútelo y aprueba fase a fase.
-  Al acabar cada una, «Aplicar los cambios del juego» (interfaz) o «Reiniciar el juego» (servidor) desde el propio
-  refugio.
-- **Haz un commit antes de cada fase** para poder volver atrás si el refugio deja de arrancar. Si se rompe tanto que no
-  puedes entrar, abre Claude Code o Codex en una terminal en la carpeta del juego y pídeselo desde ahí.
-- **Recuérdale lo que no debe perder**: que nada se envíe fuera de tu Mac salvo al propio agente, que los permisos los
-  sigas aprobando tú y que las conversaciones se puedan retomar fuera del juego («salir a la superficie»).
-- Necesitas Codex instalado y con tu sesión iniciada, igual que Claude Code.
+## Requirements
 
-## Requisitos
+- macOS (Apple Silicon or Intel). Voice dictation needs macOS 26; everything else, any recent macOS.
+- [Claude Code](https://docs.claude.com/claude-code) installed and signed in (`claude` and then `/login` in a
+  terminal). Dwellers consume your plan's limits, as if you worked in the terminal.
+- Optional: [`gh`](https://cli.github.com) signed in (pull requests, PR reviews, contributions and GitHub
+  notifications) and iTerm (for "going to the surface"; without it, Terminal is used).
 
-- macOS (Apple Silicon o Intel). El dictado por voz necesita macOS 26; todo lo demás, cualquier macOS reciente.
-- [Claude Code](https://docs.claude.com/claude-code) instalado y con sesión iniciada (`claude` y luego `/login` en una
-  terminal). Los habitantes consumen los límites de tu plan, como si trabajaras en la terminal.
-- Opcional: [`gh`](https://cli.github.com) con sesión iniciada (pull requests, contribuciones y notificaciones de
-  GitHub) e iTerm (para «salir a la superficie»; si no está, se usa Terminal).
+## Installation
 
-## Instalación
-
-Pega esto en una terminal:
+Paste this in a terminal:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/brunolab3/my-work-shelter/main/instalar.sh | bash
 ```
 
-Tarda unos minutos la primera vez y al terminar tienes **work-shelter en Aplicaciones**, con su icono y fijado en el
-Dock; desde entonces se abre como cualquier app. Lo que hace ([`instalar.sh`](instalar.sh), léelo antes si quieres):
+It takes a few minutes the first time and at the end you have **work-shelter in Applications**, with its icon and
+pinned to the Dock; from then on it opens like any app. What it does ([`instalar.sh`](instalar.sh), read it first if
+you like):
 
-- Descarga el juego en `~/.work-shelter-public` (otra carpeta: `SHELTER_CODIGO=/ruta` delante de `bash`). Si macOS no
-  tiene git, abre el instalador de sus herramientas de línea de comandos y te pide repetir el comando al acabar.
-- Usa Node 22 o superior; si no lo encuentra, descarga uno portátil para el juego (comprobando su suma oficial).
-- Instala las dependencias (`npm ci`) y la ventana del juego (Electron), descarga el material artístico CC0 (unos
-  100 MB, fijado por commit) y compila la interfaz.
-- Crea `/Applications/work-shelter-public.app`, la fija en el Dock y la abre. Para no tocar el Dock:
+- Downloads the game into `~/.work-shelter-public` (another folder: `SHELTER_CODIGO=/path` before `bash`). If macOS has
+  no git, it opens the command line tools installer and asks you to rerun the command when it's done.
+- Uses Node 22 or later; if it can't find one, it downloads a portable one for the game (checking its official
+  checksum).
+- Installs the dependencies (`npm ci`) and the game window (Electron), downloads the CC0 art (about 100 MB, pinned by
+  commit) and builds the interface.
+- Creates `/Applications/work-shelter-public.app`, pins it to the Dock and opens it. To leave the Dock alone:
   `… | bash -s -- --sin-dock`.
 
-No pide contraseña ni instala nada fuera de esas carpetas (si tu usuario de macOS no es administrador y no puede
-escribir en `/Applications`: `… | bash -s -- --destino ~/Applications/work-shelter-public.app`). La app no está firmada por ningún
-desarrollador: la crea tu propio Mac al instalar, así que macOS la abre sin avisos.
+It asks for no password and installs nothing outside those folders (if your macOS user isn't an administrator and
+can't write to `/Applications`: `… | bash -s -- --destino ~/Applications/work-shelter-public.app`). The app isn't
+signed by any developer: your own Mac creates it at install time, so macOS opens it without warnings.
 
-**Poner al día:** vuelve a ejecutar el mismo comando (si has cambiado el código del juego, no lo pisa).
+**Updating:** run the same command again (if you've changed the game's code, it won't overwrite it).
 
-**Desinstalar:** borra `/Applications/work-shelter-public.app` (y quítala del Dock), `~/.work-shelter-public` (el
-juego y el estado del refugio), `~/Library/Application Support/work-shelter-public` (repos de ejemplo, carpetas de las
-salas especiales y sesiones de los navegadores) y `~/Library/Logs/work-shelter-public`. Las credenciales de las
-integraciones están en el llavero (Acceso a Llaveros, busca `work-shelter-public`). Tus repos y tus conversaciones de
-Claude Code no se tocan.
+**Uninstalling:** delete `/Applications/work-shelter-public.app` (and remove it from the Dock), `~/.work-shelter-public`
+(the game and the shelter's state), `~/Library/Application Support/work-shelter-public` (special rooms' folders,
+browser sessions and any example repos from older versions) and `~/Library/Logs/work-shelter-public`. Integration
+credentials are in the keychain (Keychain Access, search `work-shelter-public`). Your repos and your Claude Code
+conversations aren't touched.
 
-### Desde el código
+### From source
 
-Si vas a cambiar el juego, puedes tenerlo donde quieras:
+If you're going to change the game, you can keep it wherever you like:
 
 ```bash
 git clone https://github.com/brunolab3/my-work-shelter.git work-shelter && cd work-shelter
-./shelter                 # prepara lo que falte y abre el juego (Ctrl+C aquí lo cierra todo)
-./shelter instalar-app    # o crea la app de Aplicaciones apuntando a esta carpeta (--sin-dock para no tocar el Dock)
+./shelter                 # prepares whatever's missing and opens the game (Ctrl+C here closes everything)
+./shelter instalar-app    # or creates the Applications app pointing at this folder (--sin-dock to leave the Dock alone)
 ```
 
-La app abre el juego de la carpeta desde la que se instaló, así que tus cambios se ven sin reinstalarla: el Puente de
-Mando del propio juego los aplica («Aplicar los cambios del juego» o «Reiniciar el juego»). El icono es
-`electron/icono/fuente.png`; si lo cambias, `node scripts/instalar-app.mjs --icono` lo prepara de nuevo (necesita
+The app opens the game from the folder it was installed from, so your changes show without reinstalling: the game's
+own Command Bridge applies them ("Apply the game's changes" or "Restart the game"). The icon is
+`electron/icono/fuente.png`; if you change it, `node scripts/instalar-app.mjs --icono` prepares it again (needs
 `npx playwright install chromium`).
 
-Cerrar la ventana pide confirmación y para todas las sesiones. Si recargas, no se pierde nada: el servidor espera 20
-segundos a que vuelvas antes de parar las sesiones.
+Closing the window asks for confirmation and stops all sessions. If you reload, nothing is lost: the server waits 20
+seconds for you to come back before stopping the sessions.
 
-## Primer arranque
+## First launch
 
-Eliges el aspecto del Supervisor y el nombre del refugio. El refugio trae:
+You choose the Overseer's look, the shelter's name and your **repos root**, pre-filled with the folder it guesses
+(`~/Sites`, `~/Developer`, `~/Projects`, `~/code`… the first that exists). Then:
 
-- **Cuatro salas de ejemplo**, una por clase de proyecto, cada una con un repo público muy conocido que se clona solo
-  la primera vez (con su historia reciente) en `~/Library/Application Support/work-shelter-public/ejemplos/`:
+- **Every git repo directly inside the root becomes a room**, plus **wings** (folders without git that contain several
+  repos: a coordination room with all of them in view). No example repos are cloned. If you change the root later (in
+  the Vault), the new root's repos come in and rooms whose folder is outside it are retired (except rooms where someone
+  is working, and the service rooms). With the root at `~` nothing is added automatically. Other folders keep showing
+  as suggestions at the **Main Gate**, where you recruit more rooms. From a **room's panel** (E next to it) you can
+  link it to another folder or retire it.
+- Opening the shelter takes you to the **Vault** to connect your mail, chats, calendar and boards (see
+  [Integrations](#integrations)); until you do, they stay off.
+- Each repo room gets the stock scene for its type (Studio for web and Node, Laboratory for Python, Foundry for Rust
+  and Go, Archive for no code, Workshop for the rest). **Adapt the room to the repo** (room panel or ⌘K): its dweller
+  reads the repo and designs it a scene of its own with the game's props (the centrepiece, furniture and gadgets,
+  signs with slogans, self-typing screens, colors and light), looks at it with a photo, fixes it and tells you what it
+  built. Then you can ask for touch-ups in the same conversation ("put a plant by the desk"), or go back to the stock
+  scene. The scene is data the game validates, never code: see [`docs/decorados.md`](docs/decorados.md).
+- The service rooms: the Command Bridge (the game's own repo), the Vault (integrations and settings), Communications,
+  Calendar, Logistics (where you start: your Jira tasks with their PRs), Planning, Version Control (git and GitHub), the
+  Main Gate, Hydroponics, Disco, Shooting Gallery and Body Shop (change looks).
 
-  | Sala | Repo | |
-  |---|---|---|
-  | Estudio (web y Node; donde empiezas) | [`expressjs/express`](https://github.com/expressjs/express) | el framework web de Node |
-  | Laboratorio (Python) | [`psf/requests`](https://github.com/psf/requests) | HTTP para humanos |
-  | Fundición (Rust y Go) | [`BurntSushi/ripgrep`](https://github.com/BurntSushi/ripgrep) | el buscador de texto |
-  | Archivo (sin código) | [`sindresorhus/awesome`](https://github.com/sindresorhus/awesome) | la lista de listas |
+## Controls
 
-  Son la misma escena que le toca a cualquier repo tuyo de ese tipo. Desde el **panel de la sala** (E junto a él)
-  puedes **vincularla a un repo tuyo** (la sala y su habitante se quedan; la copia de ejemplo va a la papelera) o
-  **retirarla**, y reclutar más repos desde la **Puerta**, que sugiere las carpetas de tu raíz de repos (`~/Sites`,
-  `~/Developer`, `~/Projects`, `~/code`… la primera que exista; se cambia en la cámara acorazada).
-- **Adaptar la sala al repo** (panel de la sala o ⌘K): su habitante lee el repo y le diseña una escena propia con el
-  atrezo del juego (la pieza protagonista, muebles y cachivaches, carteles con lemas, pantallas que escriben solas,
-  colores y luz), la mira con una foto, la corrige y te cuenta qué ha montado. Luego le puedes pedir retoques en la
-  misma conversación («pon una planta junto a la mesa»), o volver a la escena de serie. La escena son datos que el
-  juego valida, nunca código: ver [`docs/decorados.md`](docs/decorados.md).
-- Las salas de servicio: el Puente de Mando (el repo del propio juego), la cámara acorazada (integraciones y ajustes),
-  comunicaciones, agenda (calendario), logística (Linear), control de versiones (git y GitHub), la puerta,
-  hidroponía, discoteca, galería de tiro y Chapa y Pintura (cambiar de aspecto).
+Everything is in the game with **F1**, and each thing's keys show in the top bar.
 
-## Controles
-
-Todo está en el juego con **F1**, y las teclas de cada cosa se ven en la regleta de arriba.
-
-| Tecla | Qué hace |
+| Key | What it does |
 |---|---|
-| WASD / flechas | correr (con Shift, andar); la cámara sigue al Supervisor; en el rellano, W/S suben y bajan en ascensor |
-| E / Enter | hablar, usar un aparato, elegir |
-| clic | ir a un sitio; clic en un habitante: ir y hablar |
-| rueda, Z, − / = | zoom, vista general, vista de sala |
-| M | plano: viaje rápido y reorganización de salas |
-| Tab | qué pasa ahora: quién trabaja, quién te espera, avisos, próximo evento |
-| Q | ir directo al primer habitante que te espera |
-| T | terminal real de la sala (shell sobre PTY) |
-| R | cuaderno: transcripción completa de una conversación |
-| I | mochila: inventario, guía de campo, tienda y récords |
-| N / C / L | ir a comunicaciones, agenda o logística |
-| G | cliente de git |
-| P | Chapa y Pintura: cambiar el aspecto (tuyo o de un habitante) |
-| ⌘K | buscador, desde cualquier sitio: conversaciones, acciones, habitantes y salas |
-| Esc | cierra lo abierto; en el refugio, el menú del juego (opciones, atajos, reiniciar, salir) |
+| WASD / arrows | run (with Shift, walk); the camera follows the Overseer; on the landing, W/S go up and down by elevator |
+| E / Enter | talk, use a device, choose |
+| click | go somewhere; click a dweller: go and talk |
+| wheel, Z, − / = | zoom, overview, room view |
+| M | map: fast travel and rearranging rooms |
+| Tab | what's going on: who's working, who's waiting for you, notices, next event |
+| Q | go straight to the first dweller waiting for you |
+| T | the room's real terminal (shell on a PTY) |
+| R | notebook: full transcript of a conversation |
+| I | backpack: inventory, field guide, shop and records |
+| N / C / L | go to Communications, Calendar or Logistics |
+| G | git client |
+| P | Body Shop: change looks (yours or a dweller's) |
+| ⌘K | finder, from anywhere: conversations, actions, dwellers and rooms |
+| Esc | closes what's open; in the shelter, the game menu (options, shortcuts, restart, go out) |
 
-En la conversación: Enter envía (Shift+Enter, salto de línea); `/` abre los comandos de Claude Code y `/btw` hace una
-pregunta lateral sin interrumpir; Ctrl+C (o `/stop`) para al habitante; ⌘U o arrastrar adjunta archivos; ⌘D dicta
-(transcribe macOS en tu Mac, sin red); 1 / 2 / 3 en un permiso: permitir, permitir siempre en la sesión, denegar.
+In a conversation: Enter sends (Shift+Enter, new line); `/` opens Claude Code's commands and `/btw` asks a side
+question without interrupting; Ctrl+C (or `/stop`) stops the dweller; ⌘U or dragging attaches files; ⌘D dictates
+(macOS transcribes on your Mac, without network); 1 / 2 / 3 on a permission: allow, always allow in this session, deny.
 
-## Qué hay en el refugio
+## What's in the shelter
 
-- **Salas de repositorio**: rama, cambios, último commit, habitantes y actividad. Abrir la carpeta en Finder, en el
-  editor o en Terminal, ver el historial, retirar la sala.
-- **Habitantes**: sesiones reales de Claude Code. Empezar un trabajo (modelo, esfuerzo, modo de permisos, worktree),
-  retomar conversaciones de esa carpeta (también las de la terminal), aprobar permisos viendo el comando o el diff
-  exacto, contestar preguntas y aprobar planes, interrumpir. Varios trabajos a la vez, cada uno en su pestaña.
-- **Ayudantes**: los subagentes aparecen como robots en la sala cuyos archivos tocan.
-- **Copias holográficas**: los worktrees, como hologramas de quien trabaja dentro. Integrar o desechar desde su panel.
-- **Visitantes**: una sesión de Claude Code abierta en una terminal de esa carpeta se asoma a la sala.
-- **Control de Versiones**: cliente de git de todos los repos del refugio (preparar por archivos, bloques o líneas,
-  commit, push, ramas, cajón) y, con GitHub conectado en la cámara acorazada, tus pull requests (los tuyos y los
-  que esperan tu revisión, pestaña Pull requests) y tu matriz de contribuciones (si no, DEMO). En la sala de
-  Planificación, el plan de despliegue: tus PR por estado, sus bloqueos y el orden en que pueden ir.
-- **Puente de Mando**: el repo del propio juego. Su habitante evoluciona el juego desde dentro; «Aplicar los cambios
-  del juego» recompila la interfaz sin cortar las sesiones.
-- **Discoteca**: la cabina del DJ abre Spotify, que suena dentro del juego (en un Google Chrome sin ventana: hace
-  falta tenerlo instalado y una cuenta de Spotify); la pletina de abajo a la izquierda (⌘J) lo maneja sin abrirlo.
-  Sin Spotify suena la música propia de la sala.
-- **Actividades y economía** (primera iteración, ver [Lo que está a medias](#lo-que-está-a-medias)): la moneda es la
-  chatarra y sale del trabajo real (cada tarea terminada da chatarra). Cultivos que crecen con cada herramienta que
-  usan los habitantes, galería de tiro con récord, radio de onda corta y el cuadro del generador; en la tienda,
-  accesorios para ti y para los habitantes.
-- **Salir a la superficie**: si el juego se cae o no conviene que se vea, conversaciones y terminales siguen en una
-  terminal de tu escritorio ([`docs/superficie.md`](docs/superficie.md)).
+- **Repo rooms**: branch, changes, last commit, dwellers and activity, and each open conversation's context and token
+  usage. Open the folder in Finder, the editor or Terminal, see the history, retire the room.
+- **Dwellers**: real Claude Code sessions. Start a job (model, effort, permission mode, worktree), resume conversations
+  from that folder (including terminal ones), approve permissions seeing the exact command or diff, answer questions
+  and approve plans, interrupt. Several jobs at once, each in its tab. Each conversation shows how much of the context
+  window it uses and the tokens spent.
+- **Helpers**: subagents show up as robots in the room whose files they touch.
+- **Holographic copies**: worktrees, as holograms of whoever works inside, in their task's color. Merge or discard
+  from their panel.
+- **Visitors**: a Claude Code session open outside the game (a terminal, the Claude app) in that folder or one of its
+  worktrees shows up as a combat robot (in the task's color if it's a task worktree); E brings it back in.
+- **Planning**: plan a Jira task with every repo in view and split it across rooms. Its dweller proposes a plan per
+  repo; once approved, each part starts in its repo's room, in its own worktree with the task key in the branch. The
+  plan is shared: parts read it, Planning updates it and notifies the affected rooms, and a messenger robot carries
+  each delivery. Each task has a color you see on boards, screens and holograms. Its big screen is the **deployment
+  plan**: your PRs by state, with blockers as arrows and the order they can be merged in; PRs of the same task are
+  grouped in a block of its color in each column.
+- **Logistics**: your Jira tasks by state with their PRs (from GitHub), ready to plan with P. **Organize by tasks**
+  (a repo room's panel, or ⌘K for all rooms) gives each task with PRs its own worktree and conversation.
+- **Reviews of your PRs**: with GitHub connected, every minute new reviews and comments from others on your open PRs go
+  to the conversation working that branch (or its task's worktree); the dweller proposes what to fix and reply and
+  waits for your approval. Each delivery shows a notice.
+- **Version Control**: git client for every repo in the shelter (stage by files, hunks or lines, commit, push,
+  branches, stash) and, with GitHub connected in the Vault, your pull requests (yours and those awaiting your review,
+  Pull requests tab) and your contribution matrix (otherwise, the matrix of your local commits and no PRs).
+- **Command Bridge**: the game's own repo. Its dweller evolves the game from inside; "Apply the game's changes"
+  rebuilds the interface without cutting sessions.
+- **Disco**: the DJ booth opens Spotify, which plays inside the game (in a windowless Google Chrome: you need it
+  installed and a Spotify account); the deck at the bottom left (⌘J) controls it without opening it. Without Spotify,
+  the room's own music plays.
+- **Activities and economy** (first iteration, see [What's half-done](#whats-half-done)): the currency is scrap and it
+  comes from real work (each finished task gives scrap). Crops that grow with each tool dwellers use, a shooting
+  gallery with records, a shortwave radio and the generator panel; in the shop, accessories for you and the dwellers.
+- **Going to the surface**: if the game crashes or shouldn't be seen, conversations and terminals carry on in a
+  terminal on your desktop ([`docs/superficie.md`](docs/superficie.md)).
+- **To your phone**: 📱 in the intercom (or ⌘K) sends one conversation to Remote Control, and "Everything to your
+  phone" (Esc menu or ⌘K) sends all, to continue from the Claude app or claude.ai/code while running on your Mac. A
+  repo room can also keep its own Remote Control server on.
+- **Slack remote control** (optional, with your own Slack app): approval requests arrive by direct message to answer
+  yes/no from your phone, and writing to the bot lists the open conversations to send them to Remote Control. It never
+  sends what's said ([`docs/superficie.md`](docs/superficie.md#slack-remote-control)).
 
-## Integraciones
+## Integrations
 
-Sin configurar, todo funciona en **DEMO** con datos simulados (marcados DEMO). Cada fuente se configura en la
-**cámara acorazada**, con guía paso a paso, «probar conexión» y un interruptor demo/real:
+A new shelter starts with every source **off**: nothing is read and there's no simulated data, not even from the
+sources that need no setup (Mac Mail and Calendar, GitHub through `gh`). When you open the shelter for the first time
+you land in the **Vault**, where each source has a step-by-step guide, "Test connection", "Use real data" and, to
+try the game first, "Switch to DEMO" (simulated data, marked DEMO):
 
-| Fuente | Qué trae | Qué necesitas |
+| Source | What it brings | What you need |
 |---|---|---|
-| **Microsoft 365 (Outlook)** | correo sin leer y calendario | registrar tu propia app (cliente público) en Microsoft Entra |
-| **Google (Gmail y Calendar)** | correo sin leer y calendario | un cliente OAuth «Aplicación de escritorio» en Google Cloud |
-| **Mail del Mac** | correo sin leer (Gmail u otra cuenta) | la cuenta añadida en Cuentas de internet y Mail abierta: nada en Google Cloud |
-| **Discord** | mensajes de los canales que elijas y tus menciones | un bot propio (nunca el token de tu cuenta) |
-| **Slack** | mensajes de tus canales, directos y menciones | una app propia con token de bot o de usuario |
-| **GitHub** | notificaciones: revisiones, menciones, asignaciones, CI | la sesión de `gh` o un token clásico con `notifications` |
-| **Linear** | notificaciones, tus issues, ciclo y tablero; el habitante de Logística crea y mueve issues con el MCP oficial | una clave de API personal |
+| **Google (Gmail and Calendar)** | unread mail and calendar | an OAuth client of type "Desktop app" in Google Cloud |
+| **Mac Mail** | unread mail (Gmail or any other account) | the account added in Internet Accounts and Mail open: nothing in Google Cloud |
+| **Mac Calendar** | the calendars you have in the Calendar app (Google, Exchange, iCloud…) | Calendar open: nothing to create |
+| **Discord** | messages from the channels you choose and your mentions | your own bot (never your account token) |
+| **Slack** | messages from your channels, DMs and mentions | your own app with a bot or user token |
+| **GitHub** | notifications (reviews, mentions, assignments, CI); your PRs and their reviews | the `gh` session or a classic token with `notifications` |
+| **Jira** | your tasks for the Logistics board and Planning | your site, email and an API token |
 
-Todo es **solo lectura hacia fuera** y con los permisos mínimos: desde el juego no se responde correo ni chats ni se
-crean eventos. La única escritura es en Linear, a través de la conversación con el habitante de Logística y con tu
-permiso. El repo no trae identificadores de cliente ni credenciales de nadie. Los secretos se guardan en el **llavero
-de macOS** (servicio `work-shelter-public`), nunca en el repo ni en los datos del juego. Detalles técnicos, campos y la
-configuración del MCP de Linear para Claude Code y Codex: [`docs/integraciones-uso.md`](docs/integraciones-uso.md).
+**Microsoft 365 (Outlook)** and **Linear** are also implemented but switched off in this version (`desactivada` in
+`shared/fuentes.ts`; remove the flag to turn them back on).
 
-## Privacidad y seguridad
+Everything is **read-only outwards** with minimal permissions: the game doesn't reply to mail or chats or create
+events. The only writes are Linear (when on, through the conversation with the Logistics dweller and with your
+permission), git push/pull/fetch from the git client (only with your button) and the Slack remote control's own
+messages. The repo ships nobody's client IDs or credentials. Secrets are stored in the **macOS keychain** (service
+`work-shelter-public`), never in the repo or the game's data. Technical details, fields, Planning and the Linear MCP
+setup for Claude Code and Codex: [`docs/integraciones-uso.md`](docs/integraciones-uso.md).
 
-> **Úsalo bajo tu responsabilidad.** work-shelter se publica tal cual, sin garantía de ningún tipo ([MIT](LICENSE)).
-> Maneja agentes que ejecutan órdenes en tu Mac con tus permisos, guarda credenciales de tus servicios y abre
-> navegadores con tus sesiones. Nadie ha auditado su seguridad ni se compromete a corregir nada: lo que pase con tu
-> equipo, tus datos o tus cuentas (o las de tu organización) es cosa tuya. Revisa el código antes de usarlo con nada que
-> te importe. Precauciones y riesgos conocidos: [`SECURITY.md`](SECURITY.md).
+## Privacy and security
 
-- El servidor escucha solo en `127.0.0.1`, comprueba `Host` y `Origin` y exige un secreto por arranque (va en el
-  `#t=` de la dirección que abre `./shelter`, nunca en la página).
-- Sin telemetría ni analítica. La red solo se usa para lo que tú configuras (las integraciones) y para descargar
-  dependencias y assets la primera vez.
-- **Confianza en las carpetas, como en la CLI**: si un repo trae configuración de Claude Code (`.claude/`,
-  `.mcp.json`, `CLAUDE.md`) y no lo has aceptado en Claude Code, el juego te pregunta antes de cargarla: esta vez,
-  siempre para esa carpeta o trabajar sin ella (sin sus hooks, servidores MCP, permisos ni instrucciones).
-- Los permisos se enseñan con el comando o el diff exactos, como texto (sin interpretar), incluidos los caracteres
-  invisibles.
-- **Los habitantes son Claude Code con tus permisos**: lo que apruebes se ejecuta en tu Mac. El modo «saltar permisos»
-  existe porque existe en Claude Code; úsalo solo en carpetas que no te importe perder.
-- No vincules como sala carpetas de fuera en las que no confíes, y ten en cuenta que `npm run dev` (desarrollo) sirve
-  los archivos de la carpeta del juego, incluido su secreto, a cualquier proceso local: más en
-  [`SECURITY.md`](SECURITY.md#riesgos-conocidos).
+> **Use it at your own risk.** work-shelter is published as is, without warranty of any kind ([MIT](LICENSE)). It
+> drives agents that run commands on your Mac with your permissions, stores credentials for your services and opens
+> browsers with your sessions. Nobody has audited its security or commits to fixing anything: whatever happens to your
+> machine, your data or your accounts (or your organisation's) is on you. Review the code before using it with anything
+> you care about. Precautions and known risks: [`SECURITY.md`](SECURITY.md).
 
-## Datos
+- The server only listens on `127.0.0.1`, checks `Host` and `Origin` and requires a per-start secret (it goes in the
+  `#t=` of the address `./shelter` opens, never in the page).
+- No telemetry or analytics. The network is only used for what you configure (the integrations) and to download
+  dependencies and assets the first time.
+- **Folder trust, as in the CLI**: if a repo ships Claude Code config (`.claude/`, `.mcp.json`, `CLAUDE.md`) and you
+  haven't accepted it in Claude Code, the game asks before loading it: this time, always for that folder, or work
+  without it (without its hooks, MCP servers, permissions or instructions).
+- Permissions are shown with the exact command or diff, as text (uninterpreted), invisible characters included.
+- **Dwellers are Claude Code with your permissions**: what you approve runs on your Mac. The "skip permissions" mode
+  exists because it exists in Claude Code; use it only in folders you don't mind losing.
+- Don't link as a room, or keep in your repos root, folders you don't trust, and bear in mind that `npm run dev`
+  (development) serves the game folder's files, including its secret, to any local process: more in
+  [`SECURITY.md`](SECURITY.md#known-risks).
 
-- Estado del refugio: `.data/refugio.json` en la carpeta del juego (`~/.work-shelter-public` si lo instalaste con el
-  comando de arriba): salas, disposición, habitantes, ajustes, progreso, récords, avisos vistos. Resetear el refugio desde la cámara acorazada no toca tus carpetas ni tus credenciales.
-- Repos de ejemplo y carpetas de las salas especiales: `~/Library/Application Support/work-shelter-public/`.
-- Conversaciones: donde las guarda Claude Code (`~/.claude/projects`).
-- Secretos: llavero de macOS, servicio `work-shelter-public`.
+## Data
 
-## Desarrollo
+- Shelter state: `.data/refugio.json` in the game folder (`~/.work-shelter-public` if you installed with the command
+  above): rooms, layout, dwellers, settings, language, progress, records, seen notices. Resetting the shelter from the
+  Vault doesn't touch your folders or your credentials.
+- Special rooms' folders (and example repos from older versions): `~/Library/Application Support/work-shelter-public/`.
+- Conversations: where Claude Code keeps them (`~/.claude/projects`).
+- Secrets: macOS keychain, service `work-shelter-public`.
+
+## Development
 
 ```bash
-npm run dev                      # interfaz con recarga en caliente (http://127.0.0.1:5173)
-node server/supervisor.mjs       # servidor con reinicio desde el juego (SHELTER_DATOS=/tmp/x para no tocar tus datos)
-npm test                         # pruebas (sin red: las integraciones se prueban con fixtures sintéticos)
-npx tsc --noEmit -p .            # tipos
-node scripts/captura.mjs <url> <png> 1600 900 --pasos=40   # capturas para QA visual
+npm run dev                      # interface with hot reload (http://127.0.0.1:5173)
+node server/supervisor.mjs       # server with restart from the game (SHELTER_DATOS=/tmp/x to leave your data alone)
+npm test                         # tests (no network: integrations are tested with synthetic fixtures)
+npx tsc --noEmit -p .            # types
+node scripts/captura.mjs <url> <png> 1600 900 --pasos=40   # screenshots for visual QA
 ```
 
-Variables útiles: `SHELTER_DATOS` (carpeta de datos alternativa), `SHELTER_PUERTO` (otro puerto que 3778),
-`SHELTER_ZONA` (zona horaria, por defecto la del sistema), `SHELTER_TERMINAL=terminal|iterm`.
+Useful variables: `SHELTER_DATOS` (alternative data folder), `SHELTER_PUERTO` (a port other than 3778),
+`SHELTER_ZONA` (time zone, the system's by default), `SHELTER_TERMINAL=terminal|iterm`.
 
-### Mapa del código
+### Code map
 
-| Carpeta | Qué hay | Por dónde empezar si quieres… |
+| Folder | What's there | Where to start if you want… |
 |---|---|---|
-| `server/` | servidor local (Node): estado del refugio, sesiones de Claude Code con el Agent SDK, terminales PTY, worktrees, git, economía e integraciones | cambiar de agente: `sesiones.ts`; una fuente nueva: `integraciones/` y [`docs/integraciones-uso.md`](docs/integraciones-uso.md) |
-| `shared/` | lo que comparten servidor y cliente: protocolo, catálogo de la tienda, plantillas de recluta, disposición inicial, aspectos y decorados | otras salas de ejemplo: `refugioInicial.ts`; otra tienda: `catalogo.ts` |
-| `web/src/motor/` | Three.js: escena, materiales, texturas, cámara | otro estilo visual |
-| `web/src/mundo/` | el refugio en 3D: salas, habitantes y su rutina, ayudantes, visitantes, hologramas, cielo | una sala nueva: `salas/`; otra rutina: `habitante.ts` |
-| `web/src/ui/` | la interfaz en React: regleta, intercomunicador, terminales, navegadores, aparatos, cliente de git | un aparato o una actividad: `Actividades.tsx` |
-| `electron/` | la ventana del juego, los navegadores empotrados y el Chrome sin ventana de Spotify | |
-| `scripts/` | arranque, instalación de la app y QA de punta a punta (`qa-*`) | |
+| `server/` | local server (Node): shelter state, Claude Code sessions with the Agent SDK, PTY terminals, worktrees, git, planning, PR reviews, economy and integrations | to change the agent: `sesiones.ts`; a new source: `integraciones/` and [`docs/integraciones-uso.md`](docs/integraciones-uso.md) |
+| `shared/` | what server and client share: protocol, texts in both languages, shop catalogue, recruit templates, initial layout, looks and set dressings | other initial rooms: `refugioInicial.ts`; another shop: `catalogo.ts`; a text: `textos/` |
+| `web/src/motor/` | Three.js: scene, materials, textures, camera | another visual style |
+| `web/src/mundo/` | the 3D shelter: rooms, dwellers and their routine, helpers, visitors, holograms, sky | a new room: `salas/`; another routine: `habitante.ts` |
+| `web/src/ui/` | the React interface: top bar, intercom, terminals, browsers, devices, git client | a device or an activity: `Actividades.tsx` |
+| `electron/` | the game window, the embedded browsers and Spotify's windowless Chrome | |
+| `scripts/` | startup, app install and end-to-end QA (`qa-*`) | |
 
-La arquitectura está en [`AGENTS.md`](AGENTS.md) (instrucciones para agentes; `CLAUDE.md` la importa),
-[`docs/diseno-refugio.md`](docs/diseno-refugio.md) y [`docs/assets.md`](docs/assets.md). Los scripts `scripts/qa-*`
-son pruebas de punta a punta con Playwright; los que lanzan sesiones reales de Claude Code lo dicen en su cabecera
-(úsalos con un refugio de pruebas).
+The architecture is in [`AGENTS.md`](AGENTS.md) (instructions for agents; `CLAUDE.md` imports it),
+[`docs/diseno-refugio.md`](docs/diseno-refugio.md) and [`docs/assets.md`](docs/assets.md). The `scripts/qa-*` scripts
+are end-to-end tests with Playwright; those that launch real Claude Code sessions say so in their header (use them
+with a test shelter).
 
-## Solución de problemas
+## Troubleshooting
 
-- **«No encuentro Claude Code».** Instálalo y entra con tu cuenta. Después vuelve a abrir work-shelter.
-- **El puerto 3778 está ocupado.** Puede que ya haya otro work-shelter abierto. Ciérralo o arranca con
+- **"Can't find Claude Code".** Install it and sign in with your account. Then reopen work-shelter.
+- **Port 3778 is busy.** Maybe another work-shelter is already open. Close it or start with
   `SHELTER_PUERTO=3779 ./shelter`.
-- **Va lento.** Hay un solo perfil gráfico, a 60 fps como máximo. Con la ventana del juego detrás de otra aplicación no
-  pinta nada: las terminales y las sesiones siguen.
+- **It's slow.** There's a single graphics profile, at 60 fps max. With the game window behind another app it doesn't
+  draw anything: terminals and sessions keep going.
 
-## Licencias y créditos
+## Licences and credits
 
-- **Código**: [MIT](LICENSE). Partes del núcleo de sesiones, terminales, herramientas y worktrees están adaptadas de
-  [code-town](https://github.com/JuanLouTech/code-town) (MIT; ver [`LICENSES/code-town-MIT.txt`](LICENSES/code-town-MIT.txt)).
-- **Material 3D**: [KayKit](https://kaylousberg.com) (Kay Lousberg) y [Quaternius](https://quaternius.com), CC0;
-  procedencia en [`docs/assets.md`](docs/assets.md). La Octocat de Control de Versiones es un modelo de la comunidad
-  con licencia CC-BY 4.0 ([`LICENSES/octocat-CC-BY-4.0.txt`](LICENSES/octocat-CC-BY-4.0.txt)); el personaje y la marca
-  Octocat son de GitHub, Inc.
-- **Sonido**: CC0 y síntesis propia; fuentes en [`LICENSES/AUDIO.md`](LICENSES/AUDIO.md).
-- **Tipografías**: OFL, incluidas en `web/public/fuentes`.
-- **Tráiler** (`docs/media/`): metraje real del juego; música «AI Fight», de Alexander Ehlers
-  ([T & T Free Cyberpunk Pack 2](https://opengameart.org/node/119238), CC0), y los efectos CC0 del propio juego.
-- **Astronomía del cielo**: versión mínima de [SunCalc](https://github.com/mourner/suncalc) (BSD-2-Clause; ver
+- **Code**: [MIT](LICENSE). Parts of the sessions, terminals, tools and worktrees core are adapted from
+  [code-town](https://github.com/JuanLouTech/code-town) (MIT; see [`LICENSES/code-town-MIT.txt`](LICENSES/code-town-MIT.txt)).
+- **3D art**: [KayKit](https://kaylousberg.com) (Kay Lousberg) and [Quaternius](https://quaternius.com), CC0;
+  provenance in [`docs/assets.md`](docs/assets.md). The Version Control Octocat is a community model licensed CC-BY
+  4.0 ([`LICENSES/octocat-CC-BY-4.0.txt`](LICENSES/octocat-CC-BY-4.0.txt)); the Octocat character and brand belong to
+  GitHub, Inc.
+- **Sound**: CC0 and own synthesis; sources in [`LICENSES/AUDIO.md`](LICENSES/AUDIO.md).
+- **Fonts**: OFL, included in `web/public/fuentes`.
+- **Trailer** (`docs/media/`): real game footage; music "AI Fight" by Alexander Ehlers
+  ([T & T Free Cyberpunk Pack 2](https://opengameart.org/node/119238), CC0), and the game's own CC0 effects.
+- **Sky astronomy**: a minimal version of [SunCalc](https://github.com/mourner/suncalc) (BSD-2-Clause; see
   [`LICENSES/suncalc-BSD-2-Clause.txt`](LICENSES/suncalc-BSD-2-Clause.txt)).
 
-work-shelter es un proyecto independiente: no está afiliado ni respaldado por Anthropic, GitHub, Microsoft, Google,
-Discord, Slack, Linear ni por los autores de los juegos que lo inspiran. Los nombres y marcas son de sus dueños.
+work-shelter is an independent project: it's not affiliated with or endorsed by Anthropic, GitHub, Microsoft, Google,
+Discord, Slack, Linear, Atlassian or the authors of the games that inspire it. Names and trademarks belong to their
+owners.

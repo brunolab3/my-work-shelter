@@ -12,7 +12,7 @@ import { GAME_NAME, type ClientMessage, type ServerMessage, type InfoRepo, type 
 import { Sessions } from './sesiones.ts';
 import { Attachments } from './adjuntos.ts';
 import { openAttachment, openLocal, isPackage } from './abrir.ts';
-import { cloneExamples, stopClones, examplePath, isCloneOfExample } from './ejemplos.ts';
+import { isCloneOfExample } from './ejemplos.ts';
 import { mcpDecor, promptAdaptar, type CtxDecor } from './decoradoSala.ts';
 import { mcpAssignment, mcpPlan, type CtxAssignment } from './reparto.ts';
 import { Plans, tasksOrder } from './planes.ts';
@@ -24,13 +24,12 @@ import { entornoGit } from './entornoGit.ts';
 import { captureRoom } from './capturaSala.ts';
 import { baseStock } from '../shared/decorado.ts';
 import { readSecret } from './integraciones/llavero.ts';
-import { INITIAL_ROOMS } from '../shared/refugioInicial.ts';
 import { Dictations } from './voz.ts';
 import { Terminales, SOCKET_TERMINALS } from './terminales.ts';
 import { openInDesktop, openInAppClaude, outsideOpen, closeOutside, hookCommand, resumeCommand, type ItemDesktop } from './escritorio.ts';
 import { tonesForRepeated } from '../shared/reclutas.ts';
 import { remoteName } from '../shared/tareas.ts';
-import { Store, DATOS, folderOf } from './estado.ts';
+import { Store, DATOS, folderOf, reposRoot } from './estado.ts';
 import { infoRepo, sugerencias, expand, recentTranscripts, estiloSala, projectType } from './repos.ts';
 import { Integraciones } from './integraciones/index.ts';
 import { gameAction, ensurePlayer, growCrops, taskReward } from './juego.ts';
@@ -287,10 +286,11 @@ async function waitHooks(ids: string[], ms = 10_000) {
 }
 
 // ---------------------------------------------------------------- repos y visitantes
-// GitHub en la sala de Control de Versiones: solo con la integración conectada (si no, DEMO), con su token si lo hay
+// GitHub en la sala de Control de Versiones: solo con la integración conectada (en DEMO, de prueba; apagada, nada), con
+// su token si lo hay
 async function connectionGitHub() {
   const r = almacen.estado.integraciones.github;
-  if (r?.modo !== 'real') return { real: false };
+  if (r?.modo !== 'real') return { real: false, off: r?.modo !== 'demo' };
   const token = r.secrets?.includes('token') ? await readSecret('github.token').catch(() => null) : null;
   return { real: true, token: token ?? undefined };
 }
@@ -301,12 +301,52 @@ async function throwCloneOfExample(ruta?: string) {
   try { const { aLaTrash } = await import('./archivos.ts'); await aLaTrash(path.dirname(ruta), [path.basename(ruta)]); }
   catch (err) { console.error('No pude tirar a la papelera el repo de ejemplo:', (err as Error).message); }
 }
-// los repos de ejemplo del refugio de serie que aún no estén clonados (los de las salas que siguen en su sitio de serie)
-function cloneLosExamples() {
-  if (process.env.SHELTER_SIN_EJEMPLOS === '1') return;   // pruebas: sin red
-  const pathBy = new Map(INITIAL_ROOMS.filter(s => s.origen && s.carpeta).map(s => [examplePath(s.carpeta!), s.origen!]));
-  const faltan = almacen.estado.salas.flatMap(s => (s.ruta && pathBy.has(s.ruta) ? [{ origen: pathBy.get(s.ruta)!, ruta: s.ruta }] : []));
-  if (faltan.length) cloneExamples(faltan).then(n => { if (n) refreshRepos().catch(() => {}); }).catch(() => {});
+// una carpeta pasa a ser sala (desde la Puerta o al tomar la raíz de repos), con su recluta: el que viene de la puerta o
+// uno nuevo. Devuelve su id ('' si ya tenía sala)
+async function addRoom(ruta: string, habitante?: any): Promise<string> {
+  const tipo = projectType(ruta);
+  const info = await infoRepo(ruta);
+  const isWing = !info.isGit && (info.subrepos?.length ?? 0) > 1;
+  // id y hueco se deciden dentro del mismo cambio (dos reclutamientos a la vez no comparten hueco ni nombre)
+  let id = '';
+  almacen.cambiar(x => {
+    if (x.salas.some(s => s.ruta === ruta)) return;
+    const base = path.basename(ruta).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9-]/g, '-') || 'sala';
+    id = x.salas.some(s => s.id === base) ? base + '-' + Date.now().toString(36) : base;
+    // entra en la planta de repos por orden alfabético (las demás se corren lo que haga falta)
+    x.salas = distribute([...x.salas, { id, tipo: isWing ? 'coordinacion' : 'repo', nombre: isWing ? wingName(x.salas, ruta) : path.basename(ruta), ruta, planta: 0, lado: 'izq', orden: 0, variant: STYLE_PALETTE[estiloSala(ruta, tipo)], estilo: estiloSala(ruta, tipo), area: areaByType(tipo) }]);
+    // el recluta: el que viene de la puerta, o uno nuevo con el aspecto menos visto del refugio
+    const ficha = habitante && typeof habitante === 'object' && habitante.nombre ? habitante : generateRecruit(Date.now() % 1e9, x.habitantes.map(h => h.nombre.toLowerCase()), false, x.habitantes.map(h => h.tipo));
+    const h = cleanDweller({ ...ficha, salaId: id });
+    if (h) { if (x.habitantes.some(o => o.id === h.id)) h.id += '-' + Date.now().toString(36); x.habitantes.push(h); }
+    x.habitantes = tonesForRepeated(x.habitantes);   // si repite modelo, otro tono desde ya (no al siguiente arranque)
+  });
+  if (id) repos[id] = info;
+  return id;
+}
+// retira una sala de repo (ya comprobado que nadie trabaja en ella): cierra sus conversaciones y sus terminales
+function removeRoom(sr: { id: string; ruta?: string }) {
+  for (const ses of sesiones.lista()) if (ses.salaId === sr.id) sesiones.cerrar(ses.id);
+  // las terminales abiertas dentro de su carpeta se cierran con ella (no quedan shells invisibles)
+  if (sr.ruta) for (const t of terminales.abiertas()) if (t.cwd === sr.ruta || t.cwd.startsWith(sr.ruta + path.sep)) terminales.cerrar(t.id);
+  controlRemoto.apagar(sr.id);
+  almacen.cambiar(x => { x.salas = distribute(x.salas.filter(s => s.id !== sr.id)); x.habitantes = x.habitantes.filter(h => h.salaId !== sr.id); });
+  delete repos[sr.id];
+}
+// La raíz de repos recién elegida (bienvenida o cámara acorazada): entra cada repo de git de primer nivel (y las alas,
+// carpetas con varios repos dentro) y se retiran las salas de repo de fuera de ella, salvo con alguien trabajando.
+// Con la raíz en el hogar o en / no se toca nada (son demasiado amplias: ahí, la Puerta sugiere)
+async function takeRoot() {
+  const e = almacen.estado, raiz = reposRoot(e);
+  if (raiz === os.homedir() || raiz === path.parse(raiz).root || !existsSync(raiz)) return;
+  const busy = (id: string) => sesiones.lista().some(s => s.salaId === id && ['arrancando', 'trabajando', 'esperando'].includes(s.estado));
+  const fuera = e.salas.filter(s => (s.tipo === 'repo' || s.tipo === 'coordinacion') && s.id !== PLANNING_ROOM && s.ruta && !s.ruta.startsWith(raiz + path.sep) && !busy(s.id));
+  for (const sr of fuera) { removeRoom(sr); await throwCloneOfExample(sr.ruta); }
+  for (const c of sugerencias(e.raizRepos, e.salas.map(s => s.ruta).filter(Boolean) as string[])) {
+    if (!c.isGit && ((await infoRepo(c.ruta)).subrepos?.length ?? 0) < 2) continue;
+    try { await addRoom(c.ruta); } catch (err) { console.error(`No pude meter ${c.ruta} en el refugio:`, (err as Error).message); }
+  }
+  broadcast({ t: 'estado', estado: almacen.estado as any }); broadcast({ t: 'repos', repos });
 }
 async function refreshRepos() {
   const salas = almacen.estado.salas.filter(s => s.ruta);
@@ -434,25 +474,8 @@ async function accion(nombre: string, d: Record<string, any> = {}): Promise<unkn
         await createFolder(ruta, !!d.git);
       }
       if (e.salas.some(s => s.ruta === ruta)) throw new Error(t('server.thatFolderAlreadyHasA'));
-      const tipo = projectType(ruta);
-      const info = await infoRepo(ruta);
-      const isWing = !info.isGit && (info.subrepos?.length ?? 0) > 1;
-      // id y hueco se deciden dentro del mismo cambio (dos reclutamientos a la vez no comparten hueco ni nombre)
-      let id = '';
-      almacen.cambiar(x => {
-        if (x.salas.some(s => s.ruta === ruta)) return;
-        const base = path.basename(ruta).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9-]/g, '-') || 'sala';
-        id = x.salas.some(s => s.id === base) ? base + '-' + Date.now().toString(36) : base;
-        // entra en la planta de repos por orden alfabético (las demás se corren lo que haga falta)
-        x.salas = distribute([...x.salas, { id, tipo: isWing ? 'coordinacion' : 'repo', nombre: isWing ? wingName(x.salas, ruta) : path.basename(ruta), ruta, planta: 0, lado: 'izq', orden: 0, variant: STYLE_PALETTE[estiloSala(ruta, tipo)], estilo: estiloSala(ruta, tipo), area: areaByType(tipo) }]);
-        // el recluta: el que viene de la puerta, o uno nuevo con el aspecto menos visto del refugio
-        const ficha = d.habitante && typeof d.habitante === 'object' && d.habitante.nombre ? d.habitante : generateRecruit(Date.now() % 1e9, x.habitantes.map(h => h.nombre.toLowerCase()), false, x.habitantes.map(h => h.tipo));
-        const h = cleanDweller({ ...ficha, salaId: id });
-        if (h) { if (x.habitantes.some(o => o.id === h.id)) h.id += '-' + Date.now().toString(36); x.habitantes.push(h); }
-        x.habitantes = tonesForRepeated(x.habitantes);   // si repite modelo, otro tono desde ya (no al siguiente arranque)
-      });
+      const id = await addRoom(ruta, d.habitante);
       if (!id) throw new Error(t('server.thatFolderAlreadyHasA'));
-      repos[id] = info;
       broadcast({ t: 'estado', estado: almacen.estado as any }); broadcast({ t: 'repos', repos });
       return { id };
     }
@@ -462,12 +485,7 @@ async function accion(nombre: string, d: Record<string, any> = {}): Promise<unkn
       if ((sr.tipo !== 'repo' && sr.tipo !== 'coordinacion') || sr.id === PLANNING_ROOM) throw new Error(t('server.theShelterSServiceRooms'));
       // primero se comprueba (nada se corta) y luego se cierran las conversaciones terminadas de la sala
       if (sesiones.lista().some(s => s.salaId === d.salaId && ['arrancando', 'trabajando', 'esperando'].includes(s.estado))) throw new Error(t('server.someoneIsWorkingInThat'));
-      for (const ses of sesiones.lista()) if (ses.salaId === d.salaId) sesiones.cerrar(ses.id);
-      // las terminales abiertas dentro de su carpeta se cierran con ella (no quedan shells invisibles)
-      if (sr.ruta) for (const t of terminales.abiertas()) if (t.cwd === sr.ruta || t.cwd.startsWith(sr.ruta + path.sep)) terminales.cerrar(t.id);
-      controlRemoto.apagar(sr.id);
-      almacen.cambiar(x => { x.salas = distribute(x.salas.filter(s => s.id !== d.salaId)); x.habitantes = x.habitantes.filter(h => h.salaId !== d.salaId); });
-      delete repos[d.salaId];
+      removeRoom(sr);
       broadcast({ t: 'estado', estado: almacen.estado as any }); broadcast({ t: 'repos', repos });
       await throwCloneOfExample(sr.ruta);
       return true;
@@ -538,7 +556,14 @@ async function accion(nombre: string, d: Record<string, any> = {}): Promise<unkn
     case 'sala.promptAdaptar': return promptAdaptar();
     case 'sala.quitarDecorado': { if (!ctxDecor.sala(String(d.salaId))) throw new Error(t('server.thatRoomDoesNotExist')); ctxDecor.guardar(String(d.salaId), null); return true; }
     case 'abrirEn': return abrirEn(String(d.app), String(d.ruta));
-    case 'guardar': { almacen.cambiar(x => applySettings(x, d.parche ?? {})); broadcast({ t: 'estado', estado: almacen.estado as any }); if (typeof d.parche?.raizRepos === 'string') refreshReposPronto(); return true; }   // la sala de planificación cambia de carpeta con la raíz
+    case 'guardar': {
+      const antes = { raiz: reposRoot(e), bienvenida: e.doneWelcome };
+      almacen.cambiar(x => applySettings(x, d.parche ?? {})); broadcast({ t: 'estado', estado: almacen.estado as any });
+      // la raíz elegida (otra, o la de la bienvenida al entrar) trae sus repos
+      if (reposRoot(almacen.estado) !== antes.raiz || (!antes.bienvenida && almacen.estado.doneWelcome)) await takeRoot();
+      if (typeof d.parche?.raizRepos === 'string') refreshReposPronto();
+      return true;
+    }   // la sala de planificación cambia de carpeta con la raíz
     case 'aspecto.guardar': {
       // el aspecto que se elige en Chapa y Pintura: del Supervisor o de un habitante (la Octocat no se cambia)
       const a = d.aspecto === null ? null : sanitizeLook(d.aspecto);
@@ -552,7 +577,7 @@ async function accion(nombre: string, d: Record<string, any> = {}): Promise<unkn
       broadcast({ t: 'estado', estado: almacen.estado as any });
       return true;
     }
-    case 'reiniciarRefugio': { sesiones.cerrarTodas(); terminales.cerrarTodas(); almacen.reiniciar(); await refreshRepos(); broadcast({ t: 'estado', estado: almacen.estado as any }); cloneLosExamples(); return true; }
+    case 'reiniciarRefugio': { sesiones.cerrarTodas(); terminales.cerrarTodas(); almacen.reiniciar(); await refreshRepos(); broadcast({ t: 'estado', estado: almacen.estado as any }); return true; }
     case 'visitantes': return visitantes();
     // el buscador (⌘K): las últimas conversaciones de cada sala con habitante, juntas y de la más reciente a la más vieja
     case 'conversaciones.recientes': {
@@ -718,7 +743,7 @@ async function reiniciarJuego() {
 }
 // lo que se deja al reiniciar: las conversaciones se cortan (quedan guardadas) y las terminales siguen en su anfitrión
 function dropAll() {
-  for (const paso of [() => sesiones.cerrarTodas(), () => dictations.stopAll(), () => terminales.dropHost(), () => integraciones.parar(), () => slackRemote.parar(), () => stopClones(), () => almacen.saveAlready()])
+  for (const paso of [() => sesiones.cerrarTodas(), () => dictations.stopAll(), () => terminales.dropHost(), () => integraciones.parar(), () => slackRemote.parar(), () => almacen.saveAlready()])
     try { paso(); } catch (e) { console.error('Al reiniciar:', (e as Error).message); }
 }
 // ./shelter abre la app y se encuentra en marcha un servidor de antes de los últimos cambios (scripts/huellas.cjs,
@@ -793,7 +818,7 @@ async function manejar(ws: WebSocket, m: ClientMessage) {
   const e = almacen.estado;
   switch (m.t) {
     case 'hola':
-      enviar(ws, { t: 'bienvenida', versionClaude: sesiones.version, claudeOk: !!sesiones.claude, estado: e as any, sesiones: sesiones.lista(), repos, demo: Object.values(e.integraciones).every(i => i.modo === 'demo') });
+      enviar(ws, { t: 'bienvenida', versionClaude: sesiones.version, claudeOk: !!sesiones.claude, estado: e as any, sesiones: sesiones.lista(), repos, demo: Object.values(e.integraciones).length > 0 && Object.values(e.integraciones).every(i => i.modo === 'demo') });
       enviar(ws, { t: 'visitantes', visitantes: visitantes() });
       integraciones.greet(ws, enviar);
       for (const t of terminales.abiertas()) terminales.abrir(t.id, t.cwd, 80, 24, outputOf(ws));
@@ -928,7 +953,7 @@ function apagar(motivo: string) {
   console.log(`\nApagando el refugio (${motivo})…`);
   // cada paso por separado: si uno falla (p. ej. no se puede guardar), el resto se hace igual y el proceso sale
   // al salir de verdad no queda nada abierto (para `./shelter superficie`, si luego no hay refugio)
-  for (const paso of [() => sesiones.cerrarTodas(), () => dictations.stopAll(), () => writeFileSync(path.join(DATOS, 'abiertas.json'), '[]'), () => terminales.apagar(), () => integraciones.parar(), () => slackRemote.parar(), () => stopClones(), () => almacen.saveAlready(), () => broadcast({ t: 'aviso', nivel: 'info', texto: t('server.workShelterHasClosedSee') })])
+  for (const paso of [() => sesiones.cerrarTodas(), () => dictations.stopAll(), () => writeFileSync(path.join(DATOS, 'abiertas.json'), '[]'), () => terminales.apagar(), () => integraciones.parar(), () => slackRemote.parar(), () => almacen.saveAlready(), () => broadcast({ t: 'aviso', nivel: 'info', texto: t('server.workShelterHasClosedSee') })])
     try { paso(); } catch (e) { console.error('Al apagar:', (e as Error).message); }
   setTimeout(() => process.exit(0), 1200);
 }
@@ -949,6 +974,5 @@ servidor.listen(PUERTO, '127.0.0.1', async () => {
   // solo el refugio de verdad escucha al mando de Slack (una segunda conexión de Socket Mode a la misma app se repartiría
   // los eventos); los de prueba, con SHELTER_SLACK=1
   if (!process.env.SHELTER_DATOS || process.env.SHELTER_SLACK === '1') slackRemote.iniciar().catch(e => console.error('Slack (mando):', (e as Error).message));
-  cloneLosExamples();
   controlRemoto.restaurar(almacen.estado.salas.map(s => ({ id: s.id, nombre: s.nombre, cwd: isRoomOfRepo(s.tipo) && s.ruta ? folderOf(s) : undefined }))).catch(() => {});
 });

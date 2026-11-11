@@ -528,7 +528,8 @@ export class Refugio {
   private stepsDemo: [number, () => void][] = [];
   private clockDemo = 0; private indexDemo = 0;
   private cycleDemo() {
-    const remi = this.habitantes.find(h => h.id.id === 'remi'); if (!remi) return;
+    // el habitante de la primera sala de repo (ya no hay salas de serie con habitante fijo)
+    const remi = this.habitantes.find(h => h.sala.tipo === 'repo'); if (!remi) return;
     this.stepsDemo = [
       [9, () => remi.cambiar('pensando', 'leyendo src/componentes/Cabecera.tsx', 'leer')],
       [8, () => remi.cambiar('trabajando', 'editando Cabecera.tsx', 'editar')],

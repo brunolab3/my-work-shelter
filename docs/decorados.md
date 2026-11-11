@@ -1,85 +1,84 @@
-# Decorados: la escena de cada sala
+# Set dressings: each room's scene
 
-Cada sala de repo lleva una escena. Sin decorado, la escena de serie de su tipo de repo:
+Every repo room has a scene. Without a set dressing, the stock scene for its repo type:
 
-- **Estudio** para web y Node.
-- **Laboratorio** para Python.
-- **Fundición** para Rust y Go.
-- **Archivo** para carpetas sin código.
-- **Taller** para lo demás.
+- **Studio** for web and Node.
+- **Laboratory** for Python.
+- **Foundry** for Rust and Go.
+- **Archive** for folders without code.
+- **Workshop** for everything else.
 
-Hay además escenas hechas a mano: taller web, escaparate, archivo de marca y sala de proyección. Les tocan a los
-repos cuyo nombre o tipo lo pide (`estiloSala` en `server/repos.ts`).
+There are also hand-made scenes: web workshop, shop window, brand archive and screening room. They go to repos whose
+name or type calls for them (`estiloSala` in `server/repos.ts`).
 
-## Adaptar la sala al repo
+## Adapt the room to the repo
 
-Desde el panel de la sala (E junto a él) o con ⌘K, «Adaptar la sala al repo» pide a su habitante que le diseñe una
-escena propia:
+From the room panel (E next to it) or with ⌘K, "Adapt the room to the repo" asks its dweller to design it a scene of
+its own:
 
-1. Lee el repo: de qué va, para quién es y con qué está hecho.
-2. Elige una metáfora física (una base de datos, una cámara de fichas; un compilador, una forja…).
-3. Monta la escena con el atrezo del juego.
-4. Mira cómo ha quedado con una foto y corrige.
+1. Reads the repo: what it's about, who it's for and what it's built with.
+2. Picks a physical metaphor (a database, a card-file room; a compiler, a forge…).
+3. Builds the scene with the game's props.
+4. Checks how it turned out with a photo and fixes it.
 
-Al terminar, te cuenta qué ha montado. La conversación queda abierta para pedirle retoques («más luz», «quita el
-sofá», «pon el cartel a la izquierda»). «Volver a la escena de serie» quita el decorado.
+When done, it tells you what it built. The conversation stays open for touch-ups ("more light", "remove the sofa",
+"put the sign on the left"). "Back to the default scene" removes the dressing.
 
-El habitante trabaja con las herramientas del juego (`server/decoradoSala.ts`, un servidor MCP dentro del proceso
-del juego):
+The dweller works with the game's tools (`server/decoradoSala.ts`, an MCP server inside the game's process):
 
-| Herramienta | Qué hace |
+| Tool | What it does |
 |---|---|
-| `decorado_actual` | La guía y cómo está la sala ahora. |
-| `catalogo_atrezo` | Los modelos del material del juego, con su tamaño medido en su glTF (`server/atrezo.ts`). |
-| `aplicar_decorado` | Valida, guarda y se ve al momento. |
-| `ver_sala` | Una foto de la sala con el propio juego en un Chromium sin ventana (`server/capturaSala.ts`), con las piezas que el juego ve flotando o hundidas. |
-| `quitar_decorado` | Devuelve la sala a su escena de serie. |
+| `decorado_actual` | The guide and how the room is now. |
+| `catalogo_atrezo` | The models in the game's art, with their size measured from their glTF (`server/atrezo.ts`). |
+| `aplicar_decorado` | Validates, saves and shows it at once. |
+| `ver_sala` | A photo of the room taken with the game itself in a windowless Chromium (`server/capturaSala.ts`), with the pieces the game sees floating or sunk. |
+| `quitar_decorado` | Returns the room to its stock scene. |
 
-Solo tocan el decorado de su propia sala, así que no piden permiso. El repo no se toca.
+They only touch their own room's dressing, so they don't ask for permission. The repo is not touched.
 
-## Qué es un decorado
+## What a set dressing is
 
-Un decorado son datos, nunca código. El formato y su validación están en `shared/decorado.ts`. El servidor lo valida
-al recibirlo y al cargar el estado: recorta lo que se sale de la sala, quita los modelos que no son del catálogo y
-limpia los textos. Se guarda en la sala, en `refugio.json`.
+A set dressing is data, never code. The format and its validation are in `shared/decorado.ts`. The server validates it
+on receiving it and when loading the state: it trims what's outside the room, drops models not in the catalogue and
+cleans the texts. It's saved in the room, in `refugio.json`.
 
-El cliente lo monta en `web/src/mundo/salas/decorado.ts`. Un modelo que no carga se salta: una pieza rota nunca deja
-la sala a medias.
+The client builds it in `web/src/mundo/salas/decorado.ts`. A model that fails to load is skipped: a broken piece never
+leaves the room half-built.
 
-- `base`: la escena de partida. Puede ser cualquiera de las de serie o `vacia`. En la vacía, el juego pone lo
-  imprescindible: la pantalla con el estado real del repo, el puesto del habitante y el punto de su pieza
-  protagonista, donde diga el decorado o en su sitio por defecto.
-- Estilo de la sala: `subtitulo`, `resumen`, `acento`, `paleta`, `paredes`, `luz` y `espejo`.
-- `piezas`: modelos del catálogo (`pack/nombre`) con posición, giro y tamaño. Pueden ir apoyadas sobre otra (`sobre`),
-  pegadas a la pared (`pared`), colgadas (`y`) o tumbadas. Pueden llevar tinte (`color`) o brillo (`luz`).
-- `carteles` y `pantallas`: en la pared del fondo. Las pantallas son de fósforo y escriben sus líneas en bucle.
-- `puesto`, `pieza`, `aficion` y `lamparas`: dónde trabaja el habitante, dónde usa la pieza protagonista, su rincón y
-  las luces.
+- `base`: the starting scene. Any of the stock ones or `vacia` (empty). In the empty one, the game adds the
+  essentials: the screen with the repo's real status, the dweller's desk and the spot for its centrepiece, where the
+  dressing says or in their default place.
+- Room style: `subtitulo`, `resumen`, `acento`, `paleta`, `paredes`, `luz` and `espejo`.
+- `piezas`: catalogue models (`pack/nombre`) with position, rotation and size. They can rest on another (`sobre`),
+  stick to the wall (`pared`), hang (`y`) or lie down. They can carry a tint (`color`) or glow (`luz`).
+- `carteles` and `pantallas`: on the back wall. Screens are phosphor and type their lines in a loop.
+- `puesto`, `pieza`, `aficion` and `lamparas`: where the dweller works, where it uses the centrepiece, its corner and
+  the lights.
 
-Coordenadas en metros:
+Coordinates in metres:
 
-- **x**, de -6 a 6.
-- **y**, del suelo (0) al techo (4,43). De la pared se ve hasta y ≈ 3,6.
-- **z**, de -2,3 (pared del fondo) a 2,3 (borde del corte). La franja z > 0,8 es el pasillo y queda libre.
+- **x**, from -6 to 6.
+- **y**, from the floor (0) to the ceiling (4.43). The wall is visible up to y ≈ 3.6.
+- **z**, from -2.3 (back wall) to 2.3 (cutaway edge). The strip z > 0.8 is the walkway and stays clear.
 
-El giro va en grados: 0 es de frente al jugador y 180, hacia la pared.
+Rotation is in degrees: 0 faces the player and 180 faces the wall.
 
-Todo el material es el fijo del juego, CC0 de KayKit y Quaternius (`docs/assets.md`): no se añaden modelos ni
-texturas.
+All the art is the game's fixed CC0 set from KayKit and Quaternius (`docs/assets.md`): no models or textures are added.
 
-## Vincular y retirar
+## Link and retire
 
-- **Vincular a otra carpeta**: la sala pasa a un repo tuyo y conserva su sitio, su habitante y su aspecto.
-  - Las conversaciones de la carpeta de antes se cierran y siguen en su historial.
-  - La escena vuelve a la de serie del tipo de repo nuevo.
-- **Retirar la sala**: se va con su habitante.
+- **Link to another folder**: the room moves to a repo of yours and keeps its place, its dweller and its look.
+  - Conversations from the previous folder are closed and stay in its history.
+  - The scene goes back to the stock one for the new repo type.
+- **Retire the room**: it leaves with its dweller.
 
-En los dos casos, una copia de un repo de ejemplo que ya no usa ninguna sala va a la papelera de macOS. Las carpetas
-tuyas nunca se tocan.
+In both cases, a copy of an old example repo (from shelters created before example repos were dropped) that no room
+uses any more goes to the macOS Trash. Your own folders are never touched.
 
 ## QA
 
-`scripts/qa-decorado.mjs [sala] [modelo] [foto.png]` lanza «Adaptar la sala al repo» con una sesión real. Úsalo contra
-un refugio de prueba (`SHELTER_DATOS`, `SHELTER_PUERTO`). Comprueba que la sala acaba con un decorado y guarda una foto.
+`scripts/qa-decorado.mjs [sala] [modelo] [foto.png]` launches "Adapt the room to the repo" with a real session. Use it
+against a test shelter (`SHELTER_DATOS`, `SHELTER_PUERTO`). It checks that the room ends up with a dressing and saves a
+photo.
 
-Las pruebas del formato están en `shared/decorado.test.ts` y las del catálogo, en `server/atrezo.test.ts`.
+Format tests are in `shared/decorado.test.ts` and catalogue tests in `server/atrezo.test.ts`.

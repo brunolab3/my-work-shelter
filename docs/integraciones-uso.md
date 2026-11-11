@@ -1,301 +1,308 @@
-# Integraciones: cómo funcionan, qué pide la cámara acorazada y el MCP de Linear
+# Integrations: how they work, what the Vault asks for, and the Linear MCP
 
-Qué hace cada conector de `server/integraciones/`, qué pide la cámara acorazada, dónde se guarda cada dato y cómo se
-conecta el MCP oficial de Linear en Claude Code y en Codex. Las guías paso a paso para conseguir cada credencial están
-también dentro del juego (cámara acorazada → la fuente).
+What each connector in `server/integraciones/` does, what the Vault asks for, where each piece of data is stored, how
+Planning and PR reviews use them, and how to connect Linear's official MCP in Claude Code and in Codex. Step-by-step
+guides for getting each credential are also inside the game (Vault → the source).
 
-## Principios
+## Principles
 
-- **Tres estados por fuente**: demo (datos simulados, marcados DEMO), real conectada, o real con error y su motivo.
-  En modo real sin datos completos, el estado es *sin configurar* y dice qué falta.
-- **Solo lectura hacia fuera.** Ningún conector envía correos, mensajes ni eventos, y los permisos que se piden son
-  de lectura. La única escritura es Linear, y la hace la conversación del habitante de Logística con el MCP oficial
-  (eres tú actuando a través de él), no el juego.
-- **Sin identificadores de nadie.** Cada usuario crea su propia app (Microsoft Entra, Google Cloud, bot de Discord,
-  app de Slack) y pega sus datos. El repo no trae IDs de cliente, tokens ni URLs de ninguna organización.
-- **Secretos solo en el llavero de macOS** (`server/integraciones/llavero.ts`): servicio `work-shelter-public`, cuenta
-  `<fuente>.<campo>` (`linear.apiKey`, `discord.token`, `slack.token`, `github.token`, `google.clientSecret`,
-  `outlook.refreshToken`, `google.refreshToken`). Se escriben con `security -i` (la orden va por stdin, así el secreto
-  no aparece en `ps`) y en base64. En `.data/refugio.json` solo van los datos no secretos
-  (`integraciones.<fuente>.campos`) y los **nombres** de los secretos guardados (`integraciones.<fuente>.secretos`).
-  Nada de secretos en git, en logs ni en mensajes de error.
-- **Sin telemetría.** El servidor escucha solo en `127.0.0.1`.
+- **States per source**: off (how a new shelter starts, and where "forget" leaves it: nothing is read, not even the
+  sources that need no setup), demo (simulated data, marked DEMO, only if you choose it), real and connected, or real
+  with an error and its reason. In real mode without complete data, the state is *not configured* and says what's
+  missing.
+- **Read-only outwards.** No connector sends emails, messages or events, and the permissions requested are read
+  permissions. The only write is Linear, done by the Logistics dweller's conversation with the official MCP (you acting
+  through it), not by the game.
+- **Nobody's identifiers.** Each user creates their own app (Microsoft Entra, Google Cloud, Discord bot, Slack app)
+  and pastes its data. The repo ships no client IDs, tokens or URLs of any organisation.
+- **Secrets only in the macOS keychain** (`server/integraciones/llavero.ts`): service `work-shelter-public`, account
+  `<source>.<field>` (`linear.apiKey`, `discord.token`, `slack.token`, `github.token`, `google.clientSecret`,
+  `outlook.refreshToken`, `google.refreshToken`). They're written with `security -i` (the command goes through stdin,
+  so the secret doesn't show in `ps`) and in base64. `.data/refugio.json` only holds the non-secret data
+  (`integraciones.<source>.campos`) and the **names** of the saved secrets (`integraciones.<source>.secretos`). No
+  secrets in git, logs or error messages.
+- **No telemetry.** The server only listens on `127.0.0.1`.
 
-Limitación del llavero: con `/usr/bin/security`, la app de confianza del elemento es el propio `security`, así que
-otro proceso de tu mismo usuario podría leerlo sin aviso. Para un Mac personal se acepta (evita dependencias
-nativas); por eso los permisos que se piden son los mínimos y de solo lectura.
+Keychain limitation: with `/usr/bin/security`, the item's trusted app is `security` itself, so another process of the
+same user could read it without warning. For a personal Mac this is accepted (it avoids native dependencies); that's
+why the permissions requested are minimal and read-only.
 
-## Fuentes apagadas
+## Switched-off sources
 
-Una fuente con `desactivada: true` en `shared/fuentes.ts` no crea conector ni sale en la cámara acorazada, el tablón,
-el calendario ni Logística (`FUENTES_ACTIVAS`); su código sigue ahí. Ahora lo están **Microsoft 365** y **Linear**
-(sin Linear, el habitante de Logística tampoco lleva su MCP). Para volver a encender una, quita la marca.
+A source with `desactivada: true` in `shared/fuentes.ts` creates no connector and doesn't appear in the Vault, the
+notice board, the calendar or Logistics (`ACTIVE_SOURCES`); its code is still there. Currently **Microsoft 365** and
+**Linear** are off (without Linear, the Logistics dweller doesn't carry its MCP either). To turn one back on, remove
+the flag.
 
-## Añadir una fuente nueva
+## Adding a new source
 
-1. Su id, nombre, color y qué trae, en `shared/fuentes.ts`.
-2. El conector real en `server/integraciones/<id>.ts` con `export function crear(almacen)` (casi siempre, una
-   subclase de `ConectorBase` de `comun.ts` con sus `Campo[]`).
-3. Sus normalizadores puros en `normalizar.ts`, con fixtures sintéticos en `test/fixtures/` y pruebas.
-4. Sus datos DEMO en `demo.ts`.
-5. Su guía paso a paso en `web/src/ui/Camara.tsx` (`GUIAS`), y si tiene web que se pueda abrir dentro del juego, su
-   sitio en `web/src/ui/Navegadores.tsx` (`SITIOS`).
+1. Its id, name, color and what it brings, in `shared/fuentes.ts`.
+2. The real connector in `server/integraciones/<id>.ts` with `export function crear(almacen)` (almost always a
+   subclass of `ConnectorBase` from `comun.ts` with its `Field[]`).
+3. Its pure normalisers in `normalizar.ts`, with synthetic fixtures in `test/fixtures/` and tests.
+4. Its DEMO data in `demo.ts`.
+5. Its step-by-step guide in `web/src/ui/Camara.tsx` (`GUIDES`), and if it has a website that can be opened inside
+   the game, its entry in `web/src/ui/Navegadores.tsx` (`SPOTS`).
 
-## El tablón: lo pendiente, por conversación
+## The notice board: what's pending, by conversation
 
-Los conectores entregan mensajes con un `hilo` (canal de Discord o de Slack, conversación de correo, issue de Linear,
-hilo de GitHub) y `Integraciones` los difunde agrupados (`agruparAvisos` en `normalizar.ts`): una entrada por
-conversación con `cuantos`, `ids`, `autores` y los últimos `mensajes`. Su id cambia con cada mensaje nuevo (suena y
-vuelve a «sin ver»); `marcarVista` recibe los `ids` de sus mensajes. Microsoft 365, Google, GitHub y Linear sondean
-con `completas: true`: lo que devuelven es todo lo pendiente allí y lo que ya no viene (leído en su web) sale del
-tablón. Discord y Slack no tienen estado de leído para un bot: acumulan lo que llega.
+Connectors deliver messages with a `hilo` (Discord or Slack channel, mail conversation, Linear issue, GitHub thread)
+and `Integraciones` broadcasts them grouped (`groupNotices` in `normalizar.ts`): one entry per conversation with
+`cuantos`, `ids`, `authors` and the latest `mensajes`. Its id changes with each new message (it chimes and goes back
+to "unseen"); `marcarVista` receives the `ids` of its messages. Microsoft 365, Google, Mac Mail, GitHub and Linear
+poll with `complete: true`: what they return is everything pending there, and whatever no longer comes (read on its
+website) leaves the board. Discord and Slack have no read state for a bot: they accumulate what arrives.
 
-## Acciones de la cámara acorazada (por WebSocket, `integracion.<accion>` con `{ fuente, ... }`)
+## Vault actions (over WebSocket, `integracion.<action>` with `{ fuente, ... }`)
 
-| Acción | Qué hace |
+| Action | What it does |
 |---|---|
-| `campos` | Devuelve `{ campos, valores, guardados }`: definición de los campos, valores públicos actuales y qué secretos hay guardados (sin su valor). |
-| `probar` | `{ campos }` → `{ ok, detalle }`. Un secreto vacío significa «usar el guardado». |
-| `guardar` | `{ campos, activar? }` → guarda (públicos al estado, secretos al llavero), prueba y, si pasa, cambia la fuente a real (salvo `activar: false`). |
-| `modo` | `{ modo: 'demo' \| 'real' }`. |
-| `refrescar` | Sondea ya. |
-| `olvidar` | Borra los secretos del llavero y los campos, y vuelve a demo. |
-| Microsoft / Google `conectar` | Abre en el navegador del sistema la autorización (`abrir: false` solo devuelve la URL). |
-| Microsoft / Google `desconectar` | Borra la sesión (refresh token). |
-| Discord `invitacion` | URL para invitar al bot con permisos de solo lectura (66560). |
-| Discord / Slack `canales` | Canales para elegir. Guardar la selección con `guardar { campos: { canales: 'id1,id2' } }`. |
-| Linear `panel` | `{ yo, misIssues (por estado), ciclos (ciclo actual por equipo) }`. |
-| Linear `tablero` | `{ equipo: <clave> \| <id>, prioridad?: 'alta', etiqueta?, proyecto?, asignadoAMi?, ciclo?: 'actual' }` → columnas por estado. |
+| `campos` | Returns `{ campos, valores, guardados }`: field definitions, current public values and which secrets are saved (without their value). |
+| `probar` | `{ campos }` → `{ ok, detalle }`. An empty secret means "use the saved one". |
+| `guardar` | `{ campos, activar? }` → saves (public values to the state, secrets to the keychain), tests and, if it passes, switches the source to real (unless `activar: false`). |
+| `modo` | `{ modo: 'off' \| 'demo' \| 'real' }`. |
+| `refrescar` | Polls now. |
+| `olvidar` | Deletes the secrets from the keychain and the fields, and turns the source off. |
+| Microsoft / Google `conectar` | Opens the authorisation in the system browser (`abrir: false` only returns the URL). |
+| Microsoft / Google `desconectar` | Deletes the session (refresh token). |
+| Discord `invitacion` | URL to invite the bot with read-only permissions (66560). |
+| Discord / Slack `canales` | Channels to choose from. Save the selection with `guardar { campos: { canales: 'id1,id2' } }`. |
+| Linear `panel` | `{ yo, myIssues (by state), cycles (current cycle per team) }`. |
+| Linear `tablero` | `{ equipo: <key> \| <id>, prioridad?: 'alta', etiqueta?, proyecto?, assignedAMi?, ciclo?: 'actual' }` → columns by state. |
 
-## Inicio de sesión con navegador (Microsoft y Google)
+## Browser sign-in (Microsoft and Google)
 
-`server/integraciones/oauth.ts`: OAuth 2.0 de aplicación nativa (RFC 8252), código de autorización + PKCE (S256) y
-`state` aleatorio, con retorno a `http://localhost:<puerto libre>` (IPv4 e IPv6). La escucha es de un solo uso y se
-cierra al volver el navegador o a los 5 minutos. El access token vive solo en memoria; el refresh token, en el llavero.
+`server/integraciones/oauth.ts`: native-app OAuth 2.0 (RFC 8252), authorisation code + PKCE (S256) and a random
+`state`, returning to `http://localhost:<free port>` (IPv4 and IPv6). The listener is single-use and closes when the
+browser comes back or after 5 minutes. The access token lives only in memory; the refresh token, in the keychain.
 
-## Campos de cada fuente
+## Fields of each source
 
-**Microsoft 365 (Outlook)** — Microsoft Graph, solo lectura. Registras tu propia app en Microsoft Entra.
+**Microsoft 365 (Outlook)** — Microsoft Graph, read-only. You register your own app in Microsoft Entra.
 
-| Campo | Etiqueta | Secreto | Ayuda |
+| Field | Label | Secret | Help |
 |---|---|---|---|
-| `clientId` | ID de aplicación (cliente) | no | Entra → Registros de aplicaciones → tu app → «Id. de aplicación (cliente)». |
-| `tenant` | Inquilino | no (opcional) | Vacío: `common`. Si la app es de una sola organización, su «Id. de directorio». |
+| `clientId` | Application (client) ID | no | Entra → App registrations → your app → "Application (client) ID". |
+| `tenant` | Tenant | no (optional) | Empty: `common`. If the app is single-organisation, its "Directory ID". |
 
-Registro: plataforma *Cliente público/nativo (móvil y escritorio)* con la URI `http://localhost` (Entra acepta
-cualquier puerto en localhost), sin secreto. Permisos delegados: `User.Read`, `Mail.Read`, `Calendars.Read` y
-`offline_access`. Sondeo: correo no leído de la bandeja de entrada de los últimos 7 días (metadatos + `bodyPreview`,
-25 como máximo) cada 60 s; `calendarView` de hoy a +14 días cada 5 min, en la zona horaria del sistema.
+Registration: platform *Public client/native (mobile and desktop)* with the URI `http://localhost` (Entra accepts any
+port on localhost), no secret. Delegated permissions: `User.Read`, `Mail.Read`, `Calendars.Read` and
+`offline_access`. Polling: unread inbox mail from the last 7 days (metadata + `bodyPreview`, 25 at most) every 60 s;
+`calendarView` from today to +14 days every 5 min, in the system time zone.
 
-**Google (Gmail y Calendar)** — solo lectura. Creas tu propio cliente OAuth en Google Cloud.
+**Google (Gmail and Calendar)** — read-only. You create your own OAuth client in Google Cloud.
 
-| Campo | Etiqueta | Secreto | Ayuda |
+| Field | Label | Secret | Help |
 |---|---|---|---|
-| `clientId` | ID de cliente | no | Google Cloud → APIs y servicios → Credenciales → cliente OAuth de tipo «Aplicación de escritorio». |
-| `clientSecret` | Secreto de cliente | sí | El del mismo cliente (en una app de escritorio no es confidencial, pero va al llavero igualmente). |
+| `clientId` | Client ID | no | Google Cloud → APIs & Services → Credentials → OAuth client of type "Desktop app". |
+| `clientSecret` | Client secret | yes | The same client's (not confidential in a desktop app, but it goes to the keychain anyway). |
 
-Hay que activar Gmail API y Google Calendar API en el proyecto y, con la pantalla de consentimiento en «Pruebas»,
-añadirte como usuario de prueba. En ese modo Google corta el refresh token a los 7 días: el estado lo explica y basta
-con volver a conectar. Ámbitos: `gmail.readonly` y `calendar.readonly`. Sondeo: `is:unread in:inbox newer_than:7d`
-(25 como máximo, metadatos y fragmento; los ya vistos no se vuelven a pedir) cada 60 s; el calendario principal de
-hoy a +14 días cada 5 min.
+Enable the Gmail API and Google Calendar API in the project and, with the consent screen in "Testing", add yourself
+as a test user. In that mode Google cuts the refresh token after 7 days: the state explains it and reconnecting is
+enough. Scopes: `gmail.readonly` and `calendar.readonly`. Polling: `is:unread in:inbox newer_than:7d` (25 at most,
+metadata and snippet; already-seen ones aren't fetched again) every 60 s; the primary calendar from today to +14 days
+every 5 min.
 
-**Mail del Mac (Gmail sin Google Cloud)** — solo lectura, sin secretos. Para quien no puede o no quiere crear un
-proyecto en Google Cloud (o cuya organización no deja usar clientes OAuth propios): la cuenta de Google se añade en
-Ajustes del Sistema → Cuentas de internet con «Mail» activado (el inicio de sesión es el de Apple) y el refugio lee la
-app Mail con `server/integraciones/mail.jxa` (`osascript -l JavaScript`). La primera vez macOS pide permiso de
-Automatización para controlar Mail. Mail tiene que estar abierta (no se abre sola). Sondeo cada 60 s: sin leer en el
-Buzón de entrada de cada cuenta, últimos 7 días, 25 como máximo (~0,5 s); el texto (fragmento) solo de los nuevos y
-con 10 s como mucho por lectura, porque el de un correo que Mail aún no ha bajado tarda ~8 s: lo que falte llega en las
-siguientes. Los avisos de
-cuentas de Gmail (`imap.gmail.com`, también Workspace) abren el correo en Gmail con `rfc822msgid:` en la cuenta de su
-dirección; los de otras cuentas, en Mail (`message:`).
+**Mac Mail (Gmail without Google Cloud)** — read-only, no secrets. For whoever can't or doesn't want to create a
+Google Cloud project (or whose organisation doesn't allow their own OAuth clients): the Google account is added in
+System Settings → Internet Accounts with "Mail" on (the sign-in is Apple's) and the shelter reads the Mail app with
+`server/integraciones/mail.jxa` (`osascript -l JavaScript`). The first time, macOS asks for Automation permission to
+control Mail. Mail must be open (it doesn't open itself). Polling every 60 s: unread in each account's Inbox, last 7
+days, 25 at most (~0.5 s); the text (snippet) only for new ones and with at most 10 s per read, because a mail Mail
+hasn't downloaded yet takes ~8 s: whatever is missing arrives in the next rounds. Notices from Gmail accounts
+(`imap.gmail.com`, Workspace too) open the mail in Gmail with `rfc822msgid:` in the account of its address; those from
+other accounts, in Mail (`message:`).
 
-| Campo | Etiqueta | Secreto | Ayuda |
+| Field | Label | Secret | Help |
 |---|---|---|---|
-| `cuentas` | Solo estas cuentas (opcional) | no | Nombres de cuenta de Mail o direcciones, separados por comas. Vacío: todas. |
+| `cuentas` | Only these accounts (optional) | no | Mail account names or addresses, comma-separated. Empty: all. |
 
-**Calendario del Mac** — solo lectura, sin secretos. Los calendarios que ya tienes en la app Calendario (cuentas de
-Ajustes del Sistema → Cuentas de internet con «Calendarios» activado: Google, Exchange, iCloud…), sin proyecto en
-Google Cloud. Lee con `server/integraciones/calendario.jxa` (`osascript -l JavaScript`); la primera vez macOS pide
-permiso de Automatización para controlar Calendario, que tiene que estar abierta (no se abre sola). Sondeo cada 5 min,
-de hoy a +14 días (~3 s): lee cada propiedad de todos los eventos de cada calendario de una vez y filtra en el lector
-(con `whose`, Calendario tarda diez veces más). Por AppleScript, Calendario solo da el primer evento de cada serie: las
-repeticiones las despliega `repeticiones()` en `normalizar.ts` (RRULE con FREQ, INTERVAL, COUNT, UNTIL, BYDAY,
-BYMONTHDAY y BYMONTH, sin las fechas excluidas; una repetición movida llega como evento suelto con el mismo uid y
-manda esa). Sin avisos en el tablón: solo la agenda. El enlace de Meet, Zoom o Teams sale del lugar o de las notas.
+**Mac Calendar** — read-only, no secrets. The calendars you already have in the Calendar app (System Settings →
+Internet Accounts with "Calendars" on: Google, Exchange, iCloud…), without a Google Cloud project. It reads with
+`server/integraciones/calendario.jxa` (`osascript -l JavaScript`); the first time, macOS asks for Automation
+permission to control Calendar, which must be open (it doesn't open itself). Polling every 5 min, from today to +14
+days (~3 s): it reads each property of all events of each calendar at once and filters in the reader (with `whose`,
+Calendar takes ten times longer). Through AppleScript, Calendar only gives the first event of each series: repetitions
+are expanded by `repetitions()` in `normalizar.ts` (RRULE with FREQ, INTERVAL, COUNT, UNTIL, BYDAY, BYMONTHDAY and
+BYMONTH, minus excluded dates; a moved occurrence arrives as a standalone event with the same uid and wins). No
+notices on the board: only the calendar. The Meet, Zoom or Teams link comes from the location or the notes.
 
-| Campo | Etiqueta | Secreto | Ayuda |
+| Field | Label | Secret | Help |
 |---|---|---|---|
-| `calendarios` | Solo estos calendarios (opcional) | no | Nombres de calendario tal como salen en Calendario, separados por comas. Vacío: todos. |
+| `calendarios` | Only these calendars (optional) | no | Calendar names as they appear in Calendar, comma-separated. Empty: all. |
 
-**Discord** — bot oficial; **prohibido** el token de usuario. Los mensajes directos no llegan (ningún bot los ve).
+**Discord** — official bot; the user token is **forbidden**. Direct messages don't arrive (no bot sees them).
 
-| Campo | Etiqueta | Secreto | Ayuda |
+| Field | Label | Secret | Help |
 |---|---|---|---|
-| `token` | Token del bot | sí | Portal de desarrolladores → app → Bot → Reset Token → Copy. Activar «Message Content Intent». |
-| `canales` | Canales a vigilar | no (opcional) | Se eligen en la cámara acorazada una vez conectado. Vacío = todos los que ve el bot. Las menciones llegan siempre. |
-| `usuario` | Tu ID de usuario de Discord | no (opcional) | Solo si la app pertenece a un equipo; si no, se deduce del dueño de la app. |
+| `token` | Bot token | yes | Developer portal → app → Bot → Reset Token → Copy. Enable "Message Content Intent". |
+| `canales` | Channels to watch | no (optional) | Chosen in the Vault once connected. Empty = every channel the bot sees. Mentions always arrive. |
+| `usuario` | Your Discord user ID | no (optional) | Only if the app belongs to a team; otherwise it's inferred from the app's owner. |
 
-Gateway (WebSocket) con intents `GUILDS | GUILD_MESSAGES` y `MESSAGE_CONTENT` solo si el portal lo concede. Sin él,
-o si el Gateway cierra con 4014, se reconecta sin ese intent y se notifican los mensajes con un aviso en lugar del
-texto. Prioridad alta: menciones a ti, a tus roles y respuestas a tus mensajes; media: `@everyone`/`@here`; baja: el
-resto de los canales elegidos. Al conectar se rellenan las últimas 24 h de los canales que el bot ve. Reanuda
-(Resume) siempre que puede. El estado nombra los canales privados que el bot no ve y no se avisa de canales que tú no
-ves.
+Gateway (WebSocket) with intents `GUILDS | GUILD_MESSAGES` and `MESSAGE_CONTENT` only if the portal grants it. Without
+it, or if the Gateway closes with 4014, it reconnects without that intent and messages are notified with a notice
+instead of the text. High priority: mentions of you, of your roles and replies to your messages; medium:
+`@everyone`/`@here`; low: the rest of the chosen channels. On connecting it backfills the last 24 h of the channels the
+bot sees. It resumes (Resume) whenever it can. The state names the private channels the bot can't see, and there are
+no notices from channels you can't see.
 
-**Slack** — app propia en tu espacio de trabajo, token de bot (`xoxb-`) o de usuario (`xoxp-`).
+**Slack** — your own app in your workspace, bot token (`xoxb-`) or user token (`xoxp-`).
 
-| Campo | Etiqueta | Secreto | Ayuda |
+| Field | Label | Secret | Help |
 |---|---|---|---|
-| `token` | Token de OAuth | sí | api.slack.com/apps → tu app → OAuth & Permissions. |
-| `canales` | Canales a vigilar | no (opcional) | Se eligen una vez conectado. Vacío = todos. Directos y menciones llegan siempre. |
-| `usuario` | Tu ID de miembro | no (opcional) | Solo con token de bot, para tus menciones. Con token de usuario se sabe solo. |
+| `token` | OAuth token | yes | api.slack.com/apps → your app → OAuth & Permissions. |
+| `canales` | Channels to watch | no (optional) | Chosen once connected. Empty = all. Direct messages and mentions always arrive. |
+| `usuario` | Your member ID | no (optional) | Only with a bot token, for your mentions. With a user token it's known by itself. |
 
-Ámbitos: `channels:read`, `channels:history`, `groups:read`, `groups:history`, `users:read` (y con token de usuario,
-`im:read`, `im:history`, `mpim:read`, `mpim:history`). Ninguno de escritura. Sondeo cada 60 s con
-`conversations.history` desde el último mensaje visto de cada conversación (25 como máximo por vuelta, las de
-actividad más reciente; al conectar, las últimas 24 h).
+Scopes: `channels:read`, `channels:history`, `groups:read`, `groups:history`, `users:read` (and with a user token,
+`im:read`, `im:history`, `mpim:read`, `mpim:history`). None for writing. Polling every 60 s with
+`conversations.history` from the last message seen in each conversation (25 at most per round, those with the most
+recent activity; on connecting, the last 24 h). The Slack remote control is a separate app: see `docs/superficie.md`.
 
-**GitHub** — notificaciones sin leer (`GET /notifications`).
+**GitHub** — unread notifications (`GET /notifications`).
 
-| Campo | Etiqueta | Secreto | Ayuda |
+| Field | Label | Secret | Help |
 |---|---|---|---|
-| `token` | Token personal (clásico) | sí (opcional) | Con el permiso `notifications`. Vacío: se usa la sesión de `gh` (`gh auth token`) si la hay. |
+| `token` | Personal token (classic) | yes (optional) | With the `notifications` scope. Empty: the `gh` session is used (`gh auth token`) if there is one. |
 
-Los tokens fine-grained no sirven para la API de notificaciones. Sondeo cada 60 s con `If-Modified-Since` (un 304 no
-gasta cuota). Prioridad alta: te piden revisión, te mencionan, te asignan, alertas de seguridad.
+Fine-grained tokens don't work with the notifications API. Polling every 60 s with `If-Modified-Since` (a 304 costs
+no quota). High priority: review requested, mentioned, assigned, security alerts.
 
-**Revisiones de tus PR, a su sala** (`server/revisionesPR.ts`). Con GitHub conectado, cada 2 min se leen con `gh` tus
-PR abiertos (revisiones, hilos sin resolver y comentarios de la conversación; sin lo tuyo ni los comentarios de bots)
-y lo nuevo va como mensaje a la conversación abierta en la rama del PR: el worktree (o la carpeta) de la sala de su repo
-(por el remoto `origin`) con esa rama o, si no hay, un worktree de esa sala con la clave de la tarea en el nombre. El
-habitante propone un plan (qué arreglar y qué contestar) y no toca nada hasta que el Supervisor lo aprueba; el robot
-mensajero lo lleva desde Control de Versiones y se lo da en mano al holograma de ese worktree (al habitante, si es la
-copia principal). Sin conversación en esa rama, un aviso, y se entrega en cuanto la haya.
-Lo de antes de conectar no se manda; lo entregado se apunta en `revisiones-pr.json` (carpeta de datos).
+**Linear** — GraphQL with a personal key (`Authorization: <key>`, without `Bearer`), read-only from the game.
 
-**Linear** — GraphQL con clave personal (`Authorization: <clave>`, sin `Bearer`), solo lectura desde el juego.
-
-| Campo | Etiqueta | Secreto | Ayuda |
+| Field | Label | Secret | Help |
 |---|---|---|---|
-| `apiKey` | Clave de API de Linear | sí | Settings → Account → Security & access → Personal API keys. «Read» para los paneles; «Write», «Create issues» y «Create comments» para que el habitante actúe. |
+| `apiKey` | Linear API key | yes | Settings → Account → Security & access → Personal API keys. "Read" for the panels; "Write", "Create issues" and "Create comments" for the dweller to act. |
 
-Notificaciones sin leer del inbox (las 100 últimas; sin archivadas ni pospuestas) cada 60 s; mis issues y ciclos
-cada 5 min.
+Unread inbox notifications (the last 100; no archived or snoozed) every 60 s; my issues and cycles every 5 min.
 
-**Jira** — REST v3 de Jira Cloud con autenticación básica (correo + token de API), solo lectura. No trae avisos al
-tablón (`sinAvisos` en `shared/fuentes.ts`): alimenta el tablero de Logística.
+**Jira** — Jira Cloud REST v3 with basic auth (email + API token), read-only. It brings no notices to the board
+(`withoutNotices` in `shared/fuentes.ts`): it feeds the Logistics board.
 
-| Campo | Etiqueta | Secreto | Ayuda |
+| Field | Label | Secret | Help |
 |---|---|---|---|
-| `sitio` | Sitio de Jira | no | `empresa.atlassian.net` (se acepta la URL entera y se queda con el dominio). |
-| `correo` | Correo de tu cuenta de Atlassian | no | El de tu usuario de Jira. |
-| `token` | Token de API | sí | id.atlassian.com → Seguridad → Tokens de API → Crear token de API (sin ámbitos). |
+| `sitio` | Jira site | no | `company.atlassian.net` (the whole URL is accepted and the domain kept). |
+| `correo` | Your Atlassian account email | no | Your Jira user's. |
+| `token` | API token | yes | id.atlassian.com → Security → API tokens → Create API token (no scopes). |
 
-Acción `panel` (`{ forzar? }`) → `{ yo, tareas }` con `POST /rest/api/3/search/jql` y
-`assignee = currentUser() AND (statusCategory != Done OR updated >= -14d)`. Los PR del tablero salen de GitHub con `gh`
-(acción `git.prsTablero`: tuyos, actualizados en las dos últimas semanas, con revisión y CI) y se cruzan con las tareas
-en el cliente por la clave de Jira de la rama o del título (`cruzarTablero` en `shared/tablero.ts`).
+Action `panel` (`{ forzar? }`) → `{ yo, tareas }` with `POST /rest/api/3/search/jql` and
+`assignee = currentUser() AND (statusCategory != Done OR updated >= -14d)`. The board's PRs come from GitHub with `gh`
+(action `git.prsTablero`: yours, updated in the last two weeks, with review and CI) and are matched with the tasks in
+the client by the Jira key in the branch or title (`cruzarTablero` in `shared/tablero.ts`).
 
-Acción `tarea` (`{ clave }`) → la tarea con su descripción en texto (`textoDeADF`), para planificarla.
+Action `tarea` (`{ clave }`) → the task with its description as text (`textoDeADF`), for planning it.
 
-**Planificar y repartir una tarea.** En el tablero (desde Logística o desde el panel de la sala de Planificación), una
-tarea «Por hacer» se planifica con P: el habitante de la sala de Planificación empieza en modo plan con la tarea y su
-descripción (`promptPlanificar`), ve todos los repos y propone un plan por repo. Aprobado, lo reparte con las
-herramientas del juego `salas_del_refugio` y `repartir_trabajo` (`server/reparto.ts`, MCP en el propio proceso, solo en
-las salas de coordinación): el Supervisor confirma y cada parte empieza una conversación en la sala de su repo, en un
-worktree propio cuya rama lleva la clave (así sus PR salen en la tarea). La ficha dice qué salas tienen ya algo en
-marcha de esa tarea. La sala de Planificación es de serie (`SALA_PLANIFICACION`, tipo `coordinacion`, en la planta -2
-junto a Control de Versiones; la agenda, tipo `planificacion`, es solo el calendario): su carpeta es siempre la raíz de
-repos del refugio (`raizRepos`, en la cámara acorazada) y no se retira ni se vincula a otra carpeta. En la Puerta se
-pueden reclutar más salas de coordinación (cualquier carpeta con varios repos dentro).
+## Planning, tasks and PRs
 
-**Plan compartido.** `repartir_trabajo` guarda el plan entero (`server/planes.ts`, `DATOS/planes.json`, con versión e
-historial) y cada parte lo lee con `plan_compartido` (MCP `plan` en las salas que tienen una parte). Desde Planificación,
-`actualizar_plan` saca una versión nueva y manda un mensaje a la conversación de cada sala afectada (con `afectadas`,
-solo a esas y con lo que le toca a cada una), y `avisar_sala` manda un mensaje sin cambiar el plan; los dos identifican
-la tarea por su clave (`📋 [ABC-123] …`) y van a la conversación de la parte o, si ya no está, a la abierta en el
-worktree de la tarea. Desde una parte, `proponer_cambio_plan` le lleva la propuesta a la conversación de Planificación.
-Cada envío lo hace a la vista un robot mensajero con los planos (`web/src/mundo/mensajero.ts`, mensaje `mensajero`).
+**The Planning room.** A stock room (id `tareas`, `PLANNING_ROOM` in `shared/disposicion.ts`, type `coordinacion`,
+floor -2 next to Version Control; its dweller is Inés). The Calendar room, type `planificacion`, is just the calendar.
+Its folder is always the shelter's repos root (`raizRepos`, in the Vault), so its dweller sees every repo; it can't be
+retired or linked to another folder. More `coordinacion` rooms (wings: any folder with several repos inside) can be
+recruited at the Main Gate, and choosing the repos root adds them automatically.
 
-**Organizar las salas por tareas.** Desde el panel de una sala de repo («Organizar por tareas») o con ⌘K «Organizar las
-salas por tareas» (todas): tus PR sin fusionar del repo de cada sala (por su remoto `origin`) se agrupan por tarea, la
-clave de Jira de la rama o del título, y los apilados (la base de uno es la rama de otro) van siempre juntos
-(`server/organizar.ts`). Cada tarea tiene su worktree (el que ya la trabaje, por rama o por nombre; si no, uno nuevo en
-`.claude/worktrees/shelter-<clave>` con la rama de la base de la pila y las de encima como ramas locales del remoto; si su
-rama está en la copia principal, ahí) y su propia conversación con el habitante, en modo plan, que trabaja sus PR de uno
-en uno (checkout, arreglar y rebasar los de encima). Primero se enseña el plan y Enter lo hace; no empieza más
-conversaciones que el límite de sesiones vivas. Las revisiones nuevas de esos PR llegan a esa conversación
-(`sesionDelPR`, también por el número en el nombre: `shelter-pr-12-13`).
+**Planning and splitting a task.** On the board (from Logistics or from the Planning room panel), a "To do" task is
+planned with P: the Planning dweller starts in plan mode with the task and its description (`promptPlanificar`), looks
+at every repo and proposes a plan per repo. Once approved, it splits it with the game's tools `salas_del_refugio` and
+`repartir_trabajo` (`server/reparto.ts`, in-process MCP, only in coordination rooms): the Overseer confirms and each
+part starts a conversation in its repo's room, in its own worktree whose branch carries the key (so its PRs show up in
+the task). The card says which rooms already have something going for that task.
 
-**El color de cada tarea.** Cada tarea (clave de Jira; sin ella, `PR-<número>`) tiene un color de una paleta de 16
-(`shared/tareas.ts`) que reparte Logística: al leer el tablero de Jira, el servidor da a cada tarea el suyo y viaja con
-ella (`server/coloresTareas.ts`, `DATOS/colores-tareas.json`; las que no son de Jira, con la acción `tareas.colores`): la
-nueva recibe el que menos se usa entre las vistas en las dos últimas semanas. Es el mismo en el
-tablero de Jira, el de despliegue, la pestaña Pull requests, organizar, las pantallas de Logística y Planificación y el
-holograma (y el letrero) de la copia que trabaja la tarea: de un vistazo se ve qué tarea tiene sesiones en qué sala.
+**Shared plan.** `repartir_trabajo` saves the whole plan (`server/planes.ts`, `DATOS/planes.json`, with versions and
+history); Planning rereads it with `leer_plan` and each part with `plan_compartido` (MCP `plan` in the rooms that have
+a part). From Planning, `actualizar_plan` issues a new version and sends a message to the conversation of each affected
+room (with `afectadas`, only to those and with what concerns each), and `avisar_sala` sends a message without changing
+the plan; both identify the task by its key (`📋 [ABC-123] …`) and go to the part's conversation or, if it's gone, to
+the one open in the task's worktree. From a part, `proponer_cambio_plan` takes the proposal to Planning's
+conversation. Each delivery is made in view by a messenger robot carrying the blueprints (`web/src/mundo/mensajero.ts`,
+message `mensajero`).
 
-**Revisiones de tus PR.** Lo nuevo de otros en tus PR va a la conversación abierta en el worktree de su tarea
-(`server/revisionesPR.ts`). Si no hay ninguna abierta, se retoma la última de ese worktree (o se empieza una, en modo
-plan) con la revisión; si la tarea no tiene worktree, se avisa: es raro (falta organizar la sala por tareas).
+**Organising rooms by tasks.** From a repo room's panel ("Organize by tasks") or with ⌘K "Organize the rooms by
+tasks" (all of them): your unmerged PRs of each room's repo (by its `origin` remote) are grouped by task, the Jira key
+in the branch or title, and stacked ones (one's base is another's branch) always go together (`server/organizar.ts`).
+Each task gets its worktree (the one already working on it, by branch or name; otherwise a new one in
+`.claude/worktrees/shelter-<key>` with the stack's base branch and the ones above as local branches from the remote; if
+its branch is in the main copy, there) and its own conversation with the dweller, in plan mode, working its PRs one by
+one (checkout, fix and rebase the ones above). The plan is shown first and Enter carries it out; it never starts more
+conversations than the live-session limit.
 
-**Plan de despliegue.** En la pantalla grande de la sala de Planificación (su escena de serie, sin decorado:
-`web/src/mundo/salas/despliegue.ts`; un clic en ella lo abre), en el panel de la sala o con ⌘K «Plan de despliegue», tus PR por estado (borrador,
-en revisión, piden cambios, aprobado, fusionado) con los bloqueos entre ellos como flechas y el orden en que pueden
-fusionarse, por olas (`shared/despliegue.ts`, `web/src/ui/Despliegue.tsx`). Un PR espera a otro si va apilado encima (su
-base es la rama del otro), si su título o descripción lo dice («depends on #12», «bloqueado por org/repo#7», el enlace
-al PR) o si lo marcas con B (se guarda en `DATOS/bloqueos-pr.json`, `server/bloqueosPR.ts`; X lo quita). P le pasa el
-tablero al habitante de la sala, que propone el plan en modo plan sin tocar los repos. La lista de tus PR y los que
-esperan tu revisión está en Control de Versiones (pestaña Pull requests del cliente de git; T desde el tablero de Jira).
+**Each task's color.** Each task (Jira key; without one, `PR-<number>`) has a color from a 16-color palette
+(`shared/tareas.ts`) handed out by Logistics: when reading the Jira board, the server gives each task its own and it
+travels with it (`server/coloresTareas.ts`, `DATOS/colores-tareas.json`; non-Jira ones, with the `tareas.colores`
+action): a new task gets the least used among those seen in the last two weeks. It's the same on the Jira board, the
+deployment board, the Pull requests tab, organise, the Logistics and Planning screens and the hologram (and label) of
+the copy working the task, and visitors from that worktree wear it too: at a glance you see which task has sessions in
+which room.
 
-## MCP oficial de Linear para el habitante de Logística
+**Reviews of your PRs, to the room that works them** (`server/revisionesPR.ts`). With GitHub connected, every minute
+your open PRs are read with `gh` (reviews, unresolved threads and conversation comments; without your own, bot
+comments, bare approvals or courtesy replies like "LGTM" or "thanks") and what's new goes as a message to the
+conversation open on the PR's branch: the worktree (or folder) of its repo's room (by the `origin` remote) with that
+branch or, failing that, the worktree of its task (`sessionOfPR`, also by the number in the name: `shelter-pr-12-13`).
+With no conversation open there, the latest one in that worktree is resumed (or one is started, in plan mode) with the
+review; if the task has no worktree, a notice says so (it's rare: the room needs organising by tasks). The dweller
+proposes a plan (what to fix and what to reply) and touches nothing until the Overseer approves it. Each delivery shows
+a visible notice (who reviewed, which PR, which room and branch) and the messenger robot carries it from Version
+Control to the hologram of that worktree (to the dweller, if it's the main copy). Anything from before connecting
+isn't sent; what's delivered is recorded in `revisiones-pr.json` (data folder).
 
-`server/integraciones/linear.ts` exporta:
+**Deployment plan.** On the big screen of the Planning room (its stock scene, without a dressing:
+`web/src/mundo/salas/despliegue.ts`; a click on it opens it), in the room panel or with ⌘K "Deployment plan": your PRs
+by state (draft, in review, changes requested, approved, merged) with the blockers between them as arrows and the order
+they can be merged in, by waves (`shared/despliegue.ts`, `web/src/ui/Despliegue.tsx`). In each column, the PRs of the
+same task are grouped in a block of the task's color (headed by the key and the count when there are several), placed
+where its best PR goes. A PR waits for another if it's stacked on top (its base is the other's branch), if its title
+or description says so ("depends on #12", "blocked by org/repo#7", the PR link) or if you mark it with B (saved in
+`DATOS/bloqueos-pr.json`, `server/bloqueosPR.ts`; X removes it). P hands the board to the room's dweller, who proposes
+the plan in plan mode without touching the repos. The list of your PRs and those awaiting your review is in Version
+Control (Pull requests tab of the git client; T from the Jira board).
 
-- `mcpLinear({ soloLectura? })` → `{ linear: { type: 'http', url: 'https://mcp.linear.app/mcp', headers? } }`
-  (transporte HTTP transmitible).
-- `entornoMcpLinear()` → `{ SHELTER_LINEAR_CLAVE: <clave> }` o `{}`.
+## Linear's official MCP for the Logistics dweller
 
-Con clave en el llavero, la cabecera es literalmente `Authorization: Bearer ${SHELTER_LINEAR_CLAVE}`. El SDK pasa
-`mcpServers` al CLI como argumento `--mcp-config` (visible en `ps`), por eso la clave **no** va ahí: Claude Code
-expande `${VAR}` en las configuraciones MCP de la línea de comandos y la variable va solo en el entorno del proceso
-hijo. Sin clave en el llavero se devuelve el servidor sin cabeceras y vale la autorización OAuth de Claude Code:
-abrir `claude` en la carpeta, `/mcp` → `linear` → *Authenticate* e iniciar sesión en el navegador.
+`server/integraciones/linear.ts` exports:
 
-### Claude Code en la terminal (opcional, fuera del juego)
+- `mcpLinear({ onlyReading? })` → `{ linear: { type: 'http', url: 'https://mcp.linear.app/mcp', headers? } }`
+  (streamable HTTP transport).
+- `environmentMcpLinear()` → `{ SHELTER_LINEAR_CLAVE: <key> }` or `{}`.
+
+With a key in the keychain, the header is literally `Authorization: Bearer ${SHELTER_LINEAR_CLAVE}`. The SDK passes
+`mcpServers` to the CLI as the `--mcp-config` argument (visible in `ps`), so the key does **not** go there: Claude Code
+expands `${VAR}` in command-line MCP configs and the variable lives only in the child process's environment. Without a
+key in the keychain the server is returned without headers and Claude Code's OAuth authorisation applies: open
+`claude` in the folder, `/mcp` → `linear` → *Authenticate* and sign in in the browser.
+
+### Claude Code in the terminal (optional, outside the game)
 
 ```bash
-claude mcp add --transport http linear https://mcp.linear.app/mcp      # ámbito local; --scope user para todos
+claude mcp add --transport http linear https://mcp.linear.app/mcp      # local scope; --scope user for all
 ```
 
-Luego `/mcp` → `linear` → *Authenticate*.
+Then `/mcp` → `linear` → *Authenticate*.
 
-### Codex (`~/.codex/config.toml`, sección `mcp_servers`)
+### Codex (`~/.codex/config.toml`, `mcp_servers` section)
 
 ```bash
-codex mcp add linear --url https://mcp.linear.app/mcp     # y luego: codex mcp login linear (OAuth en el navegador)
+codex mcp add linear --url https://mcp.linear.app/mcp     # and then: codex mcp login linear (OAuth in the browser)
 ```
 
-que equivale a:
+which is equivalent to:
 
 ```toml
 [mcp_servers.linear]
 url = "https://mcp.linear.app/mcp"
-# Alternativa sin OAuth: la misma clave de API desde una variable de entorno
+# Alternative without OAuth: the same API key from an environment variable
 # bearer_token_env_var = "SHELTER_LINEAR_CLAVE"
 ```
 
-## Pruebas
+## Tests
 
-`npm test` ejecuta `server/integraciones/*.test.ts` sin red: normalizadores contra `test/fixtures/` y los conectores
-completos con `fetch` simulado, llavero en memoria, el retorno de OAuth por localhost y un Gateway de Discord simulado
-en `127.0.0.1`. Los fixtures son sintéticos (personas, empresas y dominios inventados; no hay credenciales).
+`npm test` runs `server/integraciones/*.test.ts` without network: normalisers against `test/fixtures/` and the full
+connectors with a mocked `fetch`, an in-memory keychain, the OAuth localhost return and a simulated Discord Gateway on
+`127.0.0.1`. The fixtures are synthetic (invented people, companies and domains; no credentials).
 
-## Límite conocido: la clave de Linear en el entorno del habitante de Logística
+## Known limit: the Linear key in the Logistics dweller's environment
 
-Para que el MCP oficial de Linear se autentique sin poner la clave en los argumentos (visibles con `ps`), el refugio
-la pasa en la variable `SHELTER_LINEAR_CLAVE` del proceso de Claude Code de Logística. Esa variable la heredan también
-sus herramientas (`Bash`, hooks, otros MCP): un `env` ejecutado por el habitante la mostraría en la transcripción. Si
-no quieres ese riesgo, no guardes clave de Linear en la cámara acorazada: el MCP oficial pedirá autorizarlo por OAuth
-en el navegador la primera vez, y el tablero de Logística seguirá en DEMO.
+So that Linear's official MCP authenticates without putting the key in the arguments (visible with `ps`), the shelter
+passes it in the `SHELTER_LINEAR_CLAVE` variable of the Logistics Claude Code process. Its tools inherit that variable
+too (`Bash`, hooks, other MCPs): an `env` run by the dweller would show it in the transcript. If you don't want that
+risk, don't save a Linear key in the Vault: the official MCP will ask you to authorise it via OAuth in the browser the
+first time, and the Logistics board will stay in DEMO.

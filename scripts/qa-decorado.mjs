@@ -1,6 +1,6 @@
 // QA de «Adaptar la sala al repo» de punta a punta: el habitante de una sala lee su repo y le diseña una escena con las
 // herramientas del juego (server/decoradoSala.ts); al final la sala tiene decorado válido y se guarda una foto.
-// Uso: node scripts/qa-decorado.mjs [sala] [modelo] [foto.png]   (por defecto: ripgrep, sonnet)
+// Uso: node scripts/qa-decorado.mjs [sala] [modelo] [foto.png]   (por defecto: la primera sala de repo, sonnet)
 // Ojo: lanza una sesión real de Claude Code (gasta de tu plan) y aprueba lo que pida que solo lea: úsalo contra un
 // refugio de pruebas (SHELTER_DATOS=/ruta/temporal y SHELTER_PUERTO), nunca contra el tuyo.
 import WebSocket from 'ws';
@@ -8,7 +8,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 const puerto = process.env.SHELTER_PUERTO || 3778;
-const [sala = 'ripgrep', modelo = 'sonnet', foto] = process.argv.slice(2);
+let [sala, modelo = 'sonnet', foto] = process.argv.slice(2);
 const datos = process.env.SHELTER_DATOS || path.join(import.meta.dirname, '..', '.data');
 const token = readFileSync(path.join(datos, 'token'), 'utf8').trim();
 const ws = new WebSocket(`ws://127.0.0.1:${puerto}/ws?t=${token}`, { headers: { Origin: `http://127.0.0.1:${puerto}` } });
@@ -23,6 +23,7 @@ ws.on('message', async raw => {
   if (m.t === 'respuesta') { const e = esperando.get(m.peticion); esperando.delete(m.peticion); if (e) m.error ? e.mal(new Error(m.error)) : e.ok(m.datos); return; }
   if (m.t === 'bienvenida' || m.t === 'estado') estado = m.estado;
   if (m.t === 'bienvenida') {
+    sala ??= estado.salas.find(x => x.tipo === 'repo')?.id;
     const s = estado.salas.find(x => x.id === sala); const h = estado.habitantes.find(x => x.salaId === sala);
     if (!s || !h) { log('No hay sala o habitante', sala); process.exit(1); }
     log(`sala ${s.nombre} (${s.ruta}), habitante ${h.nombre}, decorado antes: ${s.decorado ? s.decorado.base : 'ninguno'}`);

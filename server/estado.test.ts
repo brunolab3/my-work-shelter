@@ -58,9 +58,12 @@ describe('estado guardado', () => {
     viejo.habitantes = viejo.habitantes.filter((h: any) => h.salaId !== 'discoteca');
     const s = sanear(JSON.parse(JSON.stringify(viejo)));
     expect(addRoomsOfService(s)).toBe(true);
-    expect(s.salas.find(x => x.id === 'discoteca')).toMatchObject({ tipo: 'discoteca', planta: 4, lado: 'izq', orden: 0 });
-    expect(s.salas.find(x => x.id === 'hidroponia')).toMatchObject({ planta: 4, lado: 'izq', orden: 1 });
-    expect(s.salas.find(x => x.id === 'galeria')).toMatchObject({ planta: 4, lado: 'der', orden: 0 });
+    // sin salas de repo de serie, la planta de ocio queda justo debajo de la de planificación
+    const ocio = initialState().salas.find(x => x.id === 'galeria')!.planta;
+    expect(ocio).toBe(3);
+    expect(s.salas.find(x => x.id === 'discoteca')).toMatchObject({ tipo: 'discoteca', planta: ocio, lado: 'izq', orden: 0 });
+    expect(s.salas.find(x => x.id === 'hidroponia')).toMatchObject({ planta: ocio, lado: 'izq', orden: 1 });
+    expect(s.salas.find(x => x.id === 'galeria')).toMatchObject({ planta: ocio, lado: 'der', orden: 0 });
     expect(sanear(s).salas.filter(x => x.tipo === 'discoteca')).toHaveLength(1);
   });
   it('respeta el nombre que el jugador haya puesto a una sala', () => {
@@ -75,7 +78,10 @@ describe('estado guardado', () => {
   });
   it('toda sala tiene carpeta de trabajo: la suya o, en las especiales, una propia fuera del repo del juego', () => {
     const e = initialState();
-    const repo = e.salas.find(s => s.tipo === 'repo')!, logistica = e.salas.find(s => s.tipo === 'logistica')!;
+    // sin salas de repo de serie: la que tiene carpeta propia es el Puente de Mando (el repo del juego)
+    expect(e.salas.some(s => s.tipo === 'repo')).toBe(false);
+    const repo = e.salas.find(s => s.tipo === 'puente')!, logistica = e.salas.find(s => s.tipo === 'logistica')!;
+    expect(repo.ruta).toBeTruthy();
     expect(folderOf(repo)).toBe(repo.ruta);
     expect(folderOf(logistica)).toBe(path.join(ROOMS_FOLDERS, 'logistica'));
     expect(e.salas.every(s => !!folderOf(s))).toBe(true);
