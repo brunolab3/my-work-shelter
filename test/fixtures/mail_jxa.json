@@ -1,0 +1,46 @@
+{
+  "cuentas": [
+    {
+      "nombre": "Google",
+      "servidor": "imap.gmail.com",
+      "mails": [
+        "irene.valdes@taller.example"
+      ]
+    },
+    {
+      "nombre": "Casa",
+      "servidor": "imap.correo.example",
+      "mails": [
+        "irene@casa.example"
+      ]
+    }
+  ],
+  "mensajes": [
+    {
+      "id": "CAF-1a2b3c@mail.gmail.com",
+      "cuenta": "Google",
+      "asunto": "Re: Plan de pruebas de la versión 5",
+      "remitente": "Nerea Calvo <nerea@taller.example>",
+      "fecha": 1794211200000,
+      "marcado": true,
+      "texto": "Le he echado un ojo.\n\nTe dejo   dos comentarios en la wiki."
+    },
+    {
+      "id": "<abc-77@correo.example>",
+      "cuenta": "Casa",
+      "asunto": "",
+      "remitente": "biblioteca@ayuntamiento.example",
+      "fecha": 1794207600000,
+      "marcado": false,
+      "texto": "Tu préstamo vence mañana."
+    },
+    {
+      "id": "CAF-9z@mail.gmail.com",
+      "cuenta": "Google",
+      "asunto": "Plan de pruebas de la versión 5",
+      "remitente": "\"Irene Valdés\" <irene.valdes@taller.example>",
+      "fecha": 1794200000000,
+      "marcado": false
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+// Lector de los eventos de Calendario (la app del Mac), en JavaScript para Automatización (JXA). Lo lanza
+// server/integraciones/calendario.ts con osascript -l JavaScript. Solo lee: no crea, mueve ni borra nada.
+//   osascript -l JavaScript calendario.jxa <desde-ms> <hasta-ms>
+// Salida (JSON): { cerrada: true } si Calendario no está abierta (no se abre sola), o
+//   { calendarios: [nombre], eventos: [{ calendario, uid, titulo, inicio, fin, todoElDia, lugar, notas, estado, regla?, excluidas? }] }
+// Los que empiezan entre <desde> y <hasta> y los repetidos (con regla RRULE) que empezaron antes: Calendario no da las
+// repeticiones sueltas por AppleScript, así que las calcula el servidor (normalizar.ts, repeticiones).
+function run(argv) {
+  const Cal = Application('Calendar');
+  if (!Cal.running()) return JSON.stringify({ cerrada: true });
+  const desde = Number(argv[0]) || Date.now(), hasta = Number(argv[1]) || Date.now() + 14 * 86400000;
+  const calendarios = [], eventos = [];
+  const ms = d => (d ? d.getTime() : 0);
+  // cada propiedad de todos los eventos del calendario de una vez (una orden por propiedad, no una por evento; filtrar
+  // con «whose» en Calendario tarda diez veces más) y, de ellos, solo los que interesan
+  for (const c of Cal.calendars()) {
+    let nombre = '';
+    try { nombre = c.name(); } catch (e) { continue; }
+    calendarios.push(nombre);
+    const lista = c.events;
+    const p = n => { try { return lista[n](); } catch (e) { return []; } };
+    const inicio = p('startDate'), rule = p('recurrence');
+    const which = inicio.map((d, i) => { const t = ms(d); return (t >= desde && t < hasta) || (rule[i] && t < desde) ? i : -1; }).filter(i => i >= 0);
+    if (!which.length) continue;
+    const uid = p('uid'), titulo = p('summary'), fin = p('endDate'), dia = p('alldayEvent'), lugar = p('location'), estado = p('status'), notas = p('description');
+    const excluded = which.some(i => rule[i]) ? p('excludedDates') : [];
+    for (const i of which) eventos.push({
+      calendario: nombre, uid: String(uid[i] || ''), titulo: titulo[i] || '', inicio: ms(inicio[i]), fin: ms(fin[i]), allElDay: !!dia[i], lugar: lugar[i] || '',
+      notas: String(notas[i] || '').slice(0, 2000), estado: estado[i] || '', ...(rule[i] ? { rule: rule[i], excluded: (excluded[i] || []).map(ms) } : {}),
+    });
+  }
+  return JSON.stringify({ calendarios, eventos });
+}

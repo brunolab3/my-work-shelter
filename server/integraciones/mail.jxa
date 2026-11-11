@@ -1,0 +1,45 @@
+// Lector del correo sin leer de Mail (la app del Mac), en JavaScript para Automatización (JXA). Lo lanza
+// server/integraciones/mail.ts con osascript -l JavaScript. Solo lee: no marca, no mueve ni borra nada.
+//   osascript -l JavaScript mail.jxa <días> <máximo> <ids-conocidos-en-JSON>
+// Salida (JSON): { cerrada: true } si Mail no está abierta (no se abre sola), o
+//   { cuentas: [{ nombre, servidor, correos }], mensajes: [{ id, cuenta, asunto, remitente, fecha, marcado, texto? }] }
+// Solo el Buzón de entrada de cada cuenta activa, sin leer, de los últimos <días>, los <máximo> más recientes de
+// todas las cuentas. El texto (para el fragmento) solo de los que no están en <ids-conocidos>: leerlo es lo lento.
+function run(argv) {
+  const Mail = Application('Mail');
+  if (!Mail.running()) return JSON.stringify({ cerrada: true });
+  const days = Number(argv[0]) || 7, maximo = Number(argv[1]) || 25;
+  let conocidos = []; try { conocidos = JSON.parse(argv[2] || '[]'); } catch (e) {}
+  const sabidos = {}; for (const id of conocidos) sabidos[id] = true;
+  const desde = new Date(Date.now() - days * 86400000);
+  const cuentas = [], candidates = [];
+  for (const cuenta of Mail.accounts()) {
+    let nombre = '';
+    try { if (!cuenta.enabled()) continue; nombre = cuenta.name(); } catch (e) { continue; }
+    let servidor = '', mails = [];
+    try { servidor = cuenta.serverName() || ''; } catch (e) {}
+    try { mails = cuenta.emailAddresses() || []; } catch (e) {}
+    cuentas.push({ nombre, servidor, mails });
+    let mailbox = null;
+    for (const n of ['INBOX', 'Inbox', 'Bandeja de entrada']) { try { const b = cuenta.mailboxes.byName(n); b.name(); mailbox = b; break; } catch (e) {} }
+    if (!mailbox) continue;
+    // pedir cada propiedad de todos de una vez (una orden por propiedad, no una por mensaje)
+    const ms = mailbox.messages.whose({ _and: [{ readStatus: false }, { dateReceived: { _greaterThan: desde } }] });
+    let ids;
+    try { ids = ms.messageId(); } catch (e) { continue; }
+    if (!ids.length) continue;
+    const subjects = ms.subject(), senders = ms.sender(), fechas = ms.dateReceived(), marcados = ms.flaggedStatus();
+    for (let i = 0; i < ids.length; i++) candidates.push({ ms, i, id: String(ids[i] || ''), cuenta: nombre, asunto: subjects[i] || '', remitente: senders[i] || '', fecha: fechas[i] ? fechas[i].getTime() : 0, marcado: !!marcados[i] });
+  }
+  candidates.sort((a, b) => b.fecha - a.fecha);
+  // el texto de un correo que Mail aún no ha bajado tarda ~8 s: como mucho 10 s por lectura (lo que falte, en la siguiente)
+  const hasta = Date.now() + 10000;
+  const mensajes = candidates.filter(m => m.id).slice(0, maximo).map(m => {
+    const r = { id: m.id, cuenta: m.cuenta, asunto: m.asunto, remitente: m.remitente, fecha: m.fecha, marcado: m.marcado };
+    // por su posición en la lista filtrada (buscarlo por id recorre el buzón entero: un minuto con 25), comprobando que
+    // sigue siendo el mismo (si entretanto se ha leído uno, la lista se corre: sin texto esta vez, se pide en la siguiente)
+    if (!sabidos[m.id] && Date.now() < hasta) { try { const x = m.ms[m.i]; if (String(x.messageId()) === m.id) r.texto = String(x.content() || '').slice(0, 600); } catch (e) {} }
+    return r;
+  });
+  return JSON.stringify({ cuentas, mensajes });
+}
