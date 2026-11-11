@@ -54,6 +54,7 @@ export interface SessionSummary {
   claudeId?: string;             // session_id real de Claude Code
   cwd: string;
   estado: SessionState;
+  segundoPlano?: number;         // tareas en segundo plano vivas (subagentes, terminales): mientras, sigue trabajando
   sinLeer: boolean;
   titulo: string;
   lastText?: string;          // última narración / respuesta (markdown)

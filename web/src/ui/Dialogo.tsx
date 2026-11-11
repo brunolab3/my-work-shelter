@@ -787,7 +787,7 @@ function Session({ h, s, p, salir, onClose }: { h: DwellerSummary; s: SessionSum
   const dictado = useDictation({ area, texto, setText, onSend: enviar });
   const esc = useEscDouble();
   const [encima, soltar] = useDrop(f => adjuntar(h.id, p.id, f));
-  const lineState = s.estado === 'arrancando' ? t('windows.gettingReady') : s.actividad ? s.actividad.texto : workingLive ? t('windows.thinking') : '';
+  const lineState = s.estado === 'arrancando' ? t('windows.gettingReady') : s.actividad ? s.actividad.texto : workingLive && s.segundoPlano ? t('windows.waitingNInBackground', { n: s.segundoPlano }) : workingLive ? t('windows.thinking') : '';
   const ayudantes = s.ayudantes.filter(a => a.estado === 'trabajando').length;
   return (
     <div className={'pantalla-consola fosforo sesion' + (encima ? ' soltando' : '')} {...soltar}>

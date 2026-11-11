@@ -218,6 +218,7 @@ export const WINDOWS: Record<string, Texto> = {
   'windows.thinking': { es: 'Pensando…', en: 'Thinking…' },
   'windows.doneYouCanReplyOpen': { es: 'Listo. Puedes responder, abrir otra pestaña o cerrar esta.', en: 'Done. You can reply, open another tab or close this one.' },
   'windows.nHelpers': { es: '{n} ayudantes', en: '{n} helpers' },
+  'windows.waitingNInBackground': { es: 'Esperando a lo que sigue en segundo plano ({n})', en: 'Waiting for what is still running in the background ({n})' },
   'windows.nHelper': { es: '{n} ayudante', en: '{n} helper' },
   'windows.sideQuestion': { es: 'pregunta lateral…', en: 'side question…' },
   'windows.addSomethingWhileItWorks': { es: 'Añade algo mientras trabaja · /btw pregunta lateral · /stop parar', en: 'Add something while it works · /btw side question · /stop to stop' },

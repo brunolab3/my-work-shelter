@@ -67,6 +67,8 @@ interface Session {
   herramientas: Map<string, { nombre: string }>;
   ayudantes: Map<string, Helper>;
   taskAHelper: Map<string, string>;
+  // tareas en segundo plano vivas (subagentes, terminales, monitores): con alguna, el turno acaba pero el trabajo no
+  fondo: Set<string>; awaitingBackground: boolean; fondoTimer?: NodeJS.Timeout;
   comandos: Command[];
   stderr: string;
   opciones: WorkOptions;
@@ -168,11 +170,11 @@ export class Sessions extends EventEmitter {
   private lastEmission = new Map<string, { t: number; clave: string; timer?: NodeJS.Timeout }>();
   private tocar(x: Session) {
     x.r.actualizada = Date.now(); x.r.pendientes = x.pendientes.length; x.r.pending = x.pendientes[0]?.pet; x.r.ayudantes = [...x.ayudantes.values()];
-    const clave = JSON.stringify([x.r.estado, x.r.actividad, x.r.pending?.id, x.r.pendientes, x.r.ayudantes, x.r.lastText?.length, x.r.sinLeer, x.r.titulo, x.r.error, x.r.lateral, x.r.modoPermisos, x.r.modelo, x.r.claudeId, x.r.turns]);
+    const clave = JSON.stringify([x.r.estado, x.r.actividad, x.r.pending?.id, x.r.pendientes, x.r.ayudantes, x.r.lastText?.length, x.r.sinLeer, x.r.titulo, x.r.error, x.r.lateral, x.r.modoPermisos, x.r.modelo, x.r.claudeId, x.r.turns, x.r.segundoPlano]);
     const u = this.lastEmission.get(x.r.id);
     if (u && u.clave === clave) return;
     const ahora = Date.now();
-    const emitir = () => { const e = this.lastEmission.get(x.r.id); if (e) e.timer = undefined; this.lastEmission.set(x.r.id, { t: Date.now(), clave: JSON.stringify([x.r.estado, x.r.actividad, x.r.pending?.id, x.r.pendientes, x.r.ayudantes, x.r.lastText?.length, x.r.sinLeer, x.r.titulo, x.r.error, x.r.lateral, x.r.modoPermisos, x.r.modelo, x.r.claudeId, x.r.turns]) }); this.emit('sesion', { ...x.r, ayudantes: x.r.ayudantes.map(a => ({ ...a })) }); };
+    const emitir = () => { const e = this.lastEmission.get(x.r.id); if (e) e.timer = undefined; this.lastEmission.set(x.r.id, { t: Date.now(), clave: JSON.stringify([x.r.estado, x.r.actividad, x.r.pending?.id, x.r.pendientes, x.r.ayudantes, x.r.lastText?.length, x.r.sinLeer, x.r.titulo, x.r.error, x.r.lateral, x.r.modoPermisos, x.r.modelo, x.r.claudeId, x.r.turns, x.r.segundoPlano]) }); this.emit('sesion', { ...x.r, ayudantes: x.r.ayudantes.map(a => ({ ...a })) }); };
     // los cambios de estado salen al momento; los de actividad, como mucho 8 por segundo
     if (!u || u.clave.split(',')[0] !== clave.split(',')[0] || ahora - u.t > 125) { if (u?.timer) clearTimeout(u.timer); emitir(); }
     else if (!u.timer) u.timer = setTimeout(emitir, 125);
@@ -204,7 +206,7 @@ export class Sessions extends EventEmitter {
       pendientes: 0, ayudantes: [], herramientas: 0, turns: 0, modelo: o.modelo || undefined, esfuerzo: o.esfuerzo || undefined,
       modoPermisos: o.permisos || 'auto', created: Date.now(), actualizada: Date.now(), claudeId: o.reanudar,
     };
-    const x: Session = { r, viva: false, closing: false, interrupting: false, sent: new Map(), pendientes: [], entradas: [], herramientas: new Map(), ayudantes: new Map(), taskAHelper: new Map(), comandos: [], stderr: '', opciones: o, partialText: '', shipments: Promise.resolve() };
+    const x: Session = { r, viva: false, closing: false, interrupting: false, sent: new Map(), pendientes: [], entradas: [], herramientas: new Map(), ayudantes: new Map(), taskAHelper: new Map(), fondo: new Set(), awaitingBackground: false, comandos: [], stderr: '', opciones: o, partialText: '', shipments: Promise.resolve() };
     this.s.set(id, x);
     if (o.reanudar) {
       try { x.entradas = await this.transcripcion(o.reanudar, r.cwd); } catch {}
@@ -266,7 +268,7 @@ export class Sessions extends EventEmitter {
   }
 
   private async lanzar(x: Session, reanudar?: string, queue = new Cola<SDKUserMessage>()) {
-    x.entrada = queue; x.viva = true;
+    x.entrada = queue; x.viva = true; this.forgetBackground(x);
     const opciones: Options = { ...this.optionsBase(x, reanudar), canUseTool: this.canUse(x) };
     // el habitante de Planificación (el tablero de tareas) trabaja con el MCP oficial de Linear (la clave, si la hay, va por el entorno)
     if (x.r.salaId === 'logistica' && activa('linear')) {
@@ -324,6 +326,8 @@ export class Sessions extends EventEmitter {
         x.viva = false;
         this.emptyPending(x, 'La sesión ha terminado.');
         for (const a of x.ayudantes.values()) if (a.estado === 'trabajando') a.estado = 'fallo';
+        if (x.awaitingBackground && x.r.estado === 'trabajando') x.r.estado = 'terminada';   // el turno ya había acabado bien
+        this.forgetBackground(x);
         if (x.closing) { x.r.estado = 'cerrada'; setTimeout(() => { this.s.delete(x.r.id); this.emit('fuera', x.r.id); }, 30_000).unref(); }
         else if (x.r.estado !== 'terminada' && x.r.estado !== 'ociosa') { x.r.estado = 'error'; x.r.sinLeer = true; x.r.error ??= 'La sesión se detuvo inesperadamente.'; }
         x.r.actividad = undefined;
@@ -355,6 +359,7 @@ export class Sessions extends EventEmitter {
         // un turno que empieza sin que lo mande el intercomunicador (lo que quedaba en cola, el aviso de una tarea en
         // segundo plano) también es trabajar: si no, se ve parado y Ctrl+C no lo para
         if (!padre && ['arrancando', 'terminada', 'ociosa', 'error'].includes(r.estado)) r.estado = 'trabajando';
+        if (!padre) this.stopAwaiting(x);
         break;
       }
       case 'user': {
@@ -387,6 +392,8 @@ export class Sessions extends EventEmitter {
         else { r.estado = 'error'; const por = (res.errors as string[] | undefined)?.join('\n') || res.result || res.subtype; r.error = por; this.anadir(x, this.entrada('error', t('server.theJobGotStuck', { por }))); }
         r.sinLeer = true; r.actividad = undefined; x.partialText = '';
         if (x.pendientes.length) r.estado = 'esperando';
+        // con subagentes o terminales aún en segundo plano no ha terminado: sigue trabajando hasta que acaben
+        else if (r.estado === 'terminada' && !interrupted && x.fondo.size) { r.estado = 'trabajando'; r.sinLeer = false; x.awaitingBackground = true; }
         this.refreshTitle(x);
         // la recompensa del refugio solo cuenta las herramientas de este turno y nunca un turno interrumpido o fallido
         const ofCurrent = interrupted || r.estado === 'error' ? 0 : r.herramientas - (x.toolsOnStartTurn ?? 0);
@@ -408,6 +415,9 @@ export class Sessions extends EventEmitter {
     }).catch(() => {});
   }
 
+  private stopAwaiting(x: Session) { x.awaitingBackground = false; clearTimeout(x.fondoTimer); }
+  private forgetBackground(x: Session) { this.stopAwaiting(x); x.fondo.clear(); x.r.segundoPlano = undefined; }
+
   private sistema(x: Session, m: any) {
     const r = x.r;
     switch (m.subtype) {
@@ -426,6 +436,18 @@ export class Sessions extends EventEmitter {
       case 'task_progress': { const a = x.ayudantes.get(m.tool_use_id ?? x.taskAHelper.get(m.task_id) ?? ''); if (a) { if (m.last_tool_name) a.lastTool = a.lastTool ?? m.last_tool_name; if (m.usage?.tool_uses) a.herramientas = Math.max(a.herramientas, m.usage.tool_uses); } break; }
       case 'task_notification': { const id = m.tool_use_id ?? x.taskAHelper.get(m.task_id); if (id) this.helperEnd(x, id, m.status === 'completed' ? 'hecho' : 'fallo'); break; }
       case 'task_updated': { const st = m.patch?.status; const id = x.taskAHelper.get(m.task_id); if (id && ['completed', 'failed', 'killed'].includes(st)) this.helperEnd(x, id, st === 'completed' ? 'hecho' : 'fallo'); break; }
+      case 'background_tasks_changed': {
+        x.fondo = new Set(((m.tasks ?? []) as { task_id: string; ambient?: boolean }[]).filter(t => !t.ambient).map(t => t.task_id));
+        r.segundoPlano = x.fondo.size || undefined;
+        // al acabar la última, Claude Code suele retomar el turno con su aviso (y ese turno acaba como siempre): solo si
+        // no lo retoma enseguida se da por terminado aquí
+        clearTimeout(x.fondoTimer);
+        if (!x.fondo.size && x.awaitingBackground) x.fondoTimer = setTimeout(() => {
+          if (!x.awaitingBackground || x.fondo.size || r.estado !== 'trabajando') return;
+          x.awaitingBackground = false; r.estado = 'terminada'; r.sinLeer = true; this.tocar(x);
+        }, 5000).unref();
+        break;
+      }
       case 'session_state_changed': if (m.state === 'running' && r.estado !== 'esperando') r.estado = 'trabajando'; break;
       case 'compact_boundary': this.anadir(x, this.entrada('sistema', t('server.conversationCompacted'))); this.measureContext(x); break;
       case 'local_command_output': this.anadir(x, this.entrada('sistema', String(m.content ?? ''))); break;
@@ -542,6 +564,13 @@ export class Sessions extends EventEmitter {
   async interrumpir(id: string) {
     const x = this.must(id);
     if (!x.viva || (x.r.estado !== 'trabajando' && x.r.estado !== 'esperando' && x.r.estado !== 'arrancando')) return;
+    // sin turno en marcha, solo con tareas en segundo plano: parar es pararlas (no llegará ningún «result»)
+    if (x.awaitingBackground) {
+      this.stopAwaiting(x);
+      await Promise.all([...x.fondo].map(id => x.q?.stopTask(id).catch(() => {})));
+      x.r.estado = 'terminada'; this.anadir(x, this.entrada('sistema', '✋ Interrumpido')); this.tocar(x);
+      return;
+    }
     x.interrupting = true;
     this.emptyPending(x, 'Interrumpido por el usuario.');
     // parar es parar, como Esc en Claude Code: también se anula lo que se le mandó mientras trabajaba (si no, en
