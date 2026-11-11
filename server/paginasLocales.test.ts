@@ -36,6 +36,24 @@ describe('páginas HTML del Mac en el juego', () => {
     expect(PAGE_CSP).toMatch(/^sandbox allow-scripts/); expect(PAGE_CSP).not.toContain('allow-same-origin'); expect(PAGE_CSP).toContain("connect-src 'none'");
     expect((await pedir(pagina.url.replace('mi%20plan.html', 'estilo.css'))).status).toBe(200);
   });
+  it('carga scripts de los CDN públicos (marked, mermaid), pero no de cualquier sitio ni imágenes de fuera', () => {
+    const scripts = PAGE_CSP.split('; ').find(d => d.startsWith('script-src '))!;
+    expect(scripts).toContain('https://cdn.jsdelivr.net');
+    expect(scripts.split(' ')).not.toContain('https:');
+    expect(PAGE_CSP.split('; ').find(d => d.startsWith('img-src '))).not.toContain('https');
+  });
+  it('un .md se ve como página en el juego: pasado a HTML, con sus diagramas mermaid y la capa de notas', async () => {
+    writeFileSync(path.join(carpeta, 'plan.md'), '# Plan <b>\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\n```mermaid\nflowchart TD\n  A --> B\n```\n');
+    const { pagina } = await openLink(path.join(carpeta, 'plan.md'), '/Users/nadie') as any;
+    expect(pagina.url).toMatch(/\/plan\.md$/);
+    const p = await pedir(pagina.url);
+    expect([p.status, p.tipo, p.csp]).toEqual([200, 'text/html; charset=utf-8', PAGE_CSP]);
+    expect(p.texto).toContain('<title>plan.md</title>');
+    expect(p.texto).toContain('<td>1</td>');
+    expect(p.texto).toContain('<pre class="mermaid">flowchart TD\n  A --&gt; B\n</pre>');
+    expect(p.texto).toContain('mermaid.min.js');
+    expect(p.texto).toContain('postMessage');
+  });
   it('la capa de notas va una vez, antes del último </body>, y sin cerrar su <script> antes de tiempo', () => {
     const html = withNotes('<html><body><p>a</p><pre>&lt;/body&gt;</pre></body></html>');
     expect(html.match(/<script>/g)).toHaveLength(1);
