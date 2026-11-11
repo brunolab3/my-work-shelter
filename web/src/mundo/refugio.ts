@@ -916,12 +916,13 @@ export class Refugio {
     return null;
   }
   // Con una charla abierta, un clic en otro habitante (o copia) deja esa charla minimizada en la barra y va a por el
-  // nuevo: así se van abriendo charlas una tras otra; el clic en lo demás no corta la charla
+  // nuevo: así se van abriendo charlas una tras otra. Un aparato (un tablero, una pantalla) también: la charla se queda
+  // en la barra y se abre su panel. El clic en lo demás (el suelo, el ascensor) no corta la charla
   private clic(e: PointerEvent) {
     const j = juego.get(); if (j.panel || !this.supervisor) return;
     const a = this.apuntar(this.ndc(e)); if (!a) return;
     if (j.talkingWith) {
-      if ((a.tipo !== 'habitante' && a.tipo !== 'copia') || (a.tipo === 'habitante' && a.h === this.focused) || (a.tipo === 'copia' && a.f === this.copyFocused)) return;
+      if ((a.tipo !== 'habitante' && a.tipo !== 'copia' && a.tipo !== 'aparato') || (a.tipo === 'habitante' && a.h === this.focused) || (a.tipo === 'copia' && a.f === this.copyFocused)) return;
       SFX.cerrar(); juego.set({ talkingWith: null, workIn: null }); this.dialogEnd();   // como minimizarIntercom (ui/Dialogo.tsx)
     }
     // la charla se abre con el clic; el Supervisor llega andando por detrás
@@ -953,8 +954,8 @@ export class Refugio {
     const j = juego.get();
     if (this.cameraDragging()) return;
     const a = this.raton && !j.panel && this.supervisor && !this.montado ? this.apuntar(this.raton) : null;
-    // con una charla abierta solo cuenta otro interlocutor (el clic cambia de charla); lo demás no hace nada
-    const otro = a && ((a.tipo === 'habitante' && a.h !== this.focused) || (a.tipo === 'copia' && a.f !== this.copyFocused));
+    // con una charla abierta solo cuentan otro interlocutor (el clic cambia de charla) y los aparatos; lo demás no hace nada
+    const otro = a && (a.tipo === 'aparato' || (a.tipo === 'habitante' && a.h !== this.focused) || (a.tipo === 'copia' && a.f !== this.copyFocused));
     const nuevo = a && a.tipo !== 'suelo' && (!j.talkingWith || otro) ? a : null;
     const igual = (x: typeof this.apuntado, y: typeof this.apuntado) => x === y || (!!x && !!y && x.tipo === y.tipo && (x.tipo === 'habitante' ? x.h === (y as any).h : x.tipo === 'copia' ? x.f === (y as any).f : x.tipo === 'ascensor' ? x.planta === (y as any).planta : x.it === (y as any).it));
     if (!igual(nuevo, this.apuntado)) { this.apuntado = nuevo; if (nuevo) SFX.hover(); this.motor.renderer.domElement.style.cursor = nuevo ? 'pointer' : ''; }
