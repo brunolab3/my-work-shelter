@@ -21,6 +21,7 @@ import { BlockersPR } from './bloqueosPR.ts';
 import { TasksColors } from './coloresTareas.ts';
 import { agruparPorTarea, planDeSala, applyPlan } from './organizar.ts';
 import { ReviewsPR, REVIEWS_QUERY, remoteRepo } from './revisionesPR.ts';
+import { TasksCleanup } from './limpiezaTareas.ts';
 import { entornoGit } from './entornoGit.ts';
 import { captureRoom } from './capturaSala.ts';
 import { baseStock } from '../shared/decorado.ts';
@@ -405,29 +406,35 @@ setInterval(() => {
   for (const s of still.slice(0, Math.max(0, vivas - 12))) sesiones.cerrar(s.id);
 }, 60_000).unref();
 
+// un mensaje a la conversación de una sala en una carpeta (su copia principal o un worktree): la abierta ahí; si no, se
+// retoma la última de ahí (si no sigue abierta fuera) o se empieza una
+async function sendToFolder(salaId: string, cwd: string, texto: string, permisos: 'plan' | 'default') {
+  const h = almacen.estado.habitantes.find(x => x.salaId === salaId); if (!h) return false;
+  const dir = path.resolve(cwd);
+  const abierta = sesiones.lista().find(x => x.estado !== 'cerrada' && x.salaId === salaId && path.resolve(x.worktree ?? x.cwd) === dir);
+  if (abierta) return ctxPlan.avisar(abierta.id, texto);
+  const fuera = outsideOpen();
+  const previa = (await sesiones.historial(dir).catch(() => [])).filter(x => (!x.cwd || path.resolve(x.cwd) === dir) && !fuera.has(x.claudeId.toLowerCase())).sort((a, b) => b.modified - a.modified)[0];
+  await startWork(undefined, { t: 'empezar', dwellerId: h.id, salaId, prompt: texto, opciones: { cwd: dir, permisos, reanudar: previa?.claudeId } });
+  return true;
+}
+
 // las revisiones de tus PR (revisionesPR.ts), cada minuto con GitHub conectado: a la conversación de la rama del PR
 const remote = new Map<string, string | undefined>();
 const roomRepo = (ruta: string) => remote.has(ruta) ? Promise.resolve(remote.get(ruta))
   : new Promise<string | undefined>(ok => execFile('git', ['-C', ruta, 'remote', 'get-url', 'origin'], { timeout: 6000, env: entornoGit() }, (err, out) => { const r = err ? undefined : remoteRepo(String(out)); if (!err) remote.set(ruta, r); ok(r); }));
+// las salas de repo git, con sus worktrees y su repo de GitHub (owner/nombre)
+const repoRooms = () => Promise.all(almacen.estado.salas.filter(s => s.tipo === 'repo' && s.ruta && repos[s.id]?.isGit).map(async s => ({
+  id: s.id, nombre: s.nombre, ruta: s.ruta!, rama: repos[s.id]?.rama, worktrees: repos[s.id]?.worktrees ?? [], repo: await roomRepo(s.ruta!),
+})));
 const revisionesPR = new ReviewsPR(DATOS, {
   connection: connectionGitHub,
   consultar: async token => JSON.parse(await (await import('./git.ts')).gh(['api', 'graphql', '-f', 'query=' + REVIEWS_QUERY], token)),
-  salas: () => Promise.all(almacen.estado.salas.filter(s => s.tipo === 'repo' && s.ruta && repos[s.id]?.isGit).map(async s => ({
-    id: s.id, nombre: s.nombre, ruta: s.ruta!, rama: repos[s.id]?.rama, worktrees: repos[s.id]?.worktrees ?? [], repo: await roomRepo(s.ruta!),
-  }))),
+  salas: repoRooms,
   sesiones: () => sesiones.lista(),
   avisar: ctxPlan.avisar,
-  // sin conversación abierta en el worktree de la tarea: se retoma la última de ahí (si no sigue abierta fuera) o se empieza
-  abrir: async (salaId, cwd, texto) => {
-    const h = almacen.estado.habitantes.find(x => x.salaId === salaId); if (!h) return false;
-    const dir = path.resolve(cwd);
-    const abierta = sesiones.lista().find(x => x.estado !== 'cerrada' && x.salaId === salaId && path.resolve(x.worktree ?? x.cwd) === dir);
-    if (abierta) return ctxPlan.avisar(abierta.id, texto);
-    const fuera = outsideOpen();
-    const previa = (await sesiones.historial(dir).catch(() => [])).filter(x => (!x.cwd || path.resolve(x.cwd) === dir) && !fuera.has(x.claudeId.toLowerCase())).sort((a, b) => b.modified - a.modified)[0];
-    await startWork(undefined, { t: 'empezar', dwellerId: h.id, salaId, prompt: texto, opciones: { cwd: dir, permisos: 'plan', reanudar: previa?.claudeId } });
-    return true;
-  },
+  // sin conversación abierta en el worktree de la tarea: se retoma la última de ahí o se empieza, en modo plan
+  abrir: (salaId, cwd, texto) => sendToFolder(salaId, cwd, texto, 'plan'),
   delivered: (salaId, worktree, pr, eventos) => {
     broadcast({ t: 'mensajero', desde: 'git', a: [salaId], motivo: 'revision', worktree });
     // que se vea: si no estás mirando esa conversación, la entrega pasaba desapercibida
@@ -437,6 +444,29 @@ const revisionesPR = new ReviewsPR(DATOS, {
   withoutConversation: texto => broadcast({ t: 'aviso', nivel: 'info', texto }),
 });
 setInterval(() => { revisionesPR.sondear().catch(err => console.error('Revisiones de PR:', String((err as Error).message).split('\n')[0])); }, 60_000).unref();
+
+// las tareas con todos sus PR fusionados o cerrados (limpiezaTareas.ts), cada cinco minutos con GitHub conectado: al habitante de
+// la sala, en su copia principal (un worktree no puede quitarse a sí mismo), para que quite los que no tengan otro trabajo
+const limpiezaTareas = new TasksCleanup(DATOS, {
+  connection: connectionGitHub,
+  prs: async c => {
+    const G = await import('./git.ts');
+    const [recientes, abiertos] = await Promise.all([G.prsTablero(c), G.prsOpen(c)]);
+    if (recientes.error) throw new Error(recientes.error);
+    // los abiertos de hace más de dos semanas no salen en el tablero: sin ellos, una tarea parecería terminada
+    const porUrl = new Map([...recientes.prs, ...abiertos.prs].map(p => [p.url, p]));
+    return [...porUrl.values()];
+  },
+  salas: repoRooms,
+  sesiones: () => sesiones.lista(),
+  enviar: (salaId, cwd, texto) => sendToFolder(salaId, cwd, texto, 'default'),
+  delivered: (salaId, tareas) => {
+    broadcast({ t: 'mensajero', desde: 'git', a: [salaId], motivo: 'revision' });
+    const sala = almacen.estado.salas.find(s => s.id === salaId)?.nombre ?? salaId;
+    broadcast({ t: 'aviso', nivel: 'info', texto: t('server.cleanupDelivered', { tareas: tareas.map(x => x.tarea).join(', '), sala }) });
+  },
+});
+setInterval(() => { limpiezaTareas.sondear().catch(err => console.error('Limpieza de tareas:', String((err as Error).message).split('\n')[0])); }, 5 * 60_000).unref();
 
 // organizar las salas por tareas (organizar.ts): el plan de cada sala de repo y, confirmado, hacerlo
 async function organizeRooms(salaId: string | undefined, aplicar: boolean) {

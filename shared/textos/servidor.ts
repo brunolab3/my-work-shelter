@@ -195,5 +195,6 @@ export const SERVIDOR: Record<string, Texto> = {
   'server.theSlackTokenIsMissing': { es: 'Falta el token de Slack.', en: 'The Slack token is missing.' },
   'server.connectedToWatching': { es: 'Conectado a {slack}: vigila {conversaciones}.{menciones}', en: 'Connected to {slack}: watching {conversaciones}.{menciones}' },
   'server.thatDoesNotLookLike2': { es: 'Eso no parece un token de Slack: el de bot empieza por xoxb- y el de usuario por xoxp-.', en: 'That does not look like a Slack token: the bot one starts with xoxb- and the user one with xoxp-.' },
+  'server.cleanupDelivered': { es: '🧹 {tareas}: todos sus PR fusionados o cerrados; le he pedido a {sala} que limpie sus worktrees.', en: '🧹 {tareas}: all PRs merged or closed; asked {sala} to clean up their worktrees.' },
   'server.newReviewDelivered': { es: '🔎 {authors} en tu PR #{numero} de {repo}: se lo he pasado a {sala} ({rama}).', en: '🔎 {authors} on your PR #{numero} in {repo}: handed to {sala} ({rama}).' },
 };
