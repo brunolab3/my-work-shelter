@@ -506,6 +506,7 @@ html, body { margin: 0; height: 100%; background: var(--fondo); overflow: hidden
 .vn-teclas { position: absolute; left: 0; top: 0; width: 1px; height: 1px; opacity: 0; border: 0; padding: 0; resize: none; pointer-events: none; }
 .vn-aviso { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; color: #e08060; font-size: 14px; }
 .vn-web { position: absolute; inset: 0; width: 100%; height: 100%; }
+.vn-pagina { border: 0; background: #fff; }
 .ventana-navegador .piloto.ociosa { background: #34473b; box-shadow: inset 0 1px 2px #000; }
 
 /* ---------- teletipos, carga, bienvenida ---------- */

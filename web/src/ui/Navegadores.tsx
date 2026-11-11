@@ -9,6 +9,7 @@
 // Electron del juego) y aquí se ve su página y se le pasan ratón, rueda y teclado (VistaRemota).
 import React, { useEffect, useRef } from 'react';
 import { Store } from './almacen';
+import { cliente } from '../red/cliente';
 import { t } from '@shared/idioma';
 import { SFX } from '../audio/sonido';
 import { nextZ, windowShortcut, WindowButtons, CMD } from './ventanas';
@@ -18,7 +19,8 @@ import { nextZ, windowShortcut, WindowButtons, CMD } from './ventanas';
 // chrome: agente de usuario de Chrome, sin «Electron/x»: con él, webs como Discord leen la versión de Electron como la
 // de Chrome («Chrome 44», de 2015) y tratan la sesión como sospechosa (Discord no manda el SMS del doble factor)
 // remoto: la web vive en el Chrome sin ventana de electron/chromeRemoto.cjs (solo Spotify)
-export interface Spot { id: string; nombre: string; inicio: string; domains: string[]; detours?: Record<string, string>; chrome?: boolean; remoto?: boolean }
+// local: una página HTML del Mac que sirve el servidor del refugio (server/paginasLocales.ts), en un <iframe> aislado
+export interface Spot { id: string; nombre: string; inicio: string; domains: string[]; detours?: Record<string, string>; chrome?: boolean; remoto?: boolean; local?: boolean }
 // webs que se pueden abrir dentro; cada sala especial que quiera la suya, la pide con su id
 export const SPOTS: Record<string, Spot> = {
   // Linear: se entra por /login, no por la portada. Su verificación (Cloudflare Turnstile) solo pasa con «Electron» en el
@@ -34,13 +36,17 @@ export const SPOTS: Record<string, Spot> = {
   // Spotify, la música de la discoteca: suena en Google Chrome (su DRM solo da licencias a navegadores certificados) y
   // aquí se ve y se maneja; minimizado, la pletina (Discoteca.tsx) lo controla
   spotify: { id: 'spotify', nombre: 'Spotify', inicio: 'https://open.spotify.com/', domains: ['spotify.com'], remoto: true },
+  // los planes, informes y comparaciones en HTML que enlazan los habitantes: dentro, no en la app del Mac para los .html
+  pagina: { id: 'pagina', get nombre() { return t('windows.page'); }, inicio: 'about:blank', domains: [], local: true },
 };
+const isLocal = (id: string) => !!SPOTS[id]?.local;
 
 export const IN_ELECTRON = /\bElectron\//.test(navigator.userAgent);
 const AGENT_CHROME = navigator.userAgent.replace(/ (Electron|work-shelter(-public)?)\/\S+/g, '');
 const PARTICION = 'persist:navegador';
 
-interface WindowNav { id: string; url: string; titulo: string; cargando: boolean; minimizada: boolean; maximizada: boolean; z: number }
+// sesion: la conversación que enlazó la página (la ventana «Página»), a la que van las notas que se le dejen
+interface WindowNav { id: string; url: string; titulo: string; cargando: boolean; minimizada: boolean; maximizada: boolean; z: number; sesion?: string }
 export const navegadores = new Store<{ lista: WindowNav[] }>({ lista: [] });
 
 // lo que el <webview> sabe hacer y usamos aquí
@@ -83,6 +89,21 @@ export function openBrowser(spotId: string, url?: string) {
   crear(s.id, url ?? s.inicio, false, false);
   SFX.abrir(); enfocar(s.id);
 }
+/** Una página de este Mac en la ventana de páginas del refugio: un archivo HTML (lo sirve el servidor con su llave,
+ *  /pagina/…) o una que sirve una herramienta en local (http://127.0.0.1:<puerto>/…, como una página de revisión con
+ *  notas). Con `sesion`, la ventana puede avisar a esa conversación de que tiene notas que aplicar. */
+export function openPage(url: string, titulo: string, sesion?: string) {
+  if (ventana('pagina')) { actualizar('pagina', { url, titulo, sesion }); onFront('pagina'); return; }
+  crear('pagina', url, false, false, titulo);
+  actualizar('pagina', { sesion });
+  SFX.abrir();
+}
+/** Una página que sirve otro programa de este Mac (no el juego): se ve en la ventana «Página» */
+export const isLocalServer = (u: URL) => u.protocol === 'http:' && /^(127\.0\.0\.1|localhost)$/.test(u.hostname) && u.origin !== location.origin;
+// las del servidor del juego van sin mismo origen (no ven el juego); las de otro puerto ya son otro origen y lo
+// necesitan para guardar sus notas en su propio servidor
+const sandboxOf = (url: string) => url.startsWith('/pagina/') ? 'allow-scripts allow-popups allow-popups-to-escape-sandbox'
+  : 'allow-scripts allow-same-origin allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-downloads';
 /** La página de pull requests de GitHub (los tuyos, los que te piden revisar y las menciones), en su navegador */
 export const openPRsGitHub = () => openBrowser('github', 'https://github.com/pulls');
 /** Un aviso del tablón o del calendario: su enlace, dentro si su web tiene navegador; si es de DEMO (enlaces de
@@ -96,10 +117,10 @@ export function openLink(url?: string) {
   const s = urlSpot(url);
   if (s) openBrowser(s.id, url); else { window.open(url, '_blank'); SFX.clic(); }
 }
-function crear(id: string, url: string, minimizada: boolean, maximizada: boolean) {
+function crear(id: string, url: string, minimizada: boolean, maximizada: boolean, titulo = SPOTS[id]?.nombre ?? id) {
   // un solo navegador a la vista: los demás se minimizan (ocuparían el mismo sitio)
   const z = nextZ();
-  navegadores.set(e => ({ lista: [...e.lista.map(x => (minimizada ? x : { ...x, minimizada: true })), { id, url, titulo: SPOTS[id]?.nombre ?? id, cargando: true, minimizada, maximizada, z }] }));
+  navegadores.set(e => ({ lista: [...e.lista.map(x => (minimizada ? x : { ...x, minimizada: true })), { id, url, titulo, cargando: !isLocal(id), minimizada, maximizada, z }] }));
 }
 export function onFront(id: string) {
   const v = ventana(id); if (!v) return;
@@ -137,14 +158,20 @@ const acciones = (v: WindowNav) => ({
 // tras una recarga (aplicar cambios del juego, reiniciar), los navegadores vuelven como estaban y en su página
 const RECORDADOS = 'refugio.navegadores';
 addEventListener('pagehide', () => {
-  try { sessionStorage.setItem(RECORDADOS, JSON.stringify(navegadores.get().lista.map(({ id, url, minimizada, maximizada, z }) => ({ id, url, minimizada, maximizada, z })))); } catch {}
+  try { sessionStorage.setItem(RECORDADOS, JSON.stringify(navegadores.get().lista.map(({ id, url, titulo, minimizada, maximizada, z, sesion }) => ({ id, url, titulo, minimizada, maximizada, z, sesion })))); } catch {}
 });
-if (IN_ELECTRON) {
-  try {
-    const l = JSON.parse(sessionStorage.getItem(RECORDADOS) || '[]'); sessionStorage.removeItem(RECORDADOS);
-    for (const r of l.sort((a: any, b: any) => a.z - b.z)) if (SPOTS[r.id] && typeof r.url === 'string') crear(r.id, urlSpot(r.url)?.id === r.id ? r.url : SPOTS[r.id].inicio, !!r.minimizada, !!r.maximizada);
-  } catch {}
-}
+// (la de páginas también fuera de Electron: es un <iframe>; su llave vale mientras siga el mismo servidor)
+try {
+  const l = JSON.parse(sessionStorage.getItem(RECORDADOS) || '[]'); sessionStorage.removeItem(RECORDADOS);
+  for (const r of l.sort((a: any, b: any) => a.z - b.z)) {
+    if (!SPOTS[r.id] || typeof r.url !== 'string' || (!IN_ELECTRON && !isLocal(r.id))) continue;
+    if (isLocal(r.id)) {
+      let u: URL | undefined; try { u = new URL(r.url, location.href); } catch {}
+      if (r.url.startsWith('/pagina/') || (u && isLocalServer(u))) { crear(r.id, r.url, !!r.minimizada, !!r.maximizada, String(r.titulo ?? '')); if (typeof r.sesion === 'string') actualizar(r.id, { sesion: r.sesion }); }
+    }
+    else crear(r.id, urlSpot(r.url)?.id === r.id ? r.url : SPOTS[r.id].inicio, !!r.minimizada, !!r.maximizada);
+  }
+} catch {}
 
 // ---------------------------------------------------------------- interfaz
 export function Navegadores() {
@@ -155,8 +182,9 @@ export function Navegadores() {
 function VentanaNavegador({ v }: { v: WindowNav }) {
   const caja = useRef<HTMLDivElement>(null);
   // el <webview> se crea una vez y no se vuelve a montar (moverlo o recrearlo recargaría la web)
+  const [vuelta, setVuelta] = React.useState(0);   // recargar la página local (el <iframe> se vuelve a montar)
   useEffect(() => {
-    if (isRemote(v.id)) return;
+    if (isRemote(v.id) || isLocal(v.id)) return;
     const w = document.createElement('webview') as Webview;
     w.setAttribute('partition', PARTICION);
     if (SPOTS[v.id]?.chrome) w.setAttribute('useragent', AGENT_CHROME);
@@ -193,15 +221,29 @@ function VentanaNavegador({ v }: { v: WindowNav }) {
         <span className="vt-titulo">{t('windows.browser')} · {s?.nombre ?? v.id}</span>
         <span className="vt-ruta" title={v.url}>{page}</span>
         <span className="vn-mandos">
-          <button className="consola-x" onClick={() => { if (isRemote(v.id)) { remoteOrder('navegar', 'atras').catch(() => {}); return; } const w = webviews.get(v.id); if (w?.canGoBack()) w.goBack(); else SFX.noAllowed(); }} title={t('windows.backAtajo', { shortcut: `${CMD}[` })}>◂</button>
-          <button className="consola-x" onClick={() => { if (isRemote(v.id)) remoteOrder('navegar', 'recargar').catch(() => {}); else webviews.get(v.id)?.reload(); }} title={t('windows.reloadAtajo', { shortcut: `${CMD}R` })}>↻</button>
-          <button className="consola-x" onClick={() => { window.open(v.url, '_blank'); SFX.clic(); }} title={t('windows.openThisPageInThe')}>↗</button>
+          {isLocal(v.id) && v.sesion && <button className="consola-x vn-notas" onClick={() => sendNotes(v)} title={t('windows.sendNotesHint')}>✎ {t('windows.sendNotes')}</button>}
+          <button className="consola-x" onClick={() => { if (isLocal(v.id)) { SFX.noAllowed(); return; } if (isRemote(v.id)) { remoteOrder('navegar', 'atras').catch(() => {}); return; } const w = webviews.get(v.id); if (w?.canGoBack()) w.goBack(); else SFX.noAllowed(); }} title={t('windows.backAtajo', { shortcut: `${CMD}[` })}>◂</button>
+          <button className="consola-x" onClick={() => { if (isLocal(v.id)) setVuelta(n => n + 1); else if (isRemote(v.id)) remoteOrder('navegar', 'recargar').catch(() => {}); else webviews.get(v.id)?.reload(); }} title={t('windows.reloadAtajo', { shortcut: `${CMD}R` })}>↻</button>
+          <button className="consola-x" onClick={() => { window.open(isLocal(v.id) ? new URL(v.url, location.href).href : v.url, '_blank'); SFX.clic(); }} title={t('windows.openThisPageInThe')}>↗</button>
         </span>
-        <WindowButtons maximizada={v.maximizada} minimizar={() => minimizar(v.id)} toggleMaximize={() => toggleMaximize(v.id)} cerrar={() => cerrar(v.id)} closesThat={t('windows.theBrowserTheSessionIs')} />
+        <WindowButtons maximizada={v.maximizada} minimizar={() => minimizar(v.id)} toggleMaximize={() => toggleMaximize(v.id)} cerrar={() => cerrar(v.id)} closesThat={isLocal(v.id) ? t('windows.thePage') : t('windows.theBrowserTheSessionIs')} />
       </div>
-      <div ref={caja} className="vn-cuerpo">{isRemote(v.id) && <RemoteView v={v} />}</div>
+      <div ref={caja} className="vn-cuerpo">
+        {isRemote(v.id) && <RemoteView v={v} />}
+        {/* sin allow-same-origin: la página no ve el juego (el servidor además la manda con su propia cabecera sandbox) */}
+        {isLocal(v.id) && <iframe key={v.url + vuelta} className="vn-web vn-pagina" src={v.url} title={v.titulo} sandbox={sandboxOf(v.url)} referrerPolicy="no-referrer" />}
+      </div>
     </div>
   );
+}
+
+// las notas se quedan en la página (las guarda la herramienta que la sirve): aquí solo se le dice a la conversación
+// que las aplique, como diría el Supervisor en el intercomunicador
+function sendNotes(v: WindowNav) {
+  if (!v.sesion) return;
+  const url = v.url.startsWith('/') ? new URL(v.url, location.href).href : v.url;
+  cliente.enviar({ t: 'enviar', sesionId: v.sesion, texto: t('windows.iLeftNotesOnThe', { url }) });
+  SFX.clic();
 }
 
 // ---------------------------------------------------------------- Spotify, en su Chrome sin ventana

@@ -44,6 +44,6 @@ export default defineConfig({
   plugins: [react(), serveAssets(), tokenDevelopment()],
   resolve: { alias: { '@shared': resolve(__dirname, 'shared') } },
   // el proxy va al servidor del refugio en su puerto (SHELTER_PUERTO): un refugio de pruebas no toca el de verdad
-  server: { host: '127.0.0.1', port: Number(process.env.SHELTER_PUERTO_VITE || 5173), strictPort: true, proxy: { '/ws': { target: `ws://127.0.0.1:${PUERTO}`, ws: true }, '/api': `http://127.0.0.1:${PUERTO}` } },
+  server: { host: '127.0.0.1', port: Number(process.env.SHELTER_PUERTO_VITE || 5173), strictPort: true, proxy: { '/ws': { target: `ws://127.0.0.1:${PUERTO}`, ws: true }, '/api': `http://127.0.0.1:${PUERTO}`, '/pagina': `http://127.0.0.1:${PUERTO}` } },
   build: { outDir: '../dist/web', emptyOutDir: true, chunkSizeWarningLimit: 4500, rollupOptions: { input: { main: resolve(__dirname, 'web/index.html'), catalogo: resolve(__dirname, 'web/catalogo.html') } } },
 });

@@ -790,7 +790,7 @@ function Session({ h, s, p, salir, onClose }: { h: DwellerSummary; s: SessionSum
   const lineState = s.estado === 'arrancando' ? t('windows.gettingReady') : s.actividad ? s.actividad.texto : workingLive && s.segundoPlano ? t('windows.waitingNInBackground', { n: s.segundoPlano }) : workingLive ? t('windows.thinking') : '';
   const ayudantes = s.ayudantes.filter(a => a.estado === 'trabajando').length;
   return (
-    <div className={'pantalla-consola fosforo sesion' + (encima ? ' soltando' : '')} {...soltar}>
+    <div className={'pantalla-consola fosforo sesion' + (encima ? ' soltando' : '')} data-sesion={s.id} {...soltar}>
       <div className="titulo-sesion">{s.titulo}{s.worktree ? <span className="tenue"> · worktree</span> : null}</div>
       <div className="lienzo" ref={lienzo} onScroll={e => { const el = e.currentTarget; pegado.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 4; }}>
         {(s.pending ? entradas.filter((e, i) => !(e.tipo === 'sistema' && e.texto.startsWith('❓')) && !(e.tipo === 'herramienta' && i >= entradas.length - 3)) : entradas).map(e => <Entrada key={e.id} e={e} />)}

@@ -3,6 +3,7 @@ import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import { cliente } from '../red/cliente';
 import { SFX } from '../audio/sonido';
+import { openPage, isLocalServer } from './Navegadores';
 import { t } from '@shared/idioma';
 
 marked.setOptions({ gfm: true, breaks: false });
@@ -40,7 +41,21 @@ addEventListener('click', e => {
   const a = (e.target as HTMLElement).closest?.('a[data-local]') as HTMLAnchorElement | null;
   if (!a) return;
   e.preventDefault(); e.stopPropagation();
-  cliente.accion('enlace.local', { ruta: a.getAttribute('data-local') }).then(() => SFX.clic()).catch(() => SFX.noAllowed());
+  // una página HTML (un plan, un informe) se ve dentro, en la ventana de páginas; lo demás lo abre el Mac
+  cliente.accion('enlace.local', { ruta: a.getAttribute('data-local') }).then((r: any) => { if (r?.pagina) openPage(r.pagina.url, r.pagina.titulo, sessionOfLink(a)); else SFX.clic(); }).catch(() => SFX.noAllowed());
+}, true);
+// la conversación en la que está el enlace (el intercomunicador marca la suya)
+const sessionOfLink = (a: Element) => a.closest('[data-sesion]')?.getAttribute('data-sesion') ?? undefined;
+
+// una página que sirve en local otro programa (una página de revisión en la que dejar notas, un servidor de desarrollo):
+// también en la ventana de páginas, no fuera
+addEventListener('click', e => {
+  const a = (e.target as HTMLElement).closest?.('a[href]') as HTMLAnchorElement | null;
+  if (!a || a.hasAttribute('data-local')) return;
+  let u: URL; try { u = new URL(a.href, location.href); } catch { return; }
+  if (!isLocalServer(u)) return;
+  e.preventDefault(); e.stopPropagation();
+  openPage(u.href, u.host + u.pathname.replace(/\/$/, ''), sessionOfLink(a));
 }, true);
 
 // Por si acaso (un enlace que no haya pasado por aquí): un clic en un enlace del juego a otra página no navega la

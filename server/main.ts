@@ -11,7 +11,8 @@ import { WebSocketServer, type WebSocket } from 'ws';
 import { GAME_NAME, type ClientMessage, type ServerMessage, type InfoRepo, type Visitante } from '../shared/protocolo.ts';
 import { Sessions } from './sesiones.ts';
 import { Attachments } from './adjuntos.ts';
-import { openAttachment, openLocal, isPackage } from './abrir.ts';
+import { openAttachment, isPackage } from './abrir.ts';
+import { openLink, servePage } from './paginasLocales.ts';
 import { isCloneOfExample } from './ejemplos.ts';
 import { mcpDecor, promptAdaptar, type CtxDecor } from './decoradoSala.ts';
 import { mcpAssignment, mcpPlan, type CtxAssignment } from './reparto.ts';
@@ -637,7 +638,7 @@ async function accion(nombre: string, d: Record<string, any> = {}): Promise<unkn
     case 'adjunto.miniatura': return adjuntos.miniatura(String(d.ruta || ''));
     // un adjunto del cuaderno: imágenes y PDF en Vista Previa, texto en el editor de texto, lo demás en el Finder (abrir.ts)
     // un enlace a un archivo del Mac en una respuesta (web/src/ui/markdown.ts): sin ejecutar nada (abrir.ts)
-    case 'enlace.local': return openLocal(String(d.ruta ?? ''), os.homedir());
+    case 'enlace.local': return openLink(String(d.ruta ?? ''), os.homedir());
     case 'adjunto.abrir': { const r = String(d.ruta || ''); if (!adjuntos.propio(r)) throw new Error(t('server.thatAttachmentIsGoneThey')); await openAttachment(adjuntos.dir, path.resolve(r)); return true; }
     default:
       if (nombre.startsWith('integracion.')) {
@@ -906,6 +907,8 @@ const servidor = http.createServer((req, res) => {
   let url: string;
   try { url = decodeURIComponent((req.url || '/').split('?')[0]); } catch { res.writeHead(400); res.end(); return; }
   if (url.startsWith('/assets/') && serve(req, res, ASSETS, url.slice(8))) return;
+  // las páginas HTML del Mac que se ven en el juego (paginasLocales.ts), con su llave y aisladas
+  if (url.startsWith('/pagina/')) { servePage(req, res, url).then(ok => { if (!ok) { res.writeHead(404); res.end(); } }, () => { if (!res.headersSent) res.writeHead(500); res.end(); }); return; }
   if (url === '/salud') { res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify({ ok: true, claude: !!sesiones.claude, version: sesiones.version, codigo: SERVER_FINGERPRINT })); return; }
   // ./shelter, al abrir la app con un servidor de antes de los últimos cambios aún en marcha, le pide ponerse al día.
   // Con el secreto del arranque y sin Origin: una página web no puede pedirlo.
@@ -915,11 +918,13 @@ const servidor = http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' }); res.end(setOnDay());
     return;
   }
+  // (frame-src: la ventana «Página» enseña páginas de este Mac: las de /pagina/ y las que sirve una herramienta en local,
+  // como una página de revisión con notas; cada una en su <iframe> aislado, web/src/ui/Navegadores.tsx)
   // la página del juego lleva el secreto de este arranque para abrir el WebSocket
   // la página NO lleva el secreto (cualquier proceso local podría pedirla): llega en el fragmento #t= de la URL que abre
   // el lanzador (leído de DATOS/token, 0600), como hace Jupyter. Política de contenido estricta: nada se carga de fuera
   // salvo las carátulas de lo que suena en la discoteca (imágenes del CDN de Spotify, que lee la pletina).
-  const csp = `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://i.scdn.co; media-src 'self' blob:; font-src 'self' data:; connect-src 'self' blob: data: ws://127.0.0.1:${PUERTO} ws://localhost:${PUERTO}; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'`;
+  const csp = `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://i.scdn.co; media-src 'self' blob:; font-src 'self' data:; connect-src 'self' blob: data: ws://127.0.0.1:${PUERTO} ws://localhost:${PUERTO}; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; frame-src 'self' http://127.0.0.1:* http://localhost:*`;
   const page = () => { const f = path.join(WEB, 'index.html'); if (!existsSync(f)) return false; res.writeHead(200, { 'Content-Type': TYPES['.html'], 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'X-Frame-Options': 'DENY', 'Content-Security-Policy': csp, 'Referrer-Policy': 'no-referrer' }); res.end(readFileSync(f, 'utf8')); return true; };
   if (existsSync(WEB) && (url === '/' || url === '/index.html' ? page() : (serve(req, res, WEB, url) || page()))) return;
   res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }); res.end('El juego no está compilado. Ejecuta ./shelter');
