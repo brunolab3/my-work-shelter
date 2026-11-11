@@ -9,7 +9,8 @@
 // Electron del juego) y aquí se ve su página y se le pasan ratón, rueda y teclado (VistaRemota).
 import React, { useEffect, useRef } from 'react';
 import { Store } from './almacen';
-import { cliente } from '../red/cliente';
+import { cliente, vivo } from '../red/cliente';
+import { pagesInText, samePage, type PageAnswer } from '@shared/paginasSesion';
 import { t } from '@shared/idioma';
 import { SFX } from '../audio/sonido';
 import { nextZ, windowShortcut, WindowButtons, CMD } from './ventanas';
@@ -68,6 +69,35 @@ export function cleanNotes(v: unknown): PageNote[] {
 export function notesMessage(ruta: string, notas: PageNote[]) {
   const linea = (n: PageNote, i: number) => n.seccion ? t('windows.noteItemSection', { n: i + 1, cita: n.cita, seccion: n.seccion, texto: n.texto }) : t('windows.noteItem', { n: i + 1, cita: n.cita, texto: n.texto });
   return [t('windows.notesOnThePage', { ruta }), ...notas.map(linea)].join('\n\n');
+}
+// Lo que el Supervisor ha hecho con cada página de cada conversación (mandarle notas o validarla): el intercomunicador
+// lista las páginas de la conversación y marca las que quedan por revisar (shared/paginasSesion.ts)
+const RESPUESTAS = 'refugio.respuestasPaginas';
+export const pageAnswers = new Store<Record<string, Record<string, PageAnswer>>>((() => { try { return JSON.parse(localStorage.getItem(RESPUESTAS) || '{}'); } catch { return {}; } })());
+pageAnswers.subscribe(() => { try { localStorage.setItem(RESPUESTAS, JSON.stringify(pageAnswers.get())); } catch {} });
+export function answerPage(sesion: string, ruta: string, estado: PageAnswer['estado']) {
+  pageAnswers.set(x => {
+    const y = { ...x }, suyas = Object.fromEntries(Object.entries(y[sesion] ?? {}).filter(([k]) => !samePage(k, ruta)));
+    y[sesion] = { ...suyas, [ruta]: { estado, ts: Date.now() } };
+    return y;
+  });
+}
+/** Validar una página sin notas: se le dice a la conversación que siga */
+export function validatePage(sesion: string, ruta: string) {
+  cliente.enviar({ t: 'enviar', sesionId: sesion, texto: t('windows.pageValidated', { ruta }) });
+  answerPage(sesion, ruta, 'validada'); SFX.shortSuccess();
+}
+/** Una página en el Finder, seleccionada (para compartirla desde allí) */
+export function revealPage(ruta: string) {
+  cliente.accion('enlace.revelar', { ruta }).then(() => SFX.clic()).catch(() => SFX.noAllowed());
+}
+/** La conversación que enlazó una página la última vez (una página abierta sin saber de qué conversación: sus notas
+ *  van a esa) */
+export function sessionThatLinked(ruta: string): string | undefined {
+  let mejor: { id: string; ts: number } | undefined;
+  for (const [id, l] of Object.entries(vivo.get().entradas)) for (const e of l)
+    if (e.tipo === 'asistente' && (!mejor || e.ts > mejor.ts) && pagesInText(e.texto).some(r => samePage(r, ruta))) mejor = { id, ts: e.ts };
+  return mejor?.id;
 }
 export const navegadores = new Store<{ lista: WindowNav[] }>({ lista: [] });
 
@@ -221,9 +251,12 @@ function VentanaNavegador({ v }: { v: WindowNav }) {
     addEventListener('message', oir);
     return () => removeEventListener('message', oir);
   }, [v.id, v.ruta]);
+  // la conversación que la enlazó; si se abrió sin saberlo, la última que la enlazó
+  const sesion = v.sesion ?? (v.ruta ? sessionThatLinked(v.ruta) : undefined);
   const sendPageNotes = () => {
-    if (!v.sesion || !v.ruta || !notas.length) return;
-    cliente.enviar({ t: 'enviar', sesionId: v.sesion, texto: notesMessage(v.ruta, notas) });
+    if (!sesion || !v.ruta || !notas.length) return;
+    cliente.enviar({ t: 'enviar', sesionId: sesion, texto: notesMessage(v.ruta, notas) });
+    answerPage(sesion, v.ruta, 'notas');
     const ruta = v.ruta; pageNotes.set(x => { const y = { ...x }; delete y[ruta]; return y; });
     marco.current?.contentWindow?.postMessage({ refugio: 'notas', tipo: 'limpiar' }, '*');
     setRevisar(false); SFX.shortSuccess();
@@ -266,10 +299,12 @@ function VentanaNavegador({ v }: { v: WindowNav }) {
         <span className="vt-titulo">{t('windows.browser')} · {s?.nombre ?? v.id}</span>
         <span className="vt-ruta" title={v.url}>{page}</span>
         <span className="vn-mandos">
-          {isLocal(v.id) && v.ruta && notas.length > 0 && <button className="consola-x vn-notas" onClick={() => { setRevisar(x => !x); SFX.clic(); }} title={v.sesion ? t('windows.reviewAndSendNotes') : t('windows.openThePageFromA')}>✎ {t('windows.notesN', { n: notas.length })}</button>}
+          {isLocal(v.id) && v.ruta && notas.length > 0 && <button className="consola-x vn-notas" onClick={() => { setRevisar(x => !x); SFX.clic(); }} title={sesion ? t('windows.reviewAndSendNotes') : t('windows.openThePageFromA')}>✎ {t('windows.notesN', { n: notas.length })}</button>}
+          {isLocal(v.id) && v.ruta && sesion && notas.length === 0 && <button className="consola-x vn-notas" onClick={() => validatePage(sesion, v.ruta!)} title={t('windows.validatePageHint')}>✓ {t('windows.validate')}</button>}
           {isLocal(v.id) && !v.ruta && v.sesion && <button className="consola-x vn-notas" onClick={() => sendNotes(v)} title={t('windows.sendNotesHint')}>✎ {t('windows.sendNotes')}</button>}
           <button className="consola-x" onClick={() => { if (isLocal(v.id)) { SFX.noAllowed(); return; } if (isRemote(v.id)) { remoteOrder('navegar', 'atras').catch(() => {}); return; } const w = webviews.get(v.id); if (w?.canGoBack()) w.goBack(); else SFX.noAllowed(); }} title={t('windows.backAtajo', { shortcut: `${CMD}[` })}>◂</button>
           <button className="consola-x" onClick={() => { if (isLocal(v.id)) setVuelta(n => n + 1); else if (isRemote(v.id)) remoteOrder('navegar', 'recargar').catch(() => {}); else webviews.get(v.id)?.reload(); }} title={t('windows.reloadAtajo', { shortcut: `${CMD}R` })}>↻</button>
+          {isLocal(v.id) && v.ruta && <button className="consola-x" onClick={() => revealPage(v.ruta!)} title={t('windows.showInFinderHint')}>📁</button>}
           <button className="consola-x" onClick={() => { window.open(isLocal(v.id) ? new URL(v.url, location.href).href : v.url, '_blank'); SFX.clic(); }} title={t('windows.openThisPageInThe')}>↗</button>
         </span>
         <WindowButtons maximizada={v.maximizada} minimizar={() => minimizar(v.id)} toggleMaximize={() => toggleMaximize(v.id)} cerrar={() => cerrar(v.id)} closesThat={isLocal(v.id) ? t('windows.thePage') : t('windows.theBrowserTheSessionIs')} />
@@ -281,7 +316,7 @@ function VentanaNavegador({ v }: { v: WindowNav }) {
           <ol>{notas.map(n => <li key={n.id}><div className="tenue">«{n.cita.length > 160 ? n.cita.slice(0, 160) + '…' : n.cita}»{n.seccion ? ` · ${n.seccion}` : ''}</div><div>{n.texto}</div></li>)}</ol>
           <div className="botonera">
             <button className="boton-taller" onClick={() => setRevisar(false)}>{t('windows.cancel')}</button>
-            <button className="boton-taller" disabled={!v.sesion} title={v.sesion ? undefined : t('windows.openThePageFromA')} onClick={sendPageNotes}>{t('windows.sendToTheConversation')}</button>
+            <button className="boton-taller" disabled={!sesion} title={sesion ? undefined : t('windows.openThePageFromA')} onClick={sendPageNotes}>{t('windows.sendToTheConversation')}</button>
           </div>
         </div>}
         {isLocal(v.id) && <iframe ref={marco} key={v.url + vuelta} className="vn-web vn-pagina" src={v.url} title={v.titulo} sandbox={sandboxOf(v.url)} referrerPolicy="no-referrer" />}

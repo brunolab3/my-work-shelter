@@ -2,7 +2,8 @@
 // HTML). Corre dentro del <iframe> aislado (origen opaco, sin almacenamiento ni red): seleccionar un trozo → «✎ Nota»;
 // un clic en lo marcado la edita o la borra. Las notas viven en el juego (web/src/ui/Navegadores.tsx), que las guarda
 // y las manda a la conversación: aquí solo se marcan (CSS Custom Highlight, sin tocar el DOM de la página) y se avisa
-// de cada cambio con postMessage. JavaScript sin compilar: se mete tal cual en la página.
+// de cada cambio con postMessage. En las comparaciones (filas con número de línea), además, «+» al pasar por una línea
+// deja una nota en ella, como en GitHub. JavaScript sin compilar: se mete tal cual en la página.
 (() => {
   if (window.__refugioNotas) return;
   window.__refugioNotas = true;
@@ -30,12 +31,14 @@
     .fila{display:flex;gap:6px;justify-content:flex-end;margin-top:6px}
     .fila button{background:#2b261c;color:#f3e3b5;border:1px solid #6b5a33;border-radius:4px;padding:3px 10px;cursor:pointer}
     .fila .si{border-color:#c9a24a}.fila .borrar{margin-right:auto;color:#f0a090}
+    .mas{padding:0 6px;font-weight:700;line-height:16px;background:#1f6feb;color:#fff;border-color:#388bfd}
     [hidden]{display:none}
   </style>
   <button class="boton" hidden></button>
+  <button class="boton mas" hidden>+</button>
   <div class="caja" hidden><div class="cita"></div><textarea></textarea>
     <div class="fila"><button class="borrar"></button><button class="no"></button><button class="si"></button></div></div>`;
-  const boton = raiz.querySelector('.boton'), caja = raiz.querySelector('.caja'), area = raiz.querySelector('textarea');
+  const boton = raiz.querySelector('.boton:not(.mas)'), mas = raiz.querySelector('.mas'), caja = raiz.querySelector('.caja'), area = raiz.querySelector('textarea');
   const citaEl = raiz.querySelector('.cita'), bBorrar = raiz.querySelector('.borrar'), bNo = raiz.querySelector('.no'), bSi = raiz.querySelector('.si');
   const montar = () => { if (!host.isConnected) (document.body || document.documentElement).appendChild(host); };
 
@@ -145,7 +148,30 @@
       try { if (r.isPointInRange(p.startContainer, p.startOffset)) { const n = notas.find(x => x.id === id); if (n) { e.preventDefault(); abrir(n, r.getBoundingClientRect()); } return; } } catch {}
     }
   }, true);
-  addEventListener('scroll', () => { boton.hidden = true; }, true);
+  // en una comparación (filas con número de línea, td.n), como en GitHub: «+» al pasar por una línea y una nota en ella
+  let fila = null;
+  const lineaDe = tr => [...tr.querySelectorAll('td.n')].map(td => td.textContent.trim()).filter(Boolean).pop() || '';
+  document.addEventListener('mouseover', e => {
+    if (!textos || e.composedPath().includes(host) || !caja.hidden) return;
+    const tr = e.target.closest && e.target.closest('tr');
+    if (!tr || !tr.querySelector('td.n') || !lineaDe(tr)) return;
+    fila = tr; montar();
+    const r = tr.getBoundingClientRect(), n = tr.querySelector('td.n').getBoundingClientRect();
+    mas.hidden = false; mas.style.left = Math.max(2, n.left - 20) + 'px'; mas.style.top = (r.top + Math.max(0, (r.height - 18) / 2)) + 'px';
+  });
+  mas.onclick = () => {
+    if (!fila) return;
+    const celda = fila.querySelector('td.c') || fila.lastElementChild;
+    const r = document.createRange(); r.selectNodeContents(celda);
+    // desde el primer texto del código (sin el signo + o −): así se sabe cuál de las líneas iguales es
+    const w = document.createTreeWalker(celda, NodeFilter.SHOW_TEXT, { acceptNode: t => (t.parentElement.closest('.s') || !t.data.trim() ? NodeFilter.FILTER_SKIP : NodeFilter.FILTER_ACCEPT) });
+    const primero = w.nextNode(); if (primero) r.setStart(primero, primero.data.search(/\S/));
+    const linea = lineaDe(fila), propia = fila.getAttribute('data-seccion');
+    const cita = plegar(r.toString()).slice(0, 2000) || '(' + linea + ')';
+    mas.hidden = true;
+    abrir({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), cita, seccion: (propia ? plegar(propia) : (seccion(r) + ':' + linea)).slice(0, 300), inicio: offsetDe(r), texto: '' }, fila.getBoundingClientRect());
+  };
+  addEventListener('scroll', () => { boton.hidden = true; mas.hidden = true; }, true);
 
   // del juego: las notas guardadas de esta página y los textos; «limpiar», cuando ya se han mandado
   addEventListener('message', e => {

@@ -64,3 +64,12 @@ export async function openLocal(enlace: string, casa: string) {
   if (OF_TEXT.test(real)) { const editor = editorOfMac(); lanzar(editor ? ['-a', editor, real] : ['-t', real]); return 'editor'; }
   lanzar(['-R', real]); return 'finder';
 }
+
+/** Enseña un archivo del Mac en el Finder (seleccionado), sin abrirlo: para compartir una página (un plan, una
+ *  comparación) desde allí */
+export async function revealLocal(enlace: string, casa: string) {
+  const ruta = linkPath(enlace, casa);
+  if (!ruta) throw new Error(t('server.thatLinkIsNotA'));
+  const real = await fs.realpath(ruta).catch(() => { throw new Error('No existe: ' + ruta); });
+  lanzar(['-R', real]);
+}

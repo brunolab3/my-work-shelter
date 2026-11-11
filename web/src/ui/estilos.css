@@ -255,7 +255,14 @@ html, body { margin: 0; height: 100%; background: var(--fondo); overflow: hidden
 .formulario-escribir .linea-entrada { flex: 1; min-height: 0; align-items: stretch; }
 .formulario-escribir textarea { height: 100%; min-height: 0; }
 .formulario-opciones { overflow: auto; }
-.sesion .titulo-sesion { font: 600 calc(var(--u) * 0.85) var(--t-mono); color: var(--fosforo-tenue); text-shadow: none; margin-bottom: .3em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sesion .titulo-sesion { font: 600 calc(var(--u) * 0.85) var(--t-mono); color: var(--fosforo-tenue); text-shadow: none; margin-bottom: .3em; display: flex; align-items: center; gap: .6em; position: relative; }
+.sesion .titulo-sesion .titulo-texto { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sesion .paginas-sesion { flex: none; position: relative; }
+.sesion .paginas-sesion > .consola-x { font: inherit; padding: 0 .5em; }
+.sesion .paginas-lista { position: absolute; right: 0; top: 100%; z-index: 5; margin: .3em 0 0; padding: .4em; list-style: none; min-width: 26em; max-width: 40em; max-height: 50vh; overflow: auto; background: #0b120b; border: 1px solid var(--fosforo-tenue); border-radius: 4px; box-shadow: 0 6px 24px #000a; font-weight: 400; }
+.sesion .paginas-lista li { display: flex; align-items: center; gap: .5em; padding: .2em .3em; white-space: nowrap; }
+.sesion .paginas-lista .pagina-nombre { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; text-align: left; background: none; border: 0; color: var(--fosforo); font: inherit; cursor: pointer; padding: 0; }
+.sesion .paginas-lista .pagina-nombre:hover { text-decoration: underline; }
 .sesion .lienzo { flex: 1; min-height: 0; overflow: auto; padding-right: .4em; scrollbar-width: thin; scrollbar-color: rgba(157,255,184,.35) transparent; }
 .ent { margin: 0 0 .7em; word-wrap: break-word; }
 .ent p { margin: 0 0 .5em; } .ent ul, .ent ol { margin: .2em 0 .6em; padding-left: 1.4em; }

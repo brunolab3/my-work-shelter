@@ -18,4 +18,13 @@ describe('rutas del Mac sueltas en el texto', () => {
     expect(md('[/Users/ana/a.html](/Users/ana/a.html)')).toBe('<p><a href="/Users/ana/a.html">/Users/ana/a.html</a></p>\n');
     expect(md('src/Users/ana/a.ts')).not.toContain('<a ');
   });
+  it('una página en una carpeta con espacios («Application Support»), suelta o en un enlace sin <…>', () => {
+    const r = '/Users/ana/Library/Application Support/work-shelter-public/comparaciones/repo-rama.html';
+    const href = '/Users/ana/Library/Application%20Support/work-shelter-public/comparaciones/repo-rama.html';
+    expect(md(`Lista: ${r}. ¿Vale?`)).toContain(`<a href="${href}">${r}</a>. ¿Vale?`);
+    expect(md(`[repo-rama.html](${r}) — 5 archivos`)).toBe(`<p><a href="${href}">repo-rama.html</a> — 5 archivos</p>\n`);
+    expect(md(`[c](<${r}>)`)).toContain(`<a href="${href}">c</a>`);
+    // los espacios solo dentro de una carpeta: no se traga el resto de la frase
+    expect(md('Mira /Users/ana/a.html y luego b.html')).toContain('<a href="/Users/ana/a.html">/Users/ana/a.html</a> y luego b.html');
+  });
 });

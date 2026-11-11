@@ -11,7 +11,7 @@ import { WebSocketServer, type WebSocket } from 'ws';
 import { GAME_NAME, type ClientMessage, type ServerMessage, type InfoRepo, type Visitante } from '../shared/protocolo.ts';
 import { Sessions } from './sesiones.ts';
 import { Attachments } from './adjuntos.ts';
-import { openAttachment, isPackage } from './abrir.ts';
+import { openAttachment, isPackage, revealLocal } from './abrir.ts';
 import { openLink, servePage } from './paginasLocales.ts';
 import { isCloneOfExample } from './ejemplos.ts';
 import { mcpDecor, promptAdaptar, type CtxDecor } from './decoradoSala.ts';
@@ -669,6 +669,7 @@ async function accion(nombre: string, d: Record<string, any> = {}): Promise<unkn
     // un adjunto del cuaderno: imágenes y PDF en Vista Previa, texto en el editor de texto, lo demás en el Finder (abrir.ts)
     // un enlace a un archivo del Mac en una respuesta (web/src/ui/markdown.ts): sin ejecutar nada (abrir.ts)
     case 'enlace.local': return openLink(String(d.ruta ?? ''), os.homedir());
+    case 'enlace.revelar': return revealLocal(String(d.ruta ?? ''), os.homedir());
     case 'adjunto.abrir': { const r = String(d.ruta || ''); if (!adjuntos.propio(r)) throw new Error(t('server.thatAttachmentIsGoneThey')); await openAttachment(adjuntos.dir, path.resolve(r)); return true; }
     default:
       if (nombre.startsWith('integracion.')) {

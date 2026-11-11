@@ -33,6 +33,8 @@ import { CMD, nextZ, windowShortcut, WindowButtons, Tabs, Confirmation } from '.
 import { sessionOwner, interlocutor, branchCaption } from './copias';
 import { Usage } from './consumo';
 import { takeASurface, aAppClaude } from './superficie';
+import { openPage, pageAnswers, pageNotes, validatePage, revealPage } from './Navegadores';
+import { sessionPages, pendingPages, samePage } from '@shared/paginasSesion';
 import { type AttachmentLocal, uploadFiles, chooseFiles, subiendo, listsPaths, AttachmentsTray, SentAttachments, useDictation, InputButtons, DictationStrip, attachShortcut } from './entrada';
 
 type View = { tipo: 'menu' } | { tipo: 'nuevo'; reanudar?: HistoryElement } | { tipo: 'historial' } | { tipo: 'visitantes' } | { tipo: 'ficha' } | { tipo: 'sesion'; sesionId: string };
@@ -791,7 +793,7 @@ function Session({ h, s, p, salir, onClose }: { h: DwellerSummary; s: SessionSum
   const ayudantes = s.ayudantes.filter(a => a.estado === 'trabajando').length;
   return (
     <div className={'pantalla-consola fosforo sesion' + (encima ? ' soltando' : '')} data-sesion={s.id} {...soltar}>
-      <div className="titulo-sesion">{s.titulo}{s.worktree ? <span className="tenue"> · worktree</span> : null}</div>
+      <div className="titulo-sesion"><span className="titulo-texto">{s.titulo}{s.worktree ? <span className="tenue"> · worktree</span> : null}</span><PagesMenu s={s} entradas={entradas} /></div>
       <div className="lienzo" ref={lienzo} onScroll={e => { const el = e.currentTarget; pegado.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 4; }}>
         {(s.pending ? entradas.filter((e, i) => !(e.tipo === 'sistema' && e.texto.startsWith('❓')) && !(e.tipo === 'herramienta' && i >= entradas.length - 3)) : entradas).map(e => <Entrada key={e.id} e={e} />)}
         {parcial && workingLive && <div className="ent asistente parcial" dangerouslySetInnerHTML={{ __html: markdown(parcial) + '<span class="cursor-escribe">▌</span>' }} />}
@@ -832,6 +834,39 @@ function Session({ h, s, p, salir, onClose }: { h: DwellerSummary; s: SessionSum
       {!s.pending && <DictationStrip dictado={dictado} />}
       <p className="ayuda-consola"><kbd>Enter</kbd> {t('windows.send')} <kbd>{CMD}D</kbd> {t('windows.dictate2')} <kbd>{CMD}U</kbd> {t('windows.attach2')} <kbd>Ctrl C</kbd> {t('windows.stop')} <kbd>Esc</kbd> {esc.armado ? <span className="urgente">{t('windows.againDeleteWhatYouWrote')}</span> : texto ? t('windows.twiceDeleteWhatYouWrote') : t('windows.backToTheShelterKeeps')} <kbd>{CMD}T</kbd> {t('windows.anotherJob')} <kbd>{CMD}↑↓</kbd> {t('windows.expandMinimize')}</p>
     </div>
+  );
+}
+
+// Las páginas de la conversación (planes, informes, comparaciones que ha enlazado): cuáles quedan por revisar, abrirlas
+// (sus notas vuelven a esta conversación) y validar sin notas las que estén bien (shared/paginasSesion.ts)
+function PagesMenu({ s, entradas }: { s: SessionSummary; entradas: LogInput[] }) {
+  const respuestas = pageAnswers.usar(x => x[s.id]);
+  const borradores = pageNotes.usar(x => x);
+  const paginas = useMemo(() => sessionPages(entradas, respuestas ?? {}), [entradas, respuestas]);
+  const [abierto, setOpen] = useState(false);
+  if (!paginas.length) return null;
+  const pendientes = pendingPages(paginas).length;
+  const abrir = (ruta: string) => {
+    cliente.accion('enlace.local', { ruta }).then((r: any) => { if (r?.pagina) openPage(r.pagina.url, r.pagina.titulo, s.id, r.pagina.ruta); else SFX.clic(); }).catch(() => SFX.noAllowed());
+    setOpen(false);
+  };
+  const enBorrador = (ruta: string) => Object.entries(borradores).find(([k]) => samePage(k, ruta))?.[1].length ?? 0;
+  return (
+    <span className="paginas-sesion">
+      <button className={'consola-x' + (pendientes ? ' urgente' : '')} title={t('windows.pagesHint')} onClick={() => { setOpen(x => !x); SFX.clic(); }}>
+        📄 {t('windows.pages')} {pendientes ? `· ${pendientes} ${t('windows.pagePending')}` : `(${paginas.length})`}
+      </button>
+      {abierto && <ul className="paginas-lista">{paginas.map(p => {
+        const n = enBorrador(p.ruta);
+        return <li key={p.ruta} className={p.respuesta ? 'tenue' : ''}>
+          <button className="pagina-nombre" title={p.ruta} onClick={() => abrir(p.ruta)}>{p.nombre}</button>
+          <span className={p.respuesta ? '' : 'urgente'}>{p.respuesta ? '✓ ' + t(p.respuesta.estado === 'notas' ? 'windows.pageNotesSent' : 'windows.pageValidatedState') : '• ' + t('windows.pagePending')}</span>
+          {n > 0 && <span className="tenue"> · {t('windows.pageDraftNotes', { n })}</span>}
+          <button className="consola-x" title={t('windows.showInFinderHint')} onClick={() => revealPage(p.ruta)}>📁</button>
+          {!p.respuesta && n === 0 && <button className="consola-x" title={t('windows.validatePageHint')} onClick={() => { validatePage(s.id, p.ruta); setOpen(false); }}>✓ {t('windows.validate')}</button>}
+        </li>;
+      })}</ul>}
+    </span>
   );
 }
 

@@ -10,6 +10,7 @@ import { z } from 'zod';
 import { createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk';
 import { entornoGit } from './entornoGit.ts';
 import { ROOMS_FOLDERS } from './estado.ts';
+import { pageLink } from '../shared/paginasSesion.ts';
 
 /** Donde se guardan las páginas: junto a las carpetas de las salas especiales, nunca en el repo */
 export const COMPARES_FOLDER = path.join(path.dirname(ROOMS_FOLDERS), 'comparaciones');
@@ -104,7 +105,7 @@ tr.hunk td{background:rgba(56,139,253,.1);color:#8b949e;padding:2px 12px}
 .nota{color:#8b949e;padding:8px 12px;margin:0}
 </style></head><body><main>
 <h1>${esc(titulo)}</h1><p class="sub">${esc(subtitulo)}</p>
-<p class="resumen">${files.length} ${files.length === 1 ? 'archivo cambiado' : 'archivos cambiados'}, <b class="mas">+${mas}</b> <b class="menos">−${menos}</b>. Selecciona cualquier trozo para dejar una nota.</p>
+<p class="resumen">${files.length} ${files.length === 1 ? 'archivo cambiado' : 'archivos cambiados'}, <b class="mas">+${mas}</b> <b class="menos">−${menos}</b>. Pasa por una línea y pulsa «+» para comentarla, o selecciona cualquier trozo para dejar una nota.</p>
 ${files.length ? `<ul class="indice">${indice}</ul>` : '<p class="nota">Sin cambios frente a la base.</p>'}
 ${cuerpo}
 </main></body></html>`;
@@ -145,7 +146,7 @@ export function mcpReview(cwd: () => string) {
         async a => {
           try {
             const r = await buildCompare(cwd(), a);
-            return { content: [{ type: 'text', text: `Página lista: [${path.basename(r.archivo)}](${r.archivo}) — ${r.rama} frente a ${r.base}: ${r.archivos} archivos, +${r.mas} −${r.menos}. Enlázala así en tu respuesta para que el Supervisor la abra en el juego.` }] };
+            return { content: [{ type: 'text', text: `Página lista: ${pageLink(r.archivo)} — ${r.rama} frente a ${r.base}: ${r.archivos} archivos, +${r.mas} −${r.menos}. Enlázala así en tu respuesta (tal cual, con los <…>: la ruta lleva espacios) para que el Supervisor la abra en el juego.` }] };
           } catch (e) { return { content: [{ type: 'text', text: `No se pudo generar: ${(e as Error).message}` }], isError: true }; }
         }),
     ],
