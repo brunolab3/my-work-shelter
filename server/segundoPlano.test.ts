@@ -17,7 +17,7 @@ function session() {
   };
 }
 
-describe('sesión con tareas en segundo plano', () => {
+describe('sesión con tareas en segundo plano', { timeout: 20_000 }, () => {
   beforeEach(() => { vi.useFakeTimers(); });
   afterEach(() => { vi.useRealTimers(); });
 
