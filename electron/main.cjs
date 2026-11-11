@@ -1,7 +1,7 @@
 // Ventana propia de work-shelter (Electron): carga el juego del servidor local y se comporta como una aplicación.
 // Dos maneras de abrirla: desde ./shelter (que ya ha levantado el servidor y pasa SHELTER_URL) o como
 // /Applications/work-shelter-public.app (scripts/instalar-app.mjs), que pasa SHELTER_RAIZ y arranca ella el servidor.
-const { app, BrowserWindow, Menu, shell, dialog, session, globalShortcut, webContents, ipcMain, systemPreferences } = require('electron');
+const { app, BrowserWindow, Menu, shell, dialog, session, globalShortcut, webContents, ipcMain, systemPreferences, Notification } = require('electron');
 const { spawn, execFile } = require('node:child_process');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -27,7 +27,7 @@ function openOutside(u) { let x; try { x = new URL(u); } catch { return; } if (E
 const gameOf = u => { try { return !!origen && new URL(u).origin === origen; } catch { return false; } };
 // los permisos que usa el juego: el micrófono para dictar (web/src/ui/entrada.tsx) y el portapapeles (copiar en el
 // explorador y las terminales; pegar en la ventana de Spotify, que lo lee para escribirlo en su Chrome); ni cámara ni
-// avisos del sistema, y solo para la propia página del juego
+// avisos web (los de macOS los da la app: «aviso» más abajo), y solo para la propia página del juego
 const GAME_PERMISSIONS = ['media', 'clipboard-read', 'clipboard-sanitized-write'];
 const permissionOfGame = (wc, permiso, url, detalles) => !!ventana && !ventana.isDestroyed() && wc === ventana.webContents && gameOf(url) && GAME_PERMISSIONS.includes(permiso)
   && (permiso !== 'media' || (detalles?.mediaTypes ?? []).every(t => t === 'audio') && detalles?.mediaType !== 'video');
@@ -203,6 +203,21 @@ ipcMain.handle('microfono', async e => {
   if (process.platform !== 'darwin') return true;
   return systemPreferences.getMediaAccessStatus('microphone') === 'granted' || systemPreferences.askForMediaAccess('microphone');
 });
+
+// avisos de macOS (web/src/ui/avisosSistema.ts): un habitante espera tu respuesta. Solo con el juego en segundo plano y
+// sin haber salido a la superficie (sus conversaciones siguen fuera); pulsarlo trae el juego con esa conversación
+const avisos = new Map();   // conversación → aviso a la vista (que no lo recoja el recolector antes del clic)
+const quitarAviso = id => { avisos.get(id)?.close(); avisos.delete(id); };
+ipcMain.handle('aviso', (e, id, titulo, cuerpo) => {
+  if (!ipcOfGame(e) || typeof id !== 'string' || escondido || ventana.isFocused() || !Notification.isSupported()) return false;
+  quitarAviso(id);
+  const n = new Notification({ title: String(titulo).slice(0, 120), body: String(cuerpo).replace(/\s+/g, ' ').slice(0, 300) });
+  n.on('click', () => { avisos.delete(id); volver(); if (!ventana.isDestroyed()) ventana.webContents.send('aviso:clic', id); });
+  n.on('close', () => { if (avisos.get(id) === n) avisos.delete(id); });
+  avisos.set(id, n); n.show();
+  return true;
+});
+ipcMain.handle('aviso:quitar', (e, id) => { if (ipcOfGame(e)) quitarAviso(id); });
 
 // --- Abierta como aplicación: arranque ---
 

@@ -246,6 +246,8 @@ export const WINDOWS: Record<string, Texto> = {
   'windows.keepPlanningILlTell': { es: 'Seguir planificando: te digo qué cambiar…', en: 'Keep planning: I\'ll tell you what to change…' },
   'windows.somethingElse': { es: 'Otra cosa…', en: 'Something else…' },
   'windows.skipTheQuestion': { es: 'Saltar la pregunta', en: 'Skip the question' },
+  'windows.dwellerWaitsForYou': { es: '{nombre} ({sala}) te espera', en: '{nombre} ({sala}) is waiting for you' },
+  'windows.someoneWaitsForYou': { es: 'Un habitante te espera', en: 'A dweller is waiting for you' },
   'windows.aHelperNombreAsks': { es: 'Un ayudante («{nombre}») pregunta: ', en: 'A helper («{nombre}») asks: ' },
   'windows.yourAnswer': { es: 'Tu respuesta', en: 'Your answer' },
   'windows.tellItWhyOrEnter': { es: 'Dile por qué (o Enter para un no a secas)', en: 'Tell it why (or Enter for a plain no)' },
