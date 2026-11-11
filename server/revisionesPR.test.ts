@@ -50,15 +50,15 @@ const SALAS: RoomPR[] = [
 ];
 
 describe('revisiones de PR', () => {
-  it('se queda con lo de otros que pide algo, también de bots: sin aprobaciones vacías, hilos resueltos ni lo mío', () => {
+  it('se queda con lo de otros que pide algo, también de bots: sin aprobaciones (ni con comentario), hilos resueltos ni lo mío', () => {
     const { yo, prs } = reviewsOfGitHub(respuesta());
     expect(yo).toBe('yo-mismo');
     expect(prs[0]).toMatchObject({ numero: 42, repo: 'refugio/express', rama: 'feature/REF-212-barra-final' });
-    expect(prs[0].eventos.map(e => e.id)).toEqual(['R1', 'R6', 'C1', 'I1', 'I2']);
+    expect(prs[0].eventos.map(e => e.id)).toEqual(['R1', 'C1', 'I1', 'I2']);
     // el del bot, marcado y sin sus marcas HTML
     expect(prs[0].eventos.find(e => e.id === 'I1')).toMatchObject({ bot: true, cuerpo: 'CI failed: el checkout no carga' });
     expect(reviewMessage(prs[0], prs[0].eventos)).toContain('**informe-ci** (bot) ');
-    expect(prs[0].eventos[2]).toMatchObject({ tipo: 'hilo', autor: 'ana-revisa', archivo: 'lib/router.js', linea: 12 });
+    expect(prs[0].eventos.find(e => e.id === 'C1')).toMatchObject({ tipo: 'hilo', autor: 'ana-revisa', archivo: 'lib/router.js', linea: 12 });
   });
 
   it('un visto bueno o un agradecimiento no pide nada; una pregunta o un cambio, sí', () => {

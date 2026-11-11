@@ -37,7 +37,6 @@ export const PROMPTS: Record<string, Texto> = {
   // revisión nueva de un PR (server/revisionesPR.ts)
   'prompt.review.title': { es: '🔎 {clave}Revisión nueva en tu PR #{numero} de {repo} («{titulo}»), rama `{rama}`: {url}', en: '🔎 {clave}New review on your PR #{numero} in {repo} (“{titulo}”), branch `{rama}`: {url}' },
   'prompt.review.changesRequested': { es: 'pide cambios', en: 'requests changes' },
-  'prompt.review.approved': { es: 'aprueba con un comentario', en: 'approves with a comment' },
   'prompt.review.commented': { es: 'deja una revisión', en: 'leaves a review' },
   'prompt.review.reviews': { es: 'revisa', en: 'reviews' },
   'prompt.review.onLine': { es: 'comenta en `{lugar}`', en: 'comments on `{lugar}`' },

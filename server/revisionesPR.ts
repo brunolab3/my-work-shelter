@@ -39,8 +39,9 @@ export function withoutNothingThatMake(cuerpo: string): boolean {
 
 /** Lo de otros en cada PR que pide algo: revisiones que piden cambios o comentan algo con texto, comentarios de hilos
  *  sin resolver y comentarios de la conversación, también los de bots (un revisor automático o un informe de pruebas
- *  pueden traer algo que arreglar: el habitante decide en su plan). Fuera: las aprobaciones sin más y lo que solo es un
- *  visto bueno o un agradecimiento (sinNadaQueHacer): no generan un plan */
+ *  pueden traer algo que arreglar: el habitante decide en su plan). Fuera: las aprobaciones, aunque traigan comentario (lo
+ *  que pidan en el código llega por los hilos), y lo que solo es un visto bueno o un agradecimiento (sinNadaQueHacer): no
+ *  generan un plan */
 export function reviewsOfGitHub(j: any): { yo: string; prs: PRWithReview[] } {
   const yo = String(j?.data?.viewer?.login ?? '');
   const otro = (a: any) => !!a?.login && a.login !== yo;
@@ -51,7 +52,7 @@ export function reviewsOfGitHub(j: any): { yo: string; prs: PRWithReview[] } {
   const prs = (j?.data?.prs?.nodes ?? []).filter((n: any) => n?.number).map((n: any): PRWithReview => {
     const eventos: EventPR[] = [];
     for (const r of n.reviews?.nodes ?? []) {
-      if (!r?.id || !otro(r.author) || !['CHANGES_REQUESTED', 'COMMENTED', 'APPROVED'].includes(r.state)) continue;
+      if (!r?.id || !otro(r.author) || !['CHANGES_REQUESTED', 'COMMENTED'].includes(r.state)) continue;
       if (r.state !== 'CHANGES_REQUESTED' && withoutNothingThatMake(texto(r.body))) continue;   // sus comentarios en el código llegan por los hilos
       eventos.push({ id: r.id, tipo: 'revision', autor: r.author.login, ...bot(r.author), cuerpo: texto(r.body), url: r.url ?? n.url, fecha: fecha(r.submittedAt), estado: r.state });
     }
@@ -114,7 +115,7 @@ export function worktreeOfPR(pr: { rama: string; numero: number; titulo?: string
 
 const MAX_BODY = 1500, MAX_EVENTS = 15;
 const quote = (t: string) => (t.length > MAX_BODY ? t.slice(0, MAX_BODY) + '…' : t).split('\n').map(l => '   > ' + l).join('\n');
-const THAT: Record<string, string> = { CHANGES_REQUESTED: 'prompt.review.changesRequested', APPROVED: 'prompt.review.approved', COMMENTED: 'prompt.review.commented' };
+const THAT: Record<string, string> = { CHANGES_REQUESTED: 'prompt.review.changesRequested', COMMENTED: 'prompt.review.commented' };
 
 /** El mensaje para el habitante: lo nuevo del PR y que proponga un plan antes de tocar nada */
 export function reviewMessage(pr: PRWithReview, eventos: EventPR[]): string {
