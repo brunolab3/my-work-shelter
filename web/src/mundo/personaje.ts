@@ -54,6 +54,12 @@ const LOCOMOTION = new Set(['Walking_A', 'Walking_B', 'Walking_C', 'Running_A', 
 
 export interface Accessory { ruta: string; bone: 'handslotr' | 'handslotl' | 'handl' | 'handr' | 'head' | 'chest'; escala?: number; pos?: [number, number, number]; rot?: [number, number, number]; rig?: boolean }
 
+// Quien te espera saluda; si lleva rato esperando (20 s), además salta antes de saludar
+export function callOut(p: Character, since: number) {
+  if (performance.now() - since > 20_000) p.saltar(() => p.gesture('Waving', 'Idle_A'));
+  else p.gesture('Waving', 'Idle_A');
+}
+
 export class Character {
   raiz = new THREE.Group();
   modelo!: THREE.Object3D;
@@ -223,6 +229,16 @@ export class Character {
     this.reproducir(nombre, fade, { bucle: false });
   }
 
+  // Saltar (quien te llama, el Supervisor con Espacio): de pie, el salto de KayKit; andando (o sin Rig_Medium), un bote
+  // del modelo dentro de su raíz, que no corta la marcha
+  private hop = -1;
+  private hopThen: (() => void) | null = null;
+  saltar(luego: string | (() => void) = this.inRest) {
+    if (this.hop >= 0 || this.currentName === 'Jump_Full_Short') return;
+    if (!this.inMovement && !this.anim) { this.gesture('Jump_Full_Short', luego, 0.1); return; }
+    this.hop = 0; this.hopThen = typeof luego === 'function' ? luego : null;
+  }
+
   speedOf(nombre: string) {
     if (this.anim) return /^Running/.test(nombre) ? 2.3 : /^Sneaking/.test(nombre) ? 0.6 : 1.05;   // a saltitos, sin pies que medir
     if (!this.speeds.has(nombre)) this.speeds.set(nombre, speedNatural(nombre, this.modelo));
@@ -289,6 +305,12 @@ export class Character {
     this.raiz.rotation.y += dg * (1 - Math.exp(-dt * 10));
     this.mixer.update(dt);
     this.anim?.actualizar(dt, this.speed);
+    if (this.hop >= 0) {
+      this.hop += dt / 0.55;
+      const f = Math.min(1, this.hop);
+      this.modelo.position.y = 4 * f * (1 - f) * 0.45 * (this.escala / 0.8);
+      if (f >= 1) { this.hop = -1; this.modelo.position.y = 0; const l = this.hopThen; this.hopThen = null; l?.(); }
+    }
     this.animateAfter?.();
     if (this.onStep && (this.speed > 0.2)) {
       if (!this.footBones.length) this.footBones = ['footl', 'footr'].map(n => this.modelo.getObjectByName(n)!).filter(Boolean);

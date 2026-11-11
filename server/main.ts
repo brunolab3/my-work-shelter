@@ -30,7 +30,7 @@ import { openInDesktop, openInAppClaude, outsideOpen, closeOutside, hookCommand,
 import { tonesForRepeated } from '../shared/reclutas.ts';
 import { remoteName } from '../shared/tareas.ts';
 import { Store, DATOS, folderOf, reposRoot } from './estado.ts';
-import { infoRepo, sugerencias, expand, recentTranscripts, estiloSala, projectType } from './repos.ts';
+import { infoRepo, sugerencias, expand, recentTranscripts, liveSessions, worktreeList, estiloSala, projectType } from './repos.ts';
 import { Integraciones } from './integraciones/index.ts';
 import { gameAction, ensurePlayer, growCrops, taskReward } from './juego.ts';
 import { generateRecruit } from '../shared/reclutas.ts';
@@ -158,6 +158,7 @@ const mandoDeps: RemoteDeps = {
   aRemoteControl: ids => exitASurface(ids ? { sesiones: ids, remoto: true, windowNew: true } : { todo: true, remoto: true, windowNew: true }),
 };
 const slackRemote = new SlackRemote({ datos: DATOS, ...mandoDeps });
+
 // una función de salida por socket (las terminales la recuerdan para enviar a cada pestaña y soltarla al cerrar)
 const salidas = new WeakMap<WebSocket, (m: any) => void>();
 function outputOf(ws: WebSocket) { let f = salidas.get(ws); if (!f) { f = x => enviar(ws, x); salidas.set(ws, f); } return f; }
@@ -362,17 +363,24 @@ async function refreshRepos() {
   }
   broadcast({ t: 'repos', repos });
 }
-function visitantes(): Visitante[] {
+// `wts`: las rutas de los worktrees de cada sala, si se acaban de leer (si no, las del último repaso de los repos)
+function visitantes(wts?: Map<string, string[]>): Visitante[] {
   // las del propio refugio no son visitantes, tampoco las de antes de reiniciar el servidor (última de cada habitante)
   const propias = new Set([...sesiones.lista().map(s => s.claudeId), ...almacen.estado.habitantes.map(h => h.lastSession), ...ownIds].filter(Boolean));
   const out: Visitante[] = [];
   // en la carpeta de la sala y en cada uno de sus worktrees (cada uno es otro proyecto para Claude Code)
   const vistos = new Set<string>();
+  const vivas = liveSessions();
+  const enJuego = new Set(sesiones.lista().filter(s => s.estado !== 'cerrada').map(s => s.claudeId).filter(Boolean));
   for (const s of almacen.estado.salas) {
     if (!s.ruta || s.tipo === 'puente') continue;
-    const dirs = [s.ruta, ...(repos[s.id]?.worktrees ?? []).filter(w => !w.principal).map(w => w.ruta)];
-    for (const dir of dirs) for (const tr of recentTranscripts(dir)) {
-      if (propias.has(tr.id) || vistos.has(tr.id)) continue;
+    const dirs = [s.ruta, ...(wts?.get(s.id) ?? (repos[s.id]?.worktrees ?? []).filter(w => !w.principal).map(w => w.ruta))];
+    // las abiertas ahora (aunque estén quietas) y las que han escrito hace poco (Claude Code sin ficha de sesión)
+    for (const dir of dirs) for (const tr of [...vivas.filter(v => v.cwd === dir), ...recentTranscripts(dir)]) {
+      // una abierta fuera ahora mismo es visitante aunque el refugio la llevara antes (salió a la superficie, se retomó
+      // en la app de Claude): solo no lo es la que el refugio tiene abierta ahora
+      const fuera = 'cwd' in tr;
+      if ((fuera ? enJuego : propias).has(tr.id) || vistos.has(tr.id)) continue;
       vistos.add(tr.id);
       out.push({ claudeId: tr.id, salaId: s.id, cwd: dir, titulo: 'Sesión en una terminal', modified: tr.modified, ...(dir !== s.ruta ? { worktree: dir } : {}) });
     }
@@ -578,7 +586,13 @@ async function accion(nombre: string, d: Record<string, any> = {}): Promise<unkn
       return true;
     }
     case 'reiniciarRefugio': { sesiones.cerrarTodas(); terminales.cerrarTodas(); almacen.reiniciar(); await refreshRepos(); broadcast({ t: 'estado', estado: almacen.estado as any }); return true; }
-    case 'visitantes': return visitantes();
+    // al abrir la lista de un visitante: al momento (con los worktrees al día), no la del último aviso (cada 15 s).
+    // Solo `git worktree list`: el repaso entero de los repos (`git status` en cada uno) tardaba segundos en los grandes
+    case 'visitantes': {
+      const salas = almacen.estado.salas.filter(s => s.ruta && s.tipo !== 'puente');
+      const wts = new Map(await Promise.all(salas.map(async s => [s.id, (await worktreeList(s.ruta!)).filter(w => !w.principal).map(w => w.ruta)] as const)));
+      const v = visitantes(wts); broadcast({ t: 'visitantes', visitantes: v }); return v;
+    }
     // el buscador (⌘K): las últimas conversaciones de cada sala con habitante, juntas y de la más reciente a la más vieja
     case 'conversaciones.recientes': {
       const fuera = outsideOpen();

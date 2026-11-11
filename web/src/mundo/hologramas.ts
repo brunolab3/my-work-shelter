@@ -10,7 +10,7 @@ import * as THREE from 'three';
 import type { Refugio } from './refugio';
 import type { Sala } from './salas/comun';
 import { Habitante } from './habitante';
-import type { Character } from './personaje';
+import { callOut, type Character } from './personaje';
 import { gltf, measure, R } from '../motor/assets';
 import { vivo } from '../red/cliente';
 import { SFX } from '../audio/sonido';
@@ -97,7 +97,7 @@ export interface Copia {
   p: Character; u: Uniforms; base: THREE.Object3D | null; portatil: THREE.Group; pantallas: THREE.Group;
   sitio: THREE.Vector3; giro: number;
   estado: DwellerState; detalle: string; sesionId?: string; firma: string;
-  pose: Pose | ''; fromPose: number; poseWanted: Pose; gestureClock: number;
+  pose: Pose | ''; fromPose: number; poseWanted: Pose; gestureClock: number; waitingSince: number;
   opacidad: number; goalCut: number; leaving: boolean; listo: boolean;
   walkClock: number; destino: THREE.Vector3 | null; returning: boolean;
   talking: boolean; chatTurn: number;   // en una charla con el Supervisor: de pie y mirándole
@@ -167,7 +167,7 @@ export class Holograms {
   // ---- un hueco en la franja delantera. Lo que cuenta es lo que se solapa en pantalla (en X), y las salas van llenas:
   // se puntúa cada hueco y gana el que menos estorba. Nunca encima de otra copia; muy caro tapar la pieza central, el
   // puesto de un habitante (para no pisar al original) o un aparato; algo, las zonas de paseo, los muebles que asoman
-  // por delante, los sitios de los robots ayudantes y el paso del ascensor; y a igualdad, mejor del lado contrario
+  // por delante y los sitios de los robots ayudantes; y a igualdad, mejor del lado contrario. El sitio del visitante, nunca
   private sitio(sala: Sala, ruta: string) {
     const lejos = sala.lado === 'izq' ? -1 : 1, medio = sala.ancho / 2 - 0.9;
     const otros = [...this.figuras.values()].filter(f => f.sala === sala && f.ruta !== ruta && !f.leaving).map(f => f.sitio.x - sala.grupo.position.x);
@@ -180,7 +180,8 @@ export class Holograms {
       + ((sala.walkZones ?? []).some(([a, b]) => x > a - 0.6 && x < b + 0.6) ? 10 : 0)
       + (sala.obstacles.some(b => b.max.y > 0.3 && b.min.x - 0.5 < x && b.max.x + 0.5 > x) ? 5 : 0)
       + ([-3.2, 3.0, -1.4, 1.6, -4.6, 4.4].some(r => Math.abs(r - x) < 0.8) ? 4 : 0)
-      + (Math.abs(-lejos * medio - x) < 1.2 ? 12 : 0)   // junto al paso del ascensor se asoman los visitantes y entran los robots
+      // el sitio del visitante (junto al paso del ascensor, `Visitors.crear`) queda siempre libre, haya visitas o no
+      + (Math.abs(-lejos * (sala.ancho / 2 - 1.1) - x) < 1.4 ? 1000 : 0)
       + Math.abs(lejos * medio - x);
     let mejor = lejos * medio, cmin = Infinity;
     for (let x = -medio; x <= medio + 1e-6; x += 0.3) { const c = coste(x); if (c < cmin) { cmin = c; mejor = x; } }
@@ -195,7 +196,7 @@ export class Holograms {
     const lado = Math.sign(sala.grupo.position.x - sitio.x) || 1;
     const f: Copia = {
       ruta: w.ruta, w, sala, authorId: autor.id.id, p: clon.p, u, base: null, portatil: new THREE.Group(), pantallas: new THREE.Group(),
-      sitio, giro: lado * 1.05, estado: 'ocioso', detalle: '', firma: '', pose: '', fromPose: 0, poseWanted: 'reposo', gestureClock: 3,
+      sitio, giro: lado * 1.05, estado: 'ocioso', detalle: '', firma: '', pose: '', fromPose: 0, poseWanted: 'reposo', gestureClock: 3, waitingSince: 0,
       opacidad: 0, goalCut: 1e4, leaving: false, listo: false,
       walkClock: 3 + Math.random() * 4, destino: null, returning: false, talking: false, chatTurn: 0, tone: COLOR,
     };
@@ -288,7 +289,7 @@ export class Holograms {
     if (estado !== antes) {
       if (estado === 'terminado') { SFX.success(); f.p.gesture('Cheering', 'Idle_A'); f.pose = 'pie'; f.fromPose = tiempo.value; }
       else if (estado === 'error') { SFX.holoGlitch(); f.u.uGlitch.value = 1; }
-      else if (estado === 'esperando') SFX.highNotice();
+      else if (estado === 'esperando') { SFX.highNotice(); f.waitingSince = performance.now(); }
     }
     if (estado !== 'error') f.u.uGlitch.value = 0;
     f.opacidad = estado === 'ocioso' ? 0.6 : 1;
@@ -371,7 +372,7 @@ export class Holograms {
     // entre pensar y trabajar no se levanta y se sienta a cada herramienta: cada postura dura al menos unos segundos
     const vaiven = (f.pose === 'portatil' && wants === 'manos') || (f.pose === 'manos' && wants === 'portatil');
     if (wants !== f.pose && (!vaiven || tiempo.value - f.fromPose > 6)) { if (p.inMovement && wants !== 'paseo') p.parar(); this.changePose(f, wants); }
-    if (f.estado === 'esperando' && f.pose === 'pie') { f.gestureClock -= dt; if (f.gestureClock < 0) { f.gestureClock = 4 + Math.random() * 2; f.p.gesture('Waving', 'Idle_A'); } }
+    if (f.estado === 'esperando' && f.pose === 'pie') { f.gestureClock -= dt; if (f.gestureClock < 0) { f.gestureClock = 4 + Math.random() * 2; callOut(f.p, f.waitingSince); } }
     if (f.pose === 'paseo') this.pasear(f, dt);
   }
 

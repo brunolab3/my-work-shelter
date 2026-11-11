@@ -17,7 +17,7 @@
 //   rama y sus cambios, y las conversaciones de dentro del worktree (copias.ts). Si un trabajo del habitante se muda a
 //   un worktree, su pestaña pasa a la ventana de la copia, y si se estaba viendo, se sigue con la copia.
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { SessionSummary, LogInput, HistoryElement, Command, PendingRequest } from '@shared/protocolo';
+import type { SessionSummary, LogInput, HistoryElement, Command, PendingRequest, Visitante } from '@shared/protocolo';
 import { MODELS, EFFORTS, PERMISSION_MODES } from '@shared/protocolo';
 import { t, tIs } from '@shared/idioma';
 import { juego, type DwellerSummary } from './estadoJuego';
@@ -35,7 +35,7 @@ import { Usage } from './consumo';
 import { takeASurface, aAppClaude } from './superficie';
 import { type AttachmentLocal, uploadFiles, chooseFiles, subiendo, listsPaths, AttachmentsTray, SentAttachments, useDictation, InputButtons, DictationStrip, attachShortcut } from './entrada';
 
-type View = { tipo: 'menu' } | { tipo: 'nuevo'; reanudar?: HistoryElement } | { tipo: 'historial' } | { tipo: 'ficha' } | { tipo: 'sesion'; sesionId: string };
+type View = { tipo: 'menu' } | { tipo: 'nuevo'; reanudar?: HistoryElement } | { tipo: 'historial' } | { tipo: 'visitantes' } | { tipo: 'ficha' } | { tipo: 'sesion'; sesionId: string };
 // recuerdo: la conversación de la pestaña (para retomarla con lo escrito si se cierra sin que el Supervisor la cierre)
 interface TabCom { id: string; vista: View; borrador?: string; adjuntos?: AttachmentLocal[]; motivo?: { peticion: string; texto: string }; sessionWait?: boolean; recuerdo?: HistoryElement }
 export interface WindowCom { dwellerId: string; pestanas: TabCom[]; activa: string; maximizada: boolean; z: number; known: string[]; confirmar?: string[] }
@@ -200,6 +200,34 @@ export function resumeConversation(hid: string, el: HistoryElement) {
   }
   restoreIntercom(hid);
 }
+// El visitante de una sala (sus sesiones abiertas fuera del refugio): al intercomunicador de su habitante, con la lista
+// de esas sesiones (la más reciente arriba); cada una se retoma ahí (la de un worktree pasa sola a su holograma)
+export function claimVisitors(salaId: string) {
+  const dwellers = juego.get().habitantes.filter(h => h.sala === salaId);
+  const h = dwellers.find(x => x.estado === 'ocioso' || x.estado === 'durmiendo' || x.estado === 'terminado') ?? dwellers[0];
+  if (!h) { SFX.noAllowed(); return; }
+  const v = ventana(h.id), ya = v?.pestanas.find(x => x.vista.tipo === 'visitantes');
+  if (ya) actualizar(h.id, { activa: ya.id });
+  else if (v) newTab(h.id, { tipo: 'visitantes' });
+  else {
+    const ses = vivas(h.id).sort((a, b) => a.created - b.created), id = newId();
+    const pestanas: TabCom[] = [...ses.map(x => ({ id: newId(), vista: { tipo: 'sesion' as const, sesionId: x.id } })), { id, vista: { tipo: 'visitantes' } }];
+    intercoms.set(e => ({ lista: [...e.lista, { dwellerId: h.id, pestanas, activa: id, maximizada: false, z: nextZ(), known: ses.map(x => x.id) }] }));
+  }
+  restoreIntercom(h.id);
+}
+// retomar en esta pestaña una conversación del archivo, sin pasar por «trabajo nuevo» (la del visitante, ya confirmada)
+function resumeHere(h: DwellerSummary, pid: string, el: HistoryElement) {
+  const hid = h.id;
+  setTab(hid, pid, { sessionWait: true });
+  cliente.ask<string>({ t: 'empezar', dwellerId: h.copia?.authorId ?? hid, salaId: h.sala, prompt: '', opciones: { reanudar: el.claudeId, cwd: el.cwd } })
+    .then(sesionId => {
+      actualizar(hid, v => ({ known: [...v.known, sesionId], pestanas: v.pestanas.filter(x => x.id === pid || !(x.vista.tipo === 'sesion' && x.vista.sesionId === sesionId)).map(x => (x.id === pid ? { ...x, sessionWait: false, vista: { tipo: 'sesion', sesionId } } : x)) }));
+      sincronizar();
+    })
+    .catch(() => { SFX.error(); setTab(hid, pid, { sessionWait: false, vista: { tipo: 'nuevo', reanudar: el } }); });
+  SFX.shortSuccess();
+}
 function toggleMaximize(hid: string) { actualizar(hid, v => ({ maximizada: !v.maximizada })); SFX.clic(); }
 // cerrar termina las conversaciones de esas pestañas (quedan en el archivo); si alguna trabaja o espera, o tiene
 // algo escrito sin enviar (que se borraría), se pregunta
@@ -304,7 +332,7 @@ export function Dialogo() {
   return <Console key={id} h={h} v={v} />;
 }
 
-const VIEW_NAME: Record<string, string> = { menu: t('windows.menu'), nuevo: t('windows.newJob'), historial: t('windows.archive'), ficha: t('windows.profile') };
+const VIEW_NAME: Record<string, string> = { menu: t('windows.menu'), nuevo: t('windows.newJob'), historial: t('windows.archive'), ficha: t('windows.profile'), visitantes: t('world.visitors') };
 
 function Console({ h, v }: { h: DwellerSummary; v: WindowCom }) {
   const sesiones = vivo.usar(e => e.sesiones);
@@ -338,7 +366,7 @@ function Console({ h, v }: { h: DwellerSummary; v: WindowCom }) {
   const ir = (vista: View) => goView(hid, p.id, vista);
   const onMenu = () => ir({ tipo: 'menu' });
   const vista = p.vista.tipo === 'sesion' && !s ? { tipo: 'menu' as const } : p.vista;
-  const alta = v.maximizada || vista.tipo === 'sesion' || vista.tipo === 'nuevo' || vista.tipo === 'historial';
+  const alta = v.maximizada || vista.tipo === 'sesion' || vista.tipo === 'nuevo' || vista.tipo === 'historial' || vista.tipo === 'visitantes';
   const items = v.pestanas.map(x => { const sx = x.vista.tipo === 'sesion' ? sesiones[x.vista.sesionId] : undefined; return { id: x.id, nombre: sx ? sx.titulo || t('windows.conversation') : x.sessionWait ? t('windows.starting2') : VIEW_NAME[x.vista.tipo] ?? t('windows.menu'), piloto: x.sessionWait ? 'trabajando' : sessionPilot(sx), titulo: sx ? `${sx.titulo} · ${sx.estado}` : '' }; });
   const worst = v.pestanas.map(sessionOf).filter(Boolean).sort((a, b) => urgency(a!) - urgency(b!))[0];
   const confirming = v.confirmar ? v.pestanas.filter(x => v.confirmar!.includes(x.id)).map(sessionOf).filter(inRunning) as SessionSummary[] : [];
@@ -377,6 +405,7 @@ function Console({ h, v }: { h: DwellerSummary; v: WindowCom }) {
               p.sessionWait ? <div className="pantalla-consola fosforo"><p className="voz">{t('windows.startingTheJob')}</p></div> :
               vista.tipo === 'menu' ? <Menu h={h} ir={ir} salir={() => salir(hid)} /> :
               vista.tipo === 'nuevo' ? <New h={h} p={p} reanudar={vista.reanudar} volver={onMenu} /> :
+              vista.tipo === 'visitantes' ? <Visitors h={h} volver={onMenu} reanudar={el => resumeHere(h, p.id, el)} /> :
               vista.tipo === 'historial' ? <Historial h={h} volver={onMenu} elegir={el => {
                 const ya = Object.values(vivo.get().sesiones).find(x => x.claudeId === el.claudeId && x.estado !== 'cerrada');
                 if (ya) { const t = v.pestanas.find(x => x.vista.tipo === 'sesion' && x.vista.sesionId === ya.id); if (t) activar(hid, t.id); else ir({ tipo: 'sesion', sesionId: ya.id }); }
@@ -533,6 +562,48 @@ function Historial({ h, volver, elegir }: { h: DwellerSummary; volver: () => voi
       {error && <p className="aviso-consola">{error}</p>}
       <div className="lista-desplazable"><Opciones items={items} i={i} setI={setI} onChoose={onChoose} /></div>
       <p className="ayuda-consola"><kbd>↑↓</kbd> {t('menu.select')} <kbd>Enter</kbd> {t('windows.resume')} <kbd>Esc</kbd> <kbd>←</kbd> {t('windows.back2')}</p>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- visitantes (sesiones de la sala abiertas fuera del refugio)
+// Solo las de fuera, la más reciente arriba; los títulos y si siguen con `claude --resume` vienen del archivo de la sala y
+// de cada worktree con visitas. Enter la retoma aquí (si sigue abierta con --resume, la cierra allí antes)
+function Visitors({ h, volver, reanudar }: { h: DwellerSummary; volver: () => void; reanudar: (el: HistoryElement) => void }) {
+  const visitas = vivo.usar(e => e.visitantes.filter(v => v.salaId === h.sala));
+  const ramas = vivo.usar(e => e.repos[h.sala]?.worktrees);
+  const [archivo, setArchivo] = useState<Map<string, HistoryElement> | null>(null);
+  const [error, setError] = useState('');
+  // la lista del último aviso del servidor puede ir hasta 15 s atrasada: se pide al momento y, hasta tenerla con sus
+  // títulos, se enseña «cargando» (no media lista que luego crece)
+  const [fresca, setFresca] = useState(false);
+  useEffect(() => { cliente.accion<Visitante[]>('visitantes').then(v => vivo.set({ visitantes: v })).catch(() => {}).finally(() => setFresca(true)); }, []);
+  const dirs = [...new Set(visitas.map(v => v.worktree ?? ''))].sort().join('|');
+  useEffect(() => {
+    if (!fresca) return;
+    Promise.all(dirs.split('|').map(d => cliente.ask<HistoryElement[]>({ t: 'historial', salaId: h.sala, cwd: d || undefined }).catch(() => [])))
+      .then(ls => setArchivo(new Map(ls.flat().map(x => [x.claudeId, x]))));
+  }, [h.sala, dirs, fresca]);
+  const lista: HistoryElement[] = [...visitas].sort((a, b) => b.modified - a.modified).map(v => {
+    const x = archivo?.get(v.claudeId);
+    return { claudeId: v.claudeId, titulo: x?.titulo || v.titulo, modified: v.modified, cwd: v.cwd, fuera: x?.fuera, rama: v.worktree ? ramas?.find(w => w.ruta === v.worktree)?.rama || v.worktree.split('/').pop() : undefined };
+  });
+  const items = [...lista.map(el => ({ texto: '↗ ' + el.titulo, pista: `${hace(el.modified)}${el.rama ? ' · ◇ ' + el.rama : ''}` })), { texto: t('windows.back'), pista: 'Esc' }];
+  const onChoose = (k: number) => {
+    if (k >= lista.length) return volver();
+    const el = lista[k];
+    if (!el.fuera) return reanudar(el);
+    setError(t('windows.forcingClose'));
+    cliente.accion<number>('superficie.forzarCierre', { claudeId: el.claudeId }).then(() => reanudar({ ...el, fuera: false })).catch(e => { SFX.error(); setError((e as Error).message); });
+  };
+  const [i, setI] = useMenu(items.length, onChoose, volver);
+  if (!archivo) return <div className="pantalla-consola fosforo"><p className="voz">{t('windows.lookingForVisitors')}</p></div>;
+  return (
+    <div className="pantalla-consola fosforo">
+      <p className="voz">{lista.length ? t('windows.visitorSessionsHere') : t('windows.noVisitorSessions')}</p>
+      {error && <p className="aviso-consola">{error}</p>}
+      <div className="lista-desplazable"><Opciones items={items} i={i} setI={setI} onChoose={onChoose} /></div>
+      <p className="ayuda-consola"><kbd>↑↓</kbd> {t('menu.select')} <kbd>Enter</kbd> {t('windows.resumeHere')} <kbd>Esc</kbd> <kbd>←</kbd> {t('windows.back2')}</p>
     </div>
   );
 }

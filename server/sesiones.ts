@@ -4,6 +4,7 @@
 // canUseTool se enruta al jugador. Diseño inspirado en code-town/server/sessions.ts (MIT).
 import os from 'node:os';
 import path from 'node:path';
+import { lastActivity, projectFolder } from './repos.ts';
 import { readFileSync } from 'node:fs';
 import { EventEmitter } from 'node:events';
 import { randomUUID } from 'node:crypto';
@@ -611,8 +612,11 @@ export class Sessions extends EventEmitter {
     const vivas = new Map([...this.s.values()].filter(x => x.viva && x.r.claudeId).map(x => [x.r.claudeId!, x.r.id]));
     return lista.filter(s => s.firstPrompt || s.summary || s.customTitle).map(s => ({
       claudeId: s.sessionId, titulo: s.customTitle || s.summary || s.firstPrompt || 'Conversación sin título', primerPrompt: s.firstPrompt,
-      modified: s.lastModified, rama: s.gitBranch, cwd: s.cwd, enCurso: vivas.get(s.sessionId),
-    }));
+      // la fecha del último mensaje, no la del archivo (abrirla en la app de Claude la toca sin escribir nada)
+      // (puede estar en dos proyectos: la carpeta del repo y la del worktree donde se retomó; cuenta la más reciente)
+      modified: Math.max(0, ...[...new Set([dir, s.cwd].filter(Boolean))].map(d => lastActivity(path.join(projectFolder(d!), s.sessionId + '.jsonl')) ?? 0)) || s.lastModified,
+      rama: s.gitBranch, cwd: s.cwd, enCurso: vivas.get(s.sessionId),
+    })).sort((a, b) => b.modified - a.modified);
   }
 
   async transcripcion(claudeId: string, dir: string): Promise<LogInput[]> {

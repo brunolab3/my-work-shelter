@@ -19,6 +19,7 @@ import { PanelBodyshop, Retratillo } from './Probador';
 import { lookOf, lookSummary } from '@shared/aspecto';
 import { goA } from './Paneles';
 import { idCopy } from './copias';
+import { claimVisitors } from './Dialogo';
 import { openGit } from './git/ventana';
 import type { InfoRepo } from '@shared/protocolo';
 
@@ -345,32 +346,12 @@ function PanelWorktree() {
   );
 }
 
-// ---------------------------------------------------------------- visitante: una sesión de Claude Code abierta en una terminal
+// ---------------------------------------------------------------- visitante: las sesiones de la sala abiertas fuera
+// no es un aparato: lleva al intercomunicador del habitante de la sala, con la lista de esas sesiones
 function PanelVisitor() {
   const d = juego.usar(e => e.panelData);
-  const claudeId = String(d?.aparato ?? '').replace(/^vis:/, '');
-  const salaId: string = d?.salaId;
-  const v = vivo.usar(e => e.visitantes.find(x => x.claudeId === claudeId));
-  const dwellers = juego.usar(e => e.habitantes.filter(h => h.sala === salaId));   // aunque esté con otro trabajo: va en otra pestaña
-  // de un worktree: se retoma dentro de él y la lleva su holograma (la copia de quien trabaja ahí)
-  const wt = v?.worktree, rama = vivo.usar(e => (wt ? e.repos[salaId]?.worktrees.find(w => w.ruta === wt)?.rama : undefined));
-  const items: (ItemMenu & { f: () => void })[] = [
-    ...dwellers.map(h => ({ texto: wt ? <>{t('panels.bringItIntoTheHologram')} <b>{rama || wt.split('/').pop()}</b></> : <>{t('panels.bringBackTheConversationWith')} <b>{h.nombre}</b></>, pista: wt ? t('panels.resumesItInItsWorktree') : t('panels.resumesItHereWithIts'), f: () => {
-      juego.set({ panel: null, panelData: null });
-      cliente.enviar({ t: 'empezar', dwellerId: h.id, salaId, prompt: '', opciones: { reanudar: claudeId, cwd: v?.cwd } });
-      SFX.shortSuccess(); goA(salaId, wt ? idCopy(wt) : h.id, true);
-    } })).slice(0, wt ? 1 : undefined),
-    { texto: t('panels.leaveThemAlone'), f: closePanel },
-  ];
-  const [i, setI] = useMenu(items.length, k => items[k].f());
-  return (
-    <Device rotulo={t('panels.visitorTerminalSession')} ancho={52}>
-      <p className="voz">{t('panels.someoneIsWorkingWithClaude')}{v ? t('panels.forNMinWithoutStopping', { n: Math.max(1, Math.round((Date.now() - v.modified) / 60000)) }) : ''}.</p>
-      <p className="tenue">{t('panels.ifYouBringItInto')}</p>
-      <Opciones items={items} i={i} setI={setI} onChoose={k => items[k].f()} />
-      <Keys><kbd>↑↓</kbd>{t('menu.select')} <kbd>Enter</kbd>{t('menu.accept')} <kbd>Esc</kbd>{t('menu.close')}</Keys>
-    </Device>
-  );
+  useEffect(() => { juego.set({ panel: null, panelData: null }); if (d?.salaId) claimVisitors(d.salaId); }, []);
+  return null;
 }
 
 // la cabina de la discoteca no es un aparato: abre Spotify, que suena dentro del juego

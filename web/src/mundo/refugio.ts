@@ -99,6 +99,8 @@ export class Refugio {
       if ((e.code === 'KeyE' || e.code === 'Enter') && this.nearDevice) { this.useDevice(this.nearDevice.sala, this.nearDevice.it); return true; }
       // la terminal de la sala, en su carpeta de trabajo (las especiales también tienen una)
       if (e.code === 'KeyT' && this.currentRoom && (this.currentRoom.ruta || vivo.get().estado?.salas?.some((s: any) => s.id === this.currentRoom!.id && s.carpeta))) { window.dispatchEvent(new CustomEvent('refugio:terminal', { detail: { salaId: this.currentRoom.id } })); return true; }
+      // Espacio: el Supervisor salta (también andando)
+      if (e.code === 'Space' && this.supervisor && !this.montado) { this.supervisor.saltar(); return true; }
       if (e.code === 'KeyZ' || e.code === 'Minus' || e.code === 'Equal') { this.toggleView(e.code === 'Equal' ? false : e.code === 'Minus' ? true : !this.viewGeneral); return true; }
     });
     window.addEventListener('refugio:fin-dialogo', () => this.dialogEnd());
@@ -681,6 +683,14 @@ export class Refugio {
   }
 
   // quien hablaba vuelve a lo suyo (al cambiar de interlocutor sin cerrar el intercomunicador, o al cerrarlo)
+  // una charla nueva se encuadra de cero: lo alejado con la rueda en la anterior (hasta ver todo el refugio) y lo corrido
+  // hacia el ratón no se arrastran a la siguiente (con alguien de otra planta, el encuadre salía lejos y descolocado); se
+  // conserva solo un acercamiento moderado
+  private freshChatFrame() {
+    this.zoomChat = THREE.MathUtils.clamp(this.zoomChat, 0.45, 1);
+    this.camara.desplazamiento.set(0, 0, 0);
+  }
+
   private dropChat() {
     if (this.copyFocused) { this.hologramas.finishChat(this.copyFocused); this.copyFocused = null; }
     if (this.focused) { this.focused.waitingAfterChat = 3; this.focused.chatting = false; this.focused = null; }
@@ -699,7 +709,7 @@ export class Refugio {
   // con `andando` (un clic) la charla se abre ya y el Supervisor va hasta su sitio caminando mientras tanto
   interact(h: Habitante, andando = false) {
     SFX.abrir();
-    if (this.focused !== h) this.dropChat();
+    if (this.focused !== h) { this.dropChat(); this.freshChatFrame(); }
     // a quien duerme se le despierta: se levanta de la litera para hablar (de tumbado no hay retrato ni encuadre)
     if (h.estado === 'durmiendo') { h.cambiar('ocioso'); h.p.inRest = 'Idle_A'; h.p.reproducir('Idle_A', 0.2); }
     this.focused = h; h.chatting = true;
@@ -769,7 +779,7 @@ export class Refugio {
   // hablar con una copia holográfica: su propio intercomunicador, con su retrato en holograma
   interactCopy(f: Copia, andando = false) {
     SFX.abrir();
-    if (this.copyFocused !== f) this.dropChat();
+    if (this.copyFocused !== f) { this.dropChat(); this.freshChatFrame(); }
     this.copyFocused = f;
     this.retrato?.destruir(); this.retrato = new Portrait(f.p, 220, 260, true);
     (window as any).__portrait = this.retrato.canvas;
@@ -1146,12 +1156,15 @@ export class Refugio {
     // menos chips sobre las piezas: solo se rotula a quien pide atención, trabaja o está junto al Supervisor
     const relevant = (h: Habitante) => h === this.cercano || h === apH || !['ocioso', 'durmiendo'].includes(h.estado) || Math.abs(h.pos.x - sp.x) < 2.2;
     const items: any[] = visibles.filter(relevant).map(h => ({ k: h, pos: h.p.headPoint(), alto: 0.2, nombre: h.id.nombre, estado: h.estado, detalle: h === this.cercano && h.estado !== 'ocioso' && h.estado !== 'durmiendo' ? h.detalle : '', cerca: h === this.cercano || h === apH, lejos, prompt: h === this.cercano || h === apH ? tx('world.talk') : '', tecla: h === this.cercano ? 'E' : tx('world.click'), apuntado: h === apH }));
-    items.push(...this.visitantes.etiquetas(lejos, sp).filter(x => Math.abs(x.pos.x - this.camara.goal.x) < this.camara.distancia * 0.45 && Math.abs(x.pos.y - this.camara.goal.y) < this.camara.distancia * 0.3));
+    // los visitantes son aparatos que se rotulan en su propio letrero (nunca un segundo encima ni sobre el Supervisor)
+    const visitor = (it?: Interactive | null) => !!it?.id.startsWith('vis:');
+    const nearDevice = visitor(this.nearDevice?.it) ? null : this.nearDevice;
+    items.push(...this.visitantes.etiquetas(lejos, this.nearDevice?.it.id, ap?.tipo === 'aparato' ? ap.it.id : undefined).filter(x => Math.abs(x.pos.x - this.camara.goal.x) < this.camara.distancia * 0.45 && Math.abs(x.pos.y - this.camara.goal.y) < this.camara.distancia * 0.3));
     items.push(...this.hologramas.etiquetas(lejos, sp, this.nearby, apC).filter(x => Math.abs(x.pos.x - this.camara.goal.x) < this.camara.distancia * 0.45 && Math.abs(x.pos.y - this.camara.goal.y) < this.camara.distancia * 0.3));
     items.push(...this.ayudantes.etiquetas(lejos, sp).filter(x => Math.abs(x.pos.x - this.camara.goal.x) < this.camara.distancia * 0.45 && Math.abs(x.pos.y - this.camara.goal.y) < this.camara.distancia * 0.3));
-    items.push({ k: this.supervisor, pos: this.supervisor.headPoint(), alto: 0.2, nombre: this.nearDevice ? this.nearDevice.it.texto : tx('world.you'), estado: 'ocioso', detalle: '', cerca: !!this.nearDevice, lejos, prompt: this.nearDevice ? tx('world.use') : '', supervisor: true });
+    items.push({ k: this.supervisor, pos: this.supervisor.headPoint(), alto: 0.2, nombre: nearDevice ? nearDevice.it.texto : tx('world.you'), estado: 'ocioso', detalle: '', cerca: !!nearDevice, lejos, prompt: nearDevice ? tx('world.use') : '', supervisor: true });
     // el aparato apuntado con el ratón (si no es el que ya está a mano), encima de su sitio
-    if (ap?.tipo === 'aparato' && ap.it !== this.nearDevice?.it) items.push({ k: ap.it, pos: this.deviceOver(ap.sala, ap.it), alto: 0, nombre: ap.it.texto, estado: 'ocioso', detalle: '', cerca: true, lejos, prompt: tx('world.use'), tecla: tx('world.click'), aparato: true, apuntado: true });
+    if (ap?.tipo === 'aparato' && ap.it !== this.nearDevice?.it && !visitor(ap.it)) items.push({ k: ap.it, pos: this.deviceOver(ap.sala, ap.it), alto: 0, nombre: ap.it.texto, estado: 'ocioso', detalle: '', cerca: true, lejos, prompt: tx('world.use'), tecla: tx('world.click'), aparato: true, apuntado: true });
     // el aviso de un aparato va sobre el Supervisor: nunca encima de la pantalla o el cartel que se usa
     if (ap?.tipo === 'ascensor' && !(inLanding && ap.planta === planta)) items.push({ k: this.ascensor, pos: new THREE.Vector3(0, yRoom(ap.planta) + 3.2, 1), alto: 0, nombre: tx('world.elevator'), estado: 'ocioso', detalle: '', cerca: true, lejos, prompt: tx('world.go'), tecla: tx('world.click'), aparato: true, apuntado: true });
     else if (inLanding && !this.montado && this.ascensor) items.push({ k: this.ascensor, pos: new THREE.Vector3(0, sp.y + 3.2, 1), alto: 0, nombre: tx('world.elevator'), estado: 'ocioso', detalle: '', cerca: true, lejos, prompt: tx('world.wSUpAndDown') });

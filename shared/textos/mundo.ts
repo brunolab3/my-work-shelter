@@ -74,7 +74,9 @@ export const WORLD: Record<string, Texto> = {
   'world.elevator': { es: 'Ascensor', en: 'Elevator' },
   'world.wSUpAndDown': { es: 'W/S subir y bajar', en: 'W/S up and down' },
   'world.visitor': { es: 'Visitante', en: 'Visitor' },
-  'world.visitorOutside': { es: 'Visitante: conversación abierta fuera del refugio', en: 'Visitor: conversation open outside the shelter' },
-  'world.visitorOutsideWorktree': { es: 'Visitante: conversación de un worktree, abierta fuera del refugio', en: 'Visitor: worktree conversation open outside the shelter' },
+  'world.visitors': { es: 'Visitantes', en: 'Visitors' },
+  'world.nSessionsOutside': { es: '{n} conversaciones abiertas fuera del refugio', en: '{n} conversations open outside the shelter' },
+  'world.seeSessions': { es: 'Ver', en: 'View' },
+  'world.visitorOutside': { es: 'Visitante: conversaciones abiertas fuera del refugio', en: 'Visitor: conversations open outside the shelter' },
   'world.sessionOpenOutside': { es: 'conversación abierta en una terminal o en la app de Claude', en: 'conversation open in a terminal or the Claude app' },
 };

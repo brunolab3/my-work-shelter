@@ -10,8 +10,8 @@ import { SFX, sonido } from '../audio/sonido';
 import { Device, Opciones, Keys, closePanel, useMenu, useKeys, type ItemMenu } from './aparato';
 import { PanelesSala } from './PanelesSala';
 import { Welcome } from './Puente';
-import { floorCaption } from '@shared/disposicion';
-import { roomTone, sectorOf, floorSector, SECTORS, SECTORS_ORDER } from '@shared/sectores';
+import { floorCaption, isRoomOfRepo, PLANNING_ROOM } from '@shared/disposicion';
+import { roomTone, sectorOf, floorSector, SECTORS, SECTORS_ORDER, AREAS } from '@shared/sectores';
 import { ROOM_DESCRIPTION } from '@shared/refugioInicial';
 import { ACTIVE_SOURCES } from '@shared/fuentes';
 import { openGit } from './git/ventana';
@@ -94,6 +94,13 @@ function Plano() {
   const [editar, setEditar] = useState(false);
   const [arrastre, setDrag] = useState<Drag>(null);
   const [sobre, setOver] = useState('');   // el destino bajo el ratón mientras se arrastra
+  // editando, la etiqueta de una sala de repo (su área: frontend, backend o críticos, con su color) cambia con un clic o C
+  const hasArea = (s: any) => !!s && isRoomOfRepo(s.tipo) && s.id !== PLANNING_ROOM;
+  const nextArea = (s: any) => {
+    if (!hasArea(s)) { SFX.noAllowed(); return; }
+    const area = AREAS[(AREAS.indexOf(sectorOf(s.tipo, s.id, s.area).id as any) + 1) % AREAS.length];
+    cliente.accion('sala.area', { salaId: s.id, area }).then(() => SFX.conmutar()).catch(() => SFX.noAllowed());
+  };
   const plantas = Math.max(0, ...salas.map(s => s.planta)) + 1;
   // editando, un hueco libre más a cada lado para poder alargar cualquier planta
   const orders = Math.max(1, ...salas.map(s => s.orden)) + (editar ? 2 : 1);
@@ -132,6 +139,7 @@ function Plano() {
   useKeys(e => {
     if (e.code === 'KeyO') toggleEdit();
     else if (editar && e.code === 'KeyN' && aMano) stock();
+    else if (editar && e.code === 'KeyC') nextArea(sel);
     else if (e.code === 'ArrowLeft' || e.code === 'KeyA') mover(-1, 0);
     else if (e.code === 'ArrowRight' || e.code === 'KeyD') mover(1, 0);
     else if (e.code === 'ArrowUp' || e.code === 'KeyW') mover(0, -1);
@@ -164,6 +172,10 @@ function Plano() {
     const hs = habitantes.filter(x => x.sala === s.id);
     return <>
       <span className="nom">{s.nombre}</span>
+      {editar && hasArea(s) && (() => { const sec = sectorOf(s.tipo, s.id, s.area); return (
+        <button className="plano-area" title={t('panels.clickToChangeArea')} style={{ ['--sector' as any]: sec.color, ['--tinta' as any]: sec.tinta }}
+          draggable={false} onMouseDown={ev => ev.stopPropagation()} onClick={ev => { ev.stopPropagation(); setCurId(s.id); nextArea(s); }}><b>{sec.codigo}</b>{tIs(sec.nombre)}</button>
+      ); })()}
       <span className="hab">{hs.map(x => <i key={x.id} className={x.estado} title={x.nombre} />)}</span>
       {s.id === actual && <span className="tu">{t('windows.you')}</span>}
     </>;
@@ -234,7 +246,7 @@ function Plano() {
         {editar && aMano && <button className="boton-taller" onClick={stock}>{t('panels.defaultLayout')}</button>}
       </div>
       {editar
-        ? <Keys><kbd>O</kbd>{t('windows.finish')} {aMano && <><kbd>N</kbd>{t('panels.defaultLayout2')} </>}<kbd>Esc</kbd>{t('windows.finish')}</Keys>
+        ? <Keys><kbd>C</kbd>{t('panels.changeArea')} <kbd>O</kbd>{t('windows.finish')} {aMano && <><kbd>N</kbd>{t('panels.defaultLayout2')} </>}<kbd>Esc</kbd>{t('windows.finish')}</Keys>
         : <Keys><kbd>←↑↓→</kbd>{t('menu.select')} <kbd>Enter</kbd>{t('panels.travel')} <kbd>O</kbd>{t('panels.editTheShelter')} <kbd>Esc</kbd>{t('menu.close')}</Keys>}
     </Device>
   );
@@ -323,7 +335,7 @@ function Busy() {
 
 // ---------------------------------------------------------------- ayuda: todos los controles
 const CONTROLS: [string, string][] = [
-  ['WASD / flechas', 'correr (con Shift, andar)'], ['W / S en el rellano', 'subir y bajar en ascensor'], ['E / Enter', 'hablar, usar, avanzar, elegir'],
+  ['WASD / flechas', 'correr (con Shift, andar)'], ['W / S en el rellano', 'subir y bajar en ascensor'], ['E / Enter', 'hablar, usar, avanzar, elegir'], ['Espacio', 'saltar'],
   ['clic', 'ir a un sitio; clic en un habitante: ir y hablar'], ['rueda / Z / − =', 'zoom, vista general y vista de sala'],
   ['M', 'plano: viaje rápido y obras (O o «Editar»: arrastrar salas y plantas a su sitio)'], ['Tab', 'qué pasa ahora: ocupados, notificaciones y próximo evento'],
   ['Q', 'ir directo al primer habitante que te espera'], ['T', 'terminal real de la sala (shell sobre PTY)'],

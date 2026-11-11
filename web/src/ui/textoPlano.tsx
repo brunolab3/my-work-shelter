@@ -4,11 +4,7 @@
 import type { InputView } from '@shared/protocolo';
 import { t as tr } from '@shared/idioma';
 
-// C0 (salvo tabulador, salto de línea y retorno de carro), DEL, guion blando, separador mongol, ancho cero y marcas de
-// dirección (U+200B–U+200F), incrustaciones y anulaciones bidi (U+202A–U+202E), operadores invisibles (U+2060–U+2064),
-// aislamientos bidi (U+2066–U+2069) y BOM (U+FEFF)
-const INVISIBLE = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f­᠎​-‏‪-‮⁠-⁤⁦-⁩﻿]/g;
-const marca = (c: string) => `⟦U+${c.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0')}⟧`;
+import { INVISIBLE, marca } from '@shared/visible';
 
 /** El texto tal cual, con los caracteres invisibles a la vista */
 export function Visible({ t }: { t: string }) {

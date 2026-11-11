@@ -1,6 +1,6 @@
 // Información de repositorios para las salas: rama, cambios sin commitear, último commit, tipo de proyecto, worktrees.
 import { execFile } from 'node:child_process';
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { closeSync, existsSync, openSync, readFileSync, readSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import type { InfoRepo, InfoWorktree } from '../shared/protocolo.ts';
@@ -46,7 +46,8 @@ export function estiloSala(ruta: string, tipo: string): 'web' | 'video' | 'marca
   return 'generico';
 }
 
-export async function worktrees(ruta: string): Promise<InfoWorktree[]> {
+// solo la lista (ruta, rama, principal), sin `git status`: al momento aunque el repo sea enorme (los visitantes)
+export async function worktreeList(ruta: string): Promise<InfoWorktree[]> {
   const out = await git(ruta, ['worktree', 'list', '--porcelain']);
   const lista: InfoWorktree[] = [];
   let actual: Partial<InfoWorktree> | null = null;
@@ -56,6 +57,11 @@ export async function worktrees(ruta: string): Promise<InfoWorktree[]> {
     else if (l === 'detached' && actual) actual.rama = '(sin rama)';
   }
   if (actual?.ruta) lista.push(actual as InfoWorktree);
+  return lista;
+}
+
+export async function worktrees(ruta: string): Promise<InfoWorktree[]> {
+  const lista = await worktreeList(ruta);
   const principal = lista[0]?.rama;
   await Promise.all(lista.map(async w => {
     w.cambios = (await git(w.ruta, ['status', '--porcelain'])).split('\n').filter(Boolean).length;
@@ -103,6 +109,50 @@ export function sugerencias(raiz: string, ya: string[]): { ruta: string; nombre:
       .map(p => ({ ruta: p, nombre: path.basename(p), isGit: existsSync(path.join(p, '.git')), tipo: projectType(p), modified: statSync(p).mtimeMs }))
       .sort((a, b) => b.modified - a.modified);
   } catch { return []; }
+}
+
+// Sesiones de Claude Code abiertas ahora mismo (terminal, Claude Desktop…), aunque lleven rato quietas: cada proceso
+// deja su ficha en ~/.claude/sessions/<pid>.json con su sesión y su carpeta; solo cuentan las de procesos vivos
+// `modified`: la última vez que escribió en su transcripción (si aún no tiene, la ficha: updatedAt o startedAt)
+export function liveSessions(): { id: string; cwd: string; modified: number }[] {
+  const dir = path.join(process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude'), 'sessions');
+  const out: { id: string; cwd: string; modified: number }[] = [];
+  try {
+    for (const f of readdirSync(dir)) {
+      if (!/^\d+\.json$/.test(f)) continue;
+      try {
+        const s = JSON.parse(readFileSync(path.join(dir, f), 'utf8'));
+        if (typeof s?.sessionId !== 'string' || typeof s?.cwd !== 'string' || !Number.isInteger(s?.pid)) continue;
+        try { process.kill(s.pid, 0); } catch (err) { if ((err as NodeJS.ErrnoException).code !== 'EPERM') continue; }
+        const modified = lastActivity(path.join(projectFolder(s.cwd), s.sessionId + '.jsonl')) || Number(s.updatedAt) || Number(s.startedAt) || 0;
+        out.push({ id: s.sessionId, cwd: s.cwd, modified });
+      } catch { /* ficha a medio escribir */ }
+    }
+  } catch { /* sin carpeta: Claude Code antiguo */ }
+  return out;
+}
+
+// Lo último que pasó en una conversación: la fecha de su último mensaje (del usuario o de Claude), como la app de Claude.
+// La fecha del archivo no sirve: la app (y Claude Code al retomarla) le añaden metadatos al abrirla (un enlace de PR, con
+// su propia fecha, o sin fecha) y parecería de ahora
+export function lastActivity(file: string): number | undefined {
+  let fd: number | undefined;
+  try {
+    fd = openSync(file, 'r');
+    const size = statSync(file).size;
+    for (let tam = 64 << 10; ; tam *= 4) {
+      const n = Math.min(tam, size), buf = Buffer.alloc(n);
+      readSync(fd, buf, 0, n, size - n);
+      const lineas = buf.toString('utf8').split('\n');
+      for (let i = lineas.length - 1; i >= (n < size ? 1 : 0); i--) {
+        if (!lineas[i].includes('"timestamp"')) continue;
+        let d: any; try { d = JSON.parse(lineas[i]); } catch { continue; }
+        const t = (d?.type === 'user' || d?.type === 'assistant') ? Date.parse(d.timestamp) : NaN;
+        if (!Number.isNaN(t)) return t;
+      }
+      if (n >= size || tam >= 16 << 20) return;
+    }
+  } catch { return; } finally { if (fd !== undefined) closeSync(fd); }
 }
 
 // Visitantes: sesiones de Claude Code abiertas en una terminal en esa carpeta (transcripción escrita hace poco)

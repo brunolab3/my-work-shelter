@@ -8,7 +8,7 @@
 // - Termina = celebra; error = golpe y al suelo; espera permiso = se levanta, te mira y saluda; duerme en su catre.
 // - Se sienta y se levanta de verdad (clips de KayKit) y sigue al Supervisor con la mirada cuando anda cerca.
 import * as THREE from 'three';
-import { Character, turnBoneWorld } from './personaje';
+import { Character, turnBoneWorld, callOut } from './personaje';
 import { composeClip } from './animaciones';
 import { lookOf, type Look } from '@shared/aspecto';
 import { Zetas } from './efectos';
@@ -107,6 +107,7 @@ export class Habitante {
   private untilBusy = 0;  // sentándose o levantándose: no se le interrumpe
   private slide: { desde: THREE.Vector3; hasta: THREE.Vector3; t: number; dur: number } | null = null;
   private gestureClock = 4;
+  private waitingSince = 0;   // desde cuándo te espera (al rato, además de saludar, salta)
   private utensil = '';
   private paso = 0;          // acción de la pieza en curso
   private typing = 0;        // intensidad del tecleo de las manos (0..1, suavizada)
@@ -291,7 +292,7 @@ export class Habitante {
       this.releasePoint(); p.parar(); this.leaveSeat();
       this.lookCamera = true;
       p.inRest = 'Idle_A'; p.gesture('Waving', 'Idle_A');
-      this.gestureClock = 3;
+      this.gestureClock = 3; this.waitingSince = performance.now();
     } else if (estado === 'terminado') {
       this.withUtensil(''); this.stay = null; this.chore = 'celebrar';
       this.releasePoint(); p.parar(); this.leaveSeat();
@@ -513,7 +514,7 @@ export class Habitante {
     }
     if (this.estado === 'esperando') {
       this.gestureClock -= dt;
-      if (this.gestureClock < 0) { this.gestureClock = 4 + Math.random() * 2; if (!p.ruta.length) p.gesture('Waving', 'Idle_A'); }
+      if (this.gestureClock < 0) { this.gestureClock = 4 + Math.random() * 2; if (!p.ruta.length) callOut(p, this.waitingSince); }
     }
     if (this.estado === 'terminado') {
       this.gestureClock -= dt;

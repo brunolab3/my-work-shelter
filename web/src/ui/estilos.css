@@ -598,6 +598,9 @@ html, body { margin: 0; height: 100%; background: var(--fondo); overflow: hidden
 /* plano en corte: cada sala con su color de acento como luz interior, suelo marcado y el hueco del ascensor como pozo */
 .plano-celda:not(.vacia) { background: linear-gradient(180deg, color-mix(in srgb, var(--acento) 26%, #0b0d0a) 0%, #0b0d0a 70%); box-shadow: inset 0 -5px 0 color-mix(in srgb, var(--acento) 55%, #000); border-color: color-mix(in srgb, var(--acento) 60%, #222); }
 .plano-celda:not(.vacia) .nom { color: var(--crema); text-shadow: 0 1px 0 #000; }
+.plano-celda .plano-area { align-self: flex-start; margin-top: .2em; font: inherit; font-size: .66em; font-weight: 700; letter-spacing: .04em; color: var(--tinta); background: var(--sector); border: 1px solid rgba(0,0,0,.5); border-radius: 2px; padding: .05em .4em; cursor: pointer; }
+.plano-celda .plano-area b { margin-right: .35em; }
+.plano-celda .plano-area:hover { filter: brightness(1.2); outline: 1px solid var(--ambar); }
 .plano-ascensor { background: repeating-linear-gradient(180deg, #14100c 0 6px, #1d1712 6px 12px); border-left: 2px solid #3a3226; border-right: 2px solid #3a3226; color: #ffb000 !important; font-size: .7em; }
 .plano-superficie { background: linear-gradient(180deg, #8a4a2c, #5a3220); color: #f4d9a8 !important; border-bottom: 3px solid #3a2416 !important; border-radius: 2px 2px 0 0; }
 .feed-lista li { grid-template-columns: 5.2em 11em 1fr auto; }
