@@ -2,7 +2,7 @@
 
 > **[brunolab3](https://github.com/brunolab3)'s version, based on [DavidTorrijos/work-shelter-public](https://github.com/DavidTorrijos/work-shelter-public).**
 > The original game is by **David Torrijos** (MIT licence, see [`LICENSE`](LICENSE)); this repo publishes my changes on
-> top. The original does not accept pull requests or issues: anything about this version goes here.
+> top. Neither the original nor this repo takes pull requests or issues (see below): fork it and make it yours.
 
 <p align="center">
   <a href="docs/media/trailer.mp4"><img src="docs/media/teaser.webp" alt="work-shelter teaser: the shelter in cutaway, its rooms and its dwellers at work" width="100%"></a>
@@ -120,6 +120,11 @@ you like):
 It asks for no password and installs nothing outside those folders (if your macOS user isn't an administrator and
 can't write to `/Applications`: `… | bash -s -- --destino ~/Applications/work-shelter-public.app`). The app isn't
 signed by any developer: your own Mac creates it at install time, so macOS opens it without warnings.
+
+**Already have David Torrijos's original installed?** Both use the same folder, app and port, so running this command
+would just update the original. Quit the game, move it aside (`mv ~/.work-shelter-public ~/.work-shelter-original`)
+and run the command; to keep your shelter, copy `~/.work-shelter-original/.data` into `~/.work-shelter-public`
+before opening it.
 
 **Updating:** run the same command again (if you've changed the game's code, it won't overwrite it).
 
