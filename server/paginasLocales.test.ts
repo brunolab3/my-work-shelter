@@ -70,3 +70,14 @@ describe('páginas HTML del Mac en el juego', () => {
     expect((await pedir(`/pagina/${'0'.repeat(32)}/mi%20plan.html`)).status).toBe(404);
   });
 });
+
+describe('existingPages', () => {
+  it('solo las que siguen en el Mac (las de un worktree quitado, no)', async () => {
+    const { existingPages } = await import('./paginasLocales.ts');
+    const { mkdtempSync, writeFileSync } = await import('node:fs');
+    const os = await import('node:os'); const path = await import('node:path');
+    const d = mkdtempSync(path.join(os.tmpdir(), 'paginas-'));
+    writeFileSync(path.join(d, 'plan.html'), '<p>plan</p>');
+    expect(await existingPages([path.join(d, 'plan.html'), path.join(d, 'quitada', 'plan.html'), 42], os.homedir())).toEqual([path.join(d, 'plan.html')]);
+  });
+});

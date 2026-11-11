@@ -3,8 +3,9 @@
 // contestada cuando el Supervisor le ha mandado notas o la ha validado después de la última vez que se enlazó (si el
 // habitante la vuelve a enlazar, tras cambiarla, queda otra vez por revisar). Puro: lo usan el cliente y las pruebas.
 
-/** Lo que el Supervisor ha hecho con una página: mandarle notas o validarla sin notas */
-export interface PageAnswer { estado: 'notas' | 'validada'; ts: number }
+/** Lo que el Supervisor ha hecho con una página: mandarle notas, validarla sin notas o quitarla de la lista (vuelve si
+ *  se enlaza otra vez) */
+export interface PageAnswer { estado: 'notas' | 'validada' | 'quitada'; ts: number }
 export interface SessionPage { ruta: string; nombre: string; ts: number; respuesta?: PageAnswer }
 
 const OF_PAGE = /\.(html?|md|markdown)$/i;
@@ -56,8 +57,14 @@ export function sessionPages(entradas: { tipo: string; texto: string; ts: number
     const clave = Object.keys(respuestas).find(k => samePage(k, ruta));
     const r = clave ? respuestas[clave] : undefined;
     return { ruta, nombre: ruta.split('/').pop() || ruta, ts, ...(r && r.ts >= ts ? { respuesta: r } : {}) };
-  }).sort((a, b) => b.ts - a.ts);
+  }).filter(p => p.respuesta?.estado !== 'quitada').sort((a, b) => b.ts - a.ts);
 }
+
+/** Las que se listan: enlazadas en las dos últimas semanas y que siguen en el Mac (`existen`: las rutas que el servidor
+ *  ha encontrado; sin saberlo aún, todas). Las de un worktree ya quitado desaparecen solas */
+export const PAGES_DAYS = 14;
+export const livePages = (l: SessionPage[], existen: Set<string> | null, ahora = Date.now()) =>
+  l.filter(p => p.ts >= ahora - PAGES_DAYS * 86_400_000 && (!existen || existen.has(p.ruta)));
 
 /** Las que quedan por revisar */
 export const pendingPages = (l: SessionPage[]) => l.filter(p => !p.respuesta);

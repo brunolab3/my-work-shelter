@@ -12,7 +12,8 @@ import { GAME_NAME, type ClientMessage, type ServerMessage, type InfoRepo, type 
 import { Sessions } from './sesiones.ts';
 import { Attachments } from './adjuntos.ts';
 import { openAttachment, isPackage, revealLocal } from './abrir.ts';
-import { openLink, servePage } from './paginasLocales.ts';
+import { openLink, servePage, existingPages } from './paginasLocales.ts';
+import { cleanCompares } from './comparar.ts';
 import { isCloneOfExample } from './ejemplos.ts';
 import { mcpDecor, promptAdaptar, type CtxDecor } from './decoradoSala.ts';
 import { mcpAssignment, mcpPlan, type CtxAssignment } from './reparto.ts';
@@ -392,6 +393,8 @@ function visitantes(wts?: Map<string, string[]>): Visitante[] {
 setInterval(() => { refreshRepos().catch(() => {}); }, 20_000).unref();
 // limpieza de adjuntos de más de una semana
 adjuntos.clean();
+// y de las comparaciones de más de dos semanas (comparar.ts)
+cleanCompares().catch(() => {});
 setInterval(() => broadcast({ t: 'visitantes', visitantes: visitantes() }), 15_000).unref();
 // las sesiones terminadas, leídas y quietas media hora se cierran solas (la conversación queda para retomarla)
 // y nunca hay más de 12 procesos de Claude Code vivos: se cierran las terminadas más antiguas (aunque no se hayan leído).
@@ -685,6 +688,7 @@ async function accion(nombre: string, d: Record<string, any> = {}): Promise<unkn
     // un adjunto del cuaderno: imágenes y PDF en Vista Previa, texto en el editor de texto, lo demás en el Finder (abrir.ts)
     // un enlace a un archivo del Mac en una respuesta (web/src/ui/markdown.ts): sin ejecutar nada (abrir.ts)
     case 'aviso.responder': { const f = preguntas.get(String(d.id ?? '')); preguntas.delete(String(d.id ?? '')); if (f) await f(!!d.si); return true; }
+    case 'paginas.existen': return existingPages(d.rutas, os.homedir());
     case 'enlace.local': return openLink(String(d.ruta ?? ''), os.homedir());
     case 'enlace.revelar': return revealLocal(String(d.ruta ?? ''), os.homedir());
     case 'adjunto.abrir': { const r = String(d.ruta || ''); if (!adjuntos.propio(r)) throw new Error(t('server.thatAttachmentIsGoneThey')); await openAttachment(adjuntos.dir, path.resolve(r)); return true; }

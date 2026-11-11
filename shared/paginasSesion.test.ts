@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { pagesInText, sessionPages, pendingPages, samePage, pageLink } from './paginasSesion.ts';
+import { pagesInText, sessionPages, pendingPages, samePage, pageLink, livePages } from './paginasSesion.ts';
 
 const CMP = '/Users/ana/Library/Application Support/work-shelter-public/comparaciones/repo-rama.html';
 
@@ -39,6 +39,10 @@ describe('sessionPages', () => {
     expect(l.map(p => [p.nombre, p.ts, p.respuesta?.estado])).toEqual([['plan.html', 30, undefined], ['repo-rama.html', 20, 'validada']]);
     expect(pendingPages(l).map(p => p.nombre)).toEqual(['plan.html']);
   });
+  it('las quitadas de la lista no salen, salvo que se vuelvan a enlazar después', () => {
+    expect(sessionPages(entradas, { '/Users/ana/r/plan.html': { estado: 'quitada', ts: 31 } }).map(p => p.nombre)).toEqual(['repo-rama.html']);
+    expect(sessionPages(entradas, { '/Users/ana/r/plan.html': { estado: 'quitada', ts: 25 } }).map(p => p.nombre)).toEqual(['plan.html', 'repo-rama.html']);
+  });
 });
 
 describe('pageLink', () => {
@@ -46,5 +50,18 @@ describe('pageLink', () => {
     expect(pageLink(CMP)).toBe(`[repo-rama.html](<${CMP}>)`);
     expect(pageLink('/Users/ana/r/p.html', 'Plan')).toBe('[Plan](/Users/ana/r/p.html)');
     expect(pagesInText(pageLink(CMP))).toEqual([CMP]);
+  });
+});
+
+describe('livePages', () => {
+  it('solo las enlazadas en las dos últimas semanas y que siguen en el Mac', () => {
+    const ahora = 100 * 86_400_000, dia = 86_400_000;
+    const l = sessionPages([
+      { tipo: 'asistente', texto: '/Users/ana/r/vieja.html', ts: ahora - 20 * dia },
+      { tipo: 'asistente', texto: '/Users/ana/r/.claude/worktrees/x/plan.html', ts: ahora - dia },
+      { tipo: 'asistente', texto: '/Users/ana/r/nueva.html', ts: ahora - dia },
+    ], {});
+    expect(livePages(l, null, ahora).map(p => p.nombre).sort()).toEqual(['nueva.html', 'plan.html']);
+    expect(livePages(l, new Set(['/Users/ana/r/nueva.html']), ahora).map(p => p.nombre)).toEqual(['nueva.html']);
   });
 });

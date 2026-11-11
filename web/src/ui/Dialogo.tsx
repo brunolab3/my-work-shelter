@@ -33,8 +33,8 @@ import { CMD, nextZ, windowShortcut, WindowButtons, Tabs, Confirmation } from '.
 import { sessionOwner, interlocutor, branchCaption } from './copias';
 import { Usage } from './consumo';
 import { takeASurface, aAppClaude } from './superficie';
-import { openPage, pageAnswers, pageNotes, validatePage, revealPage } from './Navegadores';
-import { sessionPages, pendingPages, samePage } from '@shared/paginasSesion';
+import { openPage, pageAnswers, pageNotes, validatePage, revealPage, makeRoomForIntercom, answerPage } from './Navegadores';
+import { sessionPages, pendingPages, samePage, livePages } from '@shared/paginasSesion';
 import { type AttachmentLocal, uploadFiles, chooseFiles, subiendo, listsPaths, AttachmentsTray, SentAttachments, useDictation, InputButtons, DictationStrip, attachShortcut } from './entrada';
 
 type View = { tipo: 'menu' } | { tipo: 'nuevo'; reanudar?: HistoryElement } | { tipo: 'historial' } | { tipo: 'visitantes' } | { tipo: 'ficha' } | { tipo: 'sesion'; sesionId: string };
@@ -77,7 +77,7 @@ function restoreIntercoms(): WindowCom[] {
     const l = JSON.parse(localStorage.getItem(SAVED) || '[]') as SavedWindow[];
     return l.filter(v => v?.dwellerId && v.pestanas?.length).map(v => {
       const pestanas: TabCom[] = v.pestanas.map(p => ({ ...p, id: newId(), adjuntos: p.adjuntos?.length ? p.adjuntos.map((a, i) => ({ ...a, id: `g${nTab}-${i}` })) : undefined }));
-      return { dwellerId: v.dwellerId, maximizada: !!v.maximizada, known: v.known ?? [], z: nextZ(), pestanas, activa: (pestanas[v.activa] ?? pestanas[0]).id };
+      return { dwellerId: v.dwellerId, maximizada: false, known: v.known ?? [], z: nextZ(), pestanas, activa: (pestanas[v.activa] ?? pestanas[0]).id };
     });
   } catch { return []; }
 }
@@ -115,14 +115,25 @@ function actualizar(hid: string, f: Partial<WindowCom> | ((v: WindowCom) => Part
 }
 function setTab(hid: string, pid: string, p: Partial<TabCom>) { actualizar(hid, v => ({ pestanas: v.pestanas.map(x => (x.id === pid ? { ...x, ...p } : x)) })); }
 
-// al hablar con un habitante: su ventana, con una pestaña por cada trabajo suyo (la más urgente delante)
+// Dónde sale: si ya se veía otro intercomunicador, como estaba ese (ampliado o a la derecha); si no (venía del refugio o
+// de la barra), siempre a la derecha, sin ampliar: no se recuerda que estuvo ampliado. Lo que esté ampliado delante
+// (una página, un navegador) deja sitio (makeRoomForIntercom)
+let shownWith: string | null = null;
 function openIntercom(hid: string) {
+  const antes = shownWith && shownWith !== hid ? ventana(shownWith) : undefined, ampliada = !!antes?.maximizada;
+  shownWith = hid;
+  if (ventana(hid)) actualizar(hid, { maximizada: ampliada });
+  if (!ampliada) makeRoomForIntercom();
+  openIntercomWindow(hid, ampliada);
+}
+// al hablar con un habitante: su ventana, con una pestaña por cada trabajo suyo (la más urgente delante)
+function openIntercomWindow(hid: string, ampliada: boolean) {
   let v = ventana(hid);
   if (!v) {
     const ses = vivas(hid).sort((a, b) => a.created - b.created);
     const pestanas: TabCom[] = ses.length ? ses.map(s => ({ id: newId(), vista: { tipo: 'sesion', sesionId: s.id } })) : [{ id: newId(), vista: { tipo: juego.get().workIn ? 'nuevo' : 'menu' } }];
     const primera = [...ses].sort((a, b) => urgency(a) - urgency(b) || b.actualizada - a.actualizada)[0];
-    v = { dwellerId: hid, pestanas, activa: pestanas[primera ? ses.indexOf(primera) : 0].id, maximizada: false, z: nextZ(), known: ses.map(s => s.id) };
+    v = { dwellerId: hid, pestanas, activa: pestanas[primera ? ses.indexOf(primera) : 0].id, maximizada: ampliada, z: nextZ(), known: ses.map(s => s.id) };
     intercoms.set(e => ({ lista: [...e.lista, v!] }));
     // una copia holográfica sin conversación abierta retoma por defecto la última de su worktree (si sigue en el menú)
     if (!ses.length && !juego.get().workIn) resumeLastOfCopy(hid, pestanas[0].id);
@@ -329,7 +340,7 @@ export function Dialogo() {
   const id = juego.usar(e => e.talkingWith);
   const h = juego.usar(e => interlocutor(e.talkingWith, e));
   const v = intercoms.usar(e => e.lista.find(x => x.dwellerId === id));
-  useEffect(() => { if (id) openIntercom(id); }, [id]);
+  useEffect(() => { if (id) openIntercom(id); else shownWith = null; }, [id]);
   if (!id || !h || !v) return null;
   return <Console key={id} h={h} v={v} />;
 }
@@ -401,6 +412,7 @@ function Console({ h, v }: { h: DwellerSummary; v: WindowCom }) {
             </>}
             {s?.modelo && <div className="consola-dato">{s.modelo.replace('claude-', '')}</div>}
             {s && (s.contexto || s.tokens) ? <div className="consola-dato"><Usage s={s} largo /></div> : null}
+            {s && <PagesMenu s={s} />}
           </aside>
           <div className="consola-pestana" key={p.id}>
             {!connected ? <WithoutConnection /> : !claudeOk ? <WithoutClaude /> :
@@ -793,7 +805,7 @@ function Session({ h, s, p, salir, onClose }: { h: DwellerSummary; s: SessionSum
   const ayudantes = s.ayudantes.filter(a => a.estado === 'trabajando').length;
   return (
     <div className={'pantalla-consola fosforo sesion' + (encima ? ' soltando' : '')} data-sesion={s.id} {...soltar}>
-      <div className="titulo-sesion"><span className="titulo-texto">{s.titulo}{s.worktree ? <span className="tenue"> · worktree</span> : null}</span><PagesMenu s={s} entradas={entradas} /></div>
+      <div className="titulo-sesion">{s.titulo}{s.worktree ? <span className="tenue"> · worktree</span> : null}</div>
       <div className="lienzo" ref={lienzo} onScroll={e => { const el = e.currentTarget; pegado.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 4; }}>
         {(s.pending ? entradas.filter((e, i) => !(e.tipo === 'sistema' && e.texto.startsWith('❓')) && !(e.tipo === 'herramienta' && i >= entradas.length - 3)) : entradas).map(e => <Entrada key={e.id} e={e} />)}
         {parcial && workingLive && <div className="ent asistente parcial" dangerouslySetInnerHTML={{ __html: markdown(parcial) + '<span class="cursor-escribe">▌</span>' }} />}
@@ -839,11 +851,17 @@ function Session({ h, s, p, salir, onClose }: { h: DwellerSummary; s: SessionSum
 
 // Las páginas de la conversación (planes, informes, comparaciones que ha enlazado): cuáles quedan por revisar, abrirlas
 // (sus notas vuelven a esta conversación) y validar sin notas las que estén bien (shared/paginasSesion.ts)
-function PagesMenu({ s, entradas }: { s: SessionSummary; entradas: LogInput[] }) {
+function PagesMenu({ s }: { s: SessionSummary }) {
+  const entradas = vivo.usar(e => e.entradas[s.id]) ?? [];
   const respuestas = pageAnswers.usar(x => x[s.id]);
   const borradores = pageNotes.usar(x => x);
-  const paginas = useMemo(() => sessionPages(entradas, respuestas ?? {}), [entradas, respuestas]);
+  const todas = useMemo(() => sessionPages(entradas, respuestas ?? {}), [entradas, respuestas]);
+  // solo las que siguen en el Mac (se pregunta al servidor cuando cambia la lista o se abre)
+  const [existen, setExist] = useState<Set<string> | null>(null);
   const [abierto, setOpen] = useState(false);
+  const rutas = todas.map(p => p.ruta).join('\n');
+  useEffect(() => { if (!rutas) return; cliente.accion('paginas.existen', { rutas: rutas.split('\n') }).then((l: any) => setExist(new Set(Array.isArray(l) ? l : []))).catch(() => {}); }, [rutas, abierto]);
+  const paginas = livePages(todas, existen);
   if (!paginas.length) return null;
   const pendientes = pendingPages(paginas).length;
   const abrir = (ruta: string) => {
@@ -864,6 +882,7 @@ function PagesMenu({ s, entradas }: { s: SessionSummary; entradas: LogInput[] })
           {n > 0 && <span className="tenue"> · {t('windows.pageDraftNotes', { n })}</span>}
           <button className="consola-x" title={t('windows.showInFinderHint')} onClick={() => revealPage(p.ruta)}>📁</button>
           {!p.respuesta && n === 0 && <button className="consola-x" title={t('windows.validatePageHint')} onClick={() => { validatePage(s.id, p.ruta); setOpen(false); }}>✓ {t('windows.validate')}</button>}
+          <button className="consola-x" title={t('windows.removePageHint')} onClick={() => { answerPage(s.id, p.ruta, 'quitada'); SFX.clic(); }}>✕</button>
         </li>;
       })}</ul>}
     </span>
@@ -947,3 +966,10 @@ function Pending({ s, p, tab, hid, salir }: { s: SessionSummary; p: PendingReque
     </div>
   );
 }
+
+// una página que se abre al lado (Navegadores.tsx): si el intercomunicador a la vista está ampliado, vuelve a la derecha
+// para que se vean los dos
+if (typeof window !== 'undefined') addEventListener('refugio:pagina-al-lado', () => {
+  const hid = juego.get().talkingWith, v = hid ? ventana(hid) : undefined;
+  if (v?.maximizada) actualizar(hid!, { maximizada: false });
+});

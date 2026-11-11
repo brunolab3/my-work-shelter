@@ -84,3 +84,11 @@ export async function servePage(req: http.IncomingMessage, res: http.ServerRespo
   createReadStream(real).pipe(res);
   return true;
 }
+
+/** De unas páginas enlazadas, las que siguen en el Mac (las de un worktree ya quitado no): el intercomunicador solo
+ *  lista esas */
+export async function existingPages(rutas: unknown, casa: string): Promise<string[]> {
+  const lista = Array.isArray(rutas) ? rutas.filter((r): r is string => typeof r === 'string').slice(0, 200) : [];
+  const ok = await Promise.all(lista.map(async r => { const p = linkPath(r, casa); return !!p && (await fs.stat(p).then(st => st.isFile(), () => false)); }));
+  return lista.filter((_, i) => ok[i]);
+}

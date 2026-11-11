@@ -85,6 +85,7 @@ export const WINDOWS: Record<string, Texto> = {
   'windows.sendNotes': { es: 'Enviar notas', en: 'Send notes' },
   'windows.note': { es: 'Nota', en: 'Note' },
   'windows.showInFinderHint': { es: 'Enseñar el archivo en el Finder (para compartirlo)', en: 'Show the file in Finder (to share it)' },
+  'windows.removePageHint': { es: 'Quitarla de la lista (el archivo se queda; vuelve si la enlaza otra vez)', en: 'Remove it from the list (the file stays; it comes back if linked again)' },
   'windows.validate': { es: 'Validar', en: 'Validate' },
   'windows.validatePageHint': { es: 'Sin notas: dile a la conversación que la página está bien y que siga', en: 'No notes: tell the conversation the page is fine and to carry on' },
   'windows.pageValidated': { es: 'He revisado la página {ruta}: está bien, sin notas. Sigue.', en: 'I reviewed the page {ruta}: it is fine, no notes. Carry on.' },

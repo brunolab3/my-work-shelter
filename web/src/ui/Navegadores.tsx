@@ -73,7 +73,13 @@ export function notesMessage(ruta: string, notas: PageNote[]) {
 // Lo que el Supervisor ha hecho con cada página de cada conversación (mandarle notas o validarla): el intercomunicador
 // lista las páginas de la conversación y marca las que quedan por revisar (shared/paginasSesion.ts)
 const RESPUESTAS = 'refugio.respuestasPaginas';
-export const pageAnswers = new Store<Record<string, Record<string, PageAnswer>>>((() => { try { return JSON.parse(localStorage.getItem(RESPUESTAS) || '{}'); } catch { return {}; } })());
+// (las de más de un mes se olvidan: esas páginas ya no salen en la lista)
+export const pageAnswers = new Store<Record<string, Record<string, PageAnswer>>>((() => {
+  try {
+    const todas = JSON.parse(localStorage.getItem(RESPUESTAS) || '{}') as Record<string, Record<string, PageAnswer>>, limite = Date.now() - 30 * 86_400_000;
+    return Object.fromEntries(Object.entries(todas).map(([s, l]) => [s, Object.fromEntries(Object.entries(l ?? {}).filter(([, r]) => r?.ts > limite))]).filter(([, l]) => Object.keys(l).length));
+  } catch { return {}; }
+})());
 pageAnswers.subscribe(() => { try { localStorage.setItem(RESPUESTAS, JSON.stringify(pageAnswers.get())); } catch {} });
 export function answerPage(sesion: string, ruta: string, estado: PageAnswer['estado']) {
   pageAnswers.set(x => {
@@ -145,10 +151,19 @@ export function openBrowser(spotId: string, url?: string) {
  *  /pagina/…) o una que sirve una herramienta en local (http://127.0.0.1:<puerto>/…, como una página de revisión con
  *  notas). Con `sesion`, la ventana puede avisar a esa conversación de que tiene notas que aplicar. */
 export function openPage(url: string, titulo: string, sesion?: string, ruta?: string) {
+  // a la izquierda, al lado del intercomunicador (a la derecha): si este estaba ampliado, deja sitio
+  dispatchEvent(new CustomEvent('refugio:pagina-al-lado'));
   if (ventana('pagina')) { actualizar('pagina', { url, titulo, sesion, ruta }); onFront('pagina'); return; }
   crear('pagina', url, false, false, titulo);
   actualizar('pagina', { sesion, ruta });
   SFX.abrir();
+}
+/** Al abrir un intercomunicador sin ampliar: lo ampliado que lo taparía deja sitio. La ventana «Página» vuelve a su
+ *  sitio de la izquierda (se ven las dos); un navegador ampliado se minimiza */
+export function makeRoomForIntercom() {
+  for (const v of navegadores.get().lista) if (v.maximizada && !v.minimizada) {
+    if (v.id === 'pagina') actualizar(v.id, { maximizada: false }); else { dropFocus(v.id); actualizar(v.id, { minimizada: true, maximizada: false }); }
+  }
 }
 /** Una página que sirve otro programa de este Mac (no el juego): se ve en la ventana «Página» */
 export const isLocalServer = (u: URL) => u.protocol === 'http:' && /^(127\.0\.0\.1|localhost)$/.test(u.hostname) && u.origin !== location.origin;
@@ -219,9 +234,9 @@ try {
     if (!SPOTS[r.id] || typeof r.url !== 'string' || (!IN_ELECTRON && !isLocal(r.id))) continue;
     if (isLocal(r.id)) {
       let u: URL | undefined; try { u = new URL(r.url, location.href); } catch {}
-      if (r.url.startsWith('/pagina/') || (u && isLocalServer(u))) { crear(r.id, r.url, !!r.minimizada, !!r.maximizada, String(r.titulo ?? '')); actualizar(r.id, { sesion: typeof r.sesion === 'string' ? r.sesion : undefined, ruta: typeof r.ruta === 'string' ? r.ruta : undefined }); }
+      if (r.url.startsWith('/pagina/') || (u && isLocalServer(u))) { crear(r.id, r.url, !!r.minimizada, false, String(r.titulo ?? '')); actualizar(r.id, { sesion: typeof r.sesion === 'string' ? r.sesion : undefined, ruta: typeof r.ruta === 'string' ? r.ruta : undefined }); }
     }
-    else crear(r.id, urlSpot(r.url)?.id === r.id ? r.url : SPOTS[r.id].inicio, !!r.minimizada, !!r.maximizada);
+    else crear(r.id, urlSpot(r.url)?.id === r.id ? r.url : SPOTS[r.id].inicio, !!r.minimizada, false);
   }
 } catch {}
 
@@ -291,7 +306,7 @@ function VentanaNavegador({ v }: { v: WindowNav }) {
   const s = SPOTS[v.id];
   const page = pageTitle(v);
   return (
-    <div className={'ventana-navegador interactivo' + (v.maximizada ? ' maximizada' : '') + (v.minimizada ? ' minimizada' : '')}
+    <div className={'ventana-navegador interactivo' + (v.maximizada ? ' maximizada' : '') + (v.minimizada ? ' minimizada' : '') + (v.id === 'pagina' ? ' al-lado' : '')}
       style={{ zIndex: v.maximizada ? 200000 + v.z : v.z }} onPointerDown={() => { if (!v.minimizada) onFront(v.id); }}
       onKeyDownCapture={e => windowShortcut(e, acciones(v))} role="dialog" aria-label={t('windows.browserNombre', { nombre: s?.nombre ?? v.id })}>
       <div className="vt-cabeza vn-cabeza" onDoubleClick={e => { if (!(e.target as HTMLElement).closest('button')) toggleMaximize(v.id); }}>

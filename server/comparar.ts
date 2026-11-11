@@ -115,6 +115,17 @@ ${cuerpo}
 const newFileDiff = (cwd: string, f: string) => new Promise<string>(ok =>
   execFile('git', ['-c', 'core.quotepath=off', 'diff', '--no-color', '--no-ext-diff', '--no-textconv', '--no-index', '--', '/dev/null', f], { cwd, env: entornoGit(), timeout: 30_000, maxBuffer: 16 * 1024 * 1024 }, (_e, out) => ok(String(out ?? ''))));
 
+/** Las comparaciones de más de dos semanas se borran (al arrancar el servidor): ya no se revisan */
+export async function cleanCompares(dias = 14) {
+  const limite = Date.now() - dias * 86_400_000;
+  const nombres = await fs.readdir(COMPARES_FOLDER).catch(() => [] as string[]);
+  for (const n of nombres) if (n.endsWith('.html')) {
+    const f = path.join(COMPARES_FOLDER, n);
+    const st = await fs.stat(f).catch(() => null);
+    if (st && st.mtimeMs < limite) await fs.rm(f, { force: true }).catch(() => {});
+  }
+}
+
 /** Genera la página de un repo y devuelve dónde ha quedado */
 export async function buildCompare(cwd: string, o: { base?: string; sinCommit?: boolean; titulo?: string } = {}) {
   const raiz = (await git(cwd, ['rev-parse', '--show-toplevel'])).trim();
