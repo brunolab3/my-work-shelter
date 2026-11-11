@@ -5,8 +5,10 @@ import { cliente } from '../red/cliente';
 import { SFX } from '../audio/sonido';
 import { openPage, isLocalServer } from './Navegadores';
 import { t } from '@shared/idioma';
+import { localPathLinks } from './rutasEnlace';
 
 marked.setOptions({ gfm: true, breaks: false });
+marked.use(localPathLinks);   // «/Users/…/compare.html» suelto también es un enlace
 // nada se carga desde fuera al leer una respuesta (privacidad): las imágenes remotas se quedan en su texto alternativo
 DOMPurify.addHook('uponSanitizeElement', (nodo: any, datos) => {
   if (datos.tagName === 'img' && /^(https?:)?\/\//i.test(nodo.getAttribute?.('src') ?? '')) { const txt = document.createTextNode(`[${t('windows.image')}: ${nodo.getAttribute('alt') || nodo.getAttribute('src')}]`); nodo.replaceWith(txt); }
