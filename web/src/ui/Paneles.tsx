@@ -16,6 +16,7 @@ import { ROOM_DESCRIPTION } from '@shared/refugioInicial';
 import { ACTIVE_SOURCES } from '@shared/fuentes';
 import { openGit } from './git/ventana';
 import { DICTATION_LANGUAGES, dictationLanguage, setLanguageDictation } from './entrada';
+import { FRAME_RATES, frameRate, setFrameRate } from '../motor/ritmo';
 import { takeASurface } from './superficie';
 import { reloadView } from '../motor/render';
 import { Usage } from './consumo';
@@ -419,6 +420,8 @@ function GameOptions() {
     { etq: t('menu.language') + (idioma() === 'es' ? ' · Language' : ''), valores: LANGUAGES.map(x => x.texto), actual: Math.max(0, LANGUAGES.findIndex(x => x.valor === idioma())), poner: k => { const v = LANGUAGES[k].valor; if (v === idioma()) return; setLanguage(v); cliente.accion('idioma', { idioma: v }).catch(() => {}).finally(reloadView); } },
     vol('maestro'), vol('ambiente'), vol('musica'), vol('sfx'), vol('ui'), vol('voces'), vol('teclado'),
     { etq: t('menu.mute'), valores: [t('menu.no'), t('menu.yes')], actual: au.silence ? 1 : 0, poner: k => { sonido.guardar({ silence: k === 1 }); refrescar(x => x + 1); } },
+    // fotogramas por segundo del refugio: en automático, menos cuando nada se mueve (gasta bastante menos CPU)
+    { etq: t('menu.frameRate'), valores: [t('menu.frameRateAuto'), '60 fps', '30 fps'], actual: FRAME_RATES.indexOf(frameRate()), poner: k => { setFrameRate(FRAME_RATES[k]); refrescar(x => x + 1); SFX.tick(); } },
     { etq: t('menu.dictationLanguage'), valores: DICTATION_LANGUAGES.map(x => x.texto), actual: Math.max(0, DICTATION_LANGUAGES.findIndex(x => x.valor === dictationLanguage())), poner: k => { setLanguageDictation(DICTATION_LANGUAGES[k].valor); refrescar(x => x + 1); SFX.tick(); } },
   ];
   const [i, setI] = useMenu(filas.length, k => { const f = filas[k]; f.poner((f.actual + 1) % f.valores.length); }, e => {

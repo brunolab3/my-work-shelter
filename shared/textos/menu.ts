@@ -39,6 +39,8 @@ export const MENU: Record<string, Texto> = {
   'menu.mute': { es: 'Silencio', en: 'Mute' },
   'menu.no': { es: 'no', en: 'no' },
   'menu.yes': { es: 'sí', en: 'yes' },
+  'menu.frameRate': { es: 'Fotogramas por segundo', en: 'Frame rate' },
+  'menu.frameRateAuto': { es: 'Auto (ahorra CPU)', en: 'Auto (saves CPU)' },
   'menu.dictationLanguage': { es: 'Idioma del dictado', en: 'Dictation language' },
   'menu.credentialsTheReposRootThe': { es: 'Las credenciales, la raíz de repos, el límite de sesiones y el atuendo se cambian en la cámara acorazada (⌘K → «cámara»).', en: 'Credentials, the repos root, the session limit and your outfit are changed in the vault (⌘K → “vault”).' },
   'menu.mainHatch': { es: 'ESCOTILLA PRINCIPAL', en: 'MAIN HATCH' },
