@@ -4,7 +4,7 @@ import { mkdtempSync, mkdirSync, symlinkSync, writeFileSync } from 'node:fs';
 import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
-import { openLink, servePage, PAGE_CSP } from './paginasLocales.ts';
+import { openLink, servePage, PAGE_CSP, withNotes } from './paginasLocales.ts';
 
 const base = mkdtempSync(path.join(os.tmpdir(), 'paginas-'));
 const carpeta = path.join(base, 'repo', 'tmp'); mkdirSync(carpeta, { recursive: true });
@@ -30,10 +30,19 @@ describe('páginas HTML del Mac en el juego', () => {
   it('se sirve con la cabecera sandbox y sin conexiones, y también lo relativo de su carpeta', async () => {
     const { pagina } = await openLink(`file://${encodeURI(path.join(carpeta, 'mi plan.html'))}`, '/Users/nadie') as any;
     const p = await pedir(pagina.url);
-    expect([p.status, p.texto, p.tipo]).toEqual([200, '<h1>Plan</h1>', 'text/html; charset=utf-8']);
+    expect([p.status, p.tipo]).toEqual([200, 'text/html; charset=utf-8']);
+    expect(p.texto.startsWith('<h1>Plan</h1><script>')).toBe(true);   // con la capa de notas al final
     expect(p.csp).toBe(PAGE_CSP);
     expect(PAGE_CSP).toMatch(/^sandbox allow-scripts/); expect(PAGE_CSP).not.toContain('allow-same-origin'); expect(PAGE_CSP).toContain("connect-src 'none'");
     expect((await pedir(pagina.url.replace('mi%20plan.html', 'estilo.css'))).status).toBe(200);
+  });
+  it('la capa de notas va una vez, antes del último </body>, y sin cerrar su <script> antes de tiempo', () => {
+    const html = withNotes('<html><body><p>a</p><pre>&lt;/body&gt;</pre></body></html>');
+    expect(html.match(/<script>/g)).toHaveLength(1);
+    expect(html.endsWith('</script></body></html>')).toBe(true);
+    expect(html).toContain("postMessage");
+    expect(html.slice(html.indexOf('<script>') + 8, html.lastIndexOf('</script>'))).not.toMatch(/<\/script/i);
+    expect(withNotes('<p>sin body</p>').startsWith('<p>sin body</p><script>')).toBe(true);
   });
   it('nada fuera de la carpeta de la página: ni subiendo, ni por un enlace simbólico, ni con otra llave', async () => {
     const { pagina } = await openLink(path.join(carpeta, 'mi plan.html'), '/Users/nadie') as any;

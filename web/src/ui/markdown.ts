@@ -42,7 +42,7 @@ addEventListener('click', e => {
   if (!a) return;
   e.preventDefault(); e.stopPropagation();
   // una página HTML (un plan, un informe) se ve dentro, en la ventana de páginas; lo demás lo abre el Mac
-  cliente.accion('enlace.local', { ruta: a.getAttribute('data-local') }).then((r: any) => { if (r?.pagina) openPage(r.pagina.url, r.pagina.titulo, sessionOfLink(a)); else SFX.clic(); }).catch(() => SFX.noAllowed());
+  cliente.accion('enlace.local', { ruta: a.getAttribute('data-local') }).then((r: any) => { if (r?.pagina) openPage(r.pagina.url, r.pagina.titulo, sessionOfLink(a), r.pagina.ruta); else SFX.clic(); }).catch(() => SFX.noAllowed());
 }, true);
 // la conversación en la que está el enlace (el intercomunicador marca la suya)
 const sessionOfLink = (a: Element) => a.closest('[data-sesion]')?.getAttribute('data-sesion') ?? undefined;
