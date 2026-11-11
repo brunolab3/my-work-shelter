@@ -1,6 +1,6 @@
 // Revisiones de tus PR, a la sala que los trabaja: cada minuto se miran tus PR abiertos en GitHub (con `gh`, solo
 // con GitHub conectado en la cámara acorazada) y lo nuevo de otros (revisiones, comentarios en el código y en la
-// conversación) va como mensaje a la conversación abierta en la rama del PR: el worktree de esa rama en la sala de su
+// conversación, también los de bots: revisores automáticos, informes de pruebas) va como mensaje a la conversación abierta en la rama del PR: el worktree de esa rama en la sala de su
 // repo o, si no, el de la tarea (la clave de Jira de la rama). El habitante lo analiza y propone un plan (qué arreglar
 // y qué contestar) al Supervisor, que lo aprueba antes de tocar nada. El robot mensajero lo lleva desde Control de
 // Versiones y se lo da en mano al holograma de ese worktree (o al habitante, si es la copia principal). Toda tarea
@@ -13,7 +13,7 @@ import path from 'node:path';
 import type { SessionSummary } from '../shared/protocolo.ts';
 import { t } from '../shared/idioma.ts';
 
-export interface EventPR { id: string; tipo: 'revision' | 'hilo' | 'comentario'; autor: string; cuerpo: string; url: string; fecha: number; estado?: string; archivo?: string; linea?: number }
+export interface EventPR { id: string; tipo: 'revision' | 'hilo' | 'comentario'; autor: string; bot?: boolean; cuerpo: string; url: string; fecha: number; estado?: string; archivo?: string; linea?: number }
 export interface PRWithReview { numero: number; titulo: string; url: string; repo: string; rama: string; eventos: EventPR[] }
 export interface RoomPR { id: string; nombre: string; ruta: string; rama?: string; worktrees: { ruta: string; rama: string }[]; repo?: string }
 
@@ -21,8 +21,8 @@ export const REVIEWS_QUERY = `query {
   viewer { login }
   prs: search(query: "is:pr is:open author:@me archived:false sort:updated-desc", type: ISSUE, first: 30) { nodes { ... on PullRequest {
     number title url headRefName repository { nameWithOwner }
-    reviews(last: 20) { nodes { id state body url submittedAt author { login } } }
-    reviewThreads(last: 50) { nodes { isResolved path line comments(last: 10) { nodes { id body url createdAt author { login } } } } }
+    reviews(last: 20) { nodes { id state body url submittedAt author { __typename login } } }
+    reviewThreads(last: 50) { nodes { isResolved path line comments(last: 10) { nodes { id body url createdAt author { __typename login } } } } }
     comments(last: 20) { nodes { id body url createdAt author { __typename login } } }
   } } }
 }`;
@@ -38,26 +38,30 @@ export function withoutNothingThatMake(cuerpo: string): boolean {
 }
 
 /** Lo de otros en cada PR que pide algo: revisiones que piden cambios o comentan algo con texto, comentarios de hilos
- *  sin resolver y comentarios de la conversación. Fuera: los de bots (informes de CI o enlaces), las aprobaciones sin
- *  más y lo que solo es un visto bueno o un agradecimiento (sinNadaQueHacer): no generan un plan */
+ *  sin resolver y comentarios de la conversación, también los de bots (un revisor automático o un informe de pruebas
+ *  pueden traer algo que arreglar: el habitante decide en su plan). Fuera: las aprobaciones sin más y lo que solo es un
+ *  visto bueno o un agradecimiento (sinNadaQueHacer): no generan un plan */
 export function reviewsOfGitHub(j: any): { yo: string; prs: PRWithReview[] } {
   const yo = String(j?.data?.viewer?.login ?? '');
   const otro = (a: any) => !!a?.login && a.login !== yo;
+  const bot = (a: any) => (a?.__typename === 'Bot' ? { bot: true } : {});
+  // los bots esconden sus marcas en comentarios HTML (<!-- ci-status: … -->): fuera, que no gasten la cita
+  const texto = (b: any) => String(b ?? '').replace(/<!--[\s\S]*?-->/g, '').trim();
   const fecha = (s: any) => { const t = Date.parse(s ?? ''); return Number.isFinite(t) ? t : 0; };
   const prs = (j?.data?.prs?.nodes ?? []).filter((n: any) => n?.number).map((n: any): PRWithReview => {
     const eventos: EventPR[] = [];
     for (const r of n.reviews?.nodes ?? []) {
       if (!r?.id || !otro(r.author) || !['CHANGES_REQUESTED', 'COMMENTED', 'APPROVED'].includes(r.state)) continue;
-      if (r.state !== 'CHANGES_REQUESTED' && withoutNothingThatMake(String(r.body ?? ''))) continue;   // sus comentarios en el código llegan por los hilos
-      eventos.push({ id: r.id, tipo: 'revision', autor: r.author.login, cuerpo: String(r.body ?? '').trim(), url: r.url ?? n.url, fecha: fecha(r.submittedAt), estado: r.state });
+      if (r.state !== 'CHANGES_REQUESTED' && withoutNothingThatMake(texto(r.body))) continue;   // sus comentarios en el código llegan por los hilos
+      eventos.push({ id: r.id, tipo: 'revision', autor: r.author.login, ...bot(r.author), cuerpo: texto(r.body), url: r.url ?? n.url, fecha: fecha(r.submittedAt), estado: r.state });
     }
     for (const h of n.reviewThreads?.nodes ?? []) {
       if (!h || h.isResolved) continue;
-      for (const c of h.comments?.nodes ?? []) if (c?.id && otro(c.author) && !withoutNothingThatMake(String(c.body ?? '')))
-        eventos.push({ id: c.id, tipo: 'hilo', autor: c.author.login, cuerpo: String(c.body ?? '').trim(), url: c.url ?? n.url, fecha: fecha(c.createdAt), archivo: h.path ?? undefined, linea: h.line ?? undefined });
+      for (const c of h.comments?.nodes ?? []) if (c?.id && otro(c.author) && !withoutNothingThatMake(texto(c.body)))
+        eventos.push({ id: c.id, tipo: 'hilo', autor: c.author.login, ...bot(c.author), cuerpo: texto(c.body), url: c.url ?? n.url, fecha: fecha(c.createdAt), archivo: h.path ?? undefined, linea: h.line ?? undefined });
     }
-    for (const c of n.comments?.nodes ?? []) if (c?.id && otro(c.author) && c.author.__typename !== 'Bot' && !withoutNothingThatMake(String(c.body ?? '')))
-      eventos.push({ id: c.id, tipo: 'comentario', autor: c.author.login, cuerpo: String(c.body ?? '').trim(), url: c.url ?? n.url, fecha: fecha(c.createdAt) });
+    for (const c of n.comments?.nodes ?? []) if (c?.id && otro(c.author) && !withoutNothingThatMake(texto(c.body)))
+      eventos.push({ id: c.id, tipo: 'comentario', autor: c.author.login, ...bot(c.author), cuerpo: texto(c.body), url: c.url ?? n.url, fecha: fecha(c.createdAt) });
     eventos.sort((a, b) => a.fecha - b.fecha);
     return { numero: n.number, titulo: n.title ?? '', url: n.url ?? '', repo: n.repository?.nameWithOwner ?? '', rama: n.headRefName ?? '', eventos };
   });
@@ -117,7 +121,7 @@ export function reviewMessage(pr: PRWithReview, eventos: EventPR[]): string {
   const clave = branchKey(pr.rama);
   const lista = eventos.slice(0, MAX_EVENTS).map((e, i) => {
     const que = e.tipo === 'revision' ? t(THAT[e.estado ?? ''] ?? 'prompt.review.reviews') : e.tipo === 'hilo' ? t('prompt.review.onLine', { lugar: `${e.archivo ?? '?'}${e.linea ? ':' + e.linea : ''}` }) : t('prompt.review.onConversation');
-    return `${i + 1}. **${e.autor}** ${que} (${e.url})${e.cuerpo ? '\n' + quote(e.cuerpo) : ''}`;
+    return `${i + 1}. **${e.autor}**${e.bot ? ' (bot)' : ''} ${que} (${e.url})${e.cuerpo ? '\n' + quote(e.cuerpo) : ''}`;
   });
   return [
     t('prompt.review.title', { clave: clave ? `[${clave}] ` : '', numero: pr.numero, repo: pr.repo, titulo: pr.titulo, rama: pr.rama, url: pr.url }),
@@ -144,19 +148,21 @@ export interface CtxReviews {
 export class ReviewsPR {
   private desde = 0;
   private seen: string[] = [];
+  private bots = false;   // desde que se entregan los de bots: los que ya había al empezar no se mandan de golpe
   private avisados = new Set<string>();
   private archivo: string;
   constructor(dir: string, private ctx: CtxReviews) {
     this.archivo = path.join(dir, 'revisiones-pr.json');
-    try { if (existsSync(this.archivo)) { const j = JSON.parse(readFileSync(this.archivo, 'utf8')); this.desde = Number(j.desde) || 0; this.seen = Array.isArray(j.seen) ? j.seen.filter((x: unknown) => typeof x === 'string') : []; } } catch {}
+    try { if (existsSync(this.archivo)) { const j = JSON.parse(readFileSync(this.archivo, 'utf8')); this.desde = Number(j.desde) || 0; this.bots = !!j.bots; this.seen = Array.isArray(j.seen) ? j.seen.filter((x: unknown) => typeof x === 'string') : []; } } catch {}
   }
-  private guardar() { const tmp = this.archivo + '.tmp'; writeFileSync(tmp, JSON.stringify({ desde: this.desde, seen: this.seen.slice(-3000) }), { mode: 0o600 }); renameSync(tmp, this.archivo); }
+  private guardar() { const tmp = this.archivo + '.tmp'; writeFileSync(tmp, JSON.stringify({ desde: this.desde, bots: this.bots, seen: this.seen.slice(-3000) }), { mode: 0o600 }); renameSync(tmp, this.archivo); }
 
   async sondear() {
     const c = await this.ctx.connection();
     if (!c.real) return;
     const { prs } = reviewsOfGitHub(await this.ctx.consultar(c.token));
-    if (!this.desde) { this.desde = Date.now(); this.guardar(); return; }   // la primera vez solo se marca desde cuándo
+    if (!this.desde) { this.desde = Date.now(); this.bots = true; this.guardar(); return; }   // la primera vez solo se marca desde cuándo
+    if (!this.bots) { this.seen.push(...prs.flatMap(pr => pr.eventos.filter(e => e.bot).map(e => e.id))); this.bots = true; this.guardar(); }
     const seen = new Set(this.seen);
     const pendientes = prs.map(pr => ({ pr, nuevos: pr.eventos.filter(e => e.fecha > this.desde && !seen.has(e.id)) })).filter(x => x.nuevos.length);
     if (!pendientes.length) return;

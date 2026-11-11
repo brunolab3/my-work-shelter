@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { reviewsOfGitHub, withoutNothingThatMake, remoteRepo, branchKey, sessionOfPR, reviewMessage, ReviewsPR, type RoomPR, type CtxReviews } from './revisionesPR.ts';
@@ -31,7 +31,7 @@ function respuesta(min = 5) {
           { isResolved: true, path: 'lib/x.js', line: 3, comments: { nodes: [{ id: 'C3', body: 'ya está', url: 'u/c3', createdAt: iso(min), author: { login: 'beto' } }] } },
         ] },
         comments: { nodes: [
-          { id: 'I1', body: 'Cobertura: 91 %', url: 'u/i1', createdAt: iso(min), author: { __typename: 'Bot', login: 'informe-ci' } },
+          { id: 'I1', body: '<!-- ci-status: failed -->\nCI failed: el checkout no carga',  url: 'u/i1', createdAt: iso(min), author: { __typename: 'Bot', login: 'informe-ci' } },
           { id: 'I2', body: '¿Esto entra en la versión 5?', url: 'u/i2', createdAt: iso(min + 2), author: { __typename: 'User', login: 'beto' } },
           { id: 'I3', body: '@yo-mismo gracias, perfecto', url: 'u/i3', createdAt: iso(min + 3), author: { __typename: 'User', login: 'beto' } },
         ] },
@@ -50,11 +50,14 @@ const SALAS: RoomPR[] = [
 ];
 
 describe('revisiones de PR', () => {
-  it('se queda con lo de otros que pide algo: sin aprobaciones vacías, hilos resueltos, lo mío ni informes de bots', () => {
+  it('se queda con lo de otros que pide algo, también de bots: sin aprobaciones vacías, hilos resueltos ni lo mío', () => {
     const { yo, prs } = reviewsOfGitHub(respuesta());
     expect(yo).toBe('yo-mismo');
     expect(prs[0]).toMatchObject({ numero: 42, repo: 'refugio/express', rama: 'feature/REF-212-barra-final' });
-    expect(prs[0].eventos.map(e => e.id)).toEqual(['R1', 'R6', 'C1', 'I2']);
+    expect(prs[0].eventos.map(e => e.id)).toEqual(['R1', 'R6', 'C1', 'I1', 'I2']);
+    // el del bot, marcado y sin sus marcas HTML
+    expect(prs[0].eventos.find(e => e.id === 'I1')).toMatchObject({ bot: true, cuerpo: 'CI failed: el checkout no carga' });
+    expect(reviewMessage(prs[0], prs[0].eventos)).toContain('**informe-ci** (bot) ');
     expect(prs[0].eventos[2]).toMatchObject({ tipo: 'hilo', autor: 'ana-revisa', archivo: 'lib/router.js', linea: 12 });
   });
 
@@ -119,6 +122,29 @@ describe('revisiones de PR', () => {
       expect(robots).toEqual([['express', '/repos/express/.claude/worktrees/rutas']]);   // el robot va al holograma de ese worktree
       await new ReviewsPR(dir, ctx).sondear();   // y no se repite (tampoco tras reiniciar)
       expect(deliveries).toHaveLength(1);
+    } finally { Date.now = ahora; }
+  });
+
+  it('al empezar a entregar lo de bots, los que ya había no se mandan de golpe; los nuevos, sí', async () => {
+    const dir = mkdtempSync(path.join(os.tmpdir(), 'revisiones-'));
+    // un refugio de antes: ya miraba desde T0 - 60 min, sin bots
+    writeFileSync(path.join(dir, 'revisiones-pr.json'), JSON.stringify({ desde: T0 - 120 * 60_000, seen: ['R1', 'R6', 'C1', 'I2'] }));
+    let json: any = respuesta(-60);
+    const deliveries: string[] = [];
+    const ctx: CtxReviews = {
+      connection: async () => ({ real: true }), consultar: async () => json, salas: async () => SALAS,
+      sesiones: () => [sesion({ id: 'rama', worktree: '/repos/express/.claude/worktrees/rutas' })],
+      avisar: (_id, t) => { deliveries.push(t); return true; }, delivered: () => {}, withoutConversation: () => {}, abrir: async () => false,
+    };
+    const ahora = Date.now;
+    try {
+      Date.now = () => T0;
+      await new ReviewsPR(dir, ctx).sondear();
+      expect(deliveries).toEqual([]);          // el informe del bot de antes, no
+      json = respuesta(5); json.data.prs.nodes[0].comments.nodes[0].id = 'I9';   // otro informe, nuevo
+      await new ReviewsPR(dir, ctx).sondear();
+      expect(deliveries).toHaveLength(1);
+      expect(deliveries[0]).toContain('**informe-ci** (bot)');
     } finally { Date.now = ahora; }
   });
 

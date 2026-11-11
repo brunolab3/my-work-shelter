@@ -234,8 +234,8 @@ the copy working the task, and visitors from that worktree wear it too: at a gla
 which room.
 
 **Reviews of your PRs, to the room that works them** (`server/revisionesPR.ts`). With GitHub connected, every minute
-your open PRs are read with `gh` (reviews, unresolved threads and conversation comments; without your own, bot
-comments, bare approvals or courtesy replies like "LGTM" or "thanks") and what's new goes as a message to the
+your open PRs are read with `gh` (reviews, unresolved threads and conversation comments, also from bots like code
+reviewers or test reports; without your own, bare approvals or courtesy replies like "LGTM" or "thanks") and what's new goes as a message to the
 conversation open on the PR's branch: the worktree (or folder) of its repo's room (by the `origin` remote) with that
 branch or, failing that, the worktree of its task (`sessionOfPR`, also by the number in the name: `shelter-pr-12-13`).
 With no conversation open there, the latest one in that worktree is resumed (or one is started, in plan mode) with the
