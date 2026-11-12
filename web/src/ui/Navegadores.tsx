@@ -268,13 +268,24 @@ function VentanaNavegador({ v }: { v: WindowNav }) {
   }, [v.id, v.ruta]);
   // la conversación que la enlazó; si se abrió sin saberlo, la última que la enlazó
   const sesion = v.sesion ?? (v.ruta ? sessionThatLinked(v.ruta) : undefined);
+  // quitar las notas de la página (ya mandadas, copiadas o descartadas)
+  const [descartar, setDiscard] = React.useState(false);
+  const clearNotes = () => {
+    const ruta = v.ruta; if (!ruta) return;
+    pageNotes.set(x => { const y = { ...x }; delete y[ruta]; return y; });
+    marco.current?.contentWindow?.postMessage({ refugio: 'notas', tipo: 'limpiar' }, '*');
+    setRevisar(false); setDiscard(false);
+  };
   const sendPageNotes = () => {
     if (!sesion || !v.ruta || !notas.length) return;
     cliente.enviar({ t: 'enviar', sesionId: sesion, texto: notesMessage(v.ruta, notas) });
     answerPage(sesion, v.ruta, 'notas');
-    const ruta = v.ruta; pageNotes.set(x => { const y = { ...x }; delete y[ruta]; return y; });
-    marco.current?.contentWindow?.postMessage({ refugio: 'notas', tipo: 'limpiar' }, '*');
-    setRevisar(false); SFX.shortSuccess();
+    clearNotes(); SFX.shortSuccess();
+  };
+  // sin la conversación que la enlazó (de otra sesión del juego): se copian para pegarlas donde se quiera y se quitan
+  const copyPageNotes = () => {
+    if (!v.ruta || !notas.length) return;
+    navigator.clipboard.writeText(notesMessage(v.ruta, notas)).then(() => { clearNotes(); SFX.shortSuccess(); }).catch(() => SFX.noAllowed());
   };
   useEffect(() => {
     if (isRemote(v.id) || isLocal(v.id)) return;
@@ -330,8 +341,11 @@ function VentanaNavegador({ v }: { v: WindowNav }) {
         {revisar && notas.length > 0 && <div className="vn-lista-notas">
           <ol>{notas.map(n => <li key={n.id}><div className="tenue">«{n.cita.length > 160 ? n.cita.slice(0, 160) + '…' : n.cita}»{n.seccion ? ` · ${n.seccion}` : ''}</div><div>{n.texto}</div></li>)}</ol>
           <div className="botonera">
-            <button className="boton-taller" onClick={() => setRevisar(false)}>{t('windows.cancel')}</button>
-            <button className="boton-taller" disabled={!sesion} title={sesion ? undefined : t('windows.openThePageFromA')} onClick={sendPageNotes}>{t('windows.sendToTheConversation')}</button>
+            <button className="boton-taller" onClick={() => { setRevisar(false); setDiscard(false); }}>{t('windows.cancel')}</button>
+            <button className={'boton-taller' + (descartar ? ' urgente' : '')} title={t('windows.discardNotesHint')} onClick={() => { if (descartar) { clearNotes(); SFX.clic(); } else setDiscard(true); }}>{descartar ? t('windows.discardNotesSure') : t('windows.discardNotes')}</button>
+            {sesion
+              ? <button className="boton-taller" onClick={sendPageNotes}>{t('windows.sendToTheConversation')}</button>
+              : <button className="boton-taller" title={t('windows.copyNotesHint')} onClick={copyPageNotes}>📋 {t('windows.copyNotes')}</button>}
           </div>
         </div>}
         {isLocal(v.id) && <iframe ref={marco} key={v.url + vuelta} className="vn-web vn-pagina" src={v.url} title={v.titulo} sandbox={sandboxOf(v.url)} referrerPolicy="no-referrer" />}
