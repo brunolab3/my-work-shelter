@@ -91,6 +91,7 @@ export const WINDOWS: Record<string, Texto> = {
   'windows.pageValidated': { es: 'He revisado la página {ruta}: está bien, sin notas. Sigue.', en: 'I reviewed the page {ruta}: it is fine, no notes. Carry on.' },
   'windows.pages': { es: 'Páginas', en: 'Pages' },
   'windows.pagesHint': { es: 'Los planes, informes y comparaciones que ha enlazado esta conversación', en: 'The plans, reports and compares this conversation has linked' },
+  'windows.pageUpdated': { es: 'actualizada {cuando}', en: 'updated {cuando}' },
   'windows.pagePending': { es: 'por revisar', en: 'to review' },
   'windows.pageNotesSent': { es: 'notas enviadas', en: 'notes sent' },
   'windows.pageValidatedState': { es: 'validada', en: 'validated' },

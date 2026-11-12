@@ -80,4 +80,14 @@ describe('existingPages', () => {
     writeFileSync(path.join(d, 'plan.html'), '<p>plan</p>');
     expect(await existingPages([path.join(d, 'plan.html'), path.join(d, 'quitada', 'plan.html'), 42], os.homedir())).toEqual([path.join(d, 'plan.html')]);
   });
+  it('con cuándo se cambió cada una por última vez', async () => {
+    const { pagesUpdated } = await import('./paginasLocales.ts');
+    const { mkdtempSync, writeFileSync, utimesSync } = await import('node:fs');
+    const os = await import('node:os'); const path = await import('node:path');
+    const d = mkdtempSync(path.join(os.tmpdir(), 'paginas-'));
+    writeFileSync(path.join(d, 'plan.html'), '<p>plan</p>');
+    const cuando = new Date('2026-11-10T09:30:00Z');
+    utimesSync(path.join(d, 'plan.html'), cuando, cuando);
+    expect(await pagesUpdated([path.join(d, 'plan.html'), path.join(d, 'quitada.html')], os.homedir())).toEqual({ [path.join(d, 'plan.html')]: cuando.getTime() });
+  });
 });

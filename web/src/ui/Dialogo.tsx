@@ -858,9 +858,11 @@ function PagesMenu({ s }: { s: SessionSummary }) {
   const todas = useMemo(() => sessionPages(entradas, respuestas ?? {}), [entradas, respuestas]);
   // solo las que siguen en el Mac (se pregunta al servidor cuando cambia la lista o se abre)
   const [existen, setExist] = useState<Set<string> | null>(null);
+  const [actualizadas, setUpdated] = useState<Record<string, number>>({});
   const [abierto, setOpen] = useState(false);
   const rutas = todas.map(p => p.ruta).join('\n');
-  useEffect(() => { if (!rutas) return; cliente.accion('paginas.existen', { rutas: rutas.split('\n') }).then((l: any) => setExist(new Set(Array.isArray(l) ? l : []))).catch(() => {}); }, [rutas, abierto]);
+  // (y cuándo se cambió cada una por última vez: un plan se reescribe sin que cambie el enlace)
+  useEffect(() => { if (!rutas) return; cliente.accion('paginas.actualizadas', { rutas: rutas.split('\n') }).then((l: any) => { const m = l && typeof l === 'object' ? l as Record<string, number> : {}; setExist(new Set(Object.keys(m))); setUpdated(m); }).catch(() => {}); }, [rutas, abierto]);
   const paginas = livePages(todas, existen);
   if (!paginas.length) return null;
   const pendientes = pendingPages(paginas).length;
@@ -878,6 +880,7 @@ function PagesMenu({ s }: { s: SessionSummary }) {
         const n = enBorrador(p.ruta);
         return <li key={p.ruta} className={p.respuesta ? 'tenue' : ''}>
           <button className="pagina-nombre" title={p.ruta} onClick={() => abrir(p.ruta)}>{p.nombre}</button>
+          {actualizadas[p.ruta] && <span className="tenue" title={new Date(actualizadas[p.ruta]).toLocaleString()}>{t('windows.pageUpdated', { cuando: hace(actualizadas[p.ruta]) })} · </span>}
           <span className={p.respuesta ? '' : 'urgente'}>{p.respuesta ? '✓ ' + t(p.respuesta.estado === 'notas' ? 'windows.pageNotesSent' : 'windows.pageValidatedState') : '• ' + t('windows.pagePending')}</span>
           {n > 0 && <span className="tenue"> · {t('windows.pageDraftNotes', { n })}</span>}
           <button className="consola-x" title={t('windows.showInFinderHint')} onClick={() => revealPage(p.ruta)}>📁</button>

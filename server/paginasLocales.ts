@@ -88,7 +88,12 @@ export async function servePage(req: http.IncomingMessage, res: http.ServerRespo
 /** De unas páginas enlazadas, las que siguen en el Mac (las de un worktree ya quitado no): el intercomunicador solo
  *  lista esas */
 export async function existingPages(rutas: unknown, casa: string): Promise<string[]> {
+  return Object.keys(await pagesUpdated(rutas, casa));
+}
+
+/** Lo mismo con cuándo se cambió cada una por última vez (ruta → ms): el intercomunicador lo enseña en la lista */
+export async function pagesUpdated(rutas: unknown, casa: string): Promise<Record<string, number>> {
   const lista = Array.isArray(rutas) ? rutas.filter((r): r is string => typeof r === 'string').slice(0, 200) : [];
-  const ok = await Promise.all(lista.map(async r => { const p = linkPath(r, casa); return !!p && (await fs.stat(p).then(st => st.isFile(), () => false)); }));
-  return lista.filter((_, i) => ok[i]);
+  const fechas = await Promise.all(lista.map(async r => { const p = linkPath(r, casa); return p ? fs.stat(p).then(st => (st.isFile() ? st.mtimeMs : null), () => null) : null; }));
+  return Object.fromEntries(lista.flatMap((r, i) => (fechas[i] === null ? [] : [[r, fechas[i]!]])));
 }
