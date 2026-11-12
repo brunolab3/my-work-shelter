@@ -937,6 +937,7 @@ const COMMANDS_BASE: Command[] = [
 ];
 
 // ---------------------------------------------------------------- permisos, preguntas y planes
+const ARMADO_MS = 800;
 function Pending({ s, p, tab, hid, salir }: { s: SessionSummary; p: PendingRequest; tab: TabCom; hid: string; salir: () => void }) {
   // lo que se está escribiendo (el porqué de un no, otra respuesta) se guarda en la pestaña: minimizar no lo pierde
   const [motivo, setReason0] = useState<string | null>(tab.motivo?.peticion === p.id ? tab.motivo.texto : null);
@@ -967,8 +968,16 @@ function Pending({ s, p, tab, hid, salir }: { s: SessionSummary; p: PendingReque
     { texto: t('windows.somethingElse'), f: () => setReason('') },
     { texto: t('windows.skipTheQuestion'), peligro: true, f: () => responder('no', 'El usuario ha preferido no responder.') },
   ];
+  // una petición que aparece mientras se escribe no se contesta con las teclas que venían detrás (Espacio, Enter, E,
+  // W/S): el menú solo atiende al teclado tras una pausa sin teclear; cada tecla antes de eso se traga y alarga la espera
+  const armado = useRef(Date.now() + ARMADO_MS);
+  useEffect(() => { armado.current = Date.now() + ARMADO_MS; }, [p.id, pq]);
   // aquí ← no es «atrás» (la petición sigue esperando): Esc vuelve al refugio y la deja pendiente
-  const [i, setI] = useMenuBase(items.length, k => items[k]?.f(), e => motivo !== null && e.code !== 'Escape' ? false : undefined, salir);
+  const [i, setI] = useMenuBase(items.length, k => items[k]?.f(), e => {
+    if (e.code === 'Escape') return undefined;
+    if (motivo !== null) return false;
+    if (Date.now() < armado.current) { armado.current = Date.now() + ARMADO_MS; return true; }
+  }, salir);
   return (
     <div className={'peticion ' + p.tipo}>
       <div className="peticion-titulo">{p.ofHelper ? t('windows.aHelperNombreAsks', { nombre: p.ofHelper }) : ''}{preg ? null : p.titulo}</div>
