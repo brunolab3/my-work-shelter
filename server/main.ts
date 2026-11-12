@@ -480,15 +480,19 @@ const limpiezaTareas = new TasksCleanup(DATOS, {
   salas: repoRooms,
   sesiones: () => sesiones.lista(),
   git: (cwd, args) => new Promise((ok, mal) => execFile('git', ['-C', cwd, ...args], { timeout: 60_000, env: entornoGit() }, (err, o, e) => err ? mal(new Error(String(e || err.message).trim())) : ok(String(o)))),
-  quitado: (salaId, tarea, w) => {
+  papelera: async rutas => (await import('./archivos.ts')).toTrash(rutas),
+  quitado: (salaId, tarea, w, sueltos) => {
     const sala = almacen.estado.salas.find(s => s.id === salaId)?.nombre ?? salaId;
-    broadcast({ t: 'aviso', nivel: 'info', texto: t('server.cleanupRemoved', { tarea: tarea.tarea, sala, nombre: path.basename(w.ruta), rama: w.rama || '—' }) });
+    const texto = t('server.cleanupRemoved', { tarea: tarea.tarea, sala, nombre: path.basename(w.ruta), rama: w.rama || '—' });
+    broadcast({ t: 'aviso', nivel: 'info', texto: sueltos ? `${texto} ${t('server.cleanupTrashed', { n: sueltos })}` : texto });
   },
   preguntar: (salaId, tarea, w, que, quitar) => {
     const sala = almacen.estado.salas.find(s => s.id === salaId)?.nombre ?? salaId;
     const texto = que.map(x => x.tipo === 'conversacion' ? t('server.cleanupLeftOpen') : t(x.tipo === 'cambios' ? 'server.cleanupLeftChanges' : x.tipo === 'stash' ? 'server.cleanupLeftStash' : 'server.cleanupLeftCommits', { n: x.n })).join(', ');
     ask(t('server.cleanupLeft', { tarea: tarea.tarea, sala, ruta: w.ruta, que: texto }), { si: t('server.cleanupRemoveAnyway'), no: t('server.cleanupKeep') }, async si => {
-      if (si) await quitar().catch(e => broadcast({ t: 'aviso', nivel: 'error', texto: t('server.cleanupCouldNot', { ruta: w.ruta, error: String((e as Error).message).split('\n')[0].slice(0, 160) }) }));
+      if (!si) return;
+      const r = await quitar().catch(e => { broadcast({ t: 'aviso', nivel: 'error', texto: t('server.cleanupCouldNot', { ruta: w.ruta, error: String((e as Error).message).split('\n')[0].slice(0, 160) }) }); return undefined; });
+      if (r === 'esperando') broadcast({ t: 'aviso', nivel: 'info', texto: t('server.cleanupWhenClosed', { ruta: w.ruta }) });
     });
   },
   cambiado: () => { refreshRepos().catch(() => {}); },

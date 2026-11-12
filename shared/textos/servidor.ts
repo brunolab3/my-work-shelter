@@ -205,6 +205,8 @@ export const SERVIDOR: Record<string, Texto> = {
   'server.cleanupLeftChanges': { es: '{n} cambios sin commit', en: '{n} uncommitted changes' },
   'server.cleanupLeftStash': { es: '{n} stash de su rama', en: '{n} stashes of its branch' },
   'server.cleanupLeftCommits': { es: '{n} commits que no están en GitHub', en: '{n} commits not on GitHub' },
+  'server.cleanupTrashed': { es: 'Lo que git no seguía ({n}) está en la papelera.', en: 'What git did not track ({n}) is in the Trash.' },
+  'server.cleanupWhenClosed': { es: '🧹 Hay una conversación abierta en {ruta}: lo quito en cuanto la cierres.', en: '🧹 There is an open conversation in {ruta}: I will remove it as soon as you close it.' },
   'server.cleanupLeftOpen': { es: 'una conversación abierta en él', en: 'an open conversation in it' },
   'server.newReviewDelivered': { es: '🔎 {authors} en tu PR #{numero} de {repo}: se lo he pasado a {sala} ({rama}).', en: '🔎 {authors} on your PR #{numero} in {repo}: handed to {sala} ({rama}).' },
 };

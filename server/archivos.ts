@@ -195,6 +195,9 @@ export async function pegar(raiz: string, d: { origins: unknown; carpeta: unknow
 /** A la papelera de macOS (se puede recuperar desde el Finder), como hacen los editores. */
 export async function aLaTrash(raiz: string, rels: unknown) {
   const abs = await Promise.all((Array.isArray(rels) ? rels : []).slice(0, 500).map(r => { const s = relSafe(r); if (!s) throw new Error(t('server.theRootCannotBeThrown')); return dentro(raiz, s); }));
+  await toTrash(abs);
+}
+export async function toTrash(abs: string[]) {
   if (!abs.length) return;
   await new Promise<void>((ok, mal) => {
     if (existsSync('/usr/bin/trash')) return execFile('/usr/bin/trash', abs, err => (err ? mal(new Error('No he podido mandarlo a la papelera: ' + err.message)) : ok()));

@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { mkdtempSync, writeFileSync, existsSync, realpathSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, existsSync, realpathSync, renameSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
-import { finishedTasks, leftovers, TasksCleanup, type RoomCleanup, type CtxCleanup, type Leftover } from './limpiezaTareas.ts';
+import { finishedTasks, leftovers, untracked, TasksCleanup, type RoomCleanup, type CtxCleanup, type Leftover } from './limpiezaTareas.ts';
 import type { PRBoard } from '../shared/tablero.ts';
 import type { InfoWorktree, SessionSummary } from '../shared/protocolo.ts';
 
@@ -45,13 +45,14 @@ describe('finishedTasks', () => {
 });
 
 // con git de verdad: un remoto (bare), su clon (la copia principal de la sala) y worktrees de tareas
-const sh = (cwd: string, ...a: string[]) => execFileSync('git', ['-C', cwd, ...a], { encoding: 'utf8', env: { ...process.env, GIT_AUTHOR_NAME: 'Prueba', GIT_AUTHOR_EMAIL: 'p@refugio.example', GIT_COMMITTER_NAME: 'Prueba', GIT_COMMITTER_EMAIL: 'p@refugio.example' } });
+// sin la configuración global del Supervisor (sus hooks harían cada commit y cada push lentos)
+const sh = (cwd: string, ...a: string[]) => execFileSync('git', ['-C', cwd, ...a], { encoding: 'utf8', env: { ...process.env, GIT_CONFIG_GLOBAL: '/dev/null', GIT_AUTHOR_NAME: 'Prueba', GIT_AUTHOR_EMAIL: 'p@refugio.example', GIT_COMMITTER_NAME: 'Prueba', GIT_COMMITTER_EMAIL: 'p@refugio.example' } });
 const git = (cwd: string, args: string[]) => Promise.resolve().then(() => sh(cwd, ...args));
 function repo() {
   const base = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'limpieza-git-')));
   const remoto = path.join(base, 'remoto.git'), sala = path.join(base, 'express');
-  execFileSync('git', ['init', '-q', '--bare', '-b', 'main', remoto]);
-  execFileSync('git', ['clone', '-q', remoto, sala]);
+  sh(base, 'init', '-q', '--bare', '-b', 'main', remoto);
+  sh(base, 'clone', '-q', remoto, sala);
   writeFileSync(path.join(sala, 'a.txt'), 'a\n'); sh(sala, 'add', '.'); sh(sala, 'commit', '-qm', 'base'); sh(sala, 'push', '-q', 'origin', 'HEAD:main');
   // la tarea: su rama con un commit subido, en un worktree
   const wt = path.join(sala, '.claude', 'worktrees', 'shelter-ref-212');
@@ -65,13 +66,19 @@ describe('leftovers (git de verdad)', () => {
   it('nada, con todo subido; cambios sin commit, stash de su rama y commits sin subir, sí', async () => {
     const r = repo();
     expect(await leftovers(git, infoWt(r.wt), [], [])).toEqual([]);
-    writeFileSync(path.join(r.wt, 'c.txt'), 'c\n');
+    writeFileSync(path.join(r.wt, 'b.txt'), 'cambiado\n');
     expect(await leftovers(git, infoWt(r.wt), [], [])).toEqual([{ tipo: 'cambios', n: 1 }]);
-    sh(r.wt, 'stash', '-u', '-q');
+    sh(r.wt, 'stash', '-q');
     expect(await leftovers(git, infoWt(r.wt), [], [])).toEqual([{ tipo: 'stash', n: 1 }]);
     sh(r.wt, 'stash', 'drop', '-q');
     writeFileSync(path.join(r.wt, 'd.txt'), 'd\n'); sh(r.wt, 'add', '.'); sh(r.wt, 'commit', '-qm', 'sin subir');
     expect(await leftovers(git, infoWt(r.wt), [], [])).toEqual([{ tipo: 'commits', n: 1 }]);
+  });
+  it('los archivos que git no sigue no cuentan (notas de un plan); los ignorados, tampoco', async () => {
+    const r = repo();
+    mkdirSync(path.join(r.wt, 'plans')); writeFileSync(path.join(r.wt, 'plans', 'notas.md'), 'n\n'); writeFileSync(path.join(r.wt, 'suelto.txt'), 's\n');
+    expect(await leftovers(git, infoWt(r.wt), [], [])).toEqual([]);
+    expect((await untracked(git, r.wt)).sort()).toEqual([path.join(r.wt, 'plans') + '/', path.join(r.wt, 'suelto.txt')]);
   });
   it('commits que ya no están en el remoto (rama borrada tras un squash) pero sí en la rama del PR: valen', async () => {
     const r = repo();
@@ -95,8 +102,10 @@ describe('TasksCleanup (git de verdad)', () => {
     salas: async () => [{ id: 'express', nombre: 'Express', ruta: r.sala, repo: 'refugio/express', worktrees: [{ ruta: r.sala, rama: 'main', principal: true, cambios: 0, advanced: 0 }, infoWt(r.wt)] }],
     sesiones: () => sesiones,
     git,
-    quitado: (_s, x, w) => ev.push(`quitado ${x.tarea} ${path.basename(w.ruta)}`),
-    preguntar: (_s, x, _w, que: Leftover[], quitar) => { ev.push(`pregunta ${x.tarea} ${que.map(q => q.tipo).join(',')}`); quitarlo = quitar; },
+    // la papelera de verdad, no: se mueven a una carpeta temporal
+    papelera: async rutas => { const d = mkdtempSync(path.join(os.tmpdir(), 'papelera-')); for (const x of rutas) renameSync(x, path.join(d, path.basename(x))); ev.push(`papelera ${rutas.map(x => path.relative(r.wt, x)).join(',')}`); },
+    quitado: (_s, x, w, sueltos) => ev.push(`quitado ${x.tarea} ${path.basename(w.ruta)}${sueltos ? ` +${sueltos}` : ''}`),
+    preguntar: (_s, x, _w, que: Leftover[], quitar) => { ev.push(`pregunta ${x.tarea} ${que.map(q => q.tipo).join(',')}`); quitarlo = async () => { ev.push(`respuesta ${await quitar()}`); }; },
     cambiado: () => ev.push('cambiado'),
   });
   it('con todos sus PR fusionados o cerrados y nada pendiente, quita el worktree y su rama local; la del remoto se queda', async () => {
@@ -115,13 +124,12 @@ describe('TasksCleanup (git de verdad)', () => {
   });
   it('si queda algo lo deja, pregunta una vez y lo quita cuando ya no queda nada', async () => {
     const r = repo(), ev: string[] = [], dir = mkdtempSync(path.join(os.tmpdir(), 'limpieza-'));
-    writeFileSync(path.join(r.wt, 'c.txt'), 'c\n');
+    writeFileSync(path.join(r.wt, 'b.txt'), 'cambiado\n');
     const prs = [pr(42, 'ref-212-barra', 'fusionado')];
     await new TasksCleanup(dir, ctx(r, prs, ev)).sondear();
     await new TasksCleanup(dir, ctx(r, prs, ev)).sondear();
     expect(ev).toEqual(['pregunta REF-212 cambios']);
-    expect(existsSync(path.join(r.wt, 'c.txt'))).toBe(true);
-    sh(r.wt, 'clean', '-fq');
+    sh(r.wt, 'checkout', '-q', 'b.txt');
     await new TasksCleanup(dir, ctx(r, prs, ev)).sondear();
     expect(ev.slice(1)).toEqual(['quitado REF-212 shelter-ref-212', 'cambiado']);
   });
@@ -131,12 +139,35 @@ describe('TasksCleanup (git de verdad)', () => {
     await new TasksCleanup(mkdtempSync(path.join(os.tmpdir(), 'limpieza-')), ctx(r, [pr(42, 'ref-212-barra', 'fusionado')], ev)).sondear();
     expect(existsSync(r.wt)).toBe(true);
     await quitarlo!();
-    expect(ev).toEqual(['pregunta REF-212 cambios', 'quitado REF-212 shelter-ref-212', 'cambiado']);
+    expect(ev).toEqual(['pregunta REF-212 cambios', 'papelera c.txt', 'quitado REF-212 shelter-ref-212 +1', 'cambiado', 'respuesta quitado']);
+    expect(existsSync(r.wt)).toBe(false);
+  });
+  it('con solo archivos que git no sigue lo quita sin preguntar, y ellos van a la papelera', async () => {
+    const r = repo(), ev: string[] = [];
+    mkdirSync(path.join(r.wt, 'plans')); writeFileSync(path.join(r.wt, 'plans', 'notas.md'), 'n\n');
+    await new TasksCleanup(mkdtempSync(path.join(os.tmpdir(), 'limpieza-')), ctx(r, [pr(42, 'ref-212-barra', 'fusionado')], ev)).sondear();
+    expect(ev).toEqual(['papelera plans', 'quitado REF-212 shelter-ref-212 +1', 'cambiado']);
+    expect(existsSync(r.wt)).toBe(false);
+  });
+  it('si dice que sí con una conversación abierta en él, lo quita en cuanto se cierra (también tras reiniciar)', async () => {
+    const r = repo(), ev: string[] = [], dir = mkdtempSync(path.join(os.tmpdir(), 'limpieza-'));
+    writeFileSync(path.join(r.wt, 'b.txt'), 'cambiado\n');
+    const prs = [pr(42, 'ref-212-barra', 'fusionado')];
+    const abierta = [{ id: 's1', estado: 'ociosa', cwd: r.wt, salaId: 'express', actualizada: 0 }] as unknown as SessionSummary[];
+    const sesiones: SessionSummary[] = [];
+    await new TasksCleanup(dir, ctx(r, prs, ev, sesiones)).sondear();
+    sesiones.push(...abierta);   // se abre una conversación en él para preguntarle qué queda, y luego se dice que sí
+    await quitarlo!();
+    expect(ev).toEqual(['pregunta REF-212 cambios', 'respuesta esperando']);
+    await new TasksCleanup(dir, ctx(r, prs, ev, abierta)).sondear();
+    expect(existsSync(r.wt)).toBe(true);
+    await new TasksCleanup(dir, ctx(r, prs, ev)).sondear();
+    expect(ev.slice(2)).toEqual(['quitado REF-212 shelter-ref-212', 'cambiado']);
     expect(existsSync(r.wt)).toBe(false);
   });
   it('con una conversación abierta no pregunta ni lo quita: espera', async () => {
     const r = repo(), ev: string[] = [];
-    writeFileSync(path.join(r.wt, 'c.txt'), 'c\n');
+    writeFileSync(path.join(r.wt, 'b.txt'), 'cambiado\n');
     const s = [{ id: 's1', estado: 'trabajando', cwd: r.wt, salaId: 'express', actualizada: 0 }] as unknown as SessionSummary[];
     await new TasksCleanup(mkdtempSync(path.join(os.tmpdir(), 'limpieza-')), ctx(r, [pr(42, 'ref-212-barra', 'fusionado')], ev, s)).sondear();
     expect(ev).toEqual([]);
