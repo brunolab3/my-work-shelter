@@ -81,7 +81,10 @@ export const pageAnswers = new Store<Record<string, Record<string, PageAnswer>>>
   } catch { return {}; }
 })());
 pageAnswers.subscribe(() => { try { localStorage.setItem(RESPUESTAS, JSON.stringify(pageAnswers.get())); } catch {} });
+// (por la conversación de Claude Code, que sigue siendo la misma al retomarla tras un reinicio; sin ella, por la sesión)
+export const answersKey = (sesion: string) => vivo.get().sesiones[sesion]?.claudeId ?? sesion;
 export function answerPage(sesion: string, ruta: string, estado: PageAnswer['estado']) {
+  sesion = answersKey(sesion);
   pageAnswers.set(x => {
     const y = { ...x }, suyas = Object.fromEntries(Object.entries(y[sesion] ?? {}).filter(([k]) => !samePage(k, ruta)));
     y[sesion] = { ...suyas, [ruta]: { estado, ts: Date.now() } };
@@ -90,7 +93,7 @@ export function answerPage(sesion: string, ruta: string, estado: PageAnswer['est
 }
 /** Validar una página sin notas: se le dice a la conversación que siga */
 export function validatePage(sesion: string, ruta: string) {
-  cliente.enviar({ t: 'enviar', sesionId: sesion, texto: t('windows.pageValidated', { ruta }) });
+  if (vivo.get().sesiones[sesion]) cliente.enviar({ t: 'enviar', sesionId: sesion, texto: t('windows.pageValidated', { ruta }) });
   answerPage(sesion, ruta, 'validada'); SFX.shortSuccess();
 }
 /** Una página en el Finder, seleccionada (para compartirla desde allí) */

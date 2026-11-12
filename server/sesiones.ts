@@ -10,7 +10,7 @@ import { readFileSync } from 'node:fs';
 import { EventEmitter } from 'node:events';
 import { randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { query, listSessions, getSessionMessages, getSessionInfo, type Query, type SDKMessage, type SDKUserMessage, type CanUseTool, type PermissionResult, type Options } from '@anthropic-ai/claude-agent-sdk';
 import type { SessionSummary, LogInput, PendingRequest, Helper, WorkOptions, HistoryElement, Command, Question, Attachment, InputView } from '../shared/protocolo.ts';
 import { separateAttachments, type Attachments } from './adjuntos.ts';
@@ -655,20 +655,40 @@ export class Sessions extends EventEmitter {
 
   async transcripcion(claudeId: string, dir: string): Promise<LogInput[]> {
     const msgs = await getSessionMessages(claudeId, { dir });
+    // cada mensaje con su hora real, no la de ahora: las páginas que enlazó y ya se revisaron no vuelven a quedar
+    // pendientes al retomarla (shared/paginasSesion.ts)
+    const horas = messageTimes(claudeId, dir);
     const out: LogInput[] = [];
     for (const m of msgs) {
       if (m.parent_tool_use_id) continue;
       const c = (m.message as any)?.content;
-      if (m.type === 'user') { const t = userText(c); if (t) { const { texto, adjuntos } = separateAttachments(t); out.push(this.entrada('usuario', texto, adjuntos.length ? { adjuntos } : {})); } }
+      const ts = horas.get(m.uuid) ?? Date.now();
+      if (m.type === 'user') { const t = userText(c); if (t) { const { texto, adjuntos } = separateAttachments(t); out.push(this.entrada('usuario', texto, { ts, ...(adjuntos.length ? { adjuntos } : {}) })); } }
       else if (m.type === 'assistant' && Array.isArray(c)) {
         for (const b of c) {
-          if (b.type === 'text' && b.text?.trim()) out.push(this.entrada('asistente', b.text));
-          else if (b.type === 'tool_use' && b.name) out.push(this.entrada('herramienta', describeTool(b.name, b.input ?? {}, dir), { herramienta: b.name }));
+          if (b.type === 'text' && b.text?.trim()) out.push(this.entrada('asistente', b.text, { ts }));
+          else if (b.type === 'tool_use' && b.name) out.push(this.entrada('herramienta', describeTool(b.name, b.input ?? {}, dir), { herramienta: b.name, ts }));
         }
       }
     }
     return out.slice(-800);
   }
+}
+
+/** La hora de cada mensaje de una conversación (uuid → ms), del .jsonl de Claude Code: la carpeta del proyecto o, si
+ *  se retomó en otra (un worktree), cualquiera que la tenga */
+function messageTimes(claudeId: string, dir: string): Map<string, number> {
+  const out = new Map<string, number>();
+  const raiz = path.dirname(projectFolder(dir));
+  let archivo = path.join(projectFolder(dir), claudeId + '.jsonl');
+  if (!existsSync(archivo)) { try { const d = readdirSync(raiz).find(x => existsSync(path.join(raiz, x, claudeId + '.jsonl'))); if (d) archivo = path.join(raiz, d, claudeId + '.jsonl'); } catch {} }
+  try {
+    for (const linea of readFileSync(archivo, 'utf8').split('\n')) {
+      if (!linea.includes('"uuid"')) continue;
+      try { const j = JSON.parse(linea), ts = Date.parse(j.timestamp); if (typeof j.uuid === 'string' && Number.isFinite(ts)) out.set(j.uuid, ts); } catch {}
+    }
+  } catch {}
+  return out;
 }
 
 async function wait(f: () => boolean, ms: number) {

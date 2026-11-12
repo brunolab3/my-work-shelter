@@ -412,7 +412,7 @@ function Console({ h, v }: { h: DwellerSummary; v: WindowCom }) {
             </>}
             {s?.modelo && <div className="consola-dato">{s.modelo.replace('claude-', '')}</div>}
             {s && (s.contexto || s.tokens) ? <div className="consola-dato"><Usage s={s} largo /></div> : null}
-            {s && <PagesMenu s={s} />}
+            {s ? <PagesMenu s={s} /> : vista.tipo === 'nuevo' && vista.reanudar ? <ResumePages salaId={h.sala} claudeId={vista.reanudar.claudeId} /> : null}
           </aside>
           <div className="consola-pestana" key={p.id}>
             {!connected ? <WithoutConnection /> : !claudeOk ? <WithoutClaude /> :
@@ -853,9 +853,31 @@ function Session({ h, s, p, salir, onClose }: { h: DwellerSummary; s: SessionSum
 // (sus notas vuelven a esta conversación) y validar sin notas las que estén bien (shared/paginasSesion.ts)
 function PagesMenu({ s }: { s: SessionSummary }) {
   const entradas = vivo.usar(e => e.entradas[s.id]) ?? [];
-  const respuestas = pageAnswers.usar(x => x[s.id]);
+  return <PagesList sesionId={s.id} claudeId={s.claudeId} entradas={entradas} />;
+}
+
+// Una conversación por retomar (cerrada o perdida en un reinicio): sus páginas salen igual, leídas de su transcripción;
+// abrirlas, validarlas o quitarlas no le escribe nada (al retomarla, lo hecho sigue contado)
+const resumeLogs = new Map<string, Promise<LogInput[]>>();
+function ResumePages({ salaId, claudeId }: { salaId: string; claudeId: string }) {
+  const [entradas, setEntries] = useState<LogInput[]>([]);
+  useEffect(() => {
+    let p = resumeLogs.get(claudeId);
+    if (!p) { p = cliente.ask<LogInput[]>({ t: 'cargarConversacion', salaId, claudeId }).catch(() => { resumeLogs.delete(claudeId); return []; }); resumeLogs.set(claudeId, p); }
+    let vivoAun = true; p.then(l => { if (vivoAun) setEntries(l); });
+    return () => { vivoAun = false; };
+  }, [salaId, claudeId]);
+  return <PagesList sesionId={claudeId} claudeId={claudeId} entradas={entradas} />;
+}
+
+function PagesList({ sesionId, claudeId, entradas }: { sesionId: string; claudeId?: string; entradas: LogInput[] }) {
+  // (sin la conversación en marcha, las notas de la página se copian: no hay a quién mandarlas)
+  const viva = vivo.usar(e => !!e.sesiones[sesionId]);
+  const s = { id: sesionId };
+  const porSesion = pageAnswers.usar(x => x[sesionId]), porClaude = pageAnswers.usar(x => (claudeId ? x[claudeId] : undefined));
+  const respuestas = useMemo(() => ({ ...porSesion, ...porClaude }), [porSesion, porClaude]);
   const borradores = pageNotes.usar(x => x);
-  const todas = useMemo(() => sessionPages(entradas, respuestas ?? {}), [entradas, respuestas]);
+  const todas = useMemo(() => sessionPages(entradas, respuestas), [entradas, respuestas]);
   // solo las que siguen en el Mac (se pregunta al servidor cuando cambia la lista o se abre)
   const [existen, setExist] = useState<Set<string> | null>(null);
   const [actualizadas, setUpdated] = useState<Record<string, number>>({});
@@ -867,7 +889,7 @@ function PagesMenu({ s }: { s: SessionSummary }) {
   if (!paginas.length) return null;
   const pendientes = pendingPages(paginas).length;
   const abrir = (ruta: string) => {
-    cliente.accion('enlace.local', { ruta }).then((r: any) => { if (r?.pagina) openPage(r.pagina.url, r.pagina.titulo, s.id, r.pagina.ruta); else SFX.clic(); }).catch(() => SFX.noAllowed());
+    cliente.accion('enlace.local', { ruta }).then((r: any) => { if (r?.pagina) openPage(r.pagina.url, r.pagina.titulo, viva ? s.id : undefined, r.pagina.ruta); else SFX.clic(); }).catch(() => SFX.noAllowed());
     setOpen(false);
   };
   const enBorrador = (ruta: string) => Object.entries(borradores).find(([k]) => samePage(k, ruta))?.[1].length ?? 0;

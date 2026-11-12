@@ -54,14 +54,16 @@ describe('pageLink', () => {
 });
 
 describe('livePages', () => {
-  it('solo las enlazadas en las dos últimas semanas y que siguen en el Mac', () => {
+  it('las contestadas, solo las enlazadas en las dos últimas semanas; las pendientes, durante un mes; y que sigan en el Mac', () => {
     const ahora = 100 * 86_400_000, dia = 86_400_000;
     const l = sessionPages([
       { tipo: 'asistente', texto: '/Users/ana/r/vieja.html', ts: ahora - 20 * dia },
+      { tipo: 'asistente', texto: '/Users/ana/r/revisada.html', ts: ahora - 20 * dia },
+      { tipo: 'asistente', texto: '/Users/ana/r/antigua.html', ts: ahora - 40 * dia },
       { tipo: 'asistente', texto: '/Users/ana/r/.claude/worktrees/x/plan.html', ts: ahora - dia },
       { tipo: 'asistente', texto: '/Users/ana/r/nueva.html', ts: ahora - dia },
-    ], {});
-    expect(livePages(l, null, ahora).map(p => p.nombre).sort()).toEqual(['nueva.html', 'plan.html']);
+    ], { '/Users/ana/r/revisada.html': { estado: 'validada', ts: ahora - 19 * dia } });
+    expect(livePages(l, null, ahora).map(p => p.nombre).sort()).toEqual(['nueva.html', 'plan.html', 'vieja.html']);
     expect(livePages(l, new Set(['/Users/ana/r/nueva.html']), ahora).map(p => p.nombre)).toEqual(['nueva.html']);
   });
 });

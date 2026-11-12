@@ -60,11 +60,13 @@ export function sessionPages(entradas: { tipo: string; texto: string; ts: number
   }).filter(p => p.respuesta?.estado !== 'quitada').sort((a, b) => b.ts - a.ts);
 }
 
-/** Las que se listan: enlazadas en las dos últimas semanas y que siguen en el Mac (`existen`: las rutas que el servidor
- *  ha encontrado; sin saberlo aún, todas). Las de un worktree ya quitado desaparecen solas */
+/** Las que se listan: las que siguen en el Mac (`existen`: las rutas que el servidor ha encontrado; sin saberlo aún,
+ *  todas), las ya contestadas solo si se enlazaron en las dos últimas semanas y las pendientes durante el mes que se
+ *  recuerdan las respuestas (Navegadores.tsx). Las de un worktree ya quitado desaparecen solas */
 export const PAGES_DAYS = 14;
+export const PENDING_PAGES_DAYS = 30;
 export const livePages = (l: SessionPage[], existen: Set<string> | null, ahora = Date.now()) =>
-  l.filter(p => p.ts >= ahora - PAGES_DAYS * 86_400_000 && (!existen || existen.has(p.ruta)));
+  l.filter(p => p.ts >= ahora - (p.respuesta ? PAGES_DAYS : PENDING_PAGES_DAYS) * 86_400_000 && (!existen || existen.has(p.ruta)));
 
 /** Las que quedan por revisar */
 export const pendingPages = (l: SessionPage[]) => l.filter(p => !p.respuesta);
