@@ -32,7 +32,7 @@ import { Terminales, SOCKET_TERMINALS } from './terminales.ts';
 import { openInDesktop, openInAppClaude, outsideOpen, closeOutside, hookCommand, resumeCommand, type ItemDesktop } from './escritorio.ts';
 import { tonesForRepeated } from '../shared/reclutas.ts';
 import { remoteName } from '../shared/tareas.ts';
-import { Store, DATOS, folderOf, reposRoot } from './estado.ts';
+import { Store, DATOS, folderOf, reposRoot, hideRoom, showRoom, isHideable } from './estado.ts';
 import { infoRepo, sugerencias, expand, recentTranscripts, liveSessions, worktreeList, estiloSala, projectType } from './repos.ts';
 import { Integraciones } from './integraciones/index.ts';
 import { gameAction, ensurePlayer, growCrops, taskReward } from './juego.ts';
@@ -314,7 +314,7 @@ async function addRoom(ruta: string, habitante?: any): Promise<string> {
   // id y hueco se deciden dentro del mismo cambio (dos reclutamientos a la vez no comparten hueco ni nombre)
   let id = '';
   almacen.cambiar(x => {
-    if (x.salas.some(s => s.ruta === ruta)) return;
+    if (x.salas.some(s => s.ruta === ruta) || x.ocultas?.some(o => o.sala.ruta === ruta)) return;
     const base = path.basename(ruta).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9-]/g, '-') || 'sala';
     id = x.salas.some(s => s.id === base) ? base + '-' + Date.now().toString(36) : base;
     // entra en la planta de repos por orden alfabético (las demás se corren lo que haga falta)
@@ -330,23 +330,31 @@ async function addRoom(ruta: string, habitante?: any): Promise<string> {
 }
 // retira una sala de repo (ya comprobado que nadie trabaja en ella): cierra sus conversaciones y sus terminales
 function removeRoom(sr: { id: string; ruta?: string }) {
+  closeRoom(sr);
+  almacen.cambiar(x => { x.salas = distribute(x.salas.filter(s => s.id !== sr.id)); x.habitantes = x.habitantes.filter(h => h.salaId !== sr.id); });
+  delete repos[sr.id];
+}
+// cierra las conversaciones, las terminales y el Remote Control de una sala que sale del juego (retirada u oculta)
+function closeRoom(sr: { id: string; ruta?: string }) {
   for (const ses of sesiones.lista()) if (ses.salaId === sr.id) sesiones.cerrar(ses.id);
   // las terminales abiertas dentro de su carpeta se cierran con ella (no quedan shells invisibles)
   if (sr.ruta) for (const t of terminales.abiertas()) if (t.cwd === sr.ruta || t.cwd.startsWith(sr.ruta + path.sep)) terminales.cerrar(t.id);
   controlRemoto.apagar(sr.id);
-  almacen.cambiar(x => { x.salas = distribute(x.salas.filter(s => s.id !== sr.id)); x.habitantes = x.habitantes.filter(h => h.salaId !== sr.id); });
-  delete repos[sr.id];
 }
 // La raíz de repos recién elegida (bienvenida o cámara acorazada): entra cada repo de git de primer nivel (y las alas,
 // carpetas con varios repos dentro) y se retiran las salas de repo de fuera de ella, salvo con alguien trabajando.
 // Con la raíz en el hogar o en / no se toca nada (son demasiado amplias: ahí, la Puerta sugiere)
+// las carpetas que ya tienen sala, a la vista u oculta (ni la raíz ni la Puerta las vuelven a proponer)
+const takenFolders = (e: typeof almacen.estado) => [...e.salas.map(s => s.ruta), ...(e.ocultas ?? []).map(o => o.sala.ruta)].filter(Boolean) as string[];
 async function takeRoot() {
   const e = almacen.estado, raiz = reposRoot(e);
   if (raiz === os.homedir() || raiz === path.parse(raiz).root || !existsSync(raiz)) return;
   const busy = (id: string) => sesiones.lista().some(s => s.salaId === id && ['arrancando', 'trabajando', 'esperando'].includes(s.estado));
   const fuera = e.salas.filter(s => (s.tipo === 'repo' || s.tipo === 'coordinacion') && s.id !== PLANNING_ROOM && s.ruta && !s.ruta.startsWith(raiz + path.sep) && !busy(s.id));
   for (const sr of fuera) { removeRoom(sr); await throwCloneOfExample(sr.ruta); }
-  for (const c of sugerencias(e.raizRepos, e.salas.map(s => s.ruta).filter(Boolean) as string[])) {
+  // las ocultas de fuera de la nueva raíz se olvidan (como las retiradas); las de dentro siguen sin volver
+  if (e.ocultas?.some(o => !o.sala.ruta?.startsWith(raiz + path.sep))) almacen.cambiar(x => { x.ocultas = x.ocultas?.filter(o => o.sala.ruta?.startsWith(raiz + path.sep)); });
+  for (const c of sugerencias(e.raizRepos, takenFolders(e))) {
     if (!c.isGit && ((await infoRepo(c.ruta)).subrepos?.length ?? 0) < 2) continue;
     try { await addRoom(c.ruta); } catch (err) { console.error(`No pude meter ${c.ruta} en el refugio:`, (err as Error).message); }
   }
@@ -521,7 +529,7 @@ async function organizeRooms(salaId: string | undefined, aplicar: boolean) {
 async function accion(nombre: string, d: Record<string, any> = {}): Promise<unknown> {
   const e = almacen.estado;
   switch (nombre) {
-    case 'sugerencias': return sugerencias(e.raizRepos, e.salas.map(s => s.ruta).filter(Boolean) as string[]);
+    case 'sugerencias': return sugerencias(e.raizRepos, takenFolders(e));
     case 'reclutar': {
       const ruta = path.resolve(expand(String(d.ruta || '')));
       if (ruta === path.parse(ruta).root || ruta === os.homedir()) throw new Error(t('server.thatFolderIsTooBroad'));
@@ -531,7 +539,7 @@ async function accion(nombre: string, d: Record<string, any> = {}): Promise<unkn
         if (!ruta.startsWith(raiz + path.sep)) throw new Error('Las carpetas nuevas se crean dentro de la raíz de repos (' + e.raizRepos + ').');
         await createFolder(ruta, !!d.git);
       }
-      if (e.salas.some(s => s.ruta === ruta)) throw new Error(t('server.thatFolderAlreadyHasA'));
+      if (takenFolders(e).includes(ruta)) throw new Error(t('server.thatFolderAlreadyHasA'));
       const id = await addRoom(ruta, d.habitante);
       if (!id) throw new Error(t('server.thatFolderAlreadyHasA'));
       broadcast({ t: 'estado', estado: almacen.estado as any }); broadcast({ t: 'repos', repos });
@@ -548,6 +556,28 @@ async function accion(nombre: string, d: Record<string, any> = {}): Promise<unkn
       await throwCloneOfExample(sr.ruta);
       return true;
     }
+    // ocultar una sala de repo la saca del juego (la planta que se queda vacía desaparece) sin olvidarla: vuelve, con su
+    // habitante y su escena, desde la cámara acorazada (Salas del refugio)
+    case 'sala.ocultar': {
+      const sr = e.salas.find(s => s.id === d.salaId);
+      if (!sr) throw new Error(t('server.thatRoomDoesNotExist'));
+      if (!isHideable(sr)) throw new Error(t('server.serviceRoomsCannotBeHidden'));
+      if (sesiones.lista().some(s => s.salaId === sr.id && ['arrancando', 'trabajando', 'esperando'].includes(s.estado))) throw new Error(t('server.someoneIsWorkingInThatHide'));
+      closeRoom(sr);
+      almacen.cambiar(x => { hideRoom(x, sr.id); });
+      delete repos[sr.id];
+      broadcast({ t: 'estado', estado: almacen.estado as any }); broadcast({ t: 'repos', repos });
+      return true;
+    }
+    case 'sala.mostrar': {
+      let hecho = false;
+      almacen.cambiar(x => { hecho = showRoom(x, String(d.salaId)); });
+      if (!hecho) throw new Error(t('server.thatRoomDoesNotExist'));
+      const sr = almacen.estado.salas.find(s => s.id === d.salaId);
+      if (sr?.ruta) repos[sr.id] = await infoRepo(sr.ruta);
+      broadcast({ t: 'repos', repos }); broadcast({ t: 'estado', estado: almacen.estado as any });
+      return true;
+    }
     // la sala pasa a otra carpeta (un repo tuyo): conserva su sitio, su habitante y su aspecto; la escena vuelve a la
     // plantilla de su nuevo tipo de repo (luego el habitante la puede adaptar)
     case 'vincularSala': {
@@ -558,7 +588,7 @@ async function accion(nombre: string, d: Record<string, any> = {}): Promise<unkn
       if (ruta === path.parse(ruta).root || ruta === os.homedir()) throw new Error(t('server.thatFolderIsTooBroad'));
       if (!existsSync(ruta) || !statSync(ruta).isDirectory()) throw new Error(t('server.thatFolderDoesNotExist'));
       if (ruta === sr.ruta) throw new Error(t('server.thatIsAlreadyThisRoom'));
-      if (e.salas.some(s => s.ruta === ruta)) throw new Error(t('server.thatFolderAlreadyHasA'));
+      if (takenFolders(e).includes(ruta)) throw new Error(t('server.thatFolderAlreadyHasA'));
       if (sesiones.lista().some(s => s.salaId === sr.id && ['arrancando', 'trabajando', 'esperando'].includes(s.estado))) throw new Error(t('server.someoneIsWorkingInThat2'));
       for (const ses of sesiones.lista()) if (ses.salaId === sr.id) sesiones.cerrar(ses.id);
       const anterior = sr.ruta;

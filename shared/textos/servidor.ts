@@ -100,6 +100,8 @@ export const SERVIDOR: Record<string, Texto> = {
   'server.thatRoomDoesNotExist': { es: 'Esa sala no existe.', en: 'That room does not exist.' },
   'server.theShelterSServiceRooms': { es: 'Las salas de servicio del refugio no se retiran.', en: 'The shelter\'s service rooms cannot be removed.' },
   'server.someoneIsWorkingInThat': { es: 'Hay alguien trabajando en esa sala. Párale antes de retirarla.', en: 'Someone is working in that room. Stop them before removing it.' },
+  'server.serviceRoomsCannotBeHidden': { es: 'Las salas de servicio del refugio no se ocultan.', en: 'The shelter\'s service rooms cannot be hidden.' },
+  'server.someoneIsWorkingInThatHide': { es: 'Hay alguien trabajando en esa sala. Párale antes de ocultarla.', en: 'Someone is working in that room. Stop them before hiding it.' },
   'server.onlyRepoRoomsCanBe': { es: 'Solo las salas de repo se vinculan a otra carpeta.', en: 'Only repo rooms can be linked to another folder.' },
   'server.theLogisticsRoomSFolder': { es: 'La carpeta de la sala de logística es la raíz de repos del refugio: se cambia en la cámara acorazada.', en: 'The logistics room\'s folder is the shelter\'s repos root: it is changed in the vault.' },
   'server.thatIsAlreadyThisRoom': { es: 'Esa ya es la carpeta de esta sala.', en: 'That is already this room\'s folder.' },

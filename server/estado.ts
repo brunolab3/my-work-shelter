@@ -92,6 +92,9 @@ export interface SavedRoom {
   decorado?: Decorado;          // la escena que le ha diseñado su habitante («Adaptar la sala al repo»); sin él, su plantilla
 }
 export interface SavedDweller { id: string; nombre: string; mote: string; tipo: string; bio: string; salaId: string; tinte?: string; tone?: number; voz: number; lastSession?: string; accesorios?: string[]; aspecto?: Look }
+/** Una sala de repo oculta por el Supervisor: fuera del juego (sin sitio en el refugio, la raíz de repos no la vuelve a
+ *  traer), pero guarda su habitante, su aspecto y su escena para cuando vuelva */
+export interface HiddenRoom { sala: SavedRoom; habitantes: SavedDweller[] }
 export interface Player {
   scrap: number; inventario: Record<string, number>; outfit: string[]; tienda: string[];
   records: Record<string, number>; achievements: string[]; finishedTasks: number; toolsCalls: number;
@@ -108,6 +111,7 @@ export interface ShelterState {
   idioma?: Idioma;              // el de los textos del juego (shared/idioma.ts); sin él, español
   salas: SavedRoom[];
   habitantes: SavedDweller[];
+  ocultas?: HiddenRoom[];       // salas de repo que el Supervisor ha quitado del juego (Cámara acorazada → Salas)
   jugador: Player;
   // campos: datos NO secretos de cada fuente (URL, IDs…); secretos: solo los NOMBRES de lo guardado en el llavero
   integraciones: Record<string, { modo: 'off' | 'demo' | 'real'; opciones?: Record<string, unknown>; campos?: Record<string, string>; secrets?: string[] }>;
@@ -227,6 +231,9 @@ export function sanear(e: any): ShelterState {
   const ids = new Set(salas.map((x: any) => x.id));
   const habitantes = tonesForRepeated((arr(e.habitantes) ?? []).filter((h: any) => h && typeof h.id === 'string' && typeof h.salaId === 'string' && ids.has(h.salaId))
     .map((h: any) => ({ ...h, nombre: str(h.nombre, h.id), mote: str(h.mote, ''), tipo: str(h.tipo, 'Hiker'), bio: str(h.bio, ''), voz: Number.isFinite(h.voz) ? h.voz : 120, tone: Number.isFinite(h.tone) && h.tone > 0 ? Math.min(359, Math.max(1, Math.round(h.tone) % 360 || 1)) : undefined, accesorios: arr(h.accesorios)?.filter((a: unknown) => typeof a === 'string'), aspecto: sanitizeLook(h.aspecto) ?? undefined })));   // un refugio guardado tampoco tiene gemelos
+  // las ocultas: solo salas de repo bien formadas, sin repetir una que ya está a la vista
+  const ocultas = (arr(e.ocultas) ?? []).filter((o: any) => o?.sala && typeof o.sala.id === 'string' && typeof o.sala.ruta === 'string' && isRoomOfRepo(o.sala.tipo) && o.sala.id !== PLANNING_ROOM && !ids.has(o.sala.id) && !salas.some(x => x.ruta === o.sala.ruta))
+    .map((o: any) => ({ sala: o.sala as SavedRoom, habitantes: (arr(o.habitantes) ?? []).filter((h: any) => h && typeof h.id === 'string' && h.salaId === o.sala.id) as SavedDweller[] }));
   const jv = e.jugador && typeof e.jugador === 'object' ? e.jugador : {};
   const num = (v: unknown, def: number) => (Number.isFinite(v) ? (v as number) : def);
   const objNum = (v: unknown) => Object.fromEntries(Object.entries(v && typeof v === 'object' ? v as object : {}).filter(([, n]) => Number.isFinite(n)));
@@ -247,8 +254,33 @@ export function sanear(e: any): ShelterState {
     version: 1, creado: num(e.creado, Date.now()), nombre: !e.nombre || e.nombre === 'Refugio' ? ini.nombre : str(e.nombre, ini.nombre), doneWelcome: e.doneWelcome === true,
     supervisor: { personaje: str(sup.personaje, ini.supervisor.personaje), nombre: str(sup.nombre, 'Supervisor'), accesorios: arr(sup.accesorios)?.filter((a: unknown) => typeof a === 'string') ?? [], aspecto: sanitizeLook(sup.aspecto) ?? undefined },
     raizRepos: str(e.raizRepos, ini.raizRepos), limiteSesiones: Math.max(1, Math.min(20, num(e.limiteSesiones, ini.limiteSesiones))), ...(isLanguage(e.idioma) ? { idioma: e.idioma } : {}),
-    salas, habitantes, jugador, integraciones,
+    salas, habitantes, ocultas, jugador, integraciones,
     viewsNotifications: (arr(e.viewsNotifications) ?? []).filter((x: unknown) => typeof x === 'string').slice(-3000),
     ajustes: e.ajustes && typeof e.ajustes === 'object' ? e.ajustes : {},
   };
+}
+
+// ---------------------------------------------------------------- salas ocultas
+// Ocultar una sala de repo la saca del juego: deja de tener sitio (la planta que se queda sin salas desaparece) y sus
+// habitantes se van con ella. Volver a mostrarla la mete donde le toque (la de serie la coloca por orden alfabético; a
+// mano, al final de la última planta de repos). Devuelven false si no se puede (no existe, o no es una sala de repo).
+export const isHideable = (s: { id: string; tipo: string }) => isRoomOfRepo(s.tipo) && s.id !== PLANNING_ROOM;
+export function hideRoom(e: ShelterState, id: string): boolean {
+  const sala = e.salas.find(s => s.id === id);
+  if (!sala || !isHideable(sala) || !sala.ruta) return false;
+  const { planta: _p, lado: _l, orden: _o, manual: _m, carpeta: _c, ...guardada } = sala;
+  e.ocultas = [...(e.ocultas ?? []).filter(o => o.sala.id !== id), { sala: guardada as SavedRoom, habitantes: e.habitantes.filter(h => h.salaId === id) }];
+  e.habitantes = e.habitantes.filter(h => h.salaId !== id);
+  e.salas = distribute(e.salas.filter(s => s.id !== id));
+  return true;
+}
+export function showRoom(e: ShelterState, id: string): boolean {
+  const o = e.ocultas?.find(x => x.sala.id === id);
+  if (!o) return false;
+  e.ocultas = e.ocultas!.filter(x => x !== o);
+  // su carpeta ya volvió a ser sala por otro camino (la Puerta): se queda esa
+  if (e.salas.some(s => s.id === id || s.ruta === o.sala.ruta)) return true;
+  e.salas = distribute([...e.salas, { ...o.sala, planta: 0, lado: 'izq', orden: 0 }]);
+  for (const h of o.habitantes) if (!e.habitantes.some(x => x.id === h.id)) e.habitantes.push(h);
+  return true;
 }

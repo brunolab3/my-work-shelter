@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import path from 'node:path';
 import { moveFloor } from '../shared/disposicion.ts';
-import { sanear, initialState, folderOf, ROOMS_FOLDERS, addRoomsOfService, ensureFolders } from './estado.ts';
+import { sanear, initialState, folderOf, ROOMS_FOLDERS, addRoomsOfService, ensureFolders, hideRoom, showRoom } from './estado.ts';
 
 describe('estado guardado', () => {
   it('una sala de servicio que falte en un refugio guardado entra en su sitio, sin tocar sus repos', () => {
@@ -95,5 +95,54 @@ describe('estado guardado', () => {
     expect(folderOf(logistica)).toBe(path.join(ROOMS_FOLDERS, 'logistica'));
     expect(e.salas.every(s => !!folderOf(s))).toBe(true);
     expect(folderOf(logistica).startsWith(path.resolve(import.meta.dirname, '..') + path.sep)).toBe(false);
+  });
+});
+
+describe('salas ocultas', () => {
+  // un refugio con 9 repos: 8 en la primera planta de repos (-3) y uno, «zeta», solo en la -4; ocio debajo
+  const conRepos = () => {
+    const e = initialState();
+    const nombres = ['alfa', 'beta', 'gamma', 'delta', 'epsilon', 'eta', 'iota', 'kappa', 'zeta'];
+    e.salas = sanear({ ...e, salas: [...e.salas, ...nombres.map(n => ({ id: n, tipo: 'repo', nombre: n, ruta: '/tmp/r/' + n, planta: 3, lado: 'izq', orden: 0, variant: 'taller' }))] }).salas;
+    e.habitantes.push({ id: 'h-zeta', nombre: 'Zoe', mote: '', tipo: 'Hiker', bio: '', salaId: 'zeta', voz: 120, aspecto: { tipo: 'humano' } as any });
+    return e;
+  };
+  const plantas = (e: ReturnType<typeof initialState>) => [...new Set(e.salas.map(s => s.planta))].sort((a, b) => a - b);
+  it('ocultar la única sala de una planta quita la planta: el ocio sube una', () => {
+    const e = conRepos();
+    const ocio = e.salas.find(s => s.tipo === 'discoteca')!.planta;
+    expect(e.salas.find(s => s.id === 'zeta')!.planta).toBe(4);
+    expect(hideRoom(e, 'zeta')).toBe(true);
+    expect(e.salas.some(s => s.id === 'zeta')).toBe(false);
+    expect(e.habitantes.some(h => h.salaId === 'zeta')).toBe(false);
+    expect(e.salas.find(s => s.tipo === 'discoteca')!.planta).toBe(ocio - 1);
+    expect(plantas(e)).toEqual([0, 1, 2, 3, 4]);
+  });
+  it('con la disposición a mano, ocultar todas las salas de una planta también la quita', () => {
+    const e = conRepos();
+    e.salas = moveFloor(e.salas, 1, 2)!;   // a mano
+    const deLaTres = e.salas.filter(s => s.planta === 3).map(s => s.id);
+    for (const id of deLaTres) expect(hideRoom(e, id)).toBe(true);
+    expect(plantas(e)).toEqual([0, 1, 2, 3, 4]);
+    expect(e.salas.some(s => deLaTres.includes(s.id))).toBe(false);
+  });
+  it('volver a mostrarla trae la sala a su sitio con su habitante, su aspecto y su escena', () => {
+    const e = conRepos();
+    e.salas.find(s => s.id === 'zeta')!.decorado = { resumen: 'x' } as any;
+    const antes = e.salas.find(s => s.id === 'zeta')!;
+    hideRoom(e, 'zeta');
+    const guardado = sanear(JSON.parse(JSON.stringify(e)));   // sobrevive a guardar y cargar
+    expect(guardado.ocultas?.map(o => o.sala.id)).toEqual(['zeta']);
+    expect(showRoom(guardado, 'zeta')).toBe(true);
+    expect(guardado.ocultas).toEqual([]);
+    expect(guardado.salas.find(s => s.id === 'zeta')).toMatchObject({ planta: antes.planta, lado: antes.lado, orden: antes.orden, ruta: '/tmp/r/zeta', decorado: { resumen: 'x' } });
+    expect(guardado.habitantes.find(h => h.id === 'h-zeta')).toMatchObject({ salaId: 'zeta', nombre: 'Zoe' });
+  });
+  it('las salas de servicio y la de logística no se ocultan', () => {
+    const e = conRepos();
+    expect(hideRoom(e, 'camara')).toBe(false);
+    expect(hideRoom(e, 'tareas')).toBe(false);
+    expect(hideRoom(e, 'no-existe')).toBe(false);
+    expect(showRoom(e, 'alfa')).toBe(false);
   });
 });

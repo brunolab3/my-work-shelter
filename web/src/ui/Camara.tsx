@@ -9,6 +9,7 @@ import { SFX } from '../audio/sonido';
 import { Device, Opciones, Keys, closePanel, useMenu, useKeys, type ItemMenu } from './aparato';
 import { SHOP } from '@shared/catalogo';
 import { GAME_NAME } from '@shared/protocolo';
+import { isRoomOfRepo, PLANNING_ROOM, alphabeticalOrder } from '@shared/disposicion';
 import { ACTIVE_SOURCES, INFO_SOURCE, type SourceId } from '@shared/fuentes';
 
 export interface IntegrationField { id: string; etiqueta: string; secreto?: boolean; ayuda?: string; ejemplo?: string }
@@ -98,13 +99,14 @@ const GUIDES: Record<SourceId, { que: string; pasos: React.ReactNode[] }> = {
 };
 export const INTEGRATIONS: IntegrationCard[] = ACTIVE_SOURCES.map(id => ({ id, nombre: INFO_SOURCE[id].nombre, ...GUIDES[id], campos: [] }));
 
-type View = { tipo: 'menu' } | { tipo: 'integracion'; id: string } | { tipo: 'slackRemote' } | { tipo: 'refugio' } | { tipo: 'supervisor' } | { tipo: 'reset' };
+type View = { tipo: 'menu' } | { tipo: 'integracion'; id: string } | { tipo: 'slackRemote' } | { tipo: 'refugio' } | { tipo: 'salas' } | { tipo: 'supervisor' } | { tipo: 'reset' };
 
 export function PanelCamera() {
   const [vista, setView] = useState<View>({ tipo: 'menu' });
   if (vista.tipo === 'integracion') return <IntegrationView ficha={INTEGRATIONS.find(f => f.id === vista.id)!} volver={() => setView({ tipo: 'menu' })} />;
   if (vista.tipo === 'slackRemote') return <SlackRemoteView volver={() => setView({ tipo: 'menu' })} />;
   if (vista.tipo === 'refugio') return <ShelterView volver={() => setView({ tipo: 'menu' })} />;
+  if (vista.tipo === 'salas') return <RoomsView volver={() => setView({ tipo: 'menu' })} />;
   if (vista.tipo === 'supervisor') return <ViewSupervisor volver={() => setView({ tipo: 'menu' })} />;
   if (vista.tipo === 'reset') return <ViewReset volver={() => setView({ tipo: 'menu' })} />;
   return <MenuCamera ir={setView} />;
@@ -113,6 +115,7 @@ export function PanelCamera() {
 const TXT_STATE: Record<string, string> = { demo: 'DEMO', conectada: 'conectada', error: 'error', 'sin-configurar': 'sin configurar' };
 function MenuCamera({ ir }: { ir: (v: View) => void }) {
   const ints = vivo.usar(e => e.integraciones);
+  const hidden = vivo.usar(e => e.estado?.ocultas?.length ?? 0);
   // el mando a distancia de Slack no es una fuente de avisos (no lee nada): tiene su propio estado
   const [sk, setSk] = useState<SlackRemoteState | null>(null);
   useEffect(() => { cliente.accion<SlackRemoteState>('slackRemote.estado').then(setSk).catch(() => {}); }, []);
@@ -121,6 +124,7 @@ function MenuCamera({ ir }: { ir: (v: View) => void }) {
     ...INTEGRATIONS.map(f => { const st = ints[f.id]; return { texto: <><span className={'piloto-mini ' + (st?.estado ?? 'demo')} /> {f.nombre}</>, pista: t(TXT_STATE[st?.estado ?? 'demo']) + (st?.detalle && st.estado === 'error' ? ' — ' + st.detalle : ''), f: () => ir({ tipo: 'integracion', id: f.id }) }; }),
     { texto: <><span className={'piloto-mini ' + skPiloto} /> {t('panels.slackRemoteMenu')}</>, pista: sk?.emparejado ? t('panels.slackRemoteVaultPaired') : sk?.conectado ? t('panels.slackRemoteVaultNotPaired') : t('panels.slackRemoteVaultHint'), f: () => ir({ tipo: 'slackRemote' }) },
     { texto: t('panels.theShelterNameReposRoot'), f: () => ir({ tipo: 'refugio' }) },
+    { texto: t('panels.shelterRooms'), pista: hidden ? t('panels.shelterRoomsHint', { n: hidden }) : undefined, f: () => ir({ tipo: 'salas' }) },
     { texto: t('panels.overseerSOutfit'), f: () => ir({ tipo: 'supervisor' }) },
     { texto: t('panels.optionsSoundAndDictationLanguage'), pista: 'Esc', f: () => juego.set({ panel: 'opciones' }) },
     { texto: t('menu.keyboardShortcuts'), pista: 'F1', f: () => juego.set({ panel: 'ayuda' }) },
@@ -244,6 +248,31 @@ function ShelterView({ volver }: { volver: () => void }) {
       <div className="botonera"><button className="boton-taller" onClick={guardar}>{t('windows.save')}</button></div>
       {msg && <p className="aviso-consola">{msg}</p>}
       <Keys><kbd>Enter</kbd>{t('panels.nextOnTheLastOne')} <kbd>Esc</kbd>{t('menu.back')}</Keys>
+    </Device>
+  );
+}
+
+// Qué repos tienen sala: las de repo a la vista y las ocultas (state.ocultas), en orden alfabético; Enter cambia una
+function RoomsView({ volver }: { volver: () => void }) {
+  const salas = vivo.usar(e => e.estado?.salas ?? []);
+  const ocultas = vivo.usar(e => e.estado?.ocultas ?? []);
+  const [msg, setMsg] = useState('');
+  const lista: { id: string; nombre: string; ruta?: string; oculta: boolean }[] = [
+    ...salas.filter((s: any) => isRoomOfRepo(s.tipo) && s.id !== PLANNING_ROOM).map((s: any) => ({ id: s.id, nombre: s.nombre, ruta: s.ruta, oculta: false })),
+    ...ocultas.map((o: any) => ({ id: o.sala.id, nombre: o.sala.nombre, ruta: o.sala.ruta, oculta: true })),
+  ].sort(alphabeticalOrder);
+  const cambiar = async (k: number) => {
+    const s = lista[k]; if (!s) return;
+    try { await cliente.accion(s.oculta ? 'sala.mostrar' : 'sala.ocultar', { salaId: s.id }); SFX.conmutar(); setMsg(''); } catch (err) { SFX.noAllowed(); setMsg((err as Error).message); }
+  };
+  const items: ItemMenu[] = lista.map(s => ({ texto: <>{s.oculta ? '☐' : '☑'} {s.nombre}</>, pista: s.ruta }));
+  const [i, setI] = useMenu(items.length, cambiar, undefined, volver);
+  return (
+    <Device rotulo={t('panels.vaultRooms')} ancho={54} onClose={volver}>
+      <p className="tenue">{t('panels.vaultRoomsIntro')}</p>
+      {lista.length ? <Opciones items={items} i={i} setI={setI} onChoose={cambiar} /> : <p className="tenue">{t('panels.vaultRoomsNone')}</p>}
+      {msg && <p className="aviso-consola">{msg}</p>}
+      <Keys><kbd>↑↓</kbd>{t('menu.select')} <kbd>Enter</kbd>{t('panels.toggle')} <kbd>Esc</kbd>{t('menu.back')}</Keys>
     </Device>
   );
 }

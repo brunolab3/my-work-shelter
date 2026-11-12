@@ -258,6 +258,9 @@ function RoomMenu({ salaId, sala, onLink, onDistribute, onDeploy, onOrganize }: 
       try { await cliente.accion('sala.area', { salaId, area }); SFX.clic(); } catch (e) { setNotice((e as Error).message); }
     } }] : []),
     ...(movable ? [{ texto: t('panels.linkTheRoomToAnother'), pista: t('panels.oneOfYourReposThe'), f: onLink }] : []),
+    ...(movable ? [{ texto: t('panels.hideTheRoom'), pista: t('panels.hideTheRoomHint'), f: async () => {
+      try { await cliente.accion('sala.ocultar', { salaId }); closePanel(); } catch (e) { setNotice((e as Error).message); }
+    } }] : []),
     ...(movable ? [{ texto: confirmar ? t('panels.surePressEnterAgainTo') : t('panels.removeTheRoomFromThe'), pista: repo?.ejemplo ? t('panels.theExampleRepoSCopy') : t('panels.theFolderIsLeftUntouched'), peligro: true, f: async () => {
       if (!confirmar) { setConfirm(true); return; }
       try { await cliente.accion('retirarSala', { salaId }); closePanel(); } catch (e) { setNotice((e as Error).message); setConfirm(false); }
