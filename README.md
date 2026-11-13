@@ -328,7 +328,7 @@ Useful variables: `SHELTER_DATOS` (alternative data folder), `SHELTER_PUERTO` (a
 | `electron/` | the game window, the embedded browsers and Spotify's windowless Chrome | |
 | `scripts/` | startup, app install and end-to-end QA (`qa-*`) | |
 
-The architecture is in [`AGENTS.md`](AGENTS.md) (instructions for agents; `CLAUDE.md` imports it),
+The architecture is in [`AGENTS.md`](AGENTS.md) (the rules for agents; `CLAUDE.md` imports it), [`docs/mapa.md`](docs/mapa.md) (every feature),
 [`docs/diseno-refugio.md`](docs/diseno-refugio.md) and [`docs/assets.md`](docs/assets.md). The `scripts/qa-*` scripts
 are end-to-end tests with Playwright; those that launch real Claude Code sessions say so in their header (use them
 with a test shelter).
