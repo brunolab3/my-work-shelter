@@ -35,6 +35,52 @@ try {
     writeFileSync(marca2, String(MIGRATION_STEP));
   }
 } catch (e) { console.error('Migración de claves:', e); }
+// una sala de repo vinculada a otra carpeta conservaba el id de la de antes, y los
+// habitantes ven ese id al mandarse mensajes: al arrancar toma el de su carpeta (no en la comprobación del reinicio, por lo
+// mismo que la migración de claves)
+try { if (existsSync(DATOS) && !process.env.SHELTER_COMPROBAR) renameRoomIds(DATOS); } catch (e) { console.error('Ids de salas:', e); }
+
+/** El id de la sala de una carpeta: su nombre en minúsculas, sin tildes ni símbolos (addRoom en main.ts) */
+export function roomIdOf(ruta: string) { return path.basename(ruta).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9-]/g, '-') || 'sala'; }
+/** { viejo: nuevo } para las salas de repo cuyo id no sale de su carpeta (sin quitarle el suyo a otra sala) */
+export function relinkedIds(salas: { id: string; tipo: string; ruta?: string }[]): Record<string, string> {
+  const usados = new Set(salas.map(s => s.id)), out: Record<string, string> = {};
+  for (const s of salas) {
+    if (s.tipo !== 'repo' || !s.ruta) continue;
+    const base = roomIdOf(s.ruta);
+    if (s.id === base || s.id.startsWith(base + '-') || usados.has(base)) continue;
+    usados.add(base); out[s.id] = base;
+  }
+  return out;
+}
+// el refugio, los planes repartidos y la limpieza de tareas guardan ids de sala: los tres se ponen al día juntos
+export function renameRoomIds(dir: string) {
+  const f = path.join(dir, 'refugio.json');
+  if (!existsSync(f)) return;
+  const e = JSON.parse(readFileSync(f, 'utf8'));
+  const ocultas: any[] = Array.isArray(e.ocultas) ? e.ocultas : [];
+  const mapa = relinkedIds([...(Array.isArray(e.salas) ? e.salas : []), ...ocultas.map(o => o?.sala).filter(Boolean)]);
+  if (!Object.keys(mapa).length) return;
+  const n = (id: unknown) => (typeof id === 'string' && Object.hasOwn(mapa, id) ? mapa[id] : id);
+  const escribir = (archivo: string, x: unknown) => writeFileSync(archivo, JSON.stringify(x, null, 1), { mode: 0o600 });
+  for (const s of e.salas ?? []) s.id = n(s.id);
+  for (const h of e.habitantes ?? []) h.salaId = n(h.salaId);
+  for (const o of ocultas) { if (o?.sala) o.sala.id = n(o.sala.id); for (const h of o?.habitantes ?? []) h.salaId = n(h.salaId); }
+  const fp = path.join(dir, 'planes.json'), fl = path.join(dir, 'limpieza-tareas.json');
+  if (existsSync(fp)) {
+    const planes = JSON.parse(readFileSync(fp, 'utf8'));
+    for (const p of Array.isArray(planes) ? planes : []) { p.coordinacion = n(p.coordinacion); for (const x of p.partes ?? []) { x.salaId = n(x.salaId); if (Array.isArray(x.waitA)) x.waitA = x.waitA.map(n); } }
+    escribir(fp, planes);
+  }
+  if (existsSync(fl)) {
+    const l = JSON.parse(readFileSync(fl, 'utf8'));
+    const clave = (k: unknown) => (typeof k === 'string' ? [n(k.split('|')[0]), ...k.split('|').slice(1)].join('|') : k);
+    for (const c of ['avisados', 'aprobados']) if (Array.isArray(l[c])) l[c] = l[c].map(clave);
+    escribir(fl, l);
+  }
+  escribir(f, e);
+  console.log('Salas con el id de su carpeta: ' + Object.entries(mapa).map(([a, b]) => `${a} → ${b}`).join(', '));
+}
 
 // El primer paso de la migración corrió en la comprobación del reinicio y el servidor viejo guardó luego su estado con las
 // claves de antes: refugio.json quedó mezclado (claves viejas junto a las nuevas, y lo que la validación nueva no encontró,

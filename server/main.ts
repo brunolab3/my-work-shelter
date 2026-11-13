@@ -33,7 +33,7 @@ import { Terminales, SOCKET_TERMINALS } from './terminales.ts';
 import { openInDesktop, openInAppClaude, outsideOpen, closeOutside, hookCommand, resumeCommand, type ItemDesktop } from './escritorio.ts';
 import { tonesForRepeated } from '../shared/reclutas.ts';
 import { remoteName } from '../shared/tareas.ts';
-import { Store, DATOS, folderOf, reposRoot, hideRoom, showRoom, isHideable } from './estado.ts';
+import { Store, DATOS, folderOf, reposRoot, hideRoom, showRoom, isHideable, roomIdOf } from './estado.ts';
 import { infoRepo, sugerencias, expand, recentTranscripts, liveSessions, worktreeList, estiloSala, projectType } from './repos.ts';
 import { Integraciones } from './integraciones/index.ts';
 import { gameAction, ensurePlayer, growCrops, taskReward } from './juego.ts';
@@ -340,7 +340,7 @@ async function addRoom(ruta: string, habitante?: any): Promise<string> {
   let id = '';
   almacen.cambiar(x => {
     if (x.salas.some(s => s.ruta === ruta) || x.ocultas?.some(o => o.sala.ruta === ruta)) return;
-    const base = path.basename(ruta).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9-]/g, '-') || 'sala';
+    const base = roomIdOf(ruta);
     id = x.salas.some(s => s.id === base) ? base + '-' + Date.now().toString(36) : base;
     // entra en la planta de repos por orden alfabético (las demás se corren lo que haga falta)
     x.salas = distribute([...x.salas, { id, tipo: isWing ? 'coordinacion' : 'repo', nombre: isWing ? wingName(x.salas, ruta) : path.basename(ruta), ruta, planta: 0, lado: 'izq', orden: 0, variant: STYLE_PALETTE[estiloSala(ruta, tipo)], estilo: estiloSala(ruta, tipo), area: areaByType(tipo) }]);

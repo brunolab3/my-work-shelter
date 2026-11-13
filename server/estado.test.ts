@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import path from 'node:path';
+import os from 'node:os';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { moveFloor } from '../shared/disposicion.ts';
-import { sanear, initialState, folderOf, ROOMS_FOLDERS, addRoomsOfService, ensureFolders, hideRoom, showRoom } from './estado.ts';
+import { sanear, initialState, folderOf, ROOMS_FOLDERS, addRoomsOfService, ensureFolders, hideRoom, showRoom, relinkedIds, renameRoomIds } from './estado.ts';
 
 describe('estado guardado', () => {
   it('una sala de servicio que falte en un refugio guardado entra en su sitio, sin tocar sus repos', () => {
@@ -144,5 +146,35 @@ describe('salas ocultas', () => {
     expect(hideRoom(e, 'tareas')).toBe(false);
     expect(hideRoom(e, 'no-existe')).toBe(false);
     expect(showRoom(e, 'alfa')).toBe(false);
+  });
+});
+
+describe('ids de las salas vinculadas a otra carpeta', () => {
+  it('cada sala de repo toma el id de su carpeta, sin quitárselo a otra ni tocar los repetidos ni las de servicio', () => {
+    expect(relinkedIds([
+      { id: 'alfa', tipo: 'repo', ruta: '/r/tienda' },
+      { id: 'beta', tipo: 'repo', ruta: '/r/Panel Web' },
+      { id: 'pagos', tipo: 'repo', ruta: '/r/pagos' },
+      { id: 'pagos-mx1', tipo: 'repo', ruta: '/otra/pagos' },
+      { id: 'gamma', tipo: 'repo', ruta: '/r/pagos' },
+      { id: 'tareas', tipo: 'coordinacion', ruta: '/r' },
+      { id: 'git', tipo: 'git' },
+    ])).toEqual({ alfa: 'tienda', beta: 'panel-web' });
+  });
+  it('el refugio, los planes y la limpieza de tareas cambian juntos el id viejo por el nuevo', () => {
+    const dir = mkdtempSync(path.join(os.tmpdir(), 'ids-salas-'));
+    const e: any = initialState();
+    e.salas.push({ id: 'alfa', tipo: 'repo', nombre: 'tienda', ruta: '/r/tienda', planta: 3, lado: 'izq', orden: 0, variant: 'taller' });
+    e.habitantes.push({ id: 'ana', nombre: 'Ana', mote: '', tipo: 'Hiker', bio: '', salaId: 'alfa', voz: 120 });
+    writeFileSync(path.join(dir, 'refugio.json'), JSON.stringify(e));
+    writeFileSync(path.join(dir, 'planes.json'), JSON.stringify([{ id: 'ABC-1', coordinacion: 'tareas', partes: [{ salaId: 'alfa', sala: 'tienda', titulo: 'x', waitA: ['alfa', 'git'] }] }]));
+    writeFileSync(path.join(dir, 'limpieza-tareas.json'), JSON.stringify({ avisados: ['alfa|ABC-1|/r/tienda/wt|cambios1'], aprobados: ['git|ABC-2|/x'] }));
+    renameRoomIds(dir);
+    const leer = (n: string) => JSON.parse(readFileSync(path.join(dir, n), 'utf8'));
+    const s = sanear(leer('refugio.json'));
+    expect(s.salas.find(x => x.ruta === '/r/tienda')?.id).toBe('tienda');
+    expect(s.habitantes.find(h => h.id === 'ana')?.salaId).toBe('tienda');
+    expect(leer('planes.json')[0].partes[0]).toMatchObject({ salaId: 'tienda', waitA: ['tienda', 'git'] });
+    expect(leer('limpieza-tareas.json')).toEqual({ avisados: ['tienda|ABC-1|/r/tienda/wt|cambios1'], aprobados: ['git|ABC-2|/x'] });
   });
 });
