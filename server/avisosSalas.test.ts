@@ -76,9 +76,31 @@ describe('mensajes entre salas', () => {
     expect(x.nuevas[0]).toMatchObject({ cwd: undefined, worktree: undefined });
   });
 
-  it('rechaza su propia sala, una que no existe (con la lista), una sin habitante y una clave que no lo es', async () => {
+  it('dentro de la misma sala: con clave, al holograma de la tarea; sin robot mensajero, pero con aviso', async () => {
+    const x = ctx({ worktrees: { 'express/FIC-9': '/repos/app-web/.claude/worktrees/fic-9' } });
+    const r = await sendToRoom(x.c, 'express', { sala: 'express', clave: 'FIC-9', mensaje: 'Añade los avisos de CI' }, 'ses-supervisor');
+    expect(r.ok).toBe(true);
+    expect(x.nuevas).toEqual([expect.objectContaining({ salaId: 'express', dwellerId: 'remi', cwd: '/repos/app-web/.claude/worktrees/fic-9' })]);
+    expect(x.mensajero).toEqual([]);
+    expect(x.avisos[0]).toContain('app-web → app-web: Añade los avisos de CI');
+    // sin clave, otra conversación en la copia principal de la sala
+    const y = ctx();
+    expect((await sendToRoom(y.c, 'express', { sala: 'express', mensaje: 'Revisa el README' }, 'ses-supervisor')).ok).toBe(true);
+    expect(y.nuevas[0]).toMatchObject({ salaId: 'express', cwd: undefined, worktree: undefined });
+  });
+
+  it('nunca a la propia conversación: la que envía ya es la de esa tarea', async () => {
+    const x = ctx({ abiertas: { 'express/FIC-9': 'ses-tarea' } });
+    const r = await sendToRoom(x.c, 'express', { sala: 'express', clave: 'FIC-9', mensaje: 'a' }, 'ses-tarea');
+    expect(r.ok).toBe(false); expect(r.texto).toContain('FIC-9');
+    expect(x.avisados).toEqual([]);
+    // otra conversación de la misma sala sí se la pasa a la de la tarea
+    expect((await sendToRoom(x.c, 'express', { sala: 'express', clave: 'FIC-9', mensaje: 'a' }, 'ses-supervisor')).ok).toBe(true);
+    expect(x.avisados[0].sesionId).toBe('ses-tarea');
+  });
+
+  it('rechaza una sala que no existe (con la lista), una sin habitante y una clave que no lo es', async () => {
     const x = ctx();
-    expect((await sendToRoom(x.c, 'express', { sala: 'express', mensaje: 'a' })).ok).toBe(false);
     const r = await sendToRoom(x.c, 'express', { sala: 'nada', mensaje: 'a' });
     expect(r.ok).toBe(false); expect(r.texto).toContain('partners (partners)');
     expect((await sendToRoom(x.c, 'express', { sala: 'vacia', mensaje: 'a' })).ok).toBe(false);

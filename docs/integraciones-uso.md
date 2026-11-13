@@ -213,7 +213,10 @@ always starts a new conversation with that dweller in its main copy (messages be
 chat); with a key (ABC-123) it goes to the conversation open in that task's worktree in that room or, if there is none,
 starts one in the task's worktree (or in the main copy, if the room has none). New conversations run in auto
 permissions. Each message says which room sent it and how to reply; the messenger robot carries it and a notice shows it.
-At most 3 messages a minute from one room to another. `repartir_trabajo` is only for implementation plans.
+At most 3 messages a minute from one room to another. It also works inside the same room: with a task key, a dweller
+hands that task (or a part of it that can go on its own) to the conversation in the task's worktree, its hologram, and
+stays on the Overseer's conversation; there is no robot then: the dweller walks to the hologram and hands it over. A
+conversation can't send a message to itself. `repartir_trabajo` is only for implementation plans.
 
 **Shared plan.** `repartir_trabajo` saves the whole plan (`server/planes.ts`, `DATOS/planes.json`, with versions and
 history); Logistics rereads it with `leer_plan` and each part with `plan_compartido` (MCP `plan` in the rooms that have

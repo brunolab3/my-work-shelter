@@ -35,6 +35,10 @@ const ANNEX = [
   'Every other repository of the shelter is a room with its own dweller, reachable with the `enviar_a_sala` tool (MCP server `salas`).',
   'When you find that this work depends on or affects another room\'s repository (an API, a shared contract or library, a bug on their side), tell that room with it',
   'instead of changing their repository yourself, with the task key when it is about a task they already work on.',
+  'To run work in parallel (another task, or a part of this one that can go on its own), hand it with `enviar_a_sala` and its task key, also to this same room:',
+  'a dweller then works it in that task\'s worktree, visible in the game as its hologram, while you stay on the user\'s conversation.',
+  'Do not use background subagents (the Agent tool) for that work; keep them for quick research inside your own task.',
+  'Save the pages you link (plans, reports) under the user\'s home folder, never in /tmp, so the game lists them among the conversation\'s pages.',
 ].join(' ');
 
 // el habitante del Puente de Mando trabaja en el repo del propio juego
@@ -95,7 +99,7 @@ export interface RoomsResolver {
   // las del plan compartido (leerlo y proponer cambios), en las salas que trabajan en una parte de un plan repartido
   mcpPlan?(salaId: string): NonNullable<Options['mcpServers']>[string] | undefined;
   // la de pasarle un mensaje o un encargo al habitante de otra sala (server/avisosSalas.ts), en todas
-  mcpRooms?(salaId: string): NonNullable<Options['mcpServers']>[string] | undefined;
+  mcpRooms?(salaId: string, sesionId: string): NonNullable<Options['mcpServers']>[string] | undefined;
   // carpetas que el Supervisor ha marcado de confianza en el juego (ver confianza())
   trustedFolders?(): string[]; trust?(ruta: string): void;
 }
@@ -321,7 +325,7 @@ export class Sessions extends EventEmitter {
     if (repartir) opciones.mcpServers = { ...(opciones.mcpServers ?? {}), reparto: repartir };
     const plan = this.resolutor.mcpPlan?.(x.r.salaId);
     if (plan) opciones.mcpServers = { ...(opciones.mcpServers ?? {}), plan };
-    const salas = this.resolutor.mcpRooms?.(x.r.salaId);
+    const salas = this.resolutor.mcpRooms?.(x.r.salaId, x.r.id);
     if (salas) opciones.mcpServers = { ...(opciones.mcpServers ?? {}), salas };
     // la página de comparación de sus cambios, para revisarlos con notas en el juego antes de subirlos (server/comparar.ts)
     opciones.mcpServers = { ...(opciones.mcpServers ?? {}), revision: mcpReview(() => x.r.worktree ?? x.r.cwd) };

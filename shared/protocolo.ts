@@ -159,6 +159,7 @@ export type ServerMessage =
   | { t: 'aviso'; nivel: 'info' | 'aviso' | 'error'; texto: string; pregunta?: NoticeQuestion }   // con pregunta, se queda hasta contestarla
   | { t: 'voz'; id: string; estado: 'descargando' | 'listo' | 'parcial' | 'final' | 'error'; texto?: string }   // lo transcrito de un dictado
   | { t: 'mensajero'; desde: string; a: string[]; motivo: 'reparto' | 'cambio' | 'propuesta' | 'revision'; worktree?: string }   // el robot que lleva el plan de sala en sala (o una revisión de un PR desde Control de Versiones, en mano al holograma de su worktree)
+  | { t: 'entrega'; sala: string; worktree?: string; sesionId?: string }   // un mensaje dentro de la misma sala: el habitante se lo da en mano al holograma de la tarea (mensajero.ts)
   | { t: 'recargar' }
   | { t: 'reiniciando' };
 

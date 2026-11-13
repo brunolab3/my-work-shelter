@@ -487,6 +487,7 @@ export class Holograms {
     return mejor;
   }
   ofId(id: string) { for (const f of this.figuras.values()) if (idCopy(f.ruta) === id) return f; }
+  ofSession(id: string) { for (const f of this.figuras.values()) if (f.sesionId === id) return f; }
   ofPath(ruta: string) { const r = ruta.replace(/\/+$/, ''); for (const f of this.figuras.values()) if (f.ruta.replace(/\/+$/, '') === r) return f; }
 
   /** El robot mensajero le trae una revisión de su PR (mensajero.ts): de pie, se gira hacia él y la recoge; sentada,

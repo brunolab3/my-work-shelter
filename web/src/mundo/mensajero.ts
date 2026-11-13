@@ -2,7 +2,9 @@
 // pequeño sale corriendo con los planos bajo el brazo, baja por el hueco del ascensor y entrega una copia en cada sala
 // afectada; con una propuesta de cambio hace el viaje al revés, y con una revisión nueva de un PR sale de Control de
 // Versiones a la sala que lo trabaja (server/revisionesPR.ts) y se la da en mano al holograma de su worktree (o al
-// habitante, si es la copia principal). Solo se ve: el mensaje ya ha llegado por el servidor.
+// habitante, si es la copia principal). Dentro de una misma sala no sale el robot: el habitante va hasta el holograma
+// de la tarea y se lo da en mano (enviar_a_sala a la propia sala, server/avisosSalas.ts). Solo se ve: el mensaje ya ha
+// llegado por el servidor.
 import * as THREE from 'three';
 import type { Refugio } from './refugio';
 import type { Sala } from './salas/comun';
@@ -17,7 +19,10 @@ interface Trip { p: Character }
 export class Messengers {
   private trips = new Set<Trip>();
   constructor(private r: Refugio) {
-    cliente.escuchar(m => { if (m.t === 'mensajero') this.salir(m.desde, m.a, m.worktree).catch(() => {}); });
+    cliente.escuchar(m => {
+      if (m.t === 'mensajero') this.salir(m.desde, m.a, m.worktree).catch(() => {});
+      else if (m.t === 'entrega') this.enMano(m.sala, m.worktree, m.sesionId).catch(() => {});
+    });
   }
 
   private sala(id: string) { return this.r.salas.find(s => s.id === id); }
@@ -61,6 +66,25 @@ export class Messengers {
     await this.correr(p, [this.puerta(here), this.hueco(here)]);
     this.r.motor.scene.remove(p.raiz);
     this.trips.delete(v);
+  }
+
+  /** Un mensaje dentro de la misma sala: el habitante deja lo que hace, va hasta el holograma de la conversación que lo
+   *  recibe (si es nueva, espera a que su copia aparezca) y se lo da; el holograma lo recoge. Sin holograma (copia
+   *  principal) o con el habitante ocupado (te espera, habla contigo), no se ve nada más que el aviso */
+  async enMano(salaId: string, worktree?: string, sesionId?: string) {
+    const s = this.sala(salaId); if (!s) return;
+    let copia: Copia | undefined;
+    for (let k = 0; k < 40 && !copia; k++) {
+      const f = (sesionId && this.r.hologramas.ofSession(sesionId)) || (worktree && this.r.hologramas.ofPath(worktree)) || undefined;
+      if (f && f.sala === s && f.listo && !f.leaving) copia = f;
+      else await new Promise(ok => setTimeout(ok, 500));
+    }
+    const h = this.r.habitantes.find(x => x.sala === s);
+    if (!copia || !h) return;
+    const o = copia.p.raiz.position, sx = s.grupo.position.x, med = s.ancho / 2 - 0.5, lado = Math.sign(h.pos.x - o.x) || 1;
+    const junto = new THREE.Vector3(THREE.MathUtils.clamp(o.x + lado * 0.75, sx - med, sx + med), s.grupo.position.y, THREE.MathUtils.clamp(o.z + 0.1, 0.9, 1.8));
+    const giro = Math.atan2(o.x - junto.x, o.z - junto.z), c = copia;
+    h.encargar(junto, giro, 'Interact', '', 1.2, () => this.r.hologramas.receive(c, h.pos));
   }
 
   // quién recibe una revisión en la sala: el holograma de su worktree o, en la copia principal, el habitante

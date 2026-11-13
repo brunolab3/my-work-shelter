@@ -3,7 +3,9 @@
 // hay, una conversación nueva en el worktree de la tarea (y si la sala aún no tiene ninguno, en uno nuevo con la clave en
 // su nombre, para que los siguientes mensajes de la tarea lleguen ahí). Sin
 // clave, siempre una conversación nueva con el habitante en su copia principal: los mensajes entre salas son para
-// empezar trabajo, no para charlar. Para repartir un plan entre varios repos sigue estando repartir_trabajo (reparto.ts).
+// empezar trabajo, no para charlar. También dentro de la misma sala: así un habitante pasa una tarea (o una parte que va
+// sola) al holograma de su worktree y sigue con la conversación del Supervisor; sin robot mensajero, que no sale de la
+// sala, y nunca a la propia conversación. Para repartir un plan entre varios repos sigue estando repartir_trabajo (reparto.ts).
 import { createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
 import path from 'node:path';
@@ -23,6 +25,8 @@ export interface CtxRooms {
   // ninguno, en la carpeta de la sala
   empezar(salaId: string, dwellerId: string, prompt: string, donde?: { cwd?: string; worktree?: string }): Promise<string>;
   mensajero(desde: string, a: string[], motivo: 'cambio'): void;
+  // dentro de la misma sala no hay robot: el habitante se lo da en mano al holograma de la conversación que lo recibe
+  entrega?(salaId: string, a: { worktree?: string; sesionId?: string }): void;
   aviso(texto: string): void;
   ahora?(): number;
 }
@@ -41,11 +45,12 @@ export function taskWorktree(worktrees: InfoWorktree[], clave: string): string |
 const findRoom = (salas: RoomInfo[], q: string) => { const k = q.trim().toLowerCase(); return salas.find(s => s.id.toLowerCase() === k) ?? salas.find(s => s.nombre.toLowerCase() === k); };
 const KEY = /^[A-Z][A-Z0-9]+-\d+$/i;
 
-export async function sendToRoom(ctx: CtxRooms, desde: string, { sala, mensaje, clave }: { sala: string; mensaje: string; clave?: string }): Promise<{ ok: boolean; texto: string }> {
+/** `desdeSesion`: la conversación que lo envía (en su misma sala, no puede ser la que lo recibe) */
+export async function sendToRoom(ctx: CtxRooms, desde: string, { sala, mensaje, clave }: { sala: string; mensaje: string; clave?: string }, desdeSesion?: string): Promise<{ ok: boolean; texto: string }> {
   const salas = ctx.salas();
   const origen = salas.find(s => s.id === desde), destino = findRoom(salas, sala);
   if (!destino) return { ok: false, texto: tr('tool.rooms.noRoom', { sala, salas: salas.map(s => `${s.id} (${s.nombre})`).join(', ') }) };
-  if (destino.id === desde) return { ok: false, texto: tr('tool.rooms.ownRoom') };
+  const misma = destino.id === desde;
   if (!destino.habitante) return { ok: false, texto: tr('tool.rooms.noDweller', { sala: destino.nombre }) };
   if (!mensaje.trim()) return { ok: false, texto: tr('tool.rooms.empty') };
   const k = clave?.trim().toUpperCase() || undefined;
@@ -57,19 +62,21 @@ export async function sendToRoom(ctx: CtxRooms, desde: string, { sala, mensaje, 
     tr('prompt.room.from', { sala: origen?.nombre ?? desde, habitante: origen?.habitante?.nombre ?? '?', tarea: k ? tr('prompt.room.task', { clave: k }) : '' }),
     '', mensaje.trim(), '', tr('prompt.room.reply', { salaId: desde }),
   ].join('\n');
-  let como: string;
+  let como: string, recibe: string | undefined, cwd: string | undefined;
   const abierta = k ? ctx.sesionDeTarea(destino.id, k) : undefined;
-  if (abierta && ctx.avisar(abierta, texto)) como = tr('tool.rooms.toOpen', { clave: k! });
+  if (misma && abierta && abierta === desdeSesion) return { ok: false, texto: tr('tool.rooms.ownConversation', { clave: k! }) };
+  if (abierta && ctx.avisar(abierta, texto)) { como = tr('tool.rooms.toOpen', { clave: k! }); recibe = abierta; }
   else {
-    const cwd = k ? ctx.worktreeDeTarea(destino.id, k) : undefined;
+    cwd = k ? ctx.worktreeDeTarea(destino.id, k) : undefined;
     // sin worktree de la tarea, uno nuevo: la clave y el asunto en su nombre (la primera línea, sin repetir la clave)
     const worktree = k && !cwd ? nombreWorktree(`${k} ${mensaje.trim().split('\n')[0].replace(new RegExp(k, 'ig'), '')}`, ahora) : undefined;
-    try { await ctx.empezar(destino.id, destino.habitante.id, texto, cwd ? { cwd } : worktree ? { worktree } : undefined); }
+    try { recibe = await ctx.empezar(destino.id, destino.habitante.id, texto, cwd ? { cwd } : worktree ? { worktree } : undefined); }
     catch (e) { return { ok: false, texto: tr('tool.rooms.couldNotStart', { sala: destino.nombre, error: (e as Error).message }) }; }
     como = cwd ? tr('tool.rooms.inTaskWorktree', { clave: k! }) : worktree ? tr('tool.rooms.inNewWorktree', { clave: k!, worktree }) : tr('tool.rooms.inMainCopy');
   }
   enviados.set(par, [...recientes, ahora]);
-  ctx.mensajero(desde, [destino.id], 'cambio');
+  if (!misma) ctx.mensajero(desde, [destino.id], 'cambio');
+  else ctx.entrega?.(destino.id, { worktree: cwd, sesionId: recibe });
   const resumen = mensaje.trim().replace(/\s+/g, ' ');
   ctx.aviso(tr('server.roomMessage', { desde: origen?.nombre ?? desde, a: destino.nombre, resumen: resumen.length > 90 ? resumen.slice(0, 89) + '…' : resumen }));
   return { ok: true, texto: tr('tool.rooms.sent', { habitante: destino.habitante.nombre, sala: destino.nombre, como }) };
@@ -77,18 +84,18 @@ export async function sendToRoom(ctx: CtxRooms, desde: string, { sala, mensaje, 
 
 const texto = (s: string) => ({ content: [{ type: 'text' as const, text: s }] });
 
-export function mcpRooms(ctx: CtxRooms, desde: string) {
-  const otras = ctx.salas().filter(s => s.id !== desde && s.habitante);
+export function mcpRooms(ctx: CtxRooms, desde: string, desdeSesion?: string) {
+  const salas = ctx.salas().filter(s => s.habitante);
   return createSdkMcpServer({
     name: 'salas', version: '1.0.0',
     tools: [
-      tool('enviar_a_sala', tr('tool.rooms.description', { salas: otras.map(s => `${s.id} (${s.nombre})`).join(', ') }),
+      tool('enviar_a_sala', tr('tool.rooms.description', { salas: salas.map(s => `${s.id} (${s.nombre})` + (s.id === desde ? tr('tool.rooms.thisRoom') : '')).join(', ') }),
         {
           sala: z.string().describe(tr('tool.param.room')),
           mensaje: z.string().describe(tr('tool.rooms.paramMessage')),
           clave: z.string().optional().describe(tr('tool.rooms.paramKey')),
         },
-        async (args) => { const r = await sendToRoom(ctx, desde, args); return r.ok ? texto(r.texto) : { ...texto(r.texto), isError: true }; }, { alwaysLoad: true }),
+        async (args) => { const r = await sendToRoom(ctx, desde, args, desdeSesion); return r.ok ? texto(r.texto) : { ...texto(r.texto), isError: true }; }, { alwaysLoad: true }),
     ],
   });
 }

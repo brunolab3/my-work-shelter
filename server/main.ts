@@ -148,12 +148,13 @@ const ctxRooms: CtxRooms = {
   avisar: (id, texto) => ctxPlan.avisar(id, texto),
   empezar: (salaId, dwellerId, prompt, donde) => startWork(undefined, { t: 'empezar', dwellerId, salaId, prompt, opciones: { cwd: donde?.cwd, worktree: donde?.worktree, permisos: 'auto' } }),
   mensajero: (desde, a, motivo) => ctxPlan.mensajero(desde, a, motivo),
+  entrega: (sala, a) => broadcast({ t: 'entrega', sala, ...a }),
   aviso: texto => broadcast({ t: 'aviso', nivel: 'info', texto }),
 };
 const sesiones = new Sessions({
   pathRoom, reposOfShelter: () => gitPaths(), mcpRoom: id => (ctxDecor.sala(id) ? mcpDecor(id, ctxDecor) : undefined),
   mcpAssignment: (id, preguntar, sesionId) => { const s = almacen.estado.salas.find(x => x.id === id && x.tipo === 'coordinacion' && x.ruta); return s ? mcpAssignment(ctxAssignment(s.ruta!), { coordinacion: s.nombre, salaId: s.id, sesionId, preguntar }) : undefined; },
-  mcpRooms: id => mcpRooms(ctxRooms, id),
+  mcpRooms: (id, sesionId) => mcpRooms(ctxRooms, id, sesionId),
   mcpPlan: id => { const s = almacen.estado.salas.find(x => x.id === id && x.tipo === 'repo'); return s && planes.ofRoom(id).length ? mcpPlan(ctxPlan, { salaId: id, sala: s.nombre }) : undefined; },
   trustedFolders: () => ((almacen.estado.ajustes as any).trustedFolders ?? []) as string[],
   trust: ruta => { const a = almacen.estado.ajustes as any; a.trustedFolders = [...new Set([...(a.trustedFolders ?? []), path.resolve(ruta)])]; almacen.guardar(); },
