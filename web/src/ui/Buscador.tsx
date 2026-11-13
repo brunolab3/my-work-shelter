@@ -23,6 +23,10 @@ import { openGit } from './git/ventana';
 import { musicShortcut } from './Discoteca';
 import { entrar as enterBar } from './Barra';
 import { adaptRoom } from './PanelesSala';
+import { openPreflight } from './Preflight';
+import { jiraBoard } from './tareas';
+import { worktreeTask } from '@shared/tareas';
+import { pRKey } from '@shared/despliegue';
 
 export const buscador = new Store<{ abierto: boolean }>({ abierto: false });
 let recentLast: RecentConversation[] | null = null;   // las de la última vez: salen al momento mientras se piden otra vez
@@ -53,6 +57,14 @@ addEventListener('keydown', e => {
 function onShelter() { if (juego.get().panel) juego.set({ panel: null, panelData: null }); minimizeIntercom(); }
 const K = MAC ? '⌘' : 'Ctrl+';
 interface Action { id: string; texto: string; pista?: string; tecla?: string; claves?: string; f: () => void }
+// las tareas con pre-flight a mano: las de las copias (worktrees) y las de tus PR sin fusionar
+function preflightTasks(): string[] {
+  const out = new Set<string>();
+  for (const c of juego.get().copias) { const k = c.copia && worktreeTask(c.copia); if (k) out.add(k); }
+  for (const p of jiraBoard.get().prs) { const k = (p.estado === 'abierto' || p.estado === 'borrador') && pRKey(p); if (k) out.add(k); }
+  return [...out].slice(0, 16);
+}
+const preflightAction = (k: string): Action => ({ id: 'preflight:' + k, texto: t('preflight.action', { clave: k }), pista: t('preflight.actionHint'), claves: `preflight pre-flight vuelo checks ci sync revision review bloqueos ${k}`, f: () => { onShelter(); openPreflight(k); } });
 function acciones(): Action[] {
   const j = juego.get();
   const sala = (vivo.get().estado?.salas ?? []).find((s: any) => s.id === j.currentRoom);
@@ -77,6 +89,7 @@ function acciones(): Action[] {
     { id: 'logistica', texto: t('world.planning'), pista: t('panels.jiraBoard'), tecla: 'L', claves: 'jira linear tareas issues tablero', f: () => { onShelter(); goA('logistica'); } },
     ...(coordinacion ? [{ id: 'reparto', texto: t('panels.planTasksInSala', { sala: coordinacion.nombre }), pista: t('panels.analyzeAJiraTaskWith'), claves: 'jira tareas planificar planificacion plan repartir reparto coordinacion worktrees salas', f: () => { onShelter(); goA(coordinacion.id); openPanel('sala', { salaId: coordinacion.id, vista: 'reparto' }); } },
       { id: 'despliegue', texto: t('world.deploymentPlan2'), pista: t('panels.yourPrsByStatusAnd', { sala: coordinacion.nombre }), claves: 'despliegue deploy desplegar pr prs pull requests bloqueos dependencias orden fusionar merge', f: () => { onShelter(); goA(coordinacion.id); openPanel('sala', { salaId: coordinacion.id, vista: 'despliegue' }); } }] : []),
+    ...preflightTasks().map(preflightAction),
     { id: 'musica', texto: t('panels.music'), pista: t('panels.spotifyAndTheDeck'), tecla: `${K}J`, claves: 'spotify musica discoteca pletina', f: () => musicShortcut() },
     { id: 'recargar', texto: t('menu.reloadTheView'), pista: t('menu.ifTheShelterGoesBlack'), claves: 'negro pantalla recargar reload refrescar', f: () => reloadView() },
     { id: 'barra', texto: t('panels.openWindows'), pista: t('panels.theBarAtTheBottom'), tecla: `${K}B`, claves: 'barra ventanas minimizadas', f: () => enterBar() },
@@ -160,6 +173,9 @@ function Window() {
     const acc = acciones().map(a => ({ a, p: score(palabras, a.texto, `${a.pista ?? ''} ${a.claves ?? ''} ${a.tecla ?? ''}`) })).filter(x => x.p);
     if (!searching) acc.sort((x, y) => (u[y.a.id] ?? 0) - (u[x.a.id] ?? 0));
     for (const { a, p } of acc) out.push({ id: a.id, seccion: !searching && (u[a.id] ?? 0) > 0 ? 'Acciones recurrentes' : 'Acciones', texto: a.texto, pista: a.pista, tecla: a.tecla, f: a.f, p: p + (u[a.id] ?? 0) * 0.01 });
+    // una clave escrita («pre-flight abc-12») aunque no se conozca aún
+    const escrita = palabras.find(w => /^[a-z][a-z0-9]+-\d+$/.test(w))?.toUpperCase();
+    if (escrita && !out.some(f => f.id === 'preflight:' + escrita)) { const a = preflightAction(escrita); out.push({ id: a.id, seccion: 'Acciones', texto: a.texto, pista: a.pista, f: a.f, p: 4 }); }
     if (searching) {
       for (const h of habitantes) { const p = score(palabras, t('windows.talkToNombre', { nombre: h.nombre }), `${h.mote} ${h.nameRoom} habitante`); if (p) out.push({ id: 'hab:' + h.id, seccion: 'Habitantes', texto: t('windows.talkToNombre', { nombre: h.nombre }), pista: h.nameRoom, f: () => { onShelter(); goA(h.sala, h.id, true); }, p }); }
       for (const s of salas) { const p = score(palabras, t('panels.goToSala', { sala: s.nombre }), `${s.tipo} sala`); if (p) out.push({ id: 'sala:' + s.id, seccion: 'Salas', texto: t('panels.goToSala', { sala: s.nombre }), pista: s.ruta ? s.ruta.replace(/^\/Users\/[^/]+/, '~') : undefined, f: () => { onShelter(); goA(s.id); }, p }); }

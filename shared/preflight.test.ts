@@ -1,0 +1,104 @@
+import { describe, expect, it } from 'vitest';
+import { bloqueosEntre } from './despliegue';
+import { estadoParte, preflightTarea, syncCell, type LocalBranch, type RoomRepo } from './preflight';
+import type { PRBoard } from './tablero';
+
+// repos, salas y personas inventados
+const pr = (repo: string, numero: number, extra: Partial<PRBoard> = {}): PRBoard =>
+  ({ numero, titulo: 'PR ' + numero, url: `https://github.com/${repo}/pull/${numero}`, repo, rama: 'rama-' + numero, base: 'main', estado: 'abierto', actualizado: 0, revision: 'REVIEW_REQUIRED', checks: 'SUCCESS', cabeza: 'c' + numero, ...extra });
+const SALAS: RoomRepo[] = [{ id: 'api', nombre: 'api', repo: 'acme/api' }, { id: 'web', nombre: 'web', repo: 'acme/web' }, { id: 'docs', nombre: 'docs', repo: 'acme/docs' }];
+
+describe('preflightTarea', () => {
+  it('una tarea en dos repos con un bloqueo: una parte por PR, cada una con su sala, y el orden de fusión', () => {
+    const api = pr('acme/api', 10, { rama: 'feature/ABC-1-contrato' });
+    const web = pr('acme/web', 20, { rama: 'ABC-1-pantalla', dependencias: ['acme/api#10'] });
+    const otra = pr('acme/web', 21, { rama: 'ABC-2-otra' });
+    const prs = [api, web, otra];
+    const locales: LocalBranch[] = [
+      { salaId: 'api', rama: api.rama, head: 'c10', worktree: '/r/api-abc-1', cambios: 0 },
+      { salaId: 'web', rama: web.rama, head: 'c20', worktree: '/r/web-abc-1', cambios: 0 },
+    ];
+    const r = preflightTarea('abc-1', { prs, bloqueos: bloqueosEntre(prs), locales, salas: SALAS });
+    expect(r.clave).toBe('ABC-1');
+    expect(r.partes.map(p => [p.sala, p.pr?.numero, p.worktree])).toEqual([['api', 10, '/r/api-abc-1'], ['web', 20, '/r/web-abc-1']]);
+    const w = r.partes.find(p => p.pr === web)!;
+    expect(w.esperaA.map(l => l.ref)).toEqual(['acme/api#10']);
+    expect(w.bloqueos.marca).toBe('aviso');
+    expect(r.partes.find(p => p.pr === api)!.bloquea.map(l => l.ref)).toEqual(['acme/web#20']);
+    expect(r.olas).toEqual([['acme/api#10'], ['acme/web#20']]);   // la otra tarea no sale
+    expect(w.sync).toEqual({ marca: 'ok', texto: expect.any(String) });
+  });
+
+  it('la CI roja del PR al que se espera es problema suyo: la parte que espera no sale en rojo', () => {
+    const api = pr('acme/api', 10, { rama: 'ABC-1-api', checks: 'FAILURE' });
+    const web = pr('acme/web', 20, { rama: 'ABC-1-web', checks: 'SUCCESS', revision: 'APPROVED', dependencias: ['acme/api#10'] });
+    const r = preflightTarea('ABC-1', { prs: [api, web], bloqueos: bloqueosEntre([api, web]), locales: [{ salaId: 'web', rama: web.rama, head: 'c20', worktree: '/r/web', cambios: 0 }], salas: SALAS });
+    const pw = r.partes.find(p => p.pr === web)!, pa = r.partes.find(p => p.pr === api)!;
+    expect(pw.ci.marca).toBe('ok');
+    expect(pw.bloqueos.marca).toBe('aviso');
+    expect(pw.bloqueos.texto).toMatch(/api#10.*CI/);
+    expect(estadoParte(pw).estado).toBe('aviso');
+    expect(pa.ci.marca).toBe('mal');
+    expect(estadoParte(pa).estado).toBe('falta');
+  });
+
+  it('PR apilados en un mismo repo: dos partes, la de arriba espera a la de abajo, una sola sacada en el worktree', () => {
+    const abajo = pr('acme/api', 30, { rama: 'ABC-3-base' });
+    const arriba = pr('acme/api', 31, { rama: 'ABC-3-encima', base: 'ABC-3-base' });
+    const locales: LocalBranch[] = [
+      { salaId: 'api', rama: 'ABC-3-encima', head: 'c31', worktree: '/r/api-abc-3', cambios: 2 },
+      { salaId: 'api', rama: 'ABC-3-base', head: 'c30' },
+    ];
+    const r = preflightTarea('ABC-3', { prs: [abajo, arriba], bloqueos: bloqueosEntre([abajo, arriba]), locales, salas: SALAS });
+    expect(r.partes).toHaveLength(2);
+    const pAbajo = r.partes.find(p => p.pr === abajo)!, pArriba = r.partes.find(p => p.pr === arriba)!;
+    expect(pArriba.esperaA[0].motivo).toBe('pila');
+    expect(pArriba.sync.marca).toBe('aviso');           // 2 sin commitear
+    expect(pAbajo.sync.marca).toBe('ok');               // la rama suelta, al día y sin worktree: sus cambios no cuentan
+    expect(pAbajo.worktree).toBeUndefined();
+    expect(r.olas).toEqual([['acme/api#30'], ['acme/api#31']]);
+  });
+
+  it('un PR sin worktree ni rama local, y una parte del plan sin empezar', () => {
+    const api = pr('acme/api', 40, { rama: 'ABC-4-api' });
+    const r = preflightTarea('ABC-4', {
+      prs: [api], bloqueos: [], locales: [], salas: SALAS,
+      plan: [{ salaId: 'api', sala: 'api', titulo: 'El contrato' }, { salaId: 'docs', sala: 'docs', titulo: 'La guía', waitA: ['api'] }, { salaId: 'web', sala: 'web', titulo: 'La pantalla', waitA: ['api'] }],
+    });
+    const pa = r.partes.find(p => p.pr === api)!;
+    expect(pa.sync).toMatchObject({ marca: 'nada' });
+    expect(pa.plan).toBe('El contrato');
+    const sinEmpezar = r.partes.filter(p => p.sinEmpezar).map(p => p.sala);
+    expect(sinEmpezar).toEqual(['docs', 'web']);
+    expect(estadoParte(r.partes.find(p => p.sala === 'web')!).estado).toBe('falta');
+  });
+
+  it('el plan dice que una parte espera a una sala aún sin PR: la espera sale igual', () => {
+    const web = pr('acme/web', 50, { rama: 'ABC-5-web' });
+    const r = preflightTarea('ABC-5', { prs: [web], bloqueos: [], locales: [], salas: SALAS, plan: [{ salaId: 'web', sala: 'web', titulo: 'Pantalla', waitA: ['api'] }, { salaId: 'api', sala: 'api', titulo: 'Contrato' }] });
+    const pw = r.partes.find(p => p.pr === web)!;
+    expect(pw.esperaA).toEqual([expect.objectContaining({ sala: 'api', motivo: 'plan' })]);
+    expect(pw.bloqueos.marca).toBe('aviso');
+  });
+
+  it('un worktree de la tarea sin PR aún es una parte; los PR cerrados sin fusionar no cuentan', () => {
+    const cerrado = pr('acme/api', 60, { rama: 'ABC-6-viejo', estado: 'cerrado' });
+    const r = preflightTarea('ABC-6', { prs: [cerrado], bloqueos: [], locales: [{ salaId: 'web', rama: 'ABC-6-nuevo', head: 'aa', worktree: '/r/web-abc-6', cambios: 0 }], salas: SALAS });
+    expect(r.partes.map(p => [p.sala, p.pr?.numero, p.rama])).toEqual([['web', undefined, 'ABC-6-nuevo']]);
+    expect(estadoParte(r.partes[0]).estado).toBe('listo');
+  });
+});
+
+describe('syncCell', () => {
+  const p = pr('acme/api', 1, { cabeza: 'remota' });
+  it('detrás de la cabeza del PR (un bot empujó) → ⚠', () => {
+    expect(syncCell(p, { salaId: 'api', rama: p.rama, head: 'local', worktree: '/r', cambios: 0, detras: 2, adelante: 0 }).marca).toBe('aviso');
+    expect(syncCell(p, { salaId: 'api', rama: p.rama, head: 'local', worktree: '/r', cambios: 0, sinCabeza: true }).marca).toBe('aviso');
+  });
+  it('commits sin empujar → ⚠; separada a los dos lados → ✗; igual pero con cambios sin commitear → ⚠', () => {
+    expect(syncCell(p, { salaId: 'api', rama: p.rama, head: 'local', adelante: 1, detras: 0 }).marca).toBe('aviso');
+    expect(syncCell(p, { salaId: 'api', rama: p.rama, head: 'local', adelante: 1, detras: 1 }).marca).toBe('mal');
+    expect(syncCell(p, { salaId: 'api', rama: p.rama, head: 'remota', worktree: '/r', cambios: 3 }).marca).toBe('aviso');
+    expect(syncCell(p, { salaId: 'api', rama: p.rama, head: 'remota', worktree: '/r', cambios: 0 }).marca).toBe('ok');
+  });
+});

@@ -1060,6 +1060,22 @@ html.en-segundo-plano *, html.en-segundo-plano *::before, html.en-segundo-plano 
 .ficha-pr.espera-sel { outline: 1px solid #ffb000; }
 .ficha-pr.marcando { outline: 2px dashed #ffb000; }
 .orden-despliegue { margin: .4em 0 0; font-size: .9em; }
+/* pre-flight de una tarea (Preflight.tsx) */
+.pf-cabeza { display: flex; align-items: center; gap: .3em; margin: .1em 0 .5em; font: 600 1.05em var(--t-mono); color: var(--tarea); }
+.pf-tabla { width: 100%; border-collapse: collapse; font-size: .86em; }
+.pf-tabla th { text-align: left; font-weight: 600; color: var(--crema-tenue); padding: .2em .4em; border-bottom: 1px solid var(--canto); white-space: nowrap; }
+.pf-tabla td { padding: .25em .4em; vertical-align: top; border-bottom: 1px solid #2a2825; }
+.pf-fila.sel { background: #ffffff0d; }
+.pf-boton { all: unset; cursor: pointer; display: block; }
+.pf-boton:disabled { cursor: default; }
+.pf-boton:not(:disabled):hover { text-decoration: underline; }
+.pf-parte small { display: block; }
+.pf-parte .ident { color: var(--azul); }
+.pf-marca, .pf-estado { font-weight: 700; }
+.pf-ok, .pf-listo { color: #7dffa0; }
+.pf-aviso { color: var(--ambar); }
+.pf-mal, .pf-falta { color: #ff7a6a; }
+.pf-nada { color: var(--crema-tenue); }
 .gg-prs.gg-prs-col { grid-template-columns: 1fr; gap: 14px; }
 .gg-pr-tarea { flex: none; font: 600 11px var(--t-mono); color: var(--g-tenue); background: none; border: 1px solid var(--g-borde); border-radius: 9px; padding: 0 7px; cursor: pointer; }
 .gg-pr-tarea:hover { color: inherit; }
@@ -1080,4 +1096,5 @@ html.en-segundo-plano *, html.en-segundo-plano *::before, html.en-segundo-plano 
 /* tablero de despliegue: los PR de una misma tarea, juntos en un bloque con el color de la tarea */
 .bloque-tarea.varios { border-left: 3px solid var(--tarea); padding: .15em 0 .1em .4em; margin: .1em 0 .55em; background: color-mix(in srgb, var(--tarea) 7%, transparent); }
 .bloque-tarea-cab { display: flex; align-items: center; gap: .4em; font: 600 .78em var(--t-mono); color: var(--tarea); letter-spacing: .04em; margin: .1em 0 .3em; }
+.bloque-tarea-preflight { margin-left: auto; font-size: .95em; color: var(--tarea); }
 .bloque-tarea-cab .marca-tarea { width: .6em; height: .6em; border-radius: 50%; background: var(--tarea); display: inline-block; }

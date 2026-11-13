@@ -275,6 +275,18 @@ or description says so ("depends on #12", "blocked by org/repo#7", the PR link) 
 the plan in plan mode without touching the repos. The list of your PRs and those awaiting your review is in Version
 Control (Pull requests tab of the git client; T from the Jira board).
 
+**Pre-flight of a task** (phase 1, read-only: `shared/preflight.ts`, `server/preflight.ts`, `web/src/ui/Preflight.tsx`,
+action `preflight.tarea`). One window per Jira key with every part of the task across the shelter: each PR of the task
+in every repo (the board's PRs plus all open ones, read from GitHub at most once a minute; R forces it), the task's
+worktrees without a PR yet and the parts of its shared plan not started. Per part: sync (local HEAD of its branch vs
+the PR's head on GitHub, without fetching: a head missing locally means remote commits, e.g. a bot's fix; plus
+uncommitted changes), CI, review and blockers ("waits for" / "blocks", with the other PR's state: a blocker's red CI is
+the blocker's problem, not this part's), then the merge waves of the task and what it waits for. Compare and checklist
+show "—" until phases 2-3. Each cell opens what fixes it: the part's conversation (Enter), the PR or its checks (O),
+the git client on its worktree (G). Ways in: F or the ✈ on a task block in the Deployment plan, ✈ in a copy's
+intercom (under its PR list) and ⌘K "Pre-flight ABC-123" (the tasks of your copies and open PRs, or any key typed).
+QA: `scripts/qa-preflight.mjs` (own server and test shelter; needs the built client).
+
 ## Linear's official MCP for the Planning dweller
 
 `server/integraciones/linear.ts` exports:

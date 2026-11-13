@@ -36,7 +36,8 @@ import { takeASurface, aAppClaude } from './superficie';
 import { openLink, openPage, pageForSession, pageAnswers, pageNotes, validatePage, revealPage, makeRoomForIntercom, answerPage } from './Navegadores';
 import { sessionPages, pendingPages, samePage, livePages, questionInput } from '@shared/paginasSesion';
 import type { PRBoard } from '@shared/tablero';
-import { worktreePRs } from '@shared/tareas';
+import { worktreePRs, worktreeTask } from '@shared/tareas';
+import { openPreflight } from './Preflight';
 import { jiraBoard } from './tareas';
 import { type AttachmentLocal, uploadFiles, chooseFiles, subiendo, listsPaths, AttachmentsTray, SentAttachments, useDictation, InputButtons, DictationStrip, attachShortcut } from './entrada';
 
@@ -422,6 +423,7 @@ function Console({ h, v }: { h: DwellerSummary; v: WindowCom }) {
             {s?.modelo && <div className="consola-dato">{s.modelo.replace('claude-', '')}</div>}
             {s && (s.contexto || s.tokens) ? <div className="consola-dato"><Usage s={s} largo /></div> : null}
             {copia ? <WorktreePRs copia={copia} salaId={h.sala} /> : null}
+            {copia ? <PreflightButton copia={copia} /> : null}
             {/* con `key`: cada conversación con su lista (nada de la pestaña anterior mientras llega la suya) */}
             {s ? <PagesMenu key={s.id} s={s} /> : vista.tipo === 'nuevo' && vista.reanudar ? <ResumePages key={vista.reanudar.claudeId} salaId={h.sala} claudeId={vista.reanudar.claudeId} /> : null}
           </aside>
@@ -901,6 +903,15 @@ function WorktreePRs({ copia, salaId }: { copia: { ruta: string; rama: string };
       {p.checks === 'FAILURE' || p.checks === 'ERROR' ? <span className="pr-mal">✕ CI</span> : null}
       {p.revision === 'APPROVED' ? <span className="pr-bien">✓</span> : p.revision === 'CHANGES_REQUESTED' ? <span className="pr-mal">±</span> : null}
     </li>)}</ul>}
+  </span>;
+}
+
+// el pre-flight de la tarea de la copia: todas sus partes en todos los repos (Preflight.tsx)
+function PreflightButton({ copia }: { copia: { ruta: string; rama: string } }) {
+  const tarea = worktreeTask(copia);
+  if (!tarea) return null;
+  return <span className="paginas-sesion">
+    <button className="consola-x" title={t('preflight.actionHint')} onClick={() => { SFX.clic(); minimizeIntercom(); openPreflight(tarea); }}>✈ {t('preflight.action', { clave: tarea })}</button>
   </span>;
 }
 

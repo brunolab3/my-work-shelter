@@ -11,6 +11,8 @@ import { goA } from './Paneles';
 import { openLink } from './Navegadores';
 import { type PRBoard } from '@shared/tablero';
 import { trTextPR } from './Operativas';
+import { openPreflight } from './Preflight';
+import { juego } from './estadoJuego';
 import { taskColor, pRTask } from '@shared/tareas';
 import { knowTasks, useColorsTasks } from './tareas';
 import { ledgerPending, type ReviewLedger } from '@shared/cuentaRevisiones';
@@ -91,6 +93,8 @@ export function DeploymentBoard({ salaId, volver }: { salaId: string; volver: ()
     for (const b of manuales.filter(b => b.de === de)) l = await cliente.accion<BlockerManual[]>('despliegue.bloquear', { de, por: b.por, quitar: true }).catch(() => l);
     setManual(l); remember({ manuales: l }); SFX.conmutar(); dispatchEvent(new Event('refugio:despliegue'));
   };
+  // el pre-flight de la tarea de un PR; Esc vuelve aquí
+  const preflight = (tarea: string) => { SFX.clic(); openPreflight(tarea, { panel: 'sala', panelData: { ...(juego.get().panelData ?? {}), salaId, vista: 'despliegue' } }); };
   const askPlan = () => {
     if (!habitante) { setNotice(t('panels.salaHasNoDweller', { sala: sala?.nombre ?? t('panels.theRoom') })); SFX.noAllowed(); return; }
     if (!prs.some(p => p.estado === 'abierto' || p.estado === 'borrador')) { setNotice(t('panels.youHaveNoPullRequests')); SFX.noAllowed(); return; }
@@ -109,6 +113,7 @@ export function DeploymentBoard({ salaId, volver }: { salaId: string; volver: ()
     else if (e.code === 'KeyH') { setSeeMerged(x => !x); setCol(0); setI(0); SFX.conmutar(); }
     else if (e.code === 'KeyR') { cargar(); SFX.clic(); }
     else if (e.code === 'KeyP') askPlan();
+    else if (e.code === 'KeyF' && sel) preflight(pRTask(sel));
   }, [columnas, col, i, sel, marking, manuales, prs, bloqueos, habitante]);
 
   // flechas: del PR que bloquea al que espera, medidas sobre las fichas ya pintadas
@@ -157,7 +162,7 @@ export function DeploymentBoard({ salaId, volver }: { salaId: string; volver: ()
             <h3>{tIs(c.nombre)} <span className="tenue">{c.prs.length}</span></h3>
             {bloques(c.prs).map(b => (
               <div key={b.tarea} className={'bloque-tarea' + (b.prs.length > 1 ? ' varios' : '')} style={{ '--tarea': taskColor(b.tarea) } as React.CSSProperties}>
-                {b.prs.length > 1 && <div className="bloque-tarea-cab"><span className="marca-tarea" />{b.tarea} <span className="tenue">· {b.prs.length}</span></div>}
+                {b.prs.length > 1 && <div className="bloque-tarea-cab"><span className="marca-tarea" />{b.tarea} <span className="tenue">· {b.prs.length}</span><button className="consola-x bloque-tarea-preflight" title={t('preflight.open')} onClick={e => { e.stopPropagation(); preflight(b.tarea); }}>✈ {t('preflight.title')}</button></div>}
             {b.prs.map(p => {
               const k = c.prs.indexOf(p);
               const esp = waitA(p.url), blq = blocksA(p.url);
@@ -185,9 +190,10 @@ export function DeploymentBoard({ salaId, volver }: { salaId: string; volver: ()
       {ciclo.length > 0 && <p className="aviso-consola">{t('panels.cyclicBlockersNobodyCanGo')} {ciclo.map(corto).join(', ')}. {t('panels.removeOneWithX')}</p>}
       {sel && waitA(sel.url).length > 0 && <p className="tenue">{corto(sel)} {t('panels.waitsFor')} {waitA(sel.url).map(b => `${corto(byUrl.get(b.por)!)} (${tIs(REASON[b.motivo])})`).join(', ')}.</p>}
       <div className="botonera">
+        {sel && <button className="boton-taller" onClick={() => preflight(pRTask(sel))} title={t('preflight.actionHint')}>{t('preflight.keyF', { clave: pRTask(sel) })}</button>}
         <button className="boton-taller" onClick={askPlan} title={t('panels.handsTheBoardToQuien', { quien: habitante?.nombre ?? t('panels.theRoomSDweller') })}>{habitante ? t('panels.pAskNombreForThe', { nombre: habitante.nombre }) : t('panels.pAskForTheDeployment')}</button>
       </div>
-      <Keys><kbd>←→</kbd>{t('panels.column')} <kbd>↑↓</kbd>{t('panels.pr')} <kbd>Enter</kbd>{marking ? t('panels.waitsForThisOne') : t('panels.openThePr')} <kbd>B</kbd>{t('panels.markWhichOneItWaits')} <kbd>X</kbd>{t('panels.removeTheMarked')} <kbd>H</kbd>{seeMerged ? t('panels.hideMerged') : t('panels.showMerged')} <kbd>P</kbd>{t('panels.deploymentPlan')} <kbd>R</kbd>{t('panels.reload')} <kbd>Esc</kbd>{marking ? t('panels.cancel') : t('menu.back')}</Keys>
+      <Keys><kbd>←→</kbd>{t('panels.column')} <kbd>↑↓</kbd>{t('panels.pr')} <kbd>Enter</kbd>{marking ? t('panels.waitsForThisOne') : t('panels.openThePr')} <kbd>B</kbd>{t('panels.markWhichOneItWaits')} <kbd>X</kbd>{t('panels.removeTheMarked')} <kbd>H</kbd>{seeMerged ? t('panels.hideMerged') : t('panels.showMerged')} <kbd>P</kbd>{t('panels.deploymentPlan')} <kbd>F</kbd>{t('preflight.title')} <kbd>R</kbd>{t('panels.reload')} <kbd>Esc</kbd>{marking ? t('panels.cancel') : t('menu.back')}</Keys>
     </Device>
   );
 }

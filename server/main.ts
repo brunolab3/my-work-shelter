@@ -24,6 +24,8 @@ import { TasksColors } from './coloresTareas.ts';
 import { agruparPorTarea, planDeSala, applyPlan } from './organizar.ts';
 import { ReviewsPR, REVIEWS_QUERY, remoteRepo } from './revisionesPR.ts';
 import { CIFailures, CI_QUERY } from './fallosCI.ts';
+import { cachedPRs, preflightOf, type CtxPreflight } from './preflight.ts';
+import type { PRBoard } from '../shared/tablero.ts';
 import { bloqueosEntre, pRKey } from '../shared/despliegue.ts';
 import { TasksCleanup } from './limpiezaTareas.ts';
 import { entornoGit } from './entornoGit.ts';
@@ -516,6 +518,24 @@ const fallosCI = new CIFailures(DATOS, {
 });
 setInterval(() => { fallosCI.sondear().catch(err => console.error('Fallos de CI:', String((err as Error).message).split('\n')[0])); }, 60_000).unref();
 
+// el pre-flight de una tarea (preflight.ts): sus partes en todas las salas, con sincronía, CI, revisión y bloqueos.
+// Solo lectura; los PR de GitHub, a lo sumo una lectura por minuto (R en la ventana fuerza otra)
+const prsPreflight = cachedPRs(async () => {
+  const G = await import('./git.ts'), c = await connectionGitHub();
+  const [recientes, abiertos] = await Promise.all([G.prsTablero(c), G.prsOpen(c).catch(() => ({ prs: [] as PRBoard[] }))]);
+  const porUrl = new Map([...recientes.prs, ...abiertos.prs].map(p => [p.url, p]));
+  return { prs: [...porUrl.values()], demo: recientes.demo, error: recientes.error };
+});
+const ctxPreflight: CtxPreflight = {
+  prs: prsPreflight,
+  salas: repoRooms,
+  manuales: () => bloqueosPR.todos(),
+  orden: () => tasksOrder(planes.todos(), roomRepoById),
+  plan: clave => planes.get(clave)?.partes.map(x => ({ salaId: x.salaId, sala: x.sala, titulo: x.titulo, waitA: x.waitA })),
+  color: clave => coloresTareas.colores([clave])[clave],
+  git: (cwd, args) => new Promise((ok, mal) => execFile('git', ['-C', cwd, ...args], { timeout: 15_000, env: entornoGit() }, (err, o, e) => err ? mal(new Error(String(e || err.message).trim())) : ok(String(o)))),
+};
+
 // las tareas con todos sus PR fusionados o cerrados (limpiezaTareas.ts), cada cinco minutos con GitHub conectado: el juego
 // quita solo sus worktrees si no queda otro trabajo en ellos (si queda, avisa de qué)
 const limpiezaTareas = new TasksCleanup(DATOS, {
@@ -763,6 +783,7 @@ async function accion(nombre: string, d: Record<string, any> = {}): Promise<unkn
     case 'sala.organizar': return organizeRooms(d.salaId ? String(d.salaId) : undefined, !!d.aplicar);
     case 'tareas.colores': return coloresTareas.colores(d.claves);
     case 'despliegue.bloqueos': return bloqueosPR.todos();
+    case 'preflight.tarea': return preflightOf(String(d.clave ?? ''), ctxPreflight, !!d.forzar);
     case 'despliegue.bloquear': return bloqueosPR.marcar(d.de, d.por, !!d.quitar);
     // el orden entre repos de cada tarea repartida (la parte de una sala espera a la de otra: planes.ts), por repo de GitHub
     case 'despliegue.orden': return tasksOrder(planes.todos(), id => { const s = e.salas.find(x => x.id === id); return s?.ruta ? roomRepo(s.ruta) : Promise.resolve(undefined); });

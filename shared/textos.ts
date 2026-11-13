@@ -8,5 +8,6 @@ import { PROMPTS } from './textos/prompts.ts';
 import { SERVIDOR } from './textos/servidor.ts';
 import { TOOLS } from './textos/herramientas.ts';
 import { INTEGRATIONS } from './textos/integraciones.ts';
+import { PREFLIGHT } from './textos/preflight.ts';
 
-export const TEXTS: Record<string, Texto> = { ...MENU, ...WORLD, ...PANELS, ...WINDOWS, ...PROMPTS, ...SERVIDOR, ...TOOLS, ...INTEGRATIONS };
+export const TEXTS: Record<string, Texto> = { ...MENU, ...WORLD, ...PANELS, ...WINDOWS, ...PROMPTS, ...SERVIDOR, ...TOOLS, ...INTEGRATIONS, ...PREFLIGHT };
