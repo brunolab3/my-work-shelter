@@ -256,6 +256,14 @@ a visible notice (who reviewed, which PR, which room and branch) and the messeng
 Control to the hologram of that worktree (to the dweller, if it's the main copy). Anything from before connecting
 isn't sent; what's delivered is recorded in `revisiones-pr.json` (data folder).
 
+**CI failures on your PRs, to the same conversation** (`server/fallosCI.ts`). Also every minute, the checks of the
+latest commit of your open PRs are read; when a PR's CI fails (FAILURE or ERROR) on its current head, ONE message goes
+to the conversation of that PR's worktree, found and opened just like reviews: the PR, its task key, the commit, the
+failing checks with their links and the tail of `gh run view --log-failed`. If other PRs wait for it (stacked, "depends
+on" in their description, the task's plan order or a manual blocker from the deployment plan, also across repos), the
+message and the notice say "blocks: org/repo#12"; those PRs are not failing and get nothing. Once per PR and commit
+(`fallos-ci.json`); the first poll only records what was already failing, so old red CI isn't flooded in. Read-only.
+
 **Deployment plan.** On the big screen of the Logistics room (its stock scene, without a dressing:
 `web/src/mundo/salas/despliegue.ts`; a click on it opens it), in the room panel or with ⌘K "Deployment plan": your PRs
 by state (draft, in review, changes requested, approved, merged) with the blockers between them as arrows and the order

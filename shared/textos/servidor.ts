@@ -209,6 +209,9 @@ export const SERVIDOR: Record<string, Texto> = {
   'server.cleanupWhenClosed': { es: '🧹 Hay una conversación abierta en {ruta}: lo quito en cuanto la cierres.', en: '🧹 There is an open conversation in {ruta}: I will remove it as soon as you close it.' },
   'server.cleanupLeftOpen': { es: 'una conversación abierta en él', en: 'an open conversation in it' },
   'server.newReviewDelivered': { es: '🔎 {authors} en tu PR #{numero} de {repo}: se lo he pasado a {sala} ({rama}).', en: '🔎 {authors} on your PR #{numero} in {repo}: handed to {sala} ({rama}).' },
+  'server.ciFailureDelivered': { es: '🚨 {clave}Falla la CI de tu PR #{numero} de {repo} ({checks}): se lo he pasado a {sala} ({rama}).{bloquea}', en: '🚨 {clave}CI failing on your PR #{numero} in {repo} ({checks}): handed to {sala} ({rama}).{bloquea}' },
+  'server.ciFailureBlocks': { es: ' Bloquea: {prs}.', en: ' Blocks: {prs}.' },
+  'server.ciNoConversation': { es: 'Falla la CI del PR #{numero} de {repo} (rama {rama}), y no encuentro el worktree de su tarea: organiza la sala por tareas (panel de la sala) y se lo paso.', en: 'CI failing on PR #{numero} in {repo} (branch {rama}), and I cannot find its task worktree: organise the room by tasks (room panel) and I will hand it over.' },
   // mensajes entre salas (server/avisosSalas.ts)
   'server.roomMessage': { es: '📨 {desde} → {a}: {resumen}', en: '📨 {desde} → {a}: {resumen}' },
   // línea de estado y permisos de las herramientas de Claude Code (server/herramientas.ts)

@@ -23,6 +23,8 @@ import { BlockersPR } from './bloqueosPR.ts';
 import { TasksColors } from './coloresTareas.ts';
 import { agruparPorTarea, planDeSala, applyPlan } from './organizar.ts';
 import { ReviewsPR, REVIEWS_QUERY, remoteRepo } from './revisionesPR.ts';
+import { CIFailures, CI_QUERY } from './fallosCI.ts';
+import { bloqueosEntre, pRKey } from '../shared/despliegue.ts';
 import { TasksCleanup } from './limpiezaTareas.ts';
 import { entornoGit } from './entornoGit.ts';
 import { captureRoom } from './capturaSala.ts';
@@ -489,6 +491,30 @@ const revisionesPR = new ReviewsPR(DATOS, {
   withoutConversation: texto => broadcast({ t: 'aviso', nivel: 'info', texto }),
 });
 setInterval(() => { revisionesPR.sondear().catch(err => console.error('Revisiones de PR:', String((err as Error).message).split('\n')[0])); }, 60_000).unref();
+
+// la CI que falla en tus PR (fallosCI.ts), cada minuto con GitHub conectado: una vez por PR y commit, a la conversación
+// del worktree del PR (como las revisiones), con la clave de su tarea y los PR que esperan a ese
+const roomRepoById = (id: string) => { const s = almacen.estado.salas.find(x => x.id === id); return s?.ruta ? roomRepo(s.ruta) : Promise.resolve(undefined); };
+const fallosCI = new CIFailures(DATOS, {
+  connection: connectionGitHub,
+  consultar: async token => JSON.parse(await (await import('./git.ts')).gh(['api', 'graphql', '-f', 'query=' + CI_QUERY], token)),
+  log: async (repo, run, token) => (await import('./git.ts')).gh(['run', 'view', String(run), '-R', repo, '--log-failed'], token, 30_000),
+  bloqueos: async prs => bloqueosEntre(prs, bloqueosPR.todos(), await tasksOrder(planes.todos(), roomRepoById)),
+  salas: repoRooms,
+  sesiones: () => sesiones.lista(),
+  avisar: ctxPlan.avisar,
+  abrir: (salaId, cwd, texto) => sendToFolder(salaId, cwd, texto, 'plan'),
+  delivered: (salaId, worktree, pr, bloquea) => {
+    broadcast({ t: 'mensajero', desde: 'git', a: [salaId], motivo: 'ci', worktree });
+    const sala = almacen.estado.salas.find(s => s.id === salaId)?.nombre ?? salaId, clave = pRKey(pr);
+    broadcast({ t: 'aviso', nivel: 'aviso', texto: t('server.ciFailureDelivered', {
+      clave: clave ? `[${clave}] ` : '', numero: pr.numero, repo: pr.repo, sala, rama: pr.rama, checks: pr.fallos.map(f => f.nombre).slice(0, 3).join(', ') || 'CI',
+      bloquea: bloquea.length ? t('server.ciFailureBlocks', { prs: bloquea.join(', ') }) : '',
+    }) });
+  },
+  withoutConversation: texto => broadcast({ t: 'aviso', nivel: 'info', texto }),
+});
+setInterval(() => { fallosCI.sondear().catch(err => console.error('Fallos de CI:', String((err as Error).message).split('\n')[0])); }, 60_000).unref();
 
 // las tareas con todos sus PR fusionados o cerrados (limpiezaTareas.ts), cada cinco minutos con GitHub conectado: el juego
 // quita solo sus worktrees si no queda otro trabajo en ellos (si queda, avisa de qué)
