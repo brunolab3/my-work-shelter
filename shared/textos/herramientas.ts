@@ -104,6 +104,8 @@ export const TOOLS: Record<string, Texto> = {
   'tool.compare.paramUncommitted': { es: 'Incluir lo que aún no está en un commit (por defecto, sí)', en: 'Include what is not committed yet (yes by default)' },
   'tool.compare.ready': { es: 'Página lista: {enlace} — {rama} frente a {base}: {n} archivos, +{mas} −{menos}. Enlázala así en tu respuesta (tal cual, con los <…>: la ruta lleva espacios) para que el Supervisor la abra en el juego.', en: 'Page ready: {enlace} — {rama} against {base}: {n} files, +{mas} −{menos}. Link it like this in your reply (as is, with the <…>: the path has spaces) so the Overseer can open it in the game.' },
   'tool.compare.failed': { es: 'No se pudo generar: {error}', en: 'Could not generate it: {error}' },
+  'tool.compare.paramFolder': { es: 'Otro worktree del mismo repo que comparar (ruta absoluta); si no, la carpeta de esta conversación', en: 'Another worktree of the same repo to compare (absolute path); otherwise, this conversation\'s folder' },
+  'tool.compare.notAWorktree': { es: '«{carpeta}» no es un worktree de este repo (git worktree list).', en: '“{carpeta}” is not a worktree of this repo (git worktree list).' },
   'tool.compare.noSuchBase': { es: 'No existe «{base}» en este repo.', en: '“{base}” does not exist in this repo.' },
   'tool.compare.noBase': { es: 'No encuentro con qué comparar: dime la base (una rama o un commit).', en: 'I cannot find what to compare against: tell me the base (a branch or a commit).' },
   'tool.compare.binary': { es: 'Archivo binario.', en: 'Binary file.' },

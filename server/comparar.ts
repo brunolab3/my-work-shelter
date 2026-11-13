@@ -181,6 +181,16 @@ export async function buildTaskCompare(clave: string, partes: { worktree: string
   return { archivo, archivos: todos.length, mas: todos.reduce((n, f) => n + f.mas, 0), menos: todos.reduce((n, f) => n + f.menos, 0) };
 }
 
+/** Otra copia (worktree) del mismo repo que la conversación: solo esas, nunca una carpeta cualquiera */
+export async function sameRepoWorktree(cwd: string, carpeta: string): Promise<string> {
+  const real = (d: string) => fs.realpath(d).catch(() => path.resolve(d));   // /var → /private/var
+  const pedida = await real(path.resolve(cwd, carpeta));
+  const lista = await gitOr(cwd, ['worktree', 'list', '--porcelain']);
+  const copias = await Promise.all(lista.split('\n').filter(l => l.startsWith('worktree ')).map(l => real(l.slice(9))));
+  if (!copias.includes(pedida)) throw new Error(t('tool.compare.notAWorktree', { carpeta: pedida }));
+  return pedida;
+}
+
 /** La herramienta del habitante, en la carpeta de su conversación (la del worktree, si trabaja en uno) */
 export function mcpReview(cwd: () => string, preflight?: { estado(cwd: string): Promise<string>; responder(cwd: string, item: string, estado: 'ok' | 'n/a' | 'pendiente', nota?: string): Promise<string> }) {
   const texto = (text: string) => ({ content: [{ type: 'text' as const, text }] });
@@ -195,10 +205,11 @@ export function mcpReview(cwd: () => string, preflight?: { estado(cwd: string): 
           async a => texto(await preflight.responder(cwd(), a.item, a.estado, a.nota).catch(e => (e as Error).message))),
       ] : []),
       tool('comparar_cambios', t('tool.compare.description'),
-        { base: z.string().optional().describe(t('tool.compare.paramBase')), sinCommit: z.boolean().optional().describe(t('tool.compare.paramUncommitted')), titulo: z.string().optional() },
-        async a => {
+        { base: z.string().optional().describe(t('tool.compare.paramBase')), sinCommit: z.boolean().optional().describe(t('tool.compare.paramUncommitted')), titulo: z.string().optional(),
+          carpeta: z.string().optional().describe(t('tool.compare.paramFolder')) },
+        async ({ carpeta, ...a }) => {
           try {
-            const r = await buildCompare(cwd(), a);
+            const r = await buildCompare(carpeta ? await sameRepoWorktree(cwd(), carpeta) : cwd(), a);
             return { content: [{ type: 'text', text: t('tool.compare.ready', { enlace: pageLink(r.archivo), rama: r.rama, base: r.base, n: r.archivos, mas: r.mas, menos: r.menos }) }] };
           } catch (e) { return { content: [{ type: 'text', text: t('tool.compare.failed', { error: (e as Error).message }) }], isError: true }; }
         }),

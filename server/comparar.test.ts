@@ -1,8 +1,8 @@
 // La página de comparación para revisar cambios con notas (comparar.ts): con un repo de verdad
 import { describe, expect, it } from 'vitest';
-import { buildCompare, parseDiff, COMPARES_FOLDER } from './comparar.ts';
+import { buildCompare, parseDiff, COMPARES_FOLDER, sameRepoWorktree } from './comparar.ts';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -37,6 +37,16 @@ describe('comparación de cambios', () => {
     expect((await buildCompare(d, { sinCommit: false })).mas).toBe(2);
     await expect(buildCompare(d, { base: 'no-existe' })).rejects.toThrow(/no-existe/);
   });
+  it('otra copia del mismo repo se puede comparar desde la conversación; una carpeta que no es su worktree, no', async () => {
+    const d = repo();
+    const copia = path.join(mkdtempSync(path.join(os.tmpdir(), 'copia-')), 'otra');
+    execFileSync('git', ['worktree', 'add', '-q', '-b', 'otra', copia, 'main'], { cwd: d });
+    expect(await sameRepoWorktree(d, copia)).toBe(realpathSync(copia));
+    await expect(sameRepoWorktree(d, os.tmpdir())).rejects.toThrow();
+    await expect(sameRepoWorktree(copia, d)).resolves.toBe(realpathSync(d));
+    expect((await buildCompare(await sameRepoWorktree(d, copia))).rama).toBe('otra');
+  });
+
   it('los números de línea de cada lado', () => {
     const [f] = parseDiff('diff --git a/x b/x\n--- a/x\n+++ b/x\n@@ -10,2 +10,3 @@ f\n uno\n-dos\n+DOS\n+tres\n');
     expect(f.lineas.map(l => [l.tipo, l.viejo, l.nuevo])).toEqual([['@', undefined, undefined], [' ', 10, 10], ['-', 11, undefined], ['+', undefined, 11], ['+', undefined, 12]]);
