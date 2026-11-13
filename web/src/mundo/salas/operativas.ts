@@ -6,9 +6,10 @@ import { cartel, PhosphorScreen, PanelRoom, ListScreen, WeekWhiteboard, Reloj, B
 import { overlayScreen, screenFrontal } from '../util3d';
 import { signInWall, mancha, highBand, monitorWall, workStation, caja, materialSteel, HEIGHT, type Contexto } from './comun';
 import { vivo, cliente } from '../../red/cliente';
-import { cruzarTablero, type PRBoard, type TaskWithPR, type TaskJira } from '@shared/tablero';
+import { cruzarTablero, type TaskWithPR } from '@shared/tablero';
 import { taskColor, pRTask } from '@shared/tareas';
-import { aimColors, knowTasks } from '../../ui/tareas';
+import { aimColors, knowTasks, jiraBoard } from '../../ui/tareas';
+import { t as tr, tIs } from '@shared/idioma';
 
 const SOURCE_ICON: Record<string, string> = { outlook: 'CORREO', google: 'GMAIL', mail: 'MAIL', discord: 'DISCORD', slack: 'SLACK', github: 'GITHUB', linear: 'LINEAR' };
 const SOURCE_INK: Record<string, string> = { outlook: '#c8bfa4', google: '#e6d28a', mail: '#c6bce6', discord: '#d39a6a', slack: '#ffb36b', github: '#b8c4d8', linear: '#9dffb8' };   // acero, paja, óxido, ámbar, niebla, fósforo
@@ -142,6 +143,13 @@ export async function furnishPlanning(ctx: Contexto) {
   });
 }
 
+// reescribe una pantalla de fósforo solo si cambia lo que dice (se vuelve a teclear)
+const firmas = new WeakMap<PhosphorScreen, string>();
+function rewrite(p: PhosphorScreen, lineas: string[]) {
+  const f = lineas.join('\n'); if (firmas.get(p) === f) return; firmas.set(p, f);
+  p.lineas = []; p.queue = [...lineas];
+}
+
 // ---------------------------------------------------------------- Logística (Linear)
 export async function furnishLogistics(ctx: Contexto) {
   const { g, v, zB, K, P, semilla } = ctx;
@@ -199,19 +207,29 @@ export async function furnishLogistics(ctx: Contexto) {
   ctx.sala.walkZones = [[-1.9, -1.5], [1.5, 2.2]];
   ctx.sparks = new THREE.Vector3(3.0, 1.2, zB + 1.5);
   ctx.lamparas = [{ x: -4.2, z: 0.6, o: { intensidad: 80 } }, { x: 0, z: 0.9, o: { intensidad: 105, sombra: true, corta: true } }, { x: 4.2, z: 0.6, o: { intensidad: 80 } }];
-  let lastReading = -1e9; let tareas: TaskJira[] | null = null; let prs: PRBoard[] = [];
+  let lastReading = -1e9;
   ctx.alActualizar((dt, t) => {
-    // el tablero de la pared: tus tareas de Jira (en DEMO, las de ejemplo) por estado, con cuántos PR llevan
-    if (t - lastReading > 120) {
+    // el tablero de la pared: tus tareas de Jira (en DEMO, las de ejemplo) por estado, con cuántos PR llevan. Lee cada
+    // minuto (el servidor guarda Jira dos) y pinta lo último que haya leído cualquiera: el panel, al abrirlo o con R,
+    // la pone al día al momento
+    if (t - lastReading > 60) {
       lastReading = t;
-      cliente.accion<any>('integracion.panel', { fuente: 'jira' }).then(p => { tareas = p.tareas ?? []; aimColors(tareas!); }).catch(() => {});
-      cliente.accion<any>('git.prsTablero', {}).then(p => { prs = p.prs ?? []; knowTasks(prs.map(pRTask)); }).catch(() => {});
+      cliente.accion<any>('integracion.panel', { fuente: 'jira' }).then(p => { aimColors(p.tareas ?? []); jiraBoard.set({ tareas: p.tareas ?? [] }); }).catch(() => {});
+      cliente.accion<any>('git.prsTablero', {}).then(p => { knowTasks((p.prs ?? []).map(pRTask)); jiraBoard.set({ prs: p.prs ?? [] }); }).catch(() => {});
     }
+    const { tareas, prs } = jiraBoard.get();
     if (tareas) {
       const crossing = cruzarTablero(tareas, prs);
       const prioridad = (p?: string) => /highest|blocker|critical/i.test(p ?? '') ? 1 : /high|alta/i.test(p ?? '') ? 2 : /low|baja/i.test(p ?? '') ? 4 : 3;
       const ficha = (i: TaskWithPR) => ({ id: i.clave, color: taskColor(i.clave), titulo: i.titulo, prioridad: prioridad(i.prioridad), sub: [i.estado, i.prs.length ? `${i.prs.length} PR` : ''].filter(Boolean).join(' · '), asignado: 'Tú' });
-      tablero.poner(crossing.columnas.filter(c => c.id !== 'hecho').map(c => ({ nombre: c.nombre, fichas: c.tareas.map(ficha) })), null);
+      tablero.titulo = 'JIRA · ' + tr('panels.myJiraTasks');
+      const vivas = crossing.columnas.filter(c => c.id !== 'hecho');
+      tablero.poner(vivas.map(c => ({ nombre: tIs(c.nombre), fichas: c.tareas.map(ficha), tinta: c.id === 'bloqueado' ? '#ff5a4a' : undefined })), null);
+      // las dos pantallas pequeñas, con las cuentas de verdad (no los números de muestra)
+      const n = (id: string) => crossing.columnas.find(c => c.id === id)?.tareas.length ?? 0;
+      const counts = [`${tIs('Por hacer').toLowerCase()}: ${n('porHacer')}`, `${tIs('En curso').toLowerCase()}: ${n('enCurso')}`, `${tIs('En revisión').toLowerCase()}: ${n('revision')}`];
+      const totals = [`jira: ${vivas.reduce((s, c) => s + c.tareas.length, 0)}`, `prs: ${prs.filter(p => p.estado === 'abierto' || p.estado === 'borrador').length}`, `${tIs('Bloqueado').toLowerCase()}: ${n('bloqueado')}`];
+      rewrite(pMias, counts); rewrite(pIssues, totals);
     } else {
       const ns: any[] = (vivo.get().notificaciones ?? []).filter((n: any) => n.fuente === 'linear');
       const fichas = ns.map(n => ({ id: n.canal ?? 'REF', titulo: (/«([^»]+)»/.exec(n.fragmento ?? '')?.[1]) ?? n.fragmento ?? n.titulo, prioridad: n.prioridad === 'alta' ? 1 : n.prioridad === 'media' ? 2 : 3, txt: n.fragmento ?? '' }));

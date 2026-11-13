@@ -1241,6 +1241,7 @@ export const PANELS: Record<string, Texto> = {
   'panels.lights': { es: 'Luces', en: 'Lights' },
   'panels.toDo': { es: 'Por hacer', en: 'To do' },
   'panels.inProgress2': { es: 'En curso', en: 'In progress' },
+  'panels.blocked': { es: 'Bloqueado', en: 'Blocked' },
   'panels.inReview': { es: 'En revisión', en: 'In review' },
   'panels.done2': { es: 'Hecho', en: 'Done' },
   'panels.draft': { es: 'Borrador', en: 'Draft' },

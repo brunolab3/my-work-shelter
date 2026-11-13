@@ -27,6 +27,7 @@ describe('cruzarTablero', () => {
     expect(r.columnas.map(c => [c.nombre, c.tareas.map(t => [t.clave, t.prs.map(p => p.numero)])])).toEqual([
       ['Por hacer', [['ABC-2', []]]],
       ['En curso', []],
+      ['Bloqueado', []],
       ['En revisión', [['ABC-1', [10, 11]]]],
       ['Hecho', [['ABC-3', [12]]]],
     ]);
@@ -44,6 +45,20 @@ describe('columna En revisión', () => {
     const col = (id: string) => r.columnas.find(c => c.id === id)!.tareas.map(t => t.clave);
     expect(col('enCurso')).toEqual(['ABC-1', 'ABC-3']);
     expect(col('revision')).toEqual(['ABC-2', 'ABC-4']);
+  });
+});
+
+describe('columna Bloqueado', () => {
+  it('va a bloqueado lo que se llama así en Jira, aunque tenga un PR abierto o Jira lo cuente como por hacer', () => {
+    const r = cruzarTablero(
+      [tarea('ABC-1', 'indeterminate', 'Blocked'), tarea('ABC-2', 'new', 'On Hold'), tarea('ABC-3', 'indeterminate', 'Bloqueado'), tarea('ABC-4', 'done', 'Blocked'), tarea('ABC-5', 'indeterminate')],
+      [pr(1, 'ABC-3-x', 'x', 'abierto')],
+    );
+    const col = (id: string) => r.columnas.find(c => c.id === id)!.tareas.map(t => t.clave);
+    expect(r.columnas.map(c => c.id)).toEqual(['porHacer', 'enCurso', 'bloqueado', 'revision', 'hecho']);
+    expect(col('bloqueado')).toEqual(['ABC-1', 'ABC-2', 'ABC-3']);
+    expect(col('hecho')).toEqual(['ABC-4']);
+    expect(col('enCurso')).toEqual(['ABC-5']);
   });
 });
 

@@ -2,6 +2,7 @@
 // guarda y reparte para que no se repitan) y, al llegar, se repinta lo que los usa (tableros con useColoresTareas;
 // pantallas y hologramas miran `versionColores`).
 import { assignedColors } from '@shared/tareas';
+import type { PRBoard, TaskJira } from '@shared/tablero';
 import { cliente } from '../red/cliente';
 import { Store } from './almacen';
 
@@ -27,3 +28,7 @@ export function knowTasks(claves: (string | undefined)[]) {
     }).catch(() => { for (const k of lote) requested.delete(k); });
   }, 80);
 }
+
+/** Lo último leído del tablero de Jira (tareas y PR): lo apuntan el panel y la pantalla de Planificación, y la pantalla
+ *  lo pinta al momento (recargar el panel con R también la pone al día) */
+export const jiraBoard = new Store<{ tareas: TaskJira[] | null; prs: PRBoard[] }>({ tareas: null, prs: [] });

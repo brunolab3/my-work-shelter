@@ -508,21 +508,24 @@ export function splitByWords(g: CanvasRenderingContext2D, texto: string, ancho: 
 
 // Tablero de tareas de la pantalla grande de Logística: columnas por estado con fichas (asignado y estimación)
 // que llenan la altura aunque haya pocas, y abajo la gráfica del ciclo (lo que queda frente al ideal, día a día).
+export interface BoardColumnTex { nombre: string; fichas: BoardCard[]; tinta?: string }
 export interface BoardCard { id: string; titulo: string; prioridad?: number; sub?: string; asignado?: string; estimacion?: number; color?: string }   // color: el de su tarea (shared/tareas.ts)
 export interface BoardCycle { nombre: string; progreso: number; inicio?: number; fin?: number; reach?: number[]; hecho?: number[] }
 export class BoardKanban {
   c: HTMLCanvasElement; g: CanvasRenderingContext2D; tex: THREE.CanvasTexture; private firma = '';
+  titulo = 'LINEAR · MIS INCIDENCIAS';
   // 1408×624: la misma proporción que la pantalla (5,3 × 2,35 m), sin estirar la letra
   constructor(private color = '#ff9a7a') { ({ c: this.c, g: this.g } = lienzo(1408, 624)); this.tex = textureOf(this.c); this.poner([], null); }
-  poner(columnas: { nombre: string; fichas: BoardCard[] }[], ciclo: BoardCycle | null) {
-    const f = JSON.stringify([columnas, ciclo]); if (f === this.firma) return; this.firma = f;
+  // tinta: el color de una columna que tiene que llamar la atención (Bloqueado), en su cabecera y en la gráfica
+  poner(columnas: BoardColumnTex[], ciclo: BoardCycle | null) {
+    const f = JSON.stringify([this.titulo, columnas, ciclo]); if (f === this.firma) return; this.firma = f;
     const { g } = this; const W = this.c.width, H = this.c.height; const col = this.color;
     const INK = '#f2d8cc', BACKGROUND = '#0c0807', CARD = '#1f1311';
     g.fillStyle = BACKGROUND; g.fillRect(0, 0, W, H);
     g.textBaseline = 'top'; g.textAlign = 'left';
     // cabecera: título a la izquierda, ciclo y barra de progreso a la derecha
     g.fillStyle = col; g.font = `700 30px ${SOURCES.mono}`; g.shadowColor = col; g.shadowBlur = 10;
-    g.fillText('LINEAR · MIS INCIDENCIAS', 28, 18); g.shadowBlur = 0;
+    g.fillText(this.titulo, 28, 18); g.shadowBlur = 0;
     if (ciclo) {
       const dia = 86400000; const remain = ciclo.fin ? Math.max(0, Math.ceil((ciclo.fin - Date.now()) / dia)) : null;
       g.font = `600 24px ${SOURCES.mono}`; g.textAlign = 'right';
@@ -534,8 +537,9 @@ export class BoardKanban {
     const yc = 78, y0 = 120, y1 = 374, hueco = 9, MAXF = 5;
     columnas.forEach((c, i) => {
       const x = 28 + i * cw + 5, w = cw - 10;
-      g.fillStyle = col + '24'; g.fillRect(x, yc, w, 36);
-      g.fillStyle = col; g.font = `700 24px ${SOURCES.mono}`; g.fillText(c.nombre.toUpperCase(), x + 14, yc + 6);
+      const cc = c.tinta ?? col;
+      g.fillStyle = cc + '24'; g.fillRect(x, yc, w, 36);
+      g.fillStyle = cc; g.font = `700 24px ${SOURCES.mono}`; g.fillText(c.nombre.toUpperCase(), x + 14, yc + 6);
       const pts = c.fichas.reduce((s, fi) => s + (fi.estimacion ?? 0), 0);
       g.textAlign = 'right'; g.font = `600 22px ${SOURCES.mono}`; g.fillText(`${c.fichas.length}${pts ? ` · ${pts} pt` : ''}`, x + w - 12, yc + 8); g.textAlign = 'left';
       const vis = c.fichas.slice(0, c.fichas.length > MAXF ? MAXF - 1 : MAXF); const mas = c.fichas.length - vis.length;
@@ -600,7 +604,7 @@ export class BoardKanban {
   }
   // lo que queda del ciclo, día a día: la línea ideal (discontinua) y la real con relleno, el día de hoy marcado
   // y las cifras a la derecha. Sin ciclo activo, el reparto de las incidencias por estado.
-  private graphic(ciclo: BoardCycle | null, columnas: { nombre: string; fichas: BoardCard[] }[], bx: number, by: number, bw: number, bh: number, col: string, tinta: string) {
+  private graphic(ciclo: BoardCycle | null, columnas: BoardColumnTex[], bx: number, by: number, bw: number, bh: number, col: string, tinta: string) {
     const { g } = this;
     g.fillStyle = '#140d0b'; g.fillRect(bx, by, bw, bh); g.strokeStyle = col + '44'; g.lineWidth = 1.5; g.strokeRect(bx, by, bw, bh);
     const kpiW = 330; const gx = bx + 70, gy = by + 42, gw = bw - kpiW - 100, gh = bh - 74;
@@ -608,7 +612,7 @@ export class BoardKanban {
     const total = columnas.reduce((s, c) => s + c.fichas.length, 0);
     if (!ciclo) {
       const colores = [col + '66', '#ffb000', '#5dff8a']; let xx = gx;
-      columnas.forEach((c, i) => { const w = total ? gw * c.fichas.length / total : gw / columnas.length; if (w < 6) return; g.fillStyle = colores[i % 3]; g.fillRect(xx, gy + 20, w - 4, gh - 40); g.fillStyle = '#120a08'; g.font = `700 24px ${SOURCES.mono}`; if (w > 120) g.fillText(`${c.nombre} ${c.fichas.length}`, xx + 12, gy + gh / 2 - 12); xx += w; });
+      columnas.forEach((c, i) => { const w = total ? gw * c.fichas.length / total : gw / columnas.length; if (w < 6) return; g.fillStyle = c.tinta ?? colores[i % 3]; g.fillRect(xx, gy + 20, w - 4, gh - 40); g.fillStyle = '#120a08'; g.font = `700 24px ${SOURCES.mono}`; if (w > 120) g.fillText(`${c.nombre} ${c.fichas.length}`, xx + 12, gy + gh / 2 - 12); xx += w; });
       return;
     }
     const dia = 86400000; const ahora = Date.now();

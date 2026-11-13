@@ -12,7 +12,7 @@ import { SOURCES as IDS_SOURCES, ACTIVE_SOURCES, CALENDAR_SOURCES, INFO_SOURCE, 
 import { PLANNING_ROOM } from '@shared/disposicion';
 import { openGit } from './git/ventana';
 import { taskColor, pRTask } from '@shared/tareas';
-import { aimColors, knowTasks, useColorsTasks } from './tareas';
+import { aimColors, knowTasks, useColorsTasks, jiraBoard } from './tareas';
 import { cruzarTablero, textoPR, promptPlanificar, type PRBoard, type TaskWithPR, type TaskJira } from '@shared/tablero';
 
 const SOURCES: Record<string, string> = Object.fromEntries(IDS_SOURCES.map(f => [f, INFO_SOURCE[f].corto]));
@@ -229,8 +229,8 @@ export function BoardJira({ volver, coordinacion }: { volver: () => void; coordi
   const [seeDone, setSeeDone] = useState(true);
   const [col, setCol] = useState(0); const [i, setI] = useState(0);
   const cargar = (forzar = false) => {
-    cliente.accion<any>('integracion.panel', { fuente: 'jira', forzar }).then(d => { aimColors(d.tareas ?? []); setJira(d); setError(''); }).catch(e => setError(e.message));
-    cliente.accion<any>('git.prsTablero', {}).then(setGh).catch(e => setGh({ prs: [], error: e.message }));
+    cliente.accion<any>('integracion.panel', { fuente: 'jira', forzar }).then(d => { aimColors(d.tareas ?? []); setJira(d); setError(''); jiraBoard.set({ tareas: d.tareas ?? [] }); }).catch(e => setError(e.message));
+    cliente.accion<any>('git.prsTablero', {}).then(d => { setGh(d); jiraBoard.set({ prs: d?.prs ?? [] }); }).catch(e => setGh({ prs: [], error: e.message }));
   };
   useEffect(() => { cargar(); }, []);
   const crossing = useMemo(() => cruzarTablero(jira?.tareas ?? [], gh?.prs ?? []), [jira, gh]);
@@ -264,7 +264,7 @@ export function BoardJira({ volver, coordinacion }: { volver: () => void; coordi
       {(!jira || !gh) && !error && <p className="tenue">{t('panels.readingJiraAndGithub')}</p>}
       <div className="kanban" style={{ gridTemplateColumns: `repeat(${Math.max(1, columnas.length)}, 1fr)` }}>
         {columnas.map((c, ci) => (
-          <div key={c.id} className={'kanban-col' + (ci === col ? ' activa' : '')}>
+          <div key={c.id} className={'kanban-col' + (c.id === 'bloqueado' ? ' kanban-bloqueado' : '') + (ci === col ? ' activa' : '')}>
             <h3>{tIs(c.nombre)} <span className="tenue">{c.tareas.length}</span></h3>
             {c.tareas.map((ta, k) => (
               <div key={ta.clave} className={'ficha-issue con-tarea' + (ci === col && k === Math.min(i, c.tareas.length - 1) ? ' sel' : '')} style={{ '--tarea': taskColor(ta.clave) } as React.CSSProperties} onMouseEnter={() => { setCol(ci); setI(k); }} onDoubleClick={() => openOutside(ta.url)}>
