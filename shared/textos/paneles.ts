@@ -601,6 +601,8 @@ export const PANELS: Record<string, Texto> = {
   'panels.nothingForQTryAnother': { es: 'Nada con «{q}». Prueba con otra palabra.', en: 'Nothing for “{q}”. Try another word.' },
   'panels.gameStuffOptionsRestartQuit': { es: 'lo del juego (opciones, reiniciar, salir) está en el menú de', en: 'game stuff (options, restart, quit) is in the menu on' },
   'panels.inHH': { es: 'en {h} h', en: 'in {h} h' },
+  'panels.tomorrowAt': { es: 'mañana a las {hora}', en: 'tomorrow at {hora}' },
+  'panels.inNDaysAt': { es: 'en {n} días a las {hora}', en: 'in {n} days at {hora}' },
   'panels.nMin': { es: '{n} min', en: '{n} min' },
   'panels.theLinkToTheShelter': { es: 'Se ha perdido el enlace con el servidor del refugio; los datos de la regleta pueden estar viejos', en: 'The link to the shelter server was lost; the bar\'s data may be stale' },
   'panels.noLinkRetrying': { es: 'SIN ENLACE · reintentando', en: 'NO LINK · retrying' },

@@ -33,6 +33,10 @@ function untilMinutes(ts: number, ahora: number) {
   const m = Math.round((ts - ahora) / 60000);
   if (m <= 0) return t('windows.now');
   if (m < 60) return t('panels.inNMin', { n: m });
+  // otro día: «mañana a las 10:00» o «en 3 días a las 10:00» (días de calendario, no de 24 h)
+  const dias = Math.round((new Date(ts).setHours(0, 0, 0, 0) - new Date(ahora).setHours(0, 0, 0, 0)) / 86400_000);
+  if (dias === 1) return t('panels.tomorrowAt', { hora: fmtHour.format(ts) });
+  if (dias > 1) return t('panels.inNDaysAt', { n: dias, hora: fmtHour.format(ts) });
   const h = Math.floor(m / 60); return t('panels.inHH', { h }) + (m % 60 ? ' ' + t('panels.nMin', { n: m % 60 }) : '');
 }
 
