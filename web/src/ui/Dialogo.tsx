@@ -33,8 +33,10 @@ import { CMD, nextZ, windowShortcut, WindowButtons, Tabs, Confirmation } from '.
 import { sessionOwner, interlocutor, branchCaption } from './copias';
 import { Usage } from './consumo';
 import { takeASurface, aAppClaude } from './superficie';
-import { openPage, pageAnswers, pageNotes, validatePage, revealPage, makeRoomForIntercom, answerPage } from './Navegadores';
+import { openLink, openPage, pageForSession, pageAnswers, pageNotes, validatePage, revealPage, makeRoomForIntercom, answerPage } from './Navegadores';
 import { sessionPages, pendingPages, samePage, livePages, questionInput } from '@shared/paginasSesion';
+import type { PRBoard } from '@shared/tablero';
+import { jiraBoard } from './tareas';
 import { type AttachmentLocal, uploadFiles, chooseFiles, subiendo, listsPaths, AttachmentsTray, SentAttachments, useDictation, InputButtons, DictationStrip, attachShortcut } from './entrada';
 
 type View = { tipo: 'menu' } | { tipo: 'nuevo'; reanudar?: HistoryElement } | { tipo: 'historial' } | { tipo: 'visitantes' } | { tipo: 'ficha' } | { tipo: 'sesion'; sesionId: string };
@@ -125,6 +127,8 @@ function openIntercom(hid: string) {
   if (ventana(hid)) actualizar(hid, { maximizada: ampliada });
   if (!ampliada) makeRoomForIntercom();
   openIntercomWindow(hid, ampliada);
+  const v = ventana(hid), p = v?.pestanas.find(x => x.id === v.activa);
+  pageForSession(p && sessionOf(p)?.id);
 }
 // al hablar con un habitante: su ventana, con una pestaña por cada trabajo suyo (la más urgente delante)
 function openIntercomWindow(hid: string, ampliada: boolean) {
@@ -157,7 +161,11 @@ function newTab(hid: string, vista: View = { tipo: 'menu' }) {
   actualizar(hid, v => ({ pestanas: [...v.pestanas, { id, vista }], activa: id }));
   SFX.abrir();
 }
-function activar(hid: string, pid: string) { actualizar(hid, { activa: pid }); SFX.tick(); }
+function activar(hid: string, pid: string) {
+  actualizar(hid, { activa: pid }); SFX.tick();
+  const p = ventana(hid)?.pestanas.find(x => x.id === pid);
+  pageForSession(p && sessionOf(p)?.id);   // la ventana «Página», con la de esta conversación (o fuera)
+}
 function moveTab(hid: string, paso: number) {
   const v = ventana(hid); if (!v || v.pestanas.length < 2) return;
   const i = v.pestanas.findIndex(p => p.id === v.activa);
@@ -412,7 +420,9 @@ function Console({ h, v }: { h: DwellerSummary; v: WindowCom }) {
             </>}
             {s?.modelo && <div className="consola-dato">{s.modelo.replace('claude-', '')}</div>}
             {s && (s.contexto || s.tokens) ? <div className="consola-dato"><Usage s={s} largo /></div> : null}
-            {s ? <PagesMenu s={s} /> : vista.tipo === 'nuevo' && vista.reanudar ? <ResumePages salaId={h.sala} claudeId={vista.reanudar.claudeId} /> : null}
+            {copia ? <WorktreePRs rama={copia.rama} salaId={h.sala} /> : null}
+            {/* con `key`: cada conversación con su lista (nada de la pestaña anterior mientras llega la suya) */}
+            {s ? <PagesMenu key={s.id} s={s} /> : vista.tipo === 'nuevo' && vista.reanudar ? <ResumePages key={vista.reanudar.claudeId} salaId={h.sala} claudeId={vista.reanudar.claudeId} /> : null}
           </aside>
           <div className="consola-pestana" key={p.id}>
             {!connected ? <WithoutConnection /> : !claudeOk ? <WithoutClaude /> :
@@ -853,6 +863,46 @@ function Session({ h, s, p, salir, onClose }: { h: DwellerSummary; s: SessionSum
 
 // Las páginas de la conversación (planes, informes, comparaciones que ha enlazado): cuáles quedan por revisar, abrirlas
 // (sus notas vuelven a esta conversación) y validar sin notas las que estén bien (shared/paginasSesion.ts)
+// Los PR de la rama de una copia (worktree) en su repo: los tuyos de GitHub (`git.prsTablero`, los mismos del tablero
+// de Planificación), leídos a lo sumo cada dos minutos y compartidos por todos los intercomunicadores; sin GitHub
+// conectado (o en DEMO), nada
+let prsAsked: { cuando: number; p: Promise<PRBoard[]> } | null = null;
+function myPRs(): Promise<PRBoard[]> {
+  if (!prsAsked || Date.now() - prsAsked.cuando > 120_000) {
+    const p = cliente.accion<any>('git.prsTablero', {}).then(d => { const prs: PRBoard[] = d?.demo ? [] : d?.prs ?? []; if (!d?.demo) jiraBoard.set({ prs }); return prs; }).catch(() => { prsAsked = null; return []; });
+    prsAsked = { cuando: Date.now(), p };
+  }
+  return prsAsked.p;
+}
+const PR_STATE: Record<PRBoard['estado'], string> = { abierto: '●', borrador: '◌', fusionado: '✓', cerrado: '✕' };
+const prStateName = (e: PRBoard['estado']) => e === 'abierto' ? t('windows.prState.abierto') : e === 'borrador' ? t('windows.prState.borrador') : e === 'fusionado' ? t('windows.prState.fusionado') : t('windows.prState.cerrado');
+function WorktreePRs({ rama, salaId }: { rama: string; salaId: string }) {
+  const desdeTablero = jiraBoard.usar(x => x.prs);
+  const [leidos, setRead] = useState<PRBoard[] | null>(null);
+  useEffect(() => { let vivoAun = true; myPRs().then(l => { if (vivoAun) setRead(l); }); return () => { vivoAun = false; }; }, [rama]);
+  const carpeta: string = vivo.usar(e => ((e.estado?.salas ?? []) as any[]).find(x => x.id === salaId)?.ruta ?? '');
+  const prs = useMemo(() => {
+    if (!rama) return [];
+    const todos = desdeTablero.length ? desdeTablero : leidos ?? [];
+    let mios = todos.filter(p => p.rama === rama);
+    // la misma rama en varios repos (una tarea repartida): solo los del repo de esta sala
+    const repo = carpeta.split('/').filter(Boolean).pop()?.toLowerCase();
+    if (repo && new Set(mios.map(p => p.repo)).size > 1) mios = mios.filter(p => p.repo.split('/').pop()?.toLowerCase() === repo);
+    return mios.sort((a, b) => b.actualizado - a.actualizado);
+  }, [desdeTablero, leidos, rama, carpeta]);
+  if (!prs.length) return null;
+  return <div className="prs-copia">
+    <div className="consola-dato">{t('windows.pullRequests')}</div>
+    <ul>{prs.map(p => <li key={p.url}>
+      <button className={'pr-copia pr-' + p.estado} onClick={() => openLink(p.url)} title={`${p.repo}#${p.numero} · ${prStateName(p.estado)}\n${p.titulo}`}>
+        <span className="pr-marca">{PR_STATE[p.estado]}</span> #{p.numero} {p.titulo}
+        {p.checks === 'FAILURE' || p.checks === 'ERROR' ? <span className="pr-mal"> ✕CI</span> : null}
+        {p.revision === 'APPROVED' ? <span className="pr-bien"> ✓</span> : p.revision === 'CHANGES_REQUESTED' ? <span className="pr-mal"> ±</span> : null}
+      </button>
+    </li>)}</ul>
+  </div>;
+}
+
 function PagesMenu({ s }: { s: SessionSummary }) {
   const log = vivo.usar(e => e.entradas[s.id]);
   // con la pregunta que espera respuesta: lo que enlaza (la comparación que pide aprobar) ya sale
@@ -876,6 +926,8 @@ function ResumePages({ salaId, claudeId }: { salaId: string; claudeId: string })
   return <PagesList sesionId={claudeId} claudeId={claudeId} entradas={entradas} />;
 }
 
+// cuándo se cambió cada página (null: ya no está), compartido por todas las pestañas
+const pageTimes = new Map<string, number | null>();
 function PagesList({ sesionId, claudeId, entradas, base }: { sesionId: string; claudeId?: string; entradas: LogInput[]; base?: string }) {
   // (sin la conversación en marcha, las notas de la página se copian: no hay a quién mandarlas)
   const viva = vivo.usar(e => !!e.sesiones[sesionId]);
@@ -884,14 +936,26 @@ function PagesList({ sesionId, claudeId, entradas, base }: { sesionId: string; c
   const respuestas = useMemo(() => ({ ...porSesion, ...porClaude }), [porSesion, porClaude]);
   const borradores = pageNotes.usar(x => x);
   const todas = useMemo(() => sessionPages(entradas, respuestas, base), [entradas, respuestas, base]);
-  // solo las que siguen en el Mac (se pregunta al servidor cuando cambia la lista o se abre)
-  const [existen, setExist] = useState<Set<string> | null>(null);
-  const [actualizadas, setUpdated] = useState<Record<string, number>>({});
-  const [abierto, setOpen] = useState(false);
+  // solo las que siguen en el Mac (se pregunta al servidor cuando cambia la lista o se abre), y cuándo se cambió cada
+  // una por última vez (un plan se reescribe sin que cambie el enlace). Lo ya sabido sale al momento, de `pageTimes`
   const rutas = todas.map(p => p.ruta).join('\n');
-  // (y cuándo se cambió cada una por última vez: un plan se reescribe sin que cambie el enlace)
-  useEffect(() => { if (!rutas) return; cliente.accion('paginas.actualizadas', { rutas: rutas.split('\n') }).then((l: any) => { const m = l && typeof l === 'object' ? l as Record<string, number> : {}; setExist(new Set(Object.keys(m))); setUpdated(m); }).catch(() => {}); }, [rutas, abierto]);
-  const paginas = livePages(todas, existen);
+  const known = () => { const l = rutas ? rutas.split('\n') : []; return l.every(r => pageTimes.has(r)) ? l : null; };
+  const [existen, setExist] = useState<Set<string> | null>(() => { const l = known(); return l && new Set(l.filter(r => pageTimes.get(r))); });
+  const [actualizadas, setUpdated] = useState<Record<string, number>>(() => Object.fromEntries((known() ?? []).flatMap(r => pageTimes.get(r) ? [[r, pageTimes.get(r)!]] : [])));
+  const [abierto, setOpen] = useState(false);
+  useEffect(() => {
+    if (!rutas) return;
+    let vivoAun = true;
+    cliente.accion('paginas.actualizadas', { rutas: rutas.split('\n') }).then((l: any) => {
+      const m = l && typeof l === 'object' ? l as Record<string, number> : {};
+      for (const r of rutas.split('\n')) pageTimes.set(r, m[r] ?? null);
+      if (vivoAun) { setExist(new Set(Object.keys(m))); setUpdated(m); }
+    }).catch(() => {});
+    return () => { vivoAun = false; };
+  }, [rutas, abierto && 'abierto']);
+  // las más recientes arriba: enlazadas o reescritas (un plan rehecho sube aunque no se vuelva a enlazar)
+  const reciente = (p: { ruta: string; ts: number }) => Math.max(p.ts, actualizadas[p.ruta] ?? 0);
+  const paginas = livePages(todas, existen).sort((a, b) => reciente(b) - reciente(a) || a.ruta.localeCompare(b.ruta));
   if (!paginas.length) return null;
   const pendientes = pendingPages(paginas).length;
   const abrir = (ruta: string) => {

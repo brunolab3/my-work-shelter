@@ -926,7 +926,7 @@ export class Refugio {
       SFX.cerrar(); juego.set({ talkingWith: null, workIn: null }); this.dialogEnd();   // como minimizarIntercom (ui/Dialogo.tsx)
     }
     // la charla se abre con el clic; el Supervisor llega andando por detrás
-    if (a.tipo === 'copia') { a.f.walkClock = Math.max(a.f.walkClock, 6); SFX.clic(); this.interactCopy(a.f, true); return; }
+    if (a.tipo === 'copia') { SFX.clic(); this.interactCopy(a.f, true); return; }
     if (a.tipo === 'habitante') { SFX.clic(); this.interact(a.h, true); return; }
     if (a.tipo === 'aparato') {
       // al punto del aparato (desde ahí se usa), no a donde cayó el rayo

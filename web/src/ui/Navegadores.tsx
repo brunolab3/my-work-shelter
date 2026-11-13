@@ -158,12 +158,29 @@ export function openBrowser(spotId: string, url?: string) {
  *  /pagina/…) o una que sirve una herramienta en local (http://127.0.0.1:<puerto>/…, como una página de revisión con
  *  notas). Con `sesion`, la ventana puede avisar a esa conversación de que tiene notas que aplicar. */
 export function openPage(url: string, titulo: string, sesion?: string, ruta?: string) {
+  if (sesion) lastPage.set(sesion, { url, titulo, ruta });
   // a la izquierda, al lado del intercomunicador (a la derecha): si este estaba ampliado, deja sitio
   dispatchEvent(new CustomEvent('refugio:pagina-al-lado'));
-  if (ventana('pagina')) { actualizar('pagina', { url, titulo, sesion, ruta }); onFront('pagina'); return; }
+  const ya = ventana('pagina');
+  if (ya) {
+    // la misma página: solo al frente (sin recargarla); otra, en su sitio
+    if (ya.url === url) actualizar('pagina', { titulo, sesion: sesion ?? ya.sesion, ruta: ruta ?? ya.ruta, minimizada: false }); else actualizar('pagina', { url, titulo, sesion, ruta, minimizada: false });
+    onFront('pagina'); return;
+  }
   crear('pagina', url, false, false, titulo);
   actualizar('pagina', { sesion, ruta });
   SFX.abrir();
+}
+// la última página que abrió cada conversación: al volver a su pestaña, vuelve la suya
+const lastPage = new Map<string, { url: string; titulo: string; ruta?: string }>();
+/** Cambia la conversación a la vista (otra pestaña u otro intercomunicador): la ventana «Página» solo enseña páginas de
+ *  esa conversación. Si tenía una abierta, vuelve esa; si la de la ventana es de otra, se minimiza (no se pierde: está
+ *  en la barra y en «📄 Páginas»). Una página abierta sin conversación se queda como está. */
+export function pageForSession(sesion?: string) {
+  const v = ventana('pagina'); if (!v || v.minimizada || !v.sesion || v.sesion === sesion) return;
+  const suya = sesion ? lastPage.get(sesion) : undefined;
+  if (suya && suya.url !== v.url) actualizar('pagina', { ...suya, sesion });
+  else { dropFocus('pagina'); actualizar('pagina', { minimizada: true }); }
 }
 /** Al abrir un intercomunicador sin ampliar: lo ampliado que lo taparía deja sitio. La ventana «Página» vuelve a su
  *  sitio de la izquierda (se ven las dos); un navegador ampliado se minimiza */

@@ -1,10 +1,12 @@
 // Habitante: un personaje KayKit con identidad, una rutina de trabajo y una máquina de estados que traduce lo que pasa
 // en su sesión de Claude Code a animación (§5.3).
 // - Cada uno tiene su puesto (su mesa: punto 'puesto' de la sala) y ahí pasa la mayor parte del día, sentado: teclea,
-//   lee, se toma un café, piensa. Con una sesión trabaja ahí (teclea deprisa); pensando, lee y piensa, y a ratos se
-//   levanta a dar una vuelta o a mirar la pieza de la sala.
-// - La pieza característica de la sala (puntos 'pieza'): va a menudo y la maneja con las acciones que define la sala.
-// - Sin sesión alterna puesto, pieza, su afición (si la sala la tiene), los aparatos de la sala y algún paseo.
+//   lee, se toma un café, piensa. Con una sesión trabaja ahí sin levantarse (teclea a toda prisa); pensando, lee y
+//   piensa, y a ratos se levanta a mirar la pieza de la sala.
+// - La pieza característica de la sala (puntos 'pieza'): va de vez en cuando y la maneja con las acciones de la sala.
+// - Sin sesión, con calma: sentado en su mesa leyendo, con un café o pensando, o en su afición; poca pieza, algún paseo
+//   y nunca corriendo (que se le pueda hacer clic).
+// - Encargos (`encargar`): deja lo que hace, va a un sitio, lo hace y vuelve a lo suyo (montar el proyector de su copia).
 // - Termina = celebra; error = golpe y al suelo; espera permiso = se levanta, te mira y saluda; duerme en su catre.
 // - Se sienta y se levanta de verdad (clips de KayKit) y sigue al Supervisor con la mirada cuando anda cerca.
 import * as THREE from 'three';
@@ -242,7 +244,7 @@ export class Habitante {
     this.levantarse(() => {
       this.releasePoint(); pt.ocupado = this.id.id; this.punto = pt;
       const destino = this.mundo(pt.pos);
-      const correr = Math.hypot(destino.x - this.pos.x, destino.z - this.pos.z) > 4.5 && this.estado !== 'durmiendo';
+      const correr = Math.hypot(destino.x - this.pos.x, destino.z - this.pos.z) > 4.5 && this.estado !== 'durmiendo' && this.estado !== 'ocioso';
       if (isSeat(pt)) {
         // llega por el lado de la silla, se pone delante del asiento y se sienta hacia atrás (la cadera, sobre el cojín)
         const { raiz, arrival } = this.placeInChair(pt, destino);
@@ -271,11 +273,45 @@ export class Habitante {
     if (u) this.p.couple('mano', { ruta: u.ruta, bone: u.bone, escala: u.escala, rot: u.rot, pos: u.pos });
   }
 
+  // ---------------------------------------------------------------- encargos
+  private errand: { hasta: number; luego?: () => void } | null = null;
+  get busyErrand() { return !!this.errand; }
+  /** Un encargo de fuera (montar el proyector de su copia, hologramas.ts): deja lo que hace, va a `destino`, se gira a
+   *  `giro` y hace `clip` con `utensil` durante `dur` segundos; luego avisa y vuelve a su rutina. Si no puede (te espera,
+   *  duerme, habla contigo, ya tiene otro), dice que no y no hace nada. */
+  encargar(destino: THREE.Vector3, giro: number, clip: string, utensil: string, dur: number, luego?: () => void) {
+    const routine = this.estado === 'ocioso' || this.estado === 'pensando' || this.estado === 'trabajando';
+    if (!routine || this.chatting || this.errand || this.scan) return false;
+    const e = this.errand = { hasta: Infinity, luego };
+    this.stay = null; this.sub = { hasta: Infinity, que: '' }; this.withUtensil('');
+    this.levantarse(() => {
+      if (this.errand !== e) return;
+      this.releasePoint(); this.chore = 'andar';
+      this.p.goA(destino, Math.hypot(destino.x - this.pos.x, destino.z - this.pos.z) > 4.5, () => {
+        if (this.errand !== e) return;
+        this.p.goalTurn = giro; this.chore = 'trastear'; this.withUtensil(utensil);
+        this.p.inRest = clip; this.p.reproducir(clip, 0.3);
+        audioWorld.accion(this.pos.clone().setY(this.pos.y + 0.5), 'metal', 0.7, this.sala);
+        e.hasta = this.reloj + dur;
+      });
+    });
+    return true;
+  }
+  /** Acaba el encargo (hecho o interrumpido): avisa a quien lo pidió y vuelve a lo suyo */
+  private endErrand() {
+    const e = this.errand; if (!e) return;
+    this.errand = null; this.withUtensil(''); this.stay = null; this.sub = { hasta: 0, que: '' };
+    this.p.inRest = 'Idle_A'; if (!this.p.ruta.length) this.p.reproducir('Idle_A', 0.3);
+    e.luego?.();
+  }
+
   // Cambio de estado (lo dispara la sesión real o el modo demo)
   cambiar(estado: DwellerState, detalle = '', herramienta: Herramienta = this.herramienta) {
     const anterior = this.estado, toolAnterior = this.herramienta;
     this.estado = estado; this.detalle = detalle; this.herramienta = herramienta;
     const p = this.p;
+    // con un encargo a medias: entre ocioso, pensando y trabajando lo termina; lo demás (te espera, avería) lo corta
+    if (this.errand) { if (estado === 'ocioso' || estado === 'pensando' || estado === 'trabajando') return; p.parar(); this.endErrand(); }
     p.contactShadow.visible = true;
     if (estado !== 'esperando' && estado !== 'terminado') this.lookCamera = false;
     if (estado === 'durmiendo') {
@@ -321,10 +357,10 @@ export class Habitante {
   private duracion(donde: Stay) {
     const trabaja = this.estado === 'trabajando', thinks = this.estado === 'pensando';
     switch (donde) {
-      case 'puesto': return trabaja ? entre(30, 60) : thinks ? entre(18, 35) : entre(12, 25);
+      case 'puesto': return trabaja ? entre(60, 120) : thinks ? entre(25, 45) : entre(30, 60);
       case 'pieza': return entre(9, 16);
       case 'patrulla': return entre(30, 55);
-      case 'aficion': return entre(18, 34);
+      case 'aficion': return entre(25, 45);
       case 'consola': return entre(8, 14);
       default: return thinks ? entre(7, 12) : entre(5, 10);
     }
@@ -333,29 +369,30 @@ export class Habitante {
   /** Elige dónde pasar el rato (o va a `forzar`) según su estado y lo que tiene la sala */
   private newStay(forzar?: Stay) {
     const hay = (t: RoomPoint['tipo']) => this.free(t).length > 0;
-    const repetir = (e: Stay) => (this.ultima !== e ? 1 : e === 'puesto' ? (this.estado === 'ocioso' ? 0 : 1) : e === 'patrulla' ? 0.6 : 0.25);   // sin trabajo, tras un rato en la mesa se levanta
+    const repetir = (e: Stay) => (this.ultima !== e ? 1 : e === 'puesto' ? (this.estado === 'ocioso' ? 0.5 : 1) : e === 'patrulla' ? 0.6 : 0.25);   // sin trabajo, tras un rato en la mesa a veces se levanta
     // de madrugada (hora de verdad), quien no tiene nada que hacer y tiene catre se echa a dormir un rato
     const h = new Date().getHours();
     if (!forzar && this.estado === 'ocioso' && (h >= 1 && h < 7) && hay('cama') && !this.chatting && !Habitante.quieto && Math.random() < 0.45) {
       this.wakeIn = this.reloj + entre(90, 300); this.cambiar('durmiendo'); return;
     }
-    // la mesa es para trabajar: con una sesión, casi siempre; pensando, a menudo; sin nada que hacer, de higos a brevas.
+    // la mesa es para trabajar: con una sesión, casi siempre (en el ordenador, sin levantarse); pensando, a menudo; sin
+    // nada que hacer, también, pero con calma (leer, un café), o en su afición.
     // Los guardianes (salas con ruta de patrulla) no tienen mesa: patrullan
     // el DJ no deja los platos: en la discoteca, su sitio es la mesa de mezclas, con o sin sesión
     if (!forzar && this.clickDJ) forzar = 'puesto';
     let donde: Stay = forzar ?? 'paseo';
     const guardia = hay('patrulla');
     if (!forzar) {
-      if (this.estado === 'trabajando') donde = hay('puesto') ? shuffle<Stay>({ puesto: 0.82, pieza: hay('pieza') ? (this.herramienta === 'buscar' ? 0.4 : 0.18) * repetir('pieza') : 0 }) ?? 'puesto'
+      if (this.estado === 'trabajando') donde = hay('puesto') ? shuffle<Stay>({ puesto: 0.94, pieza: hay('pieza') ? (this.herramienta === 'buscar' ? 0.15 : 0.06) * repetir('pieza') : 0 }) ?? 'puesto'
         : shuffle<Stay>({ pieza: hay('pieza') ? 0.5 * repetir('pieza') : 0, consola: hay('consola') ? 0.4 * repetir('consola') : 0, patrulla: guardia ? 0.3 : 0 }) ?? 'paseo';
       else if (this.estado === 'pensando') donde = shuffle<Stay>({ puesto: hay('puesto') ? 0.45 : 0, paseo: Habitante.quieto ? 0 : 0.3 * repetir('paseo'), pieza: hay('pieza') ? 0.25 * repetir('pieza') : 0, consola: hay('puesto') ? 0 : 0.3, patrulla: guardia ? 0.5 : 0 }) ?? 'paseo';
       else donde = shuffle<Stay>({
-        puesto: hay('puesto') ? 0.05 * repetir('puesto') : 0,
-        pieza: hay('pieza') ? 0.35 * repetir('pieza') : 0,
+        puesto: hay('puesto') ? 0.5 * repetir('puesto') : 0,
+        pieza: hay('pieza') ? 0.12 * repetir('pieza') : 0,
         aficion: hay('aficion') ? 0.3 * repetir('aficion') : 0,
-        consola: hay('consola') ? 0.15 * repetir('consola') : 0,
+        consola: hay('consola') ? 0.05 * repetir('consola') : 0,
         patrulla: guardia ? 0.9 * repetir('patrulla') : 0,
-        paseo: Habitante.quieto ? 0 : 0.25 * repetir('paseo'),
+        paseo: Habitante.quieto ? 0 : 0.08 * repetir('paseo'),
       }) ?? 'paseo';
     }
     if (Habitante.quieto && donde === 'paseo') donde = this.punto && this.arrived ? (this.punto.tipo as Stay) : 'paseo';
@@ -375,7 +412,7 @@ export class Habitante {
           if (Math.abs(c.x - this.pos.x) < 1.2 && k < 6) continue;   // que se note que va a algún sitio
           if (!Habitante.occupants().some(o => o !== p.raiz && Math.hypot(o.position.x - c.x, o.position.z - c.z) < 1.3)) destino = c;
         }
-        if (destino) p.goA(destino, Math.abs(destino.x - this.pos.x) > 4.5, empezar); else empezar();
+        if (destino) p.goA(destino, Math.abs(destino.x - this.pos.x) > 4.5 && this.estado !== 'ocioso', empezar); else empezar();
       });
       return;
     }
@@ -394,13 +431,14 @@ export class Habitante {
     const trabaja = this.estado === 'trabajando', thinks = this.estado === 'pensando';
     if (e.donde === 'puesto' && pt?.tipo === 'puesto') {
       const que = trabaja
-        ? shuffle({ teclear: this.herramienta === 'leer' || this.herramienta === 'buscar' ? 0.55 : 0.85, leer: this.herramienta === 'leer' || this.herramienta === 'buscar' ? 0.4 : 0.1, pensar: 0.06 })
+        ? shuffle({ teclear: this.herramienta === 'leer' || this.herramienta === 'buscar' ? 0.7 : 0.94, leer: this.herramienta === 'leer' || this.herramienta === 'buscar' ? 0.3 : 0.06 })
         : thinks ? shuffle({ leer: 0.45, pensar: 0.3, teclear: 0.25 })
-        : shuffle({ teclear: 0.4, leer: 0.22, cafe: 0.2, pensar: 0.18 });
+        // sin nada que hacer, con calma: nada de teclear (eso es trabajar)
+        : shuffle({ leer: 0.4, cafe: 0.35, pensar: 0.25 });
       const q = (que ?? 'pensar') as keyof typeof SEATED;
       this.chore = q;
       this.withUtensil(q === 'leer' ? (this.herramienta === 'buscar' && trabaja ? 'lupa' : 'diario') : q === 'cafe' ? 'taza' : '');
-      this.typingRhythm = trabaja ? entre(1.15, 1.45) : entre(0.6, 0.9);
+      this.typingRhythm = trabaja ? entre(1.5, 1.9) : entre(0.6, 0.9);   // trabajando, a toda prisa
       if (pt.ofFoot && this.clickDJ) {
         // pinchando: manos en los platos y el mezclador; con el tema arriba, los brazos al aire
         const pulse = musicPulse(this.sala.id);
@@ -416,7 +454,7 @@ export class Habitante {
         const clip = q === 'teclear' ? azar(['Working_A', 'Working_C']) : q === 'leer' ? 'Holding_B' : q === 'cafe' ? 'Use_Item' : 'Idle_B';
         p.inRest = clip; p.reproducir(clip, 0.35);
       } else { p.inRest = SEATED[q]; p.reproducir(SEATED[q], 0.4); }
-      this.sub = { que: q, hasta: this.reloj + (q === 'teclear' ? entre(trabaja ? 9 : 6, trabaja ? 18 : 12) : q === 'cafe' ? entre(4, 6.5) : entre(5, 10)) };
+      this.sub = { que: q, hasta: this.reloj + (q === 'teclear' ? entre(trabaja ? 14 : 6, trabaja ? 28 : 12) : q === 'cafe' ? entre(6, 10) : entre(trabaja ? 4 : 8, trabaja ? 7 : 16)) };
       return;
     }
     if (e.donde === 'pieza' && pt?.tipo === 'pieza') {
@@ -495,6 +533,7 @@ export class Habitante {
     if (this.lookCamera && !p.ruta.length) p.goalTurn = 0;
     if (p.ruta.length) this.chore = 'andar';
     if (this.waitingAfterChat > 0) { this.waitingAfterChat -= dt; p.actualizar(dt); return; }
+    if (this.errand) { if (this.reloj > this.errand.hasta) this.endErrand(); else { p.actualizar(dt); return; } }
     this.vigilar(dt);
     const routine = this.estado === 'ocioso' || this.estado === 'pensando' || this.estado === 'trabajando';
     // quien charla contigo sin trabajar se queda a tu lado (mirándote); trabajando, sigue con lo suyo
