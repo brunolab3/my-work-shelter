@@ -7,6 +7,7 @@ import path from 'node:path';
 import { cwdBeforeRelocation, lastActivity, projectFolder } from './repos.ts';
 import { mcpReview } from './comparar.ts';
 import { pushOf } from '../shared/preflight.ts';
+import { newWorktreeOf, taskWorktreeIn, worktreeTask } from '../shared/tareas.ts';
 import { readFileSync } from 'node:fs';
 import { EventEmitter } from 'node:events';
 import { randomUUID } from 'node:crypto';
@@ -252,7 +253,12 @@ export class Sessions extends EventEmitter {
         // la puerta del pre-flight: un `git push` desde el worktree de una tarea sin el compare validado en su commit (o,
         // salvo en borrador, sin la lista «antes de subir» contestada) le pregunta antes al Supervisor; con un no, se
         // deniega con lo que falta. Un hook y no canUseTool: así vale en todos los modos de permisos
-        PreToolUse: [{ matcher: 'Bash', hooks: [async (h: any) => this.pushGate(x, String(h?.tool_input?.command ?? ''))] }],
+        PreToolUse: [
+          { matcher: 'Bash', hooks: [async (h: any) => this.pushGate(x, String(h?.tool_input?.command ?? ''))] },
+          // una tarea, un worktree: crear otro para una tarea que ya tiene uno se deniega, con la ruta del que tiene
+          { matcher: 'Bash', hooks: [async (h: any) => { const w = newWorktreeOf(String(h?.tool_input?.command ?? '')); return w ? this.oneWorktree(x, w.cwd, path.basename(w.ruta ?? ''), w.rama) : {}; }] },
+          { matcher: 'EnterWorktree', hooks: [async (h: any) => this.oneWorktree(x, undefined, String(h?.tool_input?.name ?? ''))] },
+        ],
       },
       systemPrompt: { type: 'preset', preset: 'claude_code', append: ANNEX + (x.r.salaId === 'puente' ? ' ' + bridgeAnnex() : x.r.salaId === 'git' ? ' ' + annexGit(this.resolutor.reposOfShelter?.() ?? []) : '') },
       ...(x.r.salaId === 'git' ? { additionalDirectories: this.resolutor.reposOfShelter?.() ?? [] } : {}),
@@ -260,6 +266,16 @@ export class Sessions extends EventEmitter {
       env: cleanEnvironment(),
       stderr: d => { x.stderr = (x.stderr + d).slice(-4000); },
     };
+  }
+
+  private async oneWorktree(x: Session, dir: string | undefined, nombre: string, rama?: string): Promise<Record<string, unknown>> {
+    const tarea = worktreeTask({ ruta: nombre, rama });
+    if (!tarea) return {};
+    const cwd = path.resolve(x.r.worktree ?? x.r.cwd, dir ?? '.');
+    const lista = await new Promise<string>(ok => execFile('git', ['-C', cwd, 'worktree', 'list', '--porcelain'], { env: entornoGit(), timeout: 10_000 }, (e, o) => ok(e ? '' : String(o))));
+    const ya = taskWorktreeIn(lista, tarea);
+    if (!ya) return {};
+    return { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: t('server.oneWorktreePerTask', { tarea, ruta: ya.ruta, rama: ya.rama ?? '' }) } };
   }
 
   private async pushGate(x: Session, cmd: string): Promise<Record<string, unknown>> {

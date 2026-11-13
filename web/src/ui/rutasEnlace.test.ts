@@ -11,6 +11,7 @@ describe('rutas del Mac sueltas en el texto', () => {
       .toBe('<p>Compare is ready: <a href="/Users/ana/repo/tmp/compare.html">/Users/ana/repo/tmp/compare.html</a>. Do you approve?</p>\n');
     expect(md('Mira ~/plan.md, y dime')).toContain('<a href="~/plan.md">~/plan.md</a>, y dime');
     expect(md('(file:///Users/ana/a.html)')).toContain('(<a href="file:///Users/ana/a.html">file:///Users/ana/a.html</a>)');
+    expect(md('Report: /tmp/report.html.')).toContain('<a href="/tmp/report.html">/tmp/report.html</a>.');
   });
   it('nunca dentro de código, de un enlace escrito ni a media palabra', () => {
     expect(md('`/Users/ana/a.html`')).not.toContain('<a ');

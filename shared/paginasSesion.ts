@@ -11,7 +11,8 @@ export interface SessionPage { ruta: string; nombre: string; ts: number; respues
 const OF_PAGE = /\.(html?|md|markdown)$/i;
 // [texto](/Users/…), [texto](<…con espacios…>), [texto](file:///…) y la ruta suelta (sin espacios)
 const SEG = `[^\\s/<>()[\\]"'\`»]+`;
-const START = '(?:\\/Users\\/|~\\/|file:\\/\\/\\/)';
+// también las carpetas temporales del Mac (/tmp, /private/tmp, /var/folders): ahí deja Claude Code sus páginas a veces
+const START = '(?:\\/Users\\/|~\\/|file:\\/\\/\\/|\\/(?:private\\/)?tmp\\/|\\/(?:private\\/)?var\\/folders\\/)';
 // [texto](<ruta>) · [texto](ruta, también con espacios si es una página) · una página suelta en una carpeta con espacios
 // (como «Application Support») · cualquier otra ruta suelta
 const LINK = new RegExp([

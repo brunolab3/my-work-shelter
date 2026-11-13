@@ -21,6 +21,11 @@ you think it's useful, tell people wherever you like.
 
 It is designed as a local application for a single person on their Mac:
 
+- **Read-only outwards**, with one exception list. The only external writes are: Linear, from the Planning dweller's
+  conversation with the official MCP; git push, pull and fetch from the git client, only with the Overseer's button
+  (and a dweller's own `git push`, which goes through the permission dialog and the pre-flight gate); and the Slack
+  remote control below, which sends approval requests (secrets masked) and conversation labels, never what's said.
+
 - **The game server** listens on `127.0.0.1:3778`, rejects other `Host` headers (against DNS rebinding) and, on the
   WebSocket, requires the game's `Origin` and a random secret generated at every start. The secret is not passed to
   Claude Code sessions, terminals or processes the game launches (git, `gh`, Chrome).
@@ -74,7 +79,7 @@ What it **doesn't** cover, by design or because nobody has solved it:
   Auth0…) and their redirects can lead to pages that aren't the site's, with no address bar in view.
 - **Other processes of your user** can read the keychain secrets without warning (they're stored by
   `/usr/bin/security`).
-- **The Linear key**, if you save it, goes into the environment of the Logistics dweller, whose MCP can write to
+- **The Linear key**, if you save it, goes into the environment of the Planning dweller, whose MCP can write to
   Linear (see `docs/integraciones-uso.md`).
 - **Other macOS accounts** on the same machine haven't been considered thoroughly: if you share the Mac, assume they
   may reach more than they should.

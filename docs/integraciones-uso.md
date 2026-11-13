@@ -211,7 +211,7 @@ the task). The card says which rooms already have something going for that task.
 MCP `salas`): it hands a message or a job to another room's dweller, no plan and no worktree. Without a task key it
 always starts a new conversation with that dweller in its main copy (messages between rooms start work; they are not a
 chat); with a key (ABC-123) it goes to the conversation open in that task's worktree in that room or, if there is none,
-starts one in the task's worktree (or in the main copy, if the room has none). New conversations run in auto
+starts one in the task's worktree, creating it if the task has none (in the main copy only when the room's folder isn't a git repo). New conversations run in auto
 permissions. Each message says which room sent it and how to reply; the messenger robot carries it and a notice shows it.
 At most 3 messages a minute from one room to another. It also works inside the same room: with a task key, a dweller
 hands that task (or a part of it that can go on its own) to the conversation in the task's worktree, its hologram, and
@@ -281,16 +281,16 @@ in every repo (the board's PRs plus all open ones, read from GitHub at most once
 worktrees without a PR yet and the parts of its shared plan not started. Per part: sync (local HEAD of its branch vs
 the PR's head on GitHub, without fetching: a head missing locally means remote commits, e.g. a bot's fix; plus
 uncommitted changes), CI, review and blockers ("waits for" / "blocks", with the other PR's state: a blocker's red CI is
-the blocker's problem, not this part's), then the merge waves of the task and what it waits for. Compare (phase 2): each
+the blocker's problem, not this part's), then the merge waves of the task and what it waits for. Compare: each
 compare page (`comparar_cambios`, `server/comparar.ts`) writes a `<page>.json` beside it with the worktree, branch and
 HEAD sha of each part; validating it or sending notes (in the page window or the intercom's «📄 Pages») is also saved
 on the server (action `paginas.responder`, `DATOS/preflight.json`, `PageReviews` in `server/preflight.ts`), so the part
 is ✓ only while its HEAD is the validated one (a new commit or a rebuilt page makes it ⚠). C builds one compare for
 the whole task (a section per repo in merge order, each against its PR's base: `buildTaskCompare`) and V validates
-it: it counts for every part at its sha. Review threads (phase 2, reusing `shared/cuentaRevisiones.ts`): the review
+it: it counts for every part at its sha. Review threads (reusing `shared/cuentaRevisiones.ts`): the review
 cell adds the unresolved threads and unanswered summaries from the last `revisionesPR.ts` poll (an approved PR with
 open threads is ⚠); → expands its threads (file:line, author, first line: `openThreads`, `threadsOf`), O on one
-opens it on GitHub, Enter opens the part's conversation to address them. Checklist (phase 3): the Overseer's own
+opens it on GitHub, Enter opens the part's conversation to address them. Checklist: the Overseer's own
 "before pushing" items, in the Vault (Shelter settings; pre-filled ONCE from the "Before pushing" section of
 `~/.claude/CLAUDE.md`, `checklistFromClaudeMd`; saved in `ajustes.checklistPreflight`), answered by the dweller per
 commit with `preflight_responder` (in the `revision` MCP; `ok`, `n/a` with a note, or `pendiente`), which can read

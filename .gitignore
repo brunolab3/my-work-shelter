@@ -24,3 +24,4 @@ secrets*
 
 # Node portátil que descarga ./shelter si no hay uno
 /.runtime/
+CLAUDE.local.md

@@ -32,7 +32,7 @@ doesn't try to be:
 - **There's no roadmap or maintenance promise.** What's there is what it is. If something doesn't suit you, change it.
 - **Make it yours.** Fork it and take it wherever you like: another style, another game on top, other integrations,
   an agent other than Claude Code, removing half the things. The licence is MIT precisely for that.
-- **It's meant to be changed by an agent.** [`AGENTS.md`](AGENTS.md) describes the architecture for Claude Code and
+- **It's meant to be changed by an agent.** [`AGENTS.md`](AGENTS.md) (the rules) and [`docs/mapa.md`](docs/mapa.md) (every feature) describe it for Claude Code and
   Codex, and the shelter itself has a room, the **Command Bridge**, whose dweller works on the game's repo: you ask it
   for a change from inside and apply it without closing anything.
 - **The choices are debatable.** macOS only, shelter aesthetics, read-only integrations… They're choices of this
@@ -74,7 +74,7 @@ kind of change the Command Bridge is for. The easiest way is to ask **Néstor**,
 for anything else. For example:
 
 > I want dwellers to be able to be Codex sessions as well as Claude Code, choosing the agent per room. Before touching
-> anything, read AGENTS.md, inventory everything that depends on Claude Code today and propose a phased plan. The first
+> anything, read AGENTS.md and docs/mapa.md ("Other agents as dwellers"), inventory everything that depends on Claude Code today and propose a phased plan. The first
 > phase: a Codex conversation in one room, with its permissions going through the game's dialog. Claude Code has to
 > keep working exactly the same, and Codex must use my own session (no API keys).
 

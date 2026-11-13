@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { TASKS_PALETTE, assignColors, textKey, taskColor, pRTask, worktreeTask, remoteName, worktreePRs } from './tareas';
+import { TASKS_PALETTE, assignColors, textKey, taskColor, pRTask, worktreeTask, remoteName, worktreePRs, newWorktreeOf, taskWorktreeIn } from './tareas';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, realpathSync, writeFileSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 
 describe('tareas y su color', () => {
   it('la tarea sale de la rama, del título o del nombre del worktree (que manda aunque se cambie de rama dentro)', () => {
@@ -47,5 +51,31 @@ describe('worktreePRs', () => {
   });
   it('sin tarea, solo los de su rama', () => {
     expect(worktreePRs(prs, { ruta: '/r/suelto', rama: 'suelto' }, '/Users/x/api').map(p => p.numero)).toEqual([6]);
+  });
+});
+
+describe('newWorktreeOf', () => {
+  it('reconoce git worktree add (con -C y -b) y no otras órdenes', () => {
+    expect(newWorktreeOf('git worktree add .claude/worktrees/abc-12-x -b feature/ABC-12-x main')).toEqual({ ruta: '.claude/worktrees/abc-12-x', rama: 'feature/ABC-12-x', cwd: undefined });
+    expect(newWorktreeOf('cd repo && git -C ../api worktree add ../wt/ABC-3 ABC-3-otra')).toEqual({ ruta: '../wt/ABC-3', rama: 'ABC-3-otra', cwd: '../api' });
+    expect(newWorktreeOf('git worktree add ../wt main')?.rama).toBeUndefined();
+    expect(newWorktreeOf('git worktree list')).toBeNull();
+    expect(newWorktreeOf('echo "git worktree add x"')).toBeNull();
+  });
+});
+
+describe('taskWorktreeIn', () => {
+  it('con git de verdad: el worktree de la tarea (por su nombre o su rama), nunca la copia principal', () => {
+    const d = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'un-worktree-')));
+    const env = { ...process.env, GIT_CONFIG_GLOBAL: '/dev/null', GIT_AUTHOR_NAME: 'P', GIT_AUTHOR_EMAIL: 'p@refugio.example', GIT_COMMITTER_NAME: 'P', GIT_COMMITTER_EMAIL: 'p@refugio.example' };
+    const g = (...a: string[]) => execFileSync('git', ['-C', d, ...a], { encoding: 'utf8', env });
+    g('init', '-q', '-b', 'ABC-1-en-la-principal'); writeFileSync(path.join(d, 'a'), 'a'); g('add', '.'); g('commit', '-qm', 'a');
+    g('worktree', 'add', '-q', '-b', 'feature/ABC-2-x', path.join(d, '.claude', 'worktrees', 'otra'));
+    g('worktree', 'add', '-q', '-b', 'suelta', path.join(d, '.claude', 'worktrees', 'shelter-abc-3'));
+    const lista = g('worktree', 'list', '--porcelain');
+    expect(taskWorktreeIn(lista, 'abc-2')).toEqual({ ruta: path.join(d, '.claude', 'worktrees', 'otra'), rama: 'feature/ABC-2-x' });
+    expect(taskWorktreeIn(lista, 'ABC-3')?.rama).toBe('suelta');
+    expect(taskWorktreeIn(lista, 'ABC-1')).toBeUndefined();
+    expect(taskWorktreeIn(lista, 'ABC-9')).toBeUndefined();
   });
 });

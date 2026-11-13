@@ -9,6 +9,10 @@ describe('pagesInText', () => {
       Informe en /Users/ana/repo/informe.md, código en /Users/ana/repo/a.ts y [x](file:///Users/ana/r/b%20c.htm)`;
     expect(pagesInText(texto)).toEqual(['/Users/ana/repo/tmp/plan.html', CMP, '/Users/ana/repo/informe.md', '/Users/ana/r/b c.htm']);
   });
+  it('también en las carpetas temporales del Mac (/tmp, /private/tmp, /var/folders)', () => {
+    expect(pagesInText('Informe: /tmp/informe.html y [plan](/private/tmp/x/plan.md), [c](</var/folders/ab/T/c d.html>); no /tmpx/a.html'))
+      .toEqual(['/tmp/informe.html', '/private/tmp/x/plan.md', '/var/folders/ab/T/c d.html']);
+  });
 });
 
 describe('pagesInText con espacios', () => {

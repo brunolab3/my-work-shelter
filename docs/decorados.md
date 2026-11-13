@@ -55,11 +55,9 @@ leaves the room half-built.
 - `puesto`, `pieza`, `aficion` and `lamparas`: where the dweller works, where it uses the centrepiece, its corner and
   the lights.
 
-Coordinates in metres:
-
-- **x**, from -6 to 6.
-- **y**, from the floor (0) to the ceiling (4.43). The wall is visible up to y ≈ 3.6.
-- **z**, from -2.3 (back wall) to 2.3 (cutaway edge). The strip z > 0.8 is the walkway and stays clear.
+Coordinates in metres: x across the room, y up from the floor, z from the back wall to the cutaway edge, with a
+walkway at the front that stays clear. The exact limits are `LIMITS` in `shared/decorado.ts` (the guide tool gives them
+to the dweller).
 
 Rotation is in degrees: 0 faces the player and 180 faces the wall.
 

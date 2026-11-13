@@ -1,15 +1,15 @@
-// Rutas del Mac sueltas en el texto («/Users/…/compare.html», «~/…», «file:///…»), sin escribirlas como enlace: marked
+// Rutas del Mac sueltas en el texto («/Users/…/compare.html», «~/…», «file:///…», «/tmp/…»), sin escribirlas como enlace: marked
 // no las enlaza solas, y una pregunta o respuesta que solo dice dónde está el archivo se quedaba sin clic. Esta extensión
 // las convierte en enlace (luego markdown.ts les pone `data-local`, como a los enlaces escritos). Nunca dentro de código
 // ni de otro enlace, y solo al empezar una palabra; el punto o la coma con que acaba la frase no son de la ruta.
 import type { MarkedExtension, Tokens } from 'marked';
 
-const START = /(?<=^|[\s(*_])(?:\/Users\/|~\/|file:\/\/\/)/;
-const RUTA = /^(?:\/Users\/|~\/|file:\/\/\/)[^\s<>()[\]"'`]+/;
+const START = /(?<=^|[\s(*_])(?:\/Users\/|~\/|file:\/\/\/|\/(?:private\/)?tmp\/|\/(?:private\/)?var\/folders\/)/;
+const RUTA = /^(?:\/Users\/|~\/|file:\/\/\/|\/(?:private\/)?tmp\/|\/(?:private\/)?var\/folders\/)[^\s<>()[\]"'`]+/;
 // una página (HTML o Markdown) en una carpeta con espacios («Application Support»): los espacios solo entre palabras de
 // una carpeta, nunca en el nombre del archivo, para no tragarse el resto de la frase
 const SEG = '[^\\s/<>()[\\]"\'`]+';
-export const PAGE_WITH_SPACES = new RegExp(`^(?:\\/Users\\/|~\\/|file:\\/\\/\\/)(?:${SEG}(?: ${SEG})*\\/)*${SEG}\\.(?:html?|md|markdown)(?![\\w-])`);
+export const PAGE_WITH_SPACES = new RegExp(`^(?:\\/Users\\/|~\\/|file:\\/\\/\\/|\\/(?:private\\/)?tmp\\/|\\/(?:private\\/)?var\\/folders\\/)(?:${SEG}(?: ${SEG})*\\/)*${SEG}\\.(?:html?|md|markdown)(?![\\w-])`);
 // [texto](/Users/…/Application Support/…html): sin los <…>, Markdown no lo toma por enlace
 const LINK_WITH_SPACES = /^\[([^\]\n]*)\]\(([^)\n]*)\)/;
 const escapeHtml = (s: string) => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
@@ -18,7 +18,7 @@ export const localPathLinks: MarkedExtension = {
   extensions: [{
     name: 'enlaceConEspacios',
     level: 'inline',
-    start: src => { const i = src.search(/\[[^\]\n]*\]\((?:\/Users\/|~\/|file:\/\/\/)/); return i < 0 ? undefined : i; },
+    start: src => { const i = src.search(/\[[^\]\n]*\]\((?:\/Users\/|~\/|file:\/\/\/|\/(?:private\/)?tmp\/|\/(?:private\/)?var\/folders\/)/); return i < 0 ? undefined : i; },
     tokenizer(src) {
       if (this.lexer.state.inLink) return undefined;
       const m = LINK_WITH_SPACES.exec(src);

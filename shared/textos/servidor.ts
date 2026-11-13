@@ -3,6 +3,7 @@ import type { Texto } from '../idioma.ts';
 
 export const SERVIDOR: Record<string, Texto> = {
   'server.preflightNothingToCompare': { es: '{clave} no tiene ninguna parte con worktree que comparar.', en: '{clave} has no part with a worktree to compare.' },
+  'server.oneWorktreePerTask': { es: 'La tarea {tarea} ya tiene su worktree en {ruta} (rama {rama}): trabaja ahí; para otra rama de la tarea, haz commit o stash y `git switch` en ese worktree. Si esa rama está sacada en otro sitio, díselo al Supervisor.', en: 'Task {tarea} already has its worktree at {ruta} (branch {rama}): work there; for another branch of the task, commit or stash and `git switch` in that worktree. If that branch is checked out elsewhere, tell the Overseer.' },
   'server.preflightGateTitle': { es: 'Pre-flight sin completar: subir {rama} ({head}) de {clave} igualmente?', en: 'Pre-flight incomplete: push {rama} ({head}) of {clave} anyway?' },
   'server.preflightGateDenied': { es: 'El Supervisor no ha dejado subir: falta {que}. Mira preflight_estado, complétalo (compare validado en este commit, la lista contestada con preflight_responder) y vuelve a pedirlo.', en: 'The Overseer did not allow the push: missing {que}. Check preflight_estado, complete it (compare validated at this commit, the list answered with preflight_responder) and ask again.' },
   'server.notATaskKey': { es: '«{clave}» no es una clave de tarea.', en: '“{clave}” is not a task key.' },

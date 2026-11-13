@@ -31,6 +31,35 @@ export function worktreePRs<P extends { rama: string; titulo: string; numero: nu
   return [...lista].sort((a, b) => b.actualizado - a.actualizado);
 }
 
+/** Si una orden de Bash crea un worktree (`git worktree add`, también con -C): su ruta y su rama nueva (-b/-B), o null */
+export function newWorktreeOf(cmd: string): { ruta?: string; rama?: string; cwd?: string } | null {
+  for (const trozo of String(cmd ?? '').split(/&&|\|\||[;|\n]/)) {
+    const w = trozo.trim().match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g)?.map(x => x.replace(/^["']|["']$/g, '')) ?? [];
+    let i = 0;
+    while (i < w.length && /^[A-Z_][A-Z0-9_]*=/.test(w[i])) i++;
+    if (!/(^|\/)git$/.test(w[i] ?? '')) continue;
+    i++;
+    let cwd: string | undefined;
+    while (i < w.length && w[i].startsWith('-')) { if (w[i] === '-C') { cwd = w[i + 1]; i += 2; } else if (w[i] === '-c') i += 2; else i++; }
+    if (w[i] !== 'worktree' || w[i + 1] !== 'add') continue;
+    const resto = w.slice(i + 2);
+    let rama: string | undefined; const libres: string[] = [];
+    for (let k = 0; k < resto.length; k++) {
+      if (resto[k] === '-b' || resto[k] === '-B') rama = resto[++k];
+      else if (resto[k] === '--reason') k++;
+      else if (!resto[k].startsWith('-')) libres.push(resto[k]);
+    }
+    return { ruta: libres[0], rama: rama ?? (libres[1] && !/^(HEAD|main|master|origin\/)/.test(libres[1]) ? libres[1] : undefined), cwd };
+  }
+  return null;
+}
+
+/** El worktree (no la copia principal) que ya tiene una tarea, leyendo `git worktree list --porcelain` */
+export function taskWorktreeIn(porcelain: string, tarea: string): { ruta: string; rama?: string } | undefined {
+  const bloques = porcelain.split('\n\n').map(b => ({ ruta: /^worktree (.+)$/m.exec(b)?.[1] ?? '', rama: /^branch refs\/heads\/(.+)$/m.exec(b)?.[1] })).filter(w => w.ruta);
+  return bloques.slice(1).find(w => worktreeTask(w) === tarea.toUpperCase());
+}
+
 /** El nombre de una conversación en Remote Control (la app de Claude y claude.ai/code): `repo:TAREA` (la del worktree o,
  *  si no, la clave del título) y, sin tarea, `repo:título`. `wt`: el worktree en el que trabaja, si es uno */
 export function remoteName(repo: string, titulo: string, wt?: { ruta: string; rama?: string }): string {

@@ -20,8 +20,15 @@ describe('contexto de cada sesión', () => {
     expect(bridgeAnnex().length).toBeLessThanOrEqual(1300);
     expect(annexGit([]).length).toBeLessThanOrEqual(600);
   });
-  it('cada descripción de una herramienta del juego (va en el contexto de cada conversación que la tiene) cabe en 800 caracteres', () => {
-    const largas = Object.keys(TEXTS).filter(k => k.startsWith('tool.') && /description$/i.test(k) && largo(k) > 800);
-    expect(largas).toEqual([]);
+  it('cada descripción de una herramienta del juego (va en el contexto de cada conversación que la tiene) cabe en 800 caracteres, y la de un parámetro en 250', () => {
+    expect(Object.keys(TEXTS).filter(k => k.startsWith('tool.') && /description$/i.test(k) && largo(k) > 800)).toEqual([]);
+    expect(Object.keys(TEXTS).filter(k => /^tool\.([a-z]+\.)?param/i.test(k) && largo(k) > 250)).toEqual([]);
+  });
+  it('las herramientas que lleva toda conversación (salas, comparar, pre-flight), con un refugio de 30 salas, caben en 2,8 KB', () => {
+    const salas = Array.from({ length: 30 }, (_, i) => `sala-${i} (Sala del repo ${i})`).join(', ');
+    const enviar = Math.max(...(['es', 'en'] as const).map(i => (TEXTS['tool.rooms.description'][i] ?? '').replace('{salas}', salas).length));
+    const resto = ['tool.param.room', 'tool.rooms.paramMessage', 'tool.rooms.paramKey', 'tool.compare.description', 'tool.compare.paramBase', 'tool.compare.paramUncommitted',
+      'tool.compare.paramFolder', 'tool.preflight.estadoDescription', 'tool.preflight.responderDescription'].reduce((n, k) => n + largo(k), 0);
+    expect(enviar + resto).toBeLessThanOrEqual(2800);
   });
 });
