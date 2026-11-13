@@ -6,6 +6,7 @@ import { SFX } from '../audio/sonido';
 import { openPage, isLocalServer } from './Navegadores';
 import { t } from '@shared/idioma';
 import { localPathLinks } from './rutasEnlace';
+import { relativeLinks } from '@shared/paginasSesion';
 
 marked.setOptions({ gfm: true, breaks: false });
 marked.use(localPathLinks);   // «/Users/…/compare.html» suelto también es un enlace
@@ -28,15 +29,16 @@ DOMPurify.addHook('afterSanitizeAttributes', (nodo: any) => {
 // file: también vale como enlace (DOMPurify, de serie, lo quita): lo de arriba lo convierte en «abrir en el Mac»
 const URI_ALLOWED = /^(?:(?:(?:f|ht)tps?|mailto|tel|file):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i;
 
-export function markdown(texto: string): string {
-  const html = marked.parse(texto ?? '', { async: false }) as string;
+// con `base` (la carpeta de la conversación), sus páginas con ruta relativa («tmp/informe.md») también son enlaces
+export function markdown(texto: string, base?: string): string {
+  const html = marked.parse(relativeLinks(texto ?? '', base), { async: false }) as string;
   const limpio = DOMPurify.sanitize(html, { USE_PROFILES: { html: true }, ALLOWED_URI_REGEXP: URI_ALLOWED });
   // envolver los bloques de código para añadir «copiar»
   return limpio.replace(/<pre><code([^>]*)>/g, '<div class="codigo"><button class="copiar" data-copiar tabindex="-1">' + t('windows.copy') + '</button><pre><code$1>').replace(/<\/code><\/pre>/g, '</code></pre></div>');
 }
 
 // una sola línea (la descripción de una opción): sin el <p> que la rodea
-export const markdownLine = (texto: string) => markdown(texto).replace(/^<p>([\s\S]*)<\/p>\s*$/, '$1');
+export const markdownLine = (texto: string, base?: string) => markdown(texto, base).replace(/^<p>([\s\S]*)<\/p>\s*$/, '$1');
 
 // un enlace a un archivo del Mac: lo abre el servidor (antes que nada: si no, la ventana abriría el juego otra vez)
 addEventListener('click', e => {

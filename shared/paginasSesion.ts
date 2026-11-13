@@ -39,6 +39,27 @@ export function pagesInText(texto: string): string[] {
   return out;
 }
 
+// Una página con ruta relativa («tmp/informe.md», `docs/plan.html`): Claude Code las escribe así a menudo, relativas a
+// la carpeta donde trabaja. Con esa carpeta, se convierten en enlaces a su ruta completa (en el texto, en código en línea
+// y como destino de un enlace), para poder abrirlas y que salgan en las páginas de la conversación. Nunca dentro de un
+// bloque de código, ni rutas con «..»; si el archivo no existe, la lista de páginas no la enseña.
+const REL = String.raw`(?:\.\/)?(?:[\w@][\w@.-]*\/)*[\w@][\w@.-]*\.(?:html?|md|markdown)`;
+const END = String.raw`(?![\w/-]|\.\w)`;
+const BARE = new RegExp(String.raw`(?<=^|[\s«"'*_])(${REL})${END}(?![^\[\]\n]*\]\()`, 'g');
+const TARGET = new RegExp(String.raw`\]\(\s*<?(${REL})>?\s*\)`, 'g');
+const CODE = new RegExp(String.raw`^\x60(${REL})\x60$`);
+
+/** El texto con las páginas de ruta relativa enlazadas a su ruta en `base` (la carpeta de la conversación) */
+export function relativeLinks(texto: string, base?: string): string {
+  if (!texto || !base) return texto ?? '';
+  const abs = (rel: string) => `${base.replace(/\/+$/, '')}/${rel.replace(/^\.\//, '')}`;
+  // fuera de los bloques de código; dentro de cada trozo, el código en línea por un lado y el texto por otro
+  return texto.split(/(^```[\s\S]*?^```)/m).map((trozo, i) => i % 2 ? trozo : trozo.split(/(\x60[^\x60\n]+\x60)/).map((x, j, l) => {
+    if (j % 2) { const m = CODE.exec(x); return m && !l[j - 1].endsWith('[') ? `[${x}](<${abs(m[1])}>)` : x; }
+    return x.replace(TARGET, (_, rel) => `](<${abs(rel)}>)`).replace(BARE, rel => `[${rel}](<${abs(rel)}>)`);
+  }).join('')).join('');
+}
+
 /** Si dos rutas son la misma página: la del enlace puede ir con ~ y la del servidor es la real (/private/tmp por /tmp) */
 export function samePage(a: string, b: string): boolean {
   const n = (x: string) => normalizePath(x).replace(/^\/private(?=\/(tmp|var)\/)/, '');
@@ -50,9 +71,9 @@ export function samePage(a: string, b: string): boolean {
 
 /** Las páginas de una conversación (lo que ha escrito el habitante), la enlazada más tarde primero, con lo que se ha
  *  hecho con cada una */
-export function sessionPages(entradas: { tipo: string; texto: string; ts: number }[], respuestas: Record<string, PageAnswer>): SessionPage[] {
+export function sessionPages(entradas: { tipo: string; texto: string; ts: number }[], respuestas: Record<string, PageAnswer>, base?: string): SessionPage[] {
   const ultima = new Map<string, number>();
-  for (const e of entradas) if (e.tipo === 'asistente') for (const r of pagesInText(e.texto)) ultima.set(r, Math.max(ultima.get(r) ?? 0, e.ts));
+  for (const e of entradas) if (e.tipo === 'asistente') for (const r of pagesInText(relativeLinks(e.texto, base))) ultima.set(r, Math.max(ultima.get(r) ?? 0, e.ts));
   return [...ultima].map(([ruta, ts]) => {
     const clave = Object.keys(respuestas).find(k => samePage(k, ruta));
     const r = clave ? respuestas[clave] : undefined;

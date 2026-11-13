@@ -747,9 +747,11 @@ function New({ h, p, reanudar, volver }: { h: DwellerSummary; p: TabCom; reanuda
 }
 
 // ---------------------------------------------------------------- conversación viva
-function Entrada({ e }: { e: LogInput }) {
-  if (e.tipo === 'asistente' || e.tipo === 'lateral') return <div className={'ent ' + e.tipo} dangerouslySetInnerHTML={{ __html: markdown(e.texto) }} />;
-  if (e.tipo === 'usuario') return <div className="ent usuario"><span className="quien">{t('windows.you')}&gt;</span> <span dangerouslySetInnerHTML={{ __html: markdown(e.texto) }} />{e.adjuntos?.length ? <SentAttachments lista={e.adjuntos} /> : null}</div>;
+// la carpeta de una conversación (su worktree, si trabaja en uno): ahí apuntan las rutas relativas de sus respuestas
+const folderOf = (s: SessionSummary) => s.worktree ?? s.cwd;
+function Entrada({ e, base }: { e: LogInput; base?: string }) {
+  if (e.tipo === 'asistente' || e.tipo === 'lateral') return <div className={'ent ' + e.tipo} dangerouslySetInnerHTML={{ __html: markdown(e.texto, base) }} />;
+  if (e.tipo === 'usuario') return <div className="ent usuario"><span className="quien">{t('windows.you')}&gt;</span> <span dangerouslySetInnerHTML={{ __html: markdown(e.texto, base) }} />{e.adjuntos?.length ? <SentAttachments lista={e.adjuntos} /> : null}</div>;
   if (e.tipo === 'herramienta') return <div className={'ent herramienta' + (e.esError ? ' error' : '') + (e.ayudante ? ' de-ayudante' : '')}>{e.ayudante ? '  ⚙ ' : '⚙ '}<span><ToolText t={e.texto} /></span>{e.detalle && <pre className="detalle-err">{e.detalle}</pre>}</div>;
   if (e.tipo === 'error') return <div className="ent error" dangerouslySetInnerHTML={{ __html: markdown(e.texto) }} />;
   return <div className={'ent ' + e.tipo}>{e.texto}</div>;
@@ -807,8 +809,8 @@ function Session({ h, s, p, salir, onClose }: { h: DwellerSummary; s: SessionSum
     <div className={'pantalla-consola fosforo sesion' + (encima ? ' soltando' : '')} data-sesion={s.id} {...soltar}>
       <div className="titulo-sesion">{s.titulo}{s.worktree ? <span className="tenue"> · worktree</span> : null}</div>
       <div className="lienzo" ref={lienzo} onScroll={e => { const el = e.currentTarget; pegado.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 4; }}>
-        {(s.pending ? entradas.filter((e, i) => !(e.tipo === 'sistema' && e.texto.startsWith('❓')) && !(e.tipo === 'herramienta' && i >= entradas.length - 3)) : entradas).map(e => <Entrada key={e.id} e={e} />)}
-        {parcial && workingLive && <div className="ent asistente parcial" dangerouslySetInnerHTML={{ __html: markdown(parcial) + '<span class="cursor-escribe">▌</span>' }} />}
+        {(s.pending ? entradas.filter((e, i) => !(e.tipo === 'sistema' && e.texto.startsWith('❓')) && !(e.tipo === 'herramienta' && i >= entradas.length - 3)) : entradas).map(e => <Entrada key={e.id} e={e} base={folderOf(s)} />)}
+        {parcial && workingLive && <div className="ent asistente parcial" dangerouslySetInnerHTML={{ __html: markdown(parcial, folderOf(s)) + '<span class="cursor-escribe">▌</span>' }} />}
         {s.pending && <Pending s={s} p={s.pending} tab={p} hid={h.id} salir={salir} />}
         {s.estado === 'error' && s.error && <div className="ent error">⚠ {s.error}</div>}
       </div>
@@ -853,7 +855,7 @@ function Session({ h, s, p, salir, onClose }: { h: DwellerSummary; s: SessionSum
 // (sus notas vuelven a esta conversación) y validar sin notas las que estén bien (shared/paginasSesion.ts)
 function PagesMenu({ s }: { s: SessionSummary }) {
   const entradas = vivo.usar(e => e.entradas[s.id]) ?? [];
-  return <PagesList sesionId={s.id} claudeId={s.claudeId} entradas={entradas} />;
+  return <PagesList sesionId={s.id} claudeId={s.claudeId} entradas={entradas} base={folderOf(s)} />;
 }
 
 // Una conversación por retomar (cerrada o perdida en un reinicio): sus páginas salen igual, leídas de su transcripción;
@@ -870,14 +872,14 @@ function ResumePages({ salaId, claudeId }: { salaId: string; claudeId: string })
   return <PagesList sesionId={claudeId} claudeId={claudeId} entradas={entradas} />;
 }
 
-function PagesList({ sesionId, claudeId, entradas }: { sesionId: string; claudeId?: string; entradas: LogInput[] }) {
+function PagesList({ sesionId, claudeId, entradas, base }: { sesionId: string; claudeId?: string; entradas: LogInput[]; base?: string }) {
   // (sin la conversación en marcha, las notas de la página se copian: no hay a quién mandarlas)
   const viva = vivo.usar(e => !!e.sesiones[sesionId]);
   const s = { id: sesionId };
   const porSesion = pageAnswers.usar(x => x[sesionId]), porClaude = pageAnswers.usar(x => (claudeId ? x[claudeId] : undefined));
   const respuestas = useMemo(() => ({ ...porSesion, ...porClaude }), [porSesion, porClaude]);
   const borradores = pageNotes.usar(x => x);
-  const todas = useMemo(() => sessionPages(entradas, respuestas), [entradas, respuestas]);
+  const todas = useMemo(() => sessionPages(entradas, respuestas, base), [entradas, respuestas, base]);
   // solo las que siguen en el Mac (se pregunta al servidor cuando cambia la lista o se abre)
   const [existen, setExist] = useState<Set<string> | null>(null);
   const [actualizadas, setUpdated] = useState<Record<string, number>>({});
@@ -964,7 +966,7 @@ function Pending({ s, p, tab, hid, salir }: { s: SessionSummary; p: PendingReque
   ];
   else if (preg) items = [
     // las respuestas de una pregunta pueden ser largas o llevar enlaces: enteras, en varias líneas (clase «larga»)
-    ...preg.options.map(o => ({ texto: o.label, pista: o.description ? <span dangerouslySetInnerHTML={{ __html: markdownLine(o.description) }} /> : undefined, clase: 'larga', f: () => { const r = { ...responses, [preg.question]: o.label }; setResponses(r); if (pq + 1 < (p.preguntas?.length ?? 0)) setPq(pq + 1); else responder('si', undefined, r); } })),
+    ...preg.options.map(o => ({ texto: o.label, pista: o.description ? <span dangerouslySetInnerHTML={{ __html: markdownLine(o.description, folderOf(s)) }} /> : undefined, clase: 'larga', f: () => { const r = { ...responses, [preg.question]: o.label }; setResponses(r); if (pq + 1 < (p.preguntas?.length ?? 0)) setPq(pq + 1); else responder('si', undefined, r); } })),
     { texto: t('windows.somethingElse'), f: () => setReason('') },
     { texto: t('windows.skipTheQuestion'), peligro: true, f: () => responder('no', 'El usuario ha preferido no responder.') },
   ];
@@ -982,10 +984,10 @@ function Pending({ s, p, tab, hid, salir }: { s: SessionSummary; p: PendingReque
     <div className={'peticion ' + p.tipo}>
       <div className="peticion-titulo">{p.ofHelper ? t('windows.aHelperNombreAsks', { nombre: p.ofHelper }) : ''}{preg ? null : p.titulo}</div>
       {/* la pregunta es prosa de Claude: en markdown (enlaces que se abren, listas), con su propio scroll si es muy larga */}
-      {preg && <div className="peticion-pregunta" dangerouslySetInnerHTML={{ __html: markdown(preg.question) }} />}
+      {preg && <div className="peticion-pregunta" dangerouslySetInnerHTML={{ __html: markdown(preg.question, folderOf(s)) }} />}
       {/* lo que pide una herramienta, siempre en texto plano (textoPlano.tsx); el plan, que es prosa, en markdown */}
       {(p.tipo === 'permiso' || p.tipo === 'confianza') && (p.entrada?.length || p.motivo) ? <RequestView blocks={p.entrada ?? []} motivo={p.motivo} /> : null}
-      {p.tipo === 'plan' && p.detalle && <div className="peticion-detalle" dangerouslySetInnerHTML={{ __html: markdown(p.detalle) }} />}
+      {p.tipo === 'plan' && p.detalle && <div className="peticion-detalle" dangerouslySetInnerHTML={{ __html: markdown(p.detalle, folderOf(s)) }} />}
       {motivo === null ? <Opciones items={items} i={i} setI={setI} onChoose={k => items[k]?.f()} /> : (
         <div className="linea-entrada activa">
           <span className="prompt-sim">&gt;</span>

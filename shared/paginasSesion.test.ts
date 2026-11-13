@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { pagesInText, sessionPages, pendingPages, samePage, pageLink, livePages } from './paginasSesion.ts';
+import { pagesInText, sessionPages, pendingPages, samePage, pageLink, livePages, relativeLinks } from './paginasSesion.ts';
 
 const CMP = '/Users/ana/Library/Application Support/work-shelter-public/comparaciones/repo-rama.html';
 
@@ -65,5 +65,33 @@ describe('livePages', () => {
     ], { '/Users/ana/r/revisada.html': { estado: 'validada', ts: ahora - 19 * dia } });
     expect(livePages(l, null, ahora).map(p => p.nombre).sort()).toEqual(['nueva.html', 'plan.html', 'vieja.html']);
     expect(livePages(l, new Set(['/Users/ana/r/nueva.html']), ahora).map(p => p.nombre)).toEqual(['nueva.html']);
+  });
+});
+
+describe('páginas con ruta relativa', () => {
+  const B = '/Users/ana/Fever/fever2/.claude/worktrees/ltd';
+  it('las enlaza a la carpeta de la conversación: sueltas, en código en línea y como destino de un enlace', () => {
+    expect(relativeLinks('The investigation is done (report in tmp/ltd-lock-skips-report.md). What next?', B))
+      .toBe(`The investigation is done (report in [tmp/ltd-lock-skips-report.md](<${B}/tmp/ltd-lock-skips-report.md>)). What next?`);
+    expect(relativeLinks('Informe: `tmp/informe.md`, plan en ./docs/plan.html.', B))
+      .toBe(`Informe: [\`tmp/informe.md\`](<${B}/tmp/informe.md>), plan en [./docs/plan.html](<${B}/docs/plan.html>).`);
+    expect(relativeLinks('[el informe](tmp/a.md) y [README](<README.md>)', B)).toBe(`[el informe](<${B}/tmp/a.md>) y [README](<${B}/README.md>)`);
+  });
+  it('deja como estaban las rutas absolutas, las web, los bloques de código, «..», otros archivos y el texto de un enlace', () => {
+    const igual = [
+      'Mira /Users/ana/r/plan.html y ~/x/b.md',
+      'En https://example.com/docs/a.md y file:///tmp/a.html',
+      '```\ncat tmp/a.md\n```',
+      'Sube a ../fuera.md',
+      'Cambia src/app/main.py y tmp/a.md.bak',
+      '[ver tmp/a.md](https://example.com)',
+    ];
+    for (const x of igual) expect(relativeLinks(x, B)).toBe(x);
+    expect(relativeLinks('tmp/a.md', undefined)).toBe('tmp/a.md');
+  });
+  it('salen en las páginas de la conversación con su ruta completa', () => {
+    const l = sessionPages([{ tipo: 'asistente', texto: 'Done: tmp/ltd-lock-skips-report.md and /Users/ana/r/plan.html', ts: 5 }], {}, B);
+    expect(l.map(p => p.ruta).sort()).toEqual([`${B}/tmp/ltd-lock-skips-report.md`, '/Users/ana/r/plan.html']);
+    expect(pagesInText('Done: tmp/ltd-lock-skips-report.md')).toEqual([]);   // sin carpeta, como antes
   });
 });
