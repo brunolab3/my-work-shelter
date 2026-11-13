@@ -77,7 +77,7 @@ The 📱 button in the intercom (or "Continue … on your phone (Remote Control)
 iTerm tab with `claude --resume <id> --remote-control "<repo>:<TASK>"` (the worktree's task or the key in the title;
 without one, `<repo>:<title>`; `remoteName` in `shared/tareas.ts`): it keeps running on your Mac and opens, under that
 name, from the Claude app on your phone or claude.ai/code. While open outside it's a visitor in its room: bring it
-back from the robot. "Everything to your phone" (Esc menu or ⌘K) does the same with every open conversation, in a new
+back from the robot. "Everything to your phone" (Esc → Leave the shelter, or ⌘K) does the same with every open conversation, in a new
 window; terminals stay in the game. As when going to the surface, the conversation closes in the shelter first. It
 needs the Mac awake. Server: `superficie.sacar` with `remoto` (`server/main.ts`) and `resumeCommand`
 (`server/escritorio.ts`).

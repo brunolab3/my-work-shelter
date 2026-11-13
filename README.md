@@ -239,7 +239,7 @@ question without interrupting; Ctrl+C (or `/stop`) stops the dweller; ⌘U or dr
 - **Going to the surface**: if the game crashes or shouldn't be seen, conversations and terminals carry on in a
   terminal on your desktop ([`docs/superficie.md`](docs/superficie.md)).
 - **To your phone**: 📱 in the intercom (or ⌘K) sends one conversation to Remote Control, and "Everything to your
-  phone" (Esc menu or ⌘K) sends all, to continue from the Claude app or claude.ai/code while running on your Mac. A
+  phone" (Esc → Leave the shelter, or ⌘K) sends all, to continue from the Claude app or claude.ai/code while running on your Mac. A
   repo room can also keep its own Remote Control server on.
 - **Slack remote control** (optional, with your own Slack app): approval requests arrive by direct message to answer
   yes/no from your phone, and writing to the bot lists the open conversations to send them to Remote Control. It never

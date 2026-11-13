@@ -39,7 +39,7 @@ await pg.keyboard.press('Escape');
 ver(await hasta(async () => (await panel()) === 'menu'), 'Esc en el refugio abre el menú del juego');
 const items = await opciones();
 console.log('   ', items.map(x => x.split(/(?=[A-Z⌘])/)[0]).join(' | '));
-ver(['Volver al refugio', 'Buscar', 'Opciones', 'Atajos', 'Reiniciar el juego', 'Salir a la superficie', 'Salir del refugio'].every(t => items.some(o => o.startsWith(t))), 'con volver, buscar, opciones, atajos, reiniciar, superficie y salir');
+ver(['Volver al refugio', 'Buscar', 'Opciones', 'Atajos', 'Reiniciar el juego', 'Salir del refugio'].every(t => items.some(o => o.startsWith(t))), 'con volver, buscar, opciones, atajos, reiniciar y salir');
 await pg.screenshot({ path: path.join(dir, 'menu-juego.png') });
 for (const [nombre, p] of [['Opciones', 'opciones'], ['Atajos', 'ayuda'], ['Reiniciar el juego', 'reiniciar'], ['Salir del refugio', 'salir']]) {
   await chooseMenu(nombre);

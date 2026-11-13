@@ -449,9 +449,6 @@ function GameOptions() {
 // Solo lo que es del juego en sí; lo demás (conversaciones, aparatos, webs, salas) está en el buscador (⌘K)
 const MAC_K = /Mac/.test(navigator.platform) ? '⌘' : 'Ctrl+';
 function MenuGame() {
-  const vivas = Object.values(vivo.usar(e => e.sesiones)).filter(s => s.estado !== 'cerrada').length;
-  const terms = openTerminals.usar(e => e.lista.length);
-  const algo = vivas + terms > 0;
   const sub = (p: Panel) => () => { SFX.clic(); openPanel(p, { desde: 'menu' }); };
   const items: (ItemMenu & { f: () => void })[] = [
     { texto: t('menu.backToTheShelter'), pista: 'Esc', f: closePanel },
@@ -460,9 +457,7 @@ function MenuGame() {
     { texto: t('menu.keyboardShortcuts'), pista: 'F1', f: sub('ayuda') },
     { texto: t('menu.reloadTheView'), pista: t('menu.ifTheShelterGoesBlack'), f: () => { SFX.clic(); reloadView(); } },
     { texto: t('menu.restartTheGame'), pista: t('menu.appliesServerChangesTerminalsKeep'), f: sub('reiniciar') },
-    { texto: t('menu.goToTheSurface'), pista: t(algo ? 'menu.everythingOpenToYourDesktop' : 'menu.nothingOpenToTakeOut'), apagado: !algo, f: () => { if (!algo) { SFX.noAllowed(); return; } closePanel(); takeASurface({ todo: true }); } },
-    { texto: t('menu.everythingToYourPhone'), pista: t(vivas ? 'menu.openConversationsWithRemoteControl' : 'menu.noOpenConversations'), apagado: !vivas, f: () => { if (!vivas) { SFX.noAllowed(); return; } closePanel(); takeASurface({ todo: true, remoto: true, windowNew: true }); } },
-    { texto: t('menu.leaveTheShelter'), peligro: true, f: sub('salir') },
+    { texto: t('menu.leaveTheShelter'), pista: t('menu.surfacePhoneOrClose'), peligro: true, f: sub('salir') },
   ];
   const [i, setI] = useMenu(items.length, k => items[k].f());
   return (
@@ -474,14 +469,22 @@ function MenuGame() {
 }
 
 // ---------------------------------------------------------------- salir
+// la única salida del menú: pregunta cómo se sale (lo abierto sigue en el escritorio o en el móvil, o se cierra todo)
 function Salir() {
   const vivas = Object.values(vivo.usar(e => e.sesiones)).filter(s => s.estado !== 'cerrada').length;
-  const items: ItemMenu[] = [{ texto: t('menu.stay') }, { texto: vivas ? (vivas === 1 ? t('menu.leaveAndStopTheLive') : t('menu.leaveAndStopTheN', { n: vivas })) : t('menu.leaveTheShelter'), peligro: true }];
-  const elegir = (k: number) => { if (k === 0) volver(); else { SFX.apagado(); cliente.enviar({ t: 'salir' }); openPanel('despedida'); } };
-  const [i, setI] = useMenu(2, elegir, undefined, volver);
+  const terms = openTerminals.usar(e => e.lista.length);
+  const algo = vivas + terms > 0;
+  const items: (ItemMenu & { f: () => void })[] = [
+    { texto: t('menu.stay'), f: volver },
+    { texto: t('menu.goToTheSurface'), pista: t(algo ? 'menu.everythingOpenToYourDesktop' : 'menu.nothingOpenToTakeOut'), apagado: !algo, f: () => { if (!algo) { SFX.noAllowed(); return; } closePanel(); takeASurface({ todo: true }); } },
+    { texto: t('menu.everythingToYourPhone'), pista: t(vivas ? 'menu.openConversationsWithRemoteControl' : 'menu.noOpenConversations'), apagado: !vivas, f: () => { if (!vivas) { SFX.noAllowed(); return; } closePanel(); takeASurface({ todo: true, remoto: true, windowNew: true }); } },
+    { texto: vivas ? (vivas === 1 ? t('menu.leaveAndStopTheLive') : t('menu.leaveAndStopTheN', { n: vivas })) : t('menu.leaveTheShelter'), peligro: true, f: () => { SFX.apagado(); cliente.enviar({ t: 'salir' }); openPanel('despedida'); } },
+  ];
+  const elegir = (k: number) => items[k].f();
+  const [i, setI] = useMenu(items.length, elegir, undefined, volver);
   return (
-    <Device rotulo={t('menu.mainHatch')} ancho={34} piloto={vivas ? 'esperando' : 'ociosa'} onClose={volver}>
-      <p className="voz">{t('menu.closeTheShelterOverseer')}</p>
+    <Device rotulo={t('menu.mainHatch')} ancho={46} piloto={vivas ? 'esperando' : 'ociosa'} onClose={volver}>
+      <p className="voz">{t('menu.howDoYouLeaveOverseer')}</p>
       {vivas > 0 && <p className="aviso-consola">{t(vivas === 1 ? 'menu.thereIs1LiveSession' : 'menu.thereAreNLiveSessions', { n: vivas })}</p>}
       <Opciones items={items} i={i} setI={setI} onChoose={elegir} />
       <Keys><kbd>↑↓</kbd>{t('menu.select')} <kbd>Enter</kbd>{t('menu.confirm')} <kbd>Esc</kbd>{t('menu.stay2')}</Keys>

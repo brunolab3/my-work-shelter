@@ -18,6 +18,7 @@ export const MENU: Record<string, Texto> = {
   'menu.noOpenConversations': { es: 'no hay conversaciones abiertas', en: 'there are no open conversations' },
   'menu.everythingOpenToYourDesktop': { es: 'todo lo abierto, a tu escritorio (⇧⌥⌘Esc)', en: 'everything open, to your desktop (⇧⌥⌘Esc)' },
   'menu.nothingOpenToTakeOut': { es: 'no hay nada abierto que sacar', en: 'nothing open to take out' },
+  'menu.surfacePhoneOrClose': { es: 'a tu escritorio, al móvil o cerrando todo', en: 'to your desktop, to your phone or closing everything' },
   'menu.leaveTheShelter': { es: 'Salir del refugio', en: 'Leave the shelter' },
   'menu.select': { es: 'elegir', en: 'select' },
   'menu.accept': { es: 'aceptar', en: 'accept' },
@@ -48,7 +49,7 @@ export const MENU: Record<string, Texto> = {
   'menu.leaveAndStopTheLive': { es: 'Salir y parar la sesión viva', en: 'Leave and stop the live session' },
   'menu.leaveAndStopTheN': { es: 'Salir y parar las {n} sesiones vivas', en: 'Leave and stop the {n} live sessions' },
   'menu.stay2': { es: 'quedarse', en: 'stay' },
-  'menu.closeTheShelterOverseer': { es: '¿Cerrar el refugio, Supervisor?', en: 'Close the shelter, Overseer?' },
-  'menu.thereIs1LiveSession': { es: 'Hay 1 sesión viva: se parará. Las conversaciones quedan guardadas y se pueden retomar.', en: 'There is 1 live session: it will be stopped. Conversations are saved and can be resumed.' },
-  'menu.thereAreNLiveSessions': { es: 'Hay {n} sesiones vivas: se pararán. Las conversaciones quedan guardadas y se pueden retomar.', en: 'There are {n} live sessions: they will be stopped. Conversations are saved and can be resumed.' },
+  'menu.howDoYouLeaveOverseer': { es: '¿Cómo sales del refugio, Supervisor?', en: 'How are you leaving the shelter, Overseer?' },
+  'menu.thereIs1LiveSession': { es: 'Hay 1 sesión viva: sigue en tu escritorio o en el móvil; si cierras, se para (queda guardada y se puede retomar).', en: 'There is 1 live session: it carries on on your desktop or phone; if you close, it stops (it is saved and can be resumed).' },
+  'menu.thereAreNLiveSessions': { es: 'Hay {n} sesiones vivas: siguen en tu escritorio o en el móvil; si cierras, se paran (quedan guardadas y se pueden retomar).', en: 'There are {n} live sessions: they carry on on your desktop or phone; if you close, they stop (they are saved and can be resumed).' },
 };
