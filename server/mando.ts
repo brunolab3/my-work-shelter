@@ -7,6 +7,10 @@
 // la conversación cambia y los demás recogen su mensaje (`peticion`), como si se hubiera respondido en el refugio.
 // Las peticiones esperan unos minutos (`retrasoMs`) antes de salir del refugio: si se responden ahí antes, no se mandan;
 // y mientras el Supervisor esté usando el juego (`enUso`: la ventana delante y tocándola), siguen esperando.
+// El chat queda siempre así: arriba, las decisiones abiertas; abajo del todo, un solo mensaje de estado (las salas y sus
+// conversaciones) que se edita sin avisar cuando algo cambia y baja debajo de cada decisión nueva. Lo resuelto (aquí,
+// en el refugio o en otro mando) y lo de conversaciones que ya no están se borra. Lo escrito se guarda (`Rastro`): tras
+// un reinicio, las decisiones de antes (que ya no valen) se borran y el estado se pone al día.
 import path from 'node:path';
 import { t } from '../shared/idioma.ts';
 import type { SessionSummary, PendingRequest } from '../shared/protocolo.ts';
@@ -16,13 +20,18 @@ export const PAIRING_MS = 10 * 60_000;
 /** Lo que espera una petición antes de salir al móvil, y cada cuánto se vuelve a mirar si el juego sigue en uso */
 export const REMOTE_DELAY_MS = 3 * 60_000;
 const RECHECK_MS = 30_000;
+const STATUS_MS = 4_000;     // el estado se pone al día como mucho cada tanto (se edita: no avisa)
+const NOTE_MS = 2 * 60_000;  // lo que contesta un botón (Remote Control abierto…) se lee en el estado un rato
 const MAX_PETICION = 3500;   // lo que no cabe entero en un mensaje no se aprueba desde el móvil
 
 /** Un botón: lo que se lee y lo que vuelve al pulsarlo (≤ 64 bytes, para que quepa en cualquier canal) */
 export interface Boton { texto: string; dato: string }
 export type Filas = Boton[][];
-/** Un mensaje en texto plano (nunca Markdown: nada puede cerrar un bloque) con sus filas de botones */
-export interface Vista { text: string; filas: Filas }
+/** Un mensaje en texto plano (nunca Markdown: nada puede cerrar un bloque) con sus filas de botones; `silencio`: sin
+ *  notificación, donde el canal lo permite (el estado) */
+export interface Vista { text: string; filas: Filas; silencio?: boolean }
+/** Lo que el bot tiene escrito en el chat (se guarda: tras un reinicio se borra o se pone al día) */
+export interface Rastro<R> { peticiones: R[]; estado?: R }
 
 export interface RemoteDeps {
   sesiones: () => SessionSummary[];
@@ -139,10 +148,65 @@ export abstract class RemoteBot<R> {
   protected abstract cambiarBotones(ref: R, v: Vista): Promise<unknown>;
   /** el mensaje se queda en esta línea, sin botones */
   protected abstract recoger(ref: R, text: string): Promise<unknown>;
+  /** el mensaje con otro texto y otros botones (el estado) */
+  protected abstract editar(ref: R, v: Vista): Promise<unknown>;
+  /** el mensaje fuera del chat */
+  protected abstract borrar(ref: R): Promise<unknown>;
+  /** lo que quedó escrito (guardado por el canal en su archivo) y cómo guardarlo */
+  protected abstract rastro(): Rastro<R> | undefined;
+  protected abstract guardarRastro(r: Rastro<R>): void;
 
-  async mandarListado() {
+  private estadoRef?: R;
+  private estadoFirma = '';
+  private estadoTimer?: ReturnType<typeof setTimeout>;
+  private cola: Promise<unknown> = Promise.resolve();
+  private nota?: { texto: string; hasta: number };
+
+  /** El estado, abajo del todo (lo pide quien escribe al bot): se manda de nuevo debajo de lo último */
+  async mandarListado() { await this.ponerEstado(true); }
+
+  /** Al arrancar con el chat emparejado: las decisiones de antes del reinicio ya no valen (se borran) y el estado se
+   *  pone al día donde estaba */
+  protected async retomar() {
     if (!this.listo()) return;
-    await this.mandar(listadoVista(this.d.salas(), this.d.sesiones(), this.d.habitante));
+    const r = this.rastro();
+    for (const ref of r?.peticiones ?? []) await this.borrar(ref).catch(() => {});
+    this.estadoRef = r?.estado;
+    this.persistir();
+    await this.ponerEstado();
+  }
+  /** Al desemparejar: lo escrito se olvida (el chat ya no es suyo) */
+  protected olvidar() { this.enviadas.clear(); this.estadoRef = undefined; this.estadoFirma = ''; clearTimeout(this.estadoTimer); this.estadoTimer = undefined; }
+  private persistir() { this.guardarRastro({ peticiones: [...this.enviadas.values()].flatMap(e => e.ref !== undefined ? [e.ref] : []), estado: this.estadoRef }); }
+
+  /** El mensaje de estado: uno solo, siempre el último del chat. `abajo`: se manda de nuevo (debajo de lo que acaba de
+   *  salir) y se borra el anterior; si no, se edita donde está, sin avisar, solo si cambia. En cola: nunca dos a la vez */
+  protected ponerEstado(abajo = false) {
+    const r = this.cola.then(() => this.estadoAhora(abajo)).catch(e => console.error(`${this.canal}:`, (e as Error).message));
+    this.cola = r;
+    return r;
+  }
+  private async estadoAhora(abajo: boolean) {
+    clearTimeout(this.estadoTimer); this.estadoTimer = undefined;
+    if (!this.listo()) return;
+    const v = listadoVista(this.d.salas(), this.d.sesiones(), this.d.habitante);
+    if (this.nota && this.nota.hasta > Date.now()) v.text = this.nota.texto + '\n\n' + v.text; else this.nota = undefined;
+    const firma = JSON.stringify(v);
+    if (!abajo && this.estadoRef !== undefined) {
+      if (firma === this.estadoFirma) return;
+      try { await this.editar(this.estadoRef, v); this.estadoFirma = firma; return; }
+      catch { /* borrado a mano o demasiado viejo para editarlo: va otro abajo */ }
+    }
+    const viejo = this.estadoRef;
+    this.estadoRef = await this.mandar({ ...v, silencio: true });
+    this.estadoFirma = firma;
+    this.persistir();
+    if (viejo !== undefined) await this.borrar(viejo).catch(() => {});
+  }
+  private refrescarEstado() {
+    if (this.estadoTimer || !this.listo()) return;
+    this.estadoTimer = setTimeout(() => { this.estadoTimer = undefined; this.ponerEstado(); }, STATUS_MS);
+    this.estadoTimer.unref?.();
   }
 
   /** Con cada cambio de una conversación: si pide aprobación, se manda al móvil (una vez, pasado `retrasoMs`); si lo que
@@ -154,10 +218,18 @@ export abstract class RemoteBot<R> {
       this.esperando.delete(id);
     }
     if (!this.listo()) return;
-    for (const [k, e] of this.enviadas) if (e.sesionId === s.id && (s.pending?.id !== e.pet.id || s.estado === 'cerrada')) {
-      this.enviadas.delete(k);
-      await this.cerrarMensaje(e, t('server.remoteAnsweredElsewhere'));
+    // lo ya resuelto fuera (o de una conversación cerrada o que ya no está) se borra
+    const vivas = new Map(this.d.sesiones().map(x => [x.id, x]));
+    vivas.set(s.id, s);
+    let quitadas = false;
+    for (const [k, e] of this.enviadas) {
+      const x = vivas.get(e.sesionId);
+      if (x && x.pending?.id === e.pet.id && x.estado !== 'cerrada') continue;
+      this.enviadas.delete(k); quitadas = true;
+      await this.quitarMensaje(e, t('server.remoteAnsweredElsewhere'));
     }
+    if (quitadas) this.persistir();
+    this.refrescarEstado();
     const pet = s.pending;
     if (!pet || s.estado === 'cerrada' || !this.aprueba() || this.esperando.has(pet.id) || [...this.enviadas.values()].some(e => e.pet.id === pet.id)) return;
     if (this.d.retrasoMs) this.esperar(s.id, pet.id, this.d.retrasoMs);
@@ -185,14 +257,16 @@ export abstract class RemoteBot<R> {
     const e: Enviada<R> = { sesionId: s.id, pet, quien, text: v.text, paso: 0, respuestas: {}, revisable: v.revisable };
     this.enviadas.set(k, e);
     try { e.ref = await this.mandar({ text: v.text, filas: botonesPeticion(pet, k, 0, v.revisable, s.id) }); }
-    catch (err) { this.enviadas.delete(k); console.error(`${this.canal}:`, (err as Error).message); }
+    catch (err) { this.enviadas.delete(k); console.error(`${this.canal}:`, (err as Error).message); return; }
+    this.persistir();
+    await this.ponerEstado(true);   // el estado, otra vez debajo
   }
 
   /** Un botón pulsado por quien toca (el canal ya lo ha comprobado) */
   protected async pulsar(dato: string, aviso: Aviso) {
     const ap = /^(ok|no|q):(\d+)(?::(\d+))?$/.exec(dato);
     if (ap) { await this.contestar(aviso, ap[2], ap[1] as 'ok' | 'no' | 'q', Number(ap[3])); return; }
-    if (dato === 'ls') { await aviso(); await this.mandarListado(); return; }
+    if (dato === 'ls') { await aviso(); await this.ponerEstado(); return; }
     if (!dato.startsWith('rc:')) { await aviso(); return; }
     const id = dato.slice(3);
     const vivas = abiertas(this.d.sesiones());
@@ -201,7 +275,9 @@ export abstract class RemoteBot<R> {
     await aviso(t('server.remoteOpeningRemoteControl'));
     const r = await this.d.aRemoteControl(ids).catch(e => ({ sesiones: 0, avisos: [(e as Error).message] }));
     const texto = r.sesiones ? t('server.remoteOpenedInRemoteControl', { n: r.sesiones }) : t('server.remoteCouldNotOpen');
-    await this.mandar({ text: [texto, ...r.avisos].join('\n'), filas: [] });
+    // se lee en el estado un rato (sin otro mensaje en el chat)
+    this.nota = { texto: [texto, ...r.avisos].join('\n'), hasta: Date.now() + NOTE_MS };
+    await this.ponerEstado();
   }
 
   private async contestar(aviso: Aviso, k: string, que: 'ok' | 'no' | 'q', opcion: number) {
@@ -227,11 +303,15 @@ export abstract class RemoteBot<R> {
     try { this.d.responder(e.sesionId, e.pet.id, decision, que === 'q' ? e.respuestas : undefined); }
     catch (err) { await aviso((err as Error).message.slice(0, 190)); return; }
     await aviso(t(decision === 'si' ? 'server.remoteDoneYes' : 'server.remoteDoneNo'));
-    await this.cerrarMensaje(e, t(que === 'q' ? 'server.remoteAnswered' : decision === 'si' ? 'server.remoteApproved' : 'server.remoteDenied'));
+    await this.quitarMensaje(e, t(que === 'q' ? 'server.remoteAnswered' : decision === 'si' ? 'server.remoteApproved' : 'server.remoteDenied'));
+    this.persistir();
+    this.refrescarEstado();
   }
-  // el mensaje de la petición se queda en una línea, sin el comando, el diff ni el plan
-  private async cerrarMensaje(e: Enviada<R>, como: string) {
+  // resuelta: el mensaje de la petición se borra; si el canal no deja, se queda en una línea, sin el comando, el diff
+  // ni el plan
+  private async quitarMensaje(e: Enviada<R>, como: string) {
     if (e.ref === undefined) return;
-    await this.recoger(e.ref, visible(`${como} · ${e.quien} · ${e.pet.titulo}`)).catch(() => {});
+    try { await this.borrar(e.ref); }
+    catch { await this.recoger(e.ref, visible(`${como} · ${e.quien} · ${e.pet.titulo}`)).catch(() => {}); }
   }
 }

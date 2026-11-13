@@ -20,7 +20,7 @@ const SALAS = [{ id: 'estudio', nombre: 'Estudio' }];
 const PERMISO: PendingRequest = { id: 'p1', tipo: 'permiso', herramienta: 'Bash', titulo: 'Ejecutar un comando', canAlways: true,
   entrada: [{ tipo: 'codigo', texto: 'curl -H "Authorization: Bearer ' + XOX + 'b-1111111111-2222222222-abcdefghij" https://api.example‮/x' }] };
 
-function montar(sesiones: SessionSummary[], extra: { retrasoMs?: number; enUso?: () => boolean } = {}) {
+function montar(sesiones: SessionSummary[], extra: { retrasoMs?: number; enUso?: () => boolean; datos?: string } = {}) {
   const llamadas: { metodo: string; p: any; token: string }[] = [];
   let ts = 100;
   const api: SlackApi = async (metodo, p, token) => {
@@ -33,7 +33,7 @@ function montar(sesiones: SessionSummary[], extra: { retrasoMs?: number; enUso?:
   const aRC: (string[] | undefined)[] = [];
   const respuestas: unknown[][] = [];
   const sk = new SlackRemote({
-    datos: mkdtempSync(path.join(os.tmpdir(), 'sk-')), sesiones: () => sesiones, salas: () => SALAS, habitante: () => 'Ana', api,
+    datos: extra.datos ?? mkdtempSync(path.join(os.tmpdir(), 'sk-')), sesiones: () => sesiones, salas: () => SALAS, habitante: () => 'Ana', api,
     abrir: () => ({ enviar() {}, cerrar() {} }),   // sin red: las pruebas llaman a recibir() y sobre()
     aRemoteControl: async ids => { aRC.push(ids); return { sesiones: ids?.length ?? sesiones.length, avisos: [] }; },
     responder: (...a) => { respuestas.push(a); const s = sesiones.find(x => x.id === a[0]); if (s) s.pending = undefined; },
@@ -48,7 +48,7 @@ const boton = (value: string, o: { user?: string; channel?: string; team?: strin
 const valores = (blocks: any[]) => blocks.filter(b => b.type === 'actions').flatMap(b => b.elements.map((e: any) => e.value));
 const textoDe = (blocks: any[]) => blocks.filter(b => b.type === 'section').map(b => b.text.text).join('\n');
 
-async function emparejado(ses: SessionSummary[], extra: { retrasoMs?: number; enUso?: () => boolean } = {}) {
+async function emparejado(ses: SessionSummary[], extra: { retrasoMs?: number; enUso?: () => boolean; datos?: string } = {}) {
   const m = montar(ses, extra);
   const st = await m.sk.conectar(APP, BOT);
   await m.sk.recibir(dm(st.codigo!.toLowerCase().replace('-', ' ')));   // se teclea como sea: mayúsculas, guion o espacio
@@ -107,7 +107,7 @@ describe('mando a distancia por Slack', () => {
     const s = sesion('a', { estado: 'esperando', pending: PERMISO });
     const { sk, llamadas, respuestas } = await emparejado([s]);
     await sk.peticion(s); await sk.peticion(s);
-    const enviados = llamadas.filter(l => l.metodo === 'chat.postMessage');
+    const enviados = llamadas.filter(l => l.metodo === 'chat.postMessage' && l.p.text.startsWith('❓'));
     expect(enviados.length).toBe(1);
     const txt = textoDe(enviados[0].p.blocks);
     expect(txt).toContain('Bearer ⟦secreto oculto⟧');
@@ -119,13 +119,43 @@ describe('mando a distancia por Slack', () => {
     expect(valores(enviados[0].p.blocks)).toEqual(['ok:1', 'no:1', 'rc:a']);   // sin «siempre» desde el móvil
     await sk.recibir(boton('ok:1'));
     expect(respuestas).toEqual([['a', 'p1', 'si', undefined]]);
-    const recogido = llamadas.find(l => l.metodo === 'chat.update')!;
-    expect(recogido.p).toMatchObject({ channel: 'D42', ts: '102' });
-    expect(JSON.stringify(recogido.p)).not.toContain('curl');
-    expect(valores(recogido.p.blocks)).toEqual([]);
+    // resuelta: su mensaje se borra (nada del comando se queda en el chat)
+    expect(llamadas.filter(l => l.metodo === 'chat.delete').map(l => l.p)).toContainEqual({ channel: 'D42', ts: '102' });
+    expect(llamadas.filter(l => l.metodo === 'chat.update').some(l => JSON.stringify(l.p).includes('curl'))).toBe(false);
     expect(llamadas.find(l => l.metodo === 'chat.postEphemeral')!.p).toMatchObject({ channel: 'D42', user: 'U7' });
     await sk.recibir(boton('no:1'));
     expect(respuestas.length).toBe(1);
+  });
+
+  it('el chat queda con las decisiones abiertas y el estado siempre abajo: lo resuelto o de una conversación que ya no está se borra', async () => {
+    const a = sesion('a', { estado: 'esperando', pending: PERMISO }), b = sesion('b', { estado: 'esperando', pending: { ...PERMISO, id: 'p2' } });
+    const lista = [a, b];
+    const { sk, llamadas } = await emparejado(lista);
+    await sk.peticion(a); await sk.peticion(b);
+    // cada decisión, y el estado otra vez debajo (el de antes, borrado)
+    const textos = llamadas.filter(l => l.metodo === 'chat.postMessage').map(l => l.p.text as string);
+    expect(textos.at(-1)).not.toMatch(/^❓/);
+    expect(textos.filter(x => x.startsWith('❓')).length).toBe(2);
+    const borrados = () => llamadas.filter(l => l.metodo === 'chat.delete').map(l => l.p.ts);
+    expect(borrados().length).toBeGreaterThanOrEqual(2);   // los estados que se quedaron arriba
+    // la conversación «a» desaparece (cerrada sin aviso): con el siguiente cambio de otra, su decisión se borra
+    lista.splice(0, 1);
+    await sk.peticion(b);
+    expect(borrados()).toContain('102');   // la de «a» (100: emparejado; 101: el primer estado)
+  });
+
+  it('tras un reinicio, las decisiones que quedaron en el chat se borran y el estado se pone al día donde estaba', async () => {
+    const datos = mkdtempSync(path.join(os.tmpdir(), 'sk-'));
+    const a = sesion('a', { estado: 'esperando', pending: PERMISO });
+    const uno = await emparejado([a], { datos });
+    await uno.sk.peticion(a);
+    uno.sk.parar();
+    // el servidor vuelve a arrancar: la conversación ya no espera nada
+    const otra = montar([sesion('a')], { datos });
+    await otra.sk.iniciar(); otra.sk.parar();
+    expect(otra.llamadas.filter(l => l.metodo === 'chat.delete').map(l => l.p.ts)).toContain('102');
+    expect(otra.llamadas.some(l => l.metodo === 'chat.update' && textoDe(l.p.blocks).includes('Arreglar el login'))).toBe(true);
+    expect(otra.llamadas.some(l => l.metodo === 'chat.postMessage')).toBe(false);
   });
 
   it('con retraso, la petición espera: no sale si se responde antes en el refugio, ni mientras se usa el juego', async () => {
@@ -134,7 +164,7 @@ describe('mando a distancia por Slack', () => {
       let enUso = false;
       const a = sesion('a', { estado: 'esperando', pending: PERMISO }), b = sesion('b', { estado: 'esperando', pending: { ...PERMISO, id: 'p2' } });
       const { sk, llamadas } = await emparejado([a, b], { retrasoMs: 180_000, enUso: () => enUso });
-      const mandadas = () => llamadas.filter(l => l.metodo === 'chat.postMessage').map(l => l.p.text);
+      const mandadas = () => llamadas.filter(l => l.metodo === 'chat.postMessage' && l.p.text.startsWith('❓')).map(l => l.p.text);
       await sk.peticion(a); await sk.peticion(b);
       await vi.advanceTimersByTimeAsync(179_000);
       expect(mandadas()).toEqual([]);
@@ -146,7 +176,7 @@ describe('mando a distancia por Slack', () => {
       enUso = false;
       await vi.advanceTimersByTimeAsync(30_000);
       expect(mandadas().length).toBe(1);
-      expect(valores(llamadas.find(l => l.metodo === 'chat.postMessage')!.p.blocks)).toContain('rc:b');
+      expect(valores(llamadas.find(l => l.metodo === 'chat.postMessage' && l.p.text.startsWith('❓'))!.p.blocks)).toContain('rc:b');
     } finally { vi.useRealTimers(); }
   });
 

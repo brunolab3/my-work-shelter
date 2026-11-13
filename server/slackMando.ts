@@ -9,7 +9,7 @@ import { readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { WebSocket } from 'ws';
 import { readSecret, saveSecret, eraseSecret } from './integraciones/llavero.ts';
 import { t } from '../shared/idioma.ts';
-import { RemoteBot, PAIRING_MS, type RemoteDeps, type Vista } from './mando.ts';
+import { RemoteBot, type Rastro, PAIRING_MS, type RemoteDeps, type Vista } from './mando.ts';
 
 const API = 'https://slack.com/api/';
 const CUENTA_APP = 'slackRemote.appToken';
@@ -41,7 +41,7 @@ const abrirWs: AbrirEnchufe = (url, h) => {
   return { enviar: s => { if (ws.readyState === ws.OPEN) ws.send(s); }, cerrar: () => ws.close() };
 };
 
-interface Config { teamId?: string; team?: string; bot?: string; botUserId?: string; channel?: string; userId?: string; aprobar?: boolean }
+interface Config { teamId?: string; team?: string; bot?: string; botUserId?: string; channel?: string; userId?: string; aprobar?: boolean; rastro?: Rastro<Ref> }
 export interface SlackRemoteState { conectado: boolean; team?: string; bot?: string; emparejado: boolean; codigo?: string; aprobar: boolean }
 export interface SlackRemoteDeps extends RemoteDeps { datos: string; api?: SlackApi; abrir?: AbrirEnchufe }
 interface Ref { channel: string; ts: string }
@@ -99,6 +99,10 @@ export class SlackRemote extends RemoteBot<Ref> {
   }
   protected cambiarBotones(ref: Ref, v: Vista) { return this.llamar('chat.update', { channel: ref.channel, ts: ref.ts, text: aviso(v), blocks: bloques(v) }); }
   protected recoger(ref: Ref, text: string) { return this.llamar('chat.update', { channel: ref.channel, ts: ref.ts, text, blocks: bloques({ text, filas: [] }) }); }
+  protected editar(ref: Ref, v: Vista) { return this.llamar('chat.update', { channel: ref.channel, ts: ref.ts, text: aviso(v), blocks: bloques(v) }); }
+  protected borrar(ref: Ref) { return this.llamar('chat.delete', { channel: ref.channel, ts: ref.ts }); }
+  protected rastro() { return this.c.rastro; }
+  protected guardarRastro(r: Rastro<Ref>) { this.c.rastro = r; this.guardar(); }
 
   estado(): SlackRemoteState {
     const codigo = this.tokens && !this.c.channel && this.pairing && this.pairing.hasta > Date.now() ? this.pairing.codigo : undefined;
@@ -108,7 +112,7 @@ export class SlackRemote extends RemoteBot<Ref> {
   /** al arrancar el servidor: si hay tokens guardados, se pone a escuchar */
   async iniciar() {
     const [app, bot] = await Promise.all([readSecret(CUENTA_APP).catch(() => null), readSecret(CUENTA_BOT).catch(() => null)]);
-    if (app && bot) { this.tokens = { app, bot }; this.escuchar(); }
+    if (app && bot) { this.tokens = { app, bot }; this.escuchar(); await this.retomar(); }
   }
 
   /** con los dos tokens de la app: se comprueban con Slack, se guardan en el llavero y se prepara el código de emparejar */
@@ -128,7 +132,7 @@ export class SlackRemote extends RemoteBot<Ref> {
   /** código de un solo uso (10 min) para emparejar: se le manda al bot por mensaje directo */
   emparejar() {
     if (!this.tokens) throw new Error(t('server.slackRemoteNotConnected'));
-    this.c.channel = undefined; this.c.userId = undefined;
+    this.c.channel = undefined; this.c.userId = undefined; this.c.rastro = undefined; this.olvidar();
     const letras = Array.from({ length: 8 }, () => LETRAS[randomInt(LETRAS.length)]).join('');
     this.pairing = { codigo: `${letras.slice(0, 4)}-${letras.slice(4)}`, hasta: Date.now() + PAIRING_MS, fallos: 0 };
     this.guardar(); this.escuchar();
@@ -136,7 +140,7 @@ export class SlackRemote extends RemoteBot<Ref> {
   }
   async desconectar() {
     this.parar();
-    this.tokens = null; this.c = {}; this.pairing = undefined;
+    this.tokens = null; this.c = {}; this.pairing = undefined; this.olvidar();
     await Promise.all([eraseSecret(CUENTA_APP).catch(() => {}), eraseSecret(CUENTA_BOT).catch(() => {})]);
     try { rmSync(this.archivo, { force: true }); } catch {}
     this.d.alCambiar?.();
