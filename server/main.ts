@@ -549,6 +549,7 @@ const ctxPreflight: CtxPreflight = {
   color: clave => coloresTareas.colores([clave])[clave],
   compares: () => paginasRevisadas.compares(),
   revisiones: url => ({ ledger: revisionesPR.ledgerOf(url), hilos: revisionesPR.threadsOf(url) }),
+  ciChecks: url => fallosCI.checksOf(url),
   checklist: () => ({ items: checklistItems(), respuestas: clave => paginasRevisadas.checklistOf(clave) }),
   git: (cwd, args) => new Promise((ok, mal) => execFile('git', ['-C', cwd, ...args], { timeout: 15_000, env: entornoGit() }, (err, o, e) => err ? mal(new Error(String(e || err.message).trim())) : ok(String(o)))),
 };

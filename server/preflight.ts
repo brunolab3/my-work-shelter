@@ -9,7 +9,7 @@ import { existsSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
 import fs from 'node:fs/promises';
 import type { PRBoard } from '../shared/tablero.ts';
 import { bloqueosEntre, type BlockerManual, type TaskOrder } from '../shared/despliegue.ts';
-import { preflightTarea, answered, checklistKey, gateMissing, linkState, type ChecklistAnswer, type CompareRecord, type PartPreflight, type LocalBranch, type PlanPart, type TaskPreflight } from '../shared/preflight.ts';
+import { preflightTarea, repoChecklist, answered, checklistKey, gateMissing, linkState, type ChecklistAnswer, type CompareRecord, type PartPreflight, type CICheck, type RepoFiles, type LocalBranch, type PlanPart, type TaskPreflight } from '../shared/preflight.ts';
 import type { ReviewLedger, ReviewThread } from '../shared/cuentaRevisiones.ts';
 import { pRTask, worktreeTask } from '../shared/tareas.ts';
 import type { RoomPR } from './revisionesPR.ts';
@@ -27,6 +27,7 @@ export interface CtxPreflight {
   color(clave: string): string | undefined;
   compares(): Promise<CompareRecord[]>;
   revisiones(url: string): { ledger?: ReviewLedger; hilos?: ReviewThread[] };   // de la última vuelta de revisionesPR.ts
+  ciChecks(url: string): CICheck[] | undefined;   // de la última vuelta de fallosCI.ts
   checklist(): { items: string[]; respuestas: (clave: string) => Record<string, Record<string, ChecklistAnswer>> };
   git: Git;
 }
@@ -77,9 +78,12 @@ export async function preflightOf(clave: string, ctx: CtxPreflight, forzar = fal
   const prs = gh.demo ? gh.prs : gh.prs.map(p => { const l = ctx.revisiones(p.url).ledger; return l ? { ...p, ledger: l } : p; });
   const hilos = Object.fromEntries(prs.map(p => [p.url, ctx.revisiones(p.url).hilos ?? []]));
   const [locales, compares] = await Promise.all([localBranches(K, prs, salas, ctx.git), ctx.compares().catch(() => [] as CompareRecord[])]);
+  const worktrees = [...new Set(locales.map(l => l.worktree).filter((w): w is string => !!w))];
+  const repoItems = Object.fromEntries(await Promise.all(worktrees.map(async w => [w, await repoChecks(w)] as const)));
+  const ciChecks = Object.fromEntries(prs.map(p => [p.url, ctx.ciChecks(p.url) ?? []]));
   return preflightTarea(K, {
     prs, bloqueos: bloqueosEntre(prs, ctx.manuales(), orden), locales, compares, hilos,
-    checklist: { items: ctx.checklist().items, respuestas: ctx.checklist().respuestas(K) },
+    checklist: { items: ctx.checklist().items, respuestas: ctx.checklist().respuestas(K) }, repoChecklist: repoItems, ciChecks,
     salas: salas.map(s => ({ id: s.id, nombre: s.nombre, repo: s.repo })),
     plan: ctx.plan(K), color: ctx.color(K), demo: gh.demo, error: gh.error,
   });
@@ -94,6 +98,26 @@ export async function taskCompare(clave: string, ctx: CtxPreflight, build: (clav
     .sort((a, b) => (a.pr ? ola.get(`${a.pr.repo}#${a.pr.numero}`) ?? 98 : 99) - (b.pr ? ola.get(`${b.pr.repo}#${b.pr.numero}`) ?? 98 : 99));
   if (!partes.length) throw new Error(t('server.preflightNothingToCompare', { clave: r.clave }));
   return build(r.clave, partes.map(p => ({ worktree: p.worktree!, nombre: p.repo?.split('/').pop() ?? p.sala ?? path.basename(p.worktree!), base: p.pr?.base })));
+}
+
+/** Lo que el repo de un worktree pide comprobar antes de subir (shared/preflight.ts: repoChecklist): solo se leen sus
+ *  archivos, nada se ejecuta */
+export async function repoChecks(worktree: string): Promise<string[]> {
+  const leer = (f: string) => fs.readFile(path.join(worktree, f), 'utf8').then(x => x.slice(0, 200_000), () => undefined);
+  const skillsDir = path.join(worktree, '.claude', 'skills');
+  const skills = await Promise.all((await fs.readdir(skillsDir).catch(() => [] as string[])).slice(0, 60).map(async n => {
+    const md = await fs.readFile(path.join(skillsDir, n, 'SKILL.md'), 'utf8').catch(() => '');
+    const fm = /^---\n([\s\S]*?)\n---/.exec(md)?.[1] ?? '';
+    return md ? { nombre: /^name:\s*(.+)$/m.exec(fm)?.[1]?.trim().replace(/^["']|["']$/g, '') || n, descripcion: /^description:\s*(.+)$/m.exec(fm)?.[1]?.slice(0, 400) } : null;
+  }));
+  const f: RepoFiles = {
+    claudeMd: [await leer('CLAUDE.md'), await leer('.claude/CLAUDE.md')].filter(Boolean).join('\n\n'),
+    agentsMd: await leer('AGENTS.md'),
+    skills: skills.filter((x): x is NonNullable<typeof x> => !!x),
+    packageJson: await leer('package.json'), makefile: await leer('Makefile'),
+    precommit: existsSync(path.join(worktree, '.pre-commit-config.yaml')),
+  };
+  return repoChecklist(f);
 }
 
 /** Tus PR para el pre-flight: los del tablero (dos semanas) y todos los abiertos, una lectura por minuto como mucho */
@@ -187,12 +211,14 @@ export async function gatePush(cwd: string, ctx: CtxPreflight): Promise<{ clave:
 export function textState(x: { clave: string; parte: PartPreflight; r: TaskPreflight }): string {
   const p = x.parte, c = (n: string, v: { marca: string; texto: string }) => `- ${n}: ${{ ok: '✓', aviso: '⚠', mal: '✗', nada: '—' }[v.marca as 'ok']} ${v.texto}`;
   const falta = gateMissing(p);
+  const todos = [...x.r.checklist, ...p.repoItems.filter(i => !x.r.checklist.includes(i))];
   return [
     t('tool.preflight.heading', { clave: x.clave, sala: p.sala ?? '', rama: p.rama ?? '', head: (p.headLocal ?? '').slice(0, 7) }),
     c('Compare', p.compare), c(t('preflight.col.checklist'), p.checklist), c(t('preflight.col.sync'), p.sync), c('CI', p.ci), c(t('preflight.col.review'), p.revision), c(t('preflight.col.blockers'), p.bloqueos),
     '',
     t('tool.preflight.items'),
-    ...(x.r.checklist.length ? x.r.checklist.map((it, i) => { const a = p.respuestas?.[it]; return `${i + 1}. [${answered(a) ? a!.estado : a?.estado ?? ' '}] ${it}${a?.nota ? ` — ${a.nota}` : ''}`; }) : [t('tool.preflight.noItems')]),
+    ...(todos.length ? todos.map((it, i) => { const a = p.respuestas?.[it]; return `${i + 1}. [${answered(a) ? a!.estado : a?.estado ?? ' '}] ${it}${a?.nota ? ` — ${a.nota}` : ''}`; }) : [t('tool.preflight.noItems')]),
+    ...(p.ciChecks.length ? ['', t('tool.preflight.ciChecks'), ...p.ciChecks.map(c => `- ${{ ok: '✓', mal: '✗', pendiente: '…' }[c.estado]} ${c.nombre}`)] : []),
     ...(p.esperaA.length ? ['', t('tool.preflight.waits', { prs: p.esperaA.map(l => `${l.url ? l.ref : l.sala} (${linkState(l)})`).join(', ') })] : []),
     ...(p.hilos.length ? ['', t('tool.preflight.threads', { n: p.hilos.length }), ...p.hilos.map(h => `- ${h.archivo}${h.linea ? ':' + h.linea : ''} ${h.autor}: ${h.texto} (${h.url})`)] : []),
     '',
@@ -210,7 +236,7 @@ export function preflightTools(ctx: CtxPreflight, guardar: (clave: string, workt
     async responder(cwd: string, item: string, estado: ChecklistAnswer['estado'], nota?: string): Promise<string> {
       const x = await partOfFolder(cwd, ctx);
       if (!x || !x.parte.worktree || !x.parte.headLocal) return t('tool.preflight.noTask');
-      const items = x.r.checklist;
+      const items = [...x.r.checklist, ...x.parte.repoItems.filter(i => !x.r.checklist.includes(i))];
       const n = Number(item);
       const punto = Number.isInteger(n) && n >= 1 && n <= items.length ? items[n - 1] : items.find(i => i.toLowerCase() === String(item).trim().toLowerCase());
       if (!punto) return t('tool.preflight.noSuchItem', { item: String(item).slice(0, 80), lista: items.map((x, i) => `${i + 1}. ${x}`).join(' · ') || '—' });

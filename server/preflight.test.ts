@@ -3,7 +3,8 @@ import { mkdtempSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
 import { execFile, execFileSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
-import { cachedPRs, localBranches, preflightOf, taskCompare, PageReviews, gatePush, preflightTools, type CtxPreflight } from './preflight.ts';
+import { cachedPRs, localBranches, preflightOf, taskCompare, PageReviews, gatePush, preflightTools, repoChecks, type CtxPreflight } from './preflight.ts';
+import { mkdirSync } from 'node:fs';
 import { buildCompare, buildTaskCompare } from './comparar.ts';
 import type { RoomPR } from './revisionesPR.ts';
 import type { PRBoard } from '../shared/tablero.ts';
@@ -70,6 +71,7 @@ describe('pre-flight con git de verdad', () => {
       prs: async () => ({ prs }), salas: async () => salas, manuales: () => [], orden: async () => [],
       plan: () => [{ salaId: 'api', sala: 'API', titulo: 'El contrato' }, { salaId: 'web', sala: 'Web', titulo: 'La pantalla', waitA: ['api'] }],
       color: () => '#4dabff', git, compares: () => revisadas.compares(),
+      ciChecks: url => url.endsWith('/1') ? [{ nombre: 'build', estado: 'mal' as const }, { nombre: 'lint', estado: 'ok' as const }] : undefined,
       checklist: () => ({ items: ['Compare revisado', 'Pruebas con datos reales'], respuestas: k => revisadas.checklistOf(k) }),
       revisiones: url => url.endsWith('/2') ? { ledger: { unresolved: 1, outdated: 0, unansweredSummaries: 0 }, hilos: [{ archivo: 'pantalla.txt', linea: 1, autor: 'revisora', texto: '¿Seguro?', url: url + '#discussion_r1', outdated: false }] } : {},
     };
@@ -89,6 +91,7 @@ describe('pre-flight con git de verdad', () => {
     expect(pWeb.esperaA.map(l => l.ref)).toEqual(['acme/api#1']);
     expect(r.olas).toEqual([['acme/api#1'], ['acme/web#2']]);
     expect(r.partes.some(p => p.pr?.numero === 3)).toBe(false);
+    expect(pApi.ciChecks.map(c => `${c.nombre}:${c.estado}`)).toEqual(['build:mal', 'lint:ok']);   // cada check de su PR
     expect([pWeb.compare.marca, pApi.compare.marca]).toEqual(['ok', 'mal']);
     expect(pWeb.revision.texto).toMatch(/1/);                // el hilo sin resolver, en la revisión
     expect(pWeb.hilos.map(h => `${h.archivo}:${h.linea} ${h.autor}`)).toEqual(['pantalla.txt:1 revisora']);
@@ -126,7 +129,7 @@ describe('pre-flight con git de verdad', () => {
   }, 30_000);
 
   it('una clave que no lo es, fuera', async () => {
-    const ctx: CtxPreflight = { prs: async () => ({ prs: [] }), salas: async () => [], manuales: () => [], orden: async () => [], plan: () => undefined, color: () => undefined, git, compares: async () => [], revisiones: () => ({}), checklist: () => ({ items: [], respuestas: () => ({}) }) };
+    const ctx: CtxPreflight = { prs: async () => ({ prs: [] }), salas: async () => [], manuales: () => [], orden: async () => [], plan: () => undefined, color: () => undefined, git, compares: async () => [], revisiones: () => ({}), ciChecks: () => undefined, checklist: () => ({ items: [], respuestas: () => ({}) }) };
     await expect(preflightOf('rm -rf', ctx)).rejects.toThrow();
   });
 });
@@ -144,5 +147,21 @@ describe('cachedPRs', () => {
     fallar = false;
     await leer();
     expect(n).toBe(4);
+  });
+});
+
+describe('repoChecks', () => {
+  it('lo que pide comprobar un repo: su CLAUDE.md, sus skills de comprobación y sus órdenes; solo leyendo archivos', async () => {
+    const d = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'repo-checks-')));
+    writeFileSync(path.join(d, 'CLAUDE.md'), '# Repo\n\n## Before opening a PR\n\n1. **Migrations reviewed.** Check them.\n');
+    writeFileSync(path.join(d, 'package.json'), JSON.stringify({ scripts: { lint: 'eslint .', 'test:unit': 'vitest', dev: 'vite', 'test:watch': 'vitest -w', typecheck: 'tsc' } }));
+    writeFileSync(path.join(d, 'Makefile'), 'test:\n\tpytest\nserve:\n\tpython -m http.server\nVAR := 1\n');
+    writeFileSync(path.join(d, '.pre-commit-config.yaml'), 'repos: []\n');
+    for (const [n, desc] of [['acceptance-criteria', 'Write acceptance criteria in Gherkin'], ['deploy-prod', 'Deploys to production'], ['changelog', 'Writes the changelog']]) {
+      mkdirSync(path.join(d, '.claude', 'skills', n), { recursive: true });
+      writeFileSync(path.join(d, '.claude', 'skills', n, 'SKILL.md'), `---\nname: ${n}\ndescription: ${desc}\n---\nbody`);
+    }
+    expect(await repoChecks(d)).toEqual(['CLAUDE.md · Migrations reviewed', 'skill · acceptance-criteria', 'npm run lint', 'npm run test:unit', 'npm run typecheck', 'make test', 'pre-commit run --all-files']);
+    expect(await repoChecks(mkdtempSync(path.join(os.tmpdir(), 'repo-vacio-')))).toEqual([]);
   });
 });

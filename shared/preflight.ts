@@ -31,6 +31,8 @@ export interface CompareRecord {
   partes: { worktree: string; rama: string; head: string; base?: string }[];
   respuesta?: { estado: 'validada' | 'notas'; ts: number };
 }
+/** Un check de GitHub del último commit de un PR (server/fallosCI.ts) */
+export interface CICheck { nombre: string; estado: 'ok' | 'mal' | 'pendiente' }
 /** Lo que contesta el habitante a un punto de la lista «antes de subir» del Supervisor, para un commit */
 export interface ChecklistAnswer { estado: 'ok' | 'n/a' | 'pendiente'; nota?: string; ts: number }
 export interface PlanPart { salaId: string; sala: string; titulo: string; waitA?: string[] }
@@ -47,6 +49,8 @@ export interface PartPreflight {
   sinEmpezar?: boolean;          // parte del plan sin worktree ni PR
   sync: Cell; ci: Cell; revision: Cell; bloqueos: Cell; compare: Cell; checklist: Cell;
   respuestas?: Record<string, ChecklistAnswer>;   // las del commit actual, por punto
+  repoItems: string[];           // los puntos que pone su repo (su CLAUDE.md o AGENTS.md, sus skills de comprobación, sus órdenes de comprobación)
+  ciChecks: CICheck[];           // cada check de GitHub de su PR, solo (no lo contesta el habitante)
   compareArchivo?: string;       // la página que cuenta para esta parte (la más reciente con su worktree y rama)
   hilos: ReviewThread[];         // los hilos de revisión sin resolver de su PR
   esperaA: PartLink[]; bloquea: PartLink[];
@@ -70,6 +74,8 @@ export interface PreflightInput {
   compares?: CompareRecord[];
   hilos?: Record<string, ReviewThread[]>;   // por URL del PR (server/revisionesPR.ts)
   checklist?: { items: string[]; respuestas: Record<string, Record<string, ChecklistAnswer>> };   // respuestas por `${worktree}|${head}`
+  repoChecklist?: Record<string, string[]>;   // los puntos del repo, por worktree (server/preflight.ts: repoChecks)
+  ciChecks?: Record<string, CICheck[]>;       // los checks de cada PR, por URL
   color?: string; titulo?: string; demo?: boolean; error?: string;
 }
 
@@ -203,7 +209,7 @@ export function pushOf(cmd: string): { cwd?: string } | null {
  *  debajo, cada uno por su título en negrita si lo tiene (si no, su primera frase) */
 export function checklistFromClaudeMd(texto: string): string[] {
   const lineas = String(texto ?? '').split('\n');
-  const i = lineas.findIndex(l => /^#{1,6}\s+.*\b(before\s+push|before\s+pushing|antes\s+de\s+subir)/i.test(l));
+  const i = lineas.findIndex(l => /^#{1,6}\s+.*\b(before\s+push(?:ing)?|before\s+(?:opening|creating|marking|sending)\s+(?:a\s+|the\s+|your\s+)?(?:pr|pull\s+request)|pre-?flight|antes\s+de\s+(?:subir|abrir\s+(?:un\s+|el\s+)?pr))/i.test(l));
   if (i < 0) return [];
   const out: string[] = [];
   for (const l of lineas.slice(i + 1)) {
@@ -214,6 +220,28 @@ export function checklistFromClaudeMd(texto: string): string[] {
     if (item && !out.includes(item)) out.push(item.slice(0, 160));
   }
   return out.slice(0, 30);
+}
+
+/** Los puntos que pone un repo, de lo que hay en él (lo lee server/preflight.ts): la sección «antes de subir» de su
+ *  CLAUDE.md y AGENTS.md, sus skills de comprobación (revisar, criterios de aceptación, pruebas…) y sus órdenes de
+ *  comprobación (scripts de package.json, objetivos de Makefile, pre-commit). Cada uno con su origen delante */
+export interface RepoFiles { claudeMd?: string; agentsMd?: string; skills?: { nombre: string; descripcion?: string }[]; packageJson?: string; makefile?: string; precommit?: boolean }
+const CHECK = /\b(lint|test|tests|typecheck|type-check|tsc|check|checks|verify|format:check|fmt-check|mypy|ruff|flake8|eslint|prettier|vet|audit)\b/i;
+const NOT_CHECK = /\b(watch|dev|serve|start|fix|update|snapshot|debug|coverage-report|e2e:open|ui)\b/i;
+const SKILL_CHECK = /\b(review|revis|acceptance|criteria|criterios|check|checklist|verify|verif|test|qa|lint|pre-?push|pre-?flight|security|audit)/i;
+export function repoChecklist(f: RepoFiles): string[] {
+  const out: string[] = [];
+  const poner = (x: string) => { const y = x.slice(0, 160); if (!out.includes(y)) out.push(y); };
+  for (const i of checklistFromClaudeMd(f.claudeMd ?? '')) poner(`CLAUDE.md · ${i}`);
+  for (const i of checklistFromClaudeMd(f.agentsMd ?? '')) poner(`AGENTS.md · ${i}`);
+  for (const s of f.skills ?? []) if (SKILL_CHECK.test(`${s.nombre} ${s.descripcion ?? ''}`) && !/\b(deploy|release|publish)\b/i.test(s.nombre)) poner(`skill · ${s.nombre}`);
+  try {
+    const scripts = JSON.parse(f.packageJson ?? '{}')?.scripts ?? {};
+    for (const n of Object.keys(scripts)) if (CHECK.test(n.replace(/[:_-]/g, ' ')) && !NOT_CHECK.test(n.replace(/[:_-]/g, ' '))) poner(`npm run ${n}`);
+  } catch {}
+  for (const m of (f.makefile ?? '').matchAll(/^([A-Za-z][\w.-]*)\s*:(?!=)/gm)) if (CHECK.test(m[1].replace(/[_-]/g, ' ')) && !NOT_CHECK.test(m[1].replace(/[_-]/g, ' '))) poner(`make ${m[1]}`);
+  if (f.precommit) poner('pre-commit run --all-files');
+  return out.slice(0, 20);
 }
 
 /** Cómo está una parte: lista (todo ✓ o —), con avisos o con algo que falta, y la lista de lo que no está listo */
@@ -237,8 +265,10 @@ export function preflightTarea(clave: string, d: PreflightInput): TaskPreflight 
   const usadas = new Set<LocalBranch>();
   const comparar = (p: Parameters<typeof compareCell>[0]) => {
     const r = compareCell(p, d.compares ?? []);
-    const items = d.checklist?.items ?? [], respuestas = p.worktree && p.headLocal ? d.checklist?.respuestas[checklistKey(p.worktree, p.headLocal)] : undefined;
-    return { compare: r.celda, compareArchivo: r.archivo, checklist: checklistCell(p, items, respuestas), respuestas };
+    const repoItems = (p.worktree && d.repoChecklist?.[p.worktree]) || [];
+    const items = [...(d.checklist?.items ?? []), ...repoItems.filter(i => !d.checklist?.items.includes(i))];
+    const respuestas = p.worktree && p.headLocal ? d.checklist?.respuestas[checklistKey(p.worktree, p.headLocal)] : undefined;
+    return { compare: r.celda, compareArchivo: r.archivo, checklist: checklistCell(p, items, respuestas), respuestas, repoItems, ciChecks: (p.pr && vivo(p.pr) && d.ciChecks?.[p.pr.url]) || [] };
   };
   const partes: PartPreflight[] = [];
 
@@ -275,7 +305,7 @@ export function preflightTarea(clave: string, d: PreflightInput): TaskPreflight 
     if (partes.some(p => p.salaId === x.salaId)) continue;
     const sala = d.salas.find(s => s.id === x.salaId);
     const nada: Cell = { marca: 'nada', texto: '—' };
-    partes.push({ id: 'plan:' + x.salaId, salaId: x.salaId, sala: sala?.nombre ?? x.sala, repo: sala?.repo, plan: x.titulo, sinEmpezar: true, sync: nada, ci: nada, revision: nada, bloqueos: nada, compare: nada, checklist: nada, hilos: [], esperaA: [], bloquea: [] });
+    partes.push({ id: 'plan:' + x.salaId, salaId: x.salaId, sala: sala?.nombre ?? x.sala, repo: sala?.repo, plan: x.titulo, sinEmpezar: true, sync: nada, ci: nada, revision: nada, bloqueos: nada, compare: nada, checklist: nada, repoItems: [], ciChecks: [], hilos: [], esperaA: [], bloquea: [] });
   }
   // lo que dice el plan que espera a una sala que aún no tiene PR: sin PR no hay bloqueo entre PR, pero se espera igual
   for (const x of d.plan ?? []) for (const id of x.waitA ?? []) {

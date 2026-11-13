@@ -155,7 +155,7 @@ export function PanelPreflight() {
               {p.hilos.length > 0 && <button className="consola-x pf-hilos" onClick={() => toggle(p)} title={t('preflight.threadsHint')}>{abierta ? '▾' : '▸'} {t('preflight.threadsN', { n: p.hilos.length })}</button>}
             </td>
             <Celda c={p.bloqueos} onClick={bloqueo?.url ? () => openLink(bloqueo.url!) : undefined} title={[t('preflight.cellHint.blocker'), ...p.esperaA.map(linkTitle)].join('\n')} />
-            <Celda c={p.checklist} onClick={p.worktree ? () => talkToPart(p) : undefined} title={[t('preflight.cellHint.checklist'), ...(r?.checklist ?? []).map((it, n) => `${answered(p.respuestas?.[it]) ? '✓' : '·'} ${n + 1}. ${it}${p.respuestas?.[it]?.nota ? ' — ' + p.respuestas[it].nota : ''}`)].join('\n')} />
+            <Celda c={p.checklist} onClick={p.worktree ? () => talkToPart(p) : undefined} title={[t('preflight.cellHint.checklist'), ...[...(r?.checklist ?? []), ...p.repoItems.filter(i => !r?.checklist.includes(i))].map((it, n) => `${answered(p.respuestas?.[it]) ? '✓' : '·'} ${n + 1}. ${it}${p.respuestas?.[it]?.nota ? ' — ' + p.respuestas[it].nota : ''}`), ...(p.ciChecks.length ? ['', t('preflight.ciChecks'), ...p.ciChecks.map(c => `${{ ok: '✓', mal: '✗', pendiente: '…' }[c.estado]} ${c.nombre}`)] : [])].join('\n')} />
           </tr>;
         })}</tbody>
       </table></div>}

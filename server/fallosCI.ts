@@ -13,10 +13,11 @@ import type { SessionSummary } from '../shared/protocolo.ts';
 import type { PRBoard } from '../shared/tablero.ts';
 import { dependenciasEnTexto, pRKey, refPR, type Blocker } from '../shared/despliegue.ts';
 import { t } from '../shared/idioma.ts';
+import type { CICheck } from '../shared/preflight.ts';
 import { sessionOfPR, worktreeOfPR, type RoomPR } from './revisionesPR.ts';
 
 export interface FailedCheck { nombre: string; url: string; run?: number }
-export interface PRWithCI extends PRBoard { fallos: FailedCheck[] }
+export interface PRWithCI extends PRBoard { fallos: FailedCheck[]; todos: CICheck[] }
 
 export const CI_QUERY = `query {
   prs: search(query: "is:pr is:open author:@me archived:false sort:updated-desc", type: ISSUE, first: 50) { nodes { ... on PullRequest {
@@ -38,8 +39,12 @@ export const runOfUrl = (url: string) => { const m = /\/actions\/runs\/(\d+)/.ex
 export function ciOfGitHub(j: any): PRWithCI[] {
   return (j?.data?.prs?.nodes ?? []).filter((n: any) => n?.number).map((n: any): PRWithCI => {
     const commit = n.commits?.nodes?.[0]?.commit;
-    const fallos: FailedCheck[] = [];
+    const fallos: FailedCheck[] = [], todos: CICheck[] = [];
     for (const c of commit?.statusCheckRollup?.contexts?.nodes ?? []) {
+      // todos, para el pre-flight (cada check, una línea): bien, mal o aún en marcha
+      const r = c?.__typename === 'CheckRun' ? (c.conclusion ? (RUN_FAILED.has(c.conclusion) ? 'mal' : 'ok') : 'pendiente') : c?.__typename === 'StatusContext' ? (FAILING.has(c.state) ? 'mal' : c.state === 'SUCCESS' ? 'ok' : 'pendiente') : undefined;
+      const nombre = String(c?.name ?? c?.context ?? '');
+      if (r && nombre && !todos.some(x => x.nombre === nombre)) todos.push({ nombre, estado: r });
       if (c?.__typename === 'CheckRun' && RUN_FAILED.has(c.conclusion)) {
         const url = String(c.detailsUrl ?? n.url);
         fallos.push({ nombre: String(c.name ?? '?'), url, run: Number(c.checkSuite?.workflowRun?.databaseId) || runOfUrl(url) });
@@ -51,7 +56,7 @@ export function ciOfGitHub(j: any): PRWithCI[] {
       estado: n.isDraft ? 'borrador' : 'abierto', revision: n.reviewDecision ?? undefined,
       checks: commit?.statusCheckRollup?.state ?? undefined, actualizado: Date.parse(n.updatedAt ?? '') || 0,
       base: n.baseRefName ?? undefined, cabeza: n.headRefOid ?? commit?.oid ?? undefined,
-      dependencias: dependenciasEnTexto(`${n.title ?? ''}\n${n.body ?? ''}`, repo), fallos,
+      dependencias: dependenciasEnTexto(`${n.title ?? ''}\n${n.body ?? ''}`, repo), fallos, todos,
     };
   });
 }
@@ -129,10 +134,14 @@ export class CIFailures {
   }
   private guardar() { const tmp = this.archivo + '.tmp'; writeFileSync(tmp, JSON.stringify({ iniciado: this.iniciado, entregados: this.entregados.slice(-2000) }), { mode: 0o600 }); renameSync(tmp, this.archivo); }
 
+  private checks = new Map<string, CICheck[]>();   // los de cada PR abierto, de la última vuelta: los lista el pre-flight
+  checksOf(url: string): CICheck[] | undefined { return this.checks.get(url); }
+
   async sondear() {
     const c = await this.ctx.connection();
     if (!c.real) return;
     const prs = ciOfGitHub(await this.ctx.consultar(c.token));
+    this.checks = new Map(prs.map(p => [p.url, p.todos]));
     const nuevos = newFailures(prs, new Set(this.entregados));
     // la primera vez, lo que ya fallaba se da por visto
     if (!this.iniciado) { this.iniciado = true; this.entregados.push(...nuevos.map(failureId)); this.guardar(); return; }
