@@ -34,12 +34,12 @@ export function jiraTasks(j: any, sitio: string): TaskJira[] {
 
 export function explainErrorJira(estado: number, j: any): string | null {
   if (estado < 400) return null;
-  if (estado === 401) return 'Jira no acepta el correo y el token de API: revisa que el token sea de esa cuenta y no haya caducado.';
-  if (estado === 403) return 'Jira deniega el acceso con ese token (¿tu organización bloquea los tokens de API?).';
-  if (estado === 404) return 'No se encuentra ese sitio de Jira: revisa la dirección.';
-  if (estado === 429) return 'Jira limita las peticiones: se reintentará en un rato.';
+  if (estado === 401) return t('integrations.jiraRejected');
+  if (estado === 403) return t('integrations.jiraForbidden');
+  if (estado === 404) return t('integrations.jiraSiteNotFound');
+  if (estado === 429) return t('integrations.jiraRateLimited');
   const msg = j?.errorMessages?.[0] ?? Object.values(j?.errors ?? {})[0];
-  return `Jira respondió ${estado}${msg ? ': ' + msg : ''}.`;
+  return t('integrations.jiraResponded', { estado, msg: msg ? ': ' + msg : '' });
 }
 
 class Jira extends ConnectorBase {
@@ -78,7 +78,7 @@ class Jira extends ConnectorBase {
   protected async pollReal() {
     if (!this.quien) this.quien = (await this.api('/rest/api/3/myself')).json?.displayName ?? null;
     const p = await this.tasksMy();
-    this.bien(`Conectado como ${this.quien ?? 'tu cuenta'}. ${p.tareas.filter(t => t.categoria !== 'done').length} tareas abiertas asignadas.`);
+    this.bien(t('integrations.jiraConnected', { quien: this.quien ?? t('integrations.yourAccount'), n: p.tareas.filter(x => x.categoria !== 'done').length }));
     return {};
   }
   protected async tryReal(v: Record<string, string>) {
@@ -92,10 +92,10 @@ class Jira extends ConnectorBase {
     // una tarea con su descripción (en texto), para planificarla desde la sala de coordinación
     if (nombre === 'tarea') {
       const clave = String(d.clave ?? '').toUpperCase();
-      if (!/^[A-Z][A-Z0-9]{1,9}-\d{1,7}$/.test(clave)) throw new Error('Clave de Jira no válida: ' + clave);
+      if (!/^[A-Z][A-Z0-9]{1,9}-\d{1,7}$/.test(clave)) throw new Error(t('integrations.jiraInvalidKey', { clave }));
       const { json, sitio } = await this.api(`/rest/api/3/issue/${clave}?fields=${[...FIELDS, 'description'].join(',')}`);
-      const [t] = jiraTasks({ issues: [json] }, sitio);
-      return { ...t, descripcion: textoDeADF(json?.fields?.description) };
+      const [tarea] = jiraTasks({ issues: [json] }, sitio);
+      return { ...tarea, descripcion: textoDeADF(json?.fields?.description) };
     }
     return super.ownAction(nombre, d);
   }

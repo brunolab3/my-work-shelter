@@ -11,6 +11,7 @@ import { createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk';
 import { entornoGit } from './entornoGit.ts';
 import { ROOMS_FOLDERS } from './estado.ts';
 import { pageLink } from '../shared/paginasSesion.ts';
+import { t, idioma } from '../shared/idioma.ts';
 
 /** Donde se guardan las páginas: junto a las carpetas de las salas especiales, nunca en el repo */
 export const COMPARES_FOLDER = path.join(path.dirname(ROOMS_FOLDERS), 'comparaciones');
@@ -24,12 +25,12 @@ const gitOr = (cwd: string, args: string[]) => git(cwd, args).then(s => s.trim()
  *  rama no se ha subido nunca, la principal del remoto (o la local) */
 export async function compareBase(cwd: string, pedida?: string): Promise<string> {
   const existe = async (c: string) => !!c && !!(await gitOr(cwd, ['rev-parse', '--verify', '--quiet', c + '^{commit}']));
-  if (pedida) { if (!(await existe(pedida))) throw new Error(`No existe «${pedida}» en este repo.`); return pedida; }
+  if (pedida) { if (!(await existe(pedida))) throw new Error(t('tool.compare.noSuchBase', { base: pedida })); return pedida; }
   const rama = await gitOr(cwd, ['rev-parse', '--abbrev-ref', 'HEAD']);
   const upstream = await gitOr(cwd, ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{upstream}']);
   const remota = await gitOr(cwd, ['symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD']);
   for (const c of [upstream, `origin/${rama}`, remota, 'origin/main', 'origin/master', 'main', 'master']) if (c && c !== rama && await existe(c)) return c;
-  throw new Error('No encuentro con qué comparar: dime la base (una rama o un commit).');
+  throw new Error(t('tool.compare.noBase'));
 }
 
 interface Line { tipo: ' ' | '+' | '-' | '@'; texto: string; viejo?: number; nuevo?: number }
@@ -74,7 +75,7 @@ export function compareHtml(titulo: string, subtitulo: string, files: FileDiff[]
   let total = 0;
   const cuerpo = files.map(f => {
     const cab = `<h2 class="fh"><a href="#${ancla(f.ruta)}">${esc(f.antes ? `${f.antes} → ${f.ruta}` : f.ruta)}</a> <span class="cuenta"><b class="mas">+${f.mas}</b> <b class="menos">−${f.menos}</b>${ESTADO[f.estado] ? ` · ${ESTADO[f.estado]}` : ''}</span></h2>`;
-    if (f.binario) return `<section id="${ancla(f.ruta)}" data-seccion="${esc(f.ruta)}">${cab}<p class="nota">Archivo binario.</p></section>`;
+    if (f.binario) return `<section id="${ancla(f.ruta)}" data-seccion="${esc(f.ruta)}">${cab}<p class="nota">${t('tool.compare.binary')}</p></section>`;
     const filas = (total > MAX_LINES ? [] : f.lineas).map(l => {
       total++;
       if (l.tipo === '@') return `<tr class="hunk"><td colspan="3">${esc(l.texto)}</td></tr>`;
@@ -82,11 +83,11 @@ export function compareHtml(titulo: string, subtitulo: string, files: FileDiff[]
       const linea = l.nuevo ?? l.viejo;
       return `<tr class="${c}" data-seccion="${esc(`${f.ruta}:${linea}`)}"><td class="n">${l.viejo ?? ''}</td><td class="n">${l.nuevo ?? ''}</td><td class="c"><span class="s">${l.tipo === ' ' ? ' ' : l.tipo}</span>${esc(l.texto) || ' '}</td></tr>`;
     }).join('');
-    const corte = f.recortado || total > MAX_LINES ? '<p class="nota">Diff recortado: es muy largo para la página.</p>' : '';
+    const corte = f.recortado || total > MAX_LINES ? `<p class="nota">${t('tool.compare.truncated')}</p>` : '';
     return `<section id="${ancla(f.ruta)}" data-seccion="${esc(f.ruta)}">${cab}<table>${filas}</table>${corte}</section>`;
   }).join('\n');
   const indice = files.map(f => `<li><a href="#${ancla(f.ruta)}">${esc(f.ruta)}</a> <b class="mas">+${f.mas}</b> <b class="menos">−${f.menos}</b></li>`).join('');
-  return `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>${esc(titulo)}</title><style>
+  return `<!doctype html><html lang="${idioma()}"><head><meta charset="utf-8"><title>${esc(titulo)}</title><style>
 body{margin:0;background:#0d1117;color:#e6edf3;font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
 main{max-width:1200px;margin:0 auto;padding:24px}
 h1{font-size:22px;margin:0 0 4px}.sub{color:#8b949e;margin:0 0 16px}
@@ -105,8 +106,8 @@ tr.hunk td{background:rgba(56,139,253,.1);color:#8b949e;padding:2px 12px}
 .nota{color:#8b949e;padding:8px 12px;margin:0}
 </style></head><body><main>
 <h1>${esc(titulo)}</h1><p class="sub">${esc(subtitulo)}</p>
-<p class="resumen">${files.length} ${files.length === 1 ? 'archivo cambiado' : 'archivos cambiados'}, <b class="mas">+${mas}</b> <b class="menos">−${menos}</b>. Pasa por una línea y pulsa «+» para comentarla, o selecciona cualquier trozo para dejar una nota.</p>
-${files.length ? `<ul class="indice">${indice}</ul>` : '<p class="nota">Sin cambios frente a la base.</p>'}
+<p class="resumen">${t(files.length === 1 ? 'tool.compare.filesOne' : 'tool.compare.filesMany', { n: files.length })}, <b class="mas">+${mas}</b> <b class="menos">−${menos}</b>. ${t('tool.compare.howToNote')}</p>
+${files.length ? `<ul class="indice">${indice}</ul>` : `<p class="nota">${t('tool.compare.noChanges')}</p>`}
 ${cuerpo}
 </main></body></html>`;
 }
@@ -140,7 +141,7 @@ export async function buildCompare(cwd: string, o: { base?: string; sinCommit?: 
   const files = parseDiff(diff + extra);
   const repo = path.basename(raiz);
   const titulo = o.titulo?.trim() || `${repo} · ${rama}`;
-  const subtitulo = `${rama} frente a ${base}${sinCommit ? ' (con lo que aún no está en un commit)' : ''}`;
+  const subtitulo = t('tool.compare.subtitle', { rama, base }) + (sinCommit ? t('tool.compare.withUncommitted') : '');
   await fs.mkdir(COMPARES_FOLDER, { recursive: true });
   const archivo = path.join(COMPARES_FOLDER, `${repo}-${rama}`.replace(/[^a-zA-Z0-9._-]+/g, '-').slice(0, 100) + '.html');
   await fs.writeFile(archivo, compareHtml(titulo, subtitulo, files));
@@ -152,13 +153,13 @@ export function mcpReview(cwd: () => string) {
   return createSdkMcpServer({
     name: 'revision', version: '1.0.0',
     tools: [
-      tool('comparar_cambios', 'work-shelter (el juego desde el que te manejan): genera la página de comparación de tus cambios (la rama frente a su base, con lo que aún no está en un commit) para que el Supervisor los revise antes de subirlos. Enlaza la ruta que devuelve en tu respuesta, como enlace Markdown: el Supervisor la abre en el juego, deja notas en las líneas y te llegan aquí. Úsala antes de cada push, o cuando te pida ver los cambios.',
-        { base: z.string().optional().describe('Rama o commit con el que comparar; si no, la rama remota que sigue o la principal'), sinCommit: z.boolean().optional().describe('Incluir lo que aún no está en un commit (por defecto, sí)'), titulo: z.string().optional() },
+      tool('comparar_cambios', t('tool.compare.description'),
+        { base: z.string().optional().describe(t('tool.compare.paramBase')), sinCommit: z.boolean().optional().describe(t('tool.compare.paramUncommitted')), titulo: z.string().optional() },
         async a => {
           try {
             const r = await buildCompare(cwd(), a);
-            return { content: [{ type: 'text', text: `Página lista: ${pageLink(r.archivo)} — ${r.rama} frente a ${r.base}: ${r.archivos} archivos, +${r.mas} −${r.menos}. Enlázala así en tu respuesta (tal cual, con los <…>: la ruta lleva espacios) para que el Supervisor la abra en el juego.` }] };
-          } catch (e) { return { content: [{ type: 'text', text: `No se pudo generar: ${(e as Error).message}` }], isError: true }; }
+            return { content: [{ type: 'text', text: t('tool.compare.ready', { enlace: pageLink(r.archivo), rama: r.rama, base: r.base, n: r.archivos, mas: r.mas, menos: r.menos }) }] };
+          } catch (e) { return { content: [{ type: 'text', text: t('tool.compare.failed', { error: (e as Error).message }) }], isError: true }; }
         }),
     ],
   });

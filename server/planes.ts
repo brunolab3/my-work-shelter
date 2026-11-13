@@ -4,6 +4,7 @@
 import { existsSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
 import path from 'node:path';
 import type { TaskOrder } from '../shared/despliegue.ts';
+import { t } from '../shared/idioma.ts';
 
 // esperaA: las salas (id) cuya parte tiene que fusionarse antes que esta (el tablero de despliegue lo hace bloqueos)
 export interface PartOfPlan { salaId: string; sala: string; titulo: string; sesionId?: string; waitA?: string[] }
@@ -40,10 +41,10 @@ export class Plans {
       const cambio = ya.texto !== texto;
       ya.texto = texto; ya.coordinacion = o.coordinacion; ya.coordinationSession = o.coordinationSession ?? ya.coordinationSession; ya.actualizado = ahora;
       for (const p of o.partes) { const i = ya.partes.findIndex(x => x.salaId === p.salaId); if (i >= 0) ya.partes[i] = p; else ya.partes.push(p); }
-      if (cambio) { ya.version++; ya.historial.push({ version: ya.version, fecha: ahora, cambios: 'Repartido de nuevo con el plan revisado.' }); }
+      if (cambio) { ya.version++; ya.historial.push({ version: ya.version, fecha: ahora, cambios: t('tool.plan.reassigned') }); }
       plan = ya;
     } else {
-      plan = { id: o.clave ?? 'plan-' + ahora.toString(36), clave: o.clave, coordinacion: o.coordinacion, coordinationSession: o.coordinationSession, texto, version: 1, creado: ahora, actualizado: ahora, partes: o.partes, historial: [{ version: 1, fecha: ahora, cambios: 'Plan repartido.' }] };
+      plan = { id: o.clave ?? 'plan-' + ahora.toString(36), clave: o.clave, coordinacion: o.coordinacion, coordinationSession: o.coordinationSession, texto, version: 1, creado: ahora, actualizado: ahora, partes: o.partes, historial: [{ version: 1, fecha: ahora, cambios: t('tool.plan.assigned') }] };
       this.planes.push(plan);
       if (this.planes.length > MAX_PLANS) this.planes.sort((a, b) => b.actualizado - a.actualizado).splice(MAX_PLANS);
     }
@@ -55,7 +56,7 @@ export class Plans {
   actualizar(id: string, texto: string, cambios: string): Plan | null {
     const p = this.get(id); if (!p) return null;
     p.texto = texto.trim().slice(0, MAX_TEXT); p.version++; p.actualizado = Date.now();
-    p.historial.push({ version: p.version, fecha: p.actualizado, cambios: cambios.trim().slice(0, 2000) || 'Sin resumen.' });
+    p.historial.push({ version: p.version, fecha: p.actualizado, cambios: cambios.trim().slice(0, 2000) || t('tool.plan.noSummary') });
     this.guardar();
     return p;
   }
@@ -63,18 +64,18 @@ export class Plans {
 
 const waitOf = (p: Plan, x: PartOfPlan) => {
   const n = (x.waitA ?? []).map(id => p.partes.find(y => y.salaId === id)?.sala ?? id);
-  return n.length ? ` (se fusiona después de ${n.join(', ')})` : '';
+  return n.length ? t('tool.plan.mergesAfter', { salas: n.join(', ') }) : '';
 };
 
 /** Cómo lo lee una sala: la versión, el plan entero, quién hace cada parte y lo que ha cambiado */
 export function textPlan(p: Plan, salaId?: string): string {
   return [
-    `Plan ${p.id}${p.clave ? ` (tarea ${p.clave})` : ''} · versión ${p.version}`,
+    t('tool.plan.heading', { id: p.id, tarea: p.clave ? t('tool.plan.task', { clave: p.clave }) : '', version: p.version }),
     '',
-    'Partes:',
-    ...p.partes.map(x => `- ${x.sala}: ${x.titulo}${waitOf(p, x)}${x.salaId === salaId ? '  ← la tuya' : ''}`),
+    t('tool.plan.parts'),
+    ...p.partes.map(x => `- ${x.sala}: ${x.titulo}${waitOf(p, x)}${x.salaId === salaId ? t('tool.plan.yours') : ''}`),
     '',
-    'Cambios:',
+    t('tool.plan.changes'),
     ...p.historial.slice(-8).map(h => `- v${h.version}: ${h.cambios}`),
     '',
     '---',

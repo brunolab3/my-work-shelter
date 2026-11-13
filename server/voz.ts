@@ -29,7 +29,7 @@ export function transcriptor(dirData: string): Promise<string> {
     await new Promise<void>((ok, ko) => execFile('/usr/bin/xcrun', ['swiftc', '-O', '-suppress-warnings', '-o', tmp, SOURCE], { timeout: 180_000 }, (err, _o, stderr) => {
       if (!err) return ok();
       const withoutSwift = /xcrun: error|unable to find utility|no developer tools/i.test(String(stderr) + err.message);
-      ko(new Error(withoutSwift ? 'Para dictar hacen falta las herramientas de línea de órdenes de Xcode: instálalas con «xcode-select --install» y vuelve a probar.' : `No he podido preparar el dictado: ${String(stderr).trim().split('\n').slice(-3).join(' ') || err.message}`));
+      ko(new Error(withoutSwift ? t('server.voice.needsXcodeTools') : t('server.voice.couldNotPrepare', { error: String(stderr).trim().split('\n').slice(-3).join(' ') || err.message })));
     }));
     renameSync(tmp, bin);
     // los de versiones anteriores del transcriptor ya no sirven
@@ -64,7 +64,7 @@ export class Dictations {
       p.stdin!.on('error', () => {});
       p.on('close', codigo => {
         if (this.d.get(id) === x) { clearTimeout(x.timer); this.d.delete(id); }
-        if (ultimo !== 'final' && ultimo !== 'error' && !p.killed) emitir({ estado: 'error', texto: `El dictado se ha cortado${codigo ? ` (código ${codigo})` : ''}${err.trim() ? `: ${err.trim().split('\n').pop()}` : ''}.` });
+        if (ultimo !== 'final' && ultimo !== 'error' && !p.killed) emitir({ estado: 'error', texto: t('server.voice.cutOff', { codigo: codigo ? t('server.voice.code', { codigo }) : '', error: err.trim() ? `: ${err.trim().split('\n').pop()}` : '' }) });
       });
       for (const b of x.queue.splice(0)) p.stdin!.write(b);
       if (x.fin) p.stdin!.end();

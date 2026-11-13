@@ -79,7 +79,7 @@ class Linear extends ConnectorBase {
     const yo = j.data?.viewer;
     if (!yo) return { ok: false, detalle: t('server.linearDidNotReturnYour') };
     this.quien = yo;
-    return { ok: true, detalle: t('server.connectedAsOnTeams', { name: yo.name, name2: yo.organization?.name, ninguno: (yo.teams?.nodes ?? []).map((t: any) => t.key).join(', ') || 'ninguno' }) };
+    return { ok: true, detalle: t('server.connectedAsOnTeams', { name: yo.name, name2: yo.organization?.name, ninguno: (yo.teams?.nodes ?? []).map((t: any) => t.key).join(', ') || t('integrations.none') }) };
   }
   // Paneles (solo lectura): mis issues por estado, ciclo actual por equipo y tablero de un equipo con filtros
   protected async ownAction(nombre: string, d: Record<string, any>) {
@@ -87,7 +87,7 @@ class Linear extends ConnectorBase {
     if (nombre === 'tablero') {
       let equipo = String(d.equipo ?? '');
       if (!/^[0-9a-f-]{36}$/i.test(equipo)) { if (!this.quien) this.quien = (await this.gql(Q.viewer)).data?.viewer; equipo = (this.quien?.teams?.nodes ?? []).find((t: any) => !d.equipo || t.key === d.equipo)?.id ?? ''; }
-      if (!equipo) throw new Error('Equipo de Linear desconocido: ' + (d.equipo ?? ''));
+      if (!equipo) throw new Error(t('integrations.linearUnknownTeam', { equipo: d.equipo ?? '' }));
       return teamBoard(await this.gql(Q.tablero, { teamId: equipo, filter: boardFilter(d) }));
     }
     return super.ownAction(nombre, d);

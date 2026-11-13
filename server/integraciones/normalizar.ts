@@ -2,6 +2,7 @@
 // GitHub y Linear → Notificacion/Evento. También los textos de error en español. Se prueban contra test/fixtures
 // (normalizar.test.ts).
 import type { Notification, Evento, Priority } from './adaptadores.ts';
+import { t as tr } from '../../shared/idioma.ts';
 
 // ------------------------------------------------------------------ tiempo (la zona horaria del sistema)
 // SHELTER_ZONA la fuerza (p. ej. «Europe/Paris»); si no, la del Mac.
@@ -70,8 +71,8 @@ export function notificacionDeCorreo(m: any, yo: YoMicrosoft = {}): Notification
   if (!m?.id || m['@removed'] || m.isRead === true) return null;
   const de = dir(m.from ?? m.sender);
   return {
-    id: 'outlook-' + m.id, fuente: 'outlook', hilo: 'outlook-' + (m.conversationId ?? m.id), canal: m.inferenceClassification === 'other' ? 'Otros' : 'Bandeja de entrada',
-    autor: de.name || de.address || 'Remitente desconocido', titulo: (m.subject || '(sin asunto)') + (m.hasAttachments ? ' · con adjunto' : ''),
+    id: 'outlook-' + m.id, fuente: 'outlook', hilo: 'outlook-' + (m.conversationId ?? m.id), canal: m.inferenceClassification === 'other' ? tr('integrations.outlookOther') : tr('integrations.outlookInbox'),
+    autor: de.name || de.address || tr('integrations.unknownSender'), titulo: (m.subject || tr('integrations.noSubject')) + (m.hasAttachments ? tr('integrations.withAttachment') : ''),
     fragmento: recortar(String(m.bodyPreview ?? '').replace(/\s+/g, ' ').trim()), fecha: Date.parse(m.receivedDateTime), prioridad: mailPriority(m, yo),
     enlace: m.webLink ? m.webLink + (m.webLink.includes('ispopout=') ? '' : '&ispopout=0') : 'https://outlook.office.com/mail/',
   };
@@ -86,7 +87,7 @@ export function outlookEvent(e: any): Evento | null {
   const lugar = String(e.location?.displayName ?? '').trim();
   const video = e.onlineMeeting?.joinUrl || e.onlineMeetingUrl || linkVideo(lugar, e.bodyPreview);
   return {
-    id: 'outlook-' + e.id, fuente: 'outlook', titulo: e.subject || '(sin título)', inicio, fin: Number.isFinite(fin) ? fin : inicio, allElDay: !!e.isAllDay,
+    id: 'outlook-' + e.id, fuente: 'outlook', titulo: e.subject || tr('integrations.untitled'), inicio, fin: Number.isFinite(fin) ? fin : inicio, allElDay: !!e.isAllDay,
     lugar: lugar && !(video && GENERIC_PLACES.test(lugar)) ? lugar : undefined, videollamada: video || undefined,
     enlace: 'https://outlook.office365.com/calendar/item/' + encodeURIComponent(e.id), organizador: dir(e.organizer).name || undefined,
   };
@@ -98,24 +99,24 @@ export function explainErrorMicrosoft(x: { error?: string; error_description?: s
   const desc = String(x.error_description ?? '');
   const codigo = x.error_codes?.[0] ?? Number(/AADSTS(\d+)/.exec(desc)?.[1] ?? 0);
   switch (codigo) {
-    case 65001: return 'Falta aceptar los permisos. Pulsa «Conectar con Microsoft» otra vez y acepta la pantalla de permisos.';
-    case 90094: case 65004: return 'Microsoft no concedió los permisos. Si la pantalla pedía la aprobación de un administrador, quien administre esa cuenta tiene que aprobar tu registro de aplicación una vez; después basta con «Conectar con Microsoft».';
-    case 50076: case 50079: return 'Microsoft pide verificación en dos pasos. Complétala en el navegador y vuelve a intentarlo.';
-    case 700082: case 50173: case 70008: case 70000: return 'La sesión con Microsoft caducó o se revocó. Pulsa «Conectar con Microsoft» para volver a entrar.';
+    case 65001: return tr('integrations.msPermissionsMissing');
+    case 90094: case 65004: return tr('integrations.msNotGranted');
+    case 50076: case 50079: return tr('integrations.msTwoStep');
+    case 700082: case 50173: case 70008: case 70000: return tr('integrations.msSessionExpired');
   }
-  if (x.error === 'access_denied' && x.error_subcode === 'cancel') return 'Has cancelado la autorización. Puedes reintentarlo cuando quieras con «Conectar con Microsoft».';
-  if (x.error === 'consent_required' || x.suberror === 'consent_required') return 'Falta aceptar los permisos. Pulsa «Conectar con Microsoft» y acepta la pantalla de permisos.';
-  if (x.error === 'invalid_grant') return 'La sesión con Microsoft caducó o se revocó. Pulsa «Conectar con Microsoft» para volver a entrar.';
-  return 'Microsoft respondió: ' + (desc.split(/\r?\n| Trace ID:/)[0] || x.error || 'error desconocido');
+  if (x.error === 'access_denied' && x.error_subcode === 'cancel') return tr('integrations.msCancelled');
+  if (x.error === 'consent_required' || x.suberror === 'consent_required') return tr('integrations.msConsentRequired');
+  if (x.error === 'invalid_grant') return tr('integrations.msSessionExpired');
+  return tr('integrations.msResponded', { detalle: desc.split(/\r?\n| Trace ID:/)[0] || x.error || tr('integrations.unknownError') });
 }
 export function explainErrorGraph(estado: number, cuerpo: any): string {
   const c = cuerpo?.error?.code ?? '';
-  if (estado === 401) return 'Microsoft no acepta la sesión (token caducado o revocado). Pulsa «Conectar con Microsoft».';
-  if (estado === 403 || c === 'ErrorAccessDenied') return 'Microsoft deniega el acceso: comprueba en el registro de la app que hay permisos delegados Mail.Read y Calendars.Read, y vuelve a conectar.';
-  if (c === 'MailboxNotEnabledForRESTAPI' || c === 'MailboxNotSupportedForRESTAPI') return 'Tu buzón no está en Exchange Online: Microsoft Graph no puede leerlo.';
-  if (estado === 429) return 'Microsoft limita las peticiones ahora mismo; se reintenta en un rato.';
-  if (estado >= 500) return `Microsoft no responde bien (HTTP ${estado}); se reintenta.`;
-  return `Microsoft Graph respondió ${estado}${c ? ' (' + c + ')' : ''}: ${cuerpo?.error?.message ?? 'sin detalle'}`;
+  if (estado === 401) return tr('integrations.msSessionRejected');
+  if (estado === 403 || c === 'ErrorAccessDenied') return tr('integrations.msAccessDenied');
+  if (c === 'MailboxNotEnabledForRESTAPI' || c === 'MailboxNotSupportedForRESTAPI') return tr('integrations.msMailboxNotExchange');
+  if (estado === 429) return tr('integrations.msRateLimited');
+  if (estado >= 500) return tr('integrations.msBadResponse', { estado });
+  return tr('integrations.graphResponded', { estado, codigo: c ? ' (' + c + ')' : '', detalle: cuerpo?.error?.message ?? tr('integrations.noDetail') });
 }
 
 // ------------------------------------------------------------------ Discord
@@ -162,20 +163,20 @@ export function priorityDiscord(m: any, ctx: ContextDiscord): Priority {
   if (m.mention_everyone) return 'media';
   return 'baja';
 }
-const userName = (u: any, miembro?: any) => miembro?.nick || u?.global_name || u?.username || 'alguien';
+const userName = (u: any, miembro?: any) => miembro?.nick || u?.global_name || u?.username || tr('integrations.someone');
 export function textDiscord(m: any, ctx: ContextDiscord): string {
   const users = new Map<string, string>(((m.mentions ?? []) as any[]).map(u => [u.id, userName(u, u.member)]));
   let t = String(m.content ?? '')
-    .replace(/<@!?(\d+)>/g, (_, id) => '@' + (users.get(id) ?? 'usuario'))
-    .replace(/<@&(\d+)>/g, (_, id) => '@' + (ctx.roles.get(id) ?? 'rol'))
-    .replace(/<#(\d+)>/g, (_, id) => '#' + (ctx.canales.get(id)?.nombre ?? 'canal'))
+    .replace(/<@!?(\d+)>/g, (_, id) => '@' + (users.get(id) ?? tr('integrations.user')))
+    .replace(/<@&(\d+)>/g, (_, id) => '@' + (ctx.roles.get(id) ?? tr('integrations.role')))
+    .replace(/<#(\d+)>/g, (_, id) => '#' + (ctx.canales.get(id)?.nombre ?? tr('integrations.channel')))
     .replace(/<a?:(\w+):\d+>/g, ':$1:').replace(/<t:(\d+)(?::\w)?>/g, (_, s) => new Date(+s * 1000).toLocaleString('es-ES', { timeZone: ZONA }))
     .replace(/\s+/g, ' ').trim();
   if (!t && m.embeds?.length) t = [m.embeds[0].title, m.embeds[0].description].filter(Boolean).join(' — ');
-  if (!t && m.attachments?.length) t = '(adjunto: ' + m.attachments.map((a: any) => a.filename).join(', ') + ')';
+  if (!t && m.attachments?.length) t = tr('integrations.attachment', { nombres: m.attachments.map((a: any) => a.filename).join(', ') });
   if (!t && m.sticker_items?.length) t = '(sticker)';
-  if (!t && !ctx.contenido) t = '(Sin contenido: activa «Message Content Intent» en el portal de Discord para ver el texto.)';
-  return recortar(t || '(mensaje sin texto)');
+  if (!t && !ctx.contenido) t = tr('integrations.discordNoContent');
+  return recortar(t || tr('integrations.noText'));
 }
 // null = no se notifica (propio, del bot, fuera de los canales elegidos y sin mención)
 export function discordNotification(m: any, ctx: ContextDiscord): Notification | null {
@@ -209,44 +210,44 @@ export function eligibleChannels(lista: any[]): { id: string; nombre: string; ti
 // Cierre del Gateway: ¿se reconecta? y qué decirle al usuario
 export function closingDiscord(codigo: number): { reconectar: boolean; reanudar: boolean; mensaje?: string; withoutContent?: boolean } {
   switch (codigo) {
-    case 4004: return { reconectar: false, reanudar: false, mensaje: 'Discord dice que el token del bot no es válido. En el portal: Bot → Reset Token y pega el nuevo en la cámara acorazada.' };
-    case 4014: return { reconectar: true, reanudar: false, withoutContent: true, mensaje: '«Message Content Intent» no está activado en el portal; se conecta sin leer el texto de los mensajes.' };
-    case 4013: return { reconectar: false, reanudar: false, mensaje: 'Discord rechaza los intents pedidos (4013).' };
-    case 4010: case 4011: case 4012: return { reconectar: false, reanudar: false, mensaje: `Discord cerró la conexión (código ${codigo}).` };
+    case 4004: return { reconectar: false, reanudar: false, mensaje: tr('integrations.discordInvalidToken') };
+    case 4014: return { reconectar: true, reanudar: false, withoutContent: true, mensaje: tr('integrations.discordNoContentIntent') };
+    case 4013: return { reconectar: false, reanudar: false, mensaje: tr('integrations.discordIntentsRejected') };
+    case 4010: case 4011: case 4012: return { reconectar: false, reanudar: false, mensaje: tr('integrations.discordClosedCode', { codigo }) };
     case 4007: case 4009: return { reconectar: true, reanudar: false };
     case 1000: case 1001: return { reconectar: true, reanudar: false };
     default: return { reconectar: true, reanudar: true };
   }
 }
 export function explainErrorDiscord(estado: number, cuerpo: any): string {
-  if (estado === 401) return 'El token del bot no es válido. En el portal de Discord: Bot → Reset Token y pega el nuevo. (Nunca uses el token de tu cuenta personal: está prohibido.)';
-  if (estado === 403 || cuerpo?.code === 50001 || cuerpo?.code === 50013) return 'El bot no tiene acceso: dale «Ver canal» y «Leer el historial de mensajes» en ese canal o servidor.';
-  if (estado === 404 || cuerpo?.code === 10003) return 'Discord no encuentra ese canal o servidor (¿se borró o el bot no está dentro?).';
-  if (estado === 429) return `Discord limita las peticiones; se reintenta en ${Math.ceil(Number(cuerpo?.retry_after ?? 5))} s.`;
-  return `Discord respondió ${estado}: ${cuerpo?.message ?? 'sin detalle'}`;
+  if (estado === 401) return tr('integrations.discordBotTokenInvalid');
+  if (estado === 403 || cuerpo?.code === 50001 || cuerpo?.code === 50013) return tr('integrations.discordNoAccess');
+  if (estado === 404 || cuerpo?.code === 10003) return tr('integrations.discordNotFound');
+  if (estado === 429) return tr('integrations.discordRateLimited', { s: Math.ceil(Number(cuerpo?.retry_after ?? 5)) });
+  return tr('integrations.discordResponded', { estado, detalle: cuerpo?.message ?? tr('integrations.noDetail') });
 }
 
 // ------------------------------------------------------------------ Google (Gmail y Calendar)
 const headerGmail = (m: any, nombre: string) => ((m?.payload?.headers ?? []) as any[]).find(h => String(h.name).toLowerCase() === nombre.toLowerCase())?.value as string | undefined;
 // «Ana Ruiz <ana@example.com>» → «Ana Ruiz» (o la dirección si no hay nombre)
 export function senderName(s?: string) {
-  if (!s) return 'Remitente desconocido';
+  if (!s) return tr('integrations.unknownSender');
   const m = /^\s*"?([^"<]*?)"?\s*<([^>]+)>\s*$/.exec(s);
   return (m ? m[1].trim() || m[2] : s).trim();
 }
-const CATEGORY_GMAIL: Record<string, string> = { CATEGORY_PROMOTIONS: 'Promociones', CATEGORY_SOCIAL: 'Social', CATEGORY_UPDATES: 'Notificaciones', CATEGORY_FORUMS: 'Foros' };
+const categoryGmail = (): Record<string, string> => ({ CATEGORY_PROMOTIONS: tr('integrations.gmailPromotions'), CATEGORY_SOCIAL: tr('integrations.gmailSocial'), CATEGORY_UPDATES: tr('integrations.gmailUpdates'), CATEGORY_FORUMS: tr('integrations.gmailForums') });
 // Un mensaje de users.messages.get (format=metadata). Sin UNREAD no se avisa. Prioridad: IMPORTANT de Gmail (y destacado) → media;
 // importante en Principal → alta
 export function gmailNotification(m: any): Notification | null {
   const etiquetas: string[] = m?.labelIds ?? [];
   if (!m?.id || !etiquetas.includes('UNREAD')) return null;
-  const categoria = etiquetas.map(e => CATEGORY_GMAIL[e]).find(Boolean);
+  const cats = categoryGmail(), categoria = etiquetas.map(e => cats[e]).find(Boolean);
   const important = etiquetas.includes('IMPORTANT');
   const prioridad: Priority = important && !categoria ? 'alta' : important || etiquetas.includes('STARRED') ? 'media' : 'baja';
   const fecha = Number(m.internalDate) || Date.parse(headerGmail(m, 'Date') ?? '');
   return {
-    id: 'google-' + m.id, fuente: 'google', hilo: 'google-' + (m.threadId ?? m.id), canal: categoria ?? 'Recibidos',
-    autor: senderName(headerGmail(m, 'From')), titulo: headerGmail(m, 'Subject') || '(sin asunto)',
+    id: 'google-' + m.id, fuente: 'google', hilo: 'google-' + (m.threadId ?? m.id), canal: categoria ?? tr('integrations.inbox'),
+    autor: senderName(headerGmail(m, 'From')), titulo: headerGmail(m, 'Subject') || tr('integrations.noSubject'),
     fragmento: recortar(decodeEntities(String(m.snippet ?? '')).replace(/\s+/g, ' ').trim()), fecha: Number.isFinite(fecha) ? fecha : Date.now(), prioridad,
     enlace: `https://mail.google.com/mail/u/0/#inbox/${encodeURIComponent(m.threadId ?? m.id)}`,
   };
@@ -267,17 +268,17 @@ export function mailNotification(m: MessageMail, cuenta?: AccountMail, fragmento
     ? `https://mail.google.com/mail/${correo ? '?authuser=' + encodeURIComponent(correo) : 'u/0/'}#search/${encodeURIComponent('rfc822msgid:' + id)}`
     : `message://${encodeURIComponent('<' + id + '>')}`;
   return {
-    id: 'mail-' + id, fuente: 'mail', hilo: `mail-${m.cuenta}-${threadSubject(asunto) || id}`, canal: m.cuenta || 'Recibidos',
-    autor: senderName(m.remitente), titulo: asunto || '(sin asunto)',
+    id: 'mail-' + id, fuente: 'mail', hilo: `mail-${m.cuenta}-${threadSubject(asunto) || id}`, canal: m.cuenta || tr('integrations.inbox'),
+    autor: senderName(m.remitente), titulo: asunto || tr('integrations.noSubject'),
     fragmento: recortar(String(fragmento ?? m.texto ?? '').replace(/\s+/g, ' ').trim()), fecha: Number(m.fecha) || Date.now(),
     prioridad: m.marcado ? 'alta' : 'media', enlace,
   };
 }
 export function explainErrorMail(salida: string) {
-  if (/-1743|not authori[sz]ed|no autorizad/i.test(salida)) return 'macOS no deja al refugio leer Mail: en Ajustes del Sistema → Privacidad y seguridad → Automatización, activa «Mail» para work-shelter-public (o la terminal desde la que lo abriste).';
-  if (/-600|isn.t running|no se está ejecutando/i.test(salida)) return 'Mail está cerrada: ábrela (puede quedarse en segundo plano) y el tablón la leerá.';
-  if (/timed out|ETIMEDOUT|SIGTERM/i.test(salida)) return 'Mail no respondió a tiempo (¿está sincronizando un buzón grande?). Se reintenta en un minuto.';
-  return 'No se pudo leer Mail: ' + (salida.trim().split('\n').pop() || 'sin detalle');
+  if (/-1743|not authori[sz]ed|no autorizad/i.test(salida)) return tr('integrations.mailNotAllowed');
+  if (/-600|isn.t running|no se está ejecutando/i.test(salida)) return tr('integrations.mailClosed');
+  if (/timed out|ETIMEDOUT|SIGTERM/i.test(salida)) return tr('integrations.mailTimeout');
+  return tr('integrations.mailCouldNotRead', { detalle: salida.trim().split('\n').pop() || tr('integrations.noDetail') });
 }
 // ------------------------------------------------------------------ Calendario del Mac (calendario.jxa)
 export interface EventCalendarMac { calendario: string; uid: string; titulo: string; inicio: number; fin: number; allElDay: boolean; lugar?: string; notas?: string; estado?: string; rule?: string; excluded?: number[] }
@@ -346,7 +347,7 @@ export function eventsOfCalendarMac(lista: EventCalendarMac[], desde: number, ha
     const fin = inicio + Math.max(0, e.fin - e.inicio), id = `calendario-${e.uid || e.titulo}-${inicio}`;
     if (fin <= desde || inicio >= hasta || out.has(id)) return;
     const video = linkVideo(e.lugar, e.notas);
-    out.set(id, { id, fuente: 'calendario', titulo: e.titulo || '(sin título)', inicio, fin, allElDay: e.allElDay, lugar: e.lugar || undefined, videollamada: video, enlace: video, organizador: e.calendario || undefined });
+    out.set(id, { id, fuente: 'calendario', titulo: e.titulo || tr('integrations.untitled'), inicio, fin, allElDay: e.allElDay, lugar: e.lugar || undefined, videollamada: video, enlace: video, organizador: e.calendario || undefined });
   };
   for (const e of lista) {
     if (/cancel/i.test(e.estado ?? '') || SIRI_SUGGESTIONS.test(e.calendario) || !Number.isFinite(e.inicio) || !e.inicio) continue;
@@ -357,10 +358,10 @@ export function eventsOfCalendarMac(lista: EventCalendarMac[], desde: number, ha
   return [...out.values()].sort((a, c) => a.inicio - c.inicio);
 }
 export function explainErrorCalendar(salida: string) {
-  if (/-1743|not authori[sz]ed|no autorizad/i.test(salida)) return 'macOS no deja al refugio leer Calendario: en Ajustes del Sistema → Privacidad y seguridad → Automatización, activa «Calendario» para work-shelter-public (o la terminal desde la que lo abriste).';
-  if (/-600|isn.t running|no se está ejecutando/i.test(salida)) return 'Calendario está cerrada: ábrela (puede quedarse en segundo plano) y la agenda la leerá.';
-  if (/timed out|ETIMEDOUT|SIGTERM/i.test(salida)) return 'Calendario no respondió a tiempo (¿está sincronizando?). Se reintenta en unos minutos.';
-  return 'No se pudo leer Calendario: ' + (salida.trim().split('\n').pop() || 'sin detalle');
+  if (/-1743|not authori[sz]ed|no autorizad/i.test(salida)) return tr('integrations.calendarNotAllowed');
+  if (/-600|isn.t running|no se está ejecutando/i.test(salida)) return tr('integrations.calendarClosed');
+  if (/timed out|ETIMEDOUT|SIGTERM/i.test(salida)) return tr('integrations.calendarTimeout');
+  return tr('integrations.calendarCouldNotRead', { detalle: salida.trim().split('\n').pop() || tr('integrations.noDetail') });
 }
 
 // Un evento de calendars/primary/events (singleEvents=true). Fuera los cancelados y los que he rechazado
@@ -373,7 +374,7 @@ export function googleEvent(e: any): Evento | null {
   const fin = todo ? localAEpoch(e.end?.date ?? nextDay(e.start.date)) : Date.parse(e.end?.dateTime ?? '');
   const video = e.hangoutLink || ((e.conferenceData?.entryPoints ?? []) as any[]).find(p => p.entryPointType === 'video')?.uri || linkVideo(e.location, e.description);
   return {
-    id: 'google-' + e.id, fuente: 'google', titulo: e.summary || '(sin título)', inicio, fin: Number.isFinite(fin) ? fin : inicio, allElDay: todo,
+    id: 'google-' + e.id, fuente: 'google', titulo: e.summary || tr('integrations.untitled'), inicio, fin: Number.isFinite(fin) ? fin : inicio, allElDay: todo,
     lugar: e.location || undefined, videollamada: video || undefined, enlace: e.htmlLink || 'https://calendar.google.com/', organizador: e.organizer?.displayName || e.organizer?.email || undefined,
   };
 }
@@ -381,32 +382,32 @@ export const googleEvents = (json: any) => ((json?.items ?? []) as any[]).map(go
 // Errores del inicio de sesión de Google (cuerpo de /token o parámetros de la redirección)
 export function explainErrorOAuthGoogle(x: { error?: string; error_description?: string }): string {
   switch (x.error) {
-    case 'access_denied': return 'Google no dio acceso: o cancelaste, o tu cuenta no está en «Usuarios de prueba» de la pantalla de consentimiento de tu proyecto. Añádela y vuelve a conectar.';
-    case 'invalid_client': case 'unauthorized_client': return 'Google no reconoce el ID o el secreto de cliente. Cópialos otra vez de tu cliente OAuth (tipo «Aplicación de escritorio»).';
-    case 'invalid_grant': return 'La sesión con Google caducó o se revocó (con la app en modo de prueba, Google la corta a los 7 días). Pulsa «Conectar con Google».';
-    case 'redirect_uri_mismatch': return 'El cliente OAuth tiene que ser de tipo «Aplicación de escritorio» (los de tipo web no aceptan el retorno a localhost).';
-    case 'invalid_scope': return 'Google rechaza los permisos pedidos: comprueba que Gmail API y Google Calendar API están activadas en tu proyecto.';
+    case 'access_denied': return tr('integrations.googleAccessDenied');
+    case 'invalid_client': case 'unauthorized_client': return tr('integrations.googleInvalidClient');
+    case 'invalid_grant': return tr('integrations.googleSessionExpired');
+    case 'redirect_uri_mismatch': return tr('integrations.googleRedirectMismatch');
+    case 'invalid_scope': return tr('integrations.googleInvalidScope');
   }
-  return 'Google respondió: ' + (x.error_description || x.error || 'error desconocido');
+  return tr('integrations.googleResponded', { detalle: x.error_description || x.error || tr('integrations.unknownError') });
 }
 export function explainErrorGoogle(estado: number, cuerpo: any): string {
   const motivo = cuerpo?.error?.errors?.[0]?.reason ?? cuerpo?.error?.details?.find((d: any) => d.reason)?.reason ?? cuerpo?.error?.status ?? '';
-  if (estado === 401) return 'Google no acepta la sesión (caducada o revocada). Pulsa «Conectar con Google».';
-  if (/accessNotConfigured|SERVICE_DISABLED/.test(motivo)) return 'La API no está activada en tu proyecto de Google Cloud: activa Gmail API y Google Calendar API (APIs y servicios → Biblioteca).';
-  if (estado === 403 && /insufficient|PERMISSION_DENIED|ACCESS_TOKEN_SCOPE_INSUFFICIENT/i.test(motivo + ' ' + (cuerpo?.error?.message ?? ''))) return 'Faltan permisos: vuelve a conectar con Google y acepta leer el correo y el calendario.';
-  if (estado === 429 || /rateLimitExceeded|userRateLimitExceeded|RESOURCE_EXHAUSTED/.test(motivo)) return 'Google limita las peticiones ahora mismo; se reintenta en un rato.';
-  if (estado >= 500) return `Google no responde bien (HTTP ${estado}); se reintenta.`;
-  return `Google respondió ${estado}${motivo ? ' (' + motivo + ')' : ''}: ${cuerpo?.error?.message ?? 'sin detalle'}`;
+  if (estado === 401) return tr('integrations.googleSessionRejected');
+  if (/accessNotConfigured|SERVICE_DISABLED/.test(motivo)) return tr('integrations.googleApiDisabled');
+  if (estado === 403 && /insufficient|PERMISSION_DENIED|ACCESS_TOKEN_SCOPE_INSUFFICIENT/i.test(motivo + ' ' + (cuerpo?.error?.message ?? ''))) return tr('integrations.googleMissingPermissions');
+  if (estado === 429 || /rateLimitExceeded|userRateLimitExceeded|RESOURCE_EXHAUSTED/.test(motivo)) return tr('integrations.googleRateLimited');
+  if (estado >= 500) return tr('integrations.googleBadResponse', { estado });
+  return tr('integrations.googleRespondedStatus', { estado, motivo: motivo ? ' (' + motivo + ')' : '', detalle: cuerpo?.error?.message ?? tr('integrations.noDetail') });
 }
 
 // ------------------------------------------------------------------ GitHub (notificaciones)
-const REASON_GITHUB: Record<string, string> = {
-  approval_requested: 'te piden aprobar un despliegue', assign: 'te lo han asignado', author: 'eres el autor', comment: 'hay un comentario nuevo',
-  ci_activity: 'actividad de CI', invitation: 'te han invitado', manual: 'lo sigues', member_feature_requested: 'piden una función',
-  mention: 'te mencionan', review_requested: 'te piden revisión', security_alert: 'alerta de seguridad', security_advisory_credit: 'te dan crédito en un aviso',
-  state_change: 'ha cambiado de estado', subscribed: 'sigues el repositorio', team_mention: 'mencionan a tu equipo',
-};
-const TYPE_GITHUB: Record<string, string> = { PullRequest: 'PR', Issue: 'Issue', Release: 'Release', Commit: 'Commit', CheckSuite: 'CI', Discussion: 'Discusión', RepositoryVulnerabilityAlert: 'Seguridad' };
+const reasonGithub = (): Record<string, string> => ({
+  approval_requested: tr('integrations.ghApprovalRequested'), assign: tr('integrations.ghAssign'), author: tr('integrations.ghAuthor'), comment: tr('integrations.ghComment'),
+  ci_activity: tr('integrations.ghCiActivity'), invitation: tr('integrations.ghInvitation'), manual: tr('integrations.ghManual'), member_feature_requested: tr('integrations.ghFeatureRequested'),
+  mention: tr('integrations.ghMention'), review_requested: tr('integrations.ghReviewRequested'), security_alert: tr('integrations.ghSecurityAlert'), security_advisory_credit: tr('integrations.ghAdvisoryCredit'),
+  state_change: tr('integrations.ghStateChange'), subscribed: tr('integrations.ghSubscribed'), team_mention: tr('integrations.ghTeamMention'),
+});
+const typeGithub = (): Record<string, string> => ({ PullRequest: 'PR', Issue: 'Issue', Release: 'Release', Commit: 'Commit', CheckSuite: 'CI', Discussion: tr('integrations.ghDiscussion'), RepositoryVulnerabilityAlert: tr('integrations.ghSecurity') });
 // La URL de la API del asunto → la de la web (pulls/12 → pull/12; los releases van por id, así que a la lista)
 export function urlWebGitHub(api?: string | null, repo?: string): string {
   const m = api ? /^https:\/\/api\.github\.com\/repos\/([^/]+\/[^/]+)\/(pulls|issues|commits|releases|discussions)\/([^/?#]+)$/.exec(api) : null;
@@ -420,22 +421,22 @@ export function notificationOfGitHub(n: any): Notification | null {
   if (!n?.id || n.unread === false) return null;
   const motivo = String(n.reason ?? '');
   const prioridad: Priority = ['mention', 'team_mention', 'review_requested', 'assign', 'security_alert', 'approval_requested'].includes(motivo) ? 'alta' : motivo === 'subscribed' ? 'baja' : 'media';
-  const tipo = TYPE_GITHUB[n.subject?.type] ?? n.subject?.type ?? 'Aviso';
+  const tipo = typeGithub()[n.subject?.type] ?? n.subject?.type ?? tr('integrations.ghNotice');
   const fecha = Date.parse(n.updated_at ?? '');
   return {
     id: `github-${n.id}-${Number.isFinite(fecha) ? fecha : 0}`, fuente: 'github', hilo: 'github-' + n.id, canal: n.repository?.full_name ?? 'GitHub',
-    autor: n.repository?.full_name ?? 'GitHub', titulo: `${tipo} · ${n.subject?.title ?? '(sin título)'}`,
-    fragmento: (REASON_GITHUB[motivo] ?? motivo) || 'novedades', fecha: Number.isFinite(fecha) ? fecha : Date.now(), prioridad,
+    autor: n.repository?.full_name ?? 'GitHub', titulo: `${tipo} · ${n.subject?.title ?? tr('integrations.untitled')}`,
+    fragmento: (reasonGithub()[motivo] ?? motivo) || tr('integrations.ghNews'), fecha: Number.isFinite(fecha) ? fecha : Date.now(), prioridad,
     enlace: urlWebGitHub(n.subject?.url, n.repository?.html_url),
   };
 }
 export const notificationsOfGitHub = (json: any) => ((Array.isArray(json) ? json : []) as any[]).map(notificationOfGitHub).filter((n): n is Notification => !!n);
 export function explainErrorGitHub(estado: number, cuerpo: any): string {
-  if (estado === 401) return 'GitHub no acepta el token (no es válido, caducó o se revocó). Crea uno nuevo y pégalo.';
-  if (estado === 403 && /rate limit/i.test(cuerpo?.message ?? '')) return 'GitHub limita las peticiones de este token; se reintenta más tarde.';
-  if (estado === 403 || estado === 404) return 'El token no puede leer tus notificaciones: tiene que ser un token clásico con el permiso «notifications» (o «repo»). Los fine-grained no sirven para notificaciones.';
-  if (estado >= 500) return `GitHub no responde bien (HTTP ${estado}); se reintenta.`;
-  return `GitHub respondió ${estado}: ${cuerpo?.message ?? 'sin detalle'}`;
+  if (estado === 401) return tr('integrations.ghTokenRejected');
+  if (estado === 403 && /rate limit/i.test(cuerpo?.message ?? '')) return tr('integrations.ghRateLimited');
+  if (estado === 403 || estado === 404) return tr('integrations.ghCannotReadNotifications');
+  if (estado >= 500) return tr('integrations.ghBadResponse', { estado });
+  return tr('integrations.ghResponded', { estado, detalle: cuerpo?.message ?? tr('integrations.noDetail') });
 }
 
 // ------------------------------------------------------------------ Slack
@@ -448,16 +449,16 @@ export interface ContextSlack {
 export const contextSlackEmpty = (): ContextSlack => ({ canales: new Map(), users: new Map(), chosen: new Set() });
 // Un canal de conversations.list / users.conversations → nombre legible y tipo
 export function slackChannel(c: any, users: Map<string, string> = new Map()): ChannelSlack {
-  if (c.is_im) return { nombre: '@' + (users.get(c.user) ?? c.user ?? 'directo'), tipo: 'directo' };
-  if (c.is_mpim) return { nombre: String(c.name ?? 'grupo').replace(/^mpdm-/, '').replace(/-1$/, '').split('--').join(', '), tipo: 'grupo' };
+  if (c.is_im) return { nombre: '@' + (users.get(c.user) ?? c.user ?? tr('integrations.direct')), tipo: 'directo' };
+  if (c.is_mpim) return { nombre: String(c.name ?? tr('integrations.group')).replace(/^mpdm-/, '').replace(/-1$/, '').split('--').join(', '), tipo: 'grupo' };
   return { nombre: '#' + (c.name ?? c.id), tipo: c.is_private ? 'privado' : 'canal' };
 }
 // Formato de Slack (<@U1>, <#C1|general>, <!here>, <https://x|texto>, &amp;) → texto plano legible
 export function textSlack(t: string, ctx: ContextSlack): string {
   return String(t ?? '')
-    .replace(/<@([UW][A-Z0-9]+)(?:\|([^>]+))?>/g, (_, id, n) => '@' + (n ?? ctx.users.get(id) ?? 'usuario'))
-    .replace(/<#([CG][A-Z0-9]+)(?:\|([^>]*))?>/g, (_, id, n) => '#' + (n || ctx.canales.get(id)?.nombre.replace(/^#/, '') || 'canal'))
-    .replace(/<!(here|channel|everyone)(?:\|[^>]*)?>/g, '@$1').replace(/<!subteam\^[A-Z0-9]+(?:\|([^>]+))?>/g, (_, n) => n ?? '@grupo')
+    .replace(/<@([UW][A-Z0-9]+)(?:\|([^>]+))?>/g, (_, id, n) => '@' + (n ?? ctx.users.get(id) ?? tr('integrations.user')))
+    .replace(/<#([CG][A-Z0-9]+)(?:\|([^>]*))?>/g, (_, id, n) => '#' + (n || ctx.canales.get(id)?.nombre.replace(/^#/, '') || tr('integrations.channel')))
+    .replace(/<!(here|channel|everyone)(?:\|[^>]*)?>/g, '@$1').replace(/<!subteam\^[A-Z0-9]+(?:\|([^>]+))?>/g, (_, n) => n ?? '@' + tr('integrations.group'))
     .replace(/<(https?:[^|>]+)\|([^>]+)>/g, '$2').replace(/<(https?:[^>]+)>/g, '$1').replace(/<mailto:[^|>]+\|([^>]+)>/g, '$1')
     .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/\s+/g, ' ').trim();
 }
@@ -475,26 +476,26 @@ export function slackNotification(m: any, channelId: string, ctx: ContextSlack):
   const canal = ctx.canales.get(channelId);
   const prioridad = prioritySlack(m, canal, ctx);
   if (ctx.chosen.size && !ctx.chosen.has(channelId) && prioridad !== 'alta') return null;
-  const nombre = canal?.nombre ?? '#canal';
+  const nombre = canal?.nombre ?? '#' + tr('integrations.channel');
   let texto = textSlack(m.text, ctx);
-  if (!texto && m.files?.length) texto = '(adjunto: ' + (m.files as any[]).map(f => f.name ?? f.title ?? 'archivo').join(', ') + ')';
+  if (!texto && m.files?.length) texto = tr('integrations.attachment', { nombres: (m.files as any[]).map(f => f.name ?? f.title ?? tr('integrations.file')).join(', ') });
   return {
     id: `slack-${channelId}-${m.ts}`, fuente: 'slack', hilo: 'slack-' + channelId, canal: nombre,
-    autor: ctx.users.get(m.user) ?? m.user_profile?.real_name ?? m.username ?? m.bot_profile?.name ?? 'alguien',
-    titulo: nombre, fragmento: recortar(texto || '(mensaje sin texto)'), fecha: Math.round(Number(m.ts) * 1000), prioridad,
+    autor: ctx.users.get(m.user) ?? m.user_profile?.real_name ?? m.username ?? m.bot_profile?.name ?? tr('integrations.someone'),
+    titulo: nombre, fragmento: recortar(texto || tr('integrations.noText')), fecha: Math.round(Number(m.ts) * 1000), prioridad,
     enlace: ctx.equipo ? `https://app.slack.com/client/${ctx.equipo}/${channelId}` : 'https://app.slack.com/client',
   };
 }
 export function explainErrorSlack(error: string, necesario?: string): string {
   switch (error) {
     case 'invalid_auth': case 'not_authed': case 'token_revoked': case 'token_expired': case 'account_inactive':
-      return 'Slack no acepta el token (no es válido o se revocó). Copia otra vez el «OAuth Token» de tu app en api.slack.com/apps → OAuth & Permissions.';
-    case 'missing_scope': return `Al token le falta un permiso${necesario ? ' (' + necesario + ')' : ''}. Añádelo en OAuth & Permissions → Scopes y reinstala la app en tu espacio de trabajo.`;
-    case 'not_in_channel': return 'El bot no está en ese canal: invítalo con /invite @tu-app.';
-    case 'channel_not_found': return 'Slack no encuentra ese canal (¿se archivó o el token no lo ve?).';
-    case 'ratelimited': return 'Slack limita las peticiones; se reintenta en un rato.';
+      return tr('integrations.slackTokenRejected');
+    case 'missing_scope': return tr('integrations.slackMissingScope', { necesario: necesario ? ' (' + necesario + ')' : '' });
+    case 'not_in_channel': return tr('integrations.slackNotInChannel');
+    case 'channel_not_found': return tr('integrations.slackChannelNotFound');
+    case 'ratelimited': return tr('integrations.slackRateLimited');
   }
-  return 'Slack respondió: ' + (error || 'error desconocido');
+  return tr('integrations.slackResponded', { detalle: error || tr('integrations.unknownError') });
 }
 
 // ------------------------------------------------------------------ Linear
@@ -509,7 +510,7 @@ export function linearNotification(n: any, ahora = Date.now()): Notification | n
   const cuerpo = n.comment?.body ? markdownText(n.comment.body) : '';
   return {
     id: 'linear-' + n.id, fuente: 'linear', hilo: i?.id ? 'linear-' + i.id : undefined, canal: i?.identifier ?? i?.team?.key, autor,
-    titulo: i ? `${i.identifier} · ${i.title}` : n.title || 'Notificación de Linear',
+    titulo: i ? `${i.identifier} · ${i.title}` : n.title || tr('integrations.linearNotification'),
     fragmento: recortar([n.subtitle, cuerpo && `«${cuerpo}»`].filter(Boolean).join(': ')), fecha: Date.parse(n.createdAt), prioridad,
     enlace: n.url || i?.url || 'https://linear.app/',
   };
@@ -517,7 +518,7 @@ export function linearNotification(n: any, ahora = Date.now()): Notification | n
 export const linearNotifications = (json: any, ahora?: number) => ((json?.data?.notifications?.nodes ?? []) as any[]).map(n => linearNotification(n, ahora)).filter((n): n is Notification => !!n);
 
 export const STATES_ORDER = ['triage', 'started', 'unstarted', 'backlog', 'completed', 'canceled', 'duplicate'];
-const TYPE_NAME: Record<string, string> = { triage: 'Por clasificar', backlog: 'Pendientes', unstarted: 'Por hacer', started: 'En curso', completed: 'Hechas', canceled: 'Canceladas', duplicate: 'Duplicadas' };
+const typeName = (): Record<string, string> => ({ triage: tr('integrations.linearTriage'), backlog: tr('integrations.linearBacklog'), unstarted: tr('integrations.linearUnstarted'), started: tr('integrations.linearStarted'), completed: tr('integrations.linearCompleted'), canceled: tr('integrations.linearCanceled'), duplicate: tr('integrations.linearDuplicate') });
 export interface IssueLinear { id: string; identificador: string; titulo: string; url: string; prioridad: number; textPriority: string; estado: { id: string; nombre: string; tipo: string; color: string }; equipo?: string; proyecto?: string; ciclo?: number; etiquetas: { nombre: string; color: string }[]; vence?: string; estimacion?: number; asignado?: string; actualizada?: number }
 export function linearIssue(i: any): IssueLinear {
   return {
@@ -534,7 +535,7 @@ export function groupMyIssues(json: any) {
   const prio = (p: number) => p === 0 ? 5 : p;
   for (const n of [...nodos].sort((a, b) => (a.state?.position ?? 0) - (b.state?.position ?? 0) || prio(a.priority) - prio(b.priority))) {
     const t = n.state?.type ?? 'unstarted';
-    if (!grupos.has(t)) grupos.set(t, { tipo: t, nombre: TYPE_NAME[t] ?? t, issues: [] });
+    if (!grupos.has(t)) grupos.set(t, { tipo: t, nombre: typeName()[t] ?? t, issues: [] });
     grupos.get(t)!.issues.push(linearIssue(n));
   }
   return [...grupos.values()].sort((a, b) => STATES_ORDER.indexOf(a.tipo) - STATES_ORDER.indexOf(b.tipo));
@@ -542,7 +543,7 @@ export function groupMyIssues(json: any) {
 export function teamsCycles(json: any) {
   return ((json?.data?.teams?.nodes ?? []) as any[]).map(t => ({
     equipoId: t.id, equipo: t.key, nombre: t.name, color: t.color, withCycles: !!t.cyclesEnabled,
-    ciclo: t.activeCycle ? { id: t.activeCycle.id, numero: t.activeCycle.number, nombre: t.activeCycle.name ?? `Ciclo ${t.activeCycle.number}`, inicio: Date.parse(t.activeCycle.startsAt), fin: Date.parse(t.activeCycle.endsAt), progreso: Math.round((t.activeCycle.progress ?? 0) * 100), reach: t.activeCycle.scopeHistory ?? [], hecho: t.activeCycle.completedScopeHistory ?? [] } : null,
+    ciclo: t.activeCycle ? { id: t.activeCycle.id, numero: t.activeCycle.number, nombre: t.activeCycle.name ?? tr('integrations.linearCycle', { n: t.activeCycle.number }), inicio: Date.parse(t.activeCycle.startsAt), fin: Date.parse(t.activeCycle.endsAt), progreso: Math.round((t.activeCycle.progress ?? 0) * 100), reach: t.activeCycle.scopeHistory ?? [], hecho: t.activeCycle.completedScopeHistory ?? [] } : null,
   }));
 }
 export function teamBoard(json: any) {
@@ -554,11 +555,11 @@ export function teamBoard(json: any) {
 }
 export function explainErrorLinear(estado: number, json: any): string | null {
   const err = json?.errors?.[0];
-  if (estado === 401 || err?.extensions?.code === 'AUTHENTICATION_ERROR' || /authenticat/i.test(err?.message ?? '')) return 'Linear no acepta la clave de API (no es válida o se revocó). Crea una nueva en Settings → Account → Security & access.';
-  if (err?.extensions?.code === 'RATELIMITED') return 'Linear limita las peticiones de esta clave (2500 por hora); se reintenta más tarde.';
-  if (err?.extensions?.code === 'FORBIDDEN' || estado === 403) return 'La clave de Linear no tiene permiso de lectura para esto. Dale al menos «Read» al crearla.';
-  if (err) return 'Linear respondió: ' + err.message;
-  if (estado >= 400) return `Linear respondió HTTP ${estado}.`;
+  if (estado === 401 || err?.extensions?.code === 'AUTHENTICATION_ERROR' || /authenticat/i.test(err?.message ?? '')) return tr('integrations.linearKeyRejected');
+  if (err?.extensions?.code === 'RATELIMITED') return tr('integrations.linearRateLimited');
+  if (err?.extensions?.code === 'FORBIDDEN' || estado === 403) return tr('integrations.linearForbidden');
+  if (err) return tr('integrations.linearResponded', { detalle: err.message });
+  if (estado >= 400) return tr('integrations.linearRespondedHttp', { estado });
   return null;
 }
 

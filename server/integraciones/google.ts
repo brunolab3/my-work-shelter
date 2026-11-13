@@ -21,8 +21,8 @@ const CALENDARIO = 'https://www.googleapis.com/calendar/v3/calendars/primary/eve
 const SCOPES = 'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/calendar.readonly';
 export const SESSION_ACCOUNT = 'google.refreshToken';
 const EACH_CALENDAR = 5 * 60_000;
-const WITHOUT_SESSION = 'Falta iniciar sesión: pulsa «Conectar con Google» en la cámara acorazada.';
-const WITHOUT_CLIENT = 'Faltan el ID y el secreto de tu cliente OAuth de Google: pégalos en la cámara acorazada y guarda.';
+const WITHOUT_SESSION = () => t('integrations.googleNoSession');
+const WITHOUT_CLIENT = () => t('integrations.googleNoClient');
 
 export const FIELDS_GOOGLE: Field[] = [
   { nombre: 'clientId', etiqueta: 'ID de cliente', ayuda: 'Google Cloud → APIs y servicios → Credenciales → tu cliente OAuth (tipo «Aplicación de escritorio») → «ID de cliente».', ejemplo: '1234567890-abc….apps.googleusercontent.com' },
@@ -43,14 +43,14 @@ class Google extends ConnectorBase {
   private get cliente() { return this.config.publicos().clientId ?? ''; }
 
   protected listo() { return this.config.listo() && this.sesion; }
-  protected missingConfig() { return this.config.listo() ? WITHOUT_SESSION : WITHOUT_CLIENT; }
+  protected missingConfig() { return this.config.listo() ? WITHOUT_SESSION() : WITHOUT_CLIENT(); }
   protected onRestart() { this.acceso = null; this.correo = null; this.lastCalendar = 0; this.metadatos.clear(); }
   async sondear() { this.sesion = await hasSessionGoogle(); return super.sondear(); }
 
   // ------------------------------------------------ OAuth
   private async token(cuerpo: Record<string, string>) {
     const secreto = await this.config.secreto('clientSecret');
-    if (!this.cliente || !secreto) throw new ErrorSource(WITHOUT_CLIENT);
+    if (!this.cliente || !secreto) throw new ErrorSource(WITHOUT_CLIENT());
     const r = await ask(TOKEN, { servicio: 'Google', metodo: 'POST', cabeceras: { 'Content-Type': 'application/x-www-form-urlencoded' }, cuerpo: new URLSearchParams({ client_id: this.cliente, client_secret: secreto, ...cuerpo }).toString() });
     if (r.estado !== 200 || !r.json?.access_token) throw new ErrorSource(explainErrorOAuthGoogle(r.json ?? { error_description: `HTTP ${r.estado}` }), undefined, r.json?.error);
     this.acceso = { token: r.json.access_token, caduca: Date.now() + (Number(r.json.expires_in) || 3600) * 1000 };
@@ -60,7 +60,7 @@ class Google extends ConnectorBase {
   private async tokenAccess(forzar = false) {
     if (!forzar && this.acceso && this.acceso.caduca - Date.now() > 5 * 60_000) return this.acceso.token;
     const rt = await readSecret(SESSION_ACCOUNT);
-    if (!rt) { this.sesion = false; throw new ErrorSource(WITHOUT_SESSION); }
+    if (!rt) { this.sesion = false; throw new ErrorSource(WITHOUT_SESSION()); }
     return this.token({ grant_type: 'refresh_token', refresh_token: rt });
   }
   private async api(url: string, retry = true): Promise<any> {
@@ -79,20 +79,20 @@ class Google extends ConnectorBase {
 
   async startSession(): Promise<string> {
     if (this.escucha) return this.escucha.url;
-    if (!this.config.listo()) throw new ErrorSource(WITHOUT_CLIENT);
+    if (!this.config.listo()) throw new ErrorSource(WITHOUT_CLIENT());
     this.escucha = await listenReturned({
       servicio: 'Google',
       // access_type=offline y prompt=consent: Google solo da refresh token así (y otra vez al reconectar)
       authorization: (redireccion, estado, challenge) => `${AUTHORIZE}?` + new URLSearchParams({ client_id: this.cliente, response_type: 'code', redirect_uri: redireccion, scope: SCOPES, state: estado, code_challenge: challenge, code_challenge_method: 'S256', access_type: 'offline', prompt: 'consent' }),
       onClose: () => { this.escucha = null; },
       onBack: async ({ codigo, error, redireccion, verifier }) => {
-        if (error || !codigo) { const m = explainErrorOAuthGoogle((error ?? {}) as any); this.mal(m); this.avisar?.('estado'); return { ok: false, titulo: 'No se pudo conectar con Google', texto: m }; }
+        if (error || !codigo) { const m = explainErrorOAuthGoogle((error ?? {}) as any); this.mal(m); this.avisar?.('estado'); return { ok: false, titulo: t('integrations.couldNotConnectWith', { servicio: 'Google' }), texto: m }; }
         try {
           await this.token({ grant_type: 'authorization_code', code: codigo, redirect_uri: redireccion, code_verifier: verifier });
           this.correo = null; const correo = await this.whoSoy();
-          this.bien(`Conectado como ${correo}.`); this.avisar?.('activar');
-          return { ok: true, titulo: 'Conectado', texto: t('server.doneTheShelterCanNow') };
-        } catch (e) { this.mal((e as Error).message); this.avisar?.('estado'); return { ok: false, titulo: 'No se pudo conectar con Google', texto: (e as Error).message }; }
+          this.bien(t('integrations.connectedAs', { quien: correo })); this.avisar?.('activar');
+          return { ok: true, titulo: t('integrations.connected'), texto: t('server.doneTheShelterCanNow') };
+        } catch (e) { this.mal((e as Error).message); this.avisar?.('estado'); return { ok: false, titulo: t('integrations.couldNotConnectWith', { servicio: 'Google' }), texto: (e as Error).message }; }
       },
     });
     return this.escucha.url;
@@ -129,7 +129,7 @@ class Google extends ConnectorBase {
     if (!/\.apps\.googleusercontent\.com$/.test(v.clientId ?? '')) return { ok: false, detalle: t('server.theClientIdEndsIn') };
     this.sesion = await hasSessionGoogle();
     if (!this.sesion) return { ok: true, detalle: t('server.oauthClientSavedNowPress') };
-    try { this.acceso = null; this.correo = null; return { ok: true, detalle: `Conectado como ${await this.whoSoy()}.` }; }
+    try { this.acceso = null; this.correo = null; return { ok: true, detalle: t('integrations.connectedAs', { quien: await this.whoSoy() }) }; }
     catch (e) { return { ok: false, detalle: (e as Error).message }; }
   }
   async accion(nombre: string, d: Record<string, any>) {

@@ -92,7 +92,7 @@ export class Terminales {
       case 'fuera': { const x = this.t.get(m.id); if (!x) return; x.fuera = Number(m.n) || 0; this.notifyState(m.id, x); break; }
       case 'error': {
         const x = this.t.get(m.id); if (!x) return; this.t.delete(m.id);
-        for (const o of x.listeners) { o({ t: 'aviso', nivel: 'error', texto: 'No se pudo abrir la terminal: ' + m.texto }); o({ t: 'terminalEstado', id: m.id, inPrompt: true, vivo: false }); }
+        for (const o of x.listeners) { o({ t: 'aviso', nivel: 'error', texto: t('server.couldNotOpenTerminal', { error: m.texto }) }); o({ t: 'terminalEstado', id: m.id, inPrompt: true, vivo: false }); }
         break;
       }
       case 'primerPlano': { const f = this.peticiones.get(m.peticion); if (f) { this.peticiones.delete(m.peticion); f(m.fg ?? null); } break; }

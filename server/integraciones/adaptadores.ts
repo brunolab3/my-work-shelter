@@ -56,7 +56,7 @@ class SourceAdapter implements Adapter {
   private get modo() { return this.almacen.estado.integraciones[this.id]?.modo ?? 'demo'; }
   private async withReal() {
     if (this.real) return this.real;
-    if (!this.cargando) this.cargando = import(`./${this.id}.ts`).then(m => { this.real = m.crear(this.almacen) as Adapter; this.real.avisar = a => this.avisar?.(a); }).catch(e => { this.error = 'No se pudo cargar el conector: ' + e.message; });
+    if (!this.cargando) this.cargando = import(`./${this.id}.ts`).then(m => { this.real = m.crear(this.almacen) as Adapter; this.real.avisar = a => this.avisar?.(a); }).catch(e => { this.error = t('integrations.couldNotLoadConnector', { error: e.message }); });
     await this.cargando; return this.real;
   }
   estado(): SourceState {
@@ -70,11 +70,11 @@ class SourceAdapter implements Adapter {
     if (this.modo === 'off') return { notificaciones: [], eventos: CALENDAR_SOURCES.includes(this.id) ? [] : undefined, complete: true };
     this.ultima = Date.now();
     if (this.modo === 'demo') { this.error = undefined; return { notificaciones: demoNotifications(this.id), eventos: CALENDAR_SOURCES.includes(this.id) ? demoEvents(this.id) : undefined }; }
-    const r = await this.withReal(); if (!r) throw new Error(this.error || 'Conector no disponible');
+    const r = await this.withReal(); if (!r) throw new Error(this.error || t('integrations.connectorUnavailable'));
     return r.sondear();
   }
-  async probar(c: Record<string, string>) { const r = await this.withReal(); if (!r) return { ok: false, detalle: this.error || 'Conector no disponible' }; return r.probar(c); }
-  async configurar(c: Record<string, string>) { const r = await this.withReal(); if (!r) return { ok: false, detalle: this.error || 'Conector no disponible' }; return r.configurar(c); }
+  async probar(c: Record<string, string>) { const r = await this.withReal(); if (!r) return { ok: false, detalle: this.error || t('integrations.connectorUnavailable') }; return r.probar(c); }
+  async configurar(c: Record<string, string>) { const r = await this.withReal(); if (!r) return { ok: false, detalle: this.error || t('integrations.connectorUnavailable') }; return r.configurar(c); }
   reiniciar() { this.error = undefined; this.real?.reiniciar(); }
   parar() { this.real?.parar?.(); }
   async accion(n: string, d: Record<string, any>) { if (this.modo === 'demo' && this.id === 'linear' && n === 'panel') return demoPanelLinear(); if (this.modo === 'demo' && this.id === 'linear' && n === 'tablero') return demoBoardLinear(); if (this.modo === 'demo' && this.id === 'jira' && n === 'panel') return demoPanelJira(); if (this.modo === 'off' && (n === 'panel' || n === 'tablero')) throw new Error(t('server.sourceOffConnectIt')); const r = await this.withReal(); if (!r?.accion) throw new Error(t('server.actionNotAvailable')); return r.accion(n, d); }

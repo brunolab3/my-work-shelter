@@ -5,6 +5,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
+import { t, idioma } from '../../shared/idioma.ts';
 
 const WAIT_LOGIN = 5 * 60_000;
 
@@ -14,7 +15,7 @@ export function pkce() { const verifier = b64url(randomBytes(48)); return { veri
 const esc = (s: string) => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
 export function page(res: http.ServerResponse, ok: boolean, servicio: string, titulo: string, texto: string) {
   res.writeHead(ok ? 200 : 400, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', Connection: 'close', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'" });
-  res.end(`<!doctype html><html lang="es"><meta charset="utf-8"><title>work-shelter · ${esc(servicio)}</title><body style="font:16px system-ui;background:#1d1a15;color:#eadfc8;display:grid;place-items:center;height:100vh;margin:0"><main style="max-width:34em;padding:2em;border:2px solid #6b5a3a;border-radius:8px;background:#2a251d"><h1 style="font-size:1.3em;color:${ok ? '#9fd38a' : '#f0a868'}">${esc(titulo)}</h1><p>${esc(texto)}</p></main></body></html>`);
+  res.end(`<!doctype html><html lang="${idioma()}"><meta charset="utf-8"><title>work-shelter · ${esc(servicio)}</title><body style="font:16px system-ui;background:#1d1a15;color:#eadfc8;display:grid;place-items:center;height:100vh;margin:0"><main style="max-width:34em;padding:2em;border:2px solid #6b5a3a;border-radius:8px;background:#2a251d"><h1 style="font-size:1.3em;color:${ok ? '#9fd38a' : '#f0a868'}">${esc(titulo)}</h1><p>${esc(texto)}</p></main></body></html>`);
 }
 
 export interface Returned {
@@ -48,12 +49,12 @@ export async function listenReturned(op: ReturnedOptions): Promise<Returned> {
   const manejar = (req: http.IncomingMessage, res: http.ServerResponse) => {
     const u = new URL(req.url || '/', 'http://localhost');
     if (u.pathname !== ruta || (!u.searchParams.has('code') && !u.searchParams.has('error'))) { res.writeHead(404); res.end(); return; }
-    if (u.searchParams.get('state') !== estado) return page(res, false, op.servicio, 'Enlace caducado', `Este inicio de sesión no lo empezó work-shelter o ha caducado. Vuelve a la cámara acorazada y pulsa «Conectar con ${op.servicio}» otra vez.`);
+    if (u.searchParams.get('state') !== estado) return page(res, false, op.servicio, t('integrations.linkExpired'), t('integrations.linkExpiredText', { servicio: op.servicio }));
     parar();
     const error = u.searchParams.get('error') ? Object.fromEntries(u.searchParams) : undefined;
     op.onBack({ codigo: u.searchParams.get('code') ?? undefined, error, redireccion, verifier })
       .then(p => page(res, p.ok, op.servicio, p.titulo, p.texto))
-      .catch(e => page(res, false, op.servicio, `No se pudo conectar con ${op.servicio}`, (e as Error).message));
+      .catch(e => page(res, false, op.servicio, t('integrations.couldNotConnectWith', { servicio: op.servicio }), (e as Error).message));
   };
   const s4 = http.createServer(manejar);
   await new Promise<void>((ok, mal) => { s4.once('error', mal); s4.listen(0, '127.0.0.1', () => ok()); });

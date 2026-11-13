@@ -295,7 +295,7 @@ async function aAppClaude(d: Record<string, any>) {
     const id = String(d.sesionId);
     if (subiendo.has(id)) return { claudeId: null };
     subiendo.add(id);
-    try { claudeId = (await sesiones.sacar(id, 'la app de Claude')).claudeId; } finally { subiendo.delete(id); }
+    try { claudeId = (await sesiones.sacar(id, t('server.theClaudeApp'))).claudeId; } finally { subiendo.delete(id); }
   } else if (sesiones.lista().some(s => s.claudeId === claudeId && s.estado !== 'cerrada')) throw new Error(t('server.thatConversationIsOpenIn'));
   await openInAppClaude(claudeId);
   broadcast({ t: 'aviso', nivel: 'info', texto: t('server.theConversationContinuesInThe') });

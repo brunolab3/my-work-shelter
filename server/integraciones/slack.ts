@@ -82,7 +82,7 @@ class Slack extends ConnectorBase {
       this.ultimo.set(id, mensajes[0].ts); this.actividad.set(id, Number(mensajes[0].ts) * 1000);
       for (const m of mensajes) { if (m.user) await this.nameOf(m.user); const n = slackNotification(m, id, this.ctx); if (n) notificaciones.push(n); }
     }
-    this.bien(tr('server.connectedToWatching', { slack: this.nameTeam || 'Slack', conversaciones: this.ctx.chosen.size ? this.ctx.chosen.size + ' canales elegidos' : ids.length + ' conversaciones', menciones: this.ctx.yo ? '' : ' Pon tu ID de miembro en la cámara acorazada para recibir tus menciones.' }));
+    this.bien(tr('server.connectedToWatching', { slack: this.nameTeam || 'Slack', conversaciones: this.ctx.chosen.size ? tr('integrations.chosenChannels', { n: this.ctx.chosen.size }) : tr('integrations.conversations', { n: ids.length }), menciones: this.ctx.yo ? '' : tr('integrations.slackSetMemberId') }));
     return { notificaciones };
   }
   protected async tryReal(v: Record<string, string>) {
@@ -91,7 +91,7 @@ class Slack extends ConnectorBase {
     try {
       const yo = await this.llamar('auth.test', {}, t);
       const n = (await this.llamar('users.conversations', { types: 'public_channel,private_channel', exclude_archived: 'true', limit: '200' }, t)).channels?.length ?? 0;
-      return { ok: true, detalle: `Token válido en ${yo.team}${t.startsWith('xoxb-') ? ` (bot @${yo.user})` : ` (${yo.user})`}: ${n} canales a la vista.${n ? '' : ' Invita a la app a algún canal con /invite.'}` };
+      return { ok: true, detalle: tr('integrations.slackValidToken', { equipo: yo.team, quien: t.startsWith('xoxb-') ? ` (bot @${yo.user})` : ` (${yo.user})`, n, invita: n ? '' : tr('integrations.slackInvite') }) };
     } catch (e) { return { ok: false, detalle: (e as Error).message }; }
   }
   protected async ownAction(nombre: string, d: Record<string, any>) {

@@ -122,7 +122,7 @@ class Discord extends ConnectorBase {
     this.ws = ws;
     ws.on('message', datos => { try { this.onMessage(JSON.parse(String(datos)), token, reanudar); } catch (e) { console.error('[discord] mensaje del Gateway no válido:', mensaje(e)); } });
     ws.on('close', codigo => this.onClose(ws, codigo));
-    ws.on('error', e => { if (this.ws === ws) this.mal('Error de conexión con el Gateway de Discord: ' + e.message); });
+    ws.on('error', e => { if (this.ws === ws) this.mal(tr('integrations.discordGatewayError', { error: e.message })); });
   }
   private onMessage(p: { op: number; d: any; s: number | null; t: string | null }, token: string, reanudar: boolean) {
     if (p.s != null) this.seq = p.s;
@@ -203,11 +203,11 @@ class Discord extends ConnectorBase {
     const n = this.ctx.servidores.size;
     const texto = [...this.ctx.canales].filter(([, c]) => [0, 5, 15].includes(c.tipo ?? -1));
     const blind = texto.filter(([id, c]) => c.visible === false && (!this.ctx.chosen.size || this.ctx.chosen.has(id))).map(([, c]) => '#' + c.nombre);
-    const canales = this.ctx.chosen.size ? `${this.ctx.chosen.size} canales elegidos` : `los ${texto.length - blind.length} canales de texto que ve el bot`;
-    return `Bot «${this.app?.nombre ?? 'work-shelter'}» conectado en ${n} servidor${n === 1 ? '' : 'es'} (${[...this.ctx.servidores.values()].join(', ')}); vigila ${canales}.`
-      + (blind.length ? ` No ve ${blind.length} canal${blind.length === 1 ? '' : 'es'} privado${blind.length === 1 ? '' : 's'} (${blind.slice(0, 8).join(', ')}${blind.length > 8 ? '…' : ''}): lo que se escriba ahí no llega hasta que su rol tenga «Ver canal» en ellos.` : '')
-      + (this.ctx.contenido ? '' : ' Sin «Message Content Intent»: solo se ve el texto de los mensajes que mencionan al bot.')
-      + (this.ctx.yo ? '' : ' Pon tu ID de usuario en la cámara acorazada para recibir tus menciones.');
+    const canales = this.ctx.chosen.size ? tr('integrations.chosenChannels', { n: this.ctx.chosen.size }) : tr('integrations.discordVisibleChannels', { n: texto.length - blind.length });
+    return tr(n === 1 ? 'integrations.discordConnectedOne' : 'integrations.discordConnected', { bot: this.app?.nombre ?? 'work-shelter', n, servidores: [...this.ctx.servidores.values()].join(', '), canales })
+      + (blind.length ? tr(blind.length === 1 ? 'integrations.discordBlindOne' : 'integrations.discordBlind', { n: blind.length, canales: blind.slice(0, 8).join(', ') + (blind.length > 8 ? '…' : '') }) : '')
+      + (this.ctx.contenido ? '' : tr('integrations.discordWithoutContent'))
+      + (this.ctx.yo ? '' : tr('integrations.discordSetUserId'));
   }
   private onClose(ws: WebSocket, codigo: number) {
     if (this.ws !== ws) return;
@@ -217,7 +217,7 @@ class Discord extends ConnectorBase {
     const c = closingDiscord(codigo);
     if (c.withoutContent) { this.ctx.contenido = false; this.sesionId = null; }
     if (!c.reanudar) { this.sesionId = null; this.urlResume = null; this.seq = null; }
-    if (!c.reconectar) { this.reasonFatal = c.mensaje ?? `Discord cerró la conexión (${codigo}).`; this.mal(this.reasonFatal); this.avisar?.('estado'); return; }
+    if (!c.reconectar) { this.reasonFatal = c.mensaje ?? tr('integrations.discordClosed', { codigo }); this.mal(this.reasonFatal); this.avisar?.('estado'); return; }
     if (c.mensaje) this.situation = { estado: 'conectada', detalle: c.mensaje };
     const espera = c.withoutContent ? 1000 : Math.min(60_000, 1000 * 2 ** this.attempts++) + Math.random() * 1000;
     this.reconnection = setTimeout(() => { this.reconnection = null; this.conectar().catch(e => this.mal(mensaje(e))); }, espera);
@@ -249,7 +249,7 @@ class Discord extends ConnectorBase {
     const servidores: any[] = await this.rest('/users/@me/guilds', t);
     const contenido = grantedContent(a.flags);
     if (!servidores.length) return { ok: false, detalle: tr('server.theTokenIsValidBot', { nombre: a.nombre, id: invitationDiscord(a.id) }) };
-    return { ok: true, detalle: tr('server.botIn', { nombre: a.nombre, name: servidores.map(s => s.name).join(', '), texto: contenido ? '«Message Content Intent» activado.' : 'Aviso: «Message Content Intent» está desactivado en el portal (Bot → Privileged Gateway Intents); se verán los avisos pero no el texto.' }) };
+    return { ok: true, detalle: tr('server.botIn', { nombre: a.nombre, name: servidores.map(s => s.name).join(', '), texto: contenido ? tr('integrations.discordContentOn') : tr('integrations.discordContentOff') }) };
   }
   protected async ownAction(nombre: string, d: Record<string, any>) {
     if (nombre === 'invitacion') { const a = this.app ?? await this.loadApp(); return { url: invitationDiscord(a.id, d.guild) }; }

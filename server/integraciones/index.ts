@@ -5,6 +5,7 @@ import type { Store } from '../estado.ts';
 import type { ServerMessage } from '../../shared/protocolo.ts';
 import { createAdapters, type Adapter, type Aviso, type Notification, type Evento, type SourceState } from './adaptadores.ts';
 import { groupNotices, type Conversation } from './normalizar.ts';
+import { t } from '../../shared/idioma.ts';
 
 export class Integraciones {
   private adaptadores: Adapter[];
@@ -94,18 +95,18 @@ export class Integraciones {
         this.publish(); return true;
       }
       case 'estados': return this.estados();
-      case 'probar': if (!a) throw new Error('Fuente desconocida'); return a.probar(d.campos ?? {});
+      case 'probar': if (!a) throw new Error(t('integrations.unknownSource')); return a.probar(d.campos ?? {});
       // Guardar: datos públicos al estado y secretos al llavero; si la prueba pasa, la fuente pasa a real (d.activar=false lo evita)
-      case 'guardar': if (!a) throw new Error('Fuente desconocida'); { const r = await a.configurar(d.campos ?? {}); if (r.ok && d.activar !== false) await this.changeMode(a, 'real'); else this.broadcast({ t: 'integracion', id: a.id, estado: a.estado() }); return r; }
+      case 'guardar': if (!a) throw new Error(t('integrations.unknownSource')); { const r = await a.configurar(d.campos ?? {}); if (r.ok && d.activar !== false) await this.changeMode(a, 'real'); else this.broadcast({ t: 'integracion', id: a.id, estado: a.estado() }); return r; }
       case 'modo': {
-        if (!a) throw new Error('Fuente desconocida');
+        if (!a) throw new Error(t('integrations.unknownSource'));
         const modo = d.modo === 'real' ? 'real' : d.modo === 'off' ? 'off' : 'demo';
         this.almacen.cambiar(e => { const r = e.integraciones[a.id] ??= { modo }; r.opciones = { ...r.opciones, demoChosen: modo === 'demo' || undefined }; });
         return this.changeMode(a, modo);
       }
-      case 'refrescar': if (!a) throw new Error('Fuente desconocida'); await this.pollOne(a); return a.estado();
-      case 'olvidar': if (!a?.accion) throw new Error('Fuente desconocida'); { await a.accion('olvidar', d); return this.changeMode(a, 'off'); }
-      default: if (a?.accion) return a.accion(nombre, d); throw new Error('Acción de integración desconocida: ' + nombre);
+      case 'refrescar': if (!a) throw new Error(t('integrations.unknownSource')); await this.pollOne(a); return a.estado();
+      case 'olvidar': if (!a?.accion) throw new Error(t('integrations.unknownSource')); { await a.accion('olvidar', d); return this.changeMode(a, 'off'); }
+      default: if (a?.accion) return a.accion(nombre, d); throw new Error(t('integrations.unknownAction', { nombre }));
     }
   }
 }

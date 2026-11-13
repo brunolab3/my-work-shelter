@@ -12,19 +12,21 @@ import WebSocket from 'ws';
 import { DATOS } from './estado.ts';
 import { SOCKET_TERMINALS } from './terminales.ts';
 import { openInDesktop, outsideOpen, hookCommand, resumeCommand, type ItemDesktop } from './escritorio.ts';
-import { t } from '../shared/idioma.ts';
+import { t, setLanguage, isLanguage } from '../shared/idioma.ts';
 
 const RAIZ = path.resolve(import.meta.dirname, '..');
 const PUERTO = Number(process.env.SHELTER_PUERTO || 3778);
 const [orden, ...args] = process.argv.slice(2);
 const opcion = (n: string) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : undefined; };
+// lo que dice por la terminal, en el idioma del refugio (el de su estado guardado; sin él, español)
+try { const i = JSON.parse(readFileSync(path.join(DATOS, 'refugio.json'), 'utf8')).idioma; if (isLanguage(i)) setLanguage(i); } catch {}
 
 // ---------------------------------------------------------------- enganchar una terminal del juego
 // Al salir se dejan las cosas como estaban: sin protocolo de kitty, sin ratón, fuera de la pantalla alternativa
 const RESTORE = '\x1b[<16u\x1b[?1049l\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1006l\x1b[?1004l\x1b[?2004l\x1b[?1l\x1b[?25h\x1b[0m';
 function enganchar(id: string, socket: string) {
   const { stdin: entrada, stdout: salida } = process;
-  if (!entrada.isTTY) { console.error('enganchar necesita una terminal de verdad.'); process.exit(2); }
+  if (!entrada.isTTY) { console.error(t('server.surface.needsATerminal')); process.exit(2); }
   const s = net.connect(socket);
   let resto = '', finished = false;
   const linea = (m: Record<string, unknown>) => { if (!s.destroyed) s.write(JSON.stringify(m) + '\n'); };
@@ -48,12 +50,12 @@ function enganchar(id: string, socket: string) {
     while ((i = resto.indexOf('\n')) >= 0) {
       let m: any; try { m = JSON.parse(resto.slice(0, i)); } catch { m = null; } resto = resto.slice(i + 1);
       if (m?.ev === 'datos') salida.write(m.datos);
-      else if (m?.ev === 'fin') acabar(0, 'La terminal del refugio ha terminado.');
+      else if (m?.ev === 'fin') acabar(0, t('server.surface.terminalEnded'));
       else if (m?.ev === 'error') acabar(1, m.texto);
     }
   });
-  s.on('error', e => acabar(1, `No encuentro el refugio (${(e as NodeJS.ErrnoException).code ?? e.message}): ¿sigue abierto work-shelter?`));
-  s.on('close', () => acabar(0, 'Desenganchada del refugio.'));
+  s.on('error', e => acabar(1, t('server.surface.cannotFindShelter', { error: (e as NodeJS.ErrnoException).code ?? e.message })));
+  s.on('close', () => acabar(0, t('server.surface.detached')));
 }
 
 // ---------------------------------------------------------------- con el juego en marcha
@@ -96,34 +98,34 @@ function liveTerminals(): Promise<{ id: string; cwd: string; program?: string; f
 
 async function superficie(onlyList: boolean) {
   if (await liveServer()) {
-    if (onlyList) { console.log('El refugio está abierto: lo que tenga abierto saldrá a tu escritorio con `./shelter superficie`.'); return; }
+    if (onlyList) { console.log(t('server.surface.shelterIsOpen')); return; }
     const r = await askOnServer('superficie.sacar', { todo: true, windowNew: true });
-    console.log(r.sesiones || r.terminales ? `A la superficie: ${r.sesiones} conversaciones y ${r.terminales} terminales en ${r.app || 'tu escritorio'}.` : 'No había nada abierto en el refugio.');
+    console.log(r.sesiones || r.terminales ? t('server.surface.toTheSurface', { n: r.sesiones, m: r.terminales, app: r.app || t('server.surface.yourDesktop') }) : t('server.surface.nothingWasOpen'));
     for (const a of r.avisos ?? []) console.log('· ' + a);
     return;
   }
   // el refugio no está: lo que quedó abierto al caerse
   const fuera = outsideOpen();
   const conv = openInDisc().filter(a => !fuera.has(a.claudeId.toLowerCase()));
-  const terms = (await liveTerminals()).filter(t => !t.fuera);
+  const terms = (await liveTerminals()).filter(x => !x.fuera);
   if (onlyList) {
-    console.log(conv.length || terms.length ? 'El refugio no está abierto. Quedó esto:' : 'El refugio no está abierto y no quedó nada abierto.');
-    for (const a of conv) console.log(`  conversación  ${a.habitante ?? ''} · ${a.titulo ?? a.claudeId}  (${a.cwd})`);
-    for (const t of terms) console.log(`  terminal      ${t.id}${t.program ? ' · ' + t.program : ''}  (${t.cwd})`);
+    console.log(conv.length || terms.length ? t('server.surface.closedLeftThis') : t('server.surface.closedNothingLeft'));
+    for (const a of conv) console.log(t('server.surface.listConversation', { habitante: a.habitante ?? '', titulo: a.titulo ?? a.claudeId, cwd: a.cwd }));
+    for (const x of terms) console.log(t('server.surface.listTerminal', { id: x.id + (x.program ? ' · ' + x.program : ''), cwd: x.cwd }));
     return;
   }
   const items: ItemDesktop[] = [
-    ...terms.map(t => ({ titulo: `Terminal · ${path.basename(t.cwd)}`, comando: hookCommand(path.join(RAIZ, 'shelter'), SOCKET_TERMINALS, t.id) })),
-    ...conv.map(a => ({ titulo: `${a.habitante ?? 'Habitante'} · ${a.titulo ?? 'Conversación'}`, comando: resumeCommand({ claudeId: a.claudeId, cwd: a.cwd, permisos: a.permisos }) })),
+    ...terms.map(x => ({ titulo: t('server.surface.terminalTitle', { carpeta: path.basename(x.cwd) }), comando: hookCommand(path.join(RAIZ, 'shelter'), SOCKET_TERMINALS, x.id) })),
+    ...conv.map(a => ({ titulo: `${a.habitante ?? t('server.surface.dweller')} · ${a.titulo ?? t('server.surface.conversation')}`, comando: resumeCommand({ claudeId: a.claudeId, cwd: a.cwd, permisos: a.permisos }) })),
   ];
-  if (!items.length) { console.log('El refugio no está abierto y no quedó nada abierto.'); return; }
+  if (!items.length) { console.log(t('server.surface.closedNothingLeft')); return; }
   const app = await openInDesktop(items, { windowNew: true });
-  console.log(`A la superficie: ${conv.length} conversaciones y ${terms.length} terminales en ${app}.`);
+  console.log(t('server.surface.toTheSurface', { n: conv.length, m: terms.length, app }));
 }
 
 if (orden === 'enganchar') {
-  if (!args[0] || args[0].startsWith('--')) { console.error('Uso: ./shelter enganchar <id> [--socket ruta]'); process.exit(2); }
+  if (!args[0] || args[0].startsWith('--')) { console.error(t('server.surface.usageHook')); process.exit(2); }
   enganchar(args[0], opcion('--socket') ?? SOCKET_TERMINALS);
 } else if (orden === 'superficie') {
   superficie(args.includes('--lista')).then(() => process.exit(0), e => { console.error((e as Error).message); process.exit(1); });
-} else { console.error('Uso: ./shelter superficie [--lista] · ./shelter enganchar <id>'); process.exit(2); }
+} else { console.error(t('server.surface.usage')); process.exit(2); }

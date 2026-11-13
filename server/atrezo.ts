@@ -3,6 +3,7 @@
 // sus nodos), sin cargar three.js. Lo consultan las herramientas del habitante que diseña la sala.
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
+import { t } from '../shared/idioma.ts';
 import { PACKS } from '../shared/decorado.ts';
 
 export const ASSETS = path.join(import.meta.dirname, '..', 'assets');
@@ -82,8 +83,8 @@ export const propsModel = (id: string) => catalogo().find(m => m.id === id) ?? n
 /** El catálogo en texto, para el habitante: por pack, «id ancho×alto×fondo» (metros, a su escala de uso) */
 export function catalogInText(buscar = '', pack = ''): string {
   const q = buscar.toLowerCase().split(/[\s,]+/).filter(Boolean);
-  const lista = catalogo().filter(m => (!pack || m.pack === pack) && (!q.length || q.some(t => m.id.toLowerCase().includes(t))));
-  if (!lista.length) return 'Nada en el catálogo con eso. Prueba con otra palabra (en inglés: desk, plant, lamp, computer, shelf…) o sin filtro.';
+  const lista = catalogo().filter(m => (!pack || m.pack === pack) && (!q.length || q.some(w => m.id.toLowerCase().includes(w))));
+  if (!lista.length) return t('server.propsNothingFound');
   const byPack = new Map<string, PropsModel[]>();
   for (const m of lista) byPack.set(m.pack, [...(byPack.get(m.pack) ?? []), m]);
   return [...byPack].map(([p, ms]) => `## ${p} — ${PACKS[p].que}\n` + ms.map(m => `${m.id} ${m.tam.join('×')}`).join('\n')).join('\n\n');

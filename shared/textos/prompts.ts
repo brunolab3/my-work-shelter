@@ -71,4 +71,9 @@ export const PROMPTS: Record<string, Texto> = {
   'prompt.deploy.waitsFor': { es: ' · espera a {prs}', en: ' · waits for {prs}' },
   'prompt.deploy.sameTask': { es: ' · misma tarea ({clave}) que {prs}, sin orden conocido', en: ' · same task ({clave}) as {prs}, no known order' },
   'prompt.deploy.line': { es: '- {pr} «{titulo}» · {columna}{ci}{espera}{junto} · {url}', en: '- {pr} “{titulo}” · {columna}{ci}{espera}{junto} · {url}' },
+  // integrar una copia holográfica en su rama base (server/worktrees.ts)
+  'prompt.merge.worktree': {
+    es: 'Integra la rama `{rama}` (en el worktree `{ruta}`) en `{base}` en este repositorio y luego limpia:\n1. Si el worktree tiene cambios sin commitear, para y pregúntame qué hacer con ellos.\n2. Pon `{base}` al día si sigue a un remoto y fusiona `{rama}`. Resuelve conflictos con cuidado y pregúntame si dudas.\n3. Ejecuta las comprobaciones o tests del proyecto si los tiene.\n4. Elimina el worktree con `git worktree remove {ruta}` y borra la rama con `git branch -d {rama}`.\nNo hagas push salvo que te lo pida.',
+    en: 'Merge the branch `{rama}` (in the worktree `{ruta}`) into `{base}` in this repository and then clean up:\n1. If the worktree has uncommitted changes, stop and ask me what to do with them.\n2. Bring `{base}` up to date if it tracks a remote and merge `{rama}`. Resolve conflicts carefully and ask me if in doubt.\n3. Run the project\'s checks or tests if it has any.\n4. Remove the worktree with `git worktree remove {ruta}` and delete the branch with `git branch -d {rama}`.\nDo not push unless I ask you to.',
+  },
 };

@@ -26,7 +26,7 @@ export const readMail: Reader = conocidos => new Promise((ok, ko) => {
   if (process.platform !== 'darwin') return ko(new ErrorSource(t('server.macMailOnlyWorksOn')));
   execFile('/usr/bin/osascript', ['-l', 'JavaScript', READER, String(DAYS), String(MAXIMO), JSON.stringify(conocidos)], { timeout: 45_000, maxBuffer: 4 << 20 }, (err, stdout, stderr) => {
     if (err) return ko(new ErrorSource(explainErrorMail(`${stderr || ''} ${err.message}`), 60_000));
-    try { ok(JSON.parse(String(stdout))); } catch { ko(new ErrorSource('Mail devolvió algo que no se entiende: ' + String(stdout).slice(0, 120))); }
+    try { ok(JSON.parse(String(stdout))); } catch { ko(new ErrorSource(t('integrations.mailUnreadable', { salida: String(stdout).slice(0, 120) }))); }
   });
 });
 
@@ -73,7 +73,7 @@ class Mail extends ConnectorBase {
     const { cuentas } = await this.readAlready();
     const elegidas = cuentas.filter(this.filtro(v.cuentas ?? ''));
     if (!elegidas.length) return { ok: false, detalle: t('server.noMailAccountMatchesThere2', { nombre: cuentas.map(c => c.nombre).join(', ') }) };
-    return { ok: true, detalle: `Mail responde. Cuentas: ${this.describir(elegidas)}.` };
+    return { ok: true, detalle: t('integrations.mailResponds', { cuentas: this.describir(elegidas) }) };
   }
 }
 

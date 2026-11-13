@@ -2,6 +2,7 @@
 // Chromium sin ventana (Playwright; si no tiene su navegador, el Google Chrome del Mac), con la cámara en la sala y la
 // revisión de apoyos del juego (?revisar: piezas flotando o hundidas). Una foto cada vez.
 import type { Browser } from 'playwright';
+import { t } from '../shared/idioma.ts';
 
 let enCurso: Promise<unknown> = Promise.resolve();
 
@@ -11,7 +12,7 @@ async function navegador(): Promise<Browser> {
   try { return await chromium.launch({ args }); }
   catch (e) {
     try { return await chromium.launch({ channel: 'chrome', args }); }
-    catch { throw new Error('no encuentro un navegador con el que hacerla (ni el Chromium de Playwright, «npx playwright install chromium», ni Google Chrome): ' + (e as Error).message.split('\n')[0]); }
+    catch { throw new Error(t('server.noBrowserForPhoto', { error: (e as Error).message.split('\n')[0] })); }
   }
 }
 

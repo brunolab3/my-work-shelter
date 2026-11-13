@@ -187,9 +187,9 @@ export class ReviewsPR {
       const clave = `${pr.repo}#${pr.numero}:${nuevos.at(-1)!.id}`;
       if (this.avisados.has(clave)) continue;
       this.avisados.add(clave);
-      this.ctx.withoutConversation(!sala ? `Revisión nueva en el PR #${pr.numero} de ${pr.repo}: ese repo no tiene sala en el refugio.`
-        : !wt ? `Revisión nueva en el PR #${pr.numero} de ${pr.repo} (rama ${pr.rama}), y en «${sala.nombre}» no hay ningún worktree de su tarea: es raro. Organiza la sala por tareas (panel de la sala) y se la paso.`
-        : `Revisión nueva en el PR #${pr.numero} de ${pr.repo}: no he podido abrir la conversación de su worktree (¿límite de sesiones?). Lo vuelvo a intentar en un minuto.`);
+      this.ctx.withoutConversation(!sala ? t('server.reviewNoRoom', { numero: pr.numero, repo: pr.repo })
+        : !wt ? t('server.reviewNoWorktree', { numero: pr.numero, repo: pr.repo, rama: pr.rama, sala: sala.nombre })
+        : t('server.reviewCouldNotOpen', { numero: pr.numero, repo: pr.repo }));
     }
     if (cambio) this.guardar();
   }

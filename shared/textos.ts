@@ -6,5 +6,7 @@ import { PANELS } from './textos/paneles.ts';
 import { WINDOWS } from './textos/ventanas.ts';
 import { PROMPTS } from './textos/prompts.ts';
 import { SERVIDOR } from './textos/servidor.ts';
+import { TOOLS } from './textos/herramientas.ts';
+import { INTEGRATIONS } from './textos/integraciones.ts';
 
-export const TEXTS: Record<string, Texto> = { ...MENU, ...WORLD, ...PANELS, ...WINDOWS, ...PROMPTS, ...SERVIDOR };
+export const TEXTS: Record<string, Texto> = { ...MENU, ...WORLD, ...PANELS, ...WINDOWS, ...PROMPTS, ...SERVIDOR, ...TOOLS, ...INTEGRATIONS };

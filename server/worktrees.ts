@@ -43,21 +43,14 @@ export async function actionWorktree(nombre: string, d: Record<string, any>, ctx
         const m = (e as Error).message;
         if (/contains modified or untracked|is dirty/i.test(m)) throw new Error(t('server.theCopyHasUnsavedChanges'));
         if (/locked/i.test(m)) throw new Error(t('server.theCopyIsLockedBy'));
-        throw new Error('No he podido desechar la copia: ' + m.split('\n')[0]);
+        throw new Error(t('server.couldNotDiscardCopy', { error: m.split('\n')[0] }));
       }
       await git(sala.ruta, ['worktree', 'prune']).catch(() => '');
       if (wt.rama) await git(sala.ruta, ['branch', d.forzar ? '-D' : '-d', wt.rama]).catch(() => '');
       return true;
     }
     case 'promptIntegrar':
-      return [
-        `Integra la rama \`${wt.rama}\` (en el worktree \`${wt.ruta}\`) en \`${base}\` en este repositorio y luego limpia:`,
-        '1. Si el worktree tiene cambios sin commitear, para y pregúntame qué hacer con ellos.',
-        `2. Pon \`${base}\` al día si sigue a un remoto y fusiona \`${wt.rama}\`. Resuelve conflictos con cuidado y pregúntame si dudas.`,
-        '3. Ejecuta las comprobaciones o tests del proyecto si los tiene.',
-        `4. Elimina el worktree con \`git worktree remove ${wt.ruta}\` y borra la rama con \`git branch -d ${wt.rama}\`.`,
-        'No hagas push salvo que te lo pida.',
-      ].join('\n');
+      return t('prompt.merge.worktree', { rama: wt.rama ?? '', ruta: wt.ruta, base });
     default: throw new Error('Acción de worktree desconocida: ' + nombre);
   }
 }

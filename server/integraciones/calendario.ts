@@ -24,7 +24,7 @@ export const readCalendar: Reader = (desde, hasta) => new Promise((ok, ko) => {
   if (process.platform !== 'darwin') return ko(new ErrorSource(t('server.macCalendarOnlyWorksOn')));
   execFile('/usr/bin/osascript', ['-l', 'JavaScript', READER, String(desde), String(hasta)], { timeout: 60_000, maxBuffer: 8 << 20 }, (err, stdout, stderr) => {
     if (err) return ko(new ErrorSource(explainErrorCalendar(`${stderr || ''} ${err.message}`), 120_000));
-    try { ok(JSON.parse(String(stdout))); } catch { ko(new ErrorSource('Calendario devolvió algo que no se entiende: ' + String(stdout).slice(0, 120))); }
+    try { ok(JSON.parse(String(stdout))); } catch { ko(new ErrorSource(t('integrations.calendarUnreadable', { salida: String(stdout).slice(0, 120) }))); }
   });
 });
 
@@ -51,7 +51,7 @@ class Calendario extends ConnectorBase {
     const vale = this.filtro(), chosen = calendarios.filter(vale);
     if (!chosen.length) throw new ErrorSource(t('server.noCalendarIsCalledThere', { calendarios: this.config.publicos().calendarios, calendarios2: calendarios.join(', ') }));
     const lista = eventsOfCalendarMac(eventos.filter(e => vale(e.calendario)), desde, hasta);
-    this.bien(`Leyendo Calendario: ${chosen.join(', ')}. ${lista.length} evento${lista.length === 1 ? '' : 's'} en ${DAYS} días.`);
+    this.bien(t(lista.length === 1 ? 'integrations.calendarReadingOne' : 'integrations.calendarReading', { calendarios: chosen.join(', '), n: lista.length, dias: DAYS }));
     return { eventos: lista };
   }
 
@@ -59,7 +59,7 @@ class Calendario extends ConnectorBase {
     const { calendarios } = await this.readAlready();
     const chosen = calendarios.filter(this.filtro(v.calendarios ?? ''));
     if (!chosen.length) return { ok: false, detalle: t('server.noCalendarMatchesThereAre', { calendarios: calendarios.join(', ') }) };
-    return { ok: true, detalle: `Calendario responde. Calendarios: ${chosen.join(', ')}.` };
+    return { ok: true, detalle: t('integrations.calendarResponds', { calendarios: chosen.join(', ') }) };
   }
 }
 

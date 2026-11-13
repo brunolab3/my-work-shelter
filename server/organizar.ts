@@ -113,12 +113,12 @@ export async function applyPlan(ctx: CtxOrganize, sala: { id: string; ruta: stri
         mkdirSync(path.dirname(p.ruta), { recursive: true });
         await ctx.git(sala.ruta, (await existe(r0)) ? ['worktree', 'add', p.ruta, r0] : ['worktree', 'add', '--track', '-b', r0, p.ruta, `origin/${r0}`]);
       }
-      if (p.sesion) { out.push(`${nombre}: ya tiene su conversación${p.crear ? '' : ' en ' + path.basename(p.ruta)}.`); continue; }
-      if (remain() <= 0) { out.push(`${nombre}: worktree ${p.crear ? 'creado' : 'listo'}; la conversación no empieza (límite de sesiones vivas): ábrela desde su copia holográfica.`); continue; }
+      if (p.sesion) { out.push(p.crear ? t('server.organize.hasConversation', { nombre }) : t('server.organize.hasConversationIn', { nombre, carpeta: path.basename(p.ruta) })); continue; }
+      if (remain() <= 0) { out.push(t(p.crear ? 'server.organize.createdNoSession' : 'server.organize.readyNoSession', { nombre })); continue; }
       await ctx.empezar(sala.id, p.ruta, promptTask(p.grupo, repo));
-      out.push(`${nombre}: ${p.crear ? 'worktree nuevo' : p.principal ? 'en la copia principal' : 'en ' + path.basename(p.ruta)} y conversación empezada.`);
+      out.push(p.crear ? t('server.organize.startedNew', { nombre }) : p.principal ? t('server.organize.startedMain', { nombre }) : t('server.organize.startedIn', { nombre, carpeta: path.basename(p.ruta) }));
     } catch (e) {
-      out.push(`${nombre}: no se pudo (${String((e as Error).message).split('\n')[0].slice(0, 160)}).`);
+      out.push(t('server.organize.failed', { nombre, error: String((e as Error).message).split('\n')[0].slice(0, 160) }));
     }
   }
   return out;

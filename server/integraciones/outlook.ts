@@ -24,8 +24,8 @@ export const FIELDS_OUTLOOK: Field[] = [
 export const SESSION_ACCOUNT = 'outlook.refreshToken';
 const GRAPH = 'https://graph.microsoft.com/v1.0';
 const EACH_CALENDAR = 5 * 60_000;
-const WITHOUT_SESSION = 'Falta iniciar sesión: pulsa «Conectar con Microsoft» en la cámara acorazada.';
-const WITHOUT_CLIENT = 'Falta el ID de aplicación (cliente) de tu registro en Microsoft Entra: pégalo en la cámara acorazada y guarda.';
+const WITHOUT_SESSION = () => t('integrations.msNoSession');
+const WITHOUT_CLIENT = () => t('integrations.msNoClient');
 
 export const hasSessionMicrosoft = () => readSecret(SESSION_ACCOUNT).then(v => !!v, () => false);
 
@@ -42,13 +42,13 @@ class Outlook extends ConnectorBase {
   private get authority() { return authority(this.config.publicos().tenant); }
 
   protected listo() { return !!this.cliente && this.sesion; }
-  protected missingConfig() { return this.cliente ? WITHOUT_SESSION : WITHOUT_CLIENT; }
+  protected missingConfig() { return this.cliente ? WITHOUT_SESSION() : WITHOUT_CLIENT(); }
   protected onRestart() { this.acceso = null; this.yo = null; this.lastCalendar = 0; }
   async sondear() { this.sesion = await hasSessionMicrosoft(); return super.sondear(); }
 
   // ------------------------------------------------ OAuth
   private async token(cuerpo: Record<string, string>) {
-    if (!this.cliente) throw new ErrorSource(WITHOUT_CLIENT);
+    if (!this.cliente) throw new ErrorSource(WITHOUT_CLIENT());
     const r = await ask(`${this.authority}/token`, { servicio: 'Microsoft', metodo: 'POST', cabeceras: { 'Content-Type': 'application/x-www-form-urlencoded' }, cuerpo: new URLSearchParams({ client_id: this.cliente, ...cuerpo }).toString() });
     if (r.estado !== 200 || !r.json?.access_token) throw new ErrorSource(explainErrorMicrosoft(r.json ?? { error_description: `HTTP ${r.estado}` }), undefined, r.json?.error);
     this.acceso = { token: r.json.access_token, caduca: Date.now() + (Number(r.json.expires_in) || 3600) * 1000 };
@@ -58,7 +58,7 @@ class Outlook extends ConnectorBase {
   private async tokenAccess(forzar = false) {
     if (!forzar && this.acceso && this.acceso.caduca - Date.now() > 5 * 60_000) return this.acceso.token;
     const rt = await readSecret(SESSION_ACCOUNT);
-    if (!rt) { this.sesion = false; throw new ErrorSource(WITHOUT_SESSION); }
+    if (!rt) { this.sesion = false; throw new ErrorSource(WITHOUT_SESSION()); }
     return this.token({ grant_type: 'refresh_token', refresh_token: rt, scope: SCOPES.replace('openid profile ', '') });
   }
   private async graph(ruta: string, cabeceras: Record<string, string> = {}, retry = true): Promise<any> {
@@ -78,19 +78,19 @@ class Outlook extends ConnectorBase {
   // Escucha de un solo uso en localhost hasta que Microsoft vuelve con el código (oauth.ts). Devuelve la URL de inicio de sesión.
   async startSession(): Promise<string> {
     if (this.escucha) return this.escucha.url;
-    if (!GUID.test(this.cliente)) throw new ErrorSource(WITHOUT_CLIENT);
+    if (!GUID.test(this.cliente)) throw new ErrorSource(WITHOUT_CLIENT());
     this.escucha = await listenReturned({
       servicio: 'Microsoft',
       authorization: (redireccion, estado, challenge) => `${this.authority}/authorize?` + new URLSearchParams({ client_id: this.cliente, response_type: 'code', redirect_uri: redireccion, response_mode: 'query', scope: SCOPES, state: estado, code_challenge: challenge, code_challenge_method: 'S256', prompt: 'select_account' }),
       onClose: () => { this.escucha = null; },
       onBack: async ({ codigo, error, redireccion, verifier }) => {
-        if (error || !codigo) { const m = explainErrorMicrosoft((error ?? {}) as any); this.mal(m); this.avisar?.('estado'); return { ok: false, titulo: 'No se pudo conectar con Microsoft', texto: m }; }
+        if (error || !codigo) { const m = explainErrorMicrosoft((error ?? {}) as any); this.mal(m); this.avisar?.('estado'); return { ok: false, titulo: t('integrations.couldNotConnectWith', { servicio: 'Microsoft' }), texto: m }; }
         try {
           await this.token({ grant_type: 'authorization_code', code: codigo, redirect_uri: redireccion, code_verifier: verifier, scope: SCOPES });
           this.yo = null; const yo = await this.whoSoy();
-          this.bien(`Conectado como ${yo.nombre ?? yo.correo}.`); this.avisar?.('activar');
-          return { ok: true, titulo: 'Conectado', texto: t('server.doneTheShelterCanNow2', { nombre: yo.nombre ? ', ' + yo.nombre : '' }) };
-        } catch (e) { this.mal((e as Error).message); this.avisar?.('estado'); return { ok: false, titulo: 'No se pudo conectar con Microsoft', texto: (e as Error).message }; }
+          this.bien(t('integrations.connectedAs', { quien: yo.nombre ?? yo.correo })); this.avisar?.('activar');
+          return { ok: true, titulo: t('integrations.connected'), texto: t('server.doneTheShelterCanNow2', { nombre: yo.nombre ? ', ' + yo.nombre : '' }) };
+        } catch (e) { this.mal((e as Error).message); this.avisar?.('estado'); return { ok: false, titulo: t('integrations.couldNotConnectWith', { servicio: 'Microsoft' }), texto: (e as Error).message }; }
       },
     });
     return this.escucha.url;
@@ -123,7 +123,7 @@ class Outlook extends ConnectorBase {
     if (!GUID.test(v.clientId ?? '')) return { ok: false, detalle: t('server.theApplicationClientIdIs') };
     this.sesion = await hasSessionMicrosoft();
     if (!this.sesion) return { ok: true, detalle: t('server.applicationIdSavedNowPress') };
-    try { this.acceso = null; this.yo = null; const yo = await this.whoSoy(); return { ok: true, detalle: `Conectado como ${yo.nombre ?? ''} (${yo.correo ?? ''}).` }; }
+    try { this.acceso = null; this.yo = null; const yo = await this.whoSoy(); return { ok: true, detalle: t('integrations.connectedAsWithMail', { nombre: yo.nombre ?? '', correo: yo.correo ?? '' }) }; }
     catch (e) { return { ok: false, detalle: (e as Error).message }; }
   }
   async accion(nombre: string, d: Record<string, any>) {

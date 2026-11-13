@@ -6,6 +6,7 @@ import os from 'node:os';
 import type { InfoRepo, InfoWorktree } from '../shared/protocolo.ts';
 import { isCloneOfExample } from './ejemplos.ts';
 import { entornoGit } from './entornoGit.ts';
+import { t } from '../shared/idioma.ts';
 
 function git(cwd: string, args: string[], timeout = 6000): Promise<string> {
   return new Promise(res => execFile('git', ['-C', cwd, ...args], { timeout, maxBuffer: 4 * 1024 * 1024, env: entornoGit() }, (err, out) => res(err ? '' : String(out))));
@@ -54,7 +55,7 @@ export async function worktreeList(ruta: string): Promise<InfoWorktree[]> {
   for (const l of out.split('\n')) {
     if (l.startsWith('worktree ')) { if (actual?.ruta) lista.push(actual as InfoWorktree); actual = { ruta: l.slice(9), rama: '', principal: lista.length === 0, cambios: 0, advanced: 0 }; }
     else if (l.startsWith('branch ') && actual) actual.rama = l.slice(7).replace('refs/heads/', '');
-    else if (l === 'detached' && actual) actual.rama = '(sin rama)';
+    else if (l === 'detached' && actual) actual.rama = t('server.noBranch');
   }
   if (actual?.ruta) lista.push(actual as InfoWorktree);
   return lista;

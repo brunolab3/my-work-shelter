@@ -56,7 +56,7 @@ export function linkPath(enlace: string, casa: string): string | null {
 export async function openLocal(enlace: string, casa: string) {
   const ruta = linkPath(enlace, casa);
   if (!ruta) throw new Error(t('server.thatLinkIsNotA'));
-  const real = await fs.realpath(ruta).catch(() => { throw new Error('No existe: ' + ruta); });
+  const real = await fs.realpath(ruta).catch(() => { throw new Error(t('server.doesNotExist', { ruta })); });
   const st = await fs.stat(real);
   if (st.isDirectory()) { lanzar(isPackage(real) ? ['-R', real] : [real]); return 'carpeta'; }
   if (OF_BROWSER.test(real)) { lanzar([real]); return 'web'; }   // la app que tengas para las páginas web: tu navegador
@@ -70,6 +70,6 @@ export async function openLocal(enlace: string, casa: string) {
 export async function revealLocal(enlace: string, casa: string) {
   const ruta = linkPath(enlace, casa);
   if (!ruta) throw new Error(t('server.thatLinkIsNotA'));
-  const real = await fs.realpath(ruta).catch(() => { throw new Error('No existe: ' + ruta); });
+  const real = await fs.realpath(ruta).catch(() => { throw new Error(t('server.doesNotExist', { ruta })); });
   lanzar(['-R', real]);
 }

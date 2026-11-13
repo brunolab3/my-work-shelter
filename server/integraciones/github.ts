@@ -50,7 +50,7 @@ class GitHub extends ConnectorBase {
     if (!this.quien) this.quien = (await this.api('/user', token)).json?.login ?? null;
     const r = await this.api('/notifications?per_page=50', token, this.modificado ? { 'If-Modified-Since': this.modificado } : {});
     if (r.estado !== 304) { this.ultimas = notificationsOfGitHub(r.json); this.modificado = r.cabeceras.get('last-modified'); }
-    this.bien(tr('server.connectedAsUnreadNotifications', { cuenta: this.quien ?? 'tu cuenta', gh: this.ofGh ? ' (sesión de gh)' : '', ultimas: this.ultimas.length }));
+    this.bien(tr('server.connectedAsUnreadNotifications', { cuenta: this.quien ?? tr('integrations.yourAccount'), gh: this.ofGh ? tr('integrations.ghSession') : '', ultimas: this.ultimas.length }));
     return { notificaciones: this.ultimas, complete: true };
   }
   protected async tryReal(v: Record<string, string>) {
@@ -58,7 +58,7 @@ class GitHub extends ConnectorBase {
       const token = await this.token(v.token);
       const yo = (await this.api('/user', token)).json;
       await this.api('/notifications?per_page=1', token);
-      return { ok: true, detalle: tr('server.validTokenCanReadIts', { cuenta: yo?.login ?? 'tu cuenta', gh: this.ofGh ? ' (sesión de gh)' : '' }) };
+      return { ok: true, detalle: tr('server.validTokenCanReadIts', { cuenta: yo?.login ?? tr('integrations.yourAccount'), gh: this.ofGh ? tr('integrations.ghSession') : '' }) };
     } catch (e) { return { ok: false, detalle: (e as Error).message }; }
   }
 }

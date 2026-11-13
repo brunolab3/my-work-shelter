@@ -74,8 +74,8 @@ export function openInDesktop(items: ItemDesktop[], o: { windowNew?: boolean } =
     if (!err) { ok(app); return; }
     const texto = String(errOut || err.message);
     ko(new Error(/-1743|not authori[sz]ed|no autorizad/i.test(texto)
-      ? `macOS no deja que work-shelter maneje ${app}: permítelo en Ajustes del Sistema › Privacidad y seguridad › Automatización.`
-      : `No he podido abrir ${app}: ${texto.trim().split('\n').pop()}`));
+      ? t('server.desktop.notAuthorized', { app })
+      : t('server.desktop.couldNotOpen', { app, error: texto.trim().split('\n').pop() ?? '' })));
   }));
 }
 
@@ -138,6 +138,6 @@ export function openInAppClaude(claudeId: string): Promise<void> {
   const url = linkAppClaude(claudeId);
   if (process.env.SHELTER_ESCRITORIO_PRUEBA) { appendFileSync(process.env.SHELTER_ESCRITORIO_PRUEBA, JSON.stringify({ app: 'Claude', url }) + '\n'); return Promise.resolve(); }
   return new Promise((ok, ko) => execFile('open', [url], { timeout: 15_000 }, err => err
-    ? ko(new Error('No he podido abrir la app de Claude (¿está instalada?). La conversación está guardada: retómala desde su habitante o con claude --resume ' + claudeId + '.'))
+    ? ko(new Error(t('server.desktop.couldNotOpenClaudeApp', { claudeId })))
     : ok()));
 }

@@ -3,7 +3,7 @@
 import type { Store } from '../estado.ts';
 import type { Adapter, SourceState, Aviso, Polling, SourceId } from './adaptadores.ts';
 import { readSecret, saveSecret, eraseSecret } from './llavero.ts';
-import { t } from '../../shared/idioma.ts';
+import { t, tIs } from '../../shared/idioma.ts';
 
 export type { SourceId };
 
@@ -49,7 +49,7 @@ export class ConfigSource {
     }
     return v;
   }
-  faltan(v: Record<string, string>) { return this.campos.filter(c => !c.opcional && !v[c.nombre]).map(c => c.etiqueta); }
+  faltan(v: Record<string, string>) { return this.campos.filter(c => !c.opcional && !v[c.nombre]).map(c => tIs(c.etiqueta)); }
   async guardar(entrada: Record<string, string>) {
     const publicos = this.publicos();
     for (const c of this.campos) {
@@ -66,7 +66,8 @@ export class ConfigSource {
     this.almacen.cambiar(e => { const r = e.integraciones[this.id] ??= { modo: 'demo' }; r.campos = {}; r.secrets = []; r.modo = 'off'; });
   }
   forgetCache() { this.cache.clear(); }
-  descripcion() { return { campos: this.campos, valores: this.publicos(), guardados: this.guardados() }; }
+  // las etiquetas y ayudas son datos en español: salen en el idioma del juego al pedirlas
+  descripcion() { return { campos: this.campos.map(c => ({ ...c, etiqueta: tIs(c.etiqueta), ayuda: tIs(c.ayuda), ...(c.ejemplo ? { ejemplo: tIs(c.ejemplo) } : {}) })), valores: this.publicos(), guardados: this.guardados() }; }
 }
 
 // Base de un conector real: estado propio (conectada / error / sin-configurar), errores capturados con su motivo
@@ -82,7 +83,7 @@ export abstract class ConnectorBase implements Adapter {
 
   protected abstract pollReal(): Promise<Polling>;
   protected abstract tryReal(v: Record<string, string>): Promise<{ ok: boolean; detalle: string }>;
-  protected missingConfig() { return 'Falta configurar: ' + this.config.campos.filter(c => !c.opcional && !this.config.tiene(c.nombre)).map(c => c.etiqueta).join(', ') + '. Hazlo en la cámara acorazada.'; }
+  protected missingConfig() { return t('integrations.missingConfig', { campos: this.config.campos.filter(c => !c.opcional && !this.config.tiene(c.nombre)).map(c => tIs(c.etiqueta)).join(', ') }); }
   protected listo() { return this.config.listo(); }
 
   estado(): SourceState { return { modo: 'real', estado: this.situation.estado, detalle: this.situation.detalle, ultima: this.ultima, campos: this.config.publicos() }; }
@@ -101,7 +102,7 @@ export abstract class ConnectorBase implements Adapter {
   async probar(entrada: Record<string, string>) {
     const v = await this.config.combine(entrada);
     const faltan = this.config.faltan(v);
-    if (faltan.length) return { ok: false, detalle: 'Falta: ' + faltan.join(', ') + '.' };
+    if (faltan.length) return { ok: false, detalle: t('integrations.missing', { campos: faltan.join(', ') }) };
     try { return await this.tryReal(v); } catch (e) { return { ok: false, detalle: mensaje(e) }; }
   }
   async configurar(entrada: Record<string, string>) {
@@ -119,7 +120,7 @@ export abstract class ConnectorBase implements Adapter {
     if (nombre === 'olvidar') { this.onRestart(); await this.config.olvidar(); this.reiniciar(); this.avisar?.('estado'); return this.estado(); }
     return this.ownAction(nombre, d);
   }
-  protected async ownAction(nombre: string, _d: Record<string, any>): Promise<unknown> { throw new Error('Acción desconocida para ' + this.id + ': ' + nombre); }
+  protected async ownAction(nombre: string, _d: Record<string, any>): Promise<unknown> { throw new Error(t('integrations.unknownActionFor', { id: this.id, nombre })); }
 }
 
 // Petición HTTP con tiempo límite. No lanza por estado HTTP (lo interpreta quien llama); sí por red caída.
@@ -128,7 +129,7 @@ export async function ask(url: string, op: { servicio: string; metodo?: string; 
   let r: Response;
   try { r = await fetch(url, { method: op.metodo ?? 'GET', headers: op.cabeceras, body: op.cuerpo, signal: AbortSignal.timeout(op.tiempo ?? 20_000), redirect: 'follow' }); }
   catch (e) {
-    const causa = (e as any)?.name === 'TimeoutError' ? 'no respondió a tiempo' : ((e as any)?.cause?.code === 'ENOTFOUND' ? 'no se encuentra la dirección' : (e as any)?.cause?.code || mensaje(e));
+    const causa = (e as any)?.name === 'TimeoutError' ? t('integrations.didNotRespondInTime') : ((e as any)?.cause?.code === 'ENOTFOUND' ? t('integrations.addressNotFound') : (e as any)?.cause?.code || mensaje(e));
     throw new ErrorSource(t('server.noConnectionToIsThe', { servicio: op.servicio, causa }), 60_000, 'red');
   }
   const texto = await r.text();

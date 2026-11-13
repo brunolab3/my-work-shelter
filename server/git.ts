@@ -206,7 +206,7 @@ export async function abortar(ruta: string) {
 }
 export async function continuar(ruta: string) {
   const op = (await estado(ruta)).operacion;
-  if (!op || op === 'merge') throw new Error(op === 'merge' ? 'Una fusión se termina con un commit.' : 'No hay nada a medias.');
+  if (!op || op === 'merge') throw new Error(op === 'merge' ? t('server.git.mergeEndsWithCommit') : t('server.git.nothingInProgress'));
   await ejecutar(ruta, [op, '--continue'], { timeout: 180_000 });
 }
 
@@ -277,7 +277,7 @@ export function githubDemo(): DataGitHub {
   return {
     fuente: 'github', demo: true, usuario: 'supervisor-demo', nombre: 'Supervisor (DEMO)', total: days.reduce((s, d) => s + d.n, 0), days, ts: Date.now(),
     prs: { mine: [pr(42, 'Rutas con parámetros opcionales', 'refugio/express', 3, 'REVIEW_REQUIRED'), pr(17, 'El reintento respeta el timeout', 'refugio/requests', 26, 'APPROVED')], revisar: [pr(8, 'Buscar dentro de archivos comprimidos', 'refugio/ripgrep', 5)], nMine: 2, nReview: 1 },
-    error: 'DEMO: conecta GitHub en la cámara acorazada (tu token o la sesión de gh) para ver tu perfil y tus pull requests.',
+    error: t('server.git.demoProfile'),
   };
 }
 
@@ -300,7 +300,7 @@ export function github(rutas: string[], forzar = false, connection: { real: bool
         prs: { mine: (j.data.mine?.nodes ?? []).filter((n: any) => n?.number).map(pr), revisar: (j.data.revisar?.nodes ?? []).filter((n: any) => n?.number).map(pr), nMine: j.data.mine?.issueCount ?? 0, nReview: j.data.revisar?.issueCount ?? 0 },
       };
     } catch (err) {
-      cache = { ...(await localContributions(rutas)), error: 'Sin GitHub (' + String((err as Error).message).split('\n')[0].slice(0, 160) + '): la matriz cuenta tus commits en los repos del refugio. Para la de tu perfil, instala gh y entra con «gh auth login».', ts: Date.now() };
+      cache = { ...(await localContributions(rutas)), error: t('server.git.withoutGitHub', { error: String((err as Error).message).split('\n')[0].slice(0, 160) }), ts: Date.now() };
     }
     return cache;
   })().finally(() => { asking = null; });
@@ -337,11 +337,11 @@ export function demoPRsBoard(): PRBoard[] {
   ].map(p => ({ ...p, base: p.numero === 18 ? 'sesiones-persistentes' : 'main', dependencias: p.numero === 42 ? ['refugio/express#39', 'refugio/ripgrep#51'] : [] }));   // #18 apilado sobre #17; #42 espera a #39 y #51
 }
 export async function prsTablero(connection: { real: boolean; off?: boolean; token?: string }): Promise<{ prs: PRBoard[]; demo?: boolean; error?: string }> {
-  if (connection.off) return { prs: [], error: 'Conecta GitHub en la cámara acorazada (tu token o la sesión de gh) para ver tus pull requests.' };
-  if (!connection.real) return { prs: demoPRsBoard(), demo: true, error: 'DEMO: conecta GitHub en la cámara acorazada (tu token o la sesión de gh) para ver tus pull requests.' };
+  if (connection.off) return { prs: [], error: t('server.git.connectGitHub') };
+  if (!connection.real) return { prs: demoPRsBoard(), demo: true, error: t('server.git.demoPRs') };
   const desde = new Date(Date.now() - 14 * 86_400_000).toISOString().slice(0, 10);
   try { return { prs: prsOfGitHub(JSON.parse(await gh(['api', 'graphql', '-f', 'query=' + QUERY_PRS(desde)], connection.token))) }; }
-  catch (err) { return { prs: [], error: 'No se pudieron leer tus PR de GitHub (' + String((err as Error).message).split('\n')[0].slice(0, 160) + '). ¿Está gh instalado y con sesión («gh auth login»)?' }; }
+  catch (err) { return { prs: [], error: t('server.git.couldNotReadPRs', { error: String((err as Error).message).split('\n')[0].slice(0, 160) }) }; }
 }
 
 // todos tus PR sin fusionar (para organizar las salas por tareas: server/organizar.ts), con su base y descripción

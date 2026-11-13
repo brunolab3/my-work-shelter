@@ -200,10 +200,10 @@ export async function aLaTrash(raiz: string, rels: unknown) {
 export async function toTrash(abs: string[]) {
   if (!abs.length) return;
   await new Promise<void>((ok, mal) => {
-    if (existsSync('/usr/bin/trash')) return execFile('/usr/bin/trash', abs, err => (err ? mal(new Error('No he podido mandarlo a la papelera: ' + err.message)) : ok()));
+    if (existsSync('/usr/bin/trash')) return execFile('/usr/bin/trash', abs, err => (err ? mal(new Error(t('server.couldNotTrash', { error: err.message }))) : ok()));
     // macOS anteriores a /usr/bin/trash: el Finder
     const lista = abs.map(a => `POSIX file ${JSON.stringify(a)}`).join(', ');
-    execFile('osascript', ['-e', `tell application "Finder" to delete {${lista}}`], err => (err ? mal(new Error('No he podido mandarlo a la papelera: ' + err.message)) : ok()));
+    execFile('osascript', ['-e', `tell application "Finder" to delete {${lista}}`], err => (err ? mal(new Error(t('server.couldNotTrash', { error: err.message }))) : ok()));
   });
 }
 
