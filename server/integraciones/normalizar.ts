@@ -334,8 +334,11 @@ export function repetitions(rule: string, inicio: number, desde: number, hasta: 
   }
   return out;
 }
-/** Los eventos de calendario.jxa entre desde y hasta: los repetidos, desplegados; sin cancelados ni duplicados (una
- *  repetición movida llega como evento suelto con el mismo uid: manda ese) */
+// «Sugerencias de Siri»: lo que macOS saca del correo (invitaciones, reservas). No se actualiza al moverse la reunión de
+// verdad, así que la duplica a la hora vieja: fuera
+const SIRI_SUGGESTIONS = /^(siri suggestions|sugerencias de siri)$/i;
+/** Los eventos de calendario.jxa entre desde y hasta: los repetidos, desplegados; sin cancelados, sin «Sugerencias de
+ *  Siri» ni duplicados (una repetición movida llega como evento suelto con el mismo uid: manda ese) */
 export function eventsOfCalendarMac(lista: EventCalendarMac[], desde: number, hasta: number): Evento[] {
   const loose = lista.filter(e => !e.rule), out = new Map<string, Evento>();
   const daySame = (a: number, c: number) => new Date(a).toDateString() === new Date(c).toDateString();
@@ -346,7 +349,7 @@ export function eventsOfCalendarMac(lista: EventCalendarMac[], desde: number, ha
     out.set(id, { id, fuente: 'calendario', titulo: e.titulo || '(sin título)', inicio, fin, allElDay: e.allElDay, lugar: e.lugar || undefined, videollamada: video, enlace: video, organizador: e.calendario || undefined });
   };
   for (const e of lista) {
-    if (/cancel/i.test(e.estado ?? '') || !Number.isFinite(e.inicio) || !e.inicio) continue;
+    if (/cancel/i.test(e.estado ?? '') || SIRI_SUGGESTIONS.test(e.calendario) || !Number.isFinite(e.inicio) || !e.inicio) continue;
     if (!e.rule) { poner(e, e.inicio); continue; }
     for (const t of repetitions(e.rule, e.inicio, desde - Math.max(0, e.fin - e.inicio), hasta, e.excluded))
       if (!loose.some(x => x.uid && x.uid === e.uid && daySame(x.inicio, t))) poner(e, t);

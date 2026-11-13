@@ -324,6 +324,7 @@ describe('Calendario del Mac', () => {
       { ...base, uid: 'X', titulo: 'Cancelada', inicio: L(2026, 11, 10), fin: L(2026, 11, 10, 11), estado: 'cancelled' },
       { ...base, uid: 'R', titulo: 'Retro', inicio: L(2026, 11, 12), fin: L(2026, 11, 12, 11) },
       { ...base, uid: 'R', titulo: 'Retro', inicio: L(2026, 11, 12), fin: L(2026, 11, 12, 11) },
+      { ...base, calendario: 'Siri Suggestions', uid: 'S', titulo: 'Retro (hora vieja del correo)', inicio: L(2026, 11, 12, 12), fin: L(2026, 11, 12, 13) },
     ], desde, hasta);
     expect(ev.map(e => `${dia(e.inicio)} ${e.titulo}`)).toEqual(['2026-11-09 Daily', '2026-11-12 Retro', '2026-11-16 Daily (movida)']);
     expect(ev[0]).toMatchObject({ fuente: 'calendario', videollamada: 'https://meet.google.com/abc-defg-hij', fin: ev[0].inicio + 15 * 60_000, organizador: 'trabajo@empresa.example' });

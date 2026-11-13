@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { clavesJira, cruzarTablero, textoPR, textoDeADF, promptPlanificar, type PRBoard, type TaskJira } from './tablero';
 
-const tarea = (clave: string, categoria: TaskJira['categoria'], estado = 'En curso'): TaskJira => ({ clave, titulo: 't ' + clave, url: 'https://jira.example/browse/' + clave, estado, categoria, actualizada: 0 });
+const tarea = (clave: string, categoria: TaskJira['categoria'], estado = 'En curso'): TaskJira => ({ clave, titulo: 't ' + clave, url: 'https://jira.example/browse/' + clave, estado, categoria, actualizada: Date.now() });
 const pr = (numero: number, rama: string, titulo = 'PR', estado: PRBoard['estado'] = 'abierto', extra: Partial<PRBoard> = {}): PRBoard =>
   ({ numero, titulo, url: 'https://github.com/x/y/pull/' + numero, repo: 'x/y', rama, estado, actualizado: 0, ...extra });
 
@@ -25,8 +25,8 @@ describe('cruzarTablero', () => {
       [pr(10, 'abc-1-rama'), pr(11, 'otra', 'ABC-1 segundo PR', 'borrador'), pr(12, 'ABC-3-x', 'x', 'fusionado'), pr(13, 'sin-clave'), pr(14, 'ZZZ-9-ajena')],
     );
     expect(r.columnas.map(c => [c.nombre, c.tareas.map(t => [t.clave, t.prs.map(p => p.numero)])])).toEqual([
-      ['Bloqueado', []],
       ['Por hacer', [['ABC-2', []]]],
+      ['Bloqueado', []],
       ['En curso', []],
       ['En revisión', [['ABC-1', [10, 11]]]],
       ['Hecho', [['ABC-3', [12]]]],
@@ -55,10 +55,18 @@ describe('columna Bloqueado', () => {
       [pr(1, 'ABC-3-x', 'x', 'abierto')],
     );
     const col = (id: string) => r.columnas.find(c => c.id === id)!.tareas.map(t => t.clave);
-    expect(r.columnas.map(c => c.id)).toEqual(['bloqueado', 'porHacer', 'enCurso', 'revision', 'hecho']);
+    expect(r.columnas.map(c => c.id)).toEqual(['porHacer', 'bloqueado', 'enCurso', 'revision', 'hecho']);
     expect(col('bloqueado')).toEqual(['ABC-1', 'ABC-2', 'ABC-3']);
     expect(col('hecho')).toEqual(['ABC-4']);
     expect(col('enCurso')).toEqual(['ABC-5']);
+  });
+});
+
+describe('columna Hecho', () => {
+  it('solo enseña lo terminado en la última semana', () => {
+    const dia = 864e5, ahora = 30 * dia;
+    const r = cruzarTablero([{ ...tarea('ABC-1', 'done'), actualizada: ahora - 2 * dia }, { ...tarea('ABC-2', 'done'), actualizada: ahora - 8 * dia }], [], ahora);
+    expect(r.columnas.find(c => c.id === 'hecho')!.tareas.map(t => t.clave)).toEqual(['ABC-1']);
   });
 });
 

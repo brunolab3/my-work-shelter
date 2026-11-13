@@ -41,7 +41,7 @@ export function clavesJira(texto: string, proyectos: Set<string> = new Set()): s
 // abierto (no borrador) esperando a que lo revisen.
 export type BoardColumn = 'porHacer' | 'enCurso' | 'bloqueado' | 'revision' | 'hecho';
 export const COLUMNS: { id: BoardColumn; nombre: string }[] = [
-  { id: 'bloqueado', nombre: 'Bloqueado' }, { id: 'porHacer', nombre: 'Por hacer' }, { id: 'enCurso', nombre: 'En curso' },
+  { id: 'porHacer', nombre: 'Por hacer' }, { id: 'bloqueado', nombre: 'Bloqueado' }, { id: 'enCurso', nombre: 'En curso' },
   { id: 'revision', nombre: 'En revisión' }, { id: 'hecho', nombre: 'Hecho' },
 ];
 // El color de las columnas que tienen que distinguirse de un vistazo (las fichas llevan el de su tarea): verde en curso,
@@ -55,7 +55,9 @@ export function columnOf(t: TaskWithPR): BoardColumn {
   return /review|revisi/i.test(t.estado) || t.prs.some(p => p.estado === 'abierto') ? 'revision' : 'enCurso';
 }
 
-export function cruzarTablero(tareas: TaskJira[], prs: PRBoard[]) {
+// «Hecho» solo enseña lo que se movió en la última semana (Jira trae dos, server/integraciones/jira.ts)
+export const DONE_DAYS = 7;
+export function cruzarTablero(tareas: TaskJira[], prs: PRBoard[], ahora = Date.now()) {
   const proyectos = new Set(tareas.map(t => t.clave.split('-')[0]));
   const withKeys: PRWithTask[] = prs.map(p => {
     const claves = clavesJira(`${p.rama} ${p.titulo}`, proyectos);
@@ -63,7 +65,7 @@ export function cruzarTablero(tareas: TaskJira[], prs: PRBoard[]) {
   });
   const withPR: TaskWithPR[] = tareas.map(t => ({ ...t, prs: withKeys.filter(p => p.claves.includes(t.clave)) }));
   return {
-    columnas: COLUMNS.map(c => ({ ...c, tareas: withPR.filter(t => columnOf(t) === c.id) })),
+    columnas: COLUMNS.map(c => ({ ...c, tareas: withPR.filter(t => columnOf(t) === c.id && (c.id !== 'hecho' || ahora - t.actualizada <= DONE_DAYS * 864e5)) })),
     prs: withKeys,
     withoutTask: withKeys.filter(p => !p.tareas.length),
   };

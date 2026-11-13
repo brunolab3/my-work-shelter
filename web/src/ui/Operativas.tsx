@@ -267,8 +267,8 @@ export function BoardJira({ volver, coordinacion }: { volver: () => void; coordi
           <div key={c.id} className={'kanban-col' + (COLUMN_COLORS[c.id] ? ' kanban-estado' : '') + (ci === col ? ' activa' : '')} style={{ '--estado': COLUMN_COLORS[c.id] } as React.CSSProperties}>
             <h3>{tIs(c.nombre)} <span className="tenue">{c.tareas.length}</span></h3>
             {c.tareas.map((ta, k) => (
-              <div key={ta.clave} className={'ficha-issue con-tarea' + (ci === col && k === Math.min(i, c.tareas.length - 1) ? ' sel' : '')} style={{ '--tarea': taskColor(ta.clave) } as React.CSSProperties} onMouseEnter={() => { setCol(ci); setI(k); }} onDoubleClick={() => openOutside(ta.url)}>
-                <span className="marca-tarea" /><span className="ident">{ta.clave}</span> {ta.titulo}
+              <div key={ta.clave} className={'ficha-issue' + (c.id !== 'hecho' ? ' con-tarea' : '') + (ci === col && k === Math.min(i, c.tareas.length - 1) ? ' sel' : '')} style={c.id !== 'hecho' ? { '--tarea': taskColor(ta.clave) } as React.CSSProperties : undefined} onMouseEnter={() => { setCol(ci); setI(k); }} onDoubleClick={() => openOutside(ta.url)}>
+                {c.id !== 'hecho' && <span className="marca-tarea" />}<span className="ident">{ta.clave}</span> {ta.titulo}
                 <small className="tenue">{[ta.estado, ta.tipo, ta.prioridad].filter(Boolean).join(' · ')}</small>
                 {ta.prs.length > 0 && <div className="prs-ficha">{ta.prs.map(p => <span key={p.url}>{insigniaPR(p)}</span>)}</div>}
                 {inRunning(sesiones, ta.clave).length > 0 && <small className="tenue">{t('panels.inProgress')} {inRunning(sesiones, ta.clave).map(roomName).join(', ')}</small>}
