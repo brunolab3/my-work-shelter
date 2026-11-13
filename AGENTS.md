@@ -1,6 +1,6 @@
 # work-shelter — instructions for agents (Claude Code and Codex)
 
-A shelter-management game that is a work interface on top of Claude Code: each repo is a room and each dweller is a real Claude Code session (Agent SDK) running with the player's own account. Code names in English (new ones too); comments and commits in Spanish. Visible texts and prompts to dwellers come in two languages (Options → Language): never hardcoded, always through `t('zona.clave')` with its `{ es, en }` entry in `shared/textos/` (`shared/idioma.ts`; `tIs` for texts that arrive as Spanish data). Saved data with keys from before the switch to English is migrated once (`shared/migrateKeys.ts`). macOS only.
+A shelter-management game that is a work interface on top of Claude Code: each repo is a room and each dweller is a real Claude Code session (Agent SDK) running with the player's own account. Code, comments and commits in English (older comments are in Spanish: translate them only in lines you touch). Visible texts and prompts to dwellers come in two languages (Options → Language): never hardcoded, always through `t('zona.clave')` with its `{ es, en }` entry in `shared/textos/` (`shared/idioma.ts`; `tIs` for texts that arrive as Spanish data). Saved data with keys from before the switch to English is migrated once (`shared/migrateKeys.ts`). macOS only.
 
 It is an initial proposal for everyone to make their own (README). The shooting gallery and economy are an unfinished first iteration: touch them only through the `juego.*` actions and the `jugador` state.
 
