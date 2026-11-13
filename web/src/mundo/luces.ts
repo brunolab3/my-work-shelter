@@ -24,7 +24,7 @@ export class LightsAssignment {
     this.reloj -= dt;
     if (this.reloj <= 0) { this.reloj = 0.3; this.asignar(salas, centro); }
     for (const r of [...this.focos, ...this.puntos] as Slot<any>[]) {
-      const goal = r.anchor ? r.anchor.intensidad : 0;
+      const goal = r.anchor ? r.anchor.intensidad * (r.anchor.nivel ?? 1) : 0;
       r.actual = THREE.MathUtils.damp(r.actual, goal, 6, dt);
       r.luz.intensity = r.actual;
       if (r.anchor) { r.luz.color.copy(r.anchor.color); }
@@ -50,7 +50,7 @@ export class LightsAssignment {
     this.place(this.puntos, puntos.slice(0, this.puntos.length), false);
     // pozas falsas: visibles donde no hay luz real
     const reales = new Set(chosen.map(c => c.a));
-    for (const c of focos) if (c.a.poza) c.a.poza.visible = !reales.has(c.a);
+    for (const c of focos) if (c.a.poza) c.a.poza.visible = !reales.has(c.a) && (c.a.nivel ?? 1) > 0.5;
   }
 
   private place<L extends THREE.SpotLight | THREE.PointLight>(slots: Slot<L>[], chosen: { a: LightAnchor; s: Sala }[], isFocus: boolean) {

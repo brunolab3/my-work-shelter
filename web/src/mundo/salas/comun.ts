@@ -90,6 +90,7 @@ export interface LightAnchor {
   angulo?: number; penumbra?: number; distancia?: number;
   poza?: THREE.Object3D;
   prioridad?: number;
+  nivel?: number;   // multiplica la intensidad (lámparas de techo según el estado de la sala; sin él, 1)
 }
 
 export const COLOR_STATE: Record<RoomState, string> = { 'sin-sesion': '#3a3a3a', ociosa: '#6fe08f', trabajando: '#5dff8a', esperando: '#ffb000', alerta: '#ff7a1a', error: '#ff2a1a', terminada: '#5dff8a' };
@@ -266,8 +267,10 @@ export function lamp(g: THREE.Group, sala: Sala, x: number, z: number, opts: { i
   const baja = opts.corta ? 0.42 : 0.95;
   sala.anclas.push({ tipo: 'foco', pos: new THREE.Vector3(x, HEIGHT - baja, z), goal: new THREE.Vector3(opts.goal?.[0] ?? x, 0, opts.goal?.[1] ?? z - 0.25), intensidad: opts.intensidad ?? 100, color: new THREE.Color(color), sombra: !!opts.sombra, angulo: 0.72, penumbra: 0.65, distancia: 10 });
   const pr = place(g, R.casa('Light_Ceiling1'), { pos: [x, HEIGHT, z], alto: opts.corta ? 0.45 : 1.0, anchor: 'techo', sombra: false });
-  const bulb = new THREE.Mesh(new THREE.SphereGeometry(opts.corta ? 0.07 : 0.1, 12, 8), new THREE.MeshBasicMaterial({ color: new THREE.Color(color).multiplyScalar(5) }));
-  bulb.position.set(x, HEIGHT - baja, z); g.add(bulb);
+  const bulbMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(color).multiplyScalar(5) });
+  const bulb = new THREE.Mesh(new THREE.SphereGeometry(opts.corta ? 0.07 : 0.1, 12, 8), bulbMat);
+  bulb.position.set(x, HEIGHT - baja, z); bulb.userData.estatico = false; g.add(bulb);
+  (sala.userData.lamparas ??= []).push({ ancla: sala.anclas[sala.anclas.length - 1], bombilla: bulbMat, color: new THREE.Color(color) });
   const poza = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 2.8), matPoolFalse(color)); poza.rotation.x = -Math.PI / 2; poza.position.set(opts.goal?.[0] ?? x, 0.02, opts.goal?.[1] ?? z - 0.25); poza.renderOrder = 2; poza.userData.estatico = false;
   g.add(poza); sala.anclas[sala.anclas.length - 1].poza = poza;
   return pr;
@@ -695,6 +698,8 @@ export async function createRoom(o: RoomOptions, furnish: Furnish): Promise<Sala
     const col = new THREE.Color(e === 'sin-sesion' ? '#222' : COLOR_STATE[e]);
     const mb = sala.userData.matBeacon as THREE.MeshStandardMaterial | undefined; if (mb) mb.emissive.copy(col);
     sala.userData.beaconLight?.color.copy(col); sala.userData.haz?.color.copy(col);
+    // lámparas de techo: apagadas en reposo, a tope trabajando (sin sesiones, encendidas como siempre)
+    sala.userData.nivelLuz = e === 'ociosa' ? 0 : e === 'trabajando' ? 1.35 : 1;
     for (const f of onStates) f(e);
     sala.setIcon(e === 'terminada' ? 'listo' : e === 'esperando' ? 'espera' : e === 'error' ? 'error' : null);
   };
@@ -711,6 +716,11 @@ export async function createRoom(o: RoomOptions, furnish: Furnish): Promise<Sala
     for (const p of sala.pantallas) p.actualizar(dt, t);
     if (panel) { panel.progreso = sala.estado === 'trabajando' ? (sala.progreso || (t * 0.04) % 1) : sala.estado === 'terminada' ? 1 : sala.progreso; panel.actualizar(t); }
     for (const f of updaters) f(dt, t, a);
+    const lamparas = sala.userData.lamparas as { ancla: LightAnchor; bombilla: THREE.MeshBasicMaterial; color: THREE.Color }[] | undefined;
+    if (lamparas) for (const l of lamparas) {
+      l.ancla.nivel = THREE.MathUtils.damp(l.ancla.nivel ?? 1, sala.userData.nivelLuz ?? 1, 3, dt);
+      l.bombilla.color.copy(l.color).multiplyScalar(0.15 + 4.85 * l.ancla.nivel);
+    }
     dust.actualizar(dt, t); vapor.actualizar(dt); sparks.actualizar(dt);
     const lb = sala.userData.beaconLight; const mb = sala.userData.matBeacon as THREE.MeshStandardMaterial | undefined;
     const pulse = sala.estado === 'esperando' ? (Math.sin(t * Math.PI * 2) > 0 ? 1 : 0.15) : sala.estado === 'error' ? 0.5 + 0.5 * Math.sin(t * Math.PI) : sala.estado === 'sin-sesion' ? 0 : 0.6;
