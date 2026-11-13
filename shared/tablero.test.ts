@@ -27,8 +27,8 @@ describe('cruzarTablero', () => {
     expect(r.columnas.map(c => [c.nombre, c.tareas.map(t => [t.clave, t.prs.map(p => p.numero)])])).toEqual([
       ['Por hacer', [['ABC-2', []]]],
       ['Bloqueado', []],
-      ['En curso', []],
-      ['En revisión', [['ABC-1', [10, 11]]]],
+      ['En curso', [['ABC-1', [10, 11]]]],
+      ['En revisión', []],
       ['Hecho', [['ABC-3', [12]]]],
     ]);
     expect(r.prs.find(p => p.numero === 12)!.tareas.map(t => t.estado)).toEqual(['Hecho']);
@@ -37,14 +37,14 @@ describe('cruzarTablero', () => {
 });
 
 describe('columna En revisión', () => {
-  it('va a revisión lo que se llama así en Jira o tiene un PR abierto; un borrador sigue en curso', () => {
+  it('va a revisión solo lo que se llama así en Jira: un PR abierto, borrador o fusionado no la mueve', () => {
     const r = cruzarTablero(
       [tarea('ABC-1', 'indeterminate'), tarea('ABC-2', 'indeterminate', 'Code Review'), tarea('ABC-3', 'indeterminate'), tarea('ABC-4', 'indeterminate')],
       [pr(1, 'ABC-3-x', 'x', 'borrador'), pr(2, 'ABC-4-x', 'x', 'abierto'), pr(3, 'ABC-1-x', 'x', 'fusionado')],
     );
     const col = (id: string) => r.columnas.find(c => c.id === id)!.tareas.map(t => t.clave);
-    expect(col('enCurso')).toEqual(['ABC-1', 'ABC-3']);
-    expect(col('revision')).toEqual(['ABC-2', 'ABC-4']);
+    expect(col('enCurso')).toEqual(['ABC-1', 'ABC-3', 'ABC-4']);
+    expect(col('revision')).toEqual(['ABC-2']);
   });
 });
 

@@ -37,8 +37,9 @@ export function clavesJira(texto: string, proyectos: Set<string> = new Set()): s
 
 // Jira solo tiene tres categorías de estado; «Bloqueado» y «En revisión» salen del nombre del estado. Bloqueado: el
 // estado se llama así (Blocked, Bloqueado, On hold, Impediment…), sea cual sea su categoría, salvo si ya está hecha.
-// En revisión, de «En curso»: el estado se llama así (Review, Code review, En revisión…) o la tarea ya tiene un PR
-// abierto (no borrador) esperando a que lo revisen.
+// En revisión, de «En curso»: el estado se llama así (Review, Code review, En revisión…). Solo manda el estado de Jira:
+// los PR de la tarea son informativos (salen en su ficha; su estado, en el plan de despliegue de Logística) y nunca
+// la cambian de columna.
 export type BoardColumn = 'porHacer' | 'enCurso' | 'bloqueado' | 'revision' | 'hecho';
 export const COLUMNS: { id: BoardColumn; nombre: string }[] = [
   { id: 'porHacer', nombre: 'Por hacer' }, { id: 'bloqueado', nombre: 'Bloqueado' }, { id: 'enCurso', nombre: 'En curso' },
@@ -52,7 +53,7 @@ export function columnOf(t: TaskWithPR): BoardColumn {
   if (t.categoria === 'done') return 'hecho';
   if (isBlockedState(t.estado)) return 'bloqueado';
   if (t.categoria === 'new') return 'porHacer';
-  return /review|revisi/i.test(t.estado) || t.prs.some(p => p.estado === 'abierto') ? 'revision' : 'enCurso';
+  return /review|revisi/i.test(t.estado) ? 'revision' : 'enCurso';
 }
 
 // «Hecho» solo enseña lo que se movió en la última semana (Jira trae dos, server/integraciones/jira.ts)
