@@ -1,10 +1,12 @@
 // Worktrees como copias holográficas: cada worktree de un repo es un holograma del habitante que lo creó (su clon de
 // ensayo), con su proyector en un hueco libre de la franja delantera de la sala (nunca delante de donde se paran los
 // habitantes, para no taparse) y su propio ordenador holográfico. Nunca usa los puestos del original (consola, silla,
-// cama) ni se mueve de su proyector: pensando, consulta su portátil sentado; trabajando, maneja pantallas en el aire
-// sin parar; esperando, te llama; terminado, lo celebra; avería, se distorsiona; sin nada que hacer, de pie y quieto,
-// tenue (y te mira si te acercas). Al crearse, el proyector baja por un tubo del techo, su autor va a montarlo con la
-// llave y la copia se materializa encima; al desecharse se desvanece.
+// cama) ni se mueve de su proyector: pensando o trabajando, de pie, maneja pantallas en el aire sin parar; esperando,
+// salta y saluda hasta que contestas; terminada, te espera saludando de vez en cuando hasta que la lees; avería, se
+// distorsiona; sin nada que hacer, sentada en su proyector y tenue (te mira si te acercas y se levanta para hablar
+// contigo). El disco de luz del proyector, del color de su tarea, late mientras trabaja. Al crearse, el proyector baja
+// por un tubo del techo, su autor va a montarlo con la llave y la copia se materializa encima; al desecharse se
+// desvanece.
 // Cada copia es un interlocutor propio, como un clon: con E (o un clic) se habla con ella en su intercomunicador, que
 // no es el de su autor (ui/copias.ts); lo que se trabaja dentro del worktree vive en él.
 import * as THREE from 'three';
@@ -93,9 +95,10 @@ function holograph(o: THREE.Object3D, u: Uniforms) {
 // (trabajando), de pie y quieto (sin nada que hacer) o de pie mirando al frente (te espera, terminó, habla contigo)
 type Pose = 'reposo' | 'portatil' | 'manos' | 'pie' | 'base';
 const IN_PROJECTOR = new Set<Pose>(['reposo', 'portatil', 'manos', 'base']);
+const SEATED_POSES = new Set<Pose | ''>(['reposo', 'portatil', 'base']);   // sentada en el proyector (sin nada que hacer, en 'base')
 const WALKING = /^(Walking|Running)/;
 // trabajando no para: de un gesto a otro con las pantallas
-const BUSY = ['Ranged_Magic_Spellcasting_Long', 'Working_A', 'Ranged_Magic_Spellcasting', 'Working_C'];
+const BUSY = ['Ranged_Magic_Spellcasting_Long', 'Working_A', 'Ranged_Magic_Spellcasting', 'Working_C', 'Working_B', 'Interact'];
 export interface Copia {
   ruta: string; w: InfoWorktree; sala: Sala; authorId: string;
   p: Character; u: Uniforms; base: THREE.Object3D | null; portatil: THREE.Group; pantallas: THREE.Group;
@@ -329,8 +332,8 @@ export class Holograms {
       const { tam } = measure(o); o.scale.setScalar(1.0 / Math.max(tam.x, tam.z, 1e-3));
       o.traverse((n: any) => { if (n.isMesh) { n.receiveShadow = true; n.castShadow = false; } });
       const base = new THREE.Group(); base.add(o); base.position.copy(f.sitio); base.userData.estatico = false;
-      // encendido, un disco de luz del color de su tarea bajo los pies
-      const luz = new THREE.Mesh(new THREE.CircleGeometry(0.36, 32), new THREE.MeshBasicMaterial({ color: f.u.uColor.value, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false }));
+      // encendido, un disco de luz del color de su tarea que cubre la plataforma (se ve aunque esté sentada encima)
+      const luz = new THREE.Mesh(new THREE.CircleGeometry(0.48, 40), new THREE.MeshBasicMaterial({ color: f.u.uColor.value, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false }));
       luz.rotation.x = -Math.PI / 2; luz.position.y = measure(o).tam.y + 0.01; luz.visible = false; luz.name = 'luz'; base.add(luz);
       f.base = base;
       f.sitio.y += measure(o).tam.y;   // de pie (o sentado) encima de la plataforma
@@ -343,9 +346,10 @@ export class Holograms {
     const m = s?.actividad?.modo;
     let estado: DwellerState = 'ocioso', detalle = '', wants: Pose = 'base';
     if (s) {
-      if (s.estado === 'arrancando') { estado = 'pensando'; detalle = 'preparándose…'; wants = 'portatil'; }
+      // pensando también está de faena: de pie con sus pantallas, como trabajando (sentada es no tener nada que hacer)
+      if (s.estado === 'arrancando') { estado = 'pensando'; detalle = 'preparándose…'; wants = 'manos'; }
       else if (s.estado === 'trabajando') {
-        if (!m || m === 'pensar') { estado = 'pensando'; detalle = s.actividad?.texto ?? 'pensando…'; wants = 'portatil'; }
+        if (!m || m === 'pensar') { estado = 'pensando'; detalle = s.actividad?.texto ?? 'pensando…'; wants = 'manos'; }
         else { estado = 'trabajando'; detalle = s.actividad?.texto ?? ''; wants = 'manos'; }
       } else if (s.estado === 'esperando') { estado = 'esperando'; detalle = s.pending?.titulo ?? 'te espera'; wants = 'pie'; }
       else if (s.estado === 'terminada' && s.sinLeer) { estado = 'terminado'; detalle = 'listo: ' + (s.titulo ?? ''); wants = 'pie'; }
@@ -357,7 +361,7 @@ export class Holograms {
     const antes = f.estado;
     f.firma = firma; f.estado = estado; f.detalle = detalle; f.sesionId = s?.id; f.poseWanted = wants;
     if (estado !== antes) {
-      if (estado === 'terminado') { SFX.success(); f.p.gesture('Cheering', 'Idle_A'); f.pose = 'pie'; f.fromPose = tiempo.value; }
+      if (estado === 'terminado') { SFX.success(); f.p.gesture('Waving', 'Idle_A'); f.pose = 'pie'; f.fromPose = tiempo.value; f.gestureClock = 8; }
       else if (estado === 'error') { SFX.holoGlitch(); f.u.uGlitch.value = 1; }
       else if (estado === 'esperando') { SFX.highNotice(); f.waitingSince = performance.now(); }
     }
@@ -367,8 +371,8 @@ export class Holograms {
   }
 
   private changePose(f: Copia, pose: Pose, inmediata = false) {
-    const p = f.p; const sentado = f.pose === 'reposo' || f.pose === 'portatil';
-    const sentar = pose === 'reposo' || pose === 'portatil';
+    const p = f.p; const sentado = SEATED_POSES.has(f.pose);
+    const sentar = SEATED_POSES.has(pose);
     f.pose = pose; f.fromPose = tiempo.value;
     f.portatil.visible = pose === 'portatil' || pose === 'reposo';
     f.pantallas.visible = pose === 'manos';
@@ -404,7 +408,13 @@ export class Holograms {
     tiempo.value += dt;
     for (const f of [...this.figuras.values(), ...this.outgoing]) {
       if (f.montaje && !f.leaving) this.stepDelivery(f, dt);
-      const luz = f.base?.getObjectByName('luz'); if (luz) luz.visible = !!f.p.raiz.parent && !f.leaving;
+      const luz = f.base?.getObjectByName('luz') as THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial> | undefined;
+      if (luz) {
+        luz.visible = !!f.p.raiz.parent && !f.leaving;
+        // sin nada que hacer, tenue y fija; con una sesión en marcha, más viva y latiendo
+        const viva = f.estado === 'trabajando' || f.estado === 'pensando';
+        luz.material.opacity = viva ? 0.6 + 0.25 * Math.sin(tiempo.value * 3 + f.u.uSemilla.value * 9) : 0.4;
+      }
       if (!f.p.mixer || !f.p.raiz.parent) { if (f.leaving && !f.p.raiz.parent) this.outgoing.delete(f); continue; }
       const u = f.u;
       // materializar o desvanecer: el corte sube (o baja) a ritmo constante
@@ -439,6 +449,8 @@ export class Holograms {
     const vaiven = (f.pose === 'portatil' && wants === 'manos') || (f.pose === 'manos' && wants === 'portatil');
     if (wants !== f.pose && (!vaiven || tiempo.value - f.fromPose > 6)) this.changePose(f, wants);
     if (f.estado === 'esperando' && f.pose === 'pie') { f.gestureClock -= dt; if (f.gestureClock < 0) { f.gestureClock = 4 + Math.random() * 2; callOut(f.p, f.waitingSince); } }
+    // terminada: te espera con paciencia, saludando de vez en cuando hasta que la lees
+    if (f.estado === 'terminado' && f.pose === 'pie') { f.gestureClock -= dt; if (f.gestureClock < 0) { f.gestureClock = 8 + Math.random() * 5; f.p.gesture('Waving', 'Idle_A'); } }
     // trabajando, muy ocupada: cambia de gesto con las pantallas cada pocos segundos
     if (f.pose === 'manos') {
       f.busyClock -= dt;
@@ -447,15 +459,13 @@ export class Holograms {
     if (f.pose === 'base') this.quieta(f, dt);
   }
 
-  // sin nada que hacer, de pie y quieta en su proyector; mira a un lado y a otro y, si el Supervisor se le acerca, le mira
+  // sin nada que hacer, sentada y quieta en su proyector; mira a un lado y a otro y, si el Supervisor se le acerca, le mira
   private quieta(f: Copia, dt: number) {
     const p = f.p, pos = p.raiz.position, sp = this.r.supervisor?.raiz.position;
     if (sp && Math.abs(sp.y - pos.y) < 1 && Math.hypot(sp.x - pos.x, sp.z - pos.z) < 1.7) { p.goalTurn = Math.atan2(sp.x - pos.x, sp.z - pos.z); f.lookClock = Math.max(f.lookClock, 2); return; }
     f.lookClock -= dt; if (f.lookClock > 0) return;
     f.lookClock = 5 + Math.random() * 6;
     p.goalTurn = f.giro * (0.3 + Math.random() * 0.7);
-    const clip = Math.random() < 0.6 ? 'Idle_A' : 'Idle_B';
-    if (clip !== p.inRest) { p.inRest = clip; p.reproducir(clip, 0.4); }
   }
 
   // ---- charla con el Supervisor
@@ -482,11 +492,18 @@ export class Holograms {
   /** El robot mensajero le trae una revisión de su PR (mensajero.ts): de pie, se gira hacia él y la recoge; sentada,
    *  trabajando o hablando con el Supervisor, sigue a lo suyo */
   receive(f: Copia, desde: THREE.Vector3) {
-    if (f.talking || f.leaving || !f.listo || (f.pose !== 'pie' && f.pose !== 'base')) return;
+    if (f.talking || f.leaving || !f.listo || f.pose !== 'pie') return;
     const p = f.p, pos = p.raiz.position;
     f.lookClock = Math.max(f.lookClock, 4); f.gestureClock = Math.max(f.gestureClock, 3);
     p.goalTurn = Math.atan2(desde.x - pos.x, desde.z - pos.z);
     p.gesture('PickUp', p.inRest);
+  }
+
+  /** Las salas con alguna copia pensando o trabajando (sus habitantes se ponen a trabajar también) */
+  busyRooms() {
+    const salas = new Set<string>();
+    for (const f of this.figuras.values()) if (!f.leaving && (f.estado === 'trabajando' || f.estado === 'pensando')) salas.add(f.sala.id);
+    return salas;
   }
 
   // sus proyectores y por dónde andan (para que los habitantes no se les metan dentro)

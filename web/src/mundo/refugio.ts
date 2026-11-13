@@ -1109,7 +1109,9 @@ export class Refugio {
     this.visitantes.actualizar(dt);
     this.hologramas.actualizar(dt);
     this.advanceDemo(dt);
-    for (const h of this.habitantes) h.actualizar(dt);
+    // con una copia trabajando en su sala, su habitante también está de faena (la copia se queda en su proyector)
+    const salasConCopias = this.hologramas.busyRooms();
+    for (const h of this.habitantes) { h.roomWork(salasConCopias.has(h.sala.id)); h.actualizar(dt); }
     this.separate(dt);
     this.leavePass(dt);
     this.retrato?.actualizar(dt);

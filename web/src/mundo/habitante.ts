@@ -1,13 +1,14 @@
 // Habitante: un personaje KayKit con identidad, una rutina de trabajo y una máquina de estados que traduce lo que pasa
 // en su sesión de Claude Code a animación (§5.3).
-// - Cada uno tiene su puesto (su mesa: punto 'puesto' de la sala) y ahí pasa la mayor parte del día, sentado: teclea,
-//   lee, se toma un café, piensa. Con una sesión trabaja ahí sin levantarse (teclea a toda prisa); pensando, lee y
-//   piensa, y a ratos se levanta a mirar la pieza de la sala.
-// - La pieza característica de la sala (puntos 'pieza'): va de vez en cuando y la maneja con las acciones de la sala.
-// - Sin sesión, con calma: sentado en su mesa leyendo, con un café o pensando, o en su afición; poca pieza, algún paseo
-//   y nunca corriendo (que se le pueda hacer clic).
+// - De un vistazo se ve si en su sala se trabaja: la mesa es solo para trabajar. Con trabajo (su sesión o la de una
+//   copia holográfica de su sala, que se queda en su proyector) se sienta en su puesto (su mesa: punto 'puesto') y
+//   teclea a toda prisa, y a ratos maneja los aparatos y la pieza característica de la sala (puntos 'consola' y
+//   'pieza', con las acciones de la sala); pensando, lee y piensa en su mesa, y a ratos se levanta a mirar la pieza.
+// - Sin trabajo, lejos de la mesa y con calma: su afición, un paseo con un café o el periódico, un vistazo a la pieza
+//   (sin trabajarla) o, de madrugada, una siesta; nunca corriendo (que se le pueda hacer clic).
 // - Encargos (`encargar`): deja lo que hace, va a un sitio, lo hace y vuelve a lo suyo (montar el proyector de su copia).
-// - Termina = celebra; error = golpe y al suelo; espera permiso = se levanta, te mira y saluda; duerme en su catre.
+// - Te espera (pregunta, permiso o plan) = se levanta, te mira, salta y saluda hasta que contestas; termina = te espera
+//   de pie, con paciencia, saludando de vez en cuando hasta que lo lees; error = golpe y al suelo; duerme en su catre.
 // - Se sienta y se levanta de verdad (clips de KayKit) y sigue al Supervisor con la mirada cuando anda cerca.
 import * as THREE from 'three';
 import { Character, turnBoneWorld, callOut } from './personaje';
@@ -97,6 +98,7 @@ export class Habitante {
   sesionId?: string;
   waitingAfterChat = 0;   // al alejarte, se queda unos segundos por si se te ocurre algo más
   chatting = false;         // habla con el Supervisor (lo pone el refugio): si no trabaja, no se va de su lado
+  private copyWorks = false;   // una copia holográfica de su sala trabaja: él también, aunque su sesión no
   chore: Chore = 'mirar';
   zetas = new Zetas(new THREE.Vector3());
   private punto: RoomPoint | null = null;
@@ -196,12 +198,21 @@ export class Habitante {
   get pos() { return this.p.raiz.position; }
   get sentado() { return this.seat; }
 
+  /** Con trabajo en la sala: su sesión, o la de una copia de su sala (lo pone el refugio en cada fotograma) */
+  private get faena() { return this.estado === 'trabajando' || (this.estado === 'ocioso' && this.copyWorks); }
+  roomWork(hay: boolean) {
+    if (hay === this.copyWorks) return;
+    this.copyWorks = hay;
+    // sin sesión propia, se pone a trabajar (o lo deja) en cuanto la copia empieza (o acaba)
+    if (this.estado === 'ocioso' && !this.errand) { this.stay = null; this.sub = { hasta: 0, que: '' }; }
+  }
+
   /** Al arrancar el refugio: ya en su sitio (en su puesto o en su afición), sin el paseo hasta él */
   initialHobby() {
     if (this.estado !== 'ocioso') return;
-    // al arrancar, cada uno en lo suyo: su afición, la pieza de la sala o su ronda (la mesa, para cuando haya trabajo)
+    // al arrancar, cada uno en lo suyo: su afición, su ronda o de paseo (la mesa, para cuando haya trabajo)
     const hay = (t: RoomPoint['tipo']) => this.free(t).length > 0;
-    this.newStay(this.clickDJ ? 'puesto' : hay('patrulla') ? 'patrulla' : hay('aficion') && Math.random() < 0.6 ? 'aficion' : hay('pieza') ? 'pieza' : undefined);
+    this.newStay(this.clickDJ ? 'puesto' : hay('patrulla') ? 'patrulla' : hay('aficion') && Math.random() < 0.6 ? 'aficion' : undefined);
     const p = this.p;
     if (p.ruta.length) { const fin = p.ruta[p.ruta.length - 1]; p.raiz.position.copy(fin); const cb = p.onArrive; p.ruta = []; p.onArrive = null; cb?.(); }
     if (this.slide) { this.pos.copy(this.slide.hasta); this.slide = null; }
@@ -333,8 +344,8 @@ export class Habitante {
       this.withUtensil(''); this.stay = null; this.chore = 'celebrar';
       this.releasePoint(); p.parar(); this.leaveSeat();
       this.lookCamera = true;
-      p.inRest = 'Idle_A'; p.gesture('Cheering', 'Idle_A');
-      this.gestureClock = 6;
+      p.inRest = 'Idle_A'; p.gesture('Waving', 'Idle_A');
+      this.gestureClock = 8;
     } else if (estado === 'error') {
       this.withUtensil(''); this.stay = null; this.chore = 'averia';
       p.parar(); this.releasePoint(); this.leaveSeat();
@@ -348,51 +359,49 @@ export class Habitante {
       else if (estado !== anterior || herramienta !== toolAnterior || returnsOfNotice || !this.stay) {
         if (returnsOfNotice) { this.releasePoint(); p.inRest = 'Idle_A'; p.reproducir('Idle_A', 0.3); }
         this.stay = null;
-        if (estado === 'ocioso' && !returnsOfNotice && anterior === 'ocioso') this.stay = { donde: 'paseo', hasta: this.reloj + entre(1, 4) };
+        if (estado === 'ocioso' && !this.faena && !returnsOfNotice && anterior === 'ocioso') this.stay = { donde: 'paseo', hasta: this.reloj + entre(1, 4) };
       }
     }
   }
 
   // ---------------------------------------------------------------- la rutina
   private duracion(donde: Stay) {
-    const trabaja = this.estado === 'trabajando', thinks = this.estado === 'pensando';
+    const trabaja = this.faena, thinks = this.estado === 'pensando';
     switch (donde) {
       case 'puesto': return trabaja ? entre(60, 120) : thinks ? entre(25, 45) : entre(30, 60);
       case 'pieza': return entre(9, 16);
       case 'patrulla': return entre(30, 55);
       case 'aficion': return entre(25, 45);
       case 'consola': return entre(8, 14);
-      default: return thinks ? entre(7, 12) : entre(5, 10);
+      default: return thinks ? entre(7, 12) : entre(12, 25);
     }
   }
 
   /** Elige dónde pasar el rato (o va a `forzar`) según su estado y lo que tiene la sala */
   private newStay(forzar?: Stay) {
     const hay = (t: RoomPoint['tipo']) => this.free(t).length > 0;
-    const repetir = (e: Stay) => (this.ultima !== e ? 1 : e === 'puesto' ? (this.estado === 'ocioso' ? 0.5 : 1) : e === 'patrulla' ? 0.6 : 0.25);   // sin trabajo, tras un rato en la mesa a veces se levanta
+    const repetir = (e: Stay) => (this.ultima !== e || e === 'puesto' ? 1 : e === 'patrulla' ? 0.6 : e === 'paseo' ? 0.7 : 0.25);
     // de madrugada (hora de verdad), quien no tiene nada que hacer y tiene catre se echa a dormir un rato
     const h = new Date().getHours();
-    if (!forzar && this.estado === 'ocioso' && (h >= 1 && h < 7) && hay('cama') && !this.chatting && !Habitante.quieto && Math.random() < 0.45) {
+    if (!forzar && this.estado === 'ocioso' && !this.faena && (h >= 1 && h < 7) && hay('cama') && !this.chatting && !Habitante.quieto && Math.random() < 0.45) {
       this.wakeIn = this.reloj + entre(90, 300); this.cambiar('durmiendo'); return;
     }
-    // la mesa es para trabajar: con una sesión, casi siempre (en el ordenador, sin levantarse); pensando, a menudo; sin
-    // nada que hacer, también, pero con calma (leer, un café), o en su afición.
+    // la mesa es solo para trabajar: con trabajo en la sala, casi siempre (en el ordenador, sin levantarse); pensando, a
+    // menudo; sin nada que hacer, nunca: su afición, un paseo (café, periódico) o un vistazo a la pieza.
     // Los guardianes (salas con ruta de patrulla) no tienen mesa: patrullan
     // el DJ no deja los platos: en la discoteca, su sitio es la mesa de mezclas, con o sin sesión
     if (!forzar && this.clickDJ) forzar = 'puesto';
     let donde: Stay = forzar ?? 'paseo';
     const guardia = hay('patrulla');
     if (!forzar) {
-      if (this.estado === 'trabajando') donde = hay('puesto') ? shuffle<Stay>({ puesto: 0.94, pieza: hay('pieza') ? (this.herramienta === 'buscar' ? 0.15 : 0.06) * repetir('pieza') : 0 }) ?? 'puesto'
+      if (this.faena) donde = hay('puesto') ? shuffle<Stay>({ puesto: 0.94, pieza: hay('pieza') ? (this.herramienta === 'buscar' ? 0.15 : 0.06) * repetir('pieza') : 0 }) ?? 'puesto'
         : shuffle<Stay>({ pieza: hay('pieza') ? 0.5 * repetir('pieza') : 0, consola: hay('consola') ? 0.4 * repetir('consola') : 0, patrulla: guardia ? 0.3 : 0 }) ?? 'paseo';
-      else if (this.estado === 'pensando') donde = shuffle<Stay>({ puesto: hay('puesto') ? 0.45 : 0, paseo: Habitante.quieto ? 0 : 0.3 * repetir('paseo'), pieza: hay('pieza') ? 0.25 * repetir('pieza') : 0, consola: hay('puesto') ? 0 : 0.3, patrulla: guardia ? 0.5 : 0 }) ?? 'paseo';
+      else if (this.estado === 'pensando') donde = shuffle<Stay>({ puesto: hay('puesto') ? 0.6 : 0, pieza: hay('pieza') ? 0.25 * repetir('pieza') : 0, consola: hay('consola') ? 0.15 * repetir('consola') : 0, patrulla: guardia ? 0.5 : 0 }) ?? 'paseo';
       else donde = shuffle<Stay>({
-        puesto: hay('puesto') ? 0.5 * repetir('puesto') : 0,
         pieza: hay('pieza') ? 0.12 * repetir('pieza') : 0,
-        aficion: hay('aficion') ? 0.3 * repetir('aficion') : 0,
-        consola: hay('consola') ? 0.05 * repetir('consola') : 0,
+        aficion: hay('aficion') ? 0.5 * repetir('aficion') : 0,
         patrulla: guardia ? 0.9 * repetir('patrulla') : 0,
-        paseo: Habitante.quieto ? 0 : 0.08 * repetir('paseo'),
+        paseo: Habitante.quieto ? 0 : 0.4 * repetir('paseo'),
       }) ?? 'paseo';
     }
     if (Habitante.quieto && donde === 'paseo') donde = this.punto && this.arrived ? (this.punto.tipo as Stay) : 'paseo';
@@ -403,7 +412,7 @@ export class Habitante {
     const empezar = () => { this.sub.hasta = 0; };   // al llegar, la primera tarea de la estancia
     if (donde === 'paseo') {
       this.levantarse(() => {
-        this.releasePoint(); this.withUtensil(Math.random() < 0.25 && this.estado === 'ocioso' ? 'taza' : '');
+        this.releasePoint(); this.withUtensil(Math.random() < 0.25 && this.estado === 'ocioso' && !this.faena ? 'taza' : '');
         const s = this.sala; const zones = s.walkZones ?? [[-s.ancho / 2 + 1, s.ancho / 2 - 1]];
         let destino: THREE.Vector3 | null = null;
         for (let k = 0; k < 10 && !destino; k++) {
@@ -428,7 +437,7 @@ export class Habitante {
   private newSub() {
     const p = this.p, e = this.stay; if (!e) return;
     const pt = this.punto;
-    const trabaja = this.estado === 'trabajando', thinks = this.estado === 'pensando';
+    const trabaja = this.faena, thinks = this.estado === 'pensando', libre = !trabaja && !thinks;
     if (e.donde === 'puesto' && pt?.tipo === 'puesto') {
       const que = trabaja
         ? shuffle({ teclear: this.herramienta === 'leer' || this.herramienta === 'buscar' ? 0.7 : 0.94, leer: this.herramienta === 'leer' || this.herramienta === 'buscar' ? 0.3 : 0.06 })
@@ -458,7 +467,8 @@ export class Habitante {
       return;
     }
     if (e.donde === 'pieza' && pt?.tipo === 'pieza') {
-      const acciones = pt.acciones?.length ? pt.acciones : [{ clip: pt.clip ?? 'Interact' }];
+      // sin trabajo solo le echa un vistazo (nada de manejarla: eso es trabajar)
+      const acciones = libre ? [{ clip: 'Interact' } as NonNullable<RoomPoint['acciones']>[number]] : pt.acciones?.length ? pt.acciones : [{ clip: pt.clip ?? 'Interact' }];
       const a = acciones[this.paso++ % acciones.length];
       this.chore = 'pieza';
       this.withUtensil(a.utensil ?? TOOL_OF[a.clip] ?? '');
@@ -508,8 +518,17 @@ export class Habitante {
       this.sub = { que: 'vigilar', hasta: this.reloj + entre(3, 6.5) };
       return;
     }
+    // de paseo sin nada que hacer: a ratos, de pie con un café o el periódico
+    if (libre && !this.chatting && Math.random() < 0.55) {
+      const q = Math.random() < 0.5 ? 'cafe' : 'leer';
+      this.chore = q; this.withUtensil(q === 'cafe' ? 'taza' : 'diario');
+      p.inRest = q === 'cafe' ? 'Use_Item' : 'Holding_B'; p.reproducir(p.inRest, 0.35);
+      this.sub = { que: q, hasta: this.reloj + (q === 'cafe' ? entre(5, 9) : entre(7, 14)) };
+      return;
+    }
     // de paseo: mira alrededor, a la sala o a quien pase; a veces se estira o echa un vistazo a algo
     this.chore = this.chatting ? 'charlar' : 'pasear';
+    if (this.utensil === 'diario') this.withUtensil('');
     const r = Math.random();
     if (!this.chatting && r < 0.3) p.goalTurn = (Math.random() - 0.5) * 2.2;
     else if (!this.chatting) p.goalTurn = Math.random() < 0.5 ? Math.PI + (Math.random() - 0.5) * 0.8 : (Math.random() - 0.5) * 0.6;
@@ -537,7 +556,7 @@ export class Habitante {
     this.vigilar(dt);
     const routine = this.estado === 'ocioso' || this.estado === 'pensando' || this.estado === 'trabajando';
     // quien charla contigo sin trabajar se queda a tu lado (mirándote); trabajando, sigue con lo suyo
-    const parado = this.chatting && this.estado === 'ocioso';
+    const parado = this.chatting && this.estado === 'ocioso' && !this.faena;
     if (parado && !p.ruta.length && this.chore !== 'charlar' && !this.seat) { this.chore = 'charlar'; this.stay = null; if (!['Idle_A', 'Idle_B'].includes(p.currentName)) { p.inRest = 'Idle_A'; p.reproducir('Idle_A', 0.3); } this.withUtensil(''); }
     if (parado && this.seat && this.chore !== 'charlar' && this.reloj > this.untilBusy) { this.chore = 'charlar'; this.withUtensil(''); p.inRest = SEATED.pensar; p.reproducir(SEATED.pensar, 0.4); }
     if (routine && !parado && !p.ruta.length && this.reloj > this.untilBusy && !this.slide) {
@@ -557,7 +576,8 @@ export class Habitante {
     }
     if (this.estado === 'terminado') {
       this.gestureClock -= dt;
-      if (this.gestureClock < 0) { this.gestureClock = 9 + Math.random() * 6; if (!p.ruta.length) p.gesture(Math.random() < 0.6 ? 'Cheering' : 'Waving', 'Idle_A'); }
+      // terminado: te espera con paciencia, saludando de vez en cuando (sin saltar: eso es para cuando te necesita)
+      if (this.gestureClock < 0) { this.gestureClock = 8 + Math.random() * 5; if (!p.ruta.length) p.gesture('Waving', 'Idle_A'); }
     }
     // el tecleo de las manos sube y baja con suavidad (al sentarse, al cambiar de tarea)
     const teclea = this.chore === 'teclear' && this.seat && p.currentName === SEATED.teclear;

@@ -56,7 +56,8 @@ export interface Accessory { ruta: string; bone: 'handslotr' | 'handslotl' | 'ha
 
 // Quien te espera saluda; si lleva rato esperando (20 s), además salta antes de saludar
 export function callOut(p: Character, since: number) {
-  if (performance.now() - since > 20_000) p.saltar(() => p.gesture('Waving', 'Idle_A'));
+  // salta y saluda desde el principio; al principio, una de cada dos veces solo saluda; pasados 20 s, siempre salta
+  if (performance.now() - since > 20_000 || Math.random() < 0.5) p.saltar(() => p.gesture('Waving', 'Idle_A'));
   else p.gesture('Waving', 'Idle_A');
 }
 

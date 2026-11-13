@@ -32,6 +32,9 @@ const ANNEX = [
   'Never create another worktree for a task that already has one (no `git worktree add`, EnterWorktree or `--worktree` for its other branches):',
   'in its worktree, commit or stash what you have and switch branches with `git switch <branch>`, so the task\'s context and its conversation stay in one place.',
   'If that branch is checked out in a different worktree, tell the user instead of adding one.',
+  'Every other repository of the shelter is a room with its own dweller, reachable with the `enviar_a_sala` tool (MCP server `salas`).',
+  'When you find that this work depends on or affects another room\'s repository (an API, a shared contract or library, a bug on their side), tell that room with it',
+  'instead of changing their repository yourself, with the task key when it is about a task they already work on.',
 ].join(' ');
 
 // el habitante del Puente de Mando trabaja en el repo del propio juego
