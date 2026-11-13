@@ -9,6 +9,7 @@ import type { PRBoard } from './tablero';
 import { olasDespliegue, refPR, type Blocker, type BlockerReason } from './despliegue';
 import { pRTask } from './tareas';
 import { t } from './idioma';
+import { ledgerPending, type ReviewThread } from './cuentaRevisiones';
 
 /** ✓ listo, ⚠ mirar, ✗ falta, — no aplica */
 export type Mark = 'ok' | 'aviso' | 'mal' | 'nada';
@@ -23,6 +24,13 @@ export interface LocalBranch {
   adelante?: number; detras?: number; sinCabeza?: boolean;
 }
 export interface RoomRepo { id: string; nombre: string; repo?: string }
+/** Una página de comparación (server/comparar.ts, su `<página>.json`) con lo que el Supervisor hizo con ella: de qué
+ *  worktree, rama y commit es cada parte. La de una tarea entera lleva varias partes */
+export interface CompareRecord {
+  archivo: string; ts: number; tarea?: string;
+  partes: { worktree: string; rama: string; head: string; base?: string }[];
+  respuesta?: { estado: 'validada' | 'notas'; ts: number };
+}
 export interface PlanPart { salaId: string; sala: string; titulo: string; waitA?: string[] }
 
 /** A qué espera una parte o a quién bloquea: otro PR (de esta tarea o no) o, sin PR aún, una sala del plan */
@@ -35,7 +43,9 @@ export interface PartPreflight {
   pr?: PRBoard;
   plan?: string;                 // el título de su parte en el plan repartido
   sinEmpezar?: boolean;          // parte del plan sin worktree ni PR
-  sync: Cell; ci: Cell; revision: Cell; bloqueos: Cell;
+  sync: Cell; ci: Cell; revision: Cell; bloqueos: Cell; compare: Cell;
+  compareArchivo?: string;       // la página que cuenta para esta parte (la más reciente con su worktree y rama)
+  hilos: ReviewThread[];         // los hilos de revisión sin resolver de su PR
   esperaA: PartLink[]; bloquea: PartLink[];
 }
 export interface TaskPreflight {
@@ -43,6 +53,7 @@ export interface TaskPreflight {
   partes: PartPreflight[];
   olas: string[][];              // las olas (refPR) con lo de la tarea y lo que espera, en orden; cada una espera a las anteriores
   ciclo: string[];
+  compareTarea?: CompareRecord;  // la página de toda la tarea, si se ha hecho
   demo?: boolean; error?: string;
 }
 
@@ -52,6 +63,8 @@ export interface PreflightInput {
   locales: LocalBranch[];
   salas: RoomRepo[];             // las salas de repo, con su repo de GitHub («org/repo»)
   plan?: PlanPart[];
+  compares?: CompareRecord[];
+  hilos?: Record<string, ReviewThread[]>;   // por URL del PR (server/revisionesPR.ts)
   color?: string; titulo?: string; demo?: boolean; error?: string;
 }
 
@@ -91,12 +104,32 @@ export function reviewCell(pr: PRBoard | undefined): Cell {
   if (pr.estado === 'fusionado') return { marca: 'ok', texto: t('preflight.review.merged') };
   if (pr.estado === 'cerrado') return { marca: 'nada', texto: t('preflight.sync.closed') };
   if (pr.estado === 'borrador') return { marca: 'nada', texto: t('preflight.review.draft') };
-  switch (pr.revision) {
-    case 'APPROVED': return { marca: 'ok', texto: t('preflight.review.approved') };
-    case 'CHANGES_REQUESTED': return { marca: 'mal', texto: t('preflight.review.changes') };
-    case 'REVIEW_REQUIRED': return { marca: 'aviso', texto: t('preflight.review.waiting') };
-    default: return { marca: 'nada', texto: t('preflight.review.none') };
-  }
+  const base: Cell = pr.revision === 'APPROVED' ? { marca: 'ok', texto: t('preflight.review.approved') }
+    : pr.revision === 'CHANGES_REQUESTED' ? { marca: 'mal', texto: t('preflight.review.changes') }
+    : pr.revision === 'REVIEW_REQUIRED' ? { marca: 'aviso', texto: t('preflight.review.waiting') }
+    : { marca: 'nada', texto: t('preflight.review.none') };
+  // lo que queda por contestar (shared/cuentaRevisiones.ts): un aprobado con hilos abiertos aún no está listo
+  const l = pr.ledger;
+  if (!l || !ledgerPending(l)) return base;
+  const queda = [l.unresolved > 0 && t('preflight.review.threads', { n: l.unresolved }), l.unansweredSummaries > 0 && t('preflight.review.summaries', { n: l.unansweredSummaries })].filter(Boolean).join(' · ');
+  return { marca: base.marca === 'mal' ? 'mal' : 'aviso', texto: `${base.texto} · ${queda}` };
+}
+
+const corto = (sha?: string) => (sha ?? '').slice(0, 7);
+/** La comparación revisada para el commit actual: una nueva cabeza la deja vieja; la de la tarea entera también vale */
+export function compareCell(p: { worktree?: string; rama?: string; headLocal?: string; pr?: PRBoard }, compares: CompareRecord[]): { celda: Cell; archivo?: string } {
+  if (p.pr && !vivo(p.pr)) return { celda: { marca: 'nada', texto: '—' } };
+  if (!p.worktree || !p.headLocal) return { celda: { marca: 'nada', texto: t('preflight.sync.noLocal') } };
+  const suya = compares.filter(c => c.partes.some(x => x.worktree === p.worktree && x.rama === p.rama)).sort((a, b) => b.ts - a.ts);
+  // la validada en este commit, si la hay (de un repo o de la tarea); si no, la más reciente
+  const lado = (c: CompareRecord) => c.partes.find(x => x.worktree === p.worktree && x.rama === p.rama)!;
+  const vale = suya.find(c => c.respuesta?.estado === 'validada' && c.respuesta.ts >= c.ts && lado(c).head === p.headLocal);
+  if (vale) return { celda: { marca: 'ok', texto: t('preflight.compare.validated', { sha: corto(p.headLocal) }) }, archivo: vale.archivo };
+  const c = suya[0];
+  if (!c) return { celda: { marca: 'mal', texto: t('preflight.compare.none') } };
+  if (lado(c).head !== p.headLocal) return { celda: { marca: 'aviso', texto: t('preflight.compare.old', { de: corto(lado(c).head), head: corto(p.headLocal) }) }, archivo: c.archivo };
+  if (c.respuesta?.estado === 'notas' && c.respuesta.ts >= c.ts) return { celda: { marca: 'aviso', texto: t('preflight.compare.notes') }, archivo: c.archivo };
+  return { celda: { marca: 'aviso', texto: t('preflight.compare.pending', { sha: corto(p.headLocal) }) }, archivo: c.archivo };
 }
 
 const linkOf = (p: PRBoard, motivo: BlockerReason): PartLink => ({ ref: refPR(p), url: p.url, titulo: p.titulo, estado: p.estado, checks: p.checks, motivo });
@@ -121,7 +154,7 @@ export function blockersCell(esperaA: PartLink[], bloquea: PartLink[], enCiclo: 
 /** Cómo está una parte: lista (todo ✓ o —), con avisos o con algo que falta, y la lista de lo que no está listo */
 export function estadoParte(p: PartPreflight): { estado: 'listo' | 'aviso' | 'falta'; falta: string[] } {
   if (p.sinEmpezar) return { estado: 'falta', falta: [t('preflight.blockers.notStarted')] };
-  const celdas = [p.sync, p.ci, p.revision, p.bloqueos];
+  const celdas = [p.compare, p.sync, p.ci, p.revision, p.bloqueos];
   const falta = celdas.filter(c => c.marca === 'mal' || c.marca === 'aviso').map(c => c.texto);
   return { estado: celdas.some(c => c.marca === 'mal') ? 'falta' : falta.length ? 'aviso' : 'listo', falta };
 }
@@ -137,6 +170,7 @@ export function preflightTarea(clave: string, d: PreflightInput): TaskPreflight 
   const { waves, ciclo } = olasDespliegue(d.prs, d.bloqueos);
   const enCiclo = new Set(ciclo.map(p => p.url));
   const usadas = new Set<LocalBranch>();
+  const comparar = (p: Parameters<typeof compareCell>[0]) => { const r = compareCell(p, d.compares ?? []); return { compare: r.celda, compareArchivo: r.archivo }; };
   const partes: PartPreflight[] = [];
 
   const enlaces = (url: string) => ({
@@ -154,6 +188,7 @@ export function preflightTarea(clave: string, d: PreflightInput): TaskPreflight 
       id: pr.url, salaId: sala?.id, sala: sala?.nombre, repo: pr.repo, worktree: local?.worktree, rama: pr.rama, headLocal: local?.head,
       cambios: local?.worktree ? local.cambios : undefined, pr, plan: planDe(sala?.id)?.titulo,
       sync: syncCell(pr, local), ci: ciCell(pr), revision: reviewCell(pr), bloqueos: blockersCell(esperaA, bloquea, enCiclo.has(pr.url)), esperaA, bloquea,
+      ...comparar({ worktree: local?.worktree, rama: pr.rama, headLocal: local?.worktree ? local.head : undefined, pr }), hilos: vivo(pr) ? d.hilos?.[pr.url] ?? [] : [],
     });
   }
   // worktrees de la tarea sin PR aún
@@ -163,6 +198,7 @@ export function preflightTarea(clave: string, d: PreflightInput): TaskPreflight 
     partes.push({
       id: 'wt:' + l.worktree, salaId: l.salaId, sala: sala?.nombre, repo: sala?.repo, worktree: l.worktree, rama: l.rama, headLocal: l.head, cambios: l.cambios,
       plan: planDe(l.salaId)?.titulo, sync: syncCell(undefined, l), ci: ciCell(undefined), revision: reviewCell(undefined), bloqueos: blockersCell([], [], false), esperaA: [], bloquea: [],
+      ...comparar({ worktree: l.worktree, rama: l.rama, headLocal: l.head }), hilos: [],
     });
   }
   // partes del plan sin nada aún
@@ -170,7 +206,7 @@ export function preflightTarea(clave: string, d: PreflightInput): TaskPreflight 
     if (partes.some(p => p.salaId === x.salaId)) continue;
     const sala = d.salas.find(s => s.id === x.salaId);
     const nada: Cell = { marca: 'nada', texto: '—' };
-    partes.push({ id: 'plan:' + x.salaId, salaId: x.salaId, sala: sala?.nombre ?? x.sala, repo: sala?.repo, plan: x.titulo, sinEmpezar: true, sync: nada, ci: nada, revision: nada, bloqueos: nada, esperaA: [], bloquea: [] });
+    partes.push({ id: 'plan:' + x.salaId, salaId: x.salaId, sala: sala?.nombre ?? x.sala, repo: sala?.repo, plan: x.titulo, sinEmpezar: true, sync: nada, ci: nada, revision: nada, bloqueos: nada, compare: nada, hilos: [], esperaA: [], bloquea: [] });
   }
   // lo que dice el plan que espera a una sala que aún no tiene PR: sin PR no hay bloqueo entre PR, pero se espera igual
   for (const x of d.plan ?? []) for (const id of x.waitA ?? []) {
@@ -188,5 +224,6 @@ export function preflightTarea(clave: string, d: PreflightInput): TaskPreflight 
   const cola = [...mias];
   while (cola.length) { const u = cola.shift()!; for (const b of d.bloqueos) if (b.de === u && !mias.has(b.por)) { mias.add(b.por); cola.push(b.por); } }
   const olas = waves.map(o => o.filter(p => mias.has(p.url)).map(refPR)).filter(o => o.length);
-  return { clave: K, color: d.color, titulo: d.titulo, partes, olas, ciclo: ciclo.filter(p => mias.has(p.url)).map(refPR), demo: d.demo, error: d.error };
+  return { clave: K, color: d.color, titulo: d.titulo, partes, olas, ciclo: ciclo.filter(p => mias.has(p.url)).map(refPR),
+    compareTarea: (d.compares ?? []).filter(c => c.tarea?.toUpperCase() === K).sort((a, b) => b.ts - a.ts)[0], demo: d.demo, error: d.error };
 }

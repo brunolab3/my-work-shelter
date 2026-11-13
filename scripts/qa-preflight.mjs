@@ -2,7 +2,10 @@
 // - un repo de pruebas con el worktree de la tarea QA-7 (con un archivo sin commitear), admitido como sala: la acción
 //   `preflight.tarea` de verdad (sin GitHub) da su parte sin PR, con «1 sin commitear» ⚠;
 // - la ventana pintada con una tarea en dos repos (respuesta de ejemplo: PR con CI roja, otro que espera a ese, una
-//   parte del plan sin empezar): una fila por parte, ✓/⚠/✗ por columna, compare y checklist en «—» y el orden de fusión;
+//   parte del plan sin empezar, hilos de revisión sin resolver): una fila por parte, ✓/⚠/✗ por columna, checklist en «—»,
+//   el orden de fusión y los hilos (→ los despliega: archivo:línea, autor y primera línea; O abre el hilo);
+// - fase 2: la comparación de la tarea de verdad (C) sale sin revisar; validada (V), la parte pasa a ✓ en compare; un
+//   commit nuevo en el worktree la deja vieja (⚠);
 // - ⌘K «qa-7» ofrece «Pre-flight QA-7» y lo abre; Esc lo cierra.
 // Necesita el cliente compilado (npx vite build). Uso: node scripts/qa-preflight.mjs [carpeta-capturas]   (SHELTER_PUERTO_QA, 3794)
 import { chromium } from 'playwright';
@@ -60,7 +63,17 @@ try {
   await pg.evaluate(() => window.__juego.set({ panel: 'preflight', panelData: { clave: 'QA-7' } }));
   ver(await hasta(() => pg.isVisible('.pf-tabla')), 'la ventana pinta la tabla');
   ver((await pg.$$('.pf-fila')).length === 1, 'una fila');
-  await pg.screenshot({ path: path.join(dir, 'preflight-real.png') });
+  const celdaCompare = () => pg.$$eval('.pf-fila td', td => td[2]?.textContent ?? '');
+  ver(/sin compare/.test(await celdaCompare()), `sin compare aún: ✗ (${await celdaCompare()})`);
+  // la de la tarea: C la hace (y la abre), V la valida
+  await pg.keyboard.press('KeyC');
+  ver(await hasta(async () => /sin revisar/.test(await celdaCompare())), `C hace el compare de la tarea: sin revisar (${await celdaCompare()})`);
+  await pg.keyboard.press('KeyV');
+  ver(await hasta(async () => /validada/.test(await celdaCompare())), `V lo valida: ✓ en este commit (${await celdaCompare()})`);
+  await pg.waitForTimeout(600); await pg.screenshot({ path: path.join(dir, 'preflight-real.png') });
+  sh(wt, 'add', '.'); sh(wt, 'commit', '-q', '-m', 'otro paso');
+  await pg.keyboard.press('KeyR');
+  ver(await hasta(async () => /HEAD/.test(await celdaCompare())), `un commit nuevo la deja vieja (${await celdaCompare()})`);
   await pg.keyboard.press('Escape');
   ver(await hasta(async () => (await pg.evaluate(() => window.__juego.get().panel)) === null), 'Esc la cierra');
 
@@ -70,12 +83,13 @@ try {
     const pr = (repo, numero, extra) => ({ numero, titulo: 'PR de ejemplo ' + numero, url: `https://github.com/${repo}/pull/${numero}`, repo, rama: 'QA-9-parte-' + numero, estado: 'abierto', actualizado: 0, base: 'main', revision: 'REVIEW_REQUIRED', checks: 'SUCCESS', cabeza: 'c' + numero, ...extra });
     const api = pr('acme/api', 1, { checks: 'FAILURE' }), web = pr('acme/web', 2, { revision: 'APPROVED' });
     const cel = (marca, texto) => ({ marca, texto });
+    const hilos = [{ archivo: 'src/carrito.ts', linea: 42, autor: 'revisora', texto: '¿Qué pasa si el cupón ha caducado?', url: api.url + '#discussion_r1', outdated: false }, { archivo: 'src/cupon.ts', linea: 7, autor: 'bot-revisor', texto: 'Falta una prueba', url: api.url + '#discussion_r2', outdated: true }];
     const respuesta = {
       clave: 'QA-9', color: '#4dabff', titulo: 'Carrito con cupones',
       partes: [
-        { id: api.url, salaId: 'api', sala: 'api', repo: api.repo, rama: api.rama, pr: api, worktree: '/r/api', plan: 'Contrato', sync: cel('aviso', 'faltan commits remotos (¿un bot?)'), ci: cel('mal', 'roja'), revision: cel('aviso', 'esperando revisión'), bloqueos: cel('ok', 'bloquea a web#2'), esperaA: [], bloquea: [{ ref: web.url, url: web.url, estado: 'abierto', motivo: 'plan' }] },
-        { id: web.url, salaId: 'web', sala: 'web', repo: web.repo, rama: web.rama, pr: web, worktree: '/r/web', sync: cel('ok', 'al día'), ci: cel('ok', 'verde'), revision: cel('ok', 'aprobado'), bloqueos: cel('aviso', 'espera a api#1 (abierto · su CI en rojo)'), esperaA: [{ ref: 'acme/api#1', url: api.url, estado: 'abierto', checks: 'FAILURE', motivo: 'plan' }], bloquea: [] },
-        { id: 'plan:docs', salaId: 'docs', sala: 'docs', plan: 'La guía', sinEmpezar: true, sync: cel('nada', '—'), ci: cel('nada', '—'), revision: cel('nada', '—'), bloqueos: cel('nada', '—'), esperaA: [], bloquea: [] },
+        { id: api.url, salaId: 'api', sala: 'api', repo: api.repo, rama: api.rama, pr: api, worktree: '/r/api', plan: 'Contrato', sync: cel('aviso', 'faltan commits remotos (¿un bot?)'), ci: cel('mal', 'roja'), revision: cel('aviso', 'esperando revisión · 💬 2 sin resolver'), bloqueos: cel('ok', 'bloquea a web#2'), compare: cel('aviso', 'es de abc1234; HEAD def5678'), compareArchivo: '/tmp/no.html', hilos, esperaA: [], bloquea: [{ ref: web.url, url: web.url, estado: 'abierto', motivo: 'plan' }] },
+        { id: web.url, salaId: 'web', sala: 'web', repo: web.repo, rama: web.rama, pr: web, worktree: '/r/web', sync: cel('ok', 'al día'), ci: cel('ok', 'verde'), revision: cel('ok', 'aprobado'), bloqueos: cel('aviso', 'espera a api#1 (abierto · su CI en rojo)'), compare: cel('ok', 'validada en c2c2c2c'), hilos: [], esperaA: [{ ref: 'acme/api#1', url: api.url, estado: 'abierto', checks: 'FAILURE', motivo: 'plan' }], bloquea: [] },
+        { id: 'plan:docs', salaId: 'docs', sala: 'docs', plan: 'La guía', sinEmpezar: true, sync: cel('nada', '—'), ci: cel('nada', '—'), revision: cel('nada', '—'), bloqueos: cel('nada', '—'), compare: cel('nada', '—'), hilos: [], esperaA: [], bloquea: [] },
       ],
       olas: [['acme/api#1'], ['acme/web#2']], ciclo: [],
     };
@@ -85,10 +99,20 @@ try {
   ver(await hasta(async () => (await pg.$$('.pf-fila')).length === 3), 'tres filas: dos PR y la parte del plan sin empezar');
   const estados = await pg.$$eval('.pf-estado', e => e.map(x => x.textContent));
   ver(estados.join(' ') === '✗ ⚠ ✗', `estado por parte: CI roja ✗, la que espera ⚠ (no ✗), sin empezar ✗ (${estados.join(' ')})`);
-  const vacias = await pg.$$eval('.pf-fila', fs => fs.map(f => [...f.querySelectorAll('td')].slice(-2).map(td => td.textContent).join('')));
-  ver(vacias.every(v => v === '——'), 'compare y checklist en «—»');
+  const vacias = await pg.$$eval('.pf-fila', fs => fs.map(f => [...f.querySelectorAll('td')].at(-1).textContent));
+  ver(vacias.every(v => v === '—'), 'checklist en «—»');
+  ver(/2 hilos/.test(await pg.textContent('.pf-fila')), 'la revisión de api lleva «2 hilos»');
+  await pg.keyboard.press('ArrowRight');
+  ver(await hasta(async () => (await pg.$$('.pf-hilo')).length === 2), '→ despliega sus dos hilos');
+  const hilo = await pg.textContent('.pf-hilo');
+  ver(/src\/carrito\.ts:42/.test(hilo) && /revisora/.test(hilo) && /caducado/.test(hilo), `cada hilo con archivo:línea, autor y primera línea (${hilo.trim()})`);
+  await pg.waitForTimeout(600); await pg.screenshot({ path: path.join(dir, 'preflight-hilos.png') });
+  await pg.keyboard.press('ArrowDown');
+  ver(await pg.$eval('.pf-hilo', e => e.classList.contains('sel')), '↓ elige el primer hilo (O lo abriría en GitHub)');
+  await pg.keyboard.press('ArrowLeft');
+  ver(await hasta(async () => (await pg.$$('.pf-hilo')).length === 0), '← los recoge');
   ver(/1.*api#1.*2.*web#2/.test(await pg.textContent('.orden-despliegue')), 'el orden de fusión: api#1 → web#2');
-  await pg.screenshot({ path: path.join(dir, 'preflight-dos-repos.png') });
+  await pg.waitForTimeout(600); await pg.screenshot({ path: path.join(dir, 'preflight-dos-repos.png') });
   await pg.keyboard.press('Escape');
 
   // ---- ⌘K
@@ -96,7 +120,7 @@ try {
   await pg.waitForSelector('.buscador input');
   await pg.keyboard.type('qa-7');
   ver(await hasta(async () => (await pg.$$eval('.fila-buscador .txt', f => f.map(x => x.textContent))).includes('Pre-flight QA-7')), '⌘K ofrece «Pre-flight QA-7» (también la del worktree)');
-  await pg.screenshot({ path: path.join(dir, 'preflight-buscador.png') });
+  await pg.waitForTimeout(600); await pg.screenshot({ path: path.join(dir, 'preflight-buscador.png') });
   await pg.keyboard.press('Enter');
   ver(await hasta(async () => (await pg.evaluate(() => [window.__juego.get().panel, window.__juego.get().panelData?.clave].join(' '))) === 'preflight QA-7'), 'y Enter lo abre');
   ver(!errores.length, 'sin errores en la página' + (errores.length ? ': ' + errores.join(' | ') : ''));

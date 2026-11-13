@@ -86,6 +86,8 @@ pageAnswers.subscribe(() => { try { localStorage.setItem(RESPUESTAS, JSON.string
 // (por la conversación de Claude Code, que sigue siendo la misma al retomarla tras un reinicio; sin ella, por la sesión)
 export const answersKey = (sesion: string) => vivo.get().sesiones[sesion]?.claudeId ?? sesion;
 export function answerPage(sesion: string, ruta: string, estado: PageAnswer['estado']) {
+  // el servidor ata la de las comparaciones a su commit (pre-flight, server/preflight.ts); las demás páginas las ignora
+  if (estado !== 'quitada') cliente.accion('paginas.responder', { ruta, estado }).catch(() => {});
   sesion = answersKey(sesion);
   pageAnswers.set(x => {
     const y = { ...x }, suyas = Object.fromEntries(Object.entries(y[sesion] ?? {}).filter(([k]) => !samePage(k, ruta)));

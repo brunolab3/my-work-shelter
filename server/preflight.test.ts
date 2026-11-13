@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { mkdtempSync, realpathSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { execFile, execFileSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
-import { cachedPRs, localBranches, preflightOf, type CtxPreflight } from './preflight.ts';
+import { cachedPRs, localBranches, preflightOf, taskCompare, PageReviews, type CtxPreflight } from './preflight.ts';
+import { buildCompare, buildTaskCompare } from './comparar.ts';
 import type { RoomPR } from './revisionesPR.ts';
 import type { PRBoard } from '../shared/tablero.ts';
 
@@ -68,8 +69,16 @@ describe('pre-flight con git de verdad', () => {
     const ctx: CtxPreflight = {
       prs: async () => ({ prs }), salas: async () => salas, manuales: () => [], orden: async () => [],
       plan: () => [{ salaId: 'api', sala: 'API', titulo: 'El contrato' }, { salaId: 'web', sala: 'Web', titulo: 'La pantalla', waitA: ['api'] }],
-      color: () => '#4dabff', git,
+      color: () => '#4dabff', git, compares: () => revisadas.compares(),
+      revisiones: url => url.endsWith('/2') ? { ledger: { unresolved: 1, outdated: 0, unansweredSummaries: 0 }, hilos: [{ archivo: 'pantalla.txt', linea: 1, autor: 'revisora', texto: '¿Seguro?', url: url + '#discussion_r1', outdated: false }] } : {},
     };
+    // la comparación de web (en una carpeta de pruebas), validada en su commit
+    const carpeta = mkdtempSync(path.join(base, 'comparaciones-')), datos = mkdtempSync(path.join(base, 'datos-'));
+    const revisadas = new PageReviews(datos, carpeta);
+    const cmp = await buildCompare(wtWeb, { base: 'main' }, carpeta);
+    expect(JSON.parse(readFileSync(cmp.archivo.replace(/\.html$/, '.json'), 'utf8')).partes).toEqual([{ worktree: wtWeb, rama: 'ABC-7-pantalla', head: cabezaWeb, base: 'main' }]);
+    expect(revisadas.responder(cmp.archivo, 'validada')).toBe(true);
+    expect(revisadas.responder(path.join(base, 'otra.html'), 'validada')).toBe(false);   // fuera de la carpeta, no cuenta
     const r = await preflightOf('abc-7', ctx);
     expect(r.clave).toBe('ABC-7');
     expect(r.color).toBe('#4dabff');
@@ -79,10 +88,25 @@ describe('pre-flight con git de verdad', () => {
     expect(pWeb.esperaA.map(l => l.ref)).toEqual(['acme/api#1']);
     expect(r.olas).toEqual([['acme/api#1'], ['acme/web#2']]);
     expect(r.partes.some(p => p.pr?.numero === 3)).toBe(false);
+    expect([pWeb.compare.marca, pApi.compare.marca]).toEqual(['ok', 'mal']);
+    expect(pWeb.revision.texto).toMatch(/1/);                // el hilo sin resolver, en la revisión
+    expect(pWeb.hilos.map(h => `${h.archivo}:${h.linea} ${h.autor}`)).toEqual(['pantalla.txt:1 revisora']);
+    // un commit nuevo deja vieja la validación
+    sh(wtWeb, 'commit', '-qam', 'otro paso');
+    expect((await preflightOf('ABC-7', ctx)).partes.find(p => p.salaId === 'web')!.compare.marca).toBe('aviso');
+    // la de la tarea entera: una página con los dos repos, en el orden de fusión
+    const tarea = await taskCompare('ABC-7', ctx, (k, partes) => buildTaskCompare(k, partes, carpeta));
+    const html = readFileSync(tarea.archivo, 'utf8');
+    expect(html.indexOf('data-seccion="api/contrato.txt"')).toBeGreaterThan(0);
+    expect(html.indexOf('data-seccion="web/pantalla.txt"')).toBeGreaterThan(html.indexOf('data-seccion="api/contrato.txt"'));
+    expect(revisadas.responder(tarea.archivo, 'validada')).toBe(true);
+    const r2 = await preflightOf('ABC-7', ctx);
+    expect(r2.compareTarea?.archivo).toBe(tarea.archivo);
+    expect(r2.partes.map(p => p.compare.marca)).toEqual(['ok', 'ok']);
   }, 30_000);
 
   it('una clave que no lo es, fuera', async () => {
-    const ctx = { prs: async () => ({ prs: [] }), salas: async () => [], manuales: () => [], orden: async () => [], plan: () => undefined, color: () => undefined, git } as CtxPreflight;
+    const ctx: CtxPreflight = { prs: async () => ({ prs: [] }), salas: async () => [], manuales: () => [], orden: async () => [], plan: () => undefined, color: () => undefined, git, compares: async () => [], revisiones: () => ({}) };
     await expect(preflightOf('rm -rf', ctx)).rejects.toThrow();
   });
 });

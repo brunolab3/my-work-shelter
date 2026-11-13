@@ -1070,6 +1070,9 @@ html.en-segundo-plano *, html.en-segundo-plano *::before, html.en-segundo-plano 
 .pf-boton:disabled { cursor: default; }
 .pf-boton:not(:disabled):hover { text-decoration: underline; }
 .pf-parte small { display: block; }
+.pf-hilos { display: block; margin-top: .2em; font-size: .9em; }
+.pf-hilo td { padding-left: 1.6em; font-size: .92em; }
+.pf-hilo.sel { background: #ffffff0d; }
 .pf-parte .ident { color: var(--azul); }
 .pf-marca, .pf-estado { font-weight: 700; }
 .pf-ok, .pf-listo { color: #7dffa0; }

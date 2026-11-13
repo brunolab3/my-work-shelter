@@ -63,5 +63,22 @@ export function reviewLedger(n: any, author: string): ReviewLedger {
   return { unresolved, outdated, unansweredSummaries };
 }
 
+/** Un hilo de revisión sin resolver que abrió otro: dónde, quién, su primera línea y su enlace */
+export interface ReviewThread { archivo: string; linea?: number; autor: string; texto: string; url: string; outdated: boolean }
+/** Los hilos sin resolver de un PR (los mismos que cuenta reviewLedger), siendo `author` su autor */
+export function openThreads(n: any, author: string): ReviewThread[] {
+  const yo = author.toLowerCase(), out: ReviewThread[] = [];
+  for (const h of n?.reviewThreads?.nodes ?? []) {
+    if (!h || h.isResolved) continue;
+    const abre = h.primero?.nodes?.[0] ?? h.comments?.nodes?.[0];
+    const login = abre?.author?.login ? String(abre.author.login) : '';
+    if (!login || login.toLowerCase() === yo) continue;
+    const texto = cleanBody(abre?.body ?? h.comments?.nodes?.[0]?.body).split('\n').map((l: string) => l.trim()).find(Boolean) ?? '';
+    out.push({ archivo: String(h.path ?? ''), linea: Number(h.line) || undefined, autor: login, texto: texto.length > 160 ? texto.slice(0, 159) + '…' : texto,
+      url: String(abre?.url ?? h.comments?.nodes?.[0]?.url ?? n?.url ?? ''), outdated: !!h.isOutdated });
+  }
+  return out;
+}
+
 /** ¿Queda algo por contestar? */
 export const ledgerPending = (l?: ReviewLedger) => !!l && (l.unresolved > 0 || l.unansweredSummaries > 0);

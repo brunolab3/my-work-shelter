@@ -12,10 +12,10 @@ import { existsSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
 import path from 'node:path';
 import type { SessionSummary } from '../shared/protocolo.ts';
 import { t } from '../shared/idioma.ts';
-import { withoutNothingThatMake, cleanBody, reviewLedger, ledgerPending, type ReviewLedger } from '../shared/cuentaRevisiones.ts';
+import { withoutNothingThatMake, cleanBody, reviewLedger, openThreads, ledgerPending, type ReviewLedger, type ReviewThread } from '../shared/cuentaRevisiones.ts';
 
 export interface EventPR { id: string; tipo: 'revision' | 'hilo' | 'comentario'; autor: string; bot?: boolean; cuerpo: string; url: string; fecha: number; estado?: string; archivo?: string; linea?: number }
-export interface PRWithReview { numero: number; titulo: string; url: string; repo: string; rama: string; eventos: EventPR[]; ledger: ReviewLedger }
+export interface PRWithReview { numero: number; titulo: string; url: string; repo: string; rama: string; eventos: EventPR[]; ledger: ReviewLedger; hilos: ReviewThread[] }
 export interface RoomPR { id: string; nombre: string; ruta: string; rama?: string; worktrees: { ruta: string; rama: string }[]; repo?: string }
 
 export const REVIEWS_QUERY = `query {
@@ -23,7 +23,7 @@ export const REVIEWS_QUERY = `query {
   prs: search(query: "is:pr is:open author:@me archived:false sort:updated-desc", type: ISSUE, first: 30) { nodes { ... on PullRequest {
     number title url headRefName repository { nameWithOwner }
     reviews(last: 50) { nodes { id state body url submittedAt author { __typename login } } }
-    reviewThreads(last: 100) { nodes { isResolved isOutdated path line primero: comments(first: 1) { nodes { author { login } } } comments(last: 10) { nodes { id body url createdAt author { __typename login } } } } }
+    reviewThreads(last: 100) { nodes { isResolved isOutdated path line primero: comments(first: 1) { nodes { body url author { login } } } comments(last: 10) { nodes { id body url createdAt author { __typename login } } } } }
     comments(last: 50) { nodes { id body url createdAt author { __typename login } } }
   } } }
 }`;
@@ -56,7 +56,7 @@ export function reviewsOfGitHub(j: any): { yo: string; prs: PRWithReview[] } {
     for (const c of n.comments?.nodes ?? []) if (c?.id && otro(c.author) && !withoutNothingThatMake(texto(c.body)))
       eventos.push({ id: c.id, tipo: 'comentario', autor: c.author.login, ...bot(c.author), cuerpo: texto(c.body), url: c.url ?? n.url, fecha: fecha(c.createdAt) });
     eventos.sort((a, b) => a.fecha - b.fecha);
-    return { numero: n.number, titulo: n.title ?? '', url: n.url ?? '', repo: n.repository?.nameWithOwner ?? '', rama: n.headRefName ?? '', eventos, ledger: reviewLedger(n, yo) };
+    return { numero: n.number, titulo: n.title ?? '', url: n.url ?? '', repo: n.repository?.nameWithOwner ?? '', rama: n.headRefName ?? '', eventos, ledger: reviewLedger(n, yo), hilos: openThreads(n, yo) };
   });
   return { yo, prs };
 }
@@ -161,6 +161,8 @@ export class ReviewsPR {
   private ledgers = new Map<string, ReviewLedger>();   // por URL del PR, de la última vuelta: lo pinta el tablero de despliegue
   /** Lo que queda por contestar en uno de tus PR abiertos (undefined hasta la primera vuelta con GitHub conectado) */
   ledgerOf(url: string): ReviewLedger | undefined { return this.ledgers.get(url); }
+  private hilos = new Map<string, ReviewThread[]>();   // los hilos sin resolver, por URL del PR: los lista el pre-flight
+  threadsOf(url: string): ReviewThread[] | undefined { return this.hilos.get(url); }
   constructor(dir: string, private ctx: CtxReviews) {
     this.archivo = path.join(dir, 'revisiones-pr.json');
     try { if (existsSync(this.archivo)) { const j = JSON.parse(readFileSync(this.archivo, 'utf8')); this.desde = Number(j.desde) || 0; this.bots = !!j.bots; this.seen = Array.isArray(j.seen) ? j.seen.filter((x: unknown) => typeof x === 'string') : []; } } catch {}
@@ -172,6 +174,7 @@ export class ReviewsPR {
     if (!c.real) return;
     const { prs } = reviewsOfGitHub(await this.ctx.consultar(c.token));
     this.ledgers = new Map(prs.map(pr => [pr.url, pr.ledger]));
+    this.hilos = new Map(prs.map(pr => [pr.url, pr.hilos]));
     if (!this.desde) { this.desde = Date.now(); this.bots = true; this.guardar(); return; }   // la primera vez solo se marca desde cuándo
     if (!this.bots) { this.seen.push(...prs.flatMap(pr => pr.eventos.filter(e => e.bot).map(e => e.id))); this.bots = true; this.guardar(); }
     const seen = new Set(this.seen);

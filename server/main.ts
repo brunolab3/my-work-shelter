@@ -13,7 +13,7 @@ import { Sessions } from './sesiones.ts';
 import { Attachments } from './adjuntos.ts';
 import { openAttachment, isPackage, revealLocal } from './abrir.ts';
 import { openLink, servePage, existingPages, pagesUpdated } from './paginasLocales.ts';
-import { cleanCompares } from './comparar.ts';
+import { cleanCompares, buildTaskCompare, COMPARES_FOLDER } from './comparar.ts';
 import { isCloneOfExample } from './ejemplos.ts';
 import { mcpDecor, promptAdaptar, type CtxDecor } from './decoradoSala.ts';
 import { mcpAssignment, mcpPlan, type CtxAssignment } from './reparto.ts';
@@ -24,7 +24,7 @@ import { TasksColors } from './coloresTareas.ts';
 import { agruparPorTarea, planDeSala, applyPlan } from './organizar.ts';
 import { ReviewsPR, REVIEWS_QUERY, remoteRepo } from './revisionesPR.ts';
 import { CIFailures, CI_QUERY } from './fallosCI.ts';
-import { cachedPRs, preflightOf, type CtxPreflight } from './preflight.ts';
+import { cachedPRs, preflightOf, taskCompare, PageReviews, type CtxPreflight } from './preflight.ts';
 import type { PRBoard } from '../shared/tablero.ts';
 import { bloqueosEntre, pRKey } from '../shared/despliegue.ts';
 import { TasksCleanup } from './limpiezaTareas.ts';
@@ -526,6 +526,8 @@ const prsPreflight = cachedPRs(async () => {
   const porUrl = new Map([...recientes.prs, ...abiertos.prs].map(p => [p.url, p]));
   return { prs: [...porUrl.values()], demo: recientes.demo, error: recientes.error };
 });
+// lo que el Supervisor hace con las páginas de comparación (validarlas o mandarles notas), atado a su commit
+const paginasRevisadas = new PageReviews(DATOS, COMPARES_FOLDER);
 const ctxPreflight: CtxPreflight = {
   prs: prsPreflight,
   salas: repoRooms,
@@ -533,6 +535,8 @@ const ctxPreflight: CtxPreflight = {
   orden: () => tasksOrder(planes.todos(), roomRepoById),
   plan: clave => planes.get(clave)?.partes.map(x => ({ salaId: x.salaId, sala: x.sala, titulo: x.titulo, waitA: x.waitA })),
   color: clave => coloresTareas.colores([clave])[clave],
+  compares: () => paginasRevisadas.compares(),
+  revisiones: url => ({ ledger: revisionesPR.ledgerOf(url), hilos: revisionesPR.threadsOf(url) }),
   git: (cwd, args) => new Promise((ok, mal) => execFile('git', ['-C', cwd, ...args], { timeout: 15_000, env: entornoGit() }, (err, o, e) => err ? mal(new Error(String(e || err.message).trim())) : ok(String(o)))),
 };
 
@@ -784,6 +788,8 @@ async function accion(nombre: string, d: Record<string, any> = {}): Promise<unkn
     case 'tareas.colores': return coloresTareas.colores(d.claves);
     case 'despliegue.bloqueos': return bloqueosPR.todos();
     case 'preflight.tarea': return preflightOf(String(d.clave ?? ''), ctxPreflight, !!d.forzar);
+    case 'preflight.compararTarea': return taskCompare(String(d.clave ?? ''), ctxPreflight, (clave, partes) => buildTaskCompare(clave, partes));
+    case 'paginas.responder': return paginasRevisadas.responder(d.ruta, d.estado);
     case 'despliegue.bloquear': return bloqueosPR.marcar(d.de, d.por, !!d.quitar);
     // el orden entre repos de cada tarea repartida (la parte de una sala espera a la de otra: planes.ts), por repo de GitHub
     case 'despliegue.orden': return tasksOrder(planes.todos(), id => { const s = e.salas.find(x => x.id === id); return s?.ruta ? roomRepo(s.ruta) : Promise.resolve(undefined); });

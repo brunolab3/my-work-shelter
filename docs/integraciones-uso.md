@@ -281,9 +281,18 @@ in every repo (the board's PRs plus all open ones, read from GitHub at most once
 worktrees without a PR yet and the parts of its shared plan not started. Per part: sync (local HEAD of its branch vs
 the PR's head on GitHub, without fetching: a head missing locally means remote commits, e.g. a bot's fix; plus
 uncommitted changes), CI, review and blockers ("waits for" / "blocks", with the other PR's state: a blocker's red CI is
-the blocker's problem, not this part's), then the merge waves of the task and what it waits for. Compare and checklist
-show "—" until phases 2-3. Each cell opens what fixes it: the part's conversation (Enter), the PR or its checks (O),
-the git client on its worktree (G). Ways in: F or the ✈ on a task block in the Deployment plan, ✈ in a copy's
+the blocker's problem, not this part's), then the merge waves of the task and what it waits for. Compare (phase 2): each
+compare page (`comparar_cambios`, `server/comparar.ts`) writes a `<page>.json` beside it with the worktree, branch and
+HEAD sha of each part; validating it or sending notes (in the page window or the intercom's «📄 Pages») is also saved
+on the server (action `paginas.responder`, `DATOS/preflight.json`, `PageReviews` in `server/preflight.ts`), so the part
+is ✓ only while its HEAD is the validated one (a new commit or a rebuilt page makes it ⚠). C builds one compare for
+the whole task (a section per repo in merge order, each against its PR's base: `buildTaskCompare`) and V validates
+it: it counts for every part at its sha. Review threads (phase 2, reusing `shared/cuentaRevisiones.ts`): the review
+cell adds the unresolved threads and unanswered summaries from the last `revisionesPR.ts` poll (an approved PR with
+open threads is ⚠); → expands its threads (file:line, author, first line: `openThreads`, `threadsOf`), O on one
+opens it on GitHub, Enter opens the part's conversation to address them. Checklist shows "—" until phase 3. Each
+cell opens what fixes it: the compare page, the part's conversation (Enter), the PR or its checks (O), the git client
+on its worktree (G). Ways in: F or the ✈ on a task block in the Deployment plan, ✈ in a copy's
 intercom (under its PR list) and ⌘K "Pre-flight ABC-123" (the tasks of your copies and open PRs, or any key typed).
 QA: `scripts/qa-preflight.mjs` (own server and test shelter; needs the built client).
 

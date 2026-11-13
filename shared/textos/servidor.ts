@@ -2,6 +2,7 @@
 import type { Texto } from '../idioma.ts';
 
 export const SERVIDOR: Record<string, Texto> = {
+  'server.preflightNothingToCompare': { es: '{clave} no tiene ninguna parte con worktree que comparar.', en: '{clave} has no part with a worktree to compare.' },
   'server.notATaskKey': { es: '«{clave}» no es una clave de tarea.', en: '“{clave}” is not a task key.' },
   'server.thatPathIsOutsideThe': { es: 'Esa ruta sale de la carpeta de la sala.', en: 'That path is outside the room\'s folder.' },
   'server.thatLinkIsNotA': { es: 'Ese enlace no es una ruta de este Mac.', en: 'That link is not a path on this Mac.' },

@@ -112,6 +112,7 @@ export const TOOLS: Record<string, Texto> = {
   'tool.compare.filesMany': { es: '{n} archivos cambiados', en: '{n} files changed' },
   'tool.compare.howToNote': { es: 'Pasa por una línea y pulsa «+» para comentarla, o selecciona cualquier trozo para dejar una nota.', en: 'Hover over a line and press “+” to comment on it, or select any part to leave a note.' },
   'tool.compare.noChanges': { es: 'Sin cambios frente a la base.', en: 'No changes against the base.' },
+  'tool.compare.taskTitle': { es: 'Tarea {clave}: todos sus repos', en: 'Task {clave}: all its repos' },
   'tool.compare.subtitle': { es: '{rama} frente a {base}', en: '{rama} against {base}' },
   'tool.compare.withUncommitted': { es: ' (con lo que aún no está en un commit)', en: ' (including what is not committed yet)' },
   // decorar la sala (server/decoradoSala.ts); los campos del JSON del decorado no se traducen
