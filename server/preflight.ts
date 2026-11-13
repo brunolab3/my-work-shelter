@@ -145,9 +145,10 @@ export class PageReviews {
     try { if (existsSync(this.archivo)) { const j = JSON.parse(readFileSync(this.archivo, 'utf8')); this.respuestas = j.respuestas ?? {}; this.checklist = j.checklist ?? {}; } } catch { this.respuestas = {}; }
   }
   private guardar() {
-    const lista = Object.entries(this.respuestas).sort((a, b) => b[1].ts - a[1].ts).slice(0, 500);
+    // answers to compare pages that no longer exist (cleanCompares removes them after 14 days) are dropped
+    const lista = Object.entries(this.respuestas).filter(([k]) => existsSync(k)).sort((a, b) => b[1].ts - a[1].ts).slice(0, 500);
     this.respuestas = Object.fromEntries(lista);
-    // de la lista, las 60 tareas más recientes y, en cada una, los 6 últimos commits de cada worktree
+    // the checklist keeps the 60 most recent tasks and, in each, the answers for its 30 most recent commits (worktree and HEAD)
     const reciente = (x: Record<string, Record<string, ChecklistAnswer>>) => Math.max(0, ...Object.values(x).flatMap(r => Object.values(r).map(a => a.ts)));
     this.checklist = Object.fromEntries(Object.entries(this.checklist).sort((a, b) => reciente(b[1]) - reciente(a[1])).slice(0, 60)
       .map(([k, porCommit]) => [k, Object.fromEntries(Object.entries(porCommit).sort((a, b) => reciente({ b: b[1] }) - reciente({ a: a[1] })).slice(0, 30))]));

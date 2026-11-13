@@ -170,8 +170,10 @@ const sesiones = new Sessions({
   mcpPlan: id => { const s = almacen.estado.salas.find(x => x.id === id && x.tipo === 'repo'); return s && planes.ofRoom(id).length ? mcpPlan(ctxPlan, { salaId: id, sala: s.nombre }) : undefined; },
   preflight: { estado: cwd => herramientasPreflight.estado(cwd), responder: (cwd, item, estado, nota) => herramientasPreflight.responder(cwd, item, estado, nota), puerta: cwd => gatePush(cwd, ctxPreflight) },
   trustedFolders: () => ((almacen.estado.ajustes as any).trustedFolders ?? []) as string[],
-  trust: ruta => { const a = almacen.estado.ajustes as any; a.trustedFolders = [...new Set([...(a.trustedFolders ?? []), path.resolve(ruta)])]; almacen.guardar(); },
+  trust: ruta => { const a = almacen.estado.ajustes as any; a.trustedFolders = [...new Set([...(a.trustedFolders ?? []).filter((r: string) => existsSync(r)), path.resolve(ruta)])]; almacen.guardar(); },
 }, adjuntos);
+// trusted folders that no longer exist (removed worktrees) are dropped at startup, so the list doesn't keep growing
+{ const a = almacen.estado.ajustes as any; if (Array.isArray(a.trustedFolders)) { const vivas = a.trustedFolders.filter((r: unknown) => typeof r === 'string' && existsSync(r)); if (vivas.length !== a.trustedFolders.length) { a.trustedFolders = vivas; almacen.guardar(); } } }
 const dictations = new Dictations(DATOS);
 dictations.preparar();
 const terminales = new Terminales(cwd => !!pathRoom(cwd) || almacen.estado.salas.some(s => { const c = folderOf(s); return cwd === c || cwd.startsWith(c + path.sep); }), () => [...clients].map(outputOf));
