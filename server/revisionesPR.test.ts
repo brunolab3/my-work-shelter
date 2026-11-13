@@ -50,11 +50,12 @@ const SALAS: RoomPR[] = [
 ];
 
 describe('revisiones de PR', () => {
-  it('se queda con lo de otros que pide algo, también de bots: sin aprobaciones (ni con comentario), hilos resueltos ni lo mío', () => {
+  it('se queda con lo de otros que pide algo, también de bots y aprobaciones con una nota: sin vistos buenos, hilos resueltos ni lo mío', () => {
     const { yo, prs } = reviewsOfGitHub(respuesta());
     expect(yo).toBe('yo-mismo');
     expect(prs[0]).toMatchObject({ numero: 42, repo: 'refugio/express', rama: 'feature/REF-212-barra-final' });
-    expect(prs[0].eventos.map(e => e.id)).toEqual(['R1', 'C1', 'I1', 'I2']);
+    expect(prs[0].eventos.map(e => e.id)).toEqual(['R1', 'R6', 'C1', 'I1', 'I2']);
+    expect(reviewMessage(prs[0], [prs[0].eventos[1]])).toContain('aprueba, con una nota');
     // el del bot, marcado y sin sus marcas HTML
     expect(prs[0].eventos.find(e => e.id === 'I1')).toMatchObject({ bot: true, cuerpo: 'CI failed: el checkout no carga' });
     expect(reviewMessage(prs[0], prs[0].eventos)).toContain('**informe-ci** (bot) ');
@@ -62,7 +63,7 @@ describe('revisiones de PR', () => {
   });
 
   it('un visto bueno o un agradecimiento no pide nada; una pregunta o un cambio, sí', () => {
-    for (const t of ['', 'LGTM', 'lgtm!', 'Looks good to me 👍', ':shipit:', 'Thanks a lot!', 'Gracias, perfecto.', '🎉🎉', 'Nice work @ana-revisa', '+1']) expect(withoutNothingThatMake(t), t).toBe(true);
+    for (const t of ['', 'LGTM', 'lgtm!', 'LGTM :white_check_mark: :rocket:', 'Approved ✅🚀', 'Looks good to me 👍', ':shipit:', 'Thanks a lot!', 'Gracias, perfecto.', '🎉🎉', 'Nice work @ana-revisa', '+1']) expect(withoutNothingThatMake(t), t).toBe(true);
     for (const t of ['LGTM, ¿pero esto no rompe la v4?', 'Thanks, but please add a test', 'nit: rename this', 'Ok?']) expect(withoutNothingThatMake(t), t).toBe(false);
   });
 
