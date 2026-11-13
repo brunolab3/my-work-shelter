@@ -50,6 +50,7 @@ const KATANA = { ruta: 'kaykit/mystery-monthly-series-6/7 - January 2026 - 4GTN/
 // Sentado a la mesa: el tren inferior de «sentado en la silla» con los brazos de otro clip de KayKit (no trae teclear ni
 // leer sentado); el tecleo de los dedos se añade encima (ver retocar)
 const SEATED = { teclear: 'Sentado_Teclear', leer: 'Sentado_Leer', cafe: 'Sentado_Cafe', pensar: 'Sit_Chair_Idle' } as const;
+const SEATED_CLIPS = new Set<string>(Object.values(SEATED));
 let composed = false;
 function composeSeated() {
   if (composed) return; composed = true;
@@ -224,7 +225,7 @@ export class Habitante {
   // la sala se ha reconstruido o trasladado: se muda con ella y retoma lo que hacía
   mudarA(sala: Sala) {
     const local = this.pos.clone().sub(this.sala.grupo.position);
-    this.releasePoint(); this.punto = null; this.sala = sala; this.p.parar(); this.seat = false; this.slide = null;
+    this.releasePoint(); this.punto = null; this.sala = sala; this.seat = false; this.slide = null; this.standUpRest(); this.p.parar();
     this.pos.set(sala.grupo.position.x + THREE.MathUtils.clamp(local.x, -4, 4), sala.grupo.position.y, 1.2);
     this.stay = null;
     this.cambiar(this.estado, this.detalle, this.herramienta);
@@ -235,10 +236,13 @@ export class Habitante {
   private mundo(local: THREE.Vector3) { return local.clone().add(this.sala.grupo.position); }
   private acceso(destino: THREE.Vector3) { const a = destino.clone(); a.y = this.sala.grupo.position.y; a.z = Math.max(a.z + 0.9, this.sala.grupo.position.z - BACKGROUND / 2 + 1.4); return a; }
 
+  /** De pie, el reposo no puede ser un clip sentado: al parar de andar (al llegar o si le paran a medio camino) se
+   *  sentaría en el aire */
+  private standUpRest() { if (SEATED_CLIPS.has(this.p.inRest)) this.p.inRest = 'Idle_A'; }
   /** Se levanta si está sentado (con su clip) y luego sigue */
   private levantarse(luego: () => void) {
-    if (!this.seat) { luego(); return; }
-    this.seat = false;
+    if (!this.seat) { this.standUpRest(); luego(); return; }
+    this.seat = false; this.standUpRest();
     const destino = this.chairOutput ?? this.acceso(this.pos); this.chairOutput = null;
     this.untilBusy = this.reloj + 0.9;
     this.p.gesture('Sit_Chair_StandUp', () => { this.slide = { desde: this.pos.clone(), hasta: destino, t: 0, dur: 0.3 }; luego(); }, 0.15);
@@ -246,7 +250,7 @@ export class Habitante {
   /** Sin clip (un aviso que no espera): de pie y fuera de la silla al momento */
   private leaveSeat() {
     if (this.seat || this.pos.y > this.sala.grupo.position.y + 0.05) { const a = this.chairOutput ?? this.acceso(this.pos); if (this.seat) this.pos.copy(a); this.pos.y = this.sala.grupo.position.y; }
-    this.seat = false; this.slide = null; this.chairOutput = null;
+    this.seat = false; this.slide = null; this.chairOutput = null; this.standUpRest();
   }
 
   /** Va a un punto (andando o al trote si está lejos), se coloca y luego hace lo suyo */
@@ -353,9 +357,14 @@ export class Habitante {
     } else {
       // ocioso, pensando o trabajando: la rutina. Si ya está sentado en su puesto y lo nuevo también va ahí, sigue
       // sentado y solo cambia lo que hace con las manos; si no, se replanea
-      const inStation = this.punto?.tipo === 'puesto' && this.arrived;
+      const inStation = this.punto?.tipo === 'puesto' && this.arrived && (this.seat || !!this.punto.ofFoot);
       const returnsOfNotice = ['esperando', 'terminado', 'error'].includes(anterior);
+      // entre pensar y trabajar (la sesión sigue en marcha) no se replanea a cada herramienta: termina lo que hacía en
+      // la sala (la pieza, un aparato, la ronda) y luego vuelve a su puesto
+      const enMarcha = (e: DwellerState) => e === 'pensando' || e === 'trabajando';
+      const keepsAt = enMarcha(estado) && enMarcha(anterior) && !!this.stay && ['pieza', 'consola', 'patrulla'].includes(this.stay.donde);
       if (estado !== 'ocioso' && inStation && !returnsOfNotice) { this.stay = { donde: 'puesto', hasta: this.reloj + this.duracion('puesto') }; this.sub.hasta = 0; }
+      else if (keepsAt && !returnsOfNotice) { /* sigue con lo suyo */ }
       else if (estado !== anterior || herramienta !== toolAnterior || returnsOfNotice || !this.stay) {
         if (returnsOfNotice) { this.releasePoint(); p.inRest = 'Idle_A'; p.reproducir('Idle_A', 0.3); }
         this.stay = null;
@@ -396,7 +405,7 @@ export class Habitante {
     if (!forzar) {
       if (this.faena) donde = hay('puesto') ? shuffle<Stay>({ puesto: 0.94, pieza: hay('pieza') ? (this.herramienta === 'buscar' ? 0.15 : 0.06) * repetir('pieza') : 0 }) ?? 'puesto'
         : shuffle<Stay>({ pieza: hay('pieza') ? 0.5 * repetir('pieza') : 0, consola: hay('consola') ? 0.4 * repetir('consola') : 0, patrulla: guardia ? 0.3 : 0 }) ?? 'paseo';
-      else if (this.estado === 'pensando') donde = shuffle<Stay>({ puesto: hay('puesto') ? 0.6 : 0, pieza: hay('pieza') ? 0.25 * repetir('pieza') : 0, consola: hay('consola') ? 0.15 * repetir('consola') : 0, patrulla: guardia ? 0.5 : 0 }) ?? 'paseo';
+      else if (this.estado === 'pensando') donde = shuffle<Stay>({ puesto: hay('puesto') ? 0.85 : 0, pieza: hay('pieza') ? 0.1 * repetir('pieza') : 0, consola: hay('consola') ? 0.05 * repetir('consola') : 0, patrulla: guardia ? 0.5 : 0 }) ?? 'paseo';
       else donde = shuffle<Stay>({
         pieza: hay('pieza') ? 0.12 * repetir('pieza') : 0,
         aficion: hay('aficion') ? 0.5 * repetir('aficion') : 0,
@@ -438,7 +447,11 @@ export class Habitante {
     const p = this.p, e = this.stay; if (!e) return;
     const pt = this.punto;
     const trabaja = this.faena, thinks = this.estado === 'pensando', libre = !trabaja && !thinks;
+    // sentado para otra cosa (se replaneó mientras iba a la silla): se levanta y va a lo nuevo
+    if (this.seat && e.donde !== 'puesto') { this.newStay(e.donde); return; }
     if (e.donde === 'puesto' && pt?.tipo === 'puesto') {
+      // en su puesto pero sin sentarse (se estaba levantando cuando volvió el trabajo): primero, a la silla
+      if (!pt.ofFoot && !this.seat) { this.arrived = false; this.sub = { hasta: Infinity, que: '' }; this.goAPoint(pt, () => { this.sub.hasta = 0; }); return; }
       const que = trabaja
         ? shuffle({ teclear: this.herramienta === 'leer' || this.herramienta === 'buscar' ? 0.7 : 0.94, leer: this.herramienta === 'leer' || this.herramienta === 'buscar' ? 0.3 : 0.06 })
         : thinks ? shuffle({ leer: 0.45, pensar: 0.3, teclear: 0.25 })
