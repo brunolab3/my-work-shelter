@@ -565,7 +565,7 @@ export class Sessions extends EventEmitter {
       this.anadir(x, this.entrada('usuario', decision === 'siempre' ? '✅ Me fío de esta carpeta (no vuelvas a preguntar)' : '✅ Me fío, esta vez'));
     } else if (t === 'pregunta') {
       p.resolver({ behavior: 'allow', updatedInput: { ...p.entrada, answers: responses ?? {} } });
-      this.anadir(x, this.entrada('usuario', Object.entries(responses ?? {}).map(([q, a]) => `**${q}** → ${a}`).join('\n') || '(respondido)'));
+      this.anadir(x, this.entrada('usuario', Object.entries(responses ?? {}).map(([q, a]) => `**${q}** → ${a}`).join('\n') || '(respondido)', { pregunta: true }));
     } else if (t === 'plan') {
       p.resolver({ behavior: 'allow', updatedInput: p.entrada });
       const modo = decision === 'siempre' ? 'acceptEdits' : 'auto';

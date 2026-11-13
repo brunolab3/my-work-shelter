@@ -48,6 +48,9 @@ const END = String.raw`(?![\w/-]|\.\w)`;
 const BARE = new RegExp(String.raw`(?<=^|[\s«"'*_])(${REL})${END}(?![^\[\]\n]*\]\()`, 'g');
 const TARGET = new RegExp(String.raw`\]\(\s*<?(${REL})>?\s*\)`, 'g');
 const CODE = new RegExp(String.raw`^\x60(${REL})\x60$`);
+// lo que ya es una ruta completa o una web (suelta o como destino de un enlace) no se toca: dentro, «_plan.md» de
+// «/…/ABC-1_plan.md» parecería una página relativa
+const ABSOLUTE = /(\]\(\s*<(?:\/|~\/|[a-z]+:)[^>\n]*>\s*\)|\]\(\s*(?:\/|~\/|[a-z]+:)[^)\n]*\)|(?<![\w.@-])(?:\/|~\/|[a-z]+:\/\/)[^\s)>\]]*)/gi;
 
 /** El texto con las páginas de ruta relativa enlazadas a su ruta en `base` (la carpeta de la conversación) */
 export function relativeLinks(texto: string, base?: string): string {
@@ -56,7 +59,10 @@ export function relativeLinks(texto: string, base?: string): string {
   // fuera de los bloques de código; dentro de cada trozo, el código en línea por un lado y el texto por otro
   return texto.split(/(^```[\s\S]*?^```)/m).map((trozo, i) => i % 2 ? trozo : trozo.split(/(\x60[^\x60\n]+\x60)/).map((x, j, l) => {
     if (j % 2) { const m = CODE.exec(x); return m && !l[j - 1].endsWith('[') ? `[${x}](<${abs(m[1])}>)` : x; }
-    return x.replace(TARGET, (_, rel) => `](<${abs(rel)}>)`).replace(BARE, rel => `[${rel}](<${abs(rel)}>)`);
+    const dentro = (y: string) => { const r = [...y.matchAll(ABSOLUTE)].map(m => [m.index!, m.index! + m[0].length]); return (i: number) => r.some(([a, b]) => i >= a && i < b); };
+    const d1 = dentro(x), y = x.replace(TARGET, (m, rel, i) => d1(i) ? m : `](<${abs(rel)}>)`);
+    const d2 = dentro(y);
+    return y.replace(BARE, (m, rel, i) => d2(i) ? m : `[${rel}](<${abs(rel)}>)`);
   }).join('')).join('');
 }
 
@@ -69,13 +75,19 @@ export function samePage(a: string, b: string): boolean {
   return casa(x, y) || casa(y, x);
 }
 
-/** Si una entrada cuenta para las páginas de la conversación: lo que escribe el habitante y lo que le llega de otra sala
- *  (el plan o los documentos que acompañan a un encargo, server/avisosSalas.ts: empieza por 📨) */
-export const linksPages = (e: { tipo: string; texto: string }) => e.tipo === 'asistente' || (e.tipo === 'usuario' && e.texto.startsWith('📨'));
+/** Si una entrada cuenta para las páginas de la conversación: lo que escribe el habitante, sus preguntas (la respuesta
+ *  las lleva; «¿la subo? La comparación está en …») y lo que le llega de otra sala (el plan o los documentos que
+ *  acompañan a un encargo, server/avisosSalas.ts: empieza por 📨) */
+export const linksPages = (e: { tipo: string; texto: string; pregunta?: boolean }) => e.tipo === 'asistente' || (e.tipo === 'usuario' && (!!e.pregunta || e.texto.startsWith('📨')));
+
+/** Una pregunta del habitante aún sin contestar, como entrada para las páginas: lo que enlaza sale ya en la lista, que
+ *  es cuando hace falta (la comparación que pide aprobar) */
+export const questionInput = (preguntas: { question: string; options?: { label: string; description?: string }[] }[], ts: number) =>
+  ({ id: 'pregunta', tipo: 'asistente' as const, ts, texto: preguntas.map(q => [q.question, ...(q.options ?? []).map(o => o.description ?? '')].join('\n')).join('\n\n') });
 
 /** Las páginas de una conversación (lo que ha escrito el habitante o le ha llegado de otra sala), la enlazada más tarde
  *  primero, con lo que se ha hecho con cada una */
-export function sessionPages(entradas: { tipo: string; texto: string; ts: number }[], respuestas: Record<string, PageAnswer>, base?: string): SessionPage[] {
+export function sessionPages(entradas: { tipo: string; texto: string; ts: number; pregunta?: boolean }[], respuestas: Record<string, PageAnswer>, base?: string): SessionPage[] {
   const ultima = new Map<string, number>();
   for (const e of entradas) if (linksPages(e)) for (const r of pagesInText(relativeLinks(e.texto, base))) ultima.set(r, Math.max(ultima.get(r) ?? 0, e.ts));
   return [...ultima].map(([ruta, ts]) => {

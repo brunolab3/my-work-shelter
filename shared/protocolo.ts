@@ -45,6 +45,7 @@ export interface LogInput {
   detalle?: string;
   ayudante?: string;
   esError?: boolean;
+  pregunta?: boolean;      // usuario: la respuesta a una pregunta del habitante (lleva sus preguntas: pueden enlazar páginas)
 }
 
 export interface SessionSummary {

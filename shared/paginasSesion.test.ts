@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { pagesInText, sessionPages, pendingPages, samePage, pageLink, livePages, relativeLinks } from './paginasSesion.ts';
+import { pagesInText, sessionPages, pendingPages, samePage, pageLink, livePages, relativeLinks, questionInput } from './paginasSesion.ts';
 
 const CMP = '/Users/ana/Library/Application Support/work-shelter-public/comparaciones/repo-rama.html';
 
@@ -85,6 +85,8 @@ describe('páginas con ruta relativa', () => {
       'Sube a ../fuera.md',
       'Cambia src/app/main.py y tmp/a.md.bak',
       '[ver tmp/a.md](https://example.com)',
+      'The source is [ABC-1_multi-day-pass.md](/Users/ana/r/.claude/worktrees/ABC-1/plans/ABC-1_multi-day-pass.md), committed',
+      'Compare: /Users/ana/r/tmp/compare_ABC-1.html and [x](<~/a b/plan_v2.md>)',
     ];
     for (const x of igual) expect(relativeLinks(x, B)).toBe(x);
     expect(relativeLinks('tmp/a.md', undefined)).toBe('tmp/a.md');
@@ -93,6 +95,16 @@ describe('páginas con ruta relativa', () => {
     const l = sessionPages([{ tipo: 'asistente', texto: 'Done: tmp/ltd-lock-skips-report.md and /Users/ana/r/plan.html', ts: 5 }], {}, B);
     expect(l.map(p => p.ruta).sort()).toEqual([`${B}/tmp/ltd-lock-skips-report.md`, '/Users/ana/r/plan.html']);
     expect(pagesInText('Done: tmp/ltd-lock-skips-report.md')).toEqual([]);   // sin carpeta, como antes
+  });
+});
+
+describe('páginas enlazadas en una pregunta', () => {
+  it('cuentan la pregunta pendiente (también sus opciones) y la respuesta que la lleva; lo demás que escribe el Supervisor, no', () => {
+    const q = questionInput([{ question: 'Push? The compare is at /Users/ana/r/tmp/compare.html.', options: [{ label: 'Sí', description: 'Plan in /Users/ana/r/plan.md' }] }], 3);
+    expect(sessionPages([q], {}).map(p => p.ruta).sort()).toEqual(['/Users/ana/r/plan.md', '/Users/ana/r/tmp/compare.html']);
+    const respondida = { tipo: 'usuario', texto: '**Push? The compare is at /Users/ana/r/tmp/compare.html.** → Sí', ts: 4, pregunta: true };
+    expect(sessionPages([respondida], {}).map(p => p.ruta)).toEqual(['/Users/ana/r/tmp/compare.html']);
+    expect(sessionPages([{ ...respondida, pregunta: undefined }], {})).toEqual([]);
   });
 });
 

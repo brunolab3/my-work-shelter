@@ -34,7 +34,7 @@ import { sessionOwner, interlocutor, branchCaption } from './copias';
 import { Usage } from './consumo';
 import { takeASurface, aAppClaude } from './superficie';
 import { openPage, pageAnswers, pageNotes, validatePage, revealPage, makeRoomForIntercom, answerPage } from './Navegadores';
-import { sessionPages, pendingPages, samePage, livePages } from '@shared/paginasSesion';
+import { sessionPages, pendingPages, samePage, livePages, questionInput } from '@shared/paginasSesion';
 import { type AttachmentLocal, uploadFiles, chooseFiles, subiendo, listsPaths, AttachmentsTray, SentAttachments, useDictation, InputButtons, DictationStrip, attachShortcut } from './entrada';
 
 type View = { tipo: 'menu' } | { tipo: 'nuevo'; reanudar?: HistoryElement } | { tipo: 'historial' } | { tipo: 'visitantes' } | { tipo: 'ficha' } | { tipo: 'sesion'; sesionId: string };
@@ -854,7 +854,11 @@ function Session({ h, s, p, salir, onClose }: { h: DwellerSummary; s: SessionSum
 // Las páginas de la conversación (planes, informes, comparaciones que ha enlazado): cuáles quedan por revisar, abrirlas
 // (sus notas vuelven a esta conversación) y validar sin notas las que estén bien (shared/paginasSesion.ts)
 function PagesMenu({ s }: { s: SessionSummary }) {
-  const entradas = vivo.usar(e => e.entradas[s.id]) ?? [];
+  const log = vivo.usar(e => e.entradas[s.id]);
+  // con la pregunta que espera respuesta: lo que enlaza (la comparación que pide aprobar) ya sale
+  const preguntas = s.pending?.tipo === 'pregunta' ? s.pending.preguntas : undefined;
+  const desde = useMemo(() => Date.now(), [s.pending?.id]);
+  const entradas = useMemo(() => [...(log ?? []), ...(preguntas?.length ? [questionInput(preguntas, desde)] : [])], [log, preguntas, desde]);
   return <PagesList sesionId={s.id} claudeId={s.claudeId} entradas={entradas} base={folderOf(s)} />;
 }
 
