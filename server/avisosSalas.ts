@@ -1,6 +1,7 @@
 // Mensajes entre salas: cualquier habitante le pasa algo al de otra sala con enviar_a_sala (un servidor MCP en proceso en
 // cada conversación). Con la clave de una tarea (ABC-123), a la conversación abierta de esa tarea en la sala; si no la
-// hay, una conversación nueva en el worktree de la tarea (o en la copia principal, si la sala no tiene ninguno). Sin
+// hay, una conversación nueva en el worktree de la tarea (y si la sala aún no tiene ninguno, en uno nuevo con la clave en
+// su nombre, para que los siguientes mensajes de la tarea lleguen ahí). Sin
 // clave, siempre una conversación nueva con el habitante en su copia principal: los mensajes entre salas son para
 // empezar trabajo, no para charlar. Para repartir un plan entre varios repos sigue estando repartir_trabajo (reparto.ts).
 import { createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk';
@@ -8,6 +9,7 @@ import { z } from 'zod';
 import path from 'node:path';
 import { t as tr } from '../shared/idioma.ts';
 import type { InfoWorktree } from '../shared/protocolo.ts';
+import { nombreWorktree } from './sesiones.ts';
 
 export interface RoomInfo { id: string; nombre: string; habitante?: { id: string; nombre: string } }
 export interface CtxRooms {
@@ -17,8 +19,9 @@ export interface CtxRooms {
   // el worktree de la tarea en esa sala (la clave en su rama o en su carpeta)
   worktreeDeTarea(salaId: string, clave: string): string | undefined;
   avisar(sesionId: string, texto: string): boolean;
-  // una conversación nueva con el habitante (sin cwd: la carpeta de la sala), en automático
-  empezar(salaId: string, dwellerId: string, prompt: string, cwd?: string): Promise<string>;
+  // una conversación nueva con el habitante, en automático: en `cwd`, en un worktree nuevo llamado `worktree` o, sin
+  // ninguno, en la carpeta de la sala
+  empezar(salaId: string, dwellerId: string, prompt: string, donde?: { cwd?: string; worktree?: string }): Promise<string>;
   mensajero(desde: string, a: string[], motivo: 'cambio'): void;
   aviso(texto: string): void;
   ahora?(): number;
@@ -59,9 +62,11 @@ export async function sendToRoom(ctx: CtxRooms, desde: string, { sala, mensaje, 
   if (abierta && ctx.avisar(abierta, texto)) como = `a su conversación abierta de ${k}`;
   else {
     const cwd = k ? ctx.worktreeDeTarea(destino.id, k) : undefined;
-    try { await ctx.empezar(destino.id, destino.habitante.id, texto, cwd); }
+    // sin worktree de la tarea, uno nuevo: la clave y el asunto en su nombre (la primera línea, sin repetir la clave)
+    const worktree = k && !cwd ? nombreWorktree(`${k} ${mensaje.trim().split('\n')[0].replace(new RegExp(k, 'ig'), '')}`, ahora) : undefined;
+    try { await ctx.empezar(destino.id, destino.habitante.id, texto, cwd ? { cwd } : worktree ? { worktree } : undefined); }
     catch (e) { return { ok: false, texto: `No he podido empezar la conversación en «${destino.nombre}»: ${(e as Error).message}` }; }
-    como = cwd ? `en una conversación nueva en el worktree de ${k}` : 'en una conversación nueva en su copia principal';
+    como = cwd ? `en una conversación nueva en el worktree de ${k}` : worktree ? `en una conversación nueva en un worktree nuevo para ${k} (rama worktree-${worktree}: renómbrala si el repo pide otro nombre)` : 'en una conversación nueva en su copia principal';
   }
   enviados.set(par, [...recientes, ahora]);
   ctx.mensajero(desde, [destino.id], 'cambio');
@@ -77,7 +82,7 @@ export function mcpRooms(ctx: CtxRooms, desde: string) {
   return createSdkMcpServer({
     name: 'salas', version: '1.0.0',
     tools: [
-      tool('enviar_a_sala', `work-shelter (el juego desde el que te manejan): pásale un mensaje o un encargo al habitante de otra sala del refugio (cada sala de repo es un repositorio). Sin clave, empieza una conversación nueva con él en su copia principal (para encargarle trabajo: «investiga X», «revisa Y»); con la clave de una tarea (ABC-123), va a su conversación abierta de esa tarea o, si no la hay, empieza una en el worktree de la tarea. El habitante no ve esta conversación: el mensaje tiene que bastar por sí solo. Salas: ${otras.map(s => `${s.id} (${s.nombre})`).join(', ')}.`,
+      tool('enviar_a_sala', `work-shelter (el juego desde el que te manejan): pásale un mensaje o un encargo al habitante de otra sala del refugio (cada sala de repo es un repositorio). Sin clave, empieza una conversación nueva con él en su copia principal (para encargarle trabajo: «investiga X», «revisa Y»); con la clave de una tarea (ABC-123), va a su conversación abierta de esa tarea o, si no la hay, empieza una en el worktree de la tarea (si no tiene, en uno nuevo). Los planes y documentos que deba leer, enlázalos con su ruta absoluta (/Users/…): le salen en sus páginas. El habitante no ve esta conversación: el mensaje tiene que bastar por sí solo. Salas: ${otras.map(s => `${s.id} (${s.nombre})`).join(', ')}.`,
         {
           sala: z.string().describe('id o nombre de la sala'),
           mensaje: z.string().describe('lo que tiene que saber o hacer, con todo el contexto necesario'),

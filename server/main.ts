@@ -146,7 +146,7 @@ const ctxRooms: CtxRooms = {
   sesionDeTarea: (salaId, clave) => ctxPlan.sesionDeTarea!(salaId, clave),
   worktreeDeTarea: (salaId, clave) => taskWorktree(repos[salaId]?.worktrees ?? [], clave),
   avisar: (id, texto) => ctxPlan.avisar(id, texto),
-  empezar: (salaId, dwellerId, prompt, cwd) => startWork(undefined, { t: 'empezar', dwellerId, salaId, prompt, opciones: { cwd, permisos: 'auto' } }),
+  empezar: (salaId, dwellerId, prompt, donde) => startWork(undefined, { t: 'empezar', dwellerId, salaId, prompt, opciones: { cwd: donde?.cwd, worktree: donde?.worktree, permisos: 'auto' } }),
   mensajero: (desde, a, motivo) => ctxPlan.mensajero(desde, a, motivo),
   aviso: texto => broadcast({ t: 'aviso', nivel: 'info', texto }),
 };
@@ -920,6 +920,8 @@ async function startWork(ws: WebSocket | undefined, m: Extract<ClientMessage, { 
   if (vivas >= e.limiteSesiones) throw new Error(t('server.thereAreAlreadyLiveSessions', { vivas, limiteSesiones: e.limiteSesiones }));
   // los worktrees son solo de las salas de proyecto: el Puente de Mando y las especiales trabajan en su carpeta
   if (sala.tipo !== 'repo') m.opciones.worktree = false;
+  // un nombre de worktree (mensajes entre salas): solo letras, números, guiones y puntos; si no, uno con el título
+  if (typeof m.opciones.worktree === 'string' && !/^[\w.-]{1,80}$/.test(m.opciones.worktree)) m.opciones.worktree = true;
   // en un ala (carpeta con varios repos) no hay un único repo donde crear el worktree: se trabaja en la carpeta
   if (m.opciones.worktree && !existsSync(path.join(cwd, '.git'))) { m.opciones.worktree = false; const aviso: ServerMessage = { t: 'aviso', nivel: 'aviso', texto: t('server.isNotAGitRepo', { nombre: sala.nombre }) }; if (ws) enviar(ws, aviso); else broadcast(aviso); }
   const r = await sesiones.empezar(m.dwellerId, m.salaId, cwd, m.prompt, m.opciones, adjuntos.describir(pathsList(m.adjuntos)));

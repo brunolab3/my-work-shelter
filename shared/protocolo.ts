@@ -110,7 +110,7 @@ export interface MusicState {
 export interface Visitante { claudeId: string; salaId: string; cwd: string; titulo: string; modified: number; worktree?: string }
 
 // ---------------------------------------------------------------- mensajes
-export interface WorkOptions { modelo?: string; esfuerzo?: string; permisos?: string; worktree?: boolean; reanudar?: string; cwd?: string }
+export interface WorkOptions { modelo?: string; esfuerzo?: string; permisos?: string; worktree?: boolean | string; reanudar?: string; cwd?: string }
 
 export type ClientMessage =
   | { t: 'hola'; version: string }

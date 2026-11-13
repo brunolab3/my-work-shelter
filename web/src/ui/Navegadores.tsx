@@ -10,7 +10,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Store } from './almacen';
 import { cliente, vivo } from '../red/cliente';
-import { pagesInText, samePage, relativeLinks, type PageAnswer } from '@shared/paginasSesion';
+import { pagesInText, samePage, relativeLinks, linksPages, type PageAnswer } from '@shared/paginasSesion';
 import { t } from '@shared/idioma';
 import { SFX } from '../audio/sonido';
 import { nextZ, windowShortcut, WindowButtons, CMD } from './ventanas';
@@ -106,7 +106,7 @@ export function sessionThatLinked(ruta: string): string | undefined {
   let mejor: { id: string; ts: number } | undefined;
   for (const [id, l] of Object.entries(vivo.get().entradas)) {
     const s = vivo.get().sesiones[id], base = s && (s.worktree ?? s.cwd);
-    for (const e of l) if (e.tipo === 'asistente' && (!mejor || e.ts > mejor.ts) && pagesInText(relativeLinks(e.texto, base)).some(r => samePage(r, ruta))) mejor = { id, ts: e.ts };
+    for (const e of l) if (linksPages(e) && (!mejor || e.ts > mejor.ts) && pagesInText(relativeLinks(e.texto, base)).some(r => samePage(r, ruta))) mejor = { id, ts: e.ts };
   }
   return mejor?.id;
 }

@@ -15,13 +15,13 @@ const SALAS = [
 
 // un contexto que apunta lo que se hace: avisos a conversaciones abiertas y conversaciones nuevas
 function ctx(o: { abiertas?: Record<string, string>; worktrees?: Record<string, string>; falla?: string; reloj?: { t: number } } = {}) {
-  const avisados: { sesionId: string; texto: string }[] = [], nuevas: { salaId: string; dwellerId: string; prompt: string; cwd?: string }[] = [], mensajero: string[][] = [], avisos: string[] = [];
+  const avisados: { sesionId: string; texto: string }[] = [], nuevas: { salaId: string; dwellerId: string; prompt: string; cwd?: string; worktree?: string }[] = [], mensajero: string[][] = [], avisos: string[] = [];
   const c: CtxRooms = {
     salas: () => SALAS,
     sesionDeTarea: (salaId, clave) => o.abiertas?.[`${salaId}/${clave}`],
     worktreeDeTarea: (salaId, clave) => o.worktrees?.[`${salaId}/${clave}`],
     avisar: (sesionId, texto) => { avisados.push({ sesionId, texto }); return true; },
-    empezar: async (salaId, dwellerId, prompt, cwd) => { if (o.falla) throw new Error(o.falla); nuevas.push({ salaId, dwellerId, prompt, cwd }); return 'nueva'; },
+    empezar: async (salaId, dwellerId, prompt, donde) => { if (o.falla) throw new Error(o.falla); nuevas.push({ salaId, dwellerId, prompt, cwd: donde?.cwd, worktree: donde?.worktree }); return 'nueva'; },
     mensajero: (desde, a) => mensajero.push([desde, ...a]),
     aviso: t => avisos.push(t),
     ahora: o.reloj && (() => o.reloj!.t),
@@ -58,11 +58,22 @@ describe('mensajes entre salas', () => {
     expect(x.avisados[0].texto).toContain('FIC-4375');
   });
 
-  it('con clave y sin conversación abierta, una nueva en el worktree de la tarea; sin worktree, en la copia principal', async () => {
+  it('con clave y sin conversación abierta, una nueva en el worktree de la tarea; sin worktree, en uno nuevo con la clave', async () => {
     const x = ctx({ worktrees: { 'partners/FIC-1': '/repos/partners/.claude/worktrees/FIC-1' } });
     await sendToRoom(x.c, 'express', { sala: 'partners', clave: 'FIC-1', mensaje: 'a' });
-    await sendToRoom(x.c, 'express', { sala: 'partners', clave: 'FIC-2', mensaje: 'b' });
-    expect(x.nuevas.map(n => n.cwd)).toEqual(['/repos/partners/.claude/worktrees/FIC-1', undefined]);
+    const r = await sendToRoom(x.c, 'tareas', { sala: 'partners', clave: 'ABC-321', mensaje: 'ABC-321 — Weekend bundle: open a PR\nmore' });
+    expect(x.nuevas[0]).toMatchObject({ cwd: '/repos/partners/.claude/worktrees/FIC-1', worktree: undefined });
+    expect(x.nuevas[1].cwd).toBeUndefined();
+    // la clave una sola vez y el asunto: así taskWorktree lo encuentra para los siguientes mensajes de la tarea
+    expect(x.nuevas[1].worktree).toMatch(/^shelter-abc-321-weekend-bundle-open[a-z0-9-]*-[0-9a-z]{4}$/);
+    expect(taskWorktree([{ ruta: '/repos/partners/.claude/worktrees/' + x.nuevas[1].worktree, principal: false } as any], 'ABC-321')).toBeDefined();
+    expect(r.texto).toContain('worktree nuevo');
+  });
+
+  it('sin clave, nunca un worktree', async () => {
+    const x = ctx();
+    await sendToRoom(x.c, 'tareas', { sala: 'partners', mensaje: 'Revisa el plan' });
+    expect(x.nuevas[0]).toMatchObject({ cwd: undefined, worktree: undefined });
   });
 
   it('rechaza su propia sala, una que no existe (con la lista), una sin habitante y una clave que no lo es', async () => {

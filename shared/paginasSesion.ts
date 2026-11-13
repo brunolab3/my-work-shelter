@@ -69,11 +69,15 @@ export function samePage(a: string, b: string): boolean {
   return casa(x, y) || casa(y, x);
 }
 
-/** Las páginas de una conversación (lo que ha escrito el habitante), la enlazada más tarde primero, con lo que se ha
- *  hecho con cada una */
+/** Si una entrada cuenta para las páginas de la conversación: lo que escribe el habitante y lo que le llega de otra sala
+ *  (el plan o los documentos que acompañan a un encargo, server/avisosSalas.ts: empieza por 📨) */
+export const linksPages = (e: { tipo: string; texto: string }) => e.tipo === 'asistente' || (e.tipo === 'usuario' && e.texto.startsWith('📨'));
+
+/** Las páginas de una conversación (lo que ha escrito el habitante o le ha llegado de otra sala), la enlazada más tarde
+ *  primero, con lo que se ha hecho con cada una */
 export function sessionPages(entradas: { tipo: string; texto: string; ts: number }[], respuestas: Record<string, PageAnswer>, base?: string): SessionPage[] {
   const ultima = new Map<string, number>();
-  for (const e of entradas) if (e.tipo === 'asistente') for (const r of pagesInText(relativeLinks(e.texto, base))) ultima.set(r, Math.max(ultima.get(r) ?? 0, e.ts));
+  for (const e of entradas) if (linksPages(e)) for (const r of pagesInText(relativeLinks(e.texto, base))) ultima.set(r, Math.max(ultima.get(r) ?? 0, e.ts));
   return [...ultima].map(([ruta, ts]) => {
     const clave = Object.keys(respuestas).find(k => samePage(k, ruta));
     const r = clave ? respuestas[clave] : undefined;

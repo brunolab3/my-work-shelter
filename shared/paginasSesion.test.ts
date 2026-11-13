@@ -95,3 +95,13 @@ describe('páginas con ruta relativa', () => {
     expect(pagesInText('Done: tmp/ltd-lock-skips-report.md')).toEqual([]);   // sin carpeta, como antes
   });
 });
+
+describe('páginas que llegan con un encargo de otra sala', () => {
+  it('cuentan las del mensaje 📨 (y no lo que escribe el Supervisor)', () => {
+    const l = sessionPages([
+      { tipo: 'usuario', texto: '📨 Message from the “Logística” room (Inés), task ABC-1:\n\nPlan: /Users/ana/r/plans/03-target.md', ts: 1 },
+      { tipo: 'usuario', texto: 'mira /Users/ana/r/otra.md', ts: 2 },
+    ], {});
+    expect(l.map(p => p.ruta)).toEqual(['/Users/ana/r/plans/03-target.md']);
+  });
+});

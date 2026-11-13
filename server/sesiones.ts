@@ -159,6 +159,11 @@ export function nombreWorktree(tarea: string, ahora = Date.now()) {
   return `shelter-${slug ? slug.slice(0, 32) + '-' : ''}${suffix}`;
 }
 
+/** El worktree de una carpeta: la raíz de su copia en .claude/worktrees (también desde una subcarpeta suya) */
+export function worktreeRoot(dir?: string): string | undefined {
+  return dir ? /^(.*\/\.claude\/worktrees\/[^/]+)/.exec(dir)?.[1] : undefined;
+}
+
 export class Sessions extends EventEmitter {
   private s = new Map<string, Session>();
   claude = pathClaude();
@@ -173,11 +178,11 @@ export class Sessions extends EventEmitter {
   private lastEmission = new Map<string, { t: number; clave: string; timer?: NodeJS.Timeout }>();
   private tocar(x: Session) {
     x.r.actualizada = Date.now(); x.r.pendientes = x.pendientes.length; x.r.pending = x.pendientes[0]?.pet; x.r.ayudantes = [...x.ayudantes.values()];
-    const clave = JSON.stringify([x.r.estado, x.r.actividad, x.r.pending?.id, x.r.pendientes, x.r.ayudantes, x.r.lastText?.length, x.r.sinLeer, x.r.titulo, x.r.error, x.r.lateral, x.r.modoPermisos, x.r.modelo, x.r.claudeId, x.r.turns, x.r.segundoPlano]);
+    const clave = JSON.stringify([x.r.estado, x.r.actividad, x.r.pending?.id, x.r.pendientes, x.r.ayudantes, x.r.lastText?.length, x.r.sinLeer, x.r.titulo, x.r.error, x.r.lateral, x.r.modoPermisos, x.r.modelo, x.r.claudeId, x.r.turns, x.r.segundoPlano, x.r.worktree]);
     const u = this.lastEmission.get(x.r.id);
     if (u && u.clave === clave) return;
     const ahora = Date.now();
-    const emitir = () => { const e = this.lastEmission.get(x.r.id); if (e) e.timer = undefined; this.lastEmission.set(x.r.id, { t: Date.now(), clave: JSON.stringify([x.r.estado, x.r.actividad, x.r.pending?.id, x.r.pendientes, x.r.ayudantes, x.r.lastText?.length, x.r.sinLeer, x.r.titulo, x.r.error, x.r.lateral, x.r.modoPermisos, x.r.modelo, x.r.claudeId, x.r.turns, x.r.segundoPlano]) }); this.emit('sesion', { ...x.r, ayudantes: x.r.ayudantes.map(a => ({ ...a })) }); };
+    const emitir = () => { const e = this.lastEmission.get(x.r.id); if (e) e.timer = undefined; this.lastEmission.set(x.r.id, { t: Date.now(), clave: JSON.stringify([x.r.estado, x.r.actividad, x.r.pending?.id, x.r.pendientes, x.r.ayudantes, x.r.lastText?.length, x.r.sinLeer, x.r.titulo, x.r.error, x.r.lateral, x.r.modoPermisos, x.r.modelo, x.r.claudeId, x.r.turns, x.r.segundoPlano, x.r.worktree]) }); this.emit('sesion', { ...x.r, ayudantes: x.r.ayudantes.map(a => ({ ...a })) }); };
     // los cambios de estado salen al momento; los de actividad, como mucho 8 por segundo
     if (!u || u.clave.split(',')[0] !== clave.split(',')[0] || ahora - u.t > 125) { if (u?.timer) clearTimeout(u.timer); emitir(); }
     else if (!u.timer) u.timer = setTimeout(emitir, 125);
@@ -236,7 +241,10 @@ export class Sessions extends EventEmitter {
       permissionMode: (x.r.modoPermisos || 'auto') as Options['permissionMode'],
       allowDangerouslySkipPermissions: x.r.modoPermisos === 'bypassPermissions' ? true : undefined,
       resume: reanudar,
-      extraArgs: o.worktree && !reanudar ? { worktree: nombreWorktree(x.r.titulo) } : {},
+      extraArgs: o.worktree && !reanudar ? { worktree: typeof o.worktree === 'string' ? o.worktree : nombreWorktree(x.r.titulo) } : {},
+      // el habitante puede entrar en un worktree a media conversación (lo crea él o hace cd a uno): la conversación pasa
+      // a ser de ese worktree (sus rutas relativas, su holograma, comparar_cambios y los mensajes de su tarea)
+      hooks: { CwdChanged: [{ hooks: [async (h: any) => { const w = worktreeRoot(h.new_cwd); if (w && w !== x.r.worktree) { x.r.worktree = w; this.tocar(x); } return {}; }] }] },
       systemPrompt: { type: 'preset', preset: 'claude_code', append: ANNEX + (x.r.salaId === 'puente' ? ' ' + BRIDGE_ANNEX : x.r.salaId === 'git' ? ' ' + annexGit(this.resolutor.reposOfShelter?.() ?? []) : '') },
       ...(x.r.salaId === 'git' ? { additionalDirectories: this.resolutor.reposOfShelter?.() ?? [] } : {}),
       includePartialMessages: true,
@@ -287,7 +295,7 @@ export class Sessions extends EventEmitter {
     const salas = this.resolutor.mcpRooms?.(x.r.salaId);
     if (salas) opciones.mcpServers = { ...(opciones.mcpServers ?? {}), salas };
     // la página de comparación de sus cambios, para revisarlos con notas en el juego antes de subirlos (server/comparar.ts)
-    opciones.mcpServers = { ...(opciones.mcpServers ?? {}), revision: mcpReview(() => x.r.cwd) };
+    opciones.mcpServers = { ...(opciones.mcpServers ?? {}), revision: mcpReview(() => x.r.worktree ?? x.r.cwd) };
     x.q = query({ prompt: queue, options: opciones });
     x.viva = true; x.closing = false;
     this.consume(x, x.q);
@@ -434,7 +442,7 @@ export class Sessions extends EventEmitter {
           x.closing = true; x.q?.close(); return;
         }
         r.claudeId = m.session_id; r.cwd = m.cwd; r.modelo = m.model; r.modoPermisos = m.permissionMode;
-        if (m.cwd && /\/\.claude\/worktrees\//.test(m.cwd)) r.worktree = m.cwd;
+        r.worktree = worktreeRoot(m.cwd) ?? r.worktree;
         if (r.estado === 'arrancando') r.estado = 'trabajando';
         this.measureContext(x);   // al retomar una conversación ya llega con contexto
         x.q?.supportedCommands().then(cs => { x.comandos = cs.map(c => ({ nombre: c.name, descripcion: c.description, pista: c.argumentHint || undefined })); this.emit('comandos', r.id, x.comandos); }).catch(() => {});
