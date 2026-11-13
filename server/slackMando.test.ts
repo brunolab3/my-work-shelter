@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import os from 'node:os';
 import path from 'node:path';
 import { mkdtempSync } from 'node:fs';
@@ -20,7 +20,7 @@ const SALAS = [{ id: 'estudio', nombre: 'Estudio' }];
 const PERMISO: PendingRequest = { id: 'p1', tipo: 'permiso', herramienta: 'Bash', titulo: 'Ejecutar un comando', canAlways: true,
   entrada: [{ tipo: 'codigo', texto: 'curl -H "Authorization: Bearer ' + XOX + 'b-1111111111-2222222222-abcdefghij" https://api.example‮/x' }] };
 
-function montar(sesiones: SessionSummary[]) {
+function montar(sesiones: SessionSummary[], extra: { retrasoMs?: number; enUso?: () => boolean } = {}) {
   const llamadas: { metodo: string; p: any; token: string }[] = [];
   let ts = 100;
   const api: SlackApi = async (metodo, p, token) => {
@@ -37,6 +37,7 @@ function montar(sesiones: SessionSummary[]) {
     abrir: () => ({ enviar() {}, cerrar() {} }),   // sin red: las pruebas llaman a recibir() y sobre()
     aRemoteControl: async ids => { aRC.push(ids); return { sesiones: ids?.length ?? sesiones.length, avisos: [] }; },
     responder: (...a) => { respuestas.push(a); const s = sesiones.find(x => x.id === a[0]); if (s) s.pending = undefined; },
+    ...extra,
   });
   return { sk, llamadas, aRC, respuestas };
 }
@@ -47,8 +48,8 @@ const boton = (value: string, o: { user?: string; channel?: string; team?: strin
 const valores = (blocks: any[]) => blocks.filter(b => b.type === 'actions').flatMap(b => b.elements.map((e: any) => e.value));
 const textoDe = (blocks: any[]) => blocks.filter(b => b.type === 'section').map(b => b.text.text).join('\n');
 
-async function emparejado(ses: SessionSummary[]) {
-  const m = montar(ses);
+async function emparejado(ses: SessionSummary[], extra: { retrasoMs?: number; enUso?: () => boolean } = {}) {
+  const m = montar(ses, extra);
   const st = await m.sk.conectar(APP, BOT);
   await m.sk.recibir(dm(st.codigo!.toLowerCase().replace('-', ' ')));   // se teclea como sea: mayúsculas, guion o espacio
   m.llamadas.length = 0;
@@ -125,6 +126,28 @@ describe('mando a distancia por Slack', () => {
     expect(llamadas.find(l => l.metodo === 'chat.postEphemeral')!.p).toMatchObject({ channel: 'D42', user: 'U7' });
     await sk.recibir(boton('no:1'));
     expect(respuestas.length).toBe(1);
+  });
+
+  it('con retraso, la petición espera: no sale si se responde antes en el refugio, ni mientras se usa el juego', async () => {
+    vi.useFakeTimers();
+    try {
+      let enUso = false;
+      const a = sesion('a', { estado: 'esperando', pending: PERMISO }), b = sesion('b', { estado: 'esperando', pending: { ...PERMISO, id: 'p2' } });
+      const { sk, llamadas } = await emparejado([a, b], { retrasoMs: 180_000, enUso: () => enUso });
+      const mandadas = () => llamadas.filter(l => l.metodo === 'chat.postMessage').map(l => l.p.text);
+      await sk.peticion(a); await sk.peticion(b);
+      await vi.advanceTimersByTimeAsync(179_000);
+      expect(mandadas()).toEqual([]);
+      a.pending = undefined; a.estado = 'trabajando';   // respondida en el refugio
+      await sk.peticion(a);
+      enUso = true;
+      await vi.advanceTimersByTimeAsync(5 * 60_000);
+      expect(mandadas()).toEqual([]);
+      enUso = false;
+      await vi.advanceTimersByTimeAsync(30_000);
+      expect(mandadas().length).toBe(1);
+      expect(valores(llamadas.find(l => l.metodo === 'chat.postMessage')!.p.blocks)).toContain('rc:b');
+    } finally { vi.useRealTimers(); }
   });
 
   it('las preguntas se responden de una en una, cambiando los botones del mismo mensaje', async () => {

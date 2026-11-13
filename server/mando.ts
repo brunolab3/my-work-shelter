@@ -5,12 +5,17 @@
 // al responderla. Aquí, los mensajes y botones en un modelo neutro ({ text, filas }); cada bot los pinta a su manera y
 // trae de vuelta el `dato` del botón pulsado. Con varios emparejados, la petición va a todos: al responderla en uno,
 // la conversación cambia y los demás recogen su mensaje (`peticion`), como si se hubiera respondido en el refugio.
+// Las peticiones esperan unos minutos (`retrasoMs`) antes de salir del refugio: si se responden ahí antes, no se mandan;
+// y mientras el Supervisor esté usando el juego (`enUso`: la ventana delante y tocándola), siguen esperando.
 import path from 'node:path';
 import { t } from '../shared/idioma.ts';
 import type { SessionSummary, PendingRequest } from '../shared/protocolo.ts';
 import { visible } from '../shared/visible.ts';
 
 export const PAIRING_MS = 10 * 60_000;
+/** Lo que espera una petición antes de salir al móvil, y cada cuánto se vuelve a mirar si el juego sigue en uso */
+export const REMOTE_DELAY_MS = 3 * 60_000;
+const RECHECK_MS = 30_000;
 const MAX_PETICION = 3500;   // lo que no cabe entero en un mensaje no se aprueba desde el móvil
 
 /** Un botón: lo que se lee y lo que vuelve al pulsarlo (≤ 64 bytes, para que quepa en cualquier canal) */
@@ -28,6 +33,10 @@ export interface RemoteDeps {
   /** la respuesta a una petición, como la del diálogo del juego (nunca «siempre» desde el móvil) */
   responder: (sesionId: string, peticionId: string, decision: 'si' | 'no', responses?: Record<string, string>) => void;
   alCambiar?: () => void;
+  /** lo que espera una petición antes de mandarse (sin él, sale en el acto) */
+  retrasoMs?: number;
+  /** el Supervisor está usando el juego: las peticiones esperan */
+  enUso?: () => boolean;
 }
 
 const ICONO: Record<string, string> = { arrancando: '🟡', trabajando: '🟢', esperando: '⏳', terminada: '✅', ociosa: '⚪', error: '🔴' };
@@ -116,6 +125,8 @@ export type Aviso = (texto?: string) => Promise<unknown>;
 export abstract class RemoteBot<R> {
   // peticiones mandadas al móvil: clave corta (la del botón) → de qué sesión es, su mensaje y lo respondido hasta ahora
   private enviadas = new Map<string, Enviada<R>>();
+  // peticiones que aún esperan para salir: id de la petición → de qué sesión es y su temporizador
+  private esperando = new Map<string, { sesionId: string; timer: ReturnType<typeof setTimeout> }>();
   private siguiente = 1;
   protected abstract readonly canal: string;
   constructor(protected d: RemoteDeps) {}
@@ -134,16 +145,40 @@ export abstract class RemoteBot<R> {
     await this.mandar(listadoVista(this.d.salas(), this.d.sesiones(), this.d.habitante));
   }
 
-  /** Con cada cambio de una conversación: si pide aprobación, se manda al móvil (una vez); si lo que se mandó ya no está
-   *  pendiente (respondido en el refugio o en otro mando, cancelado o cerrada), su mensaje se recoge en una línea */
+  /** Con cada cambio de una conversación: si pide aprobación, se manda al móvil (una vez, pasado `retrasoMs`); si lo que
+   *  se mandó ya no está pendiente (respondido en el refugio o en otro mando, cancelado o cerrada), su mensaje se recoge
+   *  en una línea, y lo que aún esperaba ya no sale */
   async peticion(s: SessionSummary) {
+    for (const [id, w] of this.esperando) if (w.sesionId === s.id && (s.pending?.id !== id || s.estado === 'cerrada')) {
+      clearTimeout(w.timer);
+      this.esperando.delete(id);
+    }
     if (!this.listo()) return;
     for (const [k, e] of this.enviadas) if (e.sesionId === s.id && (s.pending?.id !== e.pet.id || s.estado === 'cerrada')) {
       this.enviadas.delete(k);
       await this.cerrarMensaje(e, t('server.remoteAnsweredElsewhere'));
     }
     const pet = s.pending;
-    if (!pet || s.estado === 'cerrada' || !this.aprueba() || [...this.enviadas.values()].some(e => e.pet.id === pet.id)) return;
+    if (!pet || s.estado === 'cerrada' || !this.aprueba() || this.esperando.has(pet.id) || [...this.enviadas.values()].some(e => e.pet.id === pet.id)) return;
+    if (this.d.retrasoMs) this.esperar(s.id, pet.id, this.d.retrasoMs);
+    else await this.enviar(s, pet);
+  }
+
+  // pasado el plazo, sale si sigue pendiente y el juego no está en uso; si lo está, se vuelve a mirar en un rato
+  private esperar(sesionId: string, petId: string, ms: number) {
+    const timer = setTimeout(() => {
+      this.esperando.delete(petId);
+      const s = this.d.sesiones().find(x => x.id === sesionId);
+      if (!s?.pending || s.pending.id !== petId || s.estado === 'cerrada' || !this.listo() || !this.aprueba()) return;
+      if (this.d.enUso?.()) { this.esperar(sesionId, petId, RECHECK_MS); return; }
+      this.enviar(s, s.pending).catch(() => {});
+    }, ms);
+    timer.unref?.();
+    this.esperando.set(petId, { sesionId, timer });
+  }
+
+  private async enviar(s: SessionSummary, pet: PendingRequest) {
+    if ([...this.enviadas.values()].some(e => e.pet.id === pet.id)) return;
     const k = String(this.siguiente++);
     const quien = rotulo(s, this.d.habitante(s));
     const v = vistaPeticion(pet, quien);

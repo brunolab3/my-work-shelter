@@ -43,7 +43,7 @@ import { STYLE_PALETTE, areaByType, isArea } from '../shared/sectores.ts';
 import { isLanguage, setLanguage } from '../shared/idioma.ts';
 import * as controlRemoto from './controlRemoto.ts';
 import { SlackRemote } from './slackMando.ts';
-import type { RemoteDeps } from './mando.ts';
+import { REMOTE_DELAY_MS, type RemoteDeps } from './mando.ts';
 import { sanitizeLook, TYPES_STOCK } from '../shared/aspecto.ts';
 import { t } from '../shared/idioma.ts';
 
@@ -165,7 +165,12 @@ const integraciones = new Integraciones(almacen, (m) => broadcast(m));
 
 // mando a distancia por Slack (mando.ts, slackMando.ts): las peticiones de aprobación, para responderlas sin salir del
 // refugio, y la lista de salas y conversaciones para pasarlas a Remote Control; con una app propia y Socket Mode
+// el Supervisor está usando el juego: lo dice cada página cada 30 s mientras su ventana está delante y la tocan
+// (web/src/motor/foco.ts, watchPresence); sin aviso en 90 s, no
+let lastUse = 0;
 const mandoDeps: RemoteDeps = {
+  retrasoMs: REMOTE_DELAY_MS,
+  enUso: () => Date.now() - lastUse < 90_000,
   sesiones: () => sesiones.lista(),
   salas: () => almacen.estado.salas.filter(s => isRoomOfRepo(s.tipo) || sesiones.lista().some(x => x.salaId === s.id && x.estado !== 'cerrada')).map(s => ({ id: s.id, nombre: s.nombre })),
   habitante: s => almacen.estado.habitantes.find(h => h.id === s.dwellerId)?.nombre ?? 'Habitante',
@@ -705,6 +710,7 @@ async function accion(nombre: string, d: Record<string, any> = {}): Promise<unkn
     case 'reiniciarJuego': return reiniciarJuego();
     case 'superficie.sacar': return exitASurface(d);
     case 'superficie.appClaude': return aAppClaude(d);
+    case 'presencia': lastUse = d.activo ? Date.now() : 0; return true;
     case 'slackRemote.estado': return slackRemote.estado();
     case 'slackRemote.conectar': return slackRemote.conectar(String(d.appToken ?? ''), String(d.botToken ?? ''));
     case 'slackRemote.emparejar': return slackRemote.emparejar();

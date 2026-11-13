@@ -2,7 +2,7 @@ import './migrateStorage';
 import { createRoot } from 'react-dom/client';
 import * as THREE from 'three';
 import { Engine } from './motor/render';
-import { watchFirstMap } from './motor/foco';
+import { watchFirstMap, watchPresence } from './motor/foco';
 import { watchSystemNotices } from './ui/avisosSistema';
 import { Refugio } from './mundo/refugio';
 import { Hud } from './ui/Hud';
@@ -44,4 +44,5 @@ Object.assign(window as any, { __juego: juego, __client: cliente, __live: vivo, 
 motor.arrancar();
 // fuera de primer plano el motor deja de pintar y la interfaz deja de animarse
 watchFirstMap(activo => motor.onChangeFirstMap(activo));
+watchPresence(activo => { cliente.accion('presencia', { activo }).catch(() => {}); });
 watchSystemNotices();

@@ -33,3 +33,23 @@ export function watchFirstMap(alCambiar: (activo: boolean) => void) {
   (window as any).shelterVentana?.onChangeFocus?.((con: boolean) => { withFocusOfWindow = con; mirar(); });
   mirar();
 }
+
+// En uso: la ventana delante y teclado o ratón en los últimos 2 minutos (con el juego delante pero sin tocarlo, no). Se
+// le dice al servidor cada 30 s y en cada cambio: el mando a distancia (server/mando.ts) no saca las peticiones al móvil
+// mientras se usa el juego
+const IDLE_MS = 2 * 60_000;
+export function watchPresence(avisar: (activo: boolean) => void) {
+  let lastInput = Date.now(), ultimo: boolean | null = null;
+  const mirar = (forzar = false) => {
+    const activo = firstMapNow() && Date.now() - lastInput < IDLE_MS;
+    if (activo === ultimo && !(forzar && activo)) return;
+    ultimo = activo;
+    avisar(activo);
+  };
+  for (const ev of ['keydown', 'pointerdown', 'pointermove', 'wheel']) addEventListener(ev, () => { lastInput = Date.now(); if (!ultimo) mirar(); }, { capture: true, passive: true });
+  addEventListener('focus', () => setTimeout(mirar));
+  addEventListener('blur', () => setTimeout(mirar));
+  document.addEventListener('visibilitychange', () => mirar());
+  setInterval(() => mirar(true), 30_000);
+  mirar();
+}

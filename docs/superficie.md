@@ -96,7 +96,9 @@ shows (one use, 10 minutes; five failed attempts expire it).
   for questions one option per button, one at a time (multi-answer ones, in the shelter). It's answered in the shelter
   itself: the conversation keeps going here. Anything that doesn't fit whole (about 3500 characters) can't be approved
   from the phone. Once answered, here or there, the message shrinks to one line without the content, and its buttons
-  stop working. The reply to each button arrives as a message only you see.
+  stop working. The reply to each button arrives as a message only you see. A request waits 3 minutes before going
+  out: answered in the shelter by then, it never leaves; while you're using the game (its window in front and keyboard
+  or mouse in the last 2 minutes) it keeps waiting.
 - **List**: writing anything returns the rooms with their open conversations (dweller, title, state and end time),
   with a 📱 button per conversation (and another for all) that hands it over to Remote Control to continue in the
   Claude app.
