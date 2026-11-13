@@ -796,7 +796,7 @@ async function accion(nombre: string, d: Record<string, any> = {}): Promise<unkn
         if (nombre === 'worktree.desechar') await refreshRepos().catch(() => {});   // todas las ventanas apagan el holograma ya
         return r;
       }
-      if (nombre.startsWith('git.')) return (await import('./git.ts')).actionGit(nombre.slice(4), d, { allowedPath: gitPath, pathsRepos: gitPaths, alCambiar: () => refreshReposPronto(), github: connectionGitHub });
+      if (nombre.startsWith('git.')) return (await import('./git.ts')).actionGit(nombre.slice(4), d, { allowedPath: gitPath, pathsRepos: gitPaths, alCambiar: () => refreshReposPronto(), github: connectionGitHub, ledger: url => revisionesPR.ledgerOf(url) });
       if (nombre.startsWith('archivos.')) return (await import('./archivos.ts')).filesAction(nombre.slice(9), d, { allowedRoots: filesRoots, alCambiar: () => refreshReposPronto() });
       throw new Error('Acción desconocida: ' + nombre);
   }

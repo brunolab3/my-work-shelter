@@ -9,6 +9,7 @@ import { cartel, PhosphorScreen, PanelRoom, lienzo, textureOf, splitByWords, SOU
 import { overlayScreen } from '../util3d';
 import { signInWall, mancha, highBand, monitorWall, workStation, screenReal, type Contexto } from './comun';
 import { cliente } from '../../red/cliente';
+import { ledgerPending } from '@shared/cuentaRevisiones';
 import { DEPLOYMENT_COLUMNS, bloqueosEntre, columnaDespliegue, olasDespliegue, type Blocker, type BlockerManual, type TaskOrder } from '@shared/despliegue';
 import type { PRBoard } from '@shared/tablero';
 import { taskColor, pRTask } from '@shared/tareas';
@@ -26,7 +27,7 @@ export class DeploymentBoard {
   // 1408×624: la proporción de la pantalla (5,3 × 2,35 m)
   constructor(private color = '#9dffb8') { ({ c: this.c, g: this.g } = lienzo(1408, 624)); this.tex = textureOf(this.c); this.poner([], [], false); }
   poner(prs: PRBoard[], bloqueos: Blocker[], demo: boolean) {
-    const f = JSON.stringify([prs.map(p => [p.url, p.estado, p.revision, p.checks, p.titulo, taskColor(pRTask(p))]), bloqueos, demo]); if (f === this.firma) return; this.firma = f;
+    const f = JSON.stringify([prs.map(p => [p.url, p.estado, p.revision, p.checks, p.ledger, p.titulo, taskColor(pRTask(p))]), bloqueos, demo]); if (f === this.firma) return; this.firma = f;
     const { g } = this; const W = this.c.width, H = this.c.height; const col = this.color;
     const INK = '#dcf2e2', BACKGROUND = '#06100a', CARD = '#0f1d14', RED = '#ff5a4a', PURPLE = '#b48cff';
     g.fillStyle = BACKGROUND; g.fillRect(0, 0, W, H); g.textBaseline = 'top'; g.textAlign = 'left';
@@ -72,6 +73,11 @@ export class DeploymentBoard {
         const o = ola.get(p.url);
         if (o) { const t = `OLA ${o}`; g.font = `700 15px ${SOURCES.mono}`; const tw = g.measureText(t).width + 12; xd -= tw; g.fillStyle = col + '30'; g.fillRect(xd, y + 6, tw, 21); g.fillStyle = col; g.fillText(t, xd + 6, y + 9); xd -= 6; }
         if (p.checks && p.estado !== 'fusionado') { g.font = `700 16px ${SOURCES.mono}`; g.fillStyle = ci ? RED : p.checks === 'SUCCESS' ? '#5dff8a' : '#ffb000'; const t = ci ? 'CI ✗' : p.checks === 'SUCCESS' ? 'CI ✓' : 'CI …'; xd -= g.measureText(t).width; g.fillText(t, xd, y + 9); }
+        // lo que queda por contestar en sus revisiones: hilos sin resolver y resúmenes sin respuesta (con cero, nada)
+        if (p.estado !== 'fusionado' && p.estado !== 'cerrado' && ledgerPending(p.ledger)) {
+          const l = p.ledger!, t = [l.unresolved > 0 && `💬${l.unresolved}`, l.unansweredSummaries > 0 && `✉${l.unansweredSummaries}`].filter(Boolean).join(' ');
+          g.font = `700 16px ${SOURCES.mono}`; xd -= 10 + g.measureText(t).width; g.fillStyle = '#ffb000'; g.fillText(t, xd, y + 9);
+        }
         g.fillStyle = INK; g.font = `500 ${fTit}px ${SOURCES.mono}`;
         const lineas = Math.max(1, Math.floor((fh - fId - 22) / (fTit * 1.2)));
         splitByWords(g, p.titulo, w - 28, Math.min(3, lineas)).forEach((l, m) => g.fillText(l, x + 16, y + fId + 16 + m * fTit * 1.2));

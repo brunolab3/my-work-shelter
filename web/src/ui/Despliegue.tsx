@@ -13,6 +13,7 @@ import { type PRBoard } from '@shared/tablero';
 import { trTextPR } from './Operativas';
 import { taskColor, pRTask } from '@shared/tareas';
 import { knowTasks, useColorsTasks } from './tareas';
+import { ledgerPending, type ReviewLedger } from '@shared/cuentaRevisiones';
 import { DEPLOYMENT_COLUMNS, bloqueosEntre, columnaDespliegue, taskLinks, olasDespliegue, promptDeployment, refPR, type Blocker, type BlockerManual, type TaskOrder } from '@shared/despliegue';
 
 const REASON: Record<Blocker['motivo'], string> = { pila: 'apilado', texto: 'lo dice el PR', plan: 'el plan de la tarea', manual: 'marcado aquí' };
@@ -23,6 +24,12 @@ let recuerdo: Memory = (() => { try { return JSON.parse(localStorage.getItem(MEM
 function remember(r: Memory) { recuerdo = { ...recuerdo, ...r }; try { localStorage.setItem(MEMORY, JSON.stringify(recuerdo)); } catch {} }
 
 const corto = (p: PRBoard) => `${p.repo.split('/').pop()}#${p.numero}`;
+
+// lo que queda por contestar en sus revisiones (hilos sin resolver, resúmenes sin respuesta); sin nada, no se pinta
+function Ledger({ l }: { l: ReviewLedger }) {
+  const partes = [l.unresolved > 0 && `💬 ${t('panels.ledgerThreads', { n: l.unresolved })}`, l.unansweredSummaries > 0 && `✉ ${t('panels.ledgerSummaries', { n: l.unansweredSummaries })}`].filter(Boolean);
+  return <small className="espera" title={t('panels.ledgerTitle', { hilos: l.unresolved, viejos: l.outdated, resumenes: l.unansweredSummaries })}>{partes.join(' · ')}</small>;
+}
 
 // en cada columna, los PR de una misma tarea juntos, en un bloque: la tarea va donde va su mejor PR (la primera ola o el
 // más reciente) y dentro, en el orden de la columna
@@ -161,6 +168,7 @@ export function DeploymentBoard({ salaId, volver }: { salaId: string; volver: ()
                   onMouseEnter={() => { setCol(ci); setI(k); }} onClick={() => { if (marking) marcar(marking, p.url); }} onDoubleClick={() => !marking && openLink(p.url)} title={`${refPR(p)} · ${trTextPR(p)}`}>
                   <span className="marca-tarea" title={pRTask(p)} /><span className="ident">{corto(p)}</span>{ola.has(p.url) && <span className="ola" title={t('panels.deploymentWaveGoesAfterThe')}>{t('panels.waveN', { n: ola.get(p.url) ?? 0 })}</span>} {p.titulo}
                   <small className="tenue">{trTextPR(p)}</small>
+                  {p.estado !== 'fusionado' && p.estado !== 'cerrado' && ledgerPending(p.ledger) && <Ledger l={p.ledger!} />}
                   {esp.length > 0 && <small className={pendientes.length ? 'espera' : 'tenue'}>⛔ {t('panels.waitsFor')} {esp.map(b => <span key={b.por} title={tIs(REASON[b.motivo])}>{corto(byUrl.get(b.por)!)}{byUrl.get(b.por)?.estado === 'fusionado' ? ' ✓' : ''} </span>)}</small>}
                   {blq.length > 0 && <small className="tenue">→ {t('panels.blocks')} {blq.map(b => corto(byUrl.get(b.de)!)).join(', ')}</small>}
                   {junto.length > 0 && <small className="tenue" title={t('panels.sameTaskInAnotherRepo')}>⋯ {t('panels.sameTaskAs')} {junto.map(corto).join(', ')}</small>}

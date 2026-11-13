@@ -7,6 +7,7 @@
 import type { PRBoard } from './tablero';
 import { textKey } from './tareas';
 import { t } from './idioma';
+import { ledgerPending } from './cuentaRevisiones';
 
 export type BlockerReason = 'pila' | 'texto' | 'plan' | 'manual';
 /** `de` espera a `por` (las dos, URL de PR) */
@@ -127,7 +128,7 @@ export function deploymentText(prs: PRBoard[], bloqueos: Blocker[]): string {
   const linea = (p: PRBoard) => {
     const esp = bloqueos.filter(b => b.de === p.url).map(b => byUrl.get(b.por)).filter(Boolean).map(q => refPR(q!) + (q!.estado === 'fusionado' ? t('prompt.deploy.mergedMark') : ''));
     const junto = links.filter(e => e.a === p.url || e.b === p.url).map(e => byUrl.get(e.a === p.url ? e.b : e.a)!).map(refPR);
-    return t('prompt.deploy.line', { pr: refPR(p), titulo: p.titulo ?? '', columna: columnaDespliegue(p) ?? '', ci: p.checks ? ' · CI ' + p.checks : '', espera: esp.length ? t('prompt.deploy.waitsFor', { prs: esp.join(', ') }) : '', junto: junto.length ? t('prompt.deploy.sameTask', { clave: pRKey(p) || '', prs: junto.join(', ') }) : '', url: p.url });
+    return t('prompt.deploy.line', { pr: refPR(p), titulo: p.titulo ?? '', columna: columnaDespliegue(p) ?? '', ci: p.checks ? ' · CI ' + p.checks : '', revisiones: p.estado !== 'fusionado' && p.ledger && ledgerPending(p.ledger) ? t('prompt.deploy.ledger', { hilos: p.ledger.unresolved, resumenes: p.ledger.unansweredSummaries }) : '', espera: esp.length ? t('prompt.deploy.waitsFor', { prs: esp.join(', ') }) : '', junto: junto.length ? t('prompt.deploy.sameTask', { clave: pRKey(p) || '', prs: junto.join(', ') }) : '', url: p.url });
   };
   return [
     t('prompt.deploy.pending'),

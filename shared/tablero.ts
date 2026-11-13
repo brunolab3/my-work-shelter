@@ -2,6 +2,7 @@
 // (gh); aquí se cruzan por la clave de Jira que lleve el PR en la rama o en el título (p. ej. «ABC-123-arreglar-x»).
 // Puro: lo usan el cliente y las pruebas.
 import { t as tr } from './idioma';
+import type { ReviewLedger } from './cuentaRevisiones';
 
 export type Category = 'new' | 'indeterminate' | 'done';
 export interface TaskJira {
@@ -18,7 +19,8 @@ export interface PRBoard {
   actualizado: number;
   cabeza?: string;             // el último commit de su rama en GitHub (server/limpiezaTareas.ts: lo del worktree ya está ahí)
   base?: string;               // la rama sobre la que va (si es la de otro PR, va apilado encima: shared/despliegue.ts)
-  dependencias?: string[];     // los PR («org/repo#N», o «rama:<rama>» si los nombra por su rama) de los que dice depender su descripción
+  dependencias?: string[];
+  ledger?: ReviewLedger;       // lo que queda por contestar en sus revisiones (shared/cuentaRevisiones.ts; solo los abiertos)     // los PR («org/repo#N», o «rama:<rama>» si los nombra por su rama) de los que dice depender su descripción
 }
 export interface TaskWithPR extends TaskJira { prs: PRBoard[] }
 export interface PRWithTask extends PRBoard { claves: string[]; tareas: TaskJira[] }

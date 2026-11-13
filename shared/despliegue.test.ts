@@ -89,4 +89,11 @@ describe('misma tarea en repos distintos', () => {
     expect(taskLinks(prs, bs)).toEqual([{ a: api.url, b: web.url, clave: 'ABC-12' }]);
     expect(promptDeployment(prs, bs)).toContain('· misma tarea (ABC-12) que refugio/web#7, sin orden conocido');
   });
+
+  it('el plan lleva lo que queda por contestar en las revisiones de cada PR abierto; con cero, nada', () => {
+    const conRevisiones = pr(1, { ledger: { unresolved: 3, outdated: 0, unansweredSummaries: 1 } }), limpio = pr(2, { ledger: { unresolved: 0, outdated: 0, unansweredSummaries: 0 } });
+    const texto = promptDeployment([conRevisiones, limpio], []);
+    expect(texto).toContain('o/r#1 «PR 1» · revision · revisiones por contestar: 3 hilos sin resolver, 1 resúmenes sin respuesta');
+    expect(texto.split('\n').find(l => l.includes('o/r#2'))).not.toContain('revisiones por contestar');
+  });
 });

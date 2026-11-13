@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { reviewsOfGitHub, withoutNothingThatMake, remoteRepo, branchKey, sessionOfPR, reviewMessage, ReviewsPR, type RoomPR, type CtxReviews } from './revisionesPR.ts';
 import type { SessionSummary } from '../shared/protocolo.ts';
+import { readFileSync } from 'node:fs';
 
 const T0 = Date.parse('2026-11-10T10:00:00Z');
 const iso = (min: number) => new Date(T0 + min * 60_000).toISOString();
@@ -94,6 +95,28 @@ describe('revisiones de PR', () => {
     expect(m).toContain('**ana-revisa** pide cambios (u/r1)\n   > Falta una prueba.');
     expect(m).toContain('comenta en `lib/router.js:12`');
     expect(m).toContain('hasta que el Supervisor apruebe el plan');
+  });
+
+  it('con la cuenta del PR: hilos sin resolver y resúmenes sin respuesta, y el recordatorio antes de descartar o volver a pedir', () => {
+    // el fixture de verdad por el camino de verdad: reviewsOfGitHub con su autor (viewer) y el mensaje que recibe el habitante
+    const { prs } = reviewsOfGitHub(JSON.parse(readFileSync(path.join(__dirname, '../test/fixtures/pr_review_ledger.json'), 'utf8')));
+    expect(prs[0].ledger).toEqual({ unresolved: 2, outdated: 1, unansweredSummaries: 2 });
+    const m = reviewMessage(prs[0], prs[0].eventos);
+    expect(m).toContain('📒 Cuenta del PR: 2 hilos sin resolver (de ellos, 1 desfasados');
+    expect(m).toContain('y 2 resúmenes de revisión sin respuesta tuya.');
+    expect(m).toContain('antes de descartar una revisión o volver a pedirla');
+    // sin nada pendiente, lo dice (y recuerda la regla igual)
+    expect(reviewMessage({ ...prs[0], ledger: { unresolved: 0, outdated: 0, unansweredSummaries: 0 } }, prs[0].eventos)).toContain('ningún hilo sin resolver ni resumen sin respuesta');
+  });
+
+  it('el tablero recibe la cuenta de cada PR de la última vuelta', async () => {
+    const dir = mkdtempSync(path.join(os.tmpdir(), 'revisiones-'));
+    const fixture = JSON.parse(readFileSync(path.join(__dirname, '../test/fixtures/pr_review_ledger.json'), 'utf8'));
+    const r = new ReviewsPR(dir, { connection: async () => ({ real: true }), consultar: async () => fixture, salas: async () => [], sesiones: () => [], avisar: () => false, abrir: async () => false, delivered: () => {}, withoutConversation: () => {} });
+    const url = 'https://github.example/refugio/cola/pull/31';
+    expect(r.ledgerOf(url)).toBeUndefined();
+    await r.sondear();
+    expect(r.ledgerOf(url)).toEqual({ unresolved: 2, outdated: 1, unansweredSummaries: 2 });
   });
 
   it('la primera vez solo marca desde cuándo; luego entrega lo nuevo una vez, y sin conversación abre la del worktree de la tarea', async () => {

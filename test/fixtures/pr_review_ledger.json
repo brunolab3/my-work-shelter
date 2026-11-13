@@ -1,0 +1,32 @@
+{
+  "data": {
+    "viewer": { "login": "ana-autora" },
+    "prs": { "nodes": [
+      {
+        "number": 31, "title": "REF-310 Reintentos en la cola de pagos", "url": "https://github.example/refugio/cola/pull/31", "headRefName": "REF-310-reintentos",
+        "repository": { "nameWithOwner": "refugio/cola" },
+        "reviewThreads": { "nodes": [
+          { "isResolved": false, "isOutdated": false, "path": "cola.ts", "line": 12, "primero": { "nodes": [{ "author": { "login": "bea-revisora" } }] }, "comments": { "nodes": [{ "id": "c1", "body": "¿Y si el reintento llega dos veces?", "url": "https://github.example/refugio/cola/pull/31#discussion_r1", "createdAt": "2026-11-10T10:00:00Z", "author": { "__typename": "User", "login": "bea-revisora" } }] } },
+          { "isResolved": false, "isOutdated": true, "path": "cola.ts", "line": 40, "primero": { "nodes": [{ "author": { "login": "revisor-auto" } }] }, "comments": { "nodes": [{ "id": "c2", "body": "Posible fuga de memoria", "url": "https://github.example/refugio/cola/pull/31#discussion_r2", "createdAt": "2026-11-10T10:05:00Z", "author": { "__typename": "Bot", "login": "revisor-auto" } }] } },
+          { "isResolved": true, "isOutdated": false, "path": "cola.ts", "line": 55, "primero": { "nodes": [{ "author": { "login": "bea-revisora" } }] }, "comments": { "nodes": [{ "id": "c3", "body": "Renombra esto", "url": "https://github.example/refugio/cola/pull/31#discussion_r3", "createdAt": "2026-11-10T10:06:00Z", "author": { "__typename": "User", "login": "bea-revisora" } }] } },
+          { "isResolved": false, "isOutdated": false, "path": "README.md", "line": 3, "primero": { "nodes": [{ "author": { "login": "ana-autora" } }] }, "comments": { "nodes": [{ "id": "c4", "body": "Nota para mí: documentar el límite", "url": "https://github.example/refugio/cola/pull/31#discussion_r4", "createdAt": "2026-11-10T10:07:00Z", "author": { "__typename": "User", "login": "ana-autora" } }] } }
+        ] },
+        "reviews": { "nodes": [
+          { "id": "r1", "state": "CHANGES_REQUESTED", "body": "Falta cubrir el caso de la cola vacía y el límite de reintentos.", "url": "https://github.example/refugio/cola/pull/31#pullrequestreview-101", "submittedAt": "2026-11-10T10:10:00Z", "author": { "__typename": "User", "login": "bea-revisora" } },
+          { "id": "r2", "state": "COMMENTED", "body": "<!-- resumen-auto -->\nHe encontrado dos riesgos de concurrencia en el consumidor.", "url": "https://github.example/refugio/cola/pull/31#pullrequestreview-102", "submittedAt": "2026-11-10T10:11:00Z", "author": { "__typename": "Bot", "login": "revisor-auto" } },
+          { "id": "r3", "state": "COMMENTED", "body": "LGTM 🚀", "url": "https://github.example/refugio/cola/pull/31#pullrequestreview-103", "submittedAt": "2026-11-10T10:12:00Z", "author": { "__typename": "User", "login": "carlos-revisor" } },
+          { "id": "r4", "state": "COMMENTED", "body": "", "url": "https://github.example/refugio/cola/pull/31#pullrequestreview-104", "submittedAt": "2026-11-10T10:13:00Z", "author": { "__typename": "User", "login": "bea-revisora" } },
+          { "id": "r5", "state": "APPROVED", "body": "Bien, pero fusiona después de la #30, que cambia el esquema.", "url": "https://github.example/refugio/cola/pull/31#pullrequestreview-105", "submittedAt": "2026-11-10T10:14:00Z", "author": { "__typename": "User", "login": "dani-revisor" } },
+          { "id": "r6", "state": "COMMENTED", "body": "Revisa también el nombre de la métrica de reintentos.", "url": "https://github.example/refugio/cola/pull/31#pullrequestreview-106", "submittedAt": "2026-11-10T10:15:00Z", "author": { "__typename": "User", "login": "eva-revisora" } },
+          { "id": "r7", "state": "CHANGES_REQUESTED", "body": "El timeout por defecto es demasiado corto para producción.", "url": "https://github.example/refugio/cola/pull/31#pullrequestreview-107", "submittedAt": "2026-11-10T10:16:00Z", "author": { "__typename": "User", "login": "fer-revisor" } }
+        ] },
+        "comments": { "nodes": [
+          { "id": "k1", "body": "@bea-revisora añadido el caso de la cola vacía y el límite en 4f2a.", "url": "https://github.example/refugio/cola/pull/31#issuecomment-1", "createdAt": "2026-11-10T11:00:00Z", "author": { "__typename": "User", "login": "ana-autora" } },
+          { "id": "k2", "body": "> Revisa también el nombre de la métrica de reintentos.\n\nHecho: ahora es cola_reintentos_total.", "url": "https://github.example/refugio/cola/pull/31#issuecomment-2", "createdAt": "2026-11-10T11:01:00Z", "author": { "__typename": "User", "login": "ana-autora" } },
+          { "id": "k3", "body": "Gracias a todos, voy con ello.", "url": "https://github.example/refugio/cola/pull/31#issuecomment-3", "createdAt": "2026-11-10T11:02:00Z", "author": { "__typename": "User", "login": "ana-autora" } },
+          { "id": "k4", "body": "@fer-revisor lo miro", "url": "https://github.example/refugio/cola/pull/31#issuecomment-4", "createdAt": "2026-11-10T10:00:00Z", "author": { "__typename": "User", "login": "ana-autora" } }
+        ] }
+      }
+    ] }
+  }
+}

@@ -13,6 +13,7 @@ import path from 'node:path';
 import { abrirEnEditor } from './abrir.ts';
 import { entornoGit } from './entornoGit.ts';
 import type { PRBoard } from '../shared/tablero.ts';
+import type { ReviewLedger } from '../shared/cuentaRevisiones.ts';
 import { dependenciasEnTexto } from '../shared/despliegue.ts';
 import { t } from '../shared/idioma.ts';
 
@@ -334,7 +335,8 @@ export function demoPRsBoard(): PRBoard[] {
     pr(18, 'REF-236 Pruebas de la sesión con proxy', 'refugio/requests', 'ref-236-pruebas', 'borrador', 22, undefined, 'SUCCESS'),
     pr(39, 'Nuevo router: rutas anidadas', 'refugio/express', 'REF-219-router', 'fusionado', 26),
     pr(9, 'Ordenar la lista por temas', 'refugio/awesome', 'ordenar-temas', 'abierto', 8, 'REVIEW_REQUIRED', 'SUCCESS'),
-  ].map(p => ({ ...p, base: p.numero === 18 ? 'sesiones-persistentes' : 'main', dependencias: p.numero === 42 ? ['refugio/express#39', 'refugio/ripgrep#51'] : [] }));   // #18 apilado sobre #17; #42 espera a #39 y #51
+  ].map(p => ({ ...p, base: p.numero === 18 ? 'sesiones-persistentes' : 'main', dependencias: p.numero === 42 ? ['refugio/express#39', 'refugio/ripgrep#51'] : [],
+    ...(p.numero === 17 ? { ledger: { unresolved: 3, outdated: 1, unansweredSummaries: 1 } } : {}) }));   // #18 apilado sobre #17; #42 espera a #39 y #51; #17 con revisiones por contestar
 }
 export async function prsTablero(connection: { real: boolean; off?: boolean; token?: string }): Promise<{ prs: PRBoard[]; demo?: boolean; error?: string }> {
   if (connection.off) return { prs: [], error: t('server.git.connectGitHub') };
@@ -377,12 +379,17 @@ export async function localContributions(rutas: string[]): Promise<DataGitHub> {
 }
 
 // ---------------------------------------------------------------- despacho
-export interface CtxGit { allowedPath: (r: string) => boolean; pathsRepos: () => string[]; alCambiar: (ruta: string) => void; github?: () => Promise<{ real: boolean; token?: string }> }
+export interface CtxGit { allowedPath: (r: string) => boolean; pathsRepos: () => string[]; alCambiar: (ruta: string) => void; github?: () => Promise<{ real: boolean; token?: string }>; ledger?: (url: string) => ReviewLedger | undefined }
 const WRITE = new Set(['abortar', 'continuar', 'preparar', 'quitar', 'descartar', 'parche', 'commit', 'deshacerCommit', 'cambiarRama', 'crearRama', 'borrarRama', 'cajonGuardar', 'cajonSacar', 'cajonTirar', 'sincronizar']);
 
 export async function actionGit(nombre: string, d: Record<string, any>, ctx: CtxGit): Promise<unknown> {
   if (nombre === 'github') return github(ctx.pathsRepos(), !!d.forzar, (await ctx.github?.()) ?? { real: false });
-  if (nombre === 'prsTablero') return prsTablero((await ctx.github?.()) ?? { real: false });
+  if (nombre === 'prsTablero') {
+    // con lo que queda por contestar en sus revisiones, de la última vuelta de revisionesPR.ts
+    const r = await prsTablero((await ctx.github?.()) ?? { real: false });
+    if (r.demo || !ctx.ledger) return r;
+    return { ...r, prs: r.prs.map(p => { const l = ctx.ledger!(p.url); return l ? { ...p, ledger: l } : p; }) };
+  }
   const ruta = path.resolve(String(d.ruta ?? ''));
   if (!ctx.allowedPath(ruta)) throw new Error(t('server.thatFolderIsNotA'));
   const lista = (v: unknown) => (Array.isArray(v) ? v.map(String) : []);

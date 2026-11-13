@@ -12,30 +12,23 @@ import { existsSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
 import path from 'node:path';
 import type { SessionSummary } from '../shared/protocolo.ts';
 import { t } from '../shared/idioma.ts';
+import { withoutNothingThatMake, cleanBody, reviewLedger, ledgerPending, type ReviewLedger } from '../shared/cuentaRevisiones.ts';
 
 export interface EventPR { id: string; tipo: 'revision' | 'hilo' | 'comentario'; autor: string; bot?: boolean; cuerpo: string; url: string; fecha: number; estado?: string; archivo?: string; linea?: number }
-export interface PRWithReview { numero: number; titulo: string; url: string; repo: string; rama: string; eventos: EventPR[] }
+export interface PRWithReview { numero: number; titulo: string; url: string; repo: string; rama: string; eventos: EventPR[]; ledger: ReviewLedger }
 export interface RoomPR { id: string; nombre: string; ruta: string; rama?: string; worktrees: { ruta: string; rama: string }[]; repo?: string }
 
 export const REVIEWS_QUERY = `query {
   viewer { login }
   prs: search(query: "is:pr is:open author:@me archived:false sort:updated-desc", type: ISSUE, first: 30) { nodes { ... on PullRequest {
     number title url headRefName repository { nameWithOwner }
-    reviews(last: 20) { nodes { id state body url submittedAt author { __typename login } } }
-    reviewThreads(last: 50) { nodes { isResolved path line comments(last: 10) { nodes { id body url createdAt author { __typename login } } } } }
-    comments(last: 20) { nodes { id body url createdAt author { __typename login } } }
+    reviews(last: 50) { nodes { id state body url submittedAt author { __typename login } } }
+    reviewThreads(last: 100) { nodes { isResolved isOutdated path line primero: comments(first: 1) { nodes { author { login } } } comments(last: 10) { nodes { id body url createdAt author { __typename login } } } } }
+    comments(last: 50) { nodes { id body url createdAt author { __typename login } } }
   } } }
 }`;
 
-// lo que no pide nada: un visto bueno, un agradecimiento o un emoji («LGTM», «Thanks!», «👍», «Gracias, perfecto»).
-// Solo si es corto y no lleva pregunta: con eso no hay plan que hacer
-const COURTESY = /^(lgtm|looks good( to me)?|lg|thanks?( a lot| you( so much)?)?|thx|ty|nice( work| job| one)?|great( work| job)?|good (work|job|catch|stuff)|well done|awesome|cool|perfect|ship ?it|approved?|ok(ay)?|done|resolved|\+1|gracias|muchas gracias|perfecto|genial|vale|bien|buen trabajo|ok gracias|todo bien|aprobado|de acuerdo)$/;
-export function withoutNothingThatMake(cuerpo: string): boolean {
-  const t = cuerpo.toLowerCase().replace(/@[\w-]+/g, ' ').replace(/:[a-z0-9_+-]+:/g, ' ').replace(/[\p{Extended_Pictographic}\u{FE0F}\u{200D}\u{1F3FB}-\u{1F3FF}]/gu, ' ');
-  if (t.includes('?') || t.length > 80) return false;
-  const partes = t.split(/[\n.,;!¡]+/).map(x => x.replace(/\s+/g, ' ').trim()).filter(Boolean);
-  return partes.every(x => COURTESY.test(x));
-}
+export { withoutNothingThatMake };
 
 /** Lo de otros en cada PR que pide algo: revisiones que piden cambios o comentan algo con texto, comentarios de hilos
  *  sin resolver y comentarios de la conversación, también los de bots (un revisor automático o un informe de pruebas
@@ -46,8 +39,7 @@ export function reviewsOfGitHub(j: any): { yo: string; prs: PRWithReview[] } {
   const yo = String(j?.data?.viewer?.login ?? '');
   const otro = (a: any) => !!a?.login && a.login !== yo;
   const bot = (a: any) => (a?.__typename === 'Bot' ? { bot: true } : {});
-  // los bots esconden sus marcas en comentarios HTML (<!-- ci-status: … -->): fuera, que no gasten la cita
-  const texto = (b: any) => String(b ?? '').replace(/<!--[\s\S]*?-->/g, '').trim();
+  const texto = cleanBody;   // sin las marcas que esconden los bots en comentarios HTML: que no gasten la cita
   const fecha = (s: any) => { const t = Date.parse(s ?? ''); return Number.isFinite(t) ? t : 0; };
   const prs = (j?.data?.prs?.nodes ?? []).filter((n: any) => n?.number).map((n: any): PRWithReview => {
     const eventos: EventPR[] = [];
@@ -64,7 +56,7 @@ export function reviewsOfGitHub(j: any): { yo: string; prs: PRWithReview[] } {
     for (const c of n.comments?.nodes ?? []) if (c?.id && otro(c.author) && !withoutNothingThatMake(texto(c.body)))
       eventos.push({ id: c.id, tipo: 'comentario', autor: c.author.login, ...bot(c.author), cuerpo: texto(c.body), url: c.url ?? n.url, fecha: fecha(c.createdAt) });
     eventos.sort((a, b) => a.fecha - b.fecha);
-    return { numero: n.number, titulo: n.title ?? '', url: n.url ?? '', repo: n.repository?.nameWithOwner ?? '', rama: n.headRefName ?? '', eventos };
+    return { numero: n.number, titulo: n.title ?? '', url: n.url ?? '', repo: n.repository?.nameWithOwner ?? '', rama: n.headRefName ?? '', eventos, ledger: reviewLedger(n, yo) };
   });
   return { yo, prs };
 }
@@ -130,8 +122,22 @@ export function reviewMessage(pr: PRWithReview, eventos: EventPR[]): string {
     ...lista,
     ...(eventos.length > MAX_EVENTS ? [t('prompt.review.more', { n: eventos.length - MAX_EVENTS })] : []),
     '',
+    ...ledgerLines(pr.ledger),
+    '',
     t('prompt.review.ask'),
   ].join('\n');
+}
+
+/** La cuenta de lo que queda por contestar en el PR (shared/cuentaRevisiones.ts) y el recordatorio: cada hilo, arreglado o
+ *  contestado, y cada resumen contestado antes de descartar una revisión o volver a pedirla */
+export function ledgerLines(l?: ReviewLedger): string[] {
+  if (!l) return [];
+  return [
+    ledgerPending(l)
+      ? t('prompt.review.ledger', { hilos: l.unresolved, viejos: l.outdated ? t('prompt.review.ledgerOutdated', { n: l.outdated }) : '', resumenes: l.unansweredSummaries })
+      : t('prompt.review.ledgerClear'),
+    t('prompt.review.ledgerRule'),
+  ];
 }
 
 export interface CtxReviews {
@@ -152,6 +158,9 @@ export class ReviewsPR {
   private bots = false;   // desde que se entregan los de bots: los que ya había al empezar no se mandan de golpe
   private avisados = new Set<string>();
   private archivo: string;
+  private ledgers = new Map<string, ReviewLedger>();   // por URL del PR, de la última vuelta: lo pinta el tablero de despliegue
+  /** Lo que queda por contestar en uno de tus PR abiertos (undefined hasta la primera vuelta con GitHub conectado) */
+  ledgerOf(url: string): ReviewLedger | undefined { return this.ledgers.get(url); }
   constructor(dir: string, private ctx: CtxReviews) {
     this.archivo = path.join(dir, 'revisiones-pr.json');
     try { if (existsSync(this.archivo)) { const j = JSON.parse(readFileSync(this.archivo, 'utf8')); this.desde = Number(j.desde) || 0; this.bots = !!j.bots; this.seen = Array.isArray(j.seen) ? j.seen.filter((x: unknown) => typeof x === 'string') : []; } } catch {}
@@ -162,6 +171,7 @@ export class ReviewsPR {
     const c = await this.ctx.connection();
     if (!c.real) return;
     const { prs } = reviewsOfGitHub(await this.ctx.consultar(c.token));
+    this.ledgers = new Map(prs.map(pr => [pr.url, pr.ledger]));
     if (!this.desde) { this.desde = Date.now(); this.bots = true; this.guardar(); return; }   // la primera vez solo se marca desde cuándo
     if (!this.bots) { this.seen.push(...prs.flatMap(pr => pr.eventos.filter(e => e.bot).map(e => e.id))); this.bots = true; this.guardar(); }
     const seen = new Set(this.seen);

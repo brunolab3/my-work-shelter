@@ -49,6 +49,10 @@ export const PROMPTS: Record<string, Texto> = {
   'prompt.review.onLine': { es: 'comenta en `{lugar}`', en: 'comments on `{lugar}`' },
   'prompt.review.onConversation': { es: 'comenta en la conversación', en: 'comments on the conversation' },
   'prompt.review.more': { es: '…y {n} más: míralos en el PR.', en: '…and {n} more: see them on the PR.' },
+  'prompt.review.ledger': { es: '📒 Cuenta del PR: {hilos} hilos sin resolver{viejos} y {resumenes} resúmenes de revisión sin respuesta tuya.', en: '📒 PR ledger: {hilos} unresolved threads{viejos} and {resumenes} review summaries without a reply from you.' },
+  'prompt.review.ledgerOutdated': { es: ' (de ellos, {n} desfasados: el código cambió, pero hay que contestarlos o resolverlos igual)', en: ' ({n} of them outdated: the code changed, but they still need a reply or to be resolved)' },
+  'prompt.review.ledgerClear': { es: '📒 Cuenta del PR: ningún hilo sin resolver ni resumen sin respuesta.', en: '📒 PR ledger: no unresolved threads and no unanswered review summaries.' },
+  'prompt.review.ledgerRule': { es: 'Atiende cada hilo (arréglalo o contesta en él) y contesta cada resumen de revisión (citándolo o nombrando a quien lo hizo) antes de descartar una revisión o volver a pedirla.', en: 'Address every thread (fix it or reply on it) and answer every review summary (quoting it or mentioning its reviewer) before dismissing a review or re-requesting one.' },
   'prompt.review.ask': { es: 'Analiza cada comentario con el código de este worktree y propón al Supervisor un plan: qué arreglarías (y cómo), qué no y por qué, y qué contestarías en cada hilo (con el texto de la respuesta). No cambies código, no hagas push ni contestes en GitHub hasta que el Supervisor apruebe el plan.', en: 'Analyse each comment against the code in this worktree and propose a plan to the Overseer: what you would fix (and how), what not and why, and what you would reply on each thread (with the text of the reply). Do not change code, push or reply on GitHub until the Overseer approves the plan.' },
   'prompt.ci.title': { es: '🚨 {clave}La CI falla en tu PR #{numero} de {repo} («{titulo}»), rama `{rama}`, commit `{commit}`: {url}', en: '🚨 {clave}CI is failing on your PR #{numero} in {repo} (“{titulo}”), branch `{rama}`, commit `{commit}`: {url}' },
   'prompt.ci.noDetail': { es: '(GitHub no dice qué check falla: míralo en el PR.)', en: '(GitHub does not say which check fails: see the PR.)' },
@@ -76,8 +80,9 @@ export const PROMPTS: Record<string, Texto> = {
   'prompt.deploy.merged': { es: 'Ya fusionados (últimas dos semanas):', en: 'Already merged (last two weeks):' },
   'prompt.deploy.mergedMark': { es: ' (fusionado)', en: ' (merged)' },
   'prompt.deploy.waitsFor': { es: ' · espera a {prs}', en: ' · waits for {prs}' },
+  'prompt.deploy.ledger': { es: ' · revisiones por contestar: {hilos} hilos sin resolver, {resumenes} resúmenes sin respuesta', en: ' · reviews to answer: {hilos} unresolved threads, {resumenes} unanswered summaries' },
   'prompt.deploy.sameTask': { es: ' · misma tarea ({clave}) que {prs}, sin orden conocido', en: ' · same task ({clave}) as {prs}, no known order' },
-  'prompt.deploy.line': { es: '- {pr} «{titulo}» · {columna}{ci}{espera}{junto} · {url}', en: '- {pr} “{titulo}” · {columna}{ci}{espera}{junto} · {url}' },
+  'prompt.deploy.line': { es: '- {pr} «{titulo}» · {columna}{ci}{revisiones}{espera}{junto} · {url}', en: '- {pr} “{titulo}” · {columna}{ci}{revisiones}{espera}{junto} · {url}' },
   // integrar una copia holográfica en su rama base (server/worktrees.ts)
   'prompt.merge.worktree': {
     es: 'Integra la rama `{rama}` (en el worktree `{ruta}`) en `{base}` en este repositorio y luego limpia:\n1. Si el worktree tiene cambios sin commitear, para y pregúntame qué hacer con ellos.\n2. Pon `{base}` al día si sigue a un remoto y fusiona `{rama}`. Resuelve conflictos con cuidado y pregúntame si dudas.\n3. Ejecuta las comprobaciones o tests del proyecto si los tiene.\n4. Elimina el worktree con `git worktree remove {ruta}` y borra la rama con `git branch -d {rama}`.\nNo hagas push salvo que te lo pida.',
