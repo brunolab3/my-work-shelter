@@ -136,6 +136,28 @@ export function liveSessions(): { id: string; cwd: string; modified: number }[] 
 // La fecha del archivo no sirve: la app (y Claude Code al retomarla) le añaden metadatos al abrirla (un enlace de PR, con
 // su propia fecha, o sin fecha) y parecería de ahora
 export function lastActivity(file: string): number | undefined {
+  return lastMessage(file, '"timestamp"', d => { const t = Date.parse(d.timestamp); return Number.isNaN(t) ? undefined : t; });
+}
+
+// Claude Code, al salir de un worktree que creó él (`--worktree`; p. ej. al cerrar en iTerm una conversación que salió a
+// la superficie), lleva la conversación al proyecto del repo principal y la marca «relocated»: desde entonces la da por
+// del repo principal (listSessions, getSessionInfo) aunque se hiciera en el worktree. Retomarla en el worktree funciona
+// (la encuentra y sigue allí), así que manda dónde se habló por última vez: el `cwd` de su último mensaje, si sigue
+// existiendo. La marca se vuelve a escribir al final con los metadatos, así que basta mirar la cola
+export function cwdBeforeRelocation(file: string): string | undefined {
+  try {
+    const size = statSync(file).size, n = Math.min(64 << 10, size), buf = Buffer.alloc(n);
+    const fd = openSync(file, 'r');
+    try { readSync(fd, buf, 0, n, size - n); } finally { closeSync(fd); }
+    if (!buf.includes('"type":"relocated"')) return;
+  } catch { return; }
+  const cwd = lastMessage(file, '"cwd"', d => (typeof d.cwd === 'string' && d.cwd ? d.cwd : undefined));
+  return cwd && existsSync(cwd) ? cwd : undefined;
+}
+
+// lo que `pick` saca del último mensaje (del usuario o de Claude) que lo tenga, leyendo desde el final por trozos cada
+// vez mayores (las transcripciones pasan de 10 MB); `marca`: el texto que debe llevar la línea para molestarse en leerla
+function lastMessage<T>(file: string, marca: string, pick: (d: any) => T | undefined): T | undefined {
   let fd: number | undefined;
   try {
     fd = openSync(file, 'r');
@@ -145,10 +167,10 @@ export function lastActivity(file: string): number | undefined {
       readSync(fd, buf, 0, n, size - n);
       const lineas = buf.toString('utf8').split('\n');
       for (let i = lineas.length - 1; i >= (n < size ? 1 : 0); i--) {
-        if (!lineas[i].includes('"timestamp"')) continue;
+        if (!lineas[i].includes(marca)) continue;
         let d: any; try { d = JSON.parse(lineas[i]); } catch { continue; }
-        const t = (d?.type === 'user' || d?.type === 'assistant') ? Date.parse(d.timestamp) : NaN;
-        if (!Number.isNaN(t)) return t;
+        const v = d?.type === 'user' || d?.type === 'assistant' ? pick(d) : undefined;
+        if (v !== undefined) return v;
       }
       if (n >= size || tam >= 16 << 20) return;
     }

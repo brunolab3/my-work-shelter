@@ -4,7 +4,7 @@
 // canUseTool se enruta al jugador. Diseño inspirado en code-town/server/sessions.ts (MIT).
 import os from 'node:os';
 import path from 'node:path';
-import { lastActivity, projectFolder } from './repos.ts';
+import { cwdBeforeRelocation, lastActivity, projectFolder } from './repos.ts';
 import { mcpReview } from './comparar.ts';
 import { readFileSync } from 'node:fs';
 import { EventEmitter } from 'node:events';
@@ -649,7 +649,8 @@ export class Sessions extends EventEmitter {
       // la fecha del último mensaje, no la del archivo (abrirla en la app de Claude la toca sin escribir nada)
       // (puede estar en dos proyectos: la carpeta del repo y la del worktree donde se retomó; cuenta la más reciente)
       modified: Math.max(0, ...[...new Set([dir, s.cwd].filter(Boolean))].map(d => lastActivity(path.join(projectFolder(d!), s.sessionId + '.jsonl')) ?? 0)) || s.lastModified,
-      rama: s.gitBranch, cwd: s.cwd, enCurso: vivas.get(s.sessionId),
+      // la que Claude Code se llevó de su worktree al repo principal sigue siendo de ese worktree (cwdBeforeRelocation)
+      rama: s.gitBranch, cwd: (s.cwd && cwdBeforeRelocation(path.join(projectFolder(s.cwd), s.sessionId + '.jsonl'))) || s.cwd, enCurso: vivas.get(s.sessionId),
     })).sort((a, b) => b.modified - a.modified);
   }
 
