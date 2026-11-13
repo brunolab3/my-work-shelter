@@ -17,6 +17,7 @@ import { cleanCompares } from './comparar.ts';
 import { isCloneOfExample } from './ejemplos.ts';
 import { mcpDecor, promptAdaptar, type CtxDecor } from './decoradoSala.ts';
 import { mcpAssignment, mcpPlan, type CtxAssignment } from './reparto.ts';
+import { mcpRooms, taskWorktree, type CtxRooms } from './avisosSalas.ts';
 import { Plans, tasksOrder } from './planes.ts';
 import { BlockersPR } from './bloqueosPR.ts';
 import { TasksColors } from './coloresTareas.ts';
@@ -139,9 +140,20 @@ const ctxPlan: Pick<CtxAssignment, 'planes' | 'avisar' | 'mensajero' | 'sesionDe
   },
   mensajero: (desde, a, motivo) => broadcast({ t: 'mensajero', desde, a, motivo }),
 };
+// mensajes entre salas (avisosSalas.ts): a la conversación de la tarea o a una nueva con el habitante, en automático
+const ctxRooms: CtxRooms = {
+  salas: () => almacen.estado.salas.map(s => { const h = almacen.estado.habitantes.find(x => x.salaId === s.id); return { id: s.id, nombre: s.nombre, habitante: h && { id: h.id, nombre: h.nombre } }; }),
+  sesionDeTarea: (salaId, clave) => ctxPlan.sesionDeTarea!(salaId, clave),
+  worktreeDeTarea: (salaId, clave) => taskWorktree(repos[salaId]?.worktrees ?? [], clave),
+  avisar: (id, texto) => ctxPlan.avisar(id, texto),
+  empezar: (salaId, dwellerId, prompt, cwd) => startWork(undefined, { t: 'empezar', dwellerId, salaId, prompt, opciones: { cwd, permisos: 'auto' } }),
+  mensajero: (desde, a, motivo) => ctxPlan.mensajero(desde, a, motivo),
+  aviso: texto => broadcast({ t: 'aviso', nivel: 'info', texto }),
+};
 const sesiones = new Sessions({
   pathRoom, reposOfShelter: () => gitPaths(), mcpRoom: id => (ctxDecor.sala(id) ? mcpDecor(id, ctxDecor) : undefined),
   mcpAssignment: (id, preguntar, sesionId) => { const s = almacen.estado.salas.find(x => x.id === id && x.tipo === 'coordinacion' && x.ruta); return s ? mcpAssignment(ctxAssignment(s.ruta!), { coordinacion: s.nombre, salaId: s.id, sesionId, preguntar }) : undefined; },
+  mcpRooms: id => mcpRooms(ctxRooms, id),
   mcpPlan: id => { const s = almacen.estado.salas.find(x => x.id === id && x.tipo === 'repo'); return s && planes.ofRoom(id).length ? mcpPlan(ctxPlan, { salaId: id, sala: s.nombre }) : undefined; },
   trustedFolders: () => ((almacen.estado.ajustes as any).trustedFolders ?? []) as string[],
   trust: ruta => { const a = almacen.estado.ajustes as any; a.trustedFolders = [...new Set([...(a.trustedFolders ?? []), path.resolve(ruta)])]; almacen.guardar(); },

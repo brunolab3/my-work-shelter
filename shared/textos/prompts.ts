@@ -34,6 +34,10 @@ export const PROMPTS: Record<string, Texto> = {
   'prompt.job.after': { es: 'Tu parte se fusiona después de la de {salas}: puede depender de lo suyo, pero no al revés.', en: 'Your part is merged after {salas}: it can depend on theirs, but not the other way round.' },
   'prompt.job.sharedPlan': { es: 'El plan entero es compartido (plan {plan}): léelo con plan_compartido antes de empezar. Si cambia, te llegará un aviso: vuelve a leerlo y ajusta tu parte. Si ves que hay que cambiarlo, propónlo con proponer_cambio_plan en vez de desviarte por tu cuenta.', en: 'The whole plan is shared (plan {plan}): read it with plan_compartido before starting. If it changes you will get a notice: read it again and adjust your part. If you think it needs changing, propose it with proponer_cambio_plan instead of going your own way.' },
   'prompt.job.worktree': { es: 'Trabajas en un worktree propio de este repo: haz commits en su rama. No hagas push ni abras pull requests salvo que te lo pida.', en: 'You work in a worktree of your own for this repo: commit on its branch. Do not push or open pull requests unless I ask you to.' },
+  // mensaje de otra sala (server/avisosSalas.ts)
+  'prompt.room.from': { es: '📨 Mensaje de la sala «{sala}» ({habitante}){tarea}:', en: '📨 Message from the “{sala}” room ({habitante}){tarea}:' },
+  'prompt.room.task': { es: ', tarea {clave}', en: ', task {clave}' },
+  'prompt.room.reply': { es: '(Para contestar o pedirle algo, usa enviar_a_sala con sala «{salaId}».)', en: '(To reply or ask it something, use enviar_a_sala with room “{salaId}”.)' },
   // revisión nueva de un PR (server/revisionesPR.ts)
   'prompt.review.title': { es: '🔎 {clave}Revisión nueva en tu PR #{numero} de {repo} («{titulo}»), rama `{rama}`: {url}', en: '🔎 {clave}New review on your PR #{numero} in {repo} (“{titulo}”), branch `{rama}`: {url}' },
   'prompt.review.changesRequested': { es: 'pide cambios', en: 'requests changes' },

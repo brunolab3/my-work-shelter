@@ -54,6 +54,8 @@ export function describeTool(nombre: string, e: Entrada, cwd: string): string {
     case 'mcp__refugio__quitar_decorado': return 'Devolviendo la sala a su plantilla';
     // las del reparto del trabajo desde la sala de coordinación (server/reparto.ts)
     case 'mcp__reparto__salas_del_refugio': return 'Mirando qué repos tienen sala en el refugio';
+    // un mensaje o un encargo al habitante de otra sala (server/avisosSalas.ts)
+    case 'mcp__salas__enviar_a_sala': return `Pasándole un mensaje a la sala ${recorta(s(e.sala), 30)}${s(e.clave) ? ' (' + s(e.clave) + ')' : ''}`;
     case 'mcp__reparto__repartir_trabajo': return `Repartiendo el trabajo${s(e.clave) ? ' de ' + s(e.clave) : ''} por las salas`;
     default:
       if (nombre.startsWith('mcp__')) return `Usando ${nombre.split('__').slice(1).join(' › ')}`;

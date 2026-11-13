@@ -207,6 +207,14 @@ at every repo and proposes a plan per repo. Once approved, it splits it with the
 part starts a conversation in its repo's room, in its own worktree whose branch carries the key (so its PRs show up in
 the task). The card says which rooms already have something going for that task.
 
+**Messages between rooms.** Every conversation, in any room, has `enviar_a_sala` (`server/avisosSalas.ts`, in-process
+MCP `salas`): it hands a message or a job to another room's dweller, no plan and no worktree. Without a task key it
+always starts a new conversation with that dweller in its main copy (messages between rooms start work; they are not a
+chat); with a key (ABC-123) it goes to the conversation open in that task's worktree in that room or, if there is none,
+starts one in the task's worktree (or in the main copy, if the room has none). New conversations run in auto
+permissions. Each message says which room sent it and how to reply; the messenger robot carries it and a notice shows it.
+At most 3 messages a minute from one room to another. `repartir_trabajo` is only for implementation plans.
+
 **Shared plan.** `repartir_trabajo` saves the whole plan (`server/planes.ts`, `DATOS/planes.json`, with versions and
 history); Logistics rereads it with `leer_plan` and each part with `plan_compartido` (MCP `plan` in the rooms that have
 a part). From Logistics, `actualizar_plan` issues a new version and sends a message to the conversation of each affected

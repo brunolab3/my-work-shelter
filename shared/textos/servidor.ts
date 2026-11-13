@@ -209,4 +209,6 @@ export const SERVIDOR: Record<string, Texto> = {
   'server.cleanupWhenClosed': { es: '🧹 Hay una conversación abierta en {ruta}: lo quito en cuanto la cierres.', en: '🧹 There is an open conversation in {ruta}: I will remove it as soon as you close it.' },
   'server.cleanupLeftOpen': { es: 'una conversación abierta en él', en: 'an open conversation in it' },
   'server.newReviewDelivered': { es: '🔎 {authors} en tu PR #{numero} de {repo}: se lo he pasado a {sala} ({rama}).', en: '🔎 {authors} on your PR #{numero} in {repo}: handed to {sala} ({rama}).' },
+  // mensajes entre salas (server/avisosSalas.ts)
+  'server.roomMessage': { es: '📨 {desde} → {a}: {resumen}', en: '📨 {desde} → {a}: {resumen}' },
 };
