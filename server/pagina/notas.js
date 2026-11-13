@@ -172,11 +172,16 @@
     abrir({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), cita, seccion: (propia ? plegar(propia) : (seccion(r) + ':' + linea)).slice(0, 300), inicio: offsetDe(r), texto: '' }, fila.getBoundingClientRect());
   };
   addEventListener('scroll', () => { boton.hidden = true; mas.hidden = true; }, true);
+  // el juego recarga la página cuando cambia su archivo: le dice por dónde va para volver ahí (con mermaid la página
+  // crece al pintarse: se vuelve a colocar al cargar del todo y un momento después)
+  let avisoScroll = 0;
+  addEventListener('scroll', () => { clearTimeout(avisoScroll); avisoScroll = setTimeout(() => post({ tipo: 'scroll', y: scrollY }), 150); });
+  const volverA = y => { const ir = () => scrollTo(0, y); ir(); if (document.readyState !== 'complete') addEventListener('load', ir, { once: true }); setTimeout(ir, 400); setTimeout(ir, 1200); };
 
   // del juego: las notas guardadas de esta página y los textos; «limpiar», cuando ya se han mandado
   addEventListener('message', e => {
     if (e.source !== parent || !e.data || e.data.refugio !== 'notas') return;
-    if (e.data.tipo === 'restaurar') { textos = e.data.textos || textos; notas = Array.isArray(e.data.notas) ? e.data.notas : []; pintar(); }
+    if (e.data.tipo === 'restaurar') { textos = e.data.textos || textos; notas = Array.isArray(e.data.notas) ? e.data.notas : []; pintar(); if (e.data.scroll > 0) volverA(Number(e.data.scroll)); }
     else if (e.data.tipo === 'limpiar') { notas = []; cerrar(); pintar(); }
   });
   const hola = () => post({ tipo: 'hola' });

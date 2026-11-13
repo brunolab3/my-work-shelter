@@ -73,6 +73,8 @@ export function notesMessage(ruta: string, notas: PageNote[]) {
 // Lo que el Supervisor ha hecho con cada página de cada conversación (mandarle notas o validarla): el intercomunicador
 // lista las páginas de la conversación y marca las que quedan por revisar (shared/paginasSesion.ts)
 const RESPUESTAS = 'refugio.respuestasPaginas';
+// por dónde iba cada página (ruta → px), para volver ahí al recargarla
+const scrollOf = new Map<string, number>();
 // (las de más de un mes se olvidan: esas páginas ya no salen en la lista)
 export const pageAnswers = new Store<Record<string, Record<string, PageAnswer>>>((() => {
   try {
@@ -265,12 +267,28 @@ function VentanaNavegador({ v }: { v: WindowNav }) {
     const textos = { nota: '✎ ' + t('windows.note'), guardar: t('windows.save'), cancelar: t('windows.cancel'), borrar: t('windows.delete'), placeholder: t('windows.whatShouldChangeHere') };
     const oir = (e: MessageEvent) => {
       if (e.source !== marco.current?.contentWindow || e.data?.refugio !== 'notas') return;
-      if (e.data.tipo === 'hola') marco.current?.contentWindow?.postMessage({ refugio: 'notas', tipo: 'restaurar', textos, notas: pageNotes.get()[ruta] ?? [] }, '*');
+      if (e.data.tipo === 'hola') marco.current?.contentWindow?.postMessage({ refugio: 'notas', tipo: 'restaurar', textos, notas: pageNotes.get()[ruta] ?? [], scroll: scrollOf.get(ruta) ?? 0 }, '*');
+      else if (e.data.tipo === 'scroll' && typeof e.data.y === 'number') scrollOf.set(ruta, e.data.y);
       else if (e.data.tipo === 'lista') pageNotes.set(x => { const l = cleanNotes(e.data.notas); const y = { ...x }; if (l.length) y[ruta] = l; else delete y[ruta]; return y; });
     };
     addEventListener('message', oir);
     return () => removeEventListener('message', oir);
   }, [v.id, v.ruta]);
+  const cambiada = useRef<{ ruta: string; t: number } | null>(null);   // cuándo cambió el archivo de la que se ve
+  // la página se recarga sola cuando cambia su archivo (el habitante rehace el plan o la comparación) y vuelve a donde
+  // estaba; mientras está minimizada no se mira
+  useEffect(() => {
+    if (!isLocal(v.id) || !v.ruta || v.minimizada) return;
+    const ruta = v.ruta;
+    const mirar = () => cliente.accion<Record<string, number>>('paginas.actualizadas', { rutas: [ruta] }).then(m => {
+      const ahora = m?.[ruta], antes = cambiada.current;
+      if (ahora && antes?.ruta === ruta && ahora !== antes.t) setVuelta(x => x + 1);
+      if (ahora) cambiada.current = { ruta, t: ahora };
+    }).catch(() => {});
+    mirar();
+    const reloj = setInterval(mirar, 2000);
+    return () => clearInterval(reloj);
+  }, [v.id, v.ruta, v.url, v.minimizada]);
   // la conversación que la enlazó; si se abrió sin saberlo, la última que la enlazó
   const sesion = v.sesion ?? (v.ruta ? sessionThatLinked(v.ruta) : undefined);
   // quitar las notas de la página (ya mandadas, copiadas o descartadas)
