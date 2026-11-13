@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { resumeCommand, hookCommand, desktopScript, quotes, promptContinue } from './escritorio.ts';
+import os from 'node:os';
+import path from 'node:path';
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { spawn } from 'node:child_process';
+import { resumeCommand, hookCommand, desktopScript, quotes, promptContinue, outsideOpen, closeOutside } from './escritorio.ts';
 
 const ID = '0f8a2c1e-4b6d-4e2f-9a1b-3c5d7e9f1a2b';
 
@@ -38,5 +42,25 @@ describe('salir a la superficie: AppleScript', () => {
   it('Terminal: una ventana por cosa', () => {
     const g = desktopScript(items, 'Terminal', false);
     expect(g.match(/do script/g)).toHaveLength(2);
+  });
+});
+
+describe('conversaciones abiertas fuera', () => {
+  // un Claude Code de fuera sin --resume (un `claude` recién empezado, la app de Claude) solo se ve en su ficha de
+  // ~/.claude/sessions: un proceso vivo de verdad con su ficha, como la apunta Claude Code
+  it('ve por su ficha la que no se abrió con --resume, nunca la de un hijo del servidor, y la cierra al traerla', async () => {
+    const config = mkdtempSync(path.join(os.tmpdir(), 'cc-')); mkdirSync(path.join(config, 'sessions'));
+    const hijo = spawn('sleep', ['30']); const id = '7c1d9e40-2a5b-4f8c-b3e6-0d4a8f2c6e19';
+    writeFileSync(path.join(config, 'sessions', `${hijo.pid}.json`), JSON.stringify({ pid: hijo.pid, sessionId: id.toUpperCase(), cwd: '/tmp', kind: 'interactive' }));
+    const antes = process.env.CLAUDE_CONFIG_DIR; process.env.CLAUDE_CONFIG_DIR = config;
+    try {
+      expect(outsideOpen(process.pid).has(id)).toBe(false);   // hijo del «servidor»: es del juego
+      expect(outsideOpen(-1).has(id)).toBe(true);
+      const fin = new Promise(ok => hijo.on('exit', ok));
+      expect(await closeOutside(id, -1)).toBe(1);
+      await fin;
+      expect(hijo.signalCode).toBe('SIGTERM');
+      expect(outsideOpen(-1).has(id)).toBe(false);
+    } finally { if (antes === undefined) delete process.env.CLAUDE_CONFIG_DIR; else process.env.CLAUDE_CONFIG_DIR = antes; hijo.kill('SIGKILL'); }
   });
 });

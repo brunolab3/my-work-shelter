@@ -593,7 +593,7 @@ export const PANELS: Record<string, Texto> = {
   'panels.openDiscord': { es: 'Abrir Discord', en: 'Open Discord' },
   'panels.openSlack': { es: 'Abrir Slack', en: 'Open Slack' },
   'panels.openGithub': { es: 'Abrir GitHub', en: 'Open GitHub' },
-  'panels.thatConversationIsStillOpen': { es: 'Esa conversación sigue abierta en una terminal de tu escritorio: sal de ella allí (/exit) o, si ya la cerraste, fuérzalo desde «Retomar un trabajo anterior» del habitante.', en: 'That conversation is still open in a terminal on your desktop: exit it there (/exit) or, if you already closed it, force it from the dweller\'s “Resume a previous job”.' },
+  'panels.thatConversationIsStillOpen': { es: 'Esa conversación sigue abierta fuera del refugio (una terminal, la app de Claude): sal de ella allí (/exit) o, si ya la cerraste, fuérzalo desde «Retomar un trabajo anterior» del habitante.', en: 'That conversation is still open outside the shelter (a terminal, the Claude app): exit it there (/exit) or, if you already closed it, force it from the dweller\'s “Resume a previous job”.' },
   'panels.goToSala': { es: 'Ir a {sala}', en: 'Go to {sala}' },
   'panels.shelterSearch': { es: 'Buscador del refugio', en: 'Shelter search' },
   'panels.searchConversationsActionsDwellersOr': { es: 'Buscar conversaciones, acciones, habitantes o salas…', en: 'Search conversations, actions, dwellers or rooms…' },

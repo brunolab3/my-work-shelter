@@ -5,7 +5,7 @@
 // historial, y al salir de Claude Code te quedas en la carpeta del proyecto.
 import os from 'node:os';
 import path from 'node:path';
-import { existsSync, appendFileSync } from 'node:fs';
+import { existsSync, appendFileSync, readdirSync, readFileSync } from 'node:fs';
 import { execFile, execFileSync } from 'node:child_process';
 import { t } from '../shared/idioma.ts';
 
@@ -79,8 +79,9 @@ export function openInDesktop(items: ItemDesktop[], o: { windowNew?: boolean } =
   }));
 }
 
-// Conversaciones abiertas ahora mismo en una terminal (un `claude --resume <id>` que no es del propio servidor):
-// retomarlas a la vez en el juego las corrompería, así que el refugio se espera a que salgas de ellas
+// Conversaciones abiertas ahora mismo fuera del juego: un `claude --resume <id>` que no es del propio servidor, o
+// cualquier Claude Code vivo que se apunta en ~/.claude/sessions/<pid>.json (un `claude` recién empezado en una terminal,
+// la app de Claude). Retomarlas a la vez en el juego las corrompería: traerlas al refugio las cierra antes allí
 export function outsideOpen(propio = process.pid): Set<string> {
   return new Set(outsideProcesses(propio).map(p => p.claudeId));
 }
@@ -88,18 +89,33 @@ export function outsideOpen(propio = process.pid): Set<string> {
 const RE_RESUME = /(?:--resume|-r)[ =]([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/gi;
 function outsideProcesses(propio: number): { pid: number; claudeId: string }[] {
   const r: { pid: number; claudeId: string }[] = [];
-  try {
-    const out = execFileSync('ps', ['-axo', 'pid=,ppid=,args='], { encoding: 'utf8', timeout: 3000, maxBuffer: 8 << 20 });
-    for (const linea of out.split('\n')) {
-      const m = /^\s*(\d+)\s+(\d+)\s+(.*)$/.exec(linea); if (!m || Number(m[2]) === propio || Number(m[1]) === propio) continue;
-      for (const x of m[3].matchAll(RE_RESUME)) r.push({ pid: Number(m[1]), claudeId: x[1].toLowerCase() });
-    }
-  } catch {}
+  let out = '';
+  try { out = execFileSync('ps', ['-axo', 'pid=,ppid=,args='], { encoding: 'utf8', timeout: 3000, maxBuffer: 8 << 20 }); } catch { return r; }
+  const fuera = new Set<number>();
+  for (const linea of out.split('\n')) {
+    const m = /^\s*(\d+)\s+(\d+)\s+(.*)$/.exec(linea); if (!m || Number(m[2]) === propio || Number(m[1]) === propio) continue;
+    fuera.add(Number(m[1]));
+    for (const x of m[3].matchAll(RE_RESUME)) r.push({ pid: Number(m[1]), claudeId: x[1].toLowerCase() });
+  }
+  return [...r, ...registered(fuera).filter(x => !r.some(y => y.pid === x.pid))];
+}
+// las fichas de Claude Code de procesos vivos que no son del servidor (las de sus sesiones son hijas suyas)
+function registered(vivos: Set<number>): { pid: number; claudeId: string }[] {
+  const dir = path.join(process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude'), 'sessions');
+  const r: { pid: number; claudeId: string }[] = [];
+  let fichas: string[] = [];
+  try { fichas = readdirSync(dir).filter(f => /^\d+\.json$/.test(f)); } catch { return r; }
+  for (const f of fichas) {
+    try {
+      const s = JSON.parse(readFileSync(path.join(dir, f), 'utf8'));
+      if (Number.isInteger(s?.pid) && vivos.has(s.pid) && typeof s.sessionId === 'string' && UUID.test(s.sessionId)) r.push({ pid: s.pid, claudeId: s.sessionId.toLowerCase() });
+    } catch { /* ficha a medio escribir */ }
+  }
   return r;
 }
 
 // Forzar el cierre de una conversación que se quedó abierta fuera (p. ej. la pestaña se cerró sin /exit y el proceso
-// siguió vivo): SIGTERM a sus `claude --resume <id>` y, si a los 3 s alguno sigue, SIGKILL. Devuelve cuántos había.
+// siguió vivo, o se trae al refugio): SIGTERM a sus procesos de fuera y, si a los 3 s alguno sigue, SIGKILL. Devuelve cuántos había.
 export async function closeOutside(claudeId: string, propio = process.pid): Promise<number> {
   if (!UUID.test(claudeId)) throw new Error(t('server.invalidConversationIdentifier'));
   const id = claudeId.toLowerCase();
