@@ -242,9 +242,10 @@ export class Sessions extends EventEmitter {
       allowDangerouslySkipPermissions: x.r.modoPermisos === 'bypassPermissions' ? true : undefined,
       resume: reanudar,
       extraArgs: o.worktree && !reanudar ? { worktree: typeof o.worktree === 'string' ? o.worktree : nombreWorktree(x.r.titulo) } : {},
-      // el habitante puede entrar en un worktree a media conversación (lo crea él o hace cd a uno): la conversación pasa
-      // a ser de ese worktree (sus rutas relativas, su holograma, comparar_cambios y los mensajes de su tarea)
-      hooks: { CwdChanged: [{ hooks: [async (h: any) => { const w = worktreeRoot(h.new_cwd); if (w && w !== x.r.worktree) { x.r.worktree = w; this.tocar(x); } return {}; }] }] },
+      // el habitante puede entrar en un worktree a media conversación (lo crea él, EnterWorktree o hace cd a uno): la
+      // conversación pasa a ser de ese worktree (sus rutas relativas, su holograma, comparar_cambios y los mensajes de su
+      // tarea) y se retoma ahí: si no, al relanzarla (tras interrumpirla o reiniciar el juego) volvería a la copia principal
+      hooks: { CwdChanged: [{ hooks: [async (h: any) => { const w = worktreeRoot(h.new_cwd); if (w && (w !== x.r.worktree || w !== x.r.cwd)) { x.r.worktree = w; x.r.cwd = w; this.tocar(x); } return {}; }] }] },
       systemPrompt: { type: 'preset', preset: 'claude_code', append: ANNEX + (x.r.salaId === 'puente' ? ' ' + BRIDGE_ANNEX : x.r.salaId === 'git' ? ' ' + annexGit(this.resolutor.reposOfShelter?.() ?? []) : '') },
       ...(x.r.salaId === 'git' ? { additionalDirectories: this.resolutor.reposOfShelter?.() ?? [] } : {}),
       includePartialMessages: true,
