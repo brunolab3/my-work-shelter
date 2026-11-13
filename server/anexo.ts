@@ -33,3 +33,8 @@ export const annexGit = (repos: string[]) => [
   'Work on them with git and the GitHub CLI (gh) when asked: commits, branches, history, conflicts, pull requests and reviews.',
   'Never force-push to a main branch, and ask before pushing, opening or merging pull requests, or publishing anything.',
 ].join(' ');
+
+// claude.ai skills that can't work in a dweller (they need the Claude desktop app or are about importing memory from
+// another assistant): hidden from every dweller session with skillOverrides, so they don't take context. The user's
+// own sessions outside the game keep them.
+export const HIDDEN_SKILLS = ['anthropic-skills:built-in-browser', 'anthropic-skills:computer-use', 'anthropic-skills:import-memory'];

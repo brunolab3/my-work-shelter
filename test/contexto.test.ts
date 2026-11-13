@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { TEXTS } from '../shared/textos.ts';
-import { ANNEX, bridgeAnnex, annexGit } from '../server/anexo.ts';
+import { ANNEX, bridgeAnnex, annexGit, HIDDEN_SKILLS } from '../server/anexo.ts';
 
 const raiz = path.resolve(__dirname, '..');
 const largo = (k: string) => Math.max(TEXTS[k].es.length, TEXTS[k].en?.length ?? 0);
@@ -30,5 +30,9 @@ describe('contexto de cada sesión', () => {
     const resto = ['tool.param.room', 'tool.rooms.paramMessage', 'tool.rooms.paramKey', 'tool.compare.description', 'tool.compare.paramBase', 'tool.compare.paramUncommitted',
       'tool.compare.paramFolder', 'tool.preflight.estadoDescription', 'tool.preflight.responderDescription'].reduce((n, k) => n + largo(k), 0);
     expect(enviar + resto).toBeLessThanOrEqual(2800);
+  });
+  it('the claude.ai skills hidden from dwellers use their plugin-qualified name (the plain name is silently ignored)', () => {
+    expect(HIDDEN_SKILLS.length).toBeGreaterThan(0);
+    for (const n of HIDDEN_SKILLS) expect(n).toMatch(/^anthropic-skills:[a-z-]+$/);
   });
 });

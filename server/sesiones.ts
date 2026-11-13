@@ -21,7 +21,7 @@ import { ROOMS_FOLDERS } from './estado.ts';
 import { activa } from '../shared/fuentes.ts';
 import { describeTool, describeInput, permissionTitle, toolMode, toolPath, isAgent } from './herramientas.ts';
 import { t } from '../shared/idioma.ts';
-import { ANNEX, bridgeAnnex, annexGit } from './anexo.ts';
+import { ANNEX, bridgeAnnex, annexGit, HIDDEN_SKILLS } from './anexo.ts';
 
 class Cola<T> implements AsyncIterable<T> {
   private items: T[] = []; private waits: ((r: IteratorResult<T>) => void)[] = []; private fin = false;
@@ -263,6 +263,7 @@ export class Sessions extends EventEmitter {
       systemPrompt: { type: 'preset', preset: 'claude_code', append: ANNEX + (x.r.salaId === 'puente' ? ' ' + bridgeAnnex() : x.r.salaId === 'git' ? ' ' + annexGit(this.resolutor.reposOfShelter?.() ?? []) : '') },
       ...(x.r.salaId === 'git' ? { additionalDirectories: this.resolutor.reposOfShelter?.() ?? [] } : {}),
       includePartialMessages: true,
+      settings: { skillOverrides: Object.fromEntries(HIDDEN_SKILLS.map(n => [n, 'off' as const])) },
       env: cleanEnvironment(),
       stderr: d => { x.stderr = (x.stderr + d).slice(-4000); },
     };
