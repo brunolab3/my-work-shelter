@@ -3,6 +3,8 @@
 import type { Texto } from '../idioma.ts';
 
 export const PROMPTS: Record<string, Texto> = {
+  // respuesta a una pregunta del habitante cuando el Supervisor la salta (web/src/ui/Dialogo.tsx)
+  'prompt.userPreferredNotToAnswer': { es: 'El usuario ha preferido no responder.', en: 'The user preferred not to answer.' },
   // «Adaptar la sala al repo» (server/decoradoSala.ts)
   'prompt.adaptRoom': {
     es: 'Adapta tu sala del refugio a lo que hay en este repo. Mira el repo por encima (README, estructura, lenguaje, de qué va y para quién) y diseña una escena que lo cuente de un vistazo: la pieza protagonista, el atrezo, los carteles y las pantallas, con los colores y la luz que le peguen. Hazlo con las herramientas del juego: primero decorado_actual (trae la guía y cómo está la sala), luego catalogo_atrezo para elegir piezas, aplicar_decorado para montarla y ver_sala para comprobar cómo queda; corrige hasta que te guste (cuatro o cinco vueltas como mucho). No cambies ningún archivo del repo: esto es solo decorar la sala. Al terminar, cuéntame en dos o tres líneas qué has montado y por qué.',

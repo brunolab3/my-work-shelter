@@ -832,6 +832,7 @@ export const PANELS: Record<string, Texto> = {
   'panels.next2': { es: 'Próxima', en: 'Next' },
   'panels.jira': { es: 'Jira', en: 'Jira' },
   'panels.linear': { es: 'Linear', en: 'Linear' },
+  'panels.nextMeeting': { es: 'Próxima', en: 'Next' },
   'panels.nowPlaying': { es: 'Sonando', en: 'Now playing' },
   'panels.integrations': { es: 'Integraciones', en: 'Integrations' },
   'panels.shortcut': { es: 'Atajo', en: 'Shortcut' },

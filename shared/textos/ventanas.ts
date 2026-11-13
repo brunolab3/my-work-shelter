@@ -2,6 +2,25 @@
 import type { Texto } from '../idioma.ts';
 
 export const WINDOWS: Record<string, Texto> = {
+  // selectores del intercomunicador: modelo, esfuerzo y permisos (shared/protocolo.ts, pintados con tIs)
+  'windows.modelFromYourSettings': { es: 'El de tus ajustes', en: 'From your settings' },
+  'windows.effortDefault': { es: 'Por defecto', en: 'Default' },
+  'windows.effortLow': { es: 'Bajo', en: 'Low' },
+  'windows.effortMedium': { es: 'Medio', en: 'Medium' },
+  'windows.effortHigh': { es: 'Alto', en: 'High' },
+  'windows.effortVeryHigh': { es: 'Muy alto', en: 'Very high' },
+  'windows.effortMax': { es: 'Máximo', en: 'Max' },
+  'windows.permAskMe': { es: 'Pregúntame', en: 'Ask me' },
+  'windows.permAskMeHint': { es: 'Pide permiso antes de editar o ejecutar', en: 'Asks before editing or running anything' },
+  'windows.permEditFreely': { es: 'Edita sin preguntar', en: 'Edit without asking' },
+  'windows.permEditFreelyHint': { es: 'Acepta ediciones; pregunta antes de ejecutar comandos', en: 'Accepts edits; asks before running commands' },
+  'windows.permPlanFirst': { es: 'Primero un plan', en: 'Plan first' },
+  'windows.permPlanFirstHint': { es: 'Solo lectura hasta que apruebes un plan', en: 'Read-only until you approve a plan' },
+  'windows.permAuto': { es: 'Automático', en: 'Auto' },
+  'windows.permAutoHint': { es: 'Decide el clasificador del modo automático', en: 'The auto mode classifier decides' },
+  'windows.permBypass': { es: 'Sin límites', en: 'No limits' },
+  'windows.permBypassHint': { es: 'Se salta todos los permisos (cuidado)', en: 'Skips every permission (careful)' },
+  'windows.theShelterIsNotResponding': { es: 'El refugio no responde.', en: 'The shelter is not responding.' },
   'windows.continueOnYourPhone': { es: 'Seguir en el móvil: sale a la superficie con Remote Control (app de Claude o claude.ai/code; se cierra aquí)', en: 'Continue on your phone: goes to the surface with Remote Control (Claude app or claude.ai/code; closes it here)' },
   'windows.continueThisConversationInThe': { es: 'Seguir esta conversación en la app de Claude (se cierra aquí)', en: 'Continue this conversation in the Claude app (closes it here)' },
   'windows.thisTab': { es: 'esta pestaña', en: 'this tab' },

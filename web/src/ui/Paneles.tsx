@@ -326,7 +326,7 @@ const CONTROLS: [string, string][] = [
   ['R', 'cuaderno: transcripción completa de una conversación'], ['I', 'inventario, guía de campo y tienda'],
   ['N / C / L', 'ir a comunicaciones, agenda o planificación'], ['G', 'cliente de git (en una sala de repo, con su repo)'], ['P', 'Chapa y Pintura: cambiar el aspecto (tuyo o de un habitante)'],
   ['⌘K', 'buscador, desde cualquier sitio: conversaciones abiertas y recientes, acciones (con su tecla), habitantes y salas; escribe y Enter'],
-  ['Esc', 'cierra lo abierto; en el refugio, el menú del juego: opciones, atajos, reiniciar, salir a la superficie y salir'],
+  ['Esc', 'cierra lo abierto; en el refugio, el menú del juego: opciones, atajos, reiniciar y salir (al escritorio, al móvil o cerrando)'],
 ];
 const DIALOG_CONTROLS: [string, string][] = [
   ['Enter', 'enviar (Shift+Enter: salto de línea)'], ['/', 'menú de comandos de Claude Code con autocompletado'],

@@ -143,7 +143,7 @@ function MenuCamera({ ir }: { ir: (v: View) => void }) {
 function IntegrationView({ ficha: base, volver }: { ficha: IntegrationCard; volver: () => void }) {
   // los campos los define el conector del servidor (nombre, etiqueta, secreto, ayuda); los pasos son de la cámara
   const [def, setDef] = useState<{ campos: IntegrationField[]; valores: Record<string, string>; guardados: string[] } | null>(null);
-  useEffect(() => { cliente.accion<any>('integracion.campos', { fuente: base.id }).then(r => setDef({ campos: r.campos.map((c: any) => ({ id: c.nombre, etiqueta: c.etiqueta + (c.opcional ? t('panels.optional') : ''), secreto: c.secreto, ayuda: c.ayuda, ejemplo: c.ejemplo })), valores: r.valores ?? {}, guardados: r.guardados ?? [] })).catch(() => {}); }, []);
+  useEffect(() => { cliente.accion<any>('integracion.campos', { fuente: base.id }).then(r => setDef({ campos: r.campos.map((c: any) => ({ id: c.nombre, etiqueta: tIs(c.etiqueta) + (c.opcional ? t('panels.optional') : ''), secreto: c.secreto, ayuda: c.ayuda, ejemplo: c.ejemplo })), valores: r.valores ?? {}, guardados: r.guardados ?? [] })).catch(() => {}); }, []);
   if (!def) return <Device rotulo={t('panels.vaultNombre', { nombre: base.nombre.toUpperCase() })} ancho={62} onClose={volver}><p className="tenue">{t('panels.readingTheConfiguration')}</p></Device>;
   return <FormIntegration key="f" ficha={{ ...base, campos: def.campos.length || !base.campos.length ? def.campos : base.campos }} valuesIni={def.valores} savedIni={def.guardados} volver={volver} />;
 }
@@ -207,7 +207,7 @@ function FormIntegration({ ficha, valuesIni, savedIni, volver }: { ficha: Integr
             <span className="etq">{c.etiqueta}{c.secreto && <small> · {t('panels.toTheKeychain')}</small>}</span>
             <input ref={el => { refs.current[k] = el; }} type={c.secreto ? 'password' : 'text'} value={valores[c.id] ?? ''} placeholder={c.secreto ? (guardados[c.id] ? t('panels.savedTypeToChangeIt') : '') : c.ejemplo ?? ''} spellCheck={false} autoComplete="off"
               onFocus={() => setFocus(k)} onChange={e => setValues(v => ({ ...v, [c.id]: e.target.value }))} onKeyDown={e => fieldKey(e, k)} />
-            {c.ayuda && <small className="tenue">{c.ayuda}</small>}
+            {c.ayuda && <small className="tenue">{tIs(c.ayuda)}</small>}
           </label>
         ))}
         <div className="botonera">{acciones.map((a, k) => <button key={a.id} className={'boton-taller' + (foco === ficha.campos.length + k ? ' activa' : '')} disabled={ocupado} onMouseEnter={() => setFocus(ficha.campos.length + k)} onClick={() => hacer(a.id)}>{a.texto}</button>)}</div>

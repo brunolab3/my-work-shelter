@@ -1,6 +1,7 @@
 // Conexión con el servidor local del refugio: WebSocket con reconexión, peticiones con respuesta y almacén de datos vivos.
 import type { ClientMessage, ServerMessage, SessionSummary, LogInput, InfoRepo, Visitante, MusicState, NoticeQuestion } from '@shared/protocolo';
 import { Store } from '../ui/almacen';
+import { t } from '@shared/idioma';
 
 export interface LiveData {
   connected: boolean;
@@ -73,7 +74,7 @@ class Client {
     return new Promise<T>((ok, ko) => {
       this.pendientes.set(peticion, { ok, ko });
       this.enviar({ ...m, peticion } as any);
-      setTimeout(() => { if (this.pendientes.delete(peticion)) ko(new Error('El refugio no responde.')); }, espera);
+      setTimeout(() => { if (this.pendientes.delete(peticion)) ko(new Error(t('windows.theShelterIsNotResponding'))); }, espera);
     });
   }
   accion<T = unknown>(nombre: string, datos?: Record<string, unknown>, espera?: number) { return this.ask<T>({ t: 'accion', nombre, datos }, espera); }

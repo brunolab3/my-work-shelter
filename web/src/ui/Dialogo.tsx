@@ -740,7 +740,7 @@ function New({ h, p, reanudar, volver }: { h: DwellerSummary; p: TabCom; reanuda
         {filas.map((fr, k) => (
           <div key={fr.nombre} className={'fila-chips' + (fila === k + 1 ? ' activa' : '')} onClick={() => setRow(k + 1)}>
             <span className="etq">{fr.nombre}</span>
-            {fr.valores.map(v => <button key={v.valor} className={'chip' + (v.valor === fr.actual ? ' on' : '')} onClick={() => fr.poner(v.valor)} title={(v as any).pista ?? ''}>{v.texto}</button>)}
+            {fr.valores.map(v => <button key={v.valor} className={'chip' + (v.valor === fr.actual ? ' on' : '')} onClick={() => fr.poner(v.valor)} title={(v as any).pista ? tIs((v as any).pista) : ''}>{tIs(v.texto)}</button>)}
           </div>
         ))}
         {workIn ? <div className="fila-chips"><span className="etq">Worktree</span><span className="chip on">{t('windows.insideTheCopyRama', { rama: workIn.rama })}</span></div> :
@@ -831,7 +831,7 @@ function Session({ h, s, p, salir, onClose }: { h: DwellerSummary; s: SessionSum
         {ayudantes > 0 && <span className="tenue"> · {ayudantes > 1 ? t('windows.nHelpers', { n: ayudantes }) : t('windows.nHelper', { n: ayudantes })}</span>}
         {s.lateral && !s.lateral.respuesta && <span className="tenue"> · {t('windows.sideQuestion')}</span>}
         <Usage s={s} />
-        <span className="modo">{PERMISSION_MODES.find(m => m.valor === s.modoPermisos)?.texto ?? s.modoPermisos}</span>
+        <span className="modo">{tIs(PERMISSION_MODES.find(m => m.valor === s.modoPermisos)?.texto ?? s.modoPermisos ?? '')}</span>
       </div>}
       {!s.pending && (
         <div className="linea-entrada activa">
@@ -1037,7 +1037,7 @@ function Pending({ s, p, tab, hid, salir }: { s: SessionSummary; p: PendingReque
     // las respuestas de una pregunta pueden ser largas o llevar enlaces: enteras, en varias líneas (clase «larga»)
     ...preg.options.map(o => ({ texto: o.label, pista: o.description ? <span dangerouslySetInnerHTML={{ __html: markdownLine(o.description, folderOf(s)) }} /> : undefined, clase: 'larga', f: () => { const r = { ...responses, [preg.question]: o.label }; setResponses(r); if (pq + 1 < (p.preguntas?.length ?? 0)) setPq(pq + 1); else responder('si', undefined, r); } })),
     { texto: t('windows.somethingElse'), f: () => setReason('') },
-    { texto: t('windows.skipTheQuestion'), peligro: true, f: () => responder('no', 'El usuario ha preferido no responder.') },
+    { texto: t('windows.skipTheQuestion'), peligro: true, f: () => responder('no', t('prompt.userPreferredNotToAnswer')) },
   ];
   // una petición que aparece mientras se escribe no se contesta con las teclas que venían detrás (Espacio, Enter, E,
   // W/S): el menú solo atiende al teclado tras una pausa sin teclear; cada tecla antes de eso se traga y alarga la espera
