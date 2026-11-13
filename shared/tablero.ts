@@ -41,9 +41,12 @@ export function clavesJira(texto: string, proyectos: Set<string> = new Set()): s
 // abierto (no borrador) esperando a que lo revisen.
 export type BoardColumn = 'porHacer' | 'enCurso' | 'bloqueado' | 'revision' | 'hecho';
 export const COLUMNS: { id: BoardColumn; nombre: string }[] = [
-  { id: 'porHacer', nombre: 'Por hacer' }, { id: 'enCurso', nombre: 'En curso' }, { id: 'bloqueado', nombre: 'Bloqueado' },
+  { id: 'bloqueado', nombre: 'Bloqueado' }, { id: 'porHacer', nombre: 'Por hacer' }, { id: 'enCurso', nombre: 'En curso' },
   { id: 'revision', nombre: 'En revisión' }, { id: 'hecho', nombre: 'Hecho' },
 ];
+// El color de las columnas que tienen que distinguirse de un vistazo (las fichas llevan el de su tarea): verde en curso,
+// azul en revisión, rojo bloqueado
+export const COLUMN_COLORS: Partial<Record<BoardColumn, string>> = { enCurso: '#5fd98a', revision: '#5aa8ff', bloqueado: '#ff5a4a' };
 export const isBlockedState = (estado: string) => /block|bloque|impediment|on[ -]?hold|en espera/i.test(estado);
 export function columnOf(t: TaskWithPR): BoardColumn {
   if (t.categoria === 'done') return 'hecho';

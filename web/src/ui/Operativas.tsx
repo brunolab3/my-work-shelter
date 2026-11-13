@@ -13,7 +13,7 @@ import { PLANNING_ROOM } from '@shared/disposicion';
 import { openGit } from './git/ventana';
 import { taskColor, pRTask } from '@shared/tareas';
 import { aimColors, knowTasks, useColorsTasks, jiraBoard } from './tareas';
-import { cruzarTablero, textoPR, promptPlanificar, type PRBoard, type TaskWithPR, type TaskJira } from '@shared/tablero';
+import { cruzarTablero, COLUMN_COLORS, textoPR, promptPlanificar, type PRBoard, type TaskWithPR, type TaskJira } from '@shared/tablero';
 
 const SOURCES: Record<string, string> = Object.fromEntries(IDS_SOURCES.map(f => [f, INFO_SOURCE[f].corto]));
 const LOC = idioma() === 'en' ? 'en-GB' : 'es-ES';
@@ -264,7 +264,7 @@ export function BoardJira({ volver, coordinacion }: { volver: () => void; coordi
       {(!jira || !gh) && !error && <p className="tenue">{t('panels.readingJiraAndGithub')}</p>}
       <div className="kanban" style={{ gridTemplateColumns: `repeat(${Math.max(1, columnas.length)}, 1fr)` }}>
         {columnas.map((c, ci) => (
-          <div key={c.id} className={'kanban-col' + (c.id === 'bloqueado' ? ' kanban-bloqueado' : '') + (ci === col ? ' activa' : '')}>
+          <div key={c.id} className={'kanban-col' + (COLUMN_COLORS[c.id] ? ' kanban-estado' : '') + (ci === col ? ' activa' : '')} style={{ '--estado': COLUMN_COLORS[c.id] } as React.CSSProperties}>
             <h3>{tIs(c.nombre)} <span className="tenue">{c.tareas.length}</span></h3>
             {c.tareas.map((ta, k) => (
               <div key={ta.clave} className={'ficha-issue con-tarea' + (ci === col && k === Math.min(i, c.tareas.length - 1) ? ' sel' : '')} style={{ '--tarea': taskColor(ta.clave) } as React.CSSProperties} onMouseEnter={() => { setCol(ci); setI(k); }} onDoubleClick={() => openOutside(ta.url)}>

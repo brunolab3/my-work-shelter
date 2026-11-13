@@ -6,7 +6,7 @@ import { cartel, PhosphorScreen, PanelRoom, ListScreen, WeekWhiteboard, Reloj, B
 import { overlayScreen, screenFrontal } from '../util3d';
 import { signInWall, mancha, highBand, monitorWall, workStation, caja, materialSteel, HEIGHT, type Contexto } from './comun';
 import { vivo, cliente } from '../../red/cliente';
-import { cruzarTablero, type TaskWithPR } from '@shared/tablero';
+import { cruzarTablero, COLUMN_COLORS, type TaskWithPR, type TaskJira } from '@shared/tablero';
 import { taskColor, pRTask } from '@shared/tareas';
 import { aimColors, knowTasks, jiraBoard } from '../../ui/tareas';
 import { t as tr, tIs } from '@shared/idioma';
@@ -214,7 +214,7 @@ export async function furnishLogistics(ctx: Contexto) {
     // la pone al día al momento
     if (t - lastReading > 60) {
       lastReading = t;
-      cliente.accion<any>('integracion.panel', { fuente: 'jira' }).then(p => { aimColors(p.tareas ?? []); jiraBoard.set({ tareas: p.tareas ?? [] }); }).catch(() => {});
+      cliente.accion<any>('integracion.panel', { fuente: 'jira' }).then(p => { aimColors(p.tareas ?? []); knowTasks((p.tareas ?? []).map((t: TaskJira) => t.clave)); jiraBoard.set({ tareas: p.tareas ?? [] }); }).catch(() => {});
       cliente.accion<any>('git.prsTablero', {}).then(p => { knowTasks((p.prs ?? []).map(pRTask)); jiraBoard.set({ prs: p.prs ?? [] }); }).catch(() => {});
     }
     const { tareas, prs } = jiraBoard.get();
@@ -224,7 +224,7 @@ export async function furnishLogistics(ctx: Contexto) {
       const ficha = (i: TaskWithPR) => ({ id: i.clave, color: taskColor(i.clave), titulo: i.titulo, prioridad: prioridad(i.prioridad), sub: [i.estado, i.prs.length ? `${i.prs.length} PR` : ''].filter(Boolean).join(' · '), asignado: 'Tú' });
       tablero.titulo = 'JIRA · ' + tr('panels.myJiraTasks');
       const vivas = crossing.columnas.filter(c => c.id !== 'hecho');
-      tablero.poner(vivas.map(c => ({ nombre: tIs(c.nombre), fichas: c.tareas.map(ficha), tinta: c.id === 'bloqueado' ? '#ff5a4a' : undefined })), null);
+      tablero.poner(vivas.map(c => ({ nombre: tIs(c.nombre), fichas: c.tareas.map(ficha), tinta: COLUMN_COLORS[c.id] })), null);
       // las dos pantallas pequeñas, con las cuentas de verdad (no los números de muestra)
       const n = (id: string) => crossing.columnas.find(c => c.id === id)?.tareas.length ?? 0;
       const counts = [`${tIs('Por hacer').toLowerCase()}: ${n('porHacer')}`, `${tIs('En curso').toLowerCase()}: ${n('enCurso')}`, `${tIs('En revisión').toLowerCase()}: ${n('revision')}`];

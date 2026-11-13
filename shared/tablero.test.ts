@@ -25,9 +25,9 @@ describe('cruzarTablero', () => {
       [pr(10, 'abc-1-rama'), pr(11, 'otra', 'ABC-1 segundo PR', 'borrador'), pr(12, 'ABC-3-x', 'x', 'fusionado'), pr(13, 'sin-clave'), pr(14, 'ZZZ-9-ajena')],
     );
     expect(r.columnas.map(c => [c.nombre, c.tareas.map(t => [t.clave, t.prs.map(p => p.numero)])])).toEqual([
+      ['Bloqueado', []],
       ['Por hacer', [['ABC-2', []]]],
       ['En curso', []],
-      ['Bloqueado', []],
       ['En revisión', [['ABC-1', [10, 11]]]],
       ['Hecho', [['ABC-3', [12]]]],
     ]);
@@ -55,7 +55,7 @@ describe('columna Bloqueado', () => {
       [pr(1, 'ABC-3-x', 'x', 'abierto')],
     );
     const col = (id: string) => r.columnas.find(c => c.id === id)!.tareas.map(t => t.clave);
-    expect(r.columnas.map(c => c.id)).toEqual(['porHacer', 'enCurso', 'bloqueado', 'revision', 'hecho']);
+    expect(r.columnas.map(c => c.id)).toEqual(['bloqueado', 'porHacer', 'enCurso', 'revision', 'hecho']);
     expect(col('bloqueado')).toEqual(['ABC-1', 'ABC-2', 'ABC-3']);
     expect(col('hecho')).toEqual(['ABC-4']);
     expect(col('enCurso')).toEqual(['ABC-5']);
