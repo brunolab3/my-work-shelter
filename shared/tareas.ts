@@ -15,6 +15,22 @@ export function worktreeTask(w: { ruta: string; rama?: string }): string | undef
   return textKey(nombre.replace(/^shelter-/, '')) ?? (w.rama ? textKey(w.rama) : undefined);
 }
 
+/** Los PR de la tarea de un worktree en el repo de su sala, el más reciente primero: los de su rama y los de su misma
+ *  tarea (todas las ramas de la tarea). El repo sale de los PR de su rama y, si no hay o hay varios, del nombre de la
+ *  carpeta de la sala; sin repo claro, solo los de su rama */
+export function worktreePRs<P extends { rama: string; titulo: string; numero: number; repo: string; actualizado: number }>(
+  prs: P[], w: { ruta: string; rama: string }, carpetaSala: string): P[] {
+  const tarea = worktreeTask(w);
+  const deSuRama = prs.filter(p => p.rama === w.rama);
+  const repos = new Set(deSuRama.map(p => p.repo.toLowerCase()));
+  const carpeta = carpetaSala.replace(/\/+$/, '').split('/').pop()?.toLowerCase();
+  const porNombre = carpeta ? [...new Set(prs.map(p => p.repo.toLowerCase()))].find(r => r.split('/').pop() === carpeta) : undefined;
+  const repo = repos.size === 1 ? [...repos][0] : porNombre;
+  const lista = !repo ? deSuRama
+    : prs.filter(p => p.repo.toLowerCase() === repo && (p.rama === w.rama || (!!tarea && pRTask(p) === tarea)));
+  return [...lista].sort((a, b) => b.actualizado - a.actualizado);
+}
+
 /** El nombre de una conversación en Remote Control (la app de Claude y claude.ai/code): `repo:TAREA` (la del worktree o,
  *  si no, la clave del título) y, sin tarea, `repo:título`. `wt`: el worktree en el que trabaja, si es uno */
 export function remoteName(repo: string, titulo: string, wt?: { ruta: string; rama?: string }): string {

@@ -148,6 +148,7 @@ export const WINDOWS: Record<string, Texto> = {
   'windows.newTabAnotherJobWith': { es: 'Pestaña nueva: otro trabajo con este habitante', en: 'New tab: another job with this dweller' },
   'windows.holographicCopy': { es: 'copia holográfica', en: 'holographic copy' },
   'windows.pullRequests': { es: 'Pull requests', en: 'Pull requests' },
+  'windows.taskPRsHint': { es: 'Los pull requests de la tarea de esta copia en el repo de la sala (abiertos/todos)', en: 'The pull requests of this copy\'s task in the room\'s repo (open/all)' },
   'windows.prState.abierto': { es: 'abierto', en: 'open' },
   'windows.prState.borrador': { es: 'borrador', en: 'draft' },
   'windows.prState.fusionado': { es: 'fusionado', en: 'merged' },

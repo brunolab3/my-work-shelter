@@ -258,16 +258,15 @@ html, body { margin: 0; height: 100%; background: var(--fondo); overflow: hidden
 .sesion .titulo-sesion { font: 600 calc(var(--u) * 0.85) var(--t-mono); color: var(--fosforo-tenue); text-shadow: none; margin-bottom: .3em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* las páginas de la conversación: abajo del todo, bajo el habitante; la lista se abre hacia arriba, sobre la conversación */
 .consola-lado .paginas-sesion { margin-top: auto; width: 100%; position: relative; }
-.consola-lado .prs-copia { margin-top: auto; width: 100%; }
-.consola-lado .prs-copia + .paginas-sesion { margin-top: .5em; }
-.prs-copia ul { list-style: none; margin: .2em 0 0; padding: 0; max-height: 9em; overflow: auto; }
-.prs-copia .pr-copia { display: block; width: 100%; text-align: left; background: none; border: 0; padding: .15em 0; color: var(--fosforo); font: 400 calc(var(--u) * 0.66) var(--t-mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
-.prs-copia .pr-copia:hover { text-decoration: underline; }
-.prs-copia .pr-fusionado .pr-marca { color: #c39bff; }
-.prs-copia .pr-cerrado { opacity: .55; }
-.prs-copia .pr-borrador .pr-marca { opacity: .7; }
-.prs-copia .pr-mal { color: #ff7a6a; }
-.prs-copia .pr-bien { color: #7dffa0; }
+.consola-lado .prs-copia + .paginas-sesion { margin-top: .4em; }
+/* el último del lado deja aire abajo: no pisa el punto del intercomunicador */
+.consola-lado > .paginas-sesion:last-child { margin-bottom: calc(var(--u) * 0.9); }
+.paginas-lista .pr-marca { flex: none; }
+.paginas-lista .pr-fusionado .pr-marca { color: #c39bff; }
+.paginas-lista li.pr-cerrado { opacity: .55; }
+.paginas-lista .pr-borrador .pr-marca { opacity: .7; }
+.paginas-lista .pr-mal { color: #ff7a6a; }
+.paginas-lista .pr-bien { color: #7dffa0; }
 .consola-lado .paginas-sesion > .consola-x { width: 100%; margin: 0; font: 600 calc(var(--u) * 0.68) var(--t-mono); padding: .35em .4em; white-space: normal; }
 .consola-lado .paginas-sesion > .consola-x.urgente { background: linear-gradient(#ffd27a, #d99a2b); }
 .paginas-lista { position: absolute; left: 0; bottom: calc(100% + .4em); z-index: 30; margin: 0; padding: .5em; list-style: none; min-width: 26em; max-width: 40em; max-height: 50vh; overflow: auto; background: #0b120b; border: 1px solid var(--fosforo-tenue); border-radius: 4px; box-shadow: 0 6px 24px #000c; font: 400 calc(var(--u) * 0.75) var(--t-mono); color: var(--fosforo); }

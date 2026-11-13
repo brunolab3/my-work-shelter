@@ -36,6 +36,7 @@ import { takeASurface, aAppClaude } from './superficie';
 import { openLink, openPage, pageForSession, pageAnswers, pageNotes, validatePage, revealPage, makeRoomForIntercom, answerPage } from './Navegadores';
 import { sessionPages, pendingPages, samePage, livePages, questionInput } from '@shared/paginasSesion';
 import type { PRBoard } from '@shared/tablero';
+import { worktreePRs } from '@shared/tareas';
 import { jiraBoard } from './tareas';
 import { type AttachmentLocal, uploadFiles, chooseFiles, subiendo, listsPaths, AttachmentsTray, SentAttachments, useDictation, InputButtons, DictationStrip, attachShortcut } from './entrada';
 
@@ -420,7 +421,7 @@ function Console({ h, v }: { h: DwellerSummary; v: WindowCom }) {
             </>}
             {s?.modelo && <div className="consola-dato">{s.modelo.replace('claude-', '')}</div>}
             {s && (s.contexto || s.tokens) ? <div className="consola-dato"><Usage s={s} largo /></div> : null}
-            {copia ? <WorktreePRs rama={copia.rama} salaId={h.sala} /> : null}
+            {copia ? <WorktreePRs copia={copia} salaId={h.sala} /> : null}
             {/* con `key`: cada conversación con su lista (nada de la pestaña anterior mientras llega la suya) */}
             {s ? <PagesMenu key={s.id} s={s} /> : vista.tipo === 'nuevo' && vista.reanudar ? <ResumePages key={vista.reanudar.claudeId} salaId={h.sala} claudeId={vista.reanudar.claudeId} /> : null}
           </aside>
@@ -863,7 +864,7 @@ function Session({ h, s, p, salir, onClose }: { h: DwellerSummary; s: SessionSum
 
 // Las páginas de la conversación (planes, informes, comparaciones que ha enlazado): cuáles quedan por revisar, abrirlas
 // (sus notas vuelven a esta conversación) y validar sin notas las que estén bien (shared/paginasSesion.ts)
-// Los PR de la rama de una copia (worktree) en su repo: los tuyos de GitHub (`git.prsTablero`, los mismos del tablero
+// Los PR de la tarea de una copia (worktree) en el repo de su sala: los tuyos de GitHub (`git.prsTablero`, los mismos del tablero
 // de Planificación), leídos a lo sumo cada dos minutos y compartidos por todos los intercomunicadores; sin GitHub
 // conectado (o en DEMO), nada
 let prsAsked: { cuando: number; p: Promise<PRBoard[]> } | null = null;
@@ -876,31 +877,31 @@ function myPRs(): Promise<PRBoard[]> {
 }
 const PR_STATE: Record<PRBoard['estado'], string> = { abierto: '●', borrador: '◌', fusionado: '✓', cerrado: '✕' };
 const prStateName = (e: PRBoard['estado']) => e === 'abierto' ? t('windows.prState.abierto') : e === 'borrador' ? t('windows.prState.borrador') : e === 'fusionado' ? t('windows.prState.fusionado') : t('windows.prState.cerrado');
-function WorktreePRs({ rama, salaId }: { rama: string; salaId: string }) {
+function WorktreePRs({ copia, salaId }: { copia: { ruta: string; rama: string }; salaId: string }) {
   const desdeTablero = jiraBoard.usar(x => x.prs);
   const [leidos, setRead] = useState<PRBoard[] | null>(null);
+  const { ruta, rama } = copia;
   useEffect(() => { let vivoAun = true; myPRs().then(l => { if (vivoAun) setRead(l); }); return () => { vivoAun = false; }; }, [rama]);
   const carpeta: string = vivo.usar(e => ((e.estado?.salas ?? []) as any[]).find(x => x.id === salaId)?.ruta ?? '');
-  const prs = useMemo(() => {
-    if (!rama) return [];
-    const todos = desdeTablero.length ? desdeTablero : leidos ?? [];
-    let mios = todos.filter(p => p.rama === rama);
-    // la misma rama en varios repos (una tarea repartida): solo los del repo de esta sala
-    const repo = carpeta.split('/').filter(Boolean).pop()?.toLowerCase();
-    if (repo && new Set(mios.map(p => p.repo)).size > 1) mios = mios.filter(p => p.repo.split('/').pop()?.toLowerCase() === repo);
-    return mios.sort((a, b) => b.actualizado - a.actualizado);
-  }, [desdeTablero, leidos, rama, carpeta]);
+  // los de la tarea del worktree (todas sus ramas) en el repo de esta sala
+  const prs = useMemo(() => rama ? worktreePRs(desdeTablero.length ? desdeTablero : leidos ?? [], { ruta, rama }, carpeta) : [],
+    [desdeTablero, leidos, ruta, rama, carpeta]);
+  const [abierto, setOpen] = useState(false);
   if (!prs.length) return null;
-  return <div className="prs-copia">
-    <div className="consola-dato">{t('windows.pullRequests')}</div>
-    <ul>{prs.map(p => <li key={p.url}>
-      <button className={'pr-copia pr-' + p.estado} onClick={() => openLink(p.url)} title={`${p.repo}#${p.numero} · ${prStateName(p.estado)}\n${p.titulo}`}>
-        <span className="pr-marca">{PR_STATE[p.estado]}</span> #{p.numero} {p.titulo}
-        {p.checks === 'FAILURE' || p.checks === 'ERROR' ? <span className="pr-mal"> ✕CI</span> : null}
-        {p.revision === 'APPROVED' ? <span className="pr-bien"> ✓</span> : p.revision === 'CHANGES_REQUESTED' ? <span className="pr-mal"> ±</span> : null}
-      </button>
-    </li>)}</ul>
-  </div>;
+  const abiertos = prs.filter(p => p.estado === 'abierto' || p.estado === 'borrador').length;
+  // como las páginas: un botón con la cuenta y, al pulsarlo, la lista entera encima
+  return <span className="paginas-sesion prs-copia">
+    <button className="consola-x" title={t('windows.taskPRsHint')} onClick={() => { setOpen(x => !x); SFX.clic(); }}>
+      ⑂ {t('windows.pullRequests')} ({abiertos < prs.length ? `${abiertos}/${prs.length}` : prs.length})
+    </button>
+    {abierto && <ul className="paginas-lista">{prs.map(p => <li key={p.url} className={'pr-' + p.estado}>
+      <span className="pr-marca" title={prStateName(p.estado)}>{PR_STATE[p.estado]}</span>
+      <button className="pagina-nombre" title={`${p.repo}#${p.numero} · ${p.rama}\n${p.titulo}`} onClick={() => { openLink(p.url); setOpen(false); }}>#{p.numero} {p.titulo}</button>
+      <span className="tenue">{prStateName(p.estado)}</span>
+      {p.checks === 'FAILURE' || p.checks === 'ERROR' ? <span className="pr-mal">✕ CI</span> : null}
+      {p.revision === 'APPROVED' ? <span className="pr-bien">✓</span> : p.revision === 'CHANGES_REQUESTED' ? <span className="pr-mal">±</span> : null}
+    </li>)}</ul>}
+  </span>;
 }
 
 function PagesMenu({ s }: { s: SessionSummary }) {
