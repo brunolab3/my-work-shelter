@@ -28,6 +28,10 @@ const ANNEX = [
   'The user clicks it in the speech panel and the game opens it on the Mac (HTML in the browser, images and PDF in Preview, code in the editor, folders in the Finder), so never say a file could not be shared: link it.',
   'When the next step waits on the user (approve a push, post review comments or replies, make a commit, send or publish something, pick between options), do not end the turn with a statement:',
   'ask it with the AskUserQuestion tool, so the game shows it as a question waiting for them instead of finished work.',
+  'One task, one worktree: a task (its Jira key) is worked in a single git worktree, even when it has several branches or pull requests.',
+  'Never create another worktree for a task that already has one (no `git worktree add`, EnterWorktree or `--worktree` for its other branches):',
+  'in its worktree, commit or stash what you have and switch branches with `git switch <branch>`, so the task\'s context and its conversation stay in one place.',
+  'If that branch is checked out in a different worktree, tell the user instead of adding one.',
 ].join(' ');
 
 // el habitante del Puente de Mando trabaja en el repo del propio juego
