@@ -1,5 +1,6 @@
 // Sala de repositorio «escaparate» (estilo landing): el muro de pantallas muestra la landing que se trabaja,
 // con focos de exposición, un expositor giratorio y el sofá de «pruebas de usuario».
+import { t } from '@shared/idioma';
 import * as THREE from 'three';
 import { place, R } from '../../motor/assets';
 import { cartel, PhosphorScreen, PanelRoom, mockupLanding } from '../../motor/texturas';
@@ -75,7 +76,7 @@ export async function furnishShowcase(ctx: Contexto) {
   P(R.mueble('lamp_standing'), { pos: [5.6, 0, zB + 0.6], escala: K });
   ctx.sala.obstacles.push(new THREE.Box2(new THREE.Vector2(2.9, zB), new THREE.Vector2(6, zB + 1.9)), new THREE.Box2(new THREE.Vector2(3.2, 0.0), new THREE.Vector2(4.8, 0.95)));
   ctx.sala.puntos.push({ id: 'sofa', tipo: 'silla', pos: new THREE.Vector3(4.0, 0.05, zB + 1.25), giro: -0.15, clip: 'Sit_Chair_Idle' });
-  signInWall(g, cartel(['SI NO', 'CONVIERTE,', 'NO EXISTE'], 'DEPARTAMENTO DE CRECIMIENTO · WORK-SHELTER', '#f0d98a', '#2a1c08', 'rayo', semilla), 3.2, 2.6, 0.6, 0.84, zB + 0.33, -0.03);
+  signInWall(g, cartel(t('world.poster.growth'), t('world.poster.growthFoot'), '#f0d98a', '#2a1c08', 'rayo', semilla), 3.2, 2.6, 0.6, 0.84, zB + 0.33, -0.03);
   // consola de despliegue: se usa de pie
   const consola = await place(g, R.sf('Props_ComputerSmall'), { pos: [2.55, 0, zB + 0.55], alto: 1.5, rot: -0.3, estatico: false });
   const pDeploy = new PhosphorScreen(256, 256, v.pantalla, ' despliegue'); pDeploy.speed = 22;

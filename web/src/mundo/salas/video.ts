@@ -3,6 +3,7 @@
 // (sillón del pack estrechado: respaldo y brazos de verdad). Mitad derecha: cabina de proyección y montaje, con el
 // proyector colgado (bobinas que giran y haz visible hasta la pantalla), foco de estudio en trípode, mesa de montaje
 // con dos monitores y la claqueta, y el rack de render con sus pilotos.
+import { t } from '@shared/idioma';
 import * as THREE from 'three';
 import { place, R } from '../../motor/assets';
 import { cartel, PhosphorScreen, PanelRoom, fotograma, TimeLine, lienzo, textureOf, SOURCES } from '../../motor/texturas';
@@ -210,7 +211,7 @@ export async function furnishProjection(ctx: Contexto) {
   const framePanel = aWall(g, await place(g, R.cy('Sign_2'), { pos: [MX, 2.72, zB + 0.5], ancho: 1.5, estatico: false, own: true }));
   overlayScreen(framePanel, /^Texture_Signs$/, panel.tex, { brillo: 0.9, margin: 0.94 }); ctx.aparato('panel', framePanel);
   ctx.panel = panel;
-  signInWall(g, cartel(['UN FOTOGRAMA', 'MÁS Y', 'LO TENEMOS'], 'PRODUCCIONES WORK-SHELTER', '#d8c8f0', '#3a2a5a', 'ojo', semilla), 1.35, 1.75, 0.6, 0.84, zB + 0.33, 0.03);
+  signInWall(g, cartel(t('world.poster.productions'), t('world.poster.productionsFoot'), '#d8c8f0', '#3a2a5a', 'ojo', semilla), 1.35, 1.75, 0.6, 0.84, zB + 0.33, 0.03);
 
   await Promise.all(ps);
   mancha(g, 1.2, 1.0, 1.0, semilla + 5);

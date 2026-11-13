@@ -2,6 +2,7 @@
 // la pantalla de la pared con tus PR por estado, los bloqueos entre ellos como flechas y el orden en que pueden
 // fusionarse (shared/despliegue.ts); un clic en ella abre el tablero (web/src/ui/Despliegue.tsx). Debajo, la mesa de
 // planos donde se reparte el trabajo y, a los lados, el puesto del planificador y el monitor del panel de la sala.
+import { t } from '@shared/idioma';
 import * as THREE from 'three';
 import { place, R } from '../../motor/assets';
 import { cartel, PhosphorScreen, PanelRoom, lienzo, textureOf, splitByWords, SOURCES } from '../../motor/texturas';
@@ -140,7 +141,7 @@ export async function furnishDeployment(ctx: Contexto) {
   const locker = P(R.sf('Props_Shelf_Tall'), { pos: [5.45, 0, zB + 0.5], alto: 2.3, rot: 0 });
   for (const [k, y] of [0.6, 1.05, 1.5].entries()) ctx.sobre(locker, R.mueble('book_set'), { pos: [5.4 + (k % 2) * 0.15, 0, zB + 0.5], ancho: 0.55, rot: k * 0.2 }, { desde: y });
   P(R.cy('Computer_Large'), { pos: [4.5, 0, zB + 0.55], alto: 2.2, rot: -0.3 });
-  signInWall(g, cartel(['NADA SE FUSIONA', 'SIN SABER', 'QUÉ ESPERA'], 'LOGÍSTICA · WORK-SHELTER', '#d2ead8', '#1f4a2c', 'engranaje', semilla), 4.1, 2.8, 0.56, 0.78, zB + 0.33, -0.03);
+  signInWall(g, cartel(t('world.poster.logistics'), t('world.poster.logisticsFoot'), '#d2ead8', '#1f4a2c', 'engranaje', semilla), 4.1, 2.8, 0.56, 0.78, zB + 0.33, -0.03);
   mancha(g, 0, 1.1, 1.2, semilla);
   ctx.sala.walkZones = [[-1.9, -1.5], [1.5, 2.2]];
   ctx.sparks = new THREE.Vector3(3.0, 1.2, zB + 1.5);

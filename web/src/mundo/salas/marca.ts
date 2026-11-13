@@ -1,5 +1,6 @@
 // Sala de repositorio «archivo de marca» (estilo marca): muro de muestras de color y logotipos, mesa de dibujo
 // con planos, estanterías de catálogos y botes de pintura. Aquí manda el manual de marca.
+import { t } from '@shared/idioma';
 import * as THREE from 'three';
 import { place, R } from '../../motor/assets';
 import { cartel, PhosphorScreen, PanelRoom, markSamples } from '../../motor/texturas';
@@ -40,7 +41,7 @@ export async function furnishFileMark(ctx: Contexto) {
   const framePanel = aWall(g, await place(g, R.cy('Sign_2'), { pos: [4.3, 2.75, zB + 0.6], ancho: 1.55, estatico: false, own: true }));
   overlayScreen(framePanel, /^Texture_Signs$/, panel.tex, { brillo: 1.2, margin: 0.94 }); ctx.aparato('panel', framePanel);
   ctx.panel = panel;
-  signInWall(g, cartel(['EL LOGO', 'NO SE', 'ESTIRA'], 'COMITÉ DE MARCA · WORK-SHELTER', '#e9dfc9', '#b8402e', 'mano', semilla), 2.55, 2.4, 0.56, 0.78, zB + 0.33, 0.04);
+  signInWall(g, cartel(t('world.poster.brand'), t('world.poster.brandFoot'), '#e9dfc9', '#b8402e', 'mano', semilla), 2.55, 2.4, 0.56, 0.78, zB + 0.33, 0.04);
   P(R.resource('Containers_Box_Medium'), { pos: [-1.2, 0, 1.75], escala: K * 0.8, rot: 0.3 });
   mancha(g, -2.0, 0.3, 1.2, semilla + 7);
   // en el centro, la mesa de muestras: libro de marca abierto, muestras de color y un marco con el logotipo

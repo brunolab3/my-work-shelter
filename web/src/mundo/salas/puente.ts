@@ -3,6 +3,7 @@
 // sala en su sitio y del color de su estado, el ascensor, la calle y un punto donde está el Supervisor) sobre un
 // proyector en un estrado. A los lados, columnas de código que caen; a la izquierda, el núcleo de energía del refugio
 // (el generador de siempre), y a la derecha, la mesa de planos del Arquitecto con el registro del repo.
+import { t } from '@shared/idioma';
 import * as THREE from 'three';
 import { R } from '../../motor/assets';
 import { cartel, PhosphorScreen, PanelRoom, lienzo, textureOf, SOURCES } from '../../motor/texturas';
@@ -64,7 +65,7 @@ export async function furnishBridge(ctx: Contexto) {
   ctx.sobre(archivo, R.herr('map_rolled'), { pos: [5.6, 0, zB + 0.42], alto: 0.12, rot: Math.PI / 2 }, { desde: 1.5 });
   ctx.sobre(archivo, R.herr('map_rolled'), { pos: [5.55, 0, zB + 0.62], alto: 0.12, rot: Math.PI / 2 + 0.2 }, { desde: 1.5 });
   ctx.sala.obstacles.push(new THREE.Box2(new THREE.Vector2(5.1, zB), new THREE.Vector2(6, zB + 1.0)));
-  signInWall(g, cartel(['TODO', 'SALE', 'DE AQUÍ'], 'PUENTE DE MANDO · WORK-SHELTER', '#e6dcc0', '#5e4a1c', 'ojo', semilla), 3.3, 2.85, 0.56, 0.78, zB + 0.33, -0.03);
+  signInWall(g, cartel(t('world.poster.bridge'), t('world.poster.bridgeFoot'), '#e6dcc0', '#5e4a1c', 'ojo', semilla), 3.3, 2.85, 0.56, 0.78, zB + 0.33, -0.03);
 
   const panel = new PanelRoom(); panel.titulo = 'PUENTE'; panel.color = v.pantalla; ctx.panel = panel;
   mancha(g, 2.2, 1.3, 1.0, semilla); mancha(g, -3.0, 1.1, 0.9, semilla + 4);

@@ -1,4 +1,5 @@
 // Salas de actividades: hidroponía (cultivos que crecen con las llamadas a herramientas) y galería de tiro.
+import { t } from '@shared/idioma';
 import * as THREE from 'three';
 import { place, R } from '../../motor/assets';
 import { cartel, PanelRoom, PhosphorScreen, lienzo, textureOf, SOURCES } from '../../motor/texturas';
@@ -72,7 +73,7 @@ export async function furnishHydroponics(ctx: Contexto) {
   P(R.herr('bucket_metal'), { pos: [-4.85, 0, 1.25], escala: K * 0.6 });
   ctx.sobre(null, R.herr('trowel'), { pos: [-5.15, 0, 1.45], escala: K * 0.6, ...tumbada(0.7) });
   ctx.sala.obstacles.push(new THREE.Box2(new THREE.Vector2(-6, 0.6), new THREE.Vector2(-4.5, 1.7)));
-  signInWall(g, cartel(['CADA TEST', 'QUE PASA', 'RIEGA UNA', 'LECHUGA'], 'SECCIÓN AGRÍCOLA · WORK-SHELTER', '#d6ecc8', '#2c4f2a', 'mano', semilla), -5.2, 2.6, 0.56, 0.78, zB + 0.33, 0.03);
+  signInWall(g, cartel(t('world.poster.farming'), t('world.poster.farmingFoot'), '#d6ecc8', '#2c4f2a', 'mano', semilla), -5.2, 2.6, 0.56, 0.78, zB + 0.33, 0.03);
   const panel = new PanelRoom(); panel.titulo = 'CULTIVOS'; panel.color = v.pantalla; ctx.panel = panel;
   mancha(g, 1.6, 1.0, 1.1, semilla);
   ctx.sala.walkZones = [[-1.4, 0.8], [2.4, 3.6]];
@@ -194,7 +195,7 @@ export async function furnishGallery(ctx: Contexto) {
     acciones: [{ clip: 'PickUp', onMake: () => { nailed = 0; bolt.visible = false; trembles = 0.3; } }, { clip: 'Interact', onMake: () => { trembles = 0.5; } }, { clip: 'Holding_A', utensil: 'lupa', dur: 3 }] });
   ctx.sala.puntos.push({ id: 'tirador', tipo: 'aficion', pos: new THREE.Vector3(0.58, 0, ZT), giro: Math.PI / 2, clip: 'Ranged_1H_Aiming', utensil: 'ballesta',
     gesture: { clip: 'Ranged_1H_Shooting', cada: 2.6, onMake: () => { espera = 0.2; nailed = 0; setTimeout(() => SFX.disparo(0.35), 200); } } });   // el virote sale cuando el clip suelta la cuerda
-  signInWall(g, cartel(['APUNTA', 'A LOS BUGS,', 'NO A LOS', 'COMPAÑEROS'], 'CLUB DE TIRO · WORK-SHELTER', '#ead2c8', '#5e2423', 'ojo', semilla), 5.0, 2.7, 0.56, 0.78, zB + 0.33, -0.03);
+  signInWall(g, cartel(t('world.poster.shooting'), t('world.poster.shootingFoot'), '#ead2c8', '#5e2423', 'ojo', semilla), 5.0, 2.7, 0.56, 0.78, zB + 0.33, -0.03);
   const panel = new PanelRoom(); panel.titulo = 'RÉCORDS'; panel.color = v.pantalla; ctx.panel = panel;
   mancha(g, 0, 1.2, 1.4, semilla);
   ctx.sala.walkZones = [[-2.0, 2.4]];

@@ -3,11 +3,11 @@
 // bienvenida del primer arranque.
 import React, { useEffect, useState } from 'react';
 import { juego } from './estadoJuego';
-import { t } from '@shared/idioma';
+import { t, tIs } from '@shared/idioma';
 import { vivo, cliente } from '../red/cliente';
 import { SFX } from '../audio/sonido';
 import { Device, Keys, useKeys } from './aparato';
-import { LOOK } from './PanelesSala';
+import { LOOK } from '@shared/etiquetas';
 import { GAME_NAME } from '@shared/protocolo';
 import { STOCK } from '@shared/aspecto';
 
@@ -105,7 +105,7 @@ export function Welcome() {
       <p className="voz">{t('panels.theSurfaceHasBeenSilent')}</p>
       <div className={'fila-chips' + (foco === 0 ? ' activa' : '')} onClick={() => setFocus(0)}>
         <span className="etq">{t('panels.yourLook')}</span>
-        <button className="chip" onClick={() => cambiar(-1)}>◀</button><b className="eleccion">{t(LOOK[CHARACTERS[k]])}</b><button className="chip" onClick={() => cambiar(1)}>▶</button>
+        <button className="chip" onClick={() => cambiar(-1)}>◀</button><b className="eleccion">{tIs(LOOK[CHARACTERS[k]])}</b><button className="chip" onClick={() => cambiar(1)}>▶</button>
         <span className="tenue">{t('panels.shownBehindInTheShelter')} <kbd>P</kbd>{t('panels.inChromePaintEverythingCan')}</span>
       </div>
       <label className={'campo-taller' + (foco === 1 ? ' activa' : '')} onClick={() => setFocus(1)}>

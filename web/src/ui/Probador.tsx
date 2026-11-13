@@ -238,7 +238,7 @@ function RowColor({ region, especie, valor, porDefecto, activa, onSet }: { regio
   const propio = !!valor && !pal.includes(valor);
   return (
     <div className={'fila-color' + (activa ? ' activa' : '')}>
-      <span className="etq">{t(nameRegion(region, especie))}</span>
+      <span className="etq">{tIs(nameRegion(region, especie))}</span>
       <div className="muestras">
         <button className={'muestra original' + (!valor ? ' elegida' : '')} style={{ background: porDefecto ?? 'transparent' }} title={t('panels.thePieceSOwn')} onClick={() => onSet(null)}>↺</button>
         {pal.map(c => <button key={c} className={'muestra' + (valor === c ? ' elegida' : '')} style={{ background: c }} onClick={() => onSet(c)} />)}

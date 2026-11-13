@@ -8,6 +8,7 @@ import { SFX, sonido } from '../audio/sonido';
 import { Device, Opciones, Keys, closePanel, useMenu, useKeys, type ItemMenu } from './aparato';
 import { PIECES, HARVESTS, SHOP, SIGNALS, arma as weaponData } from '@shared/catalogo';
 import type { LogInput } from '@shared/protocolo';
+import { ACTIVITY_TABS, FRESH_HARVEST } from '@shared/etiquetas';
 import { markdown } from './markdown';
 import { ToolText, Visible } from './textoPlano';
 
@@ -30,7 +31,6 @@ const gameAction = async (n: string, d: Record<string, unknown> = {}) => cliente
 const usePlayer = () => vivo.usar(e => e.estado?.jugador ?? null);
 
 // ---------------------------------------------------------------- inventario, guía, tienda, récords
-const TABS = ['Inventario', 'Guía de campo', 'Tienda', 'Récords'] as const;
 function Inventario() {
   const j = usePlayer();
   const dwellers = juego.usar(e => e.habitantes.filter(h => !h.robot));
@@ -45,7 +45,7 @@ function Inventario() {
     if (p === 0) return inv.length ? inv.map(([k, n]) => {
       const pieza = PIECES.find(x => 'pieza:' + x.id === k); const cos = HARVESTS[k.slice(8)];
       const nombre = tIs(pieza?.nombre ?? cos?.nombre ?? k); const valor = pieza?.valor ?? cos?.valor ?? 1;
-      return { texto: <>{nombre} <span className="tenue">×{n}</span></>, pista: t('panels.valorScrapEach', { valor }), detalle: <><p>{t(pieza?.texto ?? 'Recién cosechada en hidroponía.')}</p><p className="tenue">{t('panels.enterSellOneVSell')}</p></>, f: () => vender(k, 1), f2: () => vender(k, n) };
+      return { texto: <>{nombre} <span className="tenue">×{n}</span></>, pista: t('panels.valorScrapEach', { valor }), detalle: <><p>{tIs(pieza?.texto ?? FRESH_HARVEST)}</p><p className="tenue">{t('panels.enterSellOneVSell')}</p></>, f: () => vender(k, 1), f2: () => vender(k, n) };
     }) : [{ texto: <span className="tenue">{t('panels.emptyPockets')}</span>, detalle: <p className="tenue">{t('panels.everyTaskADwellerFinishes')}</p> }];
     if (p === 1) return [
       ...PIECES.map(x => { const tiene = (j.inventario['pieza:' + x.id] ?? 0) > 0 || (j.views ?? []).includes(x.id); return { texto: tiene ? <>{tIs(x.nombre)} <span className={'rareza ' + x.rarity}>{tIs(x.rarity)}</span></> : <span className="tenue">??? <span className={'rareza ' + x.rarity}>{tIs(x.rarity)}</span></span>, detalle: tiene ? <p>{tIs(x.texto)}</p> : <p className="tenue">{t('panels.youHavenTFoundIt')}</p>, apagado: !tiene }; }),
@@ -81,8 +81,8 @@ function Inventario() {
   useKeys(e => {
     if (gift) return false;
     if (e.code === 'Escape' || e.code === 'KeyI') closePanel();
-    else if (e.code === 'ArrowRight' || e.code === 'KeyD' || e.code === 'Tab') { setP(x => (x + 1) % TABS.length); setI(0); setMsg(''); SFX.tick(); }
-    else if (e.code === 'ArrowLeft' || e.code === 'KeyA') { setP(x => (x - 1 + TABS.length) % TABS.length); setI(0); setMsg(''); SFX.tick(); }
+    else if (e.code === 'ArrowRight' || e.code === 'KeyD' || e.code === 'Tab') { setP(x => (x + 1) % ACTIVITY_TABS.length); setI(0); setMsg(''); SFX.tick(); }
+    else if (e.code === 'ArrowLeft' || e.code === 'KeyA') { setP(x => (x - 1 + ACTIVITY_TABS.length) % ACTIVITY_TABS.length); setI(0); setMsg(''); SFX.tick(); }
     else if (e.code === 'ArrowDown' || e.code === 'KeyS') { setI(x => Math.min(filas.length - 1, x + 1)); SFX.tick(); }
     else if (e.code === 'ArrowUp' || e.code === 'KeyW') { setI(x => Math.max(0, x - 1)); SFX.tick(); }
     else if (e.code === 'Enter' || e.code === 'KeyE') sel?.f?.();
@@ -91,7 +91,7 @@ function Inventario() {
   if (!j) return null;
   return (
     <Device rotulo={t('panels.overseerSBackpack')} ancho={68}>
-      <div className="pestanas">{TABS.map((x, k) => <button key={x} className={'chip' + (k === p ? ' on' : '')} onClick={() => { setP(k); setI(0); }}>{tIs(x)}</button>)}<span className="derecha chatarra-txt">⚙ {t('panels.nScrap', { n: j.scrap })}</span></div>
+      <div className="pestanas">{ACTIVITY_TABS.map((x, k) => <button key={x} className={'chip' + (k === p ? ' on' : '')} onClick={() => { setP(k); setI(0); }}>{tIs(x)}</button>)}<span className="derecha chatarra-txt">⚙ {t('panels.nScrap', { n: j.scrap })}</span></div>
       <div className="feed">
         <ul className="feed-lista lista-desplazable lista-inv">{filas.map((f, k) => <li key={k} className={(k === i ? 'activa' : '') + (f.apagado ? ' vista' : '')} onMouseEnter={() => setI(k)} onClick={() => f.f?.()} ref={el => { if (k === i) el?.scrollIntoView({ block: 'nearest' }); }}><span className="titulo">{f.texto}</span><span className="cuando">{f.pista}</span></li>)}</ul>
         <div className="feed-detalle">{sel?.detalle}{msg && <p className="aviso-consola">{msg}</p>}</div>
@@ -115,7 +115,7 @@ function Gallery() {
   const [res, setRes] = useState<{ puntos: number; record: boolean; prize: number; mejor: number; aciertos: number; shots: number } | null>(null);
   const armas: string[] = j?.armas ?? ['ballesta'];
   const items: (ItemMenu & { f: () => void })[] = [
-    { texto: t('panels.startA30SecondRound'), pista: t('panels.withArma', { arma: t(weaponData(j?.arma ?? 'ballesta').nombre).toLowerCase() }), f: () => setPhase('jugando') },
+    { texto: t('panels.startA30SecondRound'), pista: t('panels.withArma', { arma: tIs(weaponData(j?.arma ?? 'ballesta').nombre).toLowerCase() }), f: () => setPhase('jugando') },
     ...(armas.length > 1 ? [{ texto: t('panels.switchWeapon'), pista: armas.map(a => tIs(weaponData(a).nombre)).join(' · '), f: () => { const k = (armas.indexOf(j.arma) + 1) % armas.length; gameAction('arma', { arma: armas[k] }); SFX.conmutar(); } }] : []),
     { texto: t('panels.maybeLater'), f: closePanel },
   ];
@@ -208,7 +208,7 @@ function Hydroponics() {
   const cosechar = async () => {
     if (!c) return;
     if (c.phase < 4) { SFX.noAllowed(); setMsg(t('panels.itIsnTRipeYet')); return; }
-    try { const r = await gameAction('cosechar', { bancal: i, especie: elegida }); SFX.cosecha(); setMsg(t('panels.nCosechaToTheBackpack', { n: r.n, cosecha: t(r.cosecha ?? '').toLowerCase(), nueva: t(HARVESTS[elegida]?.nombre ?? '').toLowerCase() })); } catch (e) { setMsg((e as Error).message); }
+    try { const r = await gameAction('cosechar', { bancal: i, especie: elegida }); SFX.cosecha(); setMsg(t('panels.nCosechaToTheBackpack', { n: r.n, cosecha: tIs(r.cosecha ?? '').toLowerCase(), nueva: tIs(HARVESTS[elegida]?.nombre ?? '').toLowerCase() })); } catch (e) { setMsg((e as Error).message); }
   };
   const plantar = async () => { if (!c || elegida === c.especie) return; try { await gameAction('plantar', { bancal: i, especie: elegida }); SFX.cosecha(); setMsg(t('panels.bedNNowCultivo', { n: i + 1, cultivo: tIs(HARVESTS[elegida].nombre).toLowerCase() })); } catch (e) { setMsg((e as Error).message); } };
   useKeys(e => {
@@ -224,11 +224,11 @@ function Hydroponics() {
       <p className="voz">{t('panels.everyToolTheDwellersUse')}</p>
       <ul className="opciones-consola bancales">{cultivos.map((x, k) => (
         <li key={k} className={k === i ? 'activa' : ''} onMouseEnter={() => setI(k)} onClick={() => { setI(k); cosechar(); }}>
-          <span className="cursor">{k === i ? '▶' : ' '}</span><span className="txt">{t('panels.bedN', { n: k + 1 })} <b>{t(HARVESTS[x.especie]?.nombre ?? '')}</b></span>
+          <span className="cursor">{k === i ? '▶' : ' '}</span><span className="txt">{t('panels.bedN', { n: k + 1 })} <b>{tIs(HARVESTS[x.especie]?.nombre ?? '')}</b></span>
           <span className="fases">{[1, 2, 3, 4].map(f => <i key={f} className={f <= x.phase ? 'on' : ''} />)}{x.phase < 4 && <small> {x.progreso}/8</small>}</span>
           <small>{x.phase >= 4 ? t('panels.ripeEnterHarvests') : t('panels.growing')}</small>
         </li>))}</ul>
-      <div className="fila-chips activa"><span className="etq">{t('panels.replantWith')}</span><button className="chip" onClick={() => setChoice(x => ({ ...x, [i]: species[(species.indexOf(elegida) - 1 + species.length) % species.length] }))}>◀</button><b className="eleccion">{t(HARVESTS[elegida]?.nombre ?? '')}</b><button className="chip" onClick={() => setChoice(x => ({ ...x, [i]: species[(species.indexOf(elegida) + 1) % species.length] }))}>▶</button>{elegida !== c?.especie && <span className="tenue">{t('panels.pPlantNowWhatWas')}</span>}</div>
+      <div className="fila-chips activa"><span className="etq">{t('panels.replantWith')}</span><button className="chip" onClick={() => setChoice(x => ({ ...x, [i]: species[(species.indexOf(elegida) - 1 + species.length) % species.length] }))}>◀</button><b className="eleccion">{tIs(HARVESTS[elegida]?.nombre ?? '')}</b><button className="chip" onClick={() => setChoice(x => ({ ...x, [i]: species[(species.indexOf(elegida) + 1) % species.length] }))}>▶</button>{elegida !== c?.especie && <span className="tenue">{t('panels.pPlantNowWhatWas')}</span>}</div>
       {msg && <p className="aviso-consola">{msg}</p>}
       <p className="tenue">{t('panels.moreSeedsInTheShop')}</p>
       <Keys><kbd>↑↓</kbd>{t('panels.bed')} <kbd>←→</kbd>{t('panels.species')} <kbd>Enter</kbd>{t('panels.harvest2')} <kbd>P</kbd>{t('panels.plant')} <kbd>Esc</kbd>{t('menu.close')}</Keys>

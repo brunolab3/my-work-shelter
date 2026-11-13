@@ -8,6 +8,7 @@ import { t, tIs } from '@shared/idioma';
 import { Device, Opciones, Keys, closePanel, useMenu, useKeys, type ItemMenu } from './aparato';
 import { generateRecruit } from '@shared/reclutas';
 import { PLANNING_ROOM } from '@shared/disposicion';
+import { REPO_TYPE } from '@shared/etiquetas';
 import { AREAS, SECTORS, sectorOf } from '@shared/sectores';
 import { PanelCamera } from './Camara';
 import { PanelCommunications, PanelPlanning, PanelLogistics, BoardJira } from './Operativas';
@@ -48,7 +49,6 @@ export function PanelesSala({ panel }: { panel: Panel }) {
 
 // ---------------------------------------------------------------- Puerta Principal: reclutar y excavar
 type Suggestion = { ruta: string; nombre: string; isGit: boolean; tipo: string; modified: number };
-const TYPE: Record<string, string> = { web: 'web', landing: 'landing', marca: 'marca', video: 'vídeo', node: 'node', python: 'python', generico: 'carpeta' };
 function hace(ms: number) { const d = (Date.now() - ms) / 86400_000; return d < 1 ? t('panels.today') : d < 2 ? t('panels.yesterday') : d < 30 ? t('windows.nDaysAgo', { n: Math.floor(d) }) : d < 60 ? t('panels.1MonthAgo') : d < 365 ? t('windows.nMonthsAgo', { n: Math.floor(d / 30) }) : t('panels.overAYearAgo'); }
 
 function Puerta() {
@@ -59,7 +59,7 @@ function Puerta() {
   if (paso.tipo === 'recluta') return <CardNewRecruit {...paso} volver={() => setStep({ tipo: 'lista' })} />;
   if (paso.tipo === 'ruta') return <AskPath crear={paso.crear} raiz={raiz} volver={() => setStep({ tipo: 'lista' })} seguir={(ruta, git) => setStep({ tipo: 'recluta', ruta, nombre: ruta.split('/').filter(Boolean).pop() ?? ruta, crear: paso.crear, git })} />;
   const items: (ItemMenu & { f: () => void })[] = [
-    ...(sugs ?? []).slice(0, 40).map(s => ({ texto: <><b>{s.nombre}</b> <span className="tenue">{s.isGit ? t('panels.repo') : t('panels.folder')} · {tIs(TYPE[s.tipo] ?? s.tipo)}</span></>, pista: hace(s.modified), f: () => setStep({ tipo: 'recluta', ruta: s.ruta, nombre: s.nombre }) })),
+    ...(sugs ?? []).slice(0, 40).map(s => ({ texto: <><b>{s.nombre}</b> <span className="tenue">{s.isGit ? t('panels.repo') : t('panels.folder')} · {tIs(REPO_TYPE[s.tipo] ?? s.tipo)}</span></>, pista: hace(s.modified), f: () => setStep({ tipo: 'recluta', ruta: s.ruta, nombre: s.nombre }) })),
     { texto: t('panels.anotherFolderTypeThePath'), pista: t('panels.anyPathOnThisMac'), f: () => setStep({ tipo: 'ruta', crear: false }) },
     { texto: t('panels.createANewFolderOr'), pista: t('panels.insideRaiz', { raiz }), f: () => setStep({ tipo: 'ruta', crear: true }) },
   ];
@@ -145,7 +145,7 @@ function LinkList({ sala, raiz, elegir, otra, volver }: { sala: any; raiz: strin
   const [sugs, setSuggestions] = useState<Suggestion[] | null>(null);
   useEffect(() => { cliente.accion<Suggestion[]>('sugerencias').then(setSuggestions).catch(() => setSuggestions([])); }, []);
   const items: (ItemMenu & { f: () => void })[] = [
-    ...(sugs ?? []).slice(0, 40).map(s => ({ texto: <><b>{s.nombre}</b> <span className="tenue">{s.isGit ? t('panels.repo') : t('panels.folder')} · {tIs(TYPE[s.tipo] ?? s.tipo)}</span></>, pista: hace(s.modified), f: () => elegir(s.ruta, s.nombre) })),
+    ...(sugs ?? []).slice(0, 40).map(s => ({ texto: <><b>{s.nombre}</b> <span className="tenue">{s.isGit ? t('panels.repo') : t('panels.folder')} · {tIs(REPO_TYPE[s.tipo] ?? s.tipo)}</span></>, pista: hace(s.modified), f: () => elegir(s.ruta, s.nombre) })),
     { texto: t('panels.anotherFolderTypeThePath'), pista: t('panels.anyPathOnThisMac'), f: otra },
   ];
   const [i, setI] = useMenu(items.length, k => items[k].f(), undefined, volver);
@@ -180,7 +180,6 @@ function ConfirmLink({ sala, ejemplo, ruta, nombre, volver }: { sala: any; ejemp
   );
 }
 
-export const LOOK: Record<string, string> = { Engineer: 'ingeniera de campo', Survivalist: 'superviviente', Hoarder: 'chatarrero', Hiker: 'excursionista', Protagonist_A: 'aventurera', Protagonist_B: 'aventurero', Driver: 'conductor', SpaceRanger: 'guardabosques espacial', Robot_One: 'robot de servicio', Robot_Two: 'robot de servicio', Clanker: 'robot de carga', CombatMech: 'mecha de guardia', '4GTN': 'androide samurái' };
 
 // ---------------------------------------------------------------- panel de una sala de repositorio
 /** «Adaptar la sala al repo»: su habitante lee el repo y le diseña una escena con el atrezo del juego (decoradoSala.ts
@@ -275,7 +274,7 @@ function RoomMenu({ salaId, sala, onLink, onDistribute, onDeploy, onOrganize }: 
           <dt>{t('windows.branch')}</dt><dd>{repo.rama}{repo.cambios ? <span className="aviso-consola"> · {t('windows.nUncommittedChanges', { n: repo.cambios })}</span> : <span className="tenue"> · {t('panels.clean2')}</span>}</dd>
           <dt>{t('panels.lastCommit')}</dt><dd>{repo.lastCommit?.mensaje ?? '—'} <span className="tenue">{repo.lastCommit ? hace(repo.lastCommit.fecha) : ''}</span></dd>
         </> : <><dt>git</dt><dd className="tenue">{repo?.subrepos?.length ? t('panels.wingWithNRepos', { n: repo.subrepos.length }) : t('panels.notARepo')}</dd></>}
-        <dt>{t('panels.type')}</dt><dd>{t(TYPE[repo?.tipo ?? ''] ?? repo?.tipo ?? '—')}{repo?.ejemplo && <span className="tenue"> · {t('panels.exampleRepo')}</span>}</dd>
+        <dt>{t('panels.type')}</dt><dd>{tIs(REPO_TYPE[repo?.tipo ?? ''] ?? repo?.tipo ?? '—')}{repo?.ejemplo && <span className="tenue"> · {t('panels.exampleRepo')}</span>}</dd>
         <dt>{t('panels.dwellers2')}</dt><dd>{dwellers.map(h => h.nombre).join(', ') || '—'}</dd>
         {ofRepo && rc && <><dt>remote control</dt><dd>{rc.estado === 'encendido' ? <>{t('panels.on')} <span className="tenue">· {t('panels.nombreOnClaudeAiCode', { nombre: rc.nombre ?? '' })}</span></> : rc.estado === 'apagado' ? <span className="tenue">{t('panels.off2')}</span> : <span className="aviso-consola">{rc.detalle}</span>}</dd></>}
         {ofRepo && <><dt>{t('panels.scene')}</dt><dd>{sala.decorado ? <>{sala.decorado.resumen || t('panels.customSetDressing')} <span className="tenue">{t('panels.designedByItsDweller')}</span></> : <span className="tenue">{t('panels.theDefaultOneForIts')}</span>}</dd></>}

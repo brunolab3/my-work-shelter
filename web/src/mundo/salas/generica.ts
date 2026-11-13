@@ -2,6 +2,7 @@
 // Pieza protagonista: la gran pantalla de fósforo con el estado real del repo (rama, cambios, último commit).
 // Distribución propia: banco de trabajo con herramientas a la izquierda, armario de servidores al fondo, catre y
 // estanterías a la derecha. Se espeja según la semilla para que dos salas genéricas no sean iguales.
+import { t } from '@shared/idioma';
 import * as THREE from 'three';
 import { place, R } from '../../motor/assets';
 import { cartel, PhosphorScreen, PanelRoom } from '../../motor/texturas';
@@ -56,8 +57,8 @@ export async function furnishGeneric(ctx: Contexto) {
     acciones: [{ clip: 'Interact', onMake: switchOn }, { clip: 'Holding_A', utensil: 'diario', dur: 4 }, { clip: 'Use_Item', onMake: switchOn }] });
   ctx.alActualizar(dt => { revives = Math.max(0, revives - dt * 0.8); (screen.material as THREE.MeshStandardMaterial).emissiveIntensity = 0.95 + revives * 0.5; });
   P(R.sf('Details_Vent_3'), { pos: [X(2.4), 3.2, zB + 0.5], ancho: 0.9, sombra: false });
-  signInWall(g, cartel(['SIN TESTS', 'NO HAY', 'MERGE'], 'NORMAS DEL BANCO', '#e3d9c0', '#3a2a1e', 'rayo', semilla + 7), X(-0.9), 1.75, 0.46, 0.64, zB + 0.33, 0.02 * s);
-  signInWall(g, cartel(['MIDE DOS', 'VECES,', 'COMMITEA', 'UNA'], 'BANCO DE PRUEBAS · WORK-SHELTER', '#e6dcc4', '#3a3226', 'engranaje', semilla), X(-1.9), 2.75, 0.56, 0.78, zB + 0.33, 0.03 * s);
+  signInWall(g, cartel(t('world.poster.benchRules'), t('world.poster.benchRulesFoot'), '#e3d9c0', '#3a2a1e', 'rayo', semilla + 7), X(-0.9), 1.75, 0.46, 0.64, zB + 0.33, 0.02 * s);
+  signInWall(g, cartel(t('world.poster.testBench'), t('world.poster.testBenchFoot'), '#e6dcc4', '#3a3226', 'engranaje', semilla), X(-1.9), 2.75, 0.56, 0.78, zB + 0.33, 0.03 * s);
   const panel = new PanelRoom(); panel.titulo = 'BANCO'; panel.color = v.pantalla; ctx.panel = panel;
   mancha(g, X(-2.0), 1.1, 1.1, semilla);
   ctx.sala.walkZones = [[-1.6, 1.6]];

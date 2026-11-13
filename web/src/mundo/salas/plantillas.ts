@@ -4,6 +4,7 @@
 // - estudio (web, Node): rack de servidores con pilotos, muro de pantallas y sofá.
 // - archivo (carpeta sin git o sin tipo): estantería alta de cajas, fichero con terminal y mesa de consulta.
 // La pantalla con el estado real del repo cambia de sitio y de tamaño en cada una. Todas se espejan con la semilla.
+import { t } from '@shared/idioma';
 import * as THREE from 'three';
 import { place, R } from '../../motor/assets';
 import { cartel, PhosphorScreen, PanelRoom } from '../../motor/texturas';
@@ -107,7 +108,7 @@ export async function furnishFoundry(ctx: Contexto) {
   const poke = () => { flare = 1; ctx.sala.efectos?.sparks.burst(forgeMouth, 22); };
   punto('forja', 'pieza', fx - 0.3, 0, zB + 2.05, Math.PI, { acciones: [{ clip: 'Use_Item', onMake: poke }, { clip: 'Interact', onMake: poke }, { clip: 'PickUp' }] });
   punto('fuelle', 'pieza', -2.35, 0, zB + 2.0, Math.PI - 0.5, { acciones: [{ clip: 'Working_B', onMake: poke }, { clip: 'Interact' }] });
-  signInWall(g, cartel(['EL BORROW', 'CHECKER', 'NO SE', 'DISCUTE'], 'FUNDICIÓN · WORK-SHELTER', '#e6d2b0', '#6b2a14', 'rayo', semilla + 3), X(-5.15), 2.45, 0.56, 0.78, zB + 0.33, 0.03 * s);
+  signInWall(g, cartel(t('world.poster.foundry'), t('world.poster.foundryFoot'), '#e6d2b0', '#6b2a14', 'rayo', semilla + 3), X(-5.15), 2.45, 0.56, 0.78, zB + 0.33, 0.03 * s);
   mancha(g, X(-0.6), 0.2, 1.6, semilla); mancha(g, X(1.6), 0.4, 0.9, semilla + 2);
   const panel = new PanelRoom(); panel.titulo = 'FUNDICIÓN'; panel.color = ctx.v.pantalla; ctx.panel = panel;
   ctx.sala.walkZones = [segment(-3.0, -1.9), segment(-0.2, 0.6), segment(2.6, 3.6)];
@@ -179,8 +180,8 @@ export async function furnishLaboratory(ctx: Contexto) {
   P(R.sv('PropaneTank'), { pos: [X(5.5), 0, zB + 0.6], alto: 1.35, own: true }).then(gris);
   P(R.casa('Houseplant_7'), { pos: [X(5.4), 0, 0.95], alto: 0.85, rot: 0.6 });
   obstacle(5.05, zB, 6, zB + 1.05); obstacle(5.0, 0.6, 6, 1.35);
-  signInWall(g, cartel(['SANGRÍA:', 'CUATRO', 'ESPACIOS,', 'NI UNO MÁS'], 'LABORATORIO · WORK-SHELTER', '#dfe9d6', '#25472f', 'ojo', semilla + 5), X(5.25), 2.55, 0.56, 0.78, zB + 0.33, -0.02 * s);
-  signInWall(g, cartel(['IMPORT', 'THIS'], 'NORMA 20', '#e8e1c8', '#2f3b52', 'engranaje', semilla + 9), X(2.1), 2.6, 0.5, 0.62, zB + 0.33, 0.03 * s);
+  signInWall(g, cartel(t('world.poster.laboratory'), t('world.poster.laboratoryFoot'), '#dfe9d6', '#25472f', 'ojo', semilla + 5), X(5.25), 2.55, 0.56, 0.78, zB + 0.33, -0.02 * s);
+  signInWall(g, cartel(t('world.poster.rule20'), t('world.poster.rule20Foot'), '#e8e1c8', '#2f3b52', 'engranaje', semilla + 9), X(2.1), 2.6, 0.5, 0.62, zB + 0.33, 0.03 * s);
   // ---- suelo: caja de muestras y cubo delante, a un lado
   P(R.resource('Containers_Crate_Small_Green'), { pos: [X(-5.35), 0, 0.85], escala: K * 0.7, rot: 0.4 });
   P(R.herr('bucket_metal'), { pos: [X(-4.85), 0, 1.15], escala: K * 0.5 });
@@ -249,7 +250,7 @@ export async function furnishStudio(ctx: Contexto) {
   ctx.sobre(estante, R.resource('Containers_Box_Small'), { pos: [X(5.6), 0, zB + 0.5], escala: K * 0.5, rot: 0.3 }, { desde: 0.85 });
   P(R.casa('Houseplant_5'), { pos: [X(3.05), 0, zB + 0.4], alto: 0.95 });
   obstacle(2.7, zB, 6, zB + 2.4);
-  signInWall(g, cartel(['LOS VIERNES', 'NO SE', 'DESPLIEGA'], 'ESTUDIO · WORK-SHELTER', '#e9e2cc', '#8a2b1c', 'rayo', semilla + 11), X(4.35), 2.55, 0.56, 0.74, zB + 0.33, -0.02 * s);
+  signInWall(g, cartel(t('world.poster.studio'), t('world.poster.studioFoot'), '#e9e2cc', '#8a2b1c', 'rayo', semilla + 11), X(4.35), 2.55, 0.56, 0.74, zB + 0.33, -0.02 * s);
   P(R.sf('Details_Vent_3'), { pos: [X(rx), 3.55, zB + 0.45], ancho: 1.6, sombra: false });
   mancha(g, X(-1.0), 0.9, 1.0, semilla);
   const panel = new PanelRoom(); panel.titulo = 'ESTUDIO'; panel.color = ctx.v.pantalla; ctx.panel = panel;
@@ -314,7 +315,7 @@ export async function furnishFile(ctx: Contexto) {
   const baul = P(R.sf('Props_Chest'), { pos: [X(5.45), 0, 1.15], alto: 0.55, rot: X(-0.9) });
   ctx.sobre(baul, R.herr('lantern'), { pos: [X(5.45), 0, 1.15], escala: K * 0.45 });
   obstacle(5.0, 0.75, 6, 1.55);
-  signInWall(g, cartel(['NADA SE', 'TIRA.', 'TODO SE', 'ARCHIVA.'], 'ARCHIVO · WORK-SHELTER', '#e2d8bf', '#4a3622', 'ojo', semilla + 13), X(4.95), 2.6, 0.56, 0.78, zB + 0.33, 0.02 * s);
+  signInWall(g, cartel(t('world.poster.archive'), t('world.poster.archiveFoot'), '#e2d8bf', '#4a3622', 'ojo', semilla + 13), X(4.95), 2.6, 0.56, 0.78, zB + 0.33, 0.02 * s);
   const box1 = P(R.sf('Props_Crate'), { pos: [X(-5.45), 0, 1.25], alto: 0.55, rot: 0.5 });
   ctx.sobre(box1, R.resource('Containers_Box_Small'), { pos: [X(-5.45), 0, 1.25], escala: K * 0.5, rot: 0.9 });
   obstacle(-6, 0.9, -5.0, 1.6);

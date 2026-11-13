@@ -14,6 +14,7 @@ import { floorCaption, isRoomOfRepo, PLANNING_ROOM } from '@shared/disposicion';
 import { roomTone, sectorOf, floorSector, SECTORS, SECTORS_ORDER, AREAS } from '@shared/sectores';
 import { ROOM_DESCRIPTION } from '@shared/refugioInicial';
 import { ACTIVE_SOURCES } from '@shared/fuentes';
+import { ROOM_INFO, REPO_INFO, INTEGRATION_STATE } from '@shared/etiquetas';
 import { openGit } from './git/ventana';
 import { DICTATION_LANGUAGES, dictationLanguage, setLanguageDictation } from './entrada';
 import { FRAME_RATES, frameRate, setFrameRate } from '../motor/ritmo';
@@ -253,25 +254,7 @@ function Plano() {
   );
 }
 
-// Ficha del plano: la sala que está bajo el ratón o elegida con las flechas. Más que el cartel: para qué sirve, cómo
-// llegar y lo que pasa ahora dentro (repo, avisos, próxima reunión, integraciones, habitantes)
-const INFO_ROOM: Record<string, string> = {
-  puerta: 'La entrada del refugio, a pie de calle. El Guardián decide quién pasa: aquí se recluta y se excava una sala nueva para cada carpeta de la raíz de repos que aún no tiene la suya.',
-  camara: 'Guarda las conexiones con Microsoft 365, Google, Discord, Slack, GitHub y Linear (los secretos van al llavero de macOS, nunca al disco) y los ajustes del refugio: nombre, raíz de repos y límite de sesiones.',
-  puente: 'Desde aquí se gobierna el refugio: su habitante trabaja en el repo del propio juego. La maqueta holográfica enseña cada sala en vivo y desde el panel de la sala se aplican los cambios del juego.',
-  comunicaciones: 'Correo, chats y avisos de Outlook, Gmail, Discord, Slack, GitHub y Linear en un solo tablón, de solo lectura: lo que te menciona va primero y Enter abre el original (en su navegador del refugio si lo tiene; los números abren cada web sin pasar por un aviso). También está la radio.',
-  planificacion: 'Calendario unificado de Microsoft 365 y Google Calendar: la semana, la agenda de los próximos días y el enlace para unirse a cada reunión.',
-  git: 'Control de versiones: el cliente de git de todos los repos del refugio (preparar por archivos, bloques o líneas, commits, historial con su grafo, ramas y cajón), tu matriz de contribuciones de GitHub y tus pull requests. La Octocat vive aquí. G lo abre desde cualquier sitio.',
-  logistica: 'Tablero: tus tareas de Jira con sus pull requests y el estado de cada uno. Su habitante usa el MCP oficial de Linear para crear, mover o comentar incidencias, siempre con tu permiso.',
-  hidroponia: 'Los cultivos del refugio, para cuidarlos entre tarea y tarea.',
-  galeria: 'Galería de tiro para despejarse un rato. Guarda los récords.',
-  discoteca: 'La música para currar, en la planta de ocio. La cabina del DJ abre Spotify, que suena aquí dentro: elige lo que quieras y minimízalo; la pletina de abajo a la izquierda sigue con lo que suena y los mandos.',
-  chapa: 'Barbería y ropería del refugio. En el sillón de Fito se cambia el aspecto del Supervisor o de cualquier habitante: humano o robot, cara, pelo, barba, ropa, sombreros, gafas, mochilas y colores. P lo abre desde cualquier sitio. La Octocat es como es.',
-  coordinacion: 'Sala de logística: la carpeta raíz con todos tus repos. Desde el tablero de Jira (P en una tarea por hacer) su habitante analiza la tarea viendo todos los repos y traza el plan contigo; con el plan aprobado, la reparte a la sala de cada repo, cada parte en su worktree, para seguirla allí.',
-};
-const INFO_REPO = 'Sala de un repositorio: sus habitantes trabajan aquí con Claude Code. Desde el panel de la sala se abre una terminal en la carpeta o se trabaja en una copia aparte (un worktree), que aparece en la sala como el holograma de quien la creó.';
 const ROOM_KEY: Record<string, string> = { comunicaciones: 'N', planificacion: 'C', logistica: 'L', chapa: 'P' };
-const STATE_INT: Record<string, string> = { demo: 'DEMO (datos simulados)', conectada: 'conectada', error: 'con error', 'sin-configurar': 'sin configurar' };
 const howMuchDoes = (ts: number) => { const m = Math.round((Date.now() - ts) / 60000); return m < 60 ? t('windows.nMinAgo', { n: Math.max(1, m) }) : m < 2880 ? t('windows.nHAgo', { n: Math.round(m / 60) }) : t('windows.nDaysAgo', { n: Math.round(m / 1440) }); };
 function RoomCard({ sala, habitantes }: { sala: any; habitantes: DwellerSummary[] }) {
   const repo = vivo.usar(e => e.repos[sala.id]);
@@ -296,7 +279,7 @@ function RoomCard({ sala, habitantes }: { sala: any; habitantes: DwellerSummary[
   }
   if (sala.tipo === 'comunicaciones') { const n = notices.filter((x: any) => !x.vista).length; datos.push(['Avisos', n ? t('panels.nUnseen', { n }) : t('panels.allRead')]); }
   if (sala.tipo === 'planificacion') { const ev = eventos.filter((x: any) => x.fin > Date.now()).sort((a: any, b: any) => a.inicio - b.inicio)[0]; datos.push(['Próxima', ev ? <>{ev.titulo} <span className="tenue">· {new Date(ev.inicio).toLocaleString((idioma() === 'en' ? 'en-GB' : 'es-ES'), { weekday: 'short', hour: '2-digit', minute: '2-digit' })}</span></> : t('panels.nothingOnTheAgenda')]); }
-  if (sala.tipo === 'logistica') datos.push(['Jira', t(STATE_INT[ints.jira?.estado ?? 'demo'])], ...(ints.linear ? [['Linear', t(STATE_INT[ints.linear.estado ?? 'demo'])] as [string, string]] : []));
+  if (sala.tipo === 'logistica') datos.push(['Jira', tIs(INTEGRATION_STATE[ints.jira?.estado ?? 'demo'])], ...(ints.linear ? [['Linear', tIs(INTEGRATION_STATE[ints.linear.estado ?? 'demo'])] as [string, string]] : []));
   if (sala.tipo === 'discoteca') datos.push(['Sonando', musica?.pista && musica.estado !== 'parada' ? <>{musica.pista.titulo} <span className="tenue">· {musica.pista.artista}{musica.estado === 'pausa' ? t('panels.paused') : ''}</span></> : t('panels.nothing')]);
   if (sala.tipo === 'camara') { const ids = ACTIVE_SOURCES; datos.push(['Integraciones', t('panels.nOfTotalConnected', { n: ids.filter(f => ints[f]?.estado === 'conectada').length, total: ids.length })]); }
   if (ROOM_KEY[sala.tipo]) datos.push(['Atajo', <><kbd>{ROOM_KEY[sala.tipo]}</kbd> {t('panels.fromAnywhere')}</>]);
@@ -305,7 +288,7 @@ function RoomCard({ sala, habitantes }: { sala: any; habitantes: DwellerSummary[
     <div className="titulo-ficha">{sala.nombre} <span className="tenue">· {floorCaption(sala.planta)}</span></div>
     {(() => { const sec = sectorOf(sala.tipo, sala.id, sala.area); return <div className="ficha-sector" style={{ ['--sector' as any]: roomTone(sala)[0], ['--tinta' as any]: sec.tinta, ['--letra' as any]: sec.letra }}><b>{sec.codigo}</b>{t('panels.nombreSector', { nombre: tIs(sec.nombre).toLowerCase() })}</div>; })()}
     {desc && <div className="ficha-desc">{tIs(desc)}</div>}
-    <p className="ficha-info">{t(INFO_ROOM[sala.tipo] ?? (isRepo ? INFO_REPO : ''))}</p>
+    <p className="ficha-info">{tIs(ROOM_INFO[sala.tipo] ?? (isRepo ? REPO_INFO : ''))}</p>
     {datos.length > 0 && <dl className="ficha-datos">{datos.map(([k, v]) => <React.Fragment key={k}><dt>{sesiones.some(x => x.id === k) ? t('panels.context') : tIs(k)}</dt><dd>{v}</dd></React.Fragment>)}</dl>}
     <div className="ficha-seccion">{t('panels.dwellers')}</div>
     <ul className="plano-hab">{habitantes.map(h => <li key={h.id} className={h.estado}><b>{h.nombre}</b> <span className="tenue">{tIs(h.estado)}</span> {h.detalle && <span className="det">{h.detalle}</span>}</li>)}{!habitantes.length && <li className="tenue">{t('panels.nobodyLivesHere')}</li>}</ul>

@@ -5,6 +5,7 @@
 // El ritmo sale de `pulsoMusica('discoteca')` (audio/musica.ts: la música propia de la sala, o Spotify); si suena Spotify
 // y el pulso no dice nada, 118 golpes por minuto (Spotify web no cuenta el tempo del tema). En la pista bailan unos robots
 // chiquitines (bailarines.ts).
+import { t } from '@shared/idioma';
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { place, R } from '../../motor/assets';
@@ -212,7 +213,7 @@ export async function furnishDisco(ctx: Contexto) {
   ctx.sobre(nightstand, R.mueble('cup'), { pos: [4.9, 0, zB + 1.68], escala: K * 0.9, rot: 1.2 });
   P(R.casa('Light_Floor3'), { pos: [5.65, 0, zB + 0.5], alto: 1.9 });
   ctx.sala.obstacles.push(new THREE.Box2(new THREE.Vector2(3.7, zB), new THREE.Vector2(5.8, zB + 2.0)));
-  signInWall(g, cartel(['SE PINCHA', 'LO QUE', 'COMPILA'], 'CLUB BÚNKER · WORK-SHELTER', '#f2d6ea', '#5a1a48', 'rayo', semilla), 4.6, 2.75, 0.56, 0.78, zB + 0.33, -0.02);
+  signInWall(g, cartel(t('world.poster.disco'), t('world.poster.discoFoot'), '#f2d6ea', '#5a1a48', 'rayo', semilla), 4.6, 2.75, 0.56, 0.78, zB + 0.33, -0.02);
 
   // ---- luz: focos de colores sobre la pista que laten con la música; la sala, en penumbra
   const focos = [

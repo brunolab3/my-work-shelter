@@ -1,4 +1,5 @@
 // Sala de servicio: la Puerta Principal (reclutamiento). La planta -1 está en camara.ts y puente.ts.
+import { t } from '@shared/idioma';
 import * as THREE from 'three';
 import { place, R } from '../../motor/assets';
 import { cartel, PanelRoom, ListScreen, lienzo, textureOf, SOURCES, strataTexture } from '../../motor/texturas';
@@ -101,7 +102,7 @@ export async function furnishGate(ctx: Contexto) {
   }
   ctx.sala.obstacles.push(new THREE.Box2(new THREE.Vector2(3.9, zB), new THREE.Vector2(6, zB + 1.1)));
   ctx.sala.puntos.push({ id: 'guardia', tipo: 'mirar', pos: new THREE.Vector3(4.6, 0, 0.9), giro: -0.5, clip: 'Idle_A' });
-  signInWall(g, cartel(['SIN', 'PACKAGE.JSON', 'NO SE ENTRA'], 'DIRECCIÓN DE WORK-SHELTER', '#e8d8b8', '#2a2520', 'mano', semilla), 5.2, 2.7, 0.56, 0.78, zB + 0.33, -0.03);
+  signInWall(g, cartel(t('world.poster.management'), t('world.poster.managementFoot'), '#e8d8b8', '#2a2520', 'mano', semilla), 5.2, 2.7, 0.56, 0.78, zB + 0.33, -0.03);
   const panel = new PanelRoom(); panel.titulo = 'PUERTA'; panel.color = v.pantalla; ctx.panel = panel;
   mancha(g, XP, 0.6, 1.8, semilla);
   ctx.sala.walkZones = [[3.9, 5.0]];   // el Guardián vigila desde un lado: ni tapa la puerta ni la pantalla de reclutas

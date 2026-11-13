@@ -2,6 +2,7 @@
 // Pieza protagonista: la pared de cajas de seguridad, una por integración con su piloto de estado, tras una barrera
 // láser que se apaga cuando el Supervisor se acerca al escáner. Vigilan una torreta de techo que le sigue con la
 // mirada y un dron centinela; a la derecha, el puesto de guardia con las cámaras del refugio.
+import { t } from '@shared/idioma';
 import * as THREE from 'three';
 import { place, R } from '../../motor/assets';
 import { cartel, PanelRoom, lienzo, textureOf, dangerStrip, SOURCES } from '../../motor/texturas';
@@ -122,7 +123,7 @@ export async function furnishCamera(ctx: Contexto) {
   // el sitio del guardia, sin mesa: un taburete alto junto a la pared de las cámaras y su taquilla
   P(R.sf('Props_Shelf'), { pos: [5.55, 0, zB + 0.5], alto: 1.6, rot: -Math.PI / 2 }).then(o => ctx.sobre(o, R.mueble('mug_B'), { pos: [5.55, 0, zB + 0.5], escala: K * 0.7 }, { desde: 1.2 }));
   ctx.sala.obstacles.push(new THREE.Box2(new THREE.Vector2(5.1, zB), new THREE.Vector2(6, zB + 1.0)));
-  signInWall(g, cartel(['LAS CLAVES', 'NO VAN', 'EN GIT'], 'CÁMARA ACORAZADA · WORK-SHELTER', '#e3e0d4', '#7a1f1a', 'mano', semilla), 3.55, 2.75, 0.56, 0.78, zB + 0.33, 0.03);
+  signInWall(g, cartel(t('world.poster.vault'), t('world.poster.vaultFoot'), '#e3e0d4', '#7a1f1a', 'mano', semilla), 3.55, 2.75, 0.56, 0.78, zB + 0.33, 0.03);
   // ---- torreta del techo: sigue al Supervisor mientras está en la sala
   const turret = new THREE.Group(); turret.position.set(X0 + 0.2, HEIGHT - 0.02, zB + 1.85); turret.userData.estatico = false; g.add(turret);
   P(R.cy('Turret_Gun'), { alto: 0.55, rotX: Math.PI, estatico: false, sombra: false }, turret);

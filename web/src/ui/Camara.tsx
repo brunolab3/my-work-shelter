@@ -8,6 +8,7 @@ import { vivo, cliente } from '../red/cliente';
 import { SFX } from '../audio/sonido';
 import { Device, Opciones, Keys, closePanel, useMenu, useKeys, type ItemMenu } from './aparato';
 import { SHOP } from '@shared/catalogo';
+import { INTEGRATION_STATE_SHORT } from '@shared/etiquetas';
 import { GAME_NAME } from '@shared/protocolo';
 import { isRoomOfRepo, PLANNING_ROOM, alphabeticalOrder } from '@shared/disposicion';
 import { ACTIVE_SOURCES, INFO_SOURCE, type SourceId } from '@shared/fuentes';
@@ -112,7 +113,6 @@ export function PanelCamera() {
   return <MenuCamera ir={setView} />;
 }
 
-const TXT_STATE: Record<string, string> = { demo: 'DEMO', conectada: 'conectada', error: 'error', 'sin-configurar': 'sin configurar' };
 function MenuCamera({ ir }: { ir: (v: View) => void }) {
   const ints = vivo.usar(e => e.integraciones);
   const hidden = vivo.usar(e => e.estado?.ocultas?.length ?? 0);
@@ -121,7 +121,7 @@ function MenuCamera({ ir }: { ir: (v: View) => void }) {
   useEffect(() => { cliente.accion<SlackRemoteState>('slackRemote.estado').then(setSk).catch(() => {}); }, []);
   const skPiloto = sk?.emparejado ? 'conectada' : sk?.conectado ? 'demo' : 'sin-configurar';
   const items: (ItemMenu & { f: () => void })[] = [
-    ...INTEGRATIONS.map(f => { const st = ints[f.id]; return { texto: <><span className={'piloto-mini ' + (st?.estado ?? 'demo')} /> {f.nombre}</>, pista: t(TXT_STATE[st?.estado ?? 'demo']) + (st?.detalle && st.estado === 'error' ? ' — ' + st.detalle : ''), f: () => ir({ tipo: 'integracion', id: f.id }) }; }),
+    ...INTEGRATIONS.map(f => { const st = ints[f.id]; return { texto: <><span className={'piloto-mini ' + (st?.estado ?? 'demo')} /> {f.nombre}</>, pista: tIs(INTEGRATION_STATE_SHORT[st?.estado ?? 'demo']) + (st?.detalle && st.estado === 'error' ? ' — ' + st.detalle : ''), f: () => ir({ tipo: 'integracion', id: f.id }) }; }),
     { texto: <><span className={'piloto-mini ' + skPiloto} /> {t('panels.slackRemoteMenu')}</>, pista: sk?.emparejado ? t('panels.slackRemoteVaultPaired') : sk?.conectado ? t('panels.slackRemoteVaultNotPaired') : t('panels.slackRemoteVaultHint'), f: () => ir({ tipo: 'slackRemote' }) },
     { texto: t('panels.theShelterNameReposRoot'), f: () => ir({ tipo: 'refugio' }) },
     { texto: t('panels.shelterRooms'), pista: hidden ? t('panels.shelterRoomsHint', { n: hidden }) : undefined, f: () => ir({ tipo: 'salas' }) },
@@ -197,7 +197,7 @@ function FormIntegration({ ficha, valuesIni, savedIni, volver }: { ficha: Integr
   return (
     <Device rotulo={t('panels.vaultNombre', { nombre: ficha.nombre.toUpperCase() })} ancho={62} alto onClose={volver} piloto={st?.estado === 'conectada' ? 'trabajando' : st?.estado === 'error' ? 'error' : 'esperando'}>
       <div className="lista-desplazable">
-        <p><b>{t('panels.status')}</b> {t(TXT_STATE[st?.estado ?? 'demo'])}{st?.detalle ? <span className="tenue"> — {st.detalle}</span> : null}{st?.ultima ? <span className="tenue"> · {t('panels.lastRead')} {new Date(st.ultima).toLocaleTimeString(idioma() === 'en' ? 'en-GB' : 'es-ES', { hour: '2-digit', minute: '2-digit' })}</span> : null}</p>
+        <p><b>{t('panels.status')}</b> {tIs(INTEGRATION_STATE_SHORT[st?.estado ?? 'demo'])}{st?.detalle ? <span className="tenue"> — {st.detalle}</span> : null}{st?.ultima ? <span className="tenue"> · {t('panels.lastRead')} {new Date(st.ultima).toLocaleTimeString(idioma() === 'en' ? 'en-GB' : 'es-ES', { hour: '2-digit', minute: '2-digit' })}</span> : null}</p>
         <p className="tenue">{t('panels.whatItBringsToThe')} {tIs(ficha.que)}.</p>
         <h3>{t('panels.stepByStep')}</h3>
         <ol className="pasos">{ficha.pasos.map((p, k) => <li key={k}>{p}</li>)}</ol>

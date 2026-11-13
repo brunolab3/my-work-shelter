@@ -5,6 +5,7 @@
 // del refugio en la pared; a la derecha, los pull requests que esperan tu revisión y los tuyos abiertos.
 // Habitante: la Octocat (modelo propio sin esqueleto de KayKit, animada por código: ver octocat.ts). En el puesto del
 // grafo y en la silla del cliente de git hace lo de todos; sus «clips» los traduce AnimOctocat a poses y gestos.
+import { t } from '@shared/idioma';
 import * as THREE from 'three';
 import { place, R } from '../../motor/assets';
 import { cartel, PhosphorScreen, PanelRoom, ListScreen, lienzo, textureOf, SOURCES } from '../../motor/texturas';
@@ -158,7 +159,7 @@ export async function furnishGit(ctx: Contexto) {
   const cajon = P(R.sf('Props_Crate'), { pos: [4.2, 0, zB + 0.75], alto: 0.7, rot: 0.3 });
   ctx.sobre(cajon, R.sv('Battery_Big'), { pos: [4.2, 0, zB + 0.72], alto: 0.45, rot: -0.4 });
   ctx.sala.obstacles.push(new THREE.Box2(new THREE.Vector2(3.7, zB), new THREE.Vector2(6, zB + 1.5)));
-  signInWall(g, cartel(['NUNCA', 'FORCE PUSH', 'A MAIN'], 'CONTROL DE VERSIONES · WORK-SHELTER', '#d9e6f2', '#1f3a5a', 'mano', semilla), 3.85, 2.85, 0.5, 0.7, zB + 0.33, -0.03);
+  signInWall(g, cartel(t('world.poster.versionControl'), t('world.poster.versionControlFoot'), '#d9e6f2', '#1f3a5a', 'mano', semilla), 3.85, 2.85, 0.5, 0.7, zB + 0.33, -0.03);
 
   const panel = new PanelRoom(); panel.titulo = 'VERSIONES'; panel.color = v.pantalla; ctx.panel = panel;
   mancha(g, -1.6, 1.2, 0.9, semilla); mancha(g, 2.6, 0.9, 0.8, semilla + 3);

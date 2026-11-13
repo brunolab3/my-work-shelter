@@ -2,6 +2,7 @@
 // giratorio frente al espejo y el lavacabezas, el poste de barbero girando y Fito con las tijeras. A la derecha, la
 // ropería: un escaparate de maniquíes vestidos con piezas del probador (cambian de modelito cada poco), la sombrerera con
 // sombreros de verdad del catálogo y la cabina de prueba con su cortina. Sentarse en el sillón abre el probador.
+import { t } from '@shared/idioma';
 import * as THREE from 'three';
 import { place, R } from '../../motor/assets';
 import { cartel, lienzo, textureOf, PhosphorScreen } from '../../motor/texturas';
@@ -73,7 +74,7 @@ export async function furnishBodyshop(ctx: Contexto) {
   let turn = 0; const girar = () => { turn = 1; };
   ctx.sala.puntos.push({ id: 'sillon', tipo: 'pieza', pos: new THREE.Vector3(xS - 0.85, 0, zB + 1.5), giro: Math.PI / 2 - 0.2,
     acciones: [{ clip: 'Interact', onMake: girar }, { clip: 'Use_Item', utensil: 'tijeras' }, { clip: 'Working_C', utensil: 'llave', onMake: girar }] });
-  signInWall(g, cartel(['SE CORTA', 'SE COSE', 'SE ENDEREZA'], 'CHAPA Y PINTURA · WORK-SHELTER', '#e2efe6', '#1f4a3a', 'mano', semilla), -1.55, 2.0, 0.5, 0.7, zB + 0.33, 0.02);
+  signInWall(g, cartel(t('world.poster.bodyShop'), t('world.poster.bodyShopFoot'), '#e2efe6', '#1f4a3a', 'mano', semilla), -1.55, 2.0, 0.5, 0.7, zB + 0.33, 0.02);
 
   // ---- ropería (derecha): escaparate de maniquíes sobre una tarima, sombrerera y cabina de prueba
   const tarima = new THREE.Mesh(new THREE.BoxGeometry(3.3, 0.14, 1.0), new THREE.MeshStandardMaterial({ color: '#3a2c22', roughness: 0.6 }));
@@ -113,7 +114,7 @@ export async function furnishBodyshop(ctx: Contexto) {
     g.add(o);   // cada sombrero, apoyado en su balda (la altura medida)
   });
   ctx.sala.obstacles.push(new THREE.Box2(new THREE.Vector2(4.2, zB), new THREE.Vector2(5.9, zB + 0.75)));
-  signInWall(g, cartel(['SE PRUEBA', 'SIN', 'COMPROMISO'], 'ROPERÍA DEL REFUGIO', '#efe4c8', '#2d4f3f', 'engranaje', semilla + 3), 0.45, 2.15, 0.48, 0.66, zB + 0.33, -0.02);
+  signInWall(g, cartel(t('world.poster.wardrobe'), t('world.poster.wardrobeFoot'), '#efe4c8', '#2d4f3f', 'engranaje', semilla + 3), 0.45, 2.15, 0.48, 0.66, zB + 0.33, -0.02);
 
   // ---- el puesto: la mesa de corte de la ropería, de pie (un mueble bajo con cajones, a la altura de las manos), con
   // el monitor del catálogo, tela, tijeras y la cinta

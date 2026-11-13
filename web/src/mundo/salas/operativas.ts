@@ -62,7 +62,7 @@ export async function furnishCommunications(ctx: Contexto) {
   await monitorWall(ctx, 4.3, 2.3, 1.25, chats.tex, 1.1);
   P(R.casa('Couch_Small2'), { pos: [4.6, 0, zB + 0.9], alto: 1.0, rot: -0.2 });
   ctx.sala.obstacles.push(new THREE.Box2(new THREE.Vector2(3.4, zB), new THREE.Vector2(6, zB + 2.0)));
-  signInWall(g, cartel(['ESCUCHA', 'MÁS', 'RESPONDE', 'MENOS'], 'OFICINA DE COMUNICACIONES · WORK-SHELTER', '#cfe3c0', '#2c4f2a', 'ojo', semilla), -2.9, 2.7, 0.56, 0.78, zB + 0.33, 0.03);
+  signInWall(g, cartel(tr('world.poster.communications'), tr('world.poster.communicationsFoot'), '#cfe3c0', '#2c4f2a', 'ojo', semilla), -2.9, 2.7, 0.56, 0.78, zB + 0.33, 0.03);
   const panel = new PanelRoom(); panel.titulo = 'TRÁFICO'; panel.color = v.pantalla;
   ctx.panel = panel;
   P(R.sv('Battery_Big'), { pos: [5.55, 0, 0.95], alto: 0.6 });
@@ -126,7 +126,7 @@ export async function furnishPlanning(ctx: Contexto) {
   shelf(0.95, [[R.mueble('book_set'), -5.68, { ancho: 0.56 }], [R.mueble('book_set'), -5.14, { ancho: 0.5, rot: Math.PI }], [R.herr('journal_closed'), -4.8, { alto: 0.36, rot: 0.3 }]]);
   shelf(1.51, [[R.herr('map_rolled'), -5.75, { ancho: 0.2, alto: 0.12, rot: Math.PI / 2 }], [R.herr('map_rolled'), -5.62, { alto: 0.12, rot: Math.PI / 2 + 0.2, dz: 0.05 }], [R.resource('Containers_Box_Small'), -5.12, { alto: 0.34, rot: -0.3 }], [R.mueble('book_single'), -4.86, { alto: 0.4 }], [R.mueble('book_single'), -4.74, { alto: 0.36, rot: 0.2 }]]);
   shelf(2.07, [[R.resource('Containers_Box_Large'), -5.62, { alto: 0.46, rot: 0.1 }], [R.resource('Containers_Box_Small'), -4.95, { alto: 0.3, rot: 0.5 }]]);
-  signInWall(g, cartel(['ESA REUNIÓN', 'PODÍA SER', 'UN CORREO'], 'COMITÉ DE AGENDA · WORK-SHELTER', '#d7e2ee', '#223d63', 'rayo', semilla), 5.0, 2.8, 0.56, 0.78, zB + 0.33, -0.03);
+  signInWall(g, cartel(tr('world.poster.calendar'), tr('world.poster.calendarFoot'), '#d7e2ee', '#223d63', 'rayo', semilla), 5.0, 2.8, 0.56, 0.78, zB + 0.33, -0.03);
   const panel = new PanelRoom(); panel.titulo = 'AGENDA'; panel.color = v.pantalla; ctx.panel = panel;
   mancha(g, 1.0, 1.2, 0.9, semilla);
   ctx.sala.walkZones = [[0.8, 1.8], [-3.6, -3.0]];   // nadie se queda delante de la estantería
@@ -139,7 +139,7 @@ export async function furnishPlanning(ctx: Contexto) {
     const ev: any[] = vivo.get().eventos ?? [];
     pizarra.poner(ev);
     const hoy = new Date().toDateString();
-    agenda.poner(ev.filter(e => new Date(e.inicio).toDateString() === hoy).slice(0, 9).map(e => ({ etiqueta: e.allElDay ? 'TODO EL DÍA' : fmt.format(e.inicio), texto: e.titulo, tinta: e.fuente === 'google' ? '#e6d28a' : '#7ad1ff', urgente: e.inicio > Date.now() && e.inicio - Date.now() < 15 * 60000 })));
+    agenda.poner(ev.filter(e => new Date(e.inicio).toDateString() === hoy).slice(0, 9).map(e => ({ etiqueta: e.allElDay ? tr('world.allDay') : fmt.format(e.inicio), texto: e.titulo, tinta: e.fuente === 'google' ? '#e6d28a' : '#7ad1ff', urgente: e.inicio > Date.now() && e.inicio - Date.now() < 15 * 60000 })));
   });
 }
 
@@ -201,7 +201,7 @@ export async function furnishLogistics(ctx: Contexto) {
   ctx.sobre(ammo, R.acc('ammo_crate'), { pos: [-4.3, 0, zB + 0.45], escala: K * 0.9, rot: -0.2 });
   const baul = P(R.sf('Props_Chest'), { pos: [5.25, 0, zB + 1.2], alto: 0.8, rot: -0.2 });
   ctx.sobre(baul, R.sv('FlareGun'), { pos: [5.25, 0, zB + 1.2], alto: 0.12, rotX: -Math.PI / 2, rotZ: 0.6 });
-  signInWall(g, cartel(['SI NO ESTÁ', 'EN UN TICKET,', 'NO PASÓ'], 'PLANIFICACIÓN · WORK-SHELTER', '#ead2c8', '#5e2423', 'engranaje', semilla), -5.0, 2.7, 0.56, 0.78, zB + 0.33, 0.03);
+  signInWall(g, cartel(tr('world.poster.planning'), tr('world.poster.planningFoot'), '#ead2c8', '#5e2423', 'engranaje', semilla), -5.0, 2.7, 0.56, 0.78, zB + 0.33, 0.03);
   const panel = new PanelRoom(); panel.titulo = 'TABLEROS'; panel.color = v.pantalla; ctx.panel = panel;
   mancha(g, 0, 1.1, 1.2, semilla);
   ctx.sala.walkZones = [[-1.9, -1.5], [1.5, 2.2]];

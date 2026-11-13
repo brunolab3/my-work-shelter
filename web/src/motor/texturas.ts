@@ -78,8 +78,9 @@ export function roomCaption(nombre: string, sub: string, color: string, numero: 
   return textureOf(c);
 }
 
-// Cartel de propaganda del refugio (tipográfico, con desgaste)
-export function cartel(lineas: string[], pie: string, fondo: string, tinta: string, simbolo: 'engranaje' | 'ojo' | 'rayo' | 'mano' = 'engranaje', semilla = 1) {
+// Cartel de propaganda del refugio (tipográfico, con desgaste). Las líneas, en una lista o en un texto del catálogo
+// con un renglón por línea
+export function cartel(texto: string[] | string, pie: string, fondo: string, tinta: string, simbolo: 'engranaje' | 'ojo' | 'rayo' | 'mano' = 'engranaje', semilla = 1) {
   const W = 512, H = 720;
   const { c, g } = lienzo(W, H);
   g.fillStyle = fondo; g.fillRect(0, 0, W, H);
@@ -99,7 +100,7 @@ export function cartel(lineas: string[], pie: string, fondo: string, tinta: stri
   g.restore();
   g.fillStyle = tinta; g.textAlign = 'center';
   let y = 455;
-  for (const l of lineas) {
+  for (const l of typeof texto === 'string' ? texto.split('\n') : texto) {
     let tam = 64; g.font = `900 ${tam}px ${SOURCES.titulo}`;
     while (g.measureText(l).width > W - 80 && tam > 30) { tam -= 3; g.font = `900 ${tam}px ${SOURCES.titulo}`; }
     g.fillText(l, W / 2, y); y += tam * 0.95;
