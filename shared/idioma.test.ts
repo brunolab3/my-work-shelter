@@ -16,7 +16,7 @@ describe('idioma', () => {
   it('los textos que llegan como datos en español se buscan por su español; lo demás sale tal cual', () => {
     setLanguage('en');
     expect(tIs('Cámara acorazada')).toBe('Vault');
-    expect(tIs('fever2')).toBe('fever2');
+    expect(tIs('app-web')).toBe('app-web');
   });
   it('claves en inglés, y cada traducción con las mismas variables que su original', () => {
     const vars = (s: string) => [...s.matchAll(/\{(\w+)\}/g)].map(m => m[1]).sort().join();

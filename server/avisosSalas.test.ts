@@ -7,7 +7,7 @@ import { sendToRoom, taskWorktree, forgetLimits, type CtxRooms } from './avisosS
 import { infoRepo } from './repos.ts';
 
 const SALAS = [
-  { id: 'express', nombre: 'fever2', habitante: { id: 'remi', nombre: 'Remi' } },
+  { id: 'express', nombre: 'app-web', habitante: { id: 'remi', nombre: 'Remi' } },
   { id: 'partners', nombre: 'partners', habitante: { id: 'pilar', nombre: 'Pilar' } },
   { id: 'tareas', nombre: 'Logística', habitante: { id: 'ines', nombre: 'Inés' } },
   { id: 'vacia', nombre: 'vacía' },
@@ -34,7 +34,7 @@ describe('mensajes entre salas', () => {
 
   it('sin clave, una conversación nueva con el habitante en su copia principal, aunque tenga otra abierta', async () => {
     const x = ctx({ abiertas: { 'express/FIC-1': 'abierta' } });
-    const r = await sendToRoom(x.c, 'tareas', { sala: 'fever2', mensaje: '  Investiga los saltos del bloqueo de LTD  ' });
+    const r = await sendToRoom(x.c, 'tareas', { sala: 'app-web', mensaje: '  Investiga los saltos del bloqueo de LTD  ' });
     expect(r.ok).toBe(true);
     expect(x.avisados).toEqual([]);
     expect(x.nuevas).toHaveLength(1);
@@ -45,7 +45,7 @@ describe('mensajes entre salas', () => {
     expect(x.nuevas[0].prompt).toContain('\nInvestiga los saltos del bloqueo de LTD\n');
     expect(x.nuevas[0].prompt).toContain('tareas');
     expect(x.mensajero).toEqual([['tareas', 'express']]);
-    expect(x.avisos[0]).toContain('Logística → fever2: Investiga los saltos');
+    expect(x.avisos[0]).toContain('Logística → app-web: Investiga los saltos');
   });
 
   it('con clave, a la conversación abierta de esa tarea en la sala', async () => {

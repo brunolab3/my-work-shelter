@@ -69,7 +69,7 @@ describe('livePages', () => {
 });
 
 describe('páginas con ruta relativa', () => {
-  const B = '/Users/ana/Fever/fever2/.claude/worktrees/ltd';
+  const B = '/Users/ana/Code/app-web/.claude/worktrees/ltd';
   it('las enlaza a la carpeta de la conversación: sueltas, en código en línea y como destino de un enlace', () => {
     expect(relativeLinks('The investigation is done (report in tmp/ltd-lock-skips-report.md). What next?', B))
       .toBe(`The investigation is done (report in [tmp/ltd-lock-skips-report.md](<${B}/tmp/ltd-lock-skips-report.md>)). What next?`);
