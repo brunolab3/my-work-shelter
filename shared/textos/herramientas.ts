@@ -20,6 +20,7 @@ export const TOOLS: Record<string, Texto> = {
   'tool.rooms.couldNotStart': { es: 'No he podido empezar la conversación en «{sala}»: {error}', en: 'I could not start the conversation in “{sala}”: {error}' },
   'tool.rooms.inTaskWorktree': { es: 'en una conversación nueva en el worktree de {clave}', en: 'in a new conversation in the {clave} worktree' },
   'tool.rooms.inNewWorktree': { es: 'en una conversación nueva en un worktree nuevo para {clave} (rama worktree-{worktree}: renómbrala si el repo pide otro nombre)', en: 'in a new conversation in a new worktree for {clave} (branch worktree-{worktree}: rename it if the repo requires another name)' },
+  'tool.rooms.inMainCopyNoGit': { es: 'en una conversación nueva en su copia principal: su carpeta no es un repo git y no se pudo crear un worktree para {clave}', en: 'in a new conversation in their main copy: their folder is not a git repo, so no worktree could be created for {clave}' },
   'tool.rooms.inMainCopy': { es: 'en una conversación nueva en su copia principal', en: 'in a new conversation in their main copy' },
   'tool.rooms.sent': { es: 'Enviado a {habitante} («{sala}») {como}.', en: 'Sent to {habitante} (“{sala}”) {como}.' },
   // reparto desde la sala de logística (server/reparto.ts)

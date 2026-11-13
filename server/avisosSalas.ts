@@ -18,12 +18,14 @@ export interface CtxRooms {
   salas(): RoomInfo[];
   // la conversación abierta en el worktree de la tarea, en esa sala
   sesionDeTarea(salaId: string, clave: string): string | undefined;
-  // el worktree de la tarea en esa sala (la clave en su rama o en su carpeta)
-  worktreeDeTarea(salaId: string, clave: string): string | undefined;
+  // el worktree de la tarea en esa sala (la clave en su rama o en su carpeta), leído de git al momento: uno recién creado
+  // aún no está en el último repaso de los repos
+  worktreeDeTarea(salaId: string, clave: string): Promise<string | undefined>;
   avisar(sesionId: string, texto: string): boolean;
   // una conversación nueva con el habitante, en automático: en `cwd`, en un worktree nuevo llamado `worktree` o, sin
-  // ninguno, en la carpeta de la sala
-  empezar(salaId: string, dwellerId: string, prompt: string, donde?: { cwd?: string; worktree?: string }): Promise<string>;
+  // ninguno, en la carpeta de la sala; `enWorktree` dice si el worktree pedido sigue en pie (falso si la carpeta de la
+  // sala no es un repo git y la conversación arrancó en ella)
+  empezar(salaId: string, dwellerId: string, prompt: string, donde?: { cwd?: string; worktree?: string }): Promise<{ id: string; enWorktree: boolean }>;
   mensajero(desde: string, a: string[], motivo: 'cambio'): void;
   // dentro de la misma sala no hay robot: el habitante se lo da en mano al holograma de la conversación que lo recibe
   entrega?(salaId: string, a: { worktree?: string; sesionId?: string }): void;
@@ -67,12 +69,15 @@ export async function sendToRoom(ctx: CtxRooms, desde: string, { sala, mensaje, 
   if (misma && abierta && abierta === desdeSesion) return { ok: false, texto: tr('tool.rooms.ownConversation', { clave: k! }) };
   if (abierta && ctx.avisar(abierta, texto)) { como = tr('tool.rooms.toOpen', { clave: k! }); recibe = abierta; }
   else {
-    cwd = k ? ctx.worktreeDeTarea(destino.id, k) : undefined;
+    cwd = k ? await ctx.worktreeDeTarea(destino.id, k) : undefined;
     // sin worktree de la tarea, uno nuevo: la clave y el asunto en su nombre (la primera línea, sin repetir la clave)
     const worktree = k && !cwd ? nombreWorktree(`${k} ${mensaje.trim().split('\n')[0].replace(new RegExp(k, 'ig'), '')}`, ahora) : undefined;
-    try { recibe = await ctx.empezar(destino.id, destino.habitante.id, texto, cwd ? { cwd } : worktree ? { worktree } : undefined); }
+    let enWorktree: boolean;
+    try { ({ id: recibe, enWorktree } = await ctx.empezar(destino.id, destino.habitante.id, texto, cwd ? { cwd } : worktree ? { worktree } : undefined)); }
     catch (e) { return { ok: false, texto: tr('tool.rooms.couldNotStart', { sala: destino.nombre, error: (e as Error).message }) }; }
-    como = cwd ? tr('tool.rooms.inTaskWorktree', { clave: k! }) : worktree ? tr('tool.rooms.inNewWorktree', { clave: k!, worktree }) : tr('tool.rooms.inMainCopy');
+    // dónde ha caído de verdad: si no se pudo hacer el worktree, se dice (nunca a la copia principal en silencio)
+    como = cwd ? tr('tool.rooms.inTaskWorktree', { clave: k! }) : !worktree ? tr('tool.rooms.inMainCopy')
+      : enWorktree ? tr('tool.rooms.inNewWorktree', { clave: k!, worktree }) : tr('tool.rooms.inMainCopyNoGit', { clave: k! });
   }
   enviados.set(par, [...recientes, ahora]);
   if (!misma) ctx.mensajero(desde, [destino.id], 'cambio');

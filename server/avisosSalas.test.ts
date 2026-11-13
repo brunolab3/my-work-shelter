@@ -4,7 +4,7 @@ import { mkdtempSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { sendToRoom, taskWorktree, forgetLimits, type CtxRooms } from './avisosSalas.ts';
-import { infoRepo } from './repos.ts';
+import { infoRepo, worktreeList } from './repos.ts';
 
 const SALAS = [
   { id: 'express', nombre: 'app-web', habitante: { id: 'remi', nombre: 'Remi' } },
@@ -14,14 +14,14 @@ const SALAS = [
 ];
 
 // un contexto que apunta lo que se hace: avisos a conversaciones abiertas y conversaciones nuevas
-function ctx(o: { abiertas?: Record<string, string>; worktrees?: Record<string, string>; falla?: string; reloj?: { t: number } } = {}) {
+function ctx(o: { abiertas?: Record<string, string>; worktrees?: Record<string, string>; falla?: string; reloj?: { t: number }; sinGit?: boolean; worktreeDeTarea?: CtxRooms['worktreeDeTarea'] } = {}) {
   const avisados: { sesionId: string; texto: string }[] = [], nuevas: { salaId: string; dwellerId: string; prompt: string; cwd?: string; worktree?: string }[] = [], mensajero: string[][] = [], avisos: string[] = [];
   const c: CtxRooms = {
     salas: () => SALAS,
     sesionDeTarea: (salaId, clave) => o.abiertas?.[`${salaId}/${clave}`],
-    worktreeDeTarea: (salaId, clave) => o.worktrees?.[`${salaId}/${clave}`],
+    worktreeDeTarea: o.worktreeDeTarea ?? (async (salaId, clave) => o.worktrees?.[`${salaId}/${clave}`]),
     avisar: (sesionId, texto) => { avisados.push({ sesionId, texto }); return true; },
-    empezar: async (salaId, dwellerId, prompt, donde) => { if (o.falla) throw new Error(o.falla); nuevas.push({ salaId, dwellerId, prompt, cwd: donde?.cwd, worktree: donde?.worktree }); return 'nueva'; },
+    empezar: async (salaId, dwellerId, prompt, donde) => { if (o.falla) throw new Error(o.falla); nuevas.push({ salaId, dwellerId, prompt, cwd: donde?.cwd, worktree: donde?.worktree }); return { id: 'nueva', enWorktree: !!(donde?.cwd || (donde?.worktree && !o.sinGit)) }; },
     mensajero: (desde, a) => mensajero.push([desde, ...a]),
     aviso: t => avisos.push(t),
     ahora: o.reloj && (() => o.reloj!.t),
@@ -68,6 +68,15 @@ describe('mensajes entre salas', () => {
     expect(x.nuevas[1].worktree).toMatch(/^shelter-abc-321-weekend-bundle-open[a-z0-9-]*-[0-9a-z]{4}$/);
     expect(taskWorktree([{ ruta: '/repos/partners/.claude/worktrees/' + x.nuevas[1].worktree, principal: false } as any], 'ABC-321')).toBeDefined();
     expect(r.texto).toContain('worktree nuevo');
+  });
+
+  it('con clave en una sala cuya carpeta no es un repo git: a su copia principal, y la respuesta lo dice', async () => {
+    const x = ctx({ sinGit: true });
+    const r = await sendToRoom(x.c, 'express', { sala: 'tareas', clave: 'WS-1', mensaje: 'Revisa el CI' });
+    expect(r.ok).toBe(true);
+    expect(x.nuevas[0].worktree).toMatch(/^shelter-ws-1-/);
+    expect(r.texto).toContain('no es un repo git');
+    expect(r.texto).not.toContain('worktree nuevo');
   });
 
   it('sin clave, nunca un worktree', async () => {
@@ -121,6 +130,21 @@ describe('mensajes entre salas', () => {
     expect((await sendToRoom(x.c, 'express', { sala: 'partners', mensaje: 'x' })).ok).toBe(true);
     expect(x.nuevas).toHaveLength(5);
   });
+
+  it('con clave, al worktree que otra conversación acaba de crear (leído de git al momento), no a la copia principal', async () => {
+    const dir = realpathSync(mkdtempSync(path.join(tmpdir(), 'avisos-')));
+    const env = { ...process.env, GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@x.example', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@x.example' };
+    const g = (...a: string[]) => execFileSync('git', ['-C', dir, ...a], { stdio: 'ignore', env });
+    g('init', '-b', 'main'); writeFileSync(path.join(dir, 'a.txt'), 'a'); g('add', '.'); g('commit', '-m', 'a');
+    // como main.ts: la lista de worktrees de la carpeta de la sala en cada mensaje
+    const x = ctx({ worktreeDeTarea: async (_sala, clave) => taskWorktree(await worktreeList(dir), clave) });
+    const wt = path.join(path.dirname(dir), path.basename(dir) + '-ws-ci-idioma');
+    g('worktree', 'add', '-b', 'ws-1-ci-idioma', wt);
+    const r = await sendToRoom(x.c, 'express', { sala: 'express', clave: 'WS-1', mensaje: 'Traduce los avisos de CI' }, 'ses-supervisor');
+    expect(r.ok).toBe(true);
+    expect(x.nuevas[0]).toMatchObject({ cwd: wt, worktree: undefined });
+    expect(r.texto).toContain('worktree de WS-1');
+  }, 30_000);
 
   it('encuentra el worktree de la tarea en los de un repo de verdad (por su rama), nunca la copia principal', async () => {
     const dir = realpathSync(mkdtempSync(path.join(tmpdir(), 'avisos-')));

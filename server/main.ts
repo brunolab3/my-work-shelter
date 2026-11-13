@@ -144,9 +144,16 @@ const ctxPlan: Pick<CtxAssignment, 'planes' | 'avisar' | 'mensajero' | 'sesionDe
 const ctxRooms: CtxRooms = {
   salas: () => almacen.estado.salas.map(s => { const h = almacen.estado.habitantes.find(x => x.salaId === s.id); return { id: s.id, nombre: s.nombre, habitante: h && { id: h.id, nombre: h.nombre } }; }),
   sesionDeTarea: (salaId, clave) => ctxPlan.sesionDeTarea!(salaId, clave),
-  worktreeDeTarea: (salaId, clave) => taskWorktree(repos[salaId]?.worktrees ?? [], clave),
+  // de git al momento: un worktree recién creado (por otra conversación) aún no está en `repos`, que se repasa cada 20 s
+  worktreeDeTarea: async (salaId, clave) => { const s = almacen.estado.salas.find(x => x.id === salaId); return s ? taskWorktree(await worktreeList(folderOf(s)), clave) : undefined; },
   avisar: (id, texto) => ctxPlan.avisar(id, texto),
-  empezar: (salaId, dwellerId, prompt, donde) => startWork(undefined, { t: 'empezar', dwellerId, salaId, prompt, opciones: { cwd: donde?.cwd, worktree: donde?.worktree, permisos: 'auto' } }),
+  empezar: async (salaId, dwellerId, prompt, donde) => {
+    const m: Extract<ClientMessage, { t: 'empezar' }> = { t: 'empezar', dwellerId, salaId, prompt, opciones: { cwd: donde?.cwd, worktree: donde?.worktree, permisos: 'auto' } };
+    const id = await startWork(undefined, m);
+    // startWork quita el worktree si la carpeta no es un repo git; el nuevo se ve en los hologramas cuanto antes
+    if (m.opciones.worktree) refreshReposPronto();
+    return { id, enWorktree: !!(donde?.cwd || m.opciones.worktree) };
+  },
   mensajero: (desde, a, motivo) => ctxPlan.mensajero(desde, a, motivo),
   entrega: (sala, a) => broadcast({ t: 'entrega', sala, ...a }),
   aviso: texto => broadcast({ t: 'aviso', nivel: 'info', texto }),
@@ -925,8 +932,9 @@ async function startWork(ws: WebSocket | undefined, m: Extract<ClientMessage, { 
   // el límite cuenta las que trabajan o esperan; las terminadas ociosas no bloquean (y se cierran solas a los 30 min)
   const vivas = sesiones.lista().filter(x => ['arrancando', 'trabajando', 'esperando'].includes(x.estado)).length;
   if (vivas >= e.limiteSesiones) throw new Error(t('server.thereAreAlreadyLiveSessions', { vivas, limiteSesiones: e.limiteSesiones }));
-  // los worktrees son solo de las salas de proyecto: el Puente de Mando y las especiales trabajan en su carpeta
-  if (sala.tipo !== 'repo') m.opciones.worktree = false;
+  // los worktrees son de las salas de proyecto: el Puente de Mando y las especiales trabajan en su carpeta, salvo el
+  // worktree con nombre de una tarea (mensajes entre salas) si su carpeta es un repo git (lo comprueba lo de abajo)
+  if (sala.tipo !== 'repo' && typeof m.opciones.worktree !== 'string') m.opciones.worktree = false;
   // un nombre de worktree (mensajes entre salas): solo letras, números, guiones y puntos; si no, uno con el título
   if (typeof m.opciones.worktree === 'string' && !/^[\w.-]{1,80}$/.test(m.opciones.worktree)) m.opciones.worktree = true;
   // en un ala (carpeta con varios repos) no hay un único repo donde crear el worktree: se trabaja en la carpeta
