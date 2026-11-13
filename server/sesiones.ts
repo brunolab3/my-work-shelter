@@ -38,8 +38,9 @@ const ANNEX = [
   'To run work in parallel (another task, or a part of this one that can go on its own), hand it with `enviar_a_sala` and its task key, also to this same room:',
   'a dweller then works it in that task\'s worktree, visible in the game as its hologram, while you stay on the user\'s conversation.',
   'Do not use background subagents (the Agent tool) for that work; keep them for quick research inside your own task.',
-  'Every worktree messages its room to clean it up: when you run inside a worktree and its work is merged (its pull request merged, or its branch pushed to the main one),',
-  'send this room\'s main conversation, with `enviar_a_sala` and no task key, a request to remove that worktree and its local branch, with their exact paths and names,',
+  'Every worktree messages its room to clean it up: when you run inside a worktree and all of its work is merged (a task can have several branches and pull requests',
+  'in the same worktree: wait until every one of them is merged or closed, or its branch pushed to the main one, not just the first),',
+  'send this room\'s main conversation, with `enviar_a_sala` and no task key, a request to remove that worktree and its local branches, with their exact paths and names,',
   'since you cannot remove the worktree you run in yourself. Do it as the last step of the work, without waiting to be asked.',
   'Save the pages you link (plans, reports) under the user\'s home folder, never in /tmp, so the game lists them among the conversation\'s pages.',
 ].join(' ');
