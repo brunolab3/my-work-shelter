@@ -382,7 +382,7 @@ export class Refugio {
     }
     for (const sala of nuevas) this.dig(sala, newDweller.filter(h => h.sala === sala));
     for (const h of newDweller) if (!nuevas.includes(h.sala)) this.recruitArrival(h, h.sala, 0);
-    this.publish(); this.syncSessions(); this.syncHolograms(); this.applyAccessories();
+    this.publish(); this.syncSessions(); this.syncHolograms(); this.applyAccessories(); this.visitantes.sincronizar();
   }
 
   // ---- excavación: un tapón de roca se desmorona desde el centro con polvo y chispas, y entra el recluta

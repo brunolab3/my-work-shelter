@@ -26,13 +26,14 @@ export class Visitors {
   figuras = new Map<string, Figure>();   // por sala
   constructor(private r: Refugio) { vivo.subscribe(() => this.sincronizar()); }
 
-  private sincronizar() {
+  sincronizar() {
     if (!this.r.salas.length) return;
     const porSala = new Map<string, Visitante[]>();
     for (const v of vivo.get().visitantes ?? []) porSala.set(v.salaId, [...(porSala.get(v.salaId) ?? []), v]);
     for (const [salaId, sesiones] of porSala) {
       const sala = this.r.salas.find(s => s.id === salaId); if (!sala) continue;
       const ya = this.figuras.get(salaId);
+      if (ya && ya.sala !== sala) this.mudar(ya, sala);
       if (ya) { if (ya.listo && sesiones.some(v => !ya.sesiones.some(x => x.claudeId === v.claudeId))) this.llamar(ya); ya.sesiones = sesiones; continue; }
       this.crear(sesiones, sala);
     }
@@ -48,10 +49,25 @@ export class Visitors {
     const lado = sala.lado === 'izq' ? 1 : -1;
     p.raiz.position.set(sala.grupo.position.x + lado * (sala.ancho / 2 + 0.4), sala.grupo.position.y, 1.3);
     this.r.motor.scene.add(p.raiz);
-    const destino = new THREE.Vector3(sala.grupo.position.x + lado * (sala.ancho / 2 - 1.1), sala.grupo.position.y, 1.45);
+    // (si la sala se volvió a montar mientras cargaba, a la nueva)
+    const destino = this.puesto(f.sala);
     p.goA([destino], false, () => { f.listo = true; p.goalTurn = -lado * 0.6; p.inRest = 'Idle_B'; p.reproducir('Idle_B'); this.llamar(f); });
     SFX.roomGate();
-    sala.interactive = [...(sala.interactive ?? []).filter(i => i.id !== 'vis:' + sala.id), { id: 'vis:' + sala.id, x: destino.x - sala.grupo.position.x, z: 1.45, texto: t('world.visitorOutside'), panel: 'visitante' }];
+    this.rotular(f.sala);
+  }
+
+  // junto al paso, por dentro de la sala
+  private puesto(sala: Sala) { const lado = sala.lado === 'izq' ? 1 : -1; return new THREE.Vector3(sala.grupo.position.x + lado * (sala.ancho / 2 - 1.1), sala.grupo.position.y, 1.45); }
+  // su punto de uso (E o clic) vive en la sala: una sala que se vuelve a montar (un vecino nuevo, otro número, un
+  // decorado) es otro objeto sin él, y el robot se quedaría a la vista sin poder usarse
+  private rotular(sala: Sala) {
+    const x = this.puesto(sala).x - sala.grupo.position.x;
+    sala.interactive = [...(sala.interactive ?? []).filter(i => i.id !== 'vis:' + sala.id), { id: 'vis:' + sala.id, x, z: 1.45, texto: t('world.visitorOutside'), panel: 'visitante' }];
+  }
+  private mudar(f: Figure, sala: Sala) {
+    f.sala = sala; this.rotular(sala);
+    // si la sala cambió de sitio, el robot va con ella
+    if (f.listo && f.p.raiz.position.distanceTo(this.puesto(sala)) > 0.5) { f.p.ruta = []; f.p.onArrive = null; f.p.raiz.position.copy(this.puesto(sala)); }
   }
 
   // al llegar (o si se asoma otra sesión más) salta y saluda para que se le vea
