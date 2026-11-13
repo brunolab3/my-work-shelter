@@ -9,7 +9,7 @@ import { existsSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
 import fs from 'node:fs/promises';
 import type { PRBoard } from '../shared/tablero.ts';
 import { bloqueosEntre, type BlockerManual, type TaskOrder } from '../shared/despliegue.ts';
-import { preflightTarea, type CompareRecord, type LocalBranch, type PlanPart, type TaskPreflight } from '../shared/preflight.ts';
+import { preflightTarea, answered, checklistKey, gateMissing, linkState, type ChecklistAnswer, type CompareRecord, type PartPreflight, type LocalBranch, type PlanPart, type TaskPreflight } from '../shared/preflight.ts';
 import type { ReviewLedger, ReviewThread } from '../shared/cuentaRevisiones.ts';
 import { pRTask, worktreeTask } from '../shared/tareas.ts';
 import type { RoomPR } from './revisionesPR.ts';
@@ -27,6 +27,7 @@ export interface CtxPreflight {
   color(clave: string): string | undefined;
   compares(): Promise<CompareRecord[]>;
   revisiones(url: string): { ledger?: ReviewLedger; hilos?: ReviewThread[] };   // de la última vuelta de revisionesPR.ts
+  checklist(): { items: string[]; respuestas: (clave: string) => Record<string, Record<string, ChecklistAnswer>> };
   git: Git;
 }
 
@@ -78,6 +79,7 @@ export async function preflightOf(clave: string, ctx: CtxPreflight, forzar = fal
   const [locales, compares] = await Promise.all([localBranches(K, prs, salas, ctx.git), ctx.compares().catch(() => [] as CompareRecord[])]);
   return preflightTarea(K, {
     prs, bloqueos: bloqueosEntre(prs, ctx.manuales(), orden), locales, compares, hilos,
+    checklist: { items: ctx.checklist().items, respuestas: ctx.checklist().respuestas(K) },
     salas: salas.map(s => ({ id: s.id, nombre: s.nombre, repo: s.repo })),
     plan: ctx.plan(K), color: ctx.color(K), demo: gh.demo, error: gh.error,
   });
@@ -111,15 +113,21 @@ export function cachedPRs(leer: () => Promise<DataPRs>, ttl = 60_000) {
  *  llevando la suya por conversación (Navegadores.tsx): esta es la que cuenta para el pre-flight */
 export class PageReviews {
   private respuestas: Record<string, { estado: 'validada' | 'notas'; ts: number }> = {};
+  // lo que contesta el habitante a la lista «antes de subir»: por tarea, `${worktree}|${head}` y punto
+  private checklist: Record<string, Record<string, Record<string, ChecklistAnswer>>> = {};
   private archivo: string;
   constructor(dir: string, private carpeta: string) {
     this.archivo = path.join(dir, 'preflight.json');
-    try { if (existsSync(this.archivo)) this.respuestas = JSON.parse(readFileSync(this.archivo, 'utf8')).respuestas ?? {}; } catch { this.respuestas = {}; }
+    try { if (existsSync(this.archivo)) { const j = JSON.parse(readFileSync(this.archivo, 'utf8')); this.respuestas = j.respuestas ?? {}; this.checklist = j.checklist ?? {}; } } catch { this.respuestas = {}; }
   }
   private guardar() {
     const lista = Object.entries(this.respuestas).sort((a, b) => b[1].ts - a[1].ts).slice(0, 500);
     this.respuestas = Object.fromEntries(lista);
-    const tmp = this.archivo + '.tmp'; writeFileSync(tmp, JSON.stringify({ respuestas: this.respuestas }), { mode: 0o600 }); renameSync(tmp, this.archivo);
+    // de la lista, las 60 tareas más recientes y, en cada una, los 6 últimos commits de cada worktree
+    const reciente = (x: Record<string, Record<string, ChecklistAnswer>>) => Math.max(0, ...Object.values(x).flatMap(r => Object.values(r).map(a => a.ts)));
+    this.checklist = Object.fromEntries(Object.entries(this.checklist).sort((a, b) => reciente(b[1]) - reciente(a[1])).slice(0, 60)
+      .map(([k, porCommit]) => [k, Object.fromEntries(Object.entries(porCommit).sort((a, b) => reciente({ b: b[1] }) - reciente({ a: a[1] })).slice(0, 30))]));
+    const tmp = this.archivo + '.tmp'; writeFileSync(tmp, JSON.stringify({ respuestas: this.respuestas, checklist: this.checklist }), { mode: 0o600 }); renameSync(tmp, this.archivo);
   }
   /** Solo las páginas de comparación (las de la carpeta, con su `.json`); lo demás no cuenta y se ignora */
   responder(ruta: unknown, estado: unknown): boolean {
@@ -129,6 +137,14 @@ export class PageReviews {
     this.respuestas[r] = { estado, ts: Date.now() };
     this.guardar();
     return true;
+  }
+  /** Lo contestado de la lista en una tarea, por `${worktree}|${head}` */
+  checklistOf(clave: string) { return this.checklist[clave.toUpperCase()] ?? {}; }
+  /** El habitante contesta un punto para el commit actual de su worktree */
+  contestar(clave: string, worktree: string, head: string, item: string, a: Omit<ChecklistAnswer, 'ts'>) {
+    const K = clave.toUpperCase(), k = checklistKey(path.resolve(worktree), head);
+    ((this.checklist[K] ??= {})[k] ??= {})[item] = { estado: a.estado, nota: a.nota?.trim().slice(0, 1000) || undefined, ts: Date.now() };
+    this.guardar();
   }
   /** Las comparaciones de la carpeta, con su respuesta */
   async compares(): Promise<CompareRecord[]> {
@@ -145,4 +161,62 @@ export class PageReviews {
     }));
     return out;
   }
+}
+
+/** La parte de la tarea en la que trabaja una carpeta (un worktree de tarea): su clave por el nombre o la rama del
+ *  worktree. Sin tarea, null (la puerta no se aplica y las herramientas lo dicen) */
+export async function partOfFolder(cwd: string, ctx: CtxPreflight): Promise<{ clave: string; parte: PartPreflight; r: TaskPreflight } | null> {
+  const raiz = (await ctx.git(cwd, ['rev-parse', '--show-toplevel']).catch(() => '')).trim();
+  if (!raiz) return null;
+  const rama = (await ctx.git(raiz, ['rev-parse', '--abbrev-ref', 'HEAD']).catch(() => '')).trim();
+  const clave = worktreeTask({ ruta: raiz, rama });
+  if (!clave) return null;
+  const r = await preflightOf(clave, ctx);
+  const ruta = path.resolve(raiz);
+  const parte = r.partes.find(p => p.worktree === ruta && p.rama === rama) ?? r.partes.find(p => p.worktree === ruta);
+  return parte ? { clave: r.clave, parte, r } : null;
+}
+
+/** La puerta de `git push` en una carpeta: lo que falta (vacío: puede subir; null: no es una parte de tarea) */
+export async function gatePush(cwd: string, ctx: CtxPreflight): Promise<{ clave: string; rama?: string; head?: string; falta: string[] } | null> {
+  const x = await partOfFolder(cwd, ctx).catch(() => null);
+  return x && { clave: x.clave, rama: x.parte.rama, head: x.parte.headLocal, falta: gateMissing(x.parte) };
+}
+
+/** Lo que ve el habitante con preflight_estado: su parte, cada columna, la lista con lo contestado y los bloqueos */
+export function textState(x: { clave: string; parte: PartPreflight; r: TaskPreflight }): string {
+  const p = x.parte, c = (n: string, v: { marca: string; texto: string }) => `- ${n}: ${{ ok: '✓', aviso: '⚠', mal: '✗', nada: '—' }[v.marca as 'ok']} ${v.texto}`;
+  const falta = gateMissing(p);
+  return [
+    t('tool.preflight.heading', { clave: x.clave, sala: p.sala ?? '', rama: p.rama ?? '', head: (p.headLocal ?? '').slice(0, 7) }),
+    c('Compare', p.compare), c(t('preflight.col.checklist'), p.checklist), c(t('preflight.col.sync'), p.sync), c('CI', p.ci), c(t('preflight.col.review'), p.revision), c(t('preflight.col.blockers'), p.bloqueos),
+    '',
+    t('tool.preflight.items'),
+    ...(x.r.checklist.length ? x.r.checklist.map((it, i) => { const a = p.respuestas?.[it]; return `${i + 1}. [${answered(a) ? a!.estado : a?.estado ?? ' '}] ${it}${a?.nota ? ` — ${a.nota}` : ''}`; }) : [t('tool.preflight.noItems')]),
+    ...(p.esperaA.length ? ['', t('tool.preflight.waits', { prs: p.esperaA.map(l => `${l.url ? l.ref : l.sala} (${linkState(l)})`).join(', ') })] : []),
+    ...(p.hilos.length ? ['', t('tool.preflight.threads', { n: p.hilos.length }), ...p.hilos.map(h => `- ${h.archivo}${h.linea ? ':' + h.linea : ''} ${h.autor}: ${h.texto} (${h.url})`)] : []),
+    '',
+    falta.length ? t('tool.preflight.missing', { que: falta.join('; ') }) : t('tool.preflight.ready'),
+  ].join('\n');
+}
+
+/** Las herramientas del habitante (en el MCP `revision`): leer su pre-flight y contestar la lista para su commit */
+export function preflightTools(ctx: CtxPreflight, guardar: (clave: string, worktree: string, head: string, item: string, a: Omit<ChecklistAnswer, 'ts'>) => void) {
+  return {
+    async estado(cwd: string): Promise<string> {
+      const x = await partOfFolder(cwd, ctx);
+      return x ? textState(x) : t('tool.preflight.noTask');
+    },
+    async responder(cwd: string, item: string, estado: ChecklistAnswer['estado'], nota?: string): Promise<string> {
+      const x = await partOfFolder(cwd, ctx);
+      if (!x || !x.parte.worktree || !x.parte.headLocal) return t('tool.preflight.noTask');
+      const items = x.r.checklist;
+      const n = Number(item);
+      const punto = Number.isInteger(n) && n >= 1 && n <= items.length ? items[n - 1] : items.find(i => i.toLowerCase() === String(item).trim().toLowerCase());
+      if (!punto) return t('tool.preflight.noSuchItem', { item: String(item).slice(0, 80), lista: items.map((x, i) => `${i + 1}. ${x}`).join(' · ') || '—' });
+      if (estado === 'n/a' && !nota?.trim()) return t('tool.preflight.naNeedsNote');
+      guardar(x.clave, x.parte.worktree, x.parte.headLocal, punto, { estado, nota });
+      return t('tool.preflight.saved', { item: punto, estado, head: x.parte.headLocal.slice(0, 7) });
+    },
+  };
 }

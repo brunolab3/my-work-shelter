@@ -66,7 +66,7 @@ function Window({ v, repos, ruta }: { v: WindowGit; repos: Repo[]; ruta: string 
   const [errorState, setErrorState] = useState('');
   const [ocupado, setBusy] = useState('');
   const [aviso, setNotice] = useState<{ texto: string; error: boolean; id: number } | null>(null);
-  const [confirmar, setConfirm] = useState<{ texto: React.ReactNode; boton: string; si: () => void } | null>(null);
+  const [confirmar, setConfirm] = useState<{ texto: React.ReactNode; boton: string; si: () => void; no?: () => void } | null>(null);
   const [sel, setSel] = useState<Choice | null>(null);
   const [paralelo, setParallel] = useState(() => localStorage.getItem('refugio.git.paralelo') === '1');
   const [plegados, setFolded] = useState<Record<Grupo, boolean>>({ preparados: false, cambios: false, conflictos: false });
@@ -89,8 +89,17 @@ function Window({ v, repos, ruta }: { v: WindowGit; repos: Repo[]; ruta: string 
   }, [v.minimizada, refrescar]);
 
   // acción de git con su aviso; al acabar, el estado se relee
-  const hacer = useCallback(async <T,>(nombre: string, datos: Record<string, unknown>, que: string, ok?: string | ((r: T) => string)): Promise<T | undefined> => {
+  const hacer = useCallback(async <T,>(nombre: string, datos: Record<string, unknown>, que: string, ok?: string | ((r: T) => string), sinPuerta = false): Promise<T | undefined> => {
     if (!ruta) return;
+    // la puerta del pre-flight (server/preflight.ts): subir desde el worktree de una tarea sin el compare validado en su
+    // commit (o sin la lista contestada) pregunta antes, como en las conversaciones
+    if (!sinPuerta && nombre === 'sincronizar' && (datos.que === 'push' || datos.que === 'sync')) {
+      const g = await cliente.accion<{ clave: string; falta: string[] } | null>('preflight.puerta', { ruta }).catch(() => null);
+      if (g?.falta.length) return new Promise<T | undefined>(res => setConfirm({
+        texto: <>{t('windows.preflightGate', { clave: g.clave })}<br />{g.falta.map(f => <span key={f}>• {f}<br /></span>)}</>,
+        boton: t('windows.pushAnyway'), si: () => { hacer<T>(nombre, datos, que, ok, true).then(res); }, no: () => res(undefined),
+      }));
+    }
     setBusy(que); windowGit.set({ ocupado: true });
     try {
       const r = await cliente.accion<T>('git.' + nombre, { ruta, ...datos }, 200_000);
@@ -145,7 +154,7 @@ function Window({ v, repos, ruta }: { v: WindowGit; repos: Repo[]; ruta: string 
   return (
     <div ref={caja} className={'ventana-git interactivo' + (v.maximizada ? ' maximizada' : '') + (v.minimizada ? ' minimizada' : '')} style={{ zIndex: v.maximizada ? 200000 + v.z : v.z }}
       onPointerDown={() => { if (!v.minimizada && !(document.activeElement && caja.current?.contains(document.activeElement))) onFrontGit(); }}
-      onKeyDownCapture={e => { if (windowShortcut(e, acciones)) return; if (e.key === 'Escape' && confirmar) { e.preventDefault(); setConfirm(null); } }}
+      onKeyDownCapture={e => { if (windowShortcut(e, acciones)) return; if (e.key === 'Escape' && confirmar) { e.preventDefault(); const c = confirmar; setConfirm(null); c.no?.(); } }}
       onKeyDown={e => e.stopPropagation()} role="dialog" aria-label={t('world.gitClient')}>
       <div className="vt-cabeza vn-cabeza" onDoubleClick={e => { if (!(e.target as HTMLElement).closest('button, select')) toggleMaximizeGit(); }}>
         <span className="rejilla" /><span className={'piloto ' + (ocupado ? 'trabajando' : total ? 'esperando' : 'ociosa')} />
@@ -211,7 +220,7 @@ function Window({ v, repos, ruta }: { v: WindowGit; repos: Repo[]; ruta: string 
             <p>{confirmar.texto}</p>
             <div className="vt-confirmar-botones">
               <button className="consola-x peligro" autoFocus onClick={() => { const c = confirmar; setConfirm(null); c.si(); }}>{confirmar.boton} ({t('windows.enter')})</button>
-              <button className="consola-x" onClick={() => setConfirm(null)}>{t('windows.cancelEsc')}</button>
+              <button className="consola-x" onClick={() => { const c = confirmar; setConfirm(null); c.no?.(); }}>{t('windows.cancelEsc')}</button>
             </div>
           </div>
         </div>

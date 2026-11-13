@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { bloqueosEntre } from './despliegue';
-import { compareCell, estadoParte, preflightTarea, reviewCell, syncCell, type CompareRecord, type LocalBranch, type RoomRepo } from './preflight';
+import { checklistCell, checklistFromClaudeMd, compareCell, estadoParte, gateMissing, preflightTarea, pushOf, reviewCell, syncCell, type CompareRecord, type LocalBranch, type RoomRepo } from './preflight';
 import type { PRBoard } from './tablero';
 
 // repos, salas y personas inventados
@@ -135,5 +135,53 @@ describe('hilos de revisión', () => {
     const hilo = { archivo: 'src/a.ts', linea: 3, autor: 'revisora', texto: '¿Y si es nulo?', url: p.url + '#discussion_r1', outdated: false };
     const r = preflightTarea('ABC-7', { prs: [p], bloqueos: [], locales: [], salas: SALAS, hilos: { [p.url]: [hilo] } });
     expect(r.partes[0].hilos).toEqual([hilo]);
+  });
+});
+
+describe('la puerta de git push', () => {
+  it('reconoce git push (con -C, -c, variables delante, en cualquier trozo), no --dry-run ni otras órdenes', () => {
+    expect(pushOf('git push')).toEqual({ cwd: undefined });
+    expect(pushOf('git push -u origin ABC-1-api')).toEqual({ cwd: undefined });
+    expect(pushOf('git -C ../api push origin HEAD')).toEqual({ cwd: '../api' });
+    expect(pushOf('git -c core.hooksPath=/dev/null push')).toBeTruthy();
+    expect(pushOf('npm test && git push --force-with-lease')).toBeTruthy();
+    expect(pushOf('GIT_TRACE=1 git push')).toBeTruthy();
+    expect(pushOf('/usr/bin/git push')).toBeTruthy();
+    expect(pushOf('git push --dry-run')).toBeNull();
+    expect(pushOf('git push -n')).toBeNull();
+    expect(pushOf('git status; git log --oneline')).toBeNull();
+    expect(pushOf('echo "git push"')).toBeNull();
+    expect(pushOf('gh pr ready 12')).toBeNull();          // decisión del Supervisor: solo git push
+  });
+  it('falta el compare validado en su commit y, salvo en borrador, la lista contestada', () => {
+    const items = ['Compare revisado', 'Pruebas con datos reales'];
+    const p = pr('acme/api', 1, { rama: 'ABC-1-api' });
+    const r = (extra: Partial<PRBoard>, respuestas = {}, compares: CompareRecord[] = []) => preflightTarea('ABC-1', {
+      prs: [{ ...p, ...extra }], bloqueos: [], salas: SALAS, compares,
+      locales: [{ salaId: 'api', rama: 'ABC-1-api', head: 'h1', worktree: '/r/api', cambios: 0 }],
+      checklist: { items, respuestas: { '/r/api|h1': respuestas } },
+    }).partes[0];
+    expect(gateMissing(r({}))).toHaveLength(2);
+    const una = { 'Compare revisado': { estado: 'ok' as const, ts: 1 } };
+    expect(r({}, una).checklist.texto).toMatch(/1\/2/);
+    const todas = { ...una, 'Pruebas con datos reales': { estado: 'n/a' as const, nota: 'sin datos', ts: 1 } };
+    expect(gateMissing(r({}, todas, [validada('/r/api', 'ABC-1-api', 'h1')]))).toEqual([]);
+    // n/a sin nota no cuenta
+    expect(r({}, { ...una, 'Pruebas con datos reales': { estado: 'n/a', ts: 1 } }).checklist.marca).toBe('aviso');
+    // en borrador basta el compare
+    expect(gateMissing(r({ estado: 'borrador' }, {}, [validada('/r/api', 'ABC-1-api', 'h1')]))).toEqual([]);
+    expect(gateMissing(r({ estado: 'borrador' }))).toHaveLength(1);
+    // sin lista, solo el compare
+    expect(checklistCell({ worktree: '/r/api', headLocal: 'h1' }, [], {}).marca).toBe('nada');
+  });
+});
+
+describe('checklistFromClaudeMd', () => {
+  it('los puntos de «Before pushing», por su título en negrita o su primera frase; nada más', () => {
+    const md = ['# Sobre mí', '', '- Me gusta el café.', '', '# Before pushing or marking a PR ready', '', 'Run these checks:', '',
+      '1. **Reused component, new path.** When calling an existing checker…', '2. **Assert the outcome.** Check the values.', '3. Plain item without bold. More text.', '', '# Otra cosa', '1. **No** cuenta'].join('\n');
+    expect(checklistFromClaudeMd(md)).toEqual(['Reused component, new path', 'Assert the outcome', 'Plain item without bold']);
+    expect(checklistFromClaudeMd('# Nada\n1. x')).toEqual([]);
+    expect(checklistFromClaudeMd('## Antes de subir\n- **Compare**: revisado')).toEqual(['Compare']);
   });
 });

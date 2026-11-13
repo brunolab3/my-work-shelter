@@ -275,7 +275,7 @@ or description says so ("depends on #12", "blocked by org/repo#7", the PR link) 
 the plan in plan mode without touching the repos. The list of your PRs and those awaiting your review is in Version
 Control (Pull requests tab of the git client; T from the Jira board).
 
-**Pre-flight of a task** (phase 1, read-only: `shared/preflight.ts`, `server/preflight.ts`, `web/src/ui/Preflight.tsx`,
+**Pre-flight of a task** (`shared/preflight.ts`, `server/preflight.ts`, `web/src/ui/Preflight.tsx`,
 action `preflight.tarea`). One window per Jira key with every part of the task across the shelter: each PR of the task
 in every repo (the board's PRs plus all open ones, read from GitHub at most once a minute; R forces it), the task's
 worktrees without a PR yet and the parts of its shared plan not started. Per part: sync (local HEAD of its branch vs
@@ -290,9 +290,16 @@ the whole task (a section per repo in merge order, each against its PR's base: `
 it: it counts for every part at its sha. Review threads (phase 2, reusing `shared/cuentaRevisiones.ts`): the review
 cell adds the unresolved threads and unanswered summaries from the last `revisionesPR.ts` poll (an approved PR with
 open threads is ⚠); → expands its threads (file:line, author, first line: `openThreads`, `threadsOf`), O on one
-opens it on GitHub, Enter opens the part's conversation to address them. Checklist shows "—" until phase 3. Each
-cell opens what fixes it: the compare page, the part's conversation (Enter), the PR or its checks (O), the git client
-on its worktree (G). Ways in: F or the ✈ on a task block in the Deployment plan, ✈ in a copy's
+opens it on GitHub, Enter opens the part's conversation to address them. Checklist (phase 3): the Overseer's own
+"before pushing" items, in the Vault (Shelter settings; pre-filled ONCE from the "Before pushing" section of
+`~/.claude/CLAUDE.md`, `checklistFromClaudeMd`; saved in `ajustes.checklistPreflight`), answered by the dweller per
+commit with `preflight_responder` (in the `revision` MCP; `ok`, `n/a` with a note, or `pendiente`), which can read
+its whole part with `preflight_estado`. The gate: a `git push` (`pushOf`: also `git -C x push`, not `--dry-run`; only
+`git push`, by the Overseer's decision) from a task worktree whose compare isn't validated at its HEAD, or (unless the
+PR is a draft) whose list isn't answered, ASKS the Overseer first in the permission dialog (a `PreToolUse` hook in
+`server/sesiones.ts`, so it applies in every permission mode, also over Remote Control/Slack); no denies it with what's
+missing. The git client's push and sync do the same check (action `preflight.puerta`). Each cell opens what fixes it:
+the compare page, the part's conversation (Enter), the PR or its checks (O), the git client on its worktree (G). Ways in: F or the ✈ on a task block in the Deployment plan, ✈ in a copy's
 intercom (under its PR list) and ⌘K "Pre-flight ABC-123" (the tasks of your copies and open PRs, or any key typed).
 QA: `scripts/qa-preflight.mjs` (own server and test shelter; needs the built client).
 

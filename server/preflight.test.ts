@@ -3,7 +3,7 @@ import { mkdtempSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
 import { execFile, execFileSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
-import { cachedPRs, localBranches, preflightOf, taskCompare, PageReviews, type CtxPreflight } from './preflight.ts';
+import { cachedPRs, localBranches, preflightOf, taskCompare, PageReviews, gatePush, preflightTools, type CtxPreflight } from './preflight.ts';
 import { buildCompare, buildTaskCompare } from './comparar.ts';
 import type { RoomPR } from './revisionesPR.ts';
 import type { PRBoard } from '../shared/tablero.ts';
@@ -70,6 +70,7 @@ describe('pre-flight con git de verdad', () => {
       prs: async () => ({ prs }), salas: async () => salas, manuales: () => [], orden: async () => [],
       plan: () => [{ salaId: 'api', sala: 'API', titulo: 'El contrato' }, { salaId: 'web', sala: 'Web', titulo: 'La pantalla', waitA: ['api'] }],
       color: () => '#4dabff', git, compares: () => revisadas.compares(),
+      checklist: () => ({ items: ['Compare revisado', 'Pruebas con datos reales'], respuestas: k => revisadas.checklistOf(k) }),
       revisiones: url => url.endsWith('/2') ? { ledger: { unresolved: 1, outdated: 0, unansweredSummaries: 0 }, hilos: [{ archivo: 'pantalla.txt', linea: 1, autor: 'revisora', texto: '¿Seguro?', url: url + '#discussion_r1', outdated: false }] } : {},
     };
     // la comparación de web (en una carpeta de pruebas), validada en su commit
@@ -103,10 +104,29 @@ describe('pre-flight con git de verdad', () => {
     const r2 = await preflightOf('ABC-7', ctx);
     expect(r2.compareTarea?.archivo).toBe(tarea.archivo);
     expect(r2.partes.map(p => p.compare.marca)).toEqual(['ok', 'ok']);
+
+    // fase 3: la lista «antes de subir» y la puerta de git push, desde la carpeta del worktree
+    const tools = preflightTools(ctx, (k, w, h, item, a) => revisadas.contestar(k, w, h, item, a));
+    let g = await gatePush(path.join(wtWeb), ctx);
+    expect(g?.clave).toBe('ABC-7');
+    expect(g?.falta.join(' ')).toMatch(/0\/2/);                       // compare validado (la de la tarea), lista sin contestar
+    expect(await tools.responder(wtWeb, '9', 'ok')).toMatch(/no está en la lista|not in the list/);
+    expect(await tools.responder(wtWeb, '2', 'n/a')).toMatch(/nota|note/);
+    await tools.responder(wtWeb, '1', 'ok', 'revisado en el juego');
+    await tools.responder(wtWeb, 'pruebas con datos reales', 'n/a', 'solo cambia un texto');
+    g = await gatePush(wtWeb, ctx);
+    expect(g?.falta).toEqual([]);
+    expect(await tools.estado(wtWeb)).toMatch(/2\/2[\s\S]*solo cambia un texto/);
+    // un commit nuevo pide contestarla otra vez (y el compare queda viejo)
+    writeFileSync(path.join(wtWeb, 'pantalla.txt'), 'más'); sh(wtWeb, 'commit', '-qam', 'más');
+    expect((await gatePush(wtWeb, ctx))?.falta).toHaveLength(2);
+    // la copia principal no es de ninguna tarea: sin puerta
+    expect(await gatePush(web.ruta, ctx)).toBeNull();
+    expect(await tools.estado(web.ruta)).toMatch(/no es el worktree|not a task worktree/);
   }, 30_000);
 
   it('una clave que no lo es, fuera', async () => {
-    const ctx: CtxPreflight = { prs: async () => ({ prs: [] }), salas: async () => [], manuales: () => [], orden: async () => [], plan: () => undefined, color: () => undefined, git, compares: async () => [], revisiones: () => ({}) };
+    const ctx: CtxPreflight = { prs: async () => ({ prs: [] }), salas: async () => [], manuales: () => [], orden: async () => [], plan: () => undefined, color: () => undefined, git, compares: async () => [], revisiones: () => ({}), checklist: () => ({ items: [], respuestas: () => ({}) }) };
     await expect(preflightOf('rm -rf', ctx)).rejects.toThrow();
   });
 });

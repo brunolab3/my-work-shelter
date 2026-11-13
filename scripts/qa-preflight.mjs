@@ -6,6 +6,8 @@
 //   el orden de fusión y los hilos (→ los despliega: archivo:línea, autor y primera línea; O abre el hilo);
 // - fase 2: la comparación de la tarea de verdad (C) sale sin revisar; validada (V), la parte pasa a ✓ en compare; un
 //   commit nuevo en el worktree la deja vieja (⚠);
+// - fase 3: la lista «antes de subir» (guardada como en la cámara acorazada) sale en Checklist como 0/2 y la puerta de
+//   git push (acción preflight.puerta, la del cliente de git) dice lo que falta;
 // - ⌘K «qa-7» ofrece «Pre-flight QA-7» y lo abre; Esc lo cierra.
 // Necesita el cliente compilado (npx vite build). Uso: node scripts/qa-preflight.mjs [carpeta-capturas]   (SHELTER_PUERTO_QA, 3794)
 import { chromium } from 'playwright';
@@ -59,15 +61,23 @@ try {
   ver(p?.sync?.marca === 'aviso' && /1/.test(p?.sync?.texto ?? ''), `sincronía ⚠ por el archivo sin commitear (${p?.sync?.texto})`);
   ver(await pg.evaluate(() => window.__client.accion('preflight.tarea', { clave: 'rm -rf' }).then(() => false, () => true)), 'una clave que no lo es, rechazada');
 
+  // ---- fase 3: la lista y la puerta
+  await pg.evaluate(() => window.__client.accion('guardar', { parche: { checklistPreflight: ['Compare revisado', 'Pruebas con datos reales'] } }));
+  ver(JSON.stringify(await pg.evaluate(() => window.__client.accion('preflight.checklist'))) === '["Compare revisado","Pruebas con datos reales"]', 'la lista guardada vuelve tal cual');
+  const puerta = await pg.evaluate(w => window.__client.accion('preflight.puerta', { ruta: w }), wt);
+  ver(puerta?.clave === 'QA-7' && puerta.falta.length === 2, `la puerta de push dice lo que falta (${puerta?.falta?.join(' | ')})`);
+  ver(await pg.evaluate(() => window.__client.accion('preflight.puerta', { ruta: '/etc' }).then(() => false, () => true)), 'la puerta no mira carpetas que no son del refugio');
+
   // ---- la ventana con la tarea de verdad
   await pg.evaluate(() => window.__juego.set({ panel: 'preflight', panelData: { clave: 'QA-7' } }));
   ver(await hasta(() => pg.isVisible('.pf-tabla')), 'la ventana pinta la tabla');
   ver((await pg.$$('.pf-fila')).length === 1, 'una fila');
+  ver(/0\/2/.test(await pg.$$eval('.pf-fila td', td => td.at(-1)?.textContent ?? '')), 'Checklist: 0/2 en este commit');
   const celdaCompare = () => pg.$$eval('.pf-fila td', td => td[2]?.textContent ?? '');
   ver(/sin compare/.test(await celdaCompare()), `sin compare aún: ✗ (${await celdaCompare()})`);
   // la de la tarea: C la hace (y la abre), V la valida
   await pg.keyboard.press('KeyC');
-  ver(await hasta(async () => /sin revisar/.test(await celdaCompare())), `C hace el compare de la tarea: sin revisar (${await celdaCompare()})`);
+  ver(await hasta(async () => /sin revisar/.test(await celdaCompare()), 45000), `C hace el compare de la tarea: sin revisar (${await celdaCompare()})`);
   await pg.keyboard.press('KeyV');
   ver(await hasta(async () => /validada/.test(await celdaCompare())), `V lo valida: ✓ en este commit (${await celdaCompare()})`);
   await pg.waitForTimeout(600); await pg.screenshot({ path: path.join(dir, 'preflight-real.png') });
@@ -87,11 +97,11 @@ try {
     const respuesta = {
       clave: 'QA-9', color: '#4dabff', titulo: 'Carrito con cupones',
       partes: [
-        { id: api.url, salaId: 'api', sala: 'api', repo: api.repo, rama: api.rama, pr: api, worktree: '/r/api', plan: 'Contrato', sync: cel('aviso', 'faltan commits remotos (¿un bot?)'), ci: cel('mal', 'roja'), revision: cel('aviso', 'esperando revisión · 💬 2 sin resolver'), bloqueos: cel('ok', 'bloquea a web#2'), compare: cel('aviso', 'es de abc1234; HEAD def5678'), compareArchivo: '/tmp/no.html', hilos, esperaA: [], bloquea: [{ ref: web.url, url: web.url, estado: 'abierto', motivo: 'plan' }] },
-        { id: web.url, salaId: 'web', sala: 'web', repo: web.repo, rama: web.rama, pr: web, worktree: '/r/web', sync: cel('ok', 'al día'), ci: cel('ok', 'verde'), revision: cel('ok', 'aprobado'), bloqueos: cel('aviso', 'espera a api#1 (abierto · su CI en rojo)'), compare: cel('ok', 'validada en c2c2c2c'), hilos: [], esperaA: [{ ref: 'acme/api#1', url: api.url, estado: 'abierto', checks: 'FAILURE', motivo: 'plan' }], bloquea: [] },
-        { id: 'plan:docs', salaId: 'docs', sala: 'docs', plan: 'La guía', sinEmpezar: true, sync: cel('nada', '—'), ci: cel('nada', '—'), revision: cel('nada', '—'), bloqueos: cel('nada', '—'), compare: cel('nada', '—'), hilos: [], esperaA: [], bloquea: [] },
+        { id: api.url, salaId: 'api', sala: 'api', repo: api.repo, rama: api.rama, pr: api, worktree: '/r/api', plan: 'Contrato', sync: cel('aviso', 'faltan commits remotos (¿un bot?)'), ci: cel('mal', 'roja'), revision: cel('aviso', 'esperando revisión · 💬 2 sin resolver'), bloqueos: cel('ok', 'bloquea a web#2'), checklist: cel('aviso', '1/2 en def5678'), compare: cel('aviso', 'es de abc1234; HEAD def5678'), compareArchivo: '/tmp/no.html', hilos, esperaA: [], bloquea: [{ ref: web.url, url: web.url, estado: 'abierto', motivo: 'plan' }] },
+        { id: web.url, salaId: 'web', sala: 'web', repo: web.repo, rama: web.rama, pr: web, worktree: '/r/web', sync: cel('ok', 'al día'), ci: cel('ok', 'verde'), revision: cel('ok', 'aprobado'), bloqueos: cel('aviso', 'espera a api#1 (abierto · su CI en rojo)'), checklist: cel('ok', '2/2 en c2c2c2c'), compare: cel('ok', 'validada en c2c2c2c'), hilos: [], esperaA: [{ ref: 'acme/api#1', url: api.url, estado: 'abierto', checks: 'FAILURE', motivo: 'plan' }], bloquea: [] },
+        { id: 'plan:docs', salaId: 'docs', sala: 'docs', plan: 'La guía', sinEmpezar: true, sync: cel('nada', '—'), ci: cel('nada', '—'), revision: cel('nada', '—'), bloqueos: cel('nada', '—'), checklist: cel('nada', '—'), compare: cel('nada', '—'), hilos: [], esperaA: [], bloquea: [] },
       ],
-      olas: [['acme/api#1'], ['acme/web#2']], ciclo: [],
+      olas: [['acme/api#1'], ['acme/web#2']], ciclo: [], checklist: ['Compare revisado', 'Pruebas con datos reales'],
     };
     c.accion = (n, d) => n === 'preflight.tarea' && String(d?.clave).toUpperCase() === 'QA-9' ? Promise.resolve(respuesta) : orig(n, d);
     window.__juego.set({ panel: 'preflight', panelData: { clave: 'QA-9' } });
@@ -99,8 +109,6 @@ try {
   ver(await hasta(async () => (await pg.$$('.pf-fila')).length === 3), 'tres filas: dos PR y la parte del plan sin empezar');
   const estados = await pg.$$eval('.pf-estado', e => e.map(x => x.textContent));
   ver(estados.join(' ') === '✗ ⚠ ✗', `estado por parte: CI roja ✗, la que espera ⚠ (no ✗), sin empezar ✗ (${estados.join(' ')})`);
-  const vacias = await pg.$$eval('.pf-fila', fs => fs.map(f => [...f.querySelectorAll('td')].at(-1).textContent));
-  ver(vacias.every(v => v === '—'), 'checklist en «—»');
   ver(/2 hilos/.test(await pg.textContent('.pf-fila')), 'la revisión de api lleva «2 hilos»');
   await pg.keyboard.press('ArrowRight');
   ver(await hasta(async () => (await pg.$$('.pf-hilo')).length === 2), '→ despliega sus dos hilos');

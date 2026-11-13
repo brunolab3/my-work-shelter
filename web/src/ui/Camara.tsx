@@ -236,6 +236,13 @@ function ShelterView({ volver }: { volver: () => void }) {
     try { await cliente.accion('guardar', { parche: { nombre: v.nombre.trim() || GAME_NAME, raizRepos: v.raizRepos.trim() || '~', limiteSesiones: lim } }); SFX.shortSuccess(); setMsg(t('panels.saved')); } catch (err) { setMsg((err as Error).message); }
   };
   useKeys(ev => { if (ev.code === 'Escape') volver(); });
+  // la lista «antes de subir» del pre-flight (la primera vez, la de tu ~/.claude/CLAUDE.md): un punto por línea
+  const [lista, setList] = useState<string | null>(null);
+  useEffect(() => { cliente.accion<string[]>('preflight.checklist').then(l => setList(l.join('\n'))).catch(() => setList('')); }, []);
+  const saveList = async () => {
+    if (lista === null) return;
+    try { await cliente.accion('guardar', { parche: { checklistPreflight: lista.split('\n').map(x => x.trim()).filter(Boolean) } }); SFX.shortSuccess(); setMsg(t('panels.saved')); } catch (err) { setMsg((err as Error).message); }
+  };
   return (
     <Device rotulo={t('panels.vaultWorkShelter')} ancho={50} onClose={volver}>
       {campos.map(([k, etq], i) => (
@@ -246,6 +253,13 @@ function ShelterView({ volver }: { volver: () => void }) {
         </label>
       ))}
       <div className="botonera"><button className="boton-taller" onClick={guardar}>{t('windows.save')}</button></div>
+      <label className="campo-taller checklist-preflight">
+        <span className="etq">{t('preflight.vault.checklist')}</span>
+        <textarea rows={6} value={lista ?? ''} disabled={lista === null} spellCheck={false} placeholder={t('preflight.vault.placeholder')}
+          onChange={ev => setList(ev.target.value)} onKeyDown={ev => { ev.stopPropagation(); if (ev.key === 'Escape') { ev.preventDefault(); volver(); } else if (ev.key === 'Enter' && (ev.metaKey || ev.ctrlKey)) { ev.preventDefault(); saveList(); } }} />
+        <span className="tenue">{t('preflight.vault.hint')}</span>
+      </label>
+      <div className="botonera"><button className="boton-taller" onClick={saveList} disabled={lista === null}>{t('preflight.vault.save')}</button></div>
       {msg && <p className="aviso-consola">{msg}</p>}
       <Keys><kbd>Enter</kbd>{t('panels.nextOnTheLastOne')} <kbd>Esc</kbd>{t('menu.back')}</Keys>
     </Device>

@@ -31,6 +31,8 @@ export interface CompareRecord {
   partes: { worktree: string; rama: string; head: string; base?: string }[];
   respuesta?: { estado: 'validada' | 'notas'; ts: number };
 }
+/** Lo que contesta el habitante a un punto de la lista «antes de subir» del Supervisor, para un commit */
+export interface ChecklistAnswer { estado: 'ok' | 'n/a' | 'pendiente'; nota?: string; ts: number }
 export interface PlanPart { salaId: string; sala: string; titulo: string; waitA?: string[] }
 
 /** A qué espera una parte o a quién bloquea: otro PR (de esta tarea o no) o, sin PR aún, una sala del plan */
@@ -43,7 +45,8 @@ export interface PartPreflight {
   pr?: PRBoard;
   plan?: string;                 // el título de su parte en el plan repartido
   sinEmpezar?: boolean;          // parte del plan sin worktree ni PR
-  sync: Cell; ci: Cell; revision: Cell; bloqueos: Cell; compare: Cell;
+  sync: Cell; ci: Cell; revision: Cell; bloqueos: Cell; compare: Cell; checklist: Cell;
+  respuestas?: Record<string, ChecklistAnswer>;   // las del commit actual, por punto
   compareArchivo?: string;       // la página que cuenta para esta parte (la más reciente con su worktree y rama)
   hilos: ReviewThread[];         // los hilos de revisión sin resolver de su PR
   esperaA: PartLink[]; bloquea: PartLink[];
@@ -54,6 +57,7 @@ export interface TaskPreflight {
   olas: string[][];              // las olas (refPR) con lo de la tarea y lo que espera, en orden; cada una espera a las anteriores
   ciclo: string[];
   compareTarea?: CompareRecord;  // la página de toda la tarea, si se ha hecho
+  checklist: string[];           // los puntos del Supervisor
   demo?: boolean; error?: string;
 }
 
@@ -65,6 +69,7 @@ export interface PreflightInput {
   plan?: PlanPart[];
   compares?: CompareRecord[];
   hilos?: Record<string, ReviewThread[]>;   // por URL del PR (server/revisionesPR.ts)
+  checklist?: { items: string[]; respuestas: Record<string, Record<string, ChecklistAnswer>> };   // respuestas por `${worktree}|${head}`
   color?: string; titulo?: string; demo?: boolean; error?: string;
 }
 
@@ -151,10 +156,70 @@ export function blockersCell(esperaA: PartLink[], bloquea: PartLink[], enCiclo: 
   return { marca: esperaA.length ? 'ok' : 'nada', texto: esperaA.length ? t('preflight.blockers.allMerged') : t('preflight.blockers.none') };
 }
 
+/** Un punto contestado: ok, o n/a con una nota que diga por qué */
+export const answered = (a?: ChecklistAnswer) => !!a && (a.estado === 'ok' || (a.estado === 'n/a' && !!a.nota?.trim()));
+export const checklistKey = (worktree: string, head: string) => `${worktree}|${head}`;
+/** La lista «antes de subir» de una parte, en su commit: n/m contestados; un borrador no la necesita (solo el compare) */
+export function checklistCell(p: { worktree?: string; headLocal?: string; pr?: PRBoard }, items: string[], respuestas: Record<string, ChecklistAnswer> = {}): Cell {
+  if (!items.length || (p.pr && !vivo(p.pr)) || !p.worktree || !p.headLocal) return { marca: 'nada', texto: '—' };
+  const n = items.filter(i => answered(respuestas[i])).length;
+  if (p.pr?.estado === 'borrador') return { marca: 'nada', texto: t('preflight.checklist.draft', { n, m: items.length }) };
+  return { marca: n === items.length ? 'ok' : 'aviso', texto: t('preflight.checklist.count', { n, m: items.length, sha: corto(p.headLocal) }) };
+}
+
+/** Lo que falta para subir una parte (la puerta de `git push`): el compare validado en su commit y, salvo en borrador,
+ *  la lista contestada. El resto (CI, revisión, bloqueos) no frena una subida */
+export function gateMissing(p: PartPreflight): string[] {
+  const out: string[] = [];
+  if (p.compare.marca !== 'ok' && p.compare.marca !== 'nada') out.push(t('preflight.gate.compare', { que: p.compare.texto }));
+  if (p.checklist.marca === 'aviso' || p.checklist.marca === 'mal') out.push(t('preflight.gate.checklist', { que: p.checklist.texto }));
+  return out;
+}
+
+/** ¿Sube algo esta orden de Bash? `git push` (también con -C, -c o --git-dir delante), en cualquier trozo de la línea;
+ *  no un `--dry-run`. Devuelve la carpeta en la que sube (la de -C, si la lleva) o null */
+export function pushOf(cmd: string): { cwd?: string } | null {
+  for (const trozo of String(cmd ?? '').split(/&&|\|\||[;|\n]/)) {
+    const w = trozo.trim().match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g)?.map(x => x.replace(/^["']|["']$/g, '')) ?? [];
+    let i = 0;
+    while (i < w.length && /^[A-Z_][A-Z0-9_]*=/.test(w[i])) i++;                       // VAR=x git push
+    if (w[i] === 'command' || w[i] === 'exec') i++;
+    if (!/(^|\/)git$/.test(w[i] ?? '')) continue;
+    i++;
+    let cwd: string | undefined;
+    while (i < w.length && w[i].startsWith('-')) {
+      if (w[i] === '-C') { cwd = w[i + 1]; i += 2; }
+      else if (w[i] === '-c' || w[i] === '--git-dir' || w[i] === '--work-tree') i += 2;
+      else i++;
+    }
+    if (w[i] !== 'push') continue;
+    if (w.slice(i + 1).some(a => a === '--dry-run' || a === '-n')) continue;
+    return { cwd };
+  }
+  return null;
+}
+
+/** Los puntos de la sección «Before pushing» (o «Antes de subir») de un CLAUDE.md: la lista numerada o con guiones de
+ *  debajo, cada uno por su título en negrita si lo tiene (si no, su primera frase) */
+export function checklistFromClaudeMd(texto: string): string[] {
+  const lineas = String(texto ?? '').split('\n');
+  const i = lineas.findIndex(l => /^#{1,6}\s+.*\b(before\s+push|before\s+pushing|antes\s+de\s+subir)/i.test(l));
+  if (i < 0) return [];
+  const out: string[] = [];
+  for (const l of lineas.slice(i + 1)) {
+    if (/^#{1,6}\s/.test(l)) break;
+    const m = /^\s*(?:\d+[.)]|[-*+])\s+(.*)$/.exec(l); if (!m) continue;
+    const negrita = /^\*\*(.+?)\*\*/.exec(m[1]);
+    const item = (negrita ? negrita[1] : m[1].split(/(?<=[.!?])\s/)[0]).replace(/[*_`]/g, '').replace(/[.:]\s*$/, '').trim();
+    if (item && !out.includes(item)) out.push(item.slice(0, 160));
+  }
+  return out.slice(0, 30);
+}
+
 /** Cómo está una parte: lista (todo ✓ o —), con avisos o con algo que falta, y la lista de lo que no está listo */
 export function estadoParte(p: PartPreflight): { estado: 'listo' | 'aviso' | 'falta'; falta: string[] } {
   if (p.sinEmpezar) return { estado: 'falta', falta: [t('preflight.blockers.notStarted')] };
-  const celdas = [p.compare, p.sync, p.ci, p.revision, p.bloqueos];
+  const celdas = [p.compare, p.checklist, p.sync, p.ci, p.revision, p.bloqueos];
   const falta = celdas.filter(c => c.marca === 'mal' || c.marca === 'aviso').map(c => c.texto);
   return { estado: celdas.some(c => c.marca === 'mal') ? 'falta' : falta.length ? 'aviso' : 'listo', falta };
 }
@@ -170,7 +235,11 @@ export function preflightTarea(clave: string, d: PreflightInput): TaskPreflight 
   const { waves, ciclo } = olasDespliegue(d.prs, d.bloqueos);
   const enCiclo = new Set(ciclo.map(p => p.url));
   const usadas = new Set<LocalBranch>();
-  const comparar = (p: Parameters<typeof compareCell>[0]) => { const r = compareCell(p, d.compares ?? []); return { compare: r.celda, compareArchivo: r.archivo }; };
+  const comparar = (p: Parameters<typeof compareCell>[0]) => {
+    const r = compareCell(p, d.compares ?? []);
+    const items = d.checklist?.items ?? [], respuestas = p.worktree && p.headLocal ? d.checklist?.respuestas[checklistKey(p.worktree, p.headLocal)] : undefined;
+    return { compare: r.celda, compareArchivo: r.archivo, checklist: checklistCell(p, items, respuestas), respuestas };
+  };
   const partes: PartPreflight[] = [];
 
   const enlaces = (url: string) => ({
@@ -206,7 +275,7 @@ export function preflightTarea(clave: string, d: PreflightInput): TaskPreflight 
     if (partes.some(p => p.salaId === x.salaId)) continue;
     const sala = d.salas.find(s => s.id === x.salaId);
     const nada: Cell = { marca: 'nada', texto: '—' };
-    partes.push({ id: 'plan:' + x.salaId, salaId: x.salaId, sala: sala?.nombre ?? x.sala, repo: sala?.repo, plan: x.titulo, sinEmpezar: true, sync: nada, ci: nada, revision: nada, bloqueos: nada, compare: nada, hilos: [], esperaA: [], bloquea: [] });
+    partes.push({ id: 'plan:' + x.salaId, salaId: x.salaId, sala: sala?.nombre ?? x.sala, repo: sala?.repo, plan: x.titulo, sinEmpezar: true, sync: nada, ci: nada, revision: nada, bloqueos: nada, compare: nada, checklist: nada, hilos: [], esperaA: [], bloquea: [] });
   }
   // lo que dice el plan que espera a una sala que aún no tiene PR: sin PR no hay bloqueo entre PR, pero se espera igual
   for (const x of d.plan ?? []) for (const id of x.waitA ?? []) {
@@ -225,5 +294,6 @@ export function preflightTarea(clave: string, d: PreflightInput): TaskPreflight 
   while (cola.length) { const u = cola.shift()!; for (const b of d.bloqueos) if (b.de === u && !mias.has(b.por)) { mias.add(b.por); cola.push(b.por); } }
   const olas = waves.map(o => o.filter(p => mias.has(p.url)).map(refPR)).filter(o => o.length);
   return { clave: K, color: d.color, titulo: d.titulo, partes, olas, ciclo: ciclo.filter(p => mias.has(p.url)).map(refPR),
+    checklist: d.checklist?.items ?? [],
     compareTarea: (d.compares ?? []).filter(c => c.tarea?.toUpperCase() === K).sort((a, b) => b.ts - a.ts)[0], demo: d.demo, error: d.error };
 }

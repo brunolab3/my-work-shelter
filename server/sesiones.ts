@@ -6,6 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { cwdBeforeRelocation, lastActivity, projectFolder } from './repos.ts';
 import { mcpReview } from './comparar.ts';
+import { pushOf } from '../shared/preflight.ts';
 import { readFileSync } from 'node:fs';
 import { EventEmitter } from 'node:events';
 import { randomUUID } from 'node:crypto';
@@ -104,6 +105,12 @@ export interface RoomsResolver {
   mcpPlan?(salaId: string): NonNullable<Options['mcpServers']>[string] | undefined;
   // la de pasarle un mensaje o un encargo al habitante de otra sala (server/avisosSalas.ts), en todas
   mcpRooms?(salaId: string, sesionId: string): NonNullable<Options['mcpServers']>[string] | undefined;
+  // el pre-flight de la tarea (server/preflight.ts): las herramientas del habitante y la puerta de `git push`
+  preflight?: {
+    estado(cwd: string): Promise<string>;
+    responder(cwd: string, item: string, estado: 'ok' | 'n/a' | 'pendiente', nota?: string): Promise<string>;
+    puerta(cwd: string): Promise<{ clave: string; rama?: string; head?: string; falta: string[] } | null>;
+  };
   // carpetas que el Supervisor ha marcado de confianza en el juego (ver confianza())
   trustedFolders?(): string[]; trust?(ruta: string): void;
 }
@@ -281,13 +288,32 @@ export class Sessions extends EventEmitter {
       // el habitante puede entrar en un worktree a media conversación (lo crea él, EnterWorktree o hace cd a uno): la
       // conversación pasa a ser de ese worktree (sus rutas relativas, su holograma, comparar_cambios y los mensajes de su
       // tarea) y se retoma ahí: si no, al relanzarla (tras interrumpirla o reiniciar el juego) volvería a la copia principal
-      hooks: { CwdChanged: [{ hooks: [async (h: any) => { const w = worktreeRoot(h.new_cwd); if (w && (w !== x.r.worktree || w !== x.r.cwd)) { x.r.worktree = w; x.r.cwd = w; this.tocar(x); } return {}; }] }] },
+      hooks: {
+        CwdChanged: [{ hooks: [async (h: any) => { const w = worktreeRoot(h.new_cwd); if (w && (w !== x.r.worktree || w !== x.r.cwd)) { x.r.worktree = w; x.r.cwd = w; this.tocar(x); } return {}; }] }],
+        // la puerta del pre-flight: un `git push` desde el worktree de una tarea sin el compare validado en su commit (o,
+        // salvo en borrador, sin la lista «antes de subir» contestada) le pregunta antes al Supervisor; con un no, se
+        // deniega con lo que falta. Un hook y no canUseTool: así vale en todos los modos de permisos
+        PreToolUse: [{ matcher: 'Bash', hooks: [async (h: any) => this.pushGate(x, String(h?.tool_input?.command ?? ''))] }],
+      },
       systemPrompt: { type: 'preset', preset: 'claude_code', append: ANNEX + (x.r.salaId === 'puente' ? ' ' + bridgeAnnex() : x.r.salaId === 'git' ? ' ' + annexGit(this.resolutor.reposOfShelter?.() ?? []) : '') },
       ...(x.r.salaId === 'git' ? { additionalDirectories: this.resolutor.reposOfShelter?.() ?? [] } : {}),
       includePartialMessages: true,
       env: cleanEnvironment(),
       stderr: d => { x.stderr = (x.stderr + d).slice(-4000); },
     };
+  }
+
+  private async pushGate(x: Session, cmd: string): Promise<Record<string, unknown>> {
+    const push = pushOf(cmd);
+    if (!push || !this.resolutor.preflight) return {};
+    const base = x.r.worktree ?? x.r.cwd;
+    const cwd = push.cwd ? path.resolve(base, push.cwd) : base;
+    const g = await this.resolutor.preflight.puerta(cwd).catch(() => null);
+    if (!g || !g.falta.length) return {};
+    const si = await this.confirmar(x, t('server.preflightGateTitle', { clave: g.clave, rama: g.rama ?? '', head: (g.head ?? '').slice(0, 7) }),
+      [{ tipo: 'texto', texto: g.falta.map(f => '• ' + f).join('\n') }, { tipo: 'codigo', texto: cmd, lenguaje: 'bash' }]);
+    if (si) return {};
+    return { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: t('server.preflightGateDenied', { que: g.falta.join('; ') }) } };
   }
 
   private confianza(cwd: string) { return confianza(cwd, undefined, this.resolutor.trustedFolders?.()); }
@@ -332,7 +358,7 @@ export class Sessions extends EventEmitter {
     const salas = this.resolutor.mcpRooms?.(x.r.salaId, x.r.id);
     if (salas) opciones.mcpServers = { ...(opciones.mcpServers ?? {}), salas };
     // la página de comparación de sus cambios, para revisarlos con notas en el juego antes de subirlos (server/comparar.ts)
-    opciones.mcpServers = { ...(opciones.mcpServers ?? {}), revision: mcpReview(() => x.r.worktree ?? x.r.cwd) };
+    opciones.mcpServers = { ...(opciones.mcpServers ?? {}), revision: mcpReview(() => x.r.worktree ?? x.r.cwd, this.resolutor.preflight) };
     x.q = query({ prompt: queue, options: opciones });
     x.viva = true; x.closing = false;
     this.consume(x, x.q);

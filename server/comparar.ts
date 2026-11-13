@@ -182,10 +182,18 @@ export async function buildTaskCompare(clave: string, partes: { worktree: string
 }
 
 /** La herramienta del habitante, en la carpeta de su conversación (la del worktree, si trabaja en uno) */
-export function mcpReview(cwd: () => string) {
+export function mcpReview(cwd: () => string, preflight?: { estado(cwd: string): Promise<string>; responder(cwd: string, item: string, estado: 'ok' | 'n/a' | 'pendiente', nota?: string): Promise<string> }) {
+  const texto = (text: string) => ({ content: [{ type: 'text' as const, text }] });
   return createSdkMcpServer({
     name: 'revision', version: '1.0.0',
     tools: [
+      // el pre-flight de su parte de la tarea (server/preflight.ts): leerlo y contestar la lista «antes de subir»
+      ...(preflight ? [
+        tool('preflight_estado', t('tool.preflight.estadoDescription'), {}, async () => texto(await preflight.estado(cwd()).catch(e => (e as Error).message))),
+        tool('preflight_responder', t('tool.preflight.responderDescription'),
+          { item: z.string(), estado: z.enum(['ok', 'n/a', 'pendiente']), nota: z.string().optional() },
+          async a => texto(await preflight.responder(cwd(), a.item, a.estado, a.nota).catch(e => (e as Error).message))),
+      ] : []),
       tool('comparar_cambios', t('tool.compare.description'),
         { base: z.string().optional().describe(t('tool.compare.paramBase')), sinCommit: z.boolean().optional().describe(t('tool.compare.paramUncommitted')), titulo: z.string().optional() },
         async a => {

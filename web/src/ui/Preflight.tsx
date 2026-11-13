@@ -1,7 +1,7 @@
 // Pre-flight de una tarea (fase 1, solo lectura; modelo en shared/preflight.ts, datos de la acción `preflight.tarea`):
 // una fila por parte (cada PR de la tarea en todos los repos, los worktrees sin PR y las partes del plan sin empezar) con
 // ✓/⚠/✗ de compare (validada en su commit), sincronía, CI, revisión (con sus hilos sin resolver, → los despliega) y
-// bloqueos; checklist, «—» hasta su fase. Debajo, el orden de fusión y la comparación de toda la tarea (C, V la valida).
+// bloqueos, y la lista «antes de subir» contestada en su commit (preflight_responder). Debajo, el orden de fusión y la comparación de toda la tarea (C, V la valida).
 // Cada celda abre lo que la arregla: la conversación de la parte, el PR (o sus checks) o el cliente de git en su
 // worktree. Se abre desde el bloque de la tarea en el plan de despliegue, el intercomunicador de la copia y ⌘K.
 import React, { useEffect, useMemo, useState } from 'react';
@@ -18,7 +18,7 @@ import { idCopy } from './copias';
 import { jiraBoard, useColorsTasks } from './tareas';
 import { taskColor } from '@shared/tareas';
 import type { ReviewThread } from '@shared/cuentaRevisiones';
-import { estadoParte, linkState, shortRef, type Cell, type PartLink, type PartPreflight, type TaskPreflight } from '@shared/preflight';
+import { answered, estadoParte, linkState, shortRef, type Cell, type PartLink, type PartPreflight, type TaskPreflight } from '@shared/preflight';
 
 const MARK: Record<Cell['marca'], string> = { ok: '✓', aviso: '⚠', mal: '✗', nada: '—' };
 const ESTADO: Record<ReturnType<typeof estadoParte>['estado'], string> = { listo: '✓', aviso: '⚠', falta: '✗' };
@@ -108,7 +108,6 @@ export function PanelPreflight() {
 
   const titulo = r?.titulo ?? tareas?.find(x => x.clave === clave)?.titulo;
   const color = r?.color ?? taskColor(clave);
-  const pendiente = <td className="pf-celda pf-nada" title={t('preflight.laterPhase')}>—</td>;
   const ct = r?.compareTarea;
   const ctEstado = !ct ? '' : ct.respuesta?.estado === 'validada' && ct.respuesta.ts >= ct.ts ? t('preflight.taskCompare.validated') : ct.respuesta?.estado === 'notas' && ct.respuesta.ts >= ct.ts ? t('preflight.compare.notes') : t('preflight.taskCompare.pending');
   return (
@@ -122,7 +121,7 @@ export function PanelPreflight() {
       {partes.length > 0 && <div className="lista-desplazable"><table className="pf-tabla">
         <thead><tr>
           <th /><th>{t('preflight.col.part')}</th><th>{t('preflight.col.compare')}</th><th>{t('preflight.col.sync')}</th><th>{t('preflight.col.ci')}</th><th>{t('preflight.col.review')}</th>
-          <th>{t('preflight.col.blockers')}</th><th title={t('preflight.laterPhase')}>{t('preflight.col.checklist')}</th>
+          <th>{t('preflight.col.blockers')}</th><th>{t('preflight.col.checklist')}</th>
         </tr></thead>
         <tbody>{items.map((it, n) => {
           const p = it.parte, activa = n === k;
@@ -156,7 +155,7 @@ export function PanelPreflight() {
               {p.hilos.length > 0 && <button className="consola-x pf-hilos" onClick={() => toggle(p)} title={t('preflight.threadsHint')}>{abierta ? '▾' : '▸'} {t('preflight.threadsN', { n: p.hilos.length })}</button>}
             </td>
             <Celda c={p.bloqueos} onClick={bloqueo?.url ? () => openLink(bloqueo.url!) : undefined} title={[t('preflight.cellHint.blocker'), ...p.esperaA.map(linkTitle)].join('\n')} />
-            {pendiente}
+            <Celda c={p.checklist} onClick={p.worktree ? () => talkToPart(p) : undefined} title={[t('preflight.cellHint.checklist'), ...(r?.checklist ?? []).map((it, n) => `${answered(p.respuestas?.[it]) ? '✓' : '·'} ${n + 1}. ${it}${p.respuestas?.[it]?.nota ? ' — ' + p.respuestas[it].nota : ''}`)].join('\n')} />
           </tr>;
         })}</tbody>
       </table></div>}

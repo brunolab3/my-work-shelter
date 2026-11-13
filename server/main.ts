@@ -24,7 +24,8 @@ import { TasksColors } from './coloresTareas.ts';
 import { agruparPorTarea, planDeSala, applyPlan } from './organizar.ts';
 import { ReviewsPR, REVIEWS_QUERY, remoteRepo } from './revisionesPR.ts';
 import { CIFailures, CI_QUERY } from './fallosCI.ts';
-import { cachedPRs, preflightOf, taskCompare, PageReviews, type CtxPreflight } from './preflight.ts';
+import { cachedPRs, preflightOf, taskCompare, PageReviews, gatePush, preflightTools, type CtxPreflight } from './preflight.ts';
+import { checklistFromClaudeMd } from '../shared/preflight.ts';
 import type { PRBoard } from '../shared/tablero.ts';
 import { bloqueosEntre, pRKey } from '../shared/despliegue.ts';
 import { TasksCleanup } from './limpiezaTareas.ts';
@@ -167,6 +168,7 @@ const sesiones = new Sessions({
   mcpAssignment: (id, preguntar, sesionId) => { const s = almacen.estado.salas.find(x => x.id === id && x.tipo === 'coordinacion' && x.ruta); return s ? mcpAssignment(ctxAssignment(s.ruta!), { coordinacion: s.nombre, salaId: s.id, sesionId, preguntar }) : undefined; },
   mcpRooms: (id, sesionId) => mcpRooms(ctxRooms, id, sesionId),
   mcpPlan: id => { const s = almacen.estado.salas.find(x => x.id === id && x.tipo === 'repo'); return s && planes.ofRoom(id).length ? mcpPlan(ctxPlan, { salaId: id, sala: s.nombre }) : undefined; },
+  preflight: { estado: cwd => herramientasPreflight.estado(cwd), responder: (cwd, item, estado, nota) => herramientasPreflight.responder(cwd, item, estado, nota), puerta: cwd => gatePush(cwd, ctxPreflight) },
   trustedFolders: () => ((almacen.estado.ajustes as any).trustedFolders ?? []) as string[],
   trust: ruta => { const a = almacen.estado.ajustes as any; a.trustedFolders = [...new Set([...(a.trustedFolders ?? []), path.resolve(ruta)])]; almacen.guardar(); },
 }, adjuntos);
@@ -526,6 +528,16 @@ const prsPreflight = cachedPRs(async () => {
   const porUrl = new Map([...recientes.prs, ...abiertos.prs].map(p => [p.url, p]));
   return { prs: [...porUrl.values()], demo: recientes.demo, error: recientes.error };
 });
+// la lista «antes de subir» del Supervisor (ajustes.checklistPreflight, en la cámara acorazada): la primera vez se toma
+// de la sección «Before pushing» de su ~/.claude/CLAUDE.md, una sola vez; luego es suya y se edita en el juego
+function checklistItems(): string[] {
+  const a = almacen.estado.ajustes as any;
+  if (!Array.isArray(a.checklistPreflight)) {
+    let texto = ''; try { texto = readFileSync(path.join(os.homedir(), '.claude', 'CLAUDE.md'), 'utf8'); } catch {}
+    a.checklistPreflight = checklistFromClaudeMd(texto); almacen.guardar();
+  }
+  return (a.checklistPreflight as unknown[]).filter((x): x is string => typeof x === 'string');
+}
 // lo que el Supervisor hace con las páginas de comparación (validarlas o mandarles notas), atado a su commit
 const paginasRevisadas = new PageReviews(DATOS, COMPARES_FOLDER);
 const ctxPreflight: CtxPreflight = {
@@ -537,8 +549,11 @@ const ctxPreflight: CtxPreflight = {
   color: clave => coloresTareas.colores([clave])[clave],
   compares: () => paginasRevisadas.compares(),
   revisiones: url => ({ ledger: revisionesPR.ledgerOf(url), hilos: revisionesPR.threadsOf(url) }),
+  checklist: () => ({ items: checklistItems(), respuestas: clave => paginasRevisadas.checklistOf(clave) }),
   git: (cwd, args) => new Promise((ok, mal) => execFile('git', ['-C', cwd, ...args], { timeout: 15_000, env: entornoGit() }, (err, o, e) => err ? mal(new Error(String(e || err.message).trim())) : ok(String(o)))),
 };
+// las del habitante (preflight_estado, preflight_responder) y la puerta de `git push` de sus conversaciones
+const herramientasPreflight = preflightTools(ctxPreflight, (clave, worktree, head, item, a) => paginasRevisadas.contestar(clave, worktree, head, item, a));
 
 // las tareas con todos sus PR fusionados o cerrados (limpiezaTareas.ts), cada cinco minutos con GitHub conectado: el juego
 // quita solo sus worktrees si no queda otro trabajo en ellos (si queda, avisa de qué)
@@ -789,7 +804,9 @@ async function accion(nombre: string, d: Record<string, any> = {}): Promise<unkn
     case 'despliegue.bloqueos': return bloqueosPR.todos();
     case 'preflight.tarea': return preflightOf(String(d.clave ?? ''), ctxPreflight, !!d.forzar);
     case 'preflight.compararTarea': return taskCompare(String(d.clave ?? ''), ctxPreflight, (clave, partes) => buildTaskCompare(clave, partes));
+    case 'preflight.checklist': return checklistItems();
     case 'paginas.responder': return paginasRevisadas.responder(d.ruta, d.estado);
+    case 'preflight.puerta': { const r = path.resolve(String(d.ruta ?? '')); if (!gitPath(r)) throw new Error(t('server.thatFolderIsNotA')); return gatePush(r, ctxPreflight); }
     case 'despliegue.bloquear': return bloqueosPR.marcar(d.de, d.por, !!d.quitar);
     // el orden entre repos de cada tarea repartida (la parte de una sala espera a la de otra: planes.ts), por repo de GitHub
     case 'despliegue.orden': return tasksOrder(planes.todos(), id => { const s = e.salas.find(x => x.id === id); return s?.ruta ? roomRepo(s.ruta) : Promise.resolve(undefined); });
@@ -861,6 +878,8 @@ function applySettings(x: typeof almacen.estado, p: Record<string, any>) {
   if (typeof p.raizRepos === 'string' && p.raizRepos.trim()) x.raizRepos = p.raizRepos.trim().slice(0, 300);
   if (Number.isFinite(p.limiteSesiones)) x.limiteSesiones = Math.max(1, Math.min(20, Math.round(p.limiteSesiones)));
   if (typeof p.doneWelcome === 'boolean') x.doneWelcome = p.doneWelcome;
+  // la lista «antes de subir» del pre-flight: un punto por línea
+  if (Array.isArray(p.checklistPreflight)) (x.ajustes as any).checklistPreflight = [...new Set(p.checklistPreflight.filter((i: unknown) => typeof i === 'string').map((i: string) => i.trim().slice(0, 160)).filter(Boolean))].slice(0, 30);
   if (p.supervisor && typeof p.supervisor === 'object') {
     if (CHARACTERS.includes(p.supervisor.personaje)) x.supervisor.personaje = p.supervisor.personaje;
     // el aspecto por piezas (del probador); null lo quita y vuelve el del personaje de serie
