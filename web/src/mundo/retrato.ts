@@ -94,5 +94,7 @@ export class Portrait {
     this.copia.rotation.y = THREE.MathUtils.damp(this.copia.rotation.y, 0.25, 4, d);
     this.r.render(this.escena, this.cam);
   }
-  destruir() { this.vivo = false; this.r.dispose(); this.canvas.remove(); }
+  // dispose() no suelta el contexto de WebGL: sigue vivo hasta que lo recoja el GC y, pasados 16 (un intercomunicador
+  // cada uno), Chromium mata el más antiguo, que es el del refugio (se queda en negro y se recarga la vista)
+  destruir() { this.vivo = false; this.r.dispose(); this.r.forceContextLoss(); this.canvas.remove(); }
 }
