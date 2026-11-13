@@ -9,7 +9,8 @@ import { mcpReview } from './comparar.ts';
 import { readFileSync } from 'node:fs';
 import { EventEmitter } from 'node:events';
 import { randomUUID } from 'node:crypto';
-import { execFileSync } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
+import { entornoGit } from './entornoGit.ts';
 import { existsSync, readdirSync } from 'node:fs';
 import { query, listSessions, getSessionMessages, getSessionInfo, type Query, type SDKMessage, type SDKUserMessage, type CanUseTool, type PermissionResult, type Options } from '@anthropic-ai/claude-agent-sdk';
 import type { SessionSummary, LogInput, PendingRequest, Helper, WorkOptions, HistoryElement, Command, Question, Attachment, InputView } from '../shared/protocolo.ts';
@@ -159,6 +160,19 @@ export function nombreWorktree(tarea: string, ahora = Date.now()) {
   return `shelter-${slug ? slug.slice(0, 32) + '-' : ''}${suffix}`;
 }
 
+/** Crea el worktree de un trabajo nuevo donde lo haría Claude Code con --worktree (.claude/worktrees/<nombre>, rama
+ *  worktree-<nombre>), desde la rama principal del remoto recién traída (o, sin remoto, desde lo que tenga la copia), para
+ *  que la conversación arranque ya dentro. Arrancando en la copia principal, Claude Code lista las habilidades de los
+ *  worktrees que hay dentro con un prefijo («.claude/worktrees/ABC-1:skill») que su herramienta Skill no reconoce. */
+export async function crearWorktree(repo: string, nombre: string): Promise<string> {
+  const git = (args: string[], timeout = 30_000) => new Promise<string>((ok, ko) => execFile('git', args, { cwd: repo, env: entornoGit(), timeout }, (e, out, err) => (e ? ko(new Error(String(err || e.message).trim())) : ok(String(out).trim()))));
+  const ruta = path.join(await git(['rev-parse', '--show-toplevel']), '.claude', 'worktrees', nombre);
+  const principal = await git(['symbolic-ref', '--short', 'refs/remotes/origin/HEAD']).catch(() => '');
+  if (principal) await git(['fetch', 'origin', principal.replace(/^origin\//, '')], 20_000).catch(() => {});
+  await git(['worktree', 'add', '--no-track', '-b', `worktree-${nombre}`, ruta, principal || 'HEAD']);
+  return ruta;
+}
+
 /** El worktree de una carpeta: la raíz de su copia en .claude/worktrees (también desde una subcarpeta suya) */
 export function worktreeRoot(dir?: string): string | undefined {
   return dir ? /^(.*\/\.claude\/worktrees\/[^/]+)/.exec(dir)?.[1] : undefined;
@@ -204,6 +218,13 @@ export class Sessions extends EventEmitter {
   }
 
   async empezar(dwellerId: string, salaId: string, cwd: string, prompt: string, o: WorkOptions, adjuntos: Attachment[] = []): Promise<SessionSummary> {
+    // el worktree de un trabajo nuevo lo crea el juego y la conversación arranca en él; si no puede (no es un repo, git
+    // falla), lo intenta Claude Code al arrancar (--worktree)
+    if (o.worktree && !o.reanudar && !o.cwd) {
+      const nombre = typeof o.worktree === 'string' ? o.worktree : nombreWorktree(prompt.slice(0, 80) || (adjuntos[0] ? `Mira ${adjuntos[0].nombre}` : 'Trabajo nuevo'));
+      try { o = { ...o, cwd: await crearWorktree(cwd, nombre), worktree: undefined }; }
+      catch (e) { console.warn('No se pudo crear el worktree; lo creará Claude Code:', (e as Error).message); o = { ...o, worktree: nombre }; }
+    }
     const clave = this.keyInSettings(o.cwd || cwd);
     if (clave) throw new Error(t('server.yourClaudeCodeSettingsForce', { clave }));
     if (o.reanudar && [...this.s.values()].some(x => x.viva && x.r.claudeId === o.reanudar)) throw new Error(t('server.thatConversationIsAlreadyRunning'));
