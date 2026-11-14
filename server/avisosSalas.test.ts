@@ -8,7 +8,7 @@ import { infoRepo, worktreeList } from './repos.ts';
 
 const SALAS = [
   { id: 'express', nombre: 'app-web', habitante: { id: 'remi', nombre: 'Remi' } },
-  { id: 'partners', nombre: 'partners', habitante: { id: 'pilar', nombre: 'Pilar' } },
+  { id: 'pagos', nombre: 'pagos', habitante: { id: 'pilar', nombre: 'Pilar' } },
   { id: 'tareas', nombre: 'Logística', habitante: { id: 'ines', nombre: 'Inés' } },
   { id: 'vacia', nombre: 'vacía' },
 ];
@@ -33,7 +33,7 @@ describe('mensajes entre salas', () => {
   beforeEach(() => forgetLimits());
 
   it('sin clave, una conversación nueva con el habitante en su copia principal, aunque tenga otra abierta', async () => {
-    const x = ctx({ abiertas: { 'express/FIC-1': 'abierta' } });
+    const x = ctx({ abiertas: { 'express/ABC-1': 'abierta' } });
     const r = await sendToRoom(x.c, 'tareas', { sala: 'app-web', mensaje: '  Investiga los saltos del bloqueo de LTD  ' });
     expect(r.ok).toBe(true);
     expect(x.avisados).toEqual([]);
@@ -49,24 +49,24 @@ describe('mensajes entre salas', () => {
   });
 
   it('con clave, a la conversación abierta de esa tarea en la sala', async () => {
-    const x = ctx({ abiertas: { 'partners/FIC-4375': 'ses-tarea' } });
-    const r = await sendToRoom(x.c, 'express', { sala: 'partners', clave: 'fic-4375', mensaje: 'El endpoint cambia de nombre' });
+    const x = ctx({ abiertas: { 'pagos/ABC-4375': 'ses-tarea' } });
+    const r = await sendToRoom(x.c, 'express', { sala: 'pagos', clave: 'abc-4375', mensaje: 'El endpoint cambia de nombre' });
     expect(r.ok).toBe(true);
     expect(x.nuevas).toEqual([]);
     expect(x.avisados).toHaveLength(1);
     expect(x.avisados[0].sesionId).toBe('ses-tarea');
-    expect(x.avisados[0].texto).toContain('FIC-4375');
+    expect(x.avisados[0].texto).toContain('ABC-4375');
   });
 
   it('con clave y sin conversación abierta, una nueva en el worktree de la tarea; sin worktree, en uno nuevo con la clave', async () => {
-    const x = ctx({ worktrees: { 'partners/FIC-1': '/repos/partners/.claude/worktrees/FIC-1' } });
-    await sendToRoom(x.c, 'express', { sala: 'partners', clave: 'FIC-1', mensaje: 'a' });
-    const r = await sendToRoom(x.c, 'tareas', { sala: 'partners', clave: 'ABC-321', mensaje: 'ABC-321 — Weekend bundle: open a PR\nmore' });
-    expect(x.nuevas[0]).toMatchObject({ cwd: '/repos/partners/.claude/worktrees/FIC-1', worktree: undefined });
+    const x = ctx({ worktrees: { 'pagos/ABC-1': '/repos/pagos/.claude/worktrees/ABC-1' } });
+    await sendToRoom(x.c, 'express', { sala: 'pagos', clave: 'ABC-1', mensaje: 'a' });
+    const r = await sendToRoom(x.c, 'tareas', { sala: 'pagos', clave: 'ABC-321', mensaje: 'ABC-321 — Weekend bundle: open a PR\nmore' });
+    expect(x.nuevas[0]).toMatchObject({ cwd: '/repos/pagos/.claude/worktrees/ABC-1', worktree: undefined });
     expect(x.nuevas[1].cwd).toBeUndefined();
     // la clave una sola vez y el asunto: así taskWorktree lo encuentra para los siguientes mensajes de la tarea
     expect(x.nuevas[1].worktree).toMatch(/^shelter-abc-321-weekend-bundle-open[a-z0-9-]*-[0-9a-z]{4}$/);
-    expect(taskWorktree([{ ruta: '/repos/partners/.claude/worktrees/' + x.nuevas[1].worktree, principal: false } as any], 'ABC-321')).toBeDefined();
+    expect(taskWorktree([{ ruta: '/repos/pagos/.claude/worktrees/' + x.nuevas[1].worktree, principal: false } as any], 'ABC-321')).toBeDefined();
     expect(r.texto).toContain('worktree nuevo');
   });
 
@@ -81,15 +81,15 @@ describe('mensajes entre salas', () => {
 
   it('sin clave, nunca un worktree', async () => {
     const x = ctx();
-    await sendToRoom(x.c, 'tareas', { sala: 'partners', mensaje: 'Revisa el plan' });
+    await sendToRoom(x.c, 'tareas', { sala: 'pagos', mensaje: 'Revisa el plan' });
     expect(x.nuevas[0]).toMatchObject({ cwd: undefined, worktree: undefined });
   });
 
   it('dentro de la misma sala: con clave, al holograma de la tarea; sin robot mensajero, pero con aviso', async () => {
-    const x = ctx({ worktrees: { 'express/FIC-9': '/repos/app-web/.claude/worktrees/fic-9' } });
-    const r = await sendToRoom(x.c, 'express', { sala: 'express', clave: 'FIC-9', mensaje: 'Añade los avisos de CI' }, 'ses-supervisor');
+    const x = ctx({ worktrees: { 'express/ABC-9': '/repos/app-web/.claude/worktrees/abc-9' } });
+    const r = await sendToRoom(x.c, 'express', { sala: 'express', clave: 'ABC-9', mensaje: 'Añade los avisos de CI' }, 'ses-supervisor');
     expect(r.ok).toBe(true);
-    expect(x.nuevas).toEqual([expect.objectContaining({ salaId: 'express', dwellerId: 'remi', cwd: '/repos/app-web/.claude/worktrees/fic-9' })]);
+    expect(x.nuevas).toEqual([expect.objectContaining({ salaId: 'express', dwellerId: 'remi', cwd: '/repos/app-web/.claude/worktrees/abc-9' })]);
     expect(x.mensajero).toEqual([]);
     expect(x.avisos[0]).toContain('app-web → app-web: Añade los avisos de CI');
     // sin clave, otra conversación en la copia principal de la sala
@@ -99,35 +99,35 @@ describe('mensajes entre salas', () => {
   });
 
   it('nunca a la propia conversación: la que envía ya es la de esa tarea', async () => {
-    const x = ctx({ abiertas: { 'express/FIC-9': 'ses-tarea' } });
-    const r = await sendToRoom(x.c, 'express', { sala: 'express', clave: 'FIC-9', mensaje: 'a' }, 'ses-tarea');
-    expect(r.ok).toBe(false); expect(r.texto).toContain('FIC-9');
+    const x = ctx({ abiertas: { 'express/ABC-9': 'ses-tarea' } });
+    const r = await sendToRoom(x.c, 'express', { sala: 'express', clave: 'ABC-9', mensaje: 'a' }, 'ses-tarea');
+    expect(r.ok).toBe(false); expect(r.texto).toContain('ABC-9');
     expect(x.avisados).toEqual([]);
     // otra conversación de la misma sala sí se la pasa a la de la tarea
-    expect((await sendToRoom(x.c, 'express', { sala: 'express', clave: 'FIC-9', mensaje: 'a' }, 'ses-supervisor')).ok).toBe(true);
+    expect((await sendToRoom(x.c, 'express', { sala: 'express', clave: 'ABC-9', mensaje: 'a' }, 'ses-supervisor')).ok).toBe(true);
     expect(x.avisados[0].sesionId).toBe('ses-tarea');
   });
 
   it('rechaza una sala que no existe (con la lista), una sin habitante y una clave que no lo es', async () => {
     const x = ctx();
     const r = await sendToRoom(x.c, 'express', { sala: 'nada', mensaje: 'a' });
-    expect(r.ok).toBe(false); expect(r.texto).toContain('partners (partners)');
+    expect(r.ok).toBe(false); expect(r.texto).toContain('pagos (pagos)');
     expect((await sendToRoom(x.c, 'express', { sala: 'vacia', mensaje: 'a' })).ok).toBe(false);
-    expect((await sendToRoom(x.c, 'express', { sala: 'partners', clave: 'lo de ayer', mensaje: 'a' })).ok).toBe(false);
+    expect((await sendToRoom(x.c, 'express', { sala: 'pagos', clave: 'lo de ayer', mensaje: 'a' })).ok).toBe(false);
     expect(x.nuevas).toEqual([]);
   });
 
   it('como mucho 3 por minuto de una sala a otra; los que fallan no cuentan', async () => {
     const reloj = { t: 1_000_000 };
     const mal = ctx({ falla: 'Ya hay 4 sesiones vivas', reloj });
-    const e = await sendToRoom(mal.c, 'express', { sala: 'partners', mensaje: 'x' });
+    const e = await sendToRoom(mal.c, 'express', { sala: 'pagos', mensaje: 'x' });
     expect(e.ok).toBe(false); expect(e.texto).toContain('Ya hay 4 sesiones vivas');
     const x = ctx({ reloj });
-    for (let i = 0; i < 3; i++) expect((await sendToRoom(x.c, 'express', { sala: 'partners', mensaje: 'x' })).ok).toBe(true);
-    expect((await sendToRoom(x.c, 'express', { sala: 'partners', mensaje: 'x' })).ok).toBe(false);
+    for (let i = 0; i < 3; i++) expect((await sendToRoom(x.c, 'express', { sala: 'pagos', mensaje: 'x' })).ok).toBe(true);
+    expect((await sendToRoom(x.c, 'express', { sala: 'pagos', mensaje: 'x' })).ok).toBe(false);
     expect((await sendToRoom(x.c, 'express', { sala: 'tareas', mensaje: 'x' })).ok).toBe(true);   // otra sala, otra cuenta
     reloj.t += 61_000;
-    expect((await sendToRoom(x.c, 'express', { sala: 'partners', mensaje: 'x' })).ok).toBe(true);
+    expect((await sendToRoom(x.c, 'express', { sala: 'pagos', mensaje: 'x' })).ok).toBe(true);
     expect(x.nuevas).toHaveLength(5);
   });
 
@@ -150,12 +150,12 @@ describe('mensajes entre salas', () => {
     const dir = realpathSync(mkdtempSync(path.join(tmpdir(), 'avisos-')));
     const env = { ...process.env, GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@x.example', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@x.example' };
     const g = (...a: string[]) => execFileSync('git', ['-C', dir, ...a], { stdio: 'ignore', env });
-    g('init', '-b', 'feature/FIC-9-principal'); writeFileSync(path.join(dir, 'a.txt'), 'a'); g('add', '.'); g('commit', '-m', 'a');
+    g('init', '-b', 'feature/ABC-9-principal'); writeFileSync(path.join(dir, 'a.txt'), 'a'); g('add', '.'); g('commit', '-m', 'a');
     const wt = path.join(dir, '.claude', 'worktrees', 'otra-carpeta');
-    g('worktree', 'add', '-b', 'feature/FIC-4375-tax-coverage', wt);
+    g('worktree', 'add', '-b', 'feature/ABC-4375-tax-coverage', wt);
     const info = await infoRepo(dir);
-    expect(taskWorktree(info.worktrees, 'fic-4375')).toBe(wt);
-    expect(taskWorktree(info.worktrees, 'FIC-9')).toBeUndefined();
-    expect(taskWorktree(info.worktrees, 'FIC-1')).toBeUndefined();
+    expect(taskWorktree(info.worktrees, 'abc-4375')).toBe(wt);
+    expect(taskWorktree(info.worktrees, 'ABC-9')).toBeUndefined();
+    expect(taskWorktree(info.worktrees, 'ABC-1')).toBeUndefined();
   }, 30_000);
 });
