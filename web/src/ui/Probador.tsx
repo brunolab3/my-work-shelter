@@ -33,7 +33,7 @@ function ChooseClient({ elegir }: { elegir: (q: string) => void }) {
   const items = [
     { texto: <><b>{t('world.you')}</b> · {sup?.nombre ?? t('panels.overseer')}</>, pista: tIs(lookOf({ tipo: sup?.personaje, aspecto: sup?.aspecto }).especie), q: 'supervisor', apagado: false },
     ...habitantes.map(h => ({
-      texto: <>{h.nombre} <span className="tenue">«{h.mote}»</span></>,
+      texto: <>{h.nombre} <span className="tenue">«{tIs(h.mote)}»</span></>,
       pista: h.tipo === 'Octocat' ? t('panels.itIsWhatItIs') : salas.find(s => s.id === h.salaId)?.nombre ?? '',
       q: h.id, apagado: h.tipo === 'Octocat',
     })),

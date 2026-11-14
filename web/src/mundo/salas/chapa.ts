@@ -2,7 +2,7 @@
 // giratorio frente al espejo y el lavacabezas, el poste de barbero girando y Fito con las tijeras. A la derecha, la
 // ropería: un escaparate de maniquíes vestidos con piezas del probador (cambian de modelito cada poco), la sombrerera con
 // sombreros de verdad del catálogo y la cabina de prueba con su cortina. Sentarse en el sillón abre el probador.
-import { t } from '@shared/idioma';
+import { t, tIs } from '@shared/idioma';
 import * as THREE from 'three';
 import { place, R } from '../../motor/assets';
 import { cartel, lienzo, textureOf, PhosphorScreen } from '../../motor/texturas';
@@ -49,7 +49,7 @@ export async function furnishBodyshop(ctx: Contexto) {
   let s = semilla * 7919 + 1; const r = () => { s = (s * 16807) % 2147483647; return s / 2147483647; };
 
   // ---- rótulo de neón al fondo, en el centro
-  const matNeon = new THREE.MeshBasicMaterial({ map: textureNeon('CHAPA Y PINTURA', 'BARBERÍA · ROPERÍA · DESABOLLADO', GREEN), blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, toneMapped: false });
+  const matNeon = new THREE.MeshBasicMaterial({ map: textureNeon(tIs('CHAPA Y PINTURA'), t('world.chapa.neonSub'), GREEN), blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, toneMapped: false });
   const neon = new THREE.Mesh(new THREE.PlaneGeometry(3.0, 0.88), matNeon); neon.position.set(-0.1, 3.02, zB + 0.36); neon.userData.estatico = false; g.add(neon);
 
   // ---- barbería (izquierda): espejo, lavacabezas, sillón giratorio, poste y Fito
@@ -118,8 +118,8 @@ export async function furnishBodyshop(ctx: Contexto) {
 
   // ---- el puesto: la mesa de corte de la ropería, de pie (un mueble bajo con cajones, a la altura de las manos), con
   // el monitor del catálogo, tela, tijeras y la cinta
-  const pCatalog = new PhosphorScreen(384, 256, GREEN, ' catálogo'); pCatalog.speed = 20;
-  pCatalog.escribir([`${PIECES.filter(p => p.slot === 'torso').length} torsos`, `${PIECES.filter(p => p.slot === 'sombrero').length} sombreros`, `${FABRICS.length} telas`, 'P: probador']); ctx.sala.pantallas.push(pCatalog);
+  const pCatalog = new PhosphorScreen(384, 256, GREEN, t('world.chapa.catalog')); pCatalog.speed = 20;
+  pCatalog.escribir([t('world.chapa.nTorsos', { n: PIECES.filter(p => p.slot === 'torso').length }), t('world.chapa.nHats', { n: PIECES.filter(p => p.slot === 'sombrero').length }), t('world.chapa.nFabrics', { n: FABRICS.length }), t('world.chapa.fittingRoom')]); ctx.sala.pantallas.push(pCatalog);
   await workStation(ctx, { id: 'corte', x: 4.8, z: 0.2, giro: -0.9, ofFoot: true, mesa: R.mueble('cabinet_medium'), deskScale: 1.12, tex: pCatalog.tex, brillo: 1.0, teclado: true,
     encima: [{ ruta: R.mueble('rug_rectangle_stripes_A'), x: -0.45, z: 0.15, c: { ancho: 0.62, rot: 0.15 } }, { ruta: R.herr('scissors'), x: 0.55, z: 0.15, c: { escala: 0.5, ...tumbada(-0.7) } }, { ruta: R.herr('rope_bundle_B'), x: -0.7, z: -0.2, c: { escala: K * 0.35 } }] });
 

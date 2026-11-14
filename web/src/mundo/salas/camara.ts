@@ -2,7 +2,7 @@
 // Pieza protagonista: la pared de cajas de seguridad, una por integración con su piloto de estado, tras una barrera
 // láser que se apaga cuando el Supervisor se acerca al escáner. Vigilan una torreta de techo que le sigue con la
 // mirada y un dron centinela; a la derecha, el puesto de guardia con las cámaras del refugio.
-import { t } from '@shared/idioma';
+import { t, t as tr, locale } from '@shared/idioma';
 import * as THREE from 'three';
 import { place, R } from '../../motor/assets';
 import { cartel, PanelRoom, lienzo, textureOf, dangerStrip, SOURCES } from '../../motor/texturas';
@@ -81,7 +81,7 @@ export async function furnishCamera(ctx: Contexto) {
   const franja = dangerStrip(512, 32, '#b8302a', '#1c1a18'); franja.wrapS = THREE.RepeatWrapping; franja.repeat.set(8, 1);
   const suelo = new THREE.Mesh(new THREE.PlaneGeometry(xb - xa + 0.3, 0.16), new THREE.MeshStandardMaterial({ map: franja, roughness: 0.8, polygonOffset: true, polygonOffsetFactor: -2 }));
   suelo.rotation.x = -Math.PI / 2; suelo.position.set((xa + xb) / 2, 0.015, zL + 0.14); g.add(suelo);
-  { const { c, g: gg } = lienzo(1024, 96); gg.fillStyle = 'rgba(200,50,40,0.55)'; gg.font = `900 70px ${SOURCES.titulo}`; gg.textAlign = 'center'; gg.textBaseline = 'middle'; gg.fillText('ZONA RESTRINGIDA', 512, 52);
+  { const { c, g: gg } = lienzo(1024, 96); gg.fillStyle = 'rgba(200,50,40,0.55)'; gg.font = `900 70px ${SOURCES.titulo}`; gg.textAlign = 'center'; gg.textBaseline = 'middle'; gg.fillText(t('world.vault.restrictedArea'), 512, 52);
     const rot = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 0.32), new THREE.MeshStandardMaterial({ map: textureOf(c), transparent: true, roughness: 0.9, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
     rot.rotation.x = -Math.PI / 2; rot.position.set(X0, 0.016, zB + 0.95); g.add(rot); }
   ctx.sala.obstacles.push(new THREE.Box2(new THREE.Vector2(xa - 0.3, zB), new THREE.Vector2(xb + 0.3, zL + 0.25)));
@@ -194,8 +194,8 @@ class Scanner {
     g.globalAlpha = 1;
     if (modo !== 'concedido') { const y = 50 + ((t * 90) % 200); const gr = g.createLinearGradient(0, y - 20, 0, y + 4); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, col); g.fillStyle = gr; g.globalAlpha = modo === 'reposo' ? 0.35 : 0.8; g.fillRect(30, y - 20, W - 60, 24); g.globalAlpha = 1; }
     g.fillStyle = col; g.font = `700 24px ${SOURCES.mono}`; g.textAlign = 'center';
-    g.fillText(modo === 'concedido' ? 'ACCESO' : modo === 'escaneando' ? 'IDENTIFÍQUESE' : 'CÁMARA', 128, 282);
-    g.fillText(modo === 'concedido' ? 'CONCEDIDO' : modo === 'escaneando' ? '· · ·' : 'SELLADA', 128, 308);
+    g.fillText(modo === 'concedido' ? tr('world.vault.access') : modo === 'escaneando' ? tr('world.vault.identify') : tr('world.panel.vault'), 128, 282);
+    g.fillText(modo === 'concedido' ? tr('world.vault.granted') : modo === 'escaneando' ? '· · ·' : tr('world.vault.sealed'), 128, 308);
     g.fillStyle = 'rgba(0,0,0,0.25)'; for (let y = 0; y < H; y += 3) g.fillRect(0, y, W, 1);
     this.tex.needsUpdate = true;
   }
@@ -225,12 +225,12 @@ class Cctv {
       g.fillStyle = col; g.globalAlpha = 0.85; g.beginPath(); g.arc(x + w - 46, y + 72, 9, 0, 7); g.fill(); g.globalAlpha = 1;
       g.fillStyle = '#d8efe0'; g.font = `600 18px ${SOURCES.mono}`; g.textAlign = 'left';
       g.fillText(`CAM 0${k + 1}`, x + 10, y + 24);
-      g.font = `700 20px ${SOURCES.mono}`; g.fillText((s?.nombre ?? 'SIN SEÑAL').slice(0, 18).toUpperCase(), x + 40, y + h - 66 + 6);
+      g.font = `700 20px ${SOURCES.mono}`; g.fillText((s?.nombre ?? tr('world.vault.noSignal')).slice(0, 18).toUpperCase(), x + 40, y + h - 66 + 6);
       g.fillStyle = col; g.font = `600 16px ${SOURCES.mono}`; g.fillText(s ? STATE_TEXT[s.estado] : '', x + 40, y + h - 44 + 6);
       if (Math.sin(t * 4) > 0) { g.fillStyle = '#ff3a2a'; g.beginPath(); g.arc(x + w - 52, y + 18, 6, 0, 7); g.fill(); g.fillStyle = '#ffb0a0'; g.font = `600 14px ${SOURCES.mono}`; g.fillText('REC', x + w - 42, y + 23); }
     });
     g.fillStyle = '#0a0d0c'; g.fillRect(w - 2, 0, 4, H); g.fillRect(0, h - 2, W, 4);
-    const hora = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const hora = new Date().toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     g.fillStyle = '#d8efe0'; g.font = `600 16px ${SOURCES.mono}`; g.textAlign = 'right'; g.fillText(hora, W - 10, H - 10);
     g.fillStyle = 'rgba(0,0,0,0.22)'; for (let yy = 0; yy < H; yy += 3) g.fillRect(0, yy, W, 1);
     this.tex.needsUpdate = true;

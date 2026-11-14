@@ -1,6 +1,6 @@
 // Sala de repositorio «escaparate» (estilo landing): el muro de pantallas muestra la landing que se trabaja,
 // con focos de exposición, un expositor giratorio y el sofá de «pruebas de usuario».
-import { t } from '@shared/idioma';
+import { t, t as tr } from '@shared/idioma';
 import * as THREE from 'three';
 import { place, R } from '../../motor/assets';
 import { cartel, PhosphorScreen, PanelRoom, mockupLanding } from '../../motor/texturas';
@@ -17,7 +17,7 @@ export async function furnishShowcase(ctx: Contexto) {
       n.material = copias.get(n.material)!; }); }
   await highBand(ctx, { reloj: 4.9, valves: [-4.2], segments: [[-4.8, 2.4], [4.9, 2.2]] });   // ninguna tubería por delante de los monitores
   // muro de pantallas: la landing en tres versiones (A/B/C)
-  const pantallas = [mockupLanding('PURIFICADOR 3000', 0), mockupLanding('PURIFICADOR 3000', 2), mockupLanding('PURIFICADOR 3000', 2)];
+  const pantallas = [mockupLanding(t('world.landing.product'), 0), mockupLanding(t('world.landing.product'), 2), mockupLanding(t('world.landing.product'), 2)];
   const mons: THREE.Object3D[] = [];
   for (const [i, x] of [-1.9, 0, 1.9].entries()) mons.push(await monitorWall(ctx, x, 2.15 + (i === 1 ? 0.1 : 0), i === 1 ? 1.55 : 1.25, pantallas[i], i === 1 ? 0.55 : 0.42));   // pantallas claras: brillo contenido (la sala no quema)
   // marcos de grafito (el plástico blanco del pack, bajo los focos, era lo que más quemaba de la sala)
@@ -39,9 +39,10 @@ export async function furnishShowcase(ctx: Contexto) {
   const { c: cTot, g: gTot } = lienzo(200, 560);
   { const G = gTot; G.fillStyle = '#f6d77a'; G.fillRect(0, 0, 200, 560); G.fillStyle = '#2a1c08';
     G.fillRect(14, 16, 46, 10); for (let i = 0; i < 3; i++) G.fillRect(150, 14 + i * 6, 34, 3);
-    G.font = `900 40px ${SOURCES.titulo}`; G.fillText('AIRE', 14, 88); G.fillText('LIMPIO', 14, 128);
-    G.font = `500 13px ${SOURCES.mono}`; G.globalAlpha = 0.75; G.fillText('Respira hondo:', 14, 152); G.fillText('el filtro trabaja.', 14, 168); G.globalAlpha = 1;
-    G.fillStyle = '#2a1c08'; G.fillRect(14, 184, 120, 30); G.fillStyle = '#f6d77a'; G.font = `700 13px ${SOURCES.mono}`; G.fillText('Resérvalo', 22, 204);
+    const [l1, l2, l3, l4] = t('world.landing.mobile').split('|');
+    G.font = `900 40px ${SOURCES.titulo}`; G.fillText(l1, 14, 88); G.fillText(l2, 14, 128);
+    G.font = `500 13px ${SOURCES.mono}`; G.globalAlpha = 0.75; G.fillText(l3, 14, 152); G.fillText(l4, 14, 168); G.globalAlpha = 1;
+    G.fillStyle = '#2a1c08'; G.fillRect(14, 184, 120, 30); G.fillStyle = '#f6d77a'; G.font = `700 13px ${SOURCES.mono}`; G.fillText(t('world.tex.bookIt'), 22, 204);
     G.fillStyle = '#2a1c08'; G.beginPath(); G.arc(100, 300, 62, 0, 7); G.fill(); G.fillStyle = '#e2602b'; G.beginPath(); G.arc(124, 278, 20, 0, 7); G.fill();
     G.globalAlpha = 0.14; for (let i = 0; i < 3; i++) G.fillRect(14, 388 + i * 56, 172, 46); G.globalAlpha = 1;
     G.fillStyle = '#2a1c08'; G.font = `700 12px ${SOURCES.mono}`; ['Filtros', 'Modelos', 'Precios'].forEach((t, i) => G.fillText(t, 24, 416 + i * 56)); }
@@ -79,7 +80,7 @@ export async function furnishShowcase(ctx: Contexto) {
   signInWall(g, cartel(t('world.poster.growth'), t('world.poster.growthFoot'), '#f0d98a', '#2a1c08', 'rayo', semilla), 3.2, 2.6, 0.6, 0.84, zB + 0.33, -0.03);
   // consola de despliegue: se usa de pie
   const consola = await place(g, R.sf('Props_ComputerSmall'), { pos: [2.55, 0, zB + 0.55], alto: 1.5, rot: -0.3, estatico: false });
-  const pDeploy = new PhosphorScreen(256, 256, v.pantalla, ' despliegue'); pDeploy.speed = 22;
+  const pDeploy = new PhosphorScreen(256, 256, v.pantalla, t('world.landing.deploy')); pDeploy.speed = 22;
   screenReal(ctx, pDeploy, 'actividad');
   overlayScreen(consola, /^Black$/, pDeploy.tex, { brillo: 1.2, margin: 0.9 });
   ctx.sala.pantallas.push(pDeploy);
@@ -104,6 +105,6 @@ export async function furnishShowcase(ctx: Contexto) {
     destello = Math.max(0, destello - dt * 1.5);
     for (const m of matsTotem) m.emissiveIntensity = 0.6 + destello * 1.4;
     cambio += dt; if (cambio > 6) { cambio = 0; mons.push(mons.shift()!); }
-    if (ctx.sala.estado === 'trabajando' && Math.random() < dt * (0.12 + a)) panel.lineas.push('> ' + ['lighthouse: 98', 'test A/B: +3 %', 'hero.tsx guardado', 'preview desplegada'][Math.floor(Math.random() * 4)]);
+    if (ctx.sala.estado === 'trabajando' && Math.random() < dt * (0.12 + a)) panel.lineas.push('> ' + tr('world.landing.log').split('|')[Math.floor(Math.random() * 4)]);
   });
 }

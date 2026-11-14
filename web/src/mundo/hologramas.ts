@@ -19,6 +19,7 @@ import { audioWorld } from '../audio/mundo';
 import { vivo } from '../red/cliente';
 import { SFX } from '../audio/sonido';
 import { SHOP } from '@shared/catalogo';
+import { t, tIs } from '@shared/idioma';
 import type { InfoWorktree, SessionSummary } from '@shared/protocolo';
 import { taskColor, worktreeTask } from '@shared/tareas';
 import { knowTasks, versionColors } from '../ui/tareas';
@@ -347,13 +348,13 @@ export class Holograms {
     let estado: DwellerState = 'ocioso', detalle = '', wants: Pose = 'base';
     if (s) {
       // pensando también está de faena: de pie con sus pantallas, como trabajando (sentada es no tener nada que hacer)
-      if (s.estado === 'arrancando') { estado = 'pensando'; detalle = 'preparándose…'; wants = 'manos'; }
+      if (s.estado === 'arrancando') { estado = 'pensando'; detalle = t('windows.gettingReady'); wants = 'manos'; }
       else if (s.estado === 'trabajando') {
-        if (!m || m === 'pensar') { estado = 'pensando'; detalle = s.actividad?.texto ?? 'pensando…'; wants = 'manos'; }
+        if (!m || m === 'pensar') { estado = 'pensando'; detalle = s.actividad?.texto ?? t('windows.thinking'); wants = 'manos'; }
         else { estado = 'trabajando'; detalle = s.actividad?.texto ?? ''; wants = 'manos'; }
-      } else if (s.estado === 'esperando') { estado = 'esperando'; detalle = s.pending?.titulo ?? 'te espera'; wants = 'pie'; }
-      else if (s.estado === 'terminada' && s.sinLeer) { estado = 'terminado'; detalle = 'listo: ' + (s.titulo ?? ''); wants = 'pie'; }
-      else if (s.estado === 'error') { estado = 'error'; detalle = s.error ?? 'avería'; wants = 'reposo'; }
+      } else if (s.estado === 'esperando') { estado = 'esperando'; detalle = s.pending?.titulo ?? t('windows.waitingForYou'); wants = 'pie'; }
+      else if (s.estado === 'terminada' && s.sinLeer) { estado = 'terminado'; detalle = t('windows.readyTitulo', { titulo: s.titulo ?? '' }); wants = 'pie'; }
+      else if (s.estado === 'error') { estado = 'error'; detalle = s.error ?? t('windows.fault'); wants = 'reposo'; }
       else { detalle = s.titulo ?? ''; wants = 'base'; }
     }
     const firma = [s?.id, estado, detalle, f.w.cambios, f.w.advanced].join('|');
@@ -522,10 +523,10 @@ export class Holograms {
   summaries(): DwellerSummary[] {
     return [...this.figuras.values()].map(f => {
       const autor = this.r.habitantes.find(h => h.id.id === f.authorId), a = autor?.id;
-      const nombre = a?.nombre ?? 'Copia';
+      const nombre = a?.nombre ?? t('world.copy');
       return {
-        id: idCopy(f.ruta), nombre: `${nombre} ◇ ${branchCaption(f.w.rama)}`, mote: 'copia holográfica', tipo: a?.tipo ?? '',
-        bio: `Copia holográfica de ${nombre} «${a?.mote ?? ''}». Trabaja en el worktree ${f.w.rama || f.ruta}, sin tocar la copia principal del repo.`,
+        id: idCopy(f.ruta), nombre: `${nombre} ◇ ${branchCaption(f.w.rama)}`, mote: t('windows.holographicCopy'), tipo: a?.tipo ?? '',
+        bio: t('world.holoCopyBio', { nombre, mote: tIs(a?.mote ?? ''), rama: f.w.rama || f.ruta }),
         sala: f.sala.id, nameRoom: f.sala.nombre, ruta: f.ruta, carpeta: f.ruta, estado: f.listo ? f.estado : 'ocioso', detalle: f.detalle, sesionId: f.sesionId,
         robot: autor?.p.aspecto?.especie === 'robot',
         copia: { ruta: f.ruta, rama: f.w.rama, authorId: f.authorId, nameAuthor: nombre, nicknameAuthor: a?.mote ?? '', cambios: f.w.cambios, advanced: f.w.advanced },
@@ -536,10 +537,10 @@ export class Holograms {
   etiquetas(lejos: boolean, junto: THREE.Vector3, selected: Copia | null, aimed: Copia | null = null) {
     return [...this.figuras.values()].filter(f => f.listo && f.p.mixer).map(f => {
       const cerca = f.p.raiz.position.distanceTo(junto) < 2.4, elegida = f === selected || f === aimed;
-      const git = f.w.cambios ? `${f.w.cambios} cambios` : f.w.advanced ? `${f.w.advanced} commits por integrar` : 'limpia';
+      const git = f.w.cambios ? t('windows.nChanges', { n: f.w.cambios }) : f.w.advanced ? t('windows.nCommitsToMerge', { n: f.w.advanced }) : t('panels.clean2');
       const detalle = !cerca ? '' : f.estado === 'ocioso' ? git : f.detalle.slice(0, 48);
       const autor = this.r.habitantes.find(h => h.id.id === f.authorId);
-      return { k: f, pos: f.p.headPoint(), alto: 0.2, nombre: `${autor?.id.nombre ?? 'Copia'} ◇ ${f.tarea ?? branchCaption(f.w.rama)}`, color: f.tarea ? taskColor(f.tarea) : undefined, estado: f.estado, detalle, cerca: elegida, lejos, prompt: elegida ? 'Hablar' : '', tecla: f === selected ? 'E' : 'Clic', apuntado: f === aimed && f !== selected, relevant: cerca || elegida || f.estado !== 'ocioso' };
+      return { k: f, pos: f.p.headPoint(), alto: 0.2, nombre: `${autor?.id.nombre ?? t('world.copy')} ◇ ${f.tarea ?? branchCaption(f.w.rama)}`, color: f.tarea ? taskColor(f.tarea) : undefined, estado: f.estado, detalle, cerca: elegida, lejos, prompt: elegida ? t('world.talk') : '', tecla: f === selected ? 'E' : t('world.click'), apuntado: f === aimed && f !== selected, relevant: cerca || elegida || f.estado !== 'ocioso' };
     }).filter(x => x.relevant);
   }
 }

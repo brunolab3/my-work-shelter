@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('shelterVentana', {
   notify: (id, titulo, cuerpo) => ipcRenderer.invoke('aviso', id, titulo, cuerpo),
   removeNotice: id => ipcRenderer.invoke('aviso:quitar', id),
   onNoticeClick: f => { ipcRenderer.on('aviso:clic', (_e, id) => f(id)); },
+  setLanguage: i => ipcRenderer.invoke('idioma', i),   // Electron's menus and dialogs in the game's language (textos.cjs)
 });
 // Spotify suena en un Chrome sin ventana (electron/chromeRemoto.cjs): el navegador de Spotify del juego enseña su
 // página y le pasa ratón y teclado; la pletina le pregunta qué suena (Navegadores.tsx, Discoteca.tsx)

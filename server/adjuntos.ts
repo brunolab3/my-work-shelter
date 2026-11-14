@@ -10,6 +10,7 @@ import { mkdirSync, writeFileSync, readFileSync, statSync, rmSync, existsSync, r
 import { execFile } from 'node:child_process';
 import type { Attachment } from '../shared/protocolo.ts';
 import { t } from '../shared/idioma.ts';
+import { TEXTS } from '../shared/textos.ts';
 
 const MAX_FILE = 20 * 1024 * 1024;
 const MAX_SIDE = 2000;                    // lado mayor de una imagen que va a Claude
@@ -19,6 +20,9 @@ const CONVERTIBLES = new Set(['.heic', '.heif', '.tif', '.tiff', '.bmp']);
 export const isImage = (ruta: string) => { const e = path.extname(ruta).toLowerCase(); return e in DIRECT || CONVERTIBLES.has(e); };
 
 export const HEADER = '[Adjuntos del Supervisor]';
+// the header and the image note go in the chosen language; reading a conversation back recognises both
+const HEADERS = [HEADER, TEXTS['prompt.attachmentsHeader'].en!];
+const IMAGE_NOTE = new RegExp(`^- (.+?)(${[TEXTS['prompt.attachmentImageNote'].es, TEXTS['prompt.attachmentImageNote'].en!].map(x => x.replace(/[()]/g, '\\$&')).join('|')})?$`);
 
 export class Attachments {
   readonly dir: string;
@@ -76,15 +80,16 @@ export const attachmentName = (ruta: string) => path.basename(ruta).replace(/^[0
 // La lista de adjuntos al final del texto, legible para Claude (y reconocible al leer la conversación del archivo)
 export function textWithAttachments(texto: string, adjuntos: Attachment[]) {
   if (!adjuntos.length) return texto;
-  const lineas = adjuntos.map(a => `- ${a.ruta}${a.imagen ? ' (imagen, incluida en este mensaje)' : ''}`);
-  return `${texto.trim()}${texto.trim() ? '\n\n' : ''}${HEADER}\n${lineas.join('\n')}`;
+  const lineas = adjuntos.map(a => `- ${a.ruta}${a.imagen ? t('prompt.attachmentImageNote') : ''}`);
+  return `${texto.trim()}${texto.trim() ? '\n\n' : ''}${t('prompt.attachmentsHeader')}\n${lineas.join('\n')}`;
 }
 export function separateAttachments(t: string): { texto: string; adjuntos: Attachment[] } {
-  const i = t.lastIndexOf(HEADER);
+  const header = HEADERS.reduce((a, h) => (t.lastIndexOf(h) > t.lastIndexOf(a) ? h : a));
+  const i = t.lastIndexOf(header);
   if (i < 0 || (i > 0 && !t.slice(0, i).endsWith('\n\n'))) return { texto: t, adjuntos: [] };
-  const lineas = t.slice(i + HEADER.length).split('\n').filter(l => l.trim());
+  const lineas = t.slice(i + header.length).split('\n').filter(l => l.trim());
   if (!lineas.length || !lineas.every(l => l.startsWith('- '))) return { texto: t, adjuntos: [] };
-  const adjuntos = lineas.map(l => { const m = /^- (.+?)( \(imagen, incluida en este mensaje\))?$/.exec(l)!; return { ruta: m[1], nombre: attachmentName(m[1]), imagen: isImage(m[1]) }; });
+  const adjuntos = lineas.map(l => { const m = IMAGE_NOTE.exec(l)!; return { ruta: m[1], nombre: attachmentName(m[1]), imagen: isImage(m[1]) }; });
   return { texto: t.slice(0, i).trim(), adjuntos };
 }
 

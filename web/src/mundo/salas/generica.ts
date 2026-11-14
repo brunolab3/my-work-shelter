@@ -2,7 +2,7 @@
 // Pieza protagonista: la gran pantalla de fósforo con el estado real del repo (rama, cambios, último commit).
 // Distribución propia: banco de trabajo con herramientas a la izquierda, armario de servidores al fondo, catre y
 // estanterías a la derecha. Se espeja según la semilla para que dos salas genéricas no sean iguales.
-import { t } from '@shared/idioma';
+import { t, tIs } from '@shared/idioma';
 import * as THREE from 'three';
 import { place, R } from '../../motor/assets';
 import { cartel, PhosphorScreen, PanelRoom } from '../../motor/texturas';
@@ -15,7 +15,7 @@ export async function furnishGeneric(ctx: Contexto) {
   const X = (x: number) => x * s;
   await highBand(ctx, { reloj: X(4.9), valves: [X(-4.8)], segments: [[X(-4.4), 2.4]] });
   // pantalla grande con el estado del repo, en su marco con soportes
-  const pantalla = new PhosphorScreen(768, 400, v.pantalla, ' estado del repo'); pantalla.speed = 50;
+  const pantalla = new PhosphorScreen(768, 400, v.pantalla, t('world.repoStatus')); pantalla.speed = 50;
   const marco = caja(3.4, 2.0, 0.12, materialSteel('#1f1c19'), X(0.3), 2.5, zB + 0.36); g.add(marco);
   const screen = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 1.8), new THREE.MeshStandardMaterial({ map: pantalla.tex, emissiveMap: pantalla.tex, emissive: '#ffffff', emissiveIntensity: 0.95, color: '#000' }));
   screen.position.set(X(0.3), 2.5, zB + 0.43); g.add(screen); ctx.sala.pantallas.push(pantalla);
@@ -76,15 +76,15 @@ export function screenStateRepo(ctx: Contexto, pantalla: PhosphorScreen, ancho =
     const f = JSON.stringify([r?.rama, r?.cambios, r?.lastCommit?.hash, r?.existe, r?.subrepos?.length]); if (f === firma) return; firma = f;
     if (!r) return;
     pantalla.lineas = []; pantalla.queue = [];
-    if (!r.existe) { pantalla.escribir(['carpeta no encontrada', ctx.sala.ruta ?? '']); return; }
+    if (!r.existe) { pantalla.escribir([t('panels.folderNotFound'), ctx.sala.ruta ?? '']); return; }
     const hace = r.lastCommit ? Math.max(1, Math.round((Date.now() - r.lastCommit.fecha) / 3600_000)) : 0;
     pantalla.escribir([
-      r.isGit ? `rama ${r.rama ?? '¿?'}` : 'carpeta sin git',
-      r.isGit ? (r.cambios ? `${r.cambios} cambios sin commitear` : 'árbol limpio') : (r.subrepos?.length ? `${r.subrepos.length} repos dentro` : (ctx.sala.ruta ?? '').split('/').slice(-2).join('/')),
-      r.lastCommit ? `último: ${recortar(r.lastCommit.mensaje, ancho)}` : '',
-      r.lastCommit ? `hace ${hace < 48 ? hace + ' h' : Math.round(hace / 24) + ' días'} · ${r.lastCommit.autor}` : '',
-      r.isGit ? `worktrees: ${Math.max(0, (r.worktrees?.length ?? 1) - 1)}` : 'sin historial: nada que deshacer',
-      r.tipo && r.tipo !== 'carpeta' ? `tipo: ${r.tipo}` : '',
+      r.isGit ? t('world.screen.branchRama', { rama: r.rama ?? '?' }) : t('world.screen.folderWithoutGit'),
+      r.isGit ? (r.cambios ? t('world.screen.nUncommitted', { n: r.cambios }) : t('world.screen.cleanTree2')) : (r.subrepos?.length ? t('world.screen.nReposInside', { n: r.subrepos.length }) : (ctx.sala.ruta ?? '').split('/').slice(-2).join('/')),
+      r.lastCommit ? t('world.screen.lastMsg', { mensaje: recortar(r.lastCommit.mensaje, ancho) }) : '',
+      r.lastCommit ? (hace < 48 ? t('world.screen.nHoursAgoAutor', { n: hace, autor: r.lastCommit.autor }) : t('world.screen.nDaysAgoAutor', { n: Math.round(hace / 24), autor: r.lastCommit.autor })) : '',
+      r.isGit ? `worktrees: ${Math.max(0, (r.worktrees?.length ?? 1) - 1)}` : t('world.screen.noHistory'),
+      r.tipo && r.tipo !== 'carpeta' ? t('world.screen.typeTipo', { tipo: tIs(r.tipo) }) : '',
       ...(r.commits ?? []).slice(1, 5).map((c: any) => `· ${c.hash.slice(0, 7)} ${recortar(c.mensaje, ancho - 10)}`),
       ...(r.subrepos ?? []).slice(0, 5).map((x: string) => `▸ ${recortar(x.split('/').pop() ?? x, ancho - 2)}`),
     ].filter(Boolean));

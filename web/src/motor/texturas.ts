@@ -1,5 +1,8 @@
 // Texturas de lienzo para la señalética y las pantallas del refugio (carteles, rótulos, terminales de fósforo).
 import * as THREE from 'three';
+import { t as tx, tIs, locale } from '@shared/idioma';
+// short weekday in the chosen language: LUN, MIÉ… / MON, WED…
+const dayShort = (d: Date) => new Intl.DateTimeFormat(locale(), { weekday: 'short' }).format(d).replace(/\.$/, '').slice(0, 3).toUpperCase();
 
 export const SOURCES = {
   titulo: '"Refugio Titulo", "Big Shoulders Stencil Display", "Arial Narrow", sans-serif',
@@ -239,14 +242,14 @@ export function corcho(notas: { texto: string; color: string }[], semilla = 3) {
 // Panel de estado de la sala (pizarra luminosa en la pared): barra de progreso del trabajo, estado y rama
 export class PanelRoom {
   c: HTMLCanvasElement; g: CanvasRenderingContext2D; tex: THREE.CanvasTexture;
-  titulo = 'HORNO DE BUILDS'; estado = 'EN REPOSO'; progreso = 0; lineas: string[] = []; color = '#7dffb0'; private clave = '';
+  titulo = tx('world.tex.buildOven'); estado = tx('world.screen.idle'); progreso = 0; lineas: string[] = []; color = '#7dffb0'; private clave = '';
   constructor() { ({ c: this.c, g: this.g } = lienzo(640, 256)); this.tex = textureOf(this.c); this.draw(0); }
   actualizar(t: number) { const k = this.titulo + this.estado + Math.round(this.progreso * 100) + this.lineas.join() + this.color + Math.floor(t * 2); if (k !== this.clave) { this.clave = k; this.draw(t); } }
   draw(t: number) {
     const { g } = this; const W = 640, H = 256;
     g.fillStyle = '#05100a'; g.fillRect(0, 0, W, H);
     g.shadowColor = this.color; g.shadowBlur = 10; g.fillStyle = this.color;
-    g.font = `500 30px ${SOURCES.mono}`; g.textBaseline = 'top'; g.fillText(this.titulo, 24, 18);
+    g.font = `500 30px ${SOURCES.mono}`; g.textBaseline = 'top'; g.fillText(tIs(this.titulo), 24, 18);   // stock titles are Spanish data
     g.textAlign = 'right'; g.fillText(this.estado, W - 24, 18); g.textAlign = 'left';
     // barra segmentada
     const n = 24, bw = (W - 48) / n;
@@ -323,8 +326,8 @@ export function mockupLanding(titulo: string, variant = 0, w = 512, h = 320) {
   g.fillStyle = inks[variant % 3];
   g.fillRect(24, 18, 70, 12); for (let i = 0; i < 4; i++) g.fillRect(w - 260 + i * 56, 20, 40, 8);
   g.font = `800 ${Math.round(h * 0.13)}px ${SOURCES.titulo}`; g.fillText(titulo, 24, h * 0.36);
-  g.font = `500 ${Math.round(h * 0.05)}px ${SOURCES.mono}`; g.globalAlpha = 0.7; g.fillText('Aire limpio en todo el refugio.', 24, h * 0.47); g.globalAlpha = 1;
-  g.fillStyle = acento; g.fillRect(24, h * 0.54, 150, 34); g.fillStyle = backgrounds[variant % 3]; g.font = `700 ${Math.round(h * 0.05)}px ${SOURCES.mono}`; g.fillText('Resérvalo', 36, h * 0.54 + 23);
+  g.font = `500 ${Math.round(h * 0.05)}px ${SOURCES.mono}`; g.globalAlpha = 0.7; g.fillText(tx('world.tex.cleanAir'), 24, h * 0.47); g.globalAlpha = 1;
+  g.fillStyle = acento; g.fillRect(24, h * 0.54, 150, 34); g.fillStyle = backgrounds[variant % 3]; g.font = `700 ${Math.round(h * 0.05)}px ${SOURCES.mono}`; g.fillText(tx('world.tex.bookIt'), 36, h * 0.54 + 23);
   g.fillStyle = inks[variant % 3]; g.globalAlpha = 0.12;
   for (let i = 0; i < 3; i++) g.fillRect(24 + i * ((w - 48) / 3), h * 0.72, (w - 48) / 3 - 12, h * 0.22);
   g.globalAlpha = 1; g.fillStyle = acento; g.beginPath(); g.arc(w * 0.78, h * 0.42, h * 0.18, 0, 7); g.fill();
@@ -335,7 +338,8 @@ export function mockupLanding(titulo: string, variant = 0, w = 512, h = 320) {
 export function markSamples(w = 1024, h = 512) {
   const { c, g } = lienzo(w, h);
   g.fillStyle = '#e9dfc9'; g.fillRect(0, 0, w, h);
-  const colores = [['#b8402e', 'ÓXIDO 01'], ['#e8a23a', 'ÁMBAR 02'], ['#2f5d5a', 'VERDÍN 03'], ['#1f2a3a', 'NOCHE 04'], ['#d9c9a6', 'HUESO 05'], ['#7a3b6a', 'CIRUELA 06'], ['#4c7a3a', 'MUSGO 07'], ['#c7c1b6', 'NIEBLA 08']];
+  const nombres = tx('world.tex.swatches').split('|');
+  const colores = ['#b8402e', '#e8a23a', '#2f5d5a', '#1f2a3a', '#d9c9a6', '#7a3b6a', '#4c7a3a', '#c7c1b6'].map((c, i) => [c, nombres[i]]);
   colores.forEach(([col, nom], i) => {
     const x = 24 + (i % 4) * 150, y = 24 + Math.floor(i / 4) * 230;
     g.fillStyle = '#00000022'; g.fillRect(x + 6, y + 6, 130, 200);
@@ -351,7 +355,7 @@ export function markSamples(w = 1024, h = 512) {
     g.fillStyle = fondo; g.fillRect(lx, y, 340, 120);
     g.fillStyle = tinta; g.beginPath(); g.arc(lx + 60, y + 60, 38, 0, 7); g.fill();
     g.fillStyle = fondo; g.beginPath(); g.arc(lx + 60, y + 60, 18, 0, 7); g.fill(); g.fillRect(lx + 56, y + 20, 8, 80);
-    g.fillStyle = tinta; g.font = `900 46px ${SOURCES.titulo}`; g.fillText('REFUGIO', lx + 115, y + 58); g.font = `700 26px ${SOURCES.rotulo}`; g.fillText('GUÍA DE ESTILO', lx + 117, y + 90);
+    g.fillStyle = tinta; g.font = `900 46px ${SOURCES.titulo}`; g.fillText(tx('world.tex.shelter'), lx + 115, y + 58); g.font = `700 26px ${SOURCES.rotulo}`; g.fillText(tx('world.tex.styleGuide'), lx + 117, y + 90);
   }
   dirty(g, w, h, 0.12, 21);
   return textureOf(c);
@@ -364,7 +368,7 @@ export function fotograma(n: number, w = 320, h = 200) {
   const [a, b] = skies[n % skies.length];
   const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, a); gr.addColorStop(1, b); g.fillStyle = gr; g.fillRect(0, 0, w, h);
   g.fillStyle = 'rgba(0,0,0,0.35)'; g.beginPath(); g.moveTo(0, h); for (let x = 0; x <= w; x += 20) g.lineTo(x, h * 0.7 - Math.sin(x * 0.03 + n) * 20); g.lineTo(w, h); g.fill();
-  g.fillStyle = '#fff'; g.font = `800 ${Math.round(h * 0.16)}px ${SOURCES.titulo}`; g.textAlign = 'center'; g.fillText(['ESCENA 1', 'PRODUCTO', 'CTA FINAL', 'CRÉDITOS'][n % 4], w / 2, h * 0.45);
+  g.fillStyle = '#fff'; g.font = `800 ${Math.round(h * 0.16)}px ${SOURCES.titulo}`; g.textAlign = 'center'; g.fillText(tx('world.tex.frames').split('|')[n % 4], w / 2, h * 0.45);
   g.fillStyle = 'rgba(0,0,0,0.6)'; g.fillRect(0, h - 22, w, 22); g.fillStyle = '#ffb347'; g.font = `500 14px ${SOURCES.mono}`; g.textAlign = 'left'; g.fillText(`00:0${n % 10}:${String((n * 13) % 60).padStart(2, '0')} · 1920×1080 · 30 fps`, 8, h - 6);
   return textureOf(c);
 }
@@ -404,7 +408,7 @@ export class ListScreen {
       let t = f.texto; while (g.measureText(t).width > W - 200 && t.length > 4) t = t.slice(0, -2); if (t !== f.texto) t += '…';
       g.fillText(t, 180, y + lh / 2); g.shadowBlur = 0;
     });
-    if (!filas.length) { g.fillStyle = this.color; g.globalAlpha = 0.5; g.font = `400 24px ${SOURCES.mono}`; g.fillText('sin novedades', 16, Math.min(90, (H + 46) / 2)); g.globalAlpha = 1; }
+    if (!filas.length) { g.fillStyle = this.color; g.globalAlpha = 0.5; g.font = `400 24px ${SOURCES.mono}`; g.fillText(tx('world.tex.nothingNew'), 16, Math.min(90, (H + 46) / 2)); g.globalAlpha = 1; }
     g.fillStyle = 'rgba(0,0,0,0.22)'; for (let y = 0; y < H; y += 3) g.fillRect(0, y, W, 1);
     this.tex.needsUpdate = true;
   }
@@ -426,7 +430,6 @@ export class WeekWhiteboard {
     const hourY = (h: number) => Y0 + (Math.max(8, Math.min(20, h)) - 8) / 12 * (Y1 - Y0 - CARD);
     g.fillStyle = '#b8b09c'; g.fillRect(0, 0, W, H);
     const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
-    const days = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB'];
     const cw = (W - 40) / N;
     // la franja de abajo: un listón pintado sobre la pizarra con su rótulo
     g.fillStyle = '#9d937c'; g.fillRect(14, B0 - 6, W - 28, B1 - B0 + 8);
@@ -434,7 +437,7 @@ export class WeekWhiteboard {
     for (let i = 0; i < N; i++) {
       const x = 20 + i * cw; const fecha = new Date(hoy.getTime() + i * 86400000);
       g.fillStyle = i === 0 ? '#9a3424' : '#2a2520'; g.font = `800 32px ${SOURCES.titulo}`; g.textBaseline = 'top';
-      g.fillText(i === 0 ? `HOY ${fecha.getDate()}` : `${days[fecha.getDay()]} ${fecha.getDate()}`, x + 10, 14);
+      g.fillText(i === 0 ? tx('world.tex.todayN', { n: fecha.getDate() }) : `${dayShort(fecha)} ${fecha.getDate()}`, x + 10, 14);
       if (i) { g.strokeStyle = '#2a252055'; g.lineWidth = 2; g.beginPath(); g.moveTo(x, 54); g.lineTo(x, H - 16); g.stroke(); }
       if (i === 0) { g.fillStyle = '#9a342416'; g.fillRect(x, 54, cw, H - 70); }
       if (i === 0) for (const hh of [9, 12, 15, 18]) { const yy = hourY(hh) + 32; g.strokeStyle = '#2a252022'; g.lineWidth = 1; g.beginPath(); g.moveTo(20, yy); g.lineTo(W - 20, yy); g.stroke(); g.fillStyle = '#2a252066'; g.font = `500 13px ${SOURCES.mono}`; g.fillText(String(hh), W - 40, yy - 14); }
@@ -450,13 +453,13 @@ export class WeekWhiteboard {
         const col = e.fuente === 'google' ? '#3e5a3a' : '#3a5670';
         g.fillStyle = col; g.fillRect(x + 6, y, cw - 12, CARD);
         g.fillStyle = '#e9dfc8'; g.font = `700 17px ${SOURCES.mono}`;
-        const d = new Date(e.inicio); g.fillText(e.allElDay ? 'todo el día' : `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`, x + 12, y + 6);
+        const d = new Date(e.inicio); g.fillText(e.allElDay ? tx('world.tex.allDay') : `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`, x + 12, y + 6);
         g.font = `500 16px ${SOURCES.mono}`;
         const lineas = splitByWords(g, e.titulo, cw - 26, 2);
         lineas.forEach((l, n) => g.fillText(l, x + 12, y + 26 + n * 18));
       }
-      if (caben < dayOf.length) { g.fillStyle = '#2a2520aa'; g.font = `700 16px ${SOURCES.mono}`; g.fillText(`+ ${dayOf.length - caben} más`, x + 12, Math.min(Y1 - 18, suelo)); }
-      if (!dayOf.length) { g.fillStyle = '#2a252066'; g.font = `500 16px ${SOURCES.mono}`; g.fillText('libre', x + 12, 66); }
+      if (caben < dayOf.length) { g.fillStyle = '#2a2520aa'; g.font = `700 16px ${SOURCES.mono}`; g.fillText(tx('world.tex.nMore', { n: dayOf.length - caben }), x + 12, Math.min(Y1 - 18, suelo)); }
+      if (!dayOf.length) { g.fillStyle = '#2a252066'; g.font = `500 16px ${SOURCES.mono}`; g.fillText(tx('world.tex.free'), x + 12, 66); }
       // ocupación del día: horas reunido entre las 8 y las 20 y el hueco libre más largo
       const J0 = ini + 8 * 3600000, J1 = ini + 20 * 3600000;
       const allDay = dayOf.some(e => e.allElDay || (e.inicio <= J0 && e.fin >= J1));
@@ -466,7 +469,7 @@ export class WeekWhiteboard {
       let hueco: [number, number] = [J0, J0]; let prev = J0;
       for (const [p, q] of [...joined, [J1, J1] as [number, number]]) { if (p - prev > hueco[1] - hueco[0]) hueco = [prev, p]; prev = Math.max(prev, q); }
       const bx = x + 8, bw = cw - 16;
-      g.fillStyle = '#2a2520'; g.font = `700 15px ${SOURCES.mono}`; g.fillText(i === 0 ? 'OCUPACIÓN' : ' ', bx, B0 + 4);
+      g.fillStyle = '#2a2520'; g.font = `700 15px ${SOURCES.mono}`; g.fillText(i === 0 ? tx('world.tex.occupancy') : ' ', bx, B0 + 4);
       // la barra: la jornada en 12 casillas con las horas reunido pintadas en su sitio
       const by = B0 + 26, bh = 26;
       g.fillStyle = '#d4cab2'; g.fillRect(bx, by, bw, bh);
@@ -476,12 +479,12 @@ export class WeekWhiteboard {
       g.strokeStyle = '#2a2520'; g.lineWidth = 2; g.strokeRect(bx, by, bw, bh);
       const hm = (h: number) => { const m = Math.round(h * 60); return m >= 60 ? `${Math.floor(m / 60)} h${m % 60 ? ' ' + String(m % 60).padStart(2, '0') : ''}` : `${m} min`; };
       const pct = Math.round(ocupado / 12 * 100);
-      g.fillStyle = pct >= 60 ? '#9a3424' : '#2a2520'; g.font = `800 26px ${SOURCES.titulo}`; g.fillText(allDay ? 'CERRADO' : `${pct} %`, bx, by + bh + 8);
+      g.fillStyle = pct >= 60 ? '#9a3424' : '#2a2520'; g.font = `800 26px ${SOURCES.titulo}`; g.fillText(allDay ? tx('world.tex.closed') : `${pct} %`, bx, by + bh + 8);
       g.fillStyle = '#2a2520cc'; g.font = `500 14px ${SOURCES.mono}`;
-      if (!allDay) { g.textAlign = 'right'; g.fillText(ocupado ? hm(ocupado) + ' reunido' : 'sin reuniones', bx + bw, by + bh + 14); g.textAlign = 'left'; }
+      if (!allDay) { g.textAlign = 'right'; g.fillText(ocupado ? tx('world.tex.inMeetings', { t: hm(ocupado) }) : tx('world.tex.noMeetings'), bx + bw, by + bh + 14); g.textAlign = 'left'; }
       const fmt = (t: number) => { const d = new Date(t); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
       g.fillStyle = '#2a2520'; g.font = `600 14px ${SOURCES.mono}`;
-      g.fillText(allDay ? 'sin huecos' : `libre ${fmt(hueco[0])}–${fmt(hueco[1])}`, bx, by + bh + 42);
+      g.fillText(allDay ? tx('world.tex.noGaps') : tx('world.tex.freeFromTo', { de: fmt(hueco[0]), a: fmt(hueco[1]) }), bx, by + bh + 42);
     }
     dirty(g, W, H, 0.1, 31);
     this.tex.needsUpdate = true;
@@ -514,7 +517,7 @@ export interface BoardCard { id: string; titulo: string; prioridad?: number; sub
 export interface BoardCycle { nombre: string; progreso: number; inicio?: number; fin?: number; reach?: number[]; hecho?: number[] }
 export class BoardKanban {
   c: HTMLCanvasElement; g: CanvasRenderingContext2D; tex: THREE.CanvasTexture; private firma = '';
-  titulo = 'LINEAR · MIS INCIDENCIAS';
+  titulo = tx('world.tex.linearMyIssues');
   // 1408×624: la misma proporción que la pantalla (5,3 × 2,35 m), sin estirar la letra
   constructor(private color = '#ff9a7a') { ({ c: this.c, g: this.g } = lienzo(1408, 624)); this.tex = textureOf(this.c); this.poner([], null); }
   // tinta: el color de una columna que tiene que llamar la atención (Bloqueado), en su cabecera y en la gráfica
@@ -530,7 +533,7 @@ export class BoardKanban {
     if (ciclo) {
       const dia = 86400000; const remain = ciclo.fin ? Math.max(0, Math.ceil((ciclo.fin - Date.now()) / dia)) : null;
       g.font = `600 24px ${SOURCES.mono}`; g.textAlign = 'right';
-      g.fillText(`${ciclo.nombre.toUpperCase()} · ${ciclo.progreso} %${remain !== null ? ` · ${remain} DÍAS` : ''}`, W - 28, 20); g.textAlign = 'left';
+      g.fillText(`${ciclo.nombre.toUpperCase()} · ${ciclo.progreso} %${remain !== null ? ` · ${tx('world.tex.nDays', { n: remain })}` : ''}`, W - 28, 20); g.textAlign = 'left';
       g.strokeStyle = col + '88'; g.lineWidth = 2; g.strokeRect(W - 452, 54, 424, 12); g.fillStyle = col; g.fillRect(W - 450, 56, 420 * ciclo.progreso / 100, 8);
     }
     // columnas: cada una reparte su altura entre sus fichas (con pocas incidencias, fichas más altas y con más detalle)
@@ -547,7 +550,7 @@ export class BoardKanban {
       const filas = vis.length + (mas ? 1 : 0);
       if (!filas) {
         g.setLineDash([10, 8]); g.strokeStyle = col + '55'; g.lineWidth = 2; g.strokeRect(x + 2, y0, w - 4, y1 - y0); g.setLineDash([]);
-        g.fillStyle = col + '77'; g.font = `600 24px ${SOURCES.mono}`; g.textAlign = 'center'; g.fillText('nada aquí', x + w / 2, (y0 + y1) / 2 - 12); g.textAlign = 'left';
+        g.fillStyle = col + '77'; g.font = `600 24px ${SOURCES.mono}`; g.textAlign = 'center'; g.fillText(tx('world.tex.nothingHere'), x + w / 2, (y0 + y1) / 2 - 12); g.textAlign = 'left';
         return;
       }
       const alto = mas ? 44 : 0;
@@ -556,7 +559,7 @@ export class BoardKanban {
         const y = y0 + k * (fh + hueco);
         this.ficha(fi, x, y, w, fh, col, INK, CARD);
       });
-      if (mas) { const y = y1 - alto; g.fillStyle = col + '1c'; g.fillRect(x, y, w, alto); g.fillStyle = col; g.font = `600 22px ${SOURCES.mono}`; g.fillText(`+ ${mas} más`, x + 16, y + 11); }
+      if (mas) { const y = y1 - alto; g.fillStyle = col + '1c'; g.fillRect(x, y, w, alto); g.fillStyle = col; g.font = `600 22px ${SOURCES.mono}`; g.fillText(tx('world.tex.nMore', { n: mas }), x + 16, y + 11); }
     });
     // pie: gráfica del ciclo
     this.graphic(ciclo, columnas, 28, 388, W - 56, 176, col, INK);   // por debajo de 564 lo tapan cabezas y holograma
@@ -609,7 +612,7 @@ export class BoardKanban {
     const { g } = this;
     g.fillStyle = '#140d0b'; g.fillRect(bx, by, bw, bh); g.strokeStyle = col + '44'; g.lineWidth = 1.5; g.strokeRect(bx, by, bw, bh);
     const kpiW = 330; const gx = bx + 70, gy = by + 42, gw = bw - kpiW - 100, gh = bh - 74;
-    g.fillStyle = col; g.font = `700 22px ${SOURCES.mono}`; g.fillText(ciclo ? 'PENDIENTE DEL CICLO' : 'INCIDENCIAS POR ESTADO', bx + 16, by + 10);
+    g.fillStyle = col; g.font = `700 22px ${SOURCES.mono}`; g.fillText(ciclo ? tx('world.tex.cycleBacklog') : tx('world.tex.issuesByState'), bx + 16, by + 10);
     const total = columnas.reduce((s, c) => s + c.fichas.length, 0);
     if (!ciclo) {
       const colores = [col + '66', '#ffb000', '#5dff8a']; let xx = gx;
@@ -634,8 +637,7 @@ export class BoardKanban {
     for (let k = 0; k <= 4; k++) { const y = gy + gh * k / 4; g.beginPath(); g.moveTo(gx, y); g.lineTo(gx + gw, y); g.stroke(); }
     g.fillStyle = col + 'aa'; g.font = `500 18px ${SOURCES.mono}`; g.textAlign = 'right';
     g.fillText(String(max), gx - 10, gy - 8); g.fillText('0', gx - 10, gy + gh - 10); g.textAlign = 'left';
-    const days = ['D', 'L', 'M', 'X', 'J', 'V', 'S'];
-    for (let k = 0; k <= N; k += Math.max(1, Math.round(N / 7))) { const d = new Date(ini + k * dia); g.fillStyle = col + '88'; g.fillText(`${days[d.getDay()]}${d.getDate()}`, X(k) - 14, gy + gh + 6); }
+    for (let k = 0; k <= N; k += Math.max(1, Math.round(N / 7))) { const d = new Date(ini + k * dia); g.fillStyle = col + '88'; g.fillText(`${tx('world.tex.dayLetters')[d.getDay()]}${d.getDate()}`, X(k) - 14, gy + gh + 6); }
     // ideal
     g.setLineDash([10, 8]); g.strokeStyle = col + '77'; g.lineWidth = 2.5; g.beginPath(); g.moveTo(X(0), Y(queda[0] ?? max)); g.lineTo(X(N), Y(0)); g.stroke(); g.setLineDash([]);
     // real, en escalones como en Linear, con el área debajo
@@ -645,16 +647,16 @@ export class BoardKanban {
     g.beginPath(); pasos.forEach(([x, y], k) => k ? g.lineTo(x, y) : g.moveTo(x, y)); g.strokeStyle = col; g.lineWidth = 4; g.shadowColor = col; g.shadowBlur = 8; g.stroke(); g.shadowBlur = 0;
     // hoy
     g.strokeStyle = '#ffb000'; g.lineWidth = 2; g.beginPath(); g.moveTo(X(hoy), gy - 4); g.lineTo(X(hoy), gy + gh); g.stroke();
-    g.fillStyle = '#ffb000'; g.font = `700 18px ${SOURCES.mono}`; g.fillText('HOY', X(hoy) + 6, gy - 6);
+    g.fillStyle = '#ffb000'; g.font = `700 18px ${SOURCES.mono}`; g.fillText(tx('world.tex.today'), X(hoy) + 6, gy - 6);
     // cifras
     const kx = bx + bw - kpiW; const resto = queda[queda.length - 1] ?? 0; const ideal = Math.round((queda[0] ?? 0) * (1 - hoy / N));
     g.strokeStyle = col + '33'; g.beginPath(); g.moveTo(kx - 16, by + 12); g.lineTo(kx - 16, by + bh - 12); g.stroke();
     const ud = ciclo.reach?.length ? '' : ' pt';
     const c2 = kx + 160;
-    g.fillStyle = col + 'aa'; g.font = `600 18px ${SOURCES.mono}`; g.fillText('QUEDA', kx, by + 16); g.fillText('IDEAL HOY', c2, by + 16);
+    g.fillStyle = col + 'aa'; g.font = `600 18px ${SOURCES.mono}`; g.fillText(tx('world.tex.left'), kx, by + 16); g.fillText(tx('world.tex.idealToday'), c2, by + 16);
     g.fillStyle = tinta; g.font = `700 36px ${SOURCES.mono}`; g.fillText(`${resto}${ud}`, kx, by + 40);
     g.fillStyle = resto > ideal ? '#ffb000' : '#5dff8a'; g.fillText(`${ideal}${ud}`, c2, by + 40);
-    g.fillStyle = col + 'aa'; g.font = `600 18px ${SOURCES.mono}`; g.fillText('RITMO', kx, by + 96);
-    g.fillStyle = resto > ideal ? '#ffb000' : '#5dff8a'; g.font = `700 26px ${SOURCES.mono}`; g.fillText(resto > ideal ? `${resto - ideal}${ud} TARDE` : 'EN PLAZO', kx, by + 118);
+    g.fillStyle = col + 'aa'; g.font = `600 18px ${SOURCES.mono}`; g.fillText(tx('world.tex.pace'), kx, by + 96);
+    g.fillStyle = resto > ideal ? '#ffb000' : '#5dff8a'; g.font = `700 26px ${SOURCES.mono}`; g.fillText(resto > ideal ? tx('world.tex.nLate', { n: `${resto - ideal}${ud}` }) : tx('world.tex.onTrack'), kx, by + 118);
   }
 }

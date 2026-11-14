@@ -11,6 +11,7 @@
 const { spawn, execFileSync } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
+const { tr } = require('./textos.cjs');
 const { CHROME, startSessionInChrome, aSession, ofSession, vigilar } = require('./loginChrome.cjs');
 
 const espera = ms => new Promise(r => setTimeout(r, ms));
@@ -21,19 +22,19 @@ const MANDO = fs.readFileSync(path.join(__dirname, 'mandoMusica.js'), 'utf8');
 // conexión al protocolo de depuración (un WebSocket por destino)
 async function conectar(url, onEvent) {
   const ws = new WebSocket(url);
-  await new Promise((ok, ko) => { ws.onopen = ok; ws.onerror = () => ko(new Error('sin conexión con Chrome')); });
+  await new Promise((ok, ko) => { ws.onopen = ok; ws.onerror = () => ko(new Error(tr('noChromeConnection'))); });
   let n = 0; const pendientes = new Map();
   ws.onmessage = m => {
     const x = JSON.parse(typeof m.data === 'string' ? m.data : Buffer.from(m.data).toString());
     if (x.id) { const p = pendientes.get(x.id); if (p) { pendientes.delete(x.id); x.error ? p.ko(new Error(`${p.metodo}: ${x.error.message}`)) : p.ok(x.result); } }
     else if (x.method) onEvent(x.method, x.params);
   };
-  ws.onclose = () => { for (const p of pendientes.values()) p.ko(new Error('Chrome se ha cerrado')); pendientes.clear(); };
+  ws.onclose = () => { for (const p of pendientes.values()) p.ko(new Error(tr('chromeClosed'))); pendientes.clear(); };
   // ninguna orden se queda esperando para siempre (Chrome no contesta a algunas, como la rueda, en ciertos momentos)
   const cdp = (method, params = {}) => new Promise((ok, ko) => {
-    if (ws.readyState !== 1) { ko(new Error('Chrome no está')); return; }
+    if (ws.readyState !== 1) { ko(new Error(tr('chromeNotThere'))); return; }
     const id = ++n; pendientes.set(id, { ok, ko, metodo: method }); ws.send(JSON.stringify({ id, method, params }));
-    setTimeout(() => { const p = pendientes.get(id); if (p) { pendientes.delete(id); p.ko(new Error(`${method}: sin respuesta`)); } }, 10_000).unref?.();
+    setTimeout(() => { const p = pendientes.get(id); if (p) { pendientes.delete(id); p.ko(new Error(tr('noAnswer', { metodo: method }))); } }, 10_000).unref?.();
   });
   return { ws, cdp };
 }
@@ -50,7 +51,7 @@ function createChromeRemote({ sitio, perfil, ses, onFrame, onState, openOutside,
   const ofGoogle = u => /^https:\/\/accounts\.google\.com\//.test(u || '');
 
   async function arrancar() {
-    if (!chrome) throw new Error('Spotify necesita Google Chrome instalado (suena en él: el DRM de Spotify no admite el navegador del juego).');
+    if (!chrome) throw new Error(tr('spotifyNeedsChrome'));
     fs.mkdirSync(perfil, { recursive: true });
     // el de antes tiene que haber salido del todo: si no, el nuevo le cede el perfil y se cierra
     if (leaving) await leaving;
@@ -70,7 +71,7 @@ function createChromeRemote({ sitio, perfil, ses, onFrame, onState, openOutside,
     child.on('exit', () => { if (child !== este) return; child = null; page = null; navegador = null; avisar({ vivo: false, cargando: false }); apuntar('Chrome se ha cerrado.'); });
     let linea = null;
     for (let i = 0; i < 80 && child && !linea; i++) { try { linea = fs.readFileSync(path.join(perfil, 'DevToolsActivePort'), 'utf8').split('\n'); } catch { await espera(250); } }
-    if (!linea) throw new Error('Chrome no ha arrancado.');
+    if (!linea) throw new Error(tr('chromeDidNotStart'));
     const puerto = linea[0].trim();
     navegador = await conectar(`ws://127.0.0.1:${puerto}${linea[1].trim()}`, onBrowser);
     const lista = await (await fetch(`http://127.0.0.1:${puerto}/json/list`)).json();

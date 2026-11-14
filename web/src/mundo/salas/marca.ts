@@ -1,6 +1,6 @@
 // Sala de repositorio «archivo de marca» (estilo marca): muro de muestras de color y logotipos, mesa de dibujo
 // con planos, estanterías de catálogos y botes de pintura. Aquí manda el manual de marca.
-import { t } from '@shared/idioma';
+import { t, t as tr } from '@shared/idioma';
 import * as THREE from 'three';
 import { place, R } from '../../motor/assets';
 import { cartel, PhosphorScreen, PanelRoom, markSamples } from '../../motor/texturas';
@@ -65,6 +65,6 @@ export async function furnishFileMark(ctx: Contexto) {
   ctx.alActualizar((dt, t, a) => {
     luz = Math.max(0, luz - dt * 0.7);
     (muro.material as THREE.MeshStandardMaterial).emissiveIntensity = 0.07 + a * 0.08 + luz * 0.3 + Math.sin(t * 0.8) * 0.01;
-    if (ctx.sala.estado === 'trabajando' && Math.random() < dt * (0.12 + a)) panel.lineas.push('> ' + ['logo.svg optimizado', 'paleta exportada', 'tipografías ok', 'revisión de contraste'][Math.floor(Math.random() * 4)]);
+    if (ctx.sala.estado === 'trabajando' && Math.random() < dt * (0.12 + a)) panel.lineas.push('> ' + tr('world.brand.log').split('|')[Math.floor(Math.random() * 4)]);
   });
 }

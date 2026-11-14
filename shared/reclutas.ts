@@ -3,13 +3,14 @@ import { lookOf, lookOnRandom, type Look } from './aspecto.ts';
 export interface RecruitCard { id: string; nombre: string; mote: string; tipo: string; bio: string; voz: number; tone?: number; aspecto?: Look }
 
 const NAMES = ['Adela', 'Benito', 'Casilda', 'Damián', 'Elvira', 'Fausto', 'Gertru', 'Hilario', 'Inés', 'Jacinto', 'Leonor', 'Matías', 'Nieves', 'Olegario', 'Paca', 'Quique', 'Rosario', 'Saturnino', 'Trini', 'Ulises', 'Valentina', 'Wenceslao', 'Ximena', 'Yago', 'Zoila', 'Amparo', 'Baltasar', 'Celia', 'Dimas', 'Encarna', 'Filomena', 'Gaspar', 'Herminia', 'Isidro', 'Jimena', 'Lázaro', 'Macarena', 'Nicanor', 'Orencio', 'Pilar'];
-const NICKNAMES = ['Destornillador', 'La Brújula', 'Cortocircuito', 'Tuerca Loca', 'Commit Fino', 'Rebobinado', 'Cable Pelado', 'Linterna', 'Soldadura Fría', 'El Grep', 'Pila Gastada', 'Mapa Viejo', 'Diff Limpio', 'Manómetro', 'Remache', 'La Escoba', 'Rama Suelta', 'Contrapeso', 'Fusible', 'La Lupa', 'Engranaje', 'Merge Tranquilo', 'Cantimplora', 'Chispa'];
+export const NICKNAMES = ['Destornillador', 'La Brújula', 'Cortocircuito', 'Tuerca Loca', 'Commit Fino', 'Rebobinado', 'Cable Pelado', 'Linterna', 'Soldadura Fría', 'El Grep', 'Pila Gastada', 'Mapa Viejo', 'Diff Limpio', 'Manómetro', 'Remache', 'La Escoba', 'Rama Suelta', 'Contrapeso', 'Fusible', 'La Lupa', 'Engranaje', 'Merge Tranquilo', 'Cantimplora', 'Chispa'];
 // Modelos del reparto que puede llevar un recluta (los que acepta el servidor). Protagonist_B no está: es el del
 // Supervisor por defecto y un recluta con su cara se confundiría con el jugador. 4GTN es un androide de aspecto humano.
 export const LOOKS = ['Engineer', 'Survivalist', 'Hoarder', 'Hiker', 'Protagonist_A', 'Driver', 'SpaceRanger', '4GTN'];
 export const ROBOTS = ['Robot_One', 'Robot_Two', 'Clanker', '4GTN'];
-const ORIGIN = ['Llegó del yermo con una mochila llena de cables', 'Vivía en un refugio vecino que se quedó sin agua', 'Apareció en la escotilla con un portátil sin batería', 'Dice que trabajó en una fábrica de terminales antes del gran apagón', 'Cruzó tres tormentas de polvo siguiendo la señal de la radio'];
-const MANIA = ['No soporta un test en rojo', 'Lee el README entero antes de tocar nada', 'Nombra las ramas como canciones', 'Guarda cada log como si fuera un tesoro', 'Prefiere borrar código a escribirlo', 'Tararea mientras compila', 'Desconfía de las dependencias nuevas', 'Deja la consola más limpia de lo que la encontró'];
+export const ORIGIN = ['Llegó del yermo con una mochila llena de cables', 'Vivía en un refugio vecino que se quedó sin agua', 'Apareció en la escotilla con un portátil sin batería', 'Dice que trabajó en una fábrica de terminales antes del gran apagón', 'Cruzó tres tormentas de polvo siguiendo la señal de la radio'];
+export const ROBOT_ORIGIN = 'Unidad de servicio reprogramada';
+export const MANIA = ['No soporta un test en rojo', 'Lee el README entero antes de tocar nada', 'Nombra las ramas como canciones', 'Guarda cada log como si fuera un tesoro', 'Prefiere borrar código a escribirlo', 'Tararea mientras compila', 'Desconfía de las dependencias nuevas', 'Deja la consola más limpia de lo que la encontró'];
 
 function azar(semilla: number) { let s = semilla >>> 0 || 1; return () => { s ^= s << 13; s ^= s >>> 17; s ^= s << 5; return ((s >>> 0) % 100000) / 100000; }; }
 
@@ -28,7 +29,7 @@ export function generateRecruit(semilla: number, usados: string[] = [], robot = 
   const ultimo = (t: string) => usedTypes.lastIndexOf(t);
   const moreOld = Math.min(...candidates.map(ultimo));
   const tipo = elegir(candidates.filter(t => ultimo(t) === moreOld));
-  const bio = robot ? `Unidad de servicio reprogramada. ${elegir(MANIA)}.` : `${elegir(ORIGIN)}. ${elegir(MANIA)}.`;
+  const bio = robot ? `${ROBOT_ORIGIN}. ${elegir(MANIA)}.` : `${elegir(ORIGIN)}. ${elegir(MANIA)}.`;
   const id = nombre.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '') + '-' + (semilla % 10000).toString(36);
   // si el modelo ya lo lleva alguien, otra ropa y otro pelo (giro de tono por ángulo áureo: el segundo y el tercero
   // con el mismo modelo tampoco se parecen entre sí)

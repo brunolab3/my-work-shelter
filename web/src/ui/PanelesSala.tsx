@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { juego, type Panel } from './estadoJuego';
 import { vivo, cliente } from '../red/cliente';
 import { SFX } from '../audio/sonido';
-import { t, tIs } from '@shared/idioma';
+import { t, tIs, trBio } from '@shared/idioma';
 import { Device, Opciones, Keys, closePanel, useMenu, useKeys, type ItemMenu } from './aparato';
 import { generateRecruit } from '@shared/reclutas';
 import { PLANNING_ROOM } from '@shared/disposicion';
@@ -119,11 +119,11 @@ function CardNewRecruit({ ruta, nombre, crear, git, volver }: { ruta: string; no
     <Device rotulo={t('panels.doorRecruitSheet')} ancho={50} onClose={volver}>
       <div className="ficha con-retrato">
         <Retratillo aspecto={lookOf(r)} />
-        <div className="titulo-ficha">{r.nombre} <span className="mote">«{r.mote}»</span></div>
+        <div className="titulo-ficha">{r.nombre} <span className="mote">«{tIs(r.mote)}»</span></div>
         <dl>
           <dt>{t('panels.room')}</dt><dd>{nombre} <span className="tenue">({ruta}{crear ? t('panels.itWillBeCreated') + (git ? t('panels.withGit') : '') : ''})</span></dd>
           <dt>{t('panels.look')}</dt><dd>{trSummary(lookSummary(lookOf(r)))} <span className="tenue">{t('panels.inChromePaintYouCan')}</span></dd>
-          <dt>{t('panels.backstory')}</dt><dd>{r.bio}</dd>
+          <dt>{t('panels.backstory')}</dt><dd>{trBio(r.bio)}</dd>
           <dt>{t('panels.work')}</dt><dd>{t('panels.realClaudeCodeSessionsIn')}</dd>
         </dl>
       </div>

@@ -4,7 +4,7 @@
 // - estudio (web, Node): rack de servidores con pilotos, muro de pantallas y sofá.
 // - archivo (carpeta sin git o sin tipo): estantería alta de cajas, fichero con terminal y mesa de consulta.
 // La pantalla con el estado real del repo cambia de sitio y de tamaño en cada una. Todas se espejan con la semilla.
-import { t } from '@shared/idioma';
+import { t, t as tr } from '@shared/idioma';
 import * as THREE from 'three';
 import { place, R } from '../../motor/assets';
 import { cartel, PhosphorScreen, PanelRoom } from '../../motor/texturas';
@@ -83,8 +83,8 @@ export async function furnishFoundry(ctx: Contexto) {
   ctx.P(R.resource('Food_Barrel_Empty'), { pos: [X(2.95), 0, zB + 0.85], alto: 0.8 }).then(o => { agua.position.y = new THREE.Box3().setFromObject(o).max.y - 0.08; });
   obstacle(2.45, zB, 3.45, zB + 1.35);
   // ---- DERECHA: la mesa del maestro fundidor (su puesto, de tres cuartos), bajo el parte de colada (estado del repo)
-  await pantallaRepo(ctx, X(4.45), 1.5, 2.25, ' parte de colada');
-  const pFundi = new PhosphorScreen(256, 320, ctx.v.pantalla, ' hornada'); pFundi.speed = 24;
+  await pantallaRepo(ctx, X(4.45), 1.5, 2.25, tr('world.tpl.castLog'));
+  const pFundi = new PhosphorScreen(256, 320, ctx.v.pantalla, tr('world.tpl.batch')); pFundi.speed = 24;
   screenReal(ctx, pFundi, 'actividad'); ctx.sala.pantallas.push(pFundi);
   await workStation(ctx, { x: X(4.55), z: -0.75, giro: X(-0.75), pantalla: 'ordenador', tex: pFundi.tex, silla: R.mueble('chair_desk_B'),
     encima: [{ ruta: R.herr('chisel'), x: -0.62, z: 0.25, c: { escala: K * 0.6, ...tumbada(0.4) } }, { ruta: R.herr('file'), x: 0.55, z: 0.3, c: { escala: K * 0.6, ...tumbada(-0.3) } },
@@ -142,7 +142,7 @@ export async function furnishLaboratory(ctx: Contexto) {
   obstacle(tx - 1.25, zB, tx + 1.25, tz + 1.2);
   // consola de control del terrario (lo que hace ahora quien trabaja en la sala)
   const consola = await place(g, R.sf('Props_ComputerSmall'), { pos: [X(-1.35), 0, zB + 0.6], alto: 1.5, rot: X(0.25), variant: ctx.v, estatico: false });
-  const pAct = new PhosphorScreen(256, 320, ctx.v.pantalla, ' sensores'); pAct.speed = 26;
+  const pAct = new PhosphorScreen(256, 320, ctx.v.pantalla, tr('world.tpl.sensors')); pAct.speed = 26;
   screenReal(ctx, pAct, 'actividad'); overlayScreen(consola, /^Black$/, pAct.tex, { brillo: 1.25, margin: 0.9 }); ctx.sala.pantallas.push(pAct);
   obstacle(-1.8, zB, -0.9, zB + 1.0);
   punto('terrario', 'aficion', tx + 1.45, 0, tz + 0.55, -1.25, { clip: 'Holding_A', utensil: 'lupa', gesture: { clip: 'Interact', cada: 4.5 } });
@@ -161,7 +161,7 @@ export async function furnishLaboratory(ctx: Contexto) {
   ctx.sobre(fregadero, R.cocina('jar_C_small'), { pos: [X(bx + 0.85), 0, zB + 1.2], alto: 0.2 });
   ctx.sobre(fregadero, R.herr('journal_open'), { pos: [X(bx + 0.4), 0, zB + 1.4], escala: K * 0.42, rot: X(-0.2) });
   ctx.sobre(fregadero, R.herr('magnifying_glass'), { pos: [X(bx + 0.95), 0, zB + 1.5], escala: K * 0.45, ...tumbada(0.6) });
-  await pantallaRepo(ctx, X(bx), 1.6, 2.25, ' cuaderno de experimentos');
+  await pantallaRepo(ctx, X(bx), 1.6, 2.25, tr('world.tpl.labNotebook'));
   obstacle(bx - 1.3, zB, bx + 1.3, zB + 1.9);
   punto('consola', 'consola', bx + 1.85, 0, zB + 1.45, -1.2, { clip: 'Working_C' });
   // estantería estrecha de reactivos en la esquina
@@ -204,7 +204,7 @@ export async function furnishStudio(ctx: Contexto) {
   const { g, zB, K, P, semilla } = ctx; const { s, X, obstacle, segment, punto } = espejo(ctx);
   // ---- IZQUIERDA: muro de pantallas (estado del repo en la grande, último commit y cambios en las pequeñas)
   await pantallaRepo(ctx, X(-3.8), 1.75, 2.25, ' despliegue');
-  const pCommit = new PhosphorScreen(384, 256, ctx.v.pantalla, ' último commit'); pCommit.speed = 40; screenReal(ctx, pCommit, 'commit'); ctx.sala.pantallas.push(pCommit);
+  const pCommit = new PhosphorScreen(384, 256, ctx.v.pantalla, tr('world.tpl.lastCommit')); pCommit.speed = 40; screenReal(ctx, pCommit, 'commit'); ctx.sala.pantallas.push(pCommit);
   await monitorWall(ctx, X(-1.75), 2.72, 0.75, pCommit.tex, 1.15);
   const pChanges = new PhosphorScreen(384, 256, ctx.v.pantalla, ' git status'); pChanges.speed = 40; screenReal(ctx, pChanges, 'cambios'); ctx.sala.pantallas.push(pChanges);
   await monitorWall(ctx, X(-1.75), 2.02, 0.75, pChanges.tex, 1.15);
@@ -220,7 +220,7 @@ export async function furnishStudio(ctx: Contexto) {
   for (const [i, dx] of [-0.72, 0, 0.72].entries()) {
     // cada armario lleva su pantalla de estado con datos reales del repo (lo que pasa, cambios, último commit)
     const armario = await place(g, R.sf('Props_Computer'), { pos: [X(rx + dx), 0, zB + 0.6], alto: 2.35, variant: ctx.v, estatico: false, own: true });
-    const pEst = new PhosphorScreen(256, 320, ctx.v.pantalla, [' servicio', ' cambios', ' commit'][i]); pEst.speed = 30;
+    const pEst = new PhosphorScreen(256, 320, ctx.v.pantalla, [tr('world.tpl.service'), tr('world.tpl.changes'), ' commit'][i]); pEst.speed = 30;
     screenReal(ctx, pEst, (['actividad', 'cambios', 'commit'] as const)[i]); overlayScreen(armario, /^Black$/, pEst.tex, { brillo: 1.0, margin: 0.9 }); ctx.sala.pantallas.push(pEst);
     tinte(armario, m => { if (!m.emissiveMap && m.name !== 'Black') { m.color.multiplyScalar(0.7); } });
     pilotos.push(mountPilots(g, new THREE.Vector3(X(rx + dx), 0.9 + i * 0.12, zB + 1.02), ctx.v.pantalla));
@@ -283,7 +283,7 @@ export async function furnishFile(ctx: Contexto) {
   // su puesto, de tres cuartos
   const fx = -3.95;
   P(R.casa('Drawer_5'), { pos: [X(fx), 0, zB + 0.62], ancho: 2.5 });
-  await pantallaRepo(ctx, X(fx), 1.2, 2.0, ' inventario');
+  await pantallaRepo(ctx, X(fx), 1.2, 2.0, tr('world.tpl.inventory'));
   obstacle(fx - 1.3, zB, fx + 1.3, zB + 1.25);
   const pArch = new PhosphorScreen(384, 256, ctx.v.pantalla, ' ls -la'); pArch.speed = 26;
   screenReal(ctx, pArch, 'commit'); ctx.sala.pantallas.push(pArch);

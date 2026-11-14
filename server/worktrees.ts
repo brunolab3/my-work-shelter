@@ -51,6 +51,6 @@ export async function actionWorktree(nombre: string, d: Record<string, any>, ctx
     }
     case 'promptIntegrar':
       return t('prompt.merge.worktree', { rama: wt.rama ?? '', ruta: wt.ruta, base });
-    default: throw new Error('Acción de worktree desconocida: ' + nombre);
+    default: throw new Error(t('server.unknownAction', { nombre: 'worktree.' + nombre }));
   }
 }

@@ -6,6 +6,7 @@ import WorkerJson from 'monaco-editor/language/json/json.worker?worker';
 import WorkerCss from 'monaco-editor/language/css/css.worker?worker';
 import WorkerHtml from 'monaco-editor/language/html/html.worker?worker';
 import WorkerTs from 'monaco-editor/language/typescript/ts.worker?worker';
+import { t } from '@shared/idioma';
 
 (self as any).MonacoEnvironment = {
   getWorker(_: string, etiqueta: string) {
@@ -25,7 +26,7 @@ for (const d of [monaco.typescript.typescriptDefaults, monaco.typescript.javascr
 monaco.json.jsonDefaults.setDiagnosticsOptions({ validate: true, allowComments: true, trailingCommas: 'ignore', schemaValidation: 'ignore', enableSchemaRequest: false });
 
 // .env y compañía: CLAVE=valor, comentarios y comillas
-monaco.languages.register({ id: 'dotenv', filenamePatterns: ['.env', '.env.*', '*.env'], aliases: ['Variables de entorno'] });
+monaco.languages.register({ id: 'dotenv', filenamePatterns: ['.env', '.env.*', '*.env'], aliases: [t('windows.envVariables')] });
 monaco.languages.setMonarchTokensProvider('dotenv', {
   tokenizer: {
     root: [

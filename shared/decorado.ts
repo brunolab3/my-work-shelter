@@ -6,6 +6,7 @@
 // Coordenadas de la sala (metros): x de -6 a 6 (izquierda a derecha, vista desde el pasillo), suelo en y = 0, techo
 // en y = 4,43; z de -2,3 (pared del fondo) a 2,3 (borde del corte). La franja z > 0,8 es el pasillo por donde se anda.
 
+import { t as tr } from './idioma.ts';
 export const BASES_DECOR = ['vacia', 'estudio', 'laboratorio', 'fundicion', 'archivo', 'taller', 'tallerWeb', 'escaparate', 'marca', 'proyeccion'] as const;
 export type BaseDecor = typeof BASES_DECOR[number];
 /** Qué trae cada base (lo leen el habitante y el panel de la sala) */
@@ -102,24 +103,24 @@ export const isModelProps = (m: unknown): m is string => typeof m === 'string' &
 /** Valida y recorta un decorado. Lo que no cuadra se corrige (y se avisa) o se descarta; sin base válida, null. */
 export function sanitizeDecor(d: unknown): { decorado: Decorado | null; avisos: string[] } {
   const avisos: string[] = [];
-  if (!d || typeof d !== 'object') return { decorado: null, avisos: ['El decorado tiene que ser un objeto.'] };
+  if (!d || typeof d !== 'object') return { decorado: null, avisos: [tr('tool.decor.check.notAnObject')] };
   const x = d as Record<string, any>;
   const base = de(BASES_DECOR, x.base);
-  if (!base) return { decorado: null, avisos: [`«base» tiene que ser una de: ${BASES_DECOR.join(', ')}.`] };
+  if (!base) return { decorado: null, avisos: [tr('tool.decor.check.baseOneOf', { lista: BASES_DECOR.join(', ') })] };
   const lim = (v: unknown, a: number, b: number, que: string, def?: number) => {
     const n = num(v); if (n === undefined) return def;
-    if (n < a || n > b) avisos.push(`${que}: ${n} se sale de [${a}, ${b}]; lo dejo en el borde.`);
+    if (n < a || n > b) avisos.push(tr('tool.decor.check.outOfRange', { que, n, a, b }));
     return Math.round(Math.min(b, Math.max(a, n)) * 1000) / 1000;
   };
   const out: Decorado = { version: 1, base };
   const resumen = texto(x.resumen, 200); if (resumen) out.resumen = resumen;
   const sub = texto(x.subtitulo, 24).toUpperCase(); if (sub) out.subtitulo = sub;
-  if (texto(x.subtitulo, 400).length > 24) avisos.push(`subtitulo: caben 24 letras; queda «${sub}».`);
-  const acento = color(x.acento); if (acento) out.acento = acento; else if (x.acento !== undefined) avisos.push('«acento» tiene que ser un color #rrggbb.');
-  const paleta = de(DECOR_PALETTES, x.paleta); if (paleta) out.paleta = paleta; else if (x.paleta !== undefined) avisos.push(`«paleta» tiene que ser una de: ${DECOR_PALETTES.join(', ')}.`);
+  if (texto(x.subtitulo, 400).length > 24) avisos.push(tr('tool.decor.check.subtitleFits', { sub }));
+  const acento = color(x.acento); if (acento) out.acento = acento; else if (x.acento !== undefined) avisos.push(tr('tool.decor.check.accentColor'));
+  const paleta = de(DECOR_PALETTES, x.paleta); if (paleta) out.paleta = paleta; else if (x.paleta !== undefined) avisos.push(tr('tool.decor.check.paletteOneOf', { lista: DECOR_PALETTES.join(', ') }));
   if (Array.isArray(x.paredes)) {
     const p = x.paredes.slice(0, 3).map((w: unknown) => de(DECOR_WALLS, w));
-    if (p.length === 3 && p.every(Boolean)) out.paredes = p as [string, string, string]; else avisos.push(`«paredes» son tres de: ${DECOR_WALLS.join(', ')}.`);
+    if (p.length === 3 && p.every(Boolean)) out.paredes = p as [string, string, string]; else avisos.push(tr('tool.decor.check.wallsThree', { lista: DECOR_WALLS.join(', ') }));
   }
   const luz = lim(x.luz, 0.2, 1.4, 'luz'); if (luz !== undefined) out.luz = luz;
   if (x.espejo === true) out.espejo = true;
@@ -139,25 +140,25 @@ export function sanitizeDecor(d: unknown): { decorado: Decorado | null; avisos: 
   if (x.puesto && typeof x.puesto === 'object') {
     const p = punto(x.puesto, 'puesto')!;
     out.puesto = { x: p.x, z: Math.min(p.z, 0.2), ...(p.giro !== undefined ? { giro: p.giro } : {}) };
-    if (p.z > 0.2) avisos.push('puesto.z: la mesa no puede entrar en el pasillo; la dejo en z = 0,2.');
+    if (p.z > 0.2) avisos.push(tr('tool.decor.check.deskAisle'));
     const screen = de(['monitor', 'doble', 'ordenador'] as const, x.puesto.pantalla); if (screen) out.puesto.pantalla = screen;
-    if (x.puesto.mesa !== undefined) { if (isModelProps(x.puesto.mesa)) out.puesto.mesa = x.puesto.mesa; else avisos.push('puesto.mesa no es un modelo del catálogo.'); }
+    if (x.puesto.mesa !== undefined) { if (isModelProps(x.puesto.mesa)) out.puesto.mesa = x.puesto.mesa; else avisos.push(tr('tool.decor.check.deskModel')); }
   }
   const pz = punto(x.pieza, 'pieza'); if (pz) out.pieza = pz;
   const af = punto(x.aficion, 'aficion'); if (af) out.aficion = af;
   if (Array.isArray(x.lamparas)) {
-    if (x.lamparas.length > LIMITS.lamparas) avisos.push(`Como mucho ${LIMITS.lamparas} lámparas.`);
+    if (x.lamparas.length > LIMITS.lamparas) avisos.push(tr('tool.decor.check.maxLamps', { n: LIMITS.lamparas }));
     out.lamparas = x.lamparas.slice(0, LIMITS.lamparas).filter((l: any) => l && typeof l === 'object').map((l: any, i: number) => ({
       x: lim(l.x, -LIMITS.x, LIMITS.x, `lamparas[${i}].x`, 0)!, z: lim(l.z, LIMITS.zBackground, 1.2, `lamparas[${i}].z`, 0.4)!,
       ...(color(l.color) ? { color: color(l.color) } : {}), ...(num(l.intensidad) !== undefined ? { intensidad: lim(l.intensidad, 20, 160, `lamparas[${i}].intensidad`) } : {}),
     }));
   }
   if (Array.isArray(x.piezas)) {
-    if (x.piezas.length > LIMITS.piezas) avisos.push(`Como mucho ${LIMITS.piezas} piezas: sobran ${x.piezas.length - LIMITS.piezas}.`);
+    if (x.piezas.length > LIMITS.piezas) avisos.push(tr('tool.decor.check.maxPieces', { n: LIMITS.piezas, sobran: x.piezas.length - LIMITS.piezas }));
     const piezas: DecorPiece[] = [];
     const indice = new Map<number, number>();   // índice pedido → índice guardado (las descartadas no cuentan)
     x.piezas.slice(0, LIMITS.piezas).forEach((p: any, i: number) => {
-      if (!p || typeof p !== 'object' || !isModelProps(p.modelo)) { avisos.push(`piezas[${i}]: «modelo» no es un id del catálogo («pack/nombre»); la quito.`); return; }
+      if (!p || typeof p !== 'object' || !isModelProps(p.modelo)) { avisos.push(tr('tool.decor.check.pieceModel', { i })); return; }
       const r: DecorPiece = { modelo: p.modelo, x: lim(p.x, -LIMITS.x, LIMITS.x, `piezas[${i}].x`, 0)!, z: lim(p.z, LIMITS.zBackground, LIMITS.zFront, `piezas[${i}].z`, 0)! };
       const y = lim(p.y, 0, LIMITS.techo, `piezas[${i}].y`); if (y !== undefined && y > 0) r.y = y;
       const g = giro(p.giro); if (g) r.giro = g;
@@ -165,7 +166,7 @@ export function sanitizeDecor(d: unknown): { decorado: Decorado | null; avisos: 
       if (alto !== undefined) r.alto = alto; else if (ancho !== undefined) r.ancho = ancho;
       if (p.sobre !== undefined) {
         const s = num(p.sobre);
-        if (s !== undefined && indice.has(s)) r.sobre = indice.get(s); else avisos.push(`piezas[${i}].sobre: tiene que ser el índice de una pieza anterior; la dejo en el suelo.`);
+        if (s !== undefined && indice.has(s)) r.sobre = indice.get(s); else avisos.push(tr('tool.decor.check.pieceOn', { i }));
       }
       if (p.pared === true) r.pared = true;
       if (p.tumbada === true) r.tumbada = true;
@@ -178,7 +179,7 @@ export function sanitizeDecor(d: unknown): { decorado: Decorado | null; avisos: 
   // un texto que no cabe se corta (y se avisa: cortado a media palabra se lee mal)
   const corto = (v: unknown, n: number, que: string) => {
     const t = texto(v, 400);
-    if (t.length > n) avisos.push(`${que}: «${t}» tiene ${t.length} letras y caben ${n}; queda «${t.slice(0, n)}». Acórtalo o pártelo en dos líneas.`);
+    if (t.length > n) avisos.push(tr('tool.decor.check.tooLong', { que, t, n: t.length, max: n, corto: t.slice(0, n) }));
     return t.slice(0, n).trim();
   };
   // carteles y pantallas, en la pared del fondo y enteros dentro de ella
@@ -188,7 +189,7 @@ export function sanitizeDecor(d: unknown): { decorado: Decorado | null; avisos: 
     return { ancho, x: lim(o.x, -LIMITS.x + ancho / 2, LIMITS.x - ancho / 2, `${que}.x`, 0)!, y: lim(o.y, alto / 2 + 0.3, LIMITS.viewWall - alto / 2, `${que}.y`, 2)! };
   };
   if (Array.isArray(x.carteles)) {
-    if (x.carteles.length > LIMITS.carteles) avisos.push(`Como mucho ${LIMITS.carteles} carteles.`);
+    if (x.carteles.length > LIMITS.carteles) avisos.push(tr('tool.decor.check.maxSigns', { n: LIMITS.carteles }));
     const cs = x.carteles.slice(0, LIMITS.carteles).filter((c: any) => c && typeof c === 'object').map((c: any, i: number) => {
       const r: DecorSign = { ...inWall(c, `carteles[${i}]`, 1.6, 720 / 512), titulo: corto(c.titulo, 32, `carteles[${i}].titulo`), lineas: (Array.isArray(c.lineas) ? c.lineas : []).slice(0, 5).map((l: unknown, j: number) => corto(l, 12, `carteles[${i}].lineas[${j}]`)).filter(Boolean) };
       if (color(c.fondo)) r.fondo = color(c.fondo); if (color(c.tinta)) r.tinta = color(c.tinta);
@@ -199,7 +200,7 @@ export function sanitizeDecor(d: unknown): { decorado: Decorado | null; avisos: 
     if (cs.length) out.carteles = cs;
   }
   if (Array.isArray(x.pantallas)) {
-    if (x.pantallas.length > LIMITS.pantallas) avisos.push(`Como mucho ${LIMITS.pantallas} pantallas.`);
+    if (x.pantallas.length > LIMITS.pantallas) avisos.push(tr('tool.decor.check.maxScreens', { n: LIMITS.pantallas }));
     const ps = x.pantallas.slice(0, LIMITS.pantallas).filter((p: any) => p && typeof p === 'object').map((p: any, i: number) => ({
       ...inWall(p, `pantallas[${i}]`, 3.4, 0.56), titulo: corto(p.titulo, 32, `pantallas[${i}].titulo`), lineas: (Array.isArray(p.lineas) ? p.lineas : []).slice(0, 12).map((l: unknown, j: number) => corto(l, 40, `pantallas[${i}].lineas[${j}]`)).filter(Boolean),
     })).filter((p: DecorScreen) => p.lineas.length);
@@ -215,29 +216,29 @@ export function reviewDecor(d: Decorado, tam: (p: DecorPiece) => [number, number
   const cajas: { i: number; x0: number; x1: number; z0: number; z1: number; alto: number }[] = [];
   (d.piezas ?? []).forEach((p, i) => {
     const t = tam(p);
-    if (!t) { avisos.push(`piezas[${i}]: «${p.modelo}» no está en el catálogo de atrezo.`); return; }
+    if (!t) { avisos.push(tr('tool.decor.check.notInCatalogue', { i, modelo: p.modelo })); return; }
     const [w, h, f] = t; const a = ((p.giro ?? 0) * Math.PI) / 180;
     const ax = Math.abs(Math.cos(a)) * w + Math.abs(Math.sin(a)) * f, az = Math.abs(Math.sin(a)) * w + Math.abs(Math.cos(a)) * f;
     const x0 = p.x - ax / 2, x1 = p.x + ax / 2, z0 = p.pared ? WALL_Z : p.z - az / 2, z1 = p.pared ? WALL_Z + az : p.z + az / 2;
-    if (x0 < -6 || x1 > 6) avisos.push(`piezas[${i}] (${p.modelo}) se sale por ${x0 < -6 ? 'la izquierda' : 'la derecha'} de la sala (ocupa de x=${x0.toFixed(2)} a ${x1.toFixed(2)}).`);
-    if (z0 < WALL_Z - 0.05 && !p.pared) avisos.push(`piezas[${i}] (${p.modelo}) se mete en la pared del fondo (z mínima ${z0.toFixed(2)}): usa «pared: true» o acércala.`);
-    if ((p.y ?? 0) + h > 4.43) avisos.push(`piezas[${i}] (${p.modelo}) atraviesa el techo (llega a y=${((p.y ?? 0) + h).toFixed(2)}).`);
-    if (p.sobre === undefined && !p.y && z1 > LIMITS.pasillo + 0.15 && h > 0.35) avisos.push(`piezas[${i}] (${p.modelo}) invade el pasillo (llega a z=${z1.toFixed(2)}; deja libre z > ${LIMITS.pasillo}).`);
-    if (p.y && p.y > 0.05 && !p.pared && p.sobre === undefined) avisos.push(`piezas[${i}] (${p.modelo}) flota a y=${p.y}: sin «pared: true» ni «sobre», queda en el aire (bien para algo que cuelga del techo).`);
+    if (x0 < -6 || x1 > 6) avisos.push(tr(x0 < -6 ? 'tool.decor.check.outLeft' : 'tool.decor.check.outRight', { i, modelo: p.modelo, x0: x0.toFixed(2), x1: x1.toFixed(2) }));
+    if (z0 < WALL_Z - 0.05 && !p.pared) avisos.push(tr('tool.decor.check.intoBackWall', { i, modelo: p.modelo, z: z0.toFixed(2) }));
+    if ((p.y ?? 0) + h > 4.43) avisos.push(tr('tool.decor.check.throughCeiling', { i, modelo: p.modelo, y: ((p.y ?? 0) + h).toFixed(2) }));
+    if (p.sobre === undefined && !p.y && z1 > LIMITS.pasillo + 0.15 && h > 0.35) avisos.push(tr('tool.decor.check.intoAisle', { i, modelo: p.modelo, z: z1.toFixed(2), pasillo: LIMITS.pasillo }));
+    if (p.y && p.y > 0.05 && !p.pared && p.sobre === undefined) avisos.push(tr('tool.decor.check.floats', { i, modelo: p.modelo, y: p.y }));
     if (p.sobre === undefined && !p.y && h > 0.25) cajas.push({ i, x0, x1, z0, z1, alto: h });
   });
   for (let a = 0; a < cajas.length; a++) for (let b = a + 1; b < cajas.length; b++) {
     const A = cajas[a], B = cajas[b];
     const dx = Math.min(A.x1, B.x1) - Math.max(A.x0, B.x0), dz = Math.min(A.z1, B.z1) - Math.max(A.z0, B.z0);
-    if (dx > 0.12 && dz > 0.12) avisos.push(`piezas[${A.i}] (${d.piezas![A.i].modelo}) y piezas[${B.i}] (${d.piezas![B.i].modelo}) se atraviesan en el suelo (${dx.toFixed(2)} × ${dz.toFixed(2)} m): sepáralas o pon una «sobre» la otra.`);
+    if (dx > 0.12 && dz > 0.12) avisos.push(tr('tool.decor.check.overlapFloor', { a: A.i, ma: d.piezas![A.i].modelo, b: B.i, mb: d.piezas![B.i].modelo, dx: dx.toFixed(2), dz: dz.toFixed(2) }));
   }
   const inWall = [...(d.carteles ?? []).map((c, i) => ({ que: `carteles[${i}]`, x: c.x, y: c.y, w: c.ancho, h: c.ancho * 720 / 512 })), ...(d.pantallas ?? []).map((p, i) => ({ que: `pantallas[${i}]`, x: p.x, y: p.y, w: p.ancho, h: p.ancho * 0.56 })),
     ...(d.pantallaRepo ? [{ que: 'pantallaRepo', x: d.pantallaRepo.x, y: d.pantallaRepo.y, w: d.pantallaRepo.ancho, h: d.pantallaRepo.ancho * 0.56 }] : [])];
   for (let a = 0; a < inWall.length; a++) for (let b = a + 1; b < inWall.length; b++) {
     const A = inWall[a], B = inWall[b];
-    if (Math.abs(A.x - B.x) < (A.w + B.w) / 2 - 0.05 && Math.abs(A.y - B.y) < (A.h + B.h) / 2 - 0.05) avisos.push(`${A.que} y ${B.que} se pisan en la pared.`);
+    if (Math.abs(A.x - B.x) < (A.w + B.w) / 2 - 0.05 && Math.abs(A.y - B.y) < (A.h + B.h) / 2 - 0.05) avisos.push(tr('tool.decor.check.overlapWall', { a: A.que, b: B.que }));
   }
-  if (d.base === 'vacia' && !(d.piezas ?? []).length) avisos.push('La sala vacía no tiene piezas: solo se verán el puesto y la pantalla del repo.');
+  if (d.base === 'vacia' && !(d.piezas ?? []).length) avisos.push(tr('tool.decor.check.emptyRoom'));
   return avisos;
 }
 

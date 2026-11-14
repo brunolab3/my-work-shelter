@@ -261,7 +261,7 @@ export async function filesAction(nombre: string, d: Record<string, any>, ctx: C
       case 'todos': return todos(raiz);
       case 'revelar': return revelar(raiz, d.rel);
       case 'abrirEnEditor': return abrirEnEditor(raiz, d.rel);
-      default: throw new Error('Acción de archivos desconocida: ' + nombre);
+      default: throw new Error(t('server.unknownAction', { nombre: 'archivos.' + nombre }));
     }
   })();
   if (WRITE.has(nombre)) ctx.alCambiar(raiz);

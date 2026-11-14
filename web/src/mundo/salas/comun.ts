@@ -94,7 +94,7 @@ export interface LightAnchor {
 }
 
 export const COLOR_STATE: Record<RoomState, string> = { 'sin-sesion': '#3a3a3a', ociosa: '#6fe08f', trabajando: '#5dff8a', esperando: '#ffb000', alerta: '#ff7a1a', error: '#ff2a1a', terminada: '#5dff8a' };
-export const STATE_TEXT: Record<RoomState, string> = { 'sin-sesion': 'APAGADO', ociosa: 'EN REPOSO', trabajando: 'TRABAJANDO', esperando: 'TE ESPERA', alerta: 'ATENCIÓN', error: 'AVERÍA', terminada: 'LISTO' };
+export const STATE_TEXT: Record<RoomState, string> = { 'sin-sesion': t('world.screen.off'), ociosa: t('world.screen.idle'), trabajando: t('world.screen.working'), esperando: t('world.screen.waiting'), alerta: t('world.screen.attention'), error: t('world.screen.fault'), terminada: t('world.screen.done') };
 
 // ---------------------------------------------------------------- materiales de carcasa
 const matCache: Record<string, THREE.Material> = {};
@@ -787,17 +787,17 @@ export function screenReal(ctx: Contexto, pantalla: PhosphorScreen, que: ScreenC
     const v = vivo.get() as any;
     const r = v.repos[ctx.sala.id];
     const ses = Object.values(v.sesiones).filter((s: any) => s.salaId === ctx.sala.id && s.estado !== 'cerrada').sort((a: any, b: any) => b.actualizada - a.actualizada)[0] as any;
-    const quien = ses ? (v.estado?.habitantes ?? []).find((h: any) => h.id === ses.dwellerId)?.nombre ?? 'alguien' : '';
-    const hace = (t: number) => { const h = Math.round((Date.now() - t) / 3600_000); return h < 1 ? 'hace un rato' : h < 48 ? `hace ${h} h` : `hace ${Math.round(h / 24)} días`; };
+    const quien = ses ? (v.estado?.habitantes ?? []).find((h: any) => h.id === ses.dwellerId)?.nombre ?? t('world.screen.someone') : '';
+    const hace = (ms: number) => { const h = Math.round((Date.now() - ms) / 3600_000); return h < 1 ? t('world.screen.aWhileAgo') : h < 48 ? t('windows.nHAgo', { n: h }) : t('windows.nDaysAgo', { n: Math.round(h / 24) }); };
     let lineas: string[];
-    if (!r) lineas = ['leyendo el repo…'];
-    else if (!r.existe) lineas = ['carpeta no encontrada'];
+    if (!r) lineas = [t('world.screen.readingRepo')];
+    else if (!r.existe) lineas = [t('panels.folderNotFound')];
     else if (que === 'actividad') lineas = ses && ['trabajando', 'arrancando', 'esperando'].includes(ses.estado)
-      ? [`${quien}:`, ses.estado === 'esperando' ? 'te espera' : recortar(ses.actividad?.texto ?? 'pensando…', 30), `${ses.herramientas ?? 0} herramientas`, ses.ayudantes?.length ? `${ses.ayudantes.length} ayudantes` : '']
-      : ['en reposo', ses ? `último trabajo: ${recortar(ses.titulo ?? '', 22)}` : 'sin trabajo en curso'];
-    else if (que === 'commit') lineas = r.lastCommit ? [r.lastCommit.hash.slice(0, 7) + ' ' + r.lastCommit.autor.slice(0, 14), ...linesTwo(r.lastCommit.mensaje, 30), hace(r.lastCommit.fecha)] : ['sin commits'];
-    else if (que === 'cambios') lineas = r.isGit ? [`git status · ${r.rama ?? ''}`, r.cambios ? `${r.cambios} archivos cambiados` : '✓ árbol limpio', `worktrees: ${Math.max(0, (r.worktrees?.length ?? 1) - 1)}`] : ['sin git'];
-    else lineas = [r.isGit ? `rama ${r.rama}` : 'carpeta', r.cambios ? `${r.cambios} cambios` : 'limpio', r.tipo ?? ''];
+      ? [`${quien}:`, ses.estado === 'esperando' ? t('windows.waitingForYou') : recortar(ses.actividad?.texto ?? t('windows.thinking'), 30), t('world.screen.nTools', { n: ses.herramientas ?? 0 }), ses.ayudantes?.length ? t('windows.nHelpers', { n: ses.ayudantes.length }) : '']
+      : [t('world.screen.idleLower'), ses ? t('world.screen.lastWork', { titulo: recortar(ses.titulo ?? '', 22) }) : t('world.screen.noWorkInProgress')];
+    else if (que === 'commit') lineas = r.lastCommit ? [r.lastCommit.hash.slice(0, 7) + ' ' + r.lastCommit.autor.slice(0, 14), ...linesTwo(r.lastCommit.mensaje, 30), hace(r.lastCommit.fecha)] : [t('windows.noCommits')];
+    else if (que === 'cambios') lineas = r.isGit ? [`git status · ${r.rama ?? ''}`, r.cambios ? t('world.screen.nFilesChanged', { n: r.cambios }) : t('world.screen.cleanTree'), `worktrees: ${Math.max(0, (r.worktrees?.length ?? 1) - 1)}`] : [t('world.screen.noGit')];
+    else lineas = [r.isGit ? t('world.screen.branchRama', { rama: r.rama }) : t('world.screen.folder'), r.cambios ? t('windows.nChanges', { n: r.cambios }) : t('panels.clean'), r.tipo ? tIs(r.tipo) : ''];
     lineas = lineas.filter(Boolean);
     const f = lineas.join('|'); if (f === firma) return; firma = f;
     pantalla.lineas = []; pantalla.queue = []; pantalla.escribir(lineas);

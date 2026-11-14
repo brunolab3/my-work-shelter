@@ -11,6 +11,7 @@ const { spawn } = require('node:child_process');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { tr } = require('./textos.cjs');
 
 const CHROME = ['/Applications/Google Chrome.app', path.join(os.homedir(), 'Applications/Google Chrome.app')]
   .map(a => path.join(a, 'Contents/MacOS/Google Chrome')).find(f => fs.existsSync(f)) ?? null;
@@ -45,7 +46,7 @@ async function startSessionInChrome({ inicio, domains, sesion, copiar, apuntar =
     for (let i = 0; i < 80 && vivo && !linea; i++) { try { linea = fs.readFileSync(path.join(perfil, 'DevToolsActivePort'), 'utf8').split('\n'); } catch { await espera(250); } }
     if (!linea) { apuntar('Chrome no ha arrancado.'); return 'cancelado'; }
     ws = new WebSocket(`ws://127.0.0.1:${linea[0].trim()}${linea[1].trim()}`);
-    await new Promise((ok, ko) => { ws.onopen = ok; ws.onerror = () => ko(new Error('sin conexión con Chrome')); });
+    await new Promise((ok, ko) => { ws.onopen = ok; ws.onerror = () => ko(new Error(tr('noChromeConnection'))); });
     let n = 0; const pendientes = new Map();
     ws.onmessage = m => { const x = JSON.parse(m.data); const p = pendientes.get(x.id); if (p) { pendientes.delete(x.id); x.error ? p.ko(new Error(x.error.message)) : p.ok(x.result); } };
     const cdp = (method, params = {}) => new Promise((ok, ko) => { const id = ++n; pendientes.set(id, { ok, ko }); ws.send(JSON.stringify({ id, method, params })); });

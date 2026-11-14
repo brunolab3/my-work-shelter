@@ -205,4 +205,7 @@ export const INTEGRATIONS: Record<string, Texto> = {
   'integrations.slackSetMemberId': { es: ' Pon tu ID de miembro en la cámara acorazada para recibir tus menciones.', en: ' Enter your member ID in the Vault to receive your mentions.' },
   'integrations.slackValidToken': { es: 'Token válido en {equipo}{quien}: {n} canales a la vista.{invita}', en: 'Valid token in {equipo}{quien}: {n} channels in view.{invita}' },
   'integrations.slackInvite': { es: ' Invita a la app a algún canal con /invite.', en: ' Invite the app to a channel with /invite.' },
+  // source names (shared/fuentes.ts: shown with tIs())
+  'integrations.macMailName': { es: 'Mail del Mac (Gmail sin Google Cloud)', en: 'Mac Mail (Gmail without Google Cloud)' },
+  'integrations.macCalendarName': { es: 'Calendario del Mac', en: 'Mac Calendar' },
 };

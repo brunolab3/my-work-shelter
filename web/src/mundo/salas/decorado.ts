@@ -8,6 +8,7 @@ import { cartel, PhosphorScreen, PanelRoom } from '../../motor/texturas';
 import { signInWall, highBand, workStation, screenReal, lean, aWall, centrar, caja, materialSteel, mancha, tumbada, SCALE_KAYKIT, type Furnish, type Contexto, type RoomPoint } from './comun';
 import { screenStateRepo } from './generica';
 import { propsPath, PACKS, type Decorado, type DecorPiece, type DecorPoint } from '@shared/decorado';
+import { t } from '@shared/idioma';
 
 const G = Math.PI / 180;
 // nombres de material de los packs que son luz: «Screen», «Light», «Fire», «Glass», «Neon»…
@@ -29,7 +30,7 @@ async function mountEmpty(ctx: Contexto, d: Decorado) {
   // la pantalla con el estado real del repo, en su marco
   const pr = d.pantallaRepo ?? { x: 0, y: 2.55, ancho: 3 };
   const alto = pr.ancho * 0.56;
-  const pantalla = new PhosphorScreen(768, 432, v.pantalla, ' estado del repo'); pantalla.speed = 50;
+  const pantalla = new PhosphorScreen(768, 432, v.pantalla, t('world.repoStatus')); pantalla.speed = 50;
   g.add(caja(pr.ancho + 0.2, alto + 0.2, 0.12, materialSteel('#1f1c19'), pr.x, pr.y, zB + 0.36));
   const screen = new THREE.Mesh(new THREE.PlaneGeometry(pr.ancho, alto), new THREE.MeshStandardMaterial({ map: pantalla.tex, emissiveMap: pantalla.tex, emissive: '#ffffff', emissiveIntensity: 0.95, color: '#000' }));
   screen.position.set(pr.x, pr.y, zB + 0.43); g.add(screen);

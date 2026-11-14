@@ -56,7 +56,7 @@ function infoRepo(id: string, espera = 2500): Promise<{ tipo?: string; isGit?: b
     const reloj = setTimeout(() => fin(undefined), espera);
   });
 }
-const withStyleOwn = (sg: SavedRoom) => sg.tipo === 'coordinacion' || baseStock(sg, { tipo: '¿?' }) !== 'taller';
+const withStyleOwn = (sg: SavedRoom) => sg.tipo === 'coordinacion' || baseStock(sg, { tipo: '?' }) !== 'taller';
 /** La escena de una sala de repo: la base de su decorado o la de serie */
 export async function roomBase(sg: SavedRoom): Promise<BaseDecor> {
   return sg.decorado?.base ?? baseStock(sg, withStyleOwn(sg) ? undefined : await infoRepo(sg.id));

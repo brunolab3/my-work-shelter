@@ -154,7 +154,7 @@ function Window() {
     for (const s of abiertas as SessionSummary[]) {
       const h = nameOf(sessionOwner(s));
       const p = score(palabras, s.titulo, `${h?.nombre ?? ''} ${h?.nameRoom ?? ''} conversacion chat`);
-      if (p) out.push({ id: 'ses:' + s.id, seccion: 'Conversaciones abiertas', texto: s.titulo || t('windows.conversation'), pista: `${h?.nombre ?? '¿?'} · ${h?.nameRoom ?? ''}`, estado: s.estado, f: () => openConversation(s.id), p: p + 2 });
+      if (p) out.push({ id: 'ses:' + s.id, seccion: 'Conversaciones abiertas', texto: s.titulo || t('windows.conversation'), pista: `${h?.nombre ?? '?'} · ${h?.nameRoom ?? ''}`, estado: s.estado, f: () => openConversation(s.id), p: p + 2 });
     }
     // recientes del archivo (las que no están abiertas ya)
     const liveIds = new Set(abiertas.map(s => s.claudeId).filter(Boolean));

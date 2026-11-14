@@ -44,7 +44,7 @@ export function estado(salaId: string): StateControlRemote {
   const s = readOutput(salida(salaId));
   if (s.aceptar) return { estado: 'aceptar', nombre: f.nombre, detalle: t('server.theFirstTimeRemoteControl') };
   if (s.withoutTrust) return { estado: 'error', nombre: f.nombre, detalle: t('server.claudeCodeDoesNotTrust') };
-  if (!vivo(f.pid)) return { estado: 'error', nombre: f.nombre, detalle: s.ultima ? `Se ha parado: ${s.ultima.slice(0, 200)}` : 'Se ha parado.' };
+  if (!vivo(f.pid)) return { estado: 'error', nombre: f.nombre, detalle: s.ultima ? t('server.remoteStoppedDetail', { detalle: s.ultima.slice(0, 200) }) : t('server.remoteStopped') };
   return { estado: 'encendido', nombre: f.nombre, url: s.url };
 }
 

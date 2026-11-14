@@ -2,7 +2,7 @@
 // GitHub y Linear → Notificacion/Evento. También los textos de error en español. Se prueban contra test/fixtures
 // (normalizar.test.ts).
 import type { Notification, Evento, Priority } from './adaptadores.ts';
-import { t as tr } from '../../shared/idioma.ts';
+import { t as tr, locale } from '../../shared/idioma.ts';
 
 // ------------------------------------------------------------------ tiempo (la zona horaria del sistema)
 // SHELTER_ZONA la fuerza (p. ej. «Europe/Paris»); si no, la del Mac.
@@ -170,7 +170,7 @@ export function textDiscord(m: any, ctx: ContextDiscord): string {
     .replace(/<@!?(\d+)>/g, (_, id) => '@' + (users.get(id) ?? tr('integrations.user')))
     .replace(/<@&(\d+)>/g, (_, id) => '@' + (ctx.roles.get(id) ?? tr('integrations.role')))
     .replace(/<#(\d+)>/g, (_, id) => '#' + (ctx.canales.get(id)?.nombre ?? tr('integrations.channel')))
-    .replace(/<a?:(\w+):\d+>/g, ':$1:').replace(/<t:(\d+)(?::\w)?>/g, (_, s) => new Date(+s * 1000).toLocaleString('es-ES', { timeZone: ZONA }))
+    .replace(/<a?:(\w+):\d+>/g, ':$1:').replace(/<t:(\d+)(?::\w)?>/g, (_, s) => new Date(+s * 1000).toLocaleString(locale(), { timeZone: ZONA }))
     .replace(/\s+/g, ' ').trim();
   if (!t && m.embeds?.length) t = [m.embeds[0].title, m.embeds[0].description].filter(Boolean).join(' — ');
   if (!t && m.attachments?.length) t = tr('integrations.attachment', { nombres: m.attachments.map((a: any) => a.filename).join(', ') });

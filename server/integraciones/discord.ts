@@ -141,7 +141,7 @@ class Discord extends ConnectorBase {
       case 7: this.ws?.close(4900, 'reconectar'); break;   // Reconnect: cerrar y reanudar
       case 9: {   // Invalid Session: d=true se puede reanudar; si no, Identify nuevo tras una espera
         if (!p.d) { this.sesionId = null; this.urlResume = null; this.seq = null; }
-        setTimeout(() => this.ws?.close(4901, 'sesión no válida'), 1000 + Math.random() * 4000);
+        setTimeout(() => this.ws?.close(4901, 'invalid session'), 1000 + Math.random() * 4000);
         break;
       }
       case 0: this.dispatch(p.t ?? '', p.d); break;

@@ -7,6 +7,10 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 app.setName('work-shelter-public');
+// texts in the game's language (electron/textos.cjs): the last one the game reported
+const textos = require('./textos.cjs');
+const { tr } = textos;
+textos.load(app.getPath('userData'));
 // depuración remota (QA por CDP): solo en desarrollo, con SHELTER_DEV=1 además del puerto; abierta, cualquier proceso
 // del equipo podría manejar la ventana del juego
 if (process.env.SHELTER_CDP && process.env.SHELTER_DEV === '1') app.commandLine.appendSwitch('remote-debugging-port', process.env.SHELTER_CDP);
@@ -59,7 +63,7 @@ function crear() {
   ventana.on('close', e => {
     if (ventana.__exit || !origen) return;
     e.preventDefault();
-    const r = dialog.showMessageBoxSync(ventana, { type: 'question', buttons: ['Quedarse', 'Salir del refugio'], defaultId: 0, cancelId: 0, message: '¿Salir del refugio?', detail: 'Se pararán todas las sesiones de los habitantes.' });
+    const r = dialog.showMessageBoxSync(ventana, { type: 'question', buttons: [tr('stay'), tr('leaveTheShelter')], defaultId: 0, cancelId: 0, message: tr('leaveTheShelterQ'), detail: tr('allSessionsWillStop') });
     if (r === 1) { ventana.__exit = true; ventana.webContents.executeJavaScript("window.__salirRefugio && window.__salirRefugio()").finally(() => setTimeout(() => ventana.destroy(), 600)); }
   });
 }
@@ -121,10 +125,10 @@ function configureBrowser(v, wc, domains) {
   });
   wc.on('context-menu', (_e, p) => {
     const m = [];
-    if (p.linkURL) m.push({ label: propio(p.linkURL) ? 'Abrir el enlace en el navegador del sistema' : 'Abrir el enlace', click: () => fuera(p.linkURL) }, { label: 'Copiar el enlace', click: () => require('electron').clipboard.writeText(p.linkURL) }, { type: 'separator' });
-    if (p.isEditable) m.push({ role: 'undo', label: 'Deshacer' }, { role: 'redo', label: 'Rehacer' }, { type: 'separator' }, { role: 'cut', label: 'Cortar', enabled: p.editFlags.canCut }, { role: 'copy', label: 'Copiar', enabled: p.editFlags.canCopy }, { role: 'paste', label: 'Pegar', enabled: p.editFlags.canPaste }, { role: 'pasteAndMatchStyle', label: 'Pegar sin formato' }, { role: 'selectAll', label: 'Seleccionar todo' });
-    else if (p.selectionText) m.push({ role: 'copy', label: 'Copiar' });
-    m.push({ type: 'separator' }, { label: 'Atrás', enabled: wc.navigationHistory.canGoBack(), click: () => wc.navigationHistory.goBack() }, { label: 'Recargar', click: () => wc.reload() }, { label: 'Abrir esta página en el navegador del sistema', click: () => fuera(wc.getURL()) });
+    if (p.linkURL) m.push({ label: propio(p.linkURL) ? tr('openLinkInSystemBrowser') : tr('openLink'), click: () => fuera(p.linkURL) }, { label: tr('copyLink'), click: () => require('electron').clipboard.writeText(p.linkURL) }, { type: 'separator' });
+    if (p.isEditable) m.push({ role: 'undo', label: tr('undo') }, { role: 'redo', label: tr('redo') }, { type: 'separator' }, { role: 'cut', label: tr('cut'), enabled: p.editFlags.canCut }, { role: 'copy', label: tr('copy'), enabled: p.editFlags.canCopy }, { role: 'paste', label: tr('paste'), enabled: p.editFlags.canPaste }, { role: 'pasteAndMatchStyle', label: tr('pastePlain') }, { role: 'selectAll', label: tr('selectAll') });
+    else if (p.selectionText) m.push({ role: 'copy', label: tr('copy') });
+    m.push({ type: 'separator' }, { label: tr('back'), enabled: wc.navigationHistory.canGoBack(), click: () => wc.navigationHistory.goBack() }, { label: tr('reload'), click: () => wc.reload() }, { label: tr('openPageInSystemBrowser'), click: () => fuera(wc.getURL()) });
     Menu.buildFromTemplate(m.filter((x, i, a) => !(x.type === 'separator' && (i === 0 || a[i - 1].type === 'separator')))).popup({ window: v });
   });
 }
@@ -221,12 +225,12 @@ ipcMain.handle('aviso:quitar', (e, id) => { if (ipcOfGame(e)) quitarAviso(id); }
 
 // --- Abierta como aplicación: arranque ---
 
-const BOOT = `<!doctype html><meta charset="utf-8"><title>work-shelter</title><style>
+const BOOT = () => `<!doctype html><meta charset="utf-8"><title>work-shelter</title><style>
 html,body{margin:0;height:100%;background:#0a0908;color:#d8cdb8;font:13px/1.5 -apple-system,BlinkMacSystemFont,sans-serif;-webkit-user-select:none;cursor:default}
 body{display:grid;place-items:center}div{text-align:center}h1{font-weight:500;font-size:15px;letter-spacing:.32em;text-transform:uppercase;margin:0 0 14px;color:#f0e6d2}
 p{margin:0;color:#8a8070;min-height:1.5em}p.error{color:#e08060;white-space:pre-wrap;max-width:560px}
 i{display:block;width:120px;height:1px;margin:18px auto 0;background:linear-gradient(90deg,transparent,#ffb547,transparent);animation:l 1.8s ease-in-out infinite}
-@keyframes l{0%,100%{opacity:.15}50%{opacity:1}}</style><div><h1>work-shelter</h1><p id="m">Abriendo el refugio…</p><i id="l"></i></div>`;
+@keyframes l{0%,100%{opacity:.15}50%{opacity:1}}</style><div><h1>work-shelter</h1><p id="m">${tr('opening')}</p><i id="l"></i></div>`;
 function aviso(texto, error = false) {
   if (!ventana || origen) return;
   ventana.webContents.executeJavaScript(`(()=>{const m=document.getElementById('m');m.textContent=${JSON.stringify(texto)};m.className=${JSON.stringify(error ? 'error' : '')};${error ? "document.getElementById('l').remove();" : ''}})()`).catch(() => {});
@@ -257,7 +261,7 @@ async function arrancar() {
   fs.mkdirSync(folderLogs, { recursive: true });
   const log = fs.createWriteStream(path.join(folderLogs, 'shelter.log'), { flags: 'a', mode: 0o600 });
   log.write(`\n== ${new Date().toISOString()} ==\n`);
-  if (!fs.existsSync(path.join(raiz, 'shelter'))) { aviso(`No encuentro el juego en ${raiz}.\nVuelve a instalar la app (el comando de instalación del README, o ./shelter instalar-app en la carpeta del juego).`, true); return; }
+  if (!fs.existsSync(path.join(raiz, 'shelter'))) { aviso(tr('gameNotFound', { raiz }), true); return; }
   const entorno = await userEnvironment();
   serverEnvironment = entorno;
   // la app lleva su propia copia de Electron: si no es la del repo (p. ej. tras cambiar de versión en package.json), se
@@ -266,7 +270,7 @@ async function arrancar() {
     const relevo = require(path.join(raiz, 'scripts/relevar-app.cjs'));
     const propia = relevo.appOf(process.execPath);
     if (relevo.hasThatReinstall(propia) && !relevo.reinstallFailedDoesPoco()) {
-      aviso(`Poniendo al día la app (Electron ${relevo.versionElectron(propia)} → ${relevo.versionElectron(path.join(raiz, 'node_modules/electron/dist/Electron.app'))})…`);
+      aviso(tr('updatingApp', { de: relevo.versionElectron(propia), a: relevo.versionElectron(path.join(raiz, 'node_modules/electron/dist/Electron.app')) }));
       log.write(`La app lleva otro Electron que el repo: la reinstalo y la vuelvo a abrir.\n`);
       spawn('node', [path.join(raiz, 'scripts/relevar-app.cjs'), String(process.pid), propia, entorno.SHELTER_PUERTO || '3778', process.env.SHELTER_RELEVO_PRUEBA || ''], { cwd: raiz, env: entorno, detached: true, stdio: 'ignore' }).unref();
       if (ventana) ventana.__exit = true;
@@ -291,11 +295,14 @@ async function arrancar() {
     servidor = null;
     // «reiniciar» con cambios en la propia app: se vuelve a abrir entera (las terminales siguen en su anfitrión)
     if (codigo === RELAY_CODE) { log.write('Reinicio con la app entera.\n'); if (ventana) ventana.__exit = true; app.relaunch(); app.exit(0); return; }
-    if (!origen) aviso(`work-shelter no ha podido arrancar${ultima ? ':\n' + ultima : ` (código ${codigo})`}.\nRegistro completo en ~/Library/Logs/work-shelter-public/shelter.log`, true);
+    if (!origen) aviso(tr('couldNotStart', { detalle: ultima ? ':\n' + ultima : tr('exitCode', { codigo }) }), true);
   });
 }
 
-Menu.setApplicationMenu(Menu.buildFromTemplate([{ label: 'work-shelter', submenu: [{ role: 'about', label: 'Acerca de work-shelter' }, { type: 'separator' }, { label: 'Salir a la superficie', accelerator: PANIC, registerAccelerator: false, click: panic }, { type: 'separator' }, { role: 'reload', label: 'Recargar' }, { role: 'toggleDevTools', label: 'Herramientas de desarrollo' }, { role: 'togglefullscreen', label: 'Pantalla completa' }, { type: 'separator' }, { role: 'quit', label: 'Salir' }] }, { role: 'editMenu', label: 'Edición' }]));
+const buildMenu = () => Menu.setApplicationMenu(Menu.buildFromTemplate([{ label: 'work-shelter', submenu: [{ role: 'about', label: tr('about') }, { type: 'separator' }, { label: tr('goToTheSurface'), accelerator: PANIC, registerAccelerator: false, click: panic }, { type: 'separator' }, { role: 'reload', label: tr('reload') }, { role: 'toggleDevTools', label: tr('devTools') }, { role: 'togglefullscreen', label: tr('fullScreen') }, { type: 'separator' }, { role: 'quit', label: tr('quit') }] }, { role: 'editMenu', label: tr('edit') }]));
+buildMenu();
+// the game reports its language on every load (Options → Language reloads it): menus follow at once
+ipcMain.handle('idioma', (e, i) => { if (ipcOfGame(e) && textos.setLanguage(i)) buildMenu(); });
 // La caché HTTP del juego se vacía al abrir: lo que se vea es siempre lo que hay ahora en el repo (el servidor está en
 // este mismo equipo, recargarlo no cuesta). Solo la del juego: las sesiones de los navegadores no se tocan.
 const cacheClean = () => session.defaultSession.clearCache().catch(e => console.error('No he podido vaciar la caché:', e?.message ?? e));
@@ -306,7 +313,7 @@ app.whenReady().then(cacheClean).then(() => {
   crear();
   if (!globalShortcut.register(PANIC, panic)) console.error('No he podido registrar la tecla de pánico (⇧⌥⌘Esc): la tiene otra app.');
   if (!fromApp) { abrir(URL_INITIAL || 'http://127.0.0.1:3778'); return; }
-  ventana.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(BOOT));
+  ventana.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(BOOT()));
   arrancar();
 });
 // otro clic en el Dock con la app abierta: al frente

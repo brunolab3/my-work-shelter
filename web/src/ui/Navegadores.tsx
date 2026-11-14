@@ -124,7 +124,7 @@ const webviews = new Map<string, Webview>();
 interface RemoteBridge { orden<T = unknown>(orden: string, ...a: unknown[]): Promise<T>; onFrame(f: (jpeg: Uint8Array, ancho: number, alto: number) => void): void; onState(f: (e: { url: string; titulo: string; cargando: boolean; vivo: boolean }) => void): void }
 const remoto: RemoteBridge | undefined = (window as any).shelterRemoto;
 const isRemote = (id: string) => !!SPOTS[id]?.remoto;
-const remoteOrder = <T = unknown>(orden: string, ...a: unknown[]) => (remoto ? remoto.orden<T>(orden, ...a) : Promise.reject(new Error('sin Chrome')));
+const remoteOrder = <T = unknown>(orden: string, ...a: unknown[]) => (remoto ? remoto.orden<T>(orden, ...a) : Promise.reject(new Error(t('windows.noChrome'))));
 const remoteFields = new Map<string, HTMLTextAreaElement>();
 /** Código en la página de un navegador abierto (la pletina de la discoteca pregunta así a Spotify) */
 export async function evaluateIn(id: string, codigo: string, gesture = false): Promise<unknown> {

@@ -1,5 +1,5 @@
 // Salas de actividades: hidroponía (cultivos que crecen con las llamadas a herramientas) y galería de tiro.
-import { t } from '@shared/idioma';
+import { t, t as tr } from '@shared/idioma';
 import * as THREE from 'three';
 import { place, R } from '../../motor/assets';
 import { cartel, PanelRoom, PhosphorScreen, lienzo, textureOf, SOURCES } from '../../motor/texturas';
@@ -62,7 +62,7 @@ export async function furnishHydroponics(ctx: Contexto) {
   for (const [id, i, dx] of [['bancal', 1, -0.55], ['bancal-2', 0, 0.75]] as const) ctx.sala.puntos.push({ id, tipo: 'pieza', pos: new THREE.Vector3(XB[i] + dx, 0, zB + 2.0), giro: Math.PI,
     acciones: [{ clip: 'Use_Item', utensil: 'regadera', onMake: () => { wiggle[i] = 1.5; } }, { clip: 'PickUp', onMake: () => { wiggle[i] = 0.8; } }, { clip: 'Holding_A', utensil: 'lupa', dur: 4 }] });
   // el puesto de control del cultivo, a la derecha, casi de perfil: mesa con el monitor de riego y la libreta
-  const pWatering = new PhosphorScreen(384, 256, v.pantalla, ' riego'); pWatering.speed = 22; ctx.sala.pantallas.push(pWatering);
+  const pWatering = new PhosphorScreen(384, 256, v.pantalla, t('world.ocio.watering')); pWatering.speed = 22; ctx.sala.pantallas.push(pWatering);
   await workStation(ctx, { x: 5.2, z: -0.55, giro: -1.3, tex: pWatering.tex, brillo: 1.0,
     encima: [{ ruta: R.herr('journal_open'), x: 0.55, z: 0.2, c: { escala: K * 0.42, rot: 0.3 } }, { ruta: R.mueble('cactus_small_B'), x: -0.72, z: -0.15, c: { escala: K * 0.7 } }] });
   // depósito de agua, sacos y cestas de cosecha (en el rincón izquierdo, fuera del pasillo)
@@ -163,7 +163,7 @@ export async function furnishGallery(ctx: Contexto) {
   const ammoBox = P(R.acc('ammo_crate_withLid'), { pos: [5.3, 0, zB + 0.55], escala: K * 1.1, rot: -0.3 });
   ctx.sobre(ammoBox, R.acc('ammo_crate'), { pos: [5.3, 0, zB + 0.55], escala: K * 0.95, rot: -0.6 });
   // el puesto del encargado de la galería, casi de perfil contra la pared derecha: mesa con el monitor de récords
-  const pRecords = new PhosphorScreen(384, 256, v.pantalla, ' récords'); pRecords.speed = 20; ctx.sala.pantallas.push(pRecords);
+  const pRecords = new PhosphorScreen(384, 256, v.pantalla, t('world.ocio.records')); pRecords.speed = 20; ctx.sala.pantallas.push(pRecords);
   await workStation(ctx, { x: 5.25, z: 0.25, giro: -1.35, tex: pRecords.tex, brillo: 1.0,
     encima: [{ ruta: R.sv('Pistol_2'), x: 0.55, z: 0.25, c: { alto: 0.1, rotX: -Math.PI / 2, rotZ: 0.5 } }, { ruta: R.acc('arrow_crossbow'), x: -0.6, z: 0.2, c: { escala: 0.8, rot: 0.3 } }] });
   ctx.sala.obstacles.push(new THREE.Box2(new THREE.Vector2(4.8, zB), new THREE.Vector2(6, zB + 1.15)));
@@ -206,7 +206,8 @@ export async function furnishGallery(ctx: Contexto) {
     dianas.forEach((d, i) => { if (!d.userData.fall) d.position.x = [-3.6, -1.2, 1.2, 3.6][i] + Math.sin(t * (0.6 + i * 0.13) + i) * 0.35; rods[i].position.x = d.position.x; });
 
     const r = vivo.get().estado?.jugador?.records ?? {};
-    panel.lineas = [`> tiro: ${r.tiro ?? 0} puntos`, `> radio: ${r.radio ?? 0} señales`, `> cosecha: ${r.cosecha ?? 0}`];
-    const fr = panel.lineas.join('|'); if (fr !== signatureRecords) { signatureRecords = fr; pRecords.lineas = []; pRecords.queue = []; pRecords.escribir([`tiro: ${r.tiro ?? 0} puntos`, `radio: ${r.radio ?? 0} señales`, `cosecha: ${r.cosecha ?? 0}`]); }
+    const records = [tr('world.ocio.shootingPoints', { n: r.tiro ?? 0 }), tr('world.ocio.radioSignals', { n: r.radio ?? 0 }), tr('world.ocio.harvest', { n: r.cosecha ?? 0 })];
+    panel.lineas = records.map(x => '> ' + x);
+    const fr = panel.lineas.join('|'); if (fr !== signatureRecords) { signatureRecords = fr; pRecords.lineas = []; pRecords.queue = []; pRecords.escribir(records); }
   });
 }

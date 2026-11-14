@@ -35,7 +35,7 @@ import type { SessionSummary } from '@shared/protocolo';
 import { INITIAL_ROOMS, INITIAL_DWELLERS, ROOM_SUPERVISOR } from '@shared/refugioInicial';
 import { decorSignature } from '@shared/decorado';
 import { alphabeticalOrder } from '@shared/disposicion';
-import { t as tx } from '@shared/idioma';
+import { t as tx, tIs } from '@shared/idioma';
 
 const ROOM_WIDTH = 12;
 const loadingAcc = new WeakMap<Character, Set<string>>();
@@ -433,7 +433,7 @@ export class Refugio {
       h.pos.set(x, sala.grupo.position.y, 1.3); h.p.raiz.visible = true;
       h.p.goA([new THREE.Vector3(sala.grupo.position.x + lado * 1.2, sala.grupo.position.y, 1.3)], false, () => { h.p.goalTurn = 0; h.cambiar('ocioso'); SFX.success(); });
       this.foco = { x: sala.grupo.position.x, y: sala.grupo.position.y, hasta: this.reloj + 5 };
-      juego.set({ hint: { tecla: '', texto: `${h.id.nombre} «${h.id.mote}» se instala en ${sala.nombre}` } });
+      juego.set({ hint: { tecla: '', texto: tx('world.recruitMovesIn', { nombre: h.id.nombre, mote: tIs(h.id.mote), sala: sala.nombre }) } });
       setTimeout(() => juego.set({ hint: null }), 5000);
     }, retraso * 1000);
   }
@@ -567,13 +567,13 @@ export class Refugio {
       h.sesionId = s?.id;
       if (!s) { if (was && h.estado !== 'durmiendo' && h.estado !== 'ocioso') h.cambiar('ocioso'); cambio = true; continue; }
       const m = s.actividad?.modo;
-      if (s.estado === 'arrancando') h.cambiar('pensando', 'preparándose…', 'leer');
+      if (s.estado === 'arrancando') h.cambiar('pensando', tx('windows.gettingReady'), 'leer');
       else if (s.estado === 'trabajando') {
-        if (!m || m === 'pensar') h.cambiar('pensando', s.actividad?.texto ?? 'pensando…', 'leer');
+        if (!m || m === 'pensar') h.cambiar('pensando', s.actividad?.texto ?? tx('windows.thinking'), 'leer');
         else h.cambiar('trabajando', s.actividad?.texto ?? '', m === 'escribir' ? 'editar' : m === 'terminal' ? 'terminal' : m === 'web' ? 'web' : 'buscar');
-      } else if (s.estado === 'esperando') { if (h.estado !== 'esperando') SFX.highNotice(); h.cambiar('esperando', s.pending?.titulo ?? 'te espera'); }
-      else if (s.estado === 'terminada' && s.sinLeer) { if (h.estado !== 'terminado') SFX.success(); h.cambiar('terminado', 'listo: ' + (s.titulo ?? '')); }
-      else if (s.estado === 'error') { if (h.estado !== 'error') SFX.error(); h.cambiar('error', s.error ?? 'avería'); }
+      } else if (s.estado === 'esperando') { if (h.estado !== 'esperando') SFX.highNotice(); h.cambiar('esperando', s.pending?.titulo ?? tx('windows.waitingForYou')); }
+      else if (s.estado === 'terminada' && s.sinLeer) { if (h.estado !== 'terminado') SFX.success(); h.cambiar('terminado', tx('windows.readyTitulo', { titulo: s.titulo ?? '' })); }
+      else if (s.estado === 'error') { if (h.estado !== 'error') SFX.error(); h.cambiar('error', s.error ?? tx('windows.fault')); }
       else h.cambiar('ocioso', s.titulo);
       cambio = true;
       h.sala.actividad = Math.min(1, 0.25 + (s.herramientas % 40) / 40 * 0.75);
@@ -973,7 +973,7 @@ export class Refugio {
     }
     // al rellano, subir a la cabina cuando esté aquí, viajar y seguir andando
     this.supervisor.goA([new THREE.Vector3(sp.x, sp.y, pasillo), new THREE.Vector3(0, sp.y, pasillo), new THREE.Vector3(0, sp.y, 0.35)], correr, () => {
-      juego.set({ hint: { tecla: '', texto: 'Llamando al ascensor…' } });
+      juego.set({ hint: { tecla: '', texto: tx('windows.callingTheElevator') } });
       this.ascensor.llamar(yo, () => {
         this.montado = true; this.supervisor.goalTurn = 0; juego.set({ hint: null });
         this.ascensor.llamar(there, () => {
@@ -1055,7 +1055,7 @@ export class Refugio {
     const destino = planta - dir; // dir 1 = subir = planta menor
     if (destino < 0 || destino >= this.plantas) { SFX.noAllowed(); return; }
     if (this.ascensor.moving || this.ascensor.currentFloor !== planta) {
-      juego.set({ hint: { tecla: dir > 0 ? 'W' : 'S', texto: 'Llamando al ascensor…' } });
+      juego.set({ hint: { tecla: dir > 0 ? 'W' : 'S', texto: tx('windows.callingTheElevator') } });
       this.ascensor.llamar(planta, () => juego.set({ hint: null })); return;
     }
     this.montado = true;

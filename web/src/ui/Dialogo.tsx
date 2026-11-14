@@ -19,7 +19,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { SessionSummary, LogInput, HistoryElement, Command, PendingRequest, Visitante } from '@shared/protocolo';
 import { MODELS, EFFORTS, PERMISSION_MODES } from '@shared/protocolo';
-import { t, tIs } from '@shared/idioma';
+import { t, tIs, trBio } from '@shared/idioma';
 import { juego, type DwellerSummary } from './estadoJuego';
 import { vivo, cliente, loadLog } from '../red/cliente';
 import { markdown, markdownLine } from './markdown';
@@ -416,7 +416,7 @@ function Console({ h, v }: { h: DwellerSummary; v: WindowCom }) {
               <div className="consola-dato">{copia.cambios ? t('windows.nChanges', { n: copia.cambios }) : t('windows.noChanges')}{copia.advanced ? ` · ${t('windows.nCommitsToMerge', { n: copia.advanced })}` : ''}</div>
             </> : <>
               <div className="consola-nombre">{h.nombre}</div>
-              <div className="consola-mote">«{h.mote}»</div>
+              <div className="consola-mote">«{tIs(h.mote)}»</div>
               <StateChip s={s} />
               {repo?.rama && <div className="consola-dato">{t('windows.branch')} <b>{repo.rama}</b>{repo.cambios ? ` · ${t('windows.nChanges', { n: repo.cambios })}` : ''}</div>}
             </>}
@@ -533,12 +533,12 @@ function Ficha({ h, volver }: { h: DwellerSummary; volver: () => void }) {
   if (c) return (
     <div className="pantalla-consola fosforo ficha">
       <dl>
-        <dt>{t('windows.copyOf')}</dt><dd>{c.nameAuthor} «{c.nicknameAuthor}»</dd>
+        <dt>{t('windows.copyOf')}</dt><dd>{c.nameAuthor} «{tIs(c.nicknameAuthor)}»</dd>
         <dt>{t('windows.room')}</dt><dd>{h.nameRoom}</dd>
         <dt>Worktree</dt><dd><code>{c.ruta}</code></dd>
         <dt>{t('windows.branch2')}</dt><dd>{c.rama || t('windows.noBranch')} · {t('windows.nUncommittedChanges', { n: c.cambios })} · {t('windows.nCommitsToMerge', { n: c.advanced })}</dd>
-        <dt>{t('windows.status')}</dt><dd>{h.estado}{h.detalle ? ' · ' + h.detalle : ''}</dd>
-        <dt>{t('windows.record')}</dt><dd>{h.bio}</dd>
+        <dt>{t('windows.status')}</dt><dd>{tIs(h.estado)}{h.detalle ? ' · ' + h.detalle : ''}</dd>
+        <dt>{t('windows.record')}</dt><dd>{trBio(h.bio)}</dd>
       </dl>
       <Opciones items={[{ texto: t('windows.back'), pista: 'Esc' }]} i={i} setI={setI} onChoose={volver} />
     </div>
@@ -546,12 +546,12 @@ function Ficha({ h, volver }: { h: DwellerSummary; volver: () => void }) {
   return (
     <div className="pantalla-consola fosforo ficha">
       <dl>
-        <dt>{t('windows.name')}</dt><dd>{h.nombre} «{h.mote}»</dd>
+        <dt>{t('windows.name')}</dt><dd>{h.nombre} «{tIs(h.mote)}»</dd>
         <dt>{t('windows.room')}</dt><dd>{h.nameRoom}{h.carpeta ?? h.ruta ? <> · <code>{h.carpeta ?? h.ruta}</code></> : null}</dd>
         {repo?.rama && <><dt>{t('windows.branch2')}</dt><dd>{repo.rama} · {t('windows.nUncommittedChanges', { n: repo.cambios })}</dd></>}
         {repo?.lastCommit && <><dt>{t('windows.lastCommit')}</dt><dd>{repo.lastCommit.mensaje} <span className="tenue">({hace(repo.lastCommit.fecha)})</span></dd></>}
-        <dt>{t('windows.status')}</dt><dd>{h.estado}{h.detalle ? ' · ' + h.detalle : ''}</dd>
-        <dt>{t('windows.record')}</dt><dd>{h.bio}</dd>
+        <dt>{t('windows.status')}</dt><dd>{tIs(h.estado)}{h.detalle ? ' · ' + h.detalle : ''}</dd>
+        <dt>{t('windows.record')}</dt><dd>{trBio(h.bio)}</dd>
       </dl>
       <Opciones items={[{ texto: t('windows.back'), pista: 'Esc' }]} i={i} setI={setI} onChoose={volver} />
     </div>

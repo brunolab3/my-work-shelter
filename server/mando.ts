@@ -12,7 +12,7 @@
 // en el refugio o en otro mando) y lo de conversaciones que ya no están se borra. Lo escrito se guarda (`Rastro`): tras
 // un reinicio, las decisiones de antes (que ya no valen) se borran y el estado se pone al día.
 import path from 'node:path';
-import { t } from '../shared/idioma.ts';
+import { t, locale } from '../shared/idioma.ts';
 import type { SessionSummary, PendingRequest } from '../shared/protocolo.ts';
 import { visible } from '../shared/visible.ts';
 
@@ -53,7 +53,7 @@ export const abiertas = (l: SessionSummary[]) => l.filter(s => s.estado !== 'cer
 
 // lo único de cada conversación que sale hacia el móvil: habitante y título (y el worktree, si lo hay)
 export const rotulo = (s: SessionSummary, habitante: string) => [habitante, s.titulo?.trim() || undefined, s.worktree && path.basename(s.worktree)].filter(Boolean).join(' · ');
-const hora = (ms: number) => new Date(ms).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+const hora = (ms: number) => new Date(ms).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' });
 const ESTADO: Record<string, string> = { arrancando: 'server.remoteStarting', trabajando: 'server.remoteWorking', esperando: 'server.remoteWaiting', ociosa: 'server.remoteIdle', error: 'server.remoteStuck' };
 export function estadoDe(s: SessionSummary) { return s.estado === 'terminada' ? t('server.remoteFinishedAt', { hora: hora(s.actualizada) }) : t(ESTADO[s.estado] ?? 'server.remoteIdle'); }
 

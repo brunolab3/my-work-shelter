@@ -38,11 +38,11 @@ export class DeploymentBoard {
     const blocked = new Set(bloqueos.filter(pending).map(b => b.de));
     // cabecera
     g.fillStyle = col; g.font = `700 30px ${SOURCES.mono}`; g.shadowColor = col; g.shadowBlur = 10;
-    g.fillText(`DESPLIEGUE · MIS PULL REQUESTS${demo ? ' · DEMO' : ''}`, 28, 18); g.shadowBlur = 0;
+    g.fillText(`${t('world.deploy.title')}${demo ? ' · DEMO' : ''}`, 28, 18); g.shadowBlur = 0;
     const mergeBy = prs.filter(p => p.estado === 'abierto' || p.estado === 'borrador').length;
     g.font = `600 24px ${SOURCES.mono}`; g.textAlign = 'right';
-    g.fillStyle = col; g.fillText(`${mergeBy} POR FUSIONAR`, W - 28 - (blocked.size ? 230 : 0), 20);
-    if (blocked.size) { g.fillStyle = RED; g.fillText(`${blocked.size} BLOQUEADO${blocked.size === 1 ? '' : 'S'}`, W - 28, 20); }
+    g.fillStyle = col; g.fillText(t('world.deploy.nToMerge', { n: mergeBy }), W - 28 - (blocked.size ? 230 : 0), 20);
+    if (blocked.size) { g.fillStyle = RED; g.fillText(blocked.size === 1 ? t('world.deploy.oneBlocked') : t('world.deploy.nBlocked', { n: blocked.size }), W - 28, 20); }
     g.textAlign = 'left';
     // columnas
     const cols = DEPLOYMENT_COLUMNS.map(c => ({ ...c, prs: prs.filter(p => columnaDespliegue(p) === c.id).sort((a, b) => (ola.get(a.url) ?? 99) - (ola.get(b.url) ?? 99) || b.actualizado - a.actualizado) }));
@@ -71,7 +71,7 @@ export class DeploymentBoard {
         g.fillStyle = taskColor(pRTask(p)); g.font = `700 ${fId}px ${SOURCES.mono}`; g.fillText(corto(p), x + 16, y + 8);   // del color de su tarea
         let xd = x + w - 10;
         const o = ola.get(p.url);
-        if (o) { const t = `OLA ${o}`; g.font = `700 15px ${SOURCES.mono}`; const tw = g.measureText(t).width + 12; xd -= tw; g.fillStyle = col + '30'; g.fillRect(xd, y + 6, tw, 21); g.fillStyle = col; g.fillText(t, xd + 6, y + 9); xd -= 6; }
+        if (o) { const ola = t('world.deploy.wave', { n: o }); g.font = `700 15px ${SOURCES.mono}`; const tw = g.measureText(ola).width + 12; xd -= tw; g.fillStyle = col + '30'; g.fillRect(xd, y + 6, tw, 21); g.fillStyle = col; g.fillText(ola, xd + 6, y + 9); xd -= 6; }
         if (p.checks && p.estado !== 'fusionado') { g.font = `700 16px ${SOURCES.mono}`; g.fillStyle = ci ? RED : p.checks === 'SUCCESS' ? '#5dff8a' : '#ffb000'; const t = ci ? 'CI ✗' : p.checks === 'SUCCESS' ? 'CI ✓' : 'CI …'; xd -= g.measureText(t).width; g.fillText(t, xd, y + 9); }
         // lo que queda por contestar en sus revisiones: hilos sin resolver y resúmenes sin respuesta (con cero, nada)
         if (p.estado !== 'fusionado' && p.estado !== 'cerrado' && ledgerPending(p.ledger)) {
@@ -82,7 +82,7 @@ export class DeploymentBoard {
         const lineas = Math.max(1, Math.floor((fh - fId - 22) / (fTit * 1.2)));
         splitByWords(g, p.titulo, w - 28, Math.min(3, lineas)).forEach((l, m) => g.fillText(l, x + 16, y + fId + 16 + m * fTit * 1.2));
       });
-      if (mas) { const y = y0 + vis.length * (fh + hueco); g.fillStyle = col + '1c'; g.fillRect(x, y, w, 34); g.fillStyle = col; g.font = `600 18px ${SOURCES.mono}`; g.fillText(`+ ${mas} más`, x + 14, y + 8); }
+      if (mas) { const y = y0 + vis.length * (fh + hueco); g.fillStyle = col + '1c'; g.fillRect(x, y, w, 34); g.fillStyle = col; g.font = `600 18px ${SOURCES.mono}`; g.fillText(t('world.tex.nMore', { n: mas }), x + 14, y + 8); }
     });
     // flechas: del PR que bloquea al que espera (las pendientes, rojas; las ya fusionadas, moradas y tenues)
     for (const b of bloqueos) {
@@ -101,10 +101,10 @@ export class DeploymentBoard {
     // pie: el orden de despliegue por olas
     const by = 486, bh = 70;
     g.fillStyle = '#0a160e'; g.fillRect(28, by, W - 56, bh); g.strokeStyle = col + '44'; g.lineWidth = 1.5; g.strokeRect(28, by, W - 56, bh);
-    g.fillStyle = col; g.font = `700 20px ${SOURCES.mono}`; g.fillText('ORDEN DE DESPLIEGUE', 44, by + 10);
+    g.fillStyle = col; g.font = `700 20px ${SOURCES.mono}`; g.fillText(t('world.deploy.order'), 44, by + 10);
     g.font = `600 22px ${SOURCES.mono}`; g.fillStyle = INK;
-    const orden = waves.length ? waves.map((o, k) => `${k + 1} · ${o.map(corto).join(', ')}`).join('   →   ') : prs.length ? 'nada por fusionar' : 'leyendo tus pull requests…';
-    g.fillText(splitByWords(g, orden + (ciclo.length ? `   ⚠ ciclo: ${ciclo.map(corto).join(', ')}` : ''), W - 100, 1)[0] ?? '', 44, by + 38);
+    const orden = waves.length ? waves.map((o, k) => `${k + 1} · ${o.map(corto).join(', ')}`).join('   →   ') : prs.length ? t('world.deploy.nothingToMerge') : t('world.deploy.readingPRs');
+    g.fillText(splitByWords(g, orden + (ciclo.length ? '   ' + t('world.deploy.cycle', { prs: ciclo.map(corto).join(', ') }) : ''), W - 100, 1)[0] ?? '', 44, by + 38);
     for (let y = 0; y < H; y += 3) { g.fillStyle = 'rgba(0,0,0,0.16)'; g.fillRect(0, y, W, 1); }
     this.tex.needsUpdate = true;
   }

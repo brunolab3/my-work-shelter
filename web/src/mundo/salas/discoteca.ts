@@ -5,7 +5,7 @@
 // El ritmo sale de `pulsoMusica('discoteca')` (audio/musica.ts: la música propia de la sala, o Spotify); si suena Spotify
 // y el pulso no dice nada, 118 golpes por minuto (Spotify web no cuenta el tempo del tema). En la pista bailan unos robots
 // chiquitines (bailarines.ts).
-import { t } from '@shared/idioma';
+import { t, t as tr } from '@shared/idioma';
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { place, R } from '../../motor/assets';
@@ -56,9 +56,9 @@ class ScreenDJ {
     if (!p) {
       // local cerrado: el logotipo del club
       g.textAlign = 'center'; g.textBaseline = 'middle';
-      g.shadowColor = NEON[0]; g.shadowBlur = 30; g.fillStyle = '#ffd1ee'; g.font = `800 150px ${SOURCES.titulo}`; g.fillText('BÚNKER', W / 2, H / 2 - 30);
+      g.shadowColor = NEON[0]; g.shadowBlur = 30; g.fillStyle = '#ffd1ee'; g.font = `800 150px ${SOURCES.titulo}`; g.fillText(tr('world.disco.bunker'), W / 2, H / 2 - 30);
       g.shadowColor = NEON[1]; g.shadowBlur = 16; g.fillStyle = '#bff6ff'; g.font = `600 40px ${SOURCES.rotulo}`;
-      g.fillText(roomRhythm.sonando ? 'EN DIRECTO · PINCHA LA CASA' : 'CERRADO · PON MÚSICA EN LA CABINA', W / 2, H / 2 + 90);
+      g.fillText(roomRhythm.sonando ? tr('world.disco.liveHouse') : tr('world.disco.closedPutMusic'), W / 2, H / 2 + 90);
       g.shadowBlur = 0; g.textAlign = 'left';
     } else {
       const L = 384, x0 = 32, y0 = 32;
@@ -66,7 +66,7 @@ class ScreenDJ {
       else { g.fillStyle = '#1b1426'; g.fillRect(x0, y0, L, L); g.fillStyle = NEON[0]; g.font = `800 220px ${SOURCES.titulo}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('♫', x0 + L / 2, y0 + L / 2); g.textAlign = 'left'; }
       const xt = x0 + L + 40, an = W - xt - 32;
       g.textBaseline = 'top';
-      g.fillStyle = liveAlready ? NEON[2] : '#8c8496'; g.font = `600 30px ${SOURCES.mono}`; g.fillText(liveAlready ? '● SONANDO' : '❚❚ EN PAUSA', xt, 40);
+      g.fillStyle = liveAlready ? NEON[2] : '#8c8496'; g.font = `600 30px ${SOURCES.mono}`; g.fillText(liveAlready ? tr('world.disco.playing') : tr('world.disco.paused'), xt, 40);
       g.shadowColor = NEON[0]; g.shadowBlur = liveAlready ? 18 : 0; g.fillStyle = '#fff0fa'; g.font = `800 64px ${SOURCES.titulo}`;
       splitByWords(g, p.titulo, an, 2).forEach((l, i) => g.fillText(l, xt, 92 + i * 68));
       g.shadowBlur = 0; g.fillStyle = '#bff6ff'; g.font = `600 36px ${SOURCES.rotulo}`;
@@ -198,9 +198,9 @@ export async function furnishDisco(ctx: Contexto) {
 
   // ---- a la izquierda: la gramola (el ordenador con Spotify) bajo el rótulo de neón
   const jukebox = await place(g, R.sf('Props_Computer'), { pos: [-4.55, 0, zB + 0.75], alto: 1.75, rot: 0.3, estatico: false, variant: v });
-  const jukeboxScreen = new PhosphorScreen(256, 256, '#ff7ad1'); jukeboxScreen.speed = 14; jukeboxScreen.escribir(['GRAMOLA', '', 'busca y elige', 'en Spotify', '', '[E] abrir']);
+  const jukeboxScreen = new PhosphorScreen(256, 256, '#ff7ad1'); jukeboxScreen.speed = 14; jukeboxScreen.escribir(tr('world.disco.jukebox').split('|'));
   overlayScreen(jukebox, /^Black$/, jukeboxScreen.tex, { brillo: 1.3, margin: 0.9 }); ctx.sala.pantallas.push(jukeboxScreen);
-  const matNeon = new THREE.MeshBasicMaterial({ map: textureNeon('BÚNKER', 'CLUB · DESDE EL GRAN APAGÓN', NEON[0]), blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, toneMapped: false });
+  const matNeon = new THREE.MeshBasicMaterial({ map: textureNeon(tr('world.disco.bunker'), tr('world.disco.neonSub'), NEON[0]), blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, toneMapped: false });
   const neon = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 0.65), matNeon); neon.position.set(-4.6, 3.05, zB + 0.36); neon.userData.estatico = false; g.add(neon);
   ctx.sala.obstacles.push(new THREE.Box2(new THREE.Vector2(-5.6, zB), new THREE.Vector2(-3.9, zB + 1.1)));
 
@@ -283,7 +283,7 @@ export async function furnishDisco(ctx: Contexto) {
     matNeon.opacity = fallo ? 0.25 : 0.9 + 0.1 * Math.sin(t * 50);
     // el panel de la sala: lo que suena
     const m = musica();
-    const lineas = m?.pista ? [`> ${m.pista.titulo}`.slice(0, 34), `> ${m.pista.artista}`.slice(0, 34), m.estado === 'sonando' ? '> sonando' : '> en pausa'] : ['> equipo apagado', '> pon música en la cabina'];
-    const f = lineas.join('|'); if (f !== signaturePanel) { signaturePanel = f; panel.lineas = lineas; panel.estado = m?.estado === 'sonando' ? '♫ EN DIRECTO' : 'CERRADO'; }
+    const lineas = m?.pista ? [`> ${m.pista.titulo}`.slice(0, 34), `> ${m.pista.artista}`.slice(0, 34), m.estado === 'sonando' ? tr('world.disco.playingLine') : tr('world.disco.pausedLine')] : [tr('world.disco.offLine'), tr('world.disco.putMusicLine')];
+    const f = lineas.join('|'); if (f !== signaturePanel) { signaturePanel = f; panel.lineas = lineas; panel.estado = m?.estado === 'sonando' ? tr('world.disco.live') : tr('world.disco.closed'); }
   });
 }

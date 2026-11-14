@@ -32,7 +32,7 @@ function jsonGltf(archivo: string): any {
   const b = readFileSync(archivo);
   if (archivo.endsWith('.gltf')) return JSON.parse(b.toString('utf8'));
   // .glb: cabecera de 12 bytes y el primer trozo, el JSON
-  if (b.readUInt32LE(0) !== 0x46546c67) throw new Error('no es un glb');
+  if (b.readUInt32LE(0) !== 0x46546c67) throw new Error(t('server.notAGlb'));
   const largo = b.readUInt32LE(12);
   return JSON.parse(b.subarray(20, 20 + largo).toString('utf8'));
 }

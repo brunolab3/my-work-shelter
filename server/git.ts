@@ -418,7 +418,7 @@ export async function actionGit(nombre: string, d: Record<string, any>, ctx: Ctx
       case 'continuar': return continuar(ruta);
       case 'abrirArchivo': return abrirArchivo(ruta, d.archivo);
       case 'sincronizar': return sincronizar(ruta, ['fetch', 'pull', 'push'].includes(d.que) ? d.que : 'sync');
-      default: throw new Error('Acción de git desconocida: ' + nombre);
+      default: throw new Error(t('server.unknownAction', { nombre: 'git.' + nombre }));
     }
   })().finally(() => { if (WRITE.has(nombre)) ctx.alCambiar(ruta); });
   return r ?? true;

@@ -53,7 +53,7 @@ export async function furnishBridge(ctx: Contexto) {
   // ---- mesa de planos del Arquitecto (su puesto, de tres cuartos): el plano del refugio, compás, flexo y su monitor con
   // lo que hace; el registro del repo, en la pared
   const pRepo = new PhosphorScreen(512, 320, v.pantalla, ' work-shelter');
-  pRepo.speed = 30; pRepo.escribir(['$ git log --oneline -4', 'la planta -1 cambia de manos', 'cámara acorazada', 'puente de mando', '$ _']);
+  pRepo.speed = 30; pRepo.escribir(t('world.bridge.gitLog').split('|'));
   ctx.aparato('panel', await monitorWall(ctx, 4.35, 2.4, 1.2, pRepo.tex, 1.2));
   ctx.sala.pantallas.push(pRepo);
   const pMap = new PhosphorScreen(384, 256, v.pantalla); pMap.speed = 30; screenReal(ctx, pMap, 'actividad'); ctx.sala.pantallas.push(pMap);

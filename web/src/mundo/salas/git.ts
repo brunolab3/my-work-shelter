@@ -5,7 +5,7 @@
 // del refugio en la pared; a la derecha, los pull requests que esperan tu revisión y los tuyos abiertos.
 // Habitante: la Octocat (modelo propio sin esqueleto de KayKit, animada por código: ver octocat.ts). En el puesto del
 // grafo y en la silla del cliente de git hace lo de todos; sus «clips» los traduce AnimOctocat a poses y gestos.
-import { t } from '@shared/idioma';
+import { t, t as tr, locale } from '@shared/idioma';
 import * as THREE from 'three';
 import { place, R } from '../../motor/assets';
 import { cartel, PhosphorScreen, PanelRoom, ListScreen, lienzo, textureOf, SOURCES } from '../../motor/texturas';
@@ -19,8 +19,8 @@ const GREEN = VERDES[4];
 export interface MatrixData { fuente: 'github' | 'local'; demo?: boolean; usuario?: string; nombre?: string; total: number; days: { fecha: string; n: number; nivel: number }[]; prs?: { mine: any[]; revisar: any[]; nMine: number; nReview: number }; error?: string }
 
 
-const MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-const fmtN = new Intl.NumberFormat('es-ES');
+const MONTHS = tr('world.git.months').split('|');
+const fmtN = new Intl.NumberFormat(locale());
 
 // La matriz en un lienzo de 1680 × 480: cabecera, meses, 53 semanas × 7 días, leyenda y cifras.
 class Matrix {
@@ -35,10 +35,10 @@ class Matrix {
     g.textBaseline = 'middle';
     // cabecera
     g.fillStyle = '#e6edf3'; g.font = `700 40px ${SOURCES.mono}`;
-    g.fillText(d?.usuario ? '@' + d.usuario : d ? 'tus commits en el refugio' : 'conectando con GitHub…', 36, 48);
+    g.fillText(d?.usuario ? '@' + d.usuario : d ? tr('world.git.yourCommits') : tr('world.git.connecting'), 36, 48);
     if (d) {
       g.textAlign = 'right'; g.fillStyle = '#9aa7b4'; g.font = `500 30px ${SOURCES.mono}`;
-      g.fillText(`${fmtN.format(d.total)} ${d.fuente === 'github' ? 'contribuciones' : 'commits'} en el último año`, W - 36, 50); g.textAlign = 'left';
+      g.fillText(tr(d.fuente === 'github' ? 'world.git.nContributionsYear' : 'world.git.nCommitsYear', { n: fmtN.format(d.total) }), W - 36, 50); g.textAlign = 'left';
     }
     g.fillStyle = '#21262d'; g.fillRect(36, 82, W - 72, 2);
     // la cuadrícula: columnas de domingo a sábado, como en GitHub
@@ -49,7 +49,7 @@ class Matrix {
     const cols = Math.min(this.columnas, Math.floor((W - X0 - 30) / STEP));
     const jump = this.columnas - cols;   // si sobran semanas, se ven las últimas
     g.font = `500 21px ${SOURCES.mono}`; g.fillStyle = '#7d8590';
-    for (const [fila, txt] of [[1, 'lun'], [3, 'mié'], [5, 'vie']] as const) g.fillText(txt, 26, Y0 + fila * STEP + SIDE / 2);
+    for (const [k, txt] of tr('world.git.weekdays').split('|').entries()) g.fillText(txt, 26, Y0 + (1 + 2 * k) * STEP + SIDE / 2);
     let mesBefore = -1; this.hoy = null;
     for (let col = 0; col < cols; col++) {
       // el mes se rotula en la primera semana que empieza en él (si cabe el rótulo antes del final)
@@ -66,14 +66,14 @@ class Matrix {
     }
     // leyenda
     const yL = Y0 + 7 * STEP + 26;
-    g.textAlign = 'right'; g.fillStyle = '#7d8590'; g.fillText('Más', W - 36, yL + SIDE / 2); g.textAlign = 'left';
+    g.textAlign = 'right'; g.fillStyle = '#7d8590'; g.fillText(tr('world.git.more'), W - 36, yL + SIDE / 2); g.textAlign = 'left';
     for (let i = 0; i < 5; i++) { g.fillStyle = VERDES[4 - i]; redondo(g, W - 100 - i * STEP, yL, SIDE, 5); }
-    g.textAlign = 'right'; g.fillStyle = '#7d8590'; g.fillText('Menos', W - 100 - 4 * STEP - 12, yL + SIDE / 2); g.textAlign = 'left';
-    if (d?.fuente === 'local') { g.fillStyle = '#d29922'; g.fillText('sin gh: cuenta tus commits locales', 36, yL + SIDE / 2); }
+    g.textAlign = 'right'; g.fillStyle = '#7d8590'; g.fillText(tr('world.git.less'), W - 100 - 4 * STEP - 12, yL + SIDE / 2); g.textAlign = 'left';
+    if (d?.fuente === 'local') { g.fillStyle = '#d29922'; g.fillText(tr('world.git.noGhLocal'), 36, yL + SIDE / 2); }
     // cifras
     if (days.length) {
       const { actual, mejor } = rachas(days), max = Math.max(...days.map(x => x.n)), semana = days.slice(-7).reduce((s, x) => s + x.n, 0);
-      const cifras: [string, string][] = [['HOY', String(days.at(-1)!.n)], ['ESTA SEMANA', String(semana)], ['RACHA', `${actual} d`], ['MEJOR RACHA', `${mejor} d`], ['MEJOR DÍA', String(max)]];
+      const cifras: [string, string][] = [[tr('world.git.today'), String(days.at(-1)!.n)], [tr('world.git.thisWeek'), String(semana)], [tr('world.git.streak'), `${actual} d`], [tr('world.git.bestStreak'), `${mejor} d`], [tr('world.git.bestDay'), String(max)]];
       const ancho = (W - 72) / cifras.length, yC = H - 50;
       cifras.forEach(([et, n], i) => {
         const x = 36 + i * ancho;
@@ -141,10 +141,10 @@ export async function furnishGit(ctx: Contexto) {
   for (const [id, dx] of [['grafo', -1.45], ['grafo-2', 1.45]] as const) ctx.sala.puntos.push({ id, tipo: 'pieza', pos: new THREE.Vector3(XM + dx, 0, ZE + 1.05), giro: Math.atan2(-dx, -1.05),
     acciones: [{ clip: 'Interact', onMake: latir }, { clip: 'Ranged_Magic_Raise', onMake: latir }, { clip: 'Holding_A', utensil: 'diario', dur: 4 }] });
   // ---- izquierda: el puesto del cliente de git y la flota de repos en la pared
-  const flota = new ListScreen('REPOS DEL REFUGIO', 640, 400, v.pantalla);
+  const flota = new ListScreen(tr('world.git.shelterRepos'), 640, 400, v.pantalla);
   ctx.aparato('cliente', await monitorWall(ctx, -4.45, 2.45, 1.3, flota.tex, 1.15));
   // el puesto del cliente de git, de tres cuartos: mesa con el terminal (los últimos commits del refugio), teclado y taza
-  const consola = new PhosphorScreen(256, 256, v.pantalla); consola.speed = 22; consola.escribir(['$ git status', 'leyendo repos…']); ctx.sala.pantallas.push(consola);
+  const consola = new PhosphorScreen(256, 256, v.pantalla); consola.speed = 22; consola.escribir(['$ git status', tr('world.git.readingRepos')]); ctx.sala.pantallas.push(consola);
   const stationGit = await workStation(ctx, { id: 'silla', x: -3.95, z: -0.7, giro: 0.8, pantalla: 'ordenador', tex: consola.tex,
     encima: [{ ruta: R.mueble('mug_A'), x: -0.72, z: 0.2, c: { escala: K * 0.7 } }, { ruta: R.mueble('cup_pencils'), x: 0.75, z: -0.22, c: { escala: K * 0.55 } }] });
   ctx.aparato('cliente', stationGit.mesa);
@@ -183,16 +183,16 @@ export async function furnishGit(ctx: Contexto) {
     // la flota: cada repo del refugio con su rama y lo que tiene pendiente
     const e = vivo.get(), salas: any[] = e.estado?.salas ?? [];
     const repos = salas.filter(s => s.ruta && e.repos[s.id]?.isGit).map(s => ({ s, r: e.repos[s.id] }));
-    flota.poner(repos.sort((a, b) => b.r.cambios - a.r.cambios).map(({ s, r }) => ({ etiqueta: r.cambios ? `● ${r.cambios}` : '✓ limpio', texto: `${s.nombre} · ${r.rama ?? '?'}`, tinta: r.cambios ? '#ffb347' : GREEN, urgente: r.cambios > 20 })));
+    flota.poner(repos.sort((a, b) => b.r.cambios - a.r.cambios).map(({ s, r }) => ({ etiqueta: r.cambios ? `● ${r.cambios}` : tr('world.git.clean'), texto: `${s.nombre} · ${r.rama ?? '?'}`, tinta: r.cambios ? '#ffb347' : GREEN, urgente: r.cambios > 20 })));
     // la consola: los últimos commits de todo el refugio; con uno nuevo, el grafo destella
     const commits = repos.flatMap(({ s, r }) => (r.commits ?? []).map((c: any) => ({ ...c, sala: s.nombre }))).sort((a: any, b: any) => b.fecha - a.fecha).slice(0, 5);
     const firma = commits.map((c: any) => c.hash).join();
     if (firma !== signatureCommits) { if (signatureCommits) grafo.heartbeat(); signatureCommits = firma; consola.escribir(['$ git log --all', ...commits.map((c: any) => `${c.hash} ${c.mensaje}`.slice(0, 26)), '$ _']); }
     // pull requests
     const p = datos?.prs;
-    prs.poner(!p ? [{ etiqueta: datos ? 'sin gh' : '…', texto: datos ? 'instala gh y «gh auth login»' : 'conectando con GitHub' }]
-      : [...p.revisar.map((x: any) => ({ etiqueta: 'REVISAR', texto: `${x.repo.split('/')[1] ?? x.repo} #${x.numero} ${x.titulo}`, tinta: '#ffb347', urgente: true })),
-        ...p.mine.map((x: any) => ({ etiqueta: x.borrador ? 'BORRADOR' : x.revision === 'APPROVED' ? 'APROBADO' : x.revision === 'CHANGES_REQUESTED' ? 'CAMBIOS' : 'TUYO', texto: `${x.repo.split('/')[1] ?? x.repo} #${x.numero} ${x.titulo}`, tinta: x.revision === 'APPROVED' ? GREEN : x.revision === 'CHANGES_REQUESTED' ? '#ff7a6a' : '#8ac8ff' }))]);
-    panel.lineas = [`${repos.filter(x => x.r.cambios).length} repos con cambios`, p ? `${p.nReview} PR por revisar` : ''];
+    prs.poner(!p ? [{ etiqueta: datos ? tr('world.git.noGh') : '…', texto: datos ? tr('world.git.installGh') : tr('world.git.connectingShort') }]
+      : [...p.revisar.map((x: any) => ({ etiqueta: tr('world.git.review'), texto: `${x.repo.split('/')[1] ?? x.repo} #${x.numero} ${x.titulo}`, tinta: '#ffb347', urgente: true })),
+        ...p.mine.map((x: any) => ({ etiqueta: x.borrador ? tr('world.git.draft') : x.revision === 'APPROVED' ? tr('world.git.approved') : x.revision === 'CHANGES_REQUESTED' ? tr('world.git.changes') : tr('world.git.yours'), texto: `${x.repo.split('/')[1] ?? x.repo} #${x.numero} ${x.titulo}`, tinta: x.revision === 'APPROVED' ? GREEN : x.revision === 'CHANGES_REQUESTED' ? '#ff7a6a' : '#8ac8ff' }))]);
+    panel.lineas = [tr('world.git.nReposWithChanges', { n: repos.filter(x => x.r.cambios).length }), p ? tr('world.git.nPRsToReview', { n: p.nReview }) : ''];
   });
 }

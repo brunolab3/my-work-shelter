@@ -92,13 +92,13 @@ const GUIDES: Record<SourceId, { que: string; pasos: React.ReactNode[] }> = {
   jira: {
     que: 'tus tareas asignadas y su estado, para el tablero de Planificación, cruzadas con tus pull requests de GitHub (solo lectura)',
     pasos: [
-      <>{t('panels.in')} {enlace('https://id.atlassian.com/manage-profile/security/api-tokens', 'id.atlassian.com → Seguridad → Tokens de API')} → <b>{t('panels.createApiToken')}</b> {t('panels.theRegularOneNoScopes')}.</>,
+      <>{t('panels.in')} {enlace('https://id.atlassian.com/manage-profile/security/api-tokens', t('windows.atlassianSecurityTokens'))} → <b>{t('panels.createApiToken')}</b> {t('panels.theRegularOneNoScopes')}.</>,
       <>{t('panels.pasteYourJiraSiteE')}. <code>empresa.atlassian.net</code>), {t('panels.yourAtlassianEmailAndThe')} <b>{t('windows.save')}</b>.</>,
       <>{t('panels.pullRequestsComeFromGithub')} <code>gh</code> {t('panels.isEnoughAPrGoes')} (<code>ABC-123</code>) {t('panels.appearsInItsBranchOr')}.</>,
     ],
   },
 };
-export const INTEGRATIONS: IntegrationCard[] = ACTIVE_SOURCES.map(id => ({ id, nombre: INFO_SOURCE[id].nombre, ...GUIDES[id], campos: [] }));
+export const INTEGRATIONS: IntegrationCard[] = ACTIVE_SOURCES.map(id => ({ id, nombre: tIs(INFO_SOURCE[id].nombre), ...GUIDES[id], campos: [] }));
 
 type View = { tipo: 'menu' } | { tipo: 'integracion'; id: string } | { tipo: 'slackRemote' } | { tipo: 'refugio' } | { tipo: 'salas' } | { tipo: 'supervisor' } | { tipo: 'reset' };
 
@@ -333,7 +333,7 @@ function ViewReset({ volver }: { volver: () => void }) {
 // para responderlas desde el móvil sin salir del refugio, y la lista de conversaciones para pasarlas a Remote Control.
 // Solo lo justo: escribir y leer su propio mensaje directo; nada de canales
 const MANIFIESTO_SLACK = JSON.stringify({
-  display_information: { name: 'Refugio', description: 'Mando a distancia del refugio' },
+  display_information: { name: 'Refugio', description: t('windows.slackAppDescription') },
   features: { bot_user: { display_name: 'Refugio', always_online: false }, app_home: { home_tab_enabled: false, messages_tab_enabled: true, messages_tab_read_only_enabled: false } },
   oauth_config: { scopes: { bot: ['chat:write', 'im:history'] } },
   settings: { event_subscriptions: { bot_events: ['message.im'] }, interactivity: { is_enabled: true }, org_deploy_enabled: false, socket_mode_enabled: true, token_rotation_enabled: false },

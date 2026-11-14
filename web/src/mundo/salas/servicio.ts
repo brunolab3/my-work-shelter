@@ -1,5 +1,5 @@
 // Sala de servicio: la Puerta Principal (reclutamiento). La planta -1 está en camara.ts y puente.ts.
-import { t } from '@shared/idioma';
+import { t, t as tr } from '@shared/idioma';
 import * as THREE from 'three';
 import { place, R } from '../../motor/assets';
 import { cartel, PanelRoom, ListScreen, lienzo, textureOf, SOURCES, strataTexture } from '../../motor/texturas';
@@ -82,7 +82,7 @@ export async function furnishGate(ctx: Contexto) {
   ctx.sala.puntos.push({ id: 'bisagra', tipo: 'pieza', pos: new THREE.Vector3(XP + R0 + 0.55, 0, zB + 1.5), giro: Math.PI - 0.35,
     acciones: [{ clip: 'Working_C', utensil: 'llave', onMake: () => ctx.sala.efectos?.sparks.burst(bisagra, 14) }, { clip: 'Interact' }] });
   // panel de mando de la puerta (la consola y la palanca) y lista de reclutas (carpetas de la raíz de repos sin sala)
-  const reclutas = new ListScreen('RECLUTAS EN ESPERA', 512, 380, v.pantalla);
+  const reclutas = new ListScreen(t('world.door.waitingRecruits'), 512, 380, v.pantalla);
   await monitorWall(ctx, 2.2, 2.3, 1.3, reclutas.tex, 1.15);
   P(R.sf('Props_ComputerSmall'), { pos: [0.75, 0, zB + 0.65], alto: 1.4, rot: 0.3 });
   P(R.cy('Lever'), { pos: [0.05, 0, zB + 1.2], alto: 0.7, rot: 0.2 });
@@ -120,6 +120,6 @@ export async function furnishGate(ctx: Contexto) {
     tug = Math.max(0, tug - dt * 1.6);
     pivot.position.x = XP + dx; pivot.position.z = zB + 0.62 + salir * 0.5; pivot.rotation.z = -dx / R0 + Math.sin(tug * 18) * tug * 0.04;
     tSuggestion -= dt; if (tSuggestion <= 0) { tSuggestion = 20; import('../../red/cliente').then(({ cliente }) => cliente.accion<any[]>('sugerencias').then(s => { sugerencias = s ?? []; }).catch(() => {})); }
-    reclutas.poner(sugerencias.slice(0, 9).map(s => ({ etiqueta: s.isGit ? 'REPO' : 'CARPETA', texto: s.nombre })));
+    reclutas.poner(sugerencias.slice(0, 9).map(s => ({ etiqueta: s.isGit ? 'REPO' : tr('world.door.folder'), texto: s.nombre })));
   });
 }

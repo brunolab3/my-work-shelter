@@ -1,5 +1,5 @@
 // Sala de repositorio «taller web»: puestos de trabajo, el horno de builds y el comité de calidad.
-import { t } from '@shared/idioma';
+import { t, t as tr } from '@shared/idioma';
 import * as THREE from 'three';
 import { place, R } from '../../motor/assets';
 import { cartel, PhosphorScreen, corcho, PanelRoom } from '../../motor/texturas';
@@ -79,7 +79,7 @@ export async function furnishTallerWeb(ctx: Contexto) {
   P(R.casa('Bed_Bunk'), { pos: [4.55, 0, zB + 1.0], alto: 2.45, rot: Math.PI / 2 });
   ctx.sala.obstacles.push(new THREE.Box2(new THREE.Vector2(2.85, zB), new THREE.Vector2(6, zB + 1.8)));
   ctx.sala.puntos.push({ id: 'cama', tipo: 'cama', pos: new THREE.Vector3(4.55, 0.66, zB + 1.02), giro: Math.PI / 2, clip: 'Lie_Idle' });
-  const notas = [{ texto: 'NO TOCAR main', color: '#f2e37a' }, { texto: 'PR #42 «revisar sin miedo»', color: '#f6b3a8' }, { texto: 'turno de café: tú', color: '#b8e3a4' }, { texto: 'el linter tiene razón (otra vez)', color: '#a9d4f0' }, { texto: '¿quién dejó un TODO aquí?', color: '#f2e37a' }];
+  const notas = tr('world.web.notes').split('|').map((texto, i) => ({ texto, color: ['#f2e37a', '#f6b3a8', '#b8e3a4', '#a9d4f0', '#f2e37a'][i] }));
   signInWall(g, corcho(notas, semilla), 4.6, 3.05, 1.6, 1.06, zB + 0.33);
   signInWall(g, cartel(t('world.poster.quality'), t('world.poster.qualityFoot'), '#d8c8a0', '#7a2a1e', 'ojo', semilla), 1.45, 2.3, 0.6, 0.84, zB + 0.33, 0.03);
   P(R.casa('Houseplant_3'), { pos: [3.15, 0, zB + 0.45], alto: 1.0 });
@@ -121,7 +121,7 @@ export async function furnishTallerWeb(ctx: Contexto) {
     fan.rotation.z -= dt * (4 + a * 14);
     pilotos(t, a);
     if (ctx.sala.estado === 'trabajando' && Math.random() < dt * (0.15 + a)) {
-      const phrases = ['✓ tipos correctos', 'compilando módulos…', 'tests: 38 pasan', 'git diff --stat', 'leyendo componentes', 'vite: listo en 412 ms'];
+      const phrases = tr('world.web.log').split('|');
       panel.lineas.push('> ' + phrases[Math.floor(Math.random() * phrases.length)]);
     }
   });

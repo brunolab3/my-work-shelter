@@ -425,8 +425,8 @@ export class Sessions extends EventEmitter {
           const h = x.herramientas.get(b.tool_use_id);
           if (h && isAgent(h.nombre)) { const a = x.ayudantes.get(b.tool_use_id); const res = (m as any).tool_use_result; if (a && res?.status !== 'async_launched') this.helperEnd(x, a.id, b.is_error ? 'fallo' : 'hecho'); }
           if (b.is_error) {
-            const t = typeof b.content === 'string' ? b.content : Array.isArray(b.content) ? b.content.map((y: any) => y.text ?? '').join('\n') : '';
-            this.anadir(x, this.entrada('herramienta', `${h?.nombre ?? 'La herramienta'} ha fallado`, { herramienta: h?.nombre, detalle: t.slice(0, 2000), esError: true }));
+            const txt = typeof b.content === 'string' ? b.content : Array.isArray(b.content) ? b.content.map((y: any) => y.text ?? '').join('\n') : '';
+            this.anadir(x, this.entrada('herramienta', t('server.toolFailed', { herramienta: h?.nombre ?? t('server.theTool') }), { herramienta: h?.nombre, detalle: txt.slice(0, 2000), esError: true }));
           }
         }
         break;

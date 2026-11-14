@@ -70,7 +70,7 @@ class Linear extends ConnectorBase {
     const notificaciones = linearNotifications(await this.gql(Q.notificaciones));
     const p = await this.dataMy().catch(() => this.panel);
     const abiertas = p?.myIssues.reduce((n, g) => n + g.issues.length, 0) ?? 0;
-    this.bien(t('server.connectedAsOpenIssuesAssigned', { name: this.quien?.name ?? '¿?', linear: this.quien?.organization?.name ?? 'Linear', abiertas }));
+    this.bien(t('server.connectedAsOpenIssuesAssigned', { name: this.quien?.name ?? '?', linear: this.quien?.organization?.name ?? 'Linear', abiertas }));
     return { notificaciones, complete: true };   // las leídas en Linear ya no vienen
   }
   protected async tryReal(v: Record<string, string>) {

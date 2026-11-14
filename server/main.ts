@@ -45,7 +45,7 @@ import { gameAction, ensurePlayer, growCrops, taskReward } from './juego.ts';
 import { generateRecruit } from '../shared/reclutas.ts';
 import { distribute, disposicionDeSerie, isRoomOfRepo, PLANNING_ROOM, placeRoom, moveFloor } from '../shared/disposicion.ts';
 import { STYLE_PALETTE, areaByType, isArea } from '../shared/sectores.ts';
-import { isLanguage, setLanguage } from '../shared/idioma.ts';
+import { isLanguage, setLanguage, locale, tIs } from '../shared/idioma.ts';
 import * as controlRemoto from './controlRemoto.ts';
 import { SlackRemote } from './slackMando.ts';
 import { REMOTE_DELAY_MS, type RemoteDeps } from './mando.ts';
@@ -233,17 +233,17 @@ let lastLimit = '';
 sesiones.on('limite', (i: any) => {
   if (!i || i.status === 'allowed') { lastLimit = ''; return; }
   const clave = i.status + i.rateLimitType; if (clave === lastLimit) return; lastLimit = clave;
-  const tipo = ({ five_hour: 'de 5 horas', seven_day: 'semanal', seven_day_opus: 'semanal de Opus', seven_day_sonnet: 'semanal de Sonnet' } as any)[i.rateLimitType] ?? '';
-  const cuando = i.resetsAt ? ' Se renueva ' + new Date(i.resetsAt * (i.resetsAt < 1e12 ? 1000 : 1)).toLocaleString('es-ES', { weekday: 'long', hour: '2-digit', minute: '2-digit' }) + '.' : '';
-  broadcast({ t: 'aviso', nivel: i.status === 'rejected' ? 'error' : 'aviso', texto: i.status === 'rejected' ? `Claude ha llegado al límite de uso ${tipo}.${cuando}` : `Queda poco del límite de uso ${tipo} de Claude${i.utilization ? ` (${Math.round(i.utilization * 100)} %)` : ''}.${cuando}` });
+  const tipo = ({ five_hour: t('server.limit.fiveHour'), seven_day: t('server.limit.weekly'), seven_day_opus: t('server.limit.weeklyOpus'), seven_day_sonnet: t('server.limit.weeklySonnet') } as any)[i.rateLimitType] ?? '';
+  const renueva = i.resetsAt ? t('server.limit.renews', { cuando: new Date(i.resetsAt * (i.resetsAt < 1e12 ? 1000 : 1)).toLocaleString(locale(), { weekday: 'long', hour: '2-digit', minute: '2-digit' }) }) : '';
+  broadcast({ t: 'aviso', nivel: i.status === 'rejected' ? 'error' : 'aviso', texto: i.status === 'rejected' ? t('server.limit.reached', { tipo, renueva }) : t('server.limit.close', { tipo, renueva, pct: i.utilization ? ` (${Math.round(i.utilization * 100)} %)` : '' }) });
 });
 sesiones.on('turno', r => {
   // cada tarea terminada produce algo en el refugio: chatarra y, a veces, una pieza para la guía de campo
   if (r.estado === 'terminada' && r.turnTools > 0) {
     const p = taskReward(almacen, r.turnTools);
-    const quien = almacen.estado.habitantes.find(x => x.id === r.dwellerId)?.nombre ?? 'Alguien';
+    const quien = almacen.estado.habitantes.find(x => x.id === r.dwellerId)?.nombre ?? t('server.someone');
     broadcast({ t: 'estado', estado: almacen.estado as any });
-    broadcast({ t: 'aviso', nivel: 'info', texto: `${quien} ha terminado: +${p.scrap} de chatarra${p.pieza ? ` y ha encontrado ${p.pieza.nombre} (${p.pieza.rarity})` : ''}.` });
+    broadcast({ t: 'aviso', nivel: 'info', texto: p.pieza ? t('server.taskRewardPiece', { quien, n: p.scrap, pieza: tIs(p.pieza.nombre), rareza: tIs(p.pieza.rarity) }) : t('server.taskReward', { quien, n: p.scrap }) });
   }
   const h = almacen.estado.habitantes.find(x => x.id === r.dwellerId); if (h && r.claudeId) { h.lastSession = r.claudeId; almacen.guardar(); }
 });
@@ -277,11 +277,11 @@ async function subir(d: Record<string, any>, idsSes: string[]) {
   const idsTerm = d.remoto ? [] : d.todo ? terminales.abiertas().filter(t => !t.fuera).map(t => t.id) : lista(d.terminales).filter(id => terminales.existe(id));
   const avisos: string[] = [];
   const nombre = (hid: string) => almacen.estado.habitantes.find(h => h.id === hid)?.nombre ?? 'Habitante';
-  const roomOf = (cwd: string) => almacen.estado.salas.find(s => s.id === pathRoom(cwd))?.nombre ?? path.basename(cwd);
+  const roomOf = (cwd: string) => { const n = almacen.estado.salas.find(s => s.id === pathRoom(cwd))?.nombre; return n ? tIs(n) : path.basename(cwd); };
   // primero las terminales (al momento); las conversaciones que trabajan tardan un poco en pararse
   const terms: ItemDesktop[] = [];
-  if (idsTerm.length && !terminales.outsideAccepts()) avisos.push('Las terminales abiertas antes de esta actualización no se pueden sacar: ciérralas y vuelve a abrirlas.');
-  else for (const id of idsTerm) { const t = terminales.abiertas().find(x => x.id === id); if (t) terms.push({ titulo: `Terminal · ${roomOf(t.cwd)}`, comando: hookCommand(SHELTER, SOCKET_TERMINALS, id) }); }
+  if (idsTerm.length && !terminales.outsideAccepts()) avisos.push(t('server.oldTerminalsCannotGoOut'));
+  else for (const id of idsTerm) { const term = terminales.abiertas().find(x => x.id === id); if (term) terms.push({ titulo: t('server.surface.terminalTitle', { carpeta: roomOf(term.cwd) }), comando: hookCommand(SHELTER, SOCKET_TERMINALS, id) }); }
   let app = '';
   const abrir = async (items: ItemDesktop[], windowNew: boolean) => { try { app = await openInDesktop(items, { windowNew }); return true; } catch (e) { avisos.push((e as Error).message); return false; } };
   if (terms.length) await abrir(terms, !!d.windowNew);
@@ -297,9 +297,9 @@ async function subir(d: Record<string, any>, idsSes: string[]) {
     return { titulo, comando: resumeCommand(d.remoto ? { ...r, remoto: remoteName(rc.repo, r.titulo, rc.wt) } : r) };
   });
   if (conv.length && !(await abrir(conv, !!d.windowNew && !terms.length)))
-    avisos.push('Las conversaciones están guardadas: retómalas desde su habitante o con ' + taken.map(r => `claude --resume ${r.claudeId}`).join(', ') + '.');
+    avisos.push(t('server.conversationsSavedResume', { comandos: taken.map(r => `claude --resume ${r.claudeId}`).join(', ') }));
   if (d.remoto && conv.length) broadcast({ t: 'aviso', nivel: 'info', texto: t('server.remoteControlOpened', { app: app || 'iTerm' }) });
-  else if (terms.length || conv.length) broadcast({ t: 'aviso', nivel: 'info', texto: `A la superficie: ${[conv.length && `${conv.length} conversaci${conv.length > 1 ? 'ones' : 'ón'}`, terms.length && `${terms.length} terminal${terms.length > 1 ? 'es' : ''}`].filter(Boolean).join(' y ')} en ${app || 'tu escritorio'}.` });
+  else if (terms.length || conv.length) broadcast({ t: 'aviso', nivel: 'info', texto: t('server.surface.toTheSurface', { n: conv.length, m: terms.length, app: app || t('server.surface.yourDesktop') }) });
   for (const a of avisos) broadcast({ t: 'aviso', nivel: 'aviso', texto: a });
   return { sesiones: conv.length, terminales: terms.length, avisos, app };
 }
@@ -426,7 +426,7 @@ function visitantes(wts?: Map<string, string[]>): Visitante[] {
       const fuera = 'cwd' in tr;
       if ((fuera ? enJuego : propias).has(tr.id) || vistos.has(tr.id)) continue;
       vistos.add(tr.id);
-      out.push({ claudeId: tr.id, salaId: s.id, cwd: dir, titulo: 'Sesión en una terminal', modified: tr.modified, ...(dir !== s.ruta ? { worktree: dir } : {}) });
+      out.push({ claudeId: tr.id, salaId: s.id, cwd: dir, titulo: t('server.sessionInATerminal'), modified: tr.modified, ...(dir !== s.ruta ? { worktree: dir } : {}) });
     }
   }
   return out;
@@ -633,7 +633,7 @@ async function accion(nombre: string, d: Record<string, any> = {}): Promise<unkn
       if (!existsSync(ruta)) {
         if (!d.crear) throw new Error(t('server.thatFolderDoesNotExist'));
         const raiz = path.resolve(expand(e.raizRepos));
-        if (!ruta.startsWith(raiz + path.sep)) throw new Error('Las carpetas nuevas se crean dentro de la raíz de repos (' + e.raizRepos + ').');
+        if (!ruta.startsWith(raiz + path.sep)) throw new Error(t('server.newFoldersInsideRoot', { raiz: e.raizRepos }));
         await createFolder(ruta, !!d.git);
       }
       if (takenFolders(e).includes(ruta)) throw new Error(t('server.thatFolderAlreadyHasA'));
@@ -725,7 +725,7 @@ async function accion(nombre: string, d: Record<string, any> = {}): Promise<unkn
     case 'refugio.disposicionDeSerie': { almacen.cambiar(x => { x.salas = disposicionDeSerie(x.salas); }); broadcast({ t: 'estado', estado: almacen.estado as any }); return true; }
     // idioma de los textos (shared/idioma.ts): el cliente lo elige en Opciones y el servidor lo usa en sus avisos
     case 'idioma': {
-      if (!isLanguage(d.idioma)) throw new Error('Idioma desconocido.');
+      if (!isLanguage(d.idioma)) throw new Error(t('server.unknownLanguage'));
       setLanguage(d.idioma); almacen.cambiar(x => { x.idioma = d.idioma; });
       return true;
     }
@@ -845,7 +845,7 @@ async function accion(nombre: string, d: Record<string, any> = {}): Promise<unkn
       }
       if (nombre.startsWith('git.')) return (await import('./git.ts')).actionGit(nombre.slice(4), d, { allowedPath: gitPath, pathsRepos: gitPaths, alCambiar: () => refreshReposPronto(), github: connectionGitHub, ledger: url => revisionesPR.ledgerOf(url) });
       if (nombre.startsWith('archivos.')) return (await import('./archivos.ts')).filesAction(nombre.slice(9), d, { allowedRoots: filesRoots, alCambiar: () => refreshReposPronto() });
-      throw new Error('Acción desconocida: ' + nombre);
+      throw new Error(t('server.unknownAction', { nombre }));
   }
 }
 
@@ -906,7 +906,7 @@ function compileClient() {
   if (compiling) return Promise.reject(new Error(t('server.iAmAlreadyRebuildingThe')));
   return compiling = new Promise((ok, ko) => execFile(process.execPath, [path.join(RAIZ, 'scripts', 'huellas.cjs'), 'compilar'], { cwd: RAIZ, timeout: 240_000, maxBuffer: 16 * 1024 * 1024 }, (err, _out, errOut) => {
     compiling = null;
-    if (err) { broadcast({ t: 'aviso', nivel: 'error', texto: 'La compilación ha fallado: ' + String(errOut || err.message).split('\n').filter(Boolean).slice(-3).join(' · ') }); ko(err); return; }
+    if (err) { broadcast({ t: 'aviso', nivel: 'error', texto: t('server.buildFailed', { detalle: String(errOut || err.message).split('\n').filter(Boolean).slice(-3).join(' · ') }) }); ko(err); return; }
     ok(true);
   }));
 }
@@ -964,7 +964,7 @@ function checkServer() {
   return new Promise<void>((ok, ko) => execFile(process.execPath, [...process.execArgv.filter(a => !a.startsWith('--inspect')), path.join(RAIZ, 'server', 'main.ts')], { cwd: RAIZ, timeout: 60_000, env: { ...process.env, SHELTER_COMPROBAR: '1' } }, (err, _out, errOut) => {
     if (!err) { ok(); return; }
     const detalle = String(errOut || err.message).split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('at ')).slice(-4).join(' · ');
-    ko(new Error('No reinicio: el servidor nuevo no arranca. ' + detalle));
+    ko(new Error(t('server.noRestartNewServerFails', { detalle })));
   }));
 }
 
@@ -990,7 +990,7 @@ const pathsList = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string 
 // ws: quien lo pide (sin él, lo lanza el propio refugio: el reparto desde una sala de coordinación)
 async function startWork(ws: WebSocket | undefined, m: Extract<ClientMessage, { t: 'empezar' }>): Promise<string> {
   const e = almacen.estado;
-  if (typeof m.salaId !== 'string' || typeof m.dwellerId !== 'string' || typeof m.prompt !== 'string') throw new Error('Mensaje mal formado.');
+  if (typeof m.salaId !== 'string' || typeof m.dwellerId !== 'string' || typeof m.prompt !== 'string') throw new Error(t('server.malformedMessage'));
   m.opciones = m.opciones && typeof m.opciones === 'object' ? m.opciones : {};
   const sala = e.salas.find(s => s.id === m.salaId);
   if (!sala) throw new Error(t('server.thatRoomDoesNotExist'));
@@ -1065,7 +1065,7 @@ async function manejar(ws: WebSocket, m: ClientMessage) {
     case 'terminalEntrada': terminales.entrada(m.id, m.datos); break;
     case 'terminalTamano': terminales.tamano(m.id, m.cols, m.filas); break;
     case 'terminalCerrar': terminales.cerrar(m.id); break;
-    case 'salir': apagar('El Supervisor ha cerrado el refugio.'); break;
+    case 'salir': apagar(t('server.overseerClosedTheShelter')); break;
     case 'accion': {
       try { enviar(ws, { t: 'respuesta', peticion: m.peticion ?? '', datos: await accion(m.nombre, m.datos) }); }
       catch (err) { enviar(ws, { t: 'respuesta', peticion: m.peticion ?? '', error: (err as Error).message }); }
@@ -1118,7 +1118,7 @@ const servidor = http.createServer((req, res) => {
   const csp = `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://i.scdn.co; media-src 'self' blob:; font-src 'self' data:; connect-src 'self' blob: data: ws://127.0.0.1:${PUERTO} ws://localhost:${PUERTO}; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; frame-src 'self' http://127.0.0.1:* http://localhost:*`;
   const page = () => { const f = path.join(WEB, 'index.html'); if (!existsSync(f)) return false; res.writeHead(200, { 'Content-Type': TYPES['.html'], 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'X-Frame-Options': 'DENY', 'Content-Security-Policy': csp, 'Referrer-Policy': 'no-referrer' }); res.end(readFileSync(f, 'utf8')); return true; };
   if (existsSync(WEB) && (url === '/' || url === '/index.html' ? page() : (serve(req, res, WEB, url) || page()))) return;
-  res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }); res.end('El juego no está compilado. Ejecuta ./shelter');
+  res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }); res.end(t('server.notBuilt'));
 });
 
 const wss = new WebSocketServer({ noServer: true, maxPayload: 32 * 1024 * 1024 });

@@ -26,7 +26,7 @@ export function jiraTasks(j: any, sitio: string): TaskJira[] {
     const f = x.fields, cat = f.status?.statusCategory?.key;
     return {
       clave: x.key, titulo: f.summary ?? '', url: `https://${sitio}/browse/${x.key}`,
-      estado: f.status?.name ?? '¿?', categoria: (['new', 'indeterminate', 'done'].includes(cat) ? cat : 'indeterminate') as Category,
+      estado: f.status?.name ?? '?', categoria: (['new', 'indeterminate', 'done'].includes(cat) ? cat : 'indeterminate') as Category,
       tipo: f.issuetype?.name, prioridad: f.priority?.name, proyecto: f.project?.name, actualizada: Date.parse(f.updated) || 0,
     };
   });

@@ -1266,4 +1266,7 @@ export const PANELS: Record<string, Texto> = {
   'panels.shop': { es: 'Tienda', en: 'Shop' },
   'panels.records': { es: 'Récords', en: 'Records' },
   'panels.freshlyHarvested': { es: 'Recién cosechada en hidroponía.', en: 'Freshly harvested in hydroponics.' },
+  // project types from server/repos.ts (shown with tIs())
+  'panels.design': { es: 'diseño', en: 'design' },
+  'panels.desktop': { es: 'escritorio', en: 'desktop' },
 };

@@ -3,7 +3,7 @@
 // (sillón del pack estrechado: respaldo y brazos de verdad). Mitad derecha: cabina de proyección y montaje, con el
 // proyector colgado (bobinas que giran y haz visible hasta la pantalla), foco de estudio en trípode, mesa de montaje
 // con dos monitores y la claqueta, y el rack de render con sus pilotos.
-import { t } from '@shared/idioma';
+import { t, t as tr } from '@shared/idioma';
 import * as THREE from 'three';
 import { place, R } from '../../motor/assets';
 import { cartel, PhosphorScreen, PanelRoom, fotograma, TimeLine, lienzo, textureOf, SOURCES } from '../../motor/texturas';
@@ -78,7 +78,7 @@ function clapperboardTexture() {
   for (let i = -2; i < 12; i++) { g.fillStyle = i % 2 ? '#e8e2d4' : '#16161a'; g.beginPath(); g.moveTo(i * 26, 0); g.lineTo(i * 26 + 26, 0); g.lineTo(i * 26 + 8, 44); g.lineTo(i * 26 - 18, 44); g.fill(); }
   g.fillStyle = '#e8e2d4'; g.fillRect(0, 50, 256, 3); g.fillRect(0, 118, 256, 2); g.fillRect(128, 53, 2, 65);
   g.font = `700 22px ${SOURCES.rotulo}`; g.textBaseline = 'middle';
-  g.fillText('ESCENA', 12, 72); g.fillText('TOMA', 140, 72);
+  const [escena, toma] = tr('world.video.slate').split('|'); g.fillText(escena, 12, 72); g.fillText(toma, 140, 72);
   g.font = `800 42px ${SOURCES.titulo}`; g.fillText('1', 30, 100); g.fillText('3', 160, 100);
   g.font = `700 20px ${SOURCES.rotulo}`; g.fillText('PROMO 30 S', 12, 145); g.fillText('DIR. WORK-SHELTER', 12, 175);
   return textureOf(c);
@@ -202,7 +202,7 @@ export async function furnishProjection(ctx: Contexto) {
   await highBand(ctx, { gauge: 4.35, valves: [5.7], segments: [[5.2, 1.9]] });
   // cartel luminoso «RENDERIZANDO» sobre la mesa (se enciende cuando la sala trabaja)
   const { c, g: cxx } = lienzo(512, 128);
-  const paint = (on: boolean) => { cxx.fillStyle = '#140a0a'; cxx.fillRect(0, 0, 512, 128); cxx.strokeStyle = on ? '#ff4a3a' : '#4a2a2a'; cxx.lineWidth = 8; cxx.strokeRect(6, 6, 500, 116); cxx.fillStyle = on ? '#ff6a52' : '#4a2a2a'; cxx.shadowColor = '#ff4a3a'; cxx.shadowBlur = on ? 22 : 0; cxx.font = `800 64px ${SOURCES.titulo}`; cxx.textAlign = 'center'; cxx.textBaseline = 'middle'; cxx.fillText('RENDERIZANDO', 256, 68); cxx.shadowBlur = 0; };
+  const paint = (on: boolean) => { cxx.fillStyle = '#140a0a'; cxx.fillRect(0, 0, 512, 128); cxx.strokeStyle = on ? '#ff4a3a' : '#4a2a2a'; cxx.lineWidth = 8; cxx.strokeRect(6, 6, 500, 116); cxx.fillStyle = on ? '#ff6a52' : '#4a2a2a'; cxx.shadowColor = '#ff4a3a'; cxx.shadowBlur = on ? 22 : 0; cxx.font = `800 64px ${SOURCES.titulo}`; cxx.textAlign = 'center'; cxx.textBaseline = 'middle'; cxx.fillText(tr('world.video.rendering'), 256, 68); cxx.shadowBlur = 0; };
   paint(false); const texNotice = textureOf(c);
   const aviso = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 0.32), new THREE.MeshStandardMaterial({ map: texNotice, emissiveMap: texNotice, emissive: '#ffffff', emissiveIntensity: 1.0, color: '#000' }));
   aviso.position.set(MX, 3.55, zB + 0.4); g.add(aviso);
@@ -239,6 +239,6 @@ export async function furnishProjection(ctx: Contexto) {
     for (const b of coils) b.rotation.z -= dt * (trabajando || rolling > 0 ? 2.2 + rolling : 0.7);
     (rec.material as THREE.MeshBasicMaterial).color.set((trabajando || rolling > 0) && Math.sin(t * 5) > 0 ? '#ff3020' : '#2a0c0c');
     for (const f of pilotos) f(t, a);
-    if (trabajando && Math.random() < dt * (0.12 + a)) panel.lineas.push('> ' + ['fotograma ' + ((t * 30) % 900 | 0), 'audio sincronizado', 'codificando h264', 'previsualización lista'][Math.floor(Math.random() * 4)]);
+    if (trabajando && Math.random() < dt * (0.12 + a)) panel.lineas.push('> ' + tr('world.video.log', { n: (t * 30) % 900 | 0 }).split('|')[Math.floor(Math.random() * 4)]);
   });
 }

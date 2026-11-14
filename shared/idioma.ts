@@ -32,3 +32,22 @@ export function tIs(es: string, vars?: Record<string, string | number>): string 
   const k = spanishBy.get(es);
   return k ? t(k, vars) : vars ? t(es, vars) : es;
 }
+
+// A dweller's backstory: the initial cast's as a whole; a recruit's is two sentences (where they come from and a
+// quirk, shared/reclutas.ts), each looked up on its own
+export function trBio(bio: string): string {
+  const k = tIs(bio);
+  if (k !== bio || actual === 'es') return k;
+  return bio.split(/(?<=\.) /).map(s => tIs(s.replace(/\.$/, '')) + (s.endsWith('.') ? '.' : '')).join(' ');
+}
+
+// Locale for dates and numbers in the chosen language
+export const locale = () => (actual === 'en' ? 'en-GB' : 'es-ES');
+
+// A room's name as shown: a repo room's is its folder's; the service rooms and the Logistics wings ('Logística',
+// 'Logística <folder>') keep theirs as Spanish data
+export function roomNameIs(s: { tipo: string; nombre: string }): string {
+  if (s.tipo === 'repo') return s.nombre;
+  const m = /^Logística( .+)?$/.exec(s.nombre);
+  return m ? tIs('Logística') + (m[1] ?? '') : tIs(s.nombre);
+}

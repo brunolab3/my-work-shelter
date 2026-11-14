@@ -657,4 +657,13 @@ export const WINDOWS: Record<string, Texto> = {
   'windows.contextUsed': { es: 'Contexto: {p} % ocupado ({usados} de {maximo} tokens)', en: 'Context: {p} % used ({usados} of {maximo} tokens)' },
   'windows.tokensSpent': { es: '{n} tokens gastados en la conversación', en: '{n} tokens spent in the conversation' },
   'windows.nTokens': { es: '{n} tokens', en: '{n} tokens' },
+  // English mode leftovers (intercom, panels, client)
+  'windows.noConnection': { es: 'Sin conexión', en: 'No connection' },
+  'windows.noChrome': { es: 'sin Chrome', en: 'no Chrome' },
+  'windows.envVariables': { es: 'Variables de entorno', en: 'Environment variables' },
+  'windows.serverRestartedReopen': { es: 'El servidor del refugio se ha reiniciado: vuelve a abrir work-shelter con ./shelter (o recarga con el enlace nuevo).', en: 'The shelter server has restarted: open work-shelter again with ./shelter (or reload with the new link).' },
+  'windows.atlassianSecurityTokens': { es: 'id.atlassian.com → Seguridad → Tokens de API', en: 'id.atlassian.com → Security → API tokens' },
+  'windows.slackAppDescription': { es: 'Mando a distancia del refugio', en: 'Shelter remote control' },
+  'windows.callingTheElevator': { es: 'Llamando al ascensor…', en: 'Calling the elevator…' },
+  'windows.readyTitulo': { es: 'listo: {titulo}', en: 'done: {titulo}' },
 };

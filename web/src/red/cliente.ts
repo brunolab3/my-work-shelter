@@ -1,7 +1,7 @@
 // Conexión con el servidor local del refugio: WebSocket con reconexión, peticiones con respuesta y almacén de datos vivos.
 import type { ClientMessage, ServerMessage, SessionSummary, LogInput, InfoRepo, Visitante, MusicState, NoticeQuestion } from '@shared/protocolo';
 import { Store } from '../ui/almacen';
-import { t } from '@shared/idioma';
+import { t, roomNameIs } from '@shared/idioma';
 
 export interface LiveData {
   connected: boolean;
@@ -57,7 +57,7 @@ class Client {
     ws.onclose = () => {
       vivo.set(e => ({ connected: false, attempts: e.attempts + 1 }));
       // si el servidor responde pero el WebSocket se niega varias veces, es otro arranque (otro secreto): hay que recargar
-      if (vivo.get().attempts >= 4) fetch('/salud').then(r => { if (r.ok) vivo.set(e => ({ avisos: [...e.avisos.slice(-4), { id: Date.now(), nivel: 'error', texto: 'El servidor del refugio se ha reiniciado: vuelve a abrir work-shelter con ./shelter (o recarga con el enlace nuevo).' }] })); }).catch(() => {});
+      if (vivo.get().attempts >= 4) fetch('/salud').then(r => { if (r.ok) vivo.set(e => ({ avisos: [...e.avisos.slice(-4), { id: Date.now(), nivel: 'error', texto: t('windows.serverRestartedReopen') }] })); }).catch(() => {});
       const espera = Math.min(4000, 400 * (vivo.get().attempts + 1));
       setTimeout(() => this.conectar(), espera);
     };
@@ -101,7 +101,8 @@ class Client {
       case 'notificaciones': vivo.set({ notificaciones: m.lista }); break;
       case 'eventos': vivo.set({ eventos: m.lista }); break;
       case 'integracion': vivo.set(e => ({ integraciones: { ...e.integraciones, [m.id]: m.estado } })); break;
-      case 'estado': vivo.set({ estado: m.estado }); break;
+      // room names in the chosen language (the service rooms keep theirs as Spanish data)
+      case 'estado': vivo.set({ estado: m.estado?.salas ? { ...m.estado, salas: (m.estado.salas as any[]).map((s: any) => ({ ...s, nombre: roomNameIs(s) })) } : m.estado }); break;
       // los que preguntan no se pierden entre los demás: se quedan hasta contestarlos
       case 'aviso': vivo.set(e => ({ avisos: [...e.avisos.filter((a, i, l) => a.pregunta || i >= l.length - 4), { id: Date.now() + Math.random(), nivel: m.nivel, texto: m.texto, pregunta: m.pregunta }] })); break;
       case 'recargar': location.reload(); break;

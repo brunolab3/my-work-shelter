@@ -9,9 +9,9 @@ import { vivo, cliente } from '../../red/cliente';
 import { cruzarTablero, COLUMN_COLORS, type TaskWithPR, type TaskJira } from '@shared/tablero';
 import { taskColor, pRTask } from '@shared/tareas';
 import { aimColors, knowTasks, jiraBoard } from '../../ui/tareas';
-import { t as tr, tIs } from '@shared/idioma';
+import { t as tr, tIs, locale } from '@shared/idioma';
 
-const SOURCE_ICON: Record<string, string> = { outlook: 'CORREO', google: 'GMAIL', mail: 'MAIL', discord: 'DISCORD', slack: 'SLACK', github: 'GITHUB', linear: 'LINEAR' };
+const SOURCE_ICON: Record<string, string> = { outlook: tr('world.ops.mail'), google: 'GMAIL', mail: 'MAIL', discord: 'DISCORD', slack: 'SLACK', github: 'GITHUB', linear: 'LINEAR' };
 const SOURCE_INK: Record<string, string> = { outlook: '#c8bfa4', google: '#e6d28a', mail: '#c6bce6', discord: '#d39a6a', slack: '#ffb36b', github: '#b8c4d8', linear: '#9dffb8' };   // acero, paja, óxido, ámbar, niebla, fósforo
 
 // ---------------------------------------------------------------- comunicaciones
@@ -19,7 +19,7 @@ export async function furnishCommunications(ctx: Contexto) {
   const { g, v, zB, K, P, semilla } = ctx;
   await highBand(ctx, { reloj: 5.3, valves: [-2.0], segments: [[-3.6, 4.4], [4.1, 2.8]] });   // las tuberías no cruzan el tablón
   // pieza protagonista: la centralita de radio (consola grande con pantalla del feed y antenas en el techo)
-  const feed = new ListScreen('BANDEJA COMÚN', 768, 480, v.pantalla);
+  const feed = new ListScreen(tr('world.ops.commonInbox'), 768, 480, v.pantalla);
   const frameFeed = new THREE.Mesh(new THREE.BoxGeometry(3.3, 2.1, 0.1), new THREE.MeshStandardMaterial({ color: '#1a1a16', roughness: 0.6, metalness: 0.4 }));
   frameFeed.position.set(0.2, 2.68, zB + 0.36); g.add(frameFeed); ctx.aparato('tablon', frameFeed);
   const screenFeed = new THREE.Mesh(new THREE.PlaneGeometry(3.1, 1.9), new THREE.MeshStandardMaterial({ map: feed.tex, emissiveMap: feed.tex, emissive: '#ffffff', emissiveIntensity: 1.0, color: '#000' }));
@@ -30,8 +30,8 @@ export async function furnishCommunications(ctx: Contexto) {
   P(R.cy('Antenna_2'), { pos: [2.2, 3.9, zB + 0.9], alto: 0.6, sombra: false });
   // el puesto de escucha de Ondina, delante del tablón y un poco girado (se le ven las manos): mesa larga con los dos
   // módulos del transmisor de onda corta a los lados, el monitor de onda en medio, teclado y los cascos
-  const pWave = new PhosphorScreen(256, 320, v.pantalla, ' onda corta'); pWave.speed = 20;
-  pWave.escribir(['14.230 MHz', 'señal: buena', 'escuchando…']); ctx.sala.pantallas.push(pWave);
+  const pWave = new PhosphorScreen(256, 320, v.pantalla, tr('world.ops.shortwave')); pWave.speed = 20;
+  pWave.escribir(tr('world.ops.radioLines').split('|')); ctx.sala.pantallas.push(pWave);
   await workStation(ctx, { id: 'silla', x: 0.2, z: -0.95, giro: 0.28, mesa: R.mueble('desk_large'), deskScale: 0.8, pantalla: 'ordenador', tex: pWave.tex,
     encima: [{ ruta: R.sv('Radio'), x: -0.85, z: -0.12, c: { ancho: 0.72, rot: 0.08 } }, { ruta: R.sv('Radio'), x: 0.85, z: -0.12, c: { ancho: 0.66, rot: -0.12 } }, { ruta: R.mueble('lamp_desk_headphones'), x: 1.05, z: 0.3, c: { escala: K * 0.6, rot: -0.5 } }] });
   ctx.sala.obstacles.push(new THREE.Box2(new THREE.Vector2(-2.3, zB), new THREE.Vector2(-1.1, zB + 1.0)), new THREE.Box2(new THREE.Vector2(1.5, zB), new THREE.Vector2(2.7, zB + 1.0)));
@@ -41,7 +41,7 @@ export async function furnishCommunications(ctx: Contexto) {
   for (const [id, x] of [['tablon', -1.75], ['tablon-2', 2.15]] as const) ctx.sala.puntos.push({ id, tipo: 'pieza', pos: new THREE.Vector3(x, 0, zB + 1.55), giro: Math.atan2(0.2 - x, -1.0),
     acciones: [{ clip: 'Interact', onMake: revive }, { clip: 'Holding_A', utensil: 'diario', dur: 4 }, { clip: 'Use_Item', onMake: revive }] });
   const { c: cAir, g: gAir } = lienzo(384, 96);
-  const paintAir = (on: boolean) => { gAir.fillStyle = '#120b08'; gAir.fillRect(0, 0, 384, 96); gAir.strokeStyle = on ? '#ff4a3a' : '#4a2a2a'; gAir.lineWidth = 6; gAir.strokeRect(4, 4, 376, 88); gAir.fillStyle = on ? '#ff6a52' : '#5a3030'; gAir.shadowColor = '#ff4a3a'; gAir.shadowBlur = on ? 18 : 0; gAir.font = `800 52px ${SOURCES.titulo}`; gAir.textAlign = 'center'; gAir.textBaseline = 'middle'; gAir.fillText('EN EL AIRE', 192, 52); gAir.shadowBlur = 0; };
+  const paintAir = (on: boolean) => { gAir.fillStyle = '#120b08'; gAir.fillRect(0, 0, 384, 96); gAir.strokeStyle = on ? '#ff4a3a' : '#4a2a2a'; gAir.lineWidth = 6; gAir.strokeRect(4, 4, 376, 88); gAir.fillStyle = on ? '#ff6a52' : '#5a3030'; gAir.shadowColor = '#ff4a3a'; gAir.shadowBlur = on ? 18 : 0; gAir.font = `800 52px ${SOURCES.titulo}`; gAir.textAlign = 'center'; gAir.textBaseline = 'middle'; gAir.fillText(tr('world.ops.onAir'), 192, 52); gAir.shadowBlur = 0; };
   paintAir(false); const texAir = textureOf(cAir);
   const aire = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 0.28), new THREE.MeshStandardMaterial({ map: texAir, emissiveMap: texAir, emissive: '#ffffff', emissiveIntensity: 1.1, color: '#000' }));
   aire.position.set(-2.95, 3.05, zB + 1.0); aire.renderOrder = 2; g.add(aire);   // por delante de tuberías y consolas, siempre a la vista
@@ -58,7 +58,7 @@ export async function furnishCommunications(ctx: Contexto) {
   P(R.sf('Props_Vessel_Tall'), { pos: [-3.2, 0, zB + 0.5], alto: 2.2 });
   P(R.sf('Details_Pipes_Long'), { pos: [-3.2, 2.2, zB + 0.45], alto: 2.0, variant: ctx.vCopper, sombra: false });
   // derecha: monitores de canales (Discord y Slack) y sofá de espera
-  const chats = new ListScreen('CANALES', 512, 320, v.pantalla);
+  const chats = new ListScreen(tr('world.ops.channels'), 512, 320, v.pantalla);
   await monitorWall(ctx, 4.3, 2.3, 1.25, chats.tex, 1.1);
   P(R.casa('Couch_Small2'), { pos: [4.6, 0, zB + 0.9], alto: 1.0, rot: -0.2 });
   ctx.sala.obstacles.push(new THREE.Box2(new THREE.Vector2(3.4, zB), new THREE.Vector2(6, zB + 2.0)));
@@ -111,7 +111,7 @@ export async function furnishPlanning(ctx: Contexto) {
     acciones: [{ clip: 'Interact', onMake: revive }, { clip: 'Holding_A', utensil: 'diario', dur: 4 }, { clip: 'Use_Item', onMake: revive }] });
   ctx.alActualizar(dt => { revives = Math.max(0, revives - dt); (tabla.material as THREE.MeshStandardMaterial).emissiveIntensity = 0.12 + revives * 0.22; });
   // derecha: archivador, monitor con la agenda de hoy y planta
-  const agenda = new ListScreen('HOY', 512, 320, v.pantalla);
+  const agenda = new ListScreen(tr('world.tex.today'), 512, 320, v.pantalla);
   await monitorWall(ctx, 3.0, 1.75, 1.15, agenda.tex, 1.1);
   await workStation(ctx, { id: 'silla', x: 3.45, z: -0.7, giro: -0.8, tex: agenda.tex, brillo: 1.0,
     encima: [{ ruta: R.herr('journal_open'), x: -0.68, z: 0.2, c: { escala: K * 0.45, rot: -0.3 } }, { ruta: R.mueble('cup_pencils'), x: 0.75, z: -0.2, c: { escala: K * 0.6 } }] });
@@ -133,7 +133,7 @@ export async function furnishPlanning(ctx: Contexto) {
   ctx.sparks = new THREE.Vector3(3.2, 1.0, zB + 1.0);
   ctx.lamparas = [{ x: -4.7, z: 0.4, o: { intensidad: 80 } }, { x: -1.2, z: 0.9, o: { intensidad: 100, sombra: true, corta: true, goal: [-1.2, -0.4] } }, { x: 3.6, z: 0.5, o: { intensidad: 80 } }];
   ctx.vapor = { pos: new THREE.Vector3(4.7, 3.15, zB + 0.85), dir: new THREE.Vector3(0.3, 0.9, 0.3) };
-  const fmt = new Intl.DateTimeFormat('es-ES', { hour: '2-digit', minute: '2-digit' });
+  const fmt = new Intl.DateTimeFormat(locale(), { hour: '2-digit', minute: '2-digit' });
   ctx.alActualizar(() => {
     reloj.actualizar();
     const ev: any[] = vivo.get().eventos ?? [];
@@ -166,11 +166,11 @@ export async function furnishLogistics(ctx: Contexto) {
   screen.userData.interactivo = 'tablero'; screen.userData.vista = 'jira';   // un clic en la pantalla abre directamente el tablero de Jira (refugio.ts, clic)
   // a la derecha, la consola de pie frente a la pantalla; a la izquierda, el puesto del jefe de logística (mesa de tres
   // cuartos con su monitor de incidencias)
-  const pIssues = new PhosphorScreen(256, 256, v.pantalla); pIssues.speed = 18; pIssues.escribir(['issues: 14', 'en curso: 5', 'bloqueadas: 1']); ctx.sala.pantallas.push(pIssues);
+  const pIssues = new PhosphorScreen(256, 256, v.pantalla); pIssues.speed = 18; pIssues.escribir(tr('world.ops.issuesDemo').split('|')); ctx.sala.pantallas.push(pIssues);
   const c = await place(g, R.sf('Props_ComputerSmall'), { pos: [3.0, 0, zB + 1.3], alto: 1.45, rot: -0.5, estatico: false });
   overlayScreen(c, /^Black$/, pIssues.tex, { brillo: 1.2, margin: 0.9 });
   ctx.sala.obstacles.push(new THREE.Box2(new THREE.Vector2(2.55, zB + 0.8), new THREE.Vector2(3.45, zB + 1.75)));
-  const pMias = new PhosphorScreen(384, 256, v.pantalla, ' mis incidencias'); pMias.speed = 18; pMias.escribir(['por hacer: 5', 'en curso: 3', 'en revisión: 3']); ctx.sala.pantallas.push(pMias);
+  const pMias = new PhosphorScreen(384, 256, v.pantalla, tr('world.ops.myIssues')); pMias.speed = 18; pMias.escribir(tr('world.ops.myIssuesDemo').split('|')); ctx.sala.pantallas.push(pMias);
   await workStation(ctx, { id: 'puesto', x: -3.05, z: -0.7, giro: 0.8, tex: pMias.tex, silla: R.mueble('chair_desk_A'),
     encima: [{ ruta: R.mueble('mug_A'), x: -0.72, z: 0.2, c: { escala: K * 0.7 } }, { ruta: R.herr('journal_closed'), x: 0.7, z: -0.1, c: { escala: K * 0.45, rot: 0.5 } }] });
   // mesa táctica con holograma (el ciclo actual) y consolas grandes a los lados
@@ -235,10 +235,10 @@ export async function furnishLogistics(ctx: Contexto) {
       const fichas = ns.map(n => ({ id: n.canal ?? 'REF', titulo: (/«([^»]+)»/.exec(n.fragmento ?? '')?.[1]) ?? n.fragmento ?? n.titulo, prioridad: n.prioridad === 'alta' ? 1 : n.prioridad === 'media' ? 2 : 3, txt: n.fragmento ?? '' }));
       const col = (re: RegExp) => fichas.filter(f => re.test(f.txt));
       tablero.poner([
-        { nombre: 'Por hacer', fichas: col(/asignad|nueva|creado/i) },
-        { nombre: 'En curso', fichas: fichas.filter(f => !/asignad|nueva|creado|revisi/i.test(f.txt)) },
-        { nombre: 'En revisión', fichas: col(/revisi/i) },
-      ], { nombre: 'Ciclo 14', progreso: 62 });
+        { nombre: tIs('Por hacer'), fichas: col(/asignad|nueva|creado/i) },
+        { nombre: tIs('En curso'), fichas: fichas.filter(f => !/asignad|nueva|creado|revisi/i.test(f.txt)) },
+        { nombre: tIs('En revisión'), fichas: col(/revisi/i) },
+      ], { nombre: tr('world.ops.cycleN', { n: 14 }), progreso: 62 });
     }
     (screen.material as THREE.MeshStandardMaterial).emissiveIntensity = 0.95 + Math.sin(t * 11) * 0.03;
   });
