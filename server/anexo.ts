@@ -1,6 +1,7 @@
 // Lo que se añade al prompt de sistema de cada habitante (server/sesiones.ts): se carga en cada conversación, así que
 // es corto y solo lleva lo que el juego no puede hacer por sí mismo. Su tamaño lo vigila test/contexto.test.ts.
 import { t } from '../shared/idioma.ts';
+import { isLeisureRoom } from '../shared/sectores.ts';
 
 export const ANNEX = [
   'You are being driven from «work-shelter», a vault-management game UI where the user (the Overseer) talks to you through a dweller character.',
@@ -38,3 +39,8 @@ export const annexGit = (repos: string[]) => [
 // another assistant): hidden from every dweller session with skillOverrides, so they don't take context. The user's
 // own sessions outside the game keep them.
 export const HIDDEN_SKILLS = ['anthropic-skills:built-in-browser', 'anthropic-skills:computer-use', 'anthropic-skills:import-memory'];
+
+// Rooms whose dwellers don't need the user's claude.ai work connectors (Jira, Datadog, Slack…): the Command Bridge works
+// on the game's own code and the leisure floor is for fun. Turned off there with disableClaudeAiConnectors, which saves
+// their tool lists in every conversation of those rooms; the other rooms keep them.
+export const withoutWorkConnectors = (salaId: string) => salaId === 'puente' || isLeisureRoom(salaId);

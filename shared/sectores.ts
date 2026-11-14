@@ -37,6 +37,8 @@ const SECTOR_TYPE: Record<string, IdSector> = {
   puerta: 'acceso', discoteca: 'ocio', camara: 'mando', puente: 'mando', comunicaciones: 'enlace', planificacion: 'enlace', logistica: 'enlace', git: 'enlace',
   hidroponia: 'ocio', galeria: 'ocio', chapa: 'ocio',
 };
+/** A stock leisure room (disco, crops, shooting gallery, body shop), by its id */
+export const isLeisureRoom = (id: string) => SECTOR_TYPE[id] === 'ocio';
 // la sala de planificación de serie es de coordinación (tipo de repo) pero está en enlace, con los tableros (por su id);
 // un repo sin área todavía (antes de sanear el estado), backend
 export const sectorOf = (tipo: string, id?: string, area?: string): Sector =>

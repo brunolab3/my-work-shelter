@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { TEXTS } from '../shared/textos.ts';
-import { ANNEX, bridgeAnnex, annexGit, HIDDEN_SKILLS } from '../server/anexo.ts';
+import { ANNEX, bridgeAnnex, annexGit, HIDDEN_SKILLS, withoutWorkConnectors } from '../server/anexo.ts';
 
 const raiz = path.resolve(__dirname, '..');
 const largo = (k: string) => Math.max(TEXTS[k].es.length, TEXTS[k].en?.length ?? 0);
@@ -34,5 +34,9 @@ describe('contexto de cada sesión', () => {
   it('the claude.ai skills hidden from dwellers use their plugin-qualified name (the plain name is silently ignored)', () => {
     expect(HIDDEN_SKILLS.length).toBeGreaterThan(0);
     for (const n of HIDDEN_SKILLS) expect(n).toMatch(/^anthropic-skills:[a-z-]+$/);
+  });
+  it('the Command Bridge and the leisure rooms go without the claude.ai work connectors; work rooms keep them', () => {
+    expect(['puente', 'discoteca', 'hidroponia', 'galeria', 'chapa'].every(withoutWorkConnectors)).toBe(true);
+    expect(['logistica', 'tareas', 'comunicaciones', 'planificacion', 'git', 'camara', 'puerta', 'fever2', 'b2b-iam'].some(withoutWorkConnectors)).toBe(false);
   });
 });
