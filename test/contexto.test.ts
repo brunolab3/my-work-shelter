@@ -37,6 +37,6 @@ describe('contexto de cada sesión', () => {
   });
   it('the Command Bridge and the leisure rooms go without the claude.ai work connectors; work rooms keep them', () => {
     expect(['puente', 'discoteca', 'hidroponia', 'galeria', 'chapa'].every(withoutWorkConnectors)).toBe(true);
-    expect(['logistica', 'tareas', 'comunicaciones', 'planificacion', 'git', 'camara', 'puerta', 'fever2', 'b2b-iam'].some(withoutWorkConnectors)).toBe(false);
+    expect(['logistica', 'tareas', 'comunicaciones', 'planificacion', 'git', 'camara', 'puerta', 'tienda', 'api-pagos'].some(withoutWorkConnectors)).toBe(false);
   });
 });
