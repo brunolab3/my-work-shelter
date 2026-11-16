@@ -30,6 +30,7 @@ const MAX_BY_ROOM = 30;   // alto a propósito: son intangibles, si no caben se 
 const COLOR = new THREE.Color('#58e6ff'), COLOR_FAULT = new THREE.Color('#ff6a4a');
 const BASE = 1.0;         // projector width
 const Z_SPOT = BACKGROUND / 2 - BASE / 2;   // on the room's front edge: the projector reaches the lip
+const HOLO_SCALE = 0.7;   // smaller than their author, so they don't cover the faces of whoever stands nearby
 const TECHO = 3.5;        // de dónde baja el tubo que trae el proyector (sobre el suelo de la sala)
 const tiempo = { value: 0 };
 
@@ -226,6 +227,7 @@ export class Holograms {
     if (this.figuras.get(w.ruta) !== f) return;
     for (const o of [p.modelo, f.portatil, f.pantallas]) holograph(o, u);
     p.contactShadow.visible = false;
+    p.raiz.scale.setScalar(HOLO_SCALE);   // the root's pivot is at the feet: it shrinks standing on its projector
     p.raiz.name = 'holograma:' + w.ruta;
     // recién creada con el refugio ya en marcha: el proyector baja por su tubo, su autor lo monta y ella aparece encima
     const inHot = effect && performance.now() - this.desde > 8000;

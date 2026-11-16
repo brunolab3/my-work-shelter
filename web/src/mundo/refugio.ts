@@ -863,7 +863,7 @@ export class Refugio {
   private apuntar(ndc: THREE.Vector2): { tipo: 'habitante'; h: Habitante } | { tipo: 'copia'; f: Copia } | { tipo: 'aparato'; sala: Sala; it: Interactive; vista?: string } | { tipo: 'ascensor'; planta: number } | { tipo: 'suelo'; p: THREE.Vector3; sala?: Sala; planta: number } | null {
     this.rayo.setFromCamera(ndc, this.motor.camera);
     const tocar = (caja: THREE.Box3) => { const p = this.rayo.ray.intersectBox(caja, new THREE.Vector3()); return p ? p.distanceTo(this.rayo.ray.origin) : Infinity; };
-    const cuerpo = (c: THREE.Vector3) => new THREE.Box3(new THREE.Vector3(c.x - 0.45, c.y, c.z - 0.45), new THREE.Vector3(c.x + 0.45, c.y + 1.9, c.z + 0.45));
+    const cuerpo = (c: THREE.Vector3, k = 1) => new THREE.Box3(new THREE.Vector3(c.x - 0.45 * k, c.y, c.z - 0.45 * k), new THREE.Vector3(c.x + 0.45 * k, c.y + 1.9 * k, c.z + 0.45 * k));
     // ¿un habitante? (caja aproximada del cuerpo)
     let mejor: Habitante | null = null, tmin = Infinity;
     for (const h of this.habitantes) { if (!h.p.raiz.visible) continue; const t = tocar(cuerpo(h.p.raiz.position)); if (t < tmin) { tmin = t; mejor = h; } }
@@ -871,7 +871,7 @@ export class Refugio {
     let copia: Copia | null = null;
     for (const f of this.hologramas.figuras.values()) {
       if (!f.listo || f.leaving) continue;
-      const t = tocar(cuerpo(f.p.raiz.position)); if (t < tmin) { tmin = t; copia = f; mejor = null; }
+      const t = tocar(cuerpo(f.p.raiz.position, f.p.raiz.scale.y)); if (t < tmin) { tmin = t; copia = f; mejor = null; }
     }
     // ¿un aparato? Lo que se ve de él (el tablero, la pantalla, el sillón); si la sala no lo ha medido, lo que tiene
     // detrás hasta la pared
