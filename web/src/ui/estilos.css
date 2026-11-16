@@ -537,6 +537,8 @@ a.miniatura:hover img { box-shadow: 0 0 0 1px #ffc96b, 0 0 10px rgba(255,179,71,
 .barra-asomo-fila .piloto { width: 8px; height: 8px; box-shadow: none; }
 .barra-asomo-fila small, .barra-asomo-estado { color: var(--crema-tenue); }
 .barra-asomo-fila.urgente .barra-asomo-estado { color: #ffb000; }
+/* COM popup: conversation titles stay green once read; unread ones also go bold, urgent ones keep cream */
+.barra-asomo:not(.consola-quien-lista) .barra-asomo-fila:not(.urgente) .barra-asomo-titulo { color: #9dffb8; }
 .barra-asomo-fila.sin-leer .barra-asomo-titulo { color: #9dffb8; font-weight: 700; }
 .barra-asomo-titulo { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .barra-fila { display: flex; align-items: center; gap: .45em; max-width: 100%; padding: 3px; overflow-x: auto; scrollbar-width: none; }
