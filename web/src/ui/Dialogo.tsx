@@ -375,7 +375,7 @@ function TalkerBust({ x }: { x: DwellerSummary }) {
   }, [clave]);
   const tarea = x.copia ? worktreeTask(x.copia) : undefined;
   useEffect(() => { if (tarea) knowTasks([tarea]); }, [tarea]);
-  const tono = x.copia ? (tarea ? taskColor(tarea) : '#58e6ff') : undefined;
+  const tono = x.copia ? taskColor(tarea) : undefined;
   return <span className={'consola-quien-foto' + (x.copia ? ' holo' : '')} style={tono ? { '--tono': tono } as React.CSSProperties : undefined} aria-hidden>{url && <img src={url} alt="" draggable={false} />}</span>;
 }
 

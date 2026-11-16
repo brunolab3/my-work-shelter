@@ -137,17 +137,27 @@ export function remoteName(repo: string, titulo: string, wt?: { ruta: string; ra
   return `${repo}:${tarea ?? (titulo.trim() || 'work-shelter')}`;
 }
 
-// La paleta de las tareas: 16 colores bien distintos (sin rojos, que son avería y bloqueos, ni el cian de serie de los
-// hologramas), en un orden en el que cada uno se aleja de los anteriores. El servidor da a cada tarea nueva el que menos
-// se usa entre las recientes y lo guarda (server/coloresTareas.ts): así dos tareas a la vez casi nunca comparten color.
+// The tasks' palette: 16 well-distinct colors (no reds, which mean faults and blocks, nor NO_TASK_COLOR), ordered so each
+// one moves away from the previous ones. The server gives each new task the least used among recent ones and saves it
+// (server/coloresTareas.ts): so two tasks at a time almost never share a color.
 export const TASKS_PALETTE = ['#ffd23f', '#c77dff', '#4dabff', '#7bff5d', '#ff8fd1', '#ff9f43', '#00c896', '#a0a8ff',
   '#f5f5a0', '#ff6fff', '#2f7dff', '#b8ff9f', '#d9a066', '#e0b0ff', '#3ee0b0', '#ffb3a0'];
 
 /** Los colores ya asignados (los manda el servidor; web/src/ui/tareas.ts los pide para las tareas que se ven) */
 export const assignedColors = new Map<string, string>();
 
-/** El color de una tarea: el asignado o, hasta que llegue, uno de la paleta por la clave */
-export function taskColor(clave: string): string {
+/** The color of everything that isn't a board task (slug tasks, worktrees without a task): the holograms' cyan, outside
+ *  the palette so it's never taken for a real task's */
+export const NO_TASK_COLOR = '#58e6ff';
+
+/** Whether a key gets a task color: Jira keys (and PR-12) do, from the palette; descriptive slugs don't, so they never
+ *  share a color with a board task */
+export const hasTaskColor = (clave: string | undefined): clave is string => !!clave && isJiraKey(clave);
+
+/** A task's color: the assigned one or, until it arrives, one from the palette by its key; NO_TASK_COLOR for keys
+ *  without a task color */
+export function taskColor(clave: string | undefined): string {
+  if (!hasTaskColor(clave)) return NO_TASK_COLOR;
   const k = clave.toUpperCase();
   const ya = assignedColors.get(k); if (ya) return ya;
   let h = 2166136261;

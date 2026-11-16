@@ -13,8 +13,7 @@ describe('colores de las tareas guardados', () => {
     expect(new TasksColors(dir).colores(['REF-240'], t0)).toEqual({ 'REF-240': TASKS_PALETTE[2] });
     // tres semanas después solo sigue REF-240 (vista hace poco): la nueva toma el primer color libre
     expect(c.colores(['REF-240', 'XYZ-1'], t0 + 21 * 86_400_000)).toEqual({ 'REF-240': TASKS_PALETTE[2], 'XYZ-1': TASKS_PALETTE[0] });
-    // a slug key too (stored uppercased, like taskColor and the client): it survives a restart
-    const slug = c.colores(['preflight-popover'], t0 + 21 * 86_400_000);
-    expect(new TasksColors(dir).colores(['PREFLIGHT-POPOVER'], t0 + 21 * 86_400_000)).toEqual(slug);
+    // slug keys take no color, so they don't use up the palette
+    expect(c.colores(['preflight-popover', 'XYZ-2'], t0 + 21 * 86_400_000)).toEqual({ 'XYZ-2': TASKS_PALETTE[1] });
   });
 });

@@ -21,14 +21,14 @@ import { SFX } from '../audio/sonido';
 import { SHOP } from '@shared/catalogo';
 import { t, tIs } from '@shared/idioma';
 import type { InfoWorktree, SessionSummary } from '@shared/protocolo';
-import { taskColor, worktreeTask } from '@shared/tareas';
+import { taskColor, hasTaskColor, worktreeTask, NO_TASK_COLOR } from '@shared/tareas';
 import { jiraBoard, knowTasks, versionColors } from '../ui/tareas';
 import type { DwellerState, DwellerSummary } from '../ui/estadoJuego';
 import { idCopy, branchCaption, copyCaption, pathWorktree } from '../ui/copias';
 import { holoSlot } from './sitioCopia';
 
 const MAX_BY_ROOM = 30;   // alto a propósito: son intangibles, si no caben se solapan sin estorbar
-const COLOR = new THREE.Color('#58e6ff'), COLOR_FAULT = new THREE.Color('#ff6a4a');
+const COLOR = new THREE.Color(NO_TASK_COLOR), COLOR_FAULT = new THREE.Color('#ff6a4a');
 const BASE = 1.0;         // projector width
 const Z_SPOT = BACKGROUND / 2 - BASE / 2;   // on the room's front edge: the projector reaches the lip
 const HOLO_SCALE = 0.7;   // smaller than their author, so they don't cover the faces of whoever stands nearby
@@ -509,7 +509,7 @@ export class Holograms {
     const t = worktreeTask(f.w), v = versionColors.get().v;
     if (t === f.tarea && f.versionTone === v) return;
     if (t !== f.tarea) knowTasks([t]);
-    f.tarea = t; f.versionTone = v; f.tone = t ? new THREE.Color(taskColor(t)) : COLOR;
+    f.tarea = t; f.versionTone = v; f.tone = hasTaskColor(t) ? new THREE.Color(taskColor(t)) : COLOR;
   }
   summaries(): DwellerSummary[] {
     return [...this.figuras.values()].map(f => {
@@ -531,7 +531,7 @@ export class Holograms {
       const git = f.w.cambios ? t('windows.nChanges', { n: f.w.cambios }) : f.w.advanced ? t('windows.nCommitsToMerge', { n: f.w.advanced }) : t('panels.clean2');
       const detalle = !cerca ? '' : f.estado === 'ocioso' ? git : f.detalle.slice(0, 48);
       const autor = this.r.habitantes.find(h => h.id.id === f.authorId);
-      return { k: f, pos: f.p.headPoint(), alto: 0.2, nombre: `${autor?.id.nombre ?? t('world.copy')} ◇ ${copyCaption(f.w, f.tarea ?? branchCaption(f.w.rama))}`, color: f.tarea ? taskColor(f.tarea) : undefined, estado: f.estado, detalle, cerca: elegida, lejos, prompt: elegida ? t('world.talk') : '', tecla: f === selected ? 'E' : t('world.click'), apuntado: f === aimed && f !== selected, relevant: cerca || elegida || f.estado !== 'ocioso' };
+      return { k: f, pos: f.p.headPoint(), alto: 0.2, nombre: `${autor?.id.nombre ?? t('world.copy')} ◇ ${copyCaption(f.w, f.tarea ?? branchCaption(f.w.rama))}`, color: hasTaskColor(f.tarea) ? taskColor(f.tarea) : undefined, estado: f.estado, detalle, cerca: elegida, lejos, prompt: elegida ? t('world.talk') : '', tecla: f === selected ? 'E' : t('world.click'), apuntado: f === aimed && f !== selected, relevant: cerca || elegida || f.estado !== 'ocioso' };
     }).filter(x => x.relevant);
   }
 }

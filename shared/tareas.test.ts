@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { TASKS_PALETTE, assignColors, textKey, taskColor, pRTask, worktreeTask, taskCaption, remoteName, worktreePRs, newWorktreeOf, taskWorktreeIn, handMadeWorktree, ghCreateOf, githubRepoOf, ORIGINAL_REPO, taskKey, isJiraKey, slugKeyOf, worktreeHasTask } from './tareas';
+import { TASKS_PALETTE, NO_TASK_COLOR, hasTaskColor, assignedColors, assignColors, textKey, taskColor, pRTask, worktreeTask, taskCaption, remoteName, worktreePRs, newWorktreeOf, taskWorktreeIn, handMadeWorktree, ghCreateOf, githubRepoOf, ORIGINAL_REPO, taskKey, isJiraKey, slugKeyOf, worktreeHasTask } from './tareas';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, realpathSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
@@ -48,6 +48,20 @@ describe('tareas y su color', () => {
   it('sin asignar, un color de la paleta por la clave (sin importar mayúsculas)', () => {
     expect(taskColor('abc-1')).toBe(taskColor('ABC-1'));
     expect(TASKS_PALETTE).toContain(taskColor('REF-236'));
+  });
+  it('only Jira keys (and PR-12) get a task color: slugs and keyless worktrees share the default, outside the palette', () => {
+    expect(TASKS_PALETTE).not.toContain(NO_TASK_COLOR);
+    expect(hasTaskColor('REF-236')).toBe(true);
+    expect(hasTaskColor('PR-12')).toBe(true);
+    expect(hasTaskColor('preflight-popover')).toBe(false);
+    expect(hasTaskColor(undefined)).toBe(false);
+    expect(taskColor('preflight-popover')).toBe(NO_TASK_COLOR);
+    expect(taskColor(worktreeTask({ ruta: '/r/.claude/worktrees/shelter-intercom-tab-list-in-bar--qlr0' }))).toBe(NO_TASK_COLOR);
+    expect(taskColor(undefined)).toBe(NO_TASK_COLOR);
+    // not even a stale assignment gives a slug a color
+    assignedColors.set('PREFLIGHT-POPOVER', TASKS_PALETTE[0]);
+    expect(taskColor('preflight-popover')).toBe(NO_TASK_COLOR);
+    assignedColors.delete('PREFLIGHT-POPOVER');
   });
   it('las nuevas reciben el color menos usado: 16 tareas, 16 colores distintos; la 17.ª repite el primero libre', () => {
     const claves = Array.from({ length: 17 }, (_, i) => 'REF-' + (200 + i * 3));
