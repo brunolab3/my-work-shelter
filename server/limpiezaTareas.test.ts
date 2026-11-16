@@ -3,7 +3,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, existsSync, realpathSync, rename
 import { execFileSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
-import { finishedTasks, leftovers, untracked, TasksCleanup, type RoomCleanup, type CtxCleanup, type Leftover } from './limpiezaTareas.ts';
+import { finishedTasks, orphanedConversations, leftovers, untracked, TasksCleanup, type RoomCleanup, type CtxCleanup, type Leftover } from './limpiezaTareas.ts';
 import type { PRBoard } from '../shared/tablero.ts';
 import type { InfoWorktree, SessionSummary } from '../shared/protocolo.ts';
 
@@ -61,6 +61,20 @@ function repo() {
   return { base, remoto, sala, wt };
 }
 const infoWt = (ruta: string, rama = 'ref-212-barra') => wt(ruta, rama);
+
+describe('orphanedConversations', () => {
+  const ses = (id: string, cwd: string, extra: Partial<SessionSummary> = {}) => ({ id, cwd, estado: 'terminada', sinLeer: false, ...extra }) as SessionSummary;
+  const gone = '/r/express/.claude/worktrees/gone', alive = '/r/express/.claude/worktrees/alive';
+  const exists = (ruta: string) => ruta !== gone;
+  it('closes the idle, read ones of a removed worktree, also from a subfolder', () => {
+    const out = orphanedConversations([ses('a', gone), ses('b', gone + '/web', { estado: 'ociosa' }), ses('c', alive), ses('d', '/r/express')], new Set(), exists);
+    expect(out).toEqual(['a', 'b']);
+  });
+  it('keeps the ones working, waiting, unread or in use in the intercom', () => {
+    const out = orphanedConversations([ses('a', gone, { estado: 'trabajando' }), ses('b', gone, { estado: 'esperando' }), ses('c', gone, { sinLeer: true }), ses('d', gone), ses('e', gone, { estado: 'cerrada' })], new Set(['d']), exists);
+    expect(out).toEqual([]);
+  });
+});
 
 describe('leftovers (git de verdad)', () => {
   it('nada, con todo subido; cambios sin commit, stash de su rama y commits sin subir, sí', async () => {

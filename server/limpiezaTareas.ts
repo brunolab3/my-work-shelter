@@ -65,6 +65,17 @@ export async function leftovers(git: (cwd: string, args: string[]) => Promise<st
   return out;
 }
 
+/** Open conversations whose worktree (.claude/worktrees/<name>) no longer exists, merged and removed by hand or by a
+ *  session: they close like any other, so their hologram goes with them. Only idle and read ones, and none in use in the
+ *  intercom (`used`: on screen, or with something typed or attached); the rest keep their hologram until then */
+export function orphanedConversations(sesiones: SessionSummary[], used: Set<string>, exists: (ruta: string) => boolean): string[] {
+  return sesiones.filter(s => {
+    if (!['terminada', 'ociosa', 'error'].includes(s.estado) || s.sinLeer || used.has(s.id)) return false;
+    const raiz = /^(.*\/\.claude\/worktrees\/[^/]+)/.exec(s.worktree ?? s.cwd)?.[1];
+    return !!raiz && !exists(raiz);
+  }).map(s => s.id);
+}
+
 /** Los archivos y carpetas que git no sigue (ni ignora) en el worktree, en absoluto */
 export async function untracked(git: (cwd: string, args: string[]) => Promise<string>, ruta: string): Promise<string[]> {
   const top = (await git(ruta, ['rev-parse', '--show-toplevel'])).trim();

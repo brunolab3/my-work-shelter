@@ -28,7 +28,7 @@ import { cachedPRs, cachedTaskPRs, preflightOf, PageReviews, gatePush, preflight
 import { checklistFromClaudeMd } from '../shared/preflight.ts';
 import type { PRBoard } from '../shared/tablero.ts';
 import { bloqueosEntre, pRKey } from '../shared/despliegue.ts';
-import { TasksCleanup } from './limpiezaTareas.ts';
+import { TasksCleanup, orphanedConversations } from './limpiezaTareas.ts';
 import { entornoGit } from './entornoGit.ts';
 import { captureRoom } from './capturaSala.ts';
 import { baseStock } from '../shared/decorado.ts';
@@ -439,10 +439,11 @@ setInterval(() => broadcast({ t: 'visitantes', visitantes: visitantes() }), 15_0
 // las sesiones terminadas, leídas y quietas media hora se cierran solas (la conversación queda para retomarla)
 // y nunca hay más de 12 procesos de Claude Code vivos: se cierran las terminadas más antiguas (aunque no se hayan leído).
 // Nunca las que el Supervisor tiene a la vista o con algo escrito en su intercomunicador (enUso): se le cerraban
-// mientras escribía una respuesta larga
+// mientras escribía una respuesta larga. Those of a worktree already removed close as soon as they are idle and read
 const enUso = new Map<WebSocket, Set<string>>();
 setInterval(() => {
   const used = new Set([...enUso.values()].flatMap(x => [...x]));
+  for (const id of orphanedConversations(sesiones.lista(), used, existsSync)) sesiones.cerrar(id);
   for (const s of sesiones.lista()) if ((s.estado === 'terminada' || s.estado === 'ociosa') && !s.sinLeer && !used.has(s.id) && Date.now() - s.actualizada > 30 * 60_000) sesiones.cerrar(s.id);
   const still = sesiones.lista().filter(s => (s.estado === 'terminada' || s.estado === 'ociosa' || s.estado === 'error') && !used.has(s.id)).sort((a, b) => a.actualizada - b.actualizada);
   const vivas = sesiones.lista().filter(s => s.estado !== 'cerrada').length;
