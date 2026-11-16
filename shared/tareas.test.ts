@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { TASKS_PALETTE, assignColors, textKey, taskColor, pRTask, worktreeTask, remoteName, worktreePRs, newWorktreeOf, taskWorktreeIn } from './tareas';
+import { TASKS_PALETTE, assignColors, textKey, taskColor, pRTask, worktreeTask, remoteName, worktreePRs, newWorktreeOf, taskWorktreeIn, handMadeWorktree } from './tareas';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, realpathSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
@@ -61,6 +61,16 @@ describe('newWorktreeOf', () => {
     expect(newWorktreeOf('git worktree add ../wt main')?.rama).toBeUndefined();
     expect(newWorktreeOf('git worktree list')).toBeNull();
     expect(newWorktreeOf('echo "git worktree add x"')).toBeNull();
+  });
+});
+
+describe('handMadeWorktree', () => {
+  it('only from a main copy (no worktree) and only for git worktree add', () => {
+    expect(handMadeWorktree('git worktree add ../wt/ABC-3 -b ABC-3-x')).toBe(true);
+    expect(handMadeWorktree('git -C ../api worktree add ../wt main', undefined)).toBe(true);
+    expect(handMadeWorktree('git worktree add ../wt/ABC-3 -b ABC-3-x', '/r/.claude/worktrees/abc-3')).toBe(false);
+    expect(handMadeWorktree('git worktree remove ../wt')).toBe(false);
+    expect(handMadeWorktree('git worktree list')).toBe(false);
   });
 });
 

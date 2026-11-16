@@ -7,7 +7,7 @@ import path from 'node:path';
 import { cwdBeforeRelocation, lastActivity, projectFolder } from './repos.ts';
 import { mcpReview } from './comparar.ts';
 import { pushOf } from '../shared/preflight.ts';
-import { newWorktreeOf, taskWorktreeIn, worktreeTask } from '../shared/tareas.ts';
+import { handMadeWorktree, newWorktreeOf, taskWorktreeIn, worktreeTask } from '../shared/tareas.ts';
 import { readFileSync } from 'node:fs';
 import { EventEmitter } from 'node:events';
 import { randomUUID } from 'node:crypto';
@@ -255,8 +255,14 @@ export class Sessions extends EventEmitter {
         // deniega con lo que falta. Un hook y no canUseTool: así vale en todos los modos de permisos
         PreToolUse: [
           { matcher: 'Bash', hooks: [async (h: any) => this.pushGate(x, String(h?.tool_input?.command ?? ''))] },
-          // una tarea, un worktree: crear otro para una tarea que ya tiene uno se deniega, con la ruta del que tiene
-          { matcher: 'Bash', hooks: [async (h: any) => { const w = newWorktreeOf(String(h?.tool_input?.command ?? '')); return w ? this.oneWorktree(x, w.cwd, path.basename(w.ruta ?? ''), w.rama) : {}; }] },
+          // worktrees come from send_to_room with a task key: `git worktree add` from a main copy is denied. One task,
+          // one worktree: creating another for a task that already has one is denied, with the path of the one it has
+          { matcher: 'Bash', hooks: [async (h: any) => {
+            const cmd = String(h?.tool_input?.command ?? '');
+            if (handMadeWorktree(cmd, x.r.worktree)) return { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: t('server.worktreeViaTask') } };
+            const w = newWorktreeOf(cmd);
+            return w ? this.oneWorktree(x, w.cwd, path.basename(w.ruta ?? ''), w.rama) : {};
+          }] },
           { matcher: 'EnterWorktree', hooks: [async (h: any) => this.oneWorktree(x, undefined, String(h?.tool_input?.name ?? ''))] },
         ],
       },

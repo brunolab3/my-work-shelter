@@ -31,6 +31,12 @@ export function worktreePRs<P extends { rama: string; titulo: string; numero: nu
   return [...lista].sort((a, b) => b.actualizado - a.actualizado);
 }
 
+/** True when a session outside any worktree (a room's main copy) runs `git worktree add`: worktrees come from
+ *  send_to_room with a task key, which opens a session in them */
+export function handMadeWorktree(cmd: string, worktree?: string): boolean {
+  return !worktree && !!newWorktreeOf(cmd);
+}
+
 /** Si una orden de Bash crea un worktree (`git worktree add`, también con -C): su ruta y su rama nueva (-b/-B), o null */
 export function newWorktreeOf(cmd: string): { ruta?: string; rama?: string; cwd?: string } | null {
   for (const trozo of String(cmd ?? '').split(/&&|\|\||[;|\n]/)) {
