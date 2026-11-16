@@ -2,7 +2,7 @@
 // `preflight.tarea` action): one row per PR with its state, CI, review, conflicts and the PRs it waits for, and the
 // merge order below. Clicking a row opens the PR; clicking its blockers, the PR it waits for. Getting ready to push
 // (compare, checklist, sync) is not here: the push gate asks for it (gateMissing). Opened from the task's block in the
-// deployment plan, the copy's intercom and ⌘K.
+// deployment plan, the copy's intercom and ⌘K. Docked on the left (Device `lado`), so the intercom stays open beside it.
 import React, { useEffect, useState } from 'react';
 import { juego, type Panel } from './estadoJuego';
 import { cliente } from '../red/cliente';
@@ -22,6 +22,8 @@ const STATE: Record<string, string> = { abierto: 'preflight.blockers.open', borr
 
 /** Abre el pre-flight de una tarea; `volver`: el aparato al que vuelve con Esc (el plan de despliegue) */
 export function openPreflight(clave: string, volver?: { panel: Panel; panelData: any }) {
+  // docked on the left: a maximized intercom goes back to the right, as for a page (Dialogo.tsx)
+  dispatchEvent(new CustomEvent('refugio:pagina-al-lado'));
   openPanel('preflight', { clave: clave.toUpperCase(), volver });
 }
 
@@ -71,7 +73,7 @@ export function PanelPreflight() {
   const color = r?.color ?? taskColor(clave);
   const porRef = new Map(prs.map(p => [refPR(p.pr!), mergeReady(p).estado]));
   return (
-    <Device rotulo={`${t('preflight.title').toUpperCase()} · ${clave}${r?.demo ? ' · DEMO' : ''}`} ancho={110} alto onClose={volver}>
+    <Device rotulo={`${t('preflight.title').toUpperCase()} · ${clave}${r?.demo ? ' · DEMO' : ''}`} lado onClose={volver}>
       <h2 className="pf-cabeza" style={{ '--tarea': color } as React.CSSProperties}><span className="marca-tarea" />{clave}{titulo ? <span className="tenue"> · {titulo}</span> : null}</h2>
       {error && <p className="aviso-consola" onClick={() => setError('')}>{error}</p>}
       {r?.error && <p className="tenue">{r.error}</p>}
@@ -88,7 +90,7 @@ export function PanelPreflight() {
           const bloqueo = p.esperaA.find(l => l.estado !== 'fusionado' && l.url);
           return <tr key={p.id} className={'pf-fila' + (n === k ? ' sel' : '') + (listo.estado === 'fusionado' ? ' pf-hecha' : '')} onMouseEnter={() => setI(n)} onClick={() => openPR(p)} title={t('preflight.cellHint.pr')}>
             <td className={'pf-estado pf-' + listo.estado} title={listo.falta.join('\n') || t(listo.estado === 'fusionado' ? 'preflight.review.merged' : 'preflight.state.listo')}>{READY[listo.estado]}</td>
-            <td className="pf-parte"><span className="ident">{shortRef(pr)}</span> {pr.titulo}</td>
+            <td className="pf-parte" title={`${shortRef(pr)} · ${pr.titulo}\n${t('preflight.cellHint.pr')}`}><span className="ident">{shortRef(pr)}</span> {pr.titulo}</td>
             <td className={'pf-celda pf-' + (pr.estado === 'borrador' ? 'aviso' : 'nada')}>{t(STATE[pr.estado])}</td>
             <Celda c={p.ci} />
             <Celda c={p.revision} />

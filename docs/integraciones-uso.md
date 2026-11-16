@@ -277,9 +277,9 @@ the plan in plan mode without touching the repos. The list of your PRs and those
 Control (Pull requests tab of the git client; T from the Jira board).
 
 **Pre-flight of a task** (`shared/preflight.ts`, `server/preflight.ts`, `web/src/ui/Preflight.tsx`,
-action `preflight.tarea`). One window per Jira key that answers "can each PR of this task be merged now?": one row per
+action `preflight.tarea`). One side panel per Jira key, docked on the left beside the intercom (which stays open), that answers "can each PR of this task be merged now?": one row per
 PR of the task in every repo (the board's PRs plus all open ones, read from GitHub at most once a minute; R forces it),
-in merge order, with its state (draft, open, merged), CI, review (approved, changes requested or waiting, plus the
+in merge order (long titles truncated, full title on hover), with its state (draft, open, merged), CI, review (approved, changes requested or waiting, plus the
 count of unresolved threads and unanswered summaries from the last `revisionesPR.ts` poll), conflicts (GitHub's
 `mergeable`) and blockers ("waits for" / "blocks", with the other PR's state: a blocker's red CI is the blocker's
 problem, not this row's). The first column (`mergeReady`) is ✓ only when the PR is open, green, approved without open

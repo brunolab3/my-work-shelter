@@ -4,7 +4,8 @@
 //   is missing (compare and the 0/2 checklist); the window has no table (nothing to merge) and names the room;
 // - the window with a task in two repos (example response): one row per PR in merge order, merged ✔, red CI ✗,
 //   conflicts ✗, the one that waits ⚠; no compare/sync/checklist columns or thread list; the plan part without a PR is
-//   named below; the merge order strikes the merged PR; clicking a row opens the PR in the GitHub window;
+//   named below; the merge order strikes the merged PR; clicking a row opens the PR in the GitHub window; the panel is
+//   docked on the left, narrow and full height, and long PR titles truncate with a tooltip;
 // - ⌘K «qa-7» offers «Pre-flight QA-7» and opens it; Esc closes it.
 // Necesita el cliente compilado (npx vite build). Uso: node scripts/qa-preflight.mjs [carpeta-capturas]   (SHELTER_PUERTO_QA, 3794)
 import { chromium } from 'playwright';
@@ -68,7 +69,7 @@ try {
   // ---- the window with the real task: its worktree has no PR yet, so there is nothing to merge
   await pg.evaluate(() => window.__juego.set({ panel: 'preflight', panelData: { clave: 'QA-7' } }));
   ver(await hasta(async () => /QA-7/.test(await pg.textContent('.aparato').catch(() => '')) && !(await pg.isVisible('.pf-tabla')) && /tienda/.test(await pg.textContent('.aparato'))), 'no PR yet: no table, and the room working on it is named');
-  await pg.waitForTimeout(600); await pg.screenshot({ path: path.join(dir, 'preflight-real.png') });
+  await pg.waitForTimeout(600); await pg.screenshot({ path: path.join(dir, 'preflight-real.png'), animations: 'disabled' });
   await pg.keyboard.press('Escape');
   ver(await hasta(async () => (await pg.evaluate(() => window.__juego.get().panel)) === null), 'Esc la cierra');
 
@@ -94,6 +95,9 @@ try {
     window.__juego.set({ panel: 'preflight', panelData: { clave: 'QA-9' } });
   });
   ver(await hasta(async () => (await pg.$$('.pf-fila')).length === 4), 'four rows: one per PR, none for the plan part without a PR');
+  const caja = await pg.$eval('.aparato', e => { const r = e.getBoundingClientRect(); return { x: r.left, w: r.width, h: r.height }; });
+  ver(caja.x < 40 && caja.w < 1600 / 2 && caja.h > 1000 * 0.8, `docked on the left, narrow and full height (${JSON.stringify(caja)})`);
+  ver(await pg.$eval('.pf-fila .pf-parte', e => e.title.includes('PR de ejemplo') && getComputedStyle(e).textOverflow === 'ellipsis'), 'the PR title truncates, with the full title in its tooltip');
   const cabeceras = await pg.$$eval('.pf-tabla th', th => th.map(x => x.textContent).join('|'));
   ver(!/Compare|Checklist|Sincron|Sync/.test(cabeceras) && /Conflict/.test(cabeceras), `no push columns, a conflicts column (${cabeceras})`);
   const estados = await pg.$$eval('.pf-estado', e => e.map(x => x.textContent));
@@ -101,7 +105,7 @@ try {
   ver(!(await pg.$$('.pf-hilo')).length && !/carrito\.ts/.test(await pg.textContent('.pf-tabla')), 'no review threads listed, only their count');
   ver(/docs/.test(await pg.textContent('.aparato')), 'the plan part without a PR is named below');
   ver(/1.*api#4.*api#1.*web#3.*2.*web#2/.test(await pg.textContent('.orden-despliegue')) && await pg.$eval('.orden-despliegue .pf-hecha', e => /api#4/.test(e.textContent)), 'merge order, with the merged PR struck through');
-  await pg.waitForTimeout(600); await pg.screenshot({ path: path.join(dir, 'preflight-dos-repos.png') });
+  await pg.waitForTimeout(600); await pg.screenshot({ path: path.join(dir, 'preflight-dos-repos.png'), animations: 'disabled' });
   // outside Electron the GitHub window is a new tab (window.open): what matters is which URL it opens
   await pg.evaluate(() => { window.__abierta = ''; window.open = u => { window.__abierta = String(u); return null; }; });
   await pg.click('.pf-fila:nth-child(2) .pf-parte');
@@ -116,7 +120,7 @@ try {
   await pg.waitForSelector('.buscador input');
   await pg.keyboard.type('qa-7');
   ver(await hasta(async () => (await pg.$$eval('.fila-buscador .txt', f => f.map(x => x.textContent))).includes('Pre-flight QA-7')), '⌘K ofrece «Pre-flight QA-7» (también la del worktree)');
-  await pg.waitForTimeout(600); await pg.screenshot({ path: path.join(dir, 'preflight-buscador.png') });
+  await pg.waitForTimeout(600); await pg.screenshot({ path: path.join(dir, 'preflight-buscador.png'), animations: 'disabled' });
   await pg.keyboard.press('Enter');
   ver(await hasta(async () => (await pg.evaluate(() => [window.__juego.get().panel, window.__juego.get().panelData?.clave].join(' '))) === 'preflight QA-7'), 'y Enter lo abre');
   ver(!errores.length, 'sin errores en la página' + (errores.length ? ': ' + errores.join(' | ') : ''));

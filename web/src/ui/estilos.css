@@ -344,6 +344,9 @@ html, body { margin: 0; height: 100%; background: var(--fondo); overflow: hidden
 .aparato { position: absolute; left: 50%; top: calc(var(--u) * 5.4); transform: translateX(-50%); width: min(94vw, calc(var(--u) * 50)); max-height: calc(100vh - var(--u) * 7); display: flex; z-index: 30; animation: entrar-aparato .2s ease-out; }
 .aparato.alto { bottom: calc(var(--u) * 1.6); }
 @keyframes entrar-aparato { from { transform: translate(-50%, -12px); opacity: 0; } }
+/* docked on the left beside the intercom (Device `lado`), like .ventana-navegador.al-lado but narrower */
+.aparato.al-lado { left: calc(var(--u) * 1.2); top: calc(var(--u) * 5.2); bottom: calc(var(--u) * 1.6); max-height: none; transform: none; width: min(calc(100vw - min(50vw, calc(var(--u) * 52)) - var(--u) * 3.6), calc(var(--u) * 48)); animation: entrar-lado .2s ease-out; }
+@keyframes entrar-lado { from { transform: translateX(-12px); opacity: 0; } }
 .aparato .consola-bisel { width: 100%; }
 .aparato-pantalla { min-height: 0; }
 .aparato-pantalla h3 { font: 700 calc(var(--u) * 0.86) var(--t-rotulo); letter-spacing: .08em; text-transform: uppercase; color: var(--ambar); text-shadow: 0 0 6px rgba(255,179,71,.35); margin: .2em 0 .5em; }
@@ -1068,8 +1071,11 @@ html.en-segundo-plano *, html.en-segundo-plano *::before, html.en-segundo-plano 
 /* pre-flight de una tarea (Preflight.tsx) */
 .pf-cabeza { display: flex; align-items: center; gap: .3em; margin: .1em 0 .5em; font: 600 1.05em var(--t-mono); color: var(--tarea); }
 .pf-tabla { width: 100%; border-collapse: collapse; font-size: .86em; }
-.pf-tabla th { text-align: left; font-weight: 600; color: var(--crema-tenue); padding: .2em .4em; border-bottom: 1px solid var(--canto); white-space: nowrap; }
-.pf-tabla td { padding: .25em .4em; vertical-align: top; border-bottom: 1px solid #2a2825; }
+.pf-tabla th { text-align: left; font-weight: 600; color: var(--crema-tenue); padding: .2em .3em; border-bottom: 1px solid var(--canto); white-space: nowrap; }
+.pf-tabla td { padding: .25em .3em; vertical-align: top; border-bottom: 1px solid #2a2825; }
+/* the PR column takes what is left and truncates its title (full title in the tooltip); the other cells wrap */
+.pf-parte { width: 100%; max-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pf-celda { min-width: 6.5em; }
 .pf-fila { cursor: pointer; }
 .pf-fila.sel { background: #ffffff0d; }
 .pf-hecha { opacity: .55; text-decoration: line-through; }

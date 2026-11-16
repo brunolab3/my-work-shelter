@@ -49,12 +49,13 @@ export function Opciones({ items, i, setI, onChoose }: { items: ItemMenu[]; i: n
   );
 }
 
-// Carcasa de un aparato centrado en pantalla
-export function Device({ rotulo, piloto = 'ociosa', ancho, alto, children, onClose = closePanel, clase = '' }: { rotulo: React.ReactNode; piloto?: string; ancho?: number; alto?: boolean; children: React.ReactNode; onClose?: () => void; clase?: string }) {
+// Carcasa de un aparato centrado en pantalla; `lado`: docked on the left, full height, beside the intercom (like the
+// «Page» window), so the world and the intercom stay in view
+export function Device({ rotulo, piloto = 'ociosa', ancho, alto, lado, children, onClose = closePanel, clase = '' }: { rotulo: React.ReactNode; piloto?: string; ancho?: number; alto?: boolean; lado?: boolean; children: React.ReactNode; onClose?: () => void; clase?: string }) {
   useBlocker();
   useEffect(() => { SFX.abrir(); }, []);
   return (
-    <div className={'aparato interactivo ' + clase + (alto ? ' alto' : '')} role="dialog" style={ancho ? { width: `min(94vw, calc(var(--u) * ${ancho}))` } : undefined}>
+    <div className={'aparato interactivo ' + clase + (alto ? ' alto' : '') + (lado ? ' al-lado' : '')} role="dialog" style={ancho && !lado ? { width: `min(94vw, calc(var(--u) * ${ancho}))` } : undefined}>
       <div className="consola-bisel">
         <div className="consola-cabeza">
           <span className="rejilla" aria-hidden />
