@@ -52,6 +52,8 @@ interface Session {
   stderr: string;
   opciones: WorkOptions;
   partialText: string;
+  // whether the main agent has written text to the user this turn, and whether a question without it was already held back
+  textInTurn?: boolean; askHeld?: boolean;
   shipments: Promise<void>;   // los mensajes con imágenes tardan un poco en prepararse: salen en orden
   trustWaiting?: boolean; loadProject?: boolean;   // ver preguntarConfianza()
 }
@@ -389,6 +391,7 @@ export class Sessions extends EventEmitter {
     if (texto.trim() === '/stop') return this.interrumpir(id);
     if (!x.viva && !x.trustWaiting) this.lanzar(x, x.r.claudeId).catch(e => console.error('No se pudo reanudar la sesión:', e));
     this.anadir(x, this.entrada('usuario', texto, adjuntos.length ? { adjuntos } : {}));
+    x.textInTurn = x.askHeld = false;
     this.enqueue(x, texto, adjuntos);
     x.r.estado = x.pendientes.length ? 'esperando' : 'trabajando'; x.r.sinLeer = false;
     this.tocar(x);
@@ -425,14 +428,14 @@ export class Sessions extends EventEmitter {
         // los fragmentos de texto viajan aparte (evento 'texto'); el resumen solo se emite si cambia la actividad
         const ev = (m as any).event;
         if ((m as any).parent_tool_use_id) return;
-        if (ev?.type === 'content_block_delta' && ev.delta?.type === 'text_delta') { x.partialText += ev.delta.text; this.emit('texto', r.id, ev.delta.text); }
+        if (ev?.type === 'content_block_delta' && ev.delta?.type === 'text_delta') { x.partialText += ev.delta.text; if (ev.delta.text.trim()) x.textInTurn = true; this.emit('texto', r.id, ev.delta.text); }
         else if (ev?.type === 'content_block_delta' && ev.delta?.type === 'thinking_delta') { if (r.actividad?.modo !== 'pensar') { r.actividad = { herramienta: '', texto: t('windows.thinking'), modo: 'pensar' }; this.tocar(x); } }
         return;
       }
       case 'assistant': {
         const padre = m.parent_tool_use_id;
         for (const b of ((m.message?.content ?? []) as any[])) {
-          if (b.type === 'text' && !padre && String(b.text).trim()) { x.partialText = ''; this.anadir(x, this.entrada('asistente', b.text)); r.lastText = b.text; }
+          if (b.type === 'text' && !padre && String(b.text).trim()) { x.partialText = ''; x.textInTurn = true; this.anadir(x, this.entrada('asistente', b.text)); r.lastText = b.text; }
           else if (b.type === 'thinking' && !padre) r.actividad = { herramienta: '', texto: t('windows.thinking'), modo: 'pensar' };
           else if (b.type === 'tool_use') this.onUseTool(x, b.id, b.name, b.input ?? {}, padre);
         }
@@ -461,6 +464,7 @@ export class Sessions extends EventEmitter {
       case 'result': {
         const res = m as any;
         r.turns += 1;
+        x.textInTurn = x.askHeld = false;
         if (typeof res.total_cost_usd === 'number') r.coste = res.total_cost_usd;
         // consumo: los tokens acumulados de todos los modelos y, aparte, cuánto contexto ocupa ya la conversación
         const usos = Object.values((res.modelUsage ?? {}) as Record<string, any>);
@@ -581,6 +585,9 @@ export class Sessions extends EventEmitter {
       // la comparación solo lee el repo y escribe su página en la carpeta del juego
       if (nombre.startsWith('mcp__review__')) { resolver({ behavior: 'allow', updatedInput: e }); return; }
       if (nombre.startsWith('mcp__plan__')) { resolver({ behavior: 'allow', updatedInput: e }); return; }   // leer el plan y proponer cambios: a la sala de planificación, no fuera
+      // a question with nothing written before it: the Overseer would answer without the results, conclusions or links
+      // that only come after. Held back once per turn, so a real clarifying question still goes through on retry
+      if (nombre === 'AskUserQuestion' && !op.agentID && !x.textInTurn && !x.askHeld) { x.askHeld = true; resolver({ behavior: 'deny', message: t('server.writeBeforeAsking') }); return; }
       const id = randomUUID();
       const ofHelper = op.agentID ? [...x.ayudantes.values()].find(a => a.id === op.agentID || x.taskAHelper.get(op.agentID!) === a.id)?.descripcion ?? t('server.aHelper') : undefined;
       let pet: PendingRequest;
