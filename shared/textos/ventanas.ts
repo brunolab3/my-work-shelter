@@ -32,6 +32,7 @@ export const WINDOWS: Record<string, Texto> = {
   'windows.closeTabAtajo': { es: 'Cerrar la pestaña ({shortcut})', en: 'Close tab ({shortcut})' },
   // list of every tab of a window (ventanas.tsx)
   'windows.allTabs': { es: 'Todas las pestañas ({n}) · {shortcut}', en: 'All tabs ({n}) · {shortcut}' },
+  'windows.allConversations': { es: 'Todas las conversaciones abiertas ({n}) · {shortcut}', en: 'Every open conversation ({n}) · {shortcut}' },
   'windows.filterTabs': { es: 'Filtrar por título, sala o tarea…', en: 'Filter by title, room or task…' },
   'windows.tabUnread': { es: 'sin leer', en: 'unread' },
   'windows.tabIdle': { es: 'en reposo', en: 'idle' },
@@ -40,7 +41,6 @@ export const WINDOWS: Record<string, Texto> = {
   'windows.closeIdle': { es: 'Cerrar las leídas o en reposo ({n})', en: 'Close read or idle ({n})' },
   'windows.closeTask': { es: 'Cerrar las de {tarea} ({n})', en: 'Close all in {tarea} ({n})' },
   'windows.noTabsMatch': { es: 'Ninguna coincide', en: 'No matches' },
-  'windows.groupByRoom': { es: 'Agrupar por sala', en: 'Group by room' },
   'windows.talkToSomeoneElse': { es: 'Hablar con otro de la sala: un habitante o la copia holográfica de una tarea', en: 'Talk to someone else in the room: a dweller or a task\'s holographic copy' },
   'windows.othersToReview': { es: 'Otros de la sala con algo para ti: {n}', en: 'Others in the room with something for you: {n}' },
   'windows.nConversations': { es: 'conversaciones abiertas: {n}', en: 'open conversations: {n}' },

@@ -1,10 +1,11 @@
 // QA of many tabs, with no Claude sessions (made-up conversations in the client): 16 conversations of one dweller in
 // several states plus 3 of another dweller of the same room. Checks that tabs stay readable and the strip scrolls,
-// most urgent first, the active tab does not move when its state changes, ⌘1/⌘9 follow the visible order, the ⋯ list
-// (⌘⇧A) filters, goes and closes, the other dweller's conversations stay out of the strip and the selector above the
-// portrait lists the room's talkers (bust, state, title and count of their most urgent conversation), keeps its width and switches the
-// intercom, by click or keyboard, the bar has one intercom chip per room whose hover lists one row per
-// open panel (dweller, holograms), and a terminal with 13 more tabs.
+// most urgent first, the active tab does not move when its state changes, ⌘1/⌘9 follow the visible order, the bar's ⋯
+// list (⌘⇧A) holds every intercom's conversations by room, filters, goes (switching intercom) and closes, the other
+// dweller's conversations stay out of the strip and the selector above the portrait lists the room's talkers (bust,
+// state, title and count of their most urgent conversation), keeps its width and switches the intercom, by click or
+// keyboard, the bar has one intercom chip per room whose hover lists one row per open panel (dweller, holograms), and
+// a terminal with 13 more tabs, whose ⋯ list stays in its strip.
 // Usage: SHELTER_DATOS=… node scripts/qa-pestanas.mjs [url] [screenshots-folder]   (best on a test shelter)
 import { chromium } from 'playwright';
 import { withToken } from './token.mjs';
@@ -72,11 +73,17 @@ ver((await pestanas()).findIndex(p => p.activa) === antes, 'the active tab keeps
 await pg.keyboard.press('Meta+1'); await espera(400);
 ver((await pestanas()).findIndex(p => p.nombre === idle.nombre) < antes, 'once you switch away it moves up with the waiting ones');
 
-// ---- the ⋯ list
+// ---- the ⋯ list: in the bar's COM row, every open intercom conversation by room (⌘⇧A from the intercom)
+const LISTA = '.barra-lista-com .vt-lista';
+ver(!(await pg.isVisible('.consola .vt-todas')) && await pg.isVisible('.barra-ventanas .com .vt-todas'), 'the ⋯ N button is in the bar\'s COM row, not in the intercom strip');
 await pg.keyboard.press('Meta+Shift+a'); await espera(400);
-ver(await pg.isVisible('.consola .vt-lista'), '⌘⇧A opens the list of every tab');
-const filas = () => pg.evaluate(() => document.querySelectorAll('.consola .vt-lista-fila').length);
-ver(await filas() === (await pestanas()).length, 'with one row per tab');
+ver(await pg.isVisible(LISTA), '⌘⇧A opens the list of every conversation');
+const nombresLista = () => pg.evaluate(() => [...document.querySelectorAll('.barra-lista-com .vt-lista-fila .vt-lista-nombre')].map(x => x.textContent));
+const nuestras = n => TITULOS.includes(n) || AJENAS.includes(n);
+const filas = async () => (await nombresLista()).filter(nuestras).length;
+const propias = (await pestanas()).length;
+ver(await filas() === propias + (h2 ? AJENAS.length : 0), `with one row per conversation, the other dweller's too (${await filas()})`);
+ver(await pg.evaluate(n => [...document.querySelectorAll('.barra-lista-com .vt-lista-grupo')].some(g => g.textContent === n), h.nameRoom), 'under a header per room');
 await pg.screenshot({ path: `${dir}/qa-pestanas-lista.png` });
 const conThe = TITULOS.filter(x => /the/i.test(x));
 await pg.keyboard.type('the', { delay: 10 }); await espera(300);
@@ -84,16 +91,25 @@ ver(await filas() === conThe.length, `typing filters: ${await filas()} of ${conT
 await pg.screenshot({ path: `${dir}/qa-pestanas-filtro.png` });
 await pg.keyboard.press('ArrowDown'); await pg.keyboard.press('Enter'); await espera(400);
 const elegida = await pg.evaluate(() => document.querySelector('.consola .vt-pestana.activa .vt-pestana-nombre').textContent);
-ver(!(await pg.isVisible('.consola .vt-lista')) && conThe.includes(elegida), '↓ Enter goes to a match and closes the list: ' + elegida);
+ver(!(await pg.isVisible(LISTA)) && conThe.includes(elegida), '↓ Enter goes to a match and closes the list: ' + elegida);
 // close every idle one: none is running, so no question
 const ociosas = (await pestanas()).filter(p => p.estado === 'ociosa').length;
 const total = (await pestanas()).length;
 await pg.keyboard.press('Meta+Shift+a'); await espera(300);
-await pg.click('.consola .vt-lista-pie button:has-text("idle"), .consola .vt-lista-pie button:has-text("reposo")'); await espera(500);
+await pg.click('.barra-lista-com .vt-lista-pie button:has-text("idle"), .barra-lista-com .vt-lista-pie button:has-text("reposo")'); await espera(500);
 ver(!(await pg.isVisible('.consola .vt-confirmar')) && (await pestanas()).length === total - ociosas, `«close read or idle» closes the ${ociosas} idle ones without asking`);
-if (!(await pg.isVisible('.consola .vt-lista'))) { await pg.keyboard.press('Meta+Shift+a'); await espera(300); }
-await pg.focus('.consola .vt-lista-filtro'); await pg.keyboard.press('Escape'); await espera(300);
-ver(!(await pg.isVisible('.consola .vt-lista')) && await pg.isVisible('.consola'), 'Esc closes the list and only the list');
+if (!(await pg.isVisible(LISTA))) { await pg.keyboard.press('Meta+Shift+a'); await espera(300); }
+await pg.focus('.barra-lista-com .vt-lista-filtro'); await pg.keyboard.press('Escape'); await espera(300);
+ver(!(await pg.isVisible(LISTA)) && await pg.isVisible('.consola'), 'Esc closes the list and only the list');
+// another dweller's conversation: the intercom switches to them, on that tab
+if (h2) {
+  await pg.click('.barra-ventanas .com .vt-todas'); await espera(300);
+  await pg.evaluate(() => [...document.querySelectorAll('.barra-lista-com .vt-lista-fila')].find(f => f.querySelector('.vt-lista-nombre').textContent === 'Flaky e2e').click());
+  ver(await hasta(async () => await talking() === h2.id && (await pestanas()).find(p => p.activa)?.nombre === 'Flaky e2e'), `clicking ${h2.nombre}'s row switches the intercom to them, on that conversation`);
+  await pg.click('.barra-ventanas .com .vt-todas'); await espera(300);
+  await pg.evaluate(n => [...document.querySelectorAll('.barra-lista-com .vt-lista-fila')].find(f => f.querySelector('.vt-lista-nombre').textContent === n).click(), elegida);
+  ver(await hasta(async () => await talking() === h.id), 'and back to ' + h.nombre);
+}
 
 // ---- the selector above the portrait: the room's talkers, with their most urgent conversation; it switches
 const filasQuien = () => pg.evaluate(() => [...document.querySelectorAll('.consola .consola-quien-lista .barra-asomo-fila')].map(f => ({ texto: f.querySelector('.barra-asomo-titulo').textContent, estado: f.querySelector('.barra-asomo-estado').textContent, n: f.querySelector('small').textContent, actual: f.classList.contains('actual') })));

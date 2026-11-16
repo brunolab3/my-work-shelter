@@ -85,8 +85,8 @@ export function useTabOrder<T extends { id: string; estado?: TabState; grupo?: s
   antes.current = { activa, estado, orden: ordenados.map(x => x.id) };
   return ordenados;
 }
-export function Tabs({ items, activa, activar, cerrar, nueva, opensThat, lista, agrupar, confirmando }: { items: ItemTab[]; activa: string; activar: (id: string) => void; cerrar: (ids: string[]) => void; nueva?: () => void; opensThat: string; lista?: React.MutableRefObject<(() => void) | null>; agrupar?: [boolean, (b: boolean) => void]; confirmando?: boolean }) {
-  const rotulos = !!agrupar?.[0];
+// lista: the ⋯ N button and its list in the strip (terminals); intercoms keep theirs in the bar (ComTabs in Dialogo.tsx)
+export function Tabs({ items, activa, activar, cerrar, nueva, opensThat, lista, confirmando }: { items: ItemTab[]; activa: string; activar: (id: string) => void; cerrar: (ids: string[]) => void; nueva?: () => void; opensThat: string; lista?: React.MutableRefObject<(() => void) | null>; confirmando?: boolean }) {
   const [abierta, setAbierta] = useState(false);
   const tira = useRef<HTMLDivElement>(null);
   if (lista) lista.current = () => setAbierta(x => !x);
@@ -104,7 +104,6 @@ export function Tabs({ items, activa, activar, cerrar, nueva, opensThat, lista, 
     <div className="vt-pestanas">
       <div className="vt-pestanas-tira" ref={tira} onWheel={e => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) e.currentTarget.scrollLeft += e.deltaY; }}>
         {items.map((p, i) => (<React.Fragment key={p.id}>
-          {rotulos && p.grupo !== items[i - 1]?.grupo && <span className="vt-grupo">{p.grupo}</span>}
           <div className={'vt-pestana' + (p.id === activa ? ' activa' : '') + (p.estado ? ' e-' + p.estado : '') + (p.tarea ? ' con-tarea' : '')} style={p.tarea ? { '--tarea': taskColor(p.tarea) } as React.CSSProperties : undefined}
             onClick={() => activar(p.id)} onAuxClick={e => { if (e.button === 1) cerrar([p.id]); }}
             title={[p.titulo || p.nombre, p.estado && stateLabel(p.estado), p.quien, p.tarea, i < 9 ? `${CMD}${i + 1}` : ''].filter(Boolean).join(' · ')}>
@@ -115,16 +114,16 @@ export function Tabs({ items, activa, activar, cerrar, nueva, opensThat, lista, 
         </React.Fragment>))}
       </div>
       {nueva && <button className="vt-nueva" onClick={nueva} title={`${opensThat} (${CMD}T)`}>+</button>}
-      {items.length > 1 && <button className={'vt-todas' + (abierta ? ' activa' : '')} onClick={() => setAbierta(x => !x)} title={t('windows.allTabs', { n: items.length, shortcut: LIST_SHORTCUT })}>⋯ {items.length}</button>}
+      {lista && items.length > 1 && <button className={'vt-todas' + (abierta ? ' activa' : '')} onClick={() => setAbierta(x => !x)} title={t('windows.allTabs', { n: items.length, shortcut: LIST_SHORTCUT })}>⋯ {items.length}</button>}
       {/* the list steps aside while a close is being confirmed */}
-      {abierta && !confirmando && <TabList items={items} agrupar={agrupar} activa={activa} activar={id => { activar(id); setAbierta(false); }} cerrar={cerrar} salir={() => setAbierta(false)} />}
+      {abierta && !confirmando && <TabList items={items} activa={activa} activar={id => { activar(id); setAbierta(false); }} cerrar={cerrar} salir={() => setAbierta(false)} />}
     </div>
   );
 }
 
-// Every tab of the window in a list: state, title, task, room or owner and last activity; type to filter, go to one,
-// and close (one, the selected ones, the read or idle ones, or a task's).
-function TabList({ items, activa, activar, cerrar, salir, agrupar }: { items: ItemTab[]; activa: string; activar: (id: string) => void; cerrar: (ids: string[]) => void; salir: () => void; agrupar?: [boolean, (b: boolean) => void] }) {
+// Every tab in a list: state, title, task, room or owner and last activity; type to filter, go to one, and close (one,
+// the selected ones, the read or idle ones, or a task's). agrupar: a header per group (items come grouped).
+export function TabList({ items, activa, activar, cerrar, salir, agrupar }: { items: ItemTab[]; activa: string; activar: (id: string) => void; cerrar: (ids: string[]) => void; salir: () => void; agrupar?: boolean }) {
   const [filtro, setFiltro] = useState('');
   const [i, setI] = useState(() => Math.max(0, items.findIndex(p => p.id === activa)));
   const [marcadas, setMarcadas] = useState<string[]>([]);
@@ -158,7 +157,7 @@ function TabList({ items, activa, activar, cerrar, salir, agrupar }: { items: It
       <input className="vt-lista-filtro" autoFocus value={filtro} placeholder={t('windows.filterTabs')} spellCheck={false} onChange={e => { setFiltro(e.target.value); setI(0); }} />
       <div className="vt-lista-filas">
         {vistas.map((p, k) => (<React.Fragment key={p.id}>
-          {agrupar?.[0] && p.grupo !== vistas[k - 1]?.grupo && <div className="vt-lista-grupo">{p.grupo}</div>}
+          {agrupar && p.grupo !== vistas[k - 1]?.grupo && <div className="vt-lista-grupo">{p.grupo}</div>}
           <div className={'vt-lista-fila' + (p === sel ? ' sel' : '') + (p.id === activa ? ' activa' : '') + (p.estado ? ' e-' + p.estado : '')} onMouseMove={() => setI(k)} onClick={() => activar(p.id)}>
             <input type="checkbox" checked={marcadas.includes(p.id)} title={t('windows.selectTab')} onClick={e => e.stopPropagation()} onChange={() => setMarcadas(m => (m.includes(p.id) ? m.filter(x => x !== p.id) : [...m, p.id]))} />
             <span className={'piloto ' + PILOT[p.estado ?? 'ociosa']} />
@@ -176,7 +175,6 @@ function TabList({ items, activa, activar, cerrar, salir, agrupar }: { items: It
         {boton(t('windows.closeSelected', { n: elegidas.length }), elegidas)}
         {boton(t('windows.closeIdle', { n: ociosas.length }), ociosas)}
         {sel?.tarea && boton(t('windows.closeTask', { tarea: sel.tarea, n: deTarea.length }), deTarea)}
-        {agrupar && <label className="vt-lista-agrupar"><input type="checkbox" checked={agrupar[0]} onChange={e => agrupar[1](e.target.checked)} /> {t('windows.groupByRoom')}</label>}
         <span className="vt-lista-ayuda">{t('windows.tabListHelp')}</span>
       </div>
     </div>

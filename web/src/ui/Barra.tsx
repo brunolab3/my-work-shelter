@@ -1,11 +1,11 @@
 // Barra de ventanas, abajo a la izquierda: está siempre que haya alguna ventana abierta. Una fila por tipo, una
-// encima de otra: intercomunicadores (COM, one chip per room), terminales (TERM), navegadores (NAV), el cliente de git (GIT) y los archivos (ARCH). Las minimizadas van hundidas. Un clic abre la ventana o la trae delante; si ya estaba delante, la minimiza.
+// encima de otra: intercomunicadores (COM, one chip per room, and ⋯ N with every open conversation), terminales (TERM), navegadores (NAV), el cliente de git (GIT) y los archivos (ARCH). Las minimizadas van hundidas. Un clic abre la ventana o la trae delante; si ya estaba delante, la minimiza.
 // Con teclado: ⌘B desde cualquier sitio (o B en el refugio) entra en la barra; ←→ eligen, ↑↓ cambian de fila,
 // Intro abre, X cierra (con lo de siempre: si hay algo en marcha, pregunta) y Esc (o ⌘B) sale.
 import { useEffect, useRef, useState } from 'react';
 import { t } from '@shared/idioma';
 import { terminales, onFront, minimizar, askClose as closeTerminal } from './Terminales';
-import { intercoms, type WindowCom, minimizeIntercom, restoreIntercom, sessionPilot, roomTalkers, TalkerRow, askClose as closeIntercom } from './Dialogo';
+import { intercoms, type WindowCom, minimizeIntercom, restoreIntercom, sessionPilot, roomTalkers, TalkerRow, ComTabs, askClose as closeIntercom } from './Dialogo';
 import { juego, type DwellerSummary } from './estadoJuego';
 import type { SessionSummary } from '@shared/protocolo';
 import { recentFirst, sessionRecency } from '@shared/recientes';
@@ -166,6 +166,7 @@ export function Barra() {
               </button>
             );
           })}
+          <ComTabs />
         </div>
       )}
       {asomo && (() => {

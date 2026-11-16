@@ -474,8 +474,6 @@ a.miniatura:hover img { box-shadow: 0 0 0 1px #ffc96b, 0 0 10px rgba(255,179,71,
 .vt-pestana.e-esperando { color: #ffcf6a; }
 .vt-pestana.e-sinLeer .vt-pestana-nombre { font-weight: 700; color: #d8ffe4; }
 .vt-pestana.con-tarea { box-shadow: inset 0 2px 0 var(--tarea); }
-.vt-grupo { flex: none; align-self: center; padding: 0 .5em 0 .7em; font: 700 10px var(--t-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--crema-tenue); opacity: .75; border-left: 1px solid #3a352e; }
-.vt-grupo:first-child { border-left: 0; padding-left: .2em; }
 .vt-todas { flex: none; align-self: center; margin-left: auto; font: 600 11px var(--t-mono); color: var(--crema-tenue); background: transparent; border: 1px solid #3a352e; border-radius: 3px; padding: 1px 7px; cursor: pointer; white-space: nowrap; }
 .vt-todas:hover, .vt-todas.activa { color: #1b1a17; background: #c9bd9f; }
 /* the list of every tab */
@@ -499,9 +497,12 @@ a.miniatura:hover img { box-shadow: 0 0 0 1px #ffc96b, 0 0 10px rgba(255,179,71,
 .vt-lista-cuando { text-align: right; }
 .vt-lista-tarea { display: inline-flex; align-items: center; gap: .4em; }
 .vt-lista-vacia { padding: 10px; color: var(--crema-tenue); }
+/* the intercoms' list, from the bar's COM row: above the bar */
+.barra-fila .vt-todas { margin-left: .2em; }
+.barra-lista-com { position: fixed; z-index: 300001; }
+.barra-lista-com .vt-lista { position: static; }
 .vt-lista-pie { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px; border-top: 1px solid #2b2722; }
 .vt-lista-pie .consola-x { margin-left: 0; font-size: 11px; }
-.vt-lista-agrupar { display: inline-flex; align-items: center; gap: .4em; color: var(--crema-tenue); cursor: pointer; }
 .vt-lista-ayuda { margin-left: auto; color: var(--crema-tenue); opacity: .7; font-size: 11px; }
 /* whom else to talk to in the room: a chip like the bar's, opening a list like its hover list */
 .consola-quien { position: relative; z-index: 2; width: 100%; margin-bottom: calc(var(--u) * 0.1); font: 500 calc(var(--u) * 0.68) var(--t-mono); }
