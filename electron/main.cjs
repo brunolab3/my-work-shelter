@@ -222,6 +222,8 @@ ipcMain.handle('aviso', (e, id, titulo, cuerpo) => {
   return true;
 });
 ipcMain.handle('aviso:quitar', (e, id) => { if (ipcOfGame(e)) quitarAviso(id); });
+// Dock badge (dockBadge in web/src/ui/avisosPendientes.ts): pending questions as a number, a finished turn as a dot
+ipcMain.handle('insignia', (e, texto) => { if (ipcOfGame(e) && app.dock) app.dock.setBadge(String(texto ?? '').slice(0, 8)); });
 
 // --- Abierta como aplicación: arranque ---
 

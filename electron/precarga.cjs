@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld('shelterVentana', {
   askMicrophone: () => ipcRenderer.invoke('microfono'),   // para dictar en el intercomunicador
   notify: (id, titulo, cuerpo) => ipcRenderer.invoke('aviso', id, titulo, cuerpo),
   removeNotice: id => ipcRenderer.invoke('aviso:quitar', id),
+  setBadge: texto => ipcRenderer.invoke('insignia', texto),   // Dock badge: a number of questions or a dot
   onNoticeClick: f => { ipcRenderer.on('aviso:clic', (_e, id) => f(id)); },
   setLanguage: i => ipcRenderer.invoke('idioma', i),   // Electron's menus and dialogs in the game's language (textos.cjs)
 });

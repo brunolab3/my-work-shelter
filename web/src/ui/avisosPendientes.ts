@@ -22,3 +22,12 @@ export function noticeChanges(sesiones: Record<string, SessionSummary>, visto: M
   }
   return { dar, quitar };
 }
+
+// Dock badge (avisosSistema.ts): the number of requests waiting for your answer (questions, permissions, plans);
+// without any, a dot while a conversation has finished its turn unread; empty when nothing waits for you
+export function dockBadge(sesiones: Record<string, SessionSummary>): string {
+  const abiertas = Object.values(sesiones).filter(s => s.estado !== 'cerrada');
+  const peticiones = abiertas.reduce((n, s) => n + (s.pending ? Math.max(1, s.pendientes) : 0), 0);
+  if (peticiones) return String(peticiones);
+  return abiertas.some(s => s.estado === 'terminada' && s.sinLeer) ? '•' : '';
+}

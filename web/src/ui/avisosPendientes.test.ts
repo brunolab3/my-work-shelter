@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { SessionSummary, PendingRequest } from '@shared/protocolo';
-import { noticeChanges } from './avisosPendientes';
+import { noticeChanges, dockBadge } from './avisosPendientes';
 
 const pet = (id: string): PendingRequest => ({ id, tipo: 'pregunta', herramienta: 'AskUserQuestion', titulo: 'Tengo una pregunta para ti', canAlways: false });
 const ses = (id: string, pending?: PendingRequest, estado: SessionSummary['estado'] = pending ? 'esperando' : 'trabajando') =>
@@ -26,5 +26,15 @@ describe('avisos de macOS por peticiones pendientes', () => {
     expect(r.quitar.sort()).toEqual(['a', 'b']);
     expect(noticeChanges({ a: ses('a') }, visto, false).quitar).toEqual(['a']);
     expect(visto.size).toBe(0);
+  });
+});
+
+describe('Dock badge', () => {
+  it('counts the requests waiting for an answer, queued ones included', () => {
+    expect(dockBadge({ a: { ...ses('a', pet('p1')), pendientes: 2 }, b: ses('b', pet('p2')), c: ses('c', pet('p3'), 'cerrada') })).toBe('3');
+  });
+  it('shows a dot for a finished unread turn, and nothing once read or with nothing waiting', () => {
+    expect(dockBadge({ a: { ...ses('a', undefined, 'terminada'), sinLeer: true }, b: ses('b') })).toBe('•');
+    expect(dockBadge({ a: ses('a', undefined, 'ociosa'), b: ses('b') })).toBe('');
   });
 });
