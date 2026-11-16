@@ -53,17 +53,21 @@ export function PanelesSala({ panel }: { panel: Panel }) {
 type Suggestion = { ruta: string; nombre: string; isGit: boolean; tipo: string; modified: number };
 function hace(ms: number) { const d = (Date.now() - ms) / 86400_000; return d < 1 ? t('panels.today') : d < 2 ? t('panels.yesterday') : d < 30 ? t('windows.nDaysAgo', { n: Math.floor(d) }) : d < 60 ? t('panels.1MonthAgo') : d < 365 ? t('windows.nMonthsAgo', { n: Math.floor(d / 30) }) : t('panels.overAYearAgo'); }
 
+// each step is its own component, with its own menu and keys (the hooks of one step never depend on another's)
 function Puerta() {
   const raiz = vivo.usar(e => e.estado?.raizRepos ?? '~');
-  const [sugs, setSuggestions] = useState<Suggestion[] | null>(null);
   const [paso, setStep] = useState<{ tipo: 'lista' } | { tipo: 'ruta'; crear: boolean } | { tipo: 'recluta'; ruta: string; nombre: string; crear?: boolean; git?: boolean }>({ tipo: 'lista' });
-  useEffect(() => { cliente.accion<Suggestion[]>('sugerencias').then(setSuggestions).catch(() => setSuggestions([])); }, []);
   if (paso.tipo === 'recluta') return <CardNewRecruit {...paso} volver={() => setStep({ tipo: 'lista' })} />;
   if (paso.tipo === 'ruta') return <AskPath crear={paso.crear} raiz={raiz} volver={() => setStep({ tipo: 'lista' })} seguir={(ruta, git) => setStep({ tipo: 'recluta', ruta, nombre: ruta.split('/').filter(Boolean).pop() ?? ruta, crear: paso.crear, git })} />;
+  return <DoorList raiz={raiz} elegir={(ruta, nombre) => setStep({ tipo: 'recluta', ruta, nombre })} ruta={crear => setStep({ tipo: 'ruta', crear })} />;
+}
+function DoorList({ raiz, elegir, ruta }: { raiz: string; elegir: (ruta: string, nombre: string) => void; ruta: (crear: boolean) => void }) {
+  const [sugs, setSuggestions] = useState<Suggestion[] | null>(null);
+  useEffect(() => { cliente.accion<Suggestion[]>('sugerencias').then(setSuggestions).catch(() => setSuggestions([])); }, []);
   const items: (ItemMenu & { f: () => void })[] = [
-    ...(sugs ?? []).slice(0, 40).map(s => ({ texto: <><b>{s.nombre}</b> <span className="tenue">{s.isGit ? t('panels.repo') : t('panels.folder')} · {tIs(REPO_TYPE[s.tipo] ?? s.tipo)}</span></>, pista: hace(s.modified), f: () => setStep({ tipo: 'recluta', ruta: s.ruta, nombre: s.nombre }) })),
-    { texto: t('panels.anotherFolderTypeThePath'), pista: t('panels.anyPathOnThisMac'), f: () => setStep({ tipo: 'ruta', crear: false }) },
-    { texto: t('panels.createANewFolderOr'), pista: t('panels.insideRaiz', { raiz }), f: () => setStep({ tipo: 'ruta', crear: true }) },
+    ...(sugs ?? []).slice(0, 40).map(s => ({ texto: <><b>{s.nombre}</b> <span className="tenue">{s.isGit ? t('panels.repo') : t('panels.folder')} · {tIs(REPO_TYPE[s.tipo] ?? s.tipo)}</span></>, pista: hace(s.modified), f: () => elegir(s.ruta, s.nombre) })),
+    { texto: t('panels.anotherFolderTypeThePath'), pista: t('panels.anyPathOnThisMac'), f: () => ruta(false) },
+    { texto: t('panels.createANewFolderOr'), pista: t('panels.insideRaiz', { raiz }), f: () => ruta(true) },
   ];
   const [i, setI] = useMenu(items.length, k => items[k].f());
   return (
