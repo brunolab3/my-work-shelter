@@ -175,7 +175,7 @@ export const WINDOWS: Record<string, Texto> = {
   'windows.youHaveUnsentText': { es: 'Tienes algo escrito sin enviar', en: 'You have unsent text' },
   'windows.talkToNombre': { es: 'Hablar con {nombre}', en: 'Talk to {nombre}' },
   'windows.intercom': { es: 'INTERCOMUNICADOR', en: 'INTERCOM' },
-  'windows.holographicCopyOfAutor': { es: 'COPIA HOLOGRÁFICA DE {autor}', en: 'HOLOGRAPHIC COPY OF {autor}' },
+  'windows.holographicCopyOfAutor': { es: 'Holo{autor}', en: 'Holo{autor}' },
   'windows.thisConversation': { es: 'esta conversación', en: 'this conversation' },
   'windows.theIntercomAndItsConversations': { es: 'el intercomunicador y sus conversaciones', en: 'the intercom and its conversations' },
   'windows.newTabAnotherJobInside': { es: 'Pestaña nueva: otro trabajo dentro de esta copia', en: 'New tab: another job inside this copy' },

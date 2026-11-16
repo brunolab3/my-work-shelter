@@ -331,7 +331,7 @@ function PanelWorktree() {
   ] : [];
   const [i, setI] = useMenu(items.length, k => items[k].f());
   return (
-    <Device rotulo={dwellers.find(h => h.id === authorId) ? t('panels.holographicCopyOfNombreRama', { nombre: dwellers.find(h => h.id === authorId)!.nombre.toUpperCase(), rama: info?.rama ?? '…' }) : t('panels.holographicCopyRama', { rama: info?.rama ?? '…' })} ancho={60} piloto={info?.ocupado ? 'error' : info?.estado?.length ? 'esperando' : 'trabajando'}>
+    <Device rotulo={dwellers.find(h => h.id === authorId) ? t('panels.holographicCopyOfNombreRama', { nombre: dwellers.find(h => h.id === authorId)!.nombre, rama: info?.rama ?? '…' }) : t('panels.holographicCopyRama', { rama: info?.rama ?? '…' })} ancho={60} piloto={info?.ocupado ? 'error' : info?.estado?.length ? 'esperando' : 'trabajando'}>
       {!info ? <p className="tenue">{error || t('panels.connectingToTheCopy')}</p> : <>
         <div className="ficha"><dl>
           <dt>{t('panels.path')}</dt><dd>{info.ruta}</dd>
