@@ -5,7 +5,7 @@
 // Los PR de una misma tarea en repos distintos sin orden conocido van enlazados («misma tarea»), sin bloquearse.
 // Puro: lo usan el cliente, el servidor y las pruebas.
 import type { PRBoard } from './tablero';
-import { textKey } from './tareas';
+import { branchTask, textKey } from './tareas';
 import { t } from './idioma';
 import { ledgerPending } from './cuentaRevisiones';
 
@@ -62,7 +62,7 @@ export function dependenciasEnTexto(texto: string, repo: string): string[] {
 }
 export const refPR = (p: Pick<PRBoard, 'repo' | 'numero'>) => `${p.repo}#${p.numero}`;
 /** La clave de Jira de un PR (rama, luego título), sin el PR-<número> de reserva: ese no junta repos distintos */
-export const pRKey = (p: Pick<PRBoard, 'rama' | 'titulo'>) => textKey(p.rama) ?? textKey(p.titulo);
+export const pRKey = (p: Pick<PRBoard, 'rama' | 'titulo'>) => branchTask(p.rama) ?? textKey(p.titulo);
 const sameRepo = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 
 /** Todos los bloqueos entre los PR del tablero (los que apuntan a PR que no están en él no cuentan), sin repetir */

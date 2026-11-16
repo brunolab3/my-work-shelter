@@ -1,5 +1,5 @@
 // Mensajes entre salas: cualquier habitante le pasa algo al de otra sala con send_to_room (un servidor MCP en proceso en
-// cada conversación). Con la clave de una tarea (ABC-123), a la conversación abierta de esa tarea en la sala; si no la
+// cada conversación). Con la clave de una tarea (ABC-123, o un slug descriptivo fuera de Jira: preflight-popover), a la conversación abierta de esa tarea en la sala; si no la
 // hay, una conversación nueva en el worktree de la tarea (y si la sala aún no tiene ninguno, en uno nuevo con la clave en
 // su nombre, para que los siguientes mensajes de la tarea lleguen ahí). Sin
 // clave, siempre una conversación nueva con el habitante en su copia principal: los mensajes entre salas son para
@@ -11,7 +11,8 @@ import { z } from 'zod';
 import path from 'node:path';
 import { t as tr } from '../shared/idioma.ts';
 import type { InfoWorktree } from '../shared/protocolo.ts';
-import { nombreWorktree } from './sesiones.ts';
+import { nombreWorktree, worktreeSuffix } from './sesiones.ts';
+import { isJiraKey, slugWorktreeName, taskKey, worktreeHasTask } from '../shared/tareas.ts';
 
 export interface RoomInfo { id: string; nombre: string; habitante?: { id: string; nombre: string } }
 export interface CtxRooms {
@@ -38,14 +39,12 @@ const LIMITE = 3, VENTANA = 60_000;
 const enviados = new Map<string, number[]>();
 export const forgetLimits = () => enviados.clear();
 
-// el worktree de una tarea entre los de una sala: la clave en su rama (o, sin rama, en el nombre de su carpeta)
+// the worktree of a task among a room's: its key in its folder name or its branch (shared/tareas.ts: worktreeHasTask)
 export function taskWorktree(worktrees: InfoWorktree[], clave: string): string | undefined {
-  const k = clave.toLowerCase();
-  return worktrees.find(w => !w.principal && (w.rama || path.basename(w.ruta)).toLowerCase().includes(k))?.ruta;
+  return worktrees.find(w => !w.principal && worktreeHasTask(w, clave))?.ruta;
 }
 
 const findRoom = (salas: RoomInfo[], q: string) => { const k = q.trim().toLowerCase(); return salas.find(s => s.id.toLowerCase() === k) ?? salas.find(s => s.nombre.toLowerCase() === k); };
-const KEY = /^[A-Z][A-Z0-9]+-\d+$/i;
 
 /** `desdeSesion`: la conversación que lo envía (en su misma sala, no puede ser la que lo recibe) */
 export async function sendToRoom(ctx: CtxRooms, desde: string, { sala, mensaje, clave }: { sala: string; mensaje: string; clave?: string }, desdeSesion?: string): Promise<{ ok: boolean; texto: string }> {
@@ -55,8 +54,8 @@ export async function sendToRoom(ctx: CtxRooms, desde: string, { sala, mensaje, 
   const misma = destino.id === desde;
   if (!destino.habitante) return { ok: false, texto: tr('tool.rooms.noDweller', { sala: destino.nombre }) };
   if (!mensaje.trim()) return { ok: false, texto: tr('tool.rooms.empty') };
-  const k = clave?.trim().toUpperCase() || undefined;
-  if (k && !KEY.test(k)) return { ok: false, texto: tr('tool.rooms.badKey', { clave: clave ?? '' }) };
+  const k = clave?.trim() ? taskKey(clave) : undefined;
+  if (clave?.trim() && !k) return { ok: false, texto: tr('tool.rooms.badKey', { clave: clave ?? '' }) };
   const ahora = ctx.ahora?.() ?? Date.now(), par = `${desde}>${destino.id}`;
   const recientes = (enviados.get(par) ?? []).filter(x => ahora - x < VENTANA);
   if (recientes.length >= LIMITE) return { ok: false, texto: tr('tool.rooms.limit', { n: LIMITE, sala: destino.nombre }) };
@@ -70,8 +69,11 @@ export async function sendToRoom(ctx: CtxRooms, desde: string, { sala, mensaje, 
   if (abierta && ctx.avisar(abierta, texto)) { como = tr('tool.rooms.toOpen', { clave: k! }); recibe = abierta; }
   else {
     cwd = k ? await ctx.worktreeDeTarea(destino.id, k) : undefined;
-    // sin worktree de la tarea, uno nuevo: la clave y el asunto en su nombre (la primera línea, sin repetir la clave)
-    const worktree = k && !cwd ? nombreWorktree(`${k} ${mensaje.trim().split('\n')[0].replace(new RegExp(k, 'ig'), '')}`, ahora) : undefined;
+    // sin worktree de la tarea, uno nuevo: la clave y el asunto en su nombre (la primera línea, sin repetir la clave); a
+    // slug is descriptive already, so it goes alone and verbatim, recoverable from the name (shared/tareas.ts: slugKeyOf)
+    const worktree = !k || cwd ? undefined : isJiraKey(k)
+      ? nombreWorktree(`${k} ${mensaje.trim().split('\n')[0].replace(new RegExp(k, 'ig'), '')}`, ahora)
+      : slugWorktreeName(k, worktreeSuffix(ahora));
     let enWorktree: boolean;
     try { ({ id: recibe, enWorktree } = await ctx.empezar(destino.id, destino.habitante.id, texto, cwd ? { cwd } : worktree ? { worktree } : undefined)); }
     catch (e) { return { ok: false, texto: tr('tool.rooms.couldNotStart', { sala: destino.nombre, error: (e as Error).message }) }; }

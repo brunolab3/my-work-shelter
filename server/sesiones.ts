@@ -139,9 +139,9 @@ export function nombreWorktree(tarea: string, ahora = Date.now()) {
   const palabras = tarea.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
   let slug = '';
   for (const p of palabras) { const n = slug ? `${slug}-${p}` : p; if (n.length > 32) break; slug = n; }
-  const suffix = (ahora % 36 ** 4).toString(36).padStart(4, '0');
-  return `shelter-${slug ? slug.slice(0, 32) + '-' : ''}${suffix}`;
+  return `shelter-${slug ? slug.slice(0, 32) + '-' : ''}${worktreeSuffix(ahora)}`;
 }
+export const worktreeSuffix = (ahora = Date.now()) => (ahora % 36 ** 4).toString(36).padStart(4, '0');
 
 /** Crea el worktree de un trabajo nuevo donde lo haría Claude Code con --worktree (.claude/worktrees/<nombre>, rama
  *  worktree-<nombre>), desde la rama principal del remoto recién traída (o, sin remoto, desde lo que tenga la copia), para

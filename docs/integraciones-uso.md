@@ -211,8 +211,11 @@ the task). The card says which rooms already have something going for that task.
 **Messages between rooms.** Every conversation, in any room, has `send_to_room` (`server/avisosSalas.ts`, in-process
 MCP `salas`): it hands a message or a job to another room's dweller, no plan and no worktree. Without a task key it
 always starts a new conversation with that dweller in its main copy (messages between rooms start work; they are not a
-chat); with a key (ABC-123) it goes to the conversation open in that task's worktree in that room or, if there is none,
-starts one in the task's worktree, creating it if the task has none (in the main copy only when the room's folder isn't a git repo). New conversations run in auto
+chat); with a key (a Jira one, ABC-123, or a descriptive kebab-case slug for work outside Jira, `preflight-popover`;
+`taskKey` in `shared/tareas.ts`) it goes to the conversation open in that task's worktree in that room or, if there is none,
+starts one in the task's worktree, creating it if the task has none (in the main copy only when the room's folder isn't a git repo). A slug
+task's worktree is named `shelter-<slug>--<suffix>` so the key comes back from its folder or branch (`slugKeyOf`); slugs
+are never read from prose, and Jira-only features (the Jira board's title and color) just find nothing. New conversations run in auto
 permissions. Each message says which room sent it and how to reply; the messenger robot carries it and a notice shows it.
 At most 3 messages a minute from one room to another. It also works inside the same room: with a task key, a dweller
 hands that task (or a part of it that can go on its own) to the conversation in the task's worktree, its hologram, and
@@ -286,7 +289,7 @@ problem, not this row's). The first column (`mergeReady`) is ✓ only when the P
 threads, mergeable and waits for nothing unmerged; its hover lists what's missing. Clicking a row (or Enter) opens the
 PR; clicking its blockers, the PR it waits for. Below, the rooms of the task still without a PR and the merge waves
 (merged PRs struck through, ready ones ✓). Ways in: F or the ✈ on a task block in the Deployment plan, ✈ in a copy's
-intercom (under its PR list) and ⌘K "Pre-flight ABC-123" (the tasks of your copies and open PRs, or any key typed).
+intercom (under its PR list) and ⌘K "Pre-flight ABC-123" (the tasks of your copies and open PRs, slugs included, or any Jira key typed).
 
 **The push gate** uses the same model per part (also worktrees without a PR), but none of it is shown in the window:
 sync (local HEAD of its branch vs the PR's head on GitHub, without fetching, plus uncommitted changes), compare and

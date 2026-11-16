@@ -108,6 +108,20 @@ describe('mensajes entre salas', () => {
     expect(x.avisados[0].sesionId).toBe('ses-tarea');
   });
 
+  it('with a descriptive slug key: kept as written, a new worktree named after it alone, found again by exact key', async () => {
+    const x = ctx({ abiertas: { 'pagos/preflight-popover': 'ses-slug' } });
+    await sendToRoom(x.c, 'express', { sala: 'pagos', clave: 'preflight-popover', mensaje: 'a' });
+    expect(x.avisados[0].sesionId).toBe('ses-slug');
+    expect(x.avisados[0].texto).toContain('preflight-popover');
+    const r = await sendToRoom(x.c, 'tareas', { sala: 'pagos', clave: 'Holo-Front-Edge', mensaje: 'Fix the hologram front edge' });
+    expect(r.ok).toBe(true);
+    expect(x.nuevas[0].worktree).toMatch(/^shelter-holo-front-edge--[0-9a-z]{4}$/);
+    const wts = [{ ruta: '/repos/pagos/.claude/worktrees/' + x.nuevas[0].worktree, rama: 'worktree-' + x.nuevas[0].worktree, principal: false } as any];
+    expect(taskWorktree(wts, 'holo-front-edge')).toBeDefined();
+    expect(taskWorktree(wts, 'front-edge')).toBeUndefined();
+    expect(taskWorktree(wts, 'holo')).toBeUndefined();
+  });
+
   it('rechaza una sala que no existe (con la lista), una sin habitante y una clave que no lo es', async () => {
     const x = ctx();
     const r = await sendToRoom(x.c, 'express', { sala: 'nada', mensaje: 'a' });

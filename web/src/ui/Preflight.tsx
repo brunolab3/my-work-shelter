@@ -12,7 +12,7 @@ import { Device, Keys, closePanel, useKeys } from './aparato';
 import { openPanel } from './Paneles';
 import { openLink } from './Navegadores';
 import { jiraBoard, useColorsTasks } from './tareas';
-import { taskColor } from '@shared/tareas';
+import { taskColor, taskKey } from '@shared/tareas';
 import { refPR } from '@shared/despliegue';
 import { linkState, mergeReady, shortRef, type Cell, type PartLink, type PartPreflight, type TaskPreflight } from '@shared/preflight';
 
@@ -24,7 +24,7 @@ const STATE: Record<string, string> = { abierto: 'preflight.blockers.open', borr
 export function openPreflight(clave: string, volver?: { panel: Panel; panelData: any }) {
   // docked on the left: a maximized intercom goes back to the right, as for a page (Dialogo.tsx)
   dispatchEvent(new CustomEvent('refugio:pagina-al-lado'));
-  openPanel('preflight', { clave: clave.toUpperCase(), volver });
+  openPanel('preflight', { clave: taskKey(clave) ?? clave, volver });
 }
 
 const openPR = (p: PartPreflight) => { if (p.pr) openLink(p.pr.url); else SFX.noAllowed(); };

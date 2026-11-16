@@ -10,6 +10,7 @@ import { clavesJira, textoPR } from '../shared/tablero.ts';
 import type { InfoWorktree, SessionSummary } from '../shared/protocolo.ts';
 import { branchKey, prsOfName } from './revisionesPR.ts';
 import { t } from '../shared/idioma.ts';
+import { worktreeHasTask } from '../shared/tareas.ts';
 
 export interface TaskGroup { id: string; clave?: string; nombre: string; prs: PRBoard[] }
 
@@ -52,7 +53,7 @@ export function taskWorktree(g: TaskGroup, worktrees: InfoWorktree[]): InfoWorkt
   const ramas = new Set(g.prs.map(p => p.rama));
   const otros = worktrees.filter(w => !w.principal);
   return otros.find(w => ramas.has(w.rama))
-    ?? (g.clave ? otros.find(w => path.basename(w.ruta).toLowerCase().includes(g.clave!.toLowerCase())) : undefined)
+    ?? (g.clave ? otros.find(w => worktreeHasTask(w, g.clave!)) : undefined)
     ?? otros.find(w => prsOfName(path.basename(w.ruta)).some(n => g.prs.some(p => p.numero === n)));
 }
 

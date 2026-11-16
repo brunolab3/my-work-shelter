@@ -11,7 +11,7 @@ import type { PRBoard } from '../shared/tablero.ts';
 import { bloqueosEntre, type BlockerManual, type TaskOrder } from '../shared/despliegue.ts';
 import { preflightTarea, repoChecklist, answered, checklistKey, gateMissing, linkState, type ChecklistAnswer, type CompareRecord, type PartPreflight, type CICheck, type RepoFiles, type LocalBranch, type PlanPart, type TaskPreflight } from '../shared/preflight.ts';
 import type { ReviewLedger, ReviewThread } from '../shared/cuentaRevisiones.ts';
-import { pRTask, worktreeTask } from '../shared/tareas.ts';
+import { pRTask, taskKey, worktreeTask } from '../shared/tareas.ts';
 import type { RoomPR } from './revisionesPR.ts';
 import { t } from '../shared/idioma.ts';
 
@@ -38,7 +38,7 @@ const quiet = (p: Promise<string>) => p.then(s => s.trim()).catch(() => '');
 /** Las ramas de la tarea en cada sala: los worktrees de la tarea (por su nombre o su rama) y los que tienen sacada la
  *  rama de uno de sus PR, y las ramas locales de sus PR que no están sacadas en ninguno; cada una frente a su PR */
 export async function localBranches(clave: string, prs: PRBoard[], salas: RoomPR[], git: Git): Promise<LocalBranch[]> {
-  const K = clave.toUpperCase();
+  const K = taskKey(clave) ?? clave;
   const deLaTarea = prs.filter(p => p.estado !== 'cerrado' && pRTask(p) === K);
   const out: LocalBranch[] = [];
   await Promise.all(salas.map(async s => {
@@ -71,8 +71,8 @@ export async function localBranches(clave: string, prs: PRBoard[], salas: RoomPR
 
 /** El pre-flight de una tarea, con todo lo del refugio */
 export async function preflightOf(clave: string, ctx: CtxPreflight, forzar = false): Promise<TaskPreflight> {
-  const K = clave.trim().toUpperCase();
-  if (!/^[A-Z][A-Z0-9]+-\d+$/.test(K)) throw new Error(t('server.notATaskKey', { clave: clave.slice(0, 40) }));
+  const K = taskKey(clave);
+  if (!K) throw new Error(t('server.notATaskKey', { clave: clave.slice(0, 40) }));
   const [gh, salas, orden] = await Promise.all([ctx.prs(forzar), ctx.salas(), ctx.orden().catch(() => [] as TaskOrder[])]);
   // lo que queda por contestar en sus revisiones, como en el tablero de despliegue
   const prs = gh.demo ? gh.prs : gh.prs.map(p => { const l = ctx.revisiones(p.url).ledger; return l ? { ...p, ledger: l } : p; });

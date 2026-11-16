@@ -37,7 +37,7 @@ import { Dictations } from './voz.ts';
 import { Terminales, SOCKET_TERMINALS } from './terminales.ts';
 import { openInDesktop, openInAppClaude, outsideOpen, closeOutside, hookCommand, resumeCommand, type ItemDesktop } from './escritorio.ts';
 import { tonesForRepeated } from '../shared/reclutas.ts';
-import { remoteName } from '../shared/tareas.ts';
+import { remoteName, worktreeHasTask } from '../shared/tareas.ts';
 import { Store, DATOS, folderOf, reposRoot, hideRoom, showRoom, isHideable, roomIdOf } from './estado.ts';
 import { infoRepo, sugerencias, expand, recentTranscripts, liveSessions, worktreeList, estiloSala, projectType } from './repos.ts';
 import { Integraciones } from './integraciones/index.ts';
@@ -139,10 +139,8 @@ const coloresTareas = new TasksColors(DATOS);
 const ctxPlan: Pick<CtxAssignment, 'planes' | 'avisar' | 'mensajero' | 'sesionDeTarea'> = {
   planes,
   avisar: (id, texto) => { try { if (sesiones.lista().find(s => s.id === id)?.estado === 'cerrada') return false; sesiones.enviar(id, texto); return true; } catch { return false; } },
-  sesionDeTarea: (salaId, clave) => {
-    const k = clave.toLowerCase();
-    return sesiones.lista().filter(s => s.salaId === salaId && s.estado !== 'cerrada' && path.basename(s.worktree ?? s.cwd).toLowerCase().includes(k)).sort((a, b) => b.actualizada - a.actualizada)[0]?.id;
-  },
+  sesionDeTarea: (salaId, clave) =>
+    sesiones.lista().filter(s => s.salaId === salaId && s.estado !== 'cerrada' && worktreeHasTask({ ruta: s.worktree ?? s.cwd }, clave)).sort((a, b) => b.actualizada - a.actualizada)[0]?.id,
   mensajero: (desde, a, motivo) => broadcast({ t: 'mensajero', desde, a, motivo }),
 };
 // mensajes entre salas (avisosSalas.ts): a la conversación de la tarea o a una nueva con el habitante, en automático

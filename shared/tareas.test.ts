@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { TASKS_PALETTE, assignColors, textKey, taskColor, pRTask, worktreeTask, remoteName, worktreePRs, newWorktreeOf, taskWorktreeIn, handMadeWorktree, ghCreateOf, githubRepoOf, ORIGINAL_REPO } from './tareas';
+import { TASKS_PALETTE, assignColors, textKey, taskColor, pRTask, worktreeTask, remoteName, worktreePRs, newWorktreeOf, taskWorktreeIn, handMadeWorktree, ghCreateOf, githubRepoOf, ORIGINAL_REPO, taskKey, isJiraKey, slugKeyOf, worktreeHasTask } from './tareas';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, realpathSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
@@ -14,6 +14,36 @@ describe('tareas y su color', () => {
     expect(worktreeTask({ ruta: '/r/.claude/worktrees/shelter-pr-12-13', rama: 'x' })).toBe('PR-12');
     expect(worktreeTask({ ruta: '/r/.claude/worktrees/prueba', rama: 'def-4-otra' })).toBe('DEF-4');
     expect(worktreeTask({ ruta: '/r/.claude/worktrees/prueba', rama: 'main' })).toBeUndefined();
+  });
+  it('task keys: Jira ones uppercased, descriptive slugs lowercased, anything else rejected', () => {
+    expect(taskKey(' abc-12 ')).toBe('ABC-12');
+    expect(taskKey('preflight-popover')).toBe('preflight-popover');
+    expect(taskKey('Holo-Front-Edge')).toBe('holo-front-edge');
+    expect(taskKey('cleanup')).toBe('cleanup');
+    for (const no of ['lo de ayer', 'a', '-x', 'x-', 'a--b', 'fix_it', '1abc', 'x'.repeat(41), '']) expect(taskKey(no)).toBeUndefined();
+    expect(isJiraKey('ABC-12')).toBe(true);
+    expect(isJiraKey('preflight-popover')).toBe(false);
+  });
+  it('a slug key comes back from the worktree name or its branch, never from prose or a Jira worktree', () => {
+    expect(slugKeyOf('shelter-preflight-popover--a1b2')).toBe('preflight-popover');
+    expect(slugKeyOf('worktree-shelter-fix-2fa-login--a1b2')).toBe('fix-2fa-login');
+    expect(slugKeyOf('shelter-ws-10-descriptive-task-keys-for-3vfv')).toBeUndefined();
+    expect(slugKeyOf('arregla el preflight-popover--a1b2')).toBeUndefined();
+    // a slug that looks like it holds a Jira key (fix-2…) is still the slug
+    expect(worktreeTask({ ruta: '/r/.claude/worktrees/shelter-fix-2fa-login--a1b2', rama: 'worktree-shelter-fix-2fa-login--a1b2' })).toBe('fix-2fa-login');
+    expect(worktreeTask({ ruta: '/r/.claude/worktrees/otra', rama: 'worktree-shelter-holo-front-edge--0z9y' })).toBe('holo-front-edge');
+    expect(pRTask({ rama: 'worktree-shelter-holo-front-edge--0z9y', titulo: 'Holo front edge', numero: 7 })).toBe('holo-front-edge');
+    expect(textKey('the preflight-popover task')).toBeUndefined();
+  });
+  it('a worktree has a task only by its exact key, never a substring', () => {
+    const w = { ruta: '/r/.claude/worktrees/shelter-preflight-popover--a1b2', rama: 'worktree-shelter-preflight-popover--a1b2' };
+    expect(worktreeHasTask(w, 'preflight-popover')).toBe(true);
+    expect(worktreeHasTask(w, 'popover')).toBe(false);
+    expect(worktreeHasTask(w, 'preflight')).toBe(false);
+    const j = { ruta: '/r/.claude/worktrees/shelter-abc-12-algo-a1b2', rama: 'feature/ABC-12-algo' };
+    expect(worktreeHasTask(j, 'abc-12')).toBe(true);
+    expect(worktreeHasTask(j, 'ABC-1')).toBe(false);
+    expect(worktreeHasTask({ ruta: '/r/x', rama: 'feature/DEF-4-y' }, 'DEF-4')).toBe(true);
   });
   it('sin asignar, un color de la paleta por la clave (sin importar mayúsculas)', () => {
     expect(taskColor('abc-1')).toBe(taskColor('ABC-1'));
@@ -97,10 +127,13 @@ describe('taskWorktreeIn', () => {
     g('init', '-q', '-b', 'ABC-1-en-la-principal'); writeFileSync(path.join(d, 'a'), 'a'); g('add', '.'); g('commit', '-qm', 'a');
     g('worktree', 'add', '-q', '-b', 'feature/ABC-2-x', path.join(d, '.claude', 'worktrees', 'otra'));
     g('worktree', 'add', '-q', '-b', 'suelta', path.join(d, '.claude', 'worktrees', 'shelter-abc-3'));
+    g('worktree', 'add', '-q', '-b', 'worktree-shelter-holo-front-edge--a1b2', path.join(d, '.claude', 'worktrees', 'shelter-holo-front-edge--a1b2'));
     const lista = g('worktree', 'list', '--porcelain');
     expect(taskWorktreeIn(lista, 'abc-2')).toEqual({ ruta: path.join(d, '.claude', 'worktrees', 'otra'), rama: 'feature/ABC-2-x' });
     expect(taskWorktreeIn(lista, 'ABC-3')?.rama).toBe('suelta');
     expect(taskWorktreeIn(lista, 'ABC-1')).toBeUndefined();
     expect(taskWorktreeIn(lista, 'ABC-9')).toBeUndefined();
+    expect(taskWorktreeIn(lista, 'holo-front-edge')?.rama).toBe('worktree-shelter-holo-front-edge--a1b2');
+    expect(taskWorktreeIn(lista, 'holo-front')).toBeUndefined();
   });
 });

@@ -1,18 +1,50 @@
 // El color de cada tarea, el mismo en todas partes: tableros (Jira, despliegue, pull requests, organizar), pantallas de
 // las salas y el holograma del worktree que la trabaja. Así se ve de un vistazo qué tarea tiene sesiones en qué sala.
-// La tarea es la clave de Jira (de la rama, el título o el nombre del worktree); sin clave, el número del PR (PR-12).
+// The task is a Jira key (from the branch, the title or the worktree name) or, for work not tied to Jira, a descriptive
+// kebab slug (`preflight-popover`); without either, the PR number (PR-12).
 // Puro: lo usan el cliente, el servidor y las pruebas.
 
-/** La clave de Jira de una rama o un nombre (feature/ABC-123-algo, shelter-abc-123 → ABC-123; shelter-pr-12 → PR-12) */
+const JIRA_KEY = /^[A-Z][A-Z0-9]+-\d+$/i;
+const SLUG_KEY = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
+
+/** A task key as typed, normalized: a Jira key uppercased (abc-12 → ABC-12), a descriptive slug lowercased
+ *  (2–40 chars of kebab case), anything else undefined */
+export function taskKey(raw: string | undefined): string | undefined {
+  const s = (raw ?? '').trim();
+  if (JIRA_KEY.test(s)) return s.toUpperCase();
+  const l = s.toLowerCase();
+  return l.length >= 2 && l.length <= 40 && SLUG_KEY.test(l) ? l : undefined;
+}
+/** Whether a key is Jira-shaped (or PR-12): only those get Jira lookups and links */
+export const isJiraKey = (k: string) => JIRA_KEY.test(k);
+
+/** The Jira key in a branch or a name (feature/ABC-123-algo, shelter-abc-123 → ABC-123; shelter-pr-12 → PR-12). Never a
+ *  slug: those can't be told apart from prose, so they're only read from worktree names (slugKeyOf) */
 export const textKey = (texto: string): string | undefined => /(?:^|[^a-z0-9])([a-z][a-z0-9]+-\d+)(?=$|[^0-9])/i.exec(texto ?? '')?.[1]?.toUpperCase();
 
-/** La tarea de un PR: su clave de Jira (rama, luego título) o, sin ella, PR-<número> */
-export const pRTask = (p: { rama: string; titulo: string; numero: number }) => textKey(p.rama) ?? textKey(p.titulo) ?? `PR-${p.numero}`;
+/** The slug key of a worktree name or its branch, as the game names them: `shelter-<slug>--<suffix>` (branch
+ *  `worktree-shelter-<slug>--<suffix>`). The double hyphen can't come out of a Jira worktree's name */
+export const slugKeyOf = (nombre: string): string | undefined => /^(?:worktree-)?shelter-([a-z][a-z0-9]*(?:-[a-z0-9]+)*)--[a-z0-9]+$/.exec(nombre ?? '')?.[1];
+
+/** A task's worktree name for a slug key (a Jira one goes through nombreWorktree with its subject) */
+export const slugWorktreeName = (clave: string, suffix: string) => `shelter-${clave}--${suffix}`;
+
+/** The task of a branch: its slug key if the game named it, else its Jira key */
+export const branchTask = (rama: string) => slugKeyOf(rama) ?? textKey(rama);
+
+/** La tarea de un PR: su clave (rama, luego la de Jira del título) o, sin ella, PR-<número> */
+export const pRTask = (p: { rama: string; titulo: string; numero: number }) => branchTask(p.rama) ?? textKey(p.titulo) ?? `PR-${p.numero}`;
 
 /** La tarea de un worktree: por su nombre (estable aunque se cambie de rama dentro) y, si no, por su rama */
 export function worktreeTask(w: { ruta: string; rama?: string }): string | undefined {
   const nombre = w.ruta.replace(/\/+$/, '').split('/').pop() ?? '';
-  return textKey(nombre.replace(/^shelter-/, '')) ?? (w.rama ? textKey(w.rama) : undefined);
+  return slugKeyOf(nombre) ?? textKey(nombre.replace(/^shelter-/, '')) ?? (w.rama ? branchTask(w.rama) : undefined);
+}
+
+/** Whether a worktree works a task: by its name or by its branch (exact keys, never a substring: ABC-1 isn't ABC-12) */
+export function worktreeHasTask(w: { ruta: string; rama?: string }, clave: string): boolean {
+  const k = taskKey(clave);
+  return !!k && (worktreeTask(w) === k || (!!w.rama && branchTask(w.rama) === k));
 }
 
 /** Los PR de la tarea de un worktree en el repo de su sala, el más reciente primero: los de su rama y los de su misma
@@ -89,7 +121,7 @@ export function newWorktreeOf(cmd: string): { ruta?: string; rama?: string; cwd?
 /** El worktree (no la copia principal) que ya tiene una tarea, leyendo `git worktree list --porcelain` */
 export function taskWorktreeIn(porcelain: string, tarea: string): { ruta: string; rama?: string } | undefined {
   const bloques = porcelain.split('\n\n').map(b => ({ ruta: /^worktree (.+)$/m.exec(b)?.[1] ?? '', rama: /^branch refs\/heads\/(.+)$/m.exec(b)?.[1] })).filter(w => w.ruta);
-  return bloques.slice(1).find(w => worktreeTask(w) === tarea.toUpperCase());
+  return bloques.slice(1).find(w => worktreeTask(w) === taskKey(tarea));
 }
 
 /** El nombre de una conversación en Remote Control (la app de Claude y claude.ai/code): `repo:TAREA` (la del worktree o,

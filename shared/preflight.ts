@@ -7,7 +7,7 @@
 // Puro: lo usan el cliente, el servidor (server/preflight.ts) y las pruebas.
 import type { PRBoard } from './tablero';
 import { olasDespliegue, refPR, type Blocker, type BlockerReason } from './despliegue';
-import { pRTask } from './tareas';
+import { pRTask, taskKey } from './tareas';
 import { t } from './idioma';
 import { ledgerPending, type ReviewThread } from './cuentaRevisiones';
 
@@ -294,7 +294,7 @@ export function mergeReady(p: PartPreflight): { estado: 'fusionado' | 'listo' | 
 
 /** El pre-flight de una tarea: sus partes en todas las salas y el orden en que puede fusionarse */
 export function preflightTarea(clave: string, d: PreflightInput): TaskPreflight {
-  const K = clave.toUpperCase();
+  const K = taskKey(clave) ?? clave.toUpperCase();
   const byUrl = new Map(d.prs.map(p => [p.url, p]));
   // los PR de la tarea (los cerrados sin fusionar ya no cuentan)
   const deLaTarea = d.prs.filter(p => p.estado !== 'cerrado' && pRTask(p) === K);
