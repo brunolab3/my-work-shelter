@@ -11,14 +11,14 @@ const raiz = path.resolve(__dirname, '..');
 const largo = (k: string) => Math.max(TEXTS[k].es.length, TEXTS[k].en?.length ?? 0);
 
 describe('contexto de cada sesión', () => {
-  it('AGENTS.md (todas las sesiones en este repo) cabe en 8 KB: las funciones van en docs/mapa.md', () => {
-    expect(Buffer.byteLength(readFileSync(path.join(raiz, 'AGENTS.md'), 'utf8'))).toBeLessThanOrEqual(8000);
+  it('AGENTS.md (every session in this repo) fits in 1.6 KB: features go in docs/mapa.md', () => {
+    expect(Buffer.byteLength(readFileSync(path.join(raiz, 'AGENTS.md'), 'utf8'))).toBeLessThanOrEqual(1600);
     expect(readFileSync(path.join(raiz, 'CLAUDE.md'), 'utf8').trim()).toBe('@AGENTS.md');
   });
   it('el anexo de los habitantes (cada conversación del juego) es corto', () => {
-    expect(ANNEX.length).toBeLessThanOrEqual(3600);
-    expect(bridgeAnnex().length).toBeLessThanOrEqual(1300);
-    expect(annexGit([]).length).toBeLessThanOrEqual(600);
+    expect(ANNEX.length).toBeLessThanOrEqual(1450);
+    expect(bridgeAnnex().length).toBeLessThanOrEqual(320);
+    expect(annexGit([]).length).toBeLessThanOrEqual(300);
   });
   it('cada descripción de una herramienta del juego (va en el contexto de cada conversación que la tiene) cabe en 800 caracteres, y la de un parámetro en 250', () => {
     expect(Object.keys(TEXTS).filter(k => k.startsWith('tool.') && /description$/i.test(k) && largo(k) > 800)).toEqual([]);

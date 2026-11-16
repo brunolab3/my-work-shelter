@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { TASKS_PALETTE, assignColors, textKey, taskColor, pRTask, worktreeTask, remoteName, worktreePRs, newWorktreeOf, taskWorktreeIn, handMadeWorktree } from './tareas';
+import { TASKS_PALETTE, assignColors, textKey, taskColor, pRTask, worktreeTask, remoteName, worktreePRs, newWorktreeOf, taskWorktreeIn, handMadeWorktree, ghCreateOf, githubRepoOf, ORIGINAL_REPO } from './tareas';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, realpathSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
@@ -71,6 +71,21 @@ describe('handMadeWorktree', () => {
     expect(handMadeWorktree('git worktree add ../wt/ABC-3 -b ABC-3-x', '/r/.claude/worktrees/abc-3')).toBe(false);
     expect(handMadeWorktree('git worktree remove ../wt')).toBe(false);
     expect(handMadeWorktree('git worktree list')).toBe(false);
+  });
+});
+
+describe('ghCreateOf and githubRepoOf', () => {
+  it('finds gh pr/issue create and its -R target', () => {
+    expect(ghCreateOf('gh pr create --title x')).toEqual({ repo: undefined });
+    expect(ghCreateOf('git push && gh issue create -R DavidTorrijos/work-shelter-public -t x')).toEqual({ repo: ORIGINAL_REPO });
+    expect(ghCreateOf('gh pr create --repo=https://github.com/a/b')).toEqual({ repo: 'a/b' });
+    expect(ghCreateOf('gh pr view 3')).toBeNull();
+    expect(ghCreateOf('echo "gh pr create"')).toBeNull();
+  });
+  it('reads owner/repo from https and ssh remotes', () => {
+    expect(githubRepoOf('https://github.com/DavidTorrijos/work-shelter-public.git')).toBe(ORIGINAL_REPO);
+    expect(githubRepoOf('git@github.com:a/b.git')).toBe('a/b');
+    expect(githubRepoOf('https://gitlab.example/a/b')).toBeUndefined();
   });
 });
 

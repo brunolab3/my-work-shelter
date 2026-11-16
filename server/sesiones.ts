@@ -7,7 +7,8 @@ import path from 'node:path';
 import { cwdBeforeRelocation, lastActivity, projectFolder } from './repos.ts';
 import { mcpReview } from './comparar.ts';
 import { pushOf } from '../shared/preflight.ts';
-import { handMadeWorktree, newWorktreeOf, taskWorktreeIn, worktreeTask } from '../shared/tareas.ts';
+import { handMadeWorktree, newWorktreeOf, taskWorktreeIn, worktreeTask, ghCreateOf, githubRepoOf, isOriginalRepo, ORIGINAL_REPO } from '../shared/tareas.ts';
+import { gh } from './git.ts';
 import { readFileSync } from 'node:fs';
 import { EventEmitter } from 'node:events';
 import { randomUUID } from 'node:crypto';
@@ -263,6 +264,8 @@ export class Sessions extends EventEmitter {
             const w = newWorktreeOf(cmd);
             return w ? this.oneWorktree(x, w.cwd, path.basename(w.ruta ?? ''), w.rama) : {};
           }] },
+          // nobody reads pull requests or issues in the original repo (README): opening one there asks the user first
+          { matcher: 'Bash', hooks: [async (h: any) => this.originalRepoGate(x, String(h?.tool_input?.command ?? ''))] },
           { matcher: 'EnterWorktree', hooks: [async (h: any) => this.oneWorktree(x, undefined, String(h?.tool_input?.name ?? ''))] },
         ],
       },
@@ -283,6 +286,23 @@ export class Sessions extends EventEmitter {
     const ya = taskWorktreeIn(lista, tarea);
     if (!ya) return {};
     return { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: t('server.oneWorktreePerTask', { tarea, ruta: ya.ruta, rama: ya.rama ?? '' }) } };
+  }
+
+  private async originalRepoGate(x: Session, cmd: string): Promise<Record<string, unknown>> {
+    const c = ghCreateOf(cmd);
+    if (!c) return {};
+    let repo = c.repo;
+    if (!repo) {
+      // without -R gh aims at the cwd's repo or, from a fork, at its parent
+      const cwd = x.r.worktree ?? x.r.cwd;
+      const remotes = await new Promise<string>(ok => execFile('git', ['-C', cwd, 'remote', '-v'], { env: entornoGit(), timeout: 10_000 }, (e, o) => ok(e ? '' : String(o))));
+      const repos = [...new Set(remotes.split('\n').map(l => githubRepoOf(l.split(/\s+/)[1] ?? '')).filter((r): r is string => !!r))];
+      for (const r of repos) {
+        if (isOriginalRepo(r) || isOriginalRepo(await gh(['api', `repos/${r}`, '--jq', '.parent.full_name // ""'], undefined, 10_000).catch(() => ''))) { repo = ORIGINAL_REPO; break; }
+      }
+    }
+    if (!repo || !isOriginalRepo(repo)) return {};
+    return { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'ask', permissionDecisionReason: t('server.originalRepoNobodyReads', { repo: ORIGINAL_REPO }) } };
   }
 
   private async pushGate(x: Session, cmd: string): Promise<Record<string, unknown>> {

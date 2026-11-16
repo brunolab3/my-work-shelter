@@ -37,6 +37,32 @@ export function handMadeWorktree(cmd: string, worktree?: string): boolean {
   return !worktree && !!newWorktreeOf(cmd);
 }
 
+/** The original repo, whose author reads no pull requests or issues (README) */
+export const ORIGINAL_REPO = 'DavidTorrijos/work-shelter-public';
+export const isOriginalRepo = (r: string) => r.trim().toLowerCase() === ORIGINAL_REPO.toLowerCase();
+
+/** `owner/repo` of a GitHub remote URL (https or ssh), or undefined */
+export function githubRepoOf(url: string): string | undefined {
+  return /github\.com[:/]([^/\s]+\/[^/\s]+?)(?:\.git)?\/?$/.exec(url.trim())?.[1];
+}
+
+/** If a Bash command runs `gh pr create` or `gh issue create`: its `-R/--repo` target (undefined without one), or null */
+export function ghCreateOf(cmd: string): { repo?: string } | null {
+  for (const trozo of String(cmd ?? '').split(/&&|\|\||[;|\n]/)) {
+    const w = trozo.trim().match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g)?.map(x => x.replace(/^["']|["']$/g, '')) ?? [];
+    let i = 0;
+    while (i < w.length && /^[A-Z_][A-Z0-9_]*=/.test(w[i])) i++;
+    if (!/(^|\/)gh$/.test(w[i] ?? '') || !/^(pr|issue)$/.test(w[i + 1] ?? '') || w[i + 2] !== 'create') continue;
+    let repo: string | undefined;
+    for (let k = i + 3; k < w.length; k++) {
+      if (w[k] === '-R' || w[k] === '--repo') repo = w[++k];
+      else if (w[k].startsWith('--repo=')) repo = w[k].slice(7);
+    }
+    return { repo: repo?.replace(/^(https:\/\/)?github\.com\//, '') };
+  }
+  return null;
+}
+
 /** Si una orden de Bash crea un worktree (`git worktree add`, también con -C): su ruta y su rama nueva (-b/-B), o null */
 export function newWorktreeOf(cmd: string): { ruta?: string; rama?: string; cwd?: string } | null {
   for (const trozo of String(cmd ?? '').split(/&&|\|\||[;|\n]/)) {
