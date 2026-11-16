@@ -544,7 +544,11 @@ function checklistItems(): string[] {
 const paginasRevisadas = new PageReviews(DATOS, COMPARES_FOLDER);
 const ctxPreflight: CtxPreflight = {
   prs: prsPreflight,
-  salas: repoRooms,
+  // worktrees read live: repos[] refreshes every 20 s, and one made and pushed in between would escape the push gate
+  salas: async () => Promise.all((await repoRooms()).map(async s => {
+    const vivos = await worktreeList(s.ruta).catch(() => []);
+    return vivos.length ? { ...s, worktrees: vivos } : s;
+  })),
   manuales: () => bloqueosPR.todos(),
   orden: () => tasksOrder(planes.todos(), roomRepoById),
   plan: clave => planes.get(clave)?.partes.map(x => ({ salaId: x.salaId, sala: x.sala, titulo: x.titulo, waitA: x.waitA })),
@@ -1009,9 +1013,10 @@ async function startWork(ws: WebSocket | undefined, m: Extract<ClientMessage, { 
   if (vivas >= e.limiteSesiones) throw new Error(t('server.thereAreAlreadyLiveSessions', { vivas, limiteSesiones: e.limiteSesiones }));
   // los worktrees son de las salas de proyecto: el Puente de Mando y las especiales trabajan en su carpeta, salvo el
   // worktree con nombre de una tarea (mensajes entre salas) si su carpeta es un repo git (lo comprueba lo de abajo)
-  if (sala.tipo !== 'repo' && typeof m.opciones.worktree !== 'string') m.opciones.worktree = false;
   // un nombre de worktree (mensajes entre salas): solo letras, números, guiones y puntos; si no, uno con el título
-  if (typeof m.opciones.worktree === 'string' && !/^[\w.-]{1,80}$/.test(m.opciones.worktree)) m.opciones.worktree = true;
+  // (in a special room, none: it only gets a task-named one)
+  if (typeof m.opciones.worktree === 'string' && !/^[\w.-]{1,80}$/.test(m.opciones.worktree)) m.opciones.worktree = sala.tipo === 'repo';
+  if (sala.tipo !== 'repo' && typeof m.opciones.worktree !== 'string') m.opciones.worktree = false;
   // en un ala (carpeta con varios repos) no hay un único repo donde crear el worktree: se trabaja en la carpeta
   if (m.opciones.worktree && !existsSync(path.join(cwd, '.git'))) { m.opciones.worktree = false; const aviso: ServerMessage = { t: 'aviso', nivel: 'aviso', texto: t('server.isNotAGitRepo', { nombre: sala.nombre }) }; if (ws) enviar(ws, aviso); else broadcast(aviso); }
   const r = await sesiones.empezar(m.dwellerId, m.salaId, cwd, m.prompt, m.opciones, adjuntos.describir(pathsList(m.adjuntos)));

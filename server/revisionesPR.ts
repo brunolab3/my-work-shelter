@@ -169,7 +169,11 @@ export class ReviewsPR {
   }
   private guardar() { const tmp = this.archivo + '.tmp'; writeFileSync(tmp, JSON.stringify({ desde: this.desde, bots: this.bots, seen: this.seen.slice(-3000) }), { mode: 0o600 }); renameSync(tmp, this.archivo); }
 
-  async sondear() {
+  // one round at a time: a slow one (opening conversations) must not overlap the next and deliver twice
+  private enCurso?: Promise<void>;
+  sondear() { return this.enCurso ??= this.vuelta().finally(() => { this.enCurso = undefined; }); }
+
+  private async vuelta() {
     const c = await this.ctx.connection();
     if (!c.real) return;
     const { prs } = reviewsOfGitHub(await this.ctx.consultar(c.token));

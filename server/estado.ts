@@ -48,7 +48,9 @@ export function relinkedIds(salas: { id: string; tipo: string; ruta?: string }[]
   for (const s of salas) {
     if (s.tipo !== 'repo' || !s.ruta) continue;
     const base = roomIdOf(s.ruta);
-    if (s.id === base || s.id.startsWith(base + '-') || usados.has(base)) continue;
+    // `<base>-<suffix>` is a repeated folder (addRoom adds Date.now() in base 36) only if the suffix has a digit: an
+    // `api-gateway` room relinked to `api` is renamed
+    if (s.id === base || (s.id.startsWith(base + '-') && /^[a-z0-9]*\d[a-z0-9]*$/.test(s.id.slice(base.length + 1))) || usados.has(base)) continue;
     usados.add(base); out[s.id] = base;
   }
   return out;

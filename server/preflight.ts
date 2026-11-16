@@ -81,9 +81,10 @@ export async function preflightOf(clave: string, ctx: CtxPreflight, forzar = fal
   const worktrees = [...new Set(locales.map(l => l.worktree).filter((w): w is string => !!w))];
   const repoItems = Object.fromEntries(await Promise.all(worktrees.map(async w => [w, await repoChecks(w)] as const)));
   const ciChecks = Object.fromEntries(prs.map(p => [p.url, ctx.ciChecks(p.url) ?? []]));
+  const lista = ctx.checklist();
   return preflightTarea(K, {
     prs, bloqueos: bloqueosEntre(prs, ctx.manuales(), orden), locales, compares, hilos,
-    checklist: { items: ctx.checklist().items, respuestas: ctx.checklist().respuestas(K) }, repoChecklist: repoItems, ciChecks,
+    checklist: { items: lista.items, respuestas: lista.respuestas(K) }, repoChecklist: repoItems, ciChecks,
     salas: salas.map(s => ({ id: s.id, nombre: s.nombre, repo: s.repo })),
     plan: ctx.plan(K), color: ctx.color(K), demo: gh.demo, error: gh.error,
   });
@@ -143,11 +144,11 @@ export class PageReviews {
   constructor(dir: string, private carpeta: string) {
     this.archivo = path.join(dir, 'preflight.json');
     try { if (existsSync(this.archivo)) { const j = JSON.parse(readFileSync(this.archivo, 'utf8')); this.respuestas = j.respuestas ?? {}; this.checklist = j.checklist ?? {}; } } catch { this.respuestas = {}; }
+    // answers to compare pages that no longer exist (cleanCompares removes them after 14 days) are dropped, once at startup
+    this.respuestas = Object.fromEntries(Object.entries(this.respuestas).filter(([k]) => existsSync(k)));
   }
   private guardar() {
-    // answers to compare pages that no longer exist (cleanCompares removes them after 14 days) are dropped
-    const lista = Object.entries(this.respuestas).filter(([k]) => existsSync(k)).sort((a, b) => b[1].ts - a[1].ts).slice(0, 500);
-    this.respuestas = Object.fromEntries(lista);
+    this.respuestas = Object.fromEntries(Object.entries(this.respuestas).sort((a, b) => b[1].ts - a[1].ts).slice(0, 500));
     // the checklist keeps the 60 most recent tasks and, in each, the answers for its 30 most recent commits (worktree and HEAD)
     const reciente = (x: Record<string, Record<string, ChecklistAnswer>>) => Math.max(0, ...Object.values(x).flatMap(r => Object.values(r).map(a => a.ts)));
     this.checklist = Object.fromEntries(Object.entries(this.checklist).sort((a, b) => reciente(b[1]) - reciente(a[1])).slice(0, 60)

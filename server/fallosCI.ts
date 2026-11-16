@@ -32,6 +32,11 @@ export const CI_QUERY = `query {
 
 const FAILING = new Set(['FAILURE', 'ERROR']);
 const RUN_FAILED = new Set(['FAILURE', 'TIMED_OUT', 'STARTUP_FAILURE', 'ACTION_REQUIRED']);
+const RUN_OK = new Set(['SUCCESS', 'NEUTRAL', 'SKIPPED']);
+const PEOR: Record<CICheck['estado'], number> = { ok: 0, pendiente: 1, mal: 2 };
+/** A check run for the pre-flight: a cancelled one doesn't pass (it gets no CI message either: it's often superseded),
+ *  a stale one is waiting */
+const checkRunState = (conclusion?: string): CICheck['estado'] => !conclusion ? 'pendiente' : RUN_FAILED.has(conclusion) || conclusion === 'CANCELLED' ? 'mal' : RUN_OK.has(conclusion) ? 'ok' : 'pendiente';
 /** El id de la ejecución de Actions de un enlace (…/actions/runs/123/job/456) */
 export const runOfUrl = (url: string) => { const m = /\/actions\/runs\/(\d+)/.exec(url); return m ? Number(m[1]) : undefined; };
 
@@ -42,9 +47,12 @@ export function ciOfGitHub(j: any): PRWithCI[] {
     const fallos: FailedCheck[] = [], todos: CICheck[] = [];
     for (const c of commit?.statusCheckRollup?.contexts?.nodes ?? []) {
       // todos, para el pre-flight (cada check, una línea): bien, mal o aún en marcha
-      const r = c?.__typename === 'CheckRun' ? (c.conclusion ? (RUN_FAILED.has(c.conclusion) ? 'mal' : 'ok') : 'pendiente') : c?.__typename === 'StatusContext' ? (FAILING.has(c.state) ? 'mal' : c.state === 'SUCCESS' ? 'ok' : 'pendiente') : undefined;
+      const r = c?.__typename === 'CheckRun' ? checkRunState(c.conclusion) : c?.__typename === 'StatusContext' ? (FAILING.has(c.state) ? 'mal' : c.state === 'SUCCESS' ? 'ok' : 'pendiente') : undefined;
       const nombre = String(c?.name ?? c?.context ?? '');
-      if (r && nombre && !todos.some(x => x.nombre === nombre)) todos.push({ nombre, estado: r });
+      // two checks with the same name (one per workflow): the worst one shows
+      const ya = todos.find(x => x.nombre === nombre);
+      if (r && nombre && !ya) todos.push({ nombre, estado: r });
+      else if (r && ya && PEOR[r] > PEOR[ya.estado]) ya.estado = r;
       if (c?.__typename === 'CheckRun' && RUN_FAILED.has(c.conclusion)) {
         const url = String(c.detailsUrl ?? n.url);
         fallos.push({ nombre: String(c.name ?? '?'), url, run: Number(c.checkSuite?.workflowRun?.databaseId) || runOfUrl(url) });
@@ -137,7 +145,12 @@ export class CIFailures {
   private checks = new Map<string, CICheck[]>();   // los de cada PR abierto, de la última vuelta: los lista el pre-flight
   checksOf(url: string): CICheck[] | undefined { return this.checks.get(url); }
 
-  async sondear() {
+  // one round at a time: a slow one (logs, opening conversations) must not overlap the next and deliver twice
+  private enCurso?: Promise<void>;
+  sondear() { return this.enCurso ??= this.vuelta().finally(() => { this.enCurso = undefined; }); }
+  private logs = new Map<string, string | undefined>();   // failed-run log tail per failure, fetched once while it retries
+
+  private async vuelta() {
     const c = await this.ctx.connection();
     if (!c.real) return;
     const prs = ciOfGitHub(await this.ctx.consultar(c.token));
@@ -145,29 +158,34 @@ export class CIFailures {
     const nuevos = newFailures(prs, new Set(this.entregados));
     // la primera vez, lo que ya fallaba se da por visto
     if (!this.iniciado) { this.iniciado = true; this.entregados.push(...nuevos.map(failureId)); this.guardar(); return; }
+    const pendientes = new Set(nuevos.map(failureId));
+    for (const k of this.logs.keys()) if (!pendientes.has(k)) this.logs.delete(k);
     if (!nuevos.length) return;
     const bloqueos = await this.ctx.bloqueos(prs).catch(() => [] as Blocker[]);
     const salas = await this.ctx.salas(), sesiones = this.ctx.sesiones();
     let cambio = false;
     for (const pr of nuevos) {
       const bloquea = blockedBy(pr, prs, bloqueos);
-      const run = pr.fallos.find(f => f.run)?.run;
-      const log = run ? await this.ctx.log(pr.repo, run, c.token).then(logTail).catch(() => undefined) : undefined;
-      const texto = ciMessage(pr, bloquea, log);
+      const k = failureId(pr);
       const destino = sessionOfPR(pr, salas, sesiones);
+      const sala = salas.find(s => s.repo === pr.repo.toLowerCase());
+      const wt = sala && worktreeOfPR(pr, sala);
+      const sinDestino = () => {
+        if (!this.avisados.has(k)) { this.avisados.add(k); this.ctx.withoutConversation(t('server.ciNoConversation', { numero: pr.numero, repo: pr.repo, rama: pr.rama })); }
+      };
+      // nowhere to deliver it: the log isn't fetched (it retries on the next round)
+      if (!destino && !(sala && wt)) { sinDestino(); continue; }
+      if (!this.logs.has(k)) {
+        const run = pr.fallos.find(f => f.run)?.run;
+        this.logs.set(k, run ? await this.ctx.log(pr.repo, run, c.token).then(logTail).catch(() => undefined) : undefined);
+      }
+      const texto = ciMessage(pr, bloquea, this.logs.get(k));
       let donde: { sala: string; wt: string } | undefined;
       if (destino && this.ctx.avisar(destino.sesion.id, texto)) donde = { sala: destino.sala.id, wt: destino.sesion.worktree ?? destino.sesion.cwd };
-      else {
-        const sala = salas.find(s => s.repo === pr.repo.toLowerCase());
-        const wt = sala && worktreeOfPR(pr, sala);
-        if (sala && wt && await this.ctx.abrir(sala.id, wt, texto).catch(() => false)) donde = { sala: sala.id, wt };
-        else {
-          const k = failureId(pr);
-          if (!this.avisados.has(k)) { this.avisados.add(k); this.ctx.withoutConversation(t('server.ciNoConversation', { numero: pr.numero, repo: pr.repo, rama: pr.rama })); }
-          continue;   // se reintenta en la siguiente vuelta
-        }
-      }
-      this.entregados.push(failureId(pr)); cambio = true;
+      else if (sala && wt && await this.ctx.abrir(sala.id, wt, texto).catch(() => false)) donde = { sala: sala.id, wt };
+      else { sinDestino(); continue; }   // se reintenta en la siguiente vuelta
+      this.logs.delete(k);
+      this.entregados.push(k); cambio = true;
       this.ctx.delivered(donde.sala, path.resolve(donde.wt), pr, bloquea);
     }
     if (cambio) this.guardar();

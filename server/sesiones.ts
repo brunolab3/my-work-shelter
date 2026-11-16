@@ -283,7 +283,7 @@ export class Sessions extends EventEmitter {
     const push = pushOf(cmd);
     if (!push || !this.resolutor.preflight) return {};
     const base = x.r.worktree ?? x.r.cwd;
-    const cwd = push.cwd ? path.resolve(base, push.cwd) : base;
+    const cwd = push.cwd ? path.resolve(base, push.cwd.replace(/^~(?=\/|$)/, os.homedir())) : base;
     const g = await this.resolutor.preflight.puerta(cwd).catch(() => null);
     if (!g || !g.falta.length) return {};
     const si = await this.confirmar(x, t('server.preflightGateTitle', { clave: g.clave, rama: g.rama ?? '', head: (g.head ?? '').slice(0, 7) }),

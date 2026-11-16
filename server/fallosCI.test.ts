@@ -49,6 +49,16 @@ describe('fallos de CI', () => {
     expect(runOfUrl('https://github.com/o/r/actions/runs/42/job/7')).toBe(42);
   });
 
+  it('the pre-flight shows each check once, its worst run: a cancelled one is not green', () => {
+    const contexts = [
+      { __typename: 'CheckRun', name: 'test', conclusion: 'SUCCESS' }, { __typename: 'CheckRun', name: 'test', conclusion: 'FAILURE' },
+      { __typename: 'CheckRun', name: 'deploy', conclusion: 'CANCELLED' }, { __typename: 'CheckRun', name: 'docs', conclusion: 'SKIPPED' },
+      { __typename: 'CheckRun', name: 'e2e', conclusion: 'STALE' },
+    ];
+    const [x] = ciOfGitHub({ data: { prs: { nodes: [pr({ number: 1, repo: 'refugio/api', rama: 'r', oid: 'o', state: 'FAILURE', contexts })] } } });
+    expect(x.todos).toEqual([{ nombre: 'test', estado: 'mal' }, { nombre: 'deploy', estado: 'mal' }, { nombre: 'docs', estado: 'ok' }, { nombre: 'e2e', estado: 'pendiente' }]);
+  });
+
   it('una vez por PR y commit: un commit nuevo que vuelve a fallar se entrega otra vez', () => {
     const prs = ciOfGitHub(respuesta());
     expect(newFailures(prs, new Set()).map(failureId)).toEqual(['refugio/api#7@aaa111']);
@@ -135,5 +145,46 @@ describe('fallos de CI', () => {
     salas = SALAS;
     await r.sondear();
     expect(abiertos).toEqual([['api', '/repos/api/.claude/worktrees/ref-300']]);
+  });
+
+  it('two overlapping rounds deliver a failure once', async () => {
+    const dir = mkdtempSync(path.join(os.tmpdir(), 'fallos-ci-'));
+    let json: any = { data: { prs: { nodes: [] } } };
+    const deliveries: string[] = [];
+    const ctx: CtxCI = {
+      connection: async () => ({ real: true }), consultar: async () => json,
+      log: () => new Promise(ok => setTimeout(() => ok('slow log'), 30)), bloqueos: async () => [], salas: async () => SALAS,
+      sesiones: () => [sesion({ id: 'api-tarea', salaId: 'api', worktree: '/repos/api/.claude/worktrees/ref-300' })],
+      avisar: id => { deliveries.push(id); return true; }, abrir: async () => false, delivered: () => {}, withoutConversation: () => {},
+    };
+    const r = new CIFailures(dir, ctx);
+    await r.sondear();
+    json = respuesta();
+    await Promise.all([r.sondear(), r.sondear()]);
+    expect(deliveries).toEqual(['api-tarea']);
+  });
+
+  it('a failure with nowhere to go does not fetch its log every round; once deliverable, the log is fetched once', async () => {
+    const dir = mkdtempSync(path.join(os.tmpdir(), 'fallos-ci-'));
+    let json: any = { data: { prs: { nodes: [] } } }, salas: RoomPR[] = [], puedeAbrir = false;
+    const logs: number[] = [], abiertos: string[] = [];
+    const ctx: CtxCI = {
+      connection: async () => ({ real: true }), consultar: async () => json, log: async (_r, run) => { logs.push(run); return 'FAIL'; },
+      bloqueos: async () => [], salas: async () => salas, sesiones: () => [], avisar: () => false,
+      abrir: async (_s, _c, texto) => { if (puedeAbrir) abiertos.push(texto); return puedeAbrir; }, delivered: () => {}, withoutConversation: () => {},
+    };
+    const r = new CIFailures(dir, ctx);
+    await r.sondear();
+    json = respuesta();
+    await r.sondear(); await r.sondear();
+    expect(logs).toEqual([]);                            // no room for the repo
+    salas = SALAS;
+    await r.sondear(); await r.sondear();               // room and worktree, but the conversation can't open (limit)
+    expect(logs).toEqual([555]);
+    puedeAbrir = true;
+    await r.sondear();
+    expect(logs).toEqual([555]);
+    expect(abiertos).toHaveLength(1);
+    expect(abiertos[0]).toContain('FAIL');
   });
 });

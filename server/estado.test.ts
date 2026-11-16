@@ -157,9 +157,10 @@ describe('ids de las salas vinculadas a otra carpeta', () => {
       { id: 'pagos', tipo: 'repo', ruta: '/r/pagos' },
       { id: 'pagos-mx1', tipo: 'repo', ruta: '/otra/pagos' },
       { id: 'gamma', tipo: 'repo', ruta: '/r/pagos' },
+      { id: 'api-gateway', tipo: 'repo', ruta: '/r/api' },
       { id: 'tareas', tipo: 'coordinacion', ruta: '/r' },
       { id: 'git', tipo: 'git' },
-    ])).toEqual({ alfa: 'tienda', beta: 'panel-web' });
+    ])).toEqual({ alfa: 'tienda', beta: 'panel-web', 'api-gateway': 'api' });
   });
   it('el refugio, los planes y la limpieza de tareas cambian juntos el id viejo por el nuevo', () => {
     const dir = mkdtempSync(path.join(os.tmpdir(), 'ids-salas-'));

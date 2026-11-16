@@ -182,27 +182,57 @@ export function gateMissing(p: PartPreflight): string[] {
   return out;
 }
 
-/** ¿Sube algo esta orden de Bash? `git push` (también con -C, -c o --git-dir delante), en cualquier trozo de la línea;
- *  no un `--dry-run`. Devuelve la carpeta en la que sube (la de -C, si la lleva) o null */
-export function pushOf(cmd: string): { cwd?: string } | null {
-  for (const trozo of String(cmd ?? '').split(/&&|\|\||[;|\n]/)) {
-    const w = trozo.trim().match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g)?.map(x => x.replace(/^["']|["']$/g, '')) ?? [];
+/** ¿Sube algo esta orden de Bash? `git push` (también con -C, -c o --git-dir delante), en cualquier trozo de la línea,
+ *  tras un `cd` o dentro de `sh -c "…"`; no un `--dry-run`. Devuelve la carpeta en la que sube (relativa a la de la
+ *  conversación, si un `cd` o un -C la cambian) o null */
+export function pushOf(cmd: string, dir?: string): { cwd?: string } | null {
+  const junta = (a: string | undefined, b: string) => !a || /^[/~]/.test(b) ? b : `${a.replace(/\/+$/, '')}/${b}`;
+  let cwd = dir;
+  for (const trozo of shellPieces(String(cmd ?? ''))) {
+    const w = trozo.match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g)?.map(x => x.replace(/^["']|["']$/g, '')) ?? [];
     let i = 0;
+    while (w[i] === '(' || w[i] === '{') i++;
     while (i < w.length && /^[A-Z_][A-Z0-9_]*=/.test(w[i])) i++;                       // VAR=x git push
-    if (w[i] === 'command' || w[i] === 'exec') i++;
+    if (w[i] === 'command' || w[i] === 'exec' || w[i] === 'env') { i++; while (i < w.length && /^[A-Z_][A-Z0-9_]*=/.test(w[i])) i++; }
+    if ((w[i] === 'cd' || w[i] === 'pushd') && w[i + 1] !== '-') { cwd = junta(cwd, w[i + 1] ?? '~'); continue; }
+    if (/(^|\/)(ba|z)?sh$/.test(w[i] ?? '')) {                                          // sh -c "git push"
+      const c = w.findIndex((x, j) => j > i && /^-[a-z]*c$/.test(x));   // -c, -lc
+      const dentro = c > 0 ? pushOf(w[c + 1] ?? '', cwd) : null;
+      if (dentro) return dentro;
+      continue;
+    }
     if (!/(^|\/)git$/.test(w[i] ?? '')) continue;
     i++;
-    let cwd: string | undefined;
+    let aqui = cwd;
     while (i < w.length && w[i].startsWith('-')) {
-      if (w[i] === '-C') { cwd = w[i + 1]; i += 2; }
+      if (w[i] === '-C') { aqui = junta(aqui, w[i + 1] ?? '.'); i += 2; }
       else if (w[i] === '-c' || w[i] === '--git-dir' || w[i] === '--work-tree') i += 2;
       else i++;
     }
     if (w[i] !== 'push') continue;
     if (w.slice(i + 1).some(a => a === '--dry-run' || a === '-n')) continue;
-    return { cwd };
+    return { cwd: aqui };
   }
   return null;
+}
+
+/** Los trozos de una línea de shell, separados por `&&`, `||`, `;`, `|` o saltos de línea fuera de comillas */
+function shellPieces(cmd: string): string[] {
+  const out: string[] = [];
+  let actual = '', q = '';
+  for (let i = 0; i < cmd.length; i++) {
+    const ch = cmd[i];
+    if (q) { if (ch === q) q = ''; actual += ch; continue; }
+    if (ch === '"' || ch === "'") { q = ch; actual += ch; continue; }
+    if (ch === ';' || ch === '\n' || ch === '|' || (ch === '&' && cmd[i + 1] === '&')) {
+      out.push(actual); actual = '';
+      if ((ch === '&' || ch === '|') && cmd[i + 1] === ch) i++;
+      continue;
+    }
+    actual += ch;
+  }
+  out.push(actual);
+  return out.map(x => x.replace(/^[\s(){}]+|[\s(){}]+$/g, ''));
 }
 
 /** Los puntos de la sección «Before pushing» (o «Antes de subir») de un CLAUDE.md: la lista numerada o con guiones de

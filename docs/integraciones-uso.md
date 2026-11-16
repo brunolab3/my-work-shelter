@@ -299,7 +299,7 @@ its whole part with `preflight_estado`. Each part's list also carries what its o
 opening a PR / Pre-flight" section of its CLAUDE.md and AGENTS.md, its check-like skills in `.claude/skills` (review,
 acceptance criteria, tests…; `skill · name`), and its check commands (`package.json` lint/test/typecheck scripts,
 `Makefile` targets, `pre-commit`), which the dweller runs and answers like the rest. Each GitHub check of the PR's
-head is listed too (from the `fallosCI.ts` poll, `checksOf`), set by CI and not answered. The gate: a `git push` (`pushOf`: also `git -C x push`, not `--dry-run`; only
+head is listed too (from the `fallosCI.ts` poll, `checksOf`), set by CI and not answered. The gate: a `git push` (`pushOf`: also `git -C x push`, after a `cd` or inside `sh -c`, not `--dry-run`; only
 `git push`, by the Overseer's decision) from a task worktree whose compare isn't validated at its HEAD, or (unless the
 PR is a draft) whose list isn't answered, ASKS the Overseer first in the permission dialog (a `PreToolUse` hook in
 `server/sesiones.ts`, so it applies in every permission mode, also over Remote Control/Slack); no denies it with what's

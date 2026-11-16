@@ -153,6 +153,17 @@ describe('la puerta de git push', () => {
     expect(pushOf('echo "git push"')).toBeNull();
     expect(pushOf('gh pr ready 12')).toBeNull();          // decisión del Supervisor: solo git push
   });
+  it('follows `cd` and `sh -c`, so the gate checks the folder that actually pushes', () => {
+    expect(pushOf('cd .claude/worktrees/ABC-12-x && git push')).toEqual({ cwd: '.claude/worktrees/ABC-12-x' });
+    expect(pushOf('cd ../api; git -C sub push')).toEqual({ cwd: '../api/sub' });
+    expect(pushOf('cd /repos/api && git -C /repos/web push')).toEqual({ cwd: '/repos/web' });
+    expect(pushOf('(cd ~/repos/api && git push origin HEAD)')).toEqual({ cwd: '~/repos/api' });
+    expect(pushOf('bash -c "git push"')).toEqual({ cwd: undefined });
+    expect(pushOf(`sh -lc 'cd ../api && git push'`)).toEqual({ cwd: '../api' });
+    expect(pushOf('env GIT_TRACE=1 git push')).toBeTruthy();
+    expect(pushOf('git commit -m "a; git push" && echo ok')).toBeNull();   // `;` inside quotes doesn't split
+    expect(pushOf('bash -c "git status"')).toBeNull();
+  });
   it('falta el compare validado en su commit y, salvo en borrador, la lista contestada', () => {
     const items = ['Compare revisado', 'Pruebas con datos reales'];
     const p = pr('acme/api', 1, { rama: 'ABC-1-api' });
