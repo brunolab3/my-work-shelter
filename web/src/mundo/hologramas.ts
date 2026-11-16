@@ -25,6 +25,7 @@ import { taskColor, worktreeTask } from '@shared/tareas';
 import { jiraBoard, knowTasks, versionColors } from '../ui/tareas';
 import type { DwellerState, DwellerSummary } from '../ui/estadoJuego';
 import { idCopy, branchCaption, copyCaption, pathWorktree } from '../ui/copias';
+import { holoSlot } from './sitioCopia';
 
 const MAX_BY_ROOM = 30;   // alto a propósito: son intangibles, si no caben se solapan sin estorbar
 const COLOR = new THREE.Color('#58e6ff'), COLOR_FAULT = new THREE.Color('#ff6a4a');
@@ -181,32 +182,13 @@ export class Holograms {
     if (cambio) this.r.publish();
   }
 
-  // ---- a slot along the front edge. What counts is the overlap on screen (in X), and rooms are full: each slot is
-  // scored and the least in the way wins. Never on top of another copy; very costly to hide the centrepiece or any spot
-  // where a dweller stands (their desk, the piece, their hobby, the devices, the patrol: the copy, in front, would hide
-  // them), a device, or furniture reaching the edge (it would stand inside it); a little, the walk zones, furniture
-  // sticking out to the front and the helper robots' spots; all else equal, better on the far side. The visitor's spot,
-  // never
+  // ---- a slot along the front edge (`holoSlot`)
   private sitio(sala: Sala, ruta: string) {
-    const lejos = sala.lado === 'izq' ? -1 : 1, medio = sala.ancho / 2 - 0.9;
     const otros = [...this.figuras.values()].filter(f => f.sala === sala && f.ruta !== ruta && !f.leaving).map(f => f.sitio.x - sala.grupo.position.x);
     const puestos = sala.puntos.filter(pt => pt.tipo !== 'charla').map(pt => ({ x: pt.pos.x, peso: pt.tipo === 'puesto' || pt.tipo === 'pieza' ? 300 : pt.tipo === 'mirar' ? 60 : 200 }));
     const devices = (sala.interactive ?? []).filter(i => !i.id.startsWith('vis:')).map(i => i.x);
-    // copies well apart, each in its own slot so you can tell who you talk to; in a full room, as far apart as fits
-    const coste = (x: number) =>
-      otros.reduce((c, o) => { const d = Math.abs(o - x); return c + (d < 1.3 ? 1e4 * (2.3 - d) : d < 2.2 ? 30 : 0); }, 0) + (Math.abs(x) < 1.8 ? 100 : 0)
-      + puestos.reduce((c, pt) => c + (Math.abs(pt.x - x) < 1.3 ? pt.peso : Math.abs(pt.x - x) < 1.8 ? pt.peso / 6 : 0), 0)
-      + (devices.some(ax => Math.abs(ax - x) < 1.0) ? 40 : 0)
-      + ((sala.walkZones ?? []).some(([a, b]) => x > a - 0.6 && x < b + 0.6) ? 10 : 0)
-      + (sala.obstacles.some(b => b.max.y > Z_SPOT - BASE / 2 && b.min.x - BASE / 2 < x && b.max.x + BASE / 2 > x) ? 300 : 0)
-      + (sala.obstacles.some(b => b.max.y > 0.3 && b.min.x - 0.5 < x && b.max.x + 0.5 > x) ? 5 : 0)
-      + ([-3.2, 3.0, -1.4, 1.6, -4.6, 4.4].some(r => Math.abs(r - x) < 0.8) ? 4 : 0)
-      // el sitio del visitante (junto al paso del ascensor, `Visitors.crear`) queda siempre libre, haya visitas o no
-      + (Math.abs(-lejos * (sala.ancho / 2 - 1.1) - x) < 1.4 ? 1e5 : 0)
-      + Math.abs(lejos * medio - x);
-    let mejor = lejos * medio, cmin = Infinity;
-    for (let x = -medio; x <= medio + 1e-6; x += 0.3) { const c = coste(x); if (c < cmin) { cmin = c; mejor = x; } }
-    return new THREE.Vector3(sala.grupo.position.x + mejor, sala.grupo.position.y, Z_SPOT);
+    const x = holoSlot({ ancho: sala.ancho, lado: sala.lado, puestos, devices, walkZones: sala.walkZones ?? [], obstacles: sala.obstacles }, otros, Z_SPOT, BASE);
+    return new THREE.Vector3(sala.grupo.position.x + x, sala.grupo.position.y, Z_SPOT);
   }
 
   private async crear(w: InfoWorktree, sala: Sala, autor: Habitante, effect = true) {
