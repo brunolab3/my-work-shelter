@@ -2,7 +2,9 @@
 
 > **[brunolab3](https://github.com/brunolab3)'s version, based on [DavidTorrijos/work-shelter-public](https://github.com/DavidTorrijos/work-shelter-public).**
 > The original game is by **David Torrijos** (MIT licence, see [`LICENSE`](LICENSE)); this repo publishes my changes on
-> top. Neither the original nor this repo takes pull requests or issues (see below): fork it and make it yours.
+> top. However much it has changed since, the idea, the shelter, its look and its dwellers are still his work: all
+> credit for the game goes to him. Neither the original nor this repo takes pull requests or issues (see below): fork
+> it and make it yours.
 
 <p align="center">
   <a href="docs/media/trailer.mp4"><img src="docs/media/teaser.webp" alt="work-shelter teaser: the shelter in cutaway, its rooms and its dwellers at work" width="100%"></a>
@@ -343,6 +345,10 @@ with a test shelter).
 
 ## Licences and credits
 
+- **Original game**: [David Torrijos](https://github.com/DavidTorrijos) created work-shelter
+  ([DavidTorrijos/work-shelter-public](https://github.com/DavidTorrijos/work-shelter-public)): the concept, the shelter's
+  design and art direction, the rooms, the dwellers and the code this version grew from. This repo is a fork with my
+  changes; it still wears his skin.
 - **Code**: [MIT](LICENSE). Parts of the sessions, terminals, tools and worktrees core are adapted from
   [code-town](https://github.com/JuanLouTech/code-town) (MIT; see [`LICENSES/code-town-MIT.txt`](LICENSES/code-town-MIT.txt)).
 - **3D art**: [KayKit](https://kaylousberg.com) (Kay Lousberg) and [Quaternius](https://quaternius.com), CC0;
