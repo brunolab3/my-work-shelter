@@ -280,16 +280,19 @@ the plan in plan mode without touching the repos. The list of your PRs and those
 Control (Pull requests tab of the git client; T from the Jira board).
 
 **Pre-flight of a task** (`shared/preflight.ts`, `server/preflight.ts`, `web/src/ui/Preflight.tsx`,
-action `preflight.tarea`). One side panel per Jira key, docked on the left beside the intercom (which stays open), that answers "can each PR of this task be merged now?": one row per
-PR of the task in every repo (the board's PRs plus all open ones, read from GitHub at most once a minute; R forces it),
+action `preflight.tarea`). A small floating box per Jira key, over whatever is open and anchored to what opened it (it
+is not a panel: nothing closes or resizes; Esc or a click outside closes it and leaves everything as it was), that answers
+"can each PR of this task be merged now?": one row per PR of the task in every repo (the board's PRs, all open ones and
+your PRs naming the key in their title or body at any age, so a task merged weeks ago still shows; read from GitHub at
+most once a minute; R forces it),
 in merge order (long titles truncated, full title on hover), with its state (draft, open, merged), CI, review (approved, changes requested or waiting, plus the
 count of unresolved threads and unanswered summaries from the last `revisionesPR.ts` poll), conflicts (GitHub's
 `mergeable`) and blockers ("waits for" / "blocks", with the other PR's state: a blocker's red CI is the blocker's
 problem, not this row's). The first column (`mergeReady`) is ✓ only when the PR is open, green, approved without open
 threads, mergeable and waits for nothing unmerged; its hover lists what's missing. Clicking a row (or Enter) opens the
 PR; clicking its blockers, the PR it waits for. Below, the rooms of the task still without a PR and the merge waves
-(merged PRs struck through, ready ones ✓). Ways in: F or the ✈ on a task block in the Deployment plan, ✈ in a copy's
-intercom (under its PR list) and ⌘K "Pre-flight ABC-123" (the tasks of your copies and open PRs, slugs included, or any Jira key typed).
+(merged PRs struck through, ready ones ✓, a wave all merged ✔; a task with everything merged says it has landed). Ways in: F or the ✈ on a task block in the Deployment plan, ✈ in a copy's
+intercom (under its PR list) and ⌘K "Pre-flight ABC-123" (the tasks of your copies, open PRs and recently merged ones, slugs included, or any Jira key typed).
 
 **The push gate** uses the same model per part (also worktrees without a PR), but none of it is shown in the window:
 sync (local HEAD of its branch vs the PR's head on GitHub, without fetching, plus uncommitted changes), compare and

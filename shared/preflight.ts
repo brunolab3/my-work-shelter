@@ -300,7 +300,8 @@ export function preflightTarea(clave: string, d: PreflightInput): TaskPreflight 
   const deLaTarea = d.prs.filter(p => p.estado !== 'cerrado' && pRTask(p) === K);
   const salaDe = (repo: string) => d.salas.find(s => sameRepo(s.repo, repo));
   const planDe = (salaId?: string) => d.plan?.find(x => x.salaId === salaId);
-  const { waves, ciclo } = olasDespliegue(d.prs, d.bloqueos);
+  // merged PRs keep their wave: a task that fully landed shows its waves complete
+  const { waves, ciclo } = olasDespliegue(d.prs, d.bloqueos, true);
   const enCiclo = new Set(ciclo.map(p => p.url));
   const usadas = new Set<LocalBranch>();
   const comparar = (p: Parameters<typeof compareCell>[0]) => {
@@ -361,7 +362,8 @@ export function preflightTarea(clave: string, d: PreflightInput): TaskPreflight 
   // las olas con lo de la tarea y lo que espera (directa o indirectamente), renumeradas
   const mias = new Set(deLaTarea.map(p => p.url));
   const cola = [...mias];
-  while (cola.length) { const u = cola.shift()!; for (const b of d.bloqueos) if (b.de === u && !mias.has(b.por)) { mias.add(b.por); cola.push(b.por); } }
+  // (another task's PR already merged no longer holds anything: it stays out)
+  while (cola.length) { const u = cola.shift()!; for (const b of d.bloqueos) if (b.de === u && !mias.has(b.por) && byUrl.get(b.por)?.estado !== 'fusionado') { mias.add(b.por); cola.push(b.por); } }
   const olas = waves.map(o => o.filter(p => mias.has(p.url)).map(refPR)).filter(o => o.length);
   return { clave: K, color: d.color, titulo: d.titulo, partes, olas, ciclo: ciclo.filter(p => mias.has(p.url)).map(refPR),
     checklist: d.checklist?.items ?? [], demo: d.demo, error: d.error };

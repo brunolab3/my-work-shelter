@@ -312,11 +312,12 @@ export function github(rutas: string[], forzar = false, connection: { real: bool
 // Tus PR abiertos y los cerrados o fusionados en las dos últimas semanas, con su rama (de ahí sale la tarea de Jira),
 // la revisión y el estado de la CI del último commit. Sin GitHub conectado, unos inventados (DEMO) que cruzan con las
 // tareas de demoPanelJira().
-const QUERY_PRS = (desde: string) => `query {
-  prs: search(query: "is:pr author:@me archived:false updated:>=${desde} sort:updated-desc", type: ISSUE, first: 60) { nodes { ... on PullRequest {
+const SEARCH_PRS = (q: string, n: number) => `query {
+  prs: search(query: "${q}", type: ISSUE, first: ${n}) { nodes { ... on PullRequest {
     number title body url isDraft state updatedAt reviewDecision mergeable headRefName headRefOid baseRefName repository { nameWithOwner }
     commits(last: 1) { nodes { commit { statusCheckRollup { state } } } } } } }
 }`;
+const QUERY_PRS = (desde: string) => SEARCH_PRS(`is:pr author:@me archived:false updated:>=${desde} sort:updated-desc`, 60);
 export function prsOfGitHub(j: any): PRBoard[] {
   return (j?.data?.prs?.nodes ?? []).filter((n: any) => n?.number).map((n: any): PRBoard => ({
     numero: n.number, titulo: n.title, url: n.url, repo: n.repository?.nameWithOwner ?? '', rama: n.headRefName ?? '',
@@ -348,15 +349,19 @@ export async function prsTablero(connection: { real: boolean; off?: boolean; tok
 }
 
 // todos tus PR sin fusionar (para organizar las salas por tareas: server/organizar.ts), con su base y descripción
-const OPEN_QUERY = `query {
-  prs: search(query: "is:pr is:open author:@me archived:false sort:updated-desc", type: ISSUE, first: 100) { nodes { ... on PullRequest {
-    number title body url isDraft state updatedAt reviewDecision mergeable headRefName headRefOid baseRefName repository { nameWithOwner }
-    commits(last: 1) { nodes { commit { statusCheckRollup { state } } } } } } }
-}`;
+const OPEN_QUERY = SEARCH_PRS('is:pr is:open author:@me archived:false sort:updated-desc', 100);
 export async function prsOpen(connection: { real: boolean; off?: boolean; token?: string }): Promise<{ prs: PRBoard[]; demo?: boolean }> {
   if (connection.off) return { prs: [] };
   if (!connection.real) return { prs: demoPRsBoard().filter(p => p.estado === 'abierto' || p.estado === 'borrador'), demo: true };
   return { prs: prsOfGitHub(JSON.parse(await gh(['api', 'graphql', '-f', 'query=' + OPEN_QUERY], connection.token))) };
+}
+
+/** Your PRs that name a task (title or description), merged or not and of any age: the pre-flight of a task that
+ *  landed weeks ago, beyond the board's two weeks */
+export async function prsOfTask(connection: { real: boolean; off?: boolean; token?: string }, clave: string): Promise<PRBoard[]> {
+  const K = clave.toUpperCase();
+  if (connection.off || !connection.real || !/^[A-Z][A-Z0-9]+-\d+$/.test(K)) return [];
+  return prsOfGitHub(JSON.parse(await gh(['api', 'graphql', '-f', 'query=' + SEARCH_PRS(`is:pr author:@me archived:false \\"${K}\\" in:title,body sort:updated-desc`, 30)], connection.token)));
 }
 
 /** La matriz del último año con tus commits en los repos del refugio (por tu user.email de git). */

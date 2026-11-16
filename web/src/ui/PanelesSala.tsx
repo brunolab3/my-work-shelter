@@ -15,7 +15,6 @@ import { PanelCommunications, PanelPlanning, PanelLogistics, BoardJira } from '.
 import { PanelActivity } from './Actividades';
 import { DeploymentBoard } from './Despliegue';
 import { OrganizeRooms } from './Organizar';
-import { PanelPreflight } from './Preflight';
 import { openSpotify } from './Discoteca';
 import { PanelBodyshop, Retratillo } from './Probador';
 import { lookOf, lookSummary } from '@shared/aspecto';
@@ -44,7 +43,6 @@ export function PanelesSala({ panel }: { panel: Panel }) {
     case 'spotify': return <OpenSpotify />;
     case 'chapa': return <PanelBodyshop />;
     case 'organizar': return <OrganizeRooms />;
-    case 'preflight': return <PanelPreflight />;
     default: return <PanelActivity panel={panel} />;
   }
 }

@@ -104,8 +104,9 @@ export function taskLinks(prs: PRBoard[], bloqueos: Blocker[]): { a: string; b: 
 /** El orden de despliegue de lo que queda por fusionar: olas (lo de cada ola puede ir a la vez; cada una espera a las
  *  anteriores). Lo ya fusionado no espera a nadie ni bloquea; un PR cerrado sin fusionar tampoco. Los PR en un ciclo de
  *  bloqueos quedan fuera, en `ciclo`. */
-export function olasDespliegue(prs: PRBoard[], bloqueos: Blocker[]): { waves: PRBoard[][]; ciclo: PRBoard[] } {
-  const pendientes = prs.filter(p => p.estado === 'abierto' || p.estado === 'borrador');
+export function olasDespliegue(prs: PRBoard[], bloqueos: Blocker[], conFusionados = false): { waves: PRBoard[][]; ciclo: PRBoard[] } {
+  // with merged ones too (the pre-flight, to show a task's waves complete): every PR but the closed ones
+  const pendientes = prs.filter(p => p.estado === 'abierto' || p.estado === 'borrador' || (conFusionados && p.estado === 'fusionado'));
   const vivo = new Set(pendientes.map(p => p.url));
   const espera = new Map(pendientes.map(p => [p.url, new Set(bloqueos.filter(b => b.de === p.url && vivo.has(b.por)).map(b => b.por))]));
   const waves: PRBoard[][] = [];

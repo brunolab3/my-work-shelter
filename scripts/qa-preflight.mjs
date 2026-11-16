@@ -1,12 +1,14 @@
 // QA del pre-flight de una tarea (web/src/ui/Preflight.tsx), con un servidor propio en un refugio de pruebas y Playwright:
 // - a test repo with the worktree of task QA-7 (one uncommitted file), admitted as a room: the real `preflight.tarea`
 //   action (no GitHub) gives its part without a PR, with «1 uncommitted» ⚠; the push gate (preflight.puerta) says what
-//   is missing (compare and the 0/2 checklist); the window has no table (nothing to merge) and names the room;
-// - the window with a task in two repos (example response): one row per PR in merge order, merged ✔, red CI ✗,
+//   is missing (compare and the 0/2 checklist); ⌘K «qa-7» offers «Pre-flight QA-7» and opens the box: no table
+//   (nothing to merge), it names the room; Esc closes it;
+// - a task in two repos (example response), opened with ⌘K over an open panel: a small floating box (not a panel), the
+//   panel underneath still open and untouched; one row per PR in merge order, merged ✔ and struck through, red CI ✗,
 //   conflicts ✗, the one that waits ⚠; no compare/sync/checklist columns or thread list; the plan part without a PR is
-//   named below; the merge order strikes the merged PR; clicking a row opens the PR in the GitHub window; the panel is
-//   docked on the left, narrow and full height, and long PR titles truncate with a tooltip;
-// - ⌘K «qa-7» offers «Pre-flight QA-7» and opens it; Esc closes it.
+//   named below; the merge order strikes the merged PR; long PR titles truncate with a tooltip; Enter and a click open
+//   the PR; a click outside closes the box and nothing else;
+// - a task fully merged (example response): its rows struck through, every wave ✔ and «the task has landed».
 // Necesita el cliente compilado (npx vite build). Uso: node scripts/qa-preflight.mjs [carpeta-capturas]   (SHELTER_PUERTO_QA, 3794)
 import { chromium } from 'playwright';
 import { spawn, execFileSync } from 'node:child_process';
@@ -66,12 +68,22 @@ try {
   ver(puerta?.clave === 'QA-7' && puerta.falta.length === 2, `la puerta de push dice lo que falta (${puerta?.falta?.join(' | ')})`);
   ver(await pg.evaluate(() => window.__client.accion('preflight.puerta', { ruta: '/etc' }).then(() => false, () => true)), 'la puerta no mira carpetas que no son del refugio');
 
-  // ---- the window with the real task: its worktree has no PR yet, so there is nothing to merge
-  await pg.evaluate(() => window.__juego.set({ panel: 'preflight', panelData: { clave: 'QA-7' } }));
-  ver(await hasta(async () => /QA-7/.test(await pg.textContent('.aparato').catch(() => '')) && !(await pg.isVisible('.pf-tabla')) && /tienda/.test(await pg.textContent('.aparato'))), 'no PR yet: no table, and the room working on it is named');
+  // ---- the box with the real task, from ⌘K: its worktree has no PR yet, so there is nothing to merge
+  const preflightK = async clave => {
+    await pg.keyboard.press('Meta+KeyK');
+    await pg.waitForSelector('.buscador input');
+    await pg.keyboard.type(clave.toLowerCase());
+    const ok = await hasta(async () => (await pg.$$eval('.fila-buscador .txt', f => f.map(x => x.textContent))).includes('Pre-flight ' + clave));
+    if (clave === 'QA-7') await pg.screenshot({ path: path.join(dir, 'preflight-buscador.png'), animations: 'disabled', timeout: 10000 }).catch(() => console.log('(no ⌘K screenshot: timed out)'));
+    await pg.keyboard.press('Enter');
+    return ok;
+  };
+  ver(await preflightK('QA-7'), '⌘K offers «Pre-flight QA-7» (that of the worktree)');
+  ver(await hasta(async () => /QA-7/.test(await pg.textContent('.pf-caja').catch(() => '')) && !(await pg.isVisible('.pf-tabla')) && /tienda/.test(await pg.textContent('.pf-caja'))), 'Enter opens the box: no PR yet, no table, and the room working on it is named');
+  ver((await pg.evaluate(() => window.__juego.get().panel)) === null, 'it is not a panel');
   await pg.waitForTimeout(600); await pg.screenshot({ path: path.join(dir, 'preflight-real.png'), animations: 'disabled' });
   await pg.keyboard.press('Escape');
-  ver(await hasta(async () => (await pg.evaluate(() => window.__juego.get().panel)) === null), 'Esc la cierra');
+  ver(await hasta(async () => !(await pg.$('.pf-caja'))), 'Esc closes it');
 
   // ---- una tarea en dos repos (respuesta de ejemplo, el modelo de shared/preflight.ts)
   await pg.evaluate(() => {
@@ -91,19 +103,30 @@ try {
       ],
       olas: [['acme/api#4', 'acme/api#1', 'acme/web#3'], ['acme/web#2']], ciclo: [], checklist: ['Compare revisado', 'Pruebas con datos reales'],
     };
-    c.accion = (n, d) => n === 'preflight.tarea' && String(d?.clave).toUpperCase() === 'QA-9' ? Promise.resolve(respuesta) : orig(n, d);
-    window.__juego.set({ panel: 'preflight', panelData: { clave: 'QA-9' } });
+    // QA-11: everything merged, in two waves
+    const m1 = pr('acme/api', 5, { estado: 'fusionado', rama: 'QA-11-a' }), m2 = pr('acme/web', 6, { estado: 'fusionado', rama: 'QA-11-b' });
+    const fusionada = (x, espera) => ({ id: x.url, salaId: x.repo.split('/')[1], sala: x.repo.split('/')[1], repo: x.repo, rama: x.rama, pr: x, sync: cel('nada', '—'), ci: cel('nada', '—'), revision: cel('ok', 'fusionado'), conflictos: cel('nada', '—'), bloqueos: cel(espera ? 'ok' : 'nada', espera ? 'lo que esperaba ya está fusionado' : 'sin bloqueos'), checklist: cel('nada', '—'), compare: cel('nada', '—'), hilos: [], repoItems: [], ciChecks: [], esperaA: espera ? [{ ref: 'acme/api#5', url: m1.url, estado: 'fusionado', motivo: 'plan' }] : [], bloquea: [] });
+    const aterrizada = { clave: 'QA-11', color: '#b48cff', titulo: 'Ya fusionada', partes: [fusionada(m1), fusionada(m2, true)], olas: [['acme/api#5'], ['acme/web#6']], ciclo: [], checklist: [] };
+    c.accion = (n, d) => n === 'preflight.tarea' && String(d?.clave).toUpperCase() === 'QA-9' ? Promise.resolve(respuesta) : n === 'preflight.tarea' && String(d?.clave).toUpperCase() === 'QA-11' ? Promise.resolve(aterrizada) : orig(n, d);
+    window.__juego.set({ panel: 'ayuda', panelData: null });
   });
+  await pg.waitForSelector('.aparato');
+  // its layout box (offsets ignore the opening animation's transform)
+  const caja = e => [e.offsetLeft, e.offsetTop, e.offsetWidth, e.offsetHeight].join(',');
+  const panelAntes = await pg.$eval('.aparato', caja);
+  await preflightK('QA-9');
   ver(await hasta(async () => (await pg.$$('.pf-fila')).length === 4), 'four rows: one per PR, none for the plan part without a PR');
-  const caja = await pg.$eval('.aparato', e => { const r = e.getBoundingClientRect(); return { x: r.left, w: r.width, h: r.height }; });
-  ver(caja.x < 40 && caja.w < 1600 / 2 && caja.h > 1000 * 0.8, `docked on the left, narrow and full height (${JSON.stringify(caja)})`);
+  const tam = await pg.$eval('.pf-caja', e => { const r = e.getBoundingClientRect(); return { w: Math.round(r.width), h: Math.round(r.height) }; });
+  ver(tam.w < 1600 * 0.6 && tam.h < 1000 * 0.75, `a small box (${JSON.stringify(tam)})`);
+  ver((await pg.evaluate(() => window.__juego.get().panel)) === 'ayuda' && await pg.$eval('.aparato', caja) === panelAntes, 'the panel underneath stays open, same place and size');
+  ver(await pg.$eval('.pf-fila.pf-hecha .pf-parte', e => getComputedStyle(e).textDecorationLine.includes('line-through')), 'the merged PR is struck through');
   ver(await pg.$eval('.pf-fila .pf-parte', e => e.title.includes('PR de ejemplo') && getComputedStyle(e).textOverflow === 'ellipsis'), 'the PR title truncates, with the full title in its tooltip');
   const cabeceras = await pg.$$eval('.pf-tabla th', th => th.map(x => x.textContent).join('|'));
   ver(!/Compare|Checklist|Sincron|Sync/.test(cabeceras) && /Conflict/.test(cabeceras), `no push columns, a conflicts column (${cabeceras})`);
   const estados = await pg.$$eval('.pf-estado', e => e.map(x => x.textContent));
   ver(estados.join(' ') === '✔ ✗ ✗ ⚠', `merged ✔, red CI ✗, conflicts ✗, the one that waits ⚠ (not ✗), in merge order (${estados.join(' ')})`);
   ver(!(await pg.$$('.pf-hilo')).length && !/carrito\.ts/.test(await pg.textContent('.pf-tabla')), 'no review threads listed, only their count');
-  ver(/docs/.test(await pg.textContent('.aparato')), 'the plan part without a PR is named below');
+  ver(/docs/.test(await pg.textContent('.pf-caja')), 'the plan part without a PR is named below');
   ver(/1.*api#4.*api#1.*web#3.*2.*web#2/.test(await pg.textContent('.orden-despliegue')) && await pg.$eval('.orden-despliegue .pf-hecha', e => /api#4/.test(e.textContent)), 'merge order, with the merged PR struck through');
   await pg.waitForTimeout(600); await pg.screenshot({ path: path.join(dir, 'preflight-dos-repos.png'), animations: 'disabled' });
   // outside Electron the GitHub window is a new tab (window.open): what matters is which URL it opens
@@ -113,16 +136,20 @@ try {
   await pg.evaluate(() => { window.__abierta = ''; });
   await pg.click('.pf-fila:nth-child(4) td:last-child .pf-boton');
   ver(await hasta(async () => (await pg.evaluate(() => window.__abierta)) === 'https://github.com/acme/api/pull/1'), 'clicking the blockers of web#2 opens api#1, the PR it waits for');
+  await pg.evaluate(() => { window.__abierta = ''; });
+  await pg.keyboard.press('ArrowUp'); await pg.keyboard.press('Enter');
+  ver(await hasta(async () => (await pg.evaluate(() => window.__abierta)) !== ''), 'Enter opens the selected PR');
+  await pg.mouse.click(1590, 990);
+  ver(await hasta(async () => !(await pg.$('.pf-caja'))), 'a click outside closes the box');
+  ver((await pg.evaluate(() => window.__juego.get().panel)) === 'ayuda' && await pg.$eval('.aparato', caja) === panelAntes, '…and leaves the panel as it was');
   await pg.evaluate(() => window.__juego.set({ panel: null, panelData: null }));
 
-  // ---- ⌘K
-  await pg.keyboard.press('Meta+KeyK');
-  await pg.waitForSelector('.buscador input');
-  await pg.keyboard.type('qa-7');
-  ver(await hasta(async () => (await pg.$$eval('.fila-buscador .txt', f => f.map(x => x.textContent))).includes('Pre-flight QA-7')), '⌘K ofrece «Pre-flight QA-7» (también la del worktree)');
-  await pg.waitForTimeout(600); await pg.screenshot({ path: path.join(dir, 'preflight-buscador.png'), animations: 'disabled' });
-  await pg.keyboard.press('Enter');
-  ver(await hasta(async () => (await pg.evaluate(() => [window.__juego.get().panel, window.__juego.get().panelData?.clave].join(' '))) === 'preflight QA-7'), 'y Enter lo abre');
+  // ---- a task fully merged
+  await preflightK('QA-11');
+  ver(await hasta(async () => (await pg.$$('.pf-fila.pf-hecha')).length === 2), 'fully merged: both rows struck through');
+  ver(await hasta(async () => (await pg.$$('.orden-despliegue .pf-ola-hecha')).length === 2 && /✔/.test(await pg.textContent('.pf-aterrizada').catch(() => ''))), 'every wave ✔ and «the task has landed»');
+  await pg.waitForTimeout(400); await pg.screenshot({ path: path.join(dir, 'preflight-aterrizada.png'), animations: 'disabled' });
+  await pg.keyboard.press('Escape');
   ver(!errores.length, 'sin errores en la página' + (errores.length ? ': ' + errores.join(' | ') : ''));
 } catch (e) { failures++; console.error(e); console.log(salida.slice(-1500)); }
 finally { await b.close(); servidor.kill('SIGKILL'); }

@@ -18,6 +18,7 @@ import { filesWindow, openFiles } from './ui/archivos/ventana';
 import { Avisos, Carga, CargaRooms } from './ui/Puente';
 import { Deck } from './ui/Discoteca';
 import { Buscador } from './ui/Buscador';
+import { PreflightPopover } from './ui/Preflight';
 import { cliente, vivo } from './red/cliente';
 import { juego } from './ui/estadoJuego';
 import { t, idioma } from '@shared/idioma';
@@ -35,7 +36,7 @@ import('./mundo/animaciones').then(m => { (window as any).__anim = m; });   // Q
 let refugio: Refugio;
 const listo = fuentes.then(() => { refugio = new Refugio(motor); (window as any).__refugio = refugio; return refugio.listo; });
 (window as any).__ready = () => listo;
-createRoot(document.getElementById('ui')!).render(<><Hud /><Dialogo /><Paneles /><Terminales /><Navegadores /><ClienteGit /><Explorador /><div className="columna-izquierda"><Deck /><Barra /></div><Avisos /><Buscador /><CargaRooms /><Carga /></>);
+createRoot(document.getElementById('ui')!).render(<><Hud /><Dialogo /><Paneles /><Terminales /><Navegadores /><ClienteGit /><Explorador /><div className="columna-izquierda"><Deck /><Barra /></div><Avisos /><Buscador /><PreflightPopover /><CargaRooms /><Carga /></>);
 cliente.conectar();
 // Electron's menus and dialogs in the game's language (electron/textos.cjs); changing it reloads the page
 (window as any).shelterVentana?.setLanguage?.(idioma())?.catch?.(() => {});

@@ -960,7 +960,7 @@ function PreflightButton({ copia }: { copia: { ruta: string; rama: string } }) {
   const tarea = worktreeTask(copia);
   if (!tarea) return null;
   return <span className="paginas-sesion">
-    <button className="consola-x" title={t('preflight.actionHint')} onClick={() => { SFX.clic(); openPreflight(tarea); }}>✈ {t('preflight.action', { clave: tarea })}</button>
+    <button className="consola-x" title={t('preflight.actionHint')} onClick={e => { SFX.clic(); openPreflight(tarea, e.currentTarget); }}>✈ {t('preflight.action', { clave: tarea })}</button>
   </span>;
 }
 

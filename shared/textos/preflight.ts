@@ -8,6 +8,7 @@ export const PREFLIGHT: Record<string, Texto> = {
   'preflight.keyF': { es: 'F Pre-flight de {clave}', en: 'F Pre-flight {clave}' },
   'preflight.open': { es: 'Pre-flight de la tarea', en: 'Task pre-flight' },
   'preflight.reading': { es: 'Leyendo la tarea en todas las salas…', en: 'Reading the task in every room…' },
+  'preflight.landed': { es: 'Todo fusionado: la tarea ha aterrizado.', en: 'All merged: the task has landed.' },
   'preflight.noPRs': { es: 'Aún no hay PR de {clave}.', en: 'No PRs of {clave} yet.' },
   'preflight.withoutPR': { es: 'Sin PR aún: {salas}.', en: 'No PR yet: {salas}.' },
   'preflight.col.pr': { es: 'PR', en: 'PR' },

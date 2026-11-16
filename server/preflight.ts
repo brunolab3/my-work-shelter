@@ -20,6 +20,7 @@ export interface DataPRs { prs: PRBoard[]; demo?: boolean; error?: string }
 
 export interface CtxPreflight {
   prs(forzar: boolean): Promise<DataPRs>;
+  prsTarea?(clave: string, forzar: boolean): Promise<PRBoard[]>;   // the ones naming the task at any age (a task merged weeks ago)
   salas(): Promise<RoomPR[]>;
   manuales(): BlockerManual[];
   orden(): Promise<TaskOrder[]>;
@@ -73,7 +74,8 @@ export async function localBranches(clave: string, prs: PRBoard[], salas: RoomPR
 export async function preflightOf(clave: string, ctx: CtxPreflight, forzar = false): Promise<TaskPreflight> {
   const K = taskKey(clave);
   if (!K) throw new Error(t('server.notATaskKey', { clave: clave.slice(0, 40) }));
-  const [gh, salas, orden] = await Promise.all([ctx.prs(forzar), ctx.salas(), ctx.orden().catch(() => [] as TaskOrder[])]);
+  const [todos, deLaTarea, salas, orden] = await Promise.all([ctx.prs(forzar), ctx.prsTarea?.(K, forzar).catch(() => [] as PRBoard[]) ?? [], ctx.salas(), ctx.orden().catch(() => [] as TaskOrder[])]);
+  const gh = { ...todos, prs: [...new Map([...deLaTarea, ...todos.prs].map(p => [p.url, p])).values()] };
   // lo que queda por contestar en sus revisiones, como en el tablero de despliegue
   const prs = gh.demo ? gh.prs : gh.prs.map(p => { const l = ctx.revisiones(p.url).ledger; return l ? { ...p, ledger: l } : p; });
   const hilos = Object.fromEntries(prs.map(p => [p.url, ctx.revisiones(p.url).hilos ?? []]));
@@ -108,6 +110,16 @@ export async function repoChecks(worktree: string): Promise<string[]> {
     precommit: existsSync(path.join(worktree, '.pre-commit-config.yaml')),
   };
   return repoChecklist(f);
+}
+
+/** The PRs naming one task, read at most once a minute per task (the last 30 tasks) */
+export function cachedTaskPRs(leer: (clave: string) => Promise<PRBoard[]>, ttl = 60_000) {
+  const porTarea = new Map<string, ReturnType<typeof cachedPRs>>();
+  return async (clave: string, forzar = false) => {
+    let f = porTarea.get(clave);
+    if (!f) { f = cachedPRs(async () => ({ prs: await leer(clave) }), ttl); porTarea.set(clave, f); if (porTarea.size > 30) porTarea.delete(porTarea.keys().next().value!); }
+    return (await f(forzar)).prs;
+  };
 }
 
 /** Tus PR para el pre-flight: los del tablero (dos semanas) y todos los abiertos, una lectura por minuto como mucho */

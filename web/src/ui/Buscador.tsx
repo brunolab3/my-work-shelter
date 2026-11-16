@@ -57,14 +57,17 @@ addEventListener('keydown', e => {
 function onShelter() { if (juego.get().panel) juego.set({ panel: null, panelData: null }); minimizeIntercom(); }
 const K = MAC ? '⌘' : 'Ctrl+';
 interface Action { id: string; texto: string; pista?: string; tecla?: string; claves?: string; f: () => void }
-// las tareas con pre-flight a mano: las de las copias (worktrees) y las de tus PR sin fusionar
+// the tasks with a pre-flight at hand: those of the copies (worktrees), of your open PRs and then of the merged ones (to
+// confirm a task fully landed)
 function preflightTasks(): string[] {
   const out = new Set<string>();
   for (const c of juego.get().copias) { const k = c.copia && worktreeTask(c.copia); if (k) out.add(k); }
-  for (const p of jiraBoard.get().prs) { const k = (p.estado === 'abierto' || p.estado === 'borrador') && pRKey(p); if (k) out.add(k); }
+  const prs = jiraBoard.get().prs;
+  for (const p of prs) { const k = (p.estado === 'abierto' || p.estado === 'borrador') && pRKey(p); if (k) out.add(k); }
+  for (const p of prs) { const k = p.estado === 'fusionado' && pRKey(p); if (k) out.add(k); }
   return [...out].slice(0, 16);
 }
-const preflightAction = (k: string): Action => ({ id: 'preflight:' + k, texto: t('preflight.action', { clave: k }), pista: t('preflight.actionHint'), claves: `preflight pre-flight vuelo checks ci sync revision review bloqueos ${k}`, f: () => { onShelter(); openPreflight(k); } });
+const preflightAction = (k: string): Action => ({ id: 'preflight:' + k, texto: t('preflight.action', { clave: k }), pista: t('preflight.actionHint'), claves: `preflight pre-flight vuelo checks ci sync revision review bloqueos ${k}`, f: () => openPreflight(k) });   // over whatever is open: nothing closes
 function acciones(): Action[] {
   const j = juego.get();
   const sala = (vivo.get().estado?.salas ?? []).find((s: any) => s.id === j.currentRoom);

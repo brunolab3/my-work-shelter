@@ -24,7 +24,7 @@ import { TasksColors } from './coloresTareas.ts';
 import { agruparPorTarea, planDeSala, applyPlan } from './organizar.ts';
 import { ReviewsPR, REVIEWS_QUERY, remoteRepo } from './revisionesPR.ts';
 import { CIFailures, CI_QUERY } from './fallosCI.ts';
-import { cachedPRs, preflightOf, PageReviews, gatePush, preflightTools, type CtxPreflight } from './preflight.ts';
+import { cachedPRs, cachedTaskPRs, preflightOf, PageReviews, gatePush, preflightTools, type CtxPreflight } from './preflight.ts';
 import { checklistFromClaudeMd } from '../shared/preflight.ts';
 import type { PRBoard } from '../shared/tablero.ts';
 import { bloqueosEntre, pRKey } from '../shared/despliegue.ts';
@@ -543,6 +543,8 @@ function checklistItems(): string[] {
 const paginasRevisadas = new PageReviews(DATOS, COMPARES_FOLDER);
 const ctxPreflight: CtxPreflight = {
   prs: prsPreflight,
+  // and the ones naming the task at any age: a task merged weeks ago is out of the board's two weeks
+  prsTarea: cachedTaskPRs(async clave => (await import('./git.ts')).prsOfTask(await connectionGitHub(), clave)),
   // worktrees read live: repos[] refreshes every 20 s, and one made and pushed in between would escape the push gate
   salas: async () => Promise.all((await repoRooms()).map(async s => {
     const vivos = await worktreeList(s.ruta).catch(() => []);

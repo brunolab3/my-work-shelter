@@ -3,7 +3,7 @@ import { mkdtempSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
 import { execFile, execFileSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
-import { cachedPRs, localBranches, preflightOf, PageReviews, gatePush, preflightTools, repoChecks, type CtxPreflight } from './preflight.ts';
+import { cachedPRs, cachedTaskPRs, localBranches, preflightOf, PageReviews, gatePush, preflightTools, repoChecks, type CtxPreflight } from './preflight.ts';
 import { mkdirSync } from 'node:fs';
 import { buildCompare } from './comparar.ts';
 import type { RoomPR } from './revisionesPR.ts';
@@ -142,6 +142,29 @@ describe('cachedPRs', () => {
     fallar = false;
     await leer();
     expect(n).toBe(4);
+  });
+});
+
+describe('cachedTaskPRs', () => {
+  it('one read a minute per task; another task reads its own', async () => {
+    const leidas: string[] = [];
+    const leer = cachedTaskPRs(async k => { leidas.push(k); return []; }, 60_000);
+    await leer('ABC-1'); await leer('ABC-1'); await leer('ABC-2'); await leer('ABC-1', true);
+    expect(leidas).toEqual(['ABC-1', 'ABC-2', 'ABC-1']);
+  });
+});
+
+describe('preflightOf with a task merged weeks ago', () => {
+  it('its PRs come from the task search when the board no longer has them', async () => {
+    const viejo = pr('acme/api', 7, 'ABC-3-viejo', 'h7', { estado: 'fusionado' });
+    const ctx: CtxPreflight = {
+      prs: async () => ({ prs: [] }), prsTarea: async () => [viejo], salas: async () => [], manuales: () => [], orden: async () => [],
+      plan: () => undefined, color: () => undefined, compares: async () => [], revisiones: () => ({}), ciChecks: () => undefined,
+      checklist: () => ({ items: [], respuestas: () => ({}) }), git: async () => '',
+    };
+    const r = await preflightOf('ABC-3', ctx);
+    expect(r.partes.map(p => p.pr?.numero)).toEqual([7]);
+    expect(r.olas).toEqual([['acme/api#7']]);
   });
 });
 

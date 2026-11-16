@@ -31,6 +31,16 @@ describe('preflightTarea', () => {
     expect(w.sync).toEqual({ marca: 'ok', texto: expect.any(String) });
   });
 
+  it('a task fully merged keeps its rows and its waves complete; another task\'s merged blocker stays out', () => {
+    const api = pr('acme/api', 10, { rama: 'ABC-1-api', estado: 'fusionado' });
+    const web = pr('acme/web', 20, { rama: 'ABC-1-web', estado: 'fusionado', dependencias: ['acme/api#10', 'acme/docs#5'] });
+    const ajena = pr('acme/docs', 5, { rama: 'ABC-9-otra', estado: 'fusionado' });
+    const prs = [api, web, ajena];
+    const r = preflightTarea('ABC-1', { prs, bloqueos: bloqueosEntre(prs), locales: [], salas: SALAS });
+    expect(r.partes.map(p => [p.pr?.numero, mergeReady(p).estado])).toEqual([[10, 'fusionado'], [20, 'fusionado']]);
+    expect(r.olas).toEqual([['acme/api#10'], ['acme/web#20']]);
+  });
+
   it('la CI roja del PR al que se espera es problema suyo: la parte que espera no sale en rojo', () => {
     const api = pr('acme/api', 10, { rama: 'ABC-1-api', checks: 'FAILURE' });
     const web = pr('acme/web', 20, { rama: 'ABC-1-web', checks: 'SUCCESS', revision: 'APPROVED', dependencias: ['acme/api#10'] });
