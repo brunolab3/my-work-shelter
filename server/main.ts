@@ -45,7 +45,7 @@ import { gameAction, ensurePlayer, growCrops, taskReward } from './juego.ts';
 import { generateRecruit } from '../shared/reclutas.ts';
 import { distribute, disposicionDeSerie, isRoomOfRepo, PLANNING_ROOM, placeRoom, moveFloor } from '../shared/disposicion.ts';
 import { STYLE_PALETTE, areaByType, isArea } from '../shared/sectores.ts';
-import { isLanguage, setLanguage, locale, tIs } from '../shared/idioma.ts';
+import { isLanguage, setLanguage, locale, tIs, roomNameIs } from '../shared/idioma.ts';
 import * as controlRemoto from './controlRemoto.ts';
 import { SlackRemote } from './slackMando.ts';
 import { REMOTE_DELAY_MS, type RemoteDeps } from './mando.ts';
@@ -147,7 +147,7 @@ const ctxPlan: Pick<CtxAssignment, 'planes' | 'avisar' | 'mensajero' | 'sesionDe
 };
 // mensajes entre salas (avisosSalas.ts): a la conversación de la tarea o a una nueva con el habitante, en automático
 const ctxRooms: CtxRooms = {
-  salas: () => almacen.estado.salas.map(s => { const h = almacen.estado.habitantes.find(x => x.salaId === s.id); return { id: s.id, nombre: s.nombre, habitante: h && { id: h.id, nombre: h.nombre } }; }),
+  salas: () => almacen.estado.salas.map(s => { const h = almacen.estado.habitantes.find(x => x.salaId === s.id); return { id: s.id, nombre: roomNameIs(s), habitante: h && { id: h.id, nombre: h.nombre } }; }),
   sesionDeTarea: (salaId, clave) => ctxPlan.sesionDeTarea!(salaId, clave),
   // de git al momento: un worktree recién creado (por otra conversación) aún no está en `repos`, que se repasa cada 20 s
   worktreeDeTarea: async (salaId, clave) => { const s = almacen.estado.salas.find(x => x.id === salaId); return s ? taskWorktree(await worktreeList(folderOf(s)), clave) : undefined; },
@@ -188,8 +188,8 @@ const mandoDeps: RemoteDeps = {
   retrasoMs: REMOTE_DELAY_MS,
   enUso: () => Date.now() - lastUse < 90_000,
   sesiones: () => sesiones.lista(),
-  salas: () => almacen.estado.salas.filter(s => isRoomOfRepo(s.tipo) || sesiones.lista().some(x => x.salaId === s.id && x.estado !== 'cerrada')).map(s => ({ id: s.id, nombre: s.nombre })),
-  habitante: s => almacen.estado.habitantes.find(h => h.id === s.dwellerId)?.nombre ?? 'Habitante',
+  salas: () => almacen.estado.salas.filter(s => isRoomOfRepo(s.tipo) || sesiones.lista().some(x => x.salaId === s.id && x.estado !== 'cerrada')).map(s => ({ id: s.id, nombre: roomNameIs(s) })),
+  habitante: s => almacen.estado.habitantes.find(h => h.id === s.dwellerId)?.nombre ?? t('server.surface.dweller'),
   responder: (id, peticionId, decision, responses) => sesiones.responder(id, peticionId, decision, undefined, responses),
   aRemoteControl: ids => exitASurface(ids ? { sesiones: ids, remoto: true, windowNew: true } : { todo: true, remoto: true, windowNew: true }),
 };
@@ -276,8 +276,8 @@ async function subir(d: Record<string, any>, idsSes: string[]) {
   // al móvil (remoto) solo van las conversaciones: Remote Control no lleva terminales
   const idsTerm = d.remoto ? [] : d.todo ? terminales.abiertas().filter(t => !t.fuera).map(t => t.id) : lista(d.terminales).filter(id => terminales.existe(id));
   const avisos: string[] = [];
-  const nombre = (hid: string) => almacen.estado.habitantes.find(h => h.id === hid)?.nombre ?? 'Habitante';
-  const roomOf = (cwd: string) => { const n = almacen.estado.salas.find(s => s.id === pathRoom(cwd))?.nombre; return n ? tIs(n) : path.basename(cwd); };
+  const nombre = (hid: string) => almacen.estado.habitantes.find(h => h.id === hid)?.nombre ?? t('server.surface.dweller');
+  const roomOf = (cwd: string) => { const s = almacen.estado.salas.find(x => x.id === pathRoom(cwd)); return s ? roomNameIs(s) : path.basename(cwd); };
   // primero las terminales (al momento); las conversaciones que trabajan tardan un poco en pararse
   const terms: ItemDesktop[] = [];
   if (idsTerm.length && !terminales.outsideAccepts()) avisos.push(t('server.oldTerminalsCannotGoOut'));

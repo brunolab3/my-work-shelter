@@ -6,6 +6,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { TEXTS } from '../shared/textos.ts';
+import { setLanguage, roomNameIs } from '../shared/idioma.ts';
 import { PIECES as LOOK_PIECES, SLOT_NAME, NAME_REGION, nameRegion } from '../shared/aspecto.ts';
 import { PIECES, SHOP, SIGNALS, HARVESTS, CROSSBOW } from '../shared/catalogo.ts';
 import { DESCRIPTION_BASE, PACKS } from '../shared/decorado.ts';
@@ -35,6 +36,16 @@ describe('English mode guards', () => {
       ...COLUMNS.map(c => c.nombre), ...DEPLOYMENT_COLUMNS.map(c => c.nombre),
     ];
     expect([...new Set(data.filter(x => !spanish.has(x)))]).toEqual([]);
+  });
+
+  // the room tools (enviar_a_sala) and the remote control list rooms through roomNameIs, not their saved Spanish name
+  it('room names reach English mode translated, Logistics wings included', () => {
+    setLanguage('en');
+    try {
+      const names = [...INITIAL_ROOMS, { tipo: 'coordinacion', nombre: 'Logística web' }].map(roomNameIs);
+      expect(names.filter(n => spanish.has(n) || n.startsWith('Logística'))).toEqual([]);
+      expect(roomNameIs({ tipo: 'repo', nombre: 'Logística' })).toBe('Logística');
+    } finally { setLanguage('es'); }
   });
 
   it('no literal with Spanish characters outside t()/tIs() in the client, the server, Electron and shared/', () => {
