@@ -65,7 +65,7 @@ console.log('   giro de la copia', await pg.evaluate(id => { const f = window.__
 if (process.env.QA_PORTRAIT) { const png = await pg.evaluate(() => { const R = window.__refugio.retrato; R.r.render(R.escena, R.cam); return [R.canvas.toDataURL(), R.nombre, R.cam.position.toArray()]; }); console.log('   retrato', png[1], png[2]); }
 const cab = await pg.evaluate(() => document.querySelector('.consola-rotulo')?.textContent + ' | ' + document.querySelector('.consola-nombre')?.textContent + ' | retrato holo: ' + !!document.querySelector('.retrato-crt.holo canvas'));
 console.log('   ', cab);
-comprobar(/COPIA HOLOGRÁFICA/.test(cab) && /retrato holo: true/.test(cab), 'cabecera de copia y retrato holográfico');
+comprobar(/ · Holo\S/.test(cab) && /retrato holo: true/.test(cab), 'cabecera de copia y retrato holográfico');
 await pg.keyboard.press('Escape'); await pasos(5);
 await pg.evaluate(autor => { window.__refugio.habitantes.find(x => x.id.id === autor).fijo = false; }, autor);
 
