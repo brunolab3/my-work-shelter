@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { TASKS_PALETTE, assignColors, textKey, taskColor, pRTask, worktreeTask, remoteName, worktreePRs, newWorktreeOf, taskWorktreeIn, handMadeWorktree, ghCreateOf, githubRepoOf, ORIGINAL_REPO, taskKey, isJiraKey, slugKeyOf, worktreeHasTask } from './tareas';
+import { TASKS_PALETTE, assignColors, textKey, taskColor, pRTask, worktreeTask, taskCaption, remoteName, worktreePRs, newWorktreeOf, taskWorktreeIn, handMadeWorktree, ghCreateOf, githubRepoOf, ORIGINAL_REPO, taskKey, isJiraKey, slugKeyOf, worktreeHasTask } from './tareas';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, realpathSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
@@ -61,6 +61,16 @@ describe('tareas y su color', () => {
     expect(remoteName('api-tienda', 'Arreglar fechas', { ruta: '/r/.claude/worktrees/shelter-abcd-48210-fechas-a1b2' })).toBe('api-tienda:ABCD-48210');
     expect(remoteName('api-tienda', 'ABCD-77 revisar el PR')).toBe('api-tienda:ABCD-77');
     expect(remoteName('api-tienda', 'Revisar el PR')).toBe('api-tienda:Revisar el PR');
+  });
+});
+
+describe('taskCaption', () => {
+  it('adds the title, shortened, and keeps the key whole', () => {
+    expect(taskCaption('MSM-1085')).toBe('MSM-1085');
+    expect(taskCaption('MSM-1085', '  ')).toBe('MSM-1085');
+    expect(taskCaption('MSM-1085', 'Card search by partner')).toBe('MSM-1085 · Card search by partner');
+    expect(taskCaption('MSM-1085', 'Card search by partner in the B2B portal')).toBe('MSM-1085 · Card search by partner in t…');
+    expect(taskCaption('MSM-1085', 'Line\nbreak', 28)).toBe('MSM-1085 · Line break');
   });
 });
 

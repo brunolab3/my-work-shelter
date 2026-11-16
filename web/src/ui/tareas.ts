@@ -32,3 +32,6 @@ export function knowTasks(claves: (string | undefined)[]) {
 /** Lo último leído del tablero de Jira (tareas y PR): lo apuntan el panel y la pantalla de Planificación, y la pantalla
  *  lo pinta al momento (recargar el panel con R también la pone al día) */
 export const jiraBoard = new Store<{ tareas: TaskJira[] | null; prs: PRBoard[] }>({ tareas: null, prs: [] });
+
+/** The title of a task, when the Jira board has read it */
+export const taskTitle = (clave: string | undefined) => clave ? jiraBoard.get().tareas?.find(x => x.clave.toUpperCase() === clave.toUpperCase())?.titulo : undefined;

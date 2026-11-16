@@ -4,6 +4,8 @@ import type { InfoWorktree, SessionSummary } from '@shared/protocolo';
 import { vivo } from '../red/cliente';
 import { t } from '@shared/idioma';
 import { juego, type DwellerSummary } from './estadoJuego';
+import { taskCaption, worktreeTask } from '@shared/tareas';
+import { taskTitle } from './tareas';
 
 const PREFIX = 'holo:';
 export const idCopy = (ruta: string) => PREFIX + ruta;
@@ -30,3 +32,9 @@ export const interlocutor = (id: string | null | undefined, e = juego.get()): Dw
   id ? e.habitantes.find(h => h.id === id) ?? e.copias.find(c => c.id === id) : undefined;
 
 export function branchCaption(rama: string) { return (rama || t('windows.noBranch')).replace(/^(worktree-)?(shelter|refugio)-/, '').slice(0, 18) || rama; }
+
+/** A copy's caption: its task with the title when known (Jira board), otherwise `otherwise` (the key, or its branch) */
+export function copyCaption(w: { ruta: string; rama: string }, otherwise = branchCaption(w.rama)) {
+  const clave = worktreeTask(w), titulo = taskTitle(clave);
+  return clave && titulo ? taskCaption(clave, titulo) : otherwise;
+}

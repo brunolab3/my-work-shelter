@@ -30,7 +30,7 @@ import { physicsKey } from '../audio/teclado';
 import { Store } from './almacen';
 import { useMenu as useMenuBase, Opciones } from './aparato';
 import { CMD, nextZ, windowShortcut, WindowButtons, Tabs, Confirmation } from './ventanas';
-import { sessionOwner, interlocutor, branchCaption } from './copias';
+import { sessionOwner, interlocutor, branchCaption, copyCaption } from './copias';
 import { Usage } from './consumo';
 import { takeASurface, aAppClaude } from './superficie';
 import { openLink, openPage, pageForSession, pageAnswers, pageNotes, validatePage, revealPage, makeRoomForIntercom, answerPage } from './Navegadores';
@@ -401,7 +401,7 @@ function Console({ h, v }: { h: DwellerSummary; v: WindowCom }) {
         <div className="consola-cabeza" onDoubleClick={e => { if (!(e.target as HTMLElement).closest('button')) toggleMaximize(hid); }}>
           <span className="rejilla" aria-hidden />
           <span className={'piloto ' + (worst?.estado ?? 'apagado')} aria-hidden />
-          <span className="consola-rotulo">{copia ? <>{t('windows.intercom')} · {t('windows.holographicCopyOfAutor', { autor: copia.nameAuthor.toUpperCase() })} · {branchCaption(copia.rama)} · {h.nameRoom}</> : <>{t('windows.intercom')} · {h.nombre} · {h.nameRoom}</>}</span>
+          <span className="consola-rotulo">{copia ? <>{t('windows.intercom')} · {t('windows.holographicCopyOfAutor', { autor: copia.nameAuthor.toUpperCase() })} · {copyCaption(copia)} · {h.nameRoom}</> : <>{t('windows.intercom')} · {h.nombre} · {h.nameRoom}</>}</span>
           <WindowButtons sacar={s ? () => takeTab(hid, p.id) : undefined} wingApp={s ? () => aAppClaude({ sesionId: s.id }) : undefined} remoto={s ? () => takeASurface({ sesiones: [s.id], remoto: true }) : undefined} takesThat={t('windows.thisConversation')} maximizada={v.maximizada} minimizar={minimizeIntercom} toggleMaximize={() => toggleMaximize(hid)} cerrar={() => askClose(hid)} closesThat={t('windows.theIntercomAndItsConversations')} />
         </div>
         <Tabs items={items} activa={v.activa} activar={pid => activar(hid, pid)} cerrar={pid => askClose(hid, [pid])} nueva={() => newTab(hid)} opensThat={copia ? t('windows.newTabAnotherJobInside') : t('windows.newTabAnotherJobWith')} />

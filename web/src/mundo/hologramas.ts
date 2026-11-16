@@ -22,9 +22,9 @@ import { SHOP } from '@shared/catalogo';
 import { t, tIs } from '@shared/idioma';
 import type { InfoWorktree, SessionSummary } from '@shared/protocolo';
 import { taskColor, worktreeTask } from '@shared/tareas';
-import { knowTasks, versionColors } from '../ui/tareas';
+import { jiraBoard, knowTasks, versionColors } from '../ui/tareas';
 import type { DwellerState, DwellerSummary } from '../ui/estadoJuego';
-import { idCopy, branchCaption, pathWorktree } from '../ui/copias';
+import { idCopy, branchCaption, copyCaption, pathWorktree } from '../ui/copias';
 
 const MAX_BY_ROOM = 30;   // alto a propósito: son intangibles, si no caben se solapan sin estorbar
 const COLOR = new THREE.Color('#58e6ff'), COLOR_FAULT = new THREE.Color('#ff6a4a');
@@ -120,7 +120,11 @@ interface Montaje { tubo: THREE.Object3D; t: number; fase: 'baja' | 'cae' | 'sub
 export class Holograms {
   figuras = new Map<string, Copia>();
   private desde = performance.now();
-  constructor(private r: Refugio) {}
+  constructor(private r: Refugio) {
+    // a copy's name carries its task's title once the Jira board has read it
+    let tareas = jiraBoard.get().tareas;
+    jiraBoard.subscribe(() => { if (jiraBoard.get().tareas !== tareas) { tareas = jiraBoard.get().tareas; if (this.figuras.size) this.r.publish(); } });
+  }
 
   /** Todos los worktrees (no principales) con su sala: los de git y los que una sesión acaba de crear. */
   private worktrees() {
@@ -530,7 +534,7 @@ export class Holograms {
       const autor = this.r.habitantes.find(h => h.id.id === f.authorId), a = autor?.id;
       const nombre = a?.nombre ?? t('world.copy');
       return {
-        id: idCopy(f.ruta), nombre: `${nombre} ◇ ${branchCaption(f.w.rama)}`, mote: t('windows.holographicCopy'), tipo: a?.tipo ?? '',
+        id: idCopy(f.ruta), nombre: `${nombre} ◇ ${copyCaption(f.w)}`, mote: t('windows.holographicCopy'), tipo: a?.tipo ?? '',
         bio: t('world.holoCopyBio', { nombre, mote: tIs(a?.mote ?? ''), rama: f.w.rama || f.ruta }),
         sala: f.sala.id, nameRoom: f.sala.nombre, ruta: f.ruta, carpeta: f.ruta, estado: f.listo ? f.estado : 'ocioso', detalle: f.detalle, sesionId: f.sesionId,
         robot: autor?.p.aspecto?.especie === 'robot',
@@ -545,7 +549,7 @@ export class Holograms {
       const git = f.w.cambios ? t('windows.nChanges', { n: f.w.cambios }) : f.w.advanced ? t('windows.nCommitsToMerge', { n: f.w.advanced }) : t('panels.clean2');
       const detalle = !cerca ? '' : f.estado === 'ocioso' ? git : f.detalle.slice(0, 48);
       const autor = this.r.habitantes.find(h => h.id.id === f.authorId);
-      return { k: f, pos: f.p.headPoint(), alto: 0.2, nombre: `${autor?.id.nombre ?? t('world.copy')} ◇ ${f.tarea ?? branchCaption(f.w.rama)}`, color: f.tarea ? taskColor(f.tarea) : undefined, estado: f.estado, detalle, cerca: elegida, lejos, prompt: elegida ? t('world.talk') : '', tecla: f === selected ? 'E' : t('world.click'), apuntado: f === aimed && f !== selected, relevant: cerca || elegida || f.estado !== 'ocioso' };
+      return { k: f, pos: f.p.headPoint(), alto: 0.2, nombre: `${autor?.id.nombre ?? t('world.copy')} ◇ ${copyCaption(f.w, f.tarea ?? branchCaption(f.w.rama))}`, color: f.tarea ? taskColor(f.tarea) : undefined, estado: f.estado, detalle, cerca: elegida, lejos, prompt: elegida ? t('world.talk') : '', tecla: f === selected ? 'E' : t('world.click'), apuntado: f === aimed && f !== selected, relevant: cerca || elegida || f.estado !== 'ocioso' };
     }).filter(x => x.relevant);
   }
 }

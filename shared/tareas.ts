@@ -35,6 +35,12 @@ export const branchTask = (rama: string) => slugKeyOf(rama) ?? textKey(rama);
 /** La tarea de un PR: su clave (rama, luego la de Jira del título) o, sin ella, PR-<número> */
 export const pRTask = (p: { rama: string; titulo: string; numero: number }) => branchTask(p.rama) ?? textKey(p.titulo) ?? `PR-${p.numero}`;
 
+/** A task's caption: its key and, when known, its title shortened to `max` characters (the key stays whole) */
+export function taskCaption(clave: string, titulo?: string, max = 28): string {
+  const t = titulo?.replace(/\s+/g, ' ').trim();
+  return t ? `${clave} · ${t.length > max ? t.slice(0, max - 1).trimEnd() + '…' : t}` : clave;
+}
+
 /** La tarea de un worktree: por su nombre (estable aunque se cambie de rama dentro) y, si no, por su rama */
 export function worktreeTask(w: { ruta: string; rama?: string }): string | undefined {
   const nombre = w.ruta.replace(/\/+$/, '').split('/').pop() ?? '';
