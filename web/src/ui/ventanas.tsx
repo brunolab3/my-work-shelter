@@ -10,7 +10,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { t } from '@shared/idioma';
 import { taskColor } from '@shared/tareas';
 import { knowTasks, useColorsTasks } from './tareas';
-import { orderTabs, type TabState } from './ordenPestanas';
+import { type TabState } from './ordenPestanas';
 export { nthTab, nextTab, type TabState } from './ordenPestanas';
 
 export const MAC = /Mac/.test(navigator.platform);
@@ -74,17 +74,6 @@ const LIST_SHORTCUT = `${CMD}${MAC ? '⇧' : ''}A`;
 // grupo: with «group by room», tabs of a group sit together under its header; quien: whose it is (another window)
 export interface ItemTab { id: string; nombre: string; estado?: TabState; titulo?: string; sala?: string; tarea?: string; actividad?: string; grupo?: string; quien?: string }
 
-/** The visible order: the tab you are using stays put; it is re-sorted when you switch to another. */
-export function useTabOrder<T extends { id: string; estado?: TabState; grupo?: string }>(items: T[], activa: string, agrupar = false): T[] {
-  const antes = useRef<{ activa: string; estado?: TabState; orden: string[] } | null>(null);
-  const a = antes.current?.activa === activa ? antes.current : undefined;
-  // it sorts (and weighs on its group) with the state it had when you switched to it
-  const estado = a ? a.estado : items.find(x => x.id === activa)?.estado;
-  const ordenados = orderTabs(items.map(x => ({ id: x.id, grupo: x.grupo, estado: x.id === activa ? estado : x.estado, x })),
-    a ? { id: activa, i: a.orden.indexOf(activa) } : undefined, agrupar).map(y => y.x);
-  antes.current = { activa, estado, orden: ordenados.map(x => x.id) };
-  return ordenados;
-}
 // lista: the ⋯ N button and its list in the strip (terminals); intercoms keep theirs in the bar (ComTabs in Dialogo.tsx)
 export function Tabs({ items, activa, activar, cerrar, nueva, opensThat, lista, confirmando }: { items: ItemTab[]; activa: string; activar: (id: string) => void; cerrar: (ids: string[]) => void; nueva?: () => void; opensThat: string; lista?: React.MutableRefObject<(() => void) | null>; confirmando?: boolean }) {
   const [abierta, setAbierta] = useState(false);

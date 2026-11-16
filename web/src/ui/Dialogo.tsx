@@ -30,7 +30,7 @@ import { SFX } from '../audio/sonido';
 import { physicsKey } from '../audio/teclado';
 import { Store } from './almacen';
 import { useMenu as useMenuBase, Opciones } from './aparato';
-import { CMD, MAC, nextZ, windowShortcut, WindowButtons, Tabs, TabList, Confirmation, useTabOrder, nthTab, nextTab, PILOT, stateLabel, type ItemTab, type TabState } from './ventanas';
+import { CMD, MAC, nextZ, windowShortcut, WindowButtons, Tabs, TabList, Confirmation, nthTab, nextTab, PILOT, stateLabel, type ItemTab, type TabState } from './ventanas';
 import { sessionOwner, interlocutor, branchCaption, copyCaption, pathWorktree, worktreesKnown } from './copias';
 import { Usage } from './consumo';
 import { takeASurface, aAppClaude } from './superficie';
@@ -43,7 +43,7 @@ import { miniatura } from '../mundo/figura/estudio';
 import { openPreflight } from './Preflight';
 import { taskHasPRs } from '@shared/preflight';
 import { recentFirst } from '@shared/recientes';
-import { talkerFirst } from './ordenPestanas';
+import { groupTabs, talkerFirst } from './ordenPestanas';
 import { jiraBoard, knowTasks, useColorsTasks } from './tareas';
 import { type AttachmentLocal, uploadFiles, chooseFiles, subiendo, listsPaths, AttachmentsTray, SentAttachments, useDictation, InputButtons, DictationStrip, attachShortcut } from './entrada';
 
@@ -59,6 +59,8 @@ function prefs() { try { return JSON.parse(localStorage.getItem(PREFERENCES) || 
 // ---------------------------------------------------------------- ventanas y pestañas
 let nTab = 0;
 const newId = () => 'p' + (++nTab);
+/** When a tab was opened, across intercoms: ids count up */
+const created = (id: string) => Number(id.slice(1));
 
 // ---------------------------------------------------------------- lo escrito no se pierde
 // Las pestañas y lo que el Supervisor tiene escrito en ellas (texto y adjuntos ya subidos) se guardan en la página y
@@ -474,12 +476,12 @@ export function ComTabs() {
   const abierta = comList.usar(e => e.abierta);
   const boton = useRef<HTMLButtonElement>(null);
   const actual = lista.find(w => w.dwellerId === talking);
-  const items = useTabOrder(lista.flatMap(w => {
+  const items = groupTabs(lista.flatMap(w => {
     const o = quien(w.dwellerId); if (!o) return [];
     const deCopia = o.copia ? worktreeTask(o.copia) : undefined;
     return w.pestanas.filter(x => w === actual || x.vista.tipo === 'sesion' || x.sessionWait).map((x): ItemTab => ({ ...tabItem(x, o, sesiones),
       grupo: o.nameRoom, quien: o.copia ? `${o.copia.nameAuthor} ◇${deCopia ? '' : ' ' + branchCaption(o.copia.rama)}` : o.nombre }));
-  }), actual?.activa ?? '', true);
+  }).sort((a, b) => created(a.id) - created(b.id)));
   if (items.length < 2) return null;
   const salir = () => comList.set({ abierta: false });
   const ir = (pid: string) => {
@@ -520,9 +522,9 @@ function Console({ h, v }: { h: DwellerSummary; v: WindowCom }) {
   const p = v.pestanas.find(x => x.id === v.activa) ?? v.pestanas[0];
   const s = p?.vista.tipo === 'sesion' ? sesiones[p.vista.sesionId] : undefined;
   const hid = h.id;
-  // the strip holds this intercom's own conversations, most urgent first; the others' are reached from the selector
-  // and the bar, whose ⋯ N lists them all (ComTabs)
-  const items = useTabOrder(v.pestanas.map(x => tabItem(x, h, sesiones)), v.activa);
+  // the strip holds this intercom's own conversations, in the order they were opened; the others' are reached from the
+  // selector and the bar, whose ⋯ N lists them all (ComTabs)
+  const items = v.pestanas.map(x => tabItem(x, h, sesiones));
   const orden = useRef(items); orden.current = items;
   useEffect(() => { teclado.bloqueado = true; return () => { teclado.bloqueado = false; }; }, []);
   // al abrirse, el teclado es suyo: si estaba en una terminal, se suelta
