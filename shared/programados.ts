@@ -3,6 +3,7 @@
 // la fecha que pide, aplazar los fines de semana a la mañana del siguiente día laborable y describirla en palabras
 // (para que una fecha mal puesta salte a la vista). Todo en la hora local del Mac.
 import { idioma } from './idioma.ts';
+import { worktreeHasTask } from './tareas.ts';
 
 /** A dónde va: a la propia conversación que lo programó (se retoma por su `claudeId`) o, como send_to_room, a una sala */
 export type ScheduledTarget =
@@ -68,6 +69,30 @@ export const isLate = (x: ScheduledMessage, ahora: number) => ahora - x.cuando >
 /** Los de una conversación (los que programó ella): por su id del juego o por el de Claude Code */
 export const ofConversation = (lista: ScheduledMessage[], s: { id?: string; claudeId?: string }) =>
   lista.filter(x => (s.claudeId && x.origen.claudeId === s.claudeId) || (s.id && x.origen.sesionId === s.id)).sort((a, b) => a.cuando - b.cuando);
+
+/** Where a pending message is shown when its conversation isn't open: its room and, inside one of the room's
+ *  `worktrees`, that worktree's path. A conversation target goes where its cwd is (the worktree containing it, or the
+ *  room's main copy); a room target with a key, to the worktree of that task if the room has one; else the main copy */
+export function placeOf(x: ScheduledMessage, worktrees: { ruta: string; rama?: string; principal?: boolean }[]): { salaId: string; worktree?: string } {
+  const ws = worktrees.filter(w => !w.principal), d = x.destino;
+  if (d.tipo === 'sala') return { salaId: d.sala, worktree: d.clave ? ws.find(w => worktreeHasTask(w, d.clave!))?.ruta : undefined };
+  const cwd = d.cwd.replace(/\/+$/, '');
+  return { salaId: d.salaId, worktree: ws.find(w => { const r = w.ruta.replace(/\/+$/, ''); return cwd === r || cwd.startsWith(r + '/'); })?.ruta };
+}
+/** The ones shown on a room's dweller (`worktree` undefined) or on one of its worktrees' holograms, soonest first */
+export const ofPlace = (lista: ScheduledMessage[], salaId: string, worktree: string | undefined, worktrees: { ruta: string; rama?: string; principal?: boolean }[]) =>
+  lista.filter(x => { const p = placeOf(x, worktrees); return p.salaId === salaId && p.worktree === worktree; }).sort((a, b) => a.cuando - b.cuando);
+
+/** The soonest pending message of each room and worktree, keyed `salaId|worktree` (`salaId|` for the room's main copy):
+ *  the ⏰ on its dweller or hologram in the shelter */
+export function soonestByPlace(lista: ScheduledMessage[], worktreesOf: (salaId: string) => { ruta: string; rama?: string; principal?: boolean }[]): Map<string, ScheduledMessage> {
+  const out = new Map<string, ScheduledMessage>();
+  for (const x of lista) {
+    const p = placeOf(x, worktreesOf(x.destino.tipo === 'sala' ? x.destino.sala : x.destino.salaId)), k = `${p.salaId}|${p.worktree ?? ''}`;
+    const ya = out.get(k); if (!ya || x.cuando < ya.cuando) out.set(k, x);
+  }
+  return out;
+}
 
 /** Comprueba una fecha pedida: la de entrega (con el fin de semana aplazado) o la clave del error (textos `tool.schedule.*`) */
 export function checkWhen(pedido: string, ahora: number): { ok: true; cuando: number; aplazado: boolean } | { ok: false; error: 'badDate' | 'past' | 'tooFar' } {

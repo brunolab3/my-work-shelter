@@ -16,7 +16,7 @@ import { SHOP } from '@shared/catalogo';
 import { Character } from './personaje';
 import { lookOf, lookSignature, type Look } from '@shared/aspecto';
 import { Habitante, type Identity } from './habitante';
-import { TagsLayer } from './etiquetas';
+import { TagsLayer, scheduledMark } from './etiquetas';
 import { Portrait } from './retrato';
 import { Ascensor, ELEVATOR_WIDTH } from './ascensor';
 import { LightsAssignment } from './luces';
@@ -1157,8 +1157,9 @@ export class Refugio {
     const lejos = this.camara.distancia > this.distRoom * 1.45;
     const visibles = this.habitantes.filter(h => Math.abs(h.pos.x - this.camara.goal.x) < this.camara.distancia * 0.45 && Math.abs(h.pos.y - this.camara.goal.y) < this.camara.distancia * 0.3);
     // menos chips sobre las piezas: solo se rotula a quien pide atención, trabaja o está junto al Supervisor
-    const relevant = (h: Habitante) => h === this.cercano || h === apH || !['ocioso', 'durmiendo'].includes(h.estado) || Math.abs(h.pos.x - sp.x) < 2.2;
-    const items: any[] = visibles.filter(relevant).map(h => ({ k: h, pos: h.p.headPoint(), alto: 0.2, nombre: h.id.nombre, estado: h.estado, detalle: h === this.cercano && h.estado !== 'ocioso' && h.estado !== 'durmiendo' ? h.detalle : '', cerca: h === this.cercano || h === apH, lejos, prompt: h === this.cercano || h === apH ? tx('world.talk') : '', tecla: h === this.cercano ? 'E' : tx('world.click'), apuntado: h === apH }));
+    // y a quien tiene un mensaje programado pendiente (su ⏰, scheduledMark)
+    const relevant = (h: Habitante) => h === this.cercano || h === apH || !['ocioso', 'durmiendo'].includes(h.estado) || Math.abs(h.pos.x - sp.x) < 2.2 || !!scheduledMark(h.sala.id);
+    const items: any[] = visibles.filter(relevant).map(h => ({ k: h, programado: scheduledMark(h.sala.id), pos: h.p.headPoint(), alto: 0.2, nombre: h.id.nombre, estado: h.estado, detalle: h === this.cercano && h.estado !== 'ocioso' && h.estado !== 'durmiendo' ? h.detalle : '', cerca: h === this.cercano || h === apH, lejos, prompt: h === this.cercano || h === apH ? tx('world.talk') : '', tecla: h === this.cercano ? 'E' : tx('world.click'), apuntado: h === apH }));
     // los visitantes son aparatos que se rotulan en su propio letrero (nunca un segundo encima ni sobre el Supervisor)
     const visitor = (it?: Interactive | null) => !!it?.id.startsWith('vis:');
     const nearDevice = visitor(this.nearDevice?.it) ? null : this.nearDevice;

@@ -129,6 +129,8 @@ export const WINDOWS: Record<string, Texto> = {
   'windows.scheduledN': { es: '⏰ {n} programados · {cuando}', en: '⏰ {n} scheduled · {cuando}' },
   'windows.scheduledHint': { es: 'Mensajes que esta conversación ha dejado para más adelante: el juego los entrega a su hora', en: 'Messages this conversation left for later: the game delivers them on time' },
   'windows.scheduledToThis': { es: 'aquí', en: 'here' },
+  'windows.scheduledHintPlace': { es: 'Mensajes programados para esta sala o tarea, aunque su conversación no esté abierta: el juego los entrega a su hora', en: 'Messages scheduled for this room or task, even with their conversation closed: the game delivers them on time' },
+  'windows.scheduledToConversation': { es: '→ «{titulo}»', en: '→ “{titulo}”' },
   'windows.scheduledCancel': { es: 'Cancelar este mensaje programado', en: 'Cancel this scheduled message' },
   'windows.scheduledEdit': { es: 'Cambiar la hora o el texto', en: 'Change the time or the text' },
   'windows.scheduledSave': { es: 'Guardar', en: 'Save' },

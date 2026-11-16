@@ -1,12 +1,29 @@
 // Etiquetas sobre la cabeza de los habitantes: una línea (glifo de estado + nombre + detalle), proyectadas cada fotograma.
 import * as THREE from 'three';
 import type { Habitante } from './habitante';
+import { vivo } from '../red/cliente';
+import { soonestByPlace, describeWhenShort } from '@shared/programados';
+import { t } from '@shared/idioma';
+
+// The ⏰ on a dweller (its room's main copy) or a hologram (its worktree) with a scheduled message pending, with when the
+// next one is due: seen in the shelter before opening its conversation. Worked out again when the list or the repos
+// change, and each minute (the short date depends on today)
+let marks: { lista: unknown; repos: unknown; minuto: number; m: Map<string, string> } | undefined;
+export function scheduledMark(salaId: string, worktree?: string): string | undefined {
+  const { programados, repos } = vivo.get(), minuto = Math.floor(Date.now() / 60_000);
+  if (!marks || marks.lista !== programados || marks.repos !== repos || marks.minuto !== minuto) {
+    const m = new Map<string, string>();
+    for (const [k, x] of soonestByPlace(programados, id => repos[id]?.worktrees ?? [])) m.set(k, t('world.scheduledMark', { cuando: describeWhenShort(x.cuando) }));
+    marks = { lista: programados, repos, minuto, m };
+  }
+  return marks.m.get(`${salaId}|${worktree ?? ''}`);
+}
 
 const GLYPH: Record<string, string> = { durmiendo: 'z', ocioso: '·', pensando: '…', trabajando: '⚙', esperando: '?', terminado: '✓', error: '✕' };
 
 export class TagsLayer {
   raiz: HTMLDivElement;
-  private mapa = new Map<Habitante | object, { el: HTMLDivElement; nombre: HTMLSpanElement; detalle: HTMLSpanElement; glifo: HTMLSpanElement; prompt: HTMLSpanElement; clave: string }>();
+  private mapa = new Map<Habitante | object, { el: HTMLDivElement; nombre: HTMLSpanElement; detalle: HTMLSpanElement; glifo: HTMLSpanElement; prompt: HTMLSpanElement; programado: HTMLSpanElement; clave: string }>();
   constructor() {
     this.raiz = document.createElement('div'); this.raiz.id = 'etiquetas';
     document.body.appendChild(this.raiz);
@@ -16,17 +33,18 @@ export class TagsLayer {
     const glifo = document.createElement('span'); glifo.className = 'glifo';
     const nombre = document.createElement('span'); const detalle = document.createElement('span'); detalle.className = 'detalle';
     const prompt = document.createElement('span'); prompt.className = 'prompt';
-    el.append(glifo, nombre, detalle, prompt); this.raiz.appendChild(el);
-    const e = { el, nombre, detalle, glifo, prompt, clave: '' }; this.mapa.set(k, e); return e;
+    const programado = document.createElement('span'); programado.className = 'programado';
+    el.append(glifo, nombre, programado, detalle, prompt); this.raiz.appendChild(el);
+    const e = { el, nombre, detalle, glifo, prompt, programado, clave: '' }; this.mapa.set(k, e); return e;
   }
-  actualizar(cam: THREE.PerspectiveCamera, items: { k: object; pos: THREE.Vector3; alto: number; nombre: string; estado: string; detalle: string; cerca: boolean; supervisor?: boolean; aparato?: boolean; prompt?: string; tecla?: string; lejos?: boolean; apuntado?: boolean; color?: string }[]) {
+  actualizar(cam: THREE.PerspectiveCamera, items: { k: object; pos: THREE.Vector3; alto: number; nombre: string; estado: string; detalle: string; cerca: boolean; supervisor?: boolean; aparato?: boolean; prompt?: string; tecla?: string; lejos?: boolean; apuntado?: boolean; color?: string; programado?: string }[]) {
     const w = innerWidth, h = innerHeight; const v = new THREE.Vector3();
     const seen = new Set<object>();
     const puestas: { x0: number; x1: number; y0: number; y1: number }[] = [];
     for (const it of items) {
       seen.add(it.k);
       const e = this.mapa.get(it.k) ?? this.crear(it.k);
-      const clave = (it.color ?? '') + '|' + it.estado + '|' + it.nombre + '|' + it.detalle + '|' + it.cerca + '|' + it.prompt + '|' + it.tecla + '|' + it.lejos + '|' + it.apuntado;
+      const clave = (it.color ?? '') + '|' + it.estado + '|' + it.nombre + '|' + it.detalle + '|' + it.cerca + '|' + it.prompt + '|' + it.tecla + '|' + it.lejos + '|' + it.apuntado + '|' + (it.programado ?? '');
       if (clave !== e.clave) {
         e.clave = clave;
         e.el.className = 'etiqueta ' + it.estado + (it.supervisor ? ' supervisor' : '') + (it.aparato ? ' de-aparato' : '') + (it.cerca ? ' cerca' : '') + (it.lejos && !it.apuntado ? ' solo-glifo' : '');
@@ -34,6 +52,7 @@ export class TagsLayer {
         e.glifo.textContent = it.supervisor ? '★' : it.aparato ? '⚙' : GLYPH[it.estado] ?? '·';
         e.el.style.setProperty('--tarea', it.color ?? 'transparent'); e.el.classList.toggle('con-tarea', !!it.color);   // la copia de una tarea, con su color
         e.nombre.textContent = it.nombre; e.detalle.textContent = it.detalle; e.detalle.style.display = it.detalle ? '' : 'none';
+        e.programado.textContent = it.programado ?? ''; e.programado.style.display = it.programado ? '' : 'none';
       }
       v.copy(it.pos); v.y += it.alto + 0.25; v.project(cam);
       if (v.z > 1) { if (e.el.style.display !== 'none') e.el.style.display = 'none'; continue; }

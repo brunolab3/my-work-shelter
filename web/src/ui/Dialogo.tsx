@@ -36,7 +36,7 @@ import { Usage } from './consumo';
 import { takeASurface, aAppClaude } from './superficie';
 import { openLink, openPage, pageForSession, pageAnswers, pageNotes, validatePage, revealPage, makeRoomForIntercom, answerPage } from './Navegadores';
 import { sessionPages, pendingPages, samePage, livePages, questionInput } from '@shared/paginasSesion';
-import { describeWhen, describeWhenShort, ofConversation, type ScheduledMessage } from '@shared/programados';
+import { describeWhen, describeWhenShort, ofConversation, ofPlace, type ScheduledMessage } from '@shared/programados';
 import type { PRBoard } from '@shared/tablero';
 import { worktreePRs, worktreeTask, taskColor } from '@shared/tareas';
 import { lookOf, lookSignature } from '@shared/aspecto';
@@ -587,7 +587,7 @@ function Console({ h, v }: { h: DwellerSummary; v: WindowCom }) {
             {copia ? <WorktreePRs copia={copia} salaId={h.sala} /> : null}
             {copia ? <PreflightButton copia={copia} /> : null}
             {/* con `key`: cada conversación con su lista (nada de la pestaña anterior mientras llega la suya) */}
-            {s ? <ScheduledMenu key={'p' + s.id} s={s} /> : null}
+            <ScheduledMenu key={'p' + (s?.id ?? (vista.tipo === 'nuevo' ? vista.reanudar?.claudeId : '') ?? '')} h={h} s={s} reanudar={vista.tipo === 'nuevo' ? vista.reanudar?.claudeId : undefined} />
             {s ? <PagesMenu key={s.id} s={s} /> : vista.tipo === 'nuevo' && vista.reanudar ? <ResumePages key={vista.reanudar.claudeId} salaId={h.sala} claudeId={vista.reanudar.claudeId} /> : null}
           </aside>
           <div className="consola-pestana" key={p.id}>
@@ -1089,11 +1089,16 @@ function PagesMenu({ s }: { s: SessionSummary }) {
   return <PagesList sesionId={s.id} claudeId={s.claudeId} entradas={entradas} base={folderOf(s)} />;
 }
 
-// Los mensajes que esta conversación ha programado (server/programados.ts): cuándo llega el siguiente y, desplegados,
-// cada uno con ✎ (cambiar la hora o el texto) y ✕ (cancelarlo)
-function ScheduledMenu({ s }: { s: SessionSummary }) {
+// The scheduled messages (server/programados.ts) of what the intercom shows: those the open conversation scheduled; with
+// none open, those of the conversation being resumed or, from the menu, every one of this room or hologram (ofPlace), so
+// they're seen before opening their conversation. When the next one is due and, unfolded, each with ✎ (change the time
+// or the text) and ✕ (cancel it)
+function ScheduledMenu({ h, s, reanudar }: { h: DwellerSummary; s?: SessionSummary; reanudar?: string }) {
   const todos = vivo.usar(e => e.programados);
-  const mios = useMemo(() => ofConversation(todos, s), [todos, s.id, s.claudeId]);
+  const worktrees = vivo.usar(e => e.repos[h.sala]?.worktrees);
+  const conversacion = s ?? (reanudar ? { claudeId: reanudar } : undefined);
+  const mios = useMemo(() => conversacion ? ofConversation(todos, conversacion) : ofPlace(todos, h.sala, h.copia?.ruta, worktrees ?? []),
+    [todos, worktrees, s?.id, s?.claudeId, reanudar, h.sala, h.copia?.ruta]);
   const [abierto, setOpen] = useState(false);
   const [editando, setEditing] = useState<{ id: string; cuando: string; mensaje: string; error?: string } | null>(null);
   if (!mios.length) return null;
@@ -1103,10 +1108,11 @@ function ScheduledMenu({ s }: { s: SessionSummary }) {
     cliente.accion('programados.editar', { id: editando.id, cuando: editando.cuando, mensaje: editando.mensaje })
       .then(() => { setEditing(null); SFX.clic(); }).catch(e => { setEditing(x => x && { ...x, error: (e as Error).message }); SFX.noAllowed(); });
   };
-  const destino = (x: ScheduledMessage) => x.destino.tipo === 'sala' ? `→ ${x.destino.sala}${x.destino.clave ? ' ' + x.destino.clave : ''}` : t('windows.scheduledToThis');
+  const destino = (x: ScheduledMessage) => x.destino.tipo === 'sala' ? `→ ${x.destino.sala}${x.destino.clave ? ' ' + x.destino.clave : ''}`
+    : conversacion ? t('windows.scheduledToThis') : t('windows.scheduledToConversation', { titulo: x.destino.titulo || t('windows.conversation') });
   return (
     <span className="paginas-sesion programados-sesion">
-      <button className="consola-x" title={t('windows.scheduledHint')} onClick={() => { setOpen(x => !x); setEditing(null); SFX.clic(); }}>
+      <button className="consola-x" title={t(conversacion ? 'windows.scheduledHint' : 'windows.scheduledHintPlace')} onClick={() => { setOpen(x => !x); setEditing(null); SFX.clic(); }}>
         {t(mios.length > 1 ? 'windows.scheduledN' : 'windows.scheduled', { n: mios.length, cuando: describeWhenShort(mios[0].cuando) })}
       </button>
       {abierto && <ul className="paginas-lista programados-lista" onKeyDown={e => { e.stopPropagation(); if (e.key === 'Escape') { setEditing(null); setOpen(false); } }}>{mios.map(x => editando?.id === x.id

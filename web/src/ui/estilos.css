@@ -142,7 +142,8 @@ html, body { margin: 0; height: 100%; background: var(--fondo); overflow: hidden
 .etiqueta .prompt { display: flex; align-items: center; gap: 5px; margin-left: 6px; padding-left: 8px; border-left: 1px solid #4a453d; color: var(--crema); }
 .etiqueta.supervisor .glifo { background: var(--ambar); }
 
-.etiqueta.solo-glifo { padding: 2px; } .etiqueta.solo-glifo > span:not(.glifo) { display: none !important; }
+.etiqueta.solo-glifo { padding: 2px; } .etiqueta.solo-glifo > span:not(.glifo):not(.programado) { display: none !important; }
+.etiqueta .programado { color: var(--ambar); font-weight: 600; font-size: .9em; }   /* ⏰ the next scheduled message (scheduledMark) */
 
 .etiqueta.supervisor { background: linear-gradient(180deg, #4a3a1c, #2a2112); }
 .etiqueta.supervisor .glifo { background: var(--ambar); color: #2a1a05; }

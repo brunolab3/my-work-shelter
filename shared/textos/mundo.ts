@@ -67,6 +67,7 @@ export const WORLD: Record<string, Texto> = {
   'world.repairThePowerCore': { es: 'Reparar el núcleo de energía', en: 'Repair the power core' },
   'world.deploymentPlan2': { es: 'Plan de despliegue', en: 'Deployment plan' },
   'world.talk': { es: 'Hablar', en: 'Talk' },
+  'world.scheduledMark': { es: '⏰ {cuando}', en: '⏰ {cuando}' },
   'world.use': { es: 'Usar', en: 'Use' },
   'world.go': { es: 'Ir', en: 'Go' },
   'world.click': { es: 'Clic', en: 'Click' },

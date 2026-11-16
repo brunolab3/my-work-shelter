@@ -17,6 +17,7 @@ import { callOut, type Character } from './personaje';
 import { gltf, measure, place, R } from '../motor/assets';
 import { audioWorld } from '../audio/mundo';
 import { vivo } from '../red/cliente';
+import { scheduledMark } from './etiquetas';
 import { SFX } from '../audio/sonido';
 import { SHOP } from '@shared/catalogo';
 import { t, tIs } from '@shared/idioma';
@@ -532,7 +533,8 @@ export class Holograms {
       const git = f.w.cambios ? t('windows.nChanges', { n: f.w.cambios }) : f.w.advanced ? t('windows.nCommitsToMerge', { n: f.w.advanced }) : t('panels.clean2');
       const detalle = !cerca ? '' : f.estado === 'ocioso' ? git : f.detalle.slice(0, 48);
       const autor = this.r.habitantes.find(h => h.id.id === f.authorId);
-      return { k: f, pos: f.p.headPoint(), alto: 0.2, nombre: `${autor?.id.nombre ?? t('world.copy')} ◇ ${copyCaption(f.w, f.tarea ?? branchCaption(f.w.rama))}`, color: hasTaskColor(f.tarea) ? taskColor(f.tarea) : undefined, estado: f.estado, detalle, cerca: elegida, lejos, prompt: elegida ? t('world.talk') : '', tecla: f === selected ? 'E' : t('world.click'), apuntado: f === aimed && f !== selected, relevant: cerca || elegida || f.estado !== 'ocioso' };
+      const programado = scheduledMark(f.sala.id, f.ruta);
+      return { k: f, programado, pos: f.p.headPoint(), alto: 0.2, nombre: `${autor?.id.nombre ?? t('world.copy')} ◇ ${copyCaption(f.w, f.tarea ?? branchCaption(f.w.rama))}`, color: hasTaskColor(f.tarea) ? taskColor(f.tarea) : undefined, estado: f.estado, detalle, cerca: elegida, lejos, prompt: elegida ? t('world.talk') : '', tecla: f === selected ? 'E' : t('world.click'), apuntado: f === aimed && f !== selected, relevant: cerca || elegida || f.estado !== 'ocioso' || !!programado };
     }).filter(x => x.relevant);
   }
 }
