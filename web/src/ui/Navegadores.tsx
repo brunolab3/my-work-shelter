@@ -10,7 +10,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Store } from './almacen';
 import { cliente, vivo } from '../red/cliente';
-import { pagesInText, samePage, relativeLinks, linksPages, type PageAnswer } from '@shared/paginasSesion';
+import { pagesInText, samePage, relativeLinks, linksPages, IMAGE_FILE, type PageAnswer } from '@shared/paginasSesion';
 import { t } from '@shared/idioma';
 import { SFX } from '../audio/sonido';
 import { nextZ, windowShortcut, WindowButtons, CMD } from './ventanas';
@@ -358,6 +358,9 @@ function VentanaNavegador({ v }: { v: WindowNav }) {
   }, []);
   const s = SPOTS[v.id];
   const page = pageTitle(v);
+  // an image of the Mac (server/paginasLocales.ts): drawn by the game, with no notes to leave on it
+  const imagen = isLocal(v.id) && !!v.ruta && IMAGE_FILE.test(v.ruta);
+  const [realSize, setRealSize] = React.useState(false);
   return (
     <div className={'ventana-navegador interactivo' + (v.maximizada ? ' maximizada' : '') + (v.minimizada ? ' minimizada' : '') + (v.id === 'pagina' ? ' al-lado' : '')}
       style={{ zIndex: v.maximizada ? 200000 + v.z : v.z }} onPointerDown={() => { if (!v.minimizada) onFront(v.id); }}
@@ -368,7 +371,7 @@ function VentanaNavegador({ v }: { v: WindowNav }) {
         <span className="vt-ruta" title={v.url}>{page}</span>
         <span className="vn-mandos">
           {isLocal(v.id) && v.ruta && notas.length > 0 && <button className="consola-x vn-notas" onClick={() => { setRevisar(x => !x); SFX.clic(); }} title={sesion ? t('windows.reviewAndSendNotes') : t('windows.openThePageFromA')}>✎ {t('windows.notesN', { n: notas.length })}</button>}
-          {isLocal(v.id) && v.ruta && sesion && notas.length === 0 && <button className="consola-x vn-notas" onClick={() => validatePage(sesion, v.ruta!)} title={t('windows.validatePageHint')}>✓ {t('windows.validate')}</button>}
+          {isLocal(v.id) && v.ruta && !imagen && sesion && notas.length === 0 && <button className="consola-x vn-notas" onClick={() => validatePage(sesion, v.ruta!)} title={t('windows.validatePageHint')}>✓ {t('windows.validate')}</button>}
           {isLocal(v.id) && !v.ruta && v.sesion && <button className="consola-x vn-notas" onClick={() => sendNotes(v)} title={t('windows.sendNotesHint')}>✎ {t('windows.sendNotes')}</button>}
           <button className="consola-x" onClick={() => { if (isLocal(v.id)) { SFX.noAllowed(); return; } if (isRemote(v.id)) { remoteOrder('navegar', 'atras').catch(() => {}); return; } const w = webviews.get(v.id); if (w?.canGoBack()) w.goBack(); else SFX.noAllowed(); }} title={t('windows.backAtajo', { shortcut: `${CMD}[` })}>◂</button>
           <button className="consola-x" onClick={() => { if (isLocal(v.id)) setVuelta(n => n + 1); else if (isRemote(v.id)) remoteOrder('navegar', 'recargar').catch(() => {}); else webviews.get(v.id)?.reload(); }} title={t('windows.reloadAtajo', { shortcut: `${CMD}R` })}>↻</button>
@@ -390,7 +393,8 @@ function VentanaNavegador({ v }: { v: WindowNav }) {
               : <button className="boton-taller" title={t('windows.copyNotesHint')} onClick={copyPageNotes}>📋 {t('windows.copyNotes')}</button>}
           </div>
         </div>}
-        {isLocal(v.id) && <iframe ref={marco} key={v.url + vuelta} className="vn-web vn-pagina" src={v.url} title={v.titulo} sandbox={sandboxOf(v.url)} referrerPolicy="no-referrer" />}
+        {imagen && <div className={'vn-web vn-imagen' + (realSize ? ' real' : '')} onClick={() => setRealSize(x => !x)}><img src={vuelta ? `${v.url}?v=${vuelta}` : v.url} alt={v.titulo} /></div>}
+        {isLocal(v.id) && !imagen && <iframe ref={marco} key={v.url + vuelta} className="vn-web vn-pagina" src={v.url} title={v.titulo} sandbox={sandboxOf(v.url)} referrerPolicy="no-referrer" />}
       </div>
     </div>
   );

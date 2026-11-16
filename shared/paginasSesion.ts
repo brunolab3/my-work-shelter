@@ -9,6 +9,9 @@ export interface PageAnswer { estado: 'notas' | 'validada' | 'quitada'; ts: numb
 export interface SessionPage { ruta: string; nombre: string; ts: number; respuesta?: PageAnswer }
 
 const OF_PAGE = /\.(html?|md|markdown)$/i;
+/** Images the game shows itself (thumbnails in replies, the «Página» window): the ones Chromium draws. HEIC, TIFF and
+ *  PDF still open in Preview (server/abrir.ts) */
+export const IMAGE_FILE = /\.(png|jpe?g|gif|webp|avif|bmp|svg)$/i;
 // [texto](/Users/…), [texto](<…con espacios…>), [texto](file:///…) y la ruta suelta (sin espacios)
 const SEG = `[^\\s/<>()[\\]"'\`»]+`;
 // también las carpetas temporales del Mac (/tmp, /private/tmp, /var/folders): ahí deja Claude Code sus páginas a veces

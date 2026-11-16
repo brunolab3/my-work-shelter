@@ -1,10 +1,10 @@
 // Páginas HTML del Mac dentro del juego (paginasLocales.ts): se sirven con su llave, aisladas y sin salir de su carpeta
 import { afterAll, describe, expect, it } from 'vitest';
-import { mkdtempSync, mkdirSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, realpathSync, symlinkSync, writeFileSync } from 'node:fs';
 import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
-import { openLink, servePage, PAGE_CSP, withNotes } from './paginasLocales.ts';
+import { openLink, imageThumbnail, servePage, PAGE_CSP, withNotes } from './paginasLocales.ts';
 
 const base = mkdtempSync(path.join(os.tmpdir(), 'paginas-'));
 const carpeta = path.join(base, 'repo', 'tmp'); mkdirSync(carpeta, { recursive: true });
@@ -68,6 +68,37 @@ describe('páginas HTML del Mac en el juego', () => {
     expect((await pedir(`/pagina/${llave}/..%2Fsecreto.env`)).status).toBe(404);
     expect((await pedir(`/pagina/${llave}/atajo.env`)).status).toBe(404);
     expect((await pedir(`/pagina/${'0'.repeat(32)}/mi%20plan.html`)).status).toBe(404);
+  });
+});
+
+describe('images of the Mac in the game', () => {
+  const fotos = path.join(base, 'fotos'); mkdirSync(fotos);
+  writeFileSync(path.join(fotos, 'captura.png'), 'PNG'); writeFileSync(path.join(fotos, 'vecina.png'), 'PNG');
+  writeFileSync(path.join(fotos, 'nota.txt'), 'texto'); writeFileSync(path.join(fotos, 'foto.heic'), 'HEIC');
+  it('a link to an image opens in the «Página» window, with a key that serves that image only', async () => {
+    const { pagina } = await openLink(path.join(fotos, 'captura.png'), '/Users/nadie') as any;
+    expect(pagina).toMatchObject({ titulo: 'captura.png', ruta: path.join(realpathSync(fotos), 'captura.png') });
+    const p = await pedir(pagina.url);
+    expect([p.status, p.tipo, p.csp]).toEqual([200, 'image/png', PAGE_CSP]);
+    expect((await pedir(pagina.url.replace('captura.png', 'vecina.png'))).status).toBe(404);
+    expect((await pedir(pagina.url.replace('captura.png', 'nota.txt'))).status).toBe(404);
+  });
+  it('thumbnails: only images the game draws (not text, not HEIC, not a folder)', async () => {
+    expect(await imageThumbnail(`file://${path.join(fotos, 'captura.png')}`, '/Users/nadie')).toMatch(/^\/pagina\/[0-9a-f]{32}\/captura\.png$/);
+    expect(await imageThumbnail(path.join(fotos, 'nota.txt'), '/Users/nadie')).toBeNull();
+    expect(await imageThumbnail(path.join(fotos, 'foto.heic'), '/Users/nadie')).toBeNull();
+    expect(await imageThumbnail(path.join(fotos, 'falta.png'), '/Users/nadie')).toBeNull();
+    expect(await imageThumbnail('relativa.png', '/Users/nadie')).toBeNull();
+  });
+  it('an image beside a page uses the page folder\'s key; a page beside an image gets the folder\'s', async () => {
+    writeFileSync(path.join(carpeta, 'grafica.png'), 'PNG');
+    const pag = (await openLink(path.join(carpeta, 'mi plan.html'), '/Users/nadie') as any).pagina.url.split('/')[2];
+    expect((await imageThumbnail(path.join(carpeta, 'grafica.png'), '/Users/nadie'))!.split('/')[2]).toBe(pag);
+    writeFileSync(path.join(fotos, 'informe.html'), '<p>x</p>');
+    const img = (await imageThumbnail(path.join(fotos, 'captura.png'), '/Users/nadie'))!.split('/')[2];
+    const inf = (await openLink(path.join(fotos, 'informe.html'), '/Users/nadie') as any).pagina.url.split('/')[2];
+    expect(inf).not.toBe(img);
+    expect((await pedir(`/pagina/${inf}/vecina.png`)).status).toBe(200);
   });
 });
 

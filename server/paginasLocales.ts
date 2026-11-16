@@ -6,7 +6,8 @@
 // carga de fuera scripts, estilos y fuentes de los CDN públicos de siempre (CDNS): las páginas que escriben los habitantes
 // traen marked, mermaid o highlight.js de ahí y sin ellos se quedan en blanco. Un .md se ve igual: el servidor lo pasa a
 // HTML (con sus diagramas mermaid) en vez de abrirlo en el editor. A cada página se le añade la capa de notas del
-// Supervisor (server/pagina/notas.js).
+// Supervisor (server/pagina/notas.js). Una imagen enlazada también se ve en el juego, pero su llave vale solo para ella
+// (no para su carpeta): es lo que piden las miniaturas de las respuestas (imageThumbnail).
 import { randomBytes } from 'node:crypto';
 import { createReadStream, readFileSync } from 'node:fs';
 import fs from 'node:fs/promises';
@@ -14,6 +15,7 @@ import path from 'node:path';
 import type http from 'node:http';
 import { marked } from 'marked';
 import { linkPath, openLocal, realInside } from './abrir.ts';
+import { IMAGE_FILE } from '../shared/paginasSesion.ts';
 
 const OF_PAGE = /\.(html?|md|markdown)$/i;
 const OF_MARKDOWN = /\.(md|markdown)$/i;
@@ -21,13 +23,13 @@ const CDNS = 'https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflar
 const TYPES: Record<string, string> = {
   '.html': 'text/html; charset=utf-8', '.htm': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
   '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif',
-  '.webp': 'image/webp', '.ico': 'image/x-icon', '.woff': 'font/woff', '.woff2': 'font/woff2', '.ttf': 'font/ttf', '.otf': 'font/otf',
+  '.webp': 'image/webp', '.avif': 'image/avif', '.bmp': 'image/bmp', '.ico': 'image/x-icon', '.woff': 'font/woff', '.woff2': 'font/woff2', '.ttf': 'font/ttf', '.otf': 'font/otf',
 };
 export const PAGE_CSP = `sandbox allow-scripts allow-popups allow-popups-to-escape-sandbox; default-src 'self' data: blob:; script-src 'self' 'unsafe-inline' ${CDNS}; style-src 'self' 'unsafe-inline' ${CDNS}; img-src 'self' data: blob:; font-src 'self' data: ${CDNS}; media-src 'self' data: blob:; connect-src 'none'; form-action 'none'; frame-ancestors 'self'`;
 
-// llave → carpeta de la página (las últimas; se olvidan al reiniciar el servidor)
-const keys = new Map<string, string>();
-const MAX_KEYS = 100;
+// key → the page's folder, or a single image (the latest; forgotten when the server restarts)
+const keys = new Map<string, { carpeta: string; archivo?: string }>();
+const MAX_KEYS = 300;
 
 export interface LocalPage { url: string; titulo: string; ruta: string }
 
@@ -48,31 +50,54 @@ export function markdownPage(md: string, titulo: string) {
 
 /** Registra una página del Mac para verla en el juego */
 export async function registerPage(real: string): Promise<LocalPage> {
+  return register(real, false);
+}
+/** An image of the Mac to see in the game: its key serves that file only, unless its folder already has a page's key */
+const registerImage = (real: string) => register(real, true);
+function register(real: string, imagen: boolean): LocalPage {
   const carpeta = path.dirname(real);
-  let llave = [...keys].find(([, c]) => c === carpeta)?.[0];
-  if (!llave) {
-    llave = randomBytes(16).toString('hex'); keys.set(llave, carpeta);
+  // an image: its own key, or else its folder's; a page: its folder's
+  const suya = imagen ? [...keys].find(([, k]) => k.archivo === real) : undefined;
+  let llave = (suya ?? [...keys].find(([, k]) => k.carpeta === carpeta && !k.archivo))?.[0];
+  if (llave) { const k = keys.get(llave)!; keys.delete(llave); keys.set(llave, k); }   // the latest used go last
+  else {
+    llave = randomBytes(16).toString('hex'); keys.set(llave, imagen ? { carpeta, archivo: real } : { carpeta });
     while (keys.size > MAX_KEYS) keys.delete(keys.keys().next().value!);
   }
   return { url: `/pagina/${llave}/${encodeURIComponent(path.basename(real))}`, titulo: path.basename(real), ruta: real };
 }
 
-/** Un enlace a un archivo del Mac: una página HTML o un .md se ve en el juego; lo demás se abre como siempre (abrir.ts) */
-export async function openLink(enlace: string, casa: string): Promise<string | { pagina: LocalPage }> {
+// the real path of a link to a file of the Mac whose name matches `tipo` (null if it isn't one)
+async function linkedFile(enlace: string, casa: string, tipo: RegExp) {
   const ruta = linkPath(enlace, casa);
   const real = ruta ? await fs.realpath(ruta).catch(() => null) : null;
-  if (real && OF_PAGE.test(real) && (await fs.stat(real)).isFile()) return { pagina: await registerPage(real) };
+  return real && tipo.test(real) && (await fs.stat(real)).isFile() ? real : null;
+}
+
+/** Un enlace a un archivo del Mac: una página HTML, un .md o una imagen se ve en el juego; lo demás se abre como
+ *  siempre (abrir.ts) */
+export async function openLink(enlace: string, casa: string): Promise<string | { pagina: LocalPage }> {
+  const pagina = await linkedFile(enlace, casa, OF_PAGE);
+  if (pagina) return { pagina: await registerPage(pagina) };
+  const imagen = await linkedFile(enlace, casa, IMAGE_FILE);
+  if (imagen) return { pagina: registerImage(imagen) };
   return openLocal(enlace, casa);
+}
+
+/** The thumbnail of an image a reply links: its address in the game, or null if the link isn't an image of the Mac */
+export async function imageThumbnail(enlace: string, casa: string): Promise<string | null> {
+  const imagen = await linkedFile(enlace, casa, IMAGE_FILE);
+  return imagen ? registerImage(imagen).url : null;
 }
 
 /** GET /pagina/<llave>/<ruta>: un archivo de la carpeta de una página registrada (false si no es de aquí) */
 export async function servePage(req: http.IncomingMessage, res: http.ServerResponse, url: string): Promise<boolean> {
   const m = /^\/pagina\/([0-9a-f]{32})\/(.+)$/.exec(url);
-  const carpeta = m ? keys.get(m[1]) : undefined;
-  if (!m || !carpeta || req.method !== 'GET') return false;
-  const real = await realInside(carpeta, path.join(carpeta, path.normalize('/' + m[2]))).catch(() => null);
+  const llave = m ? keys.get(m[1]) : undefined;
+  if (!m || !llave || req.method !== 'GET') return false;
+  const real = await realInside(llave.carpeta, path.join(llave.carpeta, path.normalize('/' + m[2]))).catch(() => null);
   const st = real ? await fs.stat(real).catch(() => null) : null;
-  if (!real || !st?.isFile()) return false;
+  if (!real || !st?.isFile() || (llave.archivo && real !== llave.archivo)) return false;
   const cabeceras = { 'Content-Security-Policy': PAGE_CSP, 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer' };
   if (OF_PAGE.test(real)) {
     const texto = await fs.readFile(real, 'utf8');

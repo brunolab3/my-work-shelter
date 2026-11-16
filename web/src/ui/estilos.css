@@ -292,6 +292,11 @@ html, body { margin: 0; height: 100%; background: var(--fondo); overflow: hidden
 .ent a, .peticion a, .consola a { color: #ffc96b; text-decoration: underline; text-decoration-color: rgba(255,201,107,.55); text-underline-offset: 2px; text-shadow: 0 0 6px rgba(255,179,71,.3); word-break: break-word; }
 .ent a:hover, .peticion a:hover, .consola a:hover { color: #fff1c9; text-decoration-color: currentColor; }
 .ent a code, .consola a code { color: inherit; }
+/* thumbnails of the Mac's images in replies (markdown.ts): bounded, they open in the «Página» window */
+a.miniatura { display: block; width: fit-content; margin: .35em 0 .5em; text-decoration: none; text-shadow: none; cursor: zoom-in; }
+a.miniatura img { display: block; max-width: min(100%, 22em); max-height: 11em; object-fit: contain; border-radius: 3px; box-shadow: 0 0 0 1px rgba(255,201,107,.35); background: repeating-conic-gradient(#21262d 0 25%, #161b22 0 50%) 0 0 / 12px 12px; }
+a.miniatura img:not([src]) { width: 6em; height: 4em; }
+a.miniatura:hover img { box-shadow: 0 0 0 1px #ffc96b, 0 0 10px rgba(255,179,71,.35); }
 .ent.usuario a { color: #ffe2a8; }
 .cursor-escribe { animation: latido 1s steps(2) infinite; }
 .detalle-err { white-space: pre-wrap; font-size: .85em; color: #ffb39a; margin: .2em 0 0; max-height: 10em; overflow: auto; }
@@ -579,6 +584,11 @@ html, body { margin: 0; height: 100%; background: var(--fondo); overflow: hidden
 .vn-aviso { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; color: #e08060; font-size: 14px; }
 .vn-web { position: absolute; inset: 0; width: 100%; height: 100%; }
 .vn-pagina { border: 0; background: #fff; }
+/* an image in the «Página» window: fitted, a click shows it at its own size */
+.vn-imagen { overflow: auto; display: grid; place-items: center; background: repeating-conic-gradient(#1b1f24 0 25%, #14171b 0 50%) 0 0 / 16px 16px; cursor: zoom-in; }
+.vn-imagen img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
+.vn-imagen.real { place-items: start; cursor: zoom-out; }
+.vn-imagen.real img { max-width: none; max-height: none; }
 /* las notas de la página antes de mandarlas: una lista encima, arriba a la derecha */
 .vn-lista-notas { position: absolute; top: 8px; right: 8px; z-index: 2; width: min(460px, 60%); max-height: calc(100% - 16px); overflow: auto; background: #15120d; color: #f3e3b5; border: 1px solid #c9a24a; border-radius: 6px; padding: 10px 12px; box-shadow: 0 8px 28px #000c; font-size: 13px; }
 .vn-lista-notas ol { margin: 0 0 8px; padding-left: 20px; }

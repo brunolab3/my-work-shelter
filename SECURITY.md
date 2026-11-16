@@ -30,6 +30,10 @@ It is designed as a local application for a single person on their Mac:
   WebSocket, requires the game's `Origin` and a random secret generated at every start. The secret is not passed to
   Claude Code sessions, terminals or processes the game launches (git, `gh`, Chrome).
 - **Files**: the explorer, the git client and attachments work inside the rooms' folders.
+- **The Mac's pages and images in the game** (`/pagina/<key>/…`, `server/paginasLocales.ts`): a linked HTML or
+  Markdown page is served behind a random key for its folder, an image (linked, or embedded as a thumbnail in a reply)
+  behind a key for that file only; never outside them (links resolved), with a `sandbox` CSP and no connections. The
+  keys aren't the game's secret: any local process that learns one can read that folder or image.
 - **Commands**: launched with `execFile`/`spawn`, with separate arguments. The git the game runs on its own (each
   room's status, every 20 s) ignores `core.fsmonitor` from the repo's local config, and diffs run without `textconv`
   or an external diff.
