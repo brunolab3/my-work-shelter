@@ -15,6 +15,7 @@ import path from 'node:path';
 import { t, locale } from '../shared/idioma.ts';
 import type { SessionSummary, PendingRequest } from '../shared/protocolo.ts';
 import { visible } from '../shared/visible.ts';
+import { recentFirst, sessionRecency } from '../shared/recientes.ts';
 
 export const PAIRING_MS = 10 * 60_000;
 /** Lo que espera una petición antes de salir al móvil, y cada cuánto se vuelve a mirar si el juego sigue en uso */
@@ -49,7 +50,7 @@ export interface RemoteDeps {
 }
 
 const ICONO: Record<string, string> = { arrancando: '🟡', trabajando: '🟢', esperando: '⏳', terminada: '✅', ociosa: '⚪', error: '🔴' };
-export const abiertas = (l: SessionSummary[]) => l.filter(s => s.estado !== 'cerrada').sort((a, b) => b.actualizada - a.actualizada);
+export const abiertas = (l: SessionSummary[]) => l.filter(s => s.estado !== 'cerrada').sort((a, b) => recentFirst(sessionRecency(a), sessionRecency(b)));
 
 // lo único de cada conversación que sale hacia el móvil: habitante y título (y el worktree, si lo hay)
 export const rotulo = (s: SessionSummary, habitante: string) => [habitante, s.titulo?.trim() || undefined, s.worktree && path.basename(s.worktree)].filter(Boolean).join(' · ');

@@ -12,6 +12,7 @@ import { existsSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
 import path from 'node:path';
 import type { SessionSummary } from '../shared/protocolo.ts';
 import { t } from '../shared/idioma.ts';
+import { recentFirst, sessionRecency } from '../shared/recientes.ts';
 import { withoutNothingThatMake, cleanBody, reviewLedger, openThreads, ledgerPending, type ReviewLedger, type ReviewThread } from '../shared/cuentaRevisiones.ts';
 
 export interface EventPR { id: string; tipo: 'revision' | 'hilo' | 'comentario'; autor: string; bot?: boolean; cuerpo: string; url: string; fecha: number; estado?: string; archivo?: string; linea?: number }
@@ -75,7 +76,7 @@ export const prsOfName = (nombre: string) => (/(?:^|-)pr-((?:\d+-?)+)$/i.exec(no
  *  rama; si no, una de esa sala en un worktree con la clave de la tarea en el nombre. La más reciente */
 export function sessionOfPR(pr: { repo: string; rama: string; numero?: number }, salas: RoomPR[], sesiones: SessionSummary[]): { sesion: SessionSummary; sala: RoomPR } | undefined {
   const delRepo = salas.filter(s => s.repo && s.repo === pr.repo.toLowerCase());
-  const abiertas = sesiones.filter(s => s.estado !== 'cerrada').sort((a, b) => b.actualizada - a.actualizada);
+  const abiertas = sesiones.filter(s => s.estado !== 'cerrada').sort((a, b) => recentFirst(sessionRecency(a), sessionRecency(b)));
   const branchOf = (s: SessionSummary, sala: RoomPR) => {
     const donde = path.resolve(s.worktree ?? s.cwd);
     return sala.worktrees.find(w => path.resolve(w.ruta) === donde)?.rama ?? (donde === path.resolve(sala.ruta) ? sala.rama : undefined);
