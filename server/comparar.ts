@@ -5,16 +5,19 @@
 // server/pagina/notas.js). Solo lee el repo: git diff y poco más, con el entorno de git del juego.
 import { execFile } from 'node:child_process';
 import fs from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { z } from 'zod';
 import { createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk';
 import { entornoGit } from './entornoGit.ts';
-import { ROOMS_FOLDERS } from './estado.ts';
+import { DATOS, ROOMS_FOLDERS } from './estado.ts';
 import { pageLink } from '../shared/paginasSesion.ts';
 import { t, idioma } from '../shared/idioma.ts';
 
-/** Donde se guardan las páginas: junto a las carpetas de las salas especiales, nunca en el repo */
-export const COMPARES_FOLDER = path.join(path.dirname(ROOMS_FOLDERS), 'comparaciones');
+/** Where the pages are saved: in the game's data (git-ignored), never in the compared repo. A path without spaces, so
+ *  the link also works outside the game; they used to live in Application Support, which has one */
+export const COMPARES_FOLDER = path.join(DATOS, 'compares');
+const OLD_COMPARES_FOLDER = path.join(path.dirname(ROOMS_FOLDERS), 'comparaciones');
 const MAX_LINES_FILE = 4000, MAX_LINES = 30000;
 
 const git = (cwd: string, args: string[]) => new Promise<string>((ok, mal) =>
@@ -116,16 +119,24 @@ ${cuerpo}
 const newFileDiff = (cwd: string, f: string) => new Promise<string>(ok =>
   execFile('git', ['-c', 'core.quotepath=off', 'diff', '--no-color', '--no-ext-diff', '--no-textconv', '--no-index', '--', '/dev/null', f], { cwd, env: entornoGit(), timeout: 30_000, maxBuffer: 16 * 1024 * 1024 }, (_e, out) => ok(String(out ?? ''))));
 
-/** Las comparaciones de más de dos semanas se borran (al arrancar el servidor): ya no se revisan */
-export async function cleanCompares(dias = 14) {
+/** Compares go once their task is finished (every worktree they cover removed, by the game's task cleanup or by
+ *  hand) and, the rest, after two weeks: nobody reviews them any more. At startup and every few minutes (main.ts) */
+export async function cleanCompares(dias = 14, carpetas = [COMPARES_FOLDER, OLD_COMPARES_FOLDER]) {
   const limite = Date.now() - dias * 86_400_000;
-  const nombres = await fs.readdir(COMPARES_FOLDER).catch(() => [] as string[]);
-  for (const n of nombres) if (n.endsWith('.html') || n.endsWith('.json')) {
-    const f = path.join(COMPARES_FOLDER, n);
-    const st = await fs.stat(f).catch(() => null);
-    if (st && st.mtimeMs < limite) await fs.rm(f, { force: true }).catch(() => {});
+  for (const carpeta of carpetas) {   // the old folder too, which empties itself this way
+    const nombres = await fs.readdir(carpeta).catch(() => [] as string[]);
+    for (const n of nombres) if (n.endsWith('.html') || n.endsWith('.json')) {
+      const f = path.join(carpeta, n);
+      const st = await fs.stat(f).catch(() => null);
+      if (st && st.mtimeMs < limite) await fs.rm(f, { force: true }).catch(() => {});
+      else if (n.endsWith('.json') && await taskFinished(f)) for (const x of [f, f.replace(/\.json$/, '.html')]) await fs.rm(x, { force: true }).catch(() => {});
+    }
   }
 }
+const taskFinished = async (sidecar: string) => {
+  const partes = await fs.readFile(sidecar, 'utf8').then(j => (JSON.parse(j) as CompareSidecar).partes, () => null);
+  return Array.isArray(partes) && partes.length > 0 && partes.every(p => typeof p?.worktree === 'string' && !existsSync(p.worktree));
+};
 
 /** Lo que lleva un repo (o worktree) frente a su base, por archivos, con la cabeza (HEAD) en la que se mira */
 export async function compareFiles(cwd: string, o: { base?: string; sinCommit?: boolean } = {}) {

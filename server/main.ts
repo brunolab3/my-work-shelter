@@ -434,8 +434,9 @@ function visitantes(wts?: Map<string, string[]>): Visitante[] {
 setInterval(() => { refreshRepos().catch(() => {}); }, 20_000).unref();
 // limpieza de adjuntos de más de una semana
 adjuntos.clean();
-// y de las comparaciones de más de dos semanas (comparar.ts)
+// and of the compares whose task is finished or that are over two weeks old (comparar.ts)
 cleanCompares().catch(() => {});
+setInterval(() => { cleanCompares().catch(() => {}); }, 5 * 60_000).unref();
 setInterval(() => broadcast({ t: 'visitantes', visitantes: visitantes() }), 15_000).unref();
 // las sesiones terminadas, leídas y quietas media hora se cierran solas (la conversación queda para retomarla)
 // y nunca hay más de 12 procesos de Claude Code vivos: se cierran las terminadas más antiguas (aunque no se hayan leído).

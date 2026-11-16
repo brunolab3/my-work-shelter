@@ -1,8 +1,8 @@
 // La página de comparación para revisar cambios con notas (comparar.ts): con un repo de verdad
 import { describe, expect, it } from 'vitest';
-import { buildCompare, parseDiff, COMPARES_FOLDER, sameRepoWorktree } from './comparar.ts';
+import { buildCompare, cleanCompares, parseDiff, COMPARES_FOLDER, sameRepoWorktree } from './comparar.ts';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -50,5 +50,18 @@ describe('comparación de cambios', () => {
   it('los números de línea de cada lado', () => {
     const [f] = parseDiff('diff --git a/x b/x\n--- a/x\n+++ b/x\n@@ -10,2 +10,3 @@ f\n uno\n-dos\n+DOS\n+tres\n');
     expect(f.lineas.map(l => [l.tipo, l.viejo, l.nuevo])).toEqual([['@', undefined, undefined], [' ', 10, 10], ['-', 11, undefined], ['+', undefined, 11], ['+', undefined, 12]]);
+  });
+});
+
+describe('cleaning compares', () => {
+  it('a compare goes once every worktree it covers is removed; one still in use stays', async () => {
+    const d = repo(), carpeta = mkdtempSync(path.join(os.tmpdir(), 'compares-'));
+    const copia = path.join(mkdtempSync(path.join(os.tmpdir(), 'copia-')), 'otra');
+    execFileSync('git', ['worktree', 'add', '-q', '-b', 'otra', copia, 'main'], { cwd: d });
+    const vive = await buildCompare(d, {}, carpeta), quitada = await buildCompare(copia, {}, carpeta);
+    execFileSync('git', ['worktree', 'remove', copia], { cwd: d });
+    await cleanCompares(14, [carpeta]);
+    expect(readdirSync(carpeta).sort()).toEqual([path.basename(vive.archivo), path.basename(vive.archivo).replace(/\.html$/, '.json')].sort());
+    expect(existsSync(quitada.archivo)).toBe(false);
   });
 });
