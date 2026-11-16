@@ -7,7 +7,8 @@ import { vivo, cliente } from '../red/cliente';
 import { SFX, sonido } from '../audio/sonido';
 import { Device, Opciones, Keys, closePanel, useMenu, useKeys, type ItemMenu } from './aparato';
 import { PIECES, HARVESTS, SHOP, SIGNALS, arma as weaponData } from '@shared/catalogo';
-import type { LogInput } from '@shared/protocolo';
+import type { LogInput, SessionSummary } from '@shared/protocolo';
+import { recentFirst, sessionRecency } from '@shared/recientes';
 import { ACTIVITY_TABS, FRESH_HARVEST } from '@shared/etiquetas';
 import { markdown } from './markdown';
 import { ToolText, Visible } from './textoPlano';
@@ -330,7 +331,9 @@ function Log() {
   const sesiones = vivo.usar(e => e.sesiones);
   const dwellers = juego.usar(e => e.habitantes);
   const pedida = juego.usar(e => e.panelData?.sesionId);
-  const lista = Object.values(sesiones).sort((a, b) => b.actualizada - a.actualizada);
+  // as listed: dweller, then title
+  const recency = (s: SessionSummary) => sessionRecency(s, `${dwellers.find(h => h.id === s.dwellerId)?.nombre ?? s.dwellerId} ${s.titulo ?? ''}`);
+  const lista = Object.values(sesiones).sort((a, b) => recentFirst(recency(a), recency(b)));
   const [sel, setSel] = useState<string | null>(pedida ?? null);
   const items = lista.map(s => ({ texto: <><b>{dwellers.find(h => h.id === s.dwellerId)?.nombre ?? s.dwellerId}</b> <span className="tenue">· {s.titulo ?? t('panels.untitled')}</span></>, pista: tIs(s.estado) }));
   const [i, setI] = useMenu(items.length, k => setSel(lista[k].id), e => (sel ? false : undefined));

@@ -8,6 +8,7 @@ import { terminales, onFront, minimizar, askClose as closeTerminal } from './Ter
 import { intercoms, type WindowCom, minimizeIntercom, restoreIntercom, sessionPilot, openConversation, hace, askClose as closeIntercom } from './Dialogo';
 import { juego, type DwellerSummary } from './estadoJuego';
 import type { SessionSummary } from '@shared/protocolo';
+import { recentFirst, sessionRecency } from '@shared/recientes';
 import { vivo } from '../red/cliente';
 import { Store } from './almacen';
 import { writing } from '../motor/teclado';
@@ -35,7 +36,7 @@ export function comRooms(lista: WindowCom[], sesiones: Record<string, SessionSum
   return [...salas.values()].map(g => {
     const ultima = (c: Com) => Math.max(0, ...c.ses.map(s => s.actualizada));
     const reciente = [...g.coms].sort((a, b) => ultima(b) - ultima(a) || b.v.z - a.v.z)[0];
-    const ses = g.coms.flatMap(c => c.ses.map(s => ({ s, h: c.h }))).sort((a, b) => (URGENCY[a.s.estado] ?? 5) - (URGENCY[b.s.estado] ?? 5) || b.s.actualizada - a.s.actualizada);
+    const ses = g.coms.flatMap(c => c.ses.map(s => ({ s, h: c.h }))).sort((a, b) => (URGENCY[a.s.estado] ?? 5) - (URGENCY[b.s.estado] ?? 5) || recentFirst(sessionRecency(a.s), sessionRecency(b.s)));
     return { ...g, reciente, ses };
   });
 }

@@ -41,6 +41,7 @@ import { lookOf, lookSignature } from '@shared/aspecto';
 import { miniatura } from '../mundo/figura/estudio';
 import { openPreflight } from './Preflight';
 import { taskHasPRs } from '@shared/preflight';
+import { recentFirst } from '@shared/recientes';
 import { jiraBoard, knowTasks, useColorsTasks } from './tareas';
 import { type AttachmentLocal, uploadFiles, chooseFiles, subiendo, listsPaths, AttachmentsTray, SentAttachments, useDictation, InputButtons, DictationStrip, attachShortcut } from './entrada';
 
@@ -704,10 +705,10 @@ function Visitors({ h, volver, reanudar }: { h: DwellerSummary; volver: () => vo
     Promise.all(dirs.split('|').map(d => cliente.ask<HistoryElement[]>({ t: 'historial', salaId: h.sala, cwd: d || undefined }).catch(() => [])))
       .then(ls => setArchivo(new Map(ls.flat().map(x => [x.claudeId, x]))));
   }, [h.sala, dirs, fresca]);
-  const lista: HistoryElement[] = [...visitas].sort((a, b) => b.modified - a.modified).map(v => {
+  const lista: HistoryElement[] = visitas.map(v => {
     const x = archivo?.get(v.claudeId);
     return { claudeId: v.claudeId, titulo: x?.titulo || v.titulo, modified: v.modified, cwd: v.cwd, fuera: x?.fuera, rama: v.worktree ? ramas?.find(w => w.ruta === v.worktree)?.rama || v.worktree.split('/').pop() : undefined };
-  });
+  }).sort((a, b) => recentFirst({ cuando: a.modified, nombre: a.titulo, id: a.claudeId }, { cuando: b.modified, nombre: b.titulo, id: b.claudeId }));
   const items = [...lista.map(el => ({ texto: '↗ ' + el.titulo, pista: `${hace(el.modified)}${el.rama ? ' · ◇ ' + el.rama : ''}` })), { texto: t('windows.back'), pista: 'Esc' }];
   const onChoose = (k: number) => {
     if (k >= lista.length) return volver();

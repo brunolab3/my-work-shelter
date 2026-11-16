@@ -28,6 +28,7 @@ import { jiraBoard } from './tareas';
 import { worktreeTask } from '@shared/tareas';
 import { pRKey } from '@shared/despliegue';
 import { taskHasPRs } from '@shared/preflight';
+import { recentFirst, sessionRecency } from '@shared/recientes';
 
 export const buscador = new Store<{ abierto: boolean }>({ abierto: false });
 let recentLast: RecentConversation[] | null = null;   // las de la última vez: salen al momento mientras se piden otra vez
@@ -154,7 +155,7 @@ function Window() {
     const nameOf = (hid: string) => [...habitantes, ...copias].find(h => h.id === hid);
     const out: Row[] = [];
     // conversaciones abiertas: las que te esperan, delante
-    const abiertas = Object.values(sesiones).filter(s => s.estado !== 'cerrada').sort((a, b) => (STATE_ORDER[a.estado] ?? 5) - (STATE_ORDER[b.estado] ?? 5) || b.actualizada - a.actualizada);
+    const abiertas = Object.values(sesiones).filter(s => s.estado !== 'cerrada').sort((a, b) => (STATE_ORDER[a.estado] ?? 5) - (STATE_ORDER[b.estado] ?? 5) || recentFirst(sessionRecency(a), sessionRecency(b)));
     for (const s of abiertas as SessionSummary[]) {
       const h = nameOf(sessionOwner(s));
       const p = score(palabras, s.titulo, `${h?.nombre ?? ''} ${h?.nameRoom ?? ''} conversacion chat`);
