@@ -67,8 +67,8 @@ export function WindowButtons({ maximizada, minimizar, toggleMaximize, cerrar, c
   );
 }
 
-const PILOT: Record<TabState, string> = { esperando: 'esperando', sinLeer: 'terminada', error: 'error', trabajando: 'trabajando', ociosa: 'ociosa' };
-const stateLabel = (e: TabState) => ({ esperando: t('windows.waitingForYou'), sinLeer: t('windows.tabUnread'), error: t('windows.fault'), trabajando: t('windows.working'), ociosa: t('windows.tabIdle') })[e];
+export const PILOT: Record<TabState, string> = { esperando: 'esperando', sinLeer: 'terminada', error: 'error', trabajando: 'trabajando', ociosa: 'ociosa' };
+export const stateLabel = (e: TabState) => ({ esperando: t('windows.waitingForYou'), sinLeer: t('windows.tabUnread'), error: t('windows.fault'), trabajando: t('windows.working'), ociosa: t('windows.tabIdle') })[e];
 const LIST_SHORTCUT = `${CMD}${MAC ? '⇧' : ''}A`;
 
 // grupo: with «group by room», tabs of a group sit together under its header; quien: whose it is (another window)
@@ -84,12 +84,6 @@ export function useTabOrder<T extends { id: string; estado?: TabState; grupo?: s
     a ? { id: activa, i: a.orden.indexOf(activa) } : undefined, agrupar).map(y => y.x);
   antes.current = { activa, estado, orden: ordenados.map(x => x.id) };
   return ordenados;
-}
-/** «Group by room», remembered by this page */
-const GROUPING = 'refugio.pestanas.agrupar';
-export function useGrouping(): [boolean, (b: boolean) => void] {
-  const [b, setB] = useState(() => localStorage.getItem(GROUPING) !== '0');
-  return [b, (x: boolean) => { localStorage.setItem(GROUPING, x ? '1' : '0'); setB(x); }];
 }
 export function Tabs({ items, activa, activar, cerrar, nueva, opensThat, lista, agrupar, confirmando }: { items: ItemTab[]; activa: string; activar: (id: string) => void; cerrar: (ids: string[]) => void; nueva?: () => void; opensThat: string; lista?: React.MutableRefObject<(() => void) | null>; agrupar?: [boolean, (b: boolean) => void]; confirmando?: boolean }) {
   const rotulos = !!agrupar?.[0];

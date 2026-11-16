@@ -503,7 +503,17 @@ a.miniatura:hover img { box-shadow: 0 0 0 1px #ffc96b, 0 0 10px rgba(255,179,71,
 .vt-lista-pie .consola-x { margin-left: 0; font-size: 11px; }
 .vt-lista-agrupar { display: inline-flex; align-items: center; gap: .4em; color: var(--crema-tenue); cursor: pointer; }
 .vt-lista-ayuda { margin-left: auto; color: var(--crema-tenue); opacity: .7; font-size: 11px; }
-.consola-quien { display: block; width: 100%; margin: calc(var(--u) * 0.25) 0; font: 600 calc(var(--u) * 0.7) var(--t-mono); color: var(--crema); background: #0b0a09; border: 1px solid #3a352e; border-radius: 3px; padding: 2px 4px; cursor: pointer; }
+/* whom else to talk to in the room: a chip like the bar's, opening a list like its hover list */
+.consola-quien { position: relative; z-index: 2; max-width: 100%; margin-bottom: calc(var(--u) * 0.1); font: 500 calc(var(--u) * 0.68) var(--t-mono); }
+.consola-quien > .chip-terminal { max-width: 100%; }
+.consola-quien-nombre { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.consola-quien .consola-quien-lista { position: absolute; top: calc(100% + 3px); left: 0; z-index: 40; width: max-content; min-width: 26em; max-width: min(40em, 45vw); }
+.consola-quien-aviso { flex: none; padding: 0 .4em; font-weight: 700; color: #1b1a17; background: #8dffb0; border-radius: 6px; }
+.consola-quien-aviso.e-esperando { background: #ffb000; animation: latido 1s steps(2) infinite; }
+.consola-quien-aviso.e-error { background: #ff3a2a; color: #fff; }
+.consola-quien-lista .barra-asomo-fila.sel { background: #2b2722; }
+.consola-quien-lista .barra-asomo-fila.actual b { color: #b9ffcf; }
+.consola-quien-lista .barra-asomo-fila.de-copia b { color: #58e6ff; }
 .vt-cuerpo { position: relative; flex: 1; min-height: 0; padding: 4px 6px 6px; background: #06120c; }
 .vt-xterm { height: 100%; }
 .vt-xterm .xterm { height: 100%; }

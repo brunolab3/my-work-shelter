@@ -42,6 +42,8 @@ export const WINDOWS: Record<string, Texto> = {
   'windows.noTabsMatch': { es: 'Ninguna coincide', en: 'No matches' },
   'windows.groupByRoom': { es: 'Agrupar por sala', en: 'Group by room' },
   'windows.talkToSomeoneElse': { es: 'Hablar con otro de la sala: un habitante o la copia holográfica de una tarea', en: 'Talk to someone else in the room: a dweller or a task\'s holographic copy' },
+  'windows.othersToReview': { es: 'Otros de la sala con algo para ti: {n}', en: 'Others in the room with something for you: {n}' },
+  'windows.nConversations': { es: 'conversaciones abiertas: {n}', en: 'open conversations: {n}' },
   'windows.tabListHelp': { es: '↑↓ elegir · Intro ir · Esc cerrar', en: '↑↓ choose · Enter go · Esc close' },
   'windows.closeAndEndEnter': { es: 'Cerrar y terminar (Intro)', en: 'Close and end (Enter)' },
   'windows.minimize': { es: 'Minimizar', en: 'Minimize' },
