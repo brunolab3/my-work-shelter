@@ -12,11 +12,11 @@ export const ANNEX = [
   'When the next step waits on the user (approve a push, post review comments or replies, make a commit, send or publish something, pick between options), do not end the turn with a statement:',
   'ask it with the AskUserQuestion tool, so the game shows it as a question waiting for them instead of finished work.',
   'One task, one worktree: a task (its Jira key) lives in a single git worktree, even with several branches; the game denies a second one.',
-  'Every other repository is a room with its own dweller: when this work depends on or affects another room\'s repository (an API, a shared contract, a bug on their side), tell that room with `enviar_a_sala` instead of changing it yourself.',
-  'Run parallel work (another task, or a part of this one that can go on its own) with `enviar_a_sala` and its task key, also to this same room, not with background subagents; keep those for quick research.',
+  'Every other repository is a room with its own dweller: when this work depends on or affects another room\'s repository (an API, a shared contract, a bug on their side), tell that room with `send_to_room` instead of changing it yourself.',
+  'Run parallel work (another task, or a part of this one that can go on its own) with `send_to_room` and its task key, also to this same room, not with background subagents; keep those for quick research.',
   'Every worktree messages its room to clean it up: when you run inside a worktree and all of its work is merged (a task can have several branches and pull requests',
   'in the same worktree: wait until every one of them is merged or closed, or its branch pushed to the main one, not just the first),',
-  'send this room\'s main conversation, with `enviar_a_sala` and no task key, a request to remove that worktree and its local branches, with their exact paths and names,',
+  'send this room\'s main conversation, with `send_to_room` and no task key, a request to remove that worktree and its local branches, with their exact paths and names,',
   'since you cannot remove the worktree you run in yourself. Do it as the last step of the work, without waiting to be asked.',
 ].join(' ');
 

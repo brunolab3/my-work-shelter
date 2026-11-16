@@ -28,11 +28,11 @@ The dweller works with the game's tools (`server/decoradoSala.ts`, an MCP server
 
 | Tool | What it does |
 |---|---|
-| `decorado_actual` | The guide and how the room is now. |
-| `catalogo_atrezo` | The models in the game's art, with their size measured from their glTF (`server/atrezo.ts`). |
-| `aplicar_decorado` | Validates, saves and shows it at once. |
-| `ver_sala` | A photo of the room taken with the game itself in a windowless Chromium (`server/capturaSala.ts`), with the pieces the game sees floating or sunk. |
-| `quitar_decorado` | Returns the room to its stock scene. |
+| `current_decor` | The guide and how the room is now. |
+| `props_catalogue` | The models in the game's art, with their size measured from their glTF (`server/atrezo.ts`). |
+| `apply_decor` | Validates, saves and shows it at once. |
+| `view_room` | A photo of the room taken with the game itself in a windowless Chromium (`server/capturaSala.ts`), with the pieces the game sees floating or sunk. |
+| `remove_decor` | Returns the room to its stock scene. |
 
 They only touch their own room's dressing, so they don't ask for permission. The repo is not touched.
 

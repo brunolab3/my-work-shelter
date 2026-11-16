@@ -27,7 +27,7 @@ everything goes out anyway after 20 s.
   While they're still open outside, the archive marks them with ↗ and the game won't resume them (two Claude Codes
   writing the same conversation would corrupt it).
 - Outside they lack what only exists in the game: the Planning Linear MCP, the Logistics tools, messages between rooms
-  (`enviar_a_sala`), the compare page (`comparar_cambios`), the pre-flight tools and the shelter's instructions.
+  (`send_to_room`), the compare page (`compare_changes`), the pre-flight tools and the shelter's instructions.
 
 ## Terminals
 

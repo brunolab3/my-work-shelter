@@ -3,7 +3,7 @@
 // afectada; con una propuesta de cambio hace el viaje al revés, y con una revisión nueva de un PR sale de Control de
 // Versiones a la sala que lo trabaja (server/revisionesPR.ts) y se la da en mano al holograma de su worktree (o al
 // habitante, si es la copia principal). Dentro de una misma sala no sale el robot: el habitante va hasta el holograma
-// de la tarea y se lo da en mano (enviar_a_sala a la propia sala, server/avisosSalas.ts). Solo se ve: el mensaje ya ha
+// de la tarea y se lo da en mano (send_to_room a la propia sala, server/avisosSalas.ts). Solo se ve: el mensaje ya ha
 // llegado por el servidor.
 import * as THREE from 'three';
 import type { Refugio } from './refugio';

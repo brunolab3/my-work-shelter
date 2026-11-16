@@ -15,7 +15,7 @@ export interface CtxDecor {
   capturar(id: string): Promise<{ png: Buffer; revision: string[] }>;
 }
 
-// la guía va en el idioma del juego: se arma al pedirla (decorado_actual), no al importar
+// la guía va en el idioma del juego: se arma al pedirla (current_decor), no al importar
 export const decorGuide = () => t('tool.decor.guide', {
   pasillo: LIMITS.pasillo, paredVista: LIMITS.viewWall, bases: BASES_DECOR.map(b => t('tool.quoted', { v: b }) + ': ' + tIs(DESCRIPTION_BASE[b])).join('. '),
   paletas: DECOR_PALETTES.join(', '), paredes: DECOR_WALLS.join(', '), gestos: GESTURES.join(', '), lamparas: LIMITS.lamparas, piezas: LIMITS.piezas,
@@ -54,25 +54,25 @@ export function mcpDecor(salaId: string, ctx: CtxDecor) {
   // el habitante a veces pide aplicar y ver a la vez: la foto espera a que lo aplicado llegue al juego
   let aplicado = 0;
   return createSdkMcpServer({
-    name: 'refugio', version: '1.0.0',
+    name: 'shelter', version: '1.0.0',
     tools: [
-      tool('decorado_actual', t('tool.decor.currentDescription'), {},
+      tool('current_decor', t('tool.decor.currentDescription'), {},
         async () => {
           const s = sala();
           return texto(`${decorGuide()}\n\n${t('tool.decor.yourRoom', { nombre: s.nombre, ruta: s.ruta ?? '—' })}\n` + (s.decorado
             ? `${t('tool.decor.currentDecor')}\n${JSON.stringify(s.decorado)}`
             : t('tool.decor.noDecor', { plantilla: ctx.plantilla(salaId), descripcion: tIs(DESCRIPTION_BASE[ctx.plantilla(salaId) as keyof typeof DESCRIPTION_BASE] ?? '') })));
         }, { alwaysLoad: true, annotations: { readOnlyHint: true } }),
-      tool('catalogo_atrezo', t('tool.decor.catalogDescription'),
-        { buscar: z.string().optional().describe(t('tool.decor.paramSearch')), pack: z.string().optional().describe(Object.keys(PACKS).join(', ')) },
-        async ({ buscar, pack }) => {
+      tool('props_catalogue', t('tool.decor.catalogDescription'),
+        { search: z.string().optional().describe(t('tool.decor.paramSearch')), pack: z.string().optional().describe(Object.keys(PACKS).join(', ')) },
+        async ({ search: buscar, pack }) => {
           if (!catalogo().length) return texto(t('tool.decor.noAssets'));
           if (!buscar && !pack) return texto(Object.entries(PACKS).map(([p, x]) => `${p} (${catalogo().filter(m => m.pack === p).length}): ${tIs(x.que)}`).join('\n') + '\n\n' + t('tool.decor.askPack'));
           return texto(catalogInText(buscar ?? '', pack ?? ''));
         }, { alwaysLoad: true, annotations: { readOnlyHint: true } }),
-      tool('aplicar_decorado', t('tool.decor.applyDescription'),
-        { decorado: decorSchema() },
-        async ({ decorado }) => {
+      tool('apply_decor', t('tool.decor.applyDescription'),
+        { decor: decorSchema() },
+        async ({ decor: decorado }) => {
           sala();
           const { decorado: d, avisos } = sanitizeDecor(decorado);
           if (!d) return { ...texto(t('tool.decor.notApplied', { avisos: avisos.join(' ') })), isError: true };
@@ -80,7 +80,7 @@ export function mcpDecor(salaId: string, ctx: CtxDecor) {
           ctx.guardar(salaId, d); aplicado = Date.now();
           return texto([t('tool.decor.applied'), ...(avisos.length ? [t('tool.decor.fixedOnValidate'), ...avisos.map(a => '- ' + a)] : []), ...(revision.length ? [t('tool.decor.looksWrong'), ...revision.map(a => '- ' + a)] : []), t('tool.decor.lookWithView')].join('\n'));
         }, { alwaysLoad: true }),
-      tool('ver_sala', t('tool.decor.viewDescription'), {},
+      tool('view_room', t('tool.decor.viewDescription'), {},
         async () => {
           sala();
           await new Promise(r => setTimeout(r, 500));
@@ -90,7 +90,7 @@ export function mcpDecor(salaId: string, ctx: CtxDecor) {
             return { content: [{ type: 'image' as const, data: png.toString('base64'), mimeType: 'image/png' }, { type: 'text' as const, text: revision.length ? t('tool.decor.gameSeesWrong') + '\n' + revision.slice(0, 30).map(r => '- ' + r).join('\n') : t('tool.decor.allGood') }] };
           } catch (e) { return { ...texto(t('tool.decor.photoFailed', { error: (e as Error).message })), isError: true }; }
         }, { alwaysLoad: true, annotations: { readOnlyHint: true } }),
-      tool('quitar_decorado', t('tool.decor.removeDescription'), {},
+      tool('remove_decor', t('tool.decor.removeDescription'), {},
         async () => { sala(); ctx.guardar(salaId, null); return texto(t('tool.decor.removed')); }, { alwaysLoad: true }),
     ],
   });

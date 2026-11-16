@@ -1,11 +1,11 @@
-// Mensajes entre salas: cualquier habitante le pasa algo al de otra sala con enviar_a_sala (un servidor MCP en proceso en
+// Mensajes entre salas: cualquier habitante le pasa algo al de otra sala con send_to_room (un servidor MCP en proceso en
 // cada conversación). Con la clave de una tarea (ABC-123), a la conversación abierta de esa tarea en la sala; si no la
 // hay, una conversación nueva en el worktree de la tarea (y si la sala aún no tiene ninguno, en uno nuevo con la clave en
 // su nombre, para que los siguientes mensajes de la tarea lleguen ahí). Sin
 // clave, siempre una conversación nueva con el habitante en su copia principal: los mensajes entre salas son para
 // empezar trabajo, no para charlar. También dentro de la misma sala: así un habitante pasa una tarea (o una parte que va
 // sola) al holograma de su worktree y sigue con la conversación del Supervisor; sin robot mensajero, que no sale de la
-// sala, y nunca a la propia conversación. Para repartir un plan entre varios repos sigue estando repartir_trabajo (reparto.ts).
+// sala, y nunca a la propia conversación. Para repartir un plan entre varios repos sigue estando assign_work (reparto.ts).
 import { createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
 import path from 'node:path';
@@ -92,15 +92,15 @@ const texto = (s: string) => ({ content: [{ type: 'text' as const, text: s }] })
 export function mcpRooms(ctx: CtxRooms, desde: string, desdeSesion?: string) {
   const salas = ctx.salas().filter(s => s.habitante);
   return createSdkMcpServer({
-    name: 'salas', version: '1.0.0',
+    name: 'rooms', version: '1.0.0',
     tools: [
-      tool('enviar_a_sala', tr('tool.rooms.description', { salas: salas.map(s => `${s.id} (${s.nombre})` + (s.id === desde ? tr('tool.rooms.thisRoom') : '')).join(', ') }),
+      tool('send_to_room', tr('tool.rooms.description', { salas: salas.map(s => `${s.id} (${s.nombre})` + (s.id === desde ? tr('tool.rooms.thisRoom') : '')).join(', ') }),
         {
-          sala: z.string().describe(tr('tool.param.room')),
-          mensaje: z.string().describe(tr('tool.rooms.paramMessage')),
-          clave: z.string().optional().describe(tr('tool.rooms.paramKey')),
+          room: z.string().describe(tr('tool.param.room')),
+          message: z.string().describe(tr('tool.rooms.paramMessage')),
+          key: z.string().optional().describe(tr('tool.rooms.paramKey')),
         },
-        async (args) => { const r = await sendToRoom(ctx, desde, args, desdeSesion); return r.ok ? texto(r.texto) : { ...texto(r.texto), isError: true }; }, { alwaysLoad: true }),
+        async ({ room, message, key }) => { const r = await sendToRoom(ctx, desde, { sala: room, mensaje: message, clave: key }, desdeSesion); return r.ok ? texto(r.texto) : { ...texto(r.texto), isError: true }; }, { alwaysLoad: true }),
     ],
   });
 }

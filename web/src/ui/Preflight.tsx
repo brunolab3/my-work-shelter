@@ -1,7 +1,7 @@
 // Pre-flight de una tarea (fase 1, solo lectura; modelo en shared/preflight.ts, datos de la acción `preflight.tarea`):
 // una fila por parte (cada PR de la tarea en todos los repos, los worktrees sin PR y las partes del plan sin empezar) con
 // ✓/⚠/✗ de compare (validada en su commit), sincronía, CI, revisión (con sus hilos sin resolver, → los despliega) y
-// bloqueos, y la lista «antes de subir» contestada en su commit (preflight_responder). Debajo, el orden de fusión y la comparación de toda la tarea (C, V la valida).
+// bloqueos, y la lista «antes de subir» contestada en su commit (preflight_answer). Debajo, el orden de fusión y la comparación de toda la tarea (C, V la valida).
 // Cada celda abre lo que la arregla: la conversación de la parte, el PR (o sus checks) o el cliente de git en su
 // worktree. Se abre desde el bloque de la tarea en el plan de despliegue, el intercomunicador de la copia y ⌘K.
 import React, { useEffect, useMemo, useState } from 'react';

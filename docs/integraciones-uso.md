@@ -202,12 +202,12 @@ recruited at the Main Gate, and choosing the repos root adds them automatically.
 
 **Planning and splitting a task.** On the board (from Planning or from the Logistics room panel), a "To do" task is
 planned with P: the Logistics dweller starts in plan mode with the task and its description (`promptPlanificar`), looks
-at every repo and proposes a plan per repo. Once approved, it splits it with the game's tools `salas_del_refugio` and
-`repartir_trabajo` (`server/reparto.ts`, in-process MCP, only in coordination rooms): the Overseer confirms and each
+at every repo and proposes a plan per repo. Once approved, it splits it with the game's tools `shelter_rooms` and
+`assign_work` (`server/reparto.ts`, in-process MCP, only in coordination rooms): the Overseer confirms and each
 part starts a conversation in its repo's room, in its own worktree whose branch carries the key (so its PRs show up in
 the task). The card says which rooms already have something going for that task.
 
-**Messages between rooms.** Every conversation, in any room, has `enviar_a_sala` (`server/avisosSalas.ts`, in-process
+**Messages between rooms.** Every conversation, in any room, has `send_to_room` (`server/avisosSalas.ts`, in-process
 MCP `salas`): it hands a message or a job to another room's dweller, no plan and no worktree. Without a task key it
 always starts a new conversation with that dweller in its main copy (messages between rooms start work; they are not a
 chat); with a key (ABC-123) it goes to the conversation open in that task's worktree in that room or, if there is none,
@@ -216,14 +216,14 @@ permissions. Each message says which room sent it and how to reply; the messenge
 At most 3 messages a minute from one room to another. It also works inside the same room: with a task key, a dweller
 hands that task (or a part of it that can go on its own) to the conversation in the task's worktree, its hologram, and
 stays on the Overseer's conversation; there is no robot then: the dweller walks to the hologram and hands it over. A
-conversation can't send a message to itself. `repartir_trabajo` is only for implementation plans.
+conversation can't send a message to itself. `assign_work` is only for implementation plans.
 
-**Shared plan.** `repartir_trabajo` saves the whole plan (`server/planes.ts`, `DATOS/planes.json`, with versions and
-history); Logistics rereads it with `leer_plan` and each part with `plan_compartido` (MCP `plan` in the rooms that have
-a part). From Logistics, `actualizar_plan` issues a new version and sends a message to the conversation of each affected
-room (with `afectadas`, only to those and with what concerns each), and `avisar_sala` sends a message without changing
+**Shared plan.** `assign_work` saves the whole plan (`server/planes.ts`, `DATOS/planes.json`, with versions and
+history); Logistics rereads it with `read_plan` and each part with `shared_plan` (MCP `plan` in the rooms that have
+a part). From Logistics, `update_plan` issues a new version and sends a message to the conversation of each affected
+room (with `affected`, only to those and with what concerns each), and `notify_room` sends a message without changing
 the plan; both identify the task by its key (`📋 [ABC-123] …`) and go to the part's conversation or, if it's gone, to
-the one open in the task's worktree. From a part, `proponer_cambio_plan` takes the proposal to Logistics'
+the one open in the task's worktree. From a part, `propose_plan_change` takes the proposal to Logistics'
 conversation. Each delivery is made in view by a messenger robot carrying the blueprints (`web/src/mundo/mensajero.ts`,
 message `mensajero`).
 
@@ -282,7 +282,7 @@ worktrees without a PR yet and the parts of its shared plan not started. Per par
 the PR's head on GitHub, without fetching: a head missing locally means remote commits, e.g. a bot's fix; plus
 uncommitted changes), CI, review and blockers ("waits for" / "blocks", with the other PR's state: a blocker's red CI is
 the blocker's problem, not this part's), then the merge waves of the task and what it waits for. Compare: each
-compare page (`comparar_cambios`, `server/comparar.ts`) writes a `<page>.json` beside it with the worktree, branch and
+compare page (`compare_changes`, `server/comparar.ts`) writes a `<page>.json` beside it with the worktree, branch and
 HEAD sha of each part; validating it or sending notes (in the page window or the intercom's «📄 Pages») is also saved
 on the server (action `paginas.responder`, `DATOS/preflight.json`, `PageReviews` in `server/preflight.ts`), so the part
 is ✓ only while its HEAD is the validated one (a new commit or a rebuilt page makes it ⚠). C builds one compare for
@@ -293,8 +293,8 @@ open threads is ⚠); → expands its threads (file:line, author, first line: `o
 opens it on GitHub, Enter opens the part's conversation to address them. Checklist: the Overseer's own
 "before pushing" items, in the Vault (Shelter settings; pre-filled ONCE from the "Before pushing" section of
 `~/.claude/CLAUDE.md`, `checklistFromClaudeMd`; saved in `ajustes.checklistPreflight`), answered by the dweller per
-commit with `preflight_responder` (in the `revision` MCP; `ok`, `n/a` with a note, or `pendiente`), which can read
-its whole part with `preflight_estado`. Each part's list also carries what its own repo asks (`repoChecks` in
+commit with `preflight_answer` (in the `revision` MCP; `ok`, `n/a` with a note, or `pendiente`), which can read
+its whole part with `preflight_status`. Each part's list also carries what its own repo asks (`repoChecks` in
 `server/preflight.ts`, pure `repoChecklist`; files are only read, nothing is run by the game): the "Before pushing / Before
 opening a PR / Pre-flight" section of its CLAUDE.md and AGENTS.md, its check-like skills in `.claude/skills` (review,
 acceptance criteria, tests…; `skill · name`), and its check commands (`package.json` lint/test/typecheck scripts,

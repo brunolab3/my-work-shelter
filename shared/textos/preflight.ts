@@ -92,7 +92,7 @@ export const PREFLIGHT: Record<string, Texto> = {
   'preflight.cellHint.checklist': { es: 'Los puntos «antes de subir», contestados por el habitante en este commit', en: 'The “before pushing” items, answered by the dweller at this commit' },
   'preflight.vault.checklist': { es: 'Antes de subir (pre-flight): un punto por línea', en: 'Before pushing (pre-flight): one item per line' },
   'preflight.vault.placeholder': { es: 'Compare revisado\nPruebas con datos reales\n…', en: 'Compare reviewed\nTests with real data\n…' },
-  'preflight.vault.hint': { es: 'La primera vez sale de la sección «Before pushing» de tu ~/.claude/CLAUDE.md. Los habitantes los contestan por commit con preflight_responder; subir sin contestarlos te pregunta antes.', en: 'The first time it comes from the “Before pushing” section of your ~/.claude/CLAUDE.md. Dwellers answer them per commit with preflight_responder; pushing without them asks you first.' },
+  'preflight.vault.hint': { es: 'La primera vez sale de la sección «Before pushing» de tu ~/.claude/CLAUDE.md. Los habitantes los contestan por commit con preflight_answer; subir sin contestarlos te pregunta antes.', en: 'The first time it comes from the “Before pushing” section of your ~/.claude/CLAUDE.md. Dwellers answer them per commit with preflight_answer; pushing without them asks you first.' },
   'preflight.vault.save': { es: 'Guardar la lista (⌘Enter)', en: 'Save the list (⌘Enter)' },
   'preflight.ciChecks': { es: 'Checks de GitHub (los pone la CI):', en: 'GitHub checks (set by CI):' },
 };

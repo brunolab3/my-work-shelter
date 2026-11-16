@@ -38,7 +38,7 @@ describe('English mode guards', () => {
     expect([...new Set(data.filter(x => !spanish.has(x)))]).toEqual([]);
   });
 
-  // the room tools (enviar_a_sala) and the remote control list rooms through roomNameIs, not their saved Spanish name
+  // the room tools (send_to_room) and the remote control list rooms through roomNameIs, not their saved Spanish name
   it('room names reach English mode translated, Logistics wings included', () => {
     setLanguage('en');
     try {

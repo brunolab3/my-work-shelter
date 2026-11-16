@@ -104,7 +104,7 @@ describe('promptPlanificar', () => {
     expect(p.split('\n')[0]).toBe('ABC-7 Reservas en grupo');
     expect(p).toContain('(https://jira.example/browse/ABC-7) · Historia');
     expect(p).toContain('Descripción:\n\nQue se pueda reservar para 10.');
-    expect(p).toContain('repartir_trabajo');
+    expect(p).toContain('assign_work');
   });
   it('sin descripción, la pide', () => {
     expect(promptPlanificar(tarea('ABC-7', 'new'))).toContain('No tengo su descripción');

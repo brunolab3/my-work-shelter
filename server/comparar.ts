@@ -1,6 +1,6 @@
 // La comparación de cambios para revisar antes de subir: lo que lleva una rama (y lo que aún no está en un commit)
 // frente a su base, como una página HTML oscura al estilo de GitHub. La pide el habitante con la herramienta
-// `comparar_cambios` (mcpReview) y la enlaza en su respuesta: el Supervisor la abre en la ventana «Página» del juego,
+// `compare_changes` (mcpReview) y la enlaza en su respuesta: el Supervisor la abre en la ventana «Página» del juego,
 // deja notas en las líneas que quiera y le llegan a esa misma conversación (server/paginasLocales.ts y
 // server/pagina/notas.js). Solo lee el repo: git diff y poco más, con el entorno de git del juego.
 import { execFile } from 'node:child_process';
@@ -195,21 +195,21 @@ export async function sameRepoWorktree(cwd: string, carpeta: string): Promise<st
 export function mcpReview(cwd: () => string, preflight?: { estado(cwd: string): Promise<string>; responder(cwd: string, item: string, estado: 'ok' | 'n/a' | 'pendiente', nota?: string): Promise<string> }) {
   const texto = (text: string) => ({ content: [{ type: 'text' as const, text }] });
   return createSdkMcpServer({
-    name: 'revision', version: '1.0.0',
+    name: 'review', version: '1.0.0',
     tools: [
       // el pre-flight de su parte de la tarea (server/preflight.ts): leerlo y contestar la lista «antes de subir»
       ...(preflight ? [
-        tool('preflight_estado', t('tool.preflight.estadoDescription'), {}, async () => texto(await preflight.estado(cwd()).catch(e => (e as Error).message))),
-        tool('preflight_responder', t('tool.preflight.responderDescription'),
-          { item: z.string(), estado: z.enum(['ok', 'n/a', 'pendiente']), nota: z.string().optional() },
-          async a => texto(await preflight.responder(cwd(), a.item, a.estado, a.nota).catch(e => (e as Error).message))),
+        tool('preflight_status', t('tool.preflight.estadoDescription'), {}, async () => texto(await preflight.estado(cwd()).catch(e => (e as Error).message))),
+        tool('preflight_answer', t('tool.preflight.responderDescription'),
+          { item: z.string(), status: z.enum(['ok', 'n/a', 'pending']), note: z.string().optional() },
+          async a => texto(await preflight.responder(cwd(), a.item, a.status === 'pending' ? 'pendiente' : a.status, a.note).catch(e => (e as Error).message))),
       ] : []),
-      tool('comparar_cambios', t('tool.compare.description'),
-        { base: z.string().optional().describe(t('tool.compare.paramBase')), sinCommit: z.boolean().optional().describe(t('tool.compare.paramUncommitted')), titulo: z.string().optional(),
-          carpeta: z.string().optional().describe(t('tool.compare.paramFolder')) },
-        async ({ carpeta, ...a }) => {
+      tool('compare_changes', t('tool.compare.description'),
+        { base: z.string().optional().describe(t('tool.compare.paramBase')), uncommitted: z.boolean().optional().describe(t('tool.compare.paramUncommitted')), title: z.string().optional(),
+          folder: z.string().optional().describe(t('tool.compare.paramFolder')) },
+        async ({ folder, base, uncommitted, title }) => {
           try {
-            const r = await buildCompare(carpeta ? await sameRepoWorktree(cwd(), carpeta) : cwd(), a);
+            const r = await buildCompare(folder ? await sameRepoWorktree(cwd(), folder) : cwd(), { base, sinCommit: uncommitted, titulo: title });
             return { content: [{ type: 'text', text: t('tool.compare.ready', { enlace: pageLink(r.archivo), rama: r.rama, base: r.base, n: r.archivos, mas: r.mas, menos: r.menos }) }] };
           } catch (e) { return { content: [{ type: 'text', text: t('tool.compare.failed', { error: (e as Error).message }) }], isError: true }; }
         }),

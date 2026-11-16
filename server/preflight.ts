@@ -209,7 +209,7 @@ export async function gatePush(cwd: string, ctx: CtxPreflight): Promise<{ clave:
   return x && { clave: x.clave, rama: x.parte.rama, head: x.parte.headLocal, falta: gateMissing(x.parte) };
 }
 
-/** Lo que ve el habitante con preflight_estado: su parte, cada columna, la lista con lo contestado y los bloqueos */
+/** Lo que ve el habitante con preflight_status: su parte, cada columna, la lista con lo contestado y los bloqueos */
 export function textState(x: { clave: string; parte: PartPreflight; r: TaskPreflight }): string {
   const p = x.parte, c = (n: string, v: { marca: string; texto: string }) => `- ${n}: ${{ ok: '✓', aviso: '⚠', mal: '✗', nada: '—' }[v.marca as 'ok']} ${v.texto}`;
   const falta = gateMissing(p);

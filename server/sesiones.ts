@@ -246,7 +246,7 @@ export class Sessions extends EventEmitter {
       resume: reanudar,
       extraArgs: o.worktree && !reanudar ? { worktree: typeof o.worktree === 'string' ? o.worktree : nombreWorktree(x.r.titulo) } : {},
       // el habitante puede entrar en un worktree a media conversación (lo crea él, EnterWorktree o hace cd a uno): la
-      // conversación pasa a ser de ese worktree (sus rutas relativas, su holograma, comparar_cambios y los mensajes de su
+      // conversación pasa a ser de ese worktree (sus rutas relativas, su holograma, compare_changes y los mensajes de su
       // tarea) y se retoma ahí: si no, al relanzarla (tras interrumpirla o reiniciar el juego) volvería a la copia principal
       hooks: {
         CwdChanged: [{ hooks: [async (h: any) => { const w = worktreeRoot(h.new_cwd); if (w && (w !== x.r.worktree || w !== x.r.cwd)) { x.r.worktree = w; x.r.cwd = w; this.tocar(x); } return {}; }] }],
@@ -548,11 +548,11 @@ export class Sessions extends EventEmitter {
   private canUse(x: Session): CanUseTool {
     return (nombre, e, op) => new Promise<PermissionResult>(resolver => {
       // las del juego para decorar la propia sala no piden permiso: solo tocan el decorado de esa sala (datos validados)
-      if (nombre.startsWith('mcp__refugio__')) { resolver({ behavior: 'allow', updatedInput: e }); return; }
+      if (nombre.startsWith('mcp__shelter__')) { resolver({ behavior: 'allow', updatedInput: e }); return; }
       // las de reparto confirman ellas mismas lo que lanzan (confirmar()), con el trabajo ya resuelto a sus salas
-      if (nombre.startsWith('mcp__reparto__')) { resolver({ behavior: 'allow', updatedInput: e }); return; }
+      if (nombre.startsWith('mcp__assignment__')) { resolver({ behavior: 'allow', updatedInput: e }); return; }
       // la comparación solo lee el repo y escribe su página en la carpeta del juego
-      if (nombre.startsWith('mcp__revision__')) { resolver({ behavior: 'allow', updatedInput: e }); return; }
+      if (nombre.startsWith('mcp__review__')) { resolver({ behavior: 'allow', updatedInput: e }); return; }
       if (nombre.startsWith('mcp__plan__')) { resolver({ behavior: 'allow', updatedInput: e }); return; }   // leer el plan y proponer cambios: a la sala de planificación, no fuera
       const id = randomUUID();
       const ofHelper = op.agentID ? [...x.ayudantes.values()].find(a => a.id === op.agentID || x.taskAHelper.get(op.agentID!) === a.id)?.descripcion ?? t('server.aHelper') : undefined;
@@ -677,7 +677,7 @@ export class Sessions extends EventEmitter {
     } catch {}
     if (!respuesta && x.r.claudeId) {
       try {
-        const q = query({ prompt: pregunta, options: { ...this.optionsBase(x, x.r.claudeId), permissionMode: 'plan', allowDangerouslySkipPermissions: undefined, tools: [], disallowedTools: ['mcp__*'], forkSession: true, persistSession: false, maxTurns: 1, includePartialMessages: false, canUseTool: async () => ({ behavior: 'deny', message: 'Pregunta lateral: sin herramientas.' }) } as Options });
+        const q = query({ prompt: pregunta, options: { ...this.optionsBase(x, x.r.claudeId), permissionMode: 'plan', allowDangerouslySkipPermissions: undefined, tools: [], disallowedTools: ['mcp__*'], forkSession: true, persistSession: false, maxTurns: 1, includePartialMessages: false, canUseTool: async () => ({ behavior: 'deny', message: t('server.sideQuestionNoTools') }) } as Options });
         for await (const m of q) if (m.type === 'result' && (m as any).subtype === 'success') respuesta = (m as any).result;
       } catch (e) { respuesta = t('server.couldNotAnswerSideQuestion', { error: (e as Error).message }); }
     }

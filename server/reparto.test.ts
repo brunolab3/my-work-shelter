@@ -161,7 +161,7 @@ describe('orden de fusión entre partes (espera_a)', () => {
     expect(empezados).toEqual([]);
   });
 
-  it('actualizar_plan cambia el orden; vacío, ya no espera a nadie', async () => {
+  it('update_plan cambia el orden; vacío, ya no espera a nadie', async () => {
     const { ctx } = ctxFake();
     await repartir(ctx, OPTION, 'ABC-12', [{ sala: 'api', titulo: 'Endpoint', instrucciones: 'b' }, { sala: 'web', titulo: 'Formulario', instrucciones: 'f' }], 'El plan');
     expect(updatePlan(ctx, OPTION, { plan: 'v2', cambios: 'orden', orden: [{ sala: 'api', espera_a: ['Web'] }] }).ok).toBe(true);

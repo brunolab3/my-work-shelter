@@ -114,7 +114,7 @@ export function textoDeADF(nodo: any): string {
 }
 
 // Lo que recibe el habitante de la sala de coordinación (la carpeta con todos los repos) al planificar una tarea: leerla,
-// ver qué repos toca, acordar el plan con el Supervisor y repartirlo con repartir_trabajo, una parte por sala de repo
+// ver qué repos toca, acordar el plan con el Supervisor y repartirlo con assign_work, una parte por sala de repo
 export function promptPlanificar(t: TaskJira & { descripcion?: string }): string {
   const datos = [t.tipo, t.prioridad && tr('prompt.plan.priority', { p: t.prioridad }), t.proyecto].filter(Boolean).join(' · ');
   return [

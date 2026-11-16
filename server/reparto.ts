@@ -55,47 +55,48 @@ export function promptTrabajo(t: Trabajo, o: { clave?: string; coordinacion: str
 
 export function mcpAssignment(ctx: CtxAssignment, o: AssignmentOptions) {
   return createSdkMcpServer({
-    name: 'reparto', version: '1.0.0',
+    name: 'assignment', version: '1.0.0',
     tools: [
-      tool('salas_del_refugio', tr('tool.assign.roomsDescription'), {},
+      tool('shelter_rooms', tr('tool.assign.roomsDescription'), {},
         async () => {
           const salas = ctx.salas();
           if (!salas.length) return texto(tr('tool.assign.noRooms'));
           return texto(salas.map(s => `- ${s.nombre} (id: ${s.id}) · ${s.ruta}${s.rama ? tr('tool.assign.roomBranch', { rama: s.rama }) : ''} · ${s.habitante ? tr('tool.assign.roomDweller', { habitante: s.habitante }) : tr('tool.assign.roomNoDweller')}${s.inIsWing ? '' : tr('tool.assign.roomOutside')}`).join('\n')
             + '\n\n' + tr('tool.assign.roomsMissing'));
         }, { alwaysLoad: true, annotations: { readOnlyHint: true } }),
-      tool('repartir_trabajo', tr('tool.assign.assignDescription'),
+      tool('assign_work', tr('tool.assign.assignDescription'),
         {
-          clave: z.string().optional().describe(tr('tool.assign.paramKey')),
+          key: z.string().optional().describe(tr('tool.assign.paramKey')),
           plan: z.string().describe(tr('tool.assign.paramPlan')),
-          trabajos: z.array(z.object({
-            sala: z.string().describe(tr('tool.assign.paramRoom')),
-            titulo: z.string().describe(tr('tool.assign.paramTitle')),
-            instrucciones: z.string().describe(tr('tool.assign.paramInstructions')),
-            espera_a: z.array(z.string()).optional().describe(tr('tool.assign.paramWaitFor')),
+          jobs: z.array(z.object({
+            room: z.string().describe(tr('tool.assign.paramRoom')),
+            title: z.string().describe(tr('tool.assign.paramTitle')),
+            instructions: z.string().describe(tr('tool.assign.paramInstructions')),
+            wait_for: z.array(z.string()).optional().describe(tr('tool.assign.paramWaitFor')),
           })).min(1).max(12),
         },
-        async ({ clave, plan, trabajos }) => {
-          const r = await repartir(ctx, o, clave, trabajos, plan);
+        async ({ key, plan, jobs }) => {
+          const r = await repartir(ctx, o, key, jobs.map(j => ({ sala: j.room, titulo: j.title, instrucciones: j.instructions, espera_a: j.wait_for })), plan);
           return r.ok ? texto(r.texto) : { ...texto(r.texto), isError: true };
         }, { alwaysLoad: true }),
-      tool('actualizar_plan', tr('tool.assign.updateDescription'),
+      tool('update_plan', tr('tool.assign.updateDescription'),
         {
           plan: z.string().describe(tr('tool.assign.paramUpdatedPlan')),
-          cambios: z.string().describe(tr('tool.assign.paramChanges')),
+          changes: z.string().describe(tr('tool.assign.paramChanges')),
           id: z.string().optional().describe(tr('tool.assign.paramPlanId')),
-          afectadas: z.array(z.object({ sala: z.string().describe(tr('tool.param.room')), mensaje: z.string().describe(tr('tool.assign.paramAffectedMessage')) })).optional(),
-          orden: z.array(z.object({ sala: z.string().describe(tr('tool.param.room')), espera_a: z.array(z.string()).describe(tr('tool.assign.paramOrderWaitFor')) })).optional().describe(tr('tool.assign.paramOrder')),
+          affected: z.array(z.object({ room: z.string().describe(tr('tool.param.room')), message: z.string().describe(tr('tool.assign.paramAffectedMessage')) })).optional(),
+          order: z.array(z.object({ room: z.string().describe(tr('tool.param.room')), wait_for: z.array(z.string()).describe(tr('tool.assign.paramOrderWaitFor')) })).optional().describe(tr('tool.assign.paramOrder')),
         },
-        async (args) => { const r = updatePlan(ctx, o, args); return r.ok ? texto(r.texto) : { ...texto(r.texto), isError: true }; }, { alwaysLoad: true }),
-      tool('avisar_sala', tr('tool.assign.notifyDescription'),
+        async ({ plan, changes, id, affected, order }) => {
+          const r = updatePlan(ctx, o, { plan, cambios: changes, id, afectadas: affected?.map(a => ({ sala: a.room, mensaje: a.message })), orden: order?.map(x => ({ sala: x.room, espera_a: x.wait_for })) }); return r.ok ? texto(r.texto) : { ...texto(r.texto), isError: true }; }, { alwaysLoad: true }),
+      tool('notify_room', tr('tool.assign.notifyDescription'),
         {
-          clave: z.string().describe(tr('tool.assign.paramKeyOrPlan')),
-          sala: z.string().describe(tr('tool.param.room')),
-          mensaje: z.string(),
+          key: z.string().describe(tr('tool.assign.paramKeyOrPlan')),
+          room: z.string().describe(tr('tool.param.room')),
+          message: z.string(),
         },
-        async (args) => { const r = notifyRoom(ctx, o, args); return r.ok ? texto(r.texto) : { ...texto(r.texto), isError: true }; }, { alwaysLoad: true }),
-      tool('leer_plan', tr('tool.assign.readDescription'),
+        async ({ key, room, message }) => { const r = notifyRoom(ctx, o, { clave: key, sala: room, mensaje: message }); return r.ok ? texto(r.texto) : { ...texto(r.texto), isError: true }; }, { alwaysLoad: true }),
+      tool('read_plan', tr('tool.assign.readDescription'),
         { id: z.string().optional().describe(tr('tool.assign.paramReadId')) },
         async ({ id }) => {
           const p = id ? ctx.planes.get(id) : ctx.planes.ofRoom(o.salaId)[0];
@@ -105,7 +106,7 @@ export function mcpAssignment(ctx: CtxAssignment, o: AssignmentOptions) {
   });
 }
 
-/** actualizar_plan: una versión nueva del plan y un mensaje a la conversación de cada sala afectada (o de todas) */
+/** update_plan: una versión nueva del plan y un mensaje a la conversación de cada sala afectada (o de todas) */
 export function updatePlan(ctx: CtxAssignment, o: AssignmentOptions, { plan, cambios, id, afectadas, orden }: { plan: string; cambios: string; id?: string; afectadas?: { sala: string; mensaje: string }[]; orden?: { sala: string; espera_a: string[] }[] }): { ok: boolean; texto: string } {
   const p = id ? ctx.planes.get(id) : ctx.planes.ofRoom(o.salaId).find(x => x.coordinacion === o.salaId);
   if (!p) return { ok: false, texto: tr(id ? 'tool.assign.noPlanWithId' : 'tool.assign.noPlan', { id: id ?? '' }) };
@@ -121,7 +122,7 @@ export function updatePlan(ctx: CtxAssignment, o: AssignmentOptions, { plan, cam
   const r = notifyParts(ctx, o.salaId, p, destino.map(d => ({ parte: d.parte!, texto: `${heading(p)} ${tr('tool.assign.planChanged', { version: p.version, cambios: (d.a?.mensaje ?? cambios).trim() })}` })), 'cambio');
   return { ok: true, texto: tr('tool.assign.planAtVersion', { id: p.id, version: p.version, avisos: r }) };
 }
-/** avisar_sala: un mensaje a la sala de una tarea repartida, por la clave de la tarea, sin cambiar el plan */
+/** notify_room: un mensaje a la sala de una tarea repartida, por la clave de la tarea, sin cambiar el plan */
 export function notifyRoom(ctx: CtxAssignment, o: AssignmentOptions, { clave, sala, mensaje }: { clave: string; sala: string; mensaje: string }): { ok: boolean; texto: string } {
   const p = ctx.planes.get(clave.trim());
   if (!p) return { ok: false, texto: tr('tool.assign.noPlanFor', { clave }) };
@@ -158,7 +159,7 @@ export function mcpPlan(ctx: Pick<CtxAssignment, 'planes' | 'avisar' | 'mensajer
   return createSdkMcpServer({
     name: 'plan', version: '1.0.0',
     tools: [
-      tool('plan_compartido', tr('tool.plan.sharedDescription'),
+      tool('shared_plan', tr('tool.plan.sharedDescription'),
         { id: z.string().optional().describe(tr('tool.plan.paramId')) },
         async ({ id }) => {
           const p = suyo(id);
@@ -166,12 +167,12 @@ export function mcpPlan(ctx: Pick<CtxAssignment, 'planes' | 'avisar' | 'mensajer
           const otros = ctx.planes.ofRoom(o.salaId).filter(x => x !== p).slice(0, 5);
           return texto(textPlan(p, o.salaId) + (otros.length ? '\n\n' + tr('tool.plan.otherPlans', { planes: otros.map(x => x.id).join(', ') }) : ''));
         }, { alwaysLoad: true, annotations: { readOnlyHint: true } }),
-      tool('proponer_cambio_plan', tr('tool.plan.proposeDescription'),
+      tool('propose_plan_change', tr('tool.plan.proposeDescription'),
         {
-          propuesta: z.string().describe(tr('tool.plan.paramProposal')),
+          proposal: z.string().describe(tr('tool.plan.paramProposal')),
           id: z.string().optional().describe(tr('tool.plan.paramId')),
         },
-        async ({ propuesta, id }) => {
+        async ({ proposal: propuesta, id }) => {
           const p = suyo(id);
           if (!p) return { ...texto(tr('tool.plan.none')), isError: true };
           const ok = !!p.coordinationSession && ctx.avisar(p.coordinationSession, `${heading(p)} ${tr('tool.plan.proposal', { sala: o.sala, version: p.version, propuesta: propuesta.trim() })}`);
@@ -183,7 +184,7 @@ export function mcpPlan(ctx: Pick<CtxAssignment, 'planes' | 'avisar' | 'mensajer
   });
 }
 
-/** repartir_trabajo: todo o nada hasta la confirmación (salas que existen, con habitante y sin repetir); después, cada
+/** assign_work: todo o nada hasta la confirmación (salas que existen, con habitante y sin repetir); después, cada
  *  trabajo empieza por su cuenta y se dice cuál no ha podido */
 export async function repartir(ctx: CtxAssignment, o: AssignmentOptions, clave: string | undefined, trabajos: Trabajo[], textOfPlan = ''): Promise<{ ok: boolean; texto: string }> {
   const resueltos = trabajos.map(t => ({ t, sala: buscarSala(ctx.salas(), t.sala, ctx.pathRoom) }));

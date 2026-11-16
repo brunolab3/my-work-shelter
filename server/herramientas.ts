@@ -48,16 +48,16 @@ export function describeTool(nombre: string, e: Entrada, cwd: string): string {
     case 'ExitPlanMode': return t('server.activity.plan');
     case 'Skill': return t('server.activity.skill', { skill: s(e.skill) || s(e.name) });
     // las herramientas del juego para decorar la sala (server/decoradoSala.ts)
-    case 'mcp__refugio__catalogo_atrezo': return s(e.buscar) ? t('server.activity.propsSearch', { q: recorta(s(e.buscar), 40) }) : t('server.activity.props');
-    case 'mcp__refugio__decorado_actual': return t('server.activity.decorCurrent');
-    case 'mcp__refugio__aplicar_decorado': return t('server.activity.decorApply');
-    case 'mcp__refugio__ver_sala': return t('server.activity.decorView');
-    case 'mcp__refugio__quitar_decorado': return t('server.activity.decorRemove');
+    case 'mcp__shelter__props_catalogue': return s(e.search) ? t('server.activity.propsSearch', { q: recorta(s(e.search), 40) }) : t('server.activity.props');
+    case 'mcp__shelter__current_decor': return t('server.activity.decorCurrent');
+    case 'mcp__shelter__apply_decor': return t('server.activity.decorApply');
+    case 'mcp__shelter__view_room': return t('server.activity.decorView');
+    case 'mcp__shelter__remove_decor': return t('server.activity.decorRemove');
     // las del reparto del trabajo desde la sala de coordinación (server/reparto.ts)
-    case 'mcp__reparto__salas_del_refugio': return t('server.activity.shelterRooms');
+    case 'mcp__assignment__shelter_rooms': return t('server.activity.shelterRooms');
     // un mensaje o un encargo al habitante de otra sala (server/avisosSalas.ts)
-    case 'mcp__salas__enviar_a_sala': return t('server.activity.sendToRoom', { sala: recorta(s(e.sala), 30), clave: s(e.clave) ? ' (' + s(e.clave) + ')' : '' });
-    case 'mcp__reparto__repartir_trabajo': return s(e.clave) ? t('server.activity.assignTask', { clave: s(e.clave) }) : t('server.activity.assign');
+    case 'mcp__rooms__send_to_room': return t('server.activity.sendToRoom', { sala: recorta(s(e.room), 30), clave: s(e.key) ? ' (' + s(e.key) + ')' : '' });
+    case 'mcp__assignment__assign_work': return s(e.key) ? t('server.activity.assignTask', { clave: s(e.key) }) : t('server.activity.assign');
     default:
       return t('server.activity.using', { nombre: nombre.startsWith('mcp__') ? nombre.split('__').slice(1).join(' › ') : nombre });
   }

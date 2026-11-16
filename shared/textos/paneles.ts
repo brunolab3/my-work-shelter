@@ -645,7 +645,7 @@ export const PANELS: Record<string, Texto> = {
   'panels.ledgerTitle': { es: 'Hilos de revisión sin resolver: {hilos} ({viejos} desfasados) · resúmenes de revisión sin tu respuesta: {resumenes}. Contéstalo todo antes de descartar una revisión o volver a pedirla.', en: 'Unresolved review threads: {hilos} ({viejos} outdated) · review summaries without your reply: {resumenes}. Answer everything before dismissing a review or re-requesting one.' },
   'panels.waitsFor': { es: 'espera a', en: 'waits for' },
   'panels.blocks': { es: 'bloquea a', en: 'blocks' },
-  'panels.sameTaskInAnotherRepo': { es: 'Misma tarea en otro repo, sin orden: ponlo en el plan (espera_a) o márcalo con B', en: 'Same task in another repo, no order: put it in the plan (espera_a) or mark it with B' },
+  'panels.sameTaskInAnotherRepo': { es: 'Misma tarea en otro repo, sin orden: ponlo en el plan (wait_for) o márcalo con B', en: 'Same task in another repo, no order: put it in the plan (wait_for) or mark it with B' },
   'panels.sameTaskAs': { es: 'misma tarea que', en: 'same task as' },
   'panels.order': { es: 'Orden:', en: 'Order:' },
   'panels.cyclicBlockersNobodyCanGo': { es: 'Bloqueos en ciclo (nadie puede ir primero):', en: 'Cyclic blockers (nobody can go first):' },

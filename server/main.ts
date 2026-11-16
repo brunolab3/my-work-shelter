@@ -559,7 +559,7 @@ const ctxPreflight: CtxPreflight = {
   checklist: () => ({ items: checklistItems(), respuestas: clave => paginasRevisadas.checklistOf(clave) }),
   git: (cwd, args) => new Promise((ok, mal) => execFile('git', ['-C', cwd, ...args], { timeout: 15_000, env: entornoGit() }, (err, o, e) => err ? mal(new Error(String(e || err.message).trim())) : ok(String(o)))),
 };
-// las del habitante (preflight_estado, preflight_responder) y la puerta de `git push` de sus conversaciones
+// las del habitante (preflight_status, preflight_answer) y la puerta de `git push` de sus conversaciones
 const herramientasPreflight = preflightTools(ctxPreflight, (clave, worktree, head, item, a) => paginasRevisadas.contestar(clave, worktree, head, item, a));
 
 // las tareas con todos sus PR fusionados o cerrados (limpiezaTareas.ts), cada cinco minutos con GitHub conectado: el juego
