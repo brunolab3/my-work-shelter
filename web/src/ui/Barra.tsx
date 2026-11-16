@@ -5,7 +5,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { t } from '@shared/idioma';
 import { terminales, onFront, minimizar, askClose as closeTerminal } from './Terminales';
-import { intercoms, type WindowCom, minimizeIntercom, restoreIntercom, sessionPilot, openConversation, hace, askClose as closeIntercom } from './Dialogo';
+import { intercoms, type WindowCom, minimizeIntercom, restoreIntercom, sessionPilot, roomTalkers, TalkerRow, askClose as closeIntercom } from './Dialogo';
 import { juego, type DwellerSummary } from './estadoJuego';
 import type { SessionSummary } from '@shared/protocolo';
 import { recentFirst, sessionRecency } from '@shared/recientes';
@@ -23,7 +23,7 @@ const STATE_TEXT: Record<string, string> = { arrancando: t('windows.starting'), 
 const URGENCY: Record<string, number> = { esperando: 0, error: 1, trabajando: 2, arrancando: 2, terminada: 3, ociosa: 4 };
 
 // the intercoms grouped by room: one chip per room, opening the one with the most recent conversation (or the last
-// one in front); its hover list holds every conversation of the room, of whoever it is
+// one in front); its hover list holds one row per intercom panel of the room (its dweller, each hologram)
 type Com = { v: WindowCom; h: DwellerSummary; ses: SessionSummary[] };
 export function comRooms(lista: WindowCom[], sesiones: Record<string, SessionSummary>, quien: (id: string) => DwellerSummary | null | undefined) {
   const salas = new Map<string, { sala: string; nombre: string; coms: Com[] }>();
@@ -125,13 +125,14 @@ export function Barra() {
   const talking = juego.usar(e => e.talkingWith);
   const quien = juego.usar(e => (id: string) => interlocutor(id, e));
   const sesiones = vivo.usar(e => e.sesiones);
+  const habitantes = juego.usar(e => e.habitantes), copias = juego.usar(e => e.copias);
   const navs = navegadores.usar(e => e.lista);
   const git = windowGit.usar(e => e);
   const arch = filesWindow.usar(e => e);
   const repos = vivo.usar(e => e.repos);
   const sel = seleccion.usar(e => e.actual);
   const caja = useRef<HTMLDivElement>(null);
-  // hovering an intercom chip shows its conversations, to go straight to one (fixed: the row clips what overflows it)
+  // hovering an intercom chip shows its panels, to go straight to one (fixed: the row clips what overflows it)
   const [asomo, setAsomo] = useState<{ id: string; x: number; y: number } | null>(null);
   const reloj = useRef<ReturnType<typeof setTimeout>>(undefined);
   const quedarse = () => clearTimeout(reloj.current);
@@ -155,7 +156,7 @@ export function Barra() {
             const worst = g.ses[0]?.s, abierto = g.coms.some(c => c.v.dwellerId === talking);
             const h = (g.coms.find(c => c.v.dwellerId === talking) ?? g.reciente).h;
             return (
-              <button key={g.sala} onMouseEnter={e => { quedarse(); const r = e.currentTarget.getBoundingClientRect(); if (g.ses.length > 1 || g.coms.length > 1) setAsomo({ id: g.sala, x: r.left, y: r.top }); else setAsomo(null); }} onMouseLeave={irse}
+              <button key={g.sala} onMouseEnter={e => { quedarse(); const r = e.currentTarget.getBoundingClientRect(); if (g.coms.length > 1) setAsomo({ id: g.sala, x: r.left, y: r.top }); else setAsomo(null); }} onMouseLeave={irse}
                 className={'chip-terminal' + (h.copia ? ' de-copia' : '') + (abierto ? ' delante' : ' minimizada') + (worst?.estado === 'esperando' ? ' urgente' : '') + (marcado(0, i) ? ' marcado' : '')}
                 onClick={() => (abierto ? minimizeIntercom() : restoreIntercom(g.reciente.v.dwellerId))}
                 title={`${g.nombre}: ${g.coms.map(c => quienEs(c.h)).join(', ')}\n${abierto ? t('windows.clickToMinimize') : t('windows.clickToGoBackTo', { nombre: quienEs(g.reciente.h) })}`}>
@@ -168,15 +169,12 @@ export function Barra() {
         </div>
       )}
       {asomo && (() => {
+        // one row per intercom panel of the room (its dweller, each hologram), as the selector above the portrait
         const g = salas.find(x => x.sala === asomo.id);
-        return g?.ses.length ? (
+        const panel = g ? roomTalkers(g.sala, habitantes, copias, coms, sesiones).filter(q => g.coms.some(c => c.v.dwellerId === q.x.id)) : [];
+        return panel.length > 1 ? (
           <div className="barra-asomo" style={{ left: asomo.x, bottom: innerHeight - asomo.y + 4 }} onMouseEnter={quedarse} onMouseLeave={irse}>
-            {g.ses.map(({ s, h }) => (
-              <button key={s.id} className={'barra-asomo-fila' + (s.estado === 'esperando' ? ' urgente' : '') + (s.estado === 'terminada' && s.sinLeer ? ' sin-leer' : '')} onClick={() => { setAsomo(null); openConversation(s.id); }}>
-                <span className={'piloto ' + (s.estado === 'terminada' && s.sinLeer ? 'terminada' : sessionPilot(s))} /><span className="barra-asomo-estado">{s.estado === 'terminada' && s.sinLeer ? t('windows.tabUnread') : STATE_TEXT[s.estado] ?? s.estado}</span>
-                <span className="barra-asomo-titulo">{g.coms.length > 1 ? <b className={h.copia ? 'marca-copia' : undefined}>{h.nombre} · </b> : null}{s.titulo || t('windows.conversation')}</span><small>{hace(s.actualizada)}</small>
-              </button>
-            ))}
+            {panel.map(q => <TalkerRow key={q.x.id} q={q} actual={q.x.id === talking} onClick={() => { setAsomo(null); if (q.x.id !== talking) restoreIntercom(q.x.id); }} />)}
           </div>
         ) : null;
       })()}

@@ -3,8 +3,8 @@
 // most urgent first, the active tab does not move when its state changes, ⌘1/⌘9 follow the visible order, the ⋯ list
 // (⌘⇧A) filters, goes and closes, the other dweller's conversations stay out of the strip and the selector above the
 // portrait lists the room's talkers (bust, state, title and count of their most urgent conversation), keeps its width and switches the
-// intercom, by click or keyboard, the bar has one intercom chip per room whose hover lists the room's open
-// conversations, and a terminal with 13 more tabs.
+// intercom, by click or keyboard, the bar has one intercom chip per room whose hover lists one row per
+// open panel (dweller, holograms), and a terminal with 13 more tabs.
 // Usage: SHELTER_DATOS=… node scripts/qa-pestanas.mjs [url] [screenshots-folder]   (best on a test shelter)
 import { chromium } from 'playwright';
 import { withToken } from './token.mjs';
@@ -121,19 +121,18 @@ if (h2) {
   ver(await hasta(async () => await talking() === h.id), 'and back with ↓ and Enter to ' + h.nombre);
 } else console.log('--   (no room with two dwellers: no selector)');
 
-// ---- the bar: one intercom chip per room; hovering it lists the room's open conversations
+// ---- the bar: one intercom chip per room; hovering it lists one row per open panel (dweller, holograms), as the selector
 await pg.keyboard.press('Meta+ArrowDown'); await espera(400);
 const salasCom = await pg.evaluate(() => [...document.querySelectorAll('.barra-ventanas .com .chip-terminal .tipo')].map(x => x.textContent));
 ver(salasCom.length === new Set(salasCom).size && salasCom.includes(h.nameRoom), 'the bar has one intercom chip per room: ' + salasCom.join(', '));
 const chip = pg.locator('.barra-ventanas .com .chip-terminal', { has: pg.locator('.tipo', { hasText: h.nameRoom }) }).first();
 await chip.hover(); await espera(300);
-const asomo = await pg.evaluate(() => [...document.querySelectorAll('.barra-asomo .barra-asomo-titulo')].map(x => x.textContent));
-ver(asomo.length > 1, `hovering ${h.nameRoom}'s chip lists its ${asomo.length} open conversations`);
+const asomo = await pg.evaluate(() => [...document.querySelectorAll('.barra-asomo .barra-asomo-titulo b')].map(x => x.textContent));
+if (h2) ver(asomo.length === new Set(asomo).size && asomo.some(n => n.startsWith(h.nombre)) && asomo.some(n => n.startsWith(h2.nombre)), `hovering ${h.nameRoom}'s chip lists one row per panel: ` + asomo.join(', '));
 await pg.screenshot({ path: `${dir}/qa-pestanas-barra.png` });
-if (asomo.length) {
-  await pg.locator('.barra-asomo .barra-asomo-fila').last().click(); await espera(800);
-  const activa = await pg.evaluate(() => document.querySelector('.consola .vt-pestana.activa .vt-pestana-nombre')?.textContent);
-  ver([h.id, h2?.id].includes(await talking()) && !!activa && asomo.at(-1).endsWith(activa), 'clicking one opens the intercom on that conversation: ' + activa);
+if (h2 && asomo.length) {
+  await pg.evaluate(n => [...document.querySelectorAll('.barra-asomo .barra-asomo-fila')].find(f => f.querySelector('b').textContent.startsWith(n)).click(), h2.nombre);
+  ver(await hasta(async () => await talking() === h2.id), 'clicking one opens that panel: ' + h2.nombre);
   await pg.keyboard.press('Meta+ArrowDown'); await espera(400);
 }
 
