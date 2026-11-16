@@ -11,8 +11,7 @@ guides for getting each credential are also inside the game (Vault → the sourc
   with an error and its reason. In real mode without complete data, the state is *not configured* and says what's
   missing.
 - **Read-only outwards.** No connector sends emails, messages or events, and the permissions requested are read
-  permissions. The only write is Linear, done by the Planning dweller's conversation with the official MCP (you acting
-  through it), not by the game.
+  permissions. The few external writes are listed in [`SECURITY.md`](../SECURITY.md#precautions-the-code-takes).
 - **Nobody's identifiers.** Each user creates their own app (Microsoft Entra, Google Cloud, Discord bot, Slack app)
   and pastes its data. The repo ships no client IDs, tokens or URLs of any organisation.
 - **Secrets only in the macOS keychain** (`server/integraciones/llavero.ts`): service `work-shelter-public`, account
@@ -20,12 +19,8 @@ guides for getting each credential are also inside the game (Vault → the sourc
   `outlook.refreshToken`, `google.refreshToken`). They're written with `security -i` (the command goes through stdin,
   so the secret doesn't show in `ps`) and in base64. `.data/refugio.json` only holds the non-secret data
   (`integraciones.<source>.campos`) and the **names** of the saved secrets (`integraciones.<source>.secretos`). No
-  secrets in git, logs or error messages.
-- **No telemetry.** The server only listens on `127.0.0.1`.
-
-Keychain limitation: with `/usr/bin/security`, the item's trusted app is `security` itself, so another process of the
-same user could read it without warning. For a personal Mac this is accepted (it avoids native dependencies); that's
-why the permissions requested are minimal and read-only.
+  secrets in git, logs or error messages. Its limitation (other processes of your user can read them):
+  [`SECURITY.md`](../SECURITY.md#known-risks).
 
 ## Switched-off sources
 

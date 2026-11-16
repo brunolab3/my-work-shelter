@@ -43,8 +43,9 @@ It is designed as a local application for a single person on their Mac:
 - **Secrets**: in the macOS keychain, not in the repo or in `.data/`; integrations ask for read-only permissions.
 - **Slack remote control** (optional, with your own app; `server/mando.ts` and `server/slackMando.ts`): over Socket
   Mode (no open ports: the server opens the connection to Slack), with only `chat:write` and `im:history` and the
-  `message.im` event. It sends approval requests exactly as the dialog shows them (invisible characters made visible,
-  tokens masked, anything that doesn't fit whole can't be approved) with yes/no, never "always"; each button is only
+  `message.im` event. It sends approval requests exactly as the dialog shows them, in plain-text blocks (invisible
+  characters made visible, token-shaped secrets masked, anything that doesn't fit whole can't be approved) with yes/no,
+  never "always", and the phone notification carries only who's asking, never the command; each button is only
   valid while that request is pending, and once answered the message is stripped of its content. It never sends what's
   said. It only obeys the workspace, the direct message and the person you pair with a one-time code (10 minutes; five
   failed attempts expire it). It's a different app from the Slack notices one, which stays read-only. Risks: Slack is
@@ -77,8 +78,9 @@ What it **doesn't** cover, by design or because nobody has solved it:
   `127.0.0.1` port while they run. Another process or user on the same Mac could connect and reach those sessions.
 - **The internal browsers** are confined to each site's domain, but third-party sign-ins (Microsoft, Google, Okta,
   Auth0…) and their redirects can lead to pages that aren't the site's, with no address bar in view.
-- **Other processes of your user** can read the keychain secrets without warning (they're stored by
-  `/usr/bin/security`).
+- **Other processes of your user** can read the keychain secrets without warning: they're stored with
+  `/usr/bin/security`, so the item's trusted app is `security` itself (accepted to avoid native dependencies; that's
+  why integrations ask for minimal, read-only permissions).
 - **The Linear key**, if you save it, goes into the environment of the Planning dweller, whose MCP can write to
   Linear (see `docs/integraciones-uso.md`).
 - **Other macOS accounts** on the same machine haven't been considered thoroughly: if you share the Mac, assume they

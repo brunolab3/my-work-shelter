@@ -105,13 +105,9 @@ shows (one use, 10 minutes; five failed attempts expire it).
   moves below each new decision; writing anything brings it to the bottom. After a restart, the decisions left in the
   chat (no longer valid) are deleted.
 
-What goes out: the labels and, to approve, the request in plain-text blocks (nothing is interpreted as formatting),
-with invisible characters made visible (⟦U+XXXX⟧) and token-shaped secrets masked (token characters only: masking
-never hides code); the notification carries only the first line (who's asking), never the command. Never what's said.
-It's a different app from the Slack notices one (`integraciones/slack.ts`), which stays read-only. Slack is not
-end-to-end encrypted and keeps messages under the workspace's rules: in a company's, ask first. It only obeys the
-paired workspace, direct message and person; everything else is ignored without reply. No open ports: Socket Mode (the
-server opens a WebSocket to Slack and reopens it if Slack asks or it drops). Only the real shelter listens (without
+What goes out, who it obeys and the risks: [`SECURITY.md`](../SECURITY.md#precautions-the-code-takes) ("Slack remote
+control"). Invisible characters show as ⟦U+XXXX⟧ and masking only covers token characters, so it never hides code.
+Socket Mode reopens its WebSocket if Slack asks or it drops. Only the real shelter listens (without
 `SHELTER_DATOS`; test ones, with `SHELTER_SLACK=1`). Code: the common part in `server/mando.ts`, the Slack part in
 `server/slackMando.ts` (tests in `server/slackMando.test.ts`), actions `slackRemote.*` and its view `SlackRemoteView`
 in the Vault (`web/src/ui/Camara.tsx`); invisible characters in `shared/visible.ts` (the same as the dialog).

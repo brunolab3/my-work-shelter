@@ -1,5 +1,5 @@
-Gracias por tomarte la molestia, de verdad. Pero esta pull request no se va a leer ni a aceptar: work-shelter se
-publica para que cada cual lo use y lo cambie en su propio fork, sin contribuciones ni soporte (README, «Sin pull
-requests ni issues»).
+Thanks for taking the trouble, really. But this pull request won't be read or accepted: work-shelter is published for
+everyone to use and change in their own fork, without contributions or support (README, "No pull requests or
+issues").
 
-Si lo has mejorado, déjalo en tu fork y cuéntalo por ahí: así otros podrán encontrarlo.
+If you've improved it, keep it in your fork and tell people about it: that way others can find it.

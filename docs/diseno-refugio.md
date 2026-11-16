@@ -2,8 +2,8 @@
 
 ## Layout
 - Elevator shaft at x = 0 (3.4 m with walls). Rooms to the left (x < 0) and right (x > 0) of the elevator; `orden` 0 next to the elevator, 1 the next one.
-- Each room is 12 m wide (3 modules) + the cutaway pillars (FRAME = 0.45 m). A room's centre: `x = ±(1.7 + FRAME + 6 + orden·(12 + FRAME))`.
-- Floors: `y = −planta · FLOOR` (FLOOR = 4.43 + 0.85). Labelled PB (ground), -1, -2… (`floorCaption`). The ground floor is at street level.
+- Each room is 12 m wide (3 modules) + the cutaway pillars (FRAME = 0.45 m). A room's centre: `xRoom()` in `web/src/mundo/refugio.ts`.
+- Floors: `y = −planta · FLOOR` (`FLOOR` in `web/src/mundo/salas/comun.ts`: room height plus slab). Labelled PB (ground), -1, -2… (`floorCaption`). The ground floor is at street level.
 - A room's place isn't chosen by hand: `distribute` (`shared/disposicion.ts`) computes it from the rooms there are. The server applies it when loading the saved state, when recruiting and when retiring a room (unless the Overseer moved rooms by hand from the map: then the layout stays manual until reset):
   - PB: the Main Gate, alone, left of the elevator. You come in and go out through it.
   - -1: Vault | Command Bridge.
@@ -20,7 +20,7 @@
 - Overseer: A/D (←→) along the floor, W/S (↑↓) in depth inside a room; on the elevator landing, W/S call the cabin to go up or down. Click on a room's floor: go there (by elevator if needed).
 
 ## Light with many rooms (performance)
-- A fixed set of dynamic lights (6 spots, 1 with shadow, and 1 point light for the centrepiece) assigned every half second to the lamps nearest the camera. The number of lights never changes (shaders aren't recompiled).
+- A fixed set of dynamic spot and point lights (`LightsAssignment` in `web/src/mundo/luces.ts`; none casts shadows, only the sun does) reassigned a few times a second to the lamps nearest the camera. The number of lights never changes (shaders aren't recompiled).
 - Lamps without an assigned light show their emissive bulb and a fake pool (additive decal) so they look lit from afar.
 - The sun's shadow follows the camera framing.
 

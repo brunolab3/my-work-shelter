@@ -264,15 +264,13 @@ try the game first, "Switch to DEMO" (simulated data, marked DEMO):
 | **GitHub** | notifications (reviews, mentions, assignments, CI); your PRs and their reviews | the `gh` session or a classic token with `notifications` |
 | **Jira** | your tasks for the Planning board and Logistics | your site, email and an API token |
 
-**Microsoft 365 (Outlook)** and **Linear** are also implemented but switched off in this version (`desactivada` in
-`shared/fuentes.ts`; remove the flag to turn them back on).
+**Microsoft 365 (Outlook)** and **Linear** are also implemented but switched off in this version
+([switched-off sources](docs/integraciones-uso.md#switched-off-sources)).
 
 Everything is **read-only outwards** with minimal permissions: the game doesn't reply to mail or chats or create
-events. The only writes are Linear (when on, through the conversation with the Planning dweller and with your
-permission), git push/pull/fetch from the git client (only with your button) and the Slack remote control's own
-messages. The repo ships nobody's client IDs or credentials. Secrets are stored in the **macOS keychain** (service
-`work-shelter-public`), never in the repo or the game's data. Technical details, fields, Logistics and the Linear MCP
-setup for Claude Code and Codex: [`docs/integraciones-uso.md`](docs/integraciones-uso.md).
+events (the few writes are listed in [`SECURITY.md`](SECURITY.md#precautions-the-code-takes)). The repo ships nobody's
+client IDs or credentials, and secrets go to the macOS keychain ([Data](#data)). Technical details, fields, Logistics
+and the Linear MCP setup for Claude Code and Codex: [`docs/integraciones-uso.md`](docs/integraciones-uso.md).
 
 ## Privacy and security
 
@@ -282,19 +280,11 @@ setup for Claude Code and Codex: [`docs/integraciones-uso.md`](docs/integracione
 > machine, your data or your accounts (or your organisation's) is on you. Review the code before using it with anything
 > you care about. Precautions and known risks: [`SECURITY.md`](SECURITY.md).
 
-- The server only listens on `127.0.0.1`, checks `Host` and `Origin` and requires a per-start secret (it goes in the
-  `#t=` of the address `./shelter` opens, never in the page).
 - No telemetry or analytics. The network is only used for what you configure (the integrations) and to download
   dependencies and assets the first time.
-- **Folder trust, as in the CLI**: if a repo ships Claude Code config (`.claude/`, `.mcp.json`, `CLAUDE.md`) and you
-  haven't accepted it in Claude Code, the game asks before loading it: this time, always for that folder, or work
-  without it (without its hooks, MCP servers, permissions or instructions).
-- Permissions are shown with the exact command or diff, as text (uninterpreted), invisible characters included.
-- **Dwellers are Claude Code with your permissions**: what you approve runs on your Mac. The "skip permissions" mode
-  exists because it exists in Claude Code; use it only in folders you don't mind losing.
-- Don't link as a room, or keep in your repos root, folders you don't trust, and bear in mind that `npm run dev`
-  (development) serves the game folder's files, including its secret, to any local process: more in
-  [`SECURITY.md`](SECURITY.md#known-risks).
+- **Dwellers are Claude Code with your permissions**: what you approve runs on your Mac, and the game asks before
+  loading a repo's Claude Code config you haven't trusted yet. How the server, permissions, folder trust and secrets
+  are protected, and what isn't covered (untrusted folders, `npm run dev`…): [`SECURITY.md`](SECURITY.md).
 
 ## Data
 
@@ -330,8 +320,9 @@ Useful variables: `SHELTER_DATOS` (alternative data folder), `SHELTER_PUERTO` (a
 | `electron/` | the game window, the embedded browsers and Spotify's windowless Chrome | |
 | `scripts/` | startup, app install and end-to-end QA (`qa-*`) | |
 
-The architecture is in [`AGENTS.md`](AGENTS.md) (the rules for agents; `CLAUDE.md` imports it), [`docs/mapa.md`](docs/mapa.md) (every feature),
-[`docs/diseno-refugio.md`](docs/diseno-refugio.md) and [`docs/assets.md`](docs/assets.md). The `scripts/qa-*` scripts
+The rules for agents are in [`AGENTS.md`](AGENTS.md) (`CLAUDE.md` imports it); every feature, where it lives and its QA
+in [`docs/mapa.md`](docs/mapa.md); the layout in [`docs/diseno-refugio.md`](docs/diseno-refugio.md) and the art in
+[`docs/assets.md`](docs/assets.md). The `scripts/qa-*` scripts
 are end-to-end tests with Playwright; those that launch real Claude Code sessions say so in their header (use them
 with a test shelter).
 
