@@ -9,6 +9,8 @@
 //   conflicts ✗, the one that waits ⚠; no compare/sync/checklist columns or thread list; the plan part without a PR is
 //   named below; the merge order strikes the merged PR; long PR titles truncate with a tooltip; Enter and a click open
 //   the PR; a click outside closes the box and nothing else;
+// - the Jira board: no F nor button on a task without PRs; on QA-9, F in the legend and a button, both opening the box
+//   anchored to its card, the board still open underneath; Esc closes only the box;
 // - a task fully merged (example response): its rows struck through, every wave ✔ and «the task has landed».
 // Necesita el cliente compilado (npx vite build). Uso: node scripts/qa-preflight.mjs [carpeta-capturas]   (SHELTER_PUERTO_QA, 3794)
 import { chromium } from 'playwright';
@@ -158,6 +160,34 @@ try {
   await pg.mouse.click(1590, 990);
   ver(await hasta(async () => !(await pg.$('.pf-caja'))), 'a click outside closes the box');
   ver((await pg.evaluate(() => window.__juego.get().panel)) === 'ayuda' && await pg.$eval('.aparato', caja) === panelAntes, '…and leaves the panel as it was');
+
+  // ---- from the Jira board: F and a button, only on a task with PRs, anchored to its card
+  await pg.evaluate(() => {
+    const c = window.__client, orig = c.accion.bind(c);
+    const tarea = (clave, categoria, estado) => ({ clave, titulo: 'Tarea ' + clave, url: 'https://jira.example/browse/' + clave, estado, categoria, actualizada: Date.now() });
+    const tareas = [tarea('QA-5', 'new', 'To Do'), tarea('QA-9', 'indeterminate', 'In Progress')];
+    c.accion = (n, d) => n === 'integracion.panel' && d?.fuente === 'jira' ? Promise.resolve({ tareas }) : orig(n, d);
+    window.__juego.set({ panel: 'logistica', panelData: { vista: 'jira' } });
+  });
+  const leyenda = () => pg.textContent('.aparato kbd:last-of-type >> xpath=..').catch(() => '');
+  ver(await hasta(async () => (await pg.$$('.ficha-issue')).length === 2 && /QA-5/.test(await pg.textContent('.ficha-issue.sel').catch(() => ''))), 'the Jira board shows both tasks, QA-5 (no PR) selected');
+  ver(!/Pre-flight/.test(await leyenda()) && !(await pg.$('.botonera button:has-text("Pre-flight")')), 'a task without PRs: no F in the legend, no button');
+  await pg.keyboard.press('KeyF'); await pg.waitForTimeout(400);
+  ver(!(await pg.$('.pf-caja')), '…and F does nothing');
+  await pg.keyboard.press('ArrowRight'); await pg.keyboard.press('ArrowRight');   // past the empty Blocked column
+  ver(await hasta(async () => /QA-9/.test(await pg.textContent('.ficha-issue.sel').catch(() => '')) && /Pre-flight/.test(await leyenda()) && !!(await pg.$('.botonera button:text-matches("Pre-flight.*QA-9")'))), 'QA-9 (with a PR): F in the legend and a «Pre-flight QA-9» button');
+  await pg.keyboard.press('KeyF');
+  ver(await hasta(async () => (await pg.$$('.pf-fila')).length === 4), 'F opens the pre-flight of QA-9');
+  const cerca = await pg.evaluate(() => { const a = document.querySelector('.ficha-issue.sel').getBoundingClientRect(), b = document.querySelector('.pf-caja').getBoundingClientRect(); return Math.min(Math.abs(b.top - a.bottom), Math.abs(b.bottom - a.top), Math.abs(b.left - a.right), Math.abs(b.right - a.left)) < 40; });
+  ver(cerca, 'the box is anchored to the selected card');
+  ver((await pg.evaluate(() => window.__juego.get().panel)) === 'logistica', 'the board stays open underneath');
+  await pg.waitForTimeout(400); await pg.screenshot({ path: path.join(dir, 'preflight-jira.png'), animations: 'disabled' });
+  await pg.keyboard.press('Escape');
+  ver(await hasta(async () => !(await pg.$('.pf-caja'))) && (await pg.evaluate(() => window.__juego.get().panel)) === 'logistica', 'Esc closes the box, the board stays');
+  await pg.click('.botonera button:text-matches("Pre-flight.*QA-9")');
+  ver(await hasta(async () => (await pg.$$('.pf-fila')).length === 4), 'the button opens it too');
+  await pg.keyboard.press('Escape');
+  await hasta(async () => !(await pg.$('.pf-caja')));
   await pg.evaluate(() => window.__juego.set({ panel: null, panelData: null }));
 
   // ---- a task fully merged

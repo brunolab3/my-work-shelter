@@ -94,7 +94,7 @@ function Popover({ clave, ancla }: { clave: string; ancla?: { x: number; y: numb
     else if (e.code === 'ArrowUp' || e.code === 'KeyW') { setI(Math.max(0, k - 1)); SFX.tick(); }
     else if ((e.code === 'Enter' || e.code === 'KeyO') && sel) openPR(sel);
     else if (e.code === 'KeyR') { cargar(true); SFX.clic(); }
-  }, [prs, k, sel]);
+  }, [prs, k, sel], true);   // on top: the board underneath registers its keys again on each render
 
   const titulo = r?.titulo ?? tareas?.find(x => x.clave === clave)?.titulo;
   const color = r?.color ?? taskColor(clave);

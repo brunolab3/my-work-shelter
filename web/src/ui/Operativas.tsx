@@ -1,6 +1,6 @@
 // Salas operativas: tablón de comunicaciones (todas las fuentes en un solo feed), calendario unificado (Microsoft 365
 // y Google Calendar) y Logística (tareas de Jira con sus pull requests, y Linear). Solo lectura: se abre el original con Enter, en su navegador del refugio.
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { juego } from './estadoJuego';
 import { t, idioma, tIs } from '@shared/idioma';
 import { vivo, cliente } from '../red/cliente';
@@ -11,6 +11,8 @@ import { openBrowser, openLink, openNotice, SPOTS } from './Navegadores';
 import { SOURCES as IDS_SOURCES, ACTIVE_SOURCES, CALENDAR_SOURCES, INFO_SOURCE, activa } from '@shared/fuentes';
 import { PLANNING_ROOM } from '@shared/disposicion';
 import { openGit } from './git/ventana';
+import { openPreflight } from './Preflight';
+import { taskHasPRs } from '@shared/preflight';
 import { taskColor, pRTask } from '@shared/tareas';
 import { aimColors, knowTasks, useColorsTasks, jiraBoard } from './tareas';
 import { cruzarTablero, COLUMN_COLORS, textoPR, promptPlanificar, type PRBoard, type TaskWithPR, type TaskJira } from '@shared/tablero';
@@ -240,6 +242,10 @@ export function BoardJira({ volver, coordinacion }: { volver: () => void; coordi
   const taskSel: TaskWithPR | undefined = columnas[col]?.tareas[Math.min(i, (columnas[col]?.tareas.length ?? 1) - 1)];
   const selPrs: PRBoard[] = taskSel?.prs ?? [];
   const startBy = columnas[col]?.id === 'porHacer' && !!taskSel;
+  // the pre-flight of the selected task (F or its button), anchored to its card
+  const kanban = useRef<HTMLDivElement>(null);
+  const withPreflight = !!taskSel && taskHasPRs(taskSel.clave, selPrs);
+  const preflight = () => { if (!taskSel) return; SFX.clic(); openPreflight(taskSel.clave, kanban.current?.querySelector('.ficha-issue.sel')); };
   useKeys(e => {
     if (e.code === 'Escape') volver();
     else if (e.code === 'ArrowRight' || e.code === 'KeyD') { setCol(c => Math.min(columnas.length - 1, c + 1)); setI(0); SFX.tick(); }
@@ -252,7 +258,8 @@ export function BoardJira({ volver, coordinacion }: { volver: () => void; coordi
     else if (e.code === 'KeyH') { setSeeDone(x => !x); setCol(0); setI(0); SFX.conmutar(); }
     else if (e.code === 'KeyR') { cargar(true); SFX.clic(); }
     else if (e.code === 'KeyP' && startBy) planificar(taskSel);
-  }, [columnas, col, i, taskSel, selPrs, startBy, coord?.id]);
+    else if (e.code === 'KeyF' && withPreflight) preflight();
+  }, [columnas, col, i, taskSel, selPrs, startBy, withPreflight, coord?.id]);
   const demo = jira?.demo || gh?.demo;
   return (
     <Device rotulo={`${coordinacion ? (coord?.nombre ?? t('panels.logistics')).toUpperCase() + ' · ' + t('panels.split') : t('panels.planning')} · ${t('panels.myJiraTasks')}${demo ? ' · DEMO' : ''}`} ancho={96} alto onClose={volver}>
@@ -262,7 +269,7 @@ export function BoardJira({ volver, coordinacion }: { volver: () => void; coordi
       {gh?.error && <p className="tenue">{gh.error}</p>}
       {ints.jira?.estado === 'demo' && <p className="tenue">{t('panels.jiraInDemoConnectIt')}</p>}
       {(!jira || !gh) && !error && <p className="tenue">{t('panels.readingJiraAndGithub')}</p>}
-      <div className="kanban" style={{ gridTemplateColumns: `repeat(${Math.max(1, columnas.length)}, 1fr)` }}>
+      <div ref={kanban} className="kanban" style={{ gridTemplateColumns: `repeat(${Math.max(1, columnas.length)}, 1fr)` }}>
         {columnas.map((c, ci) => (
           <div key={c.id} className={'kanban-col' + (COLUMN_COLORS[c.id] ? ' kanban-estado' : '') + (ci === col ? ' activa' : '')} style={{ '--estado': COLUMN_COLORS[c.id] } as React.CSSProperties}>
             <h3>{tIs(c.nombre)} <span className="tenue">{c.tareas.length}</span></h3>
@@ -280,8 +287,8 @@ export function BoardJira({ volver, coordinacion }: { volver: () => void; coordi
       </div>
       {crossing.withoutTask.length > 0 && <p className="tenue">{t('panels.nPrsWithoutAJira', { n: crossing.withoutTask.length })}</p>}
       {startBy && <div className="botonera"><button className="boton-taller" onClick={() => planificar(taskSel)} title={t('panels.planClaveInSalaWith', { clave: taskSel!.clave, sala: coord?.nombre ?? t('panels.theLogisticsRoom') })}>{coord ? t('panels.pPlanClaveInSala', { clave: taskSel!.clave, sala: coord.nombre }) : t('panels.pPlanClaveAndSplit', { clave: taskSel!.clave })}</button></div>}
-      {selPrs.length > 0 && <div className="botonera">{selPrs.slice(0, 9).map((p, k) => <button key={p.url} className="boton-taller" onClick={() => openOutside(p.url)} title={p.titulo}>{k + 1} · {p.repo}#{p.numero}</button>)}</div>}
-      <Keys><kbd>←→</kbd>{t('panels.column')} <kbd>↑↓</kbd>{t('panels.task')} <kbd>Enter</kbd>{t('panels.openTheTask')} {selPrs.length > 0 && <><kbd>1–{Math.min(9, selPrs.length)}</kbd>{t('panels.openThePr')} </>}{startBy && <><kbd>P</kbd>{t('panels.planAndSplit')} </>}<kbd>T</kbd>{t('panels.allYourPrs')} <kbd>H</kbd>{seeDone ? t('panels.hideDone') : t('panels.showDone')} <kbd>R</kbd>{t('panels.reload')} <kbd>Esc</kbd>{t('menu.back')}</Keys>
+      {selPrs.length > 0 && <div className="botonera">{selPrs.slice(0, 9).map((p, k) => <button key={p.url} className="boton-taller" onClick={() => openOutside(p.url)} title={p.titulo}>{k + 1} · {p.repo}#{p.numero}</button>)}{withPreflight && <button className="boton-taller" onClick={preflight} title={t('preflight.actionHint')}>{t('preflight.keyF', { clave: taskSel!.clave })}</button>}</div>}
+      <Keys><kbd>←→</kbd>{t('panels.column')} <kbd>↑↓</kbd>{t('panels.task')} <kbd>Enter</kbd>{t('panels.openTheTask')} {selPrs.length > 0 && <><kbd>1–{Math.min(9, selPrs.length)}</kbd>{t('panels.openThePr')} </>}{startBy && <><kbd>P</kbd>{t('panels.planAndSplit')} </>}{withPreflight && <><kbd>F</kbd>{t('preflight.title')} </>}<kbd>T</kbd>{t('panels.allYourPrs')} <kbd>H</kbd>{seeDone ? t('panels.hideDone') : t('panels.showDone')} <kbd>R</kbd>{t('panels.reload')} <kbd>Esc</kbd>{t('menu.back')}</Keys>
     </Device>
   );
 }

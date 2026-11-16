@@ -60,7 +60,7 @@ Deployment plan (`web/src/ui/Despliegue.tsx`, `shared/despliegue.ts`, Logistics'
 
 ## Pre-flight of a task
 
-Pre-flight of a task (`web/src/ui/Preflight.tsx`, model `shared/preflight.ts`, `server/preflight.ts`): whether each PR of a Jira task, across rooms, is ready to merge (state, CI, review, conflicts, blockers; a click opens the PR), in a small floating box over whatever is open (not a panel: Esc or a click outside closes it and nothing underneath changes), also for tasks already fully merged; offered (intercom ✈, ⌘K) only for tasks with a PR (`taskHasPRs`), plus the ask-first gate on `git push` (`pushGate` in `server/sesiones.ts`) with compare and checklist, which the window doesn't show. Details: `docs/integraciones-uso.md` ("Pre-flight of a task"). QA: `scripts/qa-preflight.mjs`.
+Pre-flight of a task (`web/src/ui/Preflight.tsx`, model `shared/preflight.ts`, `server/preflight.ts`): whether each PR of a Jira task, across rooms, is ready to merge (state, CI, review, conflicts, blockers; a click opens the PR), in a small floating box over whatever is open (not a panel: Esc or a click outside closes it and nothing underneath changes), also for tasks already fully merged; offered (intercom ✈, ⌘K, F on the selected card of the deploy board and of the Jira board) only for tasks with a PR (`taskHasPRs`), plus the ask-first gate on `git push` (`pushGate` in `server/sesiones.ts`) with compare and checklist, which the window doesn't show. Details: `docs/integraciones-uso.md` ("Pre-flight of a task"). QA: `scripts/qa-preflight.mjs`.
 
 ## Usage per conversation
 

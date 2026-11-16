@@ -11,10 +11,10 @@ export function closePanel() { SFX.cerrar(); juego.set({ panel: null, panelData:
 // Bloquea el movimiento del Supervisor mientras el aparato está abierto
 export function useBlocker() { useEffect(() => { teclado.bloqueado = true; return () => { teclado.bloqueado = false; }; }, []); }
 
-// Captura todas las teclas mientras el aparato está montado (el último en montarse manda)
-export function useKeys(f: (e: KeyboardEvent) => boolean | void, deps: unknown[] = []) {
+// Captures every key while the device is mounted (the last one mounted wins; `encima`: above every regular one)
+export function useKeys(f: (e: KeyboardEvent) => boolean | void, deps: unknown[] = [], encima = false) {
   const ref = useRef(f); ref.current = f;
-  useEffect(() => teclado.escuchar(e => { const r = ref.current(e); return r === false ? false : true; }), deps);
+  useEffect(() => teclado.escuchar(e => { const r = ref.current(e); return r === false ? false : true; }, encima), deps);
 }
 
 export function useMenu(n: number, onChoose: (i: number) => void, extra?: (e: KeyboardEvent) => boolean | void, onEsc: () => void = closePanel) {
