@@ -36,6 +36,7 @@ import { Usage } from './consumo';
 import { takeASurface, aAppClaude } from './superficie';
 import { openLink, openPage, pageForSession, pageAnswers, pageNotes, validatePage, revealPage, makeRoomForIntercom, answerPage } from './Navegadores';
 import { sessionPages, pendingPages, samePage, livePages, questionInput } from '@shared/paginasSesion';
+import { describeWhen, describeWhenShort, ofConversation, type ScheduledMessage } from '@shared/programados';
 import type { PRBoard } from '@shared/tablero';
 import { worktreePRs, worktreeTask, taskColor } from '@shared/tareas';
 import { lookOf, lookSignature } from '@shared/aspecto';
@@ -586,6 +587,7 @@ function Console({ h, v }: { h: DwellerSummary; v: WindowCom }) {
             {copia ? <WorktreePRs copia={copia} salaId={h.sala} /> : null}
             {copia ? <PreflightButton copia={copia} /> : null}
             {/* con `key`: cada conversación con su lista (nada de la pestaña anterior mientras llega la suya) */}
+            {s ? <ScheduledMenu key={'p' + s.id} s={s} /> : null}
             {s ? <PagesMenu key={s.id} s={s} /> : vista.tipo === 'nuevo' && vista.reanudar ? <ResumePages key={vista.reanudar.claudeId} salaId={h.sala} claudeId={vista.reanudar.claudeId} /> : null}
           </aside>
           <div className="consola-pestana" key={p.id}>
@@ -1086,6 +1088,46 @@ function PagesMenu({ s }: { s: SessionSummary }) {
   const entradas = useMemo(() => [...(log ?? []), ...(preguntas?.length ? [questionInput(preguntas, desde)] : [])], [log, preguntas, desde]);
   return <PagesList sesionId={s.id} claudeId={s.claudeId} entradas={entradas} base={folderOf(s)} />;
 }
+
+// Los mensajes que esta conversación ha programado (server/programados.ts): cuándo llega el siguiente y, desplegados,
+// cada uno con ✎ (cambiar la hora o el texto) y ✕ (cancelarlo)
+function ScheduledMenu({ s }: { s: SessionSummary }) {
+  const todos = vivo.usar(e => e.programados);
+  const mios = useMemo(() => ofConversation(todos, s), [todos, s.id, s.claudeId]);
+  const [abierto, setOpen] = useState(false);
+  const [editando, setEditing] = useState<{ id: string; cuando: string; mensaje: string; error?: string } | null>(null);
+  if (!mios.length) return null;
+  const cancelar = (x: ScheduledMessage) => { cliente.accion('programados.cancelar', { id: x.id }).then(() => SFX.clic()).catch(() => SFX.noAllowed()); };
+  const guardar = () => {
+    if (!editando) return;
+    cliente.accion('programados.editar', { id: editando.id, cuando: editando.cuando, mensaje: editando.mensaje })
+      .then(() => { setEditing(null); SFX.clic(); }).catch(e => { setEditing(x => x && { ...x, error: (e as Error).message }); SFX.noAllowed(); });
+  };
+  const destino = (x: ScheduledMessage) => x.destino.tipo === 'sala' ? `→ ${x.destino.sala}${x.destino.clave ? ' ' + x.destino.clave : ''}` : t('windows.scheduledToThis');
+  return (
+    <span className="paginas-sesion programados-sesion">
+      <button className="consola-x" title={t('windows.scheduledHint')} onClick={() => { setOpen(x => !x); setEditing(null); SFX.clic(); }}>
+        {t(mios.length > 1 ? 'windows.scheduledN' : 'windows.scheduled', { n: mios.length, cuando: describeWhenShort(mios[0].cuando) })}
+      </button>
+      {abierto && <ul className="paginas-lista programados-lista" onKeyDown={e => { e.stopPropagation(); if (e.key === 'Escape') { setEditing(null); setOpen(false); } }}>{mios.map(x => editando?.id === x.id
+        ? <li key={x.id} className="programado-edicion">
+            <input type="datetime-local" value={editando.cuando} onChange={e => setEditing({ ...editando, cuando: e.target.value, error: undefined })} />
+            <textarea rows={4} value={editando.mensaje} onChange={e => setEditing({ ...editando, mensaje: e.target.value, error: undefined })} />
+            {editando.error && <span className="pr-mal">{editando.error}</span>}
+            <span><button className="consola-x" onClick={guardar}>{t('windows.scheduledSave')}</button> <button className="consola-x" onClick={() => setEditing(null)}>✕</button></span>
+          </li>
+        : <li key={x.id} title={x.mensaje}>
+            <span className={x.cuando < Date.now() ? 'urgente' : ''} title={x.cuando < Date.now() ? t('windows.scheduledLate') : describeWhen(x.cuando)}>⏰ {describeWhenShort(x.cuando)}</span>
+            <span className="tenue">{destino(x)}</span>
+            <span className="pagina-nombre">{x.mensaje.replace(/\s+/g, ' ')}</span>
+            <button className="consola-x" title={t('windows.scheduledEdit')} onClick={() => setEditing({ id: x.id, cuando: localInput(x.cuando), mensaje: x.mensaje })}>✎</button>
+            <button className="consola-x" title={t('windows.scheduledCancel')} onClick={() => cancelar(x)}>✕</button>
+          </li>)}</ul>}
+    </span>
+  );
+}
+// para <input type="datetime-local">: «2026-11-17T09:00» en hora local
+const localInput = (ms: number) => { const f = new Date(ms), d = (n: number) => String(n).padStart(2, '0'); return `${f.getFullYear()}-${d(f.getMonth() + 1)}-${d(f.getDate())}T${d(f.getHours())}:${d(f.getMinutes())}`; };
 
 // Una conversación por retomar (cerrada o perdida en un reinicio): sus páginas salen igual, leídas de su transcripción;
 // abrirlas, validarlas o quitarlas no le escribe nada (al retomarla, lo hecho sigue contado)

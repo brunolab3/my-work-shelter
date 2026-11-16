@@ -222,6 +222,19 @@ hands that task (or a part of it that can go on its own) to the conversation in 
 stays on the Overseer's conversation; there is no robot then: the dweller walks to the hologram and hands it over. A
 conversation can't send a message to itself. `assign_work` is only for implementation plans.
 
+**Scheduled messages.** The same MCP `salas` has `schedule_message`, `list_scheduled` and `cancel_scheduled`
+(`server/programados.ts`, pure scheduling in `shared/programados.ts`): when the Overseer leaves something for another day
+("let's review it on Monday"), the dweller schedules a message with the open items. `when` is ISO 8601 in the Mac's
+local time; a day without a time means 09:00, and anything due on Saturday or Sunday is held to Monday at 09:00. Without
+`room` it comes back to the same conversation: the open one or, if it was closed, resumed by its Claude Code id in its
+folder (worktree) in plan mode (if the worktree is gone, a new conversation in the room's folder); with `room` (and
+`key`), it is delivered like `send_to_room` at that time. They are saved in `DATOS/mensajes-programados.json` (never
+sent anywhere) and checked every minute and on start: whatever fell due while the game was closed arrives on the next
+start, marked as late. What can't be delivered (the conversation is open outside, the session limit) stays and is
+retried every minute, with one notice. At most 10 pending per conversation, 60 days ahead, no recurring schedules. The
+intercom shows "⏰ n scheduled · when" under the portrait (✎ changes time or text, ✕ cancels; actions
+`programados.editar` and `programados.cancelar`), and ⌘K and the Calendar list them all.
+
 **Shared plan.** `assign_work` saves the whole plan (`server/planes.ts`, `DATOS/planes.json`, with versions and
 history); Logistics rereads it with `read_plan` and each part with `shared_plan` (MCP `plan` in the rooms that have
 a part). From Logistics, `update_plan` issues a new version and sends a message to the conversation of each affected

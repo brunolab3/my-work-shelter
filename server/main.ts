@@ -17,7 +17,7 @@ import { cleanCompares, COMPARES_FOLDER } from './comparar.ts';
 import { isCloneOfExample } from './ejemplos.ts';
 import { mcpDecor, promptAdaptar, type CtxDecor } from './decoradoSala.ts';
 import { mcpAssignment, mcpPlan, type CtxAssignment } from './reparto.ts';
-import { mcpRooms, taskWorktree, type CtxRooms } from './avisosSalas.ts';
+import { mcpRooms, sendToRoom, taskWorktree, type CtxRooms } from './avisosSalas.ts';
 import { Plans, tasksOrder } from './planes.ts';
 import { BlockersPR } from './bloqueosPR.ts';
 import { TasksColors } from './coloresTareas.ts';
@@ -29,6 +29,7 @@ import { checklistFromClaudeMd } from '../shared/preflight.ts';
 import type { PRBoard } from '../shared/tablero.ts';
 import { bloqueosEntre, pRKey } from '../shared/despliegue.ts';
 import { TasksCleanup, orphanedConversations } from './limpiezaTareas.ts';
+import { Scheduled, summary } from './programados.ts';
 import { entornoGit } from './entornoGit.ts';
 import { captureRoom } from './capturaSala.ts';
 import { baseStock } from '../shared/decorado.ts';
@@ -160,6 +161,7 @@ const ctxRooms: CtxRooms = {
   mensajero: (desde, a, motivo) => ctxPlan.mensajero(desde, a, motivo),
   entrega: (sala, a) => broadcast({ t: 'entrega', sala, ...a }),
   aviso: texto => broadcast({ t: 'aviso', nivel: 'info', texto }),
+  programados: { programar: (...a) => programados.programar(...a), deConversacion: id => programados.deConversacion(id), cancelar: (id, desde) => programados.cancelar(id, desde) },
   worktreeDeSesion: async (salaId, sesionId) => {
     const s = almacen.estado.salas.find(x => x.id === salaId), ses = sesiones.lista().find(x => x.id === sesionId), cwd = ses && (ses.worktree ?? ses.cwd);
     if (!s || !cwd) return undefined;
@@ -528,6 +530,37 @@ const fallosCI = new CIFailures(DATOS, {
 });
 setInterval(() => { fallosCI.sondear().catch(err => console.error('Fallos de CI:', String((err as Error).message).split('\n')[0])); }, 60_000).unref();
 
+// mensajes programados (programados.ts): cada minuto, lo vencido a su conversación (abierta o retomada en su carpeta,
+// en modo plan) o a su sala como send_to_room. El primer repaso, cuando ya se han leído los worktrees de las salas
+const programados: Scheduled = new Scheduled(DATOS, {
+  sesion: id => sesiones.lista().find(s => s.id === id),
+  salas: () => ctxRooms.salas(),
+  aConversacion: async (x, texto) => {
+    const d = x.destino;
+    const abierta = sesiones.lista().find(s => s.estado !== 'cerrada' && ((d.claudeId && s.claudeId === d.claudeId) || (!d.claudeId && s.id === d.sesionId)));
+    let id: string;
+    if (abierta) { if (!ctxPlan.avisar(abierta.id, texto)) throw new Error(t('server.thatConversationIsStillOpen')); id = abierta.id; }
+    else {
+      const sala = almacen.estado.salas.find(s => s.id === d.salaId), h = almacen.estado.habitantes.find(y => y.salaId === d.salaId);
+      if (!sala || !h) throw new Error(t('server.scheduledNoDweller'));
+      // si su worktree ya no está, en la carpeta de la sala y sin retomar (la conversación era de otra carpeta)
+      const cwd = existsSync(d.cwd) ? d.cwd : folderOf(sala);
+      id = await startWork(undefined, { t: 'empezar', dwellerId: h.id, salaId: sala.id, prompt: texto, opciones: { cwd, permisos: 'plan', reanudar: cwd === d.cwd ? d.claudeId : undefined } });
+    }
+    const sala = almacen.estado.salas.find(s => s.id === d.salaId);
+    broadcast({ t: 'entrega', sala: d.salaId, sesionId: id, ...(sala && path.resolve(d.cwd) !== path.resolve(folderOf(sala)) ? { worktree: d.cwd } : {}) });
+    broadcast({ t: 'aviso', nivel: 'info', texto: t('server.scheduledDelivered', { sala: sala?.nombre ?? d.salaId, resumen: summary(x.mensaje) }) });
+    return id;
+  },
+  aSala: (x, texto) => sendToRoom(ctxRooms, x.origen.salaId, { sala: x.destino.sala, clave: x.destino.clave, mensaje: texto }, x.origen.sesionId),
+  cambiado: lista => broadcast({ t: 'programados', lista }),
+  aviso: texto => broadcast({ t: 'aviso', nivel: 'aviso', texto }),
+});
+setTimeout(() => {
+  const repasar = () => { programados.repasar().catch(err => console.error('Mensajes programados:', String((err as Error).message).split('\n')[0])); };
+  repasar(); setInterval(repasar, 60_000).unref();
+}, 15_000).unref();
+
 // el pre-flight de una tarea (preflight.ts): sus partes en todas las salas, con sincronía, CI, revisión y bloqueos.
 // Solo lectura; los PR de GitHub, a lo sumo una lectura por minuto (R en la ventana fuerza otra)
 const prsPreflight = cachedPRs(async () => {
@@ -832,6 +865,9 @@ async function accion(nombre: string, d: Record<string, any> = {}): Promise<unkn
     // un adjunto del cuaderno: imágenes y PDF en Vista Previa, texto en el editor de texto, lo demás en el Finder (abrir.ts)
     // un enlace a un archivo del Mac en una respuesta (web/src/ui/markdown.ts): sin ejecutar nada (abrir.ts)
     case 'aviso.responder': { const f = preguntas.get(String(d.id ?? '')); preguntas.delete(String(d.id ?? '')); if (f) await f(!!d.si); return true; }
+    // mensajes programados (programados.ts): el Supervisor los cancela o les cambia la hora o el texto
+    case 'programados.cancelar': return programados.cancelar(String(d.id ?? ''));
+    case 'programados.editar': return programados.editar(String(d.id ?? ''), { cuando: d.cuando === undefined ? undefined : String(d.cuando), mensaje: d.mensaje === undefined ? undefined : String(d.mensaje) });
     case 'paginas.existen': return existingPages(d.rutas, os.homedir());
     case 'paginas.actualizadas': return pagesUpdated(d.rutas, os.homedir());
     case 'enlace.local': return openLink(String(d.ruta ?? ''), os.homedir());
@@ -1039,6 +1075,7 @@ async function manejar(ws: WebSocket, m: ClientMessage) {
     case 'hola':
       enviar(ws, { t: 'bienvenida', versionClaude: sesiones.version, claudeOk: !!sesiones.claude, estado: e as any, sesiones: sesiones.lista(), repos, demo: Object.values(e.integraciones).length > 0 && Object.values(e.integraciones).every(i => i.modo === 'demo') });
       enviar(ws, { t: 'visitantes', visitantes: visitantes() });
+      enviar(ws, { t: 'programados', lista: programados.lista() });
       integraciones.greet(ws, enviar);
       for (const t of terminales.abiertas()) terminales.abrir(t.id, t.cwd, 80, 24, outputOf(ws));
       break;

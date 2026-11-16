@@ -7,6 +7,7 @@ import { vivo, cliente } from '../red/cliente';
 import { SFX } from '../audio/sonido';
 import { Device, Keys, closePanel, useKeys } from './aparato';
 import { goA } from './Paneles';
+import { describeWhenShort, describeWhen } from '@shared/programados';
 import { openBrowser, openLink, openNotice, SPOTS } from './Navegadores';
 import { SOURCES as IDS_SOURCES, ACTIVE_SOURCES, CALENDAR_SOURCES, INFO_SOURCE, activa } from '@shared/fuentes';
 import { PLANNING_ROOM } from '@shared/disposicion';
@@ -95,6 +96,8 @@ export function PanelCommunications({ onlySource }: { onlySource?: string } = {}
 // ---------------------------------------------------------------- calendario unificado
 export function PanelPlanning() {
   const eventos: any[] = vivo.usar(e => e.eventos);
+  const programados = vivo.usar(e => e.programados);
+  const salas: any[] = vivo.usar(e => e.estado?.salas ?? []);
   const [dia, setDay] = useState(0);
   const [i, setI] = useState(0);
   const dayStart = (k: number) => { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + k); return d.getTime(); };
@@ -146,6 +149,15 @@ export function PanelPlanning() {
         {sel.lugar && <p className="tenue">{t('panels.location')} {sel.lugar}</p>}
         {sel.videollamada && <p>{t('panels.videoCallPressEnterTo')}</p>}
       </div>}
+      {/* los mensajes que los habitantes han dejado para más adelante (server/programados.ts) */}
+      {programados.length > 0 && <>
+        <p className="tenue">⏰ {t('panels.scheduledMessages')}</p>
+        <ul className="agenda">{programados.slice(0, 10).map(x => (
+          <li key={x.id} title={x.mensaje}>
+            <span className="cuando" title={describeWhen(x.cuando)}>{describeWhenShort(x.cuando)}</span>
+            <b>{salas.find(y => y.id === x.origen.salaId)?.nombre ?? x.origen.salaId}</b>{x.destino.tipo === 'sala' ? ' ' + t('panels.scheduledToRoom', { sala: x.destino.sala }) : ''} <span className="tenue">{x.mensaje.replace(/\s+/g, ' ').slice(0, 90)}</span>
+          </li>))}</ul>
+      </>}
       <Keys><kbd>←→</kbd>{t('panels.day')} <kbd>↑↓</kbd>{t('panels.event')} <kbd>Enter</kbd>{t('panels.joinOrOpen')} <kbd>A</kbd>{agenda ? t('panels.week') : t('panels.agenda')} <kbd>R</kbd>{t('panels.refresh')} <kbd>Esc</kbd>{t('menu.close')}</Keys>
     </Device>
   );

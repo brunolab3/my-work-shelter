@@ -222,6 +222,11 @@ export const SERVIDOR: Record<string, Texto> = {
   'server.ciNoConversation': { es: 'Falla la CI del PR #{numero} de {repo} (rama {rama}), y no encuentro el worktree de su tarea: organiza la sala por tareas (panel de la sala) y se lo paso.', en: 'CI failing on PR #{numero} in {repo} (branch {rama}), and I cannot find its task worktree: organise the room by tasks (room panel) and I will hand it over.' },
   // mensajes entre salas (server/avisosSalas.ts)
   'server.roomMessage': { es: '📨 {desde} → {a}: {resumen}', en: '📨 {desde} → {a}: {resumen}' },
+  // mensajes programados (server/programados.ts)
+  'server.scheduledDelivered': { es: '⏰ Mensaje programado para {sala}: {resumen}', en: '⏰ Scheduled message for {sala}: {resumen}' },
+  'server.scheduledRetry': { es: '⏰ No he podido entregar el mensaje programado «{resumen}»: {error}. Lo vuelvo a intentar cada minuto.', en: '⏰ I could not deliver the scheduled message “{resumen}”: {error}. I will retry every minute.' },
+  'server.scheduledGone': { es: 'Ese mensaje programado ya no está (se entregó o se canceló).', en: 'That scheduled message is gone (delivered or cancelled).' },
+  'server.scheduledNoDweller': { es: 'su sala ya no existe o no tiene habitante', en: 'its room no longer exists or has no dweller' },
   // línea de estado y permisos de las herramientas de Claude Code (server/herramientas.ts)
   'server.activity.reading': { es: 'Leyendo {f}', en: 'Reading {f}' },
   'server.activity.editing': { es: 'Editando {f}', en: 'Editing {f}' },
@@ -244,6 +249,7 @@ export const SERVIDOR: Record<string, Texto> = {
   'server.activity.decorView': { es: 'Echando un vistazo a la sala', en: 'Taking a look at the room' },
   'server.activity.decorRemove': { es: 'Devolviendo la sala a su plantilla', en: 'Returning the room to its template' },
   'server.activity.shelterRooms': { es: 'Mirando qué repos tienen sala en el refugio', en: 'Checking which repos have a room in the shelter' },
+  'server.activity.scheduleMessage': { es: 'Programando un mensaje para {cuando}', en: 'Scheduling a message for {cuando}' },
   'server.activity.sendToRoom': { es: 'Pasándole un mensaje a la sala {sala}{clave}', en: 'Passing a message to the {sala} room{clave}' },
   'server.activity.assign': { es: 'Repartiendo el trabajo por las salas', en: 'Splitting the work across the rooms' },
   'server.activity.assignTask': { es: 'Repartiendo el trabajo de {clave} por las salas', en: 'Splitting the work for {clave} across the rooms' },

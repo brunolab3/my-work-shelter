@@ -58,6 +58,7 @@ export function describeTool(nombre: string, e: Entrada, cwd: string): string {
     // un mensaje o un encargo al habitante de otra sala (server/avisosSalas.ts)
     case 'mcp__rooms__send_to_room': return t('server.activity.sendToRoom', { sala: recorta(s(e.room), 30), clave: s(e.key) ? ' (' + s(e.key) + ')' : '' });
     case 'mcp__assignment__assign_work': return s(e.key) ? t('server.activity.assignTask', { clave: s(e.key) }) : t('server.activity.assign');
+    case 'mcp__rooms__schedule_message': return t('server.activity.scheduleMessage', { cuando: recorta(s(e.when), 30) });
     default:
       return t('server.activity.using', { nombre: nombre.startsWith('mcp__') ? nombre.split('__').slice(1).join(' › ') : nombre });
   }

@@ -43,6 +43,9 @@ export const PROMPTS: Record<string, Texto> = {
   'prompt.cleanup.request': { es: 'El trabajo del worktree {ruta} (rama {rama}) está todo mergeado. {merge}Quita el worktree y su rama local {rama}, desde la copia principal. Si algo no está mergeado o hay cambios sin commit, no fuerces: dímelo.', en: 'All the work in the worktree {ruta} (branch {rama}) is merged. {merge}Remove the worktree and its local branch {rama}, from the main copy. If anything is not merged or there are uncommitted changes, do not force it: tell me.' },
   'prompt.cleanup.mergeLocal': { es: 'Primero junta {rama} en la rama `local`. ', en: 'First merge {rama} into the `local` branch. ' },
   'prompt.room.reply': { es: '(Para contestar o pedirle algo, usa send_to_room con room «{salaId}».)', en: '(To reply or ask it something, use send_to_room with room “{salaId}”.)' },
+  // mensaje programado que llega a su hora (server/programados.ts)
+  'prompt.scheduled.title': { es: '⏰ Programado el {creado}:', en: '⏰ Scheduled on {creado}:' },
+  'prompt.scheduled.late': { es: '(llega con retraso: tocaba el {cuando} y el juego estaba cerrado)', en: '(late: it was due {cuando} and the game was closed)' },
   // revisión nueva de un PR (server/revisionesPR.ts)
   'prompt.review.title': { es: '🔎 {clave}Revisión nueva en tu PR #{numero} de {repo} («{titulo}»), rama `{rama}`: {url}', en: '🔎 {clave}New review on your PR #{numero} in {repo} (“{titulo}”), branch `{rama}`: {url}' },
   'prompt.review.changesRequested': { es: 'pide cambios', en: 'requests changes' },

@@ -42,6 +42,10 @@ Logistics (room `tareas`, `PLANNING_ROOM` in `shared/disposicion.ts`): plans a J
 
 Messages between rooms (`server/avisosSalas.ts`, MCP `salas` in every conversation): `send_to_room` to any room's dweller, with or without a task key; inside the same room the dweller hands it to the task's hologram (`enMano` in `web/src/mundo/mensajero.ts`). With a `thread` slug instead of a key, to that thread's open conversation in the room's main copy (queued if busy; a new one takes over once it closes, and never the sender's own), tracked per room and thread in memory: "Restart the game" closes every conversation anyway. Conversations in a worktree also get `request_worktree_cleanup`: the game writes the cleanup request from the session's cwd (worktree, branch, merge into `local` if the repo has that branch) and sends it through the own room's `cleanup` thread, one cleanup at a time. Details: `docs/integraciones-uso.md` ("Logistics, tasks and PRs").
 
+## Scheduled messages
+
+Scheduled messages (`server/programados.ts`, pure scheduling in `shared/programados.ts`; tools `schedule_message`, `list_scheduled`, `cancel_scheduled` in the MCP `salas`): a dweller leaves a message for later ("let's review it on Monday") to its own conversation (resumed by its `claudeId` in its worktree, plan mode, if it was closed) or to a room like `send_to_room`; delivered on time even after restarts (checked every minute and on start; late ones are marked), saved in `DATOS/mensajes-programados.json`. A day without a time is 09:00 local; weekends are held to Monday 09:00; at most 10 per conversation and 60 days ahead. Shown in the intercom under the portrait (`ScheduledMenu` in `Dialogo.tsx`: ✎ edit, ✕ cancel), ⌘K and the Calendar (message `programados`). Details: `docs/integraciones-uso.md`.
+
 ## Reviews of your PRs
 
 Reviews of your PRs (`server/revisionesPR.ts`, every minute with GitHub connected): what others write on your open PRs goes to the conversation in the PR's worktree. Details: `docs/integraciones-uso.md` ("Logistics, tasks and PRs").

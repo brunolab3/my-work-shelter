@@ -1,5 +1,6 @@
 // Conexión con el servidor local del refugio: WebSocket con reconexión, peticiones con respuesta y almacén de datos vivos.
 import type { ClientMessage, ServerMessage, SessionSummary, LogInput, InfoRepo, Visitante, MusicState, NoticeQuestion } from '@shared/protocolo';
+import type { ScheduledMessage } from '@shared/programados';
 import { Store } from '../ui/almacen';
 import { t, roomNameIs } from '@shared/idioma';
 
@@ -20,9 +21,10 @@ export interface LiveData {
   integraciones: Record<string, any>;
   avisos: { id: number; nivel: string; texto: string; pregunta?: NoticeQuestion }[];
   musica: MusicState | null;              // lo que suena en la discoteca (Spotify web; lo pone Discoteca.tsx)
+  programados: ScheduledMessage[];         // mensajes programados pendientes (server/programados.ts)
 }
 
-export const vivo = new Store<LiveData>({ connected: false, attempts: 0, reiniciando: false, claudeOk: false, estado: null, sesiones: {}, entradas: {}, parcial: {}, repos: {}, visitantes: [], notificaciones: [], eventos: [], integraciones: {}, avisos: [], musica: null });
+export const vivo = new Store<LiveData>({ connected: false, attempts: 0, reiniciando: false, claudeOk: false, estado: null, sesiones: {}, entradas: {}, parcial: {}, repos: {}, visitantes: [], notificaciones: [], eventos: [], integraciones: {}, avisos: [], musica: null, programados: [] });
 
 // El secreto del arranque llega en el fragmento de la URL (#t=…, no viaja al servidor ni queda en el historial de
 // peticiones); se guarda en la sesión de la pestaña para sobrevivir a recargas y se quita de la barra de direcciones.
@@ -98,6 +100,7 @@ class Client {
       case 'respuesta': { const p = this.pendientes.get(m.peticion); if (p) { this.pendientes.delete(m.peticion); m.error ? p.ko(new Error(m.error)) : p.ok(m.datos); } break; }
       case 'repos': vivo.set({ repos: m.repos }); break;
       case 'visitantes': vivo.set({ visitantes: m.visitantes }); break;
+      case 'programados': vivo.set({ programados: m.lista }); break;
       case 'notificaciones': vivo.set({ notificaciones: m.lista }); break;
       case 'eventos': vivo.set({ eventos: m.lista }); break;
       case 'integracion': vivo.set(e => ({ integraciones: { ...e.integraciones, [m.id]: m.estado } })); break;

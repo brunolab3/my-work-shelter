@@ -58,3 +58,15 @@ describe('game MCP tools', () => {
     expect(got).toEqual([['/tmp/wt', '2', 'pendiente', 'later'], ['/tmp/wt', '3', 'n/a', 'no UI']]);
   });
 });
+
+describe('scheduled messages tools', () => {
+  it('schedule_message takes when, message, room and key', async () => {
+    const got: unknown[] = [];
+    const programados = { programar: (d: string, s: string | undefined, a: unknown) => { got.push([d, s, a]); return { ok: true, texto: 'ok' }; }, deConversacion: () => [], cancelar: () => true };
+    const s = mcpRooms({ salas: () => [], programados } as any, 'a', 's1');
+    expect(Object.keys(tools(s)).sort()).toEqual(['cancel_scheduled', 'list_scheduled', 'schedule_message', 'send_to_room']);
+    expect(params(tools(s).schedule_message)).toEqual(['when', 'message', 'room', 'key']);
+    await call(s, 'schedule_message', { when: '2026-11-17', message: 'review', room: 'b', key: 'ABC-1' });
+    expect(got).toEqual([['a', 's1', { cuando: '2026-11-17', mensaje: 'review', sala: 'b', clave: 'ABC-1' }]]);
+  });
+});

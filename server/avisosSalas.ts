@@ -14,6 +14,7 @@ import { t as tr } from '../shared/idioma.ts';
 import type { InfoWorktree } from '../shared/protocolo.ts';
 import { nombreWorktree, worktreeSuffix } from './sesiones.ts';
 import { isJiraKey, slugWorktreeName, taskKey, worktreeHasTask } from '../shared/tareas.ts';
+import { describeWhen, MAX_PER_CONVERSATION, MAX_DAYS, type ScheduledMessage } from '../shared/programados.ts';
 
 export interface RoomInfo { id: string; nombre: string; habitante?: { id: string; nombre: string } }
 export interface CtxRooms {
@@ -33,6 +34,12 @@ export interface CtxRooms {
   entrega?(salaId: string, a: { worktree?: string; sesionId?: string }): void;
   aviso(texto: string): void;
   ahora?(): number;
+  // los mensajes programados (programados.ts): schedule_message, list_scheduled y cancel_scheduled
+  programados?: {
+    programar(desde: string, desdeSesion: string | undefined, a: { cuando: string; mensaje: string; sala?: string; clave?: string }): { ok: boolean; texto: string };
+    deConversacion(sesionId?: string): ScheduledMessage[];
+    cancelar(id: string, desdeSesion?: string): boolean;
+  };
   // the worktree a conversation runs in (its cwd inside one), its branch, and whether the repo has a `local` branch
   worktreeDeSesion?(salaId: string, sesionId: string): Promise<{ ruta: string; rama: string; local: boolean } | undefined>;
 }
@@ -126,8 +133,28 @@ export function mcpRooms(ctx: CtxRooms, desde: string, desdeSesion?: string, enW
           thread: z.string().optional().describe(tr('tool.rooms.paramThread')),
         },
         async ({ room, message, key, thread }) => { const r = await sendToRoom(ctx, desde, { sala: room, mensaje: message, clave: key, hilo: thread }, desdeSesion); return r.ok ? texto(r.texto) : { ...texto(r.texto), isError: true }; }, { alwaysLoad: true }),
+      ...(ctx.programados ? scheduleTools(ctx.programados, desde, desdeSesion) : []),
       ...enWorktree ? [tool('request_worktree_cleanup', tr('tool.cleanup.description'), { note: z.string().optional().describe(tr('tool.cleanup.paramNote')) },
         async ({ note }) => { const r = await requestCleanup(ctx, desde, desdeSesion, note); return r.ok ? texto(r.texto) : { ...texto(r.texto), isError: true }; }, { alwaysLoad: true })] : [],
     ],
   });
+}
+
+// mensajes programados (programados.ts): para más adelante, a esta misma conversación o a una sala
+function scheduleTools(p: NonNullable<CtxRooms['programados']>, desde: string, desdeSesion?: string) {
+  const linea = (x: ScheduledMessage) => `- ${x.id} · ${describeWhen(x.cuando)} · ${x.destino.tipo === 'sala' ? tr('tool.schedule.toRoom', { sala: x.destino.sala + (x.destino.clave ? ' ' + x.destino.clave : '') }) : tr('tool.schedule.toThis')}: ${x.mensaje.replace(/\s+/g, ' ').slice(0, 160)}`;
+  return [
+    tool('schedule_message', tr('tool.schedule.description', { n: MAX_PER_CONVERSATION, dias: MAX_DAYS }),
+      {
+        when: z.string().describe(tr('tool.schedule.paramWhen')),
+        message: z.string().describe(tr('tool.schedule.paramMessage')),
+        room: z.string().optional().describe(tr('tool.schedule.paramRoom')),
+        key: z.string().optional().describe(tr('tool.rooms.paramKey')),
+      },
+      async ({ when, message, room, key }) => { const r = p.programar(desde, desdeSesion, { cuando: when, mensaje: message, sala: room, clave: key }); return r.ok ? texto(r.texto) : { ...texto(r.texto), isError: true }; }, { alwaysLoad: true }),
+    tool('list_scheduled', tr('tool.schedule.listDescription'), {},
+      async () => { const l = p.deConversacion(desdeSesion); return texto(l.length ? l.map(linea).join('\n') : tr('tool.schedule.none')); }),
+    tool('cancel_scheduled', tr('tool.schedule.cancelDescription'), { id: z.string().describe(tr('tool.schedule.paramId')) },
+      async ({ id }) => (p.cancelar(id.trim(), desdeSesion ?? '') ? texto(tr('tool.schedule.cancelled', { id })) : { ...texto(tr('tool.schedule.notFound', { id })), isError: true })),
+  ];
 }

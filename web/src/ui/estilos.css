@@ -259,6 +259,11 @@ html, body { margin: 0; height: 100%; background: var(--fondo); overflow: hidden
 /* las páginas de la conversación: abajo del todo, bajo el habitante; la lista se abre hacia arriba, sobre la conversación */
 .consola-lado .paginas-sesion { margin-top: auto; width: 100%; position: relative; }
 .consola-lado .prs-copia + .paginas-sesion { margin-top: .4em; }
+.consola-lado .programados-sesion + .paginas-sesion { margin-top: .4em; }
+.programados-lista li { gap: .6em; }
+.programados-lista .pagina-nombre { cursor: default; }
+.programados-lista .programado-edicion { flex-direction: column; align-items: stretch; white-space: normal; }
+.programado-edicion input, .programado-edicion textarea { background: #050a05; color: var(--fosforo); border: 1px solid var(--fosforo-tenue); font: inherit; padding: .3em; color-scheme: dark; }
 /* el último del lado deja aire abajo: no pisa el punto del intercomunicador */
 .consola-lado > .paginas-sesion:last-child { margin-bottom: calc(var(--u) * 0.9); }
 .paginas-lista .pr-marca { flex: none; }

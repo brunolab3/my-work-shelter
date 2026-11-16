@@ -23,6 +23,7 @@ import { openGit } from './git/ventana';
 import { musicShortcut } from './Discoteca';
 import { entrar as enterBar } from './Barra';
 import { adaptRoom } from './PanelesSala';
+import { describeWhen, describeWhenShort } from '@shared/programados';
 import { openPreflight } from './Preflight';
 import { jiraBoard } from './tareas';
 import { worktreeTask } from '@shared/tareas';
@@ -147,6 +148,7 @@ function Window() {
   const habitantes = juego.usar(e => e.habitantes);
   const copias = juego.usar(e => e.copias);
   const salas: any[] = vivo.usar(e => e.estado?.salas ?? []);
+  const programados = vivo.usar(e => e.programados);
   useEffect(() => { entrada.current?.focus(); cliente.accion<RecentConversation[]>('conversaciones.recientes', { limite: 20 }).then(r => { recentLast = r; setRecent(r); }).catch(() => setRecent(x => x ?? [])); }, []);
 
   const filas = useMemo<Row[]>(() => {
@@ -173,6 +175,17 @@ function Window() {
       out.push({ id: 'rec:' + r.claudeId, seccion: 'Conversaciones recientes', texto: r.titulo, pista: `${h?.nombre ?? ''} · ${h?.nameRoom ?? ''} · ${hace(r.modified)}${r.fuera ? ' · ' + t('windows.openOnYourDesktop') : ''}`,
         f: () => { if (r.fuera) { SFX.noAllowed(); vivo.set(v => ({ avisos: [...v.avisos.slice(-4), { id: Date.now(), nivel: 'aviso', texto: t('panels.thatConversationIsStillOpen') }] })); return; } onShelter(); resumeConversation(r.dwellerId, r); }, p });
     }
+    // mensajes programados (server/programados.ts): cuándo, quién y a dónde; Enter abre la conversación que lo
+    // programó si sigue abierta o, si no, lleva con su habitante (cancelarlos o cambiarlos, en su intercomunicador)
+    for (const x of programados) {
+      const sala = salas.find(y => y.id === x.origen.salaId), h = habitantes.find(y => y.sala === x.origen.salaId);
+      const p = score(palabras, x.mensaje, `${h?.nombre ?? ''} ${sala?.nombre ?? ''} ${describeWhen(x.cuando)} programado programados mensaje recordatorio scheduled reminder`);
+      if (!p) continue;
+      const abierta = Object.values(sesiones).find(y => y.estado !== 'cerrada' && ((x.origen.claudeId && y.claudeId === x.origen.claudeId) || y.id === x.origen.sesionId));
+      out.push({ id: 'prog:' + x.id, seccion: 'Mensajes programados', texto: x.mensaje.replace(/\s+/g, ' ').slice(0, 140),
+        pista: t('panels.scheduledFor', { cuando: describeWhenShort(x.cuando), habitante: h?.nombre ?? '?', sala: sala?.nombre ?? x.origen.salaId }) + (x.destino.tipo === 'sala' ? ' ' + t('panels.scheduledToRoom', { sala: x.destino.sala }) : ''),
+        f: () => { if (abierta) openConversation(abierta.id); else if (h) { onShelter(); goA(h.sala, h.id, true); } }, p: p + 1 });
+    }
     // acciones: sin escribir, las recurrentes (las que más usas) delante
     const u = usos();
     const acc = acciones().map(a => ({ a, p: score(palabras, a.texto, `${a.pista ?? ''} ${a.claves ?? ''} ${a.tecla ?? ''}`) })).filter(x => x.p);
@@ -190,7 +203,7 @@ function Window() {
     const mejor = new Map<string, number>();
     for (const f of out) mejor.set(f.seccion, Math.max(mejor.get(f.seccion) ?? 0, f.p));
     return out.sort((a, b) => (mejor.get(b.seccion)! - mejor.get(a.seccion)!) || (a.seccion === b.seccion ? b.p - a.p : a.seccion.localeCompare(b.seccion))).slice(0, 40);
-  }, [q, sesiones, recientes, habitantes, copias, salas]);
+  }, [q, sesiones, recientes, habitantes, copias, salas, programados]);
 
   useEffect(() => { setI(0); }, [q]);
   useEffect(() => { lista.current?.querySelector('.fila-buscador.activa')?.scrollIntoView({ block: 'nearest' }); }, [i]);
