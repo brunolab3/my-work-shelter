@@ -39,7 +39,7 @@ import { openInDesktop, openInAppClaude, outsideOpen, closeOutside, hookCommand,
 import { tonesForRepeated } from '../shared/reclutas.ts';
 import { remoteName, worktreeHasTask } from '../shared/tareas.ts';
 import { Store, DATOS, folderOf, reposRoot, hideRoom, showRoom, isHideable, roomIdOf } from './estado.ts';
-import { infoRepo, sugerencias, expand, recentTranscripts, liveSessions, worktreeList, estiloSala, projectType } from './repos.ts';
+import { infoRepo, sugerencias, expand, recentTranscripts, liveSessions, worktreeList, hasBranch, estiloSala, projectType } from './repos.ts';
 import { Integraciones } from './integraciones/index.ts';
 import { gameAction, ensurePlayer, growCrops, taskReward } from './juego.ts';
 import { generateRecruit } from '../shared/reclutas.ts';
@@ -160,11 +160,17 @@ const ctxRooms: CtxRooms = {
   mensajero: (desde, a, motivo) => ctxPlan.mensajero(desde, a, motivo),
   entrega: (sala, a) => broadcast({ t: 'entrega', sala, ...a }),
   aviso: texto => broadcast({ t: 'aviso', nivel: 'info', texto }),
+  worktreeDeSesion: async (salaId, sesionId) => {
+    const s = almacen.estado.salas.find(x => x.id === salaId), ses = sesiones.lista().find(x => x.id === sesionId), cwd = ses && (ses.worktree ?? ses.cwd);
+    if (!s || !cwd) return undefined;
+    const w = (await worktreeList(folderOf(s))).find(w => !w.principal && (cwd === w.ruta || cwd.startsWith(w.ruta + path.sep)));
+    return w && { ruta: w.ruta, rama: w.rama, local: await hasBranch(w.ruta, 'local') };
+  },
 };
 const sesiones = new Sessions({
   pathRoom, reposOfShelter: () => gitPaths(), mcpRoom: id => (ctxDecor.sala(id) ? mcpDecor(id, ctxDecor) : undefined),
   mcpAssignment: (id, preguntar, sesionId) => { const s = almacen.estado.salas.find(x => x.id === id && x.tipo === 'coordinacion' && x.ruta); return s ? mcpAssignment(ctxAssignment(s.ruta!), { coordinacion: s.nombre, salaId: s.id, sesionId, preguntar }) : undefined; },
-  mcpRooms: (id, sesionId) => mcpRooms(ctxRooms, id, sesionId),
+  mcpRooms: (id, sesionId, enWorktree) => mcpRooms(ctxRooms, id, sesionId, enWorktree),
   mcpPlan: id => { const s = almacen.estado.salas.find(x => x.id === id && x.tipo === 'repo'); return s && planes.ofRoom(id).length ? mcpPlan(ctxPlan, { salaId: id, sala: s.nombre }) : undefined; },
   preflight: { estado: cwd => herramientasPreflight.estado(cwd), responder: (cwd, item, estado, nota) => herramientasPreflight.responder(cwd, item, estado, nota), puerta: cwd => gatePush(cwd, ctxPreflight) },
   trustedFolders: () => ((almacen.estado.ajustes as any).trustedFolders ?? []) as string[],

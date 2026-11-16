@@ -40,7 +40,7 @@ Logistics (room `tareas`, `PLANNING_ROOM` in `shared/disposicion.ts`): plans a J
 
 ## Messages between rooms
 
-Messages between rooms (`server/avisosSalas.ts`, MCP `salas` in every conversation): `send_to_room` to any room's dweller, with or without a task key; inside the same room the dweller hands it to the task's hologram (`enMano` in `web/src/mundo/mensajero.ts`). Details: `docs/integraciones-uso.md` ("Logistics, tasks and PRs").
+Messages between rooms (`server/avisosSalas.ts`, MCP `salas` in every conversation): `send_to_room` to any room's dweller, with or without a task key; inside the same room the dweller hands it to the task's hologram (`enMano` in `web/src/mundo/mensajero.ts`). With a `thread` slug instead of a key, to that thread's open conversation in the room's main copy (queued if busy; a new one takes over once it closes, and never the sender's own), tracked per room and thread in memory: "Restart the game" closes every conversation anyway. Conversations in a worktree also get `request_worktree_cleanup`: the game writes the cleanup request from the session's cwd (worktree, branch, merge into `local` if the repo has that branch) and sends it through the own room's `cleanup` thread, one cleanup at a time. Details: `docs/integraciones-uso.md` ("Logistics, tasks and PRs").
 
 ## Reviews of your PRs
 

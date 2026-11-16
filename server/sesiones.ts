@@ -65,7 +65,7 @@ export interface RoomsResolver {
   // las del plan compartido (leerlo y proponer cambios), en las salas que trabajan en una parte de un plan repartido
   mcpPlan?(salaId: string): NonNullable<Options['mcpServers']>[string] | undefined;
   // la de pasarle un mensaje o un encargo al habitante de otra sala (server/avisosSalas.ts), en todas
-  mcpRooms?(salaId: string, sesionId: string): NonNullable<Options['mcpServers']>[string] | undefined;
+  mcpRooms?(salaId: string, sesionId: string, enWorktree: boolean): NonNullable<Options['mcpServers']>[string] | undefined;
   // el pre-flight de la tarea (server/preflight.ts): las herramientas del habitante y la puerta de `git push`
   preflight?: {
     estado(cwd: string): Promise<string>;
@@ -357,7 +357,8 @@ export class Sessions extends EventEmitter {
     if (repartir) opciones.mcpServers = { ...(opciones.mcpServers ?? {}), reparto: repartir };
     const plan = this.resolutor.mcpPlan?.(x.r.salaId);
     if (plan) opciones.mcpServers = { ...(opciones.mcpServers ?? {}), plan };
-    const salas = this.resolutor.mcpRooms?.(x.r.salaId, x.r.id);
+    // in a worktree (or starting a new one) it also gets request_worktree_cleanup
+    const salas = this.resolutor.mcpRooms?.(x.r.salaId, x.r.id, !!(x.r.worktree ?? worktreeRoot(x.r.cwd) ?? opciones.extraArgs?.worktree));
     if (salas) opciones.mcpServers = { ...(opciones.mcpServers ?? {}), salas };
     // la página de comparación de sus cambios, para revisarlos con notas en el juego antes de subirlos (server/comparar.ts)
     opciones.mcpServers = { ...(opciones.mcpServers ?? {}), revision: mcpReview(() => x.r.worktree ?? x.r.cwd, this.resolutor.preflight) };

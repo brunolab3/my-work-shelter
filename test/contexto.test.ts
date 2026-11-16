@@ -27,7 +27,7 @@ describe('contexto de cada sesión', () => {
   it('las herramientas que lleva toda conversación (salas, comparar, pre-flight), con un refugio de 30 salas, caben en 2,8 KB', () => {
     const salas = Array.from({ length: 30 }, (_, i) => `sala-${i} (Sala del repo ${i})`).join(', ');
     const enviar = Math.max(...(['es', 'en'] as const).map(i => (TEXTS['tool.rooms.description'][i] ?? '').replace('{salas}', salas).length));
-    const resto = ['tool.param.room', 'tool.rooms.paramMessage', 'tool.rooms.paramKey', 'tool.compare.description', 'tool.compare.paramBase', 'tool.compare.paramUncommitted',
+    const resto = ['tool.param.room', 'tool.rooms.paramMessage', 'tool.rooms.paramKey', 'tool.rooms.paramThread', 'tool.compare.description', 'tool.compare.paramBase', 'tool.compare.paramUncommitted',
       'tool.compare.paramFolder', 'tool.preflight.estadoDescription', 'tool.preflight.responderDescription'].reduce((n, k) => n + largo(k), 0);
     expect(enviar + resto).toBeLessThanOrEqual(2800);
   });

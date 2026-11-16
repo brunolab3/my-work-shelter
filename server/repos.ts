@@ -61,6 +61,8 @@ export async function worktreeList(ruta: string): Promise<InfoWorktree[]> {
   return lista;
 }
 
+export const hasBranch = async (ruta: string, rama: string) => !!(await git(ruta, ['rev-parse', '--verify', '--quiet', `refs/heads/${rama}`])).trim();
+
 export async function worktrees(ruta: string): Promise<InfoWorktree[]> {
   const lista = await worktreeList(ruta);
   const principal = lista[0]?.rama;

@@ -3,8 +3,9 @@
 // hay, una conversación nueva en el worktree de la tarea (y si la sala aún no tiene ninguno, en uno nuevo con la clave en
 // su nombre, para que los siguientes mensajes de la tarea lleguen ahí). Sin
 // clave, siempre una conversación nueva con el habitante en su copia principal: los mensajes entre salas son para
-// empezar trabajo, no para charlar. También dentro de la misma sala: así un habitante pasa una tarea (o una parte que va
-// sola) al holograma de su worktree y sigue con la conversación del Supervisor; sin robot mensajero, que no sale de la
+// empezar trabajo, no para charlar. With a thread (`cleanup`), to that thread's open conversation in the main copy, so
+// its messages queue there one at a time; request_worktree_cleanup sends a worktree's cleanup through `cleanup`.
+// También dentro de la misma sala: así un habitante pasa una tarea (o una parte que va sola) al holograma de su worktree y sigue con la conversación del Supervisor; sin robot mensajero, que no sale de la
 // sala, y nunca a la propia conversación. Para repartir un plan entre varios repos sigue estando assign_work (reparto.ts).
 import { createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
@@ -32,12 +33,18 @@ export interface CtxRooms {
   entrega?(salaId: string, a: { worktree?: string; sesionId?: string }): void;
   aviso(texto: string): void;
   ahora?(): number;
+  // the worktree a conversation runs in (its cwd inside one), its branch, and whether the repo has a `local` branch
+  worktreeDeSesion?(salaId: string, sesionId: string): Promise<{ ruta: string; rama: string; local: boolean } | undefined>;
 }
 
 // sin bucles: como mucho LIMITE mensajes por minuto de una sala a otra
 const LIMITE = 3, VENTANA = 60_000;
 const enviados = new Map<string, number[]>();
 export const forgetLimits = () => enviados.clear();
+// each thread's conversation, per room and thread: in memory only, since "Restart the game" closes every conversation
+const hilos = new Map<string, string>();
+export const forgetThreads = () => hilos.clear();
+const threadOf = (h: string) => { const x = h.trim().toLowerCase(); return /^[a-z0-9]+(-[a-z0-9]+)*$/.test(x) && x.length <= 40 ? x : undefined; };
 
 // the worktree of a task among a room's: its key in its folder name or its branch (shared/tareas.ts: worktreeHasTask)
 export function taskWorktree(worktrees: InfoWorktree[], clave: string): string | undefined {
@@ -47,7 +54,7 @@ export function taskWorktree(worktrees: InfoWorktree[], clave: string): string |
 const findRoom = (salas: RoomInfo[], q: string) => { const k = q.trim().toLowerCase(); return salas.find(s => s.id.toLowerCase() === k) ?? salas.find(s => s.nombre.toLowerCase() === k); };
 
 /** `desdeSesion`: la conversación que lo envía (en su misma sala, no puede ser la que lo recibe) */
-export async function sendToRoom(ctx: CtxRooms, desde: string, { sala, mensaje, clave }: { sala: string; mensaje: string; clave?: string }, desdeSesion?: string): Promise<{ ok: boolean; texto: string }> {
+export async function sendToRoom(ctx: CtxRooms, desde: string, { sala, mensaje, clave, hilo: hiloPedido }: { sala: string; mensaje: string; clave?: string; hilo?: string }, desdeSesion?: string): Promise<{ ok: boolean; texto: string }> {
   const salas = ctx.salas();
   const origen = salas.find(s => s.id === desde), destino = findRoom(salas, sala);
   if (!destino) return { ok: false, texto: tr('tool.rooms.noRoom', { sala, salas: salas.map(s => `${s.id} (${s.nombre})`).join(', ') }) };
@@ -56,17 +63,23 @@ export async function sendToRoom(ctx: CtxRooms, desde: string, { sala, mensaje, 
   if (!mensaje.trim()) return { ok: false, texto: tr('tool.rooms.empty') };
   const k = clave?.trim() ? taskKey(clave) : undefined;
   if (clave?.trim() && !k) return { ok: false, texto: tr('tool.rooms.badKey', { clave: clave ?? '' }) };
+  const hilo = hiloPedido?.trim() ? threadOf(hiloPedido) : undefined;
+  if (hiloPedido?.trim() && !hilo) return { ok: false, texto: tr('tool.rooms.badThread', { hilo: hiloPedido }) };
+  if (k && hilo) return { ok: false, texto: tr('tool.rooms.keyAndThread') };
   const ahora = ctx.ahora?.() ?? Date.now(), par = `${desde}>${destino.id}`;
   const recientes = (enviados.get(par) ?? []).filter(x => ahora - x < VENTANA);
   if (recientes.length >= LIMITE) return { ok: false, texto: tr('tool.rooms.limit', { n: LIMITE, sala: destino.nombre }) };
   const texto = [
-    tr('prompt.room.from', { sala: origen?.nombre ?? desde, habitante: origen?.habitante?.nombre ?? '?', tarea: k ? tr('prompt.room.task', { clave: k }) : '' }),
+    tr('prompt.room.from', { sala: origen?.nombre ?? desde, habitante: origen?.habitante?.nombre ?? '?', tarea: k ? tr('prompt.room.task', { clave: k }) : hilo ? tr('prompt.room.thread', { hilo }) : '' }),
     '', mensaje.trim(), '', tr('prompt.room.reply', { salaId: desde }),
   ].join('\n');
   let como: string, recibe: string | undefined, cwd: string | undefined;
   const abierta = k ? ctx.sesionDeTarea(destino.id, k) : undefined;
   if (misma && abierta && abierta === desdeSesion) return { ok: false, texto: tr('tool.rooms.ownConversation', { clave: k! }) };
+  // a thread's conversation, while open and never the sender itself (sesiones.enviar queues it if it's busy)
+  const delHilo = hilo ? hilos.get(`${destino.id}/${hilo}`) : undefined;
   if (abierta && ctx.avisar(abierta, texto)) { como = tr('tool.rooms.toOpen', { clave: k! }); recibe = abierta; }
+  else if (delHilo && delHilo !== desdeSesion && ctx.avisar(delHilo, texto)) { como = tr('tool.rooms.toThread', { hilo: hilo! }); recibe = delHilo; }
   else {
     cwd = k ? await ctx.worktreeDeTarea(destino.id, k) : undefined;
     // sin worktree de la tarea, uno nuevo: la clave y el asunto en su nombre (la primera línea, sin repetir la clave); a
@@ -77,8 +90,9 @@ export async function sendToRoom(ctx: CtxRooms, desde: string, { sala, mensaje, 
     let enWorktree: boolean;
     try { ({ id: recibe, enWorktree } = await ctx.empezar(destino.id, destino.habitante.id, texto, cwd ? { cwd } : worktree ? { worktree } : undefined)); }
     catch (e) { return { ok: false, texto: tr('tool.rooms.couldNotStart', { sala: destino.nombre, error: (e as Error).message }) }; }
+    if (hilo) hilos.set(`${destino.id}/${hilo}`, recibe);
     // dónde ha caído de verdad: si no se pudo hacer el worktree, se dice (nunca a la copia principal en silencio)
-    como = cwd ? tr('tool.rooms.inTaskWorktree', { clave: k! }) : !worktree ? tr('tool.rooms.inMainCopy')
+    como = cwd ? tr('tool.rooms.inTaskWorktree', { clave: k! }) : hilo ? tr('tool.rooms.inNewThread', { hilo }) : !worktree ? tr('tool.rooms.inMainCopy')
       : enWorktree ? tr('tool.rooms.inNewWorktree', { clave: k!, worktree }) : tr('tool.rooms.inMainCopyNoGit', { clave: k! });
   }
   enviados.set(par, [...recientes, ahora]);
@@ -89,9 +103,17 @@ export async function sendToRoom(ctx: CtxRooms, desde: string, { sala, mensaje, 
   return { ok: true, texto: tr('tool.rooms.sent', { habitante: destino.habitante.nombre, sala: destino.nombre, como }) };
 }
 
+// a worktree's cleanup, written by the game from the sender's cwd and sent through its own room's `cleanup` thread
+export async function requestCleanup(ctx: CtxRooms, desde: string, desdeSesion: string | undefined, nota?: string): Promise<{ ok: boolean; texto: string }> {
+  const wt = desdeSesion ? await ctx.worktreeDeSesion?.(desde, desdeSesion) : undefined;
+  if (!wt) return { ok: false, texto: tr('tool.cleanup.notInWorktree') };
+  const mensaje = [tr('prompt.cleanup.request', { ruta: wt.ruta, rama: wt.rama, merge: wt.local ? tr('prompt.cleanup.mergeLocal', { rama: wt.rama }) : '' }), nota?.trim() ?? ''].filter(Boolean).join('\n\n');
+  return sendToRoom(ctx, desde, { sala: desde, mensaje, hilo: 'cleanup' }, desdeSesion);
+}
+
 const texto = (s: string) => ({ content: [{ type: 'text' as const, text: s }] });
 
-export function mcpRooms(ctx: CtxRooms, desde: string, desdeSesion?: string) {
+export function mcpRooms(ctx: CtxRooms, desde: string, desdeSesion?: string, enWorktree = false) {
   const salas = ctx.salas().filter(s => s.habitante);
   return createSdkMcpServer({
     name: 'rooms', version: '1.0.0',
@@ -101,8 +123,11 @@ export function mcpRooms(ctx: CtxRooms, desde: string, desdeSesion?: string) {
           room: z.string().describe(tr('tool.param.room')),
           message: z.string().describe(tr('tool.rooms.paramMessage')),
           key: z.string().optional().describe(tr('tool.rooms.paramKey')),
+          thread: z.string().optional().describe(tr('tool.rooms.paramThread')),
         },
-        async ({ room, message, key }) => { const r = await sendToRoom(ctx, desde, { sala: room, mensaje: message, clave: key }, desdeSesion); return r.ok ? texto(r.texto) : { ...texto(r.texto), isError: true }; }, { alwaysLoad: true }),
+        async ({ room, message, key, thread }) => { const r = await sendToRoom(ctx, desde, { sala: room, mensaje: message, clave: key, hilo: thread }, desdeSesion); return r.ok ? texto(r.texto) : { ...texto(r.texto), isError: true }; }, { alwaysLoad: true }),
+      ...enWorktree ? [tool('request_worktree_cleanup', tr('tool.cleanup.description'), { note: z.string().optional().describe(tr('tool.cleanup.paramNote')) },
+        async ({ note }) => { const r = await requestCleanup(ctx, desde, desdeSesion, note); return r.ok ? texto(r.texto) : { ...texto(r.texto), isError: true }; }, { alwaysLoad: true })] : [],
     ],
   });
 }

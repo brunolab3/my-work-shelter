@@ -11,7 +11,7 @@ export const ANNEX = [
   'When this work depends on or affects another room\'s repository (an API, a shared contract, a bug on their side), tell that room with `send_to_room` instead of changing it yourself.',
   'Run parallel work (another task, or a part of this one) with `send_to_room` and its task key, also to this same room, not with background subagents; keep those for quick research.',
   'When you run inside a worktree and all of its work is merged (every branch and pull request in it merged or closed, or pushed to the main branch, not just the first),',
-  'as the last step, without waiting to be asked, send this room\'s main conversation (`send_to_room`, no task key) a request to remove that worktree and its local branches, with their exact paths and names.',
+  'as the last step, without waiting to be asked, call `request_worktree_cleanup`.',
 ].join(' ');
 
 // el habitante del Puente de Mando trabaja en el repo del propio juego: cómo se aplican los cambios lo dice AGENTS.md;

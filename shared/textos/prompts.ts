@@ -39,6 +39,9 @@ export const PROMPTS: Record<string, Texto> = {
   // mensaje de otra sala (server/avisosSalas.ts)
   'prompt.room.from': { es: '📨 Mensaje de la sala «{sala}» ({habitante}){tarea}:', en: '📨 Message from the “{sala}” room ({habitante}){tarea}:' },
   'prompt.room.task': { es: ', tarea {clave}', en: ', task {clave}' },
+  'prompt.room.thread': { es: ', hilo {hilo}', en: ', thread {hilo}' },
+  'prompt.cleanup.request': { es: 'El trabajo del worktree {ruta} (rama {rama}) está todo mergeado. {merge}Quita el worktree y su rama local {rama}, desde la copia principal. Si algo no está mergeado o hay cambios sin commit, no fuerces: dímelo.', en: 'All the work in the worktree {ruta} (branch {rama}) is merged. {merge}Remove the worktree and its local branch {rama}, from the main copy. If anything is not merged or there are uncommitted changes, do not force it: tell me.' },
+  'prompt.cleanup.mergeLocal': { es: 'Primero junta {rama} en la rama `local`. ', en: 'First merge {rama} into the `local` branch. ' },
   'prompt.room.reply': { es: '(Para contestar o pedirle algo, usa send_to_room con room «{salaId}».)', en: '(To reply or ask it something, use send_to_room with room “{salaId}”.)' },
   // revisión nueva de un PR (server/revisionesPR.ts)
   'prompt.review.title': { es: '🔎 {clave}Revisión nueva en tu PR #{numero} de {repo} («{titulo}»), rama `{rama}`: {url}', en: '🔎 {clave}New review on your PR #{numero} in {repo} (“{titulo}”), branch `{rama}`: {url}' },

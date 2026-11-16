@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { sendToRoom, taskWorktree, forgetLimits, type CtxRooms } from './avisosSalas.ts';
+import { sendToRoom, requestCleanup, taskWorktree, forgetLimits, forgetThreads, type CtxRooms } from './avisosSalas.ts';
 import { infoRepo, worktreeList } from './repos.ts';
 
 const SALAS = [
@@ -14,14 +14,14 @@ const SALAS = [
 ];
 
 // un contexto que apunta lo que se hace: avisos a conversaciones abiertas y conversaciones nuevas
-function ctx(o: { abiertas?: Record<string, string>; worktrees?: Record<string, string>; falla?: string; reloj?: { t: number }; sinGit?: boolean; worktreeDeTarea?: CtxRooms['worktreeDeTarea'] } = {}) {
+function ctx(o: { abiertas?: Record<string, string>; cerradas?: Set<string>; worktrees?: Record<string, string>; falla?: string; reloj?: { t: number }; sinGit?: boolean; worktreeDeTarea?: CtxRooms['worktreeDeTarea'] } = {}) {
   const avisados: { sesionId: string; texto: string }[] = [], nuevas: { salaId: string; dwellerId: string; prompt: string; cwd?: string; worktree?: string }[] = [], mensajero: string[][] = [], avisos: string[] = [];
   const c: CtxRooms = {
     salas: () => SALAS,
     sesionDeTarea: (salaId, clave) => o.abiertas?.[`${salaId}/${clave}`],
     worktreeDeTarea: o.worktreeDeTarea ?? (async (salaId, clave) => o.worktrees?.[`${salaId}/${clave}`]),
-    avisar: (sesionId, texto) => { avisados.push({ sesionId, texto }); return true; },
-    empezar: async (salaId, dwellerId, prompt, donde) => { if (o.falla) throw new Error(o.falla); nuevas.push({ salaId, dwellerId, prompt, cwd: donde?.cwd, worktree: donde?.worktree }); return { id: 'nueva', enWorktree: !!(donde?.cwd || (donde?.worktree && !o.sinGit)) }; },
+    avisar: (sesionId, texto) => { if (o.cerradas?.has(sesionId)) return false; avisados.push({ sesionId, texto }); return true; },
+    empezar: async (salaId, dwellerId, prompt, donde) => { if (o.falla) throw new Error(o.falla); nuevas.push({ salaId, dwellerId, prompt, cwd: donde?.cwd, worktree: donde?.worktree }); return { id: nuevas.length > 1 ? `nueva-${nuevas.length}` : 'nueva', enWorktree: !!(donde?.cwd || (donde?.worktree && !o.sinGit)) }; },
     mensajero: (desde, a) => mensajero.push([desde, ...a]),
     aviso: t => avisos.push(t),
     ahora: o.reloj && (() => o.reloj!.t),
@@ -30,7 +30,7 @@ function ctx(o: { abiertas?: Record<string, string>; worktrees?: Record<string, 
 }
 
 describe('mensajes entre salas', () => {
-  beforeEach(() => forgetLimits());
+  beforeEach(() => { forgetLimits(); forgetThreads(); });
 
   it('sin clave, una conversación nueva con el habitante en su copia principal, aunque tenga otra abierta', async () => {
     const x = ctx({ abiertas: { 'express/ABC-1': 'abierta' } });
@@ -96,6 +96,60 @@ describe('mensajes entre salas', () => {
     const y = ctx();
     expect((await sendToRoom(y.c, 'express', { sala: 'express', mensaje: 'Revisa el README' }, 'ses-supervisor')).ok).toBe(true);
     expect(y.nuevas[0]).toMatchObject({ salaId: 'express', cwd: undefined, worktree: undefined });
+  });
+
+  it('with a thread: one conversation per room and thread in the main copy, reused while open, never the sender; without one, always new', async () => {
+    const cerradas = new Set<string>(), reloj = { t: 1_000_000 };
+    const x = ctx({ cerradas, reloj, abiertas: { 'express/ABC-1': 'abierta' } });
+    const r1 = await sendToRoom(x.c, 'express', { sala: 'express', mensaje: 'a', hilo: 'Cleanup' }, 'holo-a');
+    expect(r1.ok).toBe(true);
+    expect(x.nuevas).toEqual([expect.objectContaining({ salaId: 'express', cwd: undefined, worktree: undefined })]);
+    expect(x.nuevas[0].prompt).toContain('cleanup');
+    const r2 = await sendToRoom(x.c, 'express', { sala: 'express', mensaje: 'b', hilo: 'cleanup' }, 'holo-b');
+    expect(r2.ok).toBe(true); expect(x.nuevas).toHaveLength(1);
+    expect(x.avisados).toEqual([expect.objectContaining({ sesionId: 'nueva' })]);
+    expect(r2.texto).toContain('cleanup');
+    // another room and another thread are other conversations
+    await sendToRoom(x.c, 'express', { sala: 'pagos', mensaje: 'c', hilo: 'cleanup' });
+    await sendToRoom(x.c, 'express', { sala: 'express', mensaje: 'd', hilo: 'deps' }, 'holo-a');
+    expect(x.nuevas).toHaveLength(3);
+    // the thread's own conversation sending to it: a new one, which takes the thread over
+    reloj.t += 61_000;
+    await sendToRoom(x.c, 'express', { sala: 'express', mensaje: 'e', hilo: 'cleanup' }, 'nueva');
+    expect(x.nuevas).toHaveLength(4);
+    await sendToRoom(x.c, 'express', { sala: 'express', mensaje: 'f', hilo: 'cleanup' }, 'holo-f');
+    expect(x.avisados.at(-1)?.sesionId).toBe('nueva-4');
+    // closed: the next one starts a new one, which becomes the thread's
+    cerradas.add('nueva-4');
+    await sendToRoom(x.c, 'express', { sala: 'express', mensaje: 'g', hilo: 'cleanup' }, 'holo-g');
+    expect(x.nuevas).toHaveLength(5);
+    reloj.t += 61_000;
+    await sendToRoom(x.c, 'express', { sala: 'express', mensaje: 'h', hilo: 'cleanup' }, 'holo-h');
+    expect(x.avisados.at(-1)?.sesionId).toBe('nueva-5');
+    // without key or thread, nothing changes: a new one each time
+    await sendToRoom(x.c, 'express', { sala: 'express', mensaje: 'i' }, 'holo-i');
+    expect(x.nuevas).toHaveLength(6);
+    // not with a key, and only slugs
+    expect((await sendToRoom(x.c, 'pagos', { sala: 'express', mensaje: 'j', clave: 'ABC-1', hilo: 'cleanup' })).ok).toBe(false);
+    expect((await sendToRoom(x.c, 'pagos', { sala: 'express', mensaje: 'j', hilo: 'lo de ayer' })).ok).toBe(false);
+  });
+
+  it('request_worktree_cleanup: the game writes the request from the sender\'s worktree and sends it through its room\'s cleanup thread', async () => {
+    const x = ctx();
+    x.c.worktreeDeSesion = async (_sala, ses) => ses === 'holo-a' ? { ruta: '/repos/app-web/.claude/worktrees/a', rama: 'worktree-a', local: true }
+      : ses === 'holo-b' ? { ruta: '/repos/app-web/.claude/worktrees/b', rama: 'worktree-b', local: false } : undefined;
+    expect((await requestCleanup(x.c, 'express', 'ses-principal')).ok).toBe(false);
+    const r = await requestCleanup(x.c, 'express', 'holo-a', 'PR #12 merged');
+    expect(r.ok).toBe(true);
+    expect(x.nuevas[0]).toMatchObject({ salaId: 'express', cwd: undefined, worktree: undefined });
+    expect(x.nuevas[0].prompt).toContain('/repos/app-web/.claude/worktrees/a');
+    expect(x.nuevas[0].prompt).toContain('`local`');
+    expect(x.nuevas[0].prompt).toContain('PR #12 merged');
+    await requestCleanup(x.c, 'express', 'holo-b');
+    expect(x.nuevas).toHaveLength(1);
+    expect(x.avisados[0]).toMatchObject({ sesionId: 'nueva' });
+    expect(x.avisados[0].texto).toContain('worktree-b');
+    expect(x.avisados[0].texto).not.toContain('`local`');
   });
 
   it('nunca a la propia conversación: la que envía ya es la de esa tarea', async () => {

@@ -17,7 +17,7 @@ describe('game MCP tools', () => {
   it('servers, tools and parameters are named in English', () => {
     const plans = { get: () => undefined, ofRoom: () => [] } as any;
     const servers = [
-      mcpRooms({ salas: () => [] } as any, 'a'),
+      mcpRooms({ salas: () => [] } as any, 'a', undefined, true),
       mcpReview(() => '/tmp', { estado: async () => '', responder: async () => '' }),
       mcpAssignment({ salas: () => [], planes: plans } as any, { coordinacion: 'c', salaId: 'c', preguntar: async () => true }),
       mcpPlan({ planes: plans } as any, { salaId: 'a', sala: 'A' }),
@@ -26,9 +26,10 @@ describe('game MCP tools', () => {
     expect(servers.map(s => s.name)).toEqual(['rooms', 'review', 'assignment', 'plan', 'shelter']);
     const all = servers.flatMap(s => Object.entries(tools(s)));
     expect(all.map(([n]) => n).sort()).toEqual(['apply_decor', 'assign_work', 'compare_changes', 'current_decor', 'notify_room', 'preflight_answer', 'preflight_status',
-      'propose_plan_change', 'props_catalogue', 'read_plan', 'remove_decor', 'send_to_room', 'shared_plan', 'shelter_rooms', 'update_plan', 'view_room']);
+      'propose_plan_change', 'props_catalogue', 'read_plan', 'remove_decor', 'request_worktree_cleanup', 'send_to_room', 'shared_plan', 'shelter_rooms', 'update_plan', 'view_room']);
     const byName = Object.fromEntries(all);
-    expect(params(byName.send_to_room)).toEqual(['room', 'message', 'key']);
+    expect(params(byName.send_to_room)).toEqual(['room', 'message', 'key', 'thread']);
+    expect(params(byName.request_worktree_cleanup)).toEqual(['note']);
     expect(params(byName.assign_work)).toEqual(['key', 'plan', 'jobs', 'room', 'title', 'instructions', 'wait_for']);
     expect(all.flatMap(([n, x]) => params(x).filter(p => SPANISH.test(p)).map(p => `${n}.${p}`))).toEqual([]);
   });
