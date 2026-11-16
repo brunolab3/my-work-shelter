@@ -21,6 +21,8 @@ import { t } from '@shared/idioma';
 import { SFX } from '../audio/sonido';
 import { physicsKey } from '../audio/teclado';
 import { MAC, nextZ, windowShortcut, WindowButtons, Tabs, Confirmation } from './ventanas';
+import { pathWorktree, worktreesKnown } from './copias';
+import { worktreeTask } from '@shared/tareas';
 import { takeASurface } from './superficie';
 
 // una pestaña es un PTY; su id es el de la ventana (la primera) o el de la ventana con «::n» (las siguientes)
@@ -210,12 +212,13 @@ export function Terminales() {
 function WindowTerminal({ v }: { v: WindowTerm }) {
   const marco = useRef<HTMLDivElement>(null);
   const activa = v.pestanas.find(p => p.id === v.activa);
+  const lista = useRef<(() => void) | null>(null);
   // los atajos de ventana se cogen antes de que lleguen a la terminal (y al refugio)
   const shortcuts = (e: React.KeyboardEvent) => windowShortcut(e, {
     maximizada: v.maximizada, newTab: () => newTab(v.id), closeTab: () => askClose(v.id, [v.activa]), closeWindow: () => askClose(v.id),
     minimizar: () => minimizar(v.id), toggleMaximize: () => toggleMaximize(v.id), moveTab: d => moveTab(v.id, d),
     goTab: n => { const p = n === 9 ? v.pestanas.at(-1) : v.pestanas[n - 1]; if (p) activar(v.id, p.id); },
-    sacar: () => takeASurface({ terminales: [v.activa] }),
+    sacar: () => takeASurface({ terminales: [v.activa] }), lista: () => lista.current?.(),
   });
   const drag = (e: React.PointerEvent) => {
     if ((e.target as HTMLElement).closest('button') || v.maximizada) return;
@@ -229,6 +232,7 @@ function WindowTerminal({ v }: { v: WindowTerm }) {
     ? { left: 0, top: 0, width: '100vw', height: '100vh', resize: 'none' }
     : { left: v.x, top: v.y, width: v.w, height: v.h };
   const inRunning = v.confirmar ? v.pestanas.filter(p => v.confirmar!.includes(p.id) && !p.inPrompt) : [];
+  const ruta = pathWorktree(v.cwd, worktreesKnown()), wtTask = ruta ? worktreeTask({ ruta }) : undefined;
   return (
     <div ref={marco} className={'ventana-terminal interactivo' + (v.maximizada ? ' maximizada' : '')} style={{ ...estilo, zIndex: v.maximizada ? 200000 + v.z : v.z, display: v.minimizada ? 'none' : undefined }}
       onPointerDown={() => onFront(v.id)} onKeyDownCapture={shortcuts}
@@ -238,8 +242,9 @@ function WindowTerminal({ v }: { v: WindowTerm }) {
         <span className="vt-titulo">{t('windows.terminal')} · {v.titulo}</span><span className="vt-ruta">{v.cwd}{activa?.program ? ` · ${activa.program}` : ''}{activa?.fuera ? ` · ${t('windows.alsoOnYourDesktop')}` : ''}</span>
         <WindowButtons sacar={() => takeASurface({ terminales: [v.activa] })} takesThat={t('windows.thisTerminalTheSameOne')} maximizada={v.maximizada} minimizar={() => minimizar(v.id)} toggleMaximize={() => toggleMaximize(v.id)} cerrar={() => askClose(v.id)} closesThat={t('windows.theTerminalAndAllIts')} />
       </div>
-      <Tabs items={v.pestanas.map(p => ({ id: p.id, nombre: (p.fuera ? '↗ ' : '') + (p.program ?? folderName(v.cwd)), piloto: p.inPrompt ? 'ociosa' : 'trabajando', titulo: (p.program ? t('windows.programaRunning', { program: p.program }) : t('windows.atThePrompt')) + (p.fuera ? ` · ${t('windows.alsoOpenOnYourDesktop')}` : '') }))}
-        activa={v.activa} activar={pid => activar(v.id, pid)} cerrar={pid => askClose(v.id, [pid])} nueva={() => newTab(v.id)} opensThat={t('windows.newTabInTheSame')} />
+      {/* in opening order: a program starting does not move its tab */}
+      <Tabs lista={lista} confirmando={!!v.confirmar} items={v.pestanas.map(p => ({ id: p.id, nombre: (p.fuera ? '↗ ' : '') + (p.program ?? folderName(v.cwd)), estado: p.inPrompt ? 'ociosa' as const : 'trabajando' as const, tarea: wtTask, titulo: (p.program ? t('windows.programaRunning', { program: p.program }) : t('windows.atThePrompt')) + (p.fuera ? ` · ${t('windows.alsoOpenOnYourDesktop')}` : '') }))}
+        activa={v.activa} activar={pid => activar(v.id, pid)} cerrar={pids => askClose(v.id, pids)} nueva={() => newTab(v.id)} opensThat={t('windows.newTabInTheSame')} />
       <div className="vt-cuerpo">
         {v.pestanas.map(p => <TabTerminal key={p.id} id={p.id} cwd={v.cwd} visible={!v.minimizada && p.id === v.activa} />)}
         {v.confirmar && <Confirm v={v} inRunning={inRunning} />}

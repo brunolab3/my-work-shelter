@@ -2,10 +2,10 @@
 // encima de otra: intercomunicadores (COM), terminales (TERM), navegadores (NAV), el cliente de git (GIT) y los archivos (ARCH). Las minimizadas van hundidas. Un clic abre la ventana o la trae delante; si ya estaba delante, la minimiza.
 // Con teclado: ⌘B desde cualquier sitio (o B en el refugio) entra en la barra; ←→ eligen, ↑↓ cambian de fila,
 // Intro abre, X cierra (con lo de siempre: si hay algo en marcha, pregunta) y Esc (o ⌘B) sale.
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { t } from '@shared/idioma';
 import { terminales, onFront, minimizar, askClose as closeTerminal } from './Terminales';
-import { intercoms, minimizeIntercom, restoreIntercom, sessionPilot, askClose as closeIntercom } from './Dialogo';
+import { intercoms, minimizeIntercom, restoreIntercom, sessionPilot, openConversation, hace, askClose as closeIntercom } from './Dialogo';
 import { juego } from './estadoJuego';
 import { vivo } from '../red/cliente';
 import { Store } from './almacen';
@@ -103,6 +103,11 @@ export function Barra() {
   const repos = vivo.usar(e => e.repos);
   const sel = seleccion.usar(e => e.actual);
   const caja = useRef<HTMLDivElement>(null);
+  // hovering an intercom chip shows its conversations, to go straight to one (fixed: the row clips what overflows it)
+  const [asomo, setAsomo] = useState<{ id: string; x: number; y: number } | null>(null);
+  const reloj = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const quedarse = () => clearTimeout(reloj.current);
+  const irse = () => { clearTimeout(reloj.current); reloj.current = setTimeout(() => setAsomo(null), 200); };
   // un clic fuera de la barra la suelta
   useEffect(() => { if (!sel) return; const f = (e: PointerEvent) => { if (!caja.current?.contains(e.target as Node)) salir(false); }; addEventListener('pointerdown', f, true); return () => removeEventListener('pointerdown', f, true); }, [!!sel]);
   const fs = filas();
@@ -121,7 +126,8 @@ export function Barra() {
             const ses = v.pestanas.map(p => (p.vista.tipo === 'sesion' ? sesiones[p.vista.sesionId] : undefined)).filter(Boolean).sort((a, b) => (URGENCY[a!.estado] ?? 5) - (URGENCY[b!.estado] ?? 5));
             const worst = ses[0], abierto = talking === v.dwellerId;
             return (
-              <button key={v.dwellerId} className={'chip-terminal' + (h!.copia ? ' de-copia' : '') + (abierto ? ' delante' : ' minimizada') + (worst?.estado === 'esperando' ? ' urgente' : '') + (marcado(0, i) ? ' marcado' : '')}
+              <button key={v.dwellerId} onMouseEnter={e => { quedarse(); const r = e.currentTarget.getBoundingClientRect(); if (ses.length > 1) setAsomo({ id: v.dwellerId, x: r.left, y: r.top }); else setAsomo(null); }} onMouseLeave={irse}
+                className={'chip-terminal' + (h!.copia ? ' de-copia' : '') + (abierto ? ' delante' : ' minimizada') + (worst?.estado === 'esperando' ? ' urgente' : '') + (marcado(0, i) ? ' marcado' : '')}
                 onClick={() => (abierto ? minimizeIntercom() : restoreIntercom(v.dwellerId))}
                 title={`${t('windows.intercomWithQuien', { quien: h!.copia ? t('windows.autorSHolographicCopyBranch', { autor: h!.copia.nameAuthor, rama: h!.copia.rama }) : h!.nombre })} (${h!.nameRoom})\n${abierto ? t('windows.clickToMinimize') : t('windows.clickToGoBackTo', { nombre: h!.nombre })}`}>
                 <span className={'piloto ' + sessionPilot(worst)} />
@@ -131,6 +137,20 @@ export function Barra() {
           })}
         </div>
       )}
+      {asomo && (() => {
+        const v = coms.find(x => x.dwellerId === asomo.id);
+        const ses = (v?.pestanas ?? []).map(p => (p.vista.tipo === 'sesion' ? sesiones[p.vista.sesionId] : undefined)).filter(Boolean).sort((a, b) => (URGENCY[a!.estado] ?? 5) - (URGENCY[b!.estado] ?? 5) || b!.actualizada - a!.actualizada);
+        return ses.length ? (
+          <div className="barra-asomo" style={{ left: asomo.x, bottom: innerHeight - asomo.y + 4 }} onMouseEnter={quedarse} onMouseLeave={irse}>
+            {ses.map(s => (
+              <button key={s!.id} className={'barra-asomo-fila' + (s!.estado === 'esperando' ? ' urgente' : '') + (s!.estado === 'terminada' && s!.sinLeer ? ' sin-leer' : '')} onClick={() => { setAsomo(null); openConversation(s!.id); }}>
+                <span className={'piloto ' + (s!.estado === 'terminada' && s!.sinLeer ? 'terminada' : sessionPilot(s!))} /><span className="barra-asomo-estado">{s!.estado === 'terminada' && s!.sinLeer ? t('windows.tabUnread') : STATE_TEXT[s!.estado] ?? s!.estado}</span>
+                <span className="barra-asomo-titulo">{s!.titulo || t('windows.conversation')}</span><small>{hace(s!.actualizada)}</small>
+              </button>
+            ))}
+          </div>
+        ) : null;
+      })()}
       {terms.length > 0 && (
         <div className="barra-fila term">
           <span className="barra-tipo" title={t('windows.terminals')}>TERM</span>
