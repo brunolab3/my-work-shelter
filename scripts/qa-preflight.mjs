@@ -1,14 +1,11 @@
 // QA del pre-flight de una tarea (web/src/ui/Preflight.tsx), con un servidor propio en un refugio de pruebas y Playwright:
-// - un repo de pruebas con el worktree de la tarea QA-7 (con un archivo sin commitear), admitido como sala: la acción
-//   `preflight.tarea` de verdad (sin GitHub) da su parte sin PR, con «1 sin commitear» ⚠;
-// - la ventana pintada con una tarea en dos repos (respuesta de ejemplo: PR con CI roja, otro que espera a ese, una
-//   parte del plan sin empezar, hilos de revisión sin resolver): una fila por parte, ✓/⚠/✗ por columna, checklist en «—»,
-//   el orden de fusión y los hilos (→ los despliega: archivo:línea, autor y primera línea; O abre el hilo);
-// - fase 2: la comparación de la tarea de verdad (C) sale sin revisar; validada (V), la parte pasa a ✓ en compare; un
-//   commit nuevo en el worktree la deja vieja (⚠);
-// - fase 3: la lista «antes de subir» (guardada como en la cámara acorazada) sale en Checklist como 0/2 y la puerta de
-//   git push (acción preflight.puerta, la del cliente de git) dice lo que falta;
-// - ⌘K «qa-7» ofrece «Pre-flight QA-7» y lo abre; Esc lo cierra.
+// - a test repo with the worktree of task QA-7 (one uncommitted file), admitted as a room: the real `preflight.tarea`
+//   action (no GitHub) gives its part without a PR, with «1 uncommitted» ⚠; the push gate (preflight.puerta) says what
+//   is missing (compare and the 0/2 checklist); the window has no table (nothing to merge) and names the room;
+// - the window with a task in two repos (example response): one row per PR in merge order, merged ✔, red CI ✗,
+//   conflicts ✗, the one that waits ⚠; no compare/sync/checklist columns or thread list; the plan part without a PR is
+//   named below; the merge order strikes the merged PR; clicking a row opens the PR in the GitHub window;
+// - ⌘K «qa-7» offers «Pre-flight QA-7» and opens it; Esc closes it.
 // Necesita el cliente compilado (npx vite build). Uso: node scripts/qa-preflight.mjs [carpeta-capturas]   (SHELTER_PUERTO_QA, 3794)
 import { chromium } from 'playwright';
 import { spawn, execFileSync } from 'node:child_process';
@@ -68,22 +65,10 @@ try {
   ver(puerta?.clave === 'QA-7' && puerta.falta.length === 2, `la puerta de push dice lo que falta (${puerta?.falta?.join(' | ')})`);
   ver(await pg.evaluate(() => window.__client.accion('preflight.puerta', { ruta: '/etc' }).then(() => false, () => true)), 'la puerta no mira carpetas que no son del refugio');
 
-  // ---- la ventana con la tarea de verdad
+  // ---- the window with the real task: its worktree has no PR yet, so there is nothing to merge
   await pg.evaluate(() => window.__juego.set({ panel: 'preflight', panelData: { clave: 'QA-7' } }));
-  ver(await hasta(() => pg.isVisible('.pf-tabla')), 'la ventana pinta la tabla');
-  ver((await pg.$$('.pf-fila')).length === 1, 'una fila');
-  ver(/0\/2/.test(await pg.$$eval('.pf-fila td', td => td.at(-1)?.textContent ?? '')), 'Checklist: 0/2 en este commit');
-  const celdaCompare = () => pg.$$eval('.pf-fila td', td => td[2]?.textContent ?? '');
-  ver(/sin compare/.test(await celdaCompare()), `sin compare aún: ✗ (${await celdaCompare()})`);
-  // la de la tarea: C la hace (y la abre), V la valida
-  await pg.keyboard.press('KeyC');
-  ver(await hasta(async () => /sin revisar/.test(await celdaCompare()), 45000), `C hace el compare de la tarea: sin revisar (${await celdaCompare()})`);
-  await pg.keyboard.press('KeyV');
-  ver(await hasta(async () => /validada/.test(await celdaCompare())), `V lo valida: ✓ en este commit (${await celdaCompare()})`);
+  ver(await hasta(async () => /QA-7/.test(await pg.textContent('.aparato').catch(() => '')) && !(await pg.isVisible('.pf-tabla')) && /tienda/.test(await pg.textContent('.aparato'))), 'no PR yet: no table, and the room working on it is named');
   await pg.waitForTimeout(600); await pg.screenshot({ path: path.join(dir, 'preflight-real.png') });
-  sh(wt, 'add', '.'); sh(wt, 'commit', '-q', '-m', 'otro paso');
-  await pg.keyboard.press('KeyR');
-  ver(await hasta(async () => /HEAD/.test(await celdaCompare())), `un commit nuevo la deja vieja (${await celdaCompare()})`);
   await pg.keyboard.press('Escape');
   ver(await hasta(async () => (await pg.evaluate(() => window.__juego.get().panel)) === null), 'Esc la cierra');
 
@@ -91,37 +76,40 @@ try {
   await pg.evaluate(() => {
     const c = window.__client, orig = c.accion.bind(c);
     const pr = (repo, numero, extra) => ({ numero, titulo: 'PR de ejemplo ' + numero, url: `https://github.com/${repo}/pull/${numero}`, repo, rama: 'QA-9-parte-' + numero, estado: 'abierto', actualizado: 0, base: 'main', revision: 'REVIEW_REQUIRED', checks: 'SUCCESS', cabeza: 'c' + numero, ...extra });
-    const api = pr('acme/api', 1, { checks: 'FAILURE' }), web = pr('acme/web', 2, { revision: 'APPROVED' });
+    const api = pr('acme/api', 1, { checks: 'FAILURE' }), web = pr('acme/web', 2, { revision: 'APPROVED' }), otra = pr('acme/web', 3, { revision: 'APPROVED', conflictos: true }), hecho = pr('acme/api', 4, { estado: 'fusionado' });
     const cel = (marca, texto) => ({ marca, texto });
     const hilos = [{ archivo: 'src/carrito.ts', linea: 42, autor: 'revisora', texto: '¿Qué pasa si el cupón ha caducado?', url: api.url + '#discussion_r1', outdated: false }, { archivo: 'src/cupon.ts', linea: 7, autor: 'bot-revisor', texto: 'Falta una prueba', url: api.url + '#discussion_r2', outdated: true }];
     const respuesta = {
       clave: 'QA-9', color: '#4dabff', titulo: 'Carrito con cupones',
       partes: [
-        { id: api.url, salaId: 'api', sala: 'api', repo: api.repo, rama: api.rama, pr: api, worktree: '/r/api', plan: 'Contrato', sync: cel('aviso', 'faltan commits remotos (¿un bot?)'), ci: cel('mal', 'roja'), revision: cel('aviso', 'esperando revisión · 💬 2 sin resolver'), bloqueos: cel('ok', 'bloquea a web#2'), checklist: cel('aviso', '1/2 en def5678'), compare: cel('aviso', 'es de abc1234; HEAD def5678'), compareArchivo: '/tmp/no.html', hilos, repoItems: ['npm run lint'], ciChecks: [{ nombre: 'build', estado: 'mal' }], esperaA: [], bloquea: [{ ref: web.url, url: web.url, estado: 'abierto', motivo: 'plan' }] },
-        { id: web.url, salaId: 'web', sala: 'web', repo: web.repo, rama: web.rama, pr: web, worktree: '/r/web', sync: cel('ok', 'al día'), ci: cel('ok', 'verde'), revision: cel('ok', 'aprobado'), bloqueos: cel('aviso', 'espera a api#1 (abierto · su CI en rojo)'), checklist: cel('ok', '2/2 en c2c2c2c'), compare: cel('ok', 'validada en c2c2c2c'), hilos: [], repoItems: [], ciChecks: [], esperaA: [{ ref: 'acme/api#1', url: api.url, estado: 'abierto', checks: 'FAILURE', motivo: 'plan' }], bloquea: [] },
-        { id: 'plan:docs', salaId: 'docs', sala: 'docs', plan: 'La guía', sinEmpezar: true, sync: cel('nada', '—'), ci: cel('nada', '—'), revision: cel('nada', '—'), bloqueos: cel('nada', '—'), checklist: cel('nada', '—'), compare: cel('nada', '—'), hilos: [], repoItems: [], ciChecks: [], esperaA: [], bloquea: [] },
+        { id: api.url, salaId: 'api', sala: 'api', repo: api.repo, rama: api.rama, pr: api, worktree: '/r/api', plan: 'Contrato', sync: cel('aviso', 'faltan commits remotos (¿un bot?)'), ci: cel('mal', 'roja'), revision: cel('aviso', 'esperando revisión · 💬 2 sin resolver'), conflictos: cel('ok', 'fusionable'), bloqueos: cel('ok', 'bloquea a web#2'), checklist: cel('aviso', '1/2 en def5678'), compare: cel('aviso', 'es de abc1234; HEAD def5678'), compareArchivo: '/tmp/no.html', hilos, repoItems: ['npm run lint'], ciChecks: [{ nombre: 'build', estado: 'mal' }], esperaA: [], bloquea: [{ ref: web.url, url: web.url, estado: 'abierto', motivo: 'plan' }] },
+        { id: web.url, salaId: 'web', sala: 'web', repo: web.repo, rama: web.rama, pr: web, worktree: '/r/web', sync: cel('ok', 'al día'), ci: cel('ok', 'verde'), revision: cel('ok', 'aprobado'), conflictos: cel('ok', 'fusionable'), bloqueos: cel('aviso', 'espera a api#1 (abierto · su CI en rojo)'), checklist: cel('ok', '2/2 en c2c2c2c'), compare: cel('ok', 'validada en c2c2c2c'), hilos: [], repoItems: [], ciChecks: [], esperaA: [{ ref: 'acme/api#1', url: api.url, estado: 'abierto', checks: 'FAILURE', motivo: 'plan' }], bloquea: [] },
+        { id: otra.url, salaId: 'web', sala: 'web', repo: otra.repo, rama: otra.rama, pr: otra, sync: cel('ok', 'al día'), ci: cel('ok', 'verde'), revision: cel('ok', 'aprobado'), conflictos: cel('mal', 'con conflictos'), bloqueos: cel('nada', 'sin bloqueos'), checklist: cel('nada', '—'), compare: cel('nada', '—'), hilos: [], repoItems: [], ciChecks: [], esperaA: [], bloquea: [] },
+        { id: hecho.url, salaId: 'api', sala: 'api', repo: hecho.repo, rama: hecho.rama, pr: hecho, sync: cel('nada', '—'), ci: cel('nada', '—'), revision: cel('ok', 'fusionado'), conflictos: cel('nada', '—'), bloqueos: cel('nada', 'sin bloqueos'), checklist: cel('nada', '—'), compare: cel('nada', '—'), hilos: [], repoItems: [], ciChecks: [], esperaA: [], bloquea: [] },
+        { id: 'plan:docs', salaId: 'docs', sala: 'docs', plan: 'La guía', sinEmpezar: true, sync: cel('nada', '—'), ci: cel('nada', '—'), revision: cel('nada', '—'), conflictos: cel('nada', '—'), bloqueos: cel('nada', '—'), checklist: cel('nada', '—'), compare: cel('nada', '—'), hilos: [], repoItems: [], ciChecks: [], esperaA: [], bloquea: [] },
       ],
-      olas: [['acme/api#1'], ['acme/web#2']], ciclo: [], checklist: ['Compare revisado', 'Pruebas con datos reales'],
+      olas: [['acme/api#4', 'acme/api#1', 'acme/web#3'], ['acme/web#2']], ciclo: [], checklist: ['Compare revisado', 'Pruebas con datos reales'],
     };
     c.accion = (n, d) => n === 'preflight.tarea' && String(d?.clave).toUpperCase() === 'QA-9' ? Promise.resolve(respuesta) : orig(n, d);
     window.__juego.set({ panel: 'preflight', panelData: { clave: 'QA-9' } });
   });
-  ver(await hasta(async () => (await pg.$$('.pf-fila')).length === 3), 'tres filas: dos PR y la parte del plan sin empezar');
+  ver(await hasta(async () => (await pg.$$('.pf-fila')).length === 4), 'four rows: one per PR, none for the plan part without a PR');
+  const cabeceras = await pg.$$eval('.pf-tabla th', th => th.map(x => x.textContent).join('|'));
+  ver(!/Compare|Checklist|Sincron|Sync/.test(cabeceras) && /Conflict/.test(cabeceras), `no push columns, a conflicts column (${cabeceras})`);
   const estados = await pg.$$eval('.pf-estado', e => e.map(x => x.textContent));
-  ver(estados.join(' ') === '✗ ⚠ ✗', `estado por parte: CI roja ✗, la que espera ⚠ (no ✗), sin empezar ✗ (${estados.join(' ')})`);
-  ver(/2 hilos/.test(await pg.textContent('.pf-fila')), 'la revisión de api lleva «2 hilos»');
-  await pg.keyboard.press('ArrowRight');
-  ver(await hasta(async () => (await pg.$$('.pf-hilo')).length === 2), '→ despliega sus dos hilos');
-  const hilo = await pg.textContent('.pf-hilo');
-  ver(/src\/carrito\.ts:42/.test(hilo) && /revisora/.test(hilo) && /caducado/.test(hilo), `cada hilo con archivo:línea, autor y primera línea (${hilo.trim()})`);
-  await pg.waitForTimeout(600); await pg.screenshot({ path: path.join(dir, 'preflight-hilos.png') });
-  await pg.keyboard.press('ArrowDown');
-  ver(await pg.$eval('.pf-hilo', e => e.classList.contains('sel')), '↓ elige el primer hilo (O lo abriría en GitHub)');
-  await pg.keyboard.press('ArrowLeft');
-  ver(await hasta(async () => (await pg.$$('.pf-hilo')).length === 0), '← los recoge');
-  ver(/1.*api#1.*2.*web#2/.test(await pg.textContent('.orden-despliegue')), 'el orden de fusión: api#1 → web#2');
+  ver(estados.join(' ') === '✔ ✗ ✗ ⚠', `merged ✔, red CI ✗, conflicts ✗, the one that waits ⚠ (not ✗), in merge order (${estados.join(' ')})`);
+  ver(!(await pg.$$('.pf-hilo')).length && !/carrito\.ts/.test(await pg.textContent('.pf-tabla')), 'no review threads listed, only their count');
+  ver(/docs/.test(await pg.textContent('.aparato')), 'the plan part without a PR is named below');
+  ver(/1.*api#4.*api#1.*web#3.*2.*web#2/.test(await pg.textContent('.orden-despliegue')) && await pg.$eval('.orden-despliegue .pf-hecha', e => /api#4/.test(e.textContent)), 'merge order, with the merged PR struck through');
   await pg.waitForTimeout(600); await pg.screenshot({ path: path.join(dir, 'preflight-dos-repos.png') });
-  await pg.keyboard.press('Escape');
+  // outside Electron the GitHub window is a new tab (window.open): what matters is which URL it opens
+  await pg.evaluate(() => { window.__abierta = ''; window.open = u => { window.__abierta = String(u); return null; }; });
+  await pg.click('.pf-fila:nth-child(2) .pf-parte');
+  ver(await hasta(async () => (await pg.evaluate(() => window.__abierta)) === 'https://github.com/acme/api/pull/1'), 'clicking a row opens its PR');
+  await pg.evaluate(() => { window.__abierta = ''; });
+  await pg.click('.pf-fila:nth-child(4) td:last-child .pf-boton');
+  ver(await hasta(async () => (await pg.evaluate(() => window.__abierta)) === 'https://github.com/acme/api/pull/1'), 'clicking the blockers of web#2 opens api#1, the PR it waits for');
+  await pg.evaluate(() => window.__juego.set({ panel: null, panelData: null }));
 
   // ---- ⌘K
   await pg.keyboard.press('Meta+KeyK');

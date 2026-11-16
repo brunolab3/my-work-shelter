@@ -144,7 +144,7 @@ export async function compareFiles(cwd: string, o: { base?: string; sinCommit?: 
 
 /** Lo que dice de sí una página de comparación (`<página>.json` al lado): de qué worktree, rama y commit es cada parte.
  *  Así una validación queda atada a un commit: uno nuevo la deja vieja (shared/preflight.ts) */
-export interface CompareSidecar { ts: number; tarea?: string; partes: { worktree: string; rama: string; head: string; base: string }[] }
+export interface CompareSidecar { ts: number; partes: { worktree: string; rama: string; head: string; base: string }[] }
 export const sidecarOf = (archivo: string) => archivo.replace(/\.html$/, '.json');
 async function writePage(archivo: string, html: string, sidecar: CompareSidecar) {
   await fs.mkdir(path.dirname(archivo), { recursive: true });
@@ -162,23 +162,6 @@ export async function buildCompare(cwd: string, o: { base?: string; sinCommit?: 
   const archivo = path.join(carpeta, pageName(`${repo}-${rama}`));
   await writePage(archivo, compareHtml(titulo, subtitulo, files), { ts: Date.now(), partes: [{ worktree: path.resolve(raiz), rama, head, base }] });
   return { archivo, base, rama, head, archivos: files.length, mas: files.reduce((n, f) => n + f.mas, 0), menos: files.reduce((n, f) => n + f.menos, 0) };
-}
-
-/** La comparación de toda una tarea: una página con una sección por repo (en el orden de fusión), cada archivo con su
- *  repo delante. Cada parte, frente a la base de su PR (`origin/<base>` si está) o, sin ella, la de buildCompare */
-export async function buildTaskCompare(clave: string, partes: { worktree: string; nombre: string; base?: string }[], carpeta = COMPARES_FOLDER) {
-  const existe = async (cwd: string, c: string) => !!(await gitOr(cwd, ['rev-parse', '--verify', '--quiet', c + '^{commit}']));
-  const todos: FileDiff[] = [], lados: CompareSidecar['partes'] = [], lineas: string[] = [];
-  for (const p of partes) {
-    const base = p.base ? ((await existe(p.worktree, 'origin/' + p.base)) ? 'origin/' + p.base : (await existe(p.worktree, p.base)) ? p.base : undefined) : undefined;
-    const r = await compareFiles(p.worktree, { base });
-    todos.push(...r.files.map(f => ({ ...f, ruta: `${p.nombre}/${f.ruta}`, antes: f.antes && `${p.nombre}/${f.antes}` })));
-    lados.push({ worktree: path.resolve(r.raiz), rama: r.rama, head: r.head, base: r.base });
-    lineas.push(`${p.nombre}: ${t('tool.compare.subtitle', { rama: r.rama, base: r.base })}`);
-  }
-  const archivo = path.join(carpeta, pageName(`tarea-${clave}`));
-  await writePage(archivo, compareHtml(t('tool.compare.taskTitle', { clave }), lineas.join(' · ') + t('tool.compare.withUncommitted'), todos), { ts: Date.now(), tarea: clave, partes: lados });
-  return { archivo, archivos: todos.length, mas: todos.reduce((n, f) => n + f.mas, 0), menos: todos.reduce((n, f) => n + f.menos, 0) };
 }
 
 /** Otra copia (worktree) del mismo repo que la conversación: solo esas, nunca una carpeta cualquiera */

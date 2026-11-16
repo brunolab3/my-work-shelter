@@ -276,36 +276,35 @@ the plan in plan mode without touching the repos. The list of your PRs and those
 Control (Pull requests tab of the git client; T from the Jira board).
 
 **Pre-flight of a task** (`shared/preflight.ts`, `server/preflight.ts`, `web/src/ui/Preflight.tsx`,
-action `preflight.tarea`). One window per Jira key with every part of the task across the shelter: each PR of the task
-in every repo (the board's PRs plus all open ones, read from GitHub at most once a minute; R forces it), the task's
-worktrees without a PR yet and the parts of its shared plan not started. Per part: sync (local HEAD of its branch vs
-the PR's head on GitHub, without fetching: a head missing locally means remote commits, e.g. a bot's fix; plus
-uncommitted changes), CI, review and blockers ("waits for" / "blocks", with the other PR's state: a blocker's red CI is
-the blocker's problem, not this part's), then the merge waves of the task and what it waits for. Compare: each
-compare page (`compare_changes`, `server/comparar.ts`) writes a `<page>.json` beside it with the worktree, branch and
-HEAD sha of each part; validating it or sending notes (in the page window or the intercom's «📄 Pages») is also saved
-on the server (action `paginas.responder`, `DATOS/preflight.json`, `PageReviews` in `server/preflight.ts`), so the part
-is ✓ only while its HEAD is the validated one (a new commit or a rebuilt page makes it ⚠). C builds one compare for
-the whole task (a section per repo in merge order, each against its PR's base: `buildTaskCompare`) and V validates
-it: it counts for every part at its sha. Review threads (reusing `shared/cuentaRevisiones.ts`): the review
-cell adds the unresolved threads and unanswered summaries from the last `revisionesPR.ts` poll (an approved PR with
-open threads is ⚠); → expands its threads (file:line, author, first line: `openThreads`, `threadsOf`), O on one
-opens it on GitHub, Enter opens the part's conversation to address them. Checklist: the Overseer's own
+action `preflight.tarea`). One window per Jira key that answers "can each PR of this task be merged now?": one row per
+PR of the task in every repo (the board's PRs plus all open ones, read from GitHub at most once a minute; R forces it),
+in merge order, with its state (draft, open, merged), CI, review (approved, changes requested or waiting, plus the
+count of unresolved threads and unanswered summaries from the last `revisionesPR.ts` poll), conflicts (GitHub's
+`mergeable`) and blockers ("waits for" / "blocks", with the other PR's state: a blocker's red CI is the blocker's
+problem, not this row's). The first column (`mergeReady`) is ✓ only when the PR is open, green, approved without open
+threads, mergeable and waits for nothing unmerged; its hover lists what's missing. Clicking a row (or Enter) opens the
+PR; clicking its blockers, the PR it waits for. Below, the rooms of the task still without a PR and the merge waves
+(merged PRs struck through, ready ones ✓). Ways in: F or the ✈ on a task block in the Deployment plan, ✈ in a copy's
+intercom (under its PR list) and ⌘K "Pre-flight ABC-123" (the tasks of your copies and open PRs, or any key typed).
+
+**The push gate** uses the same model per part (also worktrees without a PR), but none of it is shown in the window:
+sync (local HEAD of its branch vs the PR's head on GitHub, without fetching, plus uncommitted changes), compare and
+checklist. Compare: each compare page (`compare_changes`, `server/comparar.ts`) writes a `<page>.json` beside it with
+the worktree, branch and HEAD sha of each part; validating it or sending notes (in the page window or the intercom's
+«📄 Pages») is saved on the server (action `paginas.responder`, `DATOS/preflight.json`, `PageReviews` in
+`server/preflight.ts`), so it counts only while its HEAD is the validated one. Checklist: the Overseer's own
 "before pushing" items, in the Vault (Shelter settings; pre-filled ONCE from the "Before pushing" section of
 `~/.claude/CLAUDE.md`, `checklistFromClaudeMd`; saved in `ajustes.checklistPreflight`), answered by the dweller per
 commit with `preflight_answer` (in the `revision` MCP; `ok`, `n/a` with a note, or `pendiente`), which can read
-its whole part with `preflight_status`. Each part's list also carries what its own repo asks (`repoChecks` in
+its whole part (with its review threads and CI checks) with `preflight_status`. Each part's list also carries what its own repo asks (`repoChecks` in
 `server/preflight.ts`, pure `repoChecklist`; files are only read, nothing is run by the game): the "Before pushing / Before
 opening a PR / Pre-flight" section of its CLAUDE.md and AGENTS.md, its check-like skills in `.claude/skills` (review,
 acceptance criteria, tests…; `skill · name`), and its check commands (`package.json` lint/test/typecheck scripts,
-`Makefile` targets, `pre-commit`), which the dweller runs and answers like the rest. Each GitHub check of the PR's
-head is listed too (from the `fallosCI.ts` poll, `checksOf`), set by CI and not answered. The gate: a `git push` (`pushOf`: also `git -C x push`, after a `cd` or inside `sh -c`, not `--dry-run`; only
+`Makefile` targets, `pre-commit`), which the dweller runs and answers like the rest. The gate: a `git push` (`pushOf`: also `git -C x push`, after a `cd` or inside `sh -c`, not `--dry-run`; only
 `git push`, by the Overseer's decision) from a task worktree whose compare isn't validated at its HEAD, or (unless the
 PR is a draft) whose list isn't answered, ASKS the Overseer first in the permission dialog (a `PreToolUse` hook in
 `server/sesiones.ts`, so it applies in every permission mode, also over Remote Control/Slack); no denies it with what's
-missing. The git client's push and sync do the same check (action `preflight.puerta`). Each cell opens what fixes it:
-the compare page, the part's conversation (Enter), the PR or its checks (O), the git client on its worktree (G). Ways in: F or the ✈ on a task block in the Deployment plan, ✈ in a copy's
-intercom (under its PR list) and ⌘K "Pre-flight ABC-123" (the tasks of your copies and open PRs, or any key typed).
+missing. The git client's push and sync do the same check (action `preflight.puerta`).
 QA: `scripts/qa-preflight.mjs` (own server and test shelter; needs the built client).
 
 ## Linear's official MCP for the Planning dweller

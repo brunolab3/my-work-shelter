@@ -20,6 +20,7 @@ export interface PRBoard {
   cabeza?: string;             // el último commit de su rama en GitHub (server/limpiezaTareas.ts: lo del worktree ya está ahí)
   base?: string;               // la rama sobre la que va (si es la de otro PR, va apilado encima: shared/despliegue.ts)
   dependencias?: string[];
+  conflictos?: boolean;        // GitHub's mergeable: true = conflicts with its base, false = mergeable, undefined = still computing
   ledger?: ReviewLedger;       // lo que queda por contestar en sus revisiones (shared/cuentaRevisiones.ts; solo los abiertos)     // los PR («org/repo#N», o «rama:<rama>» si los nombra por su rama) de los que dice depender su descripción
 }
 export interface TaskWithPR extends TaskJira { prs: PRBoard[] }

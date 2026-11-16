@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { bloqueosEntre } from './despliegue';
-import { checklistCell, checklistFromClaudeMd, compareCell, estadoParte, gateMissing, preflightTarea, pushOf, reviewCell, syncCell, type CompareRecord, type LocalBranch, type RoomRepo } from './preflight';
+import { checklistCell, checklistFromClaudeMd, compareCell, conflictsCell, gateMissing, mergeReady, preflightTarea, pushOf, reviewCell, syncCell, type CompareRecord, type LocalBranch, type RoomRepo } from './preflight';
 import type { PRBoard } from './tablero';
 
 // repos, salas y personas inventados
@@ -39,9 +39,9 @@ describe('preflightTarea', () => {
     expect(pw.ci.marca).toBe('ok');
     expect(pw.bloqueos.marca).toBe('aviso');
     expect(pw.bloqueos.texto).toMatch(/api#10.*CI/);
-    expect(estadoParte(pw).estado).toBe('aviso');
+    expect(mergeReady(pw).estado).toBe('aviso');
     expect(pa.ci.marca).toBe('mal');
-    expect(estadoParte(pa).estado).toBe('falta');
+    expect(mergeReady(pa).estado).toBe('falta');
   });
 
   it('PR apilados en un mismo repo: dos partes, la de arriba espera a la de abajo, una sola sacada en el worktree', () => {
@@ -72,7 +72,7 @@ describe('preflightTarea', () => {
     expect(pa.plan).toBe('El contrato');
     const sinEmpezar = r.partes.filter(p => p.sinEmpezar).map(p => p.sala);
     expect(sinEmpezar).toEqual(['docs', 'web']);
-    expect(estadoParte(r.partes.find(p => p.sala === 'web')!).estado).toBe('falta');
+    expect(mergeReady(r.partes.find(p => p.sala === 'web')!).estado).toBe('falta');
   });
 
   it('el plan dice que una parte espera a una sala aún sin PR: la espera sale igual', () => {
@@ -87,7 +87,38 @@ describe('preflightTarea', () => {
     const cerrado = pr('acme/api', 60, { rama: 'ABC-6-viejo', estado: 'cerrado' });
     const r = preflightTarea('ABC-6', { prs: [cerrado], bloqueos: [], locales: [{ salaId: 'web', rama: 'ABC-6-nuevo', head: 'aa', worktree: '/r/web-abc-6', cambios: 0 }], salas: SALAS, compares: [validada('/r/web-abc-6', 'ABC-6-nuevo', 'aa')] });
     expect(r.partes.map(p => [p.sala, p.pr?.numero, p.rama])).toEqual([['web', undefined, 'ABC-6-nuevo']]);
-    expect(estadoParte(r.partes[0]).estado).toBe('listo');
+    expect(r.partes[0].compare.marca).toBe('ok');                    // the push gate still sees it
+    expect(mergeReady(r.partes[0]).estado).toBe('falta');            // nothing to merge without a PR
+  });
+});
+
+describe('mergeReady', () => {
+  const listo = { revision: 'APPROVED' as const, checks: 'SUCCESS' as const, conflictos: false };
+  const parte = (prs: PRBoard[], url: string) => preflightTarea('ABC-9', { prs, bloqueos: bloqueosEntre(prs), locales: [], salas: SALAS }).partes.find(p => p.pr?.url === url)!;
+  it('open, green, approved and mergeable → ready, whatever its compare or checklist say', () => {
+    const a = pr('acme/api', 1, { rama: 'ABC-9-api', ...listo });
+    const p = parte([a], a.url);
+    expect(p.compare.marca).toBe('nada');
+    expect(mergeReady(p)).toEqual({ estado: 'listo', falta: [] });
+  });
+  it('approved and green but with conflicts → ✗, and the hover says why', () => {
+    const a = pr('acme/api', 1, { rama: 'ABC-9-api', ...listo, conflictos: true });
+    const r = mergeReady(parte([a], a.url));
+    expect(r.estado).toBe('falta');
+    expect(r.falta.join(' ')).toMatch(/conflict/);
+    expect(conflictsCell({ ...a, conflictos: undefined }).marca).toBe('nada');   // GitHub still computing it
+  });
+  it('waits for an open PR → ⚠ until that one is merged', () => {
+    const api = pr('acme/api', 1, { rama: 'ABC-9-api', ...listo });
+    const web = pr('acme/web', 2, { rama: 'ABC-9-web', ...listo, dependencias: ['acme/api#1'] });
+    expect(mergeReady(parte([api, web], web.url)).estado).toBe('aviso');
+    const fusionado = { ...api, estado: 'fusionado' as const };
+    expect(mergeReady(parte([fusionado, web], web.url)).estado).toBe('listo');
+    expect(mergeReady(parte([fusionado, web], fusionado.url)).estado).toBe('fusionado');
+  });
+  it('a draft is not ready yet, even if everything else is', () => {
+    const a = pr('acme/api', 1, { rama: 'ABC-9-api', ...listo, estado: 'borrador' });
+    expect(mergeReady(parte([a], a.url))).toMatchObject({ estado: 'aviso' });
   });
 });
 
@@ -117,12 +148,11 @@ describe('compareCell', () => {
     expect(compareCell(parte, [{ archivo: '/c/a.html', ts: 10, partes: [{ worktree: '/r/api', rama: 'ABC-1-api', head: 'h2' }], respuesta: { estado: 'validada', ts: 5 } }]).celda.marca).toBe('aviso');
     expect(compareCell(parte, [{ archivo: '/c/a.html', ts: 10, partes: [{ worktree: '/r/api', rama: 'ABC-1-api', head: 'h2' }], respuesta: { estado: 'notas', ts: 11 } }]).celda.texto).toMatch(/notas/);
   });
-  it('la comparación de la tarea entera, validada, vale para cada parte en su commit', () => {
-    const tarea: CompareRecord = { archivo: '/c/tarea-ABC-1.html', ts: 3, tarea: 'ABC-1', partes: [{ worktree: '/r/api', rama: 'ABC-1-api', head: 'h2' }, { worktree: '/r/web', rama: 'ABC-1-web', head: 'w1' }], respuesta: { estado: 'validada', ts: 4 } };
+  it('una comparación de varios repos, validada, vale para cada parte en su commit', () => {
+    const tarea: CompareRecord = { archivo: '/c/tarea-ABC-1.html', ts: 3, partes: [{ worktree: '/r/api', rama: 'ABC-1-api', head: 'h2' }, { worktree: '/r/web', rama: 'ABC-1-web', head: 'w1' }], respuesta: { estado: 'validada', ts: 4 } };
     expect(compareCell(parte, [validada('/r/api', 'ABC-1-api', 'h1', 8), tarea]).celda.marca).toBe('ok');
     const api = pr('acme/api', 1, { rama: 'ABC-1-api' });
     const r = preflightTarea('ABC-1', { prs: [api], bloqueos: [], locales: [{ salaId: 'api', rama: 'ABC-1-api', head: 'h2', worktree: '/r/api', cambios: 0 }], salas: SALAS, compares: [tarea] });
-    expect(r.compareTarea?.archivo).toBe('/c/tarea-ABC-1.html');
     expect(r.partes[0].compare.marca).toBe('ok');
   });
 });

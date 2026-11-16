@@ -141,11 +141,11 @@ describe('PR del tablero de Logística', () => {
   it('estado, revisión, CI y rama de cada PR; sin GitHub, DEMO que cruza con las tareas de demo de Jira', async () => {
     const nodo = (number: number, state: string, isDraft: boolean, extra: any = {}) => ({ number, title: 'PR ' + number, url: 'https://github.com/o/r/pull/' + number, isDraft, state, updatedAt: '2026-11-08T10:00:00Z', reviewDecision: null, headRefName: 'ABC-' + number, repository: { nameWithOwner: 'o/r' }, commits: { nodes: [] }, ...extra });
     const prs = G.prsOfGitHub({ data: { prs: { nodes: [
-      nodo(1, 'OPEN', false, { reviewDecision: 'APPROVED', commits: { nodes: [{ commit: { statusCheckRollup: { state: 'SUCCESS' } } }] } }),
-      nodo(2, 'OPEN', true), nodo(3, 'MERGED', false), nodo(4, 'CLOSED', false), {},
+      nodo(1, 'OPEN', false, { reviewDecision: 'APPROVED', mergeable: 'MERGEABLE', commits: { nodes: [{ commit: { statusCheckRollup: { state: 'SUCCESS' } } }] } }),
+      nodo(2, 'OPEN', true, { mergeable: 'CONFLICTING' }), nodo(3, 'MERGED', false, { mergeable: 'UNKNOWN' }), nodo(4, 'CLOSED', false), {},
     ] } } });
-    expect(prs.map(p => [p.numero, p.estado, p.revision, p.checks, p.rama])).toEqual([
-      [1, 'abierto', 'APPROVED', 'SUCCESS', 'ABC-1'], [2, 'borrador', undefined, undefined, 'ABC-2'], [3, 'fusionado', undefined, undefined, 'ABC-3'], [4, 'cerrado', undefined, undefined, 'ABC-4'],
+    expect(prs.map(p => [p.numero, p.estado, p.revision, p.checks, p.rama, p.conflictos])).toEqual([
+      [1, 'abierto', 'APPROVED', 'SUCCESS', 'ABC-1', false], [2, 'borrador', undefined, undefined, 'ABC-2', true], [3, 'fusionado', undefined, undefined, 'ABC-3', undefined], [4, 'cerrado', undefined, undefined, 'ABC-4', undefined],
     ]);
     const demo = await G.prsTablero({ real: false });
     expect(demo.demo).toBe(true);

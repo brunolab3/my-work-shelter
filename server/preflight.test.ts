@@ -3,9 +3,9 @@ import { mkdtempSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
 import { execFile, execFileSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
-import { cachedPRs, localBranches, preflightOf, taskCompare, PageReviews, gatePush, preflightTools, repoChecks, type CtxPreflight } from './preflight.ts';
+import { cachedPRs, localBranches, preflightOf, PageReviews, gatePush, preflightTools, repoChecks, type CtxPreflight } from './preflight.ts';
 import { mkdirSync } from 'node:fs';
-import { buildCompare, buildTaskCompare } from './comparar.ts';
+import { buildCompare } from './comparar.ts';
 import type { RoomPR } from './revisionesPR.ts';
 import type { PRBoard } from '../shared/tablero.ts';
 
@@ -98,21 +98,16 @@ describe('pre-flight con git de verdad', () => {
     // un commit nuevo deja vieja la validación
     sh(wtWeb, 'commit', '-qam', 'otro paso');
     expect((await preflightOf('ABC-7', ctx)).partes.find(p => p.salaId === 'web')!.compare.marca).toBe('aviso');
-    // la de la tarea entera: una página con los dos repos, en el orden de fusión
-    const tarea = await taskCompare('ABC-7', ctx, (k, partes) => buildTaskCompare(k, partes, carpeta));
-    const html = readFileSync(tarea.archivo, 'utf8');
-    expect(html.indexOf('data-seccion="api/contrato.txt"')).toBeGreaterThan(0);
-    expect(html.indexOf('data-seccion="web/pantalla.txt"')).toBeGreaterThan(html.indexOf('data-seccion="api/contrato.txt"'));
-    expect(revisadas.responder(tarea.archivo, 'validada')).toBe(true);
-    const r2 = await preflightOf('ABC-7', ctx);
-    expect(r2.compareTarea?.archivo).toBe(tarea.archivo);
-    expect(r2.partes.map(p => p.compare.marca)).toEqual(['ok', 'ok']);
+    // a new compare at the new commit, validated, counts again
+    const cmp2 = await buildCompare(wtWeb, { base: 'main' }, carpeta);
+    expect(revisadas.responder(cmp2.archivo, 'validada')).toBe(true);
+    expect((await preflightOf('ABC-7', ctx)).partes.find(p => p.salaId === 'web')!.compare.marca).toBe('ok');
 
     // fase 3: la lista «antes de subir» y la puerta de git push, desde la carpeta del worktree
     const tools = preflightTools(ctx, (k, w, h, item, a) => revisadas.contestar(k, w, h, item, a));
     let g = await gatePush(path.join(wtWeb), ctx);
     expect(g?.clave).toBe('ABC-7');
-    expect(g?.falta.join(' ')).toMatch(/0\/2/);                       // compare validado (la de la tarea), lista sin contestar
+    expect(g?.falta.join(' ')).toMatch(/0\/2/);                       // compare validated, list not answered
     expect(await tools.responder(wtWeb, '9', 'ok')).toMatch(/no está en la lista|not in the list/);
     expect(await tools.responder(wtWeb, '2', 'n/a')).toMatch(/nota|note/);
     await tools.responder(wtWeb, '1', 'ok', 'revisado en el juego');

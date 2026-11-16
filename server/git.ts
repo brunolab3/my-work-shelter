@@ -314,7 +314,7 @@ export function github(rutas: string[], forzar = false, connection: { real: bool
 // tareas de demoPanelJira().
 const QUERY_PRS = (desde: string) => `query {
   prs: search(query: "is:pr author:@me archived:false updated:>=${desde} sort:updated-desc", type: ISSUE, first: 60) { nodes { ... on PullRequest {
-    number title body url isDraft state updatedAt reviewDecision headRefName headRefOid baseRefName repository { nameWithOwner }
+    number title body url isDraft state updatedAt reviewDecision mergeable headRefName headRefOid baseRefName repository { nameWithOwner }
     commits(last: 1) { nodes { commit { statusCheckRollup { state } } } } } } }
 }`;
 export function prsOfGitHub(j: any): PRBoard[] {
@@ -322,6 +322,7 @@ export function prsOfGitHub(j: any): PRBoard[] {
     numero: n.number, titulo: n.title, url: n.url, repo: n.repository?.nameWithOwner ?? '', rama: n.headRefName ?? '',
     estado: n.state === 'MERGED' ? 'fusionado' : n.state === 'CLOSED' ? 'cerrado' : n.isDraft ? 'borrador' : 'abierto',
     revision: n.reviewDecision ?? undefined, checks: n.commits?.nodes?.[0]?.commit?.statusCheckRollup?.state ?? undefined, actualizado: Date.parse(n.updatedAt),
+    conflictos: n.mergeable === 'CONFLICTING' ? true : n.mergeable === 'MERGEABLE' ? false : undefined,
     base: n.baseRefName ?? undefined, cabeza: n.headRefOid ?? undefined, dependencias: dependenciasEnTexto(`${n.title ?? ''}\n${n.body ?? ''}`, n.repository?.nameWithOwner ?? ''),
   }));
 }
@@ -336,7 +337,7 @@ export function demoPRsBoard(): PRBoard[] {
     pr(39, 'Nuevo router: rutas anidadas', 'refugio/express', 'REF-219-router', 'fusionado', 26),
     pr(9, 'Ordenar la lista por temas', 'refugio/awesome', 'ordenar-temas', 'abierto', 8, 'REVIEW_REQUIRED', 'SUCCESS'),
   ].map(p => ({ ...p, base: p.numero === 18 ? 'sesiones-persistentes' : 'main', dependencias: p.numero === 42 ? ['refugio/express#39', 'refugio/ripgrep#51'] : [],
-    ...(p.numero === 17 ? { ledger: { unresolved: 3, outdated: 1, unansweredSummaries: 1 } } : {}) }));   // #18 apilado sobre #17; #42 espera a #39 y #51; #17 con revisiones por contestar
+    ...(p.numero === 17 ? { ledger: { unresolved: 3, outdated: 1, unansweredSummaries: 1 } } : {}), ...(p.numero === 9 ? { conflictos: true } : {}) }));   // #18 stacked on #17; #42 waits for #39 and #51; #17 with reviews to answer; #9 with conflicts
 }
 export async function prsTablero(connection: { real: boolean; off?: boolean; token?: string }): Promise<{ prs: PRBoard[]; demo?: boolean; error?: string }> {
   if (connection.off) return { prs: [], error: t('server.git.connectGitHub') };
@@ -349,7 +350,7 @@ export async function prsTablero(connection: { real: boolean; off?: boolean; tok
 // todos tus PR sin fusionar (para organizar las salas por tareas: server/organizar.ts), con su base y descripción
 const OPEN_QUERY = `query {
   prs: search(query: "is:pr is:open author:@me archived:false sort:updated-desc", type: ISSUE, first: 100) { nodes { ... on PullRequest {
-    number title body url isDraft state updatedAt reviewDecision headRefName headRefOid baseRefName repository { nameWithOwner }
+    number title body url isDraft state updatedAt reviewDecision mergeable headRefName headRefOid baseRefName repository { nameWithOwner }
     commits(last: 1) { nodes { commit { statusCheckRollup { state } } } } } } }
 }`;
 export async function prsOpen(connection: { real: boolean; off?: boolean; token?: string }): Promise<{ prs: PRBoard[]; demo?: boolean }> {

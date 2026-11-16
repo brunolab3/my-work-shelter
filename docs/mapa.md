@@ -60,7 +60,7 @@ Deployment plan (`web/src/ui/Despliegue.tsx`, `shared/despliegue.ts`, Logistics'
 
 ## Pre-flight of a task
 
-Pre-flight of a task (`web/src/ui/Preflight.tsx`, model `shared/preflight.ts`, `server/preflight.ts`): every part of a Jira task across rooms with compare, checklist, sync, CI, review and blockers, plus the ask-first gate on `git push` (`pushGate` in `server/sesiones.ts`). Details: `docs/integraciones-uso.md` ("Pre-flight of a task"). QA: `scripts/qa-preflight.mjs`.
+Pre-flight of a task (`web/src/ui/Preflight.tsx`, model `shared/preflight.ts`, `server/preflight.ts`): whether each PR of a Jira task, across rooms, is ready to merge (state, CI, review, conflicts, blockers; a click opens the PR), plus the ask-first gate on `git push` (`pushGate` in `server/sesiones.ts`) with compare and checklist, which the window doesn't show. Details: `docs/integraciones-uso.md` ("Pre-flight of a task"). QA: `scripts/qa-preflight.mjs`.
 
 ## Usage per conversation
 

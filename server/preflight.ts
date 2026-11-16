@@ -90,17 +90,6 @@ export async function preflightOf(clave: string, ctx: CtxPreflight, forzar = fal
   });
 }
 
-/** La comparación de toda la tarea: las partes con worktree (y PR sin fusionar, o sin PR aún) en el orden de fusión,
- *  cada una frente a la base de su PR */
-export async function taskCompare(clave: string, ctx: CtxPreflight, build: (clave: string, partes: { worktree: string; nombre: string; base?: string }[]) => Promise<{ archivo: string }>) {
-  const r = await preflightOf(clave, ctx);
-  const ola = new Map(r.olas.flatMap((o, i) => o.map(ref => [ref, i] as const)));
-  const partes = r.partes.filter(p => p.worktree && (!p.pr || p.pr.estado === 'abierto' || p.pr.estado === 'borrador'))
-    .sort((a, b) => (a.pr ? ola.get(`${a.pr.repo}#${a.pr.numero}`) ?? 98 : 99) - (b.pr ? ola.get(`${b.pr.repo}#${b.pr.numero}`) ?? 98 : 99));
-  if (!partes.length) throw new Error(t('server.preflightNothingToCompare', { clave: r.clave }));
-  return build(r.clave, partes.map(p => ({ worktree: p.worktree!, nombre: p.repo?.split('/').pop() ?? p.sala ?? path.basename(p.worktree!), base: p.pr?.base })));
-}
-
 /** Lo que el repo de un worktree pide comprobar antes de subir (shared/preflight.ts: repoChecklist): solo se leen sus
  *  archivos, nada se ejecuta */
 export async function repoChecks(worktree: string): Promise<string[]> {
@@ -181,7 +170,7 @@ export class PageReviews {
       try {
         const j = JSON.parse(await fs.readFile(path.join(this.carpeta, n), 'utf8'));
         if (!Array.isArray(j?.partes) || !existsSync(archivo)) return;
-        out.push({ archivo, ts: Number(j.ts) || 0, tarea: typeof j.tarea === 'string' ? j.tarea : undefined, respuesta: this.respuestas[archivo],
+        out.push({ archivo, ts: Number(j.ts) || 0, respuesta: this.respuestas[archivo],
           partes: j.partes.filter((x: any) => x && typeof x.worktree === 'string').map((x: any) => ({ worktree: path.resolve(x.worktree), rama: String(x.rama ?? ''), head: String(x.head ?? ''), base: x.base ? String(x.base) : undefined })) });
       } catch {}
     }));

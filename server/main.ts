@@ -13,7 +13,7 @@ import { Sessions } from './sesiones.ts';
 import { Attachments } from './adjuntos.ts';
 import { openAttachment, isPackage, revealLocal } from './abrir.ts';
 import { openLink, servePage, existingPages, pagesUpdated } from './paginasLocales.ts';
-import { cleanCompares, buildTaskCompare, COMPARES_FOLDER } from './comparar.ts';
+import { cleanCompares, COMPARES_FOLDER } from './comparar.ts';
 import { isCloneOfExample } from './ejemplos.ts';
 import { mcpDecor, promptAdaptar, type CtxDecor } from './decoradoSala.ts';
 import { mcpAssignment, mcpPlan, type CtxAssignment } from './reparto.ts';
@@ -24,7 +24,7 @@ import { TasksColors } from './coloresTareas.ts';
 import { agruparPorTarea, planDeSala, applyPlan } from './organizar.ts';
 import { ReviewsPR, REVIEWS_QUERY, remoteRepo } from './revisionesPR.ts';
 import { CIFailures, CI_QUERY } from './fallosCI.ts';
-import { cachedPRs, preflightOf, taskCompare, PageReviews, gatePush, preflightTools, type CtxPreflight } from './preflight.ts';
+import { cachedPRs, preflightOf, PageReviews, gatePush, preflightTools, type CtxPreflight } from './preflight.ts';
 import { checklistFromClaudeMd } from '../shared/preflight.ts';
 import type { PRBoard } from '../shared/tablero.ts';
 import { bloqueosEntre, pRKey } from '../shared/despliegue.ts';
@@ -810,7 +810,6 @@ async function accion(nombre: string, d: Record<string, any> = {}): Promise<unkn
     case 'tareas.colores': return coloresTareas.colores(d.claves);
     case 'despliegue.bloqueos': return bloqueosPR.todos();
     case 'preflight.tarea': return preflightOf(String(d.clave ?? ''), ctxPreflight, !!d.forzar);
-    case 'preflight.compararTarea': return taskCompare(String(d.clave ?? ''), ctxPreflight, (clave, partes) => buildTaskCompare(clave, partes));
     case 'preflight.checklist': return checklistItems();
     case 'paginas.responder': return paginasRevisadas.responder(d.ruta, d.estado);
     case 'preflight.puerta': { const r = path.resolve(String(d.ruta ?? '')); if (!gitPath(r)) throw new Error(t('server.thatFolderIsNotA')); return gatePush(r, ctxPreflight); }

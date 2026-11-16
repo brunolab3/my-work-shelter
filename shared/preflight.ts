@@ -24,10 +24,10 @@ export interface LocalBranch {
   adelante?: number; detras?: number; sinCabeza?: boolean;
 }
 export interface RoomRepo { id: string; nombre: string; repo?: string }
-/** Una página de comparación (server/comparar.ts, su `<página>.json`) con lo que el Supervisor hizo con ella: de qué
- *  worktree, rama y commit es cada parte. La de una tarea entera lleva varias partes */
+/** A compare page (server/comparar.ts, its `<page>.json`) with what the Overseer did with it: which worktree, branch
+ *  and commit each part is */
 export interface CompareRecord {
-  archivo: string; ts: number; tarea?: string;
+  archivo: string; ts: number;
   partes: { worktree: string; rama: string; head: string; base?: string }[];
   respuesta?: { estado: 'validada' | 'notas'; ts: number };
 }
@@ -47,7 +47,7 @@ export interface PartPreflight {
   pr?: PRBoard;
   plan?: string;                 // el título de su parte en el plan repartido
   sinEmpezar?: boolean;          // parte del plan sin worktree ni PR
-  sync: Cell; ci: Cell; revision: Cell; bloqueos: Cell; compare: Cell; checklist: Cell;
+  sync: Cell; ci: Cell; revision: Cell; conflictos: Cell; bloqueos: Cell; compare: Cell; checklist: Cell;
   respuestas?: Record<string, ChecklistAnswer>;   // las del commit actual, por punto
   repoItems: string[];           // los puntos que pone su repo (su CLAUDE.md o AGENTS.md, sus skills de comprobación, sus órdenes de comprobación)
   ciChecks: CICheck[];           // cada check de GitHub de su PR, solo (no lo contesta el habitante)
@@ -60,7 +60,6 @@ export interface TaskPreflight {
   partes: PartPreflight[];
   olas: string[][];              // las olas (refPR) con lo de la tarea y lo que espera, en orden; cada una espera a las anteriores
   ciclo: string[];
-  compareTarea?: CompareRecord;  // la página de toda la tarea, si se ha hecho
   checklist: string[];           // los puntos del Supervisor
   demo?: boolean; error?: string;
 }
@@ -126,8 +125,16 @@ export function reviewCell(pr: PRBoard | undefined): Cell {
   return { marca: base.marca === 'mal' ? 'mal' : 'aviso', texto: `${base.texto} · ${queda}` };
 }
 
+/** Whether GitHub can merge it into its base as it is (its `mergeable`) */
+export function conflictsCell(pr: PRBoard | undefined): Cell {
+  if (!pr || !vivo(pr)) return { marca: 'nada', texto: '—' };
+  if (pr.conflictos === true) return { marca: 'mal', texto: t('preflight.conflicts.yes') };
+  if (pr.conflictos === false) return { marca: 'ok', texto: t('preflight.conflicts.no') };
+  return { marca: 'nada', texto: t('preflight.conflicts.unknown') };
+}
+
 const corto = (sha?: string) => (sha ?? '').slice(0, 7);
-/** La comparación revisada para el commit actual: una nueva cabeza la deja vieja; la de la tarea entera también vale */
+/** The compare reviewed at the current commit: a new head makes it stale */
 export function compareCell(p: { worktree?: string; rama?: string; headLocal?: string; pr?: PRBoard }, compares: CompareRecord[]): { celda: Cell; archivo?: string } {
   if (p.pr && !vivo(p.pr)) return { celda: { marca: 'nada', texto: '—' } };
   if (!p.worktree || !p.headLocal) return { celda: { marca: 'nada', texto: t('preflight.sync.noLocal') } };
@@ -274,11 +281,14 @@ export function repoChecklist(f: RepoFiles): string[] {
   return out.slice(0, 20);
 }
 
-/** Cómo está una parte: lista (todo ✓ o —), con avisos o con algo que falta, y la lista de lo que no está listo */
-export function estadoParte(p: PartPreflight): { estado: 'listo' | 'aviso' | 'falta'; falta: string[] } {
-  if (p.sinEmpezar) return { estado: 'falta', falta: [t('preflight.blockers.notStarted')] };
-  const celdas = [p.compare, p.checklist, p.sync, p.ci, p.revision, p.bloqueos];
-  const falta = celdas.filter(c => c.marca === 'mal' || c.marca === 'aviso').map(c => c.texto);
+/** Whether a PR can be merged now: merged already, ready (open, CI, review, no conflicts and nothing it waits for
+ *  still open), or not yet (⚠) or with a problem (✗), with what stops it. Push-only cells (compare, checklist, sync)
+ *  don't count here: they are the push gate's (gateMissing) */
+export function mergeReady(p: PartPreflight): { estado: 'fusionado' | 'listo' | 'aviso' | 'falta'; falta: string[] } {
+  if (p.pr?.estado === 'fusionado') return { estado: 'fusionado', falta: [] };
+  if (!p.pr || !vivo(p.pr)) return { estado: 'falta', falta: [p.pr ? t('preflight.sync.closed') : t('preflight.sync.noPR')] };
+  const celdas = [p.ci, p.revision, p.conflictos, p.bloqueos];
+  const falta = [...(p.pr.estado === 'borrador' ? [t('preflight.review.draft')] : []), ...celdas.filter(c => c.marca === 'mal' || c.marca === 'aviso').map(c => c.texto)];
   return { estado: celdas.some(c => c.marca === 'mal') ? 'falta' : falta.length ? 'aviso' : 'listo', falta };
 }
 
@@ -316,7 +326,7 @@ export function preflightTarea(clave: string, d: PreflightInput): TaskPreflight 
     partes.push({
       id: pr.url, salaId: sala?.id, sala: sala?.nombre, repo: pr.repo, worktree: local?.worktree, rama: pr.rama, headLocal: local?.head,
       cambios: local?.worktree ? local.cambios : undefined, pr, plan: planDe(sala?.id)?.titulo,
-      sync: syncCell(pr, local), ci: ciCell(pr), revision: reviewCell(pr), bloqueos: blockersCell(esperaA, bloquea, enCiclo.has(pr.url)), esperaA, bloquea,
+      sync: syncCell(pr, local), ci: ciCell(pr), revision: reviewCell(pr), conflictos: conflictsCell(pr), bloqueos: blockersCell(esperaA, bloquea, enCiclo.has(pr.url)), esperaA, bloquea,
       ...comparar({ worktree: local?.worktree, rama: pr.rama, headLocal: local?.worktree ? local.head : undefined, pr }), hilos: vivo(pr) ? d.hilos?.[pr.url] ?? [] : [],
     });
   }
@@ -326,7 +336,7 @@ export function preflightTarea(clave: string, d: PreflightInput): TaskPreflight 
     const sala = d.salas.find(s => s.id === l.salaId);
     partes.push({
       id: 'wt:' + l.worktree, salaId: l.salaId, sala: sala?.nombre, repo: sala?.repo, worktree: l.worktree, rama: l.rama, headLocal: l.head, cambios: l.cambios,
-      plan: planDe(l.salaId)?.titulo, sync: syncCell(undefined, l), ci: ciCell(undefined), revision: reviewCell(undefined), bloqueos: blockersCell([], [], false), esperaA: [], bloquea: [],
+      plan: planDe(l.salaId)?.titulo, sync: syncCell(undefined, l), ci: ciCell(undefined), revision: reviewCell(undefined), conflictos: conflictsCell(undefined), bloqueos: blockersCell([], [], false), esperaA: [], bloquea: [],
       ...comparar({ worktree: l.worktree, rama: l.rama, headLocal: l.head }), hilos: [],
     });
   }
@@ -335,7 +345,7 @@ export function preflightTarea(clave: string, d: PreflightInput): TaskPreflight 
     if (partes.some(p => p.salaId === x.salaId)) continue;
     const sala = d.salas.find(s => s.id === x.salaId);
     const nada: Cell = { marca: 'nada', texto: '—' };
-    partes.push({ id: 'plan:' + x.salaId, salaId: x.salaId, sala: sala?.nombre ?? x.sala, repo: sala?.repo, plan: x.titulo, sinEmpezar: true, sync: nada, ci: nada, revision: nada, bloqueos: nada, compare: nada, checklist: nada, repoItems: [], ciChecks: [], hilos: [], esperaA: [], bloquea: [] });
+    partes.push({ id: 'plan:' + x.salaId, salaId: x.salaId, sala: sala?.nombre ?? x.sala, repo: sala?.repo, plan: x.titulo, sinEmpezar: true, sync: nada, ci: nada, revision: nada, conflictos: nada, bloqueos: nada, compare: nada, checklist: nada, repoItems: [], ciChecks: [], hilos: [], esperaA: [], bloquea: [] });
   }
   // lo que dice el plan que espera a una sala que aún no tiene PR: sin PR no hay bloqueo entre PR, pero se espera igual
   for (const x of d.plan ?? []) for (const id of x.waitA ?? []) {
@@ -354,6 +364,5 @@ export function preflightTarea(clave: string, d: PreflightInput): TaskPreflight 
   while (cola.length) { const u = cola.shift()!; for (const b of d.bloqueos) if (b.de === u && !mias.has(b.por)) { mias.add(b.por); cola.push(b.por); } }
   const olas = waves.map(o => o.filter(p => mias.has(p.url)).map(refPR)).filter(o => o.length);
   return { clave: K, color: d.color, titulo: d.titulo, partes, olas, ciclo: ciclo.filter(p => mias.has(p.url)).map(refPR),
-    checklist: d.checklist?.items ?? [],
-    compareTarea: (d.compares ?? []).filter(c => c.tarea?.toUpperCase() === K).sort((a, b) => b.ts - a.ts)[0], demo: d.demo, error: d.error };
+    checklist: d.checklist?.items ?? [], demo: d.demo, error: d.error };
 }

@@ -128,7 +128,6 @@ export const TOOLS: Record<string, Texto> = {
   'tool.preflight.noSuchItem': { es: '«{item}» no está en la lista: {lista}', en: '“{item}” is not in the list: {lista}' },
   'tool.preflight.naNeedsNote': { es: 'n/a necesita una nota que diga por qué no aplica.', en: 'n/a needs a note saying why it does not apply.' },
   'tool.preflight.saved': { es: '«{item}»: {estado}, para {head}.', en: '“{item}”: {estado}, for {head}.' },
-  'tool.compare.taskTitle': { es: 'Tarea {clave}: todos sus repos', en: 'Task {clave}: all its repos' },
   'tool.compare.subtitle': { es: '{rama} frente a {base}', en: '{rama} against {base}' },
   'tool.compare.withUncommitted': { es: ' (con lo que aún no está en un commit)', en: ' (including what is not committed yet)' },
   // decorar la sala (server/decoradoSala.ts); los campos del JSON del decorado no se traducen

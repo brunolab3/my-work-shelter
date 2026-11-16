@@ -2,7 +2,6 @@
 import type { Texto } from '../idioma.ts';
 
 export const SERVIDOR: Record<string, Texto> = {
-  'server.preflightNothingToCompare': { es: '{clave} no tiene ninguna parte con worktree que comparar.', en: '{clave} has no part with a worktree to compare.' },
   'server.oneWorktreePerTask': { es: 'La tarea {tarea} ya tiene su worktree en {ruta} (rama {rama}): trabaja ahí; para otra rama de la tarea, haz commit o stash y `git switch` en ese worktree. Si esa rama está sacada en otro sitio, díselo al Supervisor.', en: 'Task {tarea} already has its worktree at {ruta} (branch {rama}): work there; for another branch of the task, commit or stash and `git switch` in that worktree. If that branch is checked out elsewhere, tell the Overseer.' },
   'server.preflightGateTitle': { es: 'Pre-flight sin completar: subir {rama} ({head}) de {clave} igualmente?', en: 'Pre-flight incomplete: push {rama} ({head}) of {clave} anyway?' },
   'server.sideQuestionNoTools': { es: 'Pregunta lateral: sin herramientas.', en: 'Side question: no tools.' },
