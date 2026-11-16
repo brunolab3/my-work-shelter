@@ -2,7 +2,7 @@
 // several states plus 3 of another dweller of the same room. Checks that tabs stay readable and the strip scrolls,
 // most urgent first, the active tab does not move when its state changes, ⌘1/⌘9 follow the visible order, the ⋯ list
 // (⌘⇧A) filters, goes and closes, the other dweller's conversations stay out of the strip and the selector above the
-// portrait lists the room's talkers (state, title and count of their most urgent conversation) and switches the
+// portrait lists the room's talkers (bust, state, title and count of their most urgent conversation), keeps its width and switches the
 // intercom, by click or keyboard, the bar has one intercom chip per room whose hover lists the room's open
 // conversations, and a terminal with 13 more tabs.
 // Usage: SHELTER_DATOS=… node scripts/qa-pestanas.mjs [url] [screenshots-folder]   (best on a test shelter)
@@ -102,6 +102,9 @@ if (h2) {
   const fq = await filasQuien();
   const de2 = fq.find(f => f.texto.startsWith(h2.nombre));
   ver(fq.find(f => f.actual)?.texto.startsWith(h.nombre) && de2?.texto.includes('Bump SDK') && de2?.n === '3', `the list has the room's talkers, ${h2.nombre} with their waiting conversation and 3 open: ` + JSON.stringify(de2));
+  ver(await hasta(() => pg.evaluate(() => [...document.querySelectorAll('.consola .consola-quien-lista .barra-asomo-fila')].every(f => f.querySelector('.consola-quien-foto img')))), 'each talker in the list has its bust');
+  const anchoQuien = () => pg.evaluate(() => Math.round(document.querySelector('.consola .consola-quien > .chip-terminal').getBoundingClientRect().width));
+  const ancho1 = await anchoQuien();
   await pg.screenshot({ path: `${dir}/qa-pestanas-selector.png` });
   await pg.keyboard.press('Escape'); await espera(200);
   ver(!(await pg.isVisible('.consola .consola-quien-lista')) && await pg.isVisible('.consola'), 'Esc closes the list and only the list');
@@ -109,10 +112,11 @@ if (h2) {
   await pg.evaluate(n => [...document.querySelectorAll('.consola .consola-quien-lista .barra-asomo-fila')].find(f => f.querySelector('.barra-asomo-titulo').textContent.startsWith(n)).click(), h2.nombre);
   ver(await hasta(async () => await talking() === h2.id), 'picking one switches the intercom to ' + h2.nombre);
   ver((await pestanas()).every(p => AJENAS.includes(p.nombre)), 'whose strip holds only their conversations');
+  ver(await anchoQuien() === ancho1, `the selector keeps its width whoever it names: ${ancho1}px`);
   // by keyboard: ↓ until the original dweller, Enter
   await pg.click('.consola .consola-quien > .chip-terminal'); await espera(200);
-  const idx = (await filasQuien()).findIndex(f => f.texto.startsWith(h.nombre)), cur = (await filasQuien()).findIndex(f => f.actual);
-  for (let k = 0; k < (idx - cur + 99) % (await filasQuien()).length; k++) await pg.keyboard.press('ArrowDown');
+  const fq2 = await filasQuien(), idx = fq2.findIndex(f => f.texto.startsWith(h.nombre)), cur = fq2.findIndex(f => f.actual);
+  for (let k = 0; k < (idx - cur + fq2.length) % fq2.length; k++) await pg.keyboard.press('ArrowDown');
   await pg.keyboard.press('Enter');
   ver(await hasta(async () => await talking() === h.id), 'and back with ↓ and Enter to ' + h.nombre);
 } else console.log('--   (no room with two dwellers: no selector)');
@@ -129,7 +133,7 @@ await pg.screenshot({ path: `${dir}/qa-pestanas-barra.png` });
 if (asomo.length) {
   await pg.locator('.barra-asomo .barra-asomo-fila').last().click(); await espera(800);
   const activa = await pg.evaluate(() => document.querySelector('.consola .vt-pestana.activa .vt-pestana-nombre')?.textContent);
-  ver(await talking() === h.id && activa === asomo.at(-1), 'clicking one opens the intercom on that conversation: ' + activa);
+  ver([h.id, h2?.id].includes(await talking()) && !!activa && asomo.at(-1).endsWith(activa), 'clicking one opens the intercom on that conversation: ' + activa);
   await pg.keyboard.press('Meta+ArrowDown'); await espera(400);
 }
 

@@ -504,10 +504,19 @@ a.miniatura:hover img { box-shadow: 0 0 0 1px #ffc96b, 0 0 10px rgba(255,179,71,
 .vt-lista-agrupar { display: inline-flex; align-items: center; gap: .4em; color: var(--crema-tenue); cursor: pointer; }
 .vt-lista-ayuda { margin-left: auto; color: var(--crema-tenue); opacity: .7; font-size: 11px; }
 /* whom else to talk to in the room: a chip like the bar's, opening a list like its hover list */
-.consola-quien { position: relative; z-index: 2; max-width: 100%; margin-bottom: calc(var(--u) * 0.1); font: 500 calc(var(--u) * 0.68) var(--t-mono); }
-.consola-quien > .chip-terminal { max-width: 100%; }
-.consola-quien-nombre { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
-.consola-quien .consola-quien-lista { position: absolute; top: calc(100% + 3px); left: 0; z-index: 40; width: max-content; min-width: 26em; max-width: min(40em, 45vw); }
+.consola-quien { position: relative; z-index: 2; width: 100%; margin-bottom: calc(var(--u) * 0.1); font: 500 calc(var(--u) * 0.68) var(--t-mono); }
+/* always the portrait column's width, whoever it names; the list too, whichever the room */
+.consola-quien > .chip-terminal { width: 100%; padding-left: .35em; }
+.consola-quien-nombre { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; text-align: left; }
+.consola-quien .consola-quien-lista { position: absolute; top: calc(100% + 3px); left: 0; z-index: 40; width: min(34em, 45vw); min-width: 0; max-width: none; }
+.consola-quien-lista .barra-asomo-fila { grid-template-columns: auto auto 7.5em minmax(0, 1fr) auto; }
+/* a talker's bust: a dweller in their colors; a hologram tinted with its task's color (--tono), with scan lines */
+.consola-quien-foto { position: relative; flex: none; width: 1.9em; height: 1.9em; overflow: hidden; border-radius: 3px; background: #0b1610; box-shadow: inset 0 0 0 1px #0b0a09; }
+.consola-quien-lista .consola-quien-foto { width: 2.3em; height: 2.3em; }
+.consola-quien-foto img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.consola-quien-foto.holo { background: #031118; box-shadow: inset 0 0 0 1px var(--tono), 0 0 4px color-mix(in srgb, var(--tono) 60%, transparent); }
+.consola-quien-foto.holo img { filter: grayscale(1) brightness(1.15) contrast(1.1); opacity: .9; }
+.consola-quien-foto.holo::after { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(180deg, rgba(0,0,0,.35) 0 1px, transparent 1px 3px), var(--tono); mix-blend-mode: multiply; pointer-events: none; }
 .consola-quien-aviso { flex: none; padding: 0 .4em; font-weight: 700; color: #1b1a17; background: #8dffb0; border-radius: 6px; }
 .consola-quien-aviso.e-esperando { background: #ffb000; animation: latido 1s steps(2) infinite; }
 .consola-quien-aviso.e-error { background: #ff3a2a; color: #fff; }

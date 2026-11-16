@@ -36,10 +36,12 @@ import { takeASurface, aAppClaude } from './superficie';
 import { openLink, openPage, pageForSession, pageAnswers, pageNotes, validatePage, revealPage, makeRoomForIntercom, answerPage } from './Navegadores';
 import { sessionPages, pendingPages, samePage, livePages, questionInput } from '@shared/paginasSesion';
 import type { PRBoard } from '@shared/tablero';
-import { worktreePRs, worktreeTask } from '@shared/tareas';
+import { worktreePRs, worktreeTask, taskColor } from '@shared/tareas';
+import { lookOf, lookSignature } from '@shared/aspecto';
+import { miniatura } from '../mundo/figura/estudio';
 import { openPreflight } from './Preflight';
 import { taskHasPRs } from '@shared/preflight';
-import { jiraBoard } from './tareas';
+import { jiraBoard, knowTasks, useColorsTasks } from './tareas';
 import { type AttachmentLocal, uploadFiles, chooseFiles, subiendo, listsPaths, AttachmentsTray, SentAttachments, useDictation, InputButtons, DictationStrip, attachShortcut } from './entrada';
 
 type View = { tipo: 'menu' } | { tipo: 'nuevo'; reanudar?: HistoryElement } | { tipo: 'historial' } | { tipo: 'visitantes' } | { tipo: 'ficha' } | { tipo: 'sesion'; sesionId: string };
@@ -353,6 +355,28 @@ export function Dialogo() {
   return <Console key={id} h={h} v={v} />;
 }
 
+// A small bust of a talker for the who selector: dwellers in their own colors, holograms in their author's tinted with
+// their task's color (cyan without one), as their projector shows them. Photos are kept by look, so reopening is instant
+const busts = new Map<string, string>();
+function TalkerBust({ x }: { x: DwellerSummary }) {
+  useColorsTasks();
+  const ficha = (vivo.usar(e => e.estado?.habitantes) as any[] | undefined)?.find(f => f.id === (x.copia?.authorId ?? x.id));
+  const aspecto = ficha && ficha.tipo !== 'Octocat' ? lookOf(ficha) : null;
+  const clave = aspecto ? lookSignature(aspecto) : '';
+  const [url, setUrl] = useState(() => busts.get(clave));
+  useEffect(() => {
+    if (!aspecto) return;
+    const ya = busts.get(clave); setUrl(ya); if (ya) return;
+    let vale = true;
+    miniatura(aspecto, 'torso').then(u => { if (u) busts.set(clave, u); if (vale && u) setUrl(u); });
+    return () => { vale = false; };
+  }, [clave]);
+  const tarea = x.copia ? worktreeTask(x.copia) : undefined;
+  useEffect(() => { if (tarea) knowTasks([tarea]); }, [tarea]);
+  const tono = x.copia ? (tarea ? taskColor(tarea) : '#58e6ff') : undefined;
+  return <span className={'consola-quien-foto' + (x.copia ? ' holo' : '')} style={tono ? { '--tono': tono } as React.CSSProperties : undefined} aria-hidden>{url && <img src={url} alt="" draggable={false} />}</span>;
+}
+
 // Above the portrait, by the tabs: whom else to talk to in the room (its dwellers and its worktrees' holographic copies).
 // Closed, a chip like the bar's, lit by the most urgent conversation of who you talk to; open, one row per talker with
 // its most urgent conversation's state and title, as the bar's hover list; picking one switches the intercom
@@ -392,6 +416,7 @@ function WhoSelector({ h }: { h: DwellerSummary }) {
       <button className={'chip-terminal delante' + (h.copia ? ' de-copia' : '') + (yo.estado === 'esperando' || revisar[0]?.estado === 'esperando' ? ' urgente' : '')} aria-haspopup="listbox" aria-expanded={abierta}
         title={[t('windows.talkToSomeoneElse'), revisar.length ? t('windows.othersToReview', { n: revisar.length }) + ': ' + revisar.map(q => q.nombre).join(', ') : ''].filter(Boolean).join('\n')} onClick={abrir}>
         <span className={'piloto ' + (yo.estado ? PILOT[yo.estado] : 'apagado')} aria-hidden />
+        <TalkerBust x={yo.x} />
         <span className="consola-quien-nombre">{yo.nombre}</span>
         {revisar.length > 0 && <span className={'consola-quien-aviso e-' + revisar[0].estado} aria-label={t('windows.othersToReview', { n: revisar.length })}>+{revisar.length}</span>}
         <span className="tipo">▾</span>
@@ -402,6 +427,7 @@ function WhoSelector({ h }: { h: DwellerSummary }) {
             <button key={q.x.id} role="option" aria-selected={q.x.id === h.id} onClick={() => elegir(q.x.id)} onMouseEnter={() => setSel(i)}
               className={'barra-asomo-fila' + (q.x.copia ? ' de-copia' : '') + (q.x.id === h.id ? ' actual' : '') + (i === sel ? ' sel' : '') + (q.estado === 'esperando' ? ' urgente' : '') + (q.estado === 'sinLeer' ? ' sin-leer' : '')}>
               <span className={'piloto ' + (q.estado ? PILOT[q.estado] : 'apagado')} />
+              <TalkerBust x={q.x} />
               <span className="barra-asomo-estado">{q.estado ? stateLabel(q.estado) : t('windows.noSession')}</span>
               <span className="barra-asomo-titulo"><b>{q.nombre}</b>{q.primera ? ` · ${q.primera.titulo || t('windows.conversation')}` : ''}</span>
               <small title={q.ses.length ? t('windows.nConversations', { n: q.ses.length }) : undefined}>{q.ses.length || ''}</small>
