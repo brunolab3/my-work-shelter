@@ -29,9 +29,10 @@ import { holoSlot } from './sitioCopia';
 
 const MAX_BY_ROOM = 30;   // alto a propósito: son intangibles, si no caben se solapan sin estorbar
 const COLOR = new THREE.Color(NO_TASK_COLOR), COLOR_FAULT = new THREE.Color('#ff6a4a');
-const BASE = 1.0;         // projector width
+const BASE = 0.8;         // projector width: fits the grated walkway strip, between the floor plates and the striped edge
+const BASE_HEIGHT = 0.08; // projector height: low, so walking past it doesn't look like going through it
 const Z_SPOT = BACKGROUND / 2 - BASE / 2;   // on the room's front edge: the projector reaches the lip
-const HOLO_SCALE = 0.7;   // smaller than their author, so they don't cover the faces of whoever stands nearby
+const HOLO_SCALE = 0.6;   // smaller than their author, so they don't cover the faces of whoever stands nearby
 const TECHO = 3.5;        // de dónde baja el tubo que trae el proyector (sobre el suelo de la sala)
 const tiempo = { value: 0 };
 
@@ -246,7 +247,7 @@ export class Holograms {
     } catch { tubo = new THREE.Group(); }
     if (this.figuras.get(f.ruta) !== f) return;
     const pivote = new THREE.Group(); pivote.add(tubo); tubo.position.y = -0.5;   // cuelga del techo: crece hacia abajo
-    pivote.position.set(f.sitio.x, y + TECHO, f.sitio.z); pivote.scale.set(3, 0.001, 3);   // grueso: cabe el proyector
+    pivote.position.set(f.sitio.x, y + TECHO, f.sitio.z); pivote.scale.set(3 * BASE, 0.001, 3 * BASE);   // thick: the projector fits
     base.position.y = y + TECHO; base.visible = false;
     this.r.motor.scene.add(pivote, base);
     f.montaje = { tubo: pivote, t: 0, fase: 'baja', montado: false, fin: 0 };
@@ -280,7 +281,7 @@ export class Holograms {
     if (!autor || autor.sala !== f.sala || !autor.p.raiz.visible) return;
     // a un lado del proyector (el que da a su sitio), agachado hacia él
     const lado = Math.sign(autor.pos.x - f.sitio.x) || 1;
-    const junto = new THREE.Vector3(f.sitio.x + lado * 0.75, f.sala.grupo.position.y, f.sitio.z);
+    const junto = new THREE.Vector3(f.sitio.x + lado * (BASE / 2 + 0.3), f.sala.grupo.position.y, f.sitio.z);
     const giro = Math.atan2(f.sitio.x - junto.x, f.sitio.z - junto.z);
     if (autor.encargar(junto, giro, 'Lockpicking', 'llave', 3.2, () => { if (f.montaje) f.montaje.montado = true; })) m.fin = 25;   // por si no llega nunca
   }
@@ -321,11 +322,11 @@ export class Holograms {
     try {
       const g = await gltf(R.base('landingpad_small'));
       const o = g.scene.clone(true);
-      const { tam } = measure(o); o.scale.setScalar(BASE / Math.max(tam.x, tam.z, 1e-3));
+      const { tam } = measure(o); const k = BASE / Math.max(tam.x, tam.z, 1e-3); o.scale.set(k, BASE_HEIGHT / Math.max(tam.y, 1e-3), k);
       o.traverse((n: any) => { if (n.isMesh) { n.receiveShadow = true; n.castShadow = false; } });
       const base = new THREE.Group(); base.add(o); base.position.copy(f.sitio); base.userData.estatico = false;
       // encendido, un disco de luz del color de su tarea que cubre la plataforma (se ve aunque esté sentada encima)
-      const luz = new THREE.Mesh(new THREE.CircleGeometry(0.48, 40), new THREE.MeshBasicMaterial({ color: f.u.uColor.value, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false }));
+      const luz = new THREE.Mesh(new THREE.CircleGeometry(BASE * 0.48, 40), new THREE.MeshBasicMaterial({ color: f.u.uColor.value, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false }));
       luz.rotation.x = -Math.PI / 2; luz.position.y = measure(o).tam.y + 0.01; luz.visible = false; luz.name = 'luz'; base.add(luz);
       f.base = base;
       f.sitio.y += measure(o).tam.y;   // de pie (o sentado) encima de la plataforma
