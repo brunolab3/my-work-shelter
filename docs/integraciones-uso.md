@@ -292,7 +292,9 @@ problem, not this row's). The first column (`mergeReady`) is ✓ only when the P
 threads, mergeable and waits for nothing unmerged; its hover lists what's missing. Clicking a row (or Enter) opens the
 PR; clicking its blockers, the PR it waits for. Below, the rooms of the task still without a PR and the merge waves
 (merged PRs struck through, ready ones ✓, a wave all merged ✔; a task with everything merged says it has landed). Ways in: F or the ✈ on a task block in the Deployment plan, ✈ in a copy's
-intercom (under its PR list) and ⌘K "Pre-flight ABC-123" (the tasks of your copies, open PRs and recently merged ones, slugs included, or any Jira key typed).
+intercom (under its PR list) and ⌘K "Pre-flight ABC-123" (the tasks of your copies, open PRs and recently merged ones, slugs included, or a Jira key typed);
+the last two only for a task with at least one open, draft or merged PR among your PRs (`taskHasPRs`, on the list
+`git.prsTablero` already gives the board and the intercom; no extra GitHub read).
 
 **The push gate** uses the same model per part (also worktrees without a PR), but none of it is shown in the window:
 sync (local HEAD of its branch vs the PR's head on GitHub, without fetching, plus uncommitted changes), compare and

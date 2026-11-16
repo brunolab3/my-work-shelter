@@ -1,8 +1,9 @@
 // QA del pre-flight de una tarea (web/src/ui/Preflight.tsx), con un servidor propio en un refugio de pruebas y Playwright:
 // - a test repo with the worktree of task QA-7 (one uncommitted file), admitted as a room: the real `preflight.tarea`
 //   action (no GitHub) gives its part without a PR, with «1 uncommitted» ⚠; the push gate (preflight.puerta) says what
-//   is missing (compare and the 0/2 checklist); ⌘K «qa-7» offers «Pre-flight QA-7» and opens the box: no table
-//   (nothing to merge), it names the room; Esc closes it;
+//   is missing (compare and the 0/2 checklist); ⌘K «qa-7» offers no pre-flight while the task has no PR; once your PRs
+//   (the board's, `git.prsTablero`) name it, ⌘K offers «Pre-flight QA-7» and opens the box: no table (the real action
+//   has no GitHub), it names the room; Esc closes it;
 // - a task in two repos (example response), opened with ⌘K over an open panel: a small floating box (not a panel), the
 //   panel underneath still open and untouched; one row per PR in merge order, merged ✔ and struck through, red CI ✗,
 //   conflicts ✗, the one that waits ⚠; no compare/sync/checklist columns or thread list; the plan part without a PR is
@@ -68,18 +69,33 @@ try {
   ver(puerta?.clave === 'QA-7' && puerta.falta.length === 2, `la puerta de push dice lo que falta (${puerta?.falta?.join(' | ')})`);
   ver(await pg.evaluate(() => window.__client.accion('preflight.puerta', { ruta: '/etc' }).then(() => false, () => true)), 'la puerta no mira carpetas que no son del refugio');
 
-  // ---- the box with the real task, from ⌘K: its worktree has no PR yet, so there is nothing to merge
+  // ---- the box with the real task, from ⌘K: only offered once the task has a PR
+  const offered = async clave => (await pg.$$eval('.fila-buscador .txt', f => f.map(x => x.textContent))).includes('Pre-flight ' + clave);
   const preflightK = async clave => {
     await pg.keyboard.press('Meta+KeyK');
     await pg.waitForSelector('.buscador input');
     await pg.keyboard.type(clave.toLowerCase());
-    const ok = await hasta(async () => (await pg.$$eval('.fila-buscador .txt', f => f.map(x => x.textContent))).includes('Pre-flight ' + clave));
+    const ok = await hasta(() => offered(clave));
     if (clave === 'QA-7') await pg.screenshot({ path: path.join(dir, 'preflight-buscador.png'), animations: 'disabled', timeout: 10000 }).catch(() => console.log('(no ⌘K screenshot: timed out)'));
     await pg.keyboard.press('Enter');
     return ok;
   };
-  ver(await preflightK('QA-7'), '⌘K offers «Pre-flight QA-7» (that of the worktree)');
-  ver(await hasta(async () => /QA-7/.test(await pg.textContent('.pf-caja').catch(() => '')) && !(await pg.isVisible('.pf-tabla')) && /tienda/.test(await pg.textContent('.pf-caja'))), 'Enter opens the box: no PR yet, no table, and the room working on it is named');
+  await pg.keyboard.press('Meta+KeyK');
+  await pg.waitForSelector('.buscador input');
+  await pg.keyboard.type('qa-7');
+  await pg.waitForTimeout(800);
+  ver(!(await offered('QA-7')), '⌘K offers no pre-flight for a task without PRs');
+  await pg.keyboard.press('Escape');
+  // your PRs (the board's list) from here on: one for QA-7 and those of the example tasks QA-9 and QA-11
+  await pg.evaluate(() => {
+    const c = window.__client, orig = c.accion.bind(c);
+    const pr = (repo, numero, rama, estado = 'abierto') => ({ numero, titulo: 'PR ' + numero, url: `https://github.com/${repo}/pull/${numero}`, repo, rama, estado, actualizado: 0, base: 'main' });
+    const prs = [pr('acme/tienda', 7, 'QA-7-algo'), pr('acme/api', 1, 'QA-9-parte-1'), pr('acme/api', 5, 'QA-11-a', 'fusionado')];
+    c.accion = (n, d) => n === 'git.prsTablero' ? Promise.resolve({ prs }) : orig(n, d);
+    window.__board.set({ prs });
+  });
+  ver(await preflightK('QA-7'), '⌘K offers «Pre-flight QA-7» once a PR names it');
+  ver(await hasta(async () => /QA-7/.test(await pg.textContent('.pf-caja').catch(() => '')) && !(await pg.isVisible('.pf-tabla')) && /tienda/.test(await pg.textContent('.pf-caja'))), 'Enter opens the box: the real action has no GitHub, so no table, and the room working on it is named');
   ver((await pg.evaluate(() => window.__juego.get().panel)) === null, 'it is not a panel');
   await pg.waitForTimeout(600); await pg.screenshot({ path: path.join(dir, 'preflight-real.png'), animations: 'disabled' });
   await pg.keyboard.press('Escape');

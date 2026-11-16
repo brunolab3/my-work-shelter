@@ -27,6 +27,7 @@ import { openPreflight } from './Preflight';
 import { jiraBoard } from './tareas';
 import { worktreeTask } from '@shared/tareas';
 import { pRKey } from '@shared/despliegue';
+import { taskHasPRs } from '@shared/preflight';
 
 export const buscador = new Store<{ abierto: boolean }>({ abierto: false });
 let recentLast: RecentConversation[] | null = null;   // las de la última vez: salen al momento mientras se piden otra vez
@@ -57,12 +58,12 @@ addEventListener('keydown', e => {
 function onShelter() { if (juego.get().panel) juego.set({ panel: null, panelData: null }); minimizeIntercom(); }
 const K = MAC ? '⌘' : 'Ctrl+';
 interface Action { id: string; texto: string; pista?: string; tecla?: string; claves?: string; f: () => void }
-// the tasks with a pre-flight at hand: those of the copies (worktrees), of your open PRs and then of the merged ones (to
-// confirm a task fully landed)
+// the tasks with a pre-flight at hand, only those with a PR: those of the copies (worktrees), of your open PRs and then
+// of the merged ones (to confirm a task fully landed)
 function preflightTasks(): string[] {
   const out = new Set<string>();
-  for (const c of juego.get().copias) { const k = c.copia && worktreeTask(c.copia); if (k) out.add(k); }
   const prs = jiraBoard.get().prs;
+  for (const c of juego.get().copias) { const k = c.copia && worktreeTask(c.copia); if (k && taskHasPRs(k, prs)) out.add(k); }
   for (const p of prs) { const k = (p.estado === 'abierto' || p.estado === 'borrador') && pRKey(p); if (k) out.add(k); }
   for (const p of prs) { const k = p.estado === 'fusionado' && pRKey(p); if (k) out.add(k); }
   return [...out].slice(0, 16);
@@ -176,9 +177,9 @@ function Window() {
     const acc = acciones().map(a => ({ a, p: score(palabras, a.texto, `${a.pista ?? ''} ${a.claves ?? ''} ${a.tecla ?? ''}`) })).filter(x => x.p);
     if (!searching) acc.sort((x, y) => (u[y.a.id] ?? 0) - (u[x.a.id] ?? 0));
     for (const { a, p } of acc) out.push({ id: a.id, seccion: !searching && (u[a.id] ?? 0) > 0 ? 'Acciones recurrentes' : 'Acciones', texto: a.texto, pista: a.pista, tecla: a.tecla, f: a.f, p: p + (u[a.id] ?? 0) * 0.01 });
-    // una clave escrita («pre-flight abc-12») aunque no se conozca aún
+    // a typed key («pre-flight abc-12») with a PR, even beyond the ones listed
     const escrita = palabras.find(w => /^[a-z][a-z0-9]+-\d+$/.test(w))?.toUpperCase();
-    if (escrita && !out.some(f => f.id === 'preflight:' + escrita)) { const a = preflightAction(escrita); out.push({ id: a.id, seccion: 'Acciones', texto: a.texto, pista: a.pista, f: a.f, p: 4 }); }
+    if (escrita && taskHasPRs(escrita, jiraBoard.get().prs) && !out.some(f => f.id === 'preflight:' + escrita)) { const a = preflightAction(escrita); out.push({ id: a.id, seccion: 'Acciones', texto: a.texto, pista: a.pista, f: a.f, p: 4 }); }
     if (searching) {
       for (const h of habitantes) { const p = score(palabras, t('windows.talkToNombre', { nombre: h.nombre }), `${h.mote} ${h.nameRoom} habitante`); if (p) out.push({ id: 'hab:' + h.id, seccion: 'Habitantes', texto: t('windows.talkToNombre', { nombre: h.nombre }), pista: h.nameRoom, f: () => { onShelter(); goA(h.sala, h.id, true); }, p }); }
       for (const s of salas) { const p = score(palabras, t('panels.goToSala', { sala: s.nombre }), `${s.tipo} sala`); if (p) out.push({ id: 'sala:' + s.id, seccion: 'Salas', texto: t('panels.goToSala', { sala: s.nombre }), pista: s.ruta ? s.ruta.replace(/^\/Users\/[^/]+/, '~') : undefined, f: () => { onShelter(); goA(s.id); }, p }); }

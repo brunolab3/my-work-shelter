@@ -21,6 +21,7 @@ import { Buscador } from './ui/Buscador';
 import { PreflightPopover } from './ui/Preflight';
 import { cliente, vivo } from './red/cliente';
 import { juego } from './ui/estadoJuego';
+import { jiraBoard } from './ui/tareas';
 import { t, idioma } from '@shared/idioma';
 
 async function loadSources() {
@@ -40,7 +41,7 @@ createRoot(document.getElementById('ui')!).render(<><Hud /><Dialogo /><Paneles /
 cliente.conectar();
 // Electron's menus and dialogs in the game's language (electron/textos.cjs); changing it reloads the page
 (window as any).shelterVentana?.setLanguage?.(idioma())?.catch?.(() => {});
-Object.assign(window as any, { __juego: juego, __client: cliente, __live: vivo, __intercoms: intercoms, __browsers: { navegadores, openBrowser }, __git: { windowGit, openGit }, __files: { filesWindow, openFiles } }); // para QA y depuración
+Object.assign(window as any, { __juego: juego, __client: cliente, __live: vivo, __intercoms: intercoms, __browsers: { navegadores, openBrowser }, __git: { windowGit, openGit }, __files: { filesWindow, openFiles }, __board: jiraBoard }); // para QA y depuración
 (window as any).__exitShelter = () => new Promise<void>(ok => { cliente.enviar({ t: 'salir' }); setTimeout(ok, 300); });
 // tecla de pánico (Electron): lo abierto sale a tu escritorio. Contesta al momento; si no hay conexión, Electron se lo
 // pide al servidor por su cuenta (./shelter superficie)

@@ -38,6 +38,7 @@ import { sessionPages, pendingPages, samePage, livePages, questionInput } from '
 import type { PRBoard } from '@shared/tablero';
 import { worktreePRs, worktreeTask } from '@shared/tareas';
 import { openPreflight } from './Preflight';
+import { taskHasPRs } from '@shared/preflight';
 import { jiraBoard } from './tareas';
 import { type AttachmentLocal, uploadFiles, chooseFiles, subiendo, listsPaths, AttachmentsTray, SentAttachments, useDictation, InputButtons, DictationStrip, attachShortcut } from './entrada';
 
@@ -972,10 +973,12 @@ function WorktreePRs({ copia, salaId }: { copia: { ruta: string; rama: string };
   </span>;
 }
 
-// el pre-flight de la tarea de la copia: todas sus partes en todos los repos (Preflight.tsx)
+// the pre-flight of the copy's task: all its parts in every repo (Preflight.tsx), only once the task has a PR (the same
+// list `WorktreePRs` reads)
 function PreflightButton({ copia }: { copia: { ruta: string; rama: string } }) {
   const tarea = worktreeTask(copia);
-  if (!tarea) return null;
+  const conPRs = jiraBoard.usar(x => !!tarea && taskHasPRs(tarea, x.prs));
+  if (!tarea || !conPRs) return null;
   return <span className="paginas-sesion">
     <button className="consola-x" title={t('preflight.actionHint')} onClick={e => { SFX.clic(); openPreflight(tarea, e.currentTarget); }}>✈ {t('preflight.action', { clave: tarea })}</button>
   </span>;

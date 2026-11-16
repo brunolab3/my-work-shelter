@@ -292,6 +292,13 @@ export function mergeReady(p: PartPreflight): { estado: 'fusionado' | 'listo' | 
   return { estado: celdas.some(c => c.marca === 'mal') ? 'falta' : falta.length ? 'aviso' : 'listo', falta };
 }
 
+/** Whether a task has a pre-flight to show: at least one PR of it (open, draft or merged) in any repo, matched as
+ *  `preflightTarea` does. Without one there is nothing to merge, so its entry points stay hidden */
+export function taskHasPRs(clave: string, prs: Pick<PRBoard, 'rama' | 'titulo' | 'numero' | 'estado'>[]): boolean {
+  const K = taskKey(clave);
+  return !!K && prs.some(p => p.estado !== 'cerrado' && pRTask(p) === K);
+}
+
 /** El pre-flight de una tarea: sus partes en todas las salas y el orden en que puede fusionarse */
 export function preflightTarea(clave: string, d: PreflightInput): TaskPreflight {
   const K = taskKey(clave) ?? clave.toUpperCase();

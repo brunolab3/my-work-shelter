@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { bloqueosEntre } from './despliegue';
-import { checklistCell, checklistFromClaudeMd, compareCell, conflictsCell, gateMissing, mergeReady, preflightTarea, pushOf, reviewCell, syncCell, type CompareRecord, type LocalBranch, type RoomRepo } from './preflight';
+import { checklistCell, checklistFromClaudeMd, compareCell, conflictsCell, gateMissing, mergeReady, preflightTarea, pushOf, taskHasPRs, reviewCell, syncCell, type CompareRecord, type LocalBranch, type RoomRepo } from './preflight';
 import type { PRBoard } from './tablero';
 
 // repos, salas y personas inventados
@@ -234,5 +234,18 @@ describe('checklistFromClaudeMd', () => {
     expect(checklistFromClaudeMd(md)).toEqual(['Reused component, new path', 'Assert the outcome', 'Plain item without bold']);
     expect(checklistFromClaudeMd('# Nada\n1. x')).toEqual([]);
     expect(checklistFromClaudeMd('## Antes de subir\n- **Compare**: revisado')).toEqual(['Compare']);
+  });
+});
+
+describe('taskHasPRs', () => {
+  it('only with an open, draft or merged PR of the task, by exact key, Jira or slug', () => {
+    const prs = [pr('acme/api', 1, { rama: 'feature/ABC-1-x' }), pr('acme/web', 2, { rama: 'ABC-2-y', estado: 'cerrado' }), pr('acme/web', 3, { rama: 'z', titulo: 'ABC-3 merged', estado: 'fusionado' }), pr('acme/web', 4, { rama: 'shelter-mi-tarea--ab12', estado: 'borrador' })];
+    expect(taskHasPRs('abc-1', prs)).toBe(true);
+    expect(taskHasPRs('ABC-3', prs)).toBe(true);
+    expect(taskHasPRs('ABC-2', prs)).toBe(false);   // closed without merging
+    expect(taskHasPRs('mi-tarea', prs)).toBe(true);
+    expect(taskHasPRs('ABC-12', prs)).toBe(false);
+    expect(taskHasPRs('ABC-1', [])).toBe(false);
+    expect(taskHasPRs('rm -rf', prs)).toBe(false);
   });
 });
