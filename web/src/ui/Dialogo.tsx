@@ -832,7 +832,7 @@ function Session({ h, s, p, salir, onClose }: { h: DwellerSummary; s: SessionSum
         <span className="txt"><ToolText t={lineState || (s.estado === 'terminada' || s.estado === 'ociosa' ? t('windows.doneYouCanReplyOpen') : '')} /></span>
         {ayudantes > 0 && <span className="tenue"> · {ayudantes > 1 ? t('windows.nHelpers', { n: ayudantes }) : t('windows.nHelper', { n: ayudantes })}</span>}
         {s.lateral && !s.lateral.respuesta && <span className="tenue"> · {t('windows.sideQuestion')}</span>}
-        <Usage s={s} />
+        <Usage s={s} compactar={() => { cliente.enviar({ t: 'enviar', sesionId: s.id, texto: '/compact' }); pegado.current = true; SFX.clic(); }} />
         <span className="modo">{tIs(PERMISSION_MODES.find(m => m.valor === s.modoPermisos)?.texto ?? s.modoPermisos ?? '')}</span>
       </div>}
       {!s.pending && (

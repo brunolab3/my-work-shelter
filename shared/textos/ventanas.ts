@@ -657,6 +657,9 @@ export const WINDOWS: Record<string, Texto> = {
   'windows.contextUsed': { es: 'Contexto: {p} % ocupado ({usados} de {maximo} tokens)', en: 'Context: {p} % used ({usados} of {maximo} tokens)' },
   'windows.tokensSpent': { es: '{n} tokens gastados en la conversación', en: '{n} tokens spent in the conversation' },
   'windows.nTokens': { es: '{n} tokens', en: '{n} tokens' },
+  'windows.compact': { es: 'Compactar', en: 'Compact' },
+  'windows.compactHint': { es: 'Compactar la conversación (/compact): la resume para liberar contexto. Mejor entre tareas', en: 'Compact the conversation (/compact): summarises it to free context. Best between tasks' },
+  'windows.compactUrgentHint': { es: 'Contexto casi lleno: compáctala (/compact) antes de que Claude Code lo haga solo a mitad de tarea', en: 'Context almost full: compact it (/compact) before Claude Code does it by itself mid-task' },
   // English mode leftovers (intercom, panels, client)
   'windows.noConnection': { es: 'Sin conexión', en: 'No connection' },
   'windows.noChrome': { es: 'sin Chrome', en: 'no Chrome' },

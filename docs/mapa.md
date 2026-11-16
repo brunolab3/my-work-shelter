@@ -64,7 +64,7 @@ Pre-flight of a task (`web/src/ui/Preflight.tsx`, model `shared/preflight.ts`, `
 
 ## Usage per conversation
 
-Usage per conversation: the session summary carries `tokens` and `contexto` (`shared/protocolo.ts`); `Usage` in `web/src/ui/consumo.tsx` shows it in the intercom and in the room card (`RoomCard` in `web/src/ui/Paneles.tsx`).
+Usage per conversation: the session summary carries `tokens` and `contexto` (`shared/protocolo.ts`); `Usage` in `web/src/ui/consumo.tsx` shows it in the intercom and in the room card (`RoomCard` in `web/src/ui/Paneles.tsx`). In the intercom's status line, an idle conversation (`compactNeed`) shows «Compact» from 60 % of the window, pulsing from 85 % (near Claude Code's auto-compact): it sends `/compact` as a message, and the `compact_boundary` that follows logs it and measures the context again (`server/sesiones.ts`).
 
 ## Links in replies
 
