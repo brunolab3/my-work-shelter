@@ -1,6 +1,6 @@
-// QA de las copias holográficas como interlocutores propios: cada copia tiene su intercomunicador (no el de su autor),
-// se elige con E por cercanía aunque su autor esté al lado, su retrato es el holograma, se pasea si no tiene nada que
-// hacer y, si un trabajo del habitante se muda a un worktree, la conversación pasa a la copia.
+// QA of the holographic copies as talkers of their own: each copy has its intercom (not its author's), E picks it by
+// nearness even with its author beside it, its portrait is the hologram, with nothing to do it stays seated on its
+// projector and, if a dweller's job moves to a worktree, the conversation moves to the copy.
 // Uso: SHELTER_DATOS=… node scripts/qa-copias.mjs <url> <salida.png>   (QA_RETRATO=1 guarda además el retrato tal cual)
 import { chromium } from 'playwright';
 import { withToken } from './token.mjs';
@@ -48,11 +48,11 @@ comprobar(e.ventanas?.some(([id]) => id === idA) && !e.ventanas.some(([id]) => i
 comprobar(e.regleta === 'esperando' && e.stateAuthor !== 'esperando', 'el aviso es de la copia, no se le cuelga al autor');
 
 console.log('2) con el autor al lado, E habla con quien está más cerca');
-// el autor, pegado a la copia; el Supervisor un poco más cerca de la copia
+// the author right beside the copy; the Overseer just behind it (beside it, in a crowded room, would be another copy)
 await pg.evaluate(([id, autor]) => {
   const r = window.__refugio, f = r.hologramas.ofId(id), h = r.habitantes.find(x => x.id.id === autor);
   const fp = f.p.raiz.position; h.p.parar(); h.pos.set(fp.x + 1.1, fp.y, 1.0); h.fijo = true;
-  r.supervisor.raiz.position.set(fp.x - 0.9, r.currentRoom.grupo.position.y, 1.4);
+  r.supervisor.raiz.position.set(fp.x, r.currentRoom.grupo.position.y, fp.z - 0.6);
 }, [idA, autor]);
 await pasos(3);
 comprobar(await pg.evaluate(id => window.__refugio.nearby === window.__refugio.hologramas.ofId(id) && !window.__refugio.cercano, idA), 'la copia es la elegida (no el autor)');
@@ -86,7 +86,7 @@ comprobar(!e.ventanas.some(([id, ps]) => id === autor && ps.includes('qa_b')), '
 await foto('traspaso');
 await pg.keyboard.press('Escape'); await pasos(5);
 
-console.log('4) sin nada que hacer, la copia se pasea');
+console.log('4) with nothing to do, the copy stays seated on its projector');
 // el worktree simulado solo existe por su sesión: se queda, ya leída y sin nada en marcha
 await sesion('qa_a', { estado: 'terminada', sinLeer: false, pending: undefined, actividad: undefined });
 await pg.evaluate(id => { const r = window.__refugio, f = r.hologramas.ofId(id); r.supervisor.raiz.position.set(f.sitio.x + 6, r.currentRoom.grupo.position.y, 0.2); f.walkClock = 0; }, idA);
@@ -94,8 +94,8 @@ const route = [];
 for (let k = 0; k < 12; k++) { await pasos(25); route.push(await pg.evaluate(id => { const f = window.__refugio.hologramas.ofId(id); return [+f.p.raiz.position.x.toFixed(2), +f.p.raiz.position.z.toFixed(2), f.pose, f.p.currentName]; }, idA)); }
 console.log('   ', JSON.stringify(route));
 const xs = route.map(r => r[0]);
-comprobar(Math.max(...xs) - Math.min(...xs) > 0.5, 'se ha movido');
-await foto('paseo');
+comprobar(Math.max(...xs) - Math.min(...xs) < 0.05 && route.every(r => r[2] === 'base'), 'stays on its projector');
+await foto('quieta');
 
 console.log(logs.filter(l => /PAGEERROR|Error/.test(l)).slice(0, 10).join('\n'));
 await b.close();

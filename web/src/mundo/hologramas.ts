@@ -1,17 +1,17 @@
-// Worktrees como copias holográficas: cada worktree de un repo es un holograma del habitante que lo creó (su clon de
-// ensayo), con su proyector en un hueco libre de la franja delantera de la sala (nunca delante de donde se paran los
-// habitantes, para no taparse) y su propio ordenador holográfico. Nunca usa los puestos del original (consola, silla,
-// cama) ni se mueve de su proyector: pensando o trabajando, de pie, maneja pantallas en el aire sin parar; esperando,
-// salta y saluda hasta que contestas; terminada, te espera saludando de vez en cuando hasta que la lees; avería, se
-// distorsiona; sin nada que hacer, sentada en su proyector y tenue (te mira si te acercas y se levanta para hablar
-// contigo). El disco de luz del proyector, del color de su tarea, late mientras trabaja. Al crearse, el proyector baja
-// por un tubo del techo, su autor va a montarlo con la llave y la copia se materializa encima; al desecharse se
-// desvanece.
-// Cada copia es un interlocutor propio, como un clon: con E (o un clic) se habla con ella en su intercomunicador, que
-// no es el de su autor (ui/copias.ts); lo que se trabaja dentro del worktree vive en él.
+// Worktrees as holographic copies: each worktree of a repo is a hologram of the dweller who created it (their rehearsal
+// clone), standing on its projector on the room's front edge, flush with the lip: in front of everything and taking no
+// floor (in a free slot along the width, never in front of where dwellers stand, so as not to hide them), with its own
+// holographic computer. It never uses the original's spots (console, chair, bed) or leaves its projector: thinking or
+// working, standing, it handles screens in the air nonstop; waiting, it jumps and waves until you answer; finished, it
+// waits for you waving now and then until you read it; fault, it glitches; with nothing to do, sitting on its projector
+// and dim (it looks at you if you come close and stands up to talk to you). The projector's light disc, in its task's
+// color, pulses while it works. When created, the projector comes down a tube from the ceiling, its author goes to
+// mount it with the wrench and the copy materializes on top; when discarded it fades away.
+// Each copy is a talker of its own, like a clone: with E (or a click) you talk to it on its intercom, which is not its
+// author's (ui/copias.ts); whatever is worked on inside the worktree lives in it.
 import * as THREE from 'three';
 import type { Refugio } from './refugio';
-import type { Sala } from './salas/comun';
+import { BACKGROUND, type Sala } from './salas/comun';
 import { Habitante } from './habitante';
 import { callOut, type Character } from './personaje';
 import { gltf, measure, place, R } from '../motor/assets';
@@ -28,7 +28,8 @@ import { idCopy, branchCaption, pathWorktree } from '../ui/copias';
 
 const MAX_BY_ROOM = 30;   // alto a propósito: son intangibles, si no caben se solapan sin estorbar
 const COLOR = new THREE.Color('#58e6ff'), COLOR_FAULT = new THREE.Color('#ff6a4a');
-const Z_SPOT = 1.5;
+const BASE = 1.0;         // projector width
+const Z_SPOT = BACKGROUND / 2 - BASE / 2;   // on the room's front edge: the projector reaches the lip
 const TECHO = 3.5;        // de dónde baja el tubo que trae el proyector (sobre el suelo de la sala)
 const tiempo = { value: 0 };
 
@@ -175,26 +176,28 @@ export class Holograms {
     if (cambio) this.r.publish();
   }
 
-  // ---- un hueco en la franja delantera. Lo que cuenta es lo que se solapa en pantalla (en X), y las salas van llenas:
-  // se puntúa cada hueco y gana el que menos estorba. Nunca encima de otra copia; muy caro tapar la pieza central o
-  // cualquier sitio donde se para un habitante (su mesa, la pieza, su afición, los aparatos, la ronda: la copia, delante,
-  // le taparía) o un aparato; algo, las zonas de paseo, los muebles que asoman por delante y los sitios de los robots
-  // ayudantes; y a igualdad, mejor del lado contrario. El sitio del visitante, nunca
+  // ---- a slot along the front edge. What counts is the overlap on screen (in X), and rooms are full: each slot is
+  // scored and the least in the way wins. Never on top of another copy; very costly to hide the centrepiece or any spot
+  // where a dweller stands (their desk, the piece, their hobby, the devices, the patrol: the copy, in front, would hide
+  // them), a device, or furniture reaching the edge (it would stand inside it); a little, the walk zones, furniture
+  // sticking out to the front and the helper robots' spots; all else equal, better on the far side. The visitor's spot,
+  // never
   private sitio(sala: Sala, ruta: string) {
     const lejos = sala.lado === 'izq' ? -1 : 1, medio = sala.ancho / 2 - 0.9;
     const otros = [...this.figuras.values()].filter(f => f.sala === sala && f.ruta !== ruta && !f.leaving).map(f => f.sitio.x - sala.grupo.position.x);
     const puestos = sala.puntos.filter(pt => pt.tipo !== 'charla').map(pt => ({ x: pt.pos.x, peso: pt.tipo === 'puesto' || pt.tipo === 'pieza' ? 300 : pt.tipo === 'mirar' ? 60 : 200 }));
     const devices = (sala.interactive ?? []).filter(i => !i.id.startsWith('vis:')).map(i => i.x);
-    // entre copias, bien separadas: cada una con su sitio para que se distinga a quién se habla
+    // copies well apart, each in its own slot so you can tell who you talk to; in a full room, as far apart as fits
     const coste = (x: number) =>
-      (otros.some(o => Math.abs(o - x) < 1.3) ? 1000 : otros.some(o => Math.abs(o - x) < 2.2) ? 30 : 0) + (Math.abs(x) < 1.8 ? 100 : 0)
+      otros.reduce((c, o) => { const d = Math.abs(o - x); return c + (d < 1.3 ? 1e4 * (2.3 - d) : d < 2.2 ? 30 : 0); }, 0) + (Math.abs(x) < 1.8 ? 100 : 0)
       + puestos.reduce((c, pt) => c + (Math.abs(pt.x - x) < 1.3 ? pt.peso : Math.abs(pt.x - x) < 1.8 ? pt.peso / 6 : 0), 0)
       + (devices.some(ax => Math.abs(ax - x) < 1.0) ? 40 : 0)
       + ((sala.walkZones ?? []).some(([a, b]) => x > a - 0.6 && x < b + 0.6) ? 10 : 0)
+      + (sala.obstacles.some(b => b.max.y > Z_SPOT - BASE / 2 && b.min.x - BASE / 2 < x && b.max.x + BASE / 2 > x) ? 300 : 0)
       + (sala.obstacles.some(b => b.max.y > 0.3 && b.min.x - 0.5 < x && b.max.x + 0.5 > x) ? 5 : 0)
       + ([-3.2, 3.0, -1.4, 1.6, -4.6, 4.4].some(r => Math.abs(r - x) < 0.8) ? 4 : 0)
       // el sitio del visitante (junto al paso del ascensor, `Visitors.crear`) queda siempre libre, haya visitas o no
-      + (Math.abs(-lejos * (sala.ancho / 2 - 1.1) - x) < 1.4 ? 1000 : 0)
+      + (Math.abs(-lejos * (sala.ancho / 2 - 1.1) - x) < 1.4 ? 1e5 : 0)
       + Math.abs(lejos * medio - x);
     let mejor = lejos * medio, cmin = Infinity;
     for (let x = -medio; x <= medio + 1e-6; x += 0.3) { const c = coste(x); if (c < cmin) { cmin = c; mejor = x; } }
@@ -289,7 +292,7 @@ export class Holograms {
     if (!autor || autor.sala !== f.sala || !autor.p.raiz.visible) return;
     // a un lado del proyector (el que da a su sitio), agachado hacia él
     const lado = Math.sign(autor.pos.x - f.sitio.x) || 1;
-    const junto = new THREE.Vector3(f.sitio.x + lado * 0.75, f.sala.grupo.position.y, f.sitio.z + 0.15);
+    const junto = new THREE.Vector3(f.sitio.x + lado * 0.75, f.sala.grupo.position.y, f.sitio.z);
     const giro = Math.atan2(f.sitio.x - junto.x, f.sitio.z - junto.z);
     if (autor.encargar(junto, giro, 'Lockpicking', 'llave', 3.2, () => { if (f.montaje) f.montaje.montado = true; })) m.fin = 25;   // por si no llega nunca
   }
@@ -330,7 +333,7 @@ export class Holograms {
     try {
       const g = await gltf(R.base('landingpad_small'));
       const o = g.scene.clone(true);
-      const { tam } = measure(o); o.scale.setScalar(1.0 / Math.max(tam.x, tam.z, 1e-3));
+      const { tam } = measure(o); o.scale.setScalar(BASE / Math.max(tam.x, tam.z, 1e-3));
       o.traverse((n: any) => { if (n.isMesh) { n.receiveShadow = true; n.castShadow = false; } });
       const base = new THREE.Group(); base.add(o); base.position.copy(f.sitio); base.userData.estatico = false;
       // encendido, un disco de luz del color de su tarea que cubre la plataforma (se ve aunque esté sentada encima)
