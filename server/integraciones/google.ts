@@ -4,7 +4,12 @@
 // pero va al llavero igualmente). OAuth 2.0 código de autorización + PKCE con retorno a http://localhost:<puerto>.
 // Con la pantalla de consentimiento en «Pruebas», Google corta la sesión a los 7 días: se explica al reconectar.
 // El refresh token va al llavero (google.refreshToken). El access token vive solo en memoria.
+// With both fields empty, the session of the `gws` CLI (Google Workspace CLI) is borrowed instead, as GitHub does
+// with `gh`: see gwsCredentials().
 import { execFile } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import type { Store } from '../estado.ts';
 import { ConnectorBase, ConfigSource, ErrorSource, ask, retraso, type Field } from './comun.ts';
 import { readSecret, saveSecret, eraseSecret } from './llavero.ts';
@@ -23,12 +28,46 @@ export const SESSION_ACCOUNT = 'google.refreshToken';
 const EACH_CALENDAR = 5 * 60_000;
 const WITHOUT_SESSION = () => t('integrations.googleNoSession');
 const WITHOUT_CLIENT = () => t('integrations.googleNoClient');
+// gws errors the user fixes in a terminal: no point in running gws again every minute until then
+const GWS_RETRY = 5 * 60_000;
 
 export const FIELDS_GOOGLE: Field[] = [
-  { nombre: 'clientId', etiqueta: 'ID de cliente', ayuda: 'Google Cloud → APIs y servicios → Credenciales → tu cliente OAuth (tipo «Aplicación de escritorio») → «ID de cliente».', ejemplo: '1234567890-abc….apps.googleusercontent.com' },
-  { nombre: 'clientSecret', etiqueta: 'Secreto de cliente', secreto: true, ayuda: 'En el mismo cliente OAuth, «Secreto de cliente». Empieza por GOCSPX-.' },
+  { nombre: 'clientId', etiqueta: 'ID de cliente', opcional: true, ayuda: 'Google Cloud → APIs y servicios → Credenciales → tu cliente OAuth (tipo «Aplicación de escritorio») → «ID de cliente». Vacíos el ID y el secreto: se usa la sesión de la herramienta gws si la tienes iniciada.', ejemplo: '1234567890-abc….apps.googleusercontent.com' },
+  { nombre: 'clientSecret', etiqueta: 'Secreto de cliente', secreto: true, opcional: true, ayuda: 'En el mismo cliente OAuth, «Secreto de cliente». Empieza por GOCSPX-.' },
 ];
 export const hasSessionGoogle = () => readSecret(SESSION_ACCOUNT).then(v => !!v, () => false);
+
+// Credentials of the `gws` session (an authorized_user JSON: client_id, client_secret, refresh_token), read with
+// `gws auth export --unmasked` only when the access token has to be renewed, and never stored. gws gets the game's
+// environment, so GOOGLE_WORKSPACE_CLI_CONFIG_DIR and GOOGLE_WORKSPACE_CLI_KEYRING_BACKEND apply; without the first,
+// command-center-starter's directory (~/.config/gws-command-center, file backend) is tried too.
+export interface GwsCredentials { client_id: string; client_secret: string; refresh_token: string }
+function gwsExport(env: NodeJS.ProcessEnv): Promise<GwsCredentials | null> {
+  return new Promise(resolve => execFile('gws', ['auth', 'export', '--unmasked'], { env, timeout: 10_000 }, (err, salida) => {
+    if (err) return resolve(null);
+    const texto = String(salida);
+    try {
+      const j = JSON.parse(texto.slice(texto.indexOf('{')));
+      resolve(j?.client_id && j.client_secret && j.refresh_token ? { client_id: j.client_id, client_secret: j.client_secret, refresh_token: j.refresh_token } : null);
+    } catch { resolve(null); }   // not signed in: {"error": …} or nothing
+  }));
+}
+export async function gwsCredentials(): Promise<GwsCredentials | null> {
+  const env = process.env;
+  const c = await gwsExport(env);
+  if (c || env.GOOGLE_WORKSPACE_CLI_CONFIG_DIR) return c;
+  const centro = path.join(os.homedir(), '.config/gws-command-center');
+  return existsSync(centro) ? gwsExport({ ...env, GOOGLE_WORKSPACE_CLI_CONFIG_DIR: centro, GOOGLE_WORKSPACE_CLI_KEYRING_BACKEND: env.GOOGLE_WORKSPACE_CLI_KEYRING_BACKEND ?? 'file' }) : null;
+}
+// What a gws session lacks to read mail and calendar, from the `scope` of the token response (broader scopes count)
+const NEEDED = [
+  { nombre: 'Gmail', vale: ['gmail.readonly', 'gmail.modify', 'https://mail.google.com/'] },
+  { nombre: 'Google Calendar', vale: ['calendar.readonly', 'calendar', 'calendar.events.readonly', 'calendar.events'] },
+];
+export function missingScopes(scope: string): string[] {
+  const tiene = new Set(scope.split(/\s+/).map(s => s.replace('https://www.googleapis.com/auth/', '')));
+  return NEEDED.filter(n => !n.vale.some(v => tiene.has(v))).map(n => n.nombre);
+}
 
 class Google extends ConnectorBase {
   id = 'google' as const;
@@ -41,9 +80,12 @@ class Google extends ConnectorBase {
   private metadatos = new Map<string, any>();   // id → mensaje (format=metadata): no se vuelve a pedir
   constructor(almacen: Store) { super(almacen, new ConfigSource(almacen, 'google', FIELDS_GOOGLE)); }
   private get cliente() { return this.config.publicos().clientId ?? ''; }
+  private get ownClient() { return !!this.cliente && this.config.tiene('clientSecret'); }
+  // both fields empty: the gws session (half a client is a mistake, not gws)
+  private get ofGws() { return !this.cliente && !this.config.tiene('clientSecret'); }
 
-  protected listo() { return this.config.listo() && this.sesion; }
-  protected missingConfig() { return this.config.listo() ? WITHOUT_SESSION() : WITHOUT_CLIENT(); }
+  protected listo() { return this.ofGws || (this.ownClient && this.sesion); }
+  protected missingConfig() { return this.ownClient ? WITHOUT_SESSION() : WITHOUT_CLIENT(); }
   protected onRestart() { this.acceso = null; this.correo = null; this.lastCalendar = 0; this.metadatos.clear(); }
   async sondear() { this.sesion = await hasSessionGoogle(); return super.sondear(); }
 
@@ -57,8 +99,22 @@ class Google extends ConnectorBase {
     if (r.json.refresh_token) { await saveSecret(SESSION_ACCOUNT, r.json.refresh_token); this.sesion = true; }
     return this.acceso.token;
   }
+  private async tokenGws() {
+    const c = await gwsCredentials();
+    if (!c) throw new ErrorSource(t('integrations.googleGwsNoSession'), GWS_RETRY);
+    const r = await ask(TOKEN, { servicio: 'Google', metodo: 'POST', cabeceras: { 'Content-Type': 'application/x-www-form-urlencoded' }, cuerpo: new URLSearchParams({ client_id: c.client_id, client_secret: c.client_secret, grant_type: 'refresh_token', refresh_token: c.refresh_token }).toString() });
+    if (r.estado !== 200 || !r.json?.access_token) {
+      if (r.json?.error === 'invalid_grant') throw new ErrorSource(t('integrations.googleGwsSessionExpired'), GWS_RETRY, r.json.error);
+      throw new ErrorSource(explainErrorOAuthGoogle(r.json ?? { error_description: `HTTP ${r.estado}` }), undefined, r.json?.error);
+    }
+    const faltan = r.json.scope ? missingScopes(String(r.json.scope)) : [];
+    if (faltan.length) throw new ErrorSource(t('integrations.googleGwsMissingScopes', { faltan: faltan.join(', ') }), GWS_RETRY);
+    this.acceso = { token: r.json.access_token, caduca: Date.now() + (Number(r.json.expires_in) || 3600) * 1000 };
+    return this.acceso.token;
+  }
   private async tokenAccess(forzar = false) {
     if (!forzar && this.acceso && this.acceso.caduca - Date.now() > 5 * 60_000) return this.acceso.token;
+    if (this.ofGws) return this.tokenGws();
     const rt = await readSecret(SESSION_ACCOUNT);
     if (!rt) { this.sesion = false; throw new ErrorSource(WITHOUT_SESSION()); }
     return this.token({ grant_type: 'refresh_token', refresh_token: rt });
@@ -79,7 +135,8 @@ class Google extends ConnectorBase {
 
   async startSession(): Promise<string> {
     if (this.escucha) return this.escucha.url;
-    if (!this.config.listo()) throw new ErrorSource(WITHOUT_CLIENT());
+    if (this.ofGws) throw new ErrorSource(t('integrations.googleGwsNoConnect'));
+    if (!this.ownClient) throw new ErrorSource(WITHOUT_CLIENT());
     this.escucha = await listenReturned({
       servicio: 'Google',
       // access_type=offline y prompt=consent: Google solo da refresh token así (y otra vez al reconectar)
@@ -121,11 +178,16 @@ class Google extends ConnectorBase {
       eventos = googleEvents(await this.api(`${CALENDARIO}?${qc}`));
       this.lastCalendar = Date.now();
     }
-    this.bien(t('server.connectedAsUnreadEmailsIn', { correo, notificaciones: notificaciones.length }));
+    this.bien(t('server.connectedAsUnreadEmailsIn', { correo: correo + (this.ofGws ? t('integrations.gwsSession') : ''), notificaciones: notificaciones.length }));
     return { notificaciones, complete: true, eventos };   // lo que se lee en Gmail sale del tablón
   }
 
   protected async tryReal(v: Record<string, string>) {
+    if (!v.clientId && !v.clientSecret) {
+      try { this.acceso = null; this.correo = null; await this.tokenGws(); return { ok: true, detalle: t('integrations.connectedAs', { quien: await this.whoSoy() + t('integrations.gwsSession') }) }; }
+      catch (e) { return { ok: false, detalle: (e as Error).message }; }
+    }
+    if (!v.clientSecret) return { ok: false, detalle: WITHOUT_CLIENT() };
     if (!/\.apps\.googleusercontent\.com$/.test(v.clientId ?? '')) return { ok: false, detalle: t('server.theClientIdEndsIn') };
     this.sesion = await hasSessionGoogle();
     if (!this.sesion) return { ok: true, detalle: t('server.oauthClientSavedNowPress') };

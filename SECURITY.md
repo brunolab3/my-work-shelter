@@ -41,6 +41,8 @@ It is designed as a local application for a single person on their Mac:
 - **Electron**: `contextIsolation`, no `nodeIntegration`, the main window confined to its origin and the internal
   browsers (`<webview>`) in their own session, `https` only and no preload.
 - **Secrets**: in the macOS keychain, not in the repo or in `.data/`; integrations ask for read-only permissions.
+  The borrowed sessions of `gh` (`gh auth token`) and `gws` (`gws auth export --unmasked`, for Google) are read when
+  needed and never stored; their access tokens live in memory only.
 - **Slack remote control** (optional, with your own app; `server/mando.ts` and `server/slackMando.ts`): over Socket
   Mode (no open ports: the server opens the connection to Slack), with only `chat:write` and `im:history` and the
   `message.im` event. It sends approval requests exactly as the dialog shows them, in plain-text blocks (invisible

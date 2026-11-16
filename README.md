@@ -256,7 +256,7 @@ try the game first, "Switch to DEMO" (simulated data, marked DEMO):
 
 | Source | What it brings | What you need |
 |---|---|---|
-| **Google (Gmail and Calendar)** | unread mail and calendar | an OAuth client of type "Desktop app" in Google Cloud |
+| **Google (Gmail and Calendar)** | unread mail and calendar | the `gws` session (Google Workspace CLI) or an OAuth client of type "Desktop app" in Google Cloud |
 | **Mac Mail** | unread mail (Gmail or any other account) | the account added in Internet Accounts and Mail open: nothing in Google Cloud |
 | **Mac Calendar** | the calendars you have in the Calendar app (Google, Exchange, iCloud…) | Calendar open: nothing to create |
 | **Discord** | messages from the channels you choose and your mentions | your own bot (never your account token) |

@@ -32,7 +32,8 @@ const GUIDES: Record<SourceId, { que: string; pasos: React.ReactNode[] }> = {
   google: {
     que: 'correo sin leer de Gmail (7 días) y Google Calendar de los próximos 14 días (solo lectura)',
     pasos: [
-      <>{t('panels.in')} {enlace('https://console.cloud.google.com')} {t('panels.createAProjectAndEnable')} <b>Gmail API</b> {t('panels.and')} <b>Google Calendar API</b> ({t('panels.apisServicesLibrary')}).</>,
+      <>{t('panels.ifYouUseThe')} <code>gws</code> {t('panels.toolAndAreSignedIn')} (<code>gws auth login</code>, {t('panels.withGmailAndCalendar')}), {t('panels.nothingMoreIsNeededLeaveFields')} <b>{t('windows.save')}</b>.</>,
+      <>{t('panels.ifNot')}: {t('panels.in').toLowerCase()} {enlace('https://console.cloud.google.com')} {t('panels.createAProjectAndEnable')} <b>Gmail API</b> {t('panels.and')} <b>Google Calendar API</b> ({t('panels.apisServicesLibrary')}).</>,
       <>{t('panels.oauthConsentScreenType')} <b>{t('panels.external')}</b>, {t('panels.setTo')} <b>{t('panels.testing')}</b>, {t('panels.andAddYourselfUnder')} <b>{t('panels.testUsers')}</b>. ({t('panels.inTestingModeGoogleEnds')}.)</>,
       <>{t('panels.credentials')} <b>{t('panels.createCredentials')}</b> {t('panels.oauthClientIdType')} <b>{t('panels.desktopApp')}</b>.</>,
       <>{t('panels.pasteThe')} <b>{t('panels.clientId')}</b> {t('panels.andThe')} <b>{t('panels.clientSecret')}</b> {t('panels.and')} <b>{t('windows.save')}</b>. {t('panels.then')}, <b>{t('panels.connectWithGoogle')}</b> {t('panels.andAgreeToReadMail')}.</>,

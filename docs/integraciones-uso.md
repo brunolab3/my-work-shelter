@@ -85,16 +85,22 @@ port on localhost), no secret. Delegated permissions: `User.Read`, `Mail.Read`, 
 `offline_access`. Polling: unread inbox mail from the last 7 days (metadata + `bodyPreview`, 25 at most) every 60 s;
 `calendarView` from today to +14 days every 5 min, in the system time zone.
 
-**Google (Gmail and Calendar)** — read-only. You create your own OAuth client in Google Cloud.
+**Google (Gmail and Calendar)** — read-only. Either the session of the `gws` CLI (Google Workspace CLI, a
+community tool) or your own OAuth client in Google Cloud.
 
 | Field | Label | Secret | Help |
 |---|---|---|---|
-| `clientId` | Client ID | no | Google Cloud → APIs & Services → Credentials → OAuth client of type "Desktop app". |
-| `clientSecret` | Client secret | yes | The same client's (not confidential in a desktop app, but it goes to the keychain anyway). |
+| `clientId` | Client ID | no (optional) | Google Cloud → APIs & Services → Credentials → OAuth client of type "Desktop app". Both empty: the `gws` session. |
+| `clientSecret` | Client secret | yes (optional) | The same client's (not confidential in a desktop app, but it goes to the keychain anyway). |
 
-Enable the Gmail API and Google Calendar API in the project and, with the consent screen in "Testing", add yourself
+With both fields empty, the connector borrows `gws`'s session, as GitHub does with `gh` (how: `gwsCredentials()` in
+`google.ts`). Sign in with `gws auth login` including Gmail and Calendar (e.g. `-s gmail,calendar`); without a
+session, with one Google revoked, or without those scopes, the Vault says what to run. "Connect with Google" is for
+your own client only; to go from your own client to gws, "Forget" the source and save it empty.
+
+With your own client, enable the Gmail API and Google Calendar API in the project and, with the consent screen in "Testing", add yourself
 as a test user. In that mode Google cuts the refresh token after 7 days: the state explains it and reconnecting is
-enough. Scopes: `gmail.readonly` and `calendar.readonly`. Polling: `is:unread in:inbox newer_than:7d` (25 at most,
+enough. Scopes: `gmail.readonly` and `calendar.readonly`. Polling, either way: `is:unread in:inbox newer_than:7d` (25 at most,
 metadata and snippet; already-seen ones aren't fetched again) every 60 s; the primary calendar from today to +14 days
 every 5 min.
 

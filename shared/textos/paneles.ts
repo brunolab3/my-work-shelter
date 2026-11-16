@@ -368,6 +368,8 @@ export const PANELS: Record<string, Texto> = {
   'panels.ifYouUseThe': { es: 'Si usas la herramienta', en: 'If you use the' },
   'panels.toolAndAreSignedIn': { es: 'con sesión iniciada', en: 'tool and are signed in' },
   'panels.nothingMoreIsNeededLeave': { es: 'no hace falta nada más: deja el token vacío y pulsa', en: 'nothing more is needed: leave the token empty and press' },
+  'panels.withGmailAndCalendar': { es: 'con Gmail y Calendar', en: 'with Gmail and Calendar' },
+  'panels.nothingMoreIsNeededLeaveFields': { es: 'no hace falta nada más: deja los campos vacíos y pulsa', en: 'nothing more is needed: leave the fields empty and press' },
   'panels.ifNot': { es: 'Si no', en: 'If not' },
   'panels.withThePermission': { es: 'con el permiso', en: 'with the permission' },
   'panels.fineGrainedTokensDonT': { es: 'Los tokens fine-grained no sirven para notificaciones', en: 'Fine-grained tokens don\'t work for notifications' },
