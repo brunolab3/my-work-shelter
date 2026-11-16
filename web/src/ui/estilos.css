@@ -494,6 +494,7 @@ a.miniatura:hover img { box-shadow: 0 0 0 1px #ffc96b, 0 0 10px rgba(255,179,71,
 .vt-lista-fila.e-esperando .vt-lista-estado { color: #ffb000; }
 .vt-lista-fila.e-sinLeer .vt-lista-estado, .vt-lista-fila.e-sinLeer .vt-lista-nombre { color: #9dffb8; font-weight: 700; }
 .vt-lista-fila.e-error .vt-lista-estado { color: #ff6a5a; }
+.vt-lista-fila.e-trabajando .vt-lista-estado { color: #5dff8a; }
 .vt-lista-cuando { text-align: right; }
 .vt-lista-tarea { display: inline-flex; align-items: center; gap: .4em; }
 .vt-lista-vacia { padding: 10px; color: var(--crema-tenue); }
@@ -547,6 +548,10 @@ a.miniatura:hover img { box-shadow: 0 0 0 1px #ffc96b, 0 0 10px rgba(255,179,71,
 .barra-asomo-fila .piloto { width: 8px; height: 8px; box-shadow: none; }
 .barra-asomo-fila small, .barra-asomo-estado { color: var(--crema-tenue); }
 .barra-asomo-fila.urgente .barra-asomo-estado { color: #ffb000; }
+/* each state in the colour of its pilot light */
+.barra-asomo-fila.e-trabajando .barra-asomo-estado { color: #5dff8a; }
+.barra-asomo-fila.e-sinLeer .barra-asomo-estado { color: #9dffb8; font-weight: 700; }
+.barra-asomo-fila.e-error .barra-asomo-estado { color: #ff6a5a; }
 /* COM popup: conversation titles stay green once read; unread ones also go bold, urgent ones keep cream */
 .barra-asomo:not(.consola-quien-lista) .barra-asomo-fila:not(.urgente) .barra-asomo-titulo { color: #9dffb8; }
 .barra-asomo-fila.sin-leer .barra-asomo-titulo { color: #9dffb8; font-weight: 700; }

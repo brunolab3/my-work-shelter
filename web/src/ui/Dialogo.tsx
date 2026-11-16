@@ -379,8 +379,8 @@ function TalkerBust({ x }: { x: DwellerSummary }) {
   return <span className={'consola-quien-foto' + (x.copia ? ' holo' : '')} style={tono ? { '--tono': tono } as React.CSSProperties : undefined} aria-hidden>{url && <img src={url} alt="" draggable={false} />}</span>;
 }
 
-// The room's talkers (its dwellers, then its worktrees' holographic copies), each with its intercom panel's open
-// conversations and the most urgent one: the selector above the portrait and the bar's hover list (Barra.tsx) show them
+// The room's talkers (its dwellers and its worktrees' holographic copies; the one with the most recent conversation
+// first, those without one last, dwellers before holograms), each with its intercom panel's open conversations and the most urgent one: the selector above the portrait and the bar's hover list (Barra.tsx) show them
 export type Talker = { x: DwellerSummary; ses: SessionSummary[]; primera?: SessionSummary; estado?: TabState; nombre: string };
 export function roomTalkers(sala: string, habitantes: DwellerSummary[], copias: DwellerSummary[], lista: WindowCom[], sesiones: Record<string, SessionSummary>): Talker[] {
   return [...habitantes.filter(x => x.sala === sala && !x.robot), ...copias.filter(c => c.sala === sala)].map(x => {
@@ -388,12 +388,15 @@ export function roomTalkers(sala: string, habitantes: DwellerSummary[], copias: 
     const primera = [...ses].sort((a, b) => urgency(a) - urgency(b) || b.actualizada - a.actualizada)[0];
     const nombre = x.copia ? `◇ ${copyCaption(x.copia, worktreeTask(x.copia) ?? branchCaption(x.copia.rama))} · ${x.copia.nameAuthor}` : x.nombre;
     return { x, ses, primera, estado: tabState(primera), nombre };
-  });
+  }).map((q, i) => ({ q, i, r: { cuando: Math.max(0, ...q.ses.map(s => s.actualizada)), nombre: q.nombre, id: q.x.id } }))
+    // by the minute, then by name (recentFirst), so the list stays still while they work
+    .sort((a, b) => (a.r.cuando && b.r.cuando ? recentFirst(a.r, b.r) : (b.r.cuando ? 1 : 0) - (a.r.cuando ? 1 : 0) || a.i - b.i))
+    .map(y => y.q);
 }
 export function TalkerRow({ q, actual, sel, option, onClick, onMouseEnter }: { q: Talker; actual: boolean; sel?: boolean; option?: boolean; onClick: () => void; onMouseEnter?: () => void }) {
   return (
     <button role={option ? 'option' : undefined} aria-selected={option ? actual : undefined} onClick={onClick} onMouseEnter={onMouseEnter}
-      className={'barra-asomo-fila' + (q.x.copia ? ' de-copia' : '') + (actual ? ' actual' : '') + (sel ? ' sel' : '') + (q.estado === 'esperando' ? ' urgente' : '') + (q.estado === 'sinLeer' ? ' sin-leer' : '')}>
+      className={'barra-asomo-fila' + (q.x.copia ? ' de-copia' : '') + (actual ? ' actual' : '') + (sel ? ' sel' : '') + (q.estado === 'esperando' ? ' urgente' : '') + (q.estado === 'sinLeer' ? ' sin-leer' : '') + (q.estado ? ' e-' + q.estado : '')}>
       <span className={'piloto ' + (q.estado ? PILOT[q.estado] : 'apagado')} />
       <TalkerBust x={q.x} />
       <span className="barra-asomo-estado">{q.estado ? stateLabel(q.estado) : t('windows.noSession')}</span>
