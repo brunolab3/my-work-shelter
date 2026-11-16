@@ -32,7 +32,13 @@ if (opt.nacer) {
     const r = window.__refugio; const s = r.currentRoom; const h = r.habitantes.find(x => x.sala === s);
     window.__live.set(e => ({ sesiones: { ...e.sesiones, qa_nacer: { id: 'qa_nacer', dwellerId: h.id.id, salaId: s.id, cwd: s.ruta + '/.claude/worktrees/shelter-qa', estado: 'trabajando', actividad: { modo: 'escribir', texto: 'editando src/app.ts' }, sinLeer: false, titulo: 'QA', pendientes: 0, ayudantes: [], herramientas: 3, turns: 1, created: Date.now(), actualizada: Date.now() } } }));
   });
-  await pg.waitForFunction(() => [...window.__refugio.hologramas.figuras.values()].some(f => f.ruta.endsWith('shelter-qa') && f.p.raiz.parent), null, { timeout: 30000 });
+  // with __noLoop the loop is stepped by hand: step it until the copy is in the scene
+  let enEscena = false;
+  for (let i = 0; i < 600 && !enEscena; i++) {
+    enEscena = await pg.evaluate(() => [...window.__refugio.hologramas.figuras.values()].some(f => f.ruta.endsWith('shelter-qa') && f.p.raiz.parent));
+    if (!enEscena) { await pasos(1); await new Promise(r => setTimeout(r, 20)); }
+  }
+  if (!enEscena) { console.log('FALLO: the hologram never appeared'); await b.close(); process.exit(1); }
   await pg.evaluate(() => { const r = window.__refugio; r.activityMode = true; r.camara.goal.set(r.currentRoom.grupo.position.x, r.currentRoom.grupo.position.y + 1.6, 0); r.camara.distancia = 16; r.camara.immediate(); });
   for (const [k, n] of [[0, 4], [1, 10], [2, 14], [3, 30], [4, 60], [5, 120]]) { await pasos(n); if (k === 1) await new Promise(r => setTimeout(r, 1500)); await foto('nacer' + k); }
   // y al desechar el worktree, se desvanece
