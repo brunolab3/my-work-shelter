@@ -14,8 +14,9 @@ const SALAS = [
 ];
 
 // un contexto que apunta lo que se hace: avisos a conversaciones abiertas y conversaciones nuevas
-function ctx(o: { abiertas?: Record<string, string>; cerradas?: Set<string>; worktrees?: Record<string, string>; falla?: string; reloj?: { t: number }; sinGit?: boolean; worktreeDeTarea?: CtxRooms['worktreeDeTarea'] } = {}) {
+function ctx(o: { abiertas?: Record<string, string>; cerradas?: Set<string>; worktrees?: Record<string, string>; falla?: string; reloj?: { t: number }; sinGit?: boolean; worktreeDeTarea?: CtxRooms['worktreeDeTarea']; ocupadas?: Set<string>; forkFalla?: string; previas?: Record<string, string> } = {}) {
   const avisados: { sesionId: string; texto: string }[] = [], nuevas: { salaId: string; dwellerId: string; prompt: string; cwd?: string; worktree?: string }[] = [], mensajero: string[][] = [], avisos: string[] = [];
+  const forks: { salaId: string; de: string; prompt: string }[] = [], retomadas: { salaId: string; cwd: string; prompt: string; id: string }[] = [];
   const c: CtxRooms = {
     salas: () => SALAS,
     sesionDeTarea: (salaId, clave) => o.abiertas?.[`${salaId}/${clave}`],
@@ -25,8 +26,12 @@ function ctx(o: { abiertas?: Record<string, string>; cerradas?: Set<string>; wor
     mensajero: (desde, a) => mensajero.push([desde, ...a]),
     aviso: t => avisos.push(t),
     ahora: o.reloj && (() => o.reloj!.t),
+    ocupada: id => !!o.ocupadas?.has(id),
+    bifurcar: async (salaId, de, prompt) => { if (o.forkFalla) throw new Error(o.forkFalla); forks.push({ salaId, de, prompt }); return `fork-${forks.length}`; },
+    // previas: the last conversation in each folder (cwd → its resumed id)
+    retomar: async (salaId, cwd, prompt) => { const id = o.previas?.[cwd]; if (id) retomadas.push({ salaId, cwd, prompt, id }); return id; },
   };
-  return { c, avisados, nuevas, mensajero, avisos };
+  return { c, avisados, nuevas, mensajero, avisos, forks, retomadas };
 }
 
 describe('mensajes entre salas', () => {
@@ -204,6 +209,72 @@ describe('mensajes entre salas', () => {
     // otra conversación de la misma sala sí se la pasa a la de la tarea
     expect((await sendToRoom(x.c, 'express', { sala: 'express', clave: 'ABC-9', mensaje: 'a' }, 'ses-supervisor')).ok).toBe(true);
     expect(x.avisados[0].sesionId).toBe('ses-tarea');
+  });
+
+  it('with a key and its conversation busy: a read-only fork answers, and what the fork sends back with the key queues in the original', async () => {
+    const x = ctx({ abiertas: { 'pagos/ABC-7': 'ses-tarea' }, ocupadas: new Set(['ses-tarea']) });
+    const r = await sendToRoom(x.c, 'express', { sala: 'pagos', clave: 'ABC-7', mensaje: '¿Qué versión del contrato usas?' }, 'ses-express');
+    expect(r.ok).toBe(true);
+    expect(r.texto).toContain('solo lectura');
+    expect(x.avisados).toEqual([]);
+    expect(x.forks).toEqual([{ salaId: 'pagos', de: 'ses-tarea', prompt: expect.stringContaining('¿Qué versión del contrato usas?') }]);
+    // framed as an outside request, and told how to pass changes to the original
+    expect(x.forks[0].prompt).toContain('fuera de lo que estás haciendo');
+    expect(x.forks[0].prompt).toMatch(/room «pagos» y key ABC-7/);
+    // the fork's changes, with the key to its own room: to the original, queued, even though it's busy (never forked again)
+    const back = await sendToRoom(x.c, 'pagos', { sala: 'pagos', clave: 'ABC-7', mensaje: 'Cambia el contrato a v2' }, 'fork-1');
+    expect(back.ok).toBe(true);
+    expect(back.texto).toContain('de la que eres copia');
+    expect(x.avisados.map(a => a.sesionId)).toEqual(['ses-tarea']);
+    expect(x.forks).toHaveLength(1);
+    // its reply without a key goes back to the sender conversation
+    await sendToRoom(x.c, 'pagos', { sala: 'express', mensaje: 'Uso la v1' }, 'fork-1');
+    expect(x.avisados.at(-1)!.sesionId).toBe('ses-express');
+  });
+
+  it('a fork is never the task\'s conversation: the next messages go to the original (forked again while busy, delivered once idle)', async () => {
+    const abiertas: Record<string, string> = { 'pagos/ABC-8': 'ses-tarea' }, ocupadas = new Set(['ses-tarea']);
+    const x = ctx({ abiertas, ocupadas });
+    await sendToRoom(x.c, 'express', { sala: 'pagos', clave: 'ABC-8', mensaje: 'a' });
+    abiertas['pagos/ABC-8'] = 'fork-1';   // the fork is now the most recent conversation in the worktree
+    await sendToRoom(x.c, 'express', { sala: 'pagos', clave: 'ABC-8', mensaje: 'b' });
+    expect(x.forks.map(f => f.de)).toEqual(['ses-tarea', 'ses-tarea']);
+    ocupadas.clear();
+    const r = await sendToRoom(x.c, 'tareas', { sala: 'pagos', clave: 'ABC-8', mensaje: 'c' });
+    expect(r.texto).toContain('conversación abierta de ABC-8');
+    expect(x.avisados.map(a => a.sesionId)).toEqual(['ses-tarea']);
+    // the original itself writing with its key is still its own conversation
+    expect((await sendToRoom(x.c, 'pagos', { sala: 'pagos', clave: 'ABC-8', mensaje: 'd' }, 'ses-tarea')).ok).toBe(false);
+  });
+
+  it('with a key and its conversation busy, if no fork can start: queued in it, and the answer says why', async () => {
+    const x = ctx({ abiertas: { 'pagos/ABC-7': 'ses-tarea' }, ocupadas: new Set(['ses-tarea']), forkFalla: 'Ya hay 6 conversaciones vivas' });
+    const r = await sendToRoom(x.c, 'express', { sala: 'pagos', clave: 'ABC-7', mensaje: 'a' });
+    expect(r.ok).toBe(true);
+    expect(x.avisados.map(a => a.sesionId)).toEqual(['ses-tarea']);
+    expect(r.texto).toContain('en cola');
+    expect(r.texto).toContain('Ya hay 6 conversaciones vivas');
+  });
+
+  it('with a key and none open: the last conversation in the task\'s worktree, resumed; with none there, a new one in it', async () => {
+    const wt = '/repos/pagos/.claude/worktrees/ABC-5';
+    const x = ctx({ worktrees: { 'pagos/ABC-5': wt, 'pagos/ABC-6': '/repos/pagos/.claude/worktrees/ABC-6' }, previas: { [wt]: 'retomada' } });
+    const r = await sendToRoom(x.c, 'express', { sala: 'pagos', clave: 'ABC-5', mensaje: 'Rebase sobre main' }, 'ses-express');
+    expect(r.texto).toContain('retomando su última conversación');
+    expect(x.retomadas).toEqual([{ salaId: 'pagos', cwd: wt, prompt: expect.stringContaining('Rebase sobre main'), id: 'retomada' }]);
+    expect(x.retomadas[0].prompt).toContain('fuera de lo que estás haciendo');
+    expect(x.nuevas).toEqual([]);
+    // its replies come back to the sender
+    await sendToRoom(x.c, 'pagos', { sala: 'express', mensaje: 'hecho' }, 'retomada');
+    expect(x.avisados.at(-1)!.sesionId).toBe('ses-express');
+    await sendToRoom(x.c, 'express', { sala: 'pagos', clave: 'ABC-6', mensaje: 'a' });
+    expect(x.nuevas[0]).toMatchObject({ cwd: '/repos/pagos/.claude/worktrees/ABC-6' });
+  });
+
+  it('only task messages are framed as outside requests', async () => {
+    const x = ctx();
+    await sendToRoom(x.c, 'express', { sala: 'pagos', mensaje: 'a' });
+    expect(x.nuevas[0].prompt).not.toContain('fuera de lo que estás haciendo');
   });
 
   it('with a descriptive slug key: kept as written, a new worktree named after it alone, found again by exact key', async () => {

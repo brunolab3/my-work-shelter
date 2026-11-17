@@ -9,7 +9,8 @@ import { execFile, execFileSync, spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { GAME_NAME, type ClientMessage, type ServerMessage, type InfoRepo, type Visitante } from '../shared/protocolo.ts';
-import { Sessions } from './sesiones.ts';
+import { Sessions, FORK_TAG } from './sesiones.ts';
+import { forkSession, tagSession } from '@anthropic-ai/claude-agent-sdk';
 import { Attachments } from './adjuntos.ts';
 import { openAttachment, isPackage, revealLocal } from './abrir.ts';
 import { openLink, linkKind, imageThumbnail, servePage, existingPages, pagesUpdated } from './paginasLocales.ts';
@@ -151,6 +152,18 @@ const ctxRooms: CtxRooms = {
   // de git al momento: un worktree recién creado (por otra conversación) aún no está en `repos`, que se repasa cada 20 s
   worktreeDeTarea: async (salaId, clave) => { const s = almacen.estado.salas.find(x => x.id === salaId); return s ? taskWorktree(await worktreeList(folderOf(s)), clave) : undefined; },
   avisar: (id, texto) => ctxPlan.avisar(id, texto),
+  ocupada: id => ['arrancando', 'trabajando', 'esperando'].includes(sesiones.lista().find(s => s.id === id)?.estado ?? ''),
+  // Claude Code's own fork of the transcript (a copy with new ids, tagged so it is never the one resumed later), resumed
+  // in plan mode in the same folder; the original's file sits where it started, which may be the main copy
+  bifurcar: async (salaId, sesionId, prompt) => {
+    const s = sesiones.lista().find(x => x.id === sesionId);
+    if (!s?.claudeId) throw new Error(t('server.notStartedYet'));
+    const dir = s.worktree ?? s.cwd;
+    const { sessionId } = await forkSession(s.claudeId, { dir }).catch(() => forkSession(s.claudeId!));
+    await tagSession(sessionId, FORK_TAG).catch(() => {});
+    return startWork(undefined, { t: 'empezar', dwellerId: s.dwellerId, salaId, prompt, opciones: { cwd: dir, permisos: 'plan', reanudar: sessionId, modelo: s.modelo, esfuerzo: s.esfuerzo } });
+  },
+  retomar: (salaId, cwd, prompt) => resumeInFolder(salaId, cwd, prompt, 'auto'),
   empezar: async (salaId, dwellerId, prompt, donde) => {
     const m: Extract<ClientMessage, { t: 'empezar' }> = { t: 'empezar', dwellerId, salaId, prompt, opciones: { cwd: donde?.cwd, worktree: donde?.worktree, permisos: 'auto' } };
     const id = await startWork(undefined, m);
@@ -471,13 +484,20 @@ function ask(texto: string, botones: { si: string; no: string }, respuesta: (si:
 // retoma la última de ahí (si no sigue abierta fuera) o se empieza una
 async function sendToFolder(salaId: string, cwd: string, texto: string, permisos: 'plan') {
   const h = almacen.estado.habitantes.find(x => x.salaId === salaId); if (!h) return false;
-  const dir = path.resolve(cwd);
-  const abierta = sesiones.lista().find(x => x.estado !== 'cerrada' && x.salaId === salaId && path.resolve(x.worktree ?? x.cwd) === dir);
+  const abierta = openInFolder(salaId, cwd);
   if (abierta) return ctxPlan.avisar(abierta.id, texto);
-  const fuera = outsideOpen();
-  const previa = (await sesiones.historial(dir).catch(() => [])).filter(x => (!x.cwd || path.resolve(x.cwd) === dir) && !fuera.has(x.claudeId.toLowerCase())).sort((a, b) => b.modified - a.modified)[0];
-  await startWork(undefined, { t: 'empezar', dwellerId: h.id, salaId, prompt: texto, opciones: { cwd: dir, permisos, reanudar: previa?.claudeId } });
+  if (await resumeInFolder(salaId, cwd, texto, permisos)) return true;
+  await startWork(undefined, { t: 'empezar', dwellerId: h.id, salaId, prompt: texto, opciones: { cwd: path.resolve(cwd), permisos } });
   return true;
+}
+const openInFolder = (salaId: string, cwd: string) => sesiones.lista().find(x => x.estado !== 'cerrada' && x.salaId === salaId && path.resolve(x.worktree ?? x.cwd) === path.resolve(cwd));
+// the last conversation in a folder resumed with `texto` (none still open outside the game, and never a fork): its id,
+// or none if there is no such conversation
+async function resumeInFolder(salaId: string, cwd: string, texto: string, permisos: 'plan' | 'auto'): Promise<string | undefined> {
+  const h = almacen.estado.habitantes.find(x => x.salaId === salaId); if (!h) return undefined;
+  const dir = path.resolve(cwd), fuera = outsideOpen();
+  const previa = (await sesiones.historial(dir).catch(() => [])).filter(x => (!x.cwd || path.resolve(x.cwd) === dir) && !x.fork && !fuera.has(x.claudeId.toLowerCase())).sort((a, b) => b.modified - a.modified)[0];
+  return previa && startWork(undefined, { t: 'empezar', dwellerId: h.id, salaId, prompt: texto, opciones: { cwd: dir, permisos, reanudar: previa.claudeId } });
 }
 
 // las revisiones de tus PR (revisionesPR.ts), cada minuto con GitHub conectado: a la conversación de la rama del PR

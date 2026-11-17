@@ -6,7 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { cwdBeforeRelocation, lastActivity, projectFolder } from './repos.ts';
 import { mcpReview } from './comparar.ts';
-import { SELF_GATED } from './servidoresMcp.ts';
+import { MCP, SELF_GATED } from './servidoresMcp.ts';
 import { pushOf } from '../shared/preflight.ts';
 import { handMadeWorktree, newWorktreeOf, taskWorktreeIn, worktreeTask, ghCreateOf, githubRepoOf, isOriginalRepo, ORIGINAL_REPO } from '../shared/tareas.ts';
 import { gh } from './git.ts';
@@ -163,6 +163,9 @@ export async function crearWorktree(repo: string, nombre: string): Promise<strin
 export function worktreeRoot(dir?: string): string | undefined {
   return dir ? /^(.*\/\.claude\/worktrees\/[^/]+)/.exec(dir)?.[1] : undefined;
 }
+
+// the Claude Code tag of the read-only forks the game makes of busy task conversations (room messages)
+export const FORK_TAG = 'shelter-fork';
 
 export class Sessions extends EventEmitter {
   private s = new Map<string, Session>();
@@ -584,6 +587,9 @@ export class Sessions extends EventEmitter {
       // assignment confirms what it launches itself (confirmar()), review only reads the repo and writes its page in the
       // game's folder, and plan reads the plan and proposes changes to the planning room
       if (SELF_GATED.some(s => nombre.startsWith(`mcp__${s}__`))) { resolver({ behavior: 'allow', updatedInput: e }); return; }
+      // in plan mode (a busy task conversation's read-only fork) messages to rooms go without asking, like in auto mode:
+      // they change nothing here, and that is how the fork answers and passes changes to its original
+      if (x.r.modoPermisos === 'plan' && nombre === `mcp__${MCP.rooms}__send_to_room`) { resolver({ behavior: 'allow', updatedInput: e }); return; }
       // a question with nothing written before it: the Overseer would answer without the results, conclusions or links
       // that only come after. Held back once per turn, so a real clarifying question still goes through on retry
       if (nombre === 'AskUserQuestion' && !op.agentID && !x.textInTurn && !x.askHeld) { x.askHeld = true; resolver({ behavior: 'deny', message: t('server.writeBeforeAsking') }); return; }
@@ -735,6 +741,7 @@ export class Sessions extends EventEmitter {
       modified: Math.max(0, ...[...new Set([dir, s.cwd].filter(Boolean))].map(d => lastActivity(path.join(projectFolder(d!), s.sessionId + '.jsonl')) ?? 0)) || s.lastModified,
       // la que Claude Code se llevó de su worktree al repo principal sigue siendo de ese worktree (cwdBeforeRelocation)
       rama: s.gitBranch, cwd: (s.cwd && cwdBeforeRelocation(path.join(projectFolder(s.cwd), s.sessionId + '.jsonl'))) || s.cwd, enCurso: vivas.get(s.sessionId),
+      ...s.tag === FORK_TAG ? { fork: true } : {},
     })).sort((a, b) => b.modified - a.modified);
   }
 
