@@ -30,7 +30,7 @@ import { SFX } from '../audio/sonido';
 import { physicsKey } from '../audio/teclado';
 import { Store } from './almacen';
 import { useMenu as useMenuBase, Opciones } from './aparato';
-import { CMD, MAC, nextZ, windowShortcut, WindowButtons, Tabs, TabList, DraftMark, Confirmation, nthTab, nextTab, PILOT, stateLabel, type ItemTab, type TabState } from './ventanas';
+import { CMD, MAC, nextZ, windowShortcut, WindowButtons, Tabs, TabList, DraftMark, TaskMark, Confirmation, nthTab, nextTab, PILOT, stateLabel, type ItemTab, type TabState } from './ventanas';
 import { sessionOwner, interlocutor, branchCaption, copyCaption, pathWorktree, worktreesKnown } from './copias';
 import { Usage } from './consumo';
 import { takeASurface, aAppClaude } from './superficie';
@@ -385,15 +385,17 @@ function TalkerBust({ x }: { x: DwellerSummary }) {
 
 // The room's talkers (its dwellers and its worktrees' holographic copies; by state, then most recent conversation first
 // (talkerFirst), those without one last, dwellers before holograms), each with its intercom panel's open conversations
-// and the most urgent one: the selector above the portrait and the bar's hover list (Barra.tsx) show one row each, with
-// when the latest of them last moved
+// and the most urgent one: the selector above the portrait and the bar's hover lists (Barra.tsx) show one row each, with
+// its most urgent conversation's state and when the latest of them last moved; the conversations themselves are the tabs
+/** A talker as the lists name them: a dweller by name, a hologram by its task (or branch) and its author */
+const talkerName = (x: DwellerSummary) => x.copia ? `◇ ${copyCaption(x.copia, worktreeTask(x.copia) ?? branchCaption(x.copia.rama))} · ${x.copia.nameAuthor}` : x.nombre;
 export type Talker = { x: DwellerSummary; ses: SessionSummary[]; primera?: SessionSummary; estado?: TabState; nombre: string; borrador: boolean };
 export function roomTalkers(sala: string, habitantes: DwellerSummary[], copias: DwellerSummary[], lista: WindowCom[], sesiones: Record<string, SessionSummary>): Talker[] {
   return [...habitantes.filter(x => x.sala === sala && !x.robot), ...copias.filter(c => c.sala === sala)].map(x => {
     const pestanas = lista.find(w => w.dwellerId === x.id)?.pestanas ?? [];
     const ses = pestanas.map(p => p.vista.tipo === 'sesion' ? sesiones[p.vista.sesionId] : undefined).filter(Boolean) as SessionSummary[];
     const primera = [...ses].sort((a, b) => urgency(a) - urgency(b) || b.actualizada - a.actualizada)[0];
-    const nombre = x.copia ? `◇ ${copyCaption(x.copia, worktreeTask(x.copia) ?? branchCaption(x.copia.rama))} · ${x.copia.nameAuthor}` : x.nombre;
+    const nombre = talkerName(x);
     return { x, ses, primera, estado: tabState(primera), nombre, borrador: pestanas.some(withText) };
   }).map(q => ({ q, r: { estado: q.estado, cuando: Math.max(0, ...q.ses.map(s => s.actualizada)), nombre: q.nombre, id: q.x.id } }))
     .sort((a, b) => talkerFirst(a.r, b.r))
@@ -406,8 +408,7 @@ export function TalkerRow({ q, actual, sel, option, onClick, onMouseEnter }: { q
       <span className={'piloto ' + (q.estado ? PILOT[q.estado] : 'apagado')} />
       <TalkerBust x={q.x} />
       <span className="barra-asomo-estado">{q.estado ? stateLabel(q.estado) : t('windows.noSession')}</span>
-      <span className="barra-asomo-titulo">{q.borrador && <DraftMark />}<b>{q.nombre}</b>{q.primera ? ` · ${q.primera.titulo || t('windows.conversation')}` : ''}</span>
-      <small title={q.ses.length ? t('windows.nConversations', { n: q.ses.length }) : undefined}>{q.ses.length || ''}</small>
+      <span className="barra-asomo-titulo">{q.borrador && <DraftMark />}<b>{q.nombre}</b></span>
       <small className="barra-asomo-cuando">{q.ses.length ? hace(Math.max(...q.ses.map(s => s.actualizada))) : ''}</small>
     </button>
   );
@@ -491,12 +492,12 @@ export function ComTabs() {
   const abierta = comList.usar(e => e.abierta);
   const boton = useRef<HTMLButtonElement>(null);
   const actual = lista.find(w => w.dwellerId === talking);
-  const items = groupTabs(lista.flatMap(w => {
+  // by room, and in it by whose they are (its dweller, each hologram), each where its first-opened tab is
+  const items = groupTabs(groupTabs(lista.flatMap(w => {
     const o = quien(w.dwellerId); if (!o) return [];
-    const deCopia = o.copia ? worktreeTask(o.copia) : undefined;
     return w.pestanas.filter(x => w === actual || x.vista.tipo === 'sesion' || x.sessionWait).map((x): ItemTab => ({ ...tabItem(x, o, sesiones),
-      grupo: o.nameRoom, quien: o.copia ? `${o.copia.nameAuthor} ◇${deCopia ? '' : ' ' + branchCaption(o.copia.rama)}` : o.nombre }));
-  }).sort((a, b) => created(a.id) - created(b.id)));
+      grupo: o.id, quien: talkerName(o) }));
+  }).sort((a, b) => created(a.id) - created(b.id))), x => x.sala ?? '');
   if (items.length < 2) return null;
   const salir = () => comList.set({ abierta: false });
   const ir = (pid: string) => { salir(); goTab(pid); };
@@ -507,7 +508,14 @@ export function ComTabs() {
     {/* the list steps aside while a close is being confirmed */}
     {abierta && r && !lista.some(w => w.confirmar) && createPortal(
       <div className="barra-lista-com" style={{ left: r.left, bottom: innerHeight - r.top + 4 }}>
-        <TabList items={items} agrupar activa={actual?.activa ?? ''} activar={ir} cerrar={closeTabs} salir={salir} />
+        <TabList items={items} agrupar activa={actual?.activa ?? ''} activar={ir} cerrar={closeTabs} salir={salir} cabecera={(p, antes) => {
+          // the room once, then whose: their bust and name, a hologram's task in its color
+          const o = quien(p.grupo!), tarea = o?.copia ? worktreeTask(o.copia) : undefined;
+          return <>
+            {p.sala !== antes?.sala && <div className="vt-lista-grupo">{p.sala}</div>}
+            {o && <div className={'vt-lista-quien' + (o.copia ? ' de-copia' : '') + (o.id === talking ? ' actual' : '')}><TalkerBust x={o} /><b>{p.quien}</b>{tarea && <TaskMark clave={tarea} />}</div>}
+          </>;
+        }} />
       </div>, document.body)}
   </>;
 }

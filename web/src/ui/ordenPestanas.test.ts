@@ -9,6 +9,11 @@ describe('groupTabs', () => {
     const l = [tab('a', 'ociosa', 'x'), tab('b', 'esperando', 'y'), tab('c', 'trabajando', 'x'), tab('d', 'sinLeer', 'z'), tab('e', 'error', 'y')];
     expect(ids(groupTabs(l))).toBe('a c b e d');
   });
+  it('nests: by talker, then by room, each room where its first tab is and its talkers in order inside it', () => {
+    const q = (id: string, quien: string, sala: string) => ({ id, grupo: quien, sala });
+    const l = [q('a', 'ana', 'x'), q('b', 'holo', 'y'), q('c', 'eva', 'x'), q('d', 'luz', 'y'), q('e', 'ana', 'x'), q('f', 'holo', 'y')];
+    expect(ids(groupTabs(groupTabs(l), x => x.sala))).toBe('a e c b f d');
+  });
 });
 
 describe('nthTab and nextTab follow the visible order', () => {
@@ -31,9 +36,25 @@ describe('overflowChips', () => {
   it('leaves nothing out when every chip fits', () => {
     expect(overflowChips([10, 20, 30], [3, 3, 3], 60, 8)).toEqual([]);
   });
-  it('keeps the most urgent ones beside the «+N» chip and fills what is left in order', () => {
-    // room 3 waits (rank 0), room 0 is in front (-1): they go first; then 1 (20) fits, 2 (30) does not, 4 (5) does
-    expect(overflowChips([10, 20, 30, 15, 5], [-1, 3, 3, 0, 3], 60, 8)).toEqual([2]);
+  it('with nothing before, keeps the most urgent ones beside the «+N» chip and fills what is left by rank', () => {
+    // room 3 waits (rank 0), room 0 is in front: they stay; the rest leave from the last one until it fits, 4 comes back
+    expect(overflowChips([10, 20, 30, 15, 5], [3, 3, 3, 0, 3], 60, 8, [], 0)).toEqual([2]);
     expect(overflowChips([10, 20, 30, 15, 5], [3, 3, 3, 0, 3], 40, 8)).toEqual([1, 2]);
+  });
+  it('is sticky: switching to a room in view, or between rooms whose state changes, moves nothing', () => {
+    const anchos = [10, 10, 10, 10, 10], antes = [3, 4];
+    expect(overflowChips(anchos, [3, 3, 3, 3, 3], 40, 8, antes, 0)).toEqual([3, 4]);
+    expect(overflowChips(anchos, [3, 3, 3, 3, 3], 40, 8, antes, 2)).toEqual([3, 4]);
+    // a hidden room starts waiting: it stays behind «+N» (which turns urgent), first in its list
+    expect(overflowChips(anchos, [3, 3, 3, 3, 0], 40, 8, antes, 1)).toEqual([4, 3]);
+  });
+  it('opening a hidden room swaps out only the least relevant one in view; the rest keep their place', () => {
+    // 1 waits (rank 0): opening 3 sends out the last of the ones with nothing for you (2), not 1 or 0
+    expect(overflowChips([10, 10, 10, 10, 10], [3, 0, 3, 3, 3], 40, 8, [3, 4], 3)).toEqual([2, 4]);
+    // and once 3 is in view, going back to 0 keeps it there
+    expect(overflowChips([10, 10, 10, 10, 10], [3, 0, 3, 3, 3], 40, 8, [2, 4], 0)).toEqual([2, 4]);
+  });
+  it('a room closing makes room for the hidden ones, by rank', () => {
+    expect(overflowChips([10, 10, 10, 12], [3, 3, 1, 3], 40, 8, [2, 3], 0)).toEqual([3]);
   });
 });

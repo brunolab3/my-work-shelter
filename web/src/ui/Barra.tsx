@@ -1,9 +1,9 @@
 // Barra de ventanas, abajo a la izquierda: está siempre que haya alguna ventana abierta. Una fila por tipo, una
 // encima de otra: intercomunicadores (COM, one chip per room: room · state · count; those that don't fit behind «+N»,
-// the most urgent kept in view; and ⋯ N with every open conversation), terminales (TERM), navegadores (NAV), el cliente de git (GIT) y los archivos (ARCH). Las minimizadas van hundidas. Un clic abre la ventana o la trae delante; si ya estaba delante, la minimiza.
+// sticky so switching conversations doesn't reshuffle the row; and ⋯ N with every open conversation), terminales (TERM), navegadores (NAV), el cliente de git (GIT) y los archivos (ARCH). Las minimizadas van hundidas. Un clic abre la ventana o la trae delante; si ya estaba delante, la minimiza.
 // Con teclado: ⌘B desde cualquier sitio (o B en el refugio) entra en la barra; ←→ eligen, ↑↓ cambian de fila,
 // Intro abre, X cierra (con lo de siempre: si hay algo en marcha, pregunta) y Esc (o ⌘B) sale.
-import { useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react';
 import { t } from '@shared/idioma';
 import { terminales, onFront, minimizar, askClose as closeTerminal } from './Terminales';
 import { intercoms, type WindowCom, minimizeIntercom, restoreIntercom, sessionPilot, roomTalkers, TalkerRow, ComTabs, withText, openConversation, askClose as closeIntercom } from './Dialogo';
@@ -45,17 +45,17 @@ export function comRooms(lista: WindowCom[], sesiones: Record<string, SessionSum
   });
 }
 
-// the COM row's rooms left out for lack of room (by urgency), measured by the bar; the keyboard goes through them after
-// the ones in view, on the «+N» chip
+// the COM row's rooms left out for lack of room (by urgency), measured by the bar and kept from one measure to the
+// next; the keyboard goes through them after the ones in view, on the «+N» chip
 const comFuera = new Store<{ salas: string[] }>({ salas: [] });
 // the rooms as the COM row goes: those in view in their order, then those behind «+N»
 function comOrder<T extends { sala: string }>(salas: T[], fuera: string[]) {
   const ocultas = fuera.map(s => salas.find(g => g.sala === s)).filter(Boolean) as T[];
   return { vistas: salas.filter(g => !ocultas.includes(g)), ocultas };
 }
-// which rooms stay in view first: the one in front, then waiting, failed, unread, then the rest in order
-const roomRank = (g: ReturnType<typeof comRooms>[number], talking: string | null | undefined) =>
-  g.coms.some(c => c.v.dwellerId === talking) ? -1 : g.aTi ? ({ esperando: 0, error: 1 } as Record<string, number>)[g.aTi.s.estado] ?? 2 : 3;
+// which rooms are most relevant to keep in view: waiting, failed, unread, then the rest in order
+const roomRank = (g: ReturnType<typeof comRooms>[number]) =>
+  g.aTi ? ({ esperando: 0, error: 1 } as Record<string, number>)[g.aTi.s.estado] ?? 2 : 3;
 
 interface Elemento { clave: string; abierto: boolean; abrir: () => void; minimizar: () => void; cerrar: () => void }
 // las dos filas tal como se ven (las usan el ratón y el teclado)
@@ -170,7 +170,10 @@ export function Barra() {
     const cabe = (px(col.maxWidth) || innerWidth) - px(b.paddingLeft) - px(b.paddingRight) - px(b.borderLeftWidth) - px(b.borderRightWidth) - 6 - fijo;
     const ws = salas.map(g => (m.querySelector(`[data-sala="${CSS.escape(g.sala)}"]`) as HTMLElement | null)?.offsetWidth ?? 0);
     const mas = (m.querySelector('.barra-mas') as HTMLElement | null)?.offsetWidth ?? 0;
-    const nuevo = overflowChips(ws.map(w => w + gap), salas.map(g => roomRank(g, talking)), cabe, mas + gap).map(i => salas[i].sala);
+    // sticky: those out stay out and the rest in; only the one in front is swapped in, for the least relevant in view
+    const antes = comFuera.get().salas.map(s => salas.findIndex(g => g.sala === s)).filter(i => i >= 0);
+    const delante = salas.findIndex(g => g.coms.some(c => c.v.dwellerId === talking));
+    const nuevo = overflowChips(ws.map(w => w + gap), salas.map(roomRank), cabe, mas + gap, antes, delante).map(i => salas[i].sala);
     if (nuevo.join('\n') !== comFuera.get().salas.join('\n')) comFuera.set({ salas: nuevo });
   });
   const fs = filas();
@@ -183,7 +186,7 @@ export function Barra() {
   const enOcultas = !!sel && validRow(fs, sel.fila) === 0 && Math.min(sel.i, fs[0].length - 1) >= vistas.length;
   const quienEs = (h: DwellerSummary) => h.copia ? t('windows.autorSHolographicCopyBranch', { autor: h.copia.nameAuthor, rama: h.copia.rama }) : h.nombre;
   // a room's chip: its pilot, the room, its most urgent conversation's state and how many it has open (who and what in its title)
-  const chip = (g: (typeof salas)[number], marca: boolean, medir = false, alAbrir?: () => void) => {
+  const chip = (g: (typeof salas)[number], marca: boolean, medir = false) => {
     const worst = g.ses[0], abierto = g.coms.some(c => c.v.dwellerId === talking);
     const h = g.coms.find(c => c.v.dwellerId === talking)?.h ?? g.aTi?.h ?? g.reciente.h;
     // something typed and not sent in one of its intercoms other than the one in front
@@ -195,13 +198,21 @@ export function Barra() {
     </>;
     if (medir) return <button key={g.sala} tabIndex={-1} data-sala={g.sala} className={clase}>{cuerpo}</button>;
     return (
-      <button key={g.sala} onMouseEnter={e => { if (alAbrir) return; quedarse(); const r = e.currentTarget.getBoundingClientRect(); if (g.coms.length > 1) setAsomo({ id: g.sala, x: r.left, y: r.top }); else setAsomo(null); }} onMouseLeave={alAbrir ? undefined : irse}
-        className={clase} onClick={() => { alAbrir?.(); if (abierto) minimizeIntercom(); else g.abrir(); }}
+      <button key={g.sala} onMouseEnter={e => { quedarse(); const r = e.currentTarget.getBoundingClientRect(); setAsomo({ id: g.sala, x: r.left, y: r.top }); }} onMouseLeave={irse}
+        className={clase} onClick={() => { if (abierto) minimizeIntercom(); else g.abrir(); }}
         title={`${g.nombre}: ${g.coms.map(c => quienEs(c.h)).join(', ')}\n${worst ? `${quienEs(worst.h)} · ${STATE_TEXT[worst.s.estado] ?? worst.s.estado} · ${worst.s.titulo || t('windows.conversation')}\n` : ''}${borradores.length ? t('windows.unsentDraftWith', { quien: borradores.map(c => quienEs(c.h)).join(', ') }) + '\n' : ''}${abierto ? t('windows.clickToMinimize') : t('windows.clickToGoBackTo', { nombre: quienEs(g.aTi?.h ?? g.reciente.h) })}`}>
         {cuerpo}
       </button>
     );
   };
+  // who a room's hover and «+N» lists show: one row per open intercom panel (its dweller, each hologram), as the selector
+  // above the portrait, with the one its chip opens (the most important) selected
+  const talkersOf = (g: (typeof salas)[number]) => roomTalkers(g.sala, habitantes, copias, coms, sesiones).filter(q => g.coms.some(c => c.v.dwellerId === q.x.id));
+  const opener = (g: (typeof salas)[number]) => (g.aTi?.h ?? g.reciente.h).id;
+  const talkerRows = (g: (typeof salas)[number], sel: boolean) => talkersOf(g).map(q => (
+    <TalkerRow key={q.x.id} q={q} actual={q.x.id === talking} sel={sel && q.x.id === opener(g)}
+      onClick={() => { setAsomo(null); if (q.x.id !== talking) restoreIntercom(q.x.id); }} />
+  ));
   return (
     <div ref={caja} className={'barra-ventanas interactivo' + (sel ? ' seleccionando' : '')}>
       {sel && <div className="barra-ayuda"><kbd>←→</kbd> {t('menu.select')} <kbd>↑↓</kbd> {t('windows.row')} <kbd>{t('windows.enter')}</kbd> {t('windows.open')} <kbd>X</kbd> {t('menu.close')} <kbd>M</kbd> {t('windows.minimize2')} <kbd>Esc</kbd> {t('windows.exit')}</div>}
@@ -230,17 +241,19 @@ export function Barra() {
         const r = caja.current?.querySelector('.barra-fila.com > .barra-mas')?.getBoundingClientRect(); if (!r) return null;
         return (
           <div className="barra-asomo barra-asomo-mas" style={{ right: innerWidth - r.right, bottom: innerHeight - r.top + 4 }} onMouseEnter={quedarse} onMouseLeave={irse}>
-            {ocultas.map((g, j) => chip(g, marcado(0, vistas.length + j), false, () => setAsomo(null)))}
+            {ocultas.map((g, j) => <Fragment key={g.sala}>
+              <div className="barra-asomo-grupo">{g.nombre}</div>
+              {talkerRows(g, ocultas.some((_, k) => marcado(0, vistas.length + k)) ? marcado(0, vistas.length + j) : j === 0)}
+            </Fragment>)}
           </div>
         );
       })()}
       {asomo && asomo.id !== '+' && (() => {
         // one row per intercom panel of the room (its dweller, each hologram), as the selector above the portrait
         const g = salas.find(x => x.sala === asomo.id);
-        const panel = g ? roomTalkers(g.sala, habitantes, copias, coms, sesiones).filter(q => g.coms.some(c => c.v.dwellerId === q.x.id)) : [];
-        return panel.length > 1 ? (
+        return g ? (
           <div className="barra-asomo" style={{ left: asomo.x, bottom: innerHeight - asomo.y + 4 }} onMouseEnter={quedarse} onMouseLeave={irse}>
-            {panel.map(q => <TalkerRow key={q.x.id} q={q} actual={q.x.id === talking} onClick={() => { setAsomo(null); if (q.x.id !== talking) restoreIntercom(q.x.id); }} />)}
+            {talkerRows(g, true)}
           </div>
         ) : null;
       })()}

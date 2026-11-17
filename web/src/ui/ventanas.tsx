@@ -126,7 +126,8 @@ export function Tabs({ items, activa, activar, cerrar, nueva, opensThat, lista, 
 
 // Every tab in a list: state, title, task, room or owner and last activity; type to filter, go to one, and close (one,
 // the selected ones, the read or idle ones, or a task's). agrupar: a header per group (items come grouped).
-export function TabList({ items, activa, activar, cerrar, salir, agrupar }: { items: ItemTab[]; activa: string; activar: (id: string) => void; cerrar: (ids: string[]) => void; salir: () => void; agrupar?: boolean }) {
+// cabecera: what heads each group instead of its name (given the tab before it), and then the rows don't repeat whose they are
+export function TabList({ items, activa, activar, cerrar, salir, agrupar, cabecera }: { items: ItemTab[]; activa: string; activar: (id: string) => void; cerrar: (ids: string[]) => void; salir: () => void; agrupar?: boolean; cabecera?: (p: ItemTab, antes?: ItemTab) => React.ReactNode }) {
   const [filtro, setFiltro] = useState('');
   const [i, setI] = useState(() => Math.max(0, items.findIndex(p => p.id === activa)));
   const [marcadas, setMarcadas] = useState<string[]>([]);
@@ -160,14 +161,14 @@ export function TabList({ items, activa, activar, cerrar, salir, agrupar }: { it
       <input className="vt-lista-filtro" autoFocus value={filtro} placeholder={t('windows.filterTabs')} spellCheck={false} onChange={e => { setFiltro(e.target.value); setI(0); }} />
       <div className="vt-lista-filas">
         {vistas.map((p, k) => (<React.Fragment key={p.id}>
-          {agrupar && p.grupo !== vistas[k - 1]?.grupo && <div className="vt-lista-grupo">{p.grupo}</div>}
+          {agrupar && p.grupo !== vistas[k - 1]?.grupo && (cabecera ? cabecera(p, vistas[k - 1]) : <div className="vt-lista-grupo">{p.grupo}</div>)}
           <div className={'vt-lista-fila' + (p === sel ? ' sel' : '') + (p.id === activa ? ' activa' : '') + (p.estado ? ' e-' + p.estado : '')} onMouseMove={() => setI(k)} onClick={() => activar(p.id)}>
             <input type="checkbox" checked={marcadas.includes(p.id)} title={t('windows.selectTab')} onClick={e => e.stopPropagation()} onChange={() => setMarcadas(m => (m.includes(p.id) ? m.filter(x => x !== p.id) : [...m, p.id]))} />
             <span className={'piloto ' + PILOT[p.estado ?? 'ociosa']} />
             <span className="vt-lista-estado">{p.estado ? stateLabel(p.estado) : ''}</span>
             <span className="vt-lista-nombre">{p.borrador && <DraftMark />}{p.nombre}</span>
             <span className="vt-lista-tarea">{p.tarea && <><TaskMark clave={p.tarea} />{p.tarea}</>}</span>
-            <span className="vt-lista-sala">{p.quien ?? p.sala}</span>
+            <span className="vt-lista-sala">{cabecera ? '' : p.quien ?? p.sala}</span>
             <span className="vt-lista-cuando">{p.actividad}</span>
             <button className="vt-pestana-x" onClick={e => { e.stopPropagation(); cerrar([p.id]); }} title={t('windows.closeTabAtajo', { shortcut: `${CMD}W` })}>×</button>
           </div>
