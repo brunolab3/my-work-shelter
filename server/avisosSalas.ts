@@ -5,7 +5,8 @@
 // one in it (and if the room has no worktree for it yet, in a new one with the key in its name, so the task's next
 // messages land there). Sin
 // clave, una conversación nueva con el habitante en su copia principal; the same conversation's next messages to that room
-// continue in it while it is open, and its replies come back to the conversation that wrote. With a thread (`cleanup`), to that thread's open conversation in the main copy, so
+// continue in it while it is open, and its replies come back to the conversation that wrote; from a conversation in a task
+// worktree to another room that has that task's conversation or worktree, it carries the task's key. With a thread (`cleanup`), to that thread's open conversation in the main copy, so
 // its messages queue there one at a time; request_worktree_cleanup sends a worktree's cleanup through `cleanup`.
 // Also inside the same room: a dweller hands a task (or a part that goes alone) to its worktree's hologram and keeps the
 // Overseer's conversation; he carries it himself, or the messenger robot does if he's busy (web/src/mundo/mensajero.ts),
@@ -16,7 +17,7 @@ import path from 'node:path';
 import { t as tr } from '../shared/idioma.ts';
 import type { InfoWorktree } from '../shared/protocolo.ts';
 import { nombreWorktree, worktreeSuffix } from './sesiones.ts';
-import { isJiraKey, slugWorktreeName, taskKey, worktreeHasTask } from '../shared/tareas.ts';
+import { isJiraKey, slugWorktreeName, taskKey, worktreeHasTask, worktreeTask } from '../shared/tareas.ts';
 import { describeWhen, MAX_PER_CONVERSATION, MAX_DAYS, type ScheduledMessage } from '../shared/programados.ts';
 import { MCP } from './servidoresMcp.ts';
 
@@ -85,7 +86,7 @@ export async function sendToRoom(ctx: CtxRooms, desde: string, { sala, mensaje, 
   const misma = destino.id === desde;
   if (!destino.habitante) return { ok: false, texto: tr('tool.rooms.noDweller', { sala: destino.nombre }) };
   if (!mensaje.trim()) return { ok: false, texto: tr('tool.rooms.empty') };
-  const k = clave?.trim() ? taskKey(clave) : undefined;
+  let k = clave?.trim() ? taskKey(clave) : undefined;
   if (clave?.trim() && !k) return { ok: false, texto: tr('tool.rooms.badKey', { clave: clave ?? '' }) };
   const hilo = hiloPedido?.trim() ? threadOf(hiloPedido) : undefined;
   if (hiloPedido?.trim() && !hilo) return { ok: false, texto: tr('tool.rooms.badThread', { hilo: hiloPedido }) };
@@ -93,11 +94,21 @@ export async function sendToRoom(ctx: CtxRooms, desde: string, { sala, mensaje, 
   const ahora = ctx.ahora?.() ?? Date.now(), par = `${desde}>${destino.id}`;
   const recientes = (enviados.get(par) ?? []).filter(x => ahora - x < VENTANA);
   if (recientes.length >= LIMITE) return { ok: false, texto: tr('tool.rooms.limit', { n: LIMITE, sala: destino.nombre }) };
-  const texto = [
+  const marco = (k?: string) => [
     tr('prompt.room.from', { sala: origen?.nombre ?? desde, habitante: origen?.habitante?.nombre ?? '?', tarea: k ? tr('prompt.room.task', { clave: k }) : hilo ? tr('prompt.room.thread', { hilo }) : '' }),
     '', mensaje.trim(), '', ...k ? [tr('prompt.room.outside')] : [], tr('prompt.room.reply', { salaId: desde }),
   ].join('\n');
-  let como: string | undefined, recibe: string | undefined, cwd: string | undefined;
+  let como: string | undefined, recibe: string | undefined, cwd: string | undefined, heredada: string | undefined;
+  // without key or thread: the conversation that got this one's previous message, or the one that wrote to it
+  const sigue = !k && !hilo && desdeSesion ? seguimientos.get(`${desdeSesion}>${destino.id}`) : undefined;
+  if (sigue && ctx.avisar(sigue.sesion, marco())) { como = tr(sigue.respuesta ? 'tool.rooms.toReply' : 'tool.rooms.toFollowUp'); recibe = sigue.sesion; }
+  // else, from a conversation in a task worktree to another room: the sender's task, if that room has its conversation or
+  // worktree (otherwise its main copy, as before: an unrelated question never makes a worktree there)
+  else if (!k && !hilo && !misma && desdeSesion) {
+    const wt = await ctx.worktreeDeSesion?.(desde, desdeSesion), t = wt && worktreeTask(wt);
+    if (t && (ctx.sesionDeTarea(destino.id, t) || (cwd = await ctx.worktreeDeTarea(destino.id, t)))) k = heredada = t;
+  }
+  const texto = marco(k);
   // a fork writing to its own room with the task's key: to the conversation it comes from, queued
   const original = misma && k && desdeSesion ? bifurcaciones.get(desdeSesion) : undefined;
   const deTarea = k ? ctx.sesionDeTarea(destino.id, k) : undefined;
@@ -106,18 +117,16 @@ export async function sendToRoom(ctx: CtxRooms, desde: string, { sala, mensaje, 
   const ocupada = !original && !!abierta && !!ctx.ocupada?.(abierta);
   // a thread's conversation, while open and never the sender itself (sesiones.enviar queues it if it's busy)
   const delHilo = hilo ? hilos.get(`${destino.id}/${hilo}`) : undefined;
-  // without key or thread: the conversation that got this one's previous message, or the one that wrote to it
-  const sigue = !k && !hilo && desdeSesion ? seguimientos.get(`${desdeSesion}>${destino.id}`) : undefined;
-  if (abierta && ocupada && ctx.bifurcar) {
+  if (como) { /* followed up or replied */ }
+  else if (abierta && ocupada && ctx.bifurcar) {
     // busy: a read-only fork answers, and the original keeps working; if it can't start, the message queues there
     try { recibe = await ctx.bifurcar(destino.id, abierta, [texto, '', tr('prompt.room.fork', { salaId: destino.id, clave: k! })].join('\n')); bifurcaciones.set(recibe, abierta); como = tr('tool.rooms.toFork', { clave: k! }); }
     catch (e) { if (ctx.avisar(abierta, texto)) { recibe = abierta; como = tr('tool.rooms.toOpenQueued', { clave: k!, error: (e as Error).message }); } }
   }
   else if (abierta && ctx.avisar(abierta, texto)) { como = tr(original ? 'tool.rooms.toOriginal' : 'tool.rooms.toOpen', { clave: k! }); recibe = abierta; }
   else if (delHilo && delHilo !== desdeSesion && ctx.avisar(delHilo, texto)) { como = tr('tool.rooms.toThread', { hilo: hilo! }); recibe = delHilo; }
-  else if (sigue && ctx.avisar(sigue.sesion, texto)) { como = tr(sigue.respuesta ? 'tool.rooms.toReply' : 'tool.rooms.toFollowUp'); recibe = sigue.sesion; }
   if (!como) {
-    cwd = k ? await ctx.worktreeDeTarea(destino.id, k) : undefined;
+    cwd = k ? cwd ?? await ctx.worktreeDeTarea(destino.id, k) : undefined;
     // none open: the last conversation in the task's worktree, with its history
     if (cwd && ctx.retomar) {
       try { recibe = await ctx.retomar(destino.id, cwd, texto); }
@@ -149,7 +158,7 @@ export async function sendToRoom(ctx: CtxRooms, desde: string, { sala, mensaje, 
   else ctx.entrega?.(destino.id, { worktree: cwd, sesionId: recibe });
   const resumen = mensaje.trim().replace(/\s+/g, ' ');
   ctx.aviso(tr('server.roomMessage', { desde: origen?.nombre ?? desde, a: destino.nombre, resumen: resumen.length > 90 ? resumen.slice(0, 89) + '…' : resumen }));
-  return { ok: true, texto: tr('tool.rooms.sent', { habitante: destino.habitante.nombre, sala: destino.nombre, como }) };
+  return { ok: true, texto: tr('tool.rooms.sent', { habitante: destino.habitante.nombre, sala: destino.nombre, como }) + (heredada ? ' ' + tr('tool.rooms.inheritedKey', { clave: heredada }) : '') };
 }
 
 // a worktree's cleanup, written by the game from the sender's cwd and sent through its own room's `cleanup` thread

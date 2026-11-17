@@ -183,6 +183,44 @@ describe('mensajes entre salas', () => {
     expect(x.nuevas).toHaveLength(1);
   });
 
+  it('without key, from a conversation in a task worktree to another room: that room\'s conversation or worktree for the task', async () => {
+    const x = ctx({ abiertas: { 'pagos/ABC-7': 'pagos-abc7' }, worktrees: { 'tareas/ABC-7': '/repos/tareas/.claude/worktrees/shelter-abc-7-x-1a2b' } });
+    x.c.worktreeDeSesion = async (_sala, ses) => ses === 'holo-abc7' ? { ruta: '/repos/app-web/.claude/worktrees/shelter-abc-7-bundle-9z9z', rama: 'worktree-shelter-abc-7-bundle-9z9z', local: false } : undefined;
+    // its open conversation there, framed as the task's, and the answer says where the key came from
+    const r1 = await sendToRoom(x.c, 'express', { sala: 'pagos', mensaje: 'a' }, 'holo-abc7');
+    expect(x.avisados).toEqual([expect.objectContaining({ sesionId: 'pagos-abc7' })]);
+    expect(x.avisados[0].texto).toContain('tarea ABC-7');
+    expect(r1.texto).toContain('ABC-7');
+    expect(r1.texto).toContain('Sin key');
+    // none open: its worktree there
+    await sendToRoom(x.c, 'express', { sala: 'tareas', mensaje: 'b' }, 'holo-abc7');
+    expect(x.nuevas[0]).toMatchObject({ salaId: 'tareas', cwd: '/repos/tareas/.claude/worktrees/shelter-abc-7-x-1a2b' });
+    // a room without the task: its main copy, never a new worktree
+    const y = ctx();
+    y.c.worktreeDeSesion = x.c.worktreeDeSesion;
+    const r2 = await sendToRoom(y.c, 'express', { sala: 'pagos', mensaje: 'c' }, 'holo-abc7');
+    expect(y.nuevas[0]).toMatchObject({ cwd: undefined, worktree: undefined });
+    expect(r2.texto).not.toContain('Sin key');
+  });
+
+  it('without key, a reply still goes to the conversation that wrote; the same room and a main-copy sender are unchanged', async () => {
+    const x = ctx({ abiertas: { 'pagos/ABC-7': 'pagos-abc7', 'express/ABC-7': 'holo-abc7' } });
+    x.c.worktreeDeSesion = async (_sala, ses) => ses === 'holo-abc7' ? { ruta: '/repos/app-web/.claude/worktrees/shelter-abc-7-bundle-9z9z', rama: 'worktree-shelter-abc-7-bundle-9z9z', local: false } : undefined;
+    // pagos' main copy asks the task worktree, which answers without key: back to the asker, not to pagos' ABC-7
+    await sendToRoom(x.c, 'pagos', { sala: 'app-web', mensaje: 'question', clave: 'ABC-7' }, 'pagos-main');
+    const r = await sendToRoom(x.c, 'express', { sala: 'pagos', mensaje: 'answer' }, 'holo-abc7');
+    expect(x.avisados.at(-1)).toMatchObject({ sesionId: 'pagos-main' });
+    expect(x.avisados.at(-1)?.texto).not.toContain('ABC-7');
+    expect(r.texto).toContain('te escribió');
+    // to its own room: a new conversation in the main copy, as before
+    const n = x.nuevas.length;
+    await sendToRoom(x.c, 'express', { sala: 'express', mensaje: 'b' }, 'holo-abc7');
+    expect(x.nuevas.slice(n)).toEqual([expect.objectContaining({ salaId: 'express', cwd: undefined, worktree: undefined })]);
+    // from a main copy: a new conversation in the main copy
+    await sendToRoom(x.c, 'express', { sala: 'pagos', mensaje: 'c' }, 'ses-principal');
+    expect(x.nuevas.at(-1)).toMatchObject({ salaId: 'pagos', cwd: undefined, worktree: undefined });
+  });
+
   it('request_worktree_cleanup: the game writes the request from the sender\'s worktree and sends it through its room\'s cleanup thread', async () => {
     const x = ctx();
     x.c.worktreeDeSesion = async (_sala, ses) => ses === 'holo-a' ? { ruta: '/repos/app-web/.claude/worktrees/a', rama: 'worktree-a', local: true }
