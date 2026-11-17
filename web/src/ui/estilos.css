@@ -706,6 +706,9 @@ a.miniatura:hover img { box-shadow: 0 0 0 1px #ffc96b, 0 0 10px rgba(255,179,71,
 .ficha-issue small { display: block; font-size: .82em; } .ficha-issue .ident { color: var(--ambar); font-weight: 600; }
 .ficha-issue.p1 { border-left-color: var(--rojo); } .ficha-issue.p2 { border-left-color: #ffb000; }
 .ficha-issue.sel { background: rgba(157,255,184,.16); outline: 1px solid var(--fosforo); }
+.ficha-issue.arrastrada { opacity: .4; } .ficha-issue .movida { color: var(--fosforo); } .ficha-issue .movida.mal { color: var(--rojo); }
+.kanban-col.soltar { outline: 2px dashed var(--estado, var(--fosforo)); outline-offset: -2px; background: rgba(157,255,184,.06); }
+.mover-jira .opciones-consola { margin: 0 0 .7em; }
 .prs-ficha { display: flex; flex-wrap: wrap; gap: .3em; margin-top: .3em; }
 .insignia-pr { font: 600 .78em var(--t-mono); padding: .05em .45em; border-radius: 2px; border: 1px solid currentColor; white-space: nowrap; }
 .insignia-pr.pr-abierto { color: var(--fosforo); } .insignia-pr.pr-borrador { color: #9a9486; } .insignia-pr.pr-fusionado { color: #b48cff; } .insignia-pr.pr-cerrado { color: var(--rojo); }

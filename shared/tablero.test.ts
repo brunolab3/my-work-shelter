@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clavesJira, cruzarTablero, textoPR, textoDeADF, promptPlanificar, type PRBoard, type TaskJira } from './tablero';
+import { clavesJira, cruzarTablero, jiraTransitions, transitionsTo, isColumn, textoPR, textoDeADF, promptPlanificar, type PRBoard, type TaskJira } from './tablero';
 
 const tarea = (clave: string, categoria: TaskJira['categoria'], estado = 'En curso'): TaskJira => ({ clave, titulo: 't ' + clave, url: 'https://jira.example/browse/' + clave, estado, categoria, actualizada: Date.now() });
 const pr = (numero: number, rama: string, titulo = 'PR', estado: PRBoard['estado'] = 'abierto', extra: Partial<PRBoard> = {}): PRBoard =>
@@ -108,5 +108,31 @@ describe('promptPlanificar', () => {
   });
   it('sin descripción, la pide', () => {
     expect(promptPlanificar(tarea('ABC-7', 'new'))).toContain('No tengo su descripción');
+  });
+});
+
+describe('transitionsTo', () => {
+  const tr = (id: string, name: string, to: string, key: string, extra: object = {}) => ({ id, name, to: { name: to, statusCategory: { key } }, ...extra });
+  const trs = jiraTransitions({ transitions: [
+    tr('11', 'Start', 'In Progress', 'indeterminate'), tr('21', 'Send to review', 'Code Review', 'indeterminate'),
+    tr('31', 'Done', 'Done', 'done'), tr('32', "Won't do", 'Closed', 'done'), tr('41', 'Block', 'Blocked', 'indeterminate'),
+    tr('51', 'Hidden', 'QA', 'indeterminate', { isAvailable: false }), { id: '61', name: 'broken' },
+  ] });
+  it('reads only the transitions Jira offers, with their target status and category', () => {
+    expect(trs.map(x => [x.id, x.a, x.categoria])).toEqual([['11', 'In Progress', 'indeterminate'], ['21', 'Code Review', 'indeterminate'], ['31', 'Done', 'done'], ['32', 'Closed', 'done'], ['41', 'Blocked', 'indeterminate']]);
+  });
+  it('a column takes the transitions whose target falls in it: one, several (the Overseer picks) or none', () => {
+    expect(transitionsTo(trs, 'enCurso').map(x => x.id)).toEqual(['11']);
+    expect(transitionsTo(trs, 'revision').map(x => x.id)).toEqual(['21']);
+    expect(transitionsTo(trs, 'bloqueado').map(x => x.id)).toEqual(['41']);
+    expect(transitionsTo(trs, 'hecho').map(x => x.id)).toEqual(['31', '32']);
+    expect(transitionsTo(trs, 'porHacer')).toEqual([]);
+  });
+  it('never the status it is already in', () => {
+    expect(transitionsTo(trs, 'enCurso', 'In Progress')).toEqual([]);
+  });
+  it('only board columns are valid targets', () => {
+    expect(isColumn('hecho')).toBe(true);
+    expect(isColumn('Done')).toBe(false);
   });
 });

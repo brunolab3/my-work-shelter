@@ -52,11 +52,28 @@ export const COLUMNS: { id: BoardColumn; nombre: string }[] = [
 // azul en revisión, rojo bloqueado
 export const COLUMN_COLORS: Partial<Record<BoardColumn, string>> = { enCurso: '#5fd98a', revision: '#5aa8ff', bloqueado: '#ff5a4a' };
 export const isBlockedState = (estado: string) => /block|bloque|impediment|on[ -]?hold|en espera/i.test(estado);
-export function columnOf(t: TaskWithPR): BoardColumn {
-  if (t.categoria === 'done') return 'hecho';
-  if (isBlockedState(t.estado)) return 'bloqueado';
-  if (t.categoria === 'new') return 'porHacer';
-  return /review|revisi/i.test(t.estado) ? 'revision' : 'enCurso';
+export function columnOfState(estado: string, categoria: Category): BoardColumn {
+  if (categoria === 'done') return 'hecho';
+  if (isBlockedState(estado)) return 'bloqueado';
+  if (categoria === 'new') return 'porHacer';
+  return /review|revisi/i.test(estado) ? 'revision' : 'enCurso';
+}
+export const columnOf = (t: TaskJira) => columnOfState(t.estado, t.categoria);
+
+// Moving a card to another column: only the transitions Jira's workflow offers for that issue
+// (GET /rest/api/3/issue/{key}/transitions), each with the status it leads to. A column takes those whose target status
+// falls in it (columnOfState) and isn't the current one: none means it can't go there, more than one is the
+// Overseer's pick. Never a forced status (server/integraciones/jira.ts posts only one of these).
+export interface JiraTransition { id: string; nombre: string; a: string; categoria: Category }
+export function jiraTransitions(j: any): JiraTransition[] {
+  return ((j?.transitions ?? []) as any[]).filter(x => x?.id && x.to?.name && x.isAvailable !== false).map(x => {
+    const cat = x.to.statusCategory?.key;
+    return { id: String(x.id), nombre: String(x.name ?? x.to.name), a: String(x.to.name), categoria: (['new', 'indeterminate', 'done'].includes(cat) ? cat : 'indeterminate') as Category };
+  });
+}
+export const isColumn = (c: unknown): c is BoardColumn => COLUMNS.some(x => x.id === c);
+export function transitionsTo(trs: JiraTransition[], columna: BoardColumn, actual?: string): JiraTransition[] {
+  return trs.filter(x => columnOfState(x.a, x.categoria) === columna && x.a !== actual);
 }
 
 // «Hecho» solo enseña lo que se movió en la última semana (Jira trae dos, server/integraciones/jira.ts)

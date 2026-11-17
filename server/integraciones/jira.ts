@@ -1,14 +1,15 @@
-// Jira Cloud: tus tareas para el tablero de Logística, SOLO lectura (REST v3 con tu correo y un token de API tuyo,
-// autenticación básica). No trae avisos al tablón: el sondeo solo comprueba la conexión y cuenta lo abierto.
+// Jira Cloud: your tasks for the Logistics board (REST v3 with your email and an API token of yours, basic auth).
+// Read-only except for one write: a status transition the Overseer drags and confirms on the board (action `mover`),
+// only one Jira's workflow offers for that issue. No notices: polling only checks the connection and counts what's open.
 import type { Store } from '../estado.ts';
 import { ConnectorBase, ConfigSource, ErrorSource, ask, retraso, type Field } from './comun.ts';
-import { textoDeADF, type Category, type TaskJira } from '../../shared/tablero.ts';
+import { textoDeADF, jiraTransitions, transitionsTo, isColumn, type BoardColumn, type Category, type TaskJira } from '../../shared/tablero.ts';
 import { t } from '../../shared/idioma.ts';
 
 export const FIELDS_JIRA: Field[] = [
   { nombre: 'sitio', etiqueta: 'Sitio de Jira', ayuda: 'La dirección de tu Jira Cloud, la que ves en el navegador.', ejemplo: 'empresa.atlassian.net' },
   { nombre: 'correo', etiqueta: 'Correo de tu cuenta de Atlassian', ayuda: 'El correo con el que entras en Jira.', ejemplo: 'tu@empresa.example' },
-  { nombre: 'token', etiqueta: 'Token de API', secreto: true, ayuda: 'id.atlassian.com → Seguridad → Crear y gestionar tokens de API → Crear token de API (sin ámbitos: solo se usa para leer).', ejemplo: 'ATATT…' },
+  { nombre: 'token', etiqueta: 'Token de API', secreto: true, ayuda: 'id.atlassian.com → Seguridad → Crear y gestionar tokens de API → Crear token de API (sin ámbitos: lee tus tareas y, solo cuando lo confirmas en el tablero, cambia su estado).', ejemplo: 'ATATT…' },
 ];
 
 // Lo asignado a mí que sigue abierto, y lo cerrado en las dos últimas semanas (para ver qué PR se fusionaron)
@@ -32,10 +33,11 @@ export function jiraTasks(j: any, sitio: string): TaskJira[] {
   });
 }
 
-export function explainErrorJira(estado: number, j: any): string | null {
+// escritura: the board's transition, where a 403 means this account or token can't move the issue
+export function explainErrorJira(estado: number, j: any, escritura = false): string | null {
   if (estado < 400) return null;
   if (estado === 401) return t('integrations.jiraRejected');
-  if (estado === 403) return t('integrations.jiraForbidden');
+  if (estado === 403) return t(escritura ? 'integrations.jiraCannotTransition' : 'integrations.jiraForbidden');
   if (estado === 404) return t('integrations.jiraSiteNotFound');
   if (estado === 429) return t('integrations.jiraRateLimited');
   const msg = j?.errorMessages?.[0] ?? Object.values(j?.errors ?? {})[0];
@@ -50,7 +52,7 @@ class Jira extends ConnectorBase {
   constructor(almacen: Store) { super(almacen, new ConfigSource(almacen, 'jira', FIELDS_JIRA)); }
   protected onRestart() { this.quien = null; this.panel = null; }
 
-  private async api(ruta: string, v?: Record<string, string>, cuerpo?: unknown) {
+  private async api(ruta: string, v?: Record<string, string>, cuerpo?: unknown, escritura = false) {
     const sitio = spotOf(v?.sitio ?? this.config.publicos().sitio ?? '');
     const correo = v?.correo ?? this.config.publicos().correo ?? '';
     const token = v?.token ?? await this.config.secreto('token');
@@ -59,7 +61,7 @@ class Jira extends ConnectorBase {
       servicio: 'Jira', metodo: cuerpo ? 'POST' : 'GET', cuerpo: cuerpo ? JSON.stringify(cuerpo) : undefined,
       cabeceras: { Authorization: 'Basic ' + Buffer.from(`${correo}:${token}`).toString('base64'), Accept: 'application/json', ...(cuerpo ? { 'Content-Type': 'application/json' } : {}) },
     });
-    const err = explainErrorJira(r.estado, r.json);
+    const err = explainErrorJira(r.estado, r.json, escritura);
     if (err) throw new ErrorSource(err, r.estado === 429 ? retraso(r, 120) : undefined);
     return { json: r.json, sitio };
   }
@@ -73,6 +75,11 @@ class Jira extends ConnectorBase {
       page = json?.isLast === false ? json?.nextPageToken : undefined;
     } while (page && tareas.length < 300);
     return this.panel = { tareas, cuando: Date.now() };
+  }
+
+  private async transitionsTo(clave: string, columna: BoardColumn, actual?: unknown) {
+    const { json } = await this.api(`/rest/api/3/issue/${clave}/transitions`);
+    return transitionsTo(jiraTransitions(json), columna, typeof actual === 'string' ? actual : undefined);
   }
 
   protected async pollReal() {
@@ -91,14 +98,37 @@ class Jira extends ConnectorBase {
     if (nombre === 'panel') { const p = await this.tasksMy(!!d.forzar); return { yo: this.quien, ...p }; }
     // una tarea con su descripción (en texto), para planificarla desde la sala de coordinación
     if (nombre === 'tarea') {
-      const clave = String(d.clave ?? '').toUpperCase();
-      if (!/^[A-Z][A-Z0-9]{1,9}-\d{1,7}$/.test(clave)) throw new Error(t('integrations.jiraInvalidKey', { clave }));
+      const clave = keyOf(d);
       const { json, sitio } = await this.api(`/rest/api/3/issue/${clave}?fields=${[...FIELDS, 'description'].join(',')}`);
       const [tarea] = jiraTasks({ issues: [json] }, sitio);
       return { ...tarea, descripcion: textoDeADF(json?.fields?.description) };
     }
+    // the transitions that would take a task to a board column (the board's confirmation lists them)
+    if (nombre === 'transiciones') { const { clave, columna } = moveArgs(d); return { transiciones: await this.transitionsTo(clave, columna, d.actual) }; }
+    // the one external write: the transition the Overseer confirmed, checked again against what Jira offers now
+    if (nombre === 'mover') {
+      const { clave, columna } = moveArgs(d);
+      const tr = (await this.transitionsTo(clave, columna)).find(x => x.id === String(d.id ?? ''));
+      if (!tr) throw new Error(t('integrations.jiraTransitionGone', { clave }));
+      await this.api(`/rest/api/3/issue/${clave}/transitions`, undefined, { transition: { id: tr.id } }, true);
+      // the search index lags a few seconds behind: the cached board takes the new status now
+      const ta = this.panel?.tareas.find(x => x.clave === clave);
+      if (ta) Object.assign(ta, { estado: tr.a, categoria: tr.categoria, actualizada: Date.now() });
+      return { clave, estado: tr.a, categoria: tr.categoria };
+    }
     return super.ownAction(nombre, d);
   }
+}
+
+function keyOf(d: Record<string, any>) {
+  const clave = String(d.clave ?? '').toUpperCase();
+  if (!/^[A-Z][A-Z0-9]{1,9}-\d{1,7}$/.test(clave)) throw new Error(t('integrations.jiraInvalidKey', { clave }));
+  return clave;
+}
+function moveArgs(d: Record<string, any>) {
+  const clave = keyOf(d);
+  if (!isColumn(d.columna)) throw new Error(t('integrations.jiraInvalidColumn'));
+  return { clave, columna: d.columna };
 }
 
 export function crear(almacen: Store) { return new Jira(almacen); }

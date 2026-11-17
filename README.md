@@ -222,7 +222,8 @@ question without interrupting; Ctrl+C (or `/stop`) stops the dweller; ⌘U or dr
   each delivery. Each task has a color you see on boards, screens and holograms. Its big screen is the **deployment
   plan**: your PRs by state, with blockers as arrows and the order they can be merged in; PRs of the same task are
   grouped in a block of its color in each column.
-- **Planning**: your Jira tasks by state with their PRs (from GitHub), ready to plan with P. **Organize by tasks**
+- **Planning**: your Jira tasks by state with their PRs (from GitHub), ready to plan with P; drag a card to another
+  column to change its status in Jira, after you confirm. **Organize by tasks**
   (a repo room's panel, or ⌘K for all rooms) gives each task with PRs its own worktree and conversation.
 - **Reviews of your PRs**: with GitHub connected, every minute new reviews and comments from others on your open PRs go
   to the conversation working that branch (or its task's worktree); the dweller proposes what to fix and reply and

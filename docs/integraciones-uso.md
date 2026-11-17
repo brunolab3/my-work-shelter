@@ -177,14 +177,15 @@ no quota). High priority: review requested, mentioned, assigned, security alerts
 
 Unread inbox notifications (the last 100; no archived or snoozed) every 60 s; my issues and cycles every 5 min.
 
-**Jira** — Jira Cloud REST v3 with basic auth (email + API token), read-only. It brings no notices to the board
+**Jira** — Jira Cloud REST v3 with basic auth (email + API token), read-only except for the status change you confirm
+on the board (below). It brings no notices to the board
 (`withoutNotices` in `shared/fuentes.ts`): it feeds the Planning board.
 
 | Field | Label | Secret | Help |
 |---|---|---|---|
 | `sitio` | Jira site | no | `company.atlassian.net` (the whole URL is accepted and the domain kept). |
 | `correo` | Your Atlassian account email | no | Your Jira user's. |
-| `token` | API token | yes | id.atlassian.com → Security → API tokens → Create API token (no scopes). |
+| `token` | API token | yes | id.atlassian.com → Security → API tokens → Create API token (no scopes: a read-only scoped token can't move tasks). |
 
 Action `panel` (`{ forzar? }`) → `{ yo, tareas }` with `POST /rest/api/3/search/jql` and
 `assignee = currentUser() AND (statusCategory != Done OR updated >= -14d)`. The board's PRs come from GitHub with `gh`
@@ -192,6 +193,16 @@ Action `panel` (`{ forzar? }`) → `{ yo, tareas }` with `POST /rest/api/3/searc
 the client by the Jira key in the branch or title (`cruzarTablero` in `shared/tablero.ts`).
 
 Action `tarea` (`{ clave }`) → the task with its description as text (`textoDeADF`), for planning it.
+
+**Moving a task on the board.** Drag a card to another column (or ⇧←→ on the selected one). Action `transiciones`
+(`{ clave, columna, actual? }`) reads `GET /rest/api/3/issue/{key}/transitions` and keeps those whose target status
+falls in that column and isn't the current one (`jiraTransitions`, `transitionsTo` in `shared/tablero.ts`, the same
+rules as the columns): none says the workflow doesn't allow it; otherwise a confirmation shows "KEY: From → To", with
+↑↓ to pick when several lead there (Done and Won't do, say). Enter confirms: action `mover` (`{ clave, columna, id }`)
+reads the transitions again, refuses an id Jira no longer offers towards that column and posts it
+(`POST /rest/api/3/issue/{key}/transitions`), the game's only write to Jira. The card shows the result; the cached
+board takes the new status right away (Jira's search lags a few seconds). A 403 means your account lacks "Transition
+issues" in that project or the token is scoped read-only. In DEMO nothing moves. Dwellers have no Jira tool.
 
 ## Logistics, tasks and PRs
 

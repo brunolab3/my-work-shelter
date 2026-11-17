@@ -327,6 +327,12 @@ describe('Jira', () => {
         if (!b.nextPageToken) return answer({ issues: [issue('TAL-7', 'En revisión', 'indeterminate')], nextPageToken: 'p2', isLast: false });
         return answer({ issues: [issue('TAL-3', 'Hecho', 'done')], isLast: true });
       }
+      const tr = (id: string, name: string, to: string, key: string) => ({ id, name, to: { name: to, statusCategory: { key } } });
+      if (url === 'https://taller.atlassian.net/rest/api/3/issue/TAL-7/transitions' && init.method === 'GET')
+        return answer({ transitions: [tr('31', 'Done', 'Hecho', 'done'), tr('32', 'Descartar', 'Descartada', 'done'), tr('11', 'Volver', 'En curso', 'indeterminate')] });
+      if (url === 'https://taller.atlassian.net/rest/api/3/issue/TAL-7/transitions') return answer(undefined, 204);
+      if (url === 'https://taller.atlassian.net/rest/api/3/issue/TAL-9/transitions' && init.method === 'GET') return answer({ transitions: [tr('31', 'Done', 'Hecho', 'done')] });
+      if (url === 'https://taller.atlassian.net/rest/api/3/issue/TAL-9/transitions') return answer({ errorMessages: ['Forbidden'] }, 403);
       return answer({}, 404);
     }));
   });
@@ -346,6 +352,26 @@ describe('Jira', () => {
     expect(JSON.parse(String((fetch as any).mock.calls.at(-2)[1].body)).jql).toBe(JQL_MY_TASKS);
     expect(JSON.stringify(a.estado)).not.toContain('tok-bueno');
     expect(await llavero.leer('jira.token')).toBe('tok-bueno');
+  });
+  it('moving a card: only the transitions Jira offers towards that column, and the one write is the confirmed one', async () => {
+    const j = createJira(fakeStore());
+    await j.configurar({ sitio: 'taller.atlassian.net', correo: 'ana@taller.example', token: 'tok-bueno' });
+    await j.accion!('panel', { forzar: true });
+    const r: any = await j.accion!('transiciones', { clave: 'tal-7', columna: 'hecho', actual: 'En revisión' });
+    expect(r.transiciones.map((x: any) => [x.id, x.a])).toEqual([['31', 'Hecho'], ['32', 'Descartada']]);
+    expect(((await j.accion!('transiciones', { clave: 'TAL-7', columna: 'porHacer' })) as any).transiciones).toEqual([]);
+    await expect(j.accion!('transiciones', { clave: 'TAL-7', columna: 'Done' })).rejects.toThrow(/columna no es del tablero/);
+    await expect(j.accion!('mover', { clave: '../myself', columna: 'hecho', id: '31' })).rejects.toThrow(/Clave de Jira no válida/);
+    // an id Jira doesn't offer towards that column is never posted
+    const antes = (fetch as any).mock.calls.length;
+    await expect(j.accion!('mover', { clave: 'TAL-7', columna: 'enCurso', id: '31' })).rejects.toThrow(/ya no ofrece ese cambio/);
+    expect((fetch as any).mock.calls.slice(antes).every((c: any) => c[1].method === 'GET')).toBe(true);
+    expect(await j.accion!('mover', { clave: 'TAL-7', columna: 'hecho', id: '32' })).toEqual({ clave: 'TAL-7', estado: 'Descartada', categoria: 'done' });
+    const [url, init] = (fetch as any).mock.calls.at(-1);
+    expect([url, init.method, JSON.parse(init.body)]).toEqual(['https://taller.atlassian.net/rest/api/3/issue/TAL-7/transitions', 'POST', { transition: { id: '32' } }]);
+    // the cached board already has the new status (Jira's search lags behind)
+    expect(((await j.accion!('panel', {})) as any).tareas.find((x: any) => x.clave === 'TAL-7')).toMatchObject({ estado: 'Descartada', categoria: 'done' });
+    await expect(j.accion!('mover', { clave: 'TAL-9', columna: 'hecho', id: '31' })).rejects.toThrow(/Transicionar incidencias/);
   });
 });
 

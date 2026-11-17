@@ -36,7 +36,7 @@ Tasks and worktrees: talking to a room's dweller works in its main copy; worktre
 
 ## Logistics
 
-Logistics (room `tareas`, `PLANNING_ROOM` in `shared/disposicion.ts`): plans a Jira task with every repo in view and splits it across rooms with in-process MCP tools (`server/reparto.ts`), with a versioned shared plan (`server/planes.ts`) and the messenger robot (`web/src/mundo/mensajero.ts`). Planning is the Jira board (`cruzarTablero` in `shared/tablero.ts`). Details: `docs/integraciones-uso.md` ("Logistics, tasks and PRs").
+Logistics (room `tareas`, `PLANNING_ROOM` in `shared/disposicion.ts`): plans a Jira task with every repo in view and splits it across rooms with in-process MCP tools (`server/reparto.ts`), with a versioned shared plan (`server/planes.ts`) and the messenger robot (`web/src/mundo/mensajero.ts`). Planning is the Jira board (`cruzarTablero` in `shared/tablero.ts`); dragging a card to another column (or ⇧←→) moves the task in Jira after a confirmation, only through a transition its workflow offers (`transitionsTo` in `shared/tablero.ts`, action `mover` in `server/integraciones/jira.ts`, the only write to Jira). QA: `scripts/qa-mover-jira.mjs`. Details: `docs/integraciones-uso.md` ("Logistics, tasks and PRs").
 
 ## Messages between rooms
 

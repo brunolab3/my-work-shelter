@@ -1,5 +1,6 @@
 // Salas operativas: tablón de comunicaciones (todas las fuentes en un solo feed), calendario unificado (Microsoft 365
 // y Google Calendar) y Logística (tareas de Jira con sus pull requests, y Linear). Solo lectura: se abre el original con Enter, en su navegador del refugio.
+// The one exception is the Jira board, which moves a task to another status after the Overseer confirms it.
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { juego } from './estadoJuego';
 import { t, idioma, tIs } from '@shared/idioma';
@@ -16,7 +17,7 @@ import { openPreflight } from './Preflight';
 import { taskHasPRs } from '@shared/preflight';
 import { taskColor, pRTask } from '@shared/tareas';
 import { aimColors, knowTasks, useColorsTasks, jiraBoard } from './tareas';
-import { cruzarTablero, COLUMN_COLORS, textoPR, promptPlanificar, type PRBoard, type TaskWithPR, type TaskJira } from '@shared/tablero';
+import { cruzarTablero, columnOf, COLUMN_COLORS, COLUMNS, textoPR, promptPlanificar, type BoardColumn, type JiraTransition, type PRBoard, type TaskWithPR, type TaskJira } from '@shared/tablero';
 
 const SOURCES: Record<string, string> = Object.fromEntries(IDS_SOURCES.map(f => [f, INFO_SOURCE[f].corto]));
 const LOC = idioma() === 'en' ? 'en-GB' : 'es-ES';
@@ -224,7 +225,9 @@ const inRunning = (sesiones: Record<string, any>, clave: string) => [...new Set(
 
 // ---------------------------------------------------------------- tablero de Jira: mis tareas por estado con sus PR
 // Columnas Por hacer / En curso / En revisión / Hecho, cada ficha con sus PR (por la clave de Jira de la rama o el título).
-// La lista de PR está en Control de Versiones (pestaña Pull requests del cliente de git). Solo lectura.
+// La lista de PR está en Control de Versiones (pestaña Pull requests del cliente de git). Dragging a card to another
+// column (or ⇧←→) asks Jira which of its workflow's transitions lead there and, once the Overseer confirms one, applies
+// it (the connector's `mover`, the only write to Jira).
 const KIND_PR: Record<PRBoard['estado'], string> = { abierto: 'pr-abierto', borrador: 'pr-borrador', fusionado: 'pr-fusionado', cerrado: 'pr-cerrado' };
 export const trTextPR = (p: PRBoard) => textoPR(p).split(' · ').map(x => tIs(x)).join(' · ');
 const insigniaPR = (p: PRBoard) => <span className={'insignia-pr ' + KIND_PR[p.estado] + (p.estado === 'abierto' && p.revision === 'CHANGES_REQUESTED' ? ' pr-cambios' : '') + (p.checks === 'FAILURE' || p.checks === 'ERROR' ? ' pr-ci-mal' : '')} title={`${p.repo}#${p.numero} · ${trTextPR(p)}`}>#{p.numero} {trTextPR(p)}</span>;
@@ -242,6 +245,11 @@ export function BoardJira({ volver, coordinacion }: { volver: () => void; coordi
   const [error, setError] = useState('');
   const [seeDone, setSeeDone] = useState(true);
   const [col, setCol] = useState(0); const [i, setI] = useState(0);
+  const [mover, setMover] = useState<{ tarea: TaskWithPR; columna: BoardColumn; opciones: JiraTransition[]; k: number } | null>(null);
+  const [movidas, setMovidas] = useState<Record<string, { texto: string; mal?: boolean }>>({});   // each move's result, on its card
+  const [arrastrada, setArrastrada] = useState<TaskWithPR | null>(null);
+  const [sobre, setSobre] = useState<BoardColumn | null>(null);
+  const [seguir, setSeguir] = useState<string | null>(null);   // the moved card keeps the selection in its new column
   const cargar = (forzar = false) => {
     cliente.accion<any>('integracion.panel', { fuente: 'jira', forzar }).then(d => { aimColors(d.tareas ?? []); setJira(d); setError(''); jiraBoard.set({ tareas: d.tareas ?? [] }); }).catch(e => setError(e.message));
     cliente.accion<any>('git.prsTablero', {}).then(d => { setGh(d); jiraBoard.set({ prs: d?.prs ?? [] }); }).catch(e => setGh({ prs: [], error: e.message }));
@@ -251,6 +259,32 @@ export function BoardJira({ volver, coordinacion }: { volver: () => void; coordi
   useColorsTasks();
   useEffect(() => knowTasks([...(jira?.tareas ?? []).map(t => t.clave), ...(gh?.prs ?? []).map(pRTask)]), [jira, gh]);
   const columnas = crossing.columnas.filter(c => seeDone || c.id !== 'hecho');
+  useEffect(() => {
+    if (!seguir) return;
+    const ci = columnas.findIndex(c => c.tareas.some(x => x.clave === seguir));
+    if (ci >= 0) { setCol(ci); setI(columnas[ci].tareas.findIndex(x => x.clave === seguir)); setSeguir(null); }
+  }, [crossing]);
+  const colName = (c: BoardColumn) => tIs(COLUMNS.find(x => x.id === c)!.nombre);
+  // which of Jira's transitions lead to that column: none says so, one or more open the confirmation
+  const proponer = (ta: TaskWithPR | undefined, columna: BoardColumn | undefined) => {
+    if (!ta || !columna || columna === columnOf(ta) || mover) return;
+    if (jira?.demo) { setNotice(t('panels.jiraDemoCantMove')); SFX.noAllowed(); return; }
+    setNotice(t('panels.jiraAskingTransitions', { clave: ta.clave }));
+    cliente.accion<{ transiciones: JiraTransition[] }>('integracion.transiciones', { fuente: 'jira', clave: ta.clave, columna, actual: ta.estado }).then(({ transiciones }) => {
+      if (!transiciones.length) { setNotice(t('panels.jiraNoTransition', { clave: ta.clave, estado: ta.estado, columna: colName(columna) })); SFX.noAllowed(); return; }
+      setNotice(''); setMover({ tarea: ta, columna, opciones: transiciones, k: 0 }); SFX.abrir();
+    }).catch(e => { setNotice(e.message); SFX.noAllowed(); });
+  };
+  const confirmar = () => {
+    if (!mover) return;
+    const { tarea: ta, columna, opciones, k } = mover;
+    setMover(null); SFX.clic();
+    setMovidas(m => ({ ...m, [ta.clave]: { texto: t('panels.jiraMoving') } }));
+    cliente.accion<{ estado: string }>('integracion.mover', { fuente: 'jira', clave: ta.clave, columna, id: opciones[k].id }).then(r => {
+      setMovidas(m => ({ ...m, [ta.clave]: { texto: '✔ ' + t('panels.jiraMovedTo', { estado: r.estado }) } }));
+      SFX.shortSuccess(); setSeguir(ta.clave); cargar();
+    }).catch(e => { setMovidas(m => ({ ...m, [ta.clave]: { texto: '✗ ' + e.message, mal: true } })); SFX.noAllowed(); });
+  };
   const taskSel: TaskWithPR | undefined = columnas[col]?.tareas[Math.min(i, (columnas[col]?.tareas.length ?? 1) - 1)];
   const selPrs: PRBoard[] = taskSel?.prs ?? [];
   const startBy = columnas[col]?.id === 'porHacer' && !!taskSel;
@@ -259,7 +293,15 @@ export function BoardJira({ volver, coordinacion }: { volver: () => void; coordi
   const withPreflight = !!taskSel && taskHasPRs(taskSel.clave, selPrs);
   const preflight = () => { if (!taskSel) return; SFX.clic(); openPreflight(taskSel.clave, kanban.current?.querySelector('.ficha-issue.sel')); };
   useKeys(e => {
+    if (mover) {
+      if (e.code === 'Escape') setMover(null);
+      else if (e.code === 'Enter' || e.code === 'KeyE') confirmar();
+      else if (e.code === 'ArrowDown' || e.code === 'KeyS') setMover({ ...mover, k: Math.min(mover.opciones.length - 1, mover.k + 1) });
+      else if (e.code === 'ArrowUp' || e.code === 'KeyW') setMover({ ...mover, k: Math.max(0, mover.k - 1) });
+      return;
+    }
     if (e.code === 'Escape') volver();
+    else if (e.shiftKey && (e.code === 'ArrowRight' || e.code === 'ArrowLeft')) proponer(taskSel, columnas[col + (e.code === 'ArrowRight' ? 1 : -1)]?.id);
     else if (e.code === 'ArrowRight' || e.code === 'KeyD') { setCol(c => Math.min(columnas.length - 1, c + 1)); setI(0); SFX.tick(); }
     else if (e.code === 'ArrowLeft' || e.code === 'KeyA') { setCol(c => Math.max(0, c - 1)); setI(0); SFX.tick(); }
     else if (e.code === 'ArrowDown' || e.code === 'KeyS') { setI(x => Math.min(x + 1, Math.max(0, (columnas[col]?.tareas.length ?? 1) - 1))); SFX.tick(); }
@@ -271,7 +313,7 @@ export function BoardJira({ volver, coordinacion }: { volver: () => void; coordi
     else if (e.code === 'KeyR') { cargar(true); SFX.clic(); }
     else if (e.code === 'KeyP' && startBy) planificar(taskSel);
     else if (e.code === 'KeyF' && withPreflight) preflight();
-  }, [columnas, col, i, taskSel, selPrs, startBy, withPreflight, coord?.id]);
+  }, [columnas, col, i, taskSel, selPrs, startBy, withPreflight, coord?.id, mover, jira]);
   const demo = jira?.demo || gh?.demo;
   return (
     <Device rotulo={`${coordinacion ? (coord?.nombre ?? t('panels.logistics')).toUpperCase() + ' · ' + t('panels.split') : t('panels.planning')} · ${t('panels.myJiraTasks')}${demo ? ' · DEMO' : ''}`} ancho={96} alto onClose={volver}>
@@ -283,14 +325,19 @@ export function BoardJira({ volver, coordinacion }: { volver: () => void; coordi
       {(!jira || !gh) && !error && <p className="tenue">{t('panels.readingJiraAndGithub')}</p>}
       <div ref={kanban} className="kanban" style={{ gridTemplateColumns: `repeat(${Math.max(1, columnas.length)}, 1fr)` }}>
         {columnas.map((c, ci) => (
-          <div key={c.id} className={'kanban-col' + (COLUMN_COLORS[c.id] ? ' kanban-estado' : '') + (ci === col ? ' activa' : '')} style={{ '--estado': COLUMN_COLORS[c.id] } as React.CSSProperties}>
+          <div key={c.id} className={'kanban-col' + (COLUMN_COLORS[c.id] ? ' kanban-estado' : '') + (ci === col ? ' activa' : '') + (sobre === c.id ? ' soltar' : '')} style={{ '--estado': COLUMN_COLORS[c.id] } as React.CSSProperties}
+            onDragOver={e => { if (arrastrada && columnOf(arrastrada) !== c.id) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setSobre(c.id); } }}
+            onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setSobre(x => (x === c.id ? null : x)); }}
+            onDrop={e => { e.preventDefault(); const ta = arrastrada; setArrastrada(null); setSobre(null); proponer(ta ?? undefined, c.id); }}>
             <h3>{tIs(c.nombre)} <span className="tenue">{c.tareas.length}</span></h3>
             {c.tareas.map((ta, k) => (
-              <div key={ta.clave} className={'ficha-issue' + (c.id !== 'hecho' ? ' con-tarea' : '') + (ci === col && k === Math.min(i, c.tareas.length - 1) ? ' sel' : '')} style={c.id !== 'hecho' ? { '--tarea': taskColor(ta.clave) } as React.CSSProperties : undefined} onMouseEnter={() => { setCol(ci); setI(k); }} onDoubleClick={() => openOutside(ta.url)}>
+              <div key={ta.clave} className={'ficha-issue' + (c.id !== 'hecho' ? ' con-tarea' : '') + (ci === col && k === Math.min(i, c.tareas.length - 1) ? ' sel' : '') + (arrastrada?.clave === ta.clave ? ' arrastrada' : '')} style={c.id !== 'hecho' ? { '--tarea': taskColor(ta.clave) } as React.CSSProperties : undefined} onMouseEnter={() => { if (!arrastrada) { setCol(ci); setI(k); } }} onDoubleClick={() => openOutside(ta.url)}
+                draggable={!mover} onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', ta.clave); setArrastrada(ta); }} onDragEnd={() => { setArrastrada(null); setSobre(null); }}>
                 {c.id !== 'hecho' && <span className="marca-tarea" />}<span className="ident">{ta.clave}</span> {ta.titulo}
                 <small className="tenue">{[ta.estado, ta.tipo, ta.prioridad].filter(Boolean).join(' · ')}</small>
                 {ta.prs.length > 0 && <div className="prs-ficha">{ta.prs.map(p => <span key={p.url}>{insigniaPR(p)}</span>)}</div>}
                 {inRunning(sesiones, ta.clave).length > 0 && <small className="tenue">{t('panels.inProgress')} {inRunning(sesiones, ta.clave).map(roomName).join(', ')}</small>}
+                {movidas[ta.clave] && <small className={'movida' + (movidas[ta.clave].mal ? ' mal' : '')}>{movidas[ta.clave].texto}</small>}
               </div>
             ))}
             {!c.tareas.length && <p className="tenue">—</p>}
@@ -300,7 +347,21 @@ export function BoardJira({ volver, coordinacion }: { volver: () => void; coordi
       {crossing.withoutTask.length > 0 && <p className="tenue">{t('panels.nPrsWithoutAJira', { n: crossing.withoutTask.length })}</p>}
       {startBy && <div className="botonera"><button className="boton-taller" onClick={() => planificar(taskSel)} title={t('panels.planClaveInSalaWith', { clave: taskSel!.clave, sala: coord?.nombre ?? t('panels.theLogisticsRoom') })}>{coord ? t('panels.pPlanClaveInSala', { clave: taskSel!.clave, sala: coord.nombre }) : t('panels.pPlanClaveAndSplit', { clave: taskSel!.clave })}</button></div>}
       {selPrs.length > 0 && <div className="botonera">{selPrs.slice(0, 9).map((p, k) => <button key={p.url} className="boton-taller" onClick={() => openOutside(p.url)} title={p.titulo}>{k + 1} · {p.repo}#{p.numero}</button>)}{withPreflight && <button className="boton-taller" onClick={preflight} title={t('preflight.actionHint')}>{t('preflight.keyF', { clave: taskSel!.clave })}</button>}</div>}
-      <Keys><kbd>←→</kbd>{t('panels.column')} <kbd>↑↓</kbd>{t('panels.task')} <kbd>Enter</kbd>{t('panels.openTheTask')} {selPrs.length > 0 && <><kbd>1–{Math.min(9, selPrs.length)}</kbd>{t('panels.openThePr')} </>}{startBy && <><kbd>P</kbd>{t('panels.planAndSplit')} </>}{withPreflight && <><kbd>F</kbd>{t('preflight.title')} </>}<kbd>T</kbd>{t('panels.allYourPrs')} <kbd>H</kbd>{seeDone ? t('panels.hideDone') : t('panels.showDone')} <kbd>R</kbd>{t('panels.reload')} <kbd>Esc</kbd>{t('menu.back')}</Keys>
+      <Keys><kbd>←→</kbd>{t('panels.column')} <kbd>↑↓</kbd>{t('panels.task')} <kbd>⇧←→</kbd>{t('panels.moveTheTask')} <kbd>Enter</kbd>{t('panels.openTheTask')} {selPrs.length > 0 && <><kbd>1–{Math.min(9, selPrs.length)}</kbd>{t('panels.openThePr')} </>}{startBy && <><kbd>P</kbd>{t('panels.planAndSplit')} </>}{withPreflight && <><kbd>F</kbd>{t('preflight.title')} </>}<kbd>T</kbd>{t('panels.allYourPrs')} <kbd>H</kbd>{seeDone ? t('panels.hideDone') : t('panels.showDone')} <kbd>R</kbd>{t('panels.reload')} <kbd>Esc</kbd>{t('menu.back')}</Keys>
+      {mover && <div className="vt-confirmar mover-jira">
+        <div className="vt-confirmar-caja">
+          <p><b>{mover.tarea.clave}</b>: {mover.tarea.estado} → <b>{mover.opciones[mover.k].a}</b></p>
+          {mover.opciones.length > 1 && <>
+            <p className="tenue">{t('panels.jiraSeveralTransitions', { columna: colName(mover.columna) })}</p>
+            <ul className="opciones-consola">{mover.opciones.map((x, k) => <li key={x.id} className={k === mover.k ? 'activa' : ''} onClick={() => setMover({ ...mover, k })}><span className="cursor">{k === mover.k ? '▶' : ' '}</span><span>{x.nombre === x.a ? x.a : `${x.nombre} → ${x.a}`}</span></li>)}</ul>
+          </>}
+          <p className="tenue">{t('panels.jiraMoveWrites')}</p>
+          <div className="vt-confirmar-botones">
+            <button className="consola-x peligro" onClick={confirmar}>{t('panels.jiraMove')} ({t('windows.enter')})</button>
+            <button className="consola-x" onClick={() => setMover(null)}>{t('windows.cancelEsc')}</button>
+          </div>
+        </div>
+      </div>}
     </Device>
   );
 }
