@@ -220,6 +220,7 @@ export const WINDOWS: Record<string, Texto> = {
   'windows.ifYouCloseItIt3': { es: 'Si cierras, se borra. Para guardarlo, minimiza: lo escrito se queda aquí aunque se cierre la conversación o se reinicie el juego.', en: 'If you close it, it is deleted. To keep it, minimize: what you wrote stays here even if the conversation closes or the game restarts.' },
   'windows.closeAndDeleteEnter': { es: 'Cerrar y borrarlo (Intro)', en: 'Close and delete (Enter)' },
   'windows.closed': { es: 'cerrada', en: 'closed' },
+  'windows.openTheirIntercom': { es: 'Abrir su intercomunicador', en: 'Open their intercom' },
   'windows.noSession': { es: 'sin sesión', en: 'no session' },
   'windows.noLinkToTheShelter': { es: 'Sin enlace con el servidor del refugio. Reintentando', en: 'No link to the shelter server. Retrying' },
   'windows.ifYouClosedItReopen': { es: 'Si lo has cerrado, vuelve a abrir el juego con', en: 'If you closed it, reopen the game with' },

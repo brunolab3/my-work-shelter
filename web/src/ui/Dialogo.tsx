@@ -384,8 +384,9 @@ function TalkerBust({ x }: { x: DwellerSummary }) {
 }
 
 // The room's talkers (its dwellers and its worktrees' holographic copies; by state, then most recent conversation first
-// (talkerFirst), those without one last, dwellers before holograms), each with its intercom panel's open conversations and the most urgent one: the selector above the portrait and the bar's hover list (Barra.tsx) show them,
-// with when the latest of them last moved
+// (talkerFirst), those without one last, dwellers before holograms), each with its intercom panel's open conversations
+// and the most urgent one: the selector above the portrait groups its list by them, and the bar's hover list (Barra.tsx)
+// shows one row each, with when the latest of them last moved
 export type Talker = { x: DwellerSummary; ses: SessionSummary[]; primera?: SessionSummary; estado?: TabState; nombre: string; borrador: boolean };
 export function roomTalkers(sala: string, habitantes: DwellerSummary[], copias: DwellerSummary[], lista: WindowCom[], sesiones: Record<string, SessionSummary>): Talker[] {
   return [...habitantes.filter(x => x.sala === sala && !x.robot), ...copias.filter(c => c.sala === sala)].map(x => {
@@ -398,10 +399,10 @@ export function roomTalkers(sala: string, habitantes: DwellerSummary[], copias: 
     .sort((a, b) => talkerFirst(a.r, b.r))
     .map(y => y.q);
 }
-export function TalkerRow({ q, actual, sel, option, onClick, onMouseEnter }: { q: Talker; actual: boolean; sel?: boolean; option?: boolean; onClick: () => void; onMouseEnter?: () => void }) {
+export function TalkerRow({ q, actual, onClick }: { q: Talker; actual: boolean; onClick: () => void }) {
   return (
-    <button role={option ? 'option' : undefined} aria-selected={option ? actual : undefined} onClick={onClick} onMouseEnter={onMouseEnter}
-      className={'barra-asomo-fila' + (q.x.copia ? ' de-copia' : '') + (actual ? ' actual' : '') + (sel ? ' sel' : '') + (q.estado === 'esperando' ? ' urgente' : '') + (q.estado === 'sinLeer' ? ' sin-leer' : '') + (q.estado ? ' e-' + q.estado : '')}>
+    <button onClick={onClick}
+      className={'barra-asomo-fila' + (q.x.copia ? ' de-copia' : '') + (actual ? ' actual' : '') + (q.estado === 'esperando' ? ' urgente' : '') + (q.estado === 'sinLeer' ? ' sin-leer' : '') + (q.estado ? ' e-' + q.estado : '')}>
       <span className={'piloto ' + (q.estado ? PILOT[q.estado] : 'apagado')} />
       <TalkerBust x={q.x} />
       <span className="barra-asomo-estado">{q.estado ? stateLabel(q.estado) : t('windows.noSession')}</span>
@@ -413,20 +414,15 @@ export function TalkerRow({ q, actual, sel, option, onClick, onMouseEnter }: { q
 }
 
 // Above the portrait, by the tabs: whom else to talk to in the room (its dwellers and its worktrees' holographic copies).
-// Closed, a chip like the bar's, lit by the most urgent conversation of who you talk to; open, one row per talker with
-// its most urgent conversation's state and title and its last activity, as the bar's hover list; picking one switches the intercom
+// Closed, a chip like the bar's, lit by the most urgent conversation of who you talk to; open, the ⋯ N list (TabList)
+// with the room's conversations grouped by talker under their bust and name; a talker with none open gets one row that
+// switches to their intercom. Picking a conversation goes there as ⋯ N does (goTab)
+const TALKER = 'quien:';
 function WhoSelector({ h }: { h: DwellerSummary }) {
   const habitantes = juego.usar(e => e.habitantes), copias = juego.usar(e => e.copias);
   const lista = intercoms.usar(e => e.lista);
   const sesiones = vivo.usar(e => e.sesiones);
   const [abierta, setAbierta] = useState(false);
-  const [sel, setSel] = useState(0);
-  const caja = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!abierta) return;
-    const fuera = (e: MouseEvent) => { if (!caja.current?.contains(e.target as Node)) setAbierta(false); };
-    addEventListener('mousedown', fuera); return () => removeEventListener('mousedown', fuera);
-  }, [abierta]);
   const quienes = roomTalkers(h.sala, habitantes, copias, lista, sesiones);
   if (quienes.length < 2) return null;
   const yo = quienes.find(q => q.x.id === h.id) ?? quienes[0];
@@ -434,19 +430,22 @@ function WhoSelector({ h }: { h: DwellerSummary }) {
   const revisar = quienes.filter(q => q !== yo && (q.estado === 'esperando' || q.estado === 'sinLeer' || q.estado === 'error')).sort((a, b) => urgency(a.primera!) - urgency(b.primera!));
   // and, quieter, the others with something typed and not sent
   const borradores = quienes.filter(q => q !== yo && q.borrador);
-  const elegir = (id: string) => { setAbierta(false); if (id !== h.id) restoreIntercom(id); };
-  const abrir = () => { setSel(Math.max(0, quienes.indexOf(yo))); setAbierta(x => !x); };
-  const tecla = (e: React.KeyboardEvent) => {
-    e.stopPropagation();
-    if (!abierta) return;
-    if (e.key === 'Escape') { e.preventDefault(); setAbierta(false); }
-    else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); setSel(i => (i + (e.key === 'ArrowDown' ? 1 : -1) + quienes.length) % quienes.length); }
-    else if (e.key === 'Enter') { e.preventDefault(); elegir(quienes[sel].x.id); }
+  // as ⋯ N: the menu and other views only of the intercom in front
+  const items = quienes.flatMap((q): ItemTab[] => {
+    const tabs = (lista.find(w => w.dwellerId === q.x.id)?.pestanas ?? []).filter(x => q === yo || x.vista.tipo === 'sesion' || x.sessionWait)
+      .map(x => ({ ...tabItem(x, q.x, sesiones), grupo: q.x.id, quien: q.nombre }));
+    return tabs.length ? tabs : [{ id: TALKER + q.x.id, nombre: t('windows.openTheirIntercom'), grupo: q.x.id, quien: q.nombre, fija: true }];
+  });
+  const ir = (id: string) => {
+    setAbierta(false);
+    if (!id.startsWith(TALKER)) goTab(id);
+    else if (id !== TALKER + h.id) restoreIntercom(id.slice(TALKER.length));
   };
+  const cabecera = (id: string) => { const q = quienes.find(x => x.x.id === id); return q && <><TalkerBust x={q.x} />{q.nombre}</>; };
   return (
-    <div className="consola-quien" ref={caja} onKeyDown={tecla}>
+    <div className="consola-quien" onKeyDown={e => e.stopPropagation()}>
       <button className={'chip-terminal delante' + (h.copia ? ' de-copia' : '') + (yo.estado === 'esperando' || revisar[0]?.estado === 'esperando' ? ' urgente' : '')} aria-haspopup="listbox" aria-expanded={abierta}
-        title={[t('windows.talkToSomeoneElse'), revisar.length ? t('windows.othersToReview', { n: revisar.length }) + ': ' + revisar.map(q => q.nombre).join(', ') : '', borradores.length ? t('windows.othersWithDraft', { n: borradores.length }) + ': ' + borradores.map(q => q.nombre).join(', ') : ''].filter(Boolean).join('\n')} onClick={abrir}>
+        title={[t('windows.talkToSomeoneElse'), revisar.length ? t('windows.othersToReview', { n: revisar.length }) + ': ' + revisar.map(q => q.nombre).join(', ') : '', borradores.length ? t('windows.othersWithDraft', { n: borradores.length }) + ': ' + borradores.map(q => q.nombre).join(', ') : ''].filter(Boolean).join('\n')} onClick={() => setAbierta(x => !x)}>
         <span className={'piloto ' + (yo.estado ? PILOT[yo.estado] : 'apagado')} aria-hidden />
         <TalkerBust x={yo.x} />
         <span className="consola-quien-nombre">{yo.nombre}</span>
@@ -454,11 +453,8 @@ function WhoSelector({ h }: { h: DwellerSummary }) {
         {borradores.length > 0 && <span className="marca-borrador" aria-label={t('windows.othersWithDraft', { n: borradores.length })}>✎</span>}
         <span className="tipo">▾</span>
       </button>
-      {abierta && (
-        <div className="barra-asomo consola-quien-lista" role="listbox" aria-label={t('windows.talkToSomeoneElse')}>
-          {quienes.map((q, i) => <TalkerRow key={q.x.id} q={q} actual={q.x.id === h.id} sel={i === sel} option onClick={() => elegir(q.x.id)} onMouseEnter={() => setSel(i)} />)}
-        </div>
-      )}
+      {/* the list steps aside while a close is being confirmed */}
+      {abierta && !lista.some(w => w.confirmar) && <TabList items={items} agrupar cabecera={cabecera} activa={lista.find(w => w.dwellerId === h.id)?.activa ?? ''} activar={ir} cerrar={closeTabs} salir={() => setAbierta(false)} />}
     </div>
   );
 }
@@ -491,12 +487,7 @@ export function ComTabs() {
   }).sort((a, b) => created(a.id) - created(b.id)));
   if (items.length < 2) return null;
   const salir = () => comList.set({ abierta: false });
-  const ir = (pid: string) => {
-    salir();
-    const d = lista.find(w => w.pestanas.some(p => p.id === pid))?.dwellerId; if (!d) return;
-    if (d === talking) { activar(d, pid); return; }
-    actualizar(d, { activa: pid, z: nextZ() }); SFX.tick(); restoreIntercom(d);
-  };
+  const ir = (pid: string) => { salir(); goTab(pid); };
   // above the bar, from its left edge
   const r = abierta ? boton.current?.closest('.barra-ventanas')?.getBoundingClientRect() : undefined;
   return <>
@@ -507,6 +498,12 @@ export function ComTabs() {
         <TabList items={items} agrupar activa={actual?.activa ?? ''} activar={ir} cerrar={closeTabs} salir={salir} />
       </div>, document.body)}
   </>;
+}
+/** Go to an intercom tab: its intercom comes to the front (if another was) on that tab */
+function goTab(pid: string) {
+  const d = intercoms.get().lista.find(w => w.pestanas.some(p => p.id === pid))?.dwellerId; if (!d) return;
+  if (d === juego.get().talkingWith) { activar(d, pid); return; }
+  actualizar(d, { activa: pid, z: nextZ() }); SFX.tick(); restoreIntercom(d);
 }
 /** Close tabs of several intercoms: each asks about its own; if another one than the one in front has to ask, it switches to it */
 function closeTabs(pids: string[]) {

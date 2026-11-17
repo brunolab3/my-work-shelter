@@ -74,8 +74,8 @@ const LIST_SHORTCUT = `${CMD}${MAC ? '⇧' : ''}A`;
 export const DraftMark = () => <span className="marca-borrador" title={t('windows.unsentDraft')}>✎</span>;
 
 // grupo: with «group by room», tabs of a group sit together under its header; quien: whose it is (another window);
-// borrador: it has unsent text or attachments (DraftMark)
-export interface ItemTab { id: string; nombre: string; estado?: TabState; titulo?: string; sala?: string; tarea?: string; actividad?: string; grupo?: string; quien?: string; borrador?: boolean }
+// borrador: it has unsent text or attachments (DraftMark); fija: a row that is not a tab (nothing to select or close)
+export interface ItemTab { id: string; nombre: string; estado?: TabState; titulo?: string; sala?: string; tarea?: string; actividad?: string; grupo?: string; quien?: string; borrador?: boolean; fija?: boolean }
 
 // lista: the ⋯ N button and its list in the strip (terminals); intercoms keep theirs in the bar (ComTabs in Dialogo.tsx)
 export function Tabs({ items, activa, activar, cerrar, nueva, opensThat, lista, confirmando }: { items: ItemTab[]; activa: string; activar: (id: string) => void; cerrar: (ids: string[]) => void; nueva?: () => void; opensThat: string; lista?: React.MutableRefObject<(() => void) | null>; confirmando?: boolean }) {
@@ -115,8 +115,9 @@ export function Tabs({ items, activa, activar, cerrar, nueva, opensThat, lista, 
 }
 
 // Every tab in a list: state, title, task, room or owner and last activity; type to filter, go to one, and close (one,
-// the selected ones, the read or idle ones, or a task's). agrupar: a header per group (items come grouped).
-export function TabList({ items, activa, activar, cerrar, salir, agrupar }: { items: ItemTab[]; activa: string; activar: (id: string) => void; cerrar: (ids: string[]) => void; salir: () => void; agrupar?: boolean }) {
+// the selected ones, the read or idle ones, or a task's). agrupar: a header per group (items come grouped), drawn by
+// cabecera when given (the intercom's who selector: the talker's bust and name)
+export function TabList({ items, activa, activar, cerrar, salir, agrupar, cabecera }: { items: ItemTab[]; activa: string; activar: (id: string) => void; cerrar: (ids: string[]) => void; salir: () => void; agrupar?: boolean; cabecera?: (grupo: string) => React.ReactNode }) {
   const [filtro, setFiltro] = useState('');
   const [i, setI] = useState(() => Math.max(0, items.findIndex(p => p.id === activa)));
   const [marcadas, setMarcadas] = useState<string[]>([]);
@@ -132,7 +133,7 @@ export function TabList({ items, activa, activar, cerrar, salir, agrupar }: { it
   const [antes] = useState(() => document.activeElement as HTMLElement | null);   // before the filter takes it
   useEffect(() => () => { setTimeout(() => { const a = document.activeElement; if (!a || a === document.body) antes?.focus(); }); }, []);
   useEffect(() => {
-    const fuera = (e: PointerEvent) => { const el = e.target as HTMLElement; if (!caja.current?.contains(el) && !el.closest?.('.vt-todas, .vt-confirmar')) salir(); };
+    const fuera = (e: PointerEvent) => { const el = e.target as HTMLElement; if (!caja.current?.contains(el) && !el.closest?.('.vt-todas, .vt-confirmar, .consola-quien > .chip-terminal')) salir(); };
     addEventListener('pointerdown', fuera, true); return () => removeEventListener('pointerdown', fuera, true);
   }, []);
   useEffect(() => { caja.current?.querySelector('.vt-lista-fila.sel')?.scrollIntoView({ block: 'nearest' }); }, [i, q]);
@@ -150,16 +151,16 @@ export function TabList({ items, activa, activar, cerrar, salir, agrupar }: { it
       <input className="vt-lista-filtro" autoFocus value={filtro} placeholder={t('windows.filterTabs')} spellCheck={false} onChange={e => { setFiltro(e.target.value); setI(0); }} />
       <div className="vt-lista-filas">
         {vistas.map((p, k) => (<React.Fragment key={p.id}>
-          {agrupar && p.grupo !== vistas[k - 1]?.grupo && <div className="vt-lista-grupo">{p.grupo}</div>}
+          {agrupar && p.grupo !== vistas[k - 1]?.grupo && <div className="vt-lista-grupo">{cabecera ? cabecera(p.grupo!) : p.grupo}</div>}
           <div className={'vt-lista-fila' + (p === sel ? ' sel' : '') + (p.id === activa ? ' activa' : '') + (p.estado ? ' e-' + p.estado : '')} onMouseMove={() => setI(k)} onClick={() => activar(p.id)}>
-            <input type="checkbox" checked={marcadas.includes(p.id)} title={t('windows.selectTab')} onClick={e => e.stopPropagation()} onChange={() => setMarcadas(m => (m.includes(p.id) ? m.filter(x => x !== p.id) : [...m, p.id]))} />
-            <span className={'piloto ' + PILOT[p.estado ?? 'ociosa']} />
+            {p.fija ? <span /> : <input type="checkbox" checked={marcadas.includes(p.id)} title={t('windows.selectTab')} onClick={e => e.stopPropagation()} onChange={() => setMarcadas(m => (m.includes(p.id) ? m.filter(x => x !== p.id) : [...m, p.id]))} />}
+            <span className={'piloto ' + (p.estado ? PILOT[p.estado] : p.fija ? 'apagado' : PILOT.ociosa)} />
             <span className="vt-lista-estado">{p.estado ? stateLabel(p.estado) : ''}</span>
             <span className="vt-lista-nombre">{p.borrador && <DraftMark />}{p.nombre}</span>
             <span className="vt-lista-tarea">{p.tarea && <><span className="marca-tarea" style={{ '--tarea': taskColor(p.tarea) } as React.CSSProperties} />{p.tarea}</>}</span>
             <span className="vt-lista-sala">{p.quien ?? p.sala}</span>
             <span className="vt-lista-cuando">{p.actividad}</span>
-            <button className="vt-pestana-x" onClick={e => { e.stopPropagation(); cerrar([p.id]); }} title={t('windows.closeTabAtajo', { shortcut: `${CMD}W` })}>×</button>
+            {p.fija ? <span /> : <button className="vt-pestana-x" onClick={e => { e.stopPropagation(); cerrar([p.id]); }} title={t('windows.closeTabAtajo', { shortcut: `${CMD}W` })}>×</button>}
           </div>
         </React.Fragment>))}
         {!vistas.length && <div className="vt-lista-vacia">{t('windows.noTabsMatch')}</div>}

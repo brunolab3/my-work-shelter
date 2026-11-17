@@ -516,7 +516,9 @@ a.miniatura:hover img { box-shadow: 0 0 0 1px #ffc96b, 0 0 10px rgba(255,179,71,
 /* always the portrait column's width, whoever it names; the list too, whichever the room */
 .consola-quien > .chip-terminal { width: 100%; padding-left: .35em; }
 .consola-quien-nombre { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; text-align: left; }
-.consola-quien .consola-quien-lista { position: absolute; top: calc(100% + 3px); left: 0; z-index: 40; width: min(40em, 50vw); min-width: 0; max-width: none; }
+/* open, the ⋯ N list under the chip, its rows grouped under each talker's bust and name */
+.consola-quien .vt-lista { top: calc(100% + 3px); left: 0; right: auto; z-index: 40; }
+.vt-lista-grupo:has(> .consola-quien-foto) { display: flex; align-items: center; gap: .6em; padding-top: 8px; letter-spacing: .02em; text-transform: none; }
 .barra-asomo-fila:has(> .consola-quien-foto) { grid-template-columns: auto auto 7.5em minmax(0, 1fr) auto 5.5em; }
 .barra-asomo-cuando { text-align: right; }
 /* a talker's bust: a dweller in their colors; a hologram tinted with its task's color (--tono), with scan lines */
@@ -532,7 +534,6 @@ a.miniatura:hover img { box-shadow: 0 0 0 1px #ffc96b, 0 0 10px rgba(255,179,71,
 /* ✎ something typed and not sent: quieter than the state flags */
 .marca-borrador { flex: none; margin-right: .35em; font-weight: 400; color: var(--crema-tenue); opacity: .75; }
 .chip-terminal .marca-borrador { margin-right: 0; }
-.consola-quien-lista .barra-asomo-fila.sel { background: #2b2722; }
 .barra-asomo-fila.actual b { color: #b9ffcf; }
 .barra-asomo-fila.de-copia b { color: #58e6ff; }
 .vt-cuerpo { position: relative; flex: 1; min-height: 0; padding: 4px 6px 6px; background: #06120c; }
