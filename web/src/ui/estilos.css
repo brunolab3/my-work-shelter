@@ -257,8 +257,10 @@ html, body { margin: 0; height: 100%; background: var(--fondo); overflow: hidden
 .formulario-escribir textarea { height: 100%; min-height: 0; }
 .formulario-opciones { overflow: auto; }
 .sesion .titulo-sesion { font: 600 calc(var(--u) * 0.85) var(--t-mono); color: var(--fosforo-tenue); text-shadow: none; margin-bottom: .3em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-/* las páginas de la conversación: abajo del todo, bajo el habitante; la lista se abre hacia arriba, sobre la conversación */
-.consola-lado .paginas-sesion { margin-top: auto; width: 100%; position: relative; }
+/* the conversation's pages: at the very bottom, under the dweller; their list opens at the top of this column, over the
+   conversation, and ends above its button (`useListOnTop` in Dialogo.tsx) */
+.consola-lado { position: relative; }
+.consola-lado .paginas-sesion { margin-top: auto; width: 100%; }
 .consola-lado .prs-copia + .paginas-sesion { margin-top: .4em; }
 .consola-lado .programados-sesion + .paginas-sesion { margin-top: .4em; }
 .programados-lista li { gap: .6em; }
@@ -275,7 +277,7 @@ html, body { margin: 0; height: 100%; background: var(--fondo); overflow: hidden
 .paginas-lista .pr-bien { color: #7dffa0; }
 .consola-lado .paginas-sesion > .consola-x { width: 100%; margin: 0; font: 600 calc(var(--u) * 0.68) var(--t-mono); padding: .35em .4em; white-space: normal; }
 .consola-lado .paginas-sesion > .consola-x.urgente { background: linear-gradient(#ffd27a, #d99a2b); }
-.paginas-lista { position: absolute; left: 0; bottom: calc(100% + .4em); z-index: 30; margin: 0; padding: .5em; list-style: none; min-width: 26em; max-width: 40em; max-height: 50vh; overflow: auto; background: #0b120b; border: 1px solid var(--fosforo-tenue); border-radius: 4px; box-shadow: 0 6px 24px #000c; font: 400 calc(var(--u) * 0.75) var(--t-mono); color: var(--fosforo); }
+.paginas-lista { position: absolute; left: 0; top: 0; z-index: 30; box-sizing: border-box; margin: 0; padding: .5em; list-style: none; min-width: 26em; max-width: 40em; max-height: 50vh; overflow: auto; background: #0b120b; border: 1px solid var(--fosforo-tenue); border-radius: 4px; box-shadow: 0 6px 24px #000c; font: 400 calc(var(--u) * 0.75) var(--t-mono); color: var(--fosforo); }
 .paginas-lista li { display: flex; align-items: center; gap: .5em; padding: .25em .3em; white-space: nowrap; border-top: 1px solid rgba(157,255,184,.12); }
 .paginas-lista li:first-child { border-top: 0; }
 .paginas-lista .pagina-nombre { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; text-align: left; background: none; border: 0; color: var(--fosforo); font: inherit; cursor: pointer; padding: 0; }

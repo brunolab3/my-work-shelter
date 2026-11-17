@@ -16,7 +16,7 @@
 // - Las copias holográficas (worktrees) tienen su propio intercomunicador, como clones: su retrato en holograma, su
 //   rama y sus cambios, y las conversaciones de dentro del worktree (copias.ts). Si un trabajo del habitante se muda a
 //   un worktree, su pestaña pasa a la ventana de la copia, y si se estaba viendo, se sigue con la copia.
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { SessionSummary, LogInput, HistoryElement, Command, PendingRequest, Visitante } from '@shared/protocolo';
 import { MODELS, EFFORTS, PERMISSION_MODES } from '@shared/protocolo';
@@ -1044,14 +1044,15 @@ function WorktreePRs({ copia, salaId }: { copia: { ruta: string; rama: string };
   const prs = useMemo(() => rama ? worktreePRs(desdeTablero.length ? desdeTablero : leidos ?? [], { ruta, rama }, carpeta) : [],
     [desdeTablero, leidos, ruta, rama, carpeta]);
   const [abierto, setOpen] = useState(false);
+  const lista = useListOnTop(abierto);
   if (!prs.length) return null;
   const abiertos = prs.filter(p => p.estado === 'abierto' || p.estado === 'borrador').length;
-  // como las páginas: un botón con la cuenta y, al pulsarlo, la lista entera encima
+  // like the pages: a button with the count and, on click, the whole list on top
   return <span className="paginas-sesion prs-copia">
     <button className="consola-x" title={t('windows.taskPRsHint')} onClick={() => { setOpen(x => !x); SFX.clic(); }}>
       ⑂ {t('windows.pullRequests')} ({abiertos < prs.length ? `${abiertos}/${prs.length}` : prs.length})
     </button>
-    {abierto && <ul className="paginas-lista">{prs.map(p => <li key={p.url} className={'pr-' + p.estado}>
+    {abierto && <ul ref={lista} className="paginas-lista">{prs.map(p => <li key={p.url} className={'pr-' + p.estado}>
       <span className="pr-marca" title={prStateName(p.estado)}>{PR_STATE[p.estado]}</span>
       <button className="pagina-nombre" title={`${p.repo}#${p.numero} · ${p.rama}\n${p.titulo}`} onClick={() => { openLink(p.url); setOpen(false); }}>#{p.numero} {p.titulo}</button>
       <span className="tenue">{prStateName(p.estado)}</span>
@@ -1092,6 +1093,7 @@ function ScheduledMenu({ h, s, reanudar }: { h: DwellerSummary; s?: SessionSumma
   const mios = useMemo(() => conversacion ? ofConversation(todos, conversacion) : ofPlace(todos, h.sala, h.copia?.ruta, worktrees ?? []),
     [todos, worktrees, s?.id, s?.claudeId, reanudar, h.sala, h.copia?.ruta]);
   const [abierto, setOpen] = useState(false);
+  const lista = useListOnTop(abierto);
   const [editando, setEditing] = useState<{ id: string; cuando: string; mensaje: string; error?: string } | null>(null);
   if (!mios.length) return null;
   const cancelar = (x: ScheduledMessage) => { cliente.accion('programados.cancelar', { id: x.id }).then(() => SFX.clic()).catch(() => SFX.noAllowed()); };
@@ -1107,7 +1109,7 @@ function ScheduledMenu({ h, s, reanudar }: { h: DwellerSummary; s?: SessionSumma
       <button className="consola-x" title={t(conversacion ? 'windows.scheduledHint' : 'windows.scheduledHintPlace')} onClick={() => { setOpen(x => !x); setEditing(null); SFX.clic(); }}>
         {t(mios.length > 1 ? 'windows.scheduledN' : 'windows.scheduled', { n: mios.length, cuando: describeWhenShort(mios[0].cuando) })}
       </button>
-      {abierto && <ul className="paginas-lista programados-lista" onKeyDown={e => { e.stopPropagation(); if (e.key === 'Escape') { setEditing(null); setOpen(false); } }}>{mios.map(x => editando?.id === x.id
+      {abierto && <ul ref={lista} className="paginas-lista programados-lista" onKeyDown={e => { e.stopPropagation(); if (e.key === 'Escape') { setEditing(null); setOpen(false); } }}>{mios.map(x => editando?.id === x.id
         ? <li key={x.id} className="programado-edicion">
             <input type="datetime-local" value={editando.cuando} onChange={e => setEditing({ ...editando, cuando: e.target.value, error: undefined })} />
             <textarea rows={4} value={editando.mensaje} onChange={e => setEditing({ ...editando, mensaje: e.target.value, error: undefined })} />
@@ -1141,6 +1143,21 @@ function ResumePages({ salaId, claudeId }: { salaId: string; claudeId: string })
   return <PagesList sesionId={claudeId} claudeId={claudeId} entradas={entradas} />;
 }
 
+// The lists under the portrait (pages, scheduled, PRs) open at the top of the intercom's side column, over the oldest
+// part of the conversation rather than the latest and the input, and end above their own button so it stays reachable
+function useListOnTop(abierto: boolean) {
+  const ref = useRef<HTMLUListElement>(null);
+  useLayoutEffect(() => {
+    const ul = ref.current, boton = ul?.parentElement;
+    if (!abierto || !ul || !boton) return;
+    const fit = () => { ul.style.maxHeight = `${Math.max(0, boton.offsetTop - 6)}px`; };
+    fit();
+    addEventListener('resize', fit);
+    return () => removeEventListener('resize', fit);
+  }, [abierto]);
+  return ref;
+}
+
 // cuándo se cambió cada página (null: ya no está), compartido por todas las pestañas
 const pageTimes = new Map<string, number | null>();
 function PagesList({ sesionId, claudeId, entradas, base }: { sesionId: string; claudeId?: string; entradas: LogInput[]; base?: string }) {
@@ -1158,6 +1175,7 @@ function PagesList({ sesionId, claudeId, entradas, base }: { sesionId: string; c
   const [existen, setExist] = useState<Set<string> | null>(() => { const l = known(); return l && new Set(l.filter(r => pageTimes.get(r))); });
   const [actualizadas, setUpdated] = useState<Record<string, number>>(() => Object.fromEntries((known() ?? []).flatMap(r => pageTimes.get(r) ? [[r, pageTimes.get(r)!]] : [])));
   const [abierto, setOpen] = useState(false);
+  const lista = useListOnTop(abierto);
   useEffect(() => {
     if (!rutas) return;
     let vivoAun = true;
@@ -1183,7 +1201,7 @@ function PagesList({ sesionId, claudeId, entradas, base }: { sesionId: string; c
       <button className={'consola-x' + (pendientes ? ' urgente' : '')} title={t('windows.pagesHint')} onClick={() => { setOpen(x => !x); SFX.clic(); }}>
         📄 {t('windows.pages')} {pendientes ? `· ${pendientes} ${t('windows.pagePending')}` : `(${paginas.length})`}
       </button>
-      {abierto && <ul className="paginas-lista">{paginas.map(p => {
+      {abierto && <ul ref={lista} className="paginas-lista">{paginas.map(p => {
         const n = enBorrador(p.ruta);
         return <li key={p.ruta} className={p.respuesta ? 'tenue' : ''}>
           <button className="pagina-nombre" title={p.ruta} onClick={() => abrir(p.ruta)}>{p.nombre}</button>
