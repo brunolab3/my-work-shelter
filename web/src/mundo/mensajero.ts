@@ -2,9 +2,9 @@
 // pequeño sale corriendo con los planos bajo el brazo, baja por el hueco del ascensor y entrega una copia en cada sala
 // afectada; con una propuesta de cambio hace el viaje al revés, y con una revisión nueva de un PR sale de Control de
 // Versiones a la sala que lo trabaja (server/revisionesPR.ts) y se la da en mano al holograma de su worktree (o al
-// habitante, si es la copia principal). Dentro de una misma sala no sale el robot: el habitante va hasta el holograma
-// de la tarea y se lo da en mano (send_to_room a la propia sala, server/avisosSalas.ts). Solo se ve: el mensaje ya ha
-// llegado por el servidor.
+// habitante, si es la copia principal). Dentro de una misma sala el habitante va hasta el holograma de la tarea y se lo
+// da en mano (send_to_room a la propia sala, server/avisosSalas.ts); if he can't (talking with the Overseer, waiting),
+// the robot carries it across the room instead. Solo se ve: el mensaje ya ha llegado por el servidor.
 import * as THREE from 'three';
 import type { Refugio } from './refugio';
 import type { Sala } from './salas/comun';
@@ -36,18 +36,8 @@ export class Messengers {
     const origen = this.sala(desde);
     const targets = a.map(id => this.sala(id)).filter((s): s is Sala => !!s && s !== origen);
     if (!origen || !targets.length) return;
-    const p = new Character('Robot_Two');
-    const v: Trip = { p };
-    this.trips.add(v);
-    await p.cargar();
-    p.raiz.scale.multiplyScalar(0.55);
-    p.marcha = { andar: 'Walking_C', correr: 'Running_A', walkRhythm: 1.9, runRhythm: 1.2 };
-    p.couple('mano', { ruta: R.herr('blueprint_stacked'), bone: 'handslotl', escala: 0.5, rot: [0.3, Math.PI, 0] });
     // recoge los planos en el centro de la sala de planificación
-    p.raiz.position.set(origen.grupo.position.x, origen.grupo.position.y, 1.6);
-    this.r.motor.scene.add(p.raiz);
-    SFX.clank();
-    await this.gesture(p, 'PickUp');
+    const { p, v } = await this.robot(new THREE.Vector3(origen.grupo.position.x, origen.grupo.position.y, 1.6));
     let here = origen;
     for (const s of targets) {
       await this.correr(p, [this.puerta(here), this.hueco(here)]);
@@ -62,6 +52,25 @@ export class Messengers {
       await this.gesture(p, 'Interact');
       here = s;
     }
+    await this.leave(p, v, here);
+  }
+
+  // the small robot with the plans under its arm, picking them up at `at`
+  private async robot(at: THREE.Vector3) {
+    const p = new Character('Robot_Two');
+    const v: Trip = { p };
+    this.trips.add(v);
+    await p.cargar();
+    p.raiz.scale.multiplyScalar(0.55);
+    p.marcha = { andar: 'Walking_C', correr: 'Running_A', walkRhythm: 1.9, runRhythm: 1.2 };
+    p.couple('mano', { ruta: R.herr('blueprint_stacked'), bone: 'handslotl', escala: 0.5, rot: [0.3, Math.PI, 0] });
+    p.raiz.position.copy(at);
+    this.r.motor.scene.add(p.raiz);
+    SFX.clank();
+    await this.gesture(p, 'PickUp');
+    return { p, v };
+  }
+  private async leave(p: Character, v: Trip, here: Sala) {
     p.soltar('mano');
     await this.correr(p, [this.puerta(here), this.hueco(here)]);
     this.r.motor.scene.remove(p.raiz);
@@ -69,8 +78,9 @@ export class Messengers {
   }
 
   /** Un mensaje dentro de la misma sala: el habitante deja lo que hace, va hasta el holograma de la conversación que lo
-   *  recibe (si es nueva, espera a que su copia aparezca) y se lo da; el holograma lo recoge. Sin holograma (copia
-   *  principal) o con el habitante ocupado (te espera, habla contigo), no se ve nada más que el aviso */
+   *  recibe (si es nueva, espera a que su copia aparezca) y se lo da; el holograma lo recoge. With the dweller busy
+   *  (talking with the Overseer, as when he sends it mid-conversation, or waiting), the robot takes it from beside him
+   *  to the hologram. Sin holograma (copia principal) no se ve nada más que el aviso */
   async enMano(salaId: string, worktree?: string, sesionId?: string) {
     const s = this.sala(salaId); if (!s) return;
     let copia: Copia | undefined;
@@ -79,12 +89,20 @@ export class Messengers {
       if (f && f.sala === s && f.listo && !f.leaving) copia = f;
       else await new Promise(ok => setTimeout(ok, 500));
     }
-    const h = this.r.habitantes.find(x => x.sala === s);
-    if (!copia || !h) return;
-    const o = copia.p.raiz.position, sx = s.grupo.position.x, med = s.ancho / 2 - 0.5, lado = Math.sign(h.pos.x - o.x) || 1;
-    const junto = new THREE.Vector3(THREE.MathUtils.clamp(o.x + lado * 0.75, sx - med, sx + med), s.grupo.position.y, THREE.MathUtils.clamp(o.z + 0.1, 0.9, 1.8));
-    const giro = Math.atan2(o.x - junto.x, o.z - junto.z), c = copia;
-    h.encargar(junto, giro, 'Interact', '', 1.2, () => this.r.hologramas.receive(c, h.pos));
+    if (!copia) return;
+    const h = this.r.habitantes.find(x => x.sala === s), c = copia;
+    if (h) {
+      const o = copia.p.raiz.position, sx = s.grupo.position.x, med = s.ancho / 2 - 0.5, lado = Math.sign(h.pos.x - o.x) || 1;
+      const junto = new THREE.Vector3(THREE.MathUtils.clamp(o.x + lado * 0.75, sx - med, sx + med), s.grupo.position.y, THREE.MathUtils.clamp(o.z + 0.1, 0.9, 1.8));
+      if (h.encargar(junto, Math.atan2(o.x - junto.x, o.z - junto.z), 'Interact', '', 1.2, () => this.r.hologramas.receive(c, h.pos))) return;
+    }
+    const sx = s.grupo.position.x, med = s.ancho / 2 - 0.5, desde = h && Math.abs(h.pos.y - s.grupo.position.y) < 1 ? h.pos : s.grupo.position;
+    const { p, v } = await this.robot(new THREE.Vector3(THREE.MathUtils.clamp(desde.x + 0.6, sx - med, sx + med), s.grupo.position.y, 1.6));
+    await this.approach(p, s, c.p.raiz);
+    SFX.shortSuccess();
+    if (c.listo && !c.leaving) this.r.hologramas.receive(c, p.raiz.position);
+    await this.gesture(p, 'Interact');
+    await this.leave(p, v, s);
   }
 
   // quién recibe una revisión en la sala: el holograma de su worktree o, en la copia principal, el habitante

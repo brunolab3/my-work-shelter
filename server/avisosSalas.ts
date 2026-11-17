@@ -5,8 +5,9 @@
 // clave, siempre una conversación nueva con el habitante en su copia principal: los mensajes entre salas son para
 // empezar trabajo, no para charlar. With a thread (`cleanup`), to that thread's open conversation in the main copy, so
 // its messages queue there one at a time; request_worktree_cleanup sends a worktree's cleanup through `cleanup`.
-// También dentro de la misma sala: así un habitante pasa una tarea (o una parte que va sola) al holograma de su worktree y sigue con la conversación del Supervisor; sin robot mensajero, que no sale de la
-// sala, y nunca a la propia conversación. Para repartir un plan entre varios repos sigue estando assign_work (reparto.ts).
+// Also inside the same room: a dweller hands a task (or a part that goes alone) to its worktree's hologram and keeps the
+// Overseer's conversation; he carries it himself, or the messenger robot does if he's busy (web/src/mundo/mensajero.ts),
+// and never to the sender's own conversation. Para repartir un plan entre varios repos sigue estando assign_work (reparto.ts).
 import { createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
 import path from 'node:path';
