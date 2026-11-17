@@ -7,6 +7,7 @@ import { place, R, type Placement } from '../../motor/assets';
 import { VARIANTS, type Variant } from '../../motor/paleta';
 import { sectorOf, roomTone } from '@shared/sectores';
 import { t, tIs } from '@shared/idioma';
+import type { BoardSpot } from '@shared/decorado';
 import { dangerStrip, roomCaption, cartel, PhosphorScreen, lienzo, textureOf, dirty, Reloj, Gauge, corcho, PanelRoom, strataTexture, SOURCES, sharpCaption } from '../../motor/texturas';
 import { overlayScreen, screenFrontal, mergeStatic, aleatorio } from '../util3d';
 import { Dust, Steam, Sparks, Bubbles } from '../efectos';
@@ -635,6 +636,7 @@ export interface Contexto {
   // marca la pieza que se ve de un aparato de la sala (por su id en INTERACTIVOS), para apuntarla con el ratón
   aparato: (id: string, pieza: THREE.Object3D | Promise<THREE.Object3D>) => void;
   panel?: PanelRoom;
+  tablero?: BoardSpot;   // where the room's task board hangs (repo rooms): the scene keeps clear of it
   vapor?: { pos: THREE.Vector3; dir: THREE.Vector3 };
   sparks?: THREE.Vector3;
   lamparas?: { x: number; z: number; o?: Parameters<typeof lamp>[4] }[];

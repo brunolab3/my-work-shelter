@@ -3,7 +3,8 @@ import { furnishGeneric } from './generica';
 import * as THREE from 'three';
 import { TEMPLATE_SUBTITLE, TEMPLATE_PANELS, furnishFoundry, furnishLaboratory, furnishStudio, furnishFile } from './plantillas';
 import { furnishDecor } from './decorado';
-import { baseStock, type BaseDecor, type Decorado } from '@shared/decorado';
+import { baseStock, boardSpot, roomSeed, type BaseDecor, type BoardSpot, type Decorado } from '@shared/decorado';
+import { mountTaskBoard } from './tableroTareas';
 import { vivo } from '../../red/cliente';
 import type { Interactive } from './comun';
 import { VARIANTS } from '../../motor/paleta';
@@ -62,13 +63,17 @@ export async function roomBase(sg: SavedRoom): Promise<BaseDecor> {
   return sg.decorado?.base ?? baseStock(sg, withStyleOwn(sg) ? undefined : await infoRepo(sg.id));
 }
 
+// every repo room has its task board, hung before the scene so the scene (and its dressing) keeps clear of it
+const withBoard = (spot: BoardSpot) => (f: Furnish): Furnish => async ctx => { ctx.tablero = spot; mountTaskBoard(ctx, spot); await f(ctx); };
+
 async function furnished(sg: SavedRoom): Promise<{ f: Furnish; paneles?: string[]; sub?: string; luz?: number }> {
   // la sala de planificación sin decorado: su sala de mando del despliegue (la pantalla con tus PR y sus bloqueos)
   if (sg.tipo === 'coordinacion' && !sg.decorado) return { f: furnishDeployment, paneles: ['Wall_5', 'Wall_3', 'Wall_5'], sub: 'PLAN DE DESPLIEGUE', luz: 0.9 };
   if (sg.tipo === 'repo' || sg.tipo === 'coordinacion') {
     const base = await roomBase(sg); const b = BASES[base]; const d = sg.decorado;
-    if (!d) return { f: b.f ?? furnishGeneric, paneles: b.paneles, sub: b.sub, luz: b.luz };
-    return { f: ctx => furnishDecor(ctx, d, b.f), paneles: d.paredes ?? b.paneles, sub: d.subtitulo ?? b.sub, luz: d.luz ?? b.luz };
+    const tablero = withBoard(boardSpot(base, sg.id, d));
+    if (!d) return { f: tablero(b.f ?? furnishGeneric), paneles: b.paneles, sub: b.sub, luz: b.luz };
+    return { f: tablero(ctx => furnishDecor(ctx, d, b.f)), paneles: d.paredes ?? b.paneles, sub: d.subtitulo ?? b.sub, luz: d.luz ?? b.luz };
   }
   switch (sg.tipo) {
     case 'comunicaciones': return { f: furnishCommunications, paneles: ['Wall_2', 'Wall_3', 'Wall_4'] };
@@ -92,7 +97,7 @@ export async function buildRoom(sg: SavedRoom, numero: number, pasos: { izq: boo
   const sala = await createRoom({
     id: sg.id, tipo: sg.tipo, nombre: sg.tipo === 'repo' || sg.tipo === 'coordinacion' && sg.id !== PLANNING_ROOM ? sg.nombre : tIs(sg.nombre), subtitulo: sub, rama: falta ? undefined : rama, numero: numero ? String(numero).padStart(2, '0') : (CODIGO[sg.tipo] ?? '··'),
     // «espejo» en el decorado: la escena de base, al revés de como sale de serie (se espeja con la paridad de la semilla)
-    variant: variantOf(sg), semilla: hash(sg.id) + (sg.decorado?.espejo ? 1 : 0), paneles, pasos,
+    variant: variantOf(sg), semilla: roomSeed(sg.id, sg.decorado?.espejo), paneles, pasos,
     planta: sg.planta, lado: sg.lado, orden: sg.orden, ruta: sg.ruta, area: sg.area,
   }, f);
   // misma luz que el taller web en todas: interiores en penumbra cálida con pozas bajo las lámparas
@@ -138,4 +143,3 @@ const DESPLIEGUE: Interactive[] = [{ id: 'panel', x: -4.6, z: 1.0, texto: 'Panel
 
 const CODIGO: Record<string, string> = { comunicaciones: 'CO', planificacion: 'PL', logistica: 'LG', git: 'CV', puente: 'PM', camara: 'CA', puerta: 'PP', hidroponia: 'HI', galeria: 'GT', discoteca: 'DJ', chapa: 'CP' };
 
-function hash(s: string) { let h = 2166136261; for (const c of s) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return (h >>> 0) % 1000 + 1; }

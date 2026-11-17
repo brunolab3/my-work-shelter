@@ -316,24 +316,6 @@ export function strataTexture(semilla = 7) {
   const t = textureOf(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
 }
 
-// Maqueta de página web para las pantallas del escaparate (la landing que se trabaja en la sala)
-export function mockupLanding(titulo: string, variant = 0, w = 512, h = 320) {
-  const { c, g } = lienzo(w, h);
-  const backgrounds = ['#f3ead8', '#1d2230', '#f6d77a'];
-  const inks = ['#1d1a16', '#f3ead8', '#2a1c08'];
-  const acento = ['#e2602b', '#7ad1ff', '#2a1c08'][variant % 3];
-  g.fillStyle = backgrounds[variant % 3]; g.fillRect(0, 0, w, h);
-  g.fillStyle = inks[variant % 3];
-  g.fillRect(24, 18, 70, 12); for (let i = 0; i < 4; i++) g.fillRect(w - 260 + i * 56, 20, 40, 8);
-  g.font = `800 ${Math.round(h * 0.13)}px ${SOURCES.titulo}`; g.fillText(titulo, 24, h * 0.36);
-  g.font = `500 ${Math.round(h * 0.05)}px ${SOURCES.mono}`; g.globalAlpha = 0.7; g.fillText(tx('world.tex.cleanAir'), 24, h * 0.47); g.globalAlpha = 1;
-  g.fillStyle = acento; g.fillRect(24, h * 0.54, 150, 34); g.fillStyle = backgrounds[variant % 3]; g.font = `700 ${Math.round(h * 0.05)}px ${SOURCES.mono}`; g.fillText(tx('world.tex.bookIt'), 36, h * 0.54 + 23);
-  g.fillStyle = inks[variant % 3]; g.globalAlpha = 0.12;
-  for (let i = 0; i < 3; i++) g.fillRect(24 + i * ((w - 48) / 3), h * 0.72, (w - 48) / 3 - 12, h * 0.22);
-  g.globalAlpha = 1; g.fillStyle = acento; g.beginPath(); g.arc(w * 0.78, h * 0.42, h * 0.18, 0, 7); g.fill();
-  return textureOf(c);
-}
-
 // Muro de muestras de marca: fichas de color con su código y variaciones del logotipo
 export function markSamples(w = 1024, h = 512) {
   const { c, g } = lienzo(w, h);

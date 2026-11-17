@@ -1,12 +1,12 @@
-// Sala de repositorio «escaparate» (estilo landing): el muro de pantallas muestra la landing que se trabaja,
-// con focos de exposición, un expositor giratorio y el sofá de «pruebas de usuario».
+// Sala de repositorio «escaparate» (estilo landing): el tótem muestra la landing que se trabaja bajo el tablero de
+// tareas, con focos de exposición, la mascota de la marca y el sofá de «pruebas de usuario».
 import { t, t as tr } from '@shared/idioma';
 import * as THREE from 'three';
 import { place, R } from '../../motor/assets';
-import { cartel, PhosphorScreen, PanelRoom, mockupLanding } from '../../motor/texturas';
+import { cartel, PhosphorScreen, PanelRoom } from '../../motor/texturas';
 import { lienzo, textureOf, SOURCES } from '../../motor/texturas';
 import { overlayScreen, screenFrontal } from '../util3d';
-import { signInWall, mancha, highBand, monitorWall, screenReal, workStation, superficie, aWall, type Contexto } from './comun';
+import { signInWall, mancha, highBand, screenReal, workStation, superficie, aWall, type Contexto } from './comun';
 
 export async function furnishShowcase(ctx: Contexto) {
   const { g, v, zB, K, P, semilla } = ctx;
@@ -15,26 +15,20 @@ export async function furnishShowcase(ctx: Contexto) {
     g.traverse((n: any) => { if (!n.isMesh || Array.isArray(n.material) || !/^(Accent|Orange|Main|Main2)$/.test(n.material.name)) return;
       if (!copias.has(n.material)) { const m = n.material.clone(); m.color.multiplyScalar(/^(Main|Main2)$/.test(n.material.name) ? 0.8 : 0.62); copias.set(n.material, m); }
       n.material = copias.get(n.material)!; }); }
-  await highBand(ctx, { reloj: 4.9, valves: [-4.2], segments: [[-4.8, 2.4], [4.9, 2.2]] });   // ninguna tubería por delante de los monitores
-  // muro de pantallas: la landing en tres versiones (A/B/C)
-  const pantallas = [mockupLanding(t('world.landing.product'), 0), mockupLanding(t('world.landing.product'), 2), mockupLanding(t('world.landing.product'), 2)];
-  const mons: THREE.Object3D[] = [];
-  for (const [i, x] of [-1.9, 0, 1.9].entries()) mons.push(await monitorWall(ctx, x, 2.15 + (i === 1 ? 0.1 : 0), i === 1 ? 1.55 : 1.25, pantallas[i], i === 1 ? 0.55 : 0.42));   // pantallas claras: brillo contenido (la sala no quema)
-  // marcos de grafito (el plástico blanco del pack, bajo los focos, era lo que más quemaba de la sala)
-  for (const m of mons) m.traverse((n: any) => { if (n.isMesh && !n.material.emissiveMap) { n.material = n.material.clone(); n.material.color.multiplyScalar(0.38); } });
-  // rótulo luminoso de la marca sobre el muro de pantallas: es un escaparate
+  await highBand(ctx, { reloj: 4.9, valves: [-4.2], segments: [[-4.8, 2.4], [4.9, 2.2]] });   // ninguna tubería por delante del tablero
+  // rótulo luminoso de la marca sobre el tablero de tareas: es un escaparate
   const { c: cl, g: gl } = lienzo(768, 160);
   gl.fillStyle = '#120d06'; gl.fillRect(0, 0, 768, 160); gl.strokeStyle = '#d1a43a'; gl.lineWidth = 6; gl.strokeRect(6, 6, 756, 148);
   gl.fillStyle = '#ffd36a'; gl.shadowColor = '#ffb000'; gl.shadowBlur = 26; gl.font = `900 96px ${SOURCES.titulo}`; gl.textAlign = 'center'; gl.textBaseline = 'middle'; gl.fillText('PURIFICADOR', 384, 86, 720); gl.shadowBlur = 0;
   const texLogo = textureOf(cl);
   const logo = new THREE.Mesh(new THREE.PlaneGeometry(2.5, 0.52), new THREE.MeshStandardMaterial({ map: texLogo, emissiveMap: texLogo, emissive: '#ffffff', emissiveIntensity: 0.9, color: '#000' }));
-  logo.position.set(0, 3.93, zB + 0.9); logo.renderOrder = 2; g.add(logo);   // con aire sobre el monitor central
+  logo.position.set(0, 3.93, zB + 0.9); logo.renderOrder = 2; g.add(logo);   // con aire sobre el tablero
   ctx.alActualizar((dt, t) => { (logo.material as THREE.MeshStandardMaterial).emissiveIntensity = 0.85 + (Math.sin(t * 23) > 0.97 ? -0.4 : 0) + Math.sin(t * 2) * 0.05; });
   // tarima de exposición con el tótem de producto: columna del pack con la landing en pantalla, cajas de producto
-  // a sus pies y dos focos de pie bajos que la apuntan (por debajo de los monitores, sin cruzarse con ellos)
+  // a sus pies y dos focos de pie bajos que la apuntan (por debajo del tablero, sin cruzarse con él)
   const tarima = await place(g, R.sf('Props_Base'), { pos: [0, 0, zB + 1.3], ancho: 1.75 });
   const yT = superficie(tarima, g, 0, zB + 1.3) ?? 0.29;   // tablero de la tarima, medido
-  const totem = await place(g, R.sf('Props_Computer'), { pos: [0, yT, zB + 1.3], alto: 2.0, estatico: false, own: true, variant: v });
+  const totem = await place(g, R.sf('Props_Computer'), { pos: [0, yT, zB + 1.3], alto: 1.8, estatico: false, own: true, variant: v });
   // la pantalla del tótem es vertical: la landing en versión móvil (cabecera, titular, botón, imagen y bloques)
   const { c: cTot, g: gTot } = lienzo(200, 560);
   { const G = gTot; G.fillStyle = '#f6d77a'; G.fillRect(0, 0, 200, 560); G.fillStyle = '#2a1c08';
@@ -78,12 +72,8 @@ export async function furnishShowcase(ctx: Contexto) {
   ctx.sala.obstacles.push(new THREE.Box2(new THREE.Vector2(2.9, zB), new THREE.Vector2(6, zB + 1.9)), new THREE.Box2(new THREE.Vector2(3.2, 0.0), new THREE.Vector2(4.8, 0.95)));
   ctx.sala.puntos.push({ id: 'sofa', tipo: 'silla', pos: new THREE.Vector3(4.0, 0.05, zB + 1.25), giro: -0.15, clip: 'Sit_Chair_Idle' });
   signInWall(g, cartel(t('world.poster.growth'), t('world.poster.growthFoot'), '#f0d98a', '#2a1c08', 'rayo', semilla), 3.2, 2.6, 0.6, 0.84, zB + 0.33, -0.03);
-  // consola de despliegue: se usa de pie
-  const consola = await place(g, R.sf('Props_ComputerSmall'), { pos: [2.55, 0, zB + 0.55], alto: 1.5, rot: -0.3, estatico: false });
-  const pDeploy = new PhosphorScreen(256, 256, v.pantalla, t('world.landing.deploy')); pDeploy.speed = 22;
-  screenReal(ctx, pDeploy, 'actividad');
-  overlayScreen(consola, /^Black$/, pDeploy.tex, { brillo: 1.2, margin: 0.9 });
-  ctx.sala.pantallas.push(pDeploy);
+  // the brand's mascot on its plinth: a statue, polished by hand
+  P(R.sf('Props_Statue'), { pos: [2.55, 0, zB + 0.55], alto: 1.6, rot: -0.3 });
   ctx.sala.puntos.push({ id: 'consola', tipo: 'consola', pos: new THREE.Vector3(2.0, 0, zB + 1.4), giro: 0.5, clip: 'Working_A' });
   // panel de estado de la sala (encima del sofá)
   const panel = new PanelRoom(); panel.titulo = 'ESCAPARATE'; panel.color = v.pantalla;
@@ -99,12 +89,11 @@ export async function furnishShowcase(ctx: Contexto) {
   ctx.sparks = new THREE.Vector3(2.55, 1.4, zB + 0.9);
   // la lámpara central cuelga a un lado del rótulo: no se cruza con las letras
   ctx.lamparas = [{ x: -3.8, z: 0.4, o: { intensidad: 80 } }, { x: 1.65, z: 0.8, o: { intensidad: 110, sombra: true, corta: true, goal: [0, -0.9] } }, { x: 3.9, z: 0.5, o: { intensidad: 75 } }];
-  let giro = 0, cambio = 0;
+  let giro = 0;
   ctx.alActualizar((dt, t, a) => {
     giro += dt * (0.35 + a * 1.2); totem.rotation.y = Math.sin(giro * 0.5) * 0.22;   // el tótem oscila hacia uno y otro lado del escaparate
     destello = Math.max(0, destello - dt * 1.5);
     for (const m of matsTotem) m.emissiveIntensity = 0.6 + destello * 1.4;
-    cambio += dt; if (cambio > 6) { cambio = 0; mons.push(mons.shift()!); }
     if (ctx.sala.estado === 'trabajando' && Math.random() < dt * (0.12 + a)) panel.lineas.push('> ' + tr('world.landing.log').split('|')[Math.floor(Math.random() * 4)]);
   });
 }

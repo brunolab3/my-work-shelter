@@ -3,7 +3,7 @@ import { t, t as tr } from '@shared/idioma';
 import * as THREE from 'three';
 import { place, R } from '../../motor/assets';
 import { cartel, PhosphorScreen, corcho, PanelRoom } from '../../motor/texturas';
-import { overlayScreen, screenFrontal } from '../util3d';
+import { overlayScreen } from '../util3d';
 import { BACKGROUND, screenReal, signInWall, mancha, mountLiquid, mountPilots, highBand, Bubbles, workStation, aWall, type Contexto } from './comun';
 
 export async function furnishTallerWeb(ctx: Contexto) {
@@ -16,19 +16,11 @@ export async function furnishTallerWeb(ctx: Contexto) {
   const cRej = new THREE.Box3().setFromObject(rejilla).getCenter(new THREE.Vector3());
   const fan = await place(g, R.sf('Details_Output_Small'), { pos: [cRej.x, cRej.y, cRej.z - 0.02], ancho: 0.4, anchor: 'centro', estatico: false, sombra: false });
 
-  // ---- IZQUIERDA: el puesto del habitante (mesa de tres cuartos: se le ven las manos al teclear) y el monitor de pared con lo
-  // que lee
+  // ---- IZQUIERDA: el puesto del habitante (mesa de tres cuartos: se le ven las manos al teclear) bajo el tablero de tareas
   const pDiff = new PhosphorScreen(384, 256, v.pantalla); pDiff.speed = 40;
   screenReal(ctx, pDiff, 'cambios'); ctx.sala.pantallas.push(pDiff);
   await workStation(ctx, { id: 'silla', x: -4.15, z: -0.8, giro: 0.8, silla: R.mueble('chair_desk_B'), tex: pDiff.tex,
     encima: [{ ruta: R.mueble('lamp_desk'), x: -0.72, z: -0.22, c: { escala: K * 0.62, rot: 0.5 } }, { ruta: R.mueble('mug_B'), x: -0.62, z: 0.25, c: { escala: K * 0.75, rot: 0.4 } }, { ruta: R.mueble('cup_pencils'), x: 0.72, z: -0.25, c: { escala: K * 0.62 } }] });
-  // monitor de pared (frente a cámara) con el archivo que se está leyendo
-  const monWall = await place(g, R.mueble('monitor'), { pos: [-3.35, 2.0, zB + 0.62], escala: K * 1.05, estatico: false });
-  place(g, R.cy('Support_Short'), { pos: [-3.35, 1.55, zB + 0.45], alto: 0.6, sombra: false });
-  const pDesk = new PhosphorScreen(512, 320, v.pantalla, ' src/rutas.ts'); pDesk.speed = 60;
-  screenReal(ctx, pDesk, 'commit');
-  screenFrontal(monWall, pDesk.tex, { ancho: 0.84, alto: 0.66, cy: 0.6, dz: -0.02 }, 1.35);
-  ctx.sala.pantallas.unshift(pDesk);
   // archivador con planos y caja (esquina izquierda, cierra el rincón)
   const cabinet = P(R.sf('Props_Shelf'), { pos: [-5.3, 0, zB + 0.5], alto: 2.4 });
   ctx.sobre(cabinet, R.mueble('book_set'), { pos: [-5.3, 0, zB + 0.5], escala: K * 0.9 }, { desde: 2.0 });
@@ -47,13 +39,11 @@ export async function furnishTallerWeb(ctx: Contexto) {
   core.traverse((n: any) => { if (n.isMesh && n.material.name === 'Gold') { n.material.emissive = new THREE.Color('#ffb347'); n.material.emissiveIntensity = 0.6; } });
   const burbujas = new Bubbles(new THREE.Vector3(cx, 0.75, zB + 1.15), 0.32, 2.1, COLOR_LIQ);
   g.add(burbujas.grupo);
-  // consola de lado contra la izquierda: el habitante trabaja de perfil
-  P(R.cy('Computer_Large'), { pos: [-2.55, 0, zB + 0.5], alto: 2.2, rot: 0.3 });
-  const sideConsole = await place(g, R.sf('Props_Computer'), { pos: [-1.75, 0, zB + 0.95], alto: 2.15, rot: 0.25, variant: v, estatico: false });
-  const pBuild = new PhosphorScreen(256, 320, v.pantalla, ' npm run build'); pBuild.speed = 26;
-  screenReal(ctx, pBuild, 'actividad');
-  overlayScreen(sideConsole, /^Black$/, pBuild.tex, { brillo: 1.3, margin: 0.9 });
-  ctx.sala.pantallas.push(pBuild);
+  // the oven's supplies against the left: fuel barrels, a crate of parts and a plant; the dweller tends them in profile
+  P(R.resource('Fuel_A_Barrels'), { pos: [-2.5, 0, zB + 0.55], alto: 0.95, rot: 0.3 });
+  const caja = P(R.resource('Containers_Crate_Medium_Wood'), { pos: [-1.7, 0, zB + 0.95], alto: 0.7, rot: 0.25 });
+  ctx.sobre(caja, R.herr('wrench_A'), { pos: [-1.7, 0, zB + 0.95], escala: K * 0.6, rotX: -Math.PI / 2, rotZ: 0.7 });
+  P(R.casa('Houseplant_4'), { pos: [-2.0, 0, zB + 0.35], alto: 1.1 });
   ctx.sala.obstacles.push(new THREE.Box2(new THREE.Vector2(-2.5, zB), new THREE.Vector2(-1.25, zB + 1.3)));
   ctx.sala.obstacles.push(new THREE.Box2(new THREE.Vector2(cx - 1.0, zB), new THREE.Vector2(cx + 1.0, zB + 2.1)));
   ctx.sala.puntos.push({ id: 'consola', tipo: 'consola', pos: new THREE.Vector3(-0.72, 0, zB + 1.5), giro: -0.55, clip: 'Working_A' });

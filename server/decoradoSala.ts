@@ -3,7 +3,7 @@
 // datos (shared/decorado.ts), validados aquí antes de guardarlos: nada de lo que escriba el habitante se ejecuta.
 import { createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
-import { sanitizeDecor, reviewDecor, BASES_DECOR, DESCRIPTION_BASE, DECOR_WALLS, DECOR_PALETTES, SIGN_SYMBOLS, GESTURES, LIMITS, PACKS, type Decorado, type DecorPiece } from '../shared/decorado.ts';
+import { sanitizeDecor, reviewDecor, boardSpot, BASES_DECOR, DESCRIPTION_BASE, DECOR_WALLS, DECOR_PALETTES, SIGN_SYMBOLS, GESTURES, LIMITS, PACKS, type BaseDecor, type Decorado, type DecorPiece } from '../shared/decorado.ts';
 import { catalogo, catalogInText, propsModel } from './atrezo.ts';
 import { t, tIs } from '../shared/idioma.ts';
 import { MCP } from './servidoresMcp.ts';
@@ -20,7 +20,7 @@ export interface CtxDecor {
 export const decorGuide = () => t('tool.decor.guide', {
   pasillo: LIMITS.pasillo, paredVista: LIMITS.viewWall, bases: BASES_DECOR.map(b => t('tool.quoted', { v: b }) + ': ' + tIs(DESCRIPTION_BASE[b])).join('. '),
   paletas: DECOR_PALETTES.join(', '), paredes: DECOR_WALLS.join(', '), gestos: GESTURES.join(', '), lamparas: LIMITS.lamparas, piezas: LIMITS.piezas,
-  carteles: LIMITS.carteles, simbolos: SIGN_SYMBOLS.join('|'), pantallas: LIMITS.pantallas,
+  carteles: LIMITS.carteles, simbolos: SIGN_SYMBOLS.join('|'),
 });
 
 const num = z.number();
@@ -39,7 +39,6 @@ const decorSchema = () => z.object({
     pared: z.boolean().optional(), tumbada: z.boolean().optional(), color: z.string().optional(), luz: z.string().optional(),
   })).optional(),
   carteles: z.array(z.object({ x: num, y: num, ancho: num, titulo: z.string(), lineas: z.array(z.string()), fondo: z.string().optional(), tinta: z.string().optional(), simbolo: z.enum(SIGN_SYMBOLS).optional(), giro: num.optional() })).optional(),
-  pantallas: z.array(z.object({ x: num, y: num, ancho: num, titulo: z.string(), lineas: z.array(z.string()) })).optional(),
 });
 
 const texto = (t: string) => ({ content: [{ type: 'text' as const, text: t }] });
@@ -60,7 +59,9 @@ export function mcpDecor(salaId: string, ctx: CtxDecor) {
       tool('current_decor', t('tool.decor.currentDescription'), {},
         async () => {
           const s = sala();
-          return texto(`${decorGuide()}\n\n${t('tool.decor.yourRoom', { nombre: s.nombre, ruta: s.ruta ?? '—' })}\n` + (s.decorado
+          const b = boardSpot(s.decorado?.base ?? ctx.plantilla(salaId) as BaseDecor, salaId, s.decorado);
+          const tablero = t('tool.decor.yourBoard', { x: b.x.toFixed(2), y: b.y.toFixed(2), ancho: b.ancho.toFixed(2), alto: b.alto.toFixed(2) });
+          return texto(`${decorGuide()}\n\n${t('tool.decor.yourRoom', { nombre: s.nombre, ruta: s.ruta ?? '—' })}\n${tablero}\n` + (s.decorado
             ? `${t('tool.decor.currentDecor')}\n${JSON.stringify(s.decorado)}`
             : t('tool.decor.noDecor', { plantilla: ctx.plantilla(salaId), descripcion: tIs(DESCRIPTION_BASE[ctx.plantilla(salaId) as keyof typeof DESCRIPTION_BASE] ?? '') })));
         }, { alwaysLoad: true, annotations: { readOnlyHint: true } }),
@@ -77,7 +78,7 @@ export function mcpDecor(salaId: string, ctx: CtxDecor) {
           sala();
           const { decorado: d, avisos } = sanitizeDecor(decorado);
           if (!d) return { ...texto(t('tool.decor.notApplied', { avisos: avisos.join(' ') })), isError: true };
-          const revision = reviewDecor(d, sizeOf);
+          const revision = reviewDecor(d, sizeOf, boardSpot(d.base, salaId, d));
           ctx.guardar(salaId, d); aplicado = Date.now();
           return texto([t('tool.decor.applied'), ...(avisos.length ? [t('tool.decor.fixedOnValidate'), ...avisos.map(a => '- ' + a)] : []), ...(revision.length ? [t('tool.decor.looksWrong'), ...revision.map(a => '- ' + a)] : []), t('tool.decor.lookWithView')].join('\n'));
         }, { alwaysLoad: true }),

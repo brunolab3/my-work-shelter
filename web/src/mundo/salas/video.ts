@@ -199,16 +199,16 @@ export async function furnishProjection(ctx: Contexto) {
   P(R.cy('Cable_Thick'), { pos: [5.05, HEIGHT, zB + 0.75], alto: 1.1, anchor: 'techo', sombra: false });
   ctx.sala.obstacles.push(new THREE.Box2(new THREE.Vector2(4.1, zB), new THREE.Vector2(6.0, zB + 1.15)));
   // banda alta solo sobre el rack (el resto de la pared es de la pantalla y los carteles)
-  await highBand(ctx, { gauge: 4.35, valves: [5.7], segments: [[5.2, 1.9]] });
+  await highBand(ctx, { gauge: 4.35, valves: [5.7], segments: [[5.3, 1.7]] });
   // cartel luminoso «RENDERIZANDO» sobre la mesa (se enciende cuando la sala trabaja)
   const { c, g: cxx } = lienzo(512, 128);
   const paint = (on: boolean) => { cxx.fillStyle = '#140a0a'; cxx.fillRect(0, 0, 512, 128); cxx.strokeStyle = on ? '#ff4a3a' : '#4a2a2a'; cxx.lineWidth = 8; cxx.strokeRect(6, 6, 500, 116); cxx.fillStyle = on ? '#ff6a52' : '#4a2a2a'; cxx.shadowColor = '#ff4a3a'; cxx.shadowBlur = on ? 22 : 0; cxx.font = `800 64px ${SOURCES.titulo}`; cxx.textAlign = 'center'; cxx.textBaseline = 'middle'; cxx.fillText(tr('world.video.rendering'), 256, 68); cxx.shadowBlur = 0; };
   paint(false); const texNotice = textureOf(c);
   const aviso = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 0.32), new THREE.MeshStandardMaterial({ map: texNotice, emissiveMap: texNotice, emissive: '#ffffff', emissiveIntensity: 1.0, color: '#000' }));
   aviso.position.set(MX, 3.55, zB + 0.4); g.add(aviso);
-  // panel de la cola de render, en la pared sobre la mesa
+  // panel de la cola de render, en la pared sobre el rack (sobre la mesa, el tablero de tareas)
   const panel = new PanelRoom(); panel.titulo = 'COLA DE RENDER'; panel.color = v.pantalla;
-  const framePanel = aWall(g, await place(g, R.cy('Sign_2'), { pos: [MX, 2.72, zB + 0.5], ancho: 1.5, estatico: false, own: true }));
+  const framePanel = aWall(g, await place(g, R.cy('Sign_2'), { pos: [5.1, 2.5, zB + 0.5], ancho: 1.2, estatico: false, own: true }));
   overlayScreen(framePanel, /^Texture_Signs$/, panel.tex, { brillo: 0.9, margin: 0.94 }); ctx.aparato('panel', framePanel);
   ctx.panel = panel;
   signInWall(g, cartel(t('world.poster.productions'), t('world.poster.productionsFoot'), '#d8c8f0', '#3a2a5a', 'ojo', semilla), 1.35, 1.75, 0.6, 0.84, zB + 0.33, 0.03);

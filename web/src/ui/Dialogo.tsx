@@ -45,7 +45,7 @@ import { openPreflight } from './Preflight';
 import { taskHasPRs } from '@shared/preflight';
 import { recentFirst } from '@shared/recientes';
 import { groupTabs, talkerFirst } from './ordenPestanas';
-import { jiraBoard, knowTasks, useColorsTasks } from './tareas';
+import { jiraBoard, knowTasks, myPRs, useColorsTasks } from './tareas';
 import { type AttachmentLocal, uploadFiles, chooseFiles, subiendo, listsPaths, AttachmentsTray, SentAttachments, useDictation, InputButtons, DictationStrip, attachShortcut } from './entrada';
 
 type View = { tipo: 'menu' } | { tipo: 'nuevo'; reanudar?: HistoryElement } | { tipo: 'historial' } | { tipo: 'visitantes' } | { tipo: 'ficha' } | { tipo: 'sesion'; sesionId: string };
@@ -1032,17 +1032,6 @@ function Session({ h, s, p, salir, onClose }: { h: DwellerSummary; s: SessionSum
 
 // Las páginas de la conversación (planes, informes, comparaciones que ha enlazado): cuáles quedan por revisar, abrirlas
 // (sus notas vuelven a esta conversación) y validar sin notas las que estén bien (shared/paginasSesion.ts)
-// Los PR de la tarea de una copia (worktree) en el repo de su sala: los tuyos de GitHub (`git.prsTablero`, los mismos del tablero
-// de Planificación), leídos a lo sumo cada dos minutos y compartidos por todos los intercomunicadores; sin GitHub
-// conectado (o en DEMO), nada
-let prsAsked: { cuando: number; p: Promise<PRBoard[]> } | null = null;
-function myPRs(): Promise<PRBoard[]> {
-  if (!prsAsked || Date.now() - prsAsked.cuando > 120_000) {
-    const p = cliente.accion<any>('git.prsTablero', {}).then(d => { const prs: PRBoard[] = d?.demo ? [] : d?.prs ?? []; if (!d?.demo) jiraBoard.set({ prs }); return prs; }).catch(() => { prsAsked = null; return []; });
-    prsAsked = { cuando: Date.now(), p };
-  }
-  return prsAsked.p;
-}
 const PR_STATE: Record<PRBoard['estado'], string> = { abierto: '●', borrador: '◌', fusionado: '✓', cerrado: '✕' };
 const prStateName = (e: PRBoard['estado']) => e === 'abierto' ? t('windows.prState.abierto') : e === 'borrador' ? t('windows.prState.borrador') : e === 'fusionado' ? t('windows.prState.fusionado') : t('windows.prState.cerrado');
 function WorktreePRs({ copia, salaId }: { copia: { ruta: string; rama: string }; salaId: string }) {

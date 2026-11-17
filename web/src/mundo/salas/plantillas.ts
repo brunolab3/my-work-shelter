@@ -1,16 +1,15 @@
 // Plantillas de las salas de recluta: cada tipo de repo con su silueta y su pieza protagonista (solo modelos del pack).
 // - fundición (Rust, Go): forja de ladrillo con campana y chimenea, yunque sobre tocón, crisol, tina de temple.
 // - laboratorio (Python): terrario de cristal en el centro, mesa de pruebas con fregadero e invernadero de bandejas.
-// - estudio (web, Node): rack de servidores con pilotos, muro de pantallas y sofá.
-// - archivo (carpeta sin git o sin tipo): estantería alta de cajas, fichero con terminal y mesa de consulta.
-// La pantalla con el estado real del repo cambia de sitio y de tamaño en cada una. Todas se espejan con la semilla.
+// - estudio (web, Node): rack de servidores con pilotos, puesto bajo el tablero y rincón con sofá.
+// - archivo (carpeta sin git o sin tipo): estantería alta de cajas, fichero y mesa de consulta.
+// The room's task board (tableroTareas.ts) hangs where each one leaves room for it (boardSpot in shared/decorado.ts);
+// the only other screen is the one on the dweller's desk. Todas se espejan con la semilla.
 import { t, t as tr } from '@shared/idioma';
 import * as THREE from 'three';
 import { place, R } from '../../motor/assets';
 import { cartel, PhosphorScreen, PanelRoom } from '../../motor/texturas';
-import { overlayScreen, screenFrontal } from '../util3d';
-import { signInWall, mancha, highBand, monitorWall, mountPilots, screenReal, switchOffWalls, workStation, lean, centrar, tumbada, aWall, HEIGHT, type Contexto } from './comun';
-import { screenStateRepo } from './generica';
+import { signInWall, mancha, highBand, mountPilots, screenReal, switchOffWalls, workStation, lean, centrar, tumbada, HEIGHT, type Contexto } from './comun';
 
 export type Plantilla = 'fundicion' | 'laboratorio' | 'estudio' | 'archivo' | 'banco';
 
@@ -29,17 +28,6 @@ function espejo(ctx: Contexto) {
   const segment = (a: number, b: number): [number, number] => [Math.min(X(a), X(b)), Math.max(X(a), X(b))];
   const punto = (id: string, tipo: any, x: number, y: number, z: number, giro: number, extra: Record<string, unknown> = {}) => ctx.sala.puntos.push({ id, tipo, pos: new THREE.Vector3(X(x), y, z), giro: giro * s, ...extra } as any);
   return { s, X, obstacle, segment, punto };
-}
-
-// la pantalla grande con el estado del repo: un monitor del pack colgado (o apoyado) con soporte; la primera de la sala
-async function pantallaRepo(ctx: Contexto, x: number, y: number, escala: number, titulo: string, rot = 0) {
-  const p = new PhosphorScreen(704, 400, ctx.v.pantalla, titulo); p.speed = 45;
-  const m = await monitorWall(ctx, x, y, escala, p.tex, 1.15, rot);
-  // marco en grafito: en blanco era lo que más quemaba de la sala
-  m.traverse((n: any) => { if (n.isMesh && !n.material.emissiveMap) { n.material = n.material.clone(); n.material.color = new THREE.Color('#3a3834'); n.material.roughness = 0.6; } });
-  ctx.sala.pantallas.unshift(p);
-  screenStateRepo(ctx, p, 30);
-  return p;
 }
 
 const tinte = (o: THREE.Object3D, f: (m: THREE.MeshStandardMaterial, n: THREE.Mesh) => void) => o.traverse((n: any) => { if (n.isMesh) for (const m of [].concat(n.material)) f(m as THREE.MeshStandardMaterial, n); });
@@ -82,8 +70,7 @@ export async function furnishFoundry(ctx: Contexto) {
   agua.rotation.x = -Math.PI / 2; agua.position.set(X(2.95), 0.72, zB + 0.85); g.add(agua);
   ctx.P(R.resource('Food_Barrel_Empty'), { pos: [X(2.95), 0, zB + 0.85], alto: 0.8 }).then(o => { agua.position.y = new THREE.Box3().setFromObject(o).max.y - 0.08; });
   obstacle(2.45, zB, 3.45, zB + 1.35);
-  // ---- DERECHA: la mesa del maestro fundidor (su puesto, de tres cuartos), bajo el parte de colada (estado del repo)
-  await pantallaRepo(ctx, X(4.45), 1.5, 2.25, tr('world.tpl.castLog'));
+  // ---- DERECHA: la mesa del maestro fundidor (su puesto, de tres cuartos), bajo el tablero de tareas
   const pFundi = new PhosphorScreen(256, 320, ctx.v.pantalla, tr('world.tpl.batch')); pFundi.speed = 24;
   screenReal(ctx, pFundi, 'actividad'); ctx.sala.pantallas.push(pFundi);
   await workStation(ctx, { x: X(4.55), z: -0.75, giro: X(-0.75), pantalla: 'ordenador', tex: pFundi.tex, silla: R.mueble('chair_desk_B'),
@@ -140,10 +127,9 @@ export async function furnishLaboratory(ctx: Contexto) {
   tinte(terrario, m => { if (m.name === 'Glass') { m.opacity = 0.28; m.color = new THREE.Color('#bfe6dd'); m.roughness = 0.05; } else if (m.color.getHSL({ h: 0, s: 0, l: 0 }).l > 0.6) m.color.multiplyScalar(0.6); });
   for (const dx of [-0.45, 0.45]) P(R.cy('Cable_Thick'), { pos: [X(tx + dx), HEIGHT, tz - 0.2], alto: 2.05, anchor: 'techo', sombra: false });
   obstacle(tx - 1.25, zB, tx + 1.25, tz + 1.2);
-  // consola de control del terrario (lo que hace ahora quien trabaja en la sala)
-  const consola = await place(g, R.sf('Props_ComputerSmall'), { pos: [X(-1.35), 0, zB + 0.6], alto: 1.5, rot: X(0.25), variant: ctx.v, estatico: false });
-  const pAct = new PhosphorScreen(256, 320, ctx.v.pantalla, tr('world.tpl.sensors')); pAct.speed = 26;
-  screenReal(ctx, pAct, 'actividad'); overlayScreen(consola, /^Black$/, pAct.tex, { brillo: 1.25, margin: 0.9 }); ctx.sala.pantallas.push(pAct);
+  // the terrarium's seed store: a sample capsule with green liquid and a crate of seedlings beside it
+  P(R.sf('Props_Capsule'), { pos: [X(-1.35), 0, zB + 0.55], alto: 1.45, rot: X(0.25), own: true }).then(o => tinte(o, m => { if (m.color.getHSL({ h: 0, s: 0, l: 0 }).l > 0.6) m.color.multiplyScalar(0.6); }));
+  P(R.resource('Food_Crate_Small_Berries'), { pos: [X(-1.25), 0, zB + 1.15], escala: K * 0.6, rot: 0.3 });
   obstacle(-1.8, zB, -0.9, zB + 1.0);
   punto('terrario', 'aficion', tx + 1.45, 0, tz + 0.55, -1.25, { clip: 'Holding_A', utensil: 'lupa', gesture: { clip: 'Interact', cada: 4.5 } });
   // la pieza: el terrario. Se mira con la lupa, se toca el cristal o se riega por la boca de arriba (sube el vaho y la
@@ -161,7 +147,6 @@ export async function furnishLaboratory(ctx: Contexto) {
   ctx.sobre(fregadero, R.cocina('jar_C_small'), { pos: [X(bx + 0.85), 0, zB + 1.2], alto: 0.2 });
   ctx.sobre(fregadero, R.herr('journal_open'), { pos: [X(bx + 0.4), 0, zB + 1.4], escala: K * 0.42, rot: X(-0.2) });
   ctx.sobre(fregadero, R.herr('magnifying_glass'), { pos: [X(bx + 0.95), 0, zB + 1.5], escala: K * 0.45, ...tumbada(0.6) });
-  await pantallaRepo(ctx, X(bx), 1.6, 2.25, tr('world.tpl.labNotebook'));
   obstacle(bx - 1.3, zB, bx + 1.3, zB + 1.9);
   punto('consola', 'consola', bx + 1.85, 0, zB + 1.45, -1.2, { clip: 'Working_C' });
   // estantería estrecha de reactivos en la esquina
@@ -181,7 +166,7 @@ export async function furnishLaboratory(ctx: Contexto) {
   P(R.casa('Houseplant_7'), { pos: [X(5.4), 0, 0.95], alto: 0.85, rot: 0.6 });
   obstacle(5.05, zB, 6, zB + 1.05); obstacle(5.0, 0.6, 6, 1.35);
   signInWall(g, cartel(t('world.poster.laboratory'), t('world.poster.laboratoryFoot'), '#dfe9d6', '#25472f', 'ojo', semilla + 5), X(5.25), 2.55, 0.56, 0.78, zB + 0.33, -0.02 * s);
-  signInWall(g, cartel(t('world.poster.rule20'), t('world.poster.rule20Foot'), '#e8e1c8', '#2f3b52', 'engranaje', semilla + 9), X(2.1), 2.6, 0.5, 0.62, zB + 0.33, 0.03 * s);
+  signInWall(g, cartel(t('world.poster.rule20'), t('world.poster.rule20Foot'), '#e8e1c8', '#2f3b52', 'engranaje', semilla + 9), X(2.45), 2.6, 0.5, 0.62, zB + 0.33, 0.03 * s);
   // ---- suelo: caja de muestras y cubo delante, a un lado
   P(R.resource('Containers_Crate_Small_Green'), { pos: [X(-5.35), 0, 0.85], escala: K * 0.7, rot: 0.4 });
   P(R.herr('bucket_metal'), { pos: [X(-4.85), 0, 1.15], escala: K * 0.5 });
@@ -202,26 +187,20 @@ export async function furnishLaboratory(ctx: Contexto) {
 // ======================================================================== ESTUDIO (web, Node)
 export async function furnishStudio(ctx: Contexto) {
   const { g, zB, K, P, semilla } = ctx; const { s, X, obstacle, segment, punto } = espejo(ctx);
-  // ---- IZQUIERDA: muro de pantallas (estado del repo en la grande, último commit y cambios en las pequeñas)
-  await pantallaRepo(ctx, X(-3.8), 1.75, 2.25, ' despliegue');
-  const pCommit = new PhosphorScreen(384, 256, ctx.v.pantalla, tr('world.tpl.lastCommit')); pCommit.speed = 40; screenReal(ctx, pCommit, 'commit'); ctx.sala.pantallas.push(pCommit);
-  await monitorWall(ctx, X(-1.75), 2.72, 0.75, pCommit.tex, 1.15);
-  const pChanges = new PhosphorScreen(384, 256, ctx.v.pantalla, ' git status'); pChanges.speed = 40; screenReal(ctx, pChanges, 'cambios'); ctx.sala.pantallas.push(pChanges);
-  await monitorWall(ctx, X(-1.75), 2.02, 0.75, pChanges.tex, 1.15);
-  // el puesto: mesa con dos monitores, de tres cuartos (se le ven las manos), bajo el muro de pantallas
+  // ---- IZQUIERDA: el puesto, de tres cuartos (se le ven las manos), bajo el tablero de tareas
   const pStation = new PhosphorScreen(384, 256, ctx.v.pantalla, ' npm run dev'); pStation.speed = 30;
   screenReal(ctx, pStation, 'actividad'); ctx.sala.pantallas.push(pStation);
-  const puesto = await workStation(ctx, { id: 'silla', x: X(-3.85), z: -0.7, giro: X(0.8), pantalla: 'doble', tex: pStation.tex, silla: R.mueble('chair_desk_B'),
-    encima: [{ ruta: R.mueble('lamp_desk'), x: -0.8, z: -0.25, c: { escala: K * 0.55, rot: 0.6 } }, { ruta: R.mueble('mug_A'), x: 0.8, z: 0.15, c: { escala: K * 0.7 } }] });
-  screenFrontal(puesto.monitors[1], pChanges.tex, { ancho: 0.84, alto: 0.66, cy: 0.6, dz: -0.02 }, 1.0);
+  await workStation(ctx, { id: 'silla', x: X(-3.85), z: -0.7, giro: X(0.8), tex: pStation.tex, silla: R.mueble('chair_desk_B'),
+    encima: [{ ruta: R.mueble('lamp_desk'), x: -0.8, z: -0.25, c: { escala: K * 0.55, rot: 0.6 } }, { ruta: R.mueble('mug_A'), x: 0.8, z: 0.15, c: { escala: K * 0.7 } }, { ruta: R.mueble('cactus_small_A'), x: 0.62, z: -0.28, c: { escala: K * 0.6 } }] });
+  // a plant and a crate of cables between the desk and the rack
+  P(R.casa('Houseplant_1'), { pos: [X(-1.75), 0, zB + 0.45], alto: 1.25 });
+  P(R.resource('Containers_Crate_Small_Grey'), { pos: [X(-2.15), 0, zB + 1.1], escala: K * 0.55, rot: 0.4 });
   // ---- CENTRO: el rack de servidores (tres armarios con pilotos, cables gruesos al techo y la refrigeración encima)
   const rx = 0.9;
   const pilotos: ((t: number, a: number) => void)[] = [];
   for (const [i, dx] of [-0.72, 0, 0.72].entries()) {
-    // cada armario lleva su pantalla de estado con datos reales del repo (lo que pasa, cambios, último commit)
+    // each cabinet with its pilot lights (the room's screen is its task board)
     const armario = await place(g, R.sf('Props_Computer'), { pos: [X(rx + dx), 0, zB + 0.6], alto: 2.35, variant: ctx.v, estatico: false, own: true });
-    const pEst = new PhosphorScreen(256, 320, ctx.v.pantalla, [tr('world.tpl.service'), tr('world.tpl.changes'), ' commit'][i]); pEst.speed = 30;
-    screenReal(ctx, pEst, (['actividad', 'cambios', 'commit'] as const)[i]); overlayScreen(armario, /^Black$/, pEst.tex, { brillo: 1.0, margin: 0.9 }); ctx.sala.pantallas.push(pEst);
     tinte(armario, m => { if (!m.emissiveMap && m.name !== 'Black') { m.color.multiplyScalar(0.7); } });
     pilotos.push(mountPilots(g, new THREE.Vector3(X(rx + dx), 0.9 + i * 0.12, zB + 1.02), ctx.v.pantalla));
     P(R.cy('Cable_Thick'), { pos: [X(rx + dx), HEIGHT, zB + 0.55], alto: HEIGHT - 2.35 + 0.05, anchor: 'techo', sombra: false });
@@ -263,7 +242,7 @@ export async function furnishStudio(ctx: Contexto) {
 // ======================================================================== ARCHIVO (carpeta sin git, sin tipo, o ala con varios repos)
 export async function furnishFile(ctx: Contexto) {
   const { g, zB, K, P, semilla } = ctx; const { s, X, obstacle, segment, punto } = espejo(ctx);
-  await highBand(ctx, { reloj: X(-1.85), valves: [X(4.6)], segments: [[X(4.2), 3.0]] });
+  await highBand(ctx, { reloj: X(-1.7), valves: [X(4.6)], segments: [[X(4.2), 3.0]] });
   // ---- CENTRO: estantería alta del archivo, llena de cajas (cada una, en su balda)
   const ex = 0.6;
   const archivo = P(R.sf('Props_Shelf_Tall'), { pos: [X(ex), 0, zB + 0.75], alto: 3.3 });
@@ -279,11 +258,13 @@ export async function furnishFile(ctx: Contexto) {
   // la pieza: la estantería. Se baja una caja, se repasa el inventario en el diario o se busca con la lupa
   punto('estanteria', 'pieza', ex - 0.55, 0, zB + 1.6, Math.PI + 0.1, { acciones: [{ clip: 'PickUp' }, { clip: 'Holding_A', utensil: 'diario', dur: 4 }, { clip: 'Interact' }] });
   punto('estanteria-2', 'pieza', ex + 0.6, 0, zB + 1.6, Math.PI - 0.1, { acciones: [{ clip: 'Holding_B', utensil: 'lupa', dur: 4 }, { clip: 'PickUp' }] });
-  // ---- IZQUIERDA: el fichero (cajonera ancha) con la terminal del archivero encima (estado de la carpeta) y, delante,
-  // su puesto, de tres cuartos
+  // ---- IZQUIERDA: el fichero (cajonera ancha) con su lámpara, carpetas y una caja encima, bajo el tablero de tareas, y,
+  // delante, el puesto del archivero, de tres cuartos
   const fx = -3.95;
-  P(R.casa('Drawer_5'), { pos: [X(fx), 0, zB + 0.62], ancho: 2.5 });
-  await pantallaRepo(ctx, X(fx), 1.2, 2.0, tr('world.tpl.inventory'));
+  const fichero = P(R.casa('Drawer_5'), { pos: [X(fx), 0, zB + 0.62], ancho: 2.5 });
+  ctx.sobre(fichero, R.mueble('lamp_table'), { pos: [X(fx - 0.85), 0, zB + 0.55], escala: K * 0.5 });
+  ctx.sobre(fichero, R.herr('journal_closed'), { pos: [X(fx - 0.2), 0, zB + 0.62], escala: K * 0.5, rot: 0.3 });
+  ctx.sobre(fichero, R.resource('Containers_Box_Small'), { pos: [X(fx + 0.7), 0, zB + 0.6], escala: K * 0.5, rot: -0.2 });
   obstacle(fx - 1.3, zB, fx + 1.3, zB + 1.25);
   const pArch = new PhosphorScreen(384, 256, ctx.v.pantalla, ' ls -la'); pArch.speed = 26;
   screenReal(ctx, pArch, 'commit'); ctx.sala.pantallas.push(pArch);

@@ -12,13 +12,13 @@ export type BaseDecor = typeof BASES_DECOR[number];
 /** Qué trae cada base (lo leen el habitante y el panel de la sala) */
 export const DESCRIPTION_BASE: Record<BaseDecor, string> = {
   vacia: 'sala vacía: solo paredes, suelo, tuberías del techo y lo que pongas tú (puesto, pantalla del repo y pieza, con valores por defecto si no los das)',
-  estudio: 'estudio (la plantilla de los repos web y Node): rack de servidores con pilotos, muro de pantallas y sofá',
+  estudio: 'estudio (la plantilla de los repos web y Node): rack de servidores con pilotos, puesto bajo el tablero de tareas y rincón con sofá',
   laboratorio: 'laboratorio (la de Python): terrario de cristal en el centro, mesa de pruebas con fregadero e invernadero de bandejas',
   fundicion: 'fundición (la de Rust y Go): forja de ladrillo con campana y chimenea, yunque sobre tocón, crisol y tina de temple',
   archivo: 'archivo (la de las carpetas sin código): estantería alta de cajas, fichero con terminal y mesa de consulta',
   taller: 'banco de pruebas genérico: banco de herramientas, armario de servidores y la gran pantalla del repo',
   tallerWeb: 'taller web hecho a mano: puestos de trabajo, tablón de corcho, tanque de líquido burbujeante y pilotos',
-  escaparate: 'escaparate: muro de pantallas con la landing, focos de exposición, expositor giratorio y sofá de pruebas de usuario',
+  escaparate: 'escaparate: tótem con la landing en una tarima con focos de exposición y sofá de pruebas de usuario',
   marca: 'archivo de marca: muro de muestras de color y logotipos, mesa de dibujo con planos, estanterías de catálogos y botes de pintura',
   proyeccion: 'sala de proyección: cine con pantalla grande, telón y butacas, y cabina de montaje con proyector, foco y rack de render',
 };
@@ -63,7 +63,6 @@ export interface DecorPiece {
   luz?: string;              // brillo propio (#rrggbb): pantallas, pilotos, lámparas, fuego
 }
 export interface DecorSign { x: number; y: number; ancho: number; titulo: string; lineas: string[]; fondo?: string; tinta?: string; simbolo?: typeof SIGN_SYMBOLS[number]; giro?: number }
-export interface DecorScreen { x: number; y: number; ancho: number; titulo: string; lineas: string[] }
 export interface DecorPoint { x: number; z: number; giro?: number; gestos?: typeof GESTURES[number][] }
 
 export interface Decorado {
@@ -77,19 +76,52 @@ export interface Decorado {
   luz?: number;              // 0,2 (penumbra) a 1,4 (muy iluminada)
   espejo?: boolean;          // la base, reflejada de izquierda a derecha
   // en la sala vacía: dónde va cada cosa imprescindible (en las demás bases ya la trae la base)
-  pantallaRepo?: { x: number; y: number; ancho: number };   // la pantalla con el estado real del repo, en la pared del fondo
+  pantallaRepo?: { x: number; y: number; ancho: number };   // where the room's task board hangs on the back wall (boardSpot)
   puesto?: { x: number; z: number; giro?: number; pantalla?: 'monitor' | 'doble' | 'ordenador'; mesa?: string };   // la mesa del habitante
   pieza?: DecorPoint;     // dónde se pone el habitante a usar la pieza protagonista
   aficion?: DecorPoint;   // un rincón suyo (opcional)
   lamparas?: { x: number; z: number; color?: string; intensidad?: number }[];
   piezas?: DecorPiece[];
   carteles?: DecorSign[];
-  pantallas?: DecorScreen[];
 }
 
 // (paredVista: hasta dónde se ve la pared del fondo desde el pasillo; más arriba la tapa la viga del corte)
-export const LIMITS = { x: 5.8, zBackground: -2.25, zFront: 2.1, techo: 4.3, viewWall: 3.6, pasillo: 0.8, piezas: 80, carteles: 4, pantallas: 3, lamparas: 4 } as const;
+export const LIMITS = { x: 5.8, zBackground: -2.25, zFront: 2.1, techo: 4.3, viewWall: 3.6, pasillo: 0.8, piezas: 80, carteles: 4, lamparas: 4 } as const;
 const WALL_Z = -2.3;
+
+/** The room's task board (web/src/mundo/salas/tableroTareas.ts): on the back wall, centred at (x, y); nothing of a
+ *  dressing may cover it */
+export interface BoardSpot { x: number; y: number; ancho: number; alto: number }
+export const BOARD_RATIO = 0.45;
+// where each stock scene hangs it: x, y and width for the scene as written (the mirrored ones flip x with the room's seed)
+const STOCK_BOARD: Record<Exclude<BaseDecor, 'vacia'>, [number, number, number]> = {
+  estudio: [-2.9, 2.65, 3.2], laboratorio: [-3.55, 2.6, 3.0], fundicion: [3.95, 2.6, 3.0], archivo: [-3.65, 2.55, 2.8], taller: [0.3, 2.6, 3.3],
+  tallerWeb: [-3.3, 2.7, 2.6], escaparate: [0, 2.8, 3.2], marca: [3.95, 2.7, 2.9], proyeccion: [3.0, 2.75, 2.5],
+};
+const MIRRORED: readonly BaseDecor[] = ['estudio', 'laboratorio', 'fundicion', 'archivo', 'taller'];
+/** A room's seed (its scene's variations; odd ones are the scene as written, even ones mirrored), with the dressing's mirror */
+export function roomSeed(id: string, espejo?: boolean) {
+  let h = 2166136261; for (const c of id) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); }
+  return (h >>> 0) % 1000 + 1 + (espejo ? 1 : 0);
+}
+/** Where a room's task board goes: its stock scene's spot or, in the empty room, where the dressing put the repo's
+ *  screen (`pantallaRepo`), at least 3 m wide and below the ceiling lamps' shades */
+export function boardSpot(base: BaseDecor, salaId: string, d?: Decorado | null): BoardSpot {
+  if (base === 'vacia') {
+    const pr = d?.pantallaRepo ?? { x: 0, y: 2.6, ancho: 3.2 };
+    const ancho = Math.min(3.4, Math.max(3, pr.ancho)), alto = ancho * BOARD_RATIO;
+    const x = Math.min(LIMITS.x - ancho / 2, Math.max(-LIMITS.x + ancho / 2, pr.x));
+    return { x, y: Math.min(3.35 - alto / 2, Math.max(1.95 + alto / 2, pr.y)), ancho, alto };
+  }
+  const [x, y, ancho] = STOCK_BOARD[base];
+  const s = MIRRORED.includes(base) && roomSeed(salaId, d?.espejo) % 2 === 0 ? -1 : 1;
+  return { x: x * s, y, ancho, alto: ancho * BOARD_RATIO };
+}
+/** Whether a box on the back wall (centre, width, height) covers part of the board */
+/** How far from the back wall a piece still counts as covering the board (further forward, the board shows above it) */
+export const BOARD_CLEAR = 1.2;
+export const coversBoard = (b: BoardSpot, x: number, y: number, w: number, h: number) =>
+  Math.abs(x - b.x) < (w + b.ancho) / 2 + 0.04 && Math.abs(y - b.y) < (h + b.alto) / 2 + 0.04;
 
 const num = (v: unknown): number | undefined => (typeof v === 'number' && Number.isFinite(v) ? v : typeof v === 'string' && v.trim() && Number.isFinite(Number(v)) ? Number(v) : undefined);
 const color = (v: unknown) => (typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v.trim()) ? v.trim().toLowerCase() : undefined);
@@ -182,7 +214,7 @@ export function sanitizeDecor(d: unknown): { decorado: Decorado | null; avisos: 
     if (t.length > n) avisos.push(tr('tool.decor.check.tooLong', { que, t, n: t.length, max: n, corto: t.slice(0, n) }));
     return t.slice(0, n).trim();
   };
-  // carteles y pantallas, en la pared del fondo y enteros dentro de ella
+  // signs, on the back wall and wholly inside it
   const inWall = (o: any, que: string, widthMax: number, proporcion: number) => {
     const ancho = lim(o.ancho, 0.3, widthMax, `${que}.ancho`, Math.min(0.7, widthMax))!;
     const alto = ancho * proporcion;
@@ -199,19 +231,15 @@ export function sanitizeDecor(d: unknown): { decorado: Decorado | null; avisos: 
     }).filter((c: DecorSign) => c.lineas.length || c.titulo);
     if (cs.length) out.carteles = cs;
   }
-  if (Array.isArray(x.pantallas)) {
-    if (x.pantallas.length > LIMITS.pantallas) avisos.push(tr('tool.decor.check.maxScreens', { n: LIMITS.pantallas }));
-    const ps = x.pantallas.slice(0, LIMITS.pantallas).filter((p: any) => p && typeof p === 'object').map((p: any, i: number) => ({
-      ...inWall(p, `pantallas[${i}]`, 3.4, 0.56), titulo: corto(p.titulo, 32, `pantallas[${i}].titulo`), lineas: (Array.isArray(p.lineas) ? p.lineas : []).slice(0, 12).map((l: unknown, j: number) => corto(l, 40, `pantallas[${i}].lineas[${j}]`)).filter(Boolean),
-    })).filter((p: DecorScreen) => p.lineas.length);
-    if (ps.length) out.pantallas = ps;
-  }
+  // the decorative typing screens are gone: the room's one screen is its task board (old dressings lose them on load)
+  if (Array.isArray(x.pantallas) && x.pantallas.length) avisos.push(tr('tool.decor.check.noScreens'));
   return { decorado: out, avisos };
 }
 
-/** Lo que se ve mal aunque sea válido: piezas en el pasillo o fuera de la sala, colgadas en el aire, pantallas o
- *  carteles que se pisan. `tam` da el tamaño (ancho, alto, fondo) de cada modelo en metros a la escala pedida. */
-export function reviewDecor(d: Decorado, tam: (p: DecorPiece) => [number, number, number] | null): string[] {
+/** Lo que se ve mal aunque sea válido: piezas en el pasillo o fuera de la sala, colgadas en el aire, carteles que se
+ *  pisan o que tapan el tablero de tareas (`tablero`: boardSpot de la sala). `tam` da el tamaño (ancho, alto, fondo) de
+ *  cada modelo en metros a la escala pedida. */
+export function reviewDecor(d: Decorado, tam: (p: DecorPiece) => [number, number, number] | null, tablero?: BoardSpot): string[] {
   const avisos: string[] = [];
   const cajas: { i: number; x0: number; x1: number; z0: number; z1: number; alto: number }[] = [];
   (d.piezas ?? []).forEach((p, i) => {
@@ -226,14 +254,16 @@ export function reviewDecor(d: Decorado, tam: (p: DecorPiece) => [number, number
     if (p.sobre === undefined && !p.y && z1 > LIMITS.pasillo + 0.15 && h > 0.35) avisos.push(tr('tool.decor.check.intoAisle', { i, modelo: p.modelo, z: z1.toFixed(2), pasillo: LIMITS.pasillo }));
     if (p.y && p.y > 0.05 && !p.pared && p.sobre === undefined) avisos.push(tr('tool.decor.check.floats', { i, modelo: p.modelo, y: p.y }));
     if (p.sobre === undefined && !p.y && h > 0.25) cajas.push({ i, x0, x1, z0, z1, alto: h });
+    // near the back wall and in front of the board: the game leaves it out (web/src/mundo/salas/decorado.ts)
+    if (tablero && z0 < WALL_Z + BOARD_CLEAR && coversBoard(tablero, p.x, (p.y ?? 0) + h / 2, ax, h)) avisos.push(tr('tool.decor.check.coversBoard', { que: `piezas[${i}] ${p.modelo}` }));
   });
   for (let a = 0; a < cajas.length; a++) for (let b = a + 1; b < cajas.length; b++) {
     const A = cajas[a], B = cajas[b];
     const dx = Math.min(A.x1, B.x1) - Math.max(A.x0, B.x0), dz = Math.min(A.z1, B.z1) - Math.max(A.z0, B.z0);
     if (dx > 0.12 && dz > 0.12) avisos.push(tr('tool.decor.check.overlapFloor', { a: A.i, ma: d.piezas![A.i].modelo, b: B.i, mb: d.piezas![B.i].modelo, dx: dx.toFixed(2), dz: dz.toFixed(2) }));
   }
-  const inWall = [...(d.carteles ?? []).map((c, i) => ({ que: `carteles[${i}]`, x: c.x, y: c.y, w: c.ancho, h: c.ancho * 720 / 512 })), ...(d.pantallas ?? []).map((p, i) => ({ que: `pantallas[${i}]`, x: p.x, y: p.y, w: p.ancho, h: p.ancho * 0.56 })),
-    ...(d.pantallaRepo ? [{ que: 'pantallaRepo', x: d.pantallaRepo.x, y: d.pantallaRepo.y, w: d.pantallaRepo.ancho, h: d.pantallaRepo.ancho * 0.56 }] : [])];
+  const inWall = (d.carteles ?? []).map((c, i) => ({ que: `carteles[${i}]`, x: c.x, y: c.y, w: c.ancho, h: c.ancho * 720 / 512 }));
+  if (tablero) for (const c of inWall) if (coversBoard(tablero, c.x, c.y, c.w, c.h)) avisos.push(tr('tool.decor.check.coversBoard', { que: c.que }));
   for (let a = 0; a < inWall.length; a++) for (let b = a + 1; b < inWall.length; b++) {
     const A = inWall[a], B = inWall[b];
     if (Math.abs(A.x - B.x) < (A.w + B.w) / 2 - 0.05 && Math.abs(A.y - B.y) < (A.h + B.h) / 2 - 0.05) avisos.push(tr('tool.decor.check.overlapWall', { a: A.que, b: B.que }));

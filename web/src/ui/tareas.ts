@@ -45,3 +45,14 @@ export const jiraBoard = new Store<{ tareas: TaskJira[] | null; prs: PRBoard[] }
 
 /** The title of a task, when the Jira board has read it */
 export const taskTitle = (clave: string | undefined) => clave ? jiraBoard.get().tareas?.find(x => x.clave.toUpperCase() === clave.toUpperCase())?.titulo : undefined;
+
+// Your GitHub PRs (`git.prsTablero`, the same as Planning's board), read at most every two minutes and shared by the
+// intercoms and the rooms' task boards; without GitHub connected (or in DEMO), none
+let prsAsked: { cuando: number; p: Promise<PRBoard[]> } | null = null;
+export function myPRs(): Promise<PRBoard[]> {
+  if (!prsAsked || Date.now() - prsAsked.cuando > 120_000) {
+    const p = cliente.accion<any>('git.prsTablero', {}).then(d => { const prs: PRBoard[] = d?.demo ? [] : d?.prs ?? []; if (!d?.demo) jiraBoard.set({ prs }); return prs; }).catch(() => { prsAsked = null; return [] as PRBoard[]; });
+    prsAsked = { cuando: Date.now(), p };
+  }
+  return prsAsked.p;
+}

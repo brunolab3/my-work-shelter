@@ -27,7 +27,9 @@ import { buildSurface } from './superficie';
 import { buildEnvironment } from './entorno';
 import { Sky } from './cielo';
 import { juego } from '../ui/estadoJuego';
-import { isCopy, idCopy } from '../ui/copias';
+import { isCopy, idCopy, branchCaption } from '../ui/copias';
+import { taskCaption } from '@shared/tareas';
+import type { TaskBoard, ShownRow } from './salas/tableroTareas';
 import { SFX, bootAmbient } from '../audio/sonido';
 import { audioWorld } from '../audio/mundo';
 import { vivo } from '../red/cliente';
@@ -853,14 +855,14 @@ export class Refugio {
   private rayo = new THREE.Raycaster();
   private raton: THREE.Vector2 | null = null;
   private cameraDragging = () => false;
-  apuntado: { tipo: 'habitante'; h: Habitante } | { tipo: 'copia'; f: Copia } | { tipo: 'aparato'; sala: Sala; it: Interactive; vista?: string } | { tipo: 'ascensor'; planta: number } | null = null;
+  apuntado: { tipo: 'habitante'; h: Habitante } | { tipo: 'copia'; f: Copia } | { tipo: 'aparato'; sala: Sala; it: Interactive; vista?: string } | { tipo: 'fila'; sala: Sala; fila: ShownRow; pos: THREE.Vector3 } | { tipo: 'ascensor'; planta: number } | null = null;
   private ndc(e: PointerEvent) {
     const r = this.motor.renderer.domElement.getBoundingClientRect();
     return new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
   }
   // lo que hay bajo el puntero: un habitante, una copia o un aparato (su columna, del suelo a la pared del fondo);
   // si no, el punto del suelo (para ir andando)
-  private apuntar(ndc: THREE.Vector2): { tipo: 'habitante'; h: Habitante } | { tipo: 'copia'; f: Copia } | { tipo: 'aparato'; sala: Sala; it: Interactive; vista?: string } | { tipo: 'ascensor'; planta: number } | { tipo: 'suelo'; p: THREE.Vector3; sala?: Sala; planta: number } | null {
+  private apuntar(ndc: THREE.Vector2): { tipo: 'habitante'; h: Habitante } | { tipo: 'copia'; f: Copia } | { tipo: 'aparato'; sala: Sala; it: Interactive; vista?: string } | { tipo: 'fila'; sala: Sala; fila: ShownRow; pos: THREE.Vector3 } | { tipo: 'ascensor'; planta: number } | { tipo: 'suelo'; p: THREE.Vector3; sala?: Sala; planta: number } | null {
     this.rayo.setFromCamera(ndc, this.motor.camera);
     const tocar = (caja: THREE.Box3) => { const p = this.rayo.ray.intersectBox(caja, new THREE.Vector3()); return p ? p.distanceTo(this.rayo.ray.origin) : Infinity; };
     const cuerpo = (c: THREE.Vector3, k = 1) => new THREE.Box3(new THREE.Vector3(c.x - 0.45 * k, c.y, c.z - 0.45 * k), new THREE.Vector3(c.x + 0.45 * k, c.y + 1.9 * k, c.z + 0.45 * k));
@@ -889,6 +891,14 @@ export class Refugio {
       const sala = this.salas.find(s => s.grupo.getObjectById(touched.object.id));
       const it = sala?.interactive?.find(i => i.id === touched.object.userData.interactivo);
       if (sala && it) { tap = Math.min(tap, touched.distance); aparato = { sala, it, vista: touched.object.userData.vista }; medido = true; }
+    }
+    // a row of a room's task board (people and devices in front of it win): talk to that copy
+    const tableros = this.salas.map(s => s.userData.tableroTareas?.mesh as THREE.Mesh | undefined).filter((m): m is THREE.Mesh => !!m);
+    const enTablero = tableros.length ? this.rayo.intersectObjects(tableros, false)[0] : undefined;
+    if (enTablero?.uv && enTablero.distance < tmin && enTablero.distance <= tap + 0.05) {
+      const sala = this.salas.find(s => s.userData.tableroTareas?.mesh === enTablero.object);
+      const fila = sala && (sala.userData.tableroTareas.board as TaskBoard).rowAt(enTablero.uv);
+      if (sala && fila) return { tipo: 'fila', sala, fila, pos: enTablero.point.clone() };
     }
     // ¿las puertas del ascensor?
     let ascensor: number | null = null;
@@ -922,12 +932,13 @@ export class Refugio {
     const j = juego.get(); if (j.panel || !this.supervisor) return;
     const a = this.apuntar(this.ndc(e)); if (!a) return;
     if (j.talkingWith) {
-      if ((a.tipo !== 'habitante' && a.tipo !== 'copia' && a.tipo !== 'aparato') || (a.tipo === 'habitante' && a.h === this.focused) || (a.tipo === 'copia' && a.f === this.copyFocused)) return;
+      if ((a.tipo !== 'habitante' && a.tipo !== 'copia' && a.tipo !== 'aparato' && a.tipo !== 'fila') || (a.tipo === 'habitante' && a.h === this.focused) || (a.tipo === 'copia' && a.f === this.copyFocused)) return;
       SFX.cerrar(); juego.set({ talkingWith: null, workIn: null }); this.dialogEnd();   // como minimizarIntercom (ui/Dialogo.tsx)
     }
     // la charla se abre con el clic; el Supervisor llega andando por detrás
     if (a.tipo === 'copia') { SFX.clic(); this.interactCopy(a.f, true); return; }
     if (a.tipo === 'habitante') { SFX.clic(); this.interact(a.h, true); return; }
+    if (a.tipo === 'fila') { SFX.clic(); this.talkFromBoard(a.sala, a.fila); return; }
     if (a.tipo === 'aparato') {
       // al punto del aparato (desde ahí se usa), no a donde cayó el rayo
       const { sala, it } = a; const destino = new THREE.Vector3(sala.grupo.position.x + it.x, sala.grupo.position.y, THREE.MathUtils.clamp(it.z, -BACKGROUND / 2 + 0.6, BACKGROUND / 2 - 0.5));
@@ -942,6 +953,18 @@ export class Refugio {
     if (sala) destino.x = THREE.MathUtils.clamp(destino.x, sala.grupo.position.x - sala.ancho / 2 + 0.6, sala.grupo.position.x + sala.ancho / 2 - 0.6);
     this.goAPoint(destino); SFX.clic();
   }
+  // a task board's row: its copy's hologram (or, without one, the room's dweller); the main copy, the room's dweller
+  private talkFromBoard(sala: Sala, fila: ShownRow) {
+    const f = fila.principal ? undefined : this.hologramas.ofId(idCopy(fila.ruta));
+    if (f) { this.goACopy(idCopy(fila.ruta), true); return; }
+    const h = this.habitantes.find(x => x.sala === sala);
+    if (h) this.interact(h, true);
+  }
+  // what a pointed row of a task board is called: its task and title, or the main copy with its dweller
+  private rowCaption(sala: Sala, fila: ShownRow) {
+    if (fila.principal) return `${tx('world.taskBoard.mainCopy')} · ${this.habitantes.find(x => x.sala === sala)?.id.nombre ?? sala.nombre}`;
+    return fila.clave ? taskCaption(fila.clave, fila.titulo) : branchCaption(fila.rama);
+  }
   // donde va el letrero de un aparato apuntado: encima de lo que se ve de él (bajo el techo), o de su punto
   private deviceOver(sala: Sala, it: Interactive) {
     const g = sala.grupo.position;
@@ -955,9 +978,9 @@ export class Refugio {
     if (this.cameraDragging()) return;
     const a = this.raton && !j.panel && this.supervisor && !this.montado ? this.apuntar(this.raton) : null;
     // con una charla abierta solo cuentan otro interlocutor (el clic cambia de charla) y los aparatos; lo demás no hace nada
-    const otro = a && (a.tipo === 'aparato' || (a.tipo === 'habitante' && a.h !== this.focused) || (a.tipo === 'copia' && a.f !== this.copyFocused));
+    const otro = a && (a.tipo === 'aparato' || a.tipo === 'fila' || (a.tipo === 'habitante' && a.h !== this.focused) || (a.tipo === 'copia' && a.f !== this.copyFocused));
     const nuevo = a && a.tipo !== 'suelo' && (!j.talkingWith || otro) ? a : null;
-    const igual = (x: typeof this.apuntado, y: typeof this.apuntado) => x === y || (!!x && !!y && x.tipo === y.tipo && (x.tipo === 'habitante' ? x.h === (y as any).h : x.tipo === 'copia' ? x.f === (y as any).f : x.tipo === 'ascensor' ? x.planta === (y as any).planta : x.it === (y as any).it));
+    const igual = (x: typeof this.apuntado, y: typeof this.apuntado) => x === y || (!!x && !!y && x.tipo === y.tipo && (x.tipo === 'habitante' ? x.h === (y as any).h : x.tipo === 'copia' ? x.f === (y as any).f : x.tipo === 'ascensor' ? x.planta === (y as any).planta : x.tipo === 'fila' ? x.sala === (y as any).sala && x.fila.ruta === (y as any).fila.ruta : x.it === (y as any).it));
     if (!igual(nuevo, this.apuntado)) { this.apuntado = nuevo; if (nuevo) SFX.hover(); this.motor.renderer.domElement.style.cursor = nuevo ? 'pointer' : ''; }
   }
 
@@ -1169,6 +1192,7 @@ export class Refugio {
     items.push({ k: this.supervisor, pos: this.supervisor.headPoint(), alto: 0.2, nombre: nearDevice ? nearDevice.it.texto : tx('world.you'), estado: 'ocioso', detalle: '', cerca: !!nearDevice, lejos, prompt: nearDevice ? tx('world.use') : '', supervisor: true });
     // el aparato apuntado con el ratón (si no es el que ya está a mano), encima de su sitio
     if (ap?.tipo === 'aparato' && ap.it !== this.nearDevice?.it && !visitor(ap.it)) items.push({ k: ap.it, pos: this.deviceOver(ap.sala, ap.it), alto: 0, nombre: ap.it.texto, estado: 'ocioso', detalle: '', cerca: true, lejos, prompt: tx('world.use'), tecla: tx('world.click'), aparato: true, apuntado: true });
+    if (ap?.tipo === 'fila') items.push({ k: 'fila:' + ap.fila.ruta, pos: ap.pos, alto: 0, nombre: this.rowCaption(ap.sala, ap.fila), estado: 'ocioso', detalle: '', cerca: true, lejos, prompt: tx('world.talk'), tecla: tx('world.click'), aparato: true, apuntado: true });
     // el aviso de un aparato va sobre el Supervisor: nunca encima de la pantalla o el cartel que se usa
     if (ap?.tipo === 'ascensor' && !(inLanding && ap.planta === planta)) items.push({ k: this.ascensor, pos: new THREE.Vector3(0, yRoom(ap.planta) + 3.2, 1), alto: 0, nombre: tx('world.elevator'), estado: 'ocioso', detalle: '', cerca: true, lejos, prompt: tx('world.go'), tecla: tx('world.click'), aparato: true, apuntado: true });
     else if (inLanding && !this.montado && this.ascensor) items.push({ k: this.ascensor, pos: new THREE.Vector3(0, sp.y + 3.2, 1), alto: 0, nombre: tx('world.elevator'), estado: 'ocioso', detalle: '', cerca: true, lejos, prompt: tx('world.wSUpAndDown') });
