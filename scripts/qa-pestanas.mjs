@@ -2,9 +2,8 @@
 // several states plus 3 of another dweller of the same room. Checks that tabs stay readable and the strip scrolls,
 // most urgent first, the active tab does not move when its state changes, ⌘1/⌘9 follow the visible order, the bar's ⋯
 // list (⌘⇧A) holds every intercom's conversations by room, filters, goes (switching intercom) and closes, the other
-// dweller's conversations stay out of the strip and the selector above the portrait opens that same list for the room,
-// grouped by talker under their bust and name, keeps its width and switches the intercom on the picked tab, by click or
-// keyboard, the bar has one intercom chip per room whose hover lists one row per open panel (dweller, holograms), and
+// dweller's conversations stay out of the strip and the selector above the portrait lists one row per talker of the
+// room, keeps its width and switches the intercom on the picked talker's most urgent conversation, by click or keyboard, the bar has one intercom chip per room whose hover lists one row per open panel (dweller, holograms), and
 // a terminal with 13 more tabs, whose ⋯ list stays in its strip.
 // Usage: SHELTER_DATOS=… node scripts/qa-pestanas.mjs [url] [screenshots-folder]   (best on a test shelter)
 import { chromium } from 'playwright';
@@ -112,40 +111,38 @@ if (h2) {
   ver(await hasta(async () => await talking() === h.id), 'and back to ' + h.nombre);
 }
 
-// ---- the selector above the portrait: the ⋯ N list of the room, grouped by talker (bust and name); it switches
-const QL = '.consola .consola-quien .vt-lista';
-const listaQuien = () => pg.evaluate(QL => [...document.querySelectorAll(`${QL} .vt-lista-grupo, ${QL} .vt-lista-fila`)].map(f => f.classList.contains('vt-lista-grupo')
-  ? { grupo: f.textContent, foto: !!f.querySelector('.consola-quien-foto') }
-  : { nombre: f.querySelector('.vt-lista-nombre').textContent.replace(/^✎/, ''), estado: (f.className.match(/e-(\w+)/) ?? [])[1], caja: !!f.querySelector('input'), x: !!f.querySelector('.vt-pestana-x'), activa: f.classList.contains('activa') }), QL);
+// ---- the selector above the portrait: one row per talker of the room, as the bar's hover list; it switches
+const QL = '.consola .consola-quien .consola-quien-lista';
+const listaQuien = () => pg.evaluate(QL => [...document.querySelectorAll(`${QL} .barra-asomo-fila`)].map(f => ({
+  nombre: f.querySelector('b').textContent, titulo: f.querySelector('.barra-asomo-titulo').textContent.replace(/^✎/, ''), estado: (f.className.match(/e-(\w+)/) ?? [])[1],
+  foto: !!f.querySelector('.consola-quien-foto'), actual: f.classList.contains('actual') })), QL);
 if (h2) {
   await pg.click('.consola .consola-quien > .chip-terminal'); await espera(300);
-  const lq = await listaQuien(), grupos = lq.filter(f => f.grupo);
-  const de = n => { const i = lq.findIndex(f => f.grupo?.startsWith(n)); const j = lq.findIndex((f, k) => k > i && f.grupo); return lq.slice(i + 1, j < 0 ? undefined : j); };
-  ver(grupos.length >= 2 && grupos.every(g => g.foto), `the list groups by talker, each header with its bust: ${grupos.map(g => g.grupo).join(' | ')}`);
-  // (their idle Deploy notes went with «close read or idle» above)
-  ver(de(h2.nombre).map(f => f.nombre).join() === 'Bump SDK,Flaky e2e' && de(h2.nombre)[0].estado === 'esperando', `${h2.nombre}'s group has their open conversations, Bump SDK waiting: ` + JSON.stringify(de(h2.nombre)));
-  ver(de(h.nombre).length === (await pestanas()).length && de(h.nombre).some(f => f.activa), `${h.nombre}'s group has every tab of their intercom, the active one marked (${de(h.nombre).length})`);
-  const sinNada = lq.filter(f => f.nombre !== undefined && !f.caja);
-  ver(sinNada.every(f => !f.x), `talkers with nothing open get one row to open their intercom, nothing to close (${sinNada.length})`);
-  ver(await hasta(() => pg.evaluate(QL => [...document.querySelectorAll(`${QL} .vt-lista-grupo .consola-quien-foto`)].every(f => f.querySelector('img')), QL)), 'each talker\'s bust is drawn');
-  const anchoLista = await pg.evaluate(QL => Math.round(document.querySelector(QL).getBoundingClientRect().width), QL);
-  ver(anchoLista === anchoCom, `the list is as wide as the bar's ⋯ N: ${anchoLista}px / ${anchoCom}px`);
+  const lq = await listaQuien();
+  ver(lq.length >= 2 && lq.length === new Set(lq.map(f => f.nombre)).size && lq.every(f => f.foto), `one row per talker, each with its bust: ${lq.map(f => f.nombre).join(' | ')}`);
+  const fila2 = lq.find(f => f.nombre.startsWith(h2.nombre));
+  ver(fila2?.estado === 'esperando' && fila2.titulo.endsWith('· Bump SDK'), `${h2.nombre}'s row shows their most urgent conversation, Bump SDK waiting: ` + JSON.stringify(fila2));
+  ver(lq.find(f => f.actual)?.nombre.startsWith(h.nombre), `${h.nombre}, in front, is marked`);
+  ver(!(await pg.isVisible(`${QL} .vt-pestana-x, ${QL} input`)), 'no tabs to close or select in it');
+  await pg.screenshot({ path: `${dir}/qa-pestanas-selector.png` });
   const anchoQuien = () => pg.evaluate(() => Math.round(document.querySelector('.consola .consola-quien > .chip-terminal').getBoundingClientRect().width));
   const ancho1 = await anchoQuien();
-  await pg.screenshot({ path: `${dir}/qa-pestanas-selector.png` });
-  await pg.keyboard.type('bump'); await espera(200);
-  ver((await listaQuien()).filter(f => f.nombre !== undefined).map(f => f.nombre).join() === 'Bump SDK', 'typing filters it');
   await pg.keyboard.press('Escape'); await espera(200);
   ver(!(await pg.isVisible(QL)) && await pg.isVisible('.consola'), 'Esc closes the list and only the list');
   await pg.click('.consola .consola-quien > .chip-terminal'); await espera(200);
-  await pg.evaluate(QL => [...document.querySelectorAll(`${QL} .vt-lista-fila`)].find(f => f.querySelector('.vt-lista-nombre').textContent === 'Bump SDK').click(), QL);
-  ver(await hasta(async () => await talking() === h2.id && (await pestanas()).find(p => p.activa)?.nombre === 'Bump SDK'), `picking Bump SDK switches the intercom to ${h2.nombre}, on that tab`);
+  await pg.mouse.click(5, 5); await espera(200);
+  ver(!(await pg.isVisible(QL)), 'a click outside closes it');
+  await pg.click('.consola .consola-quien > .chip-terminal'); await espera(200);
+  await pg.evaluate(([QL, n]) => [...document.querySelectorAll(`${QL} .barra-asomo-fila`)].find(f => f.querySelector('b').textContent.startsWith(n)).click(), [QL, h2.nombre]);
+  ver(await hasta(async () => await talking() === h2.id && (await pestanas()).find(p => p.activa)?.nombre === 'Bump SDK'), `picking ${h2.nombre} switches the intercom to them, on their most urgent conversation (Bump SDK)`);
   ver((await pestanas()).every(p => AJENAS.includes(p.nombre)), 'whose strip holds only their conversations');
   ver(await anchoQuien() === ancho1, `the selector keeps its width whoever it names: ${ancho1}px`);
-  // by keyboard: filter one of the first dweller's conversations, Enter
+  // by keyboard: arrows to the first dweller, Enter
   await pg.click('.consola .consola-quien > .chip-terminal'); await espera(200);
-  await pg.keyboard.type(elegida); await espera(200); await pg.keyboard.press('Enter');
-  ver(await hasta(async () => await talking() === h.id && (await pestanas()).find(p => p.activa)?.nombre === elegida), `and back by keyboard to ${h.nombre}, on ${elegida}`);
+  const lq2 = await listaQuien(), de = lq2.findIndex(f => f.actual), a = lq2.findIndex(f => f.nombre.startsWith(h.nombre));
+  for (let k = 0; k < Math.abs(a - de); k++) await pg.keyboard.press(a > de ? 'ArrowDown' : 'ArrowUp');
+  await pg.keyboard.press('Enter');
+  ver(await hasta(async () => await talking() === h.id), `and back by keyboard to ${h.nombre}`);
 } else console.log('--   (no room with two dwellers: no selector)');
 
 // ---- the bar: one intercom chip per room; hovering it lists one row per open panel (dweller, holograms), as the selector
