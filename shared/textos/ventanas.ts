@@ -140,6 +140,7 @@ export const WINDOWS: Record<string, Texto> = {
   'windows.validate': { es: 'Validar', en: 'Validate' },
   'windows.validatePageHint': { es: 'Sin notas: dile a la conversación que la página está bien y que siga', en: 'No notes: tell the conversation the page is fine and to carry on' },
   'windows.pageValidated': { es: 'He revisado la página {ruta}: está bien, sin notas. Sigue.', en: 'I reviewed the page {ruta}: it is fine, no notes. Carry on.' },
+  'windows.actions': { es: 'Acciones', en: 'Actions' },
   'windows.pages': { es: 'Páginas', en: 'Pages' },
   'windows.pagesHint': { es: 'Los planes, informes y comparaciones que ha enlazado esta conversación', en: 'The plans, reports and compares this conversation has linked' },
   'windows.scheduled': { es: '⏰ {n} programado · {cuando}', en: '⏰ {n} scheduled · {cuando}' },

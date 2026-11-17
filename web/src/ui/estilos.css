@@ -257,30 +257,33 @@ html, body { margin: 0; height: 100%; background: var(--fondo); overflow: hidden
 .formulario-escribir textarea { height: 100%; min-height: 0; }
 .formulario-opciones { overflow: auto; }
 .sesion .titulo-sesion { font: 600 calc(var(--u) * 0.85) var(--t-mono); color: var(--fosforo-tenue); text-shadow: none; margin-bottom: .3em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-/* the conversation's pages: at the very bottom, under the dweller; their list opens at the top of this column, over the
-   conversation, and ends above its button (`useListOnTop` in Dialogo.tsx) */
-.consola-lado { position: relative; }
-.consola-lado .paginas-sesion { margin-top: auto; width: 100%; }
-.consola-lado .prs-copia + .paginas-sesion { margin-top: .4em; }
-.consola-lado .programados-sesion + .paginas-sesion { margin-top: .4em; }
+/* the actions under the dweller (pages, PRs, pre-flight, scheduled): a section of their own, by importance; each list
+   opens at its button (`useListAtButton` in Dialogo.tsx) */
+.consola-acciones { width: 100%; display: flex; flex-direction: column; gap: .4em; margin-top: calc(var(--u) * 0.35); padding-top: calc(var(--u) * 0.3); border-top: 1px solid #4a443c; }
+.consola-acciones:not(:has(.paginas-sesion)) { display: none; }
+.consola-acciones-titulo { font: 700 calc(var(--u) * 0.58)/1 var(--t-rotulo); letter-spacing: .14em; text-transform: uppercase; color: #8f8670; text-align: center; }
+.consola-acciones .paginas-sesion { position: relative; width: 100%; }
 .programados-lista li { gap: .6em; }
 .programados-lista .pagina-nombre { cursor: default; }
 .programados-lista .programado-edicion { flex-direction: column; align-items: stretch; white-space: normal; }
 .programado-edicion input, .programado-edicion textarea { background: #050a05; color: var(--fosforo); border: 1px solid var(--fosforo-tenue); font: inherit; padding: .3em; color-scheme: dark; }
-/* el último del lado deja aire abajo: no pisa el punto del intercomunicador */
-.consola-lado > .paginas-sesion:last-child { margin-bottom: calc(var(--u) * 0.9); }
 .paginas-lista .pr-marca { flex: none; }
 .paginas-lista .pr-fusionado .pr-marca { color: #c39bff; }
 .paginas-lista li.pr-cerrado { opacity: .55; }
 .paginas-lista .pr-borrador .pr-marca { opacity: .7; }
 .paginas-lista .pr-mal { color: #ff7a6a; }
 .paginas-lista .pr-bien { color: #7dffa0; }
-.consola-lado .paginas-sesion > .consola-x { width: 100%; margin: 0; font: 600 calc(var(--u) * 0.68) var(--t-mono); padding: .35em .4em; white-space: normal; }
-.consola-lado .paginas-sesion > .consola-x.urgente { background: linear-gradient(#ffd27a, #d99a2b); }
-.paginas-lista { position: absolute; left: 0; top: 0; z-index: 30; box-sizing: border-box; margin: 0; padding: .5em; list-style: none; min-width: 26em; max-width: 40em; max-height: 50vh; overflow: auto; background: #0b120b; border: 1px solid var(--fosforo-tenue); border-radius: 4px; box-shadow: 0 6px 24px #000c; font: 400 calc(var(--u) * 0.75) var(--t-mono); color: var(--fosforo); }
+/* primary: the pages (larger; amber with some pending), then the task's PRs and pre-flight (filled), then the scheduled
+   ones (outline) */
+.consola-acciones .paginas-sesion > .consola-x { width: 100%; margin: 0; font: 600 calc(var(--u) * 0.68) var(--t-mono); padding: .35em .4em; white-space: normal; text-align: left; }
+.consola-acciones .paginas-principal > .consola-x { font-size: calc(var(--u) * 0.76); font-weight: 800; padding: .5em .5em; }
+.consola-acciones .paginas-sesion > .consola-x.urgente { background: linear-gradient(#ffd27a, #d99a2b); box-shadow: 0 2px 0 #7a5410, 0 0 10px rgba(255,176,0,.35); }
+.consola-acciones .programados-sesion > .consola-x { background: transparent; color: #c9bd9f; border: 1px solid #6f6656; box-shadow: none; font-weight: 400; }
+.consola-acciones .programados-sesion > .consola-x:hover { border-color: #c9bd9f; color: var(--crema); }
+.paginas-lista { position: absolute; left: 0; top: 100%; z-index: 30; box-sizing: border-box; margin: 0; padding: .5em; list-style: none; width: max-content; min-width: 26em; max-width: 60em; overflow: auto; background: #0b120b; border: 1px solid var(--fosforo-tenue); border-radius: 4px; box-shadow: 0 6px 24px #000c; font: 400 calc(var(--u) * 0.75) var(--t-mono); color: var(--fosforo); }
 .paginas-lista li { display: flex; align-items: center; gap: .5em; padding: .25em .3em; white-space: nowrap; border-top: 1px solid rgba(157,255,184,.12); }
 .paginas-lista li:first-child { border-top: 0; }
-.paginas-lista .pagina-nombre { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; text-align: left; background: none; border: 0; color: var(--fosforo); font: inherit; cursor: pointer; padding: 0; }
+.paginas-lista .pagina-nombre { flex: 1 1 auto; min-width: 4em; max-width: 24em; overflow: hidden; text-overflow: ellipsis; text-align: left; background: none; border: 0; color: var(--fosforo); font: inherit; cursor: pointer; padding: 0; }
 .paginas-lista .pagina-nombre:hover { text-decoration: underline; }
 .paginas-lista .consola-x { margin-left: 0; }
 /* a link's options (opcionesEnlace.ts): anchored at the link, above every window */

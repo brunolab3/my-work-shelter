@@ -607,11 +607,16 @@ function Console({ h, v }: { h: DwellerSummary; v: WindowCom }) {
             </>}
             {s?.modelo && <div className="consola-dato">{s.modelo.replace('claude-', '')}</div>}
             {s && (s.contexto || s.tokens) ? <div className="consola-dato"><Usage s={s} largo /></div> : null}
-            {copia ? <WorktreePRs copia={copia} salaId={h.sala} /> : null}
-            {copia ? <PreflightButton copia={copia} /> : null}
-            {/* con `key`: cada conversación con su lista (nada de la pestaña anterior mientras llega la suya) */}
-            <ScheduledMenu key={'p' + (s?.id ?? (vista.tipo === 'nuevo' ? vista.reanudar?.claudeId : '') ?? '')} h={h} s={s} reanudar={vista.tipo === 'nuevo' ? vista.reanudar?.claudeId : undefined} />
-            {s ? <PagesMenu key={s.id} s={s} /> : vista.tipo === 'nuevo' && vista.reanudar ? <ResumePages key={vista.reanudar.claudeId} salaId={h.sala} claudeId={vista.reanudar.claudeId} /> : null}
+            {/* right under the dweller, by importance: pages to review, the task's PRs and pre-flight, then the scheduled
+                ones; each hidden with nothing, and the whole section with none (CSS `:has`) */}
+            <div className="consola-acciones" role="group" aria-label={t('windows.actions')}>
+              <div className="consola-acciones-titulo" aria-hidden>{t('windows.actions')}</div>
+              {s ? <PagesMenu key={s.id} s={s} /> : vista.tipo === 'nuevo' && vista.reanudar ? <ResumePages key={vista.reanudar.claudeId} salaId={h.sala} claudeId={vista.reanudar.claudeId} /> : null}
+              {copia ? <WorktreePRs copia={copia} salaId={h.sala} /> : null}
+              {copia ? <PreflightButton copia={copia} /> : null}
+              {/* with `key`: each conversation with its own list (nothing from the previous tab while its own arrives) */}
+              <ScheduledMenu key={'p' + (s?.id ?? (vista.tipo === 'nuevo' ? vista.reanudar?.claudeId : '') ?? '')} h={h} s={s} reanudar={vista.tipo === 'nuevo' ? vista.reanudar?.claudeId : undefined} />
+            </div>
           </aside>
           <div className="consola-pestana" key={p.id}>
             {!connected ? <WithoutConnection /> : !claudeOk ? <WithoutClaude /> :
@@ -1064,10 +1069,10 @@ function WorktreePRs({ copia, salaId }: { copia: { ruta: string; rama: string };
   const prs = useMemo(() => rama ? worktreePRs(desdeTablero.length ? desdeTablero : leidos ?? [], { ruta, rama }, carpeta) : [],
     [desdeTablero, leidos, ruta, rama, carpeta]);
   const [abierto, setOpen] = useState(false);
-  const lista = useListOnTop(abierto);
+  const lista = useListAtButton(abierto);
   if (!prs.length) return null;
   const abiertos = prs.filter(p => p.estado === 'abierto' || p.estado === 'borrador').length;
-  // like the pages: a button with the count and, on click, the whole list on top
+  // like the pages: a button with the count and, on click, the whole list at the button
   return <span className="paginas-sesion prs-copia">
     <button className="consola-x" title={t('windows.taskPRsHint')} onClick={() => { setOpen(x => !x); SFX.clic(); }}>
       ⑂ {t('windows.pullRequests')} ({abiertos < prs.length ? `${abiertos}/${prs.length}` : prs.length})
@@ -1088,7 +1093,7 @@ function PreflightButton({ copia }: { copia: { ruta: string; rama: string } }) {
   const tarea = worktreeTask(copia);
   const conPRs = jiraBoard.usar(x => !!tarea && taskHasPRs(tarea, x.prs));
   if (!tarea || !conPRs) return null;
-  return <span className="paginas-sesion">
+  return <span className="paginas-sesion preflight-copia">
     <button className="consola-x" title={t('preflight.actionHint')} onClick={e => { SFX.clic(); openPreflight(tarea, e.currentTarget); }}>✈ {t('preflight.action', { clave: tarea })}</button>
   </span>;
 }
@@ -1113,7 +1118,7 @@ function ScheduledMenu({ h, s, reanudar }: { h: DwellerSummary; s?: SessionSumma
   const mios = useMemo(() => conversacion ? ofConversation(todos, conversacion) : ofPlace(todos, h.sala, h.copia?.ruta, worktrees ?? []),
     [todos, worktrees, s?.id, s?.claudeId, reanudar, h.sala, h.copia?.ruta]);
   const [abierto, setOpen] = useState(false);
-  const lista = useListOnTop(abierto);
+  const lista = useListAtButton(abierto);
   const [editando, setEditing] = useState<{ id: string; cuando: string; mensaje: string; error?: string } | null>(null);
   if (!mios.length) return null;
   const cancelar = (x: ScheduledMessage) => { cliente.accion('programados.cancelar', { id: x.id }).then(() => SFX.clic()).catch(() => SFX.noAllowed()); };
@@ -1163,14 +1168,29 @@ function ResumePages({ salaId, claudeId }: { salaId: string; claudeId: string })
   return <PagesList sesionId={claudeId} claudeId={claudeId} entradas={entradas} />;
 }
 
-// The lists under the portrait (pages, scheduled, PRs) open at the top of the intercom's side column, over the oldest
-// part of the conversation rather than the latest and the input, and end above their own button so it stays reachable
-function useListOnTop(abierto: boolean) {
+// The action lists (pages, scheduled, PRs) open at their own button: right below it while they fit before the intercom's
+// bottom (or there's more room there than anywhere else), otherwise to its right over the conversation, moved up just
+// enough to end inside the intercom; never taller than it, with scroll
+function useListAtButton(abierto: boolean) {
   const ref = useRef<HTMLUListElement>(null);
   useLayoutEffect(() => {
-    const ul = ref.current, boton = ul?.parentElement;
-    if (!abierto || !ul || !boton) return;
-    const fit = () => { ul.style.maxHeight = `${Math.max(0, boton.offsetTop - 6)}px`; };
+    const ul = ref.current, ancla = ul?.parentElement, zona = ul?.closest('.consola-cuerpo');
+    if (!abierto || !ul || !ancla || !zona) return;
+    const fit = () => {
+      const z = zona.getBoundingClientRect(), b = ancla.getBoundingClientRect();
+      const k = ancla.offsetWidth ? b.width / ancla.offsetWidth : 1;  // screen px per CSS px (a scaled intercom)
+      const margen = 6, alto = (z.height - 2 * margen) / k;
+      Object.assign(ul.style, { maxHeight: 'none', top: '', left: '' });
+      const natural = ul.scrollHeight;
+      const debajo = (z.bottom - b.bottom - margen) / k;
+      if (natural <= debajo || debajo >= alto / 2) {
+        Object.assign(ul.style, { top: '100%', left: '0', maxHeight: `${Math.max(0, debajo - 3)}px` });
+        return;
+      }
+      const h = Math.min(natural, alto);
+      const top = Math.max((z.top + margen - b.top) / k, Math.min(0, (z.bottom - margen - b.top) / k - h));
+      Object.assign(ul.style, { top: `${top}px`, left: `calc(100% + ${margen}px)`, maxHeight: `${alto}px` });
+    };
     fit();
     addEventListener('resize', fit);
     return () => removeEventListener('resize', fit);
@@ -1195,7 +1215,7 @@ function PagesList({ sesionId, claudeId, entradas, base }: { sesionId: string; c
   const [existen, setExist] = useState<Set<string> | null>(() => { const l = known(); return l && new Set(l.filter(r => pageTimes.get(r))); });
   const [actualizadas, setUpdated] = useState<Record<string, number>>(() => Object.fromEntries((known() ?? []).flatMap(r => pageTimes.get(r) ? [[r, pageTimes.get(r)!]] : [])));
   const [abierto, setOpen] = useState(false);
-  const lista = useListOnTop(abierto);
+  const lista = useListAtButton(abierto);
   useEffect(() => {
     if (!rutas) return;
     let vivoAun = true;
@@ -1217,7 +1237,7 @@ function PagesList({ sesionId, claudeId, entradas, base }: { sesionId: string; c
   };
   const enBorrador = (ruta: string) => Object.entries(borradores).find(([k]) => samePage(k, ruta))?.[1].length ?? 0;
   return (
-    <span className="paginas-sesion">
+    <span className="paginas-sesion paginas-principal">
       <button className={'consola-x' + (pendientes ? ' urgente' : '')} title={t('windows.pagesHint')} onClick={() => { setOpen(x => !x); SFX.clic(); }}>
         📄 {t('windows.pages')} {pendientes ? `· ${pendientes} ${t('windows.pagePending')}` : `(${paginas.length})`}
       </button>
