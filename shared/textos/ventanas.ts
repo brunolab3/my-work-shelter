@@ -132,7 +132,7 @@ export const WINDOWS: Record<string, Texto> = {
   'windows.linkCopyPath': { es: 'Copiar la ruta', en: 'Copy path' },
   'windows.linkCopied': { es: 'Copiado', en: 'Copied' },
   'windows.linkMissing': { es: 'Ese archivo no está en el Mac', en: 'That file is not on the Mac' },
-  'windows.linkDefaultHint': { es: '{shortcut}-clic abre la primera opción directamente', en: '{shortcut}-click opens the first option directly' },
+  'windows.linkDefaultHint': { es: 'Clic abre la primera opción; clic derecho, este menú', en: 'Click opens the first option; right click, this menu' },
   'windows.thePage': { es: 'la página', en: 'the page' },
   'windows.sendNotes': { es: 'Enviar notas', en: 'Send notes' },
   'windows.note': { es: 'Nota', en: 'Note' },

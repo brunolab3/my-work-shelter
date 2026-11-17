@@ -148,6 +148,15 @@
       try { if (r.isPointInRange(p.startContainer, p.startOffset)) { const n = notas.find(x => x.id === id); if (n) { e.preventDefault(); abrir(n, r.getBoundingClientRect()); } return; } } catch {}
     }
   }, true);
+  // a link of the page: the game opens it (a click, its default way; a right click, its options), never the <iframe>.
+  // Its raw href: resolved here it would point at /pagina/<key>/…, not at the file. After the note's click above
+  for (const tipo of ['click', 'contextmenu']) document.addEventListener(tipo, e => {
+    const a = e.target.closest && e.target.closest('a[href]');
+    if (!a || e.defaultPrevented || e.composedPath().includes(host) || (tipo === 'click' && e.button !== 0)) return;
+    if (a.hash && a.href.split('#')[0] === location.href.split('#')[0]) return;   // an anchor of this page
+    e.preventDefault();
+    post({ tipo: 'enlace', href: a.getAttribute('href'), x: e.clientX, y: e.clientY, menu: tipo === 'contextmenu' });
+  });
   // en una comparación (filas con número de línea, td.n), como en GitHub: «+» al pasar por una línea y una nota en ella
   let fila = null;
   const lineaDe = tr => [...tr.querySelectorAll('td.n')].map(td => td.textContent.trim()).filter(Boolean).pop() || '';

@@ -103,9 +103,10 @@ new MutationObserver(cambios => {
 // una sola línea (la descripción de una opción): sin el <p> que la rodea
 export const markdownLine = (texto: string, base?: string) => markdown(texto, base).replace(/^<p>([\s\S]*)<\/p>\s*$/, '$1');
 
-// un enlace de una respuesta (a un archivo del Mac o a una web): sus opciones, antes que nada (si no, la ventana abriría
-// el juego otra vez o lo mandaría fuera)
+// a link of a reply (to a file of the Mac or a web), before anything else (otherwise the window would open the game
+// again or send it outside): a click opens it its default way, a right click shows its options
 addEventListener('click', e => { linkClick(e); }, true);
+addEventListener('contextmenu', e => { linkClick(e, true); }, true);
 
 // una página que sirve en local otro programa (una página de revisión en la que dejar notas, un servidor de desarrollo)
 // enlazada fuera de una respuesta: también en la ventana de páginas, no fuera

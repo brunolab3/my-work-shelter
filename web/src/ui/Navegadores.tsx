@@ -14,6 +14,8 @@ import { pagesInText, samePage, relativeLinks, linksPages, IMAGE_FILE, type Page
 import { t } from '@shared/idioma';
 import { SFX } from '../audio/sonido';
 import { nextZ, windowShortcut, WindowButtons, CMD } from './ventanas';
+import { followLink } from './opcionesEnlace';
+import { pageLinkTarget } from '@shared/opcionesEnlace';
 
 // dominios: los de la web (y sus subdominios), para abrir dentro sus enlaces; electron/main.cjs tiene sus familias
 // desvios: rutas de la web que llevan a otra (p. ej. avisos que no aplican aquí): se va directamente a la de destino
@@ -308,11 +310,16 @@ function VentanaNavegador({ v }: { v: WindowNav }) {
       if (e.source !== marco.current?.contentWindow || e.data?.refugio !== 'notas') return;
       if (e.data.tipo === 'hola') marco.current?.contentWindow?.postMessage({ refugio: 'notas', tipo: 'restaurar', textos, notas: pageNotes.get()[ruta] ?? [], scroll: scrollOf.get(ruta) ?? 0 }, '*');
       else if (e.data.tipo === 'scroll' && typeof e.data.y === 'number') scrollOf.set(ruta, e.data.y);
+      else if (e.data.tipo === 'enlace') {
+        // a link of the page: like one of a reply, at the pointer (the <iframe>'s coordinates are its own)
+        const destino = pageLinkTarget(e.data.href, ruta), r = marco.current?.getBoundingClientRect();
+        if (destino && r) followLink(destino, { x: r.left + (Number(e.data.x) || 0), y: r.top + (Number(e.data.y) || 0), menu: !!e.data.menu, sesion: v.sesion ?? sessionThatLinked(ruta) });
+      }
       else if (e.data.tipo === 'lista') pageNotes.set(x => { const l = cleanNotes(e.data.notas); const y = { ...x }; if (l.length) y[ruta] = l; else delete y[ruta]; return y; });
     };
     addEventListener('message', oir);
     return () => removeEventListener('message', oir);
-  }, [v.id, v.ruta]);
+  }, [v.id, v.ruta, v.sesion]);
   const cambiada = useRef<{ ruta: string; t: number } | null>(null);   // cuándo cambió el archivo de la que se ve
   // la página se recarga sola cuando cambia su archivo (el habitante rehace el plan o la comparación) y vuelve a donde
   // estaba; mientras está minimizada no se mira

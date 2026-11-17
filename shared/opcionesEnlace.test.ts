@@ -1,6 +1,6 @@
 // The ways to open a link of a reply (opcionesEnlace.ts): inside the game first whenever it can be seen there
 import { describe, expect, it } from 'vitest';
-import { webLinkOptions, fileLinkOptions, copyText } from './opcionesEnlace.ts';
+import { webLinkOptions, fileLinkOptions, copyText, pageLinkTarget } from './opcionesEnlace.ts';
 
 const acciones = (l: { accion: string }[]) => l.map(o => o.accion);
 
@@ -22,5 +22,16 @@ describe("a link's options", () => {
     expect(copyText('mailto:ana@example.com?subject=x')).toBe('ana@example.com');
     expect(copyText('file:///Users/ana/mi%20plan.html')).toBe('/Users/ana/mi plan.html');
     expect(copyText('~/plan.md')).toBe('~/plan.md');
+  });
+  it("a page's link: files of the Mac (relative ones next to the page), webs and mail; nothing else", () => {
+    const P = '/Users/ana/plans/mi plan.html';
+    expect(pageLinkTarget('/Users/ana/x.html', P)).toEqual({ ruta: '/Users/ana/x.html' });
+    expect(pageLinkTarget('~/x.md', P)).toEqual({ ruta: '~/x.md' });
+    expect(pageLinkTarget('otro%20plan.html#a', P)).toEqual({ ruta: '/Users/ana/plans/otro plan.html' });
+    expect(pageLinkTarget('../informe.html', P)).toEqual({ ruta: '/Users/ana/informe.html' });
+    expect(pageLinkTarget('file:///tmp/a.png', P)).toEqual({ ruta: '/tmp/a.png' });
+    expect(pageLinkTarget('https://example.com/a', P)).toEqual({ href: 'https://example.com/a' });
+    expect(pageLinkTarget('mailto:ana@example.com', P)).toEqual({ href: 'mailto:ana@example.com' });
+    for (const x of ['#a', '', 'javascript:alert(1)', 'data:text/html,x', '/etc/passwd', 'file:///etc/hosts', 42]) expect(pageLinkTarget(x, P)).toBeNull();
   });
 });

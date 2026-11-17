@@ -1,12 +1,12 @@
-// A click on a link of a reply (markdown.ts) opens a small list anchored at it with the ways to open it
-// (shared/opcionesEnlace.ts): the first, inside the game whenever it can, is marked and taken with Enter; ↑↓ move,
-// Esc or a click elsewhere closes it. ⌘-click runs the first one directly, without the list.
+// A click on a link of a reply (markdown.ts) or of a page in the «Página» window (Navegadores.tsx, through
+// server/pagina/notas.js) opens it the first of its ways (shared/opcionesEnlace.ts), inside the game whenever it can; a
+// right click opens a small list at it with all of them: the first is marked and taken with Enter, ↑↓ move, Esc or a
+// click elsewhere closes it.
 import { cliente } from '../red/cliente';
 import { SFX } from '../audio/sonido';
 import { t } from '@shared/idioma';
 import { webLinkOptions, fileLinkOptions, copyText, type LinkOption, type LinkAction, type LocalKind } from '@shared/opcionesEnlace';
 import { openPage, openWeb, canOpenInside, isLocalServer, revealPage, urlSpot } from './Navegadores';
-import { CMD } from './ventanas';
 
 // la conversación en la que está el enlace (el intercomunicador marca la suya)
 const sessionOfLink = (a: Element) => a.closest('[data-sesion]')?.getAttribute('data-sesion') ?? undefined;
@@ -42,7 +42,7 @@ export function closeLinkOptions(devolverFoco = false) {
   if (devolverFoco) (volver as HTMLElement | null)?.focus?.();
 }
 
-function show(a: HTMLElement, x: number, y: number, opciones: LinkOption[], titulo: string, run: (accion: LinkAction) => void, aviso?: string) {
+function show(a: HTMLElement | undefined, x: number, y: number, opciones: LinkOption[], titulo: string, run: (accion: LinkAction) => void, aviso?: string) {
   closeLinkOptions();
   const caja = document.createElement('div');
   caja.className = 'opciones-enlace interactivo'; caja.setAttribute('role', 'menu');
@@ -60,10 +60,11 @@ function show(a: HTMLElement, x: number, y: number, opciones: LinkOption[], titu
     return b;
   });
   caja.append(...botones);
-  const pie = document.createElement('div'); pie.className = 'oe-pie'; pie.textContent = t('windows.linkDefaultHint', { shortcut: CMD }); caja.append(pie);
+  const pie = document.createElement('div'); pie.className = 'oe-pie'; pie.textContent = t('windows.linkDefaultHint'); caja.append(pie);
   document.body.append(caja);
-  // under the line of the link that was clicked (a link can span two lines), or above it if it doesn't fit; inside the window
-  const r = [...a.getClientRects()].find(c => x >= c.left - 1 && x <= c.right + 1 && y >= c.top - 1 && y <= c.bottom + 1) ?? a.getBoundingClientRect();
+  // under the line of the link that was clicked (a link can span two lines), or above it if it doesn't fit; inside the
+  // window. Without the link (one in a page's <iframe>), under the pointer
+  const r = !a ? { top: y, bottom: y } : [...a.getClientRects()].find(c => x >= c.left - 1 && x <= c.right + 1 && y >= c.top - 1 && y <= c.bottom + 1) ?? a.getBoundingClientRect();
   const { width: w, height: h } = caja.getBoundingClientRect();
   const left = Math.max(8, Math.min(x - 12, innerWidth - w - 8));
   const top = r.bottom + 4 + h <= innerHeight - 8 ? r.bottom + 4 : Math.max(8, r.top - 4 - h);
@@ -73,25 +74,31 @@ function show(a: HTMLElement, x: number, y: number, opciones: LinkOption[], titu
   SFX.tick();
 }
 
-/** A click on a link of a reply: its options, or with ⌘ its first one directly. True if it was one of those links */
-export function linkClick(e: MouseEvent): boolean {
-  const a = (e.target as HTMLElement).closest?.('a[data-local], a[data-enlace]') as HTMLAnchorElement | null;
-  if (!a || e.button !== 0) return false;
-  e.preventDefault(); e.stopPropagation();
-  const sesion = sessionOfLink(a), direct = e.metaKey;
-  const ruta = a.getAttribute('data-local');
-  if (ruta) {
-    // a thumbnail is the picture itself: it opens it in the game directly
-    if (direct || a.classList.contains('miniatura')) { runFile('juego', ruta, sesion); return true; }
+/** A link (a file of the Mac or a web address): with `menu`, its ways at (x, y); otherwise the first one directly */
+export function followLink(destino: { ruta: string } | { href: string }, o: { x: number; y: number; menu: boolean; sesion?: string; anchor?: HTMLElement }) {
+  const { x, y, menu, sesion, anchor } = o;
+  const elegir = (opciones: LinkOption[], titulo: string, run: (accion: LinkAction) => void) =>
+    menu ? show(anchor, x, y, opciones, titulo, run) : run(opciones[0].accion);
+  if ('ruta' in destino) {
+    const { ruta } = destino;
     cliente.accion<{ juego: boolean; mac: LocalKind }>('enlace.tipo', { ruta })
-      .then(tipo => show(a, e.clientX, e.clientY, fileLinkOptions(tipo), copyText(ruta), x => runFile(x, ruta, sesion)),
-        () => show(a, e.clientX, e.clientY, fileLinkOptions(null), copyText(ruta), x => runFile(x, ruta, sesion), t('windows.linkMissing')));
-    return true;
+      .then(tipo => elegir(fileLinkOptions(tipo), copyText(ruta), x => runFile(x, ruta, sesion)),
+        () => show(anchor, x, y, fileLinkOptions(null), copyText(ruta), x => runFile(x, ruta, sesion), t('windows.linkMissing')));
+    return;
   }
-  let u: URL; try { u = new URL(a.href, location.href); } catch { return true; }
-  const opciones = webOptions(u);
-  if (direct) runWeb(opciones[0].accion, u, sesion);
-  else show(a, e.clientX, e.clientY, opciones, copyText(u.href), x => runWeb(x, u, sesion));
+  let u: URL; try { u = new URL(destino.href, location.href); } catch { return; }
+  elegir(webOptions(u), copyText(u.href), x => runWeb(x, u, sesion));
+}
+
+/** A click on a link of a reply opens it its first way; a right click (`menu`) shows them all. True if it was one of those links */
+export function linkClick(e: MouseEvent, menu = false): boolean {
+  const a = (e.target as HTMLElement).closest?.('a[data-local], a[data-enlace]') as HTMLAnchorElement | null;
+  if (!a || (!menu && e.button !== 0)) return false;
+  e.preventDefault(); e.stopPropagation();
+  const sesion = sessionOfLink(a), ruta = a.getAttribute('data-local');
+  // a thumbnail is the picture itself: it opens it in the game directly
+  if (ruta && !menu && a.classList.contains('miniatura')) runFile('juego', ruta, sesion);
+  else followLink(ruta ? { ruta } : { href: a.href }, { x: e.clientX, y: e.clientY, menu, sesion, anchor: a });
   return true;
 }
 
