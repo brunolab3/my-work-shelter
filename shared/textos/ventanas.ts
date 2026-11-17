@@ -182,6 +182,7 @@ export const WINDOWS: Record<string, Texto> = {
   'windows.starting2': { es: 'Arrancando…', en: 'Starting…' },
   'windows.youHaveUnsentTextIn': { es: 'Tienes algo escrito sin enviar en {n} pestañas', en: 'You have unsent text in {n} tabs' },
   'windows.youHaveUnsentTextIn2': { es: 'Tienes algo escrito sin enviar en una pestaña', en: 'You have unsent text in one tab' },
+  'windows.epicOf': { es: 'Épica {clave}: {titulo}', en: 'Epic {clave}: {titulo}' },
   'windows.unsentDraft': { es: 'Algo escrito sin enviar', en: 'Unsent text' },
   'windows.othersWithDraft': { es: 'Otros de la sala con algo escrito sin enviar: {n}', en: 'Others in the room with unsent text: {n}' },
   'windows.unsentDraftWith': { es: 'Algo escrito sin enviar: {quien}', en: 'Unsent text: {quien}' },

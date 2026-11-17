@@ -880,8 +880,7 @@ async function accion(nombre: string, d: Record<string, any> = {}): Promise<unkn
         // Logística reparte los colores de las tareas: al leer el tablero de Jira, cada tarea recibe el suyo (o conserva
         // el que tenía) y viaja con ella; los demás tableros, las pantallas y los hologramas usan ese mismo
         if (nombre === 'integracion.panel' && d.fuente === 'jira' && Array.isArray(r?.tareas)) {
-          const colores = coloresTareas.colores(r.tareas.map((t: any) => t.clave));
-          return { ...r, tareas: r.tareas.map((t: any) => ({ ...t, color: colores[String(t.clave).toUpperCase()] })) };
+          return { ...r, tareas: coloresTareas.paint(r.tareas) };
         }
         return r;
       }

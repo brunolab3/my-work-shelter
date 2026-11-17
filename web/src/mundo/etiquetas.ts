@@ -23,7 +23,7 @@ const GLYPH: Record<string, string> = { durmiendo: 'z', ocioso: '·', pensando: 
 
 export class TagsLayer {
   raiz: HTMLDivElement;
-  private mapa = new Map<Habitante | object, { el: HTMLDivElement; nombre: HTMLSpanElement; detalle: HTMLSpanElement; glifo: HTMLSpanElement; prompt: HTMLSpanElement; programado: HTMLSpanElement; clave: string }>();
+  private mapa = new Map<Habitante | object, { el: HTMLDivElement; nombre: HTMLSpanElement; detalle: HTMLSpanElement; glifo: HTMLSpanElement; prompt: HTMLSpanElement; programado: HTMLSpanElement; epica: HTMLSpanElement; clave: string }>();
   constructor() {
     this.raiz = document.createElement('div'); this.raiz.id = 'etiquetas';
     document.body.appendChild(this.raiz);
@@ -34,17 +34,18 @@ export class TagsLayer {
     const nombre = document.createElement('span'); const detalle = document.createElement('span'); detalle.className = 'detalle';
     const prompt = document.createElement('span'); prompt.className = 'prompt';
     const programado = document.createElement('span'); programado.className = 'programado';
-    el.append(glifo, nombre, programado, detalle, prompt); this.raiz.appendChild(el);
-    const e = { el, nombre, detalle, glifo, prompt, programado, clave: '' }; this.mapa.set(k, e); return e;
+    const epica = document.createElement('span'); epica.className = 'marca-epica';
+    el.append(glifo, epica, nombre, programado, detalle, prompt); this.raiz.appendChild(el);
+    const e = { el, nombre, detalle, glifo, prompt, programado, epica, clave: '' }; this.mapa.set(k, e); return e;
   }
-  actualizar(cam: THREE.PerspectiveCamera, items: { k: object; pos: THREE.Vector3; alto: number; nombre: string; estado: string; detalle: string; cerca: boolean; supervisor?: boolean; aparato?: boolean; prompt?: string; tecla?: string; lejos?: boolean; apuntado?: boolean; color?: string; programado?: string }[]) {
+  actualizar(cam: THREE.PerspectiveCamera, items: { k: object; pos: THREE.Vector3; alto: number; nombre: string; estado: string; detalle: string; cerca: boolean; supervisor?: boolean; aparato?: boolean; prompt?: string; tecla?: string; lejos?: boolean; apuntado?: boolean; color?: string; epica?: { color: string; titulo: string }; programado?: string }[]) {
     const w = innerWidth, h = innerHeight; const v = new THREE.Vector3();
     const seen = new Set<object>();
     const puestas: { x0: number; x1: number; y0: number; y1: number }[] = [];
     for (const it of items) {
       seen.add(it.k);
       const e = this.mapa.get(it.k) ?? this.crear(it.k);
-      const clave = (it.color ?? '') + '|' + it.estado + '|' + it.nombre + '|' + it.detalle + '|' + it.cerca + '|' + it.prompt + '|' + it.tecla + '|' + it.lejos + '|' + it.apuntado + '|' + (it.programado ?? '');
+      const clave = (it.color ?? '') + '|' + it.estado + '|' + it.nombre + '|' + it.detalle + '|' + it.cerca + '|' + it.prompt + '|' + it.tecla + '|' + it.lejos + '|' + it.apuntado + '|' + (it.programado ?? '') + '|' + (it.epica ? it.epica.color + it.epica.titulo : '');
       if (clave !== e.clave) {
         e.clave = clave;
         e.el.className = 'etiqueta ' + it.estado + (it.supervisor ? ' supervisor' : '') + (it.aparato ? ' de-aparato' : '') + (it.cerca ? ' cerca' : '') + (it.lejos && !it.apuntado ? ' solo-glifo' : '');
@@ -53,6 +54,8 @@ export class TagsLayer {
         e.el.style.setProperty('--tarea', it.color ?? 'transparent'); e.el.classList.toggle('con-tarea', !!it.color);   // la copia de una tarea, con su color
         e.nombre.textContent = it.nombre; e.detalle.textContent = it.detalle; e.detalle.style.display = it.detalle ? '' : 'none';
         e.programado.textContent = it.programado ?? ''; e.programado.style.display = it.programado ? '' : 'none';
+        // the copy's task belongs to an epic: a small diamond in the epic's color (shared with the tabs and boards)
+        e.epica.style.display = it.epica ? '' : 'none'; e.epica.style.setProperty('--epica', it.epica?.color ?? 'transparent'); e.epica.title = it.epica?.titulo ?? '';
       }
       v.copy(it.pos); v.y += it.alto + 0.25; v.project(cam);
       if (v.z > 1) { if (e.el.style.display !== 'none') e.el.style.display = 'none'; continue; }

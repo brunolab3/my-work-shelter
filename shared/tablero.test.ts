@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clavesJira, cruzarTablero, jiraTransitions, transitionsTo, isColumn, textoPR, textoDeADF, promptPlanificar, type PRBoard, type TaskJira } from './tablero';
+import { byEpic, clavesJira, cruzarTablero, jiraTransitions, transitionsTo, isColumn, textoPR, textoDeADF, promptPlanificar, type PRBoard, type TaskJira } from './tablero';
 
 const tarea = (clave: string, categoria: TaskJira['categoria'], estado = 'En curso'): TaskJira => ({ clave, titulo: 't ' + clave, url: 'https://jira.example/browse/' + clave, estado, categoria, actualizada: Date.now() });
 const pr = (numero: number, rama: string, titulo = 'PR', estado: PRBoard['estado'] = 'abierto', extra: Partial<PRBoard> = {}): PRBoard =>
@@ -33,6 +33,17 @@ describe('cruzarTablero', () => {
     ]);
     expect(r.prs.find(p => p.numero === 12)!.tareas.map(t => t.estado)).toEqual(['Hecho']);
     expect(r.withoutTask.map(p => [p.numero, p.claves])).toEqual([[13, []], [14, ['ZZZ-9']]]);
+  });
+});
+
+describe('tasks grouped by epic', () => {
+  const de = (clave: string, epica?: string) => ({ ...tarea(clave, 'indeterminate'), ...(epica ? { epica: { clave: epica, titulo: 'e ' + epica } } : {}) });
+  it('epics in the order of their first task, tasks without one last, the rest keeps its order', () => {
+    expect(byEpic([de('A-1'), de('A-2', 'E-2'), de('A-3', 'E-1'), de('A-4', 'E-2'), de('A-5')]).map(t => t.clave)).toEqual(['A-2', 'A-4', 'A-3', 'A-1', 'A-5']);
+  });
+  it('each column of the board comes grouped', () => {
+    const r = cruzarTablero([de('A-1'), de('A-2', 'E-1'), de('A-3'), de('A-4', 'E-1')], []);
+    expect(r.columnas.find(c => c.id === 'enCurso')!.tareas.map(t => t.clave)).toEqual(['A-2', 'A-4', 'A-1', 'A-3']);
   });
 });
 

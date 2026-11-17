@@ -7,6 +7,7 @@ import { cruzarTablero, textoPR, type PRWithTask, type PRBoard, type TaskJira } 
 import { hace } from './comun';
 import { taskColor, pRTask } from '@shared/tareas';
 import { aimColors, knowTasks, useColorsTasks } from '../tareas';
+import { TaskMark } from '../ventanas';
 import { openLink, openPRsGitHub } from '../Navegadores';
 import { t } from '@shared/idioma';
 
@@ -81,7 +82,7 @@ function List({ titulo, lista, vacio }: { titulo: string; lista: PRWithTask[]; v
           const bien = p.estado === 'abierto' && p.revision === 'APPROVED' && p.checks !== 'FAILURE' && p.checks !== 'ERROR';
           return (
             <li key={p.url} onClick={() => openLink(p.url)} title={p.url}>
-              <span className="marca-tarea" style={{ '--tarea': taskColor(pRTask(p)) } as React.CSSProperties} title={pRTask(p)} /><span className="gg-pr-texto"><span className="gg-pr-titulo">{p.titulo}</span><span className="gg-pr-repo">{p.repo}#{p.numero}{p.base && p.base !== 'main' && p.base !== 'master' ? <> · {t('windows.intoBase', { base: p.base })}</> : null}</span></span>
+              <TaskMark clave={pRTask(p)} /><span className="gg-pr-texto"><span className="gg-pr-titulo">{p.titulo}</span><span className="gg-pr-repo">{p.repo}#{p.numero}{p.base && p.base !== 'main' && p.base !== 'master' ? <> · {t('windows.intoBase', { base: p.base })}</> : null}</span></span>
               {p.tareas.map(t => <button key={t.clave} className="gg-pr-tarea" style={{ color: taskColor(t.clave), borderColor: taskColor(t.clave) + '88' }} onClick={e => { e.stopPropagation(); openLink(t.url); }} title={`${t.titulo} · ${t.estado}`}>{t.clave}</button>)}
               <span className={'gg-pr-estado ' + (mal ? 'mal' : bien ? 'ok' : ESTADO[p.estado])}>{textoPR(p)}</span>
               <span className="gg-pr-cuando tenue">{hace(p.actualizado)}</span>

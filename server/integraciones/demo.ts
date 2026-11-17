@@ -133,17 +133,18 @@ export function demoBoardLinear() {
 // que llevan las ramas de los PR de demoPRsTablero() en server/git.ts, para que el cruce se vea.
 export function demoPanelJira() {
   const ahora = Date.now();
-  const t = (n: number, titulo: string, estado: string, categoria: 'new' | 'indeterminate' | 'done', tipo: string, prioridad: string, hours: number) =>
-    ({ clave: `REF-${n}`, titulo, url: 'https://jira.example/browse/REF-' + n, estado, categoria, tipo, prioridad, proyecto: 'Refugio', actualizada: ahora - hours * H });
+  const red = { clave: 'REF-200', titulo: 'Red fiable' }, rutas = { clave: 'REF-210', titulo: 'Router nuevo' };
+  const t = (n: number, titulo: string, estado: string, categoria: 'new' | 'indeterminate' | 'done', tipo: string, prioridad: string, hours: number, epica?: { clave: string; titulo: string }) =>
+    ({ clave: `REF-${n}`, titulo, url: 'https://jira.example/browse/REF-' + n, estado, categoria, tipo, prioridad, proyecto: 'Refugio', actualizada: ahora - hours * H, ...(epica ? { epica } : {}) });
   return {
     yo: 'Supervisor (demo)', cuando: ahora, demo: true,
     tareas: [
-      t(212, 'Rutas con barra final duplicada', 'En curso', 'indeterminate', 'Error', 'High', 2),
+      t(212, 'Rutas con barra final duplicada', 'En curso', 'indeterminate', 'Error', 'High', 2, rutas),
       t(240, 'Buscar dentro de archivos comprimidos', 'En revisión', 'indeterminate', 'Historia', 'High', 5),
-      t(236, 'Sesiones con conexiones persistentes', 'En revisión', 'indeterminate', 'Historia', 'Medium', 20),
-      t(231, 'Reintentos con espera exponencial', 'Por hacer', 'new', 'Tarea', 'Medium', 30),
+      t(236, 'Sesiones con conexiones persistentes', 'En revisión', 'indeterminate', 'Historia', 'Medium', 20, red),
+      t(231, 'Reintentos con espera exponencial', 'Por hacer', 'new', 'Tarea', 'Medium', 30, red),
       t(244, 'Sección nueva: herramientas de terminal', 'Por hacer', 'new', 'Tarea', 'Low', 48),
-      t(219, 'Migrar rutas al nuevo router', 'Hecho', 'done', 'Historia', 'Medium', 26),
+      t(219, 'Migrar rutas al nuevo router', 'Hecho', 'done', 'Historia', 'Medium', 26, rutas),
     ],
   };
 }

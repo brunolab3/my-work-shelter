@@ -14,7 +14,7 @@ import { crear as createGoogle } from './google.ts';
 import { crear as createGitHub } from './github.ts';
 import { crear as createSlack } from './slack.ts';
 import { crear as createDiscord } from './discord.ts';
-import { crear as createJira, JQL_MY_TASKS } from './jira.ts';
+import { crear as createJira, JQL_MY_TASKS, epicOf, jiraTasks } from './jira.ts';
 import { crear as createMail } from './mail.ts';
 import { crear as createCalendar } from './calendario.ts';
 
@@ -312,6 +312,25 @@ describe('Discord (Gateway simulado en 127.0.0.1)', () => {
     expect(d.estado().detalle).toMatch(/token del bot no es válido/);
     d.parar!();
     await new Promise(r => wss.close(r));
+  });
+});
+
+describe('Jira epics', () => {
+  const parent = (key: string, issuetype: Record<string, unknown>) => ({ key, fields: { summary: 'Sum ' + key, issuetype } });
+  it('the parent is the epic only when it is one (type Epic in any language via hierarchy level 1)', () => {
+    expect(epicOf(parent('tal-1', { name: 'Epic', hierarchyLevel: 1 }))).toEqual({ clave: 'TAL-1', titulo: 'Sum tal-1' });
+    expect(epicOf(parent('TAL-2', { name: 'Épica', hierarchyLevel: 1 }))).toEqual({ clave: 'TAL-2', titulo: 'Sum TAL-2' });
+    expect(epicOf(parent('TAL-3', { name: 'epic' }))).toEqual({ clave: 'TAL-3', titulo: 'Sum TAL-3' });
+    expect(epicOf(parent('TAL-4', { name: 'Story', hierarchyLevel: 0 }))).toBeUndefined();   // a subtask's parent
+    expect(epicOf(parent('TAL-5', { name: 'Initiative', hierarchyLevel: 2 }))).toBeUndefined();
+    expect(epicOf(undefined)).toBeUndefined();
+  });
+  it('tasks carry their epic, and nothing without one', () => {
+    const issue = (key: string, p?: unknown) => ({ key, fields: { summary: key, status: { name: 'To Do', statusCategory: { key: 'new' } }, updated: '2026-11-08T10:00:00.000+0100', ...(p ? { parent: p } : {}) } });
+    const [a, b, c] = jiraTasks({ issues: [issue('TAL-7', parent('TAL-1', { name: 'Epic', hierarchyLevel: 1 })), issue('TAL-8'), issue('TAL-9', parent('TAL-7', { name: 'Task', hierarchyLevel: 0 }))] }, 'taller.atlassian.net');
+    expect(a.epica).toEqual({ clave: 'TAL-1', titulo: 'Sum TAL-1' });
+    expect('epica' in b).toBe(false);
+    expect('epica' in c).toBe(false);
   });
 });
 

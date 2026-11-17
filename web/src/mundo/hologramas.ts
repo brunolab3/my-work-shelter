@@ -23,7 +23,7 @@ import { SHOP } from '@shared/catalogo';
 import { t, tIs } from '@shared/idioma';
 import type { InfoWorktree, SessionSummary } from '@shared/protocolo';
 import { taskColor, hasTaskColor, worktreeTask, NO_TASK_COLOR } from '@shared/tareas';
-import { jiraBoard, knowTasks, versionColors } from '../ui/tareas';
+import { jiraBoard, knowTasks, taskEpic, versionColors } from '../ui/tareas';
 import type { DwellerState, DwellerSummary } from '../ui/estadoJuego';
 import { idCopy, branchCaption, copyCaption, pathWorktree } from '../ui/copias';
 import { holoSlot } from './sitioCopia';
@@ -81,6 +81,8 @@ export interface Uniforms { uColor: { value: THREE.Color }; uTiempo: typeof tiem
 /** A hologram's uniforms: its time is the shared clock `Holograms.actualizar` ticks. */
 export const holoUniforms = (color: THREE.Color): Uniforms => ({ uColor: { value: color.clone() }, uTiempo: tiempo, uOpacity: { value: 1 }, uCut: { value: 1e4 }, uGlitch: { value: 0 }, uSemilla: { value: Math.random() } });
 /** A task's hologram color: its task color or, without one, the stock cyan. */
+// the epic mark on a copy's tag: its color and its tooltip
+const epicTag = (tarea: string | undefined) => { const e = taskEpic(tarea); return e ? { color: taskColor(e.clave), titulo: t('windows.epicOf', { clave: e.clave, titulo: e.titulo }) } : undefined; };
 export const holoTone = (tarea: string | undefined) => hasTaskColor(tarea) ? new THREE.Color(taskColor(tarea)) : COLOR;
 
 /** Turns `o` (a character, a prop) into light with these uniforms; props coupled later need their own call. */
@@ -540,7 +542,7 @@ export class Holograms {
       const detalle = !cerca ? '' : f.estado === 'ocioso' ? git : f.detalle.slice(0, 48);
       const autor = this.r.habitantes.find(h => h.id.id === f.authorId);
       const programado = scheduledMark(f.sala.id, f.ruta);
-      return { k: f, programado, pos: f.p.headPoint(), alto: 0.2, nombre: `${autor?.id.nombre ?? t('world.copy')} ◇ ${copyCaption(f.w, f.tarea ?? branchCaption(f.w.rama))}`, color: hasTaskColor(f.tarea) ? taskColor(f.tarea) : undefined, estado: f.estado, detalle, cerca: elegida, lejos, prompt: elegida ? t('world.talk') : '', tecla: f === selected ? 'E' : t('world.click'), apuntado: f === aimed && f !== selected, relevant: cerca || elegida || f.estado !== 'ocioso' || !!programado };
+      return { k: f, programado, pos: f.p.headPoint(), alto: 0.2, nombre: `${autor?.id.nombre ?? t('world.copy')} ◇ ${copyCaption(f.w, f.tarea ?? branchCaption(f.w.rama))}`, color: hasTaskColor(f.tarea) ? taskColor(f.tarea) : undefined, epica: epicTag(f.tarea), estado: f.estado, detalle, cerca: elegida, lejos, prompt: elegida ? t('world.talk') : '', tecla: f === selected ? 'E' : t('world.click'), apuntado: f === aimed && f !== selected, relevant: cerca || elegida || f.estado !== 'ocioso' || !!programado };
     }).filter(x => x.relevant);
   }
 }

@@ -16,4 +16,16 @@ describe('colores de las tareas guardados', () => {
     // slug keys take no color, so they don't use up the palette
     expect(c.colores(['preflight-popover', 'XYZ-2'], t0 + 21 * 86_400_000)).toEqual({ 'XYZ-2': TASKS_PALETTE[1] });
   });
+  it('epics take their own saved color from the same palette, and tasks without one get none', () => {
+    const dir = mkdtempSync(path.join(tmpdir(), 'colores-'));
+    const c = new TasksColors(dir), t0 = Date.now();
+    const epica = { clave: 'tal-1', titulo: 'Red fiable' };
+    const r = c.paint([{ clave: 'TAL-7', epica }, { clave: 'TAL-8', epica }, { clave: 'TAL-9' }], t0);
+    expect(r).toEqual([
+      { clave: 'TAL-7', color: TASKS_PALETTE[1], epica: { ...epica, color: TASKS_PALETTE[0] } },
+      { clave: 'TAL-8', color: TASKS_PALETTE[2], epica: { ...epica, color: TASKS_PALETTE[0] } },
+      { clave: 'TAL-9', color: TASKS_PALETTE[3] },
+    ]);
+    expect(new TasksColors(dir).colores(['TAL-1'], t0)).toEqual({ 'TAL-1': TASKS_PALETTE[0] });
+  });
 });

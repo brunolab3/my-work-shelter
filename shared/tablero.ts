@@ -10,7 +10,10 @@ export interface TaskJira {
   estado: string; categoria: Category;     // el nombre del estado en Jira y su categoría (Por hacer / En curso / Hecho)
   tipo?: string; prioridad?: string; proyecto?: string; actualizada: number;
   color?: string;                           // el de la tarea, que reparte Logística (shared/tareas.ts)
+  epica?: Epic;                             // its Jira epic (the parent, when it is one)
 }
+/** A task's epic: its key and summary, and its own color from the tasks' palette (assigned with them) */
+export interface Epic { clave: string; titulo: string; color?: string }
 export type StatePR = 'abierto' | 'borrador' | 'fusionado' | 'cerrado';
 export interface PRBoard {
   numero: number; titulo: string; url: string; repo: string; rama: string; estado: StatePR;
@@ -78,6 +81,14 @@ export function transitionsTo(trs: JiraTransition[], columna: BoardColumn, actua
 
 // «Hecho» solo enseña lo que se movió en la última semana (Jira trae dos, server/integraciones/jira.ts)
 export const DONE_DAYS = 7;
+// Within a column, tasks of the same epic go together: epics in the order their first task comes, tasks without one last
+export function byEpic<T extends { epica?: Epic }>(tareas: T[]): T[] {
+  const orden = new Map<string, number>();
+  for (const t of tareas) if (t.epica && !orden.has(t.epica.clave)) orden.set(t.epica.clave, orden.size);
+  const pos = (t: T) => t.epica ? orden.get(t.epica.clave)! : orden.size;
+  return tareas.map((t, i) => ({ t, i })).sort((a, b) => pos(a.t) - pos(b.t) || a.i - b.i).map(x => x.t);
+}
+
 export function cruzarTablero(tareas: TaskJira[], prs: PRBoard[], ahora = Date.now()) {
   const proyectos = new Set(tareas.map(t => t.clave.split('-')[0]));
   const withKeys: PRWithTask[] = prs.map(p => {
@@ -86,7 +97,7 @@ export function cruzarTablero(tareas: TaskJira[], prs: PRBoard[], ahora = Date.n
   });
   const withPR: TaskWithPR[] = tareas.map(t => ({ ...t, prs: withKeys.filter(p => p.claves.includes(t.clave)) }));
   return {
-    columnas: COLUMNS.map(c => ({ ...c, tareas: withPR.filter(t => columnOf(t) === c.id && (c.id !== 'hecho' || ahora - t.actualizada <= DONE_DAYS * 864e5)) })),
+    columnas: COLUMNS.map(c => ({ ...c, tareas: byEpic(withPR.filter(t => columnOf(t) === c.id && (c.id !== 'hecho' || ahora - t.actualizada <= DONE_DAYS * 864e5))) })),
     prs: withKeys,
     withoutTask: withKeys.filter(p => !p.tareas.length),
   };

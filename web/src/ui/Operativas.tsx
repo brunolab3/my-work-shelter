@@ -18,6 +18,7 @@ import { taskHasPRs } from '@shared/preflight';
 import { taskColor, pRTask } from '@shared/tareas';
 import { aimColors, knowTasks, useColorsTasks, jiraBoard } from './tareas';
 import { cruzarTablero, columnOf, COLUMN_COLORS, COLUMNS, textoPR, promptPlanificar, type BoardColumn, type JiraTransition, type PRBoard, type TaskWithPR, type TaskJira } from '@shared/tablero';
+import { EpicMark } from './ventanas';
 
 const SOURCES: Record<string, string> = Object.fromEntries(IDS_SOURCES.map(f => [f, INFO_SOURCE[f].corto]));
 const LOC = idioma() === 'en' ? 'en-GB' : 'es-ES';
@@ -330,16 +331,19 @@ export function BoardJira({ volver, coordinacion }: { volver: () => void; coordi
             onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setSobre(x => (x === c.id ? null : x)); }}
             onDrop={e => { e.preventDefault(); const ta = arrastrada; setArrastrada(null); setSobre(null); proponer(ta ?? undefined, c.id); }}>
             <h3>{tIs(c.nombre)} <span className="tenue">{c.tareas.length}</span></h3>
-            {c.tareas.map((ta, k) => (
-              <div key={ta.clave} className={'ficha-issue' + (c.id !== 'hecho' ? ' con-tarea' : '') + (ci === col && k === Math.min(i, c.tareas.length - 1) ? ' sel' : '') + (arrastrada?.clave === ta.clave ? ' arrastrada' : '')} style={c.id !== 'hecho' ? { '--tarea': taskColor(ta.clave) } as React.CSSProperties : undefined} onMouseEnter={() => { if (!arrastrada) { setCol(ci); setI(k); } }} onDoubleClick={() => openOutside(ta.url)}
+            {c.tareas.map((ta, k) => (<React.Fragment key={ta.clave}>
+              {ta.epica?.clave !== c.tareas[k - 1]?.epica?.clave && (ta.epica
+                ? <div className="kanban-epica" title={t('windows.epicOf', { clave: ta.epica.clave, titulo: ta.epica.titulo })}><EpicMark clave={ta.clave} /><span className="ident">{ta.epica.clave}</span> {ta.epica.titulo}</div>
+                : <div className="kanban-epica tenue">{t('panels.noEpic')}</div>)}
+              <div className={'ficha-issue' + (c.id !== 'hecho' ? ' con-tarea' : '') + (ci === col && k === Math.min(i, c.tareas.length - 1) ? ' sel' : '') + (arrastrada?.clave === ta.clave ? ' arrastrada' : '')} style={c.id !== 'hecho' ? { '--tarea': taskColor(ta.clave) } as React.CSSProperties : undefined} onMouseEnter={() => { if (!arrastrada) { setCol(ci); setI(k); } }} onDoubleClick={() => openOutside(ta.url)}
                 draggable={!mover} onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', ta.clave); setArrastrada(ta); }} onDragEnd={() => { setArrastrada(null); setSobre(null); }}>
-                {c.id !== 'hecho' && <span className="marca-tarea" />}<span className="ident">{ta.clave}</span> {ta.titulo}
+                {c.id !== 'hecho' && <span className="marca-tarea" />}<EpicMark clave={ta.clave} /><span className="ident">{ta.clave}</span> {ta.titulo}
                 <small className="tenue">{[ta.estado, ta.tipo, ta.prioridad].filter(Boolean).join(' · ')}</small>
                 {ta.prs.length > 0 && <div className="prs-ficha">{ta.prs.map(p => <span key={p.url}>{insigniaPR(p)}</span>)}</div>}
                 {inRunning(sesiones, ta.clave).length > 0 && <small className="tenue">{t('panels.inProgress')} {inRunning(sesiones, ta.clave).map(roomName).join(', ')}</small>}
                 {movidas[ta.clave] && <small className={'movida' + (movidas[ta.clave].mal ? ' mal' : '')}>{movidas[ta.clave].texto}</small>}
               </div>
-            ))}
+            </React.Fragment>))}
             {!c.tareas.length && <p className="tenue">—</p>}
           </div>
         ))}

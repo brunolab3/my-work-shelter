@@ -6,8 +6,8 @@ import { cliente } from '../red/cliente';
 import { SFX } from '../audio/sonido';
 import { t } from '@shared/idioma';
 import { Device, Keys, closePanel, useKeys } from './aparato';
-import { taskColor } from '@shared/tareas';
 import { knowTasks, useColorsTasks } from './tareas';
+import { TaskMark } from './ventanas';
 
 interface Step { tarea: string; prs: string[]; donde: string; crear: boolean; principal: boolean; conversation: boolean }
 interface Row { salaId: string; sala: string; repo?: string; pasos: Step[]; hecho?: string[] }
@@ -43,7 +43,7 @@ export function OrganizeRooms({ salaId, volver = closePanel }: { salaId?: string
             <ul>
               {s.pasos.map(p => (
                 <li key={p.tarea}>
-                  <span className="marca-tarea" style={{ '--tarea': taskColor(p.tarea.replace(/^PR #/, 'PR-')) } as React.CSSProperties} /><b className="ident">{p.tarea}</b> <span className="tenue">→ {p.principal ? t('panels.theMainCopyItsBranch') : p.crear ? t('panels.newWorktreeDonde', { donde: p.donde }) : t('panels.itsWorktreeDonde', { donde: p.donde })} · {p.conversation ? t('panels.alreadyHasAConversation') : t('panels.newConversation')}</span>
+                  <TaskMark clave={p.tarea.replace(/^PR #/, 'PR-')} /><b className="ident">{p.tarea}</b> <span className="tenue">→ {p.principal ? t('panels.theMainCopyItsBranch') : p.crear ? t('panels.newWorktreeDonde', { donde: p.donde }) : t('panels.itsWorktreeDonde', { donde: p.donde })} · {p.conversation ? t('panels.alreadyHasAConversation') : t('panels.newConversation')}</span>
                   <small className="tenue">{p.prs.join(' → ')}</small>
                 </li>
               ))}

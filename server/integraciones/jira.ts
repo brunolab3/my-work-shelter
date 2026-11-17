@@ -3,7 +3,7 @@
 // only one Jira's workflow offers for that issue. No notices: polling only checks the connection and counts what's open.
 import type { Store } from '../estado.ts';
 import { ConnectorBase, ConfigSource, ErrorSource, ask, retraso, type Field } from './comun.ts';
-import { textoDeADF, jiraTransitions, transitionsTo, isColumn, type BoardColumn, type Category, type TaskJira } from '../../shared/tablero.ts';
+import { textoDeADF, jiraTransitions, transitionsTo, isColumn, type BoardColumn, type Category, type Epic, type TaskJira } from '../../shared/tablero.ts';
 import { t } from '../../shared/idioma.ts';
 
 export const FIELDS_JIRA: Field[] = [
@@ -14,13 +14,20 @@ export const FIELDS_JIRA: Field[] = [
 
 // Lo asignado a mí que sigue abierto, y lo cerrado en las dos últimas semanas (para ver qué PR se fusionaron)
 export const JQL_MY_TASKS = 'assignee = currentUser() AND (statusCategory != Done OR updated >= -14d) ORDER BY updated DESC';
-const FIELDS = ['summary', 'status', 'priority', 'issuetype', 'updated', 'project'];
+const FIELDS = ['summary', 'status', 'priority', 'issuetype', 'updated', 'project', 'parent'];
 
 export const spotOf = (s: string) => {
   const limpio = s.trim().replace(/^https?:\/\//i, '').replace(/\/.*$/, '').toLowerCase();
   if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(limpio)) throw new ErrorSource(t('server.theJiraSiteIsNot'));
   return limpio;
 };
+
+/** The task's epic: its parent, only when that is an epic (type Epic or hierarchy level 1; a subtask's parent is a task) */
+export function epicOf(parent: any): Epic | undefined {
+  const tipo = parent?.fields?.issuetype;
+  if (!parent?.key || !(tipo?.hierarchyLevel === 1 || /^epic$/i.test(tipo?.name ?? ''))) return undefined;
+  return { clave: String(parent.key).toUpperCase(), titulo: parent.fields?.summary ?? '' };
+}
 
 export function jiraTasks(j: any, sitio: string): TaskJira[] {
   return (j?.issues ?? []).filter((x: any) => x?.key && x.fields).map((x: any): TaskJira => {
@@ -29,6 +36,7 @@ export function jiraTasks(j: any, sitio: string): TaskJira[] {
       clave: x.key, titulo: f.summary ?? '', url: `https://${sitio}/browse/${x.key}`,
       estado: f.status?.name ?? '?', categoria: (['new', 'indeterminate', 'done'].includes(cat) ? cat : 'indeterminate') as Category,
       tipo: f.issuetype?.name, prioridad: f.priority?.name, proyecto: f.project?.name, actualizada: Date.parse(f.updated) || 0,
+      ...(epicOf(f.parent) ? { epica: epicOf(f.parent) } : {}),
     };
   });
 }

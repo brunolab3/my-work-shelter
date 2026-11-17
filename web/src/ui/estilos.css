@@ -1215,6 +1215,11 @@ html.en-segundo-plano *, html.en-segundo-plano *::before, html.en-segundo-plano 
 .etiqueta.con-tarea { box-shadow: inset 4px 0 0 var(--tarea); }
 .marca-tarea { display: inline-block; width: .7em; height: .7em; border-radius: 2px; margin-right: .35em; vertical-align: baseline; background: var(--tarea); box-shadow: 0 0 6px var(--tarea); }
 .ficha-issue.con-tarea, .ficha-pr.con-tarea { border-left-color: var(--tarea); }
+/* a task's epic (EpicMark in ventanas.tsx, the copies' tags): a small diamond in the epic's color with a dark rim and no glow,
+   so it reads at small sizes and is never taken for a round state light */
+.marca-epica { display: inline-block; flex: none; width: .5em; height: .5em; margin: 0 .4em 0 .1em; vertical-align: .08em; transform: rotate(45deg); background: var(--epica); box-shadow: 0 0 0 1px rgba(0,0,0,.75); }
+.kanban-epica { display: flex; align-items: baseline; gap: .45em; margin: .6em 0 .25em; padding-bottom: .15em; font-size: .85em; border-bottom: 1px solid rgba(157,255,184,.14); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kanban-epica:first-of-type { margin-top: .2em; }
 .ficha-pr.con-tarea.bloqueada { border-left-color: var(--rojo); box-shadow: inset 6px 0 0 -3px var(--tarea); }
 
 /* tablero de despliegue: los PR de una misma tarea, juntos en un bloque con el color de la tarea */

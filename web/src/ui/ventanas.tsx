@@ -9,7 +9,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { t } from '@shared/idioma';
 import { taskColor } from '@shared/tareas';
-import { knowTasks, useColorsTasks } from './tareas';
+import { knowTasks, taskEpic, useColorsTasks } from './tareas';
 import { type TabState } from './ordenPestanas';
 export { nthTab, nextTab, type TabState } from './ordenPestanas';
 
@@ -71,6 +71,15 @@ export const PILOT: Record<TabState, string> = { esperando: 'esperando', sinLeer
 export const stateLabel = (e: TabState) => ({ esperando: t('windows.waitingForYou'), sinLeer: t('windows.tabUnread'), error: t('windows.fault'), trabajando: t('windows.working'), ociosa: t('windows.tabIdle') })[e];
 const LIST_SHORTCUT = `${CMD}${MAC ? '⇧' : ''}A`;
 /** ✎ on a tab, a list row or a talker with something typed and not sent: quieter than the state flags */
+/** A task's epic, beside its color marker: a small diamond in the epic's color (not round, so it's never taken for a state
+ *  light); nothing for tasks without one. Repaints with useColorsTasks */
+export function EpicMark({ clave }: { clave?: string }) {
+  const e = taskEpic(clave);
+  return e ? <span className="marca-epica" style={{ '--epica': taskColor(e.clave) } as React.CSSProperties} title={t('windows.epicOf', { clave: e.clave, titulo: e.titulo })} /> : null;
+}
+/** A task's color marker and, if it has one, its epic's */
+export const TaskMark = ({ clave, color }: { clave?: string; color?: string }) => <><span className="marca-tarea" style={{ '--tarea': color ?? taskColor(clave) } as React.CSSProperties} title={clave} /><EpicMark clave={clave} /></>;
+
 export const DraftMark = () => <span className="marca-borrador" title={t('windows.unsentDraft')}>✎</span>;
 
 // grupo: with «group by room», tabs of a group sit together under its header; quien: whose it is (another window);
@@ -101,6 +110,7 @@ export function Tabs({ items, activa, activar, cerrar, nueva, opensThat, lista, 
             title={[p.titulo || p.nombre, p.estado && stateLabel(p.estado), p.borrador && t('windows.unsentDraft'), p.quien, p.tarea, i < 9 ? `${CMD}${i + 1}` : ''].filter(Boolean).join(' · ')}>
             <span className={'piloto ' + PILOT[p.estado ?? 'ociosa']} />
             {p.borrador && <DraftMark />}
+            <EpicMark clave={p.tarea} />
             <span className="vt-pestana-nombre">{p.nombre}</span>
             <button className="vt-pestana-x" onClick={e => { e.stopPropagation(); cerrar([p.id]); }} title={t('windows.closeTabAtajo', { shortcut: `${CMD}W` })}>×</button>
           </div>
@@ -157,7 +167,7 @@ export function TabList({ items, activa, activar, cerrar, salir, agrupar, cabece
             <span className={'piloto ' + (p.estado ? PILOT[p.estado] : p.fija ? 'apagado' : PILOT.ociosa)} />
             <span className="vt-lista-estado">{p.estado ? stateLabel(p.estado) : ''}</span>
             <span className="vt-lista-nombre">{p.borrador && <DraftMark />}{p.nombre}</span>
-            <span className="vt-lista-tarea">{p.tarea && <><span className="marca-tarea" style={{ '--tarea': taskColor(p.tarea) } as React.CSSProperties} />{p.tarea}</>}</span>
+            <span className="vt-lista-tarea">{p.tarea && <><TaskMark clave={p.tarea} />{p.tarea}</>}</span>
             <span className="vt-lista-sala">{p.quien ?? p.sala}</span>
             <span className="vt-lista-cuando">{p.actividad}</span>
             {p.fija ? <span /> : <button className="vt-pestana-x" onClick={e => { e.stopPropagation(); cerrar([p.id]); }} title={t('windows.closeTabAtajo', { shortcut: `${CMD}W` })}>×</button>}

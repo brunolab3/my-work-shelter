@@ -30,4 +30,11 @@ export class TasksColors {
     if (ks.length) this.guardar();
     return Object.fromEntries(ks.map(k => [k, TASKS_PALETTE[this.t[k].i]]));
   }
+  /** Jira tasks with their color, and their epic's: epics take their own from the same palette (first: they are few, and
+   *  the list is capped at 100), so it stays the same and saved like a task's */
+  paint<T extends { clave: string; epica?: { clave: string } }>(tareas: T[], ahora = Date.now()): (T & { color?: string })[] {
+    const colores = this.colores([...tareas.flatMap(t => t.epica ? [t.epica.clave] : []), ...tareas.map(t => t.clave)], ahora);
+    const color = (k: string) => colores[k.toUpperCase()];
+    return tareas.map(t => ({ ...t, color: color(t.clave), ...(t.epica ? { epica: { ...t.epica, color: color(t.epica.clave) } } : {}) }));
+  }
 }
