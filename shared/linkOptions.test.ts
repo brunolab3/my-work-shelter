@@ -1,6 +1,6 @@
-// The ways to open a link of a reply (opcionesEnlace.ts): inside the game first whenever it can be seen there
+// The ways to open a link of a reply (linkOptions.ts): inside the game first whenever it can be seen there
 import { describe, expect, it } from 'vitest';
-import { webLinkOptions, fileLinkOptions, copyText, pageLinkTarget } from './opcionesEnlace.ts';
+import { webLinkOptions, fileLinkOptions, copyText, pageLinkTarget } from './linkOptions.ts';
 
 const acciones = (l: { accion: string }[]) => l.map(o => o.accion);
 

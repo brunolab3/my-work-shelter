@@ -7,7 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { existsSync, appendFileSync, readdirSync, readFileSync } from 'node:fs';
 import { execFile, execFileSync } from 'node:child_process';
-import { t } from '../shared/idioma.ts';
+import { t } from '../shared/language.ts';
 
 export interface ItemDesktop { titulo: string; comando: string }
 export type AppTerminal = 'iTerm' | 'Terminal';

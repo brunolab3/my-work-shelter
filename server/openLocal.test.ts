@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { linkPath } from './abrir.ts';
+import { linkPath } from './open.ts';
 
 describe('enlaces a archivos del Mac en las respuestas', () => {
   it('ruta absoluta, file://, ~ y sin la línea, la consulta ni el ancla', () => {

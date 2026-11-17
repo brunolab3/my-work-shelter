@@ -3,7 +3,7 @@
 // descartar o quitar) y se pueden elegir líneas sueltas: clic en el margen (⇧ clic, un tramo) y la barra de abajo
 // prepara, descarta o quita solo esas.
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { t } from '@shared/idioma';
+import { t } from '@shared/language';
 import { readDiff, assemblePatch, chunksAccepts, inParallel, parejas, changeInLine, type Block, type Linea } from './diff';
 
 export type ModeDiff = 'cambios' | 'preparados' | 'commit';

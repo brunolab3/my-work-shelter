@@ -1,8 +1,8 @@
 // Estudio de fotografía del probador: una escena pequeña con su luz y su cámara donde se monta una figura para verla
 // de cerca (la vista previa, que se mueve) o para sacarle una miniatura (cada pieza puesta sobre quien se está vistiendo).
 import * as THREE from 'three';
-import { Character } from '../personaje';
-import type { Look, Slot } from '@shared/aspecto';
+import { Character } from '../character';
+import type { Look, Slot } from '@shared/appearance';
 
 export type Focus = 'cara' | 'cabeza' | 'torso' | 'piernas' | 'cuerpo' | 'espalda';
 export const FOCUS: Record<Slot | 'colores', Focus> = {

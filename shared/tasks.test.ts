@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { TASKS_PALETTE, NO_TASK_COLOR, hasTaskColor, assignedColors, assignColors, textKey, taskColor, pRTask, worktreeTask, taskCaption, remoteName, worktreePRs, newWorktreeOf, taskWorktreeIn, handMadeWorktree, ghCreateOf, githubRepoOf, ORIGINAL_REPO, taskKey, isJiraKey, slugKeyOf, worktreeHasTask } from './tareas';
+import { TASKS_PALETTE, NO_TASK_COLOR, hasTaskColor, assignedColors, assignColors, textKey, taskColor, pRTask, worktreeTask, taskCaption, remoteName, worktreePRs, newWorktreeOf, taskWorktreeIn, handMadeWorktree, ghCreateOf, githubRepoOf, ORIGINAL_REPO, taskKey, isJiraKey, slugKeyOf, worktreeHasTask } from './tasks';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, realpathSync, writeFileSync } from 'node:fs';
 import os from 'node:os';

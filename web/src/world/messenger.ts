@@ -1,18 +1,18 @@
-// El robot mensajero: cuando la sala de planificación reparte una tarea o cambia su plan (server/reparto.ts), un robot
+// El robot mensajero: cuando la sala de planificación reparte una tarea o cambia su plan (server/dispatch.ts), un robot
 // pequeño sale corriendo con los planos bajo el brazo, baja por el hueco del ascensor y entrega una copia en cada sala
 // afectada; con una propuesta de cambio hace el viaje al revés, y con una revisión nueva de un PR sale de Control de
-// Versiones a la sala que lo trabaja (server/revisionesPR.ts) y se la da en mano al holograma de su worktree (o al
+// Versiones a la sala que lo trabaja (server/prReviews.ts) y se la da en mano al holograma de su worktree (o al
 // habitante, si es la copia principal). Dentro de una misma sala el habitante va hasta el holograma de la tarea y se lo
-// da en mano (send_to_room a la propia sala, server/avisosSalas.ts); if he can't (talking with the Overseer, waiting),
+// da en mano (send_to_room a la propia sala, server/roomNotices.ts); if he can't (talking with the Overseer, waiting),
 // the robot carries it across the room instead. Solo se ve: el mensaje ya ha llegado por el servidor.
 import * as THREE from 'three';
-import type { Refugio } from './refugio';
-import type { Sala } from './salas/comun';
-import type { Copia } from './hologramas';
-import { Character } from './personaje';
-import { R } from '../motor/assets';
-import { cliente } from '../red/cliente';
-import { SFX } from '../audio/sonido';
+import type { Refugio } from './shelter';
+import type { Sala } from './rooms/common';
+import type { Copia } from './holograms';
+import { Character } from './character';
+import { R } from '../engine/assets';
+import { cliente } from '../net/client';
+import { SFX } from '../audio/sound';
 
 interface Trip { p: Character }
 

@@ -2,15 +2,15 @@
 // giratorio frente al espejo y el lavacabezas, el poste de barbero girando y Fito con las tijeras. A la derecha, la
 // ropería: un escaparate de maniquíes vestidos con piezas del probador (cambian de modelito cada poco), la sombrerera con
 // sombreros de verdad del catálogo y la cabina de prueba con su cortina. Sentarse en el sillón abre el probador.
-import { t, tIs } from '@shared/idioma';
+import { t, tIs } from '@shared/language';
 import * as THREE from 'three';
-import { place, R } from '../../motor/assets';
-import { cartel, lienzo, textureOf, PhosphorScreen } from '../../motor/texturas';
-import { signInWall, mancha, caja, materialSteel, workStation, tumbada, aWall, superficie, type Contexto } from './comun';
-import { textureNeon } from './discoteca';
-import { Character } from '../personaje';
-import { PIECES, FABRICS, type Look } from '@shared/aspecto';
-import { trozos } from '../figura/fuentes';
+import { place, R } from '../../engine/assets';
+import { cartel, lienzo, textureOf, PhosphorScreen } from '../../engine/textures';
+import { signInWall, mancha, caja, materialSteel, workStation, tumbada, aWall, superficie, type Contexto } from './common';
+import { textureNeon } from './disco';
+import { Character } from '../character';
+import { PIECES, FABRICS, type Look } from '@shared/appearance';
+import { trozos } from '../figure/sources';
 
 const GREEN = '#5fe0b0';
 

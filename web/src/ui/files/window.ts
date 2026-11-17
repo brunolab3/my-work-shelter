@@ -1,9 +1,9 @@
 // Estado de la ventana de Archivos: una sola, como el cliente de git (centrada; ampliar a toda la pantalla; minimizar a
 // la barra, fila ARCH). Se abre con F en el refugio (en una sala con carpeta, con la suya), desde el panel de la sala o
 // desde el cliente de git, con el repo que se está viendo.
-import { Store } from '../almacen';
-import { SFX } from '../../audio/sonido';
-import { nextZ } from '../ventanas';
+import { Store } from '../store';
+import { SFX } from '../../audio/sound';
+import { nextZ } from '../windows';
 
 export interface FilesWindow { abierta: boolean; minimizada: boolean; maximizada: boolean; z: number; raiz: string | null; abrir: { rel: string; linea?: number } | null }
 export const filesWindow = new Store<FilesWindow>({ abierta: false, minimizada: false, maximizada: false, z: 0, raiz: null, abrir: null });
@@ -22,7 +22,7 @@ export function openFiles(o: { raiz?: string; rel?: string; linea?: number } = {
 export function minimizeFiles() { const v = filesWindow.get(); if (!v.abierta || v.minimizada) return; (document.activeElement as HTMLElement | null)?.blur?.(); filesWindow.set({ minimizada: true }); SFX.cerrar(); }
 export function onFrontFiles() { const v = filesWindow.get(); if (!v.abierta) return openFiles(); if (v.minimizada) SFX.abrir(); filesWindow.set({ minimizada: false, z: nextZ() }); }
 export function toggleMaximizeFiles() { filesWindow.set(v => ({ maximizada: !v.maximizada })); SFX.clic(); }
-// cerrar con archivos sin guardar pregunta: lo decide la ventana (Explorador.tsx), que es quien los conoce
+// cerrar con archivos sin guardar pregunta: lo decide la ventana (Explorer.tsx), que es quien los conoce
 export const askClosing = new Store<{ n: number }>({ n: 0 });
 export function closeFiles() { if (filesWindow.get().abierta) askClosing.set(p => ({ n: p.n + 1 })); }
 export function closeFilesAlready() { (document.activeElement as HTMLElement | null)?.blur?.(); filesWindow.set({ abierta: false, minimizada: false, abrir: null }); SFX.cerrar(); }

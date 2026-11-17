@@ -1,12 +1,12 @@
 // Sala de repositorio «escaparate» (estilo landing): el tótem muestra la landing que se trabaja bajo el tablero de
 // tareas, con focos de exposición, la mascota de la marca y el sofá de «pruebas de usuario».
-import { t, t as tr } from '@shared/idioma';
+import { t, t as tr } from '@shared/language';
 import * as THREE from 'three';
-import { place, R } from '../../motor/assets';
-import { cartel, PhosphorScreen, PanelRoom } from '../../motor/texturas';
-import { lienzo, textureOf, SOURCES } from '../../motor/texturas';
+import { place, R } from '../../engine/assets';
+import { cartel, PhosphorScreen, PanelRoom } from '../../engine/textures';
+import { lienzo, textureOf, SOURCES } from '../../engine/textures';
 import { overlayScreen, screenFrontal } from '../util3d';
-import { signInWall, mancha, highBand, screenReal, workStation, superficie, aWall, type Contexto } from './comun';
+import { signInWall, mancha, highBand, screenReal, workStation, superficie, aWall, type Contexto } from './common';
 
 export async function furnishShowcase(ctx: Contexto) {
   const { g, v, zB, K, P, semilla } = ctx;

@@ -3,11 +3,11 @@
 // sala en su sitio y del color de su estado, el ascensor, la calle y un punto donde está el Supervisor) sobre un
 // proyector en un estrado. A los lados, columnas de código que caen; a la izquierda, el núcleo de energía del refugio
 // (el generador de siempre), y a la derecha, la mesa de planos del Arquitecto con el registro del repo.
-import { t } from '@shared/idioma';
+import { t } from '@shared/language';
 import * as THREE from 'three';
-import { R } from '../../motor/assets';
-import { cartel, PhosphorScreen, PanelRoom, lienzo, textureOf, SOURCES } from '../../motor/texturas';
-import { signInWall, mancha, highBand, monitorWall, mountLiquid, materialSteel, caja, mundo, textureHalo, workStation, screenReal, COLOR_STATE, HEIGHT, type Contexto, type Sala } from './comun';
+import { R } from '../../engine/assets';
+import { cartel, PhosphorScreen, PanelRoom, lienzo, textureOf, SOURCES } from '../../engine/textures';
+import { signInWall, mancha, highBand, monitorWall, mountLiquid, materialSteel, caja, mundo, textureHalo, workStation, screenReal, COLOR_STATE, HEIGHT, type Contexto, type Sala } from './common';
 
 const CYAN = '#6ae4ff';
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { readOutput } from './controlRemoto.ts';
+import { readOutput } from './remoteControl.ts';
 
 describe('Remote Control de la sala', () => {
   it('reconoce que hay que aceptarlo la primera vez', () => {

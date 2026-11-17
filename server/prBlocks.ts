@@ -1,10 +1,10 @@
 // Bloqueos entre PR que marca a mano el Supervisor en el tablero de despliegue de la sala de planificación («este espera
 // a aquel»), para lo que GitHub no sabe (un front que espera a una migración de otro repo). Los demás bloqueos (PR
-// apilados, «depends on #12» en la descripción) salen solos: shared/despliegue.ts.
+// apilados, «depends on #12» en la descripción) salen solos: shared/deploy.ts.
 import { existsSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
 import path from 'node:path';
-import type { BlockerManual } from '../shared/despliegue.ts';
-import { t } from '../shared/idioma.ts';
+import type { BlockerManual } from '../shared/deploy.ts';
+import { t } from '../shared/language.ts';
 
 const MAX = 400;
 // la URL de un PR en GitHub (los de DEMO son github.com/pulls#demo-N)

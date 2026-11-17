@@ -1,5 +1,5 @@
 // Descarga las fuentes OPCIONALES de material (mismo autor y licencia CC0 que el kit), fijadas por commit.
-// Complementa a scripts/descargar-assets.mjs. Idempotente. Uso: node scripts/descargar-extra.mjs [destino=assets]
+// Complementa a scripts/download-assets.mjs. Idempotente. Uso: node scripts/download-extra.mjs [destino=assets]
 import { mkdirSync, existsSync, statSync, writeFileSync, renameSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 

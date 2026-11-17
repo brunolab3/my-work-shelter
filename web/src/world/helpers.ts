@@ -4,18 +4,18 @@
 // A helper from a conversation in a task worktree belongs to that worktree's hologram: in light and its task's color,
 // at its scale and around its projector (a small cluster, `helperSpots`).
 import * as THREE from 'three';
-import type { Refugio } from './refugio';
-import type { Sala } from './salas/comun';
-import { Character } from './personaje';
-import { R } from '../motor/assets';
-import { vivo } from '../red/cliente';
-import { SFX } from '../audio/sonido';
-import type { Helper } from '@shared/protocolo';
-import { worktreeTask } from '@shared/tareas';
-import { pathWorktree, worktreesKnown } from '../ui/copias';
-import { knowTasks, versionColors } from '../ui/tareas';
-import { holograph, holoTone, holoUniforms, HOLO_SCALE, type Copia, type Uniforms } from './hologramas';
-import { helperSpots } from './sitioCopia';
+import type { Refugio } from './shelter';
+import type { Sala } from './rooms/common';
+import { Character } from './character';
+import { R } from '../engine/assets';
+import { vivo } from '../net/client';
+import { SFX } from '../audio/sound';
+import type { Helper } from '@shared/protocol';
+import { worktreeTask } from '@shared/tasks';
+import { pathWorktree, worktreesKnown } from '../ui/copies';
+import { knowTasks, versionColors } from '../ui/tasks';
+import { holograph, holoTone, holoUniforms, HOLO_SCALE, type Copia, type Uniforms } from './holograms';
+import { helperSpots } from './copySpot';
 
 const SCALE = 0.62;   // a helper beside its owner: a main-copy dweller or a hologram
 interface Holo { ruta: string; tarea?: string; u: Uniforms; versionTone: number }

@@ -11,19 +11,19 @@
 //   de pie, con paciencia, saludando de vez en cuando hasta que lo lees; error = golpe y al suelo; duerme en su catre.
 // - Se sienta y se levanta de verdad (clips de KayKit) y sigue al Supervisor con la mirada cuando anda cerca.
 import * as THREE from 'three';
-import { Character, turnBoneWorld, callOut } from './personaje';
-import { composeClip } from './animaciones';
-import { lookOf, type Look } from '@shared/aspecto';
-import { Zetas } from './efectos';
-import type { Sala, RoomPoint } from './sala';
-import { BACKGROUND } from './sala';
-import { R } from '../motor/assets';
-import { mundo } from './salas/comun';
-import { vivo } from '../red/cliente';
-import { audioWorld } from '../audio/mundo';
-import { musicPulse } from '../audio/musica';
-import { SFX } from '../audio/sonido';
-import type { DwellerState } from '../ui/estadoJuego';
+import { Character, turnBoneWorld, callOut } from './character';
+import { composeClip } from './animations';
+import { lookOf, type Look } from '@shared/appearance';
+import { Zetas } from './effects';
+import type { Sala, RoomPoint } from './room';
+import { BACKGROUND } from './room';
+import { R } from '../engine/assets';
+import { mundo } from './rooms/common';
+import { vivo } from '../net/client';
+import { audioWorld } from '../audio/world';
+import { musicPulse } from '../audio/music';
+import { SFX } from '../audio/sound';
+import type { DwellerState } from '../ui/gameState';
 
 export interface Identity { id: string; nombre: string; mote: string; tipo: string; bio: string; tinte?: string; tone?: number; voz: number; aspecto?: Look }
 
@@ -291,7 +291,7 @@ export class Habitante {
   // ---------------------------------------------------------------- encargos
   private errand: { hasta: number; luego?: () => void } | null = null;
   get busyErrand() { return !!this.errand; }
-  /** Un encargo de fuera (montar el proyector de su copia, hologramas.ts): deja lo que hace, va a `destino`, se gira a
+  /** Un encargo de fuera (montar el proyector de su copia, holograms.ts): deja lo que hace, va a `destino`, se gira a
    *  `giro` y hace `clip` con `utensil` durante `dur` segundos; luego avisa y vuelve a su rutina. Si no puede (te espera,
    *  duerme, habla contigo, ya tiene otro), dice que no y no hace nada. */
   encargar(destino: THREE.Vector3, giro: number, clip: string, utensil: string, dur: number, luego?: () => void) {

@@ -1,5 +1,5 @@
-// QA de Spotify en Google Chrome sin ventana (electron/chromeRemoto.cjs), de punta a punta: juego real (cliente
-// compilado) con su precarga real (electron/precarga.cjs), el bloque de Spotify real de electron/main.cjs y entrada
+// QA de Spotify en Google Chrome sin ventana (electron/remoteChrome.cjs), de punta a punta: juego real (cliente
+// compilado) con su precarga real (electron/preload.cjs), el bloque de Spotify real de electron/main.cjs y entrada
 // nativa (sendInputEvent) sobre la ventana del juego. Sin cuenta: Spotify sin sesión (no reproduce nada).
 //   1. abrir Spotify en el juego: arranca Chrome sin ventana con su perfil, llega imagen al lienzo y el título a la ventana
 //   2. la primera vez hereda las cookies de Spotify de los navegadores del refugio
@@ -43,7 +43,7 @@ app.whenReady().then(async () => {
   // una cookie de Spotify en los navegadores del refugio, para ver que Chrome la hereda
   const ses = session.fromPartition(PARTICION);
   await ses.cookies.set({ url: 'https://open.spotify.com/', name: 'qa_refugio', value: 'heredada', domain: '.spotify.com', path: '/', secure: true, expirationDate: Date.now() / 1000 + 3600 });
-  const w = new BrowserWindow({ width: 1600, height: 1000, x: 30, y: 30, show: false, webPreferences: { contextIsolation: true, nodeIntegration: false, backgroundThrottling: false, webviewTag: true, preload: path.join(ELECTRON, 'precarga.cjs') } });
+  const w = new BrowserWindow({ width: 1600, height: 1000, x: 30, y: 30, show: false, webPreferences: { contextIsolation: true, nodeIntegration: false, backgroundThrottling: false, webviewTag: true, preload: path.join(ELECTRON, 'preload.cjs') } });
   sp.pin(w);
   await w.loadURL(process.env.LAB_URL); w.showInactive();
   const host = s => w.webContents.executeJavaScript(s).catch(e => 'ERR ' + e.message);

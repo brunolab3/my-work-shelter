@@ -1,5 +1,5 @@
 // Piezas comunes del cliente de git
-import { t } from '@shared/idioma';
+import { t } from '@shared/language';
 export type Letter = 'M' | 'A' | 'D' | 'R' | 'C' | 'T' | 'U' | '?';
 export const LETTER: Record<string, string> = { M: t('windows.modified'), A: t('windows.added'), D: t('windows.deleted'), R: t('windows.renamed'), C: t('windows.copied'), T: t('windows.typeChanged'), U: t('windows.conflicted'), '?': t('windows.untracked') };
 export function hace(cuando: number) {

@@ -1,11 +1,11 @@
 // Worktrees como copias holográficas de quien los creó: inspeccionar (estado y commits), desechar (con lo que se pierde a la vista)
 // e integrar (lo hace un habitante con sus permisos). Basado en code-town/server/worktrees.ts (MIT).
 import { execFile } from 'node:child_process';
-import type { Sessions } from './sesiones.ts';
-import type { InfoRepo } from '../shared/protocolo.ts';
-import type { Store } from './estado.ts';
-import { entornoGit } from './entornoGit.ts';
-import { t } from '../shared/idioma.ts';
+import type { Sessions } from './sessions.ts';
+import type { InfoRepo } from '../shared/protocol.ts';
+import type { Store } from './state.ts';
+import { entornoGit } from './gitEnv.ts';
+import { t } from '../shared/language.ts';
 
 function git(cwd: string, args: string[], timeout = 15000): Promise<string> {
   return new Promise((res, rej) => execFile('git', ['-C', cwd, ...args], { timeout, maxBuffer: 8 * 1024 * 1024, env: entornoGit() }, (err, out, errOut) => err ? rej(new Error(String(errOut || err.message).trim())) : res(String(out))));

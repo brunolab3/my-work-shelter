@@ -1,18 +1,18 @@
 // The task board of a repo room: the room's one meaningful screen, on the back wall (its spot: boardSpot in
-// shared/decorado.ts). One row for the main copy and one per worktree (shared/tableroSala.ts) with its task color, key
+// shared/decor.ts). One row for the main copy and one per worktree (shared/roomBoard.ts) with its task color, key
 // and title, branch, what its conversations are doing or waiting on, and one state for its PRs in this repo. One canvas
-// texture, redrawn only when what it shows changes; a click on a row talks to that copy (refugio.ts, `rowAt`).
+// texture, redrawn only when what it shows changes; a click on a row talks to that copy (shelter.ts, `rowAt`).
 import * as THREE from 'three';
-import { t } from '@shared/idioma';
-import { lienzo, textureOf, SOURCES } from '../../motor/texturas';
-import { vivo } from '../../red/cliente';
-import { boardRows, type BoardRow, type PRRollup, type SessionMark } from '@shared/tableroSala';
-import type { BoardSpot } from '@shared/decorado';
-import type { PRBoard } from '@shared/tablero';
-import { taskColor } from '@shared/tareas';
-import { jiraBoard, knowTasks, myPRs, taskTitle } from '../../ui/tareas';
-import { branchCaption } from '../../ui/copias';
-import { caja, materialSteel, type Contexto } from './comun';
+import { t } from '@shared/language';
+import { lienzo, textureOf, SOURCES } from '../../engine/textures';
+import { vivo } from '../../net/client';
+import { boardRows, type BoardRow, type PRRollup, type SessionMark } from '@shared/roomBoard';
+import type { BoardSpot } from '@shared/decor';
+import type { PRBoard } from '@shared/board';
+import { taskColor } from '@shared/tasks';
+import { jiraBoard, knowTasks, myPRs, taskTitle } from '../../ui/tasks';
+import { branchCaption } from '../../ui/copies';
+import { caja, materialSteel, type Contexto } from './common';
 
 const W = 1280;
 const INK = '#dcf2e2', DIM = '#8fae9c', BACKGROUND = '#07110b', CARD = '#0f1d14';

@@ -1,10 +1,10 @@
 // Lector de los eventos de Calendario (la app del Mac), en JavaScript para Automatización (JXA). Lo lanza
-// server/integraciones/calendario.ts con osascript -l JavaScript. Solo lee: no crea, mueve ni borra nada.
-//   osascript -l JavaScript calendario.jxa <desde-ms> <hasta-ms>
+// server/integrations/calendar.ts con osascript -l JavaScript. Solo lee: no crea, mueve ni borra nada.
+//   osascript -l JavaScript calendar.jxa <desde-ms> <hasta-ms>
 // Salida (JSON): { cerrada: true } si Calendario no está abierta (no se abre sola), o
 //   { calendarios: [nombre], eventos: [{ calendario, uid, titulo, inicio, fin, todoElDia, lugar, notas, estado, regla?, excluidas? }] }
 // Los que empiezan entre <desde> y <hasta> y los repetidos (con regla RRULE) que empezaron antes: Calendario no da las
-// repeticiones sueltas por AppleScript, así que las calcula el servidor (normalizar.ts, repeticiones).
+// repeticiones sueltas por AppleScript, así que las calcula el servidor (normalize.ts, repeticiones).
 function run(argv) {
   const Cal = Application('Calendar');
   if (!Cal.running()) return JSON.stringify({ cerrada: true });

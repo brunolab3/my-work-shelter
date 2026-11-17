@@ -1,9 +1,9 @@
-// Mensajes programados (server/programados.ts): un habitante deja un mensaje para más adelante («lo revisamos el lunes»)
+// Mensajes programados (server/scheduled.ts): un habitante deja un mensaje para más adelante («lo revisamos el lunes»)
 // a su propia conversación o a una sala, y el juego lo entrega a esa hora, también tras reinicios. Aquí lo puro: leer
 // la fecha que pide, aplazar los fines de semana a la mañana del siguiente día laborable y describirla en palabras
 // (para que una fecha mal puesta salte a la vista). Todo en la hora local del Mac.
-import { idioma } from './idioma.ts';
-import { worktreeHasTask } from './tareas.ts';
+import { idioma } from './language.ts';
+import { worktreeHasTask } from './tasks.ts';
 
 /** A dónde va: a la propia conversación que lo programó (se retoma por su `claudeId`) o, como send_to_room, a una sala */
 export type ScheduledTarget =

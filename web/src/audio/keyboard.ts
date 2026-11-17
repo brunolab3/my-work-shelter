@@ -2,7 +2,7 @@
 // teclean en su puesto. Muestras de un Keychron K10 de interruptores lineales (CC0, ver LICENSES/AUDIO.md): doce teclas
 // normales distintas, espacio, intro y borrar; nunca la misma muestra dos veces seguidas, con variación de tono y
 // volumen y un paneo muy leve según dónde está la tecla en el teclado.
-import { sonido, type TouchOptions } from './sonido';
+import { sonido, type TouchOptions } from './sound';
 
 const KEYS = Array.from({ length: 12 }, (_, i) => `mec_tecla_${String(i + 1).padStart(2, '0')}`);
 const ERASE = ['mec_borrar_01', 'mec_borrar_02'];

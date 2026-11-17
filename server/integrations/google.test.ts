@@ -3,8 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mkdirSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import type { Store } from '../estado.ts';
-import { keychainMemoria, useKeychain, keychainMac } from './llavero.ts';
+import type { Store } from '../state.ts';
+import { keychainMemoria, useKeychain, keychainMac } from './keychain.ts';
 
 const gws = vi.hoisted(() => ({ salidas: new Map<string, string>(), llamadas: [] as { args: string[]; env: NodeJS.ProcessEnv }[] }));
 vi.mock('node:child_process', () => ({

@@ -1,6 +1,6 @@
 // Biblioteca de clips de Rig_Medium (KayKit): todos los personajes comparten esqueleto.
 import * as THREE from 'three';
-import { gltf } from '../motor/assets';
+import { gltf } from '../engine/assets';
 
 const BASE = 'kaykit/character-animations-1.1/Animations/gltf/Rig_Medium/Rig_Medium_';
 export const PACKAGES = ['General', 'MovementBasic', 'MovementAdvanced', 'Simulation', 'Tools', 'CombatRanged', 'CombatMelee'] as const;

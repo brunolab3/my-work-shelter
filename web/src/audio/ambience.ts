@@ -1,11 +1,11 @@
 // Paisaje sonoro de cada sala: un lecho continuo (bucles y capas sintéticas) y detalles sueltos al azar, con su paneo.
 // Cada sala suena por su perfil (el tipo de sala; en las de repo, lo que hay montado dentro: taller web, escaparate,
-// fundición, laboratorio…); el hueco del ascensor y la calle tienen el suyo. mundo.ts dice cada fotograma cuánto se oye
+// fundición, laboratorio…); el hueco del ascensor y la calle tienen el suyo. world.ts dice cada fotograma cuánto se oye
 // cada perfil (`mezclar`): la sala donde está el Supervisor, entera; las de al lado, a través de la pared (bajas y
 // sin agudos); en la vista general, una mezcla suave de lo que hay a la vista. Al moverse, los perfiles se funden.
-import { sonido } from './sonido';
-import { SYNTHETIC_DETAILS, SYNTHETIC_LAYERS, type SyntheticDetail, type SyntheticLayer, type LiveLayer } from './sintesis';
-import { pulsar } from './teclado';
+import { sonido } from './sound';
+import { SYNTHETIC_DETAILS, SYNTHETIC_LAYERS, type SyntheticDetail, type SyntheticLayer, type LiveLayer } from './synthesis';
+import { pulsar } from './keyboard';
 
 interface LayerDef {
   archivo?: string; sint?: SyntheticLayer; vol: number; rate?: number;

@@ -1,6 +1,6 @@
-// Qué avisos de macOS hay que dar o quitar (avisosSistema.ts): uno por conversación que espera tu respuesta (una pregunta,
+// Qué avisos de macOS hay que dar o quitar (systemNotices.ts): uno por conversación que espera tu respuesta (una pregunta,
 // un permiso o un plan), solo cuando la petición llega con el juego en segundo plano; se quita al contestarla.
-import type { SessionSummary } from '@shared/protocolo';
+import type { SessionSummary } from '@shared/protocol';
 
 export interface Changes { dar: SessionSummary[]; quitar: string[] }
 
@@ -23,7 +23,7 @@ export function noticeChanges(sesiones: Record<string, SessionSummary>, visto: M
   return { dar, quitar };
 }
 
-// Dock badge (avisosSistema.ts): the number of requests waiting for your answer (questions, permissions, plans);
+// Dock badge (systemNotices.ts): the number of requests waiting for your answer (questions, permissions, plans);
 // without any, a dot while a conversation has finished its turn unread; empty when nothing waits for you
 export function dockBadge(sesiones: Record<string, SessionSummary>): string {
   const abiertas = Object.values(sesiones).filter(s => s.estado !== 'cerrada');

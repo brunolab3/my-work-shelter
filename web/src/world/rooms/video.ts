@@ -3,12 +3,12 @@
 // (sillón del pack estrechado: respaldo y brazos de verdad). Mitad derecha: cabina de proyección y montaje, con el
 // proyector colgado (bobinas que giran y haz visible hasta la pantalla), foco de estudio en trípode, mesa de montaje
 // con dos monitores y la claqueta, y el rack de render con sus pilotos.
-import { t, t as tr } from '@shared/idioma';
+import { t, t as tr } from '@shared/language';
 import * as THREE from 'three';
-import { place, R } from '../../motor/assets';
-import { cartel, PhosphorScreen, PanelRoom, fotograma, TimeLine, lienzo, textureOf, SOURCES } from '../../motor/texturas';
+import { place, R } from '../../engine/assets';
+import { cartel, PhosphorScreen, PanelRoom, fotograma, TimeLine, lienzo, textureOf, SOURCES } from '../../engine/textures';
 import { overlayScreen, screenFrontal } from '../util3d';
-import { signInWall, mancha, highBand, HEIGHT, screenReal, mountPilots, workStation, lean, aWall, type Contexto } from './comun';
+import { signInWall, mancha, highBand, HEIGHT, screenReal, mountPilots, workStation, lean, aWall, type Contexto } from './common';
 
 // repinta un modelo con materiales propios: { nombreDeMaterial: color } ('*' para todos los demás)
 function repaint(o: THREE.Object3D, colores: Record<string, string>, rugosidad = 0.85) {

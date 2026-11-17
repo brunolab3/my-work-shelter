@@ -5,7 +5,7 @@
 // como sospechosa).
 // Lo que se manda «fuera» no se abre: se apunta. Sesión vacía en LAB_DATOS: no toca tus logins.
 // Uso: LAB_LOG=/tmp/webs.log LAB_DATOS=/tmp/datos-electron \
-//        node_modules/electron/dist/Electron.app/Contents/MacOS/Electron scripts/qa-navegador-webs.cjs
+//        node_modules/electron/dist/Electron.app/Contents/MacOS/Electron scripts/qa-browser-sites.cjs
 const { app, BrowserWindow, session, Menu } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -22,8 +22,8 @@ const espera = ms => new Promise(r => setTimeout(r, ms));
 process.on('uncaughtException', e => { out('ERROR', e.stack); app.exit(2); });
 setTimeout(() => { out('ERROR más de 3 minutos'); app.exit(2); }, 180_000);
 
-// inicio (el de SITIOS en web/src/ui/Navegadores.tsx), hosts donde puede acabar (la web o su inicio de sesión) y un enlace
-// de aviso como los del tablón (server/integraciones/normalizar.ts), que debe abrirse en el mismo navegador
+// inicio (el de SITIOS en web/src/ui/Browsers.tsx), hosts donde puede acabar (la web o su inicio de sesión) y un enlace
+// de aviso como los del tablón (server/integrations/normalize.ts), que debe abrirse en el mismo navegador
 const WEBS = [
   { id: 'outlook', inicio: 'https://outlook.cloud.microsoft/mail/', destino: /(^|\.)(cloud\.microsoft|office\.com|office365\.com|login\.microsoftonline\.com|login\.live\.com|microsoft365\.com)$/, aviso: 'https://outlook.office365.com/owa/?ItemID=AAA&exvsurl=1&viewmodel=ReadMessageItem&ispopout=0' },
   { id: 'discord', inicio: 'https://discord.com/channels/@me', destino: /(^|\.)discord\.com$/, aviso: 'https://discord.com/channels/1/2/3', chrome: true },
@@ -36,7 +36,7 @@ app.whenReady().then(async () => {
   const w = new BrowserWindow({ width: 1400, height: 900, x: 30, y: 30, show: false, webPreferences: { contextIsolation: true, nodeIntegration: false, backgroundThrottling: false, webviewTag: true } });
   navegadores(w);
   let g = null; const visited = [];
-  // como AGENTE_CHROME en web/src/ui/Navegadores.tsx (la página del juego tiene el agente de la app)
+  // como AGENTE_CHROME en web/src/ui/Browsers.tsx (la página del juego tiene el agente de la app)
   const chrome = w.webContents.getUserAgent().replace(/ (Electron|work-shelter-public)\/\S+/g, '');
   let propiedades = null;
   session.fromPartition('persist:navegador').webRequest.onBeforeSendHeaders({ urls: ['https://discord.com/api/*'] }, (d, cb) => {
@@ -75,7 +75,7 @@ app.whenReady().then(async () => {
     await espera(2000);
     ver(fuera.includes('https://example.com/'), `${s.id}: otra web va al navegador del sistema`);
   }
-  // the «Web» window (opcionesEnlace.ts): any https web a reply links, in its own session, confined to its domain and
+  // the «Web» window (linkOptions.ts): any https web a reply links, in its own session, confined to its domain and
   // with no permissions but writing the clipboard
   {
     g = null; fuera = [];

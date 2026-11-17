@@ -1,9 +1,9 @@
 // Descripción en español de las herramientas de Claude Code (línea de estado, permisos, cuaderno) y ruta que tocan.
 // Adaptado de code-town/server/tools.ts (MIT, © 2026 Juan Luis García) — ver LICENSES/code-town-MIT.txt
 import path from 'node:path';
-import type { Activity, InputView } from '../shared/protocolo.ts';
-import { t } from '../shared/idioma.ts';
-import { MCP, mcpTool } from './servidoresMcp.ts';
+import type { Activity, InputView } from '../shared/protocol.ts';
+import { t } from '../shared/language.ts';
+import { MCP, mcpTool } from './mcpServers.ts';
 
 type Entrada = Record<string, unknown>;
 
@@ -48,15 +48,15 @@ export function describeTool(nombre: string, e: Entrada, cwd: string): string {
     case 'AskUserQuestion': return t('server.activity.question');
     case 'ExitPlanMode': return t('server.activity.plan');
     case 'Skill': return t('server.activity.skill', { skill: s(e.skill) || s(e.name) });
-    // las herramientas del juego para decorar la sala (server/decoradoSala.ts)
+    // las herramientas del juego para decorar la sala (server/roomDecor.ts)
     case mcpTool(MCP.shelter, 'props_catalogue'): return s(e.search) ? t('server.activity.propsSearch', { q: recorta(s(e.search), 40) }) : t('server.activity.props');
     case mcpTool(MCP.shelter, 'current_decor'): return t('server.activity.decorCurrent');
     case mcpTool(MCP.shelter, 'apply_decor'): return t('server.activity.decorApply');
     case mcpTool(MCP.shelter, 'view_room'): return t('server.activity.decorView');
     case mcpTool(MCP.shelter, 'remove_decor'): return t('server.activity.decorRemove');
-    // las del reparto del trabajo desde la sala de coordinación (server/reparto.ts)
+    // las del reparto del trabajo desde la sala de coordinación (server/dispatch.ts)
     case mcpTool(MCP.assignment, 'shelter_rooms'): return t('server.activity.shelterRooms');
-    // un mensaje o un encargo al habitante de otra sala (server/avisosSalas.ts)
+    // un mensaje o un encargo al habitante de otra sala (server/roomNotices.ts)
     case mcpTool(MCP.rooms, 'send_to_room'): return t('server.activity.sendToRoom', { sala: recorta(s(e.room), 30), clave: s(e.key) ? ' (' + s(e.key) + ')' : '' });
     case mcpTool(MCP.assignment, 'assign_work'): return s(e.key) ? t('server.activity.assignTask', { clave: s(e.key) }) : t('server.activity.assign');
     case mcpTool(MCP.rooms, 'schedule_message'): return t('server.activity.scheduleMessage', { cuando: recorta(s(e.when), 30) });
@@ -86,7 +86,7 @@ function diff(a: string, b: string) {
 }
 const recortado = (x: string, n: number) => (x.length > n ? x.slice(0, n) + '\n' + t('server.moreChars', { n: x.length - n }) : x);
 
-// Vista previa exacta de lo que la herramienta va a hacer, en texto plano (ver VistaEntrada en shared/protocolo.ts)
+// Vista previa exacta de lo que la herramienta va a hacer, en texto plano (ver VistaEntrada en shared/protocol.ts)
 export function describeInput(nombre: string, e: Entrada): InputView[] {
   switch (nombre) {
     case 'Bash': return [{ tipo: 'codigo', lenguaje: 'bash', texto: s(e.command) }];

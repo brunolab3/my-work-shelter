@@ -2,14 +2,14 @@
 // repos del refugio. Una tarea repartida por Logística tiene partes en varias salas (un worktree por parte); cada parte
 // es un PR (o un worktree sin PR aún, o una parte del plan sin empezar). Por parte: si la copia local está al día con
 // GitHub (un bot puede haber empujado arreglos), la CI, la revisión y a qué espera o a quién bloquea (los bloqueos
-// entre PR de shared/despliegue.ts, también de otros repos). La CI roja de un PR al que se espera es problema de ese PR,
+// entre PR de shared/deploy.ts, también de otros repos). La CI roja de un PR al que se espera es problema de ese PR,
 // no de esta parte: aquí solo sale como su estado. Luego, las olas en que se puede fusionar lo de la tarea.
 // Puro: lo usan el cliente, el servidor (server/preflight.ts) y las pruebas.
-import type { PRBoard } from './tablero';
-import { olasDespliegue, refPR, type Blocker, type BlockerReason } from './despliegue';
-import { pRTask, taskKey } from './tareas';
-import { t } from './idioma';
-import { ledgerPending, type ReviewThread } from './cuentaRevisiones';
+import type { PRBoard } from './board';
+import { olasDespliegue, refPR, type Blocker, type BlockerReason } from './deploy';
+import { pRTask, taskKey } from './tasks';
+import { t } from './language';
+import { ledgerPending, type ReviewThread } from './reviewCount';
 
 /** ✓ listo, ⚠ mirar, ✗ falta, — no aplica */
 export type Mark = 'ok' | 'aviso' | 'mal' | 'nada';
@@ -24,14 +24,14 @@ export interface LocalBranch {
   adelante?: number; detras?: number; sinCabeza?: boolean;
 }
 export interface RoomRepo { id: string; nombre: string; repo?: string }
-/** A compare page (server/comparar.ts, its `<page>.json`) with what the Overseer did with it: which worktree, branch
+/** A compare page (server/compare.ts, its `<page>.json`) with what the Overseer did with it: which worktree, branch
  *  and commit each part is */
 export interface CompareRecord {
   archivo: string; ts: number;
   partes: { worktree: string; rama: string; head: string; base?: string }[];
   respuesta?: { estado: 'validada' | 'notas'; ts: number };
 }
-/** Un check de GitHub del último commit de un PR (server/fallosCI.ts) */
+/** Un check de GitHub del último commit de un PR (server/ciFailures.ts) */
 export interface CICheck { nombre: string; estado: 'ok' | 'mal' | 'pendiente' }
 /** Lo que contesta el habitante a un punto de la lista «antes de subir» del Supervisor, para un commit */
 export interface ChecklistAnswer { estado: 'ok' | 'n/a' | 'pendiente'; nota?: string; ts: number }
@@ -71,7 +71,7 @@ export interface PreflightInput {
   salas: RoomRepo[];             // las salas de repo, con su repo de GitHub («org/repo»)
   plan?: PlanPart[];
   compares?: CompareRecord[];
-  hilos?: Record<string, ReviewThread[]>;   // por URL del PR (server/revisionesPR.ts)
+  hilos?: Record<string, ReviewThread[]>;   // por URL del PR (server/prReviews.ts)
   checklist?: { items: string[]; respuestas: Record<string, Record<string, ChecklistAnswer>> };   // respuestas por `${worktree}|${head}`
   repoChecklist?: Record<string, string[]>;   // los puntos del repo, por worktree (server/preflight.ts: repoChecks)
   ciChecks?: Record<string, CICheck[]>;       // los checks de cada PR, por URL
@@ -118,7 +118,7 @@ export function reviewCell(pr: PRBoard | undefined): Cell {
     : pr.revision === 'CHANGES_REQUESTED' ? { marca: 'mal', texto: t('preflight.review.changes') }
     : pr.revision === 'REVIEW_REQUIRED' ? { marca: 'aviso', texto: t('preflight.review.waiting') }
     : { marca: 'nada', texto: t('preflight.review.none') };
-  // lo que queda por contestar (shared/cuentaRevisiones.ts): un aprobado con hilos abiertos aún no está listo
+  // lo que queda por contestar (shared/reviewCount.ts): un aprobado con hilos abiertos aún no está listo
   const l = pr.ledger;
   if (!l || !ledgerPending(l)) return base;
   const queda = [l.unresolved > 0 && t('preflight.review.threads', { n: l.unresolved }), l.unansweredSummaries > 0 && t('preflight.review.summaries', { n: l.unansweredSummaries })].filter(Boolean).join(' · ');

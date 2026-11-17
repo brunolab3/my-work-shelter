@@ -1,11 +1,11 @@
 // Historial del cliente de git: los commits con su grafo de ramas (carriles de colores), las ramas y etiquetas de
 // cada uno y, al elegir uno, su mensaje entero, los archivos que tocó y el diff de cada archivo.
 import React, { useEffect, useMemo, useState } from 'react';
-import { cliente } from '../../red/cliente';
-import { t, idioma } from '@shared/idioma';
+import { cliente } from '../../net/client';
+import { t, idioma } from '@shared/language';
 import { lanes, type GraphRow } from './diff';
-import { VisorDiff } from './VisorDiff';
-import { hace, LETTER, type Letter } from './comun';
+import { VisorDiff } from './DiffViewer';
+import { hace, LETTER, type Letter } from './common';
 
 interface CommitGit { hash: string; parents: string[]; autor: string; correo: string; fecha: number; asunto: string; refs: string[] }
 interface Detail { hash: string; parents: string[]; autor: string; correo: string; fecha: number; mensaje: string; archivos: { letra: Letter; ruta: string; origen?: string; mas: number | null; menos: number | null }[] }

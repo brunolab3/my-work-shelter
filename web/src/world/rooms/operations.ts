@@ -1,15 +1,15 @@
 // Salas operativas: comunicaciones (radio, correo y chats), planificación (calendario) y logística (Linear).
 // Sus pantallas muestran los datos que llegan del servidor (reales o DEMO).
 import * as THREE from 'three';
-import { place, R } from '../../motor/assets';
-import { cartel, PhosphorScreen, PanelRoom, ListScreen, WeekWhiteboard, Reloj, BoardKanban, lienzo, textureOf, SOURCES } from '../../motor/texturas';
+import { place, R } from '../../engine/assets';
+import { cartel, PhosphorScreen, PanelRoom, ListScreen, WeekWhiteboard, Reloj, BoardKanban, lienzo, textureOf, SOURCES } from '../../engine/textures';
 import { overlayScreen, screenFrontal } from '../util3d';
-import { signInWall, mancha, highBand, monitorWall, workStation, caja, materialSteel, HEIGHT, type Contexto } from './comun';
-import { vivo, cliente } from '../../red/cliente';
-import { cruzarTablero, COLUMN_COLORS, type TaskWithPR, type TaskJira } from '@shared/tablero';
-import { taskColor, pRTask } from '@shared/tareas';
-import { aimColors, knowTasks, jiraBoard } from '../../ui/tareas';
-import { t as tr, tIs, locale } from '@shared/idioma';
+import { signInWall, mancha, highBand, monitorWall, workStation, caja, materialSteel, HEIGHT, type Contexto } from './common';
+import { vivo, cliente } from '../../net/client';
+import { cruzarTablero, COLUMN_COLORS, type TaskWithPR, type TaskJira } from '@shared/board';
+import { taskColor, pRTask } from '@shared/tasks';
+import { aimColors, knowTasks, jiraBoard } from '../../ui/tasks';
+import { t as tr, tIs, locale } from '@shared/language';
 
 const SOURCE_ICON: Record<string, string> = { outlook: tr('world.ops.mail'), google: 'GMAIL', mail: 'MAIL', discord: 'DISCORD', slack: 'SLACK', github: 'GITHUB', linear: 'LINEAR' };
 const SOURCE_INK: Record<string, string> = { outlook: '#c8bfa4', google: '#e6d28a', mail: '#c6bce6', discord: '#d39a6a', slack: '#ffb36b', github: '#b8c4d8', linear: '#9dffb8' };   // acero, paja, óxido, ámbar, niebla, fósforo
@@ -163,7 +163,7 @@ export async function furnishLogistics(ctx: Contexto) {
   marco.position.set(0, YT, zB + 0.36); g.add(marco); ctx.aparato('tablero', marco);
   const screen = new THREE.Mesh(new THREE.PlaneGeometry(5.3, 2.35), new THREE.MeshStandardMaterial({ map: tablero.tex, emissiveMap: tablero.tex, emissive: '#ffffff', emissiveIntensity: 1.0, color: '#000' }));
   screen.position.set(0, YT, zB + 0.43); g.add(screen);
-  screen.userData.interactivo = 'tablero'; screen.userData.vista = 'jira';   // un clic en la pantalla abre directamente el tablero de Jira (refugio.ts, clic)
+  screen.userData.interactivo = 'tablero'; screen.userData.vista = 'jira';   // un clic en la pantalla abre directamente el tablero de Jira (shelter.ts, clic)
   // a la derecha, la consola de pie frente a la pantalla; a la izquierda, el puesto del jefe de logística (mesa de tres
   // cuartos con su monitor de incidencias)
   const pIssues = new PhosphorScreen(256, 256, v.pantalla); pIssues.speed = 18; pIssues.escribir(tr('world.ops.issuesDemo').split('|')); ctx.sala.pantallas.push(pIssues);

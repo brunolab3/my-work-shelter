@@ -4,20 +4,20 @@
 // Un Google Chrome sin ventana (--headless=new: ni ventana ni icono en el Dock; el sonido sale por los altavoces como el
 // de cualquier navegador) con un perfil propio y persistente (Application Support/work-shelter-public/chrome-spotify; la
 // primera vez hereda las cookies de Spotify de los navegadores del refugio) abre Spotify, y el juego enseña su página en
-// la ventana del navegador de Spotify (Navegadores.tsx) con el screencast del protocolo de depuración y le pasa ratón,
-// rueda y teclado. La pletina (Discoteca.tsx) lo maneja con window.__refugioMusica (electron/mandoMusica.js).
-// Se presenta como el Chrome que es (sin «HeadlessChrome»). «Continuar con Google», en Chrome visible (loginChrome.cjs);
+// la ventana del navegador de Spotify (Browsers.tsx) con el screencast del protocolo de depuración y le pasa ratón,
+// rueda y teclado. La pletina (Disco.tsx) lo maneja con window.__refugioMusica (electron/musicControl.js).
+// Se presenta como el Chrome que es (sin «HeadlessChrome»). «Continuar con Google», en Chrome visible (chromeLogin.cjs);
 // los enlaces que no son de Spotify, al navegador del sistema. QA: scripts/qa-spotify-chrome.cjs
 const { spawn, execFileSync } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
-const { tr } = require('./textos.cjs');
-const { CHROME, startSessionInChrome, aSession, ofSession, vigilar } = require('./loginChrome.cjs');
+const { tr } = require('./texts.cjs');
+const { CHROME, startSessionInChrome, aSession, ofSession, vigilar } = require('./chromeLogin.cjs');
 
 const espera = ms => new Promise(r => setTimeout(r, ms));
 const bajo = (host, dominio) => host === dominio || host.endsWith('.' + dominio);
 const hostOf = u => { try { return new URL(u).hostname; } catch { return ''; } };
-const MANDO = fs.readFileSync(path.join(__dirname, 'mandoMusica.js'), 'utf8');
+const MANDO = fs.readFileSync(path.join(__dirname, 'musicControl.js'), 'utf8');
 
 // conexión al protocolo de depuración (un WebSocket por destino)
 async function conectar(url, onEvent) {

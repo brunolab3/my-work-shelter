@@ -10,11 +10,11 @@
 // minutos con GitHub conectado (main.ts); lo ya preguntado y lo aprobado, en DATOS/limpieza-tareas.json.
 import { existsSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
 import path from 'node:path';
-import type { PRBoard } from '../shared/tablero.ts';
-import { clavesJira } from '../shared/tablero.ts';
-import type { InfoWorktree, SessionSummary } from '../shared/protocolo.ts';
-import { branchKey, prsOfName } from './revisionesPR.ts';
-import { t } from '../shared/idioma.ts';
+import type { PRBoard } from '../shared/board.ts';
+import { clavesJira } from '../shared/board.ts';
+import type { InfoWorktree, SessionSummary } from '../shared/protocol.ts';
+import { branchKey, prsOfName } from './prReviews.ts';
+import { t } from '../shared/language.ts';
 
 export interface RoomCleanup { id: string; nombre: string; ruta: string; repo?: string; worktrees: InfoWorktree[] }
 export interface FinishedTask { tarea: string; prs: PRBoard[]; worktrees: InfoWorktree[] }

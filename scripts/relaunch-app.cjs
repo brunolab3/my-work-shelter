@@ -1,9 +1,9 @@
 // Relevo de la app de macOS (/Applications/work-shelter-public.app): espera a que se cierre la que está abierta, la reinstala si
-// su Electron no es el del repo (scripts/instalar-app.mjs: la app lleva su propia copia, y al cambiar `electron` en
+// su Electron no es el del repo (scripts/install-app.mjs: la app lleva su propia copia, y al cambiar `electron` en
 // package.json, la instalada se quedaba con el de antes) y la vuelve a abrir. Lo lanza, aparte de todo y sin esperar,
 // la propia app (electron/main.cjs: al abrirse con un Electron que no es el del repo). Las terminales siguen vivas en su
 // anfitrión.
-// Uso: node scripts/relevar-app.cjs <pid de la app> <ruta de la .app> <puerto> [archivo de prueba]
+// Uso: node scripts/relaunch-app.cjs <pid de la app> <ruta de la .app> <puerto> [archivo de prueba]
 //   Con archivo de prueba (QA), en vez de abrir la app apunta «abrir <ruta>» en él.
 'use strict';
 const fs = require('node:fs');
@@ -59,7 +59,7 @@ async function relevar(pid, app, puerto, prueba) {
     else {
       apuntar(`la app lleva Electron ${versionElectron(app)} y el repo ${versionElectron(ELECTRON_REPO)}: la reinstalo…`);
       try {
-        execFileSync(truthNode(), [path.join(RAIZ, 'scripts/instalar-app.mjs'), '--sin-dock', '--destino', app], { cwd: RAIZ, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 5 * 60_000 });
+        execFileSync(truthNode(), [path.join(RAIZ, 'scripts/install-app.mjs'), '--sin-dock', '--destino', app], { cwd: RAIZ, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 5 * 60_000 });
         apuntar(`reinstalada (Electron ${versionElectron(app)}).`);
         fs.rmSync(FAILURE_MARK, { force: true });
       } catch (e) {

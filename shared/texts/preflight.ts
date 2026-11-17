@@ -1,5 +1,5 @@
-// Pre-flight de una tarea (shared/preflight.ts, web/src/ui/Preflight.tsx) (catálogo: shared/textos.ts)
-import type { Texto } from '../idioma.ts';
+// Pre-flight de una tarea (shared/preflight.ts, web/src/ui/Preflight.tsx) (catálogo: shared/texts.ts)
+import type { Texto } from '../language.ts';
 
 export const PREFLIGHT: Record<string, Texto> = {
   'preflight.title': { es: 'Pre-flight', en: 'Pre-flight' },

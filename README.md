@@ -34,7 +34,7 @@ doesn't try to be:
 - **There's no roadmap or maintenance promise.** What's there is what it is. If something doesn't suit you, change it.
 - **Make it yours.** Fork it and take it wherever you like: another style, another game on top, other integrations,
   an agent other than Claude Code, removing half the things. The licence is MIT precisely for that.
-- **It's meant to be changed by an agent.** [`AGENTS.md`](AGENTS.md) (the rules) and [`docs/mapa.md`](docs/mapa.md) (every feature) describe it for Claude Code and
+- **It's meant to be changed by an agent.** [`AGENTS.md`](AGENTS.md) (the rules) and [`docs/map.md`](docs/map.md) (every feature) describe it for Claude Code and
   Codex, and the shelter itself has a room, the **Command Bridge**, whose dweller works on the game's repo: you ask it
   for a change from inside and apply it without closing anything.
 - **The choices are debatable.** macOS only, shelter aesthetics, read-only integrations… They're choices of this
@@ -52,13 +52,13 @@ spread.
 Two parts of the game are **an unfinished first iteration** and are left that way on purpose, open for whoever wants
 to redo them their own way:
 
-- **The shooting gallery** (`web/src/mundo/tiro.ts`, `ShootingRound` in `web/src/ui/Actividades.tsx`). The sight only
+- **The shooting gallery** (`web/src/world/shootingGallery.ts`, `ShootingRound` in `web/src/ui/Activities.tsx`). The sight only
   moves horizontally (the height is fixed, that of the row of targets) and a hit is decided by comparing the sight's
   on-screen `x` with each target's, with a tolerance; there's no ray or depth. It shows: some shots that should land
   don't, and vice versa. The client computes the points and the server only bounds them (`juego.tiro` in
-  `server/juego.ts`). Obvious ideas: a free two-axis sight with a `Raycaster` against the targets, targets at different
+  `server/game.ts`). Obvious ideas: a free two-axis sight with a `Raycaster` against the targets, targets at different
   heights and distances, and having the server receive the shots instead of the result.
-- **The economy** (`server/juego.ts`, `shared/catalogo.ts`). The currency is scrap: each task a dweller finishes gives
+- **The economy** (`server/game.ts`, `shared/catalog.ts`). The currency is scrap: each task a dweller finishes gives
   10–50 and sometimes a part for the field guide; tool calls make the crops grow; the gallery, the radio and the
   generator give a bit more; and the shop spends it on accessories, weapons and seeds. The pieces exist, the numbers
   add up and the server is the authority, but **it's not clear what it's for and it's dull**: no progression, nothing
@@ -76,7 +76,7 @@ kind of change the Command Bridge is for. The easiest way is to ask **Néstor**,
 for anything else. For example:
 
 > I want dwellers to be able to be Codex sessions as well as Claude Code, choosing the agent per room. Before touching
-> anything, read AGENTS.md and docs/mapa.md ("Other agents as dwellers"), inventory everything that depends on Claude Code today and propose a phased plan. The first
+> anything, read AGENTS.md and docs/map.md ("Other agents as dwellers"), inventory everything that depends on Claude Code today and propose a phased plan. The first
 > phase: a Codex conversation in one room, with its permissions going through the game's dialog. Claude Code has to
 > keep working exactly the same, and Codex must use my own session (no API keys).
 
@@ -103,11 +103,11 @@ Some tips:
 Paste this in a terminal:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/brunolab3/my-work-shelter/main/instalar.sh | bash
+curl -fsSL https://raw.githubusercontent.com/brunolab3/my-work-shelter/main/install.sh | bash
 ```
 
 It takes a few minutes the first time and at the end you have **work-shelter in Applications**, with its icon and
-pinned to the Dock; from then on it opens like any app. What it does ([`instalar.sh`](instalar.sh), read it first if
+pinned to the Dock; from then on it opens like any app. What it does ([`install.sh`](install.sh), read it first if
 you like):
 
 - Downloads the game into `~/.work-shelter-public` (another folder: `SHELTER_CODIGO=/path` before `bash`). If macOS has
@@ -148,7 +148,7 @@ git clone https://github.com/brunolab3/my-work-shelter.git work-shelter && cd wo
 
 The app opens the game from the folder it was installed from, so your changes show without reinstalling: the game's
 own Command Bridge applies them ("Apply the game's changes" or "Restart the game"). The icon is
-`electron/icono/fuente.png`; if you change it, `node scripts/instalar-app.mjs --icono` prepares it again (needs
+`electron/icon/source.png`; if you change it, `node scripts/install-app.mjs --icono` prepares it again (needs
 `npx playwright install chromium`).
 
 Closing the window asks for confirmation and stops all sessions. If you reload, nothing is lost: the server waits 20
@@ -172,7 +172,7 @@ You choose the Overseer's look, the shelter's name and your **repos root**, pre-
   reads the repo and designs it a scene of its own with the game's props (the centrepiece, furniture and gadgets,
   signs with slogans, self-typing screens, colors and light), looks at it with a photo, fixes it and tells you what it
   built. Then you can ask for touch-ups in the same conversation ("put a plant by the desk"), or go back to the stock
-  scene. The scene is data the game validates, never code: see [`docs/decorados.md`](docs/decorados.md).
+  scene. The scene is data the game validates, never code: see [`docs/decor.md`](docs/decor.md).
 - The service rooms: the Command Bridge (the game's own repo), the Vault (integrations and settings), Communications,
   Calendar, Planning (where you start: your Jira tasks with their PRs), Logistics, Version Control (git and GitHub), the
   Main Gate, Hydroponics, Disco, Shooting Gallery and Body Shop (change looks).
@@ -240,13 +240,13 @@ question without interrupting; Ctrl+C (or `/stop`) stops the dweller; ⌘U or dr
   comes from real work (each finished task gives scrap). Crops that grow with each tool dwellers use, a shooting
   gallery with records, a shortwave radio and the generator panel; in the shop, accessories for you and the dwellers.
 - **Going to the surface**: if the game crashes or shouldn't be seen, conversations and terminals carry on in a
-  terminal on your desktop ([`docs/superficie.md`](docs/superficie.md)).
+  terminal on your desktop ([`docs/surface.md`](docs/surface.md)).
 - **To your phone**: 📱 in the intercom (or ⌘K) sends one conversation to Remote Control, and "Everything to your
   phone" (Esc → Leave the shelter, or ⌘K) sends all, to continue from the Claude app or claude.ai/code while running on your Mac. A
   repo room can also keep its own Remote Control server on.
 - **Slack remote control** (optional, with your own Slack app): approval requests arrive by direct message to answer
   yes/no from your phone, and writing to the bot lists the open conversations to send them to Remote Control. It never
-  sends what's said ([`docs/superficie.md`](docs/superficie.md#slack-remote-control)).
+  sends what's said ([`docs/surface.md`](docs/surface.md#slack-remote-control)).
 
 ## Integrations
 
@@ -266,12 +266,12 @@ try the game first, "Switch to DEMO" (simulated data, marked DEMO):
 | **Jira** | your tasks for the Planning board and Logistics | your site, email and an API token |
 
 **Microsoft 365 (Outlook)** and **Linear** are also implemented but switched off in this version
-([switched-off sources](docs/integraciones-uso.md#switched-off-sources)).
+([switched-off sources](docs/integrations-usage.md#switched-off-sources)).
 
 Everything is **read-only outwards** with minimal permissions: the game doesn't reply to mail or chats or create
 events (the few writes are listed in [`SECURITY.md`](SECURITY.md#precautions-the-code-takes)). The repo ships nobody's
 client IDs or credentials, and secrets go to the macOS keychain ([Data](#data)). Technical details, fields, Logistics
-and the Linear MCP setup for Claude Code and Codex: [`docs/integraciones-uso.md`](docs/integraciones-uso.md).
+and the Linear MCP setup for Claude Code and Codex: [`docs/integrations-usage.md`](docs/integrations-usage.md).
 
 ## Privacy and security
 
@@ -303,7 +303,7 @@ npm run dev                      # interface with hot reload (http://127.0.0.1:5
 node server/supervisor.mjs       # server with restart from the game (SHELTER_DATOS=/tmp/x to leave your data alone)
 npm test                         # tests (no network: integrations are tested with synthetic fixtures)
 npx tsc --noEmit -p .            # types
-node scripts/captura.mjs <url> <png> 1600 900 --pasos=40   # screenshots for visual QA
+node scripts/capture.mjs <url> <png> 1600 900 --pasos=40   # screenshots for visual QA
 ```
 
 Useful variables: `SHELTER_DATOS` (alternative data folder), `SHELTER_PUERTO` (a port other than 3778),
@@ -313,16 +313,16 @@ Useful variables: `SHELTER_DATOS` (alternative data folder), `SHELTER_PUERTO` (a
 
 | Folder | What's there | Where to start if you want… |
 |---|---|---|
-| `server/` | local server (Node): shelter state, Claude Code sessions with the Agent SDK, PTY terminals, worktrees, git, planning, PR reviews, economy and integrations | to change the agent: `sesiones.ts`; a new source: `integraciones/` and [`docs/integraciones-uso.md`](docs/integraciones-uso.md) |
-| `shared/` | what server and client share: protocol, texts in both languages, shop catalogue, recruit templates, initial layout, looks and set dressings | other initial rooms: `refugioInicial.ts`; another shop: `catalogo.ts`; a text: `textos/` |
-| `web/src/motor/` | Three.js: scene, materials, textures, camera | another visual style |
-| `web/src/mundo/` | the 3D shelter: rooms, dwellers and their routine, helpers, visitors, holograms, sky | a new room: `salas/`; another routine: `habitante.ts` |
-| `web/src/ui/` | the React interface: top bar, intercom, terminals, browsers, devices, git client | a device or an activity: `Actividades.tsx` |
+| `server/` | local server (Node): shelter state, Claude Code sessions with the Agent SDK, PTY terminals, worktrees, git, planning, PR reviews, economy and integrations | to change the agent: `sessions.ts`; a new source: `integraciones/` and [`docs/integrations-usage.md`](docs/integrations-usage.md) |
+| `shared/` | what server and client share: protocol, texts in both languages, shop catalogue, recruit templates, initial layout, looks and set dressings | other initial rooms: `initialShelter.ts`; another shop: `catalog.ts`; a text: `texts/` |
+| `web/src/engine/` | Three.js: scene, materials, textures, camera | another visual style |
+| `web/src/world/` | the 3D shelter: rooms, dwellers and their routine, helpers, visitors, holograms, sky | a new room: `salas/`; another routine: `dweller.ts` |
+| `web/src/ui/` | the React interface: top bar, intercom, terminals, browsers, devices, git client | a device or an activity: `Activities.tsx` |
 | `electron/` | the game window, the embedded browsers and Spotify's windowless Chrome | |
 | `scripts/` | startup, app install and end-to-end QA (`qa-*`) | |
 
 The rules for agents are in [`AGENTS.md`](AGENTS.md) (`CLAUDE.md` imports it); every feature, where it lives and its QA
-in [`docs/mapa.md`](docs/mapa.md); the layout in [`docs/diseno-refugio.md`](docs/diseno-refugio.md) and the art in
+in [`docs/map.md`](docs/map.md); the layout in [`docs/shelter-design.md`](docs/shelter-design.md) and the art in
 [`docs/assets.md`](docs/assets.md). The `scripts/qa-*` scripts
 are end-to-end tests with Playwright; those that launch real Claude Code sessions say so in their header (use them
 with a test shelter).
@@ -348,7 +348,7 @@ with a test shelter).
   4.0 ([`LICENSES/octocat-CC-BY-4.0.txt`](LICENSES/octocat-CC-BY-4.0.txt)); the Octocat character and brand belong to
   GitHub, Inc.
 - **Sound**: CC0 and own synthesis; sources in [`LICENSES/AUDIO.md`](LICENSES/AUDIO.md).
-- **Fonts**: OFL, included in `web/public/fuentes`.
+- **Fonts**: OFL, included in `web/public/fonts`.
 - **Trailer** (`docs/media/`): real game footage; music "AI Fight" by Alexander Ehlers
   ([T & T Free Cyberpunk Pack 2](https://opengameart.org/node/119238), CC0), and the game's own CC0 effects.
 - **Sky astronomy**: a minimal version of [SunCalc](https://github.com/mourner/suncalc) (BSD-2-Clause; see

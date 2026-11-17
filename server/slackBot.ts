@@ -1,15 +1,15 @@
-// Mando a distancia por Slack (lo que hace, en mando.ts): una app de Slack del propio Supervisor, creada desde el
+// Mando a distancia por Slack (lo que hace, en remoteBot.ts): una app de Slack del propio Supervisor, creada desde el
 // manifiesto que enseña la cámara acorazada. Escribe solo en el mensaje directo con quien empareja (un
 // código de un solo uso que se le manda al bot por privado); lo demás se ignora sin responder. Aparte de la integración
-// de avisos de Slack (integraciones/slack.ts), que es de solo lectura: otra app y otro token, para que el lector de
+// de avisos de Slack (integrations/slack.ts), que es de solo lectura: otra app y otro token, para que el lector de
 // avisos nunca pueda escribir. Sin puertos abiertos: Socket Mode (el servidor abre un WebSocket hacia Slack). Los dos tokens, en el llavero: el de la app (xapp-, connections:write) y el del bot (xoxb-).
 import path from 'node:path';
 import { randomInt } from 'node:crypto';
 import { readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { WebSocket } from 'ws';
-import { readSecret, saveSecret, eraseSecret } from './integraciones/llavero.ts';
-import { t } from '../shared/idioma.ts';
-import { RemoteBot, type Rastro, PAIRING_MS, type RemoteDeps, type Vista } from './mando.ts';
+import { readSecret, saveSecret, eraseSecret } from './integrations/keychain.ts';
+import { t } from '../shared/language.ts';
+import { RemoteBot, type Rastro, PAIRING_MS, type RemoteDeps, type Vista } from './remoteBot.ts';
 
 const API = 'https://slack.com/api/';
 const CUENTA_APP = 'slackRemote.appToken';

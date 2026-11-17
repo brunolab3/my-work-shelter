@@ -6,19 +6,19 @@
 // El mensaje del commit lo escribes tú (⌘Intro hace el commit); la generación con IA queda para cuando el refugio
 // tenga inferencia.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { vivo, cliente } from '../../red/cliente';
-import { t } from '@shared/idioma';
-import { SFX } from '../../audio/sonido';
-import { firstMapNow } from '../../motor/foco';
-import { windowShortcut, WindowButtons, CMD, MAC } from '../ventanas';
-import { openTerminalIn } from '../Terminales';
-import { openFiles } from '../archivos/ventana';
-import { windowGit, choosePath, lastPath, minimizeGit, closeGit, onFrontGit, toggleMaximizeGit, type ViewGit, type WindowGit } from './ventana';
-import { VisorDiff, type PatchThat } from './VisorDiff';
-import { Historial } from './Historial';
+import { vivo, cliente } from '../../net/client';
+import { t } from '@shared/language';
+import { SFX } from '../../audio/sound';
+import { firstMapNow } from '../../engine/focus';
+import { windowShortcut, WindowButtons, CMD, MAC } from '../windows';
+import { openTerminalIn } from '../Terminals';
+import { openFiles } from '../files/window';
+import { windowGit, choosePath, lastPath, minimizeGit, closeGit, onFrontGit, toggleMaximizeGit, type ViewGit, type WindowGit } from './window';
+import { VisorDiff, type PatchThat } from './DiffViewer';
+import { Historial } from './History';
 import { GitHub } from './GitHub';
 import { PullRequests } from './PullRequests';
-import { hace, LETTER, type Letter } from './comun';
+import { hace, LETTER, type Letter } from './common';
 
 interface FileGit { ruta: string; origen?: string; letra: Letter }
 interface StateGit {

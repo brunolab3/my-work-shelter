@@ -1,43 +1,43 @@
 // El mundo: el refugio entero (plantas, salas, ascensor, roca y superficie), sus habitantes y el Supervisor.
 import * as THREE from 'three';
-import type { Engine } from '../motor/render';
-import { ShelterCamera } from '../motor/camara';
-import { teclado } from '../motor/teclado';
-import { BACKGROUND, HEIGHT, SLAB, FLOOR, FRAME, MODULO, caja, mundo, type Sala, type Interactive } from './salas/comun';
-import { VARIANTS } from '../motor/paleta';
-import { buildRoom, type SavedRoom } from './salas';
-import { Steam, Sparks } from './efectos';
-import { Gallery } from './tiro';
-import { Helpers } from './ayudantes';
-import { Messengers } from './mensajero';
-import { Holograms, type Copia } from './hologramas';
-import { Visitors } from './visitantes';
-import { SHOP } from '@shared/catalogo';
-import { Character } from './personaje';
-import { lookOf, lookSignature, type Look } from '@shared/aspecto';
-import { Habitante, type Identity } from './habitante';
-import { TagsLayer, scheduledMark } from './etiquetas';
-import { Portrait } from './retrato';
-import { Ascensor, ELEVATOR_WIDTH } from './ascensor';
-import { LightsAssignment } from './luces';
-import { rockFace } from './roca';
-import { place, R } from '../motor/assets';
+import type { Engine } from '../engine/render';
+import { ShelterCamera } from '../engine/camera';
+import { teclado } from '../engine/keyboard';
+import { BACKGROUND, HEIGHT, SLAB, FLOOR, FRAME, MODULO, caja, mundo, type Sala, type Interactive } from './rooms/common';
+import { VARIANTS } from '../engine/palette';
+import { buildRoom, type SavedRoom } from './rooms';
+import { Steam, Sparks } from './effects';
+import { Gallery } from './shootingGallery';
+import { Helpers } from './helpers';
+import { Messengers } from './messenger';
+import { Holograms, type Copia } from './holograms';
+import { Visitors } from './visitors';
+import { SHOP } from '@shared/catalog';
+import { Character } from './character';
+import { lookOf, lookSignature, type Look } from '@shared/appearance';
+import { Habitante, type Identity } from './dweller';
+import { TagsLayer, scheduledMark } from './labels';
+import { Portrait } from './portrait';
+import { Ascensor, ELEVATOR_WIDTH } from './elevator';
+import { LightsAssignment } from './lights';
+import { rockFace } from './rock';
+import { place, R } from '../engine/assets';
 import { mergeStatic } from './util3d';
-import { buildSurface } from './superficie';
-import { buildEnvironment } from './entorno';
-import { Sky } from './cielo';
-import { juego } from '../ui/estadoJuego';
-import { isCopy, idCopy, branchCaption } from '../ui/copias';
-import { taskCaption } from '@shared/tareas';
-import type { TaskBoard, ShownRow } from './salas/tableroTareas';
-import { SFX, bootAmbient } from '../audio/sonido';
-import { audioWorld } from '../audio/mundo';
-import { vivo } from '../red/cliente';
-import type { SessionSummary } from '@shared/protocolo';
-import { INITIAL_ROOMS, INITIAL_DWELLERS, ROOM_SUPERVISOR } from '@shared/refugioInicial';
-import { decorSignature } from '@shared/decorado';
-import { alphabeticalOrder } from '@shared/disposicion';
-import { t as tx, tIs } from '@shared/idioma';
+import { buildSurface } from './surface';
+import { buildEnvironment } from './environment';
+import { Sky } from './sky';
+import { juego } from '../ui/gameState';
+import { isCopy, idCopy, branchCaption } from '../ui/copies';
+import { taskCaption } from '@shared/tasks';
+import type { TaskBoard, ShownRow } from './rooms/taskBoard';
+import { SFX, bootAmbient } from '../audio/sound';
+import { audioWorld } from '../audio/world';
+import { vivo } from '../net/client';
+import type { SessionSummary } from '@shared/protocol';
+import { INITIAL_ROOMS, INITIAL_DWELLERS, ROOM_SUPERVISOR } from '@shared/initialShelter';
+import { decorSignature } from '@shared/decor';
+import { alphabeticalOrder } from '@shared/layout';
+import { t as tx, tIs } from '@shared/language';
 
 const ROOM_WIDTH = 12;
 const loadingAcc = new WeakMap<Character, Set<string>>();
@@ -933,7 +933,7 @@ export class Refugio {
     const a = this.apuntar(this.ndc(e)); if (!a) return;
     if (j.talkingWith) {
       if ((a.tipo !== 'habitante' && a.tipo !== 'copia' && a.tipo !== 'aparato' && a.tipo !== 'fila') || (a.tipo === 'habitante' && a.h === this.focused) || (a.tipo === 'copia' && a.f === this.copyFocused)) return;
-      SFX.cerrar(); juego.set({ talkingWith: null, workIn: null }); this.dialogEnd();   // como minimizarIntercom (ui/Dialogo.tsx)
+      SFX.cerrar(); juego.set({ talkingWith: null, workIn: null }); this.dialogEnd();   // como minimizarIntercom (ui/Dialog.tsx)
     }
     // la charla se abre con el clic; el Supervisor llega andando por detrás
     if (a.tipo === 'copia') { SFX.clic(); this.interactCopy(a.f, true); return; }

@@ -1,7 +1,7 @@
 // The DEMO data (demo.ts, and the demo PRs and profile in server/git.ts) in English: each Spanish text with its English
 // version. With the shelter in English, inDemoLanguage() swaps every string found here, after the data is built (so
 // the comparisons inside, like the Linear review column, still see the Spanish). Names of people and places stay.
-import { idioma } from '../../shared/idioma.ts';
+import { idioma } from '../../shared/language.ts';
 
 const EN: Record<string, string> = {
   // mail

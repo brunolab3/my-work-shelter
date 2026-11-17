@@ -1,6 +1,6 @@
 // QA de «Adaptar la sala al repo» de punta a punta: el habitante de una sala lee su repo y le diseña una escena con las
-// herramientas del juego (server/decoradoSala.ts); al final la sala tiene decorado válido y se guarda una foto.
-// Uso: node scripts/qa-decorado.mjs [sala] [modelo] [foto.png]   (por defecto: la primera sala de repo, sonnet)
+// herramientas del juego (server/roomDecor.ts); al final la sala tiene decorado válido y se guarda una foto.
+// Uso: node scripts/qa-decor.mjs [sala] [modelo] [foto.png]   (por defecto: la primera sala de repo, sonnet)
 // Ojo: lanza una sesión real de Claude Code (gasta de tu plan) y aprueba lo que pida que solo lea: úsalo contra un
 // refugio de pruebas (SHELTER_DATOS=/ruta/temporal y SHELTER_PUERTO), nunca contra el tuyo.
 import WebSocket from 'ws';
@@ -46,7 +46,7 @@ ws.on('message', async raw => {
       if (!d) { log('FALLO: la sala no tiene decorado'); process.exit(1); }
       log(`decorado: base ${d.base}, ${d.piezas?.length ?? 0} piezas, ${d.carteles?.length ?? 0} carteles, ${d.pantallas?.length ?? 0} pantallas · «${d.subtitulo ?? ''}» · ${d.resumen ?? ''}`);
       ws.send(JSON.stringify({ t: 'cerrarSesion', sesionId }));
-      if (foto) execFileSync('node', [path.join(import.meta.dirname, 'captura.mjs'), `http://127.0.0.1:${puerto}/?sala=${sala}`, foto, '1280', '720', '--pasos=40', "--eval=window.__juego.set({panel:null});document.getElementById('ui').style.visibility='hidden'"], { stdio: 'inherit', env: process.env });
+      if (foto) execFileSync('node', [path.join(import.meta.dirname, 'capture.mjs'), `http://127.0.0.1:${puerto}/?sala=${sala}`, foto, '1280', '720', '--pasos=40', "--eval=window.__juego.set({panel:null});document.getElementById('ui').style.visibility='hidden'"], { stdio: 'inherit', env: process.env });
       process.exit(0);
     }
   } else if (m.t === 'aviso') log('aviso:', m.texto);

@@ -1,5 +1,5 @@
 // Lector del correo sin leer de Mail (la app del Mac), en JavaScript para Automatización (JXA). Lo lanza
-// server/integraciones/mail.ts con osascript -l JavaScript. Solo lee: no marca, no mueve ni borra nada.
+// server/integrations/mail.ts con osascript -l JavaScript. Solo lee: no marca, no mueve ni borra nada.
 //   osascript -l JavaScript mail.jxa <días> <máximo> <ids-conocidos-en-JSON>
 // Salida (JSON): { cerrada: true } si Mail no está abierta (no se abre sola), o
 //   { cuentas: [{ nombre, servidor, correos }], mensajes: [{ id, cuenta, asunto, remitente, fecha, marcado, texto? }] }

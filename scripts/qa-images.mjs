@@ -1,7 +1,7 @@
-// QA of the Mac's images in replies (web/src/ui/markdown.ts, server/paginasLocales.ts): a reply that embeds or links a
+// QA of the Mac's images in replies (web/src/ui/markdown.ts, server/localPages.ts): a reply that embeds or links a
 // local image shows one bounded thumbnail per image, served by the game; a missing one leaves no broken picture; a click
 // on the thumbnail or on the link opens the image in the «Página» window, not in Preview.
-// Usage: node scripts/qa-imagenes.mjs [url]   (with a test shelter: SHELTER_DATOS=/tmp/x npm run dev)
+// Usage: node scripts/qa-images.mjs [url]   (with a test shelter: SHELTER_DATOS=/tmp/x npm run dev)
 import { chromium } from 'playwright';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { deflateSync } from 'node:zlib';

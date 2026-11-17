@@ -5,17 +5,17 @@
 // (gateMissing). Opened from the task's block in the deployment plan, the copy's intercom and ⌘K. A small floating box
 // over whatever is open (not a panel): Esc or a click outside closes it and leaves everything underneath as it was.
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { cliente } from '../red/cliente';
-import { SFX } from '../audio/sonido';
-import { t } from '@shared/idioma';
-import { teclado } from '../motor/teclado';
-import { Keys, useKeys } from './aparato';
-import { Store } from './almacen';
-import { openLink } from './Navegadores';
-import { buscador } from './Buscador';
-import { jiraBoard, useColorsTasks } from './tareas';
-import { taskColor, taskKey } from '@shared/tareas';
-import { refPR } from '@shared/despliegue';
+import { cliente } from '../net/client';
+import { SFX } from '../audio/sound';
+import { t } from '@shared/language';
+import { teclado } from '../engine/keyboard';
+import { Keys, useKeys } from './device';
+import { Store } from './store';
+import { openLink } from './Browsers';
+import { buscador } from './Search';
+import { jiraBoard, useColorsTasks } from './tasks';
+import { taskColor, taskKey } from '@shared/tasks';
+import { refPR } from '@shared/deploy';
 import { linkState, mergeReady, shortRef, type Cell, type PartLink, type PartPreflight, type TaskPreflight } from '@shared/preflight';
 
 const MARK: Record<Cell['marca'], string> = { ok: '✓', aviso: '⚠', mal: '✗', nada: '—' };

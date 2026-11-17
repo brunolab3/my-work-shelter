@@ -1,8 +1,8 @@
 // Plausible simulated data (DEMO) for when a source is not configured: written in Spanish, with its English in
 // demoEnglish.ts for a shelter in English. Fictional shelter projects and dates relative to «now» (system time zone),
 // generated stably per day so they don't flicker. Every person, team and company is made up.
-import type { Notification, Evento, Priority, SourceId } from './adaptadores.ts';
-import { dayStart } from './normalizar.ts';
+import type { Notification, Evento, Priority, SourceId } from './adapters.ts';
+import { dayStart } from './normalize.ts';
 import { inDemoLanguage } from './demoEnglish.ts';
 
 function semilla(n: number) { let s = n >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }

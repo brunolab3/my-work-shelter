@@ -1,5 +1,5 @@
-// Order of a window's tabs (ventanas.tsx): the order they were opened in, never by state; ⌘1…⌘9 and ⌃Tab follow it.
-import { recentFirst, type Recency } from '@shared/recientes';
+// Order of a window's tabs (windows.tsx): the order they were opened in, never by state; ⌘1…⌘9 and ⌃Tab follow it.
+import { recentFirst, type Recency } from '@shared/recent';
 
 export type TabState = 'esperando' | 'sinLeer' | 'error' | 'trabajando' | 'ociosa';
 const RANK: Record<TabState, number> = { esperando: 0, sinLeer: 1, error: 2, trabajando: 3, ociosa: 4 };

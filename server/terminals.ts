@@ -1,6 +1,6 @@
 // Terminales reales (shell de login sobre PTY) en la carpeta de cada sala: para lo que solo el humano puede hacer
 // (sudo, prompts interactivos, logins, Claude Code a mano). Los PTY viven en un proceso aparte
-// (anfitrionTerminales.ts) para sobrevivir a un reinicio del servidor; aquí se reparten a las pestañas y, tras una
+// (terminalHost.ts) para sobrevivir a un reinicio del servidor; aquí se reparten a las pestañas y, tras una
 // recarga del cliente o un reinicio, se reenganchan al socket nuevo con lo que ya había en pantalla.
 import path from 'node:path';
 import os from 'node:os';
@@ -8,15 +8,15 @@ import net from 'node:net';
 import { existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { spawn } from 'node:child_process';
-import { DATOS } from './estado.ts';
-import { t } from '../shared/idioma.ts';
+import { DATOS } from './state.ts';
+import { t } from '../shared/language.ts';
 
 type Listener = (m: any) => void;
 interface Term { shell: string; cwd: string; listeners: Set<Listener>; bufer: string; suffix: string; ultimo?: string; fuera: number; inPrompt?: boolean; program?: string }
 
 // en la carpeta temporal del usuario (privada en macOS) y corta: los sockets Unix no admiten rutas largas
 export const SOCKET_TERMINALS = path.join(os.tmpdir(), `work-shelter-${createHash('sha1').update(path.resolve(DATOS)).digest('hex').slice(0, 10)}.sock`);
-const ANFITRION = path.join(import.meta.dirname, 'anfitrionTerminales.ts');
+const ANFITRION = path.join(import.meta.dirname, 'terminalHost.ts');
 // lo que identifica a la terminal desde la que se lanzó el juego (iTerm, Terminal…) no vale dentro de la del juego
 const FOREIGN = /^(CLAUDE_CODE|CLAUDECODE$|SHELTER_|ITERM_|LC_TERMINAL|TERM_PROGRAM|TERM_SESSION_ID$|KITTY_|WEZTERM_|GHOSTTY_|VSCODE_|COLORFGBG$)/;
 

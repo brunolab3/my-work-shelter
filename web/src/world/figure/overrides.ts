@@ -1,6 +1,6 @@
 // Retoques a mano del despiece automático de algunas cabezas (qué es gorro y qué es pelo cuando el color engaña).
-// Los números de componente son su orden por tamaño (el 0, el más grande), como los lista la herramienta figuras.html.
-import type { Settings } from './despiece';
+// Los números de componente son su orden por tamaño (el 0, el más grande), como los lista la herramienta figures.html.
+import type { Settings } from './breakdown';
 
 export const SETTINGS: Record<string, Settings> = {
   Knight: { pelo: [[218, 174, 126]] },

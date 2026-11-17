@@ -5,16 +5,16 @@ import { migrateKeys, MIGRATION_STEP } from '../shared/migrateKeys.ts';
 import { LEGACY_KEYS } from '../shared/legacyKeys.ts';
 import path from 'node:path';
 import os from 'node:os';
-import { INITIAL_ROOMS, INITIAL_DWELLERS } from '../shared/refugioInicial.ts';
-import { GAME_NAME } from '../shared/protocolo.ts';
-import { tonesForRepeated, distinctLooks } from '../shared/reclutas.ts';
-import { distribute, placeRoom, isRoomOfRepo, PLANNING_ROOM } from '../shared/disposicion.ts';
-import { sanitizeLook, type Look } from '../shared/aspecto.ts';
-import { SOURCES } from './integraciones/adaptadores.ts';
-import { sanitizeDecor, type Decorado } from '../shared/decorado.ts';
+import { INITIAL_ROOMS, INITIAL_DWELLERS } from '../shared/initialShelter.ts';
+import { GAME_NAME } from '../shared/protocol.ts';
+import { tonesForRepeated, distinctLooks } from '../shared/recruits.ts';
+import { distribute, placeRoom, isRoomOfRepo, PLANNING_ROOM } from '../shared/layout.ts';
+import { sanitizeLook, type Look } from '../shared/appearance.ts';
+import { SOURCES } from './integrations/adapters.ts';
+import { sanitizeDecor, type Decorado } from '../shared/decor.ts';
 import { projectType } from './repos.ts';
-import { areaByType, isArea, type AreaRepo } from '../shared/sectores.ts';
-import { isLanguage, type Idioma } from '../shared/idioma.ts';
+import { areaByType, isArea, type AreaRepo } from '../shared/sectors.ts';
+import { isLanguage, type Idioma } from '../shared/language.ts';
 
 export const DATOS = path.resolve(process.env.SHELTER_DATOS || path.join(import.meta.dirname, '..', '.data'));
 // los archivos de .data guardados con las claves en español (antes de pasar el código a inglés) se ponen al día una vez,
@@ -156,7 +156,7 @@ export interface ShelterState {
   supervisor: { personaje: string; nombre: string; accesorios: string[]; aspecto?: Look };
   raizRepos: string;
   limiteSesiones: number;
-  idioma?: Idioma;              // el de los textos del juego (shared/idioma.ts); sin él, español
+  idioma?: Idioma;              // el de los textos del juego (shared/language.ts); sin él, español
   salas: SavedRoom[];
   habitantes: SavedDweller[];
   ocultas?: HiddenRoom[];       // salas de repo que el Supervisor ha quitado del juego (Cámara acorazada → Salas)

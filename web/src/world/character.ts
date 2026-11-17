@@ -1,11 +1,11 @@
 // Personajes KayKit con mezcla de clips, desplazamiento sin deslizamiento y accesorios en los handslots.
 import * as THREE from 'three';
-import { modelo, gltf, measure } from '../motor/assets';
-import { loadClips, clip, speedNatural } from './animaciones';
-import { CHARACTER_HEIGHT, SCALE_KAYKIT } from './sala';
+import { modelo, gltf, measure } from '../engine/assets';
+import { loadClips, clip, speedNatural } from './animations';
+import { CHARACTER_HEIGHT, SCALE_KAYKIT } from './room';
 import { AnimOctocat } from './octocat';
-import { mountFigure, paint, type Figure } from './figura/montaje';
-import { lookOf, lookSignature, type Look } from '@shared/aspecto';
+import { mountFigure, paint, type Figure } from './figure/assembly';
+import { lookOf, lookSignature, type Look } from '@shared/appearance';
 
 export const REPARTO = {
   Engineer: 'kaykit/adventurers-2.0/Characters/gltf/Engineer.glb',

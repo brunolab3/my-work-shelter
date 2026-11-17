@@ -2,9 +2,9 @@
 
 ## Layout
 - Elevator shaft at x = 0 (3.4 m with walls). Rooms to the left (x < 0) and right (x > 0) of the elevator; `orden` 0 next to the elevator, 1 the next one.
-- Each room is 12 m wide (3 modules) + the cutaway pillars (FRAME = 0.45 m). A room's centre: `xRoom()` in `web/src/mundo/refugio.ts`.
-- Floors: `y = −planta · FLOOR` (`FLOOR` in `web/src/mundo/salas/comun.ts`: room height plus slab). Labelled PB (ground), -1, -2… (`floorCaption`). The ground floor is at street level.
-- A room's place isn't chosen by hand: `distribute` (`shared/disposicion.ts`) computes it from the rooms there are. The server applies it when loading the saved state, when recruiting and when retiring a room (unless the Overseer moved rooms by hand from the map: then the layout stays manual until reset):
+- Each room is 12 m wide (3 modules) + the cutaway pillars (FRAME = 0.45 m). A room's centre: `xRoom()` in `web/src/world/shelter.ts`.
+- Floors: `y = −planta · FLOOR` (`FLOOR` in `web/src/world/rooms/common.ts`: room height plus slab). Labelled PB (ground), -1, -2… (`floorCaption`). The ground floor is at street level.
+- A room's place isn't chosen by hand: `distribute` (`shared/layout.ts`) computes it from the rooms there are. The server applies it when loading the saved state, when recruiting and when retiring a room (unless the Overseer moved rooms by hand from the map: then the layout stays manual until reset):
   - PB: the Main Gate, alone, left of the elevator. You come in and go out through it.
   - -1: Vault | Command Bridge.
   - -2: Communications (outer) and Calendar (next to the elevator) | Planning, Version Control and Logistics.
@@ -20,7 +20,7 @@
 - Overseer: A/D (←→) along the floor, W/S (↑↓) in depth inside a room; on the elevator landing, W/S call the cabin to go up or down. Click on a room's floor: go there (by elevator if needed).
 
 ## Light with many rooms (performance)
-- A fixed set of dynamic spot and point lights (`LightsAssignment` in `web/src/mundo/luces.ts`; none casts shadows, only the sun does) reassigned a few times a second to the lamps nearest the camera. The number of lights never changes (shaders aren't recompiled).
+- A fixed set of dynamic spot and point lights (`LightsAssignment` in `web/src/world/lights.ts`; none casts shadows, only the sun does) reassigned a few times a second to the lamps nearest the camera. The number of lights never changes (shaders aren't recompiled).
 - Lamps without an assigned light show their emissive bulb and a fake pool (additive decal) so they look lit from afar.
 - The sun's shadow follows the camera framing.
 
@@ -31,7 +31,7 @@
 | Stock repo: Laboratory (Python) | Glass terrarium | olive, green | the room's recruit | test bench with sink, tray greenhouse |
 | Stock repo: Foundry (Rust and Go) | Brick forge with hood and chimney | rust red, copper | the room's recruit | anvil on a stump, crucible, quenching tub |
 | Stock repo: Archive (no code) | Tall shelf of boxes | ochre | the room's recruit | card file with terminal, reading table |
-| Repo with a set dressing ("Adapt the room to the repo") | Whatever its dweller designs with the game's props | its own | the room's | `shared/decorado.ts`, `docs/decorados.md`; can also start from the hand-made web workshop, shop window, brand archive or screening room |
+| Repo with a set dressing ("Adapt the room to the repo") | Whatever its dweller designs with the game's props | its own | the room's | `shared/decor.ts`, `docs/decor.md`; can also start from the hand-made web workshop, shop window, brand archive or screening room |
 | Logistics (type `coordinacion`, folder = repos root) | Wall screen with the deployment plan (click opens the board) | — | Inés «Divide y Vencerás» | plan table where work is split; plans Jira tasks across repos. Wings (folders with several repos) are also `coordinacion` rooms |
 | Communications | Radio switchboard with antennas and pneumatic tube | green | Ondina | screen with the real notification feed |
 | Calendar (type `planificacion`) | Week calendar board (real events) | blue | Calixto | clocks, map table |
@@ -43,4 +43,4 @@
 | Hydroponics | Crop beds that grow with tool use | green, magenta (grow lights) | Fermín | activity: harvest |
 | Disco | DJ booth (Spotify) | neon | DJ-80 | dance floor with dancers |
 | Shooting Gallery | Targets and counter | red, yellow | Dora | activity: target shooting (first iteration, unfinished: see README) |
-| Body Shop | Barber's and wardrobe: change looks | aqua | Fito | fitting room (`web/src/ui/Probador.tsx`) |
+| Body Shop | Barber's and wardrobe: change looks | aqua | Fito | fitting room (`web/src/ui/FittingRoom.tsx`) |

@@ -1,9 +1,9 @@
-// The task board of a repo room (web/src/mundo/salas/tableroTareas.ts): one row for the main copy and one per worktree,
+// The task board of a repo room (web/src/world/rooms/taskBoard.ts): one row for the main copy and one per worktree,
 // with its task, branch, what its conversations are doing (or waiting on) and one overall state for its PRs in this
 // room's repo. Pure, so it can be tested without the scene.
-import type { InfoWorktree, SessionState } from './protocolo.ts';
-import type { PRBoard } from './tablero.ts';
-import { worktreeTask, worktreePRs } from './tareas.ts';
+import type { InfoWorktree, SessionState } from './protocol.ts';
+import type { PRBoard } from './board.ts';
+import { worktreeTask, worktreePRs } from './tasks.ts';
 
 /** What the conversations open in a copy are doing, the most urgent first */
 export type SessionMark = 'esperando' | 'error' | 'trabajando' | 'listo' | 'abierta';
@@ -48,7 +48,7 @@ export function prRollup(prs: Pick<PRBoard, 'estado' | 'checks' | 'revision' | '
 }
 
 const inside = (cwd: string | undefined, ruta: string) => !!cwd && (cwd === ruta || cwd.startsWith(ruta + '/'));
-// a worktree a session has just created, before git lists it (as the holograms do: web/src/ui/copias.ts)
+// a worktree a session has just created, before git lists it (as the holograms do: web/src/ui/copies.ts)
 const freshWorktree = (cwd: string) => /^(.*\/\.claude\/worktrees\/[^/]+)/.exec(cwd)?.[1];
 
 /** The rows of a room's board: its main copy first, then its worktrees in git's order (they don't reshuffle). */

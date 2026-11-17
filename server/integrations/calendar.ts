@@ -1,16 +1,16 @@
 // Calendario del Mac, solo lectura: los eventos de hoy a +14 días de los calendarios de la app Calendario (las cuentas
 // de Ajustes del Sistema → Cuentas de internet: Google, Exchange, iCloud…). El refugio no guarda tokens ni secretos.
-// Lee con calendario.jxa (osascript, JavaScript para Automatización); la primera vez macOS pide permiso para controlar
+// Lee con calendar.jxa (osascript, JavaScript para Automatización); la primera vez macOS pide permiso para controlar
 // Calendario. Calendario no se abre sola: si está cerrada, el estado lo dice. Las repeticiones las despliega
-// normalizar.ts (repeticiones): por AppleScript, Calendario solo da el primer evento de cada serie.
+// normalize.ts (repeticiones): por AppleScript, Calendario solo da el primer evento de cada serie.
 import path from 'node:path';
 import { execFile } from 'node:child_process';
-import type { Store } from '../estado.ts';
-import { ConnectorBase, ConfigSource, ErrorSource, type Field } from './comun.ts';
-import { eventsOfCalendarMac, explainErrorCalendar, dayStart, type EventCalendarMac } from './normalizar.ts';
-import { t } from '../../shared/idioma.ts';
+import type { Store } from '../state.ts';
+import { ConnectorBase, ConfigSource, ErrorSource, type Field } from './common.ts';
+import { eventsOfCalendarMac, explainErrorCalendar, dayStart, type EventCalendarMac } from './normalize.ts';
+import { t } from '../../shared/language.ts';
 
-const READER = path.join(import.meta.dirname, 'calendario.jxa');
+const READER = path.join(import.meta.dirname, 'calendar.jxa');
 const DAYS = 14, DAY = 86_400_000;
 
 export const CALENDAR_FIELDS: Field[] = [

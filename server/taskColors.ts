@@ -1,8 +1,8 @@
-// El color de cada tarea (shared/tareas.ts), guardado para que sea siempre el mismo: cada tarea nueva recibe el color de
+// El color de cada tarea (shared/tasks.ts), guardado para que sea siempre el mismo: cada tarea nueva recibe el color de
 // la paleta que menos se usa entre las vistas en las dos últimas semanas (las antiguas lo sueltan).
 import { existsSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
 import path from 'node:path';
-import { TASKS_PALETTE, assignColors, hasTaskColor } from '../shared/tareas.ts';
+import { TASKS_PALETTE, assignColors, hasTaskColor } from '../shared/tasks.ts';
 
 const VALIDITY = 14 * 86_400_000, MAX = 200;
 // keys are stored uppercased; slugs take no color (hasTaskColor), so they don't use up the palette

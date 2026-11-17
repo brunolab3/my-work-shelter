@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import * as G from './git.ts';
 import { readDiff, assemblePatch, chunksAccepts, lanes, changeInLine, inParallel } from '../web/src/ui/git/diff.ts';
-import { rachas } from '../shared/contribuciones.ts';
+import { rachas } from '../shared/contributions.ts';
 
 const sh = (cwd: string, ...a: string[]) => execFileSync('git', ['-C', cwd, ...a], { encoding: 'utf8' });
 const lineas = (n: number, f = (i: number) => `línea ${i}`) => Array.from({ length: n }, (_, i) => f(i + 1)).join('\n') + '\n';
@@ -149,8 +149,8 @@ describe('PR del tablero de Logística', () => {
     ]);
     const demo = await G.prsTablero({ real: false });
     expect(demo.demo).toBe(true);
-    const { demoPanelJira } = await import('./integraciones/demo.ts');
-    const { cruzarTablero } = await import('../shared/tablero.ts');
+    const { demoPanelJira } = await import('./integrations/demo.ts');
+    const { cruzarTablero } = await import('../shared/board.ts');
     const crossing = cruzarTablero(demoPanelJira().tareas, demo.prs);
     expect(crossing.prs.filter(p => p.tareas.length).length).toBeGreaterThanOrEqual(4);
     expect(crossing.withoutTask.map(p => p.numero)).toEqual([9]);

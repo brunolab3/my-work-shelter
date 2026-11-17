@@ -3,13 +3,13 @@
 // refugio se viste sin moverse) y que la Octocat no se puede tocar. Mide además la altura de todos los habitantes.
 // Uso, con un refugio de pruebas:
 //   SHELTER_DATOS=/tmp/shelter-qa SHELTER_PUERTO=3799 npm run dev   (en otra terminal)
-//   SHELTER_DATOS=/tmp/shelter-qa node scripts/qa-chapa.mjs [carpeta-de-capturas]
+//   SHELTER_DATOS=/tmp/shelter-qa node scripts/qa-body-shop.mjs [carpeta-de-capturas]
 import { chromium } from 'playwright';
 import { mkdirSync } from 'node:fs';
 import { withToken } from './token.mjs';
 
 const [dir = '/tmp/qa-chapa'] = process.argv.slice(2);
-if (!process.env.SHELTER_DATOS) { console.error('Uso: SHELTER_DATOS=/tmp/… node scripts/qa-chapa.mjs [capturas]'); process.exit(2); }
+if (!process.env.SHELTER_DATOS) { console.error('Uso: SHELTER_DATOS=/tmp/… node scripts/qa-body-shop.mjs [capturas]'); process.exit(2); }
 mkdirSync(dir, { recursive: true });
 const b = await chromium.launch({ args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist'] });
 const pg = await b.newPage({ viewport: { width: 1600, height: 900 } });

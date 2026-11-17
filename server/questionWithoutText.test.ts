@@ -1,7 +1,7 @@
-// A main-agent AskUserQuestion with no text before it in the turn (sesiones.ts, canUse): held back once with a request
+// A main-agent AskUserQuestion with no text before it in the turn (sessions.ts, canUse): held back once with a request
 // to write the message first, so the Overseer has the results and links before answering
 import { describe, expect, it } from 'vitest';
-import { Sessions } from './sesiones.ts';
+import { Sessions } from './sessions.ts';
 
 function session() {
   const ses = new Sessions({ pathRoom: () => undefined }) as any;

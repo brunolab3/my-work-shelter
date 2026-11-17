@@ -1,5 +1,5 @@
 // Mando de la música en la página de Spotify: window.__refugioMusica, para que la pletina del juego
-// (web/src/ui/Discoteca.tsx) sepa qué suena y lo maneje sin tener la web a la vista. Lo inyecta electron/chromeRemoto.cjs
+// (web/src/ui/Disco.tsx) sepa qué suena y lo maneje sin tener la web a la vista. Lo inyecta electron/remoteChrome.cjs
 // en el Chrome donde suena Spotify antes que el código de la página (Page.addScriptToEvaluateOnNewDocument). Solo
 // escucha lo que la propia web le cuenta al sistema para las teclas multimedia (Media Session: tema, artista, carátula,
 // posición y las acciones de reproducir, pausa, temas y saltar) y qué elemento de audio suena.

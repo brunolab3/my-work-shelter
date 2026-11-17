@@ -2,15 +2,15 @@
 // Una sala es una caja excavada en la roca y vista en corte frontal. Coordenadas locales:
 // x ∈ [-ancho/2, ancho/2], suelo en y=0, pared trasera en z=-FONDO/2, borde frontal en z=+FONDO/2.
 import * as THREE from 'three';
-import { vivo } from '../../red/cliente';
-import { place, R, type Placement } from '../../motor/assets';
-import { VARIANTS, type Variant } from '../../motor/paleta';
-import { sectorOf, roomTone } from '@shared/sectores';
-import { t, tIs } from '@shared/idioma';
-import type { BoardSpot } from '@shared/decorado';
-import { dangerStrip, roomCaption, cartel, PhosphorScreen, lienzo, textureOf, dirty, Reloj, Gauge, corcho, PanelRoom, strataTexture, SOURCES, sharpCaption } from '../../motor/texturas';
+import { vivo } from '../../net/client';
+import { place, R, type Placement } from '../../engine/assets';
+import { VARIANTS, type Variant } from '../../engine/palette';
+import { sectorOf, roomTone } from '@shared/sectors';
+import { t, tIs } from '@shared/language';
+import type { BoardSpot } from '@shared/decor';
+import { dangerStrip, roomCaption, cartel, PhosphorScreen, lienzo, textureOf, dirty, Reloj, Gauge, corcho, PanelRoom, strataTexture, SOURCES, sharpCaption } from '../../engine/textures';
 import { overlayScreen, screenFrontal, mergeStatic, aleatorio } from '../util3d';
-import { Dust, Steam, Sparks, Bubbles } from '../efectos';
+import { Dust, Steam, Sparks, Bubbles } from '../effects';
 export { Bubbles };
 
 export const MODULO = 4;          // ancho de un panel de pared Quaternius
@@ -67,14 +67,14 @@ export interface Sala {
   walkZones?: [number, number][];  // tramos de x por los que se puede deambular
   anclas: LightAnchor[];                // lámparas y piezas que emiten luz (las enciende el reparto global)
   planta: number; lado: 'izq' | 'der'; orden: number;
-  nombre: string; ruta?: string; area?: string;   // area: la de un repo (shared/sectores.ts)
+  nombre: string; ruta?: string; area?: string;   // area: la de un repo (shared/sectors.ts)
   interactive?: Interactive[];      // aparatos que el Supervisor usa con E (abren un panel)
 }
 
 // Lo que una sala puede mirar del resto del mundo (lo conecta el refugio al arrancar): la maqueta del Puente de Mando
 // pinta todas las salas y al Supervisor, y la torreta de la cámara acorazada le sigue con la mirada
 // También lo leen el audio del mundo (quién habla o teclea y dónde) y quien necesite la cámara.
-// habitantes: los Habitante (habitante.ts) sin importar el tipo (evita el ciclo): id.id, id.voz, pos, estado, sala,
+// habitantes: los Habitante (dweller.ts) sin importar el tipo (evita el ciclo): id.id, id.voz, pos, estado, sala,
 // p.aspecto?.especie y `quehacer` (lo que hace ahora: 'teclear', 'leer', 'pieza', 'pasear', 'charlar'…)
 export const mundo: { salas: () => Sala[]; supervisor: () => THREE.Object3D | null; currentRoom: () => Sala | null; habitantes: () => any[]; camara: () => THREE.PerspectiveCamera | null } = { salas: () => [], supervisor: () => null, currentRoom: () => null, habitantes: () => [], camara: () => null };
 
@@ -261,7 +261,7 @@ export function mancha(g: THREE.Group, x: number, z: number, tam: number, semill
 
 // Lámpara de techo: foco cálido (~2800 K) con penumbra amplia que deja poza de luz real en el suelo
 export function lamp(g: THREE.Group, sala: Sala, x: number, z: number, opts: { intensidad?: number; sombra?: boolean; goal?: [number, number]; color?: string; corta?: boolean } = {}) {
-  // la luz real la pone el reparto global (mundo/luces.ts) a las lámparas cercanas a la cámara; aquí queda el ancla,
+  // la luz real la pone el reparto global (world/lights.ts) a las lámparas cercanas a la cámara; aquí queda el ancla,
   // la lámpara, la bombilla emisiva y una poza falsa en el suelo para cuando no tiene luz asignada
   const color = opts.color ?? '#ffbe73';
   // «corta»: cuelga pegada al techo para no cruzarse por delante de la pantalla o el cartel protagonista
@@ -308,7 +308,7 @@ export function plateYBeacon(g: THREE.Group, sala: Sala, nombre: string, sub: st
     x.clearRect(0, 0, W, H);
     x.fillStyle = '#1b1916'; x.fillRect(0, 0, W, H);
     x.strokeStyle = '#4a443b'; x.lineWidth = 8; x.strokeRect(6, 6, W - 12, H - 12);
-    // bloque del sector (shared/sectores.ts): arriba su nombre en plantilla sobre chapa oscura, debajo el número de la
+    // bloque del sector (shared/sectors.ts): arriba su nombre en plantilla sobre chapa oscura, debajo el número de la
     // sala sobre el tono de la sala (el de su sector aunque un decorado cambie el acento de la pintura); el acceso
     // lleva además franjas de peligro
     const sec = sectorOf(sala.tipo, sala.id, sala.area), nameSec = tIs(sec.nombre);

@@ -2,14 +2,14 @@
 // Pieza protagonista: la pared de cajas de seguridad, una por integración con su piloto de estado, tras una barrera
 // láser que se apaga cuando el Supervisor se acerca al escáner. Vigilan una torreta de techo que le sigue con la
 // mirada y un dron centinela; a la derecha, el puesto de guardia con las cámaras del refugio.
-import { t, t as tr, locale } from '@shared/idioma';
+import { t, t as tr, locale } from '@shared/language';
 import * as THREE from 'three';
-import { place, R } from '../../motor/assets';
-import { cartel, PanelRoom, lienzo, textureOf, dangerStrip, SOURCES } from '../../motor/texturas';
+import { place, R } from '../../engine/assets';
+import { cartel, PanelRoom, lienzo, textureOf, dangerStrip, SOURCES } from '../../engine/textures';
 import { overlayScreen } from '../util3d';
-import { signInWall, mancha, highBand, monitorWall, materialSteel, textureHalo, mundo, caja, HEIGHT, STATE_TEXT, COLOR_STATE, type Contexto } from './comun';
-import { vivo } from '../../red/cliente';
-import { ACTIVE_SOURCES } from '@shared/fuentes';
+import { signInWall, mancha, highBand, monitorWall, materialSteel, textureHalo, mundo, caja, HEIGHT, STATE_TEXT, COLOR_STATE, type Contexto } from './common';
+import { vivo } from '../../net/client';
+import { ACTIVE_SOURCES } from '@shared/fonts';
 
 const SOURCES_INT: string[] = [...ACTIVE_SOURCES];   // una caja por fuente (el orden de la cámara acorazada)
 const COL_INT: Record<string, string> = { demo: '#ffb000', conectada: '#5dff8a', error: '#ff3a2a', 'sin-configurar': '#4a4a4a' };

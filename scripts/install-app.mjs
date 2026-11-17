@@ -1,10 +1,10 @@
 // Instala work-shelter como aplicación de macOS: /Applications/work-shelter-public.app, con su icono, fijada en el Dock.
 // La app es el Electron del repo con otro nombre e icono; al abrirla arranca ./shelter (SHELTER_DESDE_APP) y abre
 // la ventana, así que el juego se sigue actualizando desde el repo sin reinstalar. Hay que volver a ejecutarlo
-// solo si cambia el icono, la versión de Electron o la carpeta del repo. Lo lanzan `./shelter instalar-app` e instalar.sh.
-// Uso: node scripts/instalar-app.mjs [--sin-dock] [--icono] [--destino /ruta/work-shelter-public.app]
-//   Icono: electron/icono/icono.png, el ya preparado. Con --icono (o si falta) se vuelve a preparar con Playwright desde
-//   electron/icono/fuente.png (cuadrada, a sangre, ≥1024 px) o, sin ella, el de serie, dibujado aquí.
+// solo si cambia el icono, la versión de Electron o la carpeta del repo. Lo lanzan `./shelter instalar-app` e install.sh.
+// Uso: node scripts/install-app.mjs [--sin-dock] [--icono] [--destino /ruta/work-shelter-public.app]
+//   Icono: electron/icon/icon.png, el ya preparado. Con --icono (o si falta) se vuelve a preparar con Playwright desde
+//   electron/icon/source.png (cuadrada, a sangre, ≥1024 px) o, sin ella, el de serie, dibujado aquí.
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
@@ -17,7 +17,7 @@ const args = process.argv.slice(2);
 const TARGET = args.includes('--destino') ? path.resolve(args[args.indexOf('--destino') + 1]) : '/Applications/work-shelter-public.app';
 const WITHOUT_DOCK = args.includes('--sin-dock');
 const ELECTRON = path.join(RAIZ, 'node_modules/electron/dist/Electron.app');
-const ICONS = path.join(RAIZ, 'electron/icono');
+const ICONS = path.join(RAIZ, 'electron/icon');
 const ID = 'app.work-shelter-public';
 const sh = (cmd, ...a) => execFileSync(cmd, a, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
 const plist = (archivo, orden) => sh('/usr/libexec/PlistBuddy', '-c', orden, archivo);
@@ -28,8 +28,8 @@ try { sh('/usr/bin/pgrep', '-f', `${TARGET}/Contents/MacOS/`); console.error('wo
 
 // 1. Icono: 1024×1024 con la retícula de macOS (cuerpo de 824 px con sus esquinas, margen y sombra)
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'work-shelter-app-'));
-const fuente = path.join(ICONS, 'fuente.png');
-const png = path.join(ICONS, 'icono.png');
+const fuente = path.join(ICONS, 'source.png');
+const png = path.join(ICONS, 'icon.png');
 fs.mkdirSync(ICONS, { recursive: true });
 const redraw = args.includes('--icono') || !fs.existsSync(png);
 if (redraw) {
@@ -99,7 +99,7 @@ for (const t of [16, 32, 128, 256, 512]) {
 }
 const icns = path.join(tmp, 'work-shelter.icns');
 sh('/usr/bin/iconutil', '-c', 'icns', iconset, '-o', icns);
-console.log(`Icono: ${path.relative(RAIZ, png)}${!redraw ? '' : fs.existsSync(fuente) ? ' (preparado desde fuente.png)' : ' (el de serie)'}`);
+console.log(`Icono: ${path.relative(RAIZ, png)}${!redraw ? '' : fs.existsSync(fuente) ? ' (preparado desde source.png)' : ' (el de serie)'}`);
 
 // 2. La app: el Electron del repo con su nombre, su icono y una entrada que apunta a este repo
 const nueva = path.join(tmp, 'work-shelter-public.app');
@@ -112,7 +112,7 @@ fs.copyFileSync(icns, path.join(recursos, iconName));
 fs.mkdirSync(path.join(recursos, 'app'));
 const version = JSON.parse(fs.readFileSync(path.join(RAIZ, 'package.json'), 'utf8')).version;
 fs.writeFileSync(path.join(recursos, 'app/package.json'), JSON.stringify({ name: 'work-shelter', productName: 'work-shelter', version, main: 'main.cjs' }, null, 2) + '\n');
-fs.writeFileSync(path.join(recursos, 'app/main.cjs'), `// Generado por scripts/instalar-app.mjs: la app abre el juego de este repo\nprocess.env.SHELTER_RAIZ = ${JSON.stringify(RAIZ)};\nrequire(${JSON.stringify(path.join(RAIZ, 'electron/main.cjs'))});\n`);
+fs.writeFileSync(path.join(recursos, 'app/main.cjs'), `// Generado por scripts/install-app.mjs: la app abre el juego de este repo\nprocess.env.SHELTER_RAIZ = ${JSON.stringify(RAIZ)};\nrequire(${JSON.stringify(path.join(RAIZ, 'electron/main.cjs'))});\n`);
 const info = path.join(nueva, 'Contents/Info.plist');
 for (const [clave, valor] of [['CFBundleName', 'work-shelter'], ['CFBundleDisplayName', 'work-shelter'], ['CFBundleIdentifier', ID], ['CFBundleIconFile', iconName], ['CFBundleShortVersionString', version], ['CFBundleVersion', version], ['LSApplicationCategoryType', 'public.app-category.productivity']])
   plist(info, `Set :${clave} ${valor}`);

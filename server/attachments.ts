@@ -8,9 +8,9 @@ import path from 'node:path';
 import os from 'node:os';
 import { mkdirSync, writeFileSync, readFileSync, statSync, rmSync, existsSync, readdirSync, mkdtempSync } from 'node:fs';
 import { execFile } from 'node:child_process';
-import type { Attachment } from '../shared/protocolo.ts';
-import { t } from '../shared/idioma.ts';
-import { TEXTS } from '../shared/textos.ts';
+import type { Attachment } from '../shared/protocol.ts';
+import { t } from '../shared/language.ts';
+import { TEXTS } from '../shared/texts.ts';
 
 const MAX_FILE = 20 * 1024 * 1024;
 const MAX_SIDE = 2000;                    // lado mayor de una imagen que va a Claude

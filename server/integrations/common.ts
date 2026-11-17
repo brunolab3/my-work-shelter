@@ -1,9 +1,9 @@
 // Piezas comunes de los conectores reales: campos de la cámara acorazada, configuración (públicos en el estado, secretos en el
 // llavero), base del conector con sus tres estados y un `pedir` de red con errores claros en español.
-import type { Store } from '../estado.ts';
-import type { Adapter, SourceState, Aviso, Polling, SourceId } from './adaptadores.ts';
-import { readSecret, saveSecret, eraseSecret } from './llavero.ts';
-import { t, tIs } from '../../shared/idioma.ts';
+import type { Store } from '../state.ts';
+import type { Adapter, SourceState, Aviso, Polling, SourceId } from './adapters.ts';
+import { readSecret, saveSecret, eraseSecret } from './keychain.ts';
+import { t, tIs } from '../../shared/language.ts';
 
 export type { SourceId };
 

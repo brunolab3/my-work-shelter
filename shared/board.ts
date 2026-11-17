@@ -1,15 +1,15 @@
 // Tablero de Logística: tareas de Jira con sus pull requests. El servidor trae las tareas (conector de Jira) y los PR
 // (gh); aquí se cruzan por la clave de Jira que lleve el PR en la rama o en el título (p. ej. «ABC-123-arreglar-x»).
 // Puro: lo usan el cliente y las pruebas.
-import { t as tr } from './idioma';
-import type { ReviewLedger } from './cuentaRevisiones';
+import { t as tr } from './language';
+import type { ReviewLedger } from './reviewCount';
 
 export type Category = 'new' | 'indeterminate' | 'done';
 export interface TaskJira {
   clave: string; titulo: string; url: string;
   estado: string; categoria: Category;     // el nombre del estado en Jira y su categoría (Por hacer / En curso / Hecho)
   tipo?: string; prioridad?: string; proyecto?: string; actualizada: number;
-  color?: string;                           // el de la tarea, que reparte Logística (shared/tareas.ts)
+  color?: string;                           // el de la tarea, que reparte Logística (shared/tasks.ts)
   epica?: Epic;                             // its Jira epic (the parent, when it is one)
 }
 /** A task's epic: its key and summary, and its own color from the tasks' palette (assigned with them) */
@@ -20,11 +20,11 @@ export interface PRBoard {
   revision?: 'APPROVED' | 'CHANGES_REQUESTED' | 'REVIEW_REQUIRED';
   checks?: 'SUCCESS' | 'FAILURE' | 'ERROR' | 'PENDING' | 'EXPECTED';
   actualizado: number;
-  cabeza?: string;             // el último commit de su rama en GitHub (server/limpiezaTareas.ts: lo del worktree ya está ahí)
-  base?: string;               // la rama sobre la que va (si es la de otro PR, va apilado encima: shared/despliegue.ts)
+  cabeza?: string;             // el último commit de su rama en GitHub (server/taskCleanup.ts: lo del worktree ya está ahí)
+  base?: string;               // la rama sobre la que va (si es la de otro PR, va apilado encima: shared/deploy.ts)
   dependencias?: string[];
   conflictos?: boolean;        // GitHub's mergeable: true = conflicts with its base, false = mergeable, undefined = still computing
-  ledger?: ReviewLedger;       // lo que queda por contestar en sus revisiones (shared/cuentaRevisiones.ts; solo los abiertos)     // los PR («org/repo#N», o «rama:<rama>» si los nombra por su rama) de los que dice depender su descripción
+  ledger?: ReviewLedger;       // lo que queda por contestar en sus revisiones (shared/reviewCount.ts; solo los abiertos)     // los PR («org/repo#N», o «rama:<rama>» si los nombra por su rama) de los que dice depender su descripción
 }
 export interface TaskWithPR extends TaskJira { prs: PRBoard[] }
 export interface PRWithTask extends PRBoard { claves: string[]; tareas: TaskJira[] }
@@ -66,7 +66,7 @@ export const columnOf = (t: TaskJira) => columnOfState(t.estado, t.categoria);
 // Moving a card to another column: only the transitions Jira's workflow offers for that issue
 // (GET /rest/api/3/issue/{key}/transitions), each with the status it leads to. A column takes those whose target status
 // falls in it (columnOfState) and isn't the current one: none means it can't go there, more than one is the
-// Overseer's pick. Never a forced status (server/integraciones/jira.ts posts only one of these).
+// Overseer's pick. Never a forced status (server/integrations/jira.ts posts only one of these).
 export interface JiraTransition { id: string; nombre: string; a: string; categoria: Category }
 export function jiraTransitions(j: any): JiraTransition[] {
   return ((j?.transitions ?? []) as any[]).filter(x => x?.id && x.to?.name && x.isAvailable !== false).map(x => {
@@ -79,7 +79,7 @@ export function transitionsTo(trs: JiraTransition[], columna: BoardColumn, actua
   return trs.filter(x => columnOfState(x.a, x.categoria) === columna && x.a !== actual);
 }
 
-// «Hecho» solo enseña lo que se movió en la última semana (Jira trae dos, server/integraciones/jira.ts)
+// «Hecho» solo enseña lo que se movió en la última semana (Jira trae dos, server/integrations/jira.ts)
 export const DONE_DAYS = 7;
 // Within a column, tasks of the same epic go together: epics in the order their first task comes, tasks without one last
 export function byEpic<T extends { epica?: Epic }>(tareas: T[]): T[] {

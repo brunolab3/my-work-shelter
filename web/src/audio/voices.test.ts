@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { syllabify } from './voces';
+import { syllabify } from './voices';
 
 describe('murmullo: texto → sílabas', () => {
   it('parte en sílabas con su vocal y su consonante', () => {

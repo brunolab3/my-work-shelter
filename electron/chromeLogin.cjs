@@ -6,12 +6,12 @@
 // de esa web a la sesión de los navegadores del refugio, se cierra Chrome y se borra el perfil.
 // Desde aquí no se toca la página: solo se leen las cookies por el protocolo de depuración a nivel de navegador
 // (Storage.getCookies) y Chrome va con --disable-blink-features=AutomationControlled, así que navigator.webdriver es
-// false y Google lo trata como el Chrome que es. Lo usa electron/chromeRemoto.cjs (Spotify).
+// false y Google lo trata como el Chrome que es. Lo usa electron/remoteChrome.cjs (Spotify).
 const { spawn } = require('node:child_process');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { tr } = require('./textos.cjs');
+const { tr } = require('./texts.cjs');
 
 const CHROME = ['/Applications/Google Chrome.app', path.join(os.homedir(), 'Applications/Google Chrome.app')]
   .map(a => path.join(a, 'Contents/MacOS/Google Chrome')).find(f => fs.existsSync(f)) ?? null;

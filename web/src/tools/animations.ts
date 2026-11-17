@@ -1,7 +1,7 @@
 // Herramienta: rejilla de personajes reproduciendo clips, para elegir animaciones mirándolas.
 import * as THREE from 'three';
-import { modelo } from '../motor/assets';
-import { loadClips, clip, namesClips, speedNatural } from '../mundo/animaciones';
+import { modelo } from '../engine/assets';
+import { loadClips, clip, namesClips, speedNatural } from '../world/animations';
 
 const q = new URLSearchParams(location.search);
 const filtro = new RegExp(q.get('f') || '.', 'i');

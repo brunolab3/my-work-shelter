@@ -1,6 +1,6 @@
 // La cuenta de lo que queda por contestar en un PR tuyo: los hilos de revisión sin resolver y los resúmenes de revisión
 // (el texto general de una revisión que pide cambios o comenta) sin respuesta tuya. Para no descartar una revisión ni
-// volver a pedirla con algo sin contestar. Puro: lo usan el servidor (server/revisionesPR.ts), el tablero de despliegue
+// volver a pedirla con algo sin contestar. Puro: lo usan el servidor (server/prReviews.ts), el tablero de despliegue
 // y las pruebas. Entra el nodo PullRequest de GraphQL tal cual (REVIEWS_QUERY).
 
 export interface ReviewLedger {

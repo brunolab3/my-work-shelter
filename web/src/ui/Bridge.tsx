@@ -2,14 +2,14 @@
 // sonido de llegada de notificaciones según prioridad; avisos del servidor como teletipos; pantalla de carga y
 // bienvenida del primer arranque.
 import React, { useEffect, useRef, useState } from 'react';
-import { juego } from './estadoJuego';
-import { t, tIs } from '@shared/idioma';
-import { vivo, cliente, type Notice } from '../red/cliente';
-import { SFX } from '../audio/sonido';
-import { Device, Keys, useKeys } from './aparato';
-import { LOOK } from '@shared/etiquetas';
-import { GAME_NAME } from '@shared/protocolo';
-import { STOCK } from '@shared/aspecto';
+import { juego } from './gameState';
+import { t, tIs } from '@shared/language';
+import { vivo, cliente, type Notice } from '../net/client';
+import { SFX } from '../audio/sound';
+import { Device, Keys, useKeys } from './device';
+import { LOOK } from '@shared/labels';
+import { GAME_NAME } from '@shared/protocol';
+import { STOCK } from '@shared/appearance';
 
 let views = new Set<string>(); let primera = true;
 vivo.subscribe(() => {

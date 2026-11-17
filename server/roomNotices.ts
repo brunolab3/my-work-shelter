@@ -9,17 +9,17 @@
 // worktree to another room that has that task's conversation or worktree, it carries the task's key. With a thread (`cleanup`), to that thread's open conversation in the main copy, so
 // its messages queue there one at a time; request_worktree_cleanup sends a worktree's cleanup through `cleanup`.
 // Also inside the same room: a dweller hands a task (or a part that goes alone) to its worktree's hologram and keeps the
-// Overseer's conversation; he carries it himself, or the messenger robot does if he's busy (web/src/mundo/mensajero.ts),
-// and never to the sender's own conversation. Para repartir un plan entre varios repos sigue estando assign_work (reparto.ts).
+// Overseer's conversation; he carries it himself, or the messenger robot does if he's busy (web/src/world/messenger.ts),
+// and never to the sender's own conversation. Para repartir un plan entre varios repos sigue estando assign_work (dispatch.ts).
 import { createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
 import path from 'node:path';
-import { t as tr } from '../shared/idioma.ts';
-import type { InfoWorktree } from '../shared/protocolo.ts';
-import { nombreWorktree, worktreeSuffix } from './sesiones.ts';
-import { isJiraKey, slugWorktreeName, taskKey, worktreeHasTask, worktreeTask } from '../shared/tareas.ts';
-import { describeWhen, MAX_PER_CONVERSATION, MAX_DAYS, type ScheduledMessage } from '../shared/programados.ts';
-import { MCP } from './servidoresMcp.ts';
+import { t as tr } from '../shared/language.ts';
+import type { InfoWorktree } from '../shared/protocol.ts';
+import { nombreWorktree, worktreeSuffix } from './sessions.ts';
+import { isJiraKey, slugWorktreeName, taskKey, worktreeHasTask, worktreeTask } from '../shared/tasks.ts';
+import { describeWhen, MAX_PER_CONVERSATION, MAX_DAYS, type ScheduledMessage } from '../shared/scheduled.ts';
+import { MCP } from './mcpServers.ts';
 
 export interface RoomInfo { id: string; nombre: string; habitante?: { id: string; nombre: string } }
 export interface CtxRooms {
@@ -39,7 +39,7 @@ export interface CtxRooms {
   entrega?(salaId: string, a: { worktree?: string; sesionId?: string }): void;
   aviso(texto: string): void;
   ahora?(): number;
-  // los mensajes programados (programados.ts): schedule_message, list_scheduled y cancel_scheduled
+  // los mensajes programados (scheduled.ts): schedule_message, list_scheduled y cancel_scheduled
   programados?: {
     programar(desde: string, desdeSesion: string | undefined, a: { cuando: string; mensaje: string; sala?: string; clave?: string }): { ok: boolean; texto: string };
     deConversacion(sesionId?: string): ScheduledMessage[];
@@ -71,7 +71,7 @@ const bifurcaciones = new Map<string, string>();
 export const forgetThreads = () => { hilos.clear(); seguimientos.clear(); bifurcaciones.clear(); };
 const threadOf = (h: string) => { const x = h.trim().toLowerCase(); return /^[a-z0-9]+(-[a-z0-9]+)*$/.test(x) && x.length <= 40 ? x : undefined; };
 
-// the worktree of a task among a room's: its key in its folder name or its branch (shared/tareas.ts: worktreeHasTask)
+// the worktree of a task among a room's: its key in its folder name or its branch (shared/tasks.ts: worktreeHasTask)
 export function taskWorktree(worktrees: InfoWorktree[], clave: string): string | undefined {
   return worktrees.find(w => !w.principal && worktreeHasTask(w, clave))?.ruta;
 }
@@ -136,7 +136,7 @@ export async function sendToRoom(ctx: CtxRooms, desde: string, { sala, mensaje, 
   }
   if (!como) {
     // sin worktree de la tarea, uno nuevo: la clave y el asunto en su nombre (la primera línea, sin repetir la clave); a
-    // slug is descriptive already, so it goes alone and verbatim, recoverable from the name (shared/tareas.ts: slugKeyOf)
+    // slug is descriptive already, so it goes alone and verbatim, recoverable from the name (shared/tasks.ts: slugKeyOf)
     const worktree = !k || cwd ? undefined : isJiraKey(k)
       ? nombreWorktree(`${k} ${mensaje.trim().split('\n')[0].replace(new RegExp(k, 'ig'), '')}`, ahora)
       : slugWorktreeName(k, worktreeSuffix(ahora));
@@ -191,7 +191,7 @@ export function mcpRooms(ctx: CtxRooms, desde: string, desdeSesion?: string, enW
   });
 }
 
-// mensajes programados (programados.ts): para más adelante, a esta misma conversación o a una sala
+// mensajes programados (scheduled.ts): para más adelante, a esta misma conversación o a una sala
 function scheduleTools(p: NonNullable<CtxRooms['programados']>, desde: string, desdeSesion?: string) {
   const linea = (x: ScheduledMessage) => `- ${x.id} · ${describeWhen(x.cuando)} · ${x.destino.tipo === 'sala' ? tr('tool.schedule.toRoom', { sala: x.destino.sala + (x.destino.clave ? ' ' + x.destino.clave : '') }) : tr('tool.schedule.toThis')}: ${x.mensaje.replace(/\s+/g, ' ').slice(0, 160)}`;
   return [

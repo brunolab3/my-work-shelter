@@ -4,7 +4,7 @@
 //   cliente:  lo que entra en la compilación de la interfaz (dist/web); su huella se guarda al compilar
 //   servidor: lo que carga el servidor; /salud dice la del que está en marcha
 //   app:      lo que solo se lee al abrir la app (Electron, el supervisor y ./shelter): si cambia, se vuelve a abrir
-// Uso: node scripts/huellas.cjs compilar [--si-hace-falta]   ·   node scripts/huellas.cjs poner-al-dia <puerto> <datos>
+// Uso: node scripts/fingerprints.cjs compilar [--si-hace-falta]   ·   node scripts/fingerprints.cjs poner-al-dia <puerto> <datos>
 'use strict';
 const { createHash } = require('node:crypto');
 const { execFileSync } = require('node:child_process');
@@ -15,10 +15,10 @@ const path = require('node:path');
 const RAIZ = path.resolve(__dirname, '..');
 const GROUPS = {
   cliente: ['web', 'shared', 'vite.config.ts', 'tsconfig.json', 'package-lock.json'],
-  servidor: ['server', 'shared', 'package-lock.json', 'scripts/huellas.cjs'],
-  app: ['electron', 'server/supervisor.mjs', 'shelter', 'scripts/huellas.cjs'],
+  servidor: ['server', 'shared', 'package-lock.json', 'scripts/fingerprints.cjs'],
+  app: ['electron', 'server/supervisor.mjs', 'shelter', 'scripts/fingerprints.cjs'],
 };
-const IGNORE = new Set(['.DS_Store', 'node_modules', 'icono']);
+const IGNORE = new Set(['.DS_Store', 'node_modules', 'icon']);
 const CLIENT_MARK = path.join(RAIZ, 'dist', '.huella-cliente');
 
 function huella(grupo, raiz = RAIZ) {
@@ -86,5 +86,5 @@ if (require.main === module) {
   } else if (orden === 'poner-al-dia') {
     setOnDay(Number(args[0]) || 3778, args[1] || path.join(RAIZ, '.data')).then(r => { console.log(r); process.exit(/^(al día|reiniciado|apartado|sin servidor)$/.test(r) ? 0 : 1); });
   } else if (GROUPS[orden]) console.log(huella(orden));
-  else { console.error('Uso: node scripts/huellas.cjs compilar [--si-hace-falta] | poner-al-dia <puerto> <datos> | cliente|servidor|app'); process.exit(2); }
+  else { console.error('Uso: node scripts/fingerprints.cjs compilar [--si-hace-falta] | poner-al-dia <puerto> <datos> | cliente|servidor|app'); process.exit(2); }
 }

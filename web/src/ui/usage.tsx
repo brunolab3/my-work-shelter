@@ -1,8 +1,8 @@
 // Consumo de una conversación: cuánto de su ventana de contexto ocupa ya (barra verde, ámbar o roja, como el /context
-// de Claude Code) y los tokens que lleva gastados. Lo mide el servidor tras cada turno (sesiones.ts, medirContexto)
+// de Claude Code) y los tokens que lleva gastados. Lo mide el servidor tras cada turno (sessions.ts, medirContexto)
 import React from 'react';
-import type { SessionSummary } from '@shared/protocolo';
-import { t, idioma } from '@shared/idioma';
+import type { SessionSummary } from '@shared/protocol';
+import { t, idioma } from '@shared/language';
 
 export const tokensShort = (n: number) => (n >= 1e6 ? (n / 1e6).toFixed(1) + ' M' : n >= 1e3 ? Math.round(n / 1e3) + ' k' : String(n)).replace('.', idioma() === 'es' ? ',' : '.');
 export const contextLevel = (p: number) => (p >= 85 ? 'alto' : p >= 60 ? 'medio' : 'bajo');

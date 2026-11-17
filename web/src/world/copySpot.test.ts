@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { holoSlot, helperSpots, type HoloRoom } from './sitioCopia';
+import { holoSlot, helperSpots, type HoloRoom } from './copySpot';
 
 // 12 m room on the right: slots run -5.1..5.1, the visitor's spot (x ≈ -4.9) blocks the near end up to about -3.5
 const sala = (ancho = 12): HoloRoom => ({ ancho, lado: 'der', puestos: [], devices: [], walkZones: [], obstacles: [] });

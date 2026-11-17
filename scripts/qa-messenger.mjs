@@ -1,6 +1,6 @@
-// QA of the messenger robot (web/src/mundo/mensajero.ts): frames a room, triggers a delivery client-side and logs the
+// QA of the messenger robot (web/src/world/messenger.ts): frames a room, triggers a delivery client-side and logs the
 // robot's and the dweller's position every 250 ms, with screenshots along the way.
-// Usage: SHELTER_DATOS=… node scripts/qa-mensajero.mjs <url> <out.png> [--from=puente] [--to=fever2] [--hand] [--chat]
+// Usage: SHELTER_DATOS=… node scripts/qa-messenger.mjs <url> <out.png> [--from=puente] [--to=fever2] [--hand] [--chat]
 //   default  room to room (send_to_room to another room): the robot runs from --from, down the shaft, to --to
 //   --hand   inside --from (send_to_room to the own room): to its first hologram, by the dweller or, if busy, the robot
 //   --chat   with the intercom open on --from's dweller, as when he sends it mid-conversation (he can't carry it then)

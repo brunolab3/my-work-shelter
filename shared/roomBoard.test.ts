@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { boardRows, prRollup, sessionMark, type BoardSession } from './tableroSala';
-import type { PRBoard } from './tablero';
+import { boardRows, prRollup, sessionMark, type BoardSession } from './roomBoard';
+import type { PRBoard } from './board';
 
 const R = '/repos/web-app';
 const wt = (n: string, extra = {}) => ({ ruta: `${R}/.claude/worktrees/shelter-${n}`, rama: `worktree-shelter-${n}`, principal: false, cambios: 0, advanced: 0, ...extra });

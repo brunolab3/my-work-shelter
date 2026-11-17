@@ -1,9 +1,9 @@
 // Etiquetas sobre la cabeza de los habitantes: una línea (glifo de estado + nombre + detalle), proyectadas cada fotograma.
 import * as THREE from 'three';
-import type { Habitante } from './habitante';
-import { vivo } from '../red/cliente';
-import { soonestByPlace, describeWhenShort } from '@shared/programados';
-import { t } from '@shared/idioma';
+import type { Habitante } from './dweller';
+import { vivo } from '../net/client';
+import { soonestByPlace, describeWhenShort } from '@shared/scheduled';
+import { t } from '@shared/language';
 
 // The ⏰ on a dweller (its room's main copy) or a hologram (its worktree) with a scheduled message pending, with when the
 // next one is due: seen in the shelter before opening its conversation. Worked out again when the list or the repos

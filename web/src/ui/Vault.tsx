@@ -2,16 +2,16 @@
 // refugio (nombre, raíz de repos, límite de sesiones, atuendo del Supervisor, reseteo). Los secretos van al llavero de macOS
 // a través del servidor; aquí solo se escriben y nunca se muestran de vuelta.
 import React, { useEffect, useRef, useState } from 'react';
-import { juego } from './estadoJuego';
-import { t, idioma, tIs } from '@shared/idioma';
-import { vivo, cliente } from '../red/cliente';
-import { SFX } from '../audio/sonido';
-import { Device, Opciones, Keys, closePanel, useMenu, useKeys, type ItemMenu } from './aparato';
-import { SHOP } from '@shared/catalogo';
-import { INTEGRATION_STATE_SHORT } from '@shared/etiquetas';
-import { GAME_NAME } from '@shared/protocolo';
-import { isRoomOfRepo, PLANNING_ROOM, alphabeticalOrder } from '@shared/disposicion';
-import { ACTIVE_SOURCES, INFO_SOURCE, type SourceId } from '@shared/fuentes';
+import { juego } from './gameState';
+import { t, idioma, tIs } from '@shared/language';
+import { vivo, cliente } from '../net/client';
+import { SFX } from '../audio/sound';
+import { Device, Opciones, Keys, closePanel, useMenu, useKeys, type ItemMenu } from './device';
+import { SHOP } from '@shared/catalog';
+import { INTEGRATION_STATE_SHORT } from '@shared/labels';
+import { GAME_NAME } from '@shared/protocol';
+import { isRoomOfRepo, PLANNING_ROOM, alphabeticalOrder } from '@shared/layout';
+import { ACTIVE_SOURCES, INFO_SOURCE, type SourceId } from '@shared/fonts';
 
 export interface IntegrationField { id: string; etiqueta: string; secreto?: boolean; ayuda?: string; ejemplo?: string }
 export interface IntegrationCard { id: SourceId; nombre: string; que: string; pasos: React.ReactNode[]; campos: IntegrationField[] }
@@ -329,7 +329,7 @@ function ViewReset({ volver }: { volver: () => void }) {
   );
 }
 
-// ---------------------------------------------------------------- Slack, mando a distancia (server/slackMando.ts)
+// ---------------------------------------------------------------- Slack, mando a distancia (server/slackBot.ts)
 // Una app de Slack propia, creada desde este manifiesto (Socket Mode: sin URL pública): las peticiones de aprobación,
 // para responderlas desde el móvil sin salir del refugio, y la lista de conversaciones para pasarlas a Remote Control.
 // Solo lo justo: escribir y leer su propio mensaje directo; nada de canales

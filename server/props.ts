@@ -1,10 +1,10 @@
-// Catálogo del atrezo para los decorados de las salas (shared/decorado.ts): los modelos de los packs CC0 que hay en
+// Catálogo del atrezo para los decorados de las salas (shared/decor.ts): los modelos de los packs CC0 que hay en
 // assets/ con su tamaño, medido en su propio glTF (la caja de las posiciones de sus mallas, con las transformaciones de
 // sus nodos), sin cargar three.js. Lo consultan las herramientas del habitante que diseña la sala.
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
-import { t } from '../shared/idioma.ts';
-import { PACKS } from '../shared/decorado.ts';
+import { t } from '../shared/language.ts';
+import { PACKS } from '../shared/decor.ts';
 
 export const ASSETS = path.join(import.meta.dirname, '..', 'assets');
 /** KayKit va a la escala de sus personajes, más grandes que los del refugio: el mobiliario se usa a 0,8 (ESCALA_KAYKIT) */

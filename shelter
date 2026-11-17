@@ -12,7 +12,7 @@ amarillo() { printf '\033[33m%s\033[0m\n' "$*"; }
 verde() { printf '\033[32m%s\033[0m\n' "$*"; }
 rojo() { printf '\033[31m%s\033[0m\n' "$*" >&2; }
 
-# Subórdenes (salir a la superficie, server/superficie.ts): ./shelter superficie [--lista] · ./shelter enganchar <id>
+# Subórdenes (salir a la superficie, server/surface.ts): ./shelter superficie [--lista] · ./shelter enganchar <id>
 # ./shelter instalar-app [--sin-dock] […]: prepara lo mismo que el arranque y crea la app de macOS, sin abrir el juego
 INSTALAR_APP=""
 case "${1:-}" in superficie|enganchar) SUBORDEN=1 ;; instalar-app) SUBORDEN=""; INSTALAR_APP=1; shift; echo "== work-shelter ==" ;; *) SUBORDEN=""; echo "== work-shelter ==" ;; esac
@@ -37,7 +37,7 @@ fi
 
 if [ -n "$SUBORDEN" ]; then
   [ -d node_modules/tsx ] || { rojo "work-shelter aún no está instalado: ejecuta ./shelter una vez."; exit 1; }
-  exec "$NODE" --import tsx server/superficie.ts "$@"
+  exec "$NODE" --import tsx server/surface.ts "$@"
 fi
 
 # 2. Claude Code (necesario para que los habitantes trabajen)
@@ -65,25 +65,25 @@ fi
 # 4. Material artístico CC0 (fijado por commit)
 if [ ! -f assets/indice.json ]; then
   amarillo "Descargando el material artístico (CC0, unos 70 MB, solo la primera vez)…"
-  "$NODE" scripts/descargar-assets.mjs assets && "$NODE" scripts/descargar-extra.mjs assets && "$NODE" scripts/indexar-assets.mjs >/dev/null || { rojo "No se pudo descargar el material. Comprueba la conexión y vuelve a ejecutar ./shelter"; exit 1; }
+  "$NODE" scripts/download-assets.mjs assets && "$NODE" scripts/download-extra.mjs assets && "$NODE" scripts/index-assets.mjs >/dev/null || { rojo "No se pudo descargar el material. Comprueba la conexión y vuelve a ejecutar ./shelter"; exit 1; }
 fi
 
 # 4b. Los personajes de KayKit del probador de Chapa y Pintura: si faltan (una descarga a medias), se baja lo que falte
 # aunque el resto ya estuviera
 if [ ! -f "assets/kaykit/character-animations-1.1/Mannequin Character/characters/Mannequin_Medium.glb" ]; then
   amarillo "Descargando los personajes que faltan (CC0, unos 30 MB, solo una vez)…"
-  "$NODE" scripts/descargar-extra.mjs assets && "$NODE" scripts/indexar-assets.mjs >/dev/null || amarillo "No se pudieron bajar los personajes: se reintentará en el próximo arranque."
+  "$NODE" scripts/download-extra.mjs assets && "$NODE" scripts/index-assets.mjs >/dev/null || amarillo "No se pudieron bajar los personajes: se reintentará en el próximo arranque."
 fi
 
 # 5. Compilar la interfaz si no existe o su código ha cambiado desde la última compilación (por contenido, no por fechas)
-if ! "$NODE" -e "process.exit(require('./scripts/huellas.cjs').clienteAlDia() ? 0 : 1)"; then
+if ! "$NODE" -e "process.exit(require('./scripts/fingerprints.cjs').clienteAlDia() ? 0 : 1)"; then
   amarillo "Compilando work-shelter…"
-  "$NODE" scripts/huellas.cjs compilar || { rojo "Falló la compilación de la interfaz."; exit 1; }
+  "$NODE" scripts/fingerprints.cjs compilar || { rojo "Falló la compilación de la interfaz."; exit 1; }
 fi
 
 if [ -n "$INSTALAR_APP" ]; then
   amarillo "Creando la app…"
-  exec "$NODE" scripts/instalar-app.mjs "$@"
+  exec "$NODE" scripts/install-app.mjs "$@"
 fi
 
 # 6. Servidor local (solo 127.0.0.1, bajo un supervisor que lo relanza al pulsar «Reiniciar» en el juego) y ventana
@@ -91,7 +91,7 @@ PUERTO="${SHELTER_PUERTO:-3778}"
 DATOS="${SHELTER_DATOS:-$RAIZ/.data}"
 # un servidor de antes de los últimos cambios que siga en marcha se pone al día (o se aparta) sin cerrar sus terminales
 if curl -fs "http://127.0.0.1:$PUERTO/salud" >/dev/null 2>&1; then
-  "$NODE" scripts/huellas.cjs poner-al-dia "$PUERTO" "$DATOS" >/dev/null || amarillo "No he podido poner al día el refugio que ya estaba abierto."
+  "$NODE" scripts/fingerprints.cjs poner-al-dia "$PUERTO" "$DATOS" >/dev/null || amarillo "No he podido poner al día el refugio que ya estaba abierto."
 fi
 if curl -fs "http://127.0.0.1:$PUERTO/salud" >/dev/null 2>&1; then
   amarillo "Ya hay un work-shelter abierto en el puerto $PUERTO: abro otra ventana."

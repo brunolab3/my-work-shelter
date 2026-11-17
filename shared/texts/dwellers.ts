@@ -1,7 +1,7 @@
-// Dwellers' nicknames and backstories, stored as Spanish data in the shelter state (shared/refugioInicial.ts and
-// shared/reclutas.ts): shown with tIs() (catalogue: shared/textos.ts). Recruit backstories are two sentences, each
-// looked up on its own (trBio in shared/idioma.ts)
-import type { Texto } from '../idioma.ts';
+// Dwellers' nicknames and backstories, stored as Spanish data in the shelter state (shared/initialShelter.ts and
+// shared/recruits.ts): shown with tIs() (catalogue: shared/texts.ts). Recruit backstories are two sentences, each
+// looked up on its own (trBio in shared/language.ts)
+import type { Texto } from '../language.ts';
 
 export const DWELLERS: Record<string, Texto> = {
   // the initial cast

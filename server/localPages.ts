@@ -6,7 +6,7 @@
 // carga de fuera scripts, estilos y fuentes de los CDN públicos de siempre (CDNS): las páginas que escriben los habitantes
 // traen marked, mermaid o highlight.js de ahí y sin ellos se quedan en blanco. Un .md se ve igual: el servidor lo pasa a
 // HTML (con sus diagramas mermaid) en vez de abrirlo en el editor. A cada página se le añade la capa de notas del
-// Supervisor (server/pagina/notas.js). Una imagen enlazada también se ve en el juego, pero su llave vale solo para ella
+// Supervisor (server/page/notes.js). Una imagen enlazada también se ve en el juego, pero su llave vale solo para ella
 // (no para su carpeta): es lo que piden las miniaturas de las respuestas (imageThumbnail).
 import { randomBytes } from 'node:crypto';
 import { createReadStream, readFileSync } from 'node:fs';
@@ -14,9 +14,9 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import type http from 'node:http';
 import { marked } from 'marked';
-import { linkPath, localKind, openLocal, realInside, realOfLink } from './abrir.ts';
-import type { LocalKind } from '../shared/opcionesEnlace.ts';
-import { IMAGE_FILE } from '../shared/paginasSesion.ts';
+import { linkPath, localKind, openLocal, realInside, realOfLink } from './open.ts';
+import type { LocalKind } from '../shared/linkOptions.ts';
+import { IMAGE_FILE } from '../shared/sessionPages.ts';
 
 const OF_PAGE = /\.(html?|md|markdown)$/i;
 const OF_MARKDOWN = /\.(md|markdown)$/i;
@@ -35,7 +35,7 @@ const MAX_KEYS = 300;
 export interface LocalPage { url: string; titulo: string; ruta: string }
 
 // la capa de notas, al final de la página (se lee una vez; «</script» no puede salir dentro)
-const NOTES_LAYER = `<script>${readFileSync(path.join(import.meta.dirname, 'pagina', 'notas.js'), 'utf8').replace(/<\/script/gi, '<\\/script')}</script>`;
+const NOTES_LAYER = `<script>${readFileSync(path.join(import.meta.dirname, 'page', 'notes.js'), 'utf8').replace(/<\/script/gi, '<\\/script')}</script>`;
 export const withNotes = (html: string) => (/<\/body>/i.test(html) ? html.replace(/<\/body>(?![\s\S]*<\/body>)/i, () => `${NOTES_LAYER}</body>`) : html + NOTES_LAYER);
 
 // un .md como página: oscura, y los bloques ```mermaid, dibujados
@@ -76,7 +76,7 @@ async function linkedFile(enlace: string, casa: string, tipo: RegExp) {
 }
 
 /** Un enlace a un archivo del Mac: una página HTML, un .md o una imagen se ve en el juego; lo demás se abre como
- *  siempre (abrir.ts). With `fuera`, outside the game even if it could be seen inside (the link's options) */
+ *  siempre (open.ts). With `fuera`, outside the game even if it could be seen inside (the link's options) */
 export async function openLink(enlace: string, casa: string, fuera = false): Promise<string | { pagina: LocalPage }> {
   if (fuera) return openLocal(enlace, casa);
   const pagina = await linkedFile(enlace, casa, OF_PAGE);
@@ -87,7 +87,7 @@ export async function openLink(enlace: string, casa: string, fuera = false): Pro
 }
 
 /** What a link to a file of the Mac can open in, without opening it: inside the game (a page or an image) and where
- *  the Mac would open it (abrir.ts) */
+ *  the Mac would open it (open.ts) */
 export async function linkKind(enlace: string, casa: string): Promise<{ juego: boolean; mac: LocalKind }> {
   const real = await realOfLink(enlace, casa);
   const mac = await localKind(real);

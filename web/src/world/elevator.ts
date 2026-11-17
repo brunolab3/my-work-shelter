@@ -1,14 +1,14 @@
 // Ascensor del refugio: hueco con raíles, cables y contrapeso; una cabina que sube y baja de verdad entre plantas,
 // con indicador de planta en cada rellano, campanilla y motor. Los personajes viajan dentro.
 import * as THREE from 'three';
-import { place, R } from '../motor/assets';
-import { VARIANTS } from '../motor/paleta';
-import { HEIGHT, SLAB, FLOOR, BACKGROUND, FRAME, materialSteel, materialConcrete, caja, lamp, type Sala } from './salas/comun';
-import { lienzo, textureOf, SOURCES, sharpCaption } from '../motor/texturas';
+import { place, R } from '../engine/assets';
+import { VARIANTS } from '../engine/palette';
+import { HEIGHT, SLAB, FLOOR, BACKGROUND, FRAME, materialSteel, materialConcrete, caja, lamp, type Sala } from './rooms/common';
+import { lienzo, textureOf, SOURCES, sharpCaption } from '../engine/textures';
 import { mergeStatic } from './util3d';
-import { SFX, sonido } from '../audio/sonido';
-import { floorCaption } from '@shared/disposicion';
-import { floorSector } from '@shared/sectores';
+import { SFX, sonido } from '../audio/sound';
+import { floorCaption } from '@shared/layout';
+import { floorSector } from '@shared/sectors';
 
 export const ELEVATOR_WIDTH = 3.4;
 
@@ -90,7 +90,7 @@ export class Ascensor {
     for (const ind of this.indicators) {
       const g = ind.g; g.fillStyle = '#16140f'; g.fillRect(0, 0, 256, 96);
       g.strokeStyle = '#4a443b'; g.lineWidth = 6; g.strokeRect(3, 3, 250, 90);
-      // a la izquierda, la letra del sector de la planta sobre su color (shared/sectores.ts)
+      // a la izquierda, la letra del sector de la planta sobre su color (shared/sectors.ts)
       const sec = floorSector(ind.planta, this.plantas, this.salas);
       g.fillStyle = sec.color; g.fillRect(9, 9, 64, 78);
       g.fillStyle = sec.tinta; g.font = `900 58px ${SOURCES.titulo}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(sec.codigo, 41, 52);

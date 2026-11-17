@@ -3,8 +3,8 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, writeFileSync, readFileSync, mkdirSync, symlinkSync, existsSync, utimesSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { filesAction } from './archivos.ts';
-import { flatten, searchFiles, changedFolders, queryYLine, languageOf } from '../web/src/ui/archivos/comun.ts';
+import { filesAction } from './files.ts';
+import { flatten, searchFiles, changedFolders, queryYLine, languageOf } from '../web/src/ui/files/common.ts';
 
 const sh = (cwd: string, ...a: string[]) => execFileSync('git', ['-C', cwd, ...a], { encoding: 'utf8' });
 let raiz = '';
@@ -96,10 +96,10 @@ describe('piezas del explorador', () => {
     expect([...changedFolders({ 'a/b/c.ts': 'M', 'a/x.ts': 'D' })]).toEqual([['a/b', 'M'], ['a', 'D']]);
   });
   it('busca como ⌘P: el nombre antes que la ruta, y lo seguido antes que lo suelto', () => {
-    const rels = ['web/src/ui/git/ClienteGit.tsx', 'server/git.ts', 'web/src/ui/Barra.tsx', 'docs/registro/git-notas.md', '.env.local'];
+    const rels = ['web/src/ui/git/GitClient.tsx', 'server/git.ts', 'web/src/ui/Bar.tsx', 'docs/registro/git-notas.md', '.env.local'];
     expect(searchFiles('git', rels)[0].rel).toBe('server/git.ts');
-    expect(searchFiles('cgit', rels)[0].rel).toBe('web/src/ui/git/ClienteGit.tsx');
-    expect(searchFiles('uibarra', rels)[0].rel).toBe('web/src/ui/Barra.tsx');
+    expect(searchFiles('gitcl', rels)[0].rel).toBe('web/src/ui/git/GitClient.tsx');
+    expect(searchFiles('uibar', rels)[0].rel).toBe('web/src/ui/Bar.tsx');
     expect(searchFiles('env', rels)[0].rel).toBe('.env.local');
     expect(searchFiles('zzz', rels)).toEqual([]);
     expect(queryYLine('app.ts:42:7')).toEqual({ consulta: 'app.ts', linea: 42, columna: 7 });

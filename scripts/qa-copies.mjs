@@ -1,7 +1,7 @@
 // QA of the holographic copies as talkers of their own: each copy has its intercom (not its author's), E picks it by
 // nearness even with its author beside it, its portrait is the hologram, with nothing to do it stays seated on its
 // projector and, if a dweller's job moves to a worktree, the conversation moves to the copy.
-// Uso: SHELTER_DATOS=… node scripts/qa-copias.mjs <url> <salida.png>   (QA_RETRATO=1 guarda además el retrato tal cual)
+// Uso: SHELTER_DATOS=… node scripts/qa-copies.mjs <url> <salida.png>   (QA_RETRATO=1 guarda además el retrato tal cual)
 import { chromium } from 'playwright';
 import { withToken } from './token.mjs';
 const [url, salida] = process.argv.slice(2).filter(a => !a.startsWith('--'));

@@ -5,12 +5,12 @@
 // Primero se enseña el plan (qué worktree se crea o se reutiliza y qué conversación empieza) y el Supervisor lo confirma.
 import { mkdirSync } from 'node:fs';
 import path from 'node:path';
-import type { PRBoard } from '../shared/tablero.ts';
-import { clavesJira, textoPR } from '../shared/tablero.ts';
-import type { InfoWorktree, SessionSummary } from '../shared/protocolo.ts';
-import { branchKey, prsOfName } from './revisionesPR.ts';
-import { t } from '../shared/idioma.ts';
-import { worktreeHasTask } from '../shared/tareas.ts';
+import type { PRBoard } from '../shared/board.ts';
+import { clavesJira, textoPR } from '../shared/board.ts';
+import type { InfoWorktree, SessionSummary } from '../shared/protocol.ts';
+import { branchKey, prsOfName } from './prReviews.ts';
+import { t } from '../shared/language.ts';
+import { worktreeHasTask } from '../shared/tasks.ts';
 
 export interface TaskGroup { id: string; clave?: string; nombre: string; prs: PRBoard[] }
 

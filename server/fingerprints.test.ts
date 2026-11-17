@@ -4,11 +4,11 @@ import { mkdtempSync, mkdirSync, writeFileSync, utimesSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-const huellas = createRequire(import.meta.url)('../scripts/huellas.cjs') as { huella(g: string, raiz?: string): string; clienteAlDia(raiz?: string): boolean };
+const huellas = createRequire(import.meta.url)('../scripts/fingerprints.cjs') as { huella(g: string, raiz?: string): string; clienteAlDia(raiz?: string): boolean };
 
 function refugio() {
   const raiz = mkdtempSync(path.join(os.tmpdir(), 'huellas-'));
-  for (const d of ['web/src', 'shared', 'server', 'electron/icono', 'dist/web']) mkdirSync(path.join(raiz, d), { recursive: true });
+  for (const d of ['web/src', 'shared', 'server', 'electron/icon', 'dist/web']) mkdirSync(path.join(raiz, d), { recursive: true });
   writeFileSync(path.join(raiz, 'web/src/a.ts'), 'export const a = 1;\n');
   writeFileSync(path.join(raiz, 'shared/b.ts'), 'export const b = 2;\n');
   writeFileSync(path.join(raiz, 'electron/main.cjs'), '// app\n');
@@ -39,9 +39,9 @@ describe('huellas del código', () => {
   it('la de la app cambia con electron/ pero no con su icono', () => {
     const raiz = refugio();
     const h = huellas.huella('app', raiz);
-    writeFileSync(path.join(raiz, 'electron/icono/icono.png'), 'png');
+    writeFileSync(path.join(raiz, 'electron/icon/icon.png'), 'png');
     expect(huellas.huella('app', raiz)).toBe(h);
-    writeFileSync(path.join(raiz, 'electron/mandoMusica.js'), '// mando\n');
+    writeFileSync(path.join(raiz, 'electron/musicControl.js'), '// mando\n');
     expect(huellas.huella('app', raiz)).not.toBe(h);
   });
 });

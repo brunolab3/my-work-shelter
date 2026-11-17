@@ -5,13 +5,13 @@
 //   ⌘↑ ampliar · ⌘↓ restaurar (si está ampliada) o minimizar · ⌘M minimizar
 //   ⌘⇧E sacar la pestaña a una terminal de tu escritorio (iTerm): «salir a la superficie»
 //   ⌘⇧A list of every tab (filter, go, close)
-// Minimizar deja la ventana en la barra de abajo a la izquierda (Barra.tsx) con todo en marcha.
+// Minimizar deja la ventana en la barra de abajo a la izquierda (Bar.tsx) con todo en marcha.
 import React, { useEffect, useRef, useState } from 'react';
-import { t } from '@shared/idioma';
-import { taskColor } from '@shared/tareas';
-import { knowTasks, taskEpic, useColorsTasks } from './tareas';
-import { type TabState } from './ordenPestanas';
-export { nthTab, nextTab, type TabState } from './ordenPestanas';
+import { t } from '@shared/language';
+import { taskColor } from '@shared/tasks';
+import { knowTasks, taskEpic, useColorsTasks } from './tasks';
+import { type TabState } from './tabOrder';
+export { nthTab, nextTab, type TabState } from './tabOrder';
 
 export const MAC = /Mac/.test(navigator.platform);
 // en macOS, ⌘; en el resto, Ctrl+Shift (como las terminales de Linux)
@@ -86,7 +86,7 @@ export const DraftMark = () => <span className="marca-borrador" title={t('window
 // borrador: it has unsent text or attachments (DraftMark)
 export interface ItemTab { id: string; nombre: string; estado?: TabState; titulo?: string; sala?: string; tarea?: string; actividad?: string; grupo?: string; quien?: string; borrador?: boolean }
 
-// lista: the ⋯ N button and its list in the strip (terminals); intercoms keep theirs in the bar (ComTabs in Dialogo.tsx)
+// lista: the ⋯ N button and its list in the strip (terminals); intercoms keep theirs in the bar (ComTabs in Dialog.tsx)
 export function Tabs({ items, activa, activar, cerrar, nueva, opensThat, lista, confirmando }: { items: ItemTab[]; activa: string; activar: (id: string) => void; cerrar: (ids: string[]) => void; nueva?: () => void; opensThat: string; lista?: React.MutableRefObject<(() => void) | null>; confirmando?: boolean }) {
   const [abierta, setAbierta] = useState(false);
   const tira = useRef<HTMLDivElement>(null);

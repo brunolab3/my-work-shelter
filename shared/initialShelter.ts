@@ -1,9 +1,9 @@
 // Disposición inicial del refugio (compartida por el servidor y el cliente sin conexión).
 // Sin salas de repo de serie: entran solas los repos de la raíz de repos que se elige en la bienvenida (y al cambiarla
 // en la cámara acorazada), y los demás, por la Puerta Principal.
-import { tonesForRepeated } from './reclutas.ts';
-import type { Look } from './aspecto.ts';
-import { distribute, PLANNING_ROOM } from './disposicion.ts';
+import { tonesForRepeated } from './recruits.ts';
+import type { Look } from './appearance.ts';
+import { distribute, PLANNING_ROOM } from './layout.ts';
 export interface InitialRoom { id: string; tipo: 'repo' | 'coordinacion' | 'comunicaciones' | 'planificacion' | 'logistica' | 'git' | 'puente' | 'camara' | 'puerta' | 'hidroponia' | 'galeria' | 'discoteca' | 'chapa'; nombre: string; planta: number; lado: 'izq' | 'der'; orden: number; variant: string; estilo?: string }
 export interface InitialDweller { id: string; nombre: string; mote: string; tipo: string; bio: string; salaId: string; voz: number; tinte?: string; tone?: number; aspecto?: Look }
 

@@ -1,5 +1,5 @@
 // The names of the game's MCP servers. A dweller sees their tools as `mcp__<name>__<tool>`, where <name> is the key in
-// the session's mcpServers: sesiones.ts keys each server by its own name, so this is the one place that fixes both.
+// the session's mcpServers: sessions.ts keys each server by its own name, so this is the one place that fixes both.
 export const MCP = { rooms: 'rooms', review: 'review', assignment: 'assignment', plan: 'plan', shelter: 'shelter' } as const;
 
 /** The full tool name a session sees */

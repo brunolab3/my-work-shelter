@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { byEpic, clavesJira, cruzarTablero, jiraTransitions, transitionsTo, isColumn, textoPR, textoDeADF, promptPlanificar, type PRBoard, type TaskJira } from './tablero';
+import { byEpic, clavesJira, cruzarTablero, jiraTransitions, transitionsTo, isColumn, textoPR, textoDeADF, promptPlanificar, type PRBoard, type TaskJira } from './board';
 
 const tarea = (clave: string, categoria: TaskJira['categoria'], estado = 'En curso'): TaskJira => ({ clave, titulo: 't ' + clave, url: 'https://jira.example/browse/' + clave, estado, categoria, actualizada: Date.now() });
 const pr = (numero: number, rama: string, titulo = 'PR', estado: PRBoard['estado'] = 'abierto', extra: Partial<PRBoard> = {}): PRBoard =>

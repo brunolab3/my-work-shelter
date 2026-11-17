@@ -1,8 +1,8 @@
 // Normalizadores PUROS (sin red ni estado): respuestas de Microsoft Graph, Google (Gmail y Calendar), Discord, Slack,
 // GitHub y Linear → Notificacion/Evento. También los textos de error en español. Se prueban contra test/fixtures
-// (normalizar.test.ts).
-import type { Notification, Evento, Priority } from './adaptadores.ts';
-import { t as tr, locale } from '../../shared/idioma.ts';
+// (normalize.test.ts).
+import type { Notification, Evento, Priority } from './adapters.ts';
+import { t as tr, locale } from '../../shared/language.ts';
 
 // ------------------------------------------------------------------ tiempo (la zona horaria del sistema)
 // SHELTER_ZONA la fuerza (p. ej. «Europe/Paris»); si no, la del Mac.
@@ -280,7 +280,7 @@ export function explainErrorMail(salida: string) {
   if (/timed out|ETIMEDOUT|SIGTERM/i.test(salida)) return tr('integrations.mailTimeout');
   return tr('integrations.mailCouldNotRead', { detalle: salida.trim().split('\n').pop() || tr('integrations.noDetail') });
 }
-// ------------------------------------------------------------------ Calendario del Mac (calendario.jxa)
+// ------------------------------------------------------------------ Calendario del Mac (calendar.jxa)
 export interface EventCalendarMac { calendario: string; uid: string; titulo: string; inicio: number; fin: number; allElDay: boolean; lugar?: string; notas?: string; estado?: string; rule?: string; excluded?: number[] }
 const WEEK_DAYS = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
 // fecha de UNTIL: 20200526T215959Z (UTC), 20200526T215959 o 20200526 (hora local; el día entero)
@@ -338,7 +338,7 @@ export function repetitions(rule: string, inicio: number, desde: number, hasta: 
 // «Sugerencias de Siri»: lo que macOS saca del correo (invitaciones, reservas). No se actualiza al moverse la reunión de
 // verdad, así que la duplica a la hora vieja: fuera
 const SIRI_SUGGESTIONS = /^(siri suggestions|sugerencias de siri)$/i;
-/** Los eventos de calendario.jxa entre desde y hasta: los repetidos, desplegados; sin cancelados, sin «Sugerencias de
+/** Los eventos de calendar.jxa entre desde y hasta: los repetidos, desplegados; sin cancelados, sin «Sugerencias de
  *  Siri» ni duplicados (una repetición movida llega como evento suelto con el mismo uid: manda ese) */
 export function eventsOfCalendarMac(lista: EventCalendarMac[], desde: number, hasta: number): Evento[] {
   const loose = lista.filter(e => !e.rule), out = new Map<string, Evento>();

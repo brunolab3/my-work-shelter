@@ -1,13 +1,13 @@
 // The game's MCP tools as a dweller sees them: English tool and parameter names, and the English parameters reach the
 // handlers (they map them to the internal Spanish fields).
 import { describe, it, expect, beforeEach } from 'vitest';
-import { mcpRooms, forgetLimits, type CtxRooms } from './avisosSalas.ts';
-import { mcpReview } from './comparar.ts';
-import { mcpAssignment, mcpPlan } from './reparto.ts';
-import { mcpDecor } from './decoradoSala.ts';
-import { MCP, mcpTool } from './servidoresMcp.ts';
-import { describeTool } from './herramientas.ts';
-import { t } from '../shared/idioma.ts';
+import { mcpRooms, forgetLimits, type CtxRooms } from './roomNotices.ts';
+import { mcpReview } from './compare.ts';
+import { mcpAssignment, mcpPlan } from './dispatch.ts';
+import { mcpDecor } from './roomDecor.ts';
+import { MCP, mcpTool } from './mcpServers.ts';
+import { describeTool } from './tools.ts';
+import { t } from '../shared/language.ts';
 
 const tools = (s: any): Record<string, any> => s.instance._registeredTools;
 const params = (x: any): string[] => { const sh = x.inputSchema?.shape ?? {}; return Object.keys(sh).flatMap(k => { const el = sh[k]?.unwrap?.()?.element ?? sh[k]?.element; return [k, ...Object.keys(el?.shape ?? {})]; }); };
@@ -40,7 +40,7 @@ describe('game MCP tools', () => {
     expect(all.flatMap(([n, x]) => params(x).filter(p => SPANISH.test(p)).map(p => `${n}.${p}`))).toEqual([]);
   });
 
-  // sesiones.ts keys each server by its name, so `mcp__<name>__<tool>` is what a session sees: the activity labels must match it
+  // sessions.ts keys each server by its name, so `mcp__<name>__<tool>` is what a session sees: the activity labels must match it
   it('the activity labels name tools the servers really have', () => {
     const generic = (n: string) => t('server.activity.using', { nombre: n.split('__').slice(1).join(' › ') });
     const labelled = [...new Set([...allServers(), mcpRooms({ salas: () => [], programados: {} } as any, 'a', 's1')].flatMap(sv => Object.keys(tools(sv)).map(tl => mcpTool(sv.name as any, tl))))].filter(n => describeTool(n, {}, '/tmp') !== generic(n));

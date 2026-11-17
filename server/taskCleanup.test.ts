@@ -3,9 +3,9 @@ import { mkdtempSync, mkdirSync, writeFileSync, existsSync, realpathSync, rename
 import { execFileSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
-import { finishedTasks, orphanedConversations, leftovers, untracked, TasksCleanup, type RoomCleanup, type CtxCleanup, type Leftover } from './limpiezaTareas.ts';
-import type { PRBoard } from '../shared/tablero.ts';
-import type { InfoWorktree, SessionSummary } from '../shared/protocolo.ts';
+import { finishedTasks, orphanedConversations, leftovers, untracked, TasksCleanup, type RoomCleanup, type CtxCleanup, type Leftover } from './taskCleanup.ts';
+import type { PRBoard } from '../shared/board.ts';
+import type { InfoWorktree, SessionSummary } from '../shared/protocol.ts';
 
 const pr = (numero: number, rama: string, estado: PRBoard['estado'], repo = 'refugio/express', titulo = 'Algo'): PRBoard =>
   ({ numero, titulo, url: `https://github.com/${repo}/pull/${numero}`, repo, rama, estado, actualizado: 0 });

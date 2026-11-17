@@ -1,6 +1,6 @@
 // Primer plano: el juego solo pinta (y anima el refugio) cuando su ventana tiene el foco del sistema y la página es
 // visible. Fuera de eso, el motor para su bucle, la interfaz deja de animarse y a Spotify se le
-// pregunta cada 4 s (ui/Discoteca.tsx);
+// pregunta cada 4 s (ui/Disco.tsx);
 // lo que hace Claude y las terminales no depende de esto. En Electron lo dice el proceso principal (foco de la ventana):
 // que el foco esté dentro de un navegador del refugio (un <webview>) no cuenta como salir del juego. Fuera de Electron
 // (desarrollo en el navegador) se pregunta al documento.
@@ -35,7 +35,7 @@ export function watchFirstMap(alCambiar: (activo: boolean) => void) {
 }
 
 // En uso: la ventana delante y teclado o ratón en los últimos 2 minutos (con el juego delante pero sin tocarlo, no). Se
-// le dice al servidor cada 30 s y en cada cambio: el mando a distancia (server/mando.ts) no saca las peticiones al móvil
+// le dice al servidor cada 30 s y en cada cambio: el mando a distancia (server/remoteBot.ts) no saca las peticiones al móvil
 // mientras se usa el juego
 const IDLE_MS = 2 * 60_000;
 export function watchPresence(avisar: (activo: boolean) => void) {

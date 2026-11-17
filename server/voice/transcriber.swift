@@ -1,5 +1,5 @@
 // Transcriptor de voz del intercomunicador: el dictado del propio macOS (SpeechAnalyzer + SpeechTranscriber, macOS 26),
-// que funciona en el equipo, sin red ni cuentas ni coste. Lo compila y lanza server/voz.ts, uno por cada dictado.
+// que funciona en el equipo, sin red ni cuentas ni coste. Lo compila y lanza server/voice.ts, uno por cada dictado.
 //   transcriptor <idioma>        p. ej. es-ES
 // Entrada: audio PCM de 16 bits con signo, mono, 16 kHz, por stdin; al cerrarse stdin, termina de transcribir.
 // Salida: una línea JSON por evento en stdout:

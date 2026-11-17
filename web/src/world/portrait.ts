@@ -2,8 +2,8 @@
 // que copia en cada fotograma la animación que está haciendo el personaje en la sala.
 import * as THREE from 'three';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
-import type { Character } from './personaje';
-import { clip } from './animaciones';
+import type { Character } from './character';
+import { clip } from './animations';
 
 export class Portrait {
   canvas: HTMLCanvasElement;

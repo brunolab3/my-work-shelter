@@ -1,4 +1,4 @@
-Las funciones de astronomía de web/src/mundo/cielo.ts (posición del sol y de la luna, salida y puesta) son una versión
+Las funciones de astronomía de web/src/world/sky.ts (posición del sol y de la luna, salida y puesta) son una versión
 mínima de SunCalc (https://github.com/mourner/suncalc), con la licencia siguiente.
 
 Copyright (c) 2014, Vladimir Agafonkin

@@ -1,11 +1,11 @@
 // QA de la discoteca en la ventana real (Electron, por CDP): la sala en la planta de ocio a la izquierda del
 // ascensor (cultivos, discoteca, ascensor, galería de tiro); la cabina abre Spotify, que suena en su Chrome sin ventana
-// (electron/chromeRemoto.cjs) con el mando de la pletina (window.__refugioMusica); con lo que la página le cuenta al sistema (Media
+// (electron/remoteChrome.cjs) con el mando de la pletina (window.__refugioMusica); con lo que la página le cuenta al sistema (Media
 // Session, fingido aquí para no depender de una cuenta) la pletina aparece al minimizar Spotify, abajo a la izquierda
 // encima de la barra: compacta y, con el ratón encima o con ⌘J, desplegada; sus mandos (ratón y teclado) llegan a la
 // página, la barra de progreso salta con clic y arrastre (también sin «seekto», con la barra de Spotify), Intro vuelve a
 // Spotify y, al cerrarlo, desaparece.
-// Uso: node scripts/qa-discoteca.mjs [puerto-cdp=9345] [carpeta=_capturas/discoteca]
+// Uso: node scripts/qa-disco.mjs [puerto-cdp=9345] [carpeta=_capturas/discoteca]
 //   (Electron abierto con SHELTER_CDP=<puerto>; para no tocar tus datos ni tus logins: SHELTER_DATOS, SHELTER_PUERTO
 //    y --user-data-dir=/ruta/temporal al lanzar Electron)
 import { chromium } from 'playwright';

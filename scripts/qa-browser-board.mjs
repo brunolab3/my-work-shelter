@@ -3,7 +3,7 @@
 // enlaces de ejemplo y abren su web de inicio); 1–5 abren cada web; Discord y Slack llevan el agente de usuario de
 // Chrome (con «Electron/44», Discord se cree «Chrome 44») y Outlook, GitHub y Linear, el de Electron. Gmail no tiene
 // navegador dentro (Google no deja iniciar sesión en un Chromium empotrado). Lo que se abriría en el navegador del sistema (window.open) se apunta en vez de abrirse.
-// Uso: node scripts/qa-navegador-tablon.mjs [puerto-cdp]
+// Uso: node scripts/qa-browser-board.mjs [puerto-cdp]
 //   (Electron con SHELTER_DEV=1 SHELTER_CDP=<puerto>, --user-data-dir temporal y un refugio de prueba: SHELTER_DATOS, SHELTER_PUERTO)
 import { chromium } from 'playwright';
 const [puerto = '9335'] = process.argv.slice(2);

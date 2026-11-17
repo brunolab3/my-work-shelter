@@ -1,7 +1,7 @@
 // Sonidos sintetizados del ambiente: lo que con WebAudio queda mejor y más ligero que una muestra (pitidos de consola,
 // morse, relés, el zumbido de un fluorescente, el bordón de la cámara acorazada…). Cada detalle suena una vez en
 // `destino` (la cadena de su sala, que ya pone volumen, paneo y pared); las capas suenan hasta `parar()`.
-import { whiteNoise } from './sonido';
+import { whiteNoise } from './sound';
 
 type Target = AudioNode;
 const azar = (a: number, b: number) => a + Math.random() * (b - a);

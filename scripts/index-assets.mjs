@@ -3,7 +3,7 @@ import { readdirSync, statSync, writeFileSync, existsSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
 const raiz = new URL('../assets/', import.meta.url).pathname;
-if (!existsSync(raiz)) { console.error('No existe ./assets: ejecuta node scripts/descargar-assets.mjs (o ./shelter)'); process.exit(1); }
+if (!existsSync(raiz)) { console.error('No existe ./assets: ejecuta node scripts/download-assets.mjs (o ./shelter)'); process.exit(1); }
 const todos = [];
 (function traverses(d) {
   for (const n of readdirSync(d)) {

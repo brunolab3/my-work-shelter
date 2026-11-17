@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { INITIAL_ROOMS } from './refugioInicial.ts';
-import { distribute } from './disposicion.ts';
-import { sectorOf, floorSector, roomTone, areaByType, SECTORS } from './sectores.ts';
-import { PLANNING_ROOM } from './disposicion.ts';
+import { INITIAL_ROOMS } from './initialShelter.ts';
+import { distribute } from './layout.ts';
+import { sectorOf, floorSector, roomTone, areaByType, SECTORS } from './sectors.ts';
+import { PLANNING_ROOM } from './layout.ts';
 
 describe('sectores', () => {
   it('cada sala está en una planta de su sector (el ascensor y el plano dicen lo mismo que el cartel)', () => {

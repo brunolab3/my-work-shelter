@@ -1,19 +1,19 @@
 // Sala de planificación (tipo 'coordinacion', sin decorado): la sala de mando del despliegue. La pieza protagonista es
 // la pantalla de la pared con tus PR por estado, los bloqueos entre ellos como flechas y el orden en que pueden
-// fusionarse (shared/despliegue.ts); un clic en ella abre el tablero (web/src/ui/Despliegue.tsx). Debajo, la mesa de
+// fusionarse (shared/deploy.ts); un clic en ella abre el tablero (web/src/ui/Deploy.tsx). Debajo, la mesa de
 // planos donde se reparte el trabajo y, a los lados, el puesto del planificador y el monitor del panel de la sala.
-import { t } from '@shared/idioma';
+import { t } from '@shared/language';
 import * as THREE from 'three';
-import { place, R } from '../../motor/assets';
-import { cartel, PhosphorScreen, PanelRoom, lienzo, textureOf, splitByWords, SOURCES } from '../../motor/texturas';
+import { place, R } from '../../engine/assets';
+import { cartel, PhosphorScreen, PanelRoom, lienzo, textureOf, splitByWords, SOURCES } from '../../engine/textures';
 import { overlayScreen } from '../util3d';
-import { signInWall, mancha, highBand, monitorWall, workStation, screenReal, type Contexto } from './comun';
-import { cliente } from '../../red/cliente';
-import { ledgerPending } from '@shared/cuentaRevisiones';
-import { DEPLOYMENT_COLUMNS, bloqueosEntre, columnaDespliegue, olasDespliegue, type Blocker, type BlockerManual, type TaskOrder } from '@shared/despliegue';
-import type { PRBoard } from '@shared/tablero';
-import { taskColor, pRTask } from '@shared/tareas';
-import { knowTasks, versionColors } from '../../ui/tareas';
+import { signInWall, mancha, highBand, monitorWall, workStation, screenReal, type Contexto } from './common';
+import { cliente } from '../../net/client';
+import { ledgerPending } from '@shared/reviewCount';
+import { DEPLOYMENT_COLUMNS, bloqueosEntre, columnaDespliegue, olasDespliegue, type Blocker, type BlockerManual, type TaskOrder } from '@shared/deploy';
+import type { PRBoard } from '@shared/board';
+import { taskColor, pRTask } from '@shared/tasks';
+import { knowTasks, versionColors } from '../../ui/tasks';
 
 // el tablero del panel avisa al cambiar un bloqueo a mano: la pantalla lo relee sin esperar a la próxima lectura
 let version = 0;
@@ -120,7 +120,7 @@ export async function furnishDeployment(ctx: Contexto) {
   marco.position.set(0, YT, zB + 0.36); g.add(marco); ctx.aparato('despliegue', marco);
   const screen = new THREE.Mesh(new THREE.PlaneGeometry(5.3, 2.35), new THREE.MeshStandardMaterial({ map: tablero.tex, emissiveMap: tablero.tex, emissive: '#ffffff', emissiveIntensity: 1.0, color: '#000' }));
   screen.position.set(0, YT, zB + 0.43); g.add(screen);
-  screen.userData.interactivo = 'despliegue'; screen.userData.vista = 'despliegue';   // un clic en la pantalla abre el tablero (refugio.ts, clic)
+  screen.userData.interactivo = 'despliegue'; screen.userData.vista = 'despliegue';   // un clic en la pantalla abre el tablero (shelter.ts, clic)
   // a la izquierda, el panel de la sala en un monitor de pared y el puesto del planificador, con lo que hace en su pantalla
   const panel = new PanelRoom(); panel.titulo = 'LOGÍSTICA'; panel.color = v.pantalla; ctx.panel = panel;
   ctx.aparato('panel', await monitorWall(ctx, -4.6, 2.3, 1.1, panel.tex, 1.2, 0.2));

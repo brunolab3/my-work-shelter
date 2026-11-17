@@ -47,10 +47,10 @@ Security › Automation.
 
 ## For whoever touches the code
 
-`server/escritorio.ts` (commands and AppleScript), `server/superficie.ts` (`./shelter superficie` and `enganchar`),
-the `superficie.sacar` action in `server/main.ts`, `Sessions.sacar` in `server/sesiones.ts`, the outside clients of
-the host in `server/anfitrionTerminales.ts` and the panic key in `electron/main.cjs`. QA:
-`node scripts/qa-superficie.mjs` (own server on 3793; `SHELTER_ESCRITORIO_PRUEBA` logs what it would open instead of
+`server/desktop.ts` (commands and AppleScript), `server/surface.ts` (`./shelter superficie` and `enganchar`),
+the `superficie.sacar` action in `server/main.ts`, `Sessions.sacar` in `server/sessions.ts`, the outside clients of
+the host in `server/terminalHost.ts` and the panic key in `electron/main.cjs`. QA:
+`node scripts/qa-surface.mjs` (own server on 3793; `SHELTER_ESCRITORIO_PRUEBA` logs what it would open instead of
 opening windows).
 
 ## To the Claude app
@@ -59,13 +59,13 @@ The ✳ button in the intercom (or "Continue … in the Claude app" in ⌘K) clo
 opens it in the Claude desktop app with its link `claude://resume?session=<id>`, which imports it into its list (it
 reads the same transcript in `~/.claude/projects`). To bring it back, "Resume a previous job" on its dweller (closing
 it in the app first, so it isn't written in two places). Server: `superficie.appClaude` (`server/main.ts`) and
-`openInAppClaude` (`server/escritorio.ts`; with `SHELTER_ESCRITORIO_PRUEBA` it logs the link instead of opening it).
+`openInAppClaude` (`server/desktop.ts`; with `SHELTER_ESCRITORIO_PRUEBA` it logs the link instead of opening it).
 
 ## Remote Control for a room
 
 In a repo room's panel, "Turn on Remote Control" leaves a `claude remote-control --permission-mode auto` running in
 its folder, named "<room> · work-shelter": from the Code tab of the Claude app on your phone or from claude.ai/code you
-open sessions on that repo that run on this Mac. It's a separate process (`server/controlRemoto.ts`): it survives
+open sessions on that repo that run on this Mac. It's a separate process (`server/remoteControl.ts`): it survives
 restarting or closing the game, is recorded in `DATOS/control-remoto/` and, when the server starts, is turned back on
 if it had died; it's turned off from the same panel or when the room is retired or relinked. The first time, Claude
 Code asks you to accept Remote Control: the game detects it, stops it and explains how to accept it once in the
@@ -75,12 +75,12 @@ room's terminal. Intercom conversations don't show up there (they go through the
 
 The 📱 button in the intercom (or "Continue … on your phone (Remote Control)" in ⌘K) takes that conversation to an
 iTerm tab with `claude --resume <id> --remote-control "<repo>:<TASK>"` (the worktree's task or the key in the title;
-without one, `<repo>:<title>`; `remoteName` in `shared/tareas.ts`): it keeps running on your Mac and opens, under that
+without one, `<repo>:<title>`; `remoteName` in `shared/tasks.ts`): it keeps running on your Mac and opens, under that
 name, from the Claude app on your phone or claude.ai/code. While open outside it's a visitor in its room: bring it
 back from the robot. "Everything to your phone" (Esc → Leave the shelter, or ⌘K) does the same with every open conversation, in a new
 window; terminals stay in the game. As when going to the surface, the conversation closes in the shelter first. It
 needs the Mac awake. Server: `superficie.sacar` with `remoto` (`server/main.ts`) and `resumeCommand`
-(`server/escritorio.ts`).
+(`server/desktop.ts`).
 
 ## Slack remote control
 
@@ -108,6 +108,6 @@ shows (one use, 10 minutes; five failed attempts expire it).
 What goes out, who it obeys and the risks: [`SECURITY.md`](../SECURITY.md#precautions-the-code-takes) ("Slack remote
 control"). Invisible characters show as ⟦U+XXXX⟧ and masking only covers token characters, so it never hides code.
 Socket Mode reopens its WebSocket if Slack asks or it drops. Only the real shelter listens (without
-`SHELTER_DATOS`; test ones, with `SHELTER_SLACK=1`). Code: the common part in `server/mando.ts`, the Slack part in
-`server/slackMando.ts` (tests in `server/slackMando.test.ts`), actions `slackRemote.*` and its view `SlackRemoteView`
-in the Vault (`web/src/ui/Camara.tsx`); invisible characters in `shared/visible.ts` (the same as the dialog).
+`SHELTER_DATOS`; test ones, with `SHELTER_SLACK=1`). Code: the common part in `server/remoteBot.ts`, the Slack part in
+`server/slackBot.ts` (tests in `server/slackBot.test.ts`), actions `slackRemote.*` and its view `SlackRemoteView`
+in the Vault (`web/src/ui/Vault.tsx`); invisible characters in `shared/visible.ts` (the same as the dialog).

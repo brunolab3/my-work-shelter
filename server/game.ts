@@ -2,9 +2,9 @@
 // Recompensas ligadas al trabajo real: cada tarea terminada da chatarra y, a veces, una pieza para la guía de campo;
 // cada llamada a herramienta hace crecer los cultivos de hidroponía.
 // Primera iteración sin terminar, abierta a propósito para quien la quiera rehacer (README, «Lo que está a medias»).
-import type { Store } from './estado.ts';
-import { PIECES, SHOP, SIGNALS, HARVESTS, INITIAL_SPECIES, rarityOnRandom } from '../shared/catalogo.ts';
-import { t as tr } from '../shared/idioma.ts';
+import type { Store } from './state.ts';
+import { PIECES, SHOP, SIGNALS, HARVESTS, INITIAL_SPECIES, rarityOnRandom } from '../shared/catalog.ts';
+import { t as tr } from '../shared/language.ts';
 
 const STEPS_BY_PHASE = 8;
 

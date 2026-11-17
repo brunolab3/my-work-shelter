@@ -4,9 +4,9 @@
 // (sin decodificarlo entero en memoria; con el blob se puede saltar a cualquier punto). La sala pone su acústica:
 // paso bajo a través de la pared (desde fuera solo llega el bombo), reverberación propia y, si es hilo musical, el
 // filtro de un altavoz de techo.
-import { sonido, roomResponse } from './sonido';
-import type { Listen } from './ambiente';
-import type { MusicPulse } from './musica';
+import { sonido, roomResponse } from './sound';
+import type { Listen } from './ambience';
+import type { MusicPulse } from './music';
 
 export interface Tema { archivo: string; bpm: number; firstHit: number; duracion: number; energy: number[] }
 export interface Acoustics {

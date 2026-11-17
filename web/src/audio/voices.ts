@@ -1,11 +1,11 @@
 // Murmullo de los habitantes con voz real: grabaciones CC0 de habla inventada (gibberish), troceadas en sílabas,
-// frases y exclamaciones (ver bancoVoces.ts y LICENSES/AUDIO.md). Cada habitante habla con el hablante del banco de tono
+// frases y exclamaciones (ver voiceBank.ts y LICENSES/AUDIO.md). Cada habitante habla con el hablante del banco de tono
 // más parecido al suyo (`id.voz`, Hz), afinado a su tono y con su propio carácter (un poco más rápido o más lento); los
 // robots, por una radio vieja (modulación en anillo, eco metálico corto y banda estrecha); la Octocat, aguda.
 // Al escribir en el intercomunicador encadena frases de la duración del texto que llega (y remata las preguntas con un
 // «¿eh?»); al terminar, fallar o pedir permiso, una exclamación; para sí, un «hmm» bajito.
-import { sonido, whiteNoise } from './sonido';
-import { BANCO, type BenchSpeaker } from './bancoVoces';
+import { sonido, whiteNoise } from './sound';
+import { BANCO, type BenchSpeaker } from './voiceBank';
 
 export type Species = 'humano' | 'robot' | 'gato';
 export interface VoiceProfile { f0: number; especie: Species; semilla?: string }

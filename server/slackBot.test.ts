@@ -2,10 +2,10 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import os from 'node:os';
 import path from 'node:path';
 import { mkdtempSync } from 'node:fs';
-import { SlackRemote, bloques, deQuienTocaSlack, type SlackApi, type Enchufe } from './slackMando.ts';
-import { ocultarSecretos, abiertas } from './mando.ts';
-import { useKeychain, keychainMemoria, readSecret } from './integraciones/llavero.ts';
-import type { SessionSummary, PendingRequest } from '../shared/protocolo.ts';
+import { SlackRemote, bloques, deQuienTocaSlack, type SlackApi, type Enchufe } from './slackBot.ts';
+import { ocultarSecretos, abiertas } from './remoteBot.ts';
+import { useKeychain, keychainMemoria, readSecret } from './integrations/keychain.ts';
+import type { SessionSummary, PendingRequest } from '../shared/protocol.ts';
 
 const APP = 'xapp-1-A0123456789-1234567890123-abcdef0123456789abcdef';
 // Tokens de prueba partidos para que el escáner de secretos de GitHub no los tome por reales

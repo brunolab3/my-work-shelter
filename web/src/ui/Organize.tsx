@@ -1,13 +1,13 @@
-// Organizar las salas por tareas (server/organizar.ts): cada sala de repo, un worktree por cada tarea con PR tuyos sin
+// Organizar las salas por tareas (server/organize.ts): cada sala de repo, un worktree por cada tarea con PR tuyos sin
 // fusionar y en cada uno su propia conversación con el habitante, que trabaja sus PR de uno en uno (si van apilados,
 // rebasando los de encima). Primero el plan; Enter lo hace.
 import React, { useEffect, useState } from 'react';
-import { cliente } from '../red/cliente';
-import { SFX } from '../audio/sonido';
-import { t } from '@shared/idioma';
-import { Device, Keys, closePanel, useKeys } from './aparato';
-import { knowTasks, useColorsTasks } from './tareas';
-import { TaskMark } from './ventanas';
+import { cliente } from '../net/client';
+import { SFX } from '../audio/sound';
+import { t } from '@shared/language';
+import { Device, Keys, closePanel, useKeys } from './device';
+import { knowTasks, useColorsTasks } from './tasks';
+import { TaskMark } from './windows';
 
 interface Step { tarea: string; prs: string[]; donde: string; crear: boolean; principal: boolean; conversation: boolean }
 interface Row { salaId: string; sala: string; repo?: string; pasos: Step[]; hecho?: string[] }

@@ -8,7 +8,7 @@
 // mismo archivo que hay en el repo.
 // No forma parte del juego ni de sus dependencias: se usa en una carpeta temporal con
 //   npm i @gltf-transform/core@4 @gltf-transform/extensions@4 @gltf-transform/functions@4 meshoptimizer sharp
-//   node construir-octocat.mjs github_kitten.glb Octocat.glb [atlas.png]
+//   node build-octocat.mjs github_kitten.glb Octocat.glb [atlas.png]
 import { NodeIO } from '@gltf-transform/core';
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
 import { prune, dedup, weld, simplify, quantize } from '@gltf-transform/functions';

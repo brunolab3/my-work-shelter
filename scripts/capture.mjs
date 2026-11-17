@@ -1,5 +1,5 @@
 // Captura de páginas del juego con Playwright (Chromium con GPU de Mac si está disponible).
-// Uso: node scripts/captura.mjs <url> <salida.png> [ancho] [alto] [--pasos=N] [--dt=0.05] [--eval="js"] [--completa] [--json=archivo]
+// Uso: node scripts/capture.mjs <url> <salida.png> [ancho] [alto] [--pasos=N] [--dt=0.05] [--eval="js"] [--completa] [--json=archivo]
 import { chromium } from 'playwright';
 import { writeFileSync } from 'node:fs';
 import { withToken } from './token.mjs';

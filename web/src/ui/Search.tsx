@@ -6,30 +6,30 @@
 // - Al escribir, también habitantes (hablar con…) y salas (ir a…).
 // ↑↓ eligen, Enter abre, Esc o ⌘K cierran. Lo elegido se apunta (en este navegador) para ordenar las recurrentes.
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { RecentConversation, SessionSummary } from '@shared/protocolo';
-import { Store } from './almacen';
-import { t, tIs } from '@shared/idioma';
-import { juego } from './estadoJuego';
-import { vivo, cliente, addNotice } from '../red/cliente';
-import { SFX } from '../audio/sonido';
-import { MAC } from './ventanas';
-import { openPanel, goA, ocupados, openGitOfRoom } from './Paneles';
-import { minimizeIntercom, openConversation, resumeConversation, hace, sessionALaView } from './Dialogo';
-import { aAppClaude, takeASurface } from './superficie';
-import { reloadView } from '../motor/render';
-import { sessionOwner } from './copias';
-import { openBrowser } from './Navegadores';
-import { openGit } from './git/ventana';
-import { musicShortcut } from './Discoteca';
-import { entrar as enterBar } from './Barra';
-import { adaptRoom } from './PanelesSala';
-import { describeWhen, describeWhenShort } from '@shared/programados';
+import type { RecentConversation, SessionSummary } from '@shared/protocol';
+import { Store } from './store';
+import { t, tIs } from '@shared/language';
+import { juego } from './gameState';
+import { vivo, cliente, addNotice } from '../net/client';
+import { SFX } from '../audio/sound';
+import { MAC } from './windows';
+import { openPanel, goA, ocupados, openGitOfRoom } from './Panels';
+import { minimizeIntercom, openConversation, resumeConversation, hace, sessionALaView } from './Dialog';
+import { aAppClaude, takeASurface } from './surface';
+import { reloadView } from '../engine/render';
+import { sessionOwner } from './copies';
+import { openBrowser } from './Browsers';
+import { openGit } from './git/window';
+import { musicShortcut } from './Disco';
+import { entrar as enterBar } from './Bar';
+import { adaptRoom } from './RoomPanels';
+import { describeWhen, describeWhenShort } from '@shared/scheduled';
 import { openPreflight } from './Preflight';
-import { jiraBoard } from './tareas';
-import { worktreeTask } from '@shared/tareas';
-import { pRKey } from '@shared/despliegue';
+import { jiraBoard } from './tasks';
+import { worktreeTask } from '@shared/tasks';
+import { pRKey } from '@shared/deploy';
 import { taskHasPRs } from '@shared/preflight';
-import { recentFirst, sessionRecency } from '@shared/recientes';
+import { recentFirst, sessionRecency } from '@shared/recent';
 
 export const buscador = new Store<{ abierto: boolean }>({ abierto: false });
 let recentLast: RecentConversation[] | null = null;   // las de la última vez: salen al momento mientras se piden otra vez
@@ -175,7 +175,7 @@ function Window() {
       out.push({ id: 'rec:' + r.claudeId, seccion: t('panels.searchRecentConversations'), texto: r.titulo, pista: `${h?.nombre ?? ''} · ${h?.nameRoom ?? ''} · ${hace(r.modified)}${r.fuera ? ' · ' + t('windows.openOnYourDesktop') : ''}`,
         f: () => { if (r.fuera) { SFX.noAllowed(); addNotice('aviso', t('panels.thatConversationIsStillOpen')); return; } onShelter(); resumeConversation(r.dwellerId, r); }, p });
     }
-    // mensajes programados (server/programados.ts): cuándo, quién y a dónde; Enter abre la conversación que lo
+    // mensajes programados (server/scheduled.ts): cuándo, quién y a dónde; Enter abre la conversación que lo
     // programó si sigue abierta o, si no, lleva con su habitante (cancelarlos o cambiarlos, en su intercomunicador)
     for (const x of programados) {
       const sala = salas.find(y => y.id === x.origen.salaId), h = habitantes.find(y => y.sala === x.origen.salaId);

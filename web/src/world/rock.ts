@@ -2,7 +2,7 @@
 // Se construye con tiras horizontales que dejan libres los huecos (soporta huecos que se tocan o se solapan).
 // La sombra de contacto y el resplandor cálido alrededor de cada hueco los calcula el shader (no tapan salas vecinas).
 import * as THREE from 'three';
-import { strataTexture } from '../motor/texturas';
+import { strataTexture } from '../engine/textures';
 
 const MAX_GAPS = 48;
 

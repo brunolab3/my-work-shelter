@@ -1,10 +1,10 @@
 // Piezas comunes de los aparatos del refugio (intercomunicador, plano, cámara acorazada, opciones…): carcasa de chapa con rejilla
 // y piloto, pantalla de fósforo, menús con teclado (↑↓ o W/S, Enter/E/Espacio, Esc) y filas de ajuste con ←→.
 import React, { useEffect, useRef, useState } from 'react';
-import { teclado } from '../motor/teclado';
-import { SFX } from '../audio/sonido';
-import { juego } from './estadoJuego';
-import { t } from '@shared/idioma';
+import { teclado } from '../engine/keyboard';
+import { SFX } from '../audio/sound';
+import { juego } from './gameState';
+import { t } from '@shared/language';
 
 export function closePanel() { SFX.cerrar(); juego.set({ panel: null, panelData: null }); }
 

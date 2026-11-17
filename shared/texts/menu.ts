@@ -1,5 +1,5 @@
-// Menú del juego, opciones y salida (catálogo: shared/textos.ts)
-import type { Texto } from '../idioma.ts';
+// Menú del juego, opciones y salida (catálogo: shared/texts.ts)
+import type { Texto } from '../language.ts';
 
 export const MENU: Record<string, Texto> = {
   'menu.overseerMenu': { es: 'MENÚ DEL SUPERVISOR', en: 'OVERSEER MENU' },

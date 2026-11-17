@@ -8,51 +8,51 @@ import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { execFile, execFileSync, spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { WebSocketServer, type WebSocket } from 'ws';
-import { GAME_NAME, type ClientMessage, type ServerMessage, type InfoRepo, type Visitante } from '../shared/protocolo.ts';
-import { Sessions, FORK_TAG } from './sesiones.ts';
+import { GAME_NAME, type ClientMessage, type ServerMessage, type InfoRepo, type Visitante } from '../shared/protocol.ts';
+import { Sessions, FORK_TAG } from './sessions.ts';
 import { forkSession, tagSession } from '@anthropic-ai/claude-agent-sdk';
-import { Attachments } from './adjuntos.ts';
-import { openAttachment, isPackage, revealLocal } from './abrir.ts';
-import { openLink, linkKind, imageThumbnail, servePage, existingPages, pagesUpdated } from './paginasLocales.ts';
-import { cleanCompares, COMPARES_FOLDER } from './comparar.ts';
-import { isCloneOfExample } from './ejemplos.ts';
-import { mcpDecor, promptAdaptar, type CtxDecor } from './decoradoSala.ts';
-import { mcpAssignment, mcpPlan, type CtxAssignment } from './reparto.ts';
-import { mcpRooms, sendToRoom, taskWorktree, type CtxRooms } from './avisosSalas.ts';
-import { Plans, tasksOrder } from './planes.ts';
-import { BlockersPR } from './bloqueosPR.ts';
-import { TasksColors } from './coloresTareas.ts';
-import { agruparPorTarea, planDeSala, applyPlan } from './organizar.ts';
-import { ReviewsPR, REVIEWS_QUERY, remoteRepo } from './revisionesPR.ts';
-import { CIFailures, CI_QUERY } from './fallosCI.ts';
+import { Attachments } from './attachments.ts';
+import { openAttachment, isPackage, revealLocal } from './open.ts';
+import { openLink, linkKind, imageThumbnail, servePage, existingPages, pagesUpdated } from './localPages.ts';
+import { cleanCompares, COMPARES_FOLDER } from './compare.ts';
+import { isCloneOfExample } from './examples.ts';
+import { mcpDecor, promptAdaptar, type CtxDecor } from './roomDecor.ts';
+import { mcpAssignment, mcpPlan, type CtxAssignment } from './dispatch.ts';
+import { mcpRooms, sendToRoom, taskWorktree, type CtxRooms } from './roomNotices.ts';
+import { Plans, tasksOrder } from './plans.ts';
+import { BlockersPR } from './prBlocks.ts';
+import { TasksColors } from './taskColors.ts';
+import { agruparPorTarea, planDeSala, applyPlan } from './organize.ts';
+import { ReviewsPR, REVIEWS_QUERY, remoteRepo } from './prReviews.ts';
+import { CIFailures, CI_QUERY } from './ciFailures.ts';
 import { cachedPRs, cachedTaskPRs, preflightOf, PageReviews, gatePush, preflightTools, type CtxPreflight } from './preflight.ts';
 import { checklistFromClaudeMd } from '../shared/preflight.ts';
-import type { PRBoard } from '../shared/tablero.ts';
-import { bloqueosEntre, pRKey } from '../shared/despliegue.ts';
-import { TasksCleanup, orphanedConversations } from './limpiezaTareas.ts';
-import { Scheduled, summary } from './programados.ts';
-import { entornoGit } from './entornoGit.ts';
-import { captureRoom } from './capturaSala.ts';
-import { baseStock } from '../shared/decorado.ts';
-import { readSecret } from './integraciones/llavero.ts';
-import { Dictations } from './voz.ts';
-import { Terminales, SOCKET_TERMINALS } from './terminales.ts';
-import { openInDesktop, openInAppClaude, outsideOpen, closeOutside, hookCommand, resumeCommand, type ItemDesktop } from './escritorio.ts';
-import { tonesForRepeated } from '../shared/reclutas.ts';
-import { remoteName, worktreeHasTask } from '../shared/tareas.ts';
-import { Store, DATOS, folderOf, reposRoot, hideRoom, showRoom, isHideable, roomIdOf } from './estado.ts';
+import type { PRBoard } from '../shared/board.ts';
+import { bloqueosEntre, pRKey } from '../shared/deploy.ts';
+import { TasksCleanup, orphanedConversations } from './taskCleanup.ts';
+import { Scheduled, summary } from './scheduled.ts';
+import { entornoGit } from './gitEnv.ts';
+import { captureRoom } from './roomCapture.ts';
+import { baseStock } from '../shared/decor.ts';
+import { readSecret } from './integrations/keychain.ts';
+import { Dictations } from './voice.ts';
+import { Terminales, SOCKET_TERMINALS } from './terminals.ts';
+import { openInDesktop, openInAppClaude, outsideOpen, closeOutside, hookCommand, resumeCommand, type ItemDesktop } from './desktop.ts';
+import { tonesForRepeated } from '../shared/recruits.ts';
+import { remoteName, worktreeHasTask } from '../shared/tasks.ts';
+import { Store, DATOS, folderOf, reposRoot, hideRoom, showRoom, isHideable, roomIdOf } from './state.ts';
 import { infoRepo, sugerencias, expand, recentTranscripts, liveSessions, worktreeList, hasBranch, estiloSala, projectType } from './repos.ts';
-import { Integraciones } from './integraciones/index.ts';
-import { gameAction, ensurePlayer, growCrops, taskReward } from './juego.ts';
-import { generateRecruit } from '../shared/reclutas.ts';
-import { distribute, disposicionDeSerie, isRoomOfRepo, PLANNING_ROOM, placeRoom, moveFloor } from '../shared/disposicion.ts';
-import { STYLE_PALETTE, areaByType, isArea } from '../shared/sectores.ts';
-import { isLanguage, setLanguage, locale, tIs, roomNameIs } from '../shared/idioma.ts';
-import * as controlRemoto from './controlRemoto.ts';
-import { SlackRemote } from './slackMando.ts';
-import { REMOTE_DELAY_MS, type RemoteDeps } from './mando.ts';
-import { sanitizeLook, TYPES_STOCK } from '../shared/aspecto.ts';
-import { t } from '../shared/idioma.ts';
+import { Integraciones } from './integrations/index.ts';
+import { gameAction, ensurePlayer, growCrops, taskReward } from './game.ts';
+import { generateRecruit } from '../shared/recruits.ts';
+import { distribute, disposicionDeSerie, isRoomOfRepo, PLANNING_ROOM, placeRoom, moveFloor } from '../shared/layout.ts';
+import { STYLE_PALETTE, areaByType, isArea } from '../shared/sectors.ts';
+import { isLanguage, setLanguage, locale, tIs, roomNameIs } from '../shared/language.ts';
+import * as controlRemoto from './remoteControl.ts';
+import { SlackRemote } from './slackBot.ts';
+import { REMOTE_DELAY_MS, type RemoteDeps } from './remoteBot.ts';
+import { sanitizeLook, TYPES_STOCK } from '../shared/appearance.ts';
+import { t } from '../shared/language.ts';
 
 // reinicio desde el juego: antes de apagar el servidor viejo se carga el nuevo con esta variable para ver que arranca
 // (un error de sintaxis o una importación rota se detectan aquí y el juego sigue en marcha)
@@ -63,9 +63,9 @@ const PUERTO = Number(process.env.SHELTER_PUERTO || 3778);
 const WEB = path.join(RAIZ, 'dist', 'web');
 const ASSETS = path.join(RAIZ, 'assets');
 const GRACE_MS = 20_000;
-// huellas del código (scripts/huellas.cjs): /salud dice la de este servidor para que ./shelter sepa si es de antes de
+// huellas del código (scripts/fingerprints.cjs): /salud dice la de este servidor para que ./shelter sepa si es de antes de
 // los últimos cambios, y el reinicio las usa para recompilar el cliente o volver a abrir la app entera si hace falta
-const huellas = createRequire(import.meta.url)('../scripts/huellas.cjs') as { huella(grupo: 'cliente' | 'servidor' | 'app'): string; clienteAlDia(): boolean };
+const huellas = createRequire(import.meta.url)('../scripts/fingerprints.cjs') as { huella(grupo: 'cliente' | 'servidor' | 'app'): string; clienteAlDia(): boolean };
 const SERVER_FINGERPRINT = huellas.huella('servidor');
 // los orígenes del servidor de desarrollo (Vite, 5173) solo con SHELTER_DEV=1: en uso normal, solo el propio refugio
 const DEVELOPMENT = !!process.env.SHELTER_DEV;
@@ -104,7 +104,7 @@ function pathRoom(ruta: string): string | undefined {
 }
 
 const adjuntos = new Attachments(DATOS);
-// el decorado de las salas de repo, para las herramientas de su habitante («Adaptar la sala al repo», decoradoSala.ts)
+// el decorado de las salas de repo, para las herramientas de su habitante («Adaptar la sala al repo», roomDecor.ts)
 const ctxDecor: CtxDecor = {
   sala: id => almacen.estado.salas.find(s => s.id === id && isRoomOfRepo(s.tipo)),
   plantilla: id => { const s = almacen.estado.salas.find(x => x.id === id); return s ? baseStock(s, repos[id]) : 'taller'; },
@@ -115,7 +115,7 @@ const ctxDecor: CtxDecor = {
   // la foto, con el propio juego (en desarrollo, el de Vite: el compilado puede ser de antes)
   capturar: id => captureRoom(`http://127.0.0.1:${DEVELOPMENT ? VITE : PUERTO}/?sala=${encodeURIComponent(id)}&revisar#t=${TOKEN}`, id),
 };
-// el reparto del trabajo desde las salas de coordinación (reparto.ts): cada parte, un trabajo nuevo en la sala de su
+// el reparto del trabajo desde las salas de coordinación (dispatch.ts): cada parte, un trabajo nuevo en la sala de su
 // repo y en un worktree propio
 const ctxAssignment = (wing: string): CtxAssignment => ({
   salas: () => almacen.estado.salas.filter(s => s.tipo === 'repo' && s.ruta).map(s => ({
@@ -132,11 +132,11 @@ const ctxAssignment = (wing: string): CtxAssignment => ({
   },
   ...ctxPlan,
 });
-// el plan compartido de cada tarea repartida (planes.ts): lo leen las salas de sus partes y los cambios les llegan como mensaje
+// el plan compartido de cada tarea repartida (plans.ts): lo leen las salas de sus partes y los cambios les llegan como mensaje
 const planes = new Plans(DATOS);
 // bloqueos entre PR marcados a mano en el tablero de despliegue de la sala de planificación
 const bloqueosPR = new BlockersPR(DATOS);
-// el color de cada tarea en tableros y hologramas (shared/tareas.ts)
+// el color de cada tarea en tableros y hologramas (shared/tasks.ts)
 const coloresTareas = new TasksColors(DATOS);
 const ctxPlan: Pick<CtxAssignment, 'planes' | 'avisar' | 'mensajero' | 'sesionDeTarea'> = {
   planes,
@@ -145,7 +145,7 @@ const ctxPlan: Pick<CtxAssignment, 'planes' | 'avisar' | 'mensajero' | 'sesionDe
     sesiones.lista().filter(s => s.salaId === salaId && s.estado !== 'cerrada' && worktreeHasTask({ ruta: s.worktree ?? s.cwd }, clave)).sort((a, b) => b.actualizada - a.actualizada)[0]?.id,
   mensajero: (desde, a, motivo) => broadcast({ t: 'mensajero', desde, a, motivo }),
 };
-// mensajes entre salas (avisosSalas.ts): a la conversación de la tarea o a una nueva con el habitante, en automático
+// mensajes entre salas (roomNotices.ts): a la conversación de la tarea o a una nueva con el habitante, en automático
 const ctxRooms: CtxRooms = {
   salas: () => almacen.estado.salas.map(s => { const h = almacen.estado.habitantes.find(x => x.salaId === s.id); return { id: s.id, nombre: roomNameIs(s), habitante: h && { id: h.id, nombre: h.nombre } }; }),
   sesionDeTarea: (salaId, clave) => ctxPlan.sesionDeTarea!(salaId, clave),
@@ -198,10 +198,10 @@ dictations.preparar();
 const terminales = new Terminales(cwd => !!pathRoom(cwd) || almacen.estado.salas.some(s => { const c = folderOf(s); return cwd === c || cwd.startsWith(c + path.sep); }), () => [...clients].map(outputOf));
 const integraciones = new Integraciones(almacen, (m) => broadcast(m));
 
-// mando a distancia por Slack (mando.ts, slackMando.ts): las peticiones de aprobación, para responderlas sin salir del
+// mando a distancia por Slack (remoteBot.ts, slackBot.ts): las peticiones de aprobación, para responderlas sin salir del
 // refugio, y la lista de salas y conversaciones para pasarlas a Remote Control; con una app propia y Socket Mode
 // el Supervisor está usando el juego: lo dice cada página cada 30 s mientras su ventana está delante y la tocan
-// (web/src/motor/foco.ts, watchPresence); sin aviso en 90 s, no
+// (web/src/engine/focus.ts, watchPresence); sin aviso en 90 s, no
 let lastUse = 0;
 const mandoDeps: RemoteDeps = {
   retrasoMs: REMOTE_DELAY_MS,
@@ -281,7 +281,7 @@ function aimOpen() {
 
 // ---------------------------------------------------------------- salir a la superficie
 // Lo que estaba en el juego (conversaciones y terminales) sigue en tu escritorio: el botón ↗ de cada ventana, la tecla
-// de pánico (⇧⌥⌘Esc), `./shelter superficie` o, solo, si el juego se cae (escritorio.ts)
+// de pánico (⇧⌥⌘Esc), `./shelter superficie` o, solo, si el juego se cae (desktop.ts)
 const SHELTER = path.join(RAIZ, 'shelter');
 const subiendo = new Set<string>();   // conversaciones que ya van camino de la superficie (no se abren dos veces)
 async function exitASurface(d: Record<string, any>) {
@@ -354,7 +354,7 @@ async function connectionGitHub() {
 // (se recupera desde el Finder). Las carpetas tuyas nunca se tocan
 async function throwCloneOfExample(ruta?: string) {
   if (!ruta || !isCloneOfExample(ruta) || !existsSync(ruta) || almacen.estado.salas.some(s => s.ruta === ruta)) return;
-  try { const { aLaTrash } = await import('./archivos.ts'); await aLaTrash(path.dirname(ruta), [path.basename(ruta)]); }
+  try { const { aLaTrash } = await import('./files.ts'); await aLaTrash(path.dirname(ruta), [path.basename(ruta)]); }
   catch (err) { console.error('No pude tirar a la papelera el repo de ejemplo:', (err as Error).message); }
 }
 // una carpeta pasa a ser sala (desde la Puerta o al tomar la raíz de repos), con su recluta: el que viene de la puerta o
@@ -453,7 +453,7 @@ function visitantes(wts?: Map<string, string[]>): Visitante[] {
 setInterval(() => { refreshRepos().catch(() => {}); }, 20_000).unref();
 // limpieza de adjuntos de más de una semana
 adjuntos.clean();
-// and of the compares whose task is finished or that are over two weeks old (comparar.ts)
+// and of the compares whose task is finished or that are over two weeks old (compare.ts)
 cleanCompares().catch(() => {});
 setInterval(() => { cleanCompares().catch(() => {}); }, 5 * 60_000).unref();
 setInterval(() => broadcast({ t: 'visitantes', visitantes: visitantes() }), 15_000).unref();
@@ -500,7 +500,7 @@ async function resumeInFolder(salaId: string, cwd: string, texto: string, permis
   return previa && startWork(undefined, { t: 'empezar', dwellerId: h.id, salaId, prompt: texto, opciones: { cwd: dir, permisos, reanudar: previa.claudeId } });
 }
 
-// las revisiones de tus PR (revisionesPR.ts), cada minuto con GitHub conectado: a la conversación de la rama del PR
+// las revisiones de tus PR (prReviews.ts), cada minuto con GitHub conectado: a la conversación de la rama del PR
 const remote = new Map<string, string | undefined>();
 const roomRepo = (ruta: string) => remote.has(ruta) ? Promise.resolve(remote.get(ruta))
   : new Promise<string | undefined>(ok => execFile('git', ['-C', ruta, 'remote', 'get-url', 'origin'], { timeout: 6000, env: entornoGit() }, (err, out) => { const r = err ? undefined : remoteRepo(String(out)); if (!err) remote.set(ruta, r); ok(r); }));
@@ -526,7 +526,7 @@ const revisionesPR = new ReviewsPR(DATOS, {
 });
 setInterval(() => { revisionesPR.sondear().catch(err => console.error('Revisiones de PR:', String((err as Error).message).split('\n')[0])); }, 60_000).unref();
 
-// la CI que falla en tus PR (fallosCI.ts), cada minuto con GitHub conectado: una vez por PR y commit, a la conversación
+// la CI que falla en tus PR (ciFailures.ts), cada minuto con GitHub conectado: una vez por PR y commit, a la conversación
 // del worktree del PR (como las revisiones), con la clave de su tarea y los PR que esperan a ese
 const roomRepoById = (id: string) => { const s = almacen.estado.salas.find(x => x.id === id); return s?.ruta ? roomRepo(s.ruta) : Promise.resolve(undefined); };
 const fallosCI = new CIFailures(DATOS, {
@@ -550,7 +550,7 @@ const fallosCI = new CIFailures(DATOS, {
 });
 setInterval(() => { fallosCI.sondear().catch(err => console.error('Fallos de CI:', String((err as Error).message).split('\n')[0])); }, 60_000).unref();
 
-// mensajes programados (programados.ts): cada minuto, lo vencido a su conversación (abierta o retomada en su carpeta,
+// mensajes programados (scheduled.ts): cada minuto, lo vencido a su conversación (abierta o retomada en su carpeta,
 // en modo plan) o a su sala como send_to_room. El primer repaso, cuando ya se han leído los worktrees de las salas
 const programados: Scheduled = new Scheduled(DATOS, {
   sesion: id => sesiones.lista().find(s => s.id === id),
@@ -623,7 +623,7 @@ const ctxPreflight: CtxPreflight = {
 // las del habitante (preflight_status, preflight_answer) y la puerta de `git push` de sus conversaciones
 const herramientasPreflight = preflightTools(ctxPreflight, (clave, worktree, head, item, a) => paginasRevisadas.contestar(clave, worktree, head, item, a));
 
-// las tareas con todos sus PR fusionados o cerrados (limpiezaTareas.ts), cada cinco minutos con GitHub conectado: el juego
+// las tareas con todos sus PR fusionados o cerrados (taskCleanup.ts), cada cinco minutos con GitHub conectado: el juego
 // quita solo sus worktrees si no queda otro trabajo en ellos (si queda, avisa de qué)
 const limpiezaTareas = new TasksCleanup(DATOS, {
   connection: connectionGitHub,
@@ -638,7 +638,7 @@ const limpiezaTareas = new TasksCleanup(DATOS, {
   salas: repoRooms,
   sesiones: () => sesiones.lista(),
   git: (cwd, args) => new Promise((ok, mal) => execFile('git', ['-C', cwd, ...args], { timeout: 60_000, env: entornoGit() }, (err, o, e) => err ? mal(new Error(String(e || err.message).trim())) : ok(String(o)))),
-  papelera: async rutas => (await import('./archivos.ts')).toTrash(rutas),
+  papelera: async rutas => (await import('./files.ts')).toTrash(rutas),
   quitado: (salaId, tarea, w, sueltos) => {
     const sala = almacen.estado.salas.find(s => s.id === salaId)?.nombre ?? salaId;
     const texto = t('server.cleanupRemoved', { tarea: tarea.tarea, sala, nombre: path.basename(w.ruta), rama: w.rama || '—' });
@@ -657,7 +657,7 @@ const limpiezaTareas = new TasksCleanup(DATOS, {
 });
 setInterval(() => { limpiezaTareas.sondear().catch(err => console.error('Limpieza de tareas:', String((err as Error).message).split('\n')[0])); }, 5 * 60_000).unref();
 
-// organizar las salas por tareas (organizar.ts): el plan de cada sala de repo y, confirmado, hacerlo
+// organizar las salas por tareas (organize.ts): el plan de cada sala de repo y, confirmado, hacerlo
 async function organizeRooms(salaId: string | undefined, aplicar: boolean) {
   const G = await import('./git.ts');
   const { prs, demo } = await G.prsOpen(await connectionGitHub());
@@ -788,7 +788,7 @@ async function accion(nombre: string, d: Record<string, any> = {}): Promise<unkn
       return true;
     }
     case 'refugio.disposicionDeSerie': { almacen.cambiar(x => { x.salas = disposicionDeSerie(x.salas); }); broadcast({ t: 'estado', estado: almacen.estado as any }); return true; }
-    // idioma de los textos (shared/idioma.ts): el cliente lo elige en Opciones y el servidor lo usa en sus avisos
+    // idioma de los textos (shared/language.ts): el cliente lo elige en Opciones y el servidor lo usa en sus avisos
     case 'idioma': {
       if (!isLanguage(d.idioma)) throw new Error(t('server.unknownLanguage'));
       setLanguage(d.idioma); almacen.cambiar(x => { x.idioma = d.idioma; });
@@ -865,7 +865,7 @@ async function accion(nombre: string, d: Record<string, any> = {}): Promise<unkn
       if (!d.switchOn) { controlRemoto.apagar(sr.id); return controlRemoto.estado(sr.id); }
       return controlRemoto.switchOn(sr.id, folderOf(sr), sr.nombre);
     }
-    // organizar salas de repo por tareas: un worktree y una conversación por tarea con PR abiertos (organizar.ts).
+    // organizar salas de repo por tareas: un worktree y una conversación por tarea con PR abiertos (organize.ts).
     // Sin aplicar, solo el plan; con aplicar, lo hace (el Supervisor lo ha confirmado en el panel)
     case 'sala.organizar': return organizeRooms(d.salaId ? String(d.salaId) : undefined, !!d.aplicar);
     case 'tareas.colores': return coloresTareas.colores(d.claves);
@@ -875,17 +875,17 @@ async function accion(nombre: string, d: Record<string, any> = {}): Promise<unkn
     case 'paginas.responder': return paginasRevisadas.responder(d.ruta, d.estado);
     case 'preflight.puerta': { const r = path.resolve(String(d.ruta ?? '')); if (!gitPath(r)) throw new Error(t('server.thatFolderIsNotA')); return gatePush(r, ctxPreflight); }
     case 'despliegue.bloquear': return bloqueosPR.marcar(d.de, d.por, !!d.quitar);
-    // el orden entre repos de cada tarea repartida (la parte de una sala espera a la de otra: planes.ts), por repo de GitHub
+    // el orden entre repos de cada tarea repartida (la parte de una sala espera a la de otra: plans.ts), por repo de GitHub
     case 'despliegue.orden': return tasksOrder(planes.todos(), id => { const s = e.salas.find(x => x.id === id); return s?.ruta ? roomRepo(s.ruta) : Promise.resolve(undefined); });
     case 'superficie.forzarCierre': return closeOutside(String(d.claudeId ?? ''));
     case 'repo': { const sala = e.salas.find(s => s.id === d.salaId); if (!sala?.ruta) throw new Error(t('server.roomWithoutAFolder')); return repos[sala.id] = await infoRepo(sala.ruta); }
     // archivo adjuntado en el intercomunicador: se copia a DATOS/uploads (se limpian a la semana) y se devuelve su ruta
     case 'subir': return adjuntos.guardar(String(d.nombre || ''), String(d.datos || ''));
     case 'adjunto.miniatura': return adjuntos.miniatura(String(d.ruta || ''));
-    // un adjunto del cuaderno: imágenes y PDF en Vista Previa, texto en el editor de texto, lo demás en el Finder (abrir.ts)
-    // un enlace a un archivo del Mac en una respuesta (web/src/ui/markdown.ts): sin ejecutar nada (abrir.ts)
+    // un adjunto del cuaderno: imágenes y PDF en Vista Previa, texto en el editor de texto, lo demás en el Finder (open.ts)
+    // un enlace a un archivo del Mac en una respuesta (web/src/ui/markdown.ts): sin ejecutar nada (open.ts)
     case 'aviso.responder': { const f = preguntas.get(String(d.id ?? '')); preguntas.delete(String(d.id ?? '')); if (f) await f(!!d.si); return true; }
-    // mensajes programados (programados.ts): el Supervisor los cancela o les cambia la hora o el texto
+    // mensajes programados (scheduled.ts): el Supervisor los cancela o les cambia la hora o el texto
     case 'programados.cancelar': return programados.cancelar(String(d.id ?? ''));
     case 'programados.editar': return programados.editar(String(d.id ?? ''), { cuando: d.cuando === undefined ? undefined : String(d.cuando), mensaje: d.mensaje === undefined ? undefined : String(d.mensaje) });
     case 'paginas.existen': return existingPages(d.rutas, os.homedir());
@@ -912,7 +912,7 @@ async function accion(nombre: string, d: Record<string, any> = {}): Promise<unkn
         return r;
       }
       if (nombre.startsWith('git.')) return (await import('./git.ts')).actionGit(nombre.slice(4), d, { allowedPath: gitPath, pathsRepos: gitPaths, alCambiar: () => refreshReposPronto(), github: connectionGitHub, ledger: url => revisionesPR.ledgerOf(url) });
-      if (nombre.startsWith('archivos.')) return (await import('./archivos.ts')).filesAction(nombre.slice(9), d, { allowedRoots: filesRoots, alCambiar: () => refreshReposPronto() });
+      if (nombre.startsWith('archivos.')) return (await import('./files.ts')).filesAction(nombre.slice(9), d, { allowedRoots: filesRoots, alCambiar: () => refreshReposPronto() });
       throw new Error(t('server.unknownAction', { nombre }));
   }
 }
@@ -972,7 +972,7 @@ function cleanDweller(h: any) {
 let compiling: Promise<unknown> | null = null;
 function compileClient() {
   if (compiling) return Promise.reject(new Error(t('server.iAmAlreadyRebuildingThe')));
-  return compiling = new Promise((ok, ko) => execFile(process.execPath, [path.join(RAIZ, 'scripts', 'huellas.cjs'), 'compilar'], { cwd: RAIZ, timeout: 240_000, maxBuffer: 16 * 1024 * 1024 }, (err, _out, errOut) => {
+  return compiling = new Promise((ok, ko) => execFile(process.execPath, [path.join(RAIZ, 'scripts', 'fingerprints.cjs'), 'compilar'], { cwd: RAIZ, timeout: 240_000, maxBuffer: 16 * 1024 * 1024 }, (err, _out, errOut) => {
     compiling = null;
     if (err) { broadcast({ t: 'aviso', nivel: 'error', texto: t('server.buildFailed', { detalle: String(errOut || err.message).split('\n').filter(Boolean).slice(-3).join(' · ') }) }); ko(err); return; }
     ok(true);
@@ -1017,7 +1017,7 @@ function dropAll() {
   for (const paso of [() => sesiones.cerrarTodas(), () => dictations.stopAll(), () => terminales.dropHost(), () => integraciones.parar(), () => slackRemote.parar(), () => almacen.saveAlready()])
     try { paso(); } catch (e) { console.error('Al reiniciar:', (e as Error).message); }
 }
-// ./shelter abre la app y se encuentra en marcha un servidor de antes de los últimos cambios (scripts/huellas.cjs,
+// ./shelter abre la app y se encuentra en marcha un servidor de antes de los últimos cambios (scripts/fingerprints.cjs,
 // ponerAlDia): con ventanas conectadas se reinicia como con el botón; sin ninguna (la app de antes ya se cerró) se
 // aparta, sin cerrar las terminales, para que la app nueva lance el suyo y sea suyo.
 function setOnDay(): 'reinicio' | 'relevo' {
@@ -1168,7 +1168,7 @@ const servidor = http.createServer((req, res) => {
   let url: string;
   try { url = decodeURIComponent((req.url || '/').split('?')[0]); } catch { res.writeHead(400); res.end(); return; }
   if (url.startsWith('/assets/') && serve(req, res, ASSETS, url.slice(8))) return;
-  // las páginas HTML del Mac que se ven en el juego (paginasLocales.ts), con su llave y aisladas
+  // las páginas HTML del Mac que se ven en el juego (localPages.ts), con su llave y aisladas
   if (url.startsWith('/pagina/')) { servePage(req, res, url).then(ok => { if (!ok) { res.writeHead(404); res.end(); } }, () => { if (!res.headersSent) res.writeHead(500); res.end(); }); return; }
   if (url === '/salud') { res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify({ ok: true, claude: !!sesiones.claude, version: sesiones.version, codigo: SERVER_FINGERPRINT })); return; }
   // ./shelter, al abrir la app con un servidor de antes de los últimos cambios aún en marcha, le pide ponerse al día.
@@ -1180,7 +1180,7 @@ const servidor = http.createServer((req, res) => {
     return;
   }
   // (frame-src: la ventana «Página» enseña páginas de este Mac: las de /pagina/ y las que sirve una herramienta en local,
-  // como una página de revisión con notas; cada una en su <iframe> aislado, web/src/ui/Navegadores.tsx)
+  // como una página de revisión con notas; cada una en su <iframe> aislado, web/src/ui/Browsers.tsx)
   // la página del juego lleva el secreto de este arranque para abrir el WebSocket
   // la página NO lleva el secreto (cualquier proceso local podría pedirla): llega en el fragmento #t= de la URL que abre
   // el lanzador (leído de DATOS/token, 0600), como hace Jupyter. Política de contenido estricta: nada se carga de fuera

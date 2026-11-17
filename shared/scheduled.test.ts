@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { placeOf, ofPlace, soonestByPlace, type ScheduledMessage, type ScheduledTarget } from './programados.ts';
+import { placeOf, ofPlace, soonestByPlace, type ScheduledMessage, type ScheduledTarget } from './scheduled.ts';
 
 const REPO = '/repos/acme';
 const WT = `${REPO}/.claude/worktrees/ABC-12`;

@@ -5,7 +5,7 @@
 // Contrapartida (documentada): la app de confianza del elemento es el propio `security`, así que otro proceso del
 // mismo usuario podría leerlo sin aviso. Para un Mac personal se acepta; nunca se escribe en .data/, git ni logs.
 import { execFile } from 'node:child_process';
-import { t } from '../../shared/idioma.ts';
+import { t } from '../../shared/language.ts';
 
 export const SERVICE = 'work-shelter-public';
 const SECURITY = '/usr/bin/security';

@@ -5,11 +5,11 @@
 // Solo lectura: el bot no tiene SEND_MESSAGES y el juego nunca envía nada a los canales. Los mensajes directos no
 // llegan: ningún bot puede leerlos.
 import WebSocket from 'ws';
-import type { Store } from '../estado.ts';
-import { ConnectorBase, ConfigSource, ErrorSource, mensaje, ask, type Field } from './comun.ts';
-import { eligibleChannels, closingDiscord, grantedContent, contextDiscordEmpty, explainErrorDiscord, dateSnowflake, intentsDiscord, invitationDiscord, discordNotification, canSeeDiscord, type ContextDiscord } from './normalizar.ts';
-import type { Notification } from './adaptadores.ts';
-import { t as tr } from '../../shared/idioma.ts';
+import type { Store } from '../state.ts';
+import { ConnectorBase, ConfigSource, ErrorSource, mensaje, ask, type Field } from './common.ts';
+import { eligibleChannels, closingDiscord, grantedContent, contextDiscordEmpty, explainErrorDiscord, dateSnowflake, intentsDiscord, invitationDiscord, discordNotification, canSeeDiscord, type ContextDiscord } from './normalize.ts';
+import type { Notification } from './adapters.ts';
+import { t as tr } from '../../shared/language.ts';
 
 const API = 'https://discord.com/api/v10';
 let GATEWAY = 'wss://gateway.discord.gg/?v=10&encoding=json';

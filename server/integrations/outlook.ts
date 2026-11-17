@@ -5,13 +5,13 @@
 // autorización + PKCE con retorno a http://localhost:<puerto aleatorio> (Entra admite cualquier puerto en localhost).
 // El refresh token va al llavero (outlook.refreshToken). El access token vive solo en memoria.
 import { execFile } from 'node:child_process';
-import type { Store } from '../estado.ts';
-import { ConnectorBase, ConfigSource, ErrorSource, ask, retraso, type Field } from './comun.ts';
-import { readSecret, saveSecret, eraseSecret } from './llavero.ts';
+import type { Store } from '../state.ts';
+import { ConnectorBase, ConfigSource, ErrorSource, ask, retraso, type Field } from './common.ts';
+import { readSecret, saveSecret, eraseSecret } from './keychain.ts';
 import { listenReturned, type Returned } from './oauth.ts';
-import { mailsANotifications, outlookEvents, explainErrorGraph, explainErrorMicrosoft, dayStart, ZONA, type YoMicrosoft } from './normalizar.ts';
-import type { Evento, Notification } from './adaptadores.ts';
-import { t } from '../../shared/idioma.ts';
+import { mailsANotifications, outlookEvents, explainErrorGraph, explainErrorMicrosoft, dayStart, ZONA, type YoMicrosoft } from './normalize.ts';
+import type { Evento, Notification } from './adapters.ts';
+import { t } from '../../shared/language.ts';
 
 const authority = (inquilino?: string) => `https://login.microsoftonline.com/${encodeURIComponent(inquilino || 'common')}/oauth2/v2.0`;
 // Solo lectura: el refugio no envía, mueve ni borra correo, ni toca el calendario

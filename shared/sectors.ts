@@ -1,4 +1,4 @@
-// Sectores del refugio: la señalética por colores. Cada planta tiene una función (ver disposicion.ts) y cada función
+// Sectores del refugio: la señalética por colores. Cada planta tiene una función (ver layout.ts) y cada función
 // tiene un color de familia, como en las tuberías y los pasillos de una instalación industrial. La franja del cartel
 // de cada sala, la pintura de sus paredes, el indicador del rellano del ascensor y el plano llevan el color de su
 // sector; dentro de un sector, cada sala tiene un tono propio de la misma familia para distinguirla de su vecina.
@@ -9,7 +9,7 @@
 //   BACKEND,            críticos. El área sale del tipo de proyecto al reclutar (areaPorTipo) y se cambia en el
 //   CRÍTICOS            panel de la sala
 //   OCIO       última   naranja: los cultivos, la discoteca, la galería de tiro y Chapa y Pintura
-import { isRoomOfRepo, FLOOR_REPOS, PLANNING_ROOM } from './disposicion.ts';
+import { isRoomOfRepo, FLOOR_REPOS, PLANNING_ROOM } from './layout.ts';
 
 export type IdSector = 'acceso' | 'mando' | 'enlace' | AreaRepo | 'ocio';
 // letra: el color con el que se escribe el sector sobre chapa oscura (el negro de mando no se leería)
@@ -44,7 +44,7 @@ export const isLeisureRoom = (id: string) => SECTOR_TYPE[id] === 'ocio';
 export const sectorOf = (tipo: string, id?: string, area?: string): Sector =>
   SECTORS[id === PLANNING_ROOM ? 'enlace' : isRoomOfRepo(tipo) ? (isArea(area) ? area : 'backend') : SECTOR_TYPE[tipo] ?? 'ocio'];
 
-/** Sector de una planta según el orden de disposicion.ts: PB acceso, -1 mando, -2 enlace, repos (backend) y la última, ocio.
+/** Sector de una planta según el orden de layout.ts: PB acceso, -1 mando, -2 enlace, repos (backend) y la última, ocio.
  *  Con las salas (que se pueden mover a mano), el de la mayoría de las suyas; si empatan, el de la más cercana al ascensor */
 export function floorSector(planta: number, plantas: number, salas?: { planta: number; tipo: string; orden: number; id?: string; area?: string }[]): Sector {
   const their = salas?.filter(s => s.planta === planta).sort((a, b) => a.orden - b.orden) ?? [];

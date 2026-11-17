@@ -1,6 +1,6 @@
 #!/bin/bash
 # work-shelter — instalación como app de macOS en un solo comando:
-#   curl -fsSL https://raw.githubusercontent.com/brunolab3/my-work-shelter/main/instalar.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/brunolab3/my-work-shelter/main/install.sh | bash
 # Descarga el juego en ~/.work-shelter-public (o $SHELTER_CODIGO), lo prepara (./shelter instalar-app: Node, dependencias,
 # material CC0, compilación) y deja /Applications/work-shelter-public.app con su icono, fijada en el Dock. Volver a
 # ejecutarlo pone el juego al día. Opciones para la app detrás de «bash -s --»: --sin-dock, --destino <ruta .app>.

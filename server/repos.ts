@@ -3,10 +3,10 @@ import { execFile } from 'node:child_process';
 import { closeSync, existsSync, openSync, readFileSync, readSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import type { InfoRepo, InfoWorktree } from '../shared/protocolo.ts';
-import { isCloneOfExample } from './ejemplos.ts';
-import { entornoGit } from './entornoGit.ts';
-import { t } from '../shared/idioma.ts';
+import type { InfoRepo, InfoWorktree } from '../shared/protocol.ts';
+import { isCloneOfExample } from './examples.ts';
+import { entornoGit } from './gitEnv.ts';
+import { t } from '../shared/language.ts';
 
 function git(cwd: string, args: string[], timeout = 6000): Promise<string> {
   return new Promise(res => execFile('git', ['-C', cwd, ...args], { timeout, maxBuffer: 4 * 1024 * 1024, env: entornoGit() }, (err, out) => res(err ? '' : String(out))));

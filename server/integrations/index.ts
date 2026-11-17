@@ -1,11 +1,11 @@
 // Integraciones (Microsoft 365, Google, Discord, Slack, GitHub, Linear): tres estados por fuente (demo, configurada, error).
 // El modo demo pasa por el mismo camino que el real: un adaptador que produce notificaciones y eventos normalizados.
 import type { WebSocket } from 'ws';
-import type { Store } from '../estado.ts';
-import type { ServerMessage } from '../../shared/protocolo.ts';
-import { createAdapters, type Adapter, type Aviso, type Notification, type Evento, type SourceState } from './adaptadores.ts';
-import { groupNotices, type Conversation } from './normalizar.ts';
-import { t } from '../../shared/idioma.ts';
+import type { Store } from '../state.ts';
+import type { ServerMessage } from '../../shared/protocol.ts';
+import { createAdapters, type Adapter, type Aviso, type Notification, type Evento, type SourceState } from './adapters.ts';
+import { groupNotices, type Conversation } from './normalize.ts';
+import { t } from '../../shared/language.ts';
 
 export class Integraciones {
   private adaptadores: Adapter[];

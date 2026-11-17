@@ -1,10 +1,10 @@
-// Páginas HTML del Mac dentro del juego (paginasLocales.ts): se sirven con su llave, aisladas y sin salir de su carpeta
+// Páginas HTML del Mac dentro del juego (localPages.ts): se sirven con su llave, aisladas y sin salir de su carpeta
 import { afterAll, describe, expect, it } from 'vitest';
 import { mkdtempSync, mkdirSync, realpathSync, symlinkSync, writeFileSync } from 'node:fs';
 import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
-import { openLink, linkKind, imageThumbnail, servePage, PAGE_CSP, withNotes } from './paginasLocales.ts';
+import { openLink, linkKind, imageThumbnail, servePage, PAGE_CSP, withNotes } from './localPages.ts';
 
 const base = mkdtempSync(path.join(os.tmpdir(), 'paginas-'));
 const carpeta = path.join(base, 'repo', 'tmp'); mkdirSync(carpeta, { recursive: true });
@@ -110,7 +110,7 @@ describe('images of the Mac in the game', () => {
 
 describe('existingPages', () => {
   it('solo las que siguen en el Mac (las de un worktree quitado, no)', async () => {
-    const { existingPages } = await import('./paginasLocales.ts');
+    const { existingPages } = await import('./localPages.ts');
     const { mkdtempSync, writeFileSync } = await import('node:fs');
     const os = await import('node:os'); const path = await import('node:path');
     const d = mkdtempSync(path.join(os.tmpdir(), 'paginas-'));
@@ -118,7 +118,7 @@ describe('existingPages', () => {
     expect(await existingPages([path.join(d, 'plan.html'), path.join(d, 'quitada', 'plan.html'), 42], os.homedir())).toEqual([path.join(d, 'plan.html')]);
   });
   it('con cuándo se cambió cada una por última vez', async () => {
-    const { pagesUpdated } = await import('./paginasLocales.ts');
+    const { pagesUpdated } = await import('./localPages.ts');
     const { mkdtempSync, writeFileSync, utimesSync } = await import('node:fs');
     const os = await import('node:os'); const path = await import('node:path');
     const d = mkdtempSync(path.join(os.tmpdir(), 'paginas-'));

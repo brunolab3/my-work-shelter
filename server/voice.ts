@@ -1,5 +1,5 @@
 // Dictado del intercomunicador: la voz del Supervisor se transcribe en el propio Mac con el dictado de macOS 26
-// (SpeechAnalyzer; server/voz/transcriptor.swift). Sin red, sin cuentas y sin coste: nada de inferencia del refugio.
+// (SpeechAnalyzer; server/voice/transcriber.swift). Sin red, sin cuentas y sin coste: nada de inferencia del refugio.
 // El cliente graba el micrófono (PCM de 16 bits, 16 kHz, mono) y lo manda en trozos; aquí cada dictado es un proceso
 // del transcriptor que recibe el audio por stdin y devuelve lo transcrito, en vivo, por stdout.
 // El transcriptor se compila con swiftc la primera vez (o cuando cambia su código) y se guarda en DATOS/bin.
@@ -8,9 +8,9 @@ import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync } from 'node:fs';
 import { execFile, spawn, type ChildProcess } from 'node:child_process';
 import { createInterface } from 'node:readline';
-import { t } from '../shared/idioma.ts';
+import { t } from '../shared/language.ts';
 
-const SOURCE = path.join(import.meta.dirname, 'voz', 'transcriptor.swift');
+const SOURCE = path.join(import.meta.dirname, 'voice', 'transcriber.swift');
 const MAX_MS = 5 * 60_000;   // un dictado no dura más de cinco minutos
 
 export type VoiceEvent = { estado: 'descargando' | 'listo' | 'parcial' | 'final' | 'error'; texto?: string };

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { BlockersPR } from './bloqueosPR.ts';
+import { BlockersPR } from './prBlocks.ts';
 
 describe('bloqueos marcados a mano entre PR', () => {
   it('se guardan, se quitan, sobreviven al reinicio y solo valen URL de PR de GitHub', () => {

@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import * as N from './normalizar.ts';
+import * as N from './normalize.ts';
 
 const fx = (n: string) => JSON.parse(readFileSync(path.join(import.meta.dirname, '../../test/fixtures', n), 'utf8'));
 const local = (t: number) => new Date(t).toLocaleString('sv-SE', { timeZone: 'Europe/Paris' });

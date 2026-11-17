@@ -1,22 +1,22 @@
 // Guards for English mode: nothing the Overseer sees (or a dweller receives) stays in Spanish.
-// 1. Every Spanish string the UI shows from a data catalogue through tIs() exists as an `es` value in shared/textos/.
+// 1. Every Spanish string the UI shows from a data catalogue through tIs() exists as an `es` value in shared/texts/.
 // 2. No literal with Spanish characters lives outside t()/tIs() in the client, the server or Electron, except a short
 //    commented allowlist.
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
-import { TEXTS } from '../shared/textos.ts';
-import { setLanguage, roomNameIs } from '../shared/idioma.ts';
-import { PIECES as LOOK_PIECES, SLOT_NAME, NAME_REGION, nameRegion } from '../shared/aspecto.ts';
-import { PIECES, SHOP, SIGNALS, HARVESTS, CROSSBOW } from '../shared/catalogo.ts';
-import { DESCRIPTION_BASE, PACKS } from '../shared/decorado.ts';
-import { INITIAL_ROOMS, ROOM_DESCRIPTION, INITIAL_DWELLERS } from '../shared/refugioInicial.ts';
-import { ROOM_INFO, REPO_INFO, INTEGRATION_STATE, INTEGRATION_STATE_SHORT, REPO_TYPE, LOOK, ACTIVITY_TABS, FRESH_HARVEST } from '../shared/etiquetas.ts';
-import { NICKNAMES, ORIGIN, MANIA, ROBOT_ORIGIN } from '../shared/reclutas.ts';
-import { SECTORS } from '../shared/sectores.ts';
-import { MODELS, EFFORTS, PERMISSION_MODES } from '../shared/protocolo.ts';
-import { COLUMNS } from '../shared/tablero.ts';
-import { DEPLOYMENT_COLUMNS } from '../shared/despliegue.ts';
+import { TEXTS } from '../shared/texts.ts';
+import { setLanguage, roomNameIs } from '../shared/language.ts';
+import { PIECES as LOOK_PIECES, SLOT_NAME, NAME_REGION, nameRegion } from '../shared/appearance.ts';
+import { PIECES, SHOP, SIGNALS, HARVESTS, CROSSBOW } from '../shared/catalog.ts';
+import { DESCRIPTION_BASE, PACKS } from '../shared/decor.ts';
+import { INITIAL_ROOMS, ROOM_DESCRIPTION, INITIAL_DWELLERS } from '../shared/initialShelter.ts';
+import { ROOM_INFO, REPO_INFO, INTEGRATION_STATE, INTEGRATION_STATE_SHORT, REPO_TYPE, LOOK, ACTIVITY_TABS, FRESH_HARVEST } from '../shared/labels.ts';
+import { NICKNAMES, ORIGIN, MANIA, ROBOT_ORIGIN } from '../shared/recruits.ts';
+import { SECTORS } from '../shared/sectors.ts';
+import { MODELS, EFFORTS, PERMISSION_MODES } from '../shared/protocol.ts';
+import { COLUMNS } from '../shared/board.ts';
+import { DEPLOYMENT_COLUMNS } from '../shared/deploy.ts';
 
 const spanish = new Set(Object.values(TEXTS).map(v => v.es));
 
@@ -50,7 +50,7 @@ describe('English mode guards', () => {
 
   it('no literal with Spanish characters outside t()/tIs() in the client, the server, Electron and shared/', () => {
     const files: string[] = [];
-    const walk = (d: string) => { for (const n of readdirSync(d)) { const p = path.join(d, n); if (statSync(p).isDirectory()) { if (!/^(node_modules|textos|fixtures)$/.test(n)) walk(p); } else if (/\.(tsx?|cjs|mjs|js)$/.test(n) && !/\.test\./.test(n)) files.push(p); } };
+    const walk = (d: string) => { for (const n of readdirSync(d)) { const p = path.join(d, n); if (statSync(p).isDirectory()) { if (!/^(node_modules|texts|fixtures)$/.test(n)) walk(p); } else if (/\.(tsx?|cjs|mjs|js)$/.test(n) && !/\.test\./.test(n)) files.push(p); } };
     for (const d of ['web/src', 'server', 'electron', 'shared']) walk(d);
     const hits: string[] = [];
     for (const f of files) {
@@ -70,27 +70,27 @@ describe('English mode guards', () => {
 
 const SPANISH_CHARS = /[áéíóúñÁÉÍÓÚÑ¿¡]/;
 // the catalogues themselves, and the demo data with its English (integrations start off; the demo is for screenshots)
-const SKIP_FILES = ['electron/textos.cjs', 'server/integraciones/demo.ts', 'server/integraciones/demoEnglish.ts'];
+const SKIP_FILES = ['electron/texts.cjs', 'server/integrations/demo.ts', 'server/integrations/demoEnglish.ts'];
 // GLSL inside template literals (its comments are code comments)
 const SHADER = /\b(uniform|varying|gl_FragColor|void main|vec[234]|float)\b/;
 // developer logs: console, the Electron log file and the Chrome helpers' log (apuntar)
 const LOG_LINE = /console\.(log|warn|error|info)|log\.write\(|apuntar\(/;
 // What may stay in Spanish, and why. Keep it short.
 const ALLOWED: [string, RegExp][] = [
-  ['web/src/audio/teclado.ts', /./],                    // Spanish keyboard rows for the typing sounds, not text
-  ['web/src/audio/voces.ts', /^[a-zñ]+$/],              // letters the dwellers' babble is made of
+  ['web/src/audio/keyboard.ts', /./],                    // Spanish keyboard rows for the typing sounds, not text
+  ['web/src/audio/voices.ts', /^[a-zñ]+$/],              // letters the dwellers' babble is made of
   ['web/src/main.tsx', /^ÁÑáñ¿¡$/],                     // glyphs to preload the fonts with
-  ['web/src/ui/Buscador.tsx', /teléfono|móvil/],        // finder search synonyms in both languages
-  ['web/src/ui/entrada.tsx', /^Español \(/],            // dictation languages, each named in its own language
-  ['shared/idioma.ts', /^Español$/],                    // the language picker: each language in its own name
-  ['shared/despliegue.ts', /bloquead/],                 // regex that reads Spanish and English PR bodies
-  ['server/integraciones/normalizar.ts', /^[¡¿]$/],     // HTML entities
-  ['server/estado.ts', /^Planificación $/],             // migration of saved room names (data keys)
+  ['web/src/ui/Search.tsx', /teléfono|móvil/],        // finder search synonyms in both languages
+  ['web/src/ui/inputLine.tsx', /^Español \(/],            // dictation languages, each named in its own language
+  ['shared/language.ts', /^Español$/],                    // the language picker: each language in its own name
+  ['shared/deploy.ts', /bloquead/],                 // regex that reads Spanish and English PR bodies
+  ['server/integrations/normalize.ts', /^[¡¿]$/],     // HTML entities
+  ['server/state.ts', /^Planificación $/],             // migration of saved room names (data keys)
   ['server/main.ts', /^Logística $/],                   // Logistics wings are saved as 'Logística <folder>' (roomNameIs)
   ['server/repos.ts', /^diseño$/],                      // project type key, shown with tIs()
   ['server/git.ts', /^(Rutas con parámetros|REF-236 )/], // GitHub demo profile and PRs (DEMO data, before connecting)
-  ['shared/reclutas.ts', /^[A-ZÁÉÍÓÚ][a-záéíóúñ]+$/],   // recruits' first names
-  ['shared/refugioInicial.ts', /^[A-ZÁÉÍÓÚ][a-záéíóúñ]+$/], // the initial cast's first names
+  ['shared/recruits.ts', /^[A-ZÁÉÍÓÚ][a-záéíóúñ]+$/],   // recruits' first names
+  ['shared/initialShelter.ts', /^[A-ZÁÉÍÓÚ][a-záéíóúñ]+$/], // the initial cast's first names
 ];
 
 // String literals of a JS/TS source (template literals in their static chunks), with whether each one is the first

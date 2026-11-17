@@ -1,5 +1,5 @@
 // Las páginas de una conversación: los planes, informes y comparaciones (HTML o Markdown del Mac) que ha enlazado el
-// habitante. El intercomunicador las lista (Dialogo.tsx) para saber cuáles quedan por revisar: una página está
+// habitante. El intercomunicador las lista (Dialog.tsx) para saber cuáles quedan por revisar: una página está
 // contestada cuando el Supervisor le ha mandado notas o la ha validado después de la última vez que se enlazó (si el
 // habitante la vuelve a enlazar, tras cambiarla, queda otra vez por revisar). Puro: lo usan el cliente y las pruebas.
 
@@ -10,7 +10,7 @@ export interface SessionPage { ruta: string; nombre: string; ts: number; respues
 
 const OF_PAGE = /\.(html?|md|markdown)$/i;
 /** Images the game shows itself (thumbnails in replies, the «Página» window): the ones Chromium draws. HEIC, TIFF and
- *  PDF still open in Preview (server/abrir.ts) */
+ *  PDF still open in Preview (server/open.ts) */
 export const IMAGE_FILE = /\.(png|jpe?g|gif|webp|avif|bmp|svg)$/i;
 // [texto](/Users/…), [texto](<…con espacios…>), [texto](file:///…) y la ruta suelta (sin espacios)
 const SEG = `[^\\s/<>()[\\]"'\`»]+`;
@@ -81,7 +81,7 @@ export function samePage(a: string, b: string): boolean {
 
 /** Si una entrada cuenta para las páginas de la conversación: lo que escribe el habitante, sus preguntas (la respuesta
  *  las lleva; «¿la subo? La comparación está en …») y lo que le llega de otra sala (el plan o los documentos que
- *  acompañan a un encargo, server/avisosSalas.ts: empieza por 📨) */
+ *  acompañan a un encargo, server/roomNotices.ts: empieza por 📨) */
 export const linksPages = (e: { tipo: string; texto: string; pregunta?: boolean }) => e.tipo === 'asistente' || (e.tipo === 'usuario' && (!!e.pregunta || e.texto.startsWith('📨')));
 
 /** Una pregunta del habitante aún sin contestar, como entrada para las páginas: lo que enlaza sale ya en la lista, que
@@ -103,7 +103,7 @@ export function sessionPages(entradas: { tipo: string; texto: string; ts: number
 
 /** Las que se listan: las que siguen en el Mac (`existen`: las rutas que el servidor ha encontrado; sin saberlo aún,
  *  todas), las ya contestadas solo si se enlazaron en las dos últimas semanas y las pendientes durante el mes que se
- *  recuerdan las respuestas (Navegadores.tsx). Las de un worktree ya quitado desaparecen solas */
+ *  recuerdan las respuestas (Browsers.tsx). Las de un worktree ya quitado desaparecen solas */
 export const PAGES_DAYS = 14;
 export const PENDING_PAGES_DAYS = 30;
 export const livePages = (l: SessionPage[], existen: Set<string> | null, ahora = Date.now()) =>

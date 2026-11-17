@@ -1,8 +1,8 @@
 // Lo que una herramienta pide hacer (permisos) y la línea de lo que está haciendo, en texto plano: React lo escapa, nada
 // pasa por markdown ni HTML. Así un comando, un diff o un contenido no pueden cerrar su bloque y esconder el resto, y los
 // caracteres invisibles o de control (espacios de ancho cero, marcas bidi, BOM, escapes de terminal) se ven como ⟦U+XXXX⟧.
-import type { InputView } from '@shared/protocolo';
-import { t as tr } from '@shared/idioma';
+import type { InputView } from '@shared/protocol';
+import { t as tr } from '@shared/language';
 
 import { INVISIBLE, marca } from '@shared/visible';
 

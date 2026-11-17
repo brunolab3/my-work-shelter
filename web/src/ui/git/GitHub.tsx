@@ -2,11 +2,11 @@
 // el número de cada día al pasar por encima, y tus rachas (los pull requests tienen su pestaña: PullRequests.tsx).
 // Todo viene de `gh` (tu sesión de GitHub); sin él, la matriz cuenta tus commits en los repos del refugio.
 import React, { useEffect, useState } from 'react';
-import { cliente } from '../../red/cliente';
-import { GREEN_GITHUB, rachas } from '@shared/contribuciones';
-import { hace } from './comun';
-import { openLink } from '../Navegadores';
-import { t, idioma } from '@shared/idioma';
+import { cliente } from '../../net/client';
+import { GREEN_GITHUB, rachas } from '@shared/contributions';
+import { hace } from './common';
+import { openLink } from '../Browsers';
+import { t, idioma } from '@shared/language';
 
 interface Datos { fuente: 'github' | 'local'; demo?: boolean; usuario?: string; nombre?: string; total: number; days: { fecha: string; n: number; nivel: number }[]; error?: string; ts: number }
 

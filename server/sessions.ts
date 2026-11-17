@@ -5,25 +5,25 @@
 import os from 'node:os';
 import path from 'node:path';
 import { cwdBeforeRelocation, lastActivity, projectFolder } from './repos.ts';
-import { mcpReview } from './comparar.ts';
-import { MCP, SELF_GATED } from './servidoresMcp.ts';
+import { mcpReview } from './compare.ts';
+import { MCP, SELF_GATED } from './mcpServers.ts';
 import { pushOf } from '../shared/preflight.ts';
-import { handMadeWorktree, newWorktreeOf, taskWorktreeIn, worktreeTask, ghCreateOf, githubRepoOf, isOriginalRepo, ORIGINAL_REPO } from '../shared/tareas.ts';
+import { handMadeWorktree, newWorktreeOf, taskWorktreeIn, worktreeTask, ghCreateOf, githubRepoOf, isOriginalRepo, ORIGINAL_REPO } from '../shared/tasks.ts';
 import { gh } from './git.ts';
 import { readFileSync } from 'node:fs';
 import { EventEmitter } from 'node:events';
 import { randomUUID } from 'node:crypto';
 import { execFile, execFileSync } from 'node:child_process';
-import { entornoGit } from './entornoGit.ts';
+import { entornoGit } from './gitEnv.ts';
 import { existsSync, readdirSync } from 'node:fs';
 import { query, listSessions, getSessionMessages, getSessionInfo, type Query, type SDKMessage, type SDKUserMessage, type CanUseTool, type PermissionResult, type Options, type McpSdkServerConfigWithInstance } from '@anthropic-ai/claude-agent-sdk';
-import type { SessionSummary, LogInput, PendingRequest, Helper, WorkOptions, HistoryElement, Command, Question, Attachment, InputView } from '../shared/protocolo.ts';
-import { separateAttachments, type Attachments } from './adjuntos.ts';
-import { ROOMS_FOLDERS } from './estado.ts';
-import { activa } from '../shared/fuentes.ts';
-import { describeTool, describeInput, permissionTitle, toolMode, toolPath, isAgent } from './herramientas.ts';
-import { t } from '../shared/idioma.ts';
-import { ANNEX, bridgeAnnex, annexGit, HIDDEN_SKILLS, withoutWorkConnectors } from './anexo.ts';
+import type { SessionSummary, LogInput, PendingRequest, Helper, WorkOptions, HistoryElement, Command, Question, Attachment, InputView } from '../shared/protocol.ts';
+import { separateAttachments, type Attachments } from './attachments.ts';
+import { ROOMS_FOLDERS } from './state.ts';
+import { activa } from '../shared/fonts.ts';
+import { describeTool, describeInput, permissionTitle, toolMode, toolPath, isAgent } from './tools.ts';
+import { t } from '../shared/language.ts';
+import { ANNEX, bridgeAnnex, annexGit, HIDDEN_SKILLS, withoutWorkConnectors } from './annex.ts';
 
 class Cola<T> implements AsyncIterable<T> {
   private items: T[] = []; private waits: ((r: IteratorResult<T>) => void)[] = []; private fin = false;
@@ -61,13 +61,13 @@ interface Session {
 
 export interface RoomsResolver {
   pathRoom(ruta: string): string | undefined; reposOfShelter?(): string[];
-  // las herramientas del juego para decorar la sala (server/decoradoSala.ts), en las salas de repo: un servidor MCP por sesión
+  // las herramientas del juego para decorar la sala (server/roomDecor.ts), en las salas de repo: un servidor MCP por sesión
   mcpRoom?(salaId: string): McpSdkServerConfigWithInstance | undefined;
-  // las de repartir el trabajo (server/reparto.ts), en las salas de coordinación; preguntar: confirmación del Supervisor
+  // las de repartir el trabajo (server/dispatch.ts), en las salas de coordinación; preguntar: confirmación del Supervisor
   mcpAssignment?(salaId: string, preguntar: (titulo: string, entrada: InputView[]) => Promise<boolean>, sesionId: string): McpSdkServerConfigWithInstance | undefined;
   // las del plan compartido (leerlo y proponer cambios), en las salas que trabajan en una parte de un plan repartido
   mcpPlan?(salaId: string): McpSdkServerConfigWithInstance | undefined;
-  // la de pasarle un mensaje o un encargo al habitante de otra sala (server/avisosSalas.ts), en todas
+  // la de pasarle un mensaje o un encargo al habitante de otra sala (server/roomNotices.ts), en todas
   mcpRooms?(salaId: string, sesionId: string, enWorktree: boolean): McpSdkServerConfigWithInstance | undefined;
   // el pre-flight de la tarea (server/preflight.ts): las herramientas del habitante y la puerta de `git push`
   preflight?: {
@@ -355,17 +355,17 @@ export class Sessions extends EventEmitter {
     const opciones: Options = { ...this.optionsBase(x, reanudar), canUseTool: this.canUse(x), allowedTools: SELF_GATED.map(s => `mcp__${s}`) };
     // el habitante de Planificación (el tablero de tareas) trabaja con el MCP oficial de Linear (la clave, si la hay, va por el entorno)
     if (x.r.salaId === 'logistica' && activa('linear')) {
-      try { const { mcpLinear, environmentMcpLinear } = await import('./integraciones/linear.ts'); opciones.mcpServers = { ...(opciones.mcpServers ?? {}), ...(await mcpLinear()) }; opciones.env = { ...opciones.env, ...(await environmentMcpLinear()) }; }
+      try { const { mcpLinear, environmentMcpLinear } = await import('./integrations/linear.ts'); opciones.mcpServers = { ...(opciones.mcpServers ?? {}), ...(await mcpLinear()) }; opciones.env = { ...opciones.env, ...(await environmentMcpLinear()) }; }
       catch (e) { console.warn('MCP de Linear no disponible:', (e as Error).message); }
     }
-    // each game server keyed by its own name (servidoresMcp.ts): the key is the `mcp__<key>__` the session sees
+    // each game server keyed by its own name (mcpServers.ts): the key is the `mcp__<key>__` the session sees
     const servidores = [
       this.resolutor.mcpRoom?.(x.r.salaId),
       this.resolutor.mcpAssignment?.(x.r.salaId, (titulo, entrada) => this.confirmar(x, titulo, entrada), x.r.id),
       this.resolutor.mcpPlan?.(x.r.salaId),
       // in a worktree (or starting a new one) it also gets request_worktree_cleanup
       this.resolutor.mcpRooms?.(x.r.salaId, x.r.id, !!(x.r.worktree ?? worktreeRoot(x.r.cwd) ?? opciones.extraArgs?.worktree)),
-      // the compare page of its changes, to review them with notes in the game before pushing (server/comparar.ts)
+      // the compare page of its changes, to review them with notes in the game before pushing (server/compare.ts)
       mcpReview(() => x.r.worktree ?? x.r.cwd, this.resolutor.preflight),
     ];
     opciones.mcpServers = { ...(opciones.mcpServers ?? {}), ...Object.fromEntries(servidores.flatMap(s => (s ? [[s.name, s]] : []))) };
@@ -377,7 +377,7 @@ export class Sessions extends EventEmitter {
   private mensaje(contenido: string | Record<string, unknown>[]): SDKUserMessage {
     return { type: 'user', message: { role: 'user', content: contenido as any }, parent_tool_use_id: null, uuid: randomUUID() as any, origin: { kind: 'human' } as any } as SDKUserMessage;
   }
-  // a la cola de entrada de la sesión; con adjuntos, las imágenes van dentro del mensaje (adjuntos.ts)
+  // a la cola de entrada de la sesión; con adjuntos, las imágenes van dentro del mensaje (attachments.ts)
   private enqueue(x: Session, texto: string, adjuntos: Attachment[]) {
     const queue = x.entrada!;
     const meter = (m: SDKUserMessage) => {
@@ -583,7 +583,7 @@ export class Sessions extends EventEmitter {
   // ---------------- permisos, preguntas y planes → jugador
   private canUse(x: Session): CanUseTool {
     return (nombre, e, op) => new Promise<PermissionResult>(resolver => {
-      // the game's self-gated tools don't ask (servidoresMcp.ts): decor only touches that room's decor (validated data),
+      // the game's self-gated tools don't ask (mcpServers.ts): decor only touches that room's decor (validated data),
       // assignment confirms what it launches itself (confirmar()), review only reads the repo and writes its page in the
       // game's folder, and plan reads the plan and proposes changes to the planning room
       if (SELF_GATED.some(s => nombre.startsWith(`mcp__${s}__`))) { resolver({ behavior: 'allow', updatedInput: e }); return; }
@@ -748,7 +748,7 @@ export class Sessions extends EventEmitter {
   async transcripcion(claudeId: string, dir: string): Promise<LogInput[]> {
     const msgs = await getSessionMessages(claudeId, { dir });
     // cada mensaje con su hora real, no la de ahora: las páginas que enlazó y ya se revisaron no vuelven a quedar
-    // pendientes al retomarla (shared/paginasSesion.ts)
+    // pendientes al retomarla (shared/sessionPages.ts)
     const horas = messageTimes(claudeId, dir);
     const out: LogInput[] = [];
     for (const m of msgs) {

@@ -1,12 +1,12 @@
-// A click on a link of a reply (markdown.ts) or of a page in the «Página» window (Navegadores.tsx, through
-// server/pagina/notas.js) opens it the first of its ways (shared/opcionesEnlace.ts), inside the game whenever it can; a
+// A click on a link of a reply (markdown.ts) or of a page in the «Página» window (Browsers.tsx, through
+// server/page/notes.js) opens it the first of its ways (shared/linkOptions.ts), inside the game whenever it can; a
 // right click opens a small list at it with all of them: the first is marked and taken with Enter, ↑↓ move, Esc or a
 // click elsewhere closes it.
-import { cliente } from '../red/cliente';
-import { SFX } from '../audio/sonido';
-import { t } from '@shared/idioma';
-import { webLinkOptions, fileLinkOptions, copyText, type LinkOption, type LinkAction, type LocalKind } from '@shared/opcionesEnlace';
-import { openPage, openWeb, canOpenInside, isLocalServer, revealPage, urlSpot } from './Navegadores';
+import { cliente } from '../net/client';
+import { SFX } from '../audio/sound';
+import { t } from '@shared/language';
+import { webLinkOptions, fileLinkOptions, copyText, type LinkOption, type LinkAction, type LocalKind } from '@shared/linkOptions';
+import { openPage, openWeb, canOpenInside, isLocalServer, revealPage, urlSpot } from './Browsers';
 
 // la conversación en la que está el enlace (el intercomunicador marca la suya)
 const sessionOfLink = (a: Element) => a.closest('[data-sesion]')?.getAttribute('data-sesion') ?? undefined;
@@ -15,7 +15,7 @@ const sessionOfLink = (a: Element) => a.closest('[data-sesion]')?.getAttribute('
 function runFile(accion: LinkAction, ruta: string, sesion?: string) {
   if (accion === 'copiar') return copy(copyText(ruta));
   if (accion === 'finder') return revealPage(ruta);
-  // in the game: a page or an image in the «Página» window; with `fuera`, where the Mac opens it (server/abrir.ts)
+  // in the game: a page or an image in the «Página» window; with `fuera`, where the Mac opens it (server/open.ts)
   cliente.accion('enlace.local', { ruta, fuera: accion === 'mac' })
     .then((r: any) => { if (r?.pagina) openPage(r.pagina.url, r.pagina.titulo, sesion, r.pagina.ruta); else SFX.clic(); })
     .catch(() => SFX.noAllowed());

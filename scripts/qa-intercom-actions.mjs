@@ -1,8 +1,8 @@
-// QA of the intercom's «Actions» section (Dialogo.tsx) on a hologram with pages + PRs + pre-flight + scheduled at once,
+// QA of the intercom's «Actions» section (Dialog.tsx) on a hologram with pages + PRs + pre-flight + scheduled at once,
 // with its own server in a test shelter and Playwright: the four buttons in order of importance right under the
 // dweller's data; each list opens right below its button in a normal and a maximized intercom, and to its right over the
 // conversation in a short window; never outside the intercom. Screenshots of each.
-// Needs the built client (npx vite build). Usage: node scripts/qa-acciones-intercom.mjs [screenshots-folder]   (SHELTER_PUERTO_QA, 3797)
+// Needs the built client (npx vite build). Usage: node scripts/qa-intercom-actions.mjs [screenshots-folder]   (SHELTER_PUERTO_QA, 3797)
 import { chromium } from 'playwright';
 import { spawn, execFileSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, realpathSync } from 'node:fs';

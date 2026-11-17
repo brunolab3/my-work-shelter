@@ -3,9 +3,9 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, writeFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { agruparPorTarea, planDeSala, applyPlan, promptTask } from './organizar.ts';
-import { sessionOfPR } from './revisionesPR.ts';
-import type { PRBoard } from '../shared/tablero.ts';
+import { agruparPorTarea, planDeSala, applyPlan, promptTask } from './organize.ts';
+import { sessionOfPR } from './prReviews.ts';
+import type { PRBoard } from '../shared/board.ts';
 
 const pr = (numero: number, rama: string, extra: Partial<PRBoard> = {}): PRBoard =>
   ({ numero, titulo: 'PR ' + numero, url: 'https://github.com/o/r/pull/' + numero, repo: 'o/r', rama, base: 'main', estado: 'abierto', actualizado: 0, ...extra });

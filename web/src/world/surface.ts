@@ -1,10 +1,10 @@
 // La calle: el yermo a la altura de la planta baja, con franja de tierra, colinas y árboles secos (pack de naturaleza
-// KayKit, recoloreados a polvo y ceniza). El cielo y la luz de fuera, según la hora real, son de cielo.ts. La entrada
+// KayKit, recoloreados a polvo y ceniza). El cielo y la luz de fuera, según la hora real, son de sky.ts. La entrada
 // del refugio está a pie de calle; lo demás queda bajo tierra.
 import * as THREE from 'three';
-import { place } from '../motor/assets';
+import { place } from '../engine/assets';
 import { aleatorio, mergeStatic } from './util3d';
-import { exterior, type Paper } from './cielo';
+import { exterior, type Paper } from './sky';
 
 const NAT = (n: string) => `kaykit-extra/forest-nature-pack-1.0/Assets/gltf/Color1/${n}_Color1.gltf`;
 
@@ -28,10 +28,10 @@ export async function buildSurface(x0: number, x1: number, y: number, z: number,
   for (const [xa, xb] of calle) { const borde = new THREE.Mesh(new THREE.BoxGeometry(xb - xa, 0.25, 0.4), edgeSoil); borde.position.set((xa + xb) / 2, y - 0.05, z); g.add(borde); }
   const ahead = (x: number, zz: number, m: number) => zz > zBackground - 1.5 && buildings.some(([a, b]) => x > a - m && x < b + m);
   const ps: Promise<unknown>[] = [];
-  // el patio de la derecha (molino, placa solar y antena de entorno.ts, junto a la última sala; x1 es la sala más a la
-  // derecha + 40, ver refugio.ts): tampoco crece ahí una colina cercana, que se los tragaba
+  // el patio de la derecha (molino, placa solar y antena de environment.ts, junto a la última sala; x1 es la sala más a la
+  // derecha + 40, ver shelter.ts): tampoco crece ahí una colina cercana, que se los tragaba
   const patio: [number, number] = [x1 - 46, x1 - 29];
-  // la superficie no la alumbran las lámparas del refugio: lleva su propia luz, que cielo.ts ajusta a la hora del día
+  // la superficie no la alumbran las lámparas del refugio: lleva su propia luz, que sky.ts ajusta a la hora del día
   // (materiales compartidos por original, tono y papel: la fusión los junta en pocas llamadas de dibujo)
   const mats = new Map<string, THREE.Material>();
   const dust = (o: THREE.Object3D, tone: string, papel: Paper = 'pieza') => o.traverse((m: any) => {

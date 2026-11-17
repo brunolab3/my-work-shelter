@@ -1,13 +1,13 @@
 // Linear: paneles y notificaciones por GraphQL con la clave de API personal (llavero), SOLO lectura desde el juego.
 // La escritura (crear, mover, asignar, comentar) la hace la conversación del habitante de Logística con el
-// MCP oficial de Linear (https://mcp.linear.app/mcp): es el usuario actuando. Ver mcpLinear() y docs/integraciones-uso.md.
+// MCP oficial de Linear (https://mcp.linear.app/mcp): es el usuario actuando. Ver mcpLinear() y docs/integrations-usage.md.
 // Ojo: en GraphQL la clave va en `Authorization: <clave>` SIN «Bearer»; en el MCP, con «Bearer».
 import type { McpHttpServerConfig } from '@anthropic-ai/claude-agent-sdk';
-import type { Store } from '../estado.ts';
-import { ConnectorBase, ConfigSource, ErrorSource, ask, type Field } from './comun.ts';
-import { readSecret } from './llavero.ts';
-import { groupMyIssues, teamsCycles, explainErrorLinear, linearNotifications, teamBoard } from './normalizar.ts';
-import { t } from '../../shared/idioma.ts';
+import type { Store } from '../state.ts';
+import { ConnectorBase, ConfigSource, ErrorSource, ask, type Field } from './common.ts';
+import { readSecret } from './keychain.ts';
+import { groupMyIssues, teamsCycles, explainErrorLinear, linearNotifications, teamBoard } from './normalize.ts';
+import { t } from '../../shared/language.ts';
 
 const API = 'https://api.linear.app/graphql';
 export const MCP_LINEAR = 'https://mcp.linear.app/mcp';

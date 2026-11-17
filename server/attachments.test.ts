@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { mkdtempSync, rmSync, readFileSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { Attachments, textWithAttachments, separateAttachments, attachmentName, HEADER } from './adjuntos.ts';
+import { Attachments, textWithAttachments, separateAttachments, attachmentName, HEADER } from './attachments.ts';
 
 let datos: string, adj: Attachments;
 beforeAll(() => { datos = mkdtempSync(path.join(os.tmpdir(), 'shelter-adj-')); adj = new Attachments(datos); });

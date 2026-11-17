@@ -1,6 +1,6 @@
-// Nombre del worktree de un trabajo nuevo (sesiones.ts): la tarea se lee en la rama y en el holograma de la sala
+// Nombre del worktree de un trabajo nuevo (sessions.ts): la tarea se lee en la rama y en el holograma de la sala
 import { describe, expect, it } from 'vitest';
-import { nombreWorktree, worktreeRoot } from './sesiones.ts';
+import { nombreWorktree, worktreeRoot } from './sessions.ts';
 
 describe('nombreWorktree', () => {
   it('resume la tarea sin tildes ni signos y añade un sufijo', () => {
@@ -28,7 +28,7 @@ describe('crearWorktree', () => {
     const { mkdtempSync, writeFileSync, realpathSync } = await import('node:fs');
     const { execFileSync } = await import('node:child_process');
     const os = await import('node:os'); const path = await import('node:path');
-    const { crearWorktree } = await import('./sesiones.ts');
+    const { crearWorktree } = await import('./sessions.ts');
     const base = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'wt-')));
     const g = (cwd: string, ...a: string[]) => execFileSync('git', ['-c', 'user.name=Prueba', '-c', 'user.email=prueba@example.test', ...a], { cwd, encoding: 'utf8' }).trim();
     const origen = path.join(base, 'origen'), repo = path.join(base, 'repo');

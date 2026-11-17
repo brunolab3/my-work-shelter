@@ -1,4 +1,4 @@
-// Mando a distancia: lo común a los bots del propio Supervisor (hoy, el de Slack: slackMando.ts). Lo normal es no salir del refugio: el bot solo escribe cuando un habitante pide aprobación (permiso, plan, pregunta o
+// Mando a distancia: lo común a los bots del propio Supervisor (hoy, el de Slack: slackBot.ts). Lo normal es no salir del refugio: el bot solo escribe cuando un habitante pide aprobación (permiso, plan, pregunta o
 // confianza) y se responde ahí mismo con sus botones. Además, a demanda, la lista de salas y conversaciones para pasarlas
 // a Remote Control (la app de Claude). Nunca pasa lo que se habla: solo los rótulos (habitante, título, estado) y, para
 // aprobar, la petición tal cual la ve el diálogo del juego, con los secretos tapados, los invisibles a la vista y borrada
@@ -12,10 +12,10 @@
 // en el refugio o en otro mando) y lo de conversaciones que ya no están se borra. Lo escrito se guarda (`Rastro`): tras
 // un reinicio, las decisiones de antes (que ya no valen) se borran y el estado se pone al día.
 import path from 'node:path';
-import { t, locale } from '../shared/idioma.ts';
-import type { SessionSummary, PendingRequest } from '../shared/protocolo.ts';
+import { t, locale } from '../shared/language.ts';
+import type { SessionSummary, PendingRequest } from '../shared/protocol.ts';
 import { visible } from '../shared/visible.ts';
-import { recentFirst, sessionRecency } from '../shared/recientes.ts';
+import { recentFirst, sessionRecency } from '../shared/recent.ts';
 
 export const PAIRING_MS = 10 * 60_000;
 /** Lo que espera una petición antes de salir al móvil, y cada cuánto se vuelve a mirar si el juego sigue en uso */

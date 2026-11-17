@@ -10,13 +10,13 @@
 import { execFile, spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
-import { abrirEnEditor } from './abrir.ts';
-import { entornoGit } from './entornoGit.ts';
-import type { PRBoard } from '../shared/tablero.ts';
-import type { ReviewLedger } from '../shared/cuentaRevisiones.ts';
-import { dependenciasEnTexto } from '../shared/despliegue.ts';
-import { t } from '../shared/idioma.ts';
-import { inDemoLanguage } from './integraciones/demoEnglish.ts';
+import { abrirEnEditor } from './open.ts';
+import { entornoGit } from './gitEnv.ts';
+import type { PRBoard } from '../shared/board.ts';
+import type { ReviewLedger } from '../shared/reviewCount.ts';
+import { dependenciasEnTexto } from '../shared/deploy.ts';
+import { t } from '../shared/language.ts';
+import { inDemoLanguage } from './integrations/demoEnglish.ts';
 
 const entorno = () => entornoGit({ GIT_EDITOR: 'true', GIT_PAGER: 'cat', GCM_INTERACTIVE: 'never' });
 const MAX_DIFF = 1_500_000;   // un diff más grande se corta (y se avisa)
@@ -213,7 +213,7 @@ export async function continuar(ruta: string) {
 }
 
 /** Abre un archivo del repo en tu editor (Cursor o VS Code; si no, el de texto de macOS: nunca la app por defecto de su
- *  tipo, que para un .command o un .app de un repo clonado sería ejecutarlo; ver abrir.ts). */
+ *  tipo, que para un .command o un .app de un repo clonado sería ejecutarlo; ver open.ts). */
 export async function abrirArchivo(ruta: string, archivo: string) {
   const f = path.join(ruta, safeFile(archivo));
   if (!existsSync(f)) throw new Error(t('server.thatFileIsNoLonger'));
@@ -349,7 +349,7 @@ export async function prsTablero(connection: { real: boolean; off?: boolean; tok
   catch (err) { return { prs: [], error: t('server.git.couldNotReadPRs', { error: String((err as Error).message).split('\n')[0].slice(0, 160) }) }; }
 }
 
-// todos tus PR sin fusionar (para organizar las salas por tareas: server/organizar.ts), con su base y descripción
+// todos tus PR sin fusionar (para organizar las salas por tareas: server/organize.ts), con su base y descripción
 const OPEN_QUERY = SEARCH_PRS('is:pr is:open author:@me archived:false sort:updated-desc', 100);
 export async function prsOpen(connection: { real: boolean; off?: boolean; token?: string }): Promise<{ prs: PRBoard[]; demo?: boolean }> {
   if (connection.off) return { prs: [] };
@@ -392,7 +392,7 @@ const WRITE = new Set(['abortar', 'continuar', 'preparar', 'quitar', 'descartar'
 export async function actionGit(nombre: string, d: Record<string, any>, ctx: CtxGit): Promise<unknown> {
   if (nombre === 'github') return github(ctx.pathsRepos(), !!d.forzar, (await ctx.github?.()) ?? { real: false });
   if (nombre === 'prsTablero') {
-    // con lo que queda por contestar en sus revisiones, de la última vuelta de revisionesPR.ts
+    // con lo que queda por contestar en sus revisiones, de la última vuelta de prReviews.ts
     const r = await prsTablero((await ctx.github?.()) ?? { real: false });
     if (r.demo || !ctx.ledger) return r;
     return { ...r, prs: r.prs.map(p => { const l = ctx.ledger!(p.url); return l ? { ...p, ledger: l } : p; }) };

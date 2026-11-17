@@ -1,13 +1,13 @@
 // Renderer, postproceso y bucle. Un único perfil gráfico (es lowpoly: no hace falta más), 60 fps como máximo (menos si
-// nada se mueve: ver ritmo.ts) y nada que pintar mientras el juego no está en primer plano (ver foco.ts). Contrato de QA: window.__ready() / window.__step(dt) /
+// nada se mueve: ver frameRate.ts) y nada que pintar mientras el juego no está en primer plano (ver focus.ts). Contrato de QA: window.__ready() / window.__step(dt) /
 // window.__noLoop.
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 /** Recarga la página del juego: sesiones, terminales y lo escrito siguen (viven en el servidor y en la página). */
 export function reloadView() { location.reload(); }
-import { frameRate, targetFps, cameraMoved } from './ritmo';
-import { writing } from './teclado';
+import { frameRate, targetFps, cameraMoved } from './frameRate';
+import { writing } from './keyboard';
 import { EffectComposer, RenderPass, EffectPass, BloomEffect, ToneMappingEffect, ToneMappingMode, VignetteEffect, SMAAEffect, NoiseEffect, BlendFunction, HueSaturationEffect, BrightnessContrastEffect } from 'postprocessing';
 
 // escala de render: en retina no se pinta a 2× (la interfaz HTML sigue nítida); SMAA suaviza los bordes. Con 1,1 la
@@ -116,7 +116,7 @@ export class Engine {
 
   eachFrame(f: (dt: number, t: number) => void) { this.alActualizar.push(f); }
 
-  // el bucle solo corre con el juego en primer plano: fuera, la GPU se queda quieta (ver foco.ts)
+  // el bucle solo corre con el juego en primer plano: fuera, la GPU se queda quieta (ver focus.ts)
   private activo = false;
   onChangeFirstMap(activo: boolean) {
     if (activo === this.activo || (window as any).__noLoop) return;
@@ -125,7 +125,7 @@ export class Engine {
     else this.renderer.setAnimationLoop(null);
   }
 
-  // tope de 60 fps (en una pantalla de 120 Hz se pinta un fotograma de cada dos), 30 o 10 según ritmo.ts. El tiempo de
+  // tope de 60 fps (en una pantalla de 120 Hz se pinta un fotograma de cada dos), 30 o 10 según frameRate.ts. El tiempo de
   // los que se saltan se suma al siguiente, así el movimiento sigue yendo a tiempo real
   private pending = 0;
   private watch = new FrameRateWatch();

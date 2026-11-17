@@ -4,7 +4,7 @@
 import os from 'node:os';
 import path from 'node:path';
 
-// (sin importar estado.ts, que importa este módulo: con SHELTER_DATOS, dentro de esos datos, como CARPETAS_SALAS)
+// (sin importar state.ts, que importa este módulo: con SHELTER_DATOS, dentro de esos datos, como CARPETAS_SALAS)
 export const EXAMPLES_FOLDER = process.env.SHELTER_DATOS ? path.join(path.resolve(process.env.SHELTER_DATOS), 'ejemplos') : path.join(os.homedir(), 'Library', 'Application Support', 'work-shelter-public', 'ejemplos');
 export const examplePath = (carpeta: string) => path.join(EXAMPLES_FOLDER, carpeta);
 /** Una copia de un repo de ejemplo (de las que clonaba el juego, directamente dentro de su carpeta) */

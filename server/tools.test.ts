@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { describeInput } from './herramientas.ts';
+import { describeInput } from './tools.ts';
 
 describe('vista previa de los permisos', () => {
   it('un comando va entero y en texto plano: un ``` dentro no cierra nada ni esconde el resto', () => {

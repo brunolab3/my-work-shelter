@@ -1,29 +1,29 @@
 // Aparatos del refugio que no son el intercomunicador: plano con viaje rápido y reorganización (M), lista de ocupados
 // con salto directo (Tab), ayuda con todos los controles (F1) y el menú del juego (Esc): opciones, atajos, reiniciar,
-// salir a la superficie y salir (empieza en «Volver al refugio»). Lo demás se busca con ⌘K (Buscador.tsx).
+// salir a la superficie y salir (empieza en «Volver al refugio»). Lo demás se busca con ⌘K (Search.tsx).
 // También las teclas globales del refugio abierto.
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { juego, type Panel, type DwellerSummary } from './estadoJuego';
-import { vivo, cliente } from '../red/cliente';
-import { teclado } from '../motor/teclado';
-import { SFX, sonido } from '../audio/sonido';
-import { Device, Opciones, Keys, closePanel, useMenu, useKeys, type ItemMenu } from './aparato';
-import { PanelesSala } from './PanelesSala';
-import { Welcome } from './Puente';
-import { floorCaption, isRoomOfRepo, PLANNING_ROOM } from '@shared/disposicion';
-import { roomTone, sectorOf, floorSector, SECTORS, SECTORS_ORDER, AREAS } from '@shared/sectores';
-import { ROOM_DESCRIPTION } from '@shared/refugioInicial';
-import { ACTIVE_SOURCES } from '@shared/fuentes';
-import { ROOM_INFO, REPO_INFO, INTEGRATION_STATE } from '@shared/etiquetas';
-import { openGit } from './git/ventana';
-import { DICTATION_LANGUAGES, dictationLanguage, setLanguageDictation } from './entrada';
-import { FRAME_RATES, frameRate, setFrameRate } from '../motor/ritmo';
-import { takeASurface } from './superficie';
-import { reloadView } from '../motor/render';
-import { Usage } from './consumo';
-import { t, idioma, setLanguage, LANGUAGES, tIs } from '@shared/idioma';
-import { openSearch } from './Buscador';
-import { terminales as openTerminals } from './Terminales';
+import { juego, type Panel, type DwellerSummary } from './gameState';
+import { vivo, cliente } from '../net/client';
+import { teclado } from '../engine/keyboard';
+import { SFX, sonido } from '../audio/sound';
+import { Device, Opciones, Keys, closePanel, useMenu, useKeys, type ItemMenu } from './device';
+import { PanelesSala } from './RoomPanels';
+import { Welcome } from './Bridge';
+import { floorCaption, isRoomOfRepo, PLANNING_ROOM } from '@shared/layout';
+import { roomTone, sectorOf, floorSector, SECTORS, SECTORS_ORDER, AREAS } from '@shared/sectors';
+import { ROOM_DESCRIPTION } from '@shared/initialShelter';
+import { ACTIVE_SOURCES } from '@shared/fonts';
+import { ROOM_INFO, REPO_INFO, INTEGRATION_STATE } from '@shared/labels';
+import { openGit } from './git/window';
+import { DICTATION_LANGUAGES, dictationLanguage, setLanguageDictation } from './inputLine';
+import { FRAME_RATES, frameRate, setFrameRate } from '../engine/frameRate';
+import { takeASurface } from './surface';
+import { reloadView } from '../engine/render';
+import { Usage } from './usage';
+import { t, idioma, setLanguage, LANGUAGES, tIs } from '@shared/language';
+import { openSearch } from './Search';
+import { terminales as openTerminals } from './Terminals';
 
 export const openPanel = (panel: Panel, panelData: any = null) => { juego.set({ panel, panelData }); };
 // lo que se abre desde el menú de Esc vuelve a él al salir (Esc o ×); abierto con su tecla, se cierra sin más
@@ -85,7 +85,7 @@ export function Paneles() {
 }
 
 // ---------------------------------------------------------------- plano del refugio
-// el sitio de cada sala lo decide la disposición (shared/disposicion.ts); con «Editar» (O) se hacen obras: arrastrar una
+// el sitio de cada sala lo decide la disposición (shared/layout.ts); con «Editar» (O) se hacen obras: arrastrar una
 // sala a otro hueco o a una franja entre plantas (abre una planta nueva; la que se queda vacía desaparece), arrastrar una
 // planta entera por su rótulo, y volver a la disposición de serie
 type Drag = { sala: string } | { planta: number } | null;

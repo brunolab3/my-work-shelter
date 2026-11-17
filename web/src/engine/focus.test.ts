@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isInFirstMap } from './foco';
+import { isInFirstMap } from './focus';
 
 describe('primer plano del juego', () => {
   it('fuera de la vista (minimizado, tapado, otro escritorio) no cuenta, tenga o no el foco', () => {

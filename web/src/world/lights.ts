@@ -2,7 +2,7 @@
 // con fundido, a las lámparas y piezas luminosas más cercanas al centro de la cámara. Las lámparas sin luz real
 // muestran su poza falsa (decal aditivo) para que de lejos el refugio siga pareciendo encendido.
 import * as THREE from 'three';
-import type { LightAnchor, Sala } from './salas/comun';
+import type { LightAnchor, Sala } from './rooms/common';
 
 interface Slot<L extends THREE.Light> { luz: L; anchor: LightAnchor | null; sala: Sala | null; actual: number }
 

@@ -5,7 +5,7 @@
 import * as THREE from 'three';
 import { GLTFLoader, type GLTF } from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
-import { prepareMaterial, type Variant } from './paleta';
+import { prepareMaterial, type Variant } from './palette';
 
 const loader = new GLTFLoader();
 const cache = new Map<string, Promise<GLTF>>();

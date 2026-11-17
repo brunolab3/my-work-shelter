@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { mkdtempSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { ciOfGitHub, newFailures, failureId, blockedBy, ciMessage, logTail, runOfUrl, CIFailures, type CtxCI } from './fallosCI.ts';
-import { bloqueosEntre } from '../shared/despliegue.ts';
-import type { RoomPR } from './revisionesPR.ts';
-import type { SessionSummary } from '../shared/protocolo.ts';
+import { ciOfGitHub, newFailures, failureId, blockedBy, ciMessage, logTail, runOfUrl, CIFailures, type CtxCI } from './ciFailures.ts';
+import { bloqueosEntre } from '../shared/deploy.ts';
+import type { RoomPR } from './prReviews.ts';
+import type { SessionSummary } from '../shared/protocol.ts';
 
 // una tarea, REF-300, en dos repos inventados: el front (refugio/web#12) espera a la API (refugio/api#7), según su
 // descripción; y un PR suelto de otro repo que pasa la CI

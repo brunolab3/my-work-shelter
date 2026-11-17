@@ -2,12 +2,12 @@
 // de calle, lo que rodea la entrada (farola, bidones, molino, placa solar, antena y el rótulo «WORK-SHELTER» sobre la puerta).
 // Todo con piezas del material CC0.
 import * as THREE from 'three';
-import { place, R } from '../motor/assets';
+import { place, R } from '../engine/assets';
 import { mergeStatic } from './util3d';
-import { exterior } from './cielo';
+import { exterior } from './sky';
 
 // las piezas de la superficie vienen en blanco de catálogo: al óxido y al polvo del yermo. Su luz propia la ajusta
-// cielo.ts a la hora del día (`juntoLuz`: lo que alumbra la farola de noche)
+// sky.ts a la hora del día (`juntoLuz`: lo que alumbra la farola de noche)
 const rusted = new Map<string, THREE.Material>();
 function rust(o: THREE.Object3D, tone = '#7a5236', lightTogether = false) {
   o.traverse((m: any) => {
@@ -96,7 +96,7 @@ export async function buildEnvironment(o: {
   // a pie de calle: la entrada se lee desde la vista general por el rótulo «WORK-SHELTER» en el tejado de la puerta, con un farol a
   // cada lado; fuera, una farola y unos bidones junto a la fachada y, al otro lado del ascensor, molino, placa y antena
   const sup = o.suelo;
-  // faroles: apagados de día, encendidos de noche (cielo.ts); el bloom les da el halo
+  // faroles: apagados de día, encendidos de noche (sky.ts); el bloom les da el halo
   const farol = () => new THREE.Mesh(new THREE.SphereGeometry(0.11, 10, 8), LANTERN);
   if (o.puerta) {
     const { x0, x1, techo } = o.puerta; const xc = (x0 + x1) / 2;

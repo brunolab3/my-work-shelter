@@ -3,17 +3,17 @@
 // - laboratorio (Python): terrario de cristal en el centro, mesa de pruebas con fregadero e invernadero de bandejas.
 // - estudio (web, Node): rack de servidores con pilotos, puesto bajo el tablero y rincón con sofá.
 // - archivo (carpeta sin git o sin tipo): estantería alta de cajas, fichero y mesa de consulta.
-// The room's task board (tableroTareas.ts) hangs where each one leaves room for it (boardSpot in shared/decorado.ts);
+// The room's task board (taskBoard.ts) hangs where each one leaves room for it (boardSpot in shared/decor.ts);
 // the only other screen is the one on the dweller's desk. Todas se espejan con la semilla.
-import { t, t as tr } from '@shared/idioma';
+import { t, t as tr } from '@shared/language';
 import * as THREE from 'three';
-import { place, R } from '../../motor/assets';
-import { cartel, PhosphorScreen, PanelRoom } from '../../motor/texturas';
-import { signInWall, mancha, highBand, mountPilots, screenReal, switchOffWalls, workStation, lean, centrar, tumbada, HEIGHT, type Contexto } from './comun';
+import { place, R } from '../../engine/assets';
+import { cartel, PhosphorScreen, PanelRoom } from '../../engine/textures';
+import { signInWall, mancha, highBand, mountPilots, screenReal, switchOffWalls, workStation, lean, centrar, tumbada, HEIGHT, type Contexto } from './common';
 
 export type Plantilla = 'fundicion' | 'laboratorio' | 'estudio' | 'archivo' | 'banco';
 
-// (qué plantilla le toca a cada repo según su tipo: plantillaDe, en shared/decorado.ts)
+// (qué plantilla le toca a cada repo según su tipo: plantillaDe, en shared/decor.ts)
 export const TEMPLATE_SUBTITLE: Record<Plantilla, string> = { fundicion: 'FUNDICIÓN', laboratorio: 'LABORATORIO', estudio: 'ESTUDIO', archivo: 'ARCHIVO', banco: 'TALLER' };
 export const TEMPLATE_PANELS: Record<Plantilla, string[]> = {
   fundicion: ['Wall_5', 'Wall_Empty', 'Wall_5'], laboratorio: ['Wall_2', 'Wall_1', 'Wall_4'],

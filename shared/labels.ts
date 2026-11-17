@@ -1,6 +1,6 @@
 // Textos de la interfaz que se guardan como datos en español: se muestran con tIs(), que los busca por su versión
-// española en el catálogo (shared/textos/*.ts). Aquí, y no en cada panel, para que una prueba compruebe que todos
-// tienen su traducción (shared/etiquetas.test.ts)
+// española en el catálogo (shared/texts/*.ts). Aquí, y no en cada panel, para que una prueba compruebe que todos
+// tienen su traducción (shared/labels.test.ts)
 
 // Ficha del plano: la sala que está bajo el ratón o elegida con las flechas. Más que el cartel: para qué sirve, cómo
 // llegar y lo que pasa ahora dentro (repo, avisos, próxima reunión, integraciones, habitantes)

@@ -1,6 +1,6 @@
-// La página de comparación para revisar cambios con notas (comparar.ts): con un repo de verdad
+// La página de comparación para revisar cambios con notas (compare.ts): con un repo de verdad
 import { describe, expect, it } from 'vitest';
-import { buildCompare, cleanCompares, parseDiff, COMPARES_FOLDER, sameRepoWorktree } from './comparar.ts';
+import { buildCompare, cleanCompares, parseDiff, COMPARES_FOLDER, sameRepoWorktree } from './compare.ts';
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import os from 'node:os';

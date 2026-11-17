@@ -1,14 +1,14 @@
 // Ventana propia de work-shelter (Electron): carga el juego del servidor local y se comporta como una aplicación.
 // Dos maneras de abrirla: desde ./shelter (que ya ha levantado el servidor y pasa SHELTER_URL) o como
-// /Applications/work-shelter-public.app (scripts/instalar-app.mjs), que pasa SHELTER_RAIZ y arranca ella el servidor.
+// /Applications/work-shelter-public.app (scripts/install-app.mjs), que pasa SHELTER_RAIZ y arranca ella el servidor.
 const { app, BrowserWindow, Menu, shell, dialog, session, globalShortcut, webContents, ipcMain, systemPreferences, Notification } = require('electron');
 const { spawn, execFile } = require('node:child_process');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 app.setName('work-shelter-public');
-// texts in the game's language (electron/textos.cjs): the last one the game reported
-const textos = require('./textos.cjs');
+// texts in the game's language (electron/texts.cjs): the last one the game reported
+const textos = require('./texts.cjs');
 const { tr } = textos;
 textos.load(app.getPath('userData'));
 // depuración remota (QA por CDP): solo en desarrollo, con SHELTER_DEV=1 además del puerto; abierta, cualquier proceso
@@ -22,14 +22,14 @@ let ventana, origen, servidor;
 // huella de lo que solo se lee al abrir la app (este archivo, la precarga de Spotify, el supervisor, ./shelter): va al
 // servidor, que al reiniciar la compara con la de ahora y, si ha cambiado, pide volver a abrir la app entera (código 76)
 let fingerprintApp = '';
-try { fingerprintApp = require('../scripts/huellas.cjs').huella('app'); } catch (e) { console.error('Sin huella de la app:', e?.message ?? e); }
+try { fingerprintApp = require('../scripts/fingerprints.cjs').huella('app'); } catch (e) { console.error('Sin huella de la app:', e?.message ?? e); }
 const RELAY_CODE = 76;
 // fuera del juego solo se abren webs y correo: nada de file:, javascript: ni esquemas que lanzan otras apps
 const EXTERNAL = ['http:', 'https:', 'mailto:', 'message:'];   // message: abre un correo en Mail (avisos de Mail del Mac)
 function openOutside(u) { let x; try { x = new URL(u); } catch { return; } if (EXTERNAL.includes(x.protocol)) shell.openExternal(x.href).catch(() => {}); }
 // el juego es su origen exacto (http://127.0.0.1:<puerto>), no algo que empiece igual (http://127.0.0.1:37780…)
 const gameOf = u => { try { return !!origen && new URL(u).origin === origen; } catch { return false; } };
-// los permisos que usa el juego: el micrófono para dictar (web/src/ui/entrada.tsx) y el portapapeles (copiar en el
+// los permisos que usa el juego: el micrófono para dictar (web/src/ui/inputLine.tsx) y el portapapeles (copiar en el
 // explorador y las terminales; pegar en la ventana de Spotify, que lo lee para escribirlo en su Chrome); ni cámara ni
 // avisos web (los de macOS los da la app: «aviso» más abajo), y solo para la propia página del juego
 const GAME_PERMISSIONS = ['media', 'clipboard-read', 'clipboard-sanitized-write'];
@@ -42,10 +42,10 @@ function crear() {
   ventana = new BrowserWindow({
     width: 1600, height: 1000, minWidth: 1280, minHeight: 760, backgroundColor: '#0a0908', title: 'work-shelter',
     autoHideMenuBar: true, show: false,
-    webPreferences: { contextIsolation: true, nodeIntegration: false, backgroundThrottling: false, webviewTag: true, preload: path.join(__dirname, 'precarga.cjs') },
+    webPreferences: { contextIsolation: true, nodeIntegration: false, backgroundThrottling: false, webviewTag: true, preload: path.join(__dirname, 'preload.cjs') },
   });
   navegadores(ventana);
-  // el juego pinta solo con su ventana en primer plano (web/src/motor/foco.ts); un navegador del refugio dentro no cuenta
+  // el juego pinta solo con su ventana en primer plano (web/src/engine/focus.ts); un navegador del refugio dentro no cuenta
   const notifyFocus = () => { if (!ventana.isDestroyed()) ventana.webContents.send('foco', ventana.isFocused()); };
   ventana.on('focus', notifyFocus); ventana.on('blur', notifyFocus);
   ventana.webContents.on('did-finish-load', notifyFocus);
@@ -67,12 +67,12 @@ function crear() {
     if (r === 1) { ventana.__exit = true; ventana.webContents.executeJavaScript("window.__salirRefugio && window.__salirRefugio()").finally(() => setTimeout(() => ventana.destroy(), 600)); }
   });
 }
-// --- Navegadores del refugio (web/src/ui/Navegadores.tsx): cada uno es un <webview> con una sola web dentro ---
+// --- Navegadores del refugio (web/src/ui/Browsers.tsx): cada uno es un <webview> con una sola web dentro ---
 // Comparten una sesión propia que se guarda en disco (persist:navegador): un login se hace una vez y dura. Cada
 // navegador se queda en el dominio con el que se abrió (y los de inicio de sesión); el resto de enlaces, al navegador
 // del sistema. Sin preload ni Node: la página no ve nada del juego.
 const PARTICION = 'persist:navegador';
-// the «Web» browser: any https page a reply links (web/src/ui/opcionesEnlace.ts), in a session of its own (not the work
+// the «Web» browser: any https page a reply links (web/src/ui/linkOptions.ts), in a session of its own (not the work
 // webs' logins), confined like the others to the domain it opened with, and with no permissions but writing the clipboard
 const PARTICION_WEB = 'persist:web';
 const ACCESO = ['accounts.google.com', 'login.microsoftonline.com', 'login.microsoft.com', 'login.live.com', 'appleid.apple.com', 'okta.com', 'auth0.com', 'onelogin.com'];
@@ -137,7 +137,7 @@ function configureBrowser(v, wc, domains) {
 }
 // --- Salir a la superficie (tecla de pánico ⇧⌥⌘Esc, desde cualquier app) ---
 // El juego desaparece al momento (ventana, Dock y sonido) y lo que tenía abierto (conversaciones y terminales) sigue
-// en pestañas de iTerm (server/escritorio.ts). La misma tecla, o volver a abrir la app, lo trae tal como estaba.
+// en pestañas de iTerm (server/desktop.ts). La misma tecla, o volver a abrir la app, lo trae tal como estaba.
 const PANIC = 'Shift+Alt+Command+Escape';
 let escondido = false, serverEnvironment = null;
 function panic() {
@@ -172,12 +172,12 @@ function volver() {
 
 function abrir(u) { origen = new URL(u).origin; ventana.loadURL(u); }   // la URL lleva el secreto en #t=; para comparar, solo el origen
 
-// --- Spotify (la discoteca): suena en Google Chrome sin ventana y el juego enseña su página (electron/chromeRemoto.cjs) ---
-// La ventana del juego lo maneja por IPC (precarga.cjs: window.shelterRemoto): abrir, a la vista o no, tamaño, ratón y
+// --- Spotify (la discoteca): suena en Google Chrome sin ventana y el juego enseña su página (electron/remoteChrome.cjs) ---
+// La ventana del juego lo maneja por IPC (preload.cjs: window.shelterRemoto): abrir, a la vista o no, tamaño, ratón y
 // teclado, atrás y recargar, y el mando de la música. Al cerrar su ventana, se cierra Chrome (y la música).
 const SPOTIFY = {
   inicio: 'https://open.spotify.com/', domains: ['spotify.com'], sesion: 'sp_dc',
-  // iniciar sesión, siempre en Chrome visible (electron/loginChrome.cjs): sus páginas de login y «Continuar con Google»
+  // iniciar sesión, siempre en Chrome visible (electron/chromeLogin.cjs): sus páginas de login y «Continuar con Google»
   login: {
     host: 'accounts.spotify.com', rutas: /^\/([a-z]{2}(-[a-z]{2,4})?\/)?login(\/|$)/i, turn: 'https://open.spotify.com/',
     inicio: 'https://accounts.spotify.com/login?continue=https%3A%2F%2Fopen.spotify.com%2F',
@@ -188,7 +188,7 @@ let spotify = null;
 function chromeSpotify() {
   if (spotify) return spotify;
   const aGame = (canal, ...a) => { if (ventana && !ventana.isDestroyed()) ventana.webContents.send(canal, ...a); };
-  spotify = require(path.join(__dirname, 'chromeRemoto.cjs')).createChromeRemote({
+  spotify = require(path.join(__dirname, 'remoteChrome.cjs')).createChromeRemote({
     sitio: SPOTIFY, perfil: path.join(app.getPath('userData'), 'chrome-spotify'), ses: session.fromPartition(PARTICION),
     onFrame: (jpeg, ancho, alto) => aGame('remoto:fotograma', jpeg, ancho, alto),
     onState: e => aGame('remoto:estado', e),
@@ -204,14 +204,14 @@ ipcMain.handle('remoto', async (e, orden, ...a) => {
   return chromeSpotify()[orden](...a);
 });
 
-// dictado del intercomunicador (web/src/ui/entrada.tsx): el permiso del micrófono de macOS, pedido por la app
+// dictado del intercomunicador (web/src/ui/inputLine.tsx): el permiso del micrófono de macOS, pedido por la app
 ipcMain.handle('microfono', async e => {
   if (!ipcOfGame(e)) return false;
   if (process.platform !== 'darwin') return true;
   return systemPreferences.getMediaAccessStatus('microphone') === 'granted' || systemPreferences.askForMediaAccess('microphone');
 });
 
-// avisos de macOS (web/src/ui/avisosSistema.ts): un habitante espera tu respuesta. Solo con el juego en segundo plano y
+// avisos de macOS (web/src/ui/systemNotices.ts): un habitante espera tu respuesta. Solo con el juego en segundo plano y
 // sin haber salido a la superficie (sus conversaciones siguen fuera); pulsarlo trae el juego con esa conversación
 const avisos = new Map();   // conversación → aviso a la vista (que no lo recoja el recolector antes del clic)
 const quitarAviso = id => { avisos.get(id)?.close(); avisos.delete(id); };
@@ -225,7 +225,7 @@ ipcMain.handle('aviso', (e, id, titulo, cuerpo) => {
   return true;
 });
 ipcMain.handle('aviso:quitar', (e, id) => { if (ipcOfGame(e)) quitarAviso(id); });
-// Dock badge (dockBadge in web/src/ui/avisosPendientes.ts): pending questions as a number, a finished turn as a dot
+// Dock badge (dockBadge in web/src/ui/pendingNotices.ts): pending questions as a number, a finished turn as a dot
 ipcMain.handle('insignia', (e, texto) => { if (ipcOfGame(e) && app.dock) app.dock.setBadge(String(texto ?? '').slice(0, 8)); });
 
 // --- Abierta como aplicación: arranque ---
@@ -270,14 +270,14 @@ async function arrancar() {
   const entorno = await userEnvironment();
   serverEnvironment = entorno;
   // la app lleva su propia copia de Electron: si no es la del repo (p. ej. tras cambiar de versión en package.json), se
-  // reinstala y se vuelve a abrir sola (scripts/relevar-app.cjs) antes de arrancar nada
+  // reinstala y se vuelve a abrir sola (scripts/relaunch-app.cjs) antes de arrancar nada
   try {
-    const relevo = require(path.join(raiz, 'scripts/relevar-app.cjs'));
+    const relevo = require(path.join(raiz, 'scripts/relaunch-app.cjs'));
     const propia = relevo.appOf(process.execPath);
     if (relevo.hasThatReinstall(propia) && !relevo.reinstallFailedDoesPoco()) {
       aviso(tr('updatingApp', { de: relevo.versionElectron(propia), a: relevo.versionElectron(path.join(raiz, 'node_modules/electron/dist/Electron.app')) }));
       log.write(`La app lleva otro Electron que el repo: la reinstalo y la vuelvo a abrir.\n`);
-      spawn('node', [path.join(raiz, 'scripts/relevar-app.cjs'), String(process.pid), propia, entorno.SHELTER_PUERTO || '3778', process.env.SHELTER_RELEVO_PRUEBA || ''], { cwd: raiz, env: entorno, detached: true, stdio: 'ignore' }).unref();
+      spawn('node', [path.join(raiz, 'scripts/relaunch-app.cjs'), String(process.pid), propia, entorno.SHELTER_PUERTO || '3778', process.env.SHELTER_RELEVO_PRUEBA || ''], { cwd: raiz, env: entorno, detached: true, stdio: 'ignore' }).unref();
       if (ventana) ventana.__exit = true;
       setTimeout(() => app.exit(0), 1500);
       return;

@@ -4,7 +4,7 @@
 // - al empezar el trabajo, la imagen le llega al habitante (dice de qué color es) y el cuaderno la enseña;
 // - ⌘D empieza a dictar; Espacio termina (también ⌘D otra vez); Esc descarta lo dictado;
 //   Enter mientras se dicta termina y envía.
-// Uso: node scripts/qa-adjuntos-voz.mjs [url] [carpeta-capturas]   (servidor en marcha; SHELTER_DATOS para el token;
+// Uso: node scripts/qa-voice-attachments.mjs [url] [carpeta-capturas]   (servidor en marcha; SHELTER_DATOS para el token;
 // mejor con un refugio de pruebas: SHELTER_DATOS=/tmp/x SHELTER_PUERTO=3791 npx tsx server/main.ts)
 // Ojo: lanza sesiones reales de Claude Code (gastan de tu plan) y puede aprobar permisos: úsalo contra un refugio de
 // pruebas (arranca el juego con SHELTER_DATOS=/ruta/temporal), nunca contra el tuyo.

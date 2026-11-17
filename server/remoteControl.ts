@@ -6,9 +6,9 @@
 import path from 'node:path';
 import { spawn, execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, openSync, closeSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
-import { DATOS } from './estado.ts';
-import { cleanEnvironment, pathClaude } from './sesiones.ts';
-import { t } from '../shared/idioma.ts';
+import { DATOS } from './state.ts';
+import { cleanEnvironment, pathClaude } from './sessions.ts';
+import { t } from '../shared/language.ts';
 
 const DIR = path.join(DATOS, 'control-remoto');
 const ficha = (salaId: string) => path.join(DIR, `${salaId.replace(/[^\w-]/g, '_')}.json`);

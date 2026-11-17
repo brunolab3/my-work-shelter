@@ -1,5 +1,5 @@
-// Mundo 3D: nombres de las salas de serie, carteles, sectores y letreros (catálogo: shared/textos.ts)
-import type { Texto } from '../idioma.ts';
+// Mundo 3D: nombres de las salas de serie, carteles, sectores y letreros (catálogo: shared/texts.ts)
+import type { Texto } from '../language.ts';
 
 export const WORLD: Record<string, Texto> = {
   'world.mainGate': { es: 'Puerta Principal', en: 'Main Gate' },
@@ -130,10 +130,10 @@ export const WORLD: Record<string, Texto> = {
   'world.poster.productions': { es: 'UN FOTOGRAMA\nMÁS Y\nLO TENEMOS', en: 'ONE MORE\nFRAME AND\nWE\'VE GOT IT' },
   'world.poster.productionsFoot': { es: 'PRODUCCIONES WORK-SHELTER', en: 'WORK-SHELTER PRODUCTIONS' },
   'world.allDay': { es: 'TODO EL DÍA', en: 'ALL DAY' },
-  // holographic copies (hologramas.ts)
+  // holographic copies (holograms.ts)
   'world.copy': { es: 'Copia', en: 'Copy' },
   'world.holoCopyBio': { es: 'Copia holográfica de {nombre} «{mote}». Trabaja en el worktree {rama}, sin tocar la copia principal del repo.', en: 'Holographic copy of {nombre} «{mote}». Works in the worktree {rama}, without touching the repo\'s main copy.' },
-  // in-world screens of the rooms (salas/comun.ts, generica.ts)
+  // in-world screens of the rooms (rooms/common.ts, generic.ts)
   'world.screen.off': { es: 'APAGADO', en: 'OFF' },
   'world.screen.idle': { es: 'EN REPOSO', en: 'IDLE' },
   'world.screen.working': { es: 'TRABAJANDO', en: 'WORKING' },
@@ -153,7 +153,7 @@ export const WORLD: Record<string, Texto> = {
   'world.screen.noGit': { es: 'sin git', en: 'no git' },
   'world.screen.branchRama': { es: 'rama {rama}', en: 'branch {rama}' },
   'world.screen.folder': { es: 'carpeta', en: 'folder' },
-  // canvas textures (motor/texturas.ts)
+  // canvas textures (engine/textures.ts)
   'world.tex.buildOven': { es: 'HORNO DE BUILDS', en: 'BUILD OVEN' },
   'world.tex.cleanAir': { es: 'Aire limpio en todo el refugio.', en: 'Clean air all over the shelter.' },
   'world.tex.bookIt': { es: 'Resérvalo', en: 'Book it' },
@@ -232,7 +232,7 @@ export const WORLD: Record<string, Texto> = {
   'world.disco.putMusicLine': { es: '> pon música en la cabina', en: '> put music on in the booth' },
   'world.disco.live': { es: '♫ EN DIRECTO', en: '♫ LIVE' },
   'world.disco.closed': { es: 'CERRADO', en: 'CLOSED' },
-  // Version Control room (salas/git.ts)
+  // Version Control room (rooms/git.ts)
   'world.git.months': { es: 'ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic', en: 'Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec' },
   'world.git.yourCommits': { es: 'tus commits en el refugio', en: 'your commits in the shelter' },
   'world.git.connecting': { es: 'conectando con GitHub…', en: 'connecting to GitHub…' },
@@ -290,9 +290,9 @@ export const WORLD: Record<string, Texto> = {
   'world.video.rendering': { es: 'RENDERIZANDO', en: 'RENDERING' },
   'world.video.log': { es: 'fotograma {n}|audio sincronizado|codificando h264|previsualización lista', en: 'frame {n}|audio synced|encoding h264|preview ready' },
   'world.disco.bunker': { es: 'BÚNKER', en: 'BUNKER' },
-  // a recruit arrives (refugio.ts)
+  // a recruit arrives (shelter.ts)
   'world.recruitMovesIn': { es: '{nombre} «{mote}» se instala en {sala}', en: '{nombre} «{mote}» moves into {sala}' },
-  // a repo room's task board (web/src/mundo/salas/tableroTareas.ts)
+  // a repo room's task board (web/src/world/rooms/taskBoard.ts)
   'world.taskBoard.title': { es: 'TAREAS', en: 'TASKS' },
   'world.taskBoard.mainCopy': { es: 'COPIA PRINCIPAL', en: 'MAIN COPY' },
   'world.taskBoard.nWorktrees': { es: '{n} WORKTREES', en: '{n} WORKTREES' },

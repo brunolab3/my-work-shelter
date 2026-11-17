@@ -3,7 +3,7 @@
 // intercomunicador entran en la barra; ←→ eligen, ↑↓ cambian de fila, Intro abre, Esc sale y devuelve el foco;
 // ⌘↑ amplía a toda la ventana (sin regleta ni barra a la vista); quien vive en una sala especial también tiene
 // terminal, en la carpeta propia de su sala.
-// Uso: node scripts/qa-barra.mjs [url] [carpeta-capturas]   (servidor en marcha; SHELTER_DATOS para el token)
+// Uso: node scripts/qa-bar.mjs [url] [carpeta-capturas]   (servidor en marcha; SHELTER_DATOS para el token)
 import { chromium } from 'playwright';
 import { withToken } from './token.mjs';
 const [url0 = 'http://127.0.0.1:3778', dir = '_capturas'] = process.argv.slice(2);

@@ -5,15 +5,15 @@
 // del refugio en la pared; a la derecha, los pull requests que esperan tu revisión y los tuyos abiertos.
 // Habitante: la Octocat (modelo propio sin esqueleto de KayKit, animada por código: ver octocat.ts). En el puesto del
 // grafo y en la silla del cliente de git hace lo de todos; sus «clips» los traduce AnimOctocat a poses y gestos.
-import { t, t as tr, locale } from '@shared/idioma';
+import { t, t as tr, locale } from '@shared/language';
 import * as THREE from 'three';
-import { place, R } from '../../motor/assets';
-import { cartel, PhosphorScreen, PanelRoom, ListScreen, lienzo, textureOf, SOURCES } from '../../motor/texturas';
+import { place, R } from '../../engine/assets';
+import { cartel, PhosphorScreen, PanelRoom, ListScreen, lienzo, textureOf, SOURCES } from '../../engine/textures';
 import { overlayScreen } from '../util3d';
-import { signInWall, mancha, highBand, monitorWall, textureHalo, workStation, type Contexto } from './comun';
-import { vivo, cliente } from '../../red/cliente';
+import { signInWall, mancha, highBand, monitorWall, textureHalo, workStation, type Contexto } from './common';
+import { vivo, cliente } from '../../net/client';
 
-import { GREEN_GITHUB as VERDES, rachas } from '@shared/contribuciones';
+import { GREEN_GITHUB as VERDES, rachas } from '@shared/contributions';
 
 const GREEN = VERDES[4];
 export interface MatrixData { fuente: 'github' | 'local'; demo?: boolean; usuario?: string; nombre?: string; total: number; days: { fecha: string; n: number; nivel: number }[]; prs?: { mine: any[]; revisar: any[]; nMine: number; nReview: number }; error?: string }

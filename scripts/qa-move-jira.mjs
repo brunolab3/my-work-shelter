@@ -1,4 +1,4 @@
-// QA of moving a task on the Jira board (BoardJira in web/src/ui/Operativas.tsx), with its own server in a test shelter
+// QA of moving a task on the Jira board (BoardJira in web/src/ui/Operations.tsx), with its own server in a test shelter
 // and Playwright:
 // - the real server refuses `transiciones`/`mover` with a column that isn't the board's or a key that isn't one;
 // - with example answers for Jira (panel, transiciones, mover): dragging QA-5 (To Do) onto «En curso» asks Jira for the
@@ -9,7 +9,7 @@
 // - a column Jira's workflow doesn't reach: a notice, no confirmation;
 // - a refused move (403): the card shows the error and stays where it was;
 // - ⇧→ on the selected card opens the same confirmation for the next column.
-// Necesita el cliente compilado (npx vite build). Uso: node scripts/qa-mover-jira.mjs [carpeta-capturas]   (SHELTER_PUERTO_QA, 3795)
+// Necesita el cliente compilado (npx vite build). Uso: node scripts/qa-move-jira.mjs [carpeta-capturas]   (SHELTER_PUERTO_QA, 3795)
 import { chromium } from 'playwright';
 import { spawn } from 'node:child_process';
 import { mkdtempSync, mkdirSync } from 'node:fs';

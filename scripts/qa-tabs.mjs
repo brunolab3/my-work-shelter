@@ -5,7 +5,7 @@
 // dweller's conversations stay out of the strip and the selector above the portrait lists one row per talker of the
 // room, keeps its width and switches the intercom on the picked talker's most urgent conversation, by click or keyboard, the bar has one intercom chip per room whose hover lists one row per open panel (dweller, holograms), and
 // a terminal with 13 more tabs, whose ⋯ list stays in its strip.
-// Usage: SHELTER_DATOS=… node scripts/qa-pestanas.mjs [url] [screenshots-folder]   (best on a test shelter)
+// Usage: SHELTER_DATOS=… node scripts/qa-tabs.mjs [url] [screenshots-folder]   (best on a test shelter)
 import { chromium } from 'playwright';
 import { withToken } from './token.mjs';
 const [url0 = 'http://127.0.0.1:3778', dir = '_capturas'] = process.argv.slice(2);

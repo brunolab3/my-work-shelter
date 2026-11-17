@@ -1,28 +1,28 @@
 // Navegadores del refugio: una web de trabajo (Linear, Outlook, Discord, Slack, GitHub) dentro del juego, sin pestañas ni barra de direcciones, para
 // no salir a un navegador lleno de distracciones. Cada sitio tiene su ventana, que se maneja como las demás
-// (ventanas.tsx): minimizar a la barra (fila NAV), ampliar a toda la pantalla y cerrar. No se arrastra ni cambia de
+// (windows.tsx): minimizar a la barra (fila NAV), ampliar a toda la pantalla y cerrar. No se arrastra ni cambia de
 // tamaño: normal es un cuadro centrado al 75 % del ancho en 16:9; ampliado, toda la pantalla.
 // Por dentro es un <webview> de Electron (electron/main.cjs): sesión propia que se guarda (los logins duran), se queda
 // en el dominio de su web y lo de fuera va al navegador del sistema. ⌘R recarga, ⌘[ y ⌘] van atrás y adelante,
 // ⌘+ y ⌘- acercan; ⌘M minimiza y ⌘W cierra; Esc y lo demás, a la página. Fuera de Electron, se abre fuera.
-// Spotify es distinto (remoto): suena en un Google Chrome sin ventana (electron/chromeRemoto.cjs: su DRM no admite el
+// Spotify es distinto (remoto): suena en un Google Chrome sin ventana (electron/remoteChrome.cjs: su DRM no admite el
 // Electron del juego) y aquí se ve su página y se le pasan ratón, rueda y teclado (VistaRemota).
 import React, { useEffect, useRef } from 'react';
-import { Store } from './almacen';
-import { cliente, vivo } from '../red/cliente';
-import { pagesInText, samePage, relativeLinks, linksPages, IMAGE_FILE, type PageAnswer } from '@shared/paginasSesion';
-import { t } from '@shared/idioma';
-import { SFX } from '../audio/sonido';
-import { nextZ, windowShortcut, WindowButtons, CMD } from './ventanas';
-import { followLink } from './opcionesEnlace';
-import { pageLinkTarget } from '@shared/opcionesEnlace';
+import { Store } from './store';
+import { cliente, vivo } from '../net/client';
+import { pagesInText, samePage, relativeLinks, linksPages, IMAGE_FILE, type PageAnswer } from '@shared/sessionPages';
+import { t } from '@shared/language';
+import { SFX } from '../audio/sound';
+import { nextZ, windowShortcut, WindowButtons, CMD } from './windows';
+import { followLink } from './linkOptions';
+import { pageLinkTarget } from '@shared/linkOptions';
 
 // dominios: los de la web (y sus subdominios), para abrir dentro sus enlaces; electron/main.cjs tiene sus familias
 // desvios: rutas de la web que llevan a otra (p. ej. avisos que no aplican aquí): se va directamente a la de destino
 // chrome: agente de usuario de Chrome, sin «Electron/x»: con él, webs como Discord leen la versión de Electron como la
 // de Chrome («Chrome 44», de 2015) y tratan la sesión como sospechosa (Discord no manda el SMS del doble factor)
-// remoto: la web vive en el Chrome sin ventana de electron/chromeRemoto.cjs (solo Spotify)
-// local: una página HTML del Mac que sirve el servidor del refugio (server/paginasLocales.ts), en un <iframe> aislado
+// remoto: la web vive en el Chrome sin ventana de electron/remoteChrome.cjs (solo Spotify)
+// local: una página HTML del Mac que sirve el servidor del refugio (server/localPages.ts), en un <iframe> aislado
 // suelta: any https web a reply links («Web»), in a session of its own (electron/main.cjs), on whatever domain it opened
 export interface Spot { id: string; nombre: string; inicio: string; domains: string[]; detours?: Record<string, string>; chrome?: boolean; remoto?: boolean; local?: boolean; suelta?: boolean }
 // webs que se pueden abrir dentro; cada sala especial que quiera la suya, la pide con su id
@@ -38,11 +38,11 @@ export const SPOTS: Record<string, Spot> = {
   github: { id: 'github', nombre: 'GitHub', inicio: 'https://github.com/notifications', domains: ['github.com'] },
   // Gmail no: Google rechaza el inicio de sesión en cualquier Chromium empotrado; sus avisos se abren en el navegador del sistema
   // Spotify, la música de la discoteca: suena en Google Chrome (su DRM solo da licencias a navegadores certificados) y
-  // aquí se ve y se maneja; minimizado, la pletina (Discoteca.tsx) lo controla
+  // aquí se ve y se maneja; minimizado, la pletina (Disco.tsx) lo controla
   spotify: { id: 'spotify', nombre: 'Spotify', inicio: 'https://open.spotify.com/', domains: ['spotify.com'], remoto: true },
   // los planes, informes y comparaciones en HTML que enlazan los habitantes: dentro, no en la app del Mac para los .html
   pagina: { id: 'pagina', get nombre() { return t('windows.page'); }, inicio: 'about:blank', domains: [], local: true },
-  // any other web a reply links, opened inside from its options (opcionesEnlace.ts)
+  // any other web a reply links, opened inside from its options (linkOptions.ts)
   web: { id: 'web', get nombre() { return t('windows.web'); }, inicio: 'about:blank', domains: [], suelta: true },
 };
 const isLocal = (id: string) => !!SPOTS[id]?.local;
@@ -56,7 +56,7 @@ const PARTICION = 'persist:navegador', PARTICION_WEB = 'persist:web';
 // generacion: the «Web» window's <webview> is made again for another domain (each one stays on the domain it opened with)
 interface WindowNav { id: string; url: string; titulo: string; cargando: boolean; minimizada: boolean; maximizada: boolean; z: number; sesion?: string; ruta?: string; generacion?: number }
 
-// Notas del Supervisor en las páginas de /pagina/ (las marca server/pagina/notas.js dentro de la página): se guardan
+// Notas del Supervisor en las páginas de /pagina/ (las marca server/page/notes.js dentro de la página): se guardan
 // aquí, por archivo, hasta mandarlas a la conversación
 export interface PageNote { id: string; cita: string; seccion?: string; texto: string; inicio?: number | null }
 const NOTAS = 'refugio.notasPaginas';
@@ -77,7 +77,7 @@ export function notesMessage(ruta: string, notas: PageNote[]) {
   return [t('windows.notesOnThePage', { ruta }), ...notas.map(linea)].join('\n\n');
 }
 // Lo que el Supervisor ha hecho con cada página de cada conversación (mandarle notas o validarla): el intercomunicador
-// lista las páginas de la conversación y marca las que quedan por revisar (shared/paginasSesion.ts)
+// lista las páginas de la conversación y marca las que quedan por revisar (shared/sessionPages.ts)
 const RESPUESTAS = 'refugio.respuestasPaginas';
 // por dónde iba cada página (ruta → px), para volver ahí al recargarla
 const scrollOf = new Map<string, number>();
@@ -126,7 +126,7 @@ export const navegadores = new Store<{ lista: WindowNav[] }>({ lista: [] });
 export interface Webview extends HTMLElement { getWebContentsId(): number; loadURL(u: string): Promise<void>; getURL(): string; canGoBack(): boolean; goBack(): void; reload(): void; executeJavaScript(codigo: string, gesture?: boolean): Promise<unknown> }
 const webviews = new Map<string, Webview>();
 
-// el puente con el Chrome de Spotify (electron/precarga.cjs)
+// el puente con el Chrome de Spotify (electron/preload.cjs)
 interface RemoteBridge { orden<T = unknown>(orden: string, ...a: unknown[]): Promise<T>; onFrame(f: (jpeg: Uint8Array, ancho: number, alto: number) => void): void; onState(f: (e: { url: string; titulo: string; cargando: boolean; vivo: boolean }) => void): void }
 const remoto: RemoteBridge | undefined = (window as any).shelterRemoto;
 const isRemote = (id: string) => !!SPOTS[id]?.remoto;
@@ -385,7 +385,7 @@ function VentanaNavegador({ v }: { v: WindowNav }) {
   }, []);
   const s = SPOTS[v.id];
   const page = pageTitle(v);
-  // an image of the Mac (server/paginasLocales.ts): drawn by the game, with no notes to leave on it
+  // an image of the Mac (server/localPages.ts): drawn by the game, with no notes to leave on it
   const imagen = isLocal(v.id) && !!v.ruta && IMAGE_FILE.test(v.ruta);
   const [realSize, setRealSize] = React.useState(false);
   return (

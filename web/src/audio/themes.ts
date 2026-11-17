@@ -1,6 +1,6 @@
 // Los temas de las salas con música propia (CC0, ver LICENSES/AUDIO.md), con su tempo medido a mano: bpm, segundo del
 // primer golpe en el archivo y una curva de energía (una cifra cada 4 s) para que las luces y quien baila vayan a tiempo.
-import type { Tema, Acoustics } from './tocadiscos';
+import type { Tema, Acoustics } from './turntable';
 
 /** La sesión de la discoteca cuando no suena Spotify */
 export const CLUB: Tema[] = [

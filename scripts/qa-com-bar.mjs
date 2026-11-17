@@ -3,7 +3,7 @@
 // conversations; its list and each chip's hover, one row per dweller or hologram (bust, name, state; no conversations),
 // the one a click opens selected; the ⋯ N list headed by whose the tabs are; the keyboard goes through them all.
 // Conversations are made up in the page (nothing reaches Claude Code).
-// Uso: SHELTER_DATOS=… node scripts/qa-barra-com.mjs <url> [carpeta-capturas]   (a test shelter with several rooms)
+// Uso: SHELTER_DATOS=… node scripts/qa-com-bar.mjs <url> [carpeta-capturas]   (a test shelter with several rooms)
 import { chromium } from 'playwright';
 import { withToken } from './token.mjs';
 const [url0 = 'http://127.0.0.1:3778', dir = '_capturas'] = process.argv.slice(2);

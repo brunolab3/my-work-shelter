@@ -1,21 +1,21 @@
 // La discoteca del refugio («Búnker»), en la planta de ocio: la música para currar. Lo que suena es lo que se pone en
-// Spotify, dentro del juego (vivo.musica, ver ui/Discoteca.tsx): la pantalla LED del fondo enseña la carátula y el tema, los platos giran, la pista de
+// Spotify, dentro del juego (vivo.musica, ver ui/Disco.tsx): la pantalla LED del fondo enseña la carátula y el tema, los platos giran, la pista de
 // baile se enciende a ritmo, la bola de espejos reparte puntos de luz por la sala y los altavoces laten. Sin música,
 // la sala se queda en penumbra de local cerrado: la bola quieta, la pista apagada y el rótulo de neón parpadeando.
-// El ritmo sale de `pulsoMusica('discoteca')` (audio/musica.ts: la música propia de la sala, o Spotify); si suena Spotify
+// El ritmo sale de `pulsoMusica('discoteca')` (audio/music.ts: la música propia de la sala, o Spotify); si suena Spotify
 // y el pulso no dice nada, 118 golpes por minuto (Spotify web no cuenta el tempo del tema). En la pista bailan unos robots
-// chiquitines (bailarines.ts).
-import { t, t as tr } from '@shared/idioma';
+// chiquitines (dancers.ts).
+import { t, t as tr } from '@shared/language';
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import { place, R } from '../../motor/assets';
-import { cartel, PanelRoom, lienzo, textureOf, SOURCES, PhosphorScreen, splitByWords } from '../../motor/texturas';
-import { signInWall, mancha, caja, materialSteel, switchOffWalls, superficie, mundo, HEIGHT, type Contexto } from './comun';
+import { place, R } from '../../engine/assets';
+import { cartel, PanelRoom, lienzo, textureOf, SOURCES, PhosphorScreen, splitByWords } from '../../engine/textures';
+import { signInWall, mancha, caja, materialSteel, switchOffWalls, superficie, mundo, HEIGHT, type Contexto } from './common';
 import { overlayScreen } from '../util3d';
-import { vivo } from '../../red/cliente';
-import type { MusicState } from '@shared/protocolo';
-import { musicPulse } from '../../audio/musica';
-import { mountDancers, type Rhythm } from './bailarines';
+import { vivo } from '../../net/client';
+import type { MusicState } from '@shared/protocol';
+import { musicPulse } from '../../audio/music';
+import { mountDancers, type Rhythm } from './dancers';
 
 const BPM = 118;
 const NEON = ['#ff3fb4', '#3fe0ff', '#ffb347', '#9b5bff'];

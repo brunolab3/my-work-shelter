@@ -3,7 +3,7 @@
 // crear, a la papelera, cambios en el disco y conflicto al guardar.
 // Uso, con un refugio de pruebas (nunca con tus repos):
 //   SHELTER_DATOS=/tmp/shelter-qa SHELTER_PUERTO=3788 npm run dev   (en otra terminal)
-//   SHELTER_DATOS=/tmp/shelter-qa node scripts/qa-archivos.mjs <repo-de-prueba> [carpeta-de-capturas]
+//   SHELTER_DATOS=/tmp/shelter-qa node scripts/qa-files.mjs <repo-de-prueba> [carpeta-de-capturas]
 // El repo de prueba necesita .gitignore con «.env», un .env, src/app.ts y src/lib/util.ts con un cambio sin commit.
 // Toca archivos del repo de prueba (y manda uno a la papelera).
 import { chromium } from 'playwright';
@@ -12,7 +12,7 @@ import path from 'node:path';
 import { withToken } from './token.mjs';
 
 const [repo, dir = '/tmp/qa-archivos'] = process.argv.slice(2);
-if (!repo || !process.env.SHELTER_DATOS) { console.error('Uso: SHELTER_DATOS=/tmp/… node scripts/qa-archivos.mjs <repo-de-prueba> [capturas]'); process.exit(2); }
+if (!repo || !process.env.SHELTER_DATOS) { console.error('Uso: SHELTER_DATOS=/tmp/… node scripts/qa-files.mjs <repo-de-prueba> [capturas]'); process.exit(2); }
 mkdirSync(dir, { recursive: true });
 const b = await chromium.launch({ args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist'] });
 const ctx = await b.newContext({ viewport: { width: 1600, height: 900 } });

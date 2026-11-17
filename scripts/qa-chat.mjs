@@ -1,6 +1,6 @@
 // QA del intercomunicador que sigue al interlocutor: abre la charla, simula que se pone a trabajar (sesión falsa con texto
 // en streaming) y saca capturas: la cámara debe dejarle a la vista en el hueco que no tapa la ventana, también en su mesa.
-// Uso: SHELTER_DATOS=… node scripts/qa-charla.mjs <url> <salida.png> [js de preparación; window.__mover=true lo pone de pie lejos]
+// Uso: SHELTER_DATOS=… node scripts/qa-chat.mjs <url> <salida.png> [js de preparación; window.__mover=true lo pone de pie lejos]
 import { chromium } from 'playwright';
 import { withToken } from './token.mjs';
 const [url, salida, prep = ''] = process.argv.slice(2);

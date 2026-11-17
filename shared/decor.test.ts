@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { sanitizeDecor, reviewDecor, baseStock, propsPath, isModelProps, decorSignature, templateOf, boardSpot, roomSeed } from './decorado';
+import { sanitizeDecor, reviewDecor, baseStock, propsPath, isModelProps, decorSignature, templateOf, boardSpot, roomSeed } from './decor';
 
 describe('decorado de una sala', () => {
   it('sin base válida no hay decorado', () => {

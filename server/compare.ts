@@ -1,19 +1,19 @@
 // La comparación de cambios para revisar antes de subir: lo que lleva una rama (y lo que aún no está en un commit)
 // frente a su base, como una página HTML oscura al estilo de GitHub. La pide el habitante con la herramienta
 // `compare_changes` (mcpReview) y la enlaza en su respuesta: el Supervisor la abre en la ventana «Página» del juego,
-// deja notas en las líneas que quiera y le llegan a esa misma conversación (server/paginasLocales.ts y
-// server/pagina/notas.js). Solo lee el repo: git diff y poco más, con el entorno de git del juego.
+// deja notas en las líneas que quiera y le llegan a esa misma conversación (server/localPages.ts y
+// server/page/notes.js). Solo lee el repo: git diff y poco más, con el entorno de git del juego.
 import { execFile } from 'node:child_process';
 import fs from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { z } from 'zod';
 import { createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk';
-import { entornoGit } from './entornoGit.ts';
-import { DATOS, ROOMS_FOLDERS } from './estado.ts';
-import { pageLink } from '../shared/paginasSesion.ts';
-import { t, idioma } from '../shared/idioma.ts';
-import { MCP } from './servidoresMcp.ts';
+import { entornoGit } from './gitEnv.ts';
+import { DATOS, ROOMS_FOLDERS } from './state.ts';
+import { pageLink } from '../shared/sessionPages.ts';
+import { t, idioma } from '../shared/language.ts';
+import { MCP } from './mcpServers.ts';
 
 /** Where the pages are saved: in the game's data (git-ignored), never in the compared repo. A path without spaces, so
  *  the link also works outside the game; they used to live in Application Support, which has one */

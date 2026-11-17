@@ -1,7 +1,7 @@
 // QA del ratón sobre lo que se puede usar: al pasar por encima de un aparato (lo que se ve de él: el tablero de
 // Logística, la pantalla, el sillón…), de un habitante o del ascensor sale su letrero con «Clic», y un clic lo usa al
 // momento (abre su panel) mientras el Supervisor llega andando. Recorre todos los aparatos de las salas especiales.
-// Uso: node scripts/qa-apuntar.mjs [url] [carpeta-capturas]   (SHELTER_DATOS para el token; mejor un refugio de pruebas)
+// Uso: node scripts/qa-aim.mjs [url] [carpeta-capturas]   (SHELTER_DATOS para el token; mejor un refugio de pruebas)
 import { chromium } from 'playwright';
 import path from 'node:path';
 import { mkdirSync } from 'node:fs';

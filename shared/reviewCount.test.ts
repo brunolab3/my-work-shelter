@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { reviewLedger, answersReview, ledgerPending } from './cuentaRevisiones';
+import { reviewLedger, answersReview, ledgerPending } from './reviewCount';
 
 const fixture = JSON.parse(readFileSync(resolve(__dirname, '../test/fixtures/pr_review_ledger.json'), 'utf8'));
 const pr = fixture.data.prs.nodes[0];

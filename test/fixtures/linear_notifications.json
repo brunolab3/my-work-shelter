@@ -1,5 +1,5 @@
 {
-  "_nota": "Sintético (sin credenciales). Respuesta a la consulta Notificaciones de server/integraciones/linear.ts; campos comprobados contra el esquema público (interface Notification: title, subtitle, url, type, category, readAt, archivedAt, snoozedUntilAt, actor, botActor; IssueNotification: issue, comment). Casos: asignación, mención en comentario, comentario nuevo, cambio de estado por un bot, una ya archivada (no debe notificar) y una pospuesta (snoozedUntilAt en el futuro, no debe notificar).",
+  "_nota": "Sintético (sin credenciales). Respuesta a la consulta Notificaciones de server/integrations/linear.ts; campos comprobados contra el esquema público (interface Notification: title, subtitle, url, type, category, readAt, archivedAt, snoozedUntilAt, actor, botActor; IssueNotification: issue, comment). Casos: asignación, mención en comentario, comentario nuevo, cambio de estado por un bot, una ya archivada (no debe notificar) y una pospuesta (snoozedUntilAt en el futuro, no debe notificar).",
   "data": {
     "notifications": {
       "nodes": [

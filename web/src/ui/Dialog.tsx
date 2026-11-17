@@ -1,5 +1,5 @@
 // Intercomunicador del refugio: hablar con un habitante es una sesión REAL de Claude Code en la carpeta de su sala.
-// Es una ventana como las terminales (ventanas.tsx): una por habitante, con pestañas, y cada conversación (cada
+// Es una ventana como las terminales (windows.tsx): una por habitante, con pestañas, y cada conversación (cada
 // trabajo) en su pestaña, así que un habitante lleva varios trabajos a la vez. ⌘T abre una pestaña con el menú.
 // - Esc es «atrás»: de la ficha, el archivo o el trabajo nuevo, al menú; arriba del todo, vuelve al refugio: si hay
 //   trabajos (o algo escrito), el intercomunicador se minimiza a la barra y siguen en marcha. En los menús, ← también
@@ -14,39 +14,39 @@
 //   marca y no se puede retomar aquí.
 // - Ctrl+C para al habitante; Enter envía (Shift+Enter, salto de línea); Ctrl+↑/↓ o RePág/AvPág desplazan.
 // - Las copias holográficas (worktrees) tienen su propio intercomunicador, como clones: su retrato en holograma, su
-//   rama y sus cambios, y las conversaciones de dentro del worktree (copias.ts). Si un trabajo del habitante se muda a
+//   rama y sus cambios, y las conversaciones de dentro del worktree (copies.ts). Si un trabajo del habitante se muda a
 //   un worktree, su pestaña pasa a la ventana de la copia, y si se estaba viendo, se sigue con la copia.
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { SessionSummary, LogInput, HistoryElement, Command, PendingRequest, Visitante } from '@shared/protocolo';
-import { MODELS, EFFORTS, PERMISSION_MODES } from '@shared/protocolo';
-import { t, tIs, trBio } from '@shared/idioma';
-import { juego, type DwellerSummary } from './estadoJuego';
-import { vivo, cliente, loadLog } from '../red/cliente';
+import type { SessionSummary, LogInput, HistoryElement, Command, PendingRequest, Visitante } from '@shared/protocol';
+import { MODELS, EFFORTS, PERMISSION_MODES } from '@shared/protocol';
+import { t, tIs, trBio } from '@shared/language';
+import { juego, type DwellerSummary } from './gameState';
+import { vivo, cliente, loadLog } from '../net/client';
 import { markdown, markdownLine } from './markdown';
-import { RequestView, ToolText } from './textoPlano';
-import { teclado } from '../motor/teclado';
-import { SFX } from '../audio/sonido';
-import { physicsKey } from '../audio/teclado';
-import { Store } from './almacen';
-import { useMenu as useMenuBase, Opciones } from './aparato';
-import { CMD, MAC, nextZ, windowShortcut, WindowButtons, Tabs, TabList, DraftMark, TaskMark, Confirmation, nthTab, nextTab, PILOT, stateLabel, type ItemTab, type TabState } from './ventanas';
-import { sessionOwner, interlocutor, branchCaption, copyCaption, pathWorktree, worktreesKnown } from './copias';
-import { Usage } from './consumo';
-import { takeASurface, aAppClaude } from './superficie';
-import { openLink, openPage, pageForSession, pageAnswers, pageNotes, validatePage, revealPage, makeRoomForIntercom, answerPage } from './Navegadores';
-import { sessionPages, pendingPages, samePage, livePages, questionInput } from '@shared/paginasSesion';
-import { describeWhen, describeWhenShort, ofConversation, ofPlace, type ScheduledMessage } from '@shared/programados';
-import type { PRBoard } from '@shared/tablero';
-import { worktreePRs, worktreeTask, taskColor } from '@shared/tareas';
-import { lookOf, lookSignature } from '@shared/aspecto';
-import { miniatura } from '../mundo/figura/estudio';
+import { RequestView, ToolText } from './plainText';
+import { teclado } from '../engine/keyboard';
+import { SFX } from '../audio/sound';
+import { physicsKey } from '../audio/keyboard';
+import { Store } from './store';
+import { useMenu as useMenuBase, Opciones } from './device';
+import { CMD, MAC, nextZ, windowShortcut, WindowButtons, Tabs, TabList, DraftMark, TaskMark, Confirmation, nthTab, nextTab, PILOT, stateLabel, type ItemTab, type TabState } from './windows';
+import { sessionOwner, interlocutor, branchCaption, copyCaption, pathWorktree, worktreesKnown } from './copies';
+import { Usage } from './usage';
+import { takeASurface, aAppClaude } from './surface';
+import { openLink, openPage, pageForSession, pageAnswers, pageNotes, validatePage, revealPage, makeRoomForIntercom, answerPage } from './Browsers';
+import { sessionPages, pendingPages, samePage, livePages, questionInput } from '@shared/sessionPages';
+import { describeWhen, describeWhenShort, ofConversation, ofPlace, type ScheduledMessage } from '@shared/scheduled';
+import type { PRBoard } from '@shared/board';
+import { worktreePRs, worktreeTask, taskColor } from '@shared/tasks';
+import { lookOf, lookSignature } from '@shared/appearance';
+import { miniatura } from '../world/figure/studio';
 import { openPreflight } from './Preflight';
 import { taskHasPRs } from '@shared/preflight';
-import { recentFirst } from '@shared/recientes';
-import { groupTabs, talkerFirst } from './ordenPestanas';
-import { jiraBoard, knowTasks, myPRs, useColorsTasks } from './tareas';
-import { type AttachmentLocal, uploadFiles, chooseFiles, subiendo, listsPaths, AttachmentsTray, SentAttachments, useDictation, InputButtons, DictationStrip, attachShortcut } from './entrada';
+import { recentFirst } from '@shared/recent';
+import { groupTabs, talkerFirst } from './tabOrder';
+import { jiraBoard, knowTasks, myPRs, useColorsTasks } from './tasks';
+import { type AttachmentLocal, uploadFiles, chooseFiles, subiendo, listsPaths, AttachmentsTray, SentAttachments, useDictation, InputButtons, DictationStrip, attachShortcut } from './inputLine';
 
 type View = { tipo: 'menu' } | { tipo: 'nuevo'; reanudar?: HistoryElement } | { tipo: 'historial' } | { tipo: 'visitantes' } | { tipo: 'ficha' } | { tipo: 'sesion'; sesionId: string };
 // recuerdo: la conversación de la pestaña (para retomarla con lo escrito si se cierra sin que el Supervisor la cierre)
@@ -113,7 +113,7 @@ const vivas = (hid: string) => Object.values(vivo.get().sesiones).filter(s => se
 const cerrandose = new Set<string>();   // sesiones que se han mandado cerrar (no vuelven a abrir pestaña)
 const inRunning = (s?: SessionSummary) => !!s && (s.estado === 'arrancando' || s.estado === 'trabajando' || s.estado === 'esperando');
 const urgency = (s: SessionSummary) => s.estado === 'esperando' ? 0 : s.estado === 'error' ? 1 : s.estado === 'terminada' && s.sinLeer ? 2 : inRunning(s) ? 3 : 4;
-/** Its state on the tabs (ventanas.tsx): unread is not the same as read */
+/** Its state on the tabs (windows.tsx): unread is not the same as read */
 const tabState = (s?: SessionSummary): TabState | undefined => !s ? undefined : s.estado === 'esperando' ? 'esperando' : s.estado === 'error' ? 'error' : s.estado === 'terminada' && s.sinLeer ? 'sinLeer' : inRunning(s) ? 'trabajando' : 'ociosa';
 export const sessionPilot = (s?: SessionSummary) => !s ? 'ociosa' : s.estado === 'esperando' ? 'esperando' : s.estado === 'error' ? 'error' : inRunning(s) ? 'trabajando' : 'ociosa';
 const sessionOf = (p: TabCom) => (p.vista.tipo === 'sesion' ? vivo.get().sesiones[p.vista.sesionId] : undefined);
@@ -385,7 +385,7 @@ function TalkerBust({ x }: { x: DwellerSummary }) {
 
 // The room's talkers (its dwellers and its worktrees' holographic copies; by state, then most recent conversation first
 // (talkerFirst), those without one last, dwellers before holograms), each with its intercom panel's open conversations
-// and the most urgent one: the selector above the portrait and the bar's hover lists (Barra.tsx) show one row each, with
+// and the most urgent one: the selector above the portrait and the bar's hover lists (Bar.tsx) show one row each, with
 // its most urgent conversation's state and when the latest of them last moved; the conversations themselves are the tabs
 /** A talker as the lists name them: a dweller by name, a hologram by its task (or branch) and its author */
 const talkerName = (x: DwellerSummary) => x.copia ? `◇ ${copyCaption(x.copia, worktreeTask(x.copia) ?? branchCaption(x.copia.rama))} · ${x.copia.nameAuthor}` : x.nombre;
@@ -480,7 +480,7 @@ function tabItem(x: TabCom, o: DwellerSummary, sesiones: Record<string, SessionS
     titulo: sx?.titulo, sala: o.nameRoom, tarea: ruta ? worktreeTask({ ruta }) : o.copia ? worktreeTask(o.copia) : undefined, actividad: sx ? hace(sx.actualizada) : undefined, borrador: withText(x) };
 }
 
-// The ⋯ N button at the end of the bar's COM row (Barra.tsx; ⌘⇧A from an intercom): every open conversation of every
+// The ⋯ N button at the end of the bar's COM row (Bar.tsx; ⌘⇧A from an intercom): every open conversation of every
 // intercom, by room, to filter, go to one (switching to its intercom) and close. Other intercoms' menus stay out.
 export const comList = new Store<{ abierta: boolean }>({ abierta: false });
 const LIST_SHORTCUT = `${CMD}${MAC ? '⇧' : ''}A`;
@@ -676,7 +676,7 @@ function Menu({ h, ir, salir }: { h: DwellerSummary; ir: (v: View) => void; sali
   const carpeta = h.carpeta ?? h.ruta, copia = h.copia;
   const terminal = async () => {
     if (!copia) { window.dispatchEvent(new CustomEvent('refugio:terminal', { detail: { salaId: h.sala } })); return; }
-    const { openTerminalIn } = await import('./Terminales');
+    const { openTerminalIn } = await import('./Terminals');
     openTerminalIn('wt:' + copia.ruta, h.sala, `${h.nameRoom} · ${copia.rama}`, copia.ruta);
   };
   // revisar la copia (cambios, commits, integrar, desechar) es el aparato de la copia: el intercomunicador baja a la barra
@@ -1056,7 +1056,7 @@ function Session({ h, s, p, salir, onClose }: { h: DwellerSummary; s: SessionSum
 }
 
 // Las páginas de la conversación (planes, informes, comparaciones que ha enlazado): cuáles quedan por revisar, abrirlas
-// (sus notas vuelven a esta conversación) y validar sin notas las que estén bien (shared/paginasSesion.ts)
+// (sus notas vuelven a esta conversación) y validar sin notas las que estén bien (shared/sessionPages.ts)
 const PR_STATE: Record<PRBoard['estado'], string> = { abierto: '●', borrador: '◌', fusionado: '✓', cerrado: '✕' };
 const prStateName = (e: PRBoard['estado']) => e === 'abierto' ? t('windows.prState.abierto') : e === 'borrador' ? t('windows.prState.borrador') : e === 'fusionado' ? t('windows.prState.fusionado') : t('windows.prState.cerrado');
 function WorktreePRs({ copia, salaId }: { copia: { ruta: string; rama: string }; salaId: string }) {
@@ -1107,7 +1107,7 @@ function PagesMenu({ s }: { s: SessionSummary }) {
   return <PagesList sesionId={s.id} claudeId={s.claudeId} entradas={entradas} base={folderOf(s)} />;
 }
 
-// The scheduled messages (server/programados.ts) of what the intercom shows: those the open conversation scheduled; with
+// The scheduled messages (server/scheduled.ts) of what the intercom shows: those the open conversation scheduled; with
 // none open, those of the conversation being resumed or, from the menu, every one of this room or hologram (ofPlace), so
 // they're seen before opening their conversation. When the next one is due and, unfolded, each with ✎ (change the time
 // or the text) and ✕ (cancel it)
@@ -1326,7 +1326,7 @@ function Pending({ s, p, tab, hid, salir }: { s: SessionSummary; p: PendingReque
       <div className="peticion-titulo">{p.ofHelper ? t('windows.aHelperNombreAsks', { nombre: p.ofHelper }) : ''}{preg ? null : p.titulo}</div>
       {/* la pregunta es prosa de Claude: en markdown (enlaces que se abren, listas), con su propio scroll si es muy larga */}
       {preg && <div className="peticion-pregunta" dangerouslySetInnerHTML={{ __html: markdown(preg.question, folderOf(s)) }} />}
-      {/* lo que pide una herramienta, siempre en texto plano (textoPlano.tsx); el plan, que es prosa, en markdown */}
+      {/* lo que pide una herramienta, siempre en texto plano (plainText.tsx); el plan, que es prosa, en markdown */}
       {(p.tipo === 'permiso' || p.tipo === 'confianza') && (p.entrada?.length || p.motivo) ? <RequestView blocks={p.entrada ?? []} motivo={p.motivo} /> : null}
       {p.tipo === 'plan' && p.detalle && <div className="peticion-detalle" dangerouslySetInnerHTML={{ __html: markdown(p.detalle, folderOf(s)) }} />}
       {motivo === null ? <Opciones items={items} i={i} setI={setI} onChoose={k => items[k]?.f()} /> : (
@@ -1344,7 +1344,7 @@ function Pending({ s, p, tab, hid, salir }: { s: SessionSummary; p: PendingReque
   );
 }
 
-// una página que se abre al lado (Navegadores.tsx): si el intercomunicador a la vista está ampliado, vuelve a la derecha
+// una página que se abre al lado (Browsers.tsx): si el intercomunicador a la vista está ampliado, vuelve a la derecha
 // para que se vean los dos
 if (typeof window !== 'undefined') addEventListener('refugio:pagina-al-lado', () => {
   const hid = juego.get().talkingWith, v = hid ? ventana(hid) : undefined;

@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { mkdtempSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { buscarSala, promptTrabajo, repartir, updatePlan, notifyRoom, type CtxAssignment, type AssignmentRoom } from './reparto.ts';
-import { Plans, textPlan, tasksOrder } from './planes.ts';
-import { nombreWorktree } from './sesiones.ts';
-import { clavesJira } from '../shared/tablero.ts';
+import { buscarSala, promptTrabajo, repartir, updatePlan, notifyRoom, type CtxAssignment, type AssignmentRoom } from './dispatch.ts';
+import { Plans, textPlan, tasksOrder } from './plans.ts';
+import { nombreWorktree } from './sessions.ts';
+import { clavesJira } from '../shared/board.ts';
 
 const SALAS: AssignmentRoom[] = [
   { id: 'api', nombre: 'api', ruta: '/raiz/api', habitante: 'Remi', inIsWing: true },

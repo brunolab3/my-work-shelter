@@ -35,7 +35,7 @@ describe('data in the repo', () => {
   });
 
   it('every interface font has its OFL next to it, and every third-party piece its licence and a mention in docs/assets.md', () => {
-    const dir = path.join(raiz, 'web/public/fuentes'), files = readdirSync(dir);
+    const dir = path.join(raiz, 'web/public/fonts'), files = readdirSync(dir);
     const ofl = files.filter(f => f.startsWith('OFL-')).map(f => f.slice(4, -4).toLowerCase().replace(/[^a-z0-9]/g, ''));
     expect(files.filter(f => /\.woff2?$/.test(f)).filter(f => !ofl.some(o => f.replace(/[^a-z0-9]/g, '').startsWith(o)))).toEqual([]);
     const terceros = readdirSync(path.join(raiz, 'assets/terceros'));

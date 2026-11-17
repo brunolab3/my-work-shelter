@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { pagesInText, sessionPages, pendingPages, samePage, pageLink, livePages, relativeLinks, questionInput } from './paginasSesion.ts';
+import { pagesInText, sessionPages, pendingPages, samePage, pageLink, livePages, relativeLinks, questionInput } from './sessionPages.ts';
 
 const CMP = '/Users/ana/Library/Application Support/work-shelter-public/comparaciones/repo-rama.html';
 

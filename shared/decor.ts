@@ -1,12 +1,12 @@
 // Decorado de una sala de repo: la escena que el habitante diseña para su sala a partir de lo que hay en el repo
 // («Adaptar la sala al repo»). Son datos, nunca código: el servidor los valida con sanearDecorado al recibirlos (de las
-// herramientas del habitante, server/decoradoSala.ts) y al cargar el estado, y el cliente los monta con el atrezo del
-// juego (web/src/mundo/salas/decorado.ts). Guía para quien diseña: docs/decorados.md.
+// herramientas del habitante, server/roomDecor.ts) y al cargar el estado, y el cliente los monta con el atrezo del
+// juego (web/src/world/rooms/decor.ts). Guía para quien diseña: docs/decor.md.
 //
 // Coordenadas de la sala (metros): x de -6 a 6 (izquierda a derecha, vista desde el pasillo), suelo en y = 0, techo
 // en y = 4,43; z de -2,3 (pared del fondo) a 2,3 (borde del corte). La franja z > 0,8 es el pasillo por donde se anda.
 
-import { t as tr } from './idioma.ts';
+import { t as tr } from './language.ts';
 export const BASES_DECOR = ['vacia', 'estudio', 'laboratorio', 'fundicion', 'archivo', 'taller', 'tallerWeb', 'escaparate', 'marca', 'proyeccion'] as const;
 export type BaseDecor = typeof BASES_DECOR[number];
 /** Qué trae cada base (lo leen el habitante y el panel de la sala) */
@@ -27,7 +27,7 @@ export const DECOR_PALETTES = ['taller', 'web', 'marca', 'video', 'landing', 'co
 export const SIGN_SYMBOLS = ['engranaje', 'ojo', 'rayo', 'mano'] as const;
 /** Gestos que el habitante hace en la pieza protagonista o en su afición (clips de KayKit) */
 export const GESTURES = ['Interact', 'Use_Item', 'Holding_A', 'Holding_B', 'Working_A', 'Working_B', 'Working_C', 'PickUp', 'Hammering', 'Cheering', 'Waving', 'Idle_A'] as const;
-/** Packs del atrezo, con la carpeta de cada uno dentro de assets/ (los mismos prefijos que R en web/src/motor/assets.ts):
+/** Packs del atrezo, con la carpeta de cada uno dentro de assets/ (los mismos prefijos que R en web/src/engine/assets.ts):
  *  un modelo es «<pack>/<nombre>», p. ej. «mueble/desk» o «sf/Props_ComputerSmall» */
 export const PACKS: Record<string, { carpeta: string; ext: string; que: string }> = {
   sf: { carpeta: 'quaternius/modular_sci_fi', ext: '.glb', que: 'base sci-fi: ordenadores, cápsulas, vasijas, estanterías, cajas, teletransportador, estatua, columnas, rejillas y placas de pared' },
@@ -89,7 +89,7 @@ export interface Decorado {
 export const LIMITS = { x: 5.8, zBackground: -2.25, zFront: 2.1, techo: 4.3, viewWall: 3.6, pasillo: 0.8, piezas: 80, carteles: 4, lamparas: 4 } as const;
 const WALL_Z = -2.3;
 
-/** The room's task board (web/src/mundo/salas/tableroTareas.ts): on the back wall, centred at (x, y); nothing of a
+/** The room's task board (web/src/world/rooms/taskBoard.ts): on the back wall, centred at (x, y); nothing of a
  *  dressing may cover it */
 export interface BoardSpot { x: number; y: number; ancho: number; alto: number }
 export const BOARD_RATIO = 0.45;
@@ -254,7 +254,7 @@ export function reviewDecor(d: Decorado, tam: (p: DecorPiece) => [number, number
     if (p.sobre === undefined && !p.y && z1 > LIMITS.pasillo + 0.15 && h > 0.35) avisos.push(tr('tool.decor.check.intoAisle', { i, modelo: p.modelo, z: z1.toFixed(2), pasillo: LIMITS.pasillo }));
     if (p.y && p.y > 0.05 && !p.pared && p.sobre === undefined) avisos.push(tr('tool.decor.check.floats', { i, modelo: p.modelo, y: p.y }));
     if (p.sobre === undefined && !p.y && h > 0.25) cajas.push({ i, x0, x1, z0, z1, alto: h });
-    // near the back wall and in front of the board: the game leaves it out (web/src/mundo/salas/decorado.ts)
+    // near the back wall and in front of the board: the game leaves it out (web/src/world/rooms/decor.ts)
     if (tablero && z0 < WALL_Z + BOARD_CLEAR && coversBoard(tablero, p.x, (p.y ?? 0) + h / 2, ax, h)) avisos.push(tr('tool.decor.check.coversBoard', { que: `piezas[${i}] ${p.modelo}` }));
   });
   for (let a = 0; a < cajas.length; a++) for (let b = a + 1; b < cajas.length; b++) {

@@ -8,9 +8,9 @@ import { spawn, execFile } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { abrirEnEditor as openEditorSafe } from './abrir.ts';
-import { entornoGit } from './entornoGit.ts';
-import { t } from '../shared/idioma.ts';
+import { abrirEnEditor as openEditorSafe } from './open.ts';
+import { entornoGit } from './gitEnv.ts';
+import { t } from '../shared/language.ts';
 
 const MAX_TEXT = 8 * 1024 * 1024;        // más grande no se abre en el editor
 const MAX_IMAGE = 12 * 1024 * 1024;
@@ -238,7 +238,7 @@ export async function todos(raiz: string): Promise<{ rels: string[]; recortado: 
 
 // ---------------------------------------------------------------- fuera del juego
 export async function revelar(raiz: string, rel: unknown) { const abs = await dentro(raiz, relSafe(rel)); spawn('open', ['-R', abs], { detached: true, stdio: 'ignore' }).unref(); }
-// en el editor (o en el de texto de macOS; carpetas y paquetes, en el Finder): nunca con la app por defecto (abrir.ts)
+// en el editor (o en el de texto de macOS; carpetas y paquetes, en el Finder): nunca con la app por defecto (open.ts)
 export async function abrirEnEditor(raiz: string, rel: unknown) { await openEditorSafe(raiz, await dentro(raiz, relSafe(rel))); }
 
 // ---------------------------------------------------------------- despacho

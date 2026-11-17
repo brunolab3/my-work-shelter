@@ -1,12 +1,12 @@
 // Sala de repositorio genérica («banco de pruebas»): para carpetas que no son web, vídeo, marca ni landing.
-// Pieza protagonista: el tablero de tareas de la sala (tableroTareas.ts), grande en el centro de la pared.
+// Pieza protagonista: el tablero de tareas de la sala (taskBoard.ts), grande en el centro de la pared.
 // Distribución propia: banco de trabajo con herramientas a la izquierda, armario de servidores al fondo, catre y
 // estanterías a la derecha. Se espeja según la semilla para que dos salas genéricas no sean iguales.
-import { t } from '@shared/idioma';
+import { t } from '@shared/language';
 import * as THREE from 'three';
-import { place, R } from '../../motor/assets';
-import { cartel, PhosphorScreen, PanelRoom } from '../../motor/texturas';
-import { signInWall, mancha, highBand, workStation, screenReal, aWall, tumbada, type Contexto } from './comun';
+import { place, R } from '../../engine/assets';
+import { cartel, PhosphorScreen, PanelRoom } from '../../engine/textures';
+import { signInWall, mancha, highBand, workStation, screenReal, aWall, tumbada, type Contexto } from './common';
 
 export async function furnishGeneric(ctx: Contexto) {
   const { g, v, zB, K, P, semilla } = ctx;

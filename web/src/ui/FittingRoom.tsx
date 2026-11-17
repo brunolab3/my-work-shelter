@@ -3,17 +3,17 @@
 // colores de cada cosa. Cada pieza se ve en miniatura sobre el propio personaje, la vista grande se mueve con el ratón
 // y el personaje del refugio se va vistiendo a la vez. Nada se guarda hasta pulsar Enter; Esc lo deja como estaba.
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { juego } from './estadoJuego';
-import { vivo, cliente } from '../red/cliente';
-import { SFX } from '../audio/sonido';
-import { t, tIs } from '@shared/idioma';
-import { Device, Opciones, Keys, closePanel, useMenu, useKeys } from './aparato';
+import { juego } from './gameState';
+import { vivo, cliente } from '../net/client';
+import { SFX } from '../audio/sound';
+import { t, tIs } from '@shared/language';
+import { Device, Opciones, Keys, closePanel, useMenu, useKeys } from './device';
 import {
   lookOf, lookOnRandom, setPiece, piecesOf, fits, lookSignature, paletteOf, nameRegion,
   HUMAN_SLOTS, SLOTS_ROBOT, REQUIRED, COLORS_OF, SLOT_NAME, REGIONS, PIECE, STOCK,
   type Look, type Slot, type Region, type Piece,
-} from '@shared/aspecto';
-import { Estudio, FOCUS, miniatura, type Focus } from '../mundo/figura/estudio';
+} from '@shared/appearance';
+import { Estudio, FOCUS, miniatura, type Focus } from '../world/figure/studio';
 
 type Cat = Slot | 'colores';
 const COLS = 5;

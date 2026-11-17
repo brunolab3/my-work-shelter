@@ -9,10 +9,10 @@ import net from 'node:net';
 import path from 'node:path';
 import { readFileSync } from 'node:fs';
 import WebSocket from 'ws';
-import { DATOS } from './estado.ts';
-import { SOCKET_TERMINALS } from './terminales.ts';
-import { openInDesktop, outsideOpen, hookCommand, resumeCommand, type ItemDesktop } from './escritorio.ts';
-import { t, setLanguage, isLanguage } from '../shared/idioma.ts';
+import { DATOS } from './state.ts';
+import { SOCKET_TERMINALS } from './terminals.ts';
+import { openInDesktop, outsideOpen, hookCommand, resumeCommand, type ItemDesktop } from './desktop.ts';
+import { t, setLanguage, isLanguage } from '../shared/language.ts';
 
 const RAIZ = path.resolve(import.meta.dirname, '..');
 const PUERTO = Number(process.env.SHELTER_PUERTO || 3778);

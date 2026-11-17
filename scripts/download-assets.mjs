@@ -1,11 +1,11 @@
-// Descarga el material artístico fijado (todo CC0) desde scripts/manifest_assets.json (procedencia y licencias: docs/assets.md).
+// Descarga el material artístico fijado (todo CC0) desde scripts/assets_manifest.json (procedencia y licencias: docs/assets.md).
 // Desde los commits fijados de los repos de origen. Idempotente.
 import { readFileSync, mkdirSync, existsSync, statSync, writeFileSync, renameSync } from 'node:fs';
 import { dirname, join, basename } from 'node:path';
 
 const destino = process.argv[2] || 'assets';
 const raiz = new URL('..', import.meta.url).pathname;
-const manifest = JSON.parse(readFileSync(join(raiz, 'scripts/manifest_assets.json'), 'utf8'));
+const manifest = JSON.parse(readFileSync(join(raiz, 'scripts/assets_manifest.json'), 'utf8'));
 const queue = [];
 const k = manifest.kaykit;
 for (const archivos of Object.values(k.files)) for (const p of archivos) queue.push([k.repo, k.commit, p, join(destino, 'kaykit', p.replace('assets/kaykit/', ''))]);

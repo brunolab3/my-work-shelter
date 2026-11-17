@@ -1,13 +1,13 @@
 // Tablero de despliegue de la sala de planificación: tus PR por estado, los bloqueos entre ellos y el orden en que se
 // pueden fusionar y desplegar. Un PR espera a otro si va apilado encima (su base es la rama del otro), si su descripción
 // lo dice («depends on #12», «bloqueado por org/repo#7», el enlace al PR…), si el plan repartido de su tarea dice que su
-// repo espera a otro (la parte de una sala «espera_a» la de otra: server/planes.ts) o si el Supervisor lo marca a mano.
+// repo espera a otro (la parte de una sala «espera_a» la de otra: server/plans.ts) o si el Supervisor lo marca a mano.
 // Los PR de una misma tarea en repos distintos sin orden conocido van enlazados («misma tarea»), sin bloquearse.
 // Puro: lo usan el cliente, el servidor y las pruebas.
-import type { PRBoard } from './tablero';
-import { branchTask, textKey } from './tareas';
-import { t } from './idioma';
-import { ledgerPending } from './cuentaRevisiones';
+import type { PRBoard } from './board';
+import { branchTask, textKey } from './tasks';
+import { t } from './language';
+import { ledgerPending } from './reviewCount';
 
 export type BlockerReason = 'pila' | 'texto' | 'plan' | 'manual';
 /** `de` espera a `por` (las dos, URL de PR) */

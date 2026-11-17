@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { TasksColors } from './coloresTareas.ts';
-import { TASKS_PALETTE } from '../shared/tareas.ts';
+import { TasksColors } from './taskColors.ts';
+import { TASKS_PALETTE } from '../shared/tasks.ts';
 
 describe('colores de las tareas guardados', () => {
   it('cada tarea conserva su color tras reiniciar, las que se dejan de ver lo sueltan y lo que no es una clave no cuenta', () => {

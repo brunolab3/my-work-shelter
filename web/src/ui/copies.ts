@@ -1,11 +1,11 @@
 // Copias holográficas (worktrees) como interlocutores propios: cada copia tiene su intercomunicador, independiente
 // del de su autor, como un clon. Lo que se trabaja dentro de un worktree es de su copia; lo demás, del habitante.
-import type { InfoWorktree, SessionSummary } from '@shared/protocolo';
-import { vivo } from '../red/cliente';
-import { t } from '@shared/idioma';
-import { juego, type DwellerSummary } from './estadoJuego';
-import { taskCaption, worktreeTask } from '@shared/tareas';
-import { taskTitle } from './tareas';
+import type { InfoWorktree, SessionSummary } from '@shared/protocol';
+import { vivo } from '../net/client';
+import { t } from '@shared/language';
+import { juego, type DwellerSummary } from './gameState';
+import { taskCaption, worktreeTask } from '@shared/tasks';
+import { taskTitle } from './tasks';
 
 const PREFIX = 'holo:';
 export const idCopy = (ruta: string) => PREFIX + ruta;

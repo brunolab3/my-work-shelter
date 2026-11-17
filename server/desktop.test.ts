@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { spawn } from 'node:child_process';
-import { resumeCommand, hookCommand, desktopScript, quotes, promptContinue, outsideOpen, closeOutside } from './escritorio.ts';
+import { resumeCommand, hookCommand, desktopScript, quotes, promptContinue, outsideOpen, closeOutside } from './desktop.ts';
 
 const ID = '0f8a2c1e-4b6d-4e2f-9a1b-3c5d7e9f1a2b';
 

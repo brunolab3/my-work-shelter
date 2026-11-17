@@ -1,8 +1,8 @@
-// Foto de una sala del refugio (para el habitante que la decora, view_room en decoradoSala.ts): el propio juego en un
+// Foto de una sala del refugio (para el habitante que la decora, view_room en roomDecor.ts): el propio juego en un
 // Chromium sin ventana (Playwright; si no tiene su navegador, el Google Chrome del Mac), con la cámara en la sala y la
 // revisión de apoyos del juego (?revisar: piezas flotando o hundidas). Una foto cada vez.
 import type { Browser } from 'playwright';
-import { t } from '../shared/idioma.ts';
+import { t } from '../shared/language.ts';
 
 let enCurso: Promise<unknown> = Promise.resolve();
 

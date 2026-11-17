@@ -33,7 +33,7 @@ It is designed as a local application for a single person on their Mac:
   WebSocket, requires the game's `Origin` and a random secret generated at every start. The secret is not passed to
   Claude Code sessions, terminals or processes the game launches (git, `gh`, Chrome).
 - **Files**: the explorer, the git client and attachments work inside the rooms' folders.
-- **The Mac's pages and images in the game** (`/pagina/<key>/…`, `server/paginasLocales.ts`): a linked HTML or
+- **The Mac's pages and images in the game** (`/pagina/<key>/…`, `server/localPages.ts`): a linked HTML or
   Markdown page is served behind a random key for its folder, an image (linked, or embedded as a thumbnail in a reply)
   behind a key for that file only; never outside them (links resolved), with a `sandbox` CSP and no connections. The
   keys aren't the game's secret: any local process that learns one can read that folder or image.
@@ -53,7 +53,7 @@ It is designed as a local application for a single person on their Mac:
 - **Secrets**: in the macOS keychain, not in the repo or in `.data/`; integrations ask for read-only permissions.
   The borrowed sessions of `gh` (`gh auth token`) and `gws` (`gws auth export --unmasked`, for Google) are read when
   needed and never stored; their access tokens live in memory only.
-- **Slack remote control** (optional, with your own app; `server/mando.ts` and `server/slackMando.ts`): over Socket
+- **Slack remote control** (optional, with your own app; `server/remoteBot.ts` and `server/slackBot.ts`): over Socket
   Mode (no open ports: the server opens the connection to Slack), with only `chat:write` and `im:history` and the
   `message.im` event. It sends approval requests exactly as the dialog shows them, in plain-text blocks (invisible
   characters made visible, token-shaped secrets masked, anything that doesn't fit whole can't be approved) with yes/no,
@@ -78,7 +78,7 @@ What it **doesn't** cover, by design or because nobody has solved it:
   room automatically.
 - **The Command Bridge** works on the game's own code, and that code runs on restart or when the app opens (including
   `npm ci` if `package-lock.json` changes). Approving edits there amounts to approving that they run.
-- **Installing with `curl … | bash`** runs `instalar.sh` as it is on GitHub at that moment and, afterwards, the code of
+- **Installing with `curl … | bash`** runs `install.sh` as it is on GitHub at that moment and, afterwards, the code of
   the repo it downloads. Read it first if you like, or clone the repo and use `./shelter instalar-app`.
 - **The installed app** (`/Applications/work-shelter-public.app`) loads the code from the game's folder
   (`~/.work-shelter-public` with the installer, or the folder you installed it from): whoever can write to that folder
@@ -94,6 +94,6 @@ What it **doesn't** cover, by design or because nobody has solved it:
   `/usr/bin/security`, so the item's trusted app is `security` itself (accepted to avoid native dependencies; that's
   why integrations ask for minimal, read-only permissions).
 - **The Linear key**, if you save it, goes into the environment of the Planning dweller, whose MCP can write to
-  Linear (see `docs/integraciones-uso.md`).
+  Linear (see `docs/integrations-usage.md`).
 - **Other macOS accounts** on the same machine haven't been considered thoroughly: if you share the Mac, assume they
   may reach more than they should.

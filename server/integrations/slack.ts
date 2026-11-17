@@ -3,11 +3,11 @@
 // invites) o uno de usuario (xoxp-, de la misma app con permisos de usuario: lee lo que ves tú, también tus mensajes
 // directos). Sondeo cada minuto con conversations.history desde el último mensaje visto de cada canal (las primeras
 // 24 h al conectar). Prioridad alta: mensajes directos y menciones a ti; media: @here/@channel y grupos.
-import type { Store } from '../estado.ts';
-import { ConnectorBase, ConfigSource, ErrorSource, ask, retraso, type Field } from './comun.ts';
-import { slackChannel, contextSlackEmpty, explainErrorSlack, slackNotification, type ContextSlack } from './normalizar.ts';
-import type { Notification } from './adaptadores.ts';
-import { t as tr } from '../../shared/idioma.ts';
+import type { Store } from '../state.ts';
+import { ConnectorBase, ConfigSource, ErrorSource, ask, retraso, type Field } from './common.ts';
+import { slackChannel, contextSlackEmpty, explainErrorSlack, slackNotification, type ContextSlack } from './normalize.ts';
+import type { Notification } from './adapters.ts';
+import { t as tr } from '../../shared/language.ts';
 
 const API = 'https://slack.com/api/';
 const MAX_CHANNELS = 25;        // por sondeo, los de actividad más reciente (el límite de conversations.history es ~50/min)

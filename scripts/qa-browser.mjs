@@ -3,7 +3,7 @@
 // usuario de Electron sin disfrazar: disfrazado, Turnstile tumba el login de Linear); aparece en la fila NAV de la barra;
 // se amplía a toda la pantalla, se minimiza (sin recargarse) y vuelve desde la barra; ⌘M y ⌘W con el foco dentro de la web (las recoge Electron en before-input-event y las sube al juego con
 // __atajoNavegador; CDP no pasa por ahí, así que aquí se prueba la mitad del juego) minimizan y cierran.
-// Uso: node scripts/qa-navegador.mjs [puerto-cdp] [carpeta-capturas]
+// Uso: node scripts/qa-browser.mjs [puerto-cdp] [carpeta-capturas]
 //   (Electron abierto con SHELTER_DEV=1 SHELTER_CDP=<puerto>; para no tocar tus datos ni tus logins: SHELTER_DATOS, SHELTER_PUERTO
 //    y --user-data-dir=/ruta/temporal al lanzar Electron)
 import { chromium } from 'playwright';

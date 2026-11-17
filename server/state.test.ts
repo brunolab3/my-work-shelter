@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import path from 'node:path';
 import os from 'node:os';
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
-import { moveFloor } from '../shared/disposicion.ts';
-import { sanear, initialState, folderOf, ROOMS_FOLDERS, addRoomsOfService, ensureFolders, hideRoom, showRoom, relinkedIds, renameRoomIds } from './estado.ts';
+import { moveFloor } from '../shared/layout.ts';
+import { sanear, initialState, folderOf, ROOMS_FOLDERS, addRoomsOfService, ensureFolders, hideRoom, showRoom, relinkedIds, renameRoomIds } from './state.ts';
 
 describe('estado guardado', () => {
   it('una sala de servicio que falte en un refugio guardado entra en su sitio, sin tocar sus repos', () => {

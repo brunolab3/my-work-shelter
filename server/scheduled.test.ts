@@ -2,10 +2,10 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { mkdtempSync, readFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { parseWhen, holdWeekend, checkWhen, due, isLate, ofConversation, type ScheduledMessage } from '../shared/programados.ts';
-import { Scheduled, type CtxScheduled } from './programados.ts';
-import { setLanguage } from '../shared/idioma.ts';
-import type { SessionSummary } from '../shared/protocolo.ts';
+import { parseWhen, holdWeekend, checkWhen, due, isLate, ofConversation, type ScheduledMessage } from '../shared/scheduled.ts';
+import { Scheduled, type CtxScheduled } from './scheduled.ts';
+import { setLanguage } from '../shared/language.ts';
+import type { SessionSummary } from '../shared/protocol.ts';
 
 // todo en hora local: viernes 13 de noviembre de 2026 a las 16:00
 const L = (d: number, h = 0, m = 0) => new Date(2026, 10, d, h, m).getTime();

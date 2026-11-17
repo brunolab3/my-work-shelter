@@ -12,15 +12,15 @@
 //            ⌥⌘C copiar la ruta (⌥⌘⇧C, la relativa) · ⌥⌘R mostrar en el Finder · escribir salta al nombre
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type * as Monaco from 'monaco-editor';
-import { vivo, cliente } from '../../red/cliente';
-import { t, idioma } from '@shared/idioma';
-import { SFX } from '../../audio/sonido';
-import { firstMapNow } from '../../motor/foco';
-import { WindowButtons, CMD, MAC, nextZ } from '../ventanas';
-import { openTerminalIn } from '../Terminales';
-import { openGit } from '../git/ventana';
-import { filesWindow, chooseRoot, lastRoot, minimizeFiles, closeFiles, closeFilesAlready, onFrontFiles, toggleMaximizeFiles, askClosing, type FilesWindow } from './ventana';
-import { flatten, changedFolders, searchFiles, queryYLine, languageOf, unir, parentOf, nameOf, bajo, type Entrada, type Row } from './comun';
+import { vivo, cliente } from '../../net/client';
+import { t, idioma } from '@shared/language';
+import { SFX } from '../../audio/sound';
+import { firstMapNow } from '../../engine/focus';
+import { WindowButtons, CMD, MAC, nextZ } from '../windows';
+import { openTerminalIn } from '../Terminals';
+import { openGit } from '../git/window';
+import { filesWindow, chooseRoot, lastRoot, minimizeFiles, closeFiles, closeFilesAlready, onFrontFiles, toggleMaximizeFiles, askClosing, type FilesWindow } from './window';
+import { flatten, changedFolders, searchFiles, queryYLine, languageOf, unir, parentOf, nameOf, bajo, type Entrada, type Row } from './common';
 
 type M = typeof Monaco;
 let cargando: Promise<M> | null = null;

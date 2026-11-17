@@ -1,5 +1,5 @@
 // QA de las copias holográficas (worktrees): abre el refugio, espera a los hologramas y saca capturas.
-// Uso: SHELTER_DATOS=… node scripts/qa-hologramas.mjs <url> <salida.png> [--cerca] [--estados] [--nacer] [--eval="js"] [--pasos=N]
+// Uso: SHELTER_DATOS=… node scripts/qa-holograms.mjs <url> <salida.png> [--cerca] [--estados] [--nacer] [--eval="js"] [--pasos=N]
 //   --cerca     encuadra el primer holograma de cerca
 //   --estados   simula una sesión dentro de su worktree y captura cada estado (pensando, trabajando, esperando, terminado, avería, sin sesión)
 //   --nacer     simula un worktree nuevo de un habitante de la sala: se materializa a su lado y va a su sitio (capturas por pasos)

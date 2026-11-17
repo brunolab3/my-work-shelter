@@ -1,21 +1,21 @@
 // Tablero de despliegue de la sala de planificación: tus PR por estado (borrador, en revisión, piden cambios, aprobado,
 // fusionado), los bloqueos entre ellos con flechas (apilados, «depends on #12» en la descripción, el orden del plan
-// repartido de su tarea o marcados aquí con B), los PR de una misma tarea en otros repos enlazados sin orden y el orden en que se pueden fusionar y desplegar (shared/despliegue.ts). P le pide el plan al habitante de la sala.
+// repartido de su tarea o marcados aquí con B), los PR de una misma tarea en otros repos enlazados sin orden y el orden en que se pueden fusionar y desplegar (shared/deploy.ts). P le pide el plan al habitante de la sala.
 // Abre al momento con lo último que se leyó (guardado en la página) y lo pone al día por detrás.
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { vivo, cliente } from '../red/cliente';
-import { SFX } from '../audio/sonido';
-import { t, tIs } from '@shared/idioma';
-import { Device, Keys, closePanel, useKeys } from './aparato';
-import { goA } from './Paneles';
-import { openLink } from './Navegadores';
-import { type PRBoard } from '@shared/tablero';
-import { trTextPR } from './Operativas';
+import { vivo, cliente } from '../net/client';
+import { SFX } from '../audio/sound';
+import { t, tIs } from '@shared/language';
+import { Device, Keys, closePanel, useKeys } from './device';
+import { goA } from './Panels';
+import { openLink } from './Browsers';
+import { type PRBoard } from '@shared/board';
+import { trTextPR } from './Operations';
 import { openPreflight } from './Preflight';
-import { taskColor, pRTask } from '@shared/tareas';
-import { knowTasks, useColorsTasks } from './tareas';
-import { ledgerPending, type ReviewLedger } from '@shared/cuentaRevisiones';
-import { DEPLOYMENT_COLUMNS, bloqueosEntre, columnaDespliegue, taskLinks, olasDespliegue, promptDeployment, refPR, type Blocker, type BlockerManual, type TaskOrder } from '@shared/despliegue';
+import { taskColor, pRTask } from '@shared/tasks';
+import { knowTasks, useColorsTasks } from './tasks';
+import { ledgerPending, type ReviewLedger } from '@shared/reviewCount';
+import { DEPLOYMENT_COLUMNS, bloqueosEntre, columnaDespliegue, taskLinks, olasDespliegue, promptDeployment, refPR, type Blocker, type BlockerManual, type TaskOrder } from '@shared/deploy';
 
 const REASON: Record<Blocker['motivo'], string> = { pila: 'apilado', texto: 'lo dice el PR', plan: 'el plan de la tarea', manual: 'marcado aquí' };
 type DataGH = { prs: PRBoard[]; demo?: boolean; error?: string };

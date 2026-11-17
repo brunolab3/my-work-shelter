@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { gameAction, ensurePlayer, taskReward } from './juego.ts';
-import { initialState } from './estado.ts';
+import { gameAction, ensurePlayer, taskReward } from './game.ts';
+import { initialState } from './state.ts';
 
 const almacen = () => { const a: any = { estado: initialState(), cambiar(f: (e: any) => void) { f(a.estado); } }; ensurePlayer(a); return a; };
 

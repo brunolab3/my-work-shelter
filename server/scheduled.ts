@@ -1,4 +1,4 @@
-// Scheduled messages: with schedule_message (MCP `rooms`, avisosSalas.ts) a dweller leaves a message for later («let's
+// Scheduled messages: with schedule_message (MCP `rooms`, roomNotices.ts) a dweller leaves a message for later («let's
 // review it on Monday and answer everything») and the game delivers it at that time. Without a room it comes back to the
 // same conversation: the open one or, if it was closed, resumed by its Claude Code id in its folder (in plan mode), with
 // all its context; with a room (and key), it is delivered like send_to_room. Saved in DATOS/mensajes-programados.json and
@@ -8,13 +8,13 @@
 import { existsSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { t } from '../shared/idioma.ts';
-import { checkWhen, describeWhen, due, isLate, ofConversation, MAX_PER_CONVERSATION, MAX_DAYS, type ScheduledMessage, type ScheduledTarget } from '../shared/programados.ts';
-import type { SessionSummary } from '../shared/protocolo.ts';
-import { taskKey } from '../shared/tareas.ts';
+import { t } from '../shared/language.ts';
+import { checkWhen, describeWhen, due, isLate, ofConversation, MAX_PER_CONVERSATION, MAX_DAYS, type ScheduledMessage, type ScheduledTarget } from '../shared/scheduled.ts';
+import type { SessionSummary } from '../shared/protocol.ts';
+import { taskKey } from '../shared/tasks.ts';
 
 const MAX_TOTAL = 300, MAX_TEXT = 20_000;
-// el error de una fecha pedida (checkWhen), con las claves escritas enteras (shared/idioma.test.ts las busca)
+// el error de una fecha pedida (checkWhen), con las claves escritas enteras (shared/language.test.ts las busca)
 type WhenVars = { cuando: string; dias: number };
 const WHEN_ERROR: Record<'badDate' | 'past' | 'tooFar', (v: WhenVars) => string> = { badDate: v => t('tool.schedule.badDate', v), past: v => t('tool.schedule.past', v), tooFar: v => t('tool.schedule.tooFar', v) };
 const whenError = (e: keyof typeof WHEN_ERROR, cuando: string) => WHEN_ERROR[e]({ cuando, dias: MAX_DAYS });

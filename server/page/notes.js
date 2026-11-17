@@ -1,6 +1,6 @@
-// Notas del Supervisor en una página del refugio (/pagina/…, server/paginasLocales.ts la mete al final de cada página
+// Notas del Supervisor en una página del refugio (/pagina/…, server/localPages.ts la mete al final de cada página
 // HTML). Corre dentro del <iframe> aislado (origen opaco, sin almacenamiento ni red): seleccionar un trozo → «✎ Nota»;
-// un clic en lo marcado la edita o la borra. Las notas viven en el juego (web/src/ui/Navegadores.tsx), que las guarda
+// un clic en lo marcado la edita o la borra. Las notas viven en el juego (web/src/ui/Browsers.tsx), que las guarda
 // y las manda a la conversación: aquí solo se marcan (CSS Custom Highlight, sin tocar el DOM de la página) y se avisa
 // de cada cambio con postMessage. En las comparaciones (filas con número de línea), además, «+» al pasar por una línea
 // deja una nota en ella, como en GitHub. JavaScript sin compilar: se mete tal cual en la página.

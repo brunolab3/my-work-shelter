@@ -1,10 +1,10 @@
 // Sala de repositorio «taller web»: puestos de trabajo, el horno de builds y el comité de calidad.
-import { t, t as tr } from '@shared/idioma';
+import { t, t as tr } from '@shared/language';
 import * as THREE from 'three';
-import { place, R } from '../../motor/assets';
-import { cartel, PhosphorScreen, corcho, PanelRoom } from '../../motor/texturas';
+import { place, R } from '../../engine/assets';
+import { cartel, PhosphorScreen, corcho, PanelRoom } from '../../engine/textures';
 import { overlayScreen } from '../util3d';
-import { BACKGROUND, screenReal, signInWall, mancha, mountLiquid, mountPilots, highBand, Bubbles, workStation, aWall, type Contexto } from './comun';
+import { BACKGROUND, screenReal, signInWall, mancha, mountLiquid, mountPilots, highBand, Bubbles, workStation, aWall, type Contexto } from './common';
 
 export async function furnishTallerWeb(ctx: Contexto) {
   const { g, v, zB, K, P, semilla } = ctx;

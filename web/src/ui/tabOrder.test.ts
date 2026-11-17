@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { groupTabs, nthTab, nextTab, overflowChips, talkerFirst, type TabState } from './ordenPestanas';
+import { groupTabs, nthTab, nextTab, overflowChips, talkerFirst, type TabState } from './tabOrder';
 
 const tab = (id: string, estado?: TabState, grupo?: string) => ({ id, estado, grupo });
 const ids = (l: { id: string }[]) => l.map(x => x.id).join(' ');

@@ -1,17 +1,17 @@
 // Actividades del refugio y lo que se lleva encima el Supervisor: inventario, guía de campo, tienda y récords (I);
 // galería de tiro, hidroponía, radio y generador; y el cuaderno de las conversaciones (R).
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { juego, type Panel } from './estadoJuego';
-import { t, tIs } from '@shared/idioma';
-import { vivo, cliente } from '../red/cliente';
-import { SFX, sonido } from '../audio/sonido';
-import { Device, Opciones, Keys, closePanel, useMenu, useKeys, type ItemMenu } from './aparato';
-import { PIECES, HARVESTS, SHOP, SIGNALS, arma as weaponData } from '@shared/catalogo';
-import type { LogInput, SessionSummary } from '@shared/protocolo';
-import { recentFirst, sessionRecency } from '@shared/recientes';
-import { ACTIVITY_TABS, FRESH_HARVEST } from '@shared/etiquetas';
+import { juego, type Panel } from './gameState';
+import { t, tIs } from '@shared/language';
+import { vivo, cliente } from '../net/client';
+import { SFX, sonido } from '../audio/sound';
+import { Device, Opciones, Keys, closePanel, useMenu, useKeys, type ItemMenu } from './device';
+import { PIECES, HARVESTS, SHOP, SIGNALS, arma as weaponData } from '@shared/catalog';
+import type { LogInput, SessionSummary } from '@shared/protocol';
+import { recentFirst, sessionRecency } from '@shared/recent';
+import { ACTIVITY_TABS, FRESH_HARVEST } from '@shared/labels';
 import { markdown } from './markdown';
-import { ToolText, Visible } from './textoPlano';
+import { ToolText, Visible } from './plainText';
 
 export function PanelActivity({ panel }: { panel: Panel }) {
   switch (panel) {

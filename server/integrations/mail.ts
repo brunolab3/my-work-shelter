@@ -5,11 +5,11 @@
 // la primera vez macOS pide permiso para controlar Mail. Mail no se abre sola: si está cerrada, el estado lo dice.
 import path from 'node:path';
 import { execFile } from 'node:child_process';
-import type { Store } from '../estado.ts';
-import { ConnectorBase, ConfigSource, ErrorSource, type Field } from './comun.ts';
-import { mailNotification, explainErrorMail, isGmail, type AccountMail, type MessageMail } from './normalizar.ts';
-import type { Notification } from './adaptadores.ts';
-import { t } from '../../shared/idioma.ts';
+import type { Store } from '../state.ts';
+import { ConnectorBase, ConfigSource, ErrorSource, type Field } from './common.ts';
+import { mailNotification, explainErrorMail, isGmail, type AccountMail, type MessageMail } from './normalize.ts';
+import type { Notification } from './adapters.ts';
+import { t } from '../../shared/language.ts';
 
 const READER = path.join(import.meta.dirname, 'mail.jxa');
 const DAYS = 7, MAXIMO = 25;

@@ -95,7 +95,7 @@ export interface InfoRepo {
 export interface InfoWorktree { ruta: string; rama: string; principal: boolean; cambios: number; advanced: number; ocupado?: string; external?: boolean; autor?: string }
 
 // La música del refugio (la discoteca): Spotify web, que suena dentro del juego en su navegador. No pasa por el
-// servidor: el cliente la lee de la página (web/src/ui/Discoteca.tsx) y la deja en vivo.musica
+// servidor: el cliente la lee de la página (web/src/ui/Disco.tsx) y la deja en vivo.musica
 export interface MusicTrack { titulo: string; artista: string; album: string; duracion: number; cover?: string }
 export interface MusicState {
   estado: 'sonando' | 'pausa' | 'parada';
@@ -134,7 +134,7 @@ export type ClientMessage =
   | { t: 'terminalCerrar'; id: string }
   | { t: 'estadoGuardar'; parche: Record<string, unknown> }
   | { t: 'salir' }
-  // dictado (server/voz.ts): audio PCM de 16 bits, 16 kHz, mono, en base64, por trozos; vozFin, transcribir lo que queda
+  // dictado (server/voice.ts): audio PCM de 16 bits, 16 kHz, mono, en base64, por trozos; vozFin, transcribir lo que queda
   | { t: 'vozEmpezar'; id: string; idioma?: string }
   | { t: 'vozAudio'; id: string; datos: string }
   | { t: 'vozFin'; id: string }
@@ -159,12 +159,12 @@ export type ServerMessage =
   | { t: 'aviso'; nivel: 'info' | 'aviso' | 'error'; texto: string; pregunta?: NoticeQuestion }   // con pregunta, se queda hasta contestarla
   | { t: 'voz'; id: string; estado: 'descargando' | 'listo' | 'parcial' | 'final' | 'error'; texto?: string }   // lo transcrito de un dictado
   | { t: 'mensajero'; desde: string; a: string[]; motivo: 'reparto' | 'cambio' | 'propuesta' | 'revision' | 'ci'; worktree?: string }   // el robot que lleva el plan de sala en sala (o una revisión o un fallo de CI de un PR desde Control de Versiones, en mano al holograma de su worktree)
-  | { t: 'entrega'; sala: string; worktree?: string; sesionId?: string }   // un mensaje dentro de la misma sala: el habitante se lo da en mano al holograma de la tarea (mensajero.ts)
-  | { t: 'programados'; lista: ScheduledMessage[] }   // los mensajes programados pendientes (shared/programados.ts)
+  | { t: 'entrega'; sala: string; worktree?: string; sesionId?: string }   // un mensaje dentro de la misma sala: el habitante se lo da en mano al holograma de la tarea (messenger.ts)
+  | { t: 'programados'; lista: ScheduledMessage[] }   // los mensajes programados pendientes (shared/scheduled.ts)
   | { t: 'recargar' }
   | { t: 'reiniciando' };
 
-import type { ScheduledMessage } from './programados.ts';
+import type { ScheduledMessage } from './scheduled.ts';
 
 // el nombre del juego y, por defecto, del refugio
 export const GAME_NAME = 'work-shelter';

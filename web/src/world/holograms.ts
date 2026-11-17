@@ -8,25 +8,25 @@
 // color, pulses while it works. When created, the projector comes down a tube from the ceiling, its author goes to
 // mount it with the wrench and the copy materializes on top; when discarded it fades away.
 // Each copy is a talker of its own, like a clone: with E (or a click) you talk to it on its intercom, which is not its
-// author's (ui/copias.ts); whatever is worked on inside the worktree lives in it.
+// author's (ui/copies.ts); whatever is worked on inside the worktree lives in it.
 import * as THREE from 'three';
-import type { Refugio } from './refugio';
-import { BACKGROUND, type Sala } from './salas/comun';
-import { Habitante } from './habitante';
-import { callOut, type Character } from './personaje';
-import { gltf, measure, place, R } from '../motor/assets';
-import { audioWorld } from '../audio/mundo';
-import { vivo } from '../red/cliente';
-import { scheduledMark } from './etiquetas';
-import { SFX } from '../audio/sonido';
-import { SHOP } from '@shared/catalogo';
-import { t, tIs } from '@shared/idioma';
-import type { InfoWorktree, SessionSummary } from '@shared/protocolo';
-import { taskColor, hasTaskColor, worktreeTask, NO_TASK_COLOR } from '@shared/tareas';
-import { jiraBoard, knowTasks, taskEpic, versionColors } from '../ui/tareas';
-import type { DwellerState, DwellerSummary } from '../ui/estadoJuego';
-import { idCopy, branchCaption, copyCaption, pathWorktree } from '../ui/copias';
-import { holoSlot } from './sitioCopia';
+import type { Refugio } from './shelter';
+import { BACKGROUND, type Sala } from './rooms/common';
+import { Habitante } from './dweller';
+import { callOut, type Character } from './character';
+import { gltf, measure, place, R } from '../engine/assets';
+import { audioWorld } from '../audio/world';
+import { vivo } from '../net/client';
+import { scheduledMark } from './labels';
+import { SFX } from '../audio/sound';
+import { SHOP } from '@shared/catalog';
+import { t, tIs } from '@shared/language';
+import type { InfoWorktree, SessionSummary } from '@shared/protocol';
+import { taskColor, hasTaskColor, worktreeTask, NO_TASK_COLOR } from '@shared/tasks';
+import { jiraBoard, knowTasks, taskEpic, versionColors } from '../ui/tasks';
+import type { DwellerState, DwellerSummary } from '../ui/gameState';
+import { idCopy, branchCaption, copyCaption, pathWorktree } from '../ui/copies';
+import { holoSlot } from './copySpot';
 
 const MAX_BY_ROOM = 30;   // alto a propósito: son intangibles, si no caben se solapan sin estorbar
 const COLOR = new THREE.Color(NO_TASK_COLOR), COLOR_FAULT = new THREE.Color('#ff6a4a');
@@ -123,7 +123,7 @@ export interface Copia {
   lookClock: number; busyClock: number;
   montaje: Montaje | null;   // el proyector bajando por su tubo y su autor montándolo (recién creada)
   talking: boolean; chatTurn: number;   // en una charla con el Supervisor: de pie y mirándole
-  tarea?: string; tone: THREE.Color; versionTone?: number;         // la tarea del worktree y su color (shared/tareas.ts); sin tarea, el cian de serie
+  tarea?: string; tone: THREE.Color; versionTone?: number;         // la tarea del worktree y su color (shared/tasks.ts); sin tarea, el cian de serie
 }
 
 interface Montaje { tubo: THREE.Object3D; t: number; fase: 'baja' | 'cae' | 'sube' | 'listo'; montado: boolean; fin: number }
@@ -492,7 +492,7 @@ export class Holograms {
   ofSession(id: string) { for (const f of this.figuras.values()) if (f.sesionId === id) return f; }
   ofPath(ruta: string) { const r = ruta.replace(/\/+$/, ''); for (const f of this.figuras.values()) if (f.ruta.replace(/\/+$/, '') === r) return f; }
 
-  /** El robot mensajero le trae una revisión de su PR (mensajero.ts): de pie, se gira hacia él y la recoge; sentada,
+  /** El robot mensajero le trae una revisión de su PR (messenger.ts): de pie, se gira hacia él y la recoge; sentada,
    *  trabajando o hablando con el Supervisor, sigue a lo suyo */
   receive(f: Copia, desde: THREE.Vector3) {
     if (f.talking || f.leaving || !f.listo || f.pose !== 'pie') return;

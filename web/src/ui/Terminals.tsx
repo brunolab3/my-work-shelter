@@ -1,9 +1,9 @@
 // Terminales de sala: shell de login real sobre PTY en la carpeta de la sala, para lo que solo el humano puede hacer
 // (sudo, prompts interactivos, logins, Claude Code a mano). Se manejan como las de un sistema operativo corriente:
-// - cada ventana tiene pestañas, se minimiza a la barra de abajo a la izquierda (Barra.tsx) y al volver se ve lo mismo
+// - cada ventana tiene pestañas, se minimiza a la barra de abajo a la izquierda (Bar.tsx) y al volver se ve lo mismo
 //   que antes (el shell y lo que corra dentro siguen vivos), se amplía (también con doble clic en la cabecera) y se
 //   cierra; si dentro hay algo en marcha (Claude Code, un build, vim…) pide confirmación, porque cerrar lo termina.
-//   Botones, pestañas y atajos son los de todas las ventanas del refugio (ventanas.tsx).
+//   Botones, pestañas y atajos son los de todas las ventanas del refugio (windows.tsx).
 // Esc y Ctrl+C van siempre al programa, como en iTerm: paran a Claude Code, salen de él o de lo que sea; nunca
 // cierran ni esconden la ventana. Para volver al refugio: minimizar o hacer clic fuera.
 // El teclado se comporta como en iTerm: protocolo de teclado de kitty para quien lo pida (Claude Code: Shift+Enter es
@@ -15,15 +15,15 @@ import { Unicode11Addon } from '@xterm/addon-unicode11';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { ClipboardAddon, type IClipboardProvider } from '@xterm/addon-clipboard';
 import '@xterm/xterm/css/xterm.css';
-import { cliente, vivo } from '../red/cliente';
-import { Store } from './almacen';
-import { t } from '@shared/idioma';
-import { SFX } from '../audio/sonido';
-import { physicsKey } from '../audio/teclado';
-import { MAC, nextZ, windowShortcut, WindowButtons, Tabs, Confirmation } from './ventanas';
-import { pathWorktree, worktreesKnown } from './copias';
-import { worktreeTask } from '@shared/tareas';
-import { takeASurface } from './superficie';
+import { cliente, vivo } from '../net/client';
+import { Store } from './store';
+import { t } from '@shared/language';
+import { SFX } from '../audio/sound';
+import { physicsKey } from '../audio/keyboard';
+import { MAC, nextZ, windowShortcut, WindowButtons, Tabs, Confirmation } from './windows';
+import { pathWorktree, worktreesKnown } from './copies';
+import { worktreeTask } from '@shared/tasks';
+import { takeASurface } from './surface';
 
 // una pestaña es un PTY; su id es el de la ventana (la primera) o el de la ventana con «::n» (las siguientes)
 // fuera: cuántas terminales de tu escritorio la tienen abierta (./shelter enganchar): es el mismo PTY, en los dos sitios

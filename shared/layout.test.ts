@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { distribute, floorCaption, alphabeticalOrder, REPOS_BY_FLOOR, placeRoom, moveFloor, disposicionDeSerie } from './disposicion.ts';
-import { INITIAL_ROOMS } from './refugioInicial.ts';
+import { distribute, floorCaption, alphabeticalOrder, REPOS_BY_FLOOR, placeRoom, moveFloor, disposicionDeSerie } from './layout.ts';
+import { INITIAL_ROOMS } from './initialShelter.ts';
 
 const sitio = (s: { planta: number; lado: string; orden: number }) => `${s.planta}${s.lado}${s.orden}`;
 const repo = (nombre: string) => ({ id: nombre, tipo: 'repo', nombre });

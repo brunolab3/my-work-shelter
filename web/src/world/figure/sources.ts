@@ -3,11 +3,11 @@
 // aparte, con la región de cada vértice, y se guardan para todas las figuras que la lleven.
 import * as THREE from 'three';
 import type { GLTF } from 'three/addons/loaders/GLTFLoader.js';
-import { gltf } from '../../motor/assets';
-import { SOURCES, REGIONS, type Piece, type Slot, type Region } from '@shared/aspecto';
-import { dismantleHead, components, centerTri, strips, trisStrips, clothesRegions, tintSame, numTris, HEAD_KINDS, type Atlas, type HeadBreakdown, type HeadKind } from './despiece';
-import { SETTINGS } from './ajustes';
-import { HEAD_CENTER, measureField, rellenar, quotient, stretch, type Field } from './horma';
+import { gltf } from '../../engine/assets';
+import { SOURCES, REGIONS, type Piece, type Slot, type Region } from '@shared/appearance';
+import { dismantleHead, components, centerTri, strips, trisStrips, clothesRegions, tintSame, numTris, HEAD_KINDS, type Atlas, type HeadBreakdown, type HeadKind } from './breakdown';
+import { SETTINGS } from './overrides';
+import { HEAD_CENTER, measureField, rellenar, quotient, stretch, type Field } from './headShape';
 
 export interface Source {
   nombre: string;

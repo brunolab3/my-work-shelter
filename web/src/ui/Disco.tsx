@@ -1,25 +1,25 @@
-// La música del refugio: Spotify web, en el navegador de la discoteca (Navegadores.tsx). Suena en un Google Chrome sin
-// ventana (electron/chromeRemoto.cjs: el DRM de Spotify solo da licencias a navegadores certificados) y el juego enseña
+// La música del refugio: Spotify web, en el navegador de la discoteca (Browsers.tsx). Suena en un Google Chrome sin
+// ventana (electron/remoteChrome.cjs: el DRM de Spotify solo da licencias a navegadores certificados) y el juego enseña
 // y maneja su página. En la discoteca se abre Spotify y se elige lo que sea; al
 // minimizarlo, la pletina se queda abajo a la izquierda, encima de la barra de ventanas, hasta que se cierre Spotify:
 // compacta (disco, tema y artista) y, con el ratón encima o con ⌘J, desplegada con los mandos.
-// La pletina lee y maneja la página con el mando que se le inyecta (electron/mandoMusica.js): lo que Spotify le
+// La pletina lee y maneja la página con el mando que se le inyecta (electron/musicControl.js): lo que Spotify le
 // cuenta al sistema para las teclas multimedia (tema, artista, carátula, posición) y sus acciones (reproducir, pausa,
 // temas, saltar). Lo que suena va a vivo.musica: la sala lo enseña en su pantalla y el ambiente del refugio baja.
 // ⌘J (o J en el refugio), como ⌘B con la barra: sin Spotify, lo abre; con Spotify delante, lo minimiza; con la pletina,
 // la despliega para manejarla con el teclado (Espacio, ←→ ±10 s, ⇧←→ temas, ↑↓ volumen, Intro abre Spotify, Esc sale).
 import React, { useEffect, useRef, useState } from 'react';
-import type { MusicState } from '@shared/protocolo';
-import { firstMapNow } from '../motor/foco';
-import { vivo } from '../red/cliente';
-import { SFX, sonido } from '../audio/sonido';
-import { openBrowser, onFront, minimizar, navegadores, evaluateIn, IN_ELECTRON } from './Navegadores';
-import { Store } from './almacen';
-import { juego } from './estadoJuego';
-import { writing } from '../motor/teclado';
-import { MAC, CMD } from './ventanas';
-import { t } from '@shared/idioma';
-import { seleccion as barSelection } from './Barra';
+import type { MusicState } from '@shared/protocol';
+import { firstMapNow } from '../engine/focus';
+import { vivo } from '../net/client';
+import { SFX, sonido } from '../audio/sound';
+import { openBrowser, onFront, minimizar, navegadores, evaluateIn, IN_ELECTRON } from './Browsers';
+import { Store } from './store';
+import { juego } from './gameState';
+import { writing } from '../engine/keyboard';
+import { MAC, CMD } from './windows';
+import { t } from '@shared/language';
+import { seleccion as barSelection } from './Bar';
 
 /** Spotify en su navegador (si ya estaba abierto, al frente) */
 export function openSpotify() { openBrowser('spotify'); }

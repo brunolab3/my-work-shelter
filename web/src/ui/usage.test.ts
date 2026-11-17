@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { compactNeed } from './consumo';
+import { compactNeed } from './usage';
 
 const ctx = (porcentaje: number) => ({ usados: porcentaje * 2000, maximo: 200_000, porcentaje });
 

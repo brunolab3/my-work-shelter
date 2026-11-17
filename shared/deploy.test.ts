@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { bloqueosEntre, columnaDespliegue, dependenciasEnTexto, taskLinks, olasDespliegue, promptDeployment } from './despliegue';
-import type { PRBoard } from './tablero';
+import { bloqueosEntre, columnaDespliegue, dependenciasEnTexto, taskLinks, olasDespliegue, promptDeployment } from './deploy';
+import type { PRBoard } from './board';
 
 const pr = (numero: number, extra: Partial<PRBoard> = {}): PRBoard =>
   ({ numero, titulo: 'PR ' + numero, url: 'https://github.com/o/r/pull/' + numero, repo: 'o/r', rama: 'rama-' + numero, base: 'main', estado: 'abierto', actualizado: 0, ...extra });

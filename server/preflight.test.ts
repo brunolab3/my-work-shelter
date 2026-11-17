@@ -5,9 +5,9 @@ import os from 'node:os';
 import path from 'node:path';
 import { cachedPRs, cachedTaskPRs, localBranches, preflightOf, PageReviews, gatePush, preflightTools, repoChecks, type CtxPreflight } from './preflight.ts';
 import { mkdirSync } from 'node:fs';
-import { buildCompare } from './comparar.ts';
-import type { RoomPR } from './revisionesPR.ts';
-import type { PRBoard } from '../shared/tablero.ts';
+import { buildCompare } from './compare.ts';
+import type { RoomPR } from './prReviews.ts';
+import type { PRBoard } from '../shared/board.ts';
 
 // con git de verdad: dos repos (api y web) con un remoto cada uno, su clon (la copia principal de la sala) y el worktree
 // de la tarea; sin la configuración global del Supervisor

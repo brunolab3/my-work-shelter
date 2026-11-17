@@ -1,13 +1,13 @@
-// Confianza en la carpeta (sesiones.ts): la configuración de proyecto de un repo solo se carga si se ha aceptado en Claude Code
+// Confianza en la carpeta (sessions.ts): la configuración de proyecto de un repo solo se carga si se ha aceptado en Claude Code
 // o en el juego
 import { describe, expect, it } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
-import { confianza } from './sesiones.ts';
-import { EXAMPLES_FOLDER } from './ejemplos.ts';
-import { ROOMS_FOLDERS } from './estado.ts';
+import { confianza } from './sessions.ts';
+import { EXAMPLES_FOLDER } from './examples.ts';
+import { ROOMS_FOLDERS } from './state.ts';
 
 describe('confianza en la carpeta', () => {
   const base = mkdtempSync(path.join(os.tmpdir(), 'confianza-'));

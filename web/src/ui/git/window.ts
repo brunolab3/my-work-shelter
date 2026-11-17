@@ -1,9 +1,9 @@
 // Estado de la ventana del cliente de git: una sola, como un navegador del refugio (centrada; ampliar a toda la pantalla;
 // minimizar a la barra, fila GIT). Se abre desde el puesto de Control de Versiones, con G en el refugio (en una sala de
 // repo, con ese repo) o desde el panel de cualquier sala de repo.
-import { Store } from '../almacen';
-import { SFX } from '../../audio/sonido';
-import { nextZ } from '../ventanas';
+import { Store } from '../store';
+import { SFX } from '../../audio/sound';
+import { nextZ } from '../windows';
 
 export type ViewGit = 'cambios' | 'historial' | 'ramas' | 'github' | 'prs';
 export interface WindowGit { abierta: boolean; minimizada: boolean; maximizada: boolean; z: number; ruta: string | null; vista: ViewGit; ocupado: boolean }

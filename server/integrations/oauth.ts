@@ -5,7 +5,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { t, idioma } from '../../shared/idioma.ts';
+import { t, idioma } from '../../shared/language.ts';
 
 const WAIT_LOGIN = 5 * 60_000;
 

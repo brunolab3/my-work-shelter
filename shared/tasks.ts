@@ -139,11 +139,11 @@ export function remoteName(repo: string, titulo: string, wt?: { ruta: string; ra
 
 // The tasks' palette: 16 well-distinct colors (no reds, which mean faults and blocks, nor NO_TASK_COLOR), ordered so each
 // one moves away from the previous ones. The server gives each new task the least used among recent ones and saves it
-// (server/coloresTareas.ts): so two tasks at a time almost never share a color.
+// (server/taskColors.ts): so two tasks at a time almost never share a color.
 export const TASKS_PALETTE = ['#ffd23f', '#c77dff', '#4dabff', '#7bff5d', '#ff8fd1', '#ff9f43', '#00c896', '#a0a8ff',
   '#f5f5a0', '#ff6fff', '#2f7dff', '#b8ff9f', '#d9a066', '#e0b0ff', '#3ee0b0', '#ffb3a0'];
 
-/** Los colores ya asignados (los manda el servidor; web/src/ui/tareas.ts los pide para las tareas que se ven) */
+/** Los colores ya asignados (los manda el servidor; web/src/ui/tasks.ts los pide para las tareas que se ven) */
 export const assignedColors = new Map<string, string>();
 
 /** The color of everything that isn't a board task (slug tasks, worktrees without a task): the holograms' cyan, outside

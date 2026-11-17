@@ -1,15 +1,15 @@
 // Avisos de macOS: si un habitante (o una copia) se queda esperando tu respuesta con el juego detrás de otra app,
 // minimizado u oculto, lo dice el Mac; pulsar el aviso trae el juego con esa conversación abierta. Los da la app
 // (electron/main.cjs, que no avisa con el juego delante ni después de salir a la superficie); en el navegador, nada.
-// The Dock icon also carries a badge while someone waits for you (dockBadge in avisosPendientes.ts).
-import { vivo } from '../red/cliente';
-import { juego } from './estadoJuego';
-import { openConversation } from './Dialogo';
-import { sessionOwner } from './copias';
-import { firstMapNow } from '../motor/foco';
-import { noticeChanges, dockBadge } from './avisosPendientes';
-import { t, tIs } from '@shared/idioma';
-import type { SessionSummary } from '@shared/protocolo';
+// The Dock icon also carries a badge while someone waits for you (dockBadge in pendingNotices.ts).
+import { vivo } from '../net/client';
+import { juego } from './gameState';
+import { openConversation } from './Dialog';
+import { sessionOwner } from './copies';
+import { firstMapNow } from '../engine/focus';
+import { noticeChanges, dockBadge } from './pendingNotices';
+import { t, tIs } from '@shared/language';
+import type { SessionSummary } from '@shared/protocol';
 
 interface WindowSystem { notify?: (id: string, titulo: string, cuerpo: string) => Promise<boolean>; removeNotice?: (id: string) => Promise<void>; onNoticeClick?: (f: (id: string) => void) => void; setBadge?: (texto: string) => Promise<void> }
 

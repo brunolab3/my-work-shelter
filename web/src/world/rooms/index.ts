@@ -1,31 +1,31 @@
 // Fábrica de salas: elige el mobiliario según el tipo de cada sala guardada y, en las de repo, su decorado o su estilo.
-import { furnishGeneric } from './generica';
+import { furnishGeneric } from './generic';
 import * as THREE from 'three';
-import { TEMPLATE_SUBTITLE, TEMPLATE_PANELS, furnishFoundry, furnishLaboratory, furnishStudio, furnishFile } from './plantillas';
-import { furnishDecor } from './decorado';
-import { baseStock, boardSpot, roomSeed, type BaseDecor, type BoardSpot, type Decorado } from '@shared/decorado';
-import { mountTaskBoard } from './tableroTareas';
-import { vivo } from '../../red/cliente';
-import type { Interactive } from './comun';
-import { VARIANTS } from '../../motor/paleta';
-import { ROOM_DESCRIPTION } from '@shared/refugioInicial';
-import { roomTone, STYLE_PALETTE } from '@shared/sectores';
-import { createRoom, type Furnish, type Sala, type RoomType } from './comun';
-import { furnishTallerWeb } from './tallerWeb';
+import { TEMPLATE_SUBTITLE, TEMPLATE_PANELS, furnishFoundry, furnishLaboratory, furnishStudio, furnishFile } from './templates';
+import { furnishDecor } from './decor';
+import { baseStock, boardSpot, roomSeed, type BaseDecor, type BoardSpot, type Decorado } from '@shared/decor';
+import { mountTaskBoard } from './taskBoard';
+import { vivo } from '../../net/client';
+import type { Interactive } from './common';
+import { VARIANTS } from '../../engine/palette';
+import { ROOM_DESCRIPTION } from '@shared/initialShelter';
+import { roomTone, STYLE_PALETTE } from '@shared/sectors';
+import { createRoom, type Furnish, type Sala, type RoomType } from './common';
+import { furnishTallerWeb } from './webWorkshop';
 import { furnishShowcase } from './landing';
-import { furnishFileMark } from './marca';
+import { furnishFileMark } from './brand';
 import { furnishProjection } from './video';
-import { furnishCommunications, furnishPlanning, furnishLogistics } from './operativas';
-import { furnishDeployment } from './despliegue';
-import { furnishGate } from './servicio';
-import { furnishCamera } from './camara';
-import { furnishBridge } from './puente';
-import { furnishHydroponics, furnishGallery } from './ocio';
+import { furnishCommunications, furnishPlanning, furnishLogistics } from './operations';
+import { furnishDeployment } from './deploy';
+import { furnishGate } from './service';
+import { furnishCamera } from './vault';
+import { furnishBridge } from './bridge';
+import { furnishHydroponics, furnishGallery } from './leisure';
 import { furnishGit } from './git';
-import { furnishDisco } from './discoteca';
-import { furnishBodyshop } from './chapa';
-import { t, tIs } from '@shared/idioma';
-import { PLANNING_ROOM } from '@shared/disposicion';
+import { furnishDisco } from './disco';
+import { furnishBodyshop } from './bodyShop';
+import { t, tIs } from '@shared/language';
+import { PLANNING_ROOM } from '@shared/layout';
 
 export interface SavedRoom { id: string; tipo: RoomType; nombre: string; ruta?: string; planta: number; lado: 'izq' | 'der'; orden: number; variant: string; estilo?: string; area?: string; decorado?: Decorado }
 
@@ -109,7 +109,7 @@ export async function buildRoom(sg: SavedRoom, numero: number, pasos: { izq: boo
   return sala;
 }
 
-// la pintura de la sala es la de su sector (shared/sectores.ts); paredes y pantallas, de su paleta. En los repos la
+// la pintura de la sala es la de su sector (shared/sectors.ts); paredes y pantallas, de su paleta. En los repos la
 // paleta sale del estilo, no de la guardada: antes se repartía por turno al reclutar
 // (el decorado puede cambiar la paleta y el acento)
 function variantOf(sg: SavedRoom) {

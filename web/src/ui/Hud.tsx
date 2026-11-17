@@ -2,12 +2,12 @@
 // con la placa del refugio, la hora real, los contadores de «qué pasa ahora» en ventanas de fósforo (con su tecla
 // siempre a la vista) y las dos puertas de lo demás: el buscador (⌘K) y el menú del juego (Esc), que lleva el reinicio.
 import React, { useEffect, useState } from 'react';
-import { juego } from './estadoJuego';
-import { t, idioma } from '@shared/idioma';
-import { vivo } from '../red/cliente';
-import { openSearch } from './Buscador';
-import { minimizeIntercom } from './Dialogo';
-import { MAC } from './ventanas';
+import { juego } from './gameState';
+import { t, idioma } from '@shared/language';
+import { vivo } from '../net/client';
+import { openSearch } from './Search';
+import { minimizeIntercom } from './Dialog';
+import { MAC } from './windows';
 
 const LOC = idioma() === 'en' ? 'en-GB' : 'es-ES';
 const fmtHour = new Intl.DateTimeFormat(LOC, { hour: '2-digit', minute: '2-digit' });

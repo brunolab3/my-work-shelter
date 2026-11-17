@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { reviewsOfGitHub, withoutNothingThatMake, remoteRepo, branchKey, sessionOfPR, reviewMessage, ReviewsPR, type RoomPR, type CtxReviews } from './revisionesPR.ts';
-import type { SessionSummary } from '../shared/protocolo.ts';
+import { reviewsOfGitHub, withoutNothingThatMake, remoteRepo, branchKey, sessionOfPR, reviewMessage, ReviewsPR, type RoomPR, type CtxReviews } from './prReviews.ts';
+import type { SessionSummary } from '../shared/protocol.ts';
 import { readFileSync } from 'node:fs';
 
 const T0 = Date.parse('2026-11-10T10:00:00Z');

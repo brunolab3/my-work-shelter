@@ -1,11 +1,11 @@
 // Sala de repositorio «archivo de marca» (estilo marca): muro de muestras de color y logotipos, mesa de dibujo
 // con planos, estanterías de catálogos y botes de pintura. Aquí manda el manual de marca.
-import { t, t as tr } from '@shared/idioma';
+import { t, t as tr } from '@shared/language';
 import * as THREE from 'three';
-import { place, R } from '../../motor/assets';
-import { cartel, PhosphorScreen, PanelRoom, markSamples } from '../../motor/texturas';
+import { place, R } from '../../engine/assets';
+import { cartel, PhosphorScreen, PanelRoom, markSamples } from '../../engine/textures';
 import { overlayScreen, screenFrontal } from '../util3d';
-import { signInWall, mancha, highBand, type Contexto, screenReal, workStation, aWall } from './comun';
+import { signInWall, mancha, highBand, type Contexto, screenReal, workStation, aWall } from './common';
 
 export async function furnishFileMark(ctx: Contexto) {
   const { g, v, zB, K, P, semilla } = ctx;

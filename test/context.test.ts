@@ -1,17 +1,17 @@
 // Lo que se carga en cada sesión cuesta contexto en todas (AGENTS.md, «Lean knowledge»): estos topes lo mantienen
-// corto. Si una prueba falla, no subas el tope: arréglalo en código, muévelo a docs/mapa.md (se lee cuando hace falta) o
+// corto. Si una prueba falla, no subas el tope: arréglalo en código, muévelo a docs/map.md (se lee cuando hace falta) o
 // recórtalo. Lo que sale bajo demanda (la guía de decorados, el resultado de una herramienta) no cuenta.
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import { TEXTS } from '../shared/textos.ts';
-import { ANNEX, bridgeAnnex, annexGit, HIDDEN_SKILLS, withoutWorkConnectors } from '../server/anexo.ts';
+import { TEXTS } from '../shared/texts.ts';
+import { ANNEX, bridgeAnnex, annexGit, HIDDEN_SKILLS, withoutWorkConnectors } from '../server/annex.ts';
 
 const raiz = path.resolve(__dirname, '..');
 const largo = (k: string) => Math.max(TEXTS[k].es.length, TEXTS[k].en?.length ?? 0);
 
 describe('contexto de cada sesión', () => {
-  it('AGENTS.md (every session in this repo) fits in 1.6 KB: features go in docs/mapa.md', () => {
+  it('AGENTS.md (every session in this repo) fits in 1.6 KB: features go in docs/map.md', () => {
     expect(Buffer.byteLength(readFileSync(path.join(raiz, 'AGENTS.md'), 'utf8'))).toBeLessThanOrEqual(1600);
     expect(readFileSync(path.join(raiz, 'CLAUDE.md'), 'utf8').trim()).toBe('@AGENTS.md');
   });

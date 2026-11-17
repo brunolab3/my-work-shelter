@@ -1,8 +1,8 @@
-// QA of a link's options in replies and in pages of the «Página» window (web/src/ui/opcionesEnlace.ts): a click on a
+// QA of a link's options in replies and in pages of the «Página» window (web/src/ui/linkOptions.ts): a click on a
 // link opens it its first way; a right click opens a list at it, the in-game option first and marked; Enter takes it, Esc or a click elsewhere
 // closes it; a missing file shows the list with a warning; thumbnails open directly. A second context poses as Electron
 // (its user agent) to see the «Open in the game» of a web and its «Web» window (the <webview> itself only loads in Electron).
-// Usage: node scripts/qa-opciones-enlace.mjs [url] [screenshots folder]   (with a test shelter: SHELTER_DATOS=/tmp/x npm run dev)
+// Usage: node scripts/qa-link-options.mjs [url] [screenshots folder]   (with a test shelter: SHELTER_DATOS=/tmp/x npm run dev)
 import { chromium } from 'playwright';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { withToken } from './token.mjs';

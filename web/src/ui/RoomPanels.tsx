@@ -1,33 +1,33 @@
 // Aparatos propios de cada sala especial (puerta, panel de sala de repo; cámara acorazada, comunicaciones, planificación, logística
-// y actividades en sus propios módulos; la música de la discoteca, en Discoteca.tsx).
+// y actividades en sus propios módulos; la música de la discoteca, en Disco.tsx).
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { juego, type Panel } from './estadoJuego';
-import { vivo, cliente } from '../red/cliente';
-import { SFX } from '../audio/sonido';
-import { t, tIs, trBio } from '@shared/idioma';
-import { Device, Opciones, Keys, closePanel, useMenu, useKeys, type ItemMenu } from './aparato';
-import { generateRecruit } from '@shared/reclutas';
-import { PLANNING_ROOM } from '@shared/disposicion';
-import { REPO_TYPE } from '@shared/etiquetas';
-import { AREAS, SECTORS, sectorOf } from '@shared/sectores';
-import { PanelCamera } from './Camara';
-import { PanelCommunications, PanelPlanning, PanelLogistics, BoardJira } from './Operativas';
-import { PanelActivity } from './Actividades';
-import { DeploymentBoard } from './Despliegue';
-import { OrganizeRooms } from './Organizar';
-import { openSpotify } from './Discoteca';
-import { PanelBodyshop, Retratillo } from './Probador';
-import { lookOf, lookSummary } from '@shared/aspecto';
-import { goA } from './Paneles';
-import { idCopy } from './copias';
-import { claimVisitors } from './Dialogo';
-import { openGit } from './git/ventana';
-import type { InfoRepo } from '@shared/protocolo';
+import { juego, type Panel } from './gameState';
+import { vivo, cliente } from '../net/client';
+import { SFX } from '../audio/sound';
+import { t, tIs, trBio } from '@shared/language';
+import { Device, Opciones, Keys, closePanel, useMenu, useKeys, type ItemMenu } from './device';
+import { generateRecruit } from '@shared/recruits';
+import { PLANNING_ROOM } from '@shared/layout';
+import { REPO_TYPE } from '@shared/labels';
+import { AREAS, SECTORS, sectorOf } from '@shared/sectors';
+import { PanelCamera } from './Vault';
+import { PanelCommunications, PanelPlanning, PanelLogistics, BoardJira } from './Operations';
+import { PanelActivity } from './Activities';
+import { DeploymentBoard } from './Deploy';
+import { OrganizeRooms } from './Organize';
+import { openSpotify } from './Disco';
+import { PanelBodyshop, Retratillo } from './FittingRoom';
+import { lookOf, lookSummary } from '@shared/appearance';
+import { goA } from './Panels';
+import { idCopy } from './copies';
+import { claimVisitors } from './Dialog';
+import { openGit } from './git/window';
+import type { InfoRepo } from '@shared/protocol';
 
-// el resumen del aspecto (shared/aspecto.ts) sale en español: se traduce por partes
+// el resumen del aspecto (shared/appearance.ts) sale en español: se traduce por partes
 const trSummary = (s: string) => { const k = s.indexOf(': '); return tIs(s.slice(0, k)) + ': ' + s.slice(k + 2).split(', ').map(x => tIs(x)).join(', '); };
 
-// Remote Control de la sala (server/controlRemoto.ts)
+// Remote Control de la sala (server/remoteControl.ts)
 type StateRC = { estado: 'apagado' | 'encendido' | 'aceptar' | 'error'; detalle?: string; url?: string; nombre?: string };
 
 export function PanelesSala({ panel }: { panel: Panel }) {
@@ -186,7 +186,7 @@ function ConfirmLink({ sala, ejemplo, ruta, nombre, volver }: { sala: any; ejemp
 
 
 // ---------------------------------------------------------------- panel de una sala de repositorio
-/** «Adaptar la sala al repo»: su habitante lee el repo y le diseña una escena con el atrezo del juego (decoradoSala.ts
+/** «Adaptar la sala al repo»: su habitante lee el repo y le diseña una escena con el atrezo del juego (roomDecor.ts
  *  en el servidor); la conversación queda abierta para seguir retocándola */
 export async function adaptRoom(salaId: string) {
   const h = juego.get().habitantes.find(x => x.sala === salaId && !x.copia);
@@ -312,7 +312,7 @@ function PanelWorktree() {
   const items: (ItemMenu & { f: () => void })[] = info ? [
     ...(copia ? [{ texto: <>{t('panels.talkToTheCopyOf')} <b>{copia.copia?.nameAuthor}</b></>, pista: dentro ? t('panels.theirConversationInThisWorktree') : t('panels.theirIntercom'), f: () => { closePanel(); goA(salaId, copia.id, true); } }]
       : insideWho ? [{ texto: <>{t('panels.talkTo')} <b>{insideWho.nombre}</b> {t('panels.aboutWhatTheyReDoing')}</>, pista: t('panels.theirConversationInThisWorktree'), f: () => { closePanel(); goA(salaId, insideWho.id, true); } }] : []),
-    { texto: t('windows.openATerminalInside'), f: async () => { const { openTerminalIn } = await import('./Terminales'); closePanel(); openTerminalIn('wt:' + ruta, salaId, `${sala?.nombre ?? ''} · ${info.rama}`, ruta); } },
+    { texto: t('windows.openATerminalInside'), f: async () => { const { openTerminalIn } = await import('./Terminals'); closePanel(); openTerminalIn('wt:' + ruta, salaId, `${sala?.nombre ?? ''} · ${info.rama}`, ruta); } },
     ...(copia || libre ? [{ texto: copia ? <>{t('panels.workInsideWithTheCopy')}</> : <>{t('panels.workInsideWith')} <b>{libre!.nombre}</b></>, pista: t('panels.newSessionInThisWorktree'), f: () => { juego.set({ workIn: { cwd: ruta, rama: info.rama } }); closePanel(); goA(salaId, copia?.id ?? libre!.id, true); } }] : []),
     ...(libre ? [{ texto: <>{t('panels.mergeHave')} <b>{libre.nombre}</b> {t('panels.mergeTheBranchAndClean')}</>, pista: t('panels.intoBaseWithTheirPermissions', { base: info.base }), f: async () => {
       const prompt = await cliente.accion<string>('worktree.promptIntegrar', { ruta });

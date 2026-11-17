@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { bloqueosEntre } from './despliegue';
+import { bloqueosEntre } from './deploy';
 import { checklistCell, checklistFromClaudeMd, compareCell, conflictsCell, gateMissing, mergeReady, preflightTarea, pushOf, taskHasPRs, reviewCell, syncCell, type CompareRecord, type LocalBranch, type RoomRepo } from './preflight';
-import type { PRBoard } from './tablero';
+import type { PRBoard } from './board';
 
 // repos, salas y personas inventados
 const pr = (repo: string, numero: number, extra: Partial<PRBoard> = {}): PRBoard =>

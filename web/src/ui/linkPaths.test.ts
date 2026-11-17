@@ -1,7 +1,7 @@
-// Rutas del Mac sueltas en el texto: se enlazan solas (rutasEnlace.ts), pero no dentro de código ni de otro enlace
+// Rutas del Mac sueltas en el texto: se enlazan solas (linkPaths.ts), pero no dentro de código ni de otro enlace
 import { describe, expect, it } from 'vitest';
 import { Marked } from 'marked';
-import { localPathLinks } from './rutasEnlace';
+import { localPathLinks } from './linkPaths';
 
 const md = (texto: string) => new Marked({ gfm: true }, localPathLinks).parse(texto, { async: false }) as string;
 

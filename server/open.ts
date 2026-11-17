@@ -7,8 +7,8 @@ import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { t } from '../shared/idioma.ts';
-import type { LocalKind } from '../shared/opcionesEnlace.ts';
+import { t } from '../shared/language.ts';
+import type { LocalKind } from '../shared/linkOptions.ts';
 
 const EDITORS = [['/Applications/Cursor.app', 'Cursor'], ['/Applications/Visual Studio Code.app', 'Visual Studio Code']];
 const editorOfMac = () => EDITORS.find(([ruta]) => existsSync(ruta))?.[1] ?? null;
@@ -60,7 +60,7 @@ export async function realOfLink(enlace: string, casa: string) {
   if (!ruta) throw new Error(t('server.thatLinkIsNotA'));
   return fs.realpath(ruta).catch(() => { throw new Error(t('server.doesNotExist', { ruta })); });
 }
-/** Where openLocal would send it, without opening it (the options of a link, web/src/ui/opcionesEnlace.ts) */
+/** Where openLocal would send it, without opening it (the options of a link, web/src/ui/linkOptions.ts) */
 export async function localKind(real: string): Promise<LocalKind> {
   if ((await fs.stat(real)).isDirectory()) return isPackage(real) ? 'finder' : 'carpeta';
   return OF_BROWSER.test(real) ? 'web' : OF_PREVIEW.test(real) ? 'vista' : OF_TEXT.test(real) ? 'editor' : 'finder';

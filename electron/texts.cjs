@@ -1,6 +1,6 @@
 // Electron's own texts (menus, dialogs, the boot screen, Chrome errors) in the game's language. Electron can't import
-// the TS catalogue (shared/textos/) nor read the page's localStorage: the game tells it its language over IPC on every
-// load (`idioma` in precarga.cjs) and it is remembered in userData for the next boot screen.
+// the TS catalogue (shared/texts/) nor read the page's localStorage: the game tells it its language over IPC on every
+// load (`idioma` in preload.cjs) and it is remembered in userData for the next boot screen.
 const fs = require('node:fs');
 const path = require('node:path');
 

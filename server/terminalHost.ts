@@ -13,10 +13,10 @@ import path from 'node:path';
 import { existsSync, statSync, chmodSync, unlinkSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import pty, { type IPty } from 'node-pty';
-import { t as tr } from '../shared/idioma.ts';
+import { t as tr } from '../shared/language.ts';
 
 const SOCK = process.argv[2];
-if (!SOCK) { console.error('Uso: anfitrionTerminales.ts <socket>'); process.exit(2); }
+if (!SOCK) { console.error('Uso: terminalHost.ts <socket>'); process.exit(2); }
 interface Term { p: IPty; shell: string; cwd: string; bufer: string; modos: Map<number, boolean>; kitty: number[]; queue: string; suffix: string; fuera: Set<net.Socket>; tamano: [number, number] }
 const VERSION = 2;
 const t = new Map<string, Term>();

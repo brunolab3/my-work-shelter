@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { sendToRoom, requestCleanup, taskWorktree, forgetLimits, forgetThreads, type CtxRooms } from './avisosSalas.ts';
+import { sendToRoom, requestCleanup, taskWorktree, forgetLimits, forgetThreads, type CtxRooms } from './roomNotices.ts';
 import { infoRepo, worktreeList } from './repos.ts';
 
 const SALAS = [

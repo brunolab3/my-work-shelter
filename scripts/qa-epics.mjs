@@ -4,7 +4,7 @@
 //   the epic in its tooltip; the others have none;
 // - a holographic copy working REF-236 (epic REF-200): its tag has the diamond, the tag of a copy without an epic doesn't;
 // - its intercom: the tab has the diamond, and the bar's ⋯ N list beside the task's marker.
-// Needs the built client (npx vite build). Usage: node scripts/qa-epicas.mjs [screenshots-folder]   (SHELTER_PUERTO_QA, 3797)
+// Needs the built client (npx vite build). Usage: node scripts/qa-epics.mjs [screenshots-folder]   (SHELTER_PUERTO_QA, 3797)
 import { chromium } from 'playwright';
 import { spawn, execFileSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, realpathSync } from 'node:fs';

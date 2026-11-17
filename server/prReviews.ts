@@ -4,16 +4,16 @@
 // repo o, si no, el de la tarea (la clave de Jira de la rama). El habitante lo analiza y propone un plan (qué arreglar
 // y qué contestar) al Supervisor, que lo aprueba antes de tocar nada. El robot mensajero lo lleva desde Control de
 // Versiones y se lo da en mano al holograma de ese worktree (o al habitante, si es la copia principal). Toda tarea
-// con PR tiene su worktree (organizar.ts): sin conversación abierta, se retoma la última de ese worktree (o se empieza
+// con PR tiene su worktree (organize.ts): sin conversación abierta, se retoma la última de ese worktree (o se empieza
 // una) con la revisión; sin worktree, se avisa (es raro: falta organizar la sala).
 // Sin conversación que lo reciba, se vuelve a intentar en la siguiente vuelta.
 // Solo lectura hacia GitHub: contestar en el PR lo hace el habitante desde su conversación, con el permiso del Supervisor.
 import { existsSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
 import path from 'node:path';
-import type { SessionSummary } from '../shared/protocolo.ts';
-import { t } from '../shared/idioma.ts';
-import { recentFirst, sessionRecency } from '../shared/recientes.ts';
-import { withoutNothingThatMake, cleanBody, reviewLedger, openThreads, ledgerPending, type ReviewLedger, type ReviewThread } from '../shared/cuentaRevisiones.ts';
+import type { SessionSummary } from '../shared/protocol.ts';
+import { t } from '../shared/language.ts';
+import { recentFirst, sessionRecency } from '../shared/recent.ts';
+import { withoutNothingThatMake, cleanBody, reviewLedger, openThreads, ledgerPending, type ReviewLedger, type ReviewThread } from '../shared/reviewCount.ts';
 
 export interface EventPR { id: string; tipo: 'revision' | 'hilo' | 'comentario'; autor: string; bot?: boolean; cuerpo: string; url: string; fecha: number; estado?: string; archivo?: string; linea?: number }
 export interface PRWithReview { numero: number; titulo: string; url: string; repo: string; rama: string; eventos: EventPR[]; ledger: ReviewLedger; hilos: ReviewThread[] }
@@ -69,7 +69,7 @@ export function remoteRepo(url: string): string | undefined {
 }
 /** La clave de Jira de una rama (feature/ABC-123-algo → ABC-123) */
 export const branchKey = (rama: string) => /(?:^|[^a-z0-9])([a-z][a-z0-9]+-\d+)(?=$|[^0-9])/i.exec(rama)?.[1]?.toUpperCase();
-/** Los números de PR que lleva el nombre de un worktree de una tarea sin clave (shelter-pr-12-13: organizar.ts) */
+/** Los números de PR que lleva el nombre de un worktree de una tarea sin clave (shelter-pr-12-13: organize.ts) */
 export const prsOfName = (nombre: string) => (/(?:^|-)pr-((?:\d+-?)+)$/i.exec(nombre)?.[1] ?? '').split('-').filter(Boolean).map(Number);
 
 /** La conversación abierta que trabaja en la rama de un PR: en un worktree (o la carpeta) de la sala de su repo con esa
@@ -129,7 +129,7 @@ export function reviewMessage(pr: PRWithReview, eventos: EventPR[]): string {
   ].join('\n');
 }
 
-/** La cuenta de lo que queda por contestar en el PR (shared/cuentaRevisiones.ts) y el recordatorio: cada hilo, arreglado o
+/** La cuenta de lo que queda por contestar en el PR (shared/reviewCount.ts) y el recordatorio: cada hilo, arreglado o
  *  contestado, y cada resumen contestado antes de descartar una revisión o volver a pedirla */
 export function ledgerLines(l?: ReviewLedger): string[] {
   if (!l) return [];

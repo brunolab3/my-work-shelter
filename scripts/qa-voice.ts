@@ -1,11 +1,11 @@
-// QA del dictado del intercomunicador (server/voz.ts): una frase dicha con `say` se manda como lo hace el cliente
+// QA del dictado del intercomunicador (server/voice.ts): una frase dicha con `say` se manda como lo hace el cliente
 // (PCM de 16 bits a 16 kHz en trozos de 0,25 s, a tiempo real) y se comprueba lo transcrito, en vivo y al final.
-//   npx tsx scripts/qa-voz.ts [datos]     (datos: carpeta donde compilar el transcriptor; por defecto, una temporal)
+//   npx tsx scripts/qa-voice.ts [datos]     (datos: carpeta donde compilar el transcriptor; por defecto, una temporal)
 import os from 'node:os';
 import path from 'node:path';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { Dictations, transcriptor, type VoiceEvent } from '../server/voz.ts';
+import { Dictations, transcriptor, type VoiceEvent } from '../server/voice.ts';
 
 const PHRASE = 'Hola, revisa la captura del intercomunicador y dime por qué el botón de enviar se ve cortado.';
 const datos = process.argv[2] ?? mkdtempSync(path.join(os.tmpdir(), 'shelter-qa-voz-'));

@@ -1,19 +1,19 @@
 // Pre-flight de una tarea (fase 1, solo lectura; el modelo en shared/preflight.ts): junta lo que hay de una tarea en todo
 // el refugio. Las salas de repo con sus worktrees, tus PR (los del tablero de despliegue más los abiertos de antes,
-// leídos de GitHub a lo sumo una vez por minuto), los bloqueos entre ellos (los manuales de bloqueosPR.ts y el orden
-// del plan) y las partes de su plan repartido (planes.ts). De git, solo lectura: la cabeza de cada rama de la tarea,
+// leídos de GitHub a lo sumo una vez por minuto), los bloqueos entre ellos (los manuales de prBlocks.ts y el orden
+// del plan) y las partes de su plan repartido (plans.ts). De git, solo lectura: la cabeza de cada rama de la tarea,
 // sus cambios sin commitear y cuántos commits tiene y le faltan respecto a la cabeza de su PR en GitHub (sin `fetch`:
 // si esa cabeza no está en el repo local, faltan commits remotos).
 import path from 'node:path';
 import { existsSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
 import fs from 'node:fs/promises';
-import type { PRBoard } from '../shared/tablero.ts';
-import { bloqueosEntre, type BlockerManual, type TaskOrder } from '../shared/despliegue.ts';
+import type { PRBoard } from '../shared/board.ts';
+import { bloqueosEntre, type BlockerManual, type TaskOrder } from '../shared/deploy.ts';
 import { preflightTarea, repoChecklist, answered, checklistKey, gateMissing, linkState, type ChecklistAnswer, type CompareRecord, type PartPreflight, type CICheck, type RepoFiles, type LocalBranch, type PlanPart, type TaskPreflight } from '../shared/preflight.ts';
-import type { ReviewLedger, ReviewThread } from '../shared/cuentaRevisiones.ts';
-import { pRTask, taskKey, worktreeTask } from '../shared/tareas.ts';
-import type { RoomPR } from './revisionesPR.ts';
-import { t } from '../shared/idioma.ts';
+import type { ReviewLedger, ReviewThread } from '../shared/reviewCount.ts';
+import { pRTask, taskKey, worktreeTask } from '../shared/tasks.ts';
+import type { RoomPR } from './prReviews.ts';
+import { t } from '../shared/language.ts';
 
 type Git = (cwd: string, args: string[]) => Promise<string>;
 export interface DataPRs { prs: PRBoard[]; demo?: boolean; error?: string }
@@ -27,8 +27,8 @@ export interface CtxPreflight {
   plan(clave: string): PlanPart[] | undefined;
   color(clave: string): string | undefined;
   compares(): Promise<CompareRecord[]>;
-  revisiones(url: string): { ledger?: ReviewLedger; hilos?: ReviewThread[] };   // de la última vuelta de revisionesPR.ts
-  ciChecks(url: string): CICheck[] | undefined;   // de la última vuelta de fallosCI.ts
+  revisiones(url: string): { ledger?: ReviewLedger; hilos?: ReviewThread[] };   // de la última vuelta de prReviews.ts
+  ciChecks(url: string): CICheck[] | undefined;   // de la última vuelta de ciFailures.ts
   checklist(): { items: string[]; respuestas: (clave: string) => Record<string, Record<string, ChecklistAnswer>> };
   git: Git;
 }
@@ -135,8 +135,8 @@ export function cachedPRs(leer: () => Promise<DataPRs>, ttl = 60_000) {
 }
 
 /** Lo que el Supervisor hace con cada página de comparación (validarla o mandarle notas), guardado en el servidor
- *  (DATOS/preflight.json) para atarlo al commit de la página (su `<página>.json`, server/comparar.ts). El cliente sigue
- *  llevando la suya por conversación (Navegadores.tsx): esta es la que cuenta para el pre-flight */
+ *  (DATOS/preflight.json) para atarlo al commit de la página (su `<página>.json`, server/compare.ts). El cliente sigue
+ *  llevando la suya por conversación (Browsers.tsx): esta es la que cuenta para el pre-flight */
 export class PageReviews {
   private respuestas: Record<string, { estado: 'validada' | 'notas'; ts: number }> = {};
   // lo que contesta el habitante a la lista «antes de subir»: por tarea, `${worktree}|${head}` y punto

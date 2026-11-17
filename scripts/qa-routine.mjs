@@ -1,6 +1,6 @@
 // QA de la rutina de los habitantes con el bucle real (no a pasos fijos): cada segundo, qué hace cada habitante de la
 // sala (estado/quehacer, clip, posición, sentado) y capturas cada N segundos.
-// Uso: SHELTER_DATOS=… node scripts/qa-rutina.mjs "<url>?sala=<id>" <salida.png> [segundos=60] [captura cada N s=15] [js de preparación]
+// Uso: SHELTER_DATOS=… node scripts/qa-routine.mjs "<url>?sala=<id>" <salida.png> [segundos=60] [captura cada N s=15] [js de preparación]
 import { chromium } from 'playwright';
 import { withToken } from './token.mjs';
 const [url, salida, segundos = '60', cada = '15', prep = ''] = process.argv.slice(2);

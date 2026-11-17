@@ -1,7 +1,7 @@
-// Sesiones con tareas en segundo plano (sesiones.ts): el turno acaba con subagentes o terminales aún vivos y la sesión
+// Sesiones con tareas en segundo plano (sessions.ts): el turno acaba con subagentes o terminales aún vivos y la sesión
 // sigue trabajando hasta que terminan; no se da por terminada (ni se cierra por ociosa) con ellos en marcha
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { Sessions } from './sesiones.ts';
+import { Sessions } from './sessions.ts';
 
 function session() {
   const ses = new Sessions({ pathRoom: () => undefined }) as any;

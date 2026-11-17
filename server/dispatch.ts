@@ -1,15 +1,15 @@
 // Reparto del trabajo desde la sala de coordinación (la carpeta raíz con todos los repos): su habitante planifica una
 // tarea con acceso a todos los repos y, cuando el plan está claro, la reparte: cada parte es un trabajo nuevo en la sala
 // de su repo, en un worktree propio, para avanzar en paralelo e iterar en cada proyecto por separado.
-// Herramientas del juego en el propio proceso (como decoradoSala.ts): un servidor MCP por sesión. Lanzar trabajos
+// Herramientas del juego en el propio proceso (como roomDecor.ts): un servidor MCP por sesión. Lanzar trabajos
 // siempre lo confirma el Supervisor (el diálogo de permisos), sea cual sea el modo de permisos de la sesión.
 import path from 'node:path';
 import { createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
-import type { InputView } from '../shared/protocolo.ts';
-import { textPlan, type Plans, type Plan, type PartOfPlan } from './planes.ts';
-import { t as tr } from '../shared/idioma.ts';
-import { MCP } from './servidoresMcp.ts';
+import type { InputView } from '../shared/protocol.ts';
+import { textPlan, type Plans, type Plan, type PartOfPlan } from './plans.ts';
+import { t as tr } from '../shared/language.ts';
+import { MCP } from './mcpServers.ts';
 
 export interface AssignmentRoom { id: string; nombre: string; ruta: string; rama?: string; habitante?: string; inIsWing: boolean }
 export interface CtxAssignment {

@@ -1,9 +1,9 @@
-// Sala de servicio: la Puerta Principal (reclutamiento). La planta -1 está en camara.ts y puente.ts.
-import { t, t as tr } from '@shared/idioma';
+// Sala de servicio: la Puerta Principal (reclutamiento). La planta -1 está en vault.ts y bridge.ts.
+import { t, t as tr } from '@shared/language';
 import * as THREE from 'three';
-import { place, R } from '../../motor/assets';
-import { cartel, PanelRoom, ListScreen, lienzo, textureOf, SOURCES, strataTexture } from '../../motor/texturas';
-import { signInWall, mancha, monitorWall, type Contexto } from './comun';
+import { place, R } from '../../engine/assets';
+import { cartel, PanelRoom, ListScreen, lienzo, textureOf, SOURCES, strataTexture } from '../../engine/textures';
+import { signInWall, mancha, monitorWall, type Contexto } from './common';
 
 // ---------------------------------------------------------------- Puerta Principal
 export async function furnishGate(ctx: Contexto) {
@@ -119,7 +119,7 @@ export async function furnishGate(ctx: Contexto) {
     const dx = roll * 3.3;
     tug = Math.max(0, tug - dt * 1.6);
     pivot.position.x = XP + dx; pivot.position.z = zB + 0.62 + salir * 0.5; pivot.rotation.z = -dx / R0 + Math.sin(tug * 18) * tug * 0.04;
-    tSuggestion -= dt; if (tSuggestion <= 0) { tSuggestion = 20; import('../../red/cliente').then(({ cliente }) => cliente.accion<any[]>('sugerencias').then(s => { sugerencias = s ?? []; }).catch(() => {})); }
+    tSuggestion -= dt; if (tSuggestion <= 0) { tSuggestion = 20; import('../../net/client').then(({ cliente }) => cliente.accion<any[]>('sugerencias').then(s => { sugerencias = s ?? []; }).catch(() => {})); }
     reclutas.poner(sugerencias.slice(0, 9).map(s => ({ etiqueta: s.isGit ? 'REPO' : tr('world.door.folder'), texto: s.nombre })));
   });
 }

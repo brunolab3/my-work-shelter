@@ -3,10 +3,10 @@
 import * as THREE from 'three';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { gltf, measure } from '../../motor/assets';
-import { SOURCES, SOURCE_BASE, PIECE, REGIONS, isLarge, type Look, type Slot, type Region } from '@shared/aspecto';
-import { fuente, trozos, craneo, type PieceChunk } from './fuentes';
-import { strips, stripIn } from './despiece';
+import { gltf, measure } from '../../engine/assets';
+import { SOURCES, SOURCE_BASE, PIECE, REGIONS, isLarge, type Look, type Slot, type Region } from '@shared/appearance';
+import { fuente, trozos, craneo, type PieceChunk } from './sources';
+import { strips, stripIn } from './breakdown';
 
 const N = REGIONS.length;
 

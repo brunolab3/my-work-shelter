@@ -1,8 +1,8 @@
-// QA of a repo room's task board (web/src/mundo/salas/tableroTareas.ts): one row for the main copy and one per worktree,
+// QA of a repo room's task board (web/src/world/rooms/taskBoard.ts): one row for the main copy and one per worktree,
 // with its task, its conversation's state (and what it's doing or waiting on) and one state for its PRs in this repo;
 // a new worktree shows up live; a click on a row talks to that copy (or, the main copy's, to the room's dweller).
 // Conversations, PRs and task titles are made up in the page (nothing reaches Claude Code, GitHub or Jira).
-// Uso: SHELTER_DATOS=… SHELTER_PUERTO=… node scripts/qa-tablero-sala.mjs <url> <salida.png> [sala]
+// Uso: SHELTER_DATOS=… SHELTER_PUERTO=… node scripts/qa-room-board.mjs <url> <salida.png> [sala]
 //   (a test shelter with a repo room that has at least two worktrees in .claude/worktrees/)
 import { chromium } from 'playwright';
 import { withToken } from './token.mjs';

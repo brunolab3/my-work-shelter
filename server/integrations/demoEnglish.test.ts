@@ -1,8 +1,8 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { setLanguage } from '../../shared/idioma.ts';
+import { setLanguage } from '../../shared/language.ts';
 import { demoNotifications, demoEvents, demoPanelLinear, demoBoardLinear, demoPanelJira } from './demo.ts';
 import { demoPRsBoard, github } from '../git.ts';
-import { SOURCES } from '../../shared/fuentes.ts';
+import { SOURCES } from '../../shared/fonts.ts';
 
 // every sentence of the DEMO data has its English (demoEnglish.ts): people's names, links and ids stay
 const SKIP = new Set(['autor', 'asignado', 'id', 'url', 'enlace', 'videollamada', 'hilo', 'usuario', 'nombre_', 'yo', 'name', 'error', 'fecha']);

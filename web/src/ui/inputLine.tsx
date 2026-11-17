@@ -1,17 +1,17 @@
 // La línea de entrada del intercomunicador, ampliada: adjuntos y dictado.
 // - Adjuntos: pegar (también una captura del portapapeles), arrastrar o elegir con 📎 (⌘U). Se suben al refugio al
 //   momento (acción «subir») y esperan en una bandeja con su miniatura hasta enviar; las imágenes le llegan al
-//   habitante dentro del mensaje (server/adjuntos.ts) y el resto, por su ruta.
+//   habitante dentro del mensaje (server/attachments.ts) y el resto, por su ruta.
 // - Dictado: 🎙 o ⌘D empieza a escuchar; Espacio (o ⌘D otra vez) termina. ⌥Espacio no: en muchos Macs es
 //   Spotlight. Lo transcrito aparece en vivo donde estaba el cursor y queda para revisarlo; Enter lo envía (termina de
 //   transcribir antes) y Esc lo descarta. La transcripción la hace el dictado de macOS en el propio Mac
-//   (server/voz.ts): sin red, sin cuentas y sin coste.
+//   (server/voice.ts): sin red, sin cuentas y sin coste.
 import { useEffect, useRef, useState } from 'react';
-import type { Attachment } from '@shared/protocolo';
-import { cliente, vivo, addNotice } from '../red/cliente';
-import { SFX } from '../audio/sonido';
-import { MAC } from './ventanas';
-import { t } from '@shared/idioma';
+import type { Attachment } from '@shared/protocol';
+import { cliente, vivo, addNotice } from '../net/client';
+import { SFX } from '../audio/sound';
+import { MAC } from './windows';
+import { t } from '@shared/language';
 
 // ---------------------------------------------------------------- adjuntos
 export interface AttachmentLocal { id: string; nombre: string; imagen: boolean; ruta?: string; vista?: string; error?: string }

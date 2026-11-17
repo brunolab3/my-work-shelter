@@ -1,5 +1,5 @@
-// Avisos, errores y estados que manda el servidor al Supervisor (catálogo: shared/textos.ts)
-import type { Texto } from '../idioma.ts';
+// Avisos, errores y estados que manda el servidor al Supervisor (catálogo: shared/texts.ts)
+import type { Texto } from '../language.ts';
 
 export const SERVIDOR: Record<string, Texto> = {
   'server.oneWorktreePerTask': { es: 'La tarea {tarea} ya tiene su worktree en {ruta} (rama {rama}): trabaja ahí; para otra rama de la tarea, haz commit o stash y `git switch` en ese worktree. Si esa rama está sacada en otro sitio, díselo al Supervisor.', en: 'Task {tarea} already has its worktree at {ruta} (branch {rama}): work there; for another branch of the task, commit or stash and `git switch` in that worktree. If that branch is checked out elsewhere, tell the Overseer.' },
@@ -221,14 +221,14 @@ export const SERVIDOR: Record<string, Texto> = {
   'server.ciFailureDelivered': { es: '🚨 {clave}Falla la CI de tu PR #{numero} de {repo} ({checks}): se lo he pasado a {sala} ({rama}).{bloquea}', en: '🚨 {clave}CI failing on your PR #{numero} in {repo} ({checks}): handed to {sala} ({rama}).{bloquea}' },
   'server.ciFailureBlocks': { es: ' Bloquea: {prs}.', en: ' Blocks: {prs}.' },
   'server.ciNoConversation': { es: 'Falla la CI del PR #{numero} de {repo} (rama {rama}), y no encuentro el worktree de su tarea: organiza la sala por tareas (panel de la sala) y se lo paso.', en: 'CI failing on PR #{numero} in {repo} (branch {rama}), and I cannot find its task worktree: organise the room by tasks (room panel) and I will hand it over.' },
-  // mensajes entre salas (server/avisosSalas.ts)
+  // mensajes entre salas (server/roomNotices.ts)
   'server.roomMessage': { es: '📨 {desde} → {a}: {resumen}', en: '📨 {desde} → {a}: {resumen}' },
-  // mensajes programados (server/programados.ts)
+  // mensajes programados (server/scheduled.ts)
   'server.scheduledDelivered': { es: '⏰ Mensaje programado para {sala}: {resumen}', en: '⏰ Scheduled message for {sala}: {resumen}' },
   'server.scheduledRetry': { es: '⏰ No he podido entregar el mensaje programado «{resumen}»: {error}. Lo vuelvo a intentar cada minuto.', en: '⏰ I could not deliver the scheduled message “{resumen}”: {error}. I will retry every minute.' },
   'server.scheduledGone': { es: 'Ese mensaje programado ya no está (se entregó o se canceló).', en: 'That scheduled message is gone (delivered or cancelled).' },
   'server.scheduledNoDweller': { es: 'su sala ya no existe o no tiene habitante', en: 'its room no longer exists or has no dweller' },
-  // línea de estado y permisos de las herramientas de Claude Code (server/herramientas.ts)
+  // línea de estado y permisos de las herramientas de Claude Code (server/tools.ts)
   'server.activity.reading': { es: 'Leyendo {f}', en: 'Reading {f}' },
   'server.activity.editing': { es: 'Editando {f}', en: 'Editing {f}' },
   'server.activity.writing': { es: 'Escribiendo {f}', en: 'Writing {f}' },
@@ -268,7 +268,7 @@ export const SERVIDOR: Record<string, Texto> = {
   'server.moreChars': { es: '… ({n} caracteres más)', en: '… ({n} more characters)' },
   'server.nEdits': { es: '{n} cambios', en: '{n} edits' },
   'server.firstEditsShown': { es: ' (se ven los {n} primeros)', en: ' (showing the first {n})' },
-  // conversaciones con los habitantes (server/sesiones.ts)
+  // conversaciones con los habitantes (server/sessions.ts)
   'server.apiKeyHelperIn': { es: 'apiKeyHelper en {f}', en: 'apiKeyHelper in {f}' },
   'server.aKeyInEnvOf': { es: 'una clave en «env» de {f}', en: 'a key in “env” of {f}' },
   'server.lookAt': { es: 'Mira {nombre}', en: 'Look at {nombre}' },
@@ -302,11 +302,11 @@ export const SERVIDOR: Record<string, Texto> = {
   'server.couldNotAnswerSideQuestion': { es: 'No he podido responder la pregunta lateral: {error}', en: 'I could not answer the side question: {error}' },
   'server.noAnswer': { es: '(sin respuesta)', en: '(no answer)' },
   'server.untitledConversation': { es: 'Conversación sin título', en: 'Untitled conversation' },
-  // terminales del juego (server/terminales.ts)
+  // terminales del juego (server/terminals.ts)
   'server.couldNotOpenTerminal': { es: 'No se pudo abrir la terminal: {error}', en: 'Could not open the terminal: {error}' },
   // copias holográficas (server/worktrees.ts)
   'server.couldNotDiscardCopy': { es: 'No he podido desechar la copia: {error}', en: 'I could not discard the copy: {error}' },
-  // organizar la sala por tareas (server/organizar.ts)
+  // organizar la sala por tareas (server/organize.ts)
   'server.organize.hasConversation': { es: '{nombre}: ya tiene su conversación.', en: '{nombre}: it already has its conversation.' },
   'server.organize.hasConversationIn': { es: '{nombre}: ya tiene su conversación en {carpeta}.', en: '{nombre}: it already has its conversation in {carpeta}.' },
   'server.organize.createdNoSession': { es: '{nombre}: worktree creado; la conversación no empieza (límite de sesiones vivas): ábrela desde su copia holográfica.', en: '{nombre}: worktree created; the conversation does not start (live sessions limit): open it from its holographic copy.' },
@@ -315,7 +315,7 @@ export const SERVIDOR: Record<string, Texto> = {
   'server.organize.startedMain': { es: '{nombre}: en la copia principal y conversación empezada.', en: '{nombre}: in the main copy and conversation started.' },
   'server.organize.startedIn': { es: '{nombre}: en {carpeta} y conversación empezada.', en: '{nombre}: in {carpeta} and conversation started.' },
   'server.organize.failed': { es: '{nombre}: no se pudo ({error}).', en: '{nombre}: it could not be done ({error}).' },
-  // ./shelter superficie y ./shelter enganchar (server/superficie.ts)
+  // ./shelter superficie y ./shelter enganchar (server/surface.ts)
   'server.surface.needsATerminal': { es: 'enganchar necesita una terminal de verdad.', en: 'enganchar needs a real terminal.' },
   'server.surface.terminalEnded': { es: 'La terminal del refugio ha terminado.', en: 'The shelter terminal has ended.' },
   'server.surface.cannotFindShelter': { es: 'No encuentro el refugio ({error}): ¿sigue abierto work-shelter?', en: 'I cannot find the shelter ({error}): is work-shelter still open?' },
@@ -333,7 +333,7 @@ export const SERVIDOR: Record<string, Texto> = {
   'server.surface.conversation': { es: 'Conversación', en: 'Conversation' },
   'server.surface.usageHook': { es: 'Uso: ./shelter enganchar <id> [--socket ruta]', en: 'Usage: ./shelter enganchar <id> [--socket path]' },
   'server.surface.usage': { es: 'Uso: ./shelter superficie [--lista] · ./shelter enganchar <id>', en: 'Usage: ./shelter superficie [--lista] · ./shelter enganchar <id>' },
-  // revisiones de PR que no llegan a ninguna conversación (server/revisionesPR.ts)
+  // revisiones de PR que no llegan a ninguna conversación (server/prReviews.ts)
   'server.reviewNoRoom': { es: 'Revisión nueva en el PR #{numero} de {repo}: ese repo no tiene sala en el refugio.', en: 'New review on PR #{numero} in {repo}: that repo has no room in the shelter.' },
   'server.reviewNoWorktree': { es: 'Revisión nueva en el PR #{numero} de {repo} (rama {rama}), y en «{sala}» no hay ningún worktree de su tarea: es raro. Organiza la sala por tareas (panel de la sala) y se la paso.', en: 'New review on PR #{numero} in {repo} (branch {rama}), and “{sala}” has no worktree for its task: that is odd. Organise the room by tasks (room panel) and I will hand it over.' },
   'server.reviewCouldNotOpen': { es: 'Revisión nueva en el PR #{numero} de {repo}: no he podido abrir la conversación de su worktree (¿límite de sesiones?). Lo vuelvo a intentar en un minuto.', en: 'New review on PR #{numero} in {repo}: I could not open the conversation in its worktree (session limit?). I will try again in a minute.' },
@@ -345,7 +345,7 @@ export const SERVIDOR: Record<string, Texto> = {
   'server.git.connectGitHub': { es: 'Conecta GitHub en la cámara acorazada (tu token o la sesión de gh) para ver tus pull requests.', en: 'Connect GitHub in the Vault (your token or the gh session) to see your pull requests.' },
   'server.git.demoPRs': { es: 'DEMO: conecta GitHub en la cámara acorazada (tu token o la sesión de gh) para ver tus pull requests.', en: 'DEMO: connect GitHub in the Vault (your token or the gh session) to see your pull requests.' },
   'server.git.couldNotReadPRs': { es: 'No se pudieron leer tus PR de GitHub ({error}). ¿Está gh instalado y con sesión («gh auth login»)?', en: 'Could not read your GitHub PRs ({error}). Is gh installed and signed in (“gh auth login”)?' },
-  // abrir cosas en el escritorio (server/escritorio.ts)
+  // abrir cosas en el escritorio (server/desktop.ts)
   'server.desktop.notAuthorized': { es: 'macOS no deja que work-shelter maneje {app}: permítelo en Ajustes del Sistema › Privacidad y seguridad › Automatización.', en: 'macOS does not let work-shelter control {app}: allow it in System Settings › Privacy & Security › Automation.' },
   'server.desktop.couldNotOpen': { es: 'No he podido abrir {app}: {error}', en: 'I could not open {app}: {error}' },
   'server.desktop.couldNotOpenClaudeApp': { es: 'No he podido abrir la app de Claude (¿está instalada?). La conversación está guardada: retómala desde su habitante o con claude --resume {claudeId}.', en: 'I could not open the Claude app (is it installed?). The conversation is saved: resume it from its dweller or with claude --resume {claudeId}.' },

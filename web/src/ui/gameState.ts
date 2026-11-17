@@ -1,6 +1,6 @@
 // Estado visible de la partida que pinta la interfaz (lo alimentan el mundo y el servidor).
-import { Store } from './almacen';
-import { GAME_NAME } from '@shared/protocolo';
+import { Store } from './store';
+import { GAME_NAME } from '@shared/protocol';
 
 export type DwellerState = 'durmiendo' | 'ocioso' | 'pensando' | 'trabajando' | 'esperando' | 'terminado' | 'error';
 

@@ -4,22 +4,22 @@
 // Con teclado: ⌘B desde cualquier sitio (o B en el refugio) entra en la barra; ←→ eligen, ↑↓ cambian de fila,
 // Intro abre, X cierra (con lo de siempre: si hay algo en marcha, pregunta) y Esc (o ⌘B) sale.
 import { Fragment, useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react';
-import { t } from '@shared/idioma';
-import { terminales, onFront, minimizar, askClose as closeTerminal } from './Terminales';
-import { intercoms, type WindowCom, minimizeIntercom, restoreIntercom, sessionPilot, roomTalkers, TalkerRow, ComTabs, withText, openConversation, askClose as closeIntercom } from './Dialogo';
-import { juego, type DwellerSummary } from './estadoJuego';
-import type { SessionSummary } from '@shared/protocolo';
-import { recentFirst, sessionRecency } from '@shared/recientes';
-import { vivo } from '../red/cliente';
-import { Store } from './almacen';
-import { writing } from '../motor/teclado';
-import { SFX } from '../audio/sonido';
-import { MAC, CMD } from './ventanas';
-import { interlocutor } from './copias';
-import { overflowChips } from './ordenPestanas';
-import { navegadores, SPOTS, pageTitle, onFront as navOnFront, minimizar as navMinimize, cerrar as navClose } from './Navegadores';
-import { windowGit, onFrontGit, minimizeGit, closeGit } from './git/ventana';
-import { filesWindow, onFrontFiles, minimizeFiles, closeFiles } from './archivos/ventana';
+import { t } from '@shared/language';
+import { terminales, onFront, minimizar, askClose as closeTerminal } from './Terminals';
+import { intercoms, type WindowCom, minimizeIntercom, restoreIntercom, sessionPilot, roomTalkers, TalkerRow, ComTabs, withText, openConversation, askClose as closeIntercom } from './Dialog';
+import { juego, type DwellerSummary } from './gameState';
+import type { SessionSummary } from '@shared/protocol';
+import { recentFirst, sessionRecency } from '@shared/recent';
+import { vivo } from '../net/client';
+import { Store } from './store';
+import { writing } from '../engine/keyboard';
+import { SFX } from '../audio/sound';
+import { MAC, CMD } from './windows';
+import { interlocutor } from './copies';
+import { overflowChips } from './tabOrder';
+import { navegadores, SPOTS, pageTitle, onFront as navOnFront, minimizar as navMinimize, cerrar as navClose } from './Browsers';
+import { windowGit, onFrontGit, minimizeGit, closeGit } from './git/window';
+import { filesWindow, onFrontFiles, minimizeFiles, closeFiles } from './files/window';
 
 const STATE_TEXT: Record<string, string> = { arrancando: t('windows.starting'), trabajando: t('windows.working'), esperando: t('windows.waitingForYou'), error: t('windows.fault'), terminada: t('windows.finished'), ociosa: t('windows.ready') };
 const URGENCY: Record<string, number> = { esperando: 0, error: 1, trabajando: 2, arrancando: 2, terminada: 3, ociosa: 4 };

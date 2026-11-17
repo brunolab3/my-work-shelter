@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { recentFirst } from './recientes.ts';
+import { recentFirst } from './recent.ts';
 
 const at = (min: number, s = 0) => min * 60_000 + s * 1000;
 

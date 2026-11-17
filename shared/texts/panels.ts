@@ -1,5 +1,5 @@
-// Paneles de las salas y aparatos (catálogo: shared/textos.ts)
-import type { Texto } from '../idioma.ts';
+// Paneles de las salas y aparatos (catálogo: shared/texts.ts)
+import type { Texto } from '../language.ts';
 
 export const PANELS: Record<string, Texto> = {
   'panels.shelterMapFastTravel': { es: 'PLANO DEL REFUGIO · VIAJE RÁPIDO', en: 'SHELTER MAP · FAST TRAVEL' },

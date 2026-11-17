@@ -1,12 +1,12 @@
 // Las herramientas del juego con las que el habitante de una sala de repo la decora («Adaptar la sala al repo»):
 // un servidor MCP dentro del propio proceso (Agent SDK) que solo lee y escribe el decorado de SU sala. El decorado son
-// datos (shared/decorado.ts), validados aquí antes de guardarlos: nada de lo que escriba el habitante se ejecuta.
+// datos (shared/decor.ts), validados aquí antes de guardarlos: nada de lo que escriba el habitante se ejecuta.
 import { createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
-import { sanitizeDecor, reviewDecor, boardSpot, BASES_DECOR, DESCRIPTION_BASE, DECOR_WALLS, DECOR_PALETTES, SIGN_SYMBOLS, GESTURES, LIMITS, PACKS, type BaseDecor, type Decorado, type DecorPiece } from '../shared/decorado.ts';
-import { catalogo, catalogInText, propsModel } from './atrezo.ts';
-import { t, tIs } from '../shared/idioma.ts';
-import { MCP } from './servidoresMcp.ts';
+import { sanitizeDecor, reviewDecor, boardSpot, BASES_DECOR, DESCRIPTION_BASE, DECOR_WALLS, DECOR_PALETTES, SIGN_SYMBOLS, GESTURES, LIMITS, PACKS, type BaseDecor, type Decorado, type DecorPiece } from '../shared/decor.ts';
+import { catalogo, catalogInText, propsModel } from './props.ts';
+import { t, tIs } from '../shared/language.ts';
+import { MCP } from './mcpServers.ts';
 
 export interface CtxDecor {
   sala(id: string): { id: string; nombre: string; tipo: string; ruta?: string; estilo?: string; decorado?: Decorado } | undefined;

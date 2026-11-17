@@ -2,7 +2,7 @@
 // with the most severe level's color; questions never fold; clicking the slot unfolds them, clicking one dismisses it,
 // "read all" dismisses them all; the same in the maximized-window row layout. Notices are injected into the page store
 // (no server action, no Claude sessions).
-// Usage: node scripts/qa-teletipos.mjs [url] [screenshots-dir]   (with a test shelter: SHELTER_DATOS=/tmp/x npm run dev)
+// Usage: node scripts/qa-teletypes.mjs [url] [screenshots-dir]   (with a test shelter: SHELTER_DATOS=/tmp/x npm run dev)
 import { chromium } from 'playwright';
 import { mkdirSync } from 'node:fs';
 import { withToken } from './token.mjs';

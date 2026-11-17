@@ -2,14 +2,14 @@
 // últimas semanas, con su estado, la revisión, la CI y la tarea de Jira a la que pertenecen (por la clave de la rama o del
 // título). Todo viene de `gh` (y de Jira, si está conectado); se abren en el navegador de GitHub del refugio.
 import React, { useEffect, useMemo, useState } from 'react';
-import { cliente } from '../../red/cliente';
-import { cruzarTablero, textoPR, type PRWithTask, type PRBoard, type TaskJira } from '@shared/tablero';
-import { hace } from './comun';
-import { taskColor, pRTask } from '@shared/tareas';
-import { aimColors, knowTasks, useColorsTasks } from '../tareas';
-import { TaskMark } from '../ventanas';
-import { openLink, openPRsGitHub } from '../Navegadores';
-import { t } from '@shared/idioma';
+import { cliente } from '../../net/client';
+import { cruzarTablero, textoPR, type PRWithTask, type PRBoard, type TaskJira } from '@shared/board';
+import { hace } from './common';
+import { taskColor, pRTask } from '@shared/tasks';
+import { aimColors, knowTasks, useColorsTasks } from '../tasks';
+import { TaskMark } from '../windows';
+import { openLink, openPRsGitHub } from '../Browsers';
+import { t } from '@shared/language';
 
 interface PRReview { numero: number; titulo: string; url: string; repo: string; borrador: boolean; actualizado: number }
 const ESTADO: Record<PRBoard['estado'], string> = { abierto: '', borrador: 'tenue', fusionado: 'fusionado', cerrado: 'mal' };

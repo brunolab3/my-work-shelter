@@ -1,10 +1,10 @@
-// The ways to open a link of a reply (web/src/ui/opcionesEnlace.ts draws them): the first one is the default, which a
+// The ways to open a link of a reply (web/src/ui/linkOptions.ts draws them): the first one is the default, which a
 // click runs directly (a right click shows them all). Inside the game first whenever it can be seen there.
-import { t } from './idioma.ts';
+import { t } from './language.ts';
 
 export type LinkAction = 'juego' | 'navegador' | 'mac' | 'finder' | 'copiar';
 export interface LinkOption { accion: LinkAction; texto: string }
-// where the server would open a file of the Mac (server/abrir.ts, localKind)
+// where the server would open a file of the Mac (server/open.ts, localKind)
 export type LocalKind = 'carpeta' | 'web' | 'vista' | 'editor' | 'finder';
 
 /** A web link: inside (its site's browser, the «Web» window or, for a page another program serves on this Mac, the
@@ -40,7 +40,7 @@ export function copyText(href: string): string {
   return href;
 }
 
-// files of the Mac a page may link: the same places a reply's links may point at (shared/paginasSesion.ts)
+// files of the Mac a page may link: the same places a reply's links may point at (shared/sessionPages.ts)
 const LOCAL = /^(?:\/Users\/|~\/|\/(?:private\/)?tmp\/|\/(?:private\/)?var\/folders\/)/;
 /** What a link of a page of the Mac (at `pagina`) points at, from its raw href: a file of the Mac (a relative one, next
  *  to the page), a web or mail address, or nothing the game opens (null) */

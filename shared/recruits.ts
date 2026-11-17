@@ -1,5 +1,5 @@
 // Reclutas: nombre, mote, aspecto y ficha de quien llega a la Puerta Principal. Sin inferencia: listas y azar con semilla.
-import { lookOf, lookOnRandom, type Look } from './aspecto.ts';
+import { lookOf, lookOnRandom, type Look } from './appearance.ts';
 export interface RecruitCard { id: string; nombre: string; mote: string; tipo: string; bio: string; voz: number; tone?: number; aspecto?: Look }
 
 const NAMES = ['Adela', 'Benito', 'Casilda', 'Damián', 'Elvira', 'Fausto', 'Gertru', 'Hilario', 'Inés', 'Jacinto', 'Leonor', 'Matías', 'Nieves', 'Olegario', 'Paca', 'Quique', 'Rosario', 'Saturnino', 'Trini', 'Ulises', 'Valentina', 'Wenceslao', 'Ximena', 'Yago', 'Zoila', 'Amparo', 'Baltasar', 'Celia', 'Dimas', 'Encarna', 'Filomena', 'Gaspar', 'Herminia', 'Isidro', 'Jimena', 'Lázaro', 'Macarena', 'Nicanor', 'Orencio', 'Pilar'];

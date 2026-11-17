@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import type { SessionSummary, PendingRequest } from '@shared/protocolo';
-import { noticeChanges, dockBadge } from './avisosPendientes';
+import type { SessionSummary, PendingRequest } from '@shared/protocol';
+import { noticeChanges, dockBadge } from './pendingNotices';
 
 const pet = (id: string): PendingRequest => ({ id, tipo: 'pregunta', herramienta: 'AskUserQuestion', titulo: 'Tengo una pregunta para ti', canAlways: false });
 const ses = (id: string, pending?: PendingRequest, estado: SessionSummary['estado'] = pending ? 'esperando' : 'trabajando') =>

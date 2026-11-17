@@ -1,12 +1,12 @@
 // Monaco, el editor de VS Code (y de Cursor): mismas teclas para editar (⌘D, ⌥↑↓, ⌘/, ⌘F, ⌘⇧K, varios cursores…).
-// Pesa: se carga la primera vez que se abre la ventana de Archivos (import dinámico desde Explorador.tsx).
+// Pesa: se carga la primera vez que se abre la ventana de Archivos (import dinámico desde Explorer.tsx).
 import * as monaco from 'monaco-editor';
 import WorkerEditor from 'monaco-editor/editor/editor.worker?worker';
 import WorkerJson from 'monaco-editor/language/json/json.worker?worker';
 import WorkerCss from 'monaco-editor/language/css/css.worker?worker';
 import WorkerHtml from 'monaco-editor/language/html/html.worker?worker';
 import WorkerTs from 'monaco-editor/language/typescript/ts.worker?worker';
-import { t } from '@shared/idioma';
+import { t } from '@shared/language';
 
 (self as any).MonacoEnvironment = {
   getWorker(_: string, etiqueta: string) {

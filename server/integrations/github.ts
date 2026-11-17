@@ -2,11 +2,11 @@
 // (o «repo») en el llavero; si no hay token y `gh` tiene sesión iniciada, se usa la suya (`gh auth token`, que ya
 // trae «repo»). Se sondea cada minuto (lo que pide GitHub) con Last-Modified: un 304 no gasta cuota. Lo leído en GitHub sale del tablón.
 import { execFile } from 'node:child_process';
-import type { Store } from '../estado.ts';
-import { ConnectorBase, ConfigSource, ErrorSource, ask, retraso, type Field } from './comun.ts';
-import { explainErrorGitHub, notificationsOfGitHub } from './normalizar.ts';
-import type { Notification } from './adaptadores.ts';
-import { t as tr } from '../../shared/idioma.ts';
+import type { Store } from '../state.ts';
+import { ConnectorBase, ConfigSource, ErrorSource, ask, retraso, type Field } from './common.ts';
+import { explainErrorGitHub, notificationsOfGitHub } from './normalize.ts';
+import type { Notification } from './adapters.ts';
+import { t as tr } from '../../shared/language.ts';
 
 const API = 'https://api.github.com';
 

@@ -3,10 +3,10 @@
 // Primera iteración sin terminar (README, «Lo que está a medias»): la mira solo se mueve en horizontal y el acierto
 // compara la x en pantalla con tolerancia, sin rayo.
 import * as THREE from 'three';
-import type { Refugio } from './refugio';
-import type { Sala } from './salas/comun';
-import { arma as weaponData } from '@shared/catalogo';
-import { SFX } from '../audio/sonido';
+import type { Refugio } from './shelter';
+import type { Sala } from './rooms/common';
+import { arma as weaponData } from '@shared/catalog';
+import { SFX } from '../audio/sound';
 
 export class Gallery {
   activa = false;

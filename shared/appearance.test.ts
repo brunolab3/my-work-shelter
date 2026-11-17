@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
   PIECES, PIECE, STOCK, SOURCES, HUMAN_SLOTS, SLOTS_ROBOT, REQUIRED, sanitizeLook, lookOf, lookOnRandom, setPiece,
   piecesOf, fits, lookSignature, lookSummary, type Look,
-} from './aspecto.ts';
-import { INITIAL_DWELLERS, LOOK_GUARDIAN } from './refugioInicial.ts';
+} from './appearance.ts';
+import { INITIAL_DWELLERS, LOOK_GUARDIAN } from './initialShelter.ts';
 
 const azar = (s: number) => () => { s ^= s << 13; s ^= s >>> 17; s ^= s << 5; return ((s >>> 0) % 100000) / 100000; };
 

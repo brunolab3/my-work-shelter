@@ -4,7 +4,7 @@
 // - La regleta ya no lleva «reiniciar»: lleva ⌘K (buscar) y Esc (menú), que se pueden pulsar.
 // - ⌘K abre el buscador desde el refugio y desde un intercomunicador (escribiendo); escribir filtra, Enter ejecuta
 //   (plano, ir a una sala, hablar con un habitante); las acciones llevan su tecla; las usadas pasan a «recurrentes».
-// Uso: node scripts/qa-buscador.mjs [url] [carpeta-capturas]   (SHELTER_DATOS para el token; mejor un refugio de pruebas)
+// Uso: node scripts/qa-search.mjs [url] [carpeta-capturas]   (SHELTER_DATOS para el token; mejor un refugio de pruebas)
 import { chromium } from 'playwright';
 import path from 'node:path';
 import { mkdirSync } from 'node:fs';

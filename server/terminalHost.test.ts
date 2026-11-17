@@ -37,7 +37,7 @@ function connection(primera: Record<string, unknown>) {
 
 describe('anfitrión de terminales con clientes de fuera', () => {
   it('engancha, comparte el PTY, manda el tamaño de fuera y sobrevive al apagado', async () => {
-    anfitrion = spawn(process.execPath, ['--import', 'tsx', path.join(import.meta.dirname, 'anfitrionTerminales.ts'), SOCK], { stdio: 'ignore' });
+    anfitrion = spawn(process.execPath, ['--import', 'tsx', path.join(import.meta.dirname, 'terminalHost.ts'), SOCK], { stdio: 'ignore' });
     for (let i = 0; i < 60; i++) { if (await new Promise(ok => { const s = net.connect(SOCK); s.on('connect', () => { s.destroy(); ok(true); }); s.on('error', () => ok(false)); })) break; await new Promise(r => setTimeout(r, 100)); }
 
     const srv = connection({ op: 'servidor' });

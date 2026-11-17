@@ -1,20 +1,20 @@
 // La CI que falla en tus PR, a la sala que los trabaja: cada minuto (con GitHub conectado) se miran los checks del
 // último commit de tus PR abiertos y, cuando uno pasa a fallar (FAILURE o ERROR) en su cabeza actual, se manda UN
-// mensaje a la conversación del worktree de ese PR, como las revisiones (revisionesPR.ts: sessionOfPR, worktreeOfPR):
+// mensaje a la conversación del worktree de ese PR, como las revisiones (prReviews.ts: sessionOfPR, worktreeOfPR):
 // el PR, el commit, los checks que fallan con su enlace y la cola del log de lo que falló (`gh run view --log-failed`).
-// Una tarea puede tener PR en varios repos con bloqueos entre ellos (shared/despliegue.ts): el mensaje lleva la clave
+// Una tarea puede tener PR en varios repos con bloqueos entre ellos (shared/deploy.ts): el mensaje lleva la clave
 // de la tarea y los PR que esperan al que falla («bloquea: org/b#12»); esos no fallan por ello y no reciben nada.
 // Una vez por PR y commit (DATOS/fallos-ci.json). La primera vez solo se apunta lo que ya fallaba: no llega de golpe
 // la CI rota de antes de existir esto; un PR nuevo, o un commit nuevo, que falla, sí.
 // Solo lectura hacia GitHub: el habitante propone un plan y el Supervisor lo aprueba antes de tocar nada.
 import { existsSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
 import path from 'node:path';
-import type { SessionSummary } from '../shared/protocolo.ts';
-import type { PRBoard } from '../shared/tablero.ts';
-import { dependenciasEnTexto, pRKey, refPR, type Blocker } from '../shared/despliegue.ts';
-import { t } from '../shared/idioma.ts';
+import type { SessionSummary } from '../shared/protocol.ts';
+import type { PRBoard } from '../shared/board.ts';
+import { dependenciasEnTexto, pRKey, refPR, type Blocker } from '../shared/deploy.ts';
+import { t } from '../shared/language.ts';
 import type { CICheck } from '../shared/preflight.ts';
-import { sessionOfPR, worktreeOfPR, type RoomPR } from './revisionesPR.ts';
+import { sessionOfPR, worktreeOfPR, type RoomPR } from './prReviews.ts';
 
 export interface FailedCheck { nombre: string; url: string; run?: number }
 export interface PRWithCI extends PRBoard { fallos: FailedCheck[]; todos: CICheck[] }

@@ -1,7 +1,7 @@
 // Motor de audio del refugio: buses (ambiente, efectos, interfaz, voces, tecleo), bucles, disparos con variación,
 // eco compartido y síntesis. Todo CC0 (ver LICENSES/AUDIO.md). El contexto se crea al primer gesto del usuario
-// (política de autoplay). El ambiente por salas vive en ambiente.ts, el murmullo en voces.ts, el teclado en teclado.ts
-// y lo que se oye en el mundo (quién habla, quién teclea y dónde) en mundo.ts.
+// (política de autoplay). El ambiente por salas vive en ambience.ts, el murmullo en voices.ts, el teclado en keyboard.ts
+// y lo que se oye en el mundo (quién habla, quién teclea y dónde) en world.ts.
 
 export type Bus = 'ambiente' | 'musica' | 'sfx' | 'ui' | 'voces' | 'teclado';
 export const BUSES: Bus[] = ['ambiente', 'musica', 'sfx', 'ui', 'voces', 'teclado'];
@@ -142,7 +142,7 @@ class Sound {
   stopLoop(id: string) { const b = this.loops.get(id); if (b && this.ctx) { b.g.gain.setTargetAtTime(0, this.ctx.currentTime, 0.3); setTimeout(() => b.src.stop(), 1500); this.loops.delete(id); } }
 
   // Lecho de todo el refugio, muy discreto: red eléctrica a 50 Hz y rumor de roca (ruido marrón filtrado). Lo que
-  // caracteriza cada sitio lo pone ambiente.ts
+  // caracteriza cada sitio lo pone ambience.ts
   zumbido() {
     if (!this.ctx) { this.pendientes.push(() => this.zumbido()); return; }
     const ctx = this.ctx; const salida = ctx.createGain(); salida.gain.value = 0.009; salida.connect(this.buses.get('ambiente')!);
@@ -256,7 +256,7 @@ export const SFX = {
   error: () => sonido.tocar('ui_error_006', { bus: 'sfx', vol: 0.55 }),
   noAllowed: () => sonido.tocar('ui_error_004', { bus: 'ui', vol: 0.45, minInterval: 200 }),
   coins: () => sonido.tocar(['rpg_handleCoins', 'rpg_handleCoins2'], { bus: 'sfx', vol: 0.55 }),
-  // una tecla del teclado mecánico (para teclas concretas, con su sonido de espacio, intro o borrar: teclado.ts)
+  // una tecla del teclado mecánico (para teclas concretas, con su sonido de espacio, intro o borrar: keyboard.ts)
   tecla: () => sonido.tocar(KEYS, { bus: 'teclado', vol: 0.5, var: 0.04 }),
   paso: (pan = 0, vol = 0.18) => sonido.tocar(['imp_footstep_concrete_000', 'imp_footstep_concrete_001', 'imp_footstep_concrete_002', 'imp_footstep_concrete_003'], { bus: 'sfx', vol, var: 0.06, pan }),
   stepMetal: (pan = 0, vol = 0.2) => sonido.tocar(['paso_metal_01', 'paso_metal_03', 'paso_metal_05', 'paso_metal_07', 'paso_metal_09', 'paso_metal_11'], { bus: 'sfx', vol, var: 0.06, pan }),
@@ -277,7 +277,7 @@ export const SFX = {
   cosecha: () => sonido.tocar('pala', { bus: 'sfx', vol: 0.45 }),
 };
 
-// El lecho común a todo el refugio (muy bajo): el resto lo pone el ambiente de cada sala (ambiente.ts, desde mundo.ts)
+// El lecho común a todo el refugio (muy bajo): el resto lo pone el ambiente de cada sala (ambience.ts, desde world.ts)
 export function bootAmbient() {
   sonido.bucle('ventilacion', 'amb_ventilacion', { vol: 0.025 });
   sonido.zumbido();

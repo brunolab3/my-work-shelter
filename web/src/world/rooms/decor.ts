@@ -1,13 +1,13 @@
-// Monta el decorado que el habitante ha diseñado para su sala (shared/decorado.ts, «Adaptar la sala al repo») con el
+// Monta el decorado que el habitante ha diseñado para su sala (shared/decor.ts, «Adaptar la sala al repo») con el
 // atrezo del juego: sobre una de las escenas de serie o sobre la sala vacía, a la que pone lo imprescindible (el puesto
-// del habitante y su pieza; el tablero de tareas ya está colgado, tableroTareas.ts) donde diga el decorado o en su sitio
+// del habitante y su pieza; el tablero de tareas ya está colgado, taskBoard.ts) donde diga el decorado o en su sitio
 // por defecto. Lo que no se puede montar (un modelo que no está) se salta: una pieza rota nunca deja la sala a medias;
 // lo que taparía el tablero de tareas, también.
 import * as THREE from 'three';
-import { place, type Placement } from '../../motor/assets';
-import { cartel, PhosphorScreen, PanelRoom } from '../../motor/texturas';
-import { signInWall, highBand, workStation, screenReal, lean, aWall, centrar, mancha, tumbada, SCALE_KAYKIT, type Furnish, type Contexto, type RoomPoint } from './comun';
-import { propsPath, PACKS, coversBoard, BOARD_CLEAR, type Decorado, type DecorPiece, type DecorPoint } from '@shared/decorado';
+import { place, type Placement } from '../../engine/assets';
+import { cartel, PhosphorScreen, PanelRoom } from '../../engine/textures';
+import { signInWall, highBand, workStation, screenReal, lean, aWall, centrar, mancha, tumbada, SCALE_KAYKIT, type Furnish, type Contexto, type RoomPoint } from './common';
+import { propsPath, PACKS, coversBoard, BOARD_CLEAR, type Decorado, type DecorPiece, type DecorPoint } from '@shared/decor';
 
 const G = Math.PI / 180;
 // nombres de material de los packs que son luz: «Screen», «Light», «Fire», «Glass», «Neon»…

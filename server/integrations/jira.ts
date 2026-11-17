@@ -1,10 +1,10 @@
 // Jira Cloud: your tasks for the Logistics board (REST v3 with your email and an API token of yours, basic auth).
 // Read-only except for one write: a status transition the Overseer drags and confirms on the board (action `mover`),
 // only one Jira's workflow offers for that issue. No notices: polling only checks the connection and counts what's open.
-import type { Store } from '../estado.ts';
-import { ConnectorBase, ConfigSource, ErrorSource, ask, retraso, type Field } from './comun.ts';
-import { textoDeADF, jiraTransitions, transitionsTo, isColumn, type BoardColumn, type Category, type Epic, type TaskJira } from '../../shared/tablero.ts';
-import { t } from '../../shared/idioma.ts';
+import type { Store } from '../state.ts';
+import { ConnectorBase, ConfigSource, ErrorSource, ask, retraso, type Field } from './common.ts';
+import { textoDeADF, jiraTransitions, transitionsTo, isColumn, type BoardColumn, type Category, type Epic, type TaskJira } from '../../shared/board.ts';
+import { t } from '../../shared/language.ts';
 
 export const FIELDS_JIRA: Field[] = [
   { nombre: 'sitio', etiqueta: 'Sitio de Jira', ayuda: 'La dirección de tu Jira Cloud, la que ves en el navegador.', ejemplo: 'empresa.atlassian.net' },

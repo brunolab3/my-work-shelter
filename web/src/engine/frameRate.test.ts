@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { targetFps, cameraMoved } from './ritmo';
+import { targetFps, cameraMoved } from './frameRate';
 
 describe('ritmo de pintado', () => {
   it('en automático: 60 moviéndose, 30 quieto y 10 con una ventana maximizada encima', () => {

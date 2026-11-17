@@ -6,8 +6,8 @@
 // y su desfase. Sin música descansan: de pie mirando el móvil, charlando o sentados en el suelo al borde de la pista.
 // No son obstáculos: si el Supervisor se mete en la pista, se apartan un poco.
 import * as THREE from 'three';
-import { Character } from '../personaje';
-import type { Look } from '@shared/aspecto';
+import { Character } from '../character';
+import type { Look } from '@shared/appearance';
 
 export interface Rhythm { sonando: boolean; bpm: number; pulse: number; energy: number }   // pulso: golpes desde el inicio (con decimales)
 

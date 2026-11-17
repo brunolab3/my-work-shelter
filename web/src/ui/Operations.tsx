@@ -2,23 +2,23 @@
 // y Google Calendar) y Logística (tareas de Jira con sus pull requests, y Linear). Solo lectura: se abre el original con Enter, en su navegador del refugio.
 // The one exception is the Jira board, which moves a task to another status after the Overseer confirms it.
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { juego } from './estadoJuego';
-import { t, idioma, tIs } from '@shared/idioma';
-import { vivo, cliente } from '../red/cliente';
-import { SFX } from '../audio/sonido';
-import { Device, Keys, closePanel, useKeys } from './aparato';
-import { goA } from './Paneles';
-import { describeWhenShort, describeWhen } from '@shared/programados';
-import { openBrowser, openLink, openNotice, SPOTS } from './Navegadores';
-import { SOURCES as IDS_SOURCES, ACTIVE_SOURCES, CALENDAR_SOURCES, INFO_SOURCE, activa } from '@shared/fuentes';
-import { PLANNING_ROOM } from '@shared/disposicion';
-import { openGit } from './git/ventana';
+import { juego } from './gameState';
+import { t, idioma, tIs } from '@shared/language';
+import { vivo, cliente } from '../net/client';
+import { SFX } from '../audio/sound';
+import { Device, Keys, closePanel, useKeys } from './device';
+import { goA } from './Panels';
+import { describeWhenShort, describeWhen } from '@shared/scheduled';
+import { openBrowser, openLink, openNotice, SPOTS } from './Browsers';
+import { SOURCES as IDS_SOURCES, ACTIVE_SOURCES, CALENDAR_SOURCES, INFO_SOURCE, activa } from '@shared/fonts';
+import { PLANNING_ROOM } from '@shared/layout';
+import { openGit } from './git/window';
 import { openPreflight } from './Preflight';
 import { taskHasPRs } from '@shared/preflight';
-import { taskColor, pRTask } from '@shared/tareas';
-import { aimColors, knowTasks, useColorsTasks, jiraBoard } from './tareas';
-import { cruzarTablero, columnOf, COLUMN_COLORS, COLUMNS, textoPR, promptPlanificar, type BoardColumn, type JiraTransition, type PRBoard, type TaskWithPR, type TaskJira } from '@shared/tablero';
-import { EpicMark } from './ventanas';
+import { taskColor, pRTask } from '@shared/tasks';
+import { aimColors, knowTasks, useColorsTasks, jiraBoard } from './tasks';
+import { cruzarTablero, columnOf, COLUMN_COLORS, COLUMNS, textoPR, promptPlanificar, type BoardColumn, type JiraTransition, type PRBoard, type TaskWithPR, type TaskJira } from '@shared/board';
+import { EpicMark } from './windows';
 
 const SOURCES: Record<string, string> = Object.fromEntries(IDS_SOURCES.map(f => [f, INFO_SOURCE[f].corto]));
 const LOC = idioma() === 'en' ? 'en-GB' : 'es-ES';
@@ -32,7 +32,7 @@ const WITH_READ = new Set<string>(IDS_SOURCES.filter(f => INFO_SOURCE[f].complet
 const isChat = (n: any) => !!INFO_SOURCE[n.fuente as keyof typeof INFO_SOURCE]?.chat;
 // fila: en los chats, la conversación y el último mensaje; en correo y Linear, quién y el asunto
 const fila = (n: any) => isChat(n) ? [n.titulo, n.titulo === n.autor ? n.fragmento : `${n.autor}: ${n.fragmento}`] : [n.autor, n.titulo];
-// lo que tiene navegador propio en el refugio (ver SITIOS en Navegadores.tsx) se abre dentro; el resto, fuera
+// lo que tiene navegador propio en el refugio (ver SITIOS en Browsers.tsx) se abre dentro; el resto, fuera
 const openOutside = (url?: string) => openLink(url);
 
 // ---------------------------------------------------------------- comunicaciones
@@ -151,7 +151,7 @@ export function PanelPlanning() {
         {sel.lugar && <p className="tenue">{t('panels.location')} {sel.lugar}</p>}
         {sel.videollamada && <p>{t('panels.videoCallPressEnterTo')}</p>}
       </div>}
-      {/* los mensajes que los habitantes han dejado para más adelante (server/programados.ts) */}
+      {/* los mensajes que los habitantes han dejado para más adelante (server/scheduled.ts) */}
       {programados.length > 0 && <>
         <p className="tenue">⏰ {t('panels.scheduledMessages')}</p>
         <ul className="agenda">{programados.slice(0, 10).map(x => (
@@ -207,7 +207,7 @@ export function PanelLogistics() {
 // La sala de planificación (tipo 'coordinacion'; la agenda es otra) es una sala de serie con la raíz de repos del refugio
 // (SALA_PLANIFICACION; también puede haber otras, de carpetas con varios repos reclutadas en la Puerta): su habitante ve
 // todos los repos, planifica la tarea con el Supervisor (empieza en modo plan) y, con el plan aprobado, la reparte a la
-// sala de cada repo, cada parte en su worktree (server/reparto.ts)
+// sala de cada repo, cada parte en su worktree (server/dispatch.ts)
 export const coordinationRooms = (): any[] => ((vivo.get().estado?.salas ?? []) as any[]).filter(s => s.tipo === 'coordinacion' && s.ruta)
   .sort((a, b) => Number(b.id === PLANNING_ROOM) - Number(a.id === PLANNING_ROOM));
 export async function planTask(tarea: TaskJira, salaId?: string): Promise<string | null> {

@@ -1,11 +1,11 @@
 // Salas de actividades: hidroponía (cultivos que crecen con las llamadas a herramientas) y galería de tiro.
-import { t, t as tr } from '@shared/idioma';
+import { t, t as tr } from '@shared/language';
 import * as THREE from 'three';
-import { place, R } from '../../motor/assets';
-import { cartel, PanelRoom, PhosphorScreen, lienzo, textureOf, SOURCES } from '../../motor/texturas';
-import { signInWall, mancha, highBand, materialSteel, caja, HEIGHT, type Contexto, switchOffWalls, workStation, tumbada, lean } from './comun';
-import { vivo } from '../../red/cliente';
-import { SFX } from '../../audio/sonido';
+import { place, R } from '../../engine/assets';
+import { cartel, PanelRoom, PhosphorScreen, lienzo, textureOf, SOURCES } from '../../engine/textures';
+import { signInWall, mancha, highBand, materialSteel, caja, HEIGHT, type Contexto, switchOffWalls, workStation, tumbada, lean } from './common';
+import { vivo } from '../../net/client';
+import { SFX } from '../../audio/sound';
 
 const CULTIVOS = ['Lettuce', 'Carrot', 'Corn', 'Pumpkin', 'Beet', 'Mushroom'];
 // altura final (fase 4) de cada especie en metros; las fases previas crecen hasta ella
@@ -110,7 +110,7 @@ export async function furnishGallery(ctx: Contexto) {
   await highBand(ctx, { reloj: 5.1, valves: [-4.8], segments: [[-2.0, 7.4]] });
   // dianas sobre raíles al fondo (escudos redondos de colores como blancos) y mostrador delante
   // cada diana cuelga de su carro en el raíl del techo por una varilla que llega a su eje (el centro del escudo): cuando
-  // se mueve por la calle, carro y varilla van con ella; al acertarle, el escudo gira sobre su eje (ver tiro.ts)
+  // se mueve por la calle, carro y varilla van con ella; al acertarle, el escudo gira sobre su eje (ver shootingGallery.ts)
   const dianas: THREE.Object3D[] = [], rods: THREE.Object3D[] = [];
   const rail = await place(g, R.cy('Rail_Long'), { pos: [0, 2.7, zB + 0.75], ancho: 9.5 });
   const yRail = new THREE.Box3().setFromObject(rail).min.y, yEje = 1.37;

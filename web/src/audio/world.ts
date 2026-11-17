@@ -1,32 +1,32 @@
-// Lo que se oye en el mundo, cada fotograma (refugio.ts llama a `audioMundo.actualizar`):
-// - el ambiente de cada sala según dónde está el Supervisor (ambiente.ts), con la calle y el hueco del ascensor;
-// - las voces de los habitantes (voces.ts): murmuran al ritmo del texto que escriben en su intercomunicador, sueltan
+// Lo que se oye en el mundo, cada fotograma (shelter.ts llama a `audioMundo.actualizar`):
+// - el ambiente de cada sala según dónde está el Supervisor (ambience.ts), con la calle y el hueco del ascensor;
+// - las voces de los habitantes (voices.ts): murmuran al ritmo del texto que escriben en su intercomunicador, sueltan
 //   una exclamación al terminar, al fallar o al pedir permiso, hablan solos de vez en cuando, charlan entre ellos y
 //   roncan al dormir;
 // - el tecleo de quien teclea en su puesto y los ruiditos de lo que hace (leer, trastear, el café…).
 // Todo es espacial: paneo por la posición en pantalla y volumen por cercanía (su sala, entera; las de al lado, a
 // través de la pared; más allá, nada). Con el intercomunicador abierto, la voz de quien habla suena en primer plano.
 import * as THREE from 'three';
-import type { SessionSummary } from '@shared/protocolo';
-import { mundo, FLOOR, FRAME, type Sala } from '../mundo/salas/comun';
-import { baseStock } from '@shared/decorado';
-import { cliente, vivo } from '../red/cliente';
-import { juego } from '../ui/estadoJuego';
-import { sessionOwner, isCopy, rutaDeCopia } from '../ui/copias';
-import { sonido, SFX } from './sonido';
-import { mezclar, activeProfiles, type Listen } from './ambiente';
-import { Voice, snore, type Species, type Exclamation } from './voces';
-import { Typist } from './teclado';
-import { pitidosMando } from './sintesis';
-import { Turntable } from './tocadiscos';
-import { CLUB, THREAD, ACOUSTICS_CLUB, THREAD_ACOUSTICS, ACOUSTICS_RADIO } from './temas';
-import { registrarPulse, musicPulse, type MusicPulse } from './musica';
+import type { SessionSummary } from '@shared/protocol';
+import { mundo, FLOOR, FRAME, type Sala } from '../world/rooms/common';
+import { baseStock } from '@shared/decor';
+import { cliente, vivo } from '../net/client';
+import { juego } from '../ui/gameState';
+import { sessionOwner, isCopy, rutaDeCopia } from '../ui/copies';
+import { sonido, SFX } from './sound';
+import { mezclar, activeProfiles, type Listen } from './ambience';
+import { Voice, snore, type Species, type Exclamation } from './voices';
+import { Typist } from './keyboard';
+import { pitidosMando } from './synthesis';
+import { Turntable } from './turntable';
+import { CLUB, THREAD, ACOUSTICS_CLUB, THREAD_ACOUSTICS, ACOUSTICS_RADIO } from './themes';
+import { registrarPulse, musicPulse, type MusicPulse } from './music';
 
-const ELEVATOR_MIDDLE = 3.4 / 2;   // ANCHO_ASCENSOR / 2 (ascensor.ts)
+const ELEVATOR_MIDDLE = 3.4 / 2;   // ANCHO_ASCENSOR / 2 (elevator.ts)
 const azar = (a: number, b: number) => a + Math.random() * (b - a);
 const clamp = THREE.MathUtils.clamp;
 
-/** Lo que el audio necesita del refugio (refugio.ts se pasa a sí mismo) */
+/** Lo que el audio necesita del refugio (shelter.ts se pasa a sí mismo) */
 export interface ViewAudio {
   viewGeneral: boolean; distRoom: number;
   camara: { goal: THREE.Vector3; distancia: number };

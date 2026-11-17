@@ -4,7 +4,7 @@
 //  2. sacar una conversación real (haiku, una frase): se cierra en el juego y sale `claude --resume <id>`
 //  3. con esa conversación abierta «fuera», el refugio no deja retomarla
 //  4. el juego se cae (se va el cliente sin «Salir»): lo abierto sale solo y la terminal enganchada sobrevive
-// Uso: node scripts/qa-superficie.mjs [--sin-sesion]   (SHELTER_PUERTO_QA para otro puerto)
+// Uso: node scripts/qa-surface.mjs [--sin-sesion]   (SHELTER_PUERTO_QA para otro puerto)
 import WebSocket from 'ws';
 import net from 'node:net';
 import os from 'node:os';

@@ -1,6 +1,6 @@
 // Texturas de lienzo para la señalética y las pantallas del refugio (carteles, rótulos, terminales de fósforo).
 import * as THREE from 'three';
-import { t as tx, tIs, locale } from '@shared/idioma';
+import { t as tx, tIs, locale } from '@shared/language';
 // short weekday in the chosen language: LUN, MIÉ… / MON, WED…
 const dayShort = (d: Date) => new Intl.DateTimeFormat(locale(), { weekday: 'short' }).format(d).replace(/\.$/, '').slice(0, 3).toUpperCase();
 
@@ -495,7 +495,7 @@ export function splitByWords(g: CanvasRenderingContext2D, texto: string, ancho: 
 // Tablero de tareas de la pantalla grande de Logística: columnas por estado con fichas (asignado y estimación)
 // que llenan la altura aunque haya pocas, y abajo la gráfica del ciclo (lo que queda frente al ideal, día a día).
 export interface BoardColumnTex { nombre: string; fichas: BoardCard[]; tinta?: string }
-export interface BoardCard { id: string; titulo: string; prioridad?: number; sub?: string; asignado?: string; estimacion?: number; color?: string }   // color: el de su tarea (shared/tareas.ts)
+export interface BoardCard { id: string; titulo: string; prioridad?: number; sub?: string; asignado?: string; estimacion?: number; color?: string }   // color: el de su tarea (shared/tasks.ts)
 export interface BoardCycle { nombre: string; progreso: number; inicio?: number; fin?: number; reach?: number[]; hecho?: number[] }
 export class BoardKanban {
   c: HTMLCanvasElement; g: CanvasRenderingContext2D; tex: THREE.CanvasTexture; private firma = '';
@@ -551,7 +551,7 @@ export class BoardKanban {
   private ficha(fi: BoardCard, x: number, y: number, w: number, fh: number, col: string, tinta: string, fondo: string) {
     const { g } = this;
     g.fillStyle = fondo; g.fillRect(x, y, w, fh);
-    // con el color de su tarea (lo reparte Logística: shared/tareas.ts) en el borde y la franja; la prioridad, al lado
+    // con el color de su tarea (lo reparte Logística: shared/tasks.ts) en el borde y la franja; la prioridad, al lado
     const prio = fi.prioridad === 1 ? '#ff5a4a' : fi.prioridad === 2 ? '#ffb000' : null;
     g.strokeStyle = fi.color ? fi.color + 'aa' : col + '33'; g.lineWidth = fi.color ? 2.5 : 1.5; g.strokeRect(x + 1, y + 1, w - 2, fh - 2);
     if (fi.color) { g.fillStyle = fi.color; g.fillRect(x, y, 10, fh); if (prio) { g.fillStyle = prio; g.fillRect(x + 10, y, 4, fh); } }

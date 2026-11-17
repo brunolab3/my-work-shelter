@@ -1,8 +1,8 @@
 // Conexión con el servidor local del refugio: WebSocket con reconexión, peticiones con respuesta y almacén de datos vivos.
-import type { ClientMessage, ServerMessage, SessionSummary, LogInput, InfoRepo, Visitante, MusicState, NoticeQuestion } from '@shared/protocolo';
-import type { ScheduledMessage } from '@shared/programados';
-import { Store } from '../ui/almacen';
-import { t, roomNameIs } from '@shared/idioma';
+import type { ClientMessage, ServerMessage, SessionSummary, LogInput, InfoRepo, Visitante, MusicState, NoticeQuestion } from '@shared/protocol';
+import type { ScheduledMessage } from '@shared/scheduled';
+import { Store } from '../ui/store';
+import { t, roomNameIs } from '@shared/language';
 
 export interface LiveData {
   connected: boolean;
@@ -20,8 +20,8 @@ export interface LiveData {
   eventos: any[];
   integraciones: Record<string, any>;
   avisos: Notice[];
-  musica: MusicState | null;              // lo que suena en la discoteca (Spotify web; lo pone Discoteca.tsx)
-  programados: ScheduledMessage[];         // mensajes programados pendientes (server/programados.ts)
+  musica: MusicState | null;              // lo que suena en la discoteca (Spotify web; lo pone Disco.tsx)
+  programados: ScheduledMessage[];         // mensajes programados pendientes (server/scheduled.ts)
 }
 
 // a notice (teletype): its id is its arrival time in ms (plus a fraction, so two never collide)
@@ -29,7 +29,7 @@ export type Notice = { id: number; nivel: string; texto: string; pregunta?: Noti
 
 export const vivo = new Store<LiveData>({ connected: false, attempts: 0, reiniciando: false, claudeOk: false, estado: null, sesiones: {}, entradas: {}, parcial: {}, repos: {}, visitantes: [], notificaciones: [], eventos: [], integraciones: {}, avisos: [], musica: null, programados: [] });
 
-// Notices stay until read (the older ones folded into one group: Avisos in web/src/ui/Puente.tsx), up to the latest
+// Notices stay until read (the older ones folded into one group: Avisos in web/src/ui/Bridge.tsx), up to the latest
 // MAX_NOTICES; questions don't count and stay until answered
 const MAX_NOTICES = 30;
 export function addNotice(nivel: string, texto: string, pregunta?: NoticeQuestion) {

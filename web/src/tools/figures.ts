@@ -1,8 +1,8 @@
 // Herramienta de desarrollo: despiece de cabezas y figuras montadas por piezas (QA del probador).
 import * as THREE from 'three';
-import { gltf } from '../motor/assets';
-import { dismantleHead, strips, HEAD_KINDS, numTris } from '../mundo/figura/despiece';
-import { SETTINGS } from '../mundo/figura/ajustes';
+import { gltf } from '../engine/assets';
+import { dismantleHead, strips, HEAD_KINDS, numTris } from '../world/figure/breakdown';
+import { SETTINGS } from '../world/figure/overrides';
 
 const q = new URLSearchParams(location.search);
 const modo = q.get('modo') || 'clases';
@@ -19,8 +19,8 @@ let INDEX: string[] = [];
 const RUTA = (n: string) => INDEX.find(r => r.endsWith('/' + n + '.glb')) ?? n;
 
 async function figuras() {
-  const { mountFigure } = await import('../mundo/figura/montaje');
-  const { STOCK, lookOnRandom, sanitizeLook } = await import('@shared/aspecto');
+  const { mountFigure } = await import('../world/figure/assembly');
+  const { STOCK, lookOnRandom, sanitizeLook } = await import('@shared/appearance');
   const g = document.getElementById('g')!;
   let semilla = +(q.get('semilla') || 7); const r = () => { semilla ^= semilla << 13; semilla ^= semilla >>> 17; semilla ^= semilla << 5; return ((semilla >>> 0) % 100000) / 100000; };
   const pedidos = (q.get('aspectos') ?? '').split(',').filter(Boolean).flatMap(x => x.startsWith('azar') ? Array.from({ length: +(x.split(':')[1] || 8) }, (_, i) => ['azar' + i, lookOnRandom(r, x.startsWith('azarr') ? 'robot' : 'humano')] as const)
@@ -32,7 +32,7 @@ async function figuras() {
     if (!a) continue;
     let o: THREE.Object3D;
     if (q.get('pose')) {   // posado con un clip (Idle_A por defecto) para ver la piel deformada
-      const { Character } = await import('../mundo/personaje');
+      const { Character } = await import('../world/character');
       const p = new Character('qa', a); await p.cargar(); p.reproducir(q.get('pose') === '1' ? 'Idle_A' : q.get('pose')!, 0); p.mixer.update(0.5); o = p.raiz; p.contactShadow.visible = false;
     } else { const f = await mountFigure(a); o = f.modelo; o.scale.setScalar(1.85 / f.modelHeight); }
     scene.add(o); o.rotation.y = +(q.get('rot') || 0.35);
@@ -61,7 +61,7 @@ async function figuras() {
     if (!cabeza) continue;
     const m = cabeza as THREE.Mesh, mat = m.material as THREE.MeshStandardMaterial;
     const des = dismantleHead({ geo: m.geometry, atlas: strips(mat.map) }, SETTINGS[ruta.split('/').pop()!.replace('.glb', '')]);
-    { const { components, trisStrips } = await import('../mundo/figura/despiece'); const cs = components(m.geometry), fr = trisStrips({ geo: m.geometry, atlas: strips(mat.map) }), at = strips(mat.map)!;
+    { const { components, trisStrips } = await import('../world/figure/breakdown'); const cs = components(m.geometry), fr = trisStrips({ geo: m.geometry, atlas: strips(mat.map) }), at = strips(mat.map)!;
       info[ruta] = { eyesY: +des.eyesY.toFixed(2), piel: des.piel?.map(Math.round), comps: cs.map((c, i) => { const cu = new Map<number, number>(); for (const t of c.tris) cu.set(fr[t], (cu.get(fr[t]) ?? 0) + 1); const tints = [...cu.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([f, k]) => at.color[f].map(Math.round).join(',') + 'x' + k).join(' ');
         const cl = new Map<string, number>(); for (const t of c.tris) { const k = HEAD_KINDS[des.clase[t]]; cl.set(k, (cl.get(k) ?? 0) + 1); }
         return `${i} n${c.tris.length} c(${c.centro.toArray().map(v => v.toFixed(2)).join(',')}) [${tints}] => ${[...cl.entries()].map(e => e.join(':')).join(' ')}`; }) }; }

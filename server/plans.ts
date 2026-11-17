@@ -3,8 +3,8 @@
 // todas se enteren: las partes leen el plan y proponen cambios; solo la sala de planificación lo cambia.
 import { existsSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
 import path from 'node:path';
-import type { TaskOrder } from '../shared/despliegue.ts';
-import { t } from '../shared/idioma.ts';
+import type { TaskOrder } from '../shared/deploy.ts';
+import { t } from '../shared/language.ts';
 
 // esperaA: las salas (id) cuya parte tiene que fusionarse antes que esta (el tablero de despliegue lo hace bloqueos)
 export interface PartOfPlan { salaId: string; sala: string; titulo: string; sesionId?: string; waitA?: string[] }

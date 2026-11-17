@@ -5,18 +5,18 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import http from 'node:http';
-import type { Store } from '../estado.ts';
-import { keychainMemoria, useKeychain, keychainMac } from './llavero.ts';
+import type { Store } from '../state.ts';
+import { keychainMemoria, useKeychain, keychainMac } from './keychain.ts';
 import { crear as createLinear, mcpLinear, environmentMcpLinear } from './linear.ts';
 import { crear as createOutlook } from './outlook.ts';
-import { ZONA } from './normalizar.ts';
+import { ZONA } from './normalize.ts';
 import { crear as createGoogle } from './google.ts';
 import { crear as createGitHub } from './github.ts';
 import { crear as createSlack } from './slack.ts';
 import { crear as createDiscord } from './discord.ts';
 import { crear as createJira, JQL_MY_TASKS, epicOf, jiraTasks } from './jira.ts';
 import { crear as createMail } from './mail.ts';
-import { crear as createCalendar } from './calendario.ts';
+import { crear as createCalendar } from './calendar.ts';
 
 const fx = (n: string) => JSON.parse(readFileSync(path.join(import.meta.dirname, '../../test/fixtures', n), 'utf8'));
 function fakeStore(): Store {

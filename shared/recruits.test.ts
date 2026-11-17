@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { generateRecruit, LOOKS, tonesForRepeated, distinctLooks } from './reclutas.ts';
-import { lookOf } from './aspecto.ts';
-import { INITIAL_DWELLERS } from './refugioInicial.ts';
+import { generateRecruit, LOOKS, tonesForRepeated, distinctLooks } from './recruits.ts';
+import { lookOf } from './appearance.ts';
+import { INITIAL_DWELLERS } from './initialShelter.ts';
 
 describe('reclutas', () => {
   it('la misma semilla da el mismo recluta', () => {

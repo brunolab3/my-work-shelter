@@ -2,14 +2,14 @@
 // sala o en sus worktrees se asoman como un solo robot por sala, junto al paso: nunca como un habitante. Con E o clic, al
 // intercomunicador del habitante de la sala con la lista de esas sesiones (la más reciente arriba), para retomar cualquiera.
 import * as THREE from 'three';
-import type { Refugio } from './refugio';
-import type { Sala } from './salas/comun';
-import { Character } from './personaje';
-import { vivo } from '../red/cliente';
-import { SFX } from '../audio/sonido';
-import type { Visitante } from '@shared/protocolo';
-import { lookOf, type Look } from '@shared/aspecto';
-import { t } from '@shared/idioma';
+import type { Refugio } from './shelter';
+import type { Sala } from './rooms/common';
+import { Character } from './character';
+import { vivo } from '../net/client';
+import { SFX } from '../audio/sound';
+import type { Visitante } from '@shared/protocol';
+import { lookOf, type Look } from '@shared/appearance';
+import { t } from '@shared/language';
 
 // robots grandes (mechas de guardia, algo más grandes que los ayudantes): la chapa, de un color por sala
 const CHAPAS = ['#8d939b', '#5b6068', '#2e6a9a', '#5a3f8a', '#b8732f'];

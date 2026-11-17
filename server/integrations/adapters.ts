@@ -1,12 +1,12 @@
 // Adaptadores de fuentes. Cada uno: estado (demo / configurada / error), sondeo, prueba de conexión y configuración.
 // El modo demo produce datos simulados plausibles (en español, con los repos de ejemplo) por el MISMO camino que el real.
-import type { Store } from '../estado.ts';
+import type { Store } from '../state.ts';
 import { demoNotifications, demoEvents, demoPanelLinear, demoBoardLinear, demoPanelJira } from './demo.ts';
 
 export type Priority = 'baja' | 'media' | 'alta';
-// Las fuentes (orden, nombres y qué trae cada una) están en shared/fuentes.ts; su conector real, en ./<id>.ts (export crear)
-import { SOURCES, ACTIVE_SOURCES, CALENDAR_SOURCES, type SourceId } from '../../shared/fuentes.ts';
-import { t } from '../../shared/idioma.ts';
+// Las fuentes (orden, nombres y qué trae cada una) están en shared/fonts.ts; su conector real, en ./<id>.ts (export crear)
+import { SOURCES, ACTIVE_SOURCES, CALENDAR_SOURCES, type SourceId } from '../../shared/fonts.ts';
+import { t } from '../../shared/language.ts';
 export { SOURCES, CALENDAR_SOURCES, type SourceId };
 export interface Notification {
   id: string; fuente: SourceId; canal?: string; autor: string; titulo: string; fragmento: string;

@@ -1,8 +1,8 @@
-// Ventanas: charlas, terminales, navegadores, git y archivos (catálogo: shared/textos.ts)
-import type { Texto } from '../idioma.ts';
+// Ventanas: charlas, terminales, navegadores, git y archivos (catálogo: shared/texts.ts)
+import type { Texto } from '../language.ts';
 
 export const WINDOWS: Record<string, Texto> = {
-  // selectores del intercomunicador: modelo, esfuerzo y permisos (shared/protocolo.ts, pintados con tIs)
+  // selectores del intercomunicador: modelo, esfuerzo y permisos (shared/protocol.ts, pintados con tIs)
   'windows.modelFromYourSettings': { es: 'El de tus ajustes', en: 'From your settings' },
   'windows.effortDefault': { es: 'Por defecto', en: 'Default' },
   'windows.effortLow': { es: 'Bajo', en: 'Low' },
@@ -30,7 +30,7 @@ export const WINDOWS: Record<string, Texto> = {
   'windows.expandToFullScreenAtajo': { es: 'Ampliar a toda la pantalla ({shortcut})', en: 'Expand to full screen ({shortcut})' },
   'windows.closeQue': { es: 'Cerrar {que}', en: 'Close {que}' },
   'windows.closeTabAtajo': { es: 'Cerrar la pestaña ({shortcut})', en: 'Close tab ({shortcut})' },
-  // list of every tab of a window (ventanas.tsx)
+  // list of every tab of a window (windows.tsx)
   'windows.allTabs': { es: 'Todas las pestañas ({n}) · {shortcut}', en: 'All tabs ({n}) · {shortcut}' },
   'windows.allConversations': { es: 'Todas las conversaciones abiertas ({n}) · {shortcut}', en: 'Every open conversation ({n}) · {shortcut}' },
   'windows.filterTabs': { es: 'Filtrar por título, sala o tarea…', en: 'Filter by title, room or task…' },
@@ -115,7 +115,7 @@ export const WINDOWS: Record<string, Texto> = {
   'windows.browserNombre': { es: 'Navegador: {nombre}', en: 'Browser: {nombre}' },
   'windows.browser': { es: 'NAVEGADOR', en: 'BROWSER' },
   'windows.page': { es: 'Página', en: 'Page' },
-  // a link's options (web/src/ui/opcionesEnlace.ts): a click on a link in a reply
+  // a link's options (web/src/ui/linkOptions.ts): a click on a link in a reply
   'windows.web': { es: 'Web', en: 'Web' },
   'windows.linkOpenInGame': { es: 'Abrir en el juego', en: 'Open in the game' },
   'windows.linkOpenInSpot': { es: 'Abrir en el juego ({nombre})', en: 'Open in the game ({nombre})' },

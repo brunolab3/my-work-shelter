@@ -1,10 +1,10 @@
-// Los colores de las tareas en el cliente (shared/tareas.ts): se piden al servidor los de las tareas que se ven (los
+// Los colores de las tareas en el cliente (shared/tasks.ts): se piden al servidor los de las tareas que se ven (los
 // guarda y reparte para que no se repitan) y, al llegar, se repinta lo que los usa (tableros con useColoresTareas;
 // pantallas y hologramas miran `versionColores`).
-import { assignedColors, hasTaskColor } from '@shared/tareas';
-import type { Epic, PRBoard, TaskJira } from '@shared/tablero';
-import { cliente } from '../red/cliente';
-import { Store } from './almacen';
+import { assignedColors, hasTaskColor } from '@shared/tasks';
+import type { Epic, PRBoard, TaskJira } from '@shared/board';
+import { cliente } from '../net/client';
+import { Store } from './store';
 
 export const versionColors = new Store<{ v: number }>({ v: 0 });
 export const useColorsTasks = () => versionColors.usar(e => e.v);

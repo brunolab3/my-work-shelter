@@ -1,12 +1,12 @@
 // Markdown seguro para las respuestas de los habitantes (bloques de código con botón de copiar).
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
-import { cliente } from '../red/cliente';
-import { isLocalServer, openPage } from './Navegadores';
-import { linkClick } from './opcionesEnlace';
-import { t } from '@shared/idioma';
-import { localPathLinks } from './rutasEnlace';
-import { relativeLinks, IMAGE_FILE, normalizePath } from '@shared/paginasSesion';
+import { cliente } from '../net/client';
+import { isLocalServer, openPage } from './Browsers';
+import { linkClick } from './linkOptions';
+import { t } from '@shared/language';
+import { localPathLinks } from './linkPaths';
+import { relativeLinks, IMAGE_FILE, normalizePath } from '@shared/sessionPages';
 
 marked.setOptions({ gfm: true, breaks: false });
 marked.use(localPathLinks);   // «/Users/…/compare.html» suelto también es un enlace
@@ -16,9 +16,9 @@ DOMPurify.addHook('uponSanitizeElement', (nodo: any, datos) => {
 });
 
 // los enlaces de una respuesta nunca llevan la ventana del juego a otra página: un clic ofrece cómo abrirlos
-// (opcionesEnlace.ts; `data-enlace` los web y de correo). Los que apuntan a un archivo del Mac («/Users/…/informe.html»,
+// (linkOptions.ts; `data-enlace` los web y de correo). Los que apuntan a un archivo del Mac («/Users/…/informe.html»,
 // «~/…», «file:///…», `data-local`) no son páginas del juego: los abre el servidor (acción `enlace.local`: una página
-// o una imagen en el juego, código en el editor…; server/abrir.ts)
+// o una imagen en el juego, código en el editor…; server/open.ts)
 export const isPathLocal = (href: string) => /^file:\/\//i.test(href) || /^~\//.test(href) || (/^\/[^/]/.test(href) && !/^\/(api|ws|assets)\b/.test(href));
 DOMPurify.addHook('afterSanitizeAttributes', (nodo: any) => {
   if (nodo.tagName !== 'A' || !nodo.hasAttribute?.('href')) return;
@@ -46,7 +46,7 @@ export function markdown(texto: string, base?: string): string {
 
 // Thumbnails of the Mac's images a reply links or embeds: a small picture after the link (or in place of the embed),
 // once per image, that opens it in the «Página» window like the link. Only images (IMAGE_FILE); the server gives each
-// one its own key (action `enlace.miniatura`, server/paginasLocales.ts)
+// one its own key (action `enlace.miniatura`, server/localPages.ts)
 const isImage = (ruta: string) => IMAGE_FILE.test(normalizePath(ruta).replace(/(:\d+){1,2}$/, ''));
 function withThumbnails(html: string): string {
   if (!html.includes('data-local')) return html;

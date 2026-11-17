@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import path from 'node:path';
-import { EXAMPLES_FOLDER, isCloneOfExample, examplePath } from './ejemplos.ts';
+import { EXAMPLES_FOLDER, isCloneOfExample, examplePath } from './examples.ts';
 
 describe('repos de ejemplo', () => {
   it('solo es copia de ejemplo lo que está directamente en su carpeta (lo demás, tuyo, no se tira nunca)', () => {

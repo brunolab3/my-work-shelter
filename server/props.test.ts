@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { existsSync, mkdtempSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { boxGltf, catalogo, ASSETS } from './atrezo.ts';
+import { boxGltf, catalogo, ASSETS } from './props.ts';
 
 describe('catálogo del atrezo', () => {
   it('mide la caja de un glTF con las transformaciones de sus nodos', () => {
