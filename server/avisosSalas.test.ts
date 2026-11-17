@@ -134,6 +134,50 @@ describe('mensajes entre salas', () => {
     expect((await sendToRoom(x.c, 'pagos', { sala: 'express', mensaje: 'j', hilo: 'lo de ayer' })).ok).toBe(false);
   });
 
+  it('without key or thread: the sender conversation\'s next messages to that room continue in the one that got the first, and replies come back to it', async () => {
+    const cerradas = new Set<string>(), reloj = { t: 1_000_000 };
+    const x = ctx({ cerradas, reloj });
+    const r1 = await sendToRoom(x.c, 'express', { sala: 'pagos', mensaje: 'a' }, 'ses-a');
+    expect(r1.texto).toContain('conversación nueva');
+    const r2 = await sendToRoom(x.c, 'express', { sala: 'pagos', mensaje: 'b' }, 'ses-a');
+    expect(x.nuevas).toHaveLength(1);
+    expect(x.avisados).toEqual([expect.objectContaining({ sesionId: 'nueva' })]);
+    expect(r2.texto).toContain('mensaje anterior');
+    // the receiver replies to the sender's room: to the conversation that wrote, not a new one
+    const r3 = await sendToRoom(x.c, 'pagos', { sala: 'app-web', mensaje: 'hecho' }, 'nueva');
+    expect(x.avisados.at(-1)?.sesionId).toBe('ses-a');
+    expect(r3.texto).toContain('te escribió');
+    expect(x.nuevas).toHaveLength(1);
+    // another sender conversation, another room, or no sender conversation: new ones
+    await sendToRoom(x.c, 'express', { sala: 'pagos', mensaje: 'c' }, 'ses-b');
+    await sendToRoom(x.c, 'express', { sala: 'tareas', mensaje: 'd' }, 'ses-a');
+    await sendToRoom(x.c, 'tareas', { sala: 'pagos', mensaje: 'e' });
+    expect(x.nuevas).toHaveLength(4);
+    // a key or a thread keep their own routing
+    reloj.t += 61_000;
+    await sendToRoom(x.c, 'express', { sala: 'pagos', mensaje: 'f', clave: 'ABC-2' }, 'ses-a');
+    await sendToRoom(x.c, 'express', { sala: 'pagos', mensaje: 'g', hilo: 'deps' }, 'ses-a');
+    expect(x.nuevas).toHaveLength(6);
+    // closed: a new one, which the next messages then follow
+    cerradas.add('nueva');
+    await sendToRoom(x.c, 'express', { sala: 'pagos', mensaje: 'h' }, 'ses-a');
+    expect(x.nuevas).toHaveLength(7);
+    reloj.t += 61_000;
+    await sendToRoom(x.c, 'express', { sala: 'pagos', mensaje: 'i' }, 'ses-a');
+    expect(x.avisados.at(-1)?.sesionId).toBe('nueva-7');
+  });
+
+  it('same room without key: never the sender\'s own conversation', async () => {
+    const x = ctx();
+    await sendToRoom(x.c, 'express', { sala: 'express', mensaje: 'a' }, 'holo-a');
+    // the new conversation writing back to its room: to holo-a, and holo-a's next one to the new one
+    await sendToRoom(x.c, 'express', { sala: 'express', mensaje: 'b' }, 'nueva');
+    expect(x.avisados).toEqual([expect.objectContaining({ sesionId: 'holo-a' })]);
+    await sendToRoom(x.c, 'express', { sala: 'express', mensaje: 'c' }, 'holo-a');
+    expect(x.avisados.at(-1)?.sesionId).toBe('nueva');
+    expect(x.nuevas).toHaveLength(1);
+  });
+
   it('request_worktree_cleanup: the game writes the request from the sender\'s worktree and sends it through its room\'s cleanup thread', async () => {
     const x = ctx();
     x.c.worktreeDeSesion = async (_sala, ses) => ses === 'holo-a' ? { ruta: '/repos/app-web/.claude/worktrees/a', rama: 'worktree-a', local: true }

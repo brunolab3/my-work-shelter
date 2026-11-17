@@ -2,8 +2,8 @@
 // cada conversación). Con la clave de una tarea (ABC-123, o un slug descriptivo fuera de Jira: preflight-popover), a la conversación abierta de esa tarea en la sala; si no la
 // hay, una conversación nueva en el worktree de la tarea (y si la sala aún no tiene ninguno, en uno nuevo con la clave en
 // su nombre, para que los siguientes mensajes de la tarea lleguen ahí). Sin
-// clave, siempre una conversación nueva con el habitante en su copia principal: los mensajes entre salas son para
-// empezar trabajo, no para charlar. With a thread (`cleanup`), to that thread's open conversation in the main copy, so
+// clave, una conversación nueva con el habitante en su copia principal; the same conversation's next messages to that room
+// continue in it while it is open, and its replies come back to the conversation that wrote. With a thread (`cleanup`), to that thread's open conversation in the main copy, so
 // its messages queue there one at a time; request_worktree_cleanup sends a worktree's cleanup through `cleanup`.
 // Also inside the same room: a dweller hands a task (or a part that goes alone) to its worktree's hologram and keeps the
 // Overseer's conversation; he carries it himself, or the messenger robot does if he's busy (web/src/mundo/mensajero.ts),
@@ -52,7 +52,10 @@ const enviados = new Map<string, number[]>();
 export const forgetLimits = () => enviados.clear();
 // each thread's conversation, per room and thread: in memory only, since "Restart the game" closes every conversation
 const hilos = new Map<string, string>();
-export const forgetThreads = () => hilos.clear();
+// conversation follow-ups, per sender conversation and room (`${sesión}>${sala}`): where its last message without key or
+// thread went, and the way back for replies; in memory too
+const seguimientos = new Map<string, { sesion: string; respuesta: boolean }>();
+export const forgetThreads = () => { hilos.clear(); seguimientos.clear(); };
 const threadOf = (h: string) => { const x = h.trim().toLowerCase(); return /^[a-z0-9]+(-[a-z0-9]+)*$/.test(x) && x.length <= 40 ? x : undefined; };
 
 // the worktree of a task among a room's: its key in its folder name or its branch (shared/tareas.ts: worktreeHasTask)
@@ -87,8 +90,11 @@ export async function sendToRoom(ctx: CtxRooms, desde: string, { sala, mensaje, 
   if (misma && abierta && abierta === desdeSesion) return { ok: false, texto: tr('tool.rooms.ownConversation', { clave: k! }) };
   // a thread's conversation, while open and never the sender itself (sesiones.enviar queues it if it's busy)
   const delHilo = hilo ? hilos.get(`${destino.id}/${hilo}`) : undefined;
+  // without key or thread: the conversation that got this one's previous message, or the one that wrote to it
+  const sigue = !k && !hilo && desdeSesion ? seguimientos.get(`${desdeSesion}>${destino.id}`) : undefined;
   if (abierta && ctx.avisar(abierta, texto)) { como = tr('tool.rooms.toOpen', { clave: k! }); recibe = abierta; }
   else if (delHilo && delHilo !== desdeSesion && ctx.avisar(delHilo, texto)) { como = tr('tool.rooms.toThread', { hilo: hilo! }); recibe = delHilo; }
+  else if (sigue && ctx.avisar(sigue.sesion, texto)) { como = tr(sigue.respuesta ? 'tool.rooms.toReply' : 'tool.rooms.toFollowUp'); recibe = sigue.sesion; }
   else {
     cwd = k ? await ctx.worktreeDeTarea(destino.id, k) : undefined;
     // sin worktree de la tarea, uno nuevo: la clave y el asunto en su nombre (la primera línea, sin repetir la clave); a
@@ -105,6 +111,11 @@ export async function sendToRoom(ctx: CtxRooms, desde: string, { sala, mensaje, 
       : enWorktree ? tr('tool.rooms.inNewWorktree', { clave: k!, worktree }) : tr('tool.rooms.inMainCopyNoGit', { clave: k! });
   }
   enviados.set(par, [...recientes, ahora]);
+  // never the sender's own: recibe can't be it, so neither can a follow-up
+  if (desdeSesion && recibe && recibe !== desdeSesion) {
+    if (!k && !hilo) seguimientos.set(`${desdeSesion}>${destino.id}`, { sesion: recibe, respuesta: false });
+    seguimientos.set(`${recibe}>${desde}`, { sesion: desdeSesion, respuesta: true });
+  }
   if (!misma) ctx.mensajero(desde, [destino.id], 'cambio');
   else ctx.entrega?.(destino.id, { worktree: cwd, sesionId: recibe });
   const resumen = mensaje.trim().replace(/\s+/g, ' ');
