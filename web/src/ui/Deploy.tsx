@@ -13,7 +13,7 @@ import { type PRBoard } from '@shared/board';
 import { trTextPR } from './Operations';
 import { openPreflight } from './Preflight';
 import { taskColor, pRTask } from '@shared/tasks';
-import { knowTasks, useColorsTasks } from './tasks';
+import { knowTasks, useColorsTasks, verificationMark } from './tasks';
 import { ledgerPending, type ReviewLedger } from '@shared/reviewCount';
 import { DEPLOYMENT_COLUMNS, bloqueosEntre, columnaDespliegue, taskLinks, olasDespliegue, promptDeployment, refPR, type Blocker, type BlockerManual, type TaskOrder } from '@shared/deploy';
 
@@ -48,6 +48,7 @@ const bloques = (lista: PRBoard[]) => lista.reduce<{ tarea: string; prs: PRBoard
 export function DeploymentBoard({ salaId, volver }: { salaId: string; volver: () => void }) {
   const sala = vivo.usar(e => e.estado?.salas?.find((s: any) => s.id === salaId));
   const habitante = vivo.usar(e => (e.estado?.habitantes ?? []).find((h: any) => h.salaId === salaId));
+  vivo.usar(e => e.verificaciones);   // the merged cards' 🔭 mark follows the verification
   const [gh, setGh] = useState<DataGH | null>(recuerdo.gh ?? null);
   const [manuales, setManual] = useState<BlockerManual[]>(recuerdo.manuales ?? []);
   const [orden, setOrder] = useState<TaskOrder[]>(recuerdo.orden ?? []);
@@ -173,6 +174,7 @@ export function DeploymentBoard({ salaId, volver }: { salaId: string; volver: ()
                   onMouseEnter={() => { setCol(ci); setI(k); }} onClick={() => { if (marking) marcar(marking, p.url); }} onDoubleClick={() => !marking && openLink(p.url)} title={`${refPR(p)} · ${trTextPR(p)}`}>
                   <span className="marca-tarea" title={pRTask(p)} /><span className="ident">{corto(p)}</span>{ola.has(p.url) && <span className="ola" title={t('panels.deploymentWaveGoesAfterThe')}>{t('panels.waveN', { n: ola.get(p.url) ?? 0 })}</span>} {p.titulo}
                   <small className="tenue">{trTextPR(p)}</small>
+                  {p.estado === 'fusionado' && verificationMark(pRTask(p), refPR(p)) && <small className="tenue" title={t('verification.title')}>{verificationMark(pRTask(p), refPR(p))}</small>}
                   {p.estado !== 'fusionado' && p.estado !== 'cerrado' && ledgerPending(p.ledger) && <Ledger l={p.ledger!} />}
                   {esp.length > 0 && <small className={pendientes.length ? 'espera' : 'tenue'}>⛔ {t('panels.waitsFor')} {esp.map(b => <span key={b.por} title={tIs(REASON[b.motivo])}>{corto(byUrl.get(b.por)!)}{byUrl.get(b.por)?.estado === 'fusionado' ? ' ✓' : ''} </span>)}</small>}
                   {blq.length > 0 && <small className="tenue">→ {t('panels.blocks')} {blq.map(b => corto(byUrl.get(b.de)!)).join(', ')}</small>}

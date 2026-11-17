@@ -10,5 +10,6 @@ import { TOOLS } from './texts/tools.ts';
 import { INTEGRATIONS } from './texts/integrations.ts';
 import { PREFLIGHT } from './texts/preflight.ts';
 import { DWELLERS } from './texts/dwellers.ts';
+import { VERIFICATION } from './texts/verification.ts';
 
-export const TEXTS: Record<string, Texto> = { ...MENU, ...WORLD, ...PANELS, ...WINDOWS, ...PROMPTS, ...SERVIDOR, ...TOOLS, ...INTEGRATIONS, ...PREFLIGHT, ...DWELLERS };
+export const TEXTS: Record<string, Texto> = { ...MENU, ...WORLD, ...PANELS, ...WINDOWS, ...PROMPTS, ...SERVIDOR, ...TOOLS, ...INTEGRATIONS, ...PREFLIGHT, ...DWELLERS, ...VERIFICATION };

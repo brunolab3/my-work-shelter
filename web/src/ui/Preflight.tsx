@@ -1,8 +1,8 @@
 // Pre-flight of a task: is each of its PRs, in every repo, ready to merge? (model in shared/preflight.ts, data from the
 // `preflight.tarea` action): one row per PR with its state, CI, review, conflicts and the PRs it waits for, and the
-// merge waves below (merged PRs struck through, a wave all merged ✔). Clicking a row opens the PR; clicking its
-// blockers, the PR it waits for. Getting ready to push (compare, checklist, sync) is not here: the push gate asks for it
-// (gateMissing). Opened from the task's block in the deployment plan, the copy's intercom and ⌘K. A small floating box
+// merge waves below (merged PRs struck through, a wave all merged ✔), then its production verification plan to approve and
+// its checkpoints' states. Clicking a row opens the PR; clicking its blockers, the PR it waits for. Getting ready to push
+// (compare, checklist, sync) is not here: the push gate asks for it (gateMissing). Opened from the task's block in the deployment plan, the copy's intercom and ⌘K. A small floating box
 // over whatever is open (not a panel): Esc or a click outside closes it and leaves everything underneath as it was.
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { cliente } from '../net/client';
@@ -17,6 +17,8 @@ import { jiraBoard, useColorsTasks } from './tasks';
 import { taskColor, taskKey } from '@shared/tasks';
 import { refPR } from '@shared/deploy';
 import { linkState, mergeReady, shortRef, type Cell, type PartLink, type PartPreflight, type TaskPreflight } from '@shared/preflight';
+import { deadlineOf, isApproved, KIND_TEXT, STATE_TEXT, type CheckpointState, type TaskTracker, type VerificationPlan } from '@shared/verification';
+import { describeWhenShort } from '@shared/scheduled';
 
 const MARK: Record<Cell['marca'], string> = { ok: '✓', aviso: '⚠', mal: '✗', nada: '—' };
 const READY: Record<ReturnType<typeof mergeReady>['estado'], string> = { fusionado: '✔', listo: '✓', aviso: '⚠', falta: '✗' };
@@ -41,6 +43,47 @@ function Celda({ c, onClick, title }: { c: Cell; onClick?: () => void; title?: s
   </td>;
 }
 const linkTitle = (l: PartLink) => l.url ? `${l.ref} · ${l.titulo ?? ''}\n${linkState(l)}` : `${l.sala} · ${linkState(l)}`;
+
+// production verification (shared/verification.ts): the plan the task's dweller proposed, to approve before the merge,
+// and each checkpoint's state after it; a signal's where, baseline and evidence in its tooltip
+const STATE_MARK: Record<CheckpointState, Cell['marca']> = { 'waiting-deploy': 'nada', live: 'nada', 'waiting-traffic': 'nada', evidenced: 'ok', failed: 'mal', inconclusive: 'aviso' };
+const SIGNAL_MARK = { pending: '·', evidenced: '✓', failed: '✗' } as const;
+function Verification({ clave, plan, tracker, aprobado, movida }: { clave: string; plan?: VerificationPlan; tracker?: TaskTracker; aprobado: (p: VerificationPlan) => void; movida: (estado: string) => void }) {
+  const [error, setError] = useState('');
+  const [moviendo, setMoving] = useState(false);
+  // the tracker's status: its board's prod-check one (picked in the vault) and, once verified, the workflow's move to done
+  const mover = () => {
+    SFX.clic(); setError(''); setMoving(true);
+    cliente.accion<{ estado: string }>('verificacion.cerrar', { clave }).then(x => { SFX.shortSuccess(); movida(x.estado); }).catch(e => setError((e as Error).message)).finally(() => setMoving(false));
+  };
+  const linea = tracker && <p className="tenue">{t('verification.tracker', { estado: tracker.estado })}{' · '}
+    {tracker.prueba ? t('verification.boardProdCheck', { tablero: tracker.tablero, prueba: tracker.prueba }) : t('verification.boardUnset', { tablero: tracker.tablero })}
+    {tracker.mover && <> <button className="boton-taller" disabled={moviendo} onClick={mover}>{t('verification.moveDone', { hecho: tracker.hecho ?? t('verification.doneColumn') })}</button></>}</p>;
+  if (!plan) return <>{linea}<p className="tenue">{t('verification.none')}</p></>;
+  const aprobar = () => {
+    SFX.clic(); setError('');
+    cliente.accion<VerificationPlan | null>('verificacion.aprobar', { clave }).then(p => { if (p) aprobado(p); }).catch(e => setError((e as Error).message));
+  };
+  const ok = isApproved(plan);
+  return <div className="pf-verificacion">
+    <p><b>{t('verification.title')}</b> <span className={ok ? 'pf-ok' : 'pf-aviso'}>· {t(ok ? 'verification.approved' : 'verification.unapproved', { version: plan.version })}</span>
+      {!ok && <> <button className="boton-taller" onClick={aprobar} title={t('verification.approveHint')}>{t('verification.approve')}</button></>}</p>
+    {linea}
+    {error && <p className="aviso-consola" onClick={() => setError('')}>{error}</p>}
+    {plan.puntos.map(c => {
+      const plazo = deadlineOf(c);
+      return <div key={c.id} className="pf-punto">
+        <span className={'pf-' + STATE_MARK[c.estado]} title={c.atascado ? t(STATE_TEXT[c.atascado]) : undefined}>{t(STATE_TEXT[c.estado])}</span> <b>{c.tipo === 'final' ? t('verification.final') : c.pr}</b> {c.titulo !== c.pr ? c.titulo : ''}
+        <span className="tenue">{c.servicios.length ? ' · ' + t('verification.services', { lista: c.servicios.map(s => (c.vivos[s] ? s + ' ✓' : s)).join(', ') }) : ''}
+          {' · '}{plazo ? t('verification.deadline', { cuando: describeWhenShort(plazo) }) : t('verification.deadlineHours', { n: c.plazoHoras })}</span>
+        {c.nota && <div className="tenue">{t('verification.note', { texto: c.nota.texto })}</div>}
+        <ul>{c.señales.map(x => <li key={x.id} className={'pf-' + (x.estado === 'evidenced' ? 'ok' : x.estado === 'failed' ? 'mal' : 'nada')}
+          title={[t('verification.where', { donde: x.donde }), ...(x.base ? [t('verification.baseline', { base: x.base })] : []), ...(x.evidencia ? [t('verification.evidence', { texto: x.evidencia.texto })] : [])].join('\n')}>
+          {SIGNAL_MARK[x.estado]} <span className="tenue">{t(KIND_TEXT[x.tipo])}:</span> <span className="pf-senal">{x.que}</span></li>)}</ul>
+      </div>;
+    })}
+  </div>;
+}
 
 /** Mounted once (main.tsx): the box, when a pre-flight is open */
 export function PreflightPopover() {
@@ -141,6 +184,7 @@ function Popover({ clave, ancla }: { clave: string; ancla?: { x: number; y: numb
         })}</span>;
       })}</p>}
       {todoFusionado && <p className="pf-aterrizada">✔ {t('preflight.landed')}</p>}
+      {r && <Verification clave={clave} plan={r.verificacion} tracker={r.tracker} aprobado={p => setR({ ...r, verificacion: p })} movida={estado => setR({ ...r, tracker: r.tracker && { ...r.tracker, estado, mover: false } })} />}
       {r && r.ciclo.length > 0 && <p className="aviso-consola">{t('preflight.cycle')} {r.ciclo.map(x => x.replace(/^[^/]+\//, '')).join(', ')}</p>}
       <Keys><kbd>↑↓</kbd>{t('preflight.keys.row')} <kbd>Enter</kbd>{t('preflight.keys.pr')} <kbd>R</kbd>{t('panels.reload')} <kbd>Esc</kbd>{t('menu.close')}</Keys>
     </div>

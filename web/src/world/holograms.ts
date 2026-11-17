@@ -23,7 +23,7 @@ import { SHOP } from '@shared/catalog';
 import { t, tIs } from '@shared/language';
 import type { InfoWorktree, SessionSummary } from '@shared/protocol';
 import { taskColor, hasTaskColor, worktreeTask, NO_TASK_COLOR } from '@shared/tasks';
-import { jiraBoard, knowTasks, taskEpic, versionColors } from '../ui/tasks';
+import { jiraBoard, knowTasks, taskEpic, verificationMark, versionColors } from '../ui/tasks';
 import type { DwellerState, DwellerSummary } from '../ui/gameState';
 import { idCopy, branchCaption, copyCaption, pathWorktree } from '../ui/copies';
 import { holoSlot } from './copySpot';
@@ -542,7 +542,7 @@ export class Holograms {
       const detalle = !cerca ? '' : f.estado === 'ocioso' ? git : f.detalle.slice(0, 48);
       const autor = this.r.habitantes.find(h => h.id.id === f.authorId);
       const programado = scheduledMark(f.sala.id, f.ruta);
-      return { k: f, programado, pos: f.p.headPoint(), alto: 0.2, nombre: `${autor?.id.nombre ?? t('world.copy')} ◇ ${copyCaption(f.w, f.tarea ?? branchCaption(f.w.rama))}`, color: hasTaskColor(f.tarea) ? taskColor(f.tarea) : undefined, epica: epicTag(f.tarea), estado: f.estado, detalle, cerca: elegida, lejos, prompt: elegida ? t('world.talk') : '', tecla: f === selected ? 'E' : t('world.click'), apuntado: f === aimed && f !== selected, relevant: cerca || elegida || f.estado !== 'ocioso' || !!programado };
+      return { k: f, programado, pos: f.p.headPoint(), alto: 0.2, nombre: `${autor?.id.nombre ?? t('world.copy')} ◇ ${copyCaption(f.w, f.tarea ?? branchCaption(f.w.rama))}${verificationMark(f.tarea) ? ' · ' + verificationMark(f.tarea) : ''}`, color: hasTaskColor(f.tarea) ? taskColor(f.tarea) : undefined, epica: epicTag(f.tarea), estado: f.estado, detalle, cerca: elegida, lejos, prompt: elegida ? t('world.talk') : '', tecla: f === selected ? 'E' : t('world.click'), apuntado: f === aimed && f !== selected, relevant: cerca || elegida || f.estado !== 'ocioso' || !!programado };
     }).filter(x => x.relevant);
   }
 }

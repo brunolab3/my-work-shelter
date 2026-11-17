@@ -25,6 +25,7 @@ export const Q = {
   notificaciones: `query Notificaciones { notifications(first: 100, orderBy: createdAt) { nodes { id type category title subtitle url createdAt readAt archivedAt snoozedUntilAt actor { id name displayName } botActor { id name } ... on IssueNotification { issue { id identifier title url priority trashed team { key } } comment { id body } } } } }`,
   myIssues: `query MisIssues($after: String) { viewer { assignedIssues(first: 100, after: $after, orderBy: updatedAt, filter: { state: { type: { nin: ["completed", "canceled"] } } }) { nodes { id identifier title url priority priorityLabel estimate dueDate updatedAt state { id name type color position } team { id key name } project { id name } cycle { id number name } labels { nodes { id name color } } } pageInfo { hasNextPage endCursor } } } }`,
   cycles: `query EquiposYCiclos { teams { nodes { id key name color cyclesEnabled activeCycle { id number name startsAt endsAt isActive progress scopeHistory completedScopeHistory } } } }`,
+  estadosEquipo: `query EstadosEquipo($key: String!) { teams(filter: { key: { eq: $key } }) { nodes { states { nodes { name position } } } } }`,
   tablero: `query Tablero($teamId: String!, $filter: IssueFilter, $after: String) { team(id: $teamId) { id key name states { nodes { id name type color position } } issues(first: 150, after: $after, filter: $filter) { nodes { id identifier title url priority priorityLabel estimate dueDate state { id } assignee { id name avatarUrl } labels { nodes { id name color } } project { id name } } pageInfo { hasNextPage endCursor } } } }`,
 };
 
@@ -89,6 +90,12 @@ class Linear extends ConnectorBase {
       if (!/^[0-9a-f-]{36}$/i.test(equipo)) { if (!this.quien) this.quien = (await this.gql(Q.viewer)).data?.viewer; equipo = (this.quien?.teams?.nodes ?? []).find((t: any) => !d.equipo || t.key === d.equipo)?.id ?? ''; }
       if (!equipo) throw new Error(t('integrations.linearUnknownTeam', { equipo: d.equipo ?? '' }));
       return teamBoard(await this.gql(Q.tablero, { teamId: equipo, filter: boardFilter(d) }));
+    }
+    // a board's (team's) statuses, for picking its prod-check and done ones (production verification)
+    if (nombre === 'estadosTablero') {
+      const j = await this.gql(Q.estadosEquipo, { key: String(d.tablero ?? '').toUpperCase() });
+      const nodos: any[] = j?.data?.teams?.nodes?.[0]?.states?.nodes ?? [];
+      return { estados: [...nodos].sort((a, b) => (a.position ?? 0) - (b.position ?? 0)).map(x => String(x.name ?? '')).filter(Boolean) };
     }
     return super.ownAction(nombre, d);
   }

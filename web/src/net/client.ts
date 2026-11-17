@@ -1,6 +1,7 @@
 // Conexión con el servidor local del refugio: WebSocket con reconexión, peticiones con respuesta y almacén de datos vivos.
 import type { ClientMessage, ServerMessage, SessionSummary, LogInput, InfoRepo, Visitante, MusicState, NoticeQuestion } from '@shared/protocol';
 import type { ScheduledMessage } from '@shared/scheduled';
+import type { VerificationSummary } from '@shared/verification';
 import { Store } from '../ui/store';
 import { t, roomNameIs } from '@shared/language';
 
@@ -22,12 +23,13 @@ export interface LiveData {
   avisos: Notice[];
   musica: MusicState | null;              // lo que suena en la discoteca (Spotify web; lo pone Disco.tsx)
   programados: ScheduledMessage[];         // mensajes programados pendientes (server/scheduled.ts)
+  verificaciones: Record<string, VerificationSummary>;   // each task's production verification (server/verifications.ts)
 }
 
 // a notice (teletype): its id is its arrival time in ms (plus a fraction, so two never collide)
 export type Notice = { id: number; nivel: string; texto: string; pregunta?: NoticeQuestion };
 
-export const vivo = new Store<LiveData>({ connected: false, attempts: 0, reiniciando: false, claudeOk: false, estado: null, sesiones: {}, entradas: {}, parcial: {}, repos: {}, visitantes: [], notificaciones: [], eventos: [], integraciones: {}, avisos: [], musica: null, programados: [] });
+export const vivo = new Store<LiveData>({ connected: false, attempts: 0, reiniciando: false, claudeOk: false, estado: null, sesiones: {}, entradas: {}, parcial: {}, repos: {}, visitantes: [], notificaciones: [], eventos: [], integraciones: {}, avisos: [], musica: null, programados: [], verificaciones: {} });
 
 // Notices stay until read (the older ones folded into one group: Avisos in web/src/ui/Bridge.tsx), up to the latest
 // MAX_NOTICES; questions don't count and stay until answered
@@ -118,6 +120,7 @@ class Client {
       case 'repos': vivo.set({ repos: m.repos }); break;
       case 'visitantes': vivo.set({ visitantes: m.visitantes }); break;
       case 'programados': vivo.set({ programados: m.lista }); break;
+      case 'verificaciones': vivo.set({ verificaciones: m.estados }); break;
       case 'notificaciones': vivo.set({ notificaciones: m.lista }); break;
       case 'eventos': vivo.set({ eventos: m.lista }); break;
       case 'integracion': vivo.set(e => ({ integraciones: { ...e.integraciones, [m.id]: m.estado } })); break;

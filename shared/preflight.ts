@@ -10,6 +10,7 @@ import { olasDespliegue, refPR, type Blocker, type BlockerReason } from './deplo
 import { pRTask, taskKey } from './tasks';
 import { t } from './language';
 import { ledgerPending, type ReviewThread } from './reviewCount';
+import type { TaskTracker, VerificationPlan } from './verification';
 
 /** ✓ listo, ⚠ mirar, ✗ falta, — no aplica */
 export type Mark = 'ok' | 'aviso' | 'mal' | 'nada';
@@ -61,6 +62,8 @@ export interface TaskPreflight {
   olas: string[][];              // las olas (refPR) con lo de la tarea y lo que espera, en orden; cada una espera a las anteriores
   ciclo: string[];
   checklist: string[];           // los puntos del Supervisor
+  verificacion?: VerificationPlan;   // its production verification plan (shared/verification.ts)
+  tracker?: TaskTracker;             // its status in the tracker (server/verificationBoards.ts)
   demo?: boolean; error?: string;
 }
 
@@ -75,6 +78,7 @@ export interface PreflightInput {
   checklist?: { items: string[]; respuestas: Record<string, Record<string, ChecklistAnswer>> };   // respuestas por `${worktree}|${head}`
   repoChecklist?: Record<string, string[]>;   // los puntos del repo, por worktree (server/preflight.ts: repoChecks)
   ciChecks?: Record<string, CICheck[]>;       // los checks de cada PR, por URL
+  verificacion?: VerificationPlan;
   color?: string; titulo?: string; demo?: boolean; error?: string;
 }
 
@@ -373,5 +377,5 @@ export function preflightTarea(clave: string, d: PreflightInput): TaskPreflight 
   while (cola.length) { const u = cola.shift()!; for (const b of d.bloqueos) if (b.de === u && !mias.has(b.por) && byUrl.get(b.por)?.estado !== 'fusionado') { mias.add(b.por); cola.push(b.por); } }
   const olas = waves.map(o => o.filter(p => mias.has(p.url)).map(refPR)).filter(o => o.length);
   return { clave: K, color: d.color, titulo: d.titulo, partes, olas, ciclo: ciclo.filter(p => mias.has(p.url)).map(refPR),
-    checklist: d.checklist?.items ?? [], demo: d.demo, error: d.error };
+    checklist: d.checklist?.items ?? [], ...(d.verificacion ? { verificacion: d.verificacion } : {}), demo: d.demo, error: d.error };
 }

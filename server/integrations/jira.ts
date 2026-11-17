@@ -111,6 +111,13 @@ class Jira extends ConnectorBase {
       const [tarea] = jiraTasks({ issues: [json] }, sitio);
       return { ...tarea, descripcion: textoDeADF(json?.fields?.description) };
     }
+    // a board's (project's) statuses, for picking its prod-check and done ones (production verification)
+    if (nombre === 'estadosTablero') {
+      const tablero = String(d.tablero ?? '').toUpperCase();
+      if (!/^[A-Z][A-Z0-9]{1,9}$/.test(tablero)) throw new Error(t('integrations.jiraInvalidKey', { clave: tablero }));
+      const { json } = await this.api(`/rest/api/3/project/${tablero}/statuses`);
+      return { estados: [...new Set(((json ?? []) as any[]).flatMap(x => (x?.statuses ?? []).map((s: any) => String(s?.name ?? ''))).filter(Boolean))] };
+    }
     // the transitions that would take a task to a board column (the board's confirmation lists them)
     if (nombre === 'transiciones') { const { clave, columna } = moveArgs(d); return { transiciones: await this.transitionsTo(clave, columna, d.actual) }; }
     // the one external write: the transition the Overseer confirmed, checked again against what Jira offers now

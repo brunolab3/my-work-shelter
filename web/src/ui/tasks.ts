@@ -3,7 +3,9 @@
 // pantallas y hologramas miran `versionColores`).
 import { assignedColors, hasTaskColor } from '@shared/tasks';
 import type { Epic, PRBoard, TaskJira } from '@shared/board';
-import { cliente } from '../net/client';
+import { cliente, vivo } from '../net/client';
+import { t } from '@shared/language';
+import { STATE_TEXT } from '@shared/verification';
 import { Store } from './store';
 
 export const versionColors = new Store<{ v: number }>({ v: 0 });
@@ -42,6 +44,14 @@ export function knowTasks(claves: (string | undefined)[]) {
 /** Lo último leído del tablero de Jira (tareas y PR): lo apuntan el panel y la pantalla de Planificación, y la pantalla
  *  lo pinta al momento (recargar el panel con R también la pone al día) */
 export const jiraBoard = new Store<{ tareas: TaskJira[] | null; prs: PRBoard[] }>({ tareas: null, prs: [] });
+
+/** A task's production verification as a short mark (🔭 and its state), once a checkpoint has opened; `pr`: that PR's
+ *  checkpoint (org/repo#N), else the task's final one */
+export function verificationMark(clave: string | undefined, pr?: string): string {
+  const v = clave ? vivo.get().verificaciones[clave.toUpperCase()] ?? vivo.get().verificaciones[clave] : undefined;
+  const estado = v?.abierto ? (pr && v.prs[pr.toLowerCase()]) || v.final : undefined;
+  return estado ? '🔭 ' + t(STATE_TEXT[estado]) : '';
+}
 
 /** The title of a task, when the Jira board has read it */
 export const taskTitle = (clave: string | undefined) => clave ? jiraBoard.get().tareas?.find(x => x.clave.toUpperCase() === clave.toUpperCase())?.titulo : undefined;

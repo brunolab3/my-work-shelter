@@ -1210,6 +1210,12 @@ html.en-segundo-plano *, html.en-segundo-plano *::before, html.en-segundo-plano 
 .pf-fila.pf-hecha .pf-parte { text-decoration: line-through; }
 .pf-ola-hecha > b { color: #7dffa0; }
 .pf-aterrizada { color: #7dffa0; font-weight: 600; }
+.pf-verificacion { padding-top: .3em; border-top: 1px solid rgba(157,255,184,.15); max-height: 40vh; overflow: auto; }
+.pf-punto { margin-top: .25em; }
+.estados-tablero .fila-tablero { display: flex; flex-wrap: wrap; align-items: center; gap: .4em 1em; margin: .3em 0; }
+.estados-tablero select { font: inherit; background: var(--fosforo-fondo); color: var(--crema); border: 1px solid var(--canto); }
+.pf-punto ul { margin: .1em 0 0; padding-left: 1.2em; list-style: none; font-size: .9em; }
+.pf-punto li .pf-senal { color: var(--crema); }
 .pf-caja .ayuda-consola { margin: 0; padding-top: .3em; border-top: 1px solid rgba(157,255,184,.15); }
 .pf-cabeza { display: flex; align-items: center; gap: .3em; margin: .1em 0 .5em; font: 600 1.05em var(--t-mono); color: var(--tarea); }
 .pf-tabla { width: 100%; border-collapse: collapse; font-size: .86em; }

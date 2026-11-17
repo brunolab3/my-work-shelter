@@ -20,6 +20,8 @@ import { nombreWorktree, worktreeSuffix } from './sessions.ts';
 import { isJiraKey, slugWorktreeName, taskKey, worktreeHasTask, worktreeTask } from '../shared/tasks.ts';
 import { describeWhen, MAX_PER_CONVERSATION, MAX_DAYS, type ScheduledMessage } from '../shared/scheduled.ts';
 import { MCP } from './mcpServers.ts';
+import { REPORT_EVENTS, SIGNAL_KINDS, type PlanConversation } from '../shared/verification.ts';
+import { errorText, planText, type Verifications } from './verifications.ts';
 
 export interface RoomInfo { id: string; nombre: string; habitante?: { id: string; nombre: string } }
 export interface CtxRooms {
@@ -45,6 +47,9 @@ export interface CtxRooms {
     deConversacion(sesionId?: string): ScheduledMessage[];
     cancelar(id: string, desdeSesion?: string): boolean;
   };
+  // production verification plans (verifications.ts): verification_plan and verification_report, for the task of the
+  // conversation's worktree (or the key the dweller passes)
+  verificaciones?: { planes: Pick<Verifications, 'get' | 'proponer' | 'informar'>; tareaDeSesion(sesionId?: string): string | undefined; conversacion?(sesionId?: string): PlanConversation | undefined };
   // a conversation is busy (starting, working or waiting for the Overseer): a task message then goes to a fork of it
   ocupada?(sesionId: string): boolean;
   // a read-only fork (plan mode) of an open conversation, in its folder and with its history: the new conversation's id
@@ -185,6 +190,7 @@ export function mcpRooms(ctx: CtxRooms, desde: string, desdeSesion?: string, enW
         },
         async ({ room, message, key, thread }) => { const r = await sendToRoom(ctx, desde, { sala: room, mensaje: message, clave: key, hilo: thread }, desdeSesion); return r.ok ? texto(r.texto) : { ...texto(r.texto), isError: true }; }, { alwaysLoad: true }),
       ...(ctx.programados ? scheduleTools(ctx.programados, desde, desdeSesion) : []),
+      ...(ctx.verificaciones ? verificationTools(ctx.verificaciones, desdeSesion) : []),
       ...enWorktree ? [tool('request_worktree_cleanup', tr('tool.cleanup.description'), { note: z.string().optional().describe(tr('tool.cleanup.paramNote')) },
         async ({ note }) => { const r = await requestCleanup(ctx, desde, desdeSesion, note); return r.ok ? texto(r.texto) : { ...texto(r.texto), isError: true }; }, { alwaysLoad: true })] : [],
     ],
@@ -207,5 +213,40 @@ function scheduleTools(p: NonNullable<CtxRooms['programados']>, desde: string, d
       async () => { const l = p.deConversacion(desdeSesion); return texto(l.length ? l.map(linea).join('\n') : tr('tool.schedule.none')); }),
     tool('cancel_scheduled', tr('tool.schedule.cancelDescription'), { id: z.string().describe(tr('tool.schedule.paramId')) },
       async ({ id }) => (p.cancelar(id.trim(), desdeSesion ?? '') ? texto(tr('tool.schedule.cancelled', { id })) : { ...texto(tr('tool.schedule.notFound', { id })), isError: true })),
+  ];
+}
+
+// production verification (verifications.ts): the plan before the merge, the evidence after the deploy
+function verificationTools(v: NonNullable<CtxRooms['verificaciones']>, desdeSesion?: string) {
+  const clave = (key?: string) => (key?.trim() ? taskKey(key) : v.tareaDeSesion(desdeSesion));
+  const error = (s: string) => ({ ...texto(s), isError: true });
+  const signal = z.object({ id: z.string(), kind: z.enum(SIGNAL_KINDS as [string, ...string[]]), what: z.string(), where: z.string(), baseline: z.string().optional() });
+  const checkpoint = z.object({
+    id: z.string(), kind: z.enum(['pr', 'final']), pr: z.string().optional(), title: z.string().optional(),
+    services: z.array(z.string()).optional(), deadline_hours: z.number().optional(), signals: z.array(signal),
+  });
+  return [
+    tool('verification_plan', tr('tool.verification.planDescription'),
+      { key: z.string().optional().describe(tr('tool.verification.paramKey')), checkpoints: z.array(checkpoint).describe(tr('tool.verification.paramCheckpoints')) },
+      async ({ key, checkpoints }) => {
+        const k = clave(key); if (!k) return error(key?.trim() ? tr('tool.rooms.badKey', { clave: key }) : tr('tool.verification.noTask'));
+        const r = v.planes.proponer(k, { checkpoints: checkpoints as any }, v.conversacion?.(desdeSesion));
+        return r.ok ? texto(tr('tool.verification.saved', { clave: k }) + '\n\n' + planText(r.valor)) : error(errorText(r));
+      }),
+    tool('verification_report', tr('tool.verification.reportDescription'),
+      {
+        key: z.string().optional().describe(tr('tool.verification.paramKey')),
+        checkpoint: z.string().describe(tr('tool.verification.paramCheckpoint')),
+        event: z.enum(REPORT_EVENTS as [string, ...string[]]),
+        signal: z.string().optional().describe(tr('tool.verification.paramSignal')),
+        service: z.string().optional().describe(tr('tool.verification.paramService')),
+        evidence: z.string().optional().describe(tr('tool.verification.paramEvidence')),
+        hours: z.number().optional().describe(tr('tool.verification.paramHours')),
+      },
+      async ({ key, ...r }) => {
+        const k = clave(key); if (!k) return error(key?.trim() ? tr('tool.rooms.badKey', { clave: key }) : tr('tool.verification.noTask'));
+        const x = v.planes.informar(k, r as any);
+        return !x ? error(tr('tool.verification.noPlan', { clave: k })) : x.ok ? texto(planText(x.valor)) : error(errorText(x));
+      }),
   ];
 }

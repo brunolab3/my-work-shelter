@@ -20,6 +20,9 @@ import { mcpDecor, promptAdaptar, type CtxDecor } from './roomDecor.ts';
 import { mcpAssignment, mcpPlan, type CtxAssignment } from './dispatch.ts';
 import { mcpRooms, sendToRoom, taskWorktree, type CtxRooms } from './roomNotices.ts';
 import { Plans, tasksOrder } from './plans.ts';
+import { Verifications } from './verifications.ts';
+import { boardsSetup, boardsUnset, doneTransition, saveBoard, taskTracker, type CtxTrackers, type Tracker } from './verificationBoards.ts';
+import { finalCheckpoint, prRef, summaryOf, type BoardStatuses } from '../shared/verification.ts';
 import { BlockersPR } from './prBlocks.ts';
 import { TasksColors } from './taskColors.ts';
 import { agruparPorTarea, planDeSala, applyPlan } from './organize.ts';
@@ -27,7 +30,7 @@ import { ReviewsPR, REVIEWS_QUERY, remoteRepo } from './prReviews.ts';
 import { CIFailures, CI_QUERY } from './ciFailures.ts';
 import { cachedPRs, cachedTaskPRs, preflightOf, PageReviews, gatePush, preflightTools, type CtxPreflight } from './preflight.ts';
 import { checklistFromClaudeMd } from '../shared/preflight.ts';
-import type { PRBoard } from '../shared/board.ts';
+import type { JiraTransition, PRBoard } from '../shared/board.ts';
 import { bloqueosEntre, pRKey } from '../shared/deploy.ts';
 import { TasksCleanup, orphanedConversations } from './taskCleanup.ts';
 import { Scheduled, summary } from './scheduled.ts';
@@ -39,7 +42,7 @@ import { Dictations } from './voice.ts';
 import { Terminales, SOCKET_TERMINALS } from './terminals.ts';
 import { openInDesktop, openInAppClaude, outsideOpen, closeOutside, hookCommand, resumeCommand, type ItemDesktop } from './desktop.ts';
 import { tonesForRepeated } from '../shared/recruits.ts';
-import { remoteName, worktreeHasTask } from '../shared/tasks.ts';
+import { pRTask, remoteName, taskKey, worktreeHasTask, worktreeTask } from '../shared/tasks.ts';
 import { Store, DATOS, folderOf, reposRoot, hideRoom, showRoom, isHideable, roomIdOf } from './state.ts';
 import { infoRepo, sugerencias, expand, recentTranscripts, liveSessions, worktreeList, hasBranch, estiloSala, projectType } from './repos.ts';
 import { Integraciones } from './integrations/index.ts';
@@ -134,6 +137,16 @@ const ctxAssignment = (wing: string): CtxAssignment => ({
 });
 // el plan compartido de cada tarea repartida (plans.ts): lo leen las salas de sus partes y los cambios les llegan como mensaje
 const planes = new Plans(DATOS);
+// the production verification plan of each task (verifications.ts): the dweller writes it, the Overseer approves it in the pre-flight
+const verificaciones = new Verifications(DATOS, Date.now, () => broadcast({ t: 'verificaciones', estados: verificationSummaries() }));
+const verificationSummaries = () => Object.fromEntries(Object.entries(verificaciones.estados()).map(([k, p]) => [k, summaryOf(p)]));
+// the tracker's side (verificationBoards.ts): each board's prod-check and done statuses, picked in the vault
+const ctxTrackers: CtxTrackers = {
+  accion: (nombre, d) => integraciones.accion(nombre, d),
+  conectada: f => { const s = integraciones.estados()[f]; return s?.modo === 'real' && s.estado === 'conectada'; },
+  ajustes: () => ((almacen.estado.ajustes as any).verificacionTableros ?? {}) as Record<string, BoardStatuses>,
+  guardar: (tablero, v) => { const a = almacen.estado.ajustes as any; a.verificacionTableros = { ...a.verificacionTableros, [tablero]: v }; almacen.guardar(); },
+};
 // bloqueos entre PR marcados a mano en el tablero de despliegue de la sala de planificación
 const bloqueosPR = new BlockersPR(DATOS);
 // el color de cada tarea en tableros y hologramas (shared/tasks.ts)
@@ -175,6 +188,9 @@ const ctxRooms: CtxRooms = {
   entrega: (sala, a) => broadcast({ t: 'entrega', sala, ...a }),
   aviso: texto => broadcast({ t: 'aviso', nivel: 'info', texto }),
   programados: { programar: (...a) => programados.programar(...a), deConversacion: id => programados.deConversacion(id), cancelar: (id, desde) => programados.cancelar(id, desde) },
+  verificaciones: { planes: verificaciones,
+    conversacion: id => { const s = id ? sesiones.lista().find(x => x.id === id) : undefined; return s && { salaId: s.salaId, sesionId: s.id, claudeId: s.claudeId, cwd: path.resolve(s.worktree ?? s.cwd), titulo: s.titulo }; },
+    tareaDeSesion: id => { const s = id ? sesiones.lista().find(x => x.id === id) : undefined; return s ? worktreeTask({ ruta: s.worktree ?? s.cwd }) : undefined; } },
   worktreeDeSesion: async (salaId, sesionId) => {
     const s = almacen.estado.salas.find(x => x.id === salaId), ses = sesiones.lista().find(x => x.id === sesionId), cwd = ses && (ses.worktree ?? ses.cwd);
     if (!s || !cwd) return undefined;
@@ -612,6 +628,8 @@ const ctxPreflight: CtxPreflight = {
   })),
   manuales: () => bloqueosPR.todos(),
   orden: () => tasksOrder(planes.todos(), roomRepoById),
+  verificacion: clave => verificaciones.get(clave),
+  tracker: clave => { const p = verificaciones.get(clave); return taskTracker(ctxTrackers, clave, !!p && finalCheckpoint(p)?.estado === 'evidenced'); },
   plan: clave => planes.get(clave)?.partes.map(x => ({ salaId: x.salaId, sala: x.sala, titulo: x.titulo, waitA: x.waitA })),
   color: clave => coloresTareas.colores([clave])[clave],
   compares: () => paginasRevisadas.compares(),
@@ -621,6 +639,26 @@ const ctxPreflight: CtxPreflight = {
   git: (cwd, args) => new Promise((ok, mal) => execFile('git', ['-C', cwd, ...args], { timeout: 15_000, env: entornoGit() }, (err, o, e) => err ? mal(new Error(String(e || err.message).trim())) : ok(String(o)))),
 };
 // las del habitante (preflight_status, preflight_answer) y la puerta de `git push` de sus conversaciones
+// production verification (verifications.ts): every five minutes, open what merged and keep the rechecks scheduled
+const repasarVerificaciones = () => verificaciones.repasar({
+  prs: async (clave, plan) => {
+    const [todos, deLaTarea] = await Promise.all([prsPreflight(false), ctxPreflight.prsTarea!(clave, false).catch(() => [] as PRBoard[])]);
+    const refs = new Set(plan.puntos.map(c => c.pr).filter(Boolean));
+    return [...new Map([...deLaTarea, ...todos.prs].map(p => [p.url, p])).values()]
+      .filter(p => p.estado !== 'cerrado' && (pRTask(p) === clave || refs.has(prRef(`${p.repo}#${p.numero}`))))
+      .map(p => ({ ref: prRef(`${p.repo}#${p.numero}`)!, fusionado: p.estado === 'fusionado' }));
+  },
+  enPrueba: async clave => !!(await taskTracker(ctxTrackers, clave))?.enPrueba,
+  programar: (c, cuando, mensaje) => programados.programarJuego(c, cuando, mensaje),
+  pendiente: id => programados.pendiente(id),
+  cancelar: id => { programados.cancelar(id); },
+  avisar: (texto, nivel) => broadcast({ t: 'aviso', nivel, texto }),
+}).catch(err => console.error('Verificaciones:', String((err as Error).message).split('\n')[0]));
+setTimeout(() => { repasarVerificaciones(); setInterval(repasarVerificaciones, 5 * 60_000).unref(); }, 30_000).unref();
+// once per start: the boards of your open tasks still without a prod-check status
+setTimeout(() => {
+  boardsUnset(ctxTrackers).then(b => { if (b.length) broadcast({ t: 'aviso', nivel: 'info', texto: t('verification.boardsUnset', { tableros: b.join(', ') }) }); }).catch(() => {});
+}, 90_000).unref();
 const herramientasPreflight = preflightTools(ctxPreflight, (clave, worktree, head, item, a) => paginasRevisadas.contestar(clave, worktree, head, item, a));
 
 // las tareas con todos sus PR fusionados o cerrados (taskCleanup.ts), cada cinco minutos con GitHub conectado: el juego
@@ -872,6 +910,19 @@ async function accion(nombre: string, d: Record<string, any> = {}): Promise<unkn
     case 'despliegue.bloqueos': return bloqueosPR.todos();
     case 'preflight.tarea': return preflightOf(String(d.clave ?? ''), ctxPreflight, !!d.forzar);
     case 'preflight.checklist': return checklistItems();
+    case 'verificacion.tableros': return boardsSetup(ctxTrackers, (['jira', 'linear'] as const).find(f => f === d.fuente) as Tracker | undefined);
+    case 'verificacion.tablero': return saveBoard(ctxTrackers, d.tablero, d);
+    // the workflow's own transition to the board's done status, once the task is verified (the Overseer's click in the pre-flight)
+    case 'verificacion.cerrar': {
+      const k = taskKey(String(d.clave ?? '')), p = k ? verificaciones.get(k) : undefined;
+      const tr = k ? await taskTracker(ctxTrackers, k, !!p && finalCheckpoint(p)?.estado === 'evidenced') : undefined;
+      if (!k || !tr?.mover) throw new Error(t('verification.cannotMove'));
+      const { transiciones } = (await integraciones.accion('transiciones', { fuente: 'jira', clave: k, columna: 'hecho', actual: tr.estado })) as { transiciones?: JiraTransition[] };
+      const x = doneTransition((transiciones ?? []) as JiraTransition[], tr.hecho);
+      if (!x) throw new Error(t('verification.noDoneTransition', { estado: tr.hecho ?? '—' }));
+      return integraciones.accion('mover', { fuente: 'jira', clave: k, columna: 'hecho', id: x.id });
+    }
+    case 'verificacion.aprobar': { const k = taskKey(String(d.clave ?? '')); return (k && verificaciones.aprobar(k)) ?? null; }
     case 'paginas.responder': return paginasRevisadas.responder(d.ruta, d.estado);
     case 'preflight.puerta': { const r = path.resolve(String(d.ruta ?? '')); if (!gitPath(r)) throw new Error(t('server.thatFolderIsNotA')); return gatePush(r, ctxPreflight); }
     case 'despliegue.bloquear': return bloqueosPR.marcar(d.de, d.por, !!d.quitar);
@@ -1096,6 +1147,7 @@ async function manejar(ws: WebSocket, m: ClientMessage) {
       enviar(ws, { t: 'bienvenida', versionClaude: sesiones.version, claudeOk: !!sesiones.claude, estado: e as any, sesiones: sesiones.lista(), repos, demo: Object.values(e.integraciones).length > 0 && Object.values(e.integraciones).every(i => i.modo === 'demo') });
       enviar(ws, { t: 'visitantes', visitantes: visitantes() });
       enviar(ws, { t: 'programados', lista: programados.lista() });
+      enviar(ws, { t: 'verificaciones', estados: verificationSummaries() });
       integraciones.greet(ws, enviar);
       for (const t of terminales.abiertas()) terminales.abrir(t.id, t.cwd, 80, 24, outputOf(ws));
       break;

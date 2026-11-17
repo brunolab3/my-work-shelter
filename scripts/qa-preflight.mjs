@@ -11,7 +11,9 @@
 //   the PR; a click outside closes the box and nothing else;
 // - the Jira board: no F nor button on a task without PRs; on QA-9, F in the legend and a button, both opening the box
 //   anchored to its card, the board still open underneath; Esc closes only the box;
-// - a task fully merged (example response): its rows struck through, every wave ✔ and «the task has landed».
+// - a task fully merged (example response): its rows struck through, every wave ✔ and «the task has landed»; its
+//   production verification below: a row per checkpoint with its state, a signal's where, baseline and evidence in its
+//   tooltip, the tracker's status; approving the plan and moving the task to done, each through its action.
 // Necesita el cliente compilado (npx vite build). Uso: node scripts/qa-preflight.mjs [carpeta-capturas]   (SHELTER_PUERTO_QA, 3794)
 import { chromium } from 'playwright';
 import { spawn, execFileSync } from 'node:child_process';
@@ -124,8 +126,18 @@ try {
     // QA-11: everything merged, in two waves
     const m1 = pr('acme/api', 5, { estado: 'fusionado', rama: 'QA-11-a' }), m2 = pr('acme/web', 6, { estado: 'fusionado', rama: 'QA-11-b' });
     const fusionada = (x, espera) => ({ id: x.url, salaId: x.repo.split('/')[1], sala: x.repo.split('/')[1], repo: x.repo, rama: x.rama, pr: x, sync: cel('nada', '—'), ci: cel('nada', '—'), revision: cel('ok', 'fusionado'), conflictos: cel('nada', '—'), bloqueos: cel(espera ? 'ok' : 'nada', espera ? 'lo que esperaba ya está fusionado' : 'sin bloqueos'), checklist: cel('nada', '—'), compare: cel('nada', '—'), hilos: [], repoItems: [], ciChecks: [], esperaA: espera ? [{ ref: 'acme/api#5', url: m1.url, estado: 'fusionado', motivo: 'plan' }] : [], bloquea: [] });
-    const aterrizada = { clave: 'QA-11', color: '#b48cff', titulo: 'Ya fusionada', partes: [fusionada(m1), fusionada(m2, true)], olas: [['acme/api#5'], ['acme/web#6']], ciclo: [], checklist: [] };
-    c.accion = (n, d) => n === 'preflight.tarea' && String(d?.clave).toUpperCase() === 'QA-9' ? Promise.resolve(respuesta) : n === 'preflight.tarea' && String(d?.clave).toUpperCase() === 'QA-11' ? Promise.resolve(aterrizada) : orig(n, d);
+    // its production verification (shared/verification.ts): the PR's checkpoint evidenced, the final one waiting for traffic
+    const senal = (id, tipo, que, estado, evidencia) => ({ id, tipo, que, donde: 'logs of api: «' + id + '»', base: '20 a week', estado, ...(evidencia ? { evidencia: { texto: evidencia, ts: 1 } } : {}) });
+    const verificacion = { clave: 'QA-11', version: 2, actualizado: 1, puntos: [
+      { id: 'pr-5', tipo: 'pr', pr: 'acme/api#5', titulo: 'acme/api#5', servicios: ['api'], vivos: { api: 1 }, plazoHoras: 24, estado: 'evidenced', abierto: 1, desde: 1, señales: [senal('gone', 'must-disappear', 'the timeout is gone', 'evidenced', '0 since the deploy')] },
+      { id: 'final', tipo: 'final', titulo: 'Checkout no longer times out', servicios: [], vivos: { final: 1 }, plazoHoras: 24, estado: 'waiting-traffic', abierto: 1, desde: Date.now(), señales: [senal('ran', 'must-run', 'readiness runs on the new version', 'pending')] },
+    ] };
+    const tracker = { fuente: 'jira', estado: 'Prod check', tablero: 'QA', prueba: 'Prod check', hecho: 'Done', enPrueba: true, mover: true };
+    const aterrizada = { clave: 'QA-11', color: '#b48cff', titulo: 'Ya fusionada', partes: [fusionada(m1), fusionada(m2, true)], olas: [['acme/api#5'], ['acme/web#6']], ciclo: [], checklist: [], verificacion, tracker };
+    window.__qaVerif = [];
+    c.accion = (n, d) => n === 'preflight.tarea' && String(d?.clave).toUpperCase() === 'QA-9' ? Promise.resolve(respuesta) : n === 'preflight.tarea' && String(d?.clave).toUpperCase() === 'QA-11' ? Promise.resolve(aterrizada)
+      : n === 'verificacion.aprobar' ? (window.__qaVerif.push(n), Promise.resolve({ ...verificacion, aprobado: { version: 2, ts: 2 } }))
+      : n === 'verificacion.cerrar' ? (window.__qaVerif.push(n), Promise.resolve({ clave: 'QA-11', estado: 'Done', categoria: 'done' })) : orig(n, d);
     window.__juego.set({ panel: 'ayuda', panelData: null });
   });
   await pg.waitForSelector('.aparato');
@@ -194,6 +206,18 @@ try {
   await preflightK('QA-11');
   ver(await hasta(async () => (await pg.$$('.pf-fila.pf-hecha')).length === 2), 'fully merged: both rows struck through');
   ver(await hasta(async () => (await pg.$$('.orden-despliegue .pf-ola-hecha')).length === 2 && /✔/.test(await pg.textContent('.pf-aterrizada').catch(() => ''))), 'every wave ✔ and «the task has landed»');
+  // production verification: the plan unapproved (v2), its checkpoints' states, the signals' where and evidence in their tooltips
+  ver(await hasta(async () => (await pg.$$('.pf-verificacion .pf-punto')).length === 2), 'the verification plan: one row per checkpoint');
+  const verif = await pg.textContent('.pf-verificacion');
+  ver(/v2/.test(verif) && /(evidenced|comprobado)/.test(verif) && /(waiting for traffic|esperando tráfico)/.test(verif), 'not approved v2, the PR evidenced, the final waiting for traffic');
+  ver(await pg.$eval('.pf-punto li', e => e.title.includes('«gone»') && e.title.includes('20 a week') && e.title.includes('0 since the deploy')), 'a signal\'s where, baseline and evidence in its tooltip');
+  ver(/Prod check/.test(verif), 'the tracker\'s status and its board\'s prod-check one');
+  await pg.waitForTimeout(400); await pg.screenshot({ path: path.join(dir, 'preflight-verificacion.png'), animations: 'disabled' });
+  await pg.click('.pf-verificacion button:text-matches("Approve|Aprobar")');
+  ver(await hasta(async () => /(approved|aprobado) \(v2\)/.test(await pg.textContent('.pf-verificacion'))), 'approving it: approved (v2), the button gone');
+  await pg.click('.pf-verificacion button:text-matches("Done")');
+  ver(await hasta(async () => /: Done/.test(await pg.textContent('.pf-verificacion')) && !(await pg.$('.pf-verificacion button'))), 'moving it to done: the tracker says Done');
+  ver(JSON.stringify(await pg.evaluate(() => window.__qaVerif)) === '["verificacion.aprobar","verificacion.cerrar"]', 'each through its action');
   await pg.waitForTimeout(400); await pg.screenshot({ path: path.join(dir, 'preflight-aterrizada.png'), animations: 'disabled' });
   await pg.keyboard.press('Escape');
   ver(!errores.length, 'sin errores en la página' + (errores.length ? ': ' + errores.join(' | ') : ''));

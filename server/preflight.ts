@@ -14,6 +14,7 @@ import type { ReviewLedger, ReviewThread } from '../shared/reviewCount.ts';
 import { pRTask, taskKey, worktreeTask } from '../shared/tasks.ts';
 import type { RoomPR } from './prReviews.ts';
 import { t } from '../shared/language.ts';
+import type { TaskTracker, VerificationPlan } from '../shared/verification.ts';
 
 type Git = (cwd: string, args: string[]) => Promise<string>;
 export interface DataPRs { prs: PRBoard[]; demo?: boolean; error?: string }
@@ -25,6 +26,8 @@ export interface CtxPreflight {
   manuales(): BlockerManual[];
   orden(): Promise<TaskOrder[]>;
   plan(clave: string): PlanPart[] | undefined;
+  verificacion?(clave: string): VerificationPlan | undefined;   // its production verification plan (verifications.ts)
+  tracker?(clave: string): Promise<TaskTracker | undefined>;     // its status in the tracker, with its board's setup (verificationBoards.ts)
   color(clave: string): string | undefined;
   compares(): Promise<CompareRecord[]>;
   revisiones(url: string): { ledger?: ReviewLedger; hilos?: ReviewThread[] };   // de la última vuelta de prReviews.ts
@@ -84,12 +87,14 @@ export async function preflightOf(clave: string, ctx: CtxPreflight, forzar = fal
   const repoItems = Object.fromEntries(await Promise.all(worktrees.map(async w => [w, await repoChecks(w)] as const)));
   const ciChecks = Object.fromEntries(prs.map(p => [p.url, ctx.ciChecks(p.url) ?? []]));
   const lista = ctx.checklist();
-  return preflightTarea(K, {
+  const verificacion = ctx.verificacion?.(K), tracker = await ctx.tracker?.(K).catch(() => undefined);
+  const r = preflightTarea(K, {
     prs, bloqueos: bloqueosEntre(prs, ctx.manuales(), orden), locales, compares, hilos,
     checklist: { items: lista.items, respuestas: lista.respuestas(K) }, repoChecklist: repoItems, ciChecks,
     salas: salas.map(s => ({ id: s.id, nombre: s.nombre, repo: s.repo })),
-    plan: ctx.plan(K), color: ctx.color(K), demo: gh.demo, error: gh.error,
+    plan: ctx.plan(K), color: ctx.color(K), demo: gh.demo, error: gh.error, verificacion,
   });
+  return tracker ? { ...r, tracker } : r;
 }
 
 /** Lo que el repo de un worktree pide comprobar antes de subir (shared/preflight.ts: repoChecklist): solo se leen sus

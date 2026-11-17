@@ -251,6 +251,8 @@ export const SERVIDOR: Record<string, Texto> = {
   'server.activity.decorRemove': { es: 'Devolviendo la sala a su plantilla', en: 'Returning the room to its template' },
   'server.activity.shelterRooms': { es: 'Mirando qué repos tienen sala en el refugio', en: 'Checking which repos have a room in the shelter' },
   'server.activity.scheduleMessage': { es: 'Programando un mensaje para {cuando}', en: 'Scheduling a message for {cuando}' },
+  'server.activity.verificationPlan': { es: 'Proponiendo el plan de verificación en producción', en: 'Proposing the production verification plan' },
+  'server.activity.verificationReport': { es: 'Anotando la verificación de {punto}', en: 'Recording the verification of {punto}' },
   'server.activity.sendToRoom': { es: 'Pasándole un mensaje a la sala {sala}{clave}', en: 'Passing a message to the {sala} room{clave}' },
   'server.activity.assign': { es: 'Repartiendo el trabajo por las salas', en: 'Splitting the work across the rooms' },
   'server.activity.assignTask': { es: 'Repartiendo el trabajo de {clave} por las salas', en: 'Splitting the work for {clave} across the rooms' },

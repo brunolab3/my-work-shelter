@@ -60,6 +60,8 @@ export function describeTool(nombre: string, e: Entrada, cwd: string): string {
     case mcpTool(MCP.rooms, 'send_to_room'): return t('server.activity.sendToRoom', { sala: recorta(s(e.room), 30), clave: s(e.key) ? ' (' + s(e.key) + ')' : '' });
     case mcpTool(MCP.assignment, 'assign_work'): return s(e.key) ? t('server.activity.assignTask', { clave: s(e.key) }) : t('server.activity.assign');
     case mcpTool(MCP.rooms, 'schedule_message'): return t('server.activity.scheduleMessage', { cuando: recorta(s(e.when), 30) });
+    case mcpTool(MCP.rooms, 'verification_plan'): return t('server.activity.verificationPlan');
+    case mcpTool(MCP.rooms, 'verification_report'): return t('server.activity.verificationReport', { punto: recorta([s(e.checkpoint), s(e.signal)].filter(Boolean).join(' › '), 40) });
     default:
       return t('server.activity.using', { nombre: nombre.startsWith('mcp__') ? nombre.split('__').slice(1).join(' › ') : nombre });
   }

@@ -9,7 +9,7 @@ import { existsSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { t } from '../shared/language.ts';
-import { checkWhen, describeWhen, due, isLate, ofConversation, MAX_PER_CONVERSATION, MAX_DAYS, type ScheduledMessage, type ScheduledTarget } from '../shared/scheduled.ts';
+import { checkWhen, describeWhen, due, holdWeekend, isLate, ofConversation, MAX_PER_CONVERSATION, MAX_DAYS, type ScheduledMessage, type ScheduledTarget } from '../shared/scheduled.ts';
 import type { SessionSummary } from '../shared/protocol.ts';
 import { taskKey } from '../shared/tasks.ts';
 
@@ -80,6 +80,19 @@ export class Scheduled {
     const cuando = describeWhen(x.cuando);
     return { ok: true, texto: t(destino.tipo === 'sala' ? 'tool.schedule.doneRoom' : 'tool.schedule.done', { cuando, id: x.id, sala: a.sala ?? '' }) + (w.aplazado ? ' ' + t('tool.schedule.heldWeekend') : '') };
   }
+
+  /** One the game itself schedules for a conversation (a production verification recheck, verifications.ts): no date to
+   *  parse and no per-conversation limit, weekends held to Monday; shown in that conversation's ⏰ list. Its id, or none
+   *  when the list is full */
+  programarJuego(c: { salaId: string; sesionId?: string; claudeId?: string; cwd: string; titulo?: string }, cuando: number, mensaje: string): string | undefined {
+    if (this.items.length >= MAX_TOTAL) return undefined;
+    const ahora = this.ahora(), w = holdWeekend(Math.max(cuando, ahora));
+    const x: ScheduledMessage = { id: randomUUID().slice(0, 8), creado: ahora, cuando: w, pedido: new Date(w).toISOString(), mensaje: mensaje.slice(0, MAX_TEXT),
+      origen: { salaId: c.salaId, sesionId: c.sesionId, claudeId: c.claudeId }, destino: { tipo: 'conversacion', ...c } };
+    this.items.push(x); this.guardar();
+    return x.id;
+  }
+  pendiente(id: string) { return this.items.some(x => x.id === id); }
 
   /** Quitar uno: el Supervisor cualquiera; un habitante (`desdeSesion`), solo los de su conversación */
   cancelar(id: string, desdeSesion?: string): boolean {

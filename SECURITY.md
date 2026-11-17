@@ -24,9 +24,9 @@ It is designed as a local application for a single person on their Mac:
 - **Read-only outwards**, with one exception list. The only external writes are: Linear, from the Planning dweller's
   conversation with the official MCP; git push, pull and fetch from the git client, only with the Overseer's button
   (and a dweller's own `git push`, which goes through the permission dialog and the pre-flight gate); a Jira status
-  transition, when the Overseer drags a card on the Jira board and confirms it in the game (only one of the transitions
-  Jira's workflow offers for that issue, re-checked before the single `POST /rest/api/3/issue/{key}/transitions`; no
-  dweller tool can do it); and the Slack remote control below, which sends approval requests (secrets masked) and
+  transition, when the Overseer drags a card on the Jira board and confirms it in the game, or clicks «Move to done» in a
+  verified task's pre-flight (only one of the transitions Jira's workflow offers for that issue, re-checked before the
+  single `POST /rest/api/3/issue/{key}/transitions`; no dweller tool can do it); and the Slack remote control below, which sends approval requests (secrets masked) and
   conversation labels, never what's said.
 
 - **The game server** listens on `127.0.0.1:3778`, rejects other `Host` headers (against DNS rebinding) and, on the

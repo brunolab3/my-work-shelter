@@ -218,10 +218,41 @@ function FormIntegration({ ficha, valuesIni, savedIni, volver }: { ficha: Integr
           {canales.map((c, k) => <label key={String(c.id)} className="chip-canal"><input type="checkbox" checked={c.elegido} onChange={e => setChannels(cs => cs!.map((x, j) => (j === k ? { ...x, elegido: e.target.checked } : x)))} /> {c.servidor ? <span className="tenue">{c.servidor} · </span> : null}#{c.nombre}</label>)}
           <div className="botonera"><button className="boton-taller" onClick={async () => { const ids = canales.filter(c => c.elegido).map(c => String(c.id)).join(','); const r: any = await cliente.accion('integracion.guardar', { fuente: ficha.id, campos: { canales: ids } }); setMsg({ ok: r.ok, texto: r.ok ? t('panels.channelsSaved') : r.detalle }); setChannels(null); }}>{t('panels.saveChannels')}</button><button className="boton-taller" onClick={() => setChannels(null)}>{t('windows.cancel')}</button></div>
         </div>}
+        {(ficha.id === 'jira' || ficha.id === 'linear') && st?.estado === 'conectada' && <BoardStatusesView fuente={ficha.id} />}
       </div>
       <Keys><kbd>↑↓</kbd>{t('panels.move')} <kbd>Enter</kbd>{t('panels.nextPress')} <kbd>Esc</kbd>{t('menu.back')}</Keys>
     </Device>
   );
+}
+
+// production verification (server/verificationBoards.ts): each board of your open tasks has its own workflow, so its
+// prod-check status (the task waits there for its final checkpoint) and the done one after it are picked per board
+type BoardSetup = { fuente: string; tablero: string; estados: string[]; prueba?: string; hecho?: string; error?: string };
+function BoardStatusesView({ fuente }: { fuente: 'jira' | 'linear' }) {
+  const [tableros, setBoards] = useState<BoardSetup[] | null>(null);
+  const [msg, setMsg] = useState('');
+  useEffect(() => { cliente.accion<BoardSetup[]>('verificacion.tableros', { fuente }).then(setBoards).catch(e => setMsg((e as Error).message)); }, [fuente]);
+  const poner = async (b: BoardSetup, c: { prueba?: string; hecho?: string }) => {
+    const v = { prueba: b.prueba, hecho: b.hecho, ...c };
+    try { await cliente.accion('verificacion.tablero', { tablero: b.tablero, ...v }); SFX.shortSuccess(); setBoards(l => l!.map(x => (x === b ? { ...x, ...v } : x))); setMsg(t('panels.saved')); }
+    catch (e) { setMsg((e as Error).message); SFX.error(); }
+  };
+  const opciones = (b: BoardSetup, actual?: string) => [...new Set([...(actual ? [actual] : []), ...b.estados])];
+  return <div className="estados-tablero">
+    <h3>{t('verification.vault.title')}</h3>
+    <p className="tenue">{t('verification.vault.hint')}</p>
+    {!tableros && !msg && <p className="tenue">{t('preflight.reading')}</p>}
+    {tableros && !tableros.length && <p className="tenue">{t('verification.vault.noBoards')}</p>}
+    {tableros?.map(b => <div key={b.tablero} className="fila-tablero">
+      <b>{b.tablero}</b>
+      <label>{t('verification.vault.prodCheck')} <select value={b.prueba ?? ''} onChange={e => poner(b, { prueba: e.target.value })}>
+        <option value="">—</option>{opciones(b, b.prueba).map(x => <option key={x} value={x}>{x}</option>)}</select></label>
+      <label>{t('verification.vault.done')} <select value={b.hecho ?? ''} onChange={e => poner(b, { hecho: e.target.value })}>
+        <option value="">—</option>{opciones(b, b.hecho).map(x => <option key={x} value={x}>{x}</option>)}</select></label>
+      {b.error && <small className="aviso-consola">{b.error}</small>}
+    </div>)}
+    {msg && <p className="tenue">{msg}</p>}
+  </div>;
 }
 
 function ShelterView({ volver }: { volver: () => void }) {
