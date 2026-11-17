@@ -1,8 +1,9 @@
-// Datos simulados plausibles (DEMO) para cuando una fuente no está configurada. En español, con proyectos
-// ficticios del refugio y fechas relativas a «ahora» (zona horaria del sistema). Se generan de forma estable por día para no
-// parpadear. Todas las personas, equipos y empresas son inventados.
+// Plausible simulated data (DEMO) for when a source is not configured: written in Spanish, with its English in
+// demoEnglish.ts for a shelter in English. Fictional shelter projects and dates relative to «now» (system time zone),
+// generated stably per day so they don't flicker. Every person, team and company is made up.
 import type { Notification, Evento, Priority, SourceId } from './adaptadores.ts';
 import { dayStart } from './normalizar.ts';
+import { inDemoLanguage } from './demoEnglish.ts';
 
 function semilla(n: number) { let s = n >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
 const MIN = 60_000, H = 60 * MIN;
@@ -54,7 +55,7 @@ const LINEAR: [string, string, string, Priority][] = [
   ['REF-240', 'Bruno Esteve', 'Te han mencionado en «Buscar dentro de archivos comprimidos» (ripgrep).', 'alta'],
 ];
 
-export function demoNotifications(fuente: SourceId): Notification[] {
+function demoNotificationsEs(fuente: SourceId): Notification[] {
   const dia = dayStart();
   const r = semilla(Math.floor(dia / 86400000) * 7 + fuente.length);
   const ahora = Date.now();
@@ -91,7 +92,7 @@ const EVENTS: Partial<Record<SourceId, EventDemo[]>> = {
     [2, 0, 24, 'Cumpleaños de Rosa'], [3, 18, 1.5, 'Club de lectura', 'https://meet.google.com/demo-ghi-jkl'],
   ],
 };
-export function demoEvents(fuente: SourceId): Evento[] {
+function demoEventsEs(fuente: SourceId): Evento[] {
   const dia = dayStart();
   return (EVENTS[fuente] ?? []).map(([d, h, dur, titulo, video, lugar], i) => {
     const todo = dur >= 24;
@@ -101,7 +102,7 @@ export function demoEvents(fuente: SourceId): Evento[] {
 }
 
 // Panel de Linear en DEMO (mismo formato que el real: mis issues por estado y ciclo actual), con proyectos ficticios
-export function demoPanelLinear() {
+function demoPanelLinearEs() {
   const ahora = Date.now(), dia = 86400_000;
   const issue = (n: number, titulo: string, tipo: string, nombre: string, prioridad: number, proyecto: string, etiquetas: string[] = []) => ({
     id: 'demo-' + n, identificador: `REF-${n}`, titulo, url: 'https://linear.app/', prioridad, textPriority: ['Sin prioridad', 'Urgente', 'Alta', 'Media', 'Baja'][prioridad],
@@ -116,8 +117,8 @@ export function demoPanelLinear() {
 }
 
 // Tablero del equipo en DEMO (mismo formato que tableroDeEquipo): columnas por estado del equipo con sus incidencias
-export function demoBoardLinear() {
-  const p = demoPanelLinear();
+function demoBoardLinearEs() {
+  const p = demoPanelLinearEs();
   const todas = p.myIssues.flatMap(g => g.issues);
   const extra = [
     { id: 'demo-251', identificador: 'REF-251', titulo: 'Caché de imágenes en la portada', prioridad: 3, textPriority: 'Media', estado: { id: 'started', nombre: 'En curso', tipo: 'started' }, proyecto: 'Taller', asignado: 'Iker Sáez' },
@@ -131,7 +132,7 @@ export function demoBoardLinear() {
 
 // Tablero de Jira en DEMO (mismo formato que el panel real): tareas de un proyecto ficticio. Sus claves (REF-…) son las
 // que llevan las ramas de los PR de demoPRsTablero() en server/git.ts, para que el cruce se vea.
-export function demoPanelJira() {
+function demoPanelJiraEs() {
   const ahora = Date.now();
   const red = { clave: 'REF-200', titulo: 'Red fiable' }, rutas = { clave: 'REF-210', titulo: 'Router nuevo' };
   const t = (n: number, titulo: string, estado: string, categoria: 'new' | 'indeterminate' | 'done', tipo: string, prioridad: string, hours: number, epica?: { clave: string; titulo: string }) =>
@@ -148,3 +149,9 @@ export function demoPanelJira() {
     ],
   };
 }
+
+export const demoNotifications = (fuente: SourceId): Notification[] => inDemoLanguage(demoNotificationsEs(fuente));
+export const demoEvents = (fuente: SourceId): Evento[] => inDemoLanguage(demoEventsEs(fuente));
+export const demoPanelLinear = () => inDemoLanguage(demoPanelLinearEs());
+export const demoBoardLinear = () => inDemoLanguage(demoBoardLinearEs());
+export const demoPanelJira = () => inDemoLanguage(demoPanelJiraEs());

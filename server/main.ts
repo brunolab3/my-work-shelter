@@ -184,7 +184,7 @@ const ctxRooms: CtxRooms = {
 };
 const sesiones = new Sessions({
   pathRoom, reposOfShelter: () => gitPaths(), mcpRoom: id => (ctxDecor.sala(id) ? mcpDecor(id, ctxDecor) : undefined),
-  mcpAssignment: (id, preguntar, sesionId) => { const s = almacen.estado.salas.find(x => x.id === id && x.tipo === 'coordinacion' && x.ruta); return s ? mcpAssignment(ctxAssignment(s.ruta!), { coordinacion: s.nombre, salaId: s.id, sesionId, preguntar }) : undefined; },
+  mcpAssignment: (id, preguntar, sesionId) => { const s = almacen.estado.salas.find(x => x.id === id && x.tipo === 'coordinacion' && x.ruta); return s ? mcpAssignment(ctxAssignment(s.ruta!), { coordinacion: roomNameIs(s), salaId: s.id, sesionId, preguntar }) : undefined; },
   mcpRooms: (id, sesionId, enWorktree) => mcpRooms(ctxRooms, id, sesionId, enWorktree),
   mcpPlan: id => { const s = almacen.estado.salas.find(x => x.id === id && x.tipo === 'repo'); return s && planes.ofRoom(id).length ? mcpPlan(ctxPlan, { salaId: id, sala: s.nombre }) : undefined; },
   preflight: { estado: cwd => herramientasPreflight.estado(cwd), responder: (cwd, item, estado, nota) => herramientasPreflight.responder(cwd, item, estado, nota), puerta: cwd => gatePush(cwd, ctxPreflight) },
@@ -569,7 +569,7 @@ const programados: Scheduled = new Scheduled(DATOS, {
     }
     const sala = almacen.estado.salas.find(s => s.id === d.salaId);
     broadcast({ t: 'entrega', sala: d.salaId, sesionId: id, ...(sala && path.resolve(d.cwd) !== path.resolve(folderOf(sala)) ? { worktree: d.cwd } : {}) });
-    broadcast({ t: 'aviso', nivel: 'info', texto: t('server.scheduledDelivered', { sala: sala?.nombre ?? d.salaId, resumen: summary(x.mensaje) }) });
+    broadcast({ t: 'aviso', nivel: 'info', texto: t('server.scheduledDelivered', { sala: sala ? roomNameIs(sala) : d.salaId, resumen: summary(x.mensaje) }) });
     return id;
   },
   aSala: (x, texto) => sendToRoom(ctxRooms, x.origen.salaId, { sala: x.destino.sala, clave: x.destino.clave, mensaje: texto }, x.origen.sesionId),
@@ -679,7 +679,7 @@ async function organizeRooms(salaId: string | undefined, aplicar: boolean) {
       fila.hecho = h ? await applyPlan({
         git: (cwd, args) => new Promise((ok, mal) => execFile('git', ['-C', cwd, ...args], { timeout: 60_000, env: entornoGit() }, (err, o, e) => err ? mal(new Error(String(e || err.message).trim())) : ok(String(o)))),
         empezar: (id, cwd, prompt) => startWork(undefined, { t: 'empezar', dwellerId: h.id, salaId: id, prompt, opciones: { cwd, permisos: 'plan' } }),
-      }, { id: s.id, ruta: s.ruta! }, pasos, repo ?? s.nombre, () => almacen.estado.limiteSesiones - vivas()) : ['La sala no tiene habitante.'];
+      }, { id: s.id, ruta: s.ruta! }, pasos, repo ?? s.nombre, () => almacen.estado.limiteSesiones - vivas()) : [t('server.theRoomHasNoDweller')];
     }
     out.push(fila);
   }
@@ -1082,7 +1082,7 @@ async function startWork(ws: WebSocket | undefined, m: Extract<ClientMessage, { 
   if (typeof m.opciones.worktree === 'string' && !/^[\w.-]{1,80}$/.test(m.opciones.worktree)) m.opciones.worktree = sala.tipo === 'repo';
   if (sala.tipo !== 'repo' && typeof m.opciones.worktree !== 'string') m.opciones.worktree = false;
   // en un ala (carpeta con varios repos) no hay un único repo donde crear el worktree: se trabaja en la carpeta
-  if (m.opciones.worktree && !existsSync(path.join(cwd, '.git'))) { m.opciones.worktree = false; const aviso: ServerMessage = { t: 'aviso', nivel: 'aviso', texto: t('server.isNotAGitRepo', { nombre: sala.nombre }) }; if (ws) enviar(ws, aviso); else broadcast(aviso); }
+  if (m.opciones.worktree && !existsSync(path.join(cwd, '.git'))) { m.opciones.worktree = false; const aviso: ServerMessage = { t: 'aviso', nivel: 'aviso', texto: t('server.isNotAGitRepo', { nombre: roomNameIs(sala) }) }; if (ws) enviar(ws, aviso); else broadcast(aviso); }
   const r = await sesiones.empezar(m.dwellerId, m.salaId, cwd, m.prompt, m.opciones, adjuntos.describir(pathsList(m.adjuntos)));
   if (m.opciones.reanudar && ws) enviar(ws, { t: 'entradas', sesionId: r.id, entradas: sesiones.cuaderno(r.id) });
   return r.id;

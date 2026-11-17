@@ -51,6 +51,9 @@ function tokenShelter(): string {
 }
 
 type Listener = (m: ServerMessage) => void;
+// room names in the chosen language (the service rooms keep theirs as Spanish data), from the first state on
+const shownState = (e: any) => (e?.salas ? { ...e, salas: (e.salas as any[]).map((s: any) => ({ ...s, nombre: roomNameIs(s) })) } : e);
+
 class Client {
   private ws: WebSocket | null = null;
   private queue: string[] = [];
@@ -101,7 +104,7 @@ class Client {
     switch (m.t) {
       case 'bienvenida': {
         const sesiones: Record<string, SessionSummary> = {}; for (const s of m.sesiones) sesiones[s.id] = s;
-        vivo.set({ claudeOk: m.claudeOk, versionClaude: m.versionClaude, estado: m.estado, sesiones, repos: m.repos });
+        vivo.set({ claudeOk: m.claudeOk, versionClaude: m.versionClaude, estado: shownState(m.estado), sesiones, repos: m.repos });
         // tras un corte, los cuadernos abiertos se vuelven a pedir enteros (lo que llegó durante el corte no se pierde)
         wholeLogs.clear();
         for (const id of Object.keys(vivo.get().entradas)) if (sesiones[id]) loadLog(id);
@@ -118,8 +121,7 @@ class Client {
       case 'notificaciones': vivo.set({ notificaciones: m.lista }); break;
       case 'eventos': vivo.set({ eventos: m.lista }); break;
       case 'integracion': vivo.set(e => ({ integraciones: { ...e.integraciones, [m.id]: m.estado } })); break;
-      // room names in the chosen language (the service rooms keep theirs as Spanish data)
-      case 'estado': vivo.set({ estado: m.estado?.salas ? { ...m.estado, salas: (m.estado.salas as any[]).map((s: any) => ({ ...s, nombre: roomNameIs(s) })) } : m.estado }); break;
+      case 'estado': vivo.set({ estado: shownState(m.estado) }); break;
       // los que preguntan no se pierden entre los demás: se quedan hasta contestarlos
       case 'aviso': addNotice(m.nivel, m.texto, m.pregunta); break;
       case 'recargar': location.reload(); break;

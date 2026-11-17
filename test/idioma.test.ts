@@ -69,8 +69,8 @@ describe('English mode guards', () => {
 });
 
 const SPANISH_CHARS = /[áéíóúñÁÉÍÓÚÑ¿¡]/;
-// the catalogues themselves, and the demo data (integrations start off; the demo is for screenshots)
-const SKIP_FILES = ['electron/textos.cjs', 'server/integraciones/demo.ts'];
+// the catalogues themselves, and the demo data with its English (integrations start off; the demo is for screenshots)
+const SKIP_FILES = ['electron/textos.cjs', 'server/integraciones/demo.ts', 'server/integraciones/demoEnglish.ts'];
 // GLSL inside template literals (its comments are code comments)
 const SHADER = /\b(uniform|varying|gl_FragColor|void main|vec[234]|float)\b/;
 // developer logs: console, the Electron log file and the Chrome helpers' log (apuntar)

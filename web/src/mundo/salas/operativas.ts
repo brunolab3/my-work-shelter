@@ -221,7 +221,7 @@ export async function furnishLogistics(ctx: Contexto) {
     if (tareas) {
       const crossing = cruzarTablero(tareas, prs);
       const prioridad = (p?: string) => /highest|blocker|critical/i.test(p ?? '') ? 1 : /high|alta/i.test(p ?? '') ? 2 : /low|baja/i.test(p ?? '') ? 4 : 3;
-      const ficha = (i: TaskWithPR) => ({ id: i.clave, color: taskColor(i.clave), titulo: i.titulo, prioridad: prioridad(i.prioridad), sub: [i.estado, i.prs.length ? `${i.prs.length} PR` : ''].filter(Boolean).join(' · '), asignado: 'Tú' });
+      const ficha = (i: TaskWithPR) => ({ id: i.clave, color: taskColor(i.clave), titulo: i.titulo, prioridad: prioridad(i.prioridad), sub: [i.estado, i.prs.length ? `${i.prs.length} PR` : ''].filter(Boolean).join(' · '), asignado: tr('world.you') });
       tablero.titulo = 'JIRA · ' + tr('panels.myJiraTasks');
       const vivas = crossing.columnas.filter(c => c.id !== 'hecho');
       tablero.poner(vivas.map(c => ({ nombre: tIs(c.nombre), fichas: c.tareas.map(ficha), tinta: COLUMN_COLORS[c.id] })), null);

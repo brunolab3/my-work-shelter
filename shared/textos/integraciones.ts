@@ -216,4 +216,8 @@ export const INTEGRATIONS: Record<string, Texto> = {
   // source names (shared/fuentes.ts: shown with tIs())
   'integrations.macMailName': { es: 'Mail del Mac (Gmail sin Google Cloud)', en: 'Mac Mail (Gmail without Google Cloud)' },
   'integrations.macCalendarName': { es: 'Calendario del Mac', en: 'Mac Calendar' },
+  'integrations.googleName': { es: 'Google (Gmail y Calendar)', en: 'Google (Gmail and Calendar)' },
+  // macOS names as the user's Mac shows them in each language
+  'integrations.macCalendarsToggle': { es: 'Calendarios', en: 'Calendars' },
+  'integrations.macCalendarApp': { es: 'Calendario', en: 'Calendar' },
 };

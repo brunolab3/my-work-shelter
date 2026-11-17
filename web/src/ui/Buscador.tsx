@@ -161,7 +161,7 @@ function Window() {
     for (const s of abiertas as SessionSummary[]) {
       const h = nameOf(sessionOwner(s));
       const p = score(palabras, s.titulo, `${h?.nombre ?? ''} ${h?.nameRoom ?? ''} conversacion chat`);
-      if (p) out.push({ id: 'ses:' + s.id, seccion: 'Conversaciones abiertas', texto: s.titulo || t('windows.conversation'), pista: `${h?.nombre ?? '?'} · ${h?.nameRoom ?? ''}`, estado: s.estado, f: () => openConversation(s.id), p: p + 2 });
+      if (p) out.push({ id: 'ses:' + s.id, seccion: t('panels.searchOpenConversations'), texto: s.titulo || t('windows.conversation'), pista: `${h?.nombre ?? '?'} · ${h?.nameRoom ?? ''}`, estado: s.estado, f: () => openConversation(s.id), p: p + 2 });
     }
     // recientes del archivo (las que no están abiertas ya)
     const liveIds = new Set(abiertas.map(s => s.claudeId).filter(Boolean));
@@ -172,7 +172,7 @@ function Window() {
       const p = score(palabras, r.titulo, `${h?.nombre ?? ''} ${h?.nameRoom ?? ''} ${r.rama ?? ''} conversacion chat reciente`);
       if (!p || (!searching && n >= 6)) continue;
       n++;
-      out.push({ id: 'rec:' + r.claudeId, seccion: 'Conversaciones recientes', texto: r.titulo, pista: `${h?.nombre ?? ''} · ${h?.nameRoom ?? ''} · ${hace(r.modified)}${r.fuera ? ' · ' + t('windows.openOnYourDesktop') : ''}`,
+      out.push({ id: 'rec:' + r.claudeId, seccion: t('panels.searchRecentConversations'), texto: r.titulo, pista: `${h?.nombre ?? ''} · ${h?.nameRoom ?? ''} · ${hace(r.modified)}${r.fuera ? ' · ' + t('windows.openOnYourDesktop') : ''}`,
         f: () => { if (r.fuera) { SFX.noAllowed(); addNotice('aviso', t('panels.thatConversationIsStillOpen')); return; } onShelter(); resumeConversation(r.dwellerId, r); }, p });
     }
     // mensajes programados (server/programados.ts): cuándo, quién y a dónde; Enter abre la conversación que lo
@@ -182,7 +182,7 @@ function Window() {
       const p = score(palabras, x.mensaje, `${h?.nombre ?? ''} ${sala?.nombre ?? ''} ${describeWhen(x.cuando)} programado programados mensaje recordatorio scheduled reminder`);
       if (!p) continue;
       const abierta = Object.values(sesiones).find(y => y.estado !== 'cerrada' && ((x.origen.claudeId && y.claudeId === x.origen.claudeId) || y.id === x.origen.sesionId));
-      out.push({ id: 'prog:' + x.id, seccion: 'Mensajes programados', texto: x.mensaje.replace(/\s+/g, ' ').slice(0, 140),
+      out.push({ id: 'prog:' + x.id, seccion: t('panels.scheduledMessages'), texto: x.mensaje.replace(/\s+/g, ' ').slice(0, 140),
         pista: t('panels.scheduledFor', { cuando: describeWhenShort(x.cuando), habitante: h?.nombre ?? '?', sala: sala?.nombre ?? x.origen.salaId }) + (x.destino.tipo === 'sala' ? ' ' + t('panels.scheduledToRoom', { sala: x.destino.sala }) : ''),
         f: () => { if (abierta) openConversation(abierta.id); else if (h) { onShelter(); goA(h.sala, h.id, true); } }, p: p + 1 });
     }
@@ -190,13 +190,13 @@ function Window() {
     const u = usos();
     const acc = acciones().map(a => ({ a, p: score(palabras, a.texto, `${a.pista ?? ''} ${a.claves ?? ''} ${a.tecla ?? ''}`) })).filter(x => x.p);
     if (!searching) acc.sort((x, y) => (u[y.a.id] ?? 0) - (u[x.a.id] ?? 0));
-    for (const { a, p } of acc) out.push({ id: a.id, seccion: !searching && (u[a.id] ?? 0) > 0 ? 'Acciones recurrentes' : 'Acciones', texto: a.texto, pista: a.pista, tecla: a.tecla, f: a.f, p: p + (u[a.id] ?? 0) * 0.01 });
+    for (const { a, p } of acc) out.push({ id: a.id, seccion: !searching && (u[a.id] ?? 0) > 0 ? t('panels.searchFrequentActions') : t('windows.actions'), texto: a.texto, pista: a.pista, tecla: a.tecla, f: a.f, p: p + (u[a.id] ?? 0) * 0.01 });
     // a typed key («pre-flight abc-12») with a PR, even beyond the ones listed
     const escrita = palabras.find(w => /^[a-z][a-z0-9]+-\d+$/.test(w))?.toUpperCase();
-    if (escrita && taskHasPRs(escrita, jiraBoard.get().prs) && !out.some(f => f.id === 'preflight:' + escrita)) { const a = preflightAction(escrita); out.push({ id: a.id, seccion: 'Acciones', texto: a.texto, pista: a.pista, f: a.f, p: 4 }); }
+    if (escrita && taskHasPRs(escrita, jiraBoard.get().prs) && !out.some(f => f.id === 'preflight:' + escrita)) { const a = preflightAction(escrita); out.push({ id: a.id, seccion: t('windows.actions'), texto: a.texto, pista: a.pista, f: a.f, p: 4 }); }
     if (searching) {
-      for (const h of habitantes) { const p = score(palabras, t('windows.talkToNombre', { nombre: h.nombre }), `${h.mote} ${h.nameRoom} habitante`); if (p) out.push({ id: 'hab:' + h.id, seccion: 'Habitantes', texto: t('windows.talkToNombre', { nombre: h.nombre }), pista: h.nameRoom, f: () => { onShelter(); goA(h.sala, h.id, true); }, p }); }
-      for (const s of salas) { const p = score(palabras, t('panels.goToSala', { sala: s.nombre }), `${s.tipo} sala`); if (p) out.push({ id: 'sala:' + s.id, seccion: 'Salas', texto: t('panels.goToSala', { sala: s.nombre }), pista: s.ruta ? s.ruta.replace(/^\/Users\/[^/]+/, '~') : undefined, f: () => { onShelter(); goA(s.id); }, p }); }
+      for (const h of habitantes) { const p = score(palabras, t('windows.talkToNombre', { nombre: h.nombre }), `${h.mote} ${h.nameRoom} habitante`); if (p) out.push({ id: 'hab:' + h.id, seccion: t('panels.dwellers'), texto: t('windows.talkToNombre', { nombre: h.nombre }), pista: h.nameRoom, f: () => { onShelter(); goA(h.sala, h.id, true); }, p }); }
+      for (const s of salas) { const p = score(palabras, t('panels.goToSala', { sala: s.nombre }), `${s.tipo} sala`); if (p) out.push({ id: 'sala:' + s.id, seccion: t('panels.searchRooms'), texto: t('panels.goToSala', { sala: s.nombre }), pista: s.ruta ? s.ruta.replace(/^\/Users\/[^/]+/, '~') : undefined, f: () => { onShelter(); goA(s.id); }, p }); }
     }
     // con algo escrito, por secciones en el orden de la mejor de cada una
     if (!searching) return out;
@@ -230,7 +230,7 @@ function Window() {
         <div className="buscador-lista" ref={lista}>
           {filas.map((f, k) => (
             <div key={f.id}>
-              {(k === 0 || filas[k - 1].seccion !== f.seccion) && <div className="seccion-buscador">{tIs(f.seccion)}{f.seccion === 'Conversaciones recientes' && recientes === null ? ' · ' + t('panels.searching') : ''}</div>}
+              {(k === 0 || filas[k - 1].seccion !== f.seccion) && <div className="seccion-buscador">{f.seccion}{f.seccion === t('panels.searchRecentConversations') && recientes === null ? ' · ' + t('panels.searching') : ''}</div>}
               <div className={'fila-buscador' + (k === i ? ' activa' : '')} onMouseMove={() => { if (k !== i) setI(k); }} onClick={() => elegir(k)}>
                 {f.estado && <span className={'piloto ' + (f.estado === 'esperando' ? 'esperando' : f.estado === 'error' ? 'error' : f.estado === 'trabajando' || f.estado === 'arrancando' ? 'trabajando' : 'ociosa')} />}
                 <span className="txt">{f.texto}</span>

@@ -51,8 +51,8 @@ const GUIDES: Record<SourceId, { que: string; pasos: React.ReactNode[] }> = {
   calendario: {
     que: 'eventos de hoy a 14 días de los calendarios que ya tienes en Calendario del Mac: Google, Exchange o iCloud sin crear nada (solo lectura)',
     pasos: [
-      <>{t('panels.in')} <b>{t('panels.systemSettingsInternetAccounts')}</b> {t('panels.addYourAccountGoogleExchange')} <b>Calendarios</b> {t('panels.turnedOnMacosHandlesThe')}.</>,
-      <>{t('panels.open')} <b>Calendario</b> {t('panels.andWaitForItTo')}.</>,
+      <>{t('panels.in')} <b>{t('panels.systemSettingsInternetAccounts')}</b> {t('panels.addYourAccountGoogleExchange')} <b>{t('integrations.macCalendarsToggle')}</b> {t('panels.turnedOnMacosHandlesThe')}.</>,
+      <>{t('panels.open')} <b>{t('integrations.macCalendarApp')}</b> {t('panels.andWaitForItTo')}.</>,
       <><b>{t('windows.save')}</b>: {t('panels.theFirstTimeMacosAsks2')}.</>,
       <>{t('panels.meetingsWithAMeetZoom')}.</>,
     ],
@@ -206,7 +206,7 @@ function FormIntegration({ ficha, valuesIni, savedIni, volver }: { ficha: Integr
         {ficha.campos.map((c, k) => (
           <label key={c.id} className={'campo-taller' + (foco === k ? ' activa' : '')} onClick={() => setFocus(k)}>
             <span className="etq">{c.etiqueta}{c.secreto && <small> · {t('panels.toTheKeychain')}</small>}</span>
-            <input ref={el => { refs.current[k] = el; }} type={c.secreto ? 'password' : 'text'} value={valores[c.id] ?? ''} placeholder={c.secreto ? (guardados[c.id] ? t('panels.savedTypeToChangeIt') : '') : c.ejemplo ?? ''} spellCheck={false} autoComplete="off"
+            <input ref={el => { refs.current[k] = el; }} type={c.secreto ? 'password' : 'text'} value={valores[c.id] ?? ''} placeholder={c.secreto ? (guardados[c.id] ? t('panels.savedTypeToChangeIt') : '') : c.ejemplo ? tIs(c.ejemplo) : ''} spellCheck={false} autoComplete="off"
               onFocus={() => setFocus(k)} onChange={e => setValues(v => ({ ...v, [c.id]: e.target.value }))} onKeyDown={e => fieldKey(e, k)} />
             {c.ayuda && <small className="tenue">{tIs(c.ayuda)}</small>}
           </label>

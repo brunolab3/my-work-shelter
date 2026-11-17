@@ -16,6 +16,7 @@ import type { PRBoard } from '../shared/tablero.ts';
 import type { ReviewLedger } from '../shared/cuentaRevisiones.ts';
 import { dependenciasEnTexto } from '../shared/despliegue.ts';
 import { t } from '../shared/idioma.ts';
+import { inDemoLanguage } from './integraciones/demoEnglish.ts';
 
 const entorno = () => entornoGit({ GIT_EDITOR: 'true', GIT_PAGER: 'cat', GCM_INTERACTIVE: 'never' });
 const MAX_DIFF = 1_500_000;   // un diff más grande se corta (y se avisa)
@@ -275,11 +276,11 @@ export function githubDemo(): DataGitHub {
   }
   const pr = (numero: number, titulo: string, repo: string, hours: number, revision?: string): { numero: number; titulo: string; url: string; repo: string; borrador: boolean; actualizado: number; revision?: string } =>
     ({ numero, titulo, url: `https://github.com/pulls#demo-${numero}`, repo, borrador: false, actualizado: Date.now() - hours * 3600_000, revision });
-  return {
+  return inDemoLanguage({
     fuente: 'github', demo: true, usuario: 'supervisor-demo', nombre: 'Supervisor (DEMO)', total: days.reduce((s, d) => s + d.n, 0), days, ts: Date.now(),
     prs: { mine: [pr(42, 'Rutas con parámetros opcionales', 'refugio/express', 3, 'REVIEW_REQUIRED'), pr(17, 'El reintento respeta el timeout', 'refugio/requests', 26, 'APPROVED')], revisar: [pr(8, 'Buscar dentro de archivos comprimidos', 'refugio/ripgrep', 5)], nMine: 2, nReview: 1 },
     error: t('server.git.demoProfile'),
-  };
+  });
 }
 
 let cache: DataGitHub | null = null; let cacheOf = ''; let asking: Promise<DataGitHub> | null = null;
@@ -330,7 +331,7 @@ export function prsOfGitHub(j: any): PRBoard[] {
 export function demoPRsBoard(): PRBoard[] {
   const pr = (numero: number, titulo: string, repo: string, rama: string, estado: PRBoard['estado'], hours: number, revision?: PRBoard['revision'], checks?: PRBoard['checks']): PRBoard =>
     ({ numero, titulo, url: `https://github.com/pulls#demo-${numero}`, repo, rama, estado, revision, checks, actualizado: Date.now() - hours * 3600_000 });
-  return [
+  return inDemoLanguage([
     pr(42, 'Rutas con parámetros opcionales', 'refugio/express', 'ref-212-barra-final', 'abierto', 3, 'REVIEW_REQUIRED', 'PENDING'),
     pr(51, 'Buscar en .zip y .tar.gz', 'refugio/ripgrep', 'feature/REF-240-comprimidos', 'abierto', 5, 'APPROVED', 'SUCCESS'),
     pr(17, 'REF-236 Reutilizar las conexiones de la sesión', 'refugio/requests', 'sesiones-persistentes', 'abierto', 20, 'CHANGES_REQUESTED', 'FAILURE'),
@@ -338,7 +339,7 @@ export function demoPRsBoard(): PRBoard[] {
     pr(39, 'Nuevo router: rutas anidadas', 'refugio/express', 'REF-219-router', 'fusionado', 26),
     pr(9, 'Ordenar la lista por temas', 'refugio/awesome', 'ordenar-temas', 'abierto', 8, 'REVIEW_REQUIRED', 'SUCCESS'),
   ].map(p => ({ ...p, base: p.numero === 18 ? 'sesiones-persistentes' : 'main', dependencias: p.numero === 42 ? ['refugio/express#39', 'refugio/ripgrep#51'] : [],
-    ...(p.numero === 17 ? { ledger: { unresolved: 3, outdated: 1, unansweredSummaries: 1 } } : {}), ...(p.numero === 9 ? { conflictos: true } : {}) }));   // #18 stacked on #17; #42 waits for #39 and #51; #17 with reviews to answer; #9 with conflicts
+    ...(p.numero === 17 ? { ledger: { unresolved: 3, outdated: 1, unansweredSummaries: 1 } } : {}), ...(p.numero === 9 ? { conflictos: true } : {}) })));   // #18 stacked on #17; #42 waits for #39 and #51; #17 with reviews to answer; #9 with conflicts
 }
 export async function prsTablero(connection: { real: boolean; off?: boolean; token?: string }): Promise<{ prs: PRBoard[]; demo?: boolean; error?: string }> {
   if (connection.off) return { prs: [], error: t('server.git.connectGitHub') };
