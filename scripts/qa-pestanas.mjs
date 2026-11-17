@@ -78,7 +78,7 @@ const LISTA = '.barra-lista-com .vt-lista';
 ver(!(await pg.isVisible('.consola .vt-todas')) && await pg.isVisible('.barra-ventanas .com .vt-todas'), 'the ⋯ N button is in the bar\'s COM row, not in the intercom strip');
 await pg.keyboard.press('Meta+Shift+a'); await espera(400);
 ver(await pg.isVisible(LISTA), '⌘⇧A opens the list of every conversation');
-const nombresLista = () => pg.evaluate(() => [...document.querySelectorAll('.barra-lista-com .vt-lista-fila .vt-lista-nombre')].map(x => x.textContent));
+const nombresLista = () => pg.evaluate(() => [...document.querySelectorAll('.barra-lista-com .vt-lista-fila .vt-lista-nombre')].map(x => x.textContent.replace(/^✎/, '')));
 const nuestras = n => TITULOS.includes(n) || AJENAS.includes(n);
 const filas = async () => (await nombresLista()).filter(nuestras).length;
 const propias = (await pestanas()).length;

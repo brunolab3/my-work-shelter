@@ -76,6 +76,7 @@ await pg.waitForSelector('.consola');
 await hasta(async () => (await pestanas()).length === 2, 8000);
 ver((await pestanas()).length === 2, `tras recargar, las dos pestañas siguen (${(await pestanas()).join(' | ')})`);
 ver((await campo()) === 'Un trabajo nuevo que aún no he lanzado', 'y el trabajo nuevo sin lanzar conserva lo escrito');
+ver(await pg.evaluate(() => document.querySelectorAll(".consola .vt-pestana .marca-borrador").length === 2), "las dos pestañas con algo escrito llevan ✎");
 await pg.keyboard.press('Meta+1'); await espera(400);
 ver(await pg.$('.consola .sesion') !== null && (await campo()) === 'Esto es un borrador largo de la conversación', 'y la conversación conserva su borrador');
 

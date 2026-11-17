@@ -30,7 +30,7 @@ import { SFX } from '../audio/sonido';
 import { physicsKey } from '../audio/teclado';
 import { Store } from './almacen';
 import { useMenu as useMenuBase, Opciones } from './aparato';
-import { CMD, MAC, nextZ, windowShortcut, WindowButtons, Tabs, TabList, Confirmation, nthTab, nextTab, PILOT, stateLabel, type ItemTab, type TabState } from './ventanas';
+import { CMD, MAC, nextZ, windowShortcut, WindowButtons, Tabs, TabList, DraftMark, Confirmation, nthTab, nextTab, PILOT, stateLabel, type ItemTab, type TabState } from './ventanas';
 import { sessionOwner, interlocutor, branchCaption, copyCaption, pathWorktree, worktreesKnown } from './copias';
 import { Usage } from './consumo';
 import { takeASurface, aAppClaude } from './superficie';
@@ -386,13 +386,14 @@ function TalkerBust({ x }: { x: DwellerSummary }) {
 // The room's talkers (its dwellers and its worktrees' holographic copies; by state, then most recent conversation first
 // (talkerFirst), those without one last, dwellers before holograms), each with its intercom panel's open conversations and the most urgent one: the selector above the portrait and the bar's hover list (Barra.tsx) show them,
 // with when the latest of them last moved
-export type Talker = { x: DwellerSummary; ses: SessionSummary[]; primera?: SessionSummary; estado?: TabState; nombre: string };
+export type Talker = { x: DwellerSummary; ses: SessionSummary[]; primera?: SessionSummary; estado?: TabState; nombre: string; borrador: boolean };
 export function roomTalkers(sala: string, habitantes: DwellerSummary[], copias: DwellerSummary[], lista: WindowCom[], sesiones: Record<string, SessionSummary>): Talker[] {
   return [...habitantes.filter(x => x.sala === sala && !x.robot), ...copias.filter(c => c.sala === sala)].map(x => {
-    const ses = (lista.find(w => w.dwellerId === x.id)?.pestanas ?? []).map(p => p.vista.tipo === 'sesion' ? sesiones[p.vista.sesionId] : undefined).filter(Boolean) as SessionSummary[];
+    const pestanas = lista.find(w => w.dwellerId === x.id)?.pestanas ?? [];
+    const ses = pestanas.map(p => p.vista.tipo === 'sesion' ? sesiones[p.vista.sesionId] : undefined).filter(Boolean) as SessionSummary[];
     const primera = [...ses].sort((a, b) => urgency(a) - urgency(b) || b.actualizada - a.actualizada)[0];
     const nombre = x.copia ? `◇ ${copyCaption(x.copia, worktreeTask(x.copia) ?? branchCaption(x.copia.rama))} · ${x.copia.nameAuthor}` : x.nombre;
-    return { x, ses, primera, estado: tabState(primera), nombre };
+    return { x, ses, primera, estado: tabState(primera), nombre, borrador: pestanas.some(withText) };
   }).map(q => ({ q, r: { estado: q.estado, cuando: Math.max(0, ...q.ses.map(s => s.actualizada)), nombre: q.nombre, id: q.x.id } }))
     .sort((a, b) => talkerFirst(a.r, b.r))
     .map(y => y.q);
@@ -404,7 +405,7 @@ export function TalkerRow({ q, actual, sel, option, onClick, onMouseEnter }: { q
       <span className={'piloto ' + (q.estado ? PILOT[q.estado] : 'apagado')} />
       <TalkerBust x={q.x} />
       <span className="barra-asomo-estado">{q.estado ? stateLabel(q.estado) : t('windows.noSession')}</span>
-      <span className="barra-asomo-titulo"><b>{q.nombre}</b>{q.primera ? ` · ${q.primera.titulo || t('windows.conversation')}` : ''}</span>
+      <span className="barra-asomo-titulo">{q.borrador && <DraftMark />}<b>{q.nombre}</b>{q.primera ? ` · ${q.primera.titulo || t('windows.conversation')}` : ''}</span>
       <small title={q.ses.length ? t('windows.nConversations', { n: q.ses.length }) : undefined}>{q.ses.length || ''}</small>
       <small className="barra-asomo-cuando">{q.ses.length ? hace(Math.max(...q.ses.map(s => s.actualizada))) : ''}</small>
     </button>
@@ -431,6 +432,8 @@ function WhoSelector({ h }: { h: DwellerSummary }) {
   const yo = quienes.find(q => q.x.id === h.id) ?? quienes[0];
   // the others with something for you (waiting, unread or failed), most urgent first: the chip says so while closed
   const revisar = quienes.filter(q => q !== yo && (q.estado === 'esperando' || q.estado === 'sinLeer' || q.estado === 'error')).sort((a, b) => urgency(a.primera!) - urgency(b.primera!));
+  // and, quieter, the others with something typed and not sent
+  const borradores = quienes.filter(q => q !== yo && q.borrador);
   const elegir = (id: string) => { setAbierta(false); if (id !== h.id) restoreIntercom(id); };
   const abrir = () => { setSel(Math.max(0, quienes.indexOf(yo))); setAbierta(x => !x); };
   const tecla = (e: React.KeyboardEvent) => {
@@ -443,11 +446,12 @@ function WhoSelector({ h }: { h: DwellerSummary }) {
   return (
     <div className="consola-quien" ref={caja} onKeyDown={tecla}>
       <button className={'chip-terminal delante' + (h.copia ? ' de-copia' : '') + (yo.estado === 'esperando' || revisar[0]?.estado === 'esperando' ? ' urgente' : '')} aria-haspopup="listbox" aria-expanded={abierta}
-        title={[t('windows.talkToSomeoneElse'), revisar.length ? t('windows.othersToReview', { n: revisar.length }) + ': ' + revisar.map(q => q.nombre).join(', ') : ''].filter(Boolean).join('\n')} onClick={abrir}>
+        title={[t('windows.talkToSomeoneElse'), revisar.length ? t('windows.othersToReview', { n: revisar.length }) + ': ' + revisar.map(q => q.nombre).join(', ') : '', borradores.length ? t('windows.othersWithDraft', { n: borradores.length }) + ': ' + borradores.map(q => q.nombre).join(', ') : ''].filter(Boolean).join('\n')} onClick={abrir}>
         <span className={'piloto ' + (yo.estado ? PILOT[yo.estado] : 'apagado')} aria-hidden />
         <TalkerBust x={yo.x} />
         <span className="consola-quien-nombre">{yo.nombre}</span>
         {revisar.length > 0 && <span className={'consola-quien-aviso e-' + revisar[0].estado} aria-label={t('windows.othersToReview', { n: revisar.length })}>+{revisar.length}</span>}
+        {borradores.length > 0 && <span className="marca-borrador" aria-label={t('windows.othersWithDraft', { n: borradores.length })}>✎</span>}
         <span className="tipo">▾</span>
       </button>
       {abierta && (
@@ -464,7 +468,7 @@ const VIEW_NAME: Record<string, string> = { menu: t('windows.menu'), nuevo: t('w
 function tabItem(x: TabCom, o: DwellerSummary, sesiones: Record<string, SessionSummary>): ItemTab {
   const sx = x.vista.tipo === 'sesion' ? sesiones[x.vista.sesionId] : undefined, ruta = pathWorktree(sx?.cwd, worktreesKnown());
   return { id: x.id, nombre: sx ? sx.titulo || t('windows.conversation') : x.sessionWait ? t('windows.starting2') : VIEW_NAME[x.vista.tipo] ?? t('windows.menu'), estado: x.sessionWait ? 'trabajando' : tabState(sx),
-    titulo: sx?.titulo, sala: o.nameRoom, tarea: ruta ? worktreeTask({ ruta }) : o.copia ? worktreeTask(o.copia) : undefined, actividad: sx ? hace(sx.actualizada) : undefined };
+    titulo: sx?.titulo, sala: o.nameRoom, tarea: ruta ? worktreeTask({ ruta }) : o.copia ? worktreeTask(o.copia) : undefined, actividad: sx ? hace(sx.actualizada) : undefined, borrador: withText(x) };
 }
 
 // The ⋯ N button at the end of the bar's COM row (Barra.tsx; ⌘⇧A from an intercom): every open conversation of every

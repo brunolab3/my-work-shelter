@@ -529,6 +529,9 @@ a.miniatura:hover img { box-shadow: 0 0 0 1px #ffc96b, 0 0 10px rgba(255,179,71,
 .consola-quien-aviso { flex: none; padding: 0 .4em; font-weight: 700; color: #1b1a17; background: #8dffb0; border-radius: 6px; }
 .consola-quien-aviso.e-esperando { background: #ffb000; animation: latido 1s steps(2) infinite; }
 .consola-quien-aviso.e-error { background: #ff3a2a; color: #fff; }
+/* ✎ something typed and not sent: quieter than the state flags */
+.marca-borrador { flex: none; margin-right: .35em; font-weight: 400; color: var(--crema-tenue); opacity: .75; }
+.chip-terminal .marca-borrador { margin-right: 0; }
 .consola-quien-lista .barra-asomo-fila.sel { background: #2b2722; }
 .barra-asomo-fila.actual b { color: #b9ffcf; }
 .barra-asomo-fila.de-copia b { color: #58e6ff; }

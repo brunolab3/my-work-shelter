@@ -70,9 +70,12 @@ export function WindowButtons({ maximizada, minimizar, toggleMaximize, cerrar, c
 export const PILOT: Record<TabState, string> = { esperando: 'esperando', sinLeer: 'terminada', error: 'error', trabajando: 'trabajando', ociosa: 'ociosa' };
 export const stateLabel = (e: TabState) => ({ esperando: t('windows.waitingForYou'), sinLeer: t('windows.tabUnread'), error: t('windows.fault'), trabajando: t('windows.working'), ociosa: t('windows.tabIdle') })[e];
 const LIST_SHORTCUT = `${CMD}${MAC ? '⇧' : ''}A`;
+/** ✎ on a tab, a list row or a talker with something typed and not sent: quieter than the state flags */
+export const DraftMark = () => <span className="marca-borrador" title={t('windows.unsentDraft')}>✎</span>;
 
-// grupo: with «group by room», tabs of a group sit together under its header; quien: whose it is (another window)
-export interface ItemTab { id: string; nombre: string; estado?: TabState; titulo?: string; sala?: string; tarea?: string; actividad?: string; grupo?: string; quien?: string }
+// grupo: with «group by room», tabs of a group sit together under its header; quien: whose it is (another window);
+// borrador: it has unsent text or attachments (DraftMark)
+export interface ItemTab { id: string; nombre: string; estado?: TabState; titulo?: string; sala?: string; tarea?: string; actividad?: string; grupo?: string; quien?: string; borrador?: boolean }
 
 // lista: the ⋯ N button and its list in the strip (terminals); intercoms keep theirs in the bar (ComTabs in Dialogo.tsx)
 export function Tabs({ items, activa, activar, cerrar, nueva, opensThat, lista, confirmando }: { items: ItemTab[]; activa: string; activar: (id: string) => void; cerrar: (ids: string[]) => void; nueva?: () => void; opensThat: string; lista?: React.MutableRefObject<(() => void) | null>; confirmando?: boolean }) {
@@ -95,8 +98,9 @@ export function Tabs({ items, activa, activar, cerrar, nueva, opensThat, lista, 
         {items.map((p, i) => (<React.Fragment key={p.id}>
           <div className={'vt-pestana' + (p.id === activa ? ' activa' : '') + (p.estado ? ' e-' + p.estado : '') + (p.tarea ? ' con-tarea' : '')} style={p.tarea ? { '--tarea': taskColor(p.tarea) } as React.CSSProperties : undefined}
             onClick={() => activar(p.id)} onAuxClick={e => { if (e.button === 1) cerrar([p.id]); }}
-            title={[p.titulo || p.nombre, p.estado && stateLabel(p.estado), p.quien, p.tarea, i < 9 ? `${CMD}${i + 1}` : ''].filter(Boolean).join(' · ')}>
+            title={[p.titulo || p.nombre, p.estado && stateLabel(p.estado), p.borrador && t('windows.unsentDraft'), p.quien, p.tarea, i < 9 ? `${CMD}${i + 1}` : ''].filter(Boolean).join(' · ')}>
             <span className={'piloto ' + PILOT[p.estado ?? 'ociosa']} />
+            {p.borrador && <DraftMark />}
             <span className="vt-pestana-nombre">{p.nombre}</span>
             <button className="vt-pestana-x" onClick={e => { e.stopPropagation(); cerrar([p.id]); }} title={t('windows.closeTabAtajo', { shortcut: `${CMD}W` })}>×</button>
           </div>
@@ -151,7 +155,7 @@ export function TabList({ items, activa, activar, cerrar, salir, agrupar }: { it
             <input type="checkbox" checked={marcadas.includes(p.id)} title={t('windows.selectTab')} onClick={e => e.stopPropagation()} onChange={() => setMarcadas(m => (m.includes(p.id) ? m.filter(x => x !== p.id) : [...m, p.id]))} />
             <span className={'piloto ' + PILOT[p.estado ?? 'ociosa']} />
             <span className="vt-lista-estado">{p.estado ? stateLabel(p.estado) : ''}</span>
-            <span className="vt-lista-nombre">{p.nombre}</span>
+            <span className="vt-lista-nombre">{p.borrador && <DraftMark />}{p.nombre}</span>
             <span className="vt-lista-tarea">{p.tarea && <><span className="marca-tarea" style={{ '--tarea': taskColor(p.tarea) } as React.CSSProperties} />{p.tarea}</>}</span>
             <span className="vt-lista-sala">{p.quien ?? p.sala}</span>
             <span className="vt-lista-cuando">{p.actividad}</span>
