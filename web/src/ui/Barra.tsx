@@ -5,7 +5,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { t } from '@shared/idioma';
 import { terminales, onFront, minimizar, askClose as closeTerminal } from './Terminales';
-import { intercoms, type WindowCom, minimizeIntercom, restoreIntercom, sessionPilot, roomTalkers, TalkerRow, ComTabs, withText, askClose as closeIntercom } from './Dialogo';
+import { intercoms, type WindowCom, minimizeIntercom, restoreIntercom, sessionPilot, roomTalkers, TalkerRow, ComTabs, withText, openConversation, askClose as closeIntercom } from './Dialogo';
 import { juego, type DwellerSummary } from './estadoJuego';
 import type { SessionSummary } from '@shared/protocolo';
 import { recentFirst, sessionRecency } from '@shared/recientes';
@@ -37,7 +37,9 @@ export function comRooms(lista: WindowCom[], sesiones: Record<string, SessionSum
     const ultima = (c: Com) => Math.max(0, ...c.ses.map(s => s.actualizada));
     const reciente = [...g.coms].sort((a, b) => ultima(b) - ultima(a) || b.v.z - a.v.z)[0];
     const ses = g.coms.flatMap(c => c.ses.map(s => ({ s, h: c.h }))).sort((a, b) => (URGENCY[a.s.estado] ?? 5) - (URGENCY[b.s.estado] ?? 5) || recentFirst(sessionRecency(a.s), sessionRecency(b.s)));
-    return { ...g, reciente, ses };
+    // what a click opens: the conversation with something for you (waiting, failed, unread), on its tab; else the latest
+    const aTi = ses.find(x => x.s.estado === 'esperando' || x.s.estado === 'error' || (x.s.estado === 'terminada' && x.s.sinLeer));
+    return { ...g, reciente, ses, aTi, abrir: () => (aTi ? openConversation(aTi.s.id) : restoreIntercom(reciente.v.dwellerId)) };
   });
 }
 
@@ -51,7 +53,7 @@ function filas(): Elemento[][] {
     const enSala = g.coms.some(c => c.v.dwellerId === talking);
     return {
       clave: 'c:' + g.sala, abierto: enSala,
-      abrir: () => { if (!enSala) restoreIntercom(g.reciente.v.dwellerId); }, minimizar: minimizeIntercom,
+      abrir: () => { if (!enSala) g.abrir(); }, minimizar: minimizeIntercom,
       // closes every intercom of the room; if one asks (something running), its question shows in its window
       cerrar: () => {
         for (const c of g.coms) closeIntercom(c.v.dwellerId);
@@ -154,14 +156,14 @@ export function Barra() {
           <span className="barra-tipo" title={t('windows.intercoms')}>COM</span>
           {salas.map((g, i) => {
             const worst = g.ses[0]?.s, abierto = g.coms.some(c => c.v.dwellerId === talking);
-            const h = (g.coms.find(c => c.v.dwellerId === talking) ?? g.reciente).h;
+            const h = g.coms.find(c => c.v.dwellerId === talking)?.h ?? g.aTi?.h ?? g.reciente.h;
             // something typed and not sent in one of its intercoms other than the one in front
             const borradores = g.coms.filter(c => c.v.dwellerId !== talking && c.v.pestanas.some(withText));
             return (
               <button key={g.sala} onMouseEnter={e => { quedarse(); const r = e.currentTarget.getBoundingClientRect(); if (g.coms.length > 1) setAsomo({ id: g.sala, x: r.left, y: r.top }); else setAsomo(null); }} onMouseLeave={irse}
                 className={'chip-terminal' + (h.copia ? ' de-copia' : '') + (abierto ? ' delante' : ' minimizada') + (worst?.estado === 'esperando' ? ' urgente' : '') + (marcado(0, i) ? ' marcado' : '')}
-                onClick={() => (abierto ? minimizeIntercom() : restoreIntercom(g.reciente.v.dwellerId))}
-                title={`${g.nombre}: ${g.coms.map(c => quienEs(c.h)).join(', ')}\n${borradores.length ? t('windows.unsentDraftWith', { quien: borradores.map(c => quienEs(c.h)).join(', ') }) + '\n' : ''}${abierto ? t('windows.clickToMinimize') : t('windows.clickToGoBackTo', { nombre: quienEs(g.reciente.h) })}`}>
+                onClick={() => (abierto ? minimizeIntercom() : g.abrir())}
+                title={`${g.nombre}: ${g.coms.map(c => quienEs(c.h)).join(', ')}\n${borradores.length ? t('windows.unsentDraftWith', { quien: borradores.map(c => quienEs(c.h)).join(', ') }) + '\n' : ''}${abierto ? t('windows.clickToMinimize') : t('windows.clickToGoBackTo', { nombre: quienEs(g.aTi?.h ?? g.reciente.h) })}`}>
                 <span className={'piloto ' + sessionPilot(worst)} />
                 <span className="tipo">{g.nombre}</span>
                 {h.copia ? <span className="marca-copia">◇ </span> : null}{h.nombre}{worst ? ` · ${STATE_TEXT[worst.estado] ?? worst.estado}` : ''}{g.ses.length > 1 ? <small> ({g.ses.length})</small> : null}{borradores.length ? <span className="marca-borrador"> ✎</span> : null}
