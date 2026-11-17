@@ -281,6 +281,15 @@ html, body { margin: 0; height: 100%; background: var(--fondo); overflow: hidden
 .paginas-lista .pagina-nombre { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; text-align: left; background: none; border: 0; color: var(--fosforo); font: inherit; cursor: pointer; padding: 0; }
 .paginas-lista .pagina-nombre:hover { text-decoration: underline; }
 .paginas-lista .consola-x { margin-left: 0; }
+/* a link's options (opcionesEnlace.ts): anchored at the link, above every window */
+.opciones-enlace { position: fixed; z-index: 2147483000; display: flex; flex-direction: column; min-width: 15em; max-width: 30em; padding: .35em; background: #0b120b; border: 1px solid var(--fosforo-tenue); border-radius: 4px; box-shadow: 0 6px 24px #000c; font: 400 calc(var(--u) * 0.75) var(--t-mono); color: var(--fosforo); }
+.opciones-enlace .oe-titulo { padding: .15em .45em .35em; color: var(--fosforo-tenue); font-size: .88em; white-space: nowrap; overflow: hidden; }
+.opciones-enlace .oe-aviso { padding: 0 .45em .35em; color: #ff7a6a; }
+.opciones-enlace .oe-opcion { display: flex; align-items: center; gap: 1em; justify-content: space-between; padding: .35em .5em; background: none; border: 0; border-radius: 3px; color: var(--fosforo); font: inherit; text-align: left; cursor: pointer; }
+.opciones-enlace .oe-opcion:focus { outline: none; background: rgba(157,255,184,.14); }
+.opciones-enlace .oe-defecto { font-weight: 700; color: #c8ffd6; }
+.opciones-enlace kbd { font: inherit; font-size: .85em; color: var(--fosforo-tenue); }
+.opciones-enlace .oe-pie { padding: .35em .45em .1em; border-top: 1px solid rgba(157,255,184,.12); margin-top: .25em; color: var(--fosforo-tenue); font-size: .8em; }
 .sesion .lienzo { flex: 1; min-height: 0; overflow: auto; padding-right: .4em; scrollbar-width: thin; scrollbar-color: rgba(157,255,184,.35) transparent; }
 .ent { margin: 0 0 .7em; word-wrap: break-word; }
 .ent p { margin: 0 0 .5em; } .ent ul, .ent ol { margin: .2em 0 .6em; padding-left: 1.4em; }

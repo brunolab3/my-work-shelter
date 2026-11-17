@@ -21,7 +21,8 @@ import { nextZ, windowShortcut, WindowButtons, CMD } from './ventanas';
 // de Chrome («Chrome 44», de 2015) y tratan la sesión como sospechosa (Discord no manda el SMS del doble factor)
 // remoto: la web vive en el Chrome sin ventana de electron/chromeRemoto.cjs (solo Spotify)
 // local: una página HTML del Mac que sirve el servidor del refugio (server/paginasLocales.ts), en un <iframe> aislado
-export interface Spot { id: string; nombre: string; inicio: string; domains: string[]; detours?: Record<string, string>; chrome?: boolean; remoto?: boolean; local?: boolean }
+// suelta: any https web a reply links («Web»), in a session of its own (electron/main.cjs), on whatever domain it opened
+export interface Spot { id: string; nombre: string; inicio: string; domains: string[]; detours?: Record<string, string>; chrome?: boolean; remoto?: boolean; local?: boolean; suelta?: boolean }
 // webs que se pueden abrir dentro; cada sala especial que quiera la suya, la pide con su id
 export const SPOTS: Record<string, Spot> = {
   // Linear: se entra por /login, no por la portada. Su verificación (Cloudflare Turnstile) solo pasa con «Electron» en el
@@ -39,16 +40,19 @@ export const SPOTS: Record<string, Spot> = {
   spotify: { id: 'spotify', nombre: 'Spotify', inicio: 'https://open.spotify.com/', domains: ['spotify.com'], remoto: true },
   // los planes, informes y comparaciones en HTML que enlazan los habitantes: dentro, no en la app del Mac para los .html
   pagina: { id: 'pagina', get nombre() { return t('windows.page'); }, inicio: 'about:blank', domains: [], local: true },
+  // any other web a reply links, opened inside from its options (opcionesEnlace.ts)
+  web: { id: 'web', get nombre() { return t('windows.web'); }, inicio: 'about:blank', domains: [], suelta: true },
 };
 const isLocal = (id: string) => !!SPOTS[id]?.local;
 
 export const IN_ELECTRON = /\bElectron\//.test(navigator.userAgent);
 const AGENT_CHROME = navigator.userAgent.replace(/ (Electron|work-shelter(-public)?)\/\S+/g, '');
-const PARTICION = 'persist:navegador';
+const PARTICION = 'persist:navegador', PARTICION_WEB = 'persist:web';
 
 // sesion: la conversación que enlazó la página (la ventana «Página»), a la que van las notas que se le dejen; ruta: el
 // archivo del Mac de una página de /pagina/ (sus notas se guardan por archivo)
-interface WindowNav { id: string; url: string; titulo: string; cargando: boolean; minimizada: boolean; maximizada: boolean; z: number; sesion?: string; ruta?: string }
+// generacion: the «Web» window's <webview> is made again for another domain (each one stays on the domain it opened with)
+interface WindowNav { id: string; url: string; titulo: string; cargando: boolean; minimizada: boolean; maximizada: boolean; z: number; sesion?: string; ruta?: string; generacion?: number }
 
 // Notas del Supervisor en las páginas de /pagina/ (las marca server/pagina/notas.js dentro de la página): se guardan
 // aquí, por archivo, hasta mandarlas a la conversación
@@ -210,6 +214,21 @@ export function openLink(url?: string) {
   const s = urlSpot(url);
   if (s) openBrowser(s.id, url); else { window.open(url, '_blank'); SFX.clic(); }
 }
+/** A web inside the game: its own browser if it has one (Linear, GitHub…), else the «Web» window. Only https (the
+ *  <webview> takes nothing else, electron/main.cjs) and in Electron */
+export const canOpenInside = (url: string) => { try { return IN_ELECTRON && new URL(url).protocol === 'https:'; } catch { return false; } };
+export function openWeb(url: string) {
+  const s = urlSpot(url);
+  if (s) { openBrowser(s.id, url); return; }
+  if (!canOpenInside(url)) { window.open(url, '_blank', 'noopener'); SFX.clic(); return; }
+  const ya = ventana('web');
+  if (!ya) { crear('web', url, false, false, new URL(url).hostname); SFX.abrir(); enfocar('web'); return; }
+  // the same site: it goes there; another one, in a new <webview> confined to that one
+  if (siteOf(ya.url) === siteOf(url)) webviews.get('web')?.loadURL(url).catch(() => {});
+  else actualizar('web', v => ({ url, titulo: new URL(url).hostname, cargando: true, generacion: (v.generacion ?? 0) + 1 }));
+  onFront('web');
+}
+const siteOf = (url: string) => { try { return new URL(url).hostname.split('.').slice(-2).join('.'); } catch { return ''; } };
 function crear(id: string, url: string, minimizada: boolean, maximizada: boolean, titulo = SPOTS[id]?.nombre ?? id) {
   // un solo navegador a la vista: los demás se minimizan (ocuparían el mismo sitio)
   const z = nextZ();
@@ -262,6 +281,7 @@ try {
       let u: URL | undefined; try { u = new URL(r.url, location.href); } catch {}
       if (r.url.startsWith('/pagina/') || (u && isLocalServer(u))) { crear(r.id, r.url, !!r.minimizada, false, String(r.titulo ?? '')); actualizar(r.id, { sesion: typeof r.sesion === 'string' ? r.sesion : undefined, ruta: typeof r.ruta === 'string' ? r.ruta : undefined }); }
     }
+    else if (SPOTS[r.id].suelta) { if (canOpenInside(r.url)) crear(r.id, r.url, !!r.minimizada, false, String(r.titulo ?? '')); }
     else crear(r.id, urlSpot(r.url)?.id === r.id ? r.url : SPOTS[r.id].inicio, !!r.minimizada, false);
   }
 } catch {}
@@ -269,7 +289,7 @@ try {
 // ---------------------------------------------------------------- interfaz
 export function Navegadores() {
   const lista = navegadores.usar(e => e.lista);
-  return <>{lista.map(v => <VentanaNavegador key={v.id} v={v} />)}</>;
+  return <>{lista.map(v => <VentanaNavegador key={v.id + (v.generacion ?? '')} v={v} />)}</>;
 }
 
 function VentanaNavegador({ v }: { v: WindowNav }) {
@@ -332,7 +352,7 @@ function VentanaNavegador({ v }: { v: WindowNav }) {
   useEffect(() => {
     if (isRemote(v.id) || isLocal(v.id)) return;
     const w = document.createElement('webview') as Webview;
-    w.setAttribute('partition', PARTICION);
+    w.setAttribute('partition', SPOTS[v.id]?.suelta ? PARTICION_WEB : PARTICION);
     if (SPOTS[v.id]?.chrome) w.setAttribute('useragent', AGENT_CHROME);
     w.setAttribute('allowpopups', '');
     w.setAttribute('src', v.url);

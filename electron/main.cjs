@@ -72,6 +72,9 @@ function crear() {
 // navegador se queda en el dominio con el que se abrió (y los de inicio de sesión); el resto de enlaces, al navegador
 // del sistema. Sin preload ni Node: la página no ve nada del juego.
 const PARTICION = 'persist:navegador';
+// the «Web» browser: any https page a reply links (web/src/ui/opcionesEnlace.ts), in a session of its own (not the work
+// webs' logins), confined like the others to the domain it opened with, and with no permissions but writing the clipboard
+const PARTICION_WEB = 'persist:web';
 const ACCESO = ['accounts.google.com', 'login.microsoftonline.com', 'login.microsoft.com', 'login.live.com', 'appleid.apple.com', 'okta.com', 'auth0.com', 'onelogin.com'];
 // webs que viven en varios dominios: abrir cualquiera de ellos deja pasar a los demás (Outlook salta entre
 // outlook.cloud.microsoft, outlook.office.com y outlook.office365.com; los enlaces de invitación de Discord son discord.gg)
@@ -86,10 +89,11 @@ function navegadores(v) {
   // Electron (el de la app de escritorio de Linear) pasa sin reto
   // las webs pueden escribir en el portapapeles y avisar; leerlo, no
   ses.setPermissionRequestHandler((_wc, permiso, ok) => ok(['clipboard-sanitized-write', 'notifications'].includes(permiso)));
+  session.fromPartition(PARTICION_WEB).setPermissionRequestHandler((_wc, permiso, ok) => ok(permiso === 'clipboard-sanitized-write'));
   const pendientes = [];
   v.webContents.on('will-attach-webview', (e, prefs, params) => {
     let url; try { url = new URL(params.src); } catch {}
-    if (!url || url.protocol !== 'https:' || params.partition !== PARTICION) { e.preventDefault(); return; }
+    if (!url || url.protocol !== 'https:' || ![PARTICION, PARTICION_WEB].includes(params.partition)) { e.preventDefault(); return; }
     delete prefs.preload;
     Object.assign(prefs, { nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true });
     pendientes.push(domainsOf(url.hostname));
@@ -102,10 +106,9 @@ function configureBrowser(v, wc, domains) {
   const acceso = u => { const h = host(u); return !!h && ACCESO.some(d => bajo(h, d)); };
   const fuera = u => { if (/^(https?|mailto):/i.test(u)) shell.openExternal(u).catch(() => {}); };   // linear://, zoommtg://, file:… no: abrirían otra app
   wc.on('will-navigate', (e, viejo) => { const u = e.url ?? viejo; if (!propio(u) && !acceso(u)) { e.preventDefault(); fuera(u); } });
-  // ventanas nuevas: las de inicio de sesión, como ventanita encima; las de la misma web, dentro; el resto, fuera
+  // new windows: never one of the game's own; login pages and the same web's, inside this browser; the rest, outside
   wc.setWindowOpenHandler(({ url: u }) => {
-    if (acceso(u)) return { action: 'allow', overrideBrowserWindowOptions: { parent: v, width: 520, height: 720, autoHideMenuBar: true, backgroundColor: '#ffffff' } };
-    if (propio(u)) wc.loadURL(u); else fuera(u);
+    if (propio(u) || acceso(u)) wc.loadURL(u); else fuera(u);
     return { action: 'deny' };
   });
   // las teclas del navegador las resuelve él; las de ventana del refugio suben al juego (Esc y el resto, a la página)

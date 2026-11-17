@@ -14,7 +14,8 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import type http from 'node:http';
 import { marked } from 'marked';
-import { linkPath, openLocal, realInside } from './abrir.ts';
+import { linkPath, localKind, openLocal, realInside, realOfLink } from './abrir.ts';
+import type { LocalKind } from '../shared/opcionesEnlace.ts';
 import { IMAGE_FILE } from '../shared/paginasSesion.ts';
 
 const OF_PAGE = /\.(html?|md|markdown)$/i;
@@ -75,13 +76,22 @@ async function linkedFile(enlace: string, casa: string, tipo: RegExp) {
 }
 
 /** Un enlace a un archivo del Mac: una página HTML, un .md o una imagen se ve en el juego; lo demás se abre como
- *  siempre (abrir.ts) */
-export async function openLink(enlace: string, casa: string): Promise<string | { pagina: LocalPage }> {
+ *  siempre (abrir.ts). With `fuera`, outside the game even if it could be seen inside (the link's options) */
+export async function openLink(enlace: string, casa: string, fuera = false): Promise<string | { pagina: LocalPage }> {
+  if (fuera) return openLocal(enlace, casa);
   const pagina = await linkedFile(enlace, casa, OF_PAGE);
   if (pagina) return { pagina: await registerPage(pagina) };
   const imagen = await linkedFile(enlace, casa, IMAGE_FILE);
   if (imagen) return { pagina: registerImage(imagen) };
   return openLocal(enlace, casa);
+}
+
+/** What a link to a file of the Mac can open in, without opening it: inside the game (a page or an image) and where
+ *  the Mac would open it (abrir.ts) */
+export async function linkKind(enlace: string, casa: string): Promise<{ juego: boolean; mac: LocalKind }> {
+  const real = await realOfLink(enlace, casa);
+  const mac = await localKind(real);
+  return { juego: mac !== 'carpeta' && (OF_PAGE.test(real) || IMAGE_FILE.test(real)) && (await fs.stat(real)).isFile(), mac };
 }
 
 /** The thumbnail of an image a reply links: its address in the game, or null if the link isn't an image of the Mac */

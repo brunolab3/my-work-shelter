@@ -46,7 +46,10 @@ It is designed as a local application for a single person on their Mac:
   agents, `.mcp.json`, `CLAUDE.md`), the game asks before loading it, unless you already accepted that folder in
   Claude Code or in the game. This includes repos the repos root adds as rooms automatically.
 - **Electron**: `contextIsolation`, no `nodeIntegration`, the main window confined to its origin and the internal
-  browsers (`<webview>`) in their own session, `https` only and no preload.
+  browsers (`<webview>`) in their own session, `https` only and no preload, each confined to the domain it opened
+  with and never opening windows of its own (login popups load inside). The «Web» browser, which shows any https site
+  a reply links when you choose «Open in the game», is one of them, sandboxed the same way, in a separate session
+  (`persist:web`, apart from the work sites' logins) with no permission but writing the clipboard.
 - **Secrets**: in the macOS keychain, not in the repo or in `.data/`; integrations ask for read-only permissions.
   The borrowed sessions of `gh` (`gh auth token`) and `gws` (`gws auth export --unmasked`, for Google) are read when
   needed and never stored; their access tokens live in memory only.

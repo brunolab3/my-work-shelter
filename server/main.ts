@@ -12,7 +12,7 @@ import { GAME_NAME, type ClientMessage, type ServerMessage, type InfoRepo, type 
 import { Sessions } from './sesiones.ts';
 import { Attachments } from './adjuntos.ts';
 import { openAttachment, isPackage, revealLocal } from './abrir.ts';
-import { openLink, imageThumbnail, servePage, existingPages, pagesUpdated } from './paginasLocales.ts';
+import { openLink, linkKind, imageThumbnail, servePage, existingPages, pagesUpdated } from './paginasLocales.ts';
 import { cleanCompares, COMPARES_FOLDER } from './comparar.ts';
 import { isCloneOfExample } from './ejemplos.ts';
 import { mcpDecor, promptAdaptar, type CtxDecor } from './decoradoSala.ts';
@@ -870,7 +870,8 @@ async function accion(nombre: string, d: Record<string, any> = {}): Promise<unkn
     case 'programados.editar': return programados.editar(String(d.id ?? ''), { cuando: d.cuando === undefined ? undefined : String(d.cuando), mensaje: d.mensaje === undefined ? undefined : String(d.mensaje) });
     case 'paginas.existen': return existingPages(d.rutas, os.homedir());
     case 'paginas.actualizadas': return pagesUpdated(d.rutas, os.homedir());
-    case 'enlace.local': return openLink(String(d.ruta ?? ''), os.homedir());
+    case 'enlace.local': return openLink(String(d.ruta ?? ''), os.homedir(), d.fuera === true);
+    case 'enlace.tipo': return linkKind(String(d.ruta ?? ''), os.homedir());
     case 'enlace.miniatura': return imageThumbnail(String(d.ruta ?? ''), os.homedir());
     case 'enlace.revelar': return revealLocal(String(d.ruta ?? ''), os.homedir());
     case 'adjunto.abrir': { const r = String(d.ruta || ''); if (!adjuntos.propio(r)) throw new Error(t('server.thatAttachmentIsGoneThey')); await openAttachment(adjuntos.dir, path.resolve(r)); return true; }

@@ -4,7 +4,7 @@ import { mkdtempSync, mkdirSync, realpathSync, symlinkSync, writeFileSync } from
 import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
-import { openLink, imageThumbnail, servePage, PAGE_CSP, withNotes } from './paginasLocales.ts';
+import { openLink, linkKind, imageThumbnail, servePage, PAGE_CSP, withNotes } from './paginasLocales.ts';
 
 const base = mkdtempSync(path.join(os.tmpdir(), 'paginas-'));
 const carpeta = path.join(base, 'repo', 'tmp'); mkdirSync(carpeta, { recursive: true });
@@ -22,6 +22,12 @@ afterAll(() => servidor.close());
 const pedir = async (ruta: string) => { const r = await fetch(`http://127.0.0.1:${await listo}${ruta}`); return { status: r.status, csp: r.headers.get('content-security-policy'), tipo: r.headers.get('content-type'), texto: await r.text() }; };
 
 describe('páginas HTML del Mac en el juego', () => {
+  it("a link's kind, without opening it: inside the game or not, and where the Mac would open it", async () => {
+    expect(await linkKind(path.join(carpeta, 'mi plan.html') + ':3', '/Users/nadie')).toEqual({ juego: true, mac: 'web' });
+    expect(await linkKind(path.join(carpeta, 'estilo.css'), '/Users/nadie')).toEqual({ juego: false, mac: 'editor' });
+    expect(await linkKind(carpeta, '/Users/nadie')).toEqual({ juego: false, mac: 'carpeta' });
+    await expect(linkKind(path.join(carpeta, 'falta.html'), '/Users/nadie')).rejects.toThrow();
+  });
   it('un enlace a una página da su dirección en el juego (con llave) en vez de abrirla en el Mac', async () => {
     const r = await openLink(path.join(carpeta, 'mi plan.html') + ':3', '/Users/nadie') as any;
     expect(r.pagina.titulo).toBe('mi plan.html');

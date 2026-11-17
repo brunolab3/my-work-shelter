@@ -2,8 +2,8 @@
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import { cliente } from '../red/cliente';
-import { SFX } from '../audio/sonido';
-import { openPage, isLocalServer } from './Navegadores';
+import { isLocalServer, openPage } from './Navegadores';
+import { linkClick } from './opcionesEnlace';
 import { t } from '@shared/idioma';
 import { localPathLinks } from './rutasEnlace';
 import { relativeLinks, IMAGE_FILE, normalizePath } from '@shared/paginasSesion';
@@ -15,16 +15,17 @@ DOMPurify.addHook('uponSanitizeElement', (nodo: any, datos) => {
   if (datos.tagName === 'img' && /^(https?:)?\/\//i.test(nodo.getAttribute?.('src') ?? '')) { const txt = document.createTextNode(`[${t('windows.image')}: ${nodo.getAttribute('alt') || nodo.getAttribute('src')}]`); nodo.replaceWith(txt); }
 });
 
-// los enlaces de una respuesta nunca llevan la ventana del juego a otra página: se abren aparte (Electron los manda al
-// navegador del sistema, solo http, https y mailto: electron/main.cjs). Los que apuntan a un archivo del Mac
-// («/Users/…/informe.html», «~/…», «file:///…») no son páginas del juego: los abre el servidor (acción `enlace.local`:
-// una página web en tu navegador, código en el editor…; server/abrir.ts)
+// los enlaces de una respuesta nunca llevan la ventana del juego a otra página: un clic ofrece cómo abrirlos
+// (opcionesEnlace.ts; `data-enlace` los web y de correo). Los que apuntan a un archivo del Mac («/Users/…/informe.html»,
+// «~/…», «file:///…», `data-local`) no son páginas del juego: los abre el servidor (acción `enlace.local`: una página
+// o una imagen en el juego, código en el editor…; server/abrir.ts)
 export const isPathLocal = (href: string) => /^file:\/\//i.test(href) || /^~\//.test(href) || (/^\/[^/]/.test(href) && !/^\/(api|ws|assets)\b/.test(href));
 DOMPurify.addHook('afterSanitizeAttributes', (nodo: any) => {
   if (nodo.tagName !== 'A' || !nodo.hasAttribute?.('href')) return;
   const href = nodo.getAttribute('href');
   if (isPathLocal(href)) { nodo.setAttribute('data-local', href); nodo.setAttribute('title', href); nodo.removeAttribute('target'); return; }
   nodo.setAttribute('target', '_blank'); nodo.setAttribute('rel', 'noopener noreferrer');
+  if (/^(https?|mailto):/i.test(href)) nodo.setAttribute('data-enlace', '');
 });
 // an image of the Mac in a reply (`![](/Users/…/shot.png)`): the game doesn't serve it at that path, so it waits for its
 // thumbnail (below)
@@ -102,26 +103,19 @@ new MutationObserver(cambios => {
 // una sola línea (la descripción de una opción): sin el <p> que la rodea
 export const markdownLine = (texto: string, base?: string) => markdown(texto, base).replace(/^<p>([\s\S]*)<\/p>\s*$/, '$1');
 
-// un enlace a un archivo del Mac: lo abre el servidor (antes que nada: si no, la ventana abriría el juego otra vez)
-addEventListener('click', e => {
-  const a = (e.target as HTMLElement).closest?.('a[data-local]') as HTMLAnchorElement | null;
-  if (!a) return;
-  e.preventDefault(); e.stopPropagation();
-  // una página HTML (un plan, un informe) se ve dentro, en la ventana de páginas; lo demás lo abre el Mac
-  cliente.accion('enlace.local', { ruta: a.getAttribute('data-local') }).then((r: any) => { if (r?.pagina) openPage(r.pagina.url, r.pagina.titulo, sessionOfLink(a), r.pagina.ruta); else SFX.clic(); }).catch(() => SFX.noAllowed());
-}, true);
-// la conversación en la que está el enlace (el intercomunicador marca la suya)
-const sessionOfLink = (a: Element) => a.closest('[data-sesion]')?.getAttribute('data-sesion') ?? undefined;
+// un enlace de una respuesta (a un archivo del Mac o a una web): sus opciones, antes que nada (si no, la ventana abriría
+// el juego otra vez o lo mandaría fuera)
+addEventListener('click', e => { linkClick(e); }, true);
 
-// una página que sirve en local otro programa (una página de revisión en la que dejar notas, un servidor de desarrollo):
-// también en la ventana de páginas, no fuera
+// una página que sirve en local otro programa (una página de revisión en la que dejar notas, un servidor de desarrollo)
+// enlazada fuera de una respuesta: también en la ventana de páginas, no fuera
 addEventListener('click', e => {
   const a = (e.target as HTMLElement).closest?.('a[href]') as HTMLAnchorElement | null;
-  if (!a || a.hasAttribute('data-local')) return;
+  if (!a || e.defaultPrevented) return;
   let u: URL; try { u = new URL(a.href, location.href); } catch { return; }
   if (!isLocalServer(u)) return;
   e.preventDefault(); e.stopPropagation();
-  openPage(u.href, u.host + u.pathname.replace(/\/$/, ''), sessionOfLink(a));
+  openPage(u.href, u.host + u.pathname.replace(/\/$/, ''));
 }, true);
 
 // Por si acaso (un enlace que no haya pasado por aquí): un clic en un enlace del juego a otra página no navega la

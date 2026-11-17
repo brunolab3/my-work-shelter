@@ -16,7 +16,7 @@ const out = (...a) => fs.appendFileSync(LOG, a.join(' ') + '\n');
 let failures = 0;
 const ver = (ok, texto) => { out((ok ? 'OK    ' : 'FALLO ') + texto); if (!ok) failures++; };
 let fuera = [];
-const { navegadores } = new Function('session', 'shell', 'Menu', 'require', 'path', '__dirname', trozo + '\nreturn { navegadores };')(session, { openExternal: u => { fuera.push(u); out('FUERA', u); } }, Menu, require, path, path.join(__dirname, '..', 'electron'));
+const { navegadores } = new Function('session', 'shell', 'Menu', 'require', 'path', '__dirname', trozo + '\nreturn { navegadores };')(session, { openExternal: u => { fuera.push(u); out('FUERA', u); return Promise.resolve(); } }, Menu, require, path, path.join(__dirname, '..', 'electron'));
 app.setName('work-shelter-public'); app.setPath('userData', process.env.LAB_DATA);
 const espera = ms => new Promise(r => setTimeout(r, ms));
 process.on('uncaughtException', e => { out('ERROR', e.stack); app.exit(2); });
@@ -74,6 +74,31 @@ app.whenReady().then(async () => {
     await g.executeJavaScript(`location.href = 'https://example.com/'`).catch(() => {});
     await espera(2000);
     ver(fuera.includes('https://example.com/'), `${s.id}: otra web va al navegador del sistema`);
+  }
+  // the «Web» window (opcionesEnlace.ts): any https web a reply links, in its own session, confined to its domain and
+  // with no permissions but writing the clipboard
+  {
+    g = null; fuera = [];
+    await w.webContents.executeJavaScript(`(()=>{document.body.innerHTML='';const v=document.createElement('webview');v.setAttribute('partition','persist:web');v.setAttribute('allowpopups','');v.setAttribute('src','https://example.com/');v.style.cssText='width:1400px;height:900px;display:flex';document.body.appendChild(v)})()`);
+    for (let i = 0; i < 50 && !g; i++) await espera(200);
+    if (!g) ver(false, 'web: el webview no se engancha');
+    else {
+      for (let t = 0; t < 30 && (g.isLoading() || !g.getURL().startsWith('https://example.com')); t++) await espera(300);
+      ver(g.getURL().startsWith('https://example.com/') && g.session === session.fromPartition('persist:web'), `web: carga en su propia sesión (${g.getURL()})`);
+      const aviso = await g.executeJavaScript('Notification.requestPermission()').catch(e => String(e));
+      ver(aviso === 'denied', `web: sin permiso de avisos (${aviso})`);
+      await g.executeJavaScript(`location.href = 'https://www.iana.org/'`).catch(() => {});
+      await espera(2000);
+      ver(fuera.includes('https://www.iana.org/') && g.getURL().startsWith('https://example.com'), 'web: otra web va al navegador del sistema');
+      // a login popup: in the same browser, never a window of its own
+      const ventanas = BrowserWindow.getAllWindows().length;
+      await g.executeJavaScript(`window.open('https://accounts.google.com/', '_blank')`, true).catch(() => {});
+      for (let t = 0; t < 20 && !g.getURL().includes('accounts.google.com'); t++) await espera(300);
+      ver(BrowserWindow.getAllWindows().length === ventanas && g.getURL().includes('accounts.google.com'), `web: un inicio de sesión emergente se abre dentro, sin otra ventana (${g.getURL().slice(0, 60)})`);
+    }
+    await w.webContents.executeJavaScript(`(()=>{document.body.innerHTML='';const v=document.createElement('webview');v.setAttribute('partition','persist:otra');v.setAttribute('src','https://example.com/');document.body.appendChild(v)})()`);
+    g = null; await espera(2000);
+    ver(!g, 'web: un webview con otra partición no se engancha');
   }
   out(failures ? `${failures} fallo(s)` : 'todo bien');
   app.exit(failures ? 1 : 0);

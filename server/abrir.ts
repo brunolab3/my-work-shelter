@@ -8,6 +8,7 @@ import { existsSync } from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { t } from '../shared/idioma.ts';
+import type { LocalKind } from '../shared/opcionesEnlace.ts';
 
 const EDITORS = [['/Applications/Cursor.app', 'Cursor'], ['/Applications/Visual Studio Code.app', 'Visual Studio Code']];
 const editorOfMac = () => EDITORS.find(([ruta]) => existsSync(ruta))?.[1] ?? null;
@@ -53,23 +54,30 @@ export function linkPath(enlace: string, casa: string): string | null {
   if (r === '~' || r.startsWith('~/')) r = casa + r.slice(1);
   return path.isAbsolute(r) && !r.includes('\0') ? path.normalize(r) : null;
 }
-export async function openLocal(enlace: string, casa: string) {
+/** The real path of a link to a file of the Mac (it has to exist) */
+export async function realOfLink(enlace: string, casa: string) {
   const ruta = linkPath(enlace, casa);
   if (!ruta) throw new Error(t('server.thatLinkIsNotA'));
-  const real = await fs.realpath(ruta).catch(() => { throw new Error(t('server.doesNotExist', { ruta })); });
-  const st = await fs.stat(real);
-  if (st.isDirectory()) { lanzar(isPackage(real) ? ['-R', real] : [real]); return 'carpeta'; }
-  if (OF_BROWSER.test(real)) { lanzar([real]); return 'web'; }   // la app que tengas para las páginas web: tu navegador
-  if (OF_PREVIEW.test(real)) { lanzar(['-a', 'Preview', real]); return 'vista'; }
-  if (OF_TEXT.test(real)) { const editor = editorOfMac(); lanzar(editor ? ['-a', editor, real] : ['-t', real]); return 'editor'; }
-  lanzar(['-R', real]); return 'finder';
+  return fs.realpath(ruta).catch(() => { throw new Error(t('server.doesNotExist', { ruta })); });
+}
+/** Where openLocal would send it, without opening it (the options of a link, web/src/ui/opcionesEnlace.ts) */
+export async function localKind(real: string): Promise<LocalKind> {
+  if ((await fs.stat(real)).isDirectory()) return isPackage(real) ? 'finder' : 'carpeta';
+  return OF_BROWSER.test(real) ? 'web' : OF_PREVIEW.test(real) ? 'vista' : OF_TEXT.test(real) ? 'editor' : 'finder';
+}
+export async function openLocal(enlace: string, casa: string) {
+  const real = await realOfLink(enlace, casa);
+  const tipo = await localKind(real);
+  if (tipo === 'carpeta') lanzar([real]);
+  else if (tipo === 'web') lanzar([real]);   // la app que tengas para las páginas web: tu navegador
+  else if (tipo === 'vista') lanzar(['-a', 'Preview', real]);
+  else if (tipo === 'editor') { const editor = editorOfMac(); lanzar(editor ? ['-a', editor, real] : ['-t', real]); }
+  else lanzar(['-R', real]);
+  return tipo;
 }
 
 /** Enseña un archivo del Mac en el Finder (seleccionado), sin abrirlo: para compartir una página (un plan, una
  *  comparación) desde allí */
 export async function revealLocal(enlace: string, casa: string) {
-  const ruta = linkPath(enlace, casa);
-  if (!ruta) throw new Error(t('server.thatLinkIsNotA'));
-  const real = await fs.realpath(ruta).catch(() => { throw new Error(t('server.doesNotExist', { ruta })); });
-  lanzar(['-R', real]);
+  lanzar(['-R', await realOfLink(enlace, casa)]);
 }
