@@ -229,7 +229,7 @@ export function textState(x: { clave: string; parte: PartPreflight; r: TaskPrefl
   ].join('\n');
 }
 
-/** Las herramientas del habitante (en el MCP `revision`): leer su pre-flight y contestar la lista para su commit */
+/** The dweller's tools (in the `review` MCP): read its pre-flight and answer the checklist for its commit */
 export function preflightTools(ctx: CtxPreflight, guardar: (clave: string, worktree: string, head: string, item: string, a: Omit<ChecklistAnswer, 'ts'>) => void) {
   return {
     async estado(cwd: string): Promise<string> {

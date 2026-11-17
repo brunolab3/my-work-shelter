@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { sanitizeDecor, reviewDecor, BASES_DECOR, DESCRIPTION_BASE, DECOR_WALLS, DECOR_PALETTES, SIGN_SYMBOLS, GESTURES, LIMITS, PACKS, type Decorado, type DecorPiece } from '../shared/decorado.ts';
 import { catalogo, catalogInText, propsModel } from './atrezo.ts';
 import { t, tIs } from '../shared/idioma.ts';
+import { MCP } from './servidoresMcp.ts';
 
 export interface CtxDecor {
   sala(id: string): { id: string; nombre: string; tipo: string; ruta?: string; estilo?: string; decorado?: Decorado } | undefined;
@@ -48,13 +49,13 @@ const sizeOf = (p: DecorPiece): [number, number, number] | null => {
   return [m.tam[0] * k, m.tam[1] * k, m.tam[2] * k];
 };
 
-/** El servidor MCP «refugio» de una sesión en la sala `salaId` (uno por sesión lanzada) */
+/** The «shelter» MCP server of a session in room `salaId` (one per launched session) */
 export function mcpDecor(salaId: string, ctx: CtxDecor) {
   const sala = () => { const s = ctx.sala(salaId); if (!s) throw new Error(t('tool.decor.roomGone')); return s; };
   // el habitante a veces pide aplicar y ver a la vez: la foto espera a que lo aplicado llegue al juego
   let aplicado = 0;
   return createSdkMcpServer({
-    name: 'shelter', version: '1.0.0',
+    name: MCP.shelter, version: '1.0.0',
     tools: [
       tool('current_decor', t('tool.decor.currentDescription'), {},
         async () => {

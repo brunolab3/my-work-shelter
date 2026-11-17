@@ -1,10 +1,10 @@
-// Mensajes programados: un habitante deja con schedule_message (MCP `salas`, avisosSalas.ts) un mensaje para más
-// adelante («lo revisamos el lunes y contestamos a todo») y el juego lo entrega a esa hora. Sin sala, vuelve a la misma
-// conversación: la abierta o, si se cerró, se retoma por su id de Claude Code en su carpeta (en modo plan), con todo su
-// contexto; con sala (y clave), se entrega como send_to_room. Se guardan en DATOS/mensajes-programados.json y se
-// repasan cada minuto y al arrancar: lo que venció con el juego cerrado se entrega al volver, marcado «con retraso».
-// Lo que no se puede entregar (la conversación sigue abierta fuera, el límite de sesiones) se reintenta en la siguiente
-// vuelta, avisando una vez. El texto se queda en el Mac: nunca sale a ningún sitio.
+// Scheduled messages: with schedule_message (MCP `rooms`, avisosSalas.ts) a dweller leaves a message for later («let's
+// review it on Monday and answer everything») and the game delivers it at that time. Without a room it comes back to the
+// same conversation: the open one or, if it was closed, resumed by its Claude Code id in its folder (in plan mode), with
+// all its context; with a room (and key), it is delivered like send_to_room. Saved in DATOS/mensajes-programados.json and
+// checked every minute and on start: what fell due with the game closed is delivered on return, marked «late».
+// What can't be delivered (the conversation is still open outside, the sessions limit) is retried on the next round,
+// warning once. The text stays on the Mac: it never goes anywhere.
 import { existsSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';

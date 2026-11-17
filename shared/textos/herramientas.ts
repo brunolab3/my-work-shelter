@@ -1,6 +1,6 @@
-// Herramientas del juego para los habitantes (servidores MCP en proceso: salas, reparto, plan, revision, refugio): sus
-// descripciones, las de sus parámetros y lo que devuelven o mandan. Los nombres de las herramientas y los campos de sus
-// parámetros no se traducen: son los de verdad.
+// The game's tools for dwellers (in-process MCP servers: rooms, assignment, plan, review, shelter; server/servidoresMcp.ts):
+// their descriptions, their parameters' and what they return or send. Tool names and parameter fields are not
+// translated: they are the real ones.
 import type { Texto } from '../idioma.ts';
 
 export const TOOLS: Record<string, Texto> = {

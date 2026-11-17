@@ -6,6 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { cwdBeforeRelocation, lastActivity, projectFolder } from './repos.ts';
 import { mcpReview } from './comparar.ts';
+import { SELF_GATED } from './servidoresMcp.ts';
 import { pushOf } from '../shared/preflight.ts';
 import { handMadeWorktree, newWorktreeOf, taskWorktreeIn, worktreeTask, ghCreateOf, githubRepoOf, isOriginalRepo, ORIGINAL_REPO } from '../shared/tareas.ts';
 import { gh } from './git.ts';
@@ -15,7 +16,7 @@ import { randomUUID } from 'node:crypto';
 import { execFile, execFileSync } from 'node:child_process';
 import { entornoGit } from './entornoGit.ts';
 import { existsSync, readdirSync } from 'node:fs';
-import { query, listSessions, getSessionMessages, getSessionInfo, type Query, type SDKMessage, type SDKUserMessage, type CanUseTool, type PermissionResult, type Options } from '@anthropic-ai/claude-agent-sdk';
+import { query, listSessions, getSessionMessages, getSessionInfo, type Query, type SDKMessage, type SDKUserMessage, type CanUseTool, type PermissionResult, type Options, type McpSdkServerConfigWithInstance } from '@anthropic-ai/claude-agent-sdk';
 import type { SessionSummary, LogInput, PendingRequest, Helper, WorkOptions, HistoryElement, Command, Question, Attachment, InputView } from '../shared/protocolo.ts';
 import { separateAttachments, type Attachments } from './adjuntos.ts';
 import { ROOMS_FOLDERS } from './estado.ts';
@@ -61,13 +62,13 @@ interface Session {
 export interface RoomsResolver {
   pathRoom(ruta: string): string | undefined; reposOfShelter?(): string[];
   // las herramientas del juego para decorar la sala (server/decoradoSala.ts), en las salas de repo: un servidor MCP por sesión
-  mcpRoom?(salaId: string): NonNullable<Options['mcpServers']>[string] | undefined;
+  mcpRoom?(salaId: string): McpSdkServerConfigWithInstance | undefined;
   // las de repartir el trabajo (server/reparto.ts), en las salas de coordinación; preguntar: confirmación del Supervisor
-  mcpAssignment?(salaId: string, preguntar: (titulo: string, entrada: InputView[]) => Promise<boolean>, sesionId: string): NonNullable<Options['mcpServers']>[string] | undefined;
+  mcpAssignment?(salaId: string, preguntar: (titulo: string, entrada: InputView[]) => Promise<boolean>, sesionId: string): McpSdkServerConfigWithInstance | undefined;
   // las del plan compartido (leerlo y proponer cambios), en las salas que trabajan en una parte de un plan repartido
-  mcpPlan?(salaId: string): NonNullable<Options['mcpServers']>[string] | undefined;
+  mcpPlan?(salaId: string): McpSdkServerConfigWithInstance | undefined;
   // la de pasarle un mensaje o un encargo al habitante de otra sala (server/avisosSalas.ts), en todas
-  mcpRooms?(salaId: string, sesionId: string, enWorktree: boolean): NonNullable<Options['mcpServers']>[string] | undefined;
+  mcpRooms?(salaId: string, sesionId: string, enWorktree: boolean): McpSdkServerConfigWithInstance | undefined;
   // el pre-flight de la tarea (server/preflight.ts): las herramientas del habitante y la puerta de `git push`
   preflight?: {
     estado(cwd: string): Promise<string>;
@@ -347,23 +348,24 @@ export class Sessions extends EventEmitter {
 
   private async lanzar(x: Session, reanudar?: string, queue = new Cola<SDKUserMessage>()) {
     x.entrada = queue; x.viva = true; this.forgetBackground(x);
-    const opciones: Options = { ...this.optionsBase(x, reanudar), canUseTool: this.canUse(x) };
+    // the game's self-gated servers as allow rules: in auto mode the classifier runs before canUseTool, and would judge them
+    const opciones: Options = { ...this.optionsBase(x, reanudar), canUseTool: this.canUse(x), allowedTools: SELF_GATED.map(s => `mcp__${s}`) };
     // el habitante de Planificación (el tablero de tareas) trabaja con el MCP oficial de Linear (la clave, si la hay, va por el entorno)
     if (x.r.salaId === 'logistica' && activa('linear')) {
       try { const { mcpLinear, environmentMcpLinear } = await import('./integraciones/linear.ts'); opciones.mcpServers = { ...(opciones.mcpServers ?? {}), ...(await mcpLinear()) }; opciones.env = { ...opciones.env, ...(await environmentMcpLinear()) }; }
       catch (e) { console.warn('MCP de Linear no disponible:', (e as Error).message); }
     }
-    const decorar = this.resolutor.mcpRoom?.(x.r.salaId);
-    if (decorar) opciones.mcpServers = { ...(opciones.mcpServers ?? {}), refugio: decorar };
-    const repartir = this.resolutor.mcpAssignment?.(x.r.salaId, (titulo, entrada) => this.confirmar(x, titulo, entrada), x.r.id);
-    if (repartir) opciones.mcpServers = { ...(opciones.mcpServers ?? {}), reparto: repartir };
-    const plan = this.resolutor.mcpPlan?.(x.r.salaId);
-    if (plan) opciones.mcpServers = { ...(opciones.mcpServers ?? {}), plan };
-    // in a worktree (or starting a new one) it also gets request_worktree_cleanup
-    const salas = this.resolutor.mcpRooms?.(x.r.salaId, x.r.id, !!(x.r.worktree ?? worktreeRoot(x.r.cwd) ?? opciones.extraArgs?.worktree));
-    if (salas) opciones.mcpServers = { ...(opciones.mcpServers ?? {}), salas };
-    // la página de comparación de sus cambios, para revisarlos con notas en el juego antes de subirlos (server/comparar.ts)
-    opciones.mcpServers = { ...(opciones.mcpServers ?? {}), revision: mcpReview(() => x.r.worktree ?? x.r.cwd, this.resolutor.preflight) };
+    // each game server keyed by its own name (servidoresMcp.ts): the key is the `mcp__<key>__` the session sees
+    const servidores = [
+      this.resolutor.mcpRoom?.(x.r.salaId),
+      this.resolutor.mcpAssignment?.(x.r.salaId, (titulo, entrada) => this.confirmar(x, titulo, entrada), x.r.id),
+      this.resolutor.mcpPlan?.(x.r.salaId),
+      // in a worktree (or starting a new one) it also gets request_worktree_cleanup
+      this.resolutor.mcpRooms?.(x.r.salaId, x.r.id, !!(x.r.worktree ?? worktreeRoot(x.r.cwd) ?? opciones.extraArgs?.worktree)),
+      // the compare page of its changes, to review them with notes in the game before pushing (server/comparar.ts)
+      mcpReview(() => x.r.worktree ?? x.r.cwd, this.resolutor.preflight),
+    ];
+    opciones.mcpServers = { ...(opciones.mcpServers ?? {}), ...Object.fromEntries(servidores.flatMap(s => (s ? [[s.name, s]] : []))) };
     x.q = query({ prompt: queue, options: opciones });
     x.viva = true; x.closing = false;
     this.consume(x, x.q);
@@ -578,13 +580,10 @@ export class Sessions extends EventEmitter {
   // ---------------- permisos, preguntas y planes → jugador
   private canUse(x: Session): CanUseTool {
     return (nombre, e, op) => new Promise<PermissionResult>(resolver => {
-      // las del juego para decorar la propia sala no piden permiso: solo tocan el decorado de esa sala (datos validados)
-      if (nombre.startsWith('mcp__shelter__')) { resolver({ behavior: 'allow', updatedInput: e }); return; }
-      // las de reparto confirman ellas mismas lo que lanzan (confirmar()), con el trabajo ya resuelto a sus salas
-      if (nombre.startsWith('mcp__assignment__')) { resolver({ behavior: 'allow', updatedInput: e }); return; }
-      // la comparación solo lee el repo y escribe su página en la carpeta del juego
-      if (nombre.startsWith('mcp__review__')) { resolver({ behavior: 'allow', updatedInput: e }); return; }
-      if (nombre.startsWith('mcp__plan__')) { resolver({ behavior: 'allow', updatedInput: e }); return; }   // leer el plan y proponer cambios: a la sala de planificación, no fuera
+      // the game's self-gated tools don't ask (servidoresMcp.ts): decor only touches that room's decor (validated data),
+      // assignment confirms what it launches itself (confirmar()), review only reads the repo and writes its page in the
+      // game's folder, and plan reads the plan and proposes changes to the planning room
+      if (SELF_GATED.some(s => nombre.startsWith(`mcp__${s}__`))) { resolver({ behavior: 'allow', updatedInput: e }); return; }
       // a question with nothing written before it: the Overseer would answer without the results, conclusions or links
       // that only come after. Held back once per turn, so a real clarifying question still goes through on retry
       if (nombre === 'AskUserQuestion' && !op.agentID && !x.textInTurn && !x.askHeld) { x.askHeld = true; resolver({ behavior: 'deny', message: t('server.writeBeforeAsking') }); return; }

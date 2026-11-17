@@ -9,6 +9,7 @@ import { z } from 'zod';
 import type { InputView } from '../shared/protocolo.ts';
 import { textPlan, type Plans, type Plan, type PartOfPlan } from './planes.ts';
 import { t as tr } from '../shared/idioma.ts';
+import { MCP } from './servidoresMcp.ts';
 
 export interface AssignmentRoom { id: string; nombre: string; ruta: string; rama?: string; habitante?: string; inIsWing: boolean }
 export interface CtxAssignment {
@@ -55,7 +56,7 @@ export function promptTrabajo(t: Trabajo, o: { clave?: string; coordinacion: str
 
 export function mcpAssignment(ctx: CtxAssignment, o: AssignmentOptions) {
   return createSdkMcpServer({
-    name: 'assignment', version: '1.0.0',
+    name: MCP.assignment, version: '1.0.0',
     tools: [
       tool('shelter_rooms', tr('tool.assign.roomsDescription'), {},
         async () => {
@@ -157,7 +158,7 @@ function notifyParts(ctx: Pick<CtxAssignment, 'avisar' | 'mensajero' | 'sesionDe
 export function mcpPlan(ctx: Pick<CtxAssignment, 'planes' | 'avisar' | 'mensajero'>, o: { salaId: string; sala: string }) {
   const suyo = (id?: string) => (id ? ctx.planes.get(id) : ctx.planes.ofRoom(o.salaId)[0]);
   return createSdkMcpServer({
-    name: 'plan', version: '1.0.0',
+    name: MCP.plan, version: '1.0.0',
     tools: [
       tool('shared_plan', tr('tool.plan.sharedDescription'),
         { id: z.string().optional().describe(tr('tool.plan.paramId')) },

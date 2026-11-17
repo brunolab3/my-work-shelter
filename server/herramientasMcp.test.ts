@@ -5,6 +5,9 @@ import { mcpRooms, forgetLimits, type CtxRooms } from './avisosSalas.ts';
 import { mcpReview } from './comparar.ts';
 import { mcpAssignment, mcpPlan } from './reparto.ts';
 import { mcpDecor } from './decoradoSala.ts';
+import { MCP, mcpTool } from './servidoresMcp.ts';
+import { describeTool } from './herramientas.ts';
+import { t } from '../shared/idioma.ts';
 
 const tools = (s: any): Record<string, any> => s.instance._registeredTools;
 const params = (x: any): string[] => { const sh = x.inputSchema?.shape ?? {}; return Object.keys(sh).flatMap(k => { const el = sh[k]?.unwrap?.()?.element ?? sh[k]?.element; return [k, ...Object.keys(el?.shape ?? {})]; }); };
@@ -14,15 +17,18 @@ const SPANISH = /^(sala|mensaje|clave|cuando|trabajos|titulo|instrucciones|esper
 describe('game MCP tools', () => {
   beforeEach(() => forgetLimits());
 
+  const plans = { get: () => undefined, ofRoom: () => [] } as any;
+  const allServers = () => [
+    mcpRooms({ salas: () => [] } as any, 'a', undefined, true),
+    mcpReview(() => '/tmp', { estado: async () => '', responder: async () => '' }),
+    mcpAssignment({ salas: () => [], planes: plans } as any, { coordinacion: 'c', salaId: 'c', preguntar: async () => true }),
+    mcpPlan({ planes: plans } as any, { salaId: 'a', sala: 'A' }),
+    mcpDecor('a', { sala: () => undefined } as any),
+  ];
+
   it('servers, tools and parameters are named in English', () => {
-    const plans = { get: () => undefined, ofRoom: () => [] } as any;
-    const servers = [
-      mcpRooms({ salas: () => [] } as any, 'a', undefined, true),
-      mcpReview(() => '/tmp', { estado: async () => '', responder: async () => '' }),
-      mcpAssignment({ salas: () => [], planes: plans } as any, { coordinacion: 'c', salaId: 'c', preguntar: async () => true }),
-      mcpPlan({ planes: plans } as any, { salaId: 'a', sala: 'A' }),
-      mcpDecor('a', { sala: () => undefined } as any),
-    ];
+    const servers = allServers();
+    expect(servers.map(s => s.name)).toEqual([MCP.rooms, MCP.review, MCP.assignment, MCP.plan, MCP.shelter]);
     expect(servers.map(s => s.name)).toEqual(['rooms', 'review', 'assignment', 'plan', 'shelter']);
     const all = servers.flatMap(s => Object.entries(tools(s)));
     expect(all.map(([n]) => n).sort()).toEqual(['apply_decor', 'assign_work', 'compare_changes', 'current_decor', 'notify_room', 'preflight_answer', 'preflight_status',
@@ -32,6 +38,14 @@ describe('game MCP tools', () => {
     expect(params(byName.request_worktree_cleanup)).toEqual(['note']);
     expect(params(byName.assign_work)).toEqual(['key', 'plan', 'jobs', 'room', 'title', 'instructions', 'wait_for']);
     expect(all.flatMap(([n, x]) => params(x).filter(p => SPANISH.test(p)).map(p => `${n}.${p}`))).toEqual([]);
+  });
+
+  // sesiones.ts keys each server by its name, so `mcp__<name>__<tool>` is what a session sees: the activity labels must match it
+  it('the activity labels name tools the servers really have', () => {
+    const generic = (n: string) => t('server.activity.using', { nombre: n.split('__').slice(1).join(' › ') });
+    const labelled = [...new Set([...allServers(), mcpRooms({ salas: () => [], programados: {} } as any, 'a', 's1')].flatMap(sv => Object.keys(tools(sv)).map(tl => mcpTool(sv.name as any, tl))))].filter(n => describeTool(n, {}, '/tmp') !== generic(n));
+    expect(labelled.sort()).toEqual(['mcp__assignment__assign_work', 'mcp__assignment__shelter_rooms', 'mcp__rooms__schedule_message', 'mcp__rooms__send_to_room',
+      'mcp__shelter__apply_decor', 'mcp__shelter__current_decor', 'mcp__shelter__props_catalogue', 'mcp__shelter__remove_decor', 'mcp__shelter__view_room']);
   });
 
   it('send_to_room takes room, message and key', async () => {

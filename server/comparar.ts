@@ -13,6 +13,7 @@ import { entornoGit } from './entornoGit.ts';
 import { DATOS, ROOMS_FOLDERS } from './estado.ts';
 import { pageLink } from '../shared/paginasSesion.ts';
 import { t, idioma } from '../shared/idioma.ts';
+import { MCP } from './servidoresMcp.ts';
 
 /** Where the pages are saved: in the game's data (git-ignored), never in the compared repo. A path without spaces, so
  *  the link also works outside the game; they used to live in Application Support, which has one */
@@ -189,7 +190,7 @@ export async function sameRepoWorktree(cwd: string, carpeta: string): Promise<st
 export function mcpReview(cwd: () => string, preflight?: { estado(cwd: string): Promise<string>; responder(cwd: string, item: string, estado: 'ok' | 'n/a' | 'pendiente', nota?: string): Promise<string> }) {
   const texto = (text: string) => ({ content: [{ type: 'text' as const, text }] });
   return createSdkMcpServer({
-    name: 'review', version: '1.0.0',
+    name: MCP.review, version: '1.0.0',
     tools: [
       // el pre-flight de su parte de la tarea (server/preflight.ts): leerlo y contestar la lista «antes de subir»
       ...(preflight ? [

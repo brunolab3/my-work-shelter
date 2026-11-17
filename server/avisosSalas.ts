@@ -15,6 +15,7 @@ import type { InfoWorktree } from '../shared/protocolo.ts';
 import { nombreWorktree, worktreeSuffix } from './sesiones.ts';
 import { isJiraKey, slugWorktreeName, taskKey, worktreeHasTask } from '../shared/tareas.ts';
 import { describeWhen, MAX_PER_CONVERSATION, MAX_DAYS, type ScheduledMessage } from '../shared/programados.ts';
+import { MCP } from './servidoresMcp.ts';
 
 export interface RoomInfo { id: string; nombre: string; habitante?: { id: string; nombre: string } }
 export interface CtxRooms {
@@ -123,7 +124,7 @@ const texto = (s: string) => ({ content: [{ type: 'text' as const, text: s }] })
 export function mcpRooms(ctx: CtxRooms, desde: string, desdeSesion?: string, enWorktree = false) {
   const salas = ctx.salas().filter(s => s.habitante);
   return createSdkMcpServer({
-    name: 'rooms', version: '1.0.0',
+    name: MCP.rooms, version: '1.0.0',
     tools: [
       tool('send_to_room', tr('tool.rooms.description', { salas: salas.map(s => `${s.id} (${s.nombre})` + (s.id === desde ? tr('tool.rooms.thisRoom') : '')).join(', ') }),
         {

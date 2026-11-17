@@ -209,7 +209,7 @@ part starts a conversation in its repo's room, in its own worktree whose branch 
 the task). The card says which rooms already have something going for that task.
 
 **Messages between rooms.** Every conversation, in any room, has `send_to_room` (`server/avisosSalas.ts`, in-process
-MCP `salas`): it hands a message or a job to another room's dweller, no plan and no worktree. Without a task key it
+MCP `rooms`): it hands a message or a job to another room's dweller, no plan and no worktree. Without a task key it
 always starts a new conversation with that dweller in its main copy (messages between rooms start work; they are not a
 chat); with a key (a Jira one, ABC-123, or a descriptive kebab-case slug for work outside Jira, `preflight-popover`;
 `taskKey` in `shared/tareas.ts`) it goes to the conversation open in that task's worktree in that room or, if there is none,
@@ -222,7 +222,7 @@ hands that task (or a part of it that can go on its own) to the conversation in 
 stays on the Overseer's conversation; there is no robot then: the dweller walks to the hologram and hands it over. A
 conversation can't send a message to itself. `assign_work` is only for implementation plans.
 
-**Scheduled messages.** The same MCP `salas` has `schedule_message`, `list_scheduled` and `cancel_scheduled`
+**Scheduled messages.** The same MCP `rooms` has `schedule_message`, `list_scheduled` and `cancel_scheduled`
 (`server/programados.ts`, pure scheduling in `shared/programados.ts`): when the Overseer leaves something for another day
 ("let's review it on Monday"), the dweller schedules a message with the open items. `when` is ISO 8601 in the Mac's
 local time; a day without a time means 09:00, and anything due on Saturday or Sunday is held to Monday at 09:00. Without
@@ -317,7 +317,7 @@ the worktree, branch and HEAD sha of each part; validating it or sending notes (
 `server/preflight.ts`), so it counts only while its HEAD is the validated one. Checklist: the Overseer's own
 "before pushing" items, in the Vault (Shelter settings; pre-filled ONCE from the "Before pushing" section of
 `~/.claude/CLAUDE.md`, `checklistFromClaudeMd`; saved in `ajustes.checklistPreflight`), answered by the dweller per
-commit with `preflight_answer` (in the `revision` MCP; `ok`, `n/a` with a note, or `pendiente`), which can read
+commit with `preflight_answer` (in the `review` MCP; `ok`, `n/a` with a note, or `pendiente`), which can read
 its whole part (with its review threads and CI checks) with `preflight_status`. Each part's list also carries what its own repo asks (`repoChecks` in
 `server/preflight.ts`, pure `repoChecklist`; files are only read, nothing is run by the game): the "Before pushing / Before
 opening a PR / Pre-flight" section of its CLAUDE.md and AGENTS.md, its check-like skills in `.claude/skills` (review,
