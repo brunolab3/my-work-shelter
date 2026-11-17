@@ -3,6 +3,7 @@
 //   --cerca     encuadra el primer holograma de cerca
 //   --estados   simula una sesión dentro de su worktree y captura cada estado (pensando, trabajando, esperando, terminado, avería, sin sesión)
 //   --nacer     simula un worktree nuevo de un habitante de la sala: se materializa a su lado y va a su sitio (capturas por pasos)
+//   --ayudantes two task worktrees with helpers (4 and 2) and a main-copy conversation with 2: holographic helpers, by their hologram
 import { chromium } from 'playwright';
 import { withToken } from './token.mjs';
 const args = process.argv.slice(2);
@@ -24,7 +25,22 @@ const cerca = () => pg.evaluate(() => {
 });
 const foto = async suffix => { const ruta = suffix ? salida.replace('.png', `_${suffix}.png`) : salida; await pg.screenshot({ path: ruta }); console.log('->', ruta, JSON.stringify(await ver()), JSON.stringify(await pg.evaluate(() => window.__refugio.habitantes.filter(h => h.sala === window.__refugio.currentRoom).map(h => [h.id.id, h.estado, +h.pos.x.toFixed(2), +h.pos.z.toFixed(2)])))); };
 
-if (opt.nacer) {
+if (opt.ayudantes) {
+  const ayudantes = (k, n) => Array.from({ length: n }, (_, i) => ({ id: `${k}_${i}`, descripcion: `QA helper ${i}`, estado: 'trabajando', modo: i % 2 ? 'escribir' : 'leer', herramientas: 2 }));
+  await pg.evaluate(([a, b, c]) => {
+    const r = window.__refugio, s = r.currentRoom, h = r.habitantes.find(x => x.sala === s), now = Date.now();
+    const ses = (id, cwd, ayudantes) => ({ id, dwellerId: h.id.id, salaId: s.id, cwd, estado: 'trabajando', actividad: { modo: 'escribir', texto: 'QA' }, sinLeer: false, titulo: 'QA', pendientes: 0, ayudantes, herramientas: 3, turns: 1, created: now, actualizada: now });
+    window.__live.set(e => ({ sesiones: { ...e.sesiones, qa_a: ses('qa_a', s.ruta + '/.claude/worktrees/shelter-FAN-101', a), qa_b: ses('qa_b', s.ruta + '/.claude/worktrees/shelter-FAN-202', b), qa_m: ses('qa_m', s.ruta, c) } }));
+  }, [ayudantes('a', 4), ayudantes('b', 2), ayudantes('m', 2)]);
+  for (let i = 0; i < 400; i++) {
+    const listos = await pg.evaluate(() => [...window.__refugio.ayudantes.robots.values()].filter(rb => rb.listo).length);
+    if (listos >= 8 && i > 60) break;
+    await pasos(1); await new Promise(r => setTimeout(r, 20));
+  }
+  await pg.evaluate(() => { const r = window.__refugio; r.activityMode = true; r.camara.goal.set(r.currentRoom.grupo.position.x, r.currentRoom.grupo.position.y + 1.4, 0); r.camara.distancia = 26; r.camara.immediate(); });
+  await pasos(60); await foto('ayudantes');
+  console.log(JSON.stringify(await pg.evaluate(() => [...window.__refugio.ayudantes.robots.values()].map(rb => [rb.a.id, rb.holo?.ruta.split('/').pop() ?? 'main', +rb.p.raiz.position.x.toFixed(2), +rb.p.raiz.position.z.toFixed(2), +rb.p.raiz.scale.x.toFixed(3)]))));
+} else if (opt.nacer) {
   // un worktree nuevo de alguien que vive en la sala: la sesión dentro llega antes que el refresco de repos
   // (en los primeros segundos tras cargar, las copias aparecen ya en su sitio: se espera a que pasen)
   await new Promise(r => setTimeout(r, 9000));

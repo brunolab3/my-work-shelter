@@ -39,3 +39,15 @@ export function holoSlot(sala: HoloRoom, otros: number[], zSpot: number, base: n
   for (let x = -medio; x <= medio + 1e-6; x += STEP) { const c = coste(x); if (c < cmin) { cmin = c; mejor = x; } }
   return mejor;
 }
+
+// A copy's helper robots stand around its projector, in a tight cluster: the nearest spots first, alternating sides
+const HELPER_SPOTS: [number, number][] = [0.58, 0.84, 1.1, 1.36].flatMap(dx => [-0.05, -0.32].flatMap(dz => [[dx, dz], [-dx, dz]] as [number, number][]));
+const HELPER_CLEAR = 0.5;   // from another copy's centre: its projector's half and a small robot
+const ROBOT_CLEAR = 0.4;    // from another cluster's or the room's own helper robots
+
+/** Spots (dx, dz from the copy's slot) for its helper robots, best first: none on another copy, on other helpers
+ *  (`robots`, X of those outside this cluster) or past the walls. */
+export function helperSpots(x: number, otros: number[], ancho: number, robots: number[] = []): [number, number][] {
+  const libres = HELPER_SPOTS.filter(([dx]) => Math.abs(x + dx) < ancho / 2 - 0.35 && otros.every(o => Math.abs(o - (x + dx)) >= HELPER_CLEAR) && robots.every(o => Math.abs(o - (x + dx)) >= ROBOT_CLEAR));
+  return libres.length ? libres : HELPER_SPOTS.slice(0, 2);
+}

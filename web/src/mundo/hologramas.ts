@@ -33,7 +33,7 @@ const COLOR = new THREE.Color(NO_TASK_COLOR), COLOR_FAULT = new THREE.Color('#ff
 const BASE = 0.8;         // projector width: fits the grated walkway strip, between the floor plates and the striped edge
 const BASE_HEIGHT = 0.08; // projector height: low, so walking past it doesn't look like going through it
 const Z_SPOT = BACKGROUND / 2 - BASE / 2;   // on the room's front edge: the projector reaches the lip
-const HOLO_SCALE = 0.6;   // smaller than their author, so they don't cover the faces of whoever stands nearby
+export const HOLO_SCALE = 0.6;   // smaller than their author, so they don't cover the faces of whoever stands nearby
 const TECHO = 3.5;        // de dónde baja el tubo que trae el proyector (sobre el suelo de la sala)
 const tiempo = { value: 0 };
 
@@ -76,9 +76,15 @@ void main() {
   gl_FragColor = vec4(c, clamp(a, 0.0, 1.0));
 }`;
 
-interface Uniforms { uColor: { value: THREE.Color }; uTiempo: typeof tiempo; uOpacity: { value: number }; uCut: { value: number }; uGlitch: { value: number }; uSemilla: { value: number } }
+export interface Uniforms { uColor: { value: THREE.Color }; uTiempo: typeof tiempo; uOpacity: { value: number }; uCut: { value: number }; uGlitch: { value: number }; uSemilla: { value: number } }
 
-function holograph(o: THREE.Object3D, u: Uniforms) {
+/** A hologram's uniforms: its time is the shared clock `Holograms.actualizar` ticks. */
+export const holoUniforms = (color: THREE.Color): Uniforms => ({ uColor: { value: color.clone() }, uTiempo: tiempo, uOpacity: { value: 1 }, uCut: { value: 1e4 }, uGlitch: { value: 0 }, uSemilla: { value: Math.random() } });
+/** A task's hologram color: its task color or, without one, the stock cyan. */
+export const holoTone = (tarea: string | undefined) => hasTaskColor(tarea) ? new THREE.Color(taskColor(tarea)) : COLOR;
+
+/** Turns `o` (a character, a prop) into light with these uniforms; props coupled later need their own call. */
+export function holograph(o: THREE.Object3D, u: Uniforms) {
   const cache = new Map<THREE.Texture | null, THREE.ShaderMaterial>();
   const material = (mapa: THREE.Texture | null) => {
     let m = cache.get(mapa);
@@ -194,7 +200,7 @@ export class Holograms {
   }
 
   private async crear(w: InfoWorktree, sala: Sala, autor: Habitante, effect = true) {
-    const u: Uniforms = { uColor: { value: COLOR.clone() }, uTiempo: tiempo, uOpacity: { value: 0 }, uCut: { value: -1e4 }, uGlitch: { value: 0 }, uSemilla: { value: Math.random() } };
+    const u = holoUniforms(COLOR); u.uOpacity.value = 0; u.uCut.value = -1e4;
     // el mismo aspecto que su autor (modelo, tono, silueta y accesorios), y luego en luz
     const clon = new Habitante(autor.id, sala);
     const sitio = this.sitio(sala, w.ruta);
@@ -511,7 +517,7 @@ export class Holograms {
     const t = worktreeTask(f.w), v = versionColors.get().v;
     if (t === f.tarea && f.versionTone === v) return;
     if (t !== f.tarea) knowTasks([t]);
-    f.tarea = t; f.versionTone = v; f.tone = hasTaskColor(t) ? new THREE.Color(taskColor(t)) : COLOR;
+    f.tarea = t; f.versionTone = v; f.tone = holoTone(t);
   }
   summaries(): DwellerSummary[] {
     return [...this.figuras.values()].map(f => {

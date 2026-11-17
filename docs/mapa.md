@@ -96,6 +96,8 @@ Dwellers (`web/src/mundo/habitante.ts`): routine by spots: their `puesto` (own d
 
 ## Visitors
 
+Helper robots (`web/src/mundo/ayudantes.ts`): each subagent of a conversation is a small robot in the room whose repo it touches (reading with a journal, writing with the wrench; cheers when done, sparks on failure). One from a conversation in a task worktree belongs to its hologram: in light and its task's color (`holograph` in `hologramas.ts`), at the hologram's scale and in a tight cluster around its projector (`helperSpots` in `sitioCopia.ts`); main-copy ones stay solid on the room's front strip. QA: `scripts/qa-hologramas.mjs --ayudantes`.
+
 Visitors (`web/src/mundo/visitantes.ts`, `projectFolder` in `server/repos.ts`): a Claude Code session open outside the game (a terminal, the Claude app) in a room's folder or one of its worktrees shows up as a combat robot (CombatMech) by the walkway, in its task's color when it's a task worktree; E brings its conversation back into the shelter, closing it outside first (`outsideOpen`/`closeOutside` in `server/escritorio.ts`: `claude --resume` processes and any live Claude Code in `~/.claude/sessions`).
 
 ## Street with the real time of day

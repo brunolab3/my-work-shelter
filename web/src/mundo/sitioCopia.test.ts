@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { holoSlot, type HoloRoom } from './sitioCopia';
+import { holoSlot, helperSpots, type HoloRoom } from './sitioCopia';
 
 // 12 m room on the right: slots run -5.1..5.1, the visitor's spot (x ≈ -4.9) blocks the near end up to about -3.5
 const sala = (ancho = 12): HoloRoom => ({ ancho, lado: 'der', puestos: [], devices: [], walkZones: [], obstacles: [] });
@@ -30,5 +30,19 @@ describe('holoSlot', () => {
   it('keeps clear of where dwellers stand when there is room', () => {
     const x = holoSlot({ ...sala(), puestos: [{ x: 4.8, peso: 300 }] }, [], 1, 1);
     expect(Math.abs(x - 4.8)).toBeGreaterThanOrEqual(1.3);
+  });
+});
+
+describe('helperSpots', () => {
+  it('clusters next to the copy, nearest first, on both sides', () => {
+    const s = helperSpots(0, [], 12);
+    expect(s.slice(0, 4).map(([dx]) => Math.abs(dx))).toEqual([0.58, 0.58, 0.58, 0.58]);
+    expect(new Set(s.map(([dx, dz]) => `${dx},${dz}`)).size).toBe(s.length);
+  });
+
+  it('never on a neighbouring copy or past the wall', () => {
+    const s = helperSpots(4.8, [3.6], 12);
+    expect(s.length).toBeGreaterThan(0);
+    for (const [dx] of s) { expect(Math.abs(4.8 + dx - 3.6)).toBeGreaterThanOrEqual(0.5); expect(4.8 + dx).toBeLessThan(5.65); }
   });
 });
