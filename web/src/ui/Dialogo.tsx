@@ -384,7 +384,8 @@ function TalkerBust({ x }: { x: DwellerSummary }) {
 }
 
 // The room's talkers (its dwellers and its worktrees' holographic copies; by state, then most recent conversation first
-// (talkerFirst), those without one last, dwellers before holograms), each with its intercom panel's open conversations and the most urgent one: the selector above the portrait and the bar's hover list (Barra.tsx) show them
+// (talkerFirst), those without one last, dwellers before holograms), each with its intercom panel's open conversations and the most urgent one: the selector above the portrait and the bar's hover list (Barra.tsx) show them,
+// with when the latest of them last moved
 export type Talker = { x: DwellerSummary; ses: SessionSummary[]; primera?: SessionSummary; estado?: TabState; nombre: string };
 export function roomTalkers(sala: string, habitantes: DwellerSummary[], copias: DwellerSummary[], lista: WindowCom[], sesiones: Record<string, SessionSummary>): Talker[] {
   return [...habitantes.filter(x => x.sala === sala && !x.robot), ...copias.filter(c => c.sala === sala)].map(x => {
@@ -405,13 +406,14 @@ export function TalkerRow({ q, actual, sel, option, onClick, onMouseEnter }: { q
       <span className="barra-asomo-estado">{q.estado ? stateLabel(q.estado) : t('windows.noSession')}</span>
       <span className="barra-asomo-titulo"><b>{q.nombre}</b>{q.primera ? ` · ${q.primera.titulo || t('windows.conversation')}` : ''}</span>
       <small title={q.ses.length ? t('windows.nConversations', { n: q.ses.length }) : undefined}>{q.ses.length || ''}</small>
+      <small className="barra-asomo-cuando">{q.ses.length ? hace(Math.max(...q.ses.map(s => s.actualizada))) : ''}</small>
     </button>
   );
 }
 
 // Above the portrait, by the tabs: whom else to talk to in the room (its dwellers and its worktrees' holographic copies).
 // Closed, a chip like the bar's, lit by the most urgent conversation of who you talk to; open, one row per talker with
-// its most urgent conversation's state and title, as the bar's hover list; picking one switches the intercom
+// its most urgent conversation's state and title and its last activity, as the bar's hover list; picking one switches the intercom
 function WhoSelector({ h }: { h: DwellerSummary }) {
   const habitantes = juego.usar(e => e.habitantes), copias = juego.usar(e => e.copias);
   const lista = intercoms.usar(e => e.lista);
