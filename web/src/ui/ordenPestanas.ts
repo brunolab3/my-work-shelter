@@ -16,6 +16,17 @@ export function groupTabs<T extends { grupo?: string }>(items: T[]): T[] {
 export const talkerFirst = (a: Recency & { estado?: TabState }, b: Recency & { estado?: TabState }) =>
   (a.estado ? RANK[a.estado] : 5) - (b.estado ? RANK[b.estado] : 5) || (a.estado && b.estado ? recentFirst(a, b) : 0);
 
+/** The bar's COM row when its chips don't all fit in `cabe`: they are placed by rank (lowest first, then in order)
+ *  wherever they still fit beside the «+N» chip of width `mas`; returns the indices left out, by rank. */
+export function overflowChips(anchos: number[], rangos: number[], cabe: number, mas: number): number[] {
+  if (anchos.reduce((a, b) => a + b, 0) <= cabe) return [];
+  let usado = mas; const fuera: number[] = [];
+  for (const i of anchos.map((_, i) => i).sort((a, b) => rangos[a] - rangos[b] || a - b)) {
+    if (usado + anchos[i] <= cabe) usado += anchos[i]; else fuera.push(i);
+  }
+  return fuera;
+}
+
 /** ⌘1…⌘8 the n-th visible tab, ⌘9 the last; ⌃Tab the next one. */
 export const nthTab = (orden: { id: string }[], n: number) => (n === 9 ? orden.at(-1) : orden[n - 1])?.id;
 export const nextTab = (orden: { id: string }[], activa: string, paso: number) => {

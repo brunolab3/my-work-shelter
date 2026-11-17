@@ -579,6 +579,10 @@ a.miniatura:hover img { box-shadow: 0 0 0 1px #ffc96b, 0 0 10px rgba(255,179,71,
 .barra-asomo-fila.sin-leer .barra-asomo-titulo { color: #9dffb8; font-weight: 700; }
 .barra-asomo-titulo { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .barra-fila { display: flex; align-items: center; gap: .45em; max-width: 100%; padding: 3px; overflow-x: auto; scrollbar-width: none; }
+/* COM chips that don't fit go behind «+N»; a hidden copy of the row measures them */
+.barra-medida { position: absolute; left: 0; top: 0; display: flex; gap: .45em; white-space: nowrap; visibility: hidden; pointer-events: none; }
+.barra-asomo-mas { min-width: 0; gap: 3px; }
+.barra-asomo-mas .chip-terminal { justify-content: flex-start; white-space: nowrap; }
 .barra-tipo { flex: none; width: 3.4em; font-size: .78em; letter-spacing: .1em; color: var(--crema-tenue); }
 .barra-ayuda { font-size: .85em; color: var(--crema-tenue); padding-bottom: 2px; }
 .barra-ayuda kbd { font: inherit; color: #1b1a17; background: #c9bd9f; border-radius: 2px; padding: 0 4px; margin: 0 2px 0 6px; }
