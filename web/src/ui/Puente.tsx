@@ -1,10 +1,10 @@
 // Puente entre los datos vivos del servidor y la interfaz: contadores de la regleta, nombre del refugio, chatarra,
 // sonido de llegada de notificaciones según prioridad; avisos del servidor como teletipos; pantalla de carga y
 // bienvenida del primer arranque.
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { juego } from './estadoJuego';
 import { t, tIs } from '@shared/idioma';
-import { vivo, cliente } from '../red/cliente';
+import { vivo, cliente, type Notice } from '../red/cliente';
 import { SFX } from '../audio/sonido';
 import { Device, Keys, useKeys } from './aparato';
 import { LOOK } from '@shared/etiquetas';
@@ -33,17 +33,40 @@ vivo.subscribe(() => {
 let shownWelcome = false;
 
 // ---------------------------------------------------------------- teletipos (avisos del servidor y del juego)
+// A new notice shows on its own for a few seconds and then folds into a single "earlier notices" slot (colored by its
+// most severe level) until read: clicking the slot unfolds them, clicking one dismisses it, "read all" dismisses them all.
+// Questions are never folded: they stay on their own until answered (the answer goes to the server: aviso.responder).
+const freshFor = (a: Notice) => (a.nivel === 'error' ? 9000 : 5000);
+const SEVERITY = ['error', 'aviso'];
 export function Avisos() {
   const avisos = vivo.usar(e => e.avisos);
-  const [removed, setRemoved] = useState<Set<number>>(new Set());
-  // los que preguntan se quedan hasta contestarlos (la respuesta va al servidor: acción aviso.responder)
-  useEffect(() => { const ultimo = avisos[avisos.length - 1]; if (!ultimo) return; ultimo.nivel === 'error' ? SFX.error() : SFX.lowNotice(); if (ultimo.pregunta) return; const t = setTimeout(() => setRemoved(q => new Set([...q, ultimo.id])), ultimo.nivel === 'error' ? 9000 : 5000); return () => clearTimeout(t); }, [avisos.length]);
-  const quitar = (id: number) => { setRemoved(q => new Set([...q, id])); vivo.set(e => ({ avisos: e.avisos.filter(a => a.id !== id) })); };
-  const responder = (a: (typeof avisos)[number], si: boolean) => { cliente.accion('aviso.responder', { id: a.pregunta!.id, si }).catch(() => SFX.noAllowed()); SFX.clic(); quitar(a.id); };
-  // mousedown is cancelled so that dismissing or answering one leaves the focus in what you were typing
-  return <div className="teletipos" onMouseDown={e => e.preventDefault()}>{avisos.filter(a => !removed.has(a.id)).map(a => a.pregunta
+  const [ahora, setAhora] = useState(Date.now());
+  const [abierto, setAbierto] = useState(false);
+  const oido = useRef(0);
+  // the sound, only for a notice that just arrived (not when dismissing one leaves an older one last)
+  useEffect(() => { const ultimo = avisos[avisos.length - 1]; if (!ultimo || ultimo.id <= oido.current) return; oido.current = ultimo.id; ultimo.nivel === 'error' ? SFX.error() : SFX.lowNotice(); }, [avisos]);
+  const fresh = (a: Notice) => a.id + freshFor(a) > ahora;
+  // re-render when the next fresh one should fold
+  useEffect(() => { const t = avisos.filter(a => !a.pregunta && fresh(a)).map(a => a.id + freshFor(a) - Date.now()); if (!t.length) return; const h = setTimeout(() => setAhora(Date.now()), Math.max(0, Math.min(...t)) + 20); return () => clearTimeout(h); }, [avisos, ahora]);
+  const viejos = avisos.filter(a => !a.pregunta && !fresh(a));
+  useEffect(() => { if (!viejos.length) setAbierto(false); }, [viejos.length]);
+  const quitar = (...ids: number[]) => vivo.set(e => ({ avisos: e.avisos.filter(a => !ids.includes(a.id)) }));
+  const responder = (a: Notice, si: boolean) => { cliente.accion('aviso.responder', { id: a.pregunta!.id, si }).catch(() => SFX.noAllowed()); SFX.clic(); quitar(a.id); };
+  const uno = (a: Notice) => a.pregunta
     ? <div key={a.id} className={'teletipo interactivo pregunta ' + a.nivel}>{a.texto}<div className="botonera"><button className="boton-taller" onClick={() => responder(a, false)}>{a.pregunta.no}</button><button className="boton-taller peligro" onClick={() => responder(a, true)}>{a.pregunta.si}</button></div></div>
-    : <div key={a.id} className={'teletipo interactivo ' + a.nivel} title={a.texto} onClick={() => setRemoved(q => new Set([...q, a.id]))}>{a.texto}</div>)}</div>;
+    : <div key={a.id} className={'teletipo interactivo ' + a.nivel} title={a.texto} onClick={() => quitar(a.id)}>{a.texto}</div>;
+  const nivel = SEVERITY.find(n => viejos.some(a => a.nivel === n)) ?? 'info';
+  // mousedown is cancelled so that dismissing or answering one leaves the focus in what you were typing
+  return <div className="teletipos" onMouseDown={e => e.preventDefault()}>
+    {viejos.length > 0 && <div className={'teletipos-grupo' + (abierto ? ' abierto' : '')}>
+      <div className={'teletipo interactivo grupo ' + nivel} title={t(abierto ? 'panels.noticesFold' : 'panels.noticesUnfold')} onClick={() => { SFX.clic(); setAbierto(!abierto); }}>
+        {(abierto ? '▾ ' : '▸ ') + t('panels.earlierNotices', { n: viejos.length })}
+        {abierto && <button className="leer-todos" onClick={e => { e.stopPropagation(); SFX.clic(); quitar(...viejos.map(a => a.id)); }}>{t('panels.readAllNotices')}</button>}
+      </div>
+      {abierto && <div className="lista">{viejos.map(uno)}</div>}
+    </div>}
+    {avisos.filter(a => a.pregunta || fresh(a)).map(uno)}
+  </div>;
 }
 
 // ---------------------------------------------------------------- pantalla de carga (hasta que la primera sala está lista)

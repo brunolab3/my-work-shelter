@@ -639,12 +639,21 @@ a.miniatura:hover img { box-shadow: 0 0 0 1px #ffc96b, 0 0 10px rgba(255,179,71,
 .teletipos { position: fixed; left: calc(var(--u) * 0.8); top: calc(var(--u) * 4); display: flex; flex-direction: column; gap: .4em; align-items: flex-start; z-index: 250000; pointer-events: none; }
 /* a maximized window covers the whole screen: one line each, in the middle of its title bar, which holds no input */
 #ui:has(.maximizada) .teletipos { left: 30vw; right: 12em; top: 3px; flex-direction: row; justify-content: center; align-items: flex-start; overflow: hidden; }
+#ui:has(.maximizada) .teletipos-grupo .lista { max-width: 40vw; }
 #ui:has(.maximizada) .teletipo:not(.pregunta) { flex: 0 1 auto; min-width: 6em; padding: .15em .6em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .teletipo { pointer-events: auto; max-width: min(30vw, 28em); font: 500 calc(var(--u) * 0.8) var(--t-mono); color: var(--fosforo); background: #06120c; border: 1px solid rgba(157,255,184,.4); border-left: 4px solid var(--fosforo); padding: .45em .7em; border-radius: 2px; box-shadow: 0 6px 18px rgba(0,0,0,.6); animation: entrar-teletipo .25s ease-out; cursor: pointer; text-shadow: 0 0 6px rgba(157,255,184,.35); }
 .teletipo.error { color: #ffb39a; border-color: rgba(255,90,74,.5); border-left-color: var(--rojo); }
 .teletipo.aviso { color: #ffc24a; border-left-color: #ffb000; }
 .teletipo.pregunta { cursor: default; }
 .teletipo.pregunta .botonera { display: flex; gap: .5em; justify-content: flex-end; margin-top: .5em; }
+/* the earlier notices folded into one slot; unfolded, the list drops below it (also in the maximized row) */
+.teletipos-grupo { display: flex; flex-direction: column; gap: .4em; align-items: flex-start; flex: 0 0 auto; }
+.teletipo.grupo { display: flex; align-items: center; gap: .8em; opacity: .85; animation: none; }
+.teletipo.grupo:hover, .teletipos-grupo.abierto .teletipo.grupo { opacity: 1; }
+.teletipo.grupo .leer-todos { pointer-events: auto; font: inherit; color: inherit; background: none; border: 1px solid currentColor; border-radius: 2px; padding: .05em .5em; cursor: pointer; opacity: .8; }
+.teletipo.grupo .leer-todos:hover { opacity: 1; background: rgba(157,255,184,.12); }
+.teletipos-grupo .lista { display: flex; flex-direction: column; gap: .3em; align-items: flex-start; max-height: 60vh; overflow-y: auto; padding-left: .8em; pointer-events: auto; }
+.teletipos-grupo .lista .teletipo { animation: none; }
 @keyframes entrar-teletipo { from { transform: translateX(-20px); opacity: 0; } }
 .pantalla-carga { position: fixed; inset: 0; z-index: 400000; background: radial-gradient(ellipse at 50% 45%, #1d1a16, #070605 70%); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: calc(var(--u) * 1); transition: opacity .8s; }
 .pantalla-carga.fuera { opacity: 0; pointer-events: none; }

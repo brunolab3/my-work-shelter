@@ -19,12 +19,26 @@ export interface LiveData {
   notificaciones: any[];
   eventos: any[];
   integraciones: Record<string, any>;
-  avisos: { id: number; nivel: string; texto: string; pregunta?: NoticeQuestion }[];
+  avisos: Notice[];
   musica: MusicState | null;              // lo que suena en la discoteca (Spotify web; lo pone Discoteca.tsx)
   programados: ScheduledMessage[];         // mensajes programados pendientes (server/programados.ts)
 }
 
+// a notice (teletype): its id is its arrival time in ms (plus a fraction, so two never collide)
+export type Notice = { id: number; nivel: string; texto: string; pregunta?: NoticeQuestion };
+
 export const vivo = new Store<LiveData>({ connected: false, attempts: 0, reiniciando: false, claudeOk: false, estado: null, sesiones: {}, entradas: {}, parcial: {}, repos: {}, visitantes: [], notificaciones: [], eventos: [], integraciones: {}, avisos: [], musica: null, programados: [] });
+
+// Notices stay until read (the older ones folded into one group: Avisos in web/src/ui/Puente.tsx), up to the latest
+// MAX_NOTICES; questions don't count and stay until answered
+const MAX_NOTICES = 30;
+export function addNotice(nivel: string, texto: string, pregunta?: NoticeQuestion) {
+  vivo.set(e => {
+    const l = [...e.avisos, { id: Date.now() + Math.random(), nivel, texto, pregunta }];
+    let sobran = l.filter(a => !a.pregunta).length - MAX_NOTICES;
+    return { avisos: l.filter(a => a.pregunta || sobran-- <= 0) };
+  });
+}
 
 // El secreto del arranque llega en el fragmento de la URL (#t=…, no viaja al servidor ni queda en el historial de
 // peticiones); se guarda en la sesión de la pestaña para sobrevivir a recargas y se quita de la barra de direcciones.
@@ -59,7 +73,7 @@ class Client {
     ws.onclose = () => {
       vivo.set(e => ({ connected: false, attempts: e.attempts + 1 }));
       // si el servidor responde pero el WebSocket se niega varias veces, es otro arranque (otro secreto): hay que recargar
-      if (vivo.get().attempts >= 4) fetch('/salud').then(r => { if (r.ok) vivo.set(e => ({ avisos: [...e.avisos.slice(-4), { id: Date.now(), nivel: 'error', texto: t('windows.serverRestartedReopen') }] })); }).catch(() => {});
+      if (vivo.get().attempts >= 4) fetch('/salud').then(r => { if (r.ok) addNotice('error', t('windows.serverRestartedReopen')); }).catch(() => {});
       const espera = Math.min(4000, 400 * (vivo.get().attempts + 1));
       setTimeout(() => this.conectar(), espera);
     };
@@ -107,7 +121,7 @@ class Client {
       // room names in the chosen language (the service rooms keep theirs as Spanish data)
       case 'estado': vivo.set({ estado: m.estado?.salas ? { ...m.estado, salas: (m.estado.salas as any[]).map((s: any) => ({ ...s, nombre: roomNameIs(s) })) } : m.estado }); break;
       // los que preguntan no se pierden entre los demás: se quedan hasta contestarlos
-      case 'aviso': vivo.set(e => ({ avisos: [...e.avisos.filter((a, i, l) => a.pregunta || i >= l.length - 4), { id: Date.now() + Math.random(), nivel: m.nivel, texto: m.texto, pregunta: m.pregunta }] })); break;
+      case 'aviso': addNotice(m.nivel, m.texto, m.pregunta); break;
       case 'recargar': location.reload(); break;
       case 'reiniciando': vivo.set({ reiniciando: true }); break;
     }

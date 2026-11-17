@@ -8,7 +8,7 @@
 //   (server/voz.ts): sin red, sin cuentas y sin coste.
 import { useEffect, useRef, useState } from 'react';
 import type { Attachment } from '@shared/protocolo';
-import { cliente, vivo } from '../red/cliente';
+import { cliente, vivo, addNotice } from '../red/cliente';
 import { SFX } from '../audio/sonido';
 import { MAC } from './ventanas';
 import { t } from '@shared/idioma';
@@ -69,7 +69,7 @@ export function SentAttachments({ lista }: { lista: Attachment[] }) {
 function SentAttachment({ a }: { a: Attachment }) {
   const [vista, setView] = useState(views.get(a.ruta));
   useEffect(() => { if (a.imagen && !vista) cliente.accion<string>('adjunto.miniatura', { ruta: a.ruta }).then(v => { views.set(a.ruta, v); setView(v); }).catch(() => {}); }, [a.ruta]);
-  const abrir = () => { cliente.accion('adjunto.abrir', { ruta: a.ruta }).catch(e => { SFX.noAllowed(); vivo.set(v => ({ avisos: [...v.avisos.slice(-4), { id: Date.now(), nivel: 'aviso', texto: (e as Error).message }] })); }); SFX.clic(); };
+  const abrir = () => { cliente.accion('adjunto.abrir', { ruta: a.ruta }).catch(e => { SFX.noAllowed(); addNotice('aviso', (e as Error).message); }); SFX.clic(); };
   return (
     <button className={'adjunto' + (vista ? ' con-vista' : '')} onClick={abrir} title={`${a.nombre} · ${t('windows.open')}`}>
       {vista ? <img src={vista} alt={a.nombre} /> : <span className="icono-adjunto" aria-hidden>{a.imagen ? '▣' : '▤'}</span>}

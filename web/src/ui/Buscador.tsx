@@ -10,7 +10,7 @@ import type { RecentConversation, SessionSummary } from '@shared/protocolo';
 import { Store } from './almacen';
 import { t, tIs } from '@shared/idioma';
 import { juego } from './estadoJuego';
-import { vivo, cliente } from '../red/cliente';
+import { vivo, cliente, addNotice } from '../red/cliente';
 import { SFX } from '../audio/sonido';
 import { MAC } from './ventanas';
 import { openPanel, goA, ocupados, openGitOfRoom } from './Paneles';
@@ -173,7 +173,7 @@ function Window() {
       if (!p || (!searching && n >= 6)) continue;
       n++;
       out.push({ id: 'rec:' + r.claudeId, seccion: 'Conversaciones recientes', texto: r.titulo, pista: `${h?.nombre ?? ''} · ${h?.nameRoom ?? ''} · ${hace(r.modified)}${r.fuera ? ' · ' + t('windows.openOnYourDesktop') : ''}`,
-        f: () => { if (r.fuera) { SFX.noAllowed(); vivo.set(v => ({ avisos: [...v.avisos.slice(-4), { id: Date.now(), nivel: 'aviso', texto: t('panels.thatConversationIsStillOpen') }] })); return; } onShelter(); resumeConversation(r.dwellerId, r); }, p });
+        f: () => { if (r.fuera) { SFX.noAllowed(); addNotice('aviso', t('panels.thatConversationIsStillOpen')); return; } onShelter(); resumeConversation(r.dwellerId, r); }, p });
     }
     // mensajes programados (server/programados.ts): cuándo, quién y a dónde; Enter abre la conversación que lo
     // programó si sigue abierta o, si no, lleva con su habitante (cancelarlos o cambiarlos, en su intercomunicador)
