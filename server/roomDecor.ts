@@ -3,7 +3,7 @@
 // datos (shared/decor.ts), validados aquí antes de guardarlos: nada de lo que escriba el habitante se ejecuta.
 import { createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
-import { sanitizeDecor, reviewDecor, boardSpot, panelSpot, BASES_DECOR, DESCRIPTION_BASE, DECOR_WALLS, DECOR_PALETTES, SIGN_SYMBOLS, GESTURES, LIMITS, PACKS, type BaseDecor, type Decorado, type DecorPiece } from '../shared/decor.ts';
+import { sanitizeDecor, reviewDecor, boardSpot, panelSpot, WORK_ZONE, BASES_DECOR, DESCRIPTION_BASE, DECOR_WALLS, DECOR_PALETTES, SIGN_SYMBOLS, GESTURES, LIMITS, PACKS, type BaseDecor, type Decorado, type DecorPiece } from '../shared/decor.ts';
 import { catalogo, catalogInText, propsModel } from './props.ts';
 import { t, tIs } from '../shared/language.ts';
 import { MCP } from './mcpServers.ts';
@@ -29,8 +29,7 @@ const decorSchema = () => z.object({
   base: z.enum(BASES_DECOR),
   resumen: z.string().optional(), subtitulo: z.string().optional(), acento: z.string().optional().describe('#rrggbb'),
   paleta: z.enum(DECOR_PALETTES).optional(), paredes: z.array(z.enum(DECOR_WALLS)).length(3).optional(), luz: num.optional(), espejo: z.boolean().optional(),
-  pantallaRepo: z.object({ x: num, y: num, ancho: num }).optional(),
-  puesto: z.object({ x: num, z: num, giro: num.optional(), pantalla: z.enum(['monitor', 'doble', 'ordenador']).optional(), mesa: z.string().optional() }).optional(),
+  puesto: z.object({ pantalla: z.enum(['monitor', 'doble', 'ordenador']).optional(), mesa: z.string().optional() }).optional(),
   pieza: pointSchema.optional(), aficion: pointSchema.optional(),
   lamparas: z.array(z.object({ x: num, z: num, color: z.string().optional(), intensidad: num.optional() })).optional(),
   piezas: z.array(z.object({
@@ -59,10 +58,10 @@ export function mcpDecor(salaId: string, ctx: CtxDecor) {
       tool('current_decor', t('tool.decor.currentDescription'), {},
         async () => {
           const s = sala();
-          const b = boardSpot(s.decorado?.base ?? ctx.plantilla(salaId) as BaseDecor, salaId, s.decorado);
+          const b = boardSpot();
           const pn = panelSpot(s.lado);
           const tablero = t('tool.decor.yourBoard', { x: b.x.toFixed(2), y: b.y.toFixed(2), ancho: b.ancho.toFixed(2), alto: b.alto.toFixed(2) })
-            + '\n' + t('tool.decor.yourPanel', { x: pn.x.toFixed(2), y: pn.y.toFixed(2), ancho: pn.ancho.toFixed(2), alto: pn.alto.toFixed(2) });
+            + '\n' + t('tool.decor.yourPanel', { zona: WORK_ZONE.x, x: pn.x.toFixed(2), z: pn.z.toFixed(2), ancho: pn.ancho.toFixed(2), fondo: pn.fondo.toFixed(2) });
           return texto(`${decorGuide()}\n\n${t('tool.decor.yourRoom', { nombre: s.nombre, ruta: s.ruta ?? '—' })}\n${tablero}\n` + (s.decorado
             ? `${t('tool.decor.currentDecor')}\n${JSON.stringify(s.decorado)}`
             : t('tool.decor.noDecor', { plantilla: ctx.plantilla(salaId), descripcion: tIs(DESCRIPTION_BASE[ctx.plantilla(salaId) as keyof typeof DESCRIPTION_BASE] ?? '') })));
@@ -80,7 +79,7 @@ export function mcpDecor(salaId: string, ctx: CtxDecor) {
           sala();
           const { decorado: d, avisos } = sanitizeDecor(decorado);
           if (!d) return { ...texto(t('tool.decor.notApplied', { avisos: avisos.join(' ') })), isError: true };
-          const revision = reviewDecor(d, sizeOf, boardSpot(d.base, salaId, d), panelSpot(sala().lado));
+          const revision = reviewDecor(d, sizeOf, boardSpot(), sala().lado);
           ctx.guardar(salaId, d); aplicado = Date.now();
           return texto([t('tool.decor.applied'), ...(avisos.length ? [t('tool.decor.fixedOnValidate'), ...avisos.map(a => '- ' + a)] : []), ...(revision.length ? [t('tool.decor.looksWrong'), ...revision.map(a => '- ' + a)] : []), t('tool.decor.lookWithView')].join('\n'));
         }, { alwaysLoad: true }),

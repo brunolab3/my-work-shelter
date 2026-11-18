@@ -1,25 +1,26 @@
-// Sala de repositorio «taller web»: puestos de trabajo, el horno de builds y el comité de calidad.
+// Sala de repositorio «taller web»: in the middle the dweller's desk under the task board; left, the build oven; right,
+// the bunk and the notes.
 import { t, t as tr } from '@shared/language';
 import * as THREE from 'three';
 import { place, R } from '../../engine/assets';
 import { cartel, PhosphorScreen, corcho, PanelRoom } from '../../engine/textures';
 import { overlayScreen } from '../util3d';
-import { BACKGROUND, screenReal, signInWall, mancha, mountLiquid, mountPilots, highBand, Bubbles, workStation, aWall, type Contexto } from './common';
+import { BACKGROUND, screenReal, signInWall, mancha, mountLiquid, mountPilots, highBand, Bubbles, centralDesk, aWall, type Contexto } from './common';
 
 export async function furnishTallerWeb(ctx: Contexto) {
   const { g, v, zB, K, P, semilla } = ctx;
   const { vCopper } = ctx;
-  await highBand(ctx, { reloj: -0.4, gauge: -1.7 });
+  await highBand(ctx, { gauge: -1.75 });
   // ventilador que gira detrás de la rejilla grande (se ve girar entre las lamas, no colgando debajo)
   const rejilla = await place(g, R.sf('Details_Vent_2'), { pos: [-5.15, 3.38, zB + 0.33], ancho: 0.62, sombra: false });
   aWall(g, rejilla);
   const cRej = new THREE.Box3().setFromObject(rejilla).getCenter(new THREE.Vector3());
   const fan = await place(g, R.sf('Details_Output_Small'), { pos: [cRej.x, cRej.y, cRej.z - 0.02], ancho: 0.4, anchor: 'centro', estatico: false, sombra: false });
 
-  // ---- IZQUIERDA: el puesto del habitante (mesa de tres cuartos: se le ven las manos al teclear) bajo el tablero de tareas
+  // ---- MIDDLE: the dweller's desk under the task board
   const pDiff = new PhosphorScreen(384, 256, v.pantalla); pDiff.speed = 40;
   screenReal(ctx, pDiff, 'cambios'); ctx.sala.pantallas.push(pDiff);
-  await workStation(ctx, { id: 'silla', x: -4.15, z: -0.8, giro: 0.8, silla: R.mueble('chair_desk_B'), tex: pDiff.tex,
+  await centralDesk(ctx, { id: 'silla', silla: R.mueble('chair_desk_B'), tex: pDiff.tex,
     encima: [{ ruta: R.mueble('lamp_desk'), x: -0.72, z: -0.22, c: { escala: K * 0.62, rot: 0.5 } }, { ruta: R.mueble('mug_B'), x: -0.62, z: 0.25, c: { escala: K * 0.75, rot: 0.4 } }, { ruta: R.mueble('cup_pencils'), x: 0.72, z: -0.25, c: { escala: K * 0.62 } }] });
   // archivador con planos y caja (esquina izquierda, cierra el rincón)
   const cabinet = P(R.sf('Props_Shelf'), { pos: [-5.3, 0, zB + 0.5], alto: 2.4 });
@@ -29,8 +30,8 @@ export async function furnishTallerWeb(ctx: Contexto) {
   P(R.resource('Containers_Box_Small'), { pos: [-5.0, 0.04, zB + 0.5], escala: K * 0.9, rot: 0.15 });
   ctx.sala.obstacles.push(new THREE.Box2(new THREE.Vector2(-6, zB), new THREE.Vector2(-4.2, zB + 1.0)));
 
-  // ---- CENTRO: el «horno de builds» (cápsula con líquido, núcleo suspendido y burbujas) y la consola del habitante, de lado
-  const cx = 0.6;
+  // ---- LEFT: the «build oven» (capsule with liquid, a floating core and bubbles) and the dweller's console, in profile
+  const cx = -3.35;
   P(R.sf('Props_Base'), { pos: [cx, 0, zB + 1.15], ancho: 1.9 });
   const capsula = await place(g, R.sf('Props_Pod'), { pos: [cx, 0.12, zB + 1.15], alto: 3.15, variant: v, own: true, estatico: false });
   const COLOR_LIQ = '#2fd46a';
@@ -39,14 +40,11 @@ export async function furnishTallerWeb(ctx: Contexto) {
   core.traverse((n: any) => { if (n.isMesh && n.material.name === 'Gold') { n.material.emissive = new THREE.Color('#ffb347'); n.material.emissiveIntensity = 0.6; } });
   const burbujas = new Bubbles(new THREE.Vector3(cx, 0.75, zB + 1.15), 0.32, 2.1, COLOR_LIQ);
   g.add(burbujas.grupo);
-  // the oven's supplies against the left: fuel barrels, a crate of parts and a plant; the dweller tends them in profile
-  P(R.resource('Fuel_A_Barrels'), { pos: [-2.5, 0, zB + 0.55], alto: 0.95, rot: 0.3 });
-  const caja = P(R.resource('Containers_Crate_Medium_Wood'), { pos: [-1.7, 0, zB + 0.95], alto: 0.7, rot: 0.25 });
-  ctx.sobre(caja, R.herr('wrench_A'), { pos: [-1.7, 0, zB + 0.95], escala: K * 0.6, rotX: -Math.PI / 2, rotZ: 0.7 });
-  P(R.casa('Houseplant_4'), { pos: [-2.0, 0, zB + 0.35], alto: 1.1 });
-  ctx.sala.obstacles.push(new THREE.Box2(new THREE.Vector2(-2.5, zB), new THREE.Vector2(-1.25, zB + 1.3)));
-  ctx.sala.obstacles.push(new THREE.Box2(new THREE.Vector2(cx - 1.0, zB), new THREE.Vector2(cx + 1.0, zB + 2.1)));
-  ctx.sala.puntos.push({ id: 'consola', tipo: 'consola', pos: new THREE.Vector3(-0.72, 0, zB + 1.5), giro: -0.55, clip: 'Working_A' });
+  // the oven's supplies beside it: a crate of parts with a wrench on it, and a plant
+  const caja = P(R.resource('Containers_Crate_Medium_Wood'), { pos: [cx + 1.25, 0, zB + 0.5], alto: 0.6, rot: 0.25 });
+  ctx.sobre(caja, R.herr('wrench_A'), { pos: [cx + 1.25, 0, zB + 0.5], escala: K * 0.6, rotX: -Math.PI / 2, rotZ: 0.7 });
+  ctx.sala.obstacles.push(new THREE.Box2(new THREE.Vector2(cx - 1.0, zB), new THREE.Vector2(cx + 1.6, zB + 2.1)));
+  ctx.sala.puntos.push({ id: 'consola', tipo: 'consola', pos: new THREE.Vector3(cx + 1.4, 0, zB + 1.45), giro: -Math.PI / 2, clip: 'Working_A' });
   ctx.sala.puntos.push({ id: 'horno', tipo: 'consola', pos: new THREE.Vector3(cx + 1.35, 0, zB + 2.05), giro: -Math.PI / 2 - 0.5, clip: 'Interact' });
   // la pieza: el horno de builds. Se le da al mando de la base (el líquido borbotea y el núcleo se acelera), se mira de
   // cerca con la lupa cómo va la build o se le da un golpe de llave a la tapa
@@ -59,11 +57,11 @@ export async function furnishTallerWeb(ctx: Contexto) {
     acciones: [{ clip: 'Working_C', utensil: 'llave', onMake: revive }, { clip: 'Interact', onMake: revive }] });
   // panel de estado de la sala (en la pared, a la derecha del horno)
   const panel = new PanelRoom(); panel.color = v.pantalla;
-  const framePanel = aWall(g, await place(g, R.cy('Sign_2'), { pos: [2.3, 2.15, zB + 0.6], ancho: 1.55, estatico: false, own: true }));
+  const framePanel = aWall(g, await place(g, R.cy('Sign_2'), { pos: [2.6, 2.2, zB + 0.6], ancho: 1.3, estatico: false, own: true }));
   overlayScreen(framePanel, /^Texture_Signs$/, panel.tex, { brillo: 1.25, margin: 0.94 });
   // armario de servidores con pilotos (rompe la simetría del centro)
-  P(R.sf('Props_Capsule'), { pos: [2.2, 0, zB + 0.55], alto: 1.55 });
-  const pilotos = mountPilots(g, new THREE.Vector3(2.2, 0.95, zB + 1.0), v.pantalla);
+  P(R.sf('Props_Capsule'), { pos: [2.45, 0, zB + 0.55], alto: 1.55 });
+  const pilotos = mountPilots(g, new THREE.Vector3(2.45, 0.95, zB + 1.0), v.pantalla);
 
   // ---- DERECHA: litera, corcho de notas, planta y bodegón
   P(R.casa('Bed_Bunk'), { pos: [4.55, 0, zB + 1.0], alto: 2.45, rot: Math.PI / 2 });
@@ -71,29 +69,29 @@ export async function furnishTallerWeb(ctx: Contexto) {
   ctx.sala.puntos.push({ id: 'cama', tipo: 'cama', pos: new THREE.Vector3(4.55, 0.66, zB + 1.02), giro: Math.PI / 2, clip: 'Lie_Idle' });
   const notas = tr('world.web.notes').split('|').map((texto, i) => ({ texto, color: ['#f2e37a', '#f6b3a8', '#b8e3a4', '#a9d4f0', '#f2e37a'][i] }));
   signInWall(g, corcho(notas, semilla), 4.6, 3.05, 1.6, 1.06, zB + 0.33);
-  signInWall(g, cartel(t('world.poster.quality'), t('world.poster.qualityFoot'), '#d8c8a0', '#7a2a1e', 'ojo', semilla), 1.45, 2.3, 0.6, 0.84, zB + 0.33, 0.03);
+  signInWall(g, cartel(t('world.poster.quality'), t('world.poster.qualityFoot'), '#d8c8a0', '#7a2a1e', 'ojo', semilla), -2.0, 2.45, 0.5, 0.7, zB + 0.33, 0.03);
   P(R.casa('Houseplant_3'), { pos: [3.15, 0, zB + 0.45], alto: 1.0 });
-  P(R.herr('fishing_tacklebox'), { pos: [3.35, 0, 0.75], escala: K * 0.75, rot: -0.5 });
-  P(R.sv('GasCan'), { pos: [5.6, 0, 1.15], alto: 0.6, rot: 0.6 });
-  P(R.resource('Containers_Box_Medium'), { pos: [5.25, 0, 0.35], escala: K * 0.9, rot: 0.2 });
-  P(R.sv('Backpack'), { pos: [4.45, 0, 0.55], alto: 0.62, rot: -0.9 });
-  ctx.sala.obstacles.push(new THREE.Box2(new THREE.Vector2(4.0, 0.0), new THREE.Vector2(6, 1.6)));
+  // its gear on the floor, short of the front corner (the room panel's)
+  P(R.herr('fishing_tacklebox'), { pos: [3.75, 0, 0.75], escala: K * 0.75, rot: -0.5 });
+  P(R.resource('Containers_Box_Medium'), { pos: [3.95, 0, 0.2], escala: K * 0.9, rot: 0.2 });
+  P(R.sv('Backpack'), { pos: [3.2, 0, 0.4], alto: 0.62, rot: -0.9 });
+  ctx.sala.obstacles.push(new THREE.Box2(new THREE.Vector2(2.9, -0.1), new THREE.Vector2(4.4, 1.1)));
 
   // ---- primer plano: tubería baja tirada en el suelo delante y caja cortada por el borde (cuarta capa)
   P(R.cy('Pipe_2'), { pos: [-3.9, 0.0, BACKGROUND / 2 - 0.2], ancho: 3.6, variant: vCopper }).then(o => { o.scale.y *= 0.55; o.scale.z *= 0.55; });
-  P(R.sv('Trashcan'), { pos: [-5.65, 0, 1.3], alto: 0.75 });
+  P(R.sv('Trashcan'), { pos: [-4.4, 0, 0.45], alto: 0.75 });
   P(R.casa('Kitchen_Cabinet1'), { pos: [5.62, 0, zB + 0.42], alto: 1.9, rot: -Math.PI / 2 + 0.2 });
-  P(R.resource('Fuel_C_Barrels'), { pos: [-5.5, 0, 0.3], escala: K * 0.6, rot: 0.3 });   // delante del archivador, sin meterse bajo la mesa
-  ctx.sala.obstacles.push(new THREE.Box2(new THREE.Vector2(-6, -0.25), new THREE.Vector2(-5.0, 0.85)));
+  P(R.resource('Fuel_C_Barrels'), { pos: [-5.5, 0, -0.6], escala: K * 0.6, rot: 0.3 });   // in front of the cabinet, short of the front corner
+  ctx.sala.obstacles.push(new THREE.Box2(new THREE.Vector2(-6, -1.2), new THREE.Vector2(-5.0, 0.0)));
   P(R.herr('bucket_metal'), { pos: [-5.1, 0, 1.75], escala: K * 0.6 });
   P(R.sf('Props_Crate'), { pos: [5.75, 0, BACKGROUND / 2 - 0.35], alto: 0.7, rot: 0.4 });
   mancha(g, -1.0, -0.6, 1.4, 4); mancha(g, 2.4, 0.2, 1.0, 9); mancha(g, -3.0, 1.5, 0.8, 13);
 
 
-  ctx.sala.walkZones = [[-2.6, -2.2], [1.8, 2.7]];
+  ctx.sala.walkZones = [[-1.9, -1.3], [1.3, 1.9]];
   ctx.panel = panel;
-  ctx.sparks = new THREE.Vector3(-1.75, 1.6, zB + 1.25);
-  ctx.lamparas = [{ x: -2.6, z: 0.45, o: { intensidad: 80, goal: [-2.9, 0.4] } }, { x: -0.35, z: 0.6, o: { intensidad: 95, sombra: true, goal: [-0.6, 0.9] } }, { x: 2.95, z: 0.7, o: { intensidad: 62, goal: [2.8, 0.9] } }];
+  ctx.sparks = new THREE.Vector3(cx + 1.25, 1.0, zB + 0.6);
+  ctx.lamparas = [{ x: cx, z: 0.45, o: { intensidad: 80, goal: [cx, 0.4] } }, { x: 0, z: 0.6, o: { intensidad: 95, sombra: true, goal: [0, 0.2] } }, { x: 2.95, z: 0.7, o: { intensidad: 62, goal: [2.8, 0.9] } }];
   // la cápsula ilumina su entorno (ancla de luz puntual de color: la enciende el reparto global)
   const anchor = { tipo: 'punto' as const, pos: new THREE.Vector3(cx, 1.6, zB + 1.9), intensidad: 6, color: new THREE.Color(COLOR_LIQ), distancia: 5.5, prioridad: 2 };
   ctx.sala.anclas.push(anchor);

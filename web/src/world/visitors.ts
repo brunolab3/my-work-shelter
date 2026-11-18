@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import type { Refugio } from './shelter';
 import type { Sala } from './rooms/common';
 import { Character } from './character';
+import { visitorX } from './copySpot';
 import { vivo } from '../net/client';
 import { SFX } from '../audio/sound';
 import type { Visitante } from '@shared/protocol';
@@ -57,7 +58,7 @@ export class Visitors {
   }
 
   // junto al paso, por dentro de la sala
-  private puesto(sala: Sala) { const lado = sala.lado === 'izq' ? 1 : -1; return new THREE.Vector3(sala.grupo.position.x + lado * (sala.ancho / 2 - 1.1), sala.grupo.position.y, 1.45); }
+  private puesto(sala: Sala) { return new THREE.Vector3(sala.grupo.position.x + visitorX(sala), sala.grupo.position.y, 1.45); }
   // su punto de uso (E o clic) vive en la sala: una sala que se vuelve a montar (un vecino nuevo, otro número, un
   // decorado) es otro objeto sin él, y el robot se quedaría a la vista sin poder usarse
   private rotular(sala: Sala) {

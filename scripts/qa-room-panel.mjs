@@ -1,4 +1,4 @@
-// QA of the room panel (web/src/world/rooms/roomPanel.ts): every room that has one shows the same wall monitor at the
+// QA of the room panel (web/src/world/rooms/roomPanel.ts): every room that has one shows the same floor terminal at the
 // same spot, its 'panel' device points at it (hover gives its label, a click opens the room panel), and nothing of the
 // scene covers it. Saves one screenshot per room.
 // Usage: SHELTER_DATOS=… node scripts/qa-room-panel.mjs <url> [folder] [room…]   (better a test shelter with stock and dressed repo rooms)
@@ -31,10 +31,12 @@ const centre = id => pg.evaluate(id => {
 const rooms = await pg.evaluate(() => window.__refugio.salas.map(s => ({ id: s.id, tipo: s.tipo, panel: !!s.interactive?.some(i => i.id === 'panel') })));
 let first = null;
 for (const s of rooms.filter(r => !only.length || only.includes(r.id))) {
-  // the Overseer in the middle of the room (the camera follows them; from the far end the entrance side is off screen)
+  // the Overseer at the room panel, facing it (or, without one, in the middle of the room)
   await pg.evaluate(id => {
     window.__juego.set({ panel: null, panelData: null }); window.dispatchEvent(new CustomEvent('refugio:ir', { detail: { salaId: id } }));
-    const r = window.__refugio; r.supervisor.raiz.position.x = r.salas.find(x => x.id === id).grupo.position.x;
+    const r = window.__refugio, s = r.salas.find(x => x.id === id), it = s.interactive?.find(i => i.id === 'panel'), sp = r.supervisor;
+    sp.raiz.position.x = s.grupo.position.x + (it?.x ?? 0); if (it) { sp.raiz.position.z = it.z; sp.goalTurn = it.giro ?? Math.PI; sp.raiz.rotation.y = sp.goalTurn; }
+    r.frameRoom(s); r.followsCamera = false;   // the whole room in the picture, not centred on the Overseer
   }, s.id);
   await wait(800); await still();
   const c = await centre(s.id);
@@ -46,6 +48,7 @@ for (const s of rooms.filter(r => !only.length || only.includes(r.id))) {
   } else check(!s.panel, `${s.id}: ${s.panel ? 'panel without a zone' : 'no room panel'}`);
   await pg.screenshot({ path: path.join(dir, `${s.id}.png`) });
   await pg.mouse.move(5, 5);
+  await pg.evaluate(() => { window.__refugio.followsCamera = true; });
 }
 check(!errors.length, `no page errors ${errors.slice(0, 3).join(' | ')}`);
 await b.close();

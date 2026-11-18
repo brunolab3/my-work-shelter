@@ -7,7 +7,7 @@ import { place, R, type Placement } from '../../engine/assets';
 import { VARIANTS, type Variant } from '../../engine/palette';
 import { sectorOf, roomTone } from '@shared/sectors';
 import { t, tIs } from '@shared/language';
-import type { BoardSpot } from '@shared/decor';
+import { DESK, type BoardSpot } from '@shared/decor';
 import { dangerStrip, roomCaption, cartel, PhosphorScreen, lienzo, textureOf, dirty, Reloj, Gauge, corcho, PanelRoom, strataTexture, SOURCES, sharpCaption } from '../../engine/textures';
 import { overlayScreen, screenFrontal, mergeStatic, aleatorio } from '../util3d';
 import { Dust, Steam, Sparks, Bubbles } from '../effects';
@@ -80,7 +80,9 @@ export const mundo: { salas: () => Sala[]; supervisor: () => THREE.Object3D | nu
 
 // x, z: donde se pone el Supervisor para usarlo; zonas: lo que se ve del aparato (cajas en coordenadas de la sala, las
 // mide la escena con ctx.aparato): pasar el ratón por encima lo rotula y un clic lo usa
-export interface Interactive { id: string; x: number; z: number; texto: string; panel: string; vista?: string; zones?: THREE.Box3[] }
+// giro: where the Overseer faces to use it (default: the back wall); gesto: the clip they play using it
+// (`sala.userData.onUse[id]`, if the room sets it, reacts in the scene)
+export interface Interactive { id: string; x: number; z: number; texto: string; panel: string; vista?: string; giro?: number; gesto?: string; zones?: THREE.Box3[] }
 // una pieza de la sala con `userData.interactivo = <id>` (p. ej. una pantalla en la pared) abre ese aparato con un clic
 // (y `userData.vista`, la vista con la que se abre)
 
@@ -578,6 +580,9 @@ export interface StationOptions {
   ofFoot?: boolean;
 }
 export interface Station { grupo: THREE.Group; mesa: THREE.Object3D; alto: number; fondo: number; monitor: THREE.Object3D | null; punto: RoomPoint; monitors: THREE.Object3D[] }
+
+/** The dweller's desk in a repo room: always in the middle of the work zone, under the task board (DESK in shared/decor.ts) */
+export const centralDesk = (ctx: Contexto, o: Omit<StationOptions, 'x' | 'z' | 'giro'>) => workStation(ctx, { ...o, x: DESK.x, z: DESK.z, giro: DESK.giro });
 
 export async function workStation(ctx: Contexto, o: StationOptions): Promise<Station> {
   const { g, K } = ctx;

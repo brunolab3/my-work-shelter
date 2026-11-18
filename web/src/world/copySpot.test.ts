@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { holoSlot, helperSpots, type HoloRoom } from './copySpot';
 
-// 12 m room on the right: slots run -5.1..5.1, the visitor's spot (x ≈ -4.9) blocks the near end up to about -3.5
+// 12 m room on the right: slots run -5.1..5.1, the visitor's spot (x = -3.5) blocks -4.9..-2.1
 const sala = (ancho = 12): HoloRoom => ({ ancho, lado: 'der', puestos: [], devices: [], walkZones: [], obstacles: [] });
 const holgura = (x: number, otros: number[]) => Math.min(...otros.map(o => Math.abs(o - x)));
 
@@ -14,8 +14,8 @@ describe('holoSlot', () => {
   });
 
   it('goes to the slot farthest from the nearest copy', () => {
-    const otros = [-3.3, -0.9, 1.5, 3.3, 5.1];   // the widest gap, -3.3..-0.9, has its middle at -2.1
-    expect(holoSlot(sala(), otros, 1, 1)).toBeCloseTo(-2.1, 5);
+    const otros = [-2.0, -0.8, 0.4, 1.6, 4.2, 5.4];   // the widest gap, 1.6..4.2: its slot farthest from both is 3.0
+    expect(holoSlot(sala(), otros, 1, 1)).toBeCloseTo(3.0, 5);
   });
 
   it('lands on top of a copy only when no other slot is left', () => {

@@ -804,10 +804,16 @@ export class Refugio {
     this.frameChat(fp, sala, true);
   }
 
-  useDevice(sala: Sala, it: Interactive, vista?: string) {
+  useDevice(sala: Sala, it: Interactive, vista?: string, here = true) {
     SFX.abrir(); this.supervisor.parar();
-    this.supervisor.goalTurn = Math.PI;
+    if (here) this.tapDevice(sala, it);
     juego.set({ panel: it.panel as any, panelData: { salaId: sala.id, aparato: it.id, vista: vista ?? it.vista } });
+  }
+  // next to the device: the Overseer faces it, plays its gesture and the scene reacts (the room panel's screen flashes)
+  private tapDevice(sala: Sala, it: Interactive) {
+    this.supervisor.goalTurn = it.giro ?? Math.PI;
+    if (it.gesto) this.supervisor.gesture(it.gesto);
+    sala.userData.onUse?.[it.id]?.();
   }
 
   // nadie se mete dentro de nadie: los que están de pie se apartan (más alrededor de quien habla con el Supervisor)
@@ -944,8 +950,8 @@ export class Refugio {
       const { sala, it } = a; const destino = new THREE.Vector3(sala.grupo.position.x + it.x, sala.grupo.position.y, THREE.MathUtils.clamp(it.z, -BACKGROUND / 2 + 0.6, BACKGROUND / 2 - 0.5));
       destino.x = THREE.MathUtils.clamp(destino.x, sala.grupo.position.x - sala.ancho / 2 + 0.6, sala.grupo.position.x + sala.ancho / 2 - 0.6);
       // como con las charlas: el aparato se abre con el clic y el Supervisor llega andando por detrás (y se pone de cara)
-      SFX.clic(); this.useDevice(sala, it, a.vista);
-      this.goAPoint(destino, () => { if (juego.get().panelData?.aparato === it.id) this.supervisor.goalTurn = Math.PI; }); return;
+      SFX.clic(); this.useDevice(sala, it, a.vista, false);
+      this.goAPoint(destino, () => { if (juego.get().panelData?.aparato === it.id) this.tapDevice(sala, it); }); return;
     }
     if (a.tipo === 'ascensor') { this.goAPoint(new THREE.Vector3(0, yRoom(a.planta), 0.35)); SFX.clic(); return; }
     const { p, sala, planta } = a;

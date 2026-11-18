@@ -21,17 +21,17 @@ in review, approved, draft, merged, closed: the one that most needs someone wins
 conversation is doing or waiting on. A click on a row talks to that copy's hologram; on the main copy's, to the room's
 dweller. It's one canvas texture, redrawn only when what it shows changes.
 
-It hangs at a fixed spot per scene (`boardSpot` in `shared/decor.ts`: each stock scene's, mirrored with the room;
-in the empty room, where the dressing puts `pantallaRepo`, at least 3 m wide). Stock scenes keep it clear, and their
-only other screen is the dweller's desk monitor.
+It hangs in the middle of the back wall in every repo room (`boardSpot` in `shared/decor.ts`), right above the
+dweller's desk. That middle third is the work zone (`WORK_ZONE`, `DESK`; the desk is `centralDesk` in
+`web/src/world/rooms/common.ts`): every stock scene puts its centrepiece, hobbies and decoration on the two sides, and
+its only other screen is the desk's monitor.
 
 ## The room panel
 
-Every repo room (and the planning room and the Command Bridge) opens its room panel from the same monitor
-(`web/src/world/rooms/roomPanel.ts`): in front of the scene, by the front pillar on the entrance side (the lift's), the
-same size and height everywhere; only its colours follow the room. Scenes don't place it and dressings can't move it;
-what it hides of the back wall is `panelSpot` in `shared/decor.ts`, so the review warns about signs and wall pieces
-there.
+Every repo room (and the planning room and the Command Bridge) opens its room panel from the same floor terminal
+(`web/src/world/rooms/roomPanel.ts`) in the front corner of the entrance side (the lift's); only its colours follow
+the room. The Overseer walks up to it, taps it and its screen flashes. Its footprint is `panelSpot` in
+`shared/decor.ts`: stock scenes keep that corner clear, and the visitors' robots stand just inside it.
 
 ## Adapt the room to the repo
 
@@ -68,15 +68,15 @@ The client builds it in `web/src/world/rooms/decor.ts`. A model that fails to lo
 leaves the room half-built.
 
 - `base`: the starting scene. Any of the stock ones or `vacia` (empty). In the empty one, the game adds the
-  essentials: the task board (`pantallaRepo` says where), the dweller's desk and the spot for its centrepiece, where
-  the dressing says or in their default place.
+  essentials: the work zone (the task board and the dweller's desk, always in the middle) and the spot for its
+  centrepiece, where the dressing says or on the left.
 - Room style: `subtitulo`, `resumen`, `acento`, `paleta`, `paredes`, `luz` and `espejo`.
 - `piezas`: catalogue models (`pack/nombre`) with position, rotation and size. They can rest on another (`sobre`),
   stick to the wall (`pared`), hang (`y`) or lie down. They can carry a tint (`color`) or glow (`luz`).
 - `carteles`: signs on the back wall. There are no decorative screens: the guide steers dwellers to props with a
   trade (tools, plants, crates, machines) rather than the catalogue's computers and TVs.
-- `puesto`, `pieza`, `aficion` and `lamparas`: where the dweller works, where it uses the centrepiece, its corner and
-  the lights.
+- `puesto` (only what the desk looks like: its spot is fixed), `pieza`, `aficion` and `lamparas`: where the dweller
+  uses the centrepiece, its corner and the lights.
 
 Coordinates in metres: x across the room, y up from the floor, z from the back wall to the cutaway edge, with a
 walkway at the front that stays clear. The exact limits are `LIMITS` in `shared/decor.ts` (the guide tool gives them
@@ -84,9 +84,8 @@ to the dweller).
 
 Rotation is in degrees: 0 faces the player and 180 faces the wall.
 
-Nothing may cover the task board. The review (`reviewDecor`) warns the dweller about pieces near the back wall and
-signs in front of it, and the client leaves them out when it builds the room. It also warns about signs and wall pieces
-behind the room panel.
+Nothing may cover the task board, and no piece may stand in the work zone or on the room panel's corner. The review
+(`reviewDecor`) warns the dweller about them, and the client leaves them out when it builds the room.
 
 Older dressings: their decorative screens (`pantallas`) are dropped when the state loads (`sanitizeDecor`). Their
 props are kept as designed, except what would cover the board. Ask the dweller to adapt the room again for a scene

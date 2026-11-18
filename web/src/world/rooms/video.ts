@@ -1,14 +1,14 @@
-// Sala de repositorio «sala de proyección» (estilo vídeo). Mitad izquierda: cine, con la pantalla grande en alto
+// Sala de repositorio «sala de proyección» (estilo vídeo). Left third: cinema, con la pantalla grande en alto
 // (fotograma y, debajo, la línea de tiempo del render), telón a los lados y dos filas rectas de butacas tapizadas
-// (sillón del pack estrechado: respaldo y brazos de verdad). Mitad derecha: cabina de proyección y montaje, con el
-// proyector colgado (bobinas que giran y haz visible hasta la pantalla), foco de estudio en trípode, mesa de montaje
-// con dos monitores y la claqueta, y el rack de render con sus pilotos.
+// (sillón del pack estrechado: respaldo y brazos de verdad), and the projector hanging beside the task board (bobinas
+// que giran y haz visible hasta la pantalla). Middle: the editing desk with two monitors and the clapperboard, under the
+// task board. Right: the film camera on its tripod and the render rack with its pilots.
 import { t, t as tr } from '@shared/language';
 import * as THREE from 'three';
 import { place, R } from '../../engine/assets';
 import { cartel, PhosphorScreen, PanelRoom, fotograma, TimeLine, lienzo, textureOf, SOURCES } from '../../engine/textures';
 import { overlayScreen, screenFrontal } from '../util3d';
-import { signInWall, mancha, highBand, HEIGHT, screenReal, mountPilots, workStation, lean, aWall, type Contexto } from './common';
+import { signInWall, mancha, highBand, HEIGHT, screenReal, mountPilots, centralDesk, lean, aWall, type Contexto } from './common';
 
 // repinta un modelo con materiales propios: { nombreDeMaterial: color } ('*' para todos los demás)
 function repaint(o: THREE.Object3D, colores: Record<string, string>, rugosidad = 0.85) {
@@ -89,9 +89,9 @@ export async function furnishProjection(ctx: Contexto) {
   const ps: Promise<unknown>[] = [];
   const fotos = [0, 1, 2, 3].map(n => fotograma(n, 640, 360));
 
-  // ================================================================ CINE (mitad izquierda)
-  const cx = -2.7;                      // eje de la pantalla y de las butacas
-  const imgW = 2.84, imgH = 1.6, imgY = 3.22, stripH = 0.3, stripY = 2.24;   // la pantalla va en alto: las cabezas del público quedan por debajo de la línea de tiempo
+  // ================================================================ CINEMA (left third)
+  const cx = -3.85;                     // eje de la pantalla y de las butacas
+  const imgW = 2.3, imgH = 1.3, imgY = 3.22, stripH = 0.3, stripY = 2.24;   // la pantalla va en alto: las cabezas del público quedan por debajo de la línea de tiempo
   const zP = zB + 0.47;
   // marco: un cartel del pack, ensanchado, con la cara en negro mate
   const yUp = imgY + imgH / 2, yBelow = stripY - stripH / 2;
@@ -104,27 +104,27 @@ export async function furnishProjection(ctx: Contexto) {
   const strip = new THREE.Mesh(new THREE.PlaneGeometry(imgW, stripH), new THREE.MeshStandardMaterial({ map: linea.tex, emissiveMap: linea.tex, emissive: '#ffffff', emissiveIntensity: 0.7, color: '#000' }));
   strip.position.set(cx, stripY, zP); g.add(strip);
   // telón a los dos lados (cortina del pack en terciopelo granate)
-  for (const s of [-1, 1]) ps.push(place(g, R.casa('Curtains_Single'), { pos: [cx + s * (imgW / 2 + 0.62), 0, zB + 0.42], alto: 4.0, own: true }).then(o => { o.scale.x *= 0.62; repaint(o, { Couch_Blue: '#5c1724', LightMetal: '#8c6a3c' }, 0.95); }));
+  for (const s of [-1, 1]) ps.push(place(g, R.casa('Curtains_Single'), { pos: [cx + s * (imgW / 2 + 0.42), 0, zB + 0.42], alto: 4.0, own: true }).then(o => { o.scale.x *= 0.62; repaint(o, { Couch_Blue: '#5c1724', LightMetal: '#8c6a3c' }, 0.95); }));
   // la pantalla tiñe un poco la sala (luz de relleno del color del fotograma)
   ctx.sala.anclas.push({ tipo: 'punto', pos: new THREE.Vector3(cx, 2.6, zB + 1.5), intensidad: 6, color: new THREE.Color('#e7a6c8'), distancia: 5, prioridad: 1 });
 
-  // butacas: dos filas rectas encaradas a la pantalla (de espaldas a cámara); la de atrás, de tres
-  const STEP = 0.84;
+  // butacas: dos filas rectas encaradas a la pantalla (de espaldas a cámara); the back one, of two
+  const STEP = 0.8;
   const butaca = (x: number, z: number) => place(g, R.casa('Couch_Small1'), { pos: [x, 0, z], alto: 0.86, rot: Math.PI, own: true })
     .then(o => { o.scale.x = 0.6; repaint(o, { Couch_Blue: '#6e1d2c', Black: '#1b1819' }, 0.9); });
-  const aheadRow = [-1.5, -0.5, 0.5, 1.5].map(k => cx + k * STEP), behindRow = [-1, 0, 1].map(k => cx + k * STEP);
+  const aheadRow = [-1.5, -0.5, 0.5, 1.5].map(k => cx + k * STEP), behindRow = [-0.5, 0.5].map(k => cx + k * STEP);
   ps.push(...aheadRow.map(x => butaca(x, -0.55)), ...behindRow.map(x => butaca(x, 0.72)));
   ctx.sala.obstacles.push(
     new THREE.Box2(new THREE.Vector2(cx - 2 * STEP - 0.05, -1.05), new THREE.Vector2(cx + 2 * STEP + 0.05, -0.05)),
-    new THREE.Box2(new THREE.Vector2(cx - 1.5 * STEP - 0.05, 0.25), new THREE.Vector2(cx + 1.5 * STEP + 0.05, 1.22)));
-  // el habitante, en la butaca central de la fila de atrás, mirando la pantalla
-  ctx.sala.puntos.push({ id: 'butaca', tipo: 'aficion', pos: new THREE.Vector3(cx, 0.05, 0.68), giro: Math.PI, clip: 'Sit_Chair_Idle' });
+    new THREE.Box2(new THREE.Vector2(cx - STEP - 0.05, 0.25), new THREE.Vector2(cx + STEP + 0.05, 1.22)));
+  // the dweller, in a seat of the back row, watching the screen
+  ctx.sala.puntos.push({ id: 'butaca', tipo: 'aficion', pos: new THREE.Vector3(cx + 0.5 * STEP, 0.05, 0.68), giro: Math.PI, clip: 'Sit_Chair_Idle' });
   // latas de película apiladas junto al telón
-  for (let i = 0; i < 3; i++) P(R.sv('Can_Closed'), { pos: [-5.25 + (i % 2) * 0.05, i * 0.1, zB + 1.05], alto: 0.1, ancho: 0.42, rot: i * 0.7, variant: v });
+  for (let i = 0; i < 3; i++) P(R.sv('Can_Closed'), { pos: [-5.55 + (i % 2) * 0.05, i * 0.1, zB + 1.15], alto: 0.1, ancho: 0.42, rot: i * 0.7, variant: v });
 
-  // ================================================================ CABINA DE PROYECCIÓN Y MONTAJE (mitad derecha)
-  // proyector colgado del techo: cuerpo (caja del pack), objetivo apuntando a la pantalla y dos bobinas que giran
-  const PX = 0.35, PY = 3.42, PZ = zB + 1.35;
+  // ================================================================ PROJECTION BOOTH AND EDITING (middle and right)
+  // proyector colgado del techo (beside the task board): cuerpo (caja del pack), objetivo apuntando a la pantalla y dos bobinas que giran
+  const PX = -2.15, PY = 3.6, PZ = zB + 1.35;
   P(R.cy('Support_Short'), { pos: [PX + 0.05, HEIGHT, PZ], alto: HEIGHT - PY - 0.2, anchor: 'techo', sombra: false });
   ps.push(place(g, R.sf('Props_Crate'), { pos: [PX, PY - 0.22, PZ], alto: 0.42, own: true, sombra: false }).then(o => { o.scale.x *= 1.35; repaint(o, { '*': '#2c2a2e' }, 0.6); }));
   const lens = await place(g, R.sf('Details_Cylinder'), { pos: [PX - 0.42, PY - 0.02, PZ], alto: 0.2, rotZ: Math.PI / 2, anchor: 'centro', sombra: false, own: true });
@@ -146,7 +146,7 @@ export async function furnishProjection(ctx: Contexto) {
   // luz rasante sobre la parte alta de la pared de la cabina (que no quede en negro)
   ctx.sala.anclas.push({ tipo: 'foco', pos: new THREE.Vector3(2.4, 4.1, zB + 1.7), goal: new THREE.Vector3(2.4, 2.6, zB), intensidad: 14, color: new THREE.Color('#ffd2a0'), angulo: 0.9, penumbra: 0.8, distancia: 6, prioridad: 0 });
   // cámara de cine en su trípode (tres mástiles de celosía del pack como patas), con las bobinas arriba y el objetivo hacia la sala
-  const TX = 0.45, TZ = zB + 1.3, PATA = 1.4, OPENS = 0.2;
+  const TX = 2.65, TZ = zB + 1.3, PATA = 1.4, OPENS = 0.2;
   for (const ang of [0.3, 0.3 + 2.1, 0.3 + 4.2]) ps.push(place(g, R.cy('Antenna_1'), { pos: [TX + Math.sin(ang) * PATA * Math.sin(OPENS), 0, TZ + Math.cos(ang) * PATA * Math.sin(OPENS)], alto: PATA, own: true }).then(o => {
     o.rotation.order = 'YXZ'; o.rotation.set(-OPENS, ang, 0); repaint(o, { '*': '#3a383c' }, 0.5);
   }));
@@ -169,19 +169,19 @@ export async function furnishProjection(ctx: Contexto) {
   ctx.sala.puntos.push({ id: 'camara', tipo: 'pieza', pos: new THREE.Vector3(TX + 0.72, 0, TZ + 0.55), giro: cameraToward(TX + 0.72, TZ + 0.55),
     acciones: [{ clip: 'Interact', onMake: roll }, { clip: 'Working_B', onMake: roll }, { clip: 'Use_Item', utensil: 'llave' }] });
 
-  // mesa de montaje, de tres cuartos: dos monitores (render y previsualización), teclado, la taza y la claqueta. Es el
-  // puesto de quien trabaja en la sala
-  const MX = 3.0;
+  // the editing desk, in the middle under the task board: two monitors (render and preview), keyboard, the mug and the
+  // clapperboard. It's the desk of whoever works in the room
+  const MX = 3.6;   // the «RENDERING» sign, over the right-hand side
   const pRender = new PhosphorScreen(384, 256, v.pantalla, ' render --final'); pRender.speed = 24;
   screenReal(ctx, pRender, 'actividad'); ctx.sala.pantallas.push(pRender);
-  const puesto = await workStation(ctx, { id: 'montaje', x: MX, z: -1.0, giro: -0.6, pantalla: 'doble', tex: pRender.tex, brillo: 0.55, colorDesk: '#8c7466',
+  const puesto = await centralDesk(ctx, { id: 'montaje', pantalla: 'doble', tex: pRender.tex, brillo: 0.55, colorDesk: '#8c7466',
     encima: [{ ruta: R.mueble('mug_A'), x: -0.78, z: 0.22, c: { escala: K * 0.75 } }] });
   for (const m of puesto.monitors) m.traverse((n: any) => { if (n.isMesh && !n.material.emissiveMap) { n.material = n.material.clone(); n.material.color.set('#34333a'); n.material.roughness = 0.6; } });
   const previous = screenFrontal(puesto.monitors[1], fotos[1], { ancho: 0.84, alto: 0.66, cy: 0.6, dz: -0.02 }, 0.45);
   const clapperboard = lean(await place(puesto.grupo, R.cy('Sign_Small_1'), { pos: [0.72, puesto.alto, 0.12], ancho: 0.3, rot: -0.5, estatico: false, own: true }), puesto.mesa);
   repaint(clapperboard, { '*': '#16161a' }, 0.7);
   overlayScreen(clapperboard, /^Texture_Signs$/, clapperboardTexture(), { brillo: 0.18, margin: 0.96 });
-  ctx.sala.puntos.push({ id: 'consola', tipo: 'consola', pos: new THREE.Vector3(MX - 1.2, 0, zB + 1.85), giro: Math.PI - 0.6, clip: 'Working_A' });
+  ctx.sala.puntos.push({ id: 'consola', tipo: 'consola', pos: new THREE.Vector3(4.15, 0, zB + 1.75), giro: Math.PI - 0.5, clip: 'Working_A' });
 
   // rack de render: dos torres de módulos del pack (cajas con rejilla, como unidades de rack) con sus pilotos
   const pilotos: ((t: number, a: number) => void)[] = [];
@@ -200,7 +200,7 @@ export async function furnishProjection(ctx: Contexto) {
   ctx.sala.obstacles.push(new THREE.Box2(new THREE.Vector2(4.1, zB), new THREE.Vector2(6.0, zB + 1.15)));
   // banda alta solo sobre el rack (el resto de la pared es de la pantalla y los carteles)
   await highBand(ctx, { gauge: 4.35, valves: [5.7], segments: [[5.3, 1.7]] });
-  // cartel luminoso «RENDERIZANDO» sobre la mesa (se enciende cuando la sala trabaja)
+  // the «RENDERING» lit sign over the right-hand side (it lights up when the room works)
   const { c, g: cxx } = lienzo(512, 128);
   const paint = (on: boolean) => { cxx.fillStyle = '#140a0a'; cxx.fillRect(0, 0, 512, 128); cxx.strokeStyle = on ? '#ff4a3a' : '#4a2a2a'; cxx.lineWidth = 8; cxx.strokeRect(6, 6, 500, 116); cxx.fillStyle = on ? '#ff6a52' : '#4a2a2a'; cxx.shadowColor = '#ff4a3a'; cxx.shadowBlur = on ? 22 : 0; cxx.font = `800 64px ${SOURCES.titulo}`; cxx.textAlign = 'center'; cxx.textBaseline = 'middle'; cxx.fillText(tr('world.video.rendering'), 256, 68); cxx.shadowBlur = 0; };
   paint(false); const texNotice = textureOf(c);
@@ -211,14 +211,14 @@ export async function furnishProjection(ctx: Contexto) {
   const framePanel = aWall(g, await place(g, R.cy('Sign_2'), { pos: [5.1, 2.5, zB + 0.5], ancho: 1.2, estatico: false, own: true }));
   overlayScreen(framePanel, /^Texture_Signs$/, panel.tex, { brillo: 0.9, margin: 0.94 });
   ctx.panel = panel;
-  signInWall(g, cartel(t('world.poster.productions'), t('world.poster.productionsFoot'), '#d8c8f0', '#3a2a5a', 'ojo', semilla), 1.35, 1.75, 0.6, 0.84, zB + 0.33, 0.03);
+  signInWall(g, cartel(t('world.poster.productions'), t('world.poster.productionsFoot'), '#d8c8f0', '#3a2a5a', 'ojo', semilla), 3.55, 2.35, 0.55, 0.77, zB + 0.33, 0.03);
 
   await Promise.all(ps);
   mancha(g, 1.2, 1.0, 1.0, semilla + 5);
-  ctx.sala.walkZones = [[0.0, 2.4]];
+  ctx.sala.walkZones = [[-1.9, -1.3], [1.3, 1.9]];
   ctx.vapor = { pos: new THREE.Vector3(5.7, 3.15, zB + 0.85), dir: new THREE.Vector3(-0.3, 0.9, 0.3) };
   ctx.sparks = new THREE.Vector3(5.25, 1.9, zB + 0.9);
-  ctx.lamparas = [{ x: -4.85, z: 1.0, o: { intensidad: 130, corta: true } }, { x: 2.55, z: 0.8, o: { intensidad: 115, sombra: true, corta: true } }, { x: 4.95, z: 0.6, o: { intensidad: 120 } }];
+  ctx.lamparas = [{ x: -4.85, z: 1.0, o: { intensidad: 130, corta: true } }, { x: 0.6, z: 0.8, o: { intensidad: 105, sombra: true, corta: true, goal: [0, -0.6] } }, { x: 4.5, z: 0.6, o: { intensidad: 120 } }];
 
   let k = 0, tChange = 0, encendido = false;
   ctx.alActualizar((dt, t, a) => {

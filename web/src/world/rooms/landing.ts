@@ -1,12 +1,12 @@
-// Sala de repositorio «escaparate» (estilo landing): el tótem muestra la landing que se trabaja bajo el tablero de
-// tareas, con focos de exposición, la mascota de la marca y el sofá de «pruebas de usuario».
+// Sala de repositorio «escaparate» (estilo landing): in the middle the dweller's desk under the task board; left, the
+// product totem showing the landing, with display spotlights; right, the brand's mascot and the «user testing» sofa.
 import { t, t as tr } from '@shared/language';
 import * as THREE from 'three';
 import { place, R } from '../../engine/assets';
 import { cartel, PhosphorScreen, PanelRoom } from '../../engine/textures';
 import { lienzo, textureOf, SOURCES } from '../../engine/textures';
 import { overlayScreen, screenFrontal } from '../util3d';
-import { signInWall, mancha, highBand, screenReal, workStation, superficie, aWall, type Contexto } from './common';
+import { signInWall, mancha, highBand, screenReal, centralDesk, superficie, aWall, type Contexto } from './common';
 
 export async function furnishShowcase(ctx: Contexto) {
   const { g, v, zB, K, P, semilla } = ctx;
@@ -24,11 +24,12 @@ export async function furnishShowcase(ctx: Contexto) {
   const logo = new THREE.Mesh(new THREE.PlaneGeometry(2.5, 0.52), new THREE.MeshStandardMaterial({ map: texLogo, emissiveMap: texLogo, emissive: '#ffffff', emissiveIntensity: 0.9, color: '#000' }));
   logo.position.set(0, 3.93, zB + 0.9); logo.renderOrder = 2; g.add(logo);   // con aire sobre el tablero
   ctx.alActualizar((dt, t) => { (logo.material as THREE.MeshStandardMaterial).emissiveIntensity = 0.85 + (Math.sin(t * 23) > 0.97 ? -0.4 : 0) + Math.sin(t * 2) * 0.05; });
-  // tarima de exposición con el tótem de producto: columna del pack con la landing en pantalla, cajas de producto
-  // a sus pies y dos focos de pie bajos que la apuntan (por debajo del tablero, sin cruzarse con él)
-  const tarima = await place(g, R.sf('Props_Base'), { pos: [0, 0, zB + 1.3], ancho: 1.75 });
-  const yT = superficie(tarima, g, 0, zB + 1.3) ?? 0.29;   // tablero de la tarima, medido
-  const totem = await place(g, R.sf('Props_Computer'), { pos: [0, yT, zB + 1.3], alto: 1.8, estatico: false, own: true, variant: v });
+  // left: the display dais with the product totem (the pack's column with the landing on screen), product boxes at
+  // its feet and two low spotlights pointed at it
+  const cx = -3.65;
+  const tarima = await place(g, R.sf('Props_Base'), { pos: [cx, 0, zB + 1.3], ancho: 1.75 });
+  const yT = superficie(tarima, g, cx, zB + 1.3) ?? 0.29;   // tablero de la tarima, medido
+  const totem = await place(g, R.sf('Props_Computer'), { pos: [cx, yT, zB + 1.3], alto: 1.8, estatico: false, own: true, variant: v });
   // la pantalla del tótem es vertical: la landing en versión móvil (cabecera, titular, botón, imagen y bloques)
   const { c: cTot, g: gTot } = lienzo(200, 560);
   { const G = gTot; G.fillStyle = '#f6d77a'; G.fillRect(0, 0, 200, 560); G.fillStyle = '#2a1c08';
@@ -43,28 +44,28 @@ export async function furnishShowcase(ctx: Contexto) {
   const pTotem = textureOf(cTot);
   const plTotem = overlayScreen(totem, /^Black$/, pTotem, { brillo: 0.6, margin: 0.94 });
   const matsTotem = plTotem ? [plTotem.material as THREE.MeshStandardMaterial] : [];
-  for (const x of [-0.6, 0.6]) ctx.sobre(tarima, R.cy('Light_Square'), { pos: [x, 0, zB + 1.25], alto: 0.5, rot: 0.785 });   // balizas de vitrina
-  ctx.sobre(tarima, R.resource('Containers_Box_Small'), { pos: [0.38, 0, zB + 1.78], alto: 0.22, rot: 0.35 });
-  ctx.sobre(tarima, R.resource('Containers_Box_Small'), { pos: [-0.36, 0, zB + 1.8], alto: 0.18, rot: -0.5 });
-  P(R.casa('Light_Stand1'), { pos: [-1.3, 0, zB + 1.55], alto: 1.5, rot: 0.9 });
-  P(R.casa('Light_Stand1'), { pos: [1.3, 0, zB + 1.55], alto: 1.5, rot: -0.9 });
-  ctx.sala.obstacles.push(new THREE.Box2(new THREE.Vector2(-1.6, zB), new THREE.Vector2(1.6, zB + 2.2)));
+  for (const x of [-0.6, 0.6]) ctx.sobre(tarima, R.cy('Light_Square'), { pos: [cx + x, 0, zB + 1.25], alto: 0.5, rot: 0.785 });   // balizas de vitrina
+  ctx.sobre(tarima, R.resource('Containers_Box_Small'), { pos: [cx + 0.38, 0, zB + 1.78], alto: 0.22, rot: 0.35 });
+  ctx.sobre(tarima, R.resource('Containers_Box_Small'), { pos: [cx - 0.36, 0, zB + 1.8], alto: 0.18, rot: -0.5 });
+  P(R.casa('Light_Stand1'), { pos: [cx - 1.3, 0, zB + 1.55], alto: 1.5, rot: 0.9 });
+  P(R.casa('Light_Stand1'), { pos: [cx + 1.3, 0, zB + 1.55], alto: 1.5, rot: -0.9 });
+  ctx.sala.obstacles.push(new THREE.Box2(new THREE.Vector2(cx - 1.6, zB), new THREE.Vector2(cx + 1.6, zB + 2.2)));
   // la pieza: el tótem. Se toca su pantalla (cambia de versión con un destello), se repasan las notas de diseño o se le
   // da al mando del costado
   let destello = 0;
   const tocar = () => { destello = 1; };
-  const towardTotem = (x: number, z: number) => Math.atan2(0 - x, zB + 1.3 - z);
-  ctx.sala.puntos.push({ id: 'totem', tipo: 'pieza', pos: new THREE.Vector3(0.62, 0, zB + 2.4), giro: towardTotem(0.62, zB + 2.4),
+  const towardTotem = (x: number, z: number) => Math.atan2(cx - x, zB + 1.3 - z);
+  ctx.sala.puntos.push({ id: 'totem', tipo: 'pieza', pos: new THREE.Vector3(cx + 0.62, 0, zB + 2.4), giro: towardTotem(cx + 0.62, zB + 2.4),
     acciones: [{ clip: 'Interact', onMake: tocar }, { clip: 'Holding_A', utensil: 'diario', dur: 4 }, { clip: 'Use_Item', onMake: tocar }] });
-  ctx.sala.puntos.push({ id: 'totem-2', tipo: 'pieza', pos: new THREE.Vector3(-0.62, 0, zB + 2.4), giro: towardTotem(-0.62, zB + 2.4),
+  ctx.sala.puntos.push({ id: 'totem-2', tipo: 'pieza', pos: new THREE.Vector3(cx - 0.62, 0, zB + 2.4), giro: towardTotem(cx - 0.62, zB + 2.4),
     acciones: [{ clip: 'Interact', onMake: tocar }, { clip: 'Waving' }] });
-  // puesto de diseño a la izquierda, de tres cuartos: mesa, monitor con los cambios, teclado, lápices y un cactus
+  // the design desk in the middle, under the task board: monitor with the changes, keyboard, pencils and a cactus
   const pDesign = new PhosphorScreen(384, 256, v.pantalla); pDesign.speed = 30;
   screenReal(ctx, pDesign, 'cambios'); ctx.sala.pantallas.push(pDesign);
-  await workStation(ctx, { id: 'silla', x: -4.0, z: -0.75, giro: 0.8, tex: pDesign.tex,
+  await centralDesk(ctx, { id: 'silla', tex: pDesign.tex,
     encima: [{ ruta: R.mueble('cup_pencils'), x: 0.72, z: -0.22, c: { escala: K * 0.6 } }, { ruta: R.mueble('cactus_small_A'), x: -0.72, z: -0.2, c: { escala: K * 0.7 } }, { ruta: R.mueble('mug_A'), x: -0.6, z: 0.24, c: { escala: K * 0.7, rot: 0.5 } }] });
   P(R.casa('Houseplant_6'), { pos: [-5.5, 0, zB + 0.6], alto: 1.1 });
-  P(R.mueble('shelf_B_large_decorated'), { pos: [-4.6, 2.2, zB + 0.35], escala: K }).then(o => aWall(g, o));
+  P(R.mueble('shelf_B_large_decorated'), { pos: [-2.55, 2.45, zB + 0.35], escala: K * 0.8 }).then(o => aWall(g, o));
   // derecha: sofá de pruebas de usuario frente a una pantalla, con mesa baja y cartel
   P(R.mueble('couch_pillows'), { pos: [4.3, 0, zB + 0.95], escala: K, rot: -0.15, own: true }).then(o => o.traverse((n: any) => { if (n.isMesh) n.material.color.multiplyScalar(0.72); }));   // mostaza apagada
   P(R.mueble('table_low_decorated'), { pos: [4.0, 0, 0.45], escala: K * 0.8, rot: -0.15 });
@@ -81,14 +82,14 @@ export async function furnishShowcase(ctx: Contexto) {
   overlayScreen(framePanel, /^Texture_Signs$/, panel.tex, { brillo: 1.2, margin: 0.94 });
   ctx.panel = panel;
   // detalle de suelo y primer plano
-  P(R.resource('Containers_Box_Small'), { pos: [-5.5, 0, 1.6], escala: K * 0.9, rot: 0.4 });
+  P(R.resource('Containers_Box_Small'), { pos: [-5.6, 0, 1.85], escala: K * 0.9, rot: 0.4 });
   P(R.sv('Can_Red'), { pos: [5.7, 0, 1.75], alto: 0.35 });
   mancha(g, 1.2, 0.6, 1.0, semilla + 3);
-  ctx.sala.walkZones = [[-3.3, -2.7], [2.7, 3.3]];   // a los lados: el tótem del centro queda a la vista
+  ctx.sala.walkZones = [[-1.9, -1.3], [1.3, 1.9]];
   ctx.vapor = { pos: new THREE.Vector3(-4.2, 3.15, zB + 0.85), dir: new THREE.Vector3(0.3, 0.9, 0.3) };
   ctx.sparks = new THREE.Vector3(2.55, 1.4, zB + 0.9);
-  // la lámpara central cuelga a un lado del rótulo: no se cruza con las letras
-  ctx.lamparas = [{ x: -3.8, z: 0.4, o: { intensidad: 80 } }, { x: 1.65, z: 0.8, o: { intensidad: 110, sombra: true, corta: true, goal: [0, -0.9] } }, { x: 3.9, z: 0.5, o: { intensidad: 75 } }];
+  // the middle lamp hangs to one side of the sign, so it doesn't cross the letters
+  ctx.lamparas = [{ x: cx, z: 0.4, o: { intensidad: 80, goal: [cx, -0.9] } }, { x: 1.65, z: 0.8, o: { intensidad: 110, sombra: true, corta: true, goal: [0, -0.9] } }, { x: 3.9, z: 0.5, o: { intensidad: 75 } }];
   let giro = 0;
   ctx.alActualizar((dt, t, a) => {
     giro += dt * (0.35 + a * 1.2); totem.rotation.y = Math.sin(giro * 0.5) * 0.22;   // el tótem oscila hacia uno y otro lado del escaparate

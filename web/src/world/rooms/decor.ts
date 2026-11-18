@@ -6,8 +6,8 @@
 import * as THREE from 'three';
 import { place, type Placement } from '../../engine/assets';
 import { cartel, PhosphorScreen, PanelRoom } from '../../engine/textures';
-import { signInWall, highBand, workStation, screenReal, lean, aWall, centrar, mancha, tumbada, SCALE_KAYKIT, type Furnish, type Contexto, type RoomPoint } from './common';
-import { propsPath, PACKS, coversBoard, BOARD_CLEAR, type Decorado, type DecorPiece, type DecorPoint } from '@shared/decor';
+import { signInWall, highBand, centralDesk, screenReal, lean, aWall, centrar, mancha, tumbada, SCALE_KAYKIT, type Furnish, type Contexto, type RoomPoint } from './common';
+import { propsPath, PACKS, coversBoard, inTheWay, BOARD_CLEAR, type Decorado, type DecorPiece, type DecorPoint } from '@shared/decor';
 
 const G = Math.PI / 180;
 // nombres de material de los packs que son luz: «Screen», «Light», «Fire», «Glass», «Neon»…
@@ -29,25 +29,23 @@ async function mountEmpty(ctx: Contexto, d: Decorado) {
   const b = ctx.tablero ?? { x: 0, y: 2.6, ancho: 3.2, alto: 1.28 };
   const lados = ([[-5.6, b.x - b.ancho / 2 - 0.25], [b.x + b.ancho / 2 + 0.25, 5.6]] as const).filter(([a, z]) => z - a > 1);
   await highBand(ctx, { reloj: b.x > 0 ? -4.9 : 4.9, valves: lados.map(([a, z]) => (a + z) / 2), segments: lados.map(([a, z]) => [(a + z) / 2, z - a] as [number, number]) });
-  // el puesto del habitante (por defecto, a la derecha y de tres cuartos). Su giro es hacia dónde mira quien se sienta
-  // (180: a la pared); el de puestoTrabajo, el de la mesa (0: de espaldas a la cámara)
-  const pu = d.puesto ?? { x: 4.3, z: -0.75, giro: 134 };
-  const deskTurn = ((pu.giro ?? 180) - 180) * G;
+  // the dweller's desk, in the middle under the board (the dressing only chooses how it looks)
+  const pu = d.puesto ?? {};
   const pStation = new PhosphorScreen(384, 256, v.pantalla); pStation.speed = 30;
   screenReal(ctx, pStation, 'actividad'); ctx.sala.pantallas.push(pStation);
   const mesa = pu.mesa ? propsPath(pu.mesa) : null;
-  await workStation(ctx, { x: pu.x, z: pu.z, giro: deskTurn, tex: pStation.tex, pantalla: pu.pantalla ?? 'monitor', ...(mesa ? { mesa } : {}) }).catch(async () => {
-    await workStation(ctx, { x: pu.x, z: pu.z, giro: deskTurn, tex: pStation.tex });   // la mesa pedida no carga: la de siempre
+  await centralDesk(ctx, { tex: pStation.tex, pantalla: pu.pantalla ?? 'monitor', ...(mesa ? { mesa } : {}) }).catch(async () => {
+    await centralDesk(ctx, { tex: pStation.tex });   // la mesa pedida no carga: la de siempre
   });
-  // la pieza protagonista: el habitante va a ella (por defecto, delante del tablero de tareas, que se aviva al usarla)
+  // the centrepiece: the dweller goes to it (by default on the left; the task board brightens when it's used)
   const screen = ctx.sala.userData.tableroTareas?.mesh as THREE.Mesh | undefined;
   const mat = screen?.material as THREE.MeshStandardMaterial | undefined;
-  piecePoint(ctx, d.pieza ?? { x: b.x - 0.5, z: zB + 1.3, giro: 180 }, 'pieza', () => { if (mat) mat.emissiveIntensity = 1.45; });
+  piecePoint(ctx, d.pieza ?? { x: -3.6, z: zB + 1.3, giro: 180 }, 'pieza', () => { if (mat) mat.emissiveIntensity = 1.45; });
   if (mat) ctx.alActualizar(dt => { mat.emissiveIntensity = Math.max(0.95, mat.emissiveIntensity - dt * 0.4); });
   const panel = new PanelRoom(); panel.titulo = d.subtitulo ?? 'TALLER'; panel.color = v.pantalla; ctx.panel = panel;
   mancha(g, -2.0, 1.1, 1.1, ctx.semilla);
-  ctx.sala.walkZones = [[-2.5, 2.5]];
-  const xv = b.x > 0 ? -5.2 : 5.2;   // the steam, on the far side from the board (never across it)
+  ctx.sala.walkZones = [[-3.6, -2.4], [2.4, 3.6]];
+  const xv = 5.2;   // the steam, off the board
   ctx.vapor = { pos: new THREE.Vector3(xv, 3.15, zB + 0.85), dir: new THREE.Vector3(-0.3 * Math.sign(xv), 0.9, 0.3) };
   ctx.lamparas = [{ x: -3.6, z: 0.5, o: { intensidad: 80 } }, { x: b.x, z: 0.9, o: { intensidad: 90, sombra: true, corta: true } }, { x: 3.8, z: 0.5, o: { intensidad: 70 } }];
 }
@@ -88,7 +86,9 @@ async function mountPieces(ctx: Contexto, piezas: DecorPiece[]) {
         if (p.luz) for (const m of ofLight.length ? ofLight : mats) if (m.emissive) { m.emissive = new THREE.Color(p.luz); m.emissiveIntensity = ofLight.length ? 1.6 : 0.22; }
       }
       const box3 = new THREE.Box3().setFromObject(o);
-      // near the back wall and in front of the task board: left out (the review told the dweller, reviewDecor)
+      // in the work zone or on the room panel: left out (the review told the dweller, reviewDecor)
+      if (!soporte && inTheWay(box3.min.x, box3.max.x, box3.min.z, box3.max.z, box3.min.y, ctx.sala.lado)) { o.removeFromParent(); return null; }
+      // near the back wall and in front of the task board: left out
       const tb = ctx.tablero;
       if (tb && box3.min.z < zB + BOARD_CLEAR && coversBoard(tb, (box3.min.x + box3.max.x) / 2, (box3.min.y + box3.max.y) / 2, box3.max.x - box3.min.x - 0.08, box3.max.y - box3.min.y - 0.08)) { o.removeFromParent(); return null; }
       // lo que brilla da un poco de luz de verdad alrededor (pocas: las reparte el juego con las demás)

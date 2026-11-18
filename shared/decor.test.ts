@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { sanitizeDecor, reviewDecor, baseStock, propsPath, isModelProps, decorSignature, templateOf, boardSpot, roomSeed, panelSpot } from './decor';
+import { sanitizeDecor, reviewDecor, baseStock, propsPath, isModelProps, decorSignature, templateOf, boardSpot, panelSpot } from './decor';
 
 describe('decorado de una sala', () => {
   it('sin base válida no hay decorado', () => {
@@ -41,35 +41,32 @@ describe('decorado de una sala', () => {
     expect((decorado as any).pantallas).toBeUndefined();
     expect(avisos.filter(a => /pantallas decorativas|decorative screens/i.test(a)).length).toBe(1);
   });
-  it('el tablero de tareas: el sitio de su escena (espejado con la sala) o, en la vacía, el de pantallaRepo, legible y en la pared vista', () => {
-    const impar = ['a', 'b', 'c', 'd', 'e'].find(id => roomSeed(id) % 2 === 1)!, par = ['a', 'b', 'c', 'd', 'e'].find(id => roomSeed(id) % 2 === 0)!;
-    expect(boardSpot('estudio', impar).x).toBe(-2.9);
-    expect(boardSpot('estudio', par).x).toBe(2.9);
-    expect(boardSpot('estudio', impar, { version: 1, base: 'estudio', espejo: true }).x).toBe(2.9);
-    expect(boardSpot('marca', par).x).toBe(3.95);   // the hand-made scenes don't mirror
-    const v = boardSpot('vacia', 'x', { version: 1, base: 'vacia', pantallaRepo: { x: 5.5, y: 3.05, ancho: 1.3 } });
-    expect(v.ancho).toBe(3);
-    expect(v.x + v.ancho / 2).toBeLessThanOrEqual(5.8);
-    expect(v.y + v.alto / 2).toBeLessThanOrEqual(3.35 + 1e-9);
+  it('the task board and the desk: fixed in the middle of every room; a dressing that places them is told so', () => {
+    for (const base of ['estudio', 'marca', 'vacia'] as const) expect(boardSpot(base, 'x')).toMatchObject({ x: 0, ancho: 3.2 });
+    const b = boardSpot();
+    expect(b.y - b.alto / 2).toBeGreaterThan(1.8); expect(b.y + b.alto / 2).toBeLessThanOrEqual(3.4);
+    const { decorado, avisos } = sanitizeDecor({ base: 'vacia', pantallaRepo: { x: 5.5, y: 3.05, ancho: 1.3 }, puesto: { x: 4, z: -1, pantalla: 'doble' } });
+    expect(decorado).not.toHaveProperty('pantallaRepo');
+    expect(decorado!.puesto).toEqual({ pantalla: 'doble' });
+    expect(avisos.some(a => /sitio fijo|fixed spot/.test(a))).toBe(true);
   });
   it('la revisión avisa de lo que tapa el tablero: piezas junto a la pared y carteles; lo que queda delante, no', () => {
     const tam = () => [1, 2.6, 0.6] as [number, number, number];
     const tablero = boardSpot('vacia', 'x');
     const { decorado } = sanitizeDecor({ base: 'vacia', piezas: [{ modelo: 'cy/Computer_Large', x: 0.5, z: -2 }, { modelo: 'cy/Computer_Large', x: 0.5, z: 0.4 }, { modelo: 'cy/Computer_Large', x: 4.6, z: -2 }],
       carteles: [{ x: 0, y: 2.6, ancho: 0.6, titulo: 'T', lineas: ['A'] }, { x: -4.5, y: 2.6, ancho: 0.6, titulo: 'T', lineas: ['A'] }] });
-    const avisos = reviewDecor(decorado!, tam, tablero).filter(a => /tablero|task board/i.test(a));
+    const avisos = reviewDecor(decorado!, tam, tablero).filter(a => /tapa el tablero|covers the room/i.test(a));
     expect(avisos.length).toBe(2);
     expect(avisos.join(' ')).toMatch(/piezas\[0\]/);
     expect(avisos.join(' ')).toMatch(/carteles\[0\]/);
   });
-  it('the room panel hides a fixed patch by the entrance pillar: signs and wall pieces there get a warning', () => {
+  it('the work zone and the room panel: floor pieces there get a warning; on the sides, high up or on another piece, not', () => {
     expect(panelSpot('izq').x).toBeGreaterThan(4.5); expect(panelSpot('der').x).toBe(-panelSpot('izq').x);
     const p = panelSpot('der');
-    const { decorado } = sanitizeDecor({ base: 'vacia', piezas: [{ modelo: 'mueble/shelf', x: p.x, z: -2.2, y: 1.8, pared: true }, { modelo: 'mueble/shelf', x: 0, z: -2.2, y: 1.8, pared: true }],
-      carteles: [{ x: p.x, y: p.y, ancho: 0.5, titulo: 'T', lineas: ['A'] }, { x: 0, y: 2, ancho: 0.5, titulo: 'T', lineas: ['A'] }] });
-    const avisos = reviewDecor(decorado!, () => [0.8, 0.5, 0.3], undefined, p).filter(a => /panel/i.test(a));
+    const { decorado } = sanitizeDecor({ base: 'vacia', piezas: [{ modelo: 'mueble/shelf', x: 0.8, z: -1.5 }, { modelo: 'mueble/shelf', x: p.x, z: p.z }, { modelo: 'mueble/shelf', x: -3.5, z: -1.5 }, { modelo: 'mueble/lamp', x: 0, z: 0, y: 3.6 }, { modelo: 'mueble/mug', x: -3.5, z: -1.5, sobre: 2 }] });
+    const avisos = reviewDecor(decorado!, () => [0.8, 0.5, 0.4], undefined, 'der').filter(a => /zona de trabajo|work zone|panel de la sala|room panel/i.test(a));
     expect(avisos.length).toBe(2);
-    expect(avisos.join(' ')).toMatch(/piezas\[0\].*carteles\[0\]/);
+    expect(avisos.join(' ')).toMatch(/piezas\[0\].*piezas\[1\]/);
   });
   it('la revisión ve lo que se atraviesa, invade el pasillo o no está en el catálogo', () => {
     const tam = (p: { modelo: string }) => (p.modelo === 'mueble/desk' ? [2, 0.8, 1] as [number, number, number] : p.modelo === 'cy/Computer_Large' ? [1.3, 2.4, 0.7] as [number, number, number] : null);
