@@ -78,7 +78,7 @@ export async function furnishShowcase(ctx: Contexto) {
   // panel de estado de la sala (encima del sofá)
   const panel = new PanelRoom(); panel.titulo = 'ESCAPARATE'; panel.color = v.pantalla;
   const framePanel = aWall(g, await place(g, R.cy('Sign_2'), { pos: [4.5, 3.25, zB + 0.6], ancho: 1.55, estatico: false, own: true }));
-  overlayScreen(framePanel, /^Texture_Signs$/, panel.tex, { brillo: 1.2, margin: 0.94 }); ctx.aparato('panel', framePanel);
+  overlayScreen(framePanel, /^Texture_Signs$/, panel.tex, { brillo: 1.2, margin: 0.94 });
   ctx.panel = panel;
   // detalle de suelo y primer plano
   P(R.resource('Containers_Box_Small'), { pos: [-5.5, 0, 1.6], escala: K * 0.9, rot: 0.4 });

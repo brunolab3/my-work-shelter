@@ -37,10 +37,10 @@ export async function furnishFileMark(ctx: Contexto) {
   P(R.mueble('cabinet_medium_decorated'), { pos: [5.3, 0, zB + 0.5], escala: K * 0.75, rot: -Math.PI / 2 });
   P(R.casa('Houseplant_8'), { pos: [2.1, 0, zB + 1.9], alto: 0.9 });
   ctx.sala.obstacles.push(new THREE.Box2(new THREE.Vector2(2.2, zB), new THREE.Vector2(3.9, zB + 0.75)), new THREE.Box2(new THREE.Vector2(4.9, zB), new THREE.Vector2(6, zB + 1.3)));
-  // panel de estado (entre la librería y el muro) y cartel de humor
+  // state sign (between the bookcase and the wall; decoration: the room panel is roomPanel.ts) and a humour poster
   const panel = new PanelRoom(); panel.titulo = 'MANUAL DE MARCA'; panel.color = v.pantalla;
   const framePanel = aWall(g, await place(g, R.cy('Sign_2'), { pos: [-3.95, 2.45, zB + 0.6], ancho: 1.4, estatico: false, own: true }));
-  overlayScreen(framePanel, /^Texture_Signs$/, panel.tex, { brillo: 1.2, margin: 0.94 }); ctx.aparato('panel', framePanel);
+  overlayScreen(framePanel, /^Texture_Signs$/, panel.tex, { brillo: 1.2, margin: 0.94 });
   ctx.panel = panel;
   signInWall(g, cartel(t('world.poster.brand'), t('world.poster.brandFoot'), '#e9dfc9', '#b8402e', 'mano', semilla), 2.25, 1.6, 0.5, 0.7, zB + 0.33, 0.04);
   P(R.resource('Containers_Box_Medium'), { pos: [-1.2, 0, 1.75], escala: K * 0.8, rot: 0.3 });

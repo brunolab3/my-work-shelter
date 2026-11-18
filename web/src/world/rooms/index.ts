@@ -5,6 +5,7 @@ import { TEMPLATE_SUBTITLE, TEMPLATE_PANELS, furnishFoundry, furnishLaboratory, 
 import { furnishDecor } from './decor';
 import { baseStock, boardSpot, roomSeed, type BaseDecor, type BoardSpot, type Decorado } from '@shared/decor';
 import { mountTaskBoard } from './taskBoard';
+import { withRoomPanel, panelSpot } from './roomPanel';
 import { vivo } from '../../net/client';
 import type { Interactive } from './common';
 import { VARIANTS } from '../../engine/palette';
@@ -94,18 +95,21 @@ async function furnished(sg: SavedRoom): Promise<{ f: Furnish; paneles?: string[
 export async function buildRoom(sg: SavedRoom, numero: number, pasos: { izq: boolean; der: boolean }, rama?: string, falta = false): Promise<Sala> {
   const { f, paneles, sub: subScene, luz } = await furnished(sg);
   const sub = falta ? t('world.folderNotFound') : subScene ? tIs(subScene) : SUBTITLES[sg.tipo] ?? '';
+  const code = numero ? String(numero).padStart(2, '0') : (CODIGO[sg.tipo] ?? '··');
+  // the room's devices; the room panel, always the same monitor at the same spot (roomPanel.ts)
+  const devices = (sg.tipo === 'coordinacion' && !sg.decorado ? DESPLIEGUE : INTERACTIVE[sg.tipo] ?? [{ id: 'panel', x: 0, z: 0, texto: 'Panel de la sala', panel: 'sala' }])
+    .map(i => (i.id === 'panel' ? { ...i, ...panelSpot(sg.lado) } : i));
   const sala = await createRoom({
-    id: sg.id, tipo: sg.tipo, nombre: sg.tipo === 'repo' || sg.tipo === 'coordinacion' && sg.id !== PLANNING_ROOM ? sg.nombre : tIs(sg.nombre), subtitulo: sub, rama: falta ? undefined : rama, numero: numero ? String(numero).padStart(2, '0') : (CODIGO[sg.tipo] ?? '··'),
+    id: sg.id, tipo: sg.tipo, nombre: sg.tipo === 'repo' || sg.tipo === 'coordinacion' && sg.id !== PLANNING_ROOM ? sg.nombre : tIs(sg.nombre), subtitulo: sub, rama: falta ? undefined : rama, numero: code,
     // «espejo» en el decorado: la escena de base, al revés de como sale de serie (se espeja con la paridad de la semilla)
     variant: variantOf(sg), semilla: roomSeed(sg.id, sg.decorado?.espejo), paneles, pasos,
     planta: sg.planta, lado: sg.lado, orden: sg.orden, ruta: sg.ruta, area: sg.area,
-  }, f);
+  }, devices.some(i => i.id === 'panel') ? withRoomPanel(code)(f) : f);
   // misma luz que el taller web en todas: interiores en penumbra cálida con pozas bajo las lámparas
   const fl = luz ?? LIGHT[sg.tipo] ?? 1; if (fl !== 1) for (const a of sala.anclas) a.intensidad *= fl;
   // cada sala, su copia (con las cajas de lo que se ve de cada aparato, medidas al amueblarla)
   const zones: Record<string, THREE.Box3[]> = sala.userData.deviceZones ?? {};
-  const stock = sg.tipo === 'coordinacion' && !sg.decorado ? DESPLIEGUE : undefined;
-  sala.interactive = (stock ?? INTERACTIVE[sg.tipo] ?? [{ id: 'panel', x: -4.6, z: 1.0, texto: 'Panel de la sala', panel: 'sala' }]).map(i => ({ ...i, texto: tIs(i.texto), zones: zones[i.id] }));
+  sala.interactive = devices.map(i => ({ ...i, texto: tIs(i.texto), zones: zones[i.id] }));
   return sala;
 }
 
@@ -135,11 +139,11 @@ const INTERACTIVE: Record<string, Interactive[]> = {
   hidroponia: [{ id: 'cultivos', x: -1.7, z: 1.3, texto: 'Cuidar los cultivos', panel: 'hidroponia' }],
   discoteca: [{ id: 'cabina', x: 0, z: 1.0, texto: 'Cabina del DJ: poner música en Spotify', panel: 'spotify' }],
   chapa: [{ id: 'sillon', x: -1.2, z: 1.0, texto: 'Sentarse en el sillón: cambiar de aspecto', panel: 'chapa' }],
-  puente: [{ id: 'generador', x: -3.9, z: 1.1, texto: 'Reparar el núcleo de energía', panel: 'generador' }, { id: 'panel', x: 4.35, z: 1.0, texto: 'Panel de la sala', panel: 'sala' }],
+  puente: [{ id: 'generador', x: -3.9, z: 1.1, texto: 'Reparar el núcleo de energía', panel: 'generador' }, { id: 'panel', x: 0, z: 0, texto: 'Panel de la sala', panel: 'sala' }],
 };
 
-// la sala de planificación de serie: el panel de la sala y la pantalla del despliegue (desde la consola de la derecha)
-const DESPLIEGUE: Interactive[] = [{ id: 'panel', x: -4.6, z: 1.0, texto: 'Panel de la sala', panel: 'sala' }, { id: 'despliegue', x: 2.75, z: 1.15, texto: 'Plan de despliegue', panel: 'sala', vista: 'despliegue' }];
+// the stock planning room: the room panel and the deployment screen (from the right-hand console)
+const DESPLIEGUE: Interactive[] = [{ id: 'panel', x: 0, z: 0, texto: 'Panel de la sala', panel: 'sala' }, { id: 'despliegue', x: 2.75, z: 1.15, texto: 'Plan de despliegue', panel: 'sala', vista: 'despliegue' }];
 
 const CODIGO: Record<string, string> = { comunicaciones: 'CO', planificacion: 'PL', logistica: 'LG', git: 'CV', puente: 'PM', camara: 'CA', puerta: 'PP', hidroponia: 'HI', galeria: 'GT', discoteca: 'DJ', chapa: 'CP' };
 

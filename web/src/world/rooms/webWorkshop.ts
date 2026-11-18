@@ -60,7 +60,7 @@ export async function furnishTallerWeb(ctx: Contexto) {
   // panel de estado de la sala (en la pared, a la derecha del horno)
   const panel = new PanelRoom(); panel.color = v.pantalla;
   const framePanel = aWall(g, await place(g, R.cy('Sign_2'), { pos: [2.3, 2.15, zB + 0.6], ancho: 1.55, estatico: false, own: true }));
-  overlayScreen(framePanel, /^Texture_Signs$/, panel.tex, { brillo: 1.25, margin: 0.94 }); ctx.aparato('panel', framePanel);
+  overlayScreen(framePanel, /^Texture_Signs$/, panel.tex, { brillo: 1.25, margin: 0.94 });
   // armario de servidores con pilotos (rompe la simetría del centro)
   P(R.sf('Props_Capsule'), { pos: [2.2, 0, zB + 0.55], alto: 1.55 });
   const pilotos = mountPilots(g, new THREE.Vector3(2.2, 0.95, zB + 1.0), v.pantalla);

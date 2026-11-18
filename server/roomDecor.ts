@@ -3,13 +3,13 @@
 // datos (shared/decor.ts), validados aquí antes de guardarlos: nada de lo que escriba el habitante se ejecuta.
 import { createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
-import { sanitizeDecor, reviewDecor, boardSpot, BASES_DECOR, DESCRIPTION_BASE, DECOR_WALLS, DECOR_PALETTES, SIGN_SYMBOLS, GESTURES, LIMITS, PACKS, type BaseDecor, type Decorado, type DecorPiece } from '../shared/decor.ts';
+import { sanitizeDecor, reviewDecor, boardSpot, panelSpot, BASES_DECOR, DESCRIPTION_BASE, DECOR_WALLS, DECOR_PALETTES, SIGN_SYMBOLS, GESTURES, LIMITS, PACKS, type BaseDecor, type Decorado, type DecorPiece } from '../shared/decor.ts';
 import { catalogo, catalogInText, propsModel } from './props.ts';
 import { t, tIs } from '../shared/language.ts';
 import { MCP } from './mcpServers.ts';
 
 export interface CtxDecor {
-  sala(id: string): { id: string; nombre: string; tipo: string; ruta?: string; estilo?: string; decorado?: Decorado } | undefined;
+  sala(id: string): { id: string; nombre: string; tipo: string; ruta?: string; estilo?: string; lado: 'izq' | 'der'; decorado?: Decorado } | undefined;
   /** la plantilla que lleva la sala sin decorado (fundición, laboratorio…) */
   plantilla(id: string): string;
   guardar(id: string, d: Decorado | null): void;
@@ -60,7 +60,9 @@ export function mcpDecor(salaId: string, ctx: CtxDecor) {
         async () => {
           const s = sala();
           const b = boardSpot(s.decorado?.base ?? ctx.plantilla(salaId) as BaseDecor, salaId, s.decorado);
-          const tablero = t('tool.decor.yourBoard', { x: b.x.toFixed(2), y: b.y.toFixed(2), ancho: b.ancho.toFixed(2), alto: b.alto.toFixed(2) });
+          const pn = panelSpot(s.lado);
+          const tablero = t('tool.decor.yourBoard', { x: b.x.toFixed(2), y: b.y.toFixed(2), ancho: b.ancho.toFixed(2), alto: b.alto.toFixed(2) })
+            + '\n' + t('tool.decor.yourPanel', { x: pn.x.toFixed(2), y: pn.y.toFixed(2), ancho: pn.ancho.toFixed(2), alto: pn.alto.toFixed(2) });
           return texto(`${decorGuide()}\n\n${t('tool.decor.yourRoom', { nombre: s.nombre, ruta: s.ruta ?? '—' })}\n${tablero}\n` + (s.decorado
             ? `${t('tool.decor.currentDecor')}\n${JSON.stringify(s.decorado)}`
             : t('tool.decor.noDecor', { plantilla: ctx.plantilla(salaId), descripcion: tIs(DESCRIPTION_BASE[ctx.plantilla(salaId) as keyof typeof DESCRIPTION_BASE] ?? '') })));
@@ -78,7 +80,7 @@ export function mcpDecor(salaId: string, ctx: CtxDecor) {
           sala();
           const { decorado: d, avisos } = sanitizeDecor(decorado);
           if (!d) return { ...texto(t('tool.decor.notApplied', { avisos: avisos.join(' ') })), isError: true };
-          const revision = reviewDecor(d, sizeOf, boardSpot(d.base, salaId, d));
+          const revision = reviewDecor(d, sizeOf, boardSpot(d.base, salaId, d), panelSpot(sala().lado));
           ctx.guardar(salaId, d); aplicado = Date.now();
           return texto([t('tool.decor.applied'), ...(avisos.length ? [t('tool.decor.fixedOnValidate'), ...avisos.map(a => '- ' + a)] : []), ...(revision.length ? [t('tool.decor.looksWrong'), ...revision.map(a => '- ' + a)] : []), t('tool.decor.lookWithView')].join('\n'));
         }, { alwaysLoad: true }),

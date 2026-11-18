@@ -26,6 +26,7 @@ export const WORLD: Record<string, Texto> = {
   'world.musicToWorkTo': { es: 'Música para currar', en: 'Music to work to' },
   'world.barberAndTailor': { es: 'Barbería y ropería', en: 'Barber and tailor' },
   'world.planAndAssignTasks': { es: 'Planificar y repartir tareas', en: 'Plan and assign tasks' },
+  'world.roomPanel.title': { es: 'PANEL DE LA SALA', en: 'ROOM PANEL' },
   'world.folderNotFound': { es: 'CARPETA NO ENCONTRADA', en: 'FOLDER NOT FOUND' },
   'world.webWorkshop': { es: 'TALLER WEB', en: 'WEB WORKSHOP' },
   'world.showcase': { es: 'ESCAPARATE', en: 'SHOWCASE' },

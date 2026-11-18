@@ -121,9 +121,9 @@ export async function furnishDeployment(ctx: Contexto) {
   const screen = new THREE.Mesh(new THREE.PlaneGeometry(5.3, 2.35), new THREE.MeshStandardMaterial({ map: tablero.tex, emissiveMap: tablero.tex, emissive: '#ffffff', emissiveIntensity: 1.0, color: '#000' }));
   screen.position.set(0, YT, zB + 0.43); g.add(screen);
   screen.userData.interactivo = 'despliegue'; screen.userData.vista = 'despliegue';   // un clic en la pantalla abre el tablero (shelter.ts, clic)
-  // a la izquierda, el panel de la sala en un monitor de pared y el puesto del planificador, con lo que hace en su pantalla
+  // on the left, the room's state on a wall monitor (decoration: the room panel is roomPanel.ts) and the planner's desk
   const panel = new PanelRoom(); panel.titulo = 'LOGÍSTICA'; panel.color = v.pantalla; ctx.panel = panel;
-  ctx.aparato('panel', await monitorWall(ctx, -4.6, 2.3, 1.1, panel.tex, 1.2, 0.2));
+  await monitorWall(ctx, -4.6, 2.3, 1.1, panel.tex, 1.2, 0.2);
   const pStation = new PhosphorScreen(384, 256, v.pantalla); pStation.speed = 24; screenReal(ctx, pStation, 'actividad'); ctx.sala.pantallas.push(pStation);
   await workStation(ctx, { id: 'puesto', x: -3.05, z: -0.7, giro: 0.8, tex: pStation.tex, silla: R.mueble('chair_desk_A'),
     encima: [{ ruta: R.herr('blueprint'), x: -0.55, z: 0.25, c: { ancho: 0.45, rot: 0.15 } }, { ruta: R.mueble('mug_A'), x: 0.7, z: 0.15, c: { escala: K * 0.7 } }] });

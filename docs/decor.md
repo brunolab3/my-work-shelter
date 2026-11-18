@@ -25,6 +25,14 @@ It hangs at a fixed spot per scene (`boardSpot` in `shared/decor.ts`: each stock
 in the empty room, where the dressing puts `pantallaRepo`, at least 3 m wide). Stock scenes keep it clear, and their
 only other screen is the dweller's desk monitor.
 
+## The room panel
+
+Every repo room (and the planning room and the Command Bridge) opens its room panel from the same monitor
+(`web/src/world/rooms/roomPanel.ts`): in front of the scene, by the front pillar on the entrance side (the lift's), the
+same size and height everywhere; only its colours follow the room. Scenes don't place it and dressings can't move it;
+what it hides of the back wall is `panelSpot` in `shared/decor.ts`, so the review warns about signs and wall pieces
+there.
+
 ## Adapt the room to the repo
 
 From the room panel (E next to it) or with ⌘K, "Adapt the room to the repo" asks its dweller to design it a scene of
@@ -77,7 +85,8 @@ to the dweller).
 Rotation is in degrees: 0 faces the player and 180 faces the wall.
 
 Nothing may cover the task board. The review (`reviewDecor`) warns the dweller about pieces near the back wall and
-signs in front of it, and the client leaves them out when it builds the room.
+signs in front of it, and the client leaves them out when it builds the room. It also warns about signs and wall pieces
+behind the room panel.
 
 Older dressings: their decorative screens (`pantallas`) are dropped when the state loads (`sanitizeDecor`). Their
 props are kept as designed, except what would cover the board. Ask the dweller to adapt the room again for a scene
@@ -101,6 +110,6 @@ uses any more goes to the macOS Trash. Your own folders are never touched.
 against a test shelter (`SHELTER_DATOS`, `SHELTER_PUERTO`). It checks that the room ends up with a dressing and saves a
 photo.
 
-Format tests are in `shared/decor.test.ts` and catalogue tests in `server/props.test.ts`. The task board:
+Room panel QA: `scripts/qa-room-panel.mjs <url> [folder]` (test shelter). Format tests are in `shared/decor.test.ts` and catalogue tests in `server/props.test.ts`. The task board:
 `shared/roomBoard.test.ts` and `scripts/qa-room-board.mjs <url> <png> [sala]` (test shelter, a room with two
 worktrees: states, a live new worktree and clicks on rows; nothing reaches Claude Code, GitHub or Jira).

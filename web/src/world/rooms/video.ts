@@ -209,7 +209,7 @@ export async function furnishProjection(ctx: Contexto) {
   // panel de la cola de render, en la pared sobre el rack (sobre la mesa, el tablero de tareas)
   const panel = new PanelRoom(); panel.titulo = 'COLA DE RENDER'; panel.color = v.pantalla;
   const framePanel = aWall(g, await place(g, R.cy('Sign_2'), { pos: [5.1, 2.5, zB + 0.5], ancho: 1.2, estatico: false, own: true }));
-  overlayScreen(framePanel, /^Texture_Signs$/, panel.tex, { brillo: 0.9, margin: 0.94 }); ctx.aparato('panel', framePanel);
+  overlayScreen(framePanel, /^Texture_Signs$/, panel.tex, { brillo: 0.9, margin: 0.94 });
   ctx.panel = panel;
   signInWall(g, cartel(t('world.poster.productions'), t('world.poster.productionsFoot'), '#d8c8f0', '#3a2a5a', 'ojo', semilla), 1.35, 1.75, 0.6, 0.84, zB + 0.33, 0.03);
 

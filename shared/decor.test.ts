@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { sanitizeDecor, reviewDecor, baseStock, propsPath, isModelProps, decorSignature, templateOf, boardSpot, roomSeed } from './decor';
+import { sanitizeDecor, reviewDecor, baseStock, propsPath, isModelProps, decorSignature, templateOf, boardSpot, roomSeed, panelSpot } from './decor';
 
 describe('decorado de una sala', () => {
   it('sin base válida no hay decorado', () => {
@@ -61,6 +61,15 @@ describe('decorado de una sala', () => {
     expect(avisos.length).toBe(2);
     expect(avisos.join(' ')).toMatch(/piezas\[0\]/);
     expect(avisos.join(' ')).toMatch(/carteles\[0\]/);
+  });
+  it('the room panel hides a fixed patch by the entrance pillar: signs and wall pieces there get a warning', () => {
+    expect(panelSpot('izq').x).toBeGreaterThan(4.5); expect(panelSpot('der').x).toBe(-panelSpot('izq').x);
+    const p = panelSpot('der');
+    const { decorado } = sanitizeDecor({ base: 'vacia', piezas: [{ modelo: 'mueble/shelf', x: p.x, z: -2.2, y: 1.8, pared: true }, { modelo: 'mueble/shelf', x: 0, z: -2.2, y: 1.8, pared: true }],
+      carteles: [{ x: p.x, y: p.y, ancho: 0.5, titulo: 'T', lineas: ['A'] }, { x: 0, y: 2, ancho: 0.5, titulo: 'T', lineas: ['A'] }] });
+    const avisos = reviewDecor(decorado!, () => [0.8, 0.5, 0.3], undefined, p).filter(a => /panel/i.test(a));
+    expect(avisos.length).toBe(2);
+    expect(avisos.join(' ')).toMatch(/piezas\[0\].*carteles\[0\]/);
   });
   it('la revisión ve lo que se atraviesa, invade el pasillo o no está en el catálogo', () => {
     const tam = (p: { modelo: string }) => (p.modelo === 'mueble/desk' ? [2, 0.8, 1] as [number, number, number] : p.modelo === 'cy/Computer_Large' ? [1.3, 2.4, 0.7] as [number, number, number] : null);

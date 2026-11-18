@@ -123,6 +123,15 @@ export const BOARD_CLEAR = 1.2;
 export const coversBoard = (b: BoardSpot, x: number, y: number, w: number, h: number) =>
   Math.abs(x - b.x) < (w + b.ancho) / 2 + 0.04 && Math.abs(y - b.y) < (h + b.alto) / 2 + 0.04;
 
+/** The room panel (web/src/world/rooms/roomPanel.ts): one monitor in front of the scene, by the pillar of the entrance
+ *  side (the lift's: right in the left-hand rooms, left in the right-hand ones), the same in every room. Nothing can
+ *  cover it, but it hides what is behind it: `panelSpot` is that patch of the back wall */
+export const ROOM_PANEL = { ancho: 1.12, alto: 0.84, y: 2.15, borde: 0.16 } as const;
+export function panelSpot(lado: 'izq' | 'der'): BoardSpot {
+  const x = (lado === 'izq' ? 1 : -1) * (6 - ROOM_PANEL.ancho / 2 - ROOM_PANEL.borde);   // 6: the room's half width
+  return { x, y: ROOM_PANEL.y, ancho: ROOM_PANEL.ancho + 0.2, alto: ROOM_PANEL.alto + 0.2 };
+}
+
 const num = (v: unknown): number | undefined => (typeof v === 'number' && Number.isFinite(v) ? v : typeof v === 'string' && v.trim() && Number.isFinite(Number(v)) ? Number(v) : undefined);
 const color = (v: unknown) => (typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v.trim()) ? v.trim().toLowerCase() : undefined);
 // texto de un cartel o una pantalla: una línea, sin caracteres de control, recortado
@@ -237,9 +246,9 @@ export function sanitizeDecor(d: unknown): { decorado: Decorado | null; avisos: 
 }
 
 /** Lo que se ve mal aunque sea válido: piezas en el pasillo o fuera de la sala, colgadas en el aire, carteles que se
- *  pisan o que tapan el tablero de tareas (`tablero`: boardSpot de la sala). `tam` da el tamaño (ancho, alto, fondo) de
- *  cada modelo en metros a la escala pedida. */
-export function reviewDecor(d: Decorado, tam: (p: DecorPiece) => [number, number, number] | null, tablero?: BoardSpot): string[] {
+ *  pisan o que tapan el tablero de tareas (`tablero`: boardSpot de la sala), y carteles o piezas de pared detrás del panel
+ *  de la sala (`panel`: panelSpot). `tam` da el tamaño (ancho, alto, fondo) de cada modelo en metros a la escala pedida. */
+export function reviewDecor(d: Decorado, tam: (p: DecorPiece) => [number, number, number] | null, tablero?: BoardSpot, panel?: BoardSpot): string[] {
   const avisos: string[] = [];
   const cajas: { i: number; x0: number; x1: number; z0: number; z1: number; alto: number }[] = [];
   (d.piezas ?? []).forEach((p, i) => {
@@ -256,6 +265,7 @@ export function reviewDecor(d: Decorado, tam: (p: DecorPiece) => [number, number
     if (p.sobre === undefined && !p.y && h > 0.25) cajas.push({ i, x0, x1, z0, z1, alto: h });
     // near the back wall and in front of the board: the game leaves it out (web/src/world/rooms/decor.ts)
     if (tablero && z0 < WALL_Z + BOARD_CLEAR && coversBoard(tablero, p.x, (p.y ?? 0) + h / 2, ax, h)) avisos.push(tr('tool.decor.check.coversBoard', { que: `piezas[${i}] ${p.modelo}` }));
+    if (panel && p.pared && coversBoard(panel, p.x, (p.y ?? 0) + h / 2, ax, h)) avisos.push(tr('tool.decor.check.behindPanel', { que: `piezas[${i}] ${p.modelo}` }));
   });
   for (let a = 0; a < cajas.length; a++) for (let b = a + 1; b < cajas.length; b++) {
     const A = cajas[a], B = cajas[b];
@@ -264,6 +274,7 @@ export function reviewDecor(d: Decorado, tam: (p: DecorPiece) => [number, number
   }
   const inWall = (d.carteles ?? []).map((c, i) => ({ que: `carteles[${i}]`, x: c.x, y: c.y, w: c.ancho, h: c.ancho * 720 / 512 }));
   if (tablero) for (const c of inWall) if (coversBoard(tablero, c.x, c.y, c.w, c.h)) avisos.push(tr('tool.decor.check.coversBoard', { que: c.que }));
+  if (panel) for (const c of inWall) if (coversBoard(panel, c.x, c.y, c.w, c.h)) avisos.push(tr('tool.decor.check.behindPanel', { que: c.que }));
   for (let a = 0; a < inWall.length; a++) for (let b = a + 1; b < inWall.length; b++) {
     const A = inWall[a], B = inWall[b];
     if (Math.abs(A.x - B.x) < (A.w + B.w) / 2 - 0.05 && Math.abs(A.y - B.y) < (A.h + B.h) / 2 - 0.05) avisos.push(tr('tool.decor.check.overlapWall', { a: A.que, b: B.que }));
