@@ -22,7 +22,8 @@ export const spotOf = (s: string) => {
   return limpio;
 };
 
-/** The task's epic: its parent, only when that is an epic (type Epic or hierarchy level 1; a subtask's parent is a task) */
+/** The task's epic: its parent, only when that is an epic (type Epic or hierarchy level 1; a subtask's parent is a task).
+ * Also takes the issue itself, so an epic on the board is its own epic */
 export function epicOf(parent: any): Epic | undefined {
   const tipo = parent?.fields?.issuetype;
   if (!parent?.key || !(tipo?.hierarchyLevel === 1 || /^epic$/i.test(tipo?.name ?? ''))) return undefined;
@@ -31,12 +32,12 @@ export function epicOf(parent: any): Epic | undefined {
 
 export function jiraTasks(j: any, sitio: string): TaskJira[] {
   return (j?.issues ?? []).filter((x: any) => x?.key && x.fields).map((x: any): TaskJira => {
-    const f = x.fields, cat = f.status?.statusCategory?.key;
+    const f = x.fields, cat = f.status?.statusCategory?.key, epica = epicOf(x) ?? epicOf(f.parent);
     return {
       clave: x.key, titulo: f.summary ?? '', url: `https://${sitio}/browse/${x.key}`,
       estado: f.status?.name ?? '?', categoria: (['new', 'indeterminate', 'done'].includes(cat) ? cat : 'indeterminate') as Category,
       tipo: f.issuetype?.name, prioridad: f.priority?.name, proyecto: f.project?.name, actualizada: Date.parse(f.updated) || 0,
-      ...(epicOf(f.parent) ? { epica: epicOf(f.parent) } : {}),
+      ...(epica ? { epica } : {}),
     };
   });
 }

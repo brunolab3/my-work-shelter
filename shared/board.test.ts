@@ -41,6 +41,9 @@ describe('tasks grouped by epic', () => {
   it('epics in the order of their first task, tasks without one last, the rest keeps its order', () => {
     expect(byEpic([de('A-1'), de('A-2', 'E-2'), de('A-3', 'E-1'), de('A-4', 'E-2'), de('A-5')]).map(t => t.clave)).toEqual(['A-2', 'A-4', 'A-3', 'A-1', 'A-5']);
   });
+  it('an epic on the board heads its own group', () => {
+    expect(byEpic([de('A-1', 'E-1'), de('A-2'), de('E-1', 'E-1'), de('A-3', 'E-1')]).map(t => t.clave)).toEqual(['E-1', 'A-1', 'A-3', 'A-2']);
+  });
   it('each column of the board comes grouped', () => {
     const r = cruzarTablero([de('A-1'), de('A-2', 'E-1'), de('A-3'), de('A-4', 'E-1')], []);
     expect(r.columnas.find(c => c.id === 'enCurso')!.tareas.map(t => t.clave)).toEqual(['A-2', 'A-4', 'A-1', 'A-3']);

@@ -332,6 +332,10 @@ describe('Jira epics', () => {
     expect('epica' in b).toBe(false);
     expect('epica' in c).toBe(false);
   });
+  it('an epic on the board is its own epic', () => {
+    const [e] = jiraTasks({ issues: [{ key: 'tal-1', fields: { summary: 'The epic', issuetype: { name: 'Epic', hierarchyLevel: 1 }, status: { name: 'To Do', statusCategory: { key: 'new' } } } }] }, 'taller.atlassian.net');
+    expect(e.epica).toEqual({ clave: 'TAL-1', titulo: 'The epic' });
+  });
 });
 
 describe('Jira', () => {

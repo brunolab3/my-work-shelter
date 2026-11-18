@@ -81,12 +81,13 @@ export function transitionsTo(trs: JiraTransition[], columna: BoardColumn, actua
 
 // «Hecho» solo enseña lo que se movió en la última semana (Jira trae dos, server/integrations/jira.ts)
 export const DONE_DAYS = 7;
-// Within a column, tasks of the same epic go together: epics in the order their first task comes, tasks without one last
-export function byEpic<T extends { epica?: Epic }>(tareas: T[]): T[] {
+// Within a column, tasks of the same epic go together (the epic first): epics in the order their first task comes, tasks without one last
+export function byEpic<T extends { clave: string; epica?: Epic }>(tareas: T[]): T[] {
   const orden = new Map<string, number>();
   for (const t of tareas) if (t.epica && !orden.has(t.epica.clave)) orden.set(t.epica.clave, orden.size);
   const pos = (t: T) => t.epica ? orden.get(t.epica.clave)! : orden.size;
-  return tareas.map((t, i) => ({ t, i })).sort((a, b) => pos(a.t) - pos(b.t) || a.i - b.i).map(x => x.t);
+  const isEpic = (t: T) => t.epica && t.clave.toUpperCase() === t.epica.clave ? 0 : 1;   // the epic itself heads its group
+  return tareas.map((t, i) => ({ t, i })).sort((a, b) => pos(a.t) - pos(b.t) || isEpic(a.t) - isEpic(b.t) || a.i - b.i).map(x => x.t);
 }
 
 export function cruzarTablero(tareas: TaskJira[], prs: PRBoard[], ahora = Date.now()) {
