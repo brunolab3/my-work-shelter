@@ -407,8 +407,8 @@ export function TalkerRow({ q, actual, sel, option, onClick, onMouseEnter }: { q
       className={'barra-asomo-fila' + (q.x.copia ? ' de-copia' : '') + (actual ? ' actual' : '') + (sel ? ' sel' : '') + (q.estado === 'esperando' ? ' urgente' : '') + (q.estado === 'sinLeer' ? ' sin-leer' : '') + (q.estado ? ' e-' + q.estado : '')}>
       <span className={'piloto ' + (q.estado ? PILOT[q.estado] : 'apagado')} />
       <TalkerBust x={q.x} />
-      <span className="barra-asomo-estado">{q.estado ? stateLabel(q.estado) : t('windows.noSession')}</span>
       <span className="barra-asomo-titulo">{q.borrador && <DraftMark />}<b>{q.nombre}</b></span>
+      <span className="barra-asomo-estado">{q.estado ? stateLabel(q.estado) : t('windows.noSession')}</span>
       <small className="barra-asomo-cuando">{q.ses.length ? hace(Math.max(...q.ses.map(s => s.actualizada))) : ''}</small>
     </button>
   );
