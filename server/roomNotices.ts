@@ -1,7 +1,7 @@
 // Mensajes entre salas: cualquier habitante le pasa algo al de otra sala con send_to_room (un servidor MCP en proceso en
 // cada conversación). With a task key (ABC-123, or a descriptive slug outside Jira: preflight-popover), always a
 // conversation with the task's history: its open one if idle; if busy, a read-only fork of it that answers and passes
-// code changes back to it, queued; with none open, the last one in the task's worktree, resumed; with none there, a new
+// code changes back to it, queued (one fork per conversation: while it is open, the next messages queue in it); with none open, the last one in the task's worktree, resumed; with none there, a new
 // one in it (and if the room has no worktree for it yet, in a new one with the key in its name, so the task's next
 // messages land there). Sin
 // clave, una conversación nueva con el habitante en su copia principal; the same conversation's next messages to that room
@@ -73,7 +73,10 @@ const seguimientos = new Map<string, { sesion: string; respuesta: boolean }>();
 // the forks a busy task conversation got (fork → original): what they send to their own room with the task's key
 // queues in the original, and the task's messages go to the original, not to them
 const bifurcaciones = new Map<string, string>();
-export const forgetThreads = () => { hilos.clear(); seguimientos.clear(); bifurcaciones.clear(); };
+// each busy conversation's last fork (original → fork): while it is open, the task's next messages go to it (queued if it
+// is busy) instead of opening another, so a task never has more than one
+const ultimoFork = new Map<string, string>();
+export const forgetThreads = () => { hilos.clear(); seguimientos.clear(); bifurcaciones.clear(); ultimoFork.clear(); };
 const threadOf = (h: string) => { const x = h.trim().toLowerCase(); return /^[a-z0-9]+(-[a-z0-9]+)*$/.test(x) && x.length <= 40 ? x : undefined; };
 
 // the worktree of a task among a room's: its key in its folder name or its branch (shared/tasks.ts: worktreeHasTask)
@@ -123,9 +126,13 @@ export async function sendToRoom(ctx: CtxRooms, desde: string, { sala, mensaje, 
   // a thread's conversation, while open and never the sender itself (sesiones.enviar queues it if it's busy)
   const delHilo = hilo ? hilos.get(`${destino.id}/${hilo}`) : undefined;
   if (como) { /* followed up or replied */ }
+  else if (abierta && ocupada && ultimoFork.has(abierta) && ctx.avisar(ultimoFork.get(abierta)!, texto)) {
+    // busy, and its fork still open: to that fork, queued if it is busy too (one fork per conversation at most)
+    recibe = ultimoFork.get(abierta); como = tr('tool.rooms.toSameFork', { clave: k! });
+  }
   else if (abierta && ocupada && ctx.bifurcar) {
     // busy: a read-only fork answers, and the original keeps working; if it can't start, the message queues there
-    try { recibe = await ctx.bifurcar(destino.id, abierta, [texto, '', tr('prompt.room.fork', { salaId: destino.id, clave: k! })].join('\n')); bifurcaciones.set(recibe, abierta); como = tr('tool.rooms.toFork', { clave: k! }); }
+    try { recibe = await ctx.bifurcar(destino.id, abierta, [texto, '', tr('prompt.room.fork', { salaId: destino.id, clave: k! })].join('\n')); bifurcaciones.set(recibe, abierta); ultimoFork.set(abierta, recibe); como = tr('tool.rooms.toFork', { clave: k! }); }
     catch (e) { if (ctx.avisar(abierta, texto)) { recibe = abierta; como = tr('tool.rooms.toOpenQueued', { clave: k!, error: (e as Error).message }); } }
   }
   else if (abierta && ctx.avisar(abierta, texto)) { como = tr(original ? 'tool.rooms.toOriginal' : 'tool.rooms.toOpen', { clave: k! }); recibe = abierta; }

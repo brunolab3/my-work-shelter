@@ -270,19 +270,42 @@ describe('mensajes entre salas', () => {
     expect(x.avisados.at(-1)!.sesionId).toBe('ses-express');
   });
 
-  it('a fork is never the task\'s conversation: the next messages go to the original (forked again while busy, delivered once idle)', async () => {
+  it('a fork is never the task\'s conversation: the next messages go to the original (its open fork while busy, delivered once idle)', async () => {
     const abiertas: Record<string, string> = { 'pagos/ABC-8': 'ses-tarea' }, ocupadas = new Set(['ses-tarea']);
     const x = ctx({ abiertas, ocupadas });
     await sendToRoom(x.c, 'express', { sala: 'pagos', clave: 'ABC-8', mensaje: 'a' });
     abiertas['pagos/ABC-8'] = 'fork-1';   // the fork is now the most recent conversation in the worktree
     await sendToRoom(x.c, 'express', { sala: 'pagos', clave: 'ABC-8', mensaje: 'b' });
-    expect(x.forks.map(f => f.de)).toEqual(['ses-tarea', 'ses-tarea']);
+    expect(x.forks.map(f => f.de)).toEqual(['ses-tarea']);
+    expect(x.avisados.map(a => a.sesionId)).toEqual(['fork-1']);
     ocupadas.clear();
     const r = await sendToRoom(x.c, 'tareas', { sala: 'pagos', clave: 'ABC-8', mensaje: 'c' });
     expect(r.texto).toContain('conversación abierta de ABC-8');
-    expect(x.avisados.map(a => a.sesionId)).toEqual(['ses-tarea']);
+    expect(x.avisados.map(a => a.sesionId)).toEqual(['fork-1', 'ses-tarea']);
     // the original itself writing with its key is still its own conversation
     expect((await sendToRoom(x.c, 'pagos', { sala: 'pagos', clave: 'ABC-8', mensaje: 'd' }, 'ses-tarea')).ok).toBe(false);
+  });
+
+  it('with a key and its conversation busy: one fork at most, the next messages queue in it until it closes', async () => {
+    const cerradas = new Set<string>(), ocupadas = new Set(['ses-tarea', 'fork-1']), reloj = { t: 1_000_000 };
+    const x = ctx({ abiertas: { 'pagos/ABC-9': 'ses-tarea' }, ocupadas, cerradas, reloj });
+    await sendToRoom(x.c, 'express', { sala: 'pagos', clave: 'ABC-9', mensaje: 'el PoC' });
+    // second and third message while the original is busy (and the fork too): to the same fork, queued
+    const r2 = await sendToRoom(x.c, 'express', { sala: 'pagos', clave: 'ABC-9', mensaje: 'escribe el plan' });
+    const r3 = await sendToRoom(x.c, 'express', { sala: 'pagos', clave: 'ABC-9', mensaje: 'aprobado' });
+    expect(r2.texto).toContain('que ya contesta');
+    expect(r3.ok).toBe(true);
+    expect(x.forks).toHaveLength(1);
+    expect(x.avisados.map(a => [a.sesionId, a.texto.includes('aprobado')])).toEqual([['fork-1', false], ['fork-1', true]]);
+    // the fork closed: the next message opens a new one
+    cerradas.add('fork-1');
+    reloj.t += 61_000;
+    await sendToRoom(x.c, 'express', { sala: 'pagos', clave: 'ABC-9', mensaje: 'otra cosa' });
+    expect(x.forks.map(f => f.de)).toEqual(['ses-tarea', 'ses-tarea']);
+    // and the one after, to that new fork
+    await sendToRoom(x.c, 'express', { sala: 'pagos', clave: 'ABC-9', mensaje: 'y otra' });
+    expect(x.forks).toHaveLength(2);
+    expect(x.avisados.at(-1)!.sesionId).toBe('fork-2');
   });
 
   it('with a key and its conversation busy, if no fork can start: queued in it, and the answer says why', async () => {
