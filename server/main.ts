@@ -423,7 +423,7 @@ async function takeRoot() {
   // las ocultas de fuera de la nueva raíz se olvidan (como las retiradas); las de dentro siguen sin volver
   if (e.ocultas?.some(o => !o.sala.ruta?.startsWith(raiz + path.sep))) almacen.cambiar(x => { x.ocultas = x.ocultas?.filter(o => o.sala.ruta?.startsWith(raiz + path.sep)); });
   for (const c of sugerencias(e.raizRepos, takenFolders(e))) {
-    if (!c.isGit && ((await infoRepo(c.ruta)).subrepos?.length ?? 0) < 2) continue;
+    if (c.grupo || !c.isGit && ((await infoRepo(c.ruta)).subrepos?.length ?? 0) < 2) continue;
     try { await addRoom(c.ruta); } catch (err) { console.error(`No pude meter ${c.ruta} en el refugio:`, (err as Error).message); }
   }
   broadcast({ t: 'estado', estado: almacen.estado as any }); broadcast({ t: 'repos', repos });

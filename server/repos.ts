@@ -103,14 +103,28 @@ export async function infoRepo(rawPath: string): Promise<InfoRepo> {
 // Sugerencias para la Puerta Principal: carpetas de la raíz de repos que aún no tienen sala
 // Con la raíz en el hogar (sin ~/Sites ni parecidas) se saltan las carpetas de macOS: ni son proyectos ni conviene
 // asomarse a Escritorio, Documentos o Descargas (macOS pide permiso para cada una)
+// A group is a root folder without git that holds repos (`~/Fever/dice/*`): its repos and projects are suggested too,
+// one level deep, with `grupo` set to the group's folder name. The group itself stays admittable
 const SYSTEM_OF = new Set(['Applications', 'Desktop', 'Documents', 'Downloads', 'Library', 'Movies', 'Music', 'Pictures', 'Public']);
-export function sugerencias(raiz: string, ya: string[]): { ruta: string; nombre: string; isGit: boolean; tipo: string; modified: number }[] {
+export type Suggestion = { ruta: string; nombre: string; isGit: boolean; tipo: string; modified: number; grupo?: string };
+const subfolders = (dir: string, skip = (_n: string) => false) => {
+  try { return readdirSync(dir).filter(n => !n.startsWith('.') && !skip(n)).map(n => path.join(dir, n)).filter(p => { try { return statSync(p).isDirectory(); } catch { return false; } }); }
+  catch { return []; }
+};
+export function sugerencias(raiz: string, ya: string[]): Suggestion[] {
   const r = expand(raiz), hogar = r === os.homedir();
+  const ficha = (p: string, grupo?: string): Suggestion => ({ ruta: p, nombre: path.basename(p), isGit: existsSync(path.join(p, '.git')), tipo: projectType(p), modified: statSync(p).mtimeMs, ...(grupo ? { grupo } : {}) });
   try {
-    return readdirSync(r).filter(n => !n.startsWith('.') && !(hogar && SYSTEM_OF.has(n))).map(n => path.join(r, n)).filter(p => { try { return statSync(p).isDirectory(); } catch { return false; } })
-      .filter(p => !ya.includes(p))
-      .map(p => ({ ruta: p, nombre: path.basename(p), isGit: existsSync(path.join(p, '.git')), tipo: projectType(p), modified: statSync(p).mtimeMs }))
-      .sort((a, b) => b.modified - a.modified);
+    const out: Suggestion[] = [];
+    for (const p of subfolders(r, n => hogar && SYSTEM_OF.has(n))) {
+      const isGit = existsSync(path.join(p, '.git'));
+      if (!ya.includes(p)) out.push(ficha(p));
+      if (isGit) continue;
+      const hijos = subfolders(p).map(h => ({ h, isGit: existsSync(path.join(h, '.git')) }));
+      if (!hijos.some(x => x.isGit)) continue;
+      for (const x of hijos) if (!ya.includes(x.h) && (x.isGit || projectType(x.h) !== 'carpeta')) out.push(ficha(x.h, path.basename(p)));
+    }
+    return out.sort((a, b) => b.modified - a.modified);
   } catch { return []; }
 }
 

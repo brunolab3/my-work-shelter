@@ -48,7 +48,13 @@ export function PanelesSala({ panel }: { panel: Panel }) {
 }
 
 // ---------------------------------------------------------------- Puerta Principal: reclutar y excavar
-type Suggestion = { ruta: string; nombre: string; isGit: boolean; tipo: string; modified: number };
+type Suggestion = { ruta: string; nombre: string; isGit: boolean; tipo: string; modified: number; grupo?: string };
+// the root's folders, most recent first, with the repos inside group folders as `group/repo`; the cap is for a root
+// with lots of folders (the home folder) and only counts those, so a group's repos are never hidden by it
+function suggestionItems(sugs: Suggestion[] | null, elegir: (ruta: string, nombre: string) => void): (ItemMenu & { f: () => void })[] {
+  let top = 0;
+  return (sugs ?? []).filter(s => s.grupo || top++ < 40).map(s => ({ texto: <>{s.grupo && <span className="tenue">{s.grupo}/</span>}<b>{s.nombre}</b> <span className="tenue">{s.isGit ? t('panels.repo') : t('panels.folder')} · {tIs(REPO_TYPE[s.tipo] ?? s.tipo)}</span></>, pista: hace(s.modified), f: () => elegir(s.ruta, s.nombre) }));
+}
 function hace(ms: number) { const d = (Date.now() - ms) / 86400_000; return d < 1 ? t('panels.today') : d < 2 ? t('panels.yesterday') : d < 30 ? t('windows.nDaysAgo', { n: Math.floor(d) }) : d < 60 ? t('panels.1MonthAgo') : d < 365 ? t('windows.nMonthsAgo', { n: Math.floor(d / 30) }) : t('panels.overAYearAgo'); }
 
 // each step is its own component, with its own menu and keys (the hooks of one step never depend on another's)
@@ -63,7 +69,7 @@ function DoorList({ raiz, elegir, ruta }: { raiz: string; elegir: (ruta: string,
   const [sugs, setSuggestions] = useState<Suggestion[] | null>(null);
   useEffect(() => { cliente.accion<Suggestion[]>('sugerencias').then(setSuggestions).catch(() => setSuggestions([])); }, []);
   const items: (ItemMenu & { f: () => void })[] = [
-    ...(sugs ?? []).slice(0, 40).map(s => ({ texto: <><b>{s.nombre}</b> <span className="tenue">{s.isGit ? t('panels.repo') : t('panels.folder')} · {tIs(REPO_TYPE[s.tipo] ?? s.tipo)}</span></>, pista: hace(s.modified), f: () => elegir(s.ruta, s.nombre) })),
+    ...suggestionItems(sugs, elegir),
     { texto: t('panels.anotherFolderTypeThePath'), pista: t('panels.anyPathOnThisMac'), f: () => ruta(false) },
     { texto: t('panels.createANewFolderOr'), pista: t('panels.insideRaiz', { raiz }), f: () => ruta(true) },
   ];
@@ -149,7 +155,7 @@ function LinkList({ sala, raiz, elegir, otra, volver }: { sala: any; raiz: strin
   const [sugs, setSuggestions] = useState<Suggestion[] | null>(null);
   useEffect(() => { cliente.accion<Suggestion[]>('sugerencias').then(setSuggestions).catch(() => setSuggestions([])); }, []);
   const items: (ItemMenu & { f: () => void })[] = [
-    ...(sugs ?? []).slice(0, 40).map(s => ({ texto: <><b>{s.nombre}</b> <span className="tenue">{s.isGit ? t('panels.repo') : t('panels.folder')} · {tIs(REPO_TYPE[s.tipo] ?? s.tipo)}</span></>, pista: hace(s.modified), f: () => elegir(s.ruta, s.nombre) })),
+    ...suggestionItems(sugs, elegir),
     { texto: t('panels.anotherFolderTypeThePath'), pista: t('panels.anyPathOnThisMac'), f: otra },
   ];
   const [i, setI] = useMenu(items.length, k => items[k].f(), undefined, volver);
