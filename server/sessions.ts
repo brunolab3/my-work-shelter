@@ -6,7 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { cwdBeforeRelocation, lastActivity, projectFolder } from './repos.ts';
 import { mcpReview } from './compare.ts';
-import { MCP, SELF_GATED } from './mcpServers.ts';
+import { SELF_GATED } from './mcpServers.ts';
 import { pushOf } from '../shared/preflight.ts';
 import { handMadeWorktree, newWorktreeOf, taskWorktreeIn, worktreeTask, ghCreateOf, githubRepoOf, isOriginalRepo, ORIGINAL_REPO } from '../shared/tasks.ts';
 import { gh } from './git.ts';
@@ -166,7 +166,8 @@ export function worktreeRoot(dir?: string): string | undefined {
   return dir ? /^(.*\/\.claude\/worktrees\/[^/]+)/.exec(dir)?.[1] : undefined;
 }
 
-// the Claude Code tag of the read-only forks the game makes of busy task conversations (room messages)
+// the Claude Code tag of the read-only forks older versions made of busy task conversations (room messages): still
+// read so those transcripts, left in task worktrees, are never the ones resumed
 export const FORK_TAG = 'shelter-fork';
 
 export class Sessions extends EventEmitter {
@@ -589,9 +590,6 @@ export class Sessions extends EventEmitter {
       // assignment confirms what it launches itself (confirmar()), review only reads the repo and writes its page in the
       // game's folder, and plan reads the plan and proposes changes to the planning room
       if (SELF_GATED.some(s => name.startsWith(`mcp__${s}__`))) { resolver({ behavior: 'allow', updatedInput: e }); return; }
-      // in plan mode (a busy task conversation's read-only fork) messages to rooms go without asking, like in auto mode:
-      // they change nothing here, and that is how the fork answers and passes changes to its original
-      if (x.r.permissionMode === 'plan' && name === `mcp__${MCP.rooms}__send_to_room`) { resolver({ behavior: 'allow', updatedInput: e }); return; }
       // a question with nothing written before it: the Overseer would answer without the results, conclusions or links
       // that only come after. Held back once per turn, so a real clarifying question still goes through on retry
       if (name === 'AskUserQuestion' && !op.agentID && !x.textInTurn && !x.askHeld) { x.askHeld = true; resolver({ behavior: 'deny', message: t('server.writeBeforeAsking') }); return; }

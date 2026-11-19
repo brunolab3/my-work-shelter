@@ -78,7 +78,7 @@ export interface SessionSummary {
   updated: number;
 }
 
-export interface HistoryElement { claudeId: string; title: string; firstPrompt?: string; modified: number; branch?: string; cwd?: string; inProgress?: string; outside?: boolean; fork?: boolean }   // fuera: sigue abierta en una terminal de tu escritorio; fork: a read-only fork the game made (room messages)
+export interface HistoryElement { claudeId: string; title: string; firstPrompt?: string; modified: number; branch?: string; cwd?: string; inProgress?: string; outside?: boolean; fork?: boolean }   // fuera: sigue abierta en una terminal de tu escritorio; fork: a read-only fork older versions made (room messages), never resumed
 export interface RecentConversation extends HistoryElement { roomId: string; dwellerId: string }   // las del buscador (⌘K), de todas las salas
 export interface Command { name: string; description?: string; hint?: string }
 

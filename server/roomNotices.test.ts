@@ -14,9 +14,9 @@ const ROOMS = [
 ];
 
 // un contexto que apunta lo que se hace: avisos a conversaciones abiertas y conversaciones nuevas
-function ctx(o: { openSessions?: Record<string, string>; closed?: Set<string>; worktrees?: Record<string, string>; fails?: string; timer?: { t: number }; noGit?: boolean; worktreeOfTask?: CtxRooms['worktreeOfTask']; busy?: Set<string>; forkFails?: string; previous?: Record<string, string> } = {}) {
+function ctx(o: { openSessions?: Record<string, string>; closed?: Set<string>; worktrees?: Record<string, string>; fails?: string; timer?: { t: number }; noGit?: boolean; worktreeOfTask?: CtxRooms['worktreeOfTask']; busy?: Set<string>; previous?: Record<string, string> } = {}) {
   const notified: { sessionId: string; text: string }[] = [], fresh: { roomId: string; dwellerId: string; prompt: string; cwd?: string; worktree?: string }[] = [], messenger: string[][] = [], notices: string[] = [];
-  const forks: { roomId: string; from: string; prompt: string }[] = [], resumed: { roomId: string; cwd: string; prompt: string; id: string }[] = [];
+  const resumed: { roomId: string; cwd: string; prompt: string; id: string }[] = [];
   const c: CtxRooms = {
     rooms: () => ROOMS,
     sessionOfTask: (roomId, key) => o.openSessions?.[`${roomId}/${key}`],
@@ -27,11 +27,10 @@ function ctx(o: { openSessions?: Record<string, string>; closed?: Set<string>; w
     notice: t => notices.push(t),
     now: o.timer && (() => o.timer!.t),
     busy: id => !!o.busy?.has(id),
-    fork: async (roomId, from, prompt) => { if (o.forkFails) throw new Error(o.forkFails); forks.push({ roomId, from, prompt }); return `fork-${forks.length}`; },
     // previas: the last conversation in each folder (cwd → its resumed id)
     resume: async (roomId, cwd, prompt) => { const id = o.previous?.[cwd]; if (id) resumed.push({ roomId, cwd, prompt, id }); return id; },
   };
-  return { c, notified, fresh, messenger, notices, forks, resumed };
+  return { c, notified, fresh, messenger, notices, resumed };
 }
 
 describe('mensajes entre salas', () => {
@@ -249,72 +248,24 @@ describe('mensajes entre salas', () => {
     expect(x.notified[0].sessionId).toBe('ses-tarea');
   });
 
-  it('with a key and its conversation busy: a read-only fork answers, and what the fork sends back with the key queues in the original', async () => {
-    const x = ctx({ openSessions: { 'pagos/ABC-7': 'ses-tarea' }, busy: new Set(['ses-tarea']) });
+  it('with a key and its conversation busy: queued in it, framed as an outside request, and the answer says so', async () => {
+    const busy = new Set(['ses-tarea']);
+    const x = ctx({ openSessions: { 'pagos/ABC-7': 'ses-tarea' }, busy });
     const r = await sendToRoom(x.c, 'express', { room: 'pagos', key: 'ABC-7', message: '¿Qué versión del contrato usas?' }, 'ses-express');
     expect(r.ok).toBe(true);
-    expect(r.text).toContain('solo lectura');
-    expect(x.notified).toEqual([]);
-    expect(x.forks).toEqual([{ roomId: 'pagos', from: 'ses-tarea', prompt: expect.stringContaining('¿Qué versión del contrato usas?') }]);
-    // framed as an outside request, and told how to pass changes to the original
-    expect(x.forks[0].prompt).toContain('fuera de lo que estás haciendo');
-    expect(x.forks[0].prompt).toMatch(/room «pagos» y key ABC-7/);
-    // the fork's changes, with the key to its own room: to the original, queued, even though it's busy (never forked again)
-    const back = await sendToRoom(x.c, 'pagos', { room: 'pagos', key: 'ABC-7', message: 'Cambia el contrato a v2' }, 'fork-1');
-    expect(back.ok).toBe(true);
-    expect(back.text).toContain('de la que eres copia');
-    expect(x.notified.map(a => a.sessionId)).toEqual(['ses-tarea']);
-    expect(x.forks).toHaveLength(1);
-    // its reply without a key goes back to the sender conversation
-    await sendToRoom(x.c, 'pagos', { room: 'express', message: 'Uso la v1' }, 'fork-1');
-    expect(x.notified.at(-1)!.sessionId).toBe('ses-express');
-  });
-
-  it('a fork is never the task\'s conversation: the next messages go to the original (its open fork while busy, delivered once idle)', async () => {
-    const openSessions: Record<string, string> = { 'pagos/ABC-8': 'ses-tarea' }, busy = new Set(['ses-tarea']);
-    const x = ctx({ openSessions, busy });
-    await sendToRoom(x.c, 'express', { room: 'pagos', key: 'ABC-8', message: 'a' });
-    openSessions['pagos/ABC-8'] = 'fork-1';   // the fork is now the most recent conversation in the worktree
-    await sendToRoom(x.c, 'express', { room: 'pagos', key: 'ABC-8', message: 'b' });
-    expect(x.forks.map(f => f.from)).toEqual(['ses-tarea']);
-    expect(x.notified.map(a => a.sessionId)).toEqual(['fork-1']);
-    busy.clear();
-    const r = await sendToRoom(x.c, 'tareas', { room: 'pagos', key: 'ABC-8', message: 'c' });
-    expect(r.text).toContain('conversación abierta de ABC-8');
-    expect(x.notified.map(a => a.sessionId)).toEqual(['fork-1', 'ses-tarea']);
-    // the original itself writing with its key is still its own conversation
-    expect((await sendToRoom(x.c, 'pagos', { room: 'pagos', key: 'ABC-8', message: 'd' }, 'ses-tarea')).ok).toBe(false);
-  });
-
-  it('with a key and its conversation busy: one fork at most, the next messages queue in it until it closes', async () => {
-    const closed = new Set<string>(), busy = new Set(['ses-tarea', 'fork-1']), timer = { t: 1_000_000 };
-    const x = ctx({ openSessions: { 'pagos/ABC-9': 'ses-tarea' }, busy, closed, timer });
-    await sendToRoom(x.c, 'express', { room: 'pagos', key: 'ABC-9', message: 'el PoC' });
-    // second and third message while the original is busy (and the fork too): to the same fork, queued
-    const r2 = await sendToRoom(x.c, 'express', { room: 'pagos', key: 'ABC-9', message: 'escribe el plan' });
-    const r3 = await sendToRoom(x.c, 'express', { room: 'pagos', key: 'ABC-9', message: 'aprobado' });
-    expect(r2.text).toContain('que ya contesta');
-    expect(r3.ok).toBe(true);
-    expect(x.forks).toHaveLength(1);
-    expect(x.notified.map(a => [a.sessionId, a.text.includes('aprobado')])).toEqual([['fork-1', false], ['fork-1', true]]);
-    // the fork closed: the next message opens a new one
-    closed.add('fork-1');
-    timer.t += 61_000;
-    await sendToRoom(x.c, 'express', { room: 'pagos', key: 'ABC-9', message: 'otra cosa' });
-    expect(x.forks.map(f => f.from)).toEqual(['ses-tarea', 'ses-tarea']);
-    // and the one after, to that new fork
-    await sendToRoom(x.c, 'express', { room: 'pagos', key: 'ABC-9', message: 'y otra' });
-    expect(x.forks).toHaveLength(2);
-    expect(x.notified.at(-1)!.sessionId).toBe('fork-2');
-  });
-
-  it('with a key and its conversation busy, if no fork can start: queued in it, and the answer says why', async () => {
-    const x = ctx({ openSessions: { 'pagos/ABC-7': 'ses-tarea' }, busy: new Set(['ses-tarea']), forkFails: 'Ya hay 6 conversaciones vivas' });
-    const r = await sendToRoom(x.c, 'express', { room: 'pagos', key: 'ABC-7', message: 'a' });
-    expect(r.ok).toBe(true);
-    expect(x.notified.map(a => a.sessionId)).toEqual(['ses-tarea']);
     expect(r.text).toContain('en cola');
-    expect(r.text).toContain('Ya hay 6 conversaciones vivas');
+    expect(x.fresh).toEqual([]);
+    expect(x.notified).toEqual([{ sessionId: 'ses-tarea', text: expect.stringContaining('¿Qué versión del contrato usas?') }]);
+    expect(x.notified[0].text).toContain('fuera de lo que estás haciendo');
+    // the next one too, to the same conversation; once idle, no longer «queued»
+    await sendToRoom(x.c, 'express', { room: 'pagos', key: 'ABC-7', message: 'aprobado' }, 'ses-express');
+    busy.clear();
+    const r3 = await sendToRoom(x.c, 'tareas', { room: 'pagos', key: 'ABC-7', message: 'otra cosa' });
+    expect(r3.text).not.toContain('en cola');
+    expect(x.notified.map(a => a.sessionId)).toEqual(['ses-tarea', 'ses-tarea', 'ses-tarea']);
+    // its reply without a key goes back to the sender conversation
+    await sendToRoom(x.c, 'pagos', { room: 'express', message: 'Uso la v1' }, 'ses-tarea');
+    expect(x.notified.at(-1)!.sessionId).toBe('ses-express');
   });
 
   it('with a key and none open: the last conversation in the task\'s worktree, resumed; with none there, a new one in it', async () => {

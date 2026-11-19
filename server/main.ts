@@ -9,8 +9,7 @@ import { execFile, execFileSync, spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { GAME_NAME, type ClientMessage, type ServerMessage, type InfoRepo, type Visitor } from '../shared/protocol.ts';
-import { Sessions, FORK_TAG } from './sessions.ts';
-import { forkSession, tagSession } from '@anthropic-ai/claude-agent-sdk';
+import { Sessions } from './sessions.ts';
 import { Attachments } from './attachments.ts';
 import { openAttachment, isPackage, revealLocal } from './open.ts';
 import { openLink, linkKind, imageThumbnail, servePage, existingPages, pagesUpdated } from './localPages.ts';
@@ -167,16 +166,6 @@ const ctxRooms: CtxRooms = {
   worktreeOfTask: async (roomId, key) => { const s = store.state.rooms.find(x => x.id === roomId); return s ? taskWorktree(await worktreeList(folderOf(s)), key) : undefined; },
   notify: (id, text) => ctxPlan.notify(id, text),
   busy: id => ['arrancando', 'trabajando', 'esperando'].includes(sessions.list().find(s => s.id === id)?.state ?? ''),
-  // Claude Code's own fork of the transcript (a copy with new ids, tagged so it is never the one resumed later), resumed
-  // in plan mode in the same folder; the original's file sits where it started, which may be the main copy
-  fork: async (roomId, sid, prompt) => {
-    const s = sessions.list().find(x => x.id === sid);
-    if (!s?.claudeId) throw new Error(t('server.notStartedYet'));
-    const dir = s.worktree ?? s.cwd;
-    const { sessionId } = await forkSession(s.claudeId, { dir }).catch(() => forkSession(s.claudeId!));
-    await tagSession(sessionId, FORK_TAG).catch(() => {});
-    return startWork(undefined, { t: 'empezar', dwellerId: s.dwellerId, roomId, prompt, options: { cwd: dir, permissions: 'plan', resume: sessionId, model: s.model, effort: s.effort } });
-  },
   resume: (roomId, cwd, prompt) => resumeInFolder(roomId, cwd, prompt, 'auto'),
   start: async (roomId, dwellerId, prompt, where) => {
     const m: Extract<ClientMessage, { t: 'empezar' }> = { t: 'empezar', dwellerId, roomId, prompt, options: { cwd: where?.cwd, worktree: where?.worktree, permissions: 'auto' } };
@@ -512,7 +501,7 @@ async function sendToFolder(roomId: string, cwd: string, text: string, permissio
   return true;
 }
 const openInFolder = (roomId: string, cwd: string) => sessions.list().find(x => x.state !== 'cerrada' && x.roomId === roomId && path.resolve(x.worktree ?? x.cwd) === path.resolve(cwd));
-// the last conversation in a folder resumed with `texto` (none still open outside the game, and never a fork): its id,
+// the last conversation in a folder resumed with `texto` (none still open outside the game, and never an old fork): its id,
 // or none if there is no such conversation
 async function resumeInFolder(roomId: string, cwd: string, text: string, permissions: 'plan' | 'auto'): Promise<string | undefined> {
   const h = store.state.dwellers.find(x => x.roomId === roomId); if (!h) return undefined;

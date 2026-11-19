@@ -1,7 +1,7 @@
 // Mensajes entre salas: cualquier habitante le pasa algo al de otra sala con send_to_room (un servidor MCP en proceso en
 // cada conversación). With a task key (ABC-123, or a descriptive slug outside Jira: preflight-popover), always a
-// conversation with the task's history: its open one if idle; if busy, a read-only fork of it that answers and passes
-// code changes back to it, queued (one fork per conversation: while it is open, the next messages queue in it); with none open, the last one in the task's worktree, resumed; with none there, a new
+// conversation with the task's history: its open one (queued if it is busy, for when its turn ends); with none open, the
+// last one in the task's worktree, resumed; with none there, a new
 // one in it (and if the room has no worktree for it yet, in a new one with the key in its name, so the task's next
 // messages land there). Sin
 // clave, una conversación nueva con el habitante en su copia principal; the same conversation's next messages to that room
@@ -50,11 +50,9 @@ export interface CtxRooms {
   // production verification plans (verifications.ts): verification_plan and verification_report, for the task of the
   // conversation's worktree (or the key the dweller passes)
   verifications?: { plans: Pick<Verifications, 'get' | 'propose' | 'report'>; taskOfSession(sessionId?: string): string | undefined; conversation?(sessionId?: string): PlanConversation | undefined };
-  // a conversation is busy (starting, working or waiting for the Overseer): a task message then goes to a fork of it
+  // a conversation is busy (starting, working or waiting for the Overseer): a task message then waits in its queue
   busy?(sessionId: string): boolean;
-  // a read-only fork (plan mode) of an open conversation, in its folder and with its history: the new conversation's id
-  fork?(roomId: string, sessionId: string, prompt: string): Promise<string>;
-  // the last conversation in a folder (never a fork, nor one still open outside the game), resumed with `prompt`: its
+  // the last conversation in a folder (none still open outside the game), resumed with `prompt`: its
   // id, or none if there is no such conversation
   resume?(roomId: string, cwd: string, prompt: string): Promise<string | undefined>;
   // the worktree a conversation runs in (its cwd inside one), its branch, and whether the repo has a `local` branch
@@ -70,13 +68,7 @@ const threads = new Map<string, string>();
 // conversation follow-ups, per sender conversation and room (`${sesión}>${sala}`): where its last message without key or
 // thread went, and the way back for replies; in memory too
 const followUps = new Map<string, { session: string; answer: boolean }>();
-// the forks a busy task conversation got (fork → original): what they send to their own room with the task's key
-// queues in the original, and the task's messages go to the original, not to them
-const forks = new Map<string, string>();
-// each busy conversation's last fork (original → fork): while it is open, the task's next messages go to it (queued if it
-// is busy) instead of opening another, so a task never has more than one
-const lastFork = new Map<string, string>();
-export const forgetThreads = () => { threads.clear(); followUps.clear(); forks.clear(); lastFork.clear(); };
+export const forgetThreads = () => { threads.clear(); followUps.clear(); };
 const threadOf = (h: string) => { const x = h.trim().toLowerCase(); return /^[a-z0-9]+(-[a-z0-9]+)*$/.test(x) && x.length <= 40 ? x : undefined; };
 
 // the worktree of a task among a room's: its key in its folder name or its branch (shared/tasks.ts: worktreeHasTask)
@@ -117,25 +109,13 @@ export async function sendToRoom(ctx: CtxRooms, since: string, { room, message, 
     if (t && (ctx.sessionOfTask(target.id, t) || (cwd = await ctx.worktreeOfTask(target.id, t)))) k = inherited = t;
   }
   const text = frame(k);
-  // a fork writing to its own room with the task's key: to the conversation it comes from, queued
-  const original = same && k && fromSession ? forks.get(fromSession) : undefined;
-  const taskSession = k ? ctx.sessionOfTask(target.id, k) : undefined;
-  const open = original ?? (taskSession && (forks.get(taskSession) ?? taskSession));
+  const open = k ? ctx.sessionOfTask(target.id, k) : undefined;
   if (same && open && open === fromSession) return { ok: false, text: tr('tool.rooms.ownConversation', { clave: k! }) };
-  const busy = !original && !!open && !!ctx.busy?.(open);
   // a thread's conversation, while open and never the sender itself (sesiones.enviar queues it if it's busy)
   const ofThread = thread ? threads.get(`${target.id}/${thread}`) : undefined;
   if (how) { /* followed up or replied */ }
-  else if (open && busy && lastFork.has(open) && ctx.notify(lastFork.get(open)!, text)) {
-    // busy, and its fork still open: to that fork, queued if it is busy too (one fork per conversation at most)
-    receiver = lastFork.get(open); how = tr('tool.rooms.toSameFork', { clave: k! });
-  }
-  else if (open && busy && ctx.fork) {
-    // busy: a read-only fork answers, and the original keeps working; if it can't start, the message queues there
-    try { receiver = await ctx.fork(target.id, open, [text, '', tr('prompt.room.fork', { salaId: target.id, clave: k! })].join('\n')); forks.set(receiver, open); lastFork.set(open, receiver); how = tr('tool.rooms.toFork', { clave: k! }); }
-    catch (e) { if (ctx.notify(open, text)) { receiver = open; how = tr('tool.rooms.toOpenQueued', { clave: k!, error: (e as Error).message }); } }
-  }
-  else if (open && ctx.notify(open, text)) { how = tr(original ? 'tool.rooms.toOriginal' : 'tool.rooms.toOpen', { clave: k! }); receiver = open; }
+  // the task's open conversation: sessions.send queues it if it is busy, for when its turn ends
+  else if (open) { const busy = !!ctx.busy?.(open); if (ctx.notify(open, text)) { how = tr(busy ? 'tool.rooms.toOpenQueued' : 'tool.rooms.toOpen', { clave: k! }); receiver = open; } }
   else if (ofThread && ofThread !== fromSession && ctx.notify(ofThread, text)) { how = tr('tool.rooms.toThread', { hilo: thread! }); receiver = ofThread; }
   if (!how) {
     cwd = k ? cwd ?? await ctx.worktreeOfTask(target.id, k) : undefined;
