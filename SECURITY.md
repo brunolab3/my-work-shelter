@@ -45,6 +45,10 @@ It is designed as a local application for a single person on their Mac:
 - **Folder trust**: if a repo ships Claude Code project config (`.claude/` with settings, hooks, rules, commands or
   agents, `.mcp.json`, `CLAUDE.md`), the game asks before loading it, unless you already accepted that folder in
   Claude Code or in the game. This includes repos the repos root adds as rooms automatically.
+- **Cloning from GitHub** (Main Gate): the repo list is a read with the GitHub integration's token or `gh` session;
+  the clone is plain `git clone` with your own git credentials (no prompts, ssh in batch mode) into a new folder
+  inside the repos root. A cloned repo is foreign: its folder is a trust boundary, so its Claude Code config is asked
+  about even when a folder above it (the repos root, say) is trusted.
 - **Electron**: `contextIsolation`, no `nodeIntegration`, the main window confined to its origin and the internal
   browsers (`<webview>`) in their own session, `https` only and no preload, each confined to the domain it opened
   with and never opening windows of its own (login popups load inside). The «Web» browser, which shows any https site

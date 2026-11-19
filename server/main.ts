@@ -35,6 +35,7 @@ import { bloqueosEntre, pRKey } from '../shared/deploy.ts';
 import { TasksCleanup, orphanedConversations } from './taskCleanup.ts';
 import { Scheduled, summary } from './scheduled.ts';
 import { entornoGit } from './gitEnv.ts';
+import { Clones, cloneDestination, cloneUrl, clonedRepos, listRepos, repoInfo, repoRef } from './githubClone.ts';
 import { captureRoom } from './roomCapture.ts';
 import { baseStock } from '../shared/decor.ts';
 import { readSecret } from './integrations/keychain.ts';
@@ -206,9 +207,13 @@ const sesiones = new Sessions({
   preflight: { estado: cwd => herramientasPreflight.estado(cwd), responder: (cwd, item, estado, nota) => herramientasPreflight.responder(cwd, item, estado, nota), puerta: cwd => gatePush(cwd, ctxPreflight) },
   trustedFolders: () => ((almacen.estado.ajustes as any).trustedFolders ?? []) as string[],
   trust: ruta => { const a = almacen.estado.ajustes as any; a.trustedFolders = [...new Set([...(a.trustedFolders ?? []).filter((r: string) => existsSync(r)), path.resolve(ruta)])]; almacen.guardar(); },
+  clonedFolders: () => ((almacen.estado.ajustes as any).clonedFolders ?? []) as string[],
 }, adjuntos);
-// trusted folders that no longer exist (removed worktrees) are dropped at startup, so the list doesn't keep growing
-{ const a = almacen.estado.ajustes as any; if (Array.isArray(a.trustedFolders)) { const vivas = a.trustedFolders.filter((r: unknown) => typeof r === 'string' && existsSync(r)); if (vivas.length !== a.trustedFolders.length) { a.trustedFolders = vivas; almacen.guardar(); } } }
+// trusted and cloned folders that no longer exist (removed worktrees, deleted clones) are dropped at startup, so the lists don't keep growing
+for (const k of ['trustedFolders', 'clonedFolders']) { const a = almacen.estado.ajustes as any; if (Array.isArray(a[k])) { const vivas = a[k].filter((r: unknown) => typeof r === 'string' && existsSync(r)); if (vivas.length !== a[k].length) { a[k] = vivas; almacen.guardar(); } } }
+// clones from GitHub at the Main Gate: once done, the folder is a trust boundary (sessions.ts, confianza())
+const clones = new Clones(undefined, c => { if (c.estado !== 'hecho') return; const a = almacen.estado.ajustes as any; a.clonedFolders = [...new Set([...(a.clonedFolders ?? []), c.ruta])]; almacen.guardar(); });
+const ghConnected = async (): Promise<{ gh?: (args: string[]) => Promise<string> }> => { const c = await connectionGitHub(); return c.real ? { gh: async args => (await import('./git.ts')).gh(args, c.token, 30_000) } : {}; };
 const dictations = new Dictations(DATOS);
 dictations.preparar();
 const terminales = new Terminales(cwd => !!pathRoom(cwd) || almacen.estado.salas.some(s => { const c = folderOf(s); return cwd === c || cwd.startsWith(c + path.sep); }), () => [...clients].map(outputOf));
@@ -730,6 +735,31 @@ async function accion(nombre: string, d: Record<string, any> = {}): Promise<unkn
   const e = almacen.estado;
   switch (nombre) {
     case 'sugerencias': return sugerencias(e.raizRepos, takenFolders(e));
+    // «From GitHub…»: your repos (with the integration connected) and where each one is already cloned
+    case 'github.repos': {
+      const c = await ghConnected(), ya = clonedRepos(expand(e.raizRepos), [...e.salas, ...(e.ocultas ?? []).map(o => o.sala)]);
+      const mark = <T extends { repo: string }>(r: T) => ({ ...r, clonado: ya.get(r.repo.toLowerCase()) });
+      if (!c.gh) return { off: true, repos: [] };
+      try { return { repos: (await listRepos(c.gh)).map(mark) }; }
+      catch (err) { return { error: (err as Error).message, repos: [] }; }
+    }
+    case 'github.repo': {
+      const repo = repoRef(String(d.texto ?? ''));
+      if (!repo) throw new Error(t('server.githubRepoBadRef'));
+      const c = await ghConnected(), ya = clonedRepos(expand(e.raizRepos), [...e.salas, ...(e.ocultas ?? []).map(o => o.sala)]);
+      // without the integration the repo isn't checked: git clone says if it doesn't exist or you can't read it
+      const info = c.gh ? await repoInfo(c.gh, repo) : { repo, nombre: repo.split('/')[1], privado: false, archivado: false, descripcion: '', pushed: 0 };
+      return { ...info, clonado: ya.get(info.repo.toLowerCase()) };
+    }
+    case 'github.clonar': {
+      const repo = repoRef(String(d.repo ?? ''));
+      if (!repo) throw new Error(t('server.githubRepoBadRef'));
+      const destino = cloneDestination(expand(String(d.ruta ?? '')), expand(e.raizRepos), takenFolders(e));
+      const protocolo = await (await import('./git.ts')).gh(['config', 'get', 'git_protocol', '-h', 'github.com']).catch(() => '');
+      return clones.empezar(repo, destino, cloneUrl(repo, protocolo));
+    }
+    case 'github.clon': { const c = clones.ver(String(d.id)); if (!c) throw new Error(t('server.cloneFailed')); return c; }
+    case 'github.cancelar': return clones.cancelar(String(d.id));
     case 'reclutar': {
       const ruta = path.resolve(expand(String(d.ruta || '')));
       if (ruta === path.parse(ruta).root || ruta === os.homedir()) throw new Error(t('server.thatFolderIsTooBroad'));

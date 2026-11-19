@@ -389,4 +389,13 @@ export const SERVIDOR: Record<string, Texto> = {
   'server.notAGlb': { es: 'no es un glb', en: 'not a glb' },
   'server.unknownLanguage': { es: 'Idioma desconocido.', en: 'Unknown language.' },
   'server.malformedMessage': { es: 'Mensaje mal formado.', en: 'Malformed message.' },
+  // Main Gate, from GitHub (server/githubClone.ts)
+  'server.githubRepoBadRef': { es: 'Escribe owner/nombre o pega la URL del repo en GitHub.', en: 'Type owner/name or paste the repo\'s GitHub URL.' },
+  'server.githubRepoNotFound': { es: 'No encuentro {repo} en GitHub, o tu cuenta no puede leerlo.', en: 'Can\'t find {repo} on GitHub, or your account can\'t read it.' },
+  'server.cloneFolderBadName': { es: 'Usa nombres de carpeta sencillos (letras, números, . - _), sin carpetas ocultas.', en: 'Use plain folder names (letters, digits, . - _), no hidden folders.' },
+  'server.cloneFolderExists': { es: 'Esa carpeta ya existe: elige otra o admítela desde la lista de la puerta.', en: 'That folder already exists: pick another or admit it from the gate\'s list.' },
+  'server.cloneInsideRepo': { es: 'Esa carpeta queda dentro del repo {repo}: elige una fuera.', en: 'That folder is inside the {repo} repo: pick one outside it.' },
+  'server.cloneStarting': { es: 'Conectando con GitHub…', en: 'Connecting to GitHub…' },
+  'server.cloneFailed': { es: 'El clon no ha salido.', en: 'The clone failed.' },
+  'server.cloneNoCredentials': { es: 'git no tiene credenciales para GitHub en este Mac (configura `gh auth login` o tu clave SSH y vuelve a probar). {detalle}', en: 'git has no GitHub credentials on this Mac (set up `gh auth login` or your SSH key and try again). {detalle}' },
 };

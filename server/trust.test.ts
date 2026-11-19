@@ -46,6 +46,14 @@ describe('confianza en la carpeta', () => {
     writeFileSync(claudeJson, JSON.stringify({ projects: { [path.join(base, 'aceptado')]: { hasTrustDialogAccepted: true } } }));
     expect(confianza(d, claudeJson)).toBe('confiada');
   });
+  it('a repo cloned from GitHub is a boundary: a trusted folder above it doesn\'t cover it, trust in it does', () => {
+    const d = repo('raiz-confiada/clon', ['.claude/settings.json']), w = repo('raiz-confiada/clon/.claude/worktrees/t', ['CLAUDE.md']);
+    writeFileSync(claudeJson, JSON.stringify({ projects: { [path.join(base, 'raiz-confiada')]: { hasTrustDialogAccepted: true } } }));
+    expect(confianza(d, claudeJson)).toBe('confiada');
+    expect(confianza(d, claudeJson, [], [d])).toBe('sin-confianza');
+    expect(confianza(w, claudeJson, [], [d])).toBe('sin-confianza');
+    expect(confianza(w, claudeJson, [d], [d])).toBe('confiada');
+  });
   it('el repo del propio juego es de confianza', () => {
     expect(confianza(path.resolve(import.meta.dirname, '..'), claudeJson)).toBe('confiada');
   });

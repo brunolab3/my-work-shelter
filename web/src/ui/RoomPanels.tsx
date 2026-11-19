@@ -60,18 +60,21 @@ function hace(ms: number) { const d = (Date.now() - ms) / 86400_000; return d < 
 // each step is its own component, with its own menu and keys (the hooks of one step never depend on another's)
 function Puerta() {
   const raiz = vivo.usar(e => e.estado?.raizRepos ?? '~');
-  const [paso, setStep] = useState<{ tipo: 'lista' } | { tipo: 'ruta'; crear: boolean } | { tipo: 'recluta'; ruta: string; nombre: string; crear?: boolean; git?: boolean }>({ tipo: 'lista' });
+  const [paso, setStep] = useState<{ tipo: 'lista' } | { tipo: 'ruta'; crear: boolean } | { tipo: 'recluta'; ruta: string; nombre: string; crear?: boolean; git?: boolean } | { tipo: 'github' } | { tipo: 'clonar'; repo: string; nombre: string }>({ tipo: 'lista' });
   if (paso.tipo === 'recluta') return <CardNewRecruit {...paso} volver={() => setStep({ tipo: 'lista' })} />;
+  if (paso.tipo === 'github') return <GitHubList volver={() => setStep({ tipo: 'lista' })} clonar={(repo, nombre) => setStep({ tipo: 'clonar', repo, nombre })} admitir={(ruta, nombre) => setStep({ tipo: 'recluta', ruta, nombre })} />;
+  if (paso.tipo === 'clonar') return <CloneRepo repo={paso.repo} nombre={paso.nombre} raiz={raiz} volver={() => setStep({ tipo: 'github' })} seguir={ruta => setStep({ tipo: 'recluta', ruta, nombre: paso.nombre })} />;
   if (paso.tipo === 'ruta') return <AskPath crear={paso.crear} raiz={raiz} volver={() => setStep({ tipo: 'lista' })} seguir={(ruta, git) => setStep({ tipo: 'recluta', ruta, nombre: ruta.split('/').filter(Boolean).pop() ?? ruta, crear: paso.crear, git })} />;
-  return <DoorList raiz={raiz} elegir={(ruta, nombre) => setStep({ tipo: 'recluta', ruta, nombre })} ruta={crear => setStep({ tipo: 'ruta', crear })} />;
+  return <DoorList raiz={raiz} elegir={(ruta, nombre) => setStep({ tipo: 'recluta', ruta, nombre })} ruta={crear => setStep({ tipo: 'ruta', crear })} github={() => setStep({ tipo: 'github' })} />;
 }
-function DoorList({ raiz, elegir, ruta }: { raiz: string; elegir: (ruta: string, nombre: string) => void; ruta: (crear: boolean) => void }) {
+function DoorList({ raiz, elegir, ruta, github }: { raiz: string; elegir: (ruta: string, nombre: string) => void; ruta: (crear: boolean) => void; github: () => void }) {
   const [sugs, setSuggestions] = useState<Suggestion[] | null>(null);
   useEffect(() => { cliente.accion<Suggestion[]>('sugerencias').then(setSuggestions).catch(() => setSuggestions([])); }, []);
   const items: (ItemMenu & { f: () => void })[] = [
     ...suggestionItems(sugs, elegir),
     { texto: t('panels.anotherFolderTypeThePath'), pista: t('panels.anyPathOnThisMac'), f: () => ruta(false) },
     { texto: t('panels.createANewFolderOr'), pista: t('panels.insideRaiz', { raiz }), f: () => ruta(true) },
+    { texto: t('panels.fromGitHub'), pista: t('panels.fromGitHubHint'), f: github },
   ];
   const [i, setI] = useMenu(items.length, k => items[k].f());
   return (
@@ -104,6 +107,115 @@ function AskPath({ crear, raiz, volver, seguir }: { crear: boolean; raiz: string
       </div>
       {crear && <div className="fila-chips activa"><span className="etq">git init</span><button className={'chip' + (git ? ' on' : '')} onClick={() => setGit(true)}>{t('menu.yes')}</button><button className={'chip' + (!git ? ' on' : '')} onClick={() => setGit(false)}>{t('menu.no')}</button></div>}
       <Keys><kbd>Enter</kbd>{t('panels.continue2')} {crear && <><kbd>Tab</kbd>{t('panels.gitYesNo')} </>}<kbd>Esc</kbd>{t('menu.back')}</Keys>
+    </Device>
+  );
+}
+
+// From GitHub: your repos (and your organisations'), filtered as you type, or owner/name or a URL pasted; one already on
+// the Mac is admitted from its folder, the rest go to the clone step (server/githubClone.ts)
+type RepoGitHub = { repo: string; nombre: string; privado: boolean; archivado: boolean; descripcion: string; pushed: number; clonado?: { ruta: string; corta: string; sala?: string } };
+const githubRef = (s: string) => /^(?:(?:https?:\/\/)?(?:www\.)?github\.com\/|(?:ssh:\/\/)?git@github\.com[:/])?[\w.-]+\/[\w.-]+?(?:\.git)?\/?$/i.test(s.trim()) || /github\.com\/[\w.-]+\/[\w.-]+/i.test(s);
+function GitHubList({ volver, clonar, admitir }: { volver: () => void; clonar: (repo: string, nombre: string) => void; admitir: (ruta: string, nombre: string) => void }) {
+  const [datos, setData] = useState<{ repos: RepoGitHub[]; off?: boolean; error?: string } | null>(null);
+  const [texto, setText] = useState('');
+  const [i, setI] = useState(0);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => { ref.current?.focus(); cliente.accion<{ repos: RepoGitHub[]; off?: boolean; error?: string }>('github.repos').then(setData).catch(err => setData({ repos: [], error: (err as Error).message })); }, []);
+  useKeys(e => { if (e.code === 'Escape') volver(); });
+  const elegir = (r: RepoGitHub) => {
+    if (r.clonado?.sala) { SFX.error(); setError(t('panels.githubIsRoom', { sala: r.clonado.sala })); return; }
+    SFX.clic();
+    if (r.clonado) admitir(r.clonado.ruta, r.clonado.ruta.split('/').filter(Boolean).pop() ?? r.nombre); else clonar(r.repo, r.nombre);
+  };
+  // owner/name or a URL: checked on the server (it exists, you can read it, it's already cloned)
+  const abrir = async () => {
+    if (busy) return; setBusy(true); setError('');
+    try { elegir(await cliente.accion<RepoGitHub>('github.repo', { texto })); }
+    catch (err) { SFX.error(); setError((err as Error).message); }
+    finally { setBusy(false); }
+  };
+  const q = texto.trim().toLowerCase();
+  const lista = (datos?.repos ?? []).filter(r => !q || r.repo.toLowerCase().includes(q)).slice(0, 60);
+  const exacto = lista.some(r => q.endsWith(r.repo.toLowerCase()) || q.replace(/\.git\/?$|\/$/, '').endsWith(r.repo.toLowerCase()));
+  const items: (ItemMenu & { f: () => void })[] = [
+    ...(githubRef(texto) && !exacto ? [{ texto: t('panels.githubOpenRef', { repo: texto.trim() }), f: abrir }] : []),
+    ...lista.map(r => ({
+      texto: <><b>{r.repo}</b> {(r.privado || r.archivado) && <span className="tenue">· {[r.privado && t('panels.githubPrivate'), r.archivado && t('panels.githubArchived')].filter(Boolean).join(' · ')}</span>}</>,
+      pista: r.clonado ? (r.clonado.sala ? t('panels.githubIsRoom', { sala: r.clonado.sala }) : t('panels.githubClonedAt', { ruta: r.clonado.corta })) : r.pushed ? t('panels.githubPushed', { cuando: hace(r.pushed) }) : undefined,
+      apagado: !!r.clonado?.sala,
+      f: () => elegir(r),
+    })),
+  ];
+  const k = Math.min(i, Math.max(0, items.length - 1));
+  return (
+    <Device rotulo={t('panels.doorGitHub')} ancho={56} onClose={volver}>
+      <p>{t('panels.githubFilter')}</p>
+      <div className="linea-entrada activa">
+        <span className="prompt-sim">›</span>
+        <input ref={ref} className="campo" value={texto} spellCheck={false} placeholder="owner/name"
+          onChange={e => { setText(e.target.value); setI(0); setError(''); }}
+          onKeyDown={e => {
+            if (e.key === 'ArrowDown' && items.length) { e.preventDefault(); setI((k + 1) % items.length); SFX.tick(); }
+            else if (e.key === 'ArrowUp' && items.length) { e.preventDefault(); setI((k - 1 + items.length) % items.length); SFX.tick(); }
+            else if (e.key === 'Enter' && items[k]) { e.preventDefault(); items[k].f(); }
+            else if (e.key === 'Escape') { e.preventDefault(); volver(); }
+          }} />
+      </div>
+      {datos?.off && <p className="tenue">{t('panels.githubOff')}</p>}
+      {datos?.error && <p className="aviso-consola">{datos.error}</p>}
+      {error && <p className="aviso-consola">{error}</p>}
+      <div className="lista-desplazable">
+        {items.length > 0 && <Opciones items={items} i={k} setI={setI} onChoose={n => items[n].f()} />}
+        {datos === null ? <p className="tenue">{t('panels.githubReading')}</p> : !items.length && !datos.off && <p className="tenue">{t('panels.githubNoMatch')}</p>}
+      </div>
+      <Keys><kbd>↑↓</kbd>{t('menu.select')} <kbd>Enter</kbd>{t('panels.continue2')} <kbd>Esc</kbd>{t('menu.back')}</Keys>
+    </Device>
+  );
+}
+
+// The clone: its folder (editable; the root by default, a group subfolder too), then git clone's progress; done, on to
+// the recruit sheet. Esc while cloning cancels it (git removes the half-made folder)
+type StateClone = { id: string; ruta: string; estado: 'clonando' | 'hecho' | 'error' | 'cancelado'; linea: string; pct?: number; error?: string };
+function CloneRepo({ repo, nombre, raiz, volver, seguir }: { repo: string; nombre: string; raiz: string; volver: () => void; seguir: (ruta: string) => void }) {
+  const [texto, setText] = useState(raiz.replace(/\/?$/, '/') + nombre);
+  const [error, setError] = useState('');
+  const [clon, setClone] = useState<StateClone | null>(null);
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => { ref.current?.focus(); }, []);
+  useEffect(() => {
+    if (clon?.estado !== 'clonando') return;
+    const h = setInterval(() => cliente.accion<StateClone>('github.clon', { id: clon.id }).then(c => {
+      if (c.estado === 'hecho') { clearInterval(h); SFX.shortSuccess(); seguir(c.ruta); }
+      else if (c.estado === 'clonando') setClone(c);
+      else { clearInterval(h); SFX.error(); setClone(null); setError(c.error ?? ''); setTimeout(() => ref.current?.focus()); }
+    }).catch(() => {}), 500);
+    return () => clearInterval(h);
+  }, [clon?.id, clon?.estado]);
+  const cancelar = () => { if (clon) cliente.accion('github.cancelar', { id: clon.id }).catch(() => {}); setClone(null); setTimeout(() => ref.current?.focus()); };
+  useKeys(e => { if (e.code === 'Escape') { if (clon) cancelar(); else volver(); } });
+  const empezar = async () => {
+    if (clon || !texto.trim()) return; setError('');
+    try { setClone(await cliente.accion<StateClone>('github.clonar', { repo, ruta: texto.trim() })); SFX.clic(); }
+    catch (err) { SFX.error(); setError((err as Error).message); }
+  };
+  const pct = clon?.pct ?? 0, barra = '█'.repeat(Math.round(pct / 5)) + '░'.repeat(20 - Math.round(pct / 5));
+  return (
+    <Device rotulo={t('panels.doorClone', { repo })} piloto={clon ? 'trabajando' : 'ociosa'} ancho={56} onClose={clon ? cancelar : volver}>
+      <p>{t('panels.cloneWhere', { raiz })}</p>
+      <div className={'linea-entrada' + (clon ? '' : ' activa')}>
+        <span className="prompt-sim">›</span>
+        <input ref={ref} className="campo" value={texto} spellCheck={false} disabled={!!clon} onChange={e => { setText(e.target.value); setError(''); }}
+          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); empezar(); } else if (e.key === 'Escape') { e.preventDefault(); volver(); } }} />
+      </div>
+      {clon ? <>
+        <p>{t('panels.cloning', { repo })}</p>
+        <p><code>{barra}</code> {clon.pct !== undefined ? `${clon.pct}%` : ''}</p>
+        <p className="tenue">{clon.linea}</p>
+      </> : <p className="tenue">{t('panels.cloneCredentials')}</p>}
+      {error && <p className="aviso-consola">{error}</p>}
+      <Keys>{clon ? <><kbd>Esc</kbd>{t('panels.cloneCancel')}</> : <><kbd>Enter</kbd>{t('panels.cloneStart')} <kbd>Esc</kbd>{t('menu.back')}</>}</Keys>
     </Device>
   );
 }

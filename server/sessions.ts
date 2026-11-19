@@ -76,7 +76,7 @@ export interface RoomsResolver {
     puerta(cwd: string): Promise<{ clave: string; rama?: string; head?: string; falta: string[] } | null>;
   };
   // carpetas que el Supervisor ha marcado de confianza en el juego (ver confianza())
-  trustedFolders?(): string[]; trust?(ruta: string): void;
+  trustedFolders?(): string[]; trust?(ruta: string): void; clonedFolders?(): string[];
 }
 
 export function pathClaude(): string | undefined {
@@ -108,6 +108,8 @@ export function cleanEnvironment(): Record<string, string> {
 // los ajustes del usuario). Es de confianza la que se ha aceptado en Claude Code (projects[ruta].hasTrustDialogAccepted
 // en ~/.claude.json) o en el juego, para ella o una carpeta que la contenga; el repo del propio juego y las carpetas de
 // las salas especiales también. Los repos de ejemplo son de fuera: se preguntan como cualquier otro.
+// A repo cloned from GitHub by the game (`limites`) is a boundary: only trust in that folder or inside it counts, not a
+// trusted folder above it (the repos root, say), since its config arrived from elsewhere.
 const GAME_ROOT = path.resolve(import.meta.dirname, '..');
 // lo que puede traer instrucciones u órdenes de terceros (no .claude/worktrees)
 const CONFIG_PROJECT = ['.claude/settings.json', '.claude/CLAUDE.md', '.claude/rules', '.claude/commands', '.claude/agents', '.claude/hooks', '.claude/skills', '.claude/output-styles', '.mcp.json', 'CLAUDE.md', 'CLAUDE.local.md'];
@@ -123,16 +125,16 @@ export function projectConfig(cwd: string) {
   const dir = path.resolve(cwd);
   return [...CONFIG_PROJECT.filter(f => existsSync(path.join(dir, f))), ...(localOfRepo(dir) ? ['.claude/settings.local.json'] : [])];
 }
-export function confianza(cwd: string, fileClaude = path.join(process.env.CLAUDE_CONFIG_DIR || os.homedir(), '.claude.json'), trusted: string[] = []): 'sin-config' | 'confiada' | 'sin-confianza' {
+export function confianza(cwd: string, fileClaude = path.join(process.env.CLAUDE_CONFIG_DIR || os.homedir(), '.claude.json'), trusted: string[] = [], limites: string[] = []): 'sin-config' | 'confiada' | 'sin-confianza' {
   const dir = path.resolve(cwd);
   if (!projectConfig(dir).length) return 'sin-config';
   if ([GAME_ROOT, ...FOLDERS_OF_GAME].some(r => dir === r || dir.startsWith(r + path.sep))) return 'confiada';
   let proyectos: Record<string, any> = {};
   try { proyectos = JSON.parse(readFileSync(fileClaude, 'utf8')).projects ?? {}; } catch {}
-  const inGame = new Set(trusted.map(c => path.resolve(c)));
+  const inGame = new Set(trusted.map(c => path.resolve(c))), bordes = new Set(limites.map(c => path.resolve(c)));
   for (let d = dir; ; d = path.dirname(d)) {
     if (proyectos[d]?.hasTrustDialogAccepted === true || inGame.has(d)) return 'confiada';
-    if (path.dirname(d) === d) return 'sin-confianza';
+    if (path.dirname(d) === d || bordes.has(d)) return 'sin-confianza';
   }
 }
 
@@ -324,7 +326,7 @@ export class Sessions extends EventEmitter {
     return { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: t('server.preflightGateDenied', { que: g.falta.join('; ') }) } };
   }
 
-  private confianza(cwd: string) { return confianza(cwd, undefined, this.resolutor.trustedFolders?.()); }
+  private confianza(cwd: string) { return confianza(cwd, undefined, this.resolutor.trustedFolders?.(), this.resolutor.clonedFolders?.()); }
 
   // la carpeta trae configuración de proyecto y no es de confianza: se pregunta antes de lanzar (lo que se escriba
   // mientras tanto espera en la cola)
