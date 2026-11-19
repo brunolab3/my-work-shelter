@@ -44,7 +44,7 @@ async function inside(root: string, rel: string) {
 
 function run(bin: string, args: string[], o: { cwd?: string; input?: string; timeout?: number } = {}): Promise<{ out: string; code: number }> {
   return new Promise(ok => {
-    const p = spawn(bin, args, { cwd: o.cwd, env: gitEnvironment({ GIT_OPTIONAL_LOCKS: '0' }), stdio: ['pipe', 'pipe', 'ignore'] });
+    const p = spawn(bin, args, { cwd: o.cwd, env: gitEnvironment(), stdio: ['pipe', 'pipe', 'ignore'] });
     const out: Buffer[] = []; let length = 0;
     p.stdout.on('data', (b: Buffer) => { length += b.length; if (length < 64 * 1024 * 1024) out.push(b); });
     const timer = setTimeout(() => p.kill('SIGTERM'), o.timeout ?? 15_000);
