@@ -1,8 +1,8 @@
 // Prompts a los habitantes (lo que reciben como mensaje del Supervisor), en los dos idiomas. Los nombres de las
 // herramientas del juego (current_decor, assign_work…) no se traducen: son los de verdad.
-import type { Texto } from '../language.ts';
+import type { LocalizedText } from '../language.ts';
 
-export const PROMPTS: Record<string, Texto> = {
+export const PROMPTS: Record<string, LocalizedText> = {
   // respuesta a una pregunta del habitante cuando el Supervisor la salta (web/src/ui/Dialog.tsx)
   'prompt.userPreferredNotToAnswer': { es: 'El usuario ha preferido no responder.', en: 'The user preferred not to answer.' },
   // «Adaptar la sala al repo» (server/roomDecor.ts)

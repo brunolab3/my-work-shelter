@@ -6,19 +6,19 @@ import { PLANNING_ROOM } from './layout.ts';
 
 describe('sectores', () => {
   it('cada sala está en una planta de su sector (el ascensor y el plano dicen lo mismo que el cartel)', () => {
-    const many = Array.from({ length: 11 }, (_, i) => ({ id: 'r' + i, tipo: 'repo', nombre: 'repo-' + i }));
-    for (const salas of [INITIAL_ROOMS, distribute([...INITIAL_ROOMS, ...many])]) {
-      const plantas = Math.max(...salas.map(s => s.planta)) + 1;
-      for (const s of salas) expect(floorSector(s.planta, plantas).id, s.id).toBe(sectorOf(s.tipo, s.id, (s as any).area).id);
+    const many = Array.from({ length: 11 }, (_, i) => ({ id: 'r' + i, type: 'repo', name: 'repo-' + i }));
+    for (const rooms of [INITIAL_ROOMS, distribute([...INITIAL_ROOMS, ...many])]) {
+      const floors = Math.max(...rooms.map(s => s.floor)) + 1;
+      for (const s of rooms) expect(floorSector(s.floor, floors).id, s.id).toBe(sectorOf(s.type, s.id, (s as any).area).id);
     }
   });
   it('los repos van por su área: verde frontend, amarillo backend y rojo los críticos', () => {
     expect(sectorOf('repo', 'x', 'frontend').id).toBe('frontend');
     expect(sectorOf('repo', 'x', 'critico').id).toBe('critico');
     expect(sectorOf('repo').id).toBe('backend');
-    expect(roomTone({ tipo: 'repo', area: 'critico' })[0]).toBe(SECTORS.critico.color);
+    expect(roomTone({ type: 'repo', area: 'critico' })[0]).toBe(SECTORS.critico.color);
     expect(sectorOf('coordinacion', PLANNING_ROOM, 'frontend').id).toBe('enlace');
-    expect(floorSector(3, 6, [{ planta: 3, tipo: 'repo', orden: 0, area: 'frontend' }, { planta: 3, tipo: 'repo', orden: 1, area: 'frontend' }, { planta: 3, tipo: 'repo', orden: 2 }]).id).toBe('frontend');
+    expect(floorSector(3, 6, [{ floor: 3, type: 'repo', orden: 0, area: 'frontend' }, { floor: 3, type: 'repo', orden: 1, area: 'frontend' }, { floor: 3, type: 'repo', orden: 2 }]).id).toBe('frontend');
   });
   it('el área de serie sale del tipo de proyecto', () => {
     expect(areaByType('web Next.js')).toBe('frontend');

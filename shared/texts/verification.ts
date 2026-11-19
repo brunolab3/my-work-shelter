@@ -1,8 +1,8 @@
 // Production verification of a task (shared/verification.ts): its states, the dweller tools verification_plan and
 // verification_report (server/verifications.ts) and its section in the pre-flight.
-import type { Texto } from '../language.ts';
+import type { LocalizedText } from '../language.ts';
 
-export const VERIFICATION: Record<string, Texto> = {
+export const VERIFICATION: Record<string, LocalizedText> = {
   'verification.state.waitingDeploy': { es: '⏳ esperando despliegue', en: '⏳ waiting for deploy' },
   'verification.state.live': { es: '⏳ desplegado en parte', en: '⏳ partly live' },
   'verification.state.waitingTraffic': { es: '⏳ esperando tráfico', en: '⏳ waiting for traffic' },

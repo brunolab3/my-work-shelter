@@ -11,25 +11,25 @@
 //   OCIO       última   naranja: los cultivos, la discoteca, la galería de tiro y Chapa y Pintura
 import { isRoomOfRepo, FLOOR_REPOS, PLANNING_ROOM } from './layout.ts';
 
-export type IdSector = 'acceso' | 'mando' | 'enlace' | AreaRepo | 'ocio';
+export type IdSector = 'acceso' | 'mando' | 'enlace' | RepoArea | 'ocio';
 // letra: el color con el que se escribe el sector sobre chapa oscura (el negro de mando no se leería)
-export interface Sector { id: IdSector; nombre: string; codigo: string; color: string; oscuro: string; tinta: string; letra: string; motto: string }
+export interface Sector { id: IdSector; name: string; code: string; color: string; dark: string; ink: string; letter: string; motto: string }
 
 /** Área de una sala de repo: decide su sector y su color */
-export type AreaRepo = 'frontend' | 'backend' | 'critico';
-export const AREAS: AreaRepo[] = ['frontend', 'backend', 'critico'];
-export const isArea = (x: unknown): x is AreaRepo => AREAS.includes(x as AreaRepo);
+export type RepoArea = 'frontend' | 'backend' | 'critico';
+export const AREAS: RepoArea[] = ['frontend', 'backend', 'critico'];
+export const isArea = (x: unknown): x is RepoArea => AREAS.includes(x as RepoArea);
 /** Área de serie según el tipo de proyecto (tipoProyecto en server/repos.ts): lo de JavaScript, frontend; lo demás, backend */
-export const areaByType = (tipo: string): AreaRepo => (/^(web|node|vídeo|diseño|escritorio)/.test(tipo) ? 'frontend' : 'backend');
+export const areaByType = (type: string): RepoArea => (/^(web|node|vídeo|diseño|escritorio)/.test(type) ? 'frontend' : 'backend');
 
 export const SECTORS: Record<IdSector, Sector> = {
-  acceso: { id: 'acceso', nombre: 'ACCESO', codigo: 'A', color: '#8f62c8', oscuro: '#462c63', tinta: '#120d18', letra: '#a97ee0', motto: 'Entrada y reclutamiento' },
-  mando: { id: 'mando', nombre: 'MANDO', codigo: 'M', color: '#2c2e33', oscuro: '#121315', tinta: '#e9e4d8', letra: '#d9d4c8', motto: 'Credenciales y Puente de Mando' },
-  enlace: { id: 'enlace', nombre: 'ENLACE', codigo: 'E', color: '#3f74ad', oscuro: '#1f3a5a', tinta: '#0f141a', letra: '#3f74ad', motto: 'Planificación, agenda, correo, tableros y GitHub' },
-  frontend: { id: 'frontend', nombre: 'FRONTEND', codigo: 'F', color: '#4f9a4a', oscuro: '#244a22', tinta: '#0e160d', letra: '#5fae59', motto: 'Repos de frontend' },
-  backend: { id: 'backend', nombre: 'BACKEND', codigo: 'B', color: '#d6b02b', oscuro: '#6b5714', tinta: '#16140f', letra: '#d6b02b', motto: 'Repos de backend' },
-  critico: { id: 'critico', nombre: 'CRÍTICOS', codigo: 'C', color: '#c0392b', oscuro: '#5e1a14', tinta: '#16140f', letra: '#d9483a', motto: 'Servicios críticos' },
-  ocio: { id: 'ocio', nombre: 'OCIO', codigo: 'O', color: '#e0862c', oscuro: '#6f4115', tinta: '#16140f', letra: '#e0862c', motto: 'Cultivos, discoteca, tiro al blanco y Chapa y Pintura' },
+  acceso: { id: 'acceso', name: 'ACCESO', code: 'A', color: '#8f62c8', dark: '#462c63', ink: '#120d18', letter: '#a97ee0', motto: 'Entrada y reclutamiento' },
+  mando: { id: 'mando', name: 'MANDO', code: 'M', color: '#2c2e33', dark: '#121315', ink: '#e9e4d8', letter: '#d9d4c8', motto: 'Credenciales y Puente de Mando' },
+  enlace: { id: 'enlace', name: 'ENLACE', code: 'E', color: '#3f74ad', dark: '#1f3a5a', ink: '#0f141a', letter: '#3f74ad', motto: 'Planificación, agenda, correo, tableros y GitHub' },
+  frontend: { id: 'frontend', name: 'FRONTEND', code: 'F', color: '#4f9a4a', dark: '#244a22', ink: '#0e160d', letter: '#5fae59', motto: 'Repos de frontend' },
+  backend: { id: 'backend', name: 'BACKEND', code: 'B', color: '#d6b02b', dark: '#6b5714', ink: '#16140f', letter: '#d6b02b', motto: 'Repos de backend' },
+  critico: { id: 'critico', name: 'CRÍTICOS', code: 'C', color: '#c0392b', dark: '#5e1a14', ink: '#16140f', letter: '#d9483a', motto: 'Servicios críticos' },
+  ocio: { id: 'ocio', name: 'OCIO', code: 'O', color: '#e0862c', dark: '#6f4115', ink: '#16140f', letter: '#e0862c', motto: 'Cultivos, discoteca, tiro al blanco y Chapa y Pintura' },
 };
 export const SECTORS_ORDER: IdSector[] = ['acceso', 'mando', 'enlace', 'frontend', 'backend', 'critico', 'ocio'];
 
@@ -41,22 +41,22 @@ const SECTOR_TYPE: Record<string, IdSector> = {
 export const isLeisureRoom = (id: string) => SECTOR_TYPE[id] === 'ocio';
 // la sala de planificación de serie es de coordinación (tipo de repo) pero está en enlace, con los tableros (por su id);
 // un repo sin área todavía (antes de sanear el estado), backend
-export const sectorOf = (tipo: string, id?: string, area?: string): Sector =>
-  SECTORS[id === PLANNING_ROOM ? 'enlace' : isRoomOfRepo(tipo) ? (isArea(area) ? area : 'backend') : SECTOR_TYPE[tipo] ?? 'ocio'];
+export const sectorOf = (type: string, id?: string, area?: string): Sector =>
+  SECTORS[id === PLANNING_ROOM ? 'enlace' : isRoomOfRepo(type) ? (isArea(area) ? area : 'backend') : SECTOR_TYPE[type] ?? 'ocio'];
 
 /** Sector de una planta según el orden de layout.ts: PB acceso, -1 mando, -2 enlace, repos (backend) y la última, ocio.
  *  Con las salas (que se pueden mover a mano), el de la mayoría de las suyas; si empatan, el de la más cercana al ascensor */
-export function floorSector(planta: number, plantas: number, salas?: { planta: number; tipo: string; orden: number; id?: string; area?: string }[]): Sector {
-  const their = salas?.filter(s => s.planta === planta).sort((a, b) => a.orden - b.orden) ?? [];
+export function floorSector(floor: number, floors: number, rooms?: { floor: number; type: string; orden: number; id?: string; area?: string }[]): Sector {
+  const their = rooms?.filter(s => s.floor === floor).sort((a, b) => a.orden - b.orden) ?? [];
   if (their.length) {
-    const cuenta = new Map<Sector, number>();
-    for (const s of their) { const sec = sectorOf(s.tipo, s.id, s.area); cuenta.set(sec, (cuenta.get(sec) ?? 0) + 1); }
-    return [...cuenta].sort((a, b) => b[1] - a[1])[0][0];
+    const count = new Map<Sector, number>();
+    for (const s of their) { const sec = sectorOf(s.type, s.id, s.area); count.set(sec, (count.get(sec) ?? 0) + 1); }
+    return [...count].sort((a, b) => b[1] - a[1])[0][0];
   }
-  if (planta === 0) return SECTORS.acceso;
-  if (planta === 1) return SECTORS.mando;
-  if (planta === 2) return SECTORS.enlace;
-  return SECTORS[planta >= FLOOR_REPOS && planta < plantas - 1 ? 'backend' : 'ocio'];
+  if (floor === 0) return SECTORS.acceso;
+  if (floor === 1) return SECTORS.mando;
+  if (floor === 2) return SECTORS.enlace;
+  return SECTORS[floor >= FLOOR_REPOS && floor < floors - 1 ? 'backend' : 'ocio'];
 }
 
 // tono de cada sala dentro de su familia: [acento, acentoOscuro]. Las especiales, por tipo; los repos, el de su área
@@ -68,9 +68,9 @@ const TONES: Record<string, [string, string]> = {
   hidroponia: ['#d9802e', '#6b3f16'], discoteca: ['#ec8f2a', '#74450f'], galeria: ['#c8752f', '#633a17'], chapa: ['#e39a45', '#704b1f'],
   [PLANNING_ROOM]: ['#3d6c8f', '#1d3549'],
 };
-export function roomTone(s: { tipo: string; id?: string; area?: string }): [string, string] {
-  const sec = sectorOf(s.tipo, s.id, s.area);
-  return TONES[s.id === PLANNING_ROOM ? s.id : isRoomOfRepo(s.tipo) ? '' : s.tipo] ?? [sec.color, sec.oscuro];
+export function roomTone(s: { type: string; id?: string; area?: string }): [string, string] {
+  const sec = sectorOf(s.type, s.id, s.area);
+  return TONES[s.id === PLANNING_ROOM ? s.id : isRoomOfRepo(s.type) ? '' : s.type] ?? [sec.color, sec.dark];
 }
 
 /** Paleta base (paredes y pantallas) de un repo según su estilo: el acento lo pone el sector */

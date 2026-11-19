@@ -1,7 +1,7 @@
 // Mensajes de las integraciones (server/integrations/): errores, estados y ayudas de conexión que ve el Supervisor
-import type { Texto } from '../language.ts';
+import type { LocalizedText } from '../language.ts';
 
-export const INTEGRATIONS: Record<string, Texto> = {
+export const INTEGRATIONS: Record<string, LocalizedText> = {
   'integrations.outlookOther': { es: 'Otros', en: 'Other' },
   'integrations.outlookInbox': { es: 'Bandeja de entrada', en: 'Inbox' },
   'integrations.unknownSender': { es: 'Remitente desconocido', en: 'Unknown sender' },
@@ -213,7 +213,7 @@ export const INTEGRATIONS: Record<string, Texto> = {
   'integrations.slackSetMemberId': { es: ' Pon tu ID de miembro en la cámara acorazada para recibir tus menciones.', en: ' Enter your member ID in the Vault to receive your mentions.' },
   'integrations.slackValidToken': { es: 'Token válido en {equipo}{quien}: {n} canales a la vista.{invita}', en: 'Valid token in {equipo}{quien}: {n} channels in view.{invita}' },
   'integrations.slackInvite': { es: ' Invita a la app a algún canal con /invite.', en: ' Invite the app to a channel with /invite.' },
-  // source names (shared/fonts.ts: shown with tIs())
+  // source names (shared/sources.ts: shown with tIs())
   'integrations.macMailName': { es: 'Mail del Mac (Gmail sin Google Cloud)', en: 'Mac Mail (Gmail without Google Cloud)' },
   'integrations.macCalendarName': { es: 'Calendario del Mac', en: 'Mac Calendar' },
   'integrations.googleName': { es: 'Google (Gmail y Calendar)', en: 'Google (Gmail and Calendar)' },

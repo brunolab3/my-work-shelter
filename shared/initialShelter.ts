@@ -4,29 +4,29 @@
 import { tonesForRepeated } from './recruits.ts';
 import type { Look } from './appearance.ts';
 import { distribute, PLANNING_ROOM } from './layout.ts';
-export interface InitialRoom { id: string; tipo: 'repo' | 'coordinacion' | 'comunicaciones' | 'planificacion' | 'logistica' | 'git' | 'puente' | 'camara' | 'puerta' | 'hidroponia' | 'galeria' | 'discoteca' | 'chapa'; nombre: string; planta: number; lado: 'izq' | 'der'; orden: number; variant: string; estilo?: string }
-export interface InitialDweller { id: string; nombre: string; mote: string; tipo: string; bio: string; salaId: string; voz: number; tinte?: string; tone?: number; aspecto?: Look }
+export interface InitialRoom { id: string; type: 'repo' | 'coordinacion' | 'comunicaciones' | 'planificacion' | 'logistica' | 'git' | 'puente' | 'camara' | 'puerta' | 'hidroponia' | 'galeria' | 'discoteca' | 'chapa'; name: string; floor: number; side: 'izq' | 'der'; orden: number; variant: string; style?: string }
+export interface InitialDweller { id: string; name: string; nickname: string; type: string; bio: string; roomId: string; voice: number; tint?: string; tone?: number; look?: Look }
 
 // el sitio de cada sala (planta, lado, orden) lo decide `distribuir`: aquí solo qué salas hay
-export const INITIAL_ROOMS: InitialRoom[] = distribute<Omit<InitialRoom, 'planta' | 'lado' | 'orden'>>([
-  { id: 'puerta', tipo: 'puerta', nombre: 'Puerta Principal', variant: 'neutro' },
-  { id: 'camara', tipo: 'camara', nombre: 'Cámara acorazada', variant: 'acorazada' },
-  { id: 'puente', tipo: 'puente', nombre: 'Puente de Mando', variant: 'puente' },
-  { id: 'comunicaciones', tipo: 'comunicaciones', nombre: 'Comunicaciones', variant: 'comms' },
+export const INITIAL_ROOMS: InitialRoom[] = distribute<Omit<InitialRoom, 'floor' | 'side' | 'orden'>>([
+  { id: 'puerta', type: 'puerta', name: 'Puerta Principal', variant: 'neutro' },
+  { id: 'camara', type: 'camara', name: 'Cámara acorazada', variant: 'acorazada' },
+  { id: 'puente', type: 'puente', name: 'Puente de Mando', variant: 'puente' },
+  { id: 'comunicaciones', type: 'comunicaciones', name: 'Comunicaciones', variant: 'comms' },
   // el tipo 'planificacion' es la agenda (calendario) y 'logistica', la sala «Planificación» (el tablero de tareas)
-  { id: 'planificacion', tipo: 'planificacion', nombre: 'Agenda', variant: 'plan' },
-  { id: 'logistica', tipo: 'logistica', nombre: 'Planificación', variant: 'logistica' },
+  { id: 'planificacion', type: 'planificacion', name: 'Agenda', variant: 'plan' },
+  { id: 'logistica', type: 'logistica', name: 'Planificación', variant: 'logistica' },
   // git y GitHub: el cliente de git del refugio para todos los repos, la matriz de contribuciones y los pull requests
-  { id: 'git', tipo: 'git', nombre: 'Control de Versiones', variant: 'logistica' },
+  { id: 'git', type: 'git', name: 'Control de Versiones', variant: 'logistica' },
   // planificar tareas de Jira con todos los repos a la vista y repartirlas por salas (tipo 'coordinacion'): su carpeta es
   // la raíz de repos del refugio (la de la cámara acorazada; el servidor la pone)
-  { id: PLANNING_ROOM, tipo: 'coordinacion', nombre: 'Logística', variant: 'logistica' },
-  { id: 'hidroponia', tipo: 'hidroponia', nombre: 'Hidroponía', variant: 'comms' },
+  { id: PLANNING_ROOM, type: 'coordinacion', name: 'Logística', variant: 'logistica' },
+  { id: 'hidroponia', type: 'hidroponia', name: 'Hidroponía', variant: 'comms' },
   // la discoteca, en la planta de ocio entre los cultivos y el ascensor: la música del refugio (Spotify) para currar
-  { id: 'discoteca', tipo: 'discoteca', nombre: 'Discoteca', variant: 'neutro' },
-  { id: 'galeria', tipo: 'galeria', nombre: 'Galería de tiro', variant: 'logistica' },
+  { id: 'discoteca', type: 'discoteca', name: 'Discoteca', variant: 'neutro' },
+  { id: 'galeria', type: 'galeria', name: 'Galería de tiro', variant: 'logistica' },
   // barbería y ropería: aquí se cambia el aspecto del Supervisor y de cualquier habitante (humano o robot)
-  { id: 'chapa', tipo: 'chapa', nombre: 'Chapa y Pintura', variant: 'neutro' },
+  { id: 'chapa', type: 'chapa', name: 'Chapa y Pintura', variant: 'neutro' },
 ]);
 
 /** La sala donde empieza el Supervisor: Planificación, con el tablero de tareas (una sala de servicio: no se retira) */
@@ -39,12 +39,12 @@ export const ROOM_DESCRIPTION: Record<string, string> = {
   hidroponia: 'Cultivos', galeria: 'Tiro al blanco', discoteca: 'Música para currar', chapa: 'Barbería y ropería', coordinacion: 'Planificar y repartir tareas',
 };
 
-const H = (id: string, nombre: string, mote: string, tipo: string, salaId: string, bio: string, voz: number, aspecto?: Look): InitialDweller => ({ id, nombre, mote, tipo, salaId, bio, voz, ...(aspecto ? { aspecto } : {}) });
+const H = (id: string, name: string, nickname: string, type: string, roomId: string, bio: string, voice: number, look?: Look): InitialDweller => ({ id, name, nickname, type, roomId, bio, voice, ...(look ? { look } : {}) });
 /** El guardián de la puerta: un androide como el de la cámara acorazada (del mismo tamaño que todos), en acero
  *  pavonado y con las luces rojas de vigilancia */
-export const LOOK_GUARDIAN: Look = { especie: 'robot', piezas: { cabeza: 'cabeza.4GTN', torso: 'torso.4GTN', brazos: 'brazos.4GTN', piernas: 'piernas.4GTN' }, colores: { cabeza1: '#4a4f57', torso1: '#4a4f57', torso2: '#2b2d33', piernas1: '#33363b', piernas2: '#2b2d33', luz: '#ff5a4a' } };
+export const LOOK_GUARDIAN: Look = { especie: 'robot', pieces: { cabeza: 'cabeza.4GTN', torso: 'torso.4GTN', brazos: 'brazos.4GTN', piernas: 'piernas.4GTN' }, colors: { cabeza1: '#4a4f57', torso1: '#4a4f57', torso2: '#2b2d33', piernas1: '#33363b', piernas2: '#2b2d33', luz: '#ff5a4a' } };
 /** El barbero y sastre de Chapa y Pintura */
-export const LOOK_FITO: Look = { especie: 'humano', piezas: { cara: 'cara.ToySoldier', cejas: 'cejas.Vampire', pelo: 'pelo.Vampire', barba: 'barba.ToySoldier', torso: 'torso.Vampire', brazos: 'brazos.Vampire', piernas: 'piernas.Vampire', gafas: 'gafas.Witch.Glasses' }, colores: { pelo: '#2a1f1a', torso1: '#2b3f6b', torso2: '#d8d2c4', piernas1: '#2b2d33' } };
+export const LOOK_FITO: Look = { especie: 'humano', pieces: { cara: 'cara.ToySoldier', cejas: 'cejas.Vampire', pelo: 'pelo.Vampire', barba: 'barba.ToySoldier', torso: 'torso.Vampire', brazos: 'brazos.Vampire', piernas: 'piernas.Vampire', gafas: 'gafas.Witch.Glasses' }, colors: { pelo: '#2a1f1a', torso1: '#2b3f6b', torso2: '#d8d2c4', piernas1: '#2b2d33' } };
 // una sala, un habitante (lleva varios trabajos a la vez, cada uno en su pestaña).
 // Quien comparte modelo con otro habitante lleva otro tono de ropa y pelo: el reparto no tiene gemelos
 export const INITIAL_DWELLERS: InitialDweller[] = tonesForRepeated([

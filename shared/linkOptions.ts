@@ -3,18 +3,18 @@
 import { t } from './language.ts';
 
 export type LinkAction = 'juego' | 'navegador' | 'mac' | 'finder' | 'copiar';
-export interface LinkOption { accion: LinkAction; texto: string }
+export interface LinkOption { action: LinkAction; text: string }
 // where the server would open a file of the Mac (server/open.ts, localKind)
 export type LocalKind = 'carpeta' | 'web' | 'vista' | 'editor' | 'finder';
 
 /** A web link: inside (its site's browser, the «Web» window or, for a page another program serves on this Mac, the
  *  «Página» one) when it can, the system browser (or mail) and copying it */
-export function webLinkOptions(href: string, o: { dentro: boolean; sitio?: string }): LinkOption[] {
-  const correo = /^mailto:/i.test(href);
+export function webLinkOptions(href: string, o: { inside: boolean; spot?: string }): LinkOption[] {
+  const email = /^mailto:/i.test(href);
   return [
-    ...(o.dentro && !correo ? [{ accion: 'juego' as const, texto: o.sitio ? t('windows.linkOpenInSpot', { nombre: o.sitio }) : t('windows.linkOpenInGame') }] : []),
-    { accion: 'navegador', texto: correo ? t('windows.linkOpenInMail') : t('windows.linkOpenInBrowser') },
-    { accion: 'copiar', texto: correo ? t('windows.linkCopyAddress') : t('windows.linkCopy') },
+    ...(o.inside && !email ? [{ action: 'juego' as const, text: o.spot ? t('windows.linkOpenInSpot', { nombre: o.spot }) : t('windows.linkOpenInGame') }] : []),
+    { action: 'navegador', text: email ? t('windows.linkOpenInMail') : t('windows.linkOpenInBrowser') },
+    { action: 'copiar', text: email ? t('windows.linkCopyAddress') : t('windows.linkCopy') },
   ];
 }
 
@@ -23,13 +23,13 @@ const ON_MAC: Record<LocalKind, string | null> = {
 };
 /** A file of the Mac (null: it isn't there): in the game (a page or an image), where the Mac opens it without running
  *  anything, revealed in Finder and copying its path */
-export function fileLinkOptions(tipo: { juego: boolean; mac: LocalKind } | null): LinkOption[] {
-  const enMac = tipo && ON_MAC[tipo.mac];
+export function fileLinkOptions(type: { juego: boolean; mac: LocalKind } | null): LinkOption[] {
+  const onMac = type && ON_MAC[type.mac];
   return [
-    ...(tipo?.juego ? [{ accion: 'juego' as const, texto: t('windows.linkOpenInGame') }] : []),
-    ...(enMac ? [{ accion: 'mac' as const, texto: t(enMac) }] : []),
-    ...(tipo && tipo.mac !== 'carpeta' ? [{ accion: 'finder' as const, texto: t('windows.linkRevealInFinder') }] : []),
-    { accion: 'copiar', texto: t('windows.linkCopyPath') },
+    ...(type?.juego ? [{ action: 'juego' as const, text: t('windows.linkOpenInGame') }] : []),
+    ...(onMac ? [{ action: 'mac' as const, text: t(onMac) }] : []),
+    ...(type && type.mac !== 'carpeta' ? [{ action: 'finder' as const, text: t('windows.linkRevealInFinder') }] : []),
+    { action: 'copiar', text: t('windows.linkCopyPath') },
   ];
 }
 
@@ -44,13 +44,13 @@ export function copyText(href: string): string {
 const LOCAL = /^(?:\/Users\/|~\/|\/(?:private\/)?tmp\/|\/(?:private\/)?var\/folders\/)/;
 /** What a link of a page of the Mac (at `pagina`) points at, from its raw href: a file of the Mac (a relative one, next
  *  to the page), a web or mail address, or nothing the game opens (null) */
-export function pageLinkTarget(enlace: unknown, pagina: string): { ruta: string } | { href: string } | null {
-  const href = typeof enlace === 'string' ? enlace.trim() : '';
+export function pageLinkTarget(link: unknown, page: string): { path: string } | { href: string } | null {
+  const href = typeof link === 'string' ? link.trim() : '';
   if (!href || href.startsWith('#')) return null;
-  if (href.startsWith('~/')) return { ruta: href.split(/[?#]/)[0] };
-  let u: URL; try { u = new URL(href, new URL('file://' + encodeURI(pagina))); } catch { return null; }
+  if (href.startsWith('~/')) return { path: href.split(/[?#]/)[0] };
+  let u: URL; try { u = new URL(href, new URL('file://' + encodeURI(page))); } catch { return null; }
   if (/^(https?|mailto):$/.test(u.protocol)) return { href: u.href };
   if (u.protocol !== 'file:') return null;
-  const ruta = decodeURIComponent(u.pathname);
-  return LOCAL.test(ruta) ? { ruta } : null;
+  const path = decodeURIComponent(u.pathname);
+  return LOCAL.test(path) ? { path } : null;
 }

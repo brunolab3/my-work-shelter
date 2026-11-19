@@ -10,147 +10,147 @@
 //           (como mucho REPOS_POR_PLANTA por planta: si hay más, siguen en la planta de debajo)
 //   última  ocio: hidroponía, discoteca | galería de tiro, Chapa y Pintura (de izquierda a derecha: cultivos, discoteca,
 //           ascensor, tiro, barbería y ropería)
-export interface Gap { planta: number; lado: 'izq' | 'der'; orden: number }
+export interface Gap { floor: number; side: 'izq' | 'der'; orden: number }
 
 export const FLOOR_REPOS = 3;
 export const REPOS_BY_FLOOR = 8;
 
 const FIXED: Record<string, Gap> = {
-  puerta: { planta: 0, lado: 'izq', orden: 0 },
-  camara: { planta: 1, lado: 'izq', orden: 0 },
-  puente: { planta: 1, lado: 'der', orden: 0 },
-  planificacion: { planta: 2, lado: 'izq', orden: 0 },
-  comunicaciones: { planta: 2, lado: 'izq', orden: 1 },
-  logistica: { planta: 2, lado: 'der', orden: 0 },
-  git: { planta: 2, lado: 'der', orden: 1 },
+  puerta: { floor: 0, side: 'izq', orden: 0 },
+  camara: { floor: 1, side: 'izq', orden: 0 },
+  puente: { floor: 1, side: 'der', orden: 0 },
+  planificacion: { floor: 2, side: 'izq', orden: 0 },
+  comunicaciones: { floor: 2, side: 'izq', orden: 1 },
+  logistica: { floor: 2, side: 'der', orden: 0 },
+  git: { floor: 2, side: 'der', orden: 1 },
 };
-const OCIO: Record<string, Pick<Gap, 'lado' | 'orden'>> = {
-  discoteca: { lado: 'izq', orden: 0 },
-  hidroponia: { lado: 'izq', orden: 1 },
-  galeria: { lado: 'der', orden: 0 },
-  chapa: { lado: 'der', orden: 1 },
+const LEISURE: Record<string, Pick<Gap, 'side' | 'orden'>> = {
+  discoteca: { side: 'izq', orden: 0 },
+  hidroponia: { side: 'izq', orden: 1 },
+  galeria: { side: 'der', orden: 0 },
+  chapa: { side: 'der', orden: 1 },
 };
 
-export const isRoomOfRepo = (tipo: string) => tipo === 'repo' || tipo === 'coordinacion';
+export const isRoomOfRepo = (type: string) => type === 'repo' || type === 'coordinacion';
 /** La sala de serie de planificación de tareas (tipo 'coordinacion'): su carpeta es siempre la raíz de repos del
  *  refugio; no se retira ni se vincula a otra carpeta. Las de coordinación reclutadas en la Puerta son salas de repo */
 export const PLANNING_ROOM = 'tareas';
-const PLANNING_GAP: Gap = { planta: 2, lado: 'der', orden: 2 };
-const reposIs = (s: { id: string; tipo: string }) => isRoomOfRepo(s.tipo) && s.id !== PLANNING_ROOM;
+const PLANNING_GAP: Gap = { floor: 2, side: 'der', orden: 2 };
+const reposIs = (s: { id: string; type: string }) => isRoomOfRepo(s.type) && s.id !== PLANNING_ROOM;
 /** Orden alfabético de los repos: el de su sitio en la planta y el de su número en la placa */
-export const alphabeticalOrder = (a: { id: string; nombre: string }, b: { id: string; nombre: string }) =>
-  a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base', numeric: true }) || a.id.localeCompare(b.id);
+export const alphabeticalOrder = (a: { id: string; name: string }, b: { id: string; name: string }) =>
+  a.name.localeCompare(b.name, 'es', { sensitivity: 'base', numeric: true }) || a.id.localeCompare(b.id);
 /** Rótulo de una planta en el ascensor y en el plano: PB, -1, -2… */
 export const floorCaption = (p: number) => (p === 0 ? 'PB' : '-' + p);
 
-export function distribute<T extends { id: string; tipo: string; nombre: string; manual?: boolean }>(salas: T[]): (T & Gap)[] {
-  if (salas.some(s => s.manual)) return aMano(salas as (T & Partial<Gap>)[]);
-  const sitio = new Map<T, Gap>();
-  const ocupado = new Set<string>();
-  const poner = (s: T, h: Gap) => { sitio.set(s, h); ocupado.add(`${h.planta}|${h.lado}|${h.orden}`); };
-  const libre = (h: Gap) => !ocupado.has(`${h.planta}|${h.lado}|${h.orden}`);
+export function distribute<T extends { id: string; type: string; name: string; manual?: boolean }>(rooms: T[]): (T & Gap)[] {
+  if (rooms.some(s => s.manual)) return byHand(rooms as (T & Partial<Gap>)[]);
+  const spot = new Map<T, Gap>();
+  const busy = new Set<string>();
+  const set = (s: T, h: Gap) => { spot.set(s, h); busy.add(`${h.floor}|${h.side}|${h.orden}`); };
+  const free = (h: Gap) => !busy.has(`${h.floor}|${h.side}|${h.orden}`);
   // repos: de izquierda a derecha en orden alfabético; a la izquierda la mitad (redondeando hacia arriba)
-  const repos = salas.filter(reposIs).sort(alphabeticalOrder);
+  const repos = rooms.filter(reposIs).sort(alphabeticalOrder);
   const floorsRepos = Math.ceil(repos.length / REPOS_BY_FLOOR);
   for (let k = 0; k < floorsRepos; k++) {
     const batch = repos.slice(k * REPOS_BY_FLOOR, (k + 1) * REPOS_BY_FLOOR);
-    const izq = Math.ceil(batch.length / 2), planta = FLOOR_REPOS + k;
-    batch.forEach((s, i) => poner(s, i < izq ? { planta, lado: 'izq', orden: izq - 1 - i } : { planta, lado: 'der', orden: i - izq }));
+    const left = Math.ceil(batch.length / 2), floor = FLOOR_REPOS + k;
+    batch.forEach((s, i) => set(s, i < left ? { floor, side: 'izq', orden: left - 1 - i } : { floor, side: 'der', orden: i - left }));
   }
   const leisureFloor = FLOOR_REPOS + floorsRepos;
-  const sueltas: T[] = [];
-  for (const s of salas) {
+  const loose: T[] = [];
+  for (const s of rooms) {
     if (reposIs(s)) continue;
-    const h = s.id === PLANNING_ROOM ? PLANNING_GAP : FIXED[s.tipo] ?? (OCIO[s.tipo] && { planta: leisureFloor, ...OCIO[s.tipo] });
-    if (h && libre(h)) poner(s, h); else sueltas.push(s);
+    const h = s.id === PLANNING_ROOM ? PLANNING_GAP : FIXED[s.type] ?? (LEISURE[s.type] && { floor: leisureFloor, ...LEISURE[s.type] });
+    if (h && free(h)) set(s, h); else loose.push(s);
   }
   // lo que no tiene sitio fijo (o lo repite) va a la planta de ocio, en el primer hueco libre
-  for (const s of sueltas) {
+  for (const s of loose) {
     for (let orden = 0; ; orden++) {
-      const h = (['izq', 'der'] as const).map(lado => ({ planta: leisureFloor, lado, orden })).find(libre);
-      if (h) { poner(s, h); break; }
+      const h = (['izq', 'der'] as const).map(side => ({ floor: leisureFloor, side, orden })).find(free);
+      if (h) { set(s, h); break; }
     }
   }
-  return salas.map(s => ({ ...s, ...sitio.get(s)! }));
+  return rooms.map(s => ({ ...s, ...spot.get(s)! }));
 }
 
 // ---------------------------------------------------------------- a mano
 // Cada planta es una fila: [izq …, ascensor, … der]. Las salas con `manual` conservan su sitio; las que no lo tienen (un
 // recluta nuevo) van al final de la última planta con repos (si está llena, a una nueva debajo de ella). Después se
 // compacta: en cada lado, sin huecos entre salas; sin plantas vacías por medio. La PB es solo de la puerta.
-type WithSpot = { id: string; tipo: string; nombre: string; manual?: boolean } & Partial<Gap>;
-const fila = <T extends Gap>(salas: T[], p: number) => [
-  ...salas.filter(s => s.planta === p && s.lado === 'izq').sort((a, b) => b.orden - a.orden),
+type WithSpot = { id: string; type: string; name: string; manual?: boolean } & Partial<Gap>;
+const row = <T extends Gap>(rooms: T[], p: number) => [
+  ...rooms.filter(s => s.floor === p && s.side === 'izq').sort((a, b) => b.orden - a.orden),
   null,
-  ...salas.filter(s => s.planta === p && s.lado === 'der').sort((a, b) => a.orden - b.orden),
+  ...rooms.filter(s => s.floor === p && s.side === 'der').sort((a, b) => a.orden - b.orden),
 ];
 // recoloca una fila (con el ascensor como `null`) en la planta p
-function ponerFila<T extends Gap>(f: (T | null)[], p: number) {
-  const asc = f.indexOf(null);
-  f.forEach((s, i) => { if (s) Object.assign(s, i < asc ? { planta: p, lado: 'izq', orden: asc - 1 - i } : { planta: p, lado: 'der', orden: i - asc - 1 }); });
+function setRow<T extends Gap>(f: (T | null)[], p: number) {
+  const elev = f.indexOf(null);
+  f.forEach((s, i) => { if (s) Object.assign(s, i < elev ? { floor: p, side: 'izq', orden: elev - 1 - i } : { floor: p, side: 'der', orden: i - elev - 1 }); });
 }
-function compact<T extends Gap>(salas: T[]): T[] {
-  const plantas = [...new Set(salas.map(s => s.planta))].sort((a, b) => a - b);
-  const filas = plantas.map(p => fila(salas, p));
+function compact<T extends Gap>(rooms: T[]): T[] {
+  const floors = [...new Set(rooms.map(s => s.floor))].sort((a, b) => a - b);
+  const rows = floors.map(p => row(rooms, p));
   // la PB es la 0 aunque se quede sola; el resto, seguidas
-  filas.forEach((f, k) => ponerFila(f, plantas[0] === 0 ? k : k + 1));
-  return salas;
+  rows.forEach((f, k) => setRow(f, floors[0] === 0 ? k : k + 1));
+  return rooms;
 }
-function aMano<T extends WithSpot>(salas: T[]): (T & Gap)[] {
-  const out = salas.map(s => ({ ...s })) as (T & Gap)[];
-  const ocupado = new Set<string>();
-  const puestas: (T & Gap)[] = [], sueltas: (T & Gap)[] = [];
+function byHand<T extends WithSpot>(rooms: T[]): (T & Gap)[] {
+  const out = rooms.map(s => ({ ...s })) as (T & Gap)[];
+  const busy = new Set<string>();
+  const placed: (T & Gap)[] = [], loose: (T & Gap)[] = [];
   for (const s of out) {
-    const k = `${s.planta}|${s.lado}|${s.orden}`;
-    const valid = s.manual && Number.isInteger(s.planta) && s.planta >= 0 && (s.lado === 'izq' || s.lado === 'der') && Number.isInteger(s.orden) && s.orden >= 0 && (s.planta > 0) === (s.tipo !== 'puerta');
-    if (valid && !ocupado.has(k)) { ocupado.add(k); puestas.push(s); } else sueltas.push(s);
+    const k = `${s.floor}|${s.side}|${s.orden}`;
+    const valid = s.manual && Number.isInteger(s.floor) && s.floor >= 0 && (s.side === 'izq' || s.side === 'der') && Number.isInteger(s.orden) && s.orden >= 0 && (s.floor > 0) === (s.type !== 'puerta');
+    if (valid && !busy.has(k)) { busy.add(k); placed.push(s); } else loose.push(s);
   }
-  for (const s of sueltas) {
-    if (s.tipo === 'puerta') { const f = fila(puestas, 0); f.splice(f.indexOf(null), 0, s); ponerFila(f, 0); puestas.push(s); continue; }
-    const withRepos = puestas.filter(reposIs).map(x => x.planta);
-    const ultima = Math.max(0, ...puestas.map(x => x.planta));
-    let p = withRepos.length ? Math.max(...withRepos) : ultima || 1;
-    if (puestas.filter(x => x.planta === p).length >= REPOS_BY_FLOOR) {
+  for (const s of loose) {
+    if (s.type === 'puerta') { const f = row(placed, 0); f.splice(f.indexOf(null), 0, s); setRow(f, 0); placed.push(s); continue; }
+    const withRepos = placed.filter(reposIs).map(x => x.floor);
+    const last = Math.max(0, ...placed.map(x => x.floor));
+    let p = withRepos.length ? Math.max(...withRepos) : last || 1;
+    if (placed.filter(x => x.floor === p).length >= REPOS_BY_FLOOR) {
       p += 1;   // planta nueva debajo: lo que había más abajo baja una
-      for (const x of puestas) if (x.planta >= p) x.planta += 1;
+      for (const x of placed) if (x.floor >= p) x.floor += 1;
     }
-    const izq = puestas.filter(x => x.planta === p && x.lado === 'izq').length, der = puestas.filter(x => x.planta === p && x.lado === 'der').length;
-    Object.assign(s, der <= izq ? { planta: p, lado: 'der', orden: der } : { planta: p, lado: 'izq', orden: izq });
-    puestas.push(s);
+    const left = placed.filter(x => x.floor === p && x.side === 'izq').length, right = placed.filter(x => x.floor === p && x.side === 'der').length;
+    Object.assign(s, right <= left ? { floor: p, side: 'der', orden: right } : { floor: p, side: 'izq', orden: left });
+    placed.push(s);
   }
   return compact(out).map(s => ({ ...s, manual: true }));
 }
 
 /** Destino de una sala arrastrada en el plano: un hueco de una planta (si está ocupado, la sala entra ahí y las demás se
  *  apartan hacia fuera) o, con `nueva`, una planta nueva que se abre en `planta` (las de debajo bajan una). */
-export interface Target { planta: number; lado: 'izq' | 'der'; orden: number; nueva?: boolean }
+export interface Target { floor: number; side: 'izq' | 'der'; orden: number; newFloor?: boolean }
 
 /** Coloca una sala en su destino. Pasa la disposición a mano; la planta que se queda vacía desaparece. Devuelve null si
  *  no se puede (la puerta no se mueve; nadie más entra en la PB). */
-export function placeRoom<T extends { id: string; tipo: string; nombre: string; manual?: boolean } & Gap>(salas: T[], id: string, d: Target): (T & Gap)[] | null {
-  const out = salas.map(s => ({ ...s, manual: true })) as (T & Gap)[];
+export function placeRoom<T extends { id: string; type: string; name: string; manual?: boolean } & Gap>(rooms: T[], id: string, d: Target): (T & Gap)[] | null {
+  const out = rooms.map(s => ({ ...s, manual: true })) as (T & Gap)[];
   const s = out.find(x => x.id === id);
-  const ultima = Math.max(...out.map(x => x.planta));
-  if (!s || s.tipo === 'puerta' || !Number.isInteger(d.planta) || d.planta < 1 || d.planta > ultima + 1 || (d.lado !== 'izq' && d.lado !== 'der') || !Number.isInteger(d.orden) || d.orden < 0) return null;
-  if (!d.nueva && d.planta === s.planta && d.lado === s.lado && d.orden === s.orden) return null;
-  const origen = fila(out, s.planta); origen.splice(origen.indexOf(s), 1); ponerFila(origen, s.planta);
-  if (d.nueva) for (const x of out) if (x !== s && x.planta >= d.planta) x.planta += 1;
-  const f = fila(out.filter(x => x !== s), d.planta), asc = f.indexOf(null);
-  f.splice(d.lado === 'izq' ? Math.max(0, asc - d.orden) : Math.min(f.length, asc + 1 + d.orden), 0, s);
-  ponerFila(f, d.planta);
+  const last = Math.max(...out.map(x => x.floor));
+  if (!s || s.type === 'puerta' || !Number.isInteger(d.floor) || d.floor < 1 || d.floor > last + 1 || (d.side !== 'izq' && d.side !== 'der') || !Number.isInteger(d.orden) || d.orden < 0) return null;
+  if (!d.newFloor && d.floor === s.floor && d.side === s.side && d.orden === s.orden) return null;
+  const origin = row(out, s.floor); origin.splice(origin.indexOf(s), 1); setRow(origin, s.floor);
+  if (d.newFloor) for (const x of out) if (x !== s && x.floor >= d.floor) x.floor += 1;
+  const f = row(out.filter(x => x !== s), d.floor), elev = f.indexOf(null);
+  f.splice(d.side === 'izq' ? Math.max(0, elev - d.orden) : Math.min(f.length, elev + 1 + d.orden), 0, s);
+  setRow(f, d.floor);
   return compact(out);
 }
 
 /** Lleva una planta entera (salvo la PB) a otra altura: las de en medio se corren una. Pasa la disposición a mano. */
-export function moveFloor<T extends { id: string; tipo: string; nombre: string; manual?: boolean } & Gap>(salas: T[], de: number, a: number): (T & Gap)[] | null {
-  const ultima = Math.max(...salas.map(x => x.planta));
-  if (de === a || de < 1 || a < 1 || de > ultima || a > ultima) return null;
-  const orden = Array.from({ length: ultima }, (_, k) => k + 1);
-  orden.splice(a - 1, 0, ...orden.splice(de - 1, 1));
-  const nueva = new Map(orden.map((p, k) => [p, k + 1]));
-  return salas.map(s => ({ ...s, manual: true, planta: s.planta === 0 ? 0 : nueva.get(s.planta)! }));
+export function moveFloor<T extends { id: string; type: string; name: string; manual?: boolean } & Gap>(rooms: T[], from: number, a: number): (T & Gap)[] | null {
+  const last = Math.max(...rooms.map(x => x.floor));
+  if (from === a || from < 1 || a < 1 || from > last || a > last) return null;
+  const orden = Array.from({ length: last }, (_, k) => k + 1);
+  orden.splice(a - 1, 0, ...orden.splice(from - 1, 1));
+  const renumbered = new Map(orden.map((p, k) => [p, k + 1]));
+  return rooms.map(s => ({ ...s, manual: true, floor: s.floor === 0 ? 0 : renumbered.get(s.floor)! }));
 }
 
 /** Vuelve a la disposición de serie (la que se calcula sola) */
-export const disposicionDeSerie = <T extends { id: string; tipo: string; nombre: string; manual?: boolean }>(salas: T[]) =>
-  distribute(salas.map(({ manual: _, ...s }) => s as T));
+export const defaultLayout = <T extends { id: string; type: string; name: string; manual?: boolean }>(rooms: T[]) =>
+  distribute(rooms.map(({ manual: _, ...s }) => s as T));

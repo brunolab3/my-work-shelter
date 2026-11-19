@@ -3,11 +3,11 @@
 export const GREEN_GITHUB = ['#161b22', '#0e4429', '#006d32', '#26a641', '#39d353'];
 
 /** Rachas de días seguidos con contribuciones: la actual (si hoy aún no hay nada, cuenta hasta ayer) y la mejor. */
-export function rachas(days: { n: number }[]) {
-  let mejor = 0, consecutive = 0;
-  for (const d of days) { consecutive = d.n ? consecutive + 1 : 0; mejor = Math.max(mejor, consecutive); }
-  let actual = 0, i = days.length - 1;
+export function streaks(days: { n: number }[]) {
+  let best = 0, consecutive = 0;
+  for (const d of days) { consecutive = d.n ? consecutive + 1 : 0; best = Math.max(best, consecutive); }
+  let current = 0, i = days.length - 1;
   if (i >= 0 && !days[i].n) i--;
-  for (; i >= 0 && days[i].n; i--) actual++;
-  return { actual, mejor };
+  for (; i >= 0 && days[i].n; i--) current++;
+  return { current, best };
 }

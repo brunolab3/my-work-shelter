@@ -6,21 +6,21 @@
 // salas); el servidor lo guarda en el estado del refugio (acción `idioma`).
 import { TEXTS } from './texts.ts';
 
-export type Idioma = 'es' | 'en';
-export type Texto = { es: string; en?: string };
-export const LANGUAGES: { valor: Idioma; texto: string }[] = [{ valor: 'es', texto: 'Español' }, { valor: 'en', texto: 'English' }];
+export type Language = 'es' | 'en';
+export type LocalizedText = { es: string; en?: string };
+export const LANGUAGES: { value: Language; text: string }[] = [{ value: 'es', text: 'Español' }, { value: 'en', text: 'English' }];
 export const LANGUAGE_KEY = 'refugio.idioma';
-export const isLanguage = (x: unknown): x is Idioma => x === 'es' || x === 'en';
+export const isLanguage = (x: unknown): x is Language => x === 'es' || x === 'en';
 
 // el navegador lo recuerda; el servidor lo toma del estado del refugio (estado.idioma) al cargarlo y con la acción `idioma`
-const almacen = () => (typeof window !== 'undefined' ? window.localStorage : undefined);
-let actual: Idioma = (() => { try { const v = almacen()?.getItem(LANGUAGE_KEY); return isLanguage(v) ? v : 'es'; } catch { return 'es'; } })();
-export const idioma = () => actual;
-export function setLanguage(i: Idioma) { actual = i; try { almacen()?.setItem(LANGUAGE_KEY, i); } catch {} }
+const store = () => (typeof window !== 'undefined' ? window.localStorage : undefined);
+let current: Language = (() => { try { const v = store()?.getItem(LANGUAGE_KEY); return isLanguage(v) ? v : 'es'; } catch { return 'es'; } })();
+export const language = () => current;
+export function setLanguage(i: Language) { current = i; try { store()?.setItem(LANGUAGE_KEY, i); } catch {} }
 
-export function t(clave: string, vars?: Record<string, string | number>): string {
-  const x = TEXTS[clave];
-  const s = x ? (actual === 'en' ? x.en ?? x.es : x.es) : clave;
+export function t(key: string, vars?: Record<string, string | number>): string {
+  const x = TEXTS[key];
+  const s = x ? (current === 'en' ? x.en ?? x.es : x.es) : key;
   return vars ? s.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? String(vars[k]) : m)) : s;
 }
 
@@ -37,17 +37,17 @@ export function tIs(es: string, vars?: Record<string, string | number>): string 
 // quirk, shared/recruits.ts), each looked up on its own
 export function trBio(bio: string): string {
   const k = tIs(bio);
-  if (k !== bio || actual === 'es') return k;
+  if (k !== bio || current === 'es') return k;
   return bio.split(/(?<=\.) /).map(s => tIs(s.replace(/\.$/, '')) + (s.endsWith('.') ? '.' : '')).join(' ');
 }
 
 // Locale for dates and numbers in the chosen language
-export const locale = () => (actual === 'en' ? 'en-GB' : 'es-ES');
+export const locale = () => (current === 'en' ? 'en-GB' : 'es-ES');
 
 // A room's name as shown: a repo room's is its folder's; the service rooms and the Logistics wings ('Logística',
 // 'Logística <folder>') keep theirs as Spanish data
-export function roomNameIs(s: { tipo: string; nombre: string }): string {
-  if (s.tipo === 'repo') return s.nombre;
-  const m = /^Logística( .+)?$/.exec(s.nombre);
-  return m ? tIs('Logística') + (m[1] ?? '') : tIs(s.nombre);
+export function roomNameIs(s: { type: string; name: string }): string {
+  if (s.type === 'repo') return s.name;
+  const m = /^Logística( .+)?$/.exec(s.name);
+  return m ? tIs('Logística') + (m[1] ?? '') : tIs(s.name);
 }

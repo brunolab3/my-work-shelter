@@ -21,19 +21,19 @@ describe('cuenta de revisiones de un PR', () => {
   });
 
   it('una respuesta de la autora que enlaza la revisión también vale', () => {
-    const conEnlace = { ...pr, comments: { nodes: [...pr.comments.nodes, { body: 'Arreglado lo de https://github.example/refugio/cola/pull/31#pullrequestreview-102', createdAt: '2026-11-10T12:00:00Z', author: { login: 'ana-autora' } }] } };
-    expect(reviewLedger(conEnlace, 'ana-autora').unansweredSummaries).toBe(1);
+    const withLink = { ...pr, comments: { nodes: [...pr.comments.nodes, { body: 'Arreglado lo de https://github.example/refugio/cola/pull/31#pullrequestreview-102', createdAt: '2026-11-10T12:00:00Z', author: { login: 'ana-autora' } }] } };
+    expect(reviewLedger(withLink, 'ana-autora').unansweredSummaries).toBe(1);
   });
 
   it('sin nada pendiente, no hay nada que pintar', () => {
-    const limpio = { reviewThreads: { nodes: [] }, reviews: { nodes: [] }, comments: { nodes: [] } };
-    expect(reviewLedger(limpio, 'ana-autora')).toEqual({ unresolved: 0, outdated: 0, unansweredSummaries: 0 });
-    expect(ledgerPending(reviewLedger(limpio, 'ana-autora'))).toBe(false);
+    const clean = { reviewThreads: { nodes: [] }, reviews: { nodes: [] }, comments: { nodes: [] } };
+    expect(reviewLedger(clean, 'ana-autora')).toEqual({ unresolved: 0, outdated: 0, unansweredSummaries: 0 });
+    expect(ledgerPending(reviewLedger(clean, 'ana-autora'))).toBe(false);
     expect(ledgerPending(reviewLedger(pr, 'ana-autora'))).toBe(true);
   });
 
   it('nombrar a otro con un login que empieza igual no contesta', () => {
-    expect(answersReview('@bea-revisora-2 mira esto', { login: 'bea-revisora', cuerpo: 'x' })).toBe(false);
-    expect(answersReview('Gracias @Bea-Revisora!', { login: 'bea-revisora', cuerpo: 'x' })).toBe(true);
+    expect(answersReview('@bea-revisora-2 mira esto', { login: 'bea-revisora', body: 'x' })).toBe(false);
+    expect(answersReview('Gracias @Bea-Revisora!', { login: 'bea-revisora', body: 'x' })).toBe(true);
   });
 });

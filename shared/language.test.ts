@@ -27,35 +27,35 @@ describe('idioma', () => {
     }
   });
   it('toda clave usada en el código existe en el catálogo', () => {
-    const faltan: string[] = [];
-    const recorrer = (d: string) => { for (const n of readdirSync(d)) { const p = path.join(d, n); if (statSync(p).isDirectory()) { if (n !== 'node_modules' && n !== 'texts') recorrer(p); } else if (/\.tsx?$/.test(n) && !n.endsWith('.test.ts')) for (const m of readFileSync(p, 'utf8').matchAll(/(?<![\w.$])(?:t|tr|tx)\(\s*'([a-z]+\.[A-Za-z0-9.]+)'/g)) if (!TEXTS[m[1]]) faltan.push(`${path.relative('.', p)}: ${m[1]}`); } };
-    for (const d of ['web/src', 'shared', 'server']) recorrer(d);
-    expect(faltan).toEqual([]);
+    const missing: string[] = [];
+    const walk = (d: string) => { for (const n of readdirSync(d)) { const p = path.join(d, n); if (statSync(p).isDirectory()) { if (n !== 'node_modules' && n !== 'texts') walk(p); } else if (/\.tsx?$/.test(n) && !n.endsWith('.test.ts')) for (const m of readFileSync(p, 'utf8').matchAll(/(?<![\w.$])(?:t|tr|tx)\(\s*'([a-z]+\.[A-Za-z0-9.]+)'/g)) if (!TEXTS[m[1]]) missing.push(`${path.relative('.', p)}: ${m[1]}`); } };
+    for (const d of ['web/src', 'shared', 'server']) walk(d);
+    expect(missing).toEqual([]);
   });
   // lo que se pinta con tIs() tiene que estar tal cual en el catálogo: si se retoca el español en el código y no en
   // shared/texts/, en inglés sale en español sin que nada falle
-  const literales = (src: string) => [...src.matchAll(/'((?:\\.|[^'\\])*)'/g)].map(m => m[1].replace(/\\(.)/g, '$1'));
-  const enCatalogo = new Set(Object.values(TEXTS).map(v => v.es));
+  const literals = (src: string) => [...src.matchAll(/'((?:\\.|[^'\\])*)'/g)].map(m => m[1].replace(/\\(.)/g, '$1'));
+  const inCatalog = new Set(Object.values(TEXTS).map(v => v.es));
   // teclas sueltas (Esc, Ctrl+C) y comandos (./shelter …) no se traducen: solo cuenta lo que tiene pinta de frase
-  const sinTraducir = (xs: string[]) => xs.filter(x => (/\s/.test(x) || /[áéíóúñ]/.test(x)) && /[a-záéíóúñ]{3}/.test(x) && !x.startsWith('./') && !enCatalogo.has(x));
+  const untranslated = (xs: string[]) => xs.filter(x => (/\s/.test(x) || /[áéíóúñ]/.test(x)) && /[a-záéíóúñ]{3}/.test(x) && !x.startsWith('./') && !inCatalog.has(x));
   it('los literales que pasan por tIs() están en el catálogo', () => {
-    const faltan: string[] = [];
-    const recorrer = (d: string) => { for (const n of readdirSync(d)) { const p = path.join(d, n); if (statSync(p).isDirectory()) { if (n !== 'node_modules' && n !== 'texts') recorrer(p); } else if (/\.tsx?$/.test(n) && !n.endsWith('.test.ts')) for (const m of readFileSync(p, 'utf8').matchAll(/(?<![\w.$])tIs\(\s*'((?:\\.|[^'\\])*)'/g)) if (!enCatalogo.has(m[1].replace(/\\(.)/g, '$1'))) faltan.push(`${path.relative('.', p)}: ${m[1]}`); } };
-    for (const d of ['web/src', 'shared', 'server']) recorrer(d);
-    expect(faltan).toEqual([]);
+    const missing: string[] = [];
+    const walk = (d: string) => { for (const n of readdirSync(d)) { const p = path.join(d, n); if (statSync(p).isDirectory()) { if (n !== 'node_modules' && n !== 'texts') walk(p); } else if (/\.tsx?$/.test(n) && !n.endsWith('.test.ts')) for (const m of readFileSync(p, 'utf8').matchAll(/(?<![\w.$])tIs\(\s*'((?:\\.|[^'\\])*)'/g)) if (!inCatalog.has(m[1].replace(/\\(.)/g, '$1'))) missing.push(`${path.relative('.', p)}: ${m[1]}`); } };
+    for (const d of ['web/src', 'shared', 'server']) walk(d);
+    expect(missing).toEqual([]);
   });
   it('las tablas de atajos (F1), los selectores del intercomunicador y los campos de las integraciones están en el catálogo', () => {
-    const paneles = readFileSync('web/src/ui/Panels.tsx', 'utf8');
-    const atajos = [...paneles.matchAll(/const \w*CONTROLS: \[string, string\]\[\] = \[([\s\S]*?)\n\];/g)].flatMap(m => literales(m[1]));
-    expect(atajos.length).toBeGreaterThan(40);
-    expect(sinTraducir(atajos)).toEqual([]);
-    const protocolo = readFileSync('shared/protocol.ts', 'utf8');
-    const selectores = [...protocolo.matchAll(/export const (?:EFFORTS|PERMISSION_MODES) = \[([\s\S]*?)\n\];/g)].flatMap(m => [...m[1].matchAll(/(?:texto|pista): ('(?:\\.|[^'\\])*')/g)].flatMap(x => literales(x[1])));
-    expect(selectores.length).toBeGreaterThan(10);
-    expect(sinTraducir([...selectores, MODELS[0].texto])).toEqual([]);
+    const panels = readFileSync('web/src/ui/Panels.tsx', 'utf8');
+    const shortcuts = [...panels.matchAll(/const \w*CONTROLS: \[string, string\]\[\] = \[([\s\S]*?)\n\];/g)].flatMap(m => literals(m[1]));
+    expect(shortcuts.length).toBeGreaterThan(40);
+    expect(untranslated(shortcuts)).toEqual([]);
+    const protocol = readFileSync('shared/protocol.ts', 'utf8');
+    const selectors = [...protocol.matchAll(/export const (?:EFFORTS|PERMISSION_MODES) = \[([\s\S]*?)\n\];/g)].flatMap(m => [...m[1].matchAll(/(?:text|hint): ('(?:\\.|[^'\\])*')/g)].flatMap(x => literals(x[1])));
+    expect(selectors.length).toBeGreaterThan(10);
+    expect(untranslated([...selectors, MODELS[0].text])).toEqual([]);
     const dir = 'server/integrations';
-    const campos = readdirSync(dir).filter(n => /\.ts$/.test(n) && !n.endsWith('.test.ts')).flatMap(n => [...readFileSync(path.join(dir, n), 'utf8').matchAll(/\b(?:etiqueta|ayuda): ('(?:\\.|[^'\\])*')/g)].flatMap(x => literales(x[1])));
-    expect(campos.length).toBeGreaterThan(20);
-    expect(sinTraducir(campos)).toEqual([]);
+    const fields = readdirSync(dir).filter(n => /\.ts$/.test(n) && !n.endsWith('.test.ts')).flatMap(n => [...readFileSync(path.join(dir, n), 'utf8').matchAll(/\b(?:label|help): ('(?:\\.|[^'\\])*')/g)].flatMap(x => literals(x[1])));
+    expect(fields.length).toBeGreaterThan(20);
+    expect(untranslated(fields)).toEqual([]);
   });
 });

@@ -1,7 +1,7 @@
 // The alert for a meeting about to start (shared/meeting.ts, web/src/ui/Hud.tsx) (catálogo: shared/texts.ts)
-import type { Texto } from '../language.ts';
+import type { LocalizedText } from '../language.ts';
 
-export const MEETING: Record<string, Texto> = {
+export const MEETING: Record<string, LocalizedText> = {
   'meeting.startsIn1': { es: 'Empieza en 1 min', en: 'Starts in 1 min' },
   'meeting.startsNow': { es: 'Empieza ahora', en: 'Starting now' },
   'meeting.join': { es: 'Unirse', en: 'Join' },

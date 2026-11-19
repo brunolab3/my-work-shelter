@@ -1,9 +1,9 @@
 // Dwellers' nicknames and backstories, stored as Spanish data in the shelter state (shared/initialShelter.ts and
 // shared/recruits.ts): shown with tIs() (catalogue: shared/texts.ts). Recruit backstories are two sentences, each
 // looked up on its own (trBio in shared/language.ts)
-import type { Texto } from '../language.ts';
+import type { LocalizedText } from '../language.ts';
 
-export const DWELLERS: Record<string, Texto> = {
+export const DWELLERS: Record<string, LocalizedText> = {
   // the initial cast
   'dwellers.theArchitect': { es: 'El Arquitecto', en: 'The Architect' },
   'dwellers.nestorBio': { es: 'Trazó los planos del refugio cuando aún era un agujero en la roca. Perdió un ojo leyendo código minificado; con el otro ve el refugio entero en su código fuente.', en: 'Drew the shelter\'s blueprints when it was still a hole in the rock. Lost an eye reading minified code; with the other he sees the whole shelter in its source code.' },

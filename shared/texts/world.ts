@@ -1,7 +1,7 @@
 // Mundo 3D: nombres de las salas de serie, carteles, sectores y letreros (catálogo: shared/texts.ts)
-import type { Texto } from '../language.ts';
+import type { LocalizedText } from '../language.ts';
 
-export const WORLD: Record<string, Texto> = {
+export const WORLD: Record<string, LocalizedText> = {
   'world.mainGate': { es: 'Puerta Principal', en: 'Main Gate' },
   'world.vault': { es: 'Cámara acorazada', en: 'Vault' },
   'world.commandBridge': { es: 'Puente de Mando', en: 'Command Bridge' },

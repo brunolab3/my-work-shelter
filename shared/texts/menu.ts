@@ -1,7 +1,7 @@
 // Menú del juego, opciones y salida (catálogo: shared/texts.ts)
-import type { Texto } from '../language.ts';
+import type { LocalizedText } from '../language.ts';
 
-export const MENU: Record<string, Texto> = {
+export const MENU: Record<string, LocalizedText> = {
   'menu.overseerMenu': { es: 'MENÚ DEL SUPERVISOR', en: 'OVERSEER MENU' },
   'menu.backToTheShelter': { es: 'Volver al refugio', en: 'Back to the shelter' },
   'menu.searchConversationsActionsAndRooms': { es: 'Buscar conversaciones, acciones y salas', en: 'Search conversations, actions and rooms' },

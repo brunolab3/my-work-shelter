@@ -1,7 +1,7 @@
 // Ventanas: charlas, terminales, navegadores, git y archivos (catálogo: shared/texts.ts)
-import type { Texto } from '../language.ts';
+import type { LocalizedText } from '../language.ts';
 
-export const WINDOWS: Record<string, Texto> = {
+export const WINDOWS: Record<string, LocalizedText> = {
   // selectores del intercomunicador: modelo, esfuerzo y permisos (shared/protocol.ts, pintados con tIs)
   'windows.modelFromYourSettings': { es: 'El de tus ajustes', en: 'From your settings' },
   'windows.effortDefault': { es: 'Por defecto', en: 'Default' },

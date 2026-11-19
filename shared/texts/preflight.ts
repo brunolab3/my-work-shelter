@@ -1,7 +1,7 @@
 // Pre-flight de una tarea (shared/preflight.ts, web/src/ui/Preflight.tsx) (catálogo: shared/texts.ts)
-import type { Texto } from '../language.ts';
+import type { LocalizedText } from '../language.ts';
 
-export const PREFLIGHT: Record<string, Texto> = {
+export const PREFLIGHT: Record<string, LocalizedText> = {
   'preflight.title': { es: 'Pre-flight', en: 'Pre-flight' },
   'preflight.action': { es: 'Pre-flight {clave}', en: 'Pre-flight {clave}' },
   'preflight.actionHint': { es: 'Cada PR de la tarea en todos los repos: si está lista para fusionar o qué la frena', en: 'Every PR of the task in every repo: whether it is ready to merge or what holds it back' },

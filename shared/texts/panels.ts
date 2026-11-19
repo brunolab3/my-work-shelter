@@ -1,7 +1,7 @@
 // Paneles de las salas y aparatos (catálogo: shared/texts.ts)
-import type { Texto } from '../language.ts';
+import type { LocalizedText } from '../language.ts';
 
-export const PANELS: Record<string, Texto> = {
+export const PANELS: Record<string, LocalizedText> = {
   'panels.shelterMapFastTravel': { es: 'PLANO DEL REFUGIO · VIAJE RÁPIDO', en: 'SHELTER MAP · FAST TRAVEL' },
   'panels.newFloorP': { es: '＋ planta nueva {p}', en: '＋ new floor {p}' },
   'panels.dragTheFloorToAnother': { es: 'Arrastra la planta a otra altura', en: 'Drag the floor to another height' },

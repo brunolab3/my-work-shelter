@@ -20,53 +20,53 @@ export const isJiraKey = (k: string) => JIRA_KEY.test(k);
 
 /** The Jira key in a branch or a name (feature/ABC-123-algo, shelter-abc-123 → ABC-123; shelter-pr-12 → PR-12). Never a
  *  slug: those can't be told apart from prose, so they're only read from worktree names (slugKeyOf) */
-export const textKey = (texto: string): string | undefined => /(?:^|[^a-z0-9])([a-z][a-z0-9]+-\d+)(?=$|[^0-9])/i.exec(texto ?? '')?.[1]?.toUpperCase();
+export const textKey = (text: string): string | undefined => /(?:^|[^a-z0-9])([a-z][a-z0-9]+-\d+)(?=$|[^0-9])/i.exec(text ?? '')?.[1]?.toUpperCase();
 
 /** The slug key of a worktree name or its branch, as the game names them: `shelter-<slug>--<suffix>` (branch
  *  `worktree-shelter-<slug>--<suffix>`). The double hyphen can't come out of a Jira worktree's name */
-export const slugKeyOf = (nombre: string): string | undefined => /^(?:worktree-)?shelter-([a-z][a-z0-9]*(?:-[a-z0-9]+)*)--[a-z0-9]+$/.exec(nombre ?? '')?.[1];
+export const slugKeyOf = (name: string): string | undefined => /^(?:worktree-)?shelter-([a-z][a-z0-9]*(?:-[a-z0-9]+)*)--[a-z0-9]+$/.exec(name ?? '')?.[1];
 
-/** A task's worktree name for a slug key (a Jira one goes through nombreWorktree with its subject) */
-export const slugWorktreeName = (clave: string, suffix: string) => `shelter-${clave}--${suffix}`;
+/** A task's worktree name for a slug key (a Jira one goes through worktreeName with its subject) */
+export const slugWorktreeName = (key: string, suffix: string) => `shelter-${key}--${suffix}`;
 
 /** The task of a branch: its slug key if the game named it, else its Jira key */
-export const branchTask = (rama: string) => slugKeyOf(rama) ?? textKey(rama);
+export const branchTask = (branch: string) => slugKeyOf(branch) ?? textKey(branch);
 
 /** La tarea de un PR: su clave (rama, luego la de Jira del título) o, sin ella, PR-<número> */
-export const pRTask = (p: { rama: string; titulo: string; numero: number }) => branchTask(p.rama) ?? textKey(p.titulo) ?? `PR-${p.numero}`;
+export const pRTask = (p: { branch: string; title: string; number: number }) => branchTask(p.branch) ?? textKey(p.title) ?? `PR-${p.number}`;
 
 /** A task's caption: its key and, when known, its title shortened to `max` characters (the key stays whole) */
-export function taskCaption(clave: string, titulo?: string, max = 28): string {
-  const t = titulo?.replace(/\s+/g, ' ').trim();
-  return t ? `${clave} · ${t.length > max ? t.slice(0, max - 1).trimEnd() + '…' : t}` : clave;
+export function taskCaption(key: string, title?: string, max = 28): string {
+  const t = title?.replace(/\s+/g, ' ').trim();
+  return t ? `${key} · ${t.length > max ? t.slice(0, max - 1).trimEnd() + '…' : t}` : key;
 }
 
 /** La tarea de un worktree: por su nombre (estable aunque se cambie de rama dentro) y, si no, por su rama */
-export function worktreeTask(w: { ruta: string; rama?: string }): string | undefined {
-  const nombre = w.ruta.replace(/\/+$/, '').split('/').pop() ?? '';
-  return slugKeyOf(nombre) ?? textKey(nombre.replace(/^shelter-/, '')) ?? (w.rama ? branchTask(w.rama) : undefined);
+export function worktreeTask(w: { path: string; branch?: string }): string | undefined {
+  const name = w.path.replace(/\/+$/, '').split('/').pop() ?? '';
+  return slugKeyOf(name) ?? textKey(name.replace(/^shelter-/, '')) ?? (w.branch ? branchTask(w.branch) : undefined);
 }
 
 /** Whether a worktree works a task: by its name or by its branch (exact keys, never a substring: ABC-1 isn't ABC-12) */
-export function worktreeHasTask(w: { ruta: string; rama?: string }, clave: string): boolean {
-  const k = taskKey(clave);
-  return !!k && (worktreeTask(w) === k || (!!w.rama && branchTask(w.rama) === k));
+export function worktreeHasTask(w: { path: string; branch?: string }, key: string): boolean {
+  const k = taskKey(key);
+  return !!k && (worktreeTask(w) === k || (!!w.branch && branchTask(w.branch) === k));
 }
 
 /** Los PR de la tarea de un worktree en el repo de su sala, el más reciente primero: los de su rama y los de su misma
  *  tarea (todas las ramas de la tarea). El repo sale de los PR de su rama y, si no hay o hay varios, del nombre de la
  *  carpeta de la sala; sin repo claro, solo los de su rama */
-export function worktreePRs<P extends { rama: string; titulo: string; numero: number; repo: string; actualizado: number }>(
-  prs: P[], w: { ruta: string; rama: string }, carpetaSala: string): P[] {
-  const tarea = worktreeTask(w);
-  const deSuRama = prs.filter(p => p.rama === w.rama);
-  const repos = new Set(deSuRama.map(p => p.repo.toLowerCase()));
-  const carpeta = carpetaSala.replace(/\/+$/, '').split('/').pop()?.toLowerCase();
-  const porNombre = carpeta ? [...new Set(prs.map(p => p.repo.toLowerCase()))].find(r => r.split('/').pop() === carpeta) : undefined;
-  const repo = repos.size === 1 ? [...repos][0] : porNombre;
-  const lista = !repo ? deSuRama
-    : prs.filter(p => p.repo.toLowerCase() === repo && (p.rama === w.rama || (!!tarea && pRTask(p) === tarea)));
-  return [...lista].sort((a, b) => b.actualizado - a.actualizado);
+export function worktreePRs<P extends { branch: string; title: string; number: number; repo: string; updated: number }>(
+  prs: P[], w: { path: string; branch: string }, roomFolder: string): P[] {
+  const task = worktreeTask(w);
+  const ofBranch = prs.filter(p => p.branch === w.branch);
+  const repos = new Set(ofBranch.map(p => p.repo.toLowerCase()));
+  const folder = roomFolder.replace(/\/+$/, '').split('/').pop()?.toLowerCase();
+  const byName = folder ? [...new Set(prs.map(p => p.repo.toLowerCase()))].find(r => r.split('/').pop() === folder) : undefined;
+  const repo = repos.size === 1 ? [...repos][0] : byName;
+  const list = !repo ? ofBranch
+    : prs.filter(p => p.repo.toLowerCase() === repo && (p.branch === w.branch || (!!task && pRTask(p) === task)));
+  return [...list].sort((a, b) => b.updated - a.updated);
 }
 
 /** True when a session outside any worktree (a room's main copy) runs `git worktree add`: worktrees come from
@@ -86,8 +86,8 @@ export function githubRepoOf(url: string): string | undefined {
 
 /** If a Bash command runs `gh pr create` or `gh issue create`: its `-R/--repo` target (undefined without one), or null */
 export function ghCreateOf(cmd: string): { repo?: string } | null {
-  for (const trozo of String(cmd ?? '').split(/&&|\|\||[;|\n]/)) {
-    const w = trozo.trim().match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g)?.map(x => x.replace(/^["']|["']$/g, '')) ?? [];
+  for (const chunk of String(cmd ?? '').split(/&&|\|\||[;|\n]/)) {
+    const w = chunk.trim().match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g)?.map(x => x.replace(/^["']|["']$/g, '')) ?? [];
     let i = 0;
     while (i < w.length && /^[A-Z_][A-Z0-9_]*=/.test(w[i])) i++;
     if (!/(^|\/)gh$/.test(w[i] ?? '') || !/^(pr|issue)$/.test(w[i + 1] ?? '') || w[i + 2] !== 'create') continue;
@@ -102,9 +102,9 @@ export function ghCreateOf(cmd: string): { repo?: string } | null {
 }
 
 /** Si una orden de Bash crea un worktree (`git worktree add`, también con -C): su ruta y su rama nueva (-b/-B), o null */
-export function newWorktreeOf(cmd: string): { ruta?: string; rama?: string; cwd?: string } | null {
-  for (const trozo of String(cmd ?? '').split(/&&|\|\||[;|\n]/)) {
-    const w = trozo.trim().match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g)?.map(x => x.replace(/^["']|["']$/g, '')) ?? [];
+export function newWorktreeOf(cmd: string): { path?: string; branch?: string; cwd?: string } | null {
+  for (const chunk of String(cmd ?? '').split(/&&|\|\||[;|\n]/)) {
+    const w = chunk.trim().match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g)?.map(x => x.replace(/^["']|["']$/g, '')) ?? [];
     let i = 0;
     while (i < w.length && /^[A-Z_][A-Z0-9_]*=/.test(w[i])) i++;
     if (!/(^|\/)git$/.test(w[i] ?? '')) continue;
@@ -112,29 +112,29 @@ export function newWorktreeOf(cmd: string): { ruta?: string; rama?: string; cwd?
     let cwd: string | undefined;
     while (i < w.length && w[i].startsWith('-')) { if (w[i] === '-C') { cwd = w[i + 1]; i += 2; } else if (w[i] === '-c') i += 2; else i++; }
     if (w[i] !== 'worktree' || w[i + 1] !== 'add') continue;
-    const resto = w.slice(i + 2);
-    let rama: string | undefined; const libres: string[] = [];
-    for (let k = 0; k < resto.length; k++) {
-      if (resto[k] === '-b' || resto[k] === '-B') rama = resto[++k];
-      else if (resto[k] === '--reason') k++;
-      else if (!resto[k].startsWith('-')) libres.push(resto[k]);
+    const rest = w.slice(i + 2);
+    let branch: string | undefined; const free: string[] = [];
+    for (let k = 0; k < rest.length; k++) {
+      if (rest[k] === '-b' || rest[k] === '-B') branch = rest[++k];
+      else if (rest[k] === '--reason') k++;
+      else if (!rest[k].startsWith('-')) free.push(rest[k]);
     }
-    return { ruta: libres[0], rama: rama ?? (libres[1] && !/^(HEAD|main|master|origin\/)/.test(libres[1]) ? libres[1] : undefined), cwd };
+    return { path: free[0], branch: branch ?? (free[1] && !/^(HEAD|main|master|origin\/)/.test(free[1]) ? free[1] : undefined), cwd };
   }
   return null;
 }
 
 /** El worktree (no la copia principal) que ya tiene una tarea, leyendo `git worktree list --porcelain` */
-export function taskWorktreeIn(porcelain: string, tarea: string): { ruta: string; rama?: string } | undefined {
-  const bloques = porcelain.split('\n\n').map(b => ({ ruta: /^worktree (.+)$/m.exec(b)?.[1] ?? '', rama: /^branch refs\/heads\/(.+)$/m.exec(b)?.[1] })).filter(w => w.ruta);
-  return bloques.slice(1).find(w => worktreeTask(w) === taskKey(tarea));
+export function taskWorktreeIn(porcelain: string, task: string): { path: string; branch?: string } | undefined {
+  const blocks = porcelain.split('\n\n').map(b => ({ path: /^worktree (.+)$/m.exec(b)?.[1] ?? '', branch: /^branch refs\/heads\/(.+)$/m.exec(b)?.[1] })).filter(w => w.path);
+  return blocks.slice(1).find(w => worktreeTask(w) === taskKey(task));
 }
 
 /** El nombre de una conversación en Remote Control (la app de Claude y claude.ai/code): `repo:TAREA` (la del worktree o,
  *  si no, la clave del título) y, sin tarea, `repo:título`. `wt`: el worktree en el que trabaja, si es uno */
-export function remoteName(repo: string, titulo: string, wt?: { ruta: string; rama?: string }): string {
-  const tarea = (wt && worktreeTask(wt)) ?? textKey(titulo);
-  return `${repo}:${tarea ?? (titulo.trim() || 'work-shelter')}`;
+export function remoteName(repo: string, title: string, wt?: { path: string; branch?: string }): string {
+  const task = (wt && worktreeTask(wt)) ?? textKey(title);
+  return `${repo}:${task ?? (title.trim() || 'work-shelter')}`;
 }
 
 // The tasks' palette: 16 well-distinct colors (no reds, which mean faults and blocks, nor NO_TASK_COLOR), ordered so each
@@ -152,28 +152,28 @@ export const NO_TASK_COLOR = '#58e6ff';
 
 /** Whether a key gets a task color: Jira keys (and PR-12) do, from the palette; descriptive slugs don't, so they never
  *  share a color with a board task */
-export const hasTaskColor = (clave: string | undefined): clave is string => !!clave && isJiraKey(clave);
+export const hasTaskColor = (key: string | undefined): key is string => !!key && isJiraKey(key);
 
 /** A task's color: the assigned one or, until it arrives, one from the palette by its key; NO_TASK_COLOR for keys
  *  without a task color */
-export function taskColor(clave: string | undefined): string {
-  if (!hasTaskColor(clave)) return NO_TASK_COLOR;
-  const k = clave.toUpperCase();
-  const ya = assignedColors.get(k); if (ya) return ya;
+export function taskColor(key: string | undefined): string {
+  if (!hasTaskColor(key)) return NO_TASK_COLOR;
+  const k = key.toUpperCase();
+  const already = assignedColors.get(k); if (already) return already;
   let h = 2166136261;
   for (const c of k) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); }
   return TASKS_PALETTE[(h >>> 0) % TASKS_PALETTE.length];
 }
 
 /** A qué color va cada clave nueva: el menos usado entre las asignadas (y, a igualdad, el primero de la paleta) */
-export function assignColors(assigned: Record<string, number>, claves: string[]): Record<string, number> {
+export function assignColors(assigned: Record<string, number>, keys: string[]): Record<string, number> {
   const out = { ...assigned };
-  const usos = TASKS_PALETTE.map(() => 0);
-  for (const i of Object.values(out)) usos[i] = (usos[i] ?? 0) + 1;
-  for (const c of claves.map(x => x.toUpperCase())) {
+  const uses = TASKS_PALETTE.map(() => 0);
+  for (const i of Object.values(out)) uses[i] = (uses[i] ?? 0) + 1;
+  for (const c of keys.map(x => x.toUpperCase())) {
     if (c in out) continue;
-    const i = usos.indexOf(Math.min(...usos));
-    out[c] = i; usos[i]++;
+    const i = uses.indexOf(Math.min(...uses));
+    out[c] = i; uses[i]++;
   }
   return out;
 }
