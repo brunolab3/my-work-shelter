@@ -77,10 +77,8 @@ async function setOnDay(puerto, datos) {
   return 'no ha respondido a tiempo';
 }
 
-module.exports = { huella, clienteAlDia, compilar, setOnDay, GROUPS };
-
-if (require.main === module) {
-  const [orden, ...args] = process.argv.slice(2);
+function cli(argv) {
+  const [orden, ...args] = argv;
   if (orden === 'compilar') {
     try { compilar({ siDoesMissing: args.includes('--si-hace-falta') }); } catch { process.exit(1); }
   } else if (orden === 'poner-al-dia') {
@@ -88,3 +86,7 @@ if (require.main === module) {
   } else if (GROUPS[orden]) console.log(huella(orden));
   else { console.error('Uso: node scripts/fingerprints.cjs compilar [--si-hace-falta] | poner-al-dia <puerto> <datos> | cliente|servidor|app'); process.exit(2); }
 }
+
+module.exports = { huella, clienteAlDia, compilar, setOnDay, cli, GROUPS };
+
+if (require.main === module) cli(process.argv.slice(2));

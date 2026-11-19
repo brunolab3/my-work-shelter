@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { createRequire } from 'node:module';
 import { mkdtempSync, mkdirSync, writeFileSync, utimesSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -43,5 +44,13 @@ describe('huellas del código', () => {
     expect(huellas.huella('app', raiz)).toBe(h);
     writeFileSync(path.join(raiz, 'electron/musicControl.js'), '// mando\n');
     expect(huellas.huella('app', raiz)).not.toBe(h);
+  });
+  // servers and apps started before the rename still run or require scripts/huellas.cjs
+  it('the legacy huellas.cjs shim behaves like fingerprints.cjs', () => {
+    const require = createRequire(import.meta.url);
+    expect(require('../scripts/huellas.cjs')).toBe(require('../scripts/fingerprints.cjs'));
+    const run = (script: string) => execFileSync(process.execPath, [path.join(__dirname, '..', 'scripts', script), 'app'], { encoding: 'utf8' });
+    expect(run('huellas.cjs')).toMatch(/^[0-9a-f]{40}\n$/);
+    expect(run('huellas.cjs')).toBe(run('fingerprints.cjs'));
   });
 });
