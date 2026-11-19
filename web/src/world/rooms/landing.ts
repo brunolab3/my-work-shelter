@@ -3,98 +3,98 @@
 import { t, t as tr } from '@shared/language';
 import * as THREE from 'three';
 import { place, R } from '../../engine/assets';
-import { cartel, PhosphorScreen, PanelRoom } from '../../engine/textures';
-import { lienzo, textureOf, SOURCES } from '../../engine/textures';
+import { sign, PhosphorScreen, PanelRoom } from '../../engine/textures';
+import { canvas, textureOf, SOURCES } from '../../engine/textures';
 import { overlayScreen, screenFrontal } from '../util3d';
-import { signInWall, mancha, highBand, screenReal, centralDesk, superficie, aWall, type Contexto } from './common';
+import { signInWall, stain, highBand, screenReal, centralDesk, surface, aWall, type Context } from './common';
 
-export async function furnishShowcase(ctx: Contexto) {
-  const { g, v, zB, K, P, semilla } = ctx;
+export async function furnishShowcase(ctx: Context) {
+  const { g, v, zB, K, P, seed } = ctx;
   // el amarillo de las paredes del escaparate, en ocre apagado: a plena luz era lo que subía la sala por encima de 70
-  { const copias = new Map<THREE.Material, THREE.Material>();
+  { const copies = new Map<THREE.Material, THREE.Material>();
     g.traverse((n: any) => { if (!n.isMesh || Array.isArray(n.material) || !/^(Accent|Orange|Main|Main2)$/.test(n.material.name)) return;
-      if (!copias.has(n.material)) { const m = n.material.clone(); m.color.multiplyScalar(/^(Main|Main2)$/.test(n.material.name) ? 0.8 : 0.62); copias.set(n.material, m); }
-      n.material = copias.get(n.material)!; }); }
-  await highBand(ctx, { reloj: 4.9, valves: [-4.2], segments: [[-4.8, 2.4], [4.9, 2.2]] });   // ninguna tubería por delante del tablero
+      if (!copies.has(n.material)) { const m = n.material.clone(); m.color.multiplyScalar(/^(Main|Main2)$/.test(n.material.name) ? 0.8 : 0.62); copies.set(n.material, m); }
+      n.material = copies.get(n.material)!; }); }
+  await highBand(ctx, { timer: 4.9, valves: [-4.2], segments: [[-4.8, 2.4], [4.9, 2.2]] });   // ninguna tubería por delante del tablero
   // rótulo luminoso de la marca sobre el tablero de tareas: es un escaparate
-  const { c: cl, g: gl } = lienzo(768, 160);
+  const { c: cl, g: gl } = canvas(768, 160);
   gl.fillStyle = '#120d06'; gl.fillRect(0, 0, 768, 160); gl.strokeStyle = '#d1a43a'; gl.lineWidth = 6; gl.strokeRect(6, 6, 756, 148);
-  gl.fillStyle = '#ffd36a'; gl.shadowColor = '#ffb000'; gl.shadowBlur = 26; gl.font = `900 96px ${SOURCES.titulo}`; gl.textAlign = 'center'; gl.textBaseline = 'middle'; gl.fillText('PURIFICADOR', 384, 86, 720); gl.shadowBlur = 0;
+  gl.fillStyle = '#ffd36a'; gl.shadowColor = '#ffb000'; gl.shadowBlur = 26; gl.font = `900 96px ${SOURCES.title}`; gl.textAlign = 'center'; gl.textBaseline = 'middle'; gl.fillText('PURIFICADOR', 384, 86, 720); gl.shadowBlur = 0;
   const texLogo = textureOf(cl);
   const logo = new THREE.Mesh(new THREE.PlaneGeometry(2.5, 0.52), new THREE.MeshStandardMaterial({ map: texLogo, emissiveMap: texLogo, emissive: '#ffffff', emissiveIntensity: 0.9, color: '#000' }));
   logo.position.set(0, 3.93, zB + 0.9); logo.renderOrder = 2; g.add(logo);   // con aire sobre el tablero
-  ctx.alActualizar((dt, t) => { (logo.material as THREE.MeshStandardMaterial).emissiveIntensity = 0.85 + (Math.sin(t * 23) > 0.97 ? -0.4 : 0) + Math.sin(t * 2) * 0.05; });
+  ctx.onUpdate((dt, t) => { (logo.material as THREE.MeshStandardMaterial).emissiveIntensity = 0.85 + (Math.sin(t * 23) > 0.97 ? -0.4 : 0) + Math.sin(t * 2) * 0.05; });
   // left: the display dais with the product totem (the pack's column with the landing on screen), product boxes at
   // its feet and two low spotlights pointed at it
   const cx = -3.65;
-  const tarima = await place(g, R.sf('Props_Base'), { pos: [cx, 0, zB + 1.3], ancho: 1.75 });
-  const yT = superficie(tarima, g, cx, zB + 1.3) ?? 0.29;   // tablero de la tarima, medido
-  const totem = await place(g, R.sf('Props_Computer'), { pos: [cx, yT, zB + 1.3], alto: 1.8, estatico: false, own: true, variant: v });
+  const platform = await place(g, R.sf('Props_Base'), { pos: [cx, 0, zB + 1.3], width: 1.75 });
+  const yT = surface(platform, g, cx, zB + 1.3) ?? 0.29;   // tablero de la tarima, medido
+  const totem = await place(g, R.sf('Props_Computer'), { pos: [cx, yT, zB + 1.3], height: 1.8, isStatic: false, own: true, variant: v });
   // la pantalla del tótem es vertical: la landing en versión móvil (cabecera, titular, botón, imagen y bloques)
-  const { c: cTot, g: gTot } = lienzo(200, 560);
+  const { c: cTot, g: gTot } = canvas(200, 560);
   { const G = gTot; G.fillStyle = '#f6d77a'; G.fillRect(0, 0, 200, 560); G.fillStyle = '#2a1c08';
     G.fillRect(14, 16, 46, 10); for (let i = 0; i < 3; i++) G.fillRect(150, 14 + i * 6, 34, 3);
     const [l1, l2, l3, l4] = t('world.landing.mobile').split('|');
-    G.font = `900 40px ${SOURCES.titulo}`; G.fillText(l1, 14, 88); G.fillText(l2, 14, 128);
+    G.font = `900 40px ${SOURCES.title}`; G.fillText(l1, 14, 88); G.fillText(l2, 14, 128);
     G.font = `500 13px ${SOURCES.mono}`; G.globalAlpha = 0.75; G.fillText(l3, 14, 152); G.fillText(l4, 14, 168); G.globalAlpha = 1;
     G.fillStyle = '#2a1c08'; G.fillRect(14, 184, 120, 30); G.fillStyle = '#f6d77a'; G.font = `700 13px ${SOURCES.mono}`; G.fillText(t('world.tex.bookIt'), 22, 204);
     G.fillStyle = '#2a1c08'; G.beginPath(); G.arc(100, 300, 62, 0, 7); G.fill(); G.fillStyle = '#e2602b'; G.beginPath(); G.arc(124, 278, 20, 0, 7); G.fill();
     G.globalAlpha = 0.14; for (let i = 0; i < 3; i++) G.fillRect(14, 388 + i * 56, 172, 46); G.globalAlpha = 1;
     G.fillStyle = '#2a1c08'; G.font = `700 12px ${SOURCES.mono}`; ['Filtros', 'Modelos', 'Precios'].forEach((t, i) => G.fillText(t, 24, 416 + i * 56)); }
   const pTotem = textureOf(cTot);
-  const plTotem = overlayScreen(totem, /^Black$/, pTotem, { brillo: 0.6, margin: 0.94 });
+  const plTotem = overlayScreen(totem, /^Black$/, pTotem, { brightness: 0.6, margin: 0.94 });
   const matsTotem = plTotem ? [plTotem.material as THREE.MeshStandardMaterial] : [];
-  for (const x of [-0.6, 0.6]) ctx.sobre(tarima, R.cy('Light_Square'), { pos: [cx + x, 0, zB + 1.25], alto: 0.5, rot: 0.785 });   // balizas de vitrina
-  ctx.sobre(tarima, R.resource('Containers_Box_Small'), { pos: [cx + 0.38, 0, zB + 1.78], alto: 0.22, rot: 0.35 });
-  ctx.sobre(tarima, R.resource('Containers_Box_Small'), { pos: [cx - 0.36, 0, zB + 1.8], alto: 0.18, rot: -0.5 });
-  P(R.casa('Light_Stand1'), { pos: [cx - 1.3, 0, zB + 1.55], alto: 1.5, rot: 0.9 });
-  P(R.casa('Light_Stand1'), { pos: [cx + 1.3, 0, zB + 1.55], alto: 1.5, rot: -0.9 });
-  ctx.sala.obstacles.push(new THREE.Box2(new THREE.Vector2(cx - 1.6, zB), new THREE.Vector2(cx + 1.6, zB + 2.2)));
+  for (const x of [-0.6, 0.6]) ctx.restsOn(platform, R.cy('Light_Square'), { pos: [cx + x, 0, zB + 1.25], height: 0.5, rot: 0.785 });   // balizas de vitrina
+  ctx.restsOn(platform, R.resource('Containers_Box_Small'), { pos: [cx + 0.38, 0, zB + 1.78], height: 0.22, rot: 0.35 });
+  ctx.restsOn(platform, R.resource('Containers_Box_Small'), { pos: [cx - 0.36, 0, zB + 1.8], height: 0.18, rot: -0.5 });
+  P(R.home('Light_Stand1'), { pos: [cx - 1.3, 0, zB + 1.55], height: 1.5, rot: 0.9 });
+  P(R.home('Light_Stand1'), { pos: [cx + 1.3, 0, zB + 1.55], height: 1.5, rot: -0.9 });
+  ctx.room.obstacles.push(new THREE.Box2(new THREE.Vector2(cx - 1.6, zB), new THREE.Vector2(cx + 1.6, zB + 2.2)));
   // la pieza: el tótem. Se toca su pantalla (cambia de versión con un destello), se repasan las notas de diseño o se le
   // da al mando del costado
-  let destello = 0;
-  const tocar = () => { destello = 1; };
+  let flare = 0;
+  const play = () => { flare = 1; };
   const towardTotem = (x: number, z: number) => Math.atan2(cx - x, zB + 1.3 - z);
-  ctx.sala.puntos.push({ id: 'totem', tipo: 'pieza', pos: new THREE.Vector3(cx + 0.62, 0, zB + 2.4), giro: towardTotem(cx + 0.62, zB + 2.4),
-    acciones: [{ clip: 'Interact', onMake: tocar }, { clip: 'Holding_A', utensil: 'diario', dur: 4 }, { clip: 'Use_Item', onMake: tocar }] });
-  ctx.sala.puntos.push({ id: 'totem-2', tipo: 'pieza', pos: new THREE.Vector3(cx - 0.62, 0, zB + 2.4), giro: towardTotem(cx - 0.62, zB + 2.4),
-    acciones: [{ clip: 'Interact', onMake: tocar }, { clip: 'Waving' }] });
+  ctx.room.points.push({ id: 'totem', type: 'pieza', pos: new THREE.Vector3(cx + 0.62, 0, zB + 2.4), rotation: towardTotem(cx + 0.62, zB + 2.4),
+    actions: [{ clip: 'Interact', onMake: play }, { clip: 'Holding_A', utensil: 'diario', dur: 4 }, { clip: 'Use_Item', onMake: play }] });
+  ctx.room.points.push({ id: 'totem-2', type: 'pieza', pos: new THREE.Vector3(cx - 0.62, 0, zB + 2.4), rotation: towardTotem(cx - 0.62, zB + 2.4),
+    actions: [{ clip: 'Interact', onMake: play }, { clip: 'Waving' }] });
   // the design desk in the middle, under the task board: monitor with the changes, keyboard, pencils and a cactus
-  const pDesign = new PhosphorScreen(384, 256, v.pantalla); pDesign.speed = 30;
-  screenReal(ctx, pDesign, 'cambios'); ctx.sala.pantallas.push(pDesign);
+  const pDesign = new PhosphorScreen(384, 256, v.screen); pDesign.speed = 30;
+  screenReal(ctx, pDesign, 'cambios'); ctx.room.screens.push(pDesign);
   await centralDesk(ctx, { id: 'silla', tex: pDesign.tex,
-    encima: [{ ruta: R.mueble('cup_pencils'), x: 0.72, z: -0.22, c: { escala: K * 0.6 } }, { ruta: R.mueble('cactus_small_A'), x: -0.72, z: -0.2, c: { escala: K * 0.7 } }, { ruta: R.mueble('mug_A'), x: -0.6, z: 0.24, c: { escala: K * 0.7, rot: 0.5 } }] });
-  P(R.casa('Houseplant_6'), { pos: [-5.5, 0, zB + 0.6], alto: 1.1 });
-  P(R.mueble('shelf_B_large_decorated'), { pos: [-2.55, 2.45, zB + 0.35], escala: K * 0.8 }).then(o => aWall(g, o));
+    onTop: [{ path: R.furniture('cup_pencils'), x: 0.72, z: -0.22, c: { scale: K * 0.6 } }, { path: R.furniture('cactus_small_A'), x: -0.72, z: -0.2, c: { scale: K * 0.7 } }, { path: R.furniture('mug_A'), x: -0.6, z: 0.24, c: { scale: K * 0.7, rot: 0.5 } }] });
+  P(R.home('Houseplant_6'), { pos: [-5.5, 0, zB + 0.6], height: 1.1 });
+  P(R.furniture('shelf_B_large_decorated'), { pos: [-2.55, 2.45, zB + 0.35], scale: K * 0.8 }).then(o => aWall(g, o));
   // derecha: sofá de pruebas de usuario frente a una pantalla, con mesa baja y cartel
-  P(R.mueble('couch_pillows'), { pos: [4.3, 0, zB + 0.95], escala: K, rot: -0.15, own: true }).then(o => o.traverse((n: any) => { if (n.isMesh) n.material.color.multiplyScalar(0.72); }));   // mostaza apagada
-  P(R.mueble('table_low_decorated'), { pos: [4.0, 0, 0.45], escala: K * 0.8, rot: -0.15 });
-  P(R.mueble('lamp_standing'), { pos: [5.6, 0, zB + 0.6], escala: K });
-  ctx.sala.obstacles.push(new THREE.Box2(new THREE.Vector2(2.9, zB), new THREE.Vector2(6, zB + 1.9)), new THREE.Box2(new THREE.Vector2(3.2, 0.0), new THREE.Vector2(4.8, 0.95)));
-  ctx.sala.puntos.push({ id: 'sofa', tipo: 'silla', pos: new THREE.Vector3(4.0, 0.05, zB + 1.25), giro: -0.15, clip: 'Sit_Chair_Idle' });
-  signInWall(g, cartel(t('world.poster.growth'), t('world.poster.growthFoot'), '#f0d98a', '#2a1c08', 'rayo', semilla), 3.2, 2.6, 0.6, 0.84, zB + 0.33, -0.03);
+  P(R.furniture('couch_pillows'), { pos: [4.3, 0, zB + 0.95], scale: K, rot: -0.15, own: true }).then(o => o.traverse((n: any) => { if (n.isMesh) n.material.color.multiplyScalar(0.72); }));   // mostaza apagada
+  P(R.furniture('table_low_decorated'), { pos: [4.0, 0, 0.45], scale: K * 0.8, rot: -0.15 });
+  P(R.furniture('lamp_standing'), { pos: [5.6, 0, zB + 0.6], scale: K });
+  ctx.room.obstacles.push(new THREE.Box2(new THREE.Vector2(2.9, zB), new THREE.Vector2(6, zB + 1.9)), new THREE.Box2(new THREE.Vector2(3.2, 0.0), new THREE.Vector2(4.8, 0.95)));
+  ctx.room.points.push({ id: 'sofa', type: 'silla', pos: new THREE.Vector3(4.0, 0.05, zB + 1.25), rotation: -0.15, clip: 'Sit_Chair_Idle' });
+  signInWall(g, sign(t('world.poster.growth'), t('world.poster.growthFoot'), '#f0d98a', '#2a1c08', 'rayo', seed), 3.2, 2.6, 0.6, 0.84, zB + 0.33, -0.03);
   // the brand's mascot on its plinth: a statue, polished by hand
-  P(R.sf('Props_Statue'), { pos: [2.55, 0, zB + 0.55], alto: 1.6, rot: -0.3 });
-  ctx.sala.puntos.push({ id: 'consola', tipo: 'consola', pos: new THREE.Vector3(2.0, 0, zB + 1.4), giro: 0.5, clip: 'Working_A' });
+  P(R.sf('Props_Statue'), { pos: [2.55, 0, zB + 0.55], height: 1.6, rot: -0.3 });
+  ctx.room.points.push({ id: 'consola', type: 'consola', pos: new THREE.Vector3(2.0, 0, zB + 1.4), rotation: 0.5, clip: 'Working_A' });
   // panel de estado de la sala (encima del sofá)
-  const panel = new PanelRoom(); panel.titulo = 'ESCAPARATE'; panel.color = v.pantalla;
-  const framePanel = aWall(g, await place(g, R.cy('Sign_2'), { pos: [4.5, 3.25, zB + 0.6], ancho: 1.55, estatico: false, own: true }));
-  overlayScreen(framePanel, /^Texture_Signs$/, panel.tex, { brillo: 1.2, margin: 0.94 });
+  const panel = new PanelRoom(); panel.title = 'ESCAPARATE'; panel.color = v.screen;
+  const framePanel = aWall(g, await place(g, R.cy('Sign_2'), { pos: [4.5, 3.25, zB + 0.6], width: 1.55, isStatic: false, own: true }));
+  overlayScreen(framePanel, /^Texture_Signs$/, panel.tex, { brightness: 1.2, margin: 0.94 });
   ctx.panel = panel;
   // detalle de suelo y primer plano
-  P(R.resource('Containers_Box_Small'), { pos: [-5.6, 0, 1.85], escala: K * 0.9, rot: 0.4 });
-  P(R.sv('Can_Red'), { pos: [5.7, 0, 1.75], alto: 0.35 });
-  mancha(g, 1.2, 0.6, 1.0, semilla + 3);
-  ctx.sala.walkZones = [[-1.9, -1.3], [1.3, 1.9]];
+  P(R.resource('Containers_Box_Small'), { pos: [-5.6, 0, 1.85], scale: K * 0.9, rot: 0.4 });
+  P(R.sv('Can_Red'), { pos: [5.7, 0, 1.75], height: 0.35 });
+  stain(g, 1.2, 0.6, 1.0, seed + 3);
+  ctx.room.walkZones = [[-1.9, -1.3], [1.3, 1.9]];
   ctx.vapor = { pos: new THREE.Vector3(-4.2, 3.15, zB + 0.85), dir: new THREE.Vector3(0.3, 0.9, 0.3) };
   ctx.sparks = new THREE.Vector3(2.55, 1.4, zB + 0.9);
   // the middle lamp hangs to one side of the sign, so it doesn't cross the letters
-  ctx.lamparas = [{ x: cx, z: 0.4, o: { intensidad: 80, goal: [cx, -0.9] } }, { x: 1.65, z: 0.8, o: { intensidad: 110, sombra: true, corta: true, goal: [0, -0.9] } }, { x: 3.9, z: 0.5, o: { intensidad: 75 } }];
-  let giro = 0;
-  ctx.alActualizar((dt, t, a) => {
-    giro += dt * (0.35 + a * 1.2); totem.rotation.y = Math.sin(giro * 0.5) * 0.22;   // el tótem oscila hacia uno y otro lado del escaparate
-    destello = Math.max(0, destello - dt * 1.5);
-    for (const m of matsTotem) m.emissiveIntensity = 0.6 + destello * 1.4;
-    if (ctx.sala.estado === 'trabajando' && Math.random() < dt * (0.12 + a)) panel.lineas.push('> ' + tr('world.landing.log').split('|')[Math.floor(Math.random() * 4)]);
+  ctx.lamps = [{ x: cx, z: 0.4, o: { intensity: 80, goal: [cx, -0.9] } }, { x: 1.65, z: 0.8, o: { intensity: 110, shadow: true, corta: true, goal: [0, -0.9] } }, { x: 3.9, z: 0.5, o: { intensity: 75 } }];
+  let rotation = 0;
+  ctx.onUpdate((dt, t, a) => {
+    rotation += dt * (0.35 + a * 1.2); totem.rotation.y = Math.sin(rotation * 0.5) * 0.22;   // el tótem oscila hacia uno y otro lado del escaparate
+    flare = Math.max(0, flare - dt * 1.5);
+    for (const m of matsTotem) m.emissiveIntensity = 0.6 + flare * 1.4;
+    if (ctx.room.state === 'trabajando' && Math.random() < dt * (0.12 + a)) panel.lines.push('> ' + tr('world.landing.log').split('|')[Math.floor(Math.random() * 4)]);
   });
 }

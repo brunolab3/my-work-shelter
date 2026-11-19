@@ -4,7 +4,7 @@
 import type { InputView } from '@shared/protocol';
 import { t as tr } from '@shared/language';
 
-import { INVISIBLE, marca } from '@shared/visible';
+import { INVISIBLE, mark } from '@shared/visible';
 
 /** El texto tal cual, con los caracteres invisibles a la vista */
 export function Visible({ t }: { t: string }) {
@@ -13,7 +13,7 @@ export function Visible({ t }: { t: string }) {
   const out: React.ReactNode[] = []; let i = 0;
   for (const m of t.matchAll(INVISIBLE)) {
     out.push(t.slice(i, m.index));
-    out.push(<mark key={m.index} className="invisible-marcado" title={tr('windows.invisibleOrControlCharacter')}>{marca(m[0])}</mark>);
+    out.push(<mark key={m.index} className="invisible-marcado" title={tr('windows.invisibleOrControlCharacter')}>{mark(m[0])}</mark>);
     i = m.index! + 1;
   }
   out.push(t.slice(i));
@@ -28,22 +28,22 @@ export function ToolText({ t }: { t: string }) {
 }
 
 /** La vista previa de un permiso: ruta, texto, código o diff (líneas − y +), todo en texto plano */
-export function RequestView({ blocks, motivo }: { blocks: InputView[]; motivo?: string }) {
+export function RequestView({ blocks, reason }: { blocks: InputView[]; reason?: string }) {
   return (
     <div className="peticion-detalle">
       {blocks.map((b, k) => {
-        if (b.tipo === 'ruta') return <p key={k} className="vista-ruta"><b><Visible t={b.texto} /></b></p>;
-        if (b.tipo === 'texto') return <p key={k} className="vista-texto"><Visible t={b.texto} /></p>;
+        if (b.type === 'ruta') return <p key={k} className="vista-ruta"><b><Visible t={b.text} /></b></p>;
+        if (b.type === 'texto') return <p key={k} className="vista-texto"><Visible t={b.text} /></p>;
         return (
           <div key={k} className="codigo">
             <button className="copiar" data-copiar tabIndex={-1}>{tr('windows.copy')}</button>
-            <pre className={'vista-' + b.tipo}><code>{b.tipo === 'diff'
-              ? b.texto.split('\n').map((l, i) => <span key={i} className={l.startsWith('+ ') ? 'diff-mas' : l.startsWith('- ') ? 'diff-menos' : 'diff-nota'}><Visible t={l} />{'\n'}</span>)
-              : <Visible t={b.texto} />}</code></pre>
+            <pre className={'vista-' + b.type}><code>{b.type === 'diff'
+              ? b.text.split('\n').map((l, i) => <span key={i} className={l.startsWith('+ ') ? 'diff-mas' : l.startsWith('- ') ? 'diff-menos' : 'diff-nota'}><Visible t={l} />{'\n'}</span>)
+              : <Visible t={b.text} />}</code></pre>
           </div>
         );
       })}
-      {motivo && <p className="vista-motivo"><Visible t={motivo} /></p>}
+      {reason && <p className="vista-motivo"><Visible t={reason} /></p>}
     </div>
   );
 }

@@ -3,8 +3,8 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 const q = new URLSearchParams(location.search);
-const grupo = q.get('g') || 'modular_sci_fi';
-const desde = +(q.get('desde') || 0), cuantos = +(q.get('n') || 96);
+const group = q.get('g') || 'modular_sci_fi';
+const since = +(q.get('desde') || 0), count = +(q.get('n') || 96);
 const S = 200;
 const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
 renderer.setSize(S, S); renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -16,12 +16,12 @@ const loader = new GLTFLoader();
 const info: Record<string, unknown> = {};
 
 (window as any).__ready = async () => {
-  const indice = await (await fetch('/assets/indice.json')).json();
-  const lista: string[] = (indice[grupo] || []).slice(desde, desde + cuantos);
+  const index = await (await fetch('/assets/indice.json')).json();
+  const list: string[] = (index[group] || []).slice(since, since + count);
   const g = document.getElementById('g')!;
-  for (const ruta of lista) {
+  for (const path of list) {
     try {
-      const gl = await loader.loadAsync('/assets/' + ruta.split('/').map(encodeURIComponent).join('/'));
+      const gl = await loader.loadAsync('/assets/' + path.split('/').map(encodeURIComponent).join('/'));
       const o = gl.scene; scene.add(o);
       const box = new THREE.Box3().setFromObject(o); const size = box.getSize(new THREE.Vector3()); const c = box.getCenter(new THREE.Vector3());
       const r = size.length() * 0.5 || 1;
@@ -30,11 +30,11 @@ const info: Record<string, unknown> = {};
       const mats = new Set<string>(); o.traverse((n: any) => { if (n.isMesh) [].concat(n.material).forEach((m: any) => mats.add(m.name)); });
       const div = document.createElement('div'); div.className = 'c';
       const cv = document.createElement('canvas'); cv.width = S; cv.height = S; cv.getContext('2d')!.drawImage(renderer.domElement, 0, 0);
-      const nombre = ruta.split('/').pop()!.replace(/\.(glb|gltf)$/, '');
-      div.innerHTML = `<b>${nombre}</b><i>${size.x.toFixed(2)}×${size.y.toFixed(2)}×${size.z.toFixed(2)}</i>`; div.prepend(cv); g.append(div);
-      info[nombre] = { ruta, tam: [+size.x.toFixed(2), +size.y.toFixed(2), +size.z.toFixed(2)], materials: [...mats], clips: gl.animations.map(a => a.name) };
+      const name = path.split('/').pop()!.replace(/\.(glb|gltf)$/, '');
+      div.innerHTML = `<b>${name}</b><i>${size.x.toFixed(2)}×${size.y.toFixed(2)}×${size.z.toFixed(2)}</i>`; div.prepend(cv); g.append(div);
+      info[name] = { path, size: [+size.x.toFixed(2), +size.y.toFixed(2), +size.z.toFixed(2)], materials: [...mats], clips: gl.animations.map(a => a.name) };
       scene.remove(o);
-    } catch (e) { console.log('FALLO ' + ruta + ' ' + e); }
+    } catch (e) { console.log('FALLO ' + path + ' ' + e); }
   }
   (window as any).__info = info;
 };

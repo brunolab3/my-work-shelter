@@ -5,7 +5,7 @@
 import type { MarkedExtension, Tokens } from 'marked';
 
 const START = /(?<=^|[\s(*_])(?:\/Users\/|~\/|file:\/\/\/|\/(?:private\/)?tmp\/|\/(?:private\/)?var\/folders\/)/;
-const RUTA = /^(?:\/Users\/|~\/|file:\/\/\/|\/(?:private\/)?tmp\/|\/(?:private\/)?var\/folders\/)[^\s<>()[\]"'`]+/;
+const PATH = /^(?:\/Users\/|~\/|file:\/\/\/|\/(?:private\/)?tmp\/|\/(?:private\/)?var\/folders\/)[^\s<>()[\]"'`]+/;
 // una página (HTML o Markdown) en una carpeta con espacios («Application Support»): los espacios solo entre palabras de
 // una carpeta, nunca en el nombre del archivo, para no tragarse el resto de la frase
 const SEG = '[^\\s/<>()[\\]"\'`]+';
@@ -32,8 +32,8 @@ export const localPathLinks: MarkedExtension = {
     start: src => { const i = src.search(START); return i < 0 ? undefined : i; },
     tokenizer(src) {
       if (this.lexer.state.inLink) return undefined;
-      const ruta = PAGE_WITH_SPACES.exec(src)?.[0] ?? RUTA.exec(src)?.[0].replace(/[.,;:!?]+$/, '');
-      return ruta ? { type: 'rutaLocal', raw: ruta, href: ruta } : undefined;
+      const path = PAGE_WITH_SPACES.exec(src)?.[0] ?? PATH.exec(src)?.[0].replace(/[.,;:!?]+$/, '');
+      return path ? { type: 'rutaLocal', raw: path, href: path } : undefined;
     },
     renderer: token => `<a href="${escapeHtml(encodeURI((token as Tokens.Generic).href))}">${escapeHtml(token.raw)}</a>`,
   }],

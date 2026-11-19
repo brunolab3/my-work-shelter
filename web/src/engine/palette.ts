@@ -4,27 +4,27 @@ import * as THREE from 'three';
 
 export interface Variant {
   id: string;
-  acento: string;        // pintura de la sala (bandas Accent de paredes y módulos)
+  accent: string;        // pintura de la sala (bandas Accent de paredes y módulos)
   darkAccent: string;
-  pared: string;         // Main de los módulos sci-fi
+  wall: string;         // Main de los módulos sci-fi
   darkWall: string;   // DarkGrey
-  pantalla: string;      // color de fósforo de las pantallas
+  screen: string;      // color de fósforo de las pantallas
   grime?: number;        // fuerza de la mugre procedural (1 por defecto)
 }
 
 // paredes en el valor del taller web (luma interior ~65): las claras dejaban las salas planas y quemadas
 export const VARIANTS: Record<string, Variant> = {
-  taller:   { id: 'taller',   acento: '#c9822f', darkAccent: '#7a4a22', pared: '#6f6b63', darkWall: '#3f3e3a', pantalla: '#7dffb0' },
-  web:      { id: 'web',      acento: '#9a5a2e', darkAccent: '#55321b', pared: '#6a655c', darkWall: '#363431', pantalla: '#8dffb0' },
-  marca:    { id: 'marca',    acento: '#b34a3c', darkAccent: '#6a2a24', pared: '#6e6963', darkWall: '#3e3b38', pantalla: '#ffb36b' },
-  video:    { id: 'video',    acento: '#7a5ba8', darkAccent: '#45345f', pared: '#69676b', darkWall: '#3a393f', pantalla: '#b8a0ff' },
-  landing:  { id: 'landing',  acento: '#d1a43a', darkAccent: '#7d5f1f', pared: '#706c63', darkWall: '#403e38', pantalla: '#ffe28a' },
-  comms:    { id: 'comms',    acento: '#4f8a4a', darkAccent: '#2c4f2a', pared: '#6b6b65', darkWall: '#3c3d38', pantalla: '#9dff8a' },
-  plan:     { id: 'plan',     acento: '#3d6aa8', darkAccent: '#223d63', pared: '#6a6b6e', darkWall: '#3a3c40', pantalla: '#8ac8ff' },
-  logistica: { id: 'logistica', acento: '#a8423f', darkAccent: '#5e2423', pared: '#77736e', darkWall: '#403d3b', pantalla: '#ff9a7a' },
-  acorazada: { id: 'acorazada', acento: '#a3322b', darkAccent: '#561a16', pared: '#5d6369', darkWall: '#2b2f33', pantalla: '#8fe3ff', grime: 0.7 },
-  puente:   { id: 'puente',   acento: '#b8913a', darkAccent: '#5e4a1c', pared: '#5b5d5f', darkWall: '#252729', pantalla: '#7dffa0', grime: 0.7 },
-  neutro:   { id: 'neutro',   acento: '#8a7a5a', darkAccent: '#4f4535', pared: '#6b6863', darkWall: '#3d3b39', pantalla: '#7dffb0' },
+  taller:   { id: 'taller',   accent: '#c9822f', darkAccent: '#7a4a22', wall: '#6f6b63', darkWall: '#3f3e3a', screen: '#7dffb0' },
+  web:      { id: 'web',      accent: '#9a5a2e', darkAccent: '#55321b', wall: '#6a655c', darkWall: '#363431', screen: '#8dffb0' },
+  marca:    { id: 'marca',    accent: '#b34a3c', darkAccent: '#6a2a24', wall: '#6e6963', darkWall: '#3e3b38', screen: '#ffb36b' },
+  video:    { id: 'video',    accent: '#7a5ba8', darkAccent: '#45345f', wall: '#69676b', darkWall: '#3a393f', screen: '#b8a0ff' },
+  landing:  { id: 'landing',  accent: '#d1a43a', darkAccent: '#7d5f1f', wall: '#706c63', darkWall: '#403e38', screen: '#ffe28a' },
+  comms:    { id: 'comms',    accent: '#4f8a4a', darkAccent: '#2c4f2a', wall: '#6b6b65', darkWall: '#3c3d38', screen: '#9dff8a' },
+  plan:     { id: 'plan',     accent: '#3d6aa8', darkAccent: '#223d63', wall: '#6a6b6e', darkWall: '#3a3c40', screen: '#8ac8ff' },
+  logistica: { id: 'logistica', accent: '#a8423f', darkAccent: '#5e2423', wall: '#77736e', darkWall: '#403d3b', screen: '#ff9a7a' },
+  acorazada: { id: 'acorazada', accent: '#a3322b', darkAccent: '#561a16', wall: '#5d6369', darkWall: '#2b2f33', screen: '#8fe3ff', grime: 0.7 },
+  puente:   { id: 'puente',   accent: '#b8913a', darkAccent: '#5e4a1c', wall: '#5b5d5f', darkWall: '#252729', screen: '#7dffa0', grime: 0.7 },
+  neutro:   { id: 'neutro',   accent: '#8a7a5a', darkAccent: '#4f4535', wall: '#6b6863', darkWall: '#3d3b39', screen: '#7dffb0' },
 };
 
 const c = (h: string) => new THREE.Color(h);
@@ -38,15 +38,15 @@ export function prepareMaterial(m: THREE.Material, pack: string, v?: Variant): T
   if (pack === 'modular_sci_fi' || pack === 'cyberpunk_pack') {
     sm.metalness = 0.12; sm.roughness = 0.62;
     const vv = v ?? VARIANTS.neutro;
-    if (n === 'Main' || n === 'Main2') sm.color.copy(c(vv.pared));
+    if (n === 'Main' || n === 'Main2') sm.color.copy(c(vv.wall));
     else if (n === 'DarkGrey' || n === 'Grey') sm.color.copy(c(vv.darkWall));
-    else if (n === 'Accent' || n === 'Orange') sm.color.copy(c(vv.acento));
+    else if (n === 'Accent' || n === 'Orange') sm.color.copy(c(vv.accent));
     else if (n === 'DarkAccent' || n === 'Accent_Dark') sm.color.copy(c(vv.darkAccent));
     else if (n === 'Light' || n === 'LightGrey' || n === 'MetalLight') { sm.color.copy(c('#a39c8e')); }
     else if (n === 'Black' || n === 'Dark') { sm.color.copy(c('#232325')); sm.roughness = 0.5; }
     else if (n === 'Pipes') { sm.color.copy(c('#6b5640')); sm.metalness = 0.35; sm.roughness = 0.5; }
     else if (n === 'Glass') { sm.color.copy(c('#9fc4c8')); sm.roughness = 0.15; sm.metalness = 0.1; sm.transparent = true; sm.opacity = 0.55; sm.depthWrite = false; }
-    else if (n === 'Screen' || n === 'Eye') { sm.color.copy(c('#0d1a14')); sm.emissive = c(vv.pantalla); sm.emissiveIntensity = 1.6; }
+    else if (n === 'Screen' || n === 'Eye') { sm.color.copy(c('#0d1a14')); sm.emissive = c(vv.screen); sm.emissiveIntensity = 1.6; }
     else if (n === 'Texture_Signs') { sm.color.copy(c('#d8d2c4')); sm.roughness = 0.8; }
     if (!sm.transparent && !(sm.emissive && sm.emissive.getHex() !== 0)) withGrime(sm, (pack === 'modular_sci_fi' ? 1 : 0.6) * (vv.grime ?? 1));
   } else if (pack === 'house_interior_pack') {
@@ -69,34 +69,34 @@ export function prepareMaterial(m: THREE.Material, pack: string, v?: Variant): T
 
 // Colores de la interfaz y de la señalética (diegética y de pantalla)
 export const UI = {
-  phosphor: '#9dffb8', faintPhosphor: '#4f9c6a', ambar: '#ffb347', rojo: '#ff5a4a', papel: '#e8dcc0', tinta: '#1a1712',
+  phosphor: '#9dffb8', faintPhosphor: '#4f9c6a', amber: '#ffb347', red: '#ff5a4a', paper: '#e8dcc0', ink: '#1a1712',
 };
 
 // Mugre en el shader: manchas y churretes leídos de una textura de ruido en espacio de mundo (proyección biplanar),
 // suciedad cerca del suelo y hollín bajo el techo. Rompe la limpieza de plástico de los módulos sin pintar nada a mano.
 // (Ruido 3D por píxel sería demasiado caro a resolución retina.)
-export const GRIME = { planta: 5.28, alto: 4.43 };
+export const GRIME = { floor: 5.28, height: 4.43 };
 let _texNoise: THREE.DataTexture | null = null;
 function noiseTexture() {
   if (_texNoise) return _texNoise;
-  const N = 256; const datos = new Uint8Array(N * N * 4);
+  const N = 256; const data = new Uint8Array(N * N * 4);
   const rnd = (() => { let s = 12345; return () => ((s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff); })();
   const layer = (f: number) => { const g = Array.from({ length: f * f }, () => rnd()); return (x: number, y: number) => { const fx = x / N * f, fy = y / N * f; const i = Math.floor(fx), j = Math.floor(fy), u = fx - i, v = fy - j; const a = g[(j % f) * f + (i % f)], b = g[(j % f) * f + ((i + 1) % f)], c = g[((j + 1) % f) * f + (i % f)], d = g[((j + 1) % f) * f + ((i + 1) % f)]; const su = u * u * (3 - 2 * u), sv = v * v * (3 - 2 * v); return a + (b - a) * su + (c - a) * sv + (a - b - c + d) * su * sv; }; };
   const c1 = layer(4), c2 = layer(8), c3 = layer(16), c4 = layer(32), v1 = layer(24), v2 = layer(48);
   for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
     const stains = c1(x, y) * 0.5 + c2(x, y) * 0.25 + c3(x, y) * 0.15 + c4(x, y) * 0.1;
     const veins = v1(x, y) * 0.6 + v2(x, y) * 0.4;
-    const i = (y * N + x) * 4; datos[i] = stains * 255; datos[i + 1] = veins * 255; datos[i + 2] = rnd() * 255; datos[i + 3] = 255;
+    const i = (y * N + x) * 4; data[i] = stains * 255; data[i + 1] = veins * 255; data[i + 2] = rnd() * 255; data[i + 3] = 255;
   }
-  _texNoise = new THREE.DataTexture(datos, N, N, THREE.RGBAFormat);
+  _texNoise = new THREE.DataTexture(data, N, N, THREE.RGBAFormat);
   _texNoise.wrapS = _texNoise.wrapT = THREE.RepeatWrapping; _texNoise.magFilter = THREE.LinearFilter; _texNoise.minFilter = THREE.LinearMipmapLinearFilter; _texNoise.generateMipmaps = true; _texNoise.needsUpdate = true;
   return _texNoise;
 }
-export function withGrime(m: THREE.MeshStandardMaterial, fuerza = 1) {
+export function withGrime(m: THREE.MeshStandardMaterial, strength = 1) {
   m.onBeforeCompile = sh => {
-    sh.uniforms.uGrime = { value: fuerza };
-    sh.uniforms.uFloor = { value: GRIME.planta };
-    sh.uniforms.uHeight = { value: GRIME.alto };
+    sh.uniforms.uGrime = { value: strength };
+    sh.uniforms.uFloor = { value: GRIME.floor };
+    sh.uniforms.uHeight = { value: GRIME.height };
     sh.uniforms.uNoise = { value: noiseTexture() };
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vMundo; varying vec3 vNormMundo;')
       .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvMundo = (modelMatrix * vec4(transformed, 1.0)).xyz; vNormMundo = normalize(mat3(modelMatrix) * objectNormal);');
@@ -114,6 +114,6 @@ export function withGrime(m: THREE.MeshStandardMaterial, fuerza = 1) {
         float m = clamp(manchas * 0.28 + churretes * 0.16 + suelo * 0.32 + hollin * 0.3, 0.0, 0.62) * uGrime;
         diffuseColor.rgb *= mix(vec3(1.0), vec3(0.42, 0.36, 0.3), m);`);
   };
-  m.customProgramCacheKey = () => 'mugre2-' + fuerza;
+  m.customProgramCacheKey = () => 'mugre2-' + strength;
   return m;
 }

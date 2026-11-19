@@ -4,29 +4,29 @@ import { GAME_NAME } from '@shared/protocol';
 
 export type DwellerState = 'durmiendo' | 'ocioso' | 'pensando' | 'trabajando' | 'esperando' | 'terminado' | 'error';
 
-export interface DwellerSummary { id: string; nombre: string; mote: string; tipo: string; bio: string; sala: string; nameRoom: string; ruta?: string; carpeta?: string; estado: DwellerState; detalle?: string; sesionId?: string; robot?: boolean; copia?: CopyData }
+export interface DwellerSummary { id: string; name: string; nickname: string; type: string; bio: string; room: string; nameRoom: string; path?: string; folder?: string; state: DwellerState; detail?: string; sessionId?: string; robot?: boolean; copy?: CopyData }
 
 // una copia holográfica (worktree) habla con su propio intercomunicador; trabaja como su autor, dentro del worktree
-export interface CopyData { ruta: string; rama: string; authorId: string; nameAuthor: string; nicknameAuthor: string; cambios: number; advanced: number }
+export interface CopyData { path: string; branch: string; authorId: string; nameAuthor: string; nicknameAuthor: string; changes: number; advanced: number }
 
 export interface StateUI {
-  refugio: string;
+  shelter: string;
   scrap: number;
-  habitantes: DwellerSummary[];
-  copias: DwellerSummary[];     // copias holográficas (worktrees): interlocutores propios, con id «holo:<ruta>»
-  notificationsWithoutSee: number;
-  hint: { tecla: string; texto: string } | null;
+  dwellers: DwellerSummary[];
+  copies: DwellerSummary[];     // copias holográficas (worktrees): interlocutores propios, con id «holo:<ruta>»
+  unseenNotifications: number;
+  hint: { key: string; text: string } | null;
   currentRoom: string;
   demo: boolean;
   talkingWith: string | null;     // id del habitante (o de la copia holográfica) con el que hay un diálogo abierto
   panel: Panel | null;            // aparato abierto (plano, ocupados, ayuda, opciones, salir, cámara acorazada, puerta…)
   panelData: any;
-  workIn: { cwd: string; rama: string } | null;   // empezar el próximo trabajo dentro de un worktree
+  workIn: { cwd: string; branch: string } | null;   // empezar el próximo trabajo dentro de un worktree
 }
 
 export type Panel = 'plano' | 'ocupados' | 'ayuda' | 'opciones' | 'menu' | 'salir' | 'camara' | 'puerta' | 'inventario' | 'cuaderno' | 'comunicaciones' | 'planificacion' | 'logistica' | 'galeria' | 'hidroponia' | 'bienvenida' | 'despedida' | 'reiniciar' | 'radio' | 'expedicion' | 'sala' | 'generador' | 'terminal' | 'worktree' | 'visitante' | 'git' | 'spotify' | 'chapa' | 'organizar';
 
 export const juego = new Store<StateUI>({
-  refugio: GAME_NAME, scrap: 0, habitantes: [], copias: [], notificationsWithoutSee: 0,
+  shelter: GAME_NAME, scrap: 0, dwellers: [], copies: [], unseenNotifications: 0,
   hint: null, currentRoom: '', demo: true, talkingWith: null, panel: null, panelData: null, workIn: null,
 });

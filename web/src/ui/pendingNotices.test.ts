@@ -2,39 +2,39 @@ import { describe, it, expect } from 'vitest';
 import type { SessionSummary, PendingRequest } from '@shared/protocol';
 import { noticeChanges, dockBadge } from './pendingNotices';
 
-const pet = (id: string): PendingRequest => ({ id, tipo: 'pregunta', herramienta: 'AskUserQuestion', titulo: 'Tengo una pregunta para ti', canAlways: false });
-const ses = (id: string, pending?: PendingRequest, estado: SessionSummary['estado'] = pending ? 'esperando' : 'trabajando') =>
-  ({ id, dwellerId: 'h', salaId: 'sala', cwd: '/x', estado, sinLeer: false, titulo: 't', pending, pendientes: 0, ayudantes: [], herramientas: 0, turns: 0, created: 0, actualizada: 0 }) as SessionSummary;
-const ids = (r: { dar: SessionSummary[] }) => r.dar.map(s => s.id);
+const pet = (id: string): PendingRequest => ({ id, type: 'pregunta', tool: 'AskUserQuestion', title: 'Tengo una pregunta para ti', canAlways: false });
+const sess = (id: string, pending?: PendingRequest, state: SessionSummary['state'] = pending ? 'esperando' : 'trabajando') =>
+  ({ id, dwellerId: 'h', roomId: 'sala', cwd: '/x', state, unread: false, title: 't', pending, pendingCount: 0, helpers: [], tools: 0, turns: 0, created: 0, updated: 0 }) as SessionSummary;
+const ids = (r: { add: SessionSummary[] }) => r.add.map(s => s.id);
 
 describe('avisos de macOS por peticiones pendientes', () => {
   it('avisa una sola vez de una petición que llega con el juego en segundo plano', () => {
-    const visto = new Map<string, string>();
-    expect(ids(noticeChanges({ a: ses('a', pet('p1')), b: ses('b') }, visto, false))).toEqual(['a']);
-    expect(ids(noticeChanges({ a: ses('a', pet('p1')) }, visto, false))).toEqual([]);
+    const seen = new Map<string, string>();
+    expect(ids(noticeChanges({ a: sess('a', pet('p1')), b: sess('b') }, seen, false))).toEqual(['a']);
+    expect(ids(noticeChanges({ a: sess('a', pet('p1')) }, seen, false))).toEqual([]);
   });
   it('no avisa de lo que llegó con el juego delante, aunque luego pase a segundo plano', () => {
-    const visto = new Map<string, string>();
-    expect(ids(noticeChanges({ a: ses('a', pet('p1')) }, visto, true))).toEqual([]);
-    expect(ids(noticeChanges({ a: ses('a', pet('p1')) }, visto, false))).toEqual([]);
+    const seen = new Map<string, string>();
+    expect(ids(noticeChanges({ a: sess('a', pet('p1')) }, seen, true))).toEqual([]);
+    expect(ids(noticeChanges({ a: sess('a', pet('p1')) }, seen, false))).toEqual([]);
   });
   it('quita el aviso al contestar o cerrar, y una petición nueva sustituye a la anterior', () => {
-    const visto = new Map<string, string>();
-    noticeChanges({ a: ses('a', pet('p1')), b: ses('b', pet('q1')) }, visto, false);
-    const r = noticeChanges({ a: ses('a', pet('p2')), b: ses('b', pet('q1'), 'cerrada') }, visto, false);
+    const seen = new Map<string, string>();
+    noticeChanges({ a: sess('a', pet('p1')), b: sess('b', pet('q1')) }, seen, false);
+    const r = noticeChanges({ a: sess('a', pet('p2')), b: sess('b', pet('q1'), 'cerrada') }, seen, false);
     expect(ids(r)).toEqual(['a']);
-    expect(r.quitar.sort()).toEqual(['a', 'b']);
-    expect(noticeChanges({ a: ses('a') }, visto, false).quitar).toEqual(['a']);
-    expect(visto.size).toBe(0);
+    expect(r.remove.sort()).toEqual(['a', 'b']);
+    expect(noticeChanges({ a: sess('a') }, seen, false).remove).toEqual(['a']);
+    expect(seen.size).toBe(0);
   });
 });
 
 describe('Dock badge', () => {
   it('counts the requests waiting for an answer, queued ones included', () => {
-    expect(dockBadge({ a: { ...ses('a', pet('p1')), pendientes: 2 }, b: ses('b', pet('p2')), c: ses('c', pet('p3'), 'cerrada') })).toBe('3');
+    expect(dockBadge({ a: { ...sess('a', pet('p1')), pendingCount: 2 }, b: sess('b', pet('p2')), c: sess('c', pet('p3'), 'cerrada') })).toBe('3');
   });
   it('shows a dot for a finished unread turn, and nothing once read or with nothing waiting', () => {
-    expect(dockBadge({ a: { ...ses('a', undefined, 'terminada'), sinLeer: true }, b: ses('b') })).toBe('•');
-    expect(dockBadge({ a: ses('a', undefined, 'ociosa'), b: ses('b') })).toBe('');
+    expect(dockBadge({ a: { ...sess('a', undefined, 'terminada'), unread: true }, b: sess('b') })).toBe('•');
+    expect(dockBadge({ a: sess('a', undefined, 'ociosa'), b: sess('b') })).toBe('');
   });
 });

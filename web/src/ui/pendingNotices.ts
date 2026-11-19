@@ -2,32 +2,32 @@
 // un permiso o un plan), solo cuando la petición llega con el juego en segundo plano; se quita al contestarla.
 import type { SessionSummary } from '@shared/protocol';
 
-export interface Changes { dar: SessionSummary[]; quitar: string[] }
+export interface Changes { add: SessionSummary[]; remove: string[] }
 
 // visto: conversación → la petición ya vista (avisada o llegada con el juego delante); se actualiza aquí
-export function noticeChanges(sesiones: Record<string, SessionSummary>, visto: Map<string, string>, enPrimerPlano: boolean): Changes {
-  const dar: SessionSummary[] = [], quitar: string[] = [];
-  for (const s of Object.values(sesiones)) {
-    const p = s.estado !== 'cerrada' ? s.pending : undefined;
+export function noticeChanges(sessions: Record<string, SessionSummary>, seen: Map<string, string>, inForeground: boolean): Changes {
+  const add: SessionSummary[] = [], remove: string[] = [];
+  for (const s of Object.values(sessions)) {
+    const p = s.state !== 'cerrada' ? s.pending : undefined;
     if (!p) continue;
-    if (visto.get(s.id) === p.id) continue;
-    if (visto.has(s.id)) quitar.push(s.id);   // otra petición en la misma conversación: sustituye a la anterior
-    visto.set(s.id, p.id);
-    if (!enPrimerPlano) dar.push(s);
+    if (seen.get(s.id) === p.id) continue;
+    if (seen.has(s.id)) remove.push(s.id);   // otra petición en la misma conversación: sustituye a la anterior
+    seen.set(s.id, p.id);
+    if (!inForeground) add.push(s);
   }
-  for (const id of [...visto.keys()]) {
-    const s = sesiones[id];
-    if (s?.pending && s.estado !== 'cerrada') continue;
-    visto.delete(id); quitar.push(id);
+  for (const id of [...seen.keys()]) {
+    const s = sessions[id];
+    if (s?.pending && s.state !== 'cerrada') continue;
+    seen.delete(id); remove.push(id);
   }
-  return { dar, quitar };
+  return { add, remove };
 }
 
 // Dock badge (systemNotices.ts): the number of requests waiting for your answer (questions, permissions, plans);
 // without any, a dot while a conversation has finished its turn unread; empty when nothing waits for you
-export function dockBadge(sesiones: Record<string, SessionSummary>): string {
-  const abiertas = Object.values(sesiones).filter(s => s.estado !== 'cerrada');
-  const peticiones = abiertas.reduce((n, s) => n + (s.pending ? Math.max(1, s.pendientes) : 0), 0);
-  if (peticiones) return String(peticiones);
-  return abiertas.some(s => s.estado === 'terminada' && s.sinLeer) ? '•' : '';
+export function dockBadge(sessions: Record<string, SessionSummary>): string {
+  const openSessions = Object.values(sessions).filter(s => s.state !== 'cerrada');
+  const requests = openSessions.reduce((n, s) => n + (s.pending ? Math.max(1, s.pendingCount) : 0), 0);
+  if (requests) return String(requests);
+  return openSessions.some(s => s.state === 'terminada' && s.unread) ? '•' : '';
 }

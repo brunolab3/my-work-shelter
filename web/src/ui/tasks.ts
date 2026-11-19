@@ -3,41 +3,41 @@
 // pantallas y hologramas miran `versionColores`).
 import { assignedColors, hasTaskColor } from '@shared/tasks';
 import type { Epic, PRBoard, TaskJira } from '@shared/board';
-import { cliente, vivo } from '../net/client';
+import { client, live } from '../net/client';
 import { t } from '@shared/language';
 import { STATE_TEXT } from '@shared/verification';
 import { Store } from './store';
 
 export const versionColors = new Store<{ v: number }>({ v: 0 });
-export const useColorsTasks = () => versionColors.usar(e => e.v);
+export const useColorsTasks = () => versionColors.use(e => e.v);
 
-const requested = new Set<string>(); const queue = new Set<string>(); let reloj: ReturnType<typeof setTimeout> | null = null;
+const requested = new Set<string>(); const queue = new Set<string>(); let timer: ReturnType<typeof setTimeout> | null = null;
 /** Los colores que trae el tablero de Jira (los reparte Logística): se apuntan sin pedirlos */
-export function aimColors(tareas: { clave: string; color?: string; epica?: Epic }[]) {
-  let nuevo = false;
-  const apuntar = (clave: string, color?: string) => { const k = clave.toUpperCase(); if (color && assignedColors.get(k) !== color) { assignedColors.set(k, color); requested.add(k); nuevo = true; } };
+export function aimColors(tareas: { key: string; color?: string; epic?: Epic }[]) {
+  let newer = false;
+  const log = (key: string, color?: string) => { const k = key.toUpperCase(); if (color && assignedColors.get(k) !== color) { assignedColors.set(k, color); requested.add(k); newer = true; } };
   for (const t of tareas) {
-    apuntar(t.clave, t.color);
-    if (t.epica) apuntar(t.epica.clave, t.epica.color);
-    const k = t.clave.toUpperCase(), antes = epics.get(k);
-    if (antes?.clave !== t.epica?.clave || antes?.titulo !== t.epica?.titulo) { if (t.epica) epics.set(k, { clave: t.epica.clave, titulo: t.epica.titulo }); else epics.delete(k); nuevo = true; }
+    log(t.key, t.color);
+    if (t.epic) log(t.epic.key, t.epic.color);
+    const k = t.key.toUpperCase(), before = epics.get(k);
+    if (before?.key !== t.epic?.key || before?.title !== t.epic?.title) { if (t.epic) epics.set(k, { key: t.epic.key, title: t.epic.title }); else epics.delete(k); newer = true; }
   }
-  if (nuevo) versionColors.set(e => ({ v: e.v + 1 }));
+  if (newer) versionColors.set(e => ({ v: e.v + 1 }));
 }
 // each task's epic, as the Jira board last read it (repaints go with versionColors, like the colors)
 const epics = new Map<string, Epic>();
 /** The epic of a task key, once the Jira board has read it; its color is taskColor(epic.clave) */
-export const taskEpic = (clave: string | undefined): Epic | undefined => clave ? epics.get(clave.toUpperCase()) : undefined;
+export const taskEpic = (key: string | undefined): Epic | undefined => key ? epics.get(key.toUpperCase()) : undefined;
 /** The tasks in view: new ones with a task color are requested (together, a moment later); slugs take none */
-export function knowTasks(claves: (string | undefined)[]) {
-  for (const c of claves) { const k = c?.toUpperCase(); if (hasTaskColor(k) && !requested.has(k)) { requested.add(k); queue.add(k); } }
-  if (!queue.size || reloj) return;
-  reloj = setTimeout(() => {
-    reloj = null; const lote = [...queue]; queue.clear();
-    cliente.accion<Record<string, string>>('tareas.colores', { claves: lote }).then(m => {
+export function knowTasks(keys: (string | undefined)[]) {
+  for (const c of keys) { const k = c?.toUpperCase(); if (hasTaskColor(k) && !requested.has(k)) { requested.add(k); queue.add(k); } }
+  if (!queue.size || timer) return;
+  timer = setTimeout(() => {
+    timer = null; const batch = [...queue]; queue.clear();
+    client.action<Record<string, string>>('tareas.colores', { keys: batch }).then(m => {
       for (const [k, c] of Object.entries(m ?? {})) assignedColors.set(k, c);
       versionColors.set(e => ({ v: e.v + 1 }));
-    }).catch(() => { for (const k of lote) requested.delete(k); });
+    }).catch(() => { for (const k of batch) requested.delete(k); });
   }, 80);
 }
 
@@ -47,22 +47,22 @@ export const jiraBoard = new Store<{ tareas: TaskJira[] | null; prs: PRBoard[] }
 
 /** A task's production verification as a short mark (🔭 and its state), once a checkpoint has opened; `pr`: that PR's
  *  checkpoint (org/repo#N), else the task's final one */
-export function verificationMark(clave: string | undefined, pr?: string): string {
-  const v = clave ? vivo.get().verificaciones[clave.toUpperCase()] ?? vivo.get().verificaciones[clave] : undefined;
-  const estado = v?.abierto ? (pr && v.prs[pr.toLowerCase()]) || v.final : undefined;
-  return estado ? '🔭 ' + t(STATE_TEXT[estado]) : '';
+export function verificationMark(key: string | undefined, pr?: string): string {
+  const v = key ? live.get().verifications[key.toUpperCase()] ?? live.get().verifications[key] : undefined;
+  const state = v?.open ? (pr && v.prs[pr.toLowerCase()]) || v.final : undefined;
+  return state ? '🔭 ' + t(STATE_TEXT[state]) : '';
 }
 
 /** The title of a task, when the Jira board has read it */
-export const taskTitle = (clave: string | undefined) => clave ? jiraBoard.get().tareas?.find(x => x.clave.toUpperCase() === clave.toUpperCase())?.titulo : undefined;
+export const taskTitle = (key: string | undefined) => key ? jiraBoard.get().tareas?.find(x => x.key.toUpperCase() === key.toUpperCase())?.title : undefined;
 
 // Your GitHub PRs (`git.prsTablero`, the same as Planning's board), read at most every two minutes and shared by the
 // intercoms and the rooms' task boards; without GitHub connected (or in DEMO), none
-let prsAsked: { cuando: number; p: Promise<PRBoard[]> } | null = null;
+let prsAsked: { when: number; p: Promise<PRBoard[]> } | null = null;
 export function myPRs(): Promise<PRBoard[]> {
-  if (!prsAsked || Date.now() - prsAsked.cuando > 120_000) {
-    const p = cliente.accion<any>('git.prsTablero', {}).then(d => { const prs: PRBoard[] = d?.demo ? [] : d?.prs ?? []; if (!d?.demo) jiraBoard.set({ prs }); return prs; }).catch(() => { prsAsked = null; return [] as PRBoard[]; });
-    prsAsked = { cuando: Date.now(), p };
+  if (!prsAsked || Date.now() - prsAsked.when > 120_000) {
+    const p = client.action<any>('git.prsTablero', {}).then(d => { const prs: PRBoard[] = d?.demo ? [] : d?.prs ?? []; if (!d?.demo) jiraBoard.set({ prs }); return prs; }).catch(() => { prsAsked = null; return [] as PRBoard[]; });
+    prsAsked = { when: Date.now(), p };
   }
   return prsAsked.p;
 }

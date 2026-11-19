@@ -5,19 +5,19 @@ import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { gltf, measure } from '../../engine/assets';
 import { SOURCES, SOURCE_BASE, PIECE, REGIONS, isLarge, type Look, type Slot, type Region } from '@shared/appearance';
-import { fuente, trozos, craneo, type PieceChunk } from './sources';
+import { source, chunks, skull, type PieceChunk } from './sources';
 import { strips, stripIn } from './breakdown';
 
 const N = REGIONS.length;
 
 /** Pintura por regiones sobre el material de KayKit: cada vértice lleva su región y, si la región tiene color,
  *  el texel se cambia por ese color con la luz de su degradado (luminancia del texel / luminancia de referencia). */
-export function materialPaintable(base: THREE.MeshStandardMaterial, colores: THREE.Vector4[], ref: number[]) {
+export function materialPaintable(base: THREE.MeshStandardMaterial, colors: THREE.Vector4[], ref: number[]) {
   const m = base.clone();
   m.roughness = Math.max(m.roughness ?? 0.5, 0.82); m.metalness = Math.min(m.metalness ?? 0, 0.1);
   const uRef = { value: ref };
   m.onBeforeCompile = sh => {
-    sh.uniforms.uColors = { value: colores }; sh.uniforms.uRef = uRef;
+    sh.uniforms.uColors = { value: colors }; sh.uniforms.uRef = uRef;
     sh.vertexShader = sh.vertexShader
       .replace('#include <common>', '#include <common>\nattribute float region;\nvarying float vRegion;')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\nvRegion = region;');
@@ -29,7 +29,7 @@ export function materialPaintable(base: THREE.MeshStandardMaterial, colores: THR
             if (c.w > 0.5) { float l = dot(diffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722)); diffuseColor.rgb = c.rgb * clamp(l / max(uRef[r], 0.004), 0.3, 1.8); } } }`);
   };
   m.customProgramCacheKey = () => 'figura-pintable';
-  m.userData.uRef = uRef; m.userData.propio = true;
+  m.userData.uRef = uRef; m.userData.own = true;
   return m;
 }
 
@@ -38,147 +38,147 @@ const lin = (c: number) => { c /= 255; return c <= 0.04045 ? c / 12.92 : Math.po
 // la escala de todas las figuras: la de la figura base a la altura de un personaje (todas del mismo tamaño)
 // los robots grandes van sobre el esqueleto grande (el maniquí grande) y se escalan a la misma altura que los demás
 const BASE_LARGE = 'Mannequin_Large';
-const alturas = new Map<string, Promise<number>>();
+const heights = new Map<string, Promise<number>>();
 function baseHeight(base: string) {
-  let a = alturas.get(base);
-  if (!a) { a = gltf(SOURCES[base].ruta).then(g => measure(SkeletonUtils.clone(g.scene)).tam.y); alturas.set(base, a); }
+  let a = heights.get(base);
+  if (!a) { a = gltf(SOURCES[base].path).then(g => measure(SkeletonUtils.clone(g.scene)).size.y); heights.set(base, a); }
   return a;
 }
 
 export interface Figure {
-  modelo: THREE.Object3D;
+  model: THREE.Object3D;
   /** colores de las regiones (rgb lineal + w=1 si se pinta): cambiarlos repinta sin volver a montar */
-  colores: THREE.Vector4[];
+  colors: THREE.Vector4[];
   modelHeight: number;
   /** esqueleto grande (Rig_Large): sus clips se adaptan (solo rotaciones) */
-  grande: boolean;
+  large: boolean;
   /** regiones de color que tiene de verdad (el probador solo ofrece esas) */
   regions: Set<number>;
   /** color por defecto de cada región (el de sus piezas): el probador lo enseña como «original» */
-  porDefecto: Partial<Record<Region, string>>;
+  fallback: Partial<Record<Region, string>>;
 }
 
 /** Arma la figura de un aspecto. `altura`: a qué altura se escala (todas las figuras salen igual de altas). */
-export async function mountFigure(a: Look, o: { maniqui?: boolean } = {}): Promise<Figure> {
-  const grande = isLarge(a.piezas.torso);
-  const nameBase = grande ? BASE_LARGE : SOURCE_BASE;
-  const base = await gltf(SOURCES[nameBase].ruta);
-  const modelo = SkeletonUtils.clone(base.scene);
-  const quitar: THREE.Object3D[] = []; modelo.traverse((n: any) => { if (n.isMesh) quitar.push(n); });
-  for (const n of quitar) n.parent?.remove(n);
-  const huesos = new Map<string, THREE.Bone>(); modelo.traverse((n: any) => { if (n.isBone) huesos.set(n.name, n); });
-  const armor = modelo.getObjectByName(grande ? 'Rig_Large' : 'Rig_Medium') ?? modelo.children[0] ?? modelo;
+export async function mountFigure(a: Look, o: { mannequin?: boolean } = {}): Promise<Figure> {
+  const large = isLarge(a.pieces.torso);
+  const nameBase = large ? BASE_LARGE : SOURCE_BASE;
+  const base = await gltf(SOURCES[nameBase].path);
+  const model = SkeletonUtils.clone(base.scene);
+  const remove: THREE.Object3D[] = []; model.traverse((n: any) => { if (n.isMesh) remove.push(n); });
+  for (const n of remove) n.parent?.remove(n);
+  const bones = new Map<string, THREE.Bone>(); model.traverse((n: any) => { if (n.isBone) bones.set(n.name, n); });
+  const armor = model.getObjectByName(large ? 'Rig_Large' : 'Rig_Medium') ?? model.children[0] ?? model;
 
   // piezas puestas (el sombrero que tapa el pelo se lo quita)
-  const piezas = Object.entries(a.piezas).filter(([, v]) => v && PIECE.has(v)).map(([r, v]) => [r as Slot, PIECE.get(v!)!] as const);
-  const sombrero = piezas.find(([r]) => r === 'sombrero')?.[1];
-  const visibles = piezas.filter(([r]) => !(sombrero?.hairLid && r === 'pelo') && !(sombrero?.faceLid && (r === 'barba' || r === 'cejas')));
+  const pieces = Object.entries(a.pieces).filter(([, v]) => v && PIECE.has(v)).map(([r, v]) => [r as Slot, PIECE.get(v!)!] as const);
+  const hat = pieces.find(([r]) => r === 'sombrero')?.[1];
+  const visible = pieces.filter(([r]) => !(hat?.hairLid && r === 'pelo') && !(hat?.faceLid && (r === 'barba' || r === 'cejas')));
   // lo de la cabeza se adapta a la forma de la cara elegida, y el pelo se mete bajo el sombrero
-  const cara = a.especie === 'humano' && a.piezas.cara ? PIECE.get(a.piezas.cara)?.fuente : undefined;
-  const lista: { r: Slot | 'craneo'; t: PieceChunk }[] = [];
-  const pelo = visibles.find(([r]) => r === 'pelo')?.[1];
-  const hechos = await Promise.all(visibles.map(async ([r, p]) => (await trozos(p, { cara, sombrero, pelo })).map(t => ({ r, t }))));
-  for (const h of hechos) lista.push(...h);
+  const face = a.especie === 'humano' && a.pieces.cara ? PIECE.get(a.pieces.cara)?.source : undefined;
+  const list: { r: Slot | 'craneo'; t: PieceChunk }[] = [];
+  const hair = visible.find(([r]) => r === 'pelo')?.[1];
+  const done = await Promise.all(visible.map(async ([r, p]) => (await chunks(p, { face, hat, hair })).map(t => ({ r, t }))));
+  for (const h of done) list.push(...h);
   // el cráneo que tapa los huecos de la cara (con su forma: tampoco asoma bajo una capucha, y sin él se vería por dentro
   // de la cabeza por debajo de la peluca); un maniquí de escaparate lleva el liso, sin cara
-  if (cara || o.maniqui) for (const c of await craneo(cara, sombrero, pelo)) lista.push({ r: 'craneo', t: c });
+  if (face || o.mannequin) for (const c of await skull(face, hat, hair)) list.push({ r: 'craneo', t: c });
 
   // colores por defecto: la piel, la de la cara; el pelo, el del peinado (o la barba, o las cejas) para que todo case
-  const porDefecto: Partial<Record<Region, string>> = {};
+  const fallback: Partial<Record<Region, string>> = {};
   const hex = (c: [number, number, number] | null | undefined) => (c ? '#' + new THREE.Color().setRGB(c[0] / 255, c[1] / 255, c[2] / 255, THREE.SRGBColorSpace).getHexString() : undefined);
   if (a.especie === 'humano') {
-    const cara = a.piezas.cara ? await fuente(PIECE.get(a.piezas.cara)!.fuente) : null;
-    porDefecto.piel = hex(cara?.piel);
+    const face = a.pieces.cara ? await source(PIECE.get(a.pieces.cara)!.source) : null;
+    fallback.piel = hex(face?.skin);
     for (const r of ['pelo', 'barba', 'cejas'] as Slot[]) {
-      const id = a.piezas[r]; if (!id || (r === 'pelo' && sombrero?.hairLid)) continue;
-      const f = await fuente(PIECE.get(id)!.fuente); const c = hex(f.cabeza?.d.pelo); if (c) { porDefecto.pelo = c; break; }
+      const id = a.pieces[r]; if (!id || (r === 'pelo' && hat?.hairLid)) continue;
+      const f = await source(PIECE.get(id)!.source); const c = hex(f.head?.d.hair); if (c) { fallback.pelo = c; break; }
     }
   }
   // los robots: lo que en un humano es piel (manos, brazos al aire de la ropa), chapa
-  if (a.especie === 'robot') porDefecto.piel = a.colores.cabeza1 ?? '#8d939b';
+  if (a.especie === 'robot') fallback.piel = a.colors.cabeza1 ?? '#8d939b';
   // los colores de serie de cada pieza (los cráneos y endoesqueletos, cromados)
-  for (const [, p] of visibles) for (const [r, c] of Object.entries(p.colores ?? {})) porDefecto[r as Region] ??= c;
-  const colores = Array.from({ length: N }, () => new THREE.Vector4(0, 0, 0, 0));
+  for (const [, p] of visible) for (const [r, c] of Object.entries(p.colors ?? {})) fallback[r as Region] ??= c;
+  const colors = Array.from({ length: N }, () => new THREE.Vector4(0, 0, 0, 0));
   REGIONS.forEach((r, i) => {
     if (!r) return;
-    const c = a.colores[r] ?? porDefecto[r];
-    if (c) { const col = new THREE.Color(c); colores[i].set(col.r, col.g, col.b, 1); }
+    const c = a.colors[r] ?? fallback[r];
+    if (c) { const col = new THREE.Color(c); colors[i].set(col.r, col.g, col.b, 1); }
   });
 
   // juntar por material y esqueleto: una malla por cada (material de origen, esqueleto) en vez de una por pieza
   // (lo de la espalda va aparte y se llama «espalda:…»: al tumbarse en la cama se esconde)
-  const grupos = new Map<string, { mat: THREE.MeshStandardMaterial; malla: THREE.SkinnedMesh; geos: THREE.BufferGeometry[]; nombre: string }>();
-  const sueltas: { t: PieceChunk; nombre: string }[] = [];
-  for (const { r, t } of lista) {
-    const m = t.malla as THREE.SkinnedMesh;
-    const nombre = (r === 'espalda' ? 'espalda:' : 'pieza:') + m.name;
-    if (!m.isSkinnedMesh) { sueltas.push({ t, nombre }); continue; }
+  const groups = new Map<string, { mat: THREE.MeshStandardMaterial; mesh: THREE.SkinnedMesh; geos: THREE.BufferGeometry[]; name: string }>();
+  const loose: { t: PieceChunk; name: string }[] = [];
+  for (const { r, t } of list) {
+    const m = t.mesh as THREE.SkinnedMesh;
+    const name = (r === 'espalda' ? 'espalda:' : 'pieza:') + m.name;
+    if (!m.isSkinnedMesh) { loose.push({ t, name }); continue; }
     const mat = (Array.isArray(m.material) ? m.material[0] : m.material) as THREE.MeshStandardMaterial;
-    const clave = mat.uuid + '|' + skeletonKey(m.skeleton) + (r === 'espalda' ? '|espalda' : '');
-    const g = grupos.get(clave);
-    if (g) g.geos.push(t.geo); else grupos.set(clave, { mat, malla: m, geos: [t.geo], nombre });
+    const key = mat.uuid + '|' + skeletonKey(m.skeleton) + (r === 'espalda' ? '|espalda' : '');
+    const g = groups.get(key);
+    if (g) g.geos.push(t.geo); else groups.set(key, { mat, mesh: m, geos: [t.geo], name });
   }
   const skeletons = new Map<string, THREE.Skeleton>();
   const forSkeleton = (m: THREE.SkinnedMesh) => {
     const k = skeletonKey(m.skeleton); let s = skeletons.get(k);
-    if (!s) { s = new THREE.Skeleton(m.skeleton.bones.map(b => huesos.get(b.name) ?? huesos.get('root')!), m.skeleton.boneInverses.map(x => x.clone())); skeletons.set(k, s); }
+    if (!s) { s = new THREE.Skeleton(m.skeleton.bones.map(b => bones.get(b.name) ?? bones.get('root')!), m.skeleton.boneInverses.map(x => x.clone())); skeletons.set(k, s); }
     return s;
   };
   const materials = new Map<string, THREE.MeshStandardMaterial>();
   const materialOf = (mat: THREE.MeshStandardMaterial, geos: THREE.BufferGeometry[]) => {
     let m = materials.get(mat.uuid);
-    if (!m) { m = materialPaintable(mat, colores, new Array(N).fill(0.5)); materials.set(mat.uuid, m); }
+    if (!m) { m = materialPaintable(mat, colors, new Array(N).fill(0.5)); materials.set(mat.uuid, m); }
     // luminancia de referencia de cada región en esta textura (media de sus vértices)
     const at = strips(mat.map); const ref = m.userData.uRef.value as number[];
     if (at) {
-      const suma = new Array(N).fill(0), cuenta = new Array(N).fill(0);
+      const sum = new Array(N).fill(0), count = new Array(N).fill(0);
       for (const g of geos) {
         const uv = g.attributes.uv, rg = g.attributes.region; if (!uv) continue;
         for (let i = 0; i < rg.count; i++) {
           const r = rg.getX(i); if (!r) continue;
           const f = stripIn(at, uv.getX(i), uv.getY(i)); if (f < 0) continue;
-          const c = at.color[f]; suma[r] += 0.2126 * lin(c[0]) + 0.7152 * lin(c[1]) + 0.0722 * lin(c[2]); cuenta[r]++;
+          const c = at.color[f]; sum[r] += 0.2126 * lin(c[0]) + 0.7152 * lin(c[1]) + 0.0722 * lin(c[2]); count[r]++;
         }
       }
-      for (let r = 1; r < N; r++) if (cuenta[r]) ref[r] = suma[r] / cuenta[r];
+      for (let r = 1; r < N; r++) if (count[r]) ref[r] = sum[r] / count[r];
     }
     if (/glow/i.test(mat.name)) {   // las luces de los robots: del color elegido, y que brillen
-      const c = colores[REGIONS.indexOf('luz')];
+      const c = colors[REGIONS.indexOf('luz')];
       if (c.w > 0.5) { m.color.setRGB(c.x, c.y, c.z); m.emissive = new THREE.Color(c.x, c.y, c.z); m.emissiveIntensity = 1.6; m.map = null; m.emissiveMap = null; }
     }
     return m;
   };
-  for (const { mat, malla, geos, nombre } of grupos.values()) {
-    const junta = geos.length === 1 ? geos[0] : mergeGeometries(geos, false);
-    if (junta && geos.length > 1) junta.userData.propia = true;   // la juntada es solo de esta figura (las piezas, de todas)
-    for (const geo of junta ? [junta] : geos) {   // si no se pueden juntar (atributos de otro tipo), una a una
+  for (const { mat, mesh, geos, name } of groups.values()) {
+    const join = geos.length === 1 ? geos[0] : mergeGeometries(geos, false);
+    if (join && geos.length > 1) join.userData.own = true;   // la juntada es solo de esta figura (las piezas, de todas)
+    for (const geo of join ? [join] : geos) {   // si no se pueden juntar (atributos de otro tipo), una a una
       const sm = new THREE.SkinnedMesh(geo, materialOf(mat, geos));
-      sm.name = nombre; sm.castShadow = true; sm.receiveShadow = true; sm.frustumCulled = false;
+      sm.name = name; sm.castShadow = true; sm.receiveShadow = true; sm.frustumCulled = false;
       armor.add(sm);
-      sm.bind(forSkeleton(malla), malla.bindMatrix.clone());
+      sm.bind(forSkeleton(mesh), mesh.bindMatrix.clone());
     }
   }
   // piezas sin piel (gafas de sol, capas, alas): cuelgan del mismo hueso que en su personaje
-  for (const { t, nombre } of sueltas) {
-    const padre = huesos.get(t.malla.parent?.name ?? '') ?? huesos.get('head');
-    if (!padre) continue;
-    const mat = (Array.isArray(t.malla.material) ? t.malla.material[0] : t.malla.material) as THREE.MeshStandardMaterial;
+  for (const { t, name } of loose) {
+    const parent = bones.get(t.mesh.parent?.name ?? '') ?? bones.get('head');
+    if (!parent) continue;
+    const mat = (Array.isArray(t.mesh.material) ? t.mesh.material[0] : t.mesh.material) as THREE.MeshStandardMaterial;
     const o = new THREE.Mesh(t.geo, materialOf(mat, [t.geo]));
-    o.name = nombre; o.castShadow = true; o.receiveShadow = true;
-    o.position.copy(t.malla.position); o.quaternion.copy(t.malla.quaternion); o.scale.copy(t.malla.scale);
-    padre.add(o);
+    o.name = name; o.castShadow = true; o.receiveShadow = true;
+    o.position.copy(t.mesh.position); o.quaternion.copy(t.mesh.quaternion); o.scale.copy(t.mesh.scale);
+    parent.add(o);
   }
   // la textura de KayKit tiene blancos que queman bajo los focos: el material pintable ya es mate; la escala, común
   const modelHeight = await baseHeight(nameBase);
   const regions = new Set<number>();
-  for (const { t } of lista) { const rg = t.geo.attributes.region; for (let i = 0; i < rg.count; i++) regions.add(rg.getX(i)); }
-  return { modelo, colores, modelHeight, porDefecto, grande, regions };
+  for (const { t } of list) { const rg = t.geo.attributes.region; for (let i = 0; i < rg.count; i++) regions.add(rg.getX(i)); }
+  return { model, colors, modelHeight, fallback, large, regions };
 }
 
-const claves = new WeakMap<THREE.Skeleton, string>();
+const keys = new WeakMap<THREE.Skeleton, string>();
 function skeletonKey(s: THREE.Skeleton) {
-  const ya = claves.get(s); if (ya) return ya;
-  const k = computeKey(s); claves.set(s, k); return k;
+  const already = keys.get(s); if (already) return already;
+  const k = computeKey(s); keys.set(s, k); return k;
 }
 function computeKey(s: THREE.Skeleton) {
   // dos personajes comparten esqueleto si tienen los mismos huesos EN EL MISMO ORDEN (los índices de la malla apuntan a
@@ -190,7 +190,7 @@ function computeKey(s: THREE.Skeleton) {
 export function paint(f: Figure, a: Look) {
   REGIONS.forEach((r, i) => {
     if (!r) return;
-    const c = a.colores[r] ?? f.porDefecto[r];
-    if (c) { const col = new THREE.Color(c); f.colores[i].set(col.r, col.g, col.b, 1); } else f.colores[i].set(0, 0, 0, 0);
+    const c = a.colors[r] ?? f.fallback[r];
+    if (c) { const col = new THREE.Color(c); f.colors[i].set(col.r, col.g, col.b, 1); } else f.colors[i].set(0, 0, 0, 0);
   });
 }

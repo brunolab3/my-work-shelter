@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { groupTabs, nthTab, nextTab, overflowChips, talkerFirst, type TabState } from './tabOrder';
 
-const tab = (id: string, estado?: TabState, grupo?: string) => ({ id, estado, grupo });
+const tab = (id: string, state?: TabState, group?: string) => ({ id, state, group });
 const ids = (l: { id: string }[]) => l.map(x => x.id).join(' ');
 
 describe('groupTabs', () => {
@@ -10,9 +10,9 @@ describe('groupTabs', () => {
     expect(ids(groupTabs(l))).toBe('a c b e d');
   });
   it('nests: by talker, then by room, each room where its first tab is and its talkers in order inside it', () => {
-    const q = (id: string, quien: string, sala: string) => ({ id, grupo: quien, sala });
+    const q = (id: string, who: string, room: string) => ({ id, group: who, room });
     const l = [q('a', 'ana', 'x'), q('b', 'holo', 'y'), q('c', 'eva', 'x'), q('d', 'luz', 'y'), q('e', 'ana', 'x'), q('f', 'holo', 'y')];
-    expect(ids(groupTabs(groupTabs(l), x => x.sala))).toBe('a e c b f d');
+    expect(ids(groupTabs(groupTabs(l), x => x.room))).toBe('a e c b f d');
   });
 });
 
@@ -24,7 +24,7 @@ describe('nthTab and nextTab follow the visible order', () => {
 
 describe('talkerFirst', () => {
   const MIN = 60_000;
-  const q = (id: string, estado?: TabState, minuto = 0, nombre = id) => ({ id, estado, cuando: estado ? 1_000 * MIN + minuto * MIN : 0, nombre });
+  const q = (id: string, state?: TabState, minute = 0, name = id) => ({ id, state, when: state ? 1_000 * MIN + minute * MIN : 0, name });
   it('orders by state (waiting, unread, failed, working, ready), then by the minute, then by name; those without a conversation last, as given', () => {
     const l = [q('zeta'), q('lista', 'ociosa', 9), q('obrera', 'trabajando', 1), q('alfa'), q('espera', 'esperando', 0), q('rota', 'error', 5),
       q('nueva', 'sinLeer', 2), q('b-vieja', 'ociosa', 3), q('a-vieja', 'ociosa', 3), q('urge', 'esperando', 4)];
@@ -42,11 +42,11 @@ describe('overflowChips', () => {
     expect(overflowChips([10, 20, 30, 15, 5], [3, 3, 3, 0, 3], 40, 8)).toEqual([1, 2]);
   });
   it('is sticky: switching to a room in view, or between rooms whose state changes, moves nothing', () => {
-    const anchos = [10, 10, 10, 10, 10], antes = [3, 4];
-    expect(overflowChips(anchos, [3, 3, 3, 3, 3], 40, 8, antes, 0)).toEqual([3, 4]);
-    expect(overflowChips(anchos, [3, 3, 3, 3, 3], 40, 8, antes, 2)).toEqual([3, 4]);
+    const widths = [10, 10, 10, 10, 10], before = [3, 4];
+    expect(overflowChips(widths, [3, 3, 3, 3, 3], 40, 8, before, 0)).toEqual([3, 4]);
+    expect(overflowChips(widths, [3, 3, 3, 3, 3], 40, 8, before, 2)).toEqual([3, 4]);
     // a hidden room starts waiting: it stays behind «+N» (which turns urgent), first in its list
-    expect(overflowChips(anchos, [3, 3, 3, 3, 0], 40, 8, antes, 1)).toEqual([4, 3]);
+    expect(overflowChips(widths, [3, 3, 3, 3, 0], 40, 8, before, 1)).toEqual([4, 3]);
   });
   it('opening a hidden room swaps out only the least relevant one in view; the rest keep their place', () => {
     // 1 waits (rank 0): opening 3 sends out the last of the ones with nothing for you (2), not 1 or 0

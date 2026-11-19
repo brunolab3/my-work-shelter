@@ -9,11 +9,11 @@ import WorkerTs from 'monaco-editor/language/typescript/ts.worker?worker';
 import { t } from '@shared/language';
 
 (self as any).MonacoEnvironment = {
-  getWorker(_: string, etiqueta: string) {
-    if (etiqueta === 'json') return new WorkerJson();
-    if (etiqueta === 'css' || etiqueta === 'scss' || etiqueta === 'less') return new WorkerCss();
-    if (etiqueta === 'html' || etiqueta === 'handlebars' || etiqueta === 'razor') return new WorkerHtml();
-    if (etiqueta === 'typescript' || etiqueta === 'javascript') return new WorkerTs();
+  getWorker(_: string, label: string) {
+    if (label === 'json') return new WorkerJson();
+    if (label === 'css' || label === 'scss' || label === 'less') return new WorkerCss();
+    if (label === 'html' || label === 'handlebars' || label === 'razor') return new WorkerHtml();
+    if (label === 'typescript' || label === 'javascript') return new WorkerTs();
     return new WorkerEditor();
   },
 };

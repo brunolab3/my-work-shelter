@@ -1,26 +1,26 @@
 // Piezas sin interfaz del explorador de archivos: el árbol tal como se ve, la búsqueda por nombre de ⌘P y el idioma de
 // cada archivo para el editor.
 
-export interface Entrada { nombre: string; dir: boolean; enlace?: boolean; ignorado?: boolean }
-export interface Row { rel: string; nombre: string; dir: boolean; nivel: number; abierta: boolean; e: Entrada }
+export interface Entry { name: string; dir: boolean; link?: boolean; ignored?: boolean }
+export interface Row { rel: string; name: string; dir: boolean; level: number; open: boolean; e: Entry }
 
-export const unir = (carpeta: string, nombre: string) => (carpeta ? carpeta + '/' + nombre : nombre);
+export const union = (folder: string, name: string) => (folder ? folder + '/' + name : name);
 export const parentOf = (rel: string) => (rel.includes('/') ? rel.slice(0, rel.lastIndexOf('/')) : '');
 export const nameOf = (rel: string) => rel.slice(rel.lastIndexOf('/') + 1);
 /** ¿`rel` es `base` o está dentro? */
-export const bajo = (rel: string, base: string) => rel === base || rel.startsWith(base + '/');
+export const under = (rel: string, base: string) => rel === base || rel.startsWith(base + '/');
 
 /** Las filas del árbol que se ven: lo de cada carpeta desplegada, recursivamente desde la raíz. */
-export function flatten(listed: Record<string, Entrada[] | undefined>, expandidos: Set<string>): Row[] {
+export function flatten(listed: Record<string, Entry[] | undefined>, expanded: Set<string>): Row[] {
   const out: Row[] = [];
-  const bajar = (carpeta: string, nivel: number) => {
-    for (const e of listed[carpeta] ?? []) {
-      const rel = unir(carpeta, e.nombre), abierta = e.dir && expandidos.has(rel);
-      out.push({ rel, nombre: e.nombre, dir: e.dir, nivel, abierta, e });
-      if (abierta) bajar(rel, nivel + 1);
+  const download = (folder: string, level: number) => {
+    for (const e of listed[folder] ?? []) {
+      const rel = union(folder, e.name), open = e.dir && expanded.has(rel);
+      out.push({ rel, name: e.name, dir: e.dir, level, open, e });
+      if (open) download(rel, level + 1);
     }
   };
-  bajar('', 0);
+  download('', 0);
   return out;
 }
 
@@ -28,69 +28,69 @@ export function flatten(listed: Record<string, Entrada[] | undefined>, expandido
 export function changedFolders(git: Record<string, string>): Map<string, string> {
   const weight: Record<string, number> = { U: 4, D: 3, M: 2, A: 1, '?': 1 };
   const out = new Map<string, string>();
-  for (const [ruta, letra] of Object.entries(git)) {
-    for (let p = parentOf(ruta); p; p = parentOf(p)) {
-      const ya = out.get(p);
-      if (!ya || (weight[letra] ?? 0) > (weight[ya] ?? 0)) out.set(p, letra);
+  for (const [path, letter] of Object.entries(git)) {
+    for (let p = parentOf(path); p; p = parentOf(p)) {
+      const already = out.get(p);
+      if (!already || (weight[letter] ?? 0) > (weight[already] ?? 0)) out.set(p, letter);
     }
   }
   return out;
 }
 
 // ---------------------------------------------------------------- ⌘P: abrir por nombre
-export interface Result { rel: string; puntos: number; marks: number[] }
+export interface Result { rel: string; points: number; marks: number[] }
 
-function encajar(q: string, r: string, desde: number): { puntos: number; marks: number[] } | null {
+function match(q: string, r: string, since: number): { points: number; marks: number[] } | null {
   // el trozo seguido, si lo hay, gana
-  const j = r.indexOf(q, desde);
+  const j = r.indexOf(q, since);
   if (j >= 0) {
-    const inicio = j === desde || '/._- '.includes(r[j - 1]);
-    return { puntos: 100 + q.length * 10 + (inicio ? 40 : 0) - (j - desde) * 0.5, marks: Array.from(q, (_, k) => j + k) };
+    const start = j === since || '/._- '.includes(r[j - 1]);
+    return { points: 100 + q.length * 10 + (start ? 40 : 0) - (j - since) * 0.5, marks: Array.from(q, (_, k) => j + k) };
   }
-  let i = desde, puntos = 0, antes = -2; const marks: number[] = [];
+  let i = since, points = 0, before = -2; const marks: number[] = [];
   for (const c of q) {
     const k = r.indexOf(c, i); if (k < 0) return null;
-    if (k === antes + 1) puntos += 6;
-    if (k === desde || '/._- '.includes(r[k - 1])) puntos += 8;
-    puntos -= Math.min(k - i, 12) * 0.3;
-    marks.push(k); antes = k; i = k + 1;
+    if (k === before + 1) points += 6;
+    if (k === since || '/._- '.includes(r[k - 1])) points += 8;
+    points -= Math.min(k - i, 12) * 0.3;
+    marks.push(k); before = k; i = k + 1;
   }
-  return { puntos, marks };
+  return { points, marks };
 }
 
 /** Como el ⌘P de los editores: las letras en orden, mejor si están seguidas, en el nombre y al principio de palabra. */
-export function score(consulta: string, rel: string): Result | null {
-  const q = consulta.toLowerCase().replace(/\s+/g, ''); if (!q) return { rel, puntos: 0, marks: [] };
+export function score(query: string, rel: string): Result | null {
+  const q = query.toLowerCase().replace(/\s+/g, ''); if (!q) return { rel, points: 0, marks: [] };
   const r = rel.toLowerCase(), base = r.lastIndexOf('/') + 1;
   // si la consulta lleva «/», se busca en toda la ruta; si no, primero en el nombre
-  const inName = q.includes('/') ? null : encajar(q, r, base);
-  const m = inName ? { puntos: inName.puntos + 1000, marks: inName.marks } : encajar(q, r, 0);
+  const inName = q.includes('/') ? null : match(q, r, base);
+  const m = inName ? { points: inName.points + 1000, marks: inName.marks } : match(q, r, 0);
   if (!m) return null;
-  return { rel, puntos: m.puntos - r.length * 0.08, marks: m.marks };
+  return { rel, points: m.points - r.length * 0.08, marks: m.marks };
 }
 
-export function searchFiles(consulta: string, rels: string[], max = 60): Result[] {
+export function searchFiles(query: string, rels: string[], max = 60): Result[] {
   const out: Result[] = [];
-  for (const rel of rels) { const r = score(consulta, rel); if (r) out.push(r); }
-  return out.sort((a, b) => b.puntos - a.puntos || a.rel.length - b.rel.length || a.rel.localeCompare(b.rel)).slice(0, max);
+  for (const rel of rels) { const r = score(query, rel); if (r) out.push(r); }
+  return out.sort((a, b) => b.points - a.points || a.rel.length - b.rel.length || a.rel.localeCompare(b.rel)).slice(0, max);
 }
 
 /** «src/app.ts:42» o «app.ts:42:7» → la consulta y la línea */
-export function queryYLine(texto: string): { consulta: string; linea?: number; columna?: number } {
-  const m = /^(.*?):(\d+)(?::(\d+))?$/.exec(texto.trim());
-  return m ? { consulta: m[1], linea: Number(m[2]), columna: m[3] ? Number(m[3]) : undefined } : { consulta: texto.trim() };
+export function queryYLine(text: string): { query: string; line?: number; column?: number } {
+  const m = /^(.*?):(\d+)(?::(\d+))?$/.exec(text.trim());
+  return m ? { query: m[1], line: Number(m[2]), column: m[3] ? Number(m[3]) : undefined } : { query: text.trim() };
 }
 
 // ---------------------------------------------------------------- idioma del archivo para el editor
-export interface Idioma { id: string; extensions?: string[]; filenames?: string[]; filenamePatterns?: string[] }
+export interface Language { id: string; extensions?: string[]; filenames?: string[]; filenamePatterns?: string[] }
 const wildcard = (patron: string) => new RegExp('^' + patron.split('*').map(s => s.replace(/[.+?^${}()|[\]\\]/g, '\\$&')).join('.*') + '$', 'i');
 
 /** El idioma de Monaco para un nombre de archivo: por nombre exacto, por patrón y por extensión (la más larga). */
-export function languageOf(nombre: string, idiomas: Idioma[]): string {
-  const n = nombre.toLowerCase();
-  for (const l of idiomas) if (l.filenames?.some(f => f.toLowerCase() === n)) return l.id;
-  for (const l of idiomas) if (l.filenamePatterns?.some(p => wildcard(p).test(nombre))) return l.id;
-  let mejor = '', id = 'plaintext';
-  for (const l of idiomas) for (const e of l.extensions ?? []) { const x = e.toLowerCase(); if (n.endsWith(x) && x.length > mejor.length) { mejor = x; id = l.id; } }
+export function languageOf(name: string, languages: Language[]): string {
+  const n = name.toLowerCase();
+  for (const l of languages) if (l.filenames?.some(f => f.toLowerCase() === n)) return l.id;
+  for (const l of languages) if (l.filenamePatterns?.some(p => wildcard(p).test(name))) return l.id;
+  let best = '', id = 'plaintext';
+  for (const l of languages) for (const e of l.extensions ?? []) { const x = e.toLowerCase(); if (n.endsWith(x) && x.length > best.length) { best = x; id = l.id; } }
   return id;
 }

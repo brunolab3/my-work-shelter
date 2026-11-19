@@ -3,93 +3,93 @@
 // The one exception is the Jira board, which moves a task to another status after the Overseer confirms it.
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { juego } from './gameState';
-import { t, idioma, tIs } from '@shared/language';
-import { vivo, cliente } from '../net/client';
+import { t, language, tIs } from '@shared/language';
+import { live, client } from '../net/client';
 import { SFX } from '../audio/sound';
 import { Device, Keys, closePanel, useKeys } from './device';
 import { goA } from './Panels';
 import { describeWhenShort, describeWhen } from '@shared/scheduled';
 import { openBrowser, openLink, openNotice, SPOTS } from './Browsers';
-import { SOURCES as IDS_SOURCES, ACTIVE_SOURCES, CALENDAR_SOURCES, INFO_SOURCE, activa } from '@shared/fonts';
+import { SOURCES as IDS_SOURCES, ACTIVE_SOURCES, CALENDAR_SOURCES, INFO_SOURCE, active } from '@shared/sources';
 import { PLANNING_ROOM } from '@shared/layout';
 import { openGit } from './git/window';
 import { openPreflight } from './Preflight';
 import { taskHasPRs } from '@shared/preflight';
 import { taskColor, pRTask } from '@shared/tasks';
 import { aimColors, knowTasks, useColorsTasks, jiraBoard } from './tasks';
-import { cruzarTablero, columnOf, COLUMN_COLORS, COLUMNS, textoPR, promptPlanificar, type BoardColumn, type JiraTransition, type PRBoard, type TaskWithPR, type TaskJira } from '@shared/board';
+import { crossBoard, columnOf, COLUMN_COLORS, COLUMNS, prText, planPrompt, type BoardColumn, type JiraTransition, type PRBoard, type TaskWithPR, type TaskJira } from '@shared/board';
 import { EpicMark } from './windows';
 
-const SOURCES: Record<string, string> = Object.fromEntries(IDS_SOURCES.map(f => [f, INFO_SOURCE[f].corto]));
-const LOC = idioma() === 'en' ? 'en-GB' : 'es-ES';
+const SOURCES: Record<string, string> = Object.fromEntries(IDS_SOURCES.map(f => [f, INFO_SOURCE[f].short]));
+const LOC = language() === 'en' ? 'en-GB' : 'es-ES';
 const fmtHour = new Intl.DateTimeFormat(LOC, { hour: '2-digit', minute: '2-digit' });
 const fmtDay = new Intl.DateTimeFormat(LOC, { weekday: 'long', day: 'numeric', month: 'long' });
 const fmtDayShort = new Intl.DateTimeFormat(LOC, { weekday: 'short', day: 'numeric' });
-function hace(ts: number) { const m = Math.round((Date.now() - ts) / 60000); return m < 1 ? t('windows.now') : m < 60 ? t('windows.nMinAgo', { n: m }) : m < 1440 ? t('windows.nHAgo', { n: Math.round(m / 60) }) : t('windows.nDAgo', { n: Math.round(m / 1440) }); }
+function ago(ts: number) { const m = Math.round((Date.now() - ts) / 60000); return m < 1 ? t('windows.now') : m < 60 ? t('windows.nMinAgo', { n: m }) : m < 1440 ? t('windows.nHAgo', { n: Math.round(m / 60) }) : t('windows.nDAgo', { n: Math.round(m / 1440) }); }
 // Cada aviso del tablón es una conversación (el servidor junta los mensajes: canal de Discord o Slack, hilo de correo,
 // issue de Linear, hilo de GitHub). Las fuentes «completas» dicen qué está sin leer allí: lo leído allí sale solo.
-const WITH_READ = new Set<string>(IDS_SOURCES.filter(f => INFO_SOURCE[f].completa));
-const isChat = (n: any) => !!INFO_SOURCE[n.fuente as keyof typeof INFO_SOURCE]?.chat;
+const WITH_READ = new Set<string>(IDS_SOURCES.filter(f => INFO_SOURCE[f].complete));
+const isChat = (n: any) => !!INFO_SOURCE[n.source as keyof typeof INFO_SOURCE]?.chat;
 // fila: en los chats, la conversación y el último mensaje; en correo y Linear, quién y el asunto
-const fila = (n: any) => isChat(n) ? [n.titulo, n.titulo === n.autor ? n.fragmento : `${n.autor}: ${n.fragmento}`] : [n.autor, n.titulo];
+const row = (n: any) => isChat(n) ? [n.title, n.title === n.author ? n.snippet : `${n.author}: ${n.snippet}`] : [n.author, n.title];
 // lo que tiene navegador propio en el refugio (ver SITIOS en Browsers.tsx) se abre dentro; el resto, fuera
 const openOutside = (url?: string) => openLink(url);
 
 // ---------------------------------------------------------------- comunicaciones
 export function PanelCommunications({ onlySource }: { onlySource?: string } = {}) {
-  const todas: any[] = vivo.usar(e => e.notificaciones);
-  const ints = vivo.usar(e => e.integraciones);
+  const all: any[] = live.use(e => e.notifications);
+  const ints = live.use(e => e.integrations);
   const filters: string[] = onlySource ? [onlySource] : ['todas', ...ACTIVE_SOURCES.filter(x => !INFO_SOURCE[x].withoutNotices)];
   // 1–9: entrar a la web de cada fuente en su navegador del refugio, sin pasar por un aviso
   const webs = onlySource ? [] : filters.filter(x => SPOTS[x]);
   const [f, setF] = useState(0);
   const [onlyNew, setOnlyNew] = useState(false);
   const [i, setI] = useState(0);
-  const lista = useMemo(() => todas.filter(n => (filters[f] === 'todas' || n.fuente === filters[f]) && (!onlyNew || !n.vista)), [todas, f, onlyNew]);
-  const sel = lista[Math.min(i, lista.length - 1)];
-  useEffect(() => { if (sel && !sel.vista) { const tm = setTimeout(() => cliente.accion('integracion.marcarVista', { ids: sel.ids ?? [sel.id] }).catch(() => {}), 1200); return () => clearTimeout(tm); } }, [sel?.id]);
+  const list = useMemo(() => all.filter(n => (filters[f] === 'todas' || n.source === filters[f]) && (!onlyNew || !n.view)), [all, f, onlyNew]);
+  const sel = list[Math.min(i, list.length - 1)];
+  useEffect(() => { if (sel && !sel.view) { const tm = setTimeout(() => client.action('integracion.marcarVista', { ids: sel.ids ?? [sel.id] }).catch(() => {}), 1200); return () => clearTimeout(tm); } }, [sel?.id]);
   useKeys(e => {
     if (e.code === 'Escape') closePanel();
-    else if (e.code === 'ArrowDown' || e.code === 'KeyS') { setI(x => Math.min(lista.length - 1, x + 1)); SFX.tick(); }
+    else if (e.code === 'ArrowDown' || e.code === 'KeyS') { setI(x => Math.min(list.length - 1, x + 1)); SFX.tick(); }
     else if (e.code === 'ArrowUp' || e.code === 'KeyW') { setI(x => Math.max(0, x - 1)); SFX.tick(); }
     else if (e.code === 'ArrowRight' || e.code === 'KeyD') { setF(x => (x + 1) % filters.length); setI(0); SFX.tick(); }
     else if (e.code === 'ArrowLeft' || e.code === 'KeyA') { setF(x => (x - 1 + filters.length) % filters.length); setI(0); SFX.tick(); }
     else if ((e.code === 'Enter' || e.code === 'KeyE') && sel) openNotice(sel);
-    else if (e.code === 'KeyN') { setOnlyNew(x => !x); setI(0); SFX.conmutar(); }
-    else if (e.code === 'KeyV') { cliente.accion('integracion.marcarVista', { ids: lista.filter(n => !n.vista).flatMap(n => n.ids ?? [n.id]) }); SFX.shortSuccess(); }
+    else if (e.code === 'KeyN') { setOnlyNew(x => !x); setI(0); SFX.toggle(); }
+    else if (e.code === 'KeyV') { client.action('integracion.marcarVista', { ids: list.filter(n => !n.view).flatMap(n => n.ids ?? [n.id]) }); SFX.shortSuccess(); }
     else if (/^Digit[1-9]$/.test(e.code) && webs[+e.code.slice(5) - 1]) openBrowser(webs[+e.code.slice(5) - 1]);
-  }, [lista, sel, f]);
-  const withoutSee = (fu: string) => todas.filter(n => !n.vista && (fu === 'todas' || n.fuente === fu)).length;
+  }, [list, sel, f]);
+  const withoutSee = (fu: string) => all.filter(n => !n.view && (fu === 'todas' || n.source === fu)).length;
   return (
-    <Device rotulo={onlySource ? t('panels.planningFuente', { fuente: SOURCES[onlySource].toUpperCase() }) : t('panels.communicationsNoticeBoard')} ancho={78} alto piloto={withoutSee('todas') ? 'esperando' : 'ociosa'}>
-      {!onlySource && <div className="pestanas">{filters.map((x, k) => <button key={x} className={'chip' + (k === f ? ' on' : '')} onClick={() => { setF(k); setI(0); }}>{x === 'todas' ? t('panels.all') : SOURCES[x]}{withoutSee(x) ? ' · ' + t('panels.nUnseen', { n: withoutSee(x) }) : ''}{x !== 'todas' && ints[x]?.estado === 'demo' ? ' ' + t('panels.demo') : ''}</button>)}
+    <Device label={onlySource ? t('panels.planningFuente', { fuente: SOURCES[onlySource].toUpperCase() }) : t('panels.communicationsNoticeBoard')} width={78} height pilot={withoutSee('todas') ? 'esperando' : 'ociosa'}>
+      {!onlySource && <div className="pestanas">{filters.map((x, k) => <button key={x} className={'chip' + (k === f ? ' on' : '')} onClick={() => { setF(k); setI(0); }}>{x === 'todas' ? t('panels.all') : SOURCES[x]}{withoutSee(x) ? ' · ' + t('panels.nUnseen', { n: withoutSee(x) }) : ''}{x !== 'todas' && ints[x]?.state === 'demo' ? ' ' + t('panels.demo') : ''}</button>)}
         <span className="tenue derecha">{onlyNew ? t('panels.onlyUnseen') : t('panels.all2')} · {t('panels.nToggles')}</span></div>}
       <div className="feed">
         <ul className="feed-lista lista-desplazable">
-          {lista.map((n, k) => (
-            <li key={n.id} className={'aviso-' + n.prioridad + (k === i ? ' activa' : '') + (n.vista ? ' vista' : '')} onMouseEnter={() => setI(k)} onClick={() => { setI(k); }} onDoubleClick={() => openNotice(n)} ref={el => { if (k === i) el?.scrollIntoView({ block: 'nearest' }); }}>
-              <span className={'fuente f-' + n.fuente}>{SOURCES[n.fuente]}</span>
-              <span className="quien">{fila(n)[0]}</span>
-              <span className="titulo">{fila(n)[1]}</span>
-              <span className="cuando">{n.cuantos > 1 && <b className="cuantos">{n.cuantos}</b>}{hace(n.fecha)}</span>
+          {list.map((n, k) => (
+            <li key={n.id} className={'aviso-' + n.priority + (k === i ? ' activa' : '') + (n.view ? ' vista' : '')} onMouseEnter={() => setI(k)} onClick={() => { setI(k); }} onDoubleClick={() => openNotice(n)} ref={el => { if (k === i) el?.scrollIntoView({ block: 'nearest' }); }}>
+              <span className={'fuente f-' + n.source}>{SOURCES[n.source]}</span>
+              <span className="quien">{row(n)[0]}</span>
+              <span className="titulo">{row(n)[1]}</span>
+              <span className="cuando">{n.count > 1 && <b className="cuantos">{n.count}</b>}{ago(n.date)}</span>
             </li>
           ))}
-          {!lista.length && <li className="vacio tenue">{onlyNew || !todas.length ? t('panels.allCaughtUpNothingPending') : t('panels.nothingHere')}</li>}
+          {!list.length && <li className="vacio tenue">{onlyNew || !all.length ? t('panels.allCaughtUpNothingPending') : t('panels.nothingHere')}</li>}
         </ul>
         <div className="feed-detalle">
           {sel ? <>
-            <div className="tenue">{SOURCES[sel.fuente]}{sel.canal ? ' · ' + sel.canal : ''} · {fmtDay.format(sel.fecha)} {fmtHour.format(sel.fecha)}{sel.demo ? ' · DEMO' : ''}</div>
-            <div className="titulo-ficha">{sel.titulo}</div>
-            {(sel.cuantos ?? 1) > 1 && <p className="tenue">{sel.cuantos} {WITH_READ.has(sel.fuente) ? t('panels.unreadInFuente', { fuente: SOURCES[sel.fuente] }) : t('panels.messages')}{sel.authors?.length > 1 ? ' · ' + sel.authors.join(', ') : ''}</p>}
-            {sel.prioridad === 'alta' && <p className="aviso-consola">{t('panels.highPriority')}</p>}
-            {sel.cuantos > (sel.mensajes?.length ?? 1) && <p className="tenue">{t('panels.andNEarlier', { n: sel.cuantos - sel.mensajes.length })}</p>}
-            <ul className="hilo">{[...(sel.mensajes ?? [{ id: sel.id, autor: sel.autor, texto: sel.fragmento, fecha: sel.fecha }])].reverse().map((m: any) => (
-              <li key={m.id}><b>{m.autor}</b> <span className="tenue">{fmtHour.format(m.fecha)}</span><p className="fragmento">{m.texto}</p></li>))}</ul>
-            {sel.enlace ? <p className="tenue">{isChat(sel) ? t('panels.enterOpensTheConversationIn', { fuente: SOURCES[sel.fuente] }) : t('panels.enterOpensTheOriginalIn', { fuente: SOURCES[sel.fuente] })}{WITH_READ.has(sel.fuente) && !sel.demo ? ' ' + t('panels.onceYouReadItThere') : ''} {t('panels.theBoardIsReadOnly')}</p> : null}
+            <div className="tenue">{SOURCES[sel.source]}{sel.channel ? ' · ' + sel.channel : ''} · {fmtDay.format(sel.date)} {fmtHour.format(sel.date)}{sel.demo ? ' · DEMO' : ''}</div>
+            <div className="titulo-ficha">{sel.title}</div>
+            {(sel.count ?? 1) > 1 && <p className="tenue">{sel.count} {WITH_READ.has(sel.source) ? t('panels.unreadInFuente', { fuente: SOURCES[sel.source] }) : t('panels.messages')}{sel.authors?.length > 1 ? ' · ' + sel.authors.join(', ') : ''}</p>}
+            {sel.priority === 'alta' && <p className="aviso-consola">{t('panels.highPriority')}</p>}
+            {sel.count > (sel.messages?.length ?? 1) && <p className="tenue">{t('panels.andNEarlier', { n: sel.count - sel.messages.length })}</p>}
+            <ul className="hilo">{[...(sel.messages ?? [{ id: sel.id, author: sel.author, text: sel.snippet, date: sel.date }])].reverse().map((m: any) => (
+              <li key={m.id}><b>{m.author}</b> <span className="tenue">{fmtHour.format(m.date)}</span><p className="fragmento">{m.text}</p></li>))}</ul>
+            {sel.link ? <p className="tenue">{isChat(sel) ? t('panels.enterOpensTheConversationIn', { fuente: SOURCES[sel.source] }) : t('panels.enterOpensTheOriginalIn', { fuente: SOURCES[sel.source] })}{WITH_READ.has(sel.source) && !sel.demo ? ' ' + t('panels.onceYouReadItThere') : ''} {t('panels.theBoardIsReadOnly')}</p> : null}
           </> : null}
         </div>
       </div>
-      {webs.length > 0 && <div className="botonera abrir-webs"><span className="tenue">{t('panels.openHere')}</span>{webs.map((x, k) => <button key={x} className="boton-taller" onClick={() => openBrowser(x)} title={t('panels.openSitioInItsShelter', { sitio: SPOTS[x].nombre, k: k + 1 })}>{k + 1} · {SPOTS[x].nombre}</button>)}</div>}
+      {webs.length > 0 && <div className="botonera abrir-webs"><span className="tenue">{t('panels.openHere')}</span>{webs.map((x, k) => <button key={x} className="boton-taller" onClick={() => openBrowser(x)} title={t('panels.openSitioInItsShelter', { sitio: SPOTS[x].name, k: k + 1 })}>{k + 1} · {SPOTS[x].name}</button>)}</div>}
       <Keys><kbd>↑↓</kbd>{t('panels.notices')} {!onlySource && <><kbd>←→</kbd>{t('panels.source')} </>}<kbd>Enter</kbd>{t('panels.openTheOriginal')} <kbd>N</kbd>{t('panels.onlyUnseen2')} <kbd>V</kbd>{t('panels.markAllSeen')} {webs.length > 0 && <><kbd>1–{webs.length}</kbd>{t('panels.openTheWeb')} </>}<kbd>Esc</kbd>{t('menu.close')}</Keys>
     </Device>
   );
@@ -97,47 +97,47 @@ export function PanelCommunications({ onlySource }: { onlySource?: string } = {}
 
 // ---------------------------------------------------------------- calendario unificado
 export function PanelPlanning() {
-  const eventos: any[] = vivo.usar(e => e.eventos);
-  const programados = vivo.usar(e => e.programados);
-  const salas: any[] = vivo.usar(e => e.estado?.salas ?? []);
-  const [dia, setDay] = useState(0);
+  const events: any[] = live.use(e => e.events);
+  const scheduled = live.use(e => e.scheduled);
+  const rooms: any[] = live.use(e => e.state?.rooms ?? []);
+  const [day, setDay] = useState(0);
   const [i, setI] = useState(0);
   const dayStart = (k: number) => { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + k); return d.getTime(); };
   const days = Array.from({ length: 7 }, (_, k) => dayStart(k));
-  const dayOf = (ts: number) => eventos.filter(ev => ev.inicio < ts + 86400_000 && ev.fin > ts).sort((a, b) => a.inicio - b.inicio);
-  const lista = dayOf(days[dia]);
-  const sel = lista[Math.min(i, lista.length - 1)];
-  const ahora = Date.now();
-  const proximo = eventos.filter(ev => ev.fin > ahora).sort((a, b) => a.inicio - b.inicio)[0];
+  const dayOf = (ts: number) => events.filter(ev => ev.start < ts + 86400_000 && ev.end > ts).sort((a, b) => a.start - b.start);
+  const list = dayOf(days[day]);
+  const sel = list[Math.min(i, list.length - 1)];
+  const now = Date.now();
+  const next = events.filter(ev => ev.end > now).sort((a, b) => a.start - b.start)[0];
   const [agenda, setAgenda] = useState(false);
-  const [aviso, setNotice] = useState('');
-  const refrescar = async () => { setNotice(t('panels.readingCalendars')); await Promise.all(CALENDAR_SOURCES.map(f => cliente.accion('integracion.refrescar', { fuente: f }).catch(() => {}))); setNotice(t('panels.upToDate')); SFX.shortSuccess(); };
+  const [notice, setNotice] = useState('');
+  const refresh = async () => { setNotice(t('panels.readingCalendars')); await Promise.all(CALENDAR_SOURCES.map(f => client.action('integracion.refrescar', { source: f }).catch(() => {}))); setNotice(t('panels.upToDate')); SFX.shortSuccess(); };
   useKeys(e => {
     if (e.code === 'Escape') closePanel();
-    else if (e.code === 'KeyA') { setAgenda(x => !x); SFX.conmutar(); }
-    else if (e.code === 'KeyR') refrescar();
+    else if (e.code === 'KeyA') { setAgenda(x => !x); SFX.toggle(); }
+    else if (e.code === 'KeyR') refresh();
     else if (e.code === 'ArrowRight' || e.code === 'KeyD') { setDay(d => Math.min(6, d + 1)); setI(0); SFX.tick(); }
     else if (e.code === 'ArrowLeft') { setDay(d => Math.max(0, d - 1)); setI(0); SFX.tick(); }   // (la A es agenda/semana)
-    else if (e.code === 'ArrowDown' || e.code === 'KeyS') { setI(x => Math.min(lista.length - 1, x + 1)); SFX.tick(); }
+    else if (e.code === 'ArrowDown' || e.code === 'KeyS') { setI(x => Math.min(list.length - 1, x + 1)); SFX.tick(); }
     else if (e.code === 'ArrowUp' || e.code === 'KeyW') { setI(x => Math.max(0, x - 1)); SFX.tick(); }
     else if ((e.code === 'Enter' || e.code === 'KeyE') && sel) sel.videollamada ? openOutside(sel.videollamada) : openNotice(sel);
-  }, [lista, sel]);
+  }, [list, sel]);
   return (
-    <Device rotulo={t('panels.agendaCalendar')} ancho={80}>
-      <p>{proximo ? <>{t('panels.next')} <b>{proximo.titulo}</b> <span className="tenue">· {proximo.inicio <= ahora ? t('windows.justNow') : fmtDayShort.format(proximo.inicio) + ' ' + fmtHour.format(proximo.inicio)} · {SOURCES[proximo.fuente]}</span></> : <span className="tenue">{t('panels.noUpcomingEvents')}</span>}</p>
-      {aviso && <p className="tenue">{aviso}</p>}
-      {agenda ? <ul className="agenda">{eventos.filter(ev => ev.fin > ahora).sort((a, b) => a.inicio - b.inicio).slice(0, 14).map(ev => (
-        <li key={ev.id} className={'f-' + ev.fuente + (ev.inicio <= ahora ? ' ahora' : '')} onDoubleClick={() => (ev.videollamada ? openOutside(ev.videollamada) : openNotice(ev))}>
-          <span className="cuando">{ev.inicio <= ahora ? t('windows.now') : ev.inicio - ahora < 3600_000 ? t('panels.inNMin', { n: Math.round((ev.inicio - ahora) / 60000) }) : fmtDayShort.format(ev.inicio) + ' ' + fmtHour.format(ev.inicio)}</span>
-          <b>{ev.titulo}</b> <span className="tenue">{SOURCES[ev.fuente]}{ev.videollamada ? ' · ' + t('panels.videoCall') : ''}</span>
+    <Device label={t('panels.agendaCalendar')} width={80}>
+      <p>{next ? <>{t('panels.next')} <b>{next.title}</b> <span className="tenue">· {next.start <= now ? t('windows.justNow') : fmtDayShort.format(next.start) + ' ' + fmtHour.format(next.start)} · {SOURCES[next.source]}</span></> : <span className="tenue">{t('panels.noUpcomingEvents')}</span>}</p>
+      {notice && <p className="tenue">{notice}</p>}
+      {agenda ? <ul className="agenda">{events.filter(ev => ev.end > now).sort((a, b) => a.start - b.start).slice(0, 14).map(ev => (
+        <li key={ev.id} className={'f-' + ev.source + (ev.start <= now ? ' ahora' : '')} onDoubleClick={() => (ev.videollamada ? openOutside(ev.videollamada) : openNotice(ev))}>
+          <span className="cuando">{ev.start <= now ? t('windows.now') : ev.start - now < 3600_000 ? t('panels.inNMin', { n: Math.round((ev.start - now) / 60000) }) : fmtDayShort.format(ev.start) + ' ' + fmtHour.format(ev.start)}</span>
+          <b>{ev.title}</b> <span className="tenue">{SOURCES[ev.source]}{ev.videollamada ? ' · ' + t('panels.videoCall') : ''}</span>
         </li>))}</ul> :
       <div className="semana">
         {days.map((ts, k) => (
-          <div key={ts} className={'dia' + (k === dia ? ' activa' : '') + (k === 0 ? ' hoy' : '')} onClick={() => { setDay(k); setI(0); }}>
+          <div key={ts} className={'dia' + (k === day ? ' activa' : '') + (k === 0 ? ' hoy' : '')} onClick={() => { setDay(k); setI(0); }}>
             <div className="cab">{k === 0 ? t('panels.today') : k === 1 ? t('panels.tomorrow') : fmtDayShort.format(ts)}</div>
             {dayOf(ts).map((ev, j) => (
-              <div key={ev.id} className={'ev f-' + ev.fuente + (k === dia && j === Math.min(i, lista.length - 1) ? ' sel' : '') + (ev.fin < ahora ? ' pasado' : '') + (ev.inicio <= ahora && ev.fin > ahora ? ' ahora' : '')} onMouseEnter={() => { if (k === dia) setI(j); }}>
-                <span className="h">{ev.allElDay ? t('panels.allDay') : fmtHour.format(ev.inicio)}</span> {ev.titulo}
+              <div key={ev.id} className={'ev f-' + ev.source + (k === day && j === Math.min(i, list.length - 1) ? ' sel' : '') + (ev.end < now ? ' pasado' : '') + (ev.start <= now && ev.end > now ? ' ahora' : '')} onMouseEnter={() => { if (k === day) setI(j); }}>
+                <span className="h">{ev.allDay ? t('panels.allDay') : fmtHour.format(ev.start)}</span> {ev.title}
               </div>
             ))}
           </div>
@@ -145,19 +145,19 @@ export function PanelPlanning() {
       </div>
       }
       {!agenda && sel && <div className="detalle-evento">
-        <div className="titulo-ficha">{sel.titulo}</div>
-        <p>{fmtDay.format(sel.inicio)} · {sel.allElDay ? t('panels.allDay') : `${fmtHour.format(sel.inicio)}–${fmtHour.format(sel.fin)}`} <span className="tenue">· {SOURCES[sel.fuente]}{sel.demo ? ' · DEMO' : ''}</span></p>
-        {sel.organizador && <p className="tenue">{t('panels.organizer')} {sel.organizador}</p>}
-        {sel.lugar && <p className="tenue">{t('panels.location')} {sel.lugar}</p>}
+        <div className="titulo-ficha">{sel.title}</div>
+        <p>{fmtDay.format(sel.start)} · {sel.allDay ? t('panels.allDay') : `${fmtHour.format(sel.start)}–${fmtHour.format(sel.end)}`} <span className="tenue">· {SOURCES[sel.source]}{sel.demo ? ' · DEMO' : ''}</span></p>
+        {sel.organizer && <p className="tenue">{t('panels.organizer')} {sel.organizer}</p>}
+        {sel.place && <p className="tenue">{t('panels.location')} {sel.place}</p>}
         {sel.videollamada && <p>{t('panels.videoCallPressEnterTo')}</p>}
       </div>}
       {/* los mensajes que los habitantes han dejado para más adelante (server/scheduled.ts) */}
-      {programados.length > 0 && <>
+      {scheduled.length > 0 && <>
         <p className="tenue">⏰ {t('panels.scheduledMessages')}</p>
-        <ul className="agenda">{programados.slice(0, 10).map(x => (
-          <li key={x.id} title={x.mensaje}>
-            <span className="cuando" title={describeWhen(x.cuando)}>{describeWhenShort(x.cuando)}</span>
-            <b>{salas.find(y => y.id === x.origen.salaId)?.nombre ?? x.origen.salaId}</b>{x.destino.tipo === 'sala' ? ' ' + t('panels.scheduledToRoom', { sala: x.destino.sala }) : ''} <span className="tenue">{x.mensaje.replace(/\s+/g, ' ').slice(0, 90)}</span>
+        <ul className="agenda">{scheduled.slice(0, 10).map(x => (
+          <li key={x.id} title={x.message}>
+            <span className="cuando" title={describeWhen(x.when)}>{describeWhenShort(x.when)}</span>
+            <b>{rooms.find(y => y.id === x.origin.roomId)?.name ?? x.origin.roomId}</b>{x.target.type === 'sala' ? ' ' + t('panels.scheduledToRoom', { sala: x.target.room }) : ''} <span className="tenue">{x.message.replace(/\s+/g, ' ').slice(0, 90)}</span>
           </li>))}</ul>
       </>}
       <Keys><kbd>←→</kbd>{t('panels.day')} <kbd>↑↓</kbd>{t('panels.event')} <kbd>Enter</kbd>{t('panels.joinOrOpen')} <kbd>A</kbd>{agenda ? t('panels.week') : t('panels.agenda')} <kbd>R</kbd>{t('panels.refresh')} <kbd>Esc</kbd>{t('menu.close')}</Keys>
@@ -167,37 +167,37 @@ export function PanelPlanning() {
 
 // ---------------------------------------------------------------- Logística (Jira y PR, Linear)
 export function PanelLogistics() {
-  const st = vivo.usar(e => e.integraciones.jira);
-  const commander = juego.usar(e => e.habitantes.find(h => h.sala === 'logistica'));
-  const withLinear = activa('linear');
-  const [vista, setView] = useState<'jira' | 'tablero' | 'menu' | 'avisos'>(() => (juego.get().panelData?.vista === 'jira' ? 'jira' : 'menu'));   // clic en la pantalla de la pared: directo al tablero
+  const st = live.use(e => e.integrations.jira);
+  const commander = juego.use(e => e.dwellers.find(h => h.room === 'logistica'));
+  const withLinear = active('linear');
+  const [view, setView] = useState<'jira' | 'tablero' | 'menu' | 'avisos'>(() => (juego.get().panelData?.view === 'jira' ? 'jira' : 'menu'));   // clic en la pantalla de la pared: directo al tablero
   // abierto directamente (la pantalla de la pared, ⌘K): al cerrarlo se vuelve al refugio, no al menú de la consola
-  const [directo] = useState(() => juego.get().panelData?.vista === 'jira');
-  const onMenu = () => (directo ? closePanel() : setView('menu'));
+  const [direct] = useState(() => juego.get().panelData?.view === 'jira');
+  const onMenu = () => (direct ? closePanel() : setView('menu'));
   const items = [
-    { texto: t('panels.boardMyJiraTasksAnd'), f: () => setView('jira') },
+    { text: t('panels.boardMyJiraTasksAnd'), f: () => setView('jira') },
     ...(withLinear ? [
-      { texto: t('panels.openLinearRightHere'), f: () => { closePanel(); openBrowser('linear'); } },
-      { texto: t('panels.linearMyIssuesByStatus'), f: () => setView('tablero') },
-      { texto: t('panels.linearNotices'), f: () => setView('avisos') },
+      { text: t('panels.openLinearRightHere'), f: () => { closePanel(); openBrowser('linear'); } },
+      { text: t('panels.linearMyIssuesByStatus'), f: () => setView('tablero') },
+      { text: t('panels.linearNotices'), f: () => setView('avisos') },
     ] : []),
-    ...(commander ? [{ texto: t('windows.talkToNombre', { nombre: commander.nombre }) + (withLinear ? t('panels.createMoveOrCommentOn') : ''), f: () => { closePanel(); goA('logistica', commander.id, true); } }] : []),
+    ...(commander ? [{ text: t('windows.talkToNombre', { nombre: commander.name }) + (withLinear ? t('panels.createMoveOrCommentOn') : ''), f: () => { closePanel(); goA('logistica', commander.id, true); } }] : []),
   ];
   const [i, setI] = useState(0);
   useKeys(e => {
-    if (vista !== 'menu') return false;
+    if (view !== 'menu') return false;
     if (e.code === 'Escape') closePanel();
     else if (e.code === 'ArrowDown' || e.code === 'KeyS') setI(x => (x + 1) % items.length);
     else if (e.code === 'ArrowUp' || e.code === 'KeyW') setI(x => (x - 1 + items.length) % items.length);
-    else if (e.code === 'Enter' || e.code === 'KeyE') { SFX.clic(); items[i].f(); }
-  }, [vista, i]);
-  if (vista === 'jira') return <BoardJira volver={onMenu} />;
-  if (vista === 'avisos') return <PanelCommunications onlySource="linear" />;
-  if (vista === 'tablero') return <BoardLinear volver={() => setView('menu')} />;
+    else if (e.code === 'Enter' || e.code === 'KeyE') { SFX.click(); items[i].f(); }
+  }, [view, i]);
+  if (view === 'jira') return <JiraBoard goBack={onMenu} />;
+  if (view === 'avisos') return <PanelCommunications onlySource="linear" />;
+  if (view === 'tablero') return <BoardLinear goBack={() => setView('menu')} />;
   return (
-    <Device rotulo={t('panels.planning')} ancho={56} piloto={st?.estado === 'conectada' ? 'trabajando' : 'esperando'}>
+    <Device label={t('panels.planning')} width={56} pilot={st?.state === 'conectada' ? 'trabajando' : 'esperando'}>
       <p className="voz">{withLinear ? t('panels.theBoardsShowWhatJira') : t('panels.theBoardShowsYourJira')}</p>
-      <ul className="opciones-consola">{items.map((it, k) => <li key={k} className={k === i ? 'activa' : ''} onMouseEnter={() => setI(k)} onClick={() => it.f()}><span className="cursor">{k === i ? '▶' : ' '}</span><span>{it.texto}</span></li>)}</ul>
+      <ul className="opciones-consola">{items.map((it, k) => <li key={k} className={k === i ? 'activa' : ''} onMouseEnter={() => setI(k)} onClick={() => it.f()}><span className="cursor">{k === i ? '▶' : ' '}</span><span>{it.text}</span></li>)}</ul>
       <Keys><kbd>↑↓</kbd>{t('menu.select')} <kbd>Enter</kbd>{t('panels.use')} <kbd>Esc</kbd>{t('menu.close')}</Keys>
     </Device>
   );
@@ -208,140 +208,140 @@ export function PanelLogistics() {
 // (SALA_PLANIFICACION; también puede haber otras, de carpetas con varios repos reclutadas en la Puerta): su habitante ve
 // todos los repos, planifica la tarea con el Supervisor (empieza en modo plan) y, con el plan aprobado, la reparte a la
 // sala de cada repo, cada parte en su worktree (server/dispatch.ts)
-export const coordinationRooms = (): any[] => ((vivo.get().estado?.salas ?? []) as any[]).filter(s => s.tipo === 'coordinacion' && s.ruta)
+export const coordinationRooms = (): any[] => ((live.get().state?.rooms ?? []) as any[]).filter(s => s.type === 'coordinacion' && s.path)
   .sort((a, b) => Number(b.id === PLANNING_ROOM) - Number(a.id === PLANNING_ROOM));
-export async function planTask(tarea: TaskJira, salaId?: string): Promise<string | null> {
-  const sala = coordinationRooms().find(s => !salaId || s.id === salaId);
-  if (!sala) return t('panels.thereIsNoLogisticsRoom');
-  const h = ((vivo.get().estado?.habitantes ?? []) as any[]).find(x => x.salaId === sala.id);
-  if (!h) return t('panels.theRoomSalaHasNo', { sala: sala.nombre });
+export async function planTask(task: TaskJira, roomId?: string): Promise<string | null> {
+  const room = coordinationRooms().find(s => !roomId || s.id === roomId);
+  if (!room) return t('panels.thereIsNoLogisticsRoom');
+  const h = ((live.get().state?.dwellers ?? []) as any[]).find(x => x.roomId === room.id);
+  if (!h) return t('panels.theRoomSalaHasNo', { sala: room.name });
   // con la descripción, si Jira la da (en DEMO no hay)
-  const completa = await cliente.accion<TaskJira & { descripcion?: string }>('integracion.tarea', { fuente: 'jira', clave: tarea.clave }).catch(() => tarea);
-  cliente.enviar({ t: 'empezar', dwellerId: h.id, salaId: sala.id, prompt: promptPlanificar(completa), opciones: { permisos: 'plan' } });
-  SFX.shortSuccess(); closePanel(); goA(sala.id, h.id, true);
+  const complete = await client.action<TaskJira & { description?: string }>('integracion.tarea', { source: 'jira', key: task.key }).catch(() => task);
+  client.send({ t: 'empezar', dwellerId: h.id, roomId: room.id, prompt: planPrompt(complete), options: { permissions: 'plan' } });
+  SFX.shortSuccess(); closePanel(); goA(room.id, h.id, true);
   return null;
 }
 // las salas que trabajan ya en una tarea: sus conversaciones empiezan por la clave (la planificación y el reparto)
-const inRunning = (sesiones: Record<string, any>, clave: string) => [...new Set(Object.values(sesiones).filter((s: any) => s.estado !== 'cerrada' && String(s.titulo ?? '').startsWith(clave + ' ')).map((s: any) => s.salaId as string))];
+const inRunning = (sessions: Record<string, any>, key: string) => [...new Set(Object.values(sessions).filter((s: any) => s.state !== 'cerrada' && String(s.title ?? '').startsWith(key + ' ')).map((s: any) => s.roomId as string))];
 
 // ---------------------------------------------------------------- tablero de Jira: mis tareas por estado con sus PR
 // Columnas Por hacer / En curso / En revisión / Hecho, cada ficha con sus PR (por la clave de Jira de la rama o el título).
 // La lista de PR está en Control de Versiones (pestaña Pull requests del cliente de git). Dragging a card to another
 // column (or ⇧←→) asks Jira which of its workflow's transitions lead there and, once the Overseer confirms one, applies
 // it (the connector's `mover`, the only write to Jira).
-const KIND_PR: Record<PRBoard['estado'], string> = { abierto: 'pr-abierto', borrador: 'pr-borrador', fusionado: 'pr-fusionado', cerrado: 'pr-cerrado' };
-export const trTextPR = (p: PRBoard) => textoPR(p).split(' · ').map(x => tIs(x)).join(' · ');
-const insigniaPR = (p: PRBoard) => <span className={'insignia-pr ' + KIND_PR[p.estado] + (p.estado === 'abierto' && p.revision === 'CHANGES_REQUESTED' ? ' pr-cambios' : '') + (p.checks === 'FAILURE' || p.checks === 'ERROR' ? ' pr-ci-mal' : '')} title={`${p.repo}#${p.numero} · ${trTextPR(p)}`}>#{p.numero} {trTextPR(p)}</span>;
+const KIND_PR: Record<PRBoard['state'], string> = { abierto: 'pr-abierto', borrador: 'pr-borrador', fusionado: 'pr-fusionado', cerrado: 'pr-cerrado' };
+export const trTextPR = (p: PRBoard) => prText(p).split(' · ').map(x => tIs(x)).join(' · ');
+const prBadge = (p: PRBoard) => <span className={'insignia-pr ' + KIND_PR[p.state] + (p.state === 'abierto' && p.review === 'CHANGES_REQUESTED' ? ' pr-cambios' : '') + (p.checks === 'FAILURE' || p.checks === 'ERROR' ? ' pr-ci-mal' : '')} title={`${p.repo}#${p.number} · ${trTextPR(p)}`}>#{p.number} {trTextPR(p)}</span>;
 // coordinacion: el tablero abierto desde una sala de coordinación (P planifica ahí; si no, en la primera que haya)
-export function BoardJira({ volver, coordinacion }: { volver: () => void; coordinacion?: string }) {
-  const ints = vivo.usar(e => e.integraciones);
-  const sesiones = vivo.usar(e => e.sesiones);
-  const salas: any[] = vivo.usar(e => e.estado?.salas ?? []);
-  const roomName = (id: string) => salas.find(s => s.id === id)?.nombre ?? id;
-  const coord = salas.find(s => s.tipo === 'coordinacion' && s.ruta && (!coordinacion || s.id === coordinacion));
-  const [aviso, setNotice] = useState('');
-  const planificar = (ta?: TaskWithPR) => { if (!ta) return; setNotice(t('panels.readingTheTask')); planTask(ta, coord?.id).then(e => { if (e) { setNotice(e); SFX.noAllowed(); } }).catch(e => setNotice(e.message)); };
+export function JiraBoard({ goBack, coordination }: { goBack: () => void; coordination?: string }) {
+  const ints = live.use(e => e.integrations);
+  const sessions = live.use(e => e.sessions);
+  const rooms: any[] = live.use(e => e.state?.rooms ?? []);
+  const roomName = (id: string) => rooms.find(s => s.id === id)?.name ?? id;
+  const coord = rooms.find(s => s.type === 'coordinacion' && s.path && (!coordination || s.id === coordination));
+  const [notice, setNotice] = useState('');
+  const plan = (ta?: TaskWithPR) => { if (!ta) return; setNotice(t('panels.readingTheTask')); planTask(ta, coord?.id).then(e => { if (e) { setNotice(e); SFX.notAllowed(); } }).catch(e => setNotice(e.message)); };
   const [jira, setJira] = useState<{ tareas: TaskJira[]; demo?: boolean } | null>(null);
   const [gh, setGh] = useState<{ prs: PRBoard[]; demo?: boolean; error?: string } | null>(null);
   const [error, setError] = useState('');
-  const [seeDone, setSeeDone] = useState(true);
+  const [showDone, setShowDone] = useState(true);
   const [col, setCol] = useState(0); const [i, setI] = useState(0);
-  const [mover, setMover] = useState<{ tarea: TaskWithPR; columna: BoardColumn; opciones: JiraTransition[]; k: number } | null>(null);
-  const [movidas, setMovidas] = useState<Record<string, { texto: string; mal?: boolean }>>({});   // each move's result, on its card
-  const [arrastrada, setArrastrada] = useState<TaskWithPR | null>(null);
-  const [sobre, setSobre] = useState<BoardColumn | null>(null);
-  const [seguir, setSeguir] = useState<string | null>(null);   // the moved card keeps the selection in its new column
-  const cargar = (forzar = false) => {
-    cliente.accion<any>('integracion.panel', { fuente: 'jira', forzar }).then(d => { aimColors(d.tareas ?? []); setJira(d); setError(''); jiraBoard.set({ tareas: d.tareas ?? [] }); }).catch(e => setError(e.message));
-    cliente.accion<any>('git.prsTablero', {}).then(d => { setGh(d); jiraBoard.set({ prs: d?.prs ?? [] }); }).catch(e => setGh({ prs: [], error: e.message }));
+  const [move, setMove] = useState<{ task: TaskWithPR; column: BoardColumn; options: JiraTransition[]; k: number } | null>(null);
+  const [moved, setMoved] = useState<Record<string, { text: string; fail?: boolean }>>({});   // each move's result, on its card
+  const [dragged, setDragged] = useState<TaskWithPR | null>(null);
+  const [restsOn, setOver] = useState<BoardColumn | null>(null);
+  const [follow, setFollow] = useState<string | null>(null);   // the moved card keeps the selection in its new column
+  const load = (force = false) => {
+    client.action<any>('integracion.panel', { source: 'jira', force }).then(d => { aimColors(d.tareas ?? []); setJira(d); setError(''); jiraBoard.set({ tareas: d.tareas ?? [] }); }).catch(e => setError(e.message));
+    client.action<any>('git.prsTablero', {}).then(d => { setGh(d); jiraBoard.set({ prs: d?.prs ?? [] }); }).catch(e => setGh({ prs: [], error: e.message }));
   };
-  useEffect(() => { cargar(); }, []);
-  const crossing = useMemo(() => cruzarTablero(jira?.tareas ?? [], gh?.prs ?? []), [jira, gh]);
+  useEffect(() => { load(); }, []);
+  const crossing = useMemo(() => crossBoard(jira?.tareas ?? [], gh?.prs ?? []), [jira, gh]);
   useColorsTasks();
-  useEffect(() => knowTasks([...(jira?.tareas ?? []).map(t => t.clave), ...(gh?.prs ?? []).map(pRTask)]), [jira, gh]);
-  const columnas = crossing.columnas.filter(c => seeDone || c.id !== 'hecho');
+  useEffect(() => knowTasks([...(jira?.tareas ?? []).map(t => t.key), ...(gh?.prs ?? []).map(pRTask)]), [jira, gh]);
+  const columns = crossing.columns.filter(c => showDone || c.id !== 'hecho');
   useEffect(() => {
-    if (!seguir) return;
-    const ci = columnas.findIndex(c => c.tareas.some(x => x.clave === seguir));
-    if (ci >= 0) { setCol(ci); setI(columnas[ci].tareas.findIndex(x => x.clave === seguir)); setSeguir(null); }
+    if (!follow) return;
+    const ci = columns.findIndex(c => c.tareas.some(x => x.key === follow));
+    if (ci >= 0) { setCol(ci); setI(columns[ci].tareas.findIndex(x => x.key === follow)); setFollow(null); }
   }, [crossing]);
-  const colName = (c: BoardColumn) => tIs(COLUMNS.find(x => x.id === c)!.nombre);
+  const colName = (c: BoardColumn) => tIs(COLUMNS.find(x => x.id === c)!.name);
   // which of Jira's transitions lead to that column: none says so, one or more open the confirmation
-  const proponer = (ta: TaskWithPR | undefined, columna: BoardColumn | undefined) => {
-    if (!ta || !columna || columna === columnOf(ta) || mover) return;
-    if (jira?.demo) { setNotice(t('panels.jiraDemoCantMove')); SFX.noAllowed(); return; }
-    setNotice(t('panels.jiraAskingTransitions', { clave: ta.clave }));
-    cliente.accion<{ transiciones: JiraTransition[] }>('integracion.transiciones', { fuente: 'jira', clave: ta.clave, columna, actual: ta.estado }).then(({ transiciones }) => {
-      if (!transiciones.length) { setNotice(t('panels.jiraNoTransition', { clave: ta.clave, estado: ta.estado, columna: colName(columna) })); SFX.noAllowed(); return; }
-      setNotice(''); setMover({ tarea: ta, columna, opciones: transiciones, k: 0 }); SFX.abrir();
-    }).catch(e => { setNotice(e.message); SFX.noAllowed(); });
+  const propose = (ta: TaskWithPR | undefined, column: BoardColumn | undefined) => {
+    if (!ta || !column || column === columnOf(ta) || move) return;
+    if (jira?.demo) { setNotice(t('panels.jiraDemoCantMove')); SFX.notAllowed(); return; }
+    setNotice(t('panels.jiraAskingTransitions', { clave: ta.key }));
+    client.action<{ transitions: JiraTransition[] }>('integracion.transiciones', { source: 'jira', key: ta.key, column, current: ta.state }).then(({ transitions }) => {
+      if (!transitions.length) { setNotice(t('panels.jiraNoTransition', { clave: ta.key, estado: ta.state, columna: colName(column) })); SFX.notAllowed(); return; }
+      setNotice(''); setMove({ task: ta, column, options: transitions, k: 0 }); SFX.open();
+    }).catch(e => { setNotice(e.message); SFX.notAllowed(); });
   };
-  const confirmar = () => {
-    if (!mover) return;
-    const { tarea: ta, columna, opciones, k } = mover;
-    setMover(null); SFX.clic();
-    setMovidas(m => ({ ...m, [ta.clave]: { texto: t('panels.jiraMoving') } }));
-    cliente.accion<{ estado: string }>('integracion.mover', { fuente: 'jira', clave: ta.clave, columna, id: opciones[k].id }).then(r => {
-      setMovidas(m => ({ ...m, [ta.clave]: { texto: '✔ ' + t('panels.jiraMovedTo', { estado: r.estado }) } }));
-      SFX.shortSuccess(); setSeguir(ta.clave); cargar();
-    }).catch(e => { setMovidas(m => ({ ...m, [ta.clave]: { texto: '✗ ' + e.message, mal: true } })); SFX.noAllowed(); });
+  const confirm = () => {
+    if (!move) return;
+    const { task: ta, column, options, k } = move;
+    setMove(null); SFX.click();
+    setMoved(m => ({ ...m, [ta.key]: { text: t('panels.jiraMoving') } }));
+    client.action<{ state: string }>('integracion.mover', { source: 'jira', key: ta.key, column, id: options[k].id }).then(r => {
+      setMoved(m => ({ ...m, [ta.key]: { text: '✔ ' + t('panels.jiraMovedTo', { estado: r.state }) } }));
+      SFX.shortSuccess(); setFollow(ta.key); load();
+    }).catch(e => { setMoved(m => ({ ...m, [ta.key]: { text: '✗ ' + e.message, fail: true } })); SFX.notAllowed(); });
   };
-  const taskSel: TaskWithPR | undefined = columnas[col]?.tareas[Math.min(i, (columnas[col]?.tareas.length ?? 1) - 1)];
+  const taskSel: TaskWithPR | undefined = columns[col]?.tareas[Math.min(i, (columns[col]?.tareas.length ?? 1) - 1)];
   const selPrs: PRBoard[] = taskSel?.prs ?? [];
-  const startBy = columnas[col]?.id === 'porHacer' && !!taskSel;
+  const startBy = columns[col]?.id === 'porHacer' && !!taskSel;
   // the pre-flight of the selected task (F or its button), anchored to its card
   const kanban = useRef<HTMLDivElement>(null);
-  const withPreflight = !!taskSel && taskHasPRs(taskSel.clave, selPrs);
-  const preflight = () => { if (!taskSel) return; SFX.clic(); openPreflight(taskSel.clave, kanban.current?.querySelector('.ficha-issue.sel')); };
+  const withPreflight = !!taskSel && taskHasPRs(taskSel.key, selPrs);
+  const preflight = () => { if (!taskSel) return; SFX.click(); openPreflight(taskSel.key, kanban.current?.querySelector('.ficha-issue.sel')); };
   useKeys(e => {
-    if (mover) {
-      if (e.code === 'Escape') setMover(null);
-      else if (e.code === 'Enter' || e.code === 'KeyE') confirmar();
-      else if (e.code === 'ArrowDown' || e.code === 'KeyS') setMover({ ...mover, k: Math.min(mover.opciones.length - 1, mover.k + 1) });
-      else if (e.code === 'ArrowUp' || e.code === 'KeyW') setMover({ ...mover, k: Math.max(0, mover.k - 1) });
+    if (move) {
+      if (e.code === 'Escape') setMove(null);
+      else if (e.code === 'Enter' || e.code === 'KeyE') confirm();
+      else if (e.code === 'ArrowDown' || e.code === 'KeyS') setMove({ ...move, k: Math.min(move.options.length - 1, move.k + 1) });
+      else if (e.code === 'ArrowUp' || e.code === 'KeyW') setMove({ ...move, k: Math.max(0, move.k - 1) });
       return;
     }
-    if (e.code === 'Escape') volver();
-    else if (e.shiftKey && (e.code === 'ArrowRight' || e.code === 'ArrowLeft')) proponer(taskSel, columnas[col + (e.code === 'ArrowRight' ? 1 : -1)]?.id);
-    else if (e.code === 'ArrowRight' || e.code === 'KeyD') { setCol(c => Math.min(columnas.length - 1, c + 1)); setI(0); SFX.tick(); }
+    if (e.code === 'Escape') goBack();
+    else if (e.shiftKey && (e.code === 'ArrowRight' || e.code === 'ArrowLeft')) propose(taskSel, columns[col + (e.code === 'ArrowRight' ? 1 : -1)]?.id);
+    else if (e.code === 'ArrowRight' || e.code === 'KeyD') { setCol(c => Math.min(columns.length - 1, c + 1)); setI(0); SFX.tick(); }
     else if (e.code === 'ArrowLeft' || e.code === 'KeyA') { setCol(c => Math.max(0, c - 1)); setI(0); SFX.tick(); }
-    else if (e.code === 'ArrowDown' || e.code === 'KeyS') { setI(x => Math.min(x + 1, Math.max(0, (columnas[col]?.tareas.length ?? 1) - 1))); SFX.tick(); }
+    else if (e.code === 'ArrowDown' || e.code === 'KeyS') { setI(x => Math.min(x + 1, Math.max(0, (columns[col]?.tareas.length ?? 1) - 1))); SFX.tick(); }
     else if (e.code === 'ArrowUp' || e.code === 'KeyW') { setI(x => Math.max(0, x - 1)); SFX.tick(); }
     else if (e.code === 'Enter' || e.code === 'KeyE') openOutside(taskSel?.url);
     else if (/^Digit[1-9]$/.test(e.code) && selPrs[+e.code.slice(5) - 1]) openOutside(selPrs[+e.code.slice(5) - 1].url);
-    else if (e.code === 'KeyT') { closePanel(); openGit({ vista: 'prs' }); }
-    else if (e.code === 'KeyH') { setSeeDone(x => !x); setCol(0); setI(0); SFX.conmutar(); }
-    else if (e.code === 'KeyR') { cargar(true); SFX.clic(); }
-    else if (e.code === 'KeyP' && startBy) planificar(taskSel);
+    else if (e.code === 'KeyT') { closePanel(); openGit({ view: 'prs' }); }
+    else if (e.code === 'KeyH') { setShowDone(x => !x); setCol(0); setI(0); SFX.toggle(); }
+    else if (e.code === 'KeyR') { load(true); SFX.click(); }
+    else if (e.code === 'KeyP' && startBy) plan(taskSel);
     else if (e.code === 'KeyF' && withPreflight) preflight();
-  }, [columnas, col, i, taskSel, selPrs, startBy, withPreflight, coord?.id, mover, jira]);
+  }, [columns, col, i, taskSel, selPrs, startBy, withPreflight, coord?.id, move, jira]);
   const demo = jira?.demo || gh?.demo;
   return (
-    <Device rotulo={`${coordinacion ? (coord?.nombre ?? t('panels.logistics')).toUpperCase() + ' · ' + t('panels.split') : t('panels.planning')} · ${t('panels.myJiraTasks')}${demo ? ' · DEMO' : ''}`} ancho={96} alto onClose={volver}>
+    <Device label={`${coordination ? (coord?.name ?? t('panels.logistics')).toUpperCase() + ' · ' + t('panels.split') : t('panels.planning')} · ${t('panels.myJiraTasks')}${demo ? ' · DEMO' : ''}`} width={96} height onClose={goBack}>
       {error && <p className="aviso-consola">{error}</p>}
-      {aviso && <p className="aviso-consola">{aviso}</p>}
-      {coordinacion && <p className="voz">{coord ? t('panels.pickATaskToStart') : t('panels.pickATaskToStart2')}</p>}
+      {notice && <p className="aviso-consola">{notice}</p>}
+      {coordination && <p className="voz">{coord ? t('panels.pickATaskToStart') : t('panels.pickATaskToStart2')}</p>}
       {gh?.error && <p className="tenue">{gh.error}</p>}
-      {ints.jira?.estado === 'demo' && <p className="tenue">{t('panels.jiraInDemoConnectIt')}</p>}
+      {ints.jira?.state === 'demo' && <p className="tenue">{t('panels.jiraInDemoConnectIt')}</p>}
       {(!jira || !gh) && !error && <p className="tenue">{t('panels.readingJiraAndGithub')}</p>}
-      <div ref={kanban} className="kanban" style={{ gridTemplateColumns: `repeat(${Math.max(1, columnas.length)}, 1fr)` }}>
-        {columnas.map((c, ci) => (
-          <div key={c.id} className={'kanban-col' + (COLUMN_COLORS[c.id] ? ' kanban-estado' : '') + (ci === col ? ' activa' : '') + (sobre === c.id ? ' soltar' : '')} style={{ '--estado': COLUMN_COLORS[c.id] } as React.CSSProperties}
-            onDragOver={e => { if (arrastrada && columnOf(arrastrada) !== c.id) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setSobre(c.id); } }}
-            onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setSobre(x => (x === c.id ? null : x)); }}
-            onDrop={e => { e.preventDefault(); const ta = arrastrada; setArrastrada(null); setSobre(null); proponer(ta ?? undefined, c.id); }}>
-            <h3>{tIs(c.nombre)} <span className="tenue">{c.tareas.length}</span></h3>
-            {c.tareas.map((ta, k) => (<React.Fragment key={ta.clave}>
-              {ta.epica?.clave !== c.tareas[k - 1]?.epica?.clave && (ta.epica
-                ? <div className="kanban-epica" title={t('windows.epicOf', { clave: ta.epica.clave, titulo: ta.epica.titulo })}><EpicMark clave={ta.clave} /><span className="ident">{ta.epica.clave}</span> {ta.epica.titulo}</div>
+      <div ref={kanban} className="kanban" style={{ gridTemplateColumns: `repeat(${Math.max(1, columns.length)}, 1fr)` }}>
+        {columns.map((c, ci) => (
+          <div key={c.id} className={'kanban-col' + (COLUMN_COLORS[c.id] ? ' kanban-estado' : '') + (ci === col ? ' activa' : '') + (restsOn === c.id ? ' soltar' : '')} style={{ '--estado': COLUMN_COLORS[c.id] } as React.CSSProperties}
+            onDragOver={e => { if (dragged && columnOf(dragged) !== c.id) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setOver(c.id); } }}
+            onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setOver(x => (x === c.id ? null : x)); }}
+            onDrop={e => { e.preventDefault(); const ta = dragged; setDragged(null); setOver(null); propose(ta ?? undefined, c.id); }}>
+            <h3>{tIs(c.name)} <span className="tenue">{c.tareas.length}</span></h3>
+            {c.tareas.map((ta, k) => (<React.Fragment key={ta.key}>
+              {ta.epic?.key !== c.tareas[k - 1]?.epic?.key && (ta.epic
+                ? <div className="kanban-epica" title={t('windows.epicOf', { clave: ta.epic.key, titulo: ta.epic.title })}><EpicMark key={ta.key} /><span className="ident">{ta.epic.key}</span> {ta.epic.title}</div>
                 : <div className="kanban-epica tenue">{t('panels.noEpic')}</div>)}
-              <div className={'ficha-issue' + (c.id !== 'hecho' ? ' con-tarea' : '') + (ci === col && k === Math.min(i, c.tareas.length - 1) ? ' sel' : '') + (arrastrada?.clave === ta.clave ? ' arrastrada' : '')} style={c.id !== 'hecho' ? { '--tarea': taskColor(ta.clave) } as React.CSSProperties : undefined} onMouseEnter={() => { if (!arrastrada) { setCol(ci); setI(k); } }} onDoubleClick={() => openOutside(ta.url)}
-                draggable={!mover} onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', ta.clave); setArrastrada(ta); }} onDragEnd={() => { setArrastrada(null); setSobre(null); }}>
-                {c.id !== 'hecho' && <span className="marca-tarea" />}<EpicMark clave={ta.clave} /><span className="ident">{ta.clave}</span> {ta.titulo}
-                <small className="tenue">{[ta.estado, ta.tipo, ta.prioridad].filter(Boolean).join(' · ')}</small>
-                {ta.prs.length > 0 && <div className="prs-ficha">{ta.prs.map(p => <span key={p.url}>{insigniaPR(p)}</span>)}</div>}
-                {inRunning(sesiones, ta.clave).length > 0 && <small className="tenue">{t('panels.inProgress')} {inRunning(sesiones, ta.clave).map(roomName).join(', ')}</small>}
-                {movidas[ta.clave] && <small className={'movida' + (movidas[ta.clave].mal ? ' mal' : '')}>{movidas[ta.clave].texto}</small>}
+              <div className={'ficha-issue' + (c.id !== 'hecho' ? ' con-tarea' : '') + (ci === col && k === Math.min(i, c.tareas.length - 1) ? ' sel' : '') + (dragged?.key === ta.key ? ' arrastrada' : '')} style={c.id !== 'hecho' ? { '--tarea': taskColor(ta.key) } as React.CSSProperties : undefined} onMouseEnter={() => { if (!dragged) { setCol(ci); setI(k); } }} onDoubleClick={() => openOutside(ta.url)}
+                draggable={!move} onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', ta.key); setDragged(ta); }} onDragEnd={() => { setDragged(null); setOver(null); }}>
+                {c.id !== 'hecho' && <span className="marca-tarea" />}<EpicMark key={ta.key} /><span className="ident">{ta.key}</span> {ta.title}
+                <small className="tenue">{[ta.state, ta.type, ta.priority].filter(Boolean).join(' · ')}</small>
+                {ta.prs.length > 0 && <div className="prs-ficha">{ta.prs.map(p => <span key={p.url}>{prBadge(p)}</span>)}</div>}
+                {inRunning(sessions, ta.key).length > 0 && <small className="tenue">{t('panels.inProgress')} {inRunning(sessions, ta.key).map(roomName).join(', ')}</small>}
+                {moved[ta.key] && <small className={'movida' + (moved[ta.key].fail ? ' mal' : '')}>{moved[ta.key].text}</small>}
               </div>
             </React.Fragment>))}
             {!c.tareas.length && <p className="tenue">—</p>}
@@ -349,20 +349,20 @@ export function BoardJira({ volver, coordinacion }: { volver: () => void; coordi
         ))}
       </div>
       {crossing.withoutTask.length > 0 && <p className="tenue">{t('panels.nPrsWithoutAJira', { n: crossing.withoutTask.length })}</p>}
-      {startBy && <div className="botonera"><button className="boton-taller" onClick={() => planificar(taskSel)} title={t('panels.planClaveInSalaWith', { clave: taskSel!.clave, sala: coord?.nombre ?? t('panels.theLogisticsRoom') })}>{coord ? t('panels.pPlanClaveInSala', { clave: taskSel!.clave, sala: coord.nombre }) : t('panels.pPlanClaveAndSplit', { clave: taskSel!.clave })}</button></div>}
-      {selPrs.length > 0 && <div className="botonera">{selPrs.slice(0, 9).map((p, k) => <button key={p.url} className="boton-taller" onClick={() => openOutside(p.url)} title={p.titulo}>{k + 1} · {p.repo}#{p.numero}</button>)}{withPreflight && <button className="boton-taller" onClick={preflight} title={t('preflight.actionHint')}>{t('preflight.keyF', { clave: taskSel!.clave })}</button>}</div>}
-      <Keys><kbd>←→</kbd>{t('panels.column')} <kbd>↑↓</kbd>{t('panels.task')} <kbd>⇧←→</kbd>{t('panels.moveTheTask')} <kbd>Enter</kbd>{t('panels.openTheTask')} {selPrs.length > 0 && <><kbd>1–{Math.min(9, selPrs.length)}</kbd>{t('panels.openThePr')} </>}{startBy && <><kbd>P</kbd>{t('panels.planAndSplit')} </>}{withPreflight && <><kbd>F</kbd>{t('preflight.title')} </>}<kbd>T</kbd>{t('panels.allYourPrs')} <kbd>H</kbd>{seeDone ? t('panels.hideDone') : t('panels.showDone')} <kbd>R</kbd>{t('panels.reload')} <kbd>Esc</kbd>{t('menu.back')}</Keys>
-      {mover && <div className="vt-confirmar mover-jira">
+      {startBy && <div className="botonera"><button className="boton-taller" onClick={() => plan(taskSel)} title={t('panels.planClaveInSalaWith', { clave: taskSel!.key, sala: coord?.name ?? t('panels.theLogisticsRoom') })}>{coord ? t('panels.pPlanClaveInSala', { clave: taskSel!.key, sala: coord.name }) : t('panels.pPlanClaveAndSplit', { clave: taskSel!.key })}</button></div>}
+      {selPrs.length > 0 && <div className="botonera">{selPrs.slice(0, 9).map((p, k) => <button key={p.url} className="boton-taller" onClick={() => openOutside(p.url)} title={p.title}>{k + 1} · {p.repo}#{p.number}</button>)}{withPreflight && <button className="boton-taller" onClick={preflight} title={t('preflight.actionHint')}>{t('preflight.keyF', { clave: taskSel!.key })}</button>}</div>}
+      <Keys><kbd>←→</kbd>{t('panels.column')} <kbd>↑↓</kbd>{t('panels.task')} <kbd>⇧←→</kbd>{t('panels.moveTheTask')} <kbd>Enter</kbd>{t('panels.openTheTask')} {selPrs.length > 0 && <><kbd>1–{Math.min(9, selPrs.length)}</kbd>{t('panels.openThePr')} </>}{startBy && <><kbd>P</kbd>{t('panels.planAndSplit')} </>}{withPreflight && <><kbd>F</kbd>{t('preflight.title')} </>}<kbd>T</kbd>{t('panels.allYourPrs')} <kbd>H</kbd>{showDone ? t('panels.hideDone') : t('panels.showDone')} <kbd>R</kbd>{t('panels.reload')} <kbd>Esc</kbd>{t('menu.back')}</Keys>
+      {move && <div className="vt-confirmar mover-jira">
         <div className="vt-confirmar-caja">
-          <p><b>{mover.tarea.clave}</b>: {mover.tarea.estado} → <b>{mover.opciones[mover.k].a}</b></p>
-          {mover.opciones.length > 1 && <>
-            <p className="tenue">{t('panels.jiraSeveralTransitions', { columna: colName(mover.columna) })}</p>
-            <ul className="opciones-consola">{mover.opciones.map((x, k) => <li key={x.id} className={k === mover.k ? 'activa' : ''} onClick={() => setMover({ ...mover, k })}><span className="cursor">{k === mover.k ? '▶' : ' '}</span><span>{x.nombre === x.a ? x.a : `${x.nombre} → ${x.a}`}</span></li>)}</ul>
+          <p><b>{move.task.key}</b>: {move.task.state} → <b>{move.options[move.k].a}</b></p>
+          {move.options.length > 1 && <>
+            <p className="tenue">{t('panels.jiraSeveralTransitions', { columna: colName(move.column) })}</p>
+            <ul className="opciones-consola">{move.options.map((x, k) => <li key={x.id} className={k === move.k ? 'activa' : ''} onClick={() => setMove({ ...move, k })}><span className="cursor">{k === move.k ? '▶' : ' '}</span><span>{x.name === x.a ? x.a : `${x.name} → ${x.a}`}</span></li>)}</ul>
           </>}
           <p className="tenue">{t('panels.jiraMoveWrites')}</p>
           <div className="vt-confirmar-botones">
-            <button className="consola-x peligro" onClick={confirmar}>{t('panels.jiraMove')} ({t('windows.enter')})</button>
-            <button className="consola-x" onClick={() => setMover(null)}>{t('windows.cancelEsc')}</button>
+            <button className="consola-x peligro" onClick={confirm}>{t('panels.jiraMove')} ({t('windows.enter')})</button>
+            <button className="consola-x" onClick={() => setMove(null)}>{t('windows.cancelEsc')}</button>
           </div>
         </div>
       </div>}
@@ -371,56 +371,56 @@ export function BoardJira({ volver, coordinacion }: { volver: () => void; coordi
 }
 
 // ---------------------------------------------------------------- tablero de Linear: mis incidencias por estado, ciclo y filtros
-function BoardLinear({ volver }: { volver: () => void }) {
-  const [datos, setDatos] = useState<any>(null);
-  const [equipo, setTeam] = useState<any>(null);       // tablero del equipo (columnas = estados del equipo)
-  const [seeTeam, setSeeTeam] = useState(false);
+function BoardLinear({ goBack }: { goBack: () => void }) {
+  const [data, setData] = useState<any>(null);
+  const [team, setTeam] = useState<any>(null);       // tablero del equipo (columnas = estados del equipo)
+  const [showTeam, setShowTeam] = useState(false);
   const [error, setError] = useState('');
   const [col, setCol] = useState(0); const [i, setI] = useState(0);
-  const [proyecto, setProject] = useState<string | null>(null);
+  const [project, setProject] = useState<string | null>(null);
   const [onlyUrgent, setOnlyUrgent] = useState(false);
-  const cargar = (forzar = false) => cliente.accion<any>('integracion.panel', { fuente: 'linear', forzar }).then(d => { setDatos(d); setError(''); }).catch(e => setError(e.message));
-  useEffect(() => { cargar(); }, []);
-  const loadTeam = () => cliente.accion<any>('integracion.tablero', { fuente: 'linear', equipo: (datos?.cycles ?? [])[0]?.equipo }).then(d => { setTeam(d); setError(''); }).catch(e => setError(e.message));
-  useEffect(() => { if (seeTeam && !equipo) loadTeam(); }, [seeTeam]);
-  const fuente: any[] = seeTeam ? (equipo?.columnas ?? []).map((c: any) => ({ tipo: c.id, nombre: c.nombre, issues: c.issues })) : (datos?.myIssues ?? []);
-  const grupos: any[] = fuente.map((g: any) => ({ ...g, issues: g.issues.filter((x: any) => (!proyecto || x.proyecto === proyecto) && (!onlyUrgent || (x.prioridad > 0 && x.prioridad <= 2))) }));
-  const proyectos = [...new Set((datos?.myIssues ?? []).flatMap((g: any) => g.issues.map((x: any) => x.proyecto)).filter(Boolean))] as string[];
-  const ciclo = (datos?.cycles ?? []).find((c: any) => c.ciclo)?.ciclo;
-  const sel = grupos[col]?.issues[Math.min(i, (grupos[col]?.issues.length ?? 1) - 1)];
+  const load = (force = false) => client.action<any>('integracion.panel', { source: 'linear', force }).then(d => { setData(d); setError(''); }).catch(e => setError(e.message));
+  useEffect(() => { load(); }, []);
+  const loadTeam = () => client.action<any>('integracion.tablero', { source: 'linear', team: (data?.cycles ?? [])[0]?.team }).then(d => { setTeam(d); setError(''); }).catch(e => setError(e.message));
+  useEffect(() => { if (showTeam && !team) loadTeam(); }, [showTeam]);
+  const source: any[] = showTeam ? (team?.columns ?? []).map((c: any) => ({ type: c.id, name: c.name, issues: c.issues })) : (data?.myIssues ?? []);
+  const groups: any[] = source.map((g: any) => ({ ...g, issues: g.issues.filter((x: any) => (!project || x.project === project) && (!onlyUrgent || (x.priority > 0 && x.priority <= 2))) }));
+  const projects = [...new Set((data?.myIssues ?? []).flatMap((g: any) => g.issues.map((x: any) => x.project)).filter(Boolean))] as string[];
+  const cycle = (data?.cycles ?? []).find((c: any) => c.cycle)?.cycle;
+  const sel = groups[col]?.issues[Math.min(i, (groups[col]?.issues.length ?? 1) - 1)];
   useKeys(e => {
-    if (e.code === 'Escape') volver();
-    else if (e.code === 'ArrowRight' || e.code === 'KeyD') { setCol(c => Math.min(grupos.length - 1, c + 1)); setI(0); SFX.tick(); }
+    if (e.code === 'Escape') goBack();
+    else if (e.code === 'ArrowRight' || e.code === 'KeyD') { setCol(c => Math.min(groups.length - 1, c + 1)); setI(0); SFX.tick(); }
     else if (e.code === 'ArrowLeft' || e.code === 'KeyA') { setCol(c => Math.max(0, c - 1)); setI(0); SFX.tick(); }
     else if (e.code === 'ArrowDown' || e.code === 'KeyS') { setI(x => x + 1); SFX.tick(); }
     else if (e.code === 'ArrowUp' || e.code === 'KeyW') { setI(x => Math.max(0, x - 1)); SFX.tick(); }
     else if (e.code === 'Enter' || e.code === 'KeyE') openOutside(sel?.url);
-    else if (e.code === 'KeyP') { const k = proyecto ? proyectos.indexOf(proyecto) + 1 : 0; setProject(k < proyectos.length ? proyectos[k] : null); setI(0); SFX.conmutar(); }
-    else if (e.code === 'KeyU') { setOnlyUrgent(x => !x); setI(0); SFX.conmutar(); }
-    else if (e.code === 'KeyR') { seeTeam ? loadTeam() : cargar(true); SFX.clic(); }
-    else if (e.code === 'KeyT') { setSeeTeam(x => !x); setCol(0); setI(0); SFX.conmutar(); }
-  }, [grupos, col, i, sel, proyecto, proyectos, seeTeam]);
+    else if (e.code === 'KeyP') { const k = project ? projects.indexOf(project) + 1 : 0; setProject(k < projects.length ? projects[k] : null); setI(0); SFX.toggle(); }
+    else if (e.code === 'KeyU') { setOnlyUrgent(x => !x); setI(0); SFX.toggle(); }
+    else if (e.code === 'KeyR') { showTeam ? loadTeam() : load(true); SFX.click(); }
+    else if (e.code === 'KeyT') { setShowTeam(x => !x); setCol(0); setI(0); SFX.toggle(); }
+  }, [groups, col, i, sel, project, projects, showTeam]);
   return (
-    <Device rotulo={`${t('panels.planning')} · ${seeTeam ? t('panels.teamBoard') + ' ' + (equipo?.equipo ?? '') : t('panels.myIssues')}${datos?.demo ? ' · DEMO' : ''}`} ancho={92} alto onClose={volver}>
+    <Device label={`${t('panels.planning')} · ${showTeam ? t('panels.teamBoard') + ' ' + (team?.team ?? '') : t('panels.myIssues')}${data?.demo ? ' · DEMO' : ''}`} width={92} height onClose={goBack}>
       {error && <p className="aviso-consola">{error}</p>}
-      {!datos && !error && <p className="tenue">{t('panels.readingLinear')}</p>}
-      {ciclo && <div className="ciclo-linear"><b>{ciclo.nombre}</b><span className="medidor"><span style={{ width: `${ciclo.progreso}%` }} /></span><span>{ciclo.progreso} % · {t('panels.ends')} {new Date(ciclo.fin).toLocaleDateString(LOC, { weekday: 'long', day: 'numeric', month: 'short' })}</span></div>}
-      <div className="pestanas"><button className={'chip' + (!proyecto ? ' on' : '')} onClick={() => setProject(null)}>{t('panels.allProjects')}</button>{proyectos.map(p => <button key={p} className={'chip' + (proyecto === p ? ' on' : '')} onClick={() => setProject(p)}>{p}</button>)}<button className={'chip' + (onlyUrgent ? ' on' : '')} onClick={() => setOnlyUrgent(x => !x)}>{t('panels.urgentAndHigh')}</button></div>
-      <div className="kanban" style={{ gridTemplateColumns: `repeat(${Math.max(1, grupos.length)}, 1fr)` }}>
-        {grupos.map((g, c) => (
-          <div key={g.tipo} className={'kanban-col' + (c === col ? ' activa' : '')}>
-            <h3>{g.nombre} <span className="tenue">{g.issues.length}</span></h3>
+      {!data && !error && <p className="tenue">{t('panels.readingLinear')}</p>}
+      {cycle && <div className="ciclo-linear"><b>{cycle.name}</b><span className="medidor"><span style={{ width: `${cycle.progreso}%` }} /></span><span>{cycle.progreso} % · {t('panels.ends')} {new Date(cycle.end).toLocaleDateString(LOC, { weekday: 'long', day: 'numeric', month: 'short' })}</span></div>}
+      <div className="pestanas"><button className={'chip' + (!project ? ' on' : '')} onClick={() => setProject(null)}>{t('panels.allProjects')}</button>{projects.map(p => <button key={p} className={'chip' + (project === p ? ' on' : '')} onClick={() => setProject(p)}>{p}</button>)}<button className={'chip' + (onlyUrgent ? ' on' : '')} onClick={() => setOnlyUrgent(x => !x)}>{t('panels.urgentAndHigh')}</button></div>
+      <div className="kanban" style={{ gridTemplateColumns: `repeat(${Math.max(1, groups.length)}, 1fr)` }}>
+        {groups.map((g, c) => (
+          <div key={g.type} className={'kanban-col' + (c === col ? ' activa' : '')}>
+            <h3>{g.name} <span className="tenue">{g.issues.length}</span></h3>
             {g.issues.map((x: any, k: number) => (
-              <div key={x.id} className={'ficha-issue p' + x.prioridad + (c === col && k === Math.min(i, g.issues.length - 1) ? ' sel' : '')} onMouseEnter={() => { setCol(c); setI(k); }} onDoubleClick={() => openOutside(x.url)}>
-                <span className="ident">{x.identificador}</span> {x.titulo}
-                <small className="tenue">{[x.textPriority, x.proyecto, seeTeam ? x.asignado : '', x.estado?.nombre !== g.nombre ? x.estado?.nombre : ''].filter(Boolean).join(' · ')}</small>
+              <div key={x.id} className={'ficha-issue p' + x.priority + (c === col && k === Math.min(i, g.issues.length - 1) ? ' sel' : '')} onMouseEnter={() => { setCol(c); setI(k); }} onDoubleClick={() => openOutside(x.url)}>
+                <span className="ident">{x.identifier}</span> {x.title}
+                <small className="tenue">{[x.textPriority, x.project, showTeam ? x.assignee : '', x.state?.name !== g.name ? x.state?.name : ''].filter(Boolean).join(' · ')}</small>
               </div>
             ))}
             {!g.issues.length && <p className="tenue">—</p>}
           </div>
         ))}
       </div>
-      <Keys><kbd>←→</kbd>{t('panels.column')} <kbd>↑↓</kbd>{t('panels.issue')} <kbd>Enter</kbd>{t('panels.openInLinear')} <kbd>P</kbd>{t('panels.project')} <kbd>U</kbd>{t('panels.urgent')} <kbd>T</kbd>{seeTeam ? t('panels.myIssues2') : t('panels.teamBoard2')} <kbd>R</kbd>{t('panels.reload')} <kbd>Esc</kbd>{t('panels.backToChangeThemTalk')}</Keys>
+      <Keys><kbd>←→</kbd>{t('panels.column')} <kbd>↑↓</kbd>{t('panels.issue')} <kbd>Enter</kbd>{t('panels.openInLinear')} <kbd>P</kbd>{t('panels.project')} <kbd>U</kbd>{t('panels.urgent')} <kbd>T</kbd>{showTeam ? t('panels.myIssues2') : t('panels.teamBoard2')} <kbd>R</kbd>{t('panels.reload')} <kbd>Esc</kbd>{t('panels.backToChangeThemTalk')}</Keys>
     </Device>
   );
 }

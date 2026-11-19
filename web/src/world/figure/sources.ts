@@ -7,24 +7,24 @@ import { gltf } from '../../engine/assets';
 import { SOURCES, REGIONS, type Piece, type Slot, type Region } from '@shared/appearance';
 import { dismantleHead, components, centerTri, strips, trisStrips, clothesRegions, tintSame, numTris, HEAD_KINDS, type Atlas, type HeadBreakdown, type HeadKind } from './breakdown';
 import { SETTINGS } from './overrides';
-import { HEAD_CENTER, measureField, rellenar, quotient, stretch, type Field } from './headShape';
+import { HEAD_CENTER, measureField, fill, quotient, stretch, type Field } from './headShape';
 
 export interface Source {
-  nombre: string;
+  name: string;
   g: GLTF;
   /** mallas por nombre de nodo (un nodo con varias primitivas son varias mallas) */
-  nodos: Map<string, THREE.Mesh[]>;
-  cabeza: { malla: THREE.Mesh; d: HeadBreakdown; atlas: Atlas | null } | null;
+  nodes: Map<string, THREE.Mesh[]>;
+  head: { mesh: THREE.Mesh; d: HeadBreakdown; atlas: Atlas | null } | null;
   skins: Set<number>;
-  piel: [number, number, number] | null;
+  skin: [number, number, number] | null;
   upClothes: Map<THREE.Mesh, Int8Array>;
   belowClothes: Map<THREE.Mesh, Int8Array>;
 }
 
 const loaded = new Map<string, Promise<Source>>();
-export function fuente(nombre: string): Promise<Source> {
-  let p = loaded.get(nombre);
-  if (!p) { p = cargar(nombre); loaded.set(nombre, p); }
+export function source(name: string): Promise<Source> {
+  let p = loaded.get(name);
+  if (!p) { p = load(name); loaded.set(name, p); }
   return p;
 }
 
@@ -34,151 +34,151 @@ const ALIAS: Record<string, Record<string, string>> = {
   '4GTN_Forgotten': { LegLeft: 'Left' },
 };
 export function meshesOf(f: Source, suffix: string): THREE.Mesh[] {
-  const s = ALIAS[f.nombre]?.[suffix] ?? suffix;
-  const exact = f.nodos.get(`${f.nombre}_${s}`) ?? f.nodos.get(`${f.nombre.replace('_', '')}_${s}`);
+  const s = ALIAS[f.name]?.[suffix] ?? suffix;
+  const exact = f.nodes.get(`${f.name}_${s}`) ?? f.nodes.get(`${f.name.replace('_', '')}_${s}`);
   if (exact) return exact;
-  const fin = [...f.nodos.entries()].filter(([k]) => k.endsWith('_' + s) && !k.slice(0, -s.length - 1).includes('_' + s));
-  return fin.length === 1 ? fin[0][1] : [];
+  const end = [...f.nodes.entries()].filter(([k]) => k.endsWith('_' + s) && !k.slice(0, -s.length - 1).includes('_' + s));
+  return end.length === 1 ? end[0][1] : [];
 }
 const mapOf = (m: THREE.Mesh) => ((Array.isArray(m.material) ? m.material[0] : m.material) as THREE.MeshStandardMaterial).map;
 
-async function cargar(nombre: string): Promise<Source> {
-  const def = SOURCES[nombre]; if (!def) throw new Error('No hay personaje ' + nombre);
-  const g = await gltf(def.ruta);
+async function load(name: string): Promise<Source> {
+  const def = SOURCES[name]; if (!def) throw new Error('No hay personaje ' + name);
+  const g = await gltf(def.path);
   g.scene.updateMatrixWorld(true);   // (para llevar las piezas sin piel, que cuelgan de un hueso, al espacio de las demás)
-  const nodos = new Map<string, THREE.Mesh[]>();
+  const nodes = new Map<string, THREE.Mesh[]>();
   g.scene.traverse((n: any) => {
     if (n.isMesh) {
       // una malla con varias primitivas es un grupo con el nombre del nodo y sus mallas dentro
-      const clave = n.parent && !n.parent.isBone && !/^Rig_/.test(n.parent.name) && n.parent !== g.scene && !n.parent.isMesh && n.parent.type === 'Group' ? n.parent.name : n.name;
-      nodos.set(clave, [...(nodos.get(clave) ?? []), n]);
+      const key = n.parent && !n.parent.isBone && !/^Rig_/.test(n.parent.name) && n.parent !== g.scene && !n.parent.isMesh && n.parent.type === 'Group' ? n.parent.name : n.name;
+      nodes.set(key, [...(nodes.get(key) ?? []), n]);
     }
   });
-  const f: Source = { nombre, g, nodos, cabeza: null, skins: new Set(), piel: null, upClothes: new Map(), belowClothes: new Map() };
-  const [cab] = meshesOf(f, 'Head');
-  if (cab) {
-    const atlas = strips(mapOf(cab));
-    const d = dismantleHead({ geo: cab.geometry, atlas }, SETTINGS[nombre]);
-    f.cabeza = { malla: cab, d, atlas }; f.skins = d.skins; f.piel = d.piel;
+  const f: Source = { name, g, nodes, head: null, skins: new Set(), skin: null, upClothes: new Map(), belowClothes: new Map() };
+  const [header] = meshesOf(f, 'Head');
+  if (header) {
+    const atlas = strips(mapOf(header));
+    const d = dismantleHead({ geo: header.geometry, atlas }, SETTINGS[name]);
+    f.head = { mesh: header, d, atlas }; f.skins = d.skins; f.skin = d.skin;
   }
-  const reparto = (suffixes: string[], destino: Map<THREE.Mesh, Int8Array>) => {
+  const assignment = (suffixes: string[], target: Map<THREE.Mesh, Int8Array>) => {
     const ms = suffixes.flatMap(s => meshesOf(f, s)).filter(m => (m as any).isSkinnedMesh);
     if (!ms.length) return;
-    const r = clothesRegions(ms.map(m => ({ geo: m.geometry, atlas: strips(mapOf(m)) })), f.skins, f.piel);
-    ms.forEach((m, i) => destino.set(m, r.meshBy[i]));
+    const r = clothesRegions(ms.map(m => ({ geo: m.geometry, atlas: strips(mapOf(m)) })), f.skins, f.skin);
+    ms.forEach((m, i) => target.set(m, r.meshBy[i]));
   };
-  reparto(['Body', 'Chest', 'ArmLeft', 'ArmRight'], f.upClothes);
-  reparto(['LegLeft', 'LegRight'], f.belowClothes);
+  assignment(['Body', 'Chest', 'ArmLeft', 'ArmRight'], f.upClothes);
+  assignment(['LegLeft', 'LegRight'], f.belowClothes);
   return f;
 }
 
 // ---------------------------------------------------------------- geometría de una pieza
 export interface PieceChunk {
-  malla: THREE.Mesh;          // la malla de la que sale (su esqueleto, su material, su hueso si no tiene piel)
+  mesh: THREE.Mesh;          // la malla de la que sale (su esqueleto, su material, su hueso si no tiene piel)
   geo: THREE.BufferGeometry;  // con el atributo `region`
 }
 const R = (r: Region) => REGIONS.indexOf(r);
 
 /** Copia los triángulos elegidos de una malla en una geometría nueva (solo los vértices que usa) con la región de
  *  cada vértice. `inflar` separa la pieza de la cabeza (pelo y barba sobre la piel, el cráneo por debajo). */
-export function extract(m: THREE.Mesh, tris: number[] | null, region: (t: number) => number, inflate?: { centro: THREE.Vector3; k: number }) {
-  const g = m.geometry, n = numTris(g), lista = tris ?? Array.from({ length: n }, (_, i) => i);
+export function extract(m: THREE.Mesh, tris: number[] | null, region: (t: number) => number, inflate?: { center: THREE.Vector3; k: number }) {
+  const g = m.geometry, n = numTris(g), list = tris ?? Array.from({ length: n }, (_, i) => i);
   const idx = g.index;
-  const mapa = new Map<number, number>(); const orden: number[] = []; const reg: number[] = []; const nuevo: number[] = [];
-  for (const t of lista) for (let k = 0; k < 3; k++) {
+  const map = new Map<number, number>(); const orden: number[] = []; const reg: number[] = []; const newer: number[] = [];
+  for (const t of list) for (let k = 0; k < 3; k++) {
     const v = idx ? idx.getX(t * 3 + k) : t * 3 + k;
     const r = region(t);
-    const clave = v * 32 + r;   // el mismo vértice en dos regiones se duplica
-    let i = mapa.get(clave); if (i === undefined) { i = orden.length; mapa.set(clave, i); orden.push(v); reg.push(r); }
-    nuevo.push(i);
+    const key = v * 32 + r;   // el mismo vértice en dos regiones se duplica
+    let i = map.get(key); if (i === undefined) { i = orden.length; map.set(key, i); orden.push(v); reg.push(r); }
+    newer.push(i);
   }
   const out = new THREE.BufferGeometry();
-  for (const [nombre, a] of Object.entries(g.attributes)) {
-    if (!['position', 'normal', 'uv', 'skinIndex', 'skinWeight'].includes(nombre)) continue;
+  for (const [name, a] of Object.entries(g.attributes)) {
+    if (!['position', 'normal', 'uv', 'skinIndex', 'skinWeight'].includes(name)) continue;
     const at = a as THREE.BufferAttribute, sz = at.itemSize;
     const arr = new (at.array.constructor as any)(orden.length * sz);
     orden.forEach((v, i) => { for (let c = 0; c < sz; c++) arr[i * sz + c] = at.getComponent(v, c); });
-    out.setAttribute(nombre, new THREE.BufferAttribute(arr, sz, at.normalized));
+    out.setAttribute(name, new THREE.BufferAttribute(arr, sz, at.normalized));
   }
   out.setAttribute('region', new THREE.BufferAttribute(new Float32Array(reg), 1));
-  out.setIndex(nuevo);
-  if (inflate) { const p = out.attributes.position as THREE.BufferAttribute, v = new THREE.Vector3(); for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i).sub(inflate.centro).multiplyScalar(inflate.k).add(inflate.centro); p.setXYZ(i, v.x, v.y, v.z); } }
+  out.setIndex(newer);
+  if (inflate) { const p = out.attributes.position as THREE.BufferAttribute, v = new THREE.Vector3(); for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i).sub(inflate.center).multiplyScalar(inflate.k).add(inflate.center); p.setXYZ(i, v.x, v.y, v.z); } }
   out.computeBoundingSphere();
   return out;
 }
 
 /** Con qué se lleva una pieza: la cara a la que se adapta, el sombrero bajo el que va el pelo y el pelo sobre el que
  *  se asienta el sombrero */
-export interface Contexto { cara?: string; sombrero?: Piece; pelo?: Piece }
+export interface Context { face?: string; hat?: Piece; hair?: Piece }
 // lo que va en la cabeza y se adapta a la forma de la cara (cada cabeza de KayKit es un poco distinta)
-const ADAPTABLES: Slot[] = ['pelo', 'barba', 'cejas', 'sombrero', 'gafas'];
+const ADAPTABLE: Slot[] = ['pelo', 'barba', 'cejas', 'sombrero', 'gafas'];
 
 const donePieces = new Map<string, Promise<PieceChunk[]>>();
 /** Los trozos (malla de origen + geometría con regiones) de una pieza del catálogo, adaptados a la cara que la lleva
  *  y, el pelo, metido bajo el sombrero */
-export function trozos(p: Piece, ctx: Contexto = {}): Promise<PieceChunk[]> {
+export function chunks(p: Piece, ctx: Context = {}): Promise<PieceChunk[]> {
   // (lo sacado de una cabeza, aunque sea para la suya: bajo su pelo la horma es una suposición y el cuero cabelludo
   // de relleno podría asomar por encima)
-  const adaptar = !!ctx.cara && ADAPTABLES.includes(p.slot) && (ctx.cara !== p.fuente || !!p.despiece);
-  const bajo = p.slot === 'pelo' && !!ctx.sombrero && !ctx.sombrero.hairLid ? ctx.sombrero : undefined;
-  const sobre = p.slot === 'sombrero' && !p.hairLid && !!ctx.cara ? ctx.pelo : undefined;
-  const clave = p.id + (adaptar ? '@' + ctx.cara : '') + (bajo ? '^' + bajo.id : '') + (sobre ? '/' + sobre.id : '');
-  let t = donePieces.get(clave);
+  const adapt = !!ctx.face && ADAPTABLE.includes(p.slot) && (ctx.face !== p.source || !!p.breakdown);
+  const under = p.slot === 'pelo' && !!ctx.hat && !ctx.hat.hairLid ? ctx.hat : undefined;
+  const restsOn = p.slot === 'sombrero' && !p.hairLid && !!ctx.face ? ctx.hair : undefined;
+  const key = p.id + (adapt ? '@' + ctx.face : '') + (under ? '^' + under.id : '') + (restsOn ? '/' + restsOn.id : '');
+  let t = donePieces.get(key);
   if (!t) {
     t = (async () => {
-      let ts = await hacer(p);
+      let ts = await act(p);
       // (lo que va encima, por fuera de la piel: el pelo entero; de sombreros y máscaras, lo que roza la piel, no lo que
       // va escondido dentro de la cabeza, como las tapas de una cinta)
-      const piso = p.slot === 'cejas' ? 1.004 : p.slot === 'pelo' || p.slot === 'barba' ? 1.01 : 1.02;
-      if (adaptar) ts = await adaptA(p.fuente, ts, ctx.cara!, piso, p.slot === 'sombrero' || p.slot === 'gafas' ? 0.85 : 0);
-      if (p.slot === 'sombrero' && !p.hairLid && ctx.cara) ts = await settle(p.fuente, ts, ctx.cara, sobre && await trozos(sobre, { cara: ctx.cara }));
-      if (bajo) ts = await meterUnder(ts, await trozos(bajo, { cara: ctx.cara ?? bajo.fuente, pelo: p }), bajo.fuente, ctx.cara ?? p.fuente);
+      const layer = p.slot === 'cejas' ? 1.004 : p.slot === 'pelo' || p.slot === 'barba' ? 1.01 : 1.02;
+      if (adapt) ts = await adaptA(p.source, ts, ctx.face!, layer, p.slot === 'sombrero' || p.slot === 'gafas' ? 0.85 : 0);
+      if (p.slot === 'sombrero' && !p.hairLid && ctx.face) ts = await settle(p.source, ts, ctx.face, restsOn && await chunks(restsOn, { face: ctx.face }));
+      if (under) ts = await meterUnder(ts, await chunks(under, { face: ctx.face ?? under.source, hair: p }), under.source, ctx.face ?? p.source);
       return ts;
     })();
-    donePieces.set(clave, t);
+    donePieces.set(key, t);
   }
   return t;
 }
 
-async function hacer(p: Piece): Promise<PieceChunk[]> {
-  const f = await fuente(p.fuente);
-  if (p.despiece) {
-    if (!f.cabeza) return [];
-    const { malla, d, atlas } = f.cabeza;
-    const clases: HeadKind[] = p.slot === 'cara' ? ['cara', 'ojos'] : p.slot === 'sombrero' ? ['gorro'] : [p.slot as HeadKind];
-    const ks = clases.map(c => HEAD_KINDS.indexOf(c));
-    const tris: number[] = []; for (let t = 0; t < d.clase.length; t++) if (ks.includes(d.clase[t])) tris.push(t);
+async function act(p: Piece): Promise<PieceChunk[]> {
+  const f = await source(p.source);
+  if (p.breakdown) {
+    if (!f.head) return [];
+    const { mesh, d, atlas } = f.head;
+    const kinds: HeadKind[] = p.slot === 'cara' ? ['cara', 'ojos'] : p.slot === 'sombrero' ? ['gorro'] : [p.slot as HeadKind];
+    const ks = kinds.map(c => HEAD_KINDS.indexOf(c));
+    const tris: number[] = []; for (let t = 0; t < d.kind.length; t++) if (ks.includes(d.kind[t])) tris.push(t);
     if (!tris.length) return [];
-    const isSkin = (t: number) => d.skins.has(d.franja[t]);
-    const isHair = (t: number) => !!d.pelo && !!atlas && d.franja[t] >= 0 && d.hairTints.some(c => tintSame(atlas.color[d.franja[t]], c));
+    const isSkin = (t: number) => d.skins.has(d.strip[t]);
+    const isHair = (t: number) => !!d.hair && !!atlas && d.strip[t] >= 0 && d.hairTints.some(c => tintSame(atlas.color[d.strip[t]], c));
     let region: (t: number) => number;
-    if (p.slot === 'cara') region = t => (d.clase[t] === 0 && d.faceSkins.has(d.franja[t]) ? R('piel') : 0);
+    if (p.slot === 'cara') region = t => (d.kind[t] === 0 && d.faceSkins.has(d.strip[t]) ? R('piel') : 0);
     else if (p.slot === 'sombrero') {
-      const r = clothesRegions([{ geo: subGeo(malla.geometry, tris), atlas }], f.skins, f.piel).meshBy[0];
+      const r = clothesRegions([{ geo: subGeo(mesh.geometry, tris), atlas }], f.skins, f.skin).meshBy[0];
       const pos = new Map(tris.map((t, i) => [t, i]));
       region = t => { const x = r[pos.get(t)!]; return x === -1 ? R('piel') : x === 1 ? R('sombrero1') : x === 2 ? R('sombrero2') : 0; };
     } else region = t => (isHair(t) ? R('pelo') : isSkin(t) ? R('piel') : 0);
     // pelo, barba y gorro, un pelo por fuera de cualquier cara (vienen pintados sobre su propio cráneo)
-    const inflate = p.slot === 'cara' ? undefined : { centro: HEAD_CENTER, k: p.slot === 'cejas' ? 1.0 : 1.014 };
-    return [{ malla, geo: extract(malla, tris, region, inflate) }];
+    const inflate = p.slot === 'cara' ? undefined : { center: HEAD_CENTER, k: p.slot === 'cejas' ? 1.0 : 1.014 };
+    return [{ mesh, geo: extract(mesh, tris, region, inflate) }];
   }
   const out: PieceChunk[] = [];
-  const propias = (p.mallas ?? []).flatMap(s => meshesOf(f, s));
+  const own = (p.meshes ?? []).flatMap(s => meshesOf(f, s));
   // regiones de color de la propia pieza (sombreros, mochilas, capas)
   const ownReg = p.slot === 'sombrero' || p.slot === 'espalda' || p.slot === 'complemento' || p.slot === 'cabeza'
-    ? clothesRegions(propias.map(m => ({ geo: m.geometry, atlas: strips(mapOf(m)) })), p.especie === 'robot' ? new Set() : f.skins, p.especie === 'robot' ? null : f.piel).meshBy : null;
+    ? clothesRegions(own.map(m => ({ geo: m.geometry, atlas: strips(mapOf(m)) })), p.especie === 'robot' ? new Set() : f.skins, p.especie === 'robot' ? null : f.skin).meshBy : null;
   const [r1, r2] = p.slot === 'sombrero' ? [R('sombrero1'), R('sombrero2')] : p.slot === 'cabeza' ? [R('cabeza1'), R('cabeza2')] : [R('espalda1'), R('espalda2')];
-  propias.forEach((m, i) => {
+  own.forEach((m, i) => {
     let region: (t: number) => number = () => 0;
-    const arriba = f.upClothes.get(m), abajo = f.belowClothes.get(m);
+    const above = f.upClothes.get(m), below = f.belowClothes.get(m);
     if (p.slot === 'gafas') region = () => 0;
-    else if (arriba) region = t => (arriba[t] === -1 ? R('piel') : arriba[t] > 0 ? R('torso1') + arriba[t] - 1 : 0);
-    else if (abajo) region = t => (abajo[t] === -1 ? R('piel') : abajo[t] > 0 ? R('piernas1') + abajo[t] - 1 : 0);
+    else if (above) region = t => (above[t] === -1 ? R('piel') : above[t] > 0 ? R('torso1') + above[t] - 1 : 0);
+    else if (below) region = t => (below[t] === -1 ? R('piel') : below[t] > 0 ? R('piernas1') + below[t] - 1 : 0);
     else if (ownReg) { const r = ownReg[i]; region = t => (r[t] === -1 ? R('piel') : r[t] === 1 ? r1 : r[t] === 2 ? r2 : 0); }
     // el brillo de los robots (ojos, pantallas) va en su propio material: se pinta con el color de las luces
     const mat = (Array.isArray(m.material) ? m.material[0] : m.material) as THREE.Material;
     if (/glow/i.test(mat.name)) region = () => R('luz');
-    out.push({ malla: m, geo: extract(m, null, region) });
+    out.push({ mesh: m, geo: extract(m, null, region) });
   });
   return out;
 }
@@ -194,13 +194,13 @@ function subGeo(g: THREE.BufferGeometry, tris: number[]) {
  *  hueso y sus vértices van en el espacio de ese hueso */
 function aHead(f: Source, m: THREE.Mesh) {
   if ((m as any).isSkinnedMesh) return null;
-  const ref = [...f.nodos.values()].flat().find(x => (x as any).isSkinnedMesh);
+  const ref = [...f.nodes.values()].flat().find(x => (x as any).isSkinnedMesh);
   return ref ? new THREE.Matrix4().copy(ref.matrixWorld).invert().multiply(m.matrixWorld) : m.matrixWorld.clone();
 }
 /** Los vértices y triángulos de unos trozos en el espacio de las cabezas, juntos (para medir campos) */
-function soup(lista: { geo: THREE.BufferGeometry; tris?: number[]; M?: THREE.Matrix4 | null }[]) {
+function soup(list: { geo: THREE.BufferGeometry; tris?: number[]; M?: THREE.Matrix4 | null }[]) {
   const pos: number[] = [], idx: number[] = []; const v = new THREE.Vector3();
-  for (const { geo, tris, M } of lista) {
+  for (const { geo, tris, M } of list) {
     const P = geo.attributes.position, base = pos.length / 3;
     for (let i = 0; i < P.count; i++) { v.fromBufferAttribute(P, i); if (M) v.applyMatrix4(M); pos.push(v.x, v.y, v.z); }
     const n = numTris(geo), ts = tris ?? Array.from({ length: n }, (_, i) => i);
@@ -211,34 +211,34 @@ function soup(lista: { geo: THREE.BufferGeometry; tris?: number[]; M?: THREE.Mat
 
 /** El cráneo genérico: el del bárbaro sin su barba y, por delante, la cara lisa del pícaro. Es la referencia de las
  *  hormas (lo que se supone bajo el pelo de cada cabeza sigue su forma) y la cabeza lisa del maniquí. */
-let generico: Promise<{ piezas: { malla: THREE.Mesh; tris: number[]; k: number }[]; campo: Field }> | null = null;
+let generic: Promise<{ pieces: { mesh: THREE.Mesh; tris: number[]; k: number }[]; field: Field }> | null = null;
 function genericSkull() {
-  return generico ??= (async () => {
-    const piezas: { malla: THREE.Mesh; tris: number[]; k: number }[] = [];
-    const b = await fuente('Barbarian'), r = await fuente('Rogue');
-    if (b.cabeza) { const { malla, d } = b.cabeza; piezas.push({ malla, k: 0.99, tris: components(malla.geometry)[0].tris.filter(t => d.clase[t] === 0 && d.skins.has(d.franja[t])) }); }
-    if (r.cabeza) { const { malla, d } = r.cabeza; const c = components(malla.geometry).find(x => Math.abs(x.centro.x) < 0.02 && x.tris.length > 150 && x.tris.every(t => d.skins.has(d.franja[t]))); if (c) piezas.push({ malla, k: 0.985, tris: c.tris }); }
-    const { pos, idx } = soup(piezas.map(p => ({ geo: p.malla.geometry, tris: p.tris })));
-    return { piezas, campo: rellenar(measureField(pos, idx, 'max')) };
+  return generic ??= (async () => {
+    const pieces: { mesh: THREE.Mesh; tris: number[]; k: number }[] = [];
+    const b = await source('Barbarian'), r = await source('Rogue');
+    if (b.head) { const { mesh, d } = b.head; pieces.push({ mesh, k: 0.99, tris: components(mesh.geometry)[0].tris.filter(t => d.kind[t] === 0 && d.skins.has(d.strip[t])) }); }
+    if (r.head) { const { mesh, d } = r.head; const c = components(mesh.geometry).find(x => Math.abs(x.center.x) < 0.02 && x.tris.length > 150 && x.tris.every(t => d.skins.has(d.strip[t]))); if (c) pieces.push({ mesh, k: 0.985, tris: c.tris }); }
+    const { pos, idx } = soup(pieces.map(p => ({ geo: p.mesh.geometry, tris: p.tris })));
+    return { pieces, field: fill(measureField(pos, idx, 'max')) };
   })();
 }
 
 const molds = new Map<string, Promise<Field | null>>();
 /** La horma de una cabeza: lo que su piel está más lejos o más cerca del centro que el cráneo genérico, en cada
  *  dirección (medido donde la cara es piel; bajo el pelo y la barba, lo más liso que casa con lo medido) */
-export function horma(nombre: string): Promise<Field | null> {
-  let h = molds.get(nombre);
+export function mold(name: string): Promise<Field | null> {
+  let h = molds.get(name);
   if (!h) {
     h = (async () => {
-      const f = await fuente(nombre); if (!f.cabeza) return null;
-      const { malla, d } = f.cabeza, g = await genericSkull();
+      const f = await source(name); if (!f.head) return null;
+      const { mesh, d } = f.head, g = await genericSkull();
       // la superficie de la cabeza: lo que queda en la cara de sus piezas grandes y centradas (las orejas, la nariz y
       // los cuernos sobresalen)
-      const tris = components(malla.geometry).filter(c => c.tris.length >= 120 && Math.abs(c.centro.x) < 0.1).flatMap(c => c.tris.filter(t => d.clase[t] === 0));
-      const { pos, idx } = soup([{ geo: malla.geometry, tris }]);
-      return rellenar(quotient(measureField(pos, idx, 'min'), g.campo, 0.6, 1.6));
+      const tris = components(mesh.geometry).filter(c => c.tris.length >= 120 && Math.abs(c.center.x) < 0.1).flatMap(c => c.tris.filter(t => d.kind[t] === 0));
+      const { pos, idx } = soup([{ geo: mesh.geometry, tris }]);
+      return fill(quotient(measureField(pos, idx, 'min'), g.field, 0.6, 1.6));
     })();
-    molds.set(nombre, h);
+    molds.set(name, h);
   }
   return h;
 }
@@ -246,56 +246,56 @@ export function horma(nombre: string): Promise<Field | null> {
 /** Lleva unos trozos hechos para la cabeza de `de` a la de `a`: cada punto, por su dirección desde el centro de la
  *  cabeza, lo que la piel de una está más lejos que la de la otra. Con `piso`, nada queda por debajo de la piel nueva
  *  (por encima de ella, por ese factor) salvo lo que ya iba más hondo que `desde` (por esa fracción de la piel). */
-async function adaptA(de: string, ts: PieceChunk[], a: string, piso = 0, desde = 0): Promise<PieceChunk[]> {
-  const [hd, ha, f, g] = await Promise.all([horma(de), horma(a), fuente(de), genericSkull()]);
+async function adaptA(from: string, ts: PieceChunk[], a: string, layer = 0, since = 0): Promise<PieceChunk[]> {
+  const [hd, ha, f, g] = await Promise.all([mold(from), mold(a), source(from), genericSkull()]);
   if (!hd || !ha) return ts;
   return ts.map(t => {
-    const geo = t.geo.clone(), M = aHead(f, t.malla);
+    const geo = t.geo.clone(), M = aHead(f, t.mesh);
     if (M) geo.applyMatrix4(M);
     stretch(geo, (x, y, z) => {
-      const k = ha.muestra(x, y, z) / hd.muestra(x, y, z);
-      if (!piso || y < -0.12 * Math.hypot(x, y, z)) return k;   // (por debajo de la barbilla la horma no es piel: el cuello)
-      const r = Math.hypot(x, y, z) || 1, piel = ha.muestra(x, y, z) * g.campo.muestra(x, y, z);
-      return r * k < desde * piel ? k : Math.max(k, (piso * piel) / r);
+      const k = ha.sample(x, y, z) / hd.sample(x, y, z);
+      if (!layer || y < -0.12 * Math.hypot(x, y, z)) return k;   // (por debajo de la barbilla la horma no es piel: el cuello)
+      const r = Math.hypot(x, y, z) || 1, skin = ha.sample(x, y, z) * g.field.sample(x, y, z);
+      return r * k < since * skin ? k : Math.max(k, (layer * skin) / r);
     });
     if (M) geo.applyMatrix4(M.clone().invert());
-    return { malla: t.malla, geo };
+    return { mesh: t.mesh, geo };
   });
 }
 
 /** Mete el pelo por debajo de un sombrero: lo que asoma por fuera de él (en las direcciones que tapa) se baja hasta
  *  quedar dentro. Así un moño alto no atraviesa la copa ni una melena la cinta. */
-async function meterUnder(pelo: PieceChunk[], sombrero: PieceChunk[], hatSource: string, cara: string): Promise<PieceChunk[]> {
-  const [f, h, g] = await Promise.all([fuente(hatSource), horma(cara), genericSkull()]);
-  const { pos, idx } = soup(sombrero.map(t => ({ geo: t.geo, M: aHead(f, t.malla) })));
+async function meterUnder(hair: PieceChunk[], hat: PieceChunk[], hatSource: string, face: string): Promise<PieceChunk[]> {
+  const [f, h, g] = await Promise.all([source(hatSource), mold(face), genericSkull()]);
+  const { pos, idx } = soup(hat.map(t => ({ geo: t.geo, M: aHead(f, t.mesh) })));
   // (lo que el sombrero tiene dentro de la cabeza no cuenta: no se ve y aplastaría el pelo contra el cráneo)
-  const dentro = measureField(pos, idx, 'min', h ? (x, y, z) => h.muestra(x, y, z) * g.campo.muestra(x, y, z) * 0.97 : undefined);
-  return pelo.map(t => {
+  const inside = measureField(pos, idx, 'min', h ? (x, y, z) => h.sample(x, y, z) * g.field.sample(x, y, z) * 0.97 : undefined);
+  return hair.map(t => {
     const geo = t.geo.clone();
-    stretch(geo, (x, y, z) => { const h = dentro.celda(x, y, z), r = Math.hypot(x, y, z); return h !== null && r > h * 0.96 ? (h * 0.96) / r : 1; });
-    return { malla: t.malla, geo };
+    stretch(geo, (x, y, z) => { const h = inside.cell(x, y, z), r = Math.hypot(x, y, z); return h !== null && r > h * 0.96 ? (h * 0.96) / r : 1; });
+    return { mesh: t.mesh, geo };
   });
 }
 
 /** Un sombrero que queda en el aire (el sombrerito del payaso, hecho para ir sobre su peluca) baja hasta apoyarse en
  *  la cabeza o en el pelo. Los que ya tocan (casi todos) se quedan donde están. */
-async function settle(hatSource: string, sombrero: PieceChunk[], cara: string, pelo?: PieceChunk[]): Promise<PieceChunk[]> {
-  const [f, h, g] = await Promise.all([fuente(hatSource), horma(cara), genericSkull()]);
-  if (!h) return sombrero;
-  const piel = (x: number, y: number, z: number) => h.muestra(x, y, z) * g.campo.muestra(x, y, z);
-  const { pos, idx } = soup(sombrero.map(t => ({ geo: t.geo, M: aHead(f, t.malla) })));
-  const dentro = measureField(pos, idx, 'min', (x, y, z) => piel(x, y, z) * 0.97);
-  const fuera = pelo?.length ? (() => { const s = soup(pelo.map(t => ({ geo: t.geo }))); return measureField(s.pos, s.idx, 'max'); })() : null;
+async function settle(hatSource: string, hat: PieceChunk[], face: string, hair?: PieceChunk[]): Promise<PieceChunk[]> {
+  const [f, h, g] = await Promise.all([source(hatSource), mold(face), genericSkull()]);
+  if (!h) return hat;
+  const skin = (x: number, y: number, z: number) => h.sample(x, y, z) * g.field.sample(x, y, z);
+  const { pos, idx } = soup(hat.map(t => ({ geo: t.geo, M: aHead(f, t.mesh) })));
+  const inside = measureField(pos, idx, 'min', (x, y, z) => skin(x, y, z) * 0.97);
+  const outside = hair?.length ? (() => { const s = soup(hair.map(t => ({ geo: t.geo }))); return measureField(s.pos, s.idx, 'max'); })() : null;
   // la holgura: lo que separa el sombrero de lo que tiene debajo, en la dirección en la que menos
-  let holgura = Infinity;
-  dentro.measures((v, x, y, z) => { holgura = Math.min(holgura, v - Math.max(piel(x, y, z), fuera?.celda(x, y, z) ?? 0)); });
-  if (!(holgura > 0.02) || holgura === Infinity) return sombrero;
-  const bajar = new THREE.Matrix4().makeTranslation(0, -(holgura - 0.01), 0);
-  return sombrero.map(t => {
-    const geo = t.geo.clone(), M = aHead(f, t.malla);
-    geo.applyMatrix4(M ? M.clone().premultiply(bajar).premultiply(M.clone().invert()) : bajar);
+  let clearance = Infinity;
+  inside.measures((v, x, y, z) => { clearance = Math.min(clearance, v - Math.max(skin(x, y, z), outside?.cell(x, y, z) ?? 0)); });
+  if (!(clearance > 0.02) || clearance === Infinity) return hat;
+  const download = new THREE.Matrix4().makeTranslation(0, -(clearance - 0.01), 0);
+  return hat.map(t => {
+    const geo = t.geo.clone(), M = aHead(f, t.mesh);
+    geo.applyMatrix4(M ? M.clone().premultiply(download).premultiply(M.clone().invert()) : download);
     geo.computeBoundingSphere();
-    return { malla: t.malla, geo };
+    return { mesh: t.mesh, geo };
   });
 }
 
@@ -303,50 +303,50 @@ async function settle(hatSource: string, sombrero: PieceChunk[], cara: string, p
  *  que quitaron, aplastado sobre la horma de la cabeza y pintado de piel: casa con los bordes de la cara sin
  *  costuras y lleva su material (la misma luz). Sin cara (el maniquí), el cráneo genérico. */
 const skulls = new Map<string, Promise<PieceChunk[]>>();
-export function craneo(cara?: string, sombrero?: Piece, pelo?: Piece): Promise<PieceChunk[]> {
-  const clave = (cara ?? '') + (cara && sombrero ? '^' + sombrero.id + (pelo ? '/' + pelo.id : '') : '');
-  let c = skulls.get(clave);
+export function skull(face?: string, hat?: Piece, hair?: Piece): Promise<PieceChunk[]> {
+  const key = (face ?? '') + (face && hat ? '^' + hat.id + (hair ? '/' + hair.id : '') : '');
+  let c = skulls.get(key);
   if (!c) {
-    c = !cara ? genericSkull().then(g => g.piezas.map(({ malla, tris, k }) => { const geo = extract(malla, tris, () => R('piel')); stretch(geo, () => k); return { malla, geo }; }))
-      : sombrero ? (async () => meterUnder(await craneo(cara), await trozos(sombrero, { cara, pelo }), sombrero.fuente, cara))()   // (las capuchas van justas)
-      : scalpLeather(cara);
-    skulls.set(clave, c);
+    c = !face ? genericSkull().then(g => g.pieces.map(({ mesh, tris, k }) => { const geo = extract(mesh, tris, () => R('piel')); stretch(geo, () => k); return { mesh, geo }; }))
+      : hat ? (async () => meterUnder(await skull(face), await chunks(hat, { face, hair }), hat.source, face))()   // (las capuchas van justas)
+      : scalpLeather(face);
+    skulls.set(key, c);
   }
   return c;
 }
 
-async function scalpLeather(cara: string): Promise<PieceChunk[]> {
-  const f = await fuente(cara), h = await horma(cara), g = await genericSkull();
-  if (!f.cabeza || !h) return craneo();
-  const { malla, d } = f.cabeza, geo0 = malla.geometry, P = geo0.attributes.position, uv = geo0.attributes.uv;
-  const K = { cara: HEAD_KINDS.indexOf('cara'), ojos: HEAD_KINDS.indexOf('ojos'), cejas: HEAD_KINDS.indexOf('cejas') };
-  const grandes = components(geo0).filter(c => c.tris.length >= 120 && Math.abs(c.centro.x) < 0.1);
+async function scalpLeather(face: string): Promise<PieceChunk[]> {
+  const f = await source(face), h = await mold(face), g = await genericSkull();
+  if (!f.head || !h) return skull();
+  const { mesh, d } = f.head, geo0 = mesh.geometry, P = geo0.attributes.position, uv = geo0.attributes.uv;
+  const K = { cara: HEAD_KINDS.indexOf('cara'), eyes: HEAD_KINDS.indexOf('ojos'), cejas: HEAD_KINDS.indexOf('cejas') };
+  const large = components(geo0).filter(c => c.tris.length >= 120 && Math.abs(c.center.x) < 0.1);
   const vert = (t: number, k: number) => (geo0.index ? geo0.index.getX(t * 3 + k) : t * 3 + k);
-  const clave = (i: number) => P.getX(i).toFixed(4) + ',' + P.getY(i).toFixed(4) + ',' + P.getZ(i).toFixed(4);
+  const key = (i: number) => P.getX(i).toFixed(4) + ',' + P.getY(i).toFixed(4) + ',' + P.getZ(i).toFixed(4);
   // los bordes de la cara se quedan donde están; un color de piel de la cara, el de en medio de su degradado
-  const borde = new Set<string>(); const skins: { i: number; l: number }[] = [];
-  for (const c of grandes) for (const t of c.tris) if (d.clase[t] === K.cara) for (let k = 0; k < 3; k++) {
-    const i = vert(t, k); borde.add(clave(i));
-    if (d.faceSkins.has(d.franja[t]) && f.cabeza.atlas) { const col = f.cabeza.atlas.color[d.franja[t]]; skins.push({ i, l: col[0] + col[1] + col[2] }); }
+  const edge = new Set<string>(); const skins: { i: number; l: number }[] = [];
+  for (const c of large) for (const t of c.tris) if (d.kind[t] === K.cara) for (let k = 0; k < 3; k++) {
+    const i = vert(t, k); edge.add(key(i));
+    if (d.faceSkins.has(d.strip[t]) && f.head.atlas) { const col = f.head.atlas.color[d.strip[t]]; skins.push({ i, l: col[0] + col[1] + col[2] }); }
   }
-  if (!skins.length || !uv) return craneo();
+  if (!skins.length || !uv) return skull();
   skins.sort((a, b) => a.l - b.l);
   const ref = skins[skins.length >> 1].i, u0 = uv.getX(ref), v0 = uv.getY(ref);
   // lo que hay que tapar, de las piezas grandes y centradas (los adornos sueltos, las orejas, la nariz y los cuernos
   // no dejan hueco)
   // (lo que cuelga por debajo de la cara, melenas y barbas largas, no tapa ningún hueco: aplastado haría un cuello)
-  let suelo = Infinity; for (const k of borde) suelo = Math.min(suelo, +k.split(',')[1]);
+  let floor = Infinity; for (const k of edge) floor = Math.min(floor, +k.split(',')[1]);
   const center = new THREE.Vector3();
-  const tris = grandes.flatMap(c => c.tris.filter(t => d.clase[t] !== K.cara && d.clase[t] !== K.ojos && d.clase[t] !== K.cejas && centerTri(geo0, t, center).y > suelo - 0.08));
+  const tris = large.flatMap(c => c.tris.filter(t => d.kind[t] !== K.cara && d.kind[t] !== K.eyes && d.kind[t] !== K.cejas && centerTri(geo0, t, center).y > floor - 0.08));
   if (!tris.length) return [];
-  const geo = extract(malla, tris, () => R('piel'));
+  const geo = extract(mesh, tris, () => R('piel'));
   const Q = geo.attributes.position as THREE.BufferAttribute, U = geo.attributes.uv as THREE.BufferAttribute;
   const C = HEAD_CENTER;
   for (let i = 0; i < Q.count; i++) {
     U.setXY(i, u0, v0);
-    if (borde.has(Q.getX(i).toFixed(4) + ',' + Q.getY(i).toFixed(4) + ',' + Q.getZ(i).toFixed(4))) continue;
+    if (edge.has(Q.getX(i).toFixed(4) + ',' + Q.getY(i).toFixed(4) + ',' + Q.getZ(i).toFixed(4))) continue;
     const x = Q.getX(i) - C.x, y = Q.getY(i) - C.y, z = Q.getZ(i) - C.z, r = Math.hypot(x, y, z) || 1;
-    const k = (h.muestra(x, y, z) * g.campo.muestra(x, y, z) * 0.993) / r;
+    const k = (h.sample(x, y, z) * g.field.sample(x, y, z) * 0.993) / r;
     Q.setXYZ(i, C.x + x * k, C.y + y * k, C.z + z * k);
   }
   // lo que al aplastarlo queda del revés (la cara de abajo de un flequillo, el forro de una melena) sobra: por fuera ya
@@ -360,18 +360,18 @@ async function scalpLeather(cara: string): Promise<PieceChunk[]> {
   }
   geo.setIndex(remain);
   // la luz, la de la horma (lisa) y no la de los triángulos aplastados: si no, las capas del pelo se verían en vetas
-  const radio = (x: number, y: number, z: number) => h.muestra(x, y, z) * g.campo.muestra(x, y, z);
+  const radio = (x: number, y: number, z: number) => h.sample(x, y, z) * g.field.sample(x, y, z);
   const N = geo.attributes.normal as THREE.BufferAttribute, dir = new THREE.Vector3(), t1 = new THREE.Vector3(), t2 = new THREE.Vector3();
-  const punto = (v: THREE.Vector3, out: THREE.Vector3) => out.copy(v).normalize().multiplyScalar(radio(v.x, v.y, v.z));
+  const point = (v: THREE.Vector3, out: THREE.Vector3) => out.copy(v).normalize().multiplyScalar(radio(v.x, v.y, v.z));
   const p0 = new THREE.Vector3(), p1 = new THREE.Vector3(), p2 = new THREE.Vector3(), q = new THREE.Vector3();
   for (let i = 0; i < Q.count; i++) {
     dir.set(Q.getX(i) - C.x, Q.getY(i) - C.y, Q.getZ(i) - C.z).normalize();
     t1.set(0, 1, 0).cross(dir); if (t1.lengthSq() < 1e-4) t1.set(1, 0, 0).cross(dir); t1.normalize(); t2.crossVectors(dir, t1);
-    punto(dir, p0); punto(q.copy(dir).addScaledVector(t1, 0.03), p1); punto(q.copy(dir).addScaledVector(t2, 0.03), p2);
+    point(dir, p0); point(q.copy(dir).addScaledVector(t1, 0.03), p1); point(q.copy(dir).addScaledVector(t2, 0.03), p2);
     n.crossVectors(p1.sub(p0), p2.sub(p0)).normalize(); if (n.dot(dir) < 0) n.negate();
     N.setXYZ(i, n.x, n.y, n.z);
   }
   N.needsUpdate = true; geo.computeBoundingSphere();
-  return [{ malla, geo }];
+  return [{ mesh, geo }];
 }
 export { trisStrips };

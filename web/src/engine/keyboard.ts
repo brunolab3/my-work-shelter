@@ -3,8 +3,8 @@ type Handler = (e: KeyboardEvent) => boolean | void;
 
 class Keyboard {
   pressed = new Set<string>();
-  private pila: Handler[] = [];
-  private encima: Handler[] = [];   // floating boxes (the pre-flight): above every panel, even one that registers again later
+  private stack: Handler[] = [];
+  private onTop: Handler[] = [];   // floating boxes (the pre-flight): above every panel, even one that registers again later
   constructor() {
     addEventListener('keydown', e => {
       if (writing(e)) { return; }
@@ -14,8 +14,8 @@ class Keyboard {
       // con ⌘ (o Ctrl/⌥) es un atajo, no andar: y en macOS, lo pulsado con ⌘ apretado nunca recibe su keyup, así que
       // la flecha de ⌘↑ o la W de ⌘W se quedaban «pulsadas» y el Supervisor corría solo
       if (!e.metaKey && !e.ctrlKey && !e.altKey) this.pressed.add(e.code);
-      const pila = [...this.pila, ...this.encima];
-      for (let i = pila.length - 1; i >= 0; i--) if (pila[i](e)) { e.preventDefault(); return; }
+      const stack = [...this.stack, ...this.onTop];
+      for (let i = stack.length - 1; i >= 0; i--) if (stack[i](e)) { e.preventDefault(); return; }
     });
     addEventListener('keyup', e => { this.pressed.delete(e.code); if (e.key === 'Meta') this.pressed.clear(); });
     // al perder el foco (otra app, un navegador del refugio, una terminal o un campo de texto) nada sigue pulsado
@@ -25,17 +25,17 @@ class Keyboard {
     addEventListener('focusin', e => { if (writing(e)) dropAll(); });
   }
   // El último manejador registrado tiene prioridad (diálogos sobre el mundo). Devuelve función para quitarlo.
-  escuchar(f: Handler, encima = false) {
-    if (encima) { this.encima.push(f); return () => { this.encima = this.encima.filter(x => x !== f); }; }
-    this.pila.push(f); return () => { this.pila = this.pila.filter(x => x !== f); };
+  listen(f: Handler, onTop = false) {
+    if (onTop) { this.onTop.push(f); return () => { this.onTop = this.onTop.filter(x => x !== f); }; }
+    this.stack.push(f); return () => { this.stack = this.stack.filter(x => x !== f); };
   }
-  eje() {
+  axis() {
     const p = this.pressed;
     const x = (p.has('KeyD') || p.has('ArrowRight') ? 1 : 0) - (p.has('KeyA') || p.has('ArrowLeft') ? 1 : 0);
     const z = (p.has('KeyS') || p.has('ArrowDown') ? 1 : 0) - (p.has('KeyW') || p.has('ArrowUp') ? 1 : 0);
-    return { x, z, correr: p.has('ShiftLeft') || p.has('ShiftRight') };
+    return { x, z, run: p.has('ShiftLeft') || p.has('ShiftRight') };
   }
-  bloqueado = false;
+  blocked = false;
 }
 
 export function writing(e: Event) {
@@ -43,4 +43,4 @@ export function writing(e: Event) {
   return !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable || !!t.closest?.('.ventana-terminal, .ventana-navegador, .ventana-git, .ventana-archivos'));
 }
 
-export const teclado = new Keyboard();
+export const keyboard = new Keyboard();

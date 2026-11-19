@@ -22,16 +22,16 @@ let z = 50;
 export const nextZ = () => ++z;
 
 export interface WindowActions {
-  maximizada: boolean;
+  maximized: boolean;
   newTab?: () => void;
   closeTab: () => void;
   closeWindow: () => void;
-  minimizar: () => void;
+  minimize: () => void;
   toggleMaximize: () => void;
   goTab: (n: number) => void;       // 1…8; 9 es la última
-  lista?: () => void;                    // list of every tab
-  moveTab: (paso: number) => void;
-  sacar?: () => void;                    // a una terminal de tu escritorio
+  list?: () => void;                    // list of every tab
+  moveTab: (step: number) => void;
+  takeOut?: () => void;                    // a una terminal de tu escritorio
 }
 /** Atajos de ventana; devuelve true si la tecla era uno de ellos (y ya se ha hecho). */
 export function windowShortcut(e: KeyboardEvent | React.KeyboardEvent, a: WindowActions): boolean {
@@ -41,11 +41,11 @@ export function windowShortcut(e: KeyboardEvent | React.KeyboardEvent, a: Window
   else if (cmd && !e.altKey) {
     if (e.code === 'KeyT' && a.newTab) f = a.newTab;
     else if (e.code === 'KeyW') f = e.shiftKey && MAC ? a.closeWindow : a.closeTab;
-    else if (e.code === 'KeyM') f = a.minimizar;
-    else if (e.code === 'KeyE' && e.shiftKey && a.sacar) f = a.sacar;
-    else if (e.code === 'KeyA' && (e.shiftKey || !MAC) && a.lista) f = a.lista;
-    else if (e.key === 'ArrowUp') f = () => { if (!a.maximizada) a.toggleMaximize(); };
-    else if (e.key === 'ArrowDown') f = a.maximizada ? a.toggleMaximize : a.minimizar;
+    else if (e.code === 'KeyM') f = a.minimize;
+    else if (e.code === 'KeyE' && e.shiftKey && a.takeOut) f = a.takeOut;
+    else if (e.code === 'KeyA' && (e.shiftKey || !MAC) && a.list) f = a.list;
+    else if (e.key === 'ArrowUp') f = () => { if (!a.maximized) a.toggleMaximize(); };
+    else if (e.key === 'ArrowDown') f = a.maximized ? a.toggleMaximize : a.minimize;
     else if (/^Digit[1-9]$/.test(e.code)) { const n = Number(e.code.slice(5)); f = () => a.goTab(n); }
     else if (e.code === 'BracketLeft' || e.code === 'BracketRight') f = () => a.moveTab(e.code === 'BracketLeft' ? -1 : 1);
   }
@@ -54,15 +54,15 @@ export function windowShortcut(e: KeyboardEvent | React.KeyboardEvent, a: Window
   return true;
 }
 
-export function WindowButtons({ maximizada, minimizar, toggleMaximize, cerrar, closesThat, sacar, takesThat, wingApp, remoto }: { maximizada: boolean; minimizar: () => void; toggleMaximize: () => void; cerrar: () => void; closesThat: string; sacar?: () => void; takesThat?: string; wingApp?: () => void; remoto?: () => void }) {
+export function WindowButtons({ maximized, minimize, toggleMaximize, close, closesThat, takeOut, takesThat, wingApp, remote }: { maximized: boolean; minimize: () => void; toggleMaximize: () => void; close: () => void; closesThat: string; takeOut?: () => void; takesThat?: string; wingApp?: () => void; remote?: () => void }) {
   return (
     <span className="botones-ventana">
-      {remoto && <button className="consola-x" onClick={remoto} title={t('windows.continueOnYourPhone')}>📱</button>}
+      {remote && <button className="consola-x" onClick={remote} title={t('windows.continueOnYourPhone')}>📱</button>}
       {wingApp && <button className="consola-x" onClick={wingApp} title={t('windows.continueThisConversationInThe')}>✳</button>}
-      {sacar &&<button className="consola-x" onClick={sacar} title={t('windows.popQueOutToA', { que: takesThat ?? t('windows.thisTab'), shortcut: `${CMD}${MAC ? '⇧' : ''}E` })}>↗</button>}
-      <button className="consola-x" onClick={minimizar} title={t('windows.minimizeToTheBarBelow', { shortcut: `${CMD}↓` })}>_</button>
-      <button className="consola-x" onClick={toggleMaximize} title={maximizada ? t('windows.restoreSizeAtajo', { shortcut: `${CMD}↓` }) : t('windows.expandToFullScreenAtajo', { shortcut: `${CMD}↑` })}>{maximizada ? '❐' : '▢'}</button>
-      <button className="consola-x" onClick={cerrar} title={t('windows.closeQue', { que: closesThat }) + (MAC ? ' (⌘⇧W)' : '')}>×</button>
+      {takeOut &&<button className="consola-x" onClick={takeOut} title={t('windows.popQueOutToA', { que: takesThat ?? t('windows.thisTab'), shortcut: `${CMD}${MAC ? '⇧' : ''}E` })}>↗</button>}
+      <button className="consola-x" onClick={minimize} title={t('windows.minimizeToTheBarBelow', { shortcut: `${CMD}↓` })}>_</button>
+      <button className="consola-x" onClick={toggleMaximize} title={maximized ? t('windows.restoreSizeAtajo', { shortcut: `${CMD}↓` }) : t('windows.expandToFullScreenAtajo', { shortcut: `${CMD}↑` })}>{maximized ? '❐' : '▢'}</button>
+      <button className="consola-x" onClick={close} title={t('windows.closeQue', { que: closesThat }) + (MAC ? ' (⌘⇧W)' : '')}>×</button>
     </span>
   );
 }
@@ -73,53 +73,53 @@ const LIST_SHORTCUT = `${CMD}${MAC ? '⇧' : ''}A`;
 /** ✎ on a tab, a list row or a talker with something typed and not sent: quieter than the state flags */
 /** A task's epic, beside its color marker: a small diamond in the epic's color (not round, so it's never taken for a state
  *  light); nothing for tasks without one. Repaints with useColorsTasks */
-export function EpicMark({ clave }: { clave?: string }) {
-  const e = taskEpic(clave);
-  return e ? <span className="marca-epica" style={{ '--epica': taskColor(e.clave) } as React.CSSProperties} title={t('windows.epicOf', { clave: e.clave, titulo: e.titulo })} /> : null;
+export function EpicMark({ key }: { key?: string }) {
+  const e = taskEpic(key);
+  return e ? <span className="marca-epica" style={{ '--epica': taskColor(e.key) } as React.CSSProperties} title={t('windows.epicOf', { clave: e.key, titulo: e.title })} /> : null;
 }
 /** A task's color marker and, if it has one, its epic's */
-export const TaskMark = ({ clave, color }: { clave?: string; color?: string }) => <><span className="marca-tarea" style={{ '--tarea': color ?? taskColor(clave) } as React.CSSProperties} title={clave} /><EpicMark clave={clave} /></>;
+export const TaskMark = ({ key, color }: { key?: string; color?: string }) => <><span className="marca-tarea" style={{ '--tarea': color ?? taskColor(key) } as React.CSSProperties} title={key} /><EpicMark key={key} /></>;
 
 export const DraftMark = () => <span className="marca-borrador" title={t('windows.unsentDraft')}>✎</span>;
 
 // grupo: with «group by room», tabs of a group sit together under its header; quien: whose it is (another window);
 // borrador: it has unsent text or attachments (DraftMark)
-export interface ItemTab { id: string; nombre: string; estado?: TabState; titulo?: string; sala?: string; tarea?: string; actividad?: string; grupo?: string; quien?: string; borrador?: boolean }
+export interface ItemTab { id: string; name: string; state?: TabState; title?: string; room?: string; task?: string; activity?: string; group?: string; who?: string; draft?: boolean }
 
 // lista: the ⋯ N button and its list in the strip (terminals); intercoms keep theirs in the bar (ComTabs in Dialog.tsx)
-export function Tabs({ items, activa, activar, cerrar, nueva, opensThat, lista, confirmando }: { items: ItemTab[]; activa: string; activar: (id: string) => void; cerrar: (ids: string[]) => void; nueva?: () => void; opensThat: string; lista?: React.MutableRefObject<(() => void) | null>; confirmando?: boolean }) {
-  const [abierta, setAbierta] = useState(false);
-  const tira = useRef<HTMLDivElement>(null);
-  if (lista) lista.current = () => setAbierta(x => !x);
+export function Tabs({ items, active, activate, close, onNew, opensThat, list, confirming }: { items: ItemTab[]; active: string; activate: (id: string) => void; close: (ids: string[]) => void; onNew?: () => void; opensThat: string; list?: React.MutableRefObject<(() => void) | null>; confirming?: boolean }) {
+  const [open, setOpen] = useState(false);
+  const strip = useRef<HTMLDivElement>(null);
+  if (list) list.current = () => setOpen(x => !x);
   useColorsTasks();
-  const tareas = items.map(p => p.tarea).join(' ');
+  const tareas = items.map(p => p.task).join(' ');
   useEffect(() => { knowTasks(tareas.split(' ')); }, [tareas]);
   // with many tabs the strip scrolls (also with the wheel) and the active one stays in view
   useEffect(() => {
-    const c = tira.current, el = c?.querySelector<HTMLElement>('.vt-pestana.activa');
+    const c = strip.current, el = c?.querySelector<HTMLElement>('.vt-pestana.activa');
     if (!c || !el) return;
     if (el.offsetLeft < c.scrollLeft) c.scrollLeft = el.offsetLeft - 8;
     else if (el.offsetLeft + el.offsetWidth > c.scrollLeft + c.clientWidth) c.scrollLeft = el.offsetLeft + el.offsetWidth - c.clientWidth + 8;
-  }, [activa, items.length]);
+  }, [active, items.length]);
   return (
     <div className="vt-pestanas">
-      <div className="vt-pestanas-tira" ref={tira} onWheel={e => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) e.currentTarget.scrollLeft += e.deltaY; }}>
+      <div className="vt-pestanas-tira" ref={strip} onWheel={e => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) e.currentTarget.scrollLeft += e.deltaY; }}>
         {items.map((p, i) => (<React.Fragment key={p.id}>
-          <div className={'vt-pestana' + (p.id === activa ? ' activa' : '') + (p.estado ? ' e-' + p.estado : '') + (p.tarea ? ' con-tarea' : '')} style={p.tarea ? { '--tarea': taskColor(p.tarea) } as React.CSSProperties : undefined}
-            onClick={() => activar(p.id)} onAuxClick={e => { if (e.button === 1) cerrar([p.id]); }}
-            title={[p.titulo || p.nombre, p.estado && stateLabel(p.estado), p.borrador && t('windows.unsentDraft'), p.quien, p.tarea, i < 9 ? `${CMD}${i + 1}` : ''].filter(Boolean).join(' · ')}>
-            <span className={'piloto ' + PILOT[p.estado ?? 'ociosa']} />
-            {p.borrador && <DraftMark />}
-            <EpicMark clave={p.tarea} />
-            <span className="vt-pestana-nombre">{p.nombre}</span>
-            <button className="vt-pestana-x" onClick={e => { e.stopPropagation(); cerrar([p.id]); }} title={t('windows.closeTabAtajo', { shortcut: `${CMD}W` })}>×</button>
+          <div className={'vt-pestana' + (p.id === active ? ' activa' : '') + (p.state ? ' e-' + p.state : '') + (p.task ? ' con-tarea' : '')} style={p.task ? { '--tarea': taskColor(p.task) } as React.CSSProperties : undefined}
+            onClick={() => activate(p.id)} onAuxClick={e => { if (e.button === 1) close([p.id]); }}
+            title={[p.title || p.name, p.state && stateLabel(p.state), p.draft && t('windows.unsentDraft'), p.who, p.task, i < 9 ? `${CMD}${i + 1}` : ''].filter(Boolean).join(' · ')}>
+            <span className={'piloto ' + PILOT[p.state ?? 'ociosa']} />
+            {p.draft && <DraftMark />}
+            <EpicMark key={p.task} />
+            <span className="vt-pestana-nombre">{p.name}</span>
+            <button className="vt-pestana-x" onClick={e => { e.stopPropagation(); close([p.id]); }} title={t('windows.closeTabAtajo', { shortcut: `${CMD}W` })}>×</button>
           </div>
         </React.Fragment>))}
       </div>
-      {nueva && <button className="vt-nueva" onClick={nueva} title={`${opensThat} (${CMD}T)`}>+</button>}
-      {lista && items.length > 1 && <button className={'vt-todas' + (abierta ? ' activa' : '')} onClick={() => setAbierta(x => !x)} title={t('windows.allTabs', { n: items.length, shortcut: LIST_SHORTCUT })}>⋯ {items.length}</button>}
+      {onNew && <button className="vt-nueva" onClick={onNew} title={`${opensThat} (${CMD}T)`}>+</button>}
+      {list && items.length > 1 && <button className={'vt-todas' + (open ? ' activa' : '')} onClick={() => setOpen(x => !x)} title={t('windows.allTabs', { n: items.length, shortcut: LIST_SHORTCUT })}>⋯ {items.length}</button>}
       {/* the list steps aside while a close is being confirmed */}
-      {abierta && !confirmando && <TabList items={items} activa={activa} activar={id => { activar(id); setAbierta(false); }} cerrar={cerrar} salir={() => setAbierta(false)} />}
+      {open && !confirming && <TabList items={items} active={active} activate={id => { activate(id); setOpen(false); }} close={close} exit={() => setOpen(false)} />}
     </div>
   );
 }
@@ -127,58 +127,58 @@ export function Tabs({ items, activa, activar, cerrar, nueva, opensThat, lista, 
 // Every tab in a list: state, title, task, room or owner and last activity; type to filter, go to one, and close (one,
 // the selected ones, the read or idle ones, or a task's). agrupar: a header per group (items come grouped).
 // cabecera: what heads each group instead of its name (given the tab before it), and then the rows don't repeat whose they are
-export function TabList({ items, activa, activar, cerrar, salir, agrupar, cabecera }: { items: ItemTab[]; activa: string; activar: (id: string) => void; cerrar: (ids: string[]) => void; salir: () => void; agrupar?: boolean; cabecera?: (p: ItemTab, antes?: ItemTab) => React.ReactNode }) {
-  const [filtro, setFiltro] = useState('');
-  const [i, setI] = useState(() => Math.max(0, items.findIndex(p => p.id === activa)));
-  const [marcadas, setMarcadas] = useState<string[]>([]);
-  const caja = useRef<HTMLDivElement>(null);
-  const q = filtro.trim().toLowerCase();
-  const vistas = q ? items.filter(p => [p.nombre, p.sala, p.tarea, p.quien, p.estado && stateLabel(p.estado)].some(x => x?.toLowerCase().includes(q))) : items;
-  const sel = vistas[Math.min(i, vistas.length - 1)];
-  const abiertas = new Set(items.map(p => p.id));
-  const elegidas = marcadas.filter(id => abiertas.has(id));
-  const ociosas = items.filter(p => p.estado === 'ociosa').map(p => p.id);
-  const deTarea = sel?.tarea ? items.filter(p => p.tarea === sel.tarea).map(p => p.id) : [];
+export function TabList({ items, active, activate, close, exit, group, header }: { items: ItemTab[]; active: string; activate: (id: string) => void; close: (ids: string[]) => void; exit: () => void; group?: boolean; header?: (p: ItemTab, before?: ItemTab) => React.ReactNode }) {
+  const [filter, setFilter] = useState('');
+  const [i, setI] = useState(() => Math.max(0, items.findIndex(p => p.id === active)));
+  const [marked, setMarked] = useState<string[]>([]);
+  const box = useRef<HTMLDivElement>(null);
+  const q = filter.trim().toLowerCase();
+  const views = q ? items.filter(p => [p.name, p.room, p.task, p.who, p.state && stateLabel(p.state)].some(x => x?.toLowerCase().includes(q))) : items;
+  const sel = views[Math.min(i, views.length - 1)];
+  const openSessions = new Set(items.map(p => p.id));
+  const picked = marked.filter(id => openSessions.has(id));
+  const idle = items.filter(p => p.state === 'ociosa').map(p => p.id);
+  const taskSession = sel?.task ? items.filter(p => p.task === sel.task).map(p => p.id) : [];
   // on closing, the keyboard goes back where it was (the terminal, the intercom's text box)
-  const [antes] = useState(() => document.activeElement as HTMLElement | null);   // before the filter takes it
-  useEffect(() => () => { setTimeout(() => { const a = document.activeElement; if (!a || a === document.body) antes?.focus(); }); }, []);
+  const [before] = useState(() => document.activeElement as HTMLElement | null);   // before the filter takes it
+  useEffect(() => () => { setTimeout(() => { const a = document.activeElement; if (!a || a === document.body) before?.focus(); }); }, []);
   useEffect(() => {
-    const fuera = (e: PointerEvent) => { const el = e.target as HTMLElement; if (!caja.current?.contains(el) && !el.closest?.('.vt-todas, .vt-confirmar')) salir(); };
-    addEventListener('pointerdown', fuera, true); return () => removeEventListener('pointerdown', fuera, true);
+    const outside = (e: PointerEvent) => { const el = e.target as HTMLElement; if (!box.current?.contains(el) && !el.closest?.('.vt-todas, .vt-confirmar')) exit(); };
+    addEventListener('pointerdown', outside, true); return () => removeEventListener('pointerdown', outside, true);
   }, []);
-  useEffect(() => { caja.current?.querySelector('.vt-lista-fila.sel')?.scrollIntoView({ block: 'nearest' }); }, [i, q]);
-  const tecla = (e: React.KeyboardEvent) => {
+  useEffect(() => { box.current?.querySelector('.vt-lista-fila.sel')?.scrollIntoView({ block: 'nearest' }); }, [i, q]);
+  const key = (e: React.KeyboardEvent) => {
     const k = e.key;
     if (k !== 'Escape' && k !== 'ArrowDown' && k !== 'ArrowUp' && !(k === 'Enter' && sel)) return;
     e.preventDefault(); e.stopPropagation();
-    if (k === 'Escape') salir();
-    else if (k === 'Enter') activar(sel.id);
-    else setI(x => Math.max(0, Math.min(vistas.length - 1, x + (k === 'ArrowDown' ? 1 : -1))));
+    if (k === 'Escape') exit();
+    else if (k === 'Enter') activate(sel.id);
+    else setI(x => Math.max(0, Math.min(views.length - 1, x + (k === 'ArrowDown' ? 1 : -1))));
   };
-  const boton = (texto: string, ids: string[]) => ids.length ? <button className="consola-x" onClick={() => { cerrar(ids); setMarcadas(m => m.filter(x => !ids.includes(x))); }}>{texto}</button> : null;
+  const button = (text: string, ids: string[]) => ids.length ? <button className="consola-x" onClick={() => { close(ids); setMarked(m => m.filter(x => !ids.includes(x))); }}>{text}</button> : null;
   return (
-    <div className="vt-lista" ref={caja} onKeyDown={tecla}>
-      <input className="vt-lista-filtro" autoFocus value={filtro} placeholder={t('windows.filterTabs')} spellCheck={false} onChange={e => { setFiltro(e.target.value); setI(0); }} />
+    <div className="vt-lista" ref={box} onKeyDown={key}>
+      <input className="vt-lista-filtro" autoFocus value={filter} placeholder={t('windows.filterTabs')} spellCheck={false} onChange={e => { setFilter(e.target.value); setI(0); }} />
       <div className="vt-lista-filas">
-        {vistas.map((p, k) => (<React.Fragment key={p.id}>
-          {agrupar && p.grupo !== vistas[k - 1]?.grupo && (cabecera ? cabecera(p, vistas[k - 1]) : <div className="vt-lista-grupo">{p.grupo}</div>)}
-          <div className={'vt-lista-fila' + (p === sel ? ' sel' : '') + (p.id === activa ? ' activa' : '') + (p.estado ? ' e-' + p.estado : '')} onMouseMove={() => setI(k)} onClick={() => activar(p.id)}>
-            <input type="checkbox" checked={marcadas.includes(p.id)} title={t('windows.selectTab')} onClick={e => e.stopPropagation()} onChange={() => setMarcadas(m => (m.includes(p.id) ? m.filter(x => x !== p.id) : [...m, p.id]))} />
-            <span className={'piloto ' + PILOT[p.estado ?? 'ociosa']} />
-            <span className="vt-lista-estado">{p.estado ? stateLabel(p.estado) : ''}</span>
-            <span className="vt-lista-nombre">{p.borrador && <DraftMark />}{p.nombre}</span>
-            <span className="vt-lista-tarea">{p.tarea && <><TaskMark clave={p.tarea} />{p.tarea}</>}</span>
-            <span className="vt-lista-sala">{cabecera ? '' : p.quien ?? p.sala}</span>
-            <span className="vt-lista-cuando">{p.actividad}</span>
-            <button className="vt-pestana-x" onClick={e => { e.stopPropagation(); cerrar([p.id]); }} title={t('windows.closeTabAtajo', { shortcut: `${CMD}W` })}>×</button>
+        {views.map((p, k) => (<React.Fragment key={p.id}>
+          {group && p.group !== views[k - 1]?.group && (header ? header(p, views[k - 1]) : <div className="vt-lista-grupo">{p.group}</div>)}
+          <div className={'vt-lista-fila' + (p === sel ? ' sel' : '') + (p.id === active ? ' activa' : '') + (p.state ? ' e-' + p.state : '')} onMouseMove={() => setI(k)} onClick={() => activate(p.id)}>
+            <input type="checkbox" checked={marked.includes(p.id)} title={t('windows.selectTab')} onClick={e => e.stopPropagation()} onChange={() => setMarked(m => (m.includes(p.id) ? m.filter(x => x !== p.id) : [...m, p.id]))} />
+            <span className={'piloto ' + PILOT[p.state ?? 'ociosa']} />
+            <span className="vt-lista-estado">{p.state ? stateLabel(p.state) : ''}</span>
+            <span className="vt-lista-nombre">{p.draft && <DraftMark />}{p.name}</span>
+            <span className="vt-lista-tarea">{p.task && <><TaskMark key={p.task} />{p.task}</>}</span>
+            <span className="vt-lista-sala">{header ? '' : p.who ?? p.room}</span>
+            <span className="vt-lista-cuando">{p.activity}</span>
+            <button className="vt-pestana-x" onClick={e => { e.stopPropagation(); close([p.id]); }} title={t('windows.closeTabAtajo', { shortcut: `${CMD}W` })}>×</button>
           </div>
         </React.Fragment>))}
-        {!vistas.length && <div className="vt-lista-vacia">{t('windows.noTabsMatch')}</div>}
+        {!views.length && <div className="vt-lista-vacia">{t('windows.noTabsMatch')}</div>}
       </div>
       <div className="vt-lista-pie">
-        {boton(t('windows.closeSelected', { n: elegidas.length }), elegidas)}
-        {boton(t('windows.closeIdle', { n: ociosas.length }), ociosas)}
-        {sel?.tarea && boton(t('windows.closeTask', { tarea: sel.tarea, n: deTarea.length }), deTarea)}
+        {button(t('windows.closeSelected', { n: picked.length }), picked)}
+        {button(t('windows.closeIdle', { n: idle.length }), idle)}
+        {sel?.task && button(t('windows.closeTask', { tarea: sel.task, n: taskSession.length }), taskSession)}
         <span className="vt-lista-ayuda">{t('windows.tabListHelp')}</span>
       </div>
     </div>
@@ -186,18 +186,18 @@ export function TabList({ items, activa, activar, cerrar, salir, agrupar, cabece
 }
 
 // Cerrar termina lo que hay en marcha: se pregunta. Intro cierra, Esc cancela; o se minimiza y sigue.
-export function Confirmation({ titulo, texto, cerrar, minimizar, cancelar, boton = t('windows.closeAndEndEnter') }: { titulo: string; texto: React.ReactNode; cerrar: () => void; minimizar: () => void; cancelar: () => void; boton?: string }) {
+export function Confirmation({ title, text, close, minimize, cancel, button = t('windows.closeAndEndEnter') }: { title: string; text: React.ReactNode; close: () => void; minimize: () => void; cancel: () => void; button?: string }) {
   const si = useRef<HTMLButtonElement>(null);
   useEffect(() => { si.current?.focus(); }, []);
   return (
-    <div className="vt-confirmar" onKeyDown={e => { e.stopPropagation(); if (e.key === 'Escape') { e.preventDefault(); cancelar(); } }}>
+    <div className="vt-confirmar" onKeyDown={e => { e.stopPropagation(); if (e.key === 'Escape') { e.preventDefault(); cancel(); } }}>
       <div className="vt-confirmar-caja">
-        <p><b>{titulo}</b></p>
-        <p>{texto}</p>
+        <p><b>{title}</b></p>
+        <p>{text}</p>
         <div className="vt-confirmar-botones">
-          <button ref={si} className="consola-x" onClick={cerrar}>{boton}</button>
-          <button className="consola-x" onClick={minimizar}>{t('windows.minimize')}</button>
-          <button className="consola-x" onClick={cancelar}>{t('windows.cancelEsc')}</button>
+          <button ref={si} className="consola-x" onClick={close}>{button}</button>
+          <button className="consola-x" onClick={minimize}>{t('windows.minimize')}</button>
+          <button className="consola-x" onClick={cancel}>{t('windows.cancelEsc')}</button>
         </div>
       </div>
     </div>

@@ -38,15 +38,15 @@ function coordMoon(d: number) {
   return { ra: ascension(l, b), dec: declination(l, b), dist: 385001 - 20905 * Math.cos(M) };
 }
 // acimut desde el sur, positivo hacia el oeste; altura sobre el horizonte (radianes)
-function posicion(f: Date, c: { ra: number; dec: number }) {
+function position(f: Date, c: { ra: number; dec: number }) {
   const d = days(f), phi = RAD * LAT, H = sidereal(d, RAD * -LON) - c.ra;
   return {
     azimuth: Math.atan2(Math.sin(H), Math.cos(H) * Math.sin(phi) - Math.tan(c.dec) * Math.cos(phi)),
-    altura: Math.asin(Math.sin(phi) * Math.sin(c.dec) + Math.cos(phi) * Math.cos(c.dec) * Math.cos(H)),
+    altitude: Math.asin(Math.sin(phi) * Math.sin(c.dec) + Math.cos(phi) * Math.cos(c.dec) * Math.cos(H)),
   };
 }
-const sunIn = (f: Date) => posicion(f, coordSun(days(f)));
-const moonIn = (f: Date) => posicion(f, coordMoon(days(f)));
+const sunIn = (f: Date) => position(f, coordSun(days(f)));
+const moonIn = (f: Date) => position(f, coordMoon(days(f)));
 /** fracción iluminada, ángulo de fase (0 llena, π nueva) y si crece (iluminada por la derecha, vista desde el norte) */
 function moonPhase(f: Date) {
   const d = days(f), s = coordSun(d), m = coordMoon(d), DS = 149598000;
@@ -57,48 +57,48 @@ function moonPhase(f: Date) {
 }
 /** salida y puesta del sol de ese día (hora local, «HH:MM»), buscando el cruce del borde del disco por el horizonte */
 function settingOutput(f: Date) {
-  const dia = new Date(f); dia.setHours(0, 0, 0, 0);
-  const alt = (min: number) => sunIn(new Date(dia.valueOf() + min * 60000)).altura / RAD + 0.833;
-  let sale = '', pone = '';
+  const day = new Date(f); day.setHours(0, 0, 0, 0);
+  const alt = (min: number) => sunIn(new Date(day.valueOf() + min * 60000)).altitude / RAD + 0.833;
+  let sale = '', sunset = '';
   for (let m = 0; m < 1440; m += 2) {
     const a = alt(m), b = alt(m + 2);
     // hora de reloj del cruce (no minutos desde medianoche: el día del cambio de hora no coinciden)
-    const hhmm = () => { const t = new Date(dia.valueOf() + (m + 2 * a / (a - b)) * 60000); return `${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}`; };
-    if (a < 0 && b >= 0) sale = hhmm(); else if (a >= 0 && b < 0) pone = hhmm();
+    const hhmm = () => { const t = new Date(day.valueOf() + (m + 2 * a / (a - b)) * 60000); return `${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}`; };
+    if (a < 0 && b >= 0) sale = hhmm(); else if (a >= 0 && b < 0) sunset = hhmm();
   }
-  return { sale, pone };
+  return { sale, sunset };
 }
 
 // ---- paletas por altura del sol (grados). Cielo: horizonte, bajo, medio y alto (sRGB). Luz de fuera: `albedo`
 // multiplica el color de las piezas (compensa la luz direccional del refugio, que no cambia), `tinte` y `k` son el tono
 // y la fuerza de su emisión propia
-interface Key { alt: number; cielo: [string, string, string, string]; sun: string; albedo: string; tinte: string; k: number; lightCloud: string; shadowCloud: string }
-const NIGHT: Key = { alt: -15, cielo: ['#34405f', '#1f2846', '#11182e', '#080c1a'], sun: '#ff6a3a', albedo: '#3c4460', tinte: '#7088c4', k: 0.52, lightCloud: '#2c3448', shadowCloud: '#141a28' };
-const DAY: Key = { alt: 24, cielo: ['#dccaa2', '#b6bdb2', '#78a2c4', '#5280b0'], sun: '#fff2d8', albedo: '#ffffff', tinte: '#fff0dc', k: 0.8, lightCloud: '#f4ead8', shadowCloud: '#b8aa96' };
+interface Key { alt: number; sky: [string, string, string, string]; sun: string; albedo: string; tint: string; k: number; lightCloud: string; shadowCloud: string }
+const NIGHT: Key = { alt: -15, sky: ['#34405f', '#1f2846', '#11182e', '#080c1a'], sun: '#ff6a3a', albedo: '#3c4460', tint: '#7088c4', k: 0.52, lightCloud: '#2c3448', shadowCloud: '#141a28' };
+const DAY: Key = { alt: 24, sky: ['#dccaa2', '#b6bdb2', '#78a2c4', '#5280b0'], sun: '#fff2d8', albedo: '#ffffff', tint: '#fff0dc', k: 0.8, lightCloud: '#f4ead8', shadowCloud: '#b8aa96' };
 const MORNING: Key[] = [
   NIGHT,
-  { alt: -6, cielo: ['#8a6a7c', '#4e4a70', '#2c3054', '#161c36'], sun: '#ff7a6a', albedo: '#6a6278', tinte: '#a08cc4', k: 0.6, lightCloud: '#6a5a78', shadowCloud: '#2a2a44' },
-  { alt: 0, cielo: ['#f7a77c', '#d48a88', '#7c6a92', '#3a4068'], sun: '#ff9466', albedo: '#d0aca4', tinte: '#ffb0a4', k: 0.9, lightCloud: '#ffb49a', shadowCloud: '#7a5a72' },
-  { alt: 8, cielo: ['#f6c690', '#dcae94', '#9a9ca8', '#5a6a86'], sun: '#ffcc8a', albedo: '#f4e2cc', tinte: '#ffd0a8', k: 0.88, lightCloud: '#ffdcb4', shadowCloud: '#a08a8a' },
+  { alt: -6, sky: ['#8a6a7c', '#4e4a70', '#2c3054', '#161c36'], sun: '#ff7a6a', albedo: '#6a6278', tint: '#a08cc4', k: 0.6, lightCloud: '#6a5a78', shadowCloud: '#2a2a44' },
+  { alt: 0, sky: ['#f7a77c', '#d48a88', '#7c6a92', '#3a4068'], sun: '#ff9466', albedo: '#d0aca4', tint: '#ffb0a4', k: 0.9, lightCloud: '#ffb49a', shadowCloud: '#7a5a72' },
+  { alt: 8, sky: ['#f6c690', '#dcae94', '#9a9ca8', '#5a6a86'], sun: '#ffcc8a', albedo: '#f4e2cc', tint: '#ffd0a8', k: 0.88, lightCloud: '#ffdcb4', shadowCloud: '#a08a8a' },
   DAY,
 ];
-const TARDE: Key[] = [
+const AFTERNOON: Key[] = [
   NIGHT,
-  { alt: -6, cielo: ['#8a4e4a', '#523448', '#2c2440', '#141428'], sun: '#ff5a2a', albedo: '#6a5662', tinte: '#b07888', k: 0.6, lightCloud: '#6a3c44', shadowCloud: '#261c2c' },
-  { alt: 0, cielo: ['#f28a42', '#c05e3c', '#5e3640', '#26202e'], sun: '#ff7434', albedo: '#d8a88c', tinte: '#ff9c68', k: 1.0, lightCloud: '#ff9a5a', shadowCloud: '#5a3034' },
-  { alt: 8, cielo: ['#f4b472', '#d8925e', '#94706c', '#4e4c64'], sun: '#ffb460', albedo: '#f2d4b4', tinte: '#ffbc84', k: 0.92, lightCloud: '#ffc488', shadowCloud: '#8a6458' },
+  { alt: -6, sky: ['#8a4e4a', '#523448', '#2c2440', '#141428'], sun: '#ff5a2a', albedo: '#6a5662', tint: '#b07888', k: 0.6, lightCloud: '#6a3c44', shadowCloud: '#261c2c' },
+  { alt: 0, sky: ['#f28a42', '#c05e3c', '#5e3640', '#26202e'], sun: '#ff7434', albedo: '#d8a88c', tint: '#ff9c68', k: 1.0, lightCloud: '#ff9a5a', shadowCloud: '#5a3034' },
+  { alt: 8, sky: ['#f4b472', '#d8925e', '#94706c', '#4e4c64'], sun: '#ffb460', albedo: '#f2d4b4', tint: '#ffbc84', k: 0.92, lightCloud: '#ffc488', shadowCloud: '#8a6458' },
   DAY,
 ];
 const lin = (h: string) => new THREE.Color(h);   // THREE.Color convierte de sRGB a lineal
-type KeyLin = { alt: number; cielo: THREE.Color[]; sun: THREE.Color; albedo: THREE.Color; tinte: THREE.Color; k: number; lightCloud: THREE.Color; shadowCloud: THREE.Color };
-const aLin = (c: Key): KeyLin => ({ alt: c.alt, cielo: c.cielo.map(lin), sun: lin(c.sun), albedo: lin(c.albedo), tinte: lin(c.tinte), k: c.k, lightCloud: lin(c.lightCloud), shadowCloud: lin(c.shadowCloud) });
-const MORNING_L = MORNING.map(aLin), AFTERNOON_L = TARDE.map(aLin);
-function mezclar(claves: KeyLin[], alt: number, out: KeyLin) {
-  let i = 0; while (i < claves.length - 2 && alt > claves[i + 1].alt) i++;
-  const a = claves[i], b = claves[i + 1];
+type KeyLin = { alt: number; sky: THREE.Color[]; sun: THREE.Color; albedo: THREE.Color; tint: THREE.Color; k: number; lightCloud: THREE.Color; shadowCloud: THREE.Color };
+const toLin = (c: Key): KeyLin => ({ alt: c.alt, sky: c.sky.map(lin), sun: lin(c.sun), albedo: lin(c.albedo), tint: lin(c.tint), k: c.k, lightCloud: lin(c.lightCloud), shadowCloud: lin(c.shadowCloud) });
+const MORNING_L = MORNING.map(toLin), AFTERNOON_L = AFTERNOON.map(toLin);
+function mix(keys: KeyLin[], alt: number, out: KeyLin) {
+  let i = 0; while (i < keys.length - 2 && alt > keys[i + 1].alt) i++;
+  const a = keys[i], b = keys[i + 1];
   const t = THREE.MathUtils.smoothstep(alt, a.alt, b.alt);
-  for (let j = 0; j < 4; j++) out.cielo[j].copy(a.cielo[j]).lerp(b.cielo[j], t);
-  out.sun.copy(a.sun).lerp(b.sun, t); out.albedo.copy(a.albedo).lerp(b.albedo, t); out.tinte.copy(a.tinte).lerp(b.tinte, t);
+  for (let j = 0; j < 4; j++) out.sky[j].copy(a.sky[j]).lerp(b.sky[j], t);
+  out.sun.copy(a.sun).lerp(b.sun, t); out.albedo.copy(a.albedo).lerp(b.albedo, t); out.tint.copy(a.tint).lerp(b.tint, t);
   out.lightCloud.copy(a.lightCloud).lerp(b.lightCloud, t); out.shadowCloud.copy(a.shadowCloud).lerp(b.shadowCloud, t);
   out.k = a.k + (b.k - a.k) * t;
 }
@@ -108,12 +108,12 @@ function mezclar(claves: KeyLin[], alt: number, out: KeyLin) {
  * alumbra la farola de noche; `farol`: el cristal de una lámpara (MeshBasic); `rotulo`: el cartel; `poza`: luz falsa
  * en el suelo (aditiva); `piloto`: luz roja que parpadea */
 export type Paper = 'pieza' | 'lejos' | 'junto-luz' | 'farol' | 'rotulo' | 'poza' | 'piloto';
-interface Registro { papel: Paper; color: THREE.Color; k: number; opacidad: number }
-const registro = new Map<THREE.Material, Registro>();
-const pilotos = new Set<THREE.Material>();
-export function exterior<M extends THREE.Material>(mat: M, papel: Paper): M {
-  if (!registro.has(mat)) { const m = mat as any; registro.set(mat, { papel, color: m.color?.clone() ?? new THREE.Color(), k: m.emissiveIntensity ?? 1, opacidad: m.opacity ?? 1 }); }
-  if (papel === 'piloto') pilotos.add(mat);
+interface Entry { paper: Paper; color: THREE.Color; k: number; opacity: number }
+const registry = new Map<THREE.Material, Entry>();
+const pilots = new Set<THREE.Material>();
+export function exterior<M extends THREE.Material>(mat: M, paper: Paper): M {
+  if (!registry.has(mat)) { const m = mat as any; registry.set(mat, { paper, color: m.color?.clone() ?? new THREE.Color(), k: m.emissiveIntensity ?? 1, opacity: m.opacity ?? 1 }); }
+  if (paper === 'piloto') pilots.add(mat);
   if (currentSky) currentSky.retouch(mat);
   return mat;
 }
@@ -182,28 +182,28 @@ void main() {
 const SKY_HEIGHT = 60, SKY_WIDTH = 260;
 
 export class Sky {
-  grupo = new THREE.Group();
+  group = new THREE.Group();
   private mat: THREE.ShaderMaterial;
   private stars: THREE.Points;
   private camara: THREE.PerspectiveCamera;
-  private escena: THREE.Scene;
+  private scene: THREE.Scene;
   private z: number;
   private fixed: Date | null = null;
-  private espera = 0;
+  private wait = 0;
   private t = 0;
-  private parpadeo = 0;
+  private flicker = 0;
   // estado calculado (4 veces por segundo)
-  private mix: KeyLin = aLin(NIGHT);
+  private mix: KeyLin = toLin(NIGHT);
   private uSun = 0; private ySun = 0; private uMoon = 0; private yMoon = 0;
-  private night = 1; private lamparas = 1; private lightMoon = 0;
+  private night = 1; private lamps = 1; private lightMoon = 0;
   private altSun = 0; private altMoon = 0;
   private moon = { fraction: 0, inc: 0, grows: true };
-  private niebla = new THREE.Color('#0a0908'); private fogBase = new THREE.Color('#0a0908');
+  private fog = new THREE.Color('#0a0908'); private fogBase = new THREE.Color('#0a0908');
 
   /** `y`: altura de la calle (el borde inferior del cielo); `z`: plano del cielo, detrás de las colinas */
   constructor(motor: { camera: THREE.PerspectiveCamera; scene: THREE.Scene }, y: number, z = -40) {
-    this.camara = motor.camera; this.escena = motor.scene; this.z = z;
-    this.grupo.name = 'cielo'; this.grupo.position.set(0, y, z);
+    this.camara = motor.camera; this.scene = motor.scene; this.z = z;
+    this.group.name = 'cielo'; this.group.position.set(0, y, z);
     const u = (v: any) => ({ value: v });
     this.mat = new THREE.ShaderMaterial({
       vertexShader: VERT, fragmentShader: FRAG, depthWrite: false,
@@ -215,33 +215,33 @@ export class Sky {
       },
     });
     const geo = new THREE.PlaneGeometry(SKY_WIDTH, SKY_HEIGHT); geo.translate(0, SKY_HEIGHT / 2, 0);
-    const plano = new THREE.Mesh(geo, this.mat);
+    const plane = new THREE.Mesh(geo, this.mat);
     // primero de todo y sin escribir profundidad: todo lo opaco lo tapa (las colinas ocultan el sol al salir)
-    plano.renderOrder = -10; plano.frustumCulled = false;
-    this.grupo.add(plano);
-    this.stars = this.createStars(); this.grupo.add(this.stars);
+    plane.renderOrder = -10; plane.frustumCulled = false;
+    this.group.add(plane);
+    this.stars = this.createStars(); this.group.add(this.stars);
     // reloj: ?hora=HH:MM fija la hora (QA)
-    const q = new URLSearchParams(location.search).get('hora'); if (q) this.fixed = Sky.leer(q);
+    const q = new URLSearchParams(location.search).get('hora'); if (q) this.fixed = Sky.read(q);
     currentSky = this;
     (window as any).__sky = {
-      pin: (h: string | null) => { this.fixed = h == null ? null : Sky.leer(h); this.compute(); return this.info(); },
-      advance: (min: number) => { this.fixed = new Date(this.ahora().valueOf() + min * 60000); this.compute(); return this.info(); },
+      pin: (h: string | null) => { this.fixed = h == null ? null : Sky.read(h); this.compute(); return this.info(); },
+      advance: (min: number) => { this.fixed = new Date(this.now().valueOf() + min * 60000); this.compute(); return this.info(); },
       info: () => this.info(),
     };
     this.compute();
   }
 
   /** «HH:MM» (hoy) o una fecha que entienda Date («2026-06-21T21:30») */
-  static leer(h: string) {
+  static read(h: string) {
     const m = /^(\d{1,2}):(\d{2})$/.exec(h.trim());
     if (m) { const f = new Date(); f.setHours(+m[1], +m[2], 0, 0); return f; }
     const f = new Date(h); return isNaN(f.valueOf()) ? new Date() : f;
   }
-  private ahora() { return this.fixed ? new Date(this.fixed) : new Date(); }
+  private now() { return this.fixed ? new Date(this.fixed) : new Date(); }
 
   info() {
-    const f = this.ahora(), sp = settingOutput(f);
-    return { hora: f.toLocaleString('es-ES'), sun: +(this.altSun / RAD).toFixed(1), salida: sp.sale, setting: sp.pone, moon: +(this.altMoon / RAD).toFixed(1), iluminada: +this.moon.fraction.toFixed(2), night: +this.night.toFixed(2), lamparas: +this.lamparas.toFixed(2), fixed: !!this.fixed };
+    const f = this.now(), sp = settingOutput(f);
+    return { time: f.toLocaleString('es-ES'), sun: +(this.altSun / RAD).toFixed(1), output: sp.sale, setting: sp.sunset, moon: +(this.altMoon / RAD).toFixed(1), lit: +this.moon.fraction.toFixed(2), night: +this.night.toFixed(2), lamps: +this.lamps.toFixed(2), fixed: !!this.fixed };
   }
 
   private createStars() {
@@ -267,88 +267,88 @@ export class Sky {
 
   // ---- 4 veces por segundo: astronomía, paletas y materiales
   private compute() {
-    const f = this.ahora();
+    const f = this.now();
     const sun = sunIn(f), moon = moonIn(f);
-    this.altSun = sun.altura; this.altMoon = moon.altura;
-    const alt = sun.altura / RAD;
+    this.altSun = sun.altitude; this.altMoon = moon.altitude;
+    const alt = sun.altitude / RAD;
     // mañana (sol al este, acimut < 0) o tarde: alba rosada o atardecer naranja; a mediodía y medianoche coinciden
-    mezclar(sun.azimuth < 0 ? MORNING_L : AFTERNOON_L, alt, this.mix);
+    mix(sun.azimuth < 0 ? MORNING_L : AFTERNOON_L, alt, this.mix);
     const mz = this.mix, U = this.mat.uniforms;
-    U.uC0.value.copy(mz.cielo[0]); U.uC1.value.copy(mz.cielo[1]); U.uC2.value.copy(mz.cielo[2]); U.uC3.value.copy(mz.cielo[3]);
+    U.uC0.value.copy(mz.sky[0]); U.uC1.value.copy(mz.sky[1]); U.uC2.value.copy(mz.sky[2]); U.uC3.value.copy(mz.sky[3]);
     U.uSunColor.value.copy(mz.sun); U.uCloudLight.value.copy(mz.lightCloud); U.uCloudShadow.value.copy(mz.shadowCloud);
     // el sol cruza de izquierda (este) a derecha (oeste): se mira al sur. Altura comprimida para que quepa en la franja
     // de cielo que se ve (≈15 m sobre la calle en la vista general)
     const inX = (az: number) => THREE.MathUtils.clamp(az / (115 * RAD), -1, 1) * 0.8;
     // (raíz: sube deprisa al principio, para que el sol bajo asome sobre las mesetas del fondo un buen rato)
     const inY = (a: number) => a >= 0 ? Math.min(12.6, 4.5 + 10 * Math.sqrt(Math.sin(a) / Math.sin(45 * RAD))) : 4.5 + 30 * Math.sin(Math.max(a, -0.3));
-    this.uSun = inX(sun.azimuth); this.ySun = inY(sun.altura);
+    this.uSun = inX(sun.azimuth); this.ySun = inY(sun.altitude);
     U.uSunVis.value = THREE.MathUtils.smoothstep(alt, -1.5, 0.5);
     // la atmósfera agranda y apaga el sol bajo; alto, es un punto pequeño que deslumbra
-    const alto = THREE.MathUtils.smoothstep(alt, 2, 22);
-    U.uSunR.value = 2.75 - 0.75 * alto; U.uGlow.value = alto;
+    const height = THREE.MathUtils.smoothstep(alt, 2, 22);
+    U.uSunR.value = 2.75 - 0.75 * height; U.uGlow.value = height;
     U.uHalo.value = THREE.MathUtils.smoothstep(alt, -12, -1) * (1 - 0.55 * THREE.MathUtils.smoothstep(alt, 6, 30));
     this.night = 1 - THREE.MathUtils.smoothstep(alt, -13, -3);
-    this.lamparas = 1 - THREE.MathUtils.smoothstep(alt, -3, 4);
+    this.lamps = 1 - THREE.MathUtils.smoothstep(alt, -3, 4);
     // luna: su fase real; de día casi no se ve
     this.moon = moonPhase(f);
-    this.uMoon = inX(moon.azimuth); this.yMoon = inY(moon.altura);
+    this.uMoon = inX(moon.azimuth); this.yMoon = inY(moon.altitude);
     const L = this.moon.inc;
     U.uMoonL.value.set(Math.sin(L) * (this.moon.grows ? 1 : -1), 0.05, Math.cos(L)).normalize();
-    U.uMoonVis.value = THREE.MathUtils.smoothstep(moon.altura / RAD, -1.5, 1) * (0.25 + 0.75 * (1 - THREE.MathUtils.smoothstep(alt, -4, 8))) * (this.moon.fraction > 0.03 ? 1 : 0);
+    U.uMoonVis.value = THREE.MathUtils.smoothstep(moon.altitude / RAD, -1.5, 1) * (0.25 + 0.75 * (1 - THREE.MathUtils.smoothstep(alt, -4, 8))) * (this.moon.fraction > 0.03 ? 1 : 0);
     // con luna alta y llena, la noche clarea un poco
-    this.lightMoon = 0.22 * this.night * this.moon.fraction * THREE.MathUtils.smoothstep(moon.altura / RAD, 0, 25);
+    this.lightMoon = 0.22 * this.night * this.moon.fraction * THREE.MathUtils.smoothstep(moon.altitude / RAD, 0, 25);
     (this.stars.material as THREE.PointsMaterial).opacity = this.night * (1 - 0.35 * this.lightMoon / 0.22);
     this.stars.visible = this.night > 0.01;
     U.uClouds.value = 0.45 + 0.15 * (1 - this.night);
     // niebla: un poco del horizonte, para que las colinas del fondo no se hundan en negro de día (las salas, cerca, no la notan)
-    this.niebla.copy(this.fogBase).lerp(mz.cielo[0], 0.08 + 0.1 * (1 - this.night));
-    if (this.escena.fog) (this.escena.fog as THREE.Fog).color.copy(this.niebla);
-    for (const m of registro.keys()) this.retouch(m);
+    this.fog.copy(this.fogBase).lerp(mz.sky[0], 0.08 + 0.1 * (1 - this.night));
+    if (this.scene.fog) (this.scene.fog as THREE.Fog).color.copy(this.fog);
+    for (const m of registry.keys()) this.retouch(m);
   }
 
   private c = new THREE.Color();
   retouch(m: THREE.Material) {
-    const r = registro.get(m); if (!r) return;
+    const r = registry.get(m); if (!r) return;
     const a = m as any, mz = this.mix;
-    switch (r.papel) {
-      case 'farol': a.color.copy(OFF_LANTERN).lerp(LIT_LANTERN, this.lamparas); break;
-      case 'poza': a.opacity = r.opacidad * this.lamparas; m.visible = this.lamparas > 0.01; break;
+    switch (r.paper) {
+      case 'farol': a.color.copy(OFF_LANTERN).lerp(LIT_LANTERN, this.lamps); break;
+      case 'poza': a.opacity = r.opacity * this.lamps; m.visible = this.lamps > 0.01; break;
       case 'piloto': break;   // lo lleva el parpadeo
       case 'rotulo':
         a.color.copy(r.color).multiply(mz.albedo);
-        a.emissiveIntensity = r.k * (0.55 + 0.45 * mz.k) + this.lamparas * 0.75;
+        a.emissiveIntensity = r.k * (0.55 + 0.45 * mz.k) + this.lamps * 0.75;
         break;
       default: {
         // la luz de fuera tiñe sin lavar: el emisivo es el color de la pieza por el de la luz (y un poco de luz sola,
         // que levanta las sombras como la del cielo); el albedo, más alto, deja que la luz direccional marque el volumen
         a.color.copy(r.color).multiply(mz.albedo).multiplyScalar(ALBEDO);
-        a.emissive.copy(r.color).multiply(mz.tinte).multiplyScalar(1.6).add(this.c.copy(mz.tinte).multiplyScalar(0.035));
+        a.emissive.copy(r.color).multiply(mz.tint).multiplyScalar(1.6).add(this.c.copy(mz.tint).multiplyScalar(0.035));
         a.emissiveIntensity = r.k * (mz.k + this.lightMoon);
-        if (r.papel === 'lejos') {
+        if (r.paper === 'lejos') {
           // bruma: las colinas del fondo se acercan al color del horizonte
-          a.color.multiplyScalar(0.8); a.emissive.lerp(this.c.copy(mz.cielo[0]).multiplyScalar(0.5), 0.3); a.emissiveIntensity *= 1.1;
-        } else if (r.papel === 'junto-luz' && this.lamparas > 0) {
-          a.emissive.add(this.c.copy(STREETLIGHT_LIGHT).multiplyScalar(0.06 * this.lamparas));
+          a.color.multiplyScalar(0.8); a.emissive.lerp(this.c.copy(mz.sky[0]).multiplyScalar(0.5), 0.3); a.emissiveIntensity *= 1.1;
+        } else if (r.paper === 'junto-luz' && this.lamps > 0) {
+          a.emissive.add(this.c.copy(STREETLIGHT_LIGHT).multiplyScalar(0.06 * this.lamps));
         }
       }
     }
   }
 
   // ---- cada fotograma: seguir a la cámara (el cielo está «en el infinito»: no se queda atrás al moverse)
-  actualizar(dt: number) {
-    this.t += dt; this.espera -= dt;
-    if (this.espera <= 0) { this.espera = 0.25; this.compute(); }
+  update(dt: number) {
+    this.t += dt; this.wait -= dt;
+    if (this.wait <= 0) { this.wait = 0.25; this.compute(); }
     const cam = this.camara;
-    const lejos = Math.max(10, cam.position.z - this.z);
-    const ancho = lejos * Math.tan(THREE.MathUtils.degToRad(cam.fov / 2)) * cam.aspect;   // medio ancho visible en el plano
-    const escala = lejos / 148;   // tamaño aparente del sol y la luna constante con el zoom (148: la vista general)
-    this.grupo.position.x = cam.position.x;
+    const farSide = Math.max(10, cam.position.z - this.z);
+    const width = farSide * Math.tan(THREE.MathUtils.degToRad(cam.fov / 2)) * cam.aspect;   // medio ancho visible en el plano
+    const scale = farSide / 148;   // tamaño aparente del sol y la luna constante con el zoom (148: la vista general)
+    this.group.position.x = cam.position.x;
     const U = this.mat.uniforms;
-    U.uSun.value.set(this.uSun * ancho, this.ySun); U.uMoon.value.set(this.uMoon * ancho, this.yMoon);
-    U.uScale.value = escala; U.uTiempo.value = this.t; U.uShift.value = cam.position.x * 0.35;
+    U.uSun.value.set(this.uSun * width, this.ySun); U.uMoon.value.set(this.uMoon * width, this.yMoon);
+    U.uScale.value = scale; U.uTiempo.value = this.t; U.uShift.value = cam.position.x * 0.35;
     // piloto de la antena: destello corto cada 1,6 s (de día, apenas)
-    this.parpadeo = (this.parpadeo + dt) % 1.6;
-    const on = this.parpadeo < 0.18 ? 1 : 0;
-    for (const m of pilotos) (m as any).color.copy(PILOT).multiplyScalar(0.12 + on * (0.6 + 3 * this.lamparas));
+    this.flicker = (this.flicker + dt) % 1.6;
+    const on = this.flicker < 0.18 ? 1 : 0;
+    for (const m of pilots) (m as any).color.copy(PILOT).multiplyScalar(0.12 + on * (0.6 + 3 * this.lamps));
   }
 }

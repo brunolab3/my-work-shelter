@@ -14,7 +14,7 @@ export class Field {
   v = new Float32Array(NT * NP);
   ok = new Uint8Array(NT * NP);
   /** valor en una dirección (no hace falta normalizarla), interpolado entre las cuatro celdas vecinas */
-  muestra(x: number, y: number, z: number) {
+  sample(x: number, y: number, z: number) {
     const r = Math.hypot(x, y, z) || 1;
     const fi = Math.acos(Math.max(-1, Math.min(1, y / r))) / DT - 0.5, fj = (Math.atan2(x, z) + Math.PI) / DP - 0.5;
     const i0 = Math.floor(fi), j0 = Math.floor(fj), ti = fi - i0, tj = fj - j0;
@@ -28,7 +28,7 @@ export class Field {
     for (let k = 0; k < this.v.length; k++) if (this.ok[k]) { dirCell((k / NP) | 0, k % NP, d); fn(this.v[k], d.x, d.y, d.z); }
   }
   /** valor de la celda más cercana, o null si no se midió */
-  celda(x: number, y: number, z: number) {
+  cell(x: number, y: number, z: number) {
     const r = Math.hypot(x, y, z) || 1;
     const i = Math.min(NT - 1, Math.floor(Math.acos(Math.max(-1, Math.min(1, y / r))) / DT)), j = Math.min(NP - 1, Math.floor((Math.atan2(x, z) + Math.PI) / DP));
     const k = i * NP + j; return this.ok[k] ? this.v[k] : null;
@@ -43,12 +43,12 @@ const dirCell = (i: number, j: number, out: THREE.Vector3) => {
 /** Mide a qué distancia del centro corta cada dirección unos triángulos: el primer corte (`min`, la cara de dentro de
  *  un sombrero) o el último (`max`, la superficie de fuera). Los triángulos son tríos de puntos en `pos`. Con `desde`,
  *  no cuenta lo que queda más cerca que eso (las tapas de una cinta, escondidas dentro de la cabeza). */
-export function measureField(pos: ArrayLike<number>, tris: ArrayLike<number>, modo: 'min' | 'max' = 'min', desde?: (x: number, y: number, z: number) => number, c = HEAD_CENTER): Field {
-  const campo = new Field();
-  const minimo = new Float32Array(NT * NP).fill(-1);
+export function measureField(pos: ArrayLike<number>, tris: ArrayLike<number>, mode: 'min' | 'max' = 'min', since?: (x: number, y: number, z: number) => number, c = HEAD_CENTER): Field {
+  const field = new Field();
+  const min = new Float32Array(NT * NP).fill(-1);
   const a = new THREE.Vector3(), b = new THREE.Vector3(), d = new THREE.Vector3(), e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), p = new THREE.Vector3(), q = new THREE.Vector3(), s = new THREE.Vector3(), dir = new THREE.Vector3();
   const th = [0, 0, 0], ph = [0, 0, 0];
-  const corte = (o: THREE.Vector3) => {   // Möller-Trumbore desde el centro
+  const truncation = (o: THREE.Vector3) => {   // Möller-Trumbore desde el centro
     p.crossVectors(o, e2); const det = e1.dot(p); if (Math.abs(det) < 1e-12) return -1;
     const inv = 1 / det; s.subVectors(c, a); const u = s.dot(p) * inv; if (u < 0 || u > 1) return -1;
     q.crossVectors(s, e1); const v = o.dot(q) * inv; if (v < 0 || u + v > 1) return -1;
@@ -63,35 +63,35 @@ export function measureField(pos: ArrayLike<number>, tris: ArrayLike<number>, mo
     // caja en latitud y longitud (con la costura de detrás y los polos)
     let tmin = Math.min(...th), tmax = Math.max(...th), pmin = Math.min(...ph), pmax = Math.max(...ph);
     if (pmax - pmin > Math.PI) { const u = ph.map(x => (x < 0 ? x + 2 * Math.PI : x)); pmin = Math.min(...u); pmax = Math.max(...u); }
-    let todo = false;
-    if (corte(dir.set(0, 1, 0)) > 0) { tmin = 0; todo = true; }
-    if (corte(dir.set(0, -1, 0)) > 0) { tmax = Math.PI; todo = true; }
+    let all = false;
+    if (truncation(dir.set(0, 1, 0)) > 0) { tmin = 0; all = true; }
+    if (truncation(dir.set(0, -1, 0)) > 0) { tmax = Math.PI; all = true; }
     const i0 = Math.max(0, Math.floor(tmin / DT) - 1), i1 = Math.min(NT - 1, Math.ceil(tmax / DT) + 1);
-    const j0 = todo ? 0 : Math.floor((pmin + Math.PI) / DP) - 1, j1 = todo ? NP - 1 : Math.ceil((pmax + Math.PI) / DP) + 1;
+    const j0 = all ? 0 : Math.floor((pmin + Math.PI) / DP) - 1, j1 = all ? NP - 1 : Math.ceil((pmax + Math.PI) / DP) + 1;
     for (let i = i0; i <= i1; i++) for (let jj = j0; jj <= j1; jj++) {
       const j = ((jj % NP) + NP) % NP, k = i * NP + j;
-      const r = corte(dirCell(i, j, dir)); if (r < 0) continue;
-      if (desde) { if (minimo[k] < 0) minimo[k] = desde(dir.x, dir.y, dir.z); if (r < minimo[k]) continue; }
-      if (!campo.ok[k] || (modo === 'min' ? r < campo.v[k] : r > campo.v[k])) { campo.v[k] = r; campo.ok[k] = 1; }
+      const r = truncation(dirCell(i, j, dir)); if (r < 0) continue;
+      if (since) { if (min[k] < 0) min[k] = since(dir.x, dir.y, dir.z); if (r < min[k]) continue; }
+      if (!field.ok[k] || (mode === 'min' ? r < field.v[k] : r > field.v[k])) { field.v[k] = r; field.ok[k] = 1; }
     }
   }
-  return campo;
+  return field;
 }
 
 /** Rellena lo que no se midió con lo más liso que casa con lo medido (sobrerrelajación de Gauss-Seidel: cada celda,
  *  la media de sus cuatro vecinas; por encima de los polos, la del otro lado) */
-export function rellenar(c: Field, vueltas = 400): Field {
-  let suma = 0, n = 0;
-  for (let k = 0; k < c.v.length; k++) if (c.ok[k]) { suma += c.v[k]; n++; }
-  const media = n ? suma / n : 1;
+export function fill(c: Field, iterations = 400): Field {
+  let sum = 0, n = 0;
+  for (let k = 0; k < c.v.length; k++) if (c.ok[k]) { sum += c.v[k]; n++; }
+  const media = n ? sum / n : 1;
   const free: number[] = [];
   for (let k = 0; k < c.v.length; k++) if (!c.ok[k]) { c.v[k] = media; free.push(k); }
   const W = 1.85;
-  for (let it = 0; it < vueltas; it++) for (const k of free) {
+  for (let it = 0; it < iterations; it++) for (const k of free) {
     const i = (k / NP) | 0, j = k % NP;
-    const arriba = i > 0 ? c.v[k - NP] : c.v[(j + NP / 2) % NP];
-    const abajo = i < NT - 1 ? c.v[k + NP] : c.v[(NT - 1) * NP + ((j + NP / 2) % NP)];
-    const m = (arriba + abajo + c.v[i * NP + ((j + 1) % NP)] + c.v[i * NP + ((j + NP - 1) % NP)]) / 4;
+    const above = i > 0 ? c.v[k - NP] : c.v[(j + NP / 2) % NP];
+    const below = i < NT - 1 ? c.v[k + NP] : c.v[(NT - 1) * NP + ((j + NP / 2) % NP)];
+    const m = (above + below + c.v[i * NP + ((j + 1) % NP)] + c.v[i * NP + ((j + NP - 1) % NP)]) / 4;
     c.v[k] += W * (m - c.v[k]);
   }
   return c;

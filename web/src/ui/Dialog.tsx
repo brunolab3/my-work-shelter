@@ -18,41 +18,41 @@
 //   un worktree, su pestaña pasa a la ventana de la copia, y si se estaba viendo, se sigue con la copia.
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { SessionSummary, LogInput, HistoryElement, Command, PendingRequest, Visitante } from '@shared/protocol';
+import type { SessionSummary, LogInput, HistoryElement, Command, PendingRequest, Visitor } from '@shared/protocol';
 import { MODELS, EFFORTS, PERMISSION_MODES } from '@shared/protocol';
 import { t, tIs, trBio } from '@shared/language';
 import { juego, type DwellerSummary } from './gameState';
-import { vivo, cliente, loadLog } from '../net/client';
+import { live, client, loadLog } from '../net/client';
 import { markdown, markdownLine } from './markdown';
 import { RequestView, ToolText } from './plainText';
-import { teclado } from '../engine/keyboard';
+import { keyboard } from '../engine/keyboard';
 import { SFX } from '../audio/sound';
 import { physicsKey } from '../audio/keyboard';
 import { Store } from './store';
-import { useMenu as useMenuBase, Opciones } from './device';
+import { useMenu as useMenuBase, Options } from './device';
 import { CMD, MAC, nextZ, windowShortcut, WindowButtons, Tabs, TabList, DraftMark, TaskMark, Confirmation, nthTab, nextTab, PILOT, stateLabel, type ItemTab, type TabState } from './windows';
 import { sessionOwner, interlocutor, branchCaption, copyCaption, pathWorktree, worktreesKnown } from './copies';
 import { Usage } from './usage';
-import { takeASurface, aAppClaude } from './surface';
+import { takeASurface, toClaudeApp } from './surface';
 import { openLink, openPage, pageForSession, pageAnswers, pageNotes, validatePage, revealPage, makeRoomForIntercom, answerPage } from './Browsers';
 import { sessionPages, pendingPages, samePage, livePages, questionInput } from '@shared/sessionPages';
 import { describeWhen, describeWhenShort, ofConversation, ofPlace, type ScheduledMessage } from '@shared/scheduled';
 import type { PRBoard } from '@shared/board';
 import { worktreePRs, worktreeTask, taskColor } from '@shared/tasks';
 import { lookOf, lookSignature } from '@shared/appearance';
-import { miniatura } from '../world/figure/studio';
+import { thumbnail } from '../world/figure/studio';
 import { openPreflight } from './Preflight';
 import { taskHasPRs } from '@shared/preflight';
 import { recentFirst } from '@shared/recent';
 import { groupTabs, talkerFirst } from './tabOrder';
 import { jiraBoard, knowTasks, myPRs, useColorsTasks } from './tasks';
-import { type AttachmentLocal, uploadFiles, chooseFiles, subiendo, listsPaths, AttachmentsTray, SentAttachments, useDictation, InputButtons, DictationStrip, attachShortcut } from './inputLine';
+import { type AttachmentLocal, uploadFiles, chooseFiles, uploading, listsPaths, AttachmentsTray, SentAttachments, useDictation, InputButtons, DictationStrip, attachShortcut } from './inputLine';
 
-type View = { tipo: 'menu' } | { tipo: 'nuevo'; reanudar?: HistoryElement } | { tipo: 'historial' } | { tipo: 'visitantes' } | { tipo: 'ficha' } | { tipo: 'sesion'; sesionId: string };
+type View = { type: 'menu' } | { type: 'nuevo'; resume?: HistoryElement } | { type: 'historial' } | { type: 'visitantes' } | { type: 'ficha' } | { type: 'sesion'; sessionId: string };
 // recuerdo: la conversación de la pestaña (para retomarla con lo escrito si se cierra sin que el Supervisor la cierre)
-interface TabCom { id: string; vista: View; borrador?: string; adjuntos?: AttachmentLocal[]; motivo?: { peticion: string; texto: string }; sessionWait?: boolean; recuerdo?: HistoryElement }
-export interface WindowCom { dwellerId: string; pestanas: TabCom[]; activa: string; maximizada: boolean; z: number; known: string[]; confirmar?: string[] }
-export const intercoms = new Store<{ lista: WindowCom[] }>({ lista: [] });
+interface TabCom { id: string; view: View; draft?: string; attachments?: AttachmentLocal[]; reason?: { request: string; text: string }; sessionWait?: boolean; memory?: HistoryElement }
+export interface WindowCom { dwellerId: string; tabs: TabCom[]; active: string; maximized: boolean; z: number; known: string[]; confirm?: string[] }
+export const intercoms = new Store<{ list: WindowCom[] }>({ list: [] });
 
 const PREFERENCES = 'refugio.trabajo';
 function prefs() { try { return JSON.parse(localStorage.getItem(PREFERENCES) || '{}'); } catch { return {}; } }
@@ -70,32 +70,32 @@ const created = (id: string) => Number(id.slice(1));
 // para retomar la conversación (Enter). Lo escrito solo se va si él lo borra: enviándolo, con Esc dos veces o
 // cerrando la pestaña tras confirmarlo.
 const SAVED = 'refugio.intercoms';
-type SavedTab = Pick<TabCom, 'vista' | 'borrador' | 'adjuntos' | 'recuerdo'>;
-interface SavedWindow { dwellerId: string; maximizada: boolean; known: string[]; activa: number; pestanas: SavedTab[] }
-const readyAttachments = (l?: AttachmentLocal[]) => (l ?? []).filter(a => a.ruta && !a.error);
-export const withText = (p: TabCom) => !!p.borrador?.trim() || readyAttachments(p.adjuntos).length > 0;
+type SavedTab = Pick<TabCom, 'view' | 'draft' | 'attachments' | 'memory'>;
+interface SavedWindow { dwellerId: string; maximized: boolean; known: string[]; active: number; tabs: SavedTab[] }
+const readyAttachments = (l?: AttachmentLocal[]) => (l ?? []).filter(a => a.path && !a.error);
+export const withText = (p: TabCom) => !!p.draft?.trim() || readyAttachments(p.attachments).length > 0;
 function saveIntercoms() {
-  const lista: SavedWindow[] = [];
-  for (const v of intercoms.get().lista) {
+  const list: SavedWindow[] = [];
+  for (const v of intercoms.get().list) {
     // solo lo que merece volver: las conversaciones y lo que tiene algo escrito
-    const pestanas = v.pestanas.filter(p => p.vista.tipo === 'sesion' || withText(p));
-    if (!pestanas.length) continue;
-    lista.push({ dwellerId: v.dwellerId, maximizada: v.maximizada, known: v.known.slice(-60), activa: Math.max(0, pestanas.findIndex(p => p.id === v.activa)),
-      pestanas: pestanas.map(p => ({ vista: p.vista, borrador: p.borrador || undefined, recuerdo: p.recuerdo, adjuntos: readyAttachments(p.adjuntos).map(a => ({ ...a, vista: a.vista?.startsWith('blob:') ? undefined : a.vista })) })) });
+    const tabs = v.tabs.filter(p => p.view.type === 'sesion' || withText(p));
+    if (!tabs.length) continue;
+    list.push({ dwellerId: v.dwellerId, maximized: v.maximized, known: v.known.slice(-60), active: Math.max(0, tabs.findIndex(p => p.id === v.active)),
+      tabs: tabs.map(p => ({ view: p.view, draft: p.draft || undefined, memory: p.memory, attachments: readyAttachments(p.attachments).map(a => ({ ...a, view: a.view?.startsWith('blob:') ? undefined : a.view })) })) });
   }
-  try { localStorage.setItem(SAVED, JSON.stringify(lista)); } catch {}
+  try { localStorage.setItem(SAVED, JSON.stringify(list)); } catch {}
 }
 function restoreIntercoms(): WindowCom[] {
   try {
     const l = JSON.parse(localStorage.getItem(SAVED) || '[]') as SavedWindow[];
-    return l.filter(v => v?.dwellerId && v.pestanas?.length).map(v => {
-      const pestanas: TabCom[] = v.pestanas.map(p => ({ ...p, id: newId(), adjuntos: p.adjuntos?.length ? p.adjuntos.map((a, i) => ({ ...a, id: `g${nTab}-${i}` })) : undefined }));
-      return { dwellerId: v.dwellerId, maximizada: false, known: v.known ?? [], z: nextZ(), pestanas, activa: (pestanas[v.activa] ?? pestanas[0]).id };
+    return l.filter(v => v?.dwellerId && v.tabs?.length).map(v => {
+      const tabs: TabCom[] = v.tabs.map(p => ({ ...p, id: newId(), attachments: p.attachments?.length ? p.attachments.map((a, i) => ({ ...a, id: `g${nTab}-${i}` })) : undefined }));
+      return { dwellerId: v.dwellerId, maximized: false, known: v.known ?? [], z: nextZ(), tabs, active: (tabs[v.active] ?? tabs[0]).id };
     });
   } catch { return []; }
 }
 if (typeof window !== 'undefined') {
-  intercoms.set({ lista: restoreIntercoms() });
+  intercoms.set({ list: restoreIntercoms() });
   let t: ReturnType<typeof setTimeout> | undefined;
   intercoms.subscribe(() => { clearTimeout(t); t = setTimeout(saveIntercoms, 250); });
   addEventListener('pagehide', saveIntercoms); addEventListener('beforeunload', saveIntercoms);
@@ -105,143 +105,143 @@ if (typeof window !== 'undefined') {
 let useSignature = '';
 function notifyInUse() {
   const talking = juego.get().talkingWith, ids = new Set<string>();
-  for (const v of intercoms.get().lista) for (const p of v.pestanas) if (p.vista.tipo === 'sesion' && (withText(p) || (v.dwellerId === talking && p.id === v.activa))) ids.add(p.vista.sesionId);
+  for (const v of intercoms.get().list) for (const p of v.tabs) if (p.view.type === 'sesion' && (withText(p) || (v.dwellerId === talking && p.id === v.active))) ids.add(p.view.sessionId);
   const f = [...ids].sort().join('|'); if (f === useSignature) return;
-  useSignature = f; cliente.enviar({ t: 'enUso', sesiones: [...ids] });
+  useSignature = f; client.send({ t: 'enUso', sessions: [...ids] });
 }
-const vivas = (hid: string) => Object.values(vivo.get().sesiones).filter(s => sessionOwner(s) === hid && s.estado !== 'cerrada' && !cerrandose.has(s.id));
-const cerrandose = new Set<string>();   // sesiones que se han mandado cerrar (no vuelven a abrir pestaña)
-const inRunning = (s?: SessionSummary) => !!s && (s.estado === 'arrancando' || s.estado === 'trabajando' || s.estado === 'esperando');
-const urgency = (s: SessionSummary) => s.estado === 'esperando' ? 0 : s.estado === 'error' ? 1 : s.estado === 'terminada' && s.sinLeer ? 2 : inRunning(s) ? 3 : 4;
+const liveSessions = (hid: string) => Object.values(live.get().sessions).filter(s => sessionOwner(s) === hid && s.state !== 'cerrada' && !closingSessions.has(s.id));
+const closingSessions = new Set<string>();   // sesiones que se han mandado cerrar (no vuelven a abrir pestaña)
+const inRunning = (s?: SessionSummary) => !!s && (s.state === 'arrancando' || s.state === 'trabajando' || s.state === 'esperando');
+const urgency = (s: SessionSummary) => s.state === 'esperando' ? 0 : s.state === 'error' ? 1 : s.state === 'terminada' && s.unread ? 2 : inRunning(s) ? 3 : 4;
 /** Its state on the tabs (windows.tsx): unread is not the same as read */
-const tabState = (s?: SessionSummary): TabState | undefined => !s ? undefined : s.estado === 'esperando' ? 'esperando' : s.estado === 'error' ? 'error' : s.estado === 'terminada' && s.sinLeer ? 'sinLeer' : inRunning(s) ? 'trabajando' : 'ociosa';
-export const sessionPilot = (s?: SessionSummary) => !s ? 'ociosa' : s.estado === 'esperando' ? 'esperando' : s.estado === 'error' ? 'error' : inRunning(s) ? 'trabajando' : 'ociosa';
-const sessionOf = (p: TabCom) => (p.vista.tipo === 'sesion' ? vivo.get().sesiones[p.vista.sesionId] : undefined);
+const tabState = (s?: SessionSummary): TabState | undefined => !s ? undefined : s.state === 'esperando' ? 'esperando' : s.state === 'error' ? 'error' : s.state === 'terminada' && s.unread ? 'sinLeer' : inRunning(s) ? 'trabajando' : 'ociosa';
+export const sessionPilot = (s?: SessionSummary) => !s ? 'ociosa' : s.state === 'esperando' ? 'esperando' : s.state === 'error' ? 'error' : inRunning(s) ? 'trabajando' : 'ociosa';
+const sessionOf = (p: TabCom) => (p.view.type === 'sesion' ? live.get().sessions[p.view.sessionId] : undefined);
 
-const ventana = (hid: string) => intercoms.get().lista.find(v => v.dwellerId === hid);
+const win = (hid: string) => intercoms.get().list.find(v => v.dwellerId === hid);
 /** La conversación de la pestaña a la vista en el intercomunicador abierto (para el buscador). */
-export function sessionALaView(): SessionSummary | undefined {
-  const hid = juego.get().talkingWith, v = hid ? ventana(hid) : undefined, p = v?.pestanas.find(x => x.id === v.activa);
+export function sessionInView(): SessionSummary | undefined {
+  const hid = juego.get().talkingWith, v = hid ? win(hid) : undefined, p = v?.tabs.find(x => x.id === v.active);
   const s = p && sessionOf(p);
-  return s && s.estado !== 'cerrada' ? s : undefined;
+  return s && s.state !== 'cerrada' ? s : undefined;
 }
-function actualizar(hid: string, f: Partial<WindowCom> | ((v: WindowCom) => Partial<WindowCom>)) {
-  intercoms.set(e => ({ lista: e.lista.map(v => (v.dwellerId === hid ? { ...v, ...(typeof f === 'function' ? f(v) : f) } : v)) }));
+function update(hid: string, f: Partial<WindowCom> | ((v: WindowCom) => Partial<WindowCom>)) {
+  intercoms.set(e => ({ list: e.list.map(v => (v.dwellerId === hid ? { ...v, ...(typeof f === 'function' ? f(v) : f) } : v)) }));
 }
-function setTab(hid: string, pid: string, p: Partial<TabCom>) { actualizar(hid, v => ({ pestanas: v.pestanas.map(x => (x.id === pid ? { ...x, ...p } : x)) })); }
+function setTab(hid: string, pid: string, p: Partial<TabCom>) { update(hid, v => ({ tabs: v.tabs.map(x => (x.id === pid ? { ...x, ...p } : x)) })); }
 
 // Dónde sale: si ya se veía otro intercomunicador, como estaba ese (ampliado o a la derecha); si no (venía del refugio o
 // de la barra), siempre a la derecha, sin ampliar: no se recuerda que estuvo ampliado. Lo que esté ampliado delante
 // (una página, un navegador) deja sitio (makeRoomForIntercom)
 let shownWith: string | null = null;
 function openIntercom(hid: string) {
-  const antes = shownWith && shownWith !== hid ? ventana(shownWith) : undefined, ampliada = !!antes?.maximizada;
+  const before = shownWith && shownWith !== hid ? win(shownWith) : undefined, maximized = !!before?.maximized;
   shownWith = hid;
-  if (ventana(hid)) actualizar(hid, { maximizada: ampliada });
-  if (!ampliada) makeRoomForIntercom();
-  openIntercomWindow(hid, ampliada);
-  const v = ventana(hid), p = v?.pestanas.find(x => x.id === v.activa);
+  if (win(hid)) update(hid, { maximized: maximized });
+  if (!maximized) makeRoomForIntercom();
+  openIntercomWindow(hid, maximized);
+  const v = win(hid), p = v?.tabs.find(x => x.id === v.active);
   pageForSession(p && sessionOf(p)?.id);
 }
 // al hablar con un habitante: su ventana, con una pestaña por cada trabajo suyo (la más urgente delante)
-function openIntercomWindow(hid: string, ampliada: boolean) {
-  let v = ventana(hid);
+function openIntercomWindow(hid: string, maximized: boolean) {
+  let v = win(hid);
   if (!v) {
-    const ses = vivas(hid).sort((a, b) => a.created - b.created);
-    const pestanas: TabCom[] = ses.length ? ses.map(s => ({ id: newId(), vista: { tipo: 'sesion', sesionId: s.id } })) : [{ id: newId(), vista: { tipo: juego.get().workIn ? 'nuevo' : 'menu' } }];
-    const primera = [...ses].sort((a, b) => urgency(a) - urgency(b) || b.actualizada - a.actualizada)[0];
-    v = { dwellerId: hid, pestanas, activa: pestanas[primera ? ses.indexOf(primera) : 0].id, maximizada: ampliada, z: nextZ(), known: ses.map(s => s.id) };
-    intercoms.set(e => ({ lista: [...e.lista, v!] }));
+    const sess = liveSessions(hid).sort((a, b) => a.created - b.created);
+    const tabs: TabCom[] = sess.length ? sess.map(s => ({ id: newId(), view: { type: 'sesion', sessionId: s.id } })) : [{ id: newId(), view: { type: juego.get().workIn ? 'nuevo' : 'menu' } }];
+    const first = [...sess].sort((a, b) => urgency(a) - urgency(b) || b.updated - a.updated)[0];
+    v = { dwellerId: hid, tabs, active: tabs[first ? sess.indexOf(first) : 0].id, maximized: maximized, z: nextZ(), known: sess.map(s => s.id) };
+    intercoms.set(e => ({ list: [...e.list, v!] }));
     // una copia holográfica sin conversación abierta retoma por defecto la última de su worktree (si sigue en el menú)
-    if (!ses.length && !juego.get().workIn) resumeLastOfCopy(hid, pestanas[0].id);
-    if (!ses.length) return;
-  } else actualizar(hid, { z: nextZ() });
+    if (!sess.length && !juego.get().workIn) resumeLastOfCopy(hid, tabs[0].id);
+    if (!sess.length) return;
+  } else update(hid, { z: nextZ() });
   // «trabajar dentro de la copia» (worktree) llega con el worktree elegido: pestaña de trabajo nuevo
-  if (juego.get().workIn) newTab(hid, { tipo: 'nuevo' });
+  if (juego.get().workIn) newTab(hid, { type: 'nuevo' });
 }
 function resumeLastOfCopy(hid: string, pid: string) {
   const c = interlocutor(hid);
-  if (!c?.copia) return;
-  cliente.ask<HistoryElement[]>({ t: 'historial', salaId: c.sala, cwd: c.copia.ruta }).then(lista => {
-    const ultima = lista.filter(x => !x.fuera).sort((a, b) => b.modified - a.modified)[0];
-    if (!ultima) return;
-    const p = ventana(hid)?.pestanas.find(x => x.id === pid);
-    if (p?.vista.tipo === 'menu') setTab(hid, pid, { vista: { tipo: 'nuevo', reanudar: ultima } });
+  if (!c?.copy) return;
+  client.ask<HistoryElement[]>({ t: 'historial', roomId: c.room, cwd: c.copy.path }).then(list => {
+    const last = list.filter(x => !x.outside).sort((a, b) => b.modified - a.modified)[0];
+    if (!last) return;
+    const p = win(hid)?.tabs.find(x => x.id === pid);
+    if (p?.view.type === 'menu') setTab(hid, pid, { view: { type: 'nuevo', resume: last } });
   }).catch(() => {});
 }
-function newTab(hid: string, vista: View = { tipo: 'menu' }) {
+function newTab(hid: string, view: View = { type: 'menu' }) {
   const id = newId();
-  actualizar(hid, v => ({ pestanas: [...v.pestanas, { id, vista }], activa: id }));
-  SFX.abrir();
+  update(hid, v => ({ tabs: [...v.tabs, { id, view }], active: id }));
+  SFX.open();
 }
-function activar(hid: string, pid: string) {
-  actualizar(hid, { activa: pid }); SFX.tick();
-  const p = ventana(hid)?.pestanas.find(x => x.id === pid);
+function activate(hid: string, pid: string) {
+  update(hid, { active: pid }); SFX.tick();
+  const p = win(hid)?.tabs.find(x => x.id === pid);
   pageForSession(p && sessionOf(p)?.id);   // la ventana «Página», con la de esta conversación (o fuera)
 }
-function goView(hid: string, pid: string, vista: View) { setTab(hid, pid, { vista, borrador: undefined, adjuntos: undefined }); }
+function goView(hid: string, pid: string, view: View) { setTab(hid, pid, { view, draft: undefined, attachments: undefined }); }
 // los adjuntos que esperan en la pestaña (se suben solos: la pestaña puede minimizarse mientras tanto)
-function changeAttachments(hid: string, pid: string, f: (l: AttachmentLocal[]) => AttachmentLocal[]) { actualizar(hid, v => ({ pestanas: v.pestanas.map(x => (x.id === pid ? { ...x, adjuntos: f(x.adjuntos ?? []) } : x)) })); }
-function adjuntar(hid: string, pid: string, archivos: FileList | File[] | null | undefined) {
-  if (!archivos?.length) return;
-  uploadFiles(archivos, a => changeAttachments(hid, pid, l => [...l, a]), (id, c) => changeAttachments(hid, pid, l => l.map(x => (x.id === id ? { ...x, ...c } : x))));
+function changeAttachments(hid: string, pid: string, f: (l: AttachmentLocal[]) => AttachmentLocal[]) { update(hid, v => ({ tabs: v.tabs.map(x => (x.id === pid ? { ...x, attachments: f(x.attachments ?? []) } : x)) })); }
+function attach(hid: string, pid: string, files: FileList | File[] | null | undefined) {
+  if (!files?.length) return;
+  uploadFiles(files, a => changeAttachments(hid, pid, l => [...l, a]), (id, c) => changeAttachments(hid, pid, l => l.map(x => (x.id === id ? { ...x, ...c } : x))));
   SFX.tick();
 }
-const removeAttachment = (hid: string, pid: string) => (id: string) => { changeAttachments(hid, pid, l => l.filter(x => x.id !== id)); SFX.clic(); };
+const removeAttachment = (hid: string, pid: string) => (id: string) => { changeAttachments(hid, pid, l => l.filter(x => x.id !== id)); SFX.click(); };
 
 // volver al refugio sin cerrar nada: la ventana queda en la barra
 export function minimizeIntercom() {
   if (!juego.get().talkingWith) return;
-  SFX.cerrar(); juego.set({ talkingWith: null, workIn: null }); window.dispatchEvent(new CustomEvent('refugio:fin-dialogo'));
+  SFX.close(); juego.set({ talkingWith: null, workIn: null }); window.dispatchEvent(new CustomEvent('refugio:fin-dialogo'));
 }
 // Esc arriba del todo: con trabajos (o algo escrito), minimizar; sin ellos no queda nada que guardar y se cierra
-function salir(hid: string) {
-  const v = ventana(hid);
-  if (v?.pestanas.some(p => sessionOf(p) || withText(p))) minimizeIntercom();
-  else { intercoms.set(e => ({ lista: e.lista.filter(x => x.dwellerId !== hid) })); minimizeIntercom(); }
+function exit(hid: string) {
+  const v = win(hid);
+  if (v?.tabs.some(p => sessionOf(p) || withText(p))) minimizeIntercom();
+  else { intercoms.set(e => ({ list: e.list.filter(x => x.dwellerId !== hid) })); minimizeIntercom(); }
 }
 // desde la barra: se vuelve con el habitante (viaje rápido) y la ventana aparece como estaba
 export function restoreIntercom(hid: string) {
   const h = interlocutor(hid); if (!h) return;
-  window.dispatchEvent(new CustomEvent('refugio:ir', { detail: { salaId: h.sala, dwellerId: hid, talk: true } }));
+  window.dispatchEvent(new CustomEvent('refugio:ir', { detail: { roomId: h.room, dwellerId: hid, talk: true } }));
 }
 // Desde el buscador (⌘K): una conversación abierta, en su pestaña y con su habitante a la vista
-export function openConversation(sesionId: string) {
-  const s = vivo.get().sesiones[sesionId]; if (!s || s.estado === 'cerrada') return;
+export function openConversation(sessionId: string) {
+  const s = live.get().sessions[sessionId]; if (!s || s.state === 'cerrada') return;
   const hid = sessionOwner(s);
-  sincronizar();   // la ventana y la pestaña de cada trabajo vivo existen siempre
-  const v = ventana(hid);
-  const t = v?.pestanas.find(p => p.vista.tipo === 'sesion' && p.vista.sesionId === sesionId);
-  if (v && t) actualizar(hid, { activa: t.id, z: nextZ() });
-  else if (v) newTab(hid, { tipo: 'sesion', sesionId });
+  sync();   // la ventana y la pestaña de cada trabajo vivo existen siempre
+  const v = win(hid);
+  const t = v?.tabs.find(p => p.view.type === 'sesion' && p.view.sessionId === sessionId);
+  if (v && t) update(hid, { active: t.id, z: nextZ() });
+  else if (v) newTab(hid, { type: 'sesion', sessionId });
   restoreIntercom(hid);
 }
 // …o una del archivo: si sigue viva, a ella; si no, a una pestaña para retomarla (Enter y sigue)
 export function resumeConversation(hid: string, el: HistoryElement) {
-  const viva = Object.values(vivo.get().sesiones).find(x => x.claudeId === el.claudeId && x.estado !== 'cerrada');
-  if (viva) { openConversation(viva.id); return; }
-  if (ventana(hid)) newTab(hid, { tipo: 'nuevo', reanudar: el });
+  const alive = Object.values(live.get().sessions).find(x => x.claudeId === el.claudeId && x.state !== 'cerrada');
+  if (alive) { openConversation(alive.id); return; }
+  if (win(hid)) newTab(hid, { type: 'nuevo', resume: el });
   else {
     // la ventana nueva lleva también los trabajos vivos del habitante, pero delante la que se retoma
-    const ses = vivas(hid).sort((a, b) => a.created - b.created), id = newId();
-    const pestanas: TabCom[] = [...ses.map(x => ({ id: newId(), vista: { tipo: 'sesion' as const, sesionId: x.id } })), { id, vista: { tipo: 'nuevo', reanudar: el } }];
-    intercoms.set(e => ({ lista: [...e.lista, { dwellerId: hid, pestanas, activa: id, maximizada: false, z: nextZ(), known: ses.map(x => x.id) }] }));
+    const sess = liveSessions(hid).sort((a, b) => a.created - b.created), id = newId();
+    const tabs: TabCom[] = [...sess.map(x => ({ id: newId(), view: { type: 'sesion' as const, sessionId: x.id } })), { id, view: { type: 'nuevo', resume: el } }];
+    intercoms.set(e => ({ list: [...e.list, { dwellerId: hid, tabs, active: id, maximized: false, z: nextZ(), known: sess.map(x => x.id) }] }));
   }
   restoreIntercom(hid);
 }
 // El visitante de una sala (sus sesiones abiertas fuera del refugio): al intercomunicador de su habitante, con la lista
 // de esas sesiones (la más reciente arriba); cada una se retoma ahí (la de un worktree pasa sola a su holograma)
-export function claimVisitors(salaId: string) {
-  const dwellers = juego.get().habitantes.filter(h => h.sala === salaId);
-  const h = dwellers.find(x => x.estado === 'ocioso' || x.estado === 'durmiendo' || x.estado === 'terminado') ?? dwellers[0];
-  if (!h) { SFX.noAllowed(); return; }
-  const v = ventana(h.id), ya = v?.pestanas.find(x => x.vista.tipo === 'visitantes');
-  if (ya) actualizar(h.id, { activa: ya.id });
-  else if (v) newTab(h.id, { tipo: 'visitantes' });
+export function claimVisitors(roomId: string) {
+  const dwellers = juego.get().dwellers.filter(h => h.room === roomId);
+  const h = dwellers.find(x => x.state === 'ocioso' || x.state === 'durmiendo' || x.state === 'terminado') ?? dwellers[0];
+  if (!h) { SFX.notAllowed(); return; }
+  const v = win(h.id), already = v?.tabs.find(x => x.view.type === 'visitantes');
+  if (already) update(h.id, { active: already.id });
+  else if (v) newTab(h.id, { type: 'visitantes' });
   else {
-    const ses = vivas(h.id).sort((a, b) => a.created - b.created), id = newId();
-    const pestanas: TabCom[] = [...ses.map(x => ({ id: newId(), vista: { tipo: 'sesion' as const, sesionId: x.id } })), { id, vista: { tipo: 'visitantes' } }];
-    intercoms.set(e => ({ lista: [...e.lista, { dwellerId: h.id, pestanas, activa: id, maximizada: false, z: nextZ(), known: ses.map(x => x.id) }] }));
+    const sess = liveSessions(h.id).sort((a, b) => a.created - b.created), id = newId();
+    const tabs: TabCom[] = [...sess.map(x => ({ id: newId(), view: { type: 'sesion' as const, sessionId: x.id } })), { id, view: { type: 'visitantes' } }];
+    intercoms.set(e => ({ list: [...e.list, { dwellerId: h.id, tabs, active: id, maximized: false, z: nextZ(), known: sess.map(x => x.id) }] }));
   }
   restoreIntercom(h.id);
 }
@@ -249,39 +249,39 @@ export function claimVisitors(salaId: string) {
 function resumeHere(h: DwellerSummary, pid: string, el: HistoryElement) {
   const hid = h.id;
   setTab(hid, pid, { sessionWait: true });
-  cliente.ask<string>({ t: 'empezar', dwellerId: h.copia?.authorId ?? hid, salaId: h.sala, prompt: '', opciones: { reanudar: el.claudeId, cwd: el.cwd } })
-    .then(sesionId => {
-      actualizar(hid, v => ({ known: [...v.known, sesionId], pestanas: v.pestanas.filter(x => x.id === pid || !(x.vista.tipo === 'sesion' && x.vista.sesionId === sesionId)).map(x => (x.id === pid ? { ...x, sessionWait: false, vista: { tipo: 'sesion', sesionId } } : x)) }));
-      sincronizar();
+  client.ask<string>({ t: 'empezar', dwellerId: h.copy?.authorId ?? hid, roomId: h.room, prompt: '', options: { resume: el.claudeId, cwd: el.cwd } })
+    .then(sessionId => {
+      update(hid, v => ({ known: [...v.known, sessionId], tabs: v.tabs.filter(x => x.id === pid || !(x.view.type === 'sesion' && x.view.sessionId === sessionId)).map(x => (x.id === pid ? { ...x, sessionWait: false, view: { type: 'sesion', sessionId } } : x)) }));
+      sync();
     })
-    .catch(() => { SFX.error(); setTab(hid, pid, { sessionWait: false, vista: { tipo: 'nuevo', reanudar: el } }); });
+    .catch(() => { SFX.error(); setTab(hid, pid, { sessionWait: false, view: { type: 'nuevo', resume: el } }); });
   SFX.shortSuccess();
 }
-function toggleMaximize(hid: string) { actualizar(hid, v => ({ maximizada: !v.maximizada })); SFX.clic(); }
+function toggleMaximize(hid: string) { update(hid, v => ({ maximized: !v.maximized })); SFX.click(); }
 // cerrar termina las conversaciones de esas pestañas (quedan en el archivo); si alguna trabaja o espera, o tiene
 // algo escrito sin enviar (que se borraría), se pregunta
 export function askClose(hid: string, ids?: string[]) {
-  const v = ventana(hid); if (!v) return;
-  const which = ids ?? v.pestanas.map(p => p.id);
-  if (v.pestanas.some(p => which.includes(p.id) && (inRunning(sessionOf(p)) || withText(p)))) { actualizar(hid, { confirmar: which }); SFX.lowNotice(); return; }
+  const v = win(hid); if (!v) return;
+  const which = ids ?? v.tabs.map(p => p.id);
+  if (v.tabs.some(p => which.includes(p.id) && (inRunning(sessionOf(p)) || withText(p)))) { update(hid, { confirm: which }); SFX.lowNotice(); return; }
   closeAlready(hid, which);
 }
 function closeAlready(hid: string, ids: string[]) {
-  const v = ventana(hid); if (!v) return;
-  for (const p of v.pestanas) if (ids.includes(p.id)) { const s = sessionOf(p); if (s) { cerrandose.add(s.id); cliente.enviar({ t: 'cerrarSesion', sesionId: s.id }); } }
-  const resto = v.pestanas.filter(p => !ids.includes(p.id));
-  SFX.cerrar();
-  if (!resto.length) { intercoms.set(e => ({ lista: e.lista.filter(x => x.dwellerId !== hid) })); if (juego.get().talkingWith === hid) minimizeIntercom(); return; }
-  const i = v.pestanas.findIndex(p => p.id === v.activa);
-  actualizar(hid, { pestanas: resto, confirmar: undefined, activa: resto.some(p => p.id === v.activa) ? v.activa : resto[Math.min(i, resto.length - 1)].id });
+  const v = win(hid); if (!v) return;
+  for (const p of v.tabs) if (ids.includes(p.id)) { const s = sessionOf(p); if (s) { closingSessions.add(s.id); client.send({ t: 'cerrarSesion', sessionId: s.id }); } }
+  const rest = v.tabs.filter(p => !ids.includes(p.id));
+  SFX.close();
+  if (!rest.length) { intercoms.set(e => ({ list: e.list.filter(x => x.dwellerId !== hid) })); if (juego.get().talkingWith === hid) minimizeIntercom(); return; }
+  const i = v.tabs.findIndex(p => p.id === v.active);
+  update(hid, { tabs: rest, confirm: undefined, active: rest.some(p => p.id === v.active) ? v.active : rest[Math.min(i, rest.length - 1)].id });
 }
 
 // a la superficie: la conversación de esa pestaña sigue en tu escritorio; la pestaña se va sola cuando se cierra aquí
 function takeTab(hid: string, pid: string) {
-  const p = ventana(hid)?.pestanas.find(x => x.id === pid);
+  const p = win(hid)?.tabs.find(x => x.id === pid);
   const s = p && sessionOf(p);
-  if (!s) { SFX.noAllowed(); return; }
-  takeASurface({ sesiones: [s.id] });
+  if (!s) { SFX.notAllowed(); return; }
+  takeASurface({ sessions: [s.id] });
 }
 
 // Cada trabajo vivo tiene su pestaña: los que llegan de fuera (un visitante, un reinicio) la abren solos, y la
@@ -291,71 +291,71 @@ function takeTab(hid: string, pid: string) {
 // Solo con la lista de sesiones de esta conexión: antes de la bienvenida (al cargar la página) o sin conexión, la que
 // hay no vale y se quitarían pestañas que siguen vivas.
 let onDay = false;
-function sincronizar() {
+function sync() {
   if (!onDay) return;
-  const sesiones = vivo.get().sesiones, talking = juego.get().talkingWith;
-  const lista = intercoms.get().lista;
-  let nueva = lista, cambio = false, traspaso: string | null = null;
-  const liveByDweller = new Map<string, SessionSummary[]>(), dueno = new Map<string, string>();
+  const sessions = live.get().sessions, talking = juego.get().talkingWith;
+  const list = intercoms.get().list;
+  let next = list, changed = false, handoff: string | null = null;
+  const liveByDweller = new Map<string, SessionSummary[]>(), owner = new Map<string, string>();
   const moved = new Map<string, TabCom>();   // pestañas de conversaciones que pasan a otra ventana (una copia)
-  for (const s of Object.values(sesiones)) if (s.estado !== 'cerrada' && !cerrandose.has(s.id)) { const d = sessionOwner(s); dueno.set(s.id, d); liveByDweller.set(d, [...(liveByDweller.get(d) ?? []), s]); }
-  for (const v of lista) for (const p of v.pestanas) if (p.vista.tipo === 'sesion' && dueno.has(p.vista.sesionId) && dueno.get(p.vista.sesionId) !== v.dwellerId) moved.set(p.vista.sesionId, p);
-  nueva = lista.map(v => {
-    const beforeActive = v.pestanas.find(p => p.id === v.activa);
+  for (const s of Object.values(sessions)) if (s.state !== 'cerrada' && !closingSessions.has(s.id)) { const d = sessionOwner(s); owner.set(s.id, d); liveByDweller.set(d, [...(liveByDweller.get(d) ?? []), s]); }
+  for (const v of list) for (const p of v.tabs) if (p.view.type === 'sesion' && owner.has(p.view.sessionId) && owner.get(p.view.sessionId) !== v.dwellerId) moved.set(p.view.sessionId, p);
+  next = list.map(v => {
+    const beforeActive = v.tabs.find(p => p.id === v.active);
     let touched = false;
-    let pestanas = v.pestanas.flatMap((p): TabCom[] => {
-      if (p.vista.tipo !== 'sesion') return [p];
-      const s = sesiones[p.vista.sesionId], d = dueno.get(p.vista.sesionId);
-      if (s && s.estado !== 'cerrada' && d === v.dwellerId) {
+    let tabs = v.tabs.flatMap((p): TabCom[] => {
+      if (p.view.type !== 'sesion') return [p];
+      const s = sessions[p.view.sessionId], d = owner.get(p.view.sessionId);
+      if (s && s.state !== 'cerrada' && d === v.dwellerId) {
         // se apunta qué conversación es, por si luego se cierra con algo escrito
-        if (s.claudeId && (p.recuerdo?.claudeId !== s.claudeId || p.recuerdo.titulo !== s.titulo)) { touched = true; return [{ ...p, recuerdo: { claudeId: s.claudeId, titulo: s.titulo, modified: s.actualizada, cwd: s.cwd } }]; }
+        if (s.claudeId && (p.memory?.claudeId !== s.claudeId || p.memory.title !== s.title)) { touched = true; return [{ ...p, memory: { claudeId: s.claudeId, title: s.title, modified: s.updated, cwd: s.cwd } }]; }
         return [p];
       }
       if (d && d !== v.dwellerId) return [];                // se ha mudado a otra ventana
       if (!withText(p)) return [];
       // cerrada (o perdida en un reinicio) con lo escrito: la pestaña se queda para retomarla con ello
       touched = true;
-      return [{ ...p, vista: p.recuerdo ? { tipo: 'nuevo', reanudar: { ...p.recuerdo, modified: Date.now() } } : { tipo: 'nuevo' } }];
+      return [{ ...p, view: p.memory ? { type: 'nuevo', resume: { ...p.memory, modified: Date.now() } } : { type: 'nuevo' } }];
     });
     // la conversación que se estaba viendo se ha ido a una copia: se sigue con ella
-    if (talking === v.dwellerId && beforeActive?.vista.tipo === 'sesion' && !pestanas.some(p => p.id === beforeActive.id)) { const d = dueno.get(beforeActive.vista.sesionId); if (d && d !== v.dwellerId) traspaso = d; }
+    if (talking === v.dwellerId && beforeActive?.view.type === 'sesion' && !tabs.some(p => p.id === beforeActive.id)) { const d = owner.get(beforeActive.view.sessionId); if (d && d !== v.dwellerId) handoff = d; }
     const known = new Set(v.known);
-    let activa = v.activa;
+    let active = v.active;
     for (const s of (liveByDweller.get(v.dwellerId) ?? []).sort((a, b) => a.created - b.created)) {
       if (known.has(s.id) && !moved.has(s.id)) continue;
-      if (pestanas.some(p => p.sessionWait)) continue;   // la está abriendo una pestaña de esta ventana
+      if (tabs.some(p => p.sessionWait)) continue;   // la está abriendo una pestaña de esta ventana
       known.add(s.id);
-      if (!pestanas.some(p => p.vista.tipo === 'sesion' && p.vista.sesionId === s.id)) { const id = newId(), m = moved.get(s.id); pestanas = [...pestanas, { ...m, id, vista: { tipo: 'sesion', sesionId: s.id } }]; activa = id; }
+      if (!tabs.some(p => p.view.type === 'sesion' && p.view.sessionId === s.id)) { const id = newId(), m = moved.get(s.id); tabs = [...tabs, { ...m, id, view: { type: 'sesion', sessionId: s.id } }]; active = id; }
     }
-    if (!touched && pestanas.length === v.pestanas.length && known.size === v.known.length && activa === v.activa) return v;
-    cambio = true;
-    if (!pestanas.length) {
-      if (talking !== v.dwellerId || traspaso) return null;
-      pestanas = [{ id: newId(), vista: { tipo: 'menu' } }];
+    if (!touched && tabs.length === v.tabs.length && known.size === v.known.length && active === v.active) return v;
+    changed = true;
+    if (!tabs.length) {
+      if (talking !== v.dwellerId || handoff) return null;
+      tabs = [{ id: newId(), view: { type: 'menu' } }];
     }
-    if (!pestanas.some(p => p.id === activa)) activa = pestanas[pestanas.length - 1].id;
-    return { ...v, pestanas, activa, known: [...known] };
+    if (!tabs.some(p => p.id === active)) active = tabs[tabs.length - 1].id;
+    return { ...v, tabs, active, known: [...known] };
   }).filter(Boolean) as WindowCom[];
-  for (const [hid, ses] of liveByDweller) if (!nueva.some(v => v.dwellerId === hid)) {
-    cambio = true;
-    const pestanas: TabCom[] = ses.sort((a, b) => a.created - b.created).map(s => ({ ...moved.get(s.id), id: newId(), vista: { tipo: 'sesion', sesionId: s.id } }));
-    nueva = [...nueva, { dwellerId: hid, pestanas, activa: pestanas[pestanas.length - 1].id, maximizada: false, z: nextZ(), known: ses.map(s => s.id) }];
+  for (const [hid, sess] of liveByDweller) if (!next.some(v => v.dwellerId === hid)) {
+    changed = true;
+    const tabs: TabCom[] = sess.sort((a, b) => a.created - b.created).map(s => ({ ...moved.get(s.id), id: newId(), view: { type: 'sesion', sessionId: s.id } }));
+    next = [...next, { dwellerId: hid, tabs, active: tabs[tabs.length - 1].id, maximized: false, z: nextZ(), known: sess.map(s => s.id) }];
   }
-  if (cambio) intercoms.set({ lista: nueva });
-  if (traspaso) { const d = traspaso; setTimeout(() => restoreIntercom(d)); }
+  if (changed) intercoms.set({ list: next });
+  if (handoff) { const d = handoff; setTimeout(() => restoreIntercom(d)); }
 }
-vivo.subscribe(() => { if (!vivo.get().connected) onDay = false; sincronizar(); });
-cliente.escuchar(m => { if (m.t === 'bienvenida') { onDay = true; useSignature = ''; sincronizar(); notifyInUse(); } });
+live.subscribe(() => { if (!live.get().connected) onDay = false; sync(); });
+client.listen(m => { if (m.t === 'bienvenida') { onDay = true; useSignature = ''; sync(); notifyInUse(); } });
 intercoms.subscribe(notifyInUse); juego.subscribe(notifyInUse);
 // las copias aparecen (y se van) con el mundo: entonces cambia de quién son algunas conversaciones
 let copiesSignature = '';
-juego.subscribe(() => { const f = juego.get().copias.map(c => c.id).join('|'); if (f !== copiesSignature) { copiesSignature = f; sincronizar(); } });
+juego.subscribe(() => { const f = juego.get().copies.map(c => c.id).join('|'); if (f !== copiesSignature) { copiesSignature = f; sync(); } });
 
 // ---------------------------------------------------------------- interfaz
-export function Dialogo() {
-  const id = juego.usar(e => e.talkingWith);
-  const h = juego.usar(e => interlocutor(e.talkingWith, e));
-  const v = intercoms.usar(e => e.lista.find(x => x.dwellerId === id));
+export function Dialog() {
+  const id = juego.use(e => e.talkingWith);
+  const h = juego.use(e => interlocutor(e.talkingWith, e));
+  const v = intercoms.use(e => e.list.find(x => x.dwellerId === id));
   useEffect(() => { if (id) openIntercom(id); else shownWith = null; }, [id]);
   if (!id || !h || !v) return null;
   return <Console key={id} h={h} v={v} />;
@@ -366,21 +366,21 @@ export function Dialogo() {
 const busts = new Map<string, string>();
 function TalkerBust({ x }: { x: DwellerSummary }) {
   useColorsTasks();
-  const ficha = (vivo.usar(e => e.estado?.habitantes) as any[] | undefined)?.find(f => f.id === (x.copia?.authorId ?? x.id));
-  const aspecto = ficha && ficha.tipo !== 'Octocat' ? lookOf(ficha) : null;
-  const clave = aspecto ? lookSignature(aspecto) : '';
-  const [url, setUrl] = useState(() => busts.get(clave));
+  const card = (live.use(e => e.state?.dwellers) as any[] | undefined)?.find(f => f.id === (x.copy?.authorId ?? x.id));
+  const look = card && card.type !== 'Octocat' ? lookOf(card) : null;
+  const key = look ? lookSignature(look) : '';
+  const [url, setUrl] = useState(() => busts.get(key));
   useEffect(() => {
-    if (!aspecto) return;
-    const ya = busts.get(clave); setUrl(ya); if (ya) return;
-    let vale = true;
-    miniatura(aspecto, 'torso').then(u => { if (u) busts.set(clave, u); if (vale && u) setUrl(u); });
-    return () => { vale = false; };
-  }, [clave]);
-  const tarea = x.copia ? worktreeTask(x.copia) : undefined;
-  useEffect(() => { if (tarea) knowTasks([tarea]); }, [tarea]);
-  const tono = x.copia ? taskColor(tarea) : undefined;
-  return <span className={'consola-quien-foto' + (x.copia ? ' holo' : '')} style={tono ? { '--tono': tono } as React.CSSProperties : undefined} aria-hidden>{url && <img src={url} alt="" draggable={false} />}</span>;
+    if (!look) return;
+    const already = busts.get(key); setUrl(already); if (already) return;
+    let valid = true;
+    thumbnail(look, 'torso').then(u => { if (u) busts.set(key, u); if (valid && u) setUrl(u); });
+    return () => { valid = false; };
+  }, [key]);
+  const task = x.copy ? worktreeTask(x.copy) : undefined;
+  useEffect(() => { if (task) knowTasks([task]); }, [task]);
+  const tone = x.copy ? taskColor(task) : undefined;
+  return <span className={'consola-quien-foto' + (x.copy ? ' holo' : '')} style={tone ? { '--tono': tone } as React.CSSProperties : undefined} aria-hidden>{url && <img src={url} alt="" draggable={false} />}</span>;
 }
 
 // The room's talkers (its dwellers and its worktrees' holographic copies; by state, then most recent conversation first
@@ -388,28 +388,28 @@ function TalkerBust({ x }: { x: DwellerSummary }) {
 // and the most urgent one: the selector above the portrait and the bar's hover lists (Bar.tsx) show one row each, with
 // its most urgent conversation's state and when the latest of them last moved; the conversations themselves are the tabs
 /** A talker as the lists name them: a dweller by name, a hologram by its task (or branch) and its author */
-const talkerName = (x: DwellerSummary) => x.copia ? `◇ ${copyCaption(x.copia, worktreeTask(x.copia) ?? branchCaption(x.copia.rama))} · ${x.copia.nameAuthor}` : x.nombre;
-export type Talker = { x: DwellerSummary; ses: SessionSummary[]; primera?: SessionSummary; estado?: TabState; nombre: string; borrador: boolean };
-export function roomTalkers(sala: string, habitantes: DwellerSummary[], copias: DwellerSummary[], lista: WindowCom[], sesiones: Record<string, SessionSummary>): Talker[] {
-  return [...habitantes.filter(x => x.sala === sala && !x.robot), ...copias.filter(c => c.sala === sala)].map(x => {
-    const pestanas = lista.find(w => w.dwellerId === x.id)?.pestanas ?? [];
-    const ses = pestanas.map(p => p.vista.tipo === 'sesion' ? sesiones[p.vista.sesionId] : undefined).filter(Boolean) as SessionSummary[];
-    const primera = [...ses].sort((a, b) => urgency(a) - urgency(b) || b.actualizada - a.actualizada)[0];
-    const nombre = talkerName(x);
-    return { x, ses, primera, estado: tabState(primera), nombre, borrador: pestanas.some(withText) };
-  }).map(q => ({ q, r: { estado: q.estado, cuando: Math.max(0, ...q.ses.map(s => s.actualizada)), nombre: q.nombre, id: q.x.id } }))
+const talkerName = (x: DwellerSummary) => x.copy ? `◇ ${copyCaption(x.copy, worktreeTask(x.copy) ?? branchCaption(x.copy.branch))} · ${x.copy.nameAuthor}` : x.name;
+export type Talker = { x: DwellerSummary; sess: SessionSummary[]; first?: SessionSummary; state?: TabState; name: string; draft: boolean };
+export function roomTalkers(room: string, dwellers: DwellerSummary[], copies: DwellerSummary[], list: WindowCom[], sessions: Record<string, SessionSummary>): Talker[] {
+  return [...dwellers.filter(x => x.room === room && !x.robot), ...copies.filter(c => c.room === room)].map(x => {
+    const tabs = list.find(w => w.dwellerId === x.id)?.tabs ?? [];
+    const sess = tabs.map(p => p.view.type === 'sesion' ? sessions[p.view.sessionId] : undefined).filter(Boolean) as SessionSummary[];
+    const first = [...sess].sort((a, b) => urgency(a) - urgency(b) || b.updated - a.updated)[0];
+    const name = talkerName(x);
+    return { x, sess, first, state: tabState(first), name, draft: tabs.some(withText) };
+  }).map(q => ({ q, r: { state: q.state, when: Math.max(0, ...q.sess.map(s => s.updated)), name: q.name, id: q.x.id } }))
     .sort((a, b) => talkerFirst(a.r, b.r))
     .map(y => y.q);
 }
-export function TalkerRow({ q, actual, sel, option, onClick, onMouseEnter }: { q: Talker; actual: boolean; sel?: boolean; option?: boolean; onClick: () => void; onMouseEnter?: () => void }) {
+export function TalkerRow({ q, current, sel, option, onClick, onMouseEnter }: { q: Talker; current: boolean; sel?: boolean; option?: boolean; onClick: () => void; onMouseEnter?: () => void }) {
   return (
-    <button role={option ? 'option' : undefined} aria-selected={option ? actual : undefined} onClick={onClick} onMouseEnter={onMouseEnter}
-      className={'barra-asomo-fila' + (q.x.copia ? ' de-copia' : '') + (actual ? ' actual' : '') + (sel ? ' sel' : '') + (q.estado === 'esperando' ? ' urgente' : '') + (q.estado === 'sinLeer' ? ' sin-leer' : '') + (q.estado ? ' e-' + q.estado : '')}>
-      <span className={'piloto ' + (q.estado ? PILOT[q.estado] : 'apagado')} />
+    <button role={option ? 'option' : undefined} aria-selected={option ? current : undefined} onClick={onClick} onMouseEnter={onMouseEnter}
+      className={'barra-asomo-fila' + (q.x.copy ? ' de-copia' : '') + (current ? ' actual' : '') + (sel ? ' sel' : '') + (q.state === 'esperando' ? ' urgente' : '') + (q.state === 'sinLeer' ? ' sin-leer' : '') + (q.state ? ' e-' + q.state : '')}>
+      <span className={'piloto ' + (q.state ? PILOT[q.state] : 'apagado')} />
       <TalkerBust x={q.x} />
-      <span className="barra-asomo-titulo">{q.borrador && <DraftMark />}<b>{q.nombre}</b></span>
-      <span className="barra-asomo-estado">{q.estado ? stateLabel(q.estado) : t('windows.noSession')}</span>
-      <small className="barra-asomo-cuando">{q.ses.length ? hace(Math.max(...q.ses.map(s => s.actualizada))) : ''}</small>
+      <span className="barra-asomo-titulo">{q.draft && <DraftMark />}<b>{q.name}</b></span>
+      <span className="barra-asomo-estado">{q.state ? stateLabel(q.state) : t('windows.noSession')}</span>
+      <small className="barra-asomo-cuando">{q.sess.length ? ago(Math.max(...q.sess.map(s => s.updated))) : ''}</small>
     </button>
   );
 }
@@ -419,53 +419,53 @@ export function TalkerRow({ q, actual, sel, option, onClick, onMouseEnter }: { q
 // bar's hover list (TalkerRow). Picking one brings their intercom to the front on their most urgent conversation; their
 // tabs stay in their own strip and in the bar's ⋯ N list (ComTabs)
 function WhoSelector({ h }: { h: DwellerSummary }) {
-  const habitantes = juego.usar(e => e.habitantes), copias = juego.usar(e => e.copias);
-  const lista = intercoms.usar(e => e.lista);
-  const sesiones = vivo.usar(e => e.sesiones);
-  const [abierta, setAbierta] = useState(false);
+  const dwellers = juego.use(e => e.dwellers), copies = juego.use(e => e.copies);
+  const list = intercoms.use(e => e.list);
+  const sessions = live.use(e => e.sessions);
+  const [open, setOpen] = useState(false);
   const [sel, setSel] = useState(0);
-  const caja = useRef<HTMLDivElement>(null);
+  const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (!abierta) return;
-    const fuera = (e: PointerEvent) => { if (!caja.current?.contains(e.target as Node)) setAbierta(false); };
-    addEventListener('pointerdown', fuera, true); return () => removeEventListener('pointerdown', fuera, true);
-  }, [abierta]);
-  const quienes = roomTalkers(h.sala, habitantes, copias, lista, sesiones);
-  if (quienes.length < 2) return null;
-  const yo = quienes.find(q => q.x.id === h.id) ?? quienes[0];
+    if (!open) return;
+    const outside = (e: PointerEvent) => { if (!box.current?.contains(e.target as Node)) setOpen(false); };
+    addEventListener('pointerdown', outside, true); return () => removeEventListener('pointerdown', outside, true);
+  }, [open]);
+  const talkers = roomTalkers(h.room, dwellers, copies, list, sessions);
+  if (talkers.length < 2) return null;
+  const me = talkers.find(q => q.x.id === h.id) ?? talkers[0];
   // the others with something for you (waiting, unread or failed), most urgent first: the chip says so while closed
-  const revisar = quienes.filter(q => q !== yo && (q.estado === 'esperando' || q.estado === 'sinLeer' || q.estado === 'error')).sort((a, b) => urgency(a.primera!) - urgency(b.primera!));
+  const toReview = talkers.filter(q => q !== me && (q.state === 'esperando' || q.state === 'sinLeer' || q.state === 'error')).sort((a, b) => urgency(a.first!) - urgency(b.first!));
   // and, quieter, the others with something typed and not sent
-  const borradores = quienes.filter(q => q !== yo && q.borrador);
-  const elegir = (q: Talker) => {
-    setAbierta(false);
-    if (q === yo) return;
-    const pid = q.primera && lista.find(w => w.dwellerId === q.x.id)?.pestanas.find(p => p.vista.tipo === 'sesion' && p.vista.sesionId === q.primera!.id)?.id;
+  const drafts = talkers.filter(q => q !== me && q.draft);
+  const pick = (q: Talker) => {
+    setOpen(false);
+    if (q === me) return;
+    const pid = q.first && list.find(w => w.dwellerId === q.x.id)?.tabs.find(p => p.view.type === 'sesion' && p.view.sessionId === q.first!.id)?.id;
     if (pid) goTab(pid); else restoreIntercom(q.x.id);
   };
-  const abrir = () => { setSel(Math.max(0, quienes.indexOf(yo))); setAbierta(x => !x); };
-  const tecla = (e: React.KeyboardEvent) => {
+  const openTarget = () => { setSel(Math.max(0, talkers.indexOf(me))); setOpen(x => !x); };
+  const key = (e: React.KeyboardEvent) => {
     e.stopPropagation();
-    if (!abierta) return;
-    if (e.key === 'Escape') { e.preventDefault(); setAbierta(false); }
-    else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); setSel(i => (i + (e.key === 'ArrowDown' ? 1 : -1) + quienes.length) % quienes.length); }
-    else if (e.key === 'Enter') { e.preventDefault(); elegir(quienes[Math.min(sel, quienes.length - 1)]); }
+    if (!open) return;
+    if (e.key === 'Escape') { e.preventDefault(); setOpen(false); }
+    else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); setSel(i => (i + (e.key === 'ArrowDown' ? 1 : -1) + talkers.length) % talkers.length); }
+    else if (e.key === 'Enter') { e.preventDefault(); pick(talkers[Math.min(sel, talkers.length - 1)]); }
   };
   return (
-    <div className="consola-quien" ref={caja} onKeyDown={tecla}>
-      <button className={'chip-terminal delante' + (h.copia ? ' de-copia' : '') + (yo.estado === 'esperando' || revisar[0]?.estado === 'esperando' ? ' urgente' : '')} aria-haspopup="listbox" aria-expanded={abierta}
-        title={[t('windows.talkToSomeoneElse'), revisar.length ? t('windows.othersToReview', { n: revisar.length }) + ': ' + revisar.map(q => q.nombre).join(', ') : '', borradores.length ? t('windows.othersWithDraft', { n: borradores.length }) + ': ' + borradores.map(q => q.nombre).join(', ') : ''].filter(Boolean).join('\n')} onClick={abrir}>
-        <span className={'piloto ' + (yo.estado ? PILOT[yo.estado] : 'apagado')} aria-hidden />
-        <TalkerBust x={yo.x} />
-        <span className="consola-quien-nombre">{yo.nombre}</span>
-        {revisar.length > 0 && <span className={'consola-quien-aviso e-' + revisar[0].estado} aria-label={t('windows.othersToReview', { n: revisar.length })}>+{revisar.length}</span>}
-        {borradores.length > 0 && <span className="marca-borrador" aria-label={t('windows.othersWithDraft', { n: borradores.length })}>✎</span>}
+    <div className="consola-quien" ref={box} onKeyDown={key}>
+      <button className={'chip-terminal delante' + (h.copy ? ' de-copia' : '') + (me.state === 'esperando' || toReview[0]?.state === 'esperando' ? ' urgente' : '')} aria-haspopup="listbox" aria-expanded={open}
+        title={[t('windows.talkToSomeoneElse'), toReview.length ? t('windows.othersToReview', { n: toReview.length }) + ': ' + toReview.map(q => q.name).join(', ') : '', drafts.length ? t('windows.othersWithDraft', { n: drafts.length }) + ': ' + drafts.map(q => q.name).join(', ') : ''].filter(Boolean).join('\n')} onClick={openTarget}>
+        <span className={'piloto ' + (me.state ? PILOT[me.state] : 'apagado')} aria-hidden />
+        <TalkerBust x={me.x} />
+        <span className="consola-quien-nombre">{me.name}</span>
+        {toReview.length > 0 && <span className={'consola-quien-aviso e-' + toReview[0].state} aria-label={t('windows.othersToReview', { n: toReview.length })}>+{toReview.length}</span>}
+        {drafts.length > 0 && <span className="marca-borrador" aria-label={t('windows.othersWithDraft', { n: drafts.length })}>✎</span>}
         <span className="tipo">▾</span>
       </button>
       {/* the list steps aside while a close is being confirmed */}
-      {abierta && !lista.some(w => w.confirmar) && (
+      {open && !list.some(w => w.confirm) && (
         <div className="barra-asomo consola-quien-lista" role="listbox" aria-label={t('windows.talkToSomeoneElse')}>
-          {quienes.map((q, i) => <TalkerRow key={q.x.id} q={q} actual={q === yo} sel={i === sel} option onClick={() => elegir(q)} onMouseEnter={() => setSel(i)} />)}
+          {talkers.map((q, i) => <TalkerRow key={q.x.id} q={q} current={q === me} sel={i === sel} option onClick={() => pick(q)} onMouseEnter={() => setSel(i)} />)}
         </div>
       )}
     </div>
@@ -474,46 +474,46 @@ function WhoSelector({ h }: { h: DwellerSummary }) {
 
 const VIEW_NAME: Record<string, string> = { menu: t('windows.menu'), nuevo: t('windows.newJob'), historial: t('windows.archive'), ficha: t('windows.profile'), visitantes: t('world.visitors') };
 /** A tab of `o`'s intercom as the strip and the list show it */
-function tabItem(x: TabCom, o: DwellerSummary, sesiones: Record<string, SessionSummary>): ItemTab {
-  const sx = x.vista.tipo === 'sesion' ? sesiones[x.vista.sesionId] : undefined, ruta = pathWorktree(sx?.cwd, worktreesKnown());
-  return { id: x.id, nombre: sx ? sx.titulo || t('windows.conversation') : x.sessionWait ? t('windows.starting2') : VIEW_NAME[x.vista.tipo] ?? t('windows.menu'), estado: x.sessionWait ? 'trabajando' : tabState(sx),
-    titulo: sx?.titulo, sala: o.nameRoom, tarea: ruta ? worktreeTask({ ruta }) : o.copia ? worktreeTask(o.copia) : undefined, actividad: sx ? hace(sx.actualizada) : undefined, borrador: withText(x) };
+function tabItem(x: TabCom, o: DwellerSummary, sessions: Record<string, SessionSummary>): ItemTab {
+  const sx = x.view.type === 'sesion' ? sessions[x.view.sessionId] : undefined, path = pathWorktree(sx?.cwd, worktreesKnown());
+  return { id: x.id, name: sx ? sx.title || t('windows.conversation') : x.sessionWait ? t('windows.starting2') : VIEW_NAME[x.view.type] ?? t('windows.menu'), state: x.sessionWait ? 'trabajando' : tabState(sx),
+    title: sx?.title, room: o.nameRoom, task: path ? worktreeTask({ path }) : o.copy ? worktreeTask(o.copy) : undefined, activity: sx ? ago(sx.updated) : undefined, draft: withText(x) };
 }
 
 // The ⋯ N button at the end of the bar's COM row (Bar.tsx; ⌘⇧A from an intercom): every open conversation of every
 // intercom, by room, to filter, go to one (switching to its intercom) and close. Other intercoms' menus stay out.
-export const comList = new Store<{ abierta: boolean }>({ abierta: false });
+export const comList = new Store<{ open: boolean }>({ open: false });
 const LIST_SHORTCUT = `${CMD}${MAC ? '⇧' : ''}A`;
 export function ComTabs() {
-  const lista = intercoms.usar(e => e.lista);
-  const sesiones = vivo.usar(e => e.sesiones);
-  const talking = juego.usar(e => e.talkingWith);
-  const quien = juego.usar(e => (id: string) => interlocutor(id, e));
-  const abierta = comList.usar(e => e.abierta);
-  const boton = useRef<HTMLButtonElement>(null);
-  const actual = lista.find(w => w.dwellerId === talking);
+  const list = intercoms.use(e => e.list);
+  const sessions = live.use(e => e.sessions);
+  const talking = juego.use(e => e.talkingWith);
+  const who = juego.use(e => (id: string) => interlocutor(id, e));
+  const open = comList.use(e => e.open);
+  const button = useRef<HTMLButtonElement>(null);
+  const current = list.find(w => w.dwellerId === talking);
   // by room, and in it by whose they are (its dweller, each hologram), each where its first-opened tab is
-  const items = groupTabs(groupTabs(lista.flatMap(w => {
-    const o = quien(w.dwellerId); if (!o) return [];
-    return w.pestanas.filter(x => w === actual || x.vista.tipo === 'sesion' || x.sessionWait).map((x): ItemTab => ({ ...tabItem(x, o, sesiones),
-      grupo: o.id, quien: talkerName(o) }));
-  }).sort((a, b) => created(a.id) - created(b.id))), x => x.sala ?? '');
+  const items = groupTabs(groupTabs(list.flatMap(w => {
+    const o = who(w.dwellerId); if (!o) return [];
+    return w.tabs.filter(x => w === current || x.view.type === 'sesion' || x.sessionWait).map((x): ItemTab => ({ ...tabItem(x, o, sessions),
+      group: o.id, who: talkerName(o) }));
+  }).sort((a, b) => created(a.id) - created(b.id))), x => x.room ?? '');
   if (items.length < 2) return null;
-  const salir = () => comList.set({ abierta: false });
-  const ir = (pid: string) => { salir(); goTab(pid); };
+  const exit = () => comList.set({ open: false });
+  const go = (pid: string) => { exit(); goTab(pid); };
   // above the bar, from its left edge
-  const r = abierta ? boton.current?.closest('.barra-ventanas')?.getBoundingClientRect() : undefined;
+  const r = open ? button.current?.closest('.barra-ventanas')?.getBoundingClientRect() : undefined;
   return <>
-    <button ref={boton} className={'vt-todas' + (abierta ? ' activa' : '')} onClick={() => comList.set(e => ({ abierta: !e.abierta }))} title={t('windows.allConversations', { n: items.length, shortcut: LIST_SHORTCUT })}>⋯ {items.length}</button>
+    <button ref={button} className={'vt-todas' + (open ? ' activa' : '')} onClick={() => comList.set(e => ({ open: !e.open }))} title={t('windows.allConversations', { n: items.length, shortcut: LIST_SHORTCUT })}>⋯ {items.length}</button>
     {/* the list steps aside while a close is being confirmed */}
-    {abierta && r && !lista.some(w => w.confirmar) && createPortal(
+    {open && r && !list.some(w => w.confirm) && createPortal(
       <div className="barra-lista-com" style={{ left: r.left, bottom: innerHeight - r.top + 4 }}>
-        <TabList items={items} agrupar activa={actual?.activa ?? ''} activar={ir} cerrar={closeTabs} salir={salir} cabecera={(p, antes) => {
+        <TabList items={items} group active={current?.active ?? ''} activate={go} close={closeTabs} exit={exit} header={(p, before) => {
           // the room once, then whose: their bust and name, a hologram's task in its color
-          const o = quien(p.grupo!), tarea = o?.copia ? worktreeTask(o.copia) : undefined;
+          const o = who(p.group!), task = o?.copy ? worktreeTask(o.copy) : undefined;
           return <>
-            {p.sala !== antes?.sala && <div className="vt-lista-grupo">{p.sala}</div>}
-            {o && <div className={'vt-lista-quien' + (o.copia ? ' de-copia' : '') + (o.id === talking ? ' actual' : '')}><TalkerBust x={o} /><b>{p.quien}</b>{tarea && <TaskMark clave={tarea} />}</div>}
+            {p.room !== before?.room && <div className="vt-lista-grupo">{p.room}</div>}
+            {o && <div className={'vt-lista-quien' + (o.copy ? ' de-copia' : '') + (o.id === talking ? ' actual' : '')}><TalkerBust x={o} /><b>{p.who}</b>{task && <TaskMark key={task} />}</div>}
           </>;
         }} />
       </div>, document.body)}
@@ -521,36 +521,36 @@ export function ComTabs() {
 }
 /** Go to an intercom tab: its intercom comes to the front (if another was) on that tab */
 function goTab(pid: string) {
-  const d = intercoms.get().lista.find(w => w.pestanas.some(p => p.id === pid))?.dwellerId; if (!d) return;
-  if (d === juego.get().talkingWith) { activar(d, pid); return; }
-  actualizar(d, { activa: pid, z: nextZ() }); SFX.tick(); restoreIntercom(d);
+  const d = intercoms.get().list.find(w => w.tabs.some(p => p.id === pid))?.dwellerId; if (!d) return;
+  if (d === juego.get().talkingWith) { activate(d, pid); return; }
+  update(d, { active: pid, z: nextZ() }); SFX.tick(); restoreIntercom(d);
 }
 /** Close tabs of several intercoms: each asks about its own; if another one than the one in front has to ask, it switches to it */
 function closeTabs(pids: string[]) {
   const hid = juego.get().talkingWith;
-  let otro: string | undefined;
-  for (const w of intercoms.get().lista) {
-    const ids = w.pestanas.filter(p => pids.includes(p.id)).map(p => p.id); if (!ids.length) continue;
+  let other: string | undefined;
+  for (const w of intercoms.get().list) {
+    const ids = w.tabs.filter(p => pids.includes(p.id)).map(p => p.id); if (!ids.length) continue;
     askClose(w.dwellerId, ids);
-    if (w.dwellerId !== hid && ventana(w.dwellerId)?.confirmar) otro ??= w.dwellerId;
+    if (w.dwellerId !== hid && win(w.dwellerId)?.confirm) other ??= w.dwellerId;
   }
-  if (otro && !(hid && ventana(hid)?.confirmar)) { actualizar(otro, { activa: ventana(otro)!.confirmar![0] }); restoreIntercom(otro); }
+  if (other && !(hid && win(hid)?.confirm)) { update(other, { active: win(other)!.confirm![0] }); restoreIntercom(other); }
 }
 
 function Console({ h, v }: { h: DwellerSummary; v: WindowCom }) {
-  const sesiones = vivo.usar(e => e.sesiones);
-  const connected = vivo.usar(e => e.connected);
-  const claudeOk = vivo.usar(e => e.claudeOk);
-  const repo = vivo.usar(e => e.repos[h.sala]);
-  const copia = h.copia;
-  const p = v.pestanas.find(x => x.id === v.activa) ?? v.pestanas[0];
-  const s = p?.vista.tipo === 'sesion' ? sesiones[p.vista.sesionId] : undefined;
+  const sessions = live.use(e => e.sessions);
+  const connected = live.use(e => e.connected);
+  const claudeOk = live.use(e => e.claudeOk);
+  const repo = live.use(e => e.repos[h.room]);
+  const copy = h.copy;
+  const p = v.tabs.find(x => x.id === v.active) ?? v.tabs[0];
+  const s = p?.view.type === 'sesion' ? sessions[p.view.sessionId] : undefined;
   const hid = h.id;
   // the strip holds this intercom's own conversations, in the order they were opened; the others' are reached from the
   // selector and the bar, whose ⋯ N lists them all (ComTabs)
-  const items = v.pestanas.map(x => tabItem(x, h, sesiones));
+  const items = v.tabs.map(x => tabItem(x, h, sessions));
   const orden = useRef(items); orden.current = items;
-  useEffect(() => { teclado.bloqueado = true; return () => { teclado.bloqueado = false; }; }, []);
+  useEffect(() => { keyboard.blocked = true; return () => { keyboard.blocked = false; }; }, []);
   // al abrirse, el teclado es suyo: si estaba en una terminal, se suelta
   useEffect(() => { const a = document.activeElement as HTMLElement | null; if (a?.closest?.('.ventana-terminal')) a.blur(); }, []);
   // atajos de ventana, también escribiendo (antes que nadie; las terminales, el cliente de git y los archivos llevan los suyos)
@@ -560,86 +560,86 @@ function Console({ h, v }: { h: DwellerSummary; v: WindowCom }) {
       if ((e.target as HTMLElement | null)?.closest?.('.ventana-terminal, .ventana-git')) return;
       const w = ref.current;
       windowShortcut(e, {
-        maximizada: w.maximizada, newTab: () => newTab(hid), closeTab: () => askClose(hid, [w.activa]), closeWindow: () => askClose(hid),
-        minimizar: minimizeIntercom, toggleMaximize: () => toggleMaximize(hid), lista: () => comList.set(e => ({ abierta: !e.abierta })),
-        moveTab: d => { const x = nextTab(orden.current, w.activa, d); if (x) activar(hid, x); },
-        goTab: n => { const x = nthTab(orden.current, n); if (x) activar(hid, x); },
-        sacar: () => takeTab(hid, w.activa),
+        maximized: w.maximized, newTab: () => newTab(hid), closeTab: () => askClose(hid, [w.active]), closeWindow: () => askClose(hid),
+        minimize: minimizeIntercom, toggleMaximize: () => toggleMaximize(hid), list: () => comList.set(e => ({ open: !e.open })),
+        moveTab: d => { const x = nextTab(orden.current, w.active, d); if (x) activate(hid, x); },
+        goTab: n => { const x = nthTab(orden.current, n); if (x) activate(hid, x); },
+        takeOut: () => takeTab(hid, w.active),
       });
     };
     addEventListener('keydown', f, true); return () => removeEventListener('keydown', f, true);
   }, [hid]);
 
   if (!p) return null;
-  const ir = (vista: View) => goView(hid, p.id, vista);
-  const onMenu = () => ir({ tipo: 'menu' });
-  const vista = p.vista.tipo === 'sesion' && !s ? { tipo: 'menu' as const } : p.vista;
-  const alta = v.maximizada || vista.tipo === 'sesion' || vista.tipo === 'nuevo' || vista.tipo === 'historial' || vista.tipo === 'visitantes';
-  const worst = v.pestanas.map(sessionOf).filter(Boolean).sort((a, b) => urgency(a!) - urgency(b!))[0];
-  const confirming = v.confirmar ? v.pestanas.filter(x => v.confirmar!.includes(x.id)).map(sessionOf).filter(inRunning) as SessionSummary[] : [];
-  const written = v.confirmar ? v.pestanas.filter(x => v.confirmar!.includes(x.id) && withText(x)).length : 0;
-  const writtenNotice = written ? (written > 1 ? t('windows.youHaveUnsentTextIn', { n: written }) : v.confirmar!.length > 1 ? t('windows.youHaveUnsentTextIn2') : t('windows.youHaveUnsentText')) : '';
+  const go = (view: View) => goView(hid, p.id, view);
+  const onMenu = () => go({ type: 'menu' });
+  const view = p.view.type === 'sesion' && !s ? { type: 'menu' as const } : p.view;
+  const high = v.maximized || view.type === 'sesion' || view.type === 'nuevo' || view.type === 'historial' || view.type === 'visitantes';
+  const worst = v.tabs.map(sessionOf).filter(Boolean).sort((a, b) => urgency(a!) - urgency(b!))[0];
+  const confirming = v.confirm ? v.tabs.filter(x => v.confirm!.includes(x.id)).map(sessionOf).filter(inRunning) as SessionSummary[] : [];
+  const written = v.confirm ? v.tabs.filter(x => v.confirm!.includes(x.id) && withText(x)).length : 0;
+  const writtenNotice = written ? (written > 1 ? t('windows.youHaveUnsentTextIn', { n: written }) : v.confirm!.length > 1 ? t('windows.youHaveUnsentTextIn2') : t('windows.youHaveUnsentText')) : '';
   return (
-    <div className={'consola interactivo' + (alta ? ' alta' : '') + (v.maximizada ? ' maximizada' : '') + (copia ? ' de-copia' : '')} role="dialog" aria-label={t('windows.talkToNombre', { nombre: h.nombre })}>
+    <div className={'consola interactivo' + (high ? ' alta' : '') + (v.maximized ? ' maximizada' : '') + (copy ? ' de-copia' : '')} role="dialog" aria-label={t('windows.talkToNombre', { nombre: h.name })}>
       <div className="consola-bisel">
         <div className="consola-cabeza" onDoubleClick={e => { if (!(e.target as HTMLElement).closest('button')) toggleMaximize(hid); }}>
           <span className="rejilla" aria-hidden />
-          <span className={'piloto ' + (worst?.estado ?? 'apagado')} aria-hidden />
-          <span className="consola-rotulo">{copia ? <>{t('windows.intercom')} · {t('windows.holographicCopyOfAutor', { autor: copia.nameAuthor })} · {copyCaption(copia)} · {h.nameRoom}</> : <>{t('windows.intercom')} · {h.nombre} · {h.nameRoom}</>}</span>
-          <WindowButtons sacar={s ? () => takeTab(hid, p.id) : undefined} wingApp={s ? () => aAppClaude({ sesionId: s.id }) : undefined} remoto={s ? () => takeASurface({ sesiones: [s.id], remoto: true }) : undefined} takesThat={t('windows.thisConversation')} maximizada={v.maximizada} minimizar={minimizeIntercom} toggleMaximize={() => toggleMaximize(hid)} cerrar={() => askClose(hid)} closesThat={t('windows.theIntercomAndItsConversations')} />
+          <span className={'piloto ' + (worst?.state ?? 'apagado')} aria-hidden />
+          <span className="consola-rotulo">{copy ? <>{t('windows.intercom')} · {t('windows.holographicCopyOfAutor', { autor: copy.nameAuthor })} · {copyCaption(copy)} · {h.nameRoom}</> : <>{t('windows.intercom')} · {h.name} · {h.nameRoom}</>}</span>
+          <WindowButtons takeOut={s ? () => takeTab(hid, p.id) : undefined} wingApp={s ? () => toClaudeApp({ sessionId: s.id }) : undefined} remote={s ? () => takeASurface({ sessions: [s.id], remote: true }) : undefined} takesThat={t('windows.thisConversation')} maximized={v.maximized} minimize={minimizeIntercom} toggleMaximize={() => toggleMaximize(hid)} close={() => askClose(hid)} closesThat={t('windows.theIntercomAndItsConversations')} />
         </div>
-        <Tabs items={items} confirmando={!!v.confirmar} activa={v.activa} activar={pid => activar(hid, pid)} cerrar={pids => askClose(hid, pids)} nueva={() => newTab(hid)} opensThat={copia ? t('windows.newTabAnotherJobInside') : t('windows.newTabAnotherJobWith')} />
+        <Tabs items={items} confirming={!!v.confirm} active={v.active} activate={pid => activate(hid, pid)} close={pids => askClose(hid, pids)} onNew={() => newTab(hid)} opensThat={copy ? t('windows.newTabAnotherJobInside') : t('windows.newTabAnotherJobWith')} />
         <div className="consola-cuerpo">
           <aside className="consola-lado">
             <WhoSelector h={h} />
-            <div className={'retrato-crt' + (copia ? ' holo' : '')}><LivePortrait /></div>
-            {copia ? <>
-              <div className="consola-nombre">{copia.nameAuthor} <span className="marca-copia">◇</span></div>
+            <div className={'retrato-crt' + (copy ? ' holo' : '')}><LivePortrait /></div>
+            {copy ? <>
+              <div className="consola-nombre">{copy.nameAuthor} <span className="marca-copia">◇</span></div>
               <div className="consola-mote">{t('windows.holographicCopy')}</div>
               <StateChip s={s} />
-              <div className="consola-dato">{t('windows.branch')} <b>{copia.rama || t('windows.noBranch')}</b></div>
-              <div className="consola-dato">{copia.cambios ? t('windows.nChanges', { n: copia.cambios }) : t('windows.noChanges')}{copia.advanced ? ` · ${t('windows.nCommitsToMerge', { n: copia.advanced })}` : ''}</div>
+              <div className="consola-dato">{t('windows.branch')} <b>{copy.branch || t('windows.noBranch')}</b></div>
+              <div className="consola-dato">{copy.changes ? t('windows.nChanges', { n: copy.changes }) : t('windows.noChanges')}{copy.advanced ? ` · ${t('windows.nCommitsToMerge', { n: copy.advanced })}` : ''}</div>
             </> : <>
-              <div className="consola-nombre">{h.nombre}</div>
-              <div className="consola-mote">«{tIs(h.mote)}»</div>
+              <div className="consola-nombre">{h.name}</div>
+              <div className="consola-mote">«{tIs(h.nickname)}»</div>
               <StateChip s={s} />
-              {repo?.rama && <div className="consola-dato">{t('windows.branch')} <b>{repo.rama}</b>{repo.cambios ? ` · ${t('windows.nChanges', { n: repo.cambios })}` : ''}</div>}
+              {repo?.branch && <div className="consola-dato">{t('windows.branch')} <b>{repo.branch}</b>{repo.changes ? ` · ${t('windows.nChanges', { n: repo.changes })}` : ''}</div>}
             </>}
-            {s?.modelo && <div className="consola-dato">{s.modelo.replace('claude-', '')}</div>}
-            {s && (s.contexto || s.tokens) ? <div className="consola-dato"><Usage s={s} largo /></div> : null}
+            {s?.model && <div className="consola-dato">{s.model.replace('claude-', '')}</div>}
+            {s && (s.context || s.tokens) ? <div className="consola-dato"><Usage s={s} length /></div> : null}
             {/* right under the dweller, by importance: pages to review, the task's PRs and pre-flight, then the scheduled
                 ones; each hidden with nothing, and the whole section with none (CSS `:has`) */}
             <div className="consola-acciones" role="group" aria-label={t('windows.actions')}>
               <div className="consola-acciones-titulo" aria-hidden>{t('windows.actions')}</div>
-              {s ? <PagesMenu key={s.id} s={s} /> : vista.tipo === 'nuevo' && vista.reanudar ? <ResumePages key={vista.reanudar.claudeId} salaId={h.sala} claudeId={vista.reanudar.claudeId} /> : null}
-              {copia ? <WorktreePRs copia={copia} salaId={h.sala} /> : null}
-              {copia ? <PreflightButton copia={copia} /> : null}
+              {s ? <PagesMenu key={s.id} s={s} /> : view.type === 'nuevo' && view.resume ? <ResumePages key={view.resume.claudeId} roomId={h.room} claudeId={view.resume.claudeId} /> : null}
+              {copy ? <WorktreePRs copy={copy} roomId={h.room} /> : null}
+              {copy ? <PreflightButton copy={copy} /> : null}
               {/* with `key`: each conversation with its own list (nothing from the previous tab while its own arrives) */}
-              <ScheduledMenu key={'p' + (s?.id ?? (vista.tipo === 'nuevo' ? vista.reanudar?.claudeId : '') ?? '')} h={h} s={s} reanudar={vista.tipo === 'nuevo' ? vista.reanudar?.claudeId : undefined} />
+              <ScheduledMenu key={'p' + (s?.id ?? (view.type === 'nuevo' ? view.resume?.claudeId : '') ?? '')} h={h} s={s} resume={view.type === 'nuevo' ? view.resume?.claudeId : undefined} />
             </div>
           </aside>
           <div className="consola-pestana" key={p.id}>
             {!connected ? <WithoutConnection /> : !claudeOk ? <WithoutClaude /> :
               p.sessionWait ? <div className="pantalla-consola fosforo"><p className="voz">{t('windows.startingTheJob')}</p></div> :
-              vista.tipo === 'menu' ? <Menu h={h} ir={ir} salir={() => salir(hid)} /> :
-              vista.tipo === 'nuevo' ? <New h={h} p={p} reanudar={vista.reanudar} volver={onMenu} /> :
-              vista.tipo === 'visitantes' ? <Visitors h={h} volver={onMenu} reanudar={el => resumeHere(h, p.id, el)} /> :
-              vista.tipo === 'historial' ? <Historial h={h} volver={onMenu} elegir={el => {
-                const ya = Object.values(vivo.get().sesiones).find(x => x.claudeId === el.claudeId && x.estado !== 'cerrada');
-                if (ya) { const t = v.pestanas.find(x => x.vista.tipo === 'sesion' && x.vista.sesionId === ya.id); if (t) activar(hid, t.id); else ir({ tipo: 'sesion', sesionId: ya.id }); }
-                else if (el.enCurso) SFX.noAllowed();
-                else ir({ tipo: 'nuevo', reanudar: el });
+              view.type === 'menu' ? <Menu h={h} go={go} exit={() => exit(hid)} /> :
+              view.type === 'nuevo' ? <New h={h} p={p} resume={view.resume} goBack={onMenu} /> :
+              view.type === 'visitantes' ? <Visitors h={h} goBack={onMenu} resume={el => resumeHere(h, p.id, el)} /> :
+              view.type === 'historial' ? <HistoryView h={h} goBack={onMenu} pick={el => {
+                const already = Object.values(live.get().sessions).find(x => x.claudeId === el.claudeId && x.state !== 'cerrada');
+                if (already) { const t = v.tabs.find(x => x.view.type === 'sesion' && x.view.sessionId === already.id); if (t) activate(hid, t.id); else go({ type: 'sesion', sessionId: already.id }); }
+                else if (el.inProgress) SFX.notAllowed();
+                else go({ type: 'nuevo', resume: el });
               }} /> :
-              vista.tipo === 'ficha' ? <Ficha h={h} volver={onMenu} /> :
-              s ? <Session h={h} s={s} p={p} salir={() => salir(hid)} onClose={() => { cerrandose.add(s.id); cliente.enviar({ t: 'cerrarSesion', sesionId: s.id }); onMenu(); }} /> : null}
+              view.type === 'ficha' ? <Card h={h} goBack={onMenu} /> :
+              s ? <Session h={h} s={s} p={p} exit={() => exit(hid)} onClose={() => { closingSessions.add(s.id); client.send({ t: 'cerrarSesion', sessionId: s.id }); onMenu(); }} /> : null}
           </div>
         </div>
-        {v.confirmar && <Confirmation titulo={v.confirmar.length > 1 ? t('windows.closeTheTabs') : confirming.length ? t('windows.closeThisConversation') : t('windows.closeThisTab')}
-          texto={confirming.length
-            ? <>{copia ? t('windows.autorSCopy', { autor: copia.nameAuthor }) : h.nombre} {t('windows.isWorkingOn')} {confirming.length > 1 ? t('windows.nJobs', { n: confirming.length }) : <>«{confirming[0]?.titulo ?? t('windows.aJob')}»</>}{confirming.some(x => x.estado === 'esperando') ? ` ${t('windows.andIsWaitingForYou')}` : ''}. {t('windows.ifYouCloseItIt2')}{writtenNotice ? <> {writtenNotice}: {t('windows.wouldBeDeleted')}</> : null} {t('windows.toLetItCarryOn')}</>
+        {v.confirm && <Confirmation title={v.confirm.length > 1 ? t('windows.closeTheTabs') : confirming.length ? t('windows.closeThisConversation') : t('windows.closeThisTab')}
+          text={confirming.length
+            ? <>{copy ? t('windows.autorSCopy', { autor: copy.nameAuthor }) : h.name} {t('windows.isWorkingOn')} {confirming.length > 1 ? t('windows.nJobs', { n: confirming.length }) : <>«{confirming[0]?.title ?? t('windows.aJob')}»</>}{confirming.some(x => x.state === 'esperando') ? ` ${t('windows.andIsWaitingForYou')}` : ''}. {t('windows.ifYouCloseItIt2')}{writtenNotice ? <> {writtenNotice}: {t('windows.wouldBeDeleted')}</> : null} {t('windows.toLetItCarryOn')}</>
             : <>{writtenNotice}. {t('windows.ifYouCloseItIt3')}</>}
-          boton={confirming.length ? undefined : t('windows.closeAndDeleteEnter')}
-          cerrar={() => closeAlready(hid, v.confirmar!)} minimizar={() => { actualizar(hid, { confirmar: undefined }); minimizeIntercom(); }} cancelar={() => actualizar(hid, { confirmar: undefined })} />}
+          button={confirming.length ? undefined : t('windows.closeAndDeleteEnter')}
+          close={() => closeAlready(hid, v.confirm!)} minimize={() => { update(hid, { confirm: undefined }); minimizeIntercom(); }} cancel={() => update(hid, { confirm: undefined })} />}
       </div>
     </div>
   );
@@ -653,14 +653,14 @@ function LivePortrait() {
 }
 
 function StateChip({ s }: { s?: SessionSummary }) {
-  const est: Record<string, [string, string]> = { arrancando: [t('windows.starting'), 'trab'], trabajando: [t('windows.working'), 'trab'], esperando: [t('windows.waitingForYou'), 'esp'], terminada: [t('windows.finished'), 'fin'], ociosa: [t('windows.ready'), 'fin'], error: [t('windows.fault'), 'err'], cerrada: [t('windows.closed'), 'oci'] };
+  const st: Record<string, [string, string]> = { arrancando: [t('windows.starting'), 'trab'], trabajando: [t('windows.working'), 'trab'], esperando: [t('windows.waitingForYou'), 'esp'], terminada: [t('windows.finished'), 'fin'], ociosa: [t('windows.ready'), 'fin'], error: [t('windows.fault'), 'err'], cerrada: [t('windows.closed'), 'oci'] };
   if (!s) return <span className="chip-estado oci">{t('windows.noSession')}</span>;
-  const [txt, cls] = est[s.estado] ?? [s.estado, 'oci'];
+  const [txt, cls] = st[s.state] ?? [s.state, 'oci'];
   return <span className={'chip-estado ' + cls}>{txt}</span>;
 }
 
 function WithoutConnection() {
-  const attempts = vivo.usar(e => e.attempts);
+  const attempts = live.use(e => e.attempts);
   return <div className="pantalla-consola fosforo"><p className="aviso-consola">{t('windows.noLinkToTheShelter')}{'.'.repeat(1 + (attempts % 3))}</p><p className="tenue">{t('windows.ifYouClosedItReopen')} <code>./shelter</code>.</p></div>;
 }
 function WithoutClaude() {
@@ -668,117 +668,117 @@ function WithoutClaude() {
 }
 
 // ---------------------------------------------------------------- menús con teclado: Esc (y ←) es «atrás»
-const useMenu = (n: number, f: (i: number) => void, atras: () => void, extra?: (e: KeyboardEvent) => boolean | void) =>
-  useMenuBase(n, f, e => { const x = extra?.(e); if (x !== undefined) return x; if (e.code === 'ArrowLeft' || e.code === 'Backspace') { atras(); return true; } return undefined; }, atras);
+const useMenu = (n: number, f: (i: number) => void, behind: () => void, extra?: (e: KeyboardEvent) => boolean | void) =>
+  useMenuBase(n, f, e => { const x = extra?.(e); if (x !== undefined) return x; if (e.code === 'ArrowLeft' || e.code === 'Backspace') { behind(); return true; } return undefined; }, behind);
 
-function Menu({ h, ir, salir }: { h: DwellerSummary; ir: (v: View) => void; salir: () => void }) {
+function Menu({ h, go, exit }: { h: DwellerSummary; go: (v: View) => void; exit: () => void }) {
   // trabajo y terminal van en la carpeta de trabajo de su sala (las especiales tienen una propia); los de una copia, en su worktree
-  const carpeta = h.carpeta ?? h.ruta, copia = h.copia;
+  const folder = h.folder ?? h.path, copy = h.copy;
   const terminal = async () => {
-    if (!copia) { window.dispatchEvent(new CustomEvent('refugio:terminal', { detail: { salaId: h.sala } })); return; }
+    if (!copy) { window.dispatchEvent(new CustomEvent('refugio:terminal', { detail: { roomId: h.room } })); return; }
     const { openTerminalIn } = await import('./Terminals');
-    openTerminalIn('wt:' + copia.ruta, h.sala, `${h.nameRoom} · ${copia.rama}`, copia.ruta);
+    openTerminalIn('wt:' + copy.path, h.room, `${h.nameRoom} · ${copy.branch}`, copy.path);
   };
   // revisar la copia (cambios, commits, integrar, desechar) es el aparato de la copia: el intercomunicador baja a la barra
-  const revisar = () => { salir(); juego.set({ panel: 'worktree', panelData: { salaId: h.sala, aparato: 'wt:' + copia!.ruta } }); };
-  const opciones = [
-    { texto: copia ? t('windows.startANewJobInside') : t('windows.startANewJob'), pista: t('windows.inCarpeta', { carpeta: (carpeta ?? t('windows.theirRoom')).replace(/^\/Users\/[^/]+/, '~') }), f: () => ir({ tipo: 'nuevo' }) },
-    { texto: t('windows.resumeAPreviousJob'), pista: copia ? t('windows.fromThisWorktree') : t('windows.includingTerminalOnes'), f: () => ir({ tipo: 'historial' }) },
-    ...(carpeta ? [{ texto: copia ? t('windows.openATerminalInside') : t('windows.openTheirTerminal'), pista: 'T', f: terminal }] : []),
-    ...(copia ? [{ texto: t('windows.reviewTheCopyChangesCommits'), f: revisar }] : []),
-    { texto: t('windows.viewTheirProfile'), f: () => ir({ tipo: 'ficha' }) },
+  const toReview = () => { exit(); juego.set({ panel: 'worktree', panelData: { roomId: h.room, device: 'wt:' + copy!.path } }); };
+  const options = [
+    { text: copy ? t('windows.startANewJobInside') : t('windows.startANewJob'), hint: t('windows.inCarpeta', { carpeta: (folder ?? t('windows.theirRoom')).replace(/^\/Users\/[^/]+/, '~') }), f: () => go({ type: 'nuevo' }) },
+    { text: t('windows.resumeAPreviousJob'), hint: copy ? t('windows.fromThisWorktree') : t('windows.includingTerminalOnes'), f: () => go({ type: 'historial' }) },
+    ...(folder ? [{ text: copy ? t('windows.openATerminalInside') : t('windows.openTheirTerminal'), hint: 'T', f: terminal }] : []),
+    ...(copy ? [{ text: t('windows.reviewTheCopyChangesCommits'), f: toReview }] : []),
+    { text: t('windows.viewTheirProfile'), f: () => go({ type: 'ficha' }) },
     // su aspecto se cambia en el probador de Chapa y Pintura (la Octocat es como es)
-    ...(!copia && h.tipo !== 'Octocat' ? [{ texto: t('windows.changeTheirLook'), pista: t('world.bodyShop'), f: () => { salir(); juego.set({ panel: 'chapa', panelData: { quien: h.id } }); } }] : []),
-    { texto: t('menu.backToTheShelter'), pista: 'Esc', f: salir },
+    ...(!copy && h.type !== 'Octocat' ? [{ text: t('windows.changeTheirLook'), hint: t('world.bodyShop'), f: () => { exit(); juego.set({ panel: 'chapa', panelData: { who: h.id } }); } }] : []),
+    { text: t('menu.backToTheShelter'), hint: 'Esc', f: exit },
   ];
-  const items = opciones;
-  const elegir = (j: number) => opciones[j]?.f();
-  const [i, setI] = useMenu(items.length, elegir, salir, e => { if (e.code === 'KeyT' && carpeta) { terminal(); return true; } return undefined; });
-  const saludo = useMemo(() => greetingOf(h), [h.id]);
+  const items = options;
+  const pick = (j: number) => options[j]?.f();
+  const [i, setI] = useMenu(items.length, pick, exit, e => { if (e.code === 'KeyT' && folder) { terminal(); return true; } return undefined; });
+  const greeting = useMemo(() => greetingOf(h), [h.id]);
   return (
     <div className="pantalla-consola fosforo">
-      <p className="voz">{saludo}</p>
-      <Opciones items={items} i={i} setI={setI} onChoose={elegir} />
+      <p className="voz">{greeting}</p>
+      <Options items={items} i={i} setI={setI} onChoose={pick} />
       <p className="ayuda-consola"><kbd>↑↓</kbd> {t('menu.select')} <kbd>Enter</kbd> {t('menu.accept')} <kbd>Esc</kbd> {t('menu.backToTheShelter2')} <kbd>{CMD}T</kbd> {t('windows.anotherTab')}</p>
     </div>
   );
 }
 
 function greetingOf(h: DwellerSummary) {
-  if (h.copia) {
-    const r = branchCaption(h.copia.rama);
-    const phrases = [t('windows.copyOfAutorOnlineHere', { autor: h.copia.nameAuthor, rama: r }), t('windows.iMAutorSCopy', { autor: h.copia.nameAuthor, rama: r }), h.copia.cambios ? t('windows.projectionStableBranchRamaWith', { rama: r, n: h.copia.cambios }) : t('windows.projectionStableBranchRamaShall', { rama: r })];
+  if (h.copy) {
+    const r = branchCaption(h.copy.branch);
+    const phrases = [t('windows.copyOfAutorOnlineHere', { autor: h.copy.nameAuthor, rama: r }), t('windows.iMAutorSCopy', { autor: h.copy.nameAuthor, rama: r }), h.copy.changes ? t('windows.projectionStableBranchRamaWith', { rama: r, n: h.copy.changes }) : t('windows.projectionStableBranchRamaShall', { rama: r })];
     return phrases[Math.floor(Math.random() * phrases.length)];
   }
   const phrases = h.robot
     ? [t('windows.unitReadyStateTheTask'), t('windows.diagnosticsCompleteAwaitingOrders'), t('windows.myCircuitsAreAtYour')]
-    : h.estado === 'durmiendo' ? [t('windows.huhWhatOhOverseerI'), t('windows.fiveMoreMinutesOkayOkay')]
+    : h.state === 'durmiendo' ? [t('windows.huhWhatOhOverseerI'), t('windows.fiveMoreMinutesOkayOkay')]
     : [t('windows.whatAreWeDoingToday'), t('windows.tellMeWhatSUp'), t('windows.hereIAmShallWe'), t('windows.allQuietInSalaFor', { sala: h.nameRoom })];
   return phrases[Math.floor(Math.random() * phrases.length)];
 }
 
-function Ficha({ h, volver }: { h: DwellerSummary; volver: () => void }) {
-  const repo = vivo.usar(e => e.repos[h.sala]);
-  const [i, setI] = useMenu(1, () => volver(), volver);
-  const c = h.copia;
+function Card({ h, goBack }: { h: DwellerSummary; goBack: () => void }) {
+  const repo = live.use(e => e.repos[h.room]);
+  const [i, setI] = useMenu(1, () => goBack(), goBack);
+  const c = h.copy;
   if (c) return (
     <div className="pantalla-consola fosforo ficha">
       <dl>
         <dt>{t('windows.copyOf')}</dt><dd>{c.nameAuthor} «{tIs(c.nicknameAuthor)}»</dd>
         <dt>{t('windows.room')}</dt><dd>{h.nameRoom}</dd>
-        <dt>Worktree</dt><dd><code>{c.ruta}</code></dd>
-        <dt>{t('windows.branch2')}</dt><dd>{c.rama || t('windows.noBranch')} · {t('windows.nUncommittedChanges', { n: c.cambios })} · {t('windows.nCommitsToMerge', { n: c.advanced })}</dd>
-        <dt>{t('windows.status')}</dt><dd>{tIs(h.estado)}{h.detalle ? ' · ' + h.detalle : ''}</dd>
+        <dt>Worktree</dt><dd><code>{c.path}</code></dd>
+        <dt>{t('windows.branch2')}</dt><dd>{c.branch || t('windows.noBranch')} · {t('windows.nUncommittedChanges', { n: c.changes })} · {t('windows.nCommitsToMerge', { n: c.advanced })}</dd>
+        <dt>{t('windows.status')}</dt><dd>{tIs(h.state)}{h.detail ? ' · ' + h.detail : ''}</dd>
         <dt>{t('windows.record')}</dt><dd>{trBio(h.bio)}</dd>
       </dl>
-      <Opciones items={[{ texto: t('windows.back'), pista: 'Esc' }]} i={i} setI={setI} onChoose={volver} />
+      <Options items={[{ text: t('windows.back'), hint: 'Esc' }]} i={i} setI={setI} onChoose={goBack} />
     </div>
   );
   return (
     <div className="pantalla-consola fosforo ficha">
       <dl>
-        <dt>{t('windows.name')}</dt><dd>{h.nombre} «{tIs(h.mote)}»</dd>
-        <dt>{t('windows.room')}</dt><dd>{h.nameRoom}{h.carpeta ?? h.ruta ? <> · <code>{h.carpeta ?? h.ruta}</code></> : null}</dd>
-        {repo?.rama && <><dt>{t('windows.branch2')}</dt><dd>{repo.rama} · {t('windows.nUncommittedChanges', { n: repo.cambios })}</dd></>}
-        {repo?.lastCommit && <><dt>{t('windows.lastCommit')}</dt><dd>{repo.lastCommit.mensaje} <span className="tenue">({hace(repo.lastCommit.fecha)})</span></dd></>}
-        <dt>{t('windows.status')}</dt><dd>{tIs(h.estado)}{h.detalle ? ' · ' + h.detalle : ''}</dd>
+        <dt>{t('windows.name')}</dt><dd>{h.name} «{tIs(h.nickname)}»</dd>
+        <dt>{t('windows.room')}</dt><dd>{h.nameRoom}{h.folder ?? h.path ? <> · <code>{h.folder ?? h.path}</code></> : null}</dd>
+        {repo?.branch && <><dt>{t('windows.branch2')}</dt><dd>{repo.branch} · {t('windows.nUncommittedChanges', { n: repo.changes })}</dd></>}
+        {repo?.lastCommit && <><dt>{t('windows.lastCommit')}</dt><dd>{repo.lastCommit.message} <span className="tenue">({ago(repo.lastCommit.date)})</span></dd></>}
+        <dt>{t('windows.status')}</dt><dd>{tIs(h.state)}{h.detail ? ' · ' + h.detail : ''}</dd>
         <dt>{t('windows.record')}</dt><dd>{trBio(h.bio)}</dd>
       </dl>
-      <Opciones items={[{ texto: t('windows.back'), pista: 'Esc' }]} i={i} setI={setI} onChoose={volver} />
+      <Options items={[{ text: t('windows.back'), hint: 'Esc' }]} i={i} setI={setI} onChoose={goBack} />
     </div>
   );
 }
 
-export function hace(cuando: number) {
-  const m = Math.round((Date.now() - cuando) / 60000);
+export function ago(when: number) {
+  const m = Math.round((Date.now() - when) / 60000);
   if (m < 1) return t('windows.justNow'); if (m < 60) return t('windows.nMinAgo', { n: m }); const hh = Math.round(m / 60); if (hh < 48) return t('windows.nHAgo', { n: hh }); return t('windows.nDaysAgo', { n: Math.round(hh / 24) });
 }
 
 // ---------------------------------------------------------------- historial (conversaciones reales de la carpeta)
-function Historial({ h, volver, elegir }: { h: DwellerSummary; volver: () => void; elegir: (el: HistoryElement) => void }) {
-  const [lista, setList] = useState<HistoryElement[] | null>(null);
+function HistoryView({ h, goBack, pick }: { h: DwellerSummary; goBack: () => void; pick: (el: HistoryElement) => void }) {
+  const [list, setList] = useState<HistoryElement[] | null>(null);
   const [error, setError] = useState('');
-  useEffect(() => { cliente.ask<HistoryElement[]>({ t: 'historial', salaId: h.sala, cwd: h.copia?.ruta }).then(setList).catch(e => setError(e.message)); }, [h.sala, h.copia?.ruta]);
-  const items = [...(lista ?? []).map(el => ({ texto: (el.fuera ? '↗ ' : '') + el.titulo, pista: `${hace(el.modified)}${el.rama ? ' · ' + el.rama : ''}${el.enCurso ? ` · ${t('windows.inProgress')}` : ''}${el.fuera ? ` · ${t('windows.openOnYourDesktop')}` : ''}` })), { texto: t('windows.back'), pista: 'Esc' }];
+  useEffect(() => { client.ask<HistoryElement[]>({ t: 'historial', roomId: h.room, cwd: h.copy?.path }).then(setList).catch(e => setError(e.message)); }, [h.room, h.copy?.path]);
+  const items = [...(list ?? []).map(el => ({ text: (el.outside ? '↗ ' : '') + el.title, hint: `${ago(el.modified)}${el.branch ? ' · ' + el.branch : ''}${el.inProgress ? ` · ${t('windows.inProgress')}` : ''}${el.outside ? ` · ${t('windows.openOnYourDesktop')}` : ''}` })), { text: t('windows.back'), hint: 'Esc' }];
   // la que sigue abierta en tu escritorio no se retoma aquí a la vez (se corrompería): primero /exit allí o, si la
   // pestaña se cerró sin salir y el proceso sigue vivo, Enter otra vez la cierra a la fuerza y la retoma aquí
-  const [forzar, setForce] = useState(-1);
+  const [force, setForce] = useState(-1);
   const onChoose = (k: number) => {
-    if (!lista || k >= lista.length) return volver();
-    const el = lista[k];
-    if (!el.fuera) return elegir(el);
-    if (forzar !== k) { SFX.noAllowed(); setForce(k); setError(t('windows.thatConversationIsStillOpen')); return; }
+    if (!list || k >= list.length) return goBack();
+    const el = list[k];
+    if (!el.outside) return pick(el);
+    if (force !== k) { SFX.notAllowed(); setForce(k); setError(t('windows.thatConversationIsStillOpen')); return; }
     setForce(-1); setError(t('windows.forcingClose'));
-    cliente.accion<number>('superficie.forzarCierre', { claudeId: el.claudeId })
-      .then(() => { setError(''); elegir({ ...el, fuera: false }); })
+    client.action<number>('superficie.forzarCierre', { claudeId: el.claudeId })
+      .then(() => { setError(''); pick({ ...el, outside: false }); })
       .catch(e => { SFX.error(); setError((e as Error).message); });
   };
-  const [i, setI] = useMenu(items.length, onChoose, volver);
+  const [i, setI] = useMenu(items.length, onChoose, goBack);
   return (
     <div className="pantalla-consola fosforo">
-      <p className="voz">{lista === null ? t('windows.searchingTheArchive') : lista.length ? (h.copia ? t('windows.thisIsWhatIsIn') : t('windows.thisIsWhatIsIn2')) : t('windows.thereAreNoPreviousConversations')}</p>
+      <p className="voz">{list === null ? t('windows.searchingTheArchive') : list.length ? (h.copy ? t('windows.thisIsWhatIsIn') : t('windows.thisIsWhatIsIn2')) : t('windows.thereAreNoPreviousConversations')}</p>
       {error && <p className="aviso-consola">{error}</p>}
-      <div className="lista-desplazable"><Opciones items={items} i={i} setI={setI} onChoose={onChoose} /></div>
+      <div className="lista-desplazable"><Options items={items} i={i} setI={setI} onChoose={onChoose} /></div>
       <p className="ayuda-consola"><kbd>↑↓</kbd> {t('menu.select')} <kbd>Enter</kbd> {t('windows.resume')} <kbd>Esc</kbd> <kbd>←</kbd> {t('windows.back2')}</p>
     </div>
   );
@@ -787,40 +787,40 @@ function Historial({ h, volver, elegir }: { h: DwellerSummary; volver: () => voi
 // ---------------------------------------------------------------- visitantes (sesiones de la sala abiertas fuera del refugio)
 // Solo las de fuera, la más reciente arriba; los títulos y si siguen con `claude --resume` vienen del archivo de la sala y
 // de cada worktree con visitas. Enter la retoma aquí (si sigue abierta con --resume, la cierra allí antes)
-function Visitors({ h, volver, reanudar }: { h: DwellerSummary; volver: () => void; reanudar: (el: HistoryElement) => void }) {
-  const visitas = vivo.usar(e => e.visitantes.filter(v => v.salaId === h.sala));
-  const ramas = vivo.usar(e => e.repos[h.sala]?.worktrees);
-  const [archivo, setArchivo] = useState<Map<string, HistoryElement> | null>(null);
+function Visitors({ h, goBack, resume }: { h: DwellerSummary; goBack: () => void; resume: (el: HistoryElement) => void }) {
+  const visits = live.use(e => e.visitors.filter(v => v.roomId === h.room));
+  const branches = live.use(e => e.repos[h.room]?.worktrees);
+  const [file, setArchive] = useState<Map<string, HistoryElement> | null>(null);
   const [error, setError] = useState('');
   // la lista del último aviso del servidor puede ir hasta 15 s atrasada: se pide al momento y, hasta tenerla con sus
   // títulos, se enseña «cargando» (no media lista que luego crece)
-  const [fresca, setFresca] = useState(false);
-  useEffect(() => { cliente.accion<Visitante[]>('visitantes').then(v => vivo.set({ visitantes: v })).catch(() => {}).finally(() => setFresca(true)); }, []);
-  const dirs = [...new Set(visitas.map(v => v.worktree ?? ''))].sort().join('|');
+  const [fresh, setFresh] = useState(false);
+  useEffect(() => { client.action<Visitor[]>('visitantes').then(v => live.set({ visitors: v })).catch(() => {}).finally(() => setFresh(true)); }, []);
+  const dirs = [...new Set(visits.map(v => v.worktree ?? ''))].sort().join('|');
   useEffect(() => {
-    if (!fresca) return;
-    Promise.all(dirs.split('|').map(d => cliente.ask<HistoryElement[]>({ t: 'historial', salaId: h.sala, cwd: d || undefined }).catch(() => [])))
-      .then(ls => setArchivo(new Map(ls.flat().map(x => [x.claudeId, x]))));
-  }, [h.sala, dirs, fresca]);
-  const lista: HistoryElement[] = visitas.map(v => {
-    const x = archivo?.get(v.claudeId);
-    return { claudeId: v.claudeId, titulo: x?.titulo || v.titulo, modified: v.modified, cwd: v.cwd, fuera: x?.fuera, rama: v.worktree ? ramas?.find(w => w.ruta === v.worktree)?.rama || v.worktree.split('/').pop() : undefined };
-  }).sort((a, b) => recentFirst({ cuando: a.modified, nombre: a.titulo, id: a.claudeId }, { cuando: b.modified, nombre: b.titulo, id: b.claudeId }));
-  const items = [...lista.map(el => ({ texto: '↗ ' + el.titulo, pista: `${hace(el.modified)}${el.rama ? ' · ◇ ' + el.rama : ''}` })), { texto: t('windows.back'), pista: 'Esc' }];
+    if (!fresh) return;
+    Promise.all(dirs.split('|').map(d => client.ask<HistoryElement[]>({ t: 'historial', roomId: h.room, cwd: d || undefined }).catch(() => [])))
+      .then(ls => setArchive(new Map(ls.flat().map(x => [x.claudeId, x]))));
+  }, [h.room, dirs, fresh]);
+  const list: HistoryElement[] = visits.map(v => {
+    const x = file?.get(v.claudeId);
+    return { claudeId: v.claudeId, title: x?.title || v.title, modified: v.modified, cwd: v.cwd, outside: x?.outside, branch: v.worktree ? branches?.find(w => w.path === v.worktree)?.branch || v.worktree.split('/').pop() : undefined };
+  }).sort((a, b) => recentFirst({ when: a.modified, name: a.title, id: a.claudeId }, { when: b.modified, name: b.title, id: b.claudeId }));
+  const items = [...list.map(el => ({ text: '↗ ' + el.title, hint: `${ago(el.modified)}${el.branch ? ' · ◇ ' + el.branch : ''}` })), { text: t('windows.back'), hint: 'Esc' }];
   const onChoose = (k: number) => {
-    if (k >= lista.length) return volver();
-    const el = lista[k];
-    if (!el.fuera) return reanudar(el);
+    if (k >= list.length) return goBack();
+    const el = list[k];
+    if (!el.outside) return resume(el);
     setError(t('windows.forcingClose'));
-    cliente.accion<number>('superficie.forzarCierre', { claudeId: el.claudeId }).then(() => reanudar({ ...el, fuera: false })).catch(e => { SFX.error(); setError((e as Error).message); });
+    client.action<number>('superficie.forzarCierre', { claudeId: el.claudeId }).then(() => resume({ ...el, outside: false })).catch(e => { SFX.error(); setError((e as Error).message); });
   };
-  const [i, setI] = useMenu(items.length, onChoose, volver);
-  if (!archivo) return <div className="pantalla-consola fosforo"><p className="voz">{t('windows.lookingForVisitors')}</p></div>;
+  const [i, setI] = useMenu(items.length, onChoose, goBack);
+  if (!file) return <div className="pantalla-consola fosforo"><p className="voz">{t('windows.lookingForVisitors')}</p></div>;
   return (
     <div className="pantalla-consola fosforo">
-      <p className="voz">{lista.length ? t('windows.visitorSessionsHere') : t('windows.noVisitorSessions')}</p>
+      <p className="voz">{list.length ? t('windows.visitorSessionsHere') : t('windows.noVisitorSessions')}</p>
       {error && <p className="aviso-consola">{error}</p>}
-      <div className="lista-desplazable"><Opciones items={items} i={i} setI={setI} onChoose={onChoose} /></div>
+      <div className="lista-desplazable"><Options items={items} i={i} setI={setI} onChoose={onChoose} /></div>
       <p className="ayuda-consola"><kbd>↑↓</kbd> {t('menu.select')} <kbd>Enter</kbd> {t('windows.resumeHere')} <kbd>Esc</kbd> <kbd>←</kbd> {t('windows.back2')}</p>
     </div>
   );
@@ -828,123 +828,123 @@ function Visitors({ h, volver, reanudar }: { h: DwellerSummary; volver: () => vo
 
 // Esc con algo escrito no lo borra a la primera (como en Claude Code): avisa y, si se repite enseguida, lo hace
 function useEscDouble() {
-  const [armado, setArmado] = useState(false);
-  const ref = useRef(false); ref.current = armado;
-  useEffect(() => { if (!armado) return; const t = setTimeout(() => setArmado(false), 1600); return () => clearTimeout(t); }, [armado]);
-  return { armado, pulsar: (hasText: boolean, accion: () => void) => { if (!hasText || ref.current) { ref.current = false; setArmado(false); accion(); } else { ref.current = true; setArmado(true); SFX.tick(); } } };
+  const [armed, setArmed] = useState(false);
+  const ref = useRef(false); ref.current = armed;
+  useEffect(() => { if (!armed) return; const t = setTimeout(() => setArmed(false), 1600); return () => clearTimeout(t); }, [armed]);
+  return { armed, press: (hasText: boolean, action: () => void) => { if (!hasText || ref.current) { ref.current = false; setArmed(false); action(); } else { ref.current = true; setArmed(true); SFX.tick(); } } };
 }
 
 // ---------------------------------------------------------------- trabajo nuevo / retomar
-function New({ h, p, reanudar, volver }: { h: DwellerSummary; p: TabCom; reanudar?: HistoryElement; volver: () => void }) {
+function New({ h, p, resume, goBack }: { h: DwellerSummary; p: TabCom; resume?: HistoryElement; goBack: () => void }) {
   const p0 = prefs();
-  const [texto, setText0] = useState(p.borrador ?? '');
-  const setText = (t: string) => { setText0(t); setTab(h.id, p.id, { borrador: t }); };
-  const [modelo, setModelo] = useState<string>(p0.modelo ?? '');
-  const [esfuerzo, setEffort] = useState<string>(p0.esfuerzo ?? '');
+  const [text, setText0] = useState(p.draft ?? '');
+  const setText = (t: string) => { setText0(t); setTab(h.id, p.id, { draft: t }); };
+  const [model, setModel] = useState<string>(p0.model ?? '');
+  const [effort, setEffort] = useState<string>(p0.effort ?? '');
   // los permisos no se recuerdan: cada conversación nueva empieza en automático (lo demás se elige para esa)
-  const [permisos, setPermissions] = useState<string>('auto');
+  const [permissions, setPermissions] = useState<string>('auto');
   // hablar con el habitante de la sala es trabajar en su copia principal: los worktrees son de las tareas (organizar la
   // sala por tareas, el reparto de Planificación) o de quien lo elija aquí. Las demás (Puente de Mando…) trabajan siempre
   // en su carpeta
-  const ofProject = vivo.usar(e => (e.estado?.salas ?? []).find((s: any) => s.id === h.sala)?.tipo === 'repo');
+  const ofProject = live.use(e => (e.state?.rooms ?? []).find((s: any) => s.id === h.room)?.type === 'repo');
   const [worktree, setWorktree] = useState(false);
-  const workInGame = juego.usar(e => e.workIn);
+  const workInGame = juego.use(e => e.workIn);
   // una copia trabaja siempre dentro de su worktree, como su autor
-  const workIn = h.copia ? { cwd: h.copia.ruta, rama: h.copia.rama } : workInGame;
-  const [fila, setRow] = useState(0); // 0 texto, 1 modelo, 2 esfuerzo, 3 permisos, 4 worktree
-  const [transcripcion, setTranscript] = useState<LogInput[] | null>(null);
+  const workIn = h.copy ? { cwd: h.copy.path, branch: h.copy.branch } : workInGame;
+  const [row, setRow] = useState(0); // 0 texto, 1 modelo, 2 esfuerzo, 3 permisos, 4 worktree
+  const [transcript, setTranscript] = useState<LogInput[] | null>(null);
   const [error, setError] = useState('');
   const area = useRef<HTMLTextAreaElement>(null);
   const esc = useEscDouble();
-  const atras = () => esc.pulsar(!!texto.trim(), volver);
+  const behind = () => esc.press(!!text.trim(), goBack);
   useEffect(() => { area.current?.focus(); }, []);
-  useEffect(() => { if (reanudar) cliente.ask<LogInput[]>({ t: 'cargarConversacion', salaId: h.sala, claudeId: reanudar.claudeId }).then(setTranscript).catch(() => setTranscript([])); }, [reanudar?.claudeId]);
-  const filas = [
-    { nombre: t('windows.model'), valores: MODELS, actual: modelo, poner: setModelo },
-    { nombre: t('windows.effort'), valores: EFFORTS, actual: esfuerzo, poner: setEffort },
-    { nombre: t('windows.permissions'), valores: PERMISSION_MODES, actual: permisos, poner: setPermissions },
+  useEffect(() => { if (resume) client.ask<LogInput[]>({ t: 'cargarConversacion', roomId: h.room, claudeId: resume.claudeId }).then(setTranscript).catch(() => setTranscript([])); }, [resume?.claudeId]);
+  const rows = [
+    { name: t('windows.model'), values: MODELS, current: model, set: setModel },
+    { name: t('windows.effort'), values: EFFORTS, current: effort, set: setEffort },
+    { name: t('windows.permissions'), values: PERMISSION_MODES, current: permissions, set: setPermissions },
   ];
   // la pestaña espera a que el servidor diga qué sesión es la suya y pasa a la conversación
-  const enviar = (txt = texto) => {
-    if (subiendo(p.adjuntos)) { SFX.noAllowed(); setError(t('windows.waitForTheAttachmentsTo')); return; }
-    const rutas = listsPaths(p.adjuntos);
-    if (!txt.trim() && !reanudar && !rutas.length) { SFX.noAllowed(); return; }
-    try { localStorage.setItem(PREFERENCES, JSON.stringify({ modelo, esfuerzo })); } catch {}
+  const send = (txt = text) => {
+    if (uploading(p.attachments)) { SFX.notAllowed(); setError(t('windows.waitForTheAttachmentsTo')); return; }
+    const paths = listsPaths(p.attachments);
+    if (!txt.trim() && !resume && !paths.length) { SFX.notAllowed(); return; }
+    try { localStorage.setItem(PREFERENCES, JSON.stringify({ model, effort })); } catch {}
     setError('');
     const hid = h.id, pid = p.id;
     setTab(hid, pid, { sessionWait: true });
-    const dentro = h.copia ? workIn : juego.get().workIn;
-    cliente.ask<string>({ t: 'empezar', dwellerId: h.copia?.authorId ?? hid, salaId: h.sala, prompt: txt.trim(), adjuntos: rutas, opciones: { modelo, esfuerzo, permisos, worktree: dentro || !ofProject ? false : worktree, reanudar: reanudar?.claudeId, cwd: reanudar?.cwd ?? dentro?.cwd } })
-      .then(sesionId => {
-        actualizar(hid, v => ({ known: [...v.known, sesionId], pestanas: v.pestanas.filter(x => x.id === pid || !(x.vista.tipo === 'sesion' && x.vista.sesionId === sesionId)).map(x => (x.id === pid ? { ...x, sessionWait: false, borrador: undefined, adjuntos: undefined, vista: { tipo: 'sesion', sesionId } } : x)) }));
-        sincronizar();
+    const inside = h.copy ? workIn : juego.get().workIn;
+    client.ask<string>({ t: 'empezar', dwellerId: h.copy?.authorId ?? hid, roomId: h.room, prompt: txt.trim(), attachments: paths, options: { model, effort, permissions, worktree: inside || !ofProject ? false : worktree, resume: resume?.claudeId, cwd: resume?.cwd ?? inside?.cwd } })
+      .then(sessionId => {
+        update(hid, v => ({ known: [...v.known, sessionId], tabs: v.tabs.filter(x => x.id === pid || !(x.view.type === 'sesion' && x.view.sessionId === sessionId)).map(x => (x.id === pid ? { ...x, sessionWait: false, draft: undefined, attachments: undefined, view: { type: 'sesion', sessionId } } : x)) }));
+        sync();
       })
       .catch(e => { setTab(hid, pid, { sessionWait: false }); SFX.error(); setError((e as Error).message); });
     juego.set({ workIn: null });
     SFX.shortSuccess();
   };
-  useEffect(() => teclado.escuchar(e => {
-    if (e.code === 'Escape') { atras(); return true; }
-    if (fila > 0) {
+  useEffect(() => keyboard.listen(e => {
+    if (e.code === 'Escape') { behind(); return true; }
+    if (row > 0) {
       if (e.code === 'ArrowDown' || e.code === 'Tab') { setRow(f => Math.min(ofProject && !workIn ? 4 : 3, f + 1)); return true; }
       if (e.code === 'ArrowUp') { setRow(f => { const n = Math.max(0, f - 1); if (n === 0) setTimeout(() => area.current?.focus()); return n; }); return true; }
-      if (fila <= 3 && (e.code === 'ArrowLeft' || e.code === 'ArrowRight')) {
-        const fr = filas[fila - 1]; const k = fr.valores.findIndex(v => v.valor === fr.actual); const n = (k + (e.code === 'ArrowRight' ? 1 : -1) + fr.valores.length) % fr.valores.length; fr.poner(fr.valores[n].valor); SFX.tick(); return true;
+      if (row <= 3 && (e.code === 'ArrowLeft' || e.code === 'ArrowRight')) {
+        const fr = rows[row - 1]; const k = fr.values.findIndex(v => v.value === fr.current); const n = (k + (e.code === 'ArrowRight' ? 1 : -1) + fr.values.length) % fr.values.length; fr.set(fr.values[n].value); SFX.tick(); return true;
       }
-      if (fila === 4 && (e.code === 'ArrowLeft' || e.code === 'ArrowRight' || e.code === 'Space')) { setWorktree(w => !w); SFX.conmutar(); return true; }
-      if (e.code === 'Enter') { enviar(); return true; }
+      if (row === 4 && (e.code === 'ArrowLeft' || e.code === 'ArrowRight' || e.code === 'Space')) { setWorktree(w => !w); SFX.toggle(); return true; }
+      if (e.code === 'Enter') { send(); return true; }
       return true;
     }
     return true;
-  }), [fila, texto, modelo, esfuerzo, permisos, worktree, !!workIn, ofProject, p.adjuntos]);
-  const dictado = useDictation({ area, texto, setText, onSend: enviar });
-  const [encima, soltar] = useDrop(f => adjuntar(h.id, p.id, f));
+  }), [row, text, model, effort, permissions, worktree, !!workIn, ofProject, p.attachments]);
+  const dictation = useDictation({ area, text, setText, onSend: send });
+  const [onTop, drop] = useDrop(f => attach(h.id, p.id, f));
   return (
-    <div className={'pantalla-consola fosforo formulario' + (encima ? ' soltando' : '')} {...soltar}>
-      {reanudar && (
+    <div className={'pantalla-consola fosforo formulario' + (onTop ? ' soltando' : '')} {...drop}>
+      {resume && (
         <div className="transcripcion-previa">
-          <p className="voz">{t('windows.resumingTituloCuando', { titulo: reanudar.titulo, cuando: hace(reanudar.modified) })}</p>
-          <div className="lista-desplazable mini">{transcripcion === null ? <p className="tenue">{t('windows.loading')}</p> : transcripcion.slice(-12).map(e => <Entrada key={e.id} e={e} />)}</div>
+          <p className="voz">{t('windows.resumingTituloCuando', { titulo: resume.title, cuando: ago(resume.modified) })}</p>
+          <div className="lista-desplazable mini">{transcript === null ? <p className="tenue">{t('windows.loading')}</p> : transcript.slice(-12).map(e => <Entry key={e.id} e={e} />)}</div>
         </div>
       )}
-      <p className="voz">{reanudar ? t('windows.whatDoIDoWith') : t('windows.whatNeedsDoing')}</p>
+      <p className="voz">{resume ? t('windows.whatDoIDoWith') : t('windows.whatNeedsDoing')}</p>
       {/* la caja de texto ocupa la mitad superior; las opciones, la inferior */}
       <div className="formulario-escribir">
-        <div className={'linea-entrada' + (fila === 0 ? ' activa' : '')}>
+        <div className={'linea-entrada' + (row === 0 ? ' activa' : '')}>
           <span className="prompt-sim">&gt;</span>
-          <textarea ref={area} value={texto} rows={3} readOnly={dictado.activo} placeholder={reanudar ? t('windows.optionalAddAnInstructionOr') : t('windows.describeTheJobAsIn')}
+          <textarea ref={area} value={text} rows={3} readOnly={dictation.active} placeholder={resume ? t('windows.optionalAddAnInstructionOr') : t('windows.describeTheJobAsIn')}
             onFocus={() => setRow(0)}
             onChange={e => { setText(e.target.value); }}
-            onPaste={e => { if (e.clipboardData?.files.length) { e.preventDefault(); adjuntar(h.id, p.id, e.clipboardData.files); } }}
+            onPaste={e => { if (e.clipboardData?.files.length) { e.preventDefault(); attach(h.id, p.id, e.clipboardData.files); } }}
             onKeyDown={e => {
               physicsKey(e.nativeEvent);
-              if (dictado.tecla(e)) return;
-              if (attachShortcut(e)) { e.preventDefault(); chooseFiles(f => adjuntar(h.id, p.id, f)); return; }
-              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviar(); }
-              else if (e.key === 'Escape') { e.preventDefault(); atras(); }
-              else if (e.key === 'Tab' || (e.key === 'ArrowDown' && !texto.includes('\n'))) { e.preventDefault(); setRow(1); area.current?.blur(); }
+              if (dictation.key(e)) return;
+              if (attachShortcut(e)) { e.preventDefault(); chooseFiles(f => attach(h.id, p.id, f)); return; }
+              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+              else if (e.key === 'Escape') { e.preventDefault(); behind(); }
+              else if (e.key === 'Tab' || (e.key === 'ArrowDown' && !text.includes('\n'))) { e.preventDefault(); setRow(1); area.current?.blur(); }
             }} />
-          <InputButtons adjuntar={() => chooseFiles(f => adjuntar(h.id, p.id, f))} dictado={dictado} />
+          <InputButtons attach={() => chooseFiles(f => attach(h.id, p.id, f))} dictation={dictation} />
         </div>
-        <AttachmentsTray lista={p.adjuntos} quitar={removeAttachment(h.id, p.id)} />
-        <DictationStrip dictado={dictado} />
+        <AttachmentsTray list={p.attachments} remove={removeAttachment(h.id, p.id)} />
+        <DictationStrip dictation={dictation} />
       </div>
       <div className="formulario-opciones">
-        {filas.map((fr, k) => (
-          <div key={fr.nombre} className={'fila-chips' + (fila === k + 1 ? ' activa' : '')} onClick={() => setRow(k + 1)}>
-            <span className="etq">{fr.nombre}</span>
-            {fr.valores.map(v => <button key={v.valor} className={'chip' + (v.valor === fr.actual ? ' on' : '')} onClick={() => fr.poner(v.valor)} title={(v as any).pista ? tIs((v as any).pista) : ''}>{tIs(v.texto)}</button>)}
+        {rows.map((fr, k) => (
+          <div key={fr.name} className={'fila-chips' + (row === k + 1 ? ' activa' : '')} onClick={() => setRow(k + 1)}>
+            <span className="etq">{fr.name}</span>
+            {fr.values.map(v => <button key={v.value} className={'chip' + (v.value === fr.current ? ' on' : '')} onClick={() => fr.set(v.value)} title={(v as any).hint ? tIs((v as any).hint) : ''}>{tIs(v.text)}</button>)}
           </div>
         ))}
-        {workIn ? <div className="fila-chips"><span className="etq">Worktree</span><span className="chip on">{t('windows.insideTheCopyRama', { rama: workIn.rama })}</span></div> :
+        {workIn ? <div className="fila-chips"><span className="etq">Worktree</span><span className="chip on">{t('windows.insideTheCopyRama', { rama: workIn.branch })}</span></div> :
         // un worktree solo tiene sentido en una sala de proyecto (las demás trabajan en su carpeta)
-        ofProject && <div className={'fila-chips' + (fila === 4 ? ' activa' : '')} onClick={() => setRow(4)}>
+        ofProject && <div className={'fila-chips' + (row === 4 ? ' activa' : '')} onClick={() => setRow(4)}>
           <span className="etq">Worktree</span>
           <button className={'chip' + (!worktree ? ' on' : '')} onClick={() => setWorktree(false)}>{t('windows.inTheMainCopy')}</button>
           <button className={'chip' + (worktree ? ' on' : '')} onClick={() => setWorktree(true)}>{t('windows.inASeparateWorktree')}</button>
         </div>}
         {error && <p className="aviso-consola">{error}</p>}
-        <p className="ayuda-consola"><kbd>Enter</kbd> {t('windows.start')} <kbd>⇧ Enter</kbd> {t('windows.newLine')} <kbd>{CMD}D</kbd> {t('windows.dictate2')} <kbd>{CMD}U</kbd> {t('windows.attach2')} <kbd>Tab</kbd> {t('windows.options')} <kbd>←→</kbd> {t('menu.select')} <kbd>Esc</kbd> {esc.armado ? <span className="urgente">{t('windows.againGoBackAndDelete')}</span> : t('windows.back2')}</p>
+        <p className="ayuda-consola"><kbd>Enter</kbd> {t('windows.start')} <kbd>⇧ Enter</kbd> {t('windows.newLine')} <kbd>{CMD}D</kbd> {t('windows.dictate2')} <kbd>{CMD}U</kbd> {t('windows.attach2')} <kbd>Tab</kbd> {t('windows.options')} <kbd>←→</kbd> {t('menu.select')} <kbd>Esc</kbd> {esc.armed ? <span className="urgente">{t('windows.againGoBackAndDelete')}</span> : t('windows.back2')}</p>
       </div>
     </div>
   );
@@ -953,200 +953,200 @@ function New({ h, p, reanudar, volver }: { h: DwellerSummary; p: TabCom; reanuda
 // ---------------------------------------------------------------- conversación viva
 // la carpeta de una conversación (su worktree, si trabaja en uno): ahí apuntan las rutas relativas de sus respuestas
 const folderOf = (s: SessionSummary) => s.worktree ?? s.cwd;
-function Entrada({ e, base }: { e: LogInput; base?: string }) {
-  if (e.tipo === 'asistente' || e.tipo === 'lateral') return <div className={'ent ' + e.tipo} dangerouslySetInnerHTML={{ __html: markdown(e.texto, base) }} />;
-  if (e.tipo === 'usuario') return <div className="ent usuario"><span className="quien">{t('windows.you')}&gt;</span> <span dangerouslySetInnerHTML={{ __html: markdown(e.texto, base) }} />{e.adjuntos?.length ? <SentAttachments lista={e.adjuntos} /> : null}</div>;
-  if (e.tipo === 'herramienta') return <div className={'ent herramienta' + (e.esError ? ' error' : '') + (e.ayudante ? ' de-ayudante' : '')}>{e.ayudante ? '  ⚙ ' : '⚙ '}<span><ToolText t={e.texto} /></span>{e.detalle && <pre className="detalle-err">{e.detalle}</pre>}</div>;
-  if (e.tipo === 'error') return <div className="ent error" dangerouslySetInnerHTML={{ __html: markdown(e.texto) }} />;
-  return <div className={'ent ' + e.tipo}>{e.texto}</div>;
+function Entry({ e, base }: { e: LogInput; base?: string }) {
+  if (e.type === 'asistente' || e.type === 'lateral') return <div className={'ent ' + e.type} dangerouslySetInnerHTML={{ __html: markdown(e.text, base) }} />;
+  if (e.type === 'usuario') return <div className="ent usuario"><span className="quien">{t('windows.you')}&gt;</span> <span dangerouslySetInnerHTML={{ __html: markdown(e.text, base) }} />{e.attachments?.length ? <SentAttachments list={e.attachments} /> : null}</div>;
+  if (e.type === 'herramienta') return <div className={'ent herramienta' + (e.isError ? ' error' : '') + (e.helper ? ' de-ayudante' : '')}>{e.helper ? '  ⚙ ' : '⚙ '}<span><ToolText t={e.text} /></span>{e.detail && <pre className="detalle-err">{e.detail}</pre>}</div>;
+  if (e.type === 'error') return <div className="ent error" dangerouslySetInnerHTML={{ __html: markdown(e.text) }} />;
+  return <div className={'ent ' + e.type}>{e.text}</div>;
 }
 
-function Session({ h, s, p, salir, onClose }: { h: DwellerSummary; s: SessionSummary; p: TabCom; salir: () => void; onClose: () => void }) {
-  const entradas = vivo.usar(e => e.entradas[s.id]) ?? [];
-  const parcial = vivo.usar(e => e.parcial[s.id]) ?? '';
-  const [texto, setText0] = useState(p.borrador ?? '');
-  const setText = (t: string | ((x: string) => string)) => setText0(x => { const n = typeof t === 'function' ? tIs(x) : t; setTab(h.id, p.id, { borrador: n }); return n; });
-  const [comandos, setCommands] = useState<Command[]>([]);
+function Session({ h, s, p, exit, onClose }: { h: DwellerSummary; s: SessionSummary; p: TabCom; exit: () => void; onClose: () => void }) {
+  const entries = live.use(e => e.entries[s.id]) ?? [];
+  const partial = live.use(e => e.partial[s.id]) ?? '';
+  const [text, setText0] = useState(p.draft ?? '');
+  const setText = (t: string | ((x: string) => string)) => setText0(x => { const n = typeof t === 'function' ? tIs(x) : t; setTab(h.id, p.id, { draft: n }); return n; });
+  const [commands, setCommands] = useState<Command[]>([]);
   const [selCmd, setSelCmd] = useState(0);
-  const lienzo = useRef<HTMLDivElement>(null);
+  const canvas = useRef<HTMLDivElement>(null);
   const area = useRef<HTMLTextAreaElement>(null);
-  const pegado = useRef(true);
-  const workingLive = s.estado === 'trabajando' || s.estado === 'arrancando';
+  const pinned = useRef(true);
+  const workingLive = s.state === 'trabajando' || s.state === 'arrancando';
   // al verla, la respuesta queda leída
-  useEffect(() => { if (s.sinLeer && (s.estado === 'terminada' || s.estado === 'error')) cliente.enviar({ t: 'leida', sesionId: s.id }); }, [s.sinLeer, s.estado]);
+  useEffect(() => { if (s.unread && (s.state === 'terminada' || s.state === 'error')) client.send({ t: 'leida', sessionId: s.id }); }, [s.unread, s.state]);
   useEffect(() => { loadLog(s.id); }, [s.id]);
-  useEffect(() => { const el = lienzo.current; if (el && pegado.current) el.scrollTop = el.scrollHeight; }, [entradas.length, parcial, s.pending?.id]);
+  useEffect(() => { const el = canvas.current; if (el && pinned.current) el.scrollTop = el.scrollHeight; }, [entries.length, partial, s.pending?.id]);
   useEffect(() => { if (!s.pending) area.current?.focus(); }, [s.pending?.id]);
-  useEffect(() => { if (texto.startsWith('/') && !comandos.length) cliente.ask<Command[]>({ t: 'comandos', sesionId: s.id }).then(c => setCommands(c?.length ? c : COMMANDS_BASE)).catch(() => setCommands(COMMANDS_BASE)); }, [texto]);
-  const sugerencias = texto.startsWith('/') && !texto.includes(' ') ? [...OWN_COMMANDS, ...comandos].filter(c => c.nombre.toLowerCase().startsWith(texto.slice(1).toLowerCase())).slice(0, 8) : [];
-  const desplazar = (d: number) => { const el = lienzo.current; if (el) { el.scrollTop += d * el.clientHeight * 0.8; pegado.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 4; } };
-  const interrumpir = () => { cliente.enviar({ t: 'interrumpir', sesionId: s.id }); SFX.clic(); };
-  const enviar = (bruto = texto) => {
-    const t = bruto.trim();
-    if (subiendo(p.adjuntos)) { SFX.noAllowed(); return; }
-    const rutas = listsPaths(p.adjuntos);
-    if (!t && !rutas.length) return;
-    if (rutas.length && (!t || !t.startsWith('/'))) { cliente.enviar({ t: 'enviar', sesionId: s.id, texto: t, adjuntos: rutas }); setTab(h.id, p.id, { adjuntos: undefined }); }
-    else if (t === '/stop' || t === '/parar') cliente.enviar({ t: 'interrumpir', sesionId: s.id });
-    else if (t.startsWith('/btw ')) cliente.enviar({ t: 'lateral', sesionId: s.id, pregunta: t.slice(5) });
-    else if (t === '/cuaderno') window.dispatchEvent(new CustomEvent('refugio:cuaderno', { detail: { sesionId: s.id } }));
+  useEffect(() => { if (text.startsWith('/') && !commands.length) client.ask<Command[]>({ t: 'comandos', sessionId: s.id }).then(c => setCommands(c?.length ? c : COMMANDS_BASE)).catch(() => setCommands(COMMANDS_BASE)); }, [text]);
+  const suggestions = text.startsWith('/') && !text.includes(' ') ? [...OWN_COMMANDS, ...commands].filter(c => c.name.toLowerCase().startsWith(text.slice(1).toLowerCase())).slice(0, 8) : [];
+  const scroll = (d: number) => { const el = canvas.current; if (el) { el.scrollTop += d * el.clientHeight * 0.8; pinned.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 4; } };
+  const interrupt = () => { client.send({ t: 'interrumpir', sessionId: s.id }); SFX.click(); };
+  const send = (raw = text) => {
+    const t = raw.trim();
+    if (uploading(p.attachments)) { SFX.notAllowed(); return; }
+    const paths = listsPaths(p.attachments);
+    if (!t && !paths.length) return;
+    if (paths.length && (!t || !t.startsWith('/'))) { client.send({ t: 'enviar', sessionId: s.id, text: t, attachments: paths }); setTab(h.id, p.id, { attachments: undefined }); }
+    else if (t === '/stop' || t === '/parar') client.send({ t: 'interrumpir', sessionId: s.id });
+    else if (t.startsWith('/btw ')) client.send({ t: 'lateral', sessionId: s.id, question: t.slice(5) });
+    else if (t === '/cuaderno') window.dispatchEvent(new CustomEvent('refugio:cuaderno', { detail: { sessionId: s.id } }));
     else if (t === '/cerrar') { setText(''); onClose(); return; }
-    else cliente.enviar({ t: 'enviar', sesionId: s.id, texto: t });
-    setText(''); pegado.current = true; SFX.shortSuccess();
+    else client.send({ t: 'enviar', sessionId: s.id, text: t });
+    setText(''); pinned.current = true; SFX.shortSuccess();
   };
-  useEffect(() => teclado.escuchar(e => {
-    if ((e.ctrlKey && (e.code === 'ArrowUp' || e.code === 'KeyW')) || e.code === 'PageUp') { desplazar(-1); return true; }
-    if ((e.ctrlKey && (e.code === 'ArrowDown' || e.code === 'KeyS')) || e.code === 'PageDown') { desplazar(1); return true; }
-    if (e.ctrlKey && e.code === 'KeyC') { interrumpir(); return true; }
-    if (e.code === 'Escape') { salir(); return true; }
+  useEffect(() => keyboard.listen(e => {
+    if ((e.ctrlKey && (e.code === 'ArrowUp' || e.code === 'KeyW')) || e.code === 'PageUp') { scroll(-1); return true; }
+    if ((e.ctrlKey && (e.code === 'ArrowDown' || e.code === 'KeyS')) || e.code === 'PageDown') { scroll(1); return true; }
+    if (e.ctrlKey && e.code === 'KeyC') { interrupt(); return true; }
+    if (e.code === 'Escape') { exit(); return true; }
     // escribir sin estar en el campo lleva a él; ⌘, Ctrl, ⌥ o una tecla sola (⌘ de ⌘C) no: el foco se llevaría la
     // selección de la conversación y no habría nada que copiar
     if (!s.pending && !e.metaKey && !e.ctrlKey && !e.altKey && (e.key.length === 1 || e.key === 'Enter' || e.key === 'Backspace')) { area.current?.focus(); return false; }
     return false;
   }), [s.pending?.id]);
-  const dictado = useDictation({ area, texto, setText, onSend: enviar });
+  const dictation = useDictation({ area, text, setText, onSend: send });
   const esc = useEscDouble();
-  const [encima, soltar] = useDrop(f => adjuntar(h.id, p.id, f));
-  const lineState = s.estado === 'arrancando' ? t('windows.gettingReady') : s.actividad ? s.actividad.texto : workingLive && s.segundoPlano ? t('windows.waitingNInBackground', { n: s.segundoPlano }) : workingLive ? t('windows.thinking') : '';
-  const ayudantes = s.ayudantes.filter(a => a.estado === 'trabajando').length;
+  const [onTop, drop] = useDrop(f => attach(h.id, p.id, f));
+  const lineState = s.state === 'arrancando' ? t('windows.gettingReady') : s.activity ? s.activity.text : workingLive && s.background ? t('windows.waitingNInBackground', { n: s.background }) : workingLive ? t('windows.thinking') : '';
+  const helpers = s.helpers.filter(a => a.state === 'trabajando').length;
   return (
-    <div className={'pantalla-consola fosforo sesion' + (encima ? ' soltando' : '')} data-sesion={s.id} {...soltar}>
-      <div className="titulo-sesion">{s.titulo}{s.worktree ? <span className="tenue"> · worktree</span> : null}</div>
-      <div className="lienzo" ref={lienzo} onScroll={e => { const el = e.currentTarget; pegado.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 4; }}>
-        {(s.pending ? entradas.filter((e, i) => !(e.tipo === 'sistema' && e.texto.startsWith('❓')) && !(e.tipo === 'herramienta' && i >= entradas.length - 3)) : entradas).map(e => <Entrada key={e.id} e={e} base={folderOf(s)} />)}
-        {parcial && workingLive && <div className="ent asistente parcial" dangerouslySetInnerHTML={{ __html: markdown(parcial, folderOf(s)) + '<span class="cursor-escribe">▌</span>' }} />}
-        {s.pending && <Pending s={s} p={s.pending} tab={p} hid={h.id} salir={salir} />}
-        {s.estado === 'error' && s.error && <div className="ent error">⚠ {s.error}</div>}
+    <div className={'pantalla-consola fosforo sesion' + (onTop ? ' soltando' : '')} data-sesion={s.id} {...drop}>
+      <div className="titulo-sesion">{s.title}{s.worktree ? <span className="tenue"> · worktree</span> : null}</div>
+      <div className="lienzo" ref={canvas} onScroll={e => { const el = e.currentTarget; pinned.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 4; }}>
+        {(s.pending ? entries.filter((e, i) => !(e.type === 'sistema' && e.text.startsWith('❓')) && !(e.type === 'herramienta' && i >= entries.length - 3)) : entries).map(e => <Entry key={e.id} e={e} base={folderOf(s)} />)}
+        {partial && workingLive && <div className="ent asistente parcial" dangerouslySetInnerHTML={{ __html: markdown(partial, folderOf(s)) + '<span class="cursor-escribe">▌</span>' }} />}
+        {s.pending && <Pending s={s} p={s.pending} tab={p} hid={h.id} exit={exit} />}
+        {s.state === 'error' && s.error && <div className="ent error">⚠ {s.error}</div>}
       </div>
       {!s.pending && <div className="linea-estado">
-        {workingLive ? <span className="girando">◐</span> : s.estado === 'esperando' ? <span className="urgente">?</span> : s.estado === 'terminada' ? <span>✓</span> : <span>·</span>}
-        <span className="txt"><ToolText t={lineState || (s.estado === 'terminada' || s.estado === 'ociosa' ? t('windows.doneYouCanReplyOpen') : '')} /></span>
-        {ayudantes > 0 && <span className="tenue"> · {ayudantes > 1 ? t('windows.nHelpers', { n: ayudantes }) : t('windows.nHelper', { n: ayudantes })}</span>}
-        {s.lateral && !s.lateral.respuesta && <span className="tenue"> · {t('windows.sideQuestion')}</span>}
-        <Usage s={s} compactar={() => { cliente.enviar({ t: 'enviar', sesionId: s.id, texto: '/compact' }); pegado.current = true; SFX.clic(); }} />
-        <span className="modo">{tIs(PERMISSION_MODES.find(m => m.valor === s.modoPermisos)?.texto ?? s.modoPermisos ?? '')}</span>
+        {workingLive ? <span className="girando">◐</span> : s.state === 'esperando' ? <span className="urgente">?</span> : s.state === 'terminada' ? <span>✓</span> : <span>·</span>}
+        <span className="txt"><ToolText t={lineState || (s.state === 'terminada' || s.state === 'ociosa' ? t('windows.doneYouCanReplyOpen') : '')} /></span>
+        {helpers > 0 && <span className="tenue"> · {helpers > 1 ? t('windows.nHelpers', { n: helpers }) : t('windows.nHelper', { n: helpers })}</span>}
+        {s.lateral && !s.lateral.answer && <span className="tenue"> · {t('windows.sideQuestion')}</span>}
+        <Usage s={s} compact={() => { client.send({ t: 'enviar', sessionId: s.id, text: '/compact' }); pinned.current = true; SFX.click(); }} />
+        <span className="modo">{tIs(PERMISSION_MODES.find(m => m.value === s.permissionMode)?.text ?? s.permissionMode ?? '')}</span>
       </div>}
       {!s.pending && (
         <div className="linea-entrada activa">
-          {sugerencias.length > 0 && <ul className="sugerencias">{sugerencias.map((c, k) => <li key={c.nombre} className={k === selCmd ? 'activa' : ''} onMouseDown={ev => { ev.preventDefault(); setText('/' + c.nombre + ' '); }}><b>/{c.nombre}</b> <span>{c.descripcion}</span></li>)}</ul>}
+          {suggestions.length > 0 && <ul className="sugerencias">{suggestions.map((c, k) => <li key={c.name} className={k === selCmd ? 'activa' : ''} onMouseDown={ev => { ev.preventDefault(); setText('/' + c.name + ' '); }}><b>/{c.name}</b> <span>{c.description}</span></li>)}</ul>}
           <span className="prompt-sim">&gt;</span>
-          <textarea ref={area} value={texto} rows={2} readOnly={dictado.activo} placeholder={workingLive ? t('windows.addSomethingWhileItWorks') : t('windows.replyDictateWithDOr')}
+          <textarea ref={area} value={text} rows={2} readOnly={dictation.active} placeholder={workingLive ? t('windows.addSomethingWhileItWorks') : t('windows.replyDictateWithDOr')}
             onChange={e => { setText(e.target.value); setSelCmd(0); }}
-            onPaste={e => { if (e.clipboardData?.files.length) { e.preventDefault(); adjuntar(h.id, p.id, e.clipboardData.files); } }}
+            onPaste={e => { if (e.clipboardData?.files.length) { e.preventDefault(); attach(h.id, p.id, e.clipboardData.files); } }}
             onKeyDown={e => {
               physicsKey(e.nativeEvent);
-              if (dictado.tecla(e)) return;
-              if (attachShortcut(e)) { e.preventDefault(); chooseFiles(f => adjuntar(h.id, p.id, f)); return; }
-              if (sugerencias.length && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) { e.preventDefault(); setSelCmd(k => (k + (e.key === 'ArrowDown' ? 1 : -1) + sugerencias.length) % sugerencias.length); return; }
-              if (sugerencias.length && e.key === 'Tab') { e.preventDefault(); setText('/' + sugerencias[selCmd].nombre + ' '); return; }
-              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (sugerencias.length && texto.trim() === texto && !texto.includes(' ')) setText('/' + sugerencias[selCmd].nombre + ' '); else enviar(); return; }
-              if (e.key === 'Escape') { e.preventDefault(); if (texto) esc.pulsar(true, () => setText('')); else salir(); return; }
-              if ((e.ctrlKey && (e.key === 'ArrowUp' || e.key === 'w')) || e.key === 'PageUp') { e.preventDefault(); desplazar(-1); return; }
-              if ((e.ctrlKey && (e.key === 'ArrowDown' || e.key === 's')) || e.key === 'PageDown') { e.preventDefault(); desplazar(1); return; }
-              if (e.key === 'c' && e.ctrlKey && !texto) { e.preventDefault(); interrumpir(); return; }
+              if (dictation.key(e)) return;
+              if (attachShortcut(e)) { e.preventDefault(); chooseFiles(f => attach(h.id, p.id, f)); return; }
+              if (suggestions.length && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) { e.preventDefault(); setSelCmd(k => (k + (e.key === 'ArrowDown' ? 1 : -1) + suggestions.length) % suggestions.length); return; }
+              if (suggestions.length && e.key === 'Tab') { e.preventDefault(); setText('/' + suggestions[selCmd].name + ' '); return; }
+              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (suggestions.length && text.trim() === text && !text.includes(' ')) setText('/' + suggestions[selCmd].name + ' '); else send(); return; }
+              if (e.key === 'Escape') { e.preventDefault(); if (text) esc.press(true, () => setText('')); else exit(); return; }
+              if ((e.ctrlKey && (e.key === 'ArrowUp' || e.key === 'w')) || e.key === 'PageUp') { e.preventDefault(); scroll(-1); return; }
+              if ((e.ctrlKey && (e.key === 'ArrowDown' || e.key === 's')) || e.key === 'PageDown') { e.preventDefault(); scroll(1); return; }
+              if (e.key === 'c' && e.ctrlKey && !text) { e.preventDefault(); interrupt(); return; }
             }} />
-          <InputButtons adjuntar={() => chooseFiles(f => adjuntar(h.id, p.id, f))} dictado={dictado} />
+          <InputButtons attach={() => chooseFiles(f => attach(h.id, p.id, f))} dictation={dictation} />
         </div>
       )}
-      {!s.pending && <AttachmentsTray lista={p.adjuntos} quitar={removeAttachment(h.id, p.id)} />}
-      {!s.pending && <DictationStrip dictado={dictado} />}
-      <p className="ayuda-consola"><kbd>Enter</kbd> {t('windows.send')} <kbd>{CMD}D</kbd> {t('windows.dictate2')} <kbd>{CMD}U</kbd> {t('windows.attach2')} <kbd>Ctrl C</kbd> {t('windows.stop')} <kbd>Esc</kbd> {esc.armado ? <span className="urgente">{t('windows.againDeleteWhatYouWrote')}</span> : texto ? t('windows.twiceDeleteWhatYouWrote') : t('windows.backToTheShelterKeeps')} <kbd>{CMD}T</kbd> {t('windows.anotherJob')} <kbd>{CMD}↑↓</kbd> {t('windows.expandMinimize')}</p>
+      {!s.pending && <AttachmentsTray list={p.attachments} remove={removeAttachment(h.id, p.id)} />}
+      {!s.pending && <DictationStrip dictation={dictation} />}
+      <p className="ayuda-consola"><kbd>Enter</kbd> {t('windows.send')} <kbd>{CMD}D</kbd> {t('windows.dictate2')} <kbd>{CMD}U</kbd> {t('windows.attach2')} <kbd>Ctrl C</kbd> {t('windows.stop')} <kbd>Esc</kbd> {esc.armed ? <span className="urgente">{t('windows.againDeleteWhatYouWrote')}</span> : text ? t('windows.twiceDeleteWhatYouWrote') : t('windows.backToTheShelterKeeps')} <kbd>{CMD}T</kbd> {t('windows.anotherJob')} <kbd>{CMD}↑↓</kbd> {t('windows.expandMinimize')}</p>
     </div>
   );
 }
 
 // Las páginas de la conversación (planes, informes, comparaciones que ha enlazado): cuáles quedan por revisar, abrirlas
 // (sus notas vuelven a esta conversación) y validar sin notas las que estén bien (shared/sessionPages.ts)
-const PR_STATE: Record<PRBoard['estado'], string> = { abierto: '●', borrador: '◌', fusionado: '✓', cerrado: '✕' };
-const prStateName = (e: PRBoard['estado']) => e === 'abierto' ? t('windows.prState.abierto') : e === 'borrador' ? t('windows.prState.borrador') : e === 'fusionado' ? t('windows.prState.fusionado') : t('windows.prState.cerrado');
-function WorktreePRs({ copia, salaId }: { copia: { ruta: string; rama: string }; salaId: string }) {
-  const desdeTablero = jiraBoard.usar(x => x.prs);
-  const [leidos, setRead] = useState<PRBoard[] | null>(null);
-  const { ruta, rama } = copia;
-  useEffect(() => { let vivoAun = true; myPRs().then(l => { if (vivoAun) setRead(l); }); return () => { vivoAun = false; }; }, [rama]);
-  const carpeta: string = vivo.usar(e => ((e.estado?.salas ?? []) as any[]).find(x => x.id === salaId)?.ruta ?? '');
+const PR_STATE: Record<PRBoard['state'], string> = { abierto: '●', borrador: '◌', fusionado: '✓', cerrado: '✕' };
+const prStateName = (e: PRBoard['state']) => e === 'abierto' ? t('windows.prState.abierto') : e === 'borrador' ? t('windows.prState.borrador') : e === 'fusionado' ? t('windows.prState.fusionado') : t('windows.prState.cerrado');
+function WorktreePRs({ copy, roomId }: { copy: { path: string; branch: string }; roomId: string }) {
+  const fromBoard = jiraBoard.use(x => x.prs);
+  const [read, setRead] = useState<PRBoard[] | null>(null);
+  const { path, branch } = copy;
+  useEffect(() => { let stillAlive = true; myPRs().then(l => { if (stillAlive) setRead(l); }); return () => { stillAlive = false; }; }, [branch]);
+  const folder: string = live.use(e => ((e.state?.rooms ?? []) as any[]).find(x => x.id === roomId)?.path ?? '');
   // los de la tarea del worktree (todas sus ramas) en el repo de esta sala
-  const prs = useMemo(() => rama ? worktreePRs(desdeTablero.length ? desdeTablero : leidos ?? [], { ruta, rama }, carpeta) : [],
-    [desdeTablero, leidos, ruta, rama, carpeta]);
-  const [abierto, setOpen] = useState(false);
-  const lista = useListAtButton(abierto);
+  const prs = useMemo(() => branch ? worktreePRs(fromBoard.length ? fromBoard : read ?? [], { path, branch }, folder) : [],
+    [fromBoard, read, path, branch, folder]);
+  const [open, setOpen] = useState(false);
+  const list = useListAtButton(open);
   if (!prs.length) return null;
-  const abiertos = prs.filter(p => p.estado === 'abierto' || p.estado === 'borrador').length;
+  const openCount = prs.filter(p => p.state === 'abierto' || p.state === 'borrador').length;
   // like the pages: a button with the count and, on click, the whole list at the button
   return <span className="paginas-sesion prs-copia">
-    <button className="consola-x" title={t('windows.taskPRsHint')} onClick={() => { setOpen(x => !x); SFX.clic(); }}>
-      ⑂ {t('windows.pullRequests')} ({abiertos < prs.length ? `${abiertos}/${prs.length}` : prs.length})
+    <button className="consola-x" title={t('windows.taskPRsHint')} onClick={() => { setOpen(x => !x); SFX.click(); }}>
+      ⑂ {t('windows.pullRequests')} ({openCount < prs.length ? `${openCount}/${prs.length}` : prs.length})
     </button>
-    {abierto && <ul ref={lista} className="paginas-lista">{prs.map(p => <li key={p.url} className={'pr-' + p.estado}>
-      <span className="pr-marca" title={prStateName(p.estado)}>{PR_STATE[p.estado]}</span>
-      <button className="pagina-nombre" title={`${p.repo}#${p.numero} · ${p.rama}\n${p.titulo}`} onClick={() => { openLink(p.url); setOpen(false); }}>#{p.numero} {p.titulo}</button>
-      <span className="tenue">{prStateName(p.estado)}</span>
+    {open && <ul ref={list} className="paginas-lista">{prs.map(p => <li key={p.url} className={'pr-' + p.state}>
+      <span className="pr-marca" title={prStateName(p.state)}>{PR_STATE[p.state]}</span>
+      <button className="pagina-nombre" title={`${p.repo}#${p.number} · ${p.branch}\n${p.title}`} onClick={() => { openLink(p.url); setOpen(false); }}>#{p.number} {p.title}</button>
+      <span className="tenue">{prStateName(p.state)}</span>
       {p.checks === 'FAILURE' || p.checks === 'ERROR' ? <span className="pr-mal">✕ CI</span> : null}
-      {p.revision === 'APPROVED' ? <span className="pr-bien">✓</span> : p.revision === 'CHANGES_REQUESTED' ? <span className="pr-mal">±</span> : null}
+      {p.review === 'APPROVED' ? <span className="pr-bien">✓</span> : p.review === 'CHANGES_REQUESTED' ? <span className="pr-mal">±</span> : null}
     </li>)}</ul>}
   </span>;
 }
 
 // the pre-flight of the copy's task: all its parts in every repo (Preflight.tsx), only once the task has a PR (the same
 // list `WorktreePRs` reads)
-function PreflightButton({ copia }: { copia: { ruta: string; rama: string } }) {
-  const tarea = worktreeTask(copia);
-  const conPRs = jiraBoard.usar(x => !!tarea && taskHasPRs(tarea, x.prs));
-  if (!tarea || !conPRs) return null;
+function PreflightButton({ copy }: { copy: { path: string; branch: string } }) {
+  const task = worktreeTask(copy);
+  const withPRs = jiraBoard.use(x => !!task && taskHasPRs(task, x.prs));
+  if (!task || !withPRs) return null;
   return <span className="paginas-sesion preflight-copia">
-    <button className="consola-x" title={t('preflight.actionHint')} onClick={e => { SFX.clic(); openPreflight(tarea, e.currentTarget); }}>✈ {t('preflight.action', { clave: tarea })}</button>
+    <button className="consola-x" title={t('preflight.actionHint')} onClick={e => { SFX.click(); openPreflight(task, e.currentTarget); }}>✈ {t('preflight.action', { clave: task })}</button>
   </span>;
 }
 
 function PagesMenu({ s }: { s: SessionSummary }) {
-  const log = vivo.usar(e => e.entradas[s.id]);
+  const log = live.use(e => e.entries[s.id]);
   // con la pregunta que espera respuesta: lo que enlaza (la comparación que pide aprobar) ya sale
-  const preguntas = s.pending?.tipo === 'pregunta' ? s.pending.preguntas : undefined;
-  const desde = useMemo(() => Date.now(), [s.pending?.id]);
-  const entradas = useMemo(() => [...(log ?? []), ...(preguntas?.length ? [questionInput(preguntas, desde)] : [])], [log, preguntas, desde]);
-  return <PagesList sesionId={s.id} claudeId={s.claudeId} entradas={entradas} base={folderOf(s)} />;
+  const questions = s.pending?.type === 'pregunta' ? s.pending.questions : undefined;
+  const since = useMemo(() => Date.now(), [s.pending?.id]);
+  const entries = useMemo(() => [...(log ?? []), ...(questions?.length ? [questionInput(questions, since)] : [])], [log, questions, since]);
+  return <PagesList sessionId={s.id} claudeId={s.claudeId} entries={entries} base={folderOf(s)} />;
 }
 
 // The scheduled messages (server/scheduled.ts) of what the intercom shows: those the open conversation scheduled; with
 // none open, those of the conversation being resumed or, from the menu, every one of this room or hologram (ofPlace), so
 // they're seen before opening their conversation. When the next one is due and, unfolded, each with ✎ (change the time
 // or the text) and ✕ (cancel it)
-function ScheduledMenu({ h, s, reanudar }: { h: DwellerSummary; s?: SessionSummary; reanudar?: string }) {
-  const todos = vivo.usar(e => e.programados);
-  const worktrees = vivo.usar(e => e.repos[h.sala]?.worktrees);
-  const conversacion = s ?? (reanudar ? { claudeId: reanudar } : undefined);
-  const mios = useMemo(() => conversacion ? ofConversation(todos, conversacion) : ofPlace(todos, h.sala, h.copia?.ruta, worktrees ?? []),
-    [todos, worktrees, s?.id, s?.claudeId, reanudar, h.sala, h.copia?.ruta]);
-  const [abierto, setOpen] = useState(false);
-  const lista = useListAtButton(abierto);
-  const [editando, setEditing] = useState<{ id: string; cuando: string; mensaje: string; error?: string } | null>(null);
-  if (!mios.length) return null;
-  const cancelar = (x: ScheduledMessage) => { cliente.accion('programados.cancelar', { id: x.id }).then(() => SFX.clic()).catch(() => SFX.noAllowed()); };
-  const guardar = () => {
-    if (!editando) return;
-    cliente.accion('programados.editar', { id: editando.id, cuando: editando.cuando, mensaje: editando.mensaje })
-      .then(() => { setEditing(null); SFX.clic(); }).catch(e => { setEditing(x => x && { ...x, error: (e as Error).message }); SFX.noAllowed(); });
+function ScheduledMenu({ h, s, resume }: { h: DwellerSummary; s?: SessionSummary; resume?: string }) {
+  const all = live.use(e => e.scheduled);
+  const worktrees = live.use(e => e.repos[h.room]?.worktrees);
+  const conversation = s ?? (resume ? { claudeId: resume } : undefined);
+  const mine = useMemo(() => conversation ? ofConversation(all, conversation) : ofPlace(all, h.room, h.copy?.path, worktrees ?? []),
+    [all, worktrees, s?.id, s?.claudeId, resume, h.room, h.copy?.path]);
+  const [open, setOpen] = useState(false);
+  const list = useListAtButton(open);
+  const [editing, setEditing] = useState<{ id: string; when: string; message: string; error?: string } | null>(null);
+  if (!mine.length) return null;
+  const cancel = (x: ScheduledMessage) => { client.action('programados.cancelar', { id: x.id }).then(() => SFX.click()).catch(() => SFX.notAllowed()); };
+  const save = () => {
+    if (!editing) return;
+    client.action('programados.editar', { id: editing.id, when: editing.when, message: editing.message })
+      .then(() => { setEditing(null); SFX.click(); }).catch(e => { setEditing(x => x && { ...x, error: (e as Error).message }); SFX.notAllowed(); });
   };
-  const destino = (x: ScheduledMessage) => x.destino.tipo === 'sala' ? `→ ${x.destino.sala}${x.destino.clave ? ' ' + x.destino.clave : ''}`
-    : conversacion ? t('windows.scheduledToThis') : t('windows.scheduledToConversation', { titulo: x.destino.titulo || t('windows.conversation') });
+  const target = (x: ScheduledMessage) => x.target.type === 'sala' ? `→ ${x.target.room}${x.target.key ? ' ' + x.target.key : ''}`
+    : conversation ? t('windows.scheduledToThis') : t('windows.scheduledToConversation', { titulo: x.target.title || t('windows.conversation') });
   return (
     <span className="paginas-sesion programados-sesion">
-      <button className="consola-x" title={t(conversacion ? 'windows.scheduledHint' : 'windows.scheduledHintPlace')} onClick={() => { setOpen(x => !x); setEditing(null); SFX.clic(); }}>
-        {t(mios.length > 1 ? 'windows.scheduledN' : 'windows.scheduled', { n: mios.length, cuando: describeWhenShort(mios[0].cuando) })}
+      <button className="consola-x" title={t(conversation ? 'windows.scheduledHint' : 'windows.scheduledHintPlace')} onClick={() => { setOpen(x => !x); setEditing(null); SFX.click(); }}>
+        {t(mine.length > 1 ? 'windows.scheduledN' : 'windows.scheduled', { n: mine.length, cuando: describeWhenShort(mine[0].when) })}
       </button>
-      {abierto && <ul ref={lista} className="paginas-lista programados-lista" onKeyDown={e => { e.stopPropagation(); if (e.key === 'Escape') { setEditing(null); setOpen(false); } }}>{mios.map(x => editando?.id === x.id
+      {open && <ul ref={list} className="paginas-lista programados-lista" onKeyDown={e => { e.stopPropagation(); if (e.key === 'Escape') { setEditing(null); setOpen(false); } }}>{mine.map(x => editing?.id === x.id
         ? <li key={x.id} className="programado-edicion">
-            <input type="datetime-local" value={editando.cuando} onChange={e => setEditing({ ...editando, cuando: e.target.value, error: undefined })} />
-            <textarea rows={4} value={editando.mensaje} onChange={e => setEditing({ ...editando, mensaje: e.target.value, error: undefined })} />
-            {editando.error && <span className="pr-mal">{editando.error}</span>}
-            <span><button className="consola-x" onClick={guardar}>{t('windows.scheduledSave')}</button> <button className="consola-x" onClick={() => setEditing(null)}>✕</button></span>
+            <input type="datetime-local" value={editing.when} onChange={e => setEditing({ ...editing, when: e.target.value, error: undefined })} />
+            <textarea rows={4} value={editing.message} onChange={e => setEditing({ ...editing, message: e.target.value, error: undefined })} />
+            {editing.error && <span className="pr-mal">{editing.error}</span>}
+            <span><button className="consola-x" onClick={save}>{t('windows.scheduledSave')}</button> <button className="consola-x" onClick={() => setEditing(null)}>✕</button></span>
           </li>
-        : <li key={x.id} title={x.mensaje}>
-            <span className={x.cuando < Date.now() ? 'urgente' : ''} title={x.cuando < Date.now() ? t('windows.scheduledLate') : describeWhen(x.cuando)}>⏰ {describeWhenShort(x.cuando)}</span>
-            <span className="tenue">{destino(x)}</span>
-            <span className="pagina-nombre">{x.mensaje.replace(/\s+/g, ' ')}</span>
-            <button className="consola-x" title={t('windows.scheduledEdit')} onClick={() => setEditing({ id: x.id, cuando: localInput(x.cuando), mensaje: x.mensaje })}>✎</button>
-            <button className="consola-x" title={t('windows.scheduledCancel')} onClick={() => cancelar(x)}>✕</button>
+        : <li key={x.id} title={x.message}>
+            <span className={x.when < Date.now() ? 'urgente' : ''} title={x.when < Date.now() ? t('windows.scheduledLate') : describeWhen(x.when)}>⏰ {describeWhenShort(x.when)}</span>
+            <span className="tenue">{target(x)}</span>
+            <span className="pagina-nombre">{x.message.replace(/\s+/g, ' ')}</span>
+            <button className="consola-x" title={t('windows.scheduledEdit')} onClick={() => setEditing({ id: x.id, when: localInput(x.when), message: x.message })}>✎</button>
+            <button className="consola-x" title={t('windows.scheduledCancel')} onClick={() => cancel(x)}>✕</button>
           </li>)}</ul>}
     </span>
   );
@@ -1157,100 +1157,100 @@ const localInput = (ms: number) => { const f = new Date(ms), d = (n: number) => 
 // Una conversación por retomar (cerrada o perdida en un reinicio): sus páginas salen igual, leídas de su transcripción;
 // abrirlas, validarlas o quitarlas no le escribe nada (al retomarla, lo hecho sigue contado)
 const resumeLogs = new Map<string, Promise<LogInput[]>>();
-function ResumePages({ salaId, claudeId }: { salaId: string; claudeId: string }) {
-  const [entradas, setEntries] = useState<LogInput[]>([]);
+function ResumePages({ roomId, claudeId }: { roomId: string; claudeId: string }) {
+  const [entries, setEntries] = useState<LogInput[]>([]);
   useEffect(() => {
     let p = resumeLogs.get(claudeId);
-    if (!p) { p = cliente.ask<LogInput[]>({ t: 'cargarConversacion', salaId, claudeId }).catch(() => { resumeLogs.delete(claudeId); return []; }); resumeLogs.set(claudeId, p); }
-    let vivoAun = true; p.then(l => { if (vivoAun) setEntries(l); });
-    return () => { vivoAun = false; };
-  }, [salaId, claudeId]);
-  return <PagesList sesionId={claudeId} claudeId={claudeId} entradas={entradas} />;
+    if (!p) { p = client.ask<LogInput[]>({ t: 'cargarConversacion', roomId, claudeId }).catch(() => { resumeLogs.delete(claudeId); return []; }); resumeLogs.set(claudeId, p); }
+    let stillAlive = true; p.then(l => { if (stillAlive) setEntries(l); });
+    return () => { stillAlive = false; };
+  }, [roomId, claudeId]);
+  return <PagesList sessionId={claudeId} claudeId={claudeId} entries={entries} />;
 }
 
 // The action lists (pages, scheduled, PRs) open at their own button: right below it while they fit before the intercom's
 // bottom (or there's more room there than anywhere else), otherwise to its right over the conversation, moved up just
 // enough to end inside the intercom; never taller than it, with scroll
-function useListAtButton(abierto: boolean) {
+function useListAtButton(open: boolean) {
   const ref = useRef<HTMLUListElement>(null);
   useLayoutEffect(() => {
-    const ul = ref.current, ancla = ul?.parentElement, zona = ul?.closest('.consola-cuerpo');
-    if (!abierto || !ul || !ancla || !zona) return;
+    const ul = ref.current, anchor = ul?.parentElement, zone = ul?.closest('.consola-cuerpo');
+    if (!open || !ul || !anchor || !zone) return;
     const fit = () => {
-      const z = zona.getBoundingClientRect(), b = ancla.getBoundingClientRect();
-      const k = ancla.offsetWidth ? b.width / ancla.offsetWidth : 1;  // screen px per CSS px (a scaled intercom)
-      const margen = 6, alto = (z.height - 2 * margen) / k;
+      const z = zone.getBoundingClientRect(), b = anchor.getBoundingClientRect();
+      const k = anchor.offsetWidth ? b.width / anchor.offsetWidth : 1;  // screen px per CSS px (a scaled intercom)
+      const margin = 6, height = (z.height - 2 * margin) / k;
       Object.assign(ul.style, { maxHeight: 'none', top: '', left: '' });
       const natural = ul.scrollHeight;
-      const debajo = (z.bottom - b.bottom - margen) / k;
-      if (natural <= debajo || debajo >= alto / 2) {
-        Object.assign(ul.style, { top: '100%', left: '0', maxHeight: `${Math.max(0, debajo - 3)}px` });
+      const below = (z.bottom - b.bottom - margin) / k;
+      if (natural <= below || below >= height / 2) {
+        Object.assign(ul.style, { top: '100%', left: '0', maxHeight: `${Math.max(0, below - 3)}px` });
         return;
       }
-      const h = Math.min(natural, alto);
-      const top = Math.max((z.top + margen - b.top) / k, Math.min(0, (z.bottom - margen - b.top) / k - h));
-      Object.assign(ul.style, { top: `${top}px`, left: `calc(100% + ${margen}px)`, maxHeight: `${alto}px` });
+      const h = Math.min(natural, height);
+      const top = Math.max((z.top + margin - b.top) / k, Math.min(0, (z.bottom - margin - b.top) / k - h));
+      Object.assign(ul.style, { top: `${top}px`, left: `calc(100% + ${margin}px)`, maxHeight: `${height}px` });
     };
     fit();
     addEventListener('resize', fit);
     return () => removeEventListener('resize', fit);
-  }, [abierto]);
+  }, [open]);
   return ref;
 }
 
 // cuándo se cambió cada página (null: ya no está), compartido por todas las pestañas
 const pageTimes = new Map<string, number | null>();
-function PagesList({ sesionId, claudeId, entradas, base }: { sesionId: string; claudeId?: string; entradas: LogInput[]; base?: string }) {
+function PagesList({ sessionId, claudeId, entries, base }: { sessionId: string; claudeId?: string; entries: LogInput[]; base?: string }) {
   // (sin la conversación en marcha, las notas de la página se copian: no hay a quién mandarlas)
-  const viva = vivo.usar(e => !!e.sesiones[sesionId]);
-  const s = { id: sesionId };
-  const porSesion = pageAnswers.usar(x => x[sesionId]), porClaude = pageAnswers.usar(x => (claudeId ? x[claudeId] : undefined));
-  const respuestas = useMemo(() => ({ ...porSesion, ...porClaude }), [porSesion, porClaude]);
-  const borradores = pageNotes.usar(x => x);
-  const todas = useMemo(() => sessionPages(entradas, respuestas, base), [entradas, respuestas, base]);
+  const alive = live.use(e => !!e.sessions[sessionId]);
+  const s = { id: sessionId };
+  const bySession = pageAnswers.use(x => x[sessionId]), byClaude = pageAnswers.use(x => (claudeId ? x[claudeId] : undefined));
+  const answers = useMemo(() => ({ ...bySession, ...byClaude }), [bySession, byClaude]);
+  const drafts = pageNotes.use(x => x);
+  const all = useMemo(() => sessionPages(entries, answers, base), [entries, answers, base]);
   // solo las que siguen en el Mac (se pregunta al servidor cuando cambia la lista o se abre), y cuándo se cambió cada
   // una por última vez (un plan se reescribe sin que cambie el enlace). Lo ya sabido sale al momento, de `pageTimes`
-  const rutas = todas.map(p => p.ruta).join('\n');
-  const known = () => { const l = rutas ? rutas.split('\n') : []; return l.every(r => pageTimes.has(r)) ? l : null; };
-  const [existen, setExist] = useState<Set<string> | null>(() => { const l = known(); return l && new Set(l.filter(r => pageTimes.get(r))); });
-  const [actualizadas, setUpdated] = useState<Record<string, number>>(() => Object.fromEntries((known() ?? []).flatMap(r => pageTimes.get(r) ? [[r, pageTimes.get(r)!]] : [])));
-  const [abierto, setOpen] = useState(false);
-  const lista = useListAtButton(abierto);
+  const paths = all.map(p => p.path).join('\n');
+  const known = () => { const l = paths ? paths.split('\n') : []; return l.every(r => pageTimes.has(r)) ? l : null; };
+  const [existing, setExist] = useState<Set<string> | null>(() => { const l = known(); return l && new Set(l.filter(r => pageTimes.get(r))); });
+  const [updated, setUpdated] = useState<Record<string, number>>(() => Object.fromEntries((known() ?? []).flatMap(r => pageTimes.get(r) ? [[r, pageTimes.get(r)!]] : [])));
+  const [open, setOpen] = useState(false);
+  const list = useListAtButton(open);
   useEffect(() => {
-    if (!rutas) return;
-    let vivoAun = true;
-    cliente.accion('paginas.actualizadas', { rutas: rutas.split('\n') }).then((l: any) => {
+    if (!paths) return;
+    let stillAlive = true;
+    client.action('paginas.actualizadas', { paths: paths.split('\n') }).then((l: any) => {
       const m = l && typeof l === 'object' ? l as Record<string, number> : {};
-      for (const r of rutas.split('\n')) pageTimes.set(r, m[r] ?? null);
-      if (vivoAun) { setExist(new Set(Object.keys(m))); setUpdated(m); }
+      for (const r of paths.split('\n')) pageTimes.set(r, m[r] ?? null);
+      if (stillAlive) { setExist(new Set(Object.keys(m))); setUpdated(m); }
     }).catch(() => {});
-    return () => { vivoAun = false; };
-  }, [rutas, abierto && 'abierto']);
+    return () => { stillAlive = false; };
+  }, [paths, open && 'abierto']);
   // las más recientes arriba: enlazadas o reescritas (un plan rehecho sube aunque no se vuelva a enlazar)
-  const reciente = (p: { ruta: string; ts: number }) => Math.max(p.ts, actualizadas[p.ruta] ?? 0);
-  const paginas = livePages(todas, existen).sort((a, b) => reciente(b) - reciente(a) || a.ruta.localeCompare(b.ruta));
-  if (!paginas.length) return null;
-  const pendientes = pendingPages(paginas).length;
-  const abrir = (ruta: string) => {
-    cliente.accion('enlace.local', { ruta }).then((r: any) => { if (r?.pagina) openPage(r.pagina.url, r.pagina.titulo, viva ? s.id : undefined, r.pagina.ruta); else SFX.clic(); }).catch(() => SFX.noAllowed());
+  const latest = (p: { path: string; ts: number }) => Math.max(p.ts, updated[p.path] ?? 0);
+  const pages = livePages(all, existing).sort((a, b) => latest(b) - latest(a) || a.path.localeCompare(b.path));
+  if (!pages.length) return null;
+  const pending = pendingPages(pages).length;
+  const openTarget = (path: string) => {
+    client.action('enlace.local', { path }).then((r: any) => { if (r?.page) openPage(r.page.url, r.page.title, alive ? s.id : undefined, r.page.path); else SFX.click(); }).catch(() => SFX.notAllowed());
     setOpen(false);
   };
-  const enBorrador = (ruta: string) => Object.entries(borradores).find(([k]) => samePage(k, ruta))?.[1].length ?? 0;
+  const inDraft = (path: string) => Object.entries(drafts).find(([k]) => samePage(k, path))?.[1].length ?? 0;
   return (
     <span className="paginas-sesion paginas-principal">
-      <button className={'consola-x' + (pendientes ? ' urgente' : '')} title={t('windows.pagesHint')} onClick={() => { setOpen(x => !x); SFX.clic(); }}>
-        📄 {t('windows.pages')} {pendientes ? `· ${pendientes} ${t('windows.pagePending')}` : `(${paginas.length})`}
+      <button className={'consola-x' + (pending ? ' urgente' : '')} title={t('windows.pagesHint')} onClick={() => { setOpen(x => !x); SFX.click(); }}>
+        📄 {t('windows.pages')} {pending ? `· ${pending} ${t('windows.pagePending')}` : `(${pages.length})`}
       </button>
-      {abierto && <ul ref={lista} className="paginas-lista">{paginas.map(p => {
-        const n = enBorrador(p.ruta);
-        return <li key={p.ruta} className={p.respuesta ? 'tenue' : ''}>
-          <button className="pagina-nombre" title={p.ruta} onClick={() => abrir(p.ruta)}>{p.nombre}</button>
-          {actualizadas[p.ruta] && <span className="tenue" title={new Date(actualizadas[p.ruta]).toLocaleString()}>{t('windows.pageUpdated', { cuando: hace(actualizadas[p.ruta]) })} · </span>}
-          <span className={p.respuesta ? '' : 'urgente'}>{p.respuesta ? '✓ ' + t(p.respuesta.estado === 'notas' ? 'windows.pageNotesSent' : 'windows.pageValidatedState') : '• ' + t('windows.pagePending')}</span>
+      {open && <ul ref={list} className="paginas-lista">{pages.map(p => {
+        const n = inDraft(p.path);
+        return <li key={p.path} className={p.answer ? 'tenue' : ''}>
+          <button className="pagina-nombre" title={p.path} onClick={() => openTarget(p.path)}>{p.name}</button>
+          {updated[p.path] && <span className="tenue" title={new Date(updated[p.path]).toLocaleString()}>{t('windows.pageUpdated', { cuando: ago(updated[p.path]) })} · </span>}
+          <span className={p.answer ? '' : 'urgente'}>{p.answer ? '✓ ' + t(p.answer.state === 'notas' ? 'windows.pageNotesSent' : 'windows.pageValidatedState') : '• ' + t('windows.pagePending')}</span>
           {n > 0 && <span className="tenue"> · {t('windows.pageDraftNotes', { n })}</span>}
-          <button className="consola-x" title={t('windows.showInFinderHint')} onClick={() => revealPage(p.ruta)}>📁</button>
-          {!p.respuesta && n === 0 && <button className="consola-x" title={t('windows.validatePageHint')} onClick={() => { validatePage(s.id, p.ruta); setOpen(false); }}>✓ {t('windows.validate')}</button>}
-          <button className="consola-x" title={t('windows.removePageHint')} onClick={() => { answerPage(s.id, p.ruta, 'quitada'); SFX.clic(); }}>✕</button>
+          <button className="consola-x" title={t('windows.showInFinderHint')} onClick={() => revealPage(p.path)}>📁</button>
+          {!p.answer && n === 0 && <button className="consola-x" title={t('windows.validatePageHint')} onClick={() => { validatePage(s.id, p.path); setOpen(false); }}>✓ {t('windows.validate')}</button>}
+          <button className="consola-x" title={t('windows.removePageHint')} onClick={() => { answerPage(s.id, p.path, 'quitada'); SFX.click(); }}>✕</button>
         </li>;
       })}</ul>}
     </span>
@@ -1258,83 +1258,83 @@ function PagesList({ sesionId, claudeId, entradas, base }: { sesionId: string; c
 }
 
 // soltar archivos en cualquier parte de la conversación los adjunta (y no deja que la ventana navegue al archivo)
-function useDrop(alSoltar: (f: FileList) => void) {
-  const [encima, setAbove] = useState(false);
+function useDrop(onDrop: (f: FileList) => void) {
+  const [onTop, setAbove] = useState(false);
   const withFiles = (e: React.DragEvent) => Array.from(e.dataTransfer?.types ?? []).includes('Files');
-  return [encima, {
-    onDragOver: (e: React.DragEvent) => { if (!withFiles(e)) return; e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; if (!encima) setAbove(true); },
+  return [onTop, {
+    onDragOver: (e: React.DragEvent) => { if (!withFiles(e)) return; e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; if (!onTop) setAbove(true); },
     onDragLeave: (e: React.DragEvent) => { if (!(e.currentTarget as HTMLElement).contains(e.relatedTarget as Node)) setAbove(false); },
-    onDrop: (e: React.DragEvent) => { if (!withFiles(e)) return; e.preventDefault(); setAbove(false); alSoltar(e.dataTransfer.files); },
+    onDrop: (e: React.DragEvent) => { if (!withFiles(e)) return; e.preventDefault(); setAbove(false); onDrop(e.dataTransfer.files); },
   }] as const;
 }
 
 const OWN_COMMANDS: Command[] = [
-  { nombre: 'btw', descripcion: t('windows.sideQuestionWithoutInterruptingThe'), pista: t('windows.question') },
-  { nombre: 'stop', descripcion: t('windows.stopWhatItIsDoing') },
-  { nombre: 'cuaderno', descripcion: t('windows.openTheConversationNotebookR') },
-  { nombre: 'cerrar', descripcion: t('windows.closeThisConversationItStays') },
+  { name: 'btw', description: t('windows.sideQuestionWithoutInterruptingThe'), hint: t('windows.question') },
+  { name: 'stop', description: t('windows.stopWhatItIsDoing') },
+  { name: 'cuaderno', description: t('windows.openTheConversationNotebookR') },
+  { name: 'cerrar', description: t('windows.closeThisConversationItStays') },
 ];
 const COMMANDS_BASE: Command[] = [
-  { nombre: 'compact', descripcion: t('windows.compactTheConversation') }, { nombre: 'context', descripcion: t('windows.contextUsage') },
-  { nombre: 'model', descripcion: t('windows.changeModel') }, { nombre: 'effort', descripcion: t('windows.changeEffort') }, { nombre: 'clear', descripcion: t('windows.startFromScratch') },
+  { name: 'compact', description: t('windows.compactTheConversation') }, { name: 'context', description: t('windows.contextUsage') },
+  { name: 'model', description: t('windows.changeModel') }, { name: 'effort', description: t('windows.changeEffort') }, { name: 'clear', description: t('windows.startFromScratch') },
 ];
 
 // ---------------------------------------------------------------- permisos, preguntas y planes
-const ARMADO_MS = 800;
-function Pending({ s, p, tab, hid, salir }: { s: SessionSummary; p: PendingRequest; tab: TabCom; hid: string; salir: () => void }) {
+const ARMED_MS = 800;
+function Pending({ s, p, tab, hid, exit }: { s: SessionSummary; p: PendingRequest; tab: TabCom; hid: string; exit: () => void }) {
   // lo que se está escribiendo (el porqué de un no, otra respuesta) se guarda en la pestaña: minimizar no lo pierde
-  const [motivo, setReason0] = useState<string | null>(tab.motivo?.peticion === p.id ? tab.motivo.texto : null);
-  const setReason = (t: string | null) => { setReason0(t); setTab(hid, tab.id, { motivo: t === null ? undefined : { peticion: p.id, texto: t } }); };
+  const [reason, setReason0] = useState<string | null>(tab.reason?.request === p.id ? tab.reason.text : null);
+  const setReason = (t: string | null) => { setReason0(t); setTab(hid, tab.id, { reason: t === null ? undefined : { request: p.id, text: t } }); };
   const [responses, setResponses] = useState<Record<string, string>>({});
-  const [pq, setPq] = useState(0);
-  const responder = (decision: 'si' | 'siempre' | 'no', mensaje?: string, answer?: Record<string, string>) => { cliente.enviar({ t: 'responder', sesionId: s.id, peticionId: p.id, decision, mensaje, responses: answer }); SFX.clic(); };
-  let items: { texto: React.ReactNode; pista?: React.ReactNode; peligro?: boolean; clase?: string; f: () => void }[] = [];
-  const preg = p.tipo === 'pregunta' ? p.preguntas?.[pq] : undefined;
-  if (p.tipo === 'permiso') items = [
-    { texto: t('windows.yes'), f: () => responder('si') },
-    ...(p.canAlways ? [{ texto: t('windows.yesAndDonTAsk'), f: () => responder('siempre') }] : []),
-    { texto: t('windows.noAndILlTell'), peligro: true, f: () => setReason('') },
+  const [qi, setPq] = useState(0);
+  const respond = (decision: 'si' | 'siempre' | 'no', message?: string, answer?: Record<string, string>) => { client.send({ t: 'responder', sessionId: s.id, requestId: p.id, decision, message, responses: answer }); SFX.click(); };
+  let items: { text: React.ReactNode; hint?: React.ReactNode; danger?: boolean; kind?: string; f: () => void }[] = [];
+  const question = p.type === 'pregunta' ? p.questions?.[qi] : undefined;
+  if (p.type === 'permiso') items = [
+    { text: t('windows.yes'), f: () => respond('si') },
+    ...(p.canAlways ? [{ text: t('windows.yesAndDonTAsk'), f: () => respond('siempre') }] : []),
+    { text: t('windows.noAndILlTell'), danger: true, f: () => setReason('') },
   ];
-  else if (p.tipo === 'confianza') items = [
-    { texto: t('windows.yesLoadItThisTime'), f: () => responder('si') },
-    { texto: t('windows.yesAndDonTAsk2'), f: () => responder('siempre') },
-    { texto: t('windows.noWorkWithoutIt'), peligro: true, f: () => responder('no') },
+  else if (p.type === 'confianza') items = [
+    { text: t('windows.yesLoadItThisTime'), f: () => respond('si') },
+    { text: t('windows.yesAndDonTAsk2'), f: () => respond('siempre') },
+    { text: t('windows.noWorkWithoutIt'), danger: true, f: () => respond('no') },
   ];
-  else if (p.tipo === 'plan') items = [
-    { texto: t('windows.approveThePlan'), pista: t('windows.willAskPermissionToEdit'), f: () => responder('si') },
-    { texto: t('windows.approveAndLetItEdit'), f: () => responder('siempre') },
-    { texto: t('windows.keepPlanningILlTell'), peligro: true, f: () => setReason('') },
+  else if (p.type === 'plan') items = [
+    { text: t('windows.approveThePlan'), hint: t('windows.willAskPermissionToEdit'), f: () => respond('si') },
+    { text: t('windows.approveAndLetItEdit'), f: () => respond('siempre') },
+    { text: t('windows.keepPlanningILlTell'), danger: true, f: () => setReason('') },
   ];
-  else if (preg) items = [
+  else if (question) items = [
     // las respuestas de una pregunta pueden ser largas o llevar enlaces: enteras, en varias líneas (clase «larga»)
-    ...preg.options.map(o => ({ texto: o.label, pista: o.description ? <span dangerouslySetInnerHTML={{ __html: markdownLine(o.description, folderOf(s)) }} /> : undefined, clase: 'larga', f: () => { const r = { ...responses, [preg.question]: o.label }; setResponses(r); if (pq + 1 < (p.preguntas?.length ?? 0)) setPq(pq + 1); else responder('si', undefined, r); } })),
-    { texto: t('windows.somethingElse'), f: () => setReason('') },
-    { texto: t('windows.skipTheQuestion'), peligro: true, f: () => responder('no', t('prompt.userPreferredNotToAnswer')) },
+    ...question.options.map(o => ({ text: o.label, hint: o.description ? <span dangerouslySetInnerHTML={{ __html: markdownLine(o.description, folderOf(s)) }} /> : undefined, kind: 'larga', f: () => { const r = { ...responses, [question.question]: o.label }; setResponses(r); if (qi + 1 < (p.questions?.length ?? 0)) setPq(qi + 1); else respond('si', undefined, r); } })),
+    { text: t('windows.somethingElse'), f: () => setReason('') },
+    { text: t('windows.skipTheQuestion'), danger: true, f: () => respond('no', t('prompt.userPreferredNotToAnswer')) },
   ];
   // una petición que aparece mientras se escribe no se contesta con las teclas que venían detrás (Espacio, Enter, E,
   // W/S): el menú solo atiende al teclado tras una pausa sin teclear; cada tecla antes de eso se traga y alarga la espera
-  const armado = useRef(Date.now() + ARMADO_MS);
-  useEffect(() => { armado.current = Date.now() + ARMADO_MS; }, [p.id, pq]);
+  const armed = useRef(Date.now() + ARMED_MS);
+  useEffect(() => { armed.current = Date.now() + ARMED_MS; }, [p.id, qi]);
   // aquí ← no es «atrás» (la petición sigue esperando): Esc vuelve al refugio y la deja pendiente
   const [i, setI] = useMenuBase(items.length, k => items[k]?.f(), e => {
     if (e.code === 'Escape') return undefined;
-    if (motivo !== null) return false;
-    if (Date.now() < armado.current) { armado.current = Date.now() + ARMADO_MS; return true; }
-  }, salir);
+    if (reason !== null) return false;
+    if (Date.now() < armed.current) { armed.current = Date.now() + ARMED_MS; return true; }
+  }, exit);
   return (
-    <div className={'peticion ' + p.tipo}>
-      <div className="peticion-titulo">{p.ofHelper ? t('windows.aHelperNombreAsks', { nombre: p.ofHelper }) : ''}{preg ? null : p.titulo}</div>
+    <div className={'peticion ' + p.type}>
+      <div className="peticion-titulo">{p.ofHelper ? t('windows.aHelperNombreAsks', { nombre: p.ofHelper }) : ''}{question ? null : p.title}</div>
       {/* la pregunta es prosa de Claude: en markdown (enlaces que se abren, listas), con su propio scroll si es muy larga */}
-      {preg && <div className="peticion-pregunta" dangerouslySetInnerHTML={{ __html: markdown(preg.question, folderOf(s)) }} />}
+      {question && <div className="peticion-pregunta" dangerouslySetInnerHTML={{ __html: markdown(question.question, folderOf(s)) }} />}
       {/* lo que pide una herramienta, siempre en texto plano (plainText.tsx); el plan, que es prosa, en markdown */}
-      {(p.tipo === 'permiso' || p.tipo === 'confianza') && (p.entrada?.length || p.motivo) ? <RequestView blocks={p.entrada ?? []} motivo={p.motivo} /> : null}
-      {p.tipo === 'plan' && p.detalle && <div className="peticion-detalle" dangerouslySetInnerHTML={{ __html: markdown(p.detalle, folderOf(s)) }} />}
-      {motivo === null ? <Opciones items={items} i={i} setI={setI} onChoose={k => items[k]?.f()} /> : (
+      {(p.type === 'permiso' || p.type === 'confianza') && (p.input?.length || p.reason) ? <RequestView blocks={p.input ?? []} reason={p.reason} /> : null}
+      {p.type === 'plan' && p.detail && <div className="peticion-detalle" dangerouslySetInnerHTML={{ __html: markdown(p.detail, folderOf(s)) }} />}
+      {reason === null ? <Options items={items} i={i} setI={setI} onChoose={k => items[k]?.f()} /> : (
         <div className="linea-entrada activa">
           <span className="prompt-sim">&gt;</span>
-          <textarea autoFocus rows={2} value={motivo} placeholder={p.tipo === 'pregunta' ? t('windows.yourAnswer') : t('windows.tellItWhyOrEnter')} onChange={e => setReason(e.target.value)}
+          <textarea autoFocus rows={2} value={reason} placeholder={p.type === 'pregunta' ? t('windows.yourAnswer') : t('windows.tellItWhyOrEnter')} onChange={e => setReason(e.target.value)}
             onKeyDown={e => {
-              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (p.tipo === 'pregunta' && preg) { const r = { ...responses, [preg.question]: motivo }; if (pq + 1 < (p.preguntas?.length ?? 0)) { setResponses(r); setPq(pq + 1); setReason(null); } else responder('si', undefined, r); } else responder('no', motivo); }
+              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (p.type === 'pregunta' && question) { const r = { ...responses, [question.question]: reason }; if (qi + 1 < (p.questions?.length ?? 0)) { setResponses(r); setPq(qi + 1); setReason(null); } else respond('si', undefined, r); } else respond('no', reason); }
               if (e.key === 'Escape') { e.preventDefault(); setReason(null); }
               e.stopPropagation();
             }} />
@@ -1347,6 +1347,6 @@ function Pending({ s, p, tab, hid, salir }: { s: SessionSummary; p: PendingReque
 // una página que se abre al lado (Browsers.tsx): si el intercomunicador a la vista está ampliado, vuelve a la derecha
 // para que se vean los dos
 if (typeof window !== 'undefined') addEventListener('refugio:pagina-al-lado', () => {
-  const hid = juego.get().talkingWith, v = hid ? ventana(hid) : undefined;
-  if (v?.maximizada) actualizar(hid!, { maximizada: false });
+  const hid = juego.get().talkingWith, v = hid ? win(hid) : undefined;
+  if (v?.maximized) update(hid!, { maximized: false });
 });

@@ -17,39 +17,39 @@ export function firstMapNow(): boolean {
 }
 
 // Avisa en cada cambio (y una vez al empezar). Pone la clase «en-segundo-plano» en la página, que para las animaciones CSS.
-export function watchFirstMap(alCambiar: (activo: boolean) => void) {
-  let ultimo: boolean | null = null;
-  const mirar = () => {
-    const activo = firstMapNow();
-    document.documentElement.classList.toggle('en-segundo-plano', !activo);
-    if (activo === ultimo) return;
-    ultimo = activo;
-    alCambiar(activo);
+export function watchFirstMap(onChange: (active: boolean) => void) {
+  let last: boolean | null = null;
+  const watch = () => {
+    const active = firstMapNow();
+    document.documentElement.classList.toggle('en-segundo-plano', !active);
+    if (active === last) return;
+    last = active;
+    onChange(active);
   };
   // el foco pasa a un <webview> antes de que el documento lo registre: se mira en el turno siguiente
-  addEventListener('focus', () => setTimeout(mirar));
-  addEventListener('blur', () => setTimeout(mirar));
-  document.addEventListener('visibilitychange', mirar);
-  (window as any).shelterVentana?.onChangeFocus?.((con: boolean) => { withFocusOfWindow = con; mirar(); });
-  mirar();
+  addEventListener('focus', () => setTimeout(watch));
+  addEventListener('blur', () => setTimeout(watch));
+  document.addEventListener('visibilitychange', watch);
+  (window as any).shelterVentana?.onChangeFocus?.((nonZero: boolean) => { withFocusOfWindow = nonZero; watch(); });
+  watch();
 }
 
 // En uso: la ventana delante y teclado o ratón en los últimos 2 minutos (con el juego delante pero sin tocarlo, no). Se
 // le dice al servidor cada 30 s y en cada cambio: el mando a distancia (server/remoteBot.ts) no saca las peticiones al móvil
 // mientras se usa el juego
 const IDLE_MS = 2 * 60_000;
-export function watchPresence(avisar: (activo: boolean) => void) {
-  let lastInput = Date.now(), ultimo: boolean | null = null;
-  const mirar = (forzar = false) => {
-    const activo = firstMapNow() && Date.now() - lastInput < IDLE_MS;
-    if (activo === ultimo && !(forzar && activo)) return;
-    ultimo = activo;
-    avisar(activo);
+export function watchPresence(notify: (active: boolean) => void) {
+  let lastInput = Date.now(), last: boolean | null = null;
+  const watch = (force = false) => {
+    const active = firstMapNow() && Date.now() - lastInput < IDLE_MS;
+    if (active === last && !(force && active)) return;
+    last = active;
+    notify(active);
   };
-  for (const ev of ['keydown', 'pointerdown', 'pointermove', 'wheel']) addEventListener(ev, () => { lastInput = Date.now(); if (!ultimo) mirar(); }, { capture: true, passive: true });
-  addEventListener('focus', () => setTimeout(mirar));
-  addEventListener('blur', () => setTimeout(mirar));
-  document.addEventListener('visibilitychange', () => mirar());
-  setInterval(() => mirar(true), 30_000);
-  mirar();
+  for (const ev of ['keydown', 'pointerdown', 'pointermove', 'wheel']) addEventListener(ev, () => { lastInput = Date.now(); if (!last) watch(); }, { capture: true, passive: true });
+  addEventListener('focus', () => setTimeout(watch));
+  addEventListener('blur', () => setTimeout(watch));
+  document.addEventListener('visibilitychange', () => watch());
+  setInterval(() => watch(true), 30_000);
+  watch();
 }

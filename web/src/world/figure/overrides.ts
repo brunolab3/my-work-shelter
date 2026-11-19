@@ -3,7 +3,7 @@
 import type { Settings } from './breakdown';
 
 export const SETTINGS: Record<string, Settings> = {
-  Knight: { pelo: [[218, 174, 126]] },
+  Knight: { hair: [[218, 174, 126]] },
   ToySoldier: { tintsFace: [[200, 54, 63]] },   // los coloretes son de la cara, no del bigote
   // gorras: la visera, las orejeras y la chapa son gorro; lo que asoma por debajo, pelo
   Protagonist_A: { comp: { 1: 'gorro', 3: 'gorro', 6: 'gorro', 12: 'gorro' } },

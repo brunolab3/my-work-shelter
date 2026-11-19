@@ -7,23 +7,23 @@ export type FrameRate = 'auto' | '60' | '30';
 export const FRAME_RATES: FrameRate[] = ['auto', '60', '30'];
 const KEY = 'refugio.ritmo';
 
-let actual: FrameRate = (() => {
+let current: FrameRate = (() => {
   try { const v = localStorage.getItem(KEY); if (FRAME_RATES.includes(v as FrameRate)) return v as FrameRate; } catch {}
   return 'auto';
 })();
-export function frameRate(): FrameRate { return actual; }
-export function setFrameRate(v: FrameRate) { actual = v; try { localStorage.setItem(KEY, v); } catch {} }
+export function frameRate(): FrameRate { return current; }
+export function setFrameRate(v: FrameRate) { current = v; try { localStorage.setItem(KEY, v); } catch {} }
 
 /** la cámara se ha movido (con margen: su suavizado se acerca al objetivo sin llegar nunca del todo) */
-export function cameraMoved(a: ArrayLike<number>, b: ArrayLike<number>, margen = 1e-4): boolean {
-  for (let i = 0; i < 16; i++) if (Math.abs(a[i] - b[i]) > margen) return true;
+export function cameraMoved(a: ArrayLike<number>, b: ArrayLike<number>, margin = 1e-4): boolean {
+  for (let i = 0; i < 16; i++) if (Math.abs(a[i] - b[i]) > margin) return true;
   return false;
 }
 
 /** fps a los que pintar: con una ventana maximizada encima, 10 en automático; si no, 60 moviéndose y 30 quieto */
-export function targetFps(modo: FrameRate, s: { moving: boolean; covered: boolean }): number {
-  if (modo === '60') return 60;
-  if (modo === '30') return 30;
+export function targetFps(mode: FrameRate, s: { moving: boolean; covered: boolean }): number {
+  if (mode === '60') return 60;
+  if (mode === '30') return 30;
   if (s.covered) return 10;
   return s.moving ? 60 : 30;
 }

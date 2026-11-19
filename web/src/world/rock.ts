@@ -6,21 +6,21 @@ import { strataTexture } from '../engine/textures';
 
 const MAX_GAPS = 48;
 
-export function rockFace(x0: number, x1: number, y0: number, y1: number, z: number, huecos: THREE.Box2[], paso = 0.2) {
+export function rockFace(x0: number, x1: number, y0: number, y1: number, z: number, gaps: THREE.Box2[], step = 0.2) {
   const pos: number[] = [], uv: number[] = [], idx: number[] = [];
   const W = x1 - x0, Hh = y1 - y0;
-  for (let y = y0; y < y1 - 1e-6; y += paso) {
-    const ya = y, yb = Math.min(y1, y + paso), ym = (ya + yb) / 2;
+  for (let y = y0; y < y1 - 1e-6; y += step) {
+    const already = y, yb = Math.min(y1, y + step), ym = (already + yb) / 2;
     // intervalos de x tapados por huecos en esta tira
-    const covered = huecos.filter(b => ym > b.min.y && ym < b.max.y).map(b => [b.min.x, b.max.x] as [number, number]).sort((a, b) => a[0] - b[0]);
+    const covered = gaps.filter(b => ym > b.min.y && ym < b.max.y).map(b => [b.min.x, b.max.x] as [number, number]).sort((a, b) => a[0] - b[0]);
     const free: [number, number][] = []; let x = x0;
     for (const [a, b] of covered) { if (a > x) free.push([x, Math.min(a, x1)]); x = Math.max(x, b); }
     if (x < x1) free.push([x, x1]);
     for (const [a, b] of free) {
       if (b - a < 1e-4) continue;
       const i = pos.length / 3;
-      pos.push(a, ya, 0, b, ya, 0, b, yb, 0, a, yb, 0);
-      for (const [px, py] of [[a, ya], [b, ya], [b, yb], [a, yb]]) uv.push((px - x0) / 16, (py - y0) / Hh);
+      pos.push(a, already, 0, b, already, 0, b, yb, 0, a, yb, 0);
+      for (const [px, py] of [[a, already], [b, already], [b, yb], [a, yb]]) uv.push((px - x0) / 16, (py - y0) / Hh);
       idx.push(i, i + 1, i + 2, i, i + 2, i + 3);
     }
   }
@@ -32,9 +32,9 @@ export function rockFace(x0: number, x1: number, y0: number, y1: number, z: numb
   const tex = strataTexture(); tex.wrapT = THREE.ClampToEdgeWrapping;
   const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 1, metalness: 0 });
   const rects = new Array(MAX_GAPS).fill(0).map(() => new THREE.Vector4(1e5, 1e5, 1e5, 1e5));
-  huecos.slice(0, MAX_GAPS).forEach((b, i) => rects[i].set(b.min.x, b.min.y, b.max.x, b.max.y));
+  gaps.slice(0, MAX_GAPS).forEach((b, i) => rects[i].set(b.min.x, b.min.y, b.max.x, b.max.y));
   mat.onBeforeCompile = sh => {
-    sh.uniforms.uGaps = { value: rects }; sh.uniforms.uN = { value: Math.min(MAX_GAPS, huecos.length) };
+    sh.uniforms.uGaps = { value: rects }; sh.uniforms.uN = { value: Math.min(MAX_GAPS, gaps.length) };
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec2 vXY;').replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvXY = (modelMatrix * vec4(transformed, 1.0)).xy;');
     sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>\nvarying vec2 vXY; uniform vec4 uGaps[${MAX_GAPS}]; uniform int uN;`)
       .replace('#include <color_fragment>', `#include <color_fragment>

@@ -15,7 +15,7 @@ import { Unicode11Addon } from '@xterm/addon-unicode11';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { ClipboardAddon, type IClipboardProvider } from '@xterm/addon-clipboard';
 import '@xterm/xterm/css/xterm.css';
-import { cliente, vivo } from '../net/client';
+import { client, live } from '../net/client';
 import { Store } from './store';
 import { t } from '@shared/language';
 import { SFX } from '../audio/sound';
@@ -27,18 +27,18 @@ import { takeASurface } from './surface';
 
 // una pestaña es un PTY; su id es el de la ventana (la primera) o el de la ventana con «::n» (las siguientes)
 // fuera: cuántas terminales de tu escritorio la tienen abierta (./shelter enganchar): es el mismo PTY, en los dos sitios
-interface Pestana { id: string; inPrompt: boolean; program?: string; fuera?: number }
+interface Tab { id: string; inPrompt: boolean; program?: string; outside?: number }
 interface WindowTerm {
-  id: string; salaId: string; titulo: string; cwd: string; pestanas: Pestana[]; activa: string;
-  minimizada: boolean; maximizada: boolean; x: number; y: number; w: number; h: number; z: number;
-  confirmar?: string[];   // pestañas que se quieren cerrar con algo en marcha dentro
+  id: string; roomId: string; title: string; cwd: string; tabs: Tab[]; active: string;
+  minimized: boolean; maximized: boolean; x: number; y: number; w: number; h: number; z: number;
+  confirm?: string[];   // pestañas que se quieren cerrar con algo en marcha dentro
 }
-export const terminales = new Store<{ lista: WindowTerm[] }>({ lista: [] });
+export const terminals = new Store<{ list: WindowTerm[] }>({ list: [] });
 
 const xterms = new Map<string, { t: Terminal; fit: FitAddon }>();
-const entrada = (id: string, datos: string) => cliente.enviar({ t: 'terminalEntrada', id, datos });
+const input = (id: string, data: string) => client.send({ t: 'terminalEntrada', id, data });
 const windowOf = (tabId: string) => tabId.replace(/::\d+$/, '');
-const numero = (tabId: string) => Number(/::(\d+)$/.exec(tabId)?.[1] ?? 1);
+const number = (tabId: string) => Number(/::(\d+)$/.exec(tabId)?.[1] ?? 1);
 const folderName = (cwd: string) => cwd.split('/').filter(Boolean).pop() ?? cwd;
 
 // Protocolo de teclado de kitty (https://sw.kovidgoyal.net/kitty/keyboard-protocol/), lo que hace iTerm: el programa
@@ -46,10 +46,10 @@ const folderName = (cwd: string) => cwd.split('/').filter(Boolean).pop() ?? cwd;
 // Esc y Enter/Tab/Retroceso con modificadores llegan como CSI código;mods u: así Claude Code distingue Shift+Enter
 // (salto de línea) de Enter (enviar). El resto de teclas siguen como siempre (se entienden igual).
 const kitty = new Map<string, number[]>();
-const banderas = (id: string) => { const p = kitty.get(id); return p?.length ? p[p.length - 1] : 0; };
+const flags = (id: string) => { const p = kitty.get(id); return p?.length ? p[p.length - 1] : 0; };
 const CODE_KITTY: Record<string, number> = { Enter: 13, Tab: 9, Backspace: 127, Escape: 27 };
 function keyKitty(id: string, e: KeyboardEvent) {
-  if (!(banderas(id) & 1) || e.metaKey) return null;
+  if (!(flags(id) & 1) || e.metaKey) return null;
   const cod = CODE_KITTY[e.key]; if (!cod) return null;
   const mods = (e.shiftKey ? 1 : 0) + (e.altKey ? 2 : 0) + (e.ctrlKey ? 4 : 0);
   if (!mods && cod !== 27) return null;
@@ -69,201 +69,201 @@ function shortcutMac(t: Terminal, e: KeyboardEvent): string | boolean | null {
 // si no, cualquier cosa que se imprima en la terminal (un cat, un log, un repo clonado) se llevaría lo copiado
 const CLIPBOARD_ONLY_WRITE: IClipboardProvider = {
   readText: () => '',
-  writeText: (sel, texto) => (sel === 'c' ? navigator.clipboard.writeText(texto).catch(() => {}) : undefined),
+  writeText: (sel, text) => (sel === 'c' ? navigator.clipboard.writeText(text).catch(() => {}) : undefined),
 };
 const openLink = (e: MouseEvent, uri: string) => { if (e.metaKey || e.ctrlKey) window.open(uri, '_blank', 'noopener'); };
 
 // ---------------------------------------------------------------- ventanas y pestañas
-export const windowTerminal = (id: string) => ventana(id);
-const ventana = (id: string) => terminales.get().lista.find(v => v.id === id);
-function actualizar(id: string, p: Partial<WindowTerm> | ((v: WindowTerm) => Partial<WindowTerm>)) {
-  terminales.set(e => ({ lista: e.lista.map(v => (v.id === id ? { ...v, ...(typeof p === 'function' ? p(v) : p) } : v)) }));
+export const windowTerminal = (id: string) => win(id);
+const win = (id: string) => terminals.get().list.find(v => v.id === id);
+function update(id: string, p: Partial<WindowTerm> | ((v: WindowTerm) => Partial<WindowTerm>)) {
+  terminals.set(e => ({ list: e.list.map(v => (v.id === id ? { ...v, ...(typeof p === 'function' ? p(v) : p) } : v)) }));
 }
-function enfocar(id: string) { setTimeout(() => { const v = ventana(id); if (v && !v.minimizada && !v.confirmar) xterms.get(v.activa)?.t.focus(); }, 30); }
+function focus(id: string) { setTimeout(() => { const v = win(id); if (v && !v.minimized && !v.confirm) xterms.get(v.active)?.t.focus(); }, 30); }
 export function onFront(id: string) {
-  const v = ventana(id); if (!v) return;
-  if (v.minimizada) SFX.abrir();
+  const v = win(id); if (!v) return;
+  if (v.minimized) SFX.open();
   const z = nextZ();
-  terminales.set(e => ({ lista: e.lista.map(x => (x.id === id ? { ...x, z, minimizada: false } : x)) }));
-  enfocar(id);
+  terminals.set(e => ({ list: e.list.map(x => (x.id === id ? { ...x, z, minimized: false } : x)) }));
+  focus(id);
 }
-export function minimizar(id: string) {
-  const v = ventana(id); if (!v || v.minimizada) return;
-  xterms.get(v.activa)?.t.blur();
-  actualizar(id, { minimizada: true }); SFX.cerrar();
+export function minimize(id: string) {
+  const v = win(id); if (!v || v.minimized) return;
+  xterms.get(v.active)?.t.blur();
+  update(id, { minimized: true }); SFX.close();
 }
-function toggleMaximize(id: string) { actualizar(id, v => ({ maximizada: !v.maximizada })); SFX.clic(); enfocar(id); }
-function activar(id: string, tabId: string) { actualizar(id, { activa: tabId }); enfocar(id); }
-function moveTab(id: string, paso: number) {
-  const v = ventana(id); if (!v || v.pestanas.length < 2) return;
-  const i = v.pestanas.findIndex(p => p.id === v.activa);
-  activar(id, v.pestanas[(i + paso + v.pestanas.length) % v.pestanas.length].id);
+function toggleMaximize(id: string) { update(id, v => ({ maximized: !v.maximized })); SFX.click(); focus(id); }
+function activate(id: string, tabId: string) { update(id, { active: tabId }); focus(id); }
+function moveTab(id: string, step: number) {
+  const v = win(id); if (!v || v.tabs.length < 2) return;
+  const i = v.tabs.findIndex(p => p.id === v.active);
+  activate(id, v.tabs[(i + step + v.tabs.length) % v.tabs.length].id);
 }
 function newTab(id: string) {
-  const v = ventana(id); if (!v) return;
-  const pid = `${v.id}::${Math.max(...v.pestanas.map(p => numero(p.id))) + 1}`;
+  const v = win(id); if (!v) return;
+  const pid = `${v.id}::${Math.max(...v.tabs.map(p => number(p.id))) + 1}`;
   const z = nextZ();
-  terminales.set(e => ({ lista: e.lista.map(x => (x.id === id ? { ...x, z, minimizada: false, activa: pid, pestanas: [...x.pestanas, { id: pid, inPrompt: true }] } : x)) }));
-  SFX.abrir(); enfocar(id);
+  terminals.set(e => ({ list: e.list.map(x => (x.id === id ? { ...x, z, minimized: false, active: pid, tabs: [...x.tabs, { id: pid, inPrompt: true }] } : x)) }));
+  SFX.open(); focus(id);
 }
 // cerrar termina lo que corre dentro: si hay algo en marcha, primero se pregunta
 export function askClose(id: string, ids?: string[]) {
-  const v = ventana(id); if (!v) return;
-  const which = ids ?? v.pestanas.map(p => p.id);
-  if (v.pestanas.some(p => which.includes(p.id) && !p.inPrompt)) { onFront(id); actualizar(id, { confirmar: which }); SFX.lowNotice(); return; }
+  const v = win(id); if (!v) return;
+  const which = ids ?? v.tabs.map(p => p.id);
+  if (v.tabs.some(p => which.includes(p.id) && !p.inPrompt)) { onFront(id); update(id, { confirm: which }); SFX.lowNotice(); return; }
   closeAlready(which);
 }
-function closeAlready(ids: string[]) { for (const pid of ids) { cliente.enviar({ t: 'terminalCerrar', id: pid }); removeTab(pid); } SFX.cerrar(); }
-function cancelClosing(id: string) { actualizar(id, { confirmar: undefined }); enfocar(id); }
+function closeAlready(ids: string[]) { for (const pid of ids) { client.send({ t: 'terminalCerrar', id: pid }); removeTab(pid); } SFX.close(); }
+function cancelClosing(id: string) { update(id, { confirm: undefined }); focus(id); }
 function removeTab(pid: string) {
-  xterms.get(pid)?.t.dispose(); xterms.delete(pid); kitty.delete(pid); repaint.delete(pid); pendientes.delete(pid);
-  const vid = windowOf(pid), v = ventana(vid); if (!v || !v.pestanas.some(p => p.id === pid)) return false;
-  const resto = v.pestanas.filter(p => p.id !== pid);
-  if (!resto.length) { terminales.set(e => ({ lista: e.lista.filter(x => x.id !== vid) })); return true; }
-  const i = v.pestanas.findIndex(p => p.id === pid);
-  const confirmar = v.confirmar?.filter(x => x !== pid);
-  actualizar(vid, { pestanas: resto, activa: v.activa === pid ? resto[Math.min(i, resto.length - 1)].id : v.activa, confirmar: confirmar?.length ? confirmar : undefined });
-  if (v.activa === pid) enfocar(vid);
+  xterms.get(pid)?.t.dispose(); xterms.delete(pid); kitty.delete(pid); repaint.delete(pid); pending.delete(pid);
+  const vid = windowOf(pid), v = win(vid); if (!v || !v.tabs.some(p => p.id === pid)) return false;
+  const rest = v.tabs.filter(p => p.id !== pid);
+  if (!rest.length) { terminals.set(e => ({ list: e.list.filter(x => x.id !== vid) })); return true; }
+  const i = v.tabs.findIndex(p => p.id === pid);
+  const confirm = v.confirm?.filter(x => x !== pid);
+  update(vid, { tabs: rest, active: v.active === pid ? rest[Math.min(i, rest.length - 1)].id : v.active, confirm: confirm?.length ? confirm : undefined });
+  if (v.active === pid) focus(vid);
   return true;
 }
 
-export function openTerminal(salaId: string) {
-  const sala = vivo.get().estado?.salas?.find((s: any) => s.id === salaId);
-  openTerminalIn('sala:' + salaId, salaId, sala?.nombre ?? salaId, sala?.carpeta ?? sala?.ruta ?? '');
+export function openTerminal(roomId: string) {
+  const room = live.get().state?.rooms?.find((s: any) => s.id === roomId);
+  openTerminalIn('sala:' + roomId, roomId, room?.name ?? roomId, room?.folder ?? room?.path ?? '');
 }
-export function openTerminalIn(id: string, salaId: string, titulo: string, cwd: string) {
-  if (ventana(id)) { onFront(id); return; }
-  if (!cwd) { SFX.noAllowed(); return; }
+export function openTerminalIn(id: string, roomId: string, title: string, cwd: string) {
+  if (win(id)) { onFront(id); return; }
+  if (!cwd) { SFX.notAllowed(); return; }
   delete remembered[id];   // una terminal nueva no hereda cómo estaba otra cerrada con el mismo nombre
-  crear(id, id, salaId, titulo, cwd);
-  SFX.abrir();
+  create(id, id, roomId, title, cwd);
+  SFX.open();
 }
 
 // tras una recarga o un reinicio, cada ventana vuelve donde estaba, con sus pestañas y como estaba
-interface Remembered { salaId: string; titulo: string; cwd: string; pestanas: string[]; activa: string; minimizada: boolean; maximizada: boolean; x: number; y: number; w: number; h: number }
-const RECORDADAS = 'refugio.terminales';
+interface Remembered { roomId: string; title: string; cwd: string; tabs: string[]; active: string; minimized: boolean; maximized: boolean; x: number; y: number; w: number; h: number }
+const REMEMBERED = 'refugio.terminales';
 const remembered: Record<string, Remembered> = (() => {
-  try { const l = JSON.parse(sessionStorage.getItem(RECORDADAS) || '[]'); sessionStorage.removeItem(RECORDADAS); return Object.fromEntries(l.filter((v: any) => Array.isArray(v.pestanas)).map((v: any) => [v.id, v])); } catch { return {}; }
+  try { const l = JSON.parse(sessionStorage.getItem(REMEMBERED) || '[]'); sessionStorage.removeItem(REMEMBERED); return Object.fromEntries(l.filter((v: any) => Array.isArray(v.tabs)).map((v: any) => [v.id, v])); } catch { return {}; }
 })();
 addEventListener('pagehide', () => {
   try {
-    sessionStorage.setItem(RECORDADAS, JSON.stringify(terminales.get().lista.map(({ id, salaId, titulo, cwd, pestanas, activa, minimizada, maximizada, x, y, w, h }) =>
-      ({ id, salaId, titulo, cwd, pestanas: pestanas.map(p => p.id), activa, minimizada, maximizada, x, y, w, h }))));
+    sessionStorage.setItem(REMEMBERED, JSON.stringify(terminals.get().list.map(({ id, roomId, title, cwd, tabs, active, minimized, maximized, x, y, w, h }) =>
+      ({ id, roomId, title, cwd, tabs: tabs.map(p => p.id), active, minimized, maximized, x, y, w, h }))));
   } catch {}
 });
 
-function crear(id: string, tabId: string, salaId: string, titulo: string, cwd: string, minimizada = false) {
+function create(id: string, tabId: string, roomId: string, title: string, cwd: string, minimized = false) {
   const r = remembered[id];
   if (r) {
     const x = Math.min(r.x, innerWidth - 120), y = Math.min(r.y, innerHeight - 40);
     const z = nextZ();
-    terminales.set(e => ({ lista: [...e.lista, { id, salaId: r.salaId ?? salaId, titulo: r.titulo ?? titulo, cwd: r.cwd ?? cwd, pestanas: [{ id: tabId, inPrompt: true }], activa: tabId, minimizada: r.minimizada, maximizada: !!r.maximizada, x, y, w: r.w, h: r.h, z }] }));
+    terminals.set(e => ({ list: [...e.list, { id, roomId: r.roomId ?? roomId, title: r.title ?? title, cwd: r.cwd ?? cwd, tabs: [{ id: tabId, inPrompt: true }], active: tabId, minimized: r.minimized, maximized: !!r.maximized, x, y, w: r.w, h: r.h, z }] }));
     return;
   }
-  const n = terminales.get().lista.length;
+  const n = terminals.get().list.length;
   const w = Math.min(880, innerWidth * 0.55), h = Math.min(520, innerHeight * 0.5);
   const z = nextZ();
-  terminales.set(e => ({ lista: [...e.lista, { id, salaId, titulo, cwd, pestanas: [{ id: tabId, inPrompt: true }], activa: tabId, minimizada, maximizada: false, x: innerWidth * 0.22 + n * 28, y: innerHeight * 0.3 + n * 24, w, h, z }] }));
+  terminals.set(e => ({ list: [...e.list, { id, roomId, title, cwd, tabs: [{ id: tabId, inPrompt: true }], active: tabId, minimized, maximized: false, x: innerWidth * 0.22 + n * 28, y: innerHeight * 0.3 + n * 24, w, h, z }] }));
 }
 // una pestaña que ya existía en el servidor (recarga, reinicio, otra ventana) vuelve a su ventana y en su orden
 function recover(pid: string) {
   const vid = windowOf(pid), r = remembered[vid];
-  if (!ventana(vid)) {
-    const salaId = vid.replace(/^sala:/, '').replace(/^wt:/, ''); const sala = vivo.get().estado?.salas?.find((s: any) => s.id === salaId);
-    crear(vid, pid, salaId, sala?.nombre ?? salaId, sala?.carpeta ?? sala?.ruta ?? '', true);
+  if (!win(vid)) {
+    const roomId = vid.replace(/^sala:/, '').replace(/^wt:/, ''); const room = live.get().state?.rooms?.find((s: any) => s.id === roomId);
+    create(vid, pid, roomId, room?.name ?? roomId, room?.folder ?? room?.path ?? '', true);
   } else {
-    const orden = (p: string) => { const i = r?.pestanas.indexOf(p) ?? -1; return i >= 0 ? i : 100 + numero(p); };
-    actualizar(vid, v => ({ pestanas: [...v.pestanas, { id: pid, inPrompt: true }].sort((a, b) => orden(a.id) - orden(b.id)) }));
+    const orden = (p: string) => { const i = r?.tabs.indexOf(p) ?? -1; return i >= 0 ? i : 100 + number(p); };
+    update(vid, v => ({ tabs: [...v.tabs, { id: pid, inPrompt: true }].sort((a, b) => orden(a.id) - orden(b.id)) }));
   }
-  if (r?.activa === pid) actualizar(vid, { activa: pid });
+  if (r?.active === pid) update(vid, { active: pid });
 }
 
 // mensajes del servidor: datos (también de terminales que sobreviven a una recarga) y estado
-cliente.escuchar(m => {
+client.listen(m => {
   if (m.t === 'terminalDatos') {
-    if (!ventana(windowOf(m.id))?.pestanas.some(p => p.id === m.id)) {
+    if (!win(windowOf(m.id))?.tabs.some(p => p.id === m.id)) {
       recover(m.id);
-      pendientes.set(m.id, m.repaint ? m.datos : (pendientes.get(m.id) ?? '') + m.datos);
+      pending.set(m.id, m.repaint ? m.data : (pending.get(m.id) ?? '') + m.data);
     } else {
       const x = xterms.get(m.id);
       // un repintado (al reengancharse) sustituye lo que hubiera: no se duplica la pantalla
-      if (x) { if (m.repaint) repaint.get(m.id)?.(m.datos); else x.t.write(m.datos); }
-      else pendientes.set(m.id, m.repaint ? m.datos : (pendientes.get(m.id) ?? '') + m.datos);
+      if (x) { if (m.repaint) repaint.get(m.id)?.(m.data); else x.t.write(m.data); }
+      else pending.set(m.id, m.repaint ? m.data : (pending.get(m.id) ?? '') + m.data);
     }
   } else if (m.t === 'terminalEstado') {
     // el shell ha terminado (exit, o se cerró desde otra pestaña): la pestaña se va, y la ventana con la última
-    if (!m.vivo) { if (removeTab(m.id)) SFX.cerrar(); return; }
+    if (!m.live) { if (removeTab(m.id)) SFX.close(); return; }
     const vid = windowOf(m.id);
-    actualizar(vid, v => ({ pestanas: v.pestanas.map(p => (p.id === m.id ? { ...p, inPrompt: m.inPrompt, program: m.program, fuera: m.fuera } : p)) }));
+    update(vid, v => ({ tabs: v.tabs.map(p => (p.id === m.id ? { ...p, inPrompt: m.inPrompt, program: m.program, outside: m.outside } : p)) }));
     // de vuelta en el shell, el programa que pidió el protocolo de kitty ya no está (aunque no lo quitara al salir)
     if (m.inPrompt) kitty.get(m.id)?.splice(0);
   }
 });
-const pendientes = new Map<string, string>();
-const repaint = new Map<string, (datos: string) => void>();
-window.addEventListener('refugio:terminal', (e: any) => openTerminal(e.detail.salaId));
+const pending = new Map<string, string>();
+const repaint = new Map<string, (data: string) => void>();
+window.addEventListener('refugio:terminal', (e: any) => openTerminal(e.detail.roomId));
 
 // ---------------------------------------------------------------- interfaz
-export function Terminales() {
-  const { lista } = terminales.usar(e => e);
-  return <>{lista.map(v => <WindowTerminal key={v.id} v={v} />)}</>;
+export function Terminals() {
+  const { list } = terminals.use(e => e);
+  return <>{list.map(v => <WindowTerminal key={v.id} v={v} />)}</>;
 }
 
 function WindowTerminal({ v }: { v: WindowTerm }) {
-  const marco = useRef<HTMLDivElement>(null);
-  const activa = v.pestanas.find(p => p.id === v.activa);
-  const lista = useRef<(() => void) | null>(null);
+  const frame = useRef<HTMLDivElement>(null);
+  const active = v.tabs.find(p => p.id === v.active);
+  const list = useRef<(() => void) | null>(null);
   // los atajos de ventana se cogen antes de que lleguen a la terminal (y al refugio)
   const shortcuts = (e: React.KeyboardEvent) => windowShortcut(e, {
-    maximizada: v.maximizada, newTab: () => newTab(v.id), closeTab: () => askClose(v.id, [v.activa]), closeWindow: () => askClose(v.id),
-    minimizar: () => minimizar(v.id), toggleMaximize: () => toggleMaximize(v.id), moveTab: d => moveTab(v.id, d),
-    goTab: n => { const p = n === 9 ? v.pestanas.at(-1) : v.pestanas[n - 1]; if (p) activar(v.id, p.id); },
-    sacar: () => takeASurface({ terminales: [v.activa] }), lista: () => lista.current?.(),
+    maximized: v.maximized, newTab: () => newTab(v.id), closeTab: () => askClose(v.id, [v.active]), closeWindow: () => askClose(v.id),
+    minimize: () => minimize(v.id), toggleMaximize: () => toggleMaximize(v.id), moveTab: d => moveTab(v.id, d),
+    goTab: n => { const p = n === 9 ? v.tabs.at(-1) : v.tabs[n - 1]; if (p) activate(v.id, p.id); },
+    takeOut: () => takeASurface({ terminals: [v.active] }), list: () => list.current?.(),
   });
   const drag = (e: React.PointerEvent) => {
-    if ((e.target as HTMLElement).closest('button') || v.maximizada) return;
+    if ((e.target as HTMLElement).closest('button') || v.maximized) return;
     onFront(v.id);
     const x0 = e.clientX - v.x, y0 = e.clientY - v.y;
-    const mover = (ev: PointerEvent) => actualizar(v.id, { x: Math.max(0, Math.min(innerWidth - 120, ev.clientX - x0)), y: Math.max(0, Math.min(innerHeight - 40, ev.clientY - y0)) });
-    const soltar = () => { removeEventListener('pointermove', mover); removeEventListener('pointerup', soltar); };
-    addEventListener('pointermove', mover); addEventListener('pointerup', soltar);
+    const move = (ev: PointerEvent) => update(v.id, { x: Math.max(0, Math.min(innerWidth - 120, ev.clientX - x0)), y: Math.max(0, Math.min(innerHeight - 40, ev.clientY - y0)) });
+    const drop = () => { removeEventListener('pointermove', move); removeEventListener('pointerup', drop); };
+    addEventListener('pointermove', move); addEventListener('pointerup', drop);
   };
-  const estilo: React.CSSProperties = v.maximizada
+  const style: React.CSSProperties = v.maximized
     ? { left: 0, top: 0, width: '100vw', height: '100vh', resize: 'none' }
     : { left: v.x, top: v.y, width: v.w, height: v.h };
-  const inRunning = v.confirmar ? v.pestanas.filter(p => v.confirmar!.includes(p.id) && !p.inPrompt) : [];
-  const ruta = pathWorktree(v.cwd, worktreesKnown()), wtTask = ruta ? worktreeTask({ ruta }) : undefined;
+  const inRunning = v.confirm ? v.tabs.filter(p => v.confirm!.includes(p.id) && !p.inPrompt) : [];
+  const path = pathWorktree(v.cwd, worktreesKnown()), wtTask = path ? worktreeTask({ path }) : undefined;
   return (
-    <div ref={marco} className={'ventana-terminal interactivo' + (v.maximizada ? ' maximizada' : '')} style={{ ...estilo, zIndex: v.maximizada ? 200000 + v.z : v.z, display: v.minimizada ? 'none' : undefined }}
+    <div ref={frame} className={'ventana-terminal interactivo' + (v.maximized ? ' maximizada' : '')} style={{ ...style, zIndex: v.maximized ? 200000 + v.z : v.z, display: v.minimized ? 'none' : undefined }}
       onPointerDown={() => onFront(v.id)} onKeyDownCapture={shortcuts}
-      onMouseUp={() => { if (v.maximizada) return; const r = marco.current?.getBoundingClientRect(); if (r && (Math.abs(r.width - v.w) > 2 || Math.abs(r.height - v.h) > 2)) actualizar(v.id, { w: r.width, h: r.height }); }}>
+      onMouseUp={() => { if (v.maximized) return; const r = frame.current?.getBoundingClientRect(); if (r && (Math.abs(r.width - v.w) > 2 || Math.abs(r.height - v.h) > 2)) update(v.id, { w: r.width, h: r.height }); }}>
       <div className="vt-cabeza" onPointerDown={drag} onDoubleClick={e => { if (!(e.target as HTMLElement).closest('button')) toggleMaximize(v.id); }}>
-        <span className="rejilla" /><span className={'piloto ' + (v.pestanas.some(p => !p.inPrompt) ? 'trabajando' : 'ociosa')} />
-        <span className="vt-titulo">{t('windows.terminal')} · {v.titulo}</span><span className="vt-ruta">{v.cwd}{activa?.program ? ` · ${activa.program}` : ''}{activa?.fuera ? ` · ${t('windows.alsoOnYourDesktop')}` : ''}</span>
-        <WindowButtons sacar={() => takeASurface({ terminales: [v.activa] })} takesThat={t('windows.thisTerminalTheSameOne')} maximizada={v.maximizada} minimizar={() => minimizar(v.id)} toggleMaximize={() => toggleMaximize(v.id)} cerrar={() => askClose(v.id)} closesThat={t('windows.theTerminalAndAllIts')} />
+        <span className="rejilla" /><span className={'piloto ' + (v.tabs.some(p => !p.inPrompt) ? 'trabajando' : 'ociosa')} />
+        <span className="vt-titulo">{t('windows.terminal')} · {v.title}</span><span className="vt-ruta">{v.cwd}{active?.program ? ` · ${active.program}` : ''}{active?.outside ? ` · ${t('windows.alsoOnYourDesktop')}` : ''}</span>
+        <WindowButtons takeOut={() => takeASurface({ terminals: [v.active] })} takesThat={t('windows.thisTerminalTheSameOne')} maximized={v.maximized} minimize={() => minimize(v.id)} toggleMaximize={() => toggleMaximize(v.id)} close={() => askClose(v.id)} closesThat={t('windows.theTerminalAndAllIts')} />
       </div>
       {/* in opening order: a program starting does not move its tab */}
-      <Tabs lista={lista} confirmando={!!v.confirmar} items={v.pestanas.map(p => ({ id: p.id, nombre: (p.fuera ? '↗ ' : '') + (p.program ?? folderName(v.cwd)), estado: p.inPrompt ? 'ociosa' as const : 'trabajando' as const, tarea: wtTask, titulo: (p.program ? t('windows.programaRunning', { program: p.program }) : t('windows.atThePrompt')) + (p.fuera ? ` · ${t('windows.alsoOpenOnYourDesktop')}` : '') }))}
-        activa={v.activa} activar={pid => activar(v.id, pid)} cerrar={pids => askClose(v.id, pids)} nueva={() => newTab(v.id)} opensThat={t('windows.newTabInTheSame')} />
+      <Tabs list={list} confirming={!!v.confirm} items={v.tabs.map(p => ({ id: p.id, name: (p.outside ? '↗ ' : '') + (p.program ?? folderName(v.cwd)), state: p.inPrompt ? 'ociosa' as const : 'trabajando' as const, task: wtTask, title: (p.program ? t('windows.programaRunning', { program: p.program }) : t('windows.atThePrompt')) + (p.outside ? ` · ${t('windows.alsoOpenOnYourDesktop')}` : '') }))}
+        active={v.active} activate={pid => activate(v.id, pid)} close={pids => askClose(v.id, pids)} onNew={() => newTab(v.id)} opensThat={t('windows.newTabInTheSame')} />
       <div className="vt-cuerpo">
-        {v.pestanas.map(p => <TabTerminal key={p.id} id={p.id} cwd={v.cwd} visible={!v.minimizada && p.id === v.activa} />)}
-        {v.confirmar && <Confirm v={v} inRunning={inRunning} />}
+        {v.tabs.map(p => <TabTerminal key={p.id} id={p.id} cwd={v.cwd} visible={!v.minimized && p.id === v.active} />)}
+        {v.confirm && <Confirm v={v} inRunning={inRunning} />}
       </div>
     </div>
   );
 }
 
-function Confirm({ v, inRunning }: { v: WindowTerm; inRunning: Pestana[] }) {
-  const toda = v.confirmar!.length === v.pestanas.length && v.pestanas.length > 1;
-  const que = inRunning.map(p => p.program ?? t('windows.aProcess')).join(', ') || t('windows.aProcess');
-  return <Confirmation titulo={toda ? t('windows.closeTheTerminalAndIts') : t('windows.closeThisTab')}
-    texto={<>{t('windows.somethingIsRunning')} <b>{que}</b>. {inRunning.length > 1 ? t('windows.ifYouCloseItThey') : t('windows.ifYouCloseItIt')} {t('windows.toKeepItGoingWithout')}</>}
-    cerrar={() => { const ids = v.confirmar!; actualizar(v.id, { confirmar: undefined }); closeAlready(ids); }}
-    minimizar={() => { minimizar(v.id); actualizar(v.id, { confirmar: undefined }); }} cancelar={() => cancelClosing(v.id)} />;
+function Confirm({ v, inRunning }: { v: WindowTerm; inRunning: Tab[] }) {
+  const all = v.confirm!.length === v.tabs.length && v.tabs.length > 1;
+  const what = inRunning.map(p => p.program ?? t('windows.aProcess')).join(', ') || t('windows.aProcess');
+  return <Confirmation title={all ? t('windows.closeTheTerminalAndIts') : t('windows.closeThisTab')}
+    text={<>{t('windows.somethingIsRunning')} <b>{what}</b>. {inRunning.length > 1 ? t('windows.ifYouCloseItThey') : t('windows.ifYouCloseItIt')} {t('windows.toKeepItGoingWithout')}</>}
+    close={() => { const ids = v.confirm!; update(v.id, { confirm: undefined }); closeAlready(ids); }}
+    minimize={() => { minimize(v.id); update(v.id, { confirm: undefined }); }} cancel={() => cancelClosing(v.id)} />;
 }
 
 function TabTerminal({ id, cwd, visible }: { id: string; cwd: string; visible: boolean }) {
-  const caja = useRef<HTMLDivElement>(null);
+  const box = useRef<HTMLDivElement>(null);
   const adjust = useRef(() => {});
   useEffect(() => {
     const t = new Terminal({ fontFamily: "\"Refugio Mono\", \"MesloLGS NF\", \"MesloLGS Nerd Font\", \"Hack Nerd Font\", \"JetBrainsMono Nerd Font\", Menlo, monospace", fontSize: 13, lineHeight: 1.15, cursorBlink: true, allowProposedApi: true, scrollback: 10000,
@@ -272,25 +272,25 @@ function TabTerminal({ id, cwd, visible }: { id: string; cwd: string; visible: b
     const fit = new FitAddon(); t.loadAddon(fit);
     const u11 = new Unicode11Addon(); t.loadAddon(u11); t.unicode.activeVersion = '11';   // anchos de emoji y símbolos como iTerm
     t.loadAddon(new WebLinksAddon(openLink)); t.loadAddon(new ClipboardAddon(undefined, CLIPBOARD_ONLY_WRITE));   // ⌘+clic en URLs; OSC 52 (solo copiar desde programas)
-    t.open(caja.current!);
+    t.open(box.current!);
     xterms.set(id, { t, fit });
     // protocolo de teclado de kitty: una pila de banderas por pestaña
-    const pila: number[] = []; kitty.set(id, pila);
+    const stack: number[] = []; kitty.set(id, stack);
     let playing = false;   // al repintar lo que ya había no se contesta a preguntas viejas (irían al shell como texto)
-    const responder = (s: string) => { if (!playing) entrada(id, s); };
+    const respond = (s: string) => { if (!playing) input(id, s); };
     const num = (x: number | number[] | undefined, def: number) => { const n = Array.isArray(x) ? x[0] : x; return Number.isFinite(n) && n! > 0 ? n! : def; };
-    t.parser.registerCsiHandler({ prefix: '?', final: 'u' }, () => { responder(`\x1b[?${banderas(id)}u`); return true; });
-    t.parser.registerCsiHandler({ prefix: '>', final: 'u' }, p => { if (pila.length >= 16) pila.shift(); pila.push(num(p[0], 0)); return true; });
-    t.parser.registerCsiHandler({ prefix: '<', final: 'u' }, p => { pila.splice(Math.max(0, pila.length - num(p[0], 1))); return true; });
+    t.parser.registerCsiHandler({ prefix: '?', final: 'u' }, () => { respond(`\x1b[?${flags(id)}u`); return true; });
+    t.parser.registerCsiHandler({ prefix: '>', final: 'u' }, p => { if (stack.length >= 16) stack.shift(); stack.push(num(p[0], 0)); return true; });
+    t.parser.registerCsiHandler({ prefix: '<', final: 'u' }, p => { stack.splice(Math.max(0, stack.length - num(p[0], 1))); return true; });
     t.parser.registerCsiHandler({ prefix: '=', final: 'u' }, p => {
-      const f = num(p[0], 0), modo = num(p[1], 1), ya = banderas(id), nuevas = modo === 2 ? ya | f : modo === 3 ? ya & ~f : f;
-      if (pila.length) pila[pila.length - 1] = nuevas; else pila.push(nuevas);
+      const f = num(p[0], 0), mode = num(p[1], 1), already = flags(id), fresh = mode === 2 ? already | f : mode === 3 ? already & ~f : f;
+      if (stack.length) stack[stack.length - 1] = fresh; else stack.push(fresh);
       return true;
     });
-    const reproducir = (datos: string) => { playing = true; t.write(datos, () => { playing = false; }); };
-    repaint.set(id, datos => { t.reset(); pila.splice(0); reproducir(datos); });
-    const p = pendientes.get(id); if (p) { reproducir(p); pendientes.delete(id); }
-    t.onData(d => { if (!playing) entrada(id, d); });
+    const play = (data: string) => { playing = true; t.write(data, () => { playing = false; }); };
+    repaint.set(id, data => { t.reset(); stack.splice(0); play(data); });
+    const p = pending.get(id); if (p) { play(p); pending.delete(id); }
+    t.onData(d => { if (!playing) input(id, d); });
     let swallowed = '';   // la tecla resuelta aquí no vuelve a entrar por keypress
     // Esc y Ctrl+C no se tocan: van al programa (con el protocolo de kitty si lo pidió), como en iTerm
     t.attachCustomKeyEventHandler(e => {
@@ -302,27 +302,27 @@ function TabTerminal({ id, cwd, visible }: { id: string; cwd: string; visible: b
       const mac = k === null ? shortcutMac(t, e) : null;
       if (k !== null || mac !== null) {
         e.preventDefault(); swallowed = e.key;
-        const datos = k ?? (typeof mac === 'string' ? mac : '');
-        if (datos) { t.scrollToBottom(); entrada(id, datos); }
+        const data = k ?? (typeof mac === 'string' ? mac : '');
+        if (data) { t.scrollToBottom(); input(id, data); }
         return false;
       }
       return true;
     });
     // el tamaño se manda solo con la pestaña a la vista (oculta no mide nada) y si ha cambiado
-    let ultimo = '';
+    let last = '';
     adjust.current = () => {
-      if (!caja.current?.offsetParent) return;
+      if (!box.current?.offsetParent) return;
       try { fit.fit(); } catch { return; }
-      const k = `${t.cols}x${t.rows}`; if (k === ultimo) return; ultimo = k;
-      cliente.enviar({ t: 'terminalTamano', id, cols: t.cols, filas: t.rows });
+      const k = `${t.cols}x${t.rows}`; if (k === last) return; last = k;
+      client.send({ t: 'terminalTamano', id, cols: t.cols, rows: t.rows });
     };
     requestAnimationFrame(() => {
-      if (caja.current?.offsetParent) { try { fit.fit(); } catch {} ultimo = `${t.cols}x${t.rows}`; }
-      cliente.enviar({ t: 'terminalAbrir', id, cwd, cols: t.cols, filas: t.rows });
+      if (box.current?.offsetParent) { try { fit.fit(); } catch {} last = `${t.cols}x${t.rows}`; }
+      client.send({ t: 'terminalAbrir', id, cwd, cols: t.cols, rows: t.rows });
     });
-    const ro = new ResizeObserver(() => adjust.current()); ro.observe(caja.current!);
+    const ro = new ResizeObserver(() => adjust.current()); ro.observe(box.current!);
     return () => { ro.disconnect(); };
   }, []);
   useEffect(() => { if (visible) setTimeout(() => { adjust.current(); xterms.get(id)?.t.focus(); }, 30); }, [visible]);
-  return <div ref={caja} className="vt-xterm" style={{ display: visible ? undefined : 'none' }} />;
+  return <div ref={box} className="vt-xterm" style={{ display: visible ? undefined : 'none' }} />;
 }

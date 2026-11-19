@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { Marked } from 'marked';
 import { localPathLinks } from './linkPaths';
 
-const md = (texto: string) => new Marked({ gfm: true }, localPathLinks).parse(texto, { async: false }) as string;
+const md = (text: string) => new Marked({ gfm: true }, localPathLinks).parse(text, { async: false }) as string;
 
 describe('rutas del Mac sueltas en el texto', () => {
   it('una ruta suelta en una pregunta se vuelve enlace, sin el punto o el signo con que acaba la frase', () => {

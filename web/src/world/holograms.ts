@@ -10,13 +10,13 @@
 // Each copy is a talker of its own, like a clone: with E (or a click) you talk to it on its intercom, which is not its
 // author's (ui/copies.ts); whatever is worked on inside the worktree lives in it.
 import * as THREE from 'three';
-import type { Refugio } from './shelter';
-import { BACKGROUND, type Sala } from './rooms/common';
-import { Habitante } from './dweller';
+import type { Shelter } from './shelter';
+import { BACKGROUND, type Room } from './rooms/common';
+import { Dweller } from './dweller';
 import { callOut, type Character } from './character';
 import { gltf, measure, place, R } from '../engine/assets';
 import { audioWorld } from '../audio/world';
-import { vivo } from '../net/client';
+import { live } from '../net/client';
 import { scheduledMark } from './labels';
 import { SFX } from '../audio/sound';
 import { SHOP } from '@shared/catalog';
@@ -34,8 +34,8 @@ const BASE = 0.8;         // projector width: fits the grated walkway strip, bet
 const BASE_HEIGHT = 0.08; // projector height: low, so walking past it doesn't look like going through it
 const Z_SPOT = BACKGROUND / 2 - BASE / 2;   // on the room's front edge: the projector reaches the lip
 export const HOLO_SCALE = 0.6;   // smaller than their author, so they don't cover the faces of whoever stands nearby
-const TECHO = 3.5;        // de dónde baja el tubo que trae el proyector (sobre el suelo de la sala)
-const tiempo = { value: 0 };
+const CEILING = 3.5;        // de dónde baja el tubo que trae el proyector (sobre el suelo de la sala)
+const timeout = { value: 0 };
 
 // ---------------------------------------------------------------- material: el personaje, en luz
 const VERT = /* glsl */`
@@ -76,23 +76,23 @@ void main() {
   gl_FragColor = vec4(c, clamp(a, 0.0, 1.0));
 }`;
 
-export interface Uniforms { uColor: { value: THREE.Color }; uTiempo: typeof tiempo; uOpacity: { value: number }; uCut: { value: number }; uGlitch: { value: number }; uSemilla: { value: number } }
+export interface Uniforms { uColor: { value: THREE.Color }; uTiempo: typeof timeout; uOpacity: { value: number }; uCut: { value: number }; uGlitch: { value: number }; uSemilla: { value: number } }
 
 /** A hologram's uniforms: its time is the shared clock `Holograms.actualizar` ticks. */
-export const holoUniforms = (color: THREE.Color): Uniforms => ({ uColor: { value: color.clone() }, uTiempo: tiempo, uOpacity: { value: 1 }, uCut: { value: 1e4 }, uGlitch: { value: 0 }, uSemilla: { value: Math.random() } });
+export const holoUniforms = (color: THREE.Color): Uniforms => ({ uColor: { value: color.clone() }, uTiempo: timeout, uOpacity: { value: 1 }, uCut: { value: 1e4 }, uGlitch: { value: 0 }, uSemilla: { value: Math.random() } });
 /** A task's hologram color: its task color or, without one, the stock cyan. */
 // the epic mark on a copy's tag: its color and its tooltip
-const epicTag = (tarea: string | undefined) => { const e = taskEpic(tarea); return e ? { color: taskColor(e.clave), titulo: t('windows.epicOf', { clave: e.clave, titulo: e.titulo }) } : undefined; };
-export const holoTone = (tarea: string | undefined) => hasTaskColor(tarea) ? new THREE.Color(taskColor(tarea)) : COLOR;
+const epicTag = (task: string | undefined) => { const e = taskEpic(task); return e ? { color: taskColor(e.key), title: t('windows.epicOf', { clave: e.key, titulo: e.title }) } : undefined; };
+export const holoTone = (task: string | undefined) => hasTaskColor(task) ? new THREE.Color(taskColor(task)) : COLOR;
 
 /** Turns `o` (a character, a prop) into light with these uniforms; props coupled later need their own call. */
 export function holograph(o: THREE.Object3D, u: Uniforms) {
   const cache = new Map<THREE.Texture | null, THREE.ShaderMaterial>();
-  const material = (mapa: THREE.Texture | null) => {
-    let m = cache.get(mapa);
+  const material = (map: THREE.Texture | null) => {
+    let m = cache.get(map);
     if (!m) {
-      m = new THREE.ShaderMaterial({ uniforms: { ...u, uMapa: { value: mapa }, uConMapa: { value: mapa ? 1 : 0 }, uLines: { value: 150 } }, vertexShader: VERT, fragmentShader: FRAG, transparent: true, depthWrite: true });
-      cache.set(mapa, m);
+      m = new THREE.ShaderMaterial({ uniforms: { ...u, uMapa: { value: map }, uConMapa: { value: map ? 1 : 0 }, uLines: { value: 150 } }, vertexShader: VERT, fragmentShader: FRAG, transparent: true, depthWrite: true });
+      cache.set(map, m);
     }
     return m;
   };
@@ -113,42 +113,42 @@ const SEATED_POSES = new Set<Pose | ''>(['reposo', 'portatil', 'base']);   // se
 const WALKING = /^(Walking|Running)/;
 // trabajando no para: de un gesto a otro con las pantallas
 const BUSY = ['Ranged_Magic_Spellcasting_Long', 'Working_A', 'Ranged_Magic_Spellcasting', 'Working_C', 'Working_B', 'Interact'];
-export interface Copia {
-  ruta: string; w: InfoWorktree; sala: Sala; authorId: string;
-  p: Character; u: Uniforms; base: THREE.Object3D | null; portatil: THREE.Group; pantallas: THREE.Group;
-  sitio: THREE.Vector3; giro: number;
-  estado: DwellerState; detalle: string; sesionId?: string; firma: string;
+export interface Copy {
+  path: string; w: InfoWorktree; room: Room; authorId: string;
+  p: Character; u: Uniforms; base: THREE.Object3D | null; laptop: THREE.Group; screens: THREE.Group;
+  spot: THREE.Vector3; rotation: number;
+  state: DwellerState; detail: string; sessionId?: string; signature: string;
   pose: Pose | ''; fromPose: number; poseWanted: Pose; gestureClock: number; waitingSince: number;
-  opacidad: number; goalCut: number; leaving: boolean; listo: boolean;
+  opacity: number; goalCut: number; leaving: boolean; ready: boolean;
   lookClock: number; busyClock: number;
-  montaje: Montaje | null;   // el proyector bajando por su tubo y su autor montándolo (recién creada)
+  assembly: Assembly | null;   // el proyector bajando por su tubo y su autor montándolo (recién creada)
   talking: boolean; chatTurn: number;   // en una charla con el Supervisor: de pie y mirándole
-  tarea?: string; tone: THREE.Color; versionTone?: number;         // la tarea del worktree y su color (shared/tasks.ts); sin tarea, el cian de serie
+  task?: string; tone: THREE.Color; versionTone?: number;         // la tarea del worktree y su color (shared/tasks.ts); sin tarea, el cian de serie
 }
 
-interface Montaje { tubo: THREE.Object3D; t: number; fase: 'baja' | 'cae' | 'sube' | 'listo'; montado: boolean; fin: number }
+interface Assembly { tube: THREE.Object3D; t: number; phase: 'baja' | 'cae' | 'sube' | 'listo'; mounted: boolean; end: number }
 
 export class Holograms {
-  figuras = new Map<string, Copia>();
-  private desde = performance.now();
-  constructor(private r: Refugio) {
+  figures = new Map<string, Copy>();
+  private since = performance.now();
+  constructor(private r: Shelter) {
     // a copy's name carries its task's title once the Jira board has read it
     let tareas = jiraBoard.get().tareas;
-    jiraBoard.subscribe(() => { if (jiraBoard.get().tareas !== tareas) { tareas = jiraBoard.get().tareas; if (this.figuras.size) this.r.publish(); } });
+    jiraBoard.subscribe(() => { if (jiraBoard.get().tareas !== tareas) { tareas = jiraBoard.get().tareas; if (this.figures.size) this.r.publish(); } });
   }
 
   /** Todos los worktrees (no principales) con su sala: los de git y los que una sesión acaba de crear. */
   private worktrees() {
-    const repos = vivo.get().repos ?? {};
-    const out: { w: InfoWorktree; sala: Sala }[] = [];
-    for (const s of this.r.salas) for (const w of repos[s.id]?.worktrees ?? []) if (!w.principal) out.push({ w, sala: s });
-    const todos = out.map(x => x.w);
-    for (const s of Object.values(vivo.get().sesiones) as SessionSummary[]) {
-      if (s.estado === 'cerrada') continue;
-      const ruta = pathWorktree(s.cwd, todos); if (!ruta || out.some(x => x.w.ruta === ruta)) continue;
-      const sala = this.r.salas.find(x => x.id === s.salaId); if (!sala) continue;
-      const w: InfoWorktree = { ruta, rama: ruta.split('/').pop() ?? '', principal: false, cambios: 0, advanced: 0, autor: s.dwellerId };
-      out.push({ w, sala }); todos.push(w);
+    const repos = live.get().repos ?? {};
+    const out: { w: InfoWorktree; room: Room }[] = [];
+    for (const s of this.r.rooms) for (const w of repos[s.id]?.worktrees ?? []) if (!w.main) out.push({ w, room: s });
+    const all = out.map(x => x.w);
+    for (const s of Object.values(live.get().sessions) as SessionSummary[]) {
+      if (s.state === 'cerrada') continue;
+      const path = pathWorktree(s.cwd, all); if (!path || out.some(x => x.w.path === path)) continue;
+      const room = this.r.rooms.find(x => x.id === s.roomId); if (!room) continue;
+      const w: InfoWorktree = { path, branch: path.split('/').pop() ?? '', main: false, changes: 0, advanced: 0, author: s.dwellerId };
+      out.push({ w, room }); all.push(w);
     }
     return out;
   }
@@ -156,393 +156,393 @@ export class Holograms {
   /** Sesiones que trabajan dentro de algún worktree: las anima su holograma, no el habitante original. */
   inWorktree(s: SessionSummary) { return !!pathWorktree(s.cwd, this.worktrees().map(x => x.w)); }
 
-  private insideSession(ruta: string): SessionSummary | undefined {
-    const urg = (s: SessionSummary) => s.estado === 'esperando' ? 0 : s.estado === 'error' ? 1 : s.estado === 'terminada' && s.sinLeer ? 2 : s.estado === 'trabajando' || s.estado === 'arrancando' ? 3 : 4;
-    return (Object.values(vivo.get().sesiones) as SessionSummary[]).filter(s => s.estado !== 'cerrada' && (s.cwd === ruta || s.cwd?.startsWith(ruta + '/'))).sort((a, b) => urg(a) - urg(b) || b.actualizada - a.actualizada)[0];
+  private insideSession(path: string): SessionSummary | undefined {
+    const urg = (s: SessionSummary) => s.state === 'esperando' ? 0 : s.state === 'error' ? 1 : s.state === 'terminada' && s.unread ? 2 : s.state === 'trabajando' || s.state === 'arrancando' ? 3 : 4;
+    return (Object.values(live.get().sessions) as SessionSummary[]).filter(s => s.state !== 'cerrada' && (s.cwd === path || s.cwd?.startsWith(path + '/'))).sort((a, b) => urg(a) - urg(b) || b.updated - a.updated)[0];
   }
 
-  private authorOf(w: InfoWorktree, sala: Sala) {
-    const hs = this.r.habitantes;
-    const propio = hs.find(h => h.id.id === w.autor);
-    if (propio) return propio;
+  private authorOf(w: InfoWorktree, room: Room) {
+    const hs = this.r.dwellers;
+    const own = hs.find(h => h.id.id === w.author);
+    if (own) return own;
     // sin autor conocido (creado fuera del refugio): uno de la sala, siempre el mismo para ese worktree
-    const ofRoom = hs.filter(h => h.sala === sala); const lista = ofRoom.length ? ofRoom : hs;
-    const k = [...w.ruta].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7);
-    return lista[k % lista.length];
+    const ofRoom = hs.filter(h => h.room === room); const list = ofRoom.length ? ofRoom : hs;
+    const k = [...w.path].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7);
+    return list[k % list.length];
   }
 
-  sincronizar() {
-    if (!this.r.salas.length || !this.r.habitantes.length) return;
-    const lista = this.worktrees();
-    const roomBy = new Map<Sala, number>();
+  sync() {
+    if (!this.r.rooms.length || !this.r.dwellers.length) return;
+    const list = this.worktrees();
+    const roomBy = new Map<Room, number>();
     const seen = new Set<string>();
-    let cambio = false;
-    for (const { w, sala } of lista) {
-      const n = roomBy.get(sala) ?? 0; if (n >= MAX_BY_ROOM) continue; roomBy.set(sala, n + 1);
-      seen.add(w.ruta);
-      const autor = this.authorOf(w, sala); if (!autor) continue;
-      const ya = this.figuras.get(w.ruta);
+    let changed = false;
+    for (const { w, room } of list) {
+      const n = roomBy.get(room) ?? 0; if (n >= MAX_BY_ROOM) continue; roomBy.set(room, n + 1);
+      seen.add(w.path);
+      const author = this.authorOf(w, room); if (!author) continue;
+      const already = this.figures.get(w.path);
       // otro autor: la copia nueva nace a su lado; la sala reconstruida (disposición nueva): reaparece en su sitio sin más
       let effect = true;
-      if (ya && (ya.authorId !== autor.id.id || ya.sala !== sala)) { effect = ya.authorId !== autor.id.id; this.quitar(ya, true); }
-      else if (ya) { ya.w = w; if (ya.listo) cambio = this.aplicar(ya) || cambio; continue; }
-      this.crear(w, sala, autor, effect); cambio = true;
+      if (already && (already.authorId !== author.id.id || already.room !== room)) { effect = already.authorId !== author.id.id; this.remove(already, true); }
+      else if (already) { already.w = w; if (already.ready) changed = this.apply(already) || changed; continue; }
+      this.create(w, room, author, effect); changed = true;
     }
-    for (const f of [...this.figuras.values()]) if (!seen.has(f.ruta) && !f.leaving) { this.quitar(f); cambio = true; }
-    if (cambio) this.r.publish();
+    for (const f of [...this.figures.values()]) if (!seen.has(f.path) && !f.leaving) { this.remove(f); changed = true; }
+    if (changed) this.r.publish();
   }
 
   // ---- a slot along the front edge (`holoSlot`)
-  private sitio(sala: Sala, ruta: string) {
-    const otros = [...this.figuras.values()].filter(f => f.sala === sala && f.ruta !== ruta && !f.leaving).map(f => f.sitio.x - sala.grupo.position.x);
-    const puestos = sala.puntos.filter(pt => pt.tipo !== 'charla').map(pt => ({ x: pt.pos.x, peso: pt.tipo === 'puesto' || pt.tipo === 'pieza' ? 300 : pt.tipo === 'mirar' ? 60 : 200 }));
-    const devices = (sala.interactive ?? []).filter(i => !i.id.startsWith('vis:')).map(i => i.x);
-    const x = holoSlot({ ancho: sala.ancho, lado: sala.lado, puestos, devices, walkZones: sala.walkZones ?? [], obstacles: sala.obstacles }, otros, Z_SPOT, BASE);
-    return new THREE.Vector3(sala.grupo.position.x + x, sala.grupo.position.y, Z_SPOT);
+  private spot(room: Room, path: string) {
+    const others = [...this.figures.values()].filter(f => f.room === room && f.path !== path && !f.leaving).map(f => f.spot.x - room.group.position.x);
+    const workstations = room.points.filter(pt => pt.type !== 'charla').map(pt => ({ x: pt.pos.x, weight: pt.type === 'puesto' || pt.type === 'pieza' ? 300 : pt.type === 'mirar' ? 60 : 200 }));
+    const devices = (room.interactive ?? []).filter(i => !i.id.startsWith('vis:')).map(i => i.x);
+    const x = holoSlot({ width: room.width, side: room.side, workstations, devices, walkZones: room.walkZones ?? [], obstacles: room.obstacles }, others, Z_SPOT, BASE);
+    return new THREE.Vector3(room.group.position.x + x, room.group.position.y, Z_SPOT);
   }
 
-  private async crear(w: InfoWorktree, sala: Sala, autor: Habitante, effect = true) {
+  private async create(w: InfoWorktree, room: Room, author: Dweller, effect = true) {
     const u = holoUniforms(COLOR); u.uOpacity.value = 0; u.uCut.value = -1e4;
     // el mismo aspecto que su autor (modelo, tono, silueta y accesorios), y luego en luz
-    const clon = new Habitante(autor.id, sala);
-    const sitio = this.sitio(sala, w.ruta);
-    const lado = Math.sign(sala.grupo.position.x - sitio.x) || 1;
-    const f: Copia = {
-      ruta: w.ruta, w, sala, authorId: autor.id.id, p: clon.p, u, base: null, portatil: new THREE.Group(), pantallas: new THREE.Group(),
-      sitio, giro: lado * 1.05, estado: 'ocioso', detalle: '', firma: '', pose: '', fromPose: 0, poseWanted: 'reposo', gestureClock: 3, waitingSince: 0,
-      opacidad: 0, goalCut: 1e4, leaving: false, listo: false,
-      lookClock: 3, busyClock: 0, montaje: null, talking: false, chatTurn: 0, tone: COLOR,
+    const clone = new Dweller(author.id, room);
+    const spot = this.spot(room, w.path);
+    const side = Math.sign(room.group.position.x - spot.x) || 1;
+    const f: Copy = {
+      path: w.path, w, room, authorId: author.id.id, p: clone.p, u, base: null, laptop: new THREE.Group(), screens: new THREE.Group(),
+      spot, rotation: side * 1.05, state: 'ocioso', detail: '', signature: '', pose: '', fromPose: 0, poseWanted: 'reposo', gestureClock: 3, waitingSince: 0,
+      opacity: 0, goalCut: 1e4, leaving: false, ready: false,
+      lookClock: 3, busyClock: 0, assembly: null, talking: false, chatTurn: 0, tone: COLOR,
     };
     this.taskTone(f); u.uColor.value.copy(f.tone);
-    this.figuras.set(w.ruta, f);
-    await clon.cargar();
-    if (this.figuras.get(w.ruta) !== f) return;
+    this.figures.set(w.path, f);
+    await clone.load();
+    if (this.figures.get(w.path) !== f) return;
     const p = f.p;
-    await this.accesorios(p, autor.id.id);
+    await this.accessories(p, author.id.id);
     await Promise.all([this.mountLaptop(f), this.mountBase(f)]);
-    if (this.figuras.get(w.ruta) !== f) return;
-    for (const o of [p.modelo, f.portatil, f.pantallas]) holograph(o, u);
+    if (this.figures.get(w.path) !== f) return;
+    for (const o of [p.model, f.laptop, f.screens]) holograph(o, u);
     p.contactShadow.visible = false;
-    p.raiz.scale.setScalar(HOLO_SCALE);   // the root's pivot is at the feet: it shrinks standing on its projector
-    p.raiz.name = 'holograma:' + w.ruta;
+    p.root.scale.setScalar(HOLO_SCALE);   // the root's pivot is at the feet: it shrinks standing on its projector
+    p.root.name = 'holograma:' + w.path;
     // recién creada con el refugio ya en marcha: el proyector baja por su tubo, su autor lo monta y ella aparece encima
-    const inHot = effect && performance.now() - this.desde > 8000;
-    if (inHot && f.base) { this.deliver(f, autor); return; }
+    const inHot = effect && performance.now() - this.since > 8000;
+    if (inHot && f.base) { this.deliver(f, author); return; }
     {
-      p.raiz.position.copy(sitio); p.raiz.rotation.y = f.giro; p.goalTurn = f.giro;
+      p.root.position.copy(spot); p.root.rotation.y = f.rotation; p.goalTurn = f.rotation;
       u.uCut.value = 1e4; f.goalCut = 1e4;
-      this.r.motor.scene.add(p.raiz);
-      this.aplicar(f, true); this.changePose(f, f.poseWanted, true); f.listo = true; u.uOpacity.value = f.opacidad; this.r.publish();
+      this.r.motor.scene.add(p.root);
+      this.apply(f, true); this.changePose(f, f.poseWanted, true); f.ready = true; u.uOpacity.value = f.opacity; this.r.publish();
     }
     if (f.base) this.r.motor.scene.add(f.base);
     this.makeWay(f);
   }
 
   // quien estaba de paseo justo ahí le deja el sitio
-  private makeWay(f: Copia) {
-    for (const h of this.r.habitantes) if (h.sala === f.sala && h.estado === 'ocioso' && !h.fijo && !h.busyErrand && Math.abs(h.pos.x - f.sitio.x) < 1.1) h.p.goA(this.r.freeGap(f.sala));
+  private makeWay(f: Copy) {
+    for (const h of this.r.dwellers) if (h.room === f.room && h.state === 'ocioso' && !h.fixed && !h.busyErrand && Math.abs(h.pos.x - f.spot.x) < 1.1) h.p.goA(this.r.freeGap(f.room));
   }
 
   // ---- la entrega: un tubo baja del techo, suelta el proyector, sube; su autor (si está en la sala y libre) va a
   // montarlo con la llave y, montado, la copia se materializa encima. Si el autor no puede, se monta solo al poco
-  private async deliver(f: Copia, autor: Habitante) {
-    const base = f.base!, y = f.sala.grupo.position.y;
-    let tubo: THREE.Object3D;
+  private async deliver(f: Copy, author: Dweller) {
+    const base = f.base!, y = f.room.group.position.y;
+    let tube: THREE.Object3D;
     try {
-      tubo = await place(new THREE.Group(), R.cy('Pipe_2'), { ancho: 1, rotZ: Math.PI / 2, anchor: 'centro', estatico: false, sombra: false });
-      tubo.removeFromParent();
+      tube = await place(new THREE.Group(), R.cy('Pipe_2'), { width: 1, rotZ: Math.PI / 2, anchor: 'centro', isStatic: false, shadow: false });
+      tube.removeFromParent();
       // metal claro con un brillo del color de su tarea: que se lea contra la pared oscura
-      tubo.traverse((n: any) => { if (n.isMesh) n.material = new THREE.MeshStandardMaterial({ color: '#b9c2cc', metalness: 0.6, roughness: 0.35, emissive: f.tone, emissiveIntensity: 0.35 }); });
-    } catch { tubo = new THREE.Group(); }
-    if (this.figuras.get(f.ruta) !== f) return;
-    const pivote = new THREE.Group(); pivote.add(tubo); tubo.position.y = -0.5;   // cuelga del techo: crece hacia abajo
-    pivote.position.set(f.sitio.x, y + TECHO, f.sitio.z); pivote.scale.set(3 * BASE, 0.001, 3 * BASE);   // thick: the projector fits
-    base.position.y = y + TECHO; base.visible = false;
-    this.r.motor.scene.add(pivote, base);
-    f.montaje = { tubo: pivote, t: 0, fase: 'baja', montado: false, fin: 0 };
+      tube.traverse((n: any) => { if (n.isMesh) n.material = new THREE.MeshStandardMaterial({ color: '#b9c2cc', metalness: 0.6, roughness: 0.35, emissive: f.tone, emissiveIntensity: 0.35 }); });
+    } catch { tube = new THREE.Group(); }
+    if (this.figures.get(f.path) !== f) return;
+    const pivot = new THREE.Group(); pivot.add(tube); tube.position.y = -0.5;   // cuelga del techo: crece hacia abajo
+    pivot.position.set(f.spot.x, y + CEILING, f.spot.z); pivot.scale.set(3 * BASE, 0.001, 3 * BASE);   // thick: the projector fits
+    base.position.y = y + CEILING; base.visible = false;
+    this.r.motor.scene.add(pivot, base);
+    f.assembly = { tube: pivot, t: 0, phase: 'baja', mounted: false, end: 0 };
     this.makeWay(f);
-    SFX.apagado();
+    SFX.powerOff();
   }
 
-  private stepDelivery(f: Copia, dt: number) {
-    const m = f.montaje!, base = f.base!, y = f.sala.grupo.position.y;
+  private stepDelivery(f: Copy, dt: number) {
+    const m = f.assembly!, base = f.base!, y = f.room.group.position.y;
     m.t += dt;
-    const largo = TECHO - 0.9;   // hasta dónde baja el tubo
-    if (m.fase === 'baja') {
-      const k = Math.min(1, m.t / 0.7); m.tubo.scale.y = Math.max(0.001, largo * k * (2 - k));
-      if (k >= 1) { m.fase = 'cae'; m.t = 0; base.visible = true; base.position.y = y + 0.9; }
-    } else if (m.fase === 'cae') {
+    const length = CEILING - 0.9;   // hasta dónde baja el tubo
+    if (m.phase === 'baja') {
+      const k = Math.min(1, m.t / 0.7); m.tube.scale.y = Math.max(0.001, length * k * (2 - k));
+      if (k >= 1) { m.phase = 'cae'; m.t = 0; base.visible = true; base.position.y = y + 0.9; }
+    } else if (m.phase === 'cae') {
       const k = Math.min(1, m.t / 0.35); base.position.y = y + 0.9 * (1 - k * k);
       if (k >= 1) {
-        m.fase = 'sube'; m.t = 0; base.position.y = y;
-        audioWorld.accion(new THREE.Vector3(f.sitio.x, y + 0.2, f.sitio.z), 'caja', 0.9, f.sala);
+        m.phase = 'sube'; m.t = 0; base.position.y = y;
+        audioWorld.action(new THREE.Vector3(f.spot.x, y + 0.2, f.spot.z), 'caja', 0.9, f.room);
         this.callAuthor(f);
       }
-    } else if (m.fase === 'sube') {
-      const k = Math.min(1, m.t / 0.6); m.tubo.scale.y = Math.max(0.001, largo * (1 - k));
-      if (k >= 1) { m.fase = 'listo'; m.t = 0; this.r.motor.scene.remove(m.tubo); }
-    } else if (m.montado || m.t > m.fin) this.materialize(f);
+    } else if (m.phase === 'sube') {
+      const k = Math.min(1, m.t / 0.6); m.tube.scale.y = Math.max(0.001, length * (1 - k));
+      if (k >= 1) { m.phase = 'listo'; m.t = 0; this.r.motor.scene.remove(m.tube); }
+    } else if (m.mounted || m.t > m.end) this.materialize(f);
   }
 
-  private callAuthor(f: Copia) {
-    const m = f.montaje!, autor = this.r.habitantes.find(h => h.id.id === f.authorId);
-    m.fin = 2.5;   // sin autor que lo monte: se monta solo
-    if (!autor || autor.sala !== f.sala || !autor.p.raiz.visible) return;
+  private callAuthor(f: Copy) {
+    const m = f.assembly!, author = this.r.dwellers.find(h => h.id.id === f.authorId);
+    m.end = 2.5;   // sin autor que lo monte: se monta solo
+    if (!author || author.room !== f.room || !author.p.root.visible) return;
     // a un lado del proyector (el que da a su sitio), agachado hacia él
-    const lado = Math.sign(autor.pos.x - f.sitio.x) || 1;
-    const junto = new THREE.Vector3(f.sitio.x + lado * (BASE / 2 + 0.3), f.sala.grupo.position.y, f.sitio.z);
-    const giro = Math.atan2(f.sitio.x - junto.x, f.sitio.z - junto.z);
-    if (autor.encargar(junto, giro, 'Lockpicking', 'llave', 3.2, () => { if (f.montaje) f.montaje.montado = true; })) m.fin = 25;   // por si no llega nunca
+    const side = Math.sign(author.pos.x - f.spot.x) || 1;
+    const beside = new THREE.Vector3(f.spot.x + side * (BASE / 2 + 0.3), f.room.group.position.y, f.spot.z);
+    const rotation = Math.atan2(f.spot.x - beside.x, f.spot.z - beside.z);
+    if (author.sendOnErrand(beside, rotation, 'Lockpicking', 'llave', 3.2, () => { if (f.assembly) f.assembly.mounted = true; })) m.end = 25;   // por si no llega nunca
   }
 
-  private materialize(f: Copia) {
-    if (f.montaje?.tubo.parent) this.r.motor.scene.remove(f.montaje.tubo);
-    f.montaje = null;
-    const p = f.p, u = f.u, y = f.sala.grupo.position.y;
-    p.raiz.position.copy(f.sitio); p.raiz.rotation.y = f.giro; p.goalTurn = f.giro;
-    u.uCut.value = y; f.goalCut = y + 2.6; f.opacidad = 1; u.uOpacity.value = 1;
+  private materialize(f: Copy) {
+    if (f.assembly?.tube.parent) this.r.motor.scene.remove(f.assembly.tube);
+    f.assembly = null;
+    const p = f.p, u = f.u, y = f.room.group.position.y;
+    p.root.position.copy(f.spot); p.root.rotation.y = f.rotation; p.goalTurn = f.rotation;
+    u.uCut.value = y; f.goalCut = y + 2.6; f.opacity = 1; u.uOpacity.value = 1;
     SFX.holoAppears();
-    this.r.motor.scene.add(p.raiz);
-    p.reproducir('Spawn_Ground', 0, { bucle: false });
-    setTimeout(() => { if (f.leaving) return; f.pose = 'pie'; f.fromPose = 0; this.aplicar(f, true); this.changePose(f, f.poseWanted); f.listo = true; this.r.publish(); }, 1300);
+    this.r.motor.scene.add(p.root);
+    p.play('Spawn_Ground', 0, { loop: false });
+    setTimeout(() => { if (f.leaving) return; f.pose = 'pie'; f.fromPose = 0; this.apply(f, true); this.changePose(f, f.poseWanted); f.ready = true; this.r.publish(); }, 1300);
   }
 
-  private async accesorios(p: Character, authorId: string) {
-    const ids: string[] = (vivo.get().estado?.habitantes as any[] | undefined)?.find(x => x.id === authorId)?.accesorios ?? [];
-    await Promise.all(ids.map(id => { const a = SHOP.find(x => x.id === id); return a?.ruta && a.bone ? p.couple('acc:' + id, { ruta: a.ruta, bone: a.bone, escala: a.escala ?? 1, pos: a.pos, rot: a.rot, rig: a.rig }).catch(() => {}) : null; }));
+  private async accessories(p: Character, authorId: string) {
+    const ids: string[] = (live.get().state?.dwellers as any[] | undefined)?.find(x => x.id === authorId)?.accessories ?? [];
+    await Promise.all(ids.map(id => { const a = SHOP.find(x => x.id === id); return a?.ruta && a.bone ? p.couple('acc:' + id, { path: a.ruta, bone: a.bone, scale: a.escala ?? 1, pos: a.pos, rot: a.rot, rig: a.rig }).catch(() => {}) : null; }));
   }
 
   // su ordenador: un teclado y una pantalla de los muebles KayKit, en luz como él (en el suelo o flotando en el aire)
-  private async mountLaptop(f: Copia) {
-    const [tec, mon] = await Promise.all([gltf(R.mueble('keyboard')), gltf(R.mueble('monitor'))]);
-    const adjust = (o: THREE.Object3D, ancho: number) => { const { tam } = measure(o); o.scale.setScalar(ancho / Math.max(tam.x, tam.z, 1e-3)); return o; };
-    const teclado = adjust(tec.scene.clone(true), 0.36); teclado.position.set(0, 0.01, 0.5);
-    const pantalla = adjust(mon.scene.clone(true), 0.38); pantalla.position.set(0, 0.01, 0.74); pantalla.rotation.y = Math.PI; pantalla.rotation.x = -0.12;
-    f.portatil.add(teclado, pantalla);
+  private async mountLaptop(f: Copy) {
+    const [kbd, mon] = await Promise.all([gltf(R.furniture('keyboard')), gltf(R.furniture('monitor'))]);
+    const adjust = (o: THREE.Object3D, width: number) => { const { size } = measure(o); o.scale.setScalar(width / Math.max(size.x, size.z, 1e-3)); return o; };
+    const keyboard = adjust(kbd.scene.clone(true), 0.36); keyboard.position.set(0, 0.01, 0.5);
+    const screen = adjust(mon.scene.clone(true), 0.38); screen.position.set(0, 0.01, 0.74); screen.rotation.y = Math.PI; screen.rotation.x = -0.12;
+    f.laptop.add(keyboard, screen);
     // en arco delante de él, a la altura de las manos (la cámara no las ve tapándole la cabeza)
     const p1 = adjust(mon.scene.clone(true), 0.5); p1.position.set(-0.22, 0.88, 0.72); p1.rotation.y = Math.PI - 0.35;
     const p2 = adjust(mon.scene.clone(true), 0.42); p2.position.set(0.36, 0.8, 0.6); p2.rotation.y = Math.PI + 0.5;
-    f.pantallas.add(p1, p2);
-    for (const g of [f.portatil, f.pantallas]) { g.visible = false; f.p.raiz.add(g); }
+    f.screens.add(p1, p2);
+    for (const g of [f.laptop, f.screens]) { g.visible = false; f.p.root.add(g); }
   }
 
   // el proyector: una plataforma baja de KayKit en el suelo, con su material (no es holograma)
-  private async mountBase(f: Copia) {
+  private async mountBase(f: Copy) {
     try {
       const g = await gltf(R.base('landingpad_small'));
       const o = g.scene.clone(true);
-      const { tam } = measure(o); const k = BASE / Math.max(tam.x, tam.z, 1e-3); o.scale.set(k, BASE_HEIGHT / Math.max(tam.y, 1e-3), k);
+      const { size } = measure(o); const k = BASE / Math.max(size.x, size.z, 1e-3); o.scale.set(k, BASE_HEIGHT / Math.max(size.y, 1e-3), k);
       o.traverse((n: any) => { if (n.isMesh) { n.receiveShadow = true; n.castShadow = false; } });
-      const base = new THREE.Group(); base.add(o); base.position.copy(f.sitio); base.userData.estatico = false;
+      const base = new THREE.Group(); base.add(o); base.position.copy(f.spot); base.userData.isStatic = false;
       // encendido, un disco de luz del color de su tarea que cubre la plataforma (se ve aunque esté sentada encima)
-      const luz = new THREE.Mesh(new THREE.CircleGeometry(BASE * 0.48, 40), new THREE.MeshBasicMaterial({ color: f.u.uColor.value, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false }));
-      luz.rotation.x = -Math.PI / 2; luz.position.y = measure(o).tam.y + 0.01; luz.visible = false; luz.name = 'luz'; base.add(luz);
+      const light = new THREE.Mesh(new THREE.CircleGeometry(BASE * 0.48, 40), new THREE.MeshBasicMaterial({ color: f.u.uColor.value, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false }));
+      light.rotation.x = -Math.PI / 2; light.position.y = measure(o).size.y + 0.01; light.visible = false; light.name = 'luz'; base.add(light);
       f.base = base;
-      f.sitio.y += measure(o).tam.y;   // de pie (o sentado) encima de la plataforma
+      f.spot.y += measure(o).size.y;   // de pie (o sentado) encima de la plataforma
     } catch { f.base = null; }
   }
 
   // ---- la sesión de dentro → pose y animación
-  private aplicar(f: Copia, forzar = false): boolean {
-    const s = this.insideSession(f.ruta);
-    const m = s?.actividad?.modo;
-    let estado: DwellerState = 'ocioso', detalle = '', wants: Pose = 'base';
+  private apply(f: Copy, force = false): boolean {
+    const s = this.insideSession(f.path);
+    const m = s?.activity?.mode;
+    let state: DwellerState = 'ocioso', detail = '', wants: Pose = 'base';
     if (s) {
       // pensando también está de faena: de pie con sus pantallas, como trabajando (sentada es no tener nada que hacer)
-      if (s.estado === 'arrancando') { estado = 'pensando'; detalle = t('windows.gettingReady'); wants = 'manos'; }
-      else if (s.estado === 'trabajando') {
-        if (!m || m === 'pensar') { estado = 'pensando'; detalle = s.actividad?.texto ?? t('windows.thinking'); wants = 'manos'; }
-        else { estado = 'trabajando'; detalle = s.actividad?.texto ?? ''; wants = 'manos'; }
-      } else if (s.estado === 'esperando') { estado = 'esperando'; detalle = s.pending?.titulo ?? t('windows.waitingForYou'); wants = 'pie'; }
-      else if (s.estado === 'terminada' && s.sinLeer) { estado = 'terminado'; detalle = t('windows.readyTitulo', { titulo: s.titulo ?? '' }); wants = 'pie'; }
-      else if (s.estado === 'error') { estado = 'error'; detalle = s.error ?? t('windows.fault'); wants = 'reposo'; }
-      else { detalle = s.titulo ?? ''; wants = 'base'; }
+      if (s.state === 'arrancando') { state = 'pensando'; detail = t('windows.gettingReady'); wants = 'manos'; }
+      else if (s.state === 'trabajando') {
+        if (!m || m === 'pensar') { state = 'pensando'; detail = s.activity?.text ?? t('windows.thinking'); wants = 'manos'; }
+        else { state = 'trabajando'; detail = s.activity?.text ?? ''; wants = 'manos'; }
+      } else if (s.state === 'esperando') { state = 'esperando'; detail = s.pending?.title ?? t('windows.waitingForYou'); wants = 'pie'; }
+      else if (s.state === 'terminada' && s.unread) { state = 'terminado'; detail = t('windows.readyTitulo', { titulo: s.title ?? '' }); wants = 'pie'; }
+      else if (s.state === 'error') { state = 'error'; detail = s.error ?? t('windows.fault'); wants = 'reposo'; }
+      else { detail = s.title ?? ''; wants = 'base'; }
     }
-    const firma = [s?.id, estado, detalle, f.w.cambios, f.w.advanced].join('|');
-    if (firma === f.firma && !forzar) return false;
-    const antes = f.estado;
-    f.firma = firma; f.estado = estado; f.detalle = detalle; f.sesionId = s?.id; f.poseWanted = wants;
-    if (estado !== antes) {
-      if (estado === 'terminado') { SFX.success(); f.p.gesture('Waving', 'Idle_A'); f.pose = 'pie'; f.fromPose = tiempo.value; f.gestureClock = 8; }
-      else if (estado === 'error') { SFX.holoGlitch(); f.u.uGlitch.value = 1; }
-      else if (estado === 'esperando') { SFX.highNotice(); f.waitingSince = performance.now(); }
+    const signature = [s?.id, state, detail, f.w.changes, f.w.advanced].join('|');
+    if (signature === f.signature && !force) return false;
+    const before = f.state;
+    f.signature = signature; f.state = state; f.detail = detail; f.sessionId = s?.id; f.poseWanted = wants;
+    if (state !== before) {
+      if (state === 'terminado') { SFX.success(); f.p.gesture('Waving', 'Idle_A'); f.pose = 'pie'; f.fromPose = timeout.value; f.gestureClock = 8; }
+      else if (state === 'error') { SFX.holoGlitch(); f.u.uGlitch.value = 1; }
+      else if (state === 'esperando') { SFX.highNotice(); f.waitingSince = performance.now(); }
     }
-    if (estado !== 'error') f.u.uGlitch.value = 0;
-    f.opacidad = estado === 'ocioso' ? 0.6 : 1;
-    return estado !== antes;
+    if (state !== 'error') f.u.uGlitch.value = 0;
+    f.opacity = state === 'ocioso' ? 0.6 : 1;
+    return state !== before;
   }
 
-  private changePose(f: Copia, pose: Pose, inmediata = false) {
-    const p = f.p; const sentado = SEATED_POSES.has(f.pose);
-    const sentar = SEATED_POSES.has(pose);
-    f.pose = pose; f.fromPose = tiempo.value;
-    f.portatil.visible = pose === 'portatil' || pose === 'reposo';
-    f.pantallas.visible = pose === 'manos';
-    if (IN_PROJECTOR.has(pose)) p.goalTurn = f.giro; else if (pose === 'pie') p.goalTurn = 0;
-    if (sentar) {
+  private changePose(f: Copy, pose: Pose, immediate = false) {
+    const p = f.p; const seated = SEATED_POSES.has(f.pose);
+    const sit = SEATED_POSES.has(pose);
+    f.pose = pose; f.fromPose = timeout.value;
+    f.laptop.visible = pose === 'portatil' || pose === 'reposo';
+    f.screens.visible = pose === 'manos';
+    if (IN_PROJECTOR.has(pose)) p.goalTurn = f.rotation; else if (pose === 'pie') p.goalTurn = 0;
+    if (sit) {
       p.inRest = 'Sit_Floor_Idle';
-      if (sentado || inmediata) p.reproducir('Sit_Floor_Idle', inmediata ? 0 : 0.35);
+      if (seated || immediate) p.play('Sit_Floor_Idle', immediate ? 0 : 0.35);
       else p.gesture('Sit_Floor_Down', 'Sit_Floor_Idle', 0.25);
     } else {
       const clip = pose === 'manos' ? BUSY[0] : 'Idle_A';
       if (pose === 'manos') f.busyClock = 3 + Math.random() * 2;
       p.inRest = clip;
-      if (sentado && !inmediata) p.gesture('Sit_Floor_StandUp', clip, 0.2);
-      else if (pose === 'pie' && f.estado === 'esperando' && !f.talking) { p.gesture('Waving', 'Idle_A'); f.gestureClock = 3; }
-      else p.reproducir(clip, inmediata ? 0 : 0.3);
+      if (seated && !immediate) p.gesture('Sit_Floor_StandUp', clip, 0.2);
+      else if (pose === 'pie' && f.state === 'esperando' && !f.talking) { p.gesture('Waving', 'Idle_A'); f.gestureClock = 3; }
+      else p.play(clip, immediate ? 0 : 0.3);
     }
   }
 
-  private quitar(f: Copia, ya = false) {
-    f.leaving = true; this.figuras.delete(f.ruta); f.p.parar();
-    if (f.montaje) { this.r.motor.scene.remove(f.montaje.tubo); f.montaje = null; ya = true; }
-    const fuera = () => { this.r.motor.scene.remove(f.p.raiz); if (f.base) this.r.motor.scene.remove(f.base); };
-    if (ya || !f.p.raiz.parent) { fuera(); return; }
-    SFX.apagado();
+  private remove(f: Copy, already = false) {
+    f.leaving = true; this.figures.delete(f.path); f.p.stop();
+    if (f.assembly) { this.r.motor.scene.remove(f.assembly.tube); f.assembly = null; already = true; }
+    const outside = () => { this.r.motor.scene.remove(f.p.root); if (f.base) this.r.motor.scene.remove(f.base); };
+    if (already || !f.p.root.parent) { outside(); return; }
+    SFX.powerOff();
     // se desvanece de la cabeza a los pies
-    f.u.uCut.value = Math.min(f.u.uCut.value, f.p.raiz.position.y + 2.6); f.goalCut = f.p.raiz.position.y - 0.05;
-    setTimeout(fuera, 1400);
+    f.u.uCut.value = Math.min(f.u.uCut.value, f.p.root.position.y + 2.6); f.goalCut = f.p.root.position.y - 0.05;
+    setTimeout(outside, 1400);
     this.outgoing.add(f);
   }
-  private outgoing = new Set<Copia>();
+  private outgoing = new Set<Copy>();
 
-  actualizar(dt: number) {
-    tiempo.value += dt;
-    for (const f of [...this.figuras.values(), ...this.outgoing]) {
-      if (f.montaje && !f.leaving) this.stepDelivery(f, dt);
-      const luz = f.base?.getObjectByName('luz') as THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial> | undefined;
-      if (luz) {
-        luz.visible = !!f.p.raiz.parent && !f.leaving;
+  update(dt: number) {
+    timeout.value += dt;
+    for (const f of [...this.figures.values(), ...this.outgoing]) {
+      if (f.assembly && !f.leaving) this.stepDelivery(f, dt);
+      const light = f.base?.getObjectByName('luz') as THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial> | undefined;
+      if (light) {
+        light.visible = !!f.p.root.parent && !f.leaving;
         // sin nada que hacer, tenue y fija; con una sesión en marcha, más viva y latiendo
-        const viva = f.estado === 'trabajando' || f.estado === 'pensando';
-        luz.material.opacity = viva ? 0.6 + 0.25 * Math.sin(tiempo.value * 3 + f.u.uSemilla.value * 9) : 0.4;
+        const alive = f.state === 'trabajando' || f.state === 'pensando';
+        light.material.opacity = alive ? 0.6 + 0.25 * Math.sin(timeout.value * 3 + f.u.uSemilla.value * 9) : 0.4;
       }
-      if (!f.p.mixer || !f.p.raiz.parent) { if (f.leaving && !f.p.raiz.parent) this.outgoing.delete(f); continue; }
+      if (!f.p.mixer || !f.p.root.parent) { if (f.leaving && !f.p.root.parent) this.outgoing.delete(f); continue; }
       const u = f.u;
       // materializar o desvanecer: el corte sube (o baja) a ritmo constante
       if (u.uCut.value !== f.goalCut && u.uCut.value > -1e3 && u.uCut.value < 1e3) {
-        const paso = dt * 2.2; const d = f.goalCut - u.uCut.value;
-        u.uCut.value = Math.abs(d) <= paso ? f.goalCut : u.uCut.value + Math.sign(d) * paso;
-        if (u.uCut.value >= f.p.raiz.position.y + 2.55 && !f.leaving) { u.uCut.value = 1e4; f.goalCut = 1e4; }
+        const step = dt * 2.2; const d = f.goalCut - u.uCut.value;
+        u.uCut.value = Math.abs(d) <= step ? f.goalCut : u.uCut.value + Math.sign(d) * step;
+        if (u.uCut.value >= f.p.root.position.y + 2.55 && !f.leaving) { u.uCut.value = 1e4; f.goalCut = 1e4; }
       }
-      u.uOpacity.value = THREE.MathUtils.damp(u.uOpacity.value, f.opacidad, 3, dt);
-      if (f.estado === 'error') u.uGlitch.value = 0.35 + 0.65 * Math.max(0, Math.sin(tiempo.value * 3.1 + u.uSemilla.value * 9));
+      u.uOpacity.value = THREE.MathUtils.damp(u.uOpacity.value, f.opacity, 3, dt);
+      if (f.state === 'error') u.uGlitch.value = 0.35 + 0.65 * Math.max(0, Math.sin(timeout.value * 3.1 + u.uSemilla.value * 9));
       this.taskTone(f);
-      u.uColor.value.lerp(f.estado === 'error' ? COLOR_FAULT : f.tone, 1 - Math.exp(-dt * 4));   // del color de su tarea; con avería, en rojo
-      if (f.listo && !f.leaving) this.drive(f, dt);
-      f.p.actualizar(dt);
+      u.uColor.value.lerp(f.state === 'error' ? COLOR_FAULT : f.tone, 1 - Math.exp(-dt * 4));   // del color de su tarea; con avería, en rojo
+      if (f.ready && !f.leaving) this.drive(f, dt);
+      f.p.update(dt);
     }
   }
 
   // ---- qué hace cada copia, siempre en su proyector: hablar contigo, trabajar sin parar o quedarse quieta
-  private drive(f: Copia, dt: number) {
-    const p = f.p, pos = p.raiz.position;
+  private drive(f: Copy, dt: number) {
+    const p = f.p, pos = p.root.position;
     if (f.talking) {
-      if (p.inMovement || WALKING.test(p.currentName)) { p.parar(); p.reproducir(p.inRest, 0.25); }
+      if (p.inMovement || WALKING.test(p.currentName)) { p.stop(); p.play(p.inRest, 0.25); }
       if (f.pose !== 'pie') this.changePose(f, 'pie');
       p.goalTurn = f.chatTurn;
       return;
     }
     // la sala se movió o le empujaron: de vuelta a su proyector
-    if (!p.inMovement && Math.hypot(pos.x - f.sitio.x, pos.z - f.sitio.z) > 0.08) { p.goA(f.sitio, false, () => this.changePose(f, f.poseWanted, true)); return; }
+    if (!p.inMovement && Math.hypot(pos.x - f.spot.x, pos.z - f.spot.z) > 0.08) { p.goA(f.spot, false, () => this.changePose(f, f.poseWanted, true)); return; }
     if (p.inMovement) return;
     const wants = f.poseWanted;
     // entre pensar y trabajar no se levanta y se sienta a cada herramienta: cada postura dura al menos unos segundos
-    const vaiven = (f.pose === 'portatil' && wants === 'manos') || (f.pose === 'manos' && wants === 'portatil');
-    if (wants !== f.pose && (!vaiven || tiempo.value - f.fromPose > 6)) this.changePose(f, wants);
-    if (f.estado === 'esperando' && f.pose === 'pie') { f.gestureClock -= dt; if (f.gestureClock < 0) { f.gestureClock = 4 + Math.random() * 2; callOut(f.p, f.waitingSince); } }
+    const sway = (f.pose === 'portatil' && wants === 'manos') || (f.pose === 'manos' && wants === 'portatil');
+    if (wants !== f.pose && (!sway || timeout.value - f.fromPose > 6)) this.changePose(f, wants);
+    if (f.state === 'esperando' && f.pose === 'pie') { f.gestureClock -= dt; if (f.gestureClock < 0) { f.gestureClock = 4 + Math.random() * 2; callOut(f.p, f.waitingSince); } }
     // terminada: te espera con paciencia, saludando de vez en cuando hasta que la lees
-    if (f.estado === 'terminado' && f.pose === 'pie') { f.gestureClock -= dt; if (f.gestureClock < 0) { f.gestureClock = 8 + Math.random() * 5; f.p.gesture('Waving', 'Idle_A'); } }
+    if (f.state === 'terminado' && f.pose === 'pie') { f.gestureClock -= dt; if (f.gestureClock < 0) { f.gestureClock = 8 + Math.random() * 5; f.p.gesture('Waving', 'Idle_A'); } }
     // trabajando, muy ocupada: cambia de gesto con las pantallas cada pocos segundos
     if (f.pose === 'manos') {
       f.busyClock -= dt;
-      if (f.busyClock < 0) { f.busyClock = 3 + Math.random() * 3; const sig = BUSY.filter(c => c !== p.inRest)[Math.floor(Math.random() * (BUSY.length - 1))]; p.inRest = sig; p.reproducir(sig, 0.3); }
+      if (f.busyClock < 0) { f.busyClock = 3 + Math.random() * 3; const sig = BUSY.filter(c => c !== p.inRest)[Math.floor(Math.random() * (BUSY.length - 1))]; p.inRest = sig; p.play(sig, 0.3); }
     }
-    if (f.pose === 'base') this.quieta(f, dt);
+    if (f.pose === 'base') this.still(f, dt);
   }
 
   // sin nada que hacer, sentada y quieta en su proyector; mira a un lado y a otro y, si el Supervisor se le acerca, le mira
-  private quieta(f: Copia, dt: number) {
-    const p = f.p, pos = p.raiz.position, sp = this.r.supervisor?.raiz.position;
+  private still(f: Copy, dt: number) {
+    const p = f.p, pos = p.root.position, sp = this.r.supervisor?.root.position;
     if (sp && Math.abs(sp.y - pos.y) < 1 && Math.hypot(sp.x - pos.x, sp.z - pos.z) < 1.7) { p.goalTurn = Math.atan2(sp.x - pos.x, sp.z - pos.z); f.lookClock = Math.max(f.lookClock, 2); return; }
     f.lookClock -= dt; if (f.lookClock > 0) return;
     f.lookClock = 5 + Math.random() * 6;
-    p.goalTurn = f.giro * (0.3 + Math.random() * 0.7);
+    p.goalTurn = f.rotation * (0.3 + Math.random() * 0.7);
   }
 
   // ---- charla con el Supervisor
-  startChat(f: Copia, lookA: THREE.Vector3) {
-    f.talking = true; f.p.parar();
-    if (WALKING.test(f.p.currentName)) f.p.reproducir(f.p.inRest, 0.2);
-    f.chatTurn = Math.sign(lookA.x - f.p.raiz.position.x || 1) * 0.55;
+  startChat(f: Copy, lookA: THREE.Vector3) {
+    f.talking = true; f.p.stop();
+    if (WALKING.test(f.p.currentName)) f.p.play(f.p.inRest, 0.2);
+    f.chatTurn = Math.sign(lookA.x - f.p.root.position.x || 1) * 0.55;
   }
-  finishChat(f: Copia) { f.talking = false; f.lookClock = 4; this.aplicar(f, true); }
+  finishChat(f: Copy) { f.talking = false; f.lookClock = 4; this.apply(f, true); }
 
   /** La copia más cercana a `junto` (en su planta), a menos de `max`. */
-  nearby(junto: THREE.Vector3, max: number): { f: Copia; d: number } | null {
-    let mejor: { f: Copia; d: number } | null = null;
-    for (const f of this.figuras.values()) {
-      if (!f.listo || f.leaving || Math.abs(f.p.raiz.position.y - junto.y) > 1) continue;
-      const d = Math.hypot(f.p.raiz.position.x - junto.x, f.p.raiz.position.z - junto.z);
-      if (d < max && (!mejor || d < mejor.d)) mejor = { f, d };
+  nearby(beside: THREE.Vector3, max: number): { f: Copy; d: number } | null {
+    let best: { f: Copy; d: number } | null = null;
+    for (const f of this.figures.values()) {
+      if (!f.ready || f.leaving || Math.abs(f.p.root.position.y - beside.y) > 1) continue;
+      const d = Math.hypot(f.p.root.position.x - beside.x, f.p.root.position.z - beside.z);
+      if (d < max && (!best || d < best.d)) best = { f, d };
     }
-    return mejor;
+    return best;
   }
-  ofId(id: string) { for (const f of this.figuras.values()) if (idCopy(f.ruta) === id) return f; }
-  ofSession(id: string) { for (const f of this.figuras.values()) if (f.sesionId === id) return f; }
-  ofPath(ruta: string) { const r = ruta.replace(/\/+$/, ''); for (const f of this.figuras.values()) if (f.ruta.replace(/\/+$/, '') === r) return f; }
+  ofId(id: string) { for (const f of this.figures.values()) if (idCopy(f.path) === id) return f; }
+  ofSession(id: string) { for (const f of this.figures.values()) if (f.sessionId === id) return f; }
+  ofPath(path: string) { const r = path.replace(/\/+$/, ''); for (const f of this.figures.values()) if (f.path.replace(/\/+$/, '') === r) return f; }
 
   /** El robot mensajero le trae una revisión de su PR (messenger.ts): de pie, se gira hacia él y la recoge; sentada,
    *  trabajando o hablando con el Supervisor, sigue a lo suyo */
-  receive(f: Copia, desde: THREE.Vector3) {
-    if (f.talking || f.leaving || !f.listo || f.pose !== 'pie') return;
-    const p = f.p, pos = p.raiz.position;
+  receive(f: Copy, since: THREE.Vector3) {
+    if (f.talking || f.leaving || !f.ready || f.pose !== 'pie') return;
+    const p = f.p, pos = p.root.position;
     f.lookClock = Math.max(f.lookClock, 4); f.gestureClock = Math.max(f.gestureClock, 3);
-    p.goalTurn = Math.atan2(desde.x - pos.x, desde.z - pos.z);
+    p.goalTurn = Math.atan2(since.x - pos.x, since.z - pos.z);
     p.gesture('PickUp', p.inRest);
   }
 
   /** Las salas con alguna copia pensando o trabajando (sus habitantes se ponen a trabajar también) */
   busyRooms() {
-    const salas = new Set<string>();
-    for (const f of this.figuras.values()) if (!f.leaving && (f.estado === 'trabajando' || f.estado === 'pensando')) salas.add(f.sala.id);
-    return salas;
+    const rooms = new Set<string>();
+    for (const f of this.figures.values()) if (!f.leaving && (f.state === 'trabajando' || f.state === 'pensando')) rooms.add(f.room.id);
+    return rooms;
   }
 
   // sus proyectores y por dónde andan (para que los habitantes no se les metan dentro)
-  positions() { return [...this.figuras.values()].flatMap(f => [f.sitio, f.p.raiz.position]); }
+  positions() { return [...this.figures.values()].flatMap(f => [f.spot, f.p.root.position]); }
 
   /** Cada copia, como interlocutor de la interfaz (regleta, barra, intercomunicador). */
   // cada copia, del color de la tarea que trabaja (el mismo que en los tableros): de un vistazo se ve qué tarea tiene
   // sesiones en qué sala
-  private taskTone(f: Copia) {
+  private taskTone(f: Copy) {
     const t = worktreeTask(f.w), v = versionColors.get().v;
-    if (t === f.tarea && f.versionTone === v) return;
-    if (t !== f.tarea) knowTasks([t]);
-    f.tarea = t; f.versionTone = v; f.tone = holoTone(t);
+    if (t === f.task && f.versionTone === v) return;
+    if (t !== f.task) knowTasks([t]);
+    f.task = t; f.versionTone = v; f.tone = holoTone(t);
   }
   summaries(): DwellerSummary[] {
-    return [...this.figuras.values()].map(f => {
-      const autor = this.r.habitantes.find(h => h.id.id === f.authorId), a = autor?.id;
-      const nombre = a?.nombre ?? t('world.copy');
+    return [...this.figures.values()].map(f => {
+      const author = this.r.dwellers.find(h => h.id.id === f.authorId), a = author?.id;
+      const name = a?.name ?? t('world.copy');
       return {
-        id: idCopy(f.ruta), nombre: `${nombre} ◇ ${copyCaption(f.w)}`, mote: t('windows.holographicCopy'), tipo: a?.tipo ?? '',
-        bio: t('world.holoCopyBio', { nombre, mote: tIs(a?.mote ?? ''), rama: f.w.rama || f.ruta }),
-        sala: f.sala.id, nameRoom: f.sala.nombre, ruta: f.ruta, carpeta: f.ruta, estado: f.listo ? f.estado : 'ocioso', detalle: f.detalle, sesionId: f.sesionId,
-        robot: autor?.p.aspecto?.especie === 'robot',
-        copia: { ruta: f.ruta, rama: f.w.rama, authorId: f.authorId, nameAuthor: nombre, nicknameAuthor: a?.mote ?? '', cambios: f.w.cambios, advanced: f.w.advanced },
+        id: idCopy(f.path), name: `${name} ◇ ${copyCaption(f.w)}`, nickname: t('windows.holographicCopy'), type: a?.type ?? '',
+        bio: t('world.holoCopyBio', { nombre: name, mote: tIs(a?.nickname ?? ''), rama: f.w.branch || f.path }),
+        room: f.room.id, nameRoom: f.room.name, path: f.path, folder: f.path, state: f.ready ? f.state : 'ocioso', detail: f.detail, sessionId: f.sessionId,
+        robot: author?.p.look?.especie === 'robot',
+        copy: { path: f.path, branch: f.w.branch, authorId: f.authorId, nameAuthor: name, nicknameAuthor: a?.nickname ?? '', changes: f.w.changes, advanced: f.w.advanced },
       };
     });
   }
 
-  etiquetas(lejos: boolean, junto: THREE.Vector3, selected: Copia | null, aimed: Copia | null = null) {
-    return [...this.figuras.values()].filter(f => f.listo && f.p.mixer).map(f => {
-      const cerca = f.p.raiz.position.distanceTo(junto) < 2.4, elegida = f === selected || f === aimed;
-      const git = f.w.cambios ? t('windows.nChanges', { n: f.w.cambios }) : f.w.advanced ? t('windows.nCommitsToMerge', { n: f.w.advanced }) : t('panels.clean2');
-      const detalle = !cerca ? '' : f.estado === 'ocioso' ? git : f.detalle.slice(0, 48);
-      const autor = this.r.habitantes.find(h => h.id.id === f.authorId);
-      const programado = scheduledMark(f.sala.id, f.ruta);
-      return { k: f, programado, pos: f.p.headPoint(), alto: 0.2, nombre: `${autor?.id.nombre ?? t('world.copy')} ◇ ${copyCaption(f.w, f.tarea ?? branchCaption(f.w.rama))}${verificationMark(f.tarea) ? ' · ' + verificationMark(f.tarea) : ''}`, color: hasTaskColor(f.tarea) ? taskColor(f.tarea) : undefined, epica: epicTag(f.tarea), estado: f.estado, detalle, cerca: elegida, lejos, prompt: elegida ? t('world.talk') : '', tecla: f === selected ? 'E' : t('world.click'), apuntado: f === aimed && f !== selected, relevant: cerca || elegida || f.estado !== 'ocioso' || !!programado };
+  labels(farSide: boolean, beside: THREE.Vector3, selected: Copy | null, aimed: Copy | null = null) {
+    return [...this.figures.values()].filter(f => f.ready && f.p.mixer).map(f => {
+      const near = f.p.root.position.distanceTo(beside) < 2.4, picked = f === selected || f === aimed;
+      const git = f.w.changes ? t('windows.nChanges', { n: f.w.changes }) : f.w.advanced ? t('windows.nCommitsToMerge', { n: f.w.advanced }) : t('panels.clean2');
+      const detail = !near ? '' : f.state === 'ocioso' ? git : f.detail.slice(0, 48);
+      const author = this.r.dwellers.find(h => h.id.id === f.authorId);
+      const scheduled = scheduledMark(f.room.id, f.path);
+      return { k: f, scheduled, pos: f.p.headPoint(), height: 0.2, name: `${author?.id.name ?? t('world.copy')} ◇ ${copyCaption(f.w, f.task ?? branchCaption(f.w.branch))}${verificationMark(f.task) ? ' · ' + verificationMark(f.task) : ''}`, color: hasTaskColor(f.task) ? taskColor(f.task) : undefined, epic: epicTag(f.task), state: f.state, detail, near: picked, farSide, prompt: picked ? t('world.talk') : '', key: f === selected ? 'E' : t('world.click'), aimed: f === aimed && f !== selected, relevant: near || picked || f.state !== 'ocioso' || !!scheduled };
     }).filter(x => x.relevant);
   }
 }

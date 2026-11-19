@@ -12,129 +12,129 @@
 //            ⌥⌘C copiar la ruta (⌥⌘⇧C, la relativa) · ⌥⌘R mostrar en el Finder · escribir salta al nombre
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type * as Monaco from 'monaco-editor';
-import { vivo, cliente } from '../../net/client';
-import { t, idioma } from '@shared/language';
+import { live, client } from '../../net/client';
+import { t, language } from '@shared/language';
 import { SFX } from '../../audio/sound';
 import { firstMapNow } from '../../engine/focus';
 import { WindowButtons, CMD, MAC, nextZ } from '../windows';
 import { openTerminalIn } from '../Terminals';
 import { openGit } from '../git/window';
 import { filesWindow, chooseRoot, lastRoot, minimizeFiles, closeFiles, closeFilesAlready, onFrontFiles, toggleMaximizeFiles, askClosing, type FilesWindow } from './window';
-import { flatten, changedFolders, searchFiles, queryYLine, languageOf, unir, parentOf, nameOf, bajo, type Entrada, type Row } from './common';
+import { flatten, changedFolders, searchFiles, queryYLine, languageOf, union, parentOf, nameOf, under, type Entry, type Row } from './common';
 
 type M = typeof Monaco;
-let cargando: Promise<M> | null = null;
-const loadMonaco = () => (cargando ??= import('./monaco').then(m => m.monaco));
+let loading: Promise<M> | null = null;
+const loadMonaco = () => (loading ??= import('./monaco').then(m => m.monaco));
 
-interface Root { ruta: string; nombre: string; salaId: string; detalle: string }
+interface Root { path: string; name: string; roomId: string; detail: string }
 type Type = 'cargando' | 'texto' | 'imagen' | 'binario' | 'grande' | 'error';
-interface Pestana { clave: string; raiz: string; rel: string; previa: boolean; tipo: Type; fecha: number | null; sucia: boolean; inDisc?: 'cambiado' | 'borrado'; datos?: string; error?: string; tamano?: number }
-interface Confirm { texto: React.ReactNode; botones: { texto: string; f: () => void; peligro?: boolean }[] }
-interface Edit { modo: 'renombrar' | 'archivo' | 'carpeta'; carpeta: string; rel?: string }
+interface Tab { key: string; root: string; rel: string; previous: boolean; type: Type; date: number | null; dirty: boolean; inDisc?: 'cambiado' | 'borrado'; data?: string; error?: string; resize?: number }
+interface Confirm { text: React.ReactNode; buttons: { text: string; f: () => void; danger?: boolean }[] }
+interface Edit { mode: 'renombrar' | 'archivo' | 'carpeta'; folder: string; rel?: string }
 interface Menu { x: number; y: number; rel: string; dir: boolean }
 
-const clave = (raiz: string, rel: string) => raiz + '\0' + rel;
+const key = (root: string, rel: string) => root + '\0' + rel;
 const TITLE_LETTER: Record<string, string> = { M: t('windows.modified'), A: t('windows.added'), D: t('windows.deleted'), U: t('windows.conflicted'), '?': t('windows.newUntracked'), R: t('windows.renamed'), T: t('windows.typeChanged') };
 const sizeLegible = (n?: number) => (n == null ? '' : n < 1024 ? `${n} B` : n < 1048576 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1048576).toFixed(1)} MB`);
 
 // lo que vive fuera de React: los modelos del editor (con su historial de deshacer), cómo se veía cada pestaña y la
 // versión guardada de cada una (deshacer hasta ella la deja limpia, como en los editores)
-const modelos = new Map<string, Monaco.editor.ITextModel>();
+const models = new Map<string, Monaco.editor.ITextModel>();
 const views = new Map<string, Monaco.editor.ICodeEditorViewState | null>();
 const saved = new Map<string, number>();
 const keyOf = new WeakMap<Monaco.editor.ITextModel, string>();   // la pestaña de cada modelo (cambia al renombrar)
-let portapapeles: { origins: { raiz: string; rel: string }[]; mover: boolean } | null = null;
+let clipboard: { origins: { root: string; rel: string }[]; move: boolean } | null = null;
 let nModel = 0;
 
 // carpetas desplegadas de cada raíz (se recuerdan entre sesiones)
 const EXPANDED = 'refugio.archivos.expandidos';
 const expandedOf = (() => {
-  let todo: Record<string, string[]> = {};
-  try { todo = JSON.parse(localStorage.getItem(EXPANDED) || '{}'); } catch {}
+  let all: Record<string, string[]> = {};
+  try { all = JSON.parse(localStorage.getItem(EXPANDED) || '{}'); } catch {}
   return {
-    leer: (raiz: string) => new Set(todo[raiz] ?? []),
-    guardar: (raiz: string, s: Set<string>) => { todo[raiz] = [...s].slice(0, 300); try { localStorage.setItem(EXPANDED, JSON.stringify(todo)); } catch {} },
+    read: (root: string) => new Set(all[root] ?? []),
+    save: (root: string, s: Set<string>) => { all[root] = [...s].slice(0, 300); try { localStorage.setItem(EXPANDED, JSON.stringify(all)); } catch {} },
   };
 })();
 
 // tras una recarga (aplicar cambios del juego, reiniciar), vuelve como estaba, con lo que no se había guardado
 const REMEMBERED = 'refugio.archivos';
-interface Memory { abierta: boolean; minimizada: boolean; maximizada: boolean; raiz: string | null; pestanas: { raiz: string; rel: string; previa: boolean; texto?: string }[]; activa: string | null }
+interface Memory { open: boolean; minimized: boolean; maximized: boolean; root: string | null; tabs: { root: string; rel: string; previous: boolean; text?: string }[]; active: string | null }
 let currentMemory: () => Memory | null = () => null;
 let recovered: Memory | null = null;
 addEventListener('pagehide', () => { try { const r = currentMemory(); if (r) sessionStorage.setItem(REMEMBERED, JSON.stringify(r)); } catch {} });
 try {
   const r = JSON.parse(sessionStorage.getItem(REMEMBERED) || 'null') as Memory | null; sessionStorage.removeItem(REMEMBERED);
-  if (r?.abierta) { recovered = r; filesWindow.set({ abierta: true, minimizada: !!r.minimizada, maximizada: !!r.maximizada, raiz: r.raiz, z: nextZ() }); }
+  if (r?.open) { recovered = r; filesWindow.set({ isOpen: true, minimized: !!r.minimized, maximized: !!r.maximized, root: r.root, z: nextZ() }); }
 } catch {}
 
 // ---------------------------------------------------------------- las carpetas del refugio
 function useRoots(): Root[] {
-  const salas: any[] = vivo.usar(e => e.estado?.salas ?? []);
-  const repos = vivo.usar(e => e.repos);
+  const rooms: any[] = live.use(e => e.state?.rooms ?? []);
+  const repos = live.use(e => e.repos);
   return useMemo(() => {
     const out: Root[] = [];
-    for (const s of salas) {
-      if (!s.ruta) continue;
+    for (const s of rooms) {
+      if (!s.path) continue;
       const r = repos[s.id];
-      out.push({ ruta: s.ruta, nombre: s.nombre, salaId: s.id, detalle: r?.rama ?? (r?.subrepos?.length ? t('windows.nRepos', { n: r.subrepos.length }) : '') });
-      for (const w of r?.worktrees ?? []) if (!w.principal) out.push({ ruta: w.ruta, nombre: `${s.nombre} ◇ ${w.rama}`, salaId: s.id, detalle: 'worktree' });
+      out.push({ path: s.path, name: s.name, roomId: s.id, detail: r?.branch ?? (r?.subrepos?.length ? t('windows.nRepos', { n: r.subrepos.length }) : '') });
+      for (const w of r?.worktrees ?? []) if (!w.main) out.push({ path: w.path, name: `${s.name} ◇ ${w.branch}`, roomId: s.id, detail: 'worktree' });
     }
     return out;
-  }, [salas, repos]);
+  }, [rooms, repos]);
 }
 /** La raíz de una carpeta cualquiera (un subrepo de un ala está dentro de la carpeta del ala). */
-export const rootOf = (roots: { ruta: string }[], ruta: string | null | undefined) =>
-  !ruta ? undefined : roots.find(r => r.ruta === ruta) ?? roots.filter(r => ruta.startsWith(r.ruta.replace(/\/$/, '') + '/')).sort((a, b) => b.ruta.length - a.ruta.length)[0];
+export const rootOf = (roots: { path: string }[], path: string | null | undefined) =>
+  !path ? undefined : roots.find(r => r.path === path) ?? roots.filter(r => path.startsWith(r.path.replace(/\/$/, '') + '/')).sort((a, b) => b.path.length - a.path.length)[0];
 
-export function Explorador() {
-  const v = filesWindow.usar(e => e);
+export function Explorer() {
+  const v = filesWindow.use(e => e);
   const roots = useRoots();
-  if (!v.abierta) return null;
-  const raiz = rootOf(roots, v.raiz)?.ruta ?? rootOf(roots, lastRoot())?.ruta ?? roots[0]?.ruta ?? null;
-  return <Window v={v} roots={roots} raiz={raiz} />;
+  if (!v.isOpen) return null;
+  const root = rootOf(roots, v.root)?.path ?? rootOf(roots, lastRoot())?.path ?? roots[0]?.path ?? null;
+  return <Window v={v} roots={roots} root={root} />;
 }
 
-function Window({ v, roots, raiz }: { v: FilesWindow; roots: Root[]; raiz: string | null }) {
-  const sala = roots.find(r => r.ruta === raiz);
+function Window({ v, roots, root }: { v: FilesWindow; roots: Root[]; root: string | null }) {
+  const room = roots.find(r => r.path === root);
   const [mon, setMon] = useState<M | null>(null);
-  const [listed, setListed] = useState<Record<string, Entrada[] | undefined>>({});
-  const [expandidos, setExpanded] = useState<Set<string>>(() => (raiz ? expandedOf.leer(raiz) : new Set()));
+  const [listed, setListed] = useState<Record<string, Entry[] | undefined>>({});
+  const [expanded, setExpanded] = useState<Set<string>>(() => (root ? expandedOf.read(root) : new Set()));
   const [git, setGit] = useState<Record<string, string>>({});
   const [sel, setSel] = useState<string | null>(null);
   const [edit, setEdit] = useState<Edit | null>(null);
-  const [pestanas, setTabs] = useState<Pestana[]>([]);
-  const [activa, setActive] = useState<string | null>(null);
-  const [rapido, setFast] = useState(false);
-  const [confirmar, setConfirm] = useState<Confirm | null>(null);
+  const [tabs, setTabs] = useState<Tab[]>([]);
+  const [active, setActive] = useState<string | null>(null);
+  const [fast, setFast] = useState(false);
+  const [confirm, setConfirm] = useState<Confirm | null>(null);
   const [menu, setMenu] = useState<Menu | null>(null);
-  const [aviso, setNotice] = useState<{ texto: string; error: boolean; id: number } | null>(null);
-  const [cursor, setCursor] = useState<{ linea: number; col: number; sel: number } | null>(null);
+  const [notice, setNotice] = useState<{ text: string; error: boolean; id: number } | null>(null);
+  const [cursor, setCursor] = useState<{ line: number; col: number; sel: number } | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
-  const caja = useRef<HTMLDivElement>(null), treeRef = useRef<HTMLDivElement>(null), anfitrion = useRef<HTMLDivElement>(null), zoneEditor = useRef<HTMLDivElement>(null);
+  const box = useRef<HTMLDivElement>(null), treeRef = useRef<HTMLDivElement>(null), host = useRef<HTMLDivElement>(null), zoneEditor = useRef<HTMLDivElement>(null);
   const editor = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
-  const closed = useRef<{ raiz: string; rel: string }[]>([]);
-  const recientes = useRef<string[]>([]);
-  const estado = useRef({ pestanas, activa, raiz, expandidos }); estado.current = { pestanas, activa, raiz, expandidos };
+  const closed = useRef<{ root: string; rel: string }[]>([]);
+  const recent = useRef<string[]>([]);
+  const state = useRef({ tabs, active, root, expanded }); state.current = { tabs, active, root, expanded };
 
-  const avisar = useCallback((texto: string, error = false) => { setNotice({ texto, error, id: Date.now() }); if (error) SFX.error(); }, []);
-  useEffect(() => { if (aviso) { const t = setTimeout(() => setNotice(a => (a?.id === aviso.id ? null : a)), aviso.error ? 9000 : 3500); return () => clearTimeout(t); } }, [aviso]);
-  const accion = useCallback(<T,>(nombre: string, datos: Record<string, unknown>) => cliente.accion<T>('archivos.' + nombre, datos, 60_000), []);
-  const activeTab = pestanas.find(p => p.clave === activa) ?? null;
-  const actualizar = (k: string, p: Partial<Pestana>) => setTabs(ps => ps.map(x => (x.clave === k ? { ...x, ...p } : x)));
+  const notify = useCallback((text: string, error = false) => { setNotice({ text, error, id: Date.now() }); if (error) SFX.error(); }, []);
+  useEffect(() => { if (notice) { const t = setTimeout(() => setNotice(a => (a?.id === notice.id ? null : a)), notice.error ? 9000 : 3500); return () => clearTimeout(t); } }, [notice]);
+  const action = useCallback(<T,>(name: string, data: Record<string, unknown>) => client.action<T>('archivos.' + name, data, 60_000), []);
+  const activeTab = tabs.find(p => p.key === active) ?? null;
+  const update = (k: string, p: Partial<Tab>) => setTabs(ps => ps.map(x => (x.key === k ? { ...x, ...p } : x)));
 
   // ---- Monaco y el editor (uno para todas las pestañas: cada una con su modelo)
-  useEffect(() => { let vivo = true; loadMonaco().then(m => { if (vivo) setMon(m); }, e => avisar(t('windows.couldNotLoadTheEditor', { error: e.message }), true)); return () => { vivo = false; }; }, []);
+  useEffect(() => { let live = true; loadMonaco().then(m => { if (live) setMon(m); }, e => notify(t('windows.couldNotLoadTheEditor', { error: e.message }), true)); return () => { live = false; }; }, []);
   useEffect(() => {
-    if (!mon || !anfitrion.current) return;
-    const ed = mon.editor.create(anfitrion.current, {
+    if (!mon || !host.current) return;
+    const ed = mon.editor.create(host.current, {
       theme: 'refugio', automaticLayout: true, fontFamily: 'Menlo, Monaco, "SF Mono", monospace', fontSize: 13, lineHeight: 20,
       minimap: { enabled: true, renderCharacters: false }, smoothScrolling: true, cursorSmoothCaretAnimation: 'on', fixedOverflowWidgets: true,
       renderWhitespace: 'selection', bracketPairColorization: { enabled: true }, guides: { bracketPairs: 'active' }, stickyScroll: { enabled: true }, model: null,
     });
     editor.current = ed;
     const subs = [
-      ed.onDidChangeCursorSelection(e => { const s = e.selection; setCursor({ linea: s.positionLineNumber, col: s.positionColumn, sel: ed.getModel()?.getValueInRange(s).length ?? 0 }); }),
+      ed.onDidChangeCursorSelection(e => { const s = e.selection; setCursor({ line: s.positionLineNumber, col: s.positionColumn, sel: ed.getModel()?.getValueInRange(s).length ?? 0 }); }),
     ];
     return () => { subs.forEach(s => s.dispose()); ed.dispose(); editor.current = null; };
   }, [mon]);
@@ -142,356 +142,356 @@ function Window({ v, roots, raiz }: { v: FilesWindow; roots: Root[]; raiz: strin
   const inEditor = useRef<string | null>(null);
   useEffect(() => {
     const ed = editor.current; if (!ed) return;
-    const p = activeTab, m = p?.tipo === 'texto' ? modelos.get(p.clave) : undefined;
-    if (inEditor.current !== (m ? p!.clave : null)) {
-      if (inEditor.current && modelos.has(inEditor.current)) views.set(inEditor.current, ed.saveViewState());
+    const p = activeTab, m = p?.type === 'texto' ? models.get(p.key) : undefined;
+    if (inEditor.current !== (m ? p!.key : null)) {
+      if (inEditor.current && models.has(inEditor.current)) views.set(inEditor.current, ed.saveViewState());
       ed.setModel(m ?? null);
-      if (m) { const vs = views.get(p!.clave); if (vs) ed.restoreViewState(vs); }
-      inEditor.current = m ? p!.clave : null;
+      if (m) { const vs = views.get(p!.key); if (vs) ed.restoreViewState(vs); }
+      inEditor.current = m ? p!.key : null;
       setCursor(null);
     }
     applyPending();
-  }, [mon, activa, activeTab?.tipo]);
+  }, [mon, active, activeTab?.type]);
   // ir a una línea y pasar al editor, en cuanto el archivo pedido esté en él
-  const pending = useRef<{ k: string; linea?: number; columna?: number; foco?: boolean } | null>(null);
+  const pending = useRef<{ k: string; line?: number; column?: number; focus?: boolean } | null>(null);
   const applyPending = () => {
     const ed = editor.current, x = pending.current;
-    if (!ed || !x || inEditor.current !== x.k || ed.getModel() !== modelos.get(x.k)) return;
+    if (!ed || !x || inEditor.current !== x.k || ed.getModel() !== models.get(x.k)) return;
     pending.current = null;
-    if (x.linea) { const pos = { lineNumber: x.linea, column: x.columna ?? 1 }; ed.setPosition(pos); ed.revealPositionInCenter(pos); }
-    if (x.foco || x.linea) ed.focus();
+    if (x.line) { const pos = { lineNumber: x.line, column: x.column ?? 1 }; ed.setPosition(pos); ed.revealPositionInCenter(pos); }
+    if (x.focus || x.line) ed.focus();
   };
   // al cerrar la ventana, se va todo
-  useEffect(() => () => { for (const m of modelos.values()) m.dispose(); modelos.clear(); views.clear(); saved.clear(); }, []);
+  useEffect(() => () => { for (const m of models.values()) m.dispose(); models.clear(); views.clear(); saved.clear(); }, []);
 
   // ---- abrir archivos
-  const crearModelo = (m: M, k: string, rel: string, texto: string) => {
+  const createModel = (m: M, k: string, rel: string, text: string) => {
     const uri = m.Uri.from({ scheme: 'archivo', path: `/${++nModel}/${rel}` });
-    const modelo = m.editor.createModel(texto, languageOf(nameOf(rel), m.languages.getLanguages()), uri);
-    modelos.set(k, modelo); saved.set(k, modelo.getAlternativeVersionId()); keyOf.set(modelo, k);
-    modelo.onDidChangeContent(() => {
-      const k = keyOf.get(modelo)!, sucia = modelo.getAlternativeVersionId() !== saved.get(k);
+    const model = m.editor.createModel(text, languageOf(nameOf(rel), m.languages.getLanguages()), uri);
+    models.set(k, model); saved.set(k, model.getAlternativeVersionId()); keyOf.set(model, k);
+    model.onDidChangeContent(() => {
+      const k = keyOf.get(model)!, dirty = model.getAlternativeVersionId() !== saved.get(k);
       // editar una pestaña de vista previa la fija, como en los editores
-      setTabs(ps => ps.map(x => (x.clave === k && (x.sucia !== sucia || (sucia && x.previa)) ? { ...x, sucia, previa: sucia ? false : x.previa } : x)));
+      setTabs(ps => ps.map(x => (x.key === k && (x.dirty !== dirty || (dirty && x.previous)) ? { ...x, dirty, previous: dirty ? false : x.previous } : x)));
     });
-    return modelo;
+    return model;
   };
-  const cargar = async (r: string, rel: string, k: string, recoveredText?: string) => {
+  const load = async (r: string, rel: string, k: string, recoveredText?: string) => {
     try {
-      const x = await accion<any>('leer', { raiz: r, rel });
+      const x = await action<any>('leer', { root: r, rel });
       const m = await loadMonaco();
-      if (x.tipo === 'texto') {
-        const modelo = crearModelo(m, k, rel, x.texto);
-        if (recoveredText !== undefined && recoveredText !== x.texto) modelo.pushEditOperations([], [{ range: modelo.getFullModelRange(), text: recoveredText }], () => null);
+      if (x.type === 'texto') {
+        const model = createModel(m, k, rel, x.text);
+        if (recoveredText !== undefined && recoveredText !== x.text) model.pushEditOperations([], [{ range: model.getFullModelRange(), text: recoveredText }], () => null);
       }
-      actualizar(k, { tipo: x.tipo, fecha: x.fecha, tamano: x.tamano, datos: x.datos, sucia: !!modelos.get(k) && modelos.get(k)!.getAlternativeVersionId() !== saved.get(k) });
-    } catch (e: any) { actualizar(k, { tipo: 'error', error: e.message, fecha: null }); }
+      update(k, { type: x.type, date: x.date, resize: x.resize, data: x.data, dirty: !!models.get(k) && models.get(k)!.getAlternativeVersionId() !== saved.get(k) });
+    } catch (e: any) { update(k, { type: 'error', error: e.message, date: null }); }
   };
   /** Abre (o trae) un archivo. `previa`: de un clic, la pestaña la ocupa el siguiente que se mire (en cursiva). */
-  const abrir = useCallback(async (rel: string, o: { previa?: boolean; foco?: boolean; linea?: number; columna?: number; inRoot?: string } = {}) => {
-    const r = o.inRoot ?? estado.current.raiz; if (!r) return;
-    const k = clave(r, rel);
-    let ps = estado.current.pestanas;
-    const ya = ps.find(p => p.clave === k);
-    if (ya) { if (!o.previa && ya.previa) ps = ps.map(p => (p.clave === k ? { ...p, previa: false } : p)); }
+  const open = useCallback(async (rel: string, o: { previous?: boolean; focus?: boolean; line?: number; column?: number; inRoot?: string } = {}) => {
+    const r = o.inRoot ?? state.current.root; if (!r) return;
+    const k = key(r, rel);
+    let ps = state.current.tabs;
+    const already = ps.find(p => p.key === k);
+    if (already) { if (!o.previous && already.previous) ps = ps.map(p => (p.key === k ? { ...p, previous: false } : p)); }
     else {
-      const nueva: Pestana = { clave: k, raiz: r, rel, previa: !!o.previa, tipo: 'cargando', fecha: null, sucia: false };
+      const tab: Tab = { key: k, root: r, rel, previous: !!o.previous, type: 'cargando', date: null, dirty: false };
       // la vista previa que hubiera (sin tocar) deja su sitio
-      const old = o.previa ? ps.find(p => p.previa && !p.sucia) : undefined;
-      if (old) { modelos.get(old.clave)?.dispose(); modelos.delete(old.clave); views.delete(old.clave); ps = ps.map(p => (p === old ? nueva : p)); }
-      else { const i = ps.findIndex(p => p.clave === estado.current.activa); ps = [...ps.slice(0, i + 1), nueva, ...ps.slice(i + 1)]; }
+      const old = o.previous ? ps.find(p => p.previous && !p.dirty) : undefined;
+      if (old) { models.get(old.key)?.dispose(); models.delete(old.key); views.delete(old.key); ps = ps.map(p => (p === old ? tab : p)); }
+      else { const i = ps.findIndex(p => p.key === state.current.active); ps = [...ps.slice(0, i + 1), tab, ...ps.slice(i + 1)]; }
     }
-    pending.current = o.foco || o.linea ? { k, linea: o.linea, columna: o.columna, foco: o.foco } : null;
+    pending.current = o.focus || o.line ? { k, line: o.line, column: o.column, focus: o.focus } : null;
     // mientras se lee, el editor se esconde: las teclas se quedan en la ventana (no se escapan al refugio)
-    if (o.foco && !ya) zoneEditor.current?.focus({ preventScroll: true });
+    if (o.focus && !already) zoneEditor.current?.focus({ preventScroll: true });
     setTabs(ps); setActive(k);
-    recientes.current = [k, ...recientes.current.filter(x => x !== k)].slice(0, 50);
-    if (!ya) await cargar(r, rel, k);
+    recent.current = [k, ...recent.current.filter(x => x !== k)].slice(0, 50);
+    if (!already) await load(r, rel, k);
     requestAnimationFrame(applyPending);   // si ya estaba en el editor, el efecto no vuelve a pasar
-  }, [accion]);
+  }, [action]);
 
   // vuelve lo que había antes de recargar la página
   useEffect(() => {
     const r = recovered; recovered = null; if (!r) return;
-    for (const p of r.pestanas) {
-      const k = clave(p.raiz, p.rel);
-      setTabs(ps => (ps.some(x => x.clave === k) ? ps : [...ps, { clave: k, raiz: p.raiz, rel: p.rel, previa: p.previa, tipo: 'cargando', fecha: null, sucia: false }]));
-      cargar(p.raiz, p.rel, k, p.texto);
+    for (const p of r.tabs) {
+      const k = key(p.root, p.rel);
+      setTabs(ps => (ps.some(x => x.key === k) ? ps : [...ps, { key: k, root: p.root, rel: p.rel, previous: p.previous, type: 'cargando', date: null, dirty: false }]));
+      load(p.root, p.rel, k, p.text);
     }
-    if (r.activa) setActive(r.activa);
+    if (r.active) setActive(r.active);
   }, []);
   currentMemory = () => {
     const w = filesWindow.get();
-    return { abierta: w.abierta, minimizada: w.minimizada, maximizada: w.maximizada, raiz: w.raiz, activa: estado.current.activa,
-      pestanas: estado.current.pestanas.filter(p => p.tipo !== 'error').map(p => ({ raiz: p.raiz, rel: p.rel, previa: p.previa, ...(p.sucia && modelos.get(p.clave) ? { texto: modelos.get(p.clave)!.getValue() } : {}) })) };
+    return { open: w.isOpen, minimized: w.minimized, maximized: w.maximized, root: w.root, active: state.current.active,
+      tabs: state.current.tabs.filter(p => p.type !== 'error').map(p => ({ root: p.root, rel: p.rel, previous: p.previous, ...(p.dirty && models.get(p.key) ? { text: models.get(p.key)!.getValue() } : {}) })) };
   };
   useEffect(() => () => { currentMemory = () => null; }, []);
 
   // lo que piden desde fuera (abrir un archivo concreto)
   // (relativo a la carpeta pedida, que puede ser un repo dentro de la de un ala)
   useEffect(() => {
-    if (!v.abrir || !raiz) return;
-    const o = v.abrir, insideOf = v.raiz && v.raiz !== raiz && v.raiz.startsWith(raiz) ? v.raiz.slice(raiz.length).replace(/^\/+|\/+$/g, '') : '';
-    const rel = unir(insideOf, o.rel);
-    filesWindow.set({ abrir: null }); revelar(rel); abrir(rel, { linea: o.linea, foco: true });
-  }, [v.abrir, raiz]);
+    if (!v.open || !root) return;
+    const o = v.open, insideOf = v.root && v.root !== root && v.root.startsWith(root) ? v.root.slice(root.length).replace(/^\/+|\/+$/g, '') : '';
+    const rel = union(insideOf, o.rel);
+    filesWindow.set({ open: null }); reveal(rel); open(rel, { line: o.line, focus: true });
+  }, [v.open, root]);
 
   // ---- el árbol: listados de las carpetas desplegadas, cambios de git y fechas de lo abierto
-  const pedido = useRef(0);
-  const vistazo = useCallback(async (o: { git?: boolean; carpetas?: string[] } = {}) => {
-    const { raiz: r, expandidos: ex, pestanas: ps } = estado.current; if (!r) return;
-    const n = ++pedido.current;
+  const requested = useRef(0);
+  const glance = useCallback(async (o: { git?: boolean; folders?: string[] } = {}) => {
+    const { root: r, expanded: ex, tabs: ps } = state.current; if (!r) return;
+    const n = ++requested.current;
     try {
-      const x = await accion<{ listed: Record<string, Entrada[] | null>; git?: Record<string, string>; fechas: Record<string, number | null> }>('vistazo', {
-        raiz: r, carpetas: o.carpetas ?? ['', ...ex], git: o.git ?? true, abiertos: o.carpetas ? [] : ps.filter(p => p.raiz === r).map(p => p.rel),
+      const x = await action<{ listed: Record<string, Entry[] | null>; git?: Record<string, string>; dates: Record<string, number | null> }>('vistazo', {
+        root: r, folders: o.folders ?? ['', ...ex], git: o.git ?? true, open: o.folders ? [] : ps.filter(p => p.root === r).map(p => p.rel),
       });
-      if (estado.current.raiz !== r) return;
-      setListed(l => { const out = o.carpetas ? { ...l } : {}; for (const [c, es] of Object.entries(x.listed)) if (es) out[c] = es; return out; });
-      const perdidas = Object.entries(x.listed).filter(([c, es]) => !es && c).map(([c]) => c);
-      if (perdidas.length) setExpanded(s => { const t = new Set([...s].filter(c => !perdidas.some(p => bajo(c, p)))); expandedOf.guardar(r, t); return t; });
-      if (x.git && n === pedido.current) setGit(x.git);
-      reviewDates(r, x.fechas);
-    } catch (e: any) { if (!o.carpetas) avisar(e.message, true); }
-  }, [accion]);
+      if (state.current.root !== r) return;
+      setListed(l => { const out = o.folders ? { ...l } : {}; for (const [c, es] of Object.entries(x.listed)) if (es) out[c] = es; return out; });
+      const lost = Object.entries(x.listed).filter(([c, es]) => !es && c).map(([c]) => c);
+      if (lost.length) setExpanded(s => { const t = new Set([...s].filter(c => !lost.some(p => under(c, p)))); expandedOf.save(r, t); return t; });
+      if (x.git && n === requested.current) setGit(x.git);
+      reviewDates(r, x.dates);
+    } catch (e: any) { if (!o.folders) notify(e.message, true); }
+  }, [action]);
   // las pestañas de otras raíces también se vigilan
   const watchOther = useCallback(async () => {
     const rootBy = new Map<string, string[]>();
-    for (const p of estado.current.pestanas) if (p.raiz !== estado.current.raiz && p.fecha != null) rootBy.set(p.raiz, [...(rootBy.get(p.raiz) ?? []), p.rel]);
-    for (const [r, rels] of rootBy) accion<any>('vistazo', { raiz: r, carpetas: [], git: false, abiertos: rels }).then(x => reviewDates(r, x.fechas), () => {});
-  }, [accion]);
+    for (const p of state.current.tabs) if (p.root !== state.current.root && p.date != null) rootBy.set(p.root, [...(rootBy.get(p.root) ?? []), p.rel]);
+    for (const [r, rels] of rootBy) action<any>('vistazo', { root: r, folders: [], git: false, open: rels }).then(x => reviewDates(r, x.dates), () => {});
+  }, [action]);
   // un archivo abierto que cambia en el disco: si no lo has tocado, se recarga (y se puede deshacer); si sí, se avisa
-  const reviewDates = (r: string, fechas: Record<string, number | null>) => {
-    for (const p of estado.current.pestanas) {
-      if (p.raiz !== r || !(p.rel in fechas) || p.tipo === 'cargando') continue;
-      const f = fechas[p.rel];
-      if (f === null) { if (p.inDisc !== 'borrado' && p.fecha !== null) actualizar(p.clave, { inDisc: 'borrado' }); continue; }
-      if (p.fecha !== null && Math.abs(f - p.fecha) <= 1) { if (p.inDisc) actualizar(p.clave, { inDisc: undefined }); continue; }
-      if (modelos.has(p.clave) && p.sucia) { if (p.inDisc !== 'cambiado') actualizar(p.clave, { inDisc: 'cambiado' }); continue; }
-      recargar(p);
+  const reviewDates = (r: string, dates: Record<string, number | null>) => {
+    for (const p of state.current.tabs) {
+      if (p.root !== r || !(p.rel in dates) || p.type === 'cargando') continue;
+      const f = dates[p.rel];
+      if (f === null) { if (p.inDisc !== 'borrado' && p.date !== null) update(p.key, { inDisc: 'borrado' }); continue; }
+      if (p.date !== null && Math.abs(f - p.date) <= 1) { if (p.inDisc) update(p.key, { inDisc: undefined }); continue; }
+      if (models.has(p.key) && p.dirty) { if (p.inDisc !== 'cambiado') update(p.key, { inDisc: 'cambiado' }); continue; }
+      reload(p);
     }
   };
   /** Lo del disco, en la pestaña (sustituye el texto con una edición: se puede deshacer). */
-  const recargar = (p: Pestana) => accion<any>('leer', { raiz: p.raiz, rel: p.rel }).then(x => {
-    const m = modelos.get(p.clave);
-    if (x.tipo === 'texto' && m && !m.isDisposed()) {
-      if (m.getValue() !== x.texto) m.pushEditOperations([], [{ range: m.getFullModelRange(), text: x.texto }], () => null);
-      saved.set(p.clave, m.getAlternativeVersionId());
-      actualizar(p.clave, { fecha: x.fecha, tamano: x.tamano, sucia: false, inDisc: undefined });
-    } else actualizar(p.clave, { tipo: x.tipo, fecha: x.fecha, tamano: x.tamano, datos: x.datos, inDisc: undefined });
+  const reload = (p: Tab) => action<any>('leer', { root: p.root, rel: p.rel }).then(x => {
+    const m = models.get(p.key);
+    if (x.type === 'texto' && m && !m.isDisposed()) {
+      if (m.getValue() !== x.text) m.pushEditOperations([], [{ range: m.getFullModelRange(), text: x.text }], () => null);
+      saved.set(p.key, m.getAlternativeVersionId());
+      update(p.key, { date: x.date, resize: x.resize, dirty: false, inDisc: undefined });
+    } else update(p.key, { type: x.type, date: x.date, resize: x.resize, data: x.data, inDisc: undefined });
   }, () => {});
   useEffect(() => {
-    if (!raiz) return;
+    if (!root) return;
     setListed({}); setGit({}); setSel(null); setEdit(null);
-    const ex = expandedOf.leer(raiz); setExpanded(ex); estado.current.expandidos = ex; estado.current.raiz = raiz;
-    vistazo(); askList(raiz).catch(() => {});
-  }, [raiz]);
+    const ex = expandedOf.read(root); setExpanded(ex); state.current.expanded = ex; state.current.root = root;
+    glance(); askList(root).catch(() => {});
+  }, [root]);
   // mientras está a la vista, se relee cada 3 s (y al volver a la ventana)
   useEffect(() => {
-    if (v.minimizada) return;
-    const t = setInterval(() => { if (firstMapNow()) { vistazo(); watchOther(); } }, 3000);
-    const f = () => { vistazo(); watchOther(); }; addEventListener('focus', f);
+    if (v.minimized) return;
+    const t = setInterval(() => { if (firstMapNow()) { glance(); watchOther(); } }, 3000);
+    const f = () => { glance(); watchOther(); }; addEventListener('focus', f);
     return () => { clearInterval(t); removeEventListener('focus', f); };
-  }, [v.minimizada, vistazo, watchOther]);
+  }, [v.minimized, glance, watchOther]);
 
-  const filas = useMemo(() => flatten(listed, expandidos), [listed, expandidos]);
+  const rows = useMemo(() => flatten(listed, expanded), [listed, expanded]);
   const changed = useMemo(() => changedFolders(git), [git]);
-  const ponerExpandidos = (f: (s: Set<string>) => Set<string>) => {
-    const t = f(new Set(estado.current.expandidos)); estado.current.expandidos = t; setExpanded(t);
-    if (raiz) expandedOf.guardar(raiz, t);
-    const faltan = [...t].filter(c => !listed[c]); if (faltan.length) vistazo({ carpetas: faltan, git: false });
+  const updateExpanded = (f: (s: Set<string>) => Set<string>) => {
+    const t = f(new Set(state.current.expanded)); state.current.expanded = t; setExpanded(t);
+    if (root) expandedOf.save(root, t);
+    const missing = [...t].filter(c => !listed[c]); if (missing.length) glance({ folders: missing, git: false });
   };
-  const alternar = (rel: string, abrirla?: boolean) => ponerExpandidos(s => { if (abrirla ?? !s.has(rel)) s.add(rel); else s.delete(rel); return s; });
+  const toggle = (rel: string, openIt?: boolean) => updateExpanded(s => { if (openIt ?? !s.has(rel)) s.add(rel); else s.delete(rel); return s; });
   /** Despliega hasta el archivo y lo elige (como «revelar» en los editores). */
-  const revelar = (rel: string) => {
+  const reveal = (rel: string) => {
     const parents: string[] = []; for (let p = parentOf(rel); p; p = parentOf(p)) parents.push(p);
-    if (parents.some(p => !estado.current.expandidos.has(p))) ponerExpandidos(s => { parents.forEach(p => s.add(p)); return s; });
+    if (parents.some(p => !state.current.expanded.has(p))) updateExpanded(s => { parents.forEach(p => s.add(p)); return s; });
     setSel(rel);
   };
   // el árbol sigue a la pestaña activa (si es de esta raíz)
-  useEffect(() => { if (activeTab && activeTab.raiz === raiz) revelar(activeTab.rel); }, [activa]);
+  useEffect(() => { if (activeTab && activeTab.root === root) reveal(activeTab.rel); }, [active]);
   // la fila elegida, a la vista
-  useEffect(() => { if (sel != null) treeRef.current?.querySelector(`[data-rel="${CSS.escape(sel)}"]`)?.scrollIntoView({ block: 'nearest' }); }, [sel, filas]);
+  useEffect(() => { if (sel != null) treeRef.current?.querySelector(`[data-rel="${CSS.escape(sel)}"]`)?.scrollIntoView({ block: 'nearest' }); }, [sel, rows]);
 
   // ---- guardar y cerrar
-  const guardar = async (k: string, forzar = false): Promise<boolean> => {
-    const p = estado.current.pestanas.find(x => x.clave === k), m = modelos.get(k);
+  const save = async (k: string, force = false): Promise<boolean> => {
+    const p = state.current.tabs.find(x => x.key === k), m = models.get(k);
     if (!p || !m) return true;
     const version = m.getAlternativeVersionId();
     try {
-      const r = await accion<{ conflicto: boolean; fecha: number }>('guardar', { raiz: p.raiz, rel: p.rel, texto: m.getValue(), fecha: p.fecha ?? undefined, forzar });
-      if (r.conflicto) {
+      const r = await action<{ conflict: boolean; date: number }>('guardar', { root: p.root, rel: p.rel, text: m.getValue(), date: p.date ?? undefined, force });
+      if (r.conflict) {
         return await new Promise<boolean>(ok => setConfirm({
-          texto: <><b>{nameOf(p.rel)}</b> {t('windows.hasChangedOnDiskSince')}</>,
-          botones: [
-            { texto: t('windows.overwriteWithMine'), peligro: true, f: () => guardar(k, true).then(ok) },
-            { texto: t('windows.discardMineAndReload'), f: () => { recargar(p); ok(false); } },
-            { texto: t('windows.cancel'), f: () => ok(false) },
+          text: <><b>{nameOf(p.rel)}</b> {t('windows.hasChangedOnDiskSince')}</>,
+          buttons: [
+            { text: t('windows.overwriteWithMine'), danger: true, f: () => save(k, true).then(ok) },
+            { text: t('windows.discardMineAndReload'), f: () => { reload(p); ok(false); } },
+            { text: t('windows.cancel'), f: () => ok(false) },
           ],
         }));
       }
       saved.set(k, version);
-      actualizar(k, { fecha: r.fecha, sucia: m.getAlternativeVersionId() !== version, inDisc: undefined, previa: false, tipo: 'texto' });
+      update(k, { date: r.date, dirty: m.getAlternativeVersionId() !== version, inDisc: undefined, previous: false, type: 'texto' });
       SFX.tick();
       return true;
-    } catch (e: any) { avisar(e.message, true); return false; }
+    } catch (e: any) { notify(e.message, true); return false; }
   };
-  const saveAll = async () => { for (const p of estado.current.pestanas.filter(x => x.sucia)) if (!(await guardar(p.clave))) return false; return true; };
+  const saveAll = async () => { for (const p of state.current.tabs.filter(x => x.dirty)) if (!(await save(p.key))) return false; return true; };
   const removeTab = (k: string) => {
-    const ps = estado.current.pestanas, i = ps.findIndex(p => p.clave === k); if (i < 0) return;
+    const ps = state.current.tabs, i = ps.findIndex(p => p.key === k); if (i < 0) return;
     const p = ps[i];
-    closed.current = [{ raiz: p.raiz, rel: p.rel }, ...closed.current.filter(x => clave(x.raiz, x.rel) !== k)].slice(0, 20);
+    closed.current = [{ root: p.root, rel: p.rel }, ...closed.current.filter(x => key(x.root, x.rel) !== k)].slice(0, 20);
     if (inEditor.current === k) { editor.current?.setModel(null); inEditor.current = null; }
-    modelos.get(k)?.dispose(); modelos.delete(k); views.delete(k); saved.delete(k);
-    recientes.current = recientes.current.filter(x => x !== k);
-    const resto = ps.filter(x => x.clave !== k);
-    setTabs(resto);
-    if (estado.current.activa === k) {
-      const otra = recientes.current.find(x => resto.some(r => r.clave === x)) ?? resto[Math.min(i, resto.length - 1)]?.clave ?? null;
-      setActive(otra);
+    models.get(k)?.dispose(); models.delete(k); views.delete(k); saved.delete(k);
+    recent.current = recent.current.filter(x => x !== k);
+    const rest = ps.filter(x => x.key !== k);
+    setTabs(rest);
+    if (state.current.active === k) {
+      const other = recent.current.find(x => rest.some(r => r.key === x)) ?? rest[Math.min(i, rest.length - 1)]?.key ?? null;
+      setActive(other);
       // el foco, a la que queda (o al árbol si no queda ninguna), no al refugio
-      if (caja.current?.contains(document.activeElement) || document.activeElement === document.body) { if (otra) { pending.current = { k: otra, foco: true }; zoneEditor.current?.focus({ preventScroll: true }); } else treeRef.current?.focus(); }
+      if (box.current?.contains(document.activeElement) || document.activeElement === document.body) { if (other) { pending.current = { k: other, focus: true }; zoneEditor.current?.focus({ preventScroll: true }); } else treeRef.current?.focus(); }
     }
   };
   const closeTab = (k: string | null) => {
     if (!k) { closeFiles(); return; }
-    const p = estado.current.pestanas.find(x => x.clave === k); if (!p) return;
-    if (!p.sucia) { removeTab(k); return; }
+    const p = state.current.tabs.find(x => x.key === k); if (!p) return;
+    if (!p.dirty) { removeTab(k); return; }
     setActive(k);
-    setConfirm({ texto: <>{t('windows.saveTheChangesTo')} <b>{nameOf(p.rel)}</b>? {t('windows.otherwiseTheyAreLost')}</>, botones: [
-      { texto: t('windows.save'), f: async () => { if (await guardar(k)) removeTab(k); } },
-      { texto: t('windows.donTSave'), peligro: true, f: () => removeTab(k) },
-      { texto: t('windows.cancel'), f: () => {} },
+    setConfirm({ text: <>{t('windows.saveTheChangesTo')} <b>{nameOf(p.rel)}</b>? {t('windows.otherwiseTheyAreLost')}</>, buttons: [
+      { text: t('windows.save'), f: async () => { if (await save(k)) removeTab(k); } },
+      { text: t('windows.donTSave'), danger: true, f: () => removeTab(k) },
+      { text: t('windows.cancel'), f: () => {} },
     ] });
   };
   // cerrar la ventana con algo sin guardar pregunta
-  const nClosing = askClosing.usar(e => e.n);
+  const nClosing = askClosing.use(e => e.n);
   const firstClosing = useRef(nClosing);
   useEffect(() => {
     if (nClosing === firstClosing.current) return;
-    const sucias = estado.current.pestanas.filter(p => p.sucia);
-    if (!sucias.length) { closeFilesAlready(); return; }
+    const dirty = state.current.tabs.filter(p => p.dirty);
+    if (!dirty.length) { closeFilesAlready(); return; }
     onFrontFiles();
-    setConfirm({ texto: <>{sucias.length === 1 ? <><b>{nameOf(sucias[0].rel)}</b> {t('windows.hasUnsavedChanges')}</> : <>{t('windows.thereAre')} <b>{t('windows.nFiles', { n: sucias.length })}</b> {t('windows.withUnsavedChanges')}</>} {t('windows.saveThemBeforeClosing')}</>, botones: [
-      { texto: t('windows.saveAndClose'), f: async () => { if (await saveAll()) closeFilesAlready(); } },
-      { texto: t('windows.closeWithoutSaving'), peligro: true, f: closeFilesAlready },
-      { texto: t('windows.cancel'), f: () => {} },
+    setConfirm({ text: <>{dirty.length === 1 ? <><b>{nameOf(dirty[0].rel)}</b> {t('windows.hasUnsavedChanges')}</> : <>{t('windows.thereAre')} <b>{t('windows.nFiles', { n: dirty.length })}</b> {t('windows.withUnsavedChanges')}</>} {t('windows.saveThemBeforeClosing')}</>, buttons: [
+      { text: t('windows.saveAndClose'), f: async () => { if (await saveAll()) closeFilesAlready(); } },
+      { text: t('windows.closeWithoutSaving'), danger: true, f: closeFilesAlready },
+      { text: t('windows.cancel'), f: () => {} },
     ] });
   }, [nClosing]);
 
   // ---- operaciones con archivos
-  const tras = async (f: () => Promise<unknown>, ok?: string) => {
-    try { await f(); if (ok) { avisar(ok); SFX.shortSuccess(); } } catch (e: any) { avisar(e.message, true); }
-    await vistazo();
+  const after = async (f: () => Promise<unknown>, ok?: string) => {
+    try { await f(); if (ok) { notify(ok); SFX.shortSuccess(); } } catch (e: any) { notify(e.message, true); }
+    await glance();
   };
-  const selFolder = () => { if (sel == null) return ''; const f = filas.find(x => x.rel === sel); return f?.dir ? sel : parentOf(sel); };
-  const nuevo = (dir: boolean, carpeta = selFolder()) => { if (carpeta) alternar(carpeta, true); setEdit({ modo: dir ? 'carpeta' : 'archivo', carpeta }); setMenu(null); };
-  const renameSel = (rel = sel) => { if (rel) { setSel(rel); setEdit({ modo: 'renombrar', carpeta: parentOf(rel), rel }); setMenu(null); } };
-  const confirmEdit = async (nombre: string) => {
+  const selFolder = () => { if (sel == null) return ''; const f = rows.find(x => x.rel === sel); return f?.dir ? sel : parentOf(sel); };
+  const newer = (dir: boolean, folder = selFolder()) => { if (folder) toggle(folder, true); setEdit({ mode: dir ? 'carpeta' : 'archivo', folder }); setMenu(null); };
+  const renameSel = (rel = sel) => { if (rel) { setSel(rel); setEdit({ mode: 'renombrar', folder: parentOf(rel), rel }); setMenu(null); } };
+  const confirmEdit = async (name: string) => {
     const ed = edit; setEdit(null); treeRef.current?.focus();
-    if (!ed || !raiz) return;
-    nombre = nombre.trim(); if (!nombre || (ed.modo === 'renombrar' && nombre === nameOf(ed.rel!))) return;
+    if (!ed || !root) return;
+    name = name.trim(); if (!name || (ed.mode === 'renombrar' && name === nameOf(ed.rel!))) return;
     try {
-      if (ed.modo === 'renombrar') {
-        const r = await accion<{ rel: string }>('renombrar', { raiz, rel: ed.rel, nombre });
+      if (ed.mode === 'renombrar') {
+        const r = await action<{ rel: string }>('renombrar', { root, rel: ed.rel, name });
         moveTabs(ed.rel!, r.rel); setSel(r.rel);
       } else {
-        const r = await accion<{ rel: string }>('crear', { raiz, carpeta: ed.carpeta, nombre, dir: ed.modo === 'carpeta' });
+        const r = await action<{ rel: string }>('crear', { root, folder: ed.folder, name, dir: ed.mode === 'carpeta' });
         setSel(r.rel);
-        if (ed.modo === 'archivo') { await vistazo(); revelar(r.rel); abrir(r.rel, { foco: true }); return; }
+        if (ed.mode === 'archivo') { await glance(); reveal(r.rel); open(r.rel, { focus: true }); return; }
       }
-    } catch (e: any) { avisar(e.message, true); }
-    await vistazo();
+    } catch (e: any) { notify(e.message, true); }
+    await glance();
   };
   // renombrar o mover algo abierto: sus pestañas lo siguen (con sus cambios y su historial)
-  const moveTabs = (de: string, a: string, r = raiz) => {
+  const moveTabs = (from: string, a: string, r = root) => {
     const ren = new Map<string, { k: string; rel: string }>();
-    for (const p of estado.current.pestanas) if (p.raiz === r && bajo(p.rel, de)) { const rel = a + p.rel.slice(de.length); ren.set(p.clave, { k: clave(p.raiz, rel), rel }); }
+    for (const p of state.current.tabs) if (p.root === r && under(p.rel, from)) { const rel = a + p.rel.slice(from.length); ren.set(p.key, { k: key(p.root, rel), rel }); }
     if (!ren.size) return;
     for (const [k1, { k: k2, rel }] of ren) {
-      for (const mapa of [modelos, views, saved] as Map<string, any>[]) if (mapa.has(k1)) { mapa.set(k2, mapa.get(k1)); mapa.delete(k1); }
-      const m = modelos.get(k2); if (m) { keyOf.set(m, k2); if (mon) mon.editor.setModelLanguage(m, languageOf(nameOf(rel), mon.languages.getLanguages())); }
+      for (const map of [models, views, saved] as Map<string, any>[]) if (map.has(k1)) { map.set(k2, map.get(k1)); map.delete(k1); }
+      const m = models.get(k2); if (m) { keyOf.set(m, k2); if (mon) mon.editor.setModelLanguage(m, languageOf(nameOf(rel), mon.languages.getLanguages())); }
       if (inEditor.current === k1) inEditor.current = k2;
-      recientes.current = recientes.current.map(x => (x === k1 ? k2 : x));
+      recent.current = recent.current.map(x => (x === k1 ? k2 : x));
     }
-    setTabs(ps => ps.map(p => { const n = ren.get(p.clave); return n ? { ...p, clave: n.k, rel: n.rel } : p; }));
+    setTabs(ps => ps.map(p => { const n = ren.get(p.key); return n ? { ...p, key: n.k, rel: n.rel } : p; }));
     setActive(x => (x && ren.get(x)?.k) || x);
   };
   const aTrash = (rel = sel) => {
-    if (!rel || !raiz) return;
-    const f = filas.find(x => x.rel === rel);
+    if (!rel || !root) return;
+    const f = rows.find(x => x.rel === rel);
     setMenu(null);
-    setConfirm({ texto: <>{f?.dir ? t('windows.moveTheFolder') : t('windows.move')} <b>{rel}</b> {t('windows.toTheTrashYouCan')}</>, botones: [
-      { texto: t('windows.moveToTrash'), peligro: true, f: () => { const i = filas.findIndex(x => x.rel === rel); tras(() => accion('papelera', { raiz, rels: [rel] })).then(() => { setSel(filas[i + 1]?.rel ?? filas[i - 1]?.rel ?? null); treeRef.current?.focus(); }); } },
-      { texto: t('windows.cancel'), f: () => treeRef.current?.focus() },
+    setConfirm({ text: <>{f?.dir ? t('windows.moveTheFolder') : t('windows.move')} <b>{rel}</b> {t('windows.toTheTrashYouCan')}</>, buttons: [
+      { text: t('windows.moveToTrash'), danger: true, f: () => { const i = rows.findIndex(x => x.rel === rel); after(() => action('papelera', { root, rels: [rel] })).then(() => { setSel(rows[i + 1]?.rel ?? rows[i - 1]?.rel ?? null); treeRef.current?.focus(); }); } },
+      { text: t('windows.cancel'), f: () => treeRef.current?.focus() },
     ] });
   };
-  const copiar = (mover: boolean, rel = sel) => { if (rel == null || !raiz || !rel) return; portapapeles = { origins: [{ raiz, rel }], mover }; avisar(mover ? t('windows.cutNombreAtajoVTo', { nombre: nameOf(rel), shortcut: CMD }) : t('windows.copiedNombreAtajoVTo', { nombre: nameOf(rel), shortcut: CMD })); setMenu(null); };
-  const pegar = (carpeta = selFolder()) => {
-    const pp = portapapeles; if (!pp || !raiz) { SFX.noAllowed(); return; }
+  const copy = (move: boolean, rel = sel) => { if (rel == null || !root || !rel) return; clipboard = { origins: [{ root, rel }], move }; notify(move ? t('windows.cutNombreAtajoVTo', { nombre: nameOf(rel), shortcut: CMD }) : t('windows.copiedNombreAtajoVTo', { nombre: nameOf(rel), shortcut: CMD })); setMenu(null); };
+  const paste = (folder = selFolder()) => {
+    const pp = clipboard; if (!pp || !root) { SFX.notAllowed(); return; }
     setMenu(null);
-    tras(async () => {
-      const r = await accion<{ rels: string[] }>('pegar', { raiz, carpeta, origins: pp.origins, mover: pp.mover });
-      if (pp.mover) { pp.origins.forEach((o, i) => r.rels[i] && moveTabs(o.rel, r.rels[i], o.raiz)); portapapeles = null; }
-      if (r.rels[0]) { if (carpeta) alternar(carpeta, true); setSel(r.rels[0]); }
+    after(async () => {
+      const r = await action<{ rels: string[] }>('pegar', { root, folder, origins: pp.origins, move: pp.move });
+      if (pp.move) { pp.origins.forEach((o, i) => r.rels[i] && moveTabs(o.rel, r.rels[i], o.root)); clipboard = null; }
+      if (r.rels[0]) { if (folder) toggle(folder, true); setSel(r.rels[0]); }
     });
   };
-  const moveA = (rel: string, carpeta: string) => {
-    if (!raiz || parentOf(rel) === carpeta || bajo(carpeta, rel)) return;
-    tras(async () => { const r = await accion<{ rels: string[] }>('pegar', { raiz, carpeta, origins: [{ raiz, rel }], mover: true }); if (r.rels[0]) { moveTabs(rel, r.rels[0]); if (carpeta) alternar(carpeta, true); setSel(r.rels[0]); } });
+  const moveA = (rel: string, folder: string) => {
+    if (!root || parentOf(rel) === folder || under(folder, rel)) return;
+    after(async () => { const r = await action<{ rels: string[] }>('pegar', { root, folder, origins: [{ root, rel }], move: true }); if (r.rels[0]) { moveTabs(rel, r.rels[0]); if (folder) toggle(folder, true); setSel(r.rels[0]); } });
   };
-  const copyPath = (relativa: boolean, rel = sel) => {
-    if (rel == null || !raiz) return;
-    const ruta = relativa ? rel || '.' : raiz.replace(/\/$/, '') + (rel ? '/' + rel : '');
-    navigator.clipboard.writeText(ruta).then(() => avisar(t('windows.pathCopiedRuta', { ruta })), () => avisar(t('windows.couldNotCopyThePath'), true));
+  const copyPath = (relative: boolean, rel = sel) => {
+    if (rel == null || !root) return;
+    const path = relative ? rel || '.' : root.replace(/\/$/, '') + (rel ? '/' + rel : '');
+    navigator.clipboard.writeText(path).then(() => notify(t('windows.pathCopiedRuta', { ruta: path })), () => notify(t('windows.couldNotCopyThePath'), true));
     setMenu(null);
   };
-  const fuera = (que: 'revelar' | 'abrirEnEditor', rel = sel ?? '') => { if (raiz) accion(que, { raiz, rel }).catch(e => avisar(e.message, true)); setMenu(null); };
+  const outside = (what: 'revelar' | 'abrirEnEditor', rel = sel ?? '') => { if (root) action(what, { root, rel }).catch(e => notify(e.message, true)); setMenu(null); };
 
   // ---- teclas del árbol
-  const typed = useRef({ texto: '', t: 0 });
-  const elegir = (rel: string | null) => { setSel(rel); SFX.tick(); };
+  const typed = useRef({ text: '', t: 0 });
+  const pick = (rel: string | null) => { setSel(rel); SFX.tick(); };
   const treeKey = (e: React.KeyboardEvent) => {
     if (edit) return;
     const cmd = MAC ? e.metaKey : e.ctrlKey;
-    const i = sel == null ? -1 : filas.findIndex(f => f.rel === sel), f = filas[i];
-    const ir = (j: number) => { const g = filas[Math.max(0, Math.min(filas.length - 1, j))]; if (g) elegir(g.rel); };
-    let hecho = true;
-    if (e.key === 'ArrowDown' && cmd) { if (f?.dir) alternar(f.rel); else if (f) abrir(f.rel, { foco: true }); }
-    else if (e.key === 'ArrowUp' && cmd) { if (f && parentOf(f.rel)) elegir(parentOf(f.rel)); }
-    else if (e.key === 'ArrowDown') ir(i + 1);
-    else if (e.key === 'ArrowUp') ir(i < 0 ? filas.length - 1 : i - 1);
-    else if (e.key === 'Home') ir(0);
-    else if (e.key === 'End') ir(filas.length - 1);
-    else if (e.key === 'PageDown') ir(i + 15);
-    else if (e.key === 'PageUp') ir(i - 15);
-    else if (e.key === 'ArrowRight') { if (f?.dir && !f.abierta) alternar(f.rel, true); else if (f?.dir && (filas[i + 1]?.nivel ?? -1) > f.nivel) ir(i + 1); }
-    else if (e.key === 'ArrowLeft') { if (f?.dir && f.abierta) alternar(f.rel, false); else if (f && parentOf(f.rel)) elegir(parentOf(f.rel)); }
+    const i = sel == null ? -1 : rows.findIndex(f => f.rel === sel), f = rows[i];
+    const go = (j: number) => { const g = rows[Math.max(0, Math.min(rows.length - 1, j))]; if (g) pick(g.rel); };
+    let done = true;
+    if (e.key === 'ArrowDown' && cmd) { if (f?.dir) toggle(f.rel); else if (f) open(f.rel, { focus: true }); }
+    else if (e.key === 'ArrowUp' && cmd) { if (f && parentOf(f.rel)) pick(parentOf(f.rel)); }
+    else if (e.key === 'ArrowDown') go(i + 1);
+    else if (e.key === 'ArrowUp') go(i < 0 ? rows.length - 1 : i - 1);
+    else if (e.key === 'Home') go(0);
+    else if (e.key === 'End') go(rows.length - 1);
+    else if (e.key === 'PageDown') go(i + 15);
+    else if (e.key === 'PageUp') go(i - 15);
+    else if (e.key === 'ArrowRight') { if (f?.dir && !f.open) toggle(f.rel, true); else if (f?.dir && (rows[i + 1]?.level ?? -1) > f.level) go(i + 1); }
+    else if (e.key === 'ArrowLeft') { if (f?.dir && f.open) toggle(f.rel, false); else if (f && parentOf(f.rel)) pick(parentOf(f.rel)); }
     else if ((e.key === 'Enter' && !cmd) || e.key === 'F2') { if (f) renameSel(f.rel); }
-    else if (e.key === ' ') { if (f?.dir) alternar(f.rel); else if (f) abrir(f.rel, { previa: true }); }
+    else if (e.key === ' ') { if (f?.dir) toggle(f.rel); else if (f) open(f.rel, { previous: true }); }
     else if ((e.key === 'Backspace' && cmd) || e.key === 'Delete') { if (f) aTrash(f.rel); }
     else if (cmd && e.altKey && e.code === 'KeyC') copyPath(e.shiftKey);
-    else if (cmd && e.altKey && e.code === 'KeyR') fuera('revelar');
-    else if (cmd && !e.altKey && e.code === 'KeyC') copiar(false);
-    else if (cmd && !e.altKey && e.code === 'KeyX') copiar(true);
-    else if (cmd && !e.altKey && e.code === 'KeyV') pegar();
-    else if (e.key === 'Escape') { if (portapapeles?.mover) { portapapeles = null; avisar(t('windows.cutCancelled')); } else hecho = false; }
+    else if (cmd && e.altKey && e.code === 'KeyR') outside('revelar');
+    else if (cmd && !e.altKey && e.code === 'KeyC') copy(false);
+    else if (cmd && !e.altKey && e.code === 'KeyX') copy(true);
+    else if (cmd && !e.altKey && e.code === 'KeyV') paste();
+    else if (e.key === 'Escape') { if (clipboard?.move) { clipboard = null; notify(t('windows.cutCancelled')); } else done = false; }
     else if (e.key.length === 1 && !cmd && !e.ctrlKey && !e.altKey && e.key !== ' ') {
       // escribir salta a la siguiente fila cuyo nombre empieza así
-      const ahora = Date.now(), t = typed.current;
-      t.texto = (ahora - t.t > 800 ? '' : t.texto) + e.key.toLowerCase(); t.t = ahora;
-      const desde = t.texto.length > 1 ? Math.max(0, i) : i + 1;
-      const orden = [...filas.slice(desde), ...filas.slice(0, desde)];
-      const g = orden.find(x => x.nombre.toLowerCase().startsWith(t.texto));
-      if (g) elegir(g.rel); else SFX.noAllowed();
+      const now = Date.now(), t = typed.current;
+      t.text = (now - t.t > 800 ? '' : t.text) + e.key.toLowerCase(); t.t = now;
+      const since = t.text.length > 1 ? Math.max(0, i) : i + 1;
+      const orden = [...rows.slice(since), ...rows.slice(0, since)];
+      const g = orden.find(x => x.name.toLowerCase().startsWith(t.text));
+      if (g) pick(g.rel); else SFX.notAllowed();
     }
-    else hecho = false;
-    if (hecho) { e.preventDefault(); e.stopPropagation(); }
+    else done = false;
+    if (done) { e.preventDefault(); e.stopPropagation(); }
   };
 
   // ---- teclas de la ventana (antes que el editor: solo las que el editor no usa)
-  const moveTab = (paso: number) => { const ps = estado.current.pestanas; if (ps.length < 2) return; const i = ps.findIndex(p => p.clave === estado.current.activa); setActive(ps[(i + paso + ps.length) % ps.length].clave); SFX.tick(); };
+  const moveTab = (step: number) => { const ps = state.current.tabs; if (ps.length < 2) return; const i = ps.findIndex(p => p.key === state.current.active); setActive(ps[(i + step + ps.length) % ps.length].key); SFX.tick(); };
   const windowKey = (e: React.KeyboardEvent) => {
-    if (confirmar) return;   // la pregunta lleva sus teclas
+    if (confirm) return;   // la pregunta lleva sus teclas
     const cmd = MAC ? e.metaKey && !e.ctrlKey : e.ctrlKey;
     let f: (() => void) | null = null;
     if (e.key === 'Escape' && menu) f = () => setMenu(null);
@@ -501,106 +501,106 @@ function Window({ v, roots, raiz }: { v: FilesWindow; roots: Root[]; raiz: strin
     else if (cmd) {
       if (e.code === 'KeyP' && !e.shiftKey && !e.altKey) f = () => { setFast(r => !r); setMenu(null); };
       else if (e.code === 'KeyS' && e.altKey) f = () => { saveAll(); };
-      else if (e.code === 'KeyS' && !e.shiftKey) f = () => { if (estado.current.activa) guardar(estado.current.activa); };
+      else if (e.code === 'KeyS' && !e.shiftKey) f = () => { if (state.current.active) save(state.current.active); };
       else if (e.code === 'KeyW' && e.shiftKey) f = closeFiles;
-      else if (e.code === 'KeyW' && !e.altKey) f = () => closeTab(estado.current.activa);
-      else if (e.code === 'KeyT' && e.shiftKey) f = () => { const c = closed.current.shift(); if (c) abrir(c.rel, { inRoot: c.raiz, foco: true }); else SFX.noAllowed(); };
+      else if (e.code === 'KeyW' && !e.altKey) f = () => closeTab(state.current.active);
+      else if (e.code === 'KeyT' && e.shiftKey) f = () => { const c = closed.current.shift(); if (c) open(c.rel, { inRoot: c.root, focus: true }); else SFX.notAllowed(); };
       else if (e.code === 'KeyM' && !e.shiftKey && !e.altKey) f = minimizeFiles;
-      else if ((e.code === 'KeyE' && e.shiftKey) || (e.code === 'Digit0' && !e.shiftKey)) f = () => { treeRef.current?.focus(); if (sel == null && filas[0]) setSel(filas[0].rel); };
-      else if (e.code === 'KeyN' && !e.altKey) f = () => { treeRef.current?.focus(); nuevo(e.shiftKey); };
+      else if ((e.code === 'KeyE' && e.shiftKey) || (e.code === 'Digit0' && !e.shiftKey)) f = () => { treeRef.current?.focus(); if (sel == null && rows[0]) setSel(rows[0].rel); };
+      else if (e.code === 'KeyN' && !e.altKey) f = () => { treeRef.current?.focus(); newer(e.shiftKey); };
       else if (e.altKey && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) f = () => moveTab(e.key === 'ArrowRight' ? 1 : -1);
       else if (/^Digit[1-9]$/.test(e.code) && !e.shiftKey && !e.altKey) f = () => goTab(Number(e.code.slice(5)));
     }
     if (!f) return;
     e.preventDefault(); e.stopPropagation(); f();
   };
-  const goTab = (n: number) => { const ps = estado.current.pestanas; const p = n === 9 ? ps[ps.length - 1] : ps[n - 1]; if (p) { setActive(p.clave); requestAnimationFrame(() => editor.current?.focus()); } };
+  const goTab = (n: number) => { const ps = state.current.tabs; const p = n === 9 ? ps[ps.length - 1] : ps[n - 1]; if (p) { setActive(p.key); requestAnimationFrame(() => editor.current?.focus()); } };
 
   // al abrirse: el árbol (o el editor, si hay algo abierto) recibe las teclas
-  useEffect(() => { if (!v.minimizada) requestAnimationFrame(() => { if (!caja.current?.contains(document.activeElement)) (estado.current.activa && editor.current?.getModel() ? editor.current.focus() : treeRef.current?.focus()); }); }, [v.minimizada]);
+  useEffect(() => { if (!v.minimized) requestAnimationFrame(() => { if (!box.current?.contains(document.activeElement)) (state.current.active && editor.current?.getModel() ? editor.current.focus() : treeRef.current?.focus()); }); }, [v.minimized]);
 
-  const sucias = pestanas.filter(p => p.sucia).length;
-  const headPath = activeTab ? `${activeTab.raiz.replace(/\/$/, '')}/${activeTab.rel}` : raiz ?? '';
+  const dirty = tabs.filter(p => p.dirty).length;
+  const headPath = activeTab ? `${activeTab.root.replace(/\/$/, '')}/${activeTab.rel}` : root ?? '';
   return (
-    <div ref={caja} className={'ventana-git ventana-archivos interactivo' + (v.maximizada ? ' maximizada' : '') + (v.minimizada ? ' minimizada' : '')} style={{ zIndex: v.maximizada ? 200000 + v.z : v.z }}
-      onPointerDown={e => { if (menu && !(e.target as HTMLElement).closest('.gc-menu')) setMenu(null); if (!v.minimizada && !(document.activeElement && caja.current?.contains(document.activeElement))) onFrontFiles(); }}
+    <div ref={box} className={'ventana-git ventana-archivos interactivo' + (v.maximized ? ' maximizada' : '') + (v.minimized ? ' minimizada' : '')} style={{ zIndex: v.maximized ? 200000 + v.z : v.z }}
+      onPointerDown={e => { if (menu && !(e.target as HTMLElement).closest('.gc-menu')) setMenu(null); if (!v.minimized && !(document.activeElement && box.current?.contains(document.activeElement))) onFrontFiles(); }}
       onKeyDownCapture={windowKey} onKeyDown={e => e.stopPropagation()} role="dialog" aria-label={t('windows.files')}>
       <div className="vt-cabeza vn-cabeza" onDoubleClick={e => { if (!(e.target as HTMLElement).closest('button, select')) toggleMaximizeFiles(); }}>
-        <span className="rejilla" /><span className={'piloto ' + (sucias ? 'esperando' : 'ociosa')} />
-        <span className="vt-titulo">{t('windows.files4')} · {sala?.nombre ?? t('windows.noFolder')}</span>
+        <span className="rejilla" /><span className={'piloto ' + (dirty ? 'esperando' : 'ociosa')} />
+        <span className="vt-titulo">{t('windows.files4')} · {room?.name ?? t('windows.noFolder')}</span>
         <span className="vt-ruta" title={headPath}>{headPath}</span>
-        <WindowButtons maximizada={v.maximizada} minimizar={minimizeFiles} toggleMaximize={toggleMaximizeFiles} cerrar={closeFiles} closesThat={t('windows.theFilesWindow')} />
+        <WindowButtons maximized={v.maximized} minimize={minimizeFiles} toggleMaximize={toggleMaximizeFiles} close={closeFiles} closesThat={t('windows.theFilesWindow')} />
       </div>
-      {!raiz ? <div className="gd-vacio">{t('windows.thereIsNoRoomWith')}</div> : (
+      {!root ? <div className="gd-vacio">{t('windows.thereIsNoRoomWith')}</div> : (
         <div className="ex-cuerpo">
           <aside className="ex-lateral">
             <div className="ex-lateral-cabeza">
-              <select className="gc-repo" value={raiz} onChange={e => { chooseRoot(e.target.value); treeRef.current?.focus(); }} title={t('windows.folderThatOfEachRoom')}>
-                {roots.map(r => <option key={r.ruta} value={r.ruta}>{r.nombre}{r.detalle ? ` · ${r.detalle}` : ''}</option>)}
+              <select className="gc-repo" value={root} onChange={e => { chooseRoot(e.target.value); treeRef.current?.focus(); }} title={t('windows.folderThatOfEachRoom')}>
+                {roots.map(r => <option key={r.path} value={r.path}>{r.name}{r.detail ? ` · ${r.detail}` : ''}</option>)}
               </select>
               <span className="ex-botones">
-                <button onClick={() => nuevo(false)} title={t('windows.newFileAtajo', { shortcut: `${CMD}N` })}>＋</button>
-                <button onClick={() => nuevo(true)} title={t('windows.newFolderAtajo', { shortcut: `${CMD}⇧N` })}>⊞</button>
-                <button onClick={() => { vistazo(); SFX.tick(); }} title={t('windows.reloadTheFolder')}>⟳</button>
-                <button onClick={() => { ponerExpandidos(() => new Set()); setSel(null); SFX.tick(); }} title={t('windows.collapseAllFolders')}>⊟</button>
+                <button onClick={() => newer(false)} title={t('windows.newFileAtajo', { shortcut: `${CMD}N` })}>＋</button>
+                <button onClick={() => newer(true)} title={t('windows.newFolderAtajo', { shortcut: `${CMD}⇧N` })}>⊞</button>
+                <button onClick={() => { glance(); SFX.tick(); }} title={t('windows.reloadTheFolder')}>⟳</button>
+                <button onClick={() => { updateExpanded(() => new Set()); setSel(null); SFX.tick(); }} title={t('windows.collapseAllFolders')}>⊟</button>
               </span>
             </div>
             <div ref={treeRef} className={'ex-arbol' + (dragging === '' ? ' destino' : '')} tabIndex={0} onKeyDown={treeKey}
-              onFocus={() => { if (sel == null && filas[0]) setSel(filas[0].rel); }}
+              onFocus={() => { if (sel == null && rows[0]) setSel(rows[0].rel); }}
               onContextMenu={e => { if (e.target === e.currentTarget) { e.preventDefault(); setSel(null); openMenu(e, '', true); } }}
               onDragOver={e => { if (dragging != null && e.target === e.currentTarget) { e.preventDefault(); } }}
               onDrop={e => { if (e.target === e.currentTarget && dragging) { e.preventDefault(); moveA(dragging, ''); } setDragging(null); }}>
-              {edit && edit.modo !== 'renombrar' && edit.carpeta === '' && <RowNew nivel={0} dir={edit.modo === 'carpeta'} confirmar={confirmEdit} cancelar={() => { setEdit(null); treeRef.current?.focus(); }} />}
-              {filas.map(f => (
+              {edit && edit.mode !== 'renombrar' && edit.folder === '' && <RowNew level={0} dir={edit.mode === 'carpeta'} confirm={confirmEdit} cancel={() => { setEdit(null); treeRef.current?.focus(); }} />}
+              {rows.map(f => (
                 <React.Fragment key={f.rel}>
-                  <TreeRow f={f} sel={sel === f.rel} letra={f.dir ? changed.get(f.rel) : git[f.rel]} activa={activeTab?.raiz === raiz && activeTab?.rel === f.rel}
-                    cortada={!!portapapeles?.mover && portapapeles.origins.some(o => o.raiz === raiz && o.rel === f.rel)}
-                    renaming={edit?.modo === 'renombrar' && edit.rel === f.rel} confirmar={confirmEdit} cancelar={() => { setEdit(null); treeRef.current?.focus(); }}
-                    clic={ev => { setSel(f.rel); if (f.dir) alternar(f.rel); else abrir(f.rel, { previa: true }); if (ev.detail === 1) treeRef.current?.focus(); }}
-                    clickDouble={() => { if (!f.dir) abrir(f.rel, { foco: true }); }}
+                  <TreeRow f={f} sel={sel === f.rel} letter={f.dir ? changed.get(f.rel) : git[f.rel]} active={activeTab?.root === root && activeTab?.rel === f.rel}
+                    cut={!!clipboard?.move && clipboard.origins.some(o => o.root === root && o.rel === f.rel)}
+                    renaming={edit?.mode === 'renombrar' && edit.rel === f.rel} confirm={confirmEdit} cancel={() => { setEdit(null); treeRef.current?.focus(); }}
+                    click={ev => { setSel(f.rel); if (f.dir) toggle(f.rel); else open(f.rel, { previous: true }); if (ev.detail === 1) treeRef.current?.focus(); }}
+                    clickDouble={() => { if (!f.dir) open(f.rel, { focus: true }); }}
                     menu={ev => { ev.preventDefault(); setSel(f.rel); openMenu(ev, f.rel, f.dir); }}
-                    arrastre={{ empezar: () => setDragging(f.rel), soltar: () => { if (dragging) moveA(dragging, f.dir ? f.rel : parentOf(f.rel)); setDragging(null); }, activo: dragging != null && dragging !== f.rel }} />
-                  {edit && edit.modo !== 'renombrar' && f.dir && f.abierta && edit.carpeta === f.rel && <RowNew nivel={f.nivel + 1} dir={edit.modo === 'carpeta'} confirmar={confirmEdit} cancelar={() => { setEdit(null); treeRef.current?.focus(); }} />}
+                    drag={{ start: () => setDragging(f.rel), drop: () => { if (dragging) moveA(dragging, f.dir ? f.rel : parentOf(f.rel)); setDragging(null); }, active: dragging != null && dragging !== f.rel }} />
+                  {edit && edit.mode !== 'renombrar' && f.dir && f.open && edit.folder === f.rel && <RowNew level={f.level + 1} dir={edit.mode === 'carpeta'} confirm={confirmEdit} cancel={() => { setEdit(null); treeRef.current?.focus(); }} />}
                 </React.Fragment>
               ))}
-              {listed[''] && !filas.length && !edit && <div className="gc-limpio">{t('windows.emptyFolderAtajoNCreates', { shortcut: CMD })}</div>}
+              {listed[''] && !rows.length && !edit && <div className="gc-limpio">{t('windows.emptyFolderAtajoNCreates', { shortcut: CMD })}</div>}
               {!listed[''] && <div className="gc-limpio">{t('windows.readingTheFolder')}</div>}
             </div>
             <div className="ex-pista">
               <span><kbd>{CMD}P</kbd> {t('windows.openByName')}</span><span><kbd>{t('windows.enter')}</kbd> {t('windows.rename')}</span><span><kbd>{MAC ? '⌘⌫' : t('windows.del')}</kbd> {t('windows.moveToTrash2')}</span>
             </div>
-            {aviso && <div className={'gc-aviso' + (aviso.error ? ' error' : '')} onClick={() => setNotice(null)} title={t('windows.clickToDismiss')}>{aviso.texto}</div>}
+            {notice && <div className={'gc-aviso' + (notice.error ? ' error' : '')} onClick={() => setNotice(null)} title={t('windows.clickToDismiss')}>{notice.text}</div>}
           </aside>
           <main className="ex-principal">
-            {pestanas.length > 0 && (
-              <div className="ex-pestanas" onDoubleClick={e => { if (e.target === e.currentTarget) nuevo(false, ''); }}>
-                {pestanas.map((p, i) => {
-                  const repeated = pestanas.some(o => o !== p && nameOf(o.rel) === nameOf(p.rel));
+            {tabs.length > 0 && (
+              <div className="ex-pestanas" onDoubleClick={e => { if (e.target === e.currentTarget) newer(false, ''); }}>
+                {tabs.map((p, i) => {
+                  const repeated = tabs.some(o => o !== p && nameOf(o.rel) === nameOf(p.rel));
                   return (
-                    <div key={p.clave} className={'ex-pestana' + (p.clave === activa ? ' activa' : '') + (p.previa ? ' previa' : '') + (p.inDisc === 'borrado' ? ' borrada' : '') + (p.sucia ? ' sucia' : '')}
-                      onClick={() => { setActive(p.clave); requestAnimationFrame(() => editor.current?.focus()); }} onDoubleClick={() => actualizar(p.clave, { previa: false })}
-                      onAuxClick={e => { if (e.button === 1) closeTab(p.clave); }}
-                      title={`${p.raiz.replace(/\/$/, '')}/${p.rel}${p.inDisc === 'cambiado' ? '\n' + t('windows.itChangedOnDiskWhile') : p.inDisc === 'borrado' ? '\n' + t('windows.itIsNoLongerOn') : ''}${i < 9 ? `\n${CMD}${i + 1}` : ''}`}>
+                    <div key={p.key} className={'ex-pestana' + (p.key === active ? ' activa' : '') + (p.previous ? ' previa' : '') + (p.inDisc === 'borrado' ? ' borrada' : '') + (p.dirty ? ' sucia' : '')}
+                      onClick={() => { setActive(p.key); requestAnimationFrame(() => editor.current?.focus()); }} onDoubleClick={() => update(p.key, { previous: false })}
+                      onAuxClick={e => { if (e.button === 1) closeTab(p.key); }}
+                      title={`${p.root.replace(/\/$/, '')}/${p.rel}${p.inDisc === 'cambiado' ? '\n' + t('windows.itChangedOnDiskWhile') : p.inDisc === 'borrado' ? '\n' + t('windows.itIsNoLongerOn') : ''}${i < 9 ? `\n${CMD}${i + 1}` : ''}`}>
                       <span className="ex-pestana-nombre">{nameOf(p.rel)}</span>
-                      {(repeated || p.raiz !== raiz) && <span className="ex-pestana-carpeta">{p.raiz !== raiz ? (roots.find(r => r.ruta === p.raiz)?.nombre ?? '') + (parentOf(p.rel) ? ' · ' : '') : ''}{parentOf(p.rel).split('/').pop()}</span>}
+                      {(repeated || p.root !== root) && <span className="ex-pestana-carpeta">{p.root !== root ? (roots.find(r => r.path === p.root)?.name ?? '') + (parentOf(p.rel) ? ' · ' : '') : ''}{parentOf(p.rel).split('/').pop()}</span>}
                       {p.inDisc === 'cambiado' && <span className="ex-pestana-ojo" title={t('windows.itChangedOnDisk')}>⚠</span>}
-                      <button className="ex-pestana-x" onClick={e => { e.stopPropagation(); closeTab(p.clave); }} title={t('windows.closeAtajo', { shortcut: `${CMD}W` })}>{p.sucia ? '●' : '×'}</button>
+                      <button className="ex-pestana-x" onClick={e => { e.stopPropagation(); closeTab(p.key); }} title={t('windows.closeAtajo', { shortcut: `${CMD}W` })}>{p.dirty ? '●' : '×'}</button>
                     </div>
                   );
                 })}
               </div>
             )}
             <div ref={zoneEditor} className="ex-editor" tabIndex={-1}>
-              <div ref={anfitrion} className="ex-monaco" style={{ visibility: activeTab?.tipo === 'texto' ? 'inherit' : 'hidden' }} />
-              {activeTab?.tipo !== 'texto' && (
+              <div ref={host} className="ex-monaco" style={{ visibility: activeTab?.type === 'texto' ? 'inherit' : 'hidden' }} />
+              {activeTab?.type !== 'texto' && (
                 <div className="ex-otro">
-                  {!activeTab && <Welcome raiz={raiz} cargado={!!mon} />}
-                  {activeTab?.tipo === 'cargando' && <div className="gd-vacio">{t('windows.opening')}</div>}
-                  {activeTab?.tipo === 'imagen' && <div className="ex-imagen"><img src={activeTab.datos} alt={activeTab.rel} /><small>{nameOf(activeTab.rel)} · {sizeLegible(activeTab.tamano)}</small></div>}
-                  {(activeTab?.tipo === 'binario' || activeTab?.tipo === 'grande' || activeTab?.tipo === 'error') && (
+                  {!activeTab && <Welcome root={root} loaded={!!mon} />}
+                  {activeTab?.type === 'cargando' && <div className="gd-vacio">{t('windows.opening')}</div>}
+                  {activeTab?.type === 'imagen' && <div className="ex-imagen"><img src={activeTab.data} alt={activeTab.rel} /><small>{nameOf(activeTab.rel)} · {sizeLegible(activeTab.resize)}</small></div>}
+                  {(activeTab?.type === 'binario' || activeTab?.type === 'grande' || activeTab?.type === 'error') && (
                     <div className="gd-vacio">
-                      <p>{activeTab.tipo === 'binario' ? t('windows.thisIsABinaryFile') : activeTab.tipo === 'grande' ? t('windows.itIsTooLargeTo', { tamano: sizeLegible(activeTab.tamano) }) : activeTab.error}</p>
-                      {activeTab.tipo !== 'error' && <p><button className="gc-boton" onClick={() => fuera('abrirEnEditor', activeTab.rel)}>{t('windows.openInCursor')}</button> <button className="gc-boton" onClick={() => fuera('revelar', activeTab.rel)}>{t('windows.showInFinder')}</button></p>}
+                      <p>{activeTab.type === 'binario' ? t('windows.thisIsABinaryFile') : activeTab.type === 'grande' ? t('windows.itIsTooLargeTo', { tamano: sizeLegible(activeTab.resize) }) : activeTab.error}</p>
+                      {activeTab.type !== 'error' && <p><button className="gc-boton" onClick={() => outside('abrirEnEditor', activeTab.rel)}>{t('windows.openInCursor')}</button> <button className="gc-boton" onClick={() => outside('revelar', activeTab.rel)}>{t('windows.showInFinder')}</button></p>}
                     </div>
                   )}
                 </div>
@@ -611,101 +611,101 @@ function Window({ v, roots, raiz }: { v: FilesWindow; roots: Root[]; raiz: strin
                 <span className="ex-estado-ruta">{activeTab.rel}</span>
                 {activeTab.inDisc === 'cambiado' && <span className="ex-estado-alerta">{t('windows.changedOnDiskILl')}</span>}
                 {activeTab.inDisc === 'borrado' && <span className="ex-estado-alerta">{t('windows.noLongerOnDiskSaving')}</span>}
-                {git[activeTab.rel] && activeTab.raiz === raiz && <button className="gc-enlace" onClick={() => openGit({ ruta: raiz, vista: 'cambios' })} title={t('windows.seeItInTheGit')}>git: {TITLE_LETTER[git[activeTab.rel]] ?? git[activeTab.rel]}</button>}
+                {git[activeTab.rel] && activeTab.root === root && <button className="gc-enlace" onClick={() => openGit({ path: root, view: 'cambios' })} title={t('windows.seeItInTheGit')}>git: {TITLE_LETTER[git[activeTab.rel]] ?? git[activeTab.rel]}</button>}
                 <span className="ex-estado-der">
-                  {cursor && activeTab.tipo === 'texto' && <span>{t('windows.lnLineaColCol', { linea: cursor.linea, col: cursor.col })}{cursor.sel ? ` (${t('windows.nSelected', { n: cursor.sel })})` : ''}</span>}
-                  {activeTab.tipo === 'texto' && modelos.get(activeTab.clave) && <InfoModel m={modelos.get(activeTab.clave)!} mon={mon} />}
-                  <span className={activeTab.sucia ? 'ex-sucio' : 'tenue'}>{activeTab.sucia ? t('windows.unsavedAtajoS', { shortcut: CMD }) : t('windows.saved')}</span>
+                  {cursor && activeTab.type === 'texto' && <span>{t('windows.lnLineaColCol', { linea: cursor.line, col: cursor.col })}{cursor.sel ? ` (${t('windows.nSelected', { n: cursor.sel })})` : ''}</span>}
+                  {activeTab.type === 'texto' && models.get(activeTab.key) && <InfoModel m={models.get(activeTab.key)!} mon={mon} />}
+                  <span className={activeTab.dirty ? 'ex-sucio' : 'tenue'}>{activeTab.dirty ? t('windows.unsavedAtajoS', { shortcut: CMD }) : t('windows.saved')}</span>
                 </span>
               </div>
             )}
           </main>
         </div>
       )}
-      {rapido && raiz && <OpenFast raiz={raiz} recientes={recientes.current.filter(k => k.startsWith(raiz + '\0')).map(k => k.slice(raiz.length + 1))} cerrar={volver => { setFast(false); if (volver) requestAnimationFrame(() => (editor.current?.getModel() ? editor.current.focus() : treeRef.current?.focus())); }}
-        abrir={(rel, linea, columna) => { setFast(false); revelar(rel); abrir(rel, { foco: true, linea, columna }); }} avisar={avisar} />}
-      {menu && raiz && (
+      {fast && root && <OpenFast root={root} recent={recent.current.filter(k => k.startsWith(root + '\0')).map(k => k.slice(root.length + 1))} close={goBack => { setFast(false); if (goBack) requestAnimationFrame(() => (editor.current?.getModel() ? editor.current.focus() : treeRef.current?.focus())); }}
+        open={(rel, line, column) => { setFast(false); reveal(rel); open(rel, { focus: true, line, column }); }} notify={notify} />}
+      {menu && root && (
         <div className="gc-menu ex-menu" style={{ left: menu.x, top: menu.y }} onContextMenu={e => e.preventDefault()}>
-          <button onClick={() => nuevo(false, menu.dir ? menu.rel : parentOf(menu.rel))}>{t('windows.newFile')} <kbd>{CMD}N</kbd></button>
-          <button onClick={() => nuevo(true, menu.dir ? menu.rel : parentOf(menu.rel))}>{t('windows.newFolder')} <kbd>{CMD}⇧N</kbd></button>
+          <button onClick={() => newer(false, menu.dir ? menu.rel : parentOf(menu.rel))}>{t('windows.newFile')} <kbd>{CMD}N</kbd></button>
+          <button onClick={() => newer(true, menu.dir ? menu.rel : parentOf(menu.rel))}>{t('windows.newFolder')} <kbd>{CMD}⇧N</kbd></button>
           <hr />
-          {menu.rel && <button onClick={() => copiar(true, menu.rel)}>{t('windows.cut')} <kbd>{CMD}X</kbd></button>}
-          {menu.rel && <button onClick={() => copiar(false, menu.rel)}>{t('windows.copy2')} <kbd>{CMD}C</kbd></button>}
-          <button disabled={!portapapeles} onClick={() => pegar(menu.dir ? menu.rel : parentOf(menu.rel))}>{t('windows.paste')} <kbd>{CMD}V</kbd></button>
+          {menu.rel && <button onClick={() => copy(true, menu.rel)}>{t('windows.cut')} <kbd>{CMD}X</kbd></button>}
+          {menu.rel && <button onClick={() => copy(false, menu.rel)}>{t('windows.copy2')} <kbd>{CMD}C</kbd></button>}
+          <button disabled={!clipboard} onClick={() => paste(menu.dir ? menu.rel : parentOf(menu.rel))}>{t('windows.paste')} <kbd>{CMD}V</kbd></button>
           <hr />
           <button onClick={() => copyPath(false, menu.rel)}>{t('windows.copyPath')} <kbd>⌥{CMD}C</kbd></button>
           <button onClick={() => copyPath(true, menu.rel)}>{t('windows.copyRelativePath')} <kbd>⌥⇧{CMD}C</kbd></button>
-          <button onClick={() => fuera('revelar', menu.rel)}>{t('windows.showInFinder')} <kbd>⌥{CMD}R</kbd></button>
-          <button onClick={() => fuera('abrirEnEditor', menu.rel)}>{t('windows.openInCursor')}</button>
-          {menu.dir && sala && <button onClick={() => { setMenu(null); const cwd = raiz.replace(/\/$/, '') + (menu.rel ? '/' + menu.rel : ''); openTerminalIn('archivos:' + cwd, sala.salaId, menu.rel ? `${sala.nombre} / ${nameOf(menu.rel)}` : sala.nombre, cwd); }}>{t('windows.openATerminalHere')}</button>}
+          <button onClick={() => outside('revelar', menu.rel)}>{t('windows.showInFinder')} <kbd>⌥{CMD}R</kbd></button>
+          <button onClick={() => outside('abrirEnEditor', menu.rel)}>{t('windows.openInCursor')}</button>
+          {menu.dir && room && <button onClick={() => { setMenu(null); const cwd = root.replace(/\/$/, '') + (menu.rel ? '/' + menu.rel : ''); openTerminalIn('archivos:' + cwd, room.roomId, menu.rel ? `${room.name} / ${nameOf(menu.rel)}` : room.name, cwd); }}>{t('windows.openATerminalHere')}</button>}
           {menu.rel && <><hr />
             <button onClick={() => renameSel(menu.rel)}>{t('windows.rename2')} <kbd>{t('windows.enter')}</kbd></button>
             <button className="peligro" onClick={() => aTrash(menu.rel)}>{t('windows.moveToTrash')} <kbd>{MAC ? '⌘⌫' : t('windows.del')}</kbd></button></>}
         </div>
       )}
-      {confirmar && <Question c={confirmar} cerrar={() => setConfirm(null)} volver={() => (editor.current?.getModel() && activeTab?.tipo === 'texto' ? editor.current.focus() : treeRef.current?.focus())} />}
+      {confirm && <Question c={confirm} close={() => setConfirm(null)} goBack={() => (editor.current?.getModel() && activeTab?.type === 'texto' ? editor.current.focus() : treeRef.current?.focus())} />}
     </div>
   );
 
   function openMenu(e: React.MouseEvent, rel: string, dir: boolean) {
-    const r = caja.current!.getBoundingClientRect();
+    const r = box.current!.getBoundingClientRect();
     setMenu({ x: Math.min(e.clientX - r.left, r.width - 260), y: Math.min(e.clientY - r.top, r.height - 380), rel, dir });
   }
 }
 
 // ---------------------------------------------------------------- piezas
-function TreeRow({ f, sel, letra, activa, cortada, renaming, confirmar, cancelar, clic, clickDouble, menu, arrastre }: {
-  f: Row; sel: boolean; letra?: string; activa: boolean; cortada: boolean; renaming: boolean; confirmar: (n: string) => void; cancelar: () => void
-  clic: (e: React.MouseEvent) => void; clickDouble: () => void; menu: (e: React.MouseEvent) => void; arrastre: { empezar: () => void; soltar: () => void; activo: boolean }
+function TreeRow({ f, sel, letter, active, cut, renaming, confirm, cancel, click, clickDouble, menu, drag }: {
+  f: Row; sel: boolean; letter?: string; active: boolean; cut: boolean; renaming: boolean; confirm: (n: string) => void; cancel: () => void
+  click: (e: React.MouseEvent) => void; clickDouble: () => void; menu: (e: React.MouseEvent) => void; drag: { start: () => void; drop: () => void; active: boolean }
 }) {
-  const [encima, setAbove] = useState(false);
+  const [onTop, setAbove] = useState(false);
   return (
-    <div data-rel={f.rel} className={'ex-fila' + (sel ? ' sel' : '') + (activa ? ' activa' : '') + (f.e.ignorado ? ' ignorado' : '') + (cortada ? ' cortada' : '') + (letra ? ' l-' + (letra === '?' ? 'N' : letra) : '') + (encima ? ' destino' : '')}
-      style={{ paddingLeft: 8 + f.nivel * 12 }} onClick={clic} onDoubleClick={clickDouble} onContextMenu={menu}
-      draggable={!renaming} onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', f.rel); arrastre.empezar(); }}
-      onDragOver={e => { if (arrastre.activo) { e.preventDefault(); setAbove(true); } }} onDragLeave={() => setAbove(false)}
-      onDrop={e => { e.preventDefault(); e.stopPropagation(); setAbove(false); arrastre.soltar(); }}
-      title={(f.e.enlace ? t('windows.symbolicLink') + ' · ' : '') + (f.e.ignorado ? t('windows.ignoredByGit') + ' · ' : '') + (letra ? (f.dir ? t('windows.hasChangesInside') : TITLE_LETTER[letra] ?? letra) : '') || undefined}>
-      {Array.from({ length: f.nivel }, (_, i) => <span key={i} className="ex-guia" style={{ left: 14 + i * 12 }} />)}
-      <span className={'ex-flecha' + (f.dir ? (f.abierta ? ' dir abierta' : ' dir') : '')} />
-      {renaming ? <NameField inicial={f.nombre} confirmar={confirmar} cancelar={cancelar} />
-        : <span className="ex-nombre">{f.nombre}{f.e.enlace ? <i className="tenue"> ↪</i> : null}</span>}
-      {letra && !renaming && <span className="ex-letra">{f.dir ? '•' : letra === '?' ? 'U' : letra}</span>}
+    <div data-rel={f.rel} className={'ex-fila' + (sel ? ' sel' : '') + (active ? ' activa' : '') + (f.e.ignored ? ' ignorado' : '') + (cut ? ' cortada' : '') + (letter ? ' l-' + (letter === '?' ? 'N' : letter) : '') + (onTop ? ' destino' : '')}
+      style={{ paddingLeft: 8 + f.level * 12 }} onClick={click} onDoubleClick={clickDouble} onContextMenu={menu}
+      draggable={!renaming} onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', f.rel); drag.start(); }}
+      onDragOver={e => { if (drag.active) { e.preventDefault(); setAbove(true); } }} onDragLeave={() => setAbove(false)}
+      onDrop={e => { e.preventDefault(); e.stopPropagation(); setAbove(false); drag.drop(); }}
+      title={(f.e.link ? t('windows.symbolicLink') + ' · ' : '') + (f.e.ignored ? t('windows.ignoredByGit') + ' · ' : '') + (letter ? (f.dir ? t('windows.hasChangesInside') : TITLE_LETTER[letter] ?? letter) : '') || undefined}>
+      {Array.from({ length: f.level }, (_, i) => <span key={i} className="ex-guia" style={{ left: 14 + i * 12 }} />)}
+      <span className={'ex-flecha' + (f.dir ? (f.open ? ' dir abierta' : ' dir') : '')} />
+      {renaming ? <NameField initial={f.name} confirm={confirm} cancel={cancel} />
+        : <span className="ex-nombre">{f.name}{f.e.link ? <i className="tenue"> ↪</i> : null}</span>}
+      {letter && !renaming && <span className="ex-letra">{f.dir ? '•' : letter === '?' ? 'U' : letter}</span>}
     </div>
   );
 }
 
-function RowNew({ nivel, dir, confirmar, cancelar }: { nivel: number; dir: boolean; confirmar: (n: string) => void; cancelar: () => void }) {
+function RowNew({ level, dir, confirm, cancel }: { level: number; dir: boolean; confirm: (n: string) => void; cancel: () => void }) {
   return (
-    <div className="ex-fila sel" style={{ paddingLeft: 8 + nivel * 12 }}>
+    <div className="ex-fila sel" style={{ paddingLeft: 8 + level * 12 }}>
       <span className={'ex-flecha' + (dir ? ' dir' : '')} />
-      <NameField inicial="" confirmar={confirmar} cancelar={cancelar} placeholder={dir ? t('windows.folderName') : t('windows.fileNameFolderFileWorks')} />
+      <NameField initial="" confirm={confirm} cancel={cancel} placeholder={dir ? t('windows.folderName') : t('windows.fileNameFolderFileWorks')} />
     </div>
   );
 }
 
 /** El nombre, editable en la propia fila: Intro confirma, Esc cancela, salir de él confirma (como en los editores). */
-function NameField({ inicial, confirmar, cancelar, placeholder }: { inicial: string; confirmar: (n: string) => void; cancelar: () => void; placeholder?: string }) {
-  const ref = useRef<HTMLInputElement>(null), hecho = useRef(false);
+function NameField({ initial, confirm, cancel, placeholder }: { initial: string; confirm: (n: string) => void; cancel: () => void; placeholder?: string }) {
+  const ref = useRef<HTMLInputElement>(null), done = useRef(false);
   useEffect(() => {
     const i = ref.current; if (!i) return;
     i.focus();
     // el nombre sin la extensión, elegido
-    const punto = inicial.lastIndexOf('.'); i.setSelectionRange(0, punto > 0 ? punto : inicial.length);
+    const point = initial.lastIndexOf('.'); i.setSelectionRange(0, point > 0 ? point : initial.length);
   }, []);
-  const fin = (ok: boolean) => { if (hecho.current) return; hecho.current = true; ok ? confirmar(ref.current?.value ?? '') : cancelar(); };
-  return <input ref={ref} className="ex-campo" defaultValue={inicial} placeholder={placeholder} spellCheck={false} onClick={e => e.stopPropagation()}
-    onKeyDown={e => { e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); fin(true); } else if (e.key === 'Escape') { e.preventDefault(); fin(false); } }}
-    onBlur={() => fin(true)} />;
+  const end = (ok: boolean) => { if (done.current) return; done.current = true; ok ? confirm(ref.current?.value ?? '') : cancel(); };
+  return <input ref={ref} className="ex-campo" defaultValue={initial} placeholder={placeholder} spellCheck={false} onClick={e => e.stopPropagation()}
+    onKeyDown={e => { e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); end(true); } else if (e.key === 'Escape') { e.preventDefault(); end(false); } }}
+    onBlur={() => end(true)} />;
 }
 
 function InfoModel({ m, mon }: { m: Monaco.editor.ITextModel; mon: M | null }) {
-  const id = m.getLanguageId(), nombre = mon?.languages.getLanguages().find(l => l.id === id)?.aliases?.[0] ?? id;
+  const id = m.getLanguageId(), name = mon?.languages.getLanguages().find(l => l.id === id)?.aliases?.[0] ?? id;
   const o = m.getOptions();
-  return <><span>{o.insertSpaces ? t('windows.spacesN', { n: o.tabSize }) : t('windows.tabSizeN', { n: o.tabSize })}</span><span>{m.getEOL() === '\n' ? 'LF' : 'CRLF'}</span><span>{nombre}</span></>;
+  return <><span>{o.insertSpaces ? t('windows.spacesN', { n: o.tabSize }) : t('windows.tabSizeN', { n: o.tabSize })}</span><span>{m.getEOL() === '\n' ? 'LF' : 'CRLF'}</span><span>{name}</span></>;
 }
 
-function Welcome({ raiz, cargado }: { raiz: string; cargado: boolean }) {
+function Welcome({ root, loaded }: { root: string; loaded: boolean }) {
   const shortcuts: [string, string][] = [
     [`${CMD}P`, t('windows.openAFileByName')], [`${CMD}S`, t('windows.save2')], [`${CMD}W`, t('windows.closeTheTab')], [`⌃Tab · ${CMD}1…9`, t('windows.switchTab')],
     [`${CMD}⇧E`, t('windows.backToTheTree')], ['↑↓ ←→', t('windows.moveAroundTheTree')], [t('windows.space'), t('windows.openWithoutLeavingTheTree')], [`${CMD}↓`, t('windows.openAndMoveToThe')],
@@ -713,22 +713,22 @@ function Welcome({ raiz, cargado }: { raiz: string; cargado: boolean }) {
   ];
   return (
     <div className="ex-bienvenida">
-      <p className="tenue">{raiz}</p>
+      <p className="tenue">{root}</p>
       <dl>{shortcuts.map(([k, d]) => <React.Fragment key={k}><dt><kbd>{k}</kbd></dt><dd>{d}</dd></React.Fragment>)}</dl>
-      <p className="tenue">{cargado ? t('windows.insideTheEditorTheUsual') : t('windows.loadingTheEditor')}</p>
+      <p className="tenue">{loaded ? t('windows.insideTheEditorTheUsual') : t('windows.loadingTheEditor')}</p>
     </div>
   );
 }
 
-function Question({ c, cerrar, volver }: { c: Confirm; cerrar: () => void; volver: () => void }) {
+function Question({ c, close, goBack }: { c: Confirm; close: () => void; goBack: () => void }) {
   // al irse, el foco vuelve al editor o al árbol (y lo elegido lo puede llevar a otro sitio)
-  const pulsar = (f: () => void) => { volver(); cerrar(); f(); };
+  const press = (f: () => void) => { goBack(); close(); f(); };
   return (
-    <div className="vt-confirmar" onKeyDown={e => { e.stopPropagation(); if (e.key === 'Escape') { e.preventDefault(); const ultimo = c.botones[c.botones.length - 1]; pulsar(ultimo.f); } }}>
+    <div className="vt-confirmar" onKeyDown={e => { e.stopPropagation(); if (e.key === 'Escape') { e.preventDefault(); const last = c.buttons[c.buttons.length - 1]; press(last.f); } }}>
       <div className="vt-confirmar-caja">
-        <p>{c.texto}</p>
+        <p>{c.text}</p>
         <div className="vt-confirmar-botones">
-          {c.botones.map((b, i) => <button key={b.texto} className={'consola-x' + (b.peligro ? ' peligro' : '')} autoFocus={i === 0} onClick={() => pulsar(b.f)}>{b.texto}{i === 0 ? ` (${t('windows.enter')})` : i === c.botones.length - 1 ? ' (Esc)' : ''}</button>)}
+          {c.buttons.map((b, i) => <button key={b.text} className={'consola-x' + (b.danger ? ' peligro' : '')} autoFocus={i === 0} onClick={() => press(b.f)}>{b.text}{i === 0 ? ` (${t('windows.enter')})` : i === c.buttons.length - 1 ? ' (Esc)' : ''}</button>)}
         </div>
       </div>
     </div>
@@ -739,55 +739,55 @@ function Question({ c, cerrar, volver }: { c: Confirm; cerrar: () => void; volve
 // la lista de archivos de cada carpeta: se pide al abrir la ventana (⌘P sale al momento) y vale 15 s
 const lists = new Map<string, { rels: string[]; ts: number }>();
 const asking = new Map<string, Promise<string[]>>();
-function askList(raiz: string): Promise<string[]> {
-  const c = lists.get(raiz); if (c && Date.now() - c.ts < 15_000) return Promise.resolve(c.rels);
-  let p = asking.get(raiz);
+function askList(root: string): Promise<string[]> {
+  const c = lists.get(root); if (c && Date.now() - c.ts < 15_000) return Promise.resolve(c.rels);
+  let p = asking.get(root);
   if (!p) {
-    p = cliente.accion<{ rels: string[] }>('archivos.todos', { raiz }, 60_000).then(r => { lists.set(raiz, { rels: r.rels, ts: Date.now() }); return r.rels; }).finally(() => asking.delete(raiz));
-    asking.set(raiz, p);
+    p = client.action<{ rels: string[] }>('archivos.todos', { root }, 60_000).then(r => { lists.set(root, { rels: r.rels, ts: Date.now() }); return r.rels; }).finally(() => asking.delete(root));
+    asking.set(root, p);
   }
   return p;
 }
-function OpenFast({ raiz, recientes, cerrar, abrir, avisar }: { raiz: string; recientes: string[]; cerrar: (volver: boolean) => void; abrir: (rel: string, linea?: number, columna?: number) => void; avisar: (t: string, e?: boolean) => void }) {
-  const [texto, setText] = useState('');
-  const [rels, setRels] = useState<string[] | null>(() => lists.get(raiz)?.rels ?? null);
-  const [i, setI] = useState(recientes.length > 1 ? 1 : 0);   // como en los editores: Intro sin escribir vuelve al anterior
+function OpenFast({ root, recent, close, open, notify }: { root: string; recent: string[]; close: (goBack: boolean) => void; open: (rel: string, line?: number, column?: number) => void; notify: (t: string, e?: boolean) => void }) {
+  const [text, setText] = useState('');
+  const [rels, setRels] = useState<string[] | null>(() => lists.get(root)?.rels ?? null);
+  const [i, setI] = useState(recent.length > 1 ? 1 : 0);   // como en los editores: Intro sin escribir vuelve al anterior
   const [inWait, setInWait] = useState(false);              // Intro antes de que llegue la lista: se abre al llegar
-  const lista = useRef<HTMLDivElement>(null);
-  useEffect(() => { let vivo = true; askList(raiz).then(r => { if (vivo) setRels(r); }, e => avisar(e.message, true)); return () => { vivo = false; }; }, [raiz]);
-  const { consulta, linea, columna } = queryYLine(texto);
-  const resultados = useMemo(() => {
-    if (!consulta) return recientes.map(rel => ({ rel, puntos: 0, marks: [] as number[] })).concat((rels ?? []).filter(r => !recientes.includes(r)).slice(0, 40).map(rel => ({ rel, puntos: 0, marks: [] })));
-    return searchFiles(consulta, rels ?? []);
-  }, [consulta, rels, recientes]);
-  useEffect(() => { if (consulta) setI(0); }, [consulta]);
-  useEffect(() => { lista.current?.children[i]?.scrollIntoView({ block: 'nearest' }); }, [i]);
-  const elegido = resultados[Math.min(i, resultados.length - 1)];
-  useEffect(() => { if (inWait && rels) { setInWait(false); if (elegido) abrir(elegido.rel, linea, columna); else SFX.noAllowed(); } }, [inWait, rels]);
+  const list = useRef<HTMLDivElement>(null);
+  useEffect(() => { let live = true; askList(root).then(r => { if (live) setRels(r); }, e => notify(e.message, true)); return () => { live = false; }; }, [root]);
+  const { query, line, column } = queryYLine(text);
+  const results = useMemo(() => {
+    if (!query) return recent.map(rel => ({ rel, points: 0, marks: [] as number[] })).concat((rels ?? []).filter(r => !recent.includes(r)).slice(0, 40).map(rel => ({ rel, points: 0, marks: [] })));
+    return searchFiles(query, rels ?? []);
+  }, [query, rels, recent]);
+  useEffect(() => { if (query) setI(0); }, [query]);
+  useEffect(() => { list.current?.children[i]?.scrollIntoView({ block: 'nearest' }); }, [i]);
+  const picked = results[Math.min(i, results.length - 1)];
+  useEffect(() => { if (inWait && rels) { setInWait(false); if (picked) open(picked.rel, line, column); else SFX.notAllowed(); } }, [inWait, rels]);
   return (
     <div className="ex-rapido" onKeyDown={e => e.stopPropagation()}>
-      <input autoFocus value={texto} onChange={e => setText(e.target.value)} spellCheck={false} placeholder={rels ? t('windows.searchNFilesByName', { n: rels.length.toLocaleString(idioma() === 'en' ? 'en-GB' : 'es-ES') }) : t('windows.readingTheFiles')}
-        onBlur={() => setTimeout(() => cerrar(false), 0)}
+      <input autoFocus value={text} onChange={e => setText(e.target.value)} spellCheck={false} placeholder={rels ? t('windows.searchNFilesByName', { n: rels.length.toLocaleString(language() === 'en' ? 'en-GB' : 'es-ES') }) : t('windows.readingTheFiles')}
+        onBlur={() => setTimeout(() => close(false), 0)}
         onKeyDown={e => {
-          const n = resultados.length;
-          if (e.key === 'Escape' || ((MAC ? e.metaKey : e.ctrlKey) && e.code === 'KeyP')) { e.preventDefault(); cerrar(true); }
+          const n = results.length;
+          if (e.key === 'Escape' || ((MAC ? e.metaKey : e.ctrlKey) && e.code === 'KeyP')) { e.preventDefault(); close(true); }
           else if (e.key === 'ArrowDown' || (e.ctrlKey && e.code === 'KeyN')) { e.preventDefault(); if (n) setI(x => (x + 1) % n); }
           else if (e.key === 'ArrowUp' || (e.ctrlKey && e.code === 'KeyP')) { e.preventDefault(); if (n) setI(x => (x - 1 + n) % n); }
-          else if (e.key === 'Enter') { e.preventDefault(); if (!rels && consulta) setInWait(true); else if (elegido) abrir(elegido.rel, linea, columna); else SFX.noAllowed(); }
+          else if (e.key === 'Enter') { e.preventDefault(); if (!rels && query) setInWait(true); else if (picked) open(picked.rel, line, column); else SFX.notAllowed(); }
         }} />
-      <div ref={lista} className="ex-rapido-lista">
-        {resultados.map((r, k) => {
+      <div ref={list} className="ex-rapido-lista">
+        {results.map((r, k) => {
           const base = r.rel.lastIndexOf('/') + 1, marks = new Set(r.marks);
-          const trozo = (desde: number, hasta: number) => Array.from(r.rel.slice(desde, hasta), (c, j) => (marks.has(desde + j) ? <b key={j}>{c}</b> : c));
+          const chunk = (since: number, until: number) => Array.from(r.rel.slice(since, until), (c, j) => (marks.has(since + j) ? <b key={j}>{c}</b> : c));
           return (
-            <div key={r.rel} className={'ex-rapido-item' + (k === i ? ' sel' : '')} onMouseDown={e => { e.preventDefault(); abrir(r.rel, linea, columna); }} onMouseMove={() => setI(k)}>
-              <span className="ex-rapido-nombre">{trozo(base, r.rel.length)}</span>
-              <span className="ex-rapido-carpeta">{trozo(0, Math.max(0, base - 1))}</span>
-              {!consulta && recientes.includes(r.rel) && <span className="ex-rapido-reciente">{t('windows.recentlyOpened')}</span>}
+            <div key={r.rel} className={'ex-rapido-item' + (k === i ? ' sel' : '')} onMouseDown={e => { e.preventDefault(); open(r.rel, line, column); }} onMouseMove={() => setI(k)}>
+              <span className="ex-rapido-nombre">{chunk(base, r.rel.length)}</span>
+              <span className="ex-rapido-carpeta">{chunk(0, Math.max(0, base - 1))}</span>
+              {!query && recent.includes(r.rel) && <span className="ex-rapido-reciente">{t('windows.recentlyOpened')}</span>}
             </div>
           );
         })}
-        {rels && consulta && !resultados.length && <div className="ex-rapido-item tenue">{t('windows.noFileHasThatName')}</div>}
+        {rels && query && !results.length && <div className="ex-rapido-item tenue">{t('windows.noFileHasThatName')}</div>}
       </div>
     </div>
   );

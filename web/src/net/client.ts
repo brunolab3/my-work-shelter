@@ -1,5 +1,5 @@
 // Conexión con el servidor local del refugio: WebSocket con reconexión, peticiones con respuesta y almacén de datos vivos.
-import type { ClientMessage, ServerMessage, SessionSummary, LogInput, InfoRepo, Visitante, MusicState, NoticeQuestion } from '@shared/protocol';
+import type { ClientMessage, ServerMessage, SessionSummary, LogInput, InfoRepo, Visitor, MusicState, NoticeQuestion } from '@shared/protocol';
 import type { ScheduledMessage } from '@shared/scheduled';
 import type { VerificationSummary } from '@shared/verification';
 import { Store } from '../ui/store';
@@ -8,37 +8,37 @@ import { t, roomNameIs } from '@shared/language';
 export interface LiveData {
   connected: boolean;
   attempts: number;
-  reiniciando: boolean;                     // el servidor se está reiniciando: al volver, se recarga la página
+  restarting: boolean;                     // el servidor se está reiniciando: al volver, se recarga la página
   claudeOk: boolean;
   versionClaude?: string;
-  estado: any | null;                       // EstadoRefugio del servidor
-  sesiones: Record<string, SessionSummary>;
-  entradas: Record<string, LogInput[]>;
-  parcial: Record<string, string>;          // narración en streaming por sesión
+  state: any | null;                       // EstadoRefugio del servidor
+  sessions: Record<string, SessionSummary>;
+  entries: Record<string, LogInput[]>;
+  partial: Record<string, string>;          // narración en streaming por sesión
   repos: Record<string, InfoRepo>;
-  visitantes: Visitante[];
-  notificaciones: any[];
-  eventos: any[];
-  integraciones: Record<string, any>;
-  avisos: Notice[];
-  musica: MusicState | null;              // lo que suena en la discoteca (Spotify web; lo pone Disco.tsx)
-  programados: ScheduledMessage[];         // mensajes programados pendientes (server/scheduled.ts)
-  verificaciones: Record<string, VerificationSummary>;   // each task's production verification (server/verifications.ts)
+  visitors: Visitor[];
+  notifications: any[];
+  events: any[];
+  integrations: Record<string, any>;
+  notices: Notice[];
+  music: MusicState | null;              // lo que suena en la discoteca (Spotify web; lo pone Disco.tsx)
+  scheduled: ScheduledMessage[];         // mensajes programados pendientes (server/scheduled.ts)
+  verifications: Record<string, VerificationSummary>;   // each task's production verification (server/verifications.ts)
 }
 
 // a notice (teletype): its id is its arrival time in ms (plus a fraction, so two never collide)
-export type Notice = { id: number; nivel: string; texto: string; pregunta?: NoticeQuestion };
+export type Notice = { id: number; level: string; text: string; question?: NoticeQuestion };
 
-export const vivo = new Store<LiveData>({ connected: false, attempts: 0, reiniciando: false, claudeOk: false, estado: null, sesiones: {}, entradas: {}, parcial: {}, repos: {}, visitantes: [], notificaciones: [], eventos: [], integraciones: {}, avisos: [], musica: null, programados: [], verificaciones: {} });
+export const live = new Store<LiveData>({ connected: false, attempts: 0, restarting: false, claudeOk: false, state: null, sessions: {}, entries: {}, partial: {}, repos: {}, visitors: [], notifications: [], events: [], integrations: {}, notices: [], music: null, scheduled: [], verifications: {} });
 
 // Notices stay until read (the older ones folded into one group: Avisos in web/src/ui/Bridge.tsx), up to the latest
 // MAX_NOTICES; questions don't count and stay until answered
 const MAX_NOTICES = 30;
-export function addNotice(nivel: string, texto: string, pregunta?: NoticeQuestion) {
-  vivo.set(e => {
-    const l = [...e.avisos, { id: Date.now() + Math.random(), nivel, texto, pregunta }];
-    let sobran = l.filter(a => !a.pregunta).length - MAX_NOTICES;
-    return { avisos: l.filter(a => a.pregunta || sobran-- <= 0) };
+export function addNotice(level: string, text: string, question?: NoticeQuestion) {
+  live.set(e => {
+    const l = [...e.notices, { id: Date.now() + Math.random(), level, text, question }];
+    let excess = l.filter(a => !a.question).length - MAX_NOTICES;
+    return { notices: l.filter(a => a.question || excess-- <= 0) };
   });
 }
 
@@ -54,87 +54,87 @@ function tokenShelter(): string {
 
 type Listener = (m: ServerMessage) => void;
 // room names in the chosen language (the service rooms keep theirs as Spanish data), from the first state on
-const shownState = (e: any) => (e?.salas ? { ...e, salas: (e.salas as any[]).map((s: any) => ({ ...s, nombre: roomNameIs(s) })) } : e);
+const shownState = (e: any) => (e?.rooms ? { ...e, rooms: (e.rooms as any[]).map((s: any) => ({ ...s, name: roomNameIs(s) })) } : e);
 
 class Client {
   private ws: WebSocket | null = null;
   private queue: string[] = [];
-  private pendientes = new Map<string, { ok: (v: any) => void; ko: (e: Error) => void }>();
+  private pending = new Map<string, { ok: (v: any) => void; ko: (e: Error) => void }>();
   private listeners = new Set<Listener>();
   private n = 0;
 
-  conectar() {
+  connect() {
     const url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws?t=' + encodeURIComponent(tokenShelter());
     const ws = new WebSocket(url);
     this.ws = ws;
     ws.onopen = () => {
       // tras un reinicio, el cliente nuevo (si lo hay) entra recargando; las terminales se reenganchan solas
-      if (vivo.get().reiniciando) { location.reload(); return; }
-      vivo.set({ connected: true, attempts: 0 });
-      this.enviar({ t: 'hola', version: '0.1' });
+      if (live.get().restarting) { location.reload(); return; }
+      live.set({ connected: true, attempts: 0 });
+      this.send({ t: 'hola', version: '0.1' });
       for (const m of this.queue.splice(0)) ws.send(m);
     };
     ws.onmessage = ev => { try { this.receive(JSON.parse(ev.data)); } catch (e) { console.error(e); } };
     ws.onclose = () => {
-      vivo.set(e => ({ connected: false, attempts: e.attempts + 1 }));
+      live.set(e => ({ connected: false, attempts: e.attempts + 1 }));
       // si el servidor responde pero el WebSocket se niega varias veces, es otro arranque (otro secreto): hay que recargar
-      if (vivo.get().attempts >= 4) fetch('/salud').then(r => { if (r.ok) addNotice('error', t('windows.serverRestartedReopen')); }).catch(() => {});
-      const espera = Math.min(4000, 400 * (vivo.get().attempts + 1));
-      setTimeout(() => this.conectar(), espera);
+      if (live.get().attempts >= 4) fetch('/salud').then(r => { if (r.ok) addNotice('error', t('windows.serverRestartedReopen')); }).catch(() => {});
+      const wait = Math.min(4000, 400 * (live.get().attempts + 1));
+      setTimeout(() => this.connect(), wait);
     };
   }
 
-  enviar(m: ClientMessage) {
+  send(m: ClientMessage) {
     const s = JSON.stringify(m);
     if (this.ws && this.ws.readyState === WebSocket.OPEN) this.ws.send(s); else this.queue.push(s);
   }
 
   // Petición con respuesta (acciones, historial, cuaderno…)
-  ask<T = unknown>(m: Record<string, unknown> & { t: ClientMessage['t'] }, espera = 60_000): Promise<T> {
-    const peticion = 'p' + (++this.n);
+  ask<T = unknown>(m: Record<string, unknown> & { t: ClientMessage['t'] }, wait = 60_000): Promise<T> {
+    const request = 'p' + (++this.n);
     return new Promise<T>((ok, ko) => {
-      this.pendientes.set(peticion, { ok, ko });
-      this.enviar({ ...m, peticion } as any);
-      setTimeout(() => { if (this.pendientes.delete(peticion)) ko(new Error(t('windows.theShelterIsNotResponding'))); }, espera);
+      this.pending.set(request, { ok, ko });
+      this.send({ ...m, request } as any);
+      setTimeout(() => { if (this.pending.delete(request)) ko(new Error(t('windows.theShelterIsNotResponding'))); }, wait);
     });
   }
-  accion<T = unknown>(nombre: string, datos?: Record<string, unknown>, espera?: number) { return this.ask<T>({ t: 'accion', nombre, datos }, espera); }
+  action<T = unknown>(name: string, data?: Record<string, unknown>, wait?: number) { return this.ask<T>({ t: 'accion', name, data }, wait); }
 
-  escuchar(f: Listener) { this.listeners.add(f); return () => { this.listeners.delete(f); }; }
+  listen(f: Listener) { this.listeners.add(f); return () => { this.listeners.delete(f); }; }
 
   private receive(m: ServerMessage) {
     switch (m.t) {
       case 'bienvenida': {
-        const sesiones: Record<string, SessionSummary> = {}; for (const s of m.sesiones) sesiones[s.id] = s;
-        vivo.set({ claudeOk: m.claudeOk, versionClaude: m.versionClaude, estado: shownState(m.estado), sesiones, repos: m.repos });
+        const sessions: Record<string, SessionSummary> = {}; for (const s of m.sessions) sessions[s.id] = s;
+        live.set({ claudeOk: m.claudeOk, versionClaude: m.versionClaude, state: shownState(m.state), sessions, repos: m.repos });
         // tras un corte, los cuadernos abiertos se vuelven a pedir enteros (lo que llegó durante el corte no se pierde)
         wholeLogs.clear();
-        for (const id of Object.keys(vivo.get().entradas)) if (sesiones[id]) loadLog(id);
+        for (const id of Object.keys(live.get().entries)) if (sessions[id]) loadLog(id);
         break;
       }
-      case 'sesion': vivo.set(e => ({ sesiones: { ...e.sesiones, [m.sesion.id]: m.sesion }, parcial: m.sesion.estado !== 'trabajando' && m.sesion.estado !== 'arrancando' ? { ...e.parcial, [m.sesion.id]: '' } : e.parcial })); break;
-      case 'sesionFuera': vivo.set(e => { const s = { ...e.sesiones }; delete s[m.sesionId]; return { sesiones: s }; }); break;
-      case 'entradas': vivo.set(e => ({ entradas: { ...e.entradas, [m.sesionId]: [...(e.entradas[m.sesionId] ?? []), ...m.entradas].slice(-1500) }, parcial: m.entradas.some(x => x.tipo === 'asistente') ? { ...e.parcial, [m.sesionId]: '' } : e.parcial })); break;
-      case 'texto': vivo.set(e => ({ parcial: { ...e.parcial, [m.sesionId]: (e.parcial[m.sesionId] ?? '') + m.delta } })); break;
-      case 'respuesta': { const p = this.pendientes.get(m.peticion); if (p) { this.pendientes.delete(m.peticion); m.error ? p.ko(new Error(m.error)) : p.ok(m.datos); } break; }
-      case 'repos': vivo.set({ repos: m.repos }); break;
-      case 'visitantes': vivo.set({ visitantes: m.visitantes }); break;
-      case 'programados': vivo.set({ programados: m.lista }); break;
-      case 'verificaciones': vivo.set({ verificaciones: m.estados }); break;
-      case 'notificaciones': vivo.set({ notificaciones: m.lista }); break;
-      case 'eventos': vivo.set({ eventos: m.lista }); break;
-      case 'integracion': vivo.set(e => ({ integraciones: { ...e.integraciones, [m.id]: m.estado } })); break;
-      case 'estado': vivo.set({ estado: shownState(m.estado) }); break;
+      case 'sesion': live.set(e => ({ sessions: { ...e.sessions, [m.session.id]: m.session }, partial: m.session.state !== 'trabajando' && m.session.state !== 'arrancando' ? { ...e.partial, [m.session.id]: '' } : e.partial })); break;
+      case 'sesionFuera': live.set(e => { const s = { ...e.sessions }; delete s[m.sessionId]; return { sessions: s }; }); break;
+      case 'entradas': live.set(e => ({ entries: { ...e.entries, [m.sessionId]: [...(e.entries[m.sessionId] ?? []), ...m.entries].slice(-1500) }, partial: m.entries.some(x => x.type === 'asistente') ? { ...e.partial, [m.sessionId]: '' } : e.partial })); break;
+      case 'texto': live.set(e => ({ partial: { ...e.partial, [m.sessionId]: (e.partial[m.sessionId] ?? '') + m.delta } })); break;
+      case 'respuesta': { const p = this.pending.get(m.request); if (p) { this.pending.delete(m.request); m.error ? p.ko(new Error(m.error)) : p.ok(m.data); } break; }
+      case 'repos': live.set({ repos: m.repos }); break;
+      case 'visitantes': live.set({ visitors: m.visitors }); break;
+      case 'programados': live.set({ scheduled: m.list }); break;
+      case 'verificaciones': live.set({ verifications: m.states }); break;
+      case 'notificaciones': live.set({ notifications: m.list }); break;
+      case 'eventos': live.set({ events: m.list }); break;
+      case 'integracion': live.set(e => ({ integrations: { ...e.integrations, [m.id]: m.state } })); break;
+      case 'estado': live.set({ state: shownState(m.state) }); break;
       // los que preguntan no se pierden entre los demás: se quedan hasta contestarlos
-      case 'aviso': addNotice(m.nivel, m.texto, m.pregunta); break;
+      case 'aviso': addNotice(m.level, m.text, m.question); break;
       case 'recargar': location.reload(); break;
-      case 'reiniciando': vivo.set({ reiniciando: true }); break;
+      case 'reiniciando': live.set({ restarting: true }); break;
     }
     for (const f of this.listeners) f(m);
   }
 }
 
-export const cliente = new Client();
+export const client = new Client();
 
 // El cuaderno entero de una conversación se pide una vez (y otra tras cada corte): lo que llega suelto por 'entradas'
 // antes de pedirlo es solo la cola (al recargar la página con una conversación trabajando), no todo el historial. La
@@ -143,5 +143,5 @@ const wholeLogs = new Set<string>();
 export function loadLog(id: string) {
   if (wholeLogs.has(id)) return;
   wholeLogs.add(id);
-  cliente.ask<any[]>({ t: 'cuaderno', sesionId: id }).then(lista => vivo.set(e => ({ entradas: { ...e.entradas, [id]: lista } }))).catch(() => wholeLogs.delete(id));
+  client.ask<any[]>({ t: 'cuaderno', sessionId: id }).then(list => live.set(e => ({ entries: { ...e.entries, [id]: list } }))).catch(() => wholeLogs.delete(id));
 }

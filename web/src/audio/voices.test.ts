@@ -7,8 +7,8 @@ describe('murmullo: texto → sílabas', () => {
     expect(s.map(x => x.v)).toEqual(['o', 'a', 'u', 'o']);
     expect(s[0].c).toBe('');           // la hache no suena
     expect(s[2].c).toBe('m');
-    expect(s[1].pausa).toBeGreaterThanOrEqual(0.13);   // la coma
-    expect(s[1].fin && s[3].fin).toBe(true);
+    expect(s[1].pause).toBeGreaterThanOrEqual(0.13);   // la coma
+    expect(s[1].end && s[3].end).toBe(true);
   });
   it('las preguntas suben al final y las exclamaciones van más fuertes', () => {
     const p = syllabify('¿Lo arreglo ahora?'), a = syllabify('Lo arreglo ahora.');

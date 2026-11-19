@@ -464,7 +464,7 @@ a.miniatura:hover img { box-shadow: 0 0 0 1px #ffc96b, 0 0 10px rgba(255,179,71,
 .feed-lista .quien { color: var(--crema-tenue); text-shadow: none; }
 .fuente { font: 600 .72em var(--t-mono); text-transform: uppercase; letter-spacing: .05em; padding: 0 .35em; border-radius: 2px; color: #0b0a09; text-shadow: none; text-align: center; }
 /* fuentes en tintas de la paleta del refugio (acero, óxido, cobre, fósforo), nunca pastel */
-/* colores de shared/fonts.ts */
+/* colores de shared/sources.ts */
 .f-outlook.fuente, .ev.f-outlook { background: #6f8fb0; } .f-google.fuente, .ev.f-google { background: #b0a05a; } .ev.f-calendario { background: #b0707a; } .f-mail.fuente { background: #8f86b0; } .f-discord.fuente { background: #b07a4a; } .f-slack.fuente { background: #a07088; } .f-github.fuente { background: #8a96a8; } .f-linear.fuente { background: #7fae86; }
 .feed-detalle { border-left: 1px solid rgba(157,255,184,.2); padding-left: 1em; overflow: auto; min-height: 0; }
 .feed-detalle .fragmento { white-space: pre-wrap; color: var(--crema); text-shadow: none; }

@@ -4,124 +4,124 @@
 // prepara, descarta o quita solo esas.
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { t } from '@shared/language';
-import { readDiff, assemblePatch, chunksAccepts, inParallel, parejas, changeInLine, type Block, type Linea } from './diff';
+import { readDiff, assemblePatch, chunksAccepts, inParallel, linePairs, changeInLine, type Block, type Line } from './diff';
 
 export type ModeDiff = 'cambios' | 'preparados' | 'commit';
 export type PatchThat = 'preparar' | 'quitar' | 'descartar';
-interface Props { texto: string; binario?: boolean; recortado?: boolean; modo: ModeDiff; paralelo: boolean; ocupado?: boolean; onApply?: (parche: string, que: PatchThat, howMuch: string) => void }
+interface Props { text: string; binary?: boolean; truncated?: boolean; mode: ModeDiff; parallel: boolean; busy?: boolean; onApply?: (patch: string, what: PatchThat, howMuch: string) => void }
 
 const MAX_LINES = 4000;
 
-export function VisorDiff({ texto, binario, recortado, modo, paralelo, ocupado, onApply }: Props) {
-  const d = useMemo(() => readDiff(texto), [texto]);
-  const trozos = modo !== 'commit' && !!onApply && chunksAccepts(d);
+export function DiffViewer({ text, binary, truncated, mode, parallel, busy, onApply }: Props) {
+  const d = useMemo(() => readDiff(text), [text]);
+  const chunks = mode !== 'commit' && !!onApply && chunksAccepts(d);
   // líneas elegidas: bloque → índices de línea
-  const [elegidas, setChosen] = useState<Map<number, Set<number>>>(new Map());
+  const [picked, setChosen] = useState<Map<number, Set<number>>>(new Map());
   const anchor = useRef<{ b: number; i: number } | null>(null);
-  const [todo, setTodo] = useState(false);
-  useEffect(() => { setChosen(new Map()); anchor.current = null; }, [texto]);
-  const nChosen = [...elegidas.values()].reduce((s, x) => s + x.size, 0);
+  const [all, setAll] = useState(false);
+  useEffect(() => { setChosen(new Map()); anchor.current = null; }, [text]);
+  const nChosen = [...picked.values()].reduce((s, x) => s + x.size, 0);
 
-  const elegir = (b: number, i: number, segment: boolean) => {
-    if (!trozos) return;
-    const bl = d.blocks[b]; if (!bl || bl.lineas[i].tipo === ' ' || bl.lineas[i].tipo === '\\') return;
+  const pick = (b: number, i: number, segment: boolean) => {
+    if (!chunks) return;
+    const bl = d.blocks[b]; if (!bl || bl.lines[i].type === ' ' || bl.lines[i].type === '\\') return;
     setChosen(prev => {
       const m = new Map(prev); const s = new Set(m.get(b) ?? []);
       if (segment && anchor.current?.b === b) {
         const [a, z] = [Math.min(anchor.current.i, i), Math.max(anchor.current.i, i)];
-        for (let k = a; k <= z; k++) if (bl.lineas[k].tipo === '+' || bl.lineas[k].tipo === '-') s.add(k);
+        for (let k = a; k <= z; k++) if (bl.lines[k].type === '+' || bl.lines[k].type === '-') s.add(k);
       } else if (s.has(i)) s.delete(i); else s.add(i);
       if (s.size) m.set(b, s); else m.delete(b);
       return m;
     });
     anchor.current = { b, i };
   };
-  const aplicar = (blocks: number[], que: PatchThat, howMuch: string, sel?: Map<number, Set<number>>) => {
-    const p = assemblePatch(d, blocks, que === 'preparar' ? 'adelante' : 'atras', sel);
-    if (p && onApply) onApply(p, que, howMuch);
+  const apply = (blocks: number[], what: PatchThat, howMuch: string, sel?: Map<number, Set<number>>) => {
+    const p = assemblePatch(d, blocks, what === 'preparar' ? 'adelante' : 'atras', sel);
+    if (p && onApply) onApply(p, what, howMuch);
   };
-  const applyChosen = (que: PatchThat) => aplicar([...elegidas.keys()], que, nChosen === 1 ? t('windows.1Line') : t('windows.nLines', { n: nChosen }), elegidas);
+  const applyChosen = (what: PatchThat) => apply([...picked.keys()], what, nChosen === 1 ? t('windows.1Line') : t('windows.nLines', { n: nChosen }), picked);
 
-  if (binario) return <div className="gd-vacio">{t('windows.binaryFileNoDiffTo')}</div>;
-  if (!d.blocks.length) return <div className="gd-vacio">{d.cabecera.some(l => l.startsWith('old mode')) ? t('windows.onlyTheFilePermissionsChanged') : d.renombrado ? t('windows.renamedWithNoContentChanges') : texto.trim() ? t('windows.noContentChanges') : t('windows.emptyFile')}</div>;
+  if (binary) return <div className="gd-vacio">{t('windows.binaryFileNoDiffTo')}</div>;
+  if (!d.blocks.length) return <div className="gd-vacio">{d.header.some(l => l.startsWith('old mode')) ? t('windows.onlyTheFilePermissionsChanged') : d.renamed ? t('windows.renamedWithNoContentChanges') : text.trim() ? t('windows.noContentChanges') : t('windows.emptyFile')}</div>;
 
-  let remaining = todo ? Infinity : MAX_LINES;
+  let remaining = all ? Infinity : MAX_LINES;
   return (
-    <div className={'gd' + (paralelo ? ' paralelo' : '') + (trozos ? ' con-trozos' : '')}>
-      {recortado && <div className="gd-aviso">{t('windows.theDiffIsHugeAnd')}</div>}
+    <div className={'gd' + (parallel ? ' paralelo' : '') + (chunks ? ' con-trozos' : '')}>
+      {truncated && <div className="gd-aviso">{t('windows.theDiffIsHugeAnd')}</div>}
       {d.blocks.map((b, bi) => {
         if (remaining <= 0) return null;
-        const cut = b.lineas.length > remaining; remaining -= b.lineas.length;
+        const cut = b.lines.length > remaining; remaining -= b.lines.length;
         return (
           <section key={bi} className="gd-bloque">
             <header className="gd-cab">
               <span className="gd-arroba">@@ −{b.startOld},{b.oldN} +{b.newStart},{b.newN} @@</span>
-              <span className="gd-contexto">{b.contexto}</span>
-              {trozos && <span className="gd-botones">
-                {modo === 'cambios' && <button disabled={ocupado} onClick={() => aplicar([bi], 'descartar', t('windows.theHunk'))} title={t('windows.revertsThisHunkInThe')}>{t('windows.discardHunk')}</button>}
-                {modo === 'cambios' && <button disabled={ocupado} className="principal" onClick={() => aplicar([bi], 'preparar', t('windows.theHunk'))} title={t('windows.stageThisHunkForThe')}>{t('windows.stageHunk')}</button>}
-                {modo === 'preparados' && <button disabled={ocupado} onClick={() => aplicar([bi], 'quitar', t('windows.theHunk'))} title={t('windows.removesItFromTheStaged')}>{t('windows.unstageHunk')}</button>}
+              <span className="gd-contexto">{b.context}</span>
+              {chunks && <span className="gd-botones">
+                {mode === 'cambios' && <button disabled={busy} onClick={() => apply([bi], 'descartar', t('windows.theHunk'))} title={t('windows.revertsThisHunkInThe')}>{t('windows.discardHunk')}</button>}
+                {mode === 'cambios' && <button disabled={busy} className="principal" onClick={() => apply([bi], 'preparar', t('windows.theHunk'))} title={t('windows.stageThisHunkForThe')}>{t('windows.stageHunk')}</button>}
+                {mode === 'preparados' && <button disabled={busy} onClick={() => apply([bi], 'quitar', t('windows.theHunk'))} title={t('windows.removesItFromTheStaged')}>{t('windows.unstageHunk')}</button>}
               </span>}
             </header>
-            {paralelo ? <Parallel b={b} bi={bi} elegidas={elegidas.get(bi)} elegir={elegir} cut={cut ? b.lineas.length + remaining : undefined} />
-              : <Unified b={b} bi={bi} elegidas={elegidas.get(bi)} elegir={elegir} cut={cut ? b.lineas.length + remaining : undefined} />}
+            {parallel ? <Parallel b={b} bi={bi} picked={picked.get(bi)} pick={pick} cut={cut ? b.lines.length + remaining : undefined} />
+              : <Unified b={b} bi={bi} picked={picked.get(bi)} pick={pick} cut={cut ? b.lines.length + remaining : undefined} />}
           </section>
         );
       })}
-      {remaining <= 0 && !todo && <button className="gd-todo" onClick={() => setTodo(true)}>{t('windows.showTheWholeDiffIt')}</button>}
-      {trozos && nChosen > 0 && (
+      {remaining <= 0 && !all && <button className="gd-todo" onClick={() => setAll(true)}>{t('windows.showTheWholeDiffIt')}</button>}
+      {chunks && nChosen > 0 && (
         <div className="gd-eleccion">
           <span>{nChosen === 1 ? t('windows.1LineSelected') : t('windows.nLinesSelected', { n: nChosen })}</span>
-          {modo === 'cambios' && <button disabled={ocupado} className="principal" onClick={() => applyChosen('preparar')}>{t('windows.stage')}</button>}
-          {modo === 'cambios' && <button disabled={ocupado} onClick={() => applyChosen('descartar')}>{t('windows.discard2')}</button>}
-          {modo === 'preparados' && <button disabled={ocupado} onClick={() => applyChosen('quitar')}>{t('windows.unstage')}</button>}
+          {mode === 'cambios' && <button disabled={busy} className="principal" onClick={() => applyChosen('preparar')}>{t('windows.stage')}</button>}
+          {mode === 'cambios' && <button disabled={busy} onClick={() => applyChosen('descartar')}>{t('windows.discard2')}</button>}
+          {mode === 'preparados' && <button disabled={busy} onClick={() => applyChosen('quitar')}>{t('windows.unstage')}</button>}
           <button onClick={() => setChosen(new Map())} title={t('windows.clearSelection')}>×</button>
         </div>
       )}
-      {trozos && !nChosen && <div className="gd-pista">{t('windows.clickInTheGutterOf')}</div>}
+      {chunks && !nChosen && <div className="gd-pista">{t('windows.clickInTheGutterOf')}</div>}
     </div>
   );
 }
 
 // el texto de una línea con lo que cambia dentro marcado
-function Texto({ l, otra }: { l: Linea; otra?: Linea }) {
-  const c = otra ? changeInLine(l.tipo === '-' ? l.texto : otra.texto, l.tipo === '-' ? otra.texto : l.texto) : null;
-  if (!c) return <>{l.texto || ' '}</>;
-  const [a, z] = l.tipo === '-' ? c.a : c.b;
-  return <>{l.texto.slice(0, a)}<mark>{l.texto.slice(a, z)}</mark>{l.texto.slice(z)}</>;
+function LocalizedText({ l, other }: { l: Line; other?: Line }) {
+  const c = other ? changeInLine(l.type === '-' ? l.text : other.text, l.type === '-' ? other.text : l.text) : null;
+  if (!c) return <>{l.text || ' '}</>;
+  const [a, z] = l.type === '-' ? c.a : c.b;
+  return <>{l.text.slice(0, a)}<mark>{l.text.slice(a, z)}</mark>{l.text.slice(z)}</>;
 }
 const KIND: Record<string, string> = { '+': 'mas', '-': 'menos', ' ': 'ctx', '\\': 'nota' };
 
-interface PropsBlock { b: Block; bi: number; elegidas?: Set<number>; elegir: (b: number, i: number, segment: boolean) => void; cut?: number }
-function Unified({ b, bi, elegidas, elegir, cut }: PropsBlock) {
-  const pairs = useMemo(() => parejas(b), [b]);
-  const lineas = cut !== undefined ? b.lineas.slice(0, cut) : b.lineas;
+interface PropsBlock { b: Block; bi: number; picked?: Set<number>; pick: (b: number, i: number, segment: boolean) => void; cut?: number }
+function Unified({ b, bi, picked, pick, cut }: PropsBlock) {
+  const pairs = useMemo(() => linePairs(b), [b]);
+  const lines = cut !== undefined ? b.lines.slice(0, cut) : b.lines;
   return (
     <table className="gd-tabla"><tbody>
-      {lineas.map((l, i) => (
-        <tr key={i} className={'gd-l ' + KIND[l.tipo] + (elegidas?.has(i) ? ' elegida' : '')}>
-          <td className="gd-n" onClick={e => elegir(bi, i, e.shiftKey)}>{l.viejo ?? ''}</td>
-          <td className="gd-n" onClick={e => elegir(bi, i, e.shiftKey)}>{l.nuevo ?? ''}</td>
-          <td className="gd-signo" onClick={e => elegir(bi, i, e.shiftKey)}>{l.tipo === '\\' ? '' : l.tipo}</td>
-          <td className="gd-c">{l.tipo === '\\' ? l.texto.slice(2) : <Texto l={l} otra={pairs.has(i) ? b.lineas[pairs.get(i)!] : undefined} />}</td>
+      {lines.map((l, i) => (
+        <tr key={i} className={'gd-l ' + KIND[l.type] + (picked?.has(i) ? ' elegida' : '')}>
+          <td className="gd-n" onClick={e => pick(bi, i, e.shiftKey)}>{l.old ?? ''}</td>
+          <td className="gd-n" onClick={e => pick(bi, i, e.shiftKey)}>{l.newer ?? ''}</td>
+          <td className="gd-signo" onClick={e => pick(bi, i, e.shiftKey)}>{l.type === '\\' ? '' : l.type}</td>
+          <td className="gd-c">{l.type === '\\' ? l.text.slice(2) : <LocalizedText l={l} other={pairs.has(i) ? b.lines[pairs.get(i)!] : undefined} />}</td>
         </tr>
       ))}
     </tbody></table>
   );
 }
 
-function Parallel({ b, bi, elegidas, elegir, cut }: PropsBlock) {
-  const filas = useMemo(() => inParallel(b), [b]);
-  const vis = cut !== undefined ? filas.slice(0, cut) : filas;
-  const lado = (l: (Linea & { i: number }) | undefined, otra: (Linea & { i: number }) | undefined, n: number | undefined) => l
+function Parallel({ b, bi, picked, pick, cut }: PropsBlock) {
+  const rows = useMemo(() => inParallel(b), [b]);
+  const vis = cut !== undefined ? rows.slice(0, cut) : rows;
+  const side = (l: (Line & { i: number }) | undefined, other: (Line & { i: number }) | undefined, n: number | undefined) => l
     ? <>
-        <td className={'gd-n ' + KIND[l.tipo] + (elegidas?.has(l.i) ? ' elegida' : '')} onClick={e => elegir(bi, l.i, e.shiftKey)}>{n ?? ''}</td>
-        <td className={'gd-c ' + KIND[l.tipo] + (elegidas?.has(l.i) ? ' elegida' : '')}><Texto l={l} otra={l.tipo !== ' ' && otra && otra.tipo !== ' ' ? otra : undefined} /></td>
+        <td className={'gd-n ' + KIND[l.type] + (picked?.has(l.i) ? ' elegida' : '')} onClick={e => pick(bi, l.i, e.shiftKey)}>{n ?? ''}</td>
+        <td className={'gd-c ' + KIND[l.type] + (picked?.has(l.i) ? ' elegida' : '')}><LocalizedText l={l} other={l.type !== ' ' && other && other.type !== ' ' ? other : undefined} /></td>
       </>
     : <><td className="gd-n hueco" /><td className="gd-c hueco" /></>;
   return (
     <table className="gd-tabla"><tbody>
-      {vis.map((f, k) => <tr key={k} className="gd-l">{lado(f.izq, f.der, f.izq?.viejo)}{lado(f.der, f.izq, f.der?.nuevo)}</tr>)}
+      {vis.map((f, k) => <tr key={k} className="gd-l">{side(f.left, f.right, f.left?.old)}{side(f.right, f.left, f.right?.newer)}</tr>)}
     </tbody></table>
   );
 }

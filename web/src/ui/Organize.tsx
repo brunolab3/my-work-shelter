@@ -2,61 +2,61 @@
 // fusionar y en cada uno su propia conversación con el habitante, que trabaja sus PR de uno en uno (si van apilados,
 // rebasando los de encima). Primero el plan; Enter lo hace.
 import React, { useEffect, useState } from 'react';
-import { cliente } from '../net/client';
+import { client } from '../net/client';
 import { SFX } from '../audio/sound';
 import { t } from '@shared/language';
 import { Device, Keys, closePanel, useKeys } from './device';
 import { knowTasks, useColorsTasks } from './tasks';
 import { TaskMark } from './windows';
 
-interface Step { tarea: string; prs: string[]; donde: string; crear: boolean; principal: boolean; conversation: boolean }
-interface Row { salaId: string; sala: string; repo?: string; pasos: Step[]; hecho?: string[] }
+interface Step { task: string; prs: string[]; where: string; create: boolean; main: boolean; conversation: boolean }
+interface Row { roomId: string; room: string; repo?: string; steps: Step[]; done?: string[] }
 
-export function OrganizeRooms({ salaId, volver = closePanel }: { salaId?: string; volver?: () => void }) {
-  const [datos, setDatos] = useState<{ demo?: boolean; salas: Row[] } | null>(null);
-  const [estado, setState] = useState<'plan' | 'haciendo' | 'hecho'>('plan');
+export function OrganizeRooms({ roomId, goBack = closePanel }: { roomId?: string; goBack?: () => void }) {
+  const [data, setData] = useState<{ demo?: boolean; rooms: Row[] } | null>(null);
+  const [state, setState] = useState<'plan' | 'haciendo' | 'hecho'>('plan');
   const [error, setError] = useState('');
-  useEffect(() => { cliente.accion<any>('sala.organizar', { salaId, aplicar: false }, 60_000).then(setDatos).catch(e => setError(e.message)); }, [salaId]);
-  const withTasks = (datos?.salas ?? []).filter(s => s.pasos.length);
+  useEffect(() => { client.action<any>('sala.organizar', { roomId, apply: false }, 60_000).then(setData).catch(e => setError(e.message)); }, [roomId]);
+  const withTasks = (data?.rooms ?? []).filter(s => s.steps.length);
   useColorsTasks();
-  useEffect(() => knowTasks(withTasks.flatMap(s => s.pasos.map(p => p.tarea.replace(/^PR #/, 'PR-')))), [datos]);
-  const makeThat = withTasks.some(s => s.pasos.some(p => p.crear || !p.conversation));
-  const hacer = () => {
-    if (!makeThat || estado !== 'plan' || datos?.demo) { SFX.noAllowed(); return; }
-    setState('haciendo'); SFX.clic();
-    cliente.accion<any>('sala.organizar', { salaId, aplicar: true }, 180_000).then(d => { setDatos(d); setState('hecho'); SFX.shortSuccess(); }).catch(e => { setError(e.message); setState('plan'); SFX.noAllowed(); });
+  useEffect(() => knowTasks(withTasks.flatMap(s => s.steps.map(p => p.task.replace(/^PR #/, 'PR-')))), [data]);
+  const makeThat = withTasks.some(s => s.steps.some(p => p.create || !p.conversation));
+  const act = () => {
+    if (!makeThat || state !== 'plan' || data?.demo) { SFX.notAllowed(); return; }
+    setState('haciendo'); SFX.click();
+    client.action<any>('sala.organizar', { roomId, apply: true }, 180_000).then(d => { setData(d); setState('hecho'); SFX.shortSuccess(); }).catch(e => { setError(e.message); setState('plan'); SFX.notAllowed(); });
   };
   useKeys(e => {
-    if (e.code === 'Escape') volver();
-    else if (e.code === 'Enter' || e.code === 'KeyE') { if (estado === 'hecho') volver(); else hacer(); }
-  }, [estado, datos, makeThat]);
+    if (e.code === 'Escape') goBack();
+    else if (e.code === 'Enter' || e.code === 'KeyE') { if (state === 'hecho') goBack(); else act(); }
+  }, [state, data, makeThat]);
   return (
-    <Device rotulo={(salaId ? t('panels.organizeTheRoomByTasks') : t('panels.organizeTheRoomsByTasks2')) + (datos?.demo ? ' · DEMO' : '')} ancho={84} onClose={volver}>
+    <Device label={(roomId ? t('panels.organizeTheRoomByTasks') : t('panels.organizeTheRoomsByTasks2')) + (data?.demo ? ' · DEMO' : '')} width={84} onClose={goBack}>
       <p className="voz">{t('panels.oneWorktreePerTaskWith')}</p>
       {error && <p className="aviso-consola">{error}</p>}
-      {datos?.demo && <p className="tenue">{t('panels.demoConnectGithubInThe')}</p>}
-      {!datos && !error && <p className="tenue">{t('panels.readingYourOpenPullRequests')}</p>}
+      {data?.demo && <p className="tenue">{t('panels.demoConnectGithubInThe')}</p>}
+      {!data && !error && <p className="tenue">{t('panels.readingYourOpenPullRequests')}</p>}
       <div className="lista-desplazable organizar">
         {withTasks.map(s => (
-          <section key={s.salaId}>
-            <h3>{s.sala} <span className="tenue">{s.repo}</span></h3>
+          <section key={s.roomId}>
+            <h3>{s.room} <span className="tenue">{s.repo}</span></h3>
             <ul>
-              {s.pasos.map(p => (
-                <li key={p.tarea}>
-                  <TaskMark clave={p.tarea.replace(/^PR #/, 'PR-')} /><b className="ident">{p.tarea}</b> <span className="tenue">→ {p.principal ? t('panels.theMainCopyItsBranch') : p.crear ? t('panels.newWorktreeDonde', { donde: p.donde }) : t('panels.itsWorktreeDonde', { donde: p.donde })} · {p.conversation ? t('panels.alreadyHasAConversation') : t('panels.newConversation')}</span>
+              {s.steps.map(p => (
+                <li key={p.task}>
+                  <TaskMark key={p.task.replace(/^PR #/, 'PR-')} /><b className="ident">{p.task}</b> <span className="tenue">→ {p.main ? t('panels.theMainCopyItsBranch') : p.create ? t('panels.newWorktreeDonde', { donde: p.where }) : t('panels.itsWorktreeDonde', { donde: p.where })} · {p.conversation ? t('panels.alreadyHasAConversation') : t('panels.newConversation')}</span>
                   <small className="tenue">{p.prs.join(' → ')}</small>
                 </li>
               ))}
             </ul>
-            {s.hecho && <ul className="hecho">{s.hecho.map((h, k) => <li key={k}>✓ {h}</li>)}</ul>}
+            {s.done && <ul className="hecho">{s.done.map((h, k) => <li key={k}>✓ {h}</li>)}</ul>}
           </section>
         ))}
-        {datos && !withTasks.length && <p className="tenue">{salaId ? t('panels.thisRoomHasNoUnmerged') : t('panels.noRoomHasUnmergedPull')}</p>}
-        {datos && !salaId && datos.salas.some(s => !s.pasos.length) && <p className="tenue">{t('panels.noOpenPrs')} {datos.salas.filter(s => !s.pasos.length).map(s => s.sala).join(', ')}.</p>}
+        {data && !withTasks.length && <p className="tenue">{roomId ? t('panels.thisRoomHasNoUnmerged') : t('panels.noRoomHasUnmergedPull')}</p>}
+        {data && !roomId && data.rooms.some(s => !s.steps.length) && <p className="tenue">{t('panels.noOpenPrs')} {data.rooms.filter(s => !s.steps.length).map(s => s.room).join(', ')}.</p>}
       </div>
-      {estado === 'haciendo' && <p className="tenue">{t('panels.creatingWorktreesAndStartingConversations')}</p>}
-      {estado === 'plan' && makeThat && !datos?.demo && <div className="botonera"><button className="boton-taller" onClick={hacer}>{t('panels.enterOrganize')}</button></div>}
-      <Keys>{estado === 'hecho' ? <><kbd>Enter</kbd>{t('menu.close')} </> : makeThat && !datos?.demo ? <><kbd>Enter</kbd>{t('panels.organize')} </> : null}<kbd>Esc</kbd>{t('menu.back')}</Keys>
+      {state === 'haciendo' && <p className="tenue">{t('panels.creatingWorktreesAndStartingConversations')}</p>}
+      {state === 'plan' && makeThat && !data?.demo && <div className="botonera"><button className="boton-taller" onClick={act}>{t('panels.enterOrganize')}</button></div>}
+      <Keys>{state === 'hecho' ? <><kbd>Enter</kbd>{t('menu.close')} </> : makeThat && !data?.demo ? <><kbd>Enter</kbd>{t('panels.organize')} </> : null}<kbd>Esc</kbd>{t('menu.back')}</Keys>
     </Device>
   );
 }
