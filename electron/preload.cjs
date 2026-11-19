@@ -5,9 +5,9 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('shelterVentana', {
   onChangeFocus: f => { ipcRenderer.on('foco', (_e, withFocus) => f(withFocus)); },
   askMicrophone: () => ipcRenderer.invoke('microfono'),   // para dictar en el intercomunicador
-  notify: (id, titulo, cuerpo) => ipcRenderer.invoke('aviso', id, titulo, cuerpo),
+  notify: (id, title, body) => ipcRenderer.invoke('aviso', id, title, body),
   removeNotice: id => ipcRenderer.invoke('aviso:quitar', id),
-  setBadge: texto => ipcRenderer.invoke('insignia', texto),   // Dock badge: a number of questions or a dot
+  setBadge: text => ipcRenderer.invoke('insignia', text),   // Dock badge: a number of questions or a dot
   onNoticeClick: f => { ipcRenderer.on('aviso:clic', (_e, id) => f(id)); },
   setLanguage: i => ipcRenderer.invoke('idioma', i),   // Electron's menus and dialogs in the game's language (texts.cjs)
 });
@@ -15,6 +15,6 @@ contextBridge.exposeInMainWorld('shelterVentana', {
 // página y le pasa ratón y teclado; la pletina le pregunta qué suena (Browsers.tsx, Disco.tsx)
 contextBridge.exposeInMainWorld('shelterRemoto', {
   orden: (orden, ...a) => ipcRenderer.invoke('remoto', orden, ...a),
-  onFrame: f => { ipcRenderer.on('remoto:fotograma', (_e, jpeg, ancho, alto) => f(jpeg, ancho, alto)); },
-  onState: f => { ipcRenderer.on('remoto:estado', (_e, estado) => f(estado)); },
+  onFrame: f => { ipcRenderer.on('remoto:fotograma', (_e, jpeg, width, height) => f(jpeg, width, height)); },
+  onState: f => { ipcRenderer.on('remoto:estado', (_e, state) => f(state)); },
 });

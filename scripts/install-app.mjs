@@ -12,15 +12,15 @@ import os from 'node:os';
 import path from 'node:path';
 import { chromium } from 'playwright';
 
-const RAIZ = path.resolve(import.meta.dirname, '..');
+const ROOT = path.resolve(import.meta.dirname, '..');
 const args = process.argv.slice(2);
 const TARGET = args.includes('--destino') ? path.resolve(args[args.indexOf('--destino') + 1]) : '/Applications/work-shelter-public.app';
 const WITHOUT_DOCK = args.includes('--sin-dock');
-const ELECTRON = path.join(RAIZ, 'node_modules/electron/dist/Electron.app');
-const ICONS = path.join(RAIZ, 'electron/icon');
+const ELECTRON = path.join(ROOT, 'node_modules/electron/dist/Electron.app');
+const ICONS = path.join(ROOT, 'electron/icon');
 const ID = 'app.work-shelter-public';
 const sh = (cmd, ...a) => execFileSync(cmd, a, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
-const plist = (archivo, orden) => sh('/usr/libexec/PlistBuddy', '-c', orden, archivo);
+const plist = (file, orden) => sh('/usr/libexec/PlistBuddy', '-c', orden, file);
 
 if (process.platform !== 'darwin') { console.error('Solo para macOS.'); process.exit(1); }
 if (!fs.existsSync(ELECTRON)) { console.error('Falta Electron: ejecuta ./shelter instalar-app (prepara lo que falte).'); process.exit(1); }
@@ -28,26 +28,26 @@ try { sh('/usr/bin/pgrep', '-f', `${TARGET}/Contents/MacOS/`); console.error('wo
 
 // 1. Icono: 1024×1024 con la retícula de macOS (cuerpo de 824 px con sus esquinas, margen y sombra)
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'work-shelter-app-'));
-const fuente = path.join(ICONS, 'source.png');
+const source = path.join(ICONS, 'source.png');
 const png = path.join(ICONS, 'icon.png');
 fs.mkdirSync(ICONS, { recursive: true });
 const redraw = args.includes('--icono') || !fs.existsSync(png);
 if (redraw) {
-  const navegador = await chromium.launch().catch(e => { console.error(`Para preparar el icono hace falta el Chromium de Playwright (npx playwright install chromium): ${e.message.split('\n')[0]}`); process.exit(1); });
-  const page = await navegador.newPage({ viewport: { width: 1024, height: 1024 }, deviceScaleFactor: 1 });
-  const imagen = fs.existsSync(fuente) ? 'data:image/png;base64,' + fs.readFileSync(fuente).toString('base64') : null;
+  const browser = await chromium.launch().catch(e => { console.error(`Para preparar el icono hace falta el Chromium de Playwright (npx playwright install chromium): ${e.message.split('\n')[0]}`); process.exit(1); });
+  const page = await browser.newPage({ viewport: { width: 1024, height: 1024 }, deviceScaleFactor: 1 });
+  const image = fs.existsSync(source) ? 'data:image/png;base64,' + fs.readFileSync(source).toString('base64') : null;
   await page.setContent('<html><body style="margin:0;background:transparent"><canvas id="c" width="1024" height="1024"></canvas></body></html>');
-  await page.evaluate(async imagen => {
+  await page.evaluate(async image => {
     const c = document.getElementById('c'), g = c.getContext('2d');
     const T = 824, X = 100, Y = 100;   // cuerpo del icono dentro del lienzo de 1024
     // esquinas de la retícula de macOS: radio 185 sobre 824
     const shape = () => { const p = new Path2D(); p.roundRect(X, Y, T, T, T * 0.2245); return p; };
-    const cuerpo = shape();
+    const body = shape();
     // sombra de la retícula de Apple
-    g.save(); g.shadowColor = 'rgba(0,0,0,0.32)'; g.shadowBlur = 28; g.shadowOffsetY = 12; g.fillStyle = '#0b0d11'; g.fill(cuerpo); g.restore();
-    g.save(); g.clip(cuerpo);
-    if (imagen) {
-      const im = new Image(); im.src = imagen; await im.decode();
+    g.save(); g.shadowColor = 'rgba(0,0,0,0.32)'; g.shadowBlur = 28; g.shadowOffsetY = 12; g.fillStyle = '#0b0d11'; g.fill(body); g.restore();
+    g.save(); g.clip(body);
+    if (image) {
+      const im = new Image(); im.src = image; await im.decode();
       const e = Math.max(T / im.width, T / im.height), w = im.width * e, h = im.height * e;
       g.drawImage(im, X + (T - w) / 2, Y + (T - h) / 2, w, h);
     } else {
@@ -62,34 +62,34 @@ if (redraw) {
       gr = g.createLinearGradient(X + u(0.08), 0, X + u(0.92), 0);
       gr.addColorStop(0, 'rgba(255,214,160,0)'); gr.addColorStop(0.5, 'rgba(255,220,170,0.9)'); gr.addColorStop(1, 'rgba(255,214,160,0)');
       g.fillStyle = gr; g.fillRect(X + u(0.08), sup - 1.5, u(0.84), 3);
-      const ancho = u(0.54), alto = u(0.115), hueco = u(0.065), x0 = X + (T - ancho) / 2, y0 = Y + u(0.385), rad = u(0.028);
-      const sala = i => { const p = new Path2D(); p.roundRect(x0, y0 + i * (alto + hueco), ancho, alto, rad); return p; };
+      const width = u(0.54), height = u(0.115), gap = u(0.065), x0 = X + (T - width) / 2, y0 = Y + u(0.385), rad = u(0.028);
+      const room = i => { const p = new Path2D(); p.roundRect(x0, y0 + i * (height + gap), width, height, rad); return p; };
       const wellX = X + T / 2, wellW = u(0.011);
-      gr = g.createLinearGradient(0, sup, 0, y0 + 3 * alto + 2 * hueco);
+      gr = g.createLinearGradient(0, sup, 0, y0 + 3 * height + 2 * gap);
       gr.addColorStop(0, 'rgba(235,228,215,0.55)'); gr.addColorStop(1, 'rgba(235,228,215,0.12)');
-      g.fillStyle = gr; g.fillRect(wellX - wellW / 2, sup, wellW, y0 + 3 * alto + 2 * hueco - sup);
+      g.fillStyle = gr; g.fillRect(wellX - wellW / 2, sup, wellW, y0 + 3 * height + 2 * gap - sup);
       for (const i of [0, 2]) {
-        const s = sala(i);
-        gr = g.createLinearGradient(0, y0 + i * (alto + hueco), 0, y0 + i * (alto + hueco) + alto);
+        const s = room(i);
+        gr = g.createLinearGradient(0, y0 + i * (height + gap), 0, y0 + i * (height + gap) + height);
         gr.addColorStop(0, 'rgba(120,135,160,0.22)'); gr.addColorStop(1, 'rgba(40,46,58,0.35)');
         g.fillStyle = gr; g.fill(s);
         g.strokeStyle = 'rgba(255,255,255,0.10)'; g.lineWidth = 2; g.stroke(s);
-        g.fillStyle = 'rgba(235,228,215,0.30)'; g.fillRect(wellX - wellW / 2, y0 + i * (alto + hueco), wellW, alto);
+        g.fillStyle = 'rgba(235,228,215,0.30)'; g.fillRect(wellX - wellW / 2, y0 + i * (height + gap), wellW, height);
       }
-      const s = sala(1);
+      const s = room(1);
       g.save(); g.shadowColor = 'rgba(255,150,40,0.75)'; g.shadowBlur = 70;
-      gr = g.createLinearGradient(0, y0 + alto + hueco, 0, y0 + 2 * alto + hueco);
+      gr = g.createLinearGradient(0, y0 + height + gap, 0, y0 + 2 * height + gap);
       gr.addColorStop(0, '#ffc766'); gr.addColorStop(1, '#ff7a1a');
       g.fillStyle = gr; g.fill(s); g.restore();
       g.strokeStyle = 'rgba(255,240,210,0.55)'; g.lineWidth = 2; g.stroke(s);
-      g.fillStyle = 'rgba(120,50,0,0.35)'; g.fillRect(wellX - wellW / 2, y0 + alto + hueco, wellW, alto);
+      g.fillStyle = 'rgba(120,50,0,0.35)'; g.fillRect(wellX - wellW / 2, y0 + height + gap, wellW, height);
     }
     g.restore();
     // filo de luz muy tenue para que el icono oscuro se despegue del Dock oscuro
-    g.save(); g.clip(cuerpo); g.strokeStyle = 'rgba(255,255,255,0.09)'; g.lineWidth = 3; g.stroke(cuerpo); g.restore();
-  }, imagen);
+    g.save(); g.clip(body); g.strokeStyle = 'rgba(255,255,255,0.09)'; g.lineWidth = 3; g.stroke(body); g.restore();
+  }, image);
   await page.locator('#c').screenshot({ path: png, omitBackground: true });
-  await navegador.close();
+  await browser.close();
 }
 const iconset = path.join(tmp, 'work-shelter.iconset');
 fs.mkdirSync(iconset);
@@ -99,30 +99,30 @@ for (const t of [16, 32, 128, 256, 512]) {
 }
 const icns = path.join(tmp, 'work-shelter.icns');
 sh('/usr/bin/iconutil', '-c', 'icns', iconset, '-o', icns);
-console.log(`Icono: ${path.relative(RAIZ, png)}${!redraw ? '' : fs.existsSync(fuente) ? ' (preparado desde source.png)' : ' (el de serie)'}`);
+console.log(`Icono: ${path.relative(ROOT, png)}${!redraw ? '' : fs.existsSync(source) ? ' (preparado desde source.png)' : ' (el de serie)'}`);
 
 // 2. La app: el Electron del repo con su nombre, su icono y una entrada que apunta a este repo
-const nueva = path.join(tmp, 'work-shelter-public.app');
-sh('/usr/bin/ditto', ELECTRON, nueva);
-const recursos = path.join(nueva, 'Contents/Resources');
-fs.rmSync(path.join(recursos, 'electron.icns'), { force: true });
+const newApp = path.join(tmp, 'work-shelter-public.app');
+sh('/usr/bin/ditto', ELECTRON, newApp);
+const resources = path.join(newApp, 'Contents/Resources');
+fs.rmSync(path.join(resources, 'electron.icns'), { force: true });
 // el nombre lleva la huella del icono: macOS guarda los iconos en caché por archivo, y con otro nombre lo vuelve a leer
 const iconName = `work-shelter-${createHash('sha256').update(fs.readFileSync(icns)).digest('hex').slice(0, 10)}.icns`;
-fs.copyFileSync(icns, path.join(recursos, iconName));
-fs.mkdirSync(path.join(recursos, 'app'));
-const version = JSON.parse(fs.readFileSync(path.join(RAIZ, 'package.json'), 'utf8')).version;
-fs.writeFileSync(path.join(recursos, 'app/package.json'), JSON.stringify({ name: 'work-shelter', productName: 'work-shelter', version, main: 'main.cjs' }, null, 2) + '\n');
-fs.writeFileSync(path.join(recursos, 'app/main.cjs'), `// Generado por scripts/install-app.mjs: la app abre el juego de este repo\nprocess.env.SHELTER_RAIZ = ${JSON.stringify(RAIZ)};\nrequire(${JSON.stringify(path.join(RAIZ, 'electron/main.cjs'))});\n`);
-const info = path.join(nueva, 'Contents/Info.plist');
-for (const [clave, valor] of [['CFBundleName', 'work-shelter'], ['CFBundleDisplayName', 'work-shelter'], ['CFBundleIdentifier', ID], ['CFBundleIconFile', iconName], ['CFBundleShortVersionString', version], ['CFBundleVersion', version], ['LSApplicationCategoryType', 'public.app-category.productivity']])
-  plist(info, `Set :${clave} ${valor}`);
+fs.copyFileSync(icns, path.join(resources, iconName));
+fs.mkdirSync(path.join(resources, 'app'));
+const version = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')).version;
+fs.writeFileSync(path.join(resources, 'app/package.json'), JSON.stringify({ name: 'work-shelter', productName: 'work-shelter', version, main: 'main.cjs' }, null, 2) + '\n');
+fs.writeFileSync(path.join(resources, 'app/main.cjs'), `// Generado por scripts/install-app.mjs: la app abre el juego de este repo\nprocess.env.SHELTER_RAIZ = ${JSON.stringify(ROOT)};\nrequire(${JSON.stringify(path.join(ROOT, 'electron/main.cjs'))});\n`);
+const info = path.join(newApp, 'Contents/Info.plist');
+for (const [key, value] of [['CFBundleName', 'work-shelter'], ['CFBundleDisplayName', 'work-shelter'], ['CFBundleIdentifier', ID], ['CFBundleIconFile', iconName], ['CFBundleShortVersionString', version], ['CFBundleVersion', version], ['LSApplicationCategoryType', 'public.app-category.productivity']])
+  plist(info, `Set :${key} ${value}`);
 try { plist(info, 'Delete :CFBundleIconName'); } catch { /* no estaba */ }
-sh('/usr/bin/xattr', '-cr', nueva);
-sh('/usr/bin/codesign', '--force', '--deep', '--sign', '-', nueva);   // firma local: al cambiar Info.plist, la de Electron deja de valer
+sh('/usr/bin/xattr', '-cr', newApp);
+sh('/usr/bin/codesign', '--force', '--deep', '--sign', '-', newApp);   // firma local: al cambiar Info.plist, la de Electron deja de valer
 
 // 3. Al sitio, registrada y (si no lo estaba) fijada en el Dock
 fs.rmSync(TARGET, { recursive: true, force: true });
-sh('/usr/bin/ditto', nueva, TARGET);
+sh('/usr/bin/ditto', newApp, TARGET);
 fs.utimesSync(TARGET, new Date(), new Date());
 fs.rmSync(tmp, { recursive: true, force: true });
 sh('/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister', '-f', TARGET);

@@ -13,93 +13,93 @@ const [url0 = 'http://127.0.0.1:3778', dir = '_capturas'] = process.argv.slice(2
 mkdirSync(dir, { recursive: true });
 const b = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 const pg = await b.newPage({ viewport: { width: 1600, height: 1000 } });
-const errores = [];
-pg.on('pageerror', e => errores.push(e.message));
+const errors = [];
+pg.on('pageerror', e => errors.push(e.message));
 await pg.goto(withToken(url0), { waitUntil: 'load' });
 await pg.waitForFunction(() => typeof window.__ready === 'function', null, { timeout: 60000 });
-await pg.evaluate(async () => { await window.__ready(); window.__juego.set({ panel: null, panelData: null }); });
+await pg.evaluate(async () => { await window.__ready(); window.__game.set({ panel: null, panelData: null }); });
 await pg.evaluate(() => localStorage.removeItem('refugio.buscador.usos'));
-const espera = ms => pg.waitForTimeout(ms);
+const wait = ms => pg.waitForTimeout(ms);
 let failures = 0;
-const ver = (ok, texto) => { console.log((ok ? 'OK   ' : 'FALLO ') + texto); if (!ok) failures++; };
-const hasta = async (f, ms = 8000) => { const t = Date.now(); while (Date.now() - t < ms) { if (await f()) return true; await espera(150); } return false; };
-const panel = () => pg.evaluate(() => window.__juego.get().panel);
-const opciones = () => pg.evaluate(() => [...document.querySelectorAll('.opciones-consola li')].map(l => l.textContent.replace('▶', '').trim()));
-const filas = () => pg.evaluate(() => [...document.querySelectorAll('.fila-buscador')].map(f => ({ txt: f.querySelector('.txt')?.textContent, tecla: f.querySelector('.tecla')?.textContent ?? '', activa: f.classList.contains('activa') })));
+const check = (ok, text) => { console.log((ok ? 'OK   ' : 'FALLO ') + text); if (!ok) failures++; };
+const until = async (f, ms = 8000) => { const t = Date.now(); while (Date.now() - t < ms) { if (await f()) return true; await wait(150); } return false; };
+const panel = () => pg.evaluate(() => window.__game.get().panel);
+const options = () => pg.evaluate(() => [...document.querySelectorAll('.opciones-consola li')].map(l => l.textContent.replace('▶', '').trim()));
+const rows = () => pg.evaluate(() => [...document.querySelectorAll('.fila-buscador')].map(f => ({ txt: f.querySelector('.txt')?.textContent, key: f.querySelector('.tecla')?.textContent ?? '', active: f.classList.contains('activa') })));
 const sections = () => pg.evaluate(() => [...document.querySelectorAll('.seccion-buscador')].map(s => s.textContent));
-const abierto = () => pg.isVisible('.buscador');
-const chooseMenu = async texto => { const i = (await opciones()).findIndex(o => o.startsWith(texto)); for (let k = 0; k < i; k++) await pg.keyboard.press('ArrowDown'); await pg.keyboard.press('Enter'); await espera(300); };
+const open = () => pg.isVisible('.buscador');
+const chooseMenu = async text => { const i = (await options()).findIndex(o => o.startsWith(text)); for (let k = 0; k < i; k++) await pg.keyboard.press('ArrowDown'); await pg.keyboard.press('Enter'); await wait(300); };
 
 // ---- regleta
-ver(!(await pg.$('.boton-reiniciar')), 'la regleta ya no lleva el botón de reiniciar');
-ver((await pg.$$eval('.boton-puerta .tecla', t => t.map(x => x.textContent))).join(' ') === '⌘K Esc', 'lleva ⌘K (buscar) y Esc (menú) a la vista');
+check(!(await pg.$('.boton-reiniciar')), 'la regleta ya no lleva el botón de reiniciar');
+check((await pg.$$eval('.boton-puerta .tecla', t => t.map(x => x.textContent))).join(' ') === '⌘K Esc', 'lleva ⌘K (buscar) y Esc (menú) a la vista');
 
 // ---- menú del juego
 await pg.keyboard.press('Escape');
-ver(await hasta(async () => (await panel()) === 'menu'), 'Esc en el refugio abre el menú del juego');
-const items = await opciones();
+check(await until(async () => (await panel()) === 'menu'), 'Esc en el refugio abre el menú del juego');
+const items = await options();
 console.log('   ', items.map(x => x.split(/(?=[A-Z⌘])/)[0]).join(' | '));
-ver(['Volver al refugio', 'Buscar', 'Opciones', 'Atajos', 'Reiniciar el juego', 'Salir del refugio'].every(t => items.some(o => o.startsWith(t))), 'con volver, buscar, opciones, atajos, reiniciar y salir');
+check(['Volver al refugio', 'Buscar', 'Opciones', 'Atajos', 'Reiniciar el juego', 'Salir del refugio'].every(t => items.some(o => o.startsWith(t))), 'con volver, buscar, opciones, atajos, reiniciar y salir');
 await pg.screenshot({ path: path.join(dir, 'menu-juego.png') });
-for (const [nombre, p] of [['Opciones', 'opciones'], ['Atajos', 'ayuda'], ['Reiniciar el juego', 'reiniciar'], ['Salir del refugio', 'salir']]) {
-  await chooseMenu(nombre);
-  ver((await panel()) === p, `«${nombre}» abre su aparato`);
+for (const [name, p] of [['Opciones', 'opciones'], ['Atajos', 'ayuda'], ['Reiniciar el juego', 'reiniciar'], ['Salir del refugio', 'salir']]) {
+  await chooseMenu(name);
+  check((await panel()) === p, `«${name}» abre su aparato`);
   await pg.keyboard.press('Escape');
-  ver(await hasta(async () => (await panel()) === 'menu'), `y Esc vuelve al menú`);
+  check(await until(async () => (await panel()) === 'menu'), `y Esc vuelve al menú`);
 }
 await pg.keyboard.press('Escape');
-ver(await hasta(async () => (await panel()) === null), 'Esc en el menú vuelve al refugio');
-await pg.keyboard.press('KeyO'); await espera(300);
-ver((await panel()) === null, 'la O ya no abre las opciones');
+check(await until(async () => (await panel()) === null), 'Esc en el menú vuelve al refugio');
+await pg.keyboard.press('KeyO'); await wait(300);
+check((await panel()) === null, 'la O ya no abre las opciones');
 await pg.click('.boton-puerta:nth-child(2)');
-ver(await hasta(async () => (await panel()) === 'menu'), 'el botón «Esc menú» de la regleta abre el menú');
-await pg.keyboard.press('Escape'); await espera(200);
+check(await until(async () => (await panel()) === 'menu'), 'el botón «Esc menú» de la regleta abre el menú');
+await pg.keyboard.press('Escape'); await wait(200);
 
 // ---- buscador en el refugio
 await pg.keyboard.press('Meta+k');
-ver(await hasta(abierto), '⌘K abre el buscador');
-const nRec = await pg.evaluate(() => window.__client.accion('conversaciones.recientes', { limite: 20 }).then(r => r.length));
-ver(nRec === 0 || await hasta(async () => (await sections()).includes('Conversaciones recientes'), 20000), `trae las conversaciones recientes de todas las salas (${nRec})`);
-const f0 = await filas();
-ver(f0.some(f => f.txt === 'Plano del refugio' && f.tecla === 'M') && f0.some(f => f.txt === 'Control de versiones' && f.tecla === 'G'), 'las acciones llevan su tecla a la vista');
+check(await until(open), '⌘K abre el buscador');
+const nRec = await pg.evaluate(() => window.__client.action('conversaciones.recientes', { limit: 20 }).then(r => r.length));
+check(nRec === 0 || await until(async () => (await sections()).includes('Conversaciones recientes'), 20000), `trae las conversaciones recientes de todas las salas (${nRec})`);
+const f0 = await rows();
+check(f0.some(f => f.txt === 'Plano del refugio' && f.key === 'M') && f0.some(f => f.txt === 'Control de versiones' && f.key === 'G'), 'las acciones llevan su tecla a la vista');
 console.log('    secciones sin escribir:', (await sections()).join(' | '));
 await pg.screenshot({ path: path.join(dir, 'buscador.png') });
 await pg.keyboard.type('plano');
-ver((await filas())[0]?.txt === 'Plano del refugio', 'escribir «plano» deja el plano el primero');
+check((await rows())[0]?.txt === 'Plano del refugio', 'escribir «plano» deja el plano el primero');
 await pg.keyboard.press('Enter');
-ver(await hasta(async () => (await panel()) === 'plano') && !(await abierto()), 'Enter lo abre y cierra el buscador');
-await pg.keyboard.press('Escape'); await espera(300);
-await pg.keyboard.press('Meta+k'); await hasta(abierto);
-ver((await sections())[0] === 'Acciones recurrentes' || (await sections()).includes('Acciones recurrentes'), 'lo usado pasa a «Acciones recurrentes»');
-ver((await filas()).find(f => f.txt === 'Plano del refugio') && (await sections()).indexOf('Acciones recurrentes') < (await sections()).indexOf('Acciones'), 'y va delante de las demás acciones');
+check(await until(async () => (await panel()) === 'plano') && !(await open()), 'Enter lo abre y cierra el buscador');
+await pg.keyboard.press('Escape'); await wait(300);
+await pg.keyboard.press('Meta+k'); await until(open);
+check((await sections())[0] === 'Acciones recurrentes' || (await sections()).includes('Acciones recurrentes'), 'lo usado pasa a «Acciones recurrentes»');
+check((await rows()).find(f => f.txt === 'Plano del refugio') && (await sections()).indexOf('Acciones recurrentes') < (await sections()).indexOf('Acciones'), 'y va delante de las demás acciones');
 await pg.keyboard.type('logist');
-ver((await filas())[0]?.txt === 'Logística', 'busca sin tildes ni palabras completas («logist» → Logística)');
+check((await rows())[0]?.txt === 'Logística', 'busca sin tildes ni palabras completas («logist» → Logística)');
 await pg.keyboard.press('Escape');
-ver(await hasta(async () => !(await abierto())) && (await panel()) === null, 'Esc cierra el buscador (sin abrir el menú)');
+check(await until(async () => !(await open())) && (await panel()) === null, 'Esc cierra el buscador (sin abrir el menú)');
 // ir a una sala y hablar con un habitante
-const h = await pg.evaluate(() => window.__juego.get().habitantes.find(h => h.sala === 'planificacion'));
-await pg.keyboard.press('Meta+k'); await hasta(abierto);
-await pg.keyboard.type(h.nombre.slice(0, 4).toLowerCase());
-const fh = await filas();
-ver(fh.some(f => f.txt === `Hablar con ${h.nombre}`), `al escribir salen habitantes («Hablar con ${h.nombre}»)`);
-const k = fh.findIndex(f => f.txt === `Hablar con ${h.nombre}`);
+const h = await pg.evaluate(() => window.__game.get().dwellers.find(h => h.room === 'planificacion'));
+await pg.keyboard.press('Meta+k'); await until(open);
+await pg.keyboard.type(h.name.slice(0, 4).toLowerCase());
+const fh = await rows();
+check(fh.some(f => f.txt === `Hablar con ${h.name}`), `al escribir salen habitantes («Hablar con ${h.name}»)`);
+const k = fh.findIndex(f => f.txt === `Hablar con ${h.name}`);
 for (let x = 0; x < k; x++) await pg.keyboard.press('ArrowDown');
 await pg.keyboard.press('Enter');
-ver(await hasta(() => pg.isVisible('.consola'), 30000), 'Enter va con él y abre su intercomunicador');
+check(await until(() => pg.isVisible('.consola'), 30000), 'Enter va con él y abre su intercomunicador');
 // ⌘K escribiendo en el intercomunicador
-await hasta(() => pg.isVisible('.consola .opciones-consola'));
-await pg.keyboard.press('Enter'); await espera(400);   // trabajo nuevo: el foco en la caja de texto
+await until(() => pg.isVisible('.consola .opciones-consola'));
+await pg.keyboard.press('Enter'); await wait(400);   // trabajo nuevo: el foco en la caja de texto
 await pg.keyboard.type('borrador');
 await pg.keyboard.press('Meta+k');
-ver(await hasta(abierto), '⌘K también desde la caja de texto de un intercomunicador');
+check(await until(open), '⌘K también desde la caja de texto de un intercomunicador');
 await pg.keyboard.press('Escape');
-ver(await hasta(async () => !(await abierto())) && await pg.evaluate(() => document.activeElement?.tagName === 'TEXTAREA' && document.activeElement.value === 'borrador'), 'al cerrarlo, el foco vuelve a la caja con lo escrito');
-await pg.keyboard.press('Meta+k'); await hasta(abierto);
+check(await until(async () => !(await open())) && await pg.evaluate(() => document.activeElement?.tagName === 'TEXTAREA' && document.activeElement.value === 'borrador'), 'al cerrarlo, el foco vuelve a la caja con lo escrito');
+await pg.keyboard.press('Meta+k'); await until(open);
 await pg.keyboard.type('ir a puente');
 await pg.keyboard.press('Enter');
-ver(await hasta(() => pg.evaluate(() => !window.__juego.get().talkingWith && window.__juego.get().currentRoom === 'puente'), 30000), '«Ir a Puente de Mando» baja el intercomunicador y lleva a la sala');
+check(await until(() => pg.evaluate(() => !window.__game.get().talkingWith && window.__game.get().currentRoom === 'puente'), 30000), '«Ir a Puente de Mando» baja el intercomunicador y lleva a la sala');
 
-ver(!errores.length, 'sin errores en la página' + (errores.length ? ': ' + errores.join(' | ') : ''));
+check(!errors.length, 'sin errores en la página' + (errors.length ? ': ' + errors.join(' | ') : ''));
 await b.close();
 console.log(failures ? `\n${failures} FALLOS` : '\nTodo OK');
 process.exit(failures ? 1 : 0);

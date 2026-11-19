@@ -41,16 +41,16 @@ const TEXTS = {
   chromeDidNotStart: { es: 'Chrome no ha arrancado.', en: 'Chrome did not start.' },
 };
 
-let file = null, actual = 'es';
+let file = null, current = 'es';
 // where the language is remembered (userData): read once the app is ready
-function load(dir) { file = path.join(dir, 'idioma.json'); try { const v = JSON.parse(fs.readFileSync(file, 'utf8')).idioma; if (v === 'es' || v === 'en') actual = v; } catch {} }
+function load(dir) { file = path.join(dir, 'idioma.json'); try { const v = JSON.parse(fs.readFileSync(file, 'utf8')).language; if (v === 'es' || v === 'en') current = v; } catch {} }
 function setLanguage(i) {
-  if ((i !== 'es' && i !== 'en') || i === actual) return false;
-  actual = i; if (file) try { fs.writeFileSync(file, JSON.stringify({ idioma: i })); } catch {}
+  if ((i !== 'es' && i !== 'en') || i === current) return false;
+  current = i; if (file) try { fs.writeFileSync(file, JSON.stringify({ language: i })); } catch {}
   return true;
 }
 function tr(k, vars) {
-  const x = TEXTS[k]; const s = x ? (actual === 'en' ? x.en : x.es) : k;
+  const x = TEXTS[k]; const s = x ? (current === 'en' ? x.en : x.es) : k;
   return vars ? s.replace(/\{(\w+)\}/g, (m, v) => (v in vars ? String(vars[v]) : m)) : s;
 }
-module.exports = { TEXTS, tr, setLanguage, load, idioma: () => actual };
+module.exports = { TEXTS, tr, setLanguage, load, language: () => current };

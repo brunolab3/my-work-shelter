@@ -13,38 +13,38 @@ if (!repo || !process.env.SHELTER_DATOS) { console.error('Uso: SHELTER_DATOS=/tm
 mkdirSync(dir, { recursive: true });
 const b = await chromium.launch({ args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist'] });
 const pg = await b.newPage({ viewport: { width: 1600, height: 900 } });
-const errores = [];
-pg.on('pageerror', e => errores.push(e.message)); pg.on('console', m => { if (m.type() === 'error') errores.push(m.text()); });
+const errors = [];
+pg.on('pageerror', e => errors.push(e.message)); pg.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
 await pg.goto(withToken('http://127.0.0.1:5173/'), { waitUntil: 'load' });
 await pg.waitForFunction(() => typeof window.__ready === 'function', null, { timeout: 60000 });
 await pg.evaluate(() => window.__ready());
-await pg.waitForFunction(() => window.__live.get().estado?.salas, null, { timeout: 30000 });
-const foto = async (n) => { await pg.screenshot({ path: `${dir}/${n}.png` }); console.log('->', `${dir}/${n}.png`); };
+await pg.waitForFunction(() => window.__live.get().state?.rooms, null, { timeout: 30000 });
+const photo = async (n) => { await pg.screenshot({ path: `${dir}/${n}.png` }); console.log('->', `${dir}/${n}.png`); };
 const wait = (ms) => pg.waitForTimeout(ms);
 let failures = 0; const ok = (c, txt) => { console.log((c ? 'OK   ' : 'FALLO') + ' ' + txt); if (!c) failures++; };
 
 // el repo de prueba, con sala
-await pg.evaluate(async r => { const salas = window.__live.get().estado.salas; if (!salas.some(s => s.ruta === r)) await window.__client.accion('reclutar', { ruta: r }); }, repo);
+await pg.evaluate(async r => { const rooms = window.__live.get().state.rooms; if (!rooms.some(s => s.path === r)) await window.__client.action('reclutar', { path: r }); }, repo);
 await wait(2500);
 // la sala: matriz, holograma y la Octocat
-await pg.evaluate(async () => { await window.__client.accion('guardar', { parche: { doneWelcome: true } }); window.__juego.set({ panel: null, panelData: null }); });
+await pg.evaluate(async () => { await window.__client.action('guardar', { patch: { doneWelcome: true } }); window.__game.set({ panel: null, panelData: null }); });
 await wait(500);
-await pg.evaluate(() => window.dispatchEvent(new CustomEvent('refugio:ir', { detail: { salaId: 'git' } })));
-await pg.waitForFunction(() => window.__refugio.currentRoom?.id === 'git', null, { timeout: 60000 }).catch(() => {});
+await pg.evaluate(() => window.dispatchEvent(new CustomEvent('refugio:ir', { detail: { roomId: 'git' } })));
+await pg.waitForFunction(() => window.__shelter.currentRoom?.id === 'git', null, { timeout: 60000 }).catch(() => {});
 await wait(4000);
-await foto('1-sala');
-ok(await pg.evaluate(() => window.__juego.get().habitantes.some(h => h.id === 'mona' && h.sala === 'git')), 'La Octocat vive en Control de Versiones');
+await photo('1-sala');
+ok(await pg.evaluate(() => window.__game.get().dwellers.some(h => h.id === 'mona' && h.room === 'git')), 'La Octocat vive en Control de Versiones');
 
 // el cliente
-await pg.evaluate(r => window.__git.openGit({ ruta: r, vista: 'cambios' }), repo);
+await pg.evaluate(r => window.__git.openGit({ path: r, view: 'cambios' }), repo);
 await wait(1500);
-await foto('2-cambios');
-const archivos = await pg.$$eval('.gc-seccion li', ls => ls.map(l => l.textContent));
-ok(archivos.length >= 3, 'lista de archivos: ' + archivos.join(' | '));
+await photo('2-cambios');
+const files = await pg.$$eval('.gc-seccion li', ls => ls.map(l => l.textContent));
+ok(files.length >= 3, 'lista de archivos: ' + files.join(' | '));
 // app.js: el diff tiene dos bloques; se prepara el segundo
 await pg.click('.gc-seccion.cambios li:has-text("app.js")');
 ok(await pg.waitForFunction(() => document.querySelector('.gc-diff-ruta')?.textContent === 'app.js' && document.querySelectorAll('.gd-bloque').length === 2, null, { timeout: 10000 }).then(() => true, () => false), 'app.js: dos bloques');
-await foto('3-diff');
+await photo('3-diff');
 await pg.click('.gd-bloque:nth-of-type(2) button:has-text("Preparar bloque")');
 ok(await pg.waitForFunction(() => [...document.querySelectorAll('.gc-seccion.preparados li')].some(l => l.textContent.includes('app.js')), null, { timeout: 10000 }).then(() => true, () => false), 'el bloque está preparado');
 // del bloque que queda, una línea suelta
@@ -52,39 +52,39 @@ await pg.click('.gc-seccion.cambios li:has-text("app.js")');
 await pg.waitForFunction(() => document.querySelectorAll('.gd-bloque').length === 1 && !document.querySelector('.gd-botones button:disabled'), null, { timeout: 10000 });
 await pg.click('.gd-l.mas .gd-n >> nth=0');
 await wait(200);
-await foto('4-linea-elegida');
+await photo('4-linea-elegida');
 await pg.click('.gd-eleccion button:has-text("Preparar")');
 ok(await pg.waitForFunction(() => document.querySelector('.gc-aviso')?.textContent.includes('1 línea'), null, { timeout: 10000 }).then(() => true, () => false), 'una línea suelta preparada');
 // en paralelo
 await pg.click('button:has-text("Unificado")');
 await pg.click('.gc-seccion.preparados li:has-text("app.js")');
 await wait(900);
-await foto('5-paralelo');
+await photo('5-paralelo');
 // commit
 await pg.fill('.gc-commit textarea', 'QA: un bloque y una línea');
 await pg.keyboard.press('Meta+Enter');
 ok(await pg.waitForFunction(() => /Commit [0-9a-f]+/.test(document.querySelector('.gc-aviso')?.textContent ?? ''), null, { timeout: 15000 }).then(() => true, () => false), 'commit hecho con ⌘Intro');
-await foto('6-tras-commit');
+await photo('6-tras-commit');
 // historial
 await pg.click('.gc-pestana:has-text("Historial")');
 await wait(1200);
 await pg.click('.gh-fila >> nth=0');
 await wait(1200);
-await foto('7-historial');
+await photo('7-historial');
 ok(await pg.$$eval('.gh-fila', x => x.length) >= 4, 'historial con grafo');
 // ramas y GitHub
 await pg.click('.gc-pestana:has-text("Ramas")');
 await wait(1000);
-await foto('8-ramas');
+await photo('8-ramas');
 await pg.click('.gc-pestana:has-text("GitHub")');
 await wait(5000);
-await foto('9-github');
+await photo('9-github');
 ok(await pg.$$eval('.gg-celda', x => x.length) > 300, 'matriz de contribuciones');
 // minimizar a la barra
-await pg.evaluate(() => window.__git.windowGit.set({ minimizada: true }));
+await pg.evaluate(() => window.__git.windowGit.set({ minimized: true }));
 await wait(600);
 ok(await pg.$('.barra-fila.git') !== null, 'fila GIT en la barra');
-await foto('10-barra');
-console.log(errores.length ? 'Errores de la página:\n' + errores.join('\n') : 'Sin errores en la página.');
+await photo('10-barra');
+console.log(errors.length ? 'Errores de la página:\n' + errors.join('\n') : 'Sin errores en la página.');
 await b.close();
-process.exit(failures || errores.length ? 1 : 0);
+process.exit(failures || errors.length ? 1 : 0);

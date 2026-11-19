@@ -76,7 +76,7 @@ if [ ! -f "assets/kaykit/character-animations-1.1/Mannequin Character/characters
 fi
 
 # 5. Compilar la interfaz si no existe o su código ha cambiado desde la última compilación (por contenido, no por fechas)
-if ! "$NODE" -e "process.exit(require('./scripts/fingerprints.cjs').clienteAlDia() ? 0 : 1)"; then
+if ! "$NODE" -e "process.exit(require('./scripts/fingerprints.cjs').clientUpToDate() ? 0 : 1)"; then
   amarillo "Compilando work-shelter…"
   "$NODE" scripts/fingerprints.cjs compilar || { rojo "Falló la compilación de la interfaz."; exit 1; }
 fi

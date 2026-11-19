@@ -9,11 +9,11 @@ await pg.goto(withToken(url));
 await pg.evaluate(async () => { await window.__ready(); });
 await pg.waitForTimeout(2500);
 const r = await pg.evaluate(() => new Promise(res => {
-  let n = 0; const t0 = performance.now(); const tiempos = []; let prev = t0;
-  function f(t) { n++; tiempos.push(t - prev); prev = t; if (t - t0 < 5000) requestAnimationFrame(f); else {
-    tiempos.sort((a, b) => a - b);
-    const ren = window.__refugio.motor.renderer.info.render;
-    res({ fps: +(n / ((t - t0) / 1000)).toFixed(1), p95ms: +tiempos[Math.floor(tiempos.length * 0.95)].toFixed(1), llamadas: ren.calls, triangulos: ren.triangles });
+  let n = 0; const t0 = performance.now(); const times = []; let prev = t0;
+  function f(t) { n++; times.push(t - prev); prev = t; if (t - t0 < 5000) requestAnimationFrame(f); else {
+    times.sort((a, b) => a - b);
+    const ren = window.__shelter.motor.renderer.info.render;
+    res({ fps: +(n / ((t - t0) / 1000)).toFixed(1), p95ms: +times[Math.floor(times.length * 0.95)].toFixed(1), calls: ren.calls, triangles: ren.triangles });
   } }
   requestAnimationFrame(f);
 }));

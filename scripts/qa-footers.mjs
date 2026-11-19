@@ -7,11 +7,11 @@ await pg.addInitScript('window.__noLoop = true;');
 await pg.goto(withToken(process.argv[2] || 'http://127.0.0.1:5173/'));
 await pg.evaluate(async () => { await window.__ready(); });
 const res = await pg.evaluate(() => {
-  const r = window.__refugio; const s = r.supervisor; const V = r.camara.goal.constructor;
+  const r = window.__shelter; const s = r.supervisor; const V = r.camara.goal.constructor;
   const out = {};
-  for (const correr of [false, true]) {
-    s.raiz.position.set(-5, 0, 1.6); s.parar(); s.goA(new V(5.5, 0, 1.6), correr);
-    const feet = ['footl', 'footr'].map(n => s.modelo.getObjectByName(n));
+  for (const run of [false, true]) {
+    s.root.position.set(-5, 0, 1.6); s.stop(); s.goA(new V(5.5, 0, 1.6), run);
+    const feet = ['footl', 'footr'].map(n => s.model.getObjectByName(n));
     const reg = [];
     for (let i = 0; i < 200; i++) {
       window.__step(1 / 60);
@@ -21,7 +21,7 @@ const res = await pg.evaluate(() => {
     let drift = 0, n = 0, vbody = (reg[199][0].x + reg[199][1].x - reg[60][0].x - reg[60][1].x) / 2 / (139 / 60);
     for (let i = 61; i < 200; i++) for (const k of [0, 1]) if (reg[i][k].y < ymin + 0.02 && reg[i - 1][k].y < ymin + 0.02) { drift += (reg[i][k].x - reg[i - 1][k].x) * 60; n++; }
     drift /= Math.max(1, n);
-    out[correr ? 'correr' : 'andar'] = { bodySpeed: +vbody.toFixed(2), driftFootSupported: +drift.toFixed(3), muestras: n, clip: s.currentName, timeScale: +s.actual.timeScale.toFixed(2) };
+    out[run ? 'correr' : 'andar'] = { bodySpeed: +vbody.toFixed(2), driftFootSupported: +drift.toFixed(3), samples: n, clip: s.currentName, timeScale: +s.current.timeScale.toFixed(2) };
   }
   return out;
 });

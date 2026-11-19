@@ -8,7 +8,7 @@ await pg.addInitScript('window.__noLoop = true;');
 await pg.goto(withToken(process.argv[2] || 'http://127.0.0.1:5173/'));
 await pg.evaluate(async () => { await window.__ready(); });
 const r = await pg.evaluate(() => {
-  const m = window.__refugio.motor; const gl = m.renderer.getContext(); const px = new Uint8Array(4);
+  const m = window.__shelter.motor; const gl = m.renderer.getContext(); const px = new Uint8Array(4);
   for (let i = 0; i < 20; i++) { window.__step(1 / 60); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px); }
   const ts = [];
   for (let i = 0; i < 120; i++) { const t = performance.now(); window.__step(1 / 60); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px); ts.push(performance.now() - t); }

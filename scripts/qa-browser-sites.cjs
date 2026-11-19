@@ -9,96 +9,96 @@
 const { app, BrowserWindow, session, Menu } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
-const fuente = fs.readFileSync(path.join(__dirname, '..', 'electron', 'main.cjs'), 'utf8');
-const trozo = fuente.slice(fuente.indexOf('const PARTICION'), fuente.indexOf('// --- Salir a la superficie'));
+const source = fs.readFileSync(path.join(__dirname, '..', 'electron', 'main.cjs'), 'utf8');
+const chunk = source.slice(source.indexOf('const PARTICION'), source.indexOf('// --- Salir a la superficie'));
 const LOG = process.env.LAB_LOG;
 const out = (...a) => fs.appendFileSync(LOG, a.join(' ') + '\n');
 let failures = 0;
-const ver = (ok, texto) => { out((ok ? 'OK    ' : 'FALLO ') + texto); if (!ok) failures++; };
-let fuera = [];
-const { navegadores } = new Function('session', 'shell', 'Menu', 'require', 'path', '__dirname', trozo + '\nreturn { navegadores };')(session, { openExternal: u => { fuera.push(u); out('FUERA', u); return Promise.resolve(); } }, Menu, require, path, path.join(__dirname, '..', 'electron'));
+const check = (ok, text) => { out((ok ? 'OK    ' : 'FALLO ') + text); if (!ok) failures++; };
+let outside = [];
+const { browsers } = new Function('session', 'shell', 'Menu', 'require', 'path', '__dirname', chunk + '\nreturn { navegadores };')(session, { openExternal: u => { outside.push(u); out('FUERA', u); return Promise.resolve(); } }, Menu, require, path, path.join(__dirname, '..', 'electron'));
 app.setName('work-shelter-public'); app.setPath('userData', process.env.LAB_DATA);
-const espera = ms => new Promise(r => setTimeout(r, ms));
+const wait = ms => new Promise(r => setTimeout(r, ms));
 process.on('uncaughtException', e => { out('ERROR', e.stack); app.exit(2); });
 setTimeout(() => { out('ERROR más de 3 minutos'); app.exit(2); }, 180_000);
 
 // inicio (el de SITIOS en web/src/ui/Browsers.tsx), hosts donde puede acabar (la web o su inicio de sesión) y un enlace
 // de aviso como los del tablón (server/integrations/normalize.ts), que debe abrirse en el mismo navegador
 const WEBS = [
-  { id: 'outlook', inicio: 'https://outlook.cloud.microsoft/mail/', destino: /(^|\.)(cloud\.microsoft|office\.com|office365\.com|login\.microsoftonline\.com|login\.live\.com|microsoft365\.com)$/, aviso: 'https://outlook.office365.com/owa/?ItemID=AAA&exvsurl=1&viewmodel=ReadMessageItem&ispopout=0' },
-  { id: 'discord', inicio: 'https://discord.com/channels/@me', destino: /(^|\.)discord\.com$/, aviso: 'https://discord.com/channels/1/2/3', chrome: true },
-  { id: 'slack', inicio: 'https://app.slack.com/client', destino: /(^|\.)slack\.com$/, chrome: true },
-  { id: 'github', inicio: 'https://github.com/notifications', destino: /(^|\.)github\.com$/, aviso: 'https://github.com/notifications?query=reason%3Amention' },
-  { id: 'linear', inicio: 'https://linear.app/login', destino: /(^|\.)linear\.app$/ },
+  { id: 'outlook', start: 'https://outlook.cloud.microsoft/mail/', target: /(^|\.)(cloud\.microsoft|office\.com|office365\.com|login\.microsoftonline\.com|login\.live\.com|microsoft365\.com)$/, notice: 'https://outlook.office365.com/owa/?ItemID=AAA&exvsurl=1&viewmodel=ReadMessageItem&ispopout=0' },
+  { id: 'discord', start: 'https://discord.com/channels/@me', target: /(^|\.)discord\.com$/, notice: 'https://discord.com/channels/1/2/3', chrome: true },
+  { id: 'slack', start: 'https://app.slack.com/client', target: /(^|\.)slack\.com$/, chrome: true },
+  { id: 'github', start: 'https://github.com/notifications', target: /(^|\.)github\.com$/, notice: 'https://github.com/notifications?query=reason%3Amention' },
+  { id: 'linear', start: 'https://linear.app/login', target: /(^|\.)linear\.app$/ },
 ];
 
 app.whenReady().then(async () => {
   const w = new BrowserWindow({ width: 1400, height: 900, x: 30, y: 30, show: false, webPreferences: { contextIsolation: true, nodeIntegration: false, backgroundThrottling: false, webviewTag: true } });
-  navegadores(w);
+  browsers(w);
   let g = null; const visited = [];
   // como AGENTE_CHROME en web/src/ui/Browsers.tsx (la página del juego tiene el agente de la app)
   const chrome = w.webContents.getUserAgent().replace(/ (Electron|work-shelter-public)\/\S+/g, '');
-  let propiedades = null;
+  let properties = null;
   session.fromPartition('persist:navegador').webRequest.onBeforeSendHeaders({ urls: ['https://discord.com/api/*'] }, (d, cb) => {
-    const sp = d.requestHeaders['X-Super-Properties']; if (sp && !propiedades) propiedades = JSON.parse(Buffer.from(sp, 'base64').toString()); cb({});
+    const sp = d.requestHeaders['X-Super-Properties']; if (sp && !properties) properties = JSON.parse(Buffer.from(sp, 'base64').toString()); cb({});
   });
   w.webContents.on('did-attach-webview', (_e, wc) => { g = wc; wc.on('did-navigate', (_e, u) => visited.push(u)); });
   await w.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent('<!doctype html><body style="margin:0;background:#000">'));
   w.showInactive();
   for (const s of WEBS) {
-    g = null; fuera = []; visited.length = 0;
-    await w.webContents.executeJavaScript(`(()=>{document.body.innerHTML='';const v=document.createElement('webview');v.setAttribute('partition','persist:navegador');v.setAttribute('allowpopups','');v.setAttribute('src',${JSON.stringify(s.inicio)});${s.chrome ? `v.setAttribute('useragent',${JSON.stringify(chrome)});` : ''}v.style.cssText='width:1400px;height:900px;display:flex';document.body.appendChild(v)})()`);
-    for (let i = 0; i < 50 && !g; i++) await espera(200);
-    if (!g) { ver(false, `${s.id}: el webview no se engancha`); continue; }
+    g = null; outside = []; visited.length = 0;
+    await w.webContents.executeJavaScript(`(()=>{document.body.innerHTML='';const v=document.createElement('webview');v.setAttribute('partition','persist:navegador');v.setAttribute('allowpopups','');v.setAttribute('src',${JSON.stringify(s.start)});${s.chrome ? `v.setAttribute('useragent',${JSON.stringify(chrome)});` : ''}v.style.cssText='width:1400px;height:900px;display:flex';document.body.appendChild(v)})()`);
+    for (let i = 0; i < 50 && !g; i++) await wait(200);
+    if (!g) { check(false, `${s.id}: el webview no se engancha`); continue; }
     // hasta que deja de cambiar de página (las de inicio de sesión redirigen varias veces)
-    let ultima = '', quieta = 0;
-    for (let t = 0; t < 40 && quieta < 6; t++) { await espera(500); const u = g.getURL(); quieta = u === ultima && !g.isLoading() ? quieta + 1 : 0; ultima = u; }
+    let last = '', still = 0;
+    for (let t = 0; t < 40 && still < 6; t++) { await wait(500); const u = g.getURL(); still = u === last && !g.isLoading() ? still + 1 : 0; last = u; }
     const host = (() => { try { return new URL(g.getURL()).hostname; } catch { return ''; } })();
-    const titulo = await g.executeJavaScript('document.title').catch(() => '');
-    const texto = String(await g.executeJavaScript('document.body ? document.body.innerText.slice(0, 160) : ""').catch(() => '')).replace(/\s+/g, ' ');
+    const title = await g.executeJavaScript('document.title').catch(() => '');
+    const text = String(await g.executeJavaScript('document.body ? document.body.innerText.slice(0, 160) : ""').catch(() => '')).replace(/\s+/g, ' ');
     out(`      ${s.id}: ${visited.join(' → ')}`);
-    ver(s.destino.test(host), `${s.id}: llega a su web o a su inicio de sesión (${g.getURL().slice(0, 100)} · «${titulo}» · ${texto.slice(0, 90)})`);
-    ver(!fuera.length, `${s.id}: nada de su camino se manda fuera`);
-    ver(!/browser.*(not supported|incompatible|unsupported)|navegador no (es )?compatible/i.test(texto + ' ' + titulo), `${s.id}: sin aviso de navegador incompatible`);
+    check(s.target.test(host), `${s.id}: llega a su web o a su inicio de sesión (${g.getURL().slice(0, 100)} · «${title}» · ${text.slice(0, 90)})`);
+    check(!outside.length, `${s.id}: nada de su camino se manda fuera`);
+    check(!/browser.*(not supported|incompatible|unsupported)|navegador no (es )?compatible/i.test(text + ' ' + title), `${s.id}: sin aviso de navegador incompatible`);
     if (s.id === 'discord') {
       const version = (chrome.match(/Chrome\/(\S+)/) || [])[1];
-      ver(propiedades?.browser === 'Chrome' && propiedades?.browser_version === version, `discord: se presenta como Chrome ${version} (${propiedades?.browser} ${propiedades?.browser_version})`);
+      check(properties?.browser === 'Chrome' && properties?.browser_version === version, `discord: se presenta como Chrome ${version} (${properties?.browser} ${properties?.browser_version})`);
     }
-    if (s.aviso) {
-      fuera = [];
-      await g.executeJavaScript(`location.href = ${JSON.stringify(s.aviso)}`).catch(() => {});
-      await espera(4000);
-      ver(!fuera.includes(s.aviso), `${s.id}: un enlace de aviso se queda dentro (${g.getURL().slice(0, 90)})`);
+    if (s.notice) {
+      outside = [];
+      await g.executeJavaScript(`location.href = ${JSON.stringify(s.notice)}`).catch(() => {});
+      await wait(4000);
+      check(!outside.includes(s.notice), `${s.id}: un enlace de aviso se queda dentro (${g.getURL().slice(0, 90)})`);
     }
-    fuera = [];
+    outside = [];
     await g.executeJavaScript(`location.href = 'https://example.com/'`).catch(() => {});
-    await espera(2000);
-    ver(fuera.includes('https://example.com/'), `${s.id}: otra web va al navegador del sistema`);
+    await wait(2000);
+    check(outside.includes('https://example.com/'), `${s.id}: otra web va al navegador del sistema`);
   }
   // the «Web» window (linkOptions.ts): any https web a reply links, in its own session, confined to its domain and
   // with no permissions but writing the clipboard
   {
-    g = null; fuera = [];
+    g = null; outside = [];
     await w.webContents.executeJavaScript(`(()=>{document.body.innerHTML='';const v=document.createElement('webview');v.setAttribute('partition','persist:web');v.setAttribute('allowpopups','');v.setAttribute('src','https://example.com/');v.style.cssText='width:1400px;height:900px;display:flex';document.body.appendChild(v)})()`);
-    for (let i = 0; i < 50 && !g; i++) await espera(200);
-    if (!g) ver(false, 'web: el webview no se engancha');
+    for (let i = 0; i < 50 && !g; i++) await wait(200);
+    if (!g) check(false, 'web: el webview no se engancha');
     else {
-      for (let t = 0; t < 30 && (g.isLoading() || !g.getURL().startsWith('https://example.com')); t++) await espera(300);
-      ver(g.getURL().startsWith('https://example.com/') && g.session === session.fromPartition('persist:web'), `web: carga en su propia sesión (${g.getURL()})`);
-      const aviso = await g.executeJavaScript('Notification.requestPermission()').catch(e => String(e));
-      ver(aviso === 'denied', `web: sin permiso de avisos (${aviso})`);
+      for (let t = 0; t < 30 && (g.isLoading() || !g.getURL().startsWith('https://example.com')); t++) await wait(300);
+      check(g.getURL().startsWith('https://example.com/') && g.session === session.fromPartition('persist:web'), `web: carga en su propia sesión (${g.getURL()})`);
+      const notice = await g.executeJavaScript('Notification.requestPermission()').catch(e => String(e));
+      check(notice === 'denied', `web: sin permiso de avisos (${notice})`);
       await g.executeJavaScript(`location.href = 'https://www.iana.org/'`).catch(() => {});
-      await espera(2000);
-      ver(fuera.includes('https://www.iana.org/') && g.getURL().startsWith('https://example.com'), 'web: otra web va al navegador del sistema');
+      await wait(2000);
+      check(outside.includes('https://www.iana.org/') && g.getURL().startsWith('https://example.com'), 'web: otra web va al navegador del sistema');
       // a login popup: in the same browser, never a window of its own
-      const ventanas = BrowserWindow.getAllWindows().length;
+      const windows = BrowserWindow.getAllWindows().length;
       await g.executeJavaScript(`window.open('https://accounts.google.com/', '_blank')`, true).catch(() => {});
-      for (let t = 0; t < 20 && !g.getURL().includes('accounts.google.com'); t++) await espera(300);
-      ver(BrowserWindow.getAllWindows().length === ventanas && g.getURL().includes('accounts.google.com'), `web: un inicio de sesión emergente se abre dentro, sin otra ventana (${g.getURL().slice(0, 60)})`);
+      for (let t = 0; t < 20 && !g.getURL().includes('accounts.google.com'); t++) await wait(300);
+      check(BrowserWindow.getAllWindows().length === windows && g.getURL().includes('accounts.google.com'), `web: un inicio de sesión emergente se abre dentro, sin otra ventana (${g.getURL().slice(0, 60)})`);
     }
     await w.webContents.executeJavaScript(`(()=>{document.body.innerHTML='';const v=document.createElement('webview');v.setAttribute('partition','persist:otra');v.setAttribute('src','https://example.com/');document.body.appendChild(v)})()`);
-    g = null; await espera(2000);
-    ver(!g, 'web: un webview con otra partición no se engancha');
+    g = null; await wait(2000);
+    check(!g, 'web: un webview con otra partición no se engancha');
   }
   out(failures ? `${failures} fallo(s)` : 'todo bien');
   app.exit(failures ? 1 : 0);

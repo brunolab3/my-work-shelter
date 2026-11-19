@@ -24,14 +24,14 @@ guides for getting each credential are also inside the game (Vault → the sourc
 
 ## Switched-off sources
 
-A source with `desactivada: true` in `shared/fonts.ts` creates no connector and doesn't appear in the Vault, the
+A source with `desactivada: true` in `shared/sources.ts` creates no connector and doesn't appear in the Vault, the
 notice board, the calendar or Planning (`ACTIVE_SOURCES`); its code is still there. Currently **Microsoft 365** and
 **Linear** are off (without Linear, the Planning dweller doesn't carry its MCP either). To turn one back on, remove
 the flag.
 
 ## Adding a new source
 
-1. Its id, name, color and what it brings, in `shared/fonts.ts`.
+1. Its id, name, color and what it brings, in `shared/sources.ts`.
 2. The real connector in `server/integrations/<id>.ts` with `export function crear(almacen)` (almost always a
    subclass of `ConnectorBase` from `common.ts` with its `Field[]`).
 3. Its pure normalisers in `normalize.ts`, with synthetic fixtures in `test/fixtures/` and tests.
@@ -179,7 +179,7 @@ Unread inbox notifications (the last 100; no archived or snoozed) every 60 s; my
 
 **Jira** — Jira Cloud REST v3 with basic auth (email + API token), read-only except for the status change you confirm
 on the board (below). It brings no notices to the board
-(`withoutNotices` in `shared/fonts.ts`): it feeds the Planning board.
+(`withoutNotices` in `shared/sources.ts`): it feeds the Planning board.
 
 | Field | Label | Secret | Help |
 |---|---|---|---|
@@ -208,7 +208,7 @@ issues" in that project or the token is scoped read-only. In DEMO nothing moves.
 
 **The Logistics room.** A stock room (id `tareas`, `PLANNING_ROOM` in `shared/layout.ts`, type `coordinacion`,
 floor -2 next to Version Control; its dweller is Inés). The Calendar room, type `planificacion`, is just the calendar.
-Its folder is always the shelter's repos root (`raizRepos`, in the Vault), so its dweller sees every repo; it can't be
+Its folder is always the shelter's repos root (`reposRoot`, in the Vault), so its dweller sees every repo; it can't be
 retired or linked to another folder. More `coordinacion` rooms (wings: any folder with several repos inside) can be
 recruited at the Main Gate, and choosing the repos root adds them automatically.
 

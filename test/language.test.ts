@@ -23,17 +23,17 @@ const spanish = new Set(Object.values(TEXTS).map(v => v.es));
 describe('English mode guards', () => {
   it('every Spanish string of the data catalogues shown through tIs() is in the catalogue', () => {
     const data = [
-      ...LOOK_PIECES.map(p => p.nombre), ...Object.values(SLOT_NAME), ...Object.values(NAME_REGION), nameRegion('piel', 'robot'),
+      ...LOOK_PIECES.map(p => p.name), ...Object.values(SLOT_NAME), ...Object.values(NAME_REGION), nameRegion('piel', 'robot'),
       ...[...PIECES, ...SHOP, CROSSBOW].flatMap(p => [p.nombre, p.texto]), ...PIECES.map(p => p.rarity),
       ...SIGNALS.flatMap(s => [s.titulo, s.texto]), ...Object.values(HARVESTS).map(h => h.nombre),
-      ...Object.values(DESCRIPTION_BASE), ...Object.values(PACKS).map(p => p.que),
-      ...INITIAL_ROOMS.map(s => s.nombre), ...Object.values(ROOM_DESCRIPTION), ...INITIAL_DWELLERS.flatMap(h => [h.mote, h.bio]),
+      ...Object.values(DESCRIPTION_BASE), ...Object.values(PACKS).map(p => p.what),
+      ...INITIAL_ROOMS.map(s => s.name), ...Object.values(ROOM_DESCRIPTION), ...INITIAL_DWELLERS.flatMap(h => [h.nickname, h.bio]),
       ...Object.values(ROOM_INFO), REPO_INFO, ...Object.values(INTEGRATION_STATE), ...Object.values(INTEGRATION_STATE_SHORT),
       ...Object.values(REPO_TYPE), ...Object.values(LOOK), ...ACTIVITY_TABS, FRESH_HARVEST,
       ...NICKNAMES, ...ORIGIN, ...MANIA, ROBOT_ORIGIN,
-      ...Object.values(SECTORS).flatMap(s => [s.nombre, s.motto]),
-      MODELS[0].texto, ...EFFORTS.map(e => e.texto), ...PERMISSION_MODES.flatMap(m => [m.texto, m.pista]),
-      ...COLUMNS.map(c => c.nombre), ...DEPLOYMENT_COLUMNS.map(c => c.nombre),
+      ...Object.values(SECTORS).flatMap(s => [s.name, s.motto]),
+      MODELS[0].text, ...EFFORTS.map(e => e.text), ...PERMISSION_MODES.flatMap(m => [m.text, m.hint]),
+      ...COLUMNS.map(c => c.name), ...DEPLOYMENT_COLUMNS.map(c => c.name),
     ];
     expect([...new Set(data.filter(x => !spanish.has(x)))]).toEqual([]);
   });
@@ -42,9 +42,9 @@ describe('English mode guards', () => {
   it('room names reach English mode translated, Logistics wings included', () => {
     setLanguage('en');
     try {
-      const names = [...INITIAL_ROOMS, { tipo: 'coordinacion', nombre: 'Logística web' }].map(roomNameIs);
+      const names = [...INITIAL_ROOMS, { type: 'coordinacion', name: 'Logística web' }].map(roomNameIs);
       expect(names.filter(n => spanish.has(n) || n.startsWith('Logística'))).toEqual([]);
-      expect(roomNameIs({ tipo: 'repo', nombre: 'Logística' })).toBe('Logística');
+      expect(roomNameIs({ type: 'repo', name: 'Logística' })).toBe('Logística');
     } finally { setLanguage('es'); }
   });
 
@@ -73,8 +73,8 @@ const SPANISH_CHARS = /[áéíóúñÁÉÍÓÚÑ¿¡]/;
 const SKIP_FILES = ['electron/texts.cjs', 'server/integrations/demo.ts', 'server/integrations/demoEnglish.ts'];
 // GLSL inside template literals (its comments are code comments)
 const SHADER = /\b(uniform|varying|gl_FragColor|void main|vec[234]|float)\b/;
-// developer logs: console, the Electron log file and the Chrome helpers' log (apuntar)
-const LOG_LINE = /console\.(log|warn|error|info)|log\.write\(|apuntar\(/;
+// developer logs: console, the Electron log file and the Chrome helpers' log (log)
+const LOG_LINE = /console\.(log|warn|error|info)|log\.write\(|\blog\(/;
 // What may stay in Spanish, and why. Keep it short.
 const ALLOWED: [string, RegExp][] = [
   ['web/src/audio/keyboard.ts', /./],                    // Spanish keyboard rows for the typing sounds, not text

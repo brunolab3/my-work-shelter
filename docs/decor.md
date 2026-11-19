@@ -9,7 +9,7 @@ Every repo room has a scene. Without a set dressing, the stock scene for its rep
 - **Workshop** for everything else.
 
 There are also hand-made scenes: web workshop, shop window, brand archive and screening room. They go to repos whose
-name or type calls for them (`estiloSala` in `server/repos.ts`).
+name or type calls for them (`roomStyle` in `server/repos.ts`).
 
 ## The task board
 
