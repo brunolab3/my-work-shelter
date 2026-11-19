@@ -19,11 +19,11 @@ describe('game MCP tools', () => {
 
   const plans = { get: () => undefined, ofRoom: () => [] } as any;
   const allServers = () => [
-    mcpRooms({ salas: () => [] } as any, 'a', undefined, true),
-    mcpReview(() => '/tmp', { estado: async () => '', responder: async () => '' }),
-    mcpAssignment({ salas: () => [], planes: plans } as any, { coordinacion: 'c', salaId: 'c', preguntar: async () => true }),
-    mcpPlan({ planes: plans } as any, { salaId: 'a', sala: 'A' }),
-    mcpDecor('a', { sala: () => undefined } as any),
+    mcpRooms({ rooms: () => [] } as any, 'a', undefined, true),
+    mcpReview(() => '/tmp', { state: async () => '', respond: async () => '' }),
+    mcpAssignment({ rooms: () => [], plans } as any, { coordination: 'c', roomId: 'c', ask: async () => true }),
+    mcpPlan({ plans } as any, { roomId: 'a', room: 'A' }),
+    mcpDecor('a', { room: () => undefined } as any),
   ];
 
   it('servers, tools and parameters are named in English', () => {
@@ -43,30 +43,30 @@ describe('game MCP tools', () => {
   // sessions.ts keys each server by its name, so `mcp__<name>__<tool>` is what a session sees: the activity labels must match it
   it('the activity labels name tools the servers really have', () => {
     const generic = (n: string) => t('server.activity.using', { nombre: n.split('__').slice(1).join(' › ') });
-    const labelled = [...new Set([...allServers(), mcpRooms({ salas: () => [], programados: {}, verificaciones: {} } as any, 'a', 's1')].flatMap(sv => Object.keys(tools(sv)).map(tl => mcpTool(sv.name as any, tl))))].filter(n => describeTool(n, {}, '/tmp') !== generic(n));
+    const labelled = [...new Set([...allServers(), mcpRooms({ rooms: () => [], scheduled: {}, verifications: {} } as any, 'a', 's1')].flatMap(sv => Object.keys(tools(sv)).map(tl => mcpTool(sv.name as any, tl))))].filter(n => describeTool(n, {}, '/tmp') !== generic(n));
     expect(labelled.sort()).toEqual(['mcp__assignment__assign_work', 'mcp__assignment__shelter_rooms', 'mcp__rooms__schedule_message', 'mcp__rooms__send_to_room', 'mcp__rooms__verification_plan', 'mcp__rooms__verification_report',
       'mcp__shelter__apply_decor', 'mcp__shelter__current_decor', 'mcp__shelter__props_catalogue', 'mcp__shelter__remove_decor', 'mcp__shelter__view_room']);
   });
 
   it('send_to_room takes room, message and key', async () => {
-    const started: { salaId: string; prompt: string }[] = [];
+    const started: { roomId: string; prompt: string }[] = [];
     const ctx: CtxRooms = {
-      salas: () => [{ id: 'a', nombre: 'A' }, { id: 'b', nombre: 'Bravo', habitante: { id: 'hb', nombre: 'Bea' } }],
-      sesionDeTarea: () => undefined, worktreeDeTarea: async () => '/repo/b-wt', avisar: () => false,
-      empezar: async (salaId, _d, prompt) => { started.push({ salaId, prompt }); return { id: 's1', enWorktree: true }; },
-      mensajero: () => {}, aviso: () => {},
+      rooms: () => [{ id: 'a', name: 'A' }, { id: 'b', name: 'Bravo', dweller: { id: 'hb', name: 'Bea' } }],
+      sessionOfTask: () => undefined, worktreeOfTask: async () => '/repo/b-wt', notify: () => false,
+      start: async (roomId, _d, prompt) => { started.push({ roomId, prompt }); return { id: 's1', inWorktree: true }; },
+      messenger: () => {}, notice: () => {},
     };
     const r = await call(mcpRooms(ctx, 'a'), 'send_to_room', { room: 'b', message: 'look at the API', key: 'abc-12' });
     expect(r.isError).toBeFalsy();
     expect(started).toHaveLength(1);
-    expect(started[0].salaId).toBe('b');
+    expect(started[0].roomId).toBe('b');
     expect(started[0].prompt).toContain('look at the API');
     expect(started[0].prompt).toContain('ABC-12');
   });
 
   it('preflight_answer maps status and note', async () => {
     const got: unknown[] = [];
-    const s = mcpReview(() => '/tmp/wt', { estado: async () => '', responder: async (cwd, item, estado, nota) => { got.push([cwd, item, estado, nota]); return 'ok'; } });
+    const s = mcpReview(() => '/tmp/wt', { state: async () => '', respond: async (cwd, item, state, note) => { got.push([cwd, item, state, note]); return 'ok'; } });
     await call(s, 'preflight_answer', { item: '2', status: 'pending', note: 'later' });
     await call(s, 'preflight_answer', { item: '3', status: 'n/a', note: 'no UI' });
     expect(got).toEqual([['/tmp/wt', '2', 'pendiente', 'later'], ['/tmp/wt', '3', 'n/a', 'no UI']]);
@@ -76,21 +76,21 @@ describe('game MCP tools', () => {
 describe('scheduled messages tools', () => {
   it('schedule_message takes when, message, room and key', async () => {
     const got: unknown[] = [];
-    const programados = { programar: (d: string, s: string | undefined, a: unknown) => { got.push([d, s, a]); return { ok: true, texto: 'ok' }; }, deConversacion: () => [], cancelar: () => true };
-    const s = mcpRooms({ salas: () => [], programados } as any, 'a', 's1');
+    const scheduled = { schedule: (d: string, s: string | undefined, a: unknown) => { got.push([d, s, a]); return { ok: true, text: 'ok' }; }, ofConversation: () => [], cancel: () => true };
+    const s = mcpRooms({ rooms: () => [], scheduled } as any, 'a', 's1');
     expect(Object.keys(tools(s)).sort()).toEqual(['cancel_scheduled', 'list_scheduled', 'schedule_message', 'send_to_room']);
     expect(params(tools(s).schedule_message)).toEqual(['when', 'message', 'room', 'key']);
     await call(s, 'schedule_message', { when: '2026-11-17', message: 'review', room: 'b', key: 'ABC-1' });
-    expect(got).toEqual([['a', 's1', { cuando: '2026-11-17', mensaje: 'review', sala: 'b', clave: 'ABC-1' }]]);
+    expect(got).toEqual([['a', 's1', { when: '2026-11-17', message: 'review', room: 'b', key: 'ABC-1' }]]);
   });
 });
 
 describe('verification tools', () => {
   it('verification_plan and verification_report take the task of the conversation\'s worktree, or a key', async () => {
     const got: unknown[] = [];
-    const plan = { clave: 'ABC-1', version: 1, actualizado: 0, puntos: [] };
-    const planes = { get: () => plan, proponer: (k: string, i: unknown, c: unknown) => { got.push(['plan', k, i, c]); return { ok: true, valor: plan }; }, informar: (k: string, r: unknown) => { got.push(['report', k, r]); return { ok: false, error: 'notLive', vars: { id: 'final' } }; } };
-    const s = mcpRooms({ salas: () => [], verificaciones: { planes, tareaDeSesion: (id: string) => (id === 's1' ? 'ABC-1' : undefined) } } as any, 'a', 's1');
+    const plan = { key: 'ABC-1', version: 1, updated: 0, points: [] };
+    const plans = { get: () => plan, propose: (k: string, i: unknown, c: unknown) => { got.push(['plan', k, i, c]); return { ok: true, value: plan }; }, report: (k: string, r: unknown) => { got.push(['report', k, r]); return { ok: false, error: 'notLive', vars: { id: 'final' } }; } };
+    const s = mcpRooms({ rooms: () => [], verifications: { plans, taskOfSession: (id: string) => (id === 's1' ? 'ABC-1' : undefined) } } as any, 'a', 's1');
     expect(params(tools(s).verification_report)).toEqual(['key', 'checkpoint', 'event', 'signal', 'service', 'evidence', 'hours']);
     const cps = [{ id: 'final', kind: 'final', signals: [{ id: 'ran', kind: 'must-run', what: 'it runs', where: 'log «ok»' }] }];
     expect((await call(s, 'verification_plan', { checkpoints: cps })).isError).toBeFalsy();
@@ -98,7 +98,7 @@ describe('verification tools', () => {
     expect(r.isError).toBe(true);
     expect(r.content[0].text).toBe(t('verification.error.notLive', { id: 'final' }));
     expect(got).toEqual([['plan', 'ABC-1', { checkpoints: cps }, undefined], ['report', 'XYZ-9', { checkpoint: 'final', event: 'evidenced', signal: 'ran', evidence: 'ran twice' }]]);
-    const sinTarea = mcpRooms({ salas: () => [], verificaciones: { planes, tareaDeSesion: () => undefined } } as any, 'a', 's2');
-    expect((await call(sinTarea, 'verification_plan', { checkpoints: cps })).isError).toBe(true);
+    const withoutTask = mcpRooms({ rooms: () => [], verifications: { plans, taskOfSession: () => undefined } } as any, 'a', 's2');
+    expect((await call(withoutTask, 'verification_plan', { checkpoints: cps })).isError).toBe(true);
   });
 });

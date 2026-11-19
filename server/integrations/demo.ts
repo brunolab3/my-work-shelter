@@ -1,11 +1,11 @@
 // Plausible simulated data (DEMO) for when a source is not configured: written in Spanish, with its English in
 // demoEnglish.ts for a shelter in English. Fictional shelter projects and dates relative to «now» (system time zone),
 // generated stably per day so they don't flicker. Every person, team and company is made up.
-import type { Notification, Evento, Priority, SourceId } from './adapters.ts';
+import type { Notification, CalendarEvent, Priority, SourceId } from './adapters.ts';
 import { dayStart } from './normalize.ts';
 import { inDemoLanguage } from './demoEnglish.ts';
 
-function semilla(n: number) { let s = n >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
+function seed(n: number) { let s = n >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
 const MIN = 60_000, H = 60 * MIN;
 
 // [autor, título, fragmento, prioridad]
@@ -55,20 +55,20 @@ const LINEAR: [string, string, string, Priority][] = [
   ['REF-240', 'Bruno Esteve', 'Te han mencionado en «Buscar dentro de archivos comprimidos» (ripgrep).', 'alta'],
 ];
 
-function demoNotificationsEs(fuente: SourceId): Notification[] {
-  const dia = dayStart();
-  const r = semilla(Math.floor(dia / 86400000) * 7 + fuente.length);
-  const ahora = Date.now();
-  const n = (i: number, x: Partial<Notification> & { prioridad: Priority }): Notification =>
-    ({ id: `demo-${fuente}-${Math.floor(dia / 86400000)}-${i}`, fuente, autor: '', titulo: '', fragmento: '', fecha: ahora - Math.floor(5 + r() * 300) * MIN, demo: true, ...x });
-  switch (fuente) {
-    case 'outlook': return MAILS.map(([autor, titulo, fragmento, prioridad], i) => n(i, { autor, titulo, fragmento, prioridad, enlace: 'https://outlook.office.com/mail/' }));
-    case 'google': return GMAIL.map(([autor, titulo, fragmento, prioridad], i) => n(i, { autor, titulo, fragmento, prioridad, canal: 'Recibidos', enlace: 'https://mail.google.com/mail/u/0/#inbox' }));
-    case 'mail': return MAIL.map(([autor, titulo, fragmento, prioridad], i) => n(i, { autor, titulo, fragmento, prioridad, canal: 'Google', enlace: 'https://mail.google.com/mail/u/0/#inbox' }));
-    case 'discord': return DISCORD.map(([canal, autor, fragmento, prioridad], i) => n(i, { canal, hilo: `demo-discord-${canal}`, autor, titulo: canal, fragmento, prioridad, enlace: 'https://discord.com/channels/@me' }));
-    case 'slack': return SLACK.map(([canal, autor, fragmento, prioridad], i) => n(i, { canal, hilo: `demo-slack-${canal}`, autor, titulo: canal, fragmento, prioridad, enlace: 'https://app.slack.com/client' }));
-    case 'github': return GITHUB.map(([repo, titulo, fragmento, prioridad], i) => n(i, { canal: repo, hilo: `demo-github-${i}`, autor: repo, titulo, fragmento, prioridad, enlace: 'https://github.com/notifications' }));
-    case 'linear': return LINEAR.map(([clave, autor, fragmento, prioridad], i) => n(i, { canal: clave, autor, titulo: `${clave} · ${autor}`, fragmento, prioridad, enlace: 'https://linear.app/' }));
+function demoNotificationsEs(source: SourceId): Notification[] {
+  const day = dayStart();
+  const r = seed(Math.floor(day / 86400000) * 7 + source.length);
+  const now = Date.now();
+  const n = (i: number, x: Partial<Notification> & { priority: Priority }): Notification =>
+    ({ id: `demo-${source}-${Math.floor(day / 86400000)}-${i}`, source, author: '', title: '', snippet: '', date: now - Math.floor(5 + r() * 300) * MIN, demo: true, ...x });
+  switch (source) {
+    case 'outlook': return MAILS.map(([author, title, snippet, priority], i) => n(i, { author, title, snippet, priority, link: 'https://outlook.office.com/mail/' }));
+    case 'google': return GMAIL.map(([author, title, snippet, priority], i) => n(i, { author, title, snippet, priority, channel: 'Recibidos', link: 'https://mail.google.com/mail/u/0/#inbox' }));
+    case 'mail': return MAIL.map(([author, title, snippet, priority], i) => n(i, { author, title, snippet, priority, channel: 'Google', link: 'https://mail.google.com/mail/u/0/#inbox' }));
+    case 'discord': return DISCORD.map(([channel, author, snippet, priority], i) => n(i, { channel, thread: `demo-discord-${channel}`, author, title: channel, snippet, priority, link: 'https://discord.com/channels/@me' }));
+    case 'slack': return SLACK.map(([channel, author, snippet, priority], i) => n(i, { channel, thread: `demo-slack-${channel}`, author, title: channel, snippet, priority, link: 'https://app.slack.com/client' }));
+    case 'github': return GITHUB.map(([repo, title, snippet, priority], i) => n(i, { channel: repo, thread: `demo-github-${i}`, author: repo, title, snippet, priority, link: 'https://github.com/notifications' }));
+    case 'linear': return LINEAR.map(([key, author, snippet, priority], i) => n(i, { channel: key, author, title: `${key} · ${author}`, snippet, priority, link: 'https://linear.app/' }));
     case 'jira': return [];   // sin avisos: solo el tablero de Logística
     case 'calendario': return [];   // sin avisos: solo la agenda
   }
@@ -92,66 +92,66 @@ const EVENTS: Partial<Record<SourceId, EventDemo[]>> = {
     [2, 0, 24, 'Cumpleaños de Rosa'], [3, 18, 1.5, 'Club de lectura', 'https://meet.google.com/demo-ghi-jkl'],
   ],
 };
-function demoEventsEs(fuente: SourceId): Evento[] {
-  const dia = dayStart();
-  return (EVENTS[fuente] ?? []).map(([d, h, dur, titulo, video, lugar], i) => {
-    const todo = dur >= 24;
-    const inicio = dia + d * 86400000 + (todo ? 0 : h * H);
-    return { id: `demo-${fuente}-ev-${Math.floor(dia / 86400000)}-${i}`, fuente, titulo, inicio, fin: todo ? inicio + 86400000 : inicio + Math.max(dur, 0.25) * H, allElDay: todo, videollamada: video, lugar, enlace: fuente === 'outlook' ? 'https://outlook.office.com/calendar/' : fuente === 'calendario' ? video : 'https://calendar.google.com/', demo: true };
+function demoEventsEs(source: SourceId): CalendarEvent[] {
+  const day = dayStart();
+  return (EVENTS[source] ?? []).map(([d, h, dur, title, video, place], i) => {
+    const all = dur >= 24;
+    const start = day + d * 86400000 + (all ? 0 : h * H);
+    return { id: `demo-${source}-ev-${Math.floor(day / 86400000)}-${i}`, source, title, start, end: all ? start + 86400000 : start + Math.max(dur, 0.25) * H, allDay: all, videollamada: video, place, link: source === 'outlook' ? 'https://outlook.office.com/calendar/' : source === 'calendario' ? video : 'https://calendar.google.com/', demo: true };
   });
 }
 
 // Panel de Linear en DEMO (mismo formato que el real: mis issues por estado y ciclo actual), con proyectos ficticios
 function demoPanelLinearEs() {
-  const ahora = Date.now(), dia = 86400_000;
-  const issue = (n: number, titulo: string, tipo: string, nombre: string, prioridad: number, proyecto: string, etiquetas: string[] = []) => ({
-    id: 'demo-' + n, identificador: `REF-${n}`, titulo, url: 'https://linear.app/', prioridad, textPriority: ['Sin prioridad', 'Urgente', 'Alta', 'Media', 'Baja'][prioridad],
-    estado: { id: tipo, nombre, tipo }, equipo: 'REF', proyecto, ciclo: 14, etiquetas: etiquetas.map(x => ({ nombre: x, color: '#888' })), actualizada: ahora - n * 3600_000,
+  const now = Date.now(), day = 86400_000;
+  const issue = (n: number, title: string, type: string, name: string, priority: number, project: string, labels: string[] = []) => ({
+    id: 'demo-' + n, identifier: `REF-${n}`, title, url: 'https://linear.app/', priority, textPriority: ['Sin prioridad', 'Urgente', 'Alta', 'Media', 'Baja'][priority],
+    state: { id: type, name, type }, team: 'REF', project, cycle: 14, labels: labels.map(x => ({ name: x, color: '#888' })), updated: now - n * 3600_000,
   });
-  const grupos = [
-    { tipo: 'started', nombre: 'En curso', issues: [issue(212, 'Rutas con barra final duplicada', 'started', 'En curso', 2, 'Express', ['bug']), issue(219, 'Migrar rutas al nuevo router', 'started', 'En curso', 3, 'Express'), issue(240, 'Buscar dentro de archivos comprimidos', 'started', 'En revisión', 2, 'Ripgrep'), issue(236, 'Sesiones con conexiones persistentes', 'started', 'En revisión', 3, 'Requests'), issue(238, 'Comprobar los enlaces rotos de la lista', 'started', 'En curso', 3, 'Awesome'), issue(239, 'Colores en la salida de Windows', 'started', 'En revisión', 2, 'Ripgrep')] },
-    { tipo: 'unstarted', nombre: 'Por hacer', issues: [issue(231, 'Reintentos con espera exponencial', 'unstarted', 'Por hacer', 3, 'Requests', ['mejora']), issue(244, 'Sección nueva: herramientas de terminal', 'unstarted', 'Por hacer', 2, 'Awesome'), issue(247, 'Revisar la licencia de los ejemplos', 'unstarted', 'Por hacer', 4, 'Express')] },
-    { tipo: 'backlog', nombre: 'Backlog', issues: [issue(198, 'Binarios para más arquitecturas', 'backlog', 'Backlog', 0, 'Ripgrep'), issue(201, 'Tipos para los adaptadores', 'backlog', 'Backlog', 4, 'Requests')] },
+  const groups = [
+    { type: 'started', name: 'En curso', issues: [issue(212, 'Rutas con barra final duplicada', 'started', 'En curso', 2, 'Express', ['bug']), issue(219, 'Migrar rutas al nuevo router', 'started', 'En curso', 3, 'Express'), issue(240, 'Buscar dentro de archivos comprimidos', 'started', 'En revisión', 2, 'Ripgrep'), issue(236, 'Sesiones con conexiones persistentes', 'started', 'En revisión', 3, 'Requests'), issue(238, 'Comprobar los enlaces rotos de la lista', 'started', 'En curso', 3, 'Awesome'), issue(239, 'Colores en la salida de Windows', 'started', 'En revisión', 2, 'Ripgrep')] },
+    { type: 'unstarted', name: 'Por hacer', issues: [issue(231, 'Reintentos con espera exponencial', 'unstarted', 'Por hacer', 3, 'Requests', ['mejora']), issue(244, 'Sección nueva: herramientas de terminal', 'unstarted', 'Por hacer', 2, 'Awesome'), issue(247, 'Revisar la licencia de los ejemplos', 'unstarted', 'Por hacer', 4, 'Express')] },
+    { type: 'backlog', name: 'Backlog', issues: [issue(198, 'Binarios para más arquitecturas', 'backlog', 'Backlog', 0, 'Ripgrep'), issue(201, 'Tipos para los adaptadores', 'backlog', 'Backlog', 4, 'Requests')] },
   ];
-  return { yo: { name: 'Supervisor (demo)' }, myIssues: grupos, cycles: [{ equipoId: 'demo', equipo: 'REF', nombre: 'Refugio', ciclo: { id: 'c14', numero: 14, nombre: 'Ciclo 14', inicio: ahora - 6 * dia, fin: ahora + 8 * dia, progreso: 46 } }], cuando: ahora, demo: true };
+  return { me: { name: 'Supervisor (demo)' }, myIssues: groups, cycles: [{ teamId: 'demo', team: 'REF', name: 'Refugio', cycle: { id: 'c14', number: 14, name: 'Ciclo 14', start: now - 6 * day, end: now + 8 * day, progreso: 46 } }], when: now, demo: true };
 }
 
 // Tablero del equipo en DEMO (mismo formato que tableroDeEquipo): columnas por estado del equipo con sus incidencias
 function demoBoardLinearEs() {
   const p = demoPanelLinearEs();
-  const todas = p.myIssues.flatMap(g => g.issues);
+  const all = p.myIssues.flatMap(g => g.issues);
   const extra = [
-    { id: 'demo-251', identificador: 'REF-251', titulo: 'Caché de imágenes en la portada', prioridad: 3, textPriority: 'Media', estado: { id: 'started', nombre: 'En curso', tipo: 'started' }, proyecto: 'Taller', asignado: 'Iker Sáez' },
-    { id: 'demo-188', identificador: 'REF-188', titulo: 'Plantilla de correo de bienvenida', prioridad: 4, textPriority: 'Baja', estado: { id: 'completed', nombre: 'Hecho', tipo: 'completed' }, proyecto: 'Escaparate', asignado: 'Irene Valdés' },
-    { id: 'demo-190', identificador: 'REF-190', titulo: 'Exportar la paleta a la herramienta de diseño', prioridad: 3, textPriority: 'Media', estado: { id: 'completed', nombre: 'Hecho', tipo: 'completed' }, proyecto: 'Marca', asignado: 'Supervisor (demo)' },
+    { id: 'demo-251', identifier: 'REF-251', title: 'Caché de imágenes en la portada', priority: 3, textPriority: 'Media', state: { id: 'started', name: 'En curso', type: 'started' }, project: 'Taller', assignee: 'Iker Sáez' },
+    { id: 'demo-188', identifier: 'REF-188', title: 'Plantilla de correo de bienvenida', priority: 4, textPriority: 'Baja', state: { id: 'completed', name: 'Hecho', type: 'completed' }, project: 'Escaparate', assignee: 'Irene Valdés' },
+    { id: 'demo-190', identifier: 'REF-190', title: 'Exportar la paleta a la herramienta de diseño', priority: 3, textPriority: 'Media', state: { id: 'completed', name: 'Hecho', type: 'completed' }, project: 'Marca', assignee: 'Supervisor (demo)' },
   ];
-  const issues = [...todas, ...extra] as any[];
-  const estados = [['backlog', 'Backlog'], ['unstarted', 'Por hacer'], ['started', 'En curso'], ['review', 'En revisión'], ['completed', 'Hecho']];
-  return { equipo: 'REF', nombre: 'Refugio', demo: true, columnas: estados.map(([tipo, nombre]) => ({ id: tipo, nombre, tipo, issues: issues.filter(i => tipo === 'review' ? i.estado.nombre === 'En revisión' : i.estado.tipo === tipo && i.estado.nombre !== 'En revisión') })) };
+  const issues = [...all, ...extra] as any[];
+  const states = [['backlog', 'Backlog'], ['unstarted', 'Por hacer'], ['started', 'En curso'], ['review', 'En revisión'], ['completed', 'Hecho']];
+  return { team: 'REF', name: 'Refugio', demo: true, columns: states.map(([type, name]) => ({ id: type, name, type, issues: issues.filter(i => type === 'review' ? i.state.name === 'En revisión' : i.state.type === type && i.state.name !== 'En revisión') })) };
 }
 
 // Tablero de Jira en DEMO (mismo formato que el panel real): tareas de un proyecto ficticio. Sus claves (REF-…) son las
 // que llevan las ramas de los PR de demoPRsTablero() en server/git.ts, para que el cruce se vea.
 function demoPanelJiraEs() {
-  const ahora = Date.now();
-  const red = { clave: 'REF-200', titulo: 'Red fiable' }, rutas = { clave: 'REF-210', titulo: 'Router nuevo' };
-  const t = (n: number, titulo: string, estado: string, categoria: 'new' | 'indeterminate' | 'done', tipo: string, prioridad: string, hours: number, epica?: { clave: string; titulo: string }) =>
-    ({ clave: `REF-${n}`, titulo, url: 'https://jira.example/browse/REF-' + n, estado, categoria, tipo, prioridad, proyecto: 'Refugio', actualizada: ahora - hours * H, ...(epica ? { epica } : {}) });
+  const now = Date.now();
+  const red = { key: 'REF-200', title: 'Red fiable' }, paths = { key: 'REF-210', title: 'Router nuevo' };
+  const t = (n: number, title: string, state: string, category: 'new' | 'indeterminate' | 'done', type: string, priority: string, hours: number, epic?: { key: string; title: string }) =>
+    ({ key: `REF-${n}`, title, url: 'https://jira.example/browse/REF-' + n, state, category, type, priority, project: 'Refugio', updated: now - hours * H, ...(epic ? { epic } : {}) });
   return {
-    yo: 'Supervisor (demo)', cuando: ahora, demo: true,
+    me: 'Supervisor (demo)', when: now, demo: true,
     tareas: [
-      t(212, 'Rutas con barra final duplicada', 'En curso', 'indeterminate', 'Error', 'High', 2, rutas),
+      t(212, 'Rutas con barra final duplicada', 'En curso', 'indeterminate', 'Error', 'High', 2, paths),
       t(240, 'Buscar dentro de archivos comprimidos', 'En revisión', 'indeterminate', 'Historia', 'High', 5),
       t(236, 'Sesiones con conexiones persistentes', 'En revisión', 'indeterminate', 'Historia', 'Medium', 20, red),
       t(231, 'Reintentos con espera exponencial', 'Por hacer', 'new', 'Tarea', 'Medium', 30, red),
       t(244, 'Sección nueva: herramientas de terminal', 'Por hacer', 'new', 'Tarea', 'Low', 48),
-      t(219, 'Migrar rutas al nuevo router', 'Hecho', 'done', 'Historia', 'Medium', 26, rutas),
+      t(219, 'Migrar rutas al nuevo router', 'Hecho', 'done', 'Historia', 'Medium', 26, paths),
     ],
   };
 }
 
-export const demoNotifications = (fuente: SourceId): Notification[] => inDemoLanguage(demoNotificationsEs(fuente));
-export const demoEvents = (fuente: SourceId): Evento[] => inDemoLanguage(demoEventsEs(fuente));
+export const demoNotifications = (source: SourceId): Notification[] => inDemoLanguage(demoNotificationsEs(source));
+export const demoEvents = (source: SourceId): CalendarEvent[] => inDemoLanguage(demoEventsEs(source));
 export const demoPanelLinear = () => inDemoLanguage(demoPanelLinearEs());
 export const demoBoardLinear = () => inDemoLanguage(demoBoardLinearEs());
 export const demoPanelJira = () => inDemoLanguage(demoPanelJiraEs());

@@ -14,94 +14,94 @@ import { deadlineOf, expire, isApproved, isClosed, needsRecheck, openCheckpoints
   type Checkpoint, type PlanConversation, type PlanInput, type ReportInput, type Result, type TaskPR, type VerificationPlan } from '../shared/verification.ts';
 
 export interface CtxRecheck {
-  prs(clave: string, plan: VerificationPlan): Promise<TaskPR[]>;
-  enPrueba(clave: string): Promise<boolean>;   // the tracker has the task in its board's prod-check status
+  prs(key: string, plan: VerificationPlan): Promise<TaskPR[]>;
+  inProdCheck(key: string): Promise<boolean>;   // the tracker has the task in its board's prod-check status
   // a scheduled message to the plan's conversation (scheduled.ts): its id, or none if it couldn't be scheduled
-  programar(c: PlanConversation, cuando: number, mensaje: string): string | undefined;
-  pendiente(id: string): boolean;
-  cancelar(id: string): void;
-  avisar(texto: string, nivel: 'info' | 'aviso'): void;
+  schedule(c: PlanConversation, when: number, message: string): string | undefined;
+  pending(id: string): boolean;
+  cancel(id: string): void;
+  notify(text: string, level: 'info' | 'aviso'): void;
 }
 
 const MAX_PLANS = 100;
 
 export class Verifications {
-  private planes: Record<string, VerificationPlan> = {};
-  private archivo: string;
-  constructor(dir: string, private ahora: () => number = Date.now, private cambiado: (clave: string) => void = () => {}) {
-    this.archivo = path.join(dir, 'verificaciones.json');
+  private plans: Record<string, VerificationPlan> = {};
+  private file: string;
+  constructor(dir: string, private now: () => number = Date.now, private changed: (key: string) => void = () => {}) {
+    this.file = path.join(dir, 'verificaciones.json');
     try {
-      if (existsSync(this.archivo)) {
-        const j = JSON.parse(readFileSync(this.archivo, 'utf8'))?.planes ?? {};
-        this.planes = Object.fromEntries(Object.entries(j).filter(([, p]) => validPlan(p))) as Record<string, VerificationPlan>;
+      if (existsSync(this.file)) {
+        const j = JSON.parse(readFileSync(this.file, 'utf8'))?.plans ?? {};
+        this.plans = Object.fromEntries(Object.entries(j).filter(([, p]) => validPlan(p))) as Record<string, VerificationPlan>;
       }
     } catch {}
   }
-  private guardar(clave: string) {
+  private save(key: string) {
     // the most recent tasks only
-    this.planes = Object.fromEntries(Object.entries(this.planes).sort((a, b) => b[1].actualizado - a[1].actualizado).slice(0, MAX_PLANS));
-    const tmp = this.archivo + '.tmp'; writeFileSync(tmp, JSON.stringify({ planes: this.planes }), { mode: 0o600 }); renameSync(tmp, this.archivo);
-    this.cambiado(clave);
+    this.plans = Object.fromEntries(Object.entries(this.plans).sort((a, b) => b[1].updated - a[1].updated).slice(0, MAX_PLANS));
+    const tmp = this.file + '.tmp'; writeFileSync(tmp, JSON.stringify({ plans: this.plans }), { mode: 0o600 }); renameSync(tmp, this.file);
+    this.changed(key);
   }
   /** A task's plan, with its deadlines checked */
-  get(clave: string): VerificationPlan | undefined {
-    const p = this.planes[clave]; if (!p) return undefined;
-    const q = expire(p, this.ahora());
-    if (q !== p) { this.planes[clave] = q; this.guardar(clave); }
+  get(key: string): VerificationPlan | undefined {
+    const p = this.plans[key]; if (!p) return undefined;
+    const q = expire(p, this.now());
+    if (q !== p) { this.plans[key] = q; this.save(key); }
     return q;
   }
   /** `conversacion`: the one proposing it, where its rechecks go (the latest to propose it) */
-  proponer(clave: string, input: PlanInput, conversacion?: PlanConversation): Result<VerificationPlan> {
-    const r = proposePlan(clave, input, this.get(clave), this.ahora());
-    return this.poner(clave, r.ok && conversacion ? { ok: true, valor: { ...r.valor, conversacion } } : r);
+  propose(key: string, input: PlanInput, conversation?: PlanConversation): Result<VerificationPlan> {
+    const r = proposePlan(key, input, this.get(key), this.now());
+    return this.set(key, r.ok && conversation ? { ok: true, value: { ...r.value, conversation } } : r);
   }
   /** Every plan's state, for the boards and the holograms */
-  estados(): Record<string, VerificationPlan> { return Object.fromEntries(Object.keys(this.planes).map(k => [k, this.get(k)!])); }
+  states(): Record<string, VerificationPlan> { return Object.fromEntries(Object.keys(this.plans).map(k => [k, this.get(k)!])); }
 
   /** Opens what merged, tells what closed or ran out of time, and keeps one recheck scheduled per open checkpoint */
-  async repasar(ctx: CtxRecheck) {
-    for (const clave of Object.keys(this.planes)) {
-      const antes = this.get(clave);
-      if (!antes?.conversacion || antes.puntos.every(c => c.avisado && (isClosed(c) || c.estado === 'inconclusive'))) continue;
-      const ahora = this.ahora();
-      const abiertos = antes.puntos.some(c => c.abierto == null && !isClosed(c))
-        ? openCheckpoints(antes, await ctx.prs(clave, antes).catch(() => []), await ctx.enPrueba(clave).catch(() => false), ahora) : antes;
-      const p = expire(abiertos, ahora);
-      const puntos = p.puntos.map(c => this.revisarPunto(p, structuredClone(c), ctx, ahora));
-      const nuevo = { ...p, puntos };
-      if (JSON.stringify(nuevo) !== JSON.stringify(this.planes[clave])) { this.planes[clave] = nuevo; this.guardar(clave); }
+  async sweep(ctx: CtxRecheck) {
+    for (const key of Object.keys(this.plans)) {
+      const before = this.get(key);
+      if (!before?.conversation || before.points.every(c => c.notified && (isClosed(c) || c.state === 'inconclusive'))) continue;
+      const now = this.now();
+      const open = before.points.some(c => c.open == null && !isClosed(c))
+        ? openCheckpoints(before, await ctx.prs(key, before).catch(() => []), await ctx.inProdCheck(key).catch(() => false), now) : before;
+      const p = expire(open, now);
+      const points = p.points.map(c => this.recheckPoint(p, structuredClone(c), ctx, now));
+      const newer = { ...p, points };
+      if (JSON.stringify(newer) !== JSON.stringify(this.plans[key])) { this.plans[key] = newer; this.save(key); }
     }
   }
-  private revisarPunto(p: VerificationPlan, c: Checkpoint, ctx: CtxRecheck, ahora: number): Checkpoint {
-    const conv = p.conversacion!;
-    const nombre = `${p.clave} · ${c.tipo === 'final' ? t('verification.final') : c.pr}`;
-    if (!needsRecheck(c) && c.programado) { if (ctx.pendiente(c.programado)) ctx.cancelar(c.programado); delete c.programado; }
-    if ((isClosed(c) || c.estado === 'inconclusive') && !c.avisado) {
-      c.avisado = true;
-      if (c.estado === 'inconclusive') {
-        ctx.programar(conv, ahora, t('prompt.verification.inconclusive', { clave: p.clave, id: c.id, atascado: t(STATE_TEXT[c.atascado ?? 'waiting-traffic']), plan: planText(p) }));
-        ctx.avisar(t('server.verification.inconclusive', { nombre, atascado: t(STATE_TEXT[c.atascado ?? 'waiting-traffic']) }), 'aviso');
-      } else ctx.avisar(t(c.estado === 'failed' ? 'server.verification.failed' : 'server.verification.evidenced', { nombre }), c.estado === 'failed' ? 'aviso' : 'info');
+  private recheckPoint(p: VerificationPlan, c: Checkpoint, ctx: CtxRecheck, now: number): Checkpoint {
+    const conv = p.conversation!;
+    const name = `${p.key} · ${c.type === 'final' ? t('verification.final') : c.pr}`;
+    if (!needsRecheck(c) && c.scheduled) { if (ctx.pending(c.scheduled)) ctx.cancel(c.scheduled); delete c.scheduled; }
+    if ((isClosed(c) || c.state === 'inconclusive') && !c.notified) {
+      c.notified = true;
+      if (c.state === 'inconclusive') {
+        ctx.schedule(conv, now, t('prompt.verification.inconclusive', { clave: p.key, id: c.id, atascado: t(STATE_TEXT[c.stuck ?? 'waiting-traffic']), plan: planText(p) }));
+        ctx.notify(t('server.verification.inconclusive', { nombre: name, atascado: t(STATE_TEXT[c.stuck ?? 'waiting-traffic']) }), 'aviso');
+      } else ctx.notify(t(c.state === 'failed' ? 'server.verification.failed' : 'server.verification.evidenced', { nombre: name }), c.state === 'failed' ? 'aviso' : 'info');
     }
-    if (needsRecheck(c) && !(c.programado && ctx.pendiente(c.programado))) {
-      const n = c.rechequeos ?? 0;
-      const id = ctx.programar(conv, recheckAt(n, ahora), t('prompt.verification.recheck', { clave: p.clave, id: c.id, n: n + 1, plan: planText(p) }));
-      if (id) { c.programado = id; c.rechequeos = n + 1; }
+    if (needsRecheck(c) && !(c.scheduled && ctx.pending(c.scheduled))) {
+      const n = c.rechecks ?? 0;
+      const id = ctx.schedule(conv, recheckAt(n, now), t('prompt.verification.recheck', { clave: p.key, id: c.id, n: n + 1, plan: planText(p) }));
+      if (id) { c.scheduled = id; c.rechecks = n + 1; }
     }
     return c;
   }
-  informar(clave: string, r: ReportInput): Result<VerificationPlan> | undefined {
-    const p = this.get(clave);
-    return p && this.poner(clave, report(p, r, this.ahora()));
+  report(key: string, r: ReportInput): Result<VerificationPlan> | undefined {
+    const p = this.get(key);
+    return p && this.set(key, report(p, r, this.now()));
   }
   /** The Overseer approves the current version (from the pre-flight) */
-  aprobar(clave: string): VerificationPlan | undefined {
-    const p = this.get(clave); if (!p) return undefined;
-    this.planes[clave] = { ...p, aprobado: { version: p.version, ts: this.ahora() } }; this.guardar(clave);
-    return this.planes[clave];
+  approve(key: string): VerificationPlan | undefined {
+    const p = this.get(key); if (!p) return undefined;
+    this.plans[key] = { ...p, approved: { version: p.version, ts: this.now() } }; this.save(key);
+    return this.plans[key];
   }
-  private poner(clave: string, r: Result<VerificationPlan>) {
-    if (r.ok) { this.planes[clave] = r.valor; this.guardar(clave); }
+  private set(key: string, r: Result<VerificationPlan>) {
+    if (r.ok) { this.plans[key] = r.value; this.save(key); }
     return r;
   }
 }
@@ -112,13 +112,13 @@ export const errorText = (r: { error: string; vars?: Record<string, string | num
 /** A plan as the dweller reads it back after each call */
 export function planText(p: VerificationPlan): string {
   return [
-    t('tool.verification.heading', { clave: p.clave, version: p.version, aprobado: t(isApproved(p) ? 'verification.approved' : 'verification.unapproved', { version: p.version }) }),
-    ...p.puntos.flatMap(c => {
-      const plazo = deadlineOf(c);
+    t('tool.verification.heading', { clave: p.key, version: p.version, aprobado: t(isApproved(p) ? 'verification.approved' : 'verification.unapproved', { version: p.version }) }),
+    ...p.points.flatMap(c => {
+      const deadline = deadlineOf(c);
       return [
-        `- ${c.id} (${c.tipo === 'final' ? t('verification.final') : c.pr}) · ${t(STATE_TEXT[c.estado])}${c.servicios.length ? ' · ' + t('verification.services', { lista: c.servicios.map(s => (c.vivos[s] ? s + ' ✓' : s)).join(', ') }) : ''} · ${plazo ? t('verification.deadline', { cuando: describeWhen(plazo) }) : t('verification.deadlineHours', { n: c.plazoHoras })}`,
-        ...(c.nota ? [`  ${t('verification.note', { texto: c.nota.texto })}`] : []),
-        ...c.señales.map(s => `  - ${s.id} · ${t(KIND_TEXT[s.tipo])} · ${s.estado} · ${s.que} · ${t('verification.where', { donde: s.donde })}${s.base ? ' · ' + t('verification.baseline', { base: s.base }) : ''}${s.evidencia ? ' · ' + t('verification.evidence', { texto: s.evidencia.texto }) : ''}`),
+        `- ${c.id} (${c.type === 'final' ? t('verification.final') : c.pr}) · ${t(STATE_TEXT[c.state])}${c.services.length ? ' · ' + t('verification.services', { lista: c.services.map(s => (c.live[s] ? s + ' ✓' : s)).join(', ') }) : ''} · ${deadline ? t('verification.deadline', { cuando: describeWhen(deadline) }) : t('verification.deadlineHours', { n: c.deadlineHours })}`,
+        ...(c.note ? [`  ${t('verification.note', { texto: c.note.text })}`] : []),
+        ...c.signals.map(s => `  - ${s.id} · ${t(KIND_TEXT[s.type])} · ${s.state} · ${s.what} · ${t('verification.where', { donde: s.where })}${s.base ? ' · ' + t('verification.baseline', { base: s.base }) : ''}${s.evidence ? ' · ' + t('verification.evidence', { texto: s.evidence.text }) : ''}`),
       ];
     }),
   ].join('\n');

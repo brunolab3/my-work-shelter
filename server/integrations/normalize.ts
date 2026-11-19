@@ -1,39 +1,39 @@
 // Normalizadores PUROS (sin red ni estado): respuestas de Microsoft Graph, Google (Gmail y Calendar), Discord, Slack,
 // GitHub y Linear → Notificacion/Evento. También los textos de error en español. Se prueban contra test/fixtures
 // (normalize.test.ts).
-import type { Notification, Evento, Priority } from './adapters.ts';
+import type { Notification, CalendarEvent, Priority } from './adapters.ts';
 import { t as tr, locale } from '../../shared/language.ts';
 
 // ------------------------------------------------------------------ tiempo (la zona horaria del sistema)
 // SHELTER_ZONA la fuerza (p. ej. «Europe/Paris»); si no, la del Mac.
-export const ZONA = process.env.SHELTER_ZONA || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+export const TIME_ZONE = process.env.SHELTER_ZONA || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 const DAY = 86_400_000;
 const ZONES_WINDOWS: Record<string, string> = { 'Romance Standard Time': 'Europe/Madrid', 'W. Europe Standard Time': 'Europe/Berlin', 'GMT Standard Time': 'Europe/London', 'Greenwich Standard Time': 'UTC', 'Coordinated Universal Time': 'UTC', 'tzone://Microsoft/Utc': 'UTC' };
 function validZone(z?: string) {
-  const x = z ? ZONES_WINDOWS[z] ?? z : ZONA;
-  try { new Intl.DateTimeFormat('en-US', { timeZone: x }); return x; } catch { return ZONA; }
+  const x = z ? ZONES_WINDOWS[z] ?? z : TIME_ZONE;
+  try { new Intl.DateTimeFormat('en-US', { timeZone: x }); return x; } catch { return TIME_ZONE; }
 }
 const formats = new Map<string, Intl.DateTimeFormat>();
-function partes(t: number, zone: string) {
+function parts(t: number, zone: string) {
   let f = formats.get(zone);
   if (!f) formats.set(zone, f = new Intl.DateTimeFormat('en-US', { timeZone: zone, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }));
   const p = Object.fromEntries(f.formatToParts(new Date(t)).map(x => [x.type, x.value]));
   return { y: +p.year, m: +p.month, d: +p.day, h: +p.hour, mi: +p.minute, s: +p.second };
 }
-const desfase = (t: number, zone: string) => { const p = partes(t, zone); return Date.UTC(p.y, p.m - 1, p.d, p.h, p.mi, p.s) - Math.floor(t / 1000) * 1000; };
+const offset = (t: number, zone: string) => { const p = parts(t, zone); return Date.UTC(p.y, p.m - 1, p.d, p.h, p.mi, p.s) - Math.floor(t / 1000) * 1000; };
 // «2026-10-13T09:30:00.0000000» en una zona (sin desfase en la cadena) → milisegundos Unix
-export function localAEpoch(fecha: string, zone = ZONA): number {
-  const m = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2}))?)?/.exec(fecha);
+export function localAEpoch(date: string, zone = TIME_ZONE): number {
+  const m = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2}))?)?/.exec(date);
   if (!m) return NaN;
   const base = Date.UTC(+m[1], +m[2] - 1, +m[3], +(m[4] ?? 0), +(m[5] ?? 0), +(m[6] ?? 0));
   const z = validZone(zone);
   if (z === 'UTC') return base;
-  let t = base - desfase(base, z); t = base - desfase(t, z);
+  let t = base - offset(base, z); t = base - offset(t, z);
   return t;
 }
-export function dateInZone(t: number, zone = ZONA) { const p = partes(t, zone); return `${p.y}-${String(p.m).padStart(2, '0')}-${String(p.d).padStart(2, '0')}`; }
-export const dayStart = (t = Date.now(), zone = ZONA) => localAEpoch(dateInZone(t, zone), zone);
-const nextDay = (fecha: string) => new Date(Date.parse(fecha.slice(0, 10) + 'T00:00:00Z') + DAY).toISOString().slice(0, 10);
+export function dateInZone(t: number, zone = TIME_ZONE) { const p = parts(t, zone); return `${p.y}-${String(p.m).padStart(2, '0')}-${String(p.d).padStart(2, '0')}`; }
+export const dayStart = (t = Date.now(), zone = TIME_ZONE) => localAEpoch(dateInZone(t, zone), zone);
+const nextDay = (date: string) => new Date(Date.parse(date.slice(0, 10) + 'T00:00:00Z') + DAY).toISOString().slice(0, 10);
 // Fecha de un snowflake de Discord
 export const dateSnowflake = (id: string) => Number((BigInt(id) >> 22n) + 1420070400000n);
 
@@ -50,55 +50,55 @@ export function htmlText(html: string | false | null | undefined) {
 }
 // Markdown ligero (comentarios de Linear) → texto
 export const markdownText = (s: string) => s.replace(/!\[[^\]]*\]\([^)]*\)/g, '').replace(/\[([^\]]+)\]\([^)]*\)/g, '$1').replace(/[*_`~#>]+/g, '').replace(/\s+/g, ' ').trim();
-export const recortar = (s: string, n = 280) => s.length > n ? s.slice(0, n - 1).trimEnd() + '…' : s;
+export const truncate = (s: string, n = 280) => s.length > n ? s.slice(0, n - 1).trimEnd() + '…' : s;
 const LINK_VIDEO = /https:\/\/(?:teams\.microsoft\.com\/l\/meetup-join|teams\.live\.com\/meet|meet\.google\.com|[\w.-]*zoom\.us\/j|[\w.-]*webex\.com\/(?:meet|join)|meet\.jit\.si)[^\s"'<>)]*/i;
-export const linkVideo = (...textos: (string | undefined | null | false)[]) => { for (const t of textos) { const m = t ? LINK_VIDEO.exec(String(t)) : null; if (m) return m[0]; } return undefined; };
+export const linkVideo = (...texts: (string | undefined | null | false)[]) => { for (const t of texts) { const m = t ? LINK_VIDEO.exec(String(t)) : null; if (m) return m[0]; } return undefined; };
 
 // ------------------------------------------------------------------ Microsoft Graph (Outlook)
-export interface YoMicrosoft { nombre?: string; correo?: string }
+export interface MicrosoftMe { name?: string; email?: string }
 const dir = (x: any) => x?.emailAddress ?? {};
-export function mailPriority(m: any, yo: YoMicrosoft = {}): Priority {
-  const vista = String(m.bodyPreview ?? '');
-  const nombre = yo.nombre?.trim();
-  const mencion = m.mentionsPreview?.isMentioned === true || (!!nombre && (vista.includes('@' + nombre) || vista.includes('@' + nombre.split(/\s+/)[0] + ' ')));
-  if (m.importance === 'high' || mencion) return 'alta';
-  const correo = yo.correo?.toLowerCase();
-  const directo = !!correo && (m.toRecipients ?? []).some((r: any) => dir(r).address?.toLowerCase() === correo);
-  if (m.flag?.flagStatus === 'flagged' || (directo && m.inferenceClassification !== 'other' && m.importance !== 'low')) return 'media';
+export function mailPriority(m: any, me: MicrosoftMe = {}): Priority {
+  const view = String(m.bodyPreview ?? '');
+  const name = me.name?.trim();
+  const mentioned = m.mentionsPreview?.isMentioned === true || (!!name && (view.includes('@' + name) || view.includes('@' + name.split(/\s+/)[0] + ' ')));
+  if (m.importance === 'high' || mentioned) return 'alta';
+  const email = me.email?.toLowerCase();
+  const direct = !!email && (m.toRecipients ?? []).some((r: any) => dir(r).address?.toLowerCase() === email);
+  if (m.flag?.flagStatus === 'flagged' || (direct && m.inferenceClassification !== 'other' && m.importance !== 'low')) return 'media';
   return 'baja';
 }
-export function notificacionDeCorreo(m: any, yo: YoMicrosoft = {}): Notification | null {
+export function emailNotification(m: any, me: MicrosoftMe = {}): Notification | null {
   if (!m?.id || m['@removed'] || m.isRead === true) return null;
-  const de = dir(m.from ?? m.sender);
+  const from = dir(m.from ?? m.sender);
   return {
-    id: 'outlook-' + m.id, fuente: 'outlook', hilo: 'outlook-' + (m.conversationId ?? m.id), canal: m.inferenceClassification === 'other' ? tr('integrations.outlookOther') : tr('integrations.outlookInbox'),
-    autor: de.name || de.address || tr('integrations.unknownSender'), titulo: (m.subject || tr('integrations.noSubject')) + (m.hasAttachments ? tr('integrations.withAttachment') : ''),
-    fragmento: recortar(String(m.bodyPreview ?? '').replace(/\s+/g, ' ').trim()), fecha: Date.parse(m.receivedDateTime), prioridad: mailPriority(m, yo),
-    enlace: m.webLink ? m.webLink + (m.webLink.includes('ispopout=') ? '' : '&ispopout=0') : 'https://outlook.office.com/mail/',
+    id: 'outlook-' + m.id, source: 'outlook', thread: 'outlook-' + (m.conversationId ?? m.id), channel: m.inferenceClassification === 'other' ? tr('integrations.outlookOther') : tr('integrations.outlookInbox'),
+    author: from.name || from.address || tr('integrations.unknownSender'), title: (m.subject || tr('integrations.noSubject')) + (m.hasAttachments ? tr('integrations.withAttachment') : ''),
+    snippet: truncate(String(m.bodyPreview ?? '').replace(/\s+/g, ' ').trim()), date: Date.parse(m.receivedDateTime), priority: mailPriority(m, me),
+    link: m.webLink ? m.webLink + (m.webLink.includes('ispopout=') ? '' : '&ispopout=0') : 'https://outlook.office.com/mail/',
   };
 }
-export const mailsANotifications = (json: any, yo?: YoMicrosoft) => ((json?.value ?? []) as any[]).map(m => notificacionDeCorreo(m, yo)).filter((n): n is Notification => !!n);
+export const mailsToNotifications = (json: any, me?: MicrosoftMe) => ((json?.value ?? []) as any[]).map(m => emailNotification(m, me)).filter((n): n is Notification => !!n);
 
 const GENERIC_PLACES = /^(reunión de microsoft teams|microsoft teams meeting|microsoft teams)$/i;
-export function outlookEvent(e: any): Evento | null {
+export function outlookEvent(e: any): CalendarEvent | null {
   if (!e?.id || e.isCancelled) return null;
-  const inicio = localAEpoch(e.start?.dateTime ?? '', e.start?.timeZone), fin = localAEpoch(e.end?.dateTime ?? '', e.end?.timeZone);
-  if (!Number.isFinite(inicio)) return null;
-  const lugar = String(e.location?.displayName ?? '').trim();
-  const video = e.onlineMeeting?.joinUrl || e.onlineMeetingUrl || linkVideo(lugar, e.bodyPreview);
+  const start = localAEpoch(e.start?.dateTime ?? '', e.start?.timeZone), end = localAEpoch(e.end?.dateTime ?? '', e.end?.timeZone);
+  if (!Number.isFinite(start)) return null;
+  const place = String(e.location?.displayName ?? '').trim();
+  const video = e.onlineMeeting?.joinUrl || e.onlineMeetingUrl || linkVideo(place, e.bodyPreview);
   return {
-    id: 'outlook-' + e.id, fuente: 'outlook', titulo: e.subject || tr('integrations.untitled'), inicio, fin: Number.isFinite(fin) ? fin : inicio, allElDay: !!e.isAllDay,
-    lugar: lugar && !(video && GENERIC_PLACES.test(lugar)) ? lugar : undefined, videollamada: video || undefined,
-    enlace: 'https://outlook.office365.com/calendar/item/' + encodeURIComponent(e.id), organizador: dir(e.organizer).name || undefined,
+    id: 'outlook-' + e.id, source: 'outlook', title: e.subject || tr('integrations.untitled'), start, end: Number.isFinite(end) ? end : start, allDay: !!e.isAllDay,
+    place: place && !(video && GENERIC_PLACES.test(place)) ? place : undefined, videollamada: video || undefined,
+    link: 'https://outlook.office365.com/calendar/item/' + encodeURIComponent(e.id), organizer: dir(e.organizer).name || undefined,
   };
 }
-export const outlookEvents = (json: any) => ((json?.value ?? []) as any[]).map(outlookEvent).filter((e): e is Evento => !!e);
+export const outlookEvents = (json: any) => ((json?.value ?? []) as any[]).map(outlookEvent).filter((e): e is CalendarEvent => !!e);
 
 // Errores de inicio de sesión (Entra ID): cuerpo de /token o parámetros de la redirección
 export function explainErrorMicrosoft(x: { error?: string; error_description?: string; error_codes?: number[]; error_subcode?: string; suberror?: string }): string {
   const desc = String(x.error_description ?? '');
-  const codigo = x.error_codes?.[0] ?? Number(/AADSTS(\d+)/.exec(desc)?.[1] ?? 0);
-  switch (codigo) {
+  const code = x.error_codes?.[0] ?? Number(/AADSTS(\d+)/.exec(desc)?.[1] ?? 0);
+  switch (code) {
     case 65001: return tr('integrations.msPermissionsMissing');
     case 90094: case 65004: return tr('integrations.msNotGranted');
     case 50076: case 50079: return tr('integrations.msTwoStep');
@@ -109,14 +109,14 @@ export function explainErrorMicrosoft(x: { error?: string; error_description?: s
   if (x.error === 'invalid_grant') return tr('integrations.msSessionExpired');
   return tr('integrations.msResponded', { detalle: desc.split(/\r?\n| Trace ID:/)[0] || x.error || tr('integrations.unknownError') });
 }
-export function explainErrorGraph(estado: number, cuerpo: any): string {
-  const c = cuerpo?.error?.code ?? '';
-  if (estado === 401) return tr('integrations.msSessionRejected');
-  if (estado === 403 || c === 'ErrorAccessDenied') return tr('integrations.msAccessDenied');
+export function explainErrorGraph(state: number, body: any): string {
+  const c = body?.error?.code ?? '';
+  if (state === 401) return tr('integrations.msSessionRejected');
+  if (state === 403 || c === 'ErrorAccessDenied') return tr('integrations.msAccessDenied');
   if (c === 'MailboxNotEnabledForRESTAPI' || c === 'MailboxNotSupportedForRESTAPI') return tr('integrations.msMailboxNotExchange');
-  if (estado === 429) return tr('integrations.msRateLimited');
-  if (estado >= 500) return tr('integrations.msBadResponse', { estado });
-  return tr('integrations.graphResponded', { estado, codigo: c ? ' (' + c + ')' : '', detalle: cuerpo?.error?.message ?? tr('integrations.noDetail') });
+  if (state === 429) return tr('integrations.msRateLimited');
+  if (state >= 500) return tr('integrations.msBadResponse', { estado: state });
+  return tr('integrations.graphResponded', { estado: state, codigo: c ? ' (' + c + ')' : '', detalle: body?.error?.message ?? tr('integrations.noDetail') });
 }
 
 // ------------------------------------------------------------------ Discord
@@ -124,111 +124,111 @@ export const PERMISSIONS_DISCORD = 1024 + 65536;   // VIEW_CHANNEL | READ_MESSAG
 export const INTENTS = { GUILDS: 1, GUILD_MESSAGES: 512, MESSAGE_CONTENT: 32768 };
 export const FLAG_CONTENT = (1 << 18) | (1 << 19);   // GATEWAY_MESSAGE_CONTENT | GATEWAY_MESSAGE_CONTENT_LIMITED
 export const grantedContent = (flagsApp: number) => (flagsApp & FLAG_CONTENT) !== 0;
-export const intentsDiscord = (contenido: boolean) => INTENTS.GUILDS | INTENTS.GUILD_MESSAGES | (contenido ? INTENTS.MESSAGE_CONTENT : 0);
+export const intentsDiscord = (content: boolean) => INTENTS.GUILDS | INTENTS.GUILD_MESSAGES | (content ? INTENTS.MESSAGE_CONTENT : 0);
 export const invitationDiscord = (appId: string, guild?: string) => `https://discord.com/oauth2/authorize?client_id=${appId}&scope=bot&permissions=${PERMISSIONS_DISCORD}${guild ? `&guild_id=${guild}&disable_guild_select=true` : ''}`;
 
-export interface ChannelDiscord { nombre: string; guild: string; padre?: string; tipo?: number; ultimo?: string; visible?: boolean }
+export interface ChannelDiscord { name: string; guild: string; parent?: string; type?: number; last?: string; visible?: boolean }
 export interface ContextDiscord {
-  yo?: string; bot?: string; myRoles: Set<string>; contenido: boolean;
-  canales: Map<string, ChannelDiscord>; roles: Map<string, string>; servidores: Map<string, string>;
+  me?: string; bot?: string; myRoles: Set<string>; content: boolean;
+  channels: Map<string, ChannelDiscord>; roles: Map<string, string>; servers: Map<string, string>;
   chosen: Set<string>;   // vacío = todos los canales que ve el bot
   hidden?: Set<string>;   // canales que el bot ve y el Supervisor no (con el bot de administrador): no se avisa de ellos
 }
 // ¿Ve este miembro (el bot o el Supervisor) el canal? VIEW_CHANNEL tras los permisos de sus roles y las sobrescrituras
 // del canal, como lo calcula Discord. undefined si `guild.members` no lo trae: no se sabe y se da por visible.
 // Los hilos heredan la visibilidad de su canal padre (se resuelve al guardarlos).
-export function canSeeDiscord(canal: any, guild: any, memberId?: string): boolean | undefined {
-  const yo = memberId && (guild.members ?? []).find((m: any) => m.user?.id === memberId);
-  if (!yo) return undefined;
-  const SEE = 1024n, ADMIN = 8n, bits = (x: unknown) => BigInt(String(x ?? 0));
-  const myRoles = new Set<string>([guild.id, ...(yo.roles ?? [])]);
+export function canSeeDiscord(channel: any, guild: any, memberId?: string): boolean | undefined {
+  const me = memberId && (guild.members ?? []).find((m: any) => m.user?.id === memberId);
+  if (!me) return undefined;
+  const VIEW = 1024n, ADMIN = 8n, bits = (x: unknown) => BigInt(String(x ?? 0));
+  const myRoles = new Set<string>([guild.id, ...(me.roles ?? [])]);
   let p = 0n;
   for (const r of guild.roles ?? []) if (myRoles.has(r.id)) p |= bits(r.permissions);
   if (p & ADMIN) return true;
-  const ow = canal.permission_overwrites ?? [];
-  const todos = ow.find((o: any) => o.id === guild.id);
-  if (todos) p = (p & ~bits(todos.deny)) | bits(todos.allow);
-  let negar = 0n, give = 0n;
-  for (const o of ow) if (o.type === 0 && o.id !== guild.id && myRoles.has(o.id)) { negar |= bits(o.deny); give |= bits(o.allow); }
-  p = (p & ~negar) | give;
-  const mio = ow.find((o: any) => o.type === 1 && o.id === memberId);
-  if (mio) p = (p & ~bits(mio.deny)) | bits(mio.allow);
-  return (p & SEE) !== 0n;
+  const ow = channel.permission_overwrites ?? [];
+  const all = ow.find((o: any) => o.id === guild.id);
+  if (all) p = (p & ~bits(all.deny)) | bits(all.allow);
+  let deny = 0n, give = 0n;
+  for (const o of ow) if (o.type === 0 && o.id !== guild.id && myRoles.has(o.id)) { deny |= bits(o.deny); give |= bits(o.allow); }
+  p = (p & ~deny) | give;
+  const isMine = ow.find((o: any) => o.type === 1 && o.id === memberId);
+  if (isMine) p = (p & ~bits(isMine.deny)) | bits(isMine.allow);
+  return (p & VIEW) !== 0n;
 }
-export const contextDiscordEmpty = (): ContextDiscord => ({ myRoles: new Set(), contenido: true, canales: new Map(), roles: new Map(), servidores: new Map(), chosen: new Set() });
+export const contextDiscordEmpty = (): ContextDiscord => ({ myRoles: new Set(), content: true, channels: new Map(), roles: new Map(), servers: new Map(), chosen: new Set() });
 
 export function priorityDiscord(m: any, ctx: ContextDiscord): Priority {
-  if (ctx.yo && ((m.mentions ?? []).some((u: any) => u.id === ctx.yo) || (m.type === 19 && m.referenced_message?.author?.id === ctx.yo))) return 'alta';
+  if (ctx.me && ((m.mentions ?? []).some((u: any) => u.id === ctx.me) || (m.type === 19 && m.referenced_message?.author?.id === ctx.me))) return 'alta';
   if ((m.mention_roles ?? []).some((r: string) => ctx.myRoles.has(r))) return 'alta';
   if (m.mention_everyone) return 'media';
   return 'baja';
 }
-const userName = (u: any, miembro?: any) => miembro?.nick || u?.global_name || u?.username || tr('integrations.someone');
+const userName = (u: any, member?: any) => member?.nick || u?.global_name || u?.username || tr('integrations.someone');
 export function textDiscord(m: any, ctx: ContextDiscord): string {
   const users = new Map<string, string>(((m.mentions ?? []) as any[]).map(u => [u.id, userName(u, u.member)]));
   let t = String(m.content ?? '')
     .replace(/<@!?(\d+)>/g, (_, id) => '@' + (users.get(id) ?? tr('integrations.user')))
     .replace(/<@&(\d+)>/g, (_, id) => '@' + (ctx.roles.get(id) ?? tr('integrations.role')))
-    .replace(/<#(\d+)>/g, (_, id) => '#' + (ctx.canales.get(id)?.nombre ?? tr('integrations.channel')))
-    .replace(/<a?:(\w+):\d+>/g, ':$1:').replace(/<t:(\d+)(?::\w)?>/g, (_, s) => new Date(+s * 1000).toLocaleString(locale(), { timeZone: ZONA }))
+    .replace(/<#(\d+)>/g, (_, id) => '#' + (ctx.channels.get(id)?.name ?? tr('integrations.channel')))
+    .replace(/<a?:(\w+):\d+>/g, ':$1:').replace(/<t:(\d+)(?::\w)?>/g, (_, s) => new Date(+s * 1000).toLocaleString(locale(), { timeZone: TIME_ZONE }))
     .replace(/\s+/g, ' ').trim();
   if (!t && m.embeds?.length) t = [m.embeds[0].title, m.embeds[0].description].filter(Boolean).join(' — ');
   if (!t && m.attachments?.length) t = tr('integrations.attachment', { nombres: m.attachments.map((a: any) => a.filename).join(', ') });
   if (!t && m.sticker_items?.length) t = '(sticker)';
-  if (!t && !ctx.contenido) t = tr('integrations.discordNoContent');
-  return recortar(t || tr('integrations.noText'));
+  if (!t && !ctx.content) t = tr('integrations.discordNoContent');
+  return truncate(t || tr('integrations.noText'));
 }
 // null = no se notifica (propio, del bot, fuera de los canales elegidos y sin mención)
 export function discordNotification(m: any, ctx: ContextDiscord): Notification | null {
   if (!m?.id || !m.author) return null;
-  if (m.author.id === ctx.bot || (ctx.yo && m.author.id === ctx.yo)) return null;
+  if (m.author.id === ctx.bot || (ctx.me && m.author.id === ctx.me)) return null;
   if (m.type !== 0 && m.type !== 19 && m.type !== 20 && m.type !== 21) return null;   // solo mensajes normales, respuestas y comandos
-  const canal = ctx.canales.get(m.channel_id);
-  if (ctx.hidden?.has(m.channel_id) || (canal?.padre && ctx.hidden?.has(canal.padre))) return null;
-  const padre = canal?.padre ? ctx.canales.get(canal.padre) : undefined;
-  const prioridad = priorityDiscord(m, ctx);
-  const elegido = !ctx.chosen.size || ctx.chosen.has(m.channel_id) || (!!canal?.padre && ctx.chosen.has(canal.padre));
-  if (!elegido && prioridad !== 'alta') return null;
-  const guild = m.guild_id ?? canal?.guild ?? '@me';
-  const channelName = canal ? (padre ? `#${padre.nombre} › ${canal.nombre}` : '#' + canal.nombre) : '#canal';
-  const autor = userName(m.author, m.member);
+  const channel = ctx.channels.get(m.channel_id);
+  if (ctx.hidden?.has(m.channel_id) || (channel?.parent && ctx.hidden?.has(channel.parent))) return null;
+  const parent = channel?.parent ? ctx.channels.get(channel.parent) : undefined;
+  const priority = priorityDiscord(m, ctx);
+  const picked = !ctx.chosen.size || ctx.chosen.has(m.channel_id) || (!!channel?.parent && ctx.chosen.has(channel.parent));
+  if (!picked && priority !== 'alta') return null;
+  const guild = m.guild_id ?? channel?.guild ?? '@me';
+  const channelName = channel ? (parent ? `#${parent.name} › ${channel.name}` : '#' + channel.name) : '#canal';
+  const author = userName(m.author, m.member);
   return {
-    id: 'discord-' + m.id, fuente: 'discord', hilo: 'discord-' + m.channel_id, canal: channelName, autor,
-    titulo: `${channelName}${ctx.servidores.size > 1 && ctx.servidores.get(guild) ? ' (' + ctx.servidores.get(guild) + ')' : ''}`,
-    fragmento: textDiscord(m, ctx), fecha: m.timestamp ? Date.parse(m.timestamp) : dateSnowflake(m.id), prioridad,
-    enlace: `https://discord.com/channels/${guild}/${m.channel_id}/${m.id}`,
+    id: 'discord-' + m.id, source: 'discord', thread: 'discord-' + m.channel_id, channel: channelName, author,
+    title: `${channelName}${ctx.servers.size > 1 && ctx.servers.get(guild) ? ' (' + ctx.servers.get(guild) + ')' : ''}`,
+    snippet: textDiscord(m, ctx), date: m.timestamp ? Date.parse(m.timestamp) : dateSnowflake(m.id), priority,
+    link: `https://discord.com/channels/${guild}/${m.channel_id}/${m.id}`,
   };
 }
 // Canales para elegir en la cámara acorazada: texto (0), anuncios (5) y foros (15), agrupados por categoría y ordenados
-export function eligibleChannels(lista: any[]): { id: string; nombre: string; tipo: number; categoria?: string; guild?: string }[] {
-  const cats = new Map(lista.filter(c => c.type === 4).map(c => [c.id, c]));
+export function eligibleChannels(list: any[]): { id: string; name: string; type: number; category?: string; guild?: string }[] {
+  const cats = new Map(list.filter(c => c.type === 4).map(c => [c.id, c]));
   const pos = (c: any) => c ? c.position ?? 0 : -1;
-  return lista.filter(c => [0, 5, 15].includes(c.type))
+  return list.filter(c => [0, 5, 15].includes(c.type))
     .sort((a, b) => pos(cats.get(a.parent_id)) - pos(cats.get(b.parent_id)) || (a.position ?? 0) - (b.position ?? 0))
-    .map(c => ({ id: c.id, nombre: c.name, tipo: c.type, categoria: cats.get(c.parent_id)?.name, guild: c.guild_id }));
+    .map(c => ({ id: c.id, name: c.name, type: c.type, category: cats.get(c.parent_id)?.name, guild: c.guild_id }));
 }
 // Cierre del Gateway: ¿se reconecta? y qué decirle al usuario
-export function closingDiscord(codigo: number): { reconectar: boolean; reanudar: boolean; mensaje?: string; withoutContent?: boolean } {
-  switch (codigo) {
-    case 4004: return { reconectar: false, reanudar: false, mensaje: tr('integrations.discordInvalidToken') };
-    case 4014: return { reconectar: true, reanudar: false, withoutContent: true, mensaje: tr('integrations.discordNoContentIntent') };
-    case 4013: return { reconectar: false, reanudar: false, mensaje: tr('integrations.discordIntentsRejected') };
-    case 4010: case 4011: case 4012: return { reconectar: false, reanudar: false, mensaje: tr('integrations.discordClosedCode', { codigo }) };
-    case 4007: case 4009: return { reconectar: true, reanudar: false };
-    case 1000: case 1001: return { reconectar: true, reanudar: false };
-    default: return { reconectar: true, reanudar: true };
+export function closingDiscord(code: number): { reconnect: boolean; resume: boolean; message?: string; withoutContent?: boolean } {
+  switch (code) {
+    case 4004: return { reconnect: false, resume: false, message: tr('integrations.discordInvalidToken') };
+    case 4014: return { reconnect: true, resume: false, withoutContent: true, message: tr('integrations.discordNoContentIntent') };
+    case 4013: return { reconnect: false, resume: false, message: tr('integrations.discordIntentsRejected') };
+    case 4010: case 4011: case 4012: return { reconnect: false, resume: false, message: tr('integrations.discordClosedCode', { codigo: code }) };
+    case 4007: case 4009: return { reconnect: true, resume: false };
+    case 1000: case 1001: return { reconnect: true, resume: false };
+    default: return { reconnect: true, resume: true };
   }
 }
-export function explainErrorDiscord(estado: number, cuerpo: any): string {
-  if (estado === 401) return tr('integrations.discordBotTokenInvalid');
-  if (estado === 403 || cuerpo?.code === 50001 || cuerpo?.code === 50013) return tr('integrations.discordNoAccess');
-  if (estado === 404 || cuerpo?.code === 10003) return tr('integrations.discordNotFound');
-  if (estado === 429) return tr('integrations.discordRateLimited', { s: Math.ceil(Number(cuerpo?.retry_after ?? 5)) });
-  return tr('integrations.discordResponded', { estado, detalle: cuerpo?.message ?? tr('integrations.noDetail') });
+export function explainErrorDiscord(state: number, body: any): string {
+  if (state === 401) return tr('integrations.discordBotTokenInvalid');
+  if (state === 403 || body?.code === 50001 || body?.code === 50013) return tr('integrations.discordNoAccess');
+  if (state === 404 || body?.code === 10003) return tr('integrations.discordNotFound');
+  if (state === 429) return tr('integrations.discordRateLimited', { s: Math.ceil(Number(body?.retry_after ?? 5)) });
+  return tr('integrations.discordResponded', { estado: state, detalle: body?.message ?? tr('integrations.noDetail') });
 }
 
 // ------------------------------------------------------------------ Google (Gmail y Calendar)
-const headerGmail = (m: any, nombre: string) => ((m?.payload?.headers ?? []) as any[]).find(h => String(h.name).toLowerCase() === nombre.toLowerCase())?.value as string | undefined;
+const headerGmail = (m: any, name: string) => ((m?.payload?.headers ?? []) as any[]).find(h => String(h.name).toLowerCase() === name.toLowerCase())?.value as string | undefined;
 // «Ana Ruiz <ana@example.com>» → «Ana Ruiz» (o la dirección si no hay nombre)
 export function senderName(s?: string) {
   if (!s) return tr('integrations.unknownSender');
@@ -239,17 +239,17 @@ const categoryGmail = (): Record<string, string> => ({ CATEGORY_PROMOTIONS: tr('
 // Un mensaje de users.messages.get (format=metadata). Sin UNREAD no se avisa. Prioridad: IMPORTANT de Gmail (y destacado) → media;
 // importante en Principal → alta
 export function gmailNotification(m: any): Notification | null {
-  const etiquetas: string[] = m?.labelIds ?? [];
-  if (!m?.id || !etiquetas.includes('UNREAD')) return null;
-  const cats = categoryGmail(), categoria = etiquetas.map(e => cats[e]).find(Boolean);
-  const important = etiquetas.includes('IMPORTANT');
-  const prioridad: Priority = important && !categoria ? 'alta' : important || etiquetas.includes('STARRED') ? 'media' : 'baja';
-  const fecha = Number(m.internalDate) || Date.parse(headerGmail(m, 'Date') ?? '');
+  const labels: string[] = m?.labelIds ?? [];
+  if (!m?.id || !labels.includes('UNREAD')) return null;
+  const cats = categoryGmail(), category = labels.map(e => cats[e]).find(Boolean);
+  const important = labels.includes('IMPORTANT');
+  const priority: Priority = important && !category ? 'alta' : important || labels.includes('STARRED') ? 'media' : 'baja';
+  const date = Number(m.internalDate) || Date.parse(headerGmail(m, 'Date') ?? '');
   return {
-    id: 'google-' + m.id, fuente: 'google', hilo: 'google-' + (m.threadId ?? m.id), canal: categoria ?? tr('integrations.inbox'),
-    autor: senderName(headerGmail(m, 'From')), titulo: headerGmail(m, 'Subject') || tr('integrations.noSubject'),
-    fragmento: recortar(decodeEntities(String(m.snippet ?? '')).replace(/\s+/g, ' ').trim()), fecha: Number.isFinite(fecha) ? fecha : Date.now(), prioridad,
-    enlace: `https://mail.google.com/mail/u/0/#inbox/${encodeURIComponent(m.threadId ?? m.id)}`,
+    id: 'google-' + m.id, source: 'google', thread: 'google-' + (m.threadId ?? m.id), channel: category ?? tr('integrations.inbox'),
+    author: senderName(headerGmail(m, 'From')), title: headerGmail(m, 'Subject') || tr('integrations.noSubject'),
+    snippet: truncate(decodeEntities(String(m.snippet ?? '')).replace(/\s+/g, ' ').trim()), date: Number.isFinite(date) ? date : Date.now(), priority,
+    link: `https://mail.google.com/mail/u/0/#inbox/${encodeURIComponent(m.threadId ?? m.id)}`,
   };
 }
 // ------------------------------------------------------------------ Mail del Mac (Gmail sin proyecto en Google Cloud)
@@ -260,25 +260,25 @@ export interface AccountMail { nombre: string; servidor?: string; mails?: string
 export interface MessageMail { id: string; cuenta: string; asunto?: string; remitente?: string; fecha?: number; marcado?: boolean; texto?: string }
 export const isGmail = (c?: AccountMail) => !!c && /(^|\.)(gmail|googlemail)\.com$/i.test(c.servidor ?? '');
 const threadSubject = (s: string) => s.replace(/^\s*((re|fwd?|rv|reenviado|aw|wg)\s*(\[\d+\])?\s*:\s*)+/i, '').trim().toLowerCase();
-export function mailNotification(m: MessageMail, cuenta?: AccountMail, fragmento?: string): Notification | null {
+export function mailNotification(m: MessageMail, count?: AccountMail, snippet?: string): Notification | null {
   if (!m?.id) return null;
-  const id = String(m.id).replace(/^<|>$/g, ''), asunto = String(m.asunto ?? '').trim();
-  const correo = cuenta?.mails?.[0];
-  const enlace = isGmail(cuenta)
-    ? `https://mail.google.com/mail/${correo ? '?authuser=' + encodeURIComponent(correo) : 'u/0/'}#search/${encodeURIComponent('rfc822msgid:' + id)}`
+  const id = String(m.id).replace(/^<|>$/g, ''), subject = String(m.asunto ?? '').trim();
+  const email = count?.mails?.[0];
+  const link = isGmail(count)
+    ? `https://mail.google.com/mail/${email ? '?authuser=' + encodeURIComponent(email) : 'u/0/'}#search/${encodeURIComponent('rfc822msgid:' + id)}`
     : `message://${encodeURIComponent('<' + id + '>')}`;
   return {
-    id: 'mail-' + id, fuente: 'mail', hilo: `mail-${m.cuenta}-${threadSubject(asunto) || id}`, canal: m.cuenta || tr('integrations.inbox'),
-    autor: senderName(m.remitente), titulo: asunto || tr('integrations.noSubject'),
-    fragmento: recortar(String(fragmento ?? m.texto ?? '').replace(/\s+/g, ' ').trim()), fecha: Number(m.fecha) || Date.now(),
-    prioridad: m.marcado ? 'alta' : 'media', enlace,
+    id: 'mail-' + id, source: 'mail', thread: `mail-${m.cuenta}-${threadSubject(subject) || id}`, channel: m.cuenta || tr('integrations.inbox'),
+    author: senderName(m.remitente), title: subject || tr('integrations.noSubject'),
+    snippet: truncate(String(snippet ?? m.texto ?? '').replace(/\s+/g, ' ').trim()), date: Number(m.fecha) || Date.now(),
+    priority: m.marcado ? 'alta' : 'media', link,
   };
 }
-export function explainErrorMail(salida: string) {
-  if (/-1743|not authori[sz]ed|no autorizad/i.test(salida)) return tr('integrations.mailNotAllowed');
-  if (/-600|isn.t running|no se está ejecutando/i.test(salida)) return tr('integrations.mailClosed');
-  if (/timed out|ETIMEDOUT|SIGTERM/i.test(salida)) return tr('integrations.mailTimeout');
-  return tr('integrations.mailCouldNotRead', { detalle: salida.trim().split('\n').pop() || tr('integrations.noDetail') });
+export function explainErrorMail(output: string) {
+  if (/-1743|not authori[sz]ed|no autorizad/i.test(output)) return tr('integrations.mailNotAllowed');
+  if (/-600|isn.t running|no se está ejecutando/i.test(output)) return tr('integrations.mailClosed');
+  if (/timed out|ETIMEDOUT|SIGTERM/i.test(output)) return tr('integrations.mailTimeout');
+  return tr('integrations.mailCouldNotRead', { detalle: output.trim().split('\n').pop() || tr('integrations.noDetail') });
 }
 // ------------------------------------------------------------------ Calendario del Mac (calendar.jxa)
 export interface EventCalendarMac { calendario: string; uid: string; titulo: string; inicio: number; fin: number; allElDay: boolean; lugar?: string; notas?: string; estado?: string; rule?: string; excluded?: number[] }
@@ -287,50 +287,50 @@ const WEEK_DAYS = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
 function ruleEnd(x: string): number {
   const m = /^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})(Z)?)?$/.exec(x);
   if (!m) return Infinity;
-  const [y, mo, d, h = '23', mi = '59', se = '59'] = m.slice(1);
-  return m[7] ? Date.UTC(+y, +mo - 1, +d, +h, +mi, +se) : new Date(+y, +mo - 1, +d, +h, +mi, +se).getTime();
+  const [y, mo, d, h = '23', mi = '59', sec = '59'] = m.slice(1);
+  return m[7] ? Date.UTC(+y, +mo - 1, +d, +h, +mi, +sec) : new Date(+y, +mo - 1, +d, +h, +mi, +sec).getTime();
 }
 /** Inicios de las repeticiones de una regla RRULE (lo que usa Calendario: FREQ DAILY/WEEKLY/MONTHLY/YEARLY con INTERVAL,
  *  COUNT, UNTIL, BYDAY, BYMONTHDAY y BYMONTH) que caen en [desde, hasta), sin las fechas excluidas. En hora local: una
  *  reunión de las 10 sigue a las 10 al cambiar de horario de verano */
-export function repetitions(rule: string, inicio: number, desde: number, hasta: number, excluded: number[] = []): number[] {
+export function repetitions(rule: string, start: number, since: number, until: number, excluded: number[] = []): number[] {
   const r = Object.fromEntries(rule.split(';').map(p => p.split('=')).filter(p => p.length === 2).map(([k, v]) => [k.toUpperCase(), v]));
-  const freq = r.FREQ, paso = Math.max(1, Number(r.INTERVAL) || 1), cuenta = Number(r.COUNT) || Infinity, tope = Math.min(hasta, r.UNTIL ? ruleEnd(r.UNTIL) + 1 : Infinity);
+  const freq = r.FREQ, step = Math.max(1, Number(r.INTERVAL) || 1), count = Number(r.COUNT) || Infinity, cap = Math.min(until, r.UNTIL ? ruleEnd(r.UNTIL) + 1 : Infinity);
   if (!['DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY'].includes(freq)) return [];
-  const b = new Date(inicio), hora = [b.getHours(), b.getMinutes(), b.getSeconds()] as const;
+  const b = new Date(start), time = [b.getHours(), b.getMinutes(), b.getSeconds()] as const;
   const days = (r.BYDAY ?? '').split(',').filter(Boolean).map((x: string) => { const m = /^([+-]?\d+)?([A-Z]{2})$/.exec(x); return m ? { n: m[1] ? +m[1] : 0, d: WEEK_DAYS.indexOf(m[2]) } : null; }).filter((x: any) => x && x.d >= 0) as { n: number; d: number }[];
-  const daysMes = (r.BYMONTHDAY ?? '').split(',').filter(Boolean).map(Number).filter((n: number) => n && Math.abs(n) <= 31);
+  const monthDays = (r.BYMONTHDAY ?? '').split(',').filter(Boolean).map(Number).filter((n: number) => n && Math.abs(n) <= 31);
   const months = (r.BYMONTH ?? '').split(',').filter(Boolean).map(Number).filter((n: number) => n >= 1 && n <= 12);
-  const en = (y: number, m: number, d: number) => new Date(y, m, d, ...hora).getTime();
-  const largo = (y: number, m: number) => new Date(y, m + 1, 0).getDate();
+  const en = (y: number, m: number, d: number) => new Date(y, m, d, ...time).getTime();
+  const length = (y: number, m: number) => new Date(y, m + 1, 0).getDate();
   // los días de un mes que pide la regla (o el del inicio)
-  const ofMes = (y: number, m: number): number[] => {
-    const n = largo(y, m), out: number[] = [];
+  const ofMonth = (y: number, m: number): number[] => {
+    const n = length(y, m), out: number[] = [];
     if (days.length) for (const { n: k, d } of days) {
-      const todos = Array.from({ length: n }, (_, i) => i + 1).filter(x => new Date(y, m, x).getDay() === d);
-      if (!k) out.push(...todos); else { const x = k > 0 ? todos[k - 1] : todos[todos.length + k]; if (x) out.push(x); }
+      const all = Array.from({ length: n }, (_, i) => i + 1).filter(x => new Date(y, m, x).getDay() === d);
+      if (!k) out.push(...all); else { const x = k > 0 ? all[k - 1] : all[all.length + k]; if (x) out.push(x); }
     }
-    else if (daysMes.length) for (const k of daysMes) { const x = k > 0 ? k : n + k + 1; if (x >= 1 && x <= n) out.push(x); }
+    else if (monthDays.length) for (const k of monthDays) { const x = k > 0 ? k : n + k + 1; if (x >= 1 && x <= n) out.push(x); }
     else if (b.getDate() <= n) out.push(b.getDate());
     return [...new Set(out)].sort((a, c) => a - c).map(x => en(y, m, x));
   };
-  const fuera = (t: number) => excluded.some(x => Math.abs(x - t) < 60_000);
+  const outside = (t: number) => excluded.some(x => Math.abs(x - t) < 60_000);
   const out: number[] = [];
-  let hechas = 0;
+  let done = 0;
   for (let k = 0; k < 20_000; k++) {
     let period: number[];
-    if (freq === 'DAILY') period = [en(b.getFullYear(), b.getMonth(), b.getDate() + k * paso)];
+    if (freq === 'DAILY') period = [en(b.getFullYear(), b.getMonth(), b.getDate() + k * step)];
     else if (freq === 'WEEKLY') {
-      const lunes = b.getDate() - ((b.getDay() + 6) % 7) + k * paso * 7;
-      period = (days.length ? days.map(x => x.d) : [b.getDay()]).map(d => en(b.getFullYear(), b.getMonth(), lunes + ((d + 6) % 7))).sort((a, c) => a - c);
-    } else if (freq === 'MONTHLY') { const f = new Date(b.getFullYear(), b.getMonth() + k * paso, 1); period = ofMes(f.getFullYear(), f.getMonth()); }
-    else { const y = b.getFullYear() + k * paso; period = (months.length ? months.map(m => m - 1) : [b.getMonth()]).flatMap(m => ofMes(y, m)).sort((a, c) => a - c); }
-    if (period.length && period[0] >= tope) break;
+      const monday = b.getDate() - ((b.getDay() + 6) % 7) + k * step * 7;
+      period = (days.length ? days.map(x => x.d) : [b.getDay()]).map(d => en(b.getFullYear(), b.getMonth(), monday + ((d + 6) % 7))).sort((a, c) => a - c);
+    } else if (freq === 'MONTHLY') { const f = new Date(b.getFullYear(), b.getMonth() + k * step, 1); period = ofMonth(f.getFullYear(), f.getMonth()); }
+    else { const y = b.getFullYear() + k * step; period = (months.length ? months.map(m => m - 1) : [b.getMonth()]).flatMap(m => ofMonth(y, m)).sort((a, c) => a - c); }
+    if (period.length && period[0] >= cap) break;
     for (const t of period) {
-      if (t < inicio) continue;
-      if (t >= tope || hechas >= cuenta) return out;
-      hechas++;
-      if (t >= desde && !fuera(t)) out.push(t);
+      if (t < start) continue;
+      if (t >= cap || done >= count) return out;
+      done++;
+      if (t >= since && !outside(t)) out.push(t);
     }
   }
   return out;
@@ -340,45 +340,45 @@ export function repetitions(rule: string, inicio: number, desde: number, hasta: 
 const SIRI_SUGGESTIONS = /^(siri suggestions|sugerencias de siri)$/i;
 /** Los eventos de calendar.jxa entre desde y hasta: los repetidos, desplegados; sin cancelados, sin «Sugerencias de
  *  Siri» ni duplicados (una repetición movida llega como evento suelto con el mismo uid: manda ese) */
-export function eventsOfCalendarMac(lista: EventCalendarMac[], desde: number, hasta: number): Evento[] {
-  const loose = lista.filter(e => !e.rule), out = new Map<string, Evento>();
+export function eventsOfCalendarMac(list: EventCalendarMac[], since: number, until: number): CalendarEvent[] {
+  const loose = list.filter(e => !e.rule), out = new Map<string, CalendarEvent>();
   const daySame = (a: number, c: number) => new Date(a).toDateString() === new Date(c).toDateString();
-  const poner = (e: EventCalendarMac, inicio: number) => {
-    const fin = inicio + Math.max(0, e.fin - e.inicio), id = `calendario-${e.uid || e.titulo}-${inicio}`;
-    if (fin <= desde || inicio >= hasta || out.has(id)) return;
+  const set = (e: EventCalendarMac, start: number) => {
+    const end = start + Math.max(0, e.fin - e.inicio), id = `calendario-${e.uid || e.titulo}-${start}`;
+    if (end <= since || start >= until || out.has(id)) return;
     const video = linkVideo(e.lugar, e.notas);
-    out.set(id, { id, fuente: 'calendario', titulo: e.titulo || tr('integrations.untitled'), inicio, fin, allElDay: e.allElDay, lugar: e.lugar || undefined, videollamada: video, enlace: video, organizador: e.calendario || undefined });
+    out.set(id, { id, source: 'calendario', title: e.titulo || tr('integrations.untitled'), start, end, allDay: e.allElDay, place: e.lugar || undefined, videollamada: video, link: video, organizer: e.calendario || undefined });
   };
-  for (const e of lista) {
+  for (const e of list) {
     if (/cancel/i.test(e.estado ?? '') || SIRI_SUGGESTIONS.test(e.calendario) || !Number.isFinite(e.inicio) || !e.inicio) continue;
-    if (!e.rule) { poner(e, e.inicio); continue; }
-    for (const t of repetitions(e.rule, e.inicio, desde - Math.max(0, e.fin - e.inicio), hasta, e.excluded))
-      if (!loose.some(x => x.uid && x.uid === e.uid && daySame(x.inicio, t))) poner(e, t);
+    if (!e.rule) { set(e, e.inicio); continue; }
+    for (const t of repetitions(e.rule, e.inicio, since - Math.max(0, e.fin - e.inicio), until, e.excluded))
+      if (!loose.some(x => x.uid && x.uid === e.uid && daySame(x.inicio, t))) set(e, t);
   }
-  return [...out.values()].sort((a, c) => a.inicio - c.inicio);
+  return [...out.values()].sort((a, c) => a.start - c.start);
 }
-export function explainErrorCalendar(salida: string) {
-  if (/-1743|not authori[sz]ed|no autorizad/i.test(salida)) return tr('integrations.calendarNotAllowed');
-  if (/-600|isn.t running|no se está ejecutando/i.test(salida)) return tr('integrations.calendarClosed');
-  if (/timed out|ETIMEDOUT|SIGTERM/i.test(salida)) return tr('integrations.calendarTimeout');
-  return tr('integrations.calendarCouldNotRead', { detalle: salida.trim().split('\n').pop() || tr('integrations.noDetail') });
+export function explainErrorCalendar(output: string) {
+  if (/-1743|not authori[sz]ed|no autorizad/i.test(output)) return tr('integrations.calendarNotAllowed');
+  if (/-600|isn.t running|no se está ejecutando/i.test(output)) return tr('integrations.calendarClosed');
+  if (/timed out|ETIMEDOUT|SIGTERM/i.test(output)) return tr('integrations.calendarTimeout');
+  return tr('integrations.calendarCouldNotRead', { detalle: output.trim().split('\n').pop() || tr('integrations.noDetail') });
 }
 
 // Un evento de calendars/primary/events (singleEvents=true). Fuera los cancelados y los que he rechazado
-export function googleEvent(e: any): Evento | null {
+export function googleEvent(e: any): CalendarEvent | null {
   if (!e?.id || e.status === 'cancelled') return null;
   if (((e.attendees ?? []) as any[]).some(a => a.self && a.responseStatus === 'declined')) return null;
-  const todo = !!e.start?.date && !e.start?.dateTime;
-  const inicio = todo ? localAEpoch(e.start.date) : Date.parse(e.start?.dateTime ?? '');
-  if (!Number.isFinite(inicio)) return null;
-  const fin = todo ? localAEpoch(e.end?.date ?? nextDay(e.start.date)) : Date.parse(e.end?.dateTime ?? '');
+  const all = !!e.start?.date && !e.start?.dateTime;
+  const start = all ? localAEpoch(e.start.date) : Date.parse(e.start?.dateTime ?? '');
+  if (!Number.isFinite(start)) return null;
+  const end = all ? localAEpoch(e.end?.date ?? nextDay(e.start.date)) : Date.parse(e.end?.dateTime ?? '');
   const video = e.hangoutLink || ((e.conferenceData?.entryPoints ?? []) as any[]).find(p => p.entryPointType === 'video')?.uri || linkVideo(e.location, e.description);
   return {
-    id: 'google-' + e.id, fuente: 'google', titulo: e.summary || tr('integrations.untitled'), inicio, fin: Number.isFinite(fin) ? fin : inicio, allElDay: todo,
-    lugar: e.location || undefined, videollamada: video || undefined, enlace: e.htmlLink || 'https://calendar.google.com/', organizador: e.organizer?.displayName || e.organizer?.email || undefined,
+    id: 'google-' + e.id, source: 'google', title: e.summary || tr('integrations.untitled'), start, end: Number.isFinite(end) ? end : start, allDay: all,
+    place: e.location || undefined, videollamada: video || undefined, link: e.htmlLink || 'https://calendar.google.com/', organizer: e.organizer?.displayName || e.organizer?.email || undefined,
   };
 }
-export const googleEvents = (json: any) => ((json?.items ?? []) as any[]).map(googleEvent).filter((e): e is Evento => !!e);
+export const googleEvents = (json: any) => ((json?.items ?? []) as any[]).map(googleEvent).filter((e): e is CalendarEvent => !!e);
 // Errores del inicio de sesión de Google (cuerpo de /token o parámetros de la redirección)
 export function explainErrorOAuthGoogle(x: { error?: string; error_description?: string }): string {
   switch (x.error) {
@@ -390,14 +390,14 @@ export function explainErrorOAuthGoogle(x: { error?: string; error_description?:
   }
   return tr('integrations.googleResponded', { detalle: x.error_description || x.error || tr('integrations.unknownError') });
 }
-export function explainErrorGoogle(estado: number, cuerpo: any): string {
-  const motivo = cuerpo?.error?.errors?.[0]?.reason ?? cuerpo?.error?.details?.find((d: any) => d.reason)?.reason ?? cuerpo?.error?.status ?? '';
-  if (estado === 401) return tr('integrations.googleSessionRejected');
-  if (/accessNotConfigured|SERVICE_DISABLED/.test(motivo)) return tr('integrations.googleApiDisabled');
-  if (estado === 403 && /insufficient|PERMISSION_DENIED|ACCESS_TOKEN_SCOPE_INSUFFICIENT/i.test(motivo + ' ' + (cuerpo?.error?.message ?? ''))) return tr('integrations.googleMissingPermissions');
-  if (estado === 429 || /rateLimitExceeded|userRateLimitExceeded|RESOURCE_EXHAUSTED/.test(motivo)) return tr('integrations.googleRateLimited');
-  if (estado >= 500) return tr('integrations.googleBadResponse', { estado });
-  return tr('integrations.googleRespondedStatus', { estado, motivo: motivo ? ' (' + motivo + ')' : '', detalle: cuerpo?.error?.message ?? tr('integrations.noDetail') });
+export function explainErrorGoogle(state: number, body: any): string {
+  const reason = body?.error?.errors?.[0]?.reason ?? body?.error?.details?.find((d: any) => d.reason)?.reason ?? body?.error?.status ?? '';
+  if (state === 401) return tr('integrations.googleSessionRejected');
+  if (/accessNotConfigured|SERVICE_DISABLED/.test(reason)) return tr('integrations.googleApiDisabled');
+  if (state === 403 && /insufficient|PERMISSION_DENIED|ACCESS_TOKEN_SCOPE_INSUFFICIENT/i.test(reason + ' ' + (body?.error?.message ?? ''))) return tr('integrations.googleMissingPermissions');
+  if (state === 429 || /rateLimitExceeded|userRateLimitExceeded|RESOURCE_EXHAUSTED/.test(reason)) return tr('integrations.googleRateLimited');
+  if (state >= 500) return tr('integrations.googleBadResponse', { estado: state });
+  return tr('integrations.googleRespondedStatus', { estado: state, motivo: reason ? ' (' + reason + ')' : '', detalle: body?.error?.message ?? tr('integrations.noDetail') });
 }
 
 // ------------------------------------------------------------------ GitHub (notificaciones)
@@ -412,85 +412,85 @@ const typeGithub = (): Record<string, string> => ({ PullRequest: 'PR', Issue: 'I
 export function urlWebGitHub(api?: string | null, repo?: string): string {
   const m = api ? /^https:\/\/api\.github\.com\/repos\/([^/]+\/[^/]+)\/(pulls|issues|commits|releases|discussions)\/([^/?#]+)$/.exec(api) : null;
   if (!m) return repo || 'https://github.com/notifications';
-  const [, nombre, tipo, id] = m;
-  if (tipo === 'releases') return `https://github.com/${nombre}/releases`;
-  return `https://github.com/${nombre}/${tipo === 'pulls' ? 'pull' : tipo === 'commits' ? 'commit' : tipo}/${id}`;
+  const [, name, type, id] = m;
+  if (type === 'releases') return `https://github.com/${name}/releases`;
+  return `https://github.com/${name}/${type === 'pulls' ? 'pull' : type === 'commits' ? 'commit' : type}/${id}`;
 }
 // Un hilo de GET /notifications. El id cambia con cada actualización del hilo (suena otra vez y vuelve a «sin ver»)
 export function notificationOfGitHub(n: any): Notification | null {
   if (!n?.id || n.unread === false) return null;
-  const motivo = String(n.reason ?? '');
-  const prioridad: Priority = ['mention', 'team_mention', 'review_requested', 'assign', 'security_alert', 'approval_requested'].includes(motivo) ? 'alta' : motivo === 'subscribed' ? 'baja' : 'media';
-  const tipo = typeGithub()[n.subject?.type] ?? n.subject?.type ?? tr('integrations.ghNotice');
-  const fecha = Date.parse(n.updated_at ?? '');
+  const reason = String(n.reason ?? '');
+  const priority: Priority = ['mention', 'team_mention', 'review_requested', 'assign', 'security_alert', 'approval_requested'].includes(reason) ? 'alta' : reason === 'subscribed' ? 'baja' : 'media';
+  const type = typeGithub()[n.subject?.type] ?? n.subject?.type ?? tr('integrations.ghNotice');
+  const date = Date.parse(n.updated_at ?? '');
   return {
-    id: `github-${n.id}-${Number.isFinite(fecha) ? fecha : 0}`, fuente: 'github', hilo: 'github-' + n.id, canal: n.repository?.full_name ?? 'GitHub',
-    autor: n.repository?.full_name ?? 'GitHub', titulo: `${tipo} · ${n.subject?.title ?? tr('integrations.untitled')}`,
-    fragmento: (reasonGithub()[motivo] ?? motivo) || tr('integrations.ghNews'), fecha: Number.isFinite(fecha) ? fecha : Date.now(), prioridad,
-    enlace: urlWebGitHub(n.subject?.url, n.repository?.html_url),
+    id: `github-${n.id}-${Number.isFinite(date) ? date : 0}`, source: 'github', thread: 'github-' + n.id, channel: n.repository?.full_name ?? 'GitHub',
+    author: n.repository?.full_name ?? 'GitHub', title: `${type} · ${n.subject?.title ?? tr('integrations.untitled')}`,
+    snippet: (reasonGithub()[reason] ?? reason) || tr('integrations.ghNews'), date: Number.isFinite(date) ? date : Date.now(), priority,
+    link: urlWebGitHub(n.subject?.url, n.repository?.html_url),
   };
 }
 export const notificationsOfGitHub = (json: any) => ((Array.isArray(json) ? json : []) as any[]).map(notificationOfGitHub).filter((n): n is Notification => !!n);
-export function explainErrorGitHub(estado: number, cuerpo: any): string {
-  if (estado === 401) return tr('integrations.ghTokenRejected');
-  if (estado === 403 && /rate limit/i.test(cuerpo?.message ?? '')) return tr('integrations.ghRateLimited');
-  if (estado === 403 || estado === 404) return tr('integrations.ghCannotReadNotifications');
-  if (estado >= 500) return tr('integrations.ghBadResponse', { estado });
-  return tr('integrations.ghResponded', { estado, detalle: cuerpo?.message ?? tr('integrations.noDetail') });
+export function explainErrorGitHub(state: number, body: any): string {
+  if (state === 401) return tr('integrations.ghTokenRejected');
+  if (state === 403 && /rate limit/i.test(body?.message ?? '')) return tr('integrations.ghRateLimited');
+  if (state === 403 || state === 404) return tr('integrations.ghCannotReadNotifications');
+  if (state >= 500) return tr('integrations.ghBadResponse', { estado: state });
+  return tr('integrations.ghResponded', { estado: state, detalle: body?.message ?? tr('integrations.noDetail') });
 }
 
 // ------------------------------------------------------------------ Slack
-export interface ChannelSlack { nombre: string; tipo: 'canal' | 'privado' | 'directo' | 'grupo' }
+export interface ChannelSlack { name: string; type: 'canal' | 'privado' | 'directo' | 'grupo' }
 export interface ContextSlack {
-  yo?: string; bot?: string; equipo?: string;
-  canales: Map<string, ChannelSlack>; users: Map<string, string>;
+  me?: string; bot?: string; team?: string;
+  channels: Map<string, ChannelSlack>; users: Map<string, string>;
   chosen: Set<string>;   // vacío = todos los canales a los que pertenece el token
 }
-export const contextSlackEmpty = (): ContextSlack => ({ canales: new Map(), users: new Map(), chosen: new Set() });
+export const contextSlackEmpty = (): ContextSlack => ({ channels: new Map(), users: new Map(), chosen: new Set() });
 // Un canal de conversations.list / users.conversations → nombre legible y tipo
 export function slackChannel(c: any, users: Map<string, string> = new Map()): ChannelSlack {
-  if (c.is_im) return { nombre: '@' + (users.get(c.user) ?? c.user ?? tr('integrations.direct')), tipo: 'directo' };
-  if (c.is_mpim) return { nombre: String(c.name ?? tr('integrations.group')).replace(/^mpdm-/, '').replace(/-1$/, '').split('--').join(', '), tipo: 'grupo' };
-  return { nombre: '#' + (c.name ?? c.id), tipo: c.is_private ? 'privado' : 'canal' };
+  if (c.is_im) return { name: '@' + (users.get(c.user) ?? c.user ?? tr('integrations.direct')), type: 'directo' };
+  if (c.is_mpim) return { name: String(c.name ?? tr('integrations.group')).replace(/^mpdm-/, '').replace(/-1$/, '').split('--').join(', '), type: 'grupo' };
+  return { name: '#' + (c.name ?? c.id), type: c.is_private ? 'privado' : 'canal' };
 }
 // Formato de Slack (<@U1>, <#C1|general>, <!here>, <https://x|texto>, &amp;) → texto plano legible
 export function textSlack(t: string, ctx: ContextSlack): string {
   return String(t ?? '')
     .replace(/<@([UW][A-Z0-9]+)(?:\|([^>]+))?>/g, (_, id, n) => '@' + (n ?? ctx.users.get(id) ?? tr('integrations.user')))
-    .replace(/<#([CG][A-Z0-9]+)(?:\|([^>]*))?>/g, (_, id, n) => '#' + (n || ctx.canales.get(id)?.nombre.replace(/^#/, '') || tr('integrations.channel')))
+    .replace(/<#([CG][A-Z0-9]+)(?:\|([^>]*))?>/g, (_, id, n) => '#' + (n || ctx.channels.get(id)?.name.replace(/^#/, '') || tr('integrations.channel')))
     .replace(/<!(here|channel|everyone)(?:\|[^>]*)?>/g, '@$1').replace(/<!subteam\^[A-Z0-9]+(?:\|([^>]+))?>/g, (_, n) => n ?? '@' + tr('integrations.group'))
     .replace(/<(https?:[^|>]+)\|([^>]+)>/g, '$2').replace(/<(https?:[^>]+)>/g, '$1').replace(/<mailto:[^|>]+\|([^>]+)>/g, '$1')
     .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/\s+/g, ' ').trim();
 }
-export function prioritySlack(m: any, canal: ChannelSlack | undefined, ctx: ContextSlack): Priority {
+export function prioritySlack(m: any, channel: ChannelSlack | undefined, ctx: ContextSlack): Priority {
   const t = String(m.text ?? '');
-  if (canal?.tipo === 'directo' || (ctx.yo && t.includes(`<@${ctx.yo}`))) return 'alta';
-  if (/<!(here|channel|everyone)/.test(t) || canal?.tipo === 'grupo') return 'media';
+  if (channel?.type === 'directo' || (ctx.me && t.includes(`<@${ctx.me}`))) return 'alta';
+  if (/<!(here|channel|everyone)/.test(t) || channel?.type === 'grupo') return 'media';
   return 'baja';
 }
 const SUBTYPES_SLACK = new Set([undefined, 'thread_broadcast', 'file_share', 'bot_message', 'me_message']);
 // Un mensaje de conversations.history. null = propio, del propio bot, de sistema (alguien entra o sale) o fuera de los elegidos sin mención
 export function slackNotification(m: any, channelId: string, ctx: ContextSlack): Notification | null {
   if (!m?.ts || !SUBTYPES_SLACK.has(m.subtype)) return null;
-  if ((ctx.yo && m.user === ctx.yo) || (ctx.bot && m.bot_id === ctx.bot)) return null;
-  const canal = ctx.canales.get(channelId);
-  const prioridad = prioritySlack(m, canal, ctx);
-  if (ctx.chosen.size && !ctx.chosen.has(channelId) && prioridad !== 'alta') return null;
-  const nombre = canal?.nombre ?? '#' + tr('integrations.channel');
-  let texto = textSlack(m.text, ctx);
-  if (!texto && m.files?.length) texto = tr('integrations.attachment', { nombres: (m.files as any[]).map(f => f.name ?? f.title ?? tr('integrations.file')).join(', ') });
+  if ((ctx.me && m.user === ctx.me) || (ctx.bot && m.bot_id === ctx.bot)) return null;
+  const channel = ctx.channels.get(channelId);
+  const priority = prioritySlack(m, channel, ctx);
+  if (ctx.chosen.size && !ctx.chosen.has(channelId) && priority !== 'alta') return null;
+  const name = channel?.name ?? '#' + tr('integrations.channel');
+  let text = textSlack(m.text, ctx);
+  if (!text && m.files?.length) text = tr('integrations.attachment', { nombres: (m.files as any[]).map(f => f.name ?? f.title ?? tr('integrations.file')).join(', ') });
   return {
-    id: `slack-${channelId}-${m.ts}`, fuente: 'slack', hilo: 'slack-' + channelId, canal: nombre,
-    autor: ctx.users.get(m.user) ?? m.user_profile?.real_name ?? m.username ?? m.bot_profile?.name ?? tr('integrations.someone'),
-    titulo: nombre, fragmento: recortar(texto || tr('integrations.noText')), fecha: Math.round(Number(m.ts) * 1000), prioridad,
-    enlace: ctx.equipo ? `https://app.slack.com/client/${ctx.equipo}/${channelId}` : 'https://app.slack.com/client',
+    id: `slack-${channelId}-${m.ts}`, source: 'slack', thread: 'slack-' + channelId, channel: name,
+    author: ctx.users.get(m.user) ?? m.user_profile?.real_name ?? m.username ?? m.bot_profile?.name ?? tr('integrations.someone'),
+    title: name, snippet: truncate(text || tr('integrations.noText')), date: Math.round(Number(m.ts) * 1000), priority,
+    link: ctx.team ? `https://app.slack.com/client/${ctx.team}/${channelId}` : 'https://app.slack.com/client',
   };
 }
-export function explainErrorSlack(error: string, necesario?: string): string {
+export function explainErrorSlack(error: string, needed?: string): string {
   switch (error) {
     case 'invalid_auth': case 'not_authed': case 'token_revoked': case 'token_expired': case 'account_inactive':
       return tr('integrations.slackTokenRejected');
-    case 'missing_scope': return tr('integrations.slackMissingScope', { necesario: necesario ? ' (' + necesario + ')' : '' });
+    case 'missing_scope': return tr('integrations.slackMissingScope', { necesario: needed ? ' (' + needed + ')' : '' });
     case 'not_in_channel': return tr('integrations.slackNotInChannel');
     case 'channel_not_found': return tr('integrations.slackChannelNotFound');
     case 'ratelimited': return tr('integrations.slackRateLimited');
@@ -499,67 +499,67 @@ export function explainErrorSlack(error: string, necesario?: string): string {
 }
 
 // ------------------------------------------------------------------ Linear
-export function linearNotification(n: any, ahora = Date.now()): Notification | null {
+export function linearNotification(n: any, now = Date.now()): Notification | null {
   // como el inbox de Linear: sin leídas, archivadas, pospuestas ni las de issues en la papelera
-  if (!n?.id || n.readAt || n.archivedAt || n.issue?.trashed || (n.snoozedUntilAt && Date.parse(n.snoozedUntilAt) > ahora)) return null;
-  const tipo = String(n.type ?? '');
+  if (!n?.id || n.readAt || n.archivedAt || n.issue?.trashed || (n.snoozedUntilAt && Date.parse(n.snoozedUntilAt) > now)) return null;
+  const type = String(n.type ?? '');
   const i = n.issue;
-  const prioridad: Priority = /Mention|AssignedToYou|Urgent/i.test(tipo) || n.category === 'mentions' || n.category === 'assignments' || i?.priority === 1 ? 'alta'
-    : /Comment|Reaction|Due|SlaHigh/i.test(tipo) || n.category === 'commentsAndReplies' || n.category === 'reminders' ? 'media' : 'baja';
-  const autor = n.actor?.name || n.actor?.displayName || n.botActor?.name || 'Linear';
-  const cuerpo = n.comment?.body ? markdownText(n.comment.body) : '';
+  const priority: Priority = /Mention|AssignedToYou|Urgent/i.test(type) || n.category === 'mentions' || n.category === 'assignments' || i?.priority === 1 ? 'alta'
+    : /Comment|Reaction|Due|SlaHigh/i.test(type) || n.category === 'commentsAndReplies' || n.category === 'reminders' ? 'media' : 'baja';
+  const author = n.actor?.name || n.actor?.displayName || n.botActor?.name || 'Linear';
+  const body = n.comment?.body ? markdownText(n.comment.body) : '';
   return {
-    id: 'linear-' + n.id, fuente: 'linear', hilo: i?.id ? 'linear-' + i.id : undefined, canal: i?.identifier ?? i?.team?.key, autor,
-    titulo: i ? `${i.identifier} · ${i.title}` : n.title || tr('integrations.linearNotification'),
-    fragmento: recortar([n.subtitle, cuerpo && `«${cuerpo}»`].filter(Boolean).join(': ')), fecha: Date.parse(n.createdAt), prioridad,
-    enlace: n.url || i?.url || 'https://linear.app/',
+    id: 'linear-' + n.id, source: 'linear', thread: i?.id ? 'linear-' + i.id : undefined, channel: i?.identifier ?? i?.team?.key, author,
+    title: i ? `${i.identifier} · ${i.title}` : n.title || tr('integrations.linearNotification'),
+    snippet: truncate([n.subtitle, body && `«${body}»`].filter(Boolean).join(': ')), date: Date.parse(n.createdAt), priority,
+    link: n.url || i?.url || 'https://linear.app/',
   };
 }
-export const linearNotifications = (json: any, ahora?: number) => ((json?.data?.notifications?.nodes ?? []) as any[]).map(n => linearNotification(n, ahora)).filter((n): n is Notification => !!n);
+export const linearNotifications = (json: any, now?: number) => ((json?.data?.notifications?.nodes ?? []) as any[]).map(n => linearNotification(n, now)).filter((n): n is Notification => !!n);
 
 export const STATES_ORDER = ['triage', 'started', 'unstarted', 'backlog', 'completed', 'canceled', 'duplicate'];
 const typeName = (): Record<string, string> => ({ triage: tr('integrations.linearTriage'), backlog: tr('integrations.linearBacklog'), unstarted: tr('integrations.linearUnstarted'), started: tr('integrations.linearStarted'), completed: tr('integrations.linearCompleted'), canceled: tr('integrations.linearCanceled'), duplicate: tr('integrations.linearDuplicate') });
-export interface IssueLinear { id: string; identificador: string; titulo: string; url: string; prioridad: number; textPriority: string; estado: { id: string; nombre: string; tipo: string; color: string }; equipo?: string; proyecto?: string; ciclo?: number; etiquetas: { nombre: string; color: string }[]; vence?: string; estimacion?: number; asignado?: string; actualizada?: number }
+export interface IssueLinear { id: string; identifier: string; title: string; url: string; priority: number; textPriority: string; state: { id: string; name: string; type: string; color: string }; team?: string; project?: string; cycle?: number; labels: { name: string; color: string }[]; due?: string; estimate?: number; assignee?: string; updated?: number }
 export function linearIssue(i: any): IssueLinear {
   return {
-    id: i.id, identificador: i.identifier, titulo: i.title, url: i.url, prioridad: i.priority ?? 0, textPriority: i.priorityLabel ?? '',
-    estado: { id: i.state?.id, nombre: i.state?.name, tipo: i.state?.type, color: i.state?.color }, equipo: i.team?.key, proyecto: i.project?.name, ciclo: i.cycle?.number,
-    etiquetas: (i.labels?.nodes ?? []).map((l: any) => ({ nombre: l.name, color: l.color })), vence: i.dueDate ?? undefined, estimacion: i.estimate ?? undefined,
-    asignado: i.assignee?.name, actualizada: i.updatedAt ? Date.parse(i.updatedAt) : undefined,
+    id: i.id, identifier: i.identifier, title: i.title, url: i.url, priority: i.priority ?? 0, textPriority: i.priorityLabel ?? '',
+    state: { id: i.state?.id, name: i.state?.name, type: i.state?.type, color: i.state?.color }, team: i.team?.key, project: i.project?.name, cycle: i.cycle?.number,
+    labels: (i.labels?.nodes ?? []).map((l: any) => ({ name: l.name, color: l.color })), due: i.dueDate ?? undefined, estimate: i.estimate ?? undefined,
+    assignee: i.assignee?.name, updated: i.updatedAt ? Date.parse(i.updatedAt) : undefined,
   };
 }
 // Mis issues por estado: grupos por tipo de estado (en curso primero) y dentro, por posición del estado y prioridad
 export function groupMyIssues(json: any) {
-  const nodos: any[] = json?.data?.viewer?.assignedIssues?.nodes ?? [];
-  const grupos = new Map<string, { tipo: string; nombre: string; issues: IssueLinear[] }>();
+  const nodes: any[] = json?.data?.viewer?.assignedIssues?.nodes ?? [];
+  const groups = new Map<string, { type: string; name: string; issues: IssueLinear[] }>();
   const prio = (p: number) => p === 0 ? 5 : p;
-  for (const n of [...nodos].sort((a, b) => (a.state?.position ?? 0) - (b.state?.position ?? 0) || prio(a.priority) - prio(b.priority))) {
+  for (const n of [...nodes].sort((a, b) => (a.state?.position ?? 0) - (b.state?.position ?? 0) || prio(a.priority) - prio(b.priority))) {
     const t = n.state?.type ?? 'unstarted';
-    if (!grupos.has(t)) grupos.set(t, { tipo: t, nombre: typeName()[t] ?? t, issues: [] });
-    grupos.get(t)!.issues.push(linearIssue(n));
+    if (!groups.has(t)) groups.set(t, { type: t, name: typeName()[t] ?? t, issues: [] });
+    groups.get(t)!.issues.push(linearIssue(n));
   }
-  return [...grupos.values()].sort((a, b) => STATES_ORDER.indexOf(a.tipo) - STATES_ORDER.indexOf(b.tipo));
+  return [...groups.values()].sort((a, b) => STATES_ORDER.indexOf(a.type) - STATES_ORDER.indexOf(b.type));
 }
 export function teamsCycles(json: any) {
   return ((json?.data?.teams?.nodes ?? []) as any[]).map(t => ({
-    equipoId: t.id, equipo: t.key, nombre: t.name, color: t.color, withCycles: !!t.cyclesEnabled,
-    ciclo: t.activeCycle ? { id: t.activeCycle.id, numero: t.activeCycle.number, nombre: t.activeCycle.name ?? tr('integrations.linearCycle', { n: t.activeCycle.number }), inicio: Date.parse(t.activeCycle.startsAt), fin: Date.parse(t.activeCycle.endsAt), progreso: Math.round((t.activeCycle.progress ?? 0) * 100), reach: t.activeCycle.scopeHistory ?? [], hecho: t.activeCycle.completedScopeHistory ?? [] } : null,
+    teamId: t.id, team: t.key, name: t.name, color: t.color, withCycles: !!t.cyclesEnabled,
+    cycle: t.activeCycle ? { id: t.activeCycle.id, number: t.activeCycle.number, name: t.activeCycle.name ?? tr('integrations.linearCycle', { n: t.activeCycle.number }), start: Date.parse(t.activeCycle.startsAt), end: Date.parse(t.activeCycle.endsAt), progreso: Math.round((t.activeCycle.progress ?? 0) * 100), reach: t.activeCycle.scopeHistory ?? [], done: t.activeCycle.completedScopeHistory ?? [] } : null,
   }));
 }
 export function teamBoard(json: any) {
   const t = json?.data?.team; if (!t) return null;
   const issues = ((t.issues?.nodes ?? []) as any[]).map(i => ({ ...linearIssue(i), stateId: i.state?.id }));
-  const columnas = ((t.states?.nodes ?? []) as any[]).filter(s => s.type !== 'canceled' && s.type !== 'duplicate').sort((a, b) => a.position - b.position)
-    .map(s => ({ id: s.id, nombre: s.name, tipo: s.type, color: s.color, issues: issues.filter(i => i.stateId === s.id).sort((a, b) => (a.prioridad || 5) - (b.prioridad || 5)) }));
-  return { equipo: t.key, nombre: t.name, columnas };
+  const columns = ((t.states?.nodes ?? []) as any[]).filter(s => s.type !== 'canceled' && s.type !== 'duplicate').sort((a, b) => a.position - b.position)
+    .map(s => ({ id: s.id, name: s.name, type: s.type, color: s.color, issues: issues.filter(i => i.stateId === s.id).sort((a, b) => (a.priority || 5) - (b.priority || 5)) }));
+  return { team: t.key, name: t.name, columns };
 }
-export function explainErrorLinear(estado: number, json: any): string | null {
+export function explainErrorLinear(state: number, json: any): string | null {
   const err = json?.errors?.[0];
-  if (estado === 401 || err?.extensions?.code === 'AUTHENTICATION_ERROR' || /authenticat/i.test(err?.message ?? '')) return tr('integrations.linearKeyRejected');
+  if (state === 401 || err?.extensions?.code === 'AUTHENTICATION_ERROR' || /authenticat/i.test(err?.message ?? '')) return tr('integrations.linearKeyRejected');
   if (err?.extensions?.code === 'RATELIMITED') return tr('integrations.linearRateLimited');
-  if (err?.extensions?.code === 'FORBIDDEN' || estado === 403) return tr('integrations.linearForbidden');
+  if (err?.extensions?.code === 'FORBIDDEN' || state === 403) return tr('integrations.linearForbidden');
   if (err) return tr('integrations.linearResponded', { detalle: err.message });
-  if (estado >= 400) return tr('integrations.linearRespondedHttp', { estado });
+  if (state >= 400) return tr('integrations.linearRespondedHttp', { estado: state });
   return null;
 }
 
@@ -567,19 +567,19 @@ export function explainErrorLinear(estado: number, json: any): string | null {
 // Los avisos llegan por mensaje; el tablón los junta por hilo (canal de Discord o de Slack, conversación de correo,
 // issue de Linear, hilo de GitHub). Da la cara el más reciente y dentro van los demás. El id cambia con cada mensaje nuevo
 // (suena y vuelve a «sin ver»); para marcarla vista se mandan sus ids.
-export interface NoticeMessage { id: string; autor: string; texto: string; fecha: number; vista: boolean }
-export interface Conversation extends Notification { hilo: string; cuantos: number; ids: string[]; authors: string[]; mensajes: NoticeMessage[] }
+export interface NoticeMessage { id: string; author: string; text: string; date: number; view: boolean }
+export interface Conversation extends Notification { thread: string; count: number; ids: string[]; authors: string[]; messages: NoticeMessage[] }
 const WEIGHT: Record<Priority, number> = { baja: 0, media: 1, alta: 2 };
-export function groupNotices(lista: Notification[], maxMessages = 8): Conversation[] {
-  const grupos = new Map<string, Notification[]>();
-  for (const n of [...lista].sort((a, b) => b.fecha - a.fecha)) { const k = n.hilo ?? n.id; const g = grupos.get(k); if (g) g.push(n); else grupos.set(k, [n]); }
-  return [...grupos].map(([hilo, ns]) => {
-    const cara = ns[0], pendientes = ns.filter(n => !n.vista);
+export function groupNotices(list: Notification[], maxMessages = 8): Conversation[] {
+  const groups = new Map<string, Notification[]>();
+  for (const n of [...list].sort((a, b) => b.date - a.date)) { const k = n.thread ?? n.id; const g = groups.get(k); if (g) g.push(n); else groups.set(k, [n]); }
+  return [...groups].map(([thread, ns]) => {
+    const face = ns[0], pending = ns.filter(n => !n.view);
     return {
-      ...cara, id: `${hilo}#${cara.id}`, hilo, vista: !pendientes.length,
-      prioridad: (pendientes.length ? pendientes : ns).reduce<Priority>((p, n) => (WEIGHT[n.prioridad] > WEIGHT[p] ? n.prioridad : p), 'baja'),
-      cuantos: Math.max(ns.length, ...ns.map(n => n.sinLeer ?? 0)), ids: ns.map(n => n.id), authors: [...new Set(ns.map(n => n.autor))],
-      mensajes: ns.slice(0, maxMessages).map(n => ({ id: n.id, autor: n.autor, texto: n.fragmento, fecha: n.fecha, vista: !!n.vista })),
+      ...face, id: `${thread}#${face.id}`, thread, view: !pending.length,
+      priority: (pending.length ? pending : ns).reduce<Priority>((p, n) => (WEIGHT[n.priority] > WEIGHT[p] ? n.priority : p), 'baja'),
+      count: Math.max(ns.length, ...ns.map(n => n.unread ?? 0)), ids: ns.map(n => n.id), authors: [...new Set(ns.map(n => n.author))],
+      messages: ns.slice(0, maxMessages).map(n => ({ id: n.id, author: n.author, text: n.snippet, date: n.date, view: !!n.view })),
     };
   });
 }

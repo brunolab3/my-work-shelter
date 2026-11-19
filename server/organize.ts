@@ -6,42 +6,42 @@
 import { mkdirSync } from 'node:fs';
 import path from 'node:path';
 import type { PRBoard } from '../shared/board.ts';
-import { clavesJira, textoPR } from '../shared/board.ts';
+import { jiraKeys, prText } from '../shared/board.ts';
 import type { InfoWorktree, SessionSummary } from '../shared/protocol.ts';
 import { branchKey, prsOfName } from './prReviews.ts';
 import { t } from '../shared/language.ts';
 import { worktreeHasTask } from '../shared/tasks.ts';
 
-export interface TaskGroup { id: string; clave?: string; nombre: string; prs: PRBoard[] }
+export interface TaskGroup { id: string; key?: string; name: string; prs: PRBoard[] }
 
-const keyOf = (p: PRBoard) => branchKey(p.rama) ?? clavesJira(p.titulo)[0];
+const keyOf = (p: PRBoard) => branchKey(p.branch) ?? jiraKeys(p.title)[0];
 
 /** Los PR abiertos de un repo, por tarea: misma clave o apilados entre sí; dentro, de la base hacia arriba */
-export function agruparPorTarea(prs: PRBoard[]): TaskGroup[] {
-  const abiertos = prs.filter(p => p.estado === 'abierto' || p.estado === 'borrador');
-  const padre = new Map(abiertos.map(p => [p.url, p.url]));
-  const raiz = (u: string): string => { const q = padre.get(u)!; return q === u ? u : raiz(q); };
-  const unir = (a: string, b: string) => { const x = raiz(a), y = raiz(b); if (x !== y) padre.set(y, x); };
+export function groupByTask(prs: PRBoard[]): TaskGroup[] {
+  const open = prs.filter(p => p.state === 'abierto' || p.state === 'borrador');
+  const parent = new Map(open.map(p => [p.url, p.url]));
+  const root = (u: string): string => { const q = parent.get(u)!; return q === u ? u : root(q); };
+  const union = (a: string, b: string) => { const x = root(a), y = root(b); if (x !== y) parent.set(y, x); };
   const keyBy = new Map<string, string>();
-  for (const p of abiertos) {
-    const c = keyOf(p); if (c) { const ya = keyBy.get(c); if (ya) unir(ya, p.url); else keyBy.set(c, p.url); }
-    for (const q of abiertos) if (q !== p && p.base && q.rama === p.base) unir(q.url, p.url);
+  for (const p of open) {
+    const c = keyOf(p); if (c) { const already = keyBy.get(c); if (already) union(already, p.url); else keyBy.set(c, p.url); }
+    for (const q of open) if (q !== p && p.base && q.branch === p.base) union(q.url, p.url);
   }
-  const grupos = new Map<string, PRBoard[]>();
-  for (const p of abiertos) { const r = raiz(p.url); grupos.set(r, [...(grupos.get(r) ?? []), p]); }
-  return [...grupos.values()].map(lista => {
-    const prs = stackOrder(lista);
-    const clave = prs.map(keyOf).find(Boolean);
-    const nombre = clave ? `shelter-${clave.toLowerCase()}` : `shelter-pr-${prs.slice(0, 4).map(p => p.numero).join('-')}`;
-    return { id: clave ?? `pr-${prs[0].numero}`, clave, nombre, prs };
-  }).sort((a, b) => a.prs[0].numero - b.prs[0].numero);
+  const groups = new Map<string, PRBoard[]>();
+  for (const p of open) { const r = root(p.url); groups.set(r, [...(groups.get(r) ?? []), p]); }
+  return [...groups.values()].map(list => {
+    const prs = stackOrder(list);
+    const key = prs.map(keyOf).find(Boolean);
+    const name = key ? `shelter-${key.toLowerCase()}` : `shelter-pr-${prs.slice(0, 4).map(p => p.number).join('-')}`;
+    return { id: key ?? `pr-${prs[0].number}`, key, name, prs };
+  }).sort((a, b) => a.prs[0].number - b.prs[0].number);
 }
 // de la base hacia arriba: primero los que no van encima de otro del grupo, luego los que van encima de esos…
 function stackOrder(prs: PRBoard[]): PRBoard[] {
-  const out: PRBoard[] = []; let remain = [...prs].sort((a, b) => a.numero - b.numero);
+  const out: PRBoard[] = []; let remain = [...prs].sort((a, b) => a.number - b.number);
   while (remain.length) {
-    const listos = remain.filter(p => !remain.some(q => q !== p && q.rama === p.base));
-    const batch = listos.length ? listos : [remain[0]];   // un ciclo (no debería): se rompe por el más antiguo
+    const ready = remain.filter(p => !remain.some(q => q !== p && q.branch === p.base));
+    const batch = ready.length ? ready : [remain[0]];   // un ciclo (no debería): se rompe por el más antiguo
     out.push(...batch); remain = remain.filter(p => !batch.includes(p));
   }
   return out;
@@ -50,76 +50,76 @@ function stackOrder(prs: PRBoard[]): PRBoard[] {
 
 /** El worktree que ya trabaja una tarea: con la rama de uno de sus PR, o con su clave (o sus PR) en el nombre */
 export function taskWorktree(g: TaskGroup, worktrees: InfoWorktree[]): InfoWorktree | undefined {
-  const ramas = new Set(g.prs.map(p => p.rama));
-  const otros = worktrees.filter(w => !w.principal);
-  return otros.find(w => ramas.has(w.rama))
-    ?? (g.clave ? otros.find(w => worktreeHasTask(w, g.clave!)) : undefined)
-    ?? otros.find(w => prsOfName(path.basename(w.ruta)).some(n => g.prs.some(p => p.numero === n)));
+  const branches = new Set(g.prs.map(p => p.branch));
+  const others = worktrees.filter(w => !w.main);
+  return others.find(w => branches.has(w.branch))
+    ?? (g.key ? others.find(w => worktreeHasTask(w, g.key!)) : undefined)
+    ?? others.find(w => prsOfName(path.basename(w.path)).some(n => g.prs.some(p => p.number === n)));
 }
 
 export interface OrganizeStep {
-  grupo: TaskGroup;
-  ruta: string;                        // donde se trabaja la tarea
-  crear: boolean;                      // worktree nuevo
-  principal: boolean;                  // una de sus ramas está en la copia principal: se trabaja ahí
-  sesion?: string;                     // conversación ya abierta ahí (no se empieza otra)
+  group: TaskGroup;
+  path: string;                        // donde se trabaja la tarea
+  create: boolean;                      // worktree nuevo
+  main: boolean;                  // una de sus ramas está en la copia principal: se trabaja ahí
+  session?: string;                     // conversación ya abierta ahí (no se empieza otra)
 }
-export function planDeSala(sala: { ruta: string; rama?: string; worktrees: InfoWorktree[] }, grupos: TaskGroup[], sesiones: SessionSummary[]): OrganizeStep[] {
-  const abiertas = sesiones.filter(s => s.estado !== 'cerrada');
-  const dentro = (ruta: string) => abiertas.find(s => { const d = path.resolve(s.worktree ?? s.cwd); return d === ruta || d.startsWith(ruta + path.sep); });
-  return grupos.map(grupo => {
-    const wt = taskWorktree(grupo, sala.worktrees);
-    const principal = !wt && !!sala.rama && grupo.prs.some(p => p.rama === sala.rama);
-    const ruta = wt?.ruta ?? (principal ? sala.ruta : path.join(sala.ruta, '.claude', 'worktrees', grupo.nombre));
+export function roomPlan(room: { path: string; branch?: string; worktrees: InfoWorktree[] }, groups: TaskGroup[], sessions: SessionSummary[]): OrganizeStep[] {
+  const openSessions = sessions.filter(s => s.state !== 'cerrada');
+  const inside = (filePath: string) => openSessions.find(s => { const d = path.resolve(s.worktree ?? s.cwd); return d === filePath || d.startsWith(filePath + path.sep); });
+  return groups.map(group => {
+    const wt = taskWorktree(group, room.worktrees);
+    const main = !wt && !!room.branch && group.prs.some(p => p.branch === room.branch);
+    const filePath = wt?.path ?? (main ? room.path : path.join(room.path, '.claude', 'worktrees', group.name));
     // en la copia principal solo cuenta una conversación que esté en ella, no en sus worktrees
-    const s = principal ? abiertas.find(x => path.resolve(x.worktree ?? x.cwd) === path.resolve(sala.ruta)) : dentro(ruta);
-    return { grupo, ruta, crear: !wt && !principal, principal, sesion: s?.id };
+    const s = main ? openSessions.find(x => path.resolve(x.worktree ?? x.cwd) === path.resolve(room.path)) : inside(filePath);
+    return { group, path: filePath, create: !wt && !main, main, session: s?.id };
   });
 }
 
 /** Lo que recibe la conversación de la tarea */
 export function promptTask(g: TaskGroup, repo: string): string {
-  const apilado = g.prs.some(p => g.prs.some(q => q.rama === p.base));
-  const tarea = g.clave ?? 'PR #' + g.prs.map(p => p.numero).join(', #');
+  const stacked = g.prs.some(p => g.prs.some(q => q.branch === p.base));
+  const task = g.key ?? 'PR #' + g.prs.map(p => p.number).join(', #');
   return [
-    g.prs.length === 1 ? t('prompt.task.title.one', { tarea, repo }) : t('prompt.task.title.many', { tarea, n: g.prs.length, repo }),
+    g.prs.length === 1 ? t('prompt.task.title.one', { tarea: task, repo }) : t('prompt.task.title.many', { tarea: task, n: g.prs.length, repo }),
     '',
-    t('prompt.task.onlyThis', { clave: g.clave ? ` (${g.clave})` : '' }) + ' ' + t(apilado ? 'prompt.task.stacked' : 'prompt.task.these'),
-    ...g.prs.map((p, i) => t('prompt.task.pr', { i: i + 1, numero: p.numero, titulo: p.titulo, rama: p.rama, base: p.base ? t('prompt.task.onTopOf', { base: p.base }) : '', estado: textoPR(p), url: p.url })),
+    t('prompt.task.onlyThis', { clave: g.key ? ` (${g.key})` : '' }) + ' ' + t(stacked ? 'prompt.task.stacked' : 'prompt.task.these'),
+    ...g.prs.map((p, i) => t('prompt.task.pr', { i: i + 1, numero: p.number, titulo: p.title, rama: p.branch, base: p.base ? t('prompt.task.onTopOf', { base: p.base }) : '', estado: prText(p), url: p.url })),
     '',
     t('prompt.task.howTo'),
-    ...(apilado ? [t('prompt.task.rebase')] : []),
+    ...(stacked ? [t('prompt.task.rebase')] : []),
     t('prompt.task.noPush'),
   ].join('\n');
 }
 
 export interface CtxOrganize {
   git(cwd: string, args: string[]): Promise<string>;
-  empezar(salaId: string, cwd: string, prompt: string): Promise<string>;   // id de la sesión
+  start(roomId: string, cwd: string, prompt: string): Promise<string>;   // id de la sesión
 }
 /** Crea los worktrees que faltan (con ramas locales que siguen a las del remoto) y empieza las conversaciones que faltan.
  *  Devuelve, por paso, qué se ha hecho (o por qué no). */
-export async function applyPlan(ctx: CtxOrganize, sala: { id: string; ruta: string }, pasos: OrganizeStep[], repo: string, remain: () => number): Promise<string[]> {
+export async function applyPlan(ctx: CtxOrganize, room: { id: string; path: string }, steps: OrganizeStep[], repo: string, remain: () => number): Promise<string[]> {
   const out: string[] = [];
-  const ramas = [...new Set(pasos.flatMap(p => p.grupo.prs.map(x => x.rama)))];
-  if (pasos.some(p => p.crear)) await ctx.git(sala.ruta, ['fetch', 'origin', ...ramas.map(r => `+refs/heads/${r}:refs/remotes/origin/${r}`)]).catch(() => '');
-  const existe = (r: string) => ctx.git(sala.ruta, ['rev-parse', '--verify', '--quiet', `refs/heads/${r}`]).then(() => true, () => false);
-  for (const p of pasos) {
-    const nombre = p.grupo.clave ?? `PR #${p.grupo.prs[0].numero}`;
+  const branches = [...new Set(steps.flatMap(p => p.group.prs.map(x => x.branch)))];
+  if (steps.some(p => p.create)) await ctx.git(room.path, ['fetch', 'origin', ...branches.map(r => `+refs/heads/${r}:refs/remotes/origin/${r}`)]).catch(() => '');
+  const exists = (r: string) => ctx.git(room.path, ['rev-parse', '--verify', '--quiet', `refs/heads/${r}`]).then(() => true, () => false);
+  for (const p of steps) {
+    const name = p.group.key ?? `PR #${p.group.prs[0].number}`;
     try {
-      if (p.crear) {
+      if (p.create) {
         // las ramas de la tarea, locales y siguiendo a las del remoto (para poder hacer checkout de cada una)
-        for (const x of p.grupo.prs.slice(1)) if (!(await existe(x.rama))) await ctx.git(sala.ruta, ['branch', '--track', x.rama, `origin/${x.rama}`]).catch(() => '');
-        const r0 = p.grupo.prs[0].rama;
-        mkdirSync(path.dirname(p.ruta), { recursive: true });
-        await ctx.git(sala.ruta, (await existe(r0)) ? ['worktree', 'add', p.ruta, r0] : ['worktree', 'add', '--track', '-b', r0, p.ruta, `origin/${r0}`]);
+        for (const x of p.group.prs.slice(1)) if (!(await exists(x.branch))) await ctx.git(room.path, ['branch', '--track', x.branch, `origin/${x.branch}`]).catch(() => '');
+        const r0 = p.group.prs[0].branch;
+        mkdirSync(path.dirname(p.path), { recursive: true });
+        await ctx.git(room.path, (await exists(r0)) ? ['worktree', 'add', p.path, r0] : ['worktree', 'add', '--track', '-b', r0, p.path, `origin/${r0}`]);
       }
-      if (p.sesion) { out.push(p.crear ? t('server.organize.hasConversation', { nombre }) : t('server.organize.hasConversationIn', { nombre, carpeta: path.basename(p.ruta) })); continue; }
-      if (remain() <= 0) { out.push(t(p.crear ? 'server.organize.createdNoSession' : 'server.organize.readyNoSession', { nombre })); continue; }
-      await ctx.empezar(sala.id, p.ruta, promptTask(p.grupo, repo));
-      out.push(p.crear ? t('server.organize.startedNew', { nombre }) : p.principal ? t('server.organize.startedMain', { nombre }) : t('server.organize.startedIn', { nombre, carpeta: path.basename(p.ruta) }));
+      if (p.session) { out.push(p.create ? t('server.organize.hasConversation', { nombre: name }) : t('server.organize.hasConversationIn', { nombre: name, carpeta: path.basename(p.path) })); continue; }
+      if (remain() <= 0) { out.push(t(p.create ? 'server.organize.createdNoSession' : 'server.organize.readyNoSession', { nombre: name })); continue; }
+      await ctx.start(room.id, p.path, promptTask(p.group, repo));
+      out.push(p.create ? t('server.organize.startedNew', { nombre: name }) : p.main ? t('server.organize.startedMain', { nombre: name }) : t('server.organize.startedIn', { nombre: name, carpeta: path.basename(p.path) }));
     } catch (e) {
-      out.push(t('server.organize.failed', { nombre, error: String((e as Error).message).split('\n')[0].slice(0, 160) }));
+      out.push(t('server.organize.failed', { nombre: name, error: String((e as Error).message).split('\n')[0].slice(0, 160) }));
     }
   }
   return out;

@@ -1,17 +1,17 @@
 // Nombre del worktree de un trabajo nuevo (sessions.ts): la tarea se lee en la rama y en el holograma de la sala
 import { describe, expect, it } from 'vitest';
-import { nombreWorktree, worktreeRoot } from './sessions.ts';
+import { worktreeName, worktreeRoot } from './sessions.ts';
 
 describe('nombreWorktree', () => {
   it('resume la tarea sin tildes ni signos y añade un sufijo', () => {
-    expect(nombreWorktree('Arregla la validación del Login, ¡ya!', 36 ** 4 + 35)).toBe('shelter-arregla-la-validacion-del-login-000z');
+    expect(worktreeName('Arregla la validación del Login, ¡ya!', 36 ** 4 + 35)).toBe('shelter-arregla-la-validacion-del-login-000z');
   });
   it('corta por palabras enteras', () => {
-    const n = nombreWorktree('ABCD-48210 avisar y bloquear al guardar notas con fechas pasadas', 0);
+    const n = worktreeName('ABCD-48210 avisar y bloquear al guardar notas con fechas pasadas', 0);
     expect(n).toBe('shelter-abcd-48210-avisar-y-bloquear-al-0000');
   });
   it('sin texto aprovechable, solo el sufijo', () => {
-    expect(nombreWorktree('¿?', 1)).toBe('shelter-0001');
+    expect(worktreeName('¿?', 1)).toBe('shelter-0001');
   });
 });
 
@@ -28,18 +28,18 @@ describe('crearWorktree', () => {
     const { mkdtempSync, writeFileSync, realpathSync } = await import('node:fs');
     const { execFileSync } = await import('node:child_process');
     const os = await import('node:os'); const path = await import('node:path');
-    const { crearWorktree } = await import('./sessions.ts');
+    const { createWorktree } = await import('./sessions.ts');
     const base = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'wt-')));
     const g = (cwd: string, ...a: string[]) => execFileSync('git', ['-c', 'user.name=Prueba', '-c', 'user.email=prueba@example.test', ...a], { cwd, encoding: 'utf8' }).trim();
-    const origen = path.join(base, 'origen'), repo = path.join(base, 'repo');
-    execFileSync('git', ['init', '-q', '-b', 'master', origen]); writeFileSync(path.join(origen, 'a.txt'), '1'); g(origen, 'add', '.'); g(origen, 'commit', '-qm', 'uno');
-    execFileSync('git', ['clone', '-q', origen, repo]);
-    g(origen, 'commit', '-qm', 'dos', '--allow-empty');   // la principal avanza en el remoto: el worktree sale de la traída
+    const origin = path.join(base, 'origen'), repo = path.join(base, 'repo');
+    execFileSync('git', ['init', '-q', '-b', 'master', origin]); writeFileSync(path.join(origin, 'a.txt'), '1'); g(origin, 'add', '.'); g(origin, 'commit', '-qm', 'uno');
+    execFileSync('git', ['clone', '-q', origin, repo]);
+    g(origin, 'commit', '-qm', 'dos', '--allow-empty');   // la principal avanza en el remoto: el worktree sale de la traída
     g(repo, 'checkout', '-qb', 'otra'); g(repo, 'commit', '-qm', 'local', '--allow-empty');
-    const ruta = await crearWorktree(path.join(repo), 'shelter-abc-1-0000');
-    expect(ruta).toBe(path.join(repo, '.claude', 'worktrees', 'shelter-abc-1-0000'));
-    expect(g(ruta, 'rev-parse', '--abbrev-ref', 'HEAD')).toBe('worktree-shelter-abc-1-0000');
-    expect(g(ruta, 'log', '-1', '--format=%s')).toBe('dos');
-    expect(() => g(ruta, 'rev-parse', '--abbrev-ref', '@{upstream}')).toThrow();
+    const filePath = await createWorktree(path.join(repo), 'shelter-abc-1-0000');
+    expect(filePath).toBe(path.join(repo, '.claude', 'worktrees', 'shelter-abc-1-0000'));
+    expect(g(filePath, 'rev-parse', '--abbrev-ref', 'HEAD')).toBe('worktree-shelter-abc-1-0000');
+    expect(g(filePath, 'log', '-1', '--format=%s')).toBe('dos');
+    expect(() => g(filePath, 'rev-parse', '--abbrev-ref', '@{upstream}')).toThrow();
   }, 30_000);
 });

@@ -13,16 +13,16 @@ import { t } from '../shared/language.ts';
 const SOURCE = path.join(import.meta.dirname, 'voice', 'transcriber.swift');
 const MAX_MS = 5 * 60_000;   // un dictado no dura más de cinco minutos
 
-export type VoiceEvent = { estado: 'descargando' | 'listo' | 'parcial' | 'final' | 'error'; texto?: string };
+export type VoiceEvent = { state: 'descargando' | 'listo' | 'parcial' | 'final' | 'error'; text?: string };
 
 let compiling: Promise<string> | null = null;
 // el transcriptor compilado de este código (por su huella): si no está, se compila (una sola vez aunque lo pidan varios)
-export function transcriptor(dirData: string): Promise<string> {
+export function transcriber(dataDir: string): Promise<string> {
   return compiling ??= (async () => {
     if (process.platform !== 'darwin') throw new Error(t('server.dictationUsesMacosSOwn'));
-    const huella = createHash('sha256').update(readFileSync(SOURCE)).digest('hex').slice(0, 12);
-    const dir = path.join(dirData, 'bin');
-    const bin = path.join(dir, `transcriptor-${huella}`);
+    const fingerprint = createHash('sha256').update(readFileSync(SOURCE)).digest('hex').slice(0, 12);
+    const dir = path.join(dataDir, 'bin');
+    const bin = path.join(dir, `transcriptor-${fingerprint}`);
     if (existsSync(bin)) return bin;
     mkdirSync(dir, { recursive: true });
     const tmp = bin + '.tmp';
@@ -38,59 +38,59 @@ export function transcriptor(dirData: string): Promise<string> {
   })().catch(e => { compiling = null; throw e; });
 }
 
-interface Dictation { p?: ChildProcess; queue: Buffer[]; fin: boolean; timer: NodeJS.Timeout; dueno: unknown }
+interface Dictation { p?: ChildProcess; queue: Buffer[]; end: boolean; timer: NodeJS.Timeout; owner: unknown }
 
 export class Dictations {
   private d = new Map<string, Dictation>();
-  constructor(private dirData: string) {}
+  constructor(private dataDir: string) {}
 
   // al arrancar el servidor se compila (si hace falta) para que el primer dictado no espere
-  preparar() { transcriptor(this.dirData).catch(() => {}); }
+  stage() { transcriber(this.dataDir).catch(() => {}); }
 
-  empezar(id: string, idioma: string, dueno: unknown, emitir: (e: VoiceEvent) => void) {
-    this.cancelar(id);
-    const x: Dictation = { queue: [], fin: false, dueno, timer: setTimeout(() => this.terminar(id), MAX_MS) };
+  start(id: string, language: string, owner: unknown, emit: (e: VoiceEvent) => void) {
+    this.cancel(id);
+    const x: Dictation = { queue: [], end: false, owner, timer: setTimeout(() => this.finish(id), MAX_MS) };
     x.timer.unref();
     this.d.set(id, x);
-    transcriptor(this.dirData).then(bin => {
+    transcriber(this.dataDir).then(bin => {
       if (this.d.get(id) !== x) return;
-      const p = spawn(bin, [/^[a-z]{2,3}([-_][A-Za-z0-9]+)*$/.test(idioma) ? idioma : 'es-ES'], { stdio: ['pipe', 'pipe', 'pipe'] });
+      const p = spawn(bin, [/^[a-z]{2,3}([-_][A-Za-z0-9]+)*$/.test(language) ? language : 'es-ES'], { stdio: ['pipe', 'pipe', 'pipe'] });
       x.p = p;
-      let ultimo: VoiceEvent['estado'] | null = null, err = '';
+      let last: VoiceEvent['state'] | null = null, err = '';
       createInterface({ input: p.stdout! }).on('line', l => {
-        try { const j = JSON.parse(l); ultimo = j.t; emitir({ estado: j.t, texto: j.texto }); } catch {}
+        try { const j = JSON.parse(l); last = j.t; emit({ state: j.t, text: j.text }); } catch {}
       });
       p.stderr!.on('data', b => { err = (err + b).slice(-1000); });
       p.stdin!.on('error', () => {});
-      p.on('close', codigo => {
+      p.on('close', code => {
         if (this.d.get(id) === x) { clearTimeout(x.timer); this.d.delete(id); }
-        if (ultimo !== 'final' && ultimo !== 'error' && !p.killed) emitir({ estado: 'error', texto: t('server.voice.cutOff', { codigo: codigo ? t('server.voice.code', { codigo }) : '', error: err.trim() ? `: ${err.trim().split('\n').pop()}` : '' }) });
+        if (last !== 'final' && last !== 'error' && !p.killed) emit({ state: 'error', text: t('server.voice.cutOff', { codigo: code ? t('server.voice.code', { codigo: code }) : '', error: err.trim() ? `: ${err.trim().split('\n').pop()}` : '' }) });
       });
       for (const b of x.queue.splice(0)) p.stdin!.write(b);
-      if (x.fin) p.stdin!.end();
-    }).catch(e => { if (this.d.get(id) === x) { clearTimeout(x.timer); this.d.delete(id); emitir({ estado: 'error', texto: (e as Error).message }); } });
+      if (x.end) p.stdin!.end();
+    }).catch(e => { if (this.d.get(id) === x) { clearTimeout(x.timer); this.d.delete(id); emit({ state: 'error', text: (e as Error).message }); } });
   }
 
   audio(id: string, base64: string) {
-    const x = this.d.get(id); if (!x || x.fin) return;
+    const x = this.d.get(id); if (!x || x.end) return;
     const b = Buffer.from(base64, 'base64');
     if (x.p) x.p.stdin!.write(b); else x.queue.push(b);
   }
 
   // se acabó de hablar: el transcriptor termina con lo que tiene y manda el texto final
-  terminar(id: string) {
-    const x = this.d.get(id); if (!x || x.fin) return;
-    x.fin = true;
+  finish(id: string) {
+    const x = this.d.get(id); if (!x || x.end) return;
+    x.end = true;
     x.p?.stdin!.end();
   }
 
-  cancelar(id: string) {
+  cancel(id: string) {
     const x = this.d.get(id); if (!x) return;
     clearTimeout(x.timer); this.d.delete(id);
-    x.fin = true; x.p?.kill();
+    x.end = true; x.p?.kill();
   }
 
   // el cliente se ha ido: sus dictados, fuera
-  soltar(dueno: unknown) { for (const [id, x] of this.d) if (x.dueno === dueno) this.cancelar(id); }
-  stopAll() { for (const id of [...this.d.keys()]) this.cancelar(id); }
+  drop(owner: unknown) { for (const [id, x] of this.d) if (x.owner === owner) this.cancel(id); }
+  stopAll() { for (const id of [...this.d.keys()]) this.cancel(id); }
 }

@@ -5,7 +5,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { t, idioma } from '../../shared/language.ts';
+import { t, language } from '../../shared/language.ts';
 
 const WAIT_LOGIN = 5 * 60_000;
 
@@ -13,55 +13,55 @@ export const b64url = (b: Buffer) => b.toString('base64').replace(/\+/g, '-').re
 export function pkce() { const verifier = b64url(randomBytes(48)); return { verifier, challenge: b64url(createHash('sha256').update(verifier).digest()) }; }
 
 const esc = (s: string) => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
-export function page(res: http.ServerResponse, ok: boolean, servicio: string, titulo: string, texto: string) {
+export function page(res: http.ServerResponse, ok: boolean, service: string, title: string, text: string) {
   res.writeHead(ok ? 200 : 400, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', Connection: 'close', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'" });
-  res.end(`<!doctype html><html lang="${idioma()}"><meta charset="utf-8"><title>work-shelter · ${esc(servicio)}</title><body style="font:16px system-ui;background:#1d1a15;color:#eadfc8;display:grid;place-items:center;height:100vh;margin:0"><main style="max-width:34em;padding:2em;border:2px solid #6b5a3a;border-radius:8px;background:#2a251d"><h1 style="font-size:1.3em;color:${ok ? '#9fd38a' : '#f0a868'}">${esc(titulo)}</h1><p>${esc(texto)}</p></main></body></html>`);
+  res.end(`<!doctype html><html lang="${language()}"><meta charset="utf-8"><title>work-shelter · ${esc(service)}</title><body style="font:16px system-ui;background:#1d1a15;color:#eadfc8;display:grid;place-items:center;height:100vh;margin:0"><main style="max-width:34em;padding:2em;border:2px solid #6b5a3a;border-radius:8px;background:#2a251d"><h1 style="font-size:1.3em;color:${ok ? '#9fd38a' : '#f0a868'}">${esc(title)}</h1><p>${esc(text)}</p></main></body></html>`);
 }
 
 export interface Returned {
   url: string;                 // la de autorización, para abrir en el navegador
-  parar(): void;
+  stop(): void;
 }
 export interface ReturnedOptions {
-  servicio: string;            // «Microsoft», «Google» (para las páginas)
-  ruta?: string;               // ruta del retorno («/» en Microsoft, que admite http://localhost sin ruta)
+  service: string;            // «Microsoft», «Google» (para las páginas)
+  path?: string;               // ruta del retorno («/» en Microsoft, que admite http://localhost sin ruta)
   // con la redirección y el reto PKCE, la URL de autorización del proveedor
-  authorization(redireccion: string, estado: string, challenge: string): string;
+  authorization(redirect: string, state: string, challenge: string): string;
   // el navegador volvió con un código (o con un error): el conector lo canjea y dice qué página enseñar
-  onBack(r: { codigo?: string; error?: Record<string, string>; redireccion: string; verifier: string }): Promise<{ ok: boolean; titulo: string; texto: string }>;
+  onBack(r: { code?: string; error?: Record<string, string>; redirect: string; verifier: string }): Promise<{ ok: boolean; title: string; text: string }>;
   onClose?(): void;
 }
 
 export async function listenReturned(op: ReturnedOptions): Promise<Returned> {
   const { verifier, challenge } = pkce();
-  const estado = b64url(randomBytes(16));
-  const ruta = op.ruta ?? '/';
-  let servidores: http.Server[] = [];
-  let reloj: NodeJS.Timeout | null = null;
-  const parar = () => {
-    if (!servidores.length) return;
-    if (reloj) clearTimeout(reloj);
-    for (const s of servidores) { s.close(); s.closeIdleConnections(); }
-    servidores = [];
+  const state = b64url(randomBytes(16));
+  const path = op.path ?? '/';
+  let servers: http.Server[] = [];
+  let timer: NodeJS.Timeout | null = null;
+  const stop = () => {
+    if (!servers.length) return;
+    if (timer) clearTimeout(timer);
+    for (const s of servers) { s.close(); s.closeIdleConnections(); }
+    servers = [];
     op.onClose?.();
   };
-  let redireccion = '';
-  const manejar = (req: http.IncomingMessage, res: http.ServerResponse) => {
+  let redirect = '';
+  const handle = (req: http.IncomingMessage, res: http.ServerResponse) => {
     const u = new URL(req.url || '/', 'http://localhost');
-    if (u.pathname !== ruta || (!u.searchParams.has('code') && !u.searchParams.has('error'))) { res.writeHead(404); res.end(); return; }
-    if (u.searchParams.get('state') !== estado) return page(res, false, op.servicio, t('integrations.linkExpired'), t('integrations.linkExpiredText', { servicio: op.servicio }));
-    parar();
+    if (u.pathname !== path || (!u.searchParams.has('code') && !u.searchParams.has('error'))) { res.writeHead(404); res.end(); return; }
+    if (u.searchParams.get('state') !== state) return page(res, false, op.service, t('integrations.linkExpired'), t('integrations.linkExpiredText', { servicio: op.service }));
+    stop();
     const error = u.searchParams.get('error') ? Object.fromEntries(u.searchParams) : undefined;
-    op.onBack({ codigo: u.searchParams.get('code') ?? undefined, error, redireccion, verifier })
-      .then(p => page(res, p.ok, op.servicio, p.titulo, p.texto))
-      .catch(e => page(res, false, op.servicio, t('integrations.couldNotConnectWith', { servicio: op.servicio }), (e as Error).message));
+    op.onBack({ code: u.searchParams.get('code') ?? undefined, error, redirect, verifier })
+      .then(p => page(res, p.ok, op.service, p.title, p.text))
+      .catch(e => page(res, false, op.service, t('integrations.couldNotConnectWith', { servicio: op.service }), (e as Error).message));
   };
-  const s4 = http.createServer(manejar);
-  await new Promise<void>((ok, mal) => { s4.once('error', mal); s4.listen(0, '127.0.0.1', () => ok()); });
-  const puerto = (s4.address() as AddressInfo).port;
-  const s6 = http.createServer(manejar); s6.on('error', () => {}); s6.listen(puerto, '::1');
-  servidores = [s4, s6];
-  redireccion = `http://localhost:${puerto}${ruta === '/' ? '' : ruta}`;
-  reloj = setTimeout(parar, WAIT_LOGIN);
-  return { url: op.authorization(redireccion, estado, challenge), parar };
+  const s4 = http.createServer(handle);
+  await new Promise<void>((ok, fail) => { s4.once('error', fail); s4.listen(0, '127.0.0.1', () => ok()); });
+  const port = (s4.address() as AddressInfo).port;
+  const s6 = http.createServer(handle); s6.on('error', () => {}); s6.listen(port, '::1');
+  servers = [s4, s6];
+  redirect = `http://localhost:${port}${path === '/' ? '' : path}`;
+  timer = setTimeout(stop, WAIT_LOGIN);
+  return { url: op.authorization(redirect, state, challenge), stop };
 }

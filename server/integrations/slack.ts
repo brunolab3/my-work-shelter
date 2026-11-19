@@ -4,7 +4,7 @@
 // directos). Sondeo cada minuto con conversations.history desde el último mensaje visto de cada canal (las primeras
 // 24 h al conectar). Prioridad alta: mensajes directos y menciones a ti; media: @here/@channel y grupos.
 import type { Store } from '../state.ts';
-import { ConnectorBase, ConfigSource, ErrorSource, ask, retraso, type Field } from './common.ts';
+import { ConnectorBase, ConfigSource, ErrorSource, ask, delay, type Field } from './common.ts';
 import { slackChannel, contextSlackEmpty, explainErrorSlack, slackNotification, type ContextSlack } from './normalize.ts';
 import type { Notification } from './adapters.ts';
 import { t as tr } from '../../shared/language.ts';
@@ -14,9 +14,9 @@ const MAX_CHANNELS = 25;        // por sondeo, los de actividad más reciente (e
 const EACH_CHANNELS = 10 * 60_000;
 
 export const FIELDS_SLACK: Field[] = [
-  { nombre: 'token', etiqueta: 'Token de OAuth (xoxb- o xoxp-)', secreto: true, ayuda: 'api.slack.com/apps → tu app → OAuth & Permissions → «Bot User OAuth Token» (xoxb-) o «User OAuth Token» (xoxp-).', ejemplo: 'xoxb-…' },
-  { nombre: 'canales', etiqueta: 'Canales a vigilar', opcional: true, ayuda: 'Se eligen en la cámara acorazada una vez conectado (IDs separados por comas). Vacío: todos. Los mensajes directos y las menciones a ti llegan siempre.' },
-  { nombre: 'usuario', etiqueta: 'Tu ID de miembro de Slack', opcional: true, ayuda: 'Solo con token de bot, para avisarte de tus menciones: en Slack, tu perfil → ⋮ → «Copiar ID de miembro» (empieza por U). Con token de usuario se sabe solo.' },
+  { name: 'token', label: 'Token de OAuth (xoxb- o xoxp-)', secret: true, help: 'api.slack.com/apps → tu app → OAuth & Permissions → «Bot User OAuth Token» (xoxb-) o «User OAuth Token» (xoxp-).', example: 'xoxb-…' },
+  { name: 'canales', label: 'Canales a vigilar', optional: true, help: 'Se eligen en la cámara acorazada una vez conectado (IDs separados por comas). Vacío: todos. Los mensajes directos y las menciones a ti llegan siempre.' },
+  { name: 'usuario', label: 'Tu ID de miembro de Slack', optional: true, help: 'Solo con token de bot, para avisarte de tus menciones: en Slack, tu perfil → ⋮ → «Copiar ID de miembro» (empieza por U). Con token de usuario se sabe solo.' },
 ];
 
 class Slack extends ConnectorBase {
@@ -25,42 +25,42 @@ class Slack extends ConnectorBase {
   private ctx: ContextSlack = contextSlackEmpty();
   private nameTeam = '';
   private whenChannels = 0;
-  private ultimo = new Map<string, string>();     // canal → ts del último mensaje visto
-  private actividad = new Map<string, number>();  // canal → cuándo se movió por última vez (para elegir los que se sondean)
-  constructor(almacen: Store) { super(almacen, new ConfigSource(almacen, 'slack', FIELDS_SLACK)); }
-  protected onRestart() { this.ctx = contextSlackEmpty(); this.whenChannels = 0; this.ultimo.clear(); this.actividad.clear(); this.nameTeam = ''; }
+  private lastSeen = new Map<string, string>();     // canal → ts del último mensaje visto
+  private activity = new Map<string, number>();  // canal → cuándo se movió por última vez (para elegir los que se sondean)
+  constructor(store: Store) { super(store, new ConfigSource(store, 'slack', FIELDS_SLACK)); }
+  protected onRestart() { this.ctx = contextSlackEmpty(); this.whenChannels = 0; this.lastSeen.clear(); this.activity.clear(); this.nameTeam = ''; }
 
-  private async llamar(metodo: string, params: Record<string, string> = {}, token?: string): Promise<any> {
-    const t = token ?? await this.config.secreto('token');
+  private async call(method: string, params: Record<string, string> = {}, token?: string): Promise<any> {
+    const t = token ?? await this.config.secret('token');
     if (!t) throw new ErrorSource(tr('server.theSlackTokenIsMissing'));
-    const r = await ask(API + metodo + '?' + new URLSearchParams(params), { servicio: 'Slack', cabeceras: { Authorization: `Bearer ${t}` } });
-    if (r.estado === 429) throw new ErrorSource(explainErrorSlack('ratelimited'), retraso(r, 60));
-    if (!r.json?.ok) throw new ErrorSource(explainErrorSlack(r.json?.error ?? `HTTP ${r.estado}`, r.json?.needed));
+    const r = await ask(API + method + '?' + new URLSearchParams(params), { service: 'Slack', headers: { Authorization: `Bearer ${t}` } });
+    if (r.state === 429) throw new ErrorSource(explainErrorSlack('ratelimited'), delay(r, 60));
+    if (!r.json?.ok) throw new ErrorSource(explainErrorSlack(r.json?.error ?? `HTTP ${r.state}`, r.json?.needed));
     return r.json;
   }
-  private chosen() { return new Set((this.config.publicos().canales ?? '').split(/[\s,;]+/).filter(x => /^[CGD][A-Z0-9]{6,}$/.test(x))); }
-  private async nameOf(usuario: string) {
-    if (!usuario || this.ctx.users.has(usuario)) return;
-    try { const u = (await this.llamar('users.info', { user: usuario })).user; this.ctx.users.set(usuario, u?.profile?.display_name || u?.real_name || u?.name || usuario); }
-    catch { this.ctx.users.set(usuario, usuario); }
+  private chosen() { return new Set((this.config.publicFields().canales ?? '').split(/[\s,;]+/).filter(x => /^[CGD][A-Z0-9]{6,}$/.test(x))); }
+  private async nameOf(user: string) {
+    if (!user || this.ctx.users.has(user)) return;
+    try { const u = (await this.call('users.info', { user: user })).user; this.ctx.users.set(user, u?.profile?.display_name || u?.real_name || u?.name || user); }
+    catch { this.ctx.users.set(user, user); }
   }
   // Canales del token (y quién soy) cada 10 minutos
   private async refreshChannels() {
-    if (Date.now() - this.whenChannels < EACH_CHANNELS && this.ctx.canales.size) return;
-    const yo = await this.llamar('auth.test');
-    const token = (await this.config.secreto('token')) ?? '';
-    this.ctx.equipo = yo.team_id; this.nameTeam = yo.team ?? '';
-    this.ctx.bot = yo.bot_id;
-    this.ctx.yo = token.startsWith('xoxp-') ? yo.user_id : this.config.publicos().usuario || undefined;
-    const canales: any[] = [];
+    if (Date.now() - this.whenChannels < EACH_CHANNELS && this.ctx.channels.size) return;
+    const me = await this.call('auth.test');
+    const token = (await this.config.secret('token')) ?? '';
+    this.ctx.team = me.team_id; this.nameTeam = me.team ?? '';
+    this.ctx.bot = me.bot_id;
+    this.ctx.me = token.startsWith('xoxp-') ? me.user_id : this.config.publicFields().usuario || undefined;
+    const channels: any[] = [];
     let cursor = '';
-    for (let pag = 0; pag < 10; pag++) {
-      const r = await this.llamar('users.conversations', { types: 'public_channel,private_channel,mpim,im', exclude_archived: 'true', limit: '200', ...(cursor ? { cursor } : {}) });
-      canales.push(...(r.channels ?? []));
+    for (let page = 0; page < 10; page++) {
+      const r = await this.call('users.conversations', { types: 'public_channel,private_channel,mpim,im', exclude_archived: 'true', limit: '200', ...(cursor ? { cursor } : {}) });
+      channels.push(...(r.channels ?? []));
       cursor = r.response_metadata?.next_cursor ?? ''; if (!cursor) break;
     }
-    for (const c of canales) if (c.is_im) await this.nameOf(c.user);
-    this.ctx.canales = new Map(canales.map(c => [c.id, slackChannel(c, this.ctx.users)]));
+    for (const c of channels) if (c.is_im) await this.nameOf(c.user);
+    this.ctx.channels = new Map(channels.map(c => [c.id, slackChannel(c, this.ctx.users)]));
     this.ctx.chosen = this.chosen();
     this.whenChannels = Date.now();
   }
@@ -68,42 +68,42 @@ class Slack extends ConnectorBase {
   protected async pollReal() {
     await this.refreshChannels();
     this.ctx.chosen = this.chosen();
-    const desde = String((Date.now() - 86_400_000) / 1000);
+    const since = String((Date.now() - 86_400_000) / 1000);
     // los elegidos (o todos), más los directos, por actividad reciente
-    const ids = [...this.ctx.canales].filter(([id, c]) => !this.ctx.chosen.size || this.ctx.chosen.has(id) || c.tipo === 'directo')
-      .map(([id]) => id).sort((a, b) => (this.actividad.get(b) ?? 0) - (this.actividad.get(a) ?? 0)).slice(0, MAX_CHANNELS);
-    const notificaciones: Notification[] = [];
+    const ids = [...this.ctx.channels].filter(([id, c]) => !this.ctx.chosen.size || this.ctx.chosen.has(id) || c.type === 'directo')
+      .map(([id]) => id).sort((a, b) => (this.activity.get(b) ?? 0) - (this.activity.get(a) ?? 0)).slice(0, MAX_CHANNELS);
+    const notifications: Notification[] = [];
     for (const id of ids) {
       let r;
-      try { r = await this.llamar('conversations.history', { channel: id, oldest: this.ultimo.get(id) ?? desde, limit: '20' }); }
+      try { r = await this.call('conversations.history', { channel: id, oldest: this.lastSeen.get(id) ?? since, limit: '20' }); }
       catch (e) { if (e instanceof ErrorSource && e.retryIn) throw e; continue; }   // un canal sin acceso no para el resto
-      const mensajes: any[] = r.messages ?? [];
-      if (!mensajes.length) continue;
-      this.ultimo.set(id, mensajes[0].ts); this.actividad.set(id, Number(mensajes[0].ts) * 1000);
-      for (const m of mensajes) { if (m.user) await this.nameOf(m.user); const n = slackNotification(m, id, this.ctx); if (n) notificaciones.push(n); }
+      const messages: any[] = r.messages ?? [];
+      if (!messages.length) continue;
+      this.lastSeen.set(id, messages[0].ts); this.activity.set(id, Number(messages[0].ts) * 1000);
+      for (const m of messages) { if (m.user) await this.nameOf(m.user); const n = slackNotification(m, id, this.ctx); if (n) notifications.push(n); }
     }
-    this.bien(tr('server.connectedToWatching', { slack: this.nameTeam || 'Slack', conversaciones: this.ctx.chosen.size ? tr('integrations.chosenChannels', { n: this.ctx.chosen.size }) : tr('integrations.conversations', { n: ids.length }), menciones: this.ctx.yo ? '' : tr('integrations.slackSetMemberId') }));
-    return { notificaciones };
+    this.good(tr('server.connectedToWatching', { slack: this.nameTeam || 'Slack', conversaciones: this.ctx.chosen.size ? tr('integrations.chosenChannels', { n: this.ctx.chosen.size }) : tr('integrations.conversations', { n: ids.length }), menciones: this.ctx.me ? '' : tr('integrations.slackSetMemberId') }));
+    return { notifications };
   }
   protected async tryReal(v: Record<string, string>) {
     const t = v.token.trim();
-    if (!/^xox[bp]-/.test(t)) return { ok: false, detalle: tr('server.thatDoesNotLookLike2') };
+    if (!/^xox[bp]-/.test(t)) return { ok: false, detail: tr('server.thatDoesNotLookLike2') };
     try {
-      const yo = await this.llamar('auth.test', {}, t);
-      const n = (await this.llamar('users.conversations', { types: 'public_channel,private_channel', exclude_archived: 'true', limit: '200' }, t)).channels?.length ?? 0;
-      return { ok: true, detalle: tr('integrations.slackValidToken', { equipo: yo.team, quien: t.startsWith('xoxb-') ? ` (bot @${yo.user})` : ` (${yo.user})`, n, invita: n ? '' : tr('integrations.slackInvite') }) };
-    } catch (e) { return { ok: false, detalle: (e as Error).message }; }
+      const me = await this.call('auth.test', {}, t);
+      const n = (await this.call('users.conversations', { types: 'public_channel,private_channel', exclude_archived: 'true', limit: '200' }, t)).channels?.length ?? 0;
+      return { ok: true, detail: tr('integrations.slackValidToken', { equipo: me.team, quien: t.startsWith('xoxb-') ? ` (bot @${me.user})` : ` (${me.user})`, n, invita: n ? '' : tr('integrations.slackInvite') }) };
+    } catch (e) { return { ok: false, detail: (e as Error).message }; }
   }
-  protected async ownAction(nombre: string, d: Record<string, any>) {
-    if (nombre === 'canales') {   // para el selector de la cámara acorazada, una vez conectado
+  protected async ownAction(name: string, d: Record<string, any>) {
+    if (name === 'canales') {   // para el selector de la cámara acorazada, una vez conectado
       this.whenChannels = 0; await this.refreshChannels();
       const el = this.chosen();
-      return [...this.ctx.canales].filter(([, c]) => c.tipo === 'canal' || c.tipo === 'privado')
-        .map(([id, c]) => ({ id, nombre: c.nombre.replace(/^#/, ''), servidor: this.nameTeam, elegido: el.has(id) }))
-        .sort((a, b) => a.nombre.localeCompare(b.nombre));
+      return [...this.ctx.channels].filter(([, c]) => c.type === 'canal' || c.type === 'privado')
+        .map(([id, c]) => ({ id, name: c.name.replace(/^#/, ''), server: this.nameTeam, picked: el.has(id) }))
+        .sort((a, b) => a.name.localeCompare(b.name));
     }
-    return super.ownAction(nombre, d);
+    return super.ownAction(name, d);
   }
 }
 
-export function crear(almacen: Store) { return new Slack(almacen); }
+export function create(store: Store) { return new Slack(store); }

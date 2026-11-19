@@ -14,44 +14,44 @@ import { readFileSync } from 'node:fs';
 import { EventEmitter } from 'node:events';
 import { randomUUID } from 'node:crypto';
 import { execFile, execFileSync } from 'node:child_process';
-import { entornoGit } from './gitEnv.ts';
+import { gitEnvironment } from './gitEnv.ts';
 import { existsSync, readdirSync } from 'node:fs';
 import { query, listSessions, getSessionMessages, getSessionInfo, type Query, type SDKMessage, type SDKUserMessage, type CanUseTool, type PermissionResult, type Options, type McpSdkServerConfigWithInstance } from '@anthropic-ai/claude-agent-sdk';
 import type { SessionSummary, LogInput, PendingRequest, Helper, WorkOptions, HistoryElement, Command, Question, Attachment, InputView } from '../shared/protocol.ts';
 import { separateAttachments, type Attachments } from './attachments.ts';
 import { ROOMS_FOLDERS } from './state.ts';
-import { activa } from '../shared/fonts.ts';
+import { active } from '../shared/sources.ts';
 import { describeTool, describeInput, permissionTitle, toolMode, toolPath, isAgent } from './tools.ts';
 import { t } from '../shared/language.ts';
 import { ANNEX, bridgeAnnex, annexGit, HIDDEN_SKILLS, withoutWorkConnectors } from './annex.ts';
 
-class Cola<T> implements AsyncIterable<T> {
-  private items: T[] = []; private waits: ((r: IteratorResult<T>) => void)[] = []; private fin = false;
-  meter(x: T) { if (this.fin) return; const w = this.waits.shift(); if (w) w({ value: x, done: false }); else this.items.push(x); }
-  cerrar() { this.fin = true; for (const w of this.waits) w({ value: undefined as any, done: true }); this.waits = []; }
+class Queue<T> implements AsyncIterable<T> {
+  private items: T[] = []; private waits: ((r: IteratorResult<T>) => void)[] = []; private end = false;
+  meter(x: T) { if (this.end) return; const w = this.waits.shift(); if (w) w({ value: x, done: false }); else this.items.push(x); }
+  close() { this.end = true; for (const w of this.waits) w({ value: undefined as any, done: true }); this.waits = []; }
   [Symbol.asyncIterator](): AsyncIterator<T> {
-    return { next: () => this.items.length ? Promise.resolve({ value: this.items.shift()!, done: false }) : this.fin ? Promise.resolve({ value: undefined as any, done: true }) : new Promise(r => this.waits.push(r)) };
+    return { next: () => this.items.length ? Promise.resolve({ value: this.items.shift()!, done: false }) : this.end ? Promise.resolve({ value: undefined as any, done: true }) : new Promise(r => this.waits.push(r)) };
   }
 }
 
-interface Pending { pet: PendingRequest; entrada: Record<string, unknown>; sugerencias?: unknown[]; resolver: (r: PermissionResult) => void }
+interface Pending { pet: PendingRequest; input: Record<string, unknown>; suggestions?: unknown[]; resolver: (r: PermissionResult) => void }
 
 interface Session {
   r: SessionSummary;
-  q?: Query; entrada?: Cola<SDKUserMessage>;
-  viva: boolean; closing: boolean; interrupting: boolean; toolsOnStartTurn?: number;
+  q?: Query; input?: Queue<SDKUserMessage>;
+  alive: boolean; closing: boolean; interrupting: boolean; toolsOnStartTurn?: number;
   // lo último que se le ha mandado (uuid → texto), para decir qué mensajes en cola anula una interrupción
   sent: Map<string, string>;
-  pendientes: Pending[];
-  entradas: LogInput[];
-  herramientas: Map<string, { nombre: string }>;
-  ayudantes: Map<string, Helper>;
+  pending: Pending[];
+  entries: LogInput[];
+  tools: Map<string, { name: string }>;
+  helpers: Map<string, Helper>;
   taskAHelper: Map<string, string>;
   // tareas en segundo plano vivas (subagentes, terminales, monitores): con alguna, el turno acaba pero el trabajo no
-  fondo: Set<string>; awaitingBackground: boolean; fondoTimer?: NodeJS.Timeout;
-  comandos: Command[];
+  background: Set<string>; awaitingBackground: boolean; backgroundTimer?: NodeJS.Timeout;
+  commands: Command[];
   stderr: string;
-  opciones: WorkOptions;
+  options: WorkOptions;
   partialText: string;
   // whether the main agent has written text to the user this turn, and whether a question without it was already held back
   textInTurn?: boolean; askHeld?: boolean;
@@ -60,23 +60,23 @@ interface Session {
 }
 
 export interface RoomsResolver {
-  pathRoom(ruta: string): string | undefined; reposOfShelter?(): string[];
+  pathRoom(filePath: string): string | undefined; reposOfShelter?(): string[];
   // las herramientas del juego para decorar la sala (server/roomDecor.ts), en las salas de repo: un servidor MCP por sesión
-  mcpRoom?(salaId: string): McpSdkServerConfigWithInstance | undefined;
+  mcpRoom?(roomId: string): McpSdkServerConfigWithInstance | undefined;
   // las de repartir el trabajo (server/dispatch.ts), en las salas de coordinación; preguntar: confirmación del Supervisor
-  mcpAssignment?(salaId: string, preguntar: (titulo: string, entrada: InputView[]) => Promise<boolean>, sesionId: string): McpSdkServerConfigWithInstance | undefined;
+  mcpAssignment?(roomId: string, ask: (title: string, input: InputView[]) => Promise<boolean>, sessionId: string): McpSdkServerConfigWithInstance | undefined;
   // las del plan compartido (leerlo y proponer cambios), en las salas que trabajan en una parte de un plan repartido
-  mcpPlan?(salaId: string): McpSdkServerConfigWithInstance | undefined;
+  mcpPlan?(roomId: string): McpSdkServerConfigWithInstance | undefined;
   // la de pasarle un mensaje o un encargo al habitante de otra sala (server/roomNotices.ts), en todas
-  mcpRooms?(salaId: string, sesionId: string, enWorktree: boolean): McpSdkServerConfigWithInstance | undefined;
+  mcpRooms?(roomId: string, sessionId: string, inWorktree: boolean): McpSdkServerConfigWithInstance | undefined;
   // el pre-flight de la tarea (server/preflight.ts): las herramientas del habitante y la puerta de `git push`
   preflight?: {
-    estado(cwd: string): Promise<string>;
-    responder(cwd: string, item: string, estado: 'ok' | 'n/a' | 'pendiente', nota?: string): Promise<string>;
-    puerta(cwd: string): Promise<{ clave: string; rama?: string; head?: string; falta: string[] } | null>;
+    state(cwd: string): Promise<string>;
+    respond(cwd: string, item: string, state: 'ok' | 'n/a' | 'pendiente', note?: string): Promise<string>;
+    puerta(cwd: string): Promise<{ key: string; branch?: string; head?: string; missing: string[] } | null>;
   };
   // carpetas que el Supervisor ha marcado de confianza en el juego (ver confianza())
-  trustedFolders?(): string[]; trust?(ruta: string): void; clonedFolders?(): string[];
+  trustedFolders?(): string[]; trust?(filePath: string): void; clonedFolders?(): string[];
 }
 
 export function pathClaude(): string | undefined {
@@ -125,40 +125,40 @@ export function projectConfig(cwd: string) {
   const dir = path.resolve(cwd);
   return [...CONFIG_PROJECT.filter(f => existsSync(path.join(dir, f))), ...(localOfRepo(dir) ? ['.claude/settings.local.json'] : [])];
 }
-export function confianza(cwd: string, fileClaude = path.join(process.env.CLAUDE_CONFIG_DIR || os.homedir(), '.claude.json'), trusted: string[] = [], limites: string[] = []): 'sin-config' | 'confiada' | 'sin-confianza' {
+export function trust(cwd: string, fileClaude = path.join(process.env.CLAUDE_CONFIG_DIR || os.homedir(), '.claude.json'), trusted: string[] = [], limits: string[] = []): 'sin-config' | 'confiada' | 'sin-confianza' {
   const dir = path.resolve(cwd);
   if (!projectConfig(dir).length) return 'sin-config';
   if ([GAME_ROOT, ...FOLDERS_OF_GAME].some(r => dir === r || dir.startsWith(r + path.sep))) return 'confiada';
-  let proyectos: Record<string, any> = {};
-  try { proyectos = JSON.parse(readFileSync(fileClaude, 'utf8')).projects ?? {}; } catch {}
-  const inGame = new Set(trusted.map(c => path.resolve(c))), bordes = new Set(limites.map(c => path.resolve(c)));
+  let projects: Record<string, any> = {};
+  try { projects = JSON.parse(readFileSync(fileClaude, 'utf8')).projects ?? {}; } catch {}
+  const inGame = new Set(trusted.map(c => path.resolve(c))), boundaries = new Set(limits.map(c => path.resolve(c)));
   for (let d = dir; ; d = path.dirname(d)) {
-    if (proyectos[d]?.hasTrustDialogAccepted === true || inGame.has(d)) return 'confiada';
-    if (path.dirname(d) === d || bordes.has(d)) return 'sin-confianza';
+    if (projects[d]?.hasTrustDialogAccepted === true || inGame.has(d)) return 'confiada';
+    if (path.dirname(d) === d || boundaries.has(d)) return 'sin-confianza';
   }
 }
 
 /** Nombre del worktree de un trabajo nuevo: la tarea en pocas palabras (se lee en la rama y en el holograma) y un
  *  sufijo para no chocar con otro de la misma tarea. */
-export function nombreWorktree(tarea: string, ahora = Date.now()) {
-  const palabras = tarea.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+export function worktreeName(task: string, now = Date.now()) {
+  const words = task.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
   let slug = '';
-  for (const p of palabras) { const n = slug ? `${slug}-${p}` : p; if (n.length > 32) break; slug = n; }
-  return `shelter-${slug ? slug.slice(0, 32) + '-' : ''}${worktreeSuffix(ahora)}`;
+  for (const p of words) { const n = slug ? `${slug}-${p}` : p; if (n.length > 32) break; slug = n; }
+  return `shelter-${slug ? slug.slice(0, 32) + '-' : ''}${worktreeSuffix(now)}`;
 }
-export const worktreeSuffix = (ahora = Date.now()) => (ahora % 36 ** 4).toString(36).padStart(4, '0');
+export const worktreeSuffix = (now = Date.now()) => (now % 36 ** 4).toString(36).padStart(4, '0');
 
 /** Crea el worktree de un trabajo nuevo donde lo haría Claude Code con --worktree (.claude/worktrees/<nombre>, rama
  *  worktree-<nombre>), desde la rama principal del remoto recién traída (o, sin remoto, desde lo que tenga la copia), para
  *  que la conversación arranque ya dentro. Arrancando en la copia principal, Claude Code lista las habilidades de los
  *  worktrees que hay dentro con un prefijo («.claude/worktrees/ABC-1:skill») que su herramienta Skill no reconoce. */
-export async function crearWorktree(repo: string, nombre: string): Promise<string> {
-  const git = (args: string[], timeout = 30_000) => new Promise<string>((ok, ko) => execFile('git', args, { cwd: repo, env: entornoGit(), timeout }, (e, out, err) => (e ? ko(new Error(String(err || e.message).trim())) : ok(String(out).trim()))));
-  const ruta = path.join(await git(['rev-parse', '--show-toplevel']), '.claude', 'worktrees', nombre);
-  const principal = await git(['symbolic-ref', '--short', 'refs/remotes/origin/HEAD']).catch(() => '');
-  if (principal) await git(['fetch', 'origin', principal.replace(/^origin\//, '')], 20_000).catch(() => {});
-  await git(['worktree', 'add', '--no-track', '-b', `worktree-${nombre}`, ruta, principal || 'HEAD']);
-  return ruta;
+export async function createWorktree(repo: string, name: string): Promise<string> {
+  const git = (args: string[], timeout = 30_000) => new Promise<string>((ok, ko) => execFile('git', args, { cwd: repo, env: gitEnvironment(), timeout }, (e, out, err) => (e ? ko(new Error(String(err || e.message).trim())) : ok(String(out).trim()))));
+  const filePath = path.join(await git(['rev-parse', '--show-toplevel']), '.claude', 'worktrees', name);
+  const main = await git(['symbolic-ref', '--short', 'refs/remotes/origin/HEAD']).catch(() => '');
+  if (main) await git(['fetch', 'origin', main.replace(/^origin\//, '')], 20_000).catch(() => {});
+  await git(['worktree', 'add', '--no-track', '-b', `worktree-${name}`, filePath, main || 'HEAD']);
+  return filePath;
 }
 
 /** El worktree de una carpeta: la raíz de su copia en .claude/worktrees (también desde una subcarpeta suya) */
@@ -173,92 +173,92 @@ export class Sessions extends EventEmitter {
   private s = new Map<string, Session>();
   claude = pathClaude();
   version = versionClaude(this.claude);
-  constructor(private resolutor: RoomsResolver, private adjuntos?: Attachments) { super(); }
+  constructor(private resolver: RoomsResolver, private attachments?: Attachments) { super(); }
 
-  lista() { return [...this.s.values()].map(x => x.r); }
+  list() { return [...this.s.values()].map(x => x.r); }
   get(id: string) { return this.s.get(id); }
-  vivas() { return [...this.s.values()].filter(x => x.viva); }
+  live() { return [...this.s.values()].filter(x => x.alive); }
   private must(id: string) { const x = this.s.get(id); if (!x) throw new Error(t('server.unknownSession')); return x; }
 
-  private lastEmission = new Map<string, { t: number; clave: string; timer?: NodeJS.Timeout }>();
-  private tocar(x: Session) {
-    x.r.actualizada = Date.now(); x.r.pendientes = x.pendientes.length; x.r.pending = x.pendientes[0]?.pet; x.r.ayudantes = [...x.ayudantes.values()];
-    const clave = JSON.stringify([x.r.estado, x.r.actividad, x.r.pending?.id, x.r.pendientes, x.r.ayudantes, x.r.lastText?.length, x.r.sinLeer, x.r.titulo, x.r.error, x.r.lateral, x.r.modoPermisos, x.r.modelo, x.r.claudeId, x.r.turns, x.r.segundoPlano, x.r.worktree]);
+  private lastEmission = new Map<string, { t: number; key: string; timer?: NodeJS.Timeout }>();
+  private play(x: Session) {
+    x.r.updated = Date.now(); x.r.pendingCount = x.pending.length; x.r.pending = x.pending[0]?.pet; x.r.helpers = [...x.helpers.values()];
+    const key = JSON.stringify([x.r.state, x.r.activity, x.r.pending?.id, x.r.pendingCount, x.r.helpers, x.r.lastText?.length, x.r.unread, x.r.title, x.r.error, x.r.lateral, x.r.permissionMode, x.r.model, x.r.claudeId, x.r.turns, x.r.background, x.r.worktree]);
     const u = this.lastEmission.get(x.r.id);
-    if (u && u.clave === clave) return;
-    const ahora = Date.now();
-    const emitir = () => { const e = this.lastEmission.get(x.r.id); if (e) e.timer = undefined; this.lastEmission.set(x.r.id, { t: Date.now(), clave: JSON.stringify([x.r.estado, x.r.actividad, x.r.pending?.id, x.r.pendientes, x.r.ayudantes, x.r.lastText?.length, x.r.sinLeer, x.r.titulo, x.r.error, x.r.lateral, x.r.modoPermisos, x.r.modelo, x.r.claudeId, x.r.turns, x.r.segundoPlano, x.r.worktree]) }); this.emit('sesion', { ...x.r, ayudantes: x.r.ayudantes.map(a => ({ ...a })) }); };
+    if (u && u.key === key) return;
+    const now = Date.now();
+    const emit = () => { const e = this.lastEmission.get(x.r.id); if (e) e.timer = undefined; this.lastEmission.set(x.r.id, { t: Date.now(), key: JSON.stringify([x.r.state, x.r.activity, x.r.pending?.id, x.r.pendingCount, x.r.helpers, x.r.lastText?.length, x.r.unread, x.r.title, x.r.error, x.r.lateral, x.r.permissionMode, x.r.model, x.r.claudeId, x.r.turns, x.r.background, x.r.worktree]) }); this.emit('sesion', { ...x.r, helpers: x.r.helpers.map(a => ({ ...a })) }); };
     // los cambios de estado salen al momento; los de actividad, como mucho 8 por segundo
-    if (!u || u.clave.split(',')[0] !== clave.split(',')[0] || ahora - u.t > 125) { if (u?.timer) clearTimeout(u.timer); emitir(); }
-    else if (!u.timer) u.timer = setTimeout(emitir, 125);
+    if (!u || u.key.split(',')[0] !== key.split(',')[0] || now - u.t > 125) { if (u?.timer) clearTimeout(u.timer); emit(); }
+    else if (!u.timer) u.timer = setTimeout(emit, 125);
   }
-  private entrada(tipo: LogInput['tipo'], texto: string, extra: Partial<LogInput> = {}): LogInput { return { id: randomUUID(), ts: Date.now(), tipo, texto, ...extra }; }
-  private anadir(x: Session, e: LogInput) { x.entradas.push(e); if (x.entradas.length > 1500) x.entradas.splice(0, x.entradas.length - 1500); this.emit('entradas', x.r.id, [e]); }
+  private input(type: LogInput['type'], text: string, extra: Partial<LogInput> = {}): LogInput { return { id: randomUUID(), ts: Date.now(), type, text, ...extra }; }
+  private add(x: Session, e: LogInput) { x.entries.push(e); if (x.entries.length > 1500) x.entries.splice(0, x.entries.length - 1500); this.emit('entradas', x.r.id, [e]); }
 
-  cuaderno(id: string) { return this.must(id).entradas; }
-  comandos(id: string) { return this.must(id).comandos; }
+  logbook(id: string) { return this.must(id).entries; }
+  commands(id: string) { return this.must(id).commands; }
 
   // el init (que dice qué credencial se usa) no llega hasta el primer mensaje: antes de lanzar se mira que ningún
   // ajuste de Claude Code imponga una clave de API, para que ni el primer turno salga con ella
   private keyInSettings(cwd: string): string | null {
-    const casa = process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude');
-    for (const f of [path.join(casa, 'settings.json'), path.join(cwd, '.claude', 'settings.json'), path.join(cwd, '.claude', 'settings.local.json')]) {
+    const home = process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude');
+    for (const f of [path.join(home, 'settings.json'), path.join(cwd, '.claude', 'settings.json'), path.join(cwd, '.claude', 'settings.local.json')]) {
       try { const j = JSON.parse(readFileSync(f, 'utf8')); if (j.apiKeyHelper) return t('server.apiKeyHelperIn', { f }); if (j.env && (j.env.ANTHROPIC_API_KEY || j.env.ANTHROPIC_AUTH_TOKEN)) return t('server.aKeyInEnvOf', { f }); } catch {}
     }
     return null;
   }
 
-  async empezar(dwellerId: string, salaId: string, cwd: string, prompt: string, o: WorkOptions, adjuntos: Attachment[] = []): Promise<SessionSummary> {
+  async start(dwellerId: string, roomId: string, cwd: string, prompt: string, o: WorkOptions, attachments: Attachment[] = []): Promise<SessionSummary> {
     // el worktree de un trabajo nuevo lo crea el juego y la conversación arranca en él; si no puede (no es un repo, git
     // falla), lo intenta Claude Code al arrancar (--worktree)
-    if (o.worktree && !o.reanudar && !o.cwd) {
-      const nombre = typeof o.worktree === 'string' ? o.worktree : nombreWorktree(prompt.slice(0, 80) || (adjuntos[0] ? t('server.lookAt', { nombre: adjuntos[0].nombre }) : t('server.newJob')));
-      try { o = { ...o, cwd: await crearWorktree(cwd, nombre), worktree: undefined }; }
-      catch (e) { console.warn('No se pudo crear el worktree; lo creará Claude Code:', (e as Error).message); o = { ...o, worktree: nombre }; }
+    if (o.worktree && !o.resume && !o.cwd) {
+      const name = typeof o.worktree === 'string' ? o.worktree : worktreeName(prompt.slice(0, 80) || (attachments[0] ? t('server.lookAt', { nombre: attachments[0].name }) : t('server.newJob')));
+      try { o = { ...o, cwd: await createWorktree(cwd, name), worktree: undefined }; }
+      catch (e) { console.warn('No se pudo crear el worktree; lo creará Claude Code:', (e as Error).message); o = { ...o, worktree: name }; }
     }
-    const clave = this.keyInSettings(o.cwd || cwd);
-    if (clave) throw new Error(t('server.yourClaudeCodeSettingsForce', { clave }));
-    if (o.reanudar && [...this.s.values()].some(x => x.viva && x.r.claudeId === o.reanudar)) throw new Error(t('server.thatConversationIsAlreadyRunning'));
+    const key = this.keyInSettings(o.cwd || cwd);
+    if (key) throw new Error(t('server.yourClaudeCodeSettingsForce', { clave: key }));
+    if (o.resume && [...this.s.values()].some(x => x.alive && x.r.claudeId === o.resume)) throw new Error(t('server.thatConversationIsAlreadyRunning'));
     if (!existsSync(o.cwd || cwd)) throw new Error(t('server.theFolderDoesNotExist', { cwd: o.cwd || cwd }));
     const id = randomUUID();
     const r: SessionSummary = {
-      id, dwellerId, salaId, cwd: o.cwd || cwd, estado: 'arrancando', sinLeer: false, titulo: prompt.slice(0, 80) || (adjuntos[0] ? t('server.lookAt', { nombre: adjuntos[0].nombre }) : t('server.newJob')),
-      pendientes: 0, ayudantes: [], herramientas: 0, turns: 0, modelo: o.modelo || undefined, esfuerzo: o.esfuerzo || undefined,
-      modoPermisos: o.permisos || 'auto', created: Date.now(), actualizada: Date.now(), claudeId: o.reanudar,
+      id, dwellerId, roomId, cwd: o.cwd || cwd, state: 'arrancando', unread: false, title: prompt.slice(0, 80) || (attachments[0] ? t('server.lookAt', { nombre: attachments[0].name }) : t('server.newJob')),
+      pendingCount: 0, helpers: [], tools: 0, turns: 0, model: o.model || undefined, effort: o.effort || undefined,
+      permissionMode: o.permissions || 'auto', created: Date.now(), updated: Date.now(), claudeId: o.resume,
     };
-    const x: Session = { r, viva: false, closing: false, interrupting: false, sent: new Map(), pendientes: [], entradas: [], herramientas: new Map(), ayudantes: new Map(), taskAHelper: new Map(), fondo: new Set(), awaitingBackground: false, comandos: [], stderr: '', opciones: o, partialText: '', shipments: Promise.resolve() };
+    const x: Session = { r, alive: false, closing: false, interrupting: false, sent: new Map(), pending: [], entries: [], tools: new Map(), helpers: new Map(), taskAHelper: new Map(), background: new Set(), awaitingBackground: false, commands: [], stderr: '', options: o, partialText: '', shipments: Promise.resolve() };
     this.s.set(id, x);
-    if (o.reanudar) {
-      try { x.entradas = await this.transcripcion(o.reanudar, r.cwd); } catch {}
-      x.entradas.push(this.entrada('sistema', t('server.conversationResumed')));
-      try { const info = await getSessionInfo(o.reanudar, { dir: r.cwd }); if (info) r.titulo = info.customTitle || info.summary || r.titulo; } catch {}
+    if (o.resume) {
+      try { x.entries = await this.transcript(o.resume, r.cwd); } catch {}
+      x.entries.push(this.input('sistema', t('server.conversationResumed')));
+      try { const info = await getSessionInfo(o.resume, { dir: r.cwd }); if (info) r.title = info.customTitle || info.summary || r.title; } catch {}
     }
-    if (this.confianza(r.cwd) === 'sin-confianza') this.askTrust(x, o.reanudar);
-    else this.lanzar(x, o.reanudar).catch(e => console.error('No se pudo lanzar la sesión:', e));
-    if (prompt.trim() || adjuntos.length) { this.anadir(x, this.entrada('usuario', prompt, adjuntos.length ? { adjuntos } : {})); this.enqueue(x, prompt, adjuntos); }
-    this.tocar(x);
+    if (this.trust(r.cwd) === 'sin-confianza') this.askTrust(x, o.resume);
+    else this.launch(x, o.resume).catch(e => console.error('No se pudo lanzar la sesión:', e));
+    if (prompt.trim() || attachments.length) { this.add(x, this.input('usuario', prompt, attachments.length ? { attachments } : {})); this.enqueue(x, prompt, attachments); }
+    this.play(x);
     return r;
   }
 
-  private optionsBase(x: Session, reanudar?: string): Options {
-    const o = x.opciones;
+  private optionsBase(x: Session, resume?: string): Options {
+    const o = x.options;
     return {
       cwd: x.r.cwd,
       // la configuración de proyecto de una carpeta que no es de confianza (hooks, MCP, permisos) solo se carga si el
       // Supervisor lo ha dicho al empezar: ver confianza()
-      settingSources: this.confianza(x.r.cwd) === 'sin-confianza' && !x.loadProject ? ['user'] : ['user', 'project', 'local'],
+      settingSources: this.trust(x.r.cwd) === 'sin-confianza' && !x.loadProject ? ['user'] : ['user', 'project', 'local'],
       pathToClaudeCodeExecutable: this.claude,
-      model: x.r.modelo || undefined,
-      effort: (o.esfuerzo || undefined) as Options['effort'],
-      permissionMode: (x.r.modoPermisos || 'auto') as Options['permissionMode'],
-      allowDangerouslySkipPermissions: x.r.modoPermisos === 'bypassPermissions' ? true : undefined,
-      resume: reanudar,
-      extraArgs: o.worktree && !reanudar ? { worktree: typeof o.worktree === 'string' ? o.worktree : nombreWorktree(x.r.titulo) } : {},
+      model: x.r.model || undefined,
+      effort: (o.effort || undefined) as Options['effort'],
+      permissionMode: (x.r.permissionMode || 'auto') as Options['permissionMode'],
+      allowDangerouslySkipPermissions: x.r.permissionMode === 'bypassPermissions' ? true : undefined,
+      resume: resume,
+      extraArgs: o.worktree && !resume ? { worktree: typeof o.worktree === 'string' ? o.worktree : worktreeName(x.r.title) } : {},
       // el habitante puede entrar en un worktree a media conversación (lo crea él, EnterWorktree o hace cd a uno): la
       // conversación pasa a ser de ese worktree (sus rutas relativas, su holograma, compare_changes y los mensajes de su
       // tarea) y se retoma ahí: si no, al relanzarla (tras interrumpirla o reiniciar el juego) volvería a la copia principal
       hooks: {
-        CwdChanged: [{ hooks: [async (h: any) => { const w = worktreeRoot(h.new_cwd); if (w && (w !== x.r.worktree || w !== x.r.cwd)) { x.r.worktree = w; x.r.cwd = w; this.tocar(x); } return {}; }] }],
+        CwdChanged: [{ hooks: [async (h: any) => { const w = worktreeRoot(h.new_cwd); if (w && (w !== x.r.worktree || w !== x.r.cwd)) { x.r.worktree = w; x.r.cwd = w; this.play(x); } return {}; }] }],
         // la puerta del pre-flight: un `git push` desde el worktree de una tarea sin el compare validado en su commit (o,
         // salvo en borrador, sin la lista «antes de subir» contestada) le pregunta antes al Supervisor; con un no, se
         // deniega con lo que falta. Un hook y no canUseTool: así vale en todos los modos de permisos
@@ -270,30 +270,30 @@ export class Sessions extends EventEmitter {
             const cmd = String(h?.tool_input?.command ?? '');
             if (handMadeWorktree(cmd, x.r.worktree)) return { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: t('server.worktreeViaTask') } };
             const w = newWorktreeOf(cmd);
-            return w ? this.oneWorktree(x, w.cwd, path.basename(w.ruta ?? ''), w.rama) : {};
+            return w ? this.oneWorktree(x, w.cwd, path.basename(w.path ?? ''), w.branch) : {};
           }] },
           // nobody reads pull requests or issues in the original repo (README): opening one there asks the user first
           { matcher: 'Bash', hooks: [async (h: any) => this.originalRepoGate(x, String(h?.tool_input?.command ?? ''))] },
           { matcher: 'EnterWorktree', hooks: [async (h: any) => this.oneWorktree(x, undefined, String(h?.tool_input?.name ?? ''))] },
         ],
       },
-      systemPrompt: { type: 'preset', preset: 'claude_code', append: ANNEX + (x.r.salaId === 'puente' ? ' ' + bridgeAnnex() : x.r.salaId === 'git' ? ' ' + annexGit(this.resolutor.reposOfShelter?.() ?? []) : '') },
-      ...(x.r.salaId === 'git' ? { additionalDirectories: this.resolutor.reposOfShelter?.() ?? [] } : {}),
+      systemPrompt: { type: 'preset', preset: 'claude_code', append: ANNEX + (x.r.roomId === 'puente' ? ' ' + bridgeAnnex() : x.r.roomId === 'git' ? ' ' + annexGit(this.resolver.reposOfShelter?.() ?? []) : '') },
+      ...(x.r.roomId === 'git' ? { additionalDirectories: this.resolver.reposOfShelter?.() ?? [] } : {}),
       includePartialMessages: true,
-      settings: { skillOverrides: Object.fromEntries(HIDDEN_SKILLS.map(n => [n, 'off' as const])), ...(withoutWorkConnectors(x.r.salaId) ? { disableClaudeAiConnectors: true } : {}) },
+      settings: { skillOverrides: Object.fromEntries(HIDDEN_SKILLS.map(n => [n, 'off' as const])), ...(withoutWorkConnectors(x.r.roomId) ? { disableClaudeAiConnectors: true } : {}) },
       env: cleanEnvironment(),
       stderr: d => { x.stderr = (x.stderr + d).slice(-4000); },
     };
   }
 
-  private async oneWorktree(x: Session, dir: string | undefined, nombre: string, rama?: string): Promise<Record<string, unknown>> {
-    const tarea = worktreeTask({ ruta: nombre, rama });
-    if (!tarea) return {};
+  private async oneWorktree(x: Session, dir: string | undefined, name: string, branch?: string): Promise<Record<string, unknown>> {
+    const task = worktreeTask({ path: name, branch });
+    if (!task) return {};
     const cwd = path.resolve(x.r.worktree ?? x.r.cwd, dir ?? '.');
-    const lista = await new Promise<string>(ok => execFile('git', ['-C', cwd, 'worktree', 'list', '--porcelain'], { env: entornoGit(), timeout: 10_000 }, (e, o) => ok(e ? '' : String(o))));
-    const ya = taskWorktreeIn(lista, tarea);
-    if (!ya) return {};
-    return { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: t('server.oneWorktreePerTask', { tarea, ruta: ya.ruta, rama: ya.rama ?? '' }) } };
+    const list = await new Promise<string>(ok => execFile('git', ['-C', cwd, 'worktree', 'list', '--porcelain'], { env: gitEnvironment(), timeout: 10_000 }, (e, o) => ok(e ? '' : String(o))));
+    const already = taskWorktreeIn(list, task);
+    if (!already) return {};
+    return { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: t('server.oneWorktreePerTask', { tarea: task, ruta: already.path, rama: already.branch ?? '' }) } };
   }
 
   private async originalRepoGate(x: Session, cmd: string): Promise<Record<string, unknown>> {
@@ -303,7 +303,7 @@ export class Sessions extends EventEmitter {
     if (!repo) {
       // without -R gh aims at the cwd's repo or, from a fork, at its parent
       const cwd = x.r.worktree ?? x.r.cwd;
-      const remotes = await new Promise<string>(ok => execFile('git', ['-C', cwd, 'remote', '-v'], { env: entornoGit(), timeout: 10_000 }, (e, o) => ok(e ? '' : String(o))));
+      const remotes = await new Promise<string>(ok => execFile('git', ['-C', cwd, 'remote', '-v'], { env: gitEnvironment(), timeout: 10_000 }, (e, o) => ok(e ? '' : String(o))));
       const repos = [...new Set(remotes.split('\n').map(l => githubRepoOf(l.split(/\s+/)[1] ?? '')).filter((r): r is string => !!r))];
       for (const r of repos) {
         if (isOriginalRepo(r) || isOriginalRepo(await gh(['api', `repos/${r}`, '--jq', '.parent.full_name // ""'], undefined, 10_000).catch(() => ''))) { repo = ORIGINAL_REPO; break; }
@@ -315,142 +315,142 @@ export class Sessions extends EventEmitter {
 
   private async pushGate(x: Session, cmd: string): Promise<Record<string, unknown>> {
     const push = pushOf(cmd);
-    if (!push || !this.resolutor.preflight) return {};
+    if (!push || !this.resolver.preflight) return {};
     const base = x.r.worktree ?? x.r.cwd;
     const cwd = push.cwd ? path.resolve(base, push.cwd.replace(/^~(?=\/|$)/, os.homedir())) : base;
-    const g = await this.resolutor.preflight.puerta(cwd).catch(() => null);
-    if (!g || !g.falta.length) return {};
-    const si = await this.confirmar(x, t('server.preflightGateTitle', { clave: g.clave, rama: g.rama ?? '', head: (g.head ?? '').slice(0, 7) }),
-      [{ tipo: 'texto', texto: g.falta.map(f => '• ' + f).join('\n') }, { tipo: 'codigo', texto: cmd, lenguaje: 'bash' }]);
+    const g = await this.resolver.preflight.puerta(cwd).catch(() => null);
+    if (!g || !g.missing.length) return {};
+    const si = await this.confirm(x, t('server.preflightGateTitle', { clave: g.key, rama: g.branch ?? '', head: (g.head ?? '').slice(0, 7) }),
+      [{ type: 'texto', text: g.missing.map(f => '• ' + f).join('\n') }, { type: 'codigo', text: cmd, language: 'bash' }]);
     if (si) return {};
-    return { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: t('server.preflightGateDenied', { que: g.falta.join('; ') }) } };
+    return { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: t('server.preflightGateDenied', { que: g.missing.join('; ') }) } };
   }
 
-  private confianza(cwd: string) { return confianza(cwd, undefined, this.resolutor.trustedFolders?.(), this.resolutor.clonedFolders?.()); }
+  private trust(cwd: string) { return trust(cwd, undefined, this.resolver.trustedFolders?.(), this.resolver.clonedFolders?.()); }
 
   // la carpeta trae configuración de proyecto y no es de confianza: se pregunta antes de lanzar (lo que se escriba
   // mientras tanto espera en la cola)
-  private askTrust(x: Session, reanudar?: string) {
-    const queue = new Cola<SDKUserMessage>();
-    x.entrada = queue; x.trustWaiting = true;
+  private askTrust(x: Session, resume?: string) {
+    const queue = new Queue<SDKUserMessage>();
+    x.input = queue; x.trustWaiting = true;
     const pet: PendingRequest = {
-      id: randomUUID(), tipo: 'confianza', herramienta: 'confianza', canAlways: true,
-      titulo: t('server.trustThisFolder'),
-      entrada: [
-        { tipo: 'texto', texto: t('server.itCanRunCommandsWithout') },
-        ...projectConfig(x.r.cwd).map(f => ({ tipo: 'ruta' as const, texto: path.join(x.r.cwd, f) })),
+      id: randomUUID(), type: 'confianza', tool: 'confianza', canAlways: true,
+      title: t('server.trustThisFolder'),
+      input: [
+        { type: 'texto', text: t('server.itCanRunCommandsWithout') },
+        ...projectConfig(x.r.cwd).map(f => ({ type: 'ruta' as const, text: path.join(x.r.cwd, f) })),
       ],
     };
-    const seguir = (cargar: boolean) => {
-      x.trustWaiting = false; x.loadProject = cargar;
-      if (!x.closing) this.lanzar(x, reanudar, queue).catch(e => console.error('No se pudo lanzar la sesión:', e));
+    const follow = (load: boolean) => {
+      x.trustWaiting = false; x.loadProject = load;
+      if (!x.closing) this.launch(x, resume, queue).catch(e => console.error('No se pudo lanzar la sesión:', e));
     };
-    x.pendientes.push({ pet, entrada: {}, resolver: r => seguir(r.behavior === 'allow') });
-    this.anadir(x, this.entrada('sistema', `❓ ${pet.titulo}`));
+    x.pending.push({ pet, input: {}, resolver: r => follow(r.behavior === 'allow') });
+    this.add(x, this.input('sistema', `❓ ${pet.title}`));
     this.refreshPending(x);
     this.emit('espera', { ...x.r });
   }
 
-  private async lanzar(x: Session, reanudar?: string, queue = new Cola<SDKUserMessage>()) {
-    x.entrada = queue; x.viva = true; this.forgetBackground(x);
+  private async launch(x: Session, resume?: string, queue = new Queue<SDKUserMessage>()) {
+    x.input = queue; x.alive = true; this.forgetBackground(x);
     // the game's self-gated servers as allow rules: in auto mode the classifier runs before canUseTool, and would judge them
-    const opciones: Options = { ...this.optionsBase(x, reanudar), canUseTool: this.canUse(x), allowedTools: SELF_GATED.map(s => `mcp__${s}`) };
+    const options: Options = { ...this.optionsBase(x, resume), canUseTool: this.canUse(x), allowedTools: SELF_GATED.map(s => `mcp__${s}`) };
     // el habitante de Planificación (el tablero de tareas) trabaja con el MCP oficial de Linear (la clave, si la hay, va por el entorno)
-    if (x.r.salaId === 'logistica' && activa('linear')) {
-      try { const { mcpLinear, environmentMcpLinear } = await import('./integrations/linear.ts'); opciones.mcpServers = { ...(opciones.mcpServers ?? {}), ...(await mcpLinear()) }; opciones.env = { ...opciones.env, ...(await environmentMcpLinear()) }; }
+    if (x.r.roomId === 'logistica' && active('linear')) {
+      try { const { mcpLinear, environmentMcpLinear } = await import('./integrations/linear.ts'); options.mcpServers = { ...(options.mcpServers ?? {}), ...(await mcpLinear()) }; options.env = { ...options.env, ...(await environmentMcpLinear()) }; }
       catch (e) { console.warn('MCP de Linear no disponible:', (e as Error).message); }
     }
     // each game server keyed by its own name (mcpServers.ts): the key is the `mcp__<key>__` the session sees
-    const servidores = [
-      this.resolutor.mcpRoom?.(x.r.salaId),
-      this.resolutor.mcpAssignment?.(x.r.salaId, (titulo, entrada) => this.confirmar(x, titulo, entrada), x.r.id),
-      this.resolutor.mcpPlan?.(x.r.salaId),
+    const servers = [
+      this.resolver.mcpRoom?.(x.r.roomId),
+      this.resolver.mcpAssignment?.(x.r.roomId, (title, input) => this.confirm(x, title, input), x.r.id),
+      this.resolver.mcpPlan?.(x.r.roomId),
       // in a worktree (or starting a new one) it also gets request_worktree_cleanup
-      this.resolutor.mcpRooms?.(x.r.salaId, x.r.id, !!(x.r.worktree ?? worktreeRoot(x.r.cwd) ?? opciones.extraArgs?.worktree)),
+      this.resolver.mcpRooms?.(x.r.roomId, x.r.id, !!(x.r.worktree ?? worktreeRoot(x.r.cwd) ?? options.extraArgs?.worktree)),
       // the compare page of its changes, to review them with notes in the game before pushing (server/compare.ts)
-      mcpReview(() => x.r.worktree ?? x.r.cwd, this.resolutor.preflight),
+      mcpReview(() => x.r.worktree ?? x.r.cwd, this.resolver.preflight),
     ];
-    opciones.mcpServers = { ...(opciones.mcpServers ?? {}), ...Object.fromEntries(servidores.flatMap(s => (s ? [[s.name, s]] : []))) };
-    x.q = query({ prompt: queue, options: opciones });
-    x.viva = true; x.closing = false;
+    options.mcpServers = { ...(options.mcpServers ?? {}), ...Object.fromEntries(servers.flatMap(s => (s ? [[s.name, s]] : []))) };
+    x.q = query({ prompt: queue, options: options });
+    x.alive = true; x.closing = false;
     this.consume(x, x.q);
   }
 
-  private mensaje(contenido: string | Record<string, unknown>[]): SDKUserMessage {
-    return { type: 'user', message: { role: 'user', content: contenido as any }, parent_tool_use_id: null, uuid: randomUUID() as any, origin: { kind: 'human' } as any } as SDKUserMessage;
+  private message(content: string | Record<string, unknown>[]): SDKUserMessage {
+    return { type: 'user', message: { role: 'user', content: content as any }, parent_tool_use_id: null, uuid: randomUUID() as any, origin: { kind: 'human' } as any } as SDKUserMessage;
   }
   // a la cola de entrada de la sesión; con adjuntos, las imágenes van dentro del mensaje (attachments.ts)
-  private enqueue(x: Session, texto: string, adjuntos: Attachment[]) {
-    const queue = x.entrada!;
+  private enqueue(x: Session, text: string, attachments: Attachment[]) {
+    const queue = x.input!;
     const meter = (m: SDKUserMessage) => {
-      x.sent.set(m.uuid as string, texto);
+      x.sent.set(m.uuid as string, text);
       if (x.sent.size > 20) x.sent.delete(x.sent.keys().next().value!);
       queue.meter(m);
     };
-    if (!adjuntos.length || !this.adjuntos) { x.shipments = x.shipments.then(() => meter(this.mensaje(texto))); return; }
-    const adj = this.adjuntos;
-    x.shipments = x.shipments.then(async () => meter(this.mensaje(await adj.contenido(texto, adjuntos).catch(() => texto))));
+    if (!attachments.length || !this.attachments) { x.shipments = x.shipments.then(() => meter(this.message(text))); return; }
+    const att = this.attachments;
+    x.shipments = x.shipments.then(async () => meter(this.message(await att.content(text, attachments).catch(() => text))));
   }
 
-  enviar(id: string, texto: string, adjuntos: Attachment[] = []) {
+  send(id: string, text: string, attachments: Attachment[] = []) {
     const x = this.must(id);
-    if (x.r.estado === 'cerrada') throw new Error(t('server.thatConversationIsClosedResume'));
-    if (texto.trim() === '/stop') return this.interrumpir(id);
-    if (!x.viva && !x.trustWaiting) this.lanzar(x, x.r.claudeId).catch(e => console.error('No se pudo reanudar la sesión:', e));
-    this.anadir(x, this.entrada('usuario', texto, adjuntos.length ? { adjuntos } : {}));
+    if (x.r.state === 'cerrada') throw new Error(t('server.thatConversationIsClosedResume'));
+    if (text.trim() === '/stop') return this.interrupt(id);
+    if (!x.alive && !x.trustWaiting) this.launch(x, x.r.claudeId).catch(e => console.error('No se pudo reanudar la sesión:', e));
+    this.add(x, this.input('usuario', text, attachments.length ? { attachments } : {}));
     x.textInTurn = x.askHeld = false;
-    this.enqueue(x, texto, adjuntos);
-    x.r.estado = x.pendientes.length ? 'esperando' : 'trabajando'; x.r.sinLeer = false;
-    this.tocar(x);
+    this.enqueue(x, text, attachments);
+    x.r.state = x.pending.length ? 'esperando' : 'trabajando'; x.r.unread = false;
+    this.play(x);
   }
 
   private async consume(x: Session, q: Query) {
-    try { for await (const m of q) this.manejar(x, m); }
+    try { for await (const m of q) this.handle(x, m); }
     catch (err) {
       if (!x.closing) {
         const queue = x.stderr.trim().split('\n').slice(-6).join('\n');
         x.r.error = (err as Error).message;
-        this.anadir(x, this.entrada('error', `${(err as Error).message}${queue ? `\n\n\`\`\`\n${queue}\n\`\`\`` : ''}`));
+        this.add(x, this.input('error', `${(err as Error).message}${queue ? `\n\n\`\`\`\n${queue}\n\`\`\`` : ''}`));
       }
     } finally {
       if (x.q === q) {
-        x.viva = false;
+        x.alive = false;
         this.emptyPending(x, t('server.sessionEnded'));
-        for (const a of x.ayudantes.values()) if (a.estado === 'trabajando') a.estado = 'fallo';
-        if (x.awaitingBackground && x.r.estado === 'trabajando') x.r.estado = 'terminada';   // el turno ya había acabado bien
+        for (const a of x.helpers.values()) if (a.state === 'trabajando') a.state = 'fallo';
+        if (x.awaitingBackground && x.r.state === 'trabajando') x.r.state = 'terminada';   // el turno ya había acabado bien
         this.forgetBackground(x);
-        if (x.closing) { x.r.estado = 'cerrada'; setTimeout(() => { this.s.delete(x.r.id); this.emit('fuera', x.r.id); }, 30_000).unref(); }
-        else if (x.r.estado !== 'terminada' && x.r.estado !== 'ociosa') { x.r.estado = 'error'; x.r.sinLeer = true; x.r.error ??= t('server.sessionStoppedUnexpectedly'); }
-        x.r.actividad = undefined;
-        this.tocar(x);
+        if (x.closing) { x.r.state = 'cerrada'; setTimeout(() => { this.s.delete(x.r.id); this.emit('fuera', x.r.id); }, 30_000).unref(); }
+        else if (x.r.state !== 'terminada' && x.r.state !== 'ociosa') { x.r.state = 'error'; x.r.unread = true; x.r.error ??= t('server.sessionStoppedUnexpectedly'); }
+        x.r.activity = undefined;
+        this.play(x);
       }
     }
   }
 
-  private manejar(x: Session, m: SDKMessage) {
+  private handle(x: Session, m: SDKMessage) {
     const r = x.r;
     switch (m.type) {
-      case 'system': this.sistema(x, m as any); break;
+      case 'system': this.system(x, m as any); break;
       case 'stream_event': {
         // los fragmentos de texto viajan aparte (evento 'texto'); el resumen solo se emite si cambia la actividad
         const ev = (m as any).event;
         if ((m as any).parent_tool_use_id) return;
         if (ev?.type === 'content_block_delta' && ev.delta?.type === 'text_delta') { x.partialText += ev.delta.text; if (ev.delta.text.trim()) x.textInTurn = true; this.emit('texto', r.id, ev.delta.text); }
-        else if (ev?.type === 'content_block_delta' && ev.delta?.type === 'thinking_delta') { if (r.actividad?.modo !== 'pensar') { r.actividad = { herramienta: '', texto: t('windows.thinking'), modo: 'pensar' }; this.tocar(x); } }
+        else if (ev?.type === 'content_block_delta' && ev.delta?.type === 'thinking_delta') { if (r.activity?.mode !== 'pensar') { r.activity = { tool: '', text: t('windows.thinking'), mode: 'pensar' }; this.play(x); } }
         return;
       }
       case 'assistant': {
-        const padre = m.parent_tool_use_id;
+        const parent = m.parent_tool_use_id;
         for (const b of ((m.message?.content ?? []) as any[])) {
-          if (b.type === 'text' && !padre && String(b.text).trim()) { x.partialText = ''; x.textInTurn = true; this.anadir(x, this.entrada('asistente', b.text)); r.lastText = b.text; }
-          else if (b.type === 'thinking' && !padre) r.actividad = { herramienta: '', texto: t('windows.thinking'), modo: 'pensar' };
-          else if (b.type === 'tool_use') this.onUseTool(x, b.id, b.name, b.input ?? {}, padre);
+          if (b.type === 'text' && !parent && String(b.text).trim()) { x.partialText = ''; x.textInTurn = true; this.add(x, this.input('asistente', b.text)); r.lastText = b.text; }
+          else if (b.type === 'thinking' && !parent) r.activity = { tool: '', text: t('windows.thinking'), mode: 'pensar' };
+          else if (b.type === 'tool_use') this.onUseTool(x, b.id, b.name, b.input ?? {}, parent);
         }
-        if ((m as any).error && !padre) this.anadir(x, this.entrada('error', t('server.apiError', { error: (m as any).error })));
+        if ((m as any).error && !parent) this.add(x, this.input('error', t('server.apiError', { error: (m as any).error })));
         // un turno que empieza sin que lo mande el intercomunicador (lo que quedaba en cola, el aviso de una tarea en
         // segundo plano) también es trabajar: si no, se ve parado y Ctrl+C no lo para
-        if (!padre && ['arrancando', 'terminada', 'ociosa', 'error'].includes(r.estado)) r.estado = 'trabajando';
-        if (!padre) this.stopAwaiting(x);
+        if (!parent && ['arrancando', 'terminada', 'ociosa', 'error'].includes(r.state)) r.state = 'trabajando';
+        if (!parent) this.stopAwaiting(x);
         break;
       }
       case 'user': {
@@ -459,11 +459,11 @@ export class Sessions extends EventEmitter {
         if (!Array.isArray(c)) break;
         for (const b of c as any[]) {
           if (b.type !== 'tool_result') continue;
-          const h = x.herramientas.get(b.tool_use_id);
-          if (h && isAgent(h.nombre)) { const a = x.ayudantes.get(b.tool_use_id); const res = (m as any).tool_use_result; if (a && res?.status !== 'async_launched') this.helperEnd(x, a.id, b.is_error ? 'fallo' : 'hecho'); }
+          const h = x.tools.get(b.tool_use_id);
+          if (h && isAgent(h.name)) { const a = x.helpers.get(b.tool_use_id); const res = (m as any).tool_use_result; if (a && res?.status !== 'async_launched') this.helperEnd(x, a.id, b.is_error ? 'fallo' : 'hecho'); }
           if (b.is_error) {
             const txt = typeof b.content === 'string' ? b.content : Array.isArray(b.content) ? b.content.map((y: any) => y.text ?? '').join('\n') : '';
-            this.anadir(x, this.entrada('herramienta', t('server.toolFailed', { herramienta: h?.nombre ?? t('server.theTool') }), { herramienta: h?.nombre, detalle: txt.slice(0, 2000), esError: true }));
+            this.add(x, this.input('herramienta', t('server.toolFailed', { herramienta: h?.name ?? t('server.theTool') }), { tool: h?.name, detail: txt.slice(0, 2000), isError: true }));
           }
         }
         break;
@@ -472,200 +472,200 @@ export class Sessions extends EventEmitter {
         const res = m as any;
         r.turns += 1;
         x.textInTurn = x.askHeld = false;
-        if (typeof res.total_cost_usd === 'number') r.coste = res.total_cost_usd;
+        if (typeof res.total_cost_usd === 'number') r.cost = res.total_cost_usd;
         // consumo: los tokens acumulados de todos los modelos y, aparte, cuánto contexto ocupa ya la conversación
-        const usos = Object.values((res.modelUsage ?? {}) as Record<string, any>);
-        if (usos.length) r.tokens = usos.reduce((n, u) => n + (u.inputTokens ?? 0) + (u.outputTokens ?? 0) + (u.cacheReadInputTokens ?? 0) + (u.cacheCreationInputTokens ?? 0), 0);
+        const uses = Object.values((res.modelUsage ?? {}) as Record<string, any>);
+        if (uses.length) r.tokens = uses.reduce((n, u) => n + (u.inputTokens ?? 0) + (u.outputTokens ?? 0) + (u.cacheReadInputTokens ?? 0) + (u.cacheCreationInputTokens ?? 0), 0);
         this.measureContext(x);
         const seg = Math.round((res.duration_ms ?? 0) / 1000);
         const interrupted = x.interrupting;
-        if (x.interrupting) { x.interrupting = false; r.estado = 'terminada'; this.anadir(x, this.entrada('sistema', t('server.interrupted'))); }
-        else if (res.subtype === 'success' && !res.is_error) { r.estado = 'terminada'; if (res.result) r.lastText = res.result; this.anadir(x, this.entrada('resultado', t('server.doneInS', { seg }))); }
-        else { r.estado = 'error'; const por = (res.errors as string[] | undefined)?.join('\n') || res.result || res.subtype; r.error = por; this.anadir(x, this.entrada('error', t('server.theJobGotStuck', { por }))); }
-        r.sinLeer = true; r.actividad = undefined; x.partialText = '';
-        if (x.pendientes.length) r.estado = 'esperando';
+        if (x.interrupting) { x.interrupting = false; r.state = 'terminada'; this.add(x, this.input('sistema', t('server.interrupted'))); }
+        else if (res.subtype === 'success' && !res.is_error) { r.state = 'terminada'; if (res.result) r.lastText = res.result; this.add(x, this.input('resultado', t('server.doneInS', { seg }))); }
+        else { r.state = 'error'; const by = (res.errors as string[] | undefined)?.join('\n') || res.result || res.subtype; r.error = by; this.add(x, this.input('error', t('server.theJobGotStuck', { por: by }))); }
+        r.unread = true; r.activity = undefined; x.partialText = '';
+        if (x.pending.length) r.state = 'esperando';
         // con subagentes o terminales aún en segundo plano no ha terminado: sigue trabajando hasta que acaben
-        else if (r.estado === 'terminada' && !interrupted && x.fondo.size) { r.estado = 'trabajando'; r.sinLeer = false; x.awaitingBackground = true; }
+        else if (r.state === 'terminada' && !interrupted && x.background.size) { r.state = 'trabajando'; r.unread = false; x.awaitingBackground = true; }
         this.refreshTitle(x);
         // la recompensa del refugio solo cuenta las herramientas de este turno y nunca un turno interrumpido o fallido
-        const ofCurrent = interrupted || r.estado === 'error' ? 0 : r.herramientas - (x.toolsOnStartTurn ?? 0);
-        x.toolsOnStartTurn = r.herramientas;
+        const ofCurrent = interrupted || r.state === 'error' ? 0 : r.tools - (x.toolsOnStartTurn ?? 0);
+        x.toolsOnStartTurn = r.tools;
         this.emit('turno', { ...r, turnTools: ofCurrent });
         break;
       }
       case 'rate_limit_event': this.emit('limite', (m as any).rate_limit_info); break;
     }
-    this.tocar(x);
+    this.play(x);
   }
 
   // la ventana de contexto ocupada (la del /context de Claude Code, en resumen: sin pedir recuentos a la API)
   private measureContext(x: Session) {
     x.q?.getContextUsage({ detail: 'summary' }).then(c => {
       if (!c?.maxTokens) return;
-      x.r.contexto = { usados: c.totalTokens, maximo: c.maxTokens, porcentaje: Math.round(c.percentage) };
-      this.tocar(x);
+      x.r.context = { used: c.totalTokens, max: c.maxTokens, percentage: Math.round(c.percentage) };
+      this.play(x);
     }).catch(() => {});
   }
 
-  private stopAwaiting(x: Session) { x.awaitingBackground = false; clearTimeout(x.fondoTimer); }
-  private forgetBackground(x: Session) { this.stopAwaiting(x); x.fondo.clear(); x.r.segundoPlano = undefined; }
+  private stopAwaiting(x: Session) { x.awaitingBackground = false; clearTimeout(x.backgroundTimer); }
+  private forgetBackground(x: Session) { this.stopAwaiting(x); x.background.clear(); x.r.background = undefined; }
 
-  private sistema(x: Session, m: any) {
+  private system(x: Session, m: any) {
     const r = x.r;
     switch (m.subtype) {
       case 'init':
         if (m.apiKeySource && m.apiKeySource !== 'none') {
-          this.anadir(x, this.entrada('error', t('server.thisSessionWasGoingTo', { apiKeySource: m.apiKeySource })));
+          this.add(x, this.input('error', t('server.thisSessionWasGoingTo', { apiKeySource: m.apiKeySource })));
           x.closing = true; x.q?.close(); return;
         }
-        r.claudeId = m.session_id; r.cwd = m.cwd; r.modelo = m.model; r.modoPermisos = m.permissionMode;
+        r.claudeId = m.session_id; r.cwd = m.cwd; r.model = m.model; r.permissionMode = m.permissionMode;
         r.worktree = worktreeRoot(m.cwd) ?? r.worktree;
-        if (r.estado === 'arrancando') r.estado = 'trabajando';
+        if (r.state === 'arrancando') r.state = 'trabajando';
         this.measureContext(x);   // al retomar una conversación ya llega con contexto
-        x.q?.supportedCommands().then(cs => { x.comandos = cs.map(c => ({ nombre: c.name, descripcion: c.description, pista: c.argumentHint || undefined })); this.emit('comandos', r.id, x.comandos); }).catch(() => {});
+        x.q?.supportedCommands().then(cs => { x.commands = cs.map(c => ({ name: c.name, description: c.description, hint: c.argumentHint || undefined })); this.emit('comandos', r.id, x.commands); }).catch(() => {});
         break;
       case 'task_started': this.helperStart(x, m.tool_use_id ?? m.task_id, m.task_id, m.description, m.subagent_type); break;
-      case 'task_progress': { const a = x.ayudantes.get(m.tool_use_id ?? x.taskAHelper.get(m.task_id) ?? ''); if (a) { if (m.last_tool_name) a.lastTool = a.lastTool ?? m.last_tool_name; if (m.usage?.tool_uses) a.herramientas = Math.max(a.herramientas, m.usage.tool_uses); } break; }
+      case 'task_progress': { const a = x.helpers.get(m.tool_use_id ?? x.taskAHelper.get(m.task_id) ?? ''); if (a) { if (m.last_tool_name) a.lastTool = a.lastTool ?? m.last_tool_name; if (m.usage?.tool_uses) a.tools = Math.max(a.tools, m.usage.tool_uses); } break; }
       case 'task_notification': { const id = m.tool_use_id ?? x.taskAHelper.get(m.task_id); if (id) this.helperEnd(x, id, m.status === 'completed' ? 'hecho' : 'fallo'); break; }
       case 'task_updated': { const st = m.patch?.status; const id = x.taskAHelper.get(m.task_id); if (id && ['completed', 'failed', 'killed'].includes(st)) this.helperEnd(x, id, st === 'completed' ? 'hecho' : 'fallo'); break; }
       case 'background_tasks_changed': {
-        x.fondo = new Set(((m.tasks ?? []) as { task_id: string; ambient?: boolean }[]).filter(t => !t.ambient).map(t => t.task_id));
-        r.segundoPlano = x.fondo.size || undefined;
+        x.background = new Set(((m.tasks ?? []) as { task_id: string; ambient?: boolean }[]).filter(t => !t.ambient).map(t => t.task_id));
+        r.background = x.background.size || undefined;
         // al acabar la última, Claude Code suele retomar el turno con su aviso (y ese turno acaba como siempre): solo si
         // no lo retoma enseguida se da por terminado aquí
-        clearTimeout(x.fondoTimer);
-        if (!x.fondo.size && x.awaitingBackground) x.fondoTimer = setTimeout(() => {
-          if (!x.awaitingBackground || x.fondo.size || r.estado !== 'trabajando') return;
-          x.awaitingBackground = false; r.estado = 'terminada'; r.sinLeer = true; this.tocar(x);
+        clearTimeout(x.backgroundTimer);
+        if (!x.background.size && x.awaitingBackground) x.backgroundTimer = setTimeout(() => {
+          if (!x.awaitingBackground || x.background.size || r.state !== 'trabajando') return;
+          x.awaitingBackground = false; r.state = 'terminada'; r.unread = true; this.play(x);
         }, 5000).unref();
         break;
       }
-      case 'session_state_changed': if (m.state === 'running' && r.estado !== 'esperando') r.estado = 'trabajando'; break;
-      case 'compact_boundary': this.anadir(x, this.entrada('sistema', t('server.conversationCompacted'))); this.measureContext(x); break;
-      case 'local_command_output': this.anadir(x, this.entrada('sistema', String(m.content ?? ''))); break;
-      case 'commands_changed': x.comandos = (m.commands ?? []).map((c: any) => ({ nombre: c.name, descripcion: c.description, pista: c.argumentHint || undefined })); this.emit('comandos', r.id, x.comandos); break;
+      case 'session_state_changed': if (m.state === 'running' && r.state !== 'esperando') r.state = 'trabajando'; break;
+      case 'compact_boundary': this.add(x, this.input('sistema', t('server.conversationCompacted'))); this.measureContext(x); break;
+      case 'local_command_output': this.add(x, this.input('sistema', String(m.content ?? ''))); break;
+      case 'commands_changed': x.commands = (m.commands ?? []).map((c: any) => ({ name: c.name, description: c.description, hint: c.argumentHint || undefined })); this.emit('comandos', r.id, x.commands); break;
     }
   }
 
-  private onUseTool(x: Session, id: string, nombre: string, e: Record<string, unknown>, padre: string | null) {
+  private onUseTool(x: Session, id: string, name: string, e: Record<string, unknown>, parent: string | null) {
     const r = x.r;
-    const texto = describeTool(nombre, e, r.cwd);
-    x.herramientas.set(id, { nombre });
-    r.herramientas += 1;
-    if (padre) {
-      const a = x.ayudantes.get(padre);
+    const text = describeTool(name, e, r.cwd);
+    x.tools.set(id, { name });
+    r.tools += 1;
+    if (parent) {
+      const a = x.helpers.get(parent);
       if (a) {
-        const ruta = toolPath(nombre, e, r.cwd);
-        const sala = ruta ? this.resolutor.pathRoom(ruta) : undefined;
-        if (sala) a.salaId = sala;
-        if (toolMode(nombre, e) === 'escribir' || toolMode(nombre, e) === 'terminal') a.modo = 'escribir';
-        a.lastTool = texto; a.herramientas += 1;
+        const filePath = toolPath(name, e, r.cwd);
+        const room = filePath ? this.resolver.pathRoom(filePath) : undefined;
+        if (room) a.roomId = room;
+        if (toolMode(name, e) === 'escribir' || toolMode(name, e) === 'terminal') a.mode = 'escribir';
+        a.lastTool = text; a.tools += 1;
       }
-      this.anadir(x, this.entrada('herramienta', texto, { herramienta: nombre, ayudante: padre }));
+      this.add(x, this.input('herramienta', text, { tool: name, helper: parent }));
     } else {
-      r.actividad = { herramienta: nombre, texto, modo: toolMode(nombre, e) };
-      this.anadir(x, this.entrada('herramienta', texto, { herramienta: nombre }));
+      r.activity = { tool: name, text, mode: toolMode(name, e) };
+      this.add(x, this.input('herramienta', text, { tool: name }));
     }
-    if (isAgent(nombre)) this.helperStart(x, id, undefined, String(e.description ?? t('server.helpingOut')), e.subagent_type as string | undefined);
-    this.emit('herramienta', r.id, r.salaId);
+    if (isAgent(name)) this.helperStart(x, id, undefined, String(e.description ?? t('server.helpingOut')), e.subagent_type as string | undefined);
+    this.emit('herramienta', r.id, r.roomId);
   }
 
-  private helperStart(x: Session, id: string, tarea: string | undefined, descripcion: string, tipo?: string) {
-    if (tarea) x.taskAHelper.set(tarea, id);
-    const ya = x.ayudantes.get(id);
-    if (ya) { if (tipo) ya.tipo = tipo; return; }
-    x.ayudantes.set(id, { id, descripcion, tipo, estado: 'trabajando', modo: 'leer', salaId: x.r.salaId, herramientas: 0 });
+  private helperStart(x: Session, id: string, task: string | undefined, description: string, type?: string) {
+    if (task) x.taskAHelper.set(task, id);
+    const already = x.helpers.get(id);
+    if (already) { if (type) already.type = type; return; }
+    x.helpers.set(id, { id, description, type, state: 'trabajando', mode: 'leer', roomId: x.r.roomId, tools: 0 });
   }
-  private helperEnd(x: Session, id: string, estado: 'hecho' | 'fallo') {
-    const a = x.ayudantes.get(id); if (!a || a.estado !== 'trabajando') return;
-    a.estado = estado;
-    setTimeout(() => { x.ayudantes.delete(id); this.tocar(x); }, 8000).unref();
+  private helperEnd(x: Session, id: string, state: 'hecho' | 'fallo') {
+    const a = x.helpers.get(id); if (!a || a.state !== 'trabajando') return;
+    a.state = state;
+    setTimeout(() => { x.helpers.delete(id); this.play(x); }, 8000).unref();
   }
 
   // ---------------- permisos, preguntas y planes → jugador
   private canUse(x: Session): CanUseTool {
-    return (nombre, e, op) => new Promise<PermissionResult>(resolver => {
+    return (name, e, op) => new Promise<PermissionResult>(resolver => {
       // the game's self-gated tools don't ask (mcpServers.ts): decor only touches that room's decor (validated data),
       // assignment confirms what it launches itself (confirmar()), review only reads the repo and writes its page in the
       // game's folder, and plan reads the plan and proposes changes to the planning room
-      if (SELF_GATED.some(s => nombre.startsWith(`mcp__${s}__`))) { resolver({ behavior: 'allow', updatedInput: e }); return; }
+      if (SELF_GATED.some(s => name.startsWith(`mcp__${s}__`))) { resolver({ behavior: 'allow', updatedInput: e }); return; }
       // in plan mode (a busy task conversation's read-only fork) messages to rooms go without asking, like in auto mode:
       // they change nothing here, and that is how the fork answers and passes changes to its original
-      if (x.r.modoPermisos === 'plan' && nombre === `mcp__${MCP.rooms}__send_to_room`) { resolver({ behavior: 'allow', updatedInput: e }); return; }
+      if (x.r.permissionMode === 'plan' && name === `mcp__${MCP.rooms}__send_to_room`) { resolver({ behavior: 'allow', updatedInput: e }); return; }
       // a question with nothing written before it: the Overseer would answer without the results, conclusions or links
       // that only come after. Held back once per turn, so a real clarifying question still goes through on retry
-      if (nombre === 'AskUserQuestion' && !op.agentID && !x.textInTurn && !x.askHeld) { x.askHeld = true; resolver({ behavior: 'deny', message: t('server.writeBeforeAsking') }); return; }
+      if (name === 'AskUserQuestion' && !op.agentID && !x.textInTurn && !x.askHeld) { x.askHeld = true; resolver({ behavior: 'deny', message: t('server.writeBeforeAsking') }); return; }
       const id = randomUUID();
-      const ofHelper = op.agentID ? [...x.ayudantes.values()].find(a => a.id === op.agentID || x.taskAHelper.get(op.agentID!) === a.id)?.descripcion ?? t('server.aHelper') : undefined;
+      const ofHelper = op.agentID ? [...x.helpers.values()].find(a => a.id === op.agentID || x.taskAHelper.get(op.agentID!) === a.id)?.description ?? t('server.aHelper') : undefined;
       let pet: PendingRequest;
-      if (nombre === 'AskUserQuestion') pet = { id, tipo: 'pregunta', herramienta: nombre, titulo: t('server.iHaveAQuestion'), preguntas: (e.questions as Question[]) ?? [], canAlways: false, ofHelper };
-      else if (nombre === 'ExitPlanMode') pet = { id, tipo: 'plan', herramienta: nombre, titulo: t('server.myPlanIsReady'), detalle: String(e.plan ?? ''), canAlways: false, ofHelper };
-      else pet = { id, tipo: 'permiso', herramienta: nombre, titulo: permissionTitle(nombre, e), entrada: describeInput(nombre, e), motivo: op.decisionReason || undefined, canAlways: Boolean(op.suggestions?.length) && !op.suppressAlwaysAllowRule, ofHelper };
-      const p: Pending = { pet, entrada: e, sugerencias: op.suggestions, resolver };
-      x.pendientes.push(p);
-      op.signal.addEventListener('abort', () => { const i = x.pendientes.indexOf(p); if (i >= 0) { x.pendientes.splice(i, 1); resolver({ behavior: 'deny', message: t('server.cancelled') }); this.refreshPending(x); } });
-      this.anadir(x, this.entrada('sistema', `❓ ${pet.titulo}`));
+      if (name === 'AskUserQuestion') pet = { id, type: 'pregunta', tool: name, title: t('server.iHaveAQuestion'), questions: (e.questions as Question[]) ?? [], canAlways: false, ofHelper };
+      else if (name === 'ExitPlanMode') pet = { id, type: 'plan', tool: name, title: t('server.myPlanIsReady'), detail: String(e.plan ?? ''), canAlways: false, ofHelper };
+      else pet = { id, type: 'permiso', tool: name, title: permissionTitle(name, e), input: describeInput(name, e), reason: op.decisionReason || undefined, canAlways: Boolean(op.suggestions?.length) && !op.suppressAlwaysAllowRule, ofHelper };
+      const p: Pending = { pet, input: e, suggestions: op.suggestions, resolver };
+      x.pending.push(p);
+      op.signal.addEventListener('abort', () => { const i = x.pending.indexOf(p); if (i >= 0) { x.pending.splice(i, 1); resolver({ behavior: 'deny', message: t('server.cancelled') }); this.refreshPending(x); } });
+      this.add(x, this.input('sistema', `❓ ${pet.title}`));
       this.refreshPending(x);
       this.emit('espera', { ...x.r });
     });
   }
 
   /** Una confirmación del Supervisor que piden las herramientas del juego (sí o no), en el diálogo de permisos */
-  private confirmar(x: Session, titulo: string, entrada: InputView[]): Promise<boolean> {
+  private confirm(x: Session, title: string, input: InputView[]): Promise<boolean> {
     return new Promise(res => {
-      const pet: PendingRequest = { id: randomUUID(), tipo: 'permiso', herramienta: 'refugio', titulo, entrada, canAlways: false };
-      x.pendientes.push({ pet, entrada: {}, resolver: r => res(r.behavior === 'allow') });
-      this.anadir(x, this.entrada('sistema', `❓ ${titulo}`));
+      const pet: PendingRequest = { id: randomUUID(), type: 'permiso', tool: 'refugio', title, input, canAlways: false };
+      x.pending.push({ pet, input: {}, resolver: r => res(r.behavior === 'allow') });
+      this.add(x, this.input('sistema', `❓ ${title}`));
       this.refreshPending(x);
       this.emit('espera', { ...x.r });
     });
   }
 
   private refreshPending(x: Session) {
-    if (x.pendientes.length) { x.r.estado = 'esperando'; x.r.sinLeer = true; }
-    else if (x.r.estado === 'esperando') x.r.estado = x.viva ? 'trabajando' : 'error';
-    this.tocar(x);
+    if (x.pending.length) { x.r.state = 'esperando'; x.r.unread = true; }
+    else if (x.r.state === 'esperando') x.r.state = x.alive ? 'trabajando' : 'error';
+    this.play(x);
   }
-  private emptyPending(x: Session, mensaje: string) { for (const p of x.pendientes.splice(0)) p.resolver({ behavior: 'deny', message: mensaje }); }
+  private emptyPending(x: Session, message: string) { for (const p of x.pending.splice(0)) p.resolver({ behavior: 'deny', message: message }); }
 
-  responder(id: string, peticionId: string, decision: 'si' | 'siempre' | 'no', mensaje?: string, responses?: Record<string, string>) {
+  respond(id: string, requestId: string, decision: 'si' | 'siempre' | 'no', message?: string, responses?: Record<string, string>) {
     const x = this.must(id);
-    const i = x.pendientes.findIndex(p => p.pet.id === peticionId);
+    const i = x.pending.findIndex(p => p.pet.id === requestId);
     if (i < 0) return;
-    const [p] = x.pendientes.splice(i, 1);
-    const tipo = p.pet.tipo;
+    const [p] = x.pending.splice(i, 1);
+    const type = p.pet.type;
     if (decision === 'no') {
-      const por = mensaje?.trim();
-      p.resolver({ behavior: 'deny', message: por || (tipo === 'plan' ? t('server.userWantsToKeepPlanning') : t('server.userSaidNo')) });
-      this.anadir(x, this.entrada('usuario', tipo === 'confianza' ? t('server.noWorkWithoutFolderConfig') : por ? `🚫 ${por}` : t('server.no')));
-    } else if (tipo === 'confianza') {
-      if (decision === 'siempre') this.resolutor.trust?.(x.r.cwd);
+      const by = message?.trim();
+      p.resolver({ behavior: 'deny', message: by || (type === 'plan' ? t('server.userWantsToKeepPlanning') : t('server.userSaidNo')) });
+      this.add(x, this.input('usuario', type === 'confianza' ? t('server.noWorkWithoutFolderConfig') : by ? `🚫 ${by}` : t('server.no')));
+    } else if (type === 'confianza') {
+      if (decision === 'siempre') this.resolver.trust?.(x.r.cwd);
       p.resolver({ behavior: 'allow', updatedInput: {} });
-      this.anadir(x, this.entrada('usuario', decision === 'siempre' ? t('server.trustAlways') : t('server.trustOnce')));
-    } else if (tipo === 'pregunta') {
-      p.resolver({ behavior: 'allow', updatedInput: { ...p.entrada, answers: responses ?? {} } });
-      this.anadir(x, this.entrada('usuario', Object.entries(responses ?? {}).map(([q, a]) => `**${q}** → ${a}`).join('\n') || t('server.answered'), { pregunta: true }));
-    } else if (tipo === 'plan') {
-      p.resolver({ behavior: 'allow', updatedInput: p.entrada });
-      const modo = decision === 'siempre' ? 'acceptEdits' : 'auto';
-      x.q?.setPermissionMode(modo as any).catch(() => {});
-      x.r.modoPermisos = modo;
-      this.anadir(x, this.entrada('usuario', modo === 'acceptEdits' ? t('server.planApprovedAcceptEdits') : t('server.planApproved')));
+      this.add(x, this.input('usuario', decision === 'siempre' ? t('server.trustAlways') : t('server.trustOnce')));
+    } else if (type === 'pregunta') {
+      p.resolver({ behavior: 'allow', updatedInput: { ...p.input, answers: responses ?? {} } });
+      this.add(x, this.input('usuario', Object.entries(responses ?? {}).map(([q, a]) => `**${q}** → ${a}`).join('\n') || t('server.answered'), { question: true }));
+    } else if (type === 'plan') {
+      p.resolver({ behavior: 'allow', updatedInput: p.input });
+      const mode = decision === 'siempre' ? 'acceptEdits' : 'auto';
+      x.q?.setPermissionMode(mode as any).catch(() => {});
+      x.r.permissionMode = mode;
+      this.add(x, this.input('usuario', mode === 'acceptEdits' ? t('server.planApprovedAcceptEdits') : t('server.planApproved')));
     } else {
-      p.resolver({ behavior: 'allow', updatedInput: p.entrada, updatedPermissions: decision === 'siempre' ? (p.sugerencias as any) : undefined });
-      this.anadir(x, this.entrada('usuario', decision === 'siempre' ? t('server.yesAlways') : t('server.yes')));
+      p.resolver({ behavior: 'allow', updatedInput: p.input, updatedPermissions: decision === 'siempre' ? (p.suggestions as any) : undefined });
+      this.add(x, this.input('usuario', decision === 'siempre' ? t('server.yesAlways') : t('server.yes')));
     }
     this.refreshPending(x);
   }
 
-  async interrumpir(id: string) {
+  async interrupt(id: string) {
     const x = this.must(id);
-    if (!x.viva || (x.r.estado !== 'trabajando' && x.r.estado !== 'esperando' && x.r.estado !== 'arrancando')) return;
+    if (!x.alive || (x.r.state !== 'trabajando' && x.r.state !== 'esperando' && x.r.state !== 'arrancando')) return;
     // sin turno en marcha, solo con tareas en segundo plano: parar es pararlas (no llegará ningún «result»)
     if (x.awaitingBackground) {
       this.stopAwaiting(x);
-      await Promise.all([...x.fondo].map(id => x.q?.stopTask(id).catch(() => {})));
-      x.r.estado = 'terminada'; this.anadir(x, this.entrada('sistema', t('server.interrupted'))); this.tocar(x);
+      await Promise.all([...x.background].map(id => x.q?.stopTask(id).catch(() => {})));
+      x.r.state = 'terminada'; this.add(x, this.input('sistema', t('server.interrupted'))); this.play(x);
       return;
     }
     x.interrupting = true;
@@ -676,92 +676,92 @@ export class Sessions extends EventEmitter {
     try { receipt = await (x.q?.interrupt as (o?: { cancelQueued: boolean }) => Promise<typeof receipt>)?.call(x.q, { cancelQueued: true }); }
     catch { x.interrupting = false; return; }
     const voided = (receipt?.cancelled ?? []).map(u => x.sent.get(u)).filter((t): t is string => !!t);
-    if (voided.length) this.anadir(x, this.entrada('sistema', t('server.notSentDueToInterruption', { textos: voided.map(v => t('server.quoted', { v: v.length > 120 ? `${v.slice(0, 120)}…` : v })).join(', ') })));
+    if (voided.length) this.add(x, this.input('sistema', t('server.notSentDueToInterruption', { textos: voided.map(v => t('server.quoted', { v: v.length > 120 ? `${v.slice(0, 120)}…` : v })).join(', ') })));
   }
 
-  cerrar(id: string) {
+  close(id: string) {
     const x = this.s.get(id); if (!x) return;
     x.closing = true; this.emptyPending(x, t('server.sessionClosed'));
-    if (x.viva) { x.entrada?.cerrar(); try { x.q?.close(); } catch {} }
-    else { x.r.estado = 'cerrada'; this.tocar(x); setTimeout(() => { this.s.delete(id); this.emit('fuera', id); }, 1000).unref(); }
+    if (x.alive) { x.input?.close(); try { x.q?.close(); } catch {} }
+    else { x.r.state = 'cerrada'; this.play(x); setTimeout(() => { this.s.delete(id); this.emit('fuera', id); }, 1000).unref(); }
   }
-  cerrarTodas() { for (const x of this.s.values()) this.cerrar(x.r.id); }
+  closeAll() { for (const x of this.s.values()) this.close(x.r.id); }
 
   // Salir a la superficie: la conversación deja el juego para seguir en una terminal de tu escritorio. Si trabajaba
   // (o te esperaba), se interrumpe y fuera se le pide que siga; se cierra aquí y se espera a que su proceso termine,
   // porque dos Claude Code escribiendo la misma conversación la corromperían.
-  async sacar(id: string, where = t('server.aDesktopTerminal')) {
+  async takeOut(id: string, where = t('server.aDesktopTerminal')) {
     const x = this.must(id);
-    if (!x.r.claudeId) throw new Error(t('server.isStillStartingTakeIt', { titulo: x.r.titulo }));
-    const busy = () => x.viva && ['arrancando', 'trabajando', 'esperando'].includes(x.r.estado);
-    const continuar = busy();
-    if (continuar) { await this.interrumpir(id); await wait(() => !busy(), 10_000); }
-    this.anadir(x, this.entrada('sistema', t('server.continuesIn', { where })));
-    this.cerrar(id);
-    if (!(await wait(() => !x.viva, 8000))) throw new Error(t('server.isNotFinishingClosingIn', { titulo: x.r.titulo }));
-    return { claudeId: x.r.claudeId, cwd: x.r.cwd, titulo: x.r.titulo, dwellerId: x.r.dwellerId, continuar, modelo: x.opciones.modelo || undefined, esfuerzo: x.opciones.esfuerzo || undefined, permisos: x.r.modoPermisos };
+    if (!x.r.claudeId) throw new Error(t('server.isStillStartingTakeIt', { titulo: x.r.title }));
+    const busy = () => x.alive && ['arrancando', 'trabajando', 'esperando'].includes(x.r.state);
+    const continueLast = busy();
+    if (continueLast) { await this.interrupt(id); await wait(() => !busy(), 10_000); }
+    this.add(x, this.input('sistema', t('server.continuesIn', { where })));
+    this.close(id);
+    if (!(await wait(() => !x.alive, 8000))) throw new Error(t('server.isNotFinishingClosingIn', { titulo: x.r.title }));
+    return { claudeId: x.r.claudeId, cwd: x.r.cwd, title: x.r.title, dwellerId: x.r.dwellerId, continueLast, model: x.options.model || undefined, effort: x.options.effort || undefined, permissions: x.r.permissionMode };
   }
 
-  leida(id: string) { const x = this.s.get(id); if (!x) return; x.r.sinLeer = false; if (x.r.estado === 'terminada') x.r.estado = 'ociosa'; this.tocar(x); }
+  markRead(id: string) { const x = this.s.get(id); if (!x) return; x.r.unread = false; if (x.r.state === 'terminada') x.r.state = 'ociosa'; this.play(x); }
 
-  async modo(id: string, modo: string) { const x = this.must(id); try { await x.q?.setPermissionMode(modo as any); x.r.modoPermisos = modo; this.tocar(x); } catch {} }
+  async mode(id: string, mode: string) { const x = this.must(id); try { await x.q?.setPermissionMode(mode as any); x.r.permissionMode = mode; this.play(x); } catch {} }
 
   // Pregunta lateral: no interrumpe ni entra en el historial. Usa el control interno side_question y, si no existe,
   // una bifurcación efímera sin herramientas.
-  async lateral(id: string, pregunta: string) {
+  async lateral(id: string, question: string) {
     const x = this.must(id);
-    x.r.lateral = { pregunta, ts: Date.now() }; this.tocar(x);
-    let respuesta: string | undefined;
+    x.r.lateral = { question, ts: Date.now() }; this.play(x);
+    let answer: string | undefined;
     try {
       const f = (x.q as any)?.askSideQuestion;
-      if (x.viva && typeof f === 'function') { const r = await f.call(x.q, pregunta, {}); respuesta = r?.response; }
+      if (x.alive && typeof f === 'function') { const r = await f.call(x.q, question, {}); answer = r?.response; }
     } catch {}
-    if (!respuesta && x.r.claudeId) {
+    if (!answer && x.r.claudeId) {
       try {
-        const q = query({ prompt: pregunta, options: { ...this.optionsBase(x, x.r.claudeId), permissionMode: 'plan', allowDangerouslySkipPermissions: undefined, tools: [], disallowedTools: ['mcp__*'], forkSession: true, persistSession: false, maxTurns: 1, includePartialMessages: false, canUseTool: async () => ({ behavior: 'deny', message: t('server.sideQuestionNoTools') }) } as Options });
-        for await (const m of q) if (m.type === 'result' && (m as any).subtype === 'success') respuesta = (m as any).result;
-      } catch (e) { respuesta = t('server.couldNotAnswerSideQuestion', { error: (e as Error).message }); }
+        const q = query({ prompt: question, options: { ...this.optionsBase(x, x.r.claudeId), permissionMode: 'plan', allowDangerouslySkipPermissions: undefined, tools: [], disallowedTools: ['mcp__*'], forkSession: true, persistSession: false, maxTurns: 1, includePartialMessages: false, canUseTool: async () => ({ behavior: 'deny', message: t('server.sideQuestionNoTools') }) } as Options });
+        for await (const m of q) if (m.type === 'result' && (m as any).subtype === 'success') answer = (m as any).result;
+      } catch (e) { answer = t('server.couldNotAnswerSideQuestion', { error: (e as Error).message }); }
     }
-    x.r.lateral = { pregunta, respuesta: respuesta ?? t('server.noAnswer'), ts: Date.now() };
-    this.anadir(x, this.entrada('lateral', `**${pregunta}**\n\n${x.r.lateral.respuesta}`));
-    this.tocar(x);
+    x.r.lateral = { question, answer: answer ?? t('server.noAnswer'), ts: Date.now() };
+    this.add(x, this.input('lateral', `**${question}**\n\n${x.r.lateral.answer}`));
+    this.play(x);
   }
 
   private async refreshTitle(x: Session) {
     if (!x.r.claudeId) return;
-    try { const i = await getSessionInfo(x.r.claudeId, { dir: x.r.cwd }); const t = i?.customTitle || i?.summary; if (t && t !== x.r.titulo) { x.r.titulo = t; this.tocar(x); } } catch {}
+    try { const i = await getSessionInfo(x.r.claudeId, { dir: x.r.cwd }); const t = i?.customTitle || i?.summary; if (t && t !== x.r.title) { x.r.title = t; this.play(x); } } catch {}
   }
 
   // ---------------- historial (conversaciones reales de Claude Code de esa carpeta, también las de terminal)
-  async historial(dir: string, limite = 40): Promise<HistoryElement[]> {
-    const lista = await listSessions({ dir, limit: limite, includeProgrammatic: true });
-    const vivas = new Map([...this.s.values()].filter(x => x.viva && x.r.claudeId).map(x => [x.r.claudeId!, x.r.id]));
-    return lista.filter(s => s.firstPrompt || s.summary || s.customTitle).map(s => ({
-      claudeId: s.sessionId, titulo: s.customTitle || s.summary || s.firstPrompt || t('server.untitledConversation'), primerPrompt: s.firstPrompt,
+  async history(dir: string, limit = 40): Promise<HistoryElement[]> {
+    const list = await listSessions({ dir, limit: limit, includeProgrammatic: true });
+    const live = new Map([...this.s.values()].filter(x => x.alive && x.r.claudeId).map(x => [x.r.claudeId!, x.r.id]));
+    return list.filter(s => s.firstPrompt || s.summary || s.customTitle).map(s => ({
+      claudeId: s.sessionId, title: s.customTitle || s.summary || s.firstPrompt || t('server.untitledConversation'), firstPrompt: s.firstPrompt,
       // la fecha del último mensaje, no la del archivo (abrirla en la app de Claude la toca sin escribir nada)
       // (puede estar en dos proyectos: la carpeta del repo y la del worktree donde se retomó; cuenta la más reciente)
       modified: Math.max(0, ...[...new Set([dir, s.cwd].filter(Boolean))].map(d => lastActivity(path.join(projectFolder(d!), s.sessionId + '.jsonl')) ?? 0)) || s.lastModified,
       // la que Claude Code se llevó de su worktree al repo principal sigue siendo de ese worktree (cwdBeforeRelocation)
-      rama: s.gitBranch, cwd: (s.cwd && cwdBeforeRelocation(path.join(projectFolder(s.cwd), s.sessionId + '.jsonl'))) || s.cwd, enCurso: vivas.get(s.sessionId),
+      branch: s.gitBranch, cwd: (s.cwd && cwdBeforeRelocation(path.join(projectFolder(s.cwd), s.sessionId + '.jsonl'))) || s.cwd, inProgress: live.get(s.sessionId),
       ...s.tag === FORK_TAG ? { fork: true } : {},
     })).sort((a, b) => b.modified - a.modified);
   }
 
-  async transcripcion(claudeId: string, dir: string): Promise<LogInput[]> {
+  async transcript(claudeId: string, dir: string): Promise<LogInput[]> {
     const msgs = await getSessionMessages(claudeId, { dir });
     // cada mensaje con su hora real, no la de ahora: las páginas que enlazó y ya se revisaron no vuelven a quedar
     // pendientes al retomarla (shared/sessionPages.ts)
-    const horas = messageTimes(claudeId, dir);
+    const times = messageTimes(claudeId, dir);
     const out: LogInput[] = [];
     for (const m of msgs) {
       if (m.parent_tool_use_id) continue;
       const c = (m.message as any)?.content;
-      const ts = horas.get(m.uuid) ?? Date.now();
-      if (m.type === 'user') { const t = userText(c); if (t) { const { texto, adjuntos } = separateAttachments(t); out.push(this.entrada('usuario', texto, { ts, ...(adjuntos.length ? { adjuntos } : {}) })); } }
+      const ts = times.get(m.uuid) ?? Date.now();
+      if (m.type === 'user') { const t = userText(c); if (t) { const { text, attachments } = separateAttachments(t); out.push(this.input('usuario', text, { ts, ...(attachments.length ? { attachments } : {}) })); } }
       else if (m.type === 'assistant' && Array.isArray(c)) {
         for (const b of c) {
-          if (b.type === 'text' && b.text?.trim()) out.push(this.entrada('asistente', b.text, { ts }));
-          else if (b.type === 'tool_use' && b.name) out.push(this.entrada('herramienta', describeTool(b.name, b.input ?? {}, dir), { herramienta: b.name, ts }));
+          if (b.type === 'text' && b.text?.trim()) out.push(this.input('asistente', b.text, { ts }));
+          else if (b.type === 'tool_use' && b.name) out.push(this.input('herramienta', describeTool(b.name, b.input ?? {}, dir), { tool: b.name, ts }));
         }
       }
     }
@@ -773,20 +773,20 @@ export class Sessions extends EventEmitter {
  *  se retomó en otra (un worktree), cualquiera que la tenga */
 function messageTimes(claudeId: string, dir: string): Map<string, number> {
   const out = new Map<string, number>();
-  const raiz = path.dirname(projectFolder(dir));
-  let archivo = path.join(projectFolder(dir), claudeId + '.jsonl');
-  if (!existsSync(archivo)) { try { const d = readdirSync(raiz).find(x => existsSync(path.join(raiz, x, claudeId + '.jsonl'))); if (d) archivo = path.join(raiz, d, claudeId + '.jsonl'); } catch {} }
+  const root = path.dirname(projectFolder(dir));
+  let file = path.join(projectFolder(dir), claudeId + '.jsonl');
+  if (!existsSync(file)) { try { const d = readdirSync(root).find(x => existsSync(path.join(root, x, claudeId + '.jsonl'))); if (d) file = path.join(root, d, claudeId + '.jsonl'); } catch {} }
   try {
-    for (const linea of readFileSync(archivo, 'utf8').split('\n')) {
-      if (!linea.includes('"uuid"')) continue;
-      try { const j = JSON.parse(linea), ts = Date.parse(j.timestamp); if (typeof j.uuid === 'string' && Number.isFinite(ts)) out.set(j.uuid, ts); } catch {}
+    for (const line of readFileSync(file, 'utf8').split('\n')) {
+      if (!line.includes('"uuid"')) continue;
+      try { const j = JSON.parse(line), ts = Date.parse(j.timestamp); if (typeof j.uuid === 'string' && Number.isFinite(ts)) out.set(j.uuid, ts); } catch {}
     }
   } catch {}
   return out;
 }
 
 async function wait(f: () => boolean, ms: number) {
-  for (const fin = Date.now() + ms; Date.now() < fin; await new Promise(r => setTimeout(r, 100))) if (f()) return true;
+  for (const end = Date.now() + ms; Date.now() < end; await new Promise(r => setTimeout(r, 100))) if (f()) return true;
   return f();
 }
 

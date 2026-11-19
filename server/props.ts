@@ -8,12 +8,12 @@ import { PACKS } from '../shared/decor.ts';
 
 export const ASSETS = path.join(import.meta.dirname, '..', 'assets');
 /** KayKit va a la escala de sus personajes, más grandes que los del refugio: el mobiliario se usa a 0,8 (ESCALA_KAYKIT) */
-const SCALE_PACK = (pack: string) => (PACKS[pack].carpeta.startsWith('kaykit') ? 0.8 : 1);
+const SCALE_PACK = (pack: string) => (PACKS[pack].folder.startsWith('kaykit') ? 0.8 : 1);
 
 // lo que no es atrezo de una sala: suelos, paredes, puertas y terreno del pack (la sala ya los tiene), personajes y enemigos
-const FUERA = /^(FloorTile|Wall|DoorDouble|DoorSingle|LongWindow|Window_Wall|Door_|Door$|floor_|door_|terrain_|landingpad|tunnel_|Character|Enemy_|Platform_|Rail_)/;
+const OUTSIDE = /^(FloorTile|Wall|DoorDouble|DoorSingle|LongWindow|Window_Wall|Door_|Door$|floor_|door_|terrain_|landingpad|tunnel_|Character|Enemy_|Platform_|Rail_)/;
 
-export interface PropsModel { id: string; pack: string; nombre: string; tam: [number, number, number] }   // ancho (x), alto (y), fondo (z), en metros a su escala de uso
+export interface PropsModel { id: string; pack: string; name: string; size: [number, number, number] }   // ancho (x), alto (y), fondo (z), en metros a su escala de uso
 
 type M4 = number[];
 const identity = (): M4 => [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
@@ -28,21 +28,21 @@ function trs(n: any): M4 {
     tx, ty, tz, 1,
   ];
 }
-function jsonGltf(archivo: string): any {
-  const b = readFileSync(archivo);
-  if (archivo.endsWith('.gltf')) return JSON.parse(b.toString('utf8'));
+function jsonGltf(file: string): any {
+  const b = readFileSync(file);
+  if (file.endsWith('.gltf')) return JSON.parse(b.toString('utf8'));
   // .glb: cabecera de 12 bytes y el primer trozo, el JSON
   if (b.readUInt32LE(0) !== 0x46546c67) throw new Error(t('server.notAGlb'));
-  const largo = b.readUInt32LE(12);
-  return JSON.parse(b.subarray(20, 20 + largo).toString('utf8'));
+  const length = b.readUInt32LE(12);
+  return JSON.parse(b.subarray(20, 20 + length).toString('utf8'));
 }
 /** Caja (min, max) de un glTF en sus unidades */
-export function boxGltf(archivo: string): [number[], number[]] | null {
-  const j = jsonGltf(archivo);
+export function boxGltf(file: string): [number[], number[]] | null {
+  const j = jsonGltf(file);
   const min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity];
-  const visit = (i: number, padre: M4, hondo: number) => {
-    const n = j.nodes?.[i]; if (!n || hondo > 64) return;
-    const m = mul(padre, trs(n));
+  const visit = (i: number, parent: M4, depth: number) => {
+    const n = j.nodes?.[i]; if (!n || depth > 64) return;
+    const m = mul(parent, trs(n));
     if (n.mesh !== undefined) for (const p of j.meshes?.[n.mesh]?.primitives ?? []) {
       const a = j.accessors?.[p.attributes?.POSITION]; if (!a?.min || !a?.max) continue;
       for (const cx of [a.min[0], a.max[0]]) for (const cy of [a.min[1], a.max[1]]) for (const cz of [a.min[2], a.max[2]]) {
@@ -50,42 +50,42 @@ export function boxGltf(archivo: string): [number[], number[]] | null {
         for (let k = 0; k < 3; k++) { min[k] = Math.min(min[k], v[k]); max[k] = Math.max(max[k], v[k]); }
       }
     }
-    for (const h of n.children ?? []) visit(h, m, hondo + 1);
+    for (const h of n.children ?? []) visit(h, m, depth + 1);
   };
-  const escena = j.scenes?.[j.scene ?? 0];
-  for (const r of escena?.nodes ?? []) visit(r, identity(), 0);
+  const scene = j.scenes?.[j.scene ?? 0];
+  for (const r of scene?.nodes ?? []) visit(r, identity(), 0);
   return Number.isFinite(min[0]) ? [min, max] : null;
 }
 
 let cache: PropsModel[] | null = null;
-export function catalogo(): PropsModel[] {
+export function catalog(): PropsModel[] {
   if (cache) return cache;
   const out: PropsModel[] = [];
   for (const [pack, p] of Object.entries(PACKS)) {
-    const dir = path.join(ASSETS, p.carpeta);
+    const dir = path.join(ASSETS, p.folder);
     if (!existsSync(dir)) continue;
     for (const f of readdirSync(dir).sort()) {
       if (!f.endsWith(p.ext)) continue;
-      const nombre = f.slice(0, -p.ext.length);
-      if (FUERA.test(nombre)) continue;
+      const name = f.slice(0, -p.ext.length);
+      if (OUTSIDE.test(name)) continue;
       try {
         const c = boxGltf(path.join(dir, f)); if (!c) continue;
         const k = SCALE_PACK(pack);
-        const tam = [0, 1, 2].map(i => Math.round((c[1][i] - c[0][i]) * k * 100) / 100) as [number, number, number];
-        if (tam.every(t => t > 0)) out.push({ id: `${pack}/${nombre}`, pack, nombre, tam });
+        const size = [0, 1, 2].map(i => Math.round((c[1][i] - c[0][i]) * k * 100) / 100) as [number, number, number];
+        if (size.every(t => t > 0)) out.push({ id: `${pack}/${name}`, pack, name, size });
       } catch {}
     }
   }
   return (cache = out);
 }
-export const propsModel = (id: string) => catalogo().find(m => m.id === id) ?? null;
+export const propsModel = (id: string) => catalog().find(m => m.id === id) ?? null;
 
 /** El catálogo en texto, para el habitante: por pack, «id ancho×alto×fondo» (metros, a su escala de uso) */
-export function catalogInText(buscar = '', pack = ''): string {
-  const q = buscar.toLowerCase().split(/[\s,]+/).filter(Boolean);
-  const lista = catalogo().filter(m => (!pack || m.pack === pack) && (!q.length || q.some(w => m.id.toLowerCase().includes(w))));
-  if (!lista.length) return t('server.propsNothingFound');
+export function catalogInText(search = '', pack = ''): string {
+  const q = search.toLowerCase().split(/[\s,]+/).filter(Boolean);
+  const list = catalog().filter(m => (!pack || m.pack === pack) && (!q.length || q.some(w => m.id.toLowerCase().includes(w))));
+  if (!list.length) return t('server.propsNothingFound');
   const byPack = new Map<string, PropsModel[]>();
-  for (const m of lista) byPack.set(m.pack, [...(byPack.get(m.pack) ?? []), m]);
-  return [...byPack].map(([p, ms]) => `## ${p} — ${PACKS[p].que}\n` + ms.map(m => `${m.id} ${m.tam.join('×')}`).join('\n')).join('\n\n');
+  for (const m of list) byPack.set(m.pack, [...(byPack.get(m.pack) ?? []), m]);
+  return [...byPack].map(([p, ms]) => `## ${p} — ${PACKS[p].what}\n` + ms.map(m => `${m.id} ${m.size.join('×')}`).join('\n')).join('\n\n');
 }

@@ -26,15 +26,15 @@ describe('repoRef', () => {
 describe('listRepos and repoInfo (gh mocked)', () => {
   const api = (x: object) => ({ full_name: 'acme/a', private: false, archived: false, description: null, pushed_at: '2026-01-01T00:00:00Z', ...x });
   it('pages until a short one, without repeats, most recently pushed first', async () => {
-    const pedidas: string[] = [];
+    const requested: string[] = [];
     const page1 = Array.from({ length: 100 }, (_, i) => api({ full_name: `acme/r${i}`, pushed_at: `2026-01-01T00:00:${String(i % 60).padStart(2, '0')}Z` }));
-    const gh = async (args: string[]) => { pedidas.push(args[1]); return JSON.stringify(args[1].endsWith('page=1') ? page1 : args[1].endsWith('page=2') ? [api({ full_name: 'me/new', private: true, pushed_at: '2026-11-01T00:00:00Z' }), api({ full_name: 'acme/r0' })] : []); };
+    const gh = async (args: string[]) => { requested.push(args[1]); return JSON.stringify(args[1].endsWith('page=1') ? page1 : args[1].endsWith('page=2') ? [api({ full_name: 'me/new', private: true, pushed_at: '2026-11-01T00:00:00Z' }), api({ full_name: 'acme/r0' })] : []); };
     const r = await listRepos(gh, 3);
-    expect(pedidas).toHaveLength(3);
+    expect(requested).toHaveLength(3);
     expect(await listRepos(async () => JSON.stringify([api({})]))).toHaveLength(1);
-    expect(pedidas[0]).toContain('affiliation=owner,collaborator,organization_member');
+    expect(requested[0]).toContain('affiliation=owner,collaborator,organization_member');
     expect(r).toHaveLength(101);
-    expect(r[0]).toMatchObject({ repo: 'me/new', nombre: 'new', privado: true });
+    expect(r[0]).toMatchObject({ repo: 'me/new', name: 'new', isPrivate: true });
   });
   it('a pasted repo that GitHub doesn\'t know (or you can\'t read) says so', async () => {
     await expect(repoInfo(async () => { throw new Error('gh: Not Found (HTTP 404)'); }, 'acme/nope')).rejects.toThrow(/acme\/nope/);
@@ -48,36 +48,36 @@ describe('already cloned', () => {
     expect(originOf(path.join(base, 'nada'))).toBeUndefined();
   });
   it('the rooms, the root\'s repos and those in its group subfolders', () => {
-    const raiz = path.join(base, 'raiz');
-    repoWithOrigin(path.join(raiz, 'web'), 'https://github.com/acme/web.git');
-    repoWithOrigin(path.join(raiz, 'grupo', 'api'), 'https://github.com/acme/api');
-    repoWithOrigin(path.join(raiz, 'grupo', 'api', 'deep', 'x'), 'https://github.com/acme/deep');
-    const sala = repoWithOrigin(path.join(base, 'fuera', 'tools'), 'https://github.com/acme/tools.git');
-    const m = clonedRepos(raiz, [{ ruta: sala, nombre: 'Tools' }, { nombre: 'Vault' }]);
-    expect(m.get('acme/web')).toMatchObject({ ruta: path.join(raiz, 'web') });
-    expect(m.get('acme/api')).toMatchObject({ ruta: path.join(raiz, 'grupo', 'api') });
-    expect(m.get('acme/tools')).toMatchObject({ ruta: sala, sala: 'Tools' });
+    const root = path.join(base, 'raiz');
+    repoWithOrigin(path.join(root, 'web'), 'https://github.com/acme/web.git');
+    repoWithOrigin(path.join(root, 'grupo', 'api'), 'https://github.com/acme/api');
+    repoWithOrigin(path.join(root, 'grupo', 'api', 'deep', 'x'), 'https://github.com/acme/deep');
+    const room = repoWithOrigin(path.join(base, 'fuera', 'tools'), 'https://github.com/acme/tools.git');
+    const m = clonedRepos(root, [{ path: room, name: 'Tools' }, { name: 'Vault' }]);
+    expect(m.get('acme/web')).toMatchObject({ path: path.join(root, 'web') });
+    expect(m.get('acme/api')).toMatchObject({ path: path.join(root, 'grupo', 'api') });
+    expect(m.get('acme/tools')).toMatchObject({ path: room, room: 'Tools' });
     expect(m.has('acme/deep')).toBe(false);
   });
 });
 
 describe('the clone\'s folder', () => {
-  const raiz = path.join(base, 'destinos');
-  mkdirSync(path.join(raiz, 'existe'), { recursive: true });
-  repoWithOrigin(path.join(raiz, 'unrepo'), 'https://github.com/acme/unrepo');
+  const root = path.join(base, 'destinos');
+  mkdirSync(path.join(root, 'existe'), { recursive: true });
+  repoWithOrigin(path.join(root, 'unrepo'), 'https://github.com/acme/unrepo');
   it('inside the root, directly or in a group subfolder (even when the root or the group is a room\'s folder)', () => {
-    expect(cloneDestination(path.join(raiz, 'web'), raiz, [raiz])).toBe(path.join(raiz, 'web'));
-    expect(cloneDestination(path.join(raiz, 'dice', 'web'), raiz, [])).toBe(path.join(raiz, 'dice', 'web'));
+    expect(cloneDestination(path.join(root, 'web'), root, [root])).toBe(path.join(root, 'web'));
+    expect(cloneDestination(path.join(root, 'dice', 'web'), root, [])).toBe(path.join(root, 'dice', 'web'));
   });
   it('not outside it, not existing, not taken, not inside another repo, no hidden or odd names', () => {
-    expect(() => cloneDestination(path.join(base, 'otro', 'web'), raiz, [])).toThrow();
-    expect(() => cloneDestination(path.join(raiz, '..', 'web'), raiz, [])).toThrow();
-    expect(() => cloneDestination(raiz, raiz, [])).toThrow();
-    expect(() => cloneDestination(path.join(raiz, 'existe'), raiz, [])).toThrow();
-    expect(() => cloneDestination(path.join(raiz, 'sala'), raiz, [path.join(raiz, 'sala')])).toThrow();
-    expect(() => cloneDestination(path.join(raiz, 'unrepo', 'web'), raiz, [])).toThrow();
-    expect(() => cloneDestination(path.join(raiz, '.oculta'), raiz, [])).toThrow();
-    expect(() => cloneDestination(path.join(raiz, 'a;b'), raiz, [])).toThrow();
+    expect(() => cloneDestination(path.join(base, 'otro', 'web'), root, [])).toThrow();
+    expect(() => cloneDestination(path.join(root, '..', 'web'), root, [])).toThrow();
+    expect(() => cloneDestination(root, root, [])).toThrow();
+    expect(() => cloneDestination(path.join(root, 'existe'), root, [])).toThrow();
+    expect(() => cloneDestination(path.join(root, 'sala'), root, [path.join(root, 'sala')])).toThrow();
+    expect(() => cloneDestination(path.join(root, 'unrepo', 'web'), root, [])).toThrow();
+    expect(() => cloneDestination(path.join(root, '.oculta'), root, [])).toThrow();
+    expect(() => cloneDestination(path.join(root, 'a;b'), root, [])).toThrow();
     expect(() => cloneDestination('/web', '/', [])).toThrow();
   });
 });
@@ -88,33 +88,33 @@ describe('the clone', () => {
     expect(cloneUrl('acme/web', '')).toBe('https://github.com/acme/web.git');
   });
   it('git\'s progress, the last line rewritten with \\r', () => {
-    expect(progressOf('Cloning into \'web\'...\nremote: Counting objects: 100% (5/5)\rReceiving objects:  12% (1/8)\rReceiving objects:  45% (4/8)\r')).toEqual({ linea: 'Receiving objects:  45% (4/8)', pct: 45 });
+    expect(progressOf('Cloning into \'web\'...\nremote: Counting objects: 100% (5/5)\rReceiving objects:  12% (1/8)\rReceiving objects:  45% (4/8)\r')).toEqual({ line: 'Receiving objects:  45% (4/8)', pct: 45 });
   });
   it('a failure without credentials says how to set them up', () => {
     expect(explainClone("Cloning into 'x'...\nfatal: could not read Username for 'https://github.com': terminal prompts disabled\n")).toMatch(/gh auth login/);
     expect(explainClone("Cloning into 'x'...\nfatal: repository 'https://github.com/a/b.git/' not found\n")).toMatch(/^fatal: repository/);
   });
   it('clones (a local repo here) into the new folder, creating the group subfolder, and reports it', async () => {
-    const origen = path.join(base, 'origen');
-    mkdirSync(origen); execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: origen }); writeFileSync(path.join(origen, 'README.md'), 'hola');
-    execFileSync('git', ['add', '.'], { cwd: origen }); execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'x'], { cwd: origen });
-    const fin: StateClone[] = [];
-    const clones = new Clones(undefined, c => fin.push(c));
-    const destino = path.join(base, 'clones', 'grupo', 'web');
-    const c = clones.empezar('acme/web', destino, origen);
-    expect(c.estado).toBe('clonando');
-    await new Promise<void>(ok => { const h = setInterval(() => { if (fin.length) { clearInterval(h); ok(); } }, 20); });
-    expect(clones.ver(c.id)).toMatchObject({ estado: 'hecho', ruta: destino, pct: 100 });
-    expect(existsSync(path.join(destino, 'README.md'))).toBe(true);
-    expect(fin[0].estado).toBe('hecho');
+    const origin = path.join(base, 'origen');
+    mkdirSync(origin); execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: origin }); writeFileSync(path.join(origin, 'README.md'), 'hola');
+    execFileSync('git', ['add', '.'], { cwd: origin }); execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'x'], { cwd: origin });
+    const end: StateClone[] = [];
+    const clones = new Clones(undefined, c => end.push(c));
+    const target = path.join(base, 'clones', 'grupo', 'web');
+    const c = clones.start('acme/web', target, origin);
+    expect(c.state).toBe('clonando');
+    await new Promise<void>(ok => { const h = setInterval(() => { if (end.length) { clearInterval(h); ok(); } }, 20); });
+    expect(clones.check(c.id)).toMatchObject({ state: 'hecho', path: target, pct: 100 });
+    expect(existsSync(path.join(target, 'README.md'))).toBe(true);
+    expect(end[0].state).toBe('hecho');
   });
   it('a failed clone carries git\'s error', async () => {
-    const fin: StateClone[] = [];
-    const clones = new Clones(undefined, c => fin.push(c));
-    const c = clones.empezar('acme/nope', path.join(base, 'clones', 'nope'), path.join(base, 'no-existe'));
-    await new Promise<void>(ok => { const h = setInterval(() => { if (fin.length) { clearInterval(h); ok(); } }, 20); });
-    expect(clones.ver(c.id)).toMatchObject({ estado: 'error' });
-    expect(clones.ver(c.id)!.error).toMatch(/fatal|does not exist|not/i);
+    const end: StateClone[] = [];
+    const clones = new Clones(undefined, c => end.push(c));
+    const c = clones.start('acme/nope', path.join(base, 'clones', 'nope'), path.join(base, 'no-existe'));
+    await new Promise<void>(ok => { const h = setInterval(() => { if (end.length) { clearInterval(h); ok(); } }, 20); });
+    expect(clones.check(c.id)).toMatchObject({ state: 'error' });
+    expect(clones.check(c.id)!.error).toMatch(/fatal|does not exist|not/i);
     expect(existsSync(path.join(base, 'clones', 'nope'))).toBe(false);
   });
 });

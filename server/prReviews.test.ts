@@ -9,7 +9,7 @@ import { readFileSync } from 'node:fs';
 const T0 = Date.parse('2026-11-10T10:00:00Z');
 const iso = (min: number) => new Date(T0 + min * 60_000).toISOString();
 // la respuesta de CONSULTA_REVISIONES, con gente y repos inventados
-function respuesta(min = 5) {
+function answer(min = 5) {
   return {
     data: {
       viewer: { login: 'yo-mismo' },
@@ -41,26 +41,26 @@ function respuesta(min = 5) {
   };
 }
 
-const sesion = (o: Partial<SessionSummary>): SessionSummary => ({ id: 's', dwellerId: 'h', salaId: 'express', cwd: '/repos/express', estado: 'ociosa', sinLeer: false, titulo: '', pendientes: 0, ayudantes: [], herramientas: 0, turns: 0, created: 0, actualizada: 0, ...o });
-const SALAS: RoomPR[] = [
-  { id: 'express', nombre: 'Express', ruta: '/repos/express', rama: 'main', repo: 'refugio/express', worktrees: [
-    { ruta: '/repos/express/.claude/worktrees/rutas', rama: 'feature/REF-212-barra-final' },
-    { ruta: '/repos/express/.claude/worktrees/shelter-ref-212-pruebas-0abc', rama: 'worktree-shelter-ref-212-pruebas-0abc' },
+const session = (o: Partial<SessionSummary>): SessionSummary => ({ id: 's', dwellerId: 'h', roomId: 'express', cwd: '/repos/express', state: 'ociosa', unread: false, title: '', pendingCount: 0, helpers: [], tools: 0, turns: 0, created: 0, updated: 0, ...o });
+const ROOMS: RoomPR[] = [
+  { id: 'express', name: 'Express', path: '/repos/express', branch: 'main', repo: 'refugio/express', worktrees: [
+    { path: '/repos/express/.claude/worktrees/rutas', branch: 'feature/REF-212-barra-final' },
+    { path: '/repos/express/.claude/worktrees/shelter-ref-212-pruebas-0abc', branch: 'worktree-shelter-ref-212-pruebas-0abc' },
   ] },
-  { id: 'otro', nombre: 'Otro', ruta: '/repos/otro', rama: 'main', repo: 'refugio/otro', worktrees: [] },
+  { id: 'otro', name: 'Otro', path: '/repos/otro', branch: 'main', repo: 'refugio/otro', worktrees: [] },
 ];
 
 describe('revisiones de PR', () => {
   it('se queda con lo de otros que pide algo, también de bots y aprobaciones con una nota: sin vistos buenos, hilos resueltos ni lo mío', () => {
-    const { yo, prs } = reviewsOfGitHub(respuesta());
-    expect(yo).toBe('yo-mismo');
-    expect(prs[0]).toMatchObject({ numero: 42, repo: 'refugio/express', rama: 'feature/REF-212-barra-final' });
-    expect(prs[0].eventos.map(e => e.id)).toEqual(['R1', 'R6', 'C1', 'I1', 'I2']);
-    expect(reviewMessage(prs[0], [prs[0].eventos[1]])).toContain('aprueba, con una nota');
+    const { me, prs } = reviewsOfGitHub(answer());
+    expect(me).toBe('yo-mismo');
+    expect(prs[0]).toMatchObject({ number: 42, repo: 'refugio/express', branch: 'feature/REF-212-barra-final' });
+    expect(prs[0].events.map(e => e.id)).toEqual(['R1', 'R6', 'C1', 'I1', 'I2']);
+    expect(reviewMessage(prs[0], [prs[0].events[1]])).toContain('aprueba, con una nota');
     // el del bot, marcado y sin sus marcas HTML
-    expect(prs[0].eventos.find(e => e.id === 'I1')).toMatchObject({ bot: true, cuerpo: 'CI failed: el checkout no carga' });
-    expect(reviewMessage(prs[0], prs[0].eventos)).toContain('**informe-ci** (bot) ');
-    expect(prs[0].eventos.find(e => e.id === 'C1')).toMatchObject({ tipo: 'hilo', autor: 'ana-revisa', archivo: 'lib/router.js', linea: 12 });
+    expect(prs[0].events.find(e => e.id === 'I1')).toMatchObject({ bot: true, body: 'CI failed: el checkout no carga' });
+    expect(reviewMessage(prs[0], prs[0].events)).toContain('**informe-ci** (bot) ');
+    expect(prs[0].events.find(e => e.id === 'C1')).toMatchObject({ type: 'hilo', author: 'ana-revisa', file: 'lib/router.js', line: 12 });
   });
 
   it('un visto bueno o un agradecimiento no pide nada; una pregunta o un cambio, sí', () => {
@@ -77,20 +77,20 @@ describe('revisiones de PR', () => {
   });
 
   it('va a la conversación del worktree en la rama del PR, si no a la de la tarea, y nunca a otro repo', () => {
-    const pr = { repo: 'refugio/express', rama: 'feature/REF-212-barra-final' };
-    const inBranch = sesion({ id: 'rama', worktree: '/repos/express/.claude/worktrees/rutas', actualizada: 1 });
-    const ofTask = sesion({ id: 'tarea', worktree: '/repos/express/.claude/worktrees/shelter-ref-212-pruebas-0abc', actualizada: 9 });
-    const otherRepo = sesion({ id: 'otro', salaId: 'otro', cwd: '/repos/otro', actualizada: 10 });
-    expect(sessionOfPR(pr, SALAS, [ofTask, inBranch, otherRepo])?.sesion.id).toBe('rama');
-    expect(sessionOfPR(pr, SALAS, [ofTask, otherRepo])?.sesion.id).toBe('tarea');
-    expect(sessionOfPR(pr, SALAS, [{ ...inBranch, estado: 'cerrada' }, otherRepo])).toBeUndefined();
+    const pr = { repo: 'refugio/express', branch: 'feature/REF-212-barra-final' };
+    const inBranch = session({ id: 'rama', worktree: '/repos/express/.claude/worktrees/rutas', updated: 1 });
+    const ofTask = session({ id: 'tarea', worktree: '/repos/express/.claude/worktrees/shelter-ref-212-pruebas-0abc', updated: 9 });
+    const otherRepo = session({ id: 'otro', roomId: 'otro', cwd: '/repos/otro', updated: 10 });
+    expect(sessionOfPR(pr, ROOMS, [ofTask, inBranch, otherRepo])?.session.id).toBe('rama');
+    expect(sessionOfPR(pr, ROOMS, [ofTask, otherRepo])?.session.id).toBe('tarea');
+    expect(sessionOfPR(pr, ROOMS, [{ ...inBranch, state: 'cerrada' }, otherRepo])).toBeUndefined();
     // la carpeta principal de la sala, si está en la rama del PR
-    expect(sessionOfPR({ ...pr, rama: 'main' }, SALAS, [sesion({ id: 'principal' })])?.sesion.id).toBe('principal');
+    expect(sessionOfPR({ ...pr, branch: 'main' }, ROOMS, [session({ id: 'principal' })])?.session.id).toBe('principal');
   });
 
   it('el mensaje cita cada comentario y pide un plan antes de tocar nada', () => {
-    const { prs } = reviewsOfGitHub(respuesta());
-    const m = reviewMessage(prs[0], prs[0].eventos);
+    const { prs } = reviewsOfGitHub(answer());
+    const m = reviewMessage(prs[0], prs[0].events);
     expect(m).toContain('[REF-212] Revisión nueva en tu PR #42 de refugio/express');
     expect(m).toContain('**ana-revisa** pide cambios (u/r1)\n   > Falta una prueba.');
     expect(m).toContain('comenta en `lib/router.js:12`');
@@ -101,100 +101,100 @@ describe('revisiones de PR', () => {
     // el fixture de verdad por el camino de verdad: reviewsOfGitHub con su autor (viewer) y el mensaje que recibe el habitante
     const { prs } = reviewsOfGitHub(JSON.parse(readFileSync(path.join(__dirname, '../test/fixtures/pr_review_ledger.json'), 'utf8')));
     expect(prs[0].ledger).toEqual({ unresolved: 2, outdated: 1, unansweredSummaries: 2 });
-    const m = reviewMessage(prs[0], prs[0].eventos);
+    const m = reviewMessage(prs[0], prs[0].events);
     expect(m).toContain('📒 Cuenta del PR: 2 hilos sin resolver (de ellos, 1 desfasados');
     expect(m).toContain('y 2 resúmenes de revisión sin respuesta tuya.');
     expect(m).toContain('antes de descartar una revisión o volver a pedirla');
     // sin nada pendiente, lo dice (y recuerda la regla igual)
-    expect(reviewMessage({ ...prs[0], ledger: { unresolved: 0, outdated: 0, unansweredSummaries: 0 } }, prs[0].eventos)).toContain('ningún hilo sin resolver ni resumen sin respuesta');
+    expect(reviewMessage({ ...prs[0], ledger: { unresolved: 0, outdated: 0, unansweredSummaries: 0 } }, prs[0].events)).toContain('ningún hilo sin resolver ni resumen sin respuesta');
   });
 
   it('el tablero recibe la cuenta de cada PR de la última vuelta', async () => {
     const dir = mkdtempSync(path.join(os.tmpdir(), 'revisiones-'));
     const fixture = JSON.parse(readFileSync(path.join(__dirname, '../test/fixtures/pr_review_ledger.json'), 'utf8'));
-    const r = new ReviewsPR(dir, { connection: async () => ({ real: true }), consultar: async () => fixture, salas: async () => [], sesiones: () => [], avisar: () => false, abrir: async () => false, delivered: () => {}, withoutConversation: () => {} });
+    const r = new ReviewsPR(dir, { connection: async () => ({ real: true }), query: async () => fixture, rooms: async () => [], sessions: () => [], notify: () => false, open: async () => false, delivered: () => {}, withoutConversation: () => {} });
     const url = 'https://github.example/refugio/cola/pull/31';
     expect(r.ledgerOf(url)).toBeUndefined();
-    await r.sondear();
+    await r.poll();
     expect(r.ledgerOf(url)).toEqual({ unresolved: 2, outdated: 1, unansweredSummaries: 2 });
   });
 
   it('la primera vez solo marca desde cuándo; luego entrega lo nuevo una vez, y sin conversación abre la del worktree de la tarea', async () => {
     const dir = mkdtempSync(path.join(os.tmpdir(), 'revisiones-'));
-    let json: any = respuesta(-60), abiertas: SessionSummary[] = [], canOpen = false;
-    const deliveries: [string, string][] = [], avisos: string[] = [], openIn: [string, string][] = [], robots: [string, string][] = [];
+    let json: any = answer(-60), openSessions: SessionSummary[] = [], canOpen = false;
+    const deliveries: [string, string][] = [], notices: string[] = [], openIn: [string, string][] = [], robots: [string, string][] = [];
     const ctx: CtxReviews = {
-      connection: async () => ({ real: true }), consultar: async () => json, salas: async () => SALAS, sesiones: () => abiertas,
-      avisar: (id, t) => { deliveries.push([id, t]); return true; }, delivered: (s: string, w: string) => { robots.push([s, w]); }, withoutConversation: t => avisos.push(t),
-      abrir: async (salaId, cwd) => { if (!canOpen) return false; openIn.push([salaId, cwd]); return true; },
+      connection: async () => ({ real: true }), query: async () => json, rooms: async () => ROOMS, sessions: () => openSessions,
+      notify: (id, t) => { deliveries.push([id, t]); return true; }, delivered: (s: string, w: string) => { robots.push([s, w]); }, withoutConversation: t => notices.push(t),
+      open: async (roomId, cwd) => { if (!canOpen) return false; openIn.push([roomId, cwd]); return true; },
     };
     const r = new ReviewsPR(dir, ctx);
-    const ahora = Date.now;
+    const now = Date.now;
     try {
       Date.now = () => T0;
-      await r.sondear();                       // lo de antes de conectar no se manda
-      json = respuesta(5);
-      await r.sondear();                       // no se puede abrir la conversación (límite): un aviso, una sola vez
-      await r.sondear();
+      await r.poll();                       // lo de antes de conectar no se manda
+      json = answer(5);
+      await r.poll();                       // no se puede abrir la conversación (límite): un aviso, una sola vez
+      await r.poll();
       expect(deliveries).toEqual([]);
-      expect(avisos).toHaveLength(1);
-      expect(avisos[0]).toContain('no he podido abrir la conversación de su worktree');
-      abiertas = [sesion({ id: 'rama', worktree: '/repos/express/.claude/worktrees/rutas' })];
-      await r.sondear();                       // con la conversación abierta, le llega
+      expect(notices).toHaveLength(1);
+      expect(notices[0]).toContain('no he podido abrir la conversación de su worktree');
+      openSessions = [session({ id: 'rama', worktree: '/repos/express/.claude/worktrees/rutas' })];
+      await r.poll();                       // con la conversación abierta, le llega
       expect(deliveries.map(e => e[0])).toEqual(['rama']);
       expect(deliveries[0][1]).toContain('¿Esto entra en la versión 5?');
       expect(robots).toEqual([['express', '/repos/express/.claude/worktrees/rutas']]);   // el robot va al holograma de ese worktree
-      await new ReviewsPR(dir, ctx).sondear();   // y no se repite (tampoco tras reiniciar)
+      await new ReviewsPR(dir, ctx).poll();   // y no se repite (tampoco tras reiniciar)
       expect(deliveries).toHaveLength(1);
-    } finally { Date.now = ahora; }
+    } finally { Date.now = now; }
   });
 
   it('al empezar a entregar lo de bots, los que ya había no se mandan de golpe; los nuevos, sí', async () => {
     const dir = mkdtempSync(path.join(os.tmpdir(), 'revisiones-'));
     // un refugio de antes: ya miraba desde T0 - 60 min, sin bots
-    writeFileSync(path.join(dir, 'revisiones-pr.json'), JSON.stringify({ desde: T0 - 120 * 60_000, seen: ['R1', 'R6', 'C1', 'I2'] }));
-    let json: any = respuesta(-60);
+    writeFileSync(path.join(dir, 'revisiones-pr.json'), JSON.stringify({ since: T0 - 120 * 60_000, seen: ['R1', 'R6', 'C1', 'I2'] }));
+    let json: any = answer(-60);
     const deliveries: string[] = [];
     const ctx: CtxReviews = {
-      connection: async () => ({ real: true }), consultar: async () => json, salas: async () => SALAS,
-      sesiones: () => [sesion({ id: 'rama', worktree: '/repos/express/.claude/worktrees/rutas' })],
-      avisar: (_id, t) => { deliveries.push(t); return true; }, delivered: () => {}, withoutConversation: () => {}, abrir: async () => false,
+      connection: async () => ({ real: true }), query: async () => json, rooms: async () => ROOMS,
+      sessions: () => [session({ id: 'rama', worktree: '/repos/express/.claude/worktrees/rutas' })],
+      notify: (_id, t) => { deliveries.push(t); return true; }, delivered: () => {}, withoutConversation: () => {}, open: async () => false,
     };
-    const ahora = Date.now;
+    const now = Date.now;
     try {
       Date.now = () => T0;
-      await new ReviewsPR(dir, ctx).sondear();
+      await new ReviewsPR(dir, ctx).poll();
       expect(deliveries).toEqual([]);          // el informe del bot de antes, no
-      json = respuesta(5); json.data.prs.nodes[0].comments.nodes[0].id = 'I9';   // otro informe, nuevo
-      await new ReviewsPR(dir, ctx).sondear();
+      json = answer(5); json.data.prs.nodes[0].comments.nodes[0].id = 'I9';   // otro informe, nuevo
+      await new ReviewsPR(dir, ctx).poll();
       expect(deliveries).toHaveLength(1);
       expect(deliveries[0]).toContain('**informe-ci** (bot)');
-    } finally { Date.now = ahora; }
+    } finally { Date.now = now; }
   });
 
   it('sin conversación abierta, la retoma en el worktree de su tarea; sin worktree, avisa de que es raro', async () => {
     const dir = mkdtempSync(path.join(os.tmpdir(), 'revisiones-'));
-    let json: any = respuesta(-60);
-    const avisos: string[] = [], openIn: [string, string, string][] = [], robots: [string, string][] = [];
-    const withoutWorktree: RoomPR[] = SALAS.map(s => ({ ...s, worktrees: [] }));
-    let salas = withoutWorktree;
+    let json: any = answer(-60);
+    const notices: string[] = [], openIn: [string, string, string][] = [], robots: [string, string][] = [];
+    const withoutWorktree: RoomPR[] = ROOMS.map(s => ({ ...s, worktrees: [] }));
+    let rooms = withoutWorktree;
     const ctx: CtxReviews = {
-      connection: async () => ({ real: true }), consultar: async () => json, salas: async () => salas, sesiones: () => [],
-      avisar: () => true, delivered: (s: string, w: string) => { robots.push([s, w]); }, withoutConversation: t => avisos.push(t),
-      abrir: async (salaId, cwd, t) => { openIn.push([salaId, cwd, t.split('\n')[0]]); return true; },
+      connection: async () => ({ real: true }), query: async () => json, rooms: async () => rooms, sessions: () => [],
+      notify: () => true, delivered: (s: string, w: string) => { robots.push([s, w]); }, withoutConversation: t => notices.push(t),
+      open: async (roomId, cwd, t) => { openIn.push([roomId, cwd, t.split('\n')[0]]); return true; },
     };
     const r = new ReviewsPR(dir, ctx);
-    const ahora = Date.now;
+    const now = Date.now;
     try {
       Date.now = () => T0;
-      await r.sondear(); json = respuesta(5);
-      await r.sondear();
+      await r.poll(); json = answer(5);
+      await r.poll();
       expect(openIn).toEqual([]);
-      expect(avisos[0]).toContain('no hay ningún worktree de su tarea: es raro');
-      salas = SALAS;
-      await r.sondear();
+      expect(notices[0]).toContain('no hay ningún worktree de su tarea: es raro');
+      rooms = ROOMS;
+      await r.poll();
       expect(openIn).toEqual([['express', '/repos/express/.claude/worktrees/rutas', expect.stringContaining('[REF-212] Revisión nueva en tu PR #42')]]);
       expect(robots).toEqual([['express', '/repos/express/.claude/worktrees/rutas']]);
-    } finally { Date.now = ahora; }
+    } finally { Date.now = now; }
   });
 });

@@ -7,22 +7,22 @@
 (() => {
   if (window.__refugioNotas) return;
   window.__refugioNotas = true;
-  const post = m => parent.postMessage(Object.assign({ refugio: 'notas' }, m), '*');
-  let notas = [];
-  let textos = null;   // llegan del juego con las notas guardadas (en el idioma del juego)
-  const rangos = new Map();
-  const marca = typeof Highlight === 'function' && CSS.highlights ? new Highlight() : null;
-  if (marca) CSS.highlights.set('refugio-nota', marca);
-  const estilo = document.createElement('style');
-  estilo.textContent = '::highlight(refugio-nota){background:rgba(255,196,0,.38);color:inherit}';
-  (document.head || document.documentElement).appendChild(estilo);
+  const post = m => parent.postMessage(Object.assign({ shelter: 'notas' }, m), '*');
+  let notes = [];
+  let texts = null;   // llegan del juego con las notas guardadas (en el idioma del juego)
+  const ranks = new Map();
+  const mark = typeof Highlight === 'function' && CSS.highlights ? new Highlight() : null;
+  if (mark) CSS.highlights.set('refugio-nota', mark);
+  const style = document.createElement('style');
+  style.textContent = '::highlight(refugio-nota){background:rgba(255,196,0,.38);color:inherit}';
+  (document.head || document.documentElement).appendChild(style);
 
   // la interfaz, en su propia raíz de sombra: el CSS de la página no la toca ni ella a la página
   const host = document.createElement('div');
   host.id = 'refugio-notas';
   host.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:2147483647';
-  const raiz = host.attachShadow({ mode: 'closed' });
-  raiz.innerHTML = `<style>
+  const root = host.attachShadow({ mode: 'closed' });
+  root.innerHTML = `<style>
     *{box-sizing:border-box;font:13px/1.4 ui-monospace,Menlo,monospace}
     .boton{position:fixed;pointer-events:auto;background:#1d1a14;color:#f3e3b5;border:1px solid #c9a24a;border-radius:4px;padding:3px 8px;cursor:pointer;box-shadow:0 2px 8px #0008}
     .caja{position:fixed;pointer-events:auto;width:340px;background:#1d1a14;color:#f3e3b5;border:1px solid #c9a24a;border-radius:6px;padding:8px;box-shadow:0 6px 24px #000a}
@@ -38,161 +38,161 @@
   <button class="boton mas" hidden>+</button>
   <div class="caja" hidden><div class="cita"></div><textarea></textarea>
     <div class="fila"><button class="borrar"></button><button class="no"></button><button class="si"></button></div></div>`;
-  const boton = raiz.querySelector('.boton:not(.mas)'), mas = raiz.querySelector('.mas'), caja = raiz.querySelector('.caja'), area = raiz.querySelector('textarea');
-  const citaEl = raiz.querySelector('.cita'), bBorrar = raiz.querySelector('.borrar'), bNo = raiz.querySelector('.no'), bSi = raiz.querySelector('.si');
-  const montar = () => { if (!host.isConnected) (document.body || document.documentElement).appendChild(host); };
+  const button = root.querySelector('.boton:not(.mas)'), more = root.querySelector('.mas'), box = root.querySelector('.caja'), area = root.querySelector('textarea');
+  const citaEl = root.querySelector('.cita'), bBorrar = root.querySelector('.borrar'), bNo = root.querySelector('.no'), bSi = root.querySelector('.si');
+  const mount = () => { if (!host.isConnected) (document.body || document.documentElement).appendChild(host); };
 
   // texto de la página con los espacios plegados, y de dónde sale cada carácter (para volver a encontrar una cita)
-  const plegar = s => s.replace(/\s+/g, ' ').trim();
-  function indice() {
+  const fold = s => s.replace(/\s+/g, ' ').trim();
+  function index() {
     const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, { acceptNode: n => (n.parentElement && n.parentElement.closest('script,style,noscript,#refugio-notas') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT) });
-    let texto = '', pos = [], espacio = true, n;
+    let text = '', pos = [], space = true, n;
     while ((n = w.nextNode())) {
       const d = n.data;
       for (let i = 0; i < d.length; i++) {
-        if (/\s/.test(d[i])) { if (!espacio) { texto += ' '; pos.push([n, i]); espacio = true; } }
-        else { texto += d[i]; pos.push([n, i]); espacio = false; }
+        if (/\s/.test(d[i])) { if (!space) { text += ' '; pos.push([n, i]); space = true; } }
+        else { text += d[i]; pos.push([n, i]); space = false; }
       }
-      if (!espacio) { texto += ' '; pos.push([n, d.length]); espacio = true; }
+      if (!space) { text += ' '; pos.push([n, d.length]); space = true; }
     }
-    return { texto, pos };
+    return { text, pos };
   }
-  function buscar(cita, cerca) {
-    const c = plegar(cita); if (!c) return null;
-    const { texto, pos } = indice();
-    let i = texto.indexOf(c), mejor = i;
+  function search(quote, near) {
+    const c = fold(quote); if (!c) return null;
+    const { text, pos } = index();
+    let i = text.indexOf(c), best = i;
     // si la cita sale varias veces, la más cercana a donde estaba
-    while (cerca != null && i >= 0) { if (Math.abs(i - cerca) < Math.abs(mejor - cerca)) mejor = i; i = texto.indexOf(c, i + 1); }
-    if (mejor < 0) return null;
-    const a = pos[mejor], b = pos[mejor + c.length - 1];
+    while (near != null && i >= 0) { if (Math.abs(i - near) < Math.abs(best - near)) best = i; i = text.indexOf(c, i + 1); }
+    if (best < 0) return null;
+    const a = pos[best], b = pos[best + c.length - 1];
     const r = document.createRange(); r.setStart(a[0], a[1]); r.setEnd(b[0], b[1] + 1);
-    return { r, inicio: mejor };
+    return { r, start: best };
   }
-  function offsetDe(rango) {
-    const { pos } = indice();
-    const k = pos.findIndex(([n, o]) => n === rango.startContainer && o >= rango.startOffset);
+  function offsetDe(rank) {
+    const { pos } = index();
+    const k = pos.findIndex(([n, o]) => n === rank.startContainer && o >= rank.startOffset);
     return k < 0 ? null : k;
   }
   // la sección: el encabezado (o lo marcado con data-seccion) anterior más cercano
-  function seccion(rango) {
-    const el = rango.startContainer.nodeType === 1 ? rango.startContainer : rango.startContainer.parentElement;
-    const dentro = el && el.closest('[data-seccion]');
-    if (dentro) return plegar(dentro.getAttribute('data-seccion') || '').slice(0, 300);
+  function section(rank) {
+    const el = rank.startContainer.nodeType === 1 ? rank.startContainer : rank.startContainer.parentElement;
+    const inside = el && el.closest('[data-seccion]');
+    if (inside) return fold(inside.getAttribute('data-seccion') || '').slice(0, 300);
     const cand = [...document.querySelectorAll('h1,h2,h3,h4,h5,h6,[data-seccion]')].filter(h => !h.closest('#refugio-notas'));
-    let mejor = null;
-    for (const h of cand) if (h.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING || h.contains(el)) mejor = h;
-    return mejor ? plegar(mejor.getAttribute('data-seccion') || mejor.textContent || '').slice(0, 300) : '';
+    let best = null;
+    for (const h of cand) if (h.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING || h.contains(el)) best = h;
+    return best ? fold(best.getAttribute('data-seccion') || best.textContent || '').slice(0, 300) : '';
   }
   function pintar() {
-    rangos.clear(); if (marca) marca.clear();
-    for (const n of notas) { const f = buscar(n.cita, n.inicio); if (f) { rangos.set(n.id, f.r); if (marca) marca.add(f.r); } }
+    ranks.clear(); if (mark) mark.clear();
+    for (const n of notes) { const f = search(n.quote, n.start); if (f) { ranks.set(n.id, f.r); if (mark) mark.add(f.r); } }
   }
-  const avisar = () => post({ tipo: 'lista', notas });
+  const notify = () => post({ type: 'lista', notes });
 
   // editar: una nota nueva (con su rango) o una que ya está
-  let editando = null;
-  function abrir(n, rect) {
-    if (!textos) return;
-    editando = n; montar();
-    citaEl.textContent = '«' + (n.cita.length > 220 ? n.cita.slice(0, 220) + '…' : n.cita) + '»';
-    area.value = n.texto || ''; area.placeholder = textos.placeholder;
-    bSi.textContent = textos.guardar; bNo.textContent = textos.cancelar; bBorrar.textContent = textos.borrar;
-    bBorrar.hidden = !notas.some(x => x.id === n.id);
-    caja.hidden = false; boton.hidden = true;
+  let editing = null;
+  function open(n, rect) {
+    if (!texts) return;
+    editing = n; mount();
+    citaEl.textContent = '«' + (n.quote.length > 220 ? n.quote.slice(0, 220) + '…' : n.quote) + '»';
+    area.value = n.text || ''; area.placeholder = texts.placeholder;
+    bSi.textContent = texts.save; bNo.textContent = texts.cancel; bBorrar.textContent = texts.deleteMessage;
+    bBorrar.hidden = !notes.some(x => x.id === n.id);
+    box.hidden = false; button.hidden = true;
     const x = Math.min(Math.max(8, rect.left), innerWidth - 350), y = rect.bottom + 8 + 180 < innerHeight ? rect.bottom + 8 : Math.max(8, rect.top - 190);
-    caja.style.left = x + 'px'; caja.style.top = y + 'px';
+    box.style.left = x + 'px'; box.style.top = y + 'px';
     setTimeout(() => area.focus(), 0);
   }
-  function cerrar() { caja.hidden = true; editando = null; }
-  function guardar() {
-    if (!editando) return;
-    const texto = area.value.trim().slice(0, 5000);
-    if (!texto) { cerrar(); return; }
-    const ya = notas.findIndex(x => x.id === editando.id);
-    const n = Object.assign({}, editando, { texto });
-    if (ya >= 0) notas[ya] = n; else notas.push(n);
-    cerrar(); pintar(); avisar(); getSelection().removeAllRanges();
+  function close() { box.hidden = true; editing = null; }
+  function save() {
+    if (!editing) return;
+    const text = area.value.trim().slice(0, 5000);
+    if (!text) { close(); return; }
+    const already = notes.findIndex(x => x.id === editing.id);
+    const n = Object.assign({}, editing, { text });
+    if (already >= 0) notes[already] = n; else notes.push(n);
+    close(); pintar(); notify(); getSelection().removeAllRanges();
   }
-  bSi.onclick = guardar; bNo.onclick = cerrar;
-  bBorrar.onclick = () => { if (editando) { notas = notas.filter(x => x.id !== editando.id); cerrar(); pintar(); avisar(); } };
-  area.addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); cerrar(); } else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); guardar(); } });
+  bSi.onclick = save; bNo.onclick = close;
+  bBorrar.onclick = () => { if (editing) { notes = notes.filter(x => x.id !== editing.id); close(); pintar(); notify(); } };
+  area.addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); close(); } else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); save(); } });
 
   // seleccionar → «✎ Nota» junto a la selección
-  let pendiente = null;
+  let pending = null;
   document.addEventListener('mouseup', e => {
-    if (!textos || e.composedPath().includes(host)) return;
+    if (!texts || e.composedPath().includes(host)) return;
     setTimeout(() => {
       const s = getSelection();
-      if (!s || s.isCollapsed || !s.rangeCount) { boton.hidden = true; return; }
-      const r = s.getRangeAt(0), cita = plegar(s.toString()).slice(0, 2000);
-      if (!cita) { boton.hidden = true; return; }
-      pendiente = { r: r.cloneRange(), cita };
-      const rect = r.getBoundingClientRect(); montar();
-      boton.textContent = textos.nota; boton.hidden = false;
-      boton.style.left = Math.min(innerWidth - 90, Math.max(8, rect.right - 40)) + 'px';
-      boton.style.top = (rect.bottom + 6 + 30 < innerHeight ? rect.bottom + 6 : rect.top - 32) + 'px';
+      if (!s || s.isCollapsed || !s.rangeCount) { button.hidden = true; return; }
+      const r = s.getRangeAt(0), quote = fold(s.toString()).slice(0, 2000);
+      if (!quote) { button.hidden = true; return; }
+      pending = { r: r.cloneRange(), quote };
+      const rect = r.getBoundingClientRect(); mount();
+      button.textContent = texts.note; button.hidden = false;
+      button.style.left = Math.min(innerWidth - 90, Math.max(8, rect.right - 40)) + 'px';
+      button.style.top = (rect.bottom + 6 + 30 < innerHeight ? rect.bottom + 6 : rect.top - 32) + 'px';
     }, 0);
   });
-  boton.addEventListener('mousedown', e => e.preventDefault());   // que no se pierda la selección
-  boton.onclick = () => {
-    if (!pendiente) return;
-    const { r, cita } = pendiente; pendiente = null;
-    abrir({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), cita, seccion: seccion(r), inicio: offsetDe(r), texto: '' }, r.getBoundingClientRect());
+  button.addEventListener('mousedown', e => e.preventDefault());   // que no se pierda la selección
+  button.onclick = () => {
+    if (!pending) return;
+    const { r, quote } = pending; pending = null;
+    open({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), quote, section: section(r), start: offsetDe(r), text: '' }, r.getBoundingClientRect());
   };
   // un clic en lo marcado: editar esa nota
   document.addEventListener('click', e => {
-    if (!textos || e.composedPath().includes(host) || !getSelection().isCollapsed) return;
+    if (!texts || e.composedPath().includes(host) || !getSelection().isCollapsed) return;
     const p = document.caretRangeFromPoint ? document.caretRangeFromPoint(e.clientX, e.clientY) : null;
     if (!p) return;
-    for (const [id, r] of rangos) {
-      try { if (r.isPointInRange(p.startContainer, p.startOffset)) { const n = notas.find(x => x.id === id); if (n) { e.preventDefault(); abrir(n, r.getBoundingClientRect()); } return; } } catch {}
+    for (const [id, r] of ranks) {
+      try { if (r.isPointInRange(p.startContainer, p.startOffset)) { const n = notes.find(x => x.id === id); if (n) { e.preventDefault(); open(n, r.getBoundingClientRect()); } return; } } catch {}
     }
   }, true);
   // a link of the page: the game opens it (a click, its default way; a right click, its options), never the <iframe>.
   // Its raw href: resolved here it would point at /pagina/<key>/…, not at the file. After the note's click above
-  for (const tipo of ['click', 'contextmenu']) document.addEventListener(tipo, e => {
+  for (const type of ['click', 'contextmenu']) document.addEventListener(type, e => {
     const a = e.target.closest && e.target.closest('a[href]');
-    if (!a || e.defaultPrevented || e.composedPath().includes(host) || (tipo === 'click' && e.button !== 0)) return;
+    if (!a || e.defaultPrevented || e.composedPath().includes(host) || (type === 'click' && e.button !== 0)) return;
     if (a.hash && a.href.split('#')[0] === location.href.split('#')[0]) return;   // an anchor of this page
     e.preventDefault();
-    post({ tipo: 'enlace', href: a.getAttribute('href'), x: e.clientX, y: e.clientY, menu: tipo === 'contextmenu' });
+    post({ type: 'enlace', href: a.getAttribute('href'), x: e.clientX, y: e.clientY, menu: type === 'contextmenu' });
   });
   // en una comparación (filas con número de línea, td.n), como en GitHub: «+» al pasar por una línea y una nota en ella
-  let fila = null;
+  let row = null;
   const lineaDe = tr => [...tr.querySelectorAll('td.n')].map(td => td.textContent.trim()).filter(Boolean).pop() || '';
   document.addEventListener('mouseover', e => {
-    if (!textos || e.composedPath().includes(host) || !caja.hidden) return;
+    if (!texts || e.composedPath().includes(host) || !box.hidden) return;
     const tr = e.target.closest && e.target.closest('tr');
     if (!tr || !tr.querySelector('td.n') || !lineaDe(tr)) return;
-    fila = tr; montar();
+    row = tr; mount();
     const r = tr.getBoundingClientRect(), n = tr.querySelector('td.n').getBoundingClientRect();
-    mas.hidden = false; mas.style.left = Math.max(2, n.left - 20) + 'px'; mas.style.top = (r.top + Math.max(0, (r.height - 18) / 2)) + 'px';
+    more.hidden = false; more.style.left = Math.max(2, n.left - 20) + 'px'; more.style.top = (r.top + Math.max(0, (r.height - 18) / 2)) + 'px';
   });
-  mas.onclick = () => {
-    if (!fila) return;
-    const celda = fila.querySelector('td.c') || fila.lastElementChild;
-    const r = document.createRange(); r.selectNodeContents(celda);
+  more.onclick = () => {
+    if (!row) return;
+    const cell = row.querySelector('td.c') || row.lastElementChild;
+    const r = document.createRange(); r.selectNodeContents(cell);
     // desde el primer texto del código (sin el signo + o −): así se sabe cuál de las líneas iguales es
-    const w = document.createTreeWalker(celda, NodeFilter.SHOW_TEXT, { acceptNode: t => (t.parentElement.closest('.s') || !t.data.trim() ? NodeFilter.FILTER_SKIP : NodeFilter.FILTER_ACCEPT) });
-    const primero = w.nextNode(); if (primero) r.setStart(primero, primero.data.search(/\S/));
-    const linea = lineaDe(fila), propia = fila.getAttribute('data-seccion');
-    const cita = plegar(r.toString()).slice(0, 2000) || '(' + linea + ')';
-    mas.hidden = true;
-    abrir({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), cita, seccion: (propia ? plegar(propia) : (seccion(r) + ':' + linea)).slice(0, 300), inicio: offsetDe(r), texto: '' }, fila.getBoundingClientRect());
+    const w = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT, { acceptNode: t => (t.parentElement.closest('.s') || !t.data.trim() ? NodeFilter.FILTER_SKIP : NodeFilter.FILTER_ACCEPT) });
+    const first = w.nextNode(); if (first) r.setStart(first, first.data.search(/\S/));
+    const line = lineaDe(row), own = row.getAttribute('data-seccion');
+    const quote = fold(r.toString()).slice(0, 2000) || '(' + line + ')';
+    more.hidden = true;
+    open({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), quote, section: (own ? fold(own) : (section(r) + ':' + line)).slice(0, 300), start: offsetDe(r), text: '' }, row.getBoundingClientRect());
   };
-  addEventListener('scroll', () => { boton.hidden = true; mas.hidden = true; }, true);
+  addEventListener('scroll', () => { button.hidden = true; more.hidden = true; }, true);
   // el juego recarga la página cuando cambia su archivo: le dice por dónde va para volver ahí (con mermaid la página
   // crece al pintarse: se vuelve a colocar al cargar del todo y un momento después)
   let avisoScroll = 0;
-  addEventListener('scroll', () => { clearTimeout(avisoScroll); avisoScroll = setTimeout(() => post({ tipo: 'scroll', y: scrollY }), 150); });
-  const volverA = y => { const ir = () => scrollTo(0, y); ir(); if (document.readyState !== 'complete') addEventListener('load', ir, { once: true }); setTimeout(ir, 400); setTimeout(ir, 1200); };
+  addEventListener('scroll', () => { clearTimeout(avisoScroll); avisoScroll = setTimeout(() => post({ type: 'scroll', y: scrollY }), 150); });
+  const volverA = y => { const go = () => scrollTo(0, y); go(); if (document.readyState !== 'complete') addEventListener('load', go, { once: true }); setTimeout(go, 400); setTimeout(go, 1200); };
 
   // del juego: las notas guardadas de esta página y los textos; «limpiar», cuando ya se han mandado
   addEventListener('message', e => {
-    if (e.source !== parent || !e.data || e.data.refugio !== 'notas') return;
-    if (e.data.tipo === 'restaurar') { textos = e.data.textos || textos; notas = Array.isArray(e.data.notas) ? e.data.notas : []; pintar(); if (e.data.scroll > 0) volverA(Number(e.data.scroll)); }
-    else if (e.data.tipo === 'limpiar') { notas = []; cerrar(); pintar(); }
+    if (e.source !== parent || !e.data || e.data.shelter !== 'notas') return;
+    if (e.data.type === 'restaurar') { texts = e.data.texts || texts; notes = Array.isArray(e.data.notes) ? e.data.notes : []; pintar(); if (e.data.scroll > 0) volverA(Number(e.data.scroll)); }
+    else if (e.data.type === 'limpiar') { notes = []; close(); pintar(); }
   });
-  const hola = () => post({ tipo: 'hola' });
+  const hola = () => post({ type: 'hola' });
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', hola); else hola();
 })();

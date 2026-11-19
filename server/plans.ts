@@ -6,94 +6,94 @@ import path from 'node:path';
 import type { TaskOrder } from '../shared/deploy.ts';
 import { t } from '../shared/language.ts';
 
-// esperaA: las salas (id) cuya parte tiene que fusionarse antes que esta (el tablero de despliegue lo hace bloqueos)
-export interface PartOfPlan { salaId: string; sala: string; titulo: string; sesionId?: string; waitA?: string[] }
-export interface ChangeOfPlan { version: number; fecha: number; cambios: string }
+// waitsOn: las salas (id) cuya parte tiene que fusionarse antes que esta (el tablero de despliegue lo hace bloqueos)
+export interface PartOfPlan { roomId: string; room: string; title: string; sessionId?: string; waitA?: string[] }
+export interface ChangeOfPlan { version: number; date: number; changes: string }
 export interface Plan {
-  id: string; clave?: string;
-  coordinacion: string; coordinationSession?: string;   // la sala de planificación y su conversación (a quien van las propuestas)
-  texto: string; version: number; creado: number; actualizado: number;
-  partes: PartOfPlan[]; historial: ChangeOfPlan[];
+  id: string; key?: string;
+  coordination: string; coordinationSession?: string;   // la sala de planificación y su conversación (a quien van las propuestas)
+  text: string; version: number; created: number; updated: number;
+  parts: PartOfPlan[]; history: ChangeOfPlan[];
 }
 
 const MAX_PLANS = 60, MAX_TEXT = 60_000;
 
 export class Plans {
-  private planes: Plan[] = [];
-  private archivo: string;
+  private plans: Plan[] = [];
+  private file: string;
   constructor(dir: string) {
-    this.archivo = path.join(dir, 'planes.json');
-    try { if (existsSync(this.archivo)) this.planes = (JSON.parse(readFileSync(this.archivo, 'utf8')) as Plan[]).filter(p => p && typeof p.id === 'string' && typeof p.texto === 'string'); } catch { this.planes = []; }
+    this.file = path.join(dir, 'planes.json');
+    try { if (existsSync(this.file)) this.plans = (JSON.parse(readFileSync(this.file, 'utf8')) as Plan[]).filter(p => p && typeof p.id === 'string' && typeof p.text === 'string'); } catch { this.plans = []; }
   }
-  guardar() { const tmp = this.archivo + '.tmp'; writeFileSync(tmp, JSON.stringify(this.planes, null, 1), { mode: 0o600 }); renameSync(tmp, this.archivo); }
+  save() { const tmp = this.file + '.tmp'; writeFileSync(tmp, JSON.stringify(this.plans, null, 1), { mode: 0o600 }); renameSync(tmp, this.file); }
 
-  todos() { return this.planes; }
-  get(id: string) { return this.planes.find(p => p.id === id || (!!p.clave && p.clave === id)); }
+  all() { return this.plans; }
+  get(id: string) { return this.plans.find(p => p.id === id || (!!p.key && p.key === id)); }
   /** Los planes en los que trabaja una sala (como parte o como planificación), del más reciente al más antiguo */
-  ofRoom(salaId: string) { return this.planes.filter(p => p.coordinacion === salaId || p.partes.some(x => x.salaId === salaId)).sort((a, b) => b.actualizado - a.actualizado); }
+  ofRoom(roomId: string) { return this.plans.filter(p => p.coordination === roomId || p.parts.some(x => x.roomId === roomId)).sort((a, b) => b.updated - a.updated); }
 
   /** Al repartir: un plan nuevo o, si la tarea ya tenía uno, la versión siguiente con las partes nuevas sumadas */
-  repartir(o: { clave?: string; coordinacion: string; coordinationSession?: string; texto: string; partes: PartOfPlan[] }): Plan {
-    const ahora = Date.now(), texto = o.texto.trim().slice(0, MAX_TEXT);
-    const ya = o.clave ? this.planes.find(p => p.clave === o.clave) : undefined;
+  dispatch(o: { key?: string; coordination: string; coordinationSession?: string; text: string; parts: PartOfPlan[] }): Plan {
+    const now = Date.now(), text = o.text.trim().slice(0, MAX_TEXT);
+    const already = o.key ? this.plans.find(p => p.key === o.key) : undefined;
     let plan: Plan;
-    if (ya) {
-      const cambio = ya.texto !== texto;
-      ya.texto = texto; ya.coordinacion = o.coordinacion; ya.coordinationSession = o.coordinationSession ?? ya.coordinationSession; ya.actualizado = ahora;
-      for (const p of o.partes) { const i = ya.partes.findIndex(x => x.salaId === p.salaId); if (i >= 0) ya.partes[i] = p; else ya.partes.push(p); }
-      if (cambio) { ya.version++; ya.historial.push({ version: ya.version, fecha: ahora, cambios: t('tool.plan.reassigned') }); }
-      plan = ya;
+    if (already) {
+      const changed = already.text !== text;
+      already.text = text; already.coordination = o.coordination; already.coordinationSession = o.coordinationSession ?? already.coordinationSession; already.updated = now;
+      for (const p of o.parts) { const i = already.parts.findIndex(x => x.roomId === p.roomId); if (i >= 0) already.parts[i] = p; else already.parts.push(p); }
+      if (changed) { already.version++; already.history.push({ version: already.version, date: now, changes: t('tool.plan.reassigned') }); }
+      plan = already;
     } else {
-      plan = { id: o.clave ?? 'plan-' + ahora.toString(36), clave: o.clave, coordinacion: o.coordinacion, coordinationSession: o.coordinationSession, texto, version: 1, creado: ahora, actualizado: ahora, partes: o.partes, historial: [{ version: 1, fecha: ahora, cambios: t('tool.plan.assigned') }] };
-      this.planes.push(plan);
-      if (this.planes.length > MAX_PLANS) this.planes.sort((a, b) => b.actualizado - a.actualizado).splice(MAX_PLANS);
+      plan = { id: o.key ?? 'plan-' + now.toString(36), key: o.key, coordination: o.coordination, coordinationSession: o.coordinationSession, text, version: 1, created: now, updated: now, parts: o.parts, history: [{ version: 1, date: now, changes: t('tool.plan.assigned') }] };
+      this.plans.push(plan);
+      if (this.plans.length > MAX_PLANS) this.plans.sort((a, b) => b.updated - a.updated).splice(MAX_PLANS);
     }
-    this.guardar();
+    this.save();
     return plan;
   }
 
   /** Una versión nueva del plan; devuelve null si no existe */
-  actualizar(id: string, texto: string, cambios: string): Plan | null {
+  update(id: string, text: string, changes: string): Plan | null {
     const p = this.get(id); if (!p) return null;
-    p.texto = texto.trim().slice(0, MAX_TEXT); p.version++; p.actualizado = Date.now();
-    p.historial.push({ version: p.version, fecha: p.actualizado, cambios: cambios.trim().slice(0, 2000) || t('tool.plan.noSummary') });
-    this.guardar();
+    p.text = text.trim().slice(0, MAX_TEXT); p.version++; p.updated = Date.now();
+    p.history.push({ version: p.version, date: p.updated, changes: changes.trim().slice(0, 2000) || t('tool.plan.noSummary') });
+    this.save();
     return p;
   }
 }
 
 const waitOf = (p: Plan, x: PartOfPlan) => {
-  const n = (x.waitA ?? []).map(id => p.partes.find(y => y.salaId === id)?.sala ?? id);
+  const n = (x.waitA ?? []).map(id => p.parts.find(y => y.roomId === id)?.room ?? id);
   return n.length ? t('tool.plan.mergesAfter', { salas: n.join(', ') }) : '';
 };
 
 /** Cómo lo lee una sala: la versión, el plan entero, quién hace cada parte y lo que ha cambiado */
-export function textPlan(p: Plan, salaId?: string): string {
+export function textPlan(p: Plan, roomId?: string): string {
   return [
-    t('tool.plan.heading', { id: p.id, tarea: p.clave ? t('tool.plan.task', { clave: p.clave }) : '', version: p.version }),
+    t('tool.plan.heading', { id: p.id, tarea: p.key ? t('tool.plan.task', { clave: p.key }) : '', version: p.version }),
     '',
     t('tool.plan.parts'),
-    ...p.partes.map(x => `- ${x.sala}: ${x.titulo}${waitOf(p, x)}${x.salaId === salaId ? t('tool.plan.yours') : ''}`),
+    ...p.parts.map(x => `- ${x.room}: ${x.title}${waitOf(p, x)}${x.roomId === roomId ? t('tool.plan.yours') : ''}`),
     '',
     t('tool.plan.changes'),
-    ...p.historial.slice(-8).map(h => `- v${h.version}: ${h.cambios}`),
+    ...p.history.slice(-8).map(h => `- v${h.version}: ${h.changes}`),
     '',
     '---',
-    p.texto,
+    p.text,
   ].join('\n');
 }
 
 /** El orden de fusión de cada tarea repartida, por repo de GitHub («org/repo»), para el tablero de despliegue: las partes
  *  que esperan a otras (las salas sin repo de GitHub no cuentan) */
-export async function tasksOrder(planes: Plan[], repoOf: (salaId: string) => Promise<string | undefined>): Promise<TaskOrder[]> {
+export async function tasksOrder(plans: Plan[], repoOf: (roomId: string) => Promise<string | undefined>): Promise<TaskOrder[]> {
   const out: TaskOrder[] = [];
-  for (const p of planes) {
-    if (!p.clave) continue;
-    for (const x of p.partes) {
+  for (const p of plans) {
+    if (!p.key) continue;
+    for (const x of p.parts) {
       if (!x.waitA?.length) continue;
-      const repo = await repoOf(x.salaId);
+      const repo = await repoOf(x.roomId);
       const waitA = (await Promise.all(x.waitA.map(repoOf))).filter((r): r is string => !!r && r !== repo);
-      if (repo && waitA.length) out.push({ clave: p.clave.toUpperCase(), repo, waitA });
+      if (repo && waitA.length) out.push({ key: p.key.toUpperCase(), repo, waitA });
     }
   }
   return out;

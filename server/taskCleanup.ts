@@ -11,56 +11,56 @@
 import { existsSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
 import path from 'node:path';
 import type { PRBoard } from '../shared/board.ts';
-import { clavesJira } from '../shared/board.ts';
+import { jiraKeys } from '../shared/board.ts';
 import type { InfoWorktree, SessionSummary } from '../shared/protocol.ts';
 import { branchKey, prsOfName } from './prReviews.ts';
 import { t } from '../shared/language.ts';
 
-export interface RoomCleanup { id: string; nombre: string; ruta: string; repo?: string; worktrees: InfoWorktree[] }
-export interface FinishedTask { tarea: string; prs: PRBoard[]; worktrees: InfoWorktree[] }
+export interface RoomCleanup { id: string; name: string; path: string; repo?: string; worktrees: InfoWorktree[] }
+export interface FinishedTask { task: string; prs: PRBoard[]; worktrees: InfoWorktree[] }
 
-const keyOf = (p: PRBoard) => branchKey(p.rama) ?? clavesJira(p.titulo)[0];
+const keyOf = (p: PRBoard) => branchKey(p.branch) ?? jiraKeys(p.title)[0];
 
 /** Las tareas del repo de una sala con todos sus PR fusionados o cerrados (uno abierto o en borrador la deja como está; un
  *  PR cerrado sin fusionar se reabre si hace falta: su rama sigue en el remoto) y algún worktree suyo aún en la sala:
  *  con su rama, con su clave o con sus PR en el nombre */
-export function finishedTasks(sala: RoomCleanup, prs: PRBoard[]): FinishedTask[] {
-  if (!sala.repo) return [];
-  const delRepo = prs.filter(p => p.repo.toLowerCase() === sala.repo);
-  const porTarea = new Map<string, PRBoard[]>();
-  for (const p of delRepo) { const k = keyOf(p) ?? `PR #${p.numero}`; porTarea.set(k, [...(porTarea.get(k) ?? []), p]); }
-  const otros = sala.worktrees.filter(w => !w.principal && !w.external);
+export function finishedTasks(room: RoomCleanup, prs: PRBoard[]): FinishedTask[] {
+  if (!room.repo) return [];
+  const ofRepo = prs.filter(p => p.repo.toLowerCase() === room.repo);
+  const byTask = new Map<string, PRBoard[]>();
+  for (const p of ofRepo) { const k = keyOf(p) ?? `PR #${p.number}`; byTask.set(k, [...(byTask.get(k) ?? []), p]); }
+  const others = room.worktrees.filter(w => !w.main && !w.external);
   const out: FinishedTask[] = [];
-  for (const [tarea, lista] of porTarea) {
-    if (lista.some(p => p.estado === 'abierto' || p.estado === 'borrador')) continue;
-    const ramas = new Set(lista.map(p => p.rama)), clave = keyOf(lista[0])?.toLowerCase();
-    const worktrees = otros.filter(w => ramas.has(w.rama)
-      || (clave && path.basename(w.ruta).toLowerCase().includes(clave))
-      || prsOfName(path.basename(w.ruta)).some(n => lista.some(p => p.numero === n)));
-    if (worktrees.length) out.push({ tarea, prs: lista.sort((a, b) => a.numero - b.numero), worktrees });
+  for (const [task, list] of byTask) {
+    if (list.some(p => p.state === 'abierto' || p.state === 'borrador')) continue;
+    const branches = new Set(list.map(p => p.branch)), key = keyOf(list[0])?.toLowerCase();
+    const worktrees = others.filter(w => branches.has(w.branch)
+      || (key && path.basename(w.path).toLowerCase().includes(key))
+      || prsOfName(path.basename(w.path)).some(n => list.some(p => p.number === n)));
+    if (worktrees.length) out.push({ task, prs: list.sort((a, b) => a.number - b.number), worktrees });
   }
-  return out.sort((a, b) => a.tarea.localeCompare(b.tarea));
+  return out.sort((a, b) => a.task.localeCompare(b.task));
 }
 
 /** Lo que impide quitar un worktree (vacío: se puede quitar). `git` lanza si el comando falla */
-export type Leftover = { tipo: 'cambios' | 'stash' | 'commits'; n: number } | { tipo: 'conversacion' };
-export async function leftovers(git: (cwd: string, args: string[]) => Promise<string>, w: InfoWorktree, prs: PRBoard[], sesiones: SessionSummary[]): Promise<Leftover[]> {
+export type Leftover = { type: 'cambios' | 'stash' | 'commits'; n: number } | { type: 'conversacion' };
+export async function leftovers(git: (cwd: string, args: string[]) => Promise<string>, w: InfoWorktree, prs: PRBoard[], sessions: SessionSummary[]): Promise<Leftover[]> {
   const out: Leftover[] = [];
-  const dir = path.resolve(w.ruta);
-  if (sesiones.some(s => s.estado !== 'cerrada' && (path.resolve(s.worktree ?? s.cwd) + path.sep).startsWith(dir + path.sep))) out.push({ tipo: 'conversacion' });
-  const lineas = (t: string) => t.split('\n').filter(Boolean);
-  const cambios = lineas(await git(w.ruta, ['status', '--porcelain', '--untracked-files=no'])).length;
-  if (cambios) out.push({ tipo: 'cambios', n: cambios });
+  const dir = path.resolve(w.path);
+  if (sessions.some(s => s.state !== 'cerrada' && (path.resolve(s.worktree ?? s.cwd) + path.sep).startsWith(dir + path.sep))) out.push({ type: 'conversacion' });
+  const lines = (t: string) => t.split('\n').filter(Boolean);
+  const changes = lines(await git(w.path, ['status', '--porcelain', '--untracked-files=no'])).length;
+  if (changes) out.push({ type: 'cambios', n: changes });
   // el stash es del repo entero: cuentan los guardados en esta rama («WIP on rama:» u «On rama:»)
-  const stash = w.rama ? lineas(await git(w.ruta, ['stash', 'list', '--format=%gs'])).filter(l => l.startsWith(`WIP on ${w.rama}:`) || l.startsWith(`On ${w.rama}:`)).length : 0;
-  if (stash) out.push({ tipo: 'stash', n: stash });
+  const stash = w.branch ? lines(await git(w.path, ['stash', 'list', '--format=%gs'])).filter(l => l.startsWith(`WIP on ${w.branch}:`) || l.startsWith(`On ${w.branch}:`)).length : 0;
+  if (stash) out.push({ type: 'stash', n: stash });
   // commits fuera del remoto: valen si están en la rama de alguno de sus PR en GitHub (fusionado con squash, la rama del
   // remoto borrada…)
-  const fuera = lineas(await git(w.ruta, ['rev-list', 'HEAD', '--not', '--remotes'])).length;
-  if (fuera) {
-    let enPR = false;
-    for (const p of prs) if (p.cabeza && !enPR) enPR = await git(w.ruta, ['merge-base', '--is-ancestor', 'HEAD', p.cabeza]).then(() => true, () => false);
-    if (!enPR) out.push({ tipo: 'commits', n: fuera });
+  const outside = lines(await git(w.path, ['rev-list', 'HEAD', '--not', '--remotes'])).length;
+  if (outside) {
+    let inPR = false;
+    for (const p of prs) if (p.head && !inPR) inPR = await git(w.path, ['merge-base', '--is-ancestor', 'HEAD', p.head]).then(() => true, () => false);
+    if (!inPR) out.push({ type: 'commits', n: outside });
   }
   return out;
 }
@@ -68,99 +68,99 @@ export async function leftovers(git: (cwd: string, args: string[]) => Promise<st
 /** Open conversations whose worktree (.claude/worktrees/<name>) no longer exists, merged and removed by hand or by a
  *  session: they close like any other, so their hologram goes with them. Only idle and read ones, and none in use in the
  *  intercom (`used`: on screen, or with something typed or attached); the rest keep their hologram until then */
-export function orphanedConversations(sesiones: SessionSummary[], used: Set<string>, exists: (ruta: string) => boolean): string[] {
-  return sesiones.filter(s => {
-    if (!['terminada', 'ociosa', 'error'].includes(s.estado) || s.sinLeer || used.has(s.id)) return false;
-    const raiz = /^(.*\/\.claude\/worktrees\/[^/]+)/.exec(s.worktree ?? s.cwd)?.[1];
-    return !!raiz && !exists(raiz);
+export function orphanedConversations(sessions: SessionSummary[], used: Set<string>, exists: (filePath: string) => boolean): string[] {
+  return sessions.filter(s => {
+    if (!['terminada', 'ociosa', 'error'].includes(s.state) || s.unread || used.has(s.id)) return false;
+    const root = /^(.*\/\.claude\/worktrees\/[^/]+)/.exec(s.worktree ?? s.cwd)?.[1];
+    return !!root && !exists(root);
   }).map(s => s.id);
 }
 
 /** Los archivos y carpetas que git no sigue (ni ignora) en el worktree, en absoluto */
-export async function untracked(git: (cwd: string, args: string[]) => Promise<string>, ruta: string): Promise<string[]> {
-  const top = (await git(ruta, ['rev-parse', '--show-toplevel'])).trim();
-  return (await git(ruta, ['status', '--porcelain', '-z', '--untracked-files=normal'])).split('\0')
+export async function untracked(git: (cwd: string, args: string[]) => Promise<string>, filePath: string): Promise<string[]> {
+  const top = (await git(filePath, ['rev-parse', '--show-toplevel'])).trim();
+  return (await git(filePath, ['status', '--porcelain', '-z', '--untracked-files=normal'])).split('\0')
     .filter(l => l.startsWith('?? ')).map(l => path.join(top, l.slice(3)));
 }
 
 export interface CtxCleanup {
   connection(): Promise<{ real: boolean; token?: string }>;
   prs(c: { real: boolean; token?: string }): Promise<PRBoard[]>;   // abiertos, y fusionados o cerrados hace poco
-  salas(): Promise<RoomCleanup[]>;
-  sesiones(): SessionSummary[];
+  rooms(): Promise<RoomCleanup[]>;
+  sessions(): SessionSummary[];
   git(cwd: string, args: string[]): Promise<string>;              // lanza si el comando falla
-  papelera(rutas: string[]): Promise<void>;                       // a la papelera de macOS
-  quitado(salaId: string, tarea: FinishedTask, w: InfoWorktree, sueltos: number): void;   // aviso al Supervisor
+  trash(paths: string[]): Promise<void>;                       // a la papelera de macOS
+  removed(roomId: string, task: FinishedTask, w: InfoWorktree, loose: number): void;   // aviso al Supervisor
   /** pregunta al Supervisor (una vez) si lo quita igualmente; `quitar` lo hace, si dice que sí ('esperando': hay una
    *  conversación abierta en él, se quitará al cerrarla) */
-  preguntar(salaId: string, tarea: FinishedTask, w: InfoWorktree, que: Leftover[], quitar: () => Promise<'quitado' | 'esperando' | undefined>): void;
-  cambiado(): void;                                               // los worktrees de las salas han cambiado
+  ask(roomId: string, task: FinishedTask, w: InfoWorktree, what: Leftover[], remove: () => Promise<'quitado' | 'esperando' | undefined>): void;
+  changed(): void;                                               // los worktrees de las salas han cambiado
 }
 
 export class TasksCleanup {
-  private avisados: string[] = [];
-  private aprobados: string[] = [];   // «sala|ruta» que el Supervisor mandó quitar con una conversación abierta en él
-  private archivo: string;
+  private notified: string[] = [];
+  private approved: string[] = [];   // «sala|ruta» que el Supervisor mandó quitar con una conversación abierta en él
+  private file: string;
   constructor(dir: string, private ctx: CtxCleanup) {
-    this.archivo = path.join(dir, 'limpieza-tareas.json');
-    const textos = (x: unknown) => Array.isArray(x) ? x.filter((y: unknown): y is string => typeof y === 'string') : [];
-    try { if (existsSync(this.archivo)) { const j = JSON.parse(readFileSync(this.archivo, 'utf8')); this.avisados = textos(j.avisados); this.aprobados = textos(j.aprobados); } } catch {}
+    this.file = path.join(dir, 'limpieza-tareas.json');
+    const texts = (x: unknown) => Array.isArray(x) ? x.filter((y: unknown): y is string => typeof y === 'string') : [];
+    try { if (existsSync(this.file)) { const j = JSON.parse(readFileSync(this.file, 'utf8')); this.notified = texts(j.notified); this.approved = texts(j.approved); } } catch {}
   }
-  private guardar() { const tmp = this.archivo + '.tmp'; writeFileSync(tmp, JSON.stringify({ avisados: this.avisados.slice(-2000), aprobados: this.aprobados }), { mode: 0o600 }); renameSync(tmp, this.archivo); }
+  private save() { const tmp = this.file + '.tmp'; writeFileSync(tmp, JSON.stringify({ notified: this.notified.slice(-2000), approved: this.approved }), { mode: 0o600 }); renameSync(tmp, this.file); }
 
-  async sondear() {
+  async poll() {
     const c = await this.ctx.connection();
     if (!c.real) return;
     const prs = await this.ctx.prs(c);
-    let avisos = false, quitados = false;
-    const vistos = new Set<string>();
-    for (const sala of await this.ctx.salas()) for (const tarea of finishedTasks(sala, prs)) for (const w of tarea.worktrees) {
-      const aprobado = `${sala.id}|${path.resolve(w.ruta)}`;
-      vistos.add(aprobado);
+    let notices = false, removed = false;
+    const seen = new Set<string>();
+    for (const room of await this.ctx.rooms()) for (const task of finishedTasks(room, prs)) for (const w of task.worktrees) {
+      const approved = `${room.id}|${path.resolve(w.path)}`;
+      seen.add(approved);
       try {
-        const que = await leftovers(this.ctx.git, w, tarea.prs, this.ctx.sesiones());
-        if (que.some(x => x.tipo === 'conversacion')) continue;   // se espera a que se cierre
-        const forzar = this.aprobados.includes(aprobado);
-        if (!que.length || forzar) {
-          await this.quitar(sala, tarea, w, forzar);
-          if (forzar) { this.aprobados = this.aprobados.filter(x => x !== aprobado); avisos = true; }
-          quitados = true;
+        const what = await leftovers(this.ctx.git, w, task.prs, this.ctx.sessions());
+        if (what.some(x => x.type === 'conversacion')) continue;   // se espera a que se cierre
+        const force = this.approved.includes(approved);
+        if (!what.length || force) {
+          await this.remove(room, task, w, force);
+          if (force) { this.approved = this.approved.filter(x => x !== approved); notices = true; }
+          removed = true;
           continue;
         }
         // se pregunta una vez por lo que queda (si cambia, otra)
-        const clave = `${sala.id}|${tarea.tarea}|${path.resolve(w.ruta)}|${que.map(x => x.tipo + ('n' in x ? x.n : '')).join(',')}`;
-        if (this.avisados.includes(clave)) continue;
-        this.avisados.push(clave); avisos = true;
-        this.ctx.preguntar(sala.id, tarea, w, que, async () => {
+        const key = `${room.id}|${task.task}|${path.resolve(w.path)}|${what.map(x => x.type + ('n' in x ? x.n : '')).join(',')}`;
+        if (this.notified.includes(key)) continue;
+        this.notified.push(key); notices = true;
+        this.ctx.ask(room.id, task, w, what, async () => {
           // sigue siendo un worktree de la sala (puede haber pasado un rato)
-          const lista = await this.ctx.git(sala.ruta, ['worktree', 'list', '--porcelain']);
-          if (!lista.split('\n').includes('worktree ' + w.ruta)) return undefined;
+          const list = await this.ctx.git(room.path, ['worktree', 'list', '--porcelain']);
+          if (!list.split('\n').includes('worktree ' + w.path)) return undefined;
           // con una conversación abierta en él (p. ej. la de preguntarle qué queda), se quita en cuanto se cierre
-          if ((await leftovers(this.ctx.git, w, tarea.prs, this.ctx.sesiones())).some(x => x.tipo === 'conversacion')) {
-            if (!this.aprobados.includes(aprobado)) { this.aprobados.push(aprobado); this.guardar(); }
+          if ((await leftovers(this.ctx.git, w, task.prs, this.ctx.sessions())).some(x => x.type === 'conversacion')) {
+            if (!this.approved.includes(approved)) { this.approved.push(approved); this.save(); }
             return 'esperando';
           }
-          await this.quitar(sala, tarea, w, true);
-          this.ctx.cambiado();
+          await this.remove(room, task, w, true);
+          this.ctx.changed();
           return 'quitado';
         });
       } catch (e) {
-        console.error(`Limpieza de ${w.ruta}:`, String((e as Error).message).split('\n')[0]);
+        console.error(`Limpieza de ${w.path}:`, String((e as Error).message).split('\n')[0]);
       }
     }
     // lo aprobado que ya no está (quitado a mano, PR reabierto) se olvida
-    const quedan = this.aprobados.filter(x => vistos.has(x));
-    if (quedan.length !== this.aprobados.length) { this.aprobados = quedan; avisos = true; }
-    if (avisos) this.guardar();
-    if (quitados) this.ctx.cambiado();
+    const remaining = this.approved.filter(x => seen.has(x));
+    if (remaining.length !== this.approved.length) { this.approved = remaining; notices = true; }
+    if (notices) this.save();
+    if (removed) this.ctx.changed();
   }
 
   /** Quita el worktree (forzando solo si el Supervisor lo ha dicho) y su rama local; lo que git no sigue, antes a la papelera */
-  private async quitar(sala: RoomCleanup, tarea: FinishedTask, w: InfoWorktree, forzar: boolean) {
-    const sueltos = await untracked(this.ctx.git, w.ruta);
-    if (sueltos.length) await this.ctx.papelera(sueltos);
-    await this.ctx.git(sala.ruta, ['worktree', 'remove', ...(forzar ? ['--force'] : []), w.ruta]);
-    if (w.rama) await this.ctx.git(sala.ruta, ['branch', '-D', w.rama]).catch(() => '');
-    this.ctx.quitado(sala.id, tarea, w, sueltos.length);
+  private async remove(room: RoomCleanup, task: FinishedTask, w: InfoWorktree, force: boolean) {
+    const loose = await untracked(this.ctx.git, w.path);
+    if (loose.length) await this.ctx.trash(loose);
+    await this.ctx.git(room.path, ['worktree', 'remove', ...(force ? ['--force'] : []), w.path]);
+    if (w.branch) await this.ctx.git(room.path, ['branch', '-D', w.branch]).catch(() => '');
+    this.ctx.removed(room.id, task, w, loose.length);
   }
 }

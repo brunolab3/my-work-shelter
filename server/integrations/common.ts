@@ -1,73 +1,73 @@
 // Piezas comunes de los conectores reales: campos de la cámara acorazada, configuración (públicos en el estado, secretos en el
 // llavero), base del conector con sus tres estados y un `pedir` de red con errores claros en español.
 import type { Store } from '../state.ts';
-import type { Adapter, SourceState, Aviso, Polling, SourceId } from './adapters.ts';
+import type { Adapter, SourceState, Notice, Polling, SourceId } from './adapters.ts';
 import { readSecret, saveSecret, eraseSecret } from './keychain.ts';
 import { t, tIs } from '../../shared/language.ts';
 
 export type { SourceId };
 
 // Lo que la cámara acorazada pinta para cada fuente: qué pegar, si es secreto y una ayuda de dónde sacarlo
-export interface Field { nombre: string; etiqueta: string; secreto?: boolean; opcional?: boolean; ayuda: string; ejemplo?: string }
+export interface Field { name: string; label: string; secret?: boolean; optional?: boolean; help: string; example?: string }
 
 export class ErrorSource extends Error {
-  constructor(mensaje: string, public retryIn?: number, public codigo?: string) { super(mensaje); }
+  constructor(message: string, public retryIn?: number, public code?: string) { super(message); }
 }
-export const mensaje = (e: unknown) => e instanceof Error ? e.message : String(e);
+export const message = (e: unknown) => e instanceof Error ? e.message : String(e);
 
 export class ConfigSource {
   private cache = new Map<string, string | null>();
-  constructor(private almacen: Store, readonly id: SourceId, readonly campos: Field[]) {}
-  private get registro() { return this.almacen.estado.integraciones[this.id] ?? { modo: 'demo' as const }; }
-  publicos(): Record<string, string> { return { ...(this.registro.campos ?? {}) }; }
-  guardados(): string[] { return [...(this.registro.secrets ?? [])]; }
-  tiene(nombre: string) { const c = this.campos.find(x => x.nombre === nombre); return c?.secreto || !c ? this.guardados().includes(nombre) : !!this.publicos()[nombre]; }
+  constructor(private store: Store, readonly id: SourceId, readonly fields: Field[]) {}
+  private get registry() { return this.store.state.integrations[this.id] ?? { mode: 'demo' as const }; }
+  publicFields(): Record<string, string> { return { ...(this.registry.fields ?? {}) }; }
+  saved(): string[] { return [...(this.registry.secrets ?? [])]; }
+  has(name: string) { const c = this.fields.find(x => x.name === name); return c?.secret || !c ? this.saved().includes(name) : !!this.publicFields()[name]; }
   // Listo para sondear: todos los obligatorios presentes (los secretos, según la marca de guardado)
-  listo() { return this.campos.every(c => c.opcional || this.tiene(c.nombre)); }
+  ready() { return this.fields.every(c => c.optional || this.has(c.name)); }
 
-  async secreto(nombre: string): Promise<string | null> {
-    if (this.cache.has(nombre)) return this.cache.get(nombre)!;
-    if (!this.guardados().includes(nombre)) return null;
-    const v = await readSecret(`${this.id}.${nombre}`);
-    this.cache.set(nombre, v); return v;
+  async secret(name: string): Promise<string | null> {
+    if (this.cache.has(name)) return this.cache.get(name)!;
+    if (!this.saved().includes(name)) return null;
+    const v = await readSecret(`${this.id}.${name}`);
+    this.cache.set(name, v); return v;
   }
-  async setSecret(nombre: string, valor: string | null) {
-    const cuenta = `${this.id}.${nombre}`;
-    if (valor) await saveSecret(cuenta, valor); else await eraseSecret(cuenta);
-    this.cache.set(nombre, valor || null);
-    this.almacen.cambiar(e => {
-      const r = e.integraciones[this.id] ??= { modo: 'demo' };
-      const s = new Set(r.secrets ?? []); if (valor) s.add(nombre); else s.delete(nombre); r.secrets = [...s];
+  async setSecret(name: string, value: string | null) {
+    const count = `${this.id}.${name}`;
+    if (value) await saveSecret(count, value); else await eraseSecret(count);
+    this.cache.set(name, value || null);
+    this.store.change(e => {
+      const r = e.integrations[this.id] ??= { mode: 'demo' };
+      const s = new Set(r.secrets ?? []); if (value) s.add(name); else s.delete(name); r.secrets = [...s];
     });
   }
   // Mezcla lo que llega de la cámara acorazada con lo guardado: un secreto vacío significa «conservar el que hay»
-  async combine(entrada: Record<string, string> = {}): Promise<Record<string, string>> {
+  async combine(input: Record<string, string> = {}): Promise<Record<string, string>> {
     const v: Record<string, string> = {};
-    for (const c of this.campos) {
-      const nuevo = (entrada[c.nombre] ?? '').trim();
-      v[c.nombre] = nuevo || (c.secreto ? (await this.secreto(c.nombre)) ?? '' : entrada[c.nombre] !== undefined ? '' : this.publicos()[c.nombre] ?? '');
+    for (const c of this.fields) {
+      const newer = (input[c.name] ?? '').trim();
+      v[c.name] = newer || (c.secret ? (await this.secret(c.name)) ?? '' : input[c.name] !== undefined ? '' : this.publicFields()[c.name] ?? '');
     }
     return v;
   }
-  faltan(v: Record<string, string>) { return this.campos.filter(c => !c.opcional && !v[c.nombre]).map(c => tIs(c.etiqueta)); }
-  async guardar(entrada: Record<string, string>) {
-    const publicos = this.publicos();
-    for (const c of this.campos) {
-      if (!(c.nombre in entrada)) continue;
-      const v = (entrada[c.nombre] ?? '').trim();
-      if (c.secreto) { if (v) await this.setSecret(c.nombre, v); }
-      else if (v) publicos[c.nombre] = v; else delete publicos[c.nombre];
+  missing(v: Record<string, string>) { return this.fields.filter(c => !c.optional && !v[c.name]).map(c => tIs(c.label)); }
+  async save(input: Record<string, string>) {
+    const publicFields = this.publicFields();
+    for (const c of this.fields) {
+      if (!(c.name in input)) continue;
+      const v = (input[c.name] ?? '').trim();
+      if (c.secret) { if (v) await this.setSecret(c.name, v); }
+      else if (v) publicFields[c.name] = v; else delete publicFields[c.name];
     }
-    this.almacen.cambiar(e => { (e.integraciones[this.id] ??= { modo: 'demo' }).campos = publicos; });
+    this.store.change(e => { (e.integrations[this.id] ??= { mode: 'demo' }).fields = publicFields; });
   }
-  async olvidar() {
-    for (const n of this.guardados()) await this.setSecret(n, null);
+  async forget() {
+    for (const n of this.saved()) await this.setSecret(n, null);
     this.cache.clear();
-    this.almacen.cambiar(e => { const r = e.integraciones[this.id] ??= { modo: 'demo' }; r.campos = {}; r.secrets = []; r.modo = 'off'; });
+    this.store.change(e => { const r = e.integrations[this.id] ??= { mode: 'demo' }; r.fields = {}; r.secrets = []; r.mode = 'off'; });
   }
   forgetCache() { this.cache.clear(); }
   // las etiquetas y ayudas son datos en español: salen en el idioma del juego al pedirlas
-  descripcion() { return { campos: this.campos.map(c => ({ ...c, etiqueta: tIs(c.etiqueta), ayuda: tIs(c.ayuda), ...(c.ejemplo ? { ejemplo: tIs(c.ejemplo) } : {}) })), valores: this.publicos(), guardados: this.guardados() }; }
+  description() { return { fields: this.fields.map(c => ({ ...c, label: tIs(c.label), help: tIs(c.help), ...(c.example ? { example: tIs(c.example) } : {}) })), values: this.publicFields(), saved: this.saved() }; }
 }
 
 // Base de un conector real: estado propio (conectada / error / sin-configurar), errores capturados con su motivo
@@ -75,66 +75,66 @@ export abstract class ConnectorBase implements Adapter {
   abstract id: SourceId;
   intervalMs = 60_000;
   error?: string;
-  avisar?: (a: Aviso) => void;
-  protected situation: { estado: 'conectada' | 'error' | 'sin-configurar'; detalle?: string } = { estado: 'sin-configurar' };
-  protected ultima?: number;
-  protected esperarHasta = 0;   // límite de peticiones: no se vuelve a pedir hasta entonces
-  constructor(protected almacen: Store, readonly config: ConfigSource) {}
+  notify?: (a: Notice) => void;
+  protected situation: { state: 'conectada' | 'error' | 'sin-configurar'; detail?: string } = { state: 'sin-configurar' };
+  protected last?: number;
+  protected waitUntil = 0;   // límite de peticiones: no se vuelve a pedir hasta entonces
+  constructor(protected store: Store, readonly config: ConfigSource) {}
 
   protected abstract pollReal(): Promise<Polling>;
-  protected abstract tryReal(v: Record<string, string>): Promise<{ ok: boolean; detalle: string }>;
-  protected missingConfig() { return t('integrations.missingConfig', { campos: this.config.campos.filter(c => !c.opcional && !this.config.tiene(c.nombre)).map(c => tIs(c.etiqueta)).join(', ') }); }
-  protected listo() { return this.config.listo(); }
+  protected abstract tryReal(v: Record<string, string>): Promise<{ ok: boolean; detail: string }>;
+  protected missingConfig() { return t('integrations.missingConfig', { campos: this.config.fields.filter(c => !c.optional && !this.config.has(c.name)).map(c => tIs(c.label)).join(', ') }); }
+  protected ready() { return this.config.ready(); }
 
-  estado(): SourceState { return { modo: 'real', estado: this.situation.estado, detalle: this.situation.detalle, ultima: this.ultima, campos: this.config.publicos() }; }
-  protected bien(detalle?: string) { this.situation = { estado: 'conectada', detalle }; this.error = undefined; }
-  protected mal(detalle: string) { this.situation = { estado: 'error', detalle }; this.error = detalle; }
+  state(): SourceState { return { mode: 'real', state: this.situation.state, detail: this.situation.detail, last: this.last, fields: this.config.publicFields() }; }
+  protected good(detail?: string) { this.situation = { state: 'conectada', detail }; this.error = undefined; }
+  protected fail(detail: string) { this.situation = { state: 'error', detail }; this.error = detail; }
 
-  async sondear() {
-    if (!this.listo()) { this.situation = { estado: 'sin-configurar', detalle: this.missingConfig() }; return {}; }
-    if (Date.now() < this.esperarHasta) return {};
-    try { const r = await this.pollReal(); this.ultima = Date.now(); return r; }
+  async poll() {
+    if (!this.ready()) { this.situation = { state: 'sin-configurar', detail: this.missingConfig() }; return {}; }
+    if (Date.now() < this.waitUntil) return {};
+    try { const r = await this.pollReal(); this.last = Date.now(); return r; }
     catch (e) {
-      if (e instanceof ErrorSource && e.retryIn) this.esperarHasta = Date.now() + e.retryIn;
-      this.mal(mensaje(e)); throw e;
+      if (e instanceof ErrorSource && e.retryIn) this.waitUntil = Date.now() + e.retryIn;
+      this.fail(message(e)); throw e;
     }
   }
-  async probar(entrada: Record<string, string>) {
-    const v = await this.config.combine(entrada);
-    const faltan = this.config.faltan(v);
-    if (faltan.length) return { ok: false, detalle: t('integrations.missing', { campos: faltan.join(', ') }) };
-    try { return await this.tryReal(v); } catch (e) { return { ok: false, detalle: mensaje(e) }; }
+  async attempt(input: Record<string, string>) {
+    const v = await this.config.combine(input);
+    const missing = this.config.missing(v);
+    if (missing.length) return { ok: false, detail: t('integrations.missing', { campos: missing.join(', ') }) };
+    try { return await this.tryReal(v); } catch (e) { return { ok: false, detail: message(e) }; }
   }
-  async configurar(entrada: Record<string, string>) {
-    try { await this.config.guardar(entrada); } catch (e) { return { ok: false, detalle: mensaje(e) }; }
-    this.reiniciar();
-    const r = await this.probar({});
-    if (r.ok) this.bien(r.detalle); else this.mal(r.detalle);
+  async configure(input: Record<string, string>) {
+    try { await this.config.save(input); } catch (e) { return { ok: false, detail: message(e) }; }
+    this.restart();
+    const r = await this.attempt({});
+    if (r.ok) this.good(r.detail); else this.fail(r.detail);
     return r;
   }
-  reiniciar() { this.config.forgetCache(); this.esperarHasta = 0; this.situation = { estado: 'sin-configurar' }; this.error = undefined; this.onRestart(); }
+  restart() { this.config.forgetCache(); this.waitUntil = 0; this.situation = { state: 'sin-configurar' }; this.error = undefined; this.onRestart(); }
   protected onRestart() {}
-  parar() { this.onRestart(); }
-  async accion(nombre: string, d: Record<string, any>): Promise<unknown> {
-    if (nombre === 'campos') return this.config.descripcion();
-    if (nombre === 'olvidar') { this.onRestart(); await this.config.olvidar(); this.reiniciar(); this.avisar?.('estado'); return this.estado(); }
-    return this.ownAction(nombre, d);
+  stop() { this.onRestart(); }
+  async action(name: string, d: Record<string, any>): Promise<unknown> {
+    if (name === 'campos') return this.config.description();
+    if (name === 'olvidar') { this.onRestart(); await this.config.forget(); this.restart(); this.notify?.('estado'); return this.state(); }
+    return this.ownAction(name, d);
   }
-  protected async ownAction(nombre: string, _d: Record<string, any>): Promise<unknown> { throw new Error(t('integrations.unknownActionFor', { id: this.id, nombre })); }
+  protected async ownAction(name: string, _d: Record<string, any>): Promise<unknown> { throw new Error(t('integrations.unknownActionFor', { id: this.id, nombre: name })); }
 }
 
 // Petición HTTP con tiempo límite. No lanza por estado HTTP (lo interpreta quien llama); sí por red caída.
-export interface Respuesta { estado: number; cabeceras: Headers; texto: string; json: any }
-export async function ask(url: string, op: { servicio: string; metodo?: string; cabeceras?: Record<string, string>; cuerpo?: string; tiempo?: number }): Promise<Respuesta> {
+export interface HttpResponse { state: number; headers: Headers; text: string; json: any }
+export async function ask(url: string, op: { service: string; method?: string; headers?: Record<string, string>; body?: string; timeout?: number }): Promise<HttpResponse> {
   let r: Response;
-  try { r = await fetch(url, { method: op.metodo ?? 'GET', headers: op.cabeceras, body: op.cuerpo, signal: AbortSignal.timeout(op.tiempo ?? 20_000), redirect: 'follow' }); }
+  try { r = await fetch(url, { method: op.method ?? 'GET', headers: op.headers, body: op.body, signal: AbortSignal.timeout(op.timeout ?? 20_000), redirect: 'follow' }); }
   catch (e) {
-    const causa = (e as any)?.name === 'TimeoutError' ? t('integrations.didNotRespondInTime') : ((e as any)?.cause?.code === 'ENOTFOUND' ? t('integrations.addressNotFound') : (e as any)?.cause?.code || mensaje(e));
-    throw new ErrorSource(t('server.noConnectionToIsThe', { servicio: op.servicio, causa }), 60_000, 'red');
+    const cause = (e as any)?.name === 'TimeoutError' ? t('integrations.didNotRespondInTime') : ((e as any)?.cause?.code === 'ENOTFOUND' ? t('integrations.addressNotFound') : (e as any)?.cause?.code || message(e));
+    throw new ErrorSource(t('server.noConnectionToIsThe', { servicio: op.service, causa: cause }), 60_000, 'red');
   }
-  const texto = await r.text();
-  let json: any; try { json = texto ? JSON.parse(texto) : undefined; } catch { json = undefined; }
-  return { estado: r.status, cabeceras: r.headers, texto, json };
+  const text = await r.text();
+  let json: any; try { json = text ? JSON.parse(text) : undefined; } catch { json = undefined; }
+  return { state: r.status, headers: r.headers, text, json };
 }
 // Segundos de Retry-After (o un valor por defecto) en milisegundos
-export const retraso = (r: Respuesta, porDefecto = 60) => Math.max(1, Number(r.cabeceras.get('retry-after')) || porDefecto) * 1000;
+export const delay = (r: HttpResponse, fallback = 60) => Math.max(1, Number(r.headers.get('retry-after')) || fallback) * 1000;

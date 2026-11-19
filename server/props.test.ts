@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { existsSync, mkdtempSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { boxGltf, catalogo, ASSETS } from './props.ts';
+import { boxGltf, catalog, ASSETS } from './props.ts';
 
 describe('catálogo del atrezo', () => {
   it('mide la caja de un glTF con las transformaciones de sus nodos', () => {
@@ -13,9 +13,9 @@ describe('catálogo del atrezo', () => {
     expect(boxGltf(f)).toEqual([[-0.5, 2.5, -0.5], [0.5, 3.5, 0.5]]);
   });
   it.skipIf(!existsSync(path.join(ASSETS, 'indice.json')))('lista el material del juego, sin suelos, paredes ni personajes', () => {
-    const c = catalogo();
+    const c = catalog();
     expect(c.length).toBeGreaterThan(300);
-    expect(c.find(m => m.id === 'mueble/desk')?.tam[1]).toBeGreaterThan(0.5);
+    expect(c.find(m => m.id === 'mueble/desk')?.size[1]).toBeGreaterThan(0.5);
     expect(c.some(m => /FloorTile|^sf\/Wall|Enemy_|Character/.test(m.id))).toBe(false);
   });
 });

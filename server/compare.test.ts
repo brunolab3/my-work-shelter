@@ -22,10 +22,10 @@ function repo() {
 describe('comparación de cambios', () => {
   it('la rama sin subir frente a la principal, con lo que no está en un commit: archivos, cuentas y nada sin escapar', async () => {
     const r = await buildCompare(repo());
-    expect([r.base, r.rama, r.archivos, r.mas, r.menos]).toEqual(['main', 'tarea', 3, 4, 1]);
-    expect(readFileSync(r.archivo, 'utf8')).toContain('data-seccion="suelto.ts"');
-    expect(path.dirname(r.archivo)).toBe(COMPARES_FOLDER);
-    const html = readFileSync(r.archivo, 'utf8');
+    expect([r.base, r.branch, r.files, r.more, r.deletions]).toEqual(['main', 'tarea', 3, 4, 1]);
+    expect(readFileSync(r.file, 'utf8')).toContain('data-seccion="suelto.ts"');
+    expect(path.dirname(r.file)).toBe(COMPARES_FOLDER);
+    const html = readFileSync(r.file, 'utf8');
     expect(html).toContain('data-seccion="a.ts"');
     expect(html).toContain('data-seccion="a.ts:3"');          // cada línea dice de qué archivo y línea es
     expect(html).toContain('&lt;script&gt;3&lt;/script&gt;');
@@ -34,34 +34,34 @@ describe('comparación de cambios', () => {
   });
   it('sin lo que no está en un commit, solo lo de la rama; y una base que no existe se dice', async () => {
     const d = repo();
-    expect((await buildCompare(d, { sinCommit: false })).mas).toBe(2);
+    expect((await buildCompare(d, { uncommitted: false })).more).toBe(2);
     await expect(buildCompare(d, { base: 'no-existe' })).rejects.toThrow(/no-existe/);
   });
   it('otra copia del mismo repo se puede comparar desde la conversación; una carpeta que no es su worktree, no', async () => {
     const d = repo();
-    const copia = path.join(mkdtempSync(path.join(os.tmpdir(), 'copia-')), 'otra');
-    execFileSync('git', ['worktree', 'add', '-q', '-b', 'otra', copia, 'main'], { cwd: d });
-    expect(await sameRepoWorktree(d, copia)).toBe(realpathSync(copia));
+    const copy = path.join(mkdtempSync(path.join(os.tmpdir(), 'copia-')), 'otra');
+    execFileSync('git', ['worktree', 'add', '-q', '-b', 'otra', copy, 'main'], { cwd: d });
+    expect(await sameRepoWorktree(d, copy)).toBe(realpathSync(copy));
     await expect(sameRepoWorktree(d, os.tmpdir())).rejects.toThrow();
-    await expect(sameRepoWorktree(copia, d)).resolves.toBe(realpathSync(d));
-    expect((await buildCompare(await sameRepoWorktree(d, copia))).rama).toBe('otra');
+    await expect(sameRepoWorktree(copy, d)).resolves.toBe(realpathSync(d));
+    expect((await buildCompare(await sameRepoWorktree(d, copy))).branch).toBe('otra');
   });
 
   it('los números de línea de cada lado', () => {
     const [f] = parseDiff('diff --git a/x b/x\n--- a/x\n+++ b/x\n@@ -10,2 +10,3 @@ f\n uno\n-dos\n+DOS\n+tres\n');
-    expect(f.lineas.map(l => [l.tipo, l.viejo, l.nuevo])).toEqual([['@', undefined, undefined], [' ', 10, 10], ['-', 11, undefined], ['+', undefined, 11], ['+', undefined, 12]]);
+    expect(f.lines.map(l => [l.type, l.old, l.newer])).toEqual([['@', undefined, undefined], [' ', 10, 10], ['-', 11, undefined], ['+', undefined, 11], ['+', undefined, 12]]);
   });
 });
 
 describe('cleaning compares', () => {
   it('a compare goes once every worktree it covers is removed; one still in use stays', async () => {
-    const d = repo(), carpeta = mkdtempSync(path.join(os.tmpdir(), 'compares-'));
-    const copia = path.join(mkdtempSync(path.join(os.tmpdir(), 'copia-')), 'otra');
-    execFileSync('git', ['worktree', 'add', '-q', '-b', 'otra', copia, 'main'], { cwd: d });
-    const vive = await buildCompare(d, {}, carpeta), quitada = await buildCompare(copia, {}, carpeta);
-    execFileSync('git', ['worktree', 'remove', copia], { cwd: d });
-    await cleanCompares(14, [carpeta]);
-    expect(readdirSync(carpeta).sort()).toEqual([path.basename(vive.archivo), path.basename(vive.archivo).replace(/\.html$/, '.json')].sort());
-    expect(existsSync(quitada.archivo)).toBe(false);
+    const d = repo(), folder = mkdtempSync(path.join(os.tmpdir(), 'compares-'));
+    const copy = path.join(mkdtempSync(path.join(os.tmpdir(), 'copia-')), 'otra');
+    execFileSync('git', ['worktree', 'add', '-q', '-b', 'otra', copy, 'main'], { cwd: d });
+    const alive = await buildCompare(d, {}, folder), removed = await buildCompare(copy, {}, folder);
+    execFileSync('git', ['worktree', 'remove', copy], { cwd: d });
+    await cleanCompares(14, [folder]);
+    expect(readdirSync(folder).sort()).toEqual([path.basename(alive.file), path.basename(alive.file).replace(/\.html$/, '.json')].sort());
+    expect(existsSync(removed.file)).toBe(false);
   });
 });

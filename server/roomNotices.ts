@@ -16,197 +16,197 @@ import { z } from 'zod';
 import path from 'node:path';
 import { t as tr } from '../shared/language.ts';
 import type { InfoWorktree } from '../shared/protocol.ts';
-import { nombreWorktree, worktreeSuffix } from './sessions.ts';
+import { worktreeName, worktreeSuffix } from './sessions.ts';
 import { isJiraKey, slugWorktreeName, taskKey, worktreeHasTask, worktreeTask } from '../shared/tasks.ts';
 import { describeWhen, MAX_PER_CONVERSATION, MAX_DAYS, type ScheduledMessage } from '../shared/scheduled.ts';
 import { MCP } from './mcpServers.ts';
 import { REPORT_EVENTS, SIGNAL_KINDS, type PlanConversation } from '../shared/verification.ts';
 import { errorText, planText, type Verifications } from './verifications.ts';
 
-export interface RoomInfo { id: string; nombre: string; habitante?: { id: string; nombre: string } }
+export interface RoomInfo { id: string; name: string; dweller?: { id: string; name: string } }
 export interface CtxRooms {
-  salas(): RoomInfo[];
+  rooms(): RoomInfo[];
   // la conversación abierta en el worktree de la tarea, en esa sala
-  sesionDeTarea(salaId: string, clave: string): string | undefined;
+  sessionOfTask(roomId: string, taskKeyOf: string): string | undefined;
   // el worktree de la tarea en esa sala (la clave en su rama o en su carpeta), leído de git al momento: uno recién creado
   // aún no está en el último repaso de los repos
-  worktreeDeTarea(salaId: string, clave: string): Promise<string | undefined>;
-  avisar(sesionId: string, texto: string): boolean;
+  worktreeOfTask(roomId: string, taskKeyOf: string): Promise<string | undefined>;
+  notify(sessionId: string, text: string): boolean;
   // una conversación nueva con el habitante, en automático: en `cwd`, en un worktree nuevo llamado `worktree` o, sin
-  // ninguno, en la carpeta de la sala; `enWorktree` dice si el worktree pedido sigue en pie (falso si la carpeta de la
+  // ninguno, en la carpeta de la sala; `inWorktree` dice si el worktree pedido sigue en pie (falso si la carpeta de la
   // sala no es un repo git y la conversación arrancó en ella)
-  empezar(salaId: string, dwellerId: string, prompt: string, donde?: { cwd?: string; worktree?: string }): Promise<{ id: string; enWorktree: boolean }>;
-  mensajero(desde: string, a: string[], motivo: 'cambio'): void;
+  start(roomId: string, dwellerId: string, prompt: string, where?: { cwd?: string; worktree?: string }): Promise<{ id: string; inWorktree: boolean }>;
+  messenger(since: string, a: string[], reason: 'cambio'): void;
   // dentro de la misma sala no hay robot: el habitante se lo da en mano al holograma de la conversación que lo recibe
-  entrega?(salaId: string, a: { worktree?: string; sesionId?: string }): void;
-  aviso(texto: string): void;
-  ahora?(): number;
+  delivery?(roomId: string, a: { worktree?: string; sessionId?: string }): void;
+  notice(text: string): void;
+  now?(): number;
   // los mensajes programados (scheduled.ts): schedule_message, list_scheduled y cancel_scheduled
-  programados?: {
-    programar(desde: string, desdeSesion: string | undefined, a: { cuando: string; mensaje: string; sala?: string; clave?: string }): { ok: boolean; texto: string };
-    deConversacion(sesionId?: string): ScheduledMessage[];
-    cancelar(id: string, desdeSesion?: string): boolean;
+  scheduled?: {
+    schedule(since: string, fromSession: string | undefined, a: { when: string; message: string; room?: string; key?: string }): { ok: boolean; text: string };
+    ofConversation(sessionId?: string): ScheduledMessage[];
+    cancel(id: string, fromSession?: string): boolean;
   };
   // production verification plans (verifications.ts): verification_plan and verification_report, for the task of the
   // conversation's worktree (or the key the dweller passes)
-  verificaciones?: { planes: Pick<Verifications, 'get' | 'proponer' | 'informar'>; tareaDeSesion(sesionId?: string): string | undefined; conversacion?(sesionId?: string): PlanConversation | undefined };
+  verifications?: { plans: Pick<Verifications, 'get' | 'propose' | 'report'>; taskOfSession(sessionId?: string): string | undefined; conversation?(sessionId?: string): PlanConversation | undefined };
   // a conversation is busy (starting, working or waiting for the Overseer): a task message then goes to a fork of it
-  ocupada?(sesionId: string): boolean;
+  busy?(sessionId: string): boolean;
   // a read-only fork (plan mode) of an open conversation, in its folder and with its history: the new conversation's id
-  bifurcar?(salaId: string, sesionId: string, prompt: string): Promise<string>;
+  fork?(roomId: string, sessionId: string, prompt: string): Promise<string>;
   // the last conversation in a folder (never a fork, nor one still open outside the game), resumed with `prompt`: its
   // id, or none if there is no such conversation
-  retomar?(salaId: string, cwd: string, prompt: string): Promise<string | undefined>;
+  resume?(roomId: string, cwd: string, prompt: string): Promise<string | undefined>;
   // the worktree a conversation runs in (its cwd inside one), its branch, and whether the repo has a `local` branch
-  worktreeDeSesion?(salaId: string, sesionId: string): Promise<{ ruta: string; rama: string; local: boolean } | undefined>;
+  worktreeOfSession?(roomId: string, sessionId: string): Promise<{ path: string; branch: string; local: boolean } | undefined>;
 }
 
 // sin bucles: como mucho LIMITE mensajes por minuto de una sala a otra
-const LIMITE = 3, VENTANA = 60_000;
-const enviados = new Map<string, number[]>();
-export const forgetLimits = () => enviados.clear();
+const LIMIT = 3, WINDOW = 60_000;
+const sent = new Map<string, number[]>();
+export const forgetLimits = () => sent.clear();
 // each thread's conversation, per room and thread: in memory only, since "Restart the game" closes every conversation
-const hilos = new Map<string, string>();
+const threads = new Map<string, string>();
 // conversation follow-ups, per sender conversation and room (`${sesión}>${sala}`): where its last message without key or
 // thread went, and the way back for replies; in memory too
-const seguimientos = new Map<string, { sesion: string; respuesta: boolean }>();
+const followUps = new Map<string, { session: string; answer: boolean }>();
 // the forks a busy task conversation got (fork → original): what they send to their own room with the task's key
 // queues in the original, and the task's messages go to the original, not to them
-const bifurcaciones = new Map<string, string>();
+const forks = new Map<string, string>();
 // each busy conversation's last fork (original → fork): while it is open, the task's next messages go to it (queued if it
 // is busy) instead of opening another, so a task never has more than one
-const ultimoFork = new Map<string, string>();
-export const forgetThreads = () => { hilos.clear(); seguimientos.clear(); bifurcaciones.clear(); ultimoFork.clear(); };
+const lastFork = new Map<string, string>();
+export const forgetThreads = () => { threads.clear(); followUps.clear(); forks.clear(); lastFork.clear(); };
 const threadOf = (h: string) => { const x = h.trim().toLowerCase(); return /^[a-z0-9]+(-[a-z0-9]+)*$/.test(x) && x.length <= 40 ? x : undefined; };
 
 // the worktree of a task among a room's: its key in its folder name or its branch (shared/tasks.ts: worktreeHasTask)
-export function taskWorktree(worktrees: InfoWorktree[], clave: string): string | undefined {
-  return worktrees.find(w => !w.principal && worktreeHasTask(w, clave))?.ruta;
+export function taskWorktree(worktrees: InfoWorktree[], taskKeyOf: string): string | undefined {
+  return worktrees.find(w => !w.main && worktreeHasTask(w, taskKeyOf))?.path;
 }
 
-const findRoom = (salas: RoomInfo[], q: string) => { const k = q.trim().toLowerCase(); return salas.find(s => s.id.toLowerCase() === k) ?? salas.find(s => s.nombre.toLowerCase() === k); };
+const findRoom = (rooms: RoomInfo[], q: string) => { const k = q.trim().toLowerCase(); return rooms.find(s => s.id.toLowerCase() === k) ?? rooms.find(s => s.name.toLowerCase() === k); };
 
-/** `desdeSesion`: la conversación que lo envía (en su misma sala, no puede ser la que lo recibe) */
-export async function sendToRoom(ctx: CtxRooms, desde: string, { sala, mensaje, clave, hilo: hiloPedido }: { sala: string; mensaje: string; clave?: string; hilo?: string }, desdeSesion?: string): Promise<{ ok: boolean; texto: string }> {
-  const salas = ctx.salas();
-  const origen = salas.find(s => s.id === desde), destino = findRoom(salas, sala);
-  if (!destino) return { ok: false, texto: tr('tool.rooms.noRoom', { sala, salas: salas.map(s => `${s.id} (${s.nombre})`).join(', ') }) };
-  const misma = destino.id === desde;
-  if (!destino.habitante) return { ok: false, texto: tr('tool.rooms.noDweller', { sala: destino.nombre }) };
-  if (!mensaje.trim()) return { ok: false, texto: tr('tool.rooms.empty') };
-  let k = clave?.trim() ? taskKey(clave) : undefined;
-  if (clave?.trim() && !k) return { ok: false, texto: tr('tool.rooms.badKey', { clave: clave ?? '' }) };
-  const hilo = hiloPedido?.trim() ? threadOf(hiloPedido) : undefined;
-  if (hiloPedido?.trim() && !hilo) return { ok: false, texto: tr('tool.rooms.badThread', { hilo: hiloPedido }) };
-  if (k && hilo) return { ok: false, texto: tr('tool.rooms.keyAndThread') };
-  const ahora = ctx.ahora?.() ?? Date.now(), par = `${desde}>${destino.id}`;
-  const recientes = (enviados.get(par) ?? []).filter(x => ahora - x < VENTANA);
-  if (recientes.length >= LIMITE) return { ok: false, texto: tr('tool.rooms.limit', { n: LIMITE, sala: destino.nombre }) };
-  const marco = (k?: string) => [
-    tr('prompt.room.from', { sala: origen?.nombre ?? desde, habitante: origen?.habitante?.nombre ?? '?', tarea: k ? tr('prompt.room.task', { clave: k }) : hilo ? tr('prompt.room.thread', { hilo }) : '' }),
-    '', mensaje.trim(), '', ...k ? [tr('prompt.room.outside')] : [], tr('prompt.room.reply', { salaId: desde }),
+/** `fromSession`: la conversación que lo envía (en su misma sala, no puede ser la que lo recibe) */
+export async function sendToRoom(ctx: CtxRooms, since: string, { room, message, key: taskKeyOf, thread: requestedThread }: { room: string; message: string; key?: string; thread?: string }, fromSession?: string): Promise<{ ok: boolean; text: string }> {
+  const rooms = ctx.rooms();
+  const origin = rooms.find(s => s.id === since), target = findRoom(rooms, room);
+  if (!target) return { ok: false, text: tr('tool.rooms.noRoom', { sala: room, salas: rooms.map(s => `${s.id} (${s.name})`).join(', ') }) };
+  const same = target.id === since;
+  if (!target.dweller) return { ok: false, text: tr('tool.rooms.noDweller', { sala: target.name }) };
+  if (!message.trim()) return { ok: false, text: tr('tool.rooms.empty') };
+  let k = taskKeyOf?.trim() ? taskKey(taskKeyOf) : undefined;
+  if (taskKeyOf?.trim() && !k) return { ok: false, text: tr('tool.rooms.badKey', { clave: taskKeyOf ?? '' }) };
+  const thread = requestedThread?.trim() ? threadOf(requestedThread) : undefined;
+  if (requestedThread?.trim() && !thread) return { ok: false, text: tr('tool.rooms.badThread', { hilo: requestedThread }) };
+  if (k && thread) return { ok: false, text: tr('tool.rooms.keyAndThread') };
+  const now = ctx.now?.() ?? Date.now(), pair = `${since}>${target.id}`;
+  const recent = (sent.get(pair) ?? []).filter(x => now - x < WINDOW);
+  if (recent.length >= LIMIT) return { ok: false, text: tr('tool.rooms.limit', { n: LIMIT, sala: target.name }) };
+  const frame = (k?: string) => [
+    tr('prompt.room.from', { sala: origin?.name ?? since, habitante: origin?.dweller?.name ?? '?', tarea: k ? tr('prompt.room.task', { clave: k }) : thread ? tr('prompt.room.thread', { hilo: thread }) : '' }),
+    '', message.trim(), '', ...k ? [tr('prompt.room.outside')] : [], tr('prompt.room.reply', { salaId: since }),
   ].join('\n');
-  let como: string | undefined, recibe: string | undefined, cwd: string | undefined, heredada: string | undefined;
+  let how: string | undefined, receiver: string | undefined, cwd: string | undefined, inherited: string | undefined;
   // without key or thread: the conversation that got this one's previous message, or the one that wrote to it
-  const sigue = !k && !hilo && desdeSesion ? seguimientos.get(`${desdeSesion}>${destino.id}`) : undefined;
-  if (sigue && ctx.avisar(sigue.sesion, marco())) { como = tr(sigue.respuesta ? 'tool.rooms.toReply' : 'tool.rooms.toFollowUp'); recibe = sigue.sesion; }
+  const followUp = !k && !thread && fromSession ? followUps.get(`${fromSession}>${target.id}`) : undefined;
+  if (followUp && ctx.notify(followUp.session, frame())) { how = tr(followUp.answer ? 'tool.rooms.toReply' : 'tool.rooms.toFollowUp'); receiver = followUp.session; }
   // else, from a conversation in a task worktree to another room: the sender's task, if that room has its conversation or
   // worktree (otherwise its main copy, as before: an unrelated question never makes a worktree there)
-  else if (!k && !hilo && !misma && desdeSesion) {
-    const wt = await ctx.worktreeDeSesion?.(desde, desdeSesion), t = wt && worktreeTask(wt);
-    if (t && (ctx.sesionDeTarea(destino.id, t) || (cwd = await ctx.worktreeDeTarea(destino.id, t)))) k = heredada = t;
+  else if (!k && !thread && !same && fromSession) {
+    const wt = await ctx.worktreeOfSession?.(since, fromSession), t = wt && worktreeTask(wt);
+    if (t && (ctx.sessionOfTask(target.id, t) || (cwd = await ctx.worktreeOfTask(target.id, t)))) k = inherited = t;
   }
-  const texto = marco(k);
+  const text = frame(k);
   // a fork writing to its own room with the task's key: to the conversation it comes from, queued
-  const original = misma && k && desdeSesion ? bifurcaciones.get(desdeSesion) : undefined;
-  const deTarea = k ? ctx.sesionDeTarea(destino.id, k) : undefined;
-  const abierta = original ?? (deTarea && (bifurcaciones.get(deTarea) ?? deTarea));
-  if (misma && abierta && abierta === desdeSesion) return { ok: false, texto: tr('tool.rooms.ownConversation', { clave: k! }) };
-  const ocupada = !original && !!abierta && !!ctx.ocupada?.(abierta);
+  const original = same && k && fromSession ? forks.get(fromSession) : undefined;
+  const taskSession = k ? ctx.sessionOfTask(target.id, k) : undefined;
+  const open = original ?? (taskSession && (forks.get(taskSession) ?? taskSession));
+  if (same && open && open === fromSession) return { ok: false, text: tr('tool.rooms.ownConversation', { clave: k! }) };
+  const busy = !original && !!open && !!ctx.busy?.(open);
   // a thread's conversation, while open and never the sender itself (sesiones.enviar queues it if it's busy)
-  const delHilo = hilo ? hilos.get(`${destino.id}/${hilo}`) : undefined;
-  if (como) { /* followed up or replied */ }
-  else if (abierta && ocupada && ultimoFork.has(abierta) && ctx.avisar(ultimoFork.get(abierta)!, texto)) {
+  const ofThread = thread ? threads.get(`${target.id}/${thread}`) : undefined;
+  if (how) { /* followed up or replied */ }
+  else if (open && busy && lastFork.has(open) && ctx.notify(lastFork.get(open)!, text)) {
     // busy, and its fork still open: to that fork, queued if it is busy too (one fork per conversation at most)
-    recibe = ultimoFork.get(abierta); como = tr('tool.rooms.toSameFork', { clave: k! });
+    receiver = lastFork.get(open); how = tr('tool.rooms.toSameFork', { clave: k! });
   }
-  else if (abierta && ocupada && ctx.bifurcar) {
+  else if (open && busy && ctx.fork) {
     // busy: a read-only fork answers, and the original keeps working; if it can't start, the message queues there
-    try { recibe = await ctx.bifurcar(destino.id, abierta, [texto, '', tr('prompt.room.fork', { salaId: destino.id, clave: k! })].join('\n')); bifurcaciones.set(recibe, abierta); ultimoFork.set(abierta, recibe); como = tr('tool.rooms.toFork', { clave: k! }); }
-    catch (e) { if (ctx.avisar(abierta, texto)) { recibe = abierta; como = tr('tool.rooms.toOpenQueued', { clave: k!, error: (e as Error).message }); } }
+    try { receiver = await ctx.fork(target.id, open, [text, '', tr('prompt.room.fork', { salaId: target.id, clave: k! })].join('\n')); forks.set(receiver, open); lastFork.set(open, receiver); how = tr('tool.rooms.toFork', { clave: k! }); }
+    catch (e) { if (ctx.notify(open, text)) { receiver = open; how = tr('tool.rooms.toOpenQueued', { clave: k!, error: (e as Error).message }); } }
   }
-  else if (abierta && ctx.avisar(abierta, texto)) { como = tr(original ? 'tool.rooms.toOriginal' : 'tool.rooms.toOpen', { clave: k! }); recibe = abierta; }
-  else if (delHilo && delHilo !== desdeSesion && ctx.avisar(delHilo, texto)) { como = tr('tool.rooms.toThread', { hilo: hilo! }); recibe = delHilo; }
-  if (!como) {
-    cwd = k ? cwd ?? await ctx.worktreeDeTarea(destino.id, k) : undefined;
+  else if (open && ctx.notify(open, text)) { how = tr(original ? 'tool.rooms.toOriginal' : 'tool.rooms.toOpen', { clave: k! }); receiver = open; }
+  else if (ofThread && ofThread !== fromSession && ctx.notify(ofThread, text)) { how = tr('tool.rooms.toThread', { hilo: thread! }); receiver = ofThread; }
+  if (!how) {
+    cwd = k ? cwd ?? await ctx.worktreeOfTask(target.id, k) : undefined;
     // none open: the last conversation in the task's worktree, with its history
-    if (cwd && ctx.retomar) {
-      try { recibe = await ctx.retomar(destino.id, cwd, texto); }
-      catch (e) { return { ok: false, texto: tr('tool.rooms.couldNotStart', { sala: destino.nombre, error: (e as Error).message }) }; }
-      if (recibe) como = tr('tool.rooms.resumed', { clave: k! });
+    if (cwd && ctx.resume) {
+      try { receiver = await ctx.resume(target.id, cwd, text); }
+      catch (e) { return { ok: false, text: tr('tool.rooms.couldNotStart', { sala: target.name, error: (e as Error).message }) }; }
+      if (receiver) how = tr('tool.rooms.resumed', { clave: k! });
     }
   }
-  if (!como) {
+  if (!how) {
     // sin worktree de la tarea, uno nuevo: la clave y el asunto en su nombre (la primera línea, sin repetir la clave); a
     // slug is descriptive already, so it goes alone and verbatim, recoverable from the name (shared/tasks.ts: slugKeyOf)
     const worktree = !k || cwd ? undefined : isJiraKey(k)
-      ? nombreWorktree(`${k} ${mensaje.trim().split('\n')[0].replace(new RegExp(k, 'ig'), '')}`, ahora)
-      : slugWorktreeName(k, worktreeSuffix(ahora));
-    let enWorktree: boolean;
-    try { ({ id: recibe, enWorktree } = await ctx.empezar(destino.id, destino.habitante.id, texto, cwd ? { cwd } : worktree ? { worktree } : undefined)); }
-    catch (e) { return { ok: false, texto: tr('tool.rooms.couldNotStart', { sala: destino.nombre, error: (e as Error).message }) }; }
-    if (hilo) hilos.set(`${destino.id}/${hilo}`, recibe);
+      ? worktreeName(`${k} ${message.trim().split('\n')[0].replace(new RegExp(k, 'ig'), '')}`, now)
+      : slugWorktreeName(k, worktreeSuffix(now));
+    let inWorktree: boolean;
+    try { ({ id: receiver, inWorktree } = await ctx.start(target.id, target.dweller.id, text, cwd ? { cwd } : worktree ? { worktree } : undefined)); }
+    catch (e) { return { ok: false, text: tr('tool.rooms.couldNotStart', { sala: target.name, error: (e as Error).message }) }; }
+    if (thread) threads.set(`${target.id}/${thread}`, receiver);
     // dónde ha caído de verdad: si no se pudo hacer el worktree, se dice (nunca a la copia principal en silencio)
-    como = cwd ? tr('tool.rooms.inTaskWorktree', { clave: k! }) : hilo ? tr('tool.rooms.inNewThread', { hilo }) : !worktree ? tr('tool.rooms.inMainCopy')
-      : enWorktree ? tr('tool.rooms.inNewWorktree', { clave: k!, worktree }) : tr('tool.rooms.inMainCopyNoGit', { clave: k! });
+    how = cwd ? tr('tool.rooms.inTaskWorktree', { clave: k! }) : thread ? tr('tool.rooms.inNewThread', { hilo: thread }) : !worktree ? tr('tool.rooms.inMainCopy')
+      : inWorktree ? tr('tool.rooms.inNewWorktree', { clave: k!, worktree }) : tr('tool.rooms.inMainCopyNoGit', { clave: k! });
   }
-  enviados.set(par, [...recientes, ahora]);
+  sent.set(pair, [...recent, now]);
   // never the sender's own: recibe can't be it, so neither can a follow-up
-  if (desdeSesion && recibe && recibe !== desdeSesion) {
-    if (!k && !hilo) seguimientos.set(`${desdeSesion}>${destino.id}`, { sesion: recibe, respuesta: false });
-    seguimientos.set(`${recibe}>${desde}`, { sesion: desdeSesion, respuesta: true });
+  if (fromSession && receiver && receiver !== fromSession) {
+    if (!k && !thread) followUps.set(`${fromSession}>${target.id}`, { session: receiver, answer: false });
+    followUps.set(`${receiver}>${since}`, { session: fromSession, answer: true });
   }
-  if (!misma) ctx.mensajero(desde, [destino.id], 'cambio');
-  else ctx.entrega?.(destino.id, { worktree: cwd, sesionId: recibe });
-  const resumen = mensaje.trim().replace(/\s+/g, ' ');
-  ctx.aviso(tr('server.roomMessage', { desde: origen?.nombre ?? desde, a: destino.nombre, resumen: resumen.length > 90 ? resumen.slice(0, 89) + '…' : resumen }));
-  return { ok: true, texto: tr('tool.rooms.sent', { habitante: destino.habitante.nombre, sala: destino.nombre, como }) + (heredada ? ' ' + tr('tool.rooms.inheritedKey', { clave: heredada }) : '') };
+  if (!same) ctx.messenger(since, [target.id], 'cambio');
+  else ctx.delivery?.(target.id, { worktree: cwd, sessionId: receiver });
+  const summary = message.trim().replace(/\s+/g, ' ');
+  ctx.notice(tr('server.roomMessage', { desde: origin?.name ?? since, a: target.name, resumen: summary.length > 90 ? summary.slice(0, 89) + '…' : summary }));
+  return { ok: true, text: tr('tool.rooms.sent', { habitante: target.dweller.name, sala: target.name, como: how }) + (inherited ? ' ' + tr('tool.rooms.inheritedKey', { clave: inherited }) : '') };
 }
 
 // a worktree's cleanup, written by the game from the sender's cwd and sent through its own room's `cleanup` thread
-export async function requestCleanup(ctx: CtxRooms, desde: string, desdeSesion: string | undefined, nota?: string): Promise<{ ok: boolean; texto: string }> {
-  const wt = desdeSesion ? await ctx.worktreeDeSesion?.(desde, desdeSesion) : undefined;
-  if (!wt) return { ok: false, texto: tr('tool.cleanup.notInWorktree') };
-  const mensaje = [tr('prompt.cleanup.request', { ruta: wt.ruta, rama: wt.rama, merge: wt.local ? tr('prompt.cleanup.mergeLocal', { rama: wt.rama }) : '' }), nota?.trim() ?? ''].filter(Boolean).join('\n\n');
-  return sendToRoom(ctx, desde, { sala: desde, mensaje, hilo: 'cleanup' }, desdeSesion);
+export async function requestCleanup(ctx: CtxRooms, since: string, fromSession: string | undefined, note?: string): Promise<{ ok: boolean; text: string }> {
+  const wt = fromSession ? await ctx.worktreeOfSession?.(since, fromSession) : undefined;
+  if (!wt) return { ok: false, text: tr('tool.cleanup.notInWorktree') };
+  const message = [tr('prompt.cleanup.request', { ruta: wt.path, rama: wt.branch, merge: wt.local ? tr('prompt.cleanup.mergeLocal', { rama: wt.branch }) : '' }), note?.trim() ?? ''].filter(Boolean).join('\n\n');
+  return sendToRoom(ctx, since, { room: since, message, thread: 'cleanup' }, fromSession);
 }
 
-const texto = (s: string) => ({ content: [{ type: 'text' as const, text: s }] });
+const text = (s: string) => ({ content: [{ type: 'text' as const, text: s }] });
 
-export function mcpRooms(ctx: CtxRooms, desde: string, desdeSesion?: string, enWorktree = false) {
-  const salas = ctx.salas().filter(s => s.habitante);
+export function mcpRooms(ctx: CtxRooms, since: string, fromSession?: string, inWorktree = false) {
+  const rooms = ctx.rooms().filter(s => s.dweller);
   return createSdkMcpServer({
     name: MCP.rooms, version: '1.0.0',
     tools: [
-      tool('send_to_room', tr('tool.rooms.description', { salas: salas.map(s => `${s.id} (${s.nombre})` + (s.id === desde ? tr('tool.rooms.thisRoom') : '')).join(', ') }),
+      tool('send_to_room', tr('tool.rooms.description', { salas: rooms.map(s => `${s.id} (${s.name})` + (s.id === since ? tr('tool.rooms.thisRoom') : '')).join(', ') }),
         {
           room: z.string().describe(tr('tool.param.room')),
           message: z.string().describe(tr('tool.rooms.paramMessage')),
           key: z.string().optional().describe(tr('tool.rooms.paramKey')),
           thread: z.string().optional().describe(tr('tool.rooms.paramThread')),
         },
-        async ({ room, message, key, thread }) => { const r = await sendToRoom(ctx, desde, { sala: room, mensaje: message, clave: key, hilo: thread }, desdeSesion); return r.ok ? texto(r.texto) : { ...texto(r.texto), isError: true }; }, { alwaysLoad: true }),
-      ...(ctx.programados ? scheduleTools(ctx.programados, desde, desdeSesion) : []),
-      ...(ctx.verificaciones ? verificationTools(ctx.verificaciones, desdeSesion) : []),
-      ...enWorktree ? [tool('request_worktree_cleanup', tr('tool.cleanup.description'), { note: z.string().optional().describe(tr('tool.cleanup.paramNote')) },
-        async ({ note }) => { const r = await requestCleanup(ctx, desde, desdeSesion, note); return r.ok ? texto(r.texto) : { ...texto(r.texto), isError: true }; }, { alwaysLoad: true })] : [],
+        async ({ room, message, key, thread }) => { const r = await sendToRoom(ctx, since, { room: room, message: message, key: key, thread: thread }, fromSession); return r.ok ? text(r.text) : { ...text(r.text), isError: true }; }, { alwaysLoad: true }),
+      ...(ctx.scheduled ? scheduleTools(ctx.scheduled, since, fromSession) : []),
+      ...(ctx.verifications ? verificationTools(ctx.verifications, fromSession) : []),
+      ...inWorktree ? [tool('request_worktree_cleanup', tr('tool.cleanup.description'), { note: z.string().optional().describe(tr('tool.cleanup.paramNote')) },
+        async ({ note }) => { const r = await requestCleanup(ctx, since, fromSession, note); return r.ok ? text(r.text) : { ...text(r.text), isError: true }; }, { alwaysLoad: true })] : [],
     ],
   });
 }
 
 // mensajes programados (scheduled.ts): para más adelante, a esta misma conversación o a una sala
-function scheduleTools(p: NonNullable<CtxRooms['programados']>, desde: string, desdeSesion?: string) {
-  const linea = (x: ScheduledMessage) => `- ${x.id} · ${describeWhen(x.cuando)} · ${x.destino.tipo === 'sala' ? tr('tool.schedule.toRoom', { sala: x.destino.sala + (x.destino.clave ? ' ' + x.destino.clave : '') }) : tr('tool.schedule.toThis')}: ${x.mensaje.replace(/\s+/g, ' ').slice(0, 160)}`;
+function scheduleTools(p: NonNullable<CtxRooms['scheduled']>, since: string, fromSession?: string) {
+  const line = (x: ScheduledMessage) => `- ${x.id} · ${describeWhen(x.when)} · ${x.target.type === 'sala' ? tr('tool.schedule.toRoom', { sala: x.target.room + (x.target.key ? ' ' + x.target.key : '') }) : tr('tool.schedule.toThis')}: ${x.message.replace(/\s+/g, ' ').slice(0, 160)}`;
   return [
     tool('schedule_message', tr('tool.schedule.description', { n: MAX_PER_CONVERSATION, dias: MAX_DAYS }),
       {
@@ -215,18 +215,18 @@ function scheduleTools(p: NonNullable<CtxRooms['programados']>, desde: string, d
         room: z.string().optional().describe(tr('tool.schedule.paramRoom')),
         key: z.string().optional().describe(tr('tool.rooms.paramKey')),
       },
-      async ({ when, message, room, key }) => { const r = p.programar(desde, desdeSesion, { cuando: when, mensaje: message, sala: room, clave: key }); return r.ok ? texto(r.texto) : { ...texto(r.texto), isError: true }; }, { alwaysLoad: true }),
+      async ({ when, message, room, key }) => { const r = p.schedule(since, fromSession, { when: when, message: message, room: room, key: key }); return r.ok ? text(r.text) : { ...text(r.text), isError: true }; }, { alwaysLoad: true }),
     tool('list_scheduled', tr('tool.schedule.listDescription'), {},
-      async () => { const l = p.deConversacion(desdeSesion); return texto(l.length ? l.map(linea).join('\n') : tr('tool.schedule.none')); }),
+      async () => { const l = p.ofConversation(fromSession); return text(l.length ? l.map(line).join('\n') : tr('tool.schedule.none')); }),
     tool('cancel_scheduled', tr('tool.schedule.cancelDescription'), { id: z.string().describe(tr('tool.schedule.paramId')) },
-      async ({ id }) => (p.cancelar(id.trim(), desdeSesion ?? '') ? texto(tr('tool.schedule.cancelled', { id })) : { ...texto(tr('tool.schedule.notFound', { id })), isError: true })),
+      async ({ id }) => (p.cancel(id.trim(), fromSession ?? '') ? text(tr('tool.schedule.cancelled', { id })) : { ...text(tr('tool.schedule.notFound', { id })), isError: true })),
   ];
 }
 
 // production verification (verifications.ts): the plan before the merge, the evidence after the deploy
-function verificationTools(v: NonNullable<CtxRooms['verificaciones']>, desdeSesion?: string) {
-  const clave = (key?: string) => (key?.trim() ? taskKey(key) : v.tareaDeSesion(desdeSesion));
-  const error = (s: string) => ({ ...texto(s), isError: true });
+function verificationTools(v: NonNullable<CtxRooms['verifications']>, fromSession?: string) {
+  const taskKeyOf = (key?: string) => (key?.trim() ? taskKey(key) : v.taskOfSession(fromSession));
+  const error = (s: string) => ({ ...text(s), isError: true });
   const signal = z.object({ id: z.string(), kind: z.enum(SIGNAL_KINDS as [string, ...string[]]), what: z.string(), where: z.string(), baseline: z.string().optional() });
   const checkpoint = z.object({
     id: z.string(), kind: z.enum(['pr', 'final']), pr: z.string().optional(), title: z.string().optional(),
@@ -236,9 +236,9 @@ function verificationTools(v: NonNullable<CtxRooms['verificaciones']>, desdeSesi
     tool('verification_plan', tr('tool.verification.planDescription'),
       { key: z.string().optional().describe(tr('tool.verification.paramKey')), checkpoints: z.array(checkpoint).describe(tr('tool.verification.paramCheckpoints')) },
       async ({ key, checkpoints }) => {
-        const k = clave(key); if (!k) return error(key?.trim() ? tr('tool.rooms.badKey', { clave: key }) : tr('tool.verification.noTask'));
-        const r = v.planes.proponer(k, { checkpoints: checkpoints as any }, v.conversacion?.(desdeSesion));
-        return r.ok ? texto(tr('tool.verification.saved', { clave: k }) + '\n\n' + planText(r.valor)) : error(errorText(r));
+        const k = taskKeyOf(key); if (!k) return error(key?.trim() ? tr('tool.rooms.badKey', { clave: key }) : tr('tool.verification.noTask'));
+        const r = v.plans.propose(k, { checkpoints: checkpoints as any }, v.conversation?.(fromSession));
+        return r.ok ? text(tr('tool.verification.saved', { clave: k }) + '\n\n' + planText(r.value)) : error(errorText(r));
       }),
     tool('verification_report', tr('tool.verification.reportDescription'),
       {
@@ -251,9 +251,9 @@ function verificationTools(v: NonNullable<CtxRooms['verificaciones']>, desdeSesi
         hours: z.number().optional().describe(tr('tool.verification.paramHours')),
       },
       async ({ key, ...r }) => {
-        const k = clave(key); if (!k) return error(key?.trim() ? tr('tool.rooms.badKey', { clave: key }) : tr('tool.verification.noTask'));
-        const x = v.planes.informar(k, r as any);
-        return !x ? error(tr('tool.verification.noPlan', { clave: k })) : x.ok ? texto(planText(x.valor)) : error(errorText(x));
+        const k = taskKeyOf(key); if (!k) return error(key?.trim() ? tr('tool.rooms.badKey', { clave: key }) : tr('tool.verification.noTask'));
+        const x = v.plans.report(k, r as any);
+        return !x ? error(tr('tool.verification.noPlan', { clave: k })) : x.ok ? text(planText(x.value)) : error(errorText(x));
       }),
   ];
 }

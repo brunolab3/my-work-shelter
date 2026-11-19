@@ -1,7 +1,7 @@
 // The DEMO data (demo.ts, and the demo PRs and profile in server/git.ts) in English: each Spanish text with its English
 // version. With the shelter in English, inDemoLanguage() swaps every string found here, after the data is built (so
 // the comparisons inside, like the Linear review column, still see the Spanish). Names of people and places stay.
-import { idioma } from '../../shared/language.ts';
+import { language } from '../../shared/language.ts';
 
 const EN: Record<string, string> = {
   // mail
@@ -112,7 +112,7 @@ const EN: Record<string, string> = {
 };
 
 export function inDemoLanguage<T>(x: T): T {
-  if (idioma() !== 'en') return x;
+  if (language() !== 'en') return x;
   const walk = (v: any): any => typeof v === 'string' ? EN[v] ?? v : Array.isArray(v) ? v.map(walk) : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).map(([k, y]) => [k, walk(y)])) : v;
   return walk(x);
 }

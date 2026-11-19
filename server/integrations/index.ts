@@ -3,110 +3,110 @@
 import type { WebSocket } from 'ws';
 import type { Store } from '../state.ts';
 import type { ServerMessage } from '../../shared/protocol.ts';
-import { createAdapters, type Adapter, type Aviso, type Notification, type Evento, type SourceState } from './adapters.ts';
+import { createAdapters, type Adapter, type Notice, type Notification, type CalendarEvent, type SourceState } from './adapters.ts';
 import { groupNotices, type Conversation } from './normalize.ts';
 import { t } from '../../shared/language.ts';
 
-export class Integraciones {
-  private adaptadores: Adapter[];
-  private mensajes: Notification[] = [];   // tal como llegan, uno por mensaje
-  notificaciones: Conversation[] = [];      // lo que se difunde: una por conversación
-  private difundidas = '';
-  eventos: Evento[] = [];
+export class Integrations {
+  private adapters: Adapter[];
+  private messages: Notification[] = [];   // tal como llegan, uno por mensaje
+  notifications: Conversation[] = [];      // lo que se difunde: una por conversación
+  private lastBroadcast = '';
+  events: CalendarEvent[] = [];
   private clocks: NodeJS.Timeout[] = [];
-  constructor(private almacen: Store, private broadcast: (m: ServerMessage) => void) { this.adaptadores = createAdapters(almacen, (id, aviso) => this.onNotify(id, aviso)); }
+  constructor(private store: Store, private broadcast: (m: ServerMessage) => void) { this.adapters = createAdapters(store, (id, notice) => this.onNotify(id, notice)); }
 
   // Avisos de los conectores reales: difundir su estado, sondear ya (Discord en tiempo real) o pasar a real (OAuth hecho)
-  private onNotify(id: Adapter['id'], aviso: Aviso) {
-    const a = this.adaptadores.find(x => x.id === id); if (!a) return;
-    if (aviso === 'estado') this.broadcast({ t: 'integracion', id, estado: a.estado() });
-    else if (aviso === 'sondear') this.pollOne(a);
-    else if (aviso === 'activar') this.changeMode(a, 'real').catch(() => {});
+  private onNotify(id: Adapter['id'], notice: Notice) {
+    const a = this.adapters.find(x => x.id === id); if (!a) return;
+    if (notice === 'estado') this.broadcast({ t: 'integracion', id, state: a.state() });
+    else if (notice === 'sondear') this.pollOne(a);
+    else if (notice === 'activar') this.changeMode(a, 'real').catch(() => {});
   }
 
-  estados(): Record<string, SourceState> { return Object.fromEntries(this.adaptadores.map(a => [a.id, a.estado()])); }
+  states(): Record<string, SourceState> { return Object.fromEntries(this.adapters.map(a => [a.id, a.state()])); }
 
-  greet(ws: WebSocket, enviar: (ws: WebSocket, m: ServerMessage) => void) {
-    enviar(ws, { t: 'notificaciones', lista: this.notificaciones });
-    enviar(ws, { t: 'eventos', lista: this.eventos });
-    for (const [id, estado] of Object.entries(this.estados())) enviar(ws, { t: 'integracion', id, estado });
+  greet(ws: WebSocket, send: (ws: WebSocket, m: ServerMessage) => void) {
+    send(ws, { t: 'notificaciones', list: this.notifications });
+    send(ws, { t: 'eventos', list: this.events });
+    for (const [id, state] of Object.entries(this.states())) send(ws, { t: 'integracion', id, state });
   }
 
   private async pollOne(a: Adapter) {
     try {
-      const r = await a.sondear();
-      if (r.complete || r.notificaciones?.length) this.receive(a.id, r.notificaciones ?? [], !!r.complete);
-      if (r.leidos?.length) this.leer(a.id, r.leidos);
-      if (r.eventos) { this.eventos = [...this.eventos.filter(e => e.fuente !== a.id), ...r.eventos].sort((x, y) => x.inicio - y.inicio); this.broadcast({ t: 'eventos', lista: this.eventos }); }
+      const r = await a.poll();
+      if (r.complete || r.notifications?.length) this.receive(a.id, r.notifications ?? [], !!r.complete);
+      if (r.read?.length) this.read(a.id, r.read);
+      if (r.events) { this.events = [...this.events.filter(e => e.source !== a.id), ...r.events].sort((x, y) => x.start - y.start); this.broadcast({ t: 'eventos', list: this.events }); }
     } catch (e) { a.error = (e as Error).message; }
-    this.broadcast({ t: 'integracion', id: a.id, estado: a.estado() });
+    this.broadcast({ t: 'integracion', id: a.id, state: a.state() });
   }
 
-  arrancar() {
-    for (const a of this.adaptadores) {
+  start() {
+    for (const a of this.adapters) {
       this.pollOne(a);
       this.clocks.push(setInterval(() => this.pollOne(a), a.intervalMs));
     }
   }
 
   // Cambio de modo (demo ⇄ real): se vacía lo de esa fuente y se sondea de nuevo por el mismo camino
-  private async changeMode(a: Adapter, modo: 'off' | 'demo' | 'real') {
-    this.almacen.cambiar(e => { e.integraciones[a.id] = { ...(e.integraciones[a.id] ?? {}), modo }; });
-    a.reiniciar();
-    this.mensajes = this.mensajes.filter(n => n.fuente !== a.id); this.eventos = this.eventos.filter(n => n.fuente !== a.id);
-    this.publish(); this.broadcast({ t: 'eventos', lista: this.eventos });
+  private async changeMode(a: Adapter, mode: 'off' | 'demo' | 'real') {
+    this.store.change(e => { e.integrations[a.id] = { ...(e.integrations[a.id] ?? {}), mode }; });
+    a.restart();
+    this.messages = this.messages.filter(n => n.source !== a.id); this.events = this.events.filter(n => n.source !== a.id);
+    this.publish(); this.broadcast({ t: 'eventos', list: this.events });
     await this.pollOne(a);
-    return a.estado();
+    return a.state();
   }
-  parar() { for (const r of this.clocks) clearInterval(r); this.clocks = []; for (const a of this.adaptadores) a.parar?.(); }
+  stop() { for (const r of this.clocks) clearInterval(r); this.clocks = []; for (const a of this.adapters) a.stop?.(); }
 
   // completas: lo de esa fuente se sustituye entero (lo leído allí desaparece); si no, se añade lo que no estaba
-  private receive(fuente: Adapter['id'], ns: Notification[], complete: boolean) {
-    const views = new Set(this.almacen.estado.viewsNotifications);
-    const withView = (n: Notification) => ({ ...n, vista: views.has(n.id) });
-    if (complete) this.mensajes = [...this.mensajes.filter(n => n.fuente !== fuente), ...ns.map(withView)];
-    else { const ya = new Set(this.mensajes.map(n => n.id)); this.mensajes.push(...ns.filter(n => !ya.has(n.id)).map(withView)); }
-    this.mensajes = this.mensajes.sort((a, b) => b.fecha - a.fecha).slice(0, 600);
+  private receive(source: Adapter['id'], ns: Notification[], complete: boolean) {
+    const views = new Set(this.store.state.viewsNotifications);
+    const withView = (n: Notification) => ({ ...n, view: views.has(n.id) });
+    if (complete) this.messages = [...this.messages.filter(n => n.source !== source), ...ns.map(withView)];
+    else { const already = new Set(this.messages.map(n => n.id)); this.messages.push(...ns.filter(n => !already.has(n.id)).map(withView)); }
+    this.messages = this.messages.sort((a, b) => b.date - a.date).slice(0, 600);
     this.publish();
   }
   // Lo ya leído en la fuente (he contestado allí): esos mensajes pasan a vistos, como si se marcaran en el tablón
-  private leer(fuente: Adapter['id'], leidos: { hilo: string; hasta: number }[]) {
-    const ids = this.mensajes.filter(n => n.fuente === fuente && !n.vista && leidos.some(l => l.hilo === n.hilo && n.fecha <= l.hasta)).map(n => n.id);
+  private read(source: Adapter['id'], read: { thread: string; until: number }[]) {
+    const ids = this.messages.filter(n => n.source === source && !n.view && read.some(l => l.thread === n.thread && n.date <= l.until)).map(n => n.id);
     if (!ids.length) return;
-    this.almacen.cambiar(e => { for (const id of ids) if (!e.viewsNotifications.includes(id)) e.viewsNotifications.push(id); e.viewsNotifications = e.viewsNotifications.slice(-3000); });
-    for (const n of this.mensajes) if (ids.includes(n.id)) n.vista = true;
+    this.store.change(e => { for (const id of ids) if (!e.viewsNotifications.includes(id)) e.viewsNotifications.push(id); e.viewsNotifications = e.viewsNotifications.slice(-3000); });
+    for (const n of this.messages) if (ids.includes(n.id)) n.view = true;
     this.publish();
   }
   // Se difunde solo si cambia algo (las fuentes completas se sondean cada 5–60 s y casi siempre traen lo mismo)
   private publish() {
-    const lista = groupNotices(this.mensajes), json = JSON.stringify(lista);
-    if (json === this.difundidas) return;
-    this.difundidas = json; this.notificaciones = lista;
-    this.broadcast({ t: 'notificaciones', lista });
+    const list = groupNotices(this.messages), json = JSON.stringify(list);
+    if (json === this.lastBroadcast) return;
+    this.lastBroadcast = json; this.notifications = list;
+    this.broadcast({ t: 'notificaciones', list });
   }
 
-  async accion(nombre: string, d: Record<string, any>) {
-    const a = this.adaptadores.find(x => x.id === d.fuente);
-    switch (nombre) {
+  async action(name: string, d: Record<string, any>) {
+    const a = this.adapters.find(x => x.id === d.source);
+    switch (name) {
       case 'marcarVista': {
         const ids: string[] = d.ids ?? [d.id];
-        this.almacen.cambiar(e => { for (const id of ids) if (!e.viewsNotifications.includes(id)) e.viewsNotifications.push(id); e.viewsNotifications = e.viewsNotifications.slice(-3000); });
-        for (const n of this.mensajes) if (ids.includes(n.id)) n.vista = true;
+        this.store.change(e => { for (const id of ids) if (!e.viewsNotifications.includes(id)) e.viewsNotifications.push(id); e.viewsNotifications = e.viewsNotifications.slice(-3000); });
+        for (const n of this.messages) if (ids.includes(n.id)) n.view = true;
         this.publish(); return true;
       }
-      case 'estados': return this.estados();
-      case 'probar': if (!a) throw new Error(t('integrations.unknownSource')); return a.probar(d.campos ?? {});
+      case 'estados': return this.states();
+      case 'probar': if (!a) throw new Error(t('integrations.unknownSource')); return a.attempt(d.fields ?? {});
       // Guardar: datos públicos al estado y secretos al llavero; si la prueba pasa, la fuente pasa a real (d.activar=false lo evita)
-      case 'guardar': if (!a) throw new Error(t('integrations.unknownSource')); { const r = await a.configurar(d.campos ?? {}); if (r.ok && d.activar !== false) await this.changeMode(a, 'real'); else this.broadcast({ t: 'integracion', id: a.id, estado: a.estado() }); return r; }
+      case 'guardar': if (!a) throw new Error(t('integrations.unknownSource')); { const r = await a.configure(d.fields ?? {}); if (r.ok && d.activate !== false) await this.changeMode(a, 'real'); else this.broadcast({ t: 'integracion', id: a.id, state: a.state() }); return r; }
       case 'modo': {
         if (!a) throw new Error(t('integrations.unknownSource'));
-        const modo = d.modo === 'real' ? 'real' : d.modo === 'off' ? 'off' : 'demo';
-        this.almacen.cambiar(e => { const r = e.integraciones[a.id] ??= { modo }; r.opciones = { ...r.opciones, demoChosen: modo === 'demo' || undefined }; });
-        return this.changeMode(a, modo);
+        const mode = d.mode === 'real' ? 'real' : d.mode === 'off' ? 'off' : 'demo';
+        this.store.change(e => { const r = e.integrations[a.id] ??= { mode }; r.options = { ...r.options, demoChosen: mode === 'demo' || undefined }; });
+        return this.changeMode(a, mode);
       }
-      case 'refrescar': if (!a) throw new Error(t('integrations.unknownSource')); await this.pollOne(a); return a.estado();
-      case 'olvidar': if (!a?.accion) throw new Error(t('integrations.unknownSource')); { await a.accion('olvidar', d); return this.changeMode(a, 'off'); }
-      default: if (a?.accion) return a.accion(nombre, d); throw new Error(t('integrations.unknownAction', { nombre }));
+      case 'refrescar': if (!a) throw new Error(t('integrations.unknownSource')); await this.pollOne(a); return a.state();
+      case 'olvidar': if (!a?.action) throw new Error(t('integrations.unknownSource')); { await a.action('olvidar', d); return this.changeMode(a, 'off'); }
+      default: if (a?.action) return a.action(name, d); throw new Error(t('integrations.unknownAction', { nombre: name }));
     }
   }
 }

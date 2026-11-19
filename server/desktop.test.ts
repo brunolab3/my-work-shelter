@@ -9,26 +9,26 @@ const ID = '0f8a2c1e-4b6d-4e2f-9a1b-3c5d7e9f1a2b';
 
 describe('salir a la superficie: comandos', () => {
   it('retoma la conversación en su carpeta, con sus permisos y modelo', () => {
-    expect(resumeCommand({ claudeId: ID, cwd: '/Users/x/mi repo', permisos: 'acceptEdits', modelo: 'opus' }))
+    expect(resumeCommand({ claudeId: ID, cwd: '/Users/x/mi repo', permissions: 'acceptEdits', model: 'opus' }))
       .toBe(`cd '/Users/x/mi repo' && claude --resume ${ID} --model 'opus' --permission-mode acceptEdits`);
-    expect(resumeCommand({ claudeId: ID, cwd: '/a', permisos: 'default' })).toBe(`cd '/a' && claude --resume ${ID}`);
-    expect(resumeCommand({ claudeId: ID, cwd: '/a', permisos: 'bypassPermissions' })).toContain('--dangerously-skip-permissions');
-    expect(resumeCommand({ claudeId: ID, cwd: '/a', permisos: 'inventado; rm -rf /' })).toBe(`cd '/a' && claude --resume ${ID}`);
+    expect(resumeCommand({ claudeId: ID, cwd: '/a', permissions: 'default' })).toBe(`cd '/a' && claude --resume ${ID}`);
+    expect(resumeCommand({ claudeId: ID, cwd: '/a', permissions: 'bypassPermissions' })).toContain('--dangerously-skip-permissions');
+    expect(resumeCommand({ claudeId: ID, cwd: '/a', permissions: 'inventado; rm -rf /' })).toBe(`cd '/a' && claude --resume ${ID}`);
   });
   it('si estaba trabajando, le pide que siga', () => {
-    expect(resumeCommand({ claudeId: ID, cwd: '/a', continuar: true })).toBe(`cd '/a' && claude --resume ${ID} ${quotes(promptContinue())}`);
+    expect(resumeCommand({ claudeId: ID, cwd: '/a', continueLast: true })).toBe(`cd '/a' && claude --resume ${ID} ${quotes(promptContinue())}`);
   });
   it('no acepta identificadores raros ni deja escapar las comillas', () => {
     expect(() => resumeCommand({ claudeId: 'x; rm -rf ~', cwd: '/a' })).toThrow();
-    expect(resumeCommand({ claudeId: ID, cwd: '/a', remoto: "Ana · it's", continuar: true })).toBe(`cd '/a' && claude --resume ${ID} --remote-control ${quotes("Ana · it's")} ${quotes(promptContinue())}`);
-    expect(resumeCommand({ claudeId: ID, cwd: '/a', remoto: ' ' })).toBe(`cd '/a' && claude --resume ${ID} --remote-control 'work-shelter'`);
+    expect(resumeCommand({ claudeId: ID, cwd: '/a', remote: "Ana · it's", continueLast: true })).toBe(`cd '/a' && claude --resume ${ID} --remote-control ${quotes("Ana · it's")} ${quotes(promptContinue())}`);
+    expect(resumeCommand({ claudeId: ID, cwd: '/a', remote: ' ' })).toBe(`cd '/a' && claude --resume ${ID} --remote-control 'work-shelter'`);
     expect(quotes("it's")).toBe(`'it'\\''s'`);
     expect(hookCommand('/r/shelter', '/tmp/s.sock', "sala:a'b::2")).toBe(`exec '/r/shelter' enganchar 'sala:a'\\''b::2' --socket '/tmp/s.sock'`);
   });
 });
 
 describe('salir a la superficie: AppleScript', () => {
-  const items = [{ titulo: 'Néstor · "arreglo"', comando: `cd '/a' && echo "hola\\n"` }, { titulo: 'Terminal · b', comando: 'exec x' }];
+  const items = [{ title: 'Néstor · "arreglo"', command: `cd '/a' && echo "hola\\n"` }, { title: 'Terminal · b', command: 'exec x' }];
   it('iTerm: una pestaña por cosa, en ventana nueva si se pide', () => {
     const g = desktopScript(items, 'iTerm', true);
     expect(g).toContain('tell application "iTerm"');
@@ -50,17 +50,17 @@ describe('conversaciones abiertas fuera', () => {
   // ~/.claude/sessions: un proceso vivo de verdad con su ficha, como la apunta Claude Code
   it('ve por su ficha la que no se abrió con --resume, nunca la de un hijo del servidor, y la cierra al traerla', async () => {
     const config = mkdtempSync(path.join(os.tmpdir(), 'cc-')); mkdirSync(path.join(config, 'sessions'));
-    const hijo = spawn('sleep', ['30']); const id = '7c1d9e40-2a5b-4f8c-b3e6-0d4a8f2c6e19';
-    writeFileSync(path.join(config, 'sessions', `${hijo.pid}.json`), JSON.stringify({ pid: hijo.pid, sessionId: id.toUpperCase(), cwd: '/tmp', kind: 'interactive' }));
-    const antes = process.env.CLAUDE_CONFIG_DIR; process.env.CLAUDE_CONFIG_DIR = config;
+    const child = spawn('sleep', ['30']); const id = '7c1d9e40-2a5b-4f8c-b3e6-0d4a8f2c6e19';
+    writeFileSync(path.join(config, 'sessions', `${child.pid}.json`), JSON.stringify({ pid: child.pid, sessionId: id.toUpperCase(), cwd: '/tmp', kind: 'interactive' }));
+    const before = process.env.CLAUDE_CONFIG_DIR; process.env.CLAUDE_CONFIG_DIR = config;
     try {
       expect(outsideOpen(process.pid).has(id)).toBe(false);   // hijo del «servidor»: es del juego
       expect(outsideOpen(-1).has(id)).toBe(true);
-      const fin = new Promise(ok => hijo.on('exit', ok));
+      const end = new Promise(ok => child.on('exit', ok));
       expect(await closeOutside(id, -1)).toBe(1);
-      await fin;
-      expect(hijo.signalCode).toBe('SIGTERM');
+      await end;
+      expect(child.signalCode).toBe('SIGTERM');
       expect(outsideOpen(-1).has(id)).toBe(false);
-    } finally { if (antes === undefined) delete process.env.CLAUDE_CONFIG_DIR; else process.env.CLAUDE_CONFIG_DIR = antes; hijo.kill('SIGKILL'); }
+    } finally { if (before === undefined) delete process.env.CLAUDE_CONFIG_DIR; else process.env.CLAUDE_CONFIG_DIR = before; child.kill('SIGKILL'); }
   });
 });

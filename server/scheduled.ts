@@ -15,138 +15,138 @@ import { taskKey } from '../shared/tasks.ts';
 
 const MAX_TOTAL = 300, MAX_TEXT = 20_000;
 // el error de una fecha pedida (checkWhen), con las claves escritas enteras (shared/language.test.ts las busca)
-type WhenVars = { cuando: string; dias: number };
+type WhenVars = { when: string; days: number };
 const WHEN_ERROR: Record<'badDate' | 'past' | 'tooFar', (v: WhenVars) => string> = { badDate: v => t('tool.schedule.badDate', v), past: v => t('tool.schedule.past', v), tooFar: v => t('tool.schedule.tooFar', v) };
-const whenError = (e: keyof typeof WHEN_ERROR, cuando: string) => WHEN_ERROR[e]({ cuando, dias: MAX_DAYS });
+const whenError = (e: keyof typeof WHEN_ERROR, when: string) => WHEN_ERROR[e]({ when, days: MAX_DAYS });
 
 export interface CtxScheduled {
-  sesion(id: string): SessionSummary | undefined;
-  salas(): { id: string; nombre: string; habitante?: unknown }[];
+  session(id: string): SessionSummary | undefined;
+  rooms(): { id: string; name: string; dweller?: unknown }[];
   // la entrega: el id de la conversación que lo recibe (lanza un error si no se pudo: se reintenta)
-  aConversacion(x: ScheduledMessage & { destino: Extract<ScheduledTarget, { tipo: 'conversacion' }> }, texto: string): Promise<string>;
-  aSala(x: ScheduledMessage & { destino: Extract<ScheduledTarget, { tipo: 'sala' }> }, texto: string): Promise<{ ok: boolean; texto: string }>;
-  cambiado(lista: ScheduledMessage[]): void;
-  aviso(texto: string): void;
-  ahora?(): number;
+  toConversation(x: ScheduledMessage & { target: Extract<ScheduledTarget, { type: 'conversacion' }> }, text: string): Promise<string>;
+  toRoom(x: ScheduledMessage & { target: Extract<ScheduledTarget, { type: 'sala' }> }, text: string): Promise<{ ok: boolean; text: string }>;
+  changed(list: ScheduledMessage[]): void;
+  notice(text: string): void;
+  now?(): number;
 }
 
-export interface ScheduleArgs { cuando: string; mensaje: string; sala?: string; clave?: string }
+export interface ScheduleArgs { when: string; message: string; room?: string; key?: string }
 
 export class Scheduled {
   private items: ScheduledMessage[] = [];
-  private archivo: string;
-  private fallidos = new Set<string>();   // ya avisados de que no se pudo entregar (una vez por mensaje)
-  private repasando = false;
+  private file: string;
+  private failed = new Set<string>();   // ya avisados de que no se pudo entregar (una vez por mensaje)
+  private sweeping = false;
   constructor(dir: string, private ctx: CtxScheduled) {
-    this.archivo = path.join(dir, 'mensajes-programados.json');
-    try { if (existsSync(this.archivo)) { const j = JSON.parse(readFileSync(this.archivo, 'utf8')); if (Array.isArray(j?.items)) this.items = j.items.filter(valid); } } catch {}
+    this.file = path.join(dir, 'mensajes-programados.json');
+    try { if (existsSync(this.file)) { const j = JSON.parse(readFileSync(this.file, 'utf8')); if (Array.isArray(j?.items)) this.items = j.items.filter(valid); } } catch {}
   }
-  private ahora() { return this.ctx.ahora?.() ?? Date.now(); }
-  private guardar() {
-    const tmp = this.archivo + '.tmp';
-    writeFileSync(tmp, JSON.stringify({ items: this.items }), { mode: 0o600 }); renameSync(tmp, this.archivo);
-    this.ctx.cambiado(this.lista());
+  private now() { return this.ctx.now?.() ?? Date.now(); }
+  private save() {
+    const tmp = this.file + '.tmp';
+    writeFileSync(tmp, JSON.stringify({ items: this.items }), { mode: 0o600 }); renameSync(tmp, this.file);
+    this.ctx.changed(this.list());
   }
-  lista() { return [...this.items].sort((a, b) => a.cuando - b.cuando); }
-  deConversacion(sesionId?: string) { const s = sesionId ? this.ctx.sesion(sesionId) : undefined; return ofConversation(this.items, { id: sesionId, claudeId: s?.claudeId }); }
+  list() { return [...this.items].sort((a, b) => a.when - b.when); }
+  ofConversation(sessionId?: string) { const s = sessionId ? this.ctx.session(sessionId) : undefined; return ofConversation(this.items, { id: sessionId, claudeId: s?.claudeId }); }
 
-  /** schedule_message: `desde` es la sala que lo programa y `desdeSesion`, su conversación */
-  programar(desde: string, desdeSesion: string | undefined, a: ScheduleArgs): { ok: boolean; texto: string } {
-    const ahora = this.ahora();
-    const mensaje = String(a.mensaje ?? '').trim();
-    if (!mensaje) return { ok: false, texto: t('tool.rooms.empty') };
-    if (mensaje.length > MAX_TEXT) return { ok: false, texto: t('tool.schedule.tooLong', { n: MAX_TEXT }) };
-    const w = checkWhen(String(a.cuando ?? ''), ahora);
-    if (!w.ok) return { ok: false, texto: whenError(w.error, String(a.cuando ?? '')) };
-    const s = desdeSesion ? this.ctx.sesion(desdeSesion) : undefined;
-    const origen = { salaId: desde, sesionId: desdeSesion, claudeId: s?.claudeId };
-    if (ofConversation(this.items, { id: desdeSesion, claudeId: s?.claudeId }).length >= MAX_PER_CONVERSATION || this.items.length >= MAX_TOTAL)
-      return { ok: false, texto: t('tool.schedule.limit', { n: MAX_PER_CONVERSATION }) };
-    let destino: ScheduledTarget;
-    if (a.sala?.trim()) {
-      const q = a.sala.trim().toLowerCase(), salas = this.ctx.salas();
-      const sala = salas.find(x => x.id.toLowerCase() === q) ?? salas.find(x => x.nombre.toLowerCase() === q);
-      if (!sala) return { ok: false, texto: t('tool.rooms.noRoom', { sala: a.sala, salas: salas.map(x => `${x.id} (${x.nombre})`).join(', ') }) };
-      if (!sala.habitante) return { ok: false, texto: t('tool.rooms.noDweller', { sala: sala.nombre }) };
-      const clave = a.clave?.trim() ? taskKey(a.clave) : undefined;
-      if (a.clave?.trim() && !clave) return { ok: false, texto: t('tool.rooms.badKey', { clave: a.clave ?? '' }) };
-      destino = { tipo: 'sala', sala: sala.id, ...(clave ? { clave } : {}) };
+  /** schedule_message: `desde` es la sala que lo programa y `fromSession`, su conversación */
+  schedule(since: string, fromSession: string | undefined, a: ScheduleArgs): { ok: boolean; text: string } {
+    const now = this.now();
+    const message = String(a.message ?? '').trim();
+    if (!message) return { ok: false, text: t('tool.rooms.empty') };
+    if (message.length > MAX_TEXT) return { ok: false, text: t('tool.schedule.tooLong', { n: MAX_TEXT }) };
+    const w = checkWhen(String(a.when ?? ''), now);
+    if (!w.ok) return { ok: false, text: whenError(w.error, String(a.when ?? '')) };
+    const s = fromSession ? this.ctx.session(fromSession) : undefined;
+    const origin = { roomId: since, sessionId: fromSession, claudeId: s?.claudeId };
+    if (ofConversation(this.items, { id: fromSession, claudeId: s?.claudeId }).length >= MAX_PER_CONVERSATION || this.items.length >= MAX_TOTAL)
+      return { ok: false, text: t('tool.schedule.limit', { n: MAX_PER_CONVERSATION }) };
+    let target: ScheduledTarget;
+    if (a.room?.trim()) {
+      const q = a.room.trim().toLowerCase(), rooms = this.ctx.rooms();
+      const room = rooms.find(x => x.id.toLowerCase() === q) ?? rooms.find(x => x.name.toLowerCase() === q);
+      if (!room) return { ok: false, text: t('tool.rooms.noRoom', { sala: a.room, salas: rooms.map(x => `${x.id} (${x.name})`).join(', ') }) };
+      if (!room.dweller) return { ok: false, text: t('tool.rooms.noDweller', { sala: room.name }) };
+      const key = a.key?.trim() ? taskKey(a.key) : undefined;
+      if (a.key?.trim() && !key) return { ok: false, text: t('tool.rooms.badKey', { clave: a.key ?? '' }) };
+      target = { type: 'sala', room: room.id, ...(key ? { key } : {}) };
     } else {
-      if (!s) return { ok: false, texto: t('tool.schedule.noConversation') };
-      destino = { tipo: 'conversacion', salaId: s.salaId, sesionId: s.id, claudeId: s.claudeId, cwd: path.resolve(s.worktree ?? s.cwd), titulo: s.titulo };
+      if (!s) return { ok: false, text: t('tool.schedule.noConversation') };
+      target = { type: 'conversacion', roomId: s.roomId, sessionId: s.id, claudeId: s.claudeId, cwd: path.resolve(s.worktree ?? s.cwd), title: s.title };
     }
-    const x: ScheduledMessage = { id: randomUUID().slice(0, 8), creado: ahora, cuando: w.cuando, pedido: String(a.cuando), mensaje, origen, destino };
-    this.items.push(x); this.guardar();
-    const cuando = describeWhen(x.cuando);
-    return { ok: true, texto: t(destino.tipo === 'sala' ? 'tool.schedule.doneRoom' : 'tool.schedule.done', { cuando, id: x.id, sala: a.sala ?? '' }) + (w.aplazado ? ' ' + t('tool.schedule.heldWeekend') : '') };
+    const x: ScheduledMessage = { id: randomUUID().slice(0, 8), created: now, when: w.when, requested: String(a.when), message, origin, target };
+    this.items.push(x); this.save();
+    const when = describeWhen(x.when);
+    return { ok: true, text: t(target.type === 'sala' ? 'tool.schedule.doneRoom' : 'tool.schedule.done', { cuando: when, id: x.id, sala: a.room ?? '' }) + (w.postponed ? ' ' + t('tool.schedule.heldWeekend') : '') };
   }
 
   /** One the game itself schedules for a conversation (a production verification recheck, verifications.ts): no date to
    *  parse and no per-conversation limit, weekends held to Monday; shown in that conversation's ⏰ list. Its id, or none
    *  when the list is full */
-  programarJuego(c: { salaId: string; sesionId?: string; claudeId?: string; cwd: string; titulo?: string }, cuando: number, mensaje: string): string | undefined {
+  scheduleGame(c: { roomId: string; sessionId?: string; claudeId?: string; cwd: string; title?: string }, when: number, message: string): string | undefined {
     if (this.items.length >= MAX_TOTAL) return undefined;
-    const ahora = this.ahora(), w = holdWeekend(Math.max(cuando, ahora));
-    const x: ScheduledMessage = { id: randomUUID().slice(0, 8), creado: ahora, cuando: w, pedido: new Date(w).toISOString(), mensaje: mensaje.slice(0, MAX_TEXT),
-      origen: { salaId: c.salaId, sesionId: c.sesionId, claudeId: c.claudeId }, destino: { tipo: 'conversacion', ...c } };
-    this.items.push(x); this.guardar();
+    const now = this.now(), w = holdWeekend(Math.max(when, now));
+    const x: ScheduledMessage = { id: randomUUID().slice(0, 8), created: now, when: w, requested: new Date(w).toISOString(), message: message.slice(0, MAX_TEXT),
+      origin: { roomId: c.roomId, sessionId: c.sessionId, claudeId: c.claudeId }, target: { type: 'conversacion', ...c } };
+    this.items.push(x); this.save();
     return x.id;
   }
-  pendiente(id: string) { return this.items.some(x => x.id === id); }
+  pending(id: string) { return this.items.some(x => x.id === id); }
 
   /** Quitar uno: el Supervisor cualquiera; un habitante (`desdeSesion`), solo los de su conversación */
-  cancelar(id: string, desdeSesion?: string): boolean {
-    const mios = desdeSesion !== undefined ? new Set(this.deConversacion(desdeSesion).map(x => x.id)) : undefined;
-    const i = this.items.findIndex(x => x.id === id && (!mios || mios.has(x.id)));
+  cancel(id: string, fromSession?: string): boolean {
+    const mine = fromSession !== undefined ? new Set(this.ofConversation(fromSession).map(x => x.id)) : undefined;
+    const i = this.items.findIndex(x => x.id === id && (!mine || mine.has(x.id)));
     if (i < 0) return false;
-    this.items.splice(i, 1); this.fallidos.delete(id); this.guardar();
+    this.items.splice(i, 1); this.failed.delete(id); this.save();
     return true;
   }
 
   /** El Supervisor cambia la hora o el texto (✎ en el intercomunicador) */
-  editar(id: string, c: { cuando?: string; mensaje?: string }): ScheduledMessage {
+  edit(id: string, c: { when?: string; message?: string }): ScheduledMessage {
     const x = this.items.find(y => y.id === id);
     if (!x) throw new Error(t('server.scheduledGone'));
-    if (c.cuando !== undefined) {
-      const w = checkWhen(String(c.cuando), this.ahora());
-      if (!w.ok) throw new Error(whenError(w.error, String(c.cuando)));
-      x.cuando = w.cuando; x.pedido = String(c.cuando);
+    if (c.when !== undefined) {
+      const w = checkWhen(String(c.when), this.now());
+      if (!w.ok) throw new Error(whenError(w.error, String(c.when)));
+      x.when = w.when; x.requested = String(c.when);
     }
-    if (c.mensaje !== undefined) { const m = String(c.mensaje).trim(); if (!m) throw new Error(t('tool.rooms.empty')); x.mensaje = m.slice(0, MAX_TEXT); }
-    this.fallidos.delete(id); this.guardar();
+    if (c.message !== undefined) { const m = String(c.message).trim(); if (!m) throw new Error(t('tool.rooms.empty')); x.message = m.slice(0, MAX_TEXT); }
+    this.failed.delete(id); this.save();
     return x;
   }
 
   /** El mensaje que recibe el habitante: cuándo se programó (y si llega tarde) y el texto */
-  texto(x: ScheduledMessage, ahora = this.ahora()) {
-    return [t('prompt.scheduled.title', { creado: describeWhen(x.creado) }) + (isLate(x, ahora) ? ' ' + t('prompt.scheduled.late', { cuando: describeWhen(x.cuando) }) : ''), '', x.mensaje].join('\n');
+  text(x: ScheduledMessage, now = this.now()) {
+    return [t('prompt.scheduled.title', { creado: describeWhen(x.created) }) + (isLate(x, now) ? ' ' + t('prompt.scheduled.late', { cuando: describeWhen(x.when) }) : ''), '', x.message].join('\n');
   }
 
   /** Cada minuto y al arrancar: entrega lo vencido */
-  async repasar() {
-    if (this.repasando) return;
-    this.repasando = true;
+  async sweep() {
+    if (this.sweeping) return;
+    this.sweeping = true;
     try {
-      for (const x of due(this.items, this.ahora())) {
+      for (const x of due(this.items, this.now())) {
         if (!this.items.includes(x)) continue;   // cancelado mientras se entregaba otro
         let error: string | undefined;
         try {
-          if (x.destino.tipo === 'sala') { const r = await this.ctx.aSala(x as any, this.texto(x)); if (!r.ok) error = r.texto; }
-          else await this.ctx.aConversacion(x as any, this.texto(x));
+          if (x.target.type === 'sala') { const r = await this.ctx.toRoom(x as any, this.text(x)); if (!r.ok) error = r.text; }
+          else await this.ctx.toConversation(x as any, this.text(x));
         } catch (e) { error = (e as Error).message; }
         if (error) {
-          if (!this.fallidos.has(x.id)) { this.fallidos.add(x.id); this.ctx.aviso(t('server.scheduledRetry', { resumen: summary(x.mensaje), error: error.split('\n')[0].slice(0, 160) })); }
+          if (!this.failed.has(x.id)) { this.failed.add(x.id); this.ctx.notice(t('server.scheduledRetry', { resumen: summary(x.message), error: error.split('\n')[0].slice(0, 160) })); }
           continue;
         }
-        this.items = this.items.filter(y => y !== x); this.fallidos.delete(x.id); this.guardar();
+        this.items = this.items.filter(y => y !== x); this.failed.delete(x.id); this.save();
       }
-    } finally { this.repasando = false; }
+    } finally { this.sweeping = false; }
   }
 }
 
 export const summary = (s: string) => { const r = s.trim().replace(/\s+/g, ' '); return r.length > 90 ? r.slice(0, 89) + '…' : r; };
 
 function valid(x: any): x is ScheduledMessage {
-  return x && typeof x.id === 'string' && Number.isFinite(x.cuando) && typeof x.mensaje === 'string' && x.origen && typeof x.origen.salaId === 'string'
-    && x.destino && (x.destino.tipo === 'sala' ? typeof x.destino.sala === 'string' : x.destino.tipo === 'conversacion' && typeof x.destino.salaId === 'string' && typeof x.destino.cwd === 'string');
+  return x && typeof x.id === 'string' && Number.isFinite(x.when) && typeof x.message === 'string' && x.origin && typeof x.origin.roomId === 'string'
+    && x.target && (x.target.type === 'sala' ? typeof x.target.room === 'string' : x.target.type === 'conversacion' && typeof x.target.roomId === 'string' && typeof x.target.cwd === 'string');
 }

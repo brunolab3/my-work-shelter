@@ -9,21 +9,21 @@ import { readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { WebSocket } from 'ws';
 import { readSecret, saveSecret, eraseSecret } from './integrations/keychain.ts';
 import { t } from '../shared/language.ts';
-import { RemoteBot, type Rastro, PAIRING_MS, type RemoteDeps, type Vista } from './remoteBot.ts';
+import { RemoteBot, type Trail, PAIRING_MS, type RemoteDeps, type View } from './remoteBot.ts';
 
 const API = 'https://slack.com/api/';
-const CUENTA_APP = 'slackRemote.appToken';
-const CUENTA_BOT = 'slackRemote.botToken';
+const APP_ACCOUNT = 'slackRemote.appToken';
+const BOT_ACCOUNT = 'slackRemote.botToken';
 const TOKEN_APP = /^xapp-[A-Za-z0-9-]{20,}$/;
 const TOKEN_BOT = /^xoxb-[A-Za-z0-9-]{20,}$/;
-const LETRAS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';   // sin 0/O ni 1/I/L: se teclea a mano en el móvil
-const INTENTOS = 5;                                   // códigos equivocados antes de caducar el vigente
+const LETTERS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';   // sin 0/O ni 1/I/L: se teclea a mano en el móvil
+const ATTEMPTS = 5;                                   // códigos equivocados antes de caducar el vigente
 // límites de Block Kit: 3000 caracteres por sección, 25 botones por bloque de acciones, 75 por botón, 50 bloques
-const SECCION = 2900, POR_BLOQUE = 25, BOTON = 75;
+const SECTION = 2900, PER_BLOCK = 25, BUTTON = 75;
 
-export type SlackApi = (metodo: string, params: Record<string, unknown>, token: string, signal?: AbortSignal) => Promise<any>;
-export const apiSlack: SlackApi = async (metodo, params, token, signal) => {
-  const r = await fetch(API + metodo, { method: 'POST', headers: { 'content-type': 'application/json; charset=utf-8', authorization: `Bearer ${token}` }, body: JSON.stringify(params), signal: signal ?? AbortSignal.timeout(20_000) });
+export type SlackApi = (method: string, params: Record<string, unknown>, token: string, signal?: AbortSignal) => Promise<any>;
+export const slackApi: SlackApi = async (method, params, token, signal) => {
+  const r = await fetch(API + method, { method: 'POST', headers: { 'content-type': 'application/json; charset=utf-8', authorization: `Bearer ${token}` }, body: JSON.stringify(params), signal: signal ?? AbortSignal.timeout(20_000) });
   const j: any = await r.json().catch(() => ({}));
   // el error de Slack es un código corto (invalid_auth, not_in_channel…): nunca lleva el token
   if (!j.ok) throw new Error(t('server.slackRemoteError', { por: String(j.error ?? r.status) }));
@@ -31,172 +31,172 @@ export const apiSlack: SlackApi = async (metodo, params, token, signal) => {
 };
 
 /** La conexión de Socket Mode, reducida a lo que se usa (para poder fingirla en las pruebas) */
-export interface Enchufe { enviar(s: string): void; cerrar(): void }
-export type AbrirEnchufe = (url: string, h: { mensaje(s: string): void; cerrado(): void }) => Enchufe;
-const abrirWs: AbrirEnchufe = (url, h) => {
+export interface Socket { send(s: string): void; close(): void }
+export type OpenSocket = (url: string, h: { message(s: string): void; closed(): void }) => Socket;
+const openWs: OpenSocket = (url, h) => {
   const ws = new WebSocket(url);
-  ws.on('message', d => h.mensaje(String(d)));
-  ws.on('close', () => h.cerrado());
+  ws.on('message', d => h.message(String(d)));
+  ws.on('close', () => h.closed());
   ws.on('error', e => console.error('Slack (mando):', e.message));
-  return { enviar: s => { if (ws.readyState === ws.OPEN) ws.send(s); }, cerrar: () => ws.close() };
+  return { send: s => { if (ws.readyState === ws.OPEN) ws.send(s); }, close: () => ws.close() };
 };
 
-interface Config { teamId?: string; team?: string; bot?: string; botUserId?: string; channel?: string; userId?: string; aprobar?: boolean; rastro?: Rastro<Ref> }
-export interface SlackRemoteState { conectado: boolean; team?: string; bot?: string; emparejado: boolean; codigo?: string; aprobar: boolean }
-export interface SlackRemoteDeps extends RemoteDeps { datos: string; api?: SlackApi; abrir?: AbrirEnchufe }
+interface Config { teamId?: string; team?: string; bot?: string; botUserId?: string; channel?: string; userId?: string; approve?: boolean; trail?: Trail<Ref> }
+export interface SlackRemoteState { connected: boolean; team?: string; bot?: string; paired: boolean; code?: string; approve: boolean }
+export interface SlackRemoteDeps extends RemoteDeps { data: string; api?: SlackApi; open?: OpenSocket }
 interface Ref { channel: string; ts: string }
 
 /** Solo cuenta lo que llega del espacio de trabajo, el mensaje directo y la persona emparejados */
-export function deQuienTocaSlack(o: { team?: string; channel?: string; user?: string }, c: Config): boolean {
+export function whoseTurnSlack(o: { team?: string; channel?: string; user?: string }, c: Config): boolean {
   return !!c.teamId && !!c.channel && !!c.userId && o.team === c.teamId && o.channel === c.channel && o.user === c.userId;
 }
 
 /** Un mensaje como bloques de Slack: el texto en secciones de texto plano (nada se interpreta como formato) y los
  *  botones en bloques de acciones, cada uno con su `dato` en `value` */
-export function bloques(v: Vista) {
+export function blocks(v: View) {
   const out: any[] = [];
-  let resto = v.text;
-  while (resto.length) {
-    let corte = resto.length <= SECCION ? resto.length : resto.lastIndexOf('\n', SECCION);
-    if (corte < SECCION / 2) corte = Math.min(SECCION, resto.length);
-    out.push({ type: 'section', text: { type: 'plain_text', text: resto.slice(0, corte), emoji: false } });
-    resto = resto.slice(corte).replace(/^\n/, '');
+  let rest = v.text;
+  while (rest.length) {
+    let truncation = rest.length <= SECTION ? rest.length : rest.lastIndexOf('\n', SECTION);
+    if (truncation < SECTION / 2) truncation = Math.min(SECTION, rest.length);
+    out.push({ type: 'section', text: { type: 'plain_text', text: rest.slice(0, truncation), emoji: false } });
+    rest = rest.slice(truncation).replace(/^\n/, '');
   }
-  const botones = v.filas.flat();
-  for (let i = 0; i < botones.length; i += POR_BLOQUE) {
-    out.push({ type: 'actions', elements: botones.slice(i, i + POR_BLOQUE).map((b, j) => ({ type: 'button', action_id: `b${i + j}`, value: b.dato, text: { type: 'plain_text', text: b.texto.slice(0, BOTON), emoji: false } })) });
+  const buttons = v.rows.flat();
+  for (let i = 0; i < buttons.length; i += PER_BLOCK) {
+    out.push({ type: 'actions', elements: buttons.slice(i, i + PER_BLOCK).map((b, j) => ({ type: 'button', action_id: `b${i + j}`, value: b.data, text: { type: 'plain_text', text: b.text.slice(0, BUTTON), emoji: false } })) });
   }
   return out.slice(0, 50);
 }
 // el texto de la notificación (pantalla bloqueada): solo la primera línea, nunca el comando ni el plan
-const aviso = (v: Vista) => v.text.split('\n')[0].slice(0, 150) || '…';
-const normalizar = (s: string) => s.toUpperCase().replace(/[\s-]/g, '');
+const notice = (v: View) => v.text.split('\n')[0].slice(0, 150) || '…';
+const normalize = (s: string) => s.toUpperCase().replace(/[\s-]/g, '');
 
 export class SlackRemote extends RemoteBot<Ref> {
-  protected readonly canal = 'Slack (mando)';
+  protected readonly channel = 'Slack (mando)';
   private c: Config;
   private tokens: { app: string; bot: string } | null = null;
-  private pairing?: { codigo: string; hasta: number; fallos: number };
-  private corriendo?: AbortController;
+  private pairing?: { code: string; until: number; failures: number };
+  private running?: AbortController;
   private api: SlackApi;
-  private abrir: AbrirEnchufe;
-  private archivo: string;
+  private open: OpenSocket;
+  private file: string;
   constructor(d: SlackRemoteDeps) {
     super(d);
-    this.api = d.api ?? apiSlack;
-    this.abrir = d.abrir ?? abrirWs;
-    this.archivo = path.join(d.datos, 'slack-mando.json');
-    try { this.c = JSON.parse(readFileSync(this.archivo, 'utf8')); } catch { this.c = {}; }
+    this.api = d.api ?? slackApi;
+    this.open = d.open ?? openWs;
+    this.file = path.join(d.data, 'slack-mando.json');
+    try { this.c = JSON.parse(readFileSync(this.file, 'utf8')); } catch { this.c = {}; }
   }
-  private guardar() { try { writeFileSync(this.archivo, JSON.stringify(this.c), { mode: 0o600 }); } catch {} this.d.alCambiar?.(); }
-  private llamar(metodo: string, p: Record<string, unknown>) { if (!this.tokens) throw new Error(t('server.slackRemoteNotConnected')); return this.api(metodo, p, this.tokens.bot); }
+  private save() { try { writeFileSync(this.file, JSON.stringify(this.c), { mode: 0o600 }); } catch {} this.d.onChange?.(); }
+  private call(method: string, p: Record<string, unknown>) { if (!this.tokens) throw new Error(t('server.slackRemoteNotConnected')); return this.api(method, p, this.tokens.bot); }
 
-  protected listo() { return !!this.tokens && !!this.c.channel; }
-  protected aprueba() { return this.c.aprobar !== false; }
-  protected async mandar(v: Vista) {
-    const r = await this.llamar('chat.postMessage', { channel: this.c.channel, text: aviso(v), blocks: bloques(v), unfurl_links: false, unfurl_media: false });
+  protected ready() { return !!this.tokens && !!this.c.channel; }
+  protected approves() { return this.c.approve !== false; }
+  protected async post(v: View) {
+    const r = await this.call('chat.postMessage', { channel: this.c.channel, text: notice(v), blocks: blocks(v), unfurl_links: false, unfurl_media: false });
     return r?.ts ? { channel: String(r.channel), ts: String(r.ts) } : undefined;
   }
-  protected cambiarBotones(ref: Ref, v: Vista) { return this.llamar('chat.update', { channel: ref.channel, ts: ref.ts, text: aviso(v), blocks: bloques(v) }); }
-  protected recoger(ref: Ref, text: string) { return this.llamar('chat.update', { channel: ref.channel, ts: ref.ts, text, blocks: bloques({ text, filas: [] }) }); }
-  protected editar(ref: Ref, v: Vista) { return this.llamar('chat.update', { channel: ref.channel, ts: ref.ts, text: aviso(v), blocks: bloques(v) }); }
-  protected borrar(ref: Ref) { return this.llamar('chat.delete', { channel: ref.channel, ts: ref.ts }); }
-  protected rastro() { return this.c.rastro; }
-  protected guardarRastro(r: Rastro<Ref>) { this.c.rastro = r; this.guardar(); }
+  protected changeButtons(ref: Ref, v: View) { return this.call('chat.update', { channel: ref.channel, ts: ref.ts, text: notice(v), blocks: blocks(v) }); }
+  protected collect(ref: Ref, text: string) { return this.call('chat.update', { channel: ref.channel, ts: ref.ts, text, blocks: blocks({ text, rows: [] }) }); }
+  protected edit(ref: Ref, v: View) { return this.call('chat.update', { channel: ref.channel, ts: ref.ts, text: notice(v), blocks: blocks(v) }); }
+  protected deleteMessage(ref: Ref) { return this.call('chat.delete', { channel: ref.channel, ts: ref.ts }); }
+  protected trail() { return this.c.trail; }
+  protected saveTrail(r: Trail<Ref>) { this.c.trail = r; this.save(); }
 
-  estado(): SlackRemoteState {
-    const codigo = this.tokens && !this.c.channel && this.pairing && this.pairing.hasta > Date.now() ? this.pairing.codigo : undefined;
-    return { conectado: !!this.tokens, team: this.c.team, bot: this.c.bot, emparejado: !!this.c.channel, codigo, aprobar: this.c.aprobar !== false };
+  state(): SlackRemoteState {
+    const code = this.tokens && !this.c.channel && this.pairing && this.pairing.until > Date.now() ? this.pairing.code : undefined;
+    return { connected: !!this.tokens, team: this.c.team, bot: this.c.bot, paired: !!this.c.channel, code, approve: this.c.approve !== false };
   }
 
   /** al arrancar el servidor: si hay tokens guardados, se pone a escuchar */
-  async iniciar() {
-    const [app, bot] = await Promise.all([readSecret(CUENTA_APP).catch(() => null), readSecret(CUENTA_BOT).catch(() => null)]);
-    if (app && bot) { this.tokens = { app, bot }; this.escuchar(); await this.retomar(); }
+  async start() {
+    const [app, bot] = await Promise.all([readSecret(APP_ACCOUNT).catch(() => null), readSecret(BOT_ACCOUNT).catch(() => null)]);
+    if (app && bot) { this.tokens = { app, bot }; this.listen(); await this.resume(); }
   }
 
   /** con los dos tokens de la app: se comprueban con Slack, se guardan en el llavero y se prepara el código de emparejar */
-  async conectar(app: string, bot: string) {
+  async connect(app: string, bot: string) {
     app = app.trim(); bot = bot.trim();
     if (!TOKEN_APP.test(app)) throw new Error(t('server.slackRemoteInvalidAppToken'));
     if (!TOKEN_BOT.test(bot)) throw new Error(t('server.slackRemoteInvalidBotToken'));
-    const yo = await this.api('auth.test', {}, bot);
+    const me = await this.api('auth.test', {}, bot);
     await this.api('apps.connections.open', {}, app);   // que el de la app vale y Socket Mode está encendido
-    this.parar();
-    await saveSecret(CUENTA_APP, app);
-    await saveSecret(CUENTA_BOT, bot);
+    this.stop();
+    await saveSecret(APP_ACCOUNT, app);
+    await saveSecret(BOT_ACCOUNT, bot);
     this.tokens = { app, bot };
-    this.c = { teamId: String(yo.team_id ?? ''), team: String(yo.team ?? ''), bot: String(yo.user ?? ''), botUserId: String(yo.user_id ?? ''), aprobar: this.c.aprobar };
-    return this.emparejar();
+    this.c = { teamId: String(me.team_id ?? ''), team: String(me.team ?? ''), bot: String(me.user ?? ''), botUserId: String(me.user_id ?? ''), approve: this.c.approve };
+    return this.pair();
   }
   /** código de un solo uso (10 min) para emparejar: se le manda al bot por mensaje directo */
-  emparejar() {
+  pair() {
     if (!this.tokens) throw new Error(t('server.slackRemoteNotConnected'));
-    this.c.channel = undefined; this.c.userId = undefined; this.c.rastro = undefined; this.olvidar();
-    const letras = Array.from({ length: 8 }, () => LETRAS[randomInt(LETRAS.length)]).join('');
-    this.pairing = { codigo: `${letras.slice(0, 4)}-${letras.slice(4)}`, hasta: Date.now() + PAIRING_MS, fallos: 0 };
-    this.guardar(); this.escuchar();
-    return this.estado();
+    this.c.channel = undefined; this.c.userId = undefined; this.c.trail = undefined; this.forget();
+    const letters = Array.from({ length: 8 }, () => LETTERS[randomInt(LETTERS.length)]).join('');
+    this.pairing = { code: `${letters.slice(0, 4)}-${letters.slice(4)}`, until: Date.now() + PAIRING_MS, failures: 0 };
+    this.save(); this.listen();
+    return this.state();
   }
-  async desconectar() {
-    this.parar();
-    this.tokens = null; this.c = {}; this.pairing = undefined; this.olvidar();
-    await Promise.all([eraseSecret(CUENTA_APP).catch(() => {}), eraseSecret(CUENTA_BOT).catch(() => {})]);
-    try { rmSync(this.archivo, { force: true }); } catch {}
-    this.d.alCambiar?.();
-    return this.estado();
+  async disconnect() {
+    this.stop();
+    this.tokens = null; this.c = {}; this.pairing = undefined; this.forget();
+    await Promise.all([eraseSecret(APP_ACCOUNT).catch(() => {}), eraseSecret(BOT_ACCOUNT).catch(() => {})]);
+    try { rmSync(this.file, { force: true }); } catch {}
+    this.d.onChange?.();
+    return this.state();
   }
-  ponerAprobar(si: boolean) { this.c.aprobar = si; this.guardar(); return this.estado(); }
-  parar() { this.corriendo?.abort(); this.corriendo = undefined; }
+  setApprove(si: boolean) { this.c.approve = si; this.save(); return this.state(); }
+  stop() { this.running?.abort(); this.running = undefined; }
 
   // ---------------- entrada: Socket Mode, con espera creciente si falla la red o Slack pide reconectar
-  private escuchar() {
-    if (this.corriendo || !this.tokens) return;
-    const ac = this.corriendo = new AbortController();
+  private listen() {
+    if (this.running || !this.tokens) return;
+    const ac = this.running = new AbortController();
     (async () => {
-      let espera = 1000;
+      let wait = 1000;
       while (!ac.signal.aborted && this.tokens) {
         try {
           const { url } = await this.api('apps.connections.open', {}, this.tokens.app, AbortSignal.any([ac.signal, AbortSignal.timeout(20_000)]));
-          await new Promise<void>(fin => {
-            const cortar = () => s.cerrar();
-            const s: Enchufe = this.abrir(String(url), {
-              mensaje: raw => { if (this.sobre(raw, s)) espera = 1000; },
-              cerrado: () => { ac.signal.removeEventListener('abort', cortar); fin(); },
+          await new Promise<void>(end => {
+            const cut = () => s.close();
+            const s: Socket = this.open(String(url), {
+              message: raw => { if (this.restsOn(raw, s)) wait = 1000; },
+              closed: () => { ac.signal.removeEventListener('abort', cut); end(); },
             });
-            ac.signal.addEventListener('abort', cortar, { once: true });
+            ac.signal.addEventListener('abort', cut, { once: true });
           });
         } catch (e) {
           if (ac.signal.aborted) break;
           console.error('Slack (mando):', (e as Error).message);
         }
         if (ac.signal.aborted) break;
-        await new Promise(r => setTimeout(r, espera)); espera = Math.min(espera * 2, 60_000);
+        await new Promise(r => setTimeout(r, wait)); wait = Math.min(wait * 2, 60_000);
       }
     })();
   }
 
   /** Un sobre de Socket Mode: se da por recibido al momento (Slack espera menos de 3 s) y luego se atiende.
    *  Devuelve si es el saludo de una conexión nueva. Público para las pruebas */
-  sobre(raw: string, s: Enchufe): boolean {
+  restsOn(raw: string, s: Socket): boolean {
     let j: any;
     try { j = JSON.parse(raw); } catch { return false; }
-    if (j.envelope_id) s.enviar(JSON.stringify({ envelope_id: j.envelope_id }));
-    if (j.type === 'disconnect') { s.cerrar(); return false; }
-    if (j.type === 'events_api' || j.type === 'interactive') this.recibir(j).catch(e => console.error('Slack (mando):', (e as Error).message));
+    if (j.envelope_id) s.send(JSON.stringify({ envelope_id: j.envelope_id }));
+    if (j.type === 'disconnect') { s.close(); return false; }
+    if (j.type === 'events_api' || j.type === 'interactive') this.receive(j).catch(e => console.error('Slack (mando):', (e as Error).message));
     return j.type === 'hello';
   }
 
   /** Un evento (mensaje directo) o un botón pulsado (público para las pruebas) */
-  async recibir(j: any) {
+  async receive(j: any) {
     if (j.type === 'interactive') {
       const p = j.payload;
       if (p?.type !== 'block_actions') return;
-      const de = { team: p.team?.id ?? p.user?.team_id, channel: p.channel?.id ?? p.container?.channel_id, user: p.user?.id };
-      if (!deQuienTocaSlack(de, this.c)) return;
-      const dato = String(p.actions?.[0]?.value ?? '');
+      const from = { team: p.team?.id ?? p.user?.team_id, channel: p.channel?.id ?? p.container?.channel_id, user: p.user?.id };
+      if (!whoseTurnSlack(from, this.c)) return;
+      const data = String(p.actions?.[0]?.value ?? '');
       // la respuesta a un botón: un mensaje que solo ve quien lo pulsa
-      await this.pulsar(dato, texto => texto ? this.llamar('chat.postEphemeral', { channel: this.c.channel, user: this.c.userId, text: texto }) : Promise.resolve());
+      await this.press(data, text => text ? this.call('chat.postEphemeral', { channel: this.c.channel, user: this.c.userId, text: text }) : Promise.resolve());
       return;
     }
     const ev = j.payload?.event;
@@ -204,15 +204,15 @@ export class SlackRemote extends RemoteBot<Ref> {
     // solo mensajes de personas por privado al bot (ni ediciones, ni los del propio bot)
     if (ev?.type !== 'message' || ev.subtype || ev.bot_id || !ev.user || ev.user === this.c.botUserId || ev.channel_type !== 'im') return;
     if (this.pairing && !this.c.channel && team === this.c.teamId) {
-      if (this.pairing.hasta > Date.now() && typeof ev.text === 'string' && normalizar(ev.text) === normalizar(this.pairing.codigo)) {
-        this.c.channel = ev.channel; this.c.userId = ev.user; this.pairing = undefined; this.guardar();
-        await this.mandar({ text: t('server.remotePaired'), filas: [] });
-        await this.mandarListado();
-      } else if (++this.pairing.fallos >= INTENTOS) { this.pairing = undefined; this.d.alCambiar?.(); }
+      if (this.pairing.until > Date.now() && typeof ev.text === 'string' && normalize(ev.text) === normalize(this.pairing.code)) {
+        this.c.channel = ev.channel; this.c.userId = ev.user; this.pairing = undefined; this.save();
+        await this.post({ text: t('server.remotePaired'), rows: [] });
+        await this.sendListing();
+      } else if (++this.pairing.failures >= ATTEMPTS) { this.pairing = undefined; this.d.onChange?.(); }
       return;
     }
-    if (!deQuienTocaSlack({ team, channel: ev.channel, user: ev.user }, this.c)) return;
+    if (!whoseTurnSlack({ team, channel: ev.channel, user: ev.user }, this.c)) return;
     // cualquier otra cosa del mensaje directo emparejado: la lista (no se manda nada a las conversaciones)
-    await this.mandarListado();
+    await this.sendListing();
   }
 }

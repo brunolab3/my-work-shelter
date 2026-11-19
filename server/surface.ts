@@ -9,114 +9,114 @@ import net from 'node:net';
 import path from 'node:path';
 import { readFileSync } from 'node:fs';
 import WebSocket from 'ws';
-import { DATOS } from './state.ts';
+import { DATA } from './state.ts';
 import { SOCKET_TERMINALS } from './terminals.ts';
 import { openInDesktop, outsideOpen, hookCommand, resumeCommand, type ItemDesktop } from './desktop.ts';
 import { t, setLanguage, isLanguage } from '../shared/language.ts';
 
-const RAIZ = path.resolve(import.meta.dirname, '..');
-const PUERTO = Number(process.env.SHELTER_PUERTO || 3778);
+const ROOT = path.resolve(import.meta.dirname, '..');
+const PORT = Number(process.env.SHELTER_PUERTO || 3778);
 const [orden, ...args] = process.argv.slice(2);
-const opcion = (n: string) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : undefined; };
+const option = (n: string) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : undefined; };
 // lo que dice por la terminal, en el idioma del refugio (el de su estado guardado; sin él, español)
-try { const i = JSON.parse(readFileSync(path.join(DATOS, 'refugio.json'), 'utf8')).idioma; if (isLanguage(i)) setLanguage(i); } catch {}
+try { const i = JSON.parse(readFileSync(path.join(DATA, 'refugio.json'), 'utf8')).idioma; if (isLanguage(i)) setLanguage(i); } catch {}
 
 // ---------------------------------------------------------------- enganchar una terminal del juego
 // Al salir se dejan las cosas como estaban: sin protocolo de kitty, sin ratón, fuera de la pantalla alternativa
 const RESTORE = '\x1b[<16u\x1b[?1049l\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1006l\x1b[?1004l\x1b[?2004l\x1b[?1l\x1b[?25h\x1b[0m';
-function enganchar(id: string, socket: string) {
-  const { stdin: entrada, stdout: salida } = process;
-  if (!entrada.isTTY) { console.error(t('server.surface.needsATerminal')); process.exit(2); }
+function attach(id: string, socket: string) {
+  const { stdin: input, stdout: output } = process;
+  if (!input.isTTY) { console.error(t('server.surface.needsATerminal')); process.exit(2); }
   const s = net.connect(socket);
-  let resto = '', finished = false;
-  const linea = (m: Record<string, unknown>) => { if (!s.destroyed) s.write(JSON.stringify(m) + '\n'); };
-  const acabar = (codigo: number, texto?: string) => {
+  let rest = '', finished = false;
+  const line = (m: Record<string, unknown>) => { if (!s.destroyed) s.write(JSON.stringify(m) + '\n'); };
+  const finish = (code: number, text?: string) => {
     if (finished) return; finished = true;
-    try { entrada.setRawMode(false); } catch {}
-    salida.write(RESTORE + (texto ? `\r\n\x1b[2m${texto}\x1b[0m\r\n` : ''));
-    process.exit(codigo);
+    try { input.setRawMode(false); } catch {}
+    output.write(RESTORE + (text ? `\r\n\x1b[2m${text}\x1b[0m\r\n` : ''));
+    process.exit(code);
   };
   s.setEncoding('utf8');
   s.on('connect', () => {
-    salida.write('\x1b[H\x1b[2J\x1b[3J');
-    linea({ op: 'enganchar', id, cols: salida.columns, filas: salida.rows });
-    entrada.setRawMode(true); entrada.setEncoding('utf8'); entrada.resume();
-    entrada.on('data', (d: string) => linea({ op: 'entrada', datos: d }));
-    salida.on('resize', () => linea({ op: 'tamano', cols: salida.columns, filas: salida.rows }));
+    output.write('\x1b[H\x1b[2J\x1b[3J');
+    line({ op: 'enganchar', id, cols: output.columns, filas: output.rows });
+    input.setRawMode(true); input.setEncoding('utf8'); input.resume();
+    input.on('data', (d: string) => line({ op: 'entrada', datos: d }));
+    output.on('resize', () => line({ op: 'tamano', cols: output.columns, filas: output.rows }));
   });
   s.on('data', (d: string) => {
-    resto += d;
+    rest += d;
     let i: number;
-    while ((i = resto.indexOf('\n')) >= 0) {
-      let m: any; try { m = JSON.parse(resto.slice(0, i)); } catch { m = null; } resto = resto.slice(i + 1);
-      if (m?.ev === 'datos') salida.write(m.datos);
-      else if (m?.ev === 'fin') acabar(0, t('server.surface.terminalEnded'));
-      else if (m?.ev === 'error') acabar(1, m.texto);
+    while ((i = rest.indexOf('\n')) >= 0) {
+      let m: any; try { m = JSON.parse(rest.slice(0, i)); } catch { m = null; } rest = rest.slice(i + 1);
+      if (m?.ev === 'datos') output.write(m.datos);
+      else if (m?.ev === 'fin') finish(0, t('server.surface.terminalEnded'));
+      else if (m?.ev === 'error') finish(1, m.texto);
     }
   });
-  s.on('error', e => acabar(1, t('server.surface.cannotFindShelter', { error: (e as NodeJS.ErrnoException).code ?? e.message })));
-  s.on('close', () => acabar(0, t('server.surface.detached')));
+  s.on('error', e => finish(1, t('server.surface.cannotFindShelter', { error: (e as NodeJS.ErrnoException).code ?? e.message })));
+  s.on('close', () => finish(0, t('server.surface.detached')));
 }
 
 // ---------------------------------------------------------------- con el juego en marcha
 async function liveServer() {
-  try { return (await fetch(`http://127.0.0.1:${PUERTO}/salud`, { signal: AbortSignal.timeout(1500) })).ok; } catch { return false; }
+  try { return (await fetch(`http://127.0.0.1:${PORT}/salud`, { signal: AbortSignal.timeout(1500) })).ok; } catch { return false; }
 }
-function askOnServer(nombre: string, datos: Record<string, unknown>) {
-  const token = readFileSync(path.join(DATOS, 'token'), 'utf8').trim();
-  const origen = `http://127.0.0.1:${PUERTO}`;
+function askOnServer(name: string, data: Record<string, unknown>) {
+  const token = readFileSync(path.join(DATA, 'token'), 'utf8').trim();
+  const origin = `http://127.0.0.1:${PORT}`;
   return new Promise<any>((ok, ko) => {
-    const ws = new WebSocket(`ws://127.0.0.1:${PUERTO}/ws?t=${encodeURIComponent(token)}`, { origin: origen });
-    const reloj = setTimeout(() => { ws.terminate(); ko(new Error(t('server.theShelterIsNotResponding'))); }, 60_000);
-    ws.on('open', () => ws.send(JSON.stringify({ t: 'accion', nombre, datos, peticion: 'superficie' })));
+    const ws = new WebSocket(`ws://127.0.0.1:${PORT}/ws?t=${encodeURIComponent(token)}`, { origin: origin });
+    const timer = setTimeout(() => { ws.terminate(); ko(new Error(t('server.theShelterIsNotResponding'))); }, 60_000);
+    ws.on('open', () => ws.send(JSON.stringify({ t: 'accion', name, data, request: 'superficie' })));
     ws.on('message', raw => {
       let m: any; try { m = JSON.parse(String(raw)); } catch { return; }
-      if (m.t !== 'respuesta' || m.peticion !== 'superficie') return;
-      clearTimeout(reloj); ws.close();
-      if (m.error) ko(new Error(m.error)); else ok(m.datos);
+      if (m.t !== 'respuesta' || m.request !== 'superficie') return;
+      clearTimeout(timer); ws.close();
+      if (m.error) ko(new Error(m.error)); else ok(m.data);
     });
-    ws.on('error', e => { clearTimeout(reloj); ko(e); });
+    ws.on('error', e => { clearTimeout(timer); ko(e); });
   });
 }
 
 // ---------------------------------------------------------------- sin refugio
-interface Open { claudeId: string; cwd: string; titulo?: string; habitante?: string; estado?: string; permisos?: string }
+interface Open { claudeId: string; cwd: string; title?: string; dweller?: string; state?: string; permissions?: string }
 function openInDisc(): Open[] {
-  try { const l = JSON.parse(readFileSync(path.join(DATOS, 'abiertas.json'), 'utf8')); return Array.isArray(l) ? l.filter(x => x && typeof x.claudeId === 'string' && typeof x.cwd === 'string') : []; } catch { return []; }
+  try { const l = JSON.parse(readFileSync(path.join(DATA, 'abiertas.json'), 'utf8')); return Array.isArray(l) ? l.filter(x => x && typeof x.claudeId === 'string' && typeof x.cwd === 'string') : []; } catch { return []; }
 }
 function liveTerminals(): Promise<{ id: string; cwd: string; program?: string; fuera: number }[]> {
   return new Promise(ok => {
     const s = net.connect(SOCKET_TERMINALS);
-    let resto = '';
+    let rest = '';
     s.setEncoding('utf8');
     s.on('connect', () => s.write(JSON.stringify({ op: 'lista' }) + '\n'));
-    s.on('data', (d: string) => { resto += d; const i = resto.indexOf('\n'); if (i < 0) return; try { const m = JSON.parse(resto.slice(0, i)); ok(m.terminales ?? []); } catch { ok([]); } s.end(); });
+    s.on('data', (d: string) => { rest += d; const i = rest.indexOf('\n'); if (i < 0) return; try { const m = JSON.parse(rest.slice(0, i)); ok(m.terminales ?? []); } catch { ok([]); } s.end(); });
     s.on('error', () => ok([]));
     s.on('close', () => ok([]));
   });
 }
 
-async function superficie(onlyList: boolean) {
+async function surface(onlyList: boolean) {
   if (await liveServer()) {
     if (onlyList) { console.log(t('server.surface.shelterIsOpen')); return; }
-    const r = await askOnServer('superficie.sacar', { todo: true, windowNew: true });
-    console.log(r.sesiones || r.terminales ? t('server.surface.toTheSurface', { n: r.sesiones, m: r.terminales, app: r.app || t('server.surface.yourDesktop') }) : t('server.surface.nothingWasOpen'));
-    for (const a of r.avisos ?? []) console.log('· ' + a);
+    const r = await askOnServer('superficie.sacar', { all: true, windowNew: true });
+    console.log(r.sessions || r.terminals ? t('server.surface.toTheSurface', { n: r.sessions, m: r.terminals, app: r.app || t('server.surface.yourDesktop') }) : t('server.surface.nothingWasOpen'));
+    for (const a of r.notices ?? []) console.log('· ' + a);
     return;
   }
   // el refugio no está: lo que quedó abierto al caerse
-  const fuera = outsideOpen();
-  const conv = openInDisc().filter(a => !fuera.has(a.claudeId.toLowerCase()));
+  const outside = outsideOpen();
+  const conv = openInDisc().filter(a => !outside.has(a.claudeId.toLowerCase()));
   const terms = (await liveTerminals()).filter(x => !x.fuera);
   if (onlyList) {
     console.log(conv.length || terms.length ? t('server.surface.closedLeftThis') : t('server.surface.closedNothingLeft'));
-    for (const a of conv) console.log(t('server.surface.listConversation', { habitante: a.habitante ?? '', titulo: a.titulo ?? a.claudeId, cwd: a.cwd }));
+    for (const a of conv) console.log(t('server.surface.listConversation', { habitante: a.dweller ?? '', titulo: a.title ?? a.claudeId, cwd: a.cwd }));
     for (const x of terms) console.log(t('server.surface.listTerminal', { id: x.id + (x.program ? ' · ' + x.program : ''), cwd: x.cwd }));
     return;
   }
   const items: ItemDesktop[] = [
-    ...terms.map(x => ({ titulo: t('server.surface.terminalTitle', { carpeta: path.basename(x.cwd) }), comando: hookCommand(path.join(RAIZ, 'shelter'), SOCKET_TERMINALS, x.id) })),
-    ...conv.map(a => ({ titulo: `${a.habitante ?? t('server.surface.dweller')} · ${a.titulo ?? t('server.surface.conversation')}`, comando: resumeCommand({ claudeId: a.claudeId, cwd: a.cwd, permisos: a.permisos }) })),
+    ...terms.map(x => ({ title: t('server.surface.terminalTitle', { carpeta: path.basename(x.cwd) }), command: hookCommand(path.join(ROOT, 'shelter'), SOCKET_TERMINALS, x.id) })),
+    ...conv.map(a => ({ title: `${a.dweller ?? t('server.surface.dweller')} · ${a.title ?? t('server.surface.conversation')}`, command: resumeCommand({ claudeId: a.claudeId, cwd: a.cwd, permissions: a.permissions }) })),
   ];
   if (!items.length) { console.log(t('server.surface.closedNothingLeft')); return; }
   const app = await openInDesktop(items, { windowNew: true });
@@ -125,7 +125,7 @@ async function superficie(onlyList: boolean) {
 
 if (orden === 'enganchar') {
   if (!args[0] || args[0].startsWith('--')) { console.error(t('server.surface.usageHook')); process.exit(2); }
-  enganchar(args[0], opcion('--socket') ?? SOCKET_TERMINALS);
+  attach(args[0], option('--socket') ?? SOCKET_TERMINALS);
 } else if (orden === 'superficie') {
-  superficie(args.includes('--lista')).then(() => process.exit(0), e => { console.error((e as Error).message); process.exit(1); });
+  surface(args.includes('--lista')).then(() => process.exit(0), e => { console.error((e as Error).message); process.exit(1); });
 } else { console.error(t('server.surface.usage')); process.exit(2); }

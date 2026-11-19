@@ -14,53 +14,53 @@ const READER = path.join(import.meta.dirname, 'calendar.jxa');
 const DAYS = 14, DAY = 86_400_000;
 
 export const CALENDAR_FIELDS: Field[] = [
-  { nombre: 'calendarios', etiqueta: 'Solo estos calendarios', opcional: true, ayuda: 'Nombres de calendario tal como salen en Calendario, separados por comas. Vacío: todos.', ejemplo: 'nombre@empresa.example, Festivos' },
+  { name: 'calendarios', label: 'Solo estos calendarios', optional: true, help: 'Nombres de calendario tal como salen en Calendario, separados por comas. Vacío: todos.', example: 'nombre@empresa.example, Festivos' },
 ];
 
 export interface CalendarResult { cerrada?: boolean; calendarios?: string[]; eventos?: EventCalendarMac[] }
-export type Reader = (desde: number, hasta: number) => Promise<CalendarResult>;
+export type Reader = (since: number, until: number) => Promise<CalendarResult>;
 
-export const readCalendar: Reader = (desde, hasta) => new Promise((ok, ko) => {
+export const readCalendar: Reader = (since, until) => new Promise((ok, ko) => {
   if (process.platform !== 'darwin') return ko(new ErrorSource(t('server.macCalendarOnlyWorksOn')));
-  execFile('/usr/bin/osascript', ['-l', 'JavaScript', READER, String(desde), String(hasta)], { timeout: 60_000, maxBuffer: 8 << 20 }, (err, stdout, stderr) => {
+  execFile('/usr/bin/osascript', ['-l', 'JavaScript', READER, String(since), String(until)], { timeout: 60_000, maxBuffer: 8 << 20 }, (err, stdout, stderr) => {
     if (err) return ko(new ErrorSource(explainErrorCalendar(`${stderr || ''} ${err.message}`), 120_000));
     try { ok(JSON.parse(String(stdout))); } catch { ko(new ErrorSource(t('integrations.calendarUnreadable', { salida: String(stdout).slice(0, 120) }))); }
   });
 });
 
-class Calendario extends ConnectorBase {
+class Calendar extends ConnectorBase {
   id = 'calendario' as const;
   intervalMs = 5 * 60_000;   // los eventos cambian poco y leer Calendario tarda unos segundos
-  constructor(almacen: Store, private leer: Reader = readCalendar) { super(almacen, new ConfigSource(almacen, 'calendario', CALENDAR_FIELDS)); }
+  constructor(store: Store, private read: Reader = readCalendar) { super(store, new ConfigSource(store, 'calendario', CALENDAR_FIELDS)); }
 
-  private filtro(texto = this.config.publicos().calendarios ?? ''): (nombre: string) => boolean {
-    const want = texto.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+  private filter(text = this.config.publicFields().calendarios ?? ''): (name: string) => boolean {
+    const want = text.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
     return want.length ? n => want.includes(n.toLowerCase()) : () => true;
   }
   private async readAlready() {
-    const desde = dayStart(), hasta = desde + DAYS * DAY;
-    const r = await this.leer(desde, hasta);
+    const since = dayStart(), until = since + DAYS * DAY;
+    const r = await this.read(since, until);
     if (r.cerrada) throw new ErrorSource(t('server.calendarIsClosedOpenIt'));
-    const calendarios = r.calendarios ?? [];
-    if (!calendarios.length) throw new ErrorSource(t('server.calendarHasNoCalendarsAdd'));
-    return { calendarios, eventos: r.eventos ?? [], desde, hasta };
+    const calendars = r.calendarios ?? [];
+    if (!calendars.length) throw new ErrorSource(t('server.calendarHasNoCalendarsAdd'));
+    return { calendars, events: r.eventos ?? [], since, until };
   }
 
   protected async pollReal() {
-    const { calendarios, eventos, desde, hasta } = await this.readAlready();
-    const vale = this.filtro(), chosen = calendarios.filter(vale);
-    if (!chosen.length) throw new ErrorSource(t('server.noCalendarIsCalledThere', { calendarios: this.config.publicos().calendarios, calendarios2: calendarios.join(', ') }));
-    const lista = eventsOfCalendarMac(eventos.filter(e => vale(e.calendario)), desde, hasta);
-    this.bien(t(lista.length === 1 ? 'integrations.calendarReadingOne' : 'integrations.calendarReading', { calendarios: chosen.join(', '), n: lista.length, dias: DAYS }));
-    return { eventos: lista };
+    const { calendars, events, since, until } = await this.readAlready();
+    const valid = this.filter(), chosen = calendars.filter(valid);
+    if (!chosen.length) throw new ErrorSource(t('server.noCalendarIsCalledThere', { calendarios: this.config.publicFields().calendarios, calendarios2: calendars.join(', ') }));
+    const list = eventsOfCalendarMac(events.filter(e => valid(e.calendario)), since, until);
+    this.good(t(list.length === 1 ? 'integrations.calendarReadingOne' : 'integrations.calendarReading', { calendarios: chosen.join(', '), n: list.length, dias: DAYS }));
+    return { events: list };
   }
 
   protected async tryReal(v: Record<string, string>) {
-    const { calendarios } = await this.readAlready();
-    const chosen = calendarios.filter(this.filtro(v.calendarios ?? ''));
-    if (!chosen.length) return { ok: false, detalle: t('server.noCalendarMatchesThereAre', { calendarios: calendarios.join(', ') }) };
-    return { ok: true, detalle: t('integrations.calendarResponds', { calendarios: chosen.join(', ') }) };
+    const { calendars } = await this.readAlready();
+    const chosen = calendars.filter(this.filter(v.calendarios ?? ''));
+    if (!chosen.length) return { ok: false, detail: t('server.noCalendarMatchesThereAre', { calendarios: calendars.join(', ') }) };
+    return { ok: true, detail: t('integrations.calendarResponds', { calendarios: chosen.join(', ') }) };
   }
 }
 
-export function crear(almacen: Store, lector?: Reader) { return new Calendario(almacen, lector); }
+export function create(store: Store, reader?: Reader) { return new Calendar(store, reader); }

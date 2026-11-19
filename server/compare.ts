@@ -9,89 +9,89 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { z } from 'zod';
 import { createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk';
-import { entornoGit } from './gitEnv.ts';
-import { DATOS, ROOMS_FOLDERS } from './state.ts';
+import { gitEnvironment } from './gitEnv.ts';
+import { DATA, ROOMS_FOLDERS } from './state.ts';
 import { pageLink } from '../shared/sessionPages.ts';
-import { t, idioma } from '../shared/language.ts';
+import { t, language } from '../shared/language.ts';
 import { MCP } from './mcpServers.ts';
 
 /** Where the pages are saved: in the game's data (git-ignored), never in the compared repo. A path without spaces, so
  *  the link also works outside the game; they used to live in Application Support, which has one */
-export const COMPARES_FOLDER = path.join(DATOS, 'compares');
+export const COMPARES_FOLDER = path.join(DATA, 'compares');
 const OLD_COMPARES_FOLDER = path.join(path.dirname(ROOMS_FOLDERS), 'comparaciones');
 const MAX_LINES_FILE = 4000, MAX_LINES = 30000;
 
-const git = (cwd: string, args: string[]) => new Promise<string>((ok, mal) =>
-  execFile('git', ['-c', 'core.quotepath=off', ...args], { cwd, env: entornoGit(), timeout: 30_000, maxBuffer: 64 * 1024 * 1024 }, (err, out, errOut) => (err ? mal(new Error(String(errOut || err.message).trim())) : ok(out))));
+const git = (cwd: string, args: string[]) => new Promise<string>((ok, fail) =>
+  execFile('git', ['-c', 'core.quotepath=off', ...args], { cwd, env: gitEnvironment(), timeout: 30_000, maxBuffer: 64 * 1024 * 1024 }, (err, out, errOut) => (err ? fail(new Error(String(errOut || err.message).trim())) : ok(out))));
 const gitOr = (cwd: string, args: string[]) => git(cwd, args).then(s => s.trim(), () => '');
 
 /** La base con la que comparar: la pedida; si no, lo ya subido de la rama (la remota que sigue u origin/<rama>); si la
  *  rama no se ha subido nunca, la principal del remoto (o la local) */
-export async function compareBase(cwd: string, pedida?: string): Promise<string> {
-  const existe = async (c: string) => !!c && !!(await gitOr(cwd, ['rev-parse', '--verify', '--quiet', c + '^{commit}']));
-  if (pedida) { if (!(await existe(pedida))) throw new Error(t('tool.compare.noSuchBase', { base: pedida })); return pedida; }
-  const rama = await gitOr(cwd, ['rev-parse', '--abbrev-ref', 'HEAD']);
+export async function compareBase(cwd: string, requested?: string): Promise<string> {
+  const exists = async (c: string) => !!c && !!(await gitOr(cwd, ['rev-parse', '--verify', '--quiet', c + '^{commit}']));
+  if (requested) { if (!(await exists(requested))) throw new Error(t('tool.compare.noSuchBase', { base: requested })); return requested; }
+  const branch = await gitOr(cwd, ['rev-parse', '--abbrev-ref', 'HEAD']);
   const upstream = await gitOr(cwd, ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{upstream}']);
-  const remota = await gitOr(cwd, ['symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD']);
-  for (const c of [upstream, `origin/${rama}`, remota, 'origin/main', 'origin/master', 'main', 'master']) if (c && c !== rama && await existe(c)) return c;
+  const remote = await gitOr(cwd, ['symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD']);
+  for (const c of [upstream, `origin/${branch}`, remote, 'origin/main', 'origin/master', 'main', 'master']) if (c && c !== branch && await exists(c)) return c;
   throw new Error(t('tool.compare.noBase'));
 }
 
-interface Line { tipo: ' ' | '+' | '-' | '@'; texto: string; viejo?: number; nuevo?: number }
-interface FileDiff { ruta: string; antes?: string; estado: 'nuevo' | 'borrado' | 'renombrado' | 'cambiado'; binario: boolean; mas: number; menos: number; lineas: Line[]; recortado: boolean }
+interface Line { type: ' ' | '+' | '-' | '@'; text: string; old?: number; newer?: number }
+interface FileDiff { path: string; before?: string; state: 'nuevo' | 'borrado' | 'renombrado' | 'cambiado'; binary: boolean; more: number; deletions: number; lines: Line[]; truncated: boolean }
 
 /** Un diff unificado de git, por archivos y líneas (con sus números a cada lado) */
 export function parseDiff(diff: string): FileDiff[] {
-  const files: FileDiff[] = []; let f: FileDiff | null = null; let viejo = 0, nuevo = 0;
+  const files: FileDiff[] = []; let f: FileDiff | null = null; let old = 0, newer = 0;
   for (const l of diff.split('\n')) {
     if (l.startsWith('diff --git ')) {
       const m = /^diff --git a\/(.*) b\/(.*)$/.exec(l);
-      f = { ruta: m?.[2] ?? l.slice(11), estado: 'cambiado', binario: false, mas: 0, menos: 0, lineas: [], recortado: false }; files.push(f); continue;
+      f = { path: m?.[2] ?? l.slice(11), state: 'cambiado', binary: false, more: 0, deletions: 0, lines: [], truncated: false }; files.push(f); continue;
     }
     if (!f) continue;
-    if (l.startsWith('new file mode')) f.estado = 'nuevo';
-    else if (l.startsWith('deleted file mode')) f.estado = 'borrado';
-    else if (l.startsWith('rename from ')) { f.estado = 'renombrado'; f.antes = l.slice(12); }
-    else if (l.startsWith('rename to ')) f.ruta = l.slice(10);
-    else if (l.startsWith('Binary files ')) f.binario = true;
+    if (l.startsWith('new file mode')) f.state = 'nuevo';
+    else if (l.startsWith('deleted file mode')) f.state = 'borrado';
+    else if (l.startsWith('rename from ')) { f.state = 'renombrado'; f.before = l.slice(12); }
+    else if (l.startsWith('rename to ')) f.path = l.slice(10);
+    else if (l.startsWith('Binary files ')) f.binary = true;
     else if (l.startsWith('@@')) {
       const m = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@(.*)$/.exec(l);
-      viejo = Number(m?.[1] ?? 0); nuevo = Number(m?.[2] ?? 0);
-      if (f.lineas.length < MAX_LINES_FILE) f.lineas.push({ tipo: '@', texto: l });
+      old = Number(m?.[1] ?? 0); newer = Number(m?.[2] ?? 0);
+      if (f.lines.length < MAX_LINES_FILE) f.lines.push({ type: '@', text: l });
     } else if (/^[ +-]/.test(l) && !l.startsWith('+++ ') && !l.startsWith('--- ')) {
-      const tipo = l[0] as ' ' | '+' | '-';
-      if (tipo === '+') f.mas++; else if (tipo === '-') f.menos++;
-      if (f.lineas.length >= MAX_LINES_FILE) { f.recortado = true; if (tipo !== '-') nuevo++; if (tipo !== '+') viejo++; continue; }
-      f.lineas.push({ tipo, texto: l.slice(1), viejo: tipo === '+' ? undefined : viejo, nuevo: tipo === '-' ? undefined : nuevo });
-      if (tipo !== '-') nuevo++; if (tipo !== '+') viejo++;
+      const type = l[0] as ' ' | '+' | '-';
+      if (type === '+') f.more++; else if (type === '-') f.deletions++;
+      if (f.lines.length >= MAX_LINES_FILE) { f.truncated = true; if (type !== '-') newer++; if (type !== '+') old++; continue; }
+      f.lines.push({ type, text: l.slice(1), old: type === '+' ? undefined : old, newer: type === '-' ? undefined : newer });
+      if (type !== '-') newer++; if (type !== '+') old++;
     }
   }
   return files;
 }
 
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-const ancla = (ruta: string) => 'f-' + ruta.replace(/[^a-zA-Z0-9]+/g, '-');
-const ESTADO: Record<FileDiff['estado'], string> = { nuevo: 'nuevo', borrado: 'borrado', renombrado: 'renombrado', cambiado: '' };
+const anchor = (path: string) => 'f-' + path.replace(/[^a-zA-Z0-9]+/g, '-');
+const STATE: Record<FileDiff['state'], string> = { nuevo: 'nuevo', borrado: 'borrado', renombrado: 'renombrado', cambiado: '' };
 
 /** La página: resumen, índice de archivos y cada archivo con sus líneas (data-seccion: la nota dice de qué archivo es) */
-export function compareHtml(titulo: string, subtitulo: string, files: FileDiff[]): string {
-  const mas = files.reduce((n, f) => n + f.mas, 0), menos = files.reduce((n, f) => n + f.menos, 0);
+export function compareHtml(title: string, subtitle: string, files: FileDiff[]): string {
+  const more = files.reduce((n, f) => n + f.more, 0), deletions = files.reduce((n, f) => n + f.deletions, 0);
   let total = 0;
-  const cuerpo = files.map(f => {
-    const cab = `<h2 class="fh"><a href="#${ancla(f.ruta)}">${esc(f.antes ? `${f.antes} → ${f.ruta}` : f.ruta)}</a> <span class="cuenta"><b class="mas">+${f.mas}</b> <b class="menos">−${f.menos}</b>${ESTADO[f.estado] ? ` · ${ESTADO[f.estado]}` : ''}</span></h2>`;
-    if (f.binario) return `<section id="${ancla(f.ruta)}" data-seccion="${esc(f.ruta)}">${cab}<p class="nota">${t('tool.compare.binary')}</p></section>`;
-    const filas = (total > MAX_LINES ? [] : f.lineas).map(l => {
+  const body = files.map(f => {
+    const header = `<h2 class="fh"><a href="#${anchor(f.path)}">${esc(f.before ? `${f.before} → ${f.path}` : f.path)}</a> <span class="cuenta"><b class="mas">+${f.more}</b> <b class="menos">−${f.deletions}</b>${STATE[f.state] ? ` · ${STATE[f.state]}` : ''}</span></h2>`;
+    if (f.binary) return `<section id="${anchor(f.path)}" data-seccion="${esc(f.path)}">${header}<p class="nota">${t('tool.compare.binary')}</p></section>`;
+    const rows = (total > MAX_LINES ? [] : f.lines).map(l => {
       total++;
-      if (l.tipo === '@') return `<tr class="hunk"><td colspan="3">${esc(l.texto)}</td></tr>`;
-      const c = l.tipo === '+' ? 'add' : l.tipo === '-' ? 'del' : '';
-      const linea = l.nuevo ?? l.viejo;
-      return `<tr class="${c}" data-seccion="${esc(`${f.ruta}:${linea}`)}"><td class="n">${l.viejo ?? ''}</td><td class="n">${l.nuevo ?? ''}</td><td class="c"><span class="s">${l.tipo === ' ' ? ' ' : l.tipo}</span>${esc(l.texto) || ' '}</td></tr>`;
+      if (l.type === '@') return `<tr class="hunk"><td colspan="3">${esc(l.text)}</td></tr>`;
+      const c = l.type === '+' ? 'add' : l.type === '-' ? 'del' : '';
+      const line = l.newer ?? l.old;
+      return `<tr class="${c}" data-seccion="${esc(`${f.path}:${line}`)}"><td class="n">${l.old ?? ''}</td><td class="n">${l.newer ?? ''}</td><td class="c"><span class="s">${l.type === ' ' ? ' ' : l.type}</span>${esc(l.text) || ' '}</td></tr>`;
     }).join('');
-    const corte = f.recortado || total > MAX_LINES ? `<p class="nota">${t('tool.compare.truncated')}</p>` : '';
-    return `<section id="${ancla(f.ruta)}" data-seccion="${esc(f.ruta)}">${cab}<table>${filas}</table>${corte}</section>`;
+    const truncation = f.truncated || total > MAX_LINES ? `<p class="nota">${t('tool.compare.truncated')}</p>` : '';
+    return `<section id="${anchor(f.path)}" data-seccion="${esc(f.path)}">${header}<table>${rows}</table>${truncation}</section>`;
   }).join('\n');
-  const indice = files.map(f => `<li><a href="#${ancla(f.ruta)}">${esc(f.ruta)}</a> <b class="mas">+${f.mas}</b> <b class="menos">−${f.menos}</b></li>`).join('');
-  return `<!doctype html><html lang="${idioma()}"><head><meta charset="utf-8"><title>${esc(titulo)}</title><style>
+  const index = files.map(f => `<li><a href="#${anchor(f.path)}">${esc(f.path)}</a> <b class="mas">+${f.more}</b> <b class="menos">−${f.deletions}</b></li>`).join('');
+  return `<!doctype html><html lang="${language()}"><head><meta charset="utf-8"><title>${esc(title)}</title><style>
 body{margin:0;background:#0d1117;color:#e6edf3;font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
 main{max-width:1200px;margin:0 auto;padding:24px}
 h1{font-size:22px;margin:0 0 4px}.sub{color:#8b949e;margin:0 0 16px}
@@ -109,103 +109,103 @@ tr.add{background:rgba(46,160,67,.15)}tr.del{background:rgba(248,81,73,.15)}
 tr.hunk td{background:rgba(56,139,253,.1);color:#8b949e;padding:2px 12px}
 .nota{color:#8b949e;padding:8px 12px;margin:0}
 </style></head><body><main>
-<h1>${esc(titulo)}</h1><p class="sub">${esc(subtitulo)}</p>
-<p class="resumen">${t(files.length === 1 ? 'tool.compare.filesOne' : 'tool.compare.filesMany', { n: files.length })}, <b class="mas">+${mas}</b> <b class="menos">−${menos}</b>. ${t('tool.compare.howToNote')}</p>
-${files.length ? `<ul class="indice">${indice}</ul>` : `<p class="nota">${t('tool.compare.noChanges')}</p>`}
-${cuerpo}
+<h1>${esc(title)}</h1><p class="sub">${esc(subtitle)}</p>
+<p class="resumen">${t(files.length === 1 ? 'tool.compare.filesOne' : 'tool.compare.filesMany', { n: files.length })}, <b class="mas">+${more}</b> <b class="menos">−${deletions}</b>. ${t('tool.compare.howToNote')}</p>
+${files.length ? `<ul class="indice">${index}</ul>` : `<p class="nota">${t('tool.compare.noChanges')}</p>`}
+${body}
 </main></body></html>`;
 }
 
 // git diff --no-index sale con 1 cuando hay diferencias: no es un error
 const newFileDiff = (cwd: string, f: string) => new Promise<string>(ok =>
-  execFile('git', ['-c', 'core.quotepath=off', 'diff', '--no-color', '--no-ext-diff', '--no-textconv', '--no-index', '--', '/dev/null', f], { cwd, env: entornoGit(), timeout: 30_000, maxBuffer: 16 * 1024 * 1024 }, (_e, out) => ok(String(out ?? ''))));
+  execFile('git', ['-c', 'core.quotepath=off', 'diff', '--no-color', '--no-ext-diff', '--no-textconv', '--no-index', '--', '/dev/null', f], { cwd, env: gitEnvironment(), timeout: 30_000, maxBuffer: 16 * 1024 * 1024 }, (_e, out) => ok(String(out ?? ''))));
 
 /** Compares go once their task is finished (every worktree they cover removed, by the game's task cleanup or by
  *  hand) and, the rest, after two weeks: nobody reviews them any more. At startup and every few minutes (main.ts) */
-export async function cleanCompares(dias = 14, carpetas = [COMPARES_FOLDER, OLD_COMPARES_FOLDER]) {
-  const limite = Date.now() - dias * 86_400_000;
-  for (const carpeta of carpetas) {   // the old folder too, which empties itself this way
-    const nombres = await fs.readdir(carpeta).catch(() => [] as string[]);
-    for (const n of nombres) if (n.endsWith('.html') || n.endsWith('.json')) {
-      const f = path.join(carpeta, n);
+export async function cleanCompares(days = 14, folders = [COMPARES_FOLDER, OLD_COMPARES_FOLDER]) {
+  const limit = Date.now() - days * 86_400_000;
+  for (const folder of folders) {   // the old folder too, which empties itself this way
+    const names = await fs.readdir(folder).catch(() => [] as string[]);
+    for (const n of names) if (n.endsWith('.html') || n.endsWith('.json')) {
+      const f = path.join(folder, n);
       const st = await fs.stat(f).catch(() => null);
-      if (st && st.mtimeMs < limite) await fs.rm(f, { force: true }).catch(() => {});
+      if (st && st.mtimeMs < limit) await fs.rm(f, { force: true }).catch(() => {});
       else if (n.endsWith('.json') && await taskFinished(f)) for (const x of [f, f.replace(/\.json$/, '.html')]) await fs.rm(x, { force: true }).catch(() => {});
     }
   }
 }
 const taskFinished = async (sidecar: string) => {
-  const partes = await fs.readFile(sidecar, 'utf8').then(j => (JSON.parse(j) as CompareSidecar).partes, () => null);
-  return Array.isArray(partes) && partes.length > 0 && partes.every(p => typeof p?.worktree === 'string' && !existsSync(p.worktree));
+  const parts = await fs.readFile(sidecar, 'utf8').then(j => (JSON.parse(j) as CompareSidecar).parts, () => null);
+  return Array.isArray(parts) && parts.length > 0 && parts.every(p => typeof p?.worktree === 'string' && !existsSync(p.worktree));
 };
 
 /** Lo que lleva un repo (o worktree) frente a su base, por archivos, con la cabeza (HEAD) en la que se mira */
-export async function compareFiles(cwd: string, o: { base?: string; sinCommit?: boolean } = {}) {
-  const raiz = (await git(cwd, ['rev-parse', '--show-toplevel'])).trim();
-  const base = await compareBase(raiz, o.base);
-  const desde = (await gitOr(raiz, ['merge-base', base, 'HEAD'])) || base;
-  const rama = (await gitOr(raiz, ['rev-parse', '--abbrev-ref', 'HEAD'])) || 'HEAD';
-  const head = await gitOr(raiz, ['rev-parse', 'HEAD']);
-  const sinCommit = o.sinCommit !== false;
-  const diff = await git(raiz, ['diff', '--no-color', '--no-ext-diff', '--no-textconv', '-M', '--unified=3', desde, ...(sinCommit ? [] : ['HEAD']), '--']);
+export async function compareFiles(cwd: string, o: { base?: string; uncommitted?: boolean } = {}) {
+  const root = (await git(cwd, ['rev-parse', '--show-toplevel'])).trim();
+  const base = await compareBase(root, o.base);
+  const since = (await gitOr(root, ['merge-base', base, 'HEAD'])) || base;
+  const branch = (await gitOr(root, ['rev-parse', '--abbrev-ref', 'HEAD'])) || 'HEAD';
+  const head = await gitOr(root, ['rev-parse', 'HEAD']);
+  const uncommitted = o.uncommitted !== false;
+  const diff = await git(root, ['diff', '--no-color', '--no-ext-diff', '--no-textconv', '-M', '--unified=3', since, ...(uncommitted ? [] : ['HEAD']), '--']);
   // los archivos nuevos que git aún no sigue también cuentan (si no, lo recién creado no saldría)
   let extra = '';
-  if (sinCommit) for (const f of (await gitOr(raiz, ['ls-files', '--others', '--exclude-standard', '-z'])).split('\0').filter(Boolean).slice(0, 100)) extra += await newFileDiff(raiz, f);
-  return { raiz, base, rama, head, sinCommit, files: parseDiff(diff + extra) };
+  if (uncommitted) for (const f of (await gitOr(root, ['ls-files', '--others', '--exclude-standard', '-z'])).split('\0').filter(Boolean).slice(0, 100)) extra += await newFileDiff(root, f);
+  return { root, base, branch, head, uncommitted, files: parseDiff(diff + extra) };
 }
 
 /** Lo que dice de sí una página de comparación (`<página>.json` al lado): de qué worktree, rama y commit es cada parte.
  *  Así una validación queda atada a un commit: uno nuevo la deja vieja (shared/preflight.ts) */
-export interface CompareSidecar { ts: number; partes: { worktree: string; rama: string; head: string; base: string }[] }
-export const sidecarOf = (archivo: string) => archivo.replace(/\.html$/, '.json');
-async function writePage(archivo: string, html: string, sidecar: CompareSidecar) {
-  await fs.mkdir(path.dirname(archivo), { recursive: true });
-  await fs.writeFile(archivo, html);
-  await fs.writeFile(sidecarOf(archivo), JSON.stringify(sidecar));
+export interface CompareSidecar { ts: number; parts: { worktree: string; branch: string; head: string; base: string }[] }
+export const sidecarOf = (file: string) => file.replace(/\.html$/, '.json');
+async function writePage(file: string, html: string, sidecar: CompareSidecar) {
+  await fs.mkdir(path.dirname(file), { recursive: true });
+  await fs.writeFile(file, html);
+  await fs.writeFile(sidecarOf(file), JSON.stringify(sidecar));
 }
 const pageName = (s: string) => s.replace(/[^a-zA-Z0-9._-]+/g, '-').slice(0, 100) + '.html';
 
 /** Genera la página de un repo y devuelve dónde ha quedado */
-export async function buildCompare(cwd: string, o: { base?: string; sinCommit?: boolean; titulo?: string } = {}, carpeta = COMPARES_FOLDER) {
-  const { raiz, base, rama, head, sinCommit, files } = await compareFiles(cwd, o);
-  const repo = path.basename(raiz);
-  const titulo = o.titulo?.trim() || `${repo} · ${rama}`;
-  const subtitulo = t('tool.compare.subtitle', { rama, base }) + (sinCommit ? t('tool.compare.withUncommitted') : '');
-  const archivo = path.join(carpeta, pageName(`${repo}-${rama}`));
-  await writePage(archivo, compareHtml(titulo, subtitulo, files), { ts: Date.now(), partes: [{ worktree: path.resolve(raiz), rama, head, base }] });
-  return { archivo, base, rama, head, archivos: files.length, mas: files.reduce((n, f) => n + f.mas, 0), menos: files.reduce((n, f) => n + f.menos, 0) };
+export async function buildCompare(cwd: string, o: { base?: string; uncommitted?: boolean; title?: string } = {}, folder = COMPARES_FOLDER) {
+  const { root, base, branch, head, uncommitted, files } = await compareFiles(cwd, o);
+  const repo = path.basename(root);
+  const title = o.title?.trim() || `${repo} · ${branch}`;
+  const subtitle = t('tool.compare.subtitle', { rama: branch, base }) + (uncommitted ? t('tool.compare.withUncommitted') : '');
+  const file = path.join(folder, pageName(`${repo}-${branch}`));
+  await writePage(file, compareHtml(title, subtitle, files), { ts: Date.now(), parts: [{ worktree: path.resolve(root), branch, head, base }] });
+  return { file, base, branch, head, files: files.length, more: files.reduce((n, f) => n + f.more, 0), deletions: files.reduce((n, f) => n + f.deletions, 0) };
 }
 
 /** Otra copia (worktree) del mismo repo que la conversación: solo esas, nunca una carpeta cualquiera */
-export async function sameRepoWorktree(cwd: string, carpeta: string): Promise<string> {
+export async function sameRepoWorktree(cwd: string, folder: string): Promise<string> {
   const real = (d: string) => fs.realpath(d).catch(() => path.resolve(d));   // /var → /private/var
-  const pedida = await real(path.resolve(cwd, carpeta));
-  const lista = await gitOr(cwd, ['worktree', 'list', '--porcelain']);
-  const copias = await Promise.all(lista.split('\n').filter(l => l.startsWith('worktree ')).map(l => real(l.slice(9))));
-  if (!copias.includes(pedida)) throw new Error(t('tool.compare.notAWorktree', { carpeta: pedida }));
-  return pedida;
+  const requested = await real(path.resolve(cwd, folder));
+  const list = await gitOr(cwd, ['worktree', 'list', '--porcelain']);
+  const copies = await Promise.all(list.split('\n').filter(l => l.startsWith('worktree ')).map(l => real(l.slice(9))));
+  if (!copies.includes(requested)) throw new Error(t('tool.compare.notAWorktree', { carpeta: requested }));
+  return requested;
 }
 
 /** La herramienta del habitante, en la carpeta de su conversación (la del worktree, si trabaja en uno) */
-export function mcpReview(cwd: () => string, preflight?: { estado(cwd: string): Promise<string>; responder(cwd: string, item: string, estado: 'ok' | 'n/a' | 'pendiente', nota?: string): Promise<string> }) {
-  const texto = (text: string) => ({ content: [{ type: 'text' as const, text }] });
+export function mcpReview(cwd: () => string, preflight?: { state(cwd: string): Promise<string>; respond(cwd: string, item: string, state: 'ok' | 'n/a' | 'pendiente', note?: string): Promise<string> }) {
+  const text = (text: string) => ({ content: [{ type: 'text' as const, text }] });
   return createSdkMcpServer({
     name: MCP.review, version: '1.0.0',
     tools: [
       // el pre-flight de su parte de la tarea (server/preflight.ts): leerlo y contestar la lista «antes de subir»
       ...(preflight ? [
-        tool('preflight_status', t('tool.preflight.estadoDescription'), {}, async () => texto(await preflight.estado(cwd()).catch(e => (e as Error).message))),
+        tool('preflight_status', t('tool.preflight.estadoDescription'), {}, async () => text(await preflight.state(cwd()).catch(e => (e as Error).message))),
         tool('preflight_answer', t('tool.preflight.responderDescription'),
           { item: z.string(), status: z.enum(['ok', 'n/a', 'pending']), note: z.string().optional() },
-          async a => texto(await preflight.responder(cwd(), a.item, a.status === 'pending' ? 'pendiente' : a.status, a.note).catch(e => (e as Error).message))),
+          async a => text(await preflight.respond(cwd(), a.item, a.status === 'pending' ? 'pendiente' : a.status, a.note).catch(e => (e as Error).message))),
       ] : []),
       tool('compare_changes', t('tool.compare.description'),
         { base: z.string().optional().describe(t('tool.compare.paramBase')), uncommitted: z.boolean().optional().describe(t('tool.compare.paramUncommitted')), title: z.string().optional(),
           folder: z.string().optional().describe(t('tool.compare.paramFolder')) },
         async ({ folder, base, uncommitted, title }) => {
           try {
-            const r = await buildCompare(folder ? await sameRepoWorktree(cwd(), folder) : cwd(), { base, sinCommit: uncommitted, titulo: title });
-            return { content: [{ type: 'text', text: t('tool.compare.ready', { enlace: pageLink(r.archivo), rama: r.rama, base: r.base, n: r.archivos, mas: r.mas, menos: r.menos }) }] };
+            const r = await buildCompare(folder ? await sameRepoWorktree(cwd(), folder) : cwd(), { base, uncommitted: uncommitted, title: title });
+            return { content: [{ type: 'text', text: t('tool.compare.ready', { enlace: pageLink(r.file), rama: r.branch, base: r.base, n: r.files, mas: r.more, menos: r.deletions }) }] };
           } catch (e) { return { content: [{ type: 'text', text: t('tool.compare.failed', { error: (e as Error).message }) }], isError: true }; }
         }),
     ],

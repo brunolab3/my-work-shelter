@@ -17,126 +17,126 @@ import { t as tr } from '../shared/language.ts';
 
 const SOCK = process.argv[2];
 if (!SOCK) { console.error('Uso: terminalHost.ts <socket>'); process.exit(2); }
-interface Term { p: IPty; shell: string; cwd: string; bufer: string; modos: Map<number, boolean>; kitty: number[]; queue: string; suffix: string; fuera: Set<net.Socket>; tamano: [number, number] }
+interface Term { p: IPty; shell: string; cwd: string; buffer: string; modes: Map<number, boolean>; kitty: number[]; queue: string; suffix: string; outside: Set<net.Socket>; resize: [number, number] }
 const VERSION = 2;
 const t = new Map<string, Term>();
-let servidor: net.Socket | null = null;
-let reloj: NodeJS.Timeout | null = null;
+let server: net.Socket | null = null;
+let timer: NodeJS.Timeout | null = null;
 
-const enviar = (m: Record<string, unknown>) => { if (servidor && !servidor.destroyed) servidor.write(JSON.stringify(m) + '\n'); };
+const send = (m: Record<string, unknown>) => { if (server && !server.destroyed) server.write(JSON.stringify(m) + '\n'); };
 const aOutside = (s: net.Socket, m: Record<string, unknown>) => { if (!s.destroyed) s.write(JSON.stringify(m) + '\n'); };
-const withOutside = () => [...t.values()].some(x => x.fuera.size);
-function vigilar() {
-  if (reloj) clearTimeout(reloj); reloj = null;
-  if (servidor || withOutside()) return;
-  reloj = setTimeout(() => { cerrarTodas(); salir(); }, t.size ? 10 * 60_000 : 60_000);
+const withOutside = () => [...t.values()].some(x => x.outside.size);
+function watch() {
+  if (timer) clearTimeout(timer); timer = null;
+  if (server || withOutside()) return;
+  timer = setTimeout(() => { closeAll(); exit(); }, t.size ? 10 * 60_000 : 60_000);
 }
 // las que tienen a alguien enganchado fuera se quedan (si se pide), y con ellas el anfitrión
-function cerrarTodas(salvoFuera = false) { for (const [id, x] of [...t]) { if (salvoFuera && x.fuera.size) continue; t.delete(id); try { x.p.kill(); } catch {} } }
-function salir() { try { unlinkSync(SOCK); } catch {} process.exit(0); }
+function closeAll(exceptOutside = false) { for (const [id, x] of [...t]) { if (exceptOutside && x.outside.size) continue; t.delete(id); try { x.p.kill(); } catch {} } }
+function exit() { try { unlinkSync(SOCK); } catch {} process.exit(0); }
 
-function abrir(m: any) {
+function open(m: any) {
   if (t.has(m.id)) return;
   let p: IPty;
   try { p = pty.spawn(m.shell, ['-l'], { name: 'xterm-256color', cols: m.cols, rows: m.filas, cwd: m.cwd, env: m.env }); }
-  catch (e) { enviar({ ev: 'error', id: m.id, texto: (e as Error).message }); return; }
-  const term: Term = { p, shell: path.basename(m.shell), cwd: m.cwd, bufer: '', modos: new Map(), kitty: [], queue: '', suffix: '', fuera: new Set(), tamano: [m.cols, m.filas] };
+  catch (e) { send({ ev: 'error', id: m.id, texto: (e as Error).message }); return; }
+  const term: Term = { p, shell: path.basename(m.shell), cwd: m.cwd, buffer: '', modes: new Map(), kitty: [], queue: '', suffix: '', outside: new Set(), resize: [m.cols, m.filas] };
   t.set(m.id, term);
   p.onData(d => {
-    term.bufer = (term.bufer + d).slice(-60_000);
-    enviar({ ev: 'datos', id: m.id, datos: d });
-    for (const s of term.fuera) aOutside(s, { ev: 'datos', datos: d });
-    if (followModes(term, d)) enviar({ ev: 'modos', id: m.id, suffix: term.suffix });
+    term.buffer = (term.buffer + d).slice(-60_000);
+    send({ ev: 'datos', id: m.id, datos: d });
+    for (const s of term.outside) aOutside(s, { ev: 'datos', datos: d });
+    if (followModes(term, d)) send({ ev: 'modos', id: m.id, suffix: term.suffix });
   });
   p.onExit(() => {
     if (t.get(m.id)?.p === p) t.delete(m.id);
-    enviar({ ev: 'fin', id: m.id });
-    for (const s of term.fuera) { aOutside(s, { ev: 'fin' }); s.end(); }
-    term.fuera.clear();
-    if (!servidor && !t.size) salir();
-    vigilar();
+    send({ ev: 'fin', id: m.id });
+    for (const s of term.outside) { aOutside(s, { ev: 'fin' }); s.end(); }
+    term.outside.clear();
+    if (!server && !t.size) exit();
+    watch();
   });
 }
 
 // Los modos que un programa pone al arrancar (pantalla alternativa, teclas de cursor, ratón, pegado entre corchetes,
 // foco, protocolo de teclado de kitty) se quedan fuera de los últimos 60 KB en cuanto escribe mucho (Claude Code lo
 // hace). Se siguen aquí para que quien se reengancha (recarga, reinicio) los recupere al final de lo repintado.
-const MODOS = [1, 25, 47, 1047, 1049, 1000, 1002, 1003, 1004, 1005, 1006, 1015, 2004];
+const MODES = [1, 25, 47, 1047, 1049, 1000, 1002, 1003, 1004, 1005, 1006, 1015, 2004];
 const DEFAULT: Record<number, boolean> = { 25: true };
 const DEC = /\x1b\[\?([\d;]+)([hl])/g, KITTY = /\x1b\[([<>=])(\d*)(?:;(\d*))?u/g, RIS = /\x1bc/g;
 function followModes(x: Term, d: string) {
-  const texto = x.queue + d, desde = x.queue.length;
-  x.queue = texto.slice(-24);
-  if (!texto.includes('\x1b')) return false;
-  const cambios: [number, () => void][] = [];
-  for (const m of texto.matchAll(RIS)) if (m.index! + m[0].length > desde) cambios.push([m.index!, () => { x.modos.clear(); x.kitty = []; }]);
-  for (const m of texto.matchAll(DEC)) if (m.index! + m[0].length > desde) cambios.push([m.index!, () => { for (const n of m[1].split(';').map(Number)) if (MODOS.includes(n)) x.modos.set(n, m[2] === 'h'); }]);
-  for (const m of texto.matchAll(KITTY)) if (m.index! + m[0].length > desde) cambios.push([m.index!, () => {
+  const text = x.queue + d, since = x.queue.length;
+  x.queue = text.slice(-24);
+  if (!text.includes('\x1b')) return false;
+  const changes: [number, () => void][] = [];
+  for (const m of text.matchAll(RIS)) if (m.index! + m[0].length > since) changes.push([m.index!, () => { x.modes.clear(); x.kitty = []; }]);
+  for (const m of text.matchAll(DEC)) if (m.index! + m[0].length > since) changes.push([m.index!, () => { for (const n of m[1].split(';').map(Number)) if (MODES.includes(n)) x.modes.set(n, m[2] === 'h'); }]);
+  for (const m of text.matchAll(KITTY)) if (m.index! + m[0].length > since) changes.push([m.index!, () => {
     const f = Number(m[2]) || 0;
     if (m[1] === '>') { if (x.kitty.length >= 16) x.kitty.shift(); x.kitty.push(f); }
     else if (m[1] === '<') x.kitty.splice(Math.max(0, x.kitty.length - (f || 1)));
-    else { const modo = Number(m[3]) || 1, ya = x.kitty.at(-1) ?? 0, n = modo === 2 ? ya | f : modo === 3 ? ya & ~f : f; if (x.kitty.length) x.kitty[x.kitty.length - 1] = n; else x.kitty.push(n); }
+    else { const mode = Number(m[3]) || 1, already = x.kitty.at(-1) ?? 0, n = mode === 2 ? already | f : mode === 3 ? already & ~f : f; if (x.kitty.length) x.kitty[x.kitty.length - 1] = n; else x.kitty.push(n); }
   }]);
-  if (!cambios.length) return false;
-  for (const [, f] of cambios.sort((a, b) => a[0] - b[0])) f();
-  const antes = x.suffix;
+  if (!changes.length) return false;
+  for (const [, f] of changes.sort((a, b) => a[0] - b[0])) f();
+  const before = x.suffix;
   let s = '';
-  for (const [n, v] of x.modos) if (v !== (DEFAULT[n] ?? false)) s += `\x1b[?${n}${v ? 'h' : 'l'}`;
+  for (const [n, v] of x.modes) if (v !== (DEFAULT[n] ?? false)) s += `\x1b[?${n}${v ? 'h' : 'l'}`;
   s += '\x1b[<16u' + x.kitty.map(f => `\x1b[>${f}u`).join('');
   x.suffix = s;
-  return s !== antes;
+  return s !== before;
 }
 
 // qué hay en primer plano: el shell, o un programa (vim, less, sudo, claude…)
-function primerPlano(id: string) {
+function foreground(id: string) {
   const x = t.get(id); if (!x) return null;
   try { return path.basename(x.p.process ?? '').replace(/^-/, ''); } catch { return x.shell; }
 }
 
-function redimensionar(x: Term, cols: number, filas: number) { try { x.p.resize(Math.max(20, cols | 0), Math.max(5, filas | 0)); } catch {} }
+function resize(x: Term, cols: number, rows: number) { try { x.p.resize(Math.max(20, cols | 0), Math.max(5, rows | 0)); } catch {} }
 
-function manejar(m: any) {
+function handle(m: any) {
   const x = typeof m.id === 'string' ? t.get(m.id) : undefined;
   switch (m.op) {
-    case 'abrir': abrir(m); break;
+    case 'abrir': open(m); break;
     case 'entrada': x?.p.write(String(m.datos)); break;
     // mientras alguien la tenga abierta fuera, manda su tamaño; el del juego se aplica cuando se va
-    case 'tamano': if (x && Number.isFinite(m.cols) && Number.isFinite(m.filas)) { x.tamano = [m.cols, m.filas]; if (!x.fuera.size) redimensionar(x, m.cols, m.filas); } break;
+    case 'tamano': if (x && Number.isFinite(m.cols) && Number.isFinite(m.filas)) { x.resize = [m.cols, m.filas]; if (!x.outside.size) resize(x, m.cols, m.filas); } break;
     case 'cerrar': if (x) { t.delete(m.id); try { x.p.kill(); } catch {} } break;
-    case 'cerrarTodas': cerrarTodas(!!m.salvoFuera); break;
+    case 'cerrarTodas': closeAll(!!m.salvoFuera); break;
     // alguien se ha reenganchado y ha repintado: un tamaño de ida y vuelta (SIGWINCH) hace que vim, less o Claude Code
     // vuelvan a dibujar su pantalla entera
     case 'empujar': if (x) setTimeout(() => { const { cols, rows } = x.p; try { x.p.resize(Math.max(20, cols - 1), rows); setTimeout(() => { try { x.p.resize(cols, rows); } catch {} }, 80); } catch {} }, 400); break;
-    case 'primerPlano': enviar({ ev: 'primerPlano', peticion: m.peticion, id: m.id, fg: primerPlano(m.id) }); break;
+    case 'primerPlano': send({ ev: 'primerPlano', peticion: m.peticion, id: m.id, fg: foreground(m.id) }); break;
     // el juego se apaga: lo que esté abierto fuera sigue (el anfitrión se queda por ello)
-    case 'apagar': cerrarTodas(true); if (!t.size) salir(); break;
+    case 'apagar': closeAll(true); if (!t.size) exit(); break;
   }
 }
 
 // ---------------------------------------------------------------- clientes de fuera (terminales del escritorio)
-function enganchar(s: net.Socket, m: any) {
+function attach(s: net.Socket, m: any) {
   const x = typeof m.id === 'string' ? t.get(m.id) : undefined;
   if (!x) { aOutside(s, { ev: 'error', texto: tr('server.thatTerminalNoLongerExists') }); s.end(); return; }
-  x.fuera.add(s);
-  if (reloj) { clearTimeout(reloj); reloj = null; }
+  x.outside.add(s);
+  if (timer) { clearTimeout(timer); timer = null; }
   // lo que ya había en pantalla y los modos vigentes; el tamaño nuevo (o el empujón) hace que el programa se redibuje
-  aOutside(s, { ev: 'datos', datos: x.bufer + x.suffix });
-  if (Number.isFinite(m.cols) && Number.isFinite(m.filas) && (m.cols !== x.p.cols || m.filas !== x.p.rows)) redimensionar(x, m.cols, m.filas);
-  else manejar({ op: 'empujar', id: m.id });
-  enviar({ ev: 'fuera', id: m.id, n: x.fuera.size });
-  const soltar = () => {
-    if (!x.fuera.delete(s)) return;
-    enviar({ ev: 'fuera', id: m.id, n: x.fuera.size });
-    if (!x.fuera.size && t.get(m.id) === x) redimensionar(x, x.tamano[0], x.tamano[1]);
-    vigilar();
+  aOutside(s, { ev: 'datos', datos: x.buffer + x.suffix });
+  if (Number.isFinite(m.cols) && Number.isFinite(m.filas) && (m.cols !== x.p.cols || m.filas !== x.p.rows)) resize(x, m.cols, m.filas);
+  else handle({ op: 'empujar', id: m.id });
+  send({ ev: 'fuera', id: m.id, n: x.outside.size });
+  const drop = () => {
+    if (!x.outside.delete(s)) return;
+    send({ ev: 'fuera', id: m.id, n: x.outside.size });
+    if (!x.outside.size && t.get(m.id) === x) resize(x, x.resize[0], x.resize[1]);
+    watch();
   };
-  s.on('close', soltar); s.on('error', soltar);
+  s.on('close', drop); s.on('error', drop);
   return (l: any) => {
     if (l.op === 'entrada') x.p.write(String(l.datos));
-    else if (l.op === 'tamano' && Number.isFinite(l.cols) && Number.isFinite(l.filas)) redimensionar(x, l.cols, l.filas);
+    else if (l.op === 'tamano' && Number.isFinite(l.cols) && Number.isFinite(l.filas)) resize(x, l.cols, l.filas);
   };
 }
-const lista = () => [...t].map(([id, x]) => ({ id, cwd: x.cwd, shell: x.shell, program: primerPlano(id), fuera: x.fuera.size }));
+const list = () => [...t].map(([id, x]) => ({ id, cwd: x.cwd, shell: x.shell, program: foreground(id), fuera: x.outside.size }));
 
 ensureHelper();
 if (existsSync(SOCK)) try { unlinkSync(SOCK); } catch {}
@@ -145,36 +145,36 @@ const srv = net.createServer(s => {
   // la primera línea dice quién es
   let onReceive: ((m: any) => void) | null = null;
   const introduce = (m: any) => {
-    if (m.op === 'enganchar') { onReceive = enganchar(s, m) ?? (() => {}); return; }
-    if (m.op === 'lista') { aOutside(s, { ev: 'lista', terminales: lista() }); s.end(); onReceive = () => {}; return; }
+    if (m.op === 'enganchar') { onReceive = attach(s, m) ?? (() => {}); return; }
+    if (m.op === 'lista') { aOutside(s, { ev: 'lista', terminales: list() }); s.end(); onReceive = () => {}; return; }
     // un solo servidor a la vez: el nuevo (tras un reinicio) sustituye al viejo
-    if (servidor) servidor.destroy();
-    servidor = s; vigilar();
-    s.write(JSON.stringify({ ev: 'hola', version: VERSION, terminales: [...t].map(([id, x]) => ({ id, cwd: x.cwd, shell: x.shell, bufer: x.bufer, suffix: x.suffix, fuera: x.fuera.size })) }) + '\n');
-    onReceive = manejar;
-    if (m.op !== 'servidor') manejar(m);
+    if (server) server.destroy();
+    server = s; watch();
+    s.write(JSON.stringify({ ev: 'hola', version: VERSION, terminales: [...t].map(([id, x]) => ({ id, cwd: x.cwd, shell: x.shell, bufer: x.buffer, suffix: x.suffix, fuera: x.outside.size })) }) + '\n');
+    onReceive = handle;
+    if (m.op !== 'servidor') handle(m);
   };
-  let resto = '';
+  let rest = '';
   s.on('data', (d: string) => {
-    resto += d;
+    rest += d;
     let i: number;
-    while ((i = resto.indexOf('\n')) >= 0) { const linea = resto.slice(0, i); resto = resto.slice(i + 1); try { const m = JSON.parse(linea); if (onReceive) onReceive(m); else introduce(m); } catch {} }
+    while ((i = rest.indexOf('\n')) >= 0) { const line = rest.slice(0, i); rest = rest.slice(i + 1); try { const m = JSON.parse(line); if (onReceive) onReceive(m); else introduce(m); } catch {} }
   });
-  const fuera = () => { if (servidor === s) { servidor = null; vigilar(); } };
-  s.on('close', fuera); s.on('error', fuera);
+  const outside = () => { if (server === s) { server = null; watch(); } };
+  s.on('close', outside); s.on('error', outside);
 });
 // el socket nace ya con permisos 0600 (umask antes de listen): sin ventana en la que otro usuario pueda conectarse
 const umaskBefore = process.umask(0o077);
-srv.listen(SOCK, () => { process.umask(umaskBefore); try { chmodSync(SOCK, 0o600); } catch {} vigilar(); });
+srv.listen(SOCK, () => { process.umask(umaskBefore); try { chmodSync(SOCK, 0o600); } catch {} watch(); });
 srv.on('error', e => { console.error('Anfitrión de terminales:', e.message); process.exit(1); });
-process.on('SIGTERM', () => { cerrarTodas(); salir(); });
+process.on('SIGTERM', () => { closeAll(); exit(); });
 process.on('SIGHUP', () => {});
 
 // npm no conserva el bit de ejecución del ayudante precompilado de node-pty en macOS (posix_spawnp failed)
 function ensureHelper() {
   try {
-    const raiz = path.dirname(createRequire(import.meta.url).resolve('node-pty/package.json'));
-    for (const r of [path.join(raiz, 'prebuilds', `${process.platform}-${process.arch}`, 'spawn-helper'), path.join(raiz, 'build', 'Release', 'spawn-helper')])
+    const root = path.dirname(createRequire(import.meta.url).resolve('node-pty/package.json'));
+    for (const r of [path.join(root, 'prebuilds', `${process.platform}-${process.arch}`, 'spawn-helper'), path.join(root, 'build', 'Release', 'spawn-helper')])
       if (existsSync(r) && !(statSync(r).mode & 0o111)) chmodSync(r, 0o755);
   } catch (e) { console.error('No pude preparar el ayudante de terminales:', (e as Error).message); }
 }

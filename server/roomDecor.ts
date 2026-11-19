@@ -3,101 +3,101 @@
 // datos (shared/decor.ts), validados aquí antes de guardarlos: nada de lo que escriba el habitante se ejecuta.
 import { createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
-import { sanitizeDecor, reviewDecor, boardSpot, panelSpot, WORK_ZONE, BASES_DECOR, DESCRIPTION_BASE, DECOR_WALLS, DECOR_PALETTES, SIGN_SYMBOLS, GESTURES, LIMITS, PACKS, type BaseDecor, type Decorado, type DecorPiece } from '../shared/decor.ts';
-import { catalogo, catalogInText, propsModel } from './props.ts';
+import { sanitizeDecor, reviewDecor, boardSpot, panelSpot, WORK_ZONE, BASES_DECOR, DESCRIPTION_BASE, DECOR_WALLS, DECOR_PALETTES, SIGN_SYMBOLS, GESTURES, LIMITS, PACKS, type BaseDecor, type Decor, type DecorPiece } from '../shared/decor.ts';
+import { catalog, catalogInText, propsModel } from './props.ts';
 import { t, tIs } from '../shared/language.ts';
 import { MCP } from './mcpServers.ts';
 
 export interface CtxDecor {
-  sala(id: string): { id: string; nombre: string; tipo: string; ruta?: string; estilo?: string; lado: 'izq' | 'der'; decorado?: Decorado } | undefined;
+  room(id: string): { id: string; name: string; type: string; path?: string; style?: string; side: 'izq' | 'der'; decor?: Decor } | undefined;
   /** la plantilla que lleva la sala sin decorado (fundición, laboratorio…) */
-  plantilla(id: string): string;
-  guardar(id: string, d: Decorado | null): void;
-  capturar(id: string): Promise<{ png: Buffer; revision: string[] }>;
+  template(id: string): string;
+  save(id: string, d: Decor | null): void;
+  capture(id: string): Promise<{ png: Buffer; review: string[] }>;
 }
 
 // la guía va en el idioma del juego: se arma al pedirla (current_decor), no al importar
 export const decorGuide = () => t('tool.decor.guide', {
-  pasillo: LIMITS.pasillo, paredVista: LIMITS.viewWall, bases: BASES_DECOR.map(b => t('tool.quoted', { v: b }) + ': ' + tIs(DESCRIPTION_BASE[b])).join('. '),
-  paletas: DECOR_PALETTES.join(', '), paredes: DECOR_WALLS.join(', '), gestos: GESTURES.join(', '), lamparas: LIMITS.lamparas, piezas: LIMITS.piezas,
-  carteles: LIMITS.carteles, simbolos: SIGN_SYMBOLS.join('|'),
+  pasillo: LIMITS.corridor, paredVista: LIMITS.viewWall, bases: BASES_DECOR.map(b => t('tool.quoted', { v: b }) + ': ' + tIs(DESCRIPTION_BASE[b])).join('. '),
+  paletas: DECOR_PALETTES.join(', '), paredes: DECOR_WALLS.join(', '), gestos: GESTURES.join(', '), lamparas: LIMITS.lamps, piezas: LIMITS.pieces,
+  carteles: LIMITS.signs, simbolos: SIGN_SYMBOLS.join('|'),
 });
 
 const num = z.number();
-const pointSchema = z.object({ x: num, z: num, giro: num.optional(), gestos: z.array(z.enum(GESTURES)).optional() });
+const pointSchema = z.object({ x: num, z: num, rotation: num.optional(), gestures: z.array(z.enum(GESTURES)).optional() });
 const decorSchema = () => z.object({
   base: z.enum(BASES_DECOR),
-  resumen: z.string().optional(), subtitulo: z.string().optional(), acento: z.string().optional().describe('#rrggbb'),
-  paleta: z.enum(DECOR_PALETTES).optional(), paredes: z.array(z.enum(DECOR_WALLS)).length(3).optional(), luz: num.optional(), espejo: z.boolean().optional(),
-  puesto: z.object({ pantalla: z.enum(['monitor', 'doble', 'ordenador']).optional(), mesa: z.string().optional() }).optional(),
-  pieza: pointSchema.optional(), aficion: pointSchema.optional(),
-  lamparas: z.array(z.object({ x: num, z: num, color: z.string().optional(), intensidad: num.optional() })).optional(),
-  piezas: z.array(z.object({
-    modelo: z.string().describe(t('tool.decor.paramModel')), x: num, z: num, y: num.optional(), giro: num.optional().describe(t('tool.decor.paramDegrees')),
-    alto: num.optional(), ancho: num.optional(), sobre: z.number().int().optional().describe(t('tool.decor.paramOn')),
-    pared: z.boolean().optional(), tumbada: z.boolean().optional(), color: z.string().optional(), luz: z.string().optional(),
+  summary: z.string().optional(), subtitle: z.string().optional(), accent: z.string().optional().describe('#rrggbb'),
+  palette: z.enum(DECOR_PALETTES).optional(), walls: z.array(z.enum(DECOR_WALLS)).length(3).optional(), light: num.optional(), mirror: z.boolean().optional(),
+  workstation: z.object({ screen: z.enum(['monitor', 'doble', 'ordenador']).optional(), desk: z.string().optional() }).optional(),
+  piece: pointSchema.optional(), hobby: pointSchema.optional(),
+  lamps: z.array(z.object({ x: num, z: num, color: z.string().optional(), intensity: num.optional() })).optional(),
+  pieces: z.array(z.object({
+    model: z.string().describe(t('tool.decor.paramModel')), x: num, z: num, y: num.optional(), rotation: num.optional().describe(t('tool.decor.paramDegrees')),
+    height: num.optional(), width: num.optional(), restsOn: z.number().int().optional().describe(t('tool.decor.paramOn')),
+    wall: z.boolean().optional(), lying: z.boolean().optional(), color: z.string().optional(), light: z.string().optional(),
   })).optional(),
-  carteles: z.array(z.object({ x: num, y: num, ancho: num, titulo: z.string(), lineas: z.array(z.string()), fondo: z.string().optional(), tinta: z.string().optional(), simbolo: z.enum(SIGN_SYMBOLS).optional(), giro: num.optional() })).optional(),
+  signs: z.array(z.object({ x: num, y: num, width: num, title: z.string(), lines: z.array(z.string()), background: z.string().optional(), ink: z.string().optional(), symbol: z.enum(SIGN_SYMBOLS).optional(), rotation: num.optional() })).optional(),
 });
 
-const texto = (t: string) => ({ content: [{ type: 'text' as const, text: t }] });
+const text = (t: string) => ({ content: [{ type: 'text' as const, text: t }] });
 const sizeOf = (p: DecorPiece): [number, number, number] | null => {
-  const m = propsModel(p.modelo); if (!m) return null;
-  const k = p.alto ? p.alto / m.tam[1] : p.ancho ? p.ancho / m.tam[0] : 1;
-  return [m.tam[0] * k, m.tam[1] * k, m.tam[2] * k];
+  const m = propsModel(p.model); if (!m) return null;
+  const k = p.height ? p.height / m.size[1] : p.width ? p.width / m.size[0] : 1;
+  return [m.size[0] * k, m.size[1] * k, m.size[2] * k];
 };
 
-/** The «shelter» MCP server of a session in room `salaId` (one per launched session) */
-export function mcpDecor(salaId: string, ctx: CtxDecor) {
-  const sala = () => { const s = ctx.sala(salaId); if (!s) throw new Error(t('tool.decor.roomGone')); return s; };
+/** The «shelter» MCP server of a session in room `roomId` (one per launched session) */
+export function mcpDecor(roomId: string, ctx: CtxDecor) {
+  const room = () => { const s = ctx.room(roomId); if (!s) throw new Error(t('tool.decor.roomGone')); return s; };
   // el habitante a veces pide aplicar y ver a la vez: la foto espera a que lo aplicado llegue al juego
-  let aplicado = 0;
+  let applied = 0;
   return createSdkMcpServer({
     name: MCP.shelter, version: '1.0.0',
     tools: [
       tool('current_decor', t('tool.decor.currentDescription'), {},
         async () => {
-          const s = sala();
+          const s = room();
           const b = boardSpot();
-          const pn = panelSpot(s.lado);
-          const tablero = t('tool.decor.yourBoard', { x: b.x.toFixed(2), y: b.y.toFixed(2), ancho: b.ancho.toFixed(2), alto: b.alto.toFixed(2) })
-            + '\n' + t('tool.decor.yourPanel', { zona: WORK_ZONE.x, x: pn.x.toFixed(2), z: pn.z.toFixed(2), ancho: pn.ancho.toFixed(2), fondo: pn.fondo.toFixed(2) });
-          return texto(`${decorGuide()}\n\n${t('tool.decor.yourRoom', { nombre: s.nombre, ruta: s.ruta ?? '—' })}\n${tablero}\n` + (s.decorado
-            ? `${t('tool.decor.currentDecor')}\n${JSON.stringify(s.decorado)}`
-            : t('tool.decor.noDecor', { plantilla: ctx.plantilla(salaId), descripcion: tIs(DESCRIPTION_BASE[ctx.plantilla(salaId) as keyof typeof DESCRIPTION_BASE] ?? '') })));
+          const pn = panelSpot(s.side);
+          const board = t('tool.decor.yourBoard', { x: b.x.toFixed(2), y: b.y.toFixed(2), ancho: b.width.toFixed(2), alto: b.height.toFixed(2) })
+            + '\n' + t('tool.decor.yourPanel', { zona: WORK_ZONE.x, x: pn.x.toFixed(2), z: pn.z.toFixed(2), ancho: pn.width.toFixed(2), fondo: pn.background.toFixed(2) });
+          return text(`${decorGuide()}\n\n${t('tool.decor.yourRoom', { nombre: s.name, ruta: s.path ?? '—' })}\n${board}\n` + (s.decor
+            ? `${t('tool.decor.currentDecor')}\n${JSON.stringify(s.decor)}`
+            : t('tool.decor.noDecor', { plantilla: ctx.template(roomId), descripcion: tIs(DESCRIPTION_BASE[ctx.template(roomId) as keyof typeof DESCRIPTION_BASE] ?? '') })));
         }, { alwaysLoad: true, annotations: { readOnlyHint: true } }),
       tool('props_catalogue', t('tool.decor.catalogDescription'),
         { search: z.string().optional().describe(t('tool.decor.paramSearch')), pack: z.string().optional().describe(Object.keys(PACKS).join(', ')) },
-        async ({ search: buscar, pack }) => {
-          if (!catalogo().length) return texto(t('tool.decor.noAssets'));
-          if (!buscar && !pack) return texto(Object.entries(PACKS).map(([p, x]) => `${p} (${catalogo().filter(m => m.pack === p).length}): ${tIs(x.que)}`).join('\n') + '\n\n' + t('tool.decor.askPack'));
-          return texto(catalogInText(buscar ?? '', pack ?? ''));
+        async ({ search: search, pack }) => {
+          if (!catalog().length) return text(t('tool.decor.noAssets'));
+          if (!search && !pack) return text(Object.entries(PACKS).map(([p, x]) => `${p} (${catalog().filter(m => m.pack === p).length}): ${tIs(x.what)}`).join('\n') + '\n\n' + t('tool.decor.askPack'));
+          return text(catalogInText(search ?? '', pack ?? ''));
         }, { alwaysLoad: true, annotations: { readOnlyHint: true } }),
       tool('apply_decor', t('tool.decor.applyDescription'),
         { decor: decorSchema() },
-        async ({ decor: decorado }) => {
-          sala();
-          const { decorado: d, avisos } = sanitizeDecor(decorado);
-          if (!d) return { ...texto(t('tool.decor.notApplied', { avisos: avisos.join(' ') })), isError: true };
-          const revision = reviewDecor(d, sizeOf, boardSpot(), sala().lado);
-          ctx.guardar(salaId, d); aplicado = Date.now();
-          return texto([t('tool.decor.applied'), ...(avisos.length ? [t('tool.decor.fixedOnValidate'), ...avisos.map(a => '- ' + a)] : []), ...(revision.length ? [t('tool.decor.looksWrong'), ...revision.map(a => '- ' + a)] : []), t('tool.decor.lookWithView')].join('\n'));
+        async ({ decor: decor }) => {
+          room();
+          const { decor: d, notices } = sanitizeDecor(decor);
+          if (!d) return { ...text(t('tool.decor.notApplied', { avisos: notices.join(' ') })), isError: true };
+          const review = reviewDecor(d, sizeOf, boardSpot(), room().side);
+          ctx.save(roomId, d); applied = Date.now();
+          return text([t('tool.decor.applied'), ...(notices.length ? [t('tool.decor.fixedOnValidate'), ...notices.map(a => '- ' + a)] : []), ...(review.length ? [t('tool.decor.looksWrong'), ...review.map(a => '- ' + a)] : []), t('tool.decor.lookWithView')].join('\n'));
         }, { alwaysLoad: true }),
       tool('view_room', t('tool.decor.viewDescription'), {},
         async () => {
-          sala();
+          room();
           await new Promise(r => setTimeout(r, 500));
-          if (Date.now() - aplicado < 1500) await new Promise(r => setTimeout(r, 1500));
+          if (Date.now() - applied < 1500) await new Promise(r => setTimeout(r, 1500));
           try {
-            const { png, revision } = await ctx.capturar(salaId);
-            return { content: [{ type: 'image' as const, data: png.toString('base64'), mimeType: 'image/png' }, { type: 'text' as const, text: revision.length ? t('tool.decor.gameSeesWrong') + '\n' + revision.slice(0, 30).map(r => '- ' + r).join('\n') : t('tool.decor.allGood') }] };
-          } catch (e) { return { ...texto(t('tool.decor.photoFailed', { error: (e as Error).message })), isError: true }; }
+            const { png, review } = await ctx.capture(roomId);
+            return { content: [{ type: 'image' as const, data: png.toString('base64'), mimeType: 'image/png' }, { type: 'text' as const, text: review.length ? t('tool.decor.gameSeesWrong') + '\n' + review.slice(0, 30).map(r => '- ' + r).join('\n') : t('tool.decor.allGood') }] };
+          } catch (e) { return { ...text(t('tool.decor.photoFailed', { error: (e as Error).message })), isError: true }; }
         }, { alwaysLoad: true, annotations: { readOnlyHint: true } }),
       tool('remove_decor', t('tool.decor.removeDescription'), {},
-        async () => { sala(); ctx.guardar(salaId, null); return texto(t('tool.decor.removed')); }, { alwaysLoad: true }),
+        async () => { room(); ctx.save(roomId, null); return text(t('tool.decor.removed')); }, { alwaysLoad: true }),
     ],
   });
 }
 
 /** Lo que se le pide al habitante con «Adaptar la sala al repo» (sale como mensaje del Supervisor), en el idioma del juego */
-export const promptAdaptar = () => t('prompt.adaptRoom');
+export const adaptPrompt = () => t('prompt.adaptRoom');

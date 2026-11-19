@@ -9,32 +9,32 @@ const VALIDITY = 14 * 86_400_000, MAX = 200;
 const isKey = (k: string) => k === k.toUpperCase() && hasTaskColor(k);
 
 export class TasksColors {
-  private t: Record<string, { i: number; visto: number }> = {};
-  private archivo: string;
+  private t: Record<string, { i: number; seen: number }> = {};
+  private file: string;
   constructor(dir: string) {
-    this.archivo = path.join(dir, 'colores-tareas.json');
-    try { if (existsSync(this.archivo)) for (const [k, v] of Object.entries(JSON.parse(readFileSync(this.archivo, 'utf8')) as Record<string, any>)) if (isKey(k) && Number.isInteger(v?.i) && v.i >= 0 && v.i < TASKS_PALETTE.length) this.t[k] = { i: v.i, visto: Number(v.visto) || 0 }; } catch {}
+    this.file = path.join(dir, 'colores-tareas.json');
+    try { if (existsSync(this.file)) for (const [k, v] of Object.entries(JSON.parse(readFileSync(this.file, 'utf8')) as Record<string, any>)) if (isKey(k) && Number.isInteger(v?.i) && v.i >= 0 && v.i < TASKS_PALETTE.length) this.t[k] = { i: v.i, seen: Number(v.seen) || 0 }; } catch {}
   }
-  private guardar() { const tmp = this.archivo + '.tmp'; writeFileSync(tmp, JSON.stringify(this.t), { mode: 0o600 }); renameSync(tmp, this.archivo); }
+  private save() { const tmp = this.file + '.tmp'; writeFileSync(tmp, JSON.stringify(this.t), { mode: 0o600 }); renameSync(tmp, this.file); }
   /** El color de cada clave (asignando las nuevas); `ahora` para las pruebas */
-  colores(claves: unknown, ahora = Date.now()): Record<string, string> {
-    const ks = [...new Set((Array.isArray(claves) ? claves : []).map(c => String(c).toUpperCase()).filter(isKey))].slice(0, 100);
+  colors(keys: unknown, now = Date.now()): Record<string, string> {
+    const ks = [...new Set((Array.isArray(keys) ? keys : []).map(c => String(c).toUpperCase()).filter(isKey))].slice(0, 100);
     // las que no se ven hace dos semanas sueltan su color (si vuelven, se les da otro)
-    for (const [k, v] of Object.entries(this.t)) if (ahora - v.visto > VALIDITY && !ks.includes(k)) delete this.t[k];
-    const nuevas = ks.filter(k => !(k in this.t));
-    const asig = assignColors(Object.fromEntries(Object.entries(this.t).map(([k, v]) => [k, v.i])), nuevas);
-    for (const k of nuevas) this.t[k] = { i: asig[k], visto: ahora };
-    for (const k of ks) this.t[k].visto = ahora;
-    const sobran = Object.keys(this.t).length - MAX;
-    if (sobran > 0) for (const [k] of Object.entries(this.t).sort((a, b) => a[1].visto - b[1].visto).slice(0, sobran)) delete this.t[k];
-    if (ks.length) this.guardar();
+    for (const [k, v] of Object.entries(this.t)) if (now - v.seen > VALIDITY && !ks.includes(k)) delete this.t[k];
+    const fresh = ks.filter(k => !(k in this.t));
+    const assigned = assignColors(Object.fromEntries(Object.entries(this.t).map(([k, v]) => [k, v.i])), fresh);
+    for (const k of fresh) this.t[k] = { i: assigned[k], seen: now };
+    for (const k of ks) this.t[k].seen = now;
+    const excess = Object.keys(this.t).length - MAX;
+    if (excess > 0) for (const [k] of Object.entries(this.t).sort((a, b) => a[1].seen - b[1].seen).slice(0, excess)) delete this.t[k];
+    if (ks.length) this.save();
     return Object.fromEntries(ks.map(k => [k, TASKS_PALETTE[this.t[k].i]]));
   }
   /** Jira tasks with their color, and their epic's: epics take their own from the same palette (first: they are few, and
    *  the list is capped at 100), so it stays the same and saved like a task's */
-  paint<T extends { clave: string; epica?: { clave: string } }>(tareas: T[], ahora = Date.now()): (T & { color?: string })[] {
-    const colores = this.colores([...tareas.flatMap(t => t.epica ? [t.epica.clave] : []), ...tareas.map(t => t.clave)], ahora);
-    const color = (k: string) => colores[k.toUpperCase()];
-    return tareas.map(t => ({ ...t, color: color(t.clave), ...(t.epica ? { epica: { ...t.epica, color: color(t.epica.clave) } } : {}) }));
+  paint<T extends { key: string; epic?: { key: string } }>(tareas: T[], now = Date.now()): (T & { color?: string })[] {
+    const colors = this.colors([...tareas.flatMap(t => t.epic ? [t.epic.key] : []), ...tareas.map(t => t.key)], now);
+    const color = (k: string) => colors[k.toUpperCase()];
+    return tareas.map(t => ({ ...t, color: color(t.key), ...(t.epic ? { epic: { ...t.epic, color: color(t.epic.key) } } : {}) }));
   }
 }

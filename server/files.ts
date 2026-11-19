@@ -8,8 +8,8 @@ import { spawn, execFile } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { abrirEnEditor as openEditorSafe } from './open.ts';
-import { entornoGit } from './gitEnv.ts';
+import { openInEditor as openEditorSafe } from './open.ts';
+import { gitEnvironment } from './gitEnv.ts';
 import { t } from '../shared/language.ts';
 
 const MAX_TEXT = 8 * 1024 * 1024;        // más grande no se abre en el editor
@@ -31,239 +31,239 @@ const safeName = (n: unknown) => {
   return s;
 };
 /** Ruta absoluta de `rel` dentro de `raiz`; si existe (o existe su carpeta), comprueba que de verdad cae dentro (enlaces). */
-async function dentro(raiz: string, rel: string) {
-  const abs = path.join(raiz, rel);
-  const real = await fs.realpath(raiz);
+async function inside(root: string, rel: string) {
+  const abs = path.join(root, rel);
+  const real = await fs.realpath(root);
   let p = abs;
   while (true) {
     try { const r = await fs.realpath(p); if (r !== real && !r.startsWith(real + path.sep)) throw new Error(t('server.thatPathIsOutsideThe')); break; }
-    catch (e: any) { if (e.code !== 'ENOENT') throw e; const padre = path.dirname(p); if (padre === p) break; p = padre; }
+    catch (e: any) { if (e.code !== 'ENOENT') throw e; const parent = path.dirname(p); if (parent === p) break; p = parent; }
   }
   return abs;
 }
 
-function ejecutar(bin: string, args: string[], o: { cwd?: string; entrada?: string; timeout?: number } = {}): Promise<{ out: string; code: number }> {
+function run(bin: string, args: string[], o: { cwd?: string; input?: string; timeout?: number } = {}): Promise<{ out: string; code: number }> {
   return new Promise(ok => {
-    const p = spawn(bin, args, { cwd: o.cwd, env: entornoGit({ GIT_OPTIONAL_LOCKS: '0' }), stdio: ['pipe', 'pipe', 'ignore'] });
-    const out: Buffer[] = []; let largo = 0;
-    p.stdout.on('data', (b: Buffer) => { largo += b.length; if (largo < 64 * 1024 * 1024) out.push(b); });
-    const reloj = setTimeout(() => p.kill('SIGTERM'), o.timeout ?? 15_000);
-    p.on('error', () => { clearTimeout(reloj); ok({ out: '', code: -1 }); });
-    p.on('close', code => { clearTimeout(reloj); ok({ out: Buffer.concat(out).toString('utf8'), code: code ?? -1 }); });
-    p.stdin.end(o.entrada ?? '');
+    const p = spawn(bin, args, { cwd: o.cwd, env: gitEnvironment({ GIT_OPTIONAL_LOCKS: '0' }), stdio: ['pipe', 'pipe', 'ignore'] });
+    const out: Buffer[] = []; let length = 0;
+    p.stdout.on('data', (b: Buffer) => { length += b.length; if (length < 64 * 1024 * 1024) out.push(b); });
+    const timer = setTimeout(() => p.kill('SIGTERM'), o.timeout ?? 15_000);
+    p.on('error', () => { clearTimeout(timer); ok({ out: '', code: -1 }); });
+    p.on('close', code => { clearTimeout(timer); ok({ out: Buffer.concat(out).toString('utf8'), code: code ?? -1 }); });
+    p.stdin.end(o.input ?? '');
   });
 }
-const isGit = (raiz: string) => existsSync(path.join(raiz, '.git'));
+const isGit = (root: string) => existsSync(path.join(root, '.git'));
 
 // ---------------------------------------------------------------- carpetas
-export interface Entrada { nombre: string; dir: boolean; enlace?: boolean; ignorado?: boolean }
+export interface Entry { name: string; dir: boolean; link?: boolean; ignored?: boolean }
 
-async function listOne(raiz: string, rel: string): Promise<Entrada[]> {
-  const abs = await dentro(raiz, rel);
+async function listOne(root: string, rel: string): Promise<Entry[]> {
+  const abs = await inside(root, rel);
   const ds = await fs.readdir(abs, { withFileTypes: true });
   const out = await Promise.all(ds.filter(d => d.name !== '.git' && d.name !== '.DS_Store').map(async d => {
-    if (!d.isSymbolicLink()) return { nombre: d.name, dir: d.isDirectory() };
+    if (!d.isSymbolicLink()) return { name: d.name, dir: d.isDirectory() };
     const st = await fs.stat(path.join(abs, d.name)).catch(() => null);
-    return { nombre: d.name, dir: !!st?.isDirectory(), enlace: true };
+    return { name: d.name, dir: !!st?.isDirectory(), link: true };
   }));
   // como los editores: carpetas primero, y por nombre sin distinguir mayúsculas (los números, en orden natural)
-  return out.sort((a, b) => (a.dir === b.dir ? a.nombre.localeCompare(b.nombre, 'es', { numeric: true, sensitivity: 'base' }) : a.dir ? -1 : 1));
+  return out.sort((a, b) => (a.dir === b.dir ? a.name.localeCompare(b.name, 'es', { numeric: true, sensitivity: 'base' }) : a.dir ? -1 : 1));
 }
 
 /** Lo que ignora git, de una vez para todas las entradas (rutas relativas a la raíz). */
-async function ignored(raiz: string, rels: string[]): Promise<Set<string>> {
-  if (!rels.length || !isGit(raiz)) return new Set();
-  const r = await ejecutar('git', ['-C', raiz, 'check-ignore', '-z', '--stdin'], { entrada: rels.join('\0') + '\0' });
+async function ignored(root: string, rels: string[]): Promise<Set<string>> {
+  if (!rels.length || !isGit(root)) return new Set();
+  const r = await run('git', ['-C', root, 'check-ignore', '-z', '--stdin'], { input: rels.join('\0') + '\0' });
   return new Set(r.out.split('\0').filter(Boolean));
 }
 
 /** Letra de git de cada archivo cambiado (M, A, D, R, U o ? para los nuevos), relativa a la raíz. */
-async function changesGit(raiz: string): Promise<Record<string, string>> {
-  if (!isGit(raiz)) return {};
-  const r = await ejecutar('git', ['-C', raiz, '-c', 'core.quotepath=false', 'status', '--porcelain=v1', '-z', '--untracked-files=all', '--no-renames']);
+async function changesGit(root: string): Promise<Record<string, string>> {
+  if (!isGit(root)) return {};
+  const r = await run('git', ['-C', root, '-c', 'core.quotepath=false', 'status', '--porcelain=v1', '-z', '--untracked-files=all', '--no-renames']);
   const out: Record<string, string> = {}; let n = 0;
   for (const reg of r.out.split('\0')) {
     if (reg.length < 4 || ++n > 20_000) continue;
-    const xy = reg.slice(0, 2), ruta = reg.slice(3);
-    out[ruta] = xy === '??' ? '?' : xy.includes('U') || xy === 'AA' || xy === 'DD' ? 'U' : (xy[1] !== ' ' ? xy[1] : xy[0]);
+    const xy = reg.slice(0, 2), path = reg.slice(3);
+    out[path] = xy === '??' ? '?' : xy.includes('U') || xy === 'AA' || xy === 'DD' ? 'U' : (xy[1] !== ' ' ? xy[1] : xy[0]);
   }
   return out;
 }
 
 /** El estado de lo que se ve: las carpetas desplegadas, los cambios de git y la fecha de los archivos abiertos. */
-export async function vistazo(raiz: string, d: { carpetas?: unknown; abiertos?: unknown; git?: boolean }) {
-  const carpetas = (Array.isArray(d.carpetas) ? d.carpetas : ['']).slice(0, 400).map(relSafe);
-  const listed: Record<string, Entrada[] | null> = {};
-  await Promise.all(carpetas.map(async c => { listed[c] = await listOne(raiz, c).catch(() => null); }));
-  const todas = Object.entries(listed).flatMap(([c, es]) => (es ?? []).map(e => (c ? c + '/' : '') + e.nombre));
-  const [ign, git] = await Promise.all([ignored(raiz, todas), d.git === false ? Promise.resolve(undefined) : changesGit(raiz)]);
-  for (const [c, es] of Object.entries(listed)) for (const e of es ?? []) if (ign.has((c ? c + '/' : '') + e.nombre)) e.ignorado = true;
-  return { listed, git, fechas: await fechas(raiz, d.abiertos) };
+export async function glance(root: string, d: { folders?: unknown; open?: unknown; git?: boolean }) {
+  const folders = (Array.isArray(d.folders) ? d.folders : ['']).slice(0, 400).map(relSafe);
+  const listed: Record<string, Entry[] | null> = {};
+  await Promise.all(folders.map(async c => { listed[c] = await listOne(root, c).catch(() => null); }));
+  const all = Object.entries(listed).flatMap(([c, es]) => (es ?? []).map(e => (c ? c + '/' : '') + e.name));
+  const [ign, git] = await Promise.all([ignored(root, all), d.git === false ? Promise.resolve(undefined) : changesGit(root)]);
+  for (const [c, es] of Object.entries(listed)) for (const e of es ?? []) if (ign.has((c ? c + '/' : '') + e.name)) e.ignored = true;
+  return { listed, git, dates: await dates(root, d.open) };
 }
 
-async function fechas(raiz: string, abiertos: unknown) {
+async function dates(root: string, open: unknown) {
   const out: Record<string, number | null> = {};
-  await Promise.all((Array.isArray(abiertos) ? abiertos : []).slice(0, 200).map(async r => {
+  await Promise.all((Array.isArray(open) ? open : []).slice(0, 200).map(async r => {
     const rel = relSafe(r);
-    out[rel] = await fs.stat(path.join(raiz, rel)).then(s => s.mtimeMs, () => null);
+    out[rel] = await fs.stat(path.join(root, rel)).then(s => s.mtimeMs, () => null);
   }));
   return out;
 }
 
 // ---------------------------------------------------------------- leer y guardar
 export type Reading =
-  | { tipo: 'texto'; texto: string; fecha: number; tamano: number }
-  | { tipo: 'imagen'; datos: string; fecha: number; tamano: number }
-  | { tipo: 'binario' | 'grande'; fecha: number; tamano: number };
+  | { type: 'texto'; text: string; date: number; resize: number }
+  | { type: 'imagen'; data: string; date: number; resize: number }
+  | { type: 'binario' | 'grande'; date: number; resize: number };
 
-export async function leer(raiz: string, rel: string): Promise<Reading> {
-  const abs = await dentro(raiz, relSafe(rel));
+export async function read(root: string, rel: string): Promise<Reading> {
+  const abs = await inside(root, relSafe(rel));
   const st = await fs.stat(abs);
   if (st.isDirectory()) throw new Error(t('server.itIsAFolder'));
-  const fecha = st.mtimeMs, tamano = st.size, mime = IMAGES[path.extname(abs).toLowerCase()];
+  const date = st.mtimeMs, resize = st.size, mime = IMAGES[path.extname(abs).toLowerCase()];
   if (mime) {
-    if (tamano > MAX_IMAGE) return { tipo: 'grande', fecha, tamano };
-    return { tipo: 'imagen', datos: `data:${mime};base64,` + (await fs.readFile(abs)).toString('base64'), fecha, tamano };
+    if (resize > MAX_IMAGE) return { type: 'grande', date, resize };
+    return { type: 'imagen', data: `data:${mime};base64,` + (await fs.readFile(abs)).toString('base64'), date, resize };
   }
-  if (tamano > MAX_TEXT) return { tipo: 'grande', fecha, tamano };
+  if (resize > MAX_TEXT) return { type: 'grande', date, resize };
   const b = await fs.readFile(abs);
-  if (b.subarray(0, 8000).includes(0)) return { tipo: 'binario', fecha, tamano };
-  return { tipo: 'texto', texto: b.toString('utf8'), fecha, tamano };
+  if (b.subarray(0, 8000).includes(0)) return { type: 'binario', date, resize };
+  return { type: 'texto', text: b.toString('utf8'), date, resize };
 }
 
 /** Guarda el texto. Si el archivo ha cambiado en el disco desde que se leyó (`fecha`), no lo pisa salvo que se fuerce. */
-export async function guardar(raiz: string, d: { rel: unknown; texto: unknown; fecha?: unknown; forzar?: boolean }) {
-  const abs = await dentro(raiz, relSafe(d.rel));
-  const texto = String(d.texto ?? '');
-  if (Buffer.byteLength(texto) > MAX_TEXT) throw new Error(t('server.tooBigToSaveFrom'));
-  const antes = await fs.stat(abs).catch(() => null);
-  if (antes?.isDirectory()) throw new Error(t('server.itIsAFolder'));
-  if (antes && !d.forzar && typeof d.fecha === 'number' && Math.abs(antes.mtimeMs - d.fecha) > 1) return { conflicto: true as const, fecha: antes.mtimeMs };
+export async function save(root: string, d: { rel: unknown; text: unknown; date?: unknown; force?: boolean }) {
+  const abs = await inside(root, relSafe(d.rel));
+  const text = String(d.text ?? '');
+  if (Buffer.byteLength(text) > MAX_TEXT) throw new Error(t('server.tooBigToSaveFrom'));
+  const before = await fs.stat(abs).catch(() => null);
+  if (before?.isDirectory()) throw new Error(t('server.itIsAFolder'));
+  if (before && !d.force && typeof d.date === 'number' && Math.abs(before.mtimeMs - d.date) > 1) return { conflict: true as const, date: before.mtimeMs };
   await fs.mkdir(path.dirname(abs), { recursive: true });
-  await fs.writeFile(abs, texto);   // writeFile sobre el que hay: conserva permisos, dueño y enlaces
-  return { conflicto: false as const, fecha: (await fs.stat(abs)).mtimeMs };
+  await fs.writeFile(abs, text);   // writeFile sobre el que hay: conserva permisos, dueño y enlaces
+  return { conflict: false as const, date: (await fs.stat(abs)).mtimeMs };
 }
 
 // ---------------------------------------------------------------- crear, renombrar, copiar, mover, borrar
-export async function crear(raiz: string, d: { carpeta: unknown; nombre: unknown; dir?: boolean }) {
-  const rel = path.posix.join(relSafe(d.carpeta), safeName(d.nombre));
-  const abs = await dentro(raiz, rel);
+export async function create(root: string, d: { folder: unknown; name: unknown; dir?: boolean }) {
+  const rel = path.posix.join(relSafe(d.folder), safeName(d.name));
+  const abs = await inside(root, rel);
   if (existsSync(abs)) throw new Error(t('server.thereIsAlreadySomethingCalled', { rel: path.basename(rel) }));
   if (d.dir) await fs.mkdir(abs, { recursive: true });
   else { await fs.mkdir(path.dirname(abs), { recursive: true }); await fs.writeFile(abs, '', { flag: 'wx' }); }
   return { rel };
 }
 
-export async function renombrar(raiz: string, d: { rel: unknown; nombre: unknown }) {
-  const de = relSafe(d.rel); if (!de) throw new Error(t('server.theRootCannotBeRenamed'));
-  const a = path.posix.join(path.posix.dirname(de), safeName(d.nombre));
-  const [absOf, absA] = await Promise.all([dentro(raiz, de), dentro(raiz, a)]);
+export async function rename(root: string, d: { rel: unknown; name: unknown }) {
+  const from = relSafe(d.rel); if (!from) throw new Error(t('server.theRootCannotBeRenamed'));
+  const a = path.posix.join(path.posix.dirname(from), safeName(d.name));
+  const [absOf, absTo] = await Promise.all([inside(root, from), inside(root, a)]);
   // en un disco que no distingue mayúsculas, «readme» → «README» es el mismo archivo: se deja
-  if (existsSync(absA) && de.toLowerCase() !== a.toLowerCase()) throw new Error(t('server.thereIsAlreadySomethingCalled2', { basename: path.basename(a) }));
-  await fs.mkdir(path.dirname(absA), { recursive: true });
-  await fs.rename(absOf, absA);
+  if (existsSync(absTo) && from.toLowerCase() !== a.toLowerCase()) throw new Error(t('server.thereIsAlreadySomethingCalled2', { basename: path.basename(a) }));
+  await fs.mkdir(path.dirname(absTo), { recursive: true });
+  await fs.rename(absOf, absTo);
   return { rel: a };
 }
 
 /** Un nombre libre en la carpeta, como hacen los editores al pegar: «x copy.ts», «x copy 2.ts»… */
-function freeName(folderAbs: string, nombre: string) {
-  if (!existsSync(path.join(folderAbs, nombre))) return nombre;
-  const ext = nombre.startsWith('.') && !nombre.slice(1).includes('.') ? '' : path.extname(nombre), base = nombre.slice(0, nombre.length - ext.length);
+function freeName(folderAbs: string, name: string) {
+  if (!existsSync(path.join(folderAbs, name))) return name;
+  const ext = name.startsWith('.') && !name.slice(1).includes('.') ? '' : path.extname(name), base = name.slice(0, name.length - ext.length);
   for (let i = 1; ; i++) { const n = `${base} copy${i > 1 ? ' ' + i : ''}${ext}`; if (!existsSync(path.join(folderAbs, n))) return n; }
 }
 
 /** Pegar: copia (o mueve, si se cortaron) las rutas en la carpeta destino. Las rutas de origen pueden ser de otra raíz. */
-export async function pegar(raiz: string, d: { origins: unknown; carpeta: unknown; mover?: boolean }, rootOf: (r: string) => string) {
-  const carpeta = relSafe(d.carpeta), folderAbs = await dentro(raiz, carpeta);
-  const hechos: string[] = [];
+export async function paste(root: string, d: { origins: unknown; folder: unknown; move?: boolean }, rootOf: (r: string) => string) {
+  const folder = relSafe(d.folder), folderAbs = await inside(root, folder);
+  const done: string[] = [];
   for (const o of (Array.isArray(d.origins) ? d.origins : []).slice(0, 500)) {
-    const r = rootOf(String(o?.raiz ?? '')), rel = relSafe(o?.rel); if (!rel) continue;
-    const abs = await dentro(r, rel);
+    const r = rootOf(String(o?.root ?? '')), rel = relSafe(o?.rel); if (!rel) continue;
+    const abs = await inside(r, rel);
     if (folderAbs === abs || folderAbs.startsWith(abs + path.sep)) throw new Error(t('server.cannotGoInsideItself', { rel: path.basename(rel) }));
-    if (d.mover && path.dirname(abs) === folderAbs) continue;
-    const nombre = d.mover ? path.basename(rel) : freeName(folderAbs, path.basename(rel));
-    const destino = path.join(folderAbs, nombre);
-    if (d.mover) {
-      if (existsSync(destino)) throw new Error(t('server.thereIsAlreadySomethingCalled3', { nombre }));
-      await fs.rename(abs, destino).catch(async e => { if (e.code !== 'EXDEV') throw e; await fs.cp(abs, destino, { recursive: true, errorOnExist: true, force: false }); await fs.rm(abs, { recursive: true }); });
-    } else await fs.cp(abs, destino, { recursive: true, errorOnExist: true, force: false, verbatimSymlinks: true });
-    hechos.push(path.posix.join(carpeta, nombre));
+    if (d.move && path.dirname(abs) === folderAbs) continue;
+    const name = d.move ? path.basename(rel) : freeName(folderAbs, path.basename(rel));
+    const target = path.join(folderAbs, name);
+    if (d.move) {
+      if (existsSync(target)) throw new Error(t('server.thereIsAlreadySomethingCalled3', { nombre: name }));
+      await fs.rename(abs, target).catch(async e => { if (e.code !== 'EXDEV') throw e; await fs.cp(abs, target, { recursive: true, errorOnExist: true, force: false }); await fs.rm(abs, { recursive: true }); });
+    } else await fs.cp(abs, target, { recursive: true, errorOnExist: true, force: false, verbatimSymlinks: true });
+    done.push(path.posix.join(folder, name));
   }
-  return { rels: hechos };
+  return { rels: done };
 }
 
 /** A la papelera de macOS (se puede recuperar desde el Finder), como hacen los editores. */
-export async function aLaTrash(raiz: string, rels: unknown) {
-  const abs = await Promise.all((Array.isArray(rels) ? rels : []).slice(0, 500).map(r => { const s = relSafe(r); if (!s) throw new Error(t('server.theRootCannotBeThrown')); return dentro(raiz, s); }));
+export async function moveToTrash(root: string, rels: unknown) {
+  const abs = await Promise.all((Array.isArray(rels) ? rels : []).slice(0, 500).map(r => { const s = relSafe(r); if (!s) throw new Error(t('server.theRootCannotBeThrown')); return inside(root, s); }));
   await toTrash(abs);
 }
 export async function toTrash(abs: string[]) {
   if (!abs.length) return;
-  await new Promise<void>((ok, mal) => {
-    if (existsSync('/usr/bin/trash')) return execFile('/usr/bin/trash', abs, err => (err ? mal(new Error(t('server.couldNotTrash', { error: err.message }))) : ok()));
+  await new Promise<void>((ok, fail) => {
+    if (existsSync('/usr/bin/trash')) return execFile('/usr/bin/trash', abs, err => (err ? fail(new Error(t('server.couldNotTrash', { error: err.message }))) : ok()));
     // macOS anteriores a /usr/bin/trash: el Finder
-    const lista = abs.map(a => `POSIX file ${JSON.stringify(a)}`).join(', ');
-    execFile('osascript', ['-e', `tell application "Finder" to delete {${lista}}`], err => (err ? mal(new Error(t('server.couldNotTrash', { error: err.message }))) : ok()));
+    const list = abs.map(a => `POSIX file ${JSON.stringify(a)}`).join(', ');
+    execFile('osascript', ['-e', `tell application "Finder" to delete {${list}}`], err => (err ? fail(new Error(t('server.couldNotTrash', { error: err.message }))) : ok()));
   });
 }
 
 // ---------------------------------------------------------------- todos los archivos (para abrir por nombre, ⌘P)
-export async function todos(raiz: string): Promise<{ rels: string[]; recortado: boolean }> {
+export async function all(root: string): Promise<{ rels: string[]; truncated: boolean }> {
   let rels: string[];
-  if (isGit(raiz)) {
+  if (isGit(root)) {
     // lo que sigue git y lo nuevo, más los archivos sueltos que ignora (.env y compañía; las carpetas ignoradas, no)
     const [consecutive, ign] = await Promise.all([
-      ejecutar('git', ['-C', raiz, '-c', 'core.quotepath=false', 'ls-files', '-z', '--cached', '--others', '--exclude-standard', '--deduplicate'], { timeout: 30_000 }),
-      ejecutar('git', ['-C', raiz, '-c', 'core.quotepath=false', 'ls-files', '-z', '--others', '--ignored', '--exclude-standard', '--directory', '--no-empty-directory'], { timeout: 30_000 }),
+      run('git', ['-C', root, '-c', 'core.quotepath=false', 'ls-files', '-z', '--cached', '--others', '--exclude-standard', '--deduplicate'], { timeout: 30_000 }),
+      run('git', ['-C', root, '-c', 'core.quotepath=false', 'ls-files', '-z', '--others', '--ignored', '--exclude-standard', '--directory', '--no-empty-directory'], { timeout: 30_000 }),
     ]);
     const seen = new Set<string>(); rels = [];
     for (const r of [...consecutive.out.split('\0'), ...ign.out.split('\0')]) if (r && !r.endsWith('/') && !seen.has(r)) { seen.add(r); rels.push(r); }
     // los borrados del disco (siguen en el índice) no se pueden abrir
-    rels = (await Promise.all(rels.map(async r => (await fs.lstat(path.join(raiz, r)).then(s => !s.isDirectory(), () => false)) ? r : null))).filter((r): r is string => !!r);
+    rels = (await Promise.all(rels.map(async r => (await fs.lstat(path.join(root, r)).then(s => !s.isDirectory(), () => false)) ? r : null))).filter((r): r is string => !!r);
   } else {
     rels = [];
-    const recorrer = async (rel: string, nivel: number): Promise<void> => {
-      if (rels.length >= MAX_LIST || nivel > 12) return;
-      const ds = await fs.readdir(path.join(raiz, rel), { withFileTypes: true }).catch(() => []);
+    const walk = async (rel: string, level: number): Promise<void> => {
+      if (rels.length >= MAX_LIST || level > 12) return;
+      const ds = await fs.readdir(path.join(root, rel), { withFileTypes: true }).catch(() => []);
       for (const d of ds) {
         const r = rel ? rel + '/' + d.name : d.name;
-        if (d.isDirectory()) { if (!HEAVY.has(d.name)) await recorrer(r, nivel + 1); }
+        if (d.isDirectory()) { if (!HEAVY.has(d.name)) await walk(r, level + 1); }
         else if (d.name !== '.DS_Store') rels.push(r);
       }
     };
-    await recorrer('', 0);
+    await walk('', 0);
   }
-  return { rels: rels.slice(0, MAX_LIST), recortado: rels.length > MAX_LIST };
+  return { rels: rels.slice(0, MAX_LIST), truncated: rels.length > MAX_LIST };
 }
 
 // ---------------------------------------------------------------- fuera del juego
-export async function revelar(raiz: string, rel: unknown) { const abs = await dentro(raiz, relSafe(rel)); spawn('open', ['-R', abs], { detached: true, stdio: 'ignore' }).unref(); }
+export async function reveal(root: string, rel: unknown) { const abs = await inside(root, relSafe(rel)); spawn('open', ['-R', abs], { detached: true, stdio: 'ignore' }).unref(); }
 // en el editor (o en el de texto de macOS; carpetas y paquetes, en el Finder): nunca con la app por defecto (open.ts)
-export async function abrirEnEditor(raiz: string, rel: unknown) { await openEditorSafe(raiz, await dentro(raiz, relSafe(rel))); }
+export async function openInEditor(root: string, rel: unknown) { await openEditorSafe(root, await inside(root, relSafe(rel))); }
 
 // ---------------------------------------------------------------- despacho
-export interface CtxFiles { allowedRoots: () => string[]; alCambiar: (raiz: string) => void }
+export interface CtxFiles { allowedRoots: () => string[]; onChange: (root: string) => void }
 const WRITE = new Set(['guardar', 'crear', 'renombrar', 'pegar', 'papelera']);
 
-export async function filesAction(nombre: string, d: Record<string, any>, ctx: CtxFiles): Promise<unknown> {
+export async function filesAction(name: string, d: Record<string, any>, ctx: CtxFiles): Promise<unknown> {
   const allowed = ctx.allowedRoots();
   const rootOf = (r: string) => { const p = path.resolve(r || '/'); if (!allowed.includes(p)) throw new Error(t('server.thatFolderDoesNotBelong')); if (!existsSync(p)) throw new Error(t('server.theRoomSFolderIs')); return p; };
-  const raiz = rootOf(String(d.raiz ?? ''));
+  const root = rootOf(String(d.root ?? ''));
   const r = await (async () => {
-    switch (nombre) {
-      case 'vistazo': return vistazo(raiz, d);
-      case 'leer': return leer(raiz, d.rel);
-      case 'guardar': return guardar(raiz, d as any);
-      case 'crear': return crear(raiz, d as any);
-      case 'renombrar': return renombrar(raiz, d as any);
-      case 'pegar': return pegar(raiz, d as any, rootOf);
-      case 'papelera': return aLaTrash(raiz, d.rels);
-      case 'todos': return todos(raiz);
-      case 'revelar': return revelar(raiz, d.rel);
-      case 'abrirEnEditor': return abrirEnEditor(raiz, d.rel);
-      default: throw new Error(t('server.unknownAction', { nombre: 'archivos.' + nombre }));
+    switch (name) {
+      case 'vistazo': return glance(root, d);
+      case 'leer': return read(root, d.rel);
+      case 'guardar': return save(root, d as any);
+      case 'crear': return create(root, d as any);
+      case 'renombrar': return rename(root, d as any);
+      case 'pegar': return paste(root, d as any, rootOf);
+      case 'papelera': return moveToTrash(root, d.rels);
+      case 'todos': return all(root);
+      case 'revelar': return reveal(root, d.rel);
+      case 'abrirEnEditor': return openInEditor(root, d.rel);
+      default: throw new Error(t('server.unknownAction', { nombre: 'archivos.' + name }));
     }
   })();
-  if (WRITE.has(nombre)) ctx.alCambiar(raiz);
+  if (WRITE.has(name)) ctx.onChange(root);
   return r ?? true;
 }
