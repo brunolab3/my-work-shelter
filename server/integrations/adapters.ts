@@ -4,7 +4,7 @@ import type { Store } from '../state.ts';
 import { demoNotifications, demoEvents, demoPanelLinear, demoBoardLinear, demoPanelJira } from './demo.ts';
 
 export type Priority = 'baja' | 'media' | 'alta';
-// Las fuentes (orden, nombres y qué trae cada una) están en shared/fonts.ts; su conector real, en ./<id>.ts (export crear)
+// Sources (order, names and what each brings) live in shared/fonts.ts; their real connector, in CONNECTORS (export crear)
 import { SOURCES, ACTIVE_SOURCES, CALENDAR_SOURCES, type SourceId } from '../../shared/fonts.ts';
 import { t } from '../../shared/language.ts';
 export { SOURCES, CALENDAR_SOURCES, type SourceId };
@@ -44,6 +44,14 @@ export interface Adapter {
   accion?(nombre: string, d: Record<string, any>): Promise<unknown>;
 }
 
+// Real connector of each source. Explicit, not `./${id}.ts`: the persisted id need not match the file name
+// (calendario → calendar.ts), and a renamed file breaks the type check instead of the running server.
+export const CONNECTORS: Record<SourceId, () => Promise<{ crear: (almacen: Store) => unknown }>> = {
+  outlook: () => import('./outlook.ts'), google: () => import('./google.ts'), mail: () => import('./mail.ts'),
+  calendario: () => import('./calendar.ts'), discord: () => import('./discord.ts'), slack: () => import('./slack.ts'),
+  github: () => import('./github.ts'), linear: () => import('./linear.ts'), jira: () => import('./jira.ts'),
+};
+
 // Fábrica: si la fuente está en modo real y hay módulo real, se usa; si no, el demo (mismo contrato)
 export function createAdapters(almacen: Store, avisar?: (id: Adapter['id'], a: Aviso) => void): Adapter[] {
   return ACTIVE_SOURCES.map(id => { const a = new SourceAdapter(id, almacen); if (avisar) a.avisar = x => avisar(id, x); return a; });
@@ -56,7 +64,7 @@ class SourceAdapter implements Adapter {
   private get modo() { return this.almacen.estado.integraciones[this.id]?.modo ?? 'demo'; }
   private async withReal() {
     if (this.real) return this.real;
-    if (!this.cargando) this.cargando = import(`./${this.id}.ts`).then(m => { this.real = m.crear(this.almacen) as Adapter; this.real.avisar = a => this.avisar?.(a); }).catch(e => { this.error = t('integrations.couldNotLoadConnector', { error: e.message }); });
+    if (!this.cargando) this.cargando = CONNECTORS[this.id]().then(m => { this.real = m.crear(this.almacen) as Adapter; this.real.avisar = a => this.avisar?.(a); }).catch(e => { this.error = t('integrations.couldNotLoadConnector', { error: e.message }); });
     await this.cargando; return this.real;
   }
   estado(): SourceState {

@@ -1,6 +1,6 @@
 // Catálogo de las fuentes de las integraciones, compartido por el servidor y el cliente: nombre, etiqueta corta,
-// color y qué trae cada una. El orden es el de la cámara acorazada. Una fuente nueva: aquí, su conector en
-// server/integrations/<id>.ts, sus datos DEMO en server/integrations/demo.ts y su ficha en web/src/ui/Vault.tsx.
+// color y qué trae cada una. El orden es el de la cámara acorazada. A new source: here, its connector in
+// server/integrations/ (mapped in CONNECTORS in adapters.ts), sus datos DEMO en server/integrations/demo.ts y su ficha en web/src/ui/Vault.tsx.
 export const SOURCES = ['outlook', 'google', 'mail', 'calendario', 'discord', 'slack', 'github', 'linear', 'jira'] as const;
 export type SourceId = typeof SOURCES[number];
 
