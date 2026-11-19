@@ -1,13 +1,18 @@
 // Interfaz base: una única regleta de acero colgada del borde superior (como un panel de control del refugio)
 // con la placa del refugio, la hora real, los contadores de «qué pasa ahora» en ventanas de fósforo (con su tecla
 // siempre a la vista) y las dos puertas de lo demás: el buscador (⌘K) y el menú del juego (Esc), que lleva el reinicio.
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { juego } from './gameState';
 import { t, idioma } from '@shared/language';
 import { vivo } from '../net/client';
 import { openSearch } from './Search';
 import { minimizeIntercom } from './Dialog';
 import { MAC } from './windows';
+import { openLink, openNotice } from './Browsers';
+import { useKeys } from './device';
+import { teclado } from '../engine/keyboard';
+import { SFX } from '../audio/sound';
+import { nextEvent, urgency, alertDue, type MeetingEvent } from '@shared/meeting';
 
 const LOC = idioma() === 'en' ? 'en-GB' : 'es-ES';
 const fmtHour = new Intl.DateTimeFormat(LOC, { hour: '2-digit', minute: '2-digit' });
@@ -40,7 +45,7 @@ function untilMinutes(ts: number, ahora: number) {
   const h = Math.floor(m / 60); return t('panels.inHH', { h }) + (m % 60 ? ' ' + t('panels.nMin', { n: m % 60 }) : '');
 }
 
-function Counter({ icono, n, texto, tecla, nivel }: { icono: React.ReactNode; n: number | string; texto: string; tecla: string; nivel?: 'urgente' | 'apagado' | 'error' | '' }) {
+function Counter({ icono, n, texto, tecla, nivel }: { icono: React.ReactNode; n: number | string; texto: string; tecla: string; nivel?: 'urgente' | 'apagado' | 'error' | 'pronto' | 'inminente' | '' }) {
   return (
     <div className={'contador ' + (nivel || '')} title={`${texto} (${tecla})`}>
       <span className="icono">{icono}</span>
@@ -60,6 +65,7 @@ export function Hud() {
   const errores = todos.filter(h => h.estado === 'error').length;
   const connected = vivo.usar(x => x.connected);
   const reiniciando = vivo.usar(x => x.reiniciando);
+  const prox = nextEvent(vivo.usar(x => x.eventos) as MeetingEvent[], ahora);
   return (
     <>
     <div className="regleta">
@@ -77,7 +83,7 @@ export function Hud() {
         <Counter icono={Icon.aviso} n={esperando} texto={t('panels.waitingForYou')} tecla="Q" nivel={esperando ? 'urgente' : 'apagado'} />
         {errores > 0 && <Counter icono={Icon.error} n={errores} texto={t('panels.brokenDown')} tecla="Q" nivel="error" />}
         <Counter icono={Icon.sobre} n={e.notificationsWithoutSee} texto={t('panels.unseen')} tecla="N" nivel={e.notificationsWithoutSee ? '' : 'apagado'} />
-        <Counter icono={Icon.reloj} n={e.eventNext ? untilMinutes(e.eventNext.inicio, ahora) : '—'} texto={e.eventNext ? e.eventNext.titulo : t('panels.noEvents')} tecla="C" nivel={e.eventNext ? '' : 'apagado'} />
+        <Counter icono={Icon.reloj} n={prox ? untilMinutes(prox.inicio, ahora) : '—'} texto={prox ? prox.titulo : t('panels.noEvents')} tecla="C" nivel={prox ? urgency(prox, ahora) : 'apagado'} />
       </div>
       <div className="seg fosforo chatarra" title={t('panels.scrapEarnedWithEveryFinished')}>
         <span className="icono">{Icon.nut}</span><span className="n">{e.scrap.toLocaleString(LOC)}</span>
@@ -94,8 +100,49 @@ export function Hud() {
     </div>
     {e.demo && <span className="marca-demo" title={t('panels.unconfiguredIntegrationsTheyShowSimulated')}>DEMO</span>}
     {reiniciando && <Restarting />}
+    <MeetingAlert ev={prox} ahora={ahora} />
     </>
   );
+}
+
+// A meeting about to start: once per event, a box over everything (the intercom and the terminals too) with Join and
+// Dismiss. It takes the focus while open, so typing in a terminal doesn't go on underneath (as the pre-flight does).
+const seenMeetings = new Set<string>();
+function MeetingAlert({ ev, ahora }: { ev: MeetingEvent | null; ahora: number }) {
+  const [abierto, setAbierto] = useState<MeetingEvent | null>(null);
+  useEffect(() => { if (!abierto && alertDue(ev, ahora, seenMeetings)) { seenMeetings.add(ev!.id); setAbierto(ev); SFX.highNotice(); } }, [ev, ahora, abierto]);
+  // gone by itself once the meeting is over
+  useEffect(() => { if (abierto && abierto.fin <= ahora) setAbierto(null); }, [abierto, ahora]);
+  return abierto ? <MeetingBox ev={abierto} ahora={ahora} cerrar={() => setAbierto(null)} /> : null;
+}
+
+function MeetingBox({ ev, ahora, cerrar }: { ev: MeetingEvent; ahora: number; cerrar: () => void }) {
+  const caja = useRef<HTMLDivElement>(null);
+  const link = ev.videollamada || ev.enlace;
+  const unirse = () => { if (ev.videollamada) openLink(ev.videollamada); else openNotice(ev); cerrar(); };
+  const descartar = () => { SFX.cerrar(); cerrar(); };
+  useEffect(() => {
+    const antes = document.activeElement as HTMLElement | null, bloqueado = teclado.bloqueado;
+    antes?.blur?.(); caja.current?.focus({ preventScroll: true }); teclado.bloqueado = true;
+    return () => { teclado.bloqueado = bloqueado; if (antes?.isConnected) antes.focus?.({ preventScroll: true }); };
+  }, []);
+  useKeys(e => {
+    if (e.metaKey || e.ctrlKey) return false;
+    if (e.code === 'Escape') descartar();
+    else if (e.code === 'Enter' && link) unirse();
+  }, [ev], true);
+  return <>
+    <div className="reunion-velo interactivo" onPointerDown={e => { e.preventDefault(); e.stopPropagation(); }} />
+    <div ref={caja} className="reunion-caja interactivo" role="alertdialog" aria-label={t('meeting.alert')} tabIndex={-1}>
+      <span className="icono">{Icon.reloj}</span>
+      <div className="reunion-titulo">{ev.titulo}</div>
+      <div className="reunion-cuando">{ev.inicio > ahora ? t('meeting.startsIn1') : t('meeting.startsNow')}</div>
+      <div className="reunion-botones">
+        {link && <button className="boton-puerta" onClick={unirse}><span className="tecla">Enter</span>{t('meeting.join')}</button>}
+        <button className="boton-puerta" onClick={descartar}><span className="tecla">Esc</span>{t('meeting.dismiss')}</button>
+      </div>
+    </div>
+  </>;
 }
 
 // mientras el servidor se reinicia: al volver el enlace, la página se recarga sola con el cliente nuevo

@@ -15,10 +15,8 @@ let views = new Set<string>(); let primera = true;
 vivo.subscribe(() => {
   const v = vivo.get(); const e = v.estado;
   const withoutSee = v.notificaciones.filter((n: any) => !n.vista);
-  const ahora = Date.now();
-  const prox = v.eventos.filter((x: any) => x.fin > ahora).sort((a: any, b: any) => a.inicio - b.inicio)[0];
   const demo = Object.values(v.integraciones).some((i: any) => i.modo === 'demo');
-  const p: any = { notificationsWithoutSee: withoutSee.length, eventNext: prox ? { titulo: prox.titulo, inicio: prox.inicio } : null, demo };
+  const p: any = { notificationsWithoutSee: withoutSee.length, demo };
   if (e) { p.refugio = e.nombre || GAME_NAME; p.scrap = e.jugador?.scrap ?? 0; }
   const j = juego.get();
   if (Object.keys(p).some(k => (j as any)[k] !== p[k] && JSON.stringify((j as any)[k]) !== JSON.stringify(p[k]))) juego.set(p);

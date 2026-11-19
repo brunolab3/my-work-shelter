@@ -15,7 +15,6 @@ export interface StateUI {
   habitantes: DwellerSummary[];
   copias: DwellerSummary[];     // copias holográficas (worktrees): interlocutores propios, con id «holo:<ruta>»
   notificationsWithoutSee: number;
-  eventNext: { titulo: string; inicio: number } | null;
   hint: { tecla: string; texto: string } | null;
   currentRoom: string;
   demo: boolean;
@@ -28,6 +27,6 @@ export interface StateUI {
 export type Panel = 'plano' | 'ocupados' | 'ayuda' | 'opciones' | 'menu' | 'salir' | 'camara' | 'puerta' | 'inventario' | 'cuaderno' | 'comunicaciones' | 'planificacion' | 'logistica' | 'galeria' | 'hidroponia' | 'bienvenida' | 'despedida' | 'reiniciar' | 'radio' | 'expedicion' | 'sala' | 'generador' | 'terminal' | 'worktree' | 'visitante' | 'git' | 'spotify' | 'chapa' | 'organizar';
 
 export const juego = new Store<StateUI>({
-  refugio: GAME_NAME, scrap: 0, habitantes: [], copias: [], notificationsWithoutSee: 0, eventNext: null,
+  refugio: GAME_NAME, scrap: 0, habitantes: [], copias: [], notificationsWithoutSee: 0,
   hint: null, currentRoom: '', demo: true, talkingWith: null, panel: null, panelData: null, workIn: null,
 });
