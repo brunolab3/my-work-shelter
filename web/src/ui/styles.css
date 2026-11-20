@@ -346,7 +346,7 @@ a.miniatura:hover img { box-shadow: 0 0 0 1px #ffc96b, 0 0 10px rgba(255,179,71,
 .consumo-barra { display: inline-block; width: 3.2em; height: .45em; border: 1px solid currentColor; position: relative; }
 .consumo-barra i { position: absolute; inset: 0 auto 0 0; background: currentColor; }
 .consumo.medio { color: var(--ambar); } .consumo.alto { color: var(--rojo); }
-/* «Compactar» junto al consumo (compactNeed): desde el 60 %, resaltado desde el 85 % */
+/* «Compact» next to the usage (compactNeed): from 40 %, pulsing from 60 % */
 .consumo-compactar { margin-left: .4em; padding: 0 .45em; font: inherit; color: inherit; background: none; border: 1px solid currentColor; cursor: pointer; }
 .consumo-compactar:hover { box-shadow: inset 0 0 0 1px currentColor; }
 .consumo-compactar.urgente { animation: compactar-latido 1.6s ease-in-out infinite; }

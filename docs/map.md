@@ -74,7 +74,7 @@ Production verification of a task (model and state machine `shared/verification.
 
 ## Usage per conversation
 
-Usage per conversation: the session summary carries `tokens` and `contexto` (`shared/protocol.ts`); `Usage` in `web/src/ui/usage.tsx` shows it in the intercom and in the room card (`RoomCard` in `web/src/ui/Panels.tsx`). In the intercom's status line, an idle conversation (`compactNeed`) shows «Compact» from 60 % of the window, pulsing from 85 % (near Claude Code's auto-compact): it sends `/compact` as a message, and the `compact_boundary` that follows logs it and measures the context again (`server/sessions.ts`).
+Usage per conversation: the session summary carries `tokens` and `contexto` (`shared/protocol.ts`); `Usage` in `web/src/ui/usage.tsx` shows it in the intercom and in the room card (`RoomCard` in `web/src/ui/Panels.tsx`). In the intercom's status line, an idle conversation (`compactNeed`) shows «Compact» from 40 % of the window, pulsing from 60 % (well before Claude Code's auto-compact): it sends `/compact` as a message, and the `compact_boundary` that follows logs it and measures the context again (`server/sessions.ts`).
 
 ## Links in replies
 
