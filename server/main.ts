@@ -59,6 +59,7 @@ import { SlackRemote } from './slackBot.ts';
 import { REMOTE_DELAY_MS, type RemoteDeps } from './remoteBot.ts';
 import { sanitizeLook, TYPES_STOCK } from '../shared/appearance.ts';
 import { t } from '../shared/language.ts';
+import { planLimits } from './planLimits.ts';
 
 // reinicio desde el juego: antes de apagar el servidor viejo se carga el nuevo con esta variable para ver que arranca
 // (un error de sintaxis o una importación rota se detectan aquí y el juego sigue en marcha)
@@ -261,6 +262,16 @@ sessions.on('herramienta', () => {
   store.state.jugador.toolsCalls++; growCrops(store); store.save();
   if (store.state.jugador.cultivos.map(c => c.phase).join() !== before) broadcast({ t: 'estado', state: store.state as any });
 });
+// the plan's usage, in the top bar (server/planLimits.ts): from the events and, while a session lives, read now and
+// then (after each turn, at most once a minute, and every 5 min)
+planLimits.on('cambio', limits => broadcast({ t: 'limites', limits }));
+let usageReadAt = 0;
+function readPlanUsage() {
+  if (Date.now() - usageReadAt < 60_000) return;
+  usageReadAt = Date.now();
+  sessions.planUsage().then(rl => planLimits.fromUsage(rl)).catch(() => {});
+}
+setInterval(readPlanUsage, 5 * 60_000).unref();
 // límites de uso del plan de Claude: el refugio avisa (una vez por estado) en vez de callarlo
 let lastLimit = '';
 // the plan's 5-hour window as the sessions report it: next-window messages wait for it to end (scheduled.ts)
@@ -269,6 +280,7 @@ sessions.on('limite', (i: any) => {
   const resets = resetMs(i?.resetsAt);
   if (resets && (!i.rateLimitType || i.rateLimitType === 'five_hour')) usage.endsAt = resets;
   if (stopsWork(i)) usage.blockedUntil = resets ?? Date.now() + UNKNOWN_RESET_MS; else if (i?.status === 'allowed') delete usage.blockedUntil;
+  planLimits.fromEvent(i);
   if (!i || i.status === 'allowed') { lastLimit = ''; return; }
   const key = i.status + i.rateLimitType; if (key === lastLimit) return; lastLimit = key;
   const type = ({ five_hour: t('server.limit.fiveHour'), seven_day: t('server.limit.weekly'), seven_day_opus: t('server.limit.weeklyOpus'), seven_day_sonnet: t('server.limit.weeklySonnet') } as any)[i.rateLimitType] ?? '';
@@ -276,6 +288,7 @@ sessions.on('limite', (i: any) => {
   broadcast({ t: 'aviso', level: i.status === 'rejected' ? 'error' : 'aviso', text: i.status === 'rejected' ? t('server.limit.reached', { tipo: type, renueva: renews }) : t('server.limit.close', { tipo: type, renueva: renews, pct: i.utilization ? ` (${Math.round(i.utilization * 100)} %)` : '' }) });
 });
 sessions.on('turno', r => {
+  readPlanUsage();
   // cada tarea terminada produce algo en el refugio: chatarra y, a veces, una pieza para la guía de campo
   if (r.state === 'terminada' && r.turnTools > 0) {
     const p = taskReward(store, r.turnTools);
@@ -1231,6 +1244,7 @@ async function handle(ws: WebSocket, m: ClientMessage) {
       send(ws, { t: 'visitantes', visitors: visitors() });
       send(ws, { t: 'programados', list: scheduled.list() });
       send(ws, { t: 'verificaciones', states: verificationSummaries() });
+      send(ws, { t: 'limites', limits: planLimits.get() });
       integrations.greet(ws, send);
       for (const t of terminals.openSessions()) terminals.open(t.id, t.cwd, 80, 24, outputOf(ws));
       break;

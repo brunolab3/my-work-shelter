@@ -13,6 +13,7 @@ import { useKeys } from './device';
 import { keyboard } from '../engine/keyboard';
 import { SFX } from '../audio/sound';
 import { nextEvent, urgency, alertDue, type MeetingEvent } from '@shared/meeting';
+import { BAR_WINDOWS, limitLevel, rejectedWindows, type PlanLimits } from '@shared/planLimits';
 
 const LOC = language() === 'en' ? 'en-GB' : 'es-ES';
 const fmtHour = new Intl.DateTimeFormat(LOC, { hour: '2-digit', minute: '2-digit' });
@@ -85,6 +86,7 @@ export function Hud() {
         <Counter icon={Icon.restsOn} n={e.unseenNotifications} text={t('panels.unseen')} shortcut="N" level={e.unseenNotifications ? '' : 'apagado'} />
         <Counter icon={Icon.timer} n={next ? untilMinutes(next.start, now) : '—'} text={next ? next.title : t('panels.noEvents')} shortcut="C" level={next ? urgency(next, now) : 'apagado'} />
       </div>
+      <PlanMeter limits={live.use(x => x.planLimits)} now={now} />
       <div className="seg fosforo chatarra" title={t('panels.scrapEarnedWithEveryFinished')}>
         <span className="icono">{Icon.nut}</span><span className="n">{e.scrap.toLocaleString(LOC)}</span>
       </div>
@@ -102,6 +104,33 @@ export function Hud() {
     {restarting && <Restarting />}
     <MeetingAlert ev={next} now={now} />
     </>
+  );
+}
+
+// The Claude plan's usage (server/planLimits.ts): the 5-hour window, the weekly one once known and any other window
+// that has stopped Claude; green, amber from 70 %, red from 90 % and «LIMIT» when rejected. The tooltip has the resets.
+const LIMIT_SHORT: Record<string, string> = { five_hour: t('panels.limit.shortFiveHour'), seven_day: t('panels.limit.shortWeekly') };
+const LIMIT_NAME: Record<string, string> = { five_hour: t('panels.limit.nameFiveHour'), seven_day: t('panels.limit.nameWeekly'), seven_day_opus: t('panels.limit.nameWeeklyOpus'), seven_day_sonnet: t('panels.limit.nameWeeklySonnet') };
+function PlanMeter({ limits, now }: { limits: PlanLimits; now: number }) {
+  const types = [...BAR_WINDOWS.filter(w => w === 'five_hour' || limits[w]), ...rejectedWindows(limits).filter(w => !(BAR_WINDOWS as readonly string[]).includes(w))];
+  const line = (w: string) => {
+    const l = limits[w], name = LIMIT_NAME[w] ?? t('panels.limit.nameOther', { tipo: w });
+    if (!l || limitLevel(l) === 'desconocido') return `${name}: ${t('panels.limit.unknown')}`;
+    const parts = [l.utilization != null && t('panels.limit.used', { p: Math.round(l.utilization) }), l.status === 'rejected' && t('panels.limit.reachedHint'), l.resetsAt && t('panels.limit.renews', { cuando: untilMinutes(l.resetsAt, now) })];
+    return `${name}: ${parts.filter(Boolean).join(' · ')}`;
+  };
+  return (
+    <div className="seg fosforo limites" title={[t('panels.limit.title'), ...types.map(line)].join('\n')}>
+      {types.map(w => {
+        const l = limits[w], level = limitLevel(l);
+        return (
+          <span key={w} className={'limite ' + level}>
+            <span className="txt">{LIMIT_SHORT[w] ?? t('panels.limit.shortOther')}</span>
+            <span className="n">{level === 'agotado' ? t('panels.limit.reached') : level === 'desconocido' ? '—' : Math.round(l.utilization!) + '%'}</span>
+          </span>
+        );
+      })}
+    </div>
   );
 }
 

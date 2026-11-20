@@ -162,12 +162,14 @@ export type ServerMessage =
   | { t: 'mensajero'; since: string; a: string[]; reason: 'reparto' | 'cambio' | 'propuesta' | 'revision' | 'ci'; worktree?: string }   // el robot que lleva el plan de sala en sala (o una revisión o un fallo de CI de un PR desde Control de Versiones, en mano al holograma de su worktree)
   | { t: 'entrega'; room: string; worktree?: string; sessionId?: string }   // un mensaje dentro de la misma sala: el habitante se lo da en mano al holograma de la tarea (messenger.ts)
   | { t: 'verificaciones'; states: Record<string, VerificationSummary> }   // each task's production verification (shared/verification.ts)
+  | { t: 'limites'; limits: PlanLimits }   // the Claude plan's usage windows (server/planLimits.ts)
   | { t: 'programados'; list: ScheduledMessage[] }   // los mensajes programados pendientes (shared/scheduled.ts)
   | { t: 'recargar' }
   | { t: 'reiniciando' };
 
 import type { VerificationSummary } from './verification.ts';
 import type { ScheduledMessage } from './scheduled.ts';
+import type { PlanLimits } from './planLimits.ts';
 
 // el nombre del juego y, por defecto, del refugio
 export const GAME_NAME = 'work-shelter';

@@ -95,6 +95,16 @@ html, body { margin: 0; height: 100%; background: var(--fondo); overflow: hidden
 .contador.error { color: var(--rojo); text-shadow: 0 0 6px rgba(255,90,74,.55); }
 .contador.pronto { color: var(--ambar); text-shadow: 0 0 8px rgba(255,179,71,.7); }
 .contador.inminente { color: var(--rojo); text-shadow: 0 0 10px rgba(255,90,74,.85); animation: reunion-pulso .9s ease-in-out infinite; }
+/* the plan's usage meter (PlanMeter in Hud.tsx) */
+.limites { gap: calc(var(--u) * 0.8) !important; cursor: default; }
+.limite { display: flex; align-items: baseline; gap: calc(var(--u) * 0.3); }
+.limite .txt { font: 500 calc(var(--u) * 0.9) var(--t-mono); }
+.limite .n { font: calc(var(--u) * 1.45) var(--t-crt); line-height: 1; }
+.limite.desconocido { color: var(--fosforo-tenue); text-shadow: none; }
+.limite.medio { color: var(--ambar); text-shadow: 0 0 6px rgba(255,179,71,.55); }
+.limite.alto, .limite.agotado { color: var(--rojo); text-shadow: 0 0 6px rgba(255,90,74,.55); }
+.limite.agotado .n { animation: reunion-pulso .9s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .limite.agotado .n { animation: none; } }
 @keyframes reunion-pulso { 50% { text-shadow: 0 0 2px rgba(255,90,74,.3); opacity: .55; } }
 /* a meeting about to start (Hud.tsx): a box over everything, above the intercom and maximised terminals */
 .reunion-velo { position: fixed; inset: 0; z-index: 270000; background: rgba(6,4,3,.6); }

@@ -555,6 +555,15 @@ export class Sessions extends EventEmitter {
     }).catch(() => {});
   }
 
+  // the plan's usage windows, read through any live session (the /usage data, without its transcript scan): a
+  // read-only call with the player's own login, no inference. null with no live session or if the SDK lacks it
+  async planUsage(): Promise<Record<string, unknown> | null> {
+    const q = this.live().find(x => x.q)?.q as any;
+    const f = q?.usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET;
+    if (typeof f !== 'function') return null;
+    try { const r = await f.call(q, { skipBehaviors: true }); return r?.rate_limits_available ? r.rate_limits ?? null : null; } catch { return null; }
+  }
+
   private stopAwaiting(x: Session) { x.awaitingBackground = false; clearTimeout(x.backgroundTimer); }
   private forgetBackground(x: Session) { this.stopAwaiting(x); x.background.clear(); x.r.background = undefined; }
 
