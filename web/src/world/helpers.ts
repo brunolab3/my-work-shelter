@@ -16,6 +16,7 @@ import { pathWorktree, worktreesKnown } from '../ui/copies';
 import { knowTasks, versionColors } from '../ui/tasks';
 import { holograph, holoTone, holoUniforms, HOLO_SCALE, type Copy, type Uniforms } from './holograms';
 import { helperSpots } from './copySpot';
+import { t } from '@shared/language';
 
 const SCALE = 0.62;   // a helper beside its owner: a main-copy dweller or a hologram
 interface Holo { path: string; task?: string; u: Uniforms; versionTone: number }
@@ -134,11 +135,23 @@ export class Helpers {
     }
   }
 
-  // para las etiquetas: robots a la vista
-  labels(farSide: boolean, beside: THREE.Vector3) {
+  /** The robot a ray points at (a rough box around its body), for its tag */
+  at(ray: THREE.Ray) {
+    let best: Robot | undefined, tmin = Infinity; const hit = new THREE.Vector3();
+    for (const rb of this.robots.values()) {
+      if (!rb.p.mixer || rb.leaving) continue;
+      const c = rb.p.root.position, k = rb.p.root.scale.y;
+      const box = new THREE.Box3(new THREE.Vector3(c.x - 0.45 * k, c.y, c.z - 0.45 * k), new THREE.Vector3(c.x + 0.45 * k, c.y + 1.9 * k, c.z + 0.45 * k));
+      if (ray.intersectBox(box, hit)) { const d = hit.distanceTo(ray.origin); if (d < tmin) { tmin = d; best = rb; } }
+    }
+    return best;
+  }
+
+  // for the tags: each robot's state glyph; its name and what it does only under the pointer (the robot or its tag)
+  labels(over?: object) {
     return [...this.robots.values()].filter(rb => rb.p.mixer && !rb.leaving).map(rb => ({
-      k: rb, pos: rb.p.headPoint(), height: 0.05, name: 'ayudante', state: rb.a.state === 'fallo' ? 'error' : rb.a.state === 'hecho' ? 'terminado' : rb.a.mode === 'escribir' ? 'trabajando' : 'pensando',
-      detail: rb.p.root.position.distanceTo(beside) < 2.2 ? rb.a.description.slice(0, 48) : '', near: false, farSide,
+      k: rb, pos: rb.p.headPoint(), height: 0.05, name: t('world.helper'), state: rb.a.state === 'fallo' ? 'error' : rb.a.state === 'hecho' ? 'terminado' : rb.a.mode === 'escribir' ? 'trabajando' : 'pensando',
+      detail: rb === over ? rb.a.description.slice(0, 48) : '', near: false, farSide: rb !== over, aimed: rb === over,
     }));
   }
 }

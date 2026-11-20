@@ -535,14 +535,17 @@ export class Holograms {
     });
   }
 
-  labels(farSide: boolean, beside: THREE.Vector3, selected: Copy | null, aimed: Copy | null = null) {
+  // a copy's full tag (name, task, detail) only while it is talked to (E), pointed at or its tag is under the pointer
+  // (`over`); otherwise, if it has something to show (working, waiting, done, failed, a ⏰), just its state's glyph:
+  // many holograms in a room no longer bury it in text
+  labels(farSide: boolean, selected: Copy | null, aimed: Copy | null = null, over?: object) {
     return [...this.figures.values()].filter(f => f.ready && f.p.mixer).map(f => {
-      const near = f.p.root.position.distanceTo(beside) < 2.4, picked = f === selected || f === aimed;
+      const picked = f === selected || f === aimed, shown = picked || f === over;
       const git = f.w.changes ? t('windows.nChanges', { n: f.w.changes }) : f.w.advanced ? t('windows.nCommitsToMerge', { n: f.w.advanced }) : t('panels.clean2');
-      const detail = !near ? '' : f.state === 'ocioso' ? git : f.detail.slice(0, 48);
+      const detail = !shown ? '' : f.state === 'ocioso' ? git : f.detail.slice(0, 48);
       const author = this.r.dwellers.find(h => h.id.id === f.authorId);
-      const scheduled = scheduledMark(f.room.id, f.path);
-      return { k: f, scheduled, pos: f.p.headPoint(), height: 0.2, name: `${author?.id.name ?? t('world.copy')} ◇ ${copyCaption(f.w, f.task ?? branchCaption(f.w.branch))}${verificationMark(f.task) ? ' · ' + verificationMark(f.task) : ''}`, color: hasTaskColor(f.task) ? taskColor(f.task) : undefined, epic: epicTag(f.task), state: f.state, detail, near: picked, farSide, prompt: picked ? t('world.talk') : '', key: f === selected ? 'E' : t('world.click'), aimed: f === aimed && f !== selected, relevant: near || picked || f.state !== 'ocioso' || !!scheduled };
+      const scheduled = scheduledMark(f.room.id, f.path), pointed = (f === aimed || f === over) && f !== selected;
+      return { k: f, scheduled, pos: f.p.headPoint(), height: 0.2, name: `${author?.id.name ?? t('world.copy')} ◇ ${copyCaption(f.w, f.task ?? branchCaption(f.w.branch))}${verificationMark(f.task) ? ' · ' + verificationMark(f.task) : ''}`, color: hasTaskColor(f.task) ? taskColor(f.task) : undefined, epic: epicTag(f.task), state: f.state, detail, near: picked, farSide: farSide || !shown, prompt: picked ? t('world.talk') : '', key: f === selected ? 'E' : t('world.click'), aimed: pointed, relevant: shown || f.state !== 'ocioso' || !!scheduled };
     }).filter(x => x.relevant);
   }
 }

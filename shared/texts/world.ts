@@ -133,6 +133,7 @@ export const WORLD: Record<string, LocalizedText> = {
   'world.allDay': { es: 'TODO EL DÍA', en: 'ALL DAY' },
   // holographic copies (holograms.ts)
   'world.copy': { es: 'Copia', en: 'Copy' },
+  'world.helper': { es: 'Ayudante', en: 'Helper' },
   'world.holoCopyBio': { es: 'Copia holográfica de {nombre} «{mote}». Trabaja en el worktree {rama}, sin tocar la copia principal del repo.', en: 'Holographic copy of {nombre} «{mote}». Works in the worktree {rama}, without touching the repo\'s main copy.' },
   // in-world screens of the rooms (rooms/common.ts, generic.ts)
   'world.screen.off': { es: 'APAGADO', en: 'OFF' },

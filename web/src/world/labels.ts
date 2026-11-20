@@ -24,6 +24,8 @@ const GLYPH: Record<string, string> = { durmiendo: 'z', ocioso: '·', pensando: 
 export class TagsLayer {
   root: HTMLDivElement;
   private map = new Map<Dweller | object, { el: HTMLDivElement; name: HTMLSpanElement; detail: HTMLSpanElement; glyph: HTMLSpanElement; prompt: HTMLSpanElement; scheduled: HTMLSpanElement; epic: HTMLSpanElement; key: string }>();
+  // where each tag was drawn last frame (screen pixels), to tell which one the pointer is over
+  private drawn: { k: object; x0: number; x1: number; y0: number; y1: number }[] = [];
   constructor() {
     this.root = document.createElement('div'); this.root.id = 'etiquetas';
     document.body.appendChild(this.root);
@@ -41,7 +43,7 @@ export class TagsLayer {
   update(cam: THREE.PerspectiveCamera, items: { k: object; pos: THREE.Vector3; height: number; name: string; state: string; detail: string; near: boolean; supervisor?: boolean; device?: boolean; prompt?: string; key?: string; farSide?: boolean; aimed?: boolean; color?: string; epic?: { color: string; title: string }; scheduled?: string }[]) {
     const w = innerWidth, h = innerHeight; const v = new THREE.Vector3();
     const seen = new Set<object>();
-    const placed: { x0: number; x1: number; y0: number; y1: number }[] = [];
+    const placed: { k: object; x0: number; x1: number; y0: number; y1: number }[] = [];
     for (const it of items) {
       seen.add(it.k);
       const e = this.map.get(it.k) ?? this.create(it.k);
@@ -70,11 +72,16 @@ export class TagsLayer {
         if (!choca) break;
         sy = choca.y0 - 3;
       }
-      placed.push({ x0: sx - an / 2, x1: sx + an / 2, y0: sy - lh, y1: sy });
+      placed.push({ k: it.k, x0: sx - an / 2, x1: sx + an / 2, y0: sy - lh, y1: sy });
       // solo se toca el DOM si se ha movido de verdad (cada escritura cuesta un recálculo de estilo)
       const tr = `translate(${sx.toFixed(0)}px, ${sy.toFixed(0)}px) translate(-50%, -100%)`;
       if ((e as any).tr !== tr) { (e as any).tr = tr; e.el.style.transform = tr; }
     }
     for (const [k, e] of this.map) if (!seen.has(k)) { e.el.remove(); this.map.delete(k); }
+    this.drawn = placed;
+  }
+  /** The tag under a screen point (as drawn last frame), with a few pixels of slack */
+  at(x: number, y: number) {
+    return this.drawn.find(q => x > q.x0 - 4 && x < q.x1 + 4 && y > q.y0 - 4 && y < q.y1 + 8)?.k;
   }
 }

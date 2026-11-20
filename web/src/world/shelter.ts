@@ -1193,8 +1193,14 @@ export class Shelter {
     const visitor = (it?: Interactive | null) => !!it?.id.startsWith('vis:');
     const nearDevice = visitor(this.nearDevice?.it) ? null : this.nearDevice;
     items.push(...this.visitors.labels(farSide, this.nearDevice?.it.id, aim?.type === 'aparato' ? aim.it.id : undefined).filter(x => Math.abs(x.pos.x - this.camara.goal.x) < this.camara.distance * 0.45 && Math.abs(x.pos.y - this.camara.goal.y) < this.camara.distance * 0.3));
-    items.push(...this.holograms.labels(farSide, sp, this.nearby, aimC).filter(x => Math.abs(x.pos.x - this.camara.goal.x) < this.camara.distance * 0.45 && Math.abs(x.pos.y - this.camara.goal.y) < this.camara.distance * 0.3));
-    items.push(...this.helpers.labels(farSide, sp).filter(x => Math.abs(x.pos.x - this.camara.goal.x) < this.camara.distance * 0.45 && Math.abs(x.pos.y - this.camara.goal.y) < this.camara.distance * 0.3));
+    // what the pointer is over for the holograms' and helpers' tags: the figure, or its tag as drawn last frame
+    const pointer = this.mouse && !juego.get().panel && !this.cameraDragging() ? this.mouse : null;
+    const canvas = pointer && this.motor.renderer.domElement.getBoundingClientRect();
+    const overTag = pointer && canvas ? this.labels.at(canvas.left + (pointer.x + 1) / 2 * canvas.width, canvas.top + (1 - pointer.y) / 2 * canvas.height) : undefined;
+    if (pointer) this.ray.setFromCamera(pointer, this.motor.camera);
+    const overHelper = (pointer ? this.helpers.at(this.ray.ray) : undefined) ?? overTag;
+    items.push(...this.holograms.labels(farSide, this.nearby, aimC, overTag).filter(x => Math.abs(x.pos.x - this.camara.goal.x) < this.camara.distance * 0.45 && Math.abs(x.pos.y - this.camara.goal.y) < this.camara.distance * 0.3));
+    items.push(...this.helpers.labels(overHelper).filter(x => Math.abs(x.pos.x - this.camara.goal.x) < this.camara.distance * 0.45 && Math.abs(x.pos.y - this.camara.goal.y) < this.camara.distance * 0.3));
     items.push({ k: this.supervisor, pos: this.supervisor.headPoint(), height: 0.2, name: nearDevice ? nearDevice.it.text : tx('world.you'), state: 'ocioso', detail: '', near: !!nearDevice, farSide, prompt: nearDevice ? tx('world.use') : '', supervisor: true });
     // el aparato apuntado con el ratón (si no es el que ya está a mano), encima de su sitio
     if (aim?.type === 'aparato' && aim.it !== this.nearDevice?.it && !visitor(aim.it)) items.push({ k: aim.it, pos: this.deviceOver(aim.room, aim.it), height: 0, name: aim.it.text, state: 'ocioso', detail: '', near: true, farSide, prompt: tx('world.use'), key: tx('world.click'), device: true, aimed: true });
