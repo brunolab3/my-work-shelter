@@ -29,6 +29,7 @@ import { ReviewsPR, REVIEWS_QUERY, remoteRepo } from './prReviews.ts';
 import { CIFailures, CI_QUERY } from './ciFailures.ts';
 import { cachedPRs, cachedTaskPRs, preflightOf, PageReviews, gatePush, preflightTools, type CtxPreflight } from './preflight.ts';
 import { checklistFromClaudeMd } from '../shared/preflight.ts';
+import { autoCompactWindow } from '../shared/compact.ts';
 import type { JiraTransition, PRBoard } from '../shared/board.ts';
 import { blockersBetween, pRKey } from '../shared/deploy.ts';
 import { TasksCleanup, orphanedConversations } from './taskCleanup.ts';
@@ -154,7 +155,7 @@ const prBlockers = new BlockersPR(DATA);
 const taskColors = new TasksColors(DATA);
 const ctxPlan: Pick<CtxAssignment, 'plans' | 'notify' | 'messenger' | 'sessionOfTask'> = {
   plans,
-  notify: (id, text) => { try { if (sessions.list().find(s => s.id === id)?.state === 'cerrada') return false; sessions.send(id, text); return true; } catch { return false; } },
+  notify: (id, text) => { try { if (sessions.list().find(s => s.id === id)?.state === 'cerrada') return false; sessions.deliver(id, text); return true; } catch { return false; } },
   sessionOfTask: (roomId, key) =>
     sessions.list().filter(s => s.roomId === roomId && s.state !== 'cerrada' && worktreeHasTask({ path: s.worktree ?? s.cwd }, key)).sort((a, b) => b.updated - a.updated)[0]?.id,
   messenger: (since, a, reason) => broadcast({ t: 'mensajero', since, a, reason }),
@@ -198,6 +199,7 @@ const sessions = new Sessions({
   trustedFolders: () => ((store.state.settings as any).trustedFolders ?? []) as string[],
   trust: filePath => { const a = store.state.settings as any; a.trustedFolders = [...new Set([...(a.trustedFolders ?? []).filter((r: string) => existsSync(r)), path.resolve(filePath)])]; store.save(); },
   clonedFolders: () => ((store.state.settings as any).clonedFolders ?? []) as string[],
+  autoCompactWindow: () => autoCompactWindow((store.state.settings as any).autoCompactWindow),
 }, attachments);
 // trusted and cloned folders that no longer exist (removed worktrees, deleted clones) are dropped at startup, so the lists don't keep growing
 for (const k of ['trustedFolders', 'clonedFolders']) { const a = store.state.settings as any; if (Array.isArray(a[k])) { const live = a[k].filter((r: unknown) => typeof r === 'string' && existsSync(r)); if (live.length !== a[k].length) { a[k] = live; store.save(); } } }
@@ -1063,6 +1065,8 @@ function applySettings(x: typeof store.state, p: Record<string, any>) {
   if (typeof p.reposRoot === 'string' && p.reposRoot.trim()) x.reposRoot = p.reposRoot.trim().slice(0, 300);
   if (Number.isFinite(p.sessionLimit)) x.sessionLimit = Math.max(1, Math.min(20, Math.round(p.sessionLimit)));
   if (typeof p.doneWelcome === 'boolean') x.doneWelcome = p.doneWelcome;
+  // the window dwellers auto-compact at, in tokens (0: Claude Code's own); it applies to conversations launched afterwards
+  if (Number.isFinite(p.autoCompactWindow)) (x.settings as any).autoCompactWindow = p.autoCompactWindow === 0 ? 0 : autoCompactWindow(p.autoCompactWindow);
   // la lista «antes de subir» del pre-flight: un punto por línea
   if (Array.isArray(p.checklistPreflight)) (x.settings as any).checklistPreflight = [...new Set(p.checklistPreflight.filter((i: unknown) => typeof i === 'string').map((i: string) => i.trim().slice(0, 160)).filter(Boolean))].slice(0, 30);
   if (p.supervisor && typeof p.supervisor === 'object') {

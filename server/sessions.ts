@@ -8,6 +8,7 @@ import { cwdBeforeRelocation, lastActivity, projectFolder } from './repos.ts';
 import { mcpReview } from './compare.ts';
 import { SELF_GATED } from './mcpServers.ts';
 import { pushOf } from '../shared/preflight.ts';
+import { COMPACT_URGE } from '../shared/compact.ts';
 import { handMadeWorktree, newWorktreeOf, taskWorktreeIn, worktreeTask, ghCreateOf, githubRepoOf, isOriginalRepo, ORIGINAL_REPO } from '../shared/tasks.ts';
 import { gh } from './git.ts';
 import { readFileSync } from 'node:fs';
@@ -80,6 +81,8 @@ export interface RoomsResolver {
   };
   // carpetas que el Supervisor ha marcado de confianza en el juego (ver confianza())
   trustedFolders?(): string[]; trust?(filePath: string): void; clonedFolders?(): string[];
+  // the window Claude Code auto-compacts at (vault setting, shared/compact.ts); undefined: Claude Code's own
+  autoCompactWindow?(): number | undefined;
 }
 
 export function pathClaude(): string | undefined {
@@ -298,7 +301,7 @@ export class Sessions extends EventEmitter {
       systemPrompt: { type: 'preset', preset: 'claude_code', append: ANNEX + (x.r.roomId === 'puente' ? ' ' + bridgeAnnex() : x.r.roomId === 'git' ? ' ' + annexGit(this.resolver.reposOfShelter?.() ?? []) : '') },
       ...(x.r.roomId === 'git' ? { additionalDirectories: this.resolver.reposOfShelter?.() ?? [] } : {}),
       includePartialMessages: true,
-      settings: { skillOverrides: Object.fromEntries(HIDDEN_SKILLS.map(n => [n, 'off' as const])), ...(withoutWorkConnectors(x.r.roomId) ? { disableClaudeAiConnectors: true } : {}) },
+      settings: { skillOverrides: Object.fromEntries(HIDDEN_SKILLS.map(n => [n, 'off' as const])), ...(this.resolver.autoCompactWindow?.() ? { autoCompactWindow: this.resolver.autoCompactWindow() } : {}), ...(withoutWorkConnectors(x.r.roomId) ? { disableClaudeAiConnectors: true } : {}) },
       env: cleanEnvironment(),
       stderr: d => { x.stderr = (x.stderr + d).slice(-4000); },
     };
@@ -421,6 +424,14 @@ export class Sessions extends EventEmitter {
     this.enqueue(x, text, attachments);
     x.r.state = x.pending.length ? 'esperando' : 'trabajando'; x.r.unread = false;
     this.play(x);
+  }
+
+  // a message the Overseer didn't type (another room, a scheduled one, CI): an idle conversation already past the urge
+  // threshold is compacted first, so the new turn and the ones after it don't re-read the whole old context
+  deliver(id: string, text: string) {
+    const x = this.must(id);
+    if (['terminada', 'ociosa'].includes(x.r.state) && (x.r.context?.used ?? 0) >= COMPACT_URGE) this.send(id, '/compact');
+    this.send(id, text);
   }
 
   private async consume(x: Session, q: Query) {

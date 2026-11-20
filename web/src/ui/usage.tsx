@@ -3,17 +3,19 @@
 import React from 'react';
 import type { SessionSummary } from '@shared/protocol';
 import { t, language } from '@shared/language';
+import { contextLevel, compactLevel } from '@shared/compact';
 
 export const tokensShort = (n: number) => (n >= 1e6 ? (n / 1e6).toFixed(1) + ' M' : n >= 1e3 ? Math.round(n / 1e3) + ' k' : String(n)).replace('.', language() === 'es' ? ',' : '.');
-export const contextLevel = (p: number) => (p >= 85 ? 'alto' : p >= 60 ? 'medio' : 'bajo');
 
-// Compact is offered from 40 % (early enough to compact at a task boundary) and urged from 60 %, well before
-// Claude Code's own auto-compact; the bar's colours keep their own levels (contextLevel). Only while idle: queued
-// mid-turn it would wait for the turn to end anyway, and compacting mid-task loses what the dweller is in the middle of.
+// Compact is offered from 150k tokens of context (worth doing at a task boundary) or 40 % of a small window, and urged
+// from 300k or 60 %, well before Claude Code's own auto-compact; thresholds in shared/compact.ts, and the bar's colours
+// keep their own levels (contextLevel). Only while idle: queued mid-turn it would wait for the turn to end anyway, and
+// compacting mid-task loses what the dweller is in the middle of.
 export function compactNeed(s: Pick<SessionSummary, 'context' | 'state'>): 'no' | 'sugerido' | 'urgente' {
   const c = s.context;
   if (!c || !['terminada', 'ociosa', 'error'].includes(s.state)) return 'no';
-  return c.percentage >= 60 ? 'urgente' : c.percentage >= 40 ? 'sugerido' : 'no';
+  const level = compactLevel(c);
+  return level === 'alto' ? 'urgente' : level === 'medio' ? 'sugerido' : 'no';
 }
 
 export function Usage({ s, length, compact }: { s: Pick<SessionSummary, 'context' | 'tokens' | 'state'>; length?: boolean; compact?: () => void }) {
@@ -22,7 +24,7 @@ export function Usage({ s, length, compact }: { s: Pick<SessionSummary, 'context
   const title = [c && t('windows.contextUsed', { p: c.percentage, usados: tokensShort(c.used), maximo: tokensShort(c.max) }), s.tokens && t('windows.tokensSpent', { n: tokensShort(s.tokens) })].filter(Boolean).join(' · ');
   const need = compact ? compactNeed(s) : 'no';
   return (
-    <span className={'consumo' + (c ? ' ' + contextLevel(c.percentage) : '')} title={title}>
+    <span className={'consumo' + (c ? ' ' + contextLevel(c) : '')} title={title}>
       {c && <><span className="consumo-barra"><i style={{ width: Math.min(100, c.percentage) + '%' }} /></span>{c.percentage} %</>}
       {length && s.tokens ? <span className="tenue"> · {t('windows.nTokens', { n: tokensShort(s.tokens) })}</span> : null}
       {need !== 'no' && <button className={'consumo-compactar' + (need === 'urgente' ? ' urgente' : '')} title={t(need === 'urgente' ? 'windows.compactUrgentHint' : 'windows.compactHint')} onClick={compact}>{t('windows.compact')}</button>}

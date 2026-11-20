@@ -708,7 +708,7 @@ export const WINDOWS: Record<string, LocalizedText> = {
   'windows.nTokens': { es: '{n} tokens', en: '{n} tokens' },
   'windows.compact': { es: 'Compactar', en: 'Compact' },
   'windows.compactHint': { es: 'Compactar la conversación (/compact): la resume para liberar contexto. Mejor entre tareas', en: 'Compact the conversation (/compact): summarises it to free context. Best between tasks' },
-  'windows.compactUrgentHint': { es: 'Contexto ya muy ocupado: compáctala (/compact) antes de que Claude Code lo haga solo a mitad de tarea', en: 'Context filling up: compact it (/compact) before Claude Code does it by itself mid-task' },
+  'windows.compactUrgentHint': { es: 'Contexto grande: cada turno lo vuelve a leer entero. Compáctala (/compact) antes de que Claude Code lo haga solo a mitad de tarea', en: 'Large context: every turn re-reads all of it. Compact it (/compact) before Claude Code does it by itself mid-task' },
   // English mode leftovers (intercom, panels, client)
   'windows.noConnection': { es: 'Sin conexión', en: 'No connection' },
   'windows.noChrome': { es: 'sin Chrome', en: 'no Chrome' },

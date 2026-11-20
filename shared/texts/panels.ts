@@ -429,6 +429,7 @@ export const PANELS: Record<string, LocalizedText> = {
   'panels.shelterName': { es: 'Nombre del refugio', en: 'Shelter name' },
   'panels.reposRootDoorSuggestionsAnd': { es: 'Raíz de repos (sugerencias de la puerta y carpeta de Logística)', en: 'Repos root (door suggestions and Logistics folder)' },
   'panels.simultaneousSessionLimit': { es: 'Límite de sesiones simultáneas', en: 'Simultaneous session limit' },
+  'panels.autoCompactAt': { es: 'Autocompactar conversaciones al llegar a (miles de tokens, 100–1000; 0 = lo decide Claude Code)', en: 'Auto-compact conversations at (thousand tokens, 100–1000; 0 = Claude Code decides)' },
   'panels.saved': { es: 'Guardado.', en: 'Saved.' },
   'panels.vaultWorkShelter': { es: 'CÁMARA · WORK-SHELTER', en: 'VAULT · WORK-SHELTER' },
   'panels.nextOnTheLastOne': { es: 'siguiente (en el último, guardar)', en: 'next (on the last one, save)' },

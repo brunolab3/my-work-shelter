@@ -78,7 +78,7 @@ Production verification of a task (model and state machine `shared/verification.
 
 ## Usage per conversation
 
-Usage per conversation: the session summary carries `tokens` and `contexto` (`shared/protocol.ts`); `Usage` in `web/src/ui/usage.tsx` shows it in the intercom and in the room card (`RoomCard` in `web/src/ui/Panels.tsx`). In the intercom's status line, an idle conversation (`compactNeed`) shows «Compact» from 40 % of the window, pulsing from 60 % (well before Claude Code's auto-compact): it sends `/compact` as a message, and the `compact_boundary` that follows logs it and measures the context again (`server/sessions.ts`).
+Usage per conversation: the session summary carries `tokens` and `contexto` (`shared/protocol.ts`); `Usage` in `web/src/ui/usage.tsx` shows it in the intercom and in the room card (`RoomCard` in `web/src/ui/Panels.tsx`). In the intercom's status line, an idle conversation (`compactNeed`) shows «Compact» from 150k tokens of context, pulsing from 300k (or 40 % / 60 % of a smaller window; `compactLevel` in `shared/compact.ts`; the bar's colours keep their own levels, `contextLevel`): it sends `/compact` as a message, and the `compact_boundary` that follows logs it and measures the context again (`server/sessions.ts`). Dwellers auto-compact at the vault's «Auto-compact at» window (default 400k, Claude Code compacts ~33k below it; 0 = Claude Code's own, near the whole 1M window), passed as the `autoCompactWindow` flag setting in `optionsBase`; it applies to conversations launched afterwards. A message the Overseer didn't type (another room, a scheduled one, a review or CI failure: `ctxPlan.notify` → `sessions.deliver`) to an idle open conversation past 300k sends `/compact` first.
 
 ## Links in replies
 
