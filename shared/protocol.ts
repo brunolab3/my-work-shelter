@@ -70,6 +70,7 @@ export interface SessionSummary {
   permissionMode?: string;
   worktree?: string;
   error?: string;
+  limit?: { resetsAt: number; resumeAt?: number };   // stopped by the usage limit: resumes on its own (server/limitResume.ts)
   cost?: number;                // estimación del SDK (con plan no se factura; informativa)
   tokens?: number;               // tokens de la sesión hasta ahora (entrada, salida y caché, todos los modelos)
   context?: { used: number; max: number; percentage: number };   // ventana de contexto ocupada tras el último turno

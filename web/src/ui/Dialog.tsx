@@ -1017,10 +1017,11 @@ function Session({ h, s, p, exit, onClose }: { h: DwellerSummary; s: SessionSumm
         {partial && workingLive && <div className="ent asistente parcial" dangerouslySetInnerHTML={{ __html: markdown(partial, folderOf(s)) + '<span class="cursor-escribe">▌</span>' }} />}
         {s.pending && <Pending s={s} p={s.pending} tab={p} hid={h.id} exit={exit} />}
         {s.state === 'error' && s.error && <div className="ent error">⚠ {s.error}</div>}
+        {s.limit && !workingLive && <div className="ent sistema">⏳ {limitLine(s.limit)}</div>}
       </div>
       {!s.pending && <div className="linea-estado">
         {workingLive ? <span className="girando">◐</span> : s.state === 'esperando' ? <span className="urgente">?</span> : s.state === 'terminada' ? <span>✓</span> : <span>·</span>}
-        <span className="txt"><ToolText t={lineState || (s.state === 'terminada' || s.state === 'ociosa' ? t('windows.doneYouCanReplyOpen') : '')} /></span>
+        <span className="txt"><ToolText t={lineState || (s.limit ? limitLine(s.limit) : s.state === 'terminada' || s.state === 'ociosa' ? t('windows.doneYouCanReplyOpen') : '')} /></span>
         {helpers > 0 && <span className="tenue"> · {helpers > 1 ? t('windows.nHelpers', { n: helpers }) : t('windows.nHelper', { n: helpers })}</span>}
         {s.lateral && !s.lateral.answer && <span className="tenue"> · {t('windows.sideQuestion')}</span>}
         <Usage s={s} compact={() => { client.send({ t: 'enviar', sessionId: s.id, text: '/compact' }); pinned.current = true; SFX.click(); }} />
@@ -1054,6 +1055,10 @@ function Session({ h, s, p, exit, onClose }: { h: DwellerSummary; s: SessionSumm
     </div>
   );
 }
+
+// stopped by the usage limit (server/limitResume.ts): when it resumes, or when the limit renews until it's queued
+const hhmm = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+const limitLine = (l: NonNullable<SessionSummary['limit']>) => l.resumeAt ? t('windows.limitWaiting', { cuando: hhmm(l.resumeAt) }) : t('windows.limitWaitingReset', { cuando: hhmm(l.resetsAt) });
 
 // Las páginas de la conversación (planes, informes, comparaciones que ha enlazado): cuáles quedan por revisar, abrirlas
 // (sus notas vuelven a esta conversación) y validar sin notas las que estén bien (shared/sessionPages.ts)

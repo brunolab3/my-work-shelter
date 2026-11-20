@@ -321,6 +321,8 @@ export const WINDOWS: Record<string, LocalizedText> = {
   'windows.you': { es: 'TÚ', en: 'YOU' },
   'windows.gettingReady': { es: 'Preparándose…', en: 'Getting ready…' },
   'windows.thinking': { es: 'Pensando…', en: 'Thinking…' },
+  'windows.limitWaiting': { es: 'Esperando a que se renueve el límite de uso: sigue sola a las {cuando}.', en: 'Waiting for the usage limit to renew: continues on its own at {cuando}.' },
+  'windows.limitWaitingReset': { es: 'Esperando a que se renueve el límite de uso ({cuando}).', en: 'Waiting for the usage limit to renew ({cuando}).' },
   'windows.doneYouCanReplyOpen': { es: 'Listo. Puedes responder, abrir otra pestaña o cerrar esta.', en: 'Done. You can reply, open another tab or close this one.' },
   'windows.nHelpers': { es: '{n} ayudantes', en: '{n} helpers' },
   'windows.waitingNInBackground': { es: 'Esperando a lo que sigue en segundo plano ({n})', en: 'Waiting for what is still running in the background ({n})' },

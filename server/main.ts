@@ -8,7 +8,7 @@ import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { execFile, execFileSync, spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { WebSocketServer, type WebSocket } from 'ws';
-import { GAME_NAME, type ClientMessage, type ServerMessage, type InfoRepo, type Visitor } from '../shared/protocol.ts';
+import { GAME_NAME, type ClientMessage, type ServerMessage, type InfoRepo, type Visitor, type SessionSummary } from '../shared/protocol.ts';
 import { Sessions } from './sessions.ts';
 import { Attachments } from './attachments.ts';
 import { openAttachment, isPackage, revealLocal } from './open.ts';
@@ -33,6 +33,7 @@ import type { JiraTransition, PRBoard } from '../shared/board.ts';
 import { blockersBetween, pRKey } from '../shared/deploy.ts';
 import { TasksCleanup, orphanedConversations } from './taskCleanup.ts';
 import { Scheduled, summary } from './scheduled.ts';
+import { LimitResumes, scanStopped, resetMs, stopsWork, UNKNOWN_RESET_MS } from './limitResume.ts';
 import { gitEnvironment } from './gitEnv.ts';
 import { Clones, cloneDestination, cloneUrl, clonedRepos, listRepos, repoInfo, repoRef } from './githubClone.ts';
 import { captureRoom } from './roomCapture.ts';
@@ -591,6 +592,48 @@ setTimeout(() => {
   const sweep = () => { scheduled.sweep().catch(err => console.error('Mensajes programados:', String((err as Error).message).split('\n')[0])); };
   sweep(); setInterval(sweep, 60_000).unref();
 }, 15_000).unref();
+
+// conversations stopped by the usage limit (limitResume.ts): resumed one at a time once it renews, in their folder by
+// Claude Code id if they are no longer open. Never with more permissions than they had
+const SAFE_MODES = ['auto', 'default', 'acceptEdits', 'plan'];
+const limitResumes: LimitResumes = new LimitResumes(DATA, {
+  resume: async (x, text) => {
+    const open = sessions.list().find(s => s.state !== 'cerrada' && s.claudeId === x.claudeId);
+    if (open) {
+      if (!open.limit) return 'gone';   // the Overseer already continued it
+      if (!ctxPlan.notify(open.id, text)) throw new Error(t('server.thatConversationIsStillOpen'));
+      return 'ok';
+    }
+    if (!existsSync(x.cwd)) return 'gone';
+    const roomId = x.roomId && store.state.rooms.some(r => r.id === x.roomId) ? x.roomId : pathRoom(x.cwd);
+    const room = store.state.rooms.find(r => r.id === roomId);
+    const h = store.state.dwellers.find(y => y.id === x.dwellerId && y.roomId === roomId) ?? store.state.dwellers.find(y => y.roomId === roomId);
+    if (!room || !h) return 'gone';
+    const id = await startWork(undefined, { t: 'empezar', dwellerId: h.id, roomId: room.id, prompt: text, options: { cwd: x.cwd, resume: x.claudeId, permissions: SAFE_MODES.includes(x.permissions ?? '') ? x.permissions : 'auto', model: x.model, effort: x.effort } });
+    broadcast({ t: 'entrega', room: room.id, sessionId: id, ...(path.resolve(x.cwd) !== path.resolve(folderOf(room)) ? { worktree: x.cwd } : {}) });
+    return 'ok';
+  },
+  changed: list => { for (const x of list) sessions.limitAt(x.claudeId, x.resumeAt); },
+  notice: text => broadcast({ t: 'aviso', level: 'info', text }),
+});
+sessions.on('paradaLimite', (r: SessionSummary & { stoppedAt: number }) => {
+  if (!r.claudeId || !r.limit) return;
+  limitResumes.add({ claudeId: r.claudeId, cwd: path.resolve(r.worktree ?? r.cwd), roomId: r.roomId, dwellerId: r.dwellerId, title: r.title, permissions: r.permissionMode, model: r.model, effort: r.effort, stoppedAt: r.stoppedAt, resetsAt: r.limit.resetsAt });
+});
+sessions.on('limiteSigue', (claudeId: string) => limitResumes.drop(claudeId));
+sessions.on('limite', (i: any) => { if (stopsWork(i)) limitResumes.hold(resetMs(i.resetsAt) ?? Date.now() + UNKNOWN_RESET_MS); });
+// on start, once the rooms' worktrees are read: conversations whose transcript ends in a limit stop (stopped before
+// this existed, or with the queue lost) join the queue; then a round every half minute
+setTimeout(() => {
+  const folders = store.state.rooms.flatMap(r => [folderOf(r), ...(r.path ? (repos[r.id]?.worktrees ?? []).map(w => w.path) : [])]);
+  const outside = outsideOpen(), live = new Set(sessions.list().map(s => s.claudeId));
+  const found = scanStopped(folders).filter(f => !limitResumes.has(f.claudeId) && !live.has(f.claudeId) && !outside.has(f.claudeId.toLowerCase()));
+  for (const f of found) limitResumes.add({ claudeId: f.claudeId, cwd: f.cwd, roomId: pathRoom(f.cwd), stoppedAt: f.at, resetsAt: f.resetsAt ?? f.at + UNKNOWN_RESET_MS, permissions: f.permissions });
+  const first = limitResumes.list()[0];
+  if (found.length && first) broadcast({ t: 'aviso', level: 'info', text: t('server.limitFound', { n: limitResumes.list().length, cuando: new Date(first.resumeAt).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' }) }) });
+  const sweep = () => { limitResumes.sweep().catch(err => console.error('Reanudar tras el límite:', String((err as Error).message).split('\n')[0])); };
+  sweep(); setInterval(sweep, 30_000).unref();
+}, 20_000).unref();
 
 // el pre-flight de una tarea (preflight.ts): sus partes en todas las salas, con sincronía, CI, revisión y bloqueos.
 // Solo lectura; los PR de GitHub, a lo sumo una lectura por minuto (R en la ventana fuerza otra)

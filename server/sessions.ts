@@ -23,6 +23,7 @@ import { ROOMS_FOLDERS } from './state.ts';
 import { active } from '../shared/sources.ts';
 import { describeTool, describeInput, permissionTitle, toolMode, toolPath, isAgent } from './tools.ts';
 import { t } from '../shared/language.ts';
+import { resetMs, stopsWork, UNKNOWN_RESET_MS } from './limitResume.ts';
 import { ANNEX, bridgeAnnex, annexGit, HIDDEN_SKILLS, withoutWorkConnectors } from './annex.ts';
 
 class Queue<T> implements AsyncIterable<T> {
@@ -57,6 +58,8 @@ interface Session {
   textInTurn?: boolean; askHeld?: boolean;
   shipments: Promise<void>;   // los mensajes con imágenes tardan un poco en prepararse: salen en orden
   trustWaiting?: boolean; loadProject?: boolean;   // ver preguntarConfianza()
+  // the usage limit stopped this turn (a `rejected` rate limit event or a limit error): its reset in ms, 0 if unknown
+  limitHit?: number;
 }
 
 export interface RoomsResolver {
@@ -184,17 +187,31 @@ export class Sessions extends EventEmitter {
   private lastEmission = new Map<string, { t: number; key: string; timer?: NodeJS.Timeout }>();
   private play(x: Session) {
     x.r.updated = Date.now(); x.r.pendingCount = x.pending.length; x.r.pending = x.pending[0]?.pet; x.r.helpers = [...x.helpers.values()];
-    const key = JSON.stringify([x.r.state, x.r.activity, x.r.pending?.id, x.r.pendingCount, x.r.helpers, x.r.lastText?.length, x.r.unread, x.r.title, x.r.error, x.r.lateral, x.r.permissionMode, x.r.model, x.r.claudeId, x.r.turns, x.r.background, x.r.worktree]);
+    const key = JSON.stringify([x.r.state, x.r.activity, x.r.pending?.id, x.r.pendingCount, x.r.helpers, x.r.lastText?.length, x.r.unread, x.r.title, x.r.error, x.r.lateral, x.r.permissionMode, x.r.model, x.r.claudeId, x.r.turns, x.r.background, x.r.worktree, x.r.limit]);
     const u = this.lastEmission.get(x.r.id);
     if (u && u.key === key) return;
     const now = Date.now();
-    const emit = () => { const e = this.lastEmission.get(x.r.id); if (e) e.timer = undefined; this.lastEmission.set(x.r.id, { t: Date.now(), key: JSON.stringify([x.r.state, x.r.activity, x.r.pending?.id, x.r.pendingCount, x.r.helpers, x.r.lastText?.length, x.r.unread, x.r.title, x.r.error, x.r.lateral, x.r.permissionMode, x.r.model, x.r.claudeId, x.r.turns, x.r.background, x.r.worktree]) }); this.emit('sesion', { ...x.r, helpers: x.r.helpers.map(a => ({ ...a })) }); };
+    const emit = () => { const e = this.lastEmission.get(x.r.id); if (e) e.timer = undefined; this.lastEmission.set(x.r.id, { t: Date.now(), key: JSON.stringify([x.r.state, x.r.activity, x.r.pending?.id, x.r.pendingCount, x.r.helpers, x.r.lastText?.length, x.r.unread, x.r.title, x.r.error, x.r.lateral, x.r.permissionMode, x.r.model, x.r.claudeId, x.r.turns, x.r.background, x.r.worktree, x.r.limit]) }); this.emit('sesion', { ...x.r, helpers: x.r.helpers.map(a => ({ ...a })) }); };
     // los cambios de estado salen al momento; los de actividad, como mucho 8 por segundo
     if (!u || u.key.split(',')[0] !== key.split(',')[0] || now - u.t > 125) { if (u?.timer) clearTimeout(u.timer); emit(); }
     else if (!u.timer) u.timer = setTimeout(emit, 125);
   }
   private input(type: LogInput['type'], text: string, extra: Partial<LogInput> = {}): LogInput { return { id: randomUUID(), ts: Date.now(), type, text, ...extra }; }
   private add(x: Session, e: LogInput) { x.entries.push(e); if (x.entries.length > 1500) x.entries.splice(0, x.entries.length - 1500); this.emit('entradas', x.r.id, [e]); }
+
+  // a turn stopped by the usage limit is not an error: it waits for the reset and resumes on its own (limitResume.ts)
+  private lastReset?: number;
+  private limitStop(x: Session) {
+    const resetsAt = x.limitHit || this.lastReset || Date.now() + UNKNOWN_RESET_MS;
+    x.limitHit = undefined;
+    x.r.state = 'ociosa'; x.r.error = undefined; x.r.unread = true; x.r.limit = { resetsAt };
+    this.add(x, this.input('sistema', t('server.limitStopped')));
+    this.emit('paradaLimite', { ...x.r, stoppedAt: Date.now() });
+  }
+  /** When the queue will resume it (shown in the intercom) */
+  limitAt(claudeId: string, resumeAt: number) {
+    for (const x of this.s.values()) if (x.r.claudeId === claudeId && x.r.limit && x.r.limit.resumeAt !== resumeAt) { x.r.limit = { ...x.r.limit, resumeAt }; this.play(x); }
+  }
 
   logbook(id: string) { return this.must(id).entries; }
   commands(id: string) { return this.must(id).commands; }
@@ -400,6 +417,7 @@ export class Sessions extends EventEmitter {
     if (!x.alive && !x.trustWaiting) this.launch(x, x.r.claudeId).catch(e => console.error('No se pudo reanudar la sesión:', e));
     this.add(x, this.input('usuario', text, attachments.length ? { attachments } : {}));
     x.textInTurn = x.askHeld = false;
+    if (x.r.limit) { x.r.limit = undefined; if (x.r.claudeId) this.emit('limiteSigue', x.r.claudeId); }
     this.enqueue(x, text, attachments);
     x.r.state = x.pending.length ? 'esperando' : 'trabajando'; x.r.unread = false;
     this.play(x);
@@ -421,6 +439,7 @@ export class Sessions extends EventEmitter {
         if (x.awaitingBackground && x.r.state === 'trabajando') x.r.state = 'terminada';   // el turno ya había acabado bien
         this.forgetBackground(x);
         if (x.closing) { x.r.state = 'cerrada'; setTimeout(() => { this.s.delete(x.r.id); this.emit('fuera', x.r.id); }, 30_000).unref(); }
+        else if (x.r.state !== 'terminada' && x.r.state !== 'ociosa' && x.limitHit !== undefined) this.limitStop(x);
         else if (x.r.state !== 'terminada' && x.r.state !== 'ociosa') { x.r.state = 'error'; x.r.unread = true; x.r.error ??= t('server.sessionStoppedUnexpectedly'); }
         x.r.activity = undefined;
         this.play(x);
@@ -447,7 +466,8 @@ export class Sessions extends EventEmitter {
           else if (b.type === 'thinking' && !parent) r.activity = { tool: '', text: t('windows.thinking'), mode: 'pensar' };
           else if (b.type === 'tool_use') this.onUseTool(x, b.id, b.name, b.input ?? {}, parent);
         }
-        if ((m as any).error && !parent) this.add(x, this.input('error', t('server.apiError', { error: (m as any).error })));
+        if ((m as any).error === 'rate_limit' && !parent) x.limitHit ??= this.lastReset ?? 0;
+        else if ((m as any).error && !parent) this.add(x, this.input('error', t('server.apiError', { error: (m as any).error })));
         // un turno que empieza sin que lo mande el intercomunicador (lo que quedaba en cola, el aviso de una tarea en
         // segundo plano) también es trabajar: si no, se ve parado y Ctrl+C no lo para
         if (!parent && ['arrancando', 'terminada', 'ociosa', 'error'].includes(r.state)) r.state = 'trabajando';
@@ -481,7 +501,8 @@ export class Sessions extends EventEmitter {
         const seg = Math.round((res.duration_ms ?? 0) / 1000);
         const interrupted = x.interrupting;
         if (x.interrupting) { x.interrupting = false; r.state = 'terminada'; this.add(x, this.input('sistema', t('server.interrupted'))); }
-        else if (res.subtype === 'success' && !res.is_error) { r.state = 'terminada'; if (res.result) r.lastText = res.result; this.add(x, this.input('resultado', t('server.doneInS', { seg }))); }
+        else if (res.subtype === 'success' && !res.is_error) { r.state = 'terminada'; x.limitHit = undefined; if (res.result) r.lastText = res.result; this.add(x, this.input('resultado', t('server.doneInS', { seg }))); }
+        else if (x.limitHit !== undefined) this.limitStop(x);
         else { r.state = 'error'; const by = (res.errors as string[] | undefined)?.join('\n') || res.result || res.subtype; r.error = by; this.add(x, this.input('error', t('server.theJobGotStuck', { por: by }))); }
         r.unread = true; r.activity = undefined; x.partialText = '';
         if (x.pending.length) r.state = 'esperando';
@@ -489,12 +510,17 @@ export class Sessions extends EventEmitter {
         else if (r.state === 'terminada' && !interrupted && x.background.size) { r.state = 'trabajando'; r.unread = false; x.awaitingBackground = true; }
         this.refreshTitle(x);
         // la recompensa del refugio solo cuenta las herramientas de este turno y nunca un turno interrumpido o fallido
-        const ofCurrent = interrupted || r.state === 'error' ? 0 : r.tools - (x.toolsOnStartTurn ?? 0);
+        const ofCurrent = interrupted || r.state === 'error' || r.limit ? 0 : r.tools - (x.toolsOnStartTurn ?? 0);
         x.toolsOnStartTurn = r.tools;
         this.emit('turno', { ...r, turnTools: ofCurrent });
         break;
       }
-      case 'rate_limit_event': this.emit('limite', (m as any).rate_limit_info); break;
+      case 'rate_limit_event': {
+        const i = (m as any).rate_limit_info;
+        if (stopsWork(i)) { this.lastReset = resetMs(i.resetsAt) ?? this.lastReset; x.limitHit = this.lastReset ?? 0; }
+        this.emit('limite', i);
+        break;
+      }
     }
     this.play(x);
   }
