@@ -20,7 +20,7 @@ import { create as createCalendar } from './calendar.ts';
 
 const fx = (n: string) => JSON.parse(readFileSync(path.join(import.meta.dirname, '../../test/fixtures', n), 'utf8'));
 function fakeStore(): Store {
-  const state: any = { integrations: { outlook: { mode: 'real' }, google: { mode: 'real' }, discord: { mode: 'real' }, slack: { mode: 'real' }, github: { mode: 'real' }, linear: { mode: 'real' }, jira: { mode: 'real' }, mail: { mode: 'real' }, calendario: { mode: 'real' } }, viewsNotifications: [] };
+  const state: any = { integrations: { outlook: { mode: 'real' }, google: { mode: 'real' }, discord: { mode: 'real' }, slack: { mode: 'real' }, github: { mode: 'real' }, linear: { mode: 'real' }, jira: { mode: 'real' }, mail: { mode: 'real' }, calendario: { mode: 'real' } }, viewsNotifications: [], settings: {} };
   return { state, change(f: (e: any) => void) { f(state); }, save() {}, saveAlready() {} } as unknown as Store;
 }
 // Con forma de token de bot de Discord (id de la app en base64 . marca . firma), armado aquí para que los escáneres de
@@ -395,6 +395,16 @@ describe('Jira', () => {
     // the cached board already has the new status (Jira's search lags behind)
     expect(((await j.action!('panel', {})) as any).tareas.find((x: any) => x.key === 'TAL-7')).toMatchObject({ state: 'Descartada', category: 'done' });
     await expect(j.action!('mover', { key: 'TAL-9', column: 'hecho', id: '31' })).rejects.toThrow(/Transicionar incidencias/);
+  });
+  it("the prod-check column: only transitions to the status picked for the task's board in the vault", async () => {
+    const a = fakeStore();
+    const j = createJira(a);
+    await j.configure({ sitio: 'taller.atlassian.net', correo: 'ana@taller.example', token: 'tok-bueno' });
+    const ids = async (column: string) => ((await j.action!('transiciones', { key: 'TAL-7', column })) as any).transitions.map((x: any) => x.id);
+    expect(await ids('prodCheck')).toEqual([]);
+    (a.state.settings as any).verificationBoards = { TAL: { test: 'Descartada' } };
+    expect(await ids('prodCheck')).toEqual(['32']);
+    expect(await ids('hecho')).toEqual(['31']);
   });
 });
 

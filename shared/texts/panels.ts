@@ -1272,6 +1272,7 @@ export const PANELS: Record<string, LocalizedText> = {
   'panels.inProgress2': { es: 'En curso', en: 'In progress' },
   'panels.blocked': { es: 'Bloqueado', en: 'Blocked' },
   'panels.inReview': { es: 'En revisión', en: 'In review' },
+  'panels.prodCheck': { es: 'Prueba en producción', en: 'Prod check' },
   'panels.done2': { es: 'Hecho', en: 'Done' },
   'panels.draft': { es: 'Borrador', en: 'Draft' },
   'panels.changesRequested': { es: 'Piden cambios', en: 'Changes requested' },

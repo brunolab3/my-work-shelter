@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { byEpic, jiraKeys, crossBoard, jiraTransitions, transitionsTo, isColumn, prText, textOfADF, planPrompt, type PRBoard, type TaskJira } from './board';
+import { byEpic, jiraKeys, crossBoard, columnOf, jiraTransitions, transitionsTo, isColumn, prText, textOfADF, planPrompt, type PRBoard, type TaskJira } from './board';
 
 const task = (key: string, category: TaskJira['category'], state = 'En curso'): TaskJira => ({ key, title: 't ' + key, url: 'https://jira.example/browse/' + key, state, category, updated: Date.now() });
 const pr = (number: number, branch: string, title = 'PR', state: PRBoard['state'] = 'abierto', extra: Partial<PRBoard> = {}): PRBoard =>
@@ -29,6 +29,7 @@ describe('crossBoard', () => {
       ['Bloqueado', []],
       ['En curso', [['ABC-1', [10, 11]]]],
       ['En revisión', []],
+      ['Prueba en producción', []],
       ['Hecho', [['ABC-3', [12]]]],
     ]);
     expect(r.prs.find(p => p.number === 12)!.tareas.map(t => t.state)).toEqual(['Hecho']);
@@ -69,7 +70,6 @@ describe('columna Bloqueado', () => {
       [pr(1, 'ABC-3-x', 'x', 'abierto')],
     );
     const col = (id: string) => r.columns.find(c => c.id === id)!.tareas.map(t => t.key);
-    expect(r.columns.map(c => c.id)).toEqual(['porHacer', 'bloqueado', 'enCurso', 'revision', 'hecho']);
     expect(col('bloqueado')).toEqual(['ABC-1', 'ABC-2', 'ABC-3']);
     expect(col('hecho')).toEqual(['ABC-4']);
     expect(col('enCurso')).toEqual(['ABC-5']);
@@ -79,8 +79,20 @@ describe('columna Bloqueado', () => {
 describe('columna Hecho', () => {
   it('solo enseña lo terminado en la última semana', () => {
     const day = 864e5, now = 30 * day;
-    const r = crossBoard([{ ...task('ABC-1', 'done'), updated: now - 2 * day }, { ...task('ABC-2', 'done'), updated: now - 8 * day }], [], now);
+    const r = crossBoard([{ ...task('ABC-1', 'done'), updated: now - 2 * day }, { ...task('ABC-2', 'done'), updated: now - 8 * day }], [], {}, now);
     expect(r.columns.find(c => c.id === 'hecho')!.tareas.map(t => t.key)).toEqual(['ABC-1']);
+  });
+});
+
+describe('Prod check column', () => {
+  const boards = { ABC: { test: 'Prod Check', done: 'Done' } };
+  it("a configured board's prod-check status goes there, by its setting and not by the name", () => {
+    expect(columnOf(task('ABC-1', 'indeterminate', 'prod check'), boards)).toBe('prodCheck');
+    expect(columnOf(task('XYZ-1', 'indeterminate', 'Prod Check'), boards)).toBe('enCurso');
+    expect(columnOf(task('ABC-2', 'indeterminate', 'Prod Check'))).toBe('enCurso');
+    const r = crossBoard([task('ABC-1', 'indeterminate', 'Prod Check'), task('XYZ-1', 'indeterminate', 'Prod Check')], [], boards);
+    expect(r.columns.map(c => c.id)).toEqual(['porHacer', 'bloqueado', 'enCurso', 'revision', 'prodCheck', 'hecho']);
+    expect(r.columns.find(c => c.id === 'prodCheck')!.tareas.map(t => t.key)).toEqual(['ABC-1']);
   });
 });
 
@@ -141,6 +153,13 @@ describe('transitionsTo', () => {
     expect(transitionsTo(trs, 'bloqueado').map(x => x.id)).toEqual(['41']);
     expect(transitionsTo(trs, 'hecho').map(x => x.id)).toEqual(['31', '32']);
     expect(transitionsTo(trs, 'porHacer')).toEqual([]);
+  });
+  it("the prod-check column takes only the transitions to the board's prod-check status; none without one", () => {
+    const withPc = [...trs, ...jiraTransitions({ transitions: [tr('71', 'Deploy', 'Prod Check', 'indeterminate')] })];
+    expect(transitionsTo(withPc, 'prodCheck', undefined, 'Prod Check').map(x => x.id)).toEqual(['71']);
+    expect(transitionsTo(withPc, 'enCurso', undefined, 'Prod Check').map(x => x.id)).toEqual(['11']);
+    expect(transitionsTo(withPc, 'prodCheck')).toEqual([]);
+    expect(transitionsTo(withPc, 'enCurso').map(x => x.id)).toEqual(['11', '71']);
   });
   it('never the status it is already in', () => {
     expect(transitionsTo(trs, 'enCurso', 'In Progress')).toEqual([]);

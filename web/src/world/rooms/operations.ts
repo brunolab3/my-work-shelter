@@ -218,8 +218,9 @@ export async function furnishLogistics(ctx: Context) {
       client.action<any>('git.prsTablero', {}).then(p => { knowTasks((p.prs ?? []).map(pRTask)); jiraBoard.set({ prs: p.prs ?? [] }); }).catch(() => {});
     }
     const { tareas, prs } = jiraBoard.get();
+    const boards = live.get().state?.settings?.verificationBoards;   // each board's prod-check status (its column)
     if (tareas) {
-      const crossing = crossBoard(tareas, prs);
+      const crossing = crossBoard(tareas, prs, boards);
       const priority = (p?: string) => /highest|blocker|critical/i.test(p ?? '') ? 1 : /high|alta/i.test(p ?? '') ? 2 : /low|baja/i.test(p ?? '') ? 4 : 3;
       const card = (i: TaskWithPR) => ({ id: i.key, color: taskColor(i.key), title: i.title, priority: priority(i.priority), sub: [i.state, i.prs.length ? `${i.prs.length} PR` : ''].filter(Boolean).join(' · '), assignee: tr('world.you') });
       board.title = 'JIRA · ' + tr('panels.myJiraTasks');

@@ -3,6 +3,7 @@
 // Puro: lo usan el cliente y las pruebas.
 import { t as tr } from './language';
 import type { ReviewLedger } from './reviewCount';
+import { boardOf, sameStatus, type BoardStatuses } from './verification';
 
 export type Category = 'new' | 'indeterminate' | 'done';
 export interface TaskJira {
@@ -45,23 +46,27 @@ export function jiraKeys(text: string, projects: Set<string> = new Set()): strin
 // estado se llama así (Blocked, Bloqueado, On hold, Impediment…), sea cual sea su categoría, salvo si ya está hecha.
 // En revisión, de «En curso»: el estado se llama así (Review, Code review, En revisión…). Solo manda el estado de Jira:
 // los PR de la tarea son informativos (salen en su ficha; su estado, en el plan de despliegue de Logística) y nunca
-// la cambian de columna.
-export type BoardColumn = 'porHacer' | 'enCurso' | 'bloqueado' | 'revision' | 'hecho';
+// la cambian de columna. Prod check: the status picked for the task's board in the vault (production verification,
+// server/verificationBoards.ts), by that setting only, never by its name; a board without one has nothing there.
+export type BoardColumn = 'porHacer' | 'enCurso' | 'bloqueado' | 'revision' | 'prodCheck' | 'hecho';
 export const COLUMNS: { id: BoardColumn; name: string }[] = [
   { id: 'porHacer', name: 'Por hacer' }, { id: 'bloqueado', name: 'Bloqueado' }, { id: 'enCurso', name: 'En curso' },
-  { id: 'revision', name: 'En revisión' }, { id: 'hecho', name: 'Hecho' },
+  { id: 'revision', name: 'En revisión' }, { id: 'prodCheck', name: 'Prueba en producción' }, { id: 'hecho', name: 'Hecho' },
 ];
 // El color de las columnas que tienen que distinguirse de un vistazo (las fichas llevan el de su tarea): verde en curso,
-// azul en revisión, rojo bloqueado
-export const COLUMN_COLORS: Partial<Record<BoardColumn, string>> = { enCurso: '#5fd98a', revision: '#5aa8ff', bloqueado: '#ff5a4a' };
+// azul en revisión, violeta prod check, rojo bloqueado
+export const COLUMN_COLORS: Partial<Record<BoardColumn, string>> = { enCurso: '#5fd98a', revision: '#5aa8ff', prodCheck: '#c18cff', bloqueado: '#ff5a4a' };
 export const isBlockedState = (state: string) => /block|bloque|impediment|on[ -]?hold|en espera/i.test(state);
-export function columnOfState(state: string, category: Category): BoardColumn {
+/** The prod-check status of a task's board (settings.verificationBoards), if one is picked */
+export const prodCheckOf = (key: string, boards: Record<string, BoardStatuses> = {}) => boards[boardOf(key) ?? '']?.test;
+export function columnOfState(state: string, category: Category, prodCheck?: string): BoardColumn {
+  if (sameStatus(state, prodCheck)) return 'prodCheck';
   if (category === 'done') return 'hecho';
   if (isBlockedState(state)) return 'bloqueado';
   if (category === 'new') return 'porHacer';
   return /review|revisi/i.test(state) ? 'revision' : 'enCurso';
 }
-export const columnOf = (t: TaskJira) => columnOfState(t.state, t.category);
+export const columnOf = (t: TaskJira, boards?: Record<string, BoardStatuses>) => columnOfState(t.state, t.category, prodCheckOf(t.key, boards));
 
 // Moving a card to another column: only the transitions Jira's workflow offers for that issue
 // (GET /rest/api/3/issue/{key}/transitions), each with the status it leads to. A column takes those whose target status
@@ -75,8 +80,8 @@ export function jiraTransitions(j: any): JiraTransition[] {
   });
 }
 export const isColumn = (c: unknown): c is BoardColumn => COLUMNS.some(x => x.id === c);
-export function transitionsTo(trs: JiraTransition[], column: BoardColumn, current?: string): JiraTransition[] {
-  return trs.filter(x => columnOfState(x.a, x.category) === column && x.a !== current);
+export function transitionsTo(trs: JiraTransition[], column: BoardColumn, current?: string, prodCheck?: string): JiraTransition[] {
+  return trs.filter(x => columnOfState(x.a, x.category, prodCheck) === column && x.a !== current);
 }
 
 // «Hecho» solo enseña lo que se movió en la última semana (Jira trae dos, server/integrations/jira.ts)
@@ -90,7 +95,7 @@ export function byEpic<T extends { key: string; epic?: Epic }>(tareas: T[]): T[]
   return tareas.map((t, i) => ({ t, i })).sort((a, b) => pos(a.t) - pos(b.t) || isEpic(a.t) - isEpic(b.t) || a.i - b.i).map(x => x.t);
 }
 
-export function crossBoard(tareas: TaskJira[], prs: PRBoard[], now = Date.now()) {
+export function crossBoard(tareas: TaskJira[], prs: PRBoard[], boards: Record<string, BoardStatuses> = {}, now = Date.now()) {
   const projects = new Set(tareas.map(t => t.key.split('-')[0]));
   const withKeys: PRWithTask[] = prs.map(p => {
     const keys = jiraKeys(`${p.branch} ${p.title}`, projects);
@@ -98,7 +103,7 @@ export function crossBoard(tareas: TaskJira[], prs: PRBoard[], now = Date.now())
   });
   const withPR: TaskWithPR[] = tareas.map(t => ({ ...t, prs: withKeys.filter(p => p.keys.includes(t.key)) }));
   return {
-    columns: COLUMNS.map(c => ({ ...c, tareas: byEpic(withPR.filter(t => columnOf(t) === c.id && (c.id !== 'hecho' || now - t.updated <= DONE_DAYS * 864e5))) })),
+    columns: COLUMNS.map(c => ({ ...c, tareas: byEpic(withPR.filter(t => columnOf(t, boards) === c.id && (c.id !== 'hecho' || now - t.updated <= DONE_DAYS * 864e5))) })),
     prs: withKeys,
     withoutTask: withKeys.filter(p => !p.tareas.length),
   };

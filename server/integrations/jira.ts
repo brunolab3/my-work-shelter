@@ -3,7 +3,7 @@
 // only one Jira's workflow offers for that issue. No notices: polling only checks the connection and counts what's open.
 import type { Store } from '../state.ts';
 import { ConnectorBase, ConfigSource, ErrorSource, ask, delay, type Field } from './common.ts';
-import { textOfADF, jiraTransitions, transitionsTo, isColumn, type BoardColumn, type Category, type Epic, type TaskJira } from '../../shared/board.ts';
+import { textOfADF, jiraTransitions, transitionsTo, isColumn, prodCheckOf, type BoardColumn, type Category, type Epic, type TaskJira } from '../../shared/board.ts';
 import { t } from '../../shared/language.ts';
 
 export const FIELDS_JIRA: Field[] = [
@@ -88,7 +88,8 @@ class Jira extends ConnectorBase {
 
   private async transitionsTo(key: string, column: BoardColumn, current?: unknown) {
     const { json } = await this.api(`/rest/api/3/issue/${key}/transitions`);
-    return transitionsTo(jiraTransitions(json), column, typeof current === 'string' ? current : undefined);
+    const boards = (this.store.state.settings as any).verificationBoards;   // the prod-check column is its board's status
+    return transitionsTo(jiraTransitions(json), column, typeof current === 'string' ? current : undefined, prodCheckOf(key, boards));
   }
 
   protected async pollReal() {

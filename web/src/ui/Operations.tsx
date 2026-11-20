@@ -237,6 +237,7 @@ export function JiraBoard({ goBack, coordination }: { goBack: () => void; coordi
   const ints = live.use(e => e.integrations);
   const sessions = live.use(e => e.sessions);
   const rooms: any[] = live.use(e => e.state?.rooms ?? []);
+  const boards = live.use(e => e.state?.settings?.verificationBoards);   // each board's prod-check status (its column)
   const roomName = (id: string) => rooms.find(s => s.id === id)?.name ?? id;
   const coord = rooms.find(s => s.type === 'coordinacion' && s.path && (!coordination || s.id === coordination));
   const [notice, setNotice] = useState('');
@@ -256,7 +257,7 @@ export function JiraBoard({ goBack, coordination }: { goBack: () => void; coordi
     client.action<any>('git.prsTablero', {}).then(d => { setGh(d); jiraBoard.set({ prs: d?.prs ?? [] }); }).catch(e => setGh({ prs: [], error: e.message }));
   };
   useEffect(() => { load(); }, []);
-  const crossing = useMemo(() => crossBoard(jira?.tareas ?? [], gh?.prs ?? []), [jira, gh]);
+  const crossing = useMemo(() => crossBoard(jira?.tareas ?? [], gh?.prs ?? [], boards), [jira, gh, boards]);
   useColorsTasks();
   useEffect(() => knowTasks([...(jira?.tareas ?? []).map(t => t.key), ...(gh?.prs ?? []).map(pRTask)]), [jira, gh]);
   const columns = crossing.columns.filter(c => showDone || c.id !== 'hecho');
@@ -268,7 +269,7 @@ export function JiraBoard({ goBack, coordination }: { goBack: () => void; coordi
   const colName = (c: BoardColumn) => tIs(COLUMNS.find(x => x.id === c)!.name);
   // which of Jira's transitions lead to that column: none says so, one or more open the confirmation
   const propose = (ta: TaskWithPR | undefined, column: BoardColumn | undefined) => {
-    if (!ta || !column || column === columnOf(ta) || move) return;
+    if (!ta || !column || column === columnOf(ta, boards) || move) return;
     if (jira?.demo) { setNotice(t('panels.jiraDemoCantMove')); SFX.notAllowed(); return; }
     setNotice(t('panels.jiraAskingTransitions', { clave: ta.key }));
     client.action<{ transitions: JiraTransition[] }>('integracion.transiciones', { source: 'jira', key: ta.key, column, current: ta.state }).then(({ transitions }) => {
@@ -327,7 +328,7 @@ export function JiraBoard({ goBack, coordination }: { goBack: () => void; coordi
       <div ref={kanban} className="kanban" style={{ gridTemplateColumns: `repeat(${Math.max(1, columns.length)}, 1fr)` }}>
         {columns.map((c, ci) => (
           <div key={c.id} className={'kanban-col' + (COLUMN_COLORS[c.id] ? ' kanban-estado' : '') + (ci === col ? ' activa' : '') + (restsOn === c.id ? ' soltar' : '')} style={{ '--estado': COLUMN_COLORS[c.id] } as React.CSSProperties}
-            onDragOver={e => { if (dragged && columnOf(dragged) !== c.id) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setOver(c.id); } }}
+            onDragOver={e => { if (dragged && columnOf(dragged, boards) !== c.id) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setOver(c.id); } }}
             onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setOver(x => (x === c.id ? null : x)); }}
             onDrop={e => { e.preventDefault(); const ta = dragged; setDragged(null); setOver(null); propose(ta ?? undefined, c.id); }}>
             <h3>{tIs(c.name)} <span className="tenue">{c.tareas.length}</span></h3>

@@ -145,7 +145,7 @@ const ctxTrackers: CtxTrackers = {
   action: (name, d) => integrations.action(name, d),
   connected: f => { const s = integrations.states()[f]; return s?.mode === 'real' && s.state === 'conectada'; },
   settings: () => ((store.state.settings as any).verificationBoards ?? {}) as Record<string, BoardStatuses>,
-  save: (board, v) => { const a = store.state.settings as any; a.verificationBoards = { ...a.verificationBoards, [board]: v }; store.save(); },
+  save: (board, v) => { const a = store.state.settings as any; a.verificationBoards = { ...a.verificationBoards, [board]: v }; store.save(); broadcast({ t: 'estado', state: store.state as any }); },   // the board's prod-check column follows it
 };
 // bloqueos entre PR marcados a mano en el tablero de despliegue de la sala de planificación
 const prBlockers = new BlockersPR(DATA);

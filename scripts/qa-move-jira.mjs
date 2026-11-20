@@ -70,7 +70,7 @@ try {
     window.__game.set({ panel: 'logistica', panelData: { view: 'jira' } });
   });
   const calls = n => pg.evaluate(n => window.__calls.filter(x => x[0] === n).map(x => x[1]), n);
-  const col = k => `.kanban-col:nth-child(${k})`;   // 1 Por hacer, 2 Bloqueado, 3 En curso, 4 En revisión, 5 Hecho
+  const col = k => `.kanban-col:nth-child(${k})`;   // 1 Por hacer, 2 Bloqueado, 3 En curso, 4 En revisión, 5 Prueba en producción, 6 Hecho
   const card = key => `.ficha-issue:has(.ident:text-is("${key}"))`;
   const confirmation = () => pg.textContent('.mover-jira').catch(() => '');
   check(await until(async () => (await pg.$$('.ficha-issue')).length === 3), 'the board shows the three tasks');
@@ -91,14 +91,14 @@ try {
   check(await until(async () => /In Progress/.test(await pg.textContent(`${card('QA-5')} .movida`).catch(() => '')) && !!(await pg.$(`${col(3)} ${card('QA-5')}`))), 'the card says it moved and lands in «En curso»');
   check(await until(async () => /QA-5/.test(await pg.textContent('.ficha-issue.sel').catch(() => ''))), '…still selected');
 
-  await pg.dragAndDrop(card('QA-9'), col(5));
+  await pg.dragAndDrop(card('QA-9'), col(6));
   check(await until(async () => (await pg.$$('.mover-jira li')).length === 2 && /QA-9: In Progress → Done/.test(await confirmation())), 'QA-9 onto «Hecho»: two transitions lead there, listed to pick');
   await pg.keyboard.press('ArrowDown');
   check(await until(async () => /QA-9: In Progress → Closed/.test(await confirmation())), '↓ picks «Won\'t do → Closed»');
   await pg.waitForTimeout(300); await pg.screenshot({ path: path.join(dir, 'mover-jira-elegir.png'), animations: 'disabled' });
   await pg.keyboard.press('Enter');
   check(await until(async () => (await calls('integracion.mover')).some(d => d.key === 'QA-9' && d.id === '32')), 'Enter posts the picked one (id 32)');
-  check(await until(async () => !!(await pg.$(`${col(5)} ${card('QA-9')}`))), 'QA-9 lands in «Hecho»');
+  check(await until(async () => !!(await pg.$(`${col(6)} ${card('QA-9')}`))), 'QA-9 lands in «Hecho»');
 
   await pg.dragAndDrop(card('QA-12'), col(2));
   check(await until(async () => /QA-12/.test(await pg.textContent('.aviso-consola').catch(() => ''))) && !(await pg.$('.mover-jira')), 'a column the workflow doesn\'t reach (Bloqueado): a notice, no confirmation');
