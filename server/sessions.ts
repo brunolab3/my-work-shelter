@@ -57,6 +57,8 @@ interface Session {
   partialText: string;
   // whether the main agent has written text to the user this turn, and whether a question without it was already held back
   textInTurn?: boolean; askHeld?: boolean;
+  // an API error in this turn (a usage limit, overloaded...): the SDK may still end the turn as a success
+  apiErrorInTurn?: { error: string; text: string };
   shipments: Promise<void>;   // los mensajes con imágenes tardan un poco en prepararse: salen en orden
   trustWaiting?: boolean; loadProject?: boolean;   // ver preguntarConfianza()
   // the usage limit stopped this turn (a `rejected` rate limit event or a limit error): its reset in ms, 0 if unknown
@@ -477,8 +479,13 @@ export class Sessions extends EventEmitter {
           else if (b.type === 'thinking' && !parent) r.activity = { tool: '', text: t('windows.thinking'), mode: 'pensar' };
           else if (b.type === 'tool_use') this.onUseTool(x, b.id, b.name, b.input ?? {}, parent);
         }
-        if ((m as any).error === 'rate_limit' && !parent) x.limitHit ??= this.lastReset ?? 0;
-        else if ((m as any).error && !parent) this.add(x, this.input('error', t('server.apiError', { error: (m as any).error })));
+        if ((m as any).error && !parent) {
+          const error = String((m as any).error);
+          const text = ((m.message?.content ?? []) as any[]).filter(b => b.type === 'text').map(b => String(b.text)).join('\n').trim();
+          x.apiErrorInTurn = { error, text: text || error };
+          if (error === 'rate_limit') x.limitHit ??= this.lastReset ?? 0;
+          else this.add(x, this.input('error', t('server.apiError', { error })));
+        }
         // un turno que empieza sin que lo mande el intercomunicador (lo que quedaba en cola, el aviso de una tarea en
         // segundo plano) también es trabajar: si no, se ve parado y Ctrl+C no lo para
         if (!parent && ['arrancando', 'terminada', 'ociosa', 'error'].includes(r.state)) r.state = 'trabajando';
@@ -511,9 +518,12 @@ export class Sessions extends EventEmitter {
         this.measureContext(x);
         const seg = Math.round((res.duration_ms ?? 0) / 1000);
         const interrupted = x.interrupting;
+        const apiError = x.apiErrorInTurn; x.apiErrorInTurn = undefined;
         if (x.interrupting) { x.interrupting = false; r.state = 'terminada'; this.add(x, this.input('sistema', t('server.interrupted'))); }
+        // the SDK may end a turn that only got an API error as a success: the error decides
+        else if (x.limitHit !== undefined && (apiError || res.subtype !== 'success' || res.is_error)) this.limitStop(x);
+        else if (apiError) { r.state = 'error'; r.error = apiError.text; this.add(x, this.input('error', t('server.theJobGotStuck', { por: apiError.text }))); }
         else if (res.subtype === 'success' && !res.is_error) { r.state = 'terminada'; x.limitHit = undefined; if (res.result) r.lastText = res.result; this.add(x, this.input('resultado', t('server.doneInS', { seg }))); }
-        else if (x.limitHit !== undefined) this.limitStop(x);
         else { r.state = 'error'; const by = (res.errors as string[] | undefined)?.join('\n') || res.result || res.subtype; r.error = by; this.add(x, this.input('error', t('server.theJobGotStuck', { por: by }))); }
         r.unread = true; r.activity = undefined; x.partialText = '';
         if (x.pending.length) r.state = 'esperando';
