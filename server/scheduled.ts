@@ -24,7 +24,10 @@ export interface CtxScheduled {
   rooms(): { id: string; name: string; dweller?: unknown }[];
   // la entrega: el id de la conversación que lo recibe (lanza un error si no se pudo: se reintenta)
   toConversation(x: ScheduledMessage & { target: Extract<ScheduledTarget, { type: 'conversacion' }> }, text: string): Promise<string>;
-  toRoom(x: ScheduledMessage & { target: Extract<ScheduledTarget, { type: 'sala' }> }, text: string): Promise<{ ok: boolean; text: string }>;
+  // `limited`: still over send_to_room's per-minute limit, retried on the next round without a warning
+  toRoom(x: ScheduledMessage & { target: Extract<ScheduledTarget, { type: 'sala' }> }, text: string): Promise<{ ok: boolean; text: string; limited?: boolean }>;
+  // a sweep at that time (an over-limit message is due within the minute)
+  wake?(at: number): void;
   changed(list: ScheduledMessage[]): void;
   notice(text: string): void;
   now?(): number;
@@ -92,6 +95,19 @@ export class Scheduled {
     this.items.push(x); this.save();
     return x.id;
   }
+  /** A send_to_room over its per-minute limit (roomNotices.ts): the same room, key or thread and text, delivered at
+   *  `when` with no weekend hold. Counts towards the conversation's list; none when it is full */
+  defer(since: string, fromSession: string | undefined, a: { room: string; key?: string; thread?: string; message: string }, when: number): ScheduledMessage | undefined {
+    const s = fromSession ? this.ctx.session(fromSession) : undefined;
+    if (ofConversation(this.items, { id: fromSession, claudeId: s?.claudeId }).length >= MAX_PER_CONVERSATION || this.items.length >= MAX_TOTAL) return undefined;
+    const now = this.now();
+    const x: ScheduledMessage = { id: randomUUID().slice(0, 8), created: now, when, requested: new Date(when).toISOString(), message: a.message.slice(0, MAX_TEXT),
+      origin: { roomId: since, sessionId: fromSession, claudeId: s?.claudeId }, target: { type: 'sala', room: a.room, ...(a.key ? { key: a.key } : {}), ...(a.thread ? { thread: a.thread } : {}) }, overLimit: true };
+    this.items.push(x); this.save(); this.ctx.wake?.(when);
+    return x;
+  }
+  /** When the pending over-limit messages from one room to another go out */
+  overLimit(since: string, roomId: string) { return this.items.filter(x => x.overLimit && x.origin.roomId === since && x.target.type === 'sala' && x.target.room === roomId).map(x => x.when); }
   pending(id: string) { return this.items.some(x => x.id === id); }
 
   /** Quitar uno: el Supervisor cualquiera; un habitante (`desdeSesion`), solo los de su conversación */
@@ -119,6 +135,7 @@ export class Scheduled {
 
   /** El mensaje que recibe el habitante: cuándo se programó (y si llega tarde) y el texto */
   text(x: ScheduledMessage, now = this.now()) {
+    if (x.overLimit) return x.message;
     return [t('prompt.scheduled.title', { creado: describeWhen(x.created) }) + (isLate(x, now) ? ' ' + t('prompt.scheduled.late', { cuando: describeWhen(x.when) }) : ''), '', x.message].join('\n');
   }
 
@@ -126,12 +143,21 @@ export class Scheduled {
   async sweep() {
     if (this.sweeping) return;
     this.sweeping = true;
+    // over-limit messages go out in order: one that couldn't holds the next ones to the same room
+    const held = new Set<string>();
     try {
       for (const x of due(this.items, this.now())) {
         if (!this.items.includes(x)) continue;   // cancelado mientras se entregaba otro
+        const pair = x.overLimit && x.target.type === 'sala' ? `${x.origin.roomId}>${x.target.room}` : undefined;
+        if (pair && held.has(pair)) continue;
         let error: string | undefined;
         try {
-          if (x.target.type === 'sala') { const r = await this.ctx.toRoom(x as any, this.text(x)); if (!r.ok) error = r.text; }
+          if (x.target.type === 'sala') {
+            const r = await this.ctx.toRoom(x as any, this.text(x));
+            if (!r.ok && pair) held.add(pair);
+            if (!r.ok && r.limited) continue;
+            if (!r.ok) error = r.text;
+          }
           else await this.ctx.toConversation(x as any, this.text(x));
         } catch (e) { error = (e as Error).message; }
         if (error) {

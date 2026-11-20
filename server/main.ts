@@ -177,7 +177,7 @@ const ctxRooms: CtxRooms = {
   messenger: (since, a, reason) => ctxPlan.messenger(since, a, reason),
   delivery: (room, a) => broadcast({ t: 'entrega', room, ...a }),
   notice: text => broadcast({ t: 'aviso', level: 'info', text }),
-  scheduled: { schedule: (...a) => scheduled.schedule(...a), ofConversation: id => scheduled.ofConversation(id), cancel: (id, since) => scheduled.cancel(id, since) },
+  scheduled: { schedule: (...a) => scheduled.schedule(...a), ofConversation: id => scheduled.ofConversation(id), defer: (...a) => scheduled.defer(...a), overLimit: (...a) => scheduled.overLimit(...a), cancel: (id, since) => scheduled.cancel(id, since) },
   verifications: { plans: verifications,
     conversation: id => { const s = id ? sessions.list().find(x => x.id === id) : undefined; return s && { roomId: s.roomId, sessionId: s.id, claudeId: s.claudeId, cwd: path.resolve(s.worktree ?? s.cwd), title: s.title }; },
     taskOfSession: id => { const s = id ? sessions.list().find(x => x.id === id) : undefined; return s ? worktreeTask({ path: s.worktree ?? s.cwd }) : undefined; } },
@@ -582,7 +582,8 @@ const scheduled: Scheduled = new Scheduled(DATA, {
     broadcast({ t: 'aviso', level: 'info', text: t('server.scheduledDelivered', { sala: room ? roomNameIs(room) : d.roomId, resumen: summary(x.message) }) });
     return id;
   },
-  toRoom: (x, text) => sendToRoom(ctxRooms, x.origin.roomId, { room: x.target.room, key: x.target.key, message: text }, x.origin.sessionId),
+  toRoom: (x, text) => sendToRoom(ctxRooms, x.origin.roomId, { room: x.target.room, key: x.target.key, thread: x.target.thread, message: text }, x.origin.sessionId, { scheduled: true }),
+  wake: at => { setTimeout(() => { scheduled.sweep().catch(() => {}); }, Math.max(0, at - Date.now()) + 1_000).unref(); },
   changed: list => broadcast({ t: 'programados', list }),
   notice: text => broadcast({ t: 'aviso', level: 'aviso', text }),
 });

@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { sendToRoom, requestCleanup, taskWorktree, forgetLimits, forgetThreads, type CtxRooms } from './roomNotices.ts';
 import { infoRepo, worktreeList } from './repos.ts';
+import { Scheduled } from './scheduled.ts';
 
 const ROOMS = [
   { id: 'express', name: 'app-web', dweller: { id: 'remi', name: 'Remi' } },
@@ -353,4 +354,68 @@ describe('mensajes entre salas', () => {
     expect(taskWorktree(info.worktrees, 'ABC-9')).toBeUndefined();
     expect(taskWorktree(info.worktrees, 'ABC-1')).toBeUndefined();
   }, 30_000);
+});
+
+describe('over the per-minute limit', () => {
+  beforeEach(() => { forgetLimits(); forgetThreads(); });
+  // the real scheduled messages, delivering through sendToRoom like main.ts
+  function withScheduled(timer: { t: number }) {
+    const x = ctx({ timer }), notices: string[] = [];
+    const p = new Scheduled(mkdtempSync(path.join(tmpdir(), 'limite-')), {
+      session: () => undefined, rooms: () => ROOMS,
+      toConversation: async () => { throw new Error('no'); },
+      toRoom: (m, text) => sendToRoom(x.c, m.origin.roomId, { room: m.target.room, key: m.target.key, thread: m.target.thread, message: text }, m.origin.sessionId, { scheduled: true }),
+      changed: () => {}, notice: t => notices.push(t), now: () => timer.t,
+    });
+    x.c.scheduled = { schedule: (...a) => p.schedule(...a), ofConversation: id => p.ofConversation(id), cancel: (id, s) => p.cancel(id, s), defer: (...a) => p.defer(...a), overLimit: (...a) => p.overLimit(...a) };
+    return { ...x, p, notices };
+  }
+
+  it('is scheduled for when the window frees up, in order and spaced, and goes out as if sent then', async () => {
+    const t0 = 1_000_000, timer = { t: t0 }, x = withScheduled(timer);
+    const rs = [];
+    for (let i = 1; i <= 7; i++) rs.push(await sendToRoom(x.c, 'tareas', { room: 'pagos', key: `ABC-${i}`, message: `Task ${i}` }, 'yo'));
+    expect(rs.every(r => r.ok)).toBe(true);
+    expect(x.fresh.map(f => f.prompt.includes('Task 1') || f.prompt.includes('Task 2') || f.prompt.includes('Task 3'))).toEqual([true, true, true]);
+    const l = x.p.list();
+    expect(rs[3].text).toContain(l[0].id);
+    expect(l.map(m => [m.message, m.when - t0, m.target])).toEqual([
+      ['Task 4', 60_000, { type: 'sala', room: 'pagos', key: 'ABC-4' }], ['Task 5', 60_000, { type: 'sala', room: 'pagos', key: 'ABC-5' }],
+      ['Task 6', 60_000, { type: 'sala', room: 'pagos', key: 'ABC-6' }], ['Task 7', 120_000, { type: 'sala', room: 'pagos', key: 'ABC-7' }],
+    ]);
+    // while some wait, a new one queues behind them even with room in the window
+    timer.t = t0 + 60_000;
+    await x.p.sweep();
+    expect(x.fresh.slice(3).map(f => f.prompt.split('\n')[2])).toEqual(['Task 4', 'Task 5', 'Task 6']);
+    expect(x.fresh[3].prompt).toContain('Logística');
+    expect(x.fresh[3].prompt).not.toContain('⏰');
+    const r = await sendToRoom(x.c, 'tareas', { room: 'pagos', message: 'Then this', thread: 'deps' }, 'yo');
+    expect(r.ok).toBe(true);
+    expect(x.p.list().map(m => [m.message, m.when - t0])).toEqual([['Task 7', 120_000], ['Then this', 120_000]]);
+    expect(x.p.list()[1].target).toEqual({ type: 'sala', room: 'pagos', thread: 'deps' });
+    // swept early (over the limit still): kept, without a warning
+    timer.t = t0 + 119_000;
+    x.p['items'].forEach(m => { m.when = timer.t; });
+    await x.p.sweep();
+    expect(x.p.list()).toHaveLength(2);
+    expect(x.notices).toEqual([]);
+    timer.t = t0 + 120_000;
+    await x.p.sweep();
+    expect(x.fresh.slice(6).map(f => f.prompt.split('\n')[2])).toEqual(['Task 7', 'Then this']);
+    expect(x.p.list()).toEqual([]);
+    // nothing waiting: straight away again
+    timer.t = t0 + 200_000;
+    expect(await sendToRoom(x.c, 'tareas', { room: 'pagos', message: 'Now' }, 'yo')).toMatchObject({ ok: true });
+    expect(x.p.list()).toEqual([]);
+    expect(x.fresh.at(-1)!.prompt).toContain('\nNow\n');
+  });
+
+  it("with the conversation's scheduled list full, today's error", async () => {
+    const timer = { t: 1_000_000 }, x = withScheduled(timer);
+    for (let i = 0; i < 10; i++) x.p.defer('tareas', 'yo', { room: 'express', message: 'x' }, timer.t + 3_600_000);
+    for (let i = 0; i < 3; i++) expect((await sendToRoom(x.c, 'tareas', { room: 'pagos', message: `m${i}` }, 'yo')).ok).toBe(true);
+    const r = await sendToRoom(x.c, 'tareas', { room: 'pagos', message: 'one too many' }, 'yo');
+    expect(r).toMatchObject({ ok: false, limited: true });
+    expect(x.p.list()).toHaveLength(10);
+  });
 });

@@ -1127,7 +1127,7 @@ function ScheduledMenu({ h, s, resume }: { h: DwellerSummary; s?: SessionSummary
     client.action('programados.editar', { id: editing.id, when: editing.when, message: editing.message })
       .then(() => { setEditing(null); SFX.click(); }).catch(e => { setEditing(x => x && { ...x, error: (e as Error).message }); SFX.notAllowed(); });
   };
-  const target = (x: ScheduledMessage) => x.target.type === 'sala' ? `→ ${x.target.room}${x.target.key ? ' ' + x.target.key : ''}`
+  const target = (x: ScheduledMessage) => x.target.type === 'sala' ? `→ ${x.target.room}${x.target.key ?? x.target.thread ? ' ' + (x.target.key ?? x.target.thread) : ''}`
     : conversation ? t('windows.scheduledToThis') : t('windows.scheduledToConversation', { titulo: x.target.title || t('windows.conversation') });
   return (
     <span className="paginas-sesion programados-sesion">

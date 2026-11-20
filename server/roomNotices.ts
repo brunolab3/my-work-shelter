@@ -45,6 +45,10 @@ export interface CtxRooms {
   scheduled?: {
     schedule(since: string, fromSession: string | undefined, a: { when: string; message: string; room?: string; key?: string }): { ok: boolean; text: string };
     ofConversation(sessionId?: string): ScheduledMessage[];
+    // a send_to_room over the per-minute limit, scheduled for `when` (none if the conversation's list is full), and when
+    // the pending ones from one room to another go out
+    defer(since: string, fromSession: string | undefined, a: { room: string; key?: string; thread?: string; message: string }, when: number): ScheduledMessage | undefined;
+    overLimit(since: string, roomId: string): number[];
     cancel(id: string, fromSession?: string): boolean;
   };
   // production verification plans (verifications.ts): verification_plan and verification_report, for the task of the
@@ -78,8 +82,10 @@ export function taskWorktree(worktrees: InfoWorktree[], taskKeyOf: string): stri
 
 const findRoom = (rooms: RoomInfo[], q: string) => { const k = q.trim().toLowerCase(); return rooms.find(s => s.id.toLowerCase() === k) ?? rooms.find(s => s.name.toLowerCase() === k); };
 
-/** `fromSession`: la conversación que lo envía (en su misma sala, no puede ser la que lo recibe) */
-export async function sendToRoom(ctx: CtxRooms, since: string, { room, message, key: taskKeyOf, thread: requestedThread }: { room: string; message: string; key?: string; thread?: string }, fromSession?: string): Promise<{ ok: boolean; text: string }> {
+/** `fromSession`: the conversation sending it (in its own room, it can't be the one receiving it). Over the per-minute
+ *  limit, or behind other over-limit ones still waiting, it is scheduled for when the window frees up; `scheduled`: it is
+ *  one of those, being delivered (`limited` if still over the limit, for the next round) */
+export async function sendToRoom(ctx: CtxRooms, since: string, { room, message, key: taskKeyOf, thread: requestedThread }: { room: string; message: string; key?: string; thread?: string }, fromSession?: string, o: { scheduled?: boolean } = {}): Promise<{ ok: boolean; text: string; limited?: boolean }> {
   const rooms = ctx.rooms();
   const origin = rooms.find(s => s.id === since), target = findRoom(rooms, room);
   if (!target) return { ok: false, text: tr('tool.rooms.noRoom', { sala: room, salas: rooms.map(s => `${s.id} (${s.name})`).join(', ') }) };
@@ -93,7 +99,15 @@ export async function sendToRoom(ctx: CtxRooms, since: string, { room, message, 
   if (k && thread) return { ok: false, text: tr('tool.rooms.keyAndThread') };
   const now = ctx.now?.() ?? Date.now(), pair = `${since}>${target.id}`;
   const recent = (sent.get(pair) ?? []).filter(x => now - x < WINDOW);
-  if (recent.length >= LIMIT) return { ok: false, text: tr('tool.rooms.limit', { n: LIMIT, sala: target.name }) };
+  const queued = o.scheduled ? [] : ctx.scheduled?.overLimit(since, target.id) ?? [];
+  if (recent.length >= LIMIT || queued.length) {
+    // the first time with fewer than LIMIT sends in the minute before it, counting the ones already waiting
+    const times = [...recent, ...queued].sort((a, b) => a - b);
+    const when = Math.max(now, times.length >= LIMIT ? times[times.length - LIMIT] + WINDOW : now);
+    const x = o.scheduled ? undefined : ctx.scheduled?.defer(since, fromSession, { room: target.id, key: k, thread, message: message.trim() }, when);
+    if (x) return { ok: true, text: tr('tool.rooms.deferred', { n: LIMIT, sala: target.name, cuando: describeWhen(x.when), id: x.id }) };
+    if (recent.length >= LIMIT) return { ok: false, limited: true, text: tr('tool.rooms.limit', { n: LIMIT, sala: target.name }) };
+  }
   const frame = (k?: string) => [
     tr('prompt.room.from', { sala: origin?.name ?? since, habitante: origin?.dweller?.name ?? '?', tarea: k ? tr('prompt.room.task', { clave: k }) : thread ? tr('prompt.room.thread', { hilo: thread }) : '' }),
     '', message.trim(), '', ...k ? [tr('prompt.room.outside')] : [], tr('prompt.room.reply', { salaId: since }),
@@ -186,7 +200,7 @@ export function mcpRooms(ctx: CtxRooms, since: string, fromSession?: string, inW
 
 // mensajes programados (scheduled.ts): para más adelante, a esta misma conversación o a una sala
 function scheduleTools(p: NonNullable<CtxRooms['scheduled']>, since: string, fromSession?: string) {
-  const line = (x: ScheduledMessage) => `- ${x.id} · ${describeWhen(x.when)} · ${x.target.type === 'sala' ? tr('tool.schedule.toRoom', { sala: x.target.room + (x.target.key ? ' ' + x.target.key : '') }) : tr('tool.schedule.toThis')}: ${x.message.replace(/\s+/g, ' ').slice(0, 160)}`;
+  const line = (x: ScheduledMessage) => `- ${x.id} · ${describeWhen(x.when)} · ${x.target.type === 'sala' ? tr('tool.schedule.toRoom', { sala: x.target.room + (x.target.key ?? x.target.thread ? ' ' + (x.target.key ?? x.target.thread) : '') }) : tr('tool.schedule.toThis')}: ${x.message.replace(/\s+/g, ' ').slice(0, 160)}`;
   return [
     tool('schedule_message', tr('tool.schedule.description', { n: MAX_PER_CONVERSATION, dias: MAX_DAYS }),
       {

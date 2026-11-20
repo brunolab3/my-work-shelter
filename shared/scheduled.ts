@@ -8,7 +8,7 @@ import { worktreeHasTask } from './tasks.ts';
 /** A dónde va: a la propia conversación que lo programó (se retoma por su `claudeId`) o, como send_to_room, a una sala */
 export type ScheduledTarget =
   | { type: 'conversacion'; roomId: string; sessionId?: string; claudeId?: string; cwd: string; title?: string }
-  | { type: 'sala'; room: string; key?: string };
+  | { type: 'sala'; room: string; key?: string; thread?: string };
 
 export interface ScheduledMessage {
   id: string;
@@ -19,6 +19,8 @@ export interface ScheduledMessage {
   // quién lo programó: su sala y su conversación (la del juego y la de Claude Code, que sobrevive a los reinicios)
   origin: { roomId: string; sessionId?: string; claudeId?: string };
   target: ScheduledTarget;
+  // a send_to_room over its per-minute limit (server/roomNotices.ts): delivered verbatim, as if sent then
+  overLimit?: true;
 }
 
 export const SCHEDULE_HOUR = 9;                 // un día sin hora («el lunes») es a las 9:00
