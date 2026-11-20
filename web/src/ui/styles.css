@@ -288,7 +288,6 @@ html, body { margin: 0; height: 100%; background: var(--fondo); overflow: hidden
 .consola-acciones .paginas-sesion { position: relative; width: 100%; }
 .programados-lista li { gap: .6em; }
 .programados-lista .pagina-nombre { cursor: default; }
-.programados-lista .programados-fondo { border-top: 1px dashed var(--fosforo-tenue); margin-top: .3em; padding-top: .3em; font-size: .9em; }   /* background work: next free 5h window */
 .programados-lista .programado-edicion { flex-direction: column; align-items: stretch; white-space: normal; }
 .programado-edicion input, .programado-edicion textarea { background: #050a05; color: var(--fosforo); border: 1px solid var(--fosforo-tenue); font: inherit; padding: .3em; color-scheme: dark; }
 .paginas-lista .pr-marca { flex: none; }

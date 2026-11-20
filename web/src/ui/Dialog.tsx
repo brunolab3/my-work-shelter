@@ -1088,10 +1088,9 @@ function ScheduledMenu({ h, s, resume }: { h: DwellerSummary; s?: SessionSummary
   const all = live.use(e => e.scheduled);
   const worktrees = live.use(e => e.repos[h.room]?.worktrees);
   const conversation = s ?? (resume ? { claudeId: resume } : undefined);
-  // the dated ones first, then the background work waiting for the next free 5-hour window, under its divider
+  // the dated ones first, then the background work, pending until the next free 5-hour window (no time of its own)
   const mine = useMemo(() => { const l = conversation ? ofConversation(all, conversation) : ofPlace(all, h.room, h.copy?.path, worktrees ?? []); return [...l.filter(x => !x.nextWindow), ...l.filter(x => x.nextWindow)]; },
     [all, worktrees, s?.id, s?.claudeId, resume, h.room, h.copy?.path]);
-  const firstBackground = mine.find(x => x.nextWindow)?.id;
   const [open, setOpen] = useState(false);
   const list = useListAtButton(open);
   const [editing, setEditing] = useState<{ id: string; when: string; message: string; error?: string } | null>(null);
@@ -1111,7 +1110,6 @@ function ScheduledMenu({ h, s, resume }: { h: DwellerSummary; s?: SessionSummary
         {t(mine.length > 1 ? 'windows.scheduledN' : 'windows.scheduled', { n: mine.length, cuando: mine[0].nextWindow ? t('windows.scheduledWindow') : describeWhenShort(mine[0].when) })}
       </button>
       {open && <ul ref={list} className="paginas-lista programados-lista" onKeyDown={e => { e.stopPropagation(); if (e.key === 'Escape') { setEditing(null); setOpen(false); } }}>{mine.map(x => <Fragment key={x.id}>
-        {x.id === firstBackground && <li className="programados-fondo tenue" title={t('windows.nextWindowHint')}>⏳ {t('windows.scheduledBackground')}</li>}
         {editing?.id === x.id
         ? <li className="programado-edicion">
             <input type="datetime-local" value={editing.when} onChange={e => setEditing({ ...editing, when: e.target.value, error: undefined })} />
@@ -1120,7 +1118,7 @@ function ScheduledMenu({ h, s, resume }: { h: DwellerSummary; s?: SessionSummary
             <span><button className="consola-x" onClick={save}>{t('windows.scheduledSave')}</button> <button className="consola-x" onClick={() => setEditing(null)}>✕</button></span>
           </li>
         : <li title={x.message}>
-            {x.nextWindow ? <span title={t('windows.nextWindowHint') + '\n' + describeWhen(x.when)}>{t('windows.scheduledWindow')}</span>
+            {x.nextWindow ? <span className="tenue" title={t('windows.nextWindowHint') + '\n' + describeWhen(x.when)}>{t('windows.scheduledWindow')}</span>
               : <span className={x.when < Date.now() ? 'urgente' : ''} title={x.when < Date.now() ? t('windows.scheduledLate') : describeWhen(x.when)}>⏰ {describeWhenShort(x.when)}</span>}
             <span className="tenue">{target(x)}</span>
             <span className="pagina-nombre">{x.message.replace(/\s+/g, ' ')}</span>
