@@ -48,10 +48,8 @@ import { groupTabs, talkerFirst } from './tabOrder';
 import { jiraBoard, knowTasks, myPRs, useColorsTasks } from './tasks';
 import { type AttachmentLocal, uploadFiles, chooseFiles, uploading, listsPaths, AttachmentsTray, SentAttachments, useDictation, InputButtons, DictationStrip, attachShortcut } from './inputLine';
 
-type View = { type: 'menu' } | { type: 'nuevo'; resume?: HistoryElement } | { type: 'historial' } | { type: 'visitantes' } | { type: 'ficha' } | { type: 'sesion'; sessionId: string };
-// recuerdo: la conversación de la pestaña (para retomarla con lo escrito si se cierra sin que el Supervisor la cierre)
-interface TabCom { id: string; view: View; draft?: string; attachments?: AttachmentLocal[]; reason?: { request: string; text: string }; sessionWait?: boolean; memory?: HistoryElement }
-export interface WindowCom { dwellerId: string; tabs: TabCom[]; active: string; maximized: boolean; z: number; known: string[]; confirm?: string[] }
+import { syncIntercoms, readyAttachments, withText, type View, type TabCom, type WindowCom } from './intercomSync';
+export { withText, type WindowCom };
 export const intercoms = new Store<{ list: WindowCom[] }>({ list: [] });
 
 const PREFERENCES = 'refugio.trabajo';
@@ -72,8 +70,6 @@ const created = (id: string) => Number(id.slice(1));
 const SAVED = 'refugio.intercoms';
 type SavedTab = Pick<TabCom, 'view' | 'draft' | 'attachments' | 'memory'>;
 interface SavedWindow { dwellerId: string; maximized: boolean; known: string[]; active: number; tabs: SavedTab[] }
-const readyAttachments = (l?: AttachmentLocal[]) => (l ?? []).filter(a => a.path && !a.error);
-export const withText = (p: TabCom) => !!p.draft?.trim() || readyAttachments(p.attachments).length > 0;
 function saveIntercoms() {
   const list: SavedWindow[] = [];
   for (const v of intercoms.get().list) {
@@ -284,65 +280,16 @@ function takeTab(hid: string, pid: string) {
   takeASurface({ sessions: [s.id] });
 }
 
-// Cada trabajo vivo tiene su pestaña: los que llegan de fuera (un visitante, un reinicio) la abren solos, y la
-// ventana de quien trabaja sin estar a la vista espera en la barra. Las pestañas de conversaciones que se han cerrado
-// (a mano o solas, a la media hora quietas) se van, salvo si tienen algo escrito: se quedan para retomarla con ello;
-// y las que se han mudado a un worktree pasan a su copia (con lo escrito).
-// Solo con la lista de sesiones de esta conexión: antes de la bienvenida (al cargar la página) o sin conexión, la que
-// hay no vale y se quitarían pestañas que siguen vivas.
+// Each live conversation has its tab, and one that starts by itself never takes the one in view (intercomSync.ts).
+// Only with this connection's session list: before the welcome (on page load) or offline, the one there is not valid
+// and tabs still alive would be removed.
 let onDay = false;
 function sync() {
   if (!onDay) return;
-  const sessions = live.get().sessions, talking = juego.get().talkingWith;
   const list = intercoms.get().list;
-  let next = list, changed = false, handoff: string | null = null;
-  const liveByDweller = new Map<string, SessionSummary[]>(), owner = new Map<string, string>();
-  const moved = new Map<string, TabCom>();   // pestañas de conversaciones que pasan a otra ventana (una copia)
-  for (const s of Object.values(sessions)) if (s.state !== 'cerrada' && !closingSessions.has(s.id)) { const d = sessionOwner(s); owner.set(s.id, d); liveByDweller.set(d, [...(liveByDweller.get(d) ?? []), s]); }
-  for (const v of list) for (const p of v.tabs) if (p.view.type === 'sesion' && owner.has(p.view.sessionId) && owner.get(p.view.sessionId) !== v.dwellerId) moved.set(p.view.sessionId, p);
-  next = list.map(v => {
-    const beforeActive = v.tabs.find(p => p.id === v.active);
-    let touched = false;
-    let tabs = v.tabs.flatMap((p): TabCom[] => {
-      if (p.view.type !== 'sesion') return [p];
-      const s = sessions[p.view.sessionId], d = owner.get(p.view.sessionId);
-      if (s && s.state !== 'cerrada' && d === v.dwellerId) {
-        // se apunta qué conversación es, por si luego se cierra con algo escrito
-        if (s.claudeId && (p.memory?.claudeId !== s.claudeId || p.memory.title !== s.title)) { touched = true; return [{ ...p, memory: { claudeId: s.claudeId, title: s.title, modified: s.updated, cwd: s.cwd } }]; }
-        return [p];
-      }
-      if (d && d !== v.dwellerId) return [];                // se ha mudado a otra ventana
-      if (!withText(p)) return [];
-      // cerrada (o perdida en un reinicio) con lo escrito: la pestaña se queda para retomarla con ello
-      touched = true;
-      return [{ ...p, view: p.memory ? { type: 'nuevo', resume: { ...p.memory, modified: Date.now() } } : { type: 'nuevo' } }];
-    });
-    // la conversación que se estaba viendo se ha ido a una copia: se sigue con ella
-    if (talking === v.dwellerId && beforeActive?.view.type === 'sesion' && !tabs.some(p => p.id === beforeActive.id)) { const d = owner.get(beforeActive.view.sessionId); if (d && d !== v.dwellerId) handoff = d; }
-    const known = new Set(v.known);
-    let active = v.active;
-    for (const s of (liveByDweller.get(v.dwellerId) ?? []).sort((a, b) => a.created - b.created)) {
-      if (known.has(s.id) && !moved.has(s.id)) continue;
-      if (tabs.some(p => p.sessionWait)) continue;   // la está abriendo una pestaña de esta ventana
-      known.add(s.id);
-      if (!tabs.some(p => p.view.type === 'sesion' && p.view.sessionId === s.id)) { const id = newId(), m = moved.get(s.id); tabs = [...tabs, { ...m, id, view: { type: 'sesion', sessionId: s.id } }]; active = id; }
-    }
-    if (!touched && tabs.length === v.tabs.length && known.size === v.known.length && active === v.active) return v;
-    changed = true;
-    if (!tabs.length) {
-      if (talking !== v.dwellerId || handoff) return null;
-      tabs = [{ id: newId(), view: { type: 'menu' } }];
-    }
-    if (!tabs.some(p => p.id === active)) active = tabs[tabs.length - 1].id;
-    return { ...v, tabs, active, known: [...known] };
-  }).filter(Boolean) as WindowCom[];
-  for (const [hid, sess] of liveByDweller) if (!next.some(v => v.dwellerId === hid)) {
-    changed = true;
-    const tabs: TabCom[] = sess.sort((a, b) => a.created - b.created).map(s => ({ ...moved.get(s.id), id: newId(), view: { type: 'sesion', sessionId: s.id } }));
-    next = [...next, { dwellerId: hid, tabs, active: tabs[tabs.length - 1].id, maximized: false, z: nextZ(), known: sess.map(s => s.id) }];
-  }
-  if (changed) intercoms.set({ list: next });
-  if (handoff) { const d = handoff; setTimeout(() => restoreIntercom(d)); }
+  const { next, handoff } = syncIntercoms({ list, sessions: live.get().sessions, owner: s => sessionOwner(s), closing: closingSessions, talking: juego.get().talkingWith, newId, nextZ });
+  if (next !== list) intercoms.set({ list: next });
+  if (handoff) setTimeout(() => restoreIntercom(handoff));
 }
 live.subscribe(() => { if (!live.get().connected) onDay = false; sync(); });
 client.listen(m => { if (m.t === 'bienvenida') { onDay = true; useSignature = ''; sync(); notifyInUse(); } });
@@ -965,7 +912,7 @@ function Session({ h, s, p, exit, onClose }: { h: DwellerSummary; s: SessionSumm
   const entries = live.use(e => e.entries[s.id]) ?? [];
   const partial = live.use(e => e.partial[s.id]) ?? '';
   const [text, setText0] = useState(p.draft ?? '');
-  const setText = (t: string | ((x: string) => string)) => setText0(x => { const n = typeof t === 'function' ? tIs(x) : t; setTab(h.id, p.id, { draft: n }); return n; });
+  const setText = (t: string | ((x: string) => string)) => setText0(x => { const n = typeof t === 'function' ? t(x) : t; setTab(h.id, p.id, { draft: n }); return n; });
   const [commands, setCommands] = useState<Command[]>([]);
   const [selCmd, setSelCmd] = useState(0);
   const canvas = useRef<HTMLDivElement>(null);
