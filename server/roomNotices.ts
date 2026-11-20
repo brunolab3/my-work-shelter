@@ -15,7 +15,7 @@ import { createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
 import path from 'node:path';
 import { t as tr } from '../shared/language.ts';
-import type { InfoWorktree } from '../shared/protocol.ts';
+import type { InfoWorktree, MessageOrigin } from '../shared/protocol.ts';
 import { worktreeName, worktreeSuffix } from './sessions.ts';
 import { isJiraKey, slugWorktreeName, taskKey, worktreeHasTask, worktreeTask } from '../shared/tasks.ts';
 import { describeWhen, MAX_PER_CONVERSATION, MAX_DAYS, type ScheduledMessage } from '../shared/scheduled.ts';
@@ -31,7 +31,7 @@ export interface CtxRooms {
   // el worktree de la tarea en esa sala (la clave en su rama o en su carpeta), leído de git al momento: uno recién creado
   // aún no está en el último repaso de los repos
   worktreeOfTask(roomId: string, taskKeyOf: string): Promise<string | undefined>;
-  notify(sessionId: string, text: string): boolean;
+  notify(sessionId: string, text: string, origin?: MessageOrigin): boolean;
   // una conversación nueva con el habitante, en automático: en `cwd`, en un worktree nuevo llamado `worktree` o, sin
   // ninguno, en la carpeta de la sala; `inWorktree` dice si el worktree pedido sigue en pie (falso si la carpeta de la
   // sala no es un repo git y la conversación arrancó en ella)
@@ -112,10 +112,13 @@ export async function sendToRoom(ctx: CtxRooms, since: string, { room, message, 
     tr('prompt.room.from', { sala: origin?.name ?? since, habitante: origin?.dweller?.name ?? '?', tarea: k ? tr('prompt.room.task', { clave: k }) : thread ? tr('prompt.room.thread', { hilo: thread }) : '' }),
     '', message.trim(), '', ...k ? [tr('prompt.room.outside')] : [], tr('prompt.room.reply', { salaId: since }),
   ].join('\n');
+  // as the receiver's intercom shows who sent it while it waits in its queue and in its log (also when it was scheduled:
+  // a room's dweller wrote it)
+  const from: MessageOrigin = { kind: 'room', roomId: since, room: origin?.name ?? since, dweller: origin?.dweller?.name };
   let how: string | undefined, receiver: string | undefined, cwd: string | undefined, inherited: string | undefined;
   // without key or thread: the conversation that got this one's previous message, or the one that wrote to it
   const followUp = !k && !thread && fromSession ? followUps.get(`${fromSession}>${target.id}`) : undefined;
-  if (followUp && ctx.notify(followUp.session, frame())) { how = tr(followUp.answer ? 'tool.rooms.toReply' : 'tool.rooms.toFollowUp'); receiver = followUp.session; }
+  if (followUp && ctx.notify(followUp.session, frame(), from)) { how = tr(followUp.answer ? 'tool.rooms.toReply' : 'tool.rooms.toFollowUp'); receiver = followUp.session; }
   // else, from a conversation in a task worktree to another room: the sender's task, if that room has its conversation or
   // worktree (otherwise its main copy, as before: an unrelated question never makes a worktree there)
   else if (!k && !thread && !same && fromSession) {
@@ -129,8 +132,8 @@ export async function sendToRoom(ctx: CtxRooms, since: string, { room, message, 
   const ofThread = thread ? threads.get(`${target.id}/${thread}`) : undefined;
   if (how) { /* followed up or replied */ }
   // the task's open conversation: sessions.send queues it if it is busy, for when its turn ends
-  else if (open) { const busy = !!ctx.busy?.(open); if (ctx.notify(open, text)) { how = tr(busy ? 'tool.rooms.toOpenQueued' : 'tool.rooms.toOpen', { clave: k! }); receiver = open; } }
-  else if (ofThread && ofThread !== fromSession && ctx.notify(ofThread, text)) { how = tr('tool.rooms.toThread', { hilo: thread! }); receiver = ofThread; }
+  else if (open) { const busy = !!ctx.busy?.(open); if (ctx.notify(open, text, from)) { how = tr(busy ? 'tool.rooms.toOpenQueued' : 'tool.rooms.toOpen', { clave: k! }); receiver = open; } }
+  else if (ofThread && ofThread !== fromSession && ctx.notify(ofThread, text, from)) { how = tr('tool.rooms.toThread', { hilo: thread! }); receiver = ofThread; }
   if (!how) {
     cwd = k ? cwd ?? await ctx.worktreeOfTask(target.id, k) : undefined;
     // none open: the last conversation in the task's worktree, with its history

@@ -46,7 +46,15 @@ export interface LogInput {
   helper?: string;
   isError?: boolean;
   question?: boolean;      // usuario: la respuesta a una pregunta del habitante (lleva sus preguntas: pueden enlazar páginas)
+  origin?: MessageOrigin;   // usuario: who sent it when it was not the Overseer typing (another room, a scheduled message, the game)
 }
+
+// who sent a message to a conversation: the Overseer, another room's dweller (send_to_room, the cleanup thread), a
+// scheduled message, or the game itself (PR reviews, CI failures, plan notices)
+export type MessageOrigin = { kind: 'overseer' } | { kind: 'room'; roomId: string; room: string; dweller?: string } | { kind: 'scheduled' } | { kind: 'game' };
+// a message sent to a busy conversation that Claude Code has not taken yet (shared/messageQueue.ts): it moves into the
+// log when the conversation takes it, at its next tool boundary or once its turn ends
+export interface QueuedMessage { id: string; ts: number; text: string; origin: MessageOrigin; attachments?: Attachment[] }
 
 export interface SessionSummary {
   id: string;                    // id del refugio (no el de Claude Code)
@@ -62,6 +70,7 @@ export interface SessionSummary {
   activity?: Activity;
   pending?: PendingRequest;
   pendingCount: number;
+  queue?: QueuedMessage[];   // messages waiting for the conversation to take them, oldest first
   helpers: Helper[];
   tools: number;          // nº de llamadas a herramientas (crece la actividad de la sala)
   turns: number;
@@ -118,6 +127,7 @@ export type ClientMessage =
   | { t: 'hola'; version: string }
   | { t: 'empezar'; dwellerId: string; roomId: string; prompt: string; options: WorkOptions; attachments?: string[]; request?: string }
   | { t: 'enviar'; sessionId: string; text: string; attachments?: string[] }   // adjuntos: rutas que ha devuelto la acción «subir»
+  | { t: 'retirar'; sessionId: string; messageId: string; request: string }   // take back a queued message of the Overseer's (data: whether it was)
   | { t: 'responder'; sessionId: string; requestId: string; decision: 'si' | 'siempre' | 'no'; message?: string; responses?: Record<string, string> }
   | { t: 'interrumpir'; sessionId: string }
   | { t: 'cerrarSesion'; sessionId: string }

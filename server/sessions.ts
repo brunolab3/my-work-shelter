@@ -18,7 +18,8 @@ import { execFile, execFileSync } from 'node:child_process';
 import { gitEnvironment } from './gitEnv.ts';
 import { existsSync, readdirSync } from 'node:fs';
 import { query, listSessions, getSessionMessages, getSessionInfo, type Query, type SDKMessage, type SDKUserMessage, type CanUseTool, type PermissionResult, type Options, type McpSdkServerConfigWithInstance } from '@anthropic-ai/claude-agent-sdk';
-import type { SessionSummary, LogInput, PendingRequest, Helper, WorkOptions, HistoryElement, Command, Question, Attachment, InputView } from '../shared/protocol.ts';
+import type { SessionSummary, LogInput, PendingRequest, Helper, WorkOptions, HistoryElement, Command, Question, Attachment, InputView, MessageOrigin, QueuedMessage } from '../shared/protocol.ts';
+import { applyLifecycle, takeConsumed, withdrawable } from '../shared/messageQueue.ts';
 import { separateAttachments, type Attachments } from './attachments.ts';
 import { ROOMS_FOLDERS } from './state.ts';
 import { active } from '../shared/sources.ts';
@@ -30,6 +31,8 @@ import { ANNEX, bridgeAnnex, annexGit, HIDDEN_SKILLS, withoutWorkConnectors } fr
 class Queue<T> implements AsyncIterable<T> {
   private items: T[] = []; private waits: ((r: IteratorResult<T>) => void)[] = []; private end = false;
   meter(x: T) { if (this.end) return; const w = this.waits.shift(); if (w) w({ value: x, done: false }); else this.items.push(x); }
+  // takes back an item the reader has not read yet
+  remove(f: (x: T) => boolean) { const i = this.items.findIndex(f); if (i < 0) return false; this.items.splice(i, 1); return true; }
   close() { this.end = true; for (const w of this.waits) w({ value: undefined as any, done: true }); this.waits = []; }
   [Symbol.asyncIterator](): AsyncIterator<T> {
     return { next: () => this.items.length ? Promise.resolve({ value: this.items.shift()!, done: false }) : this.end ? Promise.resolve({ value: undefined as any, done: true }) : new Promise(r => this.waits.push(r)) };
@@ -45,6 +48,9 @@ interface Session {
   // lo último que se le ha mandado (uuid → texto), para decir qué mensajes en cola anula una interrupción
   sent: Map<string, string>;
   pending: Pending[];
+  // sent while it was busy and not taken yet (shared/messageQueue.ts); unsent: still being prepared (attachments), not in
+  // the input yet; withdrawn: taken back by the Overseer before reaching it
+  queue: QueuedMessage[]; unsent: Set<string>; withdrawn: Set<string>;
   entries: LogInput[];
   tools: Map<string, { name: string }>;
   helpers: Map<string, Helper>;
@@ -174,6 +180,8 @@ export function worktreeRoot(dir?: string): string | undefined {
   return dir ? /^(.*\/\.claude\/worktrees\/[^/]+)/.exec(dir)?.[1] : undefined;
 }
 
+const quotedList = (texts: string[]) => texts.map(v => t('server.quoted', { v: v.length > 120 ? `${v.slice(0, 120)}…` : v })).join(', ');
+
 // the Claude Code tag of the read-only forks older versions made of busy task conversations (room messages): still
 // read so those transcripts, left in task worktrees, are never the ones resumed
 export const FORK_TAG = 'shelter-fork';
@@ -189,16 +197,20 @@ export class Sessions extends EventEmitter {
   live() { return [...this.s.values()].filter(x => x.alive); }
   private must(id: string) { const x = this.s.get(id); if (!x) throw new Error(t('server.unknownSession')); return x; }
 
-  private lastEmission = new Map<string, { t: number; key: string; timer?: NodeJS.Timeout }>();
+  private lastEmission = new Map<string, { t: number; key: string; queue: string; timer?: NodeJS.Timeout }>();
   private play(x: Session) {
     x.r.updated = Date.now(); x.r.pendingCount = x.pending.length; x.r.pending = x.pending[0]?.pet; x.r.helpers = [...x.helpers.values()];
-    const key = JSON.stringify([x.r.state, x.r.activity, x.r.pending?.id, x.r.pendingCount, x.r.helpers, x.r.lastText?.length, x.r.unread, x.r.title, x.r.error, x.r.lateral, x.r.permissionMode, x.r.model, x.r.claudeId, x.r.turns, x.r.background, x.r.worktree, x.r.limit]);
+    x.r.queue = x.queue.length ? [...x.queue] : undefined;
+    const queue = x.queue.map(m => m.id).join();
+    const signature = () => JSON.stringify([x.r.state, x.r.activity, x.r.pending?.id, x.r.pendingCount, x.r.helpers, x.r.lastText?.length, x.r.unread, x.r.title, x.r.error, x.r.lateral, x.r.permissionMode, x.r.model, x.r.claudeId, x.r.turns, x.r.background, x.r.worktree, x.r.limit, x.r.queue?.map(m => m.id)]);
+    const key = signature();
     const u = this.lastEmission.get(x.r.id);
     if (u && u.key === key) return;
     const now = Date.now();
-    const emit = () => { const e = this.lastEmission.get(x.r.id); if (e) e.timer = undefined; this.lastEmission.set(x.r.id, { t: Date.now(), key: JSON.stringify([x.r.state, x.r.activity, x.r.pending?.id, x.r.pendingCount, x.r.helpers, x.r.lastText?.length, x.r.unread, x.r.title, x.r.error, x.r.lateral, x.r.permissionMode, x.r.model, x.r.claudeId, x.r.turns, x.r.background, x.r.worktree, x.r.limit]) }); this.emit('sesion', { ...x.r, helpers: x.r.helpers.map(a => ({ ...a })) }); };
-    // los cambios de estado salen al momento; los de actividad, como mucho 8 por segundo
-    if (!u || u.key.split(',')[0] !== key.split(',')[0] || now - u.t > 125) { if (u?.timer) clearTimeout(u.timer); emit(); }
+    const emit = () => { const e = this.lastEmission.get(x.r.id); if (e) e.timer = undefined; this.lastEmission.set(x.r.id, { t: Date.now(), key: signature(), queue: x.queue.map(m => m.id).join() }); this.emit('sesion', { ...x.r, helpers: x.r.helpers.map(a => ({ ...a })) }); };
+    // los cambios de estado salen al momento (and the queue's, which the log's entries follow at once); los de
+    // actividad, como mucho 8 por segundo
+    if (!u || u.key.split(',')[0] !== key.split(',')[0] || u.queue !== queue || now - u.t > 125) { if (u?.timer) clearTimeout(u.timer); emit(); }
     else if (!u.timer) u.timer = setTimeout(emit, 125);
   }
   private input(type: LogInput['type'], text: string, extra: Partial<LogInput> = {}): LogInput { return { id: randomUUID(), ts: Date.now(), type, text, ...extra }; }
@@ -249,7 +261,7 @@ export class Sessions extends EventEmitter {
       pendingCount: 0, helpers: [], tools: 0, turns: 0, model: o.model || undefined, effort: o.effort || undefined,
       permissionMode: o.permissions || 'auto', created: Date.now(), updated: Date.now(), claudeId: o.resume,
     };
-    const x: Session = { r, alive: false, closing: false, interrupting: false, sent: new Map(), pending: [], entries: [], tools: new Map(), helpers: new Map(), taskAHelper: new Map(), background: new Set(), awaitingBackground: false, commands: [], stderr: '', options: o, partialText: '', shipments: Promise.resolve() };
+    const x: Session = { r, alive: false, closing: false, interrupting: false, sent: new Map(), pending: [], queue: [], unsent: new Set(), withdrawn: new Set(), entries: [], tools: new Map(), helpers: new Map(), taskAHelper: new Map(), background: new Set(), awaitingBackground: false, commands: [], stderr: '', options: o, partialText: '', shipments: Promise.resolve() };
     this.s.set(id, x);
     if (o.resume) {
       try { x.entries = await this.transcript(o.resume, r.cwd); } catch {}
@@ -399,41 +411,75 @@ export class Sessions extends EventEmitter {
     this.consume(x, x.q);
   }
 
-  private message(content: string | Record<string, unknown>[]): SDKUserMessage {
-    return { type: 'user', message: { role: 'user', content: content as any }, parent_tool_use_id: null, uuid: randomUUID() as any, origin: { kind: 'human' } as any } as SDKUserMessage;
+  private message(content: string | Record<string, unknown>[], uuid: string = randomUUID()): SDKUserMessage {
+    return { type: 'user', message: { role: 'user', content: content as any }, parent_tool_use_id: null, uuid: uuid as any, origin: { kind: 'human' } as any } as SDKUserMessage;
   }
-  // a la cola de entrada de la sesión; con adjuntos, las imágenes van dentro del mensaje (attachments.ts)
+  // a la cola de entrada de la sesión; con adjuntos, las imágenes van dentro del mensaje (attachments.ts). Returns its
+  // uuid: Claude Code reports it in its command_lifecycle frames (lifecycle())
   private enqueue(x: Session, text: string, attachments: Attachment[]) {
-    const queue = x.input!;
+    const queue = x.input!, uuid = randomUUID();
+    x.unsent.add(uuid);
     const meter = (m: SDKUserMessage) => {
-      x.sent.set(m.uuid as string, text);
+      x.unsent.delete(uuid);
+      if (x.withdrawn.delete(uuid)) return;
+      x.sent.set(uuid, text);
       if (x.sent.size > 20) x.sent.delete(x.sent.keys().next().value!);
       queue.meter(m);
     };
-    if (!attachments.length || !this.attachments) { x.shipments = x.shipments.then(() => meter(this.message(text))); return; }
-    const att = this.attachments;
-    x.shipments = x.shipments.then(async () => meter(this.message(await att.content(text, attachments).catch(() => text))));
+    if (!attachments.length || !this.attachments) x.shipments = x.shipments.then(() => meter(this.message(text, uuid)));
+    else { const att = this.attachments; x.shipments = x.shipments.then(async () => meter(this.message(await att.content(text, attachments).catch(() => text), uuid))); }
+    return uuid;
   }
 
-  send(id: string, text: string, attachments: Attachment[] = []) {
+  // to a busy conversation (a turn running, a question waiting, the folder's trust being asked) a message waits in its
+  // queue, seen in the intercom, until Claude Code takes it (lifecycle()); otherwise it goes straight into the log
+  send(id: string, text: string, attachments: Attachment[] = [], origin: MessageOrigin = { kind: 'overseer' }) {
     const x = this.must(id);
     if (x.r.state === 'cerrada') throw new Error(t('server.thatConversationIsClosedResume'));
     if (text.trim() === '/stop') return this.interrupt(id);
+    const busy = x.trustWaiting || (x.alive && ['arrancando', 'trabajando', 'esperando'].includes(x.r.state));
     if (!x.alive && !x.trustWaiting) this.launch(x, x.r.claudeId).catch(e => console.error('No se pudo reanudar la sesión:', e));
-    this.add(x, this.input('usuario', text, attachments.length ? { attachments } : {}));
     x.textInTurn = x.askHeld = false;
     if (x.r.limit) { x.r.limit = undefined; if (x.r.claudeId) this.emit('limiteSigue', x.r.claudeId); }
-    this.enqueue(x, text, attachments);
+    const uuid = this.enqueue(x, text, attachments);
+    if (busy) x.queue.push({ id: uuid, ts: Date.now(), text, origin, ...attachments.length ? { attachments } : {} });
+    else this.add(x, this.logged(text, origin, attachments));
     x.r.state = x.pending.length ? 'esperando' : 'trabajando'; x.r.unread = false;
     this.play(x);
+  }
+  private logged(text: string, origin: MessageOrigin, attachments?: Attachment[]) {
+    return this.input('usuario', text, { ...attachments?.length ? { attachments } : {}, ...origin.kind !== 'overseer' ? { origin } : {} });
+  }
+
+  // Claude Code took a queued message (at a tool boundary or to start a turn): it moves into the log; or it was cancelled
+  private lifecycle(x: Session, uuid: string, state: string) {
+    const r = applyLifecycle(x.queue, uuid, state);
+    if (r.queue === x.queue) return;
+    x.queue = r.queue;
+    if (r.taken) this.add(x, this.logged(r.taken.text, r.taken.origin, r.taken.attachments));
+    this.play(x);
+  }
+
+  /** Take back a queued message the Overseer wrote, if Claude Code has not taken it yet: whether it was */
+  async withdraw(id: string, messageId: string): Promise<boolean> {
+    const x = this.must(id);
+    const m = x.queue.find(q => q.id === messageId);
+    if (!m || !withdrawable(m)) return false;
+    // still being prepared, or still in the input the SDK has not read: never reaches Claude Code; else, from its queue
+    const ok = x.unsent.has(messageId) ? (x.withdrawn.add(messageId), true)
+      : x.input?.remove(u => u.uuid === messageId) || await ((x.q as any)?.cancelAsyncMessage?.(messageId) as Promise<boolean> | undefined)?.catch(() => false);
+    if (!ok) return false;
+    x.queue = x.queue.filter(q => q.id !== messageId);
+    this.play(x);
+    return true;
   }
 
   // a message the Overseer didn't type (another room, a scheduled one, CI): an idle conversation already past the urge
   // threshold is compacted first, so the new turn and the ones after it don't re-read the whole old context
-  deliver(id: string, text: string) {
+  deliver(id: string, text: string, origin: MessageOrigin = { kind: 'game' }) {
     const x = this.must(id);
-    if (['terminada', 'ociosa'].includes(x.r.state) && (x.r.context?.used ?? 0) >= COMPACT_URGE) this.send(id, '/compact');
-    this.send(id, text);
+    if (['terminada', 'ociosa'].includes(x.r.state) && (x.r.context?.used ?? 0) >= COMPACT_URGE) this.send(id, '/compact', [], { kind: 'game' });
+    this.send(id, text, [], origin);
   }
 
   private async consume(x: Session, q: Query) {
@@ -448,6 +494,8 @@ export class Sessions extends EventEmitter {
       if (x.q === q) {
         x.alive = false;
         this.emptyPending(x, t('server.sessionEnded'));
+        if (x.queue.length && !x.closing) this.add(x, this.input('sistema', t('server.queueNotDelivered', { textos: quotedList(x.queue.map(q => q.text)) })));
+        x.queue = [];
         for (const a of x.helpers.values()) if (a.state === 'trabajando') a.state = 'fallo';
         if (x.awaitingBackground && x.r.state === 'trabajando') x.r.state = 'terminada';   // el turno ya había acabado bien
         this.forgetBackground(x);
@@ -462,6 +510,8 @@ export class Sessions extends EventEmitter {
 
   private handle(x: Session, m: SDKMessage) {
     const r = x.r;
+    // not in the SDK's message types yet: what became of each message sent (queued, started, cancelled, completed)
+    if ((m as any).type === 'command_lifecycle') { this.lifecycle(x, (m as any).command_uuid, (m as any).state); return; }
     switch (m.type) {
       case 'system': this.system(x, m as any); break;
       case 'stream_event': {
@@ -511,6 +561,9 @@ export class Sessions extends EventEmitter {
         const res = m as any;
         r.turns += 1;
         x.textInTurn = x.askHeld = false;
+        // for CLIs without lifecycle frames: what this turn consumed
+        const consumed = takeConsumed(x.queue, res.user_message_uuids);
+        if (consumed.taken.length) { x.queue = consumed.queue; for (const q of consumed.taken) this.add(x, this.logged(q.text, q.origin, q.attachments)); }
         if (typeof res.total_cost_usd === 'number') r.cost = res.total_cost_usd;
         // consumo: los tokens acumulados de todos los modelos y, aparte, cuánto contexto ocupa ya la conversación
         const uses = Object.values((res.modelUsage ?? {}) as Record<string, any>);
@@ -730,7 +783,9 @@ export class Sessions extends EventEmitter {
     try { receipt = await (x.q?.interrupt as (o?: { cancelQueued: boolean }) => Promise<typeof receipt>)?.call(x.q, { cancelQueued: true }); }
     catch { x.interrupting = false; return; }
     const voided = (receipt?.cancelled ?? []).map(u => x.sent.get(u)).filter((t): t is string => !!t);
-    if (voided.length) this.add(x, this.input('sistema', t('server.notSentDueToInterruption', { textos: voided.map(v => t('server.quoted', { v: v.length > 120 ? `${v.slice(0, 120)}…` : v })).join(', ') })));
+    const cancelled = new Set(receipt?.cancelled ?? []);
+    if (x.queue.some(q => cancelled.has(q.id))) { x.queue = x.queue.filter(q => !cancelled.has(q.id)); this.play(x); }
+    if (voided.length) this.add(x, this.input('sistema', t('server.notSentDueToInterruption', { textos: quotedList(voided) })));
   }
 
   close(id: string) {

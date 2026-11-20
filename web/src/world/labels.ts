@@ -4,6 +4,14 @@ import type { Dweller } from './dweller';
 import { live } from '../net/client';
 import { soonestByPlace, describeWhenShort } from '@shared/scheduled';
 import { t } from '@shared/language';
+import { queuedIn } from '@shared/messageQueue';
+import type { SessionSummary } from '@shared/protocol';
+
+// The ✉ n on a dweller or a hologram whose conversations have messages they have not taken yet (shared/messageQueue.ts)
+export function queuedMark(sessions: SessionSummary[]): string | undefined {
+  const n = queuedIn(sessions);
+  return n ? t('windows.queue.mark', { n }) : undefined;
+}
 
 // The ⏰ on a dweller (its room's main copy) or a hologram (its worktree) with a scheduled message pending, with when the
 // next one is due: seen in the shelter before opening its conversation. Worked out again when the list or the repos
@@ -23,7 +31,7 @@ const GLYPH: Record<string, string> = { durmiendo: 'z', ocioso: '·', pensando: 
 
 export class TagsLayer {
   root: HTMLDivElement;
-  private map = new Map<Dweller | object, { el: HTMLDivElement; name: HTMLSpanElement; detail: HTMLSpanElement; glyph: HTMLSpanElement; prompt: HTMLSpanElement; scheduled: HTMLSpanElement; epic: HTMLSpanElement; key: string }>();
+  private map = new Map<Dweller | object, { el: HTMLDivElement; name: HTMLSpanElement; detail: HTMLSpanElement; glyph: HTMLSpanElement; prompt: HTMLSpanElement; scheduled: HTMLSpanElement; queued: HTMLSpanElement; epic: HTMLSpanElement; key: string }>();
   // where each tag was drawn last frame (screen pixels), to tell which one the pointer is over
   private drawn: { k: object; x0: number; x1: number; y0: number; y1: number }[] = [];
   constructor() {
@@ -36,18 +44,19 @@ export class TagsLayer {
     const name = document.createElement('span'); const detail = document.createElement('span'); detail.className = 'detalle';
     const prompt = document.createElement('span'); prompt.className = 'prompt';
     const scheduled = document.createElement('span'); scheduled.className = 'programado';
+    const queued = document.createElement('span'); queued.className = 'en-cola';
     const epic = document.createElement('span'); epic.className = 'marca-epica';
-    el.append(glyph, epic, name, scheduled, detail, prompt); this.root.appendChild(el);
-    const e = { el, name, detail, glyph, prompt, scheduled, epic, key: '' }; this.map.set(k, e); return e;
+    el.append(glyph, epic, name, scheduled, queued, detail, prompt); this.root.appendChild(el);
+    const e = { el, name, detail, glyph, prompt, scheduled, queued, epic, key: '' }; this.map.set(k, e); return e;
   }
-  update(cam: THREE.PerspectiveCamera, items: { k: object; pos: THREE.Vector3; height: number; name: string; state: string; detail: string; near: boolean; supervisor?: boolean; device?: boolean; prompt?: string; key?: string; farSide?: boolean; aimed?: boolean; color?: string; epic?: { color: string; title: string }; scheduled?: string }[]) {
+  update(cam: THREE.PerspectiveCamera, items: { k: object; pos: THREE.Vector3; height: number; name: string; state: string; detail: string; near: boolean; supervisor?: boolean; device?: boolean; prompt?: string; key?: string; farSide?: boolean; aimed?: boolean; color?: string; epic?: { color: string; title: string }; scheduled?: string; queued?: string }[]) {
     const w = innerWidth, h = innerHeight; const v = new THREE.Vector3();
     const seen = new Set<object>();
     const placed: { k: object; x0: number; x1: number; y0: number; y1: number }[] = [];
     for (const it of items) {
       seen.add(it.k);
       const e = this.map.get(it.k) ?? this.create(it.k);
-      const key = (it.color ?? '') + '|' + it.state + '|' + it.name + '|' + it.detail + '|' + it.near + '|' + it.prompt + '|' + it.key + '|' + it.farSide + '|' + it.aimed + '|' + (it.scheduled ?? '') + '|' + (it.epic ? it.epic.color + it.epic.title : '');
+      const key = (it.color ?? '') + '|' + it.state + '|' + it.name + '|' + it.detail + '|' + it.near + '|' + it.prompt + '|' + it.key + '|' + it.farSide + '|' + it.aimed + '|' + (it.scheduled ?? '') + '|' + (it.queued ?? '') + '|' + (it.epic ? it.epic.color + it.epic.title : '');
       if (key !== e.key) {
         e.key = key;
         e.el.className = 'etiqueta ' + it.state + (it.supervisor ? ' supervisor' : '') + (it.device ? ' de-aparato' : '') + (it.near ? ' cerca' : '') + (it.farSide && !it.aimed ? ' solo-glifo' : '');
@@ -56,6 +65,7 @@ export class TagsLayer {
         e.el.style.setProperty('--tarea', it.color ?? 'transparent'); e.el.classList.toggle('con-tarea', !!it.color);   // la copia de una tarea, con su color
         e.name.textContent = it.name; e.detail.textContent = it.detail; e.detail.style.display = it.detail ? '' : 'none';
         e.scheduled.textContent = it.scheduled ?? ''; e.scheduled.style.display = it.scheduled ? '' : 'none';
+        e.queued.textContent = it.queued ?? ''; e.queued.style.display = it.queued ? '' : 'none';
         // the copy's task belongs to an epic: a small diamond in the epic's color (shared with the tabs and boards)
         e.epic.style.display = it.epic ? '' : 'none'; e.epic.style.setProperty('--epica', it.epic?.color ?? 'transparent'); e.epic.title = it.epic?.title ?? '';
       }

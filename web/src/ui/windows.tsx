@@ -81,10 +81,12 @@ export function EpicMark({ taskKey }: { taskKey?: string }) {
 export const TaskMark = ({ taskKey, color }: { taskKey?: string; color?: string }) => <><span className="marca-tarea" style={{ '--tarea': color ?? taskColor(taskKey) } as React.CSSProperties} title={taskKey} /><EpicMark taskKey={taskKey} /></>;
 
 export const DraftMark = () => <span className="marca-borrador" title={t('windows.unsentDraft')}>✎</span>;
+// messages waiting in the conversation's queue (shared/messageQueue.ts)
+export const QueuedMark = ({ n }: { n?: number }) => n ? <span className="marca-cola" title={t('windows.queue.markTitle', { n })}>{t('windows.queue.mark', { n })}</span> : null;
 
 // grupo: with «group by room», tabs of a group sit together under its header; quien: whose it is (another window);
-// borrador: it has unsent text or attachments (DraftMark)
-export interface ItemTab { id: string; name: string; state?: TabState; title?: string; room?: string; task?: string; activity?: string; group?: string; who?: string; draft?: boolean }
+// borrador: it has unsent text or attachments (DraftMark); queued: messages its conversation has not taken yet (QueuedMark)
+export interface ItemTab { id: string; name: string; state?: TabState; title?: string; room?: string; task?: string; activity?: string; group?: string; who?: string; draft?: boolean; queued?: number }
 
 // lista: the ⋯ N button and its list in the strip (terminals); intercoms keep theirs in the bar (ComTabs in Dialog.tsx)
 export function Tabs({ items, active, activate, close, onNew, opensThat, list, confirming }: { items: ItemTab[]; active: string; activate: (id: string) => void; close: (ids: string[]) => void; onNew?: () => void; opensThat: string; list?: React.MutableRefObject<(() => void) | null>; confirming?: boolean }) {
@@ -107,11 +109,12 @@ export function Tabs({ items, active, activate, close, onNew, opensThat, list, c
         {items.map((p, i) => (<React.Fragment key={p.id}>
           <div className={'vt-pestana' + (p.id === active ? ' activa' : '') + (p.state ? ' e-' + p.state : '') + (p.task ? ' con-tarea' : '')} style={p.task ? { '--tarea': taskColor(p.task) } as React.CSSProperties : undefined}
             onClick={() => activate(p.id)} onAuxClick={e => { if (e.button === 1) close([p.id]); }}
-            title={[p.title || p.name, p.state && stateLabel(p.state), p.draft && t('windows.unsentDraft'), p.who, p.task, i < 9 ? `${CMD}${i + 1}` : ''].filter(Boolean).join(' · ')}>
+            title={[p.title || p.name, p.state && stateLabel(p.state), p.draft && t('windows.unsentDraft'), p.queued && t('windows.queue.markTitle', { n: p.queued }), p.who, p.task, i < 9 ? `${CMD}${i + 1}` : ''].filter(Boolean).join(' · ')}>
             <span className={'piloto ' + PILOT[p.state ?? 'ociosa']} />
             {p.draft && <DraftMark />}
             <EpicMark taskKey={p.task} />
             <span className="vt-pestana-nombre">{p.name}</span>
+            <QueuedMark n={p.queued} />
             <button className="vt-pestana-x" onClick={e => { e.stopPropagation(); close([p.id]); }} title={t('windows.closeTabAtajo', { shortcut: `${CMD}W` })}>×</button>
           </div>
         </React.Fragment>))}
@@ -166,7 +169,7 @@ export function TabList({ items, active, activate, close, exit, group, header }:
             <input type="checkbox" checked={marked.includes(p.id)} title={t('windows.selectTab')} onClick={e => e.stopPropagation()} onChange={() => setMarked(m => (m.includes(p.id) ? m.filter(x => x !== p.id) : [...m, p.id]))} />
             <span className={'piloto ' + PILOT[p.state ?? 'ociosa']} />
             <span className="vt-lista-estado">{p.state ? stateLabel(p.state) : ''}</span>
-            <span className="vt-lista-nombre">{p.draft && <DraftMark />}{p.name}</span>
+            <span className="vt-lista-nombre">{p.draft && <DraftMark />}{p.name} <QueuedMark n={p.queued} /></span>
             <span className="vt-lista-tarea">{p.task && <><TaskMark taskKey={p.task} />{p.task}</>}</span>
             <span className="vt-lista-sala">{header ? '' : p.who ?? p.room}</span>
             <span className="vt-lista-cuando">{p.activity}</span>

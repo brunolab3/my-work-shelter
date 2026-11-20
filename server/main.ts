@@ -8,7 +8,7 @@ import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { execFile, execFileSync, spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { WebSocketServer, type WebSocket } from 'ws';
-import { GAME_NAME, type ClientMessage, type ServerMessage, type InfoRepo, type Visitor, type SessionSummary } from '../shared/protocol.ts';
+import { GAME_NAME, type ClientMessage, type ServerMessage, type InfoRepo, type Visitor, type SessionSummary, type MessageOrigin } from '../shared/protocol.ts';
 import { Sessions } from './sessions.ts';
 import { Attachments } from './attachments.ts';
 import { openAttachment, isPackage, revealLocal } from './open.ts';
@@ -157,7 +157,8 @@ const prBlockers = new BlockersPR(DATA);
 const taskColors = new TasksColors(DATA);
 const ctxPlan: Pick<CtxAssignment, 'plans' | 'notify' | 'messenger' | 'sessionOfTask'> = {
   plans,
-  notify: (id, text) => { try { if (sessions.list().find(s => s.id === id)?.state === 'cerrada') return false; sessions.deliver(id, text); return true; } catch { return false; } },
+  // `origin`: who sent it, shown with it in the intercom (the game itself unless said: PR reviews, CI failures, plans)
+  notify: (id: string, text: string, origin: MessageOrigin = { kind: 'game' }) => { try { if (sessions.list().find(s => s.id === id)?.state === 'cerrada') return false; sessions.deliver(id, text, origin); return true; } catch { return false; } },
   sessionOfTask: (roomId, key) =>
     sessions.list().filter(s => s.roomId === roomId && s.state !== 'cerrada' && worktreeHasTask({ path: s.worktree ?? s.cwd }, key)).sort((a, b) => b.updated - a.updated)[0]?.id,
   messenger: (since, a, reason) => broadcast({ t: 'mensajero', since, a, reason }),
@@ -168,7 +169,7 @@ const ctxRooms: CtxRooms = {
   sessionOfTask: (roomId, key) => ctxPlan.sessionOfTask!(roomId, key),
   // de git al momento: un worktree recién creado (por otra conversación) aún no está en `repos`, que se repasa cada 20 s
   worktreeOfTask: async (roomId, key) => { const s = store.state.rooms.find(x => x.id === roomId); return s ? taskWorktree(await worktreeList(folderOf(s)), key) : undefined; },
-  notify: (id, text) => ctxPlan.notify(id, text),
+  notify: (id, text, origin) => ctxPlan.notify(id, text, origin),
   busy: id => ['arrancando', 'trabajando', 'esperando'].includes(sessions.list().find(s => s.id === id)?.state ?? ''),
   resume: (roomId, cwd, prompt) => resumeInFolder(roomId, cwd, prompt, 'auto'),
   start: async (roomId, dwellerId, prompt, where) => {
@@ -591,7 +592,7 @@ const scheduled: Scheduled = new Scheduled(DATA, {
     const d = x.target;
     const open = sessions.list().find(s => s.state !== 'cerrada' && ((d.claudeId && s.claudeId === d.claudeId) || (!d.claudeId && s.id === d.sessionId)));
     let id: string;
-    if (open) { if (!ctxPlan.notify(open.id, text)) throw new Error(t('server.thatConversationIsStillOpen')); id = open.id; }
+    if (open) { if (!ctxPlan.notify(open.id, text, { kind: 'scheduled' })) throw new Error(t('server.thatConversationIsStillOpen')); id = open.id; }
     else {
       const room = store.state.rooms.find(s => s.id === d.roomId), h = store.state.dwellers.find(y => y.roomId === d.roomId);
       if (!room || !h) throw new Error(t('server.scheduledNoDweller'));
@@ -1263,6 +1264,7 @@ async function handle(ws: WebSocket, m: ClientMessage) {
     case 'interrumpir': await sessions.interrupt(m.sessionId); break;
     case 'cerrarSesion': sessions.close(m.sessionId); break;
     case 'leida': sessions.markRead(m.sessionId); break;
+    case 'retirar': send(ws, { t: 'respuesta', request: m.request, data: await sessions.withdraw(m.sessionId, m.messageId).catch(() => false) }); break;
     case 'enUso': inUse.set(ws, new Set(Array.isArray(m.sessions) ? m.sessions.map(String) : [])); break;
     case 'lateral': await sessions.lateral(m.sessionId, m.question); break;
     case 'modoPermisos': await sessions.mode(m.sessionId, m.mode); break;

@@ -17,7 +17,7 @@ import { callOut, type Character } from './character';
 import { gltf, measure, place, R } from '../engine/assets';
 import { audioWorld } from '../audio/world';
 import { live } from '../net/client';
-import { scheduledMark } from './labels';
+import { scheduledMark, queuedMark } from './labels';
 import { SFX } from '../audio/sound';
 import { SHOP } from '@shared/catalog';
 import { t, tIs } from '@shared/language';
@@ -545,7 +545,8 @@ export class Holograms {
       const detail = !shown ? '' : f.state === 'ocioso' ? git : f.detail.slice(0, 48);
       const author = this.r.dwellers.find(h => h.id.id === f.authorId);
       const scheduled = scheduledMark(f.room.id, f.path), pointed = (f === aimed || f === over) && f !== selected;
-      return { k: f, scheduled, pos: f.p.headPoint(), height: 0.2, name: `${author?.id.name ?? t('world.copy')} ◇ ${copyCaption(f.w, f.task ?? branchCaption(f.w.branch))}${verificationMark(f.task) ? ' · ' + verificationMark(f.task) : ''}`, color: hasTaskColor(f.task) ? taskColor(f.task) : undefined, epic: epicTag(f.task), state: f.state, detail, near: picked, farSide: farSide || !shown, prompt: picked ? t('world.talk') : '', key: f === selected ? 'E' : t('world.click'), aimed: pointed, relevant: shown || f.state !== 'ocioso' || !!scheduled };
+      const queued = queuedMark((Object.values(live.get().sessions) as SessionSummary[]).filter(s => s.queue?.length && (s.cwd === f.path || s.cwd?.startsWith(f.path + '/'))));
+      return { k: f, scheduled, queued, pos: f.p.headPoint(), height: 0.2, name: `${author?.id.name ?? t('world.copy')} ◇ ${copyCaption(f.w, f.task ?? branchCaption(f.w.branch))}${verificationMark(f.task) ? ' · ' + verificationMark(f.task) : ''}`, color: hasTaskColor(f.task) ? taskColor(f.task) : undefined, epic: epicTag(f.task), state: f.state, detail, near: picked, farSide: farSide || !shown, prompt: picked ? t('world.talk') : '', key: f === selected ? 'E' : t('world.click'), aimed: pointed, relevant: shown || f.state !== 'ocioso' || !!scheduled || !!queued };
     }).filter(x => x.relevant);
   }
 }

@@ -6,7 +6,7 @@ import { Sessions } from './sessions.ts';
 function session() {
   const sess = new Sessions({ pathRoom: () => undefined }) as any;
   const r: any = { id: 'w1', dwellerId: 'h1', roomId: 'sala', cwd: '/tmp', state: 'trabajando', unread: false, title: 'Trabajo', pending: 0, helpers: [], tools: 0, turns: 0 };
-  const x = { r, alive: true, closing: false, interrupting: false, sent: new Map(), pending: [], entries: [], tools: new Map(), helpers: new Map(), taskAHelper: new Map(), background: new Set(), awaitingBackground: false, commands: [], stderr: '', options: {}, partialText: '', shipments: Promise.resolve() };
+  const x = { r, alive: true, closing: false, interrupting: false, sent: new Map(), pending: [], queue: [], unsent: new Set(), withdrawn: new Set(), entries: [], tools: new Map(), helpers: new Map(), taskAHelper: new Map(), background: new Set(), awaitingBackground: false, commands: [], stderr: '', options: {}, partialText: '', shipments: Promise.resolve() };
   sess.s.set('w1', x);
   const m = (msg: any) => sess.handle(x, { session_id: 'c1', uuid: crypto.randomUUID(), ...msg });
   return {

@@ -297,6 +297,7 @@ export const SERVER: Record<string, LocalizedText> = {
   'server.yes': { es: '✅ Sí', en: '✅ Yes' },
   'server.interrupted': { es: '✋ Interrumpido', en: '✋ Interrupted' },
   'server.interruptedByUser': { es: 'Interrumpido por el usuario.', en: 'Interrupted by the user.' },
+  'server.queueNotDelivered': { es: 'La conversación terminó sin coger lo que tenía en cola (mándalo otra vez si quieres): {textos}', en: 'The conversation ended without taking what was queued (send it again if you want): {textos}' },
   'server.notSentDueToInterruption': { es: 'Sin enviar por la interrupción (mándalo otra vez si quieres): {textos}', en: 'Not sent because of the interruption (send it again if you want): {textos}' },
   'server.quoted': { es: '«{v}»', en: '“{v}”' },
   'server.sessionClosed': { es: 'Sesión cerrada.', en: 'Session closed.' },

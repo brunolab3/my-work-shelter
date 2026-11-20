@@ -18,7 +18,8 @@
 //   un worktree, su pestaña pasa a la ventana de la copia, y si se estaba viendo, se sigue con la copia.
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { SessionSummary, LogInput, HistoryElement, Command, PendingRequest, Visitor } from '@shared/protocol';
+import type { SessionSummary, LogInput, HistoryElement, Command, PendingRequest, Visitor, QueuedMessage } from '@shared/protocol';
+import { originLabel, queuedIn, withdrawable } from '@shared/messageQueue';
 import { MODELS, EFFORTS, PERMISSION_MODES } from '@shared/protocol';
 import { t, tIs, trBio } from '@shared/language';
 import { juego, type DwellerSummary } from './gameState';
@@ -424,7 +425,7 @@ const VIEW_NAME: Record<string, string> = { menu: t('windows.menu'), nuevo: t('w
 function tabItem(x: TabCom, o: DwellerSummary, sessions: Record<string, SessionSummary>): ItemTab {
   const sx = x.view.type === 'sesion' ? sessions[x.view.sessionId] : undefined, path = pathWorktree(sx?.cwd, worktreesKnown());
   return { id: x.id, name: sx ? sx.title || t('windows.conversation') : x.sessionWait ? t('windows.starting2') : VIEW_NAME[x.view.type] ?? t('windows.menu'), state: x.sessionWait ? 'trabajando' : tabState(sx),
-    title: sx?.title, room: o.nameRoom, task: path ? worktreeTask({ path }) : o.copy ? worktreeTask(o.copy) : undefined, activity: sx ? ago(sx.updated) : undefined, draft: withText(x) };
+    title: sx?.title, room: o.nameRoom, task: path ? worktreeTask({ path }) : o.copy ? worktreeTask(o.copy) : undefined, activity: sx ? ago(sx.updated) : undefined, draft: withText(x), queued: queuedIn([sx]) || undefined };
 }
 
 // The ⋯ N button at the end of the bar's COM row (Bar.tsx; ⌘⇧A from an intercom): every open conversation of every
@@ -914,10 +915,36 @@ function New({ h, p, resume, goBack }: { h: DwellerSummary; p: TabCom; resume?: 
 const folderOf = (s: SessionSummary) => s.worktree ?? s.cwd;
 function Entry({ e, base }: { e: LogInput; base?: string }) {
   if (e.type === 'asistente' || e.type === 'lateral') return <div className={'ent ' + e.type} dangerouslySetInnerHTML={{ __html: markdown(e.text, base) }} />;
-  if (e.type === 'usuario') return <div className="ent usuario"><span className="quien">{t('windows.you')}&gt;</span> <span dangerouslySetInnerHTML={{ __html: markdown(e.text, base) }} />{e.attachments?.length ? <SentAttachments list={e.attachments} /> : null}</div>;
+  if (e.type === 'usuario') return <div className={'ent usuario' + (e.origin ? ' de-fuera' : '')}><span className="quien">{originLabel(e.origin)}&gt;</span> <span dangerouslySetInnerHTML={{ __html: markdown(e.text, base) }} />{e.attachments?.length ? <SentAttachments list={e.attachments} /> : null}</div>;
   if (e.type === 'herramienta') return <div className={'ent herramienta' + (e.isError ? ' error' : '') + (e.helper ? ' de-ayudante' : '')}>{e.helper ? '  ⚙ ' : '⚙ '}<span><ToolText t={e.text} /></span>{e.detail && <pre className="detalle-err">{e.detail}</pre>}</div>;
   if (e.type === 'error') return <div className="ent error" dangerouslySetInnerHTML={{ __html: markdown(e.text) }} />;
   return <div className={'ent ' + e.type}>{e.text}</div>;
+}
+
+// What was sent to this conversation while it was busy and it has not taken yet (shared/messageQueue.ts), oldest first:
+// it moves into the log when Claude Code takes it. What the Overseer wrote can be withdrawn, or taken back to the composer
+function Queued({ s, edit }: { s: SessionSummary; edit: (m: QueuedMessage) => void }) {
+  const queue = s.queue ?? [];
+  const withdraw = async (m: QueuedMessage, then?: () => void) => {
+    const ok = await client.ask<boolean>({ t: 'retirar', sessionId: s.id, messageId: m.id }).catch(() => false);
+    if (!ok) { SFX.notAllowed(); addNotice('aviso', t('windows.queue.tooLate')); return; }
+    SFX.click(); then?.();
+  };
+  return (
+    <div className="cola-mensajes">
+      <div className="cola-titulo">{t('windows.queue.title', { n: queue.length })} <span className="tenue">· {t('windows.queue.hint')}</span></div>
+      {queue.map(m => (
+        <div key={m.id} className={'cola-mensaje' + (m.origin.kind !== 'overseer' ? ' de-fuera' : '')}>
+          <span className="quien">{originLabel(m.origin)}&gt;</span>
+          <span className="cola-texto" title={m.text}>{m.text.replace(/\s+/g, ' ')}{m.attachments?.length ? ` 📎${m.attachments.length}` : ''}</span>
+          {withdrawable(m) && <span className="cola-acciones">
+            <button onClick={() => withdraw(m, () => edit(m))} title={t('windows.queue.editTitle')}>{t('windows.queue.edit')}</button>
+            <button onClick={() => withdraw(m)}>{t('windows.queue.withdraw')}</button>
+          </span>}
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function Session({ h, s, p, exit, onClose }: { h: DwellerSummary; s: SessionSummary; p: TabCom; exit: () => void; onClose: () => void }) {
@@ -986,6 +1013,12 @@ function Session({ h, s, p, exit, onClose }: { h: DwellerSummary; s: SessionSumm
         {s.state === 'error' && s.error && <div className="ent error">⚠ {s.error}</div>}
         {s.limit && !workingLive && <div className="ent sistema">⏳ {limitLine(s.limit)}</div>}
       </div>
+      {!!s.queue?.length && <Queued s={s} edit={m => {
+        // back to the composer, after whatever is being written, with its attachments
+        setText(x => x.trim() ? `${x}\n${m.text}` : m.text);
+        if (m.attachments?.length) changeAttachments(h.id, p.id, l => [...l, ...m.attachments!.map(a => ({ id: `cola-${m.id}-${a.path}`, name: a.name, image: a.image, path: a.path }))]);
+        area.current?.focus();
+      }} />}
       {!s.pending && <div className="linea-estado">
         {workingLive ? <span className="girando">◐</span> : s.state === 'esperando' ? <span className="urgente">?</span> : s.state === 'terminada' ? <span>✓</span> : <span>·</span>}
         <span className="txt"><ToolText t={lineState || (s.limit ? limitLine(s.limit) : s.state === 'terminada' || s.state === 'ociosa' ? t('windows.doneYouCanReplyOpen') : '')} /></span>

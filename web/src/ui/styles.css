@@ -165,8 +165,9 @@ html, body { margin: 0; height: 100%; background: var(--fondo); overflow: hidden
 .etiqueta .prompt { display: flex; align-items: center; gap: 5px; margin-left: 6px; padding-left: 8px; border-left: 1px solid #4a453d; color: var(--crema); }
 .etiqueta.supervisor .glifo { background: var(--ambar); }
 
-.etiqueta.solo-glifo { padding: 2px; } .etiqueta.solo-glifo > span:not(.glifo):not(.programado) { display: none !important; }
+.etiqueta.solo-glifo { padding: 2px; } .etiqueta.solo-glifo > span:not(.glifo):not(.programado):not(.en-cola) { display: none !important; }
 .etiqueta .programado { color: var(--ambar); font-weight: 600; font-size: .9em; }   /* ⏰ the next scheduled message (scheduledMark) */
+.etiqueta .en-cola { color: var(--ambar); font-weight: 600; font-size: .9em; }   /* ✉ n messages its conversations have not taken yet */
 
 .etiqueta.supervisor { background: linear-gradient(180deg, #4a3a1c, #2a2112); }
 .etiqueta.supervisor .glifo { background: var(--ambar); color: #2a1a05; }
@@ -324,6 +325,16 @@ html, body { margin: 0; height: 100%; background: var(--fondo); overflow: hidden
 .ent h1, .ent h2, .ent h3 { font: 700 1.05em var(--t-mono); margin: .6em 0 .3em; color: #c8ffd6; }
 .ent.usuario { color: var(--ambar); text-shadow: 0 0 6px rgba(255,179,71,.35); }
 .ent.usuario .quien { color: #c78a3a; } .ent.usuario p { display: inline; }
+.ent.usuario.de-fuera .quien, .cola-mensaje.de-fuera .quien { color: #9fd8ff; }   /* sent by another room, a schedule or the game */
+/* the queue of a busy conversation, above the composer (Queued in Dialog.tsx) */
+.cola-mensajes { flex: none; max-height: 30%; overflow: auto; margin-top: .3em; padding: .3em .5em; border: 1px dashed rgba(255,179,71,.4); border-radius: 3px; font-size: .88em; }
+.cola-titulo { color: var(--ambar); margin-bottom: .2em; }
+.cola-mensaje { display: flex; gap: .5em; align-items: baseline; color: var(--ambar); opacity: .85; }
+.cola-mensaje .quien { flex: none; color: #c78a3a; }
+.cola-texto { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cola-acciones { flex: none; display: flex; gap: .3em; }
+.cola-acciones button { font: inherit; font-size: .9em; color: var(--ambar); background: none; border: 1px solid rgba(255,179,71,.4); border-radius: 2px; padding: 0 .45em; cursor: pointer; }
+.cola-acciones button:hover { background: rgba(255,179,71,.15); }
 .ent.herramienta { color: var(--fosforo-tenue); text-shadow: none; font-size: .86em; margin-bottom: .25em; }
 .ent.herramienta.de-ayudante { padding-left: 1.2em; opacity: .8; }
 .ent.herramienta.error { color: #ff9a7a; }
@@ -577,6 +588,7 @@ a.miniatura:hover img { box-shadow: 0 0 0 1px #ffc96b, 0 0 10px rgba(255,179,71,
 /* ✎ something typed and not sent: quieter than the state flags */
 .marca-borrador { flex: none; margin-right: .35em; font-weight: 400; color: var(--crema-tenue); opacity: .75; }
 .chip-terminal .marca-borrador { margin-right: 0; }
+.marca-cola { flex: none; font-weight: 600; font-size: .9em; color: var(--ambar); }
 .barra-asomo-fila.actual b { color: #b9ffcf; }
 .barra-asomo-fila.de-copia b { color: #58e6ff; }
 .vt-cuerpo { position: relative; flex: 1; min-height: 0; padding: 4px 6px 6px; background: #06120c; }

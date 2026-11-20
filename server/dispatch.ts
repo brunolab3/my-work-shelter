@@ -6,7 +6,7 @@
 import path from 'node:path';
 import { createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
-import type { InputView } from '../shared/protocol.ts';
+import type { InputView, MessageOrigin } from '../shared/protocol.ts';
 import { textPlan, type Plans, type Plan, type PartOfPlan } from './plans.ts';
 import { t as tr } from '../shared/language.ts';
 import { MCP } from './mcpServers.ts';
@@ -18,7 +18,7 @@ export interface CtxAssignment {
   start(roomId: string, prompt: string): Promise<{ sessionId: string; dweller: string }>;
   plans: Plans;
   /** un mensaje a una conversación (del mensajero del refugio); false si ya no está */
-  notify(sessionId: string, text: string): boolean;
+  notify(sessionId: string, text: string, origin?: MessageOrigin): boolean;
   /** la conversación abierta de una sala en el worktree de una tarea (su carpeta lleva la clave), si la hay */
   sessionOfTask?(roomId: string, key: string): string | undefined;
   /** el robot mensajero corre con el plan de una sala a otras (solo se ve) */
