@@ -267,7 +267,6 @@ export const PANELS: Record<string, LocalizedText> = {
   'panels.theBoardShowsYourJira': { es: 'El tablero muestra tus tareas de Jira y tus pull requests de GitHub, cada uno con su estado. Solo lee: lo cambias en Jira o en GitHub.', en: 'The board shows your Jira tasks and your GitHub pull requests, each with its status. Read-only: change things in Jira or GitHub.' },
   'panels.thereIsNoLogisticsRoom': { es: 'No hay sala de logística.', en: 'There is no logistics room.' },
   'panels.theRoomSalaHasNo': { es: 'La sala {sala} no tiene habitante.', en: 'The room {sala} has no dweller.' },
-  'panels.noEpic': { es: 'Sin épica', en: 'No epic' },
   'panels.readingTheTask': { es: 'Leyendo la tarea…', en: 'Reading the task…' },
   'panels.planning': { es: 'PLANIFICACIÓN', en: 'PLANNING' },
   'panels.split': { es: 'REPARTO', en: 'SPLIT' },

@@ -1,6 +1,6 @@
 // QA of the Jira epics, with an own server on a test shelter and Playwright (Jira in DEMO: its tasks carry two epics):
 // - the Planning board groups each column by epic, a header with the epic's diamond, key and summary, tasks without one
-//   last under «No epic»; each card of an epic has the diamond in the epic's color (its own, saved by the server), with
+//   last with no header; each card of an epic has the diamond in the epic's color (its own, saved by the server), with
 //   the epic in its tooltip; the others have none;
 // - a holographic copy working REF-236 (epic REF-200): its tag has the diamond, the tag of a copy without an epic doesn't;
 // - its intercom: the tab has the diamond, and the bar's ⋯ N list beside the task's marker.
@@ -51,10 +51,10 @@ try {
   })));
   console.log(JSON.stringify(board, null, 1));
   const review = board.find(c => /revisi|review/i.test(c.col))?.rows ?? [];
-  check(review.length === 4 && /REF-200/.test(review[0].header) && review[1].key === 'REF-236' && /REF-200.*Red fiable/.test(review[1].epic) && /no epic|sin épica/i.test(review[2].header ?? '') && review[3].key === 'REF-240' && !review[3].epic,
-    'In review: header REF-200 with REF-236 (diamond, tooltip), then «No epic»');
+  check(review.length === 3 && /REF-200/.test(review[0].header) && review[1].key === 'REF-236' && /REF-200.*Red fiable/.test(review[1].epic) && review[2].key === 'REF-240' && !review[2].epic,
+    'In review: header REF-200 with REF-236 (diamond, tooltip), then REF-240 with no header');
   const todo = board.find(c => /hacer|to do/i.test(c.col))?.rows ?? [];
-  check(/REF-200/.test(todo[0]?.header ?? '') && todo[1]?.key === 'REF-231' && /no epic|sin épica/i.test(todo[2]?.header ?? '') && todo[3]?.key === 'REF-244', 'To do: the epic group first, tasks without one last');
+  check(/REF-200/.test(todo[0]?.header ?? '') && todo[1]?.key === 'REF-231' && todo.at(-1)?.key === 'REF-244' && !todo.some(r => r.header && !/REF-\d+/.test(r.header)), 'To do: the epic group first, tasks without one last with no header');
   const withEpic = board.flatMap(c => c.rows).filter(f => f.key && f.epic);
   check(withEpic.length >= 3 && new Set(board.flatMap(c => c.rows).filter(f => f.epic && /REF-200/.test(f.epic)).map(f => f.color)).size === 1, 'every card of an epic has its diamond, in one color per epic');
   const colors = await pg.evaluate(() => window.__client.action('tareas.colores', { keys: ['REF-200', 'REF-210'] }));

@@ -43,7 +43,7 @@ export function OrganizeRooms({ roomId, goBack = closePanel }: { roomId?: string
             <ul>
               {s.steps.map(p => (
                 <li key={p.task}>
-                  <TaskMark key={p.task.replace(/^PR #/, 'PR-')} /><b className="ident">{p.task}</b> <span className="tenue">→ {p.main ? t('panels.theMainCopyItsBranch') : p.create ? t('panels.newWorktreeDonde', { donde: p.where }) : t('panels.itsWorktreeDonde', { donde: p.where })} · {p.conversation ? t('panels.alreadyHasAConversation') : t('panels.newConversation')}</span>
+                  <TaskMark taskKey={p.task.replace(/^PR #/, 'PR-')} /><b className="ident">{p.task}</b> <span className="tenue">→ {p.main ? t('panels.theMainCopyItsBranch') : p.create ? t('panels.newWorktreeDonde', { donde: p.where }) : t('panels.itsWorktreeDonde', { donde: p.where })} · {p.conversation ? t('panels.alreadyHasAConversation') : t('panels.newConversation')}</span>
                   <small className="tenue">{p.prs.join(' → ')}</small>
                 </li>
               ))}

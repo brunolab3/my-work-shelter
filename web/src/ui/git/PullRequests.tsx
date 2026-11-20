@@ -82,7 +82,7 @@ function List({ title, list, empty }: { title: string; list: PRWithTask[]; empty
           const good = p.state === 'abierto' && p.review === 'APPROVED' && p.checks !== 'FAILURE' && p.checks !== 'ERROR';
           return (
             <li key={p.url} onClick={() => openLink(p.url)} title={p.url}>
-              <TaskMark key={pRTask(p)} /><span className="gg-pr-texto"><span className="gg-pr-titulo">{p.title}</span><span className="gg-pr-repo">{p.repo}#{p.number}{p.base && p.base !== 'main' && p.base !== 'master' ? <> · {t('windows.intoBase', { base: p.base })}</> : null}</span></span>
+              <TaskMark taskKey={pRTask(p)} /><span className="gg-pr-texto"><span className="gg-pr-titulo">{p.title}</span><span className="gg-pr-repo">{p.repo}#{p.number}{p.base && p.base !== 'main' && p.base !== 'master' ? <> · {t('windows.intoBase', { base: p.base })}</> : null}</span></span>
               {p.tareas.map(t => <button key={t.key} className="gg-pr-tarea" style={{ color: taskColor(t.key), borderColor: taskColor(t.key) + '88' }} onClick={e => { e.stopPropagation(); openLink(t.url); }} title={`${t.title} · ${t.state}`}>{t.key}</button>)}
               <span className={'gg-pr-estado ' + (fail ? 'mal' : good ? 'ok' : STATE[p.state])}>{prText(p)}</span>
               <span className="gg-pr-cuando tenue">{ago(p.updated)}</span>

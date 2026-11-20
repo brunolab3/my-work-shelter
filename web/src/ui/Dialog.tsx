@@ -513,7 +513,7 @@ export function ComTabs() {
           const o = who(p.group!), task = o?.copy ? worktreeTask(o.copy) : undefined;
           return <>
             {p.room !== before?.room && <div className="vt-lista-grupo">{p.room}</div>}
-            {o && <div className={'vt-lista-quien' + (o.copy ? ' de-copia' : '') + (o.id === talking ? ' actual' : '')}><TalkerBust x={o} /><b>{p.who}</b>{task && <TaskMark key={task} />}</div>}
+            {o && <div className={'vt-lista-quien' + (o.copy ? ' de-copia' : '') + (o.id === talking ? ' actual' : '')}><TalkerBust x={o} /><b>{p.who}</b>{task && <TaskMark taskKey={task} />}</div>}
           </>;
         }} />
       </div>, document.body)}

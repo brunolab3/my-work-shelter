@@ -332,12 +332,10 @@ export function JiraBoard({ goBack, coordination }: { goBack: () => void; coordi
             onDrop={e => { e.preventDefault(); const ta = dragged; setDragged(null); setOver(null); propose(ta ?? undefined, c.id); }}>
             <h3>{tIs(c.name)} <span className="tenue">{c.tareas.length}</span></h3>
             {c.tareas.map((ta, k) => (<React.Fragment key={ta.key}>
-              {ta.epic?.key !== c.tareas[k - 1]?.epic?.key && (ta.epic
-                ? <div className="kanban-epica" title={t('windows.epicOf', { clave: ta.epic.key, titulo: ta.epic.title })}><EpicMark key={ta.key} /><span className="ident">{ta.epic.key}</span> {ta.epic.title}</div>
-                : <div className="kanban-epica tenue">{t('panels.noEpic')}</div>)}
+              {ta.epic && ta.epic.key !== c.tareas[k - 1]?.epic?.key && <div className="kanban-epica" title={t('windows.epicOf', { clave: ta.epic.key, titulo: ta.epic.title })}><EpicMark taskKey={ta.key} /><span className="ident">{ta.epic.key}</span> {ta.epic.title}</div>}
               <div className={'ficha-issue' + (c.id !== 'hecho' ? ' con-tarea' : '') + (ci === col && k === Math.min(i, c.tareas.length - 1) ? ' sel' : '') + (dragged?.key === ta.key ? ' arrastrada' : '')} style={c.id !== 'hecho' ? { '--tarea': taskColor(ta.key) } as React.CSSProperties : undefined} onMouseEnter={() => { if (!dragged) { setCol(ci); setI(k); } }} onDoubleClick={() => openOutside(ta.url)}
                 draggable={!move} onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', ta.key); setDragged(ta); }} onDragEnd={() => { setDragged(null); setOver(null); }}>
-                {c.id !== 'hecho' && <span className="marca-tarea" />}<EpicMark key={ta.key} /><span className="ident">{ta.key}</span> {ta.title}
+                {c.id !== 'hecho' && <span className="marca-tarea" />}<EpicMark taskKey={ta.key} /><span className="ident">{ta.key}</span> {ta.title}
                 <small className="tenue">{[ta.state, ta.type, ta.priority].filter(Boolean).join(' · ')}</small>
                 {ta.prs.length > 0 && <div className="prs-ficha">{ta.prs.map(p => <span key={p.url}>{prBadge(p)}</span>)}</div>}
                 {inRunning(sessions, ta.key).length > 0 && <small className="tenue">{t('panels.inProgress')} {inRunning(sessions, ta.key).map(roomName).join(', ')}</small>}

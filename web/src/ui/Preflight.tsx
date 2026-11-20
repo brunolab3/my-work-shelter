@@ -48,13 +48,13 @@ const linkTitle = (l: PartLink) => l.url ? `${l.ref} · ${l.title ?? ''}\n${link
 // and each checkpoint's state after it; a signal's where, baseline and evidence in its tooltip
 const STATE_MARK: Record<CheckpointState, Cell['mark']> = { 'waiting-deploy': 'nada', live: 'nada', 'waiting-traffic': 'nada', evidenced: 'ok', failed: 'mal', inconclusive: 'aviso' };
 const SIGNAL_MARK = { pending: '·', evidenced: '✓', failed: '✗' } as const;
-function Verification({ key, plan, tracker, approved, moved }: { key: string; plan?: VerificationPlan; tracker?: TaskTracker; approved: (p: VerificationPlan) => void; moved: (state: string) => void }) {
+function Verification({ taskKey, plan, tracker, approved, moved }: { taskKey: string; plan?: VerificationPlan; tracker?: TaskTracker; approved: (p: VerificationPlan) => void; moved: (state: string) => void }) {
   const [error, setError] = useState('');
   const [moving, setMoving] = useState(false);
   // the tracker's status: its board's prod-check one (picked in the vault) and, once verified, the workflow's move to done
   const move = () => {
     SFX.click(); setError(''); setMoving(true);
-    client.action<{ state: string }>('verificacion.cerrar', { key }).then(x => { SFX.shortSuccess(); moved(x.state); }).catch(e => setError((e as Error).message)).finally(() => setMoving(false));
+    client.action<{ state: string }>('verificacion.cerrar', { key: taskKey }).then(x => { SFX.shortSuccess(); moved(x.state); }).catch(e => setError((e as Error).message)).finally(() => setMoving(false));
   };
   const line = tracker && <p className="tenue">{t('verification.tracker', { estado: tracker.state })}{' · '}
     {tracker.test ? t('verification.boardProdCheck', { tablero: tracker.board, prueba: tracker.test }) : t('verification.boardUnset', { tablero: tracker.board })}
@@ -62,7 +62,7 @@ function Verification({ key, plan, tracker, approved, moved }: { key: string; pl
   if (!plan) return <>{line}<p className="tenue">{t('verification.none')}</p></>;
   const approve = () => {
     SFX.click(); setError('');
-    client.action<VerificationPlan | null>('verificacion.aprobar', { key }).then(p => { if (p) approved(p); }).catch(e => setError((e as Error).message));
+    client.action<VerificationPlan | null>('verificacion.aprobar', { key: taskKey }).then(p => { if (p) approved(p); }).catch(e => setError((e as Error).message));
   };
   const ok = isApproved(plan);
   return <div className="pf-verificacion">
@@ -184,7 +184,7 @@ function Popover({ taskKey: key, anchor }: { taskKey: string; anchor?: { x: numb
         })}</span>;
       })}</p>}
       {allMerged && <p className="pf-aterrizada">✔ {t('preflight.landed')}</p>}
-      {r && <Verification key={key} plan={r.verification} tracker={r.tracker} approved={p => setR({ ...r, verification: p })} moved={state => setR({ ...r, tracker: r.tracker && { ...r.tracker, state, move: false } })} />}
+      {r && <Verification taskKey={key} plan={r.verification} tracker={r.tracker} approved={p => setR({ ...r, verification: p })} moved={state => setR({ ...r, tracker: r.tracker && { ...r.tracker, state, move: false } })} />}
       {r && r.cycle.length > 0 && <p className="aviso-consola">{t('preflight.cycle')} {r.cycle.map(x => x.replace(/^[^/]+\//, '')).join(', ')}</p>}
       <Keys><kbd>↑↓</kbd>{t('preflight.keys.row')} <kbd>Enter</kbd>{t('preflight.keys.pr')} <kbd>R</kbd>{t('panels.reload')} <kbd>Esc</kbd>{t('menu.close')}</Keys>
     </div>

@@ -73,12 +73,12 @@ const LIST_SHORTCUT = `${CMD}${MAC ? '⇧' : ''}A`;
 /** ✎ on a tab, a list row or a talker with something typed and not sent: quieter than the state flags */
 /** A task's epic, beside its color marker: a small diamond in the epic's color (not round, so it's never taken for a state
  *  light); nothing for tasks without one. Repaints with useColorsTasks */
-export function EpicMark({ key }: { key?: string }) {
-  const e = taskEpic(key);
+export function EpicMark({ taskKey }: { taskKey?: string }) {
+  const e = taskEpic(taskKey);
   return e ? <span className="marca-epica" style={{ '--epica': taskColor(e.key) } as React.CSSProperties} title={t('windows.epicOf', { clave: e.key, titulo: e.title })} /> : null;
 }
 /** A task's color marker and, if it has one, its epic's */
-export const TaskMark = ({ key, color }: { key?: string; color?: string }) => <><span className="marca-tarea" style={{ '--tarea': color ?? taskColor(key) } as React.CSSProperties} title={key} /><EpicMark key={key} /></>;
+export const TaskMark = ({ taskKey, color }: { taskKey?: string; color?: string }) => <><span className="marca-tarea" style={{ '--tarea': color ?? taskColor(taskKey) } as React.CSSProperties} title={taskKey} /><EpicMark taskKey={taskKey} /></>;
 
 export const DraftMark = () => <span className="marca-borrador" title={t('windows.unsentDraft')}>✎</span>;
 
@@ -110,7 +110,7 @@ export function Tabs({ items, active, activate, close, onNew, opensThat, list, c
             title={[p.title || p.name, p.state && stateLabel(p.state), p.draft && t('windows.unsentDraft'), p.who, p.task, i < 9 ? `${CMD}${i + 1}` : ''].filter(Boolean).join(' · ')}>
             <span className={'piloto ' + PILOT[p.state ?? 'ociosa']} />
             {p.draft && <DraftMark />}
-            <EpicMark key={p.task} />
+            <EpicMark taskKey={p.task} />
             <span className="vt-pestana-nombre">{p.name}</span>
             <button className="vt-pestana-x" onClick={e => { e.stopPropagation(); close([p.id]); }} title={t('windows.closeTabAtajo', { shortcut: `${CMD}W` })}>×</button>
           </div>
@@ -167,7 +167,7 @@ export function TabList({ items, active, activate, close, exit, group, header }:
             <span className={'piloto ' + PILOT[p.state ?? 'ociosa']} />
             <span className="vt-lista-estado">{p.state ? stateLabel(p.state) : ''}</span>
             <span className="vt-lista-nombre">{p.draft && <DraftMark />}{p.name}</span>
-            <span className="vt-lista-tarea">{p.task && <><TaskMark key={p.task} />{p.task}</>}</span>
+            <span className="vt-lista-tarea">{p.task && <><TaskMark taskKey={p.task} />{p.task}</>}</span>
             <span className="vt-lista-sala">{header ? '' : p.who ?? p.room}</span>
             <span className="vt-lista-cuando">{p.activity}</span>
             <button className="vt-pestana-x" onClick={e => { e.stopPropagation(); close([p.id]); }} title={t('windows.closeTabAtajo', { shortcut: `${CMD}W` })}>×</button>

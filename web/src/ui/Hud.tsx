@@ -45,13 +45,13 @@ function untilMinutes(ts: number, now: number) {
   const h = Math.floor(m / 60); return t('panels.inHH', { h }) + (m % 60 ? ' ' + t('panels.nMin', { n: m % 60 }) : '');
 }
 
-function Counter({ icon, n, text, key, level }: { icon: React.ReactNode; n: number | string; text: string; key: string; level?: 'urgente' | 'apagado' | 'error' | 'pronto' | 'inminente' | '' }) {
+function Counter({ icon, n, text, shortcut, level }: { icon: React.ReactNode; n: number | string; text: string; shortcut: string; level?: 'urgente' | 'apagado' | 'error' | 'pronto' | 'inminente' | '' }) {
   return (
-    <div className={'contador ' + (level || '')} title={`${text} (${key})`}>
+    <div className={'contador ' + (level || '')} title={`${text} (${shortcut})`}>
       <span className="icono">{icon}</span>
       <span className="n">{n}</span>
       <span className="txt">{text}</span>
-      <span className="tecla">{key}</span>
+      <span className="tecla">{shortcut}</span>
     </div>
   );
 }
@@ -79,11 +79,11 @@ export function Hud() {
       </div>
       {!connected && <div className="seg fosforo sin-enlace" title={t('panels.theLinkToTheShelter')}><span className="piloto error" /> {t('panels.noLinkRetrying')}</div>}
       <div className={'seg fosforo contadores' + (connected ? '' : ' viejos')}>
-        <Counter icon={Icon.gear} n={working} text={t('windows.working')} key="Tab" level={working ? '' : 'apagado'} />
-        <Counter icon={Icon.notice} n={waiting} text={t('panels.waitingForYou')} key="Q" level={waiting ? 'urgente' : 'apagado'} />
-        {errors > 0 && <Counter icon={Icon.error} n={errors} text={t('panels.brokenDown')} key="Q" level="error" />}
-        <Counter icon={Icon.restsOn} n={e.unseenNotifications} text={t('panels.unseen')} key="N" level={e.unseenNotifications ? '' : 'apagado'} />
-        <Counter icon={Icon.timer} n={next ? untilMinutes(next.start, now) : '—'} text={next ? next.title : t('panels.noEvents')} key="C" level={next ? urgency(next, now) : 'apagado'} />
+        <Counter icon={Icon.gear} n={working} text={t('windows.working')} shortcut="Tab" level={working ? '' : 'apagado'} />
+        <Counter icon={Icon.notice} n={waiting} text={t('panels.waitingForYou')} shortcut="Q" level={waiting ? 'urgente' : 'apagado'} />
+        {errors > 0 && <Counter icon={Icon.error} n={errors} text={t('panels.brokenDown')} shortcut="Q" level="error" />}
+        <Counter icon={Icon.restsOn} n={e.unseenNotifications} text={t('panels.unseen')} shortcut="N" level={e.unseenNotifications ? '' : 'apagado'} />
+        <Counter icon={Icon.timer} n={next ? untilMinutes(next.start, now) : '—'} text={next ? next.title : t('panels.noEvents')} shortcut="C" level={next ? urgency(next, now) : 'apagado'} />
       </div>
       <div className="seg fosforo chatarra" title={t('panels.scrapEarnedWithEveryFinished')}>
         <span className="icono">{Icon.nut}</span><span className="n">{e.scrap.toLocaleString(LOC)}</span>
