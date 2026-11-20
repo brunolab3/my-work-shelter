@@ -21,6 +21,9 @@ export interface ScheduledMessage {
   target: ScheduledTarget;
   // a send_to_room over its per-minute limit (server/roomNotices.ts): delivered verbatim, as if sent then
   overLimit?: true;
+  // not urgent: waits for the next free 5-hour usage window (below); `when` is when the running one ends
+  nextWindow?: true;
+  overseer?: true;       // written by the Overseer (the intercom's ⌥Enter), not by a dweller
 }
 
 export const SCHEDULE_HOUR = 9;                 // un día sin hora («el lunes») es a las 9:00
@@ -65,7 +68,7 @@ export function describeWhenShort(ms: number, now = Date.now()): string {
 }
 
 /** Los que se entregan ya, en orden */
-export const due = (list: ScheduledMessage[], now: number) => list.filter(x => x.when <= now).sort((a, b) => a.when - b.when);
+export const due = (list: ScheduledMessage[], now: number) => list.filter(x => !x.nextWindow && x.when <= now).sort((a, b) => a.when - b.when);
 export const isLate = (x: ScheduledMessage, now: number) => now - x.when > LATE_AFTER_MS;
 
 /** Los de una conversación (los que programó ella): por su id del juego o por el de Claude Code */
@@ -104,4 +107,25 @@ export function checkWhen(requested: string, now: number): { ok: true; when: num
   const when = holdWeekend(Math.max(p.ms, now));
   if (when - now > MAX_DAYS * 86_400_000) return { ok: false, error: 'tooFar' };
   return { ok: true, when, postponed: when !== Math.max(p.ms, now) };
+}
+
+// ---------------------------------------------------------------- the next 5-hour window
+// "Not urgent" messages wait for the plan's next free 5-hour usage window instead of spending the one running now: they
+// go out when it ends (or when a limit that stops everything lifts), one at a time and a few minutes apart. What the
+// game knows of the window comes from the sessions' rate-limit reports (server/main.ts); with none known, now is free.
+
+export const NEXT_WINDOW = 'next-window';               // schedule_message's `when` for it
+export const WINDOW_GAP_MS = 5 * 60_000;                // never two closer than this
+/** The plan's usage as last reported: when the running 5-hour window ends and, at a limit, until when nothing goes */
+export interface UsageWindow { endsAt?: number; blockedUntil?: number }
+
+/** When a next-window message becomes due: the end of the window running now, after any limit; now if none */
+export const nextWindowStart = (now: number, u: UsageWindow) => Math.max(now, u.endsAt ?? 0, u.blockedUntil ?? 0);
+
+/** The next-window message to deliver now, if any: the oldest due one (those that failed, last), at most one every
+ *  WINDOW_GAP_MS since `last`, and none while a limit stops everything */
+export function windowNext(list: ScheduledMessage[], now: number, u: UsageWindow, last: number | undefined, failed: Set<string> = new Set()): ScheduledMessage | undefined {
+  if ((u.blockedUntil ?? 0) > now || (last !== undefined && now - last < WINDOW_GAP_MS)) return undefined;
+  return list.filter(x => x.nextWindow && x.when <= now)
+    .sort((a, b) => (failed.has(a.id) ? 1 : 0) - (failed.has(b.id) ? 1 : 0) || a.created - b.created)[0];
 }

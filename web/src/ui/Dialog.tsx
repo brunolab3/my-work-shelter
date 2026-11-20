@@ -16,13 +16,13 @@
 // - Las copias holográficas (worktrees) tienen su propio intercomunicador, como clones: su retrato en holograma, su
 //   rama y sus cambios, y las conversaciones de dentro del worktree (copies.ts). Si un trabajo del habitante se muda a
 //   un worktree, su pestaña pasa a la ventana de la copia, y si se estaba viendo, se sigue con la copia.
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { SessionSummary, LogInput, HistoryElement, Command, PendingRequest, Visitor } from '@shared/protocol';
 import { MODELS, EFFORTS, PERMISSION_MODES } from '@shared/protocol';
 import { t, tIs, trBio } from '@shared/language';
 import { juego, type DwellerSummary } from './gameState';
-import { live, client, loadLog } from '../net/client';
+import { live, client, loadLog, addNotice } from '../net/client';
 import { markdown, markdownLine } from './markdown';
 import { RequestView, ToolText } from './plainText';
 import { keyboard } from '../engine/keyboard';
@@ -830,6 +830,17 @@ function New({ h, p, resume, goBack }: { h: DwellerSummary; p: TabCom; resume?: 
     juego.set({ workIn: null });
     SFX.shortSuccess();
   };
+  // ⌥Enter: background work for the next free 5-hour window (server/scheduled.ts), to the conversation being resumed or a new one here
+  const sendLater = () => {
+    if (!text.trim()) { SFX.notAllowed(); return; }
+    if (p.attachments?.length) { SFX.notAllowed(); setError(t('windows.nextWindowNoAttachments')); return; }
+    const inside = h.copy ? workIn : juego.get().workIn;
+    if (!inside && !resume && ofProject && worktree) { SFX.notAllowed(); setError(t('windows.nextWindowNoWorktree')); return; }
+    setError('');
+    client.action<ScheduledMessage>('programados.ventana', { roomId: h.room, cwd: resume?.cwd ?? inside?.cwd, claudeId: resume?.claudeId, title: resume?.title, message: text })
+      .then(x => { setText(''); SFX.shortSuccess(); addNotice('info', t('windows.nextWindowDone', { cuando: describeWhenShort(x.when) })); })
+      .catch(e => { SFX.error(); setError((e as Error).message); });
+  };
   useEffect(() => keyboard.listen(e => {
     if (e.code === 'Escape') { behind(); return true; }
     if (row > 0) {
@@ -867,7 +878,8 @@ function New({ h, p, resume, goBack }: { h: DwellerSummary; p: TabCom; resume?: 
               physicsKey(e.nativeEvent);
               if (dictation.key(e)) return;
               if (attachShortcut(e)) { e.preventDefault(); chooseFiles(f => attach(h.id, p.id, f)); return; }
-              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+              if (e.key === 'Enter' && e.altKey) { e.preventDefault(); sendLater(); }
+              else if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
               else if (e.key === 'Escape') { e.preventDefault(); behind(); }
               else if (e.key === 'Tab' || (e.key === 'ArrowDown' && !text.includes('\n'))) { e.preventDefault(); setRow(1); area.current?.blur(); }
             }} />
@@ -891,7 +903,7 @@ function New({ h, p, resume, goBack }: { h: DwellerSummary; p: TabCom; resume?: 
           <button className={'chip' + (worktree ? ' on' : '')} onClick={() => setWorktree(true)}>{t('windows.inASeparateWorktree')}</button>
         </div>}
         {error && <p className="aviso-consola">{error}</p>}
-        <p className="ayuda-consola"><kbd>Enter</kbd> {t('windows.start')} <kbd>⇧ Enter</kbd> {t('windows.newLine')} <kbd>{CMD}D</kbd> {t('windows.dictate2')} <kbd>{CMD}U</kbd> {t('windows.attach2')} <kbd>Tab</kbd> {t('windows.options')} <kbd>←→</kbd> {t('menu.select')} <kbd>Esc</kbd> {esc.armed ? <span className="urgente">{t('windows.againGoBackAndDelete')}</span> : t('windows.back2')}</p>
+        <p className="ayuda-consola"><kbd>Enter</kbd> {t('windows.start')} <kbd>⌥ Enter</kbd> <button className="consola-x" onClick={sendLater} title={t('windows.nextWindowHint')}>⏳ {t('windows.nextWindow')}</button> <kbd>⇧ Enter</kbd> {t('windows.newLine')} <kbd>{CMD}D</kbd> {t('windows.dictate2')} <kbd>{CMD}U</kbd> {t('windows.attach2')} <kbd>Tab</kbd> {t('windows.options')} <kbd>←→</kbd> {t('menu.select')} <kbd>Esc</kbd> {esc.armed ? <span className="urgente">{t('windows.againGoBackAndDelete')}</span> : t('windows.back2')}</p>
       </div>
     </div>
   );
@@ -941,6 +953,14 @@ function Session({ h, s, p, exit, onClose }: { h: DwellerSummary; s: SessionSumm
     else client.send({ t: 'enviar', sessionId: s.id, text: t });
     setText(''); pinned.current = true; SFX.shortSuccess();
   };
+  // ⌥Enter: background work for this conversation in the next free 5-hour window (server/scheduled.ts)
+  const sendLater = () => {
+    if (!text.trim() || text.trim().startsWith('/')) { SFX.notAllowed(); return; }
+    if (p.attachments?.length) { SFX.notAllowed(); addNotice('aviso', t('windows.nextWindowNoAttachments')); return; }
+    client.action<ScheduledMessage>('programados.ventana', { sessionId: s.id, message: text })
+      .then(x => { setText(''); SFX.shortSuccess(); addNotice('info', t('windows.nextWindowDone', { cuando: describeWhenShort(x.when) })); })
+      .catch(e => { SFX.error(); addNotice('aviso', (e as Error).message); });
+  };
   useEffect(() => keyboard.listen(e => {
     if ((e.ctrlKey && (e.code === 'ArrowUp' || e.code === 'KeyW')) || e.code === 'PageUp') { scroll(-1); return true; }
     if ((e.ctrlKey && (e.code === 'ArrowDown' || e.code === 'KeyS')) || e.code === 'PageDown') { scroll(1); return true; }
@@ -987,6 +1007,7 @@ function Session({ h, s, p, exit, onClose }: { h: DwellerSummary; s: SessionSumm
               if (attachShortcut(e)) { e.preventDefault(); chooseFiles(f => attach(h.id, p.id, f)); return; }
               if (suggestions.length && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) { e.preventDefault(); setSelCmd(k => (k + (e.key === 'ArrowDown' ? 1 : -1) + suggestions.length) % suggestions.length); return; }
               if (suggestions.length && e.key === 'Tab') { e.preventDefault(); setText('/' + suggestions[selCmd].name + ' '); return; }
+              if (e.key === 'Enter' && e.altKey) { e.preventDefault(); sendLater(); return; }
               if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (suggestions.length && text.trim() === text && !text.includes(' ')) setText('/' + suggestions[selCmd].name + ' '); else send(); return; }
               if (e.key === 'Escape') { e.preventDefault(); if (text) esc.press(true, () => setText('')); else exit(); return; }
               if ((e.ctrlKey && (e.key === 'ArrowUp' || e.key === 'w')) || e.key === 'PageUp') { e.preventDefault(); scroll(-1); return; }
@@ -998,7 +1019,7 @@ function Session({ h, s, p, exit, onClose }: { h: DwellerSummary; s: SessionSumm
       )}
       {!s.pending && <AttachmentsTray list={p.attachments} remove={removeAttachment(h.id, p.id)} />}
       {!s.pending && <DictationStrip dictation={dictation} />}
-      <p className="ayuda-consola"><kbd>Enter</kbd> {t('windows.send')} <kbd>{CMD}D</kbd> {t('windows.dictate2')} <kbd>{CMD}U</kbd> {t('windows.attach2')} <kbd>Ctrl C</kbd> {t('windows.stop')} <kbd>Esc</kbd> {esc.armed ? <span className="urgente">{t('windows.againDeleteWhatYouWrote')}</span> : text ? t('windows.twiceDeleteWhatYouWrote') : t('windows.backToTheShelterKeeps')} <kbd>{CMD}T</kbd> {t('windows.anotherJob')} <kbd>{CMD}↑↓</kbd> {t('windows.expandMinimize')}</p>
+      <p className="ayuda-consola"><kbd>Enter</kbd> {t('windows.send')} <kbd>⌥ Enter</kbd> <button className="consola-x" onClick={sendLater} title={t('windows.nextWindowHint')}>⏳ {t('windows.nextWindow')}</button> <kbd>{CMD}D</kbd> {t('windows.dictate2')} <kbd>{CMD}U</kbd> {t('windows.attach2')} <kbd>Ctrl C</kbd> {t('windows.stop')} <kbd>Esc</kbd> {esc.armed ? <span className="urgente">{t('windows.againDeleteWhatYouWrote')}</span> : text ? t('windows.twiceDeleteWhatYouWrote') : t('windows.backToTheShelterKeeps')} <kbd>{CMD}T</kbd> {t('windows.anotherJob')} <kbd>{CMD}↑↓</kbd> {t('windows.expandMinimize')}</p>
     </div>
   );
 }
@@ -1067,16 +1088,19 @@ function ScheduledMenu({ h, s, resume }: { h: DwellerSummary; s?: SessionSummary
   const all = live.use(e => e.scheduled);
   const worktrees = live.use(e => e.repos[h.room]?.worktrees);
   const conversation = s ?? (resume ? { claudeId: resume } : undefined);
-  const mine = useMemo(() => conversation ? ofConversation(all, conversation) : ofPlace(all, h.room, h.copy?.path, worktrees ?? []),
+  // the dated ones first, then the background work waiting for the next free 5-hour window, under its divider
+  const mine = useMemo(() => { const l = conversation ? ofConversation(all, conversation) : ofPlace(all, h.room, h.copy?.path, worktrees ?? []); return [...l.filter(x => !x.nextWindow), ...l.filter(x => x.nextWindow)]; },
     [all, worktrees, s?.id, s?.claudeId, resume, h.room, h.copy?.path]);
+  const firstBackground = mine.find(x => x.nextWindow)?.id;
   const [open, setOpen] = useState(false);
   const list = useListAtButton(open);
   const [editing, setEditing] = useState<{ id: string; when: string; message: string; error?: string } | null>(null);
   if (!mine.length) return null;
   const cancel = (x: ScheduledMessage) => { client.action('programados.cancelar', { id: x.id }).then(() => SFX.click()).catch(() => SFX.notAllowed()); };
+  const sendNow = (x: ScheduledMessage) => { client.action('programados.ahora', { id: x.id }).then(() => SFX.click()).catch(() => SFX.notAllowed()); };
   const save = () => {
     if (!editing) return;
-    client.action('programados.editar', { id: editing.id, when: editing.when, message: editing.message })
+    client.action('programados.editar', { id: editing.id, when: editing.when || undefined, message: editing.message })
       .then(() => { setEditing(null); SFX.click(); }).catch(e => { setEditing(x => x && { ...x, error: (e as Error).message }); SFX.notAllowed(); });
   };
   const target = (x: ScheduledMessage) => x.target.type === 'sala' ? `→ ${x.target.room}${x.target.key ?? x.target.thread ? ' ' + (x.target.key ?? x.target.thread) : ''}`
@@ -1084,22 +1108,26 @@ function ScheduledMenu({ h, s, resume }: { h: DwellerSummary; s?: SessionSummary
   return (
     <span className="paginas-sesion programados-sesion">
       <button className="consola-x" title={t(conversation ? 'windows.scheduledHint' : 'windows.scheduledHintPlace')} onClick={() => { setOpen(x => !x); setEditing(null); SFX.click(); }}>
-        {t(mine.length > 1 ? 'windows.scheduledN' : 'windows.scheduled', { n: mine.length, cuando: describeWhenShort(mine[0].when) })}
+        {t(mine.length > 1 ? 'windows.scheduledN' : 'windows.scheduled', { n: mine.length, cuando: mine[0].nextWindow ? t('windows.scheduledWindow') : describeWhenShort(mine[0].when) })}
       </button>
-      {open && <ul ref={list} className="paginas-lista programados-lista" onKeyDown={e => { e.stopPropagation(); if (e.key === 'Escape') { setEditing(null); setOpen(false); } }}>{mine.map(x => editing?.id === x.id
-        ? <li key={x.id} className="programado-edicion">
+      {open && <ul ref={list} className="paginas-lista programados-lista" onKeyDown={e => { e.stopPropagation(); if (e.key === 'Escape') { setEditing(null); setOpen(false); } }}>{mine.map(x => <Fragment key={x.id}>
+        {x.id === firstBackground && <li className="programados-fondo tenue" title={t('windows.nextWindowHint')}>⏳ {t('windows.scheduledBackground')}</li>}
+        {editing?.id === x.id
+        ? <li className="programado-edicion">
             <input type="datetime-local" value={editing.when} onChange={e => setEditing({ ...editing, when: e.target.value, error: undefined })} />
             <textarea rows={4} value={editing.message} onChange={e => setEditing({ ...editing, message: e.target.value, error: undefined })} />
             {editing.error && <span className="pr-mal">{editing.error}</span>}
             <span><button className="consola-x" onClick={save}>{t('windows.scheduledSave')}</button> <button className="consola-x" onClick={() => setEditing(null)}>✕</button></span>
           </li>
-        : <li key={x.id} title={x.message}>
-            <span className={x.when < Date.now() ? 'urgente' : ''} title={x.when < Date.now() ? t('windows.scheduledLate') : describeWhen(x.when)}>⏰ {describeWhenShort(x.when)}</span>
+        : <li title={x.message}>
+            {x.nextWindow ? <span title={t('windows.nextWindowHint') + '\n' + describeWhen(x.when)}>{t('windows.scheduledWindow')}</span>
+              : <span className={x.when < Date.now() ? 'urgente' : ''} title={x.when < Date.now() ? t('windows.scheduledLate') : describeWhen(x.when)}>⏰ {describeWhenShort(x.when)}</span>}
             <span className="tenue">{target(x)}</span>
             <span className="pagina-nombre">{x.message.replace(/\s+/g, ' ')}</span>
-            <button className="consola-x" title={t('windows.scheduledEdit')} onClick={() => setEditing({ id: x.id, when: localInput(x.when), message: x.message })}>✎</button>
+            <button className="consola-x" title={t('windows.scheduledEdit')} onClick={() => setEditing({ id: x.id, when: x.nextWindow ? '' : localInput(x.when), message: x.message })}>✎</button>
+            {x.nextWindow && <button className="consola-x" title={t('windows.scheduledSendNow')} onClick={() => sendNow(x)}>▶</button>}
             <button className="consola-x" title={t('windows.scheduledCancel')} onClick={() => cancel(x)}>✕</button>
-          </li>)}</ul>}
+          </li>}</Fragment>)}</ul>}
     </span>
   );
 }

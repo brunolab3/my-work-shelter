@@ -228,6 +228,7 @@ export const SERVER: Record<string, LocalizedText> = {
   'server.scheduledRetry': { es: '⏰ No he podido entregar el mensaje programado «{resumen}»: {error}. Lo vuelvo a intentar cada minuto.', en: '⏰ I could not deliver the scheduled message “{resumen}”: {error}. I will retry every minute.' },
   'server.scheduledGone': { es: 'Ese mensaje programado ya no está (se entregó o se canceló).', en: 'That scheduled message is gone (delivered or cancelled).' },
   'server.scheduledNoDweller': { es: 'su sala ya no existe o no tiene habitante', en: 'its room no longer exists or has no dweller' },
+  'server.scheduledFull': { es: 'Ya hay {n} mensajes programados: cancela alguno antes.', en: 'There are already {n} scheduled messages: cancel one first.' },
   // línea de estado y permisos de las herramientas de Claude Code (server/tools.ts)
   'server.activity.reading': { es: 'Leyendo {f}', en: 'Reading {f}' },
   'server.activity.editing': { es: 'Editando {f}', en: 'Editing {f}' },

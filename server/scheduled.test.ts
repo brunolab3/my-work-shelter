@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { mkdtempSync, readFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { parseWhen, holdWeekend, checkWhen, due, isLate, ofConversation, type ScheduledMessage } from '../shared/scheduled.ts';
+import { parseWhen, holdWeekend, checkWhen, due, isLate, ofConversation, type ScheduledMessage, type UsageWindow } from '../shared/scheduled.ts';
 import { Scheduled, type CtxScheduled } from './scheduled.ts';
 import { setLanguage } from '../shared/language.ts';
 import type { SessionSummary } from '../shared/protocol.ts';
@@ -47,7 +47,7 @@ describe('mensajes programados: fechas', () => {
 
 // un contexto que apunta las entregas; `falla` hace que la conversación no se pueda retomar
 const SESS: SessionSummary = { id: 's1', dwellerId: 'remi', roomId: 'express', claudeId: 'c-111', cwd: '/r/express', worktree: '/r/wt/abc-1', state: 'trabajando', unread: false, title: 'ABC-1', pendingCount: 0, helpers: [], tools: 0, turns: 1, created: 0, updated: 0 } as SessionSummary;
-function ctx(timer: { t: number }, o: { fails?: boolean } = {}) {
+function ctx(timer: { t: number }, o: { fails?: boolean; usage?: UsageWindow } = {}) {
   const conversations: { claudeId?: string; cwd: string; text: string }[] = [], toRooms: { room: string; key?: string; text: string }[] = [], notices: string[] = [], changes: number[] = [];
   const c: CtxScheduled = {
     session: id => (id === SESS.id ? SESS : undefined),
@@ -57,6 +57,7 @@ function ctx(timer: { t: number }, o: { fails?: boolean } = {}) {
     changed: l => changes.push(l.length),
     notice: t => notices.push(t),
     now: () => timer.t,
+    usage: () => o.usage ?? {},
   };
   return { c, conversations, toRooms, notices, changes };
 }
@@ -154,5 +155,62 @@ describe('mensajes programados: almacén y entrega', () => {
     expect(p.cancel(id)).toBe(true);
     expect(p.list()).toEqual([]);
     expect(existsSync(path.join(dir, 'mensajes-programados.json'))).toBe(true);
+  });
+});
+
+describe('scheduled messages: the next free 5-hour window', () => {
+  let dir: string;
+  beforeEach(() => { dir = mkdtempSync(path.join(tmpdir(), 'programados-ventana-')); setLanguage('en'); });
+
+  it('a dweller\'s `when: "next-window"` waits for the running window to end, never as a dated one', async () => {
+    const timer = { t: NOW };
+    const x = ctx(timer, { usage: { endsAt: L(13, 18) } }), p = new Scheduled(dir, x.c);
+    const r = p.schedule('express', 's1', { when: 'next-window', message: 'Refactor the importer' });
+    expect(r.ok).toBe(true);
+    expect(r.text).toContain('⏳');
+    expect(p.list()[0]).toMatchObject({ nextWindow: true, when: L(13, 18), requested: 'next-window' });
+    timer.t = L(13, 17, 59); await p.sweep();
+    expect(x.conversations).toEqual([]);
+    timer.t = L(13, 18); await p.sweep();   // Friday 18:00: no weekend rule, it is about the window
+    expect(x.conversations).toHaveLength(1);
+    expect(p.list()).toEqual([]);
+  });
+
+  it('several go out one at a time, five minutes apart, oldest first; with no window known, now', async () => {
+    const timer = { t: NOW };
+    const x = ctx(timer), p = new Scheduled(dir, x.c);
+    for (const m of ['a', 'b', 'c']) { p.scheduleNextWindow({ roomId: 'express', cwd: '/r/express' }, m); timer.t += 1000; }
+    const out: number[] = [];
+    for (; timer.t < NOW + 20 * 60_000; timer.t += 60_000) { const before = x.conversations.length; await p.sweep(); if (x.conversations.length > before) out.push(Math.round((timer.t - NOW) / 60_000)); }
+    expect(out).toEqual([0, 5, 10]);
+    expect(x.conversations.map(c => c.text.split('\n').pop())).toEqual(['a', 'b', 'c']);
+    expect(x.conversations[0].text).toContain('Overseer');
+  });
+
+  it('holds while a limit stops everything, and goes once it lifts', async () => {
+    const timer = { t: NOW }, usage: { endsAt?: number; blockedUntil?: number } = { blockedUntil: L(13, 19) };
+    const x = ctx(timer, { usage }), p = new Scheduled(dir, x.c);
+    p.scheduleNextWindow({ roomId: 'express', cwd: '/r/express' }, 'later');
+    expect(p.list()[0].when).toBe(L(13, 19));
+    timer.t = L(13, 19); usage.blockedUntil = L(13, 20);   // still at the limit
+    await p.sweep();
+    expect(x.conversations).toEqual([]);
+    delete usage.blockedUntil; await p.sweep();
+    expect(x.conversations).toHaveLength(1);
+  });
+
+  it('send now, edit the text, move to a date and back to the next window', async () => {
+    const timer = { t: NOW };
+    const x = ctx(timer, { usage: { endsAt: L(13, 18) } }), p = new Scheduled(dir, x.c);
+    const a = p.scheduleNextWindow({ roomId: 'express', cwd: '/r/express' }, 'one');
+    const b = p.scheduleNextWindow({ roomId: 'express', cwd: '/r/express' }, 'two');
+    await p.sendNow(a.id);
+    expect(x.conversations.map(c => c.text.split('\n').pop())).toEqual(['one']);
+    p.edit(b.id, { message: 'two, edited' });
+    expect(p.list()[0]).toMatchObject({ nextWindow: true, message: 'two, edited' });
+    p.edit(b.id, { when: '2026-11-17T10:00' });
+    expect(p.list()[0].nextWindow).toBeUndefined();
+    p.edit(b.id, { when: 'next-window' });
+    expect(p.list()[0]).toMatchObject({ nextWindow: true, when: L(13, 18) });
   });
 });

@@ -35,6 +35,7 @@ import { blockersBetween, pRKey } from '../shared/deploy.ts';
 import { TasksCleanup, orphanedConversations } from './taskCleanup.ts';
 import { Scheduled, summary } from './scheduled.ts';
 import { LimitResumes, scanStopped, resetMs, stopsWork, UNKNOWN_RESET_MS } from './limitResume.ts';
+import type { UsageWindow } from '../shared/scheduled.ts';
 import { gitEnvironment } from './gitEnv.ts';
 import { Clones, cloneDestination, cloneUrl, clonedRepos, listRepos, repoInfo, repoRef } from './githubClone.ts';
 import { captureRoom } from './roomCapture.ts';
@@ -262,7 +263,12 @@ sessions.on('herramienta', () => {
 });
 // límites de uso del plan de Claude: el refugio avisa (una vez por estado) en vez de callarlo
 let lastLimit = '';
+// the plan's 5-hour window as the sessions report it: next-window messages wait for it to end (scheduled.ts)
+const usage: UsageWindow = {};
 sessions.on('limite', (i: any) => {
+  const resets = resetMs(i?.resetsAt);
+  if (resets && (!i.rateLimitType || i.rateLimitType === 'five_hour')) usage.endsAt = resets;
+  if (stopsWork(i)) usage.blockedUntil = resets ?? Date.now() + UNKNOWN_RESET_MS; else if (i?.status === 'allowed') delete usage.blockedUntil;
   if (!i || i.status === 'allowed') { lastLimit = ''; return; }
   const key = i.status + i.rateLimitType; if (key === lastLimit) return; lastLimit = key;
   const type = ({ five_hour: t('server.limit.fiveHour'), seven_day: t('server.limit.weekly'), seven_day_opus: t('server.limit.weeklyOpus'), seven_day_sonnet: t('server.limit.weeklySonnet') } as any)[i.rateLimitType] ?? '';
@@ -578,7 +584,8 @@ const scheduled: Scheduled = new Scheduled(DATA, {
       if (!room || !h) throw new Error(t('server.scheduledNoDweller'));
       // si su worktree ya no está, en la carpeta de la sala y sin retomar (la conversación era de otra carpeta)
       const cwd = existsSync(d.cwd) ? d.cwd : folderOf(room);
-      id = await startWork(undefined, { t: 'empezar', dwellerId: h.id, roomId: room.id, prompt: text, options: { cwd, permissions: 'plan', resume: cwd === d.cwd ? d.claudeId : undefined } });
+      // background work the Overseer left is their own job (the intercom's default mode); a dweller's own reminder, in plan mode
+      id = await startWork(undefined, { t: 'empezar', dwellerId: h.id, roomId: room.id, prompt: text, options: { cwd, permissions: x.overseer ? 'auto' : 'plan', resume: cwd === d.cwd ? d.claudeId : undefined } });
     }
     const room = store.state.rooms.find(s => s.id === d.roomId);
     broadcast({ t: 'entrega', room: d.roomId, sessionId: id, ...(room && path.resolve(d.cwd) !== path.resolve(folderOf(room)) ? { worktree: d.cwd } : {}) });
@@ -589,6 +596,7 @@ const scheduled: Scheduled = new Scheduled(DATA, {
   wake: at => { setTimeout(() => { scheduled.sweep().catch(() => {}); }, Math.max(0, at - Date.now()) + 1_000).unref(); },
   changed: list => broadcast({ t: 'programados', list }),
   notice: text => broadcast({ t: 'aviso', level: 'aviso', text }),
+  usage: () => usage,
 });
 setTimeout(() => {
   const sweep = () => { scheduled.sweep().catch(err => console.error('Mensajes programados:', String((err as Error).message).split('\n')[0])); };
@@ -1003,6 +1011,14 @@ async function action(name: string, d: Record<string, any> = {}): Promise<unknow
     case 'aviso.responder': { const f = questions.get(String(d.id ?? '')); questions.delete(String(d.id ?? '')); if (f) await f(!!d.si); return true; }
     // mensajes programados (scheduled.ts): el Supervisor los cancela o les cambia la hora o el texto
     case 'programados.cancelar': return scheduled.cancel(String(d.id ?? ''));
+    // the Overseer's ⌥Enter in the intercom (next 5-hour window): to its conversation (`sessionId`), the one being resumed, or a new one
+    case 'programados.ventana': {
+      const sess = d.sessionId ? sessions.list().find(x => x.id === d.sessionId) : undefined, room = e.rooms.find(x => x.id === (sess?.roomId ?? d.roomId));
+      if (!room) throw new Error(t('server.thatRoomDoesNotExist'));
+      const cwd = sess ? sess.worktree ?? sess.cwd : typeof d.cwd === 'string' && d.cwd ? d.cwd : folderOf(room);
+      return scheduled.scheduleNextWindow({ roomId: room.id, sessionId: sess?.id, claudeId: sess?.claudeId ?? (typeof d.claudeId === 'string' ? d.claudeId : undefined), cwd: path.resolve(cwd), title: sess?.title ?? (typeof d.title === 'string' ? d.title : undefined) }, String(d.message ?? ''));
+    }
+    case 'programados.ahora': await scheduled.sendNow(String(d.id ?? '')); return true;
     case 'programados.editar': return scheduled.edit(String(d.id ?? ''), { when: d.when === undefined ? undefined : String(d.when), message: d.message === undefined ? undefined : String(d.message) });
     case 'paginas.existen': return existingPages(d.paths, os.homedir());
     case 'paginas.actualizadas': return pagesUpdated(d.paths, os.homedir());

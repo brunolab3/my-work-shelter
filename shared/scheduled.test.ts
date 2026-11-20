@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { placeOf, ofPlace, soonestByPlace, type ScheduledMessage, type ScheduledTarget } from './scheduled.ts';
+import { placeOf, ofPlace, soonestByPlace, nextWindowStart, windowNext, due, WINDOW_GAP_MS, type ScheduledMessage, type ScheduledTarget } from './scheduled.ts';
 
 const REPO = '/repos/acme';
 const WT = `${REPO}/.claude/worktrees/ABC-12`;
@@ -34,5 +34,28 @@ describe('scheduled messages by room and task', () => {
     const c = msg({ type: 'sala', room: 'acme' }, 500), d = msg({ type: 'sala', room: 'other' }, 50);
     const m = soonestByPlace([a, b, c, d], room => room === 'acme' ? worktrees : []);
     expect([...m].map(([k, x]) => [k, x.id])).toEqual([[`acme|${WT}`, b.id], ['acme|', c.id], ['other|', d.id]]);
+  });
+});
+
+const bg = (id: string, created: number, when: number): ScheduledMessage => ({ ...msg({ type: 'sala', room: 'acme' }, when), id, created, nextWindow: true });
+
+describe('the next free 5-hour window', () => {
+  it('starts when the running window ends, after any limit; now if none is known', () => {
+    expect(nextWindowStart(100, {})).toBe(100);
+    expect(nextWindowStart(100, { endsAt: 500 })).toBe(500);
+    expect(nextWindowStart(100, { endsAt: 50 })).toBe(100);
+    expect(nextWindowStart(100, { endsAt: 500, blockedUntil: 900 })).toBe(900);
+  });
+  it('one at a time, oldest first (failed ones last), five minutes apart, none while blocked', () => {
+    const list = [bg('b', 2, 0), bg('a', 1, 0), bg('later', 0, 10 * 60_000)];
+    expect(windowNext(list, 1000, {}, undefined)?.id).toBe('a');
+    expect(windowNext(list, 1000, {}, undefined, new Set(['a']))?.id).toBe('b');
+    expect(windowNext(list, WINDOW_GAP_MS - 1, {}, 0)).toBeUndefined();
+    expect(windowNext(list, WINDOW_GAP_MS, {}, 0)?.id).toBe('a');
+    expect(windowNext(list, 1000, { blockedUntil: 2000 }, undefined)).toBeUndefined();
+    expect(windowNext([list[2]], 1000, {}, undefined)).toBeUndefined();   // not due yet
+  });
+  it('dated delivery skips them', () => {
+    expect(due([bg('a', 1, 0), { ...msg({ type: 'sala', room: 'acme' }, 0), id: 'dated' }], 1000).map(x => x.id)).toEqual(['dated']);
   });
 });
