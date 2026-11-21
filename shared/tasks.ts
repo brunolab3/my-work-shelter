@@ -154,15 +154,44 @@ export const NO_TASK_COLOR = '#58e6ff';
  *  share a color with a board task */
 export const hasTaskColor = (key: string | undefined): key is string => !!key && isJiraKey(key);
 
-/** A task's color: the assigned one or, until it arrives, one from the palette by its key; NO_TASK_COLOR for keys
- *  without a task color */
+/** The epic key of each task, as the Jira board last read it (web/src/ui/tasks.ts fills it with the colors) */
+export const assignedEpics = new Map<string, string>();
+
+const hashKey = (k: string) => { let h = 2166136261; for (const c of k) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
+const clamp = (x: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, x));
+
+function toHsl(hex: string): [number, number, number] {
+  const n = parseInt(hex.slice(1), 16), r = (n >> 16) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), l = (max + min) / 2, d = max - min;
+  if (!d) return [0, 0, l * 100];
+  const s = d / (1 - Math.abs(2 * l - 1));
+  const h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return [(h * 60 + 360) % 360, s * 100, l * 100];
+}
+function toHex(h: number, s: number, l: number): string {
+  const a = (s / 100) * Math.min(l, 100 - l) / 100, f = (n: number) => {
+    const k = (n + h / 30) % 12, c = l / 100 - a * Math.max(-1, Math.min(k - 3, 9 - k, 1));
+    return Math.round(c * 255).toString(16).padStart(2, '0');
+  };
+  return `#${f(0)}${f(8)}${f(4)}`;
+}
+
+/** A task's shade within its epic's family: the epic's base color turned a little in hue, saturation and lightness by the
+ *  task's key, so the tasks of one epic stay one family and still tell apart */
+export function familyShade(base: string, key: string): string {
+  const h = hashKey(key), [hue, s, l] = toHsl(base);
+  return toHex((hue + (h % 41) - 20 + 360) % 360, clamp(s + ((h >>> 8) % 31) - 15, 35, 100), clamp(l + ((h >>> 16) % 41) - 20, 30, 85));
+}
+
+/** A task's own color: the assigned one or, until it arrives, one from the palette by its key */
+const baseColor = (k: string) => assignedColors.get(k) || TASKS_PALETTE[hashKey(k) % TASKS_PALETTE.length];
+
+/** A task's color: in an epic, a shade of the epic's family (the epic's own color, which its mark wears, is the base);
+ *  otherwise the assigned palette color. NO_TASK_COLOR for keys without a task color */
 export function taskColor(key: string | undefined): string {
   if (!hasTaskColor(key)) return NO_TASK_COLOR;
-  const k = key.toUpperCase();
-  const already = assignedColors.get(k); if (already) return already;
-  let h = 2166136261;
-  for (const c of k) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); }
-  return TASKS_PALETTE[(h >>> 0) % TASKS_PALETTE.length];
+  const k = key.toUpperCase(), epic = assignedEpics.get(k);
+  return epic && epic !== k && hasTaskColor(epic) ? familyShade(baseColor(epic.toUpperCase()), k) : baseColor(k);
 }
 
 /** A qué color va cada clave nueva: el menos usado entre las asignadas (y, a igualdad, el primero de la paleta) */

@@ -1,7 +1,7 @@
 // Los colores de las tareas en el cliente (shared/tasks.ts): se piden al servidor los de las tareas que se ven (los
 // guarda y reparte para que no se repitan) y, al llegar, se repinta lo que los usa (tableros con useColoresTareas;
 // pantallas y hologramas miran `versionColores`).
-import { assignedColors, hasTaskColor } from '@shared/tasks';
+import { assignedColors, assignedEpics, hasTaskColor } from '@shared/tasks';
 import type { Epic, PRBoard, TaskJira } from '@shared/board';
 import { client, live } from '../net/client';
 import { t } from '@shared/language';
@@ -21,6 +21,7 @@ export function aimColors(tareas: { key: string; color?: string; epic?: Epic }[]
     if (t.epic) log(t.epic.key, t.epic.color);
     const k = t.key.toUpperCase(), before = epics.get(k);
     if (before?.key !== t.epic?.key || before?.title !== t.epic?.title) { if (t.epic) epics.set(k, { key: t.epic.key, title: t.epic.title }); else epics.delete(k); newer = true; }
+    if (t.epic) assignedEpics.set(k, t.epic.key.toUpperCase()); else assignedEpics.delete(k);
   }
   if (newer) versionColors.set(e => ({ v: e.v + 1 }));
 }

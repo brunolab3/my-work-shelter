@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { TASKS_PALETTE, NO_TASK_COLOR, hasTaskColor, assignedColors, assignColors, textKey, taskColor, pRTask, worktreeTask, taskCaption, remoteName, worktreePRs, newWorktreeOf, taskWorktreeIn, handMadeWorktree, ghCreateOf, githubRepoOf, ORIGINAL_REPO, taskKey, isJiraKey, slugKeyOf, worktreeHasTask } from './tasks';
+import { TASKS_PALETTE, NO_TASK_COLOR, hasTaskColor, assignedColors, assignColors, textKey, taskColor, pRTask, worktreeTask, taskCaption, remoteName, worktreePRs, newWorktreeOf, taskWorktreeIn, handMadeWorktree, ghCreateOf, githubRepoOf, ORIGINAL_REPO, taskKey, isJiraKey, slugKeyOf, worktreeHasTask, assignedEpics, familyShade } from './tasks';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, realpathSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
@@ -48,6 +48,27 @@ describe('tareas y su color', () => {
   it('sin asignar, un color de la paleta por la clave (sin importar mayúsculas)', () => {
     expect(taskColor('abc-1')).toBe(taskColor('ABC-1'));
     expect(TASKS_PALETTE).toContain(taskColor('REF-236'));
+  });
+  it('una tarea de épica toma un matiz de la familia de la épica: su color base, de la misma tonalidad, y distinto por tarea', () => {
+    assignedColors.set('EPC-1', TASKS_PALETTE[2]);
+    assignedEpics.set('ABC-1', 'EPC-1'); assignedEpics.set('ABC-2', 'EPC-1'); assignedEpics.set('ABC-3', 'EPC-1');
+    const base = taskColor('EPC-1');
+    expect(base).toBe(TASKS_PALETTE[2]);
+    const shades = ['ABC-1', 'ABC-2', 'ABC-3'].map(taskColor);
+    expect(new Set(shades).size).toBe(3);
+    expect(shades).not.toContain(base);
+    expect(taskColor('abc-1')).toBe(taskColor('ABC-1'));
+    expect(familyShade(TASKS_PALETTE[2], 'ABC-1')).toBe(taskColor('ABC-1'));
+    // the family stays near its base hue (±20°)
+    const hue = (hex: string) => { const n = parseInt(hex.slice(1), 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255; const d = Math.max(r, g, b) - Math.min(r, g, b); return d ? Math.round((Math.max(r, g, b) === r ? ((g - b) / d) % 6 : Math.max(r, g, b) === g ? (b - r) / d + 2 : (r - g) / d + 4) * 60 + 360) % 360 : 0; };
+    const dh = Math.abs(hue(base) - hue(shades[0])); expect(Math.min(dh, 360 - dh)).toBeLessThanOrEqual(22);
+    assignedEpics.clear(); assignedColors.delete('EPC-1');
+  });
+  it('sin épica, una tarea conserva su color de la paleta', () => {
+    assignedEpics.clear();
+    assignedColors.set('ABC-9', TASKS_PALETTE[5]);
+    expect(taskColor('ABC-9')).toBe(TASKS_PALETTE[5]);
+    assignedColors.delete('ABC-9');
   });
   it('only Jira keys (and PR-12) get a task color: slugs and keyless worktrees share the default, outside the palette', () => {
     expect(TASKS_PALETTE).not.toContain(NO_TASK_COLOR);
