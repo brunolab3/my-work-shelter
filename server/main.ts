@@ -20,7 +20,7 @@ import { mcpAssignment, mcpPlan, type CtxAssignment } from './dispatch.ts';
 import { mcpRooms, sendToRoom, taskWorktree, type CtxRooms } from './roomNotices.ts';
 import { Plans, tasksOrder } from './plans.ts';
 import { Verifications } from './verifications.ts';
-import { boardsSetup, boardsUnset, doneTransition, saveBoard, taskTracker, type CtxTrackers, type Tracker } from './verificationBoards.ts';
+import { boardsSetup, doneTransition, saveBoard, startupNotices, taskTracker, type CtxTrackers, type Tracker } from './verificationBoards.ts';
 import { finalCheckpoint, prRef, summaryOf, type BoardStatuses } from '../shared/verification.ts';
 import { BlockersPR } from './prBlocks.ts';
 import { TasksColors } from './taskColors.ts';
@@ -146,12 +146,17 @@ const plans = new Plans(DATA);
 // the production verification plan of each task (verifications.ts): the dweller writes it, the Overseer approves it in the pre-flight
 const verifications = new Verifications(DATA, Date.now, () => broadcast({ t: 'verificaciones', states: verificationSummaries() }));
 const verificationSummaries = () => Object.fromEntries(Object.entries(verifications.states()).map(([k, p]) => [k, summaryOf(p)]));
-// the tracker's side (verificationBoards.ts): each board's prod-check and done statuses, picked in the vault
+// the tracker's side (verificationBoards.ts): Jira's one prod-check and done pair, each Linear team's, linked or picked in the vault
 const ctxTrackers: CtxTrackers = {
   action: (name, d) => integrations.action(name, d),
   connected: f => { const s = integrations.states()[f]; return s?.mode === 'real' && s.state === 'conectada'; },
-  settings: () => ((store.state.settings as any).verificationBoards ?? {}) as Record<string, BoardStatuses>,
-  save: (board, v) => { const a = store.state.settings as any; a.verificationBoards = { ...a.verificationBoards, [board]: v }; store.save(); broadcast({ t: 'estado', state: store.state as any }); },   // the board's prod-check column follows it
+  settings: () => { const a = store.state.settings as any; return { jira: a.verificationJira as BoardStatuses | undefined, boards: (a.verificationBoards ?? {}) as Record<string, BoardStatuses> }; },
+  save: p => {   // the board's prod-check column follows it
+    const a = store.state.settings as any;
+    if (p.jira) a.verificationJira = p.jira;
+    if (p.boards) a.verificationBoards = p.boards;
+    store.save(); broadcast({ t: 'estado', state: store.state as any });
+  },
 };
 // bloqueos entre PR marcados a mano en el tablero de despliegue de la sala de planificación
 const prBlockers = new BlockersPR(DATA);
@@ -719,9 +724,9 @@ const sweepVerifications = () => verifications.sweep({
   notify: (text, level) => broadcast({ t: 'aviso', level, text }),
 }).catch(err => console.error('Verificaciones:', String((err as Error).message).split('\n')[0]));
 setTimeout(() => { sweepVerifications(); setInterval(sweepVerifications, 5 * 60_000).unref(); }, 30_000).unref();
-// once per start: the boards of your open tasks still without a prod-check status
+// once per start: Jira's pair set up if it never was, and what is still without a prod-check status
 setTimeout(() => {
-  boardsUnset(ctxTrackers).then(b => { if (b.length) broadcast({ t: 'aviso', level: 'info', text: t('verification.boardsUnset', { tableros: b.join(', ') }) }); }).catch(() => {});
+  startupNotices(ctxTrackers).then(l => { for (const text of l) broadcast({ t: 'aviso', level: 'info', text }); }).catch(() => {});
 }, 90_000).unref();
 const preflightToolset = preflightTools(ctxPreflight, (key, worktree, head, item, a) => pageReviews.answer(key, worktree, head, item, a));
 
@@ -1000,8 +1005,8 @@ async function action(name: string, d: Record<string, any> = {}): Promise<unknow
     case 'preflight.tarea': return preflightOf(String(d.key ?? ''), ctxPreflight, !!d.force);
     case 'preflight.checklist': return checklistItems();
     case 'verificacion.tableros': return boardsSetup(ctxTrackers, (['jira', 'linear'] as const).find(f => f === d.source) as Tracker | undefined);
-    case 'verificacion.tablero': return saveBoard(ctxTrackers, d.board, d);
-    // the workflow's own transition to the board's done status, once the task is verified (the Overseer's click in the pre-flight)
+    case 'verificacion.tablero': return saveBoard(ctxTrackers, d.source, d.board, d);
+    // the workflow's own transition to the done status, once the task is verified (the Overseer's click in the pre-flight)
     case 'verificacion.cerrar': {
       const k = taskKey(String(d.key ?? '')), p = k ? verifications.get(k) : undefined;
       const tr = k ? await taskTracker(ctxTrackers, k, !!p && finalCheckpoint(p)?.state === 'evidenced') : undefined;

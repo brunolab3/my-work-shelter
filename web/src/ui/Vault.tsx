@@ -226,30 +226,35 @@ function FormIntegration({ card, valuesIni, savedIni, goBack }: { card: Integrat
   );
 }
 
-// production verification (server/verificationBoards.ts): each board of your open tasks has its own workflow, so its
-// prod-check status (the task waits there for its final checkpoint) and the done one after it are picked per board
-type BoardSetup = { source: string; board: string; states: string[]; test?: string; done?: string; error?: string };
+// production verification (server/verificationBoards.ts): Jira has one prod-check status (the task waits there for its
+// final checkpoint) and done one after it for all its projects, linked by the game when there is no doubt; each Linear
+// team picks its own
+type BoardSetup = { source: string; board: string; states: string[]; test?: string; done?: string; linked?: ('test' | 'done')[]; notes?: string[]; error?: string };
 function BoardStatusesView({ source }: { source: 'jira' | 'linear' }) {
   const [boards, setBoards] = useState<BoardSetup[] | null>(null);
   const [msg, setMsg] = useState('');
   useEffect(() => { client.action<BoardSetup[]>('verificacion.tableros', { source }).then(setBoards).catch(e => setMsg((e as Error).message)); }, [source]);
   const set = async (b: BoardSetup, c: { test?: string; done?: string }) => {
     const v = { test: b.test, done: b.done, ...c };
-    try { await client.action('verificacion.tablero', { board: b.board, ...v }); SFX.shortSuccess(); setBoards(l => l!.map(x => (x === b ? { ...x, ...v } : x))); setMsg(t('panels.saved')); }
-    catch (e) { setMsg((e as Error).message); SFX.error(); }
+    try {
+      await client.action('verificacion.tablero', { source: b.source, board: b.board, ...v }); SFX.shortSuccess();
+      setBoards(l => l!.map(x => (x === b ? { ...x, ...v, linked: x.linked?.filter(k => !(k in c)) } : x))); setMsg(t('panels.saved'));
+    } catch (e) { setMsg((e as Error).message); SFX.error(); }
   };
   const options = (b: BoardSetup, current?: string) => [...new Set([...(current ? [current] : []), ...b.states])];
+  const linked = (b: BoardSetup, k: 'test' | 'done') => b.linked?.includes(k) && <small className="tenue"> {t('verification.vault.linked')}</small>;
   return <div className="estados-tablero">
     <h3>{t('verification.vault.title')}</h3>
-    <p className="tenue">{t('verification.vault.hint')}</p>
+    <p className="tenue">{t(source === 'jira' ? 'verification.vault.hintJira' : 'verification.vault.hint')}</p>
     {!boards && !msg && <p className="tenue">{t('preflight.reading')}</p>}
     {boards && !boards.length && <p className="tenue">{t('verification.vault.noBoards')}</p>}
     {boards?.map(b => <div key={b.board} className="fila-tablero">
       <b>{b.board}</b>
       <label>{t('verification.vault.prodCheck')} <select value={b.test ?? ''} onChange={e => set(b, { test: e.target.value })}>
-        <option value="">—</option>{options(b, b.test).map(x => <option key={x} value={x}>{x}</option>)}</select></label>
+        <option value="">—</option>{options(b, b.test).map(x => <option key={x} value={x}>{x}</option>)}</select>{linked(b, 'test')}</label>
       <label>{t('verification.vault.done')} <select value={b.done ?? ''} onChange={e => set(b, { done: e.target.value })}>
-        <option value="">—</option>{options(b, b.done).map(x => <option key={x} value={x}>{x}</option>)}</select></label>
+        <option value="">—</option>{options(b, b.done).map(x => <option key={x} value={x}>{x}</option>)}</select>{linked(b, 'done')}</label>
+      {b.notes?.map(n => <small key={n} className="tenue">{n}</small>)}
       {b.error && <small className="aviso-consola">{b.error}</small>}
     </div>)}
     {msg && <p className="tenue">{msg}</p>}

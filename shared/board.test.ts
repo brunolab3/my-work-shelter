@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { byEpic, jiraKeys, crossBoard, columnOf, jiraTransitions, transitionsTo, isColumn, prText, textOfADF, planPrompt, type PRBoard, type TaskJira } from './board';
+import { byEpic, jiraKeys, crossBoard, columnOf, prodCheckOf, jiraTransitions, transitionsTo, isColumn, prText, textOfADF, planPrompt, type PRBoard, type TaskJira } from './board';
 
 const task = (key: string, category: TaskJira['category'], state = 'En curso'): TaskJira => ({ key, title: 't ' + key, url: 'https://jira.example/browse/' + key, state, category, updated: Date.now() });
 const pr = (number: number, branch: string, title = 'PR', state: PRBoard['state'] = 'abierto', extra: Partial<PRBoard> = {}): PRBoard =>
@@ -79,20 +79,23 @@ describe('columna Bloqueado', () => {
 describe('columna Hecho', () => {
   it('solo enseña lo terminado en la última semana', () => {
     const day = 864e5, now = 30 * day;
-    const r = crossBoard([{ ...task('ABC-1', 'done'), updated: now - 2 * day }, { ...task('ABC-2', 'done'), updated: now - 8 * day }], [], {}, now);
+    const r = crossBoard([{ ...task('ABC-1', 'done'), updated: now - 2 * day }, { ...task('ABC-2', 'done'), updated: now - 8 * day }], [], undefined, now);
     expect(r.columns.find(c => c.id === 'hecho')!.tareas.map(t => t.key)).toEqual(['ABC-1']);
   });
 });
 
 describe('Prod check column', () => {
-  const boards = { ABC: { test: 'Prod Check', done: 'Done' } };
-  it("a configured board's prod-check status goes there, by its setting and not by the name", () => {
-    expect(columnOf(task('ABC-1', 'indeterminate', 'prod check'), boards)).toBe('prodCheck');
-    expect(columnOf(task('XYZ-1', 'indeterminate', 'Prod Check'), boards)).toBe('enCurso');
+  const jira = { test: 'Prod Check', done: 'Done' };
+  it("Jira's one prod-check status goes there for every project, by its setting and not by the name", () => {
+    expect(prodCheckOf(jira)).toBe('Prod Check');
+    expect(prodCheckOf()).toBeUndefined();
+    expect(columnOf(task('ABC-1', 'indeterminate', 'prod check'), jira)).toBe('prodCheck');
+    expect(columnOf(task('XYZ-1', 'indeterminate', 'Prod Check'), jira)).toBe('prodCheck');
     expect(columnOf(task('ABC-2', 'indeterminate', 'Prod Check'))).toBe('enCurso');
-    const r = crossBoard([task('ABC-1', 'indeterminate', 'Prod Check'), task('XYZ-1', 'indeterminate', 'Prod Check')], [], boards);
+    expect(columnOf(task('ABC-3', 'indeterminate', 'Verify'), jira)).toBe('enCurso');
+    const r = crossBoard([task('ABC-1', 'indeterminate', 'Prod Check'), task('XYZ-1', 'indeterminate', 'Prod Check'), task('XYZ-2', 'indeterminate', 'In progress')], [], jira);
     expect(r.columns.map(c => c.id)).toEqual(['porHacer', 'bloqueado', 'enCurso', 'revision', 'prodCheck', 'hecho']);
-    expect(r.columns.find(c => c.id === 'prodCheck')!.tareas.map(t => t.key)).toEqual(['ABC-1']);
+    expect(r.columns.find(c => c.id === 'prodCheck')!.tareas.map(t => t.key)).toEqual(['ABC-1', 'XYZ-1']);
   });
 });
 

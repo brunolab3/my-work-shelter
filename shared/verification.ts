@@ -240,10 +240,10 @@ export function recheckAt(n: number, now: number, time = 9): number {
   return new Date(f.getFullYear(), f.getMonth(), f.getDate() + 1, time, 0, 0).getTime();
 }
 
-/** The board a task belongs to: its key's prefix (ABC-123 → ABC; a Jira project, a Linear team). Each board has its own
- *  workflow, so the tracker's prod-check and done statuses are set per board */
+/** The board a task belongs to: its key's prefix (ABC-123 → ABC; a Jira project, a Linear team). Jira has one prod-check
+ *  and done pair for all its projects; each Linear team has its own */
 export const boardOf = (key: string) => /^([A-Z][A-Z0-9]+)-\d+$/i.exec(key.trim())?.[1]?.toUpperCase();
-/** A board's statuses for production verification, set by the Overseer when connecting the tracker */
+/** The tracker's statuses for production verification: Jira's (linked by the game or picked in the vault), a Linear team's */
 export interface BoardStatuses { test?: string; done?: string }
 /** What the pre-flight shows of the tracker: the task's status and, once verified, whether it can move to done */
 export interface TaskTracker { source: 'jira' | 'linear'; state: string; board: string; test?: string; done?: string; inProdCheck: boolean; move: boolean }

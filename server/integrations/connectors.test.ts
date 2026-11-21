@@ -356,6 +356,10 @@ describe('Jira', () => {
       if (url === 'https://taller.atlassian.net/rest/api/3/issue/TAL-7/transitions') return answer(undefined, 204);
       if (url === 'https://taller.atlassian.net/rest/api/3/issue/TAL-9/transitions' && init.method === 'GET') return answer({ transitions: [tr('31', 'Done', 'Hecho', 'done')] });
       if (url === 'https://taller.atlassian.net/rest/api/3/issue/TAL-9/transitions') return answer({ errorMessages: ['Forbidden'] }, 403);
+      if (url === 'https://taller.atlassian.net/rest/api/3/project/TAL/statuses') {
+        const st = (name: string, key: string) => ({ id: name, name, statusCategory: { key } });
+        return answer([{ name: 'Tarea', statuses: [st('Por hacer', 'new'), st('Prueba en producción', 'indeterminate'), st('Hecho', 'done')] }, { name: 'Error', statuses: [st('Hecho', 'done'), st('Descartada', 'done')] }]);
+      }
       return answer({}, 404);
     }));
   });
@@ -396,13 +400,15 @@ describe('Jira', () => {
     expect(((await j.action!('panel', {})) as any).tareas.find((x: any) => x.key === 'TAL-7')).toMatchObject({ state: 'Descartada', category: 'done' });
     await expect(j.action!('mover', { key: 'TAL-9', column: 'hecho', id: '31' })).rejects.toThrow(/Transicionar incidencias/);
   });
-  it("the prod-check column: only transitions to the status picked for the task's board in the vault", async () => {
+  it("the prod-check column: only transitions to Jira's prod-check status", async () => {
     const a = fakeStore();
     const j = createJira(a);
     await j.configure({ sitio: 'taller.atlassian.net', correo: 'ana@taller.example', token: 'tok-bueno' });
     const ids = async (column: string) => ((await j.action!('transiciones', { key: 'TAL-7', column })) as any).transitions.map((x: any) => x.id);
     expect(await ids('prodCheck')).toEqual([]);
-    (a.state.settings as any).verificationBoards = { TAL: { test: 'Descartada' } };
+    // a project's statuses, with those in the done category (the game links Jira's pair from them)
+    expect(await j.action!('estadosTablero', { board: 'tal' })).toEqual({ states: ['Por hacer', 'Prueba en producción', 'Hecho', 'Descartada'], done: ['Hecho', 'Descartada'] });
+    (a.state.settings as any).verificationJira = { test: 'Descartada' };
     expect(await ids('prodCheck')).toEqual(['32']);
     expect(await ids('hecho')).toEqual(['31']);
   });

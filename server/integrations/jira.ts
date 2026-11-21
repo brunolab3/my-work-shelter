@@ -88,8 +88,8 @@ class Jira extends ConnectorBase {
 
   private async transitionsTo(key: string, column: BoardColumn, current?: unknown) {
     const { json } = await this.api(`/rest/api/3/issue/${key}/transitions`);
-    const boards = (this.store.state.settings as any).verificationBoards;   // the prod-check column is its board's status
-    return transitionsTo(jiraTransitions(json), column, typeof current === 'string' ? current : undefined, prodCheckOf(key, boards));
+    const jira = (this.store.state.settings as any).verificationJira;   // the prod-check column is Jira's prod-check status
+    return transitionsTo(jiraTransitions(json), column, typeof current === 'string' ? current : undefined, prodCheckOf(jira));
   }
 
   protected async pollReal() {
@@ -113,12 +113,15 @@ class Jira extends ConnectorBase {
       const [task] = jiraTasks({ issues: [json] }, spot);
       return { ...task, description: textOfADF(json?.fields?.description) };
     }
-    // a board's (project's) statuses, for picking its prod-check and done ones (production verification)
+    // a project's statuses, for Jira's prod-check and done ones (production verification)
     if (name === 'estadosTablero') {
       const board = String(d.board ?? '').toUpperCase();
       if (!/^[A-Z][A-Z0-9]{1,9}$/.test(board)) throw new Error(t('integrations.jiraInvalidKey', { clave: board }));
       const { json } = await this.api(`/rest/api/3/project/${board}/statuses`);
-      return { states: [...new Set(((json ?? []) as any[]).flatMap(x => (x?.statuses ?? []).map((s: any) => String(s?.name ?? ''))).filter(Boolean))] };
+      const all: any[] = ((json ?? []) as any[]).flatMap(x => x?.statuses ?? []);
+      const names = (l: any[]) => [...new Set(l.map(s => String(s?.name ?? '')).filter(Boolean))];
+      // those in the done category too: the game links the done status by itself when only one is (verificationBoards.ts)
+      return { states: names(all), done: names(all.filter(s => s?.statusCategory?.key === 'done')) };
     }
     // the transitions that would take a task to a board column (the board's confirmation lists them)
     if (name === 'transiciones') { const { key, column } = moveArgs(d); return { transitions: await this.transitionsTo(key, column, d.current) }; }

@@ -3,7 +3,7 @@
 // Puro: lo usan el cliente y las pruebas.
 import { t as tr } from './language';
 import type { ReviewLedger } from './reviewCount';
-import { boardOf, sameStatus, type BoardStatuses } from './verification';
+import { sameStatus, type BoardStatuses } from './verification';
 
 export type Category = 'new' | 'indeterminate' | 'done';
 export interface TaskJira {
@@ -46,8 +46,8 @@ export function jiraKeys(text: string, projects: Set<string> = new Set()): strin
 // estado se llama así (Blocked, Bloqueado, On hold, Impediment…), sea cual sea su categoría, salvo si ya está hecha.
 // En revisión, de «En curso»: el estado se llama así (Review, Code review, En revisión…). Solo manda el estado de Jira:
 // los PR de la tarea son informativos (salen en su ficha; su estado, en el plan de despliegue de Logística) y nunca
-// la cambian de columna. Prod check: the status picked for the task's board in the vault (production verification,
-// server/verificationBoards.ts), by that setting only, never by its name; a board without one has nothing there.
+// la cambian de columna. Prod check: Jira's prod-check status, linked by the game or picked in the vault (production
+// verification, server/verificationBoards.ts; one for all its projects), by that setting only; without one, nothing is there.
 export type BoardColumn = 'porHacer' | 'enCurso' | 'bloqueado' | 'revision' | 'prodCheck' | 'hecho';
 export const COLUMNS: { id: BoardColumn; name: string }[] = [
   { id: 'porHacer', name: 'Por hacer' }, { id: 'bloqueado', name: 'Bloqueado' }, { id: 'enCurso', name: 'En curso' },
@@ -57,8 +57,8 @@ export const COLUMNS: { id: BoardColumn; name: string }[] = [
 // azul en revisión, violeta prod check, rojo bloqueado
 export const COLUMN_COLORS: Partial<Record<BoardColumn, string>> = { enCurso: '#5fd98a', revision: '#5aa8ff', prodCheck: '#c18cff', bloqueado: '#ff5a4a' };
 export const isBlockedState = (state: string) => /block|bloque|impediment|on[ -]?hold|en espera/i.test(state);
-/** The prod-check status of a task's board (settings.verificationBoards), if one is picked */
-export const prodCheckOf = (key: string, boards: Record<string, BoardStatuses> = {}) => boards[boardOf(key) ?? '']?.test;
+/** Jira's prod-check status (settings.verificationJira: one for all its projects), if one is set */
+export const prodCheckOf = (jira?: BoardStatuses) => jira?.test;
 export function columnOfState(state: string, category: Category, prodCheck?: string): BoardColumn {
   if (sameStatus(state, prodCheck)) return 'prodCheck';
   if (category === 'done') return 'hecho';
@@ -66,7 +66,7 @@ export function columnOfState(state: string, category: Category, prodCheck?: str
   if (category === 'new') return 'porHacer';
   return /review|revisi/i.test(state) ? 'revision' : 'enCurso';
 }
-export const columnOf = (t: TaskJira, boards?: Record<string, BoardStatuses>) => columnOfState(t.state, t.category, prodCheckOf(t.key, boards));
+export const columnOf = (t: TaskJira, jira?: BoardStatuses) => columnOfState(t.state, t.category, prodCheckOf(jira));
 
 // Moving a card to another column: only the transitions Jira's workflow offers for that issue
 // (GET /rest/api/3/issue/{key}/transitions), each with the status it leads to. A column takes those whose target status
@@ -95,7 +95,7 @@ export function byEpic<T extends { key: string; epic?: Epic }>(tareas: T[]): T[]
   return tareas.map((t, i) => ({ t, i })).sort((a, b) => pos(a.t) - pos(b.t) || isEpic(a.t) - isEpic(b.t) || a.i - b.i).map(x => x.t);
 }
 
-export function crossBoard(tareas: TaskJira[], prs: PRBoard[], boards: Record<string, BoardStatuses> = {}, now = Date.now()) {
+export function crossBoard(tareas: TaskJira[], prs: PRBoard[], jira?: BoardStatuses, now = Date.now()) {
   const projects = new Set(tareas.map(t => t.key.split('-')[0]));
   const withKeys: PRWithTask[] = prs.map(p => {
     const keys = jiraKeys(`${p.branch} ${p.title}`, projects);
@@ -103,7 +103,7 @@ export function crossBoard(tareas: TaskJira[], prs: PRBoard[], boards: Record<st
   });
   const withPR: TaskWithPR[] = tareas.map(t => ({ ...t, prs: withKeys.filter(p => p.keys.includes(t.key)) }));
   return {
-    columns: COLUMNS.map(c => ({ ...c, tareas: byEpic(withPR.filter(t => columnOf(t, boards) === c.id && (c.id !== 'hecho' || now - t.updated <= DONE_DAYS * 864e5))) })),
+    columns: COLUMNS.map(c => ({ ...c, tareas: byEpic(withPR.filter(t => columnOf(t, jira) === c.id && (c.id !== 'hecho' || now - t.updated <= DONE_DAYS * 864e5))) })),
     prs: withKeys,
     withoutTask: withKeys.filter(p => !p.tareas.length),
   };
