@@ -43,6 +43,7 @@ import { baseStock } from '../shared/decor.ts';
 import { readSecret } from './integrations/keychain.ts';
 import { Dictations } from './voice.ts';
 import { Terminals, SOCKET_TERMINALS } from './terminals.ts';
+import { raisedSessionLimit } from './sessionLimit.ts';
 import { openInDesktop, openInAppClaude, outsideOpen, closeOutside, hookCommand, resumeCommand, type ItemDesktop } from './desktop.ts';
 import { tonesForRepeated } from '../shared/recruits.ts';
 import { pRTask, remoteName, taskKey, worktreeHasTask, worktreeTask } from '../shared/tasks.ts';
@@ -1222,7 +1223,16 @@ async function startWork(ws: WebSocket | undefined, m: Extract<ClientMessage, { 
   if (m.options.resume && outsideOpen().has(m.options.resume.toLowerCase())) throw new Error(t('server.thatConversationIsStillOpen'));
   // el límite cuenta las que trabajan o esperan; las terminadas ociosas no bloquean (y se cierran solas a los 30 min)
   const live = sessions.list().filter(x => ['arrancando', 'trabajando', 'esperando'].includes(x.state)).length;
-  if (live >= e.sessionLimit) throw new Error(t('server.thereAreAlreadyLiveSessions', { vivas: live, limiteSesiones: e.sessionLimit }));
+  if (live >= e.sessionLimit) {
+    // el error sigue yendo a quien lo pidió; además se ofrece subir el límite y, si el Supervisor acepta, se reintenta
+    const nuevo = raisedSessionLimit(e.sessionLimit);
+    if (nuevo) ask(t('server.limitQuestion', { vivas: live, limiteSesiones: e.sessionLimit, nuevo }), { si: t('server.limitRaise', { nuevo }), no: t('server.limitDismiss') }, async si => {
+      if (!si) return;
+      store.state.sessionLimit = Math.max(store.state.sessionLimit, nuevo); store.save(); broadcast({ t: 'estado', state: store.state as any });
+      await startWork(undefined, m).catch(err => broadcast({ t: 'aviso', level: 'error', text: (err as Error).message }));
+    });
+    throw new Error(t('server.thereAreAlreadyLiveSessions', { vivas: live, limiteSesiones: e.sessionLimit }));
+  }
   // los worktrees son de las salas de proyecto: el Puente de Mando y las especiales trabajan en su carpeta, salvo el
   // worktree con nombre de una tarea (mensajes entre salas) si su carpeta es un repo git (lo comprueba lo de abajo)
   // un nombre de worktree (mensajes entre salas): solo letras, números, guiones y puntos; si no, uno con el título
