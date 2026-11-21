@@ -16,7 +16,7 @@ import { SHOP } from '@shared/catalog';
 import { Character } from './character';
 import { lookOf, lookSignature, type Look } from '@shared/appearance';
 import { Dweller, type Identity } from './dweller';
-import { TagsLayer, scheduledMark, queuedMark } from './labels';
+import { TagsLayer, scheduledMark, queuedMark, flaggedMark } from './labels';
 import { Portrait } from './portrait';
 import { Elevator, ELEVATOR_WIDTH } from './elevator';
 import { LightsAssignment } from './lights';
@@ -558,14 +558,18 @@ export class Shelter {
     return Object.values(live.get().sessions).filter(s => s.dwellerId === h.id.id && s.state !== 'cerrada' && !this.holograms.inWorktree(s)).sort((a, b) => urgency(a) - urgency(b) || b.updated - a.updated)[0];
   }
   private signatures = new Map<string, string>();
-  // each dweller's ✉ n (queuedMark): messages its conversations outside worktrees have not taken yet
+  // each dweller's ✉ n (queuedMark): messages its conversations outside worktrees have not taken yet; and its ⚑
+  // (flaggedMark): those of them marked as pending
   private queued = new Map<string, string>();
+  private flagged = new Map<string, string>();
   syncSessions() {
     let changed = false;
     const sessions = Object.values(live.get().sessions);
     for (const h of this.dwellers) {
-      const q = queuedMark(sessions.filter(s => s.dwellerId === h.id.id && s.queue?.length && !this.holograms.inWorktree(s)));
+      const own = sessions.filter(s => s.dwellerId === h.id.id && !this.holograms.inWorktree(s));
+      const q = queuedMark(own), fl = flaggedMark(own);
       if (q) this.queued.set(h.id.id, q); else this.queued.delete(h.id.id);
+      if (fl) this.flagged.set(h.id.id, fl); else this.flagged.delete(h.id.id);
       const s = this.sessionOf(h);
       const signature = s ? [s.id, s.state, s.unread, s.activity?.mode, s.activity?.text].join('|') : 'sin';
       if (this.signatures.get(h.id.id) === signature) continue;
@@ -1192,8 +1196,8 @@ export class Shelter {
     const visible = this.dwellers.filter(h => Math.abs(h.pos.x - this.camara.goal.x) < this.camara.distance * 0.45 && Math.abs(h.pos.y - this.camara.goal.y) < this.camara.distance * 0.3);
     // menos chips sobre las piezas: solo se rotula a quien pide atención, trabaja o está junto al Supervisor
     // y a quien tiene un mensaje programado pendiente (su ⏰, scheduledMark)
-    const relevant = (h: Dweller) => h === this.nearest || h === aimH || !['ocioso', 'durmiendo'].includes(h.state) || Math.abs(h.pos.x - sp.x) < 2.2 || !!scheduledMark(h.room.id) || this.queued.has(h.id.id);
-    const items: any[] = visible.filter(relevant).map(h => ({ k: h, scheduled: scheduledMark(h.room.id), queued: this.queued.get(h.id.id), pos: h.p.headPoint(), height: 0.2, name: h.id.name, state: h.state, detail: h === this.nearest && h.state !== 'ocioso' && h.state !== 'durmiendo' ? h.detail : '', near: h === this.nearest || h === aimH, farSide, prompt: h === this.nearest || h === aimH ? tx('world.talk') : '', key: h === this.nearest ? 'E' : tx('world.click'), aimed: h === aimH }));
+    const relevant = (h: Dweller) => h === this.nearest || h === aimH || !['ocioso', 'durmiendo'].includes(h.state) || Math.abs(h.pos.x - sp.x) < 2.2 || !!scheduledMark(h.room.id) || this.queued.has(h.id.id) || this.flagged.has(h.id.id);
+    const items: any[] = visible.filter(relevant).map(h => ({ k: h, scheduled: scheduledMark(h.room.id), queued: this.queued.get(h.id.id), flagged: this.flagged.get(h.id.id), pos: h.p.headPoint(), height: 0.2, name: h.id.name, state: h.state, detail: h === this.nearest && h.state !== 'ocioso' && h.state !== 'durmiendo' ? h.detail : '', near: h === this.nearest || h === aimH, farSide, prompt: h === this.nearest || h === aimH ? tx('world.talk') : '', key: h === this.nearest ? 'E' : tx('world.click'), aimed: h === aimH }));
     // los visitantes son aparatos que se rotulan en su propio letrero (nunca un segundo encima ni sobre el Supervisor)
     const visitor = (it?: Interactive | null) => !!it?.id.startsWith('vis:');
     const nearDevice = visitor(this.nearDevice?.it) ? null : this.nearDevice;

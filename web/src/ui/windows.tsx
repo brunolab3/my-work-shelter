@@ -4,7 +4,7 @@
 //   ⌘T pestaña nueva · ⌘W cerrar la pestaña · ⌘⇧W cerrar la ventana · ⌘1…⌘9 y ⌃Tab cambiar de pestaña
 //   ⌘↑ ampliar · ⌘↓ restaurar (si está ampliada) o minimizar · ⌘M minimizar
 //   ⌘⇧E sacar la pestaña a una terminal de tu escritorio (iTerm): «salir a la superficie»
-//   ⌘⇧A list of every tab (filter, go, close)
+//   ⌘⇧A list of every tab (filter, go, close) · ⌘⇧P mark the conversation as pending (⚑) or clear it
 // Minimizar deja la ventana en la barra de abajo a la izquierda (Bar.tsx) con todo en marcha.
 import React, { useEffect, useRef, useState } from 'react';
 import { t } from '@shared/language';
@@ -32,6 +32,7 @@ export interface WindowActions {
   list?: () => void;                    // list of every tab
   moveTab: (step: number) => void;
   takeOut?: () => void;                    // a una terminal de tu escritorio
+  flag?: () => void;                       // mark the conversation as pending (⚑) or clear it
 }
 /** Atajos de ventana; devuelve true si la tecla era uno de ellos (y ya se ha hecho). */
 export function windowShortcut(e: KeyboardEvent | React.KeyboardEvent, a: WindowActions): boolean {
@@ -44,6 +45,7 @@ export function windowShortcut(e: KeyboardEvent | React.KeyboardEvent, a: Window
     else if (e.code === 'KeyM') f = a.minimize;
     else if (e.code === 'KeyE' && e.shiftKey && a.takeOut) f = a.takeOut;
     else if (e.code === 'KeyA' && (e.shiftKey || !MAC) && a.list) f = a.list;
+    else if (e.code === 'KeyP' && e.shiftKey && a.flag) f = a.flag;
     else if (e.key === 'ArrowUp') f = () => { if (!a.maximized) a.toggleMaximize(); };
     else if (e.key === 'ArrowDown') f = a.maximized ? a.toggleMaximize : a.minimize;
     else if (/^Digit[1-9]$/.test(e.code)) { const n = Number(e.code.slice(5)); f = () => a.goTab(n); }
@@ -54,9 +56,11 @@ export function windowShortcut(e: KeyboardEvent | React.KeyboardEvent, a: Window
   return true;
 }
 
-export function WindowButtons({ maximized, minimize, toggleMaximize, close, closesThat, takeOut, takesThat, wingApp, remote }: { maximized: boolean; minimize: () => void; toggleMaximize: () => void; close: () => void; closesThat: string; takeOut?: () => void; takesThat?: string; wingApp?: () => void; remote?: () => void }) {
+export const FLAG_SHORTCUT = `${CMD}${MAC ? '⇧' : ''}P`;
+export function WindowButtons({ maximized, minimize, toggleMaximize, close, closesThat, takeOut, takesThat, wingApp, remote, flag }: { maximized: boolean; minimize: () => void; toggleMaximize: () => void; close: () => void; closesThat: string; takeOut?: () => void; takesThat?: string; wingApp?: () => void; remote?: () => void; flag?: { on: boolean; toggle: () => void } }) {
   return (
     <span className="botones-ventana">
+      {flag && <button className={'consola-x boton-marca' + (flag.on ? ' marcada' : '')} onClick={flag.toggle} aria-pressed={flag.on} title={t(flag.on ? 'windows.flag.clear' : 'windows.flag.set', { shortcut: FLAG_SHORTCUT })}>⚑</button>}
       {remote && <button className="consola-x" onClick={remote} title={t('windows.continueOnYourPhone')}>📱</button>}
       {wingApp && <button className="consola-x" onClick={wingApp} title={t('windows.continueThisConversationInThe')}>✳</button>}
       {takeOut &&<button className="consola-x" onClick={takeOut} title={t('windows.popQueOutToA', { que: takesThat ?? t('windows.thisTab'), shortcut: `${CMD}${MAC ? '⇧' : ''}E` })}>↗</button>}
@@ -83,10 +87,13 @@ export const TaskMark = ({ taskKey, color }: { taskKey?: string; color?: string 
 export const DraftMark = () => <span className="marca-borrador" title={t('windows.unsentDraft')}>✎</span>;
 // messages waiting in the conversation's queue (shared/messageQueue.ts)
 export const QueuedMark = ({ n }: { n?: number }) => n ? <span className="marca-cola" title={t('windows.queue.markTitle', { n })}>{t('windows.queue.mark', { n })}</span> : null;
+// a conversation the Overseer marked as pending (shared/flagged.ts); with n, how many of a list are
+export const FlagMark = ({ on, n }: { on?: boolean; n?: number }) => n ? <span className="marca-pendiente" title={t('windows.flag.marksTitle', { n })}>{t('windows.flag.marks', { n })}</span> : on ? <span className="marca-pendiente" title={t('windows.flag.markTitle')}>{t('windows.flag.mark')}</span> : null;
 
 // grupo: with «group by room», tabs of a group sit together under its header; quien: whose it is (another window);
-// borrador: it has unsent text or attachments (DraftMark); queued: messages its conversation has not taken yet (QueuedMark)
-export interface ItemTab { id: string; name: string; state?: TabState; title?: string; room?: string; task?: string; activity?: string; group?: string; who?: string; draft?: boolean; queued?: number }
+// borrador: it has unsent text or attachments (DraftMark); queued: messages its conversation has not taken yet (QueuedMark);
+// flagged: marked as pending (FlagMark), undefined where it can't be (not a conversation, or one still starting)
+export interface ItemTab { id: string; name: string; state?: TabState; title?: string; room?: string; task?: string; activity?: string; group?: string; who?: string; draft?: boolean; queued?: number; flagged?: boolean }
 
 // lista: the ⋯ N button and its list in the strip (terminals); intercoms keep theirs in the bar (ComTabs in Dialog.tsx)
 export function Tabs({ items, active, activate, close, onNew, opensThat, list, confirming }: { items: ItemTab[]; active: string; activate: (id: string) => void; close: (ids: string[]) => void; onNew?: () => void; opensThat: string; list?: React.MutableRefObject<(() => void) | null>; confirming?: boolean }) {
@@ -109,12 +116,13 @@ export function Tabs({ items, active, activate, close, onNew, opensThat, list, c
         {items.map((p, i) => (<React.Fragment key={p.id}>
           <div className={'vt-pestana' + (p.id === active ? ' activa' : '') + (p.state ? ' e-' + p.state : '') + (p.task ? ' con-tarea' : '')} style={p.task ? { '--tarea': taskColor(p.task) } as React.CSSProperties : undefined}
             onClick={() => activate(p.id)} onAuxClick={e => { if (e.button === 1) close([p.id]); }}
-            title={[p.title || p.name, p.state && stateLabel(p.state), p.draft && t('windows.unsentDraft'), p.queued && t('windows.queue.markTitle', { n: p.queued }), p.who, p.task, i < 9 ? `${CMD}${i + 1}` : ''].filter(Boolean).join(' · ')}>
+            title={[p.title || p.name, p.state && stateLabel(p.state), p.draft && t('windows.unsentDraft'), p.queued && t('windows.queue.markTitle', { n: p.queued }), p.flagged && t('windows.flag.markTitle'), p.who, p.task, i < 9 ? `${CMD}${i + 1}` : ''].filter(Boolean).join(' · ')}>
             <span className={'piloto ' + PILOT[p.state ?? 'ociosa']} />
             {p.draft && <DraftMark />}
             <EpicMark taskKey={p.task} />
             <span className="vt-pestana-nombre">{p.name}</span>
             <QueuedMark n={p.queued} />
+            <FlagMark on={p.flagged} />
             <button className="vt-pestana-x" onClick={e => { e.stopPropagation(); close([p.id]); }} title={t('windows.closeTabAtajo', { shortcut: `${CMD}W` })}>×</button>
           </div>
         </React.Fragment>))}
@@ -130,13 +138,16 @@ export function Tabs({ items, active, activate, close, onNew, opensThat, list, c
 // Every tab in a list: state, title, task, room or owner and last activity; type to filter, go to one, and close (one,
 // the selected ones, the read or idle ones, or a task's). agrupar: a header per group (items come grouped).
 // cabecera: what heads each group instead of its name (given the tab before it), and then the rows don't repeat whose they are
-export function TabList({ items, active, activate, close, exit, group, header }: { items: ItemTab[]; active: string; activate: (id: string) => void; close: (ids: string[]) => void; exit: () => void; group?: boolean; header?: (p: ItemTab, before?: ItemTab) => React.ReactNode }) {
+// flag: mark or clear a conversation as pending, from the ⚑ on its row; the footer can show only the pending ones
+export function TabList({ items, active, activate, close, exit, group, header, flag }: { items: ItemTab[]; active: string; activate: (id: string) => void; close: (ids: string[]) => void; exit: () => void; group?: boolean; header?: (p: ItemTab, before?: ItemTab) => React.ReactNode; flag?: (id: string) => void }) {
   const [filter, setFilter] = useState('');
+  const [onlyFlagged, setOnlyFlagged] = useState(false);
+  const nFlagged = items.filter(p => p.flagged).length;
   const [i, setI] = useState(() => Math.max(0, items.findIndex(p => p.id === active)));
   const [marked, setMarked] = useState<string[]>([]);
   const box = useRef<HTMLDivElement>(null);
   const q = filter.trim().toLowerCase();
-  const views = q ? items.filter(p => [p.name, p.room, p.task, p.who, p.state && stateLabel(p.state)].some(x => x?.toLowerCase().includes(q))) : items;
+  const views = items.filter(p => (!onlyFlagged || !nFlagged || p.flagged) && (!q || [p.name, p.room, p.task, p.who, p.state && stateLabel(p.state)].some(x => x?.toLowerCase().includes(q))));
   const sel = views[Math.min(i, views.length - 1)];
   const openSessions = new Set(items.map(p => p.id));
   const picked = marked.filter(id => openSessions.has(id));
@@ -165,11 +176,12 @@ export function TabList({ items, active, activate, close, exit, group, header }:
       <div className="vt-lista-filas">
         {views.map((p, k) => (<React.Fragment key={p.id}>
           {group && p.group !== views[k - 1]?.group && (header ? header(p, views[k - 1]) : <div className="vt-lista-grupo">{p.group}</div>)}
-          <div className={'vt-lista-fila' + (p === sel ? ' sel' : '') + (p.id === active ? ' activa' : '') + (p.state ? ' e-' + p.state : '')} onMouseMove={() => setI(k)} onClick={() => activate(p.id)}>
+          <div className={'vt-lista-fila' + (p === sel ? ' sel' : '') + (p.id === active ? ' activa' : '') + (p.state ? ' e-' + p.state : '') + (flag ? ' con-marca' : '')} onMouseMove={() => setI(k)} onClick={() => activate(p.id)}>
             <input type="checkbox" checked={marked.includes(p.id)} title={t('windows.selectTab')} onClick={e => e.stopPropagation()} onChange={() => setMarked(m => (m.includes(p.id) ? m.filter(x => x !== p.id) : [...m, p.id]))} />
             <span className={'piloto ' + PILOT[p.state ?? 'ociosa']} />
             <span className="vt-lista-estado">{p.state ? stateLabel(p.state) : ''}</span>
             <span className="vt-lista-nombre">{p.draft && <DraftMark />}{p.name} <QueuedMark n={p.queued} /></span>
+            {flag && (p.flagged === undefined ? <span className="vt-lista-marca" /> : <button className={'vt-lista-marca' + (p.flagged ? ' marcada' : '')} aria-pressed={p.flagged} title={t(p.flagged ? 'windows.flag.clear' : 'windows.flag.set', { shortcut: FLAG_SHORTCUT })} onClick={e => { e.stopPropagation(); flag(p.id); }}>⚑</button>)}
             <span className="vt-lista-tarea">{p.task && <><TaskMark taskKey={p.task} />{p.task}</>}</span>
             <span className="vt-lista-sala">{header ? '' : p.who ?? p.room}</span>
             <span className="vt-lista-cuando">{p.activity}</span>
@@ -179,6 +191,7 @@ export function TabList({ items, active, activate, close, exit, group, header }:
         {!views.length && <div className="vt-lista-vacia">{t('windows.noTabsMatch')}</div>}
       </div>
       <div className="vt-lista-pie">
+        {nFlagged > 0 && <button className={'consola-x' + (onlyFlagged ? ' activa' : '')} aria-pressed={onlyFlagged} onClick={() => { setOnlyFlagged(x => !x); setI(0); }}>{onlyFlagged ? t('windows.flag.all') : t('windows.flag.only', { n: nFlagged })}</button>}
         {button(t('windows.closeSelected', { n: picked.length }), picked)}
         {button(t('windows.closeIdle', { n: idle.length }), idle)}
         {sel?.task && button(t('windows.closeTask', { tarea: sel.task, n: taskSession.length }), taskSession)}

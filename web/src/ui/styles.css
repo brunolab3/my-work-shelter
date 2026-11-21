@@ -14,6 +14,7 @@
   --fosforo-tenue: #4f9c6a;
   --fosforo-fondo: #06120c;
   --ambar: #ffb347;
+  --pendiente: #ff7f6e;   /* ⚑ a conversation marked as pending (shared/flagged.ts) */
   --rojo: #ff5a4a;
   --azul: #8ac8ff;
   --t-titulo: "Refugio Titulo", "Arial Narrow", sans-serif;
@@ -165,9 +166,10 @@ html, body { margin: 0; height: 100%; background: var(--fondo); overflow: hidden
 .etiqueta .prompt { display: flex; align-items: center; gap: 5px; margin-left: 6px; padding-left: 8px; border-left: 1px solid #4a453d; color: var(--crema); }
 .etiqueta.supervisor .glifo { background: var(--ambar); }
 
-.etiqueta.solo-glifo { padding: 2px; } .etiqueta.solo-glifo > span:not(.glifo):not(.programado):not(.en-cola) { display: none !important; }
+.etiqueta.solo-glifo { padding: 2px; } .etiqueta.solo-glifo > span:not(.glifo):not(.programado):not(.en-cola):not(.pendiente) { display: none !important; }
 .etiqueta .programado { color: var(--ambar); font-weight: 600; font-size: .9em; }   /* ⏰ the next scheduled message (scheduledMark) */
 .etiqueta .en-cola { color: var(--ambar); font-weight: 600; font-size: .9em; }   /* ✉ n messages its conversations have not taken yet */
+.etiqueta .pendiente { color: var(--pendiente); font-weight: 600; font-size: .9em; }   /* ⚑ conversations marked as pending (flaggedMark) */
 
 .etiqueta.supervisor { background: linear-gradient(180deg, #4a3a1c, #2a2112); }
 .etiqueta.supervisor .glifo { background: var(--ambar); color: #2a1a05; }
@@ -551,6 +553,12 @@ a.miniatura:hover img { box-shadow: 0 0 0 1px #ffc96b, 0 0 10px rgba(255,179,71,
 .vt-lista-fila input { margin: 0; accent-color: #9dffb8; }
 .vt-lista-fila .piloto { width: 8px; height: 8px; box-shadow: none; }
 .vt-lista-fila.sel { background: #2b2722; }
+.vt-lista-fila.con-marca { grid-template-columns: auto auto 7.5em minmax(0, 1fr) auto auto minmax(0, 9em) 7.5em auto; }
+/* ⚑ on a row of the intercoms' list: faint until marked, to mark or clear it */
+.vt-lista-marca { width: 1.4em; padding: 0; border: 0; background: none; font: inherit; color: var(--crema-tenue); opacity: .25; cursor: pointer; }
+span.vt-lista-marca { cursor: default; }
+.vt-lista-fila.sel .vt-lista-marca, .vt-lista-marca:hover { opacity: .7; }
+.vt-lista-marca.marcada { color: var(--pendiente); opacity: 1; }
 .vt-lista-fila.activa .vt-lista-nombre { color: #b9ffcf; }
 .vt-lista-fila .vt-pestana-x { visibility: hidden; }
 .vt-lista-fila.sel .vt-pestana-x { visibility: visible; }
@@ -594,6 +602,7 @@ a.miniatura:hover img { box-shadow: 0 0 0 1px #ffc96b, 0 0 10px rgba(255,179,71,
 .marca-borrador { flex: none; margin-right: .35em; font-weight: 400; color: var(--crema-tenue); opacity: .75; }
 .chip-terminal .marca-borrador { margin-right: 0; }
 .marca-cola { flex: none; font-weight: 600; font-size: .9em; color: var(--ambar); }
+.marca-pendiente { flex: none; font-weight: 600; font-size: .9em; color: var(--pendiente); }
 .barra-asomo-fila.actual b { color: #b9ffcf; }
 .barra-asomo-fila.de-copia b { color: #58e6ff; }
 .vt-cuerpo { position: relative; flex: 1; min-height: 0; padding: 4px 6px 6px; background: #06120c; }
@@ -648,6 +657,7 @@ a.miniatura:hover img { box-shadow: 0 0 0 1px #ffc96b, 0 0 10px rgba(255,179,71,
 /* intercomunicador como ventana: botones, pestañas y ampliado */
 .botones-ventana { display: flex; gap: 6px; margin-left: auto; }
 .botones-ventana .consola-x { margin-left: 0; }
+.botones-ventana .boton-marca.marcada { color: #fff; background: linear-gradient(#ff9d8f, var(--pendiente)); }
 .vt-cabeza .botones-ventana .consola-x { padding: 0 7px; }
 .consola .vt-pestanas { margin: 0 calc(var(--u) * 0.2) calc(var(--u) * 0.45); border-radius: 3px 3px 0 0; }
 .consola .vt-pestana { max-width: 16em; font-size: calc(var(--u) * 0.7); }

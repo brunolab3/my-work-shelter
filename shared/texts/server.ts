@@ -153,6 +153,7 @@ export const SERVER: Record<string, LocalizedText> = {
   'server.thisSessionWasGoingTo': { es: 'Esta sesión iba a usar una clave de API ({apiKeySource}). work-shelter solo trabaja con tu sesión de Claude Code: la he parado. Quita esa clave de tus ajustes o variables de entorno.', en: 'This session was going to use an API key ({apiKeySource}). work-shelter only works with your Claude Code session: I stopped it. Remove that key from your settings or environment variables.' },
   'server.conversationCompacted': { es: '🧹 Conversación compactada', en: '🧹 Conversation compacted' },
   'server.notStartedYet': { es: 'aún está arrancando', en: 'it is still starting' },
+  'server.isStillStartingFlag': { es: 'La conversación aún está arrancando: márcala en un momento.', en: 'The conversation is still starting: mark it in a moment.' },
   'server.isStillStartingTakeIt': { es: '«{titulo}» aún está arrancando: sácala en un momento.', en: '“{titulo}” is still starting: take it out in a moment.' },
   'server.continuesIn': { es: '↗ Sigue en {where}', en: '↗ Continues in {where}' },
   'server.isNotFinishingClosingIn': { es: '«{titulo}» no termina de cerrarse en el refugio: no la saco para no tenerla abierta en dos sitios.', en: '“{titulo}” is not finishing closing in the shelter: I am not taking it out so it is not open in two places.' },

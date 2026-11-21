@@ -20,6 +20,7 @@ import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 
 import { createPortal } from 'react-dom';
 import type { SessionSummary, LogInput, HistoryElement, Command, PendingRequest, Visitor, QueuedMessage } from '@shared/protocol';
 import { originLabel, queuedIn, withdrawable } from '@shared/messageQueue';
+import { flaggedIds, flagOf } from '@shared/flagged';
 import { MODELS, EFFORTS, PERMISSION_MODES } from '@shared/protocol';
 import { t, tIs, trBio } from '@shared/language';
 import { juego, type DwellerSummary } from './gameState';
@@ -31,7 +32,7 @@ import { SFX } from '../audio/sound';
 import { physicsKey } from '../audio/keyboard';
 import { Store } from './store';
 import { useMenu as useMenuBase, Options } from './device';
-import { CMD, MAC, nextZ, windowShortcut, WindowButtons, Tabs, TabList, DraftMark, TaskMark, Confirmation, nthTab, nextTab, PILOT, stateLabel, type ItemTab, type TabState } from './windows';
+import { CMD, MAC, nextZ, windowShortcut, WindowButtons, Tabs, TabList, DraftMark, FlagMark, TaskMark, Confirmation, nthTab, nextTab, PILOT, stateLabel, type ItemTab, type TabState } from './windows';
 import { sessionOwner, interlocutor, branchCaption, copyCaption, pathWorktree, worktreesKnown } from './copies';
 import { Usage } from './usage';
 import { takeASurface, toClaudeApp } from './surface';
@@ -421,12 +422,23 @@ function WhoSelector({ h }: { h: DwellerSummary }) {
 }
 
 const VIEW_NAME: Record<string, string> = { menu: t('windows.menu'), nuevo: t('windows.newJob'), historial: t('windows.archive'), ficha: t('windows.profile'), visitantes: t('world.visitors') };
-/** A tab of `o`'s intercom as the strip and the list show it */
-function tabItem(x: TabCom, o: DwellerSummary, sessions: Record<string, SessionSummary>): ItemTab {
+/** A tab of `o`'s intercom as the strip and the list show it; flags: the conversations marked as pending */
+function tabItem(x: TabCom, o: DwellerSummary, sessions: Record<string, SessionSummary>, flags: Set<string>): ItemTab {
   const sx = x.view.type === 'sesion' ? sessions[x.view.sessionId] : undefined, path = pathWorktree(sx?.cwd, worktreesKnown());
   return { id: x.id, name: sx ? sx.title || t('windows.conversation') : x.sessionWait ? t('windows.starting2') : VIEW_NAME[x.view.type] ?? t('windows.menu'), state: x.sessionWait ? 'trabajando' : tabState(sx),
-    title: sx?.title, room: o.nameRoom, task: path ? worktreeTask({ path }) : o.copy ? worktreeTask(o.copy) : undefined, activity: sx ? ago(sx.updated) : undefined, draft: withText(x), queued: queuedIn([sx]) || undefined };
+    title: sx?.title, room: o.nameRoom, task: path ? worktreeTask({ path }) : o.copy ? worktreeTask(o.copy) : undefined, activity: sx ? ago(sx.updated) : undefined, draft: withText(x), queued: queuedIn([sx]) || undefined,
+    flagged: flagOf(sx, flags) };
 }
+/** The conversations marked as pending (shared/flagged.ts), repainting when they change */
+const useFlags = () => flaggedIds(live.use(e => e.state?.settings));
+/** ⚑ Mark a conversation as pending, or clear it: only the Overseer does (sending to it doesn't) */
+function toggleFlag(s: SessionSummary | undefined) {
+  const on = flagOf(s, flaggedIds(live.get().state?.settings));
+  if (on === undefined) { SFX.notAllowed(); return; }
+  SFX.tick();
+  client.action('conversacion.pendiente', { claudeId: s!.claudeId, on: !on }).catch(e => { SFX.error(); addNotice('error', (e as Error).message); });
+}
+const tabSession = (pid: string) => { const p = intercoms.get().list.flatMap(w => w.tabs).find(x => x.id === pid); return p?.view.type === 'sesion' ? live.get().sessions[p.view.sessionId] : undefined; };
 
 // The ⋯ N button at the end of the bar's COM row (Bar.tsx; ⌘⇧A from an intercom): every open conversation of every
 // intercom, by room, to filter, go to one (switching to its intercom) and close. Other intercoms' menus stay out.
@@ -438,12 +450,13 @@ export function ComTabs() {
   const talking = juego.use(e => e.talkingWith);
   const who = juego.use(e => (id: string) => interlocutor(id, e));
   const open = comList.use(e => e.open);
+  const flags = useFlags();
   const button = useRef<HTMLButtonElement>(null);
   const current = list.find(w => w.dwellerId === talking);
   // by room, and in it by whose they are (its dweller, each hologram), each where its first-opened tab is
   const items = groupTabs(groupTabs(list.flatMap(w => {
     const o = who(w.dwellerId); if (!o) return [];
-    return w.tabs.filter(x => w === current || x.view.type === 'sesion' || x.sessionWait).map((x): ItemTab => ({ ...tabItem(x, o, sessions),
+    return w.tabs.filter(x => w === current || x.view.type === 'sesion' || x.sessionWait).map((x): ItemTab => ({ ...tabItem(x, o, sessions, flags),
       group: o.id, who: talkerName(o) }));
   }).sort((a, b) => created(a.id) - created(b.id))), x => x.room ?? '');
   if (items.length < 2) return null;
@@ -452,11 +465,11 @@ export function ComTabs() {
   // above the bar, from its left edge
   const r = open ? button.current?.closest('.barra-ventanas')?.getBoundingClientRect() : undefined;
   return <>
-    <button ref={button} className={'vt-todas' + (open ? ' activa' : '')} onClick={() => comList.set(e => ({ open: !e.open }))} title={t('windows.allConversations', { n: items.length, shortcut: LIST_SHORTCUT })}>⋯ {items.length}</button>
+    <button ref={button} className={'vt-todas' + (open ? ' activa' : '')} onClick={() => comList.set(e => ({ open: !e.open }))} title={t('windows.allConversations', { n: items.length, shortcut: LIST_SHORTCUT })}>⋯ {items.length} <FlagMark n={items.filter(p => p.flagged).length} /></button>
     {/* the list steps aside while a close is being confirmed */}
     {open && r && !list.some(w => w.confirm) && createPortal(
       <div className="barra-lista-com" style={{ left: r.left, bottom: innerHeight - r.top + 4 }}>
-        <TabList items={items} group active={current?.active ?? ''} activate={go} close={closeTabs} exit={exit} header={(p, before) => {
+        <TabList items={items} group active={current?.active ?? ''} activate={go} close={closeTabs} exit={exit} flag={pid => toggleFlag(tabSession(pid))} header={(p, before) => {
           // the room once, then whose: their bust and name, a hologram's task in its color
           const o = who(p.group!), task = o?.copy ? worktreeTask(o.copy) : undefined;
           return <>
@@ -496,7 +509,8 @@ function Console({ h, v }: { h: DwellerSummary; v: WindowCom }) {
   const hid = h.id;
   // the strip holds this intercom's own conversations, in the order they were opened; the others' are reached from the
   // selector and the bar, whose ⋯ N lists them all (ComTabs)
-  const items = v.tabs.map(x => tabItem(x, h, sessions));
+  const flags = useFlags();
+  const items = v.tabs.map(x => tabItem(x, h, sessions, flags));
   const orden = useRef(items); orden.current = items;
   useEffect(() => { keyboard.blocked = true; return () => { keyboard.blocked = false; }; }, []);
   // al abrirse, el teclado es suyo: si estaba en una terminal, se suelta
@@ -513,6 +527,7 @@ function Console({ h, v }: { h: DwellerSummary; v: WindowCom }) {
         moveTab: d => { const x = nextTab(orden.current, w.active, d); if (x) activate(hid, x); },
         goTab: n => { const x = nthTab(orden.current, n); if (x) activate(hid, x); },
         takeOut: () => takeTab(hid, w.active),
+        flag: () => toggleFlag(tabSession(w.active)),
       });
     };
     addEventListener('keydown', f, true); return () => removeEventListener('keydown', f, true);
@@ -534,7 +549,7 @@ function Console({ h, v }: { h: DwellerSummary; v: WindowCom }) {
           <span className="rejilla" aria-hidden />
           <span className={'piloto ' + (worst?.state ?? 'apagado')} aria-hidden />
           <span className="consola-rotulo">{copy ? <>{t('windows.intercom')} · {t('windows.holographicCopyOfAutor', { autor: copy.nameAuthor })} · {copyCaption(copy)} · {h.nameRoom}</> : <>{t('windows.intercom')} · {h.name} · {h.nameRoom}</>}</span>
-          <WindowButtons takeOut={s ? () => takeTab(hid, p.id) : undefined} wingApp={s ? () => toClaudeApp({ sessionId: s.id }) : undefined} remote={s ? () => takeASurface({ sessions: [s.id], remote: true }) : undefined} takesThat={t('windows.thisConversation')} maximized={v.maximized} minimize={minimizeIntercom} toggleMaximize={() => toggleMaximize(hid)} close={() => askClose(hid)} closesThat={t('windows.theIntercomAndItsConversations')} />
+          <WindowButtons flag={flagOf(s, flags) === undefined ? undefined : { on: !!flagOf(s, flags), toggle: () => toggleFlag(s) }} takeOut={s ? () => takeTab(hid, p.id) : undefined} wingApp={s ? () => toClaudeApp({ sessionId: s.id }) : undefined} remote={s ? () => takeASurface({ sessions: [s.id], remote: true }) : undefined} takesThat={t('windows.thisConversation')} maximized={v.maximized} minimize={minimizeIntercom} toggleMaximize={() => toggleMaximize(hid)} close={() => askClose(hid)} closesThat={t('windows.theIntercomAndItsConversations')} />
         </div>
         <Tabs items={items} confirming={!!v.confirm} active={v.active} activate={pid => activate(hid, pid)} close={pids => askClose(hid, pids)} onNew={() => newTab(hid)} opensThat={copy ? t('windows.newTabAnotherJobInside') : t('windows.newTabAnotherJobWith')} />
         <div className="consola-cuerpo">

@@ -3,6 +3,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { moveFloor } from '../shared/layout.ts';
+import { setFlag, flaggedIds } from '../shared/flagged.ts';
 import { sanitize, initialState, folderOf, ROOMS_FOLDERS, addRoomsOfService, ensureFolders, hideRoom, showRoom, relinkedIds, renameRoomIds } from './state.ts';
 
 describe('estado guardado', () => {
@@ -48,6 +49,12 @@ describe('estado guardado', () => {
     expect(s.jugador.scrap).toBe(initialState().jugador.scrap);
     expect(s.jugador.cultivos.length).toBeGreaterThan(0);
     expect(s.jugador.inventario).toEqual({ 'pieza:tornillo': 2 });
+  });
+  it('conversations marked as pending survive saving and loading the shelter', () => {
+    const e = initialState();
+    (e.settings as any).flaggedConversations = setFlag(setFlag(undefined, 'claude-a', true), 'claude-b', true);
+    const back = sanitize(JSON.parse(JSON.stringify(e)));
+    expect([...flaggedIds(back.settings)]).toEqual(['claude-a', 'claude-b']);
   });
   it('limita los ajustes a valores válidos', () => {
     const s = sanitize({ ...initialState(), sessionLimit: 9999, rooms: initialState().rooms.concat([{ id: 'mala', type: 'repo', floor: -1, side: 'arriba', orden: 0 } as any]) });

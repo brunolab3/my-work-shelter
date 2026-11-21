@@ -30,6 +30,7 @@ import { CIFailures, CI_QUERY } from './ciFailures.ts';
 import { cachedPRs, cachedTaskPRs, preflightOf, PageReviews, gatePush, preflightTools, type CtxPreflight } from './preflight.ts';
 import { checklistFromClaudeMd } from '../shared/preflight.ts';
 import { autoCompactWindow } from '../shared/compact.ts';
+import { setFlag } from '../shared/flagged.ts';
 import type { JiraTransition, PRBoard } from '../shared/board.ts';
 import { blockersBetween, pRKey } from '../shared/deploy.ts';
 import { TasksCleanup, orphanedConversations } from './taskCleanup.ts';
@@ -1009,6 +1010,12 @@ async function action(name: string, d: Record<string, any> = {}): Promise<unknow
       const x = doneTransition((transitions ?? []) as JiraTransition[], tr.done);
       if (!x) throw new Error(t('verification.noDoneTransition', { estado: tr.done ?? '—' }));
       return integrations.action('mover', { source: 'jira', key: k, column: 'hecho', id: x.id });
+    }
+    // ⚑ a conversation the Overseer still has to act on (shared/flagged.ts), by its Claude Code session id
+    case 'conversacion.pendiente': {
+      const id = String(d.claudeId ?? ''); if (!id) throw new Error(t('server.isStillStartingFlag'));
+      const a = store.state.settings as any; a.flaggedConversations = setFlag(a.flaggedConversations, id, !!d.on); store.save();
+      broadcast({ t: 'estado', state: store.state as any }); return true;
     }
     case 'verificacion.aprobar': { const k = taskKey(String(d.key ?? '')); return (k && verifications.approve(k)) ?? null; }
     case 'paginas.responder': return pageReviews.respond(d.path, d.state);
