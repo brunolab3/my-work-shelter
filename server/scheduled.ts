@@ -4,13 +4,13 @@
 // all its context; with a room (and key), it is delivered like send_to_room. Saved in DATOS/mensajes-programados.json and
 // checked every minute and on start: what fell due with the game closed is delivered on return, marked «late».
 // What can't be delivered (the conversation is still open outside, the sessions limit) is retried on the next round,
-// warning once. "Not urgent" ones (`when: "next-window"`, the intercom's ⌥Enter) wait for the plan's next free 5-hour
-// usage window and go out one at a time, a few minutes apart (`windowNext` in shared/scheduled.ts). The text stays on the Mac: it never goes anywhere.
+// warning once. "Not urgent" ones (`when: "next-window"`, the intercom's ⌥Enter) wait for the plan's final 5-hour
+// usage window of the day and go out one at a time, a few minutes apart (`windowNext` in shared/scheduled.ts). The text stays on the Mac: it never goes anywhere.
 import { existsSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { t } from '../shared/language.ts';
-import { checkWhen, describeWhen, due, holdWeekend, isLate, nextWindowStart, ofConversation, windowNext, MAX_PER_CONVERSATION, MAX_DAYS, NEXT_WINDOW, type ScheduledMessage, type ScheduledTarget, type UsageWindow } from '../shared/scheduled.ts';
+import { checkWhen, describeWhen, due, holdWeekend, isLate, finalWindowStart, ofConversation, windowNext, MAX_PER_CONVERSATION, MAX_DAYS, NEXT_WINDOW, type ScheduledMessage, type ScheduledTarget, type UsageWindow } from '../shared/scheduled.ts';
 import type { SessionSummary } from '../shared/protocol.ts';
 import { taskKey } from '../shared/tasks.ts';
 
@@ -64,7 +64,7 @@ export class Scheduled {
     if (!message) return { ok: false, text: t('tool.rooms.empty') };
     if (message.length > MAX_TEXT) return { ok: false, text: t('tool.schedule.tooLong', { n: MAX_TEXT }) };
     const next = isNextWindow(a.when);
-    const w = next ? { ok: true as const, when: nextWindowStart(now, this.usage()), postponed: false } : checkWhen(String(a.when ?? ''), now);
+    const w = next ? { ok: true as const, when: finalWindowStart(now, this.usage()), postponed: false } : checkWhen(String(a.when ?? ''), now);
     if (!w.ok) return { ok: false, text: whenError(w.error, String(a.when ?? '')) };
     const s = fromSession ? this.ctx.session(fromSession) : undefined;
     const origin = { roomId: since, sessionId: fromSession, claudeId: s?.claudeId };
@@ -116,15 +116,20 @@ export class Scheduled {
   overLimit(since: string, roomId: string) { return this.items.filter(x => x.overLimit && x.origin.roomId === since && x.target.type === 'sala' && x.target.room === roomId).map(x => x.when); }
   pending(id: string) { return this.items.some(x => x.id === id); }
 
-  /** The Overseer's ⌥Enter in the intercom: to a conversation (an open one, one to resume, or a new one in `cwd`), waiting
-   *  for the next free 5-hour window. No per-conversation limit, only the total */
-  scheduleNextWindow(c: { roomId: string; sessionId?: string; claudeId?: string; cwd: string; title?: string }, message: string): ScheduledMessage {
+  /** The Overseer's composer in the intercom (⌥Enter, ⏳ or ⏰ Schedule): to a conversation (an open one, one to resume,
+   *  or a new one in `cwd`), at a dated time (checked like schedule_message's, with its per-conversation limit) or, by
+   *  default, as background work for the day's final 5-hour window (only the total limit) */
+  scheduleOverseer(c: { roomId: string; sessionId?: string; claudeId?: string; cwd: string; title?: string }, message: string, requested: string = NEXT_WINDOW): ScheduledMessage {
     const m = message.trim();
     if (!m) throw new Error(t('tool.rooms.empty'));
     if (this.items.length >= MAX_TOTAL) throw new Error(t('server.scheduledFull', { n: MAX_TOTAL }));
-    const now = this.now(), when = nextWindowStart(now, this.usage());
-    const x: ScheduledMessage = { id: randomUUID().slice(0, 8), created: now, when, requested: NEXT_WINDOW, message: m.slice(0, MAX_TEXT),
-      origin: { roomId: c.roomId, sessionId: c.sessionId, claudeId: c.claudeId }, target: { type: 'conversacion', ...c }, nextWindow: true, overseer: true };
+    const now = this.now(), next = isNextWindow(requested);
+    const w = next ? { ok: true as const, when: finalWindowStart(now, this.usage()) } : checkWhen(requested, now);
+    if (!w.ok) throw new Error(whenError(w.error, requested));
+    if (!next && (c.sessionId || c.claudeId) && ofConversation(this.items, { id: c.sessionId, claudeId: c.claudeId }).length >= MAX_PER_CONVERSATION)
+      throw new Error(t('tool.schedule.limit', { n: MAX_PER_CONVERSATION }));
+    const x: ScheduledMessage = { id: randomUUID().slice(0, 8), created: now, when: w.when, requested: next ? NEXT_WINDOW : requested, message: m.slice(0, MAX_TEXT),
+      origin: { roomId: c.roomId, sessionId: c.sessionId, claudeId: c.claudeId }, target: { type: 'conversacion', ...c }, ...(next ? { nextWindow: true as const } : {}), overseer: true };
     this.items.push(x); this.save();
     return x;
   }
@@ -150,7 +155,7 @@ export class Scheduled {
   edit(id: string, c: { when?: string; message?: string }): ScheduledMessage {
     const x = this.items.find(y => y.id === id);
     if (!x) throw new Error(t('server.scheduledGone'));
-    if (c.when !== undefined && isNextWindow(c.when)) { x.nextWindow = true; x.when = nextWindowStart(this.now(), this.usage()); x.requested = NEXT_WINDOW; }
+    if (c.when !== undefined && isNextWindow(c.when)) { x.nextWindow = true; x.when = finalWindowStart(this.now(), this.usage()); x.requested = NEXT_WINDOW; }
     else if (c.when !== undefined) {
       const w = checkWhen(String(c.when), this.now());
       if (!w.ok) throw new Error(whenError(w.error, String(c.when)));

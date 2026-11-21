@@ -21,7 +21,7 @@ export interface ScheduledMessage {
   target: ScheduledTarget;
   // a send_to_room over its per-minute limit (server/roomNotices.ts): delivered verbatim, as if sent then
   overLimit?: true;
-  // not urgent: waits for the next free 5-hour usage window (below); `when` is when the running one ends
+  // not urgent: waits for the day's final 5-hour usage window (below); `when` is when it starts
   nextWindow?: true;
   overseer?: true;       // written by the Overseer (the intercom's ⌥Enter), not by a dweller
 }
@@ -109,9 +109,22 @@ export function checkWhen(requested: string, now: number): { ok: true; when: num
   return { ok: true, when, postponed: when !== Math.max(p.ms, now) };
 }
 
+/** «2026-11-17T09:00» in local time (what checkWhen reads, and <input type="datetime-local">) */
+export const localInput = (ms: number) => { const f = new Date(ms), d = (n: number) => String(n).padStart(2, '0'); return `${f.getFullYear()}-${d(f.getMonth() + 1)}-${d(f.getDate())}T${d(f.getHours())}:${d(f.getMinutes())}`; };
+
+/** The one-click times of the intercom's ⏰ Schedule: in 1 h and in 3 h (to the minute), the next working day at 09:00
+ *  and next Monday at 09:00 (left out when it is that same day, as on a Friday), soonest first */
+export function schedulePresets(now: number): { key: 'in1h' | 'in3h' | 'tomorrow' | 'monday'; when: number }[] {
+  const minute = Math.ceil(now / 60_000) * 60_000, d = new Date(now);
+  const at9 = (days: number) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + days, SCHEDULE_HOUR, 0, 0).getTime();
+  const tomorrow = holdWeekend(at9(1)), monday = at9(((8 - d.getDay()) % 7) || 7);
+  return [{ key: 'in1h' as const, when: minute + 3_600_000 }, { key: 'in3h' as const, when: minute + 3 * 3_600_000 },
+    { key: 'tomorrow' as const, when: tomorrow }, ...(monday !== tomorrow ? [{ key: 'monday' as const, when: monday }] : [])];
+}
+
 // ---------------------------------------------------------------- the next 5-hour window
-// "Not urgent" messages wait for the plan's next free 5-hour usage window instead of spending the one running now: they
-// go out when it ends (or when a limit that stops everything lifts), one at a time and a few minutes apart. What the
+// "Not urgent" messages wait for the plan's final 5-hour usage window of the day instead of spending the working day's:
+// they go out when it starts (or when a limit that stops everything lifts), one at a time and a few minutes apart. What the
 // game knows of the window comes from the sessions' rate-limit reports (server/main.ts); with none known, now is free.
 
 export const NEXT_WINDOW = 'next-window';               // schedule_message's `when` for it
@@ -119,8 +132,21 @@ export const WINDOW_GAP_MS = 5 * 60_000;                // never two closer than
 /** The plan's usage as last reported: when the running 5-hour window ends and, at a limit, until when nothing goes */
 export interface UsageWindow { endsAt?: number; blockedUntil?: number }
 
-/** When a next-window message becomes due: the end of the window running now, after any limit; now if none */
+/** When the window that frees up next starts: the end of the window running now, after any limit; now if none */
 export const nextWindowStart = (now: number, u: UsageWindow) => Math.max(now, u.endsAt ?? 0, u.blockedUntil ?? 0);
+export const WINDOW_MS = 5 * 3_600_000;
+/** When a next-window message becomes due: the start of the day's final 5-hour window, so background work doesn't
+ *  spend the windows of the working day. Windows chain from the end of the running one (every 5 h while in use): the
+ *  latest of those starts still today. With no window known, the one that ends at midnight (19:00); past that, or when
+ *  the next window to free up already starts tomorrow, that one */
+export function finalWindowStart(now: number, u: UsageWindow): number {
+  const next = nextWindowStart(now, u), d = new Date(now), midnight = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1).getTime();
+  if (next >= midnight) return next;
+  const anchor = u.endsAt !== undefined && u.endsAt > now ? u.endsAt : midnight - WINDOW_MS;
+  // the anchor's grid (anchor ± 5 h·k): its last start before midnight, never before the next free window
+  const last = anchor + Math.floor((midnight - 1 - anchor) / WINDOW_MS) * WINDOW_MS;
+  return Math.max(next, last);
+}
 
 /** The next-window message to deliver now, if any: the oldest due one (those that failed, last), at most one every
  *  WINDOW_GAP_MS since `last`, and none while a limit stops everything */

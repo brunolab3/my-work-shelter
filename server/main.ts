@@ -1026,12 +1026,13 @@ async function action(name: string, d: Record<string, any> = {}): Promise<unknow
     case 'aviso.responder': { const f = questions.get(String(d.id ?? '')); questions.delete(String(d.id ?? '')); if (f) await f(!!d.si); return true; }
     // mensajes programados (scheduled.ts): el Supervisor los cancela o les cambia la hora o el texto
     case 'programados.cancelar': return scheduled.cancel(String(d.id ?? ''));
-    // the Overseer's ⌥Enter in the intercom (next 5-hour window): to its conversation (`sessionId`), the one being resumed, or a new one
+    // the Overseer's ⌥Enter / ⏰ Schedule in the intercom (`when`: a time, or by default the day's final 5-hour window): to its
+    // conversation (`sessionId`), the one being resumed, or a new one
     case 'programados.ventana': {
       const sess = d.sessionId ? sessions.list().find(x => x.id === d.sessionId) : undefined, room = e.rooms.find(x => x.id === (sess?.roomId ?? d.roomId));
       if (!room) throw new Error(t('server.thatRoomDoesNotExist'));
       const cwd = sess ? sess.worktree ?? sess.cwd : typeof d.cwd === 'string' && d.cwd ? d.cwd : folderOf(room);
-      return scheduled.scheduleNextWindow({ roomId: room.id, sessionId: sess?.id, claudeId: sess?.claudeId ?? (typeof d.claudeId === 'string' ? d.claudeId : undefined), cwd: path.resolve(cwd), title: sess?.title ?? (typeof d.title === 'string' ? d.title : undefined) }, String(d.message ?? ''));
+      return scheduled.scheduleOverseer({ roomId: room.id, sessionId: sess?.id, claudeId: sess?.claudeId ?? (typeof d.claudeId === 'string' ? d.claudeId : undefined), cwd: path.resolve(cwd), title: sess?.title ?? (typeof d.title === 'string' ? d.title : undefined) }, String(d.message ?? ''), typeof d.when === 'string' && d.when ? d.when : undefined);
     }
     case 'programados.ahora': await scheduled.sendNow(String(d.id ?? '')); return true;
     case 'programados.editar': return scheduled.edit(String(d.id ?? ''), { when: d.when === undefined ? undefined : String(d.when), message: d.message === undefined ? undefined : String(d.message) });

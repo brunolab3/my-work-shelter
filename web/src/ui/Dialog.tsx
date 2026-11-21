@@ -37,7 +37,7 @@ import { Usage } from './usage';
 import { takeASurface, toClaudeApp } from './surface';
 import { openLink, openPage, pageForSession, pageAnswers, pageNotes, validatePage, revealPage, makeRoomForIntercom, answerPage } from './Browsers';
 import { sessionPages, pendingPages, samePage, livePages, questionInput } from '@shared/sessionPages';
-import { describeWhen, describeWhenShort, ofConversation, ofPlace, type ScheduledMessage } from '@shared/scheduled';
+import { describeWhen, describeWhenShort, localInput, ofConversation, ofPlace, schedulePresets, type ScheduledMessage } from '@shared/scheduled';
 import type { PRBoard } from '@shared/board';
 import { worktreePRs, worktreeTask, taskColor } from '@shared/tasks';
 import { lookOf, lookSignature } from '@shared/appearance';
@@ -831,15 +831,16 @@ function New({ h, p, resume, goBack }: { h: DwellerSummary; p: TabCom; resume?: 
     juego.set({ workIn: null });
     SFX.shortSuccess();
   };
-  // ⌥Enter: background work for the next free 5-hour window (server/scheduled.ts), to the conversation being resumed or a new one here
-  const sendLater = () => {
+  // ⌥Enter: background work for the day's final 5-hour window or, with `when` (⏰ Schedule), at that time (server/scheduled.ts),
+  // to the conversation being resumed or a new one here
+  const sendLater = (when?: string) => {
     if (!text.trim()) { SFX.notAllowed(); return; }
     if (p.attachments?.length) { SFX.notAllowed(); setError(t('windows.nextWindowNoAttachments')); return; }
     const inside = h.copy ? workIn : juego.get().workIn;
     if (!inside && !resume && ofProject && worktree) { SFX.notAllowed(); setError(t('windows.nextWindowNoWorktree')); return; }
     setError('');
-    client.action<ScheduledMessage>('programados.ventana', { roomId: h.room, cwd: resume?.cwd ?? inside?.cwd, claudeId: resume?.claudeId, title: resume?.title, message: text })
-      .then(x => { setText(''); SFX.shortSuccess(); addNotice('info', t('windows.nextWindowDone', { cuando: describeWhenShort(x.when) })); })
+    client.action<ScheduledMessage>('programados.ventana', { roomId: h.room, cwd: resume?.cwd ?? inside?.cwd, claudeId: resume?.claudeId, title: resume?.title, message: text, when })
+      .then(x => { setText(''); SFX.shortSuccess(); addNotice('info', laterDone(x)); })
       .catch(e => { SFX.error(); setError((e as Error).message); });
   };
   useEffect(() => keyboard.listen(e => {
@@ -904,7 +905,7 @@ function New({ h, p, resume, goBack }: { h: DwellerSummary; p: TabCom; resume?: 
           <button className={'chip' + (worktree ? ' on' : '')} onClick={() => setWorktree(true)}>{t('windows.inASeparateWorktree')}</button>
         </div>}
         {error && <p className="aviso-consola">{error}</p>}
-        <p className="ayuda-consola"><kbd>Enter</kbd> {t('windows.start')} <kbd>⌥ Enter</kbd> <button className="consola-x" onClick={sendLater} title={t('windows.nextWindowHint')}>⏳ {t('windows.nextWindow')}</button> <kbd>⇧ Enter</kbd> {t('windows.newLine')} <kbd>{CMD}D</kbd> {t('windows.dictate2')} <kbd>{CMD}U</kbd> {t('windows.attach2')} <kbd>Tab</kbd> {t('windows.options')} <kbd>←→</kbd> {t('menu.select')} <kbd>Esc</kbd> {esc.armed ? <span className="urgente">{t('windows.againGoBackAndDelete')}</span> : t('windows.back2')}</p>
+        <p className="ayuda-consola"><kbd>Enter</kbd> {t('windows.start')} <kbd>⌥ Enter</kbd> <button className="consola-x" onClick={() => sendLater()} title={t('windows.nextWindowHint')}>⏳ {t('windows.nextWindow')}</button> <ScheduleAt pick={sendLater} /> <kbd>⇧ Enter</kbd> {t('windows.newLine')} <kbd>{CMD}D</kbd> {t('windows.dictate2')} <kbd>{CMD}U</kbd> {t('windows.attach2')} <kbd>Tab</kbd> {t('windows.options')} <kbd>←→</kbd> {t('menu.select')} <kbd>Esc</kbd> {esc.armed ? <span className="urgente">{t('windows.againGoBackAndDelete')}</span> : t('windows.back2')}</p>
       </div>
     </div>
   );
@@ -980,12 +981,12 @@ function Session({ h, s, p, exit, onClose }: { h: DwellerSummary; s: SessionSumm
     else client.send({ t: 'enviar', sessionId: s.id, text: t });
     setText(''); pinned.current = true; SFX.shortSuccess();
   };
-  // ⌥Enter: background work for this conversation in the next free 5-hour window (server/scheduled.ts)
-  const sendLater = () => {
+  // ⌥Enter: background work for this conversation in the day's final 5-hour window or, with `when` (⏰ Schedule), at that time (server/scheduled.ts)
+  const sendLater = (when?: string) => {
     if (!text.trim() || text.trim().startsWith('/')) { SFX.notAllowed(); return; }
     if (p.attachments?.length) { SFX.notAllowed(); addNotice('aviso', t('windows.nextWindowNoAttachments')); return; }
-    client.action<ScheduledMessage>('programados.ventana', { sessionId: s.id, message: text })
-      .then(x => { setText(''); SFX.shortSuccess(); addNotice('info', t('windows.nextWindowDone', { cuando: describeWhenShort(x.when) })); })
+    client.action<ScheduledMessage>('programados.ventana', { sessionId: s.id, message: text, when })
+      .then(x => { setText(''); SFX.shortSuccess(); addNotice('info', laterDone(x)); })
       .catch(e => { SFX.error(); addNotice('aviso', (e as Error).message); });
   };
   useEffect(() => keyboard.listen(e => {
@@ -1052,7 +1053,7 @@ function Session({ h, s, p, exit, onClose }: { h: DwellerSummary; s: SessionSumm
       )}
       {!s.pending && <AttachmentsTray list={p.attachments} remove={removeAttachment(h.id, p.id)} />}
       {!s.pending && <DictationStrip dictation={dictation} />}
-      <p className="ayuda-consola"><kbd>Enter</kbd> {t('windows.send')} <kbd>⌥ Enter</kbd> <button className="consola-x" onClick={sendLater} title={t('windows.nextWindowHint')}>⏳ {t('windows.nextWindow')}</button> <kbd>{CMD}D</kbd> {t('windows.dictate2')} <kbd>{CMD}U</kbd> {t('windows.attach2')} <kbd>Ctrl C</kbd> {t('windows.stop')} <kbd>Esc</kbd> {esc.armed ? <span className="urgente">{t('windows.againDeleteWhatYouWrote')}</span> : text ? t('windows.twiceDeleteWhatYouWrote') : t('windows.backToTheShelterKeeps')} <kbd>{CMD}T</kbd> {t('windows.anotherJob')} <kbd>{CMD}↑↓</kbd> {t('windows.expandMinimize')}</p>
+      <p className="ayuda-consola"><kbd>Enter</kbd> {t('windows.send')} <kbd>⌥ Enter</kbd> <button className="consola-x" onClick={() => sendLater()} title={t('windows.nextWindowHint')}>⏳ {t('windows.nextWindow')}</button> <ScheduleAt pick={sendLater} /> <kbd>{CMD}D</kbd> {t('windows.dictate2')} <kbd>{CMD}U</kbd> {t('windows.attach2')} <kbd>Ctrl C</kbd> {t('windows.stop')} <kbd>Esc</kbd> {esc.armed ? <span className="urgente">{t('windows.againDeleteWhatYouWrote')}</span> : text ? t('windows.twiceDeleteWhatYouWrote') : t('windows.backToTheShelterKeeps')} <kbd>{CMD}T</kbd> {t('windows.anotherJob')} <kbd>{CMD}↑↓</kbd> {t('windows.expandMinimize')}</p>
     </div>
   );
 }
@@ -1121,7 +1122,7 @@ function ScheduledMenu({ h, s, resume }: { h: DwellerSummary; s?: SessionSummary
   const all = live.use(e => e.scheduled);
   const worktrees = live.use(e => e.repos[h.room]?.worktrees);
   const conversation = s ?? (resume ? { claudeId: resume } : undefined);
-  // the dated ones first, then the background work, pending until the next free 5-hour window (no time of its own)
+  // the dated ones first, then the background work, pending until the day's final 5-hour window (no time of its own)
   const mine = useMemo(() => { const l = conversation ? ofConversation(all, conversation) : ofPlace(all, h.room, h.copy?.path, worktrees ?? []); return [...l.filter(x => !x.nextWindow), ...l.filter(x => x.nextWindow)]; },
     [all, worktrees, s?.id, s?.claudeId, resume, h.room, h.copy?.path]);
   const [open, setOpen] = useState(false);
@@ -1162,8 +1163,33 @@ function ScheduledMenu({ h, s, resume }: { h: DwellerSummary; s?: SessionSummary
     </span>
   );
 }
-// para <input type="datetime-local">: «2026-11-17T09:00» en hora local
-const localInput = (ms: number) => { const f = new Date(ms), d = (n: number) => String(n).padStart(2, '0'); return `${f.getFullYear()}-${d(f.getMonth() + 1)}-${d(f.getDate())}T${d(f.getHours())}:${d(f.getMinutes())}`; };
+const laterDone = (x: ScheduledMessage) => t(x.nextWindow ? 'windows.nextWindowDone' : 'windows.scheduleAtDone', { cuando: describeWhenShort(x.when) });
+
+// ⏰ Schedule in the composer's help line: one-click presets (schedulePresets) or any date and time; `pick` sends the
+// draft for then (action `programados.ventana` with `when`, checked on the server like schedule_message)
+function ScheduleAt({ pick }: { pick: (when: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [when, setWhen] = useState('');
+  const box = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const out = (e: MouseEvent) => { if (!box.current?.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener('mousedown', out);
+    return () => document.removeEventListener('mousedown', out);
+  }, [open]);
+  const go = (w: string) => { if (!w) { SFX.notAllowed(); return; } setOpen(false); pick(w); };
+  const now = Date.now();
+  return (
+    <span ref={box} className="programar-hora">
+      <button className="consola-x" title={t('windows.scheduleAtHint')} onClick={() => { setOpen(x => !x); setWhen(localInput(now + 3_600_000)); SFX.click(); }}>⏰ {t('windows.scheduleAt')}</button>
+      {open && <ul className="paginas-lista programar-lista" onKeyDown={e => { e.stopPropagation(); if (e.key === 'Escape') setOpen(false); if (e.key === 'Enter' && (e.target as HTMLElement).tagName === 'INPUT') go(when); }}>
+        {schedulePresets(now).map(x => <li key={x.key}><button className="chip" onClick={() => go(localInput(x.when))}>{t(PRESET_TEXT[x.key])} <span className="tenue">{describeWhenShort(x.when, now)}</span></button></li>)}
+        <li><input type="datetime-local" value={when} min={localInput(now)} onChange={e => setWhen(e.target.value)} /> <button className="consola-x" onClick={() => go(when)}>{t('windows.scheduleAtGo')}</button></li>
+      </ul>}
+    </span>
+  );
+}
+const PRESET_TEXT = { in1h: 'windows.scheduleIn1h', in3h: 'windows.scheduleIn3h', tomorrow: 'windows.scheduleTomorrow', monday: 'windows.scheduleMonday' } as const;
 
 // Una conversación por retomar (cerrada o perdida en un reinicio): sus páginas salen igual, leídas de su transcripción;
 // abrirlas, validarlas o quitarlas no le escribe nada (al retomarla, lo hecho sigue contado)

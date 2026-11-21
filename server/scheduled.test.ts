@@ -158,39 +158,54 @@ describe('mensajes programados: almacén y entrega', () => {
   });
 });
 
-describe('scheduled messages: the next free 5-hour window', () => {
+describe('scheduled messages: the day\'s final 5-hour window', () => {
   let dir: string;
   beforeEach(() => { dir = mkdtempSync(path.join(tmpdir(), 'programados-ventana-')); setLanguage('en'); });
 
-  it('a dweller\'s `when: "next-window"` waits for the running window to end, never as a dated one', async () => {
+  it('a dweller\'s `when: "next-window"` waits for the day\'s final window, never as a dated one', async () => {
     const timer = { t: NOW };
-    const x = ctx(timer, { usage: { endsAt: L(13, 18) } }), p = new Scheduled(dir, x.c);
+    const x = ctx(timer, { usage: { endsAt: L(13, 17) } }), p = new Scheduled(dir, x.c);
     const r = p.schedule('express', 's1', { when: 'next-window', message: 'Refactor the importer' });
     expect(r.ok).toBe(true);
     expect(r.text).toContain('⏳');
-    expect(p.list()[0]).toMatchObject({ nextWindow: true, when: L(13, 18), requested: 'next-window' });
-    timer.t = L(13, 17, 59); await p.sweep();
+    // the running window ends at 17:00, the next one at 22:00: that one is the day's last
+    expect(p.list()[0]).toMatchObject({ nextWindow: true, when: L(13, 22), requested: 'next-window' });
+    timer.t = L(13, 21, 59); await p.sweep();
     expect(x.conversations).toEqual([]);
-    timer.t = L(13, 18); await p.sweep();   // Friday 18:00: no weekend rule, it is about the window
+    timer.t = L(13, 22); await p.sweep();   // Friday 22:00: no weekend rule, it is about the window
     expect(x.conversations).toHaveLength(1);
     expect(p.list()).toEqual([]);
   });
 
-  it('several go out one at a time, five minutes apart, oldest first; with no window known, now', async () => {
-    const timer = { t: NOW };
+  it('several go out one at a time, five minutes apart, oldest first; with no window known, from 19:00', async () => {
+    const timer = { t: L(13, 19) };
     const x = ctx(timer), p = new Scheduled(dir, x.c);
-    for (const m of ['a', 'b', 'c']) { p.scheduleNextWindow({ roomId: 'express', cwd: '/r/express' }, m); timer.t += 1000; }
+    for (const m of ['a', 'b', 'c']) { p.scheduleOverseer({ roomId: 'express', cwd: '/r/express' }, m); timer.t += 1000; }
     const out: number[] = [];
-    for (; timer.t < NOW + 20 * 60_000; timer.t += 60_000) { const before = x.conversations.length; await p.sweep(); if (x.conversations.length > before) out.push(Math.round((timer.t - NOW) / 60_000)); }
+    for (; timer.t < L(13, 19, 20); timer.t += 60_000) { const before = x.conversations.length; await p.sweep(); if (x.conversations.length > before) out.push(Math.round((timer.t - L(13, 19)) / 60_000)); }
     expect(out).toEqual([0, 5, 10]);
     expect(x.conversations.map(c => c.text.split('\n').pop())).toEqual(['a', 'b', 'c']);
     expect(x.conversations[0].text).toContain('Overseer');
   });
 
+  it('the Overseer\'s ⏰ Schedule: a dated one, checked like schedule_message\'s and with its per-conversation limit', async () => {
+    const timer = { t: NOW };
+    const x = ctx(timer), p = new Scheduled(dir, x.c), c = { roomId: 'express', claudeId: 'c9', cwd: '/r/express' };
+    const a = p.scheduleOverseer(c, 'Review the PR', '2026-11-14T10:00');   // Saturday: held to Monday 09:00
+    expect(a).toMatchObject({ when: L(16, 9), requested: '2026-11-14T10:00', overseer: true });
+    expect(a.nextWindow).toBeUndefined();
+    expect(() => p.scheduleOverseer(c, 'x', '2026-11-12T10:00')).toThrow();
+    expect(() => p.scheduleOverseer(c, 'x', 'tomorrow')).toThrow();
+    for (let i = 1; i < 10; i++) p.scheduleOverseer(c, 'm' + i, '2026-11-17T10:00');
+    expect(() => p.scheduleOverseer(c, 'one too many', '2026-11-17T10:00')).toThrow(/10/);
+    timer.t = L(16, 9); await p.sweep();
+    expect(x.conversations.map(v => v.text.split('\n').pop())).toEqual(['Review the PR']);
+  });
+
   it('holds while a limit stops everything, and goes once it lifts', async () => {
     const timer = { t: NOW }, usage: { endsAt?: number; blockedUntil?: number } = { blockedUntil: L(13, 19) };
     const x = ctx(timer, { usage }), p = new Scheduled(dir, x.c);
-    p.scheduleNextWindow({ roomId: 'express', cwd: '/r/express' }, 'later');
+    p.scheduleOverseer({ roomId: 'express', cwd: '/r/express' }, 'later');
     expect(p.list()[0].when).toBe(L(13, 19));
     timer.t = L(13, 19); usage.blockedUntil = L(13, 20);   // still at the limit
     await p.sweep();
@@ -201,9 +216,9 @@ describe('scheduled messages: the next free 5-hour window', () => {
 
   it('send now, edit the text, move to a date and back to the next window', async () => {
     const timer = { t: NOW };
-    const x = ctx(timer, { usage: { endsAt: L(13, 18) } }), p = new Scheduled(dir, x.c);
-    const a = p.scheduleNextWindow({ roomId: 'express', cwd: '/r/express' }, 'one');
-    const b = p.scheduleNextWindow({ roomId: 'express', cwd: '/r/express' }, 'two');
+    const x = ctx(timer, { usage: { endsAt: L(13, 18) } }), p = new Scheduled(dir, x.c);   // 18:00, then 23:00
+    const a = p.scheduleOverseer({ roomId: 'express', cwd: '/r/express' }, 'one');
+    const b = p.scheduleOverseer({ roomId: 'express', cwd: '/r/express' }, 'two');
     await p.sendNow(a.id);
     expect(x.conversations.map(c => c.text.split('\n').pop())).toEqual(['one']);
     p.edit(b.id, { message: 'two, edited' });
@@ -211,6 +226,6 @@ describe('scheduled messages: the next free 5-hour window', () => {
     p.edit(b.id, { when: '2026-11-17T10:00' });
     expect(p.list()[0].nextWindow).toBeUndefined();
     p.edit(b.id, { when: 'next-window' });
-    expect(p.list()[0]).toMatchObject({ nextWindow: true, when: L(13, 18) });
+    expect(p.list()[0]).toMatchObject({ nextWindow: true, when: L(13, 23) });
   });
 });

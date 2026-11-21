@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { placeOf, ofPlace, soonestByPlace, nextWindowStart, windowNext, due, WINDOW_GAP_MS, type ScheduledMessage, type ScheduledTarget } from './scheduled.ts';
+import { placeOf, ofPlace, soonestByPlace, nextWindowStart, finalWindowStart, schedulePresets, localInput, windowNext, due, WINDOW_GAP_MS, type ScheduledMessage, type ScheduledTarget } from './scheduled.ts';
 
 const REPO = '/repos/acme';
 const WT = `${REPO}/.claude/worktrees/ABC-12`;
@@ -39,7 +39,35 @@ describe('scheduled messages by room and task', () => {
 
 const bg = (id: string, created: number, when: number): ScheduledMessage => ({ ...msg({ type: 'sala', room: 'acme' }, when), id, created, nextWindow: true });
 
-describe('the next free 5-hour window', () => {
+const L = (d: number, h = 0, m = 0) => new Date(2026, 10, d, h, m).getTime();   // local time, November 2026
+
+describe('the day\'s final 5-hour window', () => {
+  it('the latest start still today on the running window\'s 5-hour grid, never before the next free one', () => {
+    expect(finalWindowStart(L(20, 7), { endsAt: L(20, 9) })).toBe(L(20, 19));    // 9, 14, 19
+    expect(finalWindowStart(L(20, 7), { endsAt: L(20, 8) })).toBe(L(20, 23));    // 8, 13, 18, 23
+    expect(finalWindowStart(L(20, 22), { endsAt: L(20, 23) })).toBe(L(20, 23));
+    expect(finalWindowStart(L(20, 23), { endsAt: L(21, 2) })).toBe(L(21, 2));    // the next one is already tomorrow
+  });
+  it('with no window known, the one ending at midnight (19:00); past that, now; after a limit, when it lifts', () => {
+    expect(finalWindowStart(L(20, 7), {})).toBe(L(20, 19));
+    expect(finalWindowStart(L(20, 7), { endsAt: L(20, 6) })).toBe(L(20, 19));    // a stale window
+    expect(finalWindowStart(L(20, 21), {})).toBe(L(20, 21));
+    expect(finalWindowStart(L(20, 20), { blockedUntil: L(20, 22) })).toBe(L(20, 22));
+  });
+});
+
+describe('the ⏰ Schedule presets', () => {
+  const keys = (now: number) => schedulePresets(now).map(x => [x.key, localInput(x.when)]);
+  it('in 1 h, in 3 h, the next working day and next Monday at 09:00', () => {
+    expect(keys(L(18, 10, 30))).toEqual([['in1h', '2026-11-18T11:30'], ['in3h', '2026-11-18T13:30'], ['tomorrow', '2026-11-19T09:00'], ['monday', '2026-11-23T09:00']]);
+    expect(keys(L(16, 8))).toContainEqual(['monday', '2026-11-23T09:00']);   // on a Monday, the next one
+  });
+  it('on Friday and at the weekend, "tomorrow" is Monday: shown once', () => {
+    for (const d of [20, 21, 22]) expect(keys(L(d, 12)).slice(2)).toEqual([['tomorrow', '2026-11-23T09:00']]);
+  });
+});
+
+describe('next-window delivery', () => {
   it('starts when the running window ends, after any limit; now if none is known', () => {
     expect(nextWindowStart(100, {})).toBe(100);
     expect(nextWindowStart(100, { endsAt: 500 })).toBe(500);
