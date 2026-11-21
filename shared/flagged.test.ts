@@ -22,7 +22,7 @@ describe('conversations marked as pending', () => {
     expect(r[0]).toBe('c1');
     expect(r.at(-1)).toBe('new');
   });
-  it('shows on open conversations whose Claude Code session is flagged, never a closed or starting one', () => {
+  it('counts on tags only open conversations whose Claude Code session is flagged, never a closed or starting one', () => {
     const ids = new Set(['a', 'b']);
     expect(isFlagged(s('a'), ids)).toBe(true);
     expect(isFlagged(s('a', 'trabajando'), ids)).toBe(true);
@@ -32,13 +32,24 @@ describe('conversations marked as pending', () => {
     expect(isFlagged(undefined, ids)).toBe(false);
     expect(flaggedIn([s('a'), s('b', 'cerrada'), s('z'), undefined, s('b')], ids)).toBe(2);
   });
-  it('can be set only on an open conversation that has its Claude Code session', () => {
+  it('can be set on any conversation that has its Claude Code session, open or closed', () => {
     const ids = new Set(['a']);
     expect(flagOf(s('a'), ids)).toBe(true);
     expect(flagOf(s('b'), ids)).toBe(false);
     expect(flagOf(s(undefined, 'arrancando'), ids)).toBeUndefined();
-    expect(flagOf(s('a', 'cerrada'), ids)).toBeUndefined();
     expect(flagOf(undefined, ids)).toBeUndefined();
+  });
+  it('can be set on a closed conversation, by its summary or just its Claude Code session id (one being resumed)', () => {
+    const ids = new Set(['a']);
+    expect(flagOf(s('a', 'cerrada'), ids)).toBe(true);
+    expect(flagOf(s('b', 'cerrada'), ids)).toBe(false);
+    expect(flagOf({ claudeId: 'a' }, ids)).toBe(true);
+    expect(flagOf({ claudeId: 'b' }, ids)).toBe(false);
+    expect(flagOf({ claudeId: '' }, ids)).toBeUndefined();
+    // flagging a closed one keeps it when it is resumed, and counts on tags again once open
+    const after = flaggedIds({ flaggedConversations: setFlag([], 'c', true) });
+    expect(isFlagged(s('c', 'cerrada'), after)).toBe(false);
+    expect(isFlagged(s('c', 'trabajando'), after)).toBe(true);
   });
   it('tags show ⚑ for one pending conversation and ⚑ n for several', () => {
     expect(flagMark(0)).toBeUndefined();

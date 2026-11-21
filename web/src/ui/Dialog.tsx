@@ -20,7 +20,7 @@ import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 
 import { createPortal } from 'react-dom';
 import type { SessionSummary, LogInput, HistoryElement, Command, PendingRequest, Visitor, QueuedMessage } from '@shared/protocol';
 import { originLabel, queuedIn, withdrawable } from '@shared/messageQueue';
-import { flaggedIds, flagOf } from '@shared/flagged';
+import { flaggedIds, flagOf, type Flaggable } from '@shared/flagged';
 import { MODELS, EFFORTS, PERMISSION_MODES } from '@shared/protocol';
 import { t, tIs, trBio } from '@shared/language';
 import { juego, type DwellerSummary } from './gameState';
@@ -32,7 +32,7 @@ import { SFX } from '../audio/sound';
 import { physicsKey } from '../audio/keyboard';
 import { Store } from './store';
 import { useMenu as useMenuBase, Options } from './device';
-import { CMD, MAC, nextZ, windowShortcut, WindowButtons, Tabs, TabList, DraftMark, FlagMark, TaskMark, Confirmation, nthTab, nextTab, PILOT, stateLabel, type ItemTab, type TabState } from './windows';
+import { CMD, MAC, nextZ, windowShortcut, WindowButtons, Tabs, TabList, DraftMark, FlagMark, FLAG_SHORTCUT, TaskMark, Confirmation, nthTab, nextTab, PILOT, stateLabel, type ItemTab, type TabState } from './windows';
 import { sessionOwner, interlocutor, branchCaption, copyCaption, pathWorktree, worktreesKnown } from './copies';
 import { Usage } from './usage';
 import { takeASurface, toClaudeApp } from './surface';
@@ -427,18 +427,21 @@ function tabItem(x: TabCom, o: DwellerSummary, sessions: Record<string, SessionS
   const sx = x.view.type === 'sesion' ? sessions[x.view.sessionId] : undefined, path = pathWorktree(sx?.cwd, worktreesKnown());
   return { id: x.id, name: sx ? sx.title || t('windows.conversation') : x.sessionWait ? t('windows.starting2') : VIEW_NAME[x.view.type] ?? t('windows.menu'), state: x.sessionWait ? 'trabajando' : tabState(sx),
     title: sx?.title, room: o.nameRoom, task: path ? worktreeTask({ path }) : o.copy ? worktreeTask(o.copy) : undefined, activity: sx ? ago(sx.updated) : undefined, draft: withText(x), queued: queuedIn([sx]) || undefined,
-    flagged: flagOf(sx, flags) };
+    flagged: flagOf(sx ?? resumeOf(x), flags) };
 }
+/** The closed conversation a tab is about to resume, by its Claude Code session id */
+const resumeOf = (x: TabCom | undefined) => (x?.view.type === 'nuevo' && x.view.resume ? { claudeId: x.view.resume.claudeId } : undefined);
 /** The conversations marked as pending (shared/flagged.ts), repainting when they change */
 const useFlags = () => flaggedIds(live.use(e => e.state?.settings));
 /** ⚑ Mark a conversation as pending, or clear it: only the Overseer does (sending to it doesn't) */
-function toggleFlag(s: SessionSummary | undefined) {
+function toggleFlag(s: Flaggable | undefined) {
   const on = flagOf(s, flaggedIds(live.get().state?.settings));
   if (on === undefined) { SFX.notAllowed(); return; }
   SFX.tick();
   client.action('conversacion.pendiente', { claudeId: s!.claudeId, on: !on }).catch(e => { SFX.error(); addNotice('error', (e as Error).message); });
 }
-const tabSession = (pid: string) => { const p = intercoms.get().list.flatMap(w => w.tabs).find(x => x.id === pid); return p?.view.type === 'sesion' ? live.get().sessions[p.view.sessionId] : undefined; };
+/** The conversation of a tab, open or closed (shown, or about to be resumed), for its ⚑ */
+const tabConversation = (pid: string): Flaggable | undefined => { const p = intercoms.get().list.flatMap(w => w.tabs).find(x => x.id === pid); return p?.view.type === 'sesion' ? live.get().sessions[p.view.sessionId] : resumeOf(p); };
 
 // The ⋯ N button at the end of the bar's COM row (Bar.tsx; ⌘⇧A from an intercom): every open conversation of every
 // intercom, by room, to filter, go to one (switching to its intercom) and close. Other intercoms' menus stay out.
@@ -469,7 +472,7 @@ export function ComTabs() {
     {/* the list steps aside while a close is being confirmed */}
     {open && r && !list.some(w => w.confirm) && createPortal(
       <div className="barra-lista-com" style={{ left: r.left, bottom: innerHeight - r.top + 4 }}>
-        <TabList items={items} group active={current?.active ?? ''} activate={go} close={closeTabs} exit={exit} flag={pid => toggleFlag(tabSession(pid))} header={(p, before) => {
+        <TabList items={items} group active={current?.active ?? ''} activate={go} close={closeTabs} exit={exit} flag={pid => toggleFlag(tabConversation(pid))} header={(p, before) => {
           // the room once, then whose: their bust and name, a hologram's task in its color
           const o = who(p.group!), task = o?.copy ? worktreeTask(o.copy) : undefined;
           return <>
@@ -527,7 +530,7 @@ function Console({ h, v }: { h: DwellerSummary; v: WindowCom }) {
         moveTab: d => { const x = nextTab(orden.current, w.active, d); if (x) activate(hid, x); },
         goTab: n => { const x = nthTab(orden.current, n); if (x) activate(hid, x); },
         takeOut: () => takeTab(hid, w.active),
-        flag: () => toggleFlag(tabSession(w.active)),
+        flag: () => toggleFlag(tabConversation(w.active)),
       });
     };
     addEventListener('keydown', f, true); return () => removeEventListener('keydown', f, true);
@@ -537,6 +540,8 @@ function Console({ h, v }: { h: DwellerSummary; v: WindowCom }) {
   const go = (view: View) => goView(hid, p.id, view);
   const onMenu = () => go({ type: 'menu' });
   const view = p.view.type === 'sesion' && !s ? { type: 'menu' as const } : p.view;
+  // the conversation in view, open or closed: its summary, or the one being resumed
+  const conversation: Flaggable | undefined = s ?? (view.type === 'nuevo' && view.resume ? { claudeId: view.resume.claudeId } : undefined);
   const high = v.maximized || view.type === 'sesion' || view.type === 'nuevo' || view.type === 'historial' || view.type === 'visitantes';
   const worst = v.tabs.map(sessionOf).filter(Boolean).sort((a, b) => urgency(a!) - urgency(b!))[0];
   const confirming = v.confirm ? v.tabs.filter(x => v.confirm!.includes(x.id)).map(sessionOf).filter(inRunning) as SessionSummary[] : [];
@@ -570,11 +575,12 @@ function Console({ h, v }: { h: DwellerSummary; v: WindowCom }) {
             </>}
             {s?.model && <div className="consola-dato">{s.model.replace('claude-', '')}</div>}
             {s && (s.context || s.tokens) ? <div className="consola-dato"><Usage s={s} length /></div> : null}
-            {/* right under the dweller, by importance: pages to review, the task's PRs and pre-flight, then the scheduled
+            {/* right under the dweller, by importance: pages to review, the ⚑ pending mark, the task's PRs and pre-flight, then the scheduled
                 ones; each hidden with nothing, and the whole section with none (CSS `:has`) */}
             <div className="consola-acciones" role="group" aria-label={t('windows.actions')}>
               <div className="consola-acciones-titulo" aria-hidden>{t('windows.actions')}</div>
               {s ? <PagesMenu key={s.id} s={s} /> : view.type === 'nuevo' && view.resume ? <ResumePages key={view.resume.claudeId} roomId={h.room} claudeId={view.resume.claudeId} /> : null}
+              <FlagButton c={conversation} flags={flags} />
               {copy ? <WorktreePRs copy={copy} roomId={h.room} /> : null}
               {copy ? <PreflightButton copy={copy} /> : null}
               {/* with `key`: each conversation with its own list (nothing from the previous tab while its own arrives) */}
@@ -722,7 +728,8 @@ function HistoryView({ h, goBack, pick }: { h: DwellerSummary; goBack: () => voi
   const [list, setList] = useState<HistoryElement[] | null>(null);
   const [error, setError] = useState('');
   useEffect(() => { client.ask<HistoryElement[]>({ t: 'historial', roomId: h.room, cwd: h.copy?.path }).then(setList).catch(e => setError(e.message)); }, [h.room, h.copy?.path]);
-  const items = [...(list ?? []).map(el => ({ text: (el.outside ? '↗ ' : '') + el.title, hint: `${ago(el.modified)}${el.branch ? ' · ' + el.branch : ''}${el.inProgress ? ` · ${t('windows.inProgress')}` : ''}${el.outside ? ` · ${t('windows.openOnYourDesktop')}` : ''}` })), { text: t('windows.back'), hint: 'Esc' }];
+  const flags = useFlags();
+  const items = [...(list ?? []).map(el => ({ text: (flags.has(el.claudeId) ? t('windows.flag.mark') + ' ' : '') + (el.outside ? '↗ ' : '') + el.title, hint: `${ago(el.modified)}${el.branch ? ' · ' + el.branch : ''}${el.inProgress ? ` · ${t('windows.inProgress')}` : ''}${el.outside ? ` · ${t('windows.openOnYourDesktop')}` : ''}` })), { text: t('windows.back'), hint: 'Esc' }];
   // la que sigue abierta en tu escritorio no se retoma aquí a la vez (se corrompería): primero /exit allí o, si la
   // pestaña se cerró sin salir y el proceso sigue vivo, Enter otra vez la cierra a la fuerza y la retoma aquí
   const [force, setForce] = useState(-1);
@@ -1111,6 +1118,15 @@ function WorktreePRs({ copy, roomId }: { copy: { path: string; branch: string };
 
 // the pre-flight of the copy's task: all its parts in every repo (Preflight.tsx), only once the task has a PR (the same
 // list `WorktreePRs` reads)
+// ⚑ The pending mark of the conversation in view, open or closed (closed ones have no title-bar ⚑ nor tab to mark)
+function FlagButton({ c, flags }: { c?: Flaggable; flags: Set<string> }) {
+  const on = flagOf(c, flags);
+  if (on === undefined) return null;
+  return <span className="paginas-sesion marca-conversacion">
+    <button className={'consola-x boton-marca' + (on ? ' marcada' : '')} aria-pressed={on} title={t(on ? 'windows.flag.clear' : 'windows.flag.set', { shortcut: FLAG_SHORTCUT })} onClick={() => toggleFlag(c)}>⚑ {t(on ? 'windows.flag.buttonOn' : 'windows.flag.button')}</button>
+  </span>;
+}
+
 function PreflightButton({ copy }: { copy: { path: string; branch: string } }) {
   const task = worktreeTask(copy);
   const withPRs = jiraBoard.use(x => !!task && taskHasPRs(task, x.prs));

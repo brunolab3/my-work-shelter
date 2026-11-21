@@ -355,6 +355,8 @@ export const WINDOWS: Record<string, LocalizedText> = {
   'windows.flag.clear': { es: 'Quitar la marca de pendiente ({shortcut})', en: 'Clear the pending mark ({shortcut})' },
   'windows.flag.only': { es: '⚑ Solo pendientes ({n})', en: '⚑ Only pending ({n})' },
   'windows.flag.all': { es: 'Todas', en: 'All' },
+  'windows.flag.button': { es: 'Marcar pendiente', en: 'Mark pending' },
+  'windows.flag.buttonOn': { es: 'Pendiente', en: 'Pending' },
   'windows.gettingReady': { es: 'Preparándose…', en: 'Getting ready…' },
   'windows.thinking': { es: 'Pensando…', en: 'Thinking…' },
   'windows.limitWaiting': { es: 'Esperando a que se renueve el límite de uso: sigue sola a las {cuando}.', en: 'Waiting for the usage limit to renew: continues on its own at {cuando}.' },

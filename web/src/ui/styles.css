@@ -309,6 +309,7 @@ html, body { margin: 0; height: 100%; background: var(--fondo); overflow: hidden
 .consola-acciones .paginas-sesion > .consola-x { width: 100%; margin: 0; font: 600 calc(var(--u) * 0.68) var(--t-mono); padding: .35em .4em; white-space: normal; text-align: left; }
 .consola-acciones .paginas-principal > .consola-x { font-size: calc(var(--u) * 0.76); font-weight: 800; padding: .5em .5em; }
 .consola-acciones .paginas-sesion > .consola-x.urgente { background: linear-gradient(#ffd27a, #d99a2b); box-shadow: 0 2px 0 #7a5410, 0 0 10px rgba(255,176,0,.35); }
+.consola-acciones .paginas-sesion > .consola-x.boton-marca.marcada { color: #fff; background: linear-gradient(#ff9d8f, var(--pendiente)); }
 .consola-acciones .programados-sesion > .consola-x { background: transparent; color: #c9bd9f; border: 1px solid #6f6656; box-shadow: none; font-weight: 400; }
 .consola-acciones .programados-sesion > .consola-x:hover { border-color: #c9bd9f; color: var(--crema); }
 .paginas-lista { position: absolute; left: 0; top: 100%; z-index: 30; box-sizing: border-box; margin: 0; padding: .5em; list-style: none; width: max-content; min-width: 26em; max-width: 60em; overflow: auto; background: #0b120b; border: 1px solid var(--fosforo-tenue); border-radius: 4px; box-shadow: 0 6px 24px #000c; font: 400 calc(var(--u) * 0.75) var(--t-mono); color: var(--fosforo); }

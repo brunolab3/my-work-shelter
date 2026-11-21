@@ -1,6 +1,7 @@
 // Conversations the Overseer marked as pending (⚑): a reminder that they still have to act on them. Only they set and
 // clear it (sending a message doesn't). Kept in the game's settings by Claude Code session id, so it survives restarts
-// and comes back when the conversation is resumed; shown on its tab, the ⋯ N list and its dweller's or hologram's tag.
+// and comes back when the conversation is resumed. Set on open or closed ones; shown on its tab, the ⋯ N list, the
+// archive and, while open, its dweller's or hologram's tag.
 import type { SessionSummary } from './protocol.ts';
 import { t } from './language.ts';
 
@@ -18,11 +19,14 @@ export function setFlag(list: unknown, claudeId: string, on: boolean): string[] 
   return (on && claudeId ? [...rest, claudeId] : rest).slice(-FLAGGED_MAX);
 }
 
-/** A conversation's flag: undefined where it can't be set (no conversation, one still starting or closed) */
-export const flagOf = (s: SessionSummary | undefined, ids: Set<string>) => (s?.claudeId && s.state !== 'cerrada' ? ids.has(s.claudeId) : undefined);
+/** A conversation the flag goes on: an open or closed one's summary, or just the Claude Code session id of one being resumed */
+export type Flaggable = { claudeId?: string; state?: SessionSummary['state'] };
 
-/** Whether a conversation shows as pending: an open one whose Claude Code session is flagged */
-export const isFlagged = (s: SessionSummary | undefined, ids: Set<string>) => flagOf(s, ids) === true;
+/** A conversation's flag, open or closed: undefined where it can't be set (no conversation, or one still starting) */
+export const flagOf = (s: Flaggable | undefined, ids: Set<string>) => (s?.claudeId ? ids.has(s.claudeId) : undefined);
+
+/** Whether a conversation counts as pending on its dweller's or hologram's tag: an open one whose session is flagged */
+export const isFlagged = (s: SessionSummary | undefined, ids: Set<string>) => s?.state !== 'cerrada' && flagOf(s, ids) === true;
 
 /** How many of these conversations (a dweller's or a hologram's) are pending */
 export const flaggedIn = (sessions: Iterable<SessionSummary | undefined>, ids: Set<string>) => {
