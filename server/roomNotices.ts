@@ -120,11 +120,13 @@ export async function sendToRoom(ctx: CtxRooms, since: string, { room, message, 
   // without key or thread: the conversation that got this one's previous message, or the one that wrote to it
   const followUp = !k && !thread && fromSession ? followUps.get(`${fromSession}>${target.id}`) : undefined;
   if (followUp && ctx.notify(followUp.session, frame(), from)) { how = tr(followUp.answer ? 'tool.rooms.toReply' : 'tool.rooms.toFollowUp'); receiver = followUp.session; }
-  // else, from a conversation in a task worktree to another room: the sender's task, if that room has its conversation or
-  // worktree (otherwise its main copy, as before: an unrelated question never makes a worktree there)
-  else if (!k && !thread && !same && fromSession) {
+  // else, from a conversation in a task worktree: the sender's task, if that room has its conversation or worktree
+  // (otherwise its main copy, as before: an unrelated question never makes a worktree there); in its own room only the
+  // task's open conversation when it is another one (the worktree is the sender's own, and it can't write to itself)
+  else if (!k && !thread && fromSession) {
     const wt = await ctx.worktreeOfSession?.(since, fromSession), t = wt && worktreeTask(wt);
-    if (t && (ctx.sessionOfTask(target.id, t) || (cwd = await ctx.worktreeOfTask(target.id, t)))) k = inherited = t;
+    const open = t && ctx.sessionOfTask(target.id, t);
+    if (t && (same ? open && open !== fromSession : open || (cwd = await ctx.worktreeOfTask(target.id, t)))) k = inherited = t;
   }
   const text = frame(k);
   const open = k ? ctx.sessionOfTask(target.id, k) : undefined;

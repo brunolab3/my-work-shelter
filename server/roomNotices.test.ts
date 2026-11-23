@@ -212,13 +212,24 @@ describe('mensajes entre salas', () => {
     expect(x.notified.at(-1)).toMatchObject({ sessionId: 'pagos-main' });
     expect(x.notified.at(-1)?.text).not.toContain('ABC-7');
     expect(r.text).toContain('te escribió');
-    // to its own room: a new conversation in the main copy, as before
+    // to its own room, where the task's open conversation is itself: a new conversation in the main copy, as before
     const n = x.fresh.length;
     await sendToRoom(x.c, 'express', { room: 'express', message: 'b' }, 'holo-abc7');
     expect(x.fresh.slice(n)).toEqual([expect.objectContaining({ roomId: 'express', cwd: undefined, worktree: undefined })]);
     // from a main copy: a new conversation in the main copy
     await sendToRoom(x.c, 'express', { room: 'pagos', message: 'c' }, 'ses-principal');
     expect(x.fresh.at(-1)).toMatchObject({ roomId: 'pagos', cwd: undefined, worktree: undefined });
+  });
+
+  it('without key, from a task worktree to its own room: the task\'s open conversation when it is another one', async () => {
+    const x = ctx({ openSessions: { 'express/ABC-7': 'holo-abc7' } });
+    x.c.worktreeOfSession = async (_room, sess) => ['holo-abc7', 'holo-otra'].includes(sess) ? { path: '/repos/app-web/.claude/worktrees/shelter-abc-7-bundle-9z9z', branch: 'worktree-shelter-abc-7-bundle-9z9z', local: false } : undefined;
+    const r = await sendToRoom(x.c, 'express', { room: 'express', message: 'a' }, 'holo-otra');
+    expect(r.ok).toBe(true);
+    expect(x.notified).toEqual([expect.objectContaining({ sessionId: 'holo-abc7' })]);
+    expect(x.notified[0].text).toContain('tarea ABC-7');
+    expect(r.text).toContain('Sin key');
+    expect(x.fresh).toEqual([]);
   });
 
   it('request_worktree_cleanup: the game writes the request from the sender\'s worktree and sends it through its room\'s cleanup thread', async () => {
