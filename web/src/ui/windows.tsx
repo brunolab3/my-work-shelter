@@ -114,7 +114,7 @@ export function Tabs({ items, active, activate, close, onNew, opensThat, list, c
     <div className="vt-pestanas">
       <div className="vt-pestanas-tira" ref={strip} onWheel={e => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) e.currentTarget.scrollLeft += e.deltaY; }}>
         {items.map((p, i) => (<React.Fragment key={p.id}>
-          <div className={'vt-pestana' + (p.id === active ? ' activa' : '') + (p.state ? ' e-' + p.state : '') + (p.task ? ' con-tarea' : '')} style={p.task ? { '--tarea': taskColor(p.task) } as React.CSSProperties : undefined}
+          <div className={'vt-pestana' + (p.id === active ? ' activa' : '') + (p.state ? ' e-' + p.state : '') + (p.flagged ? ' pendiente' : '') + (p.task ? ' con-tarea' : '')} style={p.task ? { '--tarea': taskColor(p.task) } as React.CSSProperties : undefined}
             onClick={() => activate(p.id)} onAuxClick={e => { if (e.button === 1) close([p.id]); }}
             title={[p.title || p.name, p.state && stateLabel(p.state), p.draft && t('windows.unsentDraft'), p.queued && t('windows.queue.markTitle', { n: p.queued }), p.flagged && t('windows.flag.markTitle'), p.who, p.task, i < 9 ? `${CMD}${i + 1}` : ''].filter(Boolean).join(' · ')}>
             <span className={'piloto ' + PILOT[p.state ?? 'ociosa']} />
@@ -141,7 +141,8 @@ export function Tabs({ items, active, activate, close, onNew, opensThat, list, c
 // flag: mark or clear a conversation as pending, from the ⚑ on its row; the footer can show only the pending ones
 export function TabList({ items, active, activate, close, exit, group, header, flag }: { items: ItemTab[]; active: string; activate: (id: string) => void; close: (ids: string[]) => void; exit: () => void; group?: boolean; header?: (p: ItemTab, before?: ItemTab) => React.ReactNode; flag?: (id: string) => void }) {
   const [filter, setFilter] = useState('');
-  const [onlyFlagged, setOnlyFlagged] = useState(false);
+  // with some pending, the list opens on them (the footer's «Only pending»); «All» shows the rest
+  const [onlyFlagged, setOnlyFlagged] = useState(() => items.some(p => p.flagged));
   const nFlagged = items.filter(p => p.flagged).length;
   const [i, setI] = useState(() => Math.max(0, items.findIndex(p => p.id === active)));
   const [marked, setMarked] = useState<string[]>([]);
@@ -176,7 +177,7 @@ export function TabList({ items, active, activate, close, exit, group, header, f
       <div className="vt-lista-filas">
         {views.map((p, k) => (<React.Fragment key={p.id}>
           {group && p.group !== views[k - 1]?.group && (header ? header(p, views[k - 1]) : <div className="vt-lista-grupo">{p.group}</div>)}
-          <div className={'vt-lista-fila' + (p === sel ? ' sel' : '') + (p.id === active ? ' activa' : '') + (p.state ? ' e-' + p.state : '') + (flag ? ' con-marca' : '')} onMouseMove={() => setI(k)} onClick={() => activate(p.id)}>
+          <div className={'vt-lista-fila' + (p === sel ? ' sel' : '') + (p.id === active ? ' activa' : '') + (p.state ? ' e-' + p.state : '') + (p.flagged ? ' pendiente' : '') + (flag ? ' con-marca' : '')} onMouseMove={() => setI(k)} onClick={() => activate(p.id)}>
             <input type="checkbox" checked={marked.includes(p.id)} title={t('windows.selectTab')} onClick={e => e.stopPropagation()} onChange={() => setMarked(m => (m.includes(p.id) ? m.filter(x => x !== p.id) : [...m, p.id]))} />
             <span className={'piloto ' + PILOT[p.state ?? 'ociosa']} />
             <span className="vt-lista-estado">{p.state ? stateLabel(p.state) : ''}</span>
