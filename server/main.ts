@@ -744,6 +744,7 @@ const tasksCleanup = new TasksCleanup(DATA, {
   },
   rooms: repoRooms,
   sessions: () => sessions.list(),
+  scheduled: () => scheduled.list(),
   git: (cwd, args) => new Promise((ok, fail) => execFile('git', ['-C', cwd, ...args], { timeout: 60_000, env: gitEnvironment() }, (err, o, e) => err ? fail(new Error(String(e || err.message).trim())) : ok(String(o)))),
   trash: async paths => (await import('./files.ts')).toTrash(paths),
   removed: (roomId, task, w, loose) => {
@@ -753,7 +754,7 @@ const tasksCleanup = new TasksCleanup(DATA, {
   },
   ask: (roomId, task, w, what, remove) => {
     const room = store.state.rooms.find(s => s.id === roomId)?.name ?? roomId;
-    const text = what.map(x => x.type === 'conversacion' ? t('server.cleanupLeftOpen') : t(x.type === 'cambios' ? 'server.cleanupLeftChanges' : x.type === 'stash' ? 'server.cleanupLeftStash' : 'server.cleanupLeftCommits', { n: x.n })).join(', ');
+    const text = what.map(x => x.type === 'conversacion' ? t('server.cleanupLeftOpen') : t(x.type === 'cambios' ? 'server.cleanupLeftChanges' : x.type === 'stash' ? 'server.cleanupLeftStash' : x.type === 'programados' ? 'server.cleanupLeftScheduled' : 'server.cleanupLeftCommits', { n: x.n })).join(', ');
     ask(t('server.cleanupLeft', { tarea: task.task, sala: room, ruta: w.path, que: text }), { si: t('server.cleanupRemoveAnyway'), no: t('server.cleanupKeep') }, async si => {
       if (!si) return;
       const r = await remove().catch(e => { broadcast({ t: 'aviso', level: 'error', text: t('server.cleanupCouldNot', { ruta: w.path, error: String((e as Error).message).split('\n')[0].slice(0, 160) }) }); return undefined; });

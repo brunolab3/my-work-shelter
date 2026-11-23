@@ -218,6 +218,7 @@ export const SERVER: Record<string, LocalizedText> = {
   'server.cleanupLeftChanges': { es: '{n} cambios sin commit', en: '{n} uncommitted changes' },
   'server.cleanupLeftStash': { es: '{n} stash de su rama', en: '{n} stashes of its branch' },
   'server.cleanupLeftCommits': { es: '{n} commits que no están en GitHub', en: '{n} commits not on GitHub' },
+  'server.cleanupLeftScheduled': { es: '{n} mensajes programados pendientes', en: '{n} pending scheduled messages' },
   'server.cleanupTrashed': { es: 'Lo que git no seguía ({n}) está en la papelera.', en: 'What git did not track ({n}) is in the Trash.' },
   'server.cleanupWhenClosed': { es: '🧹 Hay una conversación abierta en {ruta}: lo quito en cuanto la cierres.', en: '🧹 There is an open conversation in {ruta}: I will remove it as soon as you close it.' },
   'server.cleanupLeftOpen': { es: 'una conversación abierta en él', en: 'an open conversation in it' },

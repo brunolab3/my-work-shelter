@@ -3,9 +3,10 @@ import { mkdtempSync, mkdirSync, writeFileSync, existsSync, realpathSync, rename
 import { execFileSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
-import { finishedTasks, orphanedConversations, leftovers, untracked, TasksCleanup, type RoomCleanup, type CtxCleanup, type Leftover } from './taskCleanup.ts';
+import { finishedTasks, orphanedConversations, leftovers, untracked, scheduledIn, TasksCleanup, type RoomCleanup, type CtxCleanup, type Leftover } from './taskCleanup.ts';
 import type { PRBoard } from '../shared/board.ts';
 import type { InfoWorktree, SessionSummary } from '../shared/protocol.ts';
+import type { ScheduledMessage, ScheduledTarget } from '../shared/scheduled.ts';
 
 const pr = (number: number, branch: string, state: PRBoard['state'], repo = 'refugio/express', title = 'Algo'): PRBoard =>
   ({ number, title, url: `https://github.com/${repo}/pull/${number}`, repo, branch, state, updated: 0 });
@@ -14,6 +15,9 @@ const room = (worktrees: InfoWorktree[]): RoomCleanup => ({
   id: 'express', name: 'Express', path: '/r/express', repo: 'refugio/express',
   worktrees: [{ path: '/r/express', branch: 'main', main: true, changes: 0, advanced: 0 }, ...worktrees],
 });
+
+const msg = (target: ScheduledTarget): ScheduledMessage =>
+  ({ id: 'm1', created: 0, when: 1, requested: '', message: 'prod check', origin: { roomId: 'express' }, target });
 
 describe('finishedTasks', () => {
   it('una tarea con todos sus PR fusionados y su worktree en la sala', () => {
@@ -76,6 +80,22 @@ describe('orphanedConversations', () => {
   });
 });
 
+describe('scheduledIn', () => {
+  const w = wt('/r/express/.claude/worktrees/shelter-ref-212', 'ref-212-barra'), s = room([w, wt('/r/express/.claude/worktrees/otra', 'otra')]);
+  it('the pending ones for its conversations (cwd inside it) or for its room with its key', () => {
+    expect(scheduledIn([msg({ type: 'conversacion', roomId: 'express', cwd: w.path + '/web' })], s, w)).toHaveLength(1);
+    expect(scheduledIn([msg({ type: 'sala', room: 'express', key: 'REF-212' })], s, w)).toHaveLength(1);
+  });
+  it('not those for the main copy, another worktree or another room', () => {
+    expect(scheduledIn([
+      msg({ type: 'conversacion', roomId: 'express', cwd: '/r/express' }),
+      msg({ type: 'conversacion', roomId: 'express', cwd: '/r/express/.claude/worktrees/otra' }),
+      msg({ type: 'sala', room: 'express' }),
+      msg({ type: 'sala', room: 'otra-sala', key: 'REF-212' }),
+    ], s, w)).toEqual([]);
+  });
+});
+
 describe('leftovers (git de verdad)', () => {
   it('nada, con todo subido; cambios sin commit, stash de su rama y commits sin subir, sí', async () => {
     const r = repo();
@@ -110,11 +130,12 @@ describe('leftovers (git de verdad)', () => {
 
 describe('TasksCleanup (git de verdad)', () => {
   let removeIt: (() => Promise<void>) | undefined;
-  const ctx = (r: ReturnType<typeof repo>, prs: PRBoard[], ev: string[], sessions: SessionSummary[] = []): CtxCleanup => ({
+  const ctx = (r: ReturnType<typeof repo>, prs: PRBoard[], ev: string[], sessions: SessionSummary[] = [], scheduled: ScheduledMessage[] = []): CtxCleanup => ({
     connection: async () => ({ real: true }),
     prs: async () => prs,
     rooms: async () => [{ id: 'express', name: 'Express', path: r.room, repo: 'refugio/express', worktrees: [{ path: r.room, branch: 'main', main: true, changes: 0, advanced: 0 }, infoWt(r.wt)] }],
     sessions: () => sessions,
+    scheduled: () => scheduled,
     git,
     // la papelera de verdad, no: se mueven a una carpeta temporal
     trash: async paths => { const d = mkdtempSync(path.join(os.tmpdir(), 'papelera-')); for (const x of paths) renameSync(x, path.join(d, path.basename(x))); ev.push(`papelera ${paths.map(x => path.relative(r.wt, x)).join(',')}`); },
@@ -186,6 +207,16 @@ describe('TasksCleanup (git de verdad)', () => {
     await new TasksCleanup(mkdtempSync(path.join(os.tmpdir(), 'limpieza-')), ctx(r, [pr(42, 'ref-212-barra', 'fusionado')], ev, s)).poll();
     expect(ev).toEqual([]);
     expect(existsSync(r.wt)).toBe(true);
+  });
+  it('with scheduled messages pending for it, asks instead of removing it; once they are gone, removes it', async () => {
+    const r = repo(), ev: string[] = [], dir = mkdtempSync(path.join(os.tmpdir(), 'limpieza-'));
+    const prs = [pr(42, 'ref-212-barra', 'fusionado')], pending = [msg({ type: 'sala', room: 'express', key: 'REF-212' })];
+    await new TasksCleanup(dir, ctx(r, prs, ev, [], pending)).poll();
+    await new TasksCleanup(dir, ctx(r, prs, ev, [], pending)).poll();
+    expect(ev).toEqual(['pregunta REF-212 programados']);
+    expect(existsSync(r.wt)).toBe(true);
+    await new TasksCleanup(dir, ctx(r, prs, ev)).poll();
+    expect(ev.slice(1)).toEqual(['quitado REF-212 shelter-ref-212', 'cambiado']);
   });
   it('sin GitHub conectado de verdad no hace nada', async () => {
     const r = repo(), ev: string[] = [];

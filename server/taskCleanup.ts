@@ -4,7 +4,8 @@
 // no estén en el remoto ni en la rama del PR en GitHub) y que no hay una conversación abierta en él. Los archivos sueltos
 // que git no sigue (notas de un plan, borradores) no cuentan: van a la papelera de macOS (se recuperan desde el Finder).
 // Quita el worktree (`git worktree remove`, sin forzar) y su rama local; la del remoto se queda (un PR cerrado se puede
-// reabrir). Con una conversación abierta, espera a que se cierre. Si queda trabajo, pregunta una vez al Supervisor si lo
+// reabrir). Scheduled messages still pending for it (to its conversations, or to its room with its key: `placeOf`) count as
+// work left, so they aren't lost with it. Con una conversación abierta, espera a que se cierre. Si queda trabajo, pregunta una vez al Supervisor si lo
 // quita igualmente (y entonces sí, forzando; si para entonces hay una conversación abierta en él, queda aprobado y se
 // quita en cuanto se cierre); en cada vuelta se vuelve a mirar (guardado lo que había, se quita sin preguntar). Cada cinco
 // minutos con GitHub conectado (main.ts); lo ya preguntado y lo aprobado, en DATOS/limpieza-tareas.json.
@@ -15,6 +16,7 @@ import { jiraKeys } from '../shared/board.ts';
 import type { InfoWorktree, SessionSummary } from '../shared/protocol.ts';
 import { branchKey, prsOfName } from './prReviews.ts';
 import { t } from '../shared/language.ts';
+import { placeOf, type ScheduledMessage } from '../shared/scheduled.ts';
 
 export interface RoomCleanup { id: string; name: string; path: string; repo?: string; worktrees: InfoWorktree[] }
 export interface FinishedTask { task: string; prs: PRBoard[]; worktrees: InfoWorktree[] }
@@ -43,7 +45,7 @@ export function finishedTasks(room: RoomCleanup, prs: PRBoard[]): FinishedTask[]
 }
 
 /** Lo que impide quitar un worktree (vacío: se puede quitar). `git` lanza si el comando falla */
-export type Leftover = { type: 'cambios' | 'stash' | 'commits'; n: number } | { type: 'conversacion' };
+export type Leftover = { type: 'cambios' | 'stash' | 'commits' | 'programados'; n: number } | { type: 'conversacion' };
 export async function leftovers(git: (cwd: string, args: string[]) => Promise<string>, w: InfoWorktree, prs: PRBoard[], sessions: SessionSummary[]): Promise<Leftover[]> {
   const out: Leftover[] = [];
   const dir = path.resolve(w.path);
@@ -64,6 +66,10 @@ export async function leftovers(git: (cwd: string, args: string[]) => Promise<st
   }
   return out;
 }
+
+/** The scheduled messages still pending that would land in the worktree `w` of `room` (where `placeOf` shows them) */
+export const scheduledIn = (list: ScheduledMessage[], room: RoomCleanup, w: InfoWorktree) =>
+  list.filter(x => { const p = placeOf(x, room.worktrees); return p.roomId === room.id && !!p.worktree && path.resolve(p.worktree) === path.resolve(w.path); });
 
 /** Open conversations whose worktree (.claude/worktrees/<name>) no longer exists, merged and removed by hand or by a
  *  session: they close like any other, so their hologram goes with them. Only idle and read ones, and none in use in the
@@ -88,6 +94,7 @@ export interface CtxCleanup {
   prs(c: { real: boolean; token?: string }): Promise<PRBoard[]>;   // abiertos, y fusionados o cerrados hace poco
   rooms(): Promise<RoomCleanup[]>;
   sessions(): SessionSummary[];
+  scheduled(): ScheduledMessage[];                               // los mensajes programados pendientes
   git(cwd: string, args: string[]): Promise<string>;              // lanza si el comando falla
   trash(paths: string[]): Promise<void>;                       // a la papelera de macOS
   removed(roomId: string, task: FinishedTask, w: InfoWorktree, loose: number): void;   // aviso al Supervisor
@@ -119,6 +126,8 @@ export class TasksCleanup {
       seen.add(approved);
       try {
         const what = await leftovers(this.ctx.git, w, task.prs, this.ctx.sessions());
+        const pending = scheduledIn(this.ctx.scheduled(), room, w).length;
+        if (pending) what.push({ type: 'programados', n: pending });
         if (what.some(x => x.type === 'conversacion')) continue;   // se espera a que se cierre
         const force = this.approved.includes(approved);
         if (!what.length || force) {
