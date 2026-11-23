@@ -246,10 +246,10 @@ export interface DataGitHub { source: 'github' | 'local'; demo?: boolean; user?:
 interface PR { number: number; title: string; url: string; repo: string; draft: boolean; updated: number; review?: string }
 
 const LEVEL: Record<string, number> = { NONE: 0, FIRST_QUARTILE: 1, SECOND_QUARTILE: 2, THIRD_QUARTILE: 3, FOURTH_QUARTILE: 4 };
-const QUERY = `query {
+export const QUERY = `query {
   viewer { login name contributionsCollection { contributionCalendar { totalContributions weeks { contributionDays { date contributionCount contributionLevel } } } } }
-  mios: search(query: "is:open is:pr author:@me archived:false sort:updated-desc", type: ISSUE, first: 12) { issueCount nodes { ...pr } }
-  revisar: search(query: "is:open is:pr review-requested:@me archived:false sort:updated-desc", type: ISSUE, first: 12) { issueCount nodes { ...pr } }
+  mine: search(query: "is:open is:pr author:@me archived:false sort:updated-desc", type: ISSUE, first: 12) { issueCount nodes { ...pr } }
+  toReview: search(query: "is:open is:pr review-requested:@me archived:false sort:updated-desc", type: ISSUE, first: 12) { issueCount nodes { ...pr } }
 }
 fragment pr on PullRequest { number title url isDraft updatedAt reviewDecision repository { nameWithOwner } }`;
 
@@ -283,6 +283,17 @@ export function githubDemo(): DataGitHub {
   });
 }
 
+// Parses QUERY's response: its aliases `mine` and `toReview` are the keys read here
+export function githubOfGraphQL(j: any): DataGitHub {
+  const v = j.data.viewer, cal = v.contributionsCollection.contributionCalendar;
+  const pr = (n: any): PR => ({ number: n.number, title: n.title, url: n.url, repo: n.repository?.nameWithOwner ?? '', draft: !!n.isDraft, updated: Date.parse(n.updatedAt), review: n.reviewDecision ?? undefined });
+  return {
+    source: 'github', user: v.login, name: v.name ?? undefined, total: cal.totalContributions, ts: Date.now(),
+    days: cal.weeks.flatMap((w: any) => w.contributionDays.map((d: any) => ({ date: d.date, n: d.contributionCount, level: LEVEL[d.contributionLevel] ?? 0 }))),
+    prs: { mine: (j.data.mine?.nodes ?? []).filter((n: any) => n?.number).map(pr), toReview: (j.data.toReview?.nodes ?? []).filter((n: any) => n?.number).map(pr), nMine: j.data.mine?.issueCount ?? 0, nReview: j.data.toReview?.issueCount ?? 0 },
+  };
+}
+
 let cache: DataGitHub | null = null; let cacheOf = ''; let asking: Promise<DataGitHub> | null = null;
 export function github(paths: string[], force = false, connection: { real: boolean; off?: boolean; token?: string } = { real: false }): Promise<DataGitHub> {
   if (connection.off) return localContributions(paths);   // GitHub apagado: tus commits locales, nada de prueba
@@ -293,14 +304,7 @@ export function github(paths: string[], force = false, connection: { real: boole
   asking = (async () => {
     cacheOf = from;
     try {
-      const j = JSON.parse(await gh(['api', 'graphql', '-f', 'query=' + QUERY], connection.token));
-      const v = j.data.viewer, cal = v.contributionsCollection.contributionCalendar;
-      const pr = (n: any): PR => ({ number: n.number, title: n.title, url: n.url, repo: n.repository?.nameWithOwner ?? '', draft: !!n.isDraft, updated: Date.parse(n.updatedAt), review: n.reviewDecision ?? undefined });
-      cache = {
-        source: 'github', user: v.login, name: v.name ?? undefined, total: cal.totalContributions, ts: Date.now(),
-        days: cal.weeks.flatMap((w: any) => w.contributionDays.map((d: any) => ({ date: d.date, n: d.contributionCount, level: LEVEL[d.contributionLevel] ?? 0 }))),
-        prs: { mine: (j.data.mine?.nodes ?? []).filter((n: any) => n?.number).map(pr), toReview: (j.data.toReview?.nodes ?? []).filter((n: any) => n?.number).map(pr), nMine: j.data.mine?.issueCount ?? 0, nReview: j.data.toReview?.issueCount ?? 0 },
-      };
+      cache = githubOfGraphQL(JSON.parse(await gh(['api', 'graphql', '-f', 'query=' + QUERY], connection.token)));
     } catch (err) {
       cache = { ...(await localContributions(paths)), error: t('server.git.withoutGitHub', { error: String((err as Error).message).split('\n')[0].slice(0, 160) }), ts: Date.now() };
     }

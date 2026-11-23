@@ -137,6 +137,23 @@ describe('piezas del cliente', () => {
   });
 });
 
+describe("Vault's GitHub query", () => {
+  it('the parser reads the same aliases the query declares', () => {
+    const aliases = [...G.QUERY.matchAll(/^\s*(\w+): search\(/gm)].map((m) => m[1]);
+    expect(aliases).toEqual(['mine', 'toReview']);
+    const node = (number: number) => ({ number, title: 'PR ' + number, url: 'https://github.com/o/r/pull/' + number, isDraft: false, updatedAt: '2026-11-20T10:00:00Z', reviewDecision: 'APPROVED', repository: { nameWithOwner: 'o/r' } });
+    const d = G.githubOfGraphQL({ data: {
+      viewer: { login: 'me', name: 'Me', contributionsCollection: { contributionCalendar: { totalContributions: 3, weeks: [{ contributionDays: [{ date: '2026-11-20', contributionCount: 3, contributionLevel: 'SECOND_QUARTILE' }] }] } } },
+      mine: { issueCount: 5, nodes: [node(1), node(2), {}] },
+      toReview: { issueCount: 1, nodes: [node(7)] },
+    } });
+    expect(d.prs?.mine.map((p) => p.number)).toEqual([1, 2]);
+    expect(d.prs?.toReview).toEqual([{ number: 7, title: 'PR 7', url: 'https://github.com/o/r/pull/7', repo: 'o/r', draft: false, updated: Date.parse('2026-11-20T10:00:00Z'), review: 'APPROVED' }]);
+    expect([d.prs?.nMine, d.prs?.nReview]).toEqual([5, 1]);
+    expect(d.days).toEqual([{ date: '2026-11-20', n: 3, level: 2 }]);
+  });
+});
+
 describe('PR del tablero de Logística', () => {
   it('estado, revisión, CI y rama de cada PR; sin GitHub, DEMO que cruza con las tareas de demo de Jira', async () => {
     const node = (number: number, state: string, isDraft: boolean, extra: any = {}) => ({ number, title: 'PR ' + number, url: 'https://github.com/o/r/pull/' + number, isDraft, state, updatedAt: '2026-11-08T10:00:00Z', reviewDecision: null, headRefName: 'ABC-' + number, repository: { nameWithOwner: 'o/r' }, commits: { nodes: [] }, ...extra });
