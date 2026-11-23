@@ -6,15 +6,16 @@
 import { Fragment, useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react';
 import { t } from '@shared/language';
 import { terminals, onFront, minimize, askClose as closeTerminal } from './Terminals';
-import { intercoms, type WindowCom, minimizeIntercom, restoreIntercom, sessionPilot, roomTalkers, TalkerRow, ComTabs, withText, openConversation, askClose as closeIntercom } from './Dialog';
+import { intercoms, type WindowCom, minimizeIntercom, restoreIntercom, sessionPilot, roomTalkers, TalkerRow, ComTabs, withText, openConversation, askClose as closeIntercom, useFlags } from './Dialog';
 import { juego, type DwellerSummary } from './gameState';
 import type { SessionSummary } from '@shared/protocol';
 import { recentFirst, sessionRecency } from '@shared/recent';
+import { flaggedIn } from '@shared/flagged';
 import { live } from '../net/client';
 import { Store } from './store';
 import { writing } from '../engine/keyboard';
 import { SFX } from '../audio/sound';
-import { MAC, CMD } from './windows';
+import { MAC, CMD, FlagMark } from './windows';
 import { interlocutor } from './copies';
 import { overflowChips } from './tabOrder';
 import { browsers, SPOTS, pageTitle, onFront as navOnFront, minimize as navMinimize, close as navClose } from './Browsers';
@@ -149,6 +150,7 @@ export function Bar() {
   const repos = live.use(e => e.repos);
   const sel = selection.use(e => e.current);
   const outside = comOutside.use(e => e.rooms);
+  const flags = useFlags();
   const box = useRef<HTMLDivElement>(null), measured = useRef<HTMLDivElement>(null);
   const [, redraw] = useReducer((n: number) => n + 1, 0);
   useEffect(() => { addEventListener('resize', redraw); return () => removeEventListener('resize', redraw); }, []);
@@ -185,29 +187,32 @@ export function Bar() {
   // the «+N» list opens on hover or click, and by itself while the keyboard is on one of the rooms behind it
   const inHidden = !!sel && validRow(fs, sel.row) === 0 && Math.min(sel.i, fs[0].length - 1) >= views.length;
   const whoIs = (h: DwellerSummary) => h.copy ? t('windows.autorSHolographicCopyBranch', { autor: h.copy.nameAuthor, rama: h.copy.branch }) : h.name;
-  // a room's chip: its pilot, the room, its most urgent conversation's state and how many it has open (who and what in its title)
+  // how many of a room's open conversations are marked as pending (⚑, shared/flagged.ts)
+  const flaggedOf = (g: (typeof rooms)[number]) => flaggedIn(g.sess.map(x => x.s), flags);
+  // a room's chip: its pilot, the room, its most urgent conversation's state, how many it has open and its ⚑ pending ones
+  // (who and what in its title); waiting goes before pending in its colour
   const chip = (g: (typeof rooms)[number], mark: boolean, measure = false) => {
-    const worst = g.sess[0], open = g.coms.some(c => c.v.dwellerId === talking);
+    const worst = g.sess[0], open = g.coms.some(c => c.v.dwellerId === talking), nFlagged = flaggedOf(g);
     const h = g.coms.find(c => c.v.dwellerId === talking)?.h ?? g.aTi?.h ?? g.latest.h;
     // something typed and not sent in one of its intercoms other than the one in front
     const drafts = g.coms.filter(c => c.v.dwellerId !== talking && c.v.tabs.some(withText));
-    const kind = 'chip-terminal' + (h.copy ? ' de-copia' : '') + (open ? ' delante' : ' minimizada') + (worst?.s.state === 'esperando' ? ' urgente' : '') + (mark ? ' marcado' : '');
+    const kind = 'chip-terminal' + (h.copy ? ' de-copia' : '') + (open ? ' delante' : ' minimizada') + (worst?.s.state === 'esperando' ? ' urgente' : nFlagged ? ' pendiente' : '') + (mark ? ' marcado' : '');
     const body = <>
       <span className={'piloto ' + sessionPilot(worst?.s)} />
-      {g.name}{worst ? <small> · {STATE_TEXT[worst.s.state] ?? worst.s.state}</small> : null}{g.sess.length > 1 ? <small> ({g.sess.length})</small> : null}{drafts.length ? <span className="marca-borrador"> ✎</span> : null}
+      {g.name}{worst ? <small> · {STATE_TEXT[worst.s.state] ?? worst.s.state}</small> : null}{g.sess.length > 1 ? <small> ({g.sess.length})</small> : null}{nFlagged ? <> <FlagMark on n={nFlagged > 1 ? nFlagged : undefined} /></> : null}{drafts.length ? <span className="marca-borrador"> ✎</span> : null}
     </>;
     if (measure) return <button key={g.room} tabIndex={-1} data-sala={g.room} className={kind}>{body}</button>;
     return (
       <button key={g.room} onMouseEnter={e => { keep(); const r = e.currentTarget.getBoundingClientRect(); setPeek({ id: g.room, x: r.left, y: r.top }); }} onMouseLeave={leave}
         className={kind} onClick={() => { if (open) minimizeIntercom(); else g.open(); }}
-        title={`${g.name}: ${g.coms.map(c => whoIs(c.h)).join(', ')}\n${worst ? `${whoIs(worst.h)} · ${STATE_TEXT[worst.s.state] ?? worst.s.state} · ${worst.s.title || t('windows.conversation')}\n` : ''}${drafts.length ? t('windows.unsentDraftWith', { quien: drafts.map(c => whoIs(c.h)).join(', ') }) + '\n' : ''}${open ? t('windows.clickToMinimize') : t('windows.clickToGoBackTo', { nombre: whoIs(g.aTi?.h ?? g.latest.h) })}`}>
+        title={`${g.name}: ${g.coms.map(c => whoIs(c.h)).join(', ')}\n${worst ? `${whoIs(worst.h)} · ${STATE_TEXT[worst.s.state] ?? worst.s.state} · ${worst.s.title || t('windows.conversation')}\n` : ''}${nFlagged ? t(nFlagged > 1 ? 'windows.flag.marksTitle' : 'windows.flag.markTitle', { n: nFlagged }) + '\n' : ''}${drafts.length ? t('windows.unsentDraftWith', { quien: drafts.map(c => whoIs(c.h)).join(', ') }) + '\n' : ''}${open ? t('windows.clickToMinimize') : t('windows.clickToGoBackTo', { nombre: whoIs(g.aTi?.h ?? g.latest.h) })}`}>
         {body}
       </button>
     );
   };
   // who a room's hover and «+N» lists show: one row per open intercom panel (its dweller, each hologram), as the selector
   // above the portrait, with the one its chip opens (the most important) selected
-  const talkersOf = (g: (typeof rooms)[number]) => roomTalkers(g.room, dwellers, copies, coms, sessions).filter(q => g.coms.some(c => c.v.dwellerId === q.x.id));
+  const talkersOf = (g: (typeof rooms)[number]) => roomTalkers(g.room, dwellers, copies, coms, sessions, flags).filter(q => g.coms.some(c => c.v.dwellerId === q.x.id));
   const opener = (g: (typeof rooms)[number]) => (g.aTi?.h ?? g.latest.h).id;
   const talkerRows = (g: (typeof rooms)[number], sel: boolean) => talkersOf(g).map(q => (
     <TalkerRow key={q.x.id} q={q} current={q.x.id === talking} sel={sel && q.x.id === opener(g)}
@@ -221,7 +226,7 @@ export function Bar() {
           <span className="barra-tipo" title={t('windows.intercoms')}>COM</span>
           {views.map((g, i) => chip(g, marked(0, i)))}
           {hidden.length > 0 && (
-            <button className={'chip-terminal barra-mas minimizada' + (hidden.some(g => g.sess[0]?.s.state === 'esperando') ? ' urgente' : '') + (inHidden ? ' marcado' : '')}
+            <button className={'chip-terminal barra-mas minimizada' + (hidden.some(g => g.sess[0]?.s.state === 'esperando') ? ' urgente' : hidden.some(g => flaggedOf(g)) ? ' pendiente' : '') + (inHidden ? ' marcado' : '')}
               onMouseEnter={e => { keep(); const r = e.currentTarget.getBoundingClientRect(); setPeek({ id: '+', x: r.left, y: r.top }); }} onMouseLeave={leave}
               onClick={e => { const r = e.currentTarget.getBoundingClientRect(); setPeek(a => (a?.id === '+' ? null : { id: '+', x: r.left, y: r.top })); }}
               title={t('windows.moreRooms', { n: hidden.length })}>

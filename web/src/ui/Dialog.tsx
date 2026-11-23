@@ -20,7 +20,7 @@ import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 
 import { createPortal } from 'react-dom';
 import type { SessionSummary, LogInput, HistoryElement, Command, PendingRequest, Visitor, QueuedMessage } from '@shared/protocol';
 import { originLabel, queuedIn, withdrawable } from '@shared/messageQueue';
-import { flaggedIds, flagOf, type Flaggable } from '@shared/flagged';
+import { flaggedIds, flagOf, flaggedIn, type Flaggable } from '@shared/flagged';
 import { MODELS, EFFORTS, PERMISSION_MODES } from '@shared/protocol';
 import { t, tIs, trBio } from '@shared/language';
 import { juego, type DwellerSummary } from './gameState';
@@ -110,6 +110,8 @@ function notifyInUse() {
 const liveSessions = (hid: string) => Object.values(live.get().sessions).filter(s => sessionOwner(s) === hid && s.state !== 'cerrada' && !closingSessions.has(s.id));
 const closingSessions = new Set<string>();   // sesiones que se han mandado cerrar (no vuelven a abrir pestaña)
 const inRunning = (s?: SessionSummary) => !!s && (s.state === 'arrancando' || s.state === 'trabajando' || s.state === 'esperando');
+/** A talker's place among those with something for you: waiting first, then marked as pending, then by urgency */
+const reviewRank = (q: Talker) => q.state === 'esperando' ? 0 : q.flagged ? 1 : 2 + (q.first ? urgency(q.first) : 5);
 const urgency = (s: SessionSummary) => s.state === 'esperando' ? 0 : s.state === 'error' ? 1 : s.state === 'terminada' && s.unread ? 2 : inRunning(s) ? 3 : 4;
 /** Its state on the tabs (windows.tsx): unread is not the same as read */
 const tabState = (s?: SessionSummary): TabState | undefined => !s ? undefined : s.state === 'esperando' ? 'esperando' : s.state === 'error' ? 'error' : s.state === 'terminada' && s.unread ? 'sinLeer' : inRunning(s) ? 'trabajando' : 'ociosa';
@@ -335,17 +337,18 @@ function TalkerBust({ x }: { x: DwellerSummary }) {
 // The room's talkers (its dwellers and its worktrees' holographic copies; by state, then most recent conversation first
 // (talkerFirst), those without one last, dwellers before holograms), each with its intercom panel's open conversations
 // and the most urgent one: the selector above the portrait and the bar's hover lists (Bar.tsx) show one row each, with
-// its most urgent conversation's state and when the latest of them last moved; the conversations themselves are the tabs
+// its most urgent conversation's state and when the latest of them last moved, and how many of them are marked as pending
+// (⚑, flags: shared/flagged.ts); the conversations themselves are the tabs
 /** A talker as the lists name them: a dweller by name, a hologram by its task (or branch) and its author */
 const talkerName = (x: DwellerSummary) => x.copy ? `◇ ${copyCaption(x.copy, worktreeTask(x.copy) ?? branchCaption(x.copy.branch))} · ${x.copy.nameAuthor}` : x.name;
-export type Talker = { x: DwellerSummary; sess: SessionSummary[]; first?: SessionSummary; state?: TabState; name: string; draft: boolean };
-export function roomTalkers(room: string, dwellers: DwellerSummary[], copies: DwellerSummary[], list: WindowCom[], sessions: Record<string, SessionSummary>): Talker[] {
+export type Talker = { x: DwellerSummary; sess: SessionSummary[]; first?: SessionSummary; state?: TabState; name: string; draft: boolean; flagged: number };
+export function roomTalkers(room: string, dwellers: DwellerSummary[], copies: DwellerSummary[], list: WindowCom[], sessions: Record<string, SessionSummary>, flags: Set<string>): Talker[] {
   return [...dwellers.filter(x => x.room === room && !x.robot), ...copies.filter(c => c.room === room)].map(x => {
     const tabs = list.find(w => w.dwellerId === x.id)?.tabs ?? [];
     const sess = tabs.map(p => p.view.type === 'sesion' ? sessions[p.view.sessionId] : undefined).filter(Boolean) as SessionSummary[];
     const first = [...sess].sort((a, b) => urgency(a) - urgency(b) || b.updated - a.updated)[0];
     const name = talkerName(x);
-    return { x, sess, first, state: tabState(first), name, draft: tabs.some(withText) };
+    return { x, sess, first, state: tabState(first), name, draft: tabs.some(withText), flagged: flaggedIn(sess, flags) };
   }).map(q => ({ q, r: { state: q.state, when: Math.max(0, ...q.sess.map(s => s.updated)), name: q.name, id: q.x.id } }))
     .sort((a, b) => talkerFirst(a.r, b.r))
     .map(y => y.q);
@@ -358,11 +361,11 @@ export function TalkerRow({ q, current, sel, option, onClick, onMouseEnter }: { 
   const detail = parts.join(' · ');
   return (
     <button role={option ? 'option' : undefined} aria-selected={option ? current : undefined} onClick={onClick} onMouseEnter={onMouseEnter} title={detail ? `${q.name}\n${detail}` : q.name}
-      className={'barra-asomo-fila' + (q.x.copy ? ' de-copia' : '') + (current ? ' actual' : '') + (sel ? ' sel' : '') + (q.state === 'esperando' ? ' urgente' : '') + (q.state === 'sinLeer' ? ' sin-leer' : '') + (q.state ? ' e-' + q.state : '')}>
+      className={'barra-asomo-fila' + (q.x.copy ? ' de-copia' : '') + (current ? ' actual' : '') + (sel ? ' sel' : '') + (q.state === 'esperando' ? ' urgente' : q.flagged ? ' pendiente' : '') + (q.state === 'sinLeer' ? ' sin-leer' : '') + (q.state ? ' e-' + q.state : '')}>
       <span className={'piloto ' + (q.state ? PILOT[q.state] : 'apagado')} />
       <TalkerBust x={q.x} />
       <span className="barra-asomo-cuerpo">
-        <span className="barra-asomo-titulo">{q.draft && <DraftMark />}<b>{q.name}</b></span>
+        <span className="barra-asomo-titulo">{q.draft && <DraftMark />}<b>{q.name}</b>{q.flagged ? <> <FlagMark on n={q.flagged > 1 ? q.flagged : undefined} /></> : null}</span>
         {detail && <small className="barra-asomo-detalle">{parts.map((x, i) => <span key={i}>{x}</span>)}</small>}
       </span>
       <span className="barra-asomo-estado">{q.state ? stateLabel(q.state) : t('windows.noSession')}</span>
@@ -381,6 +384,7 @@ function WhoSelector({ h }: { h: DwellerSummary }) {
   const dwellers = juego.use(e => e.dwellers), copies = juego.use(e => e.copies);
   const list = intercoms.use(e => e.list);
   const sessions = live.use(e => e.sessions);
+  const flags = useFlags();
   const [open, setOpen] = useState(false);
   const [sel, setSel] = useState(0);
   const box = useRef<HTMLDivElement>(null);
@@ -389,11 +393,14 @@ function WhoSelector({ h }: { h: DwellerSummary }) {
     const outside = (e: PointerEvent) => { if (!box.current?.contains(e.target as Node)) setOpen(false); };
     addEventListener('pointerdown', outside, true); return () => removeEventListener('pointerdown', outside, true);
   }, [open]);
-  const talkers = roomTalkers(h.room, dwellers, copies, list, sessions);
+  const talkers = roomTalkers(h.room, dwellers, copies, list, sessions, flags);
   if (talkers.length < 2) return null;
   const me = talkers.find(q => q.x.id === h.id) ?? talkers[0];
-  // the others with something for you (waiting, unread or failed), most urgent first: the chip says so while closed
-  const toReview = talkers.filter(q => q !== me && (q.state === 'esperando' || q.state === 'sinLeer' || q.state === 'error')).sort((a, b) => urgency(a.first!) - urgency(b.first!));
+  // the others with something for you (waiting, unread, failed or marked as pending), most urgent first, pending after
+  // waiting: the chip says so while closed, in the colour of the first
+  const toReview = talkers.filter(q => q !== me && (q.state === 'esperando' || q.state === 'sinLeer' || q.state === 'error' || q.flagged))
+    .sort((a, b) => reviewRank(a) - reviewRank(b));
+  const tone = (q: Talker | undefined) => q?.state === 'esperando' ? ' urgente' : q?.flagged ? ' pendiente' : '';
   // and, quieter, the others with something typed and not sent
   const drafts = talkers.filter(q => q !== me && q.draft);
   const pick = (q: Talker) => {
@@ -412,12 +419,12 @@ function WhoSelector({ h }: { h: DwellerSummary }) {
   };
   return (
     <div className="consola-quien" ref={box} onKeyDown={key}>
-      <button className={'chip-terminal delante' + (h.copy ? ' de-copia' : '') + (me.state === 'esperando' || toReview[0]?.state === 'esperando' ? ' urgente' : '')} aria-haspopup="listbox" aria-expanded={open}
+      <button className={'chip-terminal delante' + (h.copy ? ' de-copia' : '') + (tone(me) === ' urgente' ? tone(me) : tone(toReview[0]) || tone(me))} aria-haspopup="listbox" aria-expanded={open}
         title={[t('windows.talkToSomeoneElse'), toReview.length ? t('windows.othersToReview', { n: toReview.length }) + ': ' + toReview.map(q => q.name).join(', ') : '', drafts.length ? t('windows.othersWithDraft', { n: drafts.length }) + ': ' + drafts.map(q => q.name).join(', ') : ''].filter(Boolean).join('\n')} onClick={openTarget}>
         <span className={'piloto ' + (me.state ? PILOT[me.state] : 'apagado')} aria-hidden />
         <TalkerBust x={me.x} />
         <span className="consola-quien-nombre">{me.name}</span>
-        {toReview.length > 0 && <span className={'consola-quien-aviso e-' + toReview[0].state} aria-label={t('windows.othersToReview', { n: toReview.length })}>+{toReview.length}</span>}
+        {toReview.length > 0 && <span className={'consola-quien-aviso ' + (toReview[0].state === 'esperando' || !toReview[0].flagged ? 'e-' + toReview[0].state : 'pendiente')} aria-label={t('windows.othersToReview', { n: toReview.length })}>+{toReview.length}</span>}
         {drafts.length > 0 && <span className="marca-borrador" aria-label={t('windows.othersWithDraft', { n: drafts.length })}>✎</span>}
         <span className="tipo">▾</span>
       </button>
@@ -443,7 +450,7 @@ function tabItem(x: TabCom, o: DwellerSummary, sessions: Record<string, SessionS
 /** The closed conversation a tab is about to resume, by its Claude Code session id */
 const resumeOf = (x: TabCom | undefined) => (x?.view.type === 'nuevo' && x.view.resume ? { claudeId: x.view.resume.claudeId } : undefined);
 /** The conversations marked as pending (shared/flagged.ts), repainting when they change */
-const useFlags = () => flaggedIds(live.use(e => e.state?.settings));
+export const useFlags = () => flaggedIds(live.use(e => e.state?.settings));
 /** ⚑ Mark a conversation as pending, or clear it: only the Overseer does (sending to it doesn't) */
 function toggleFlag(s: Flaggable | undefined) {
   const on = flagOf(s, flaggedIds(live.get().state?.settings));

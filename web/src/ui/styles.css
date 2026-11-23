@@ -616,6 +616,8 @@ span.vt-lista-marca { cursor: default; }
 .consola-quien-aviso { flex: none; padding: 0 .4em; font-weight: 700; color: #1b1a17; background: #8dffb0; border-radius: 6px; }
 .consola-quien-aviso.e-esperando { background: #ffb000; animation: latido 1s steps(2) infinite; }
 .consola-quien-aviso.e-error { background: #ff3a2a; color: #fff; }
+/* ⚑ another talker marked as pending, with nobody waiting: as waiting, in the pending colour */
+.consola-quien-aviso.pendiente { background: var(--pendiente); animation: latido 1s steps(2) infinite; }
 /* ✎ something typed and not sent: quieter than the state flags */
 .marca-borrador { flex: none; margin-right: .35em; font-weight: 400; color: var(--crema-tenue); opacity: .75; }
 .chip-terminal .marca-borrador { margin-right: 0; }
@@ -650,8 +652,10 @@ span.vt-lista-marca { cursor: default; }
 .barra-asomo-fila.e-trabajando .barra-asomo-estado { color: #5dff8a; }
 .barra-asomo-fila.e-sinLeer .barra-asomo-estado { color: #9dffb8; font-weight: 700; }
 .barra-asomo-fila.e-error .barra-asomo-estado { color: #ff6a5a; }
+/* ⚑ pending (and not waiting): as waiting, in the pending colour (after the states, so it wins) */
+.barra-asomo-fila.pendiente .barra-asomo-estado { color: var(--pendiente); }
 /* COM popup: conversation titles stay green once read; unread ones also go bold, urgent ones keep cream */
-.barra-asomo:not(.consola-quien-lista) .barra-asomo-fila:not(.urgente) .barra-asomo-titulo { color: #9dffb8; }
+.barra-asomo:not(.consola-quien-lista) .barra-asomo-fila:not(.urgente):not(.pendiente) .barra-asomo-titulo { color: #9dffb8; }
 .barra-asomo-fila.sin-leer .barra-asomo-titulo { color: #9dffb8; font-weight: 700; }
 .barra-asomo-titulo { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .barra-asomo-cuerpo { display: flex; flex-direction: column; min-width: 0; }
@@ -676,7 +680,6 @@ span.vt-lista-marca { cursor: default; }
 .pista-atajo:active { transform: translateY(calc(-50% + 1px)); box-shadow: 0 1px 0 #6f6656, 0 2px 3px rgba(0,0,0,.5); }
 .chip-terminal.marcado { outline: 2px solid #ffb000; outline-offset: 1px; color: #ffe2a8; }
 .chip-terminal .tipo { font-size: .75em; letter-spacing: .08em; color: var(--crema-tenue); opacity: .8; }
-.chip-terminal.urgente { border-color: #ffb000; }
 /* intercomunicador como ventana: botones, pestañas y ampliado */
 .botones-ventana { display: flex; gap: 6px; margin-left: auto; }
 .botones-ventana .consola-x { margin-left: 0; }
@@ -695,6 +698,9 @@ span.vt-lista-marca { cursor: default; }
 .chip-terminal.de-copia { box-shadow: inset 0 1px 0 #3f7d88; }
 .chip-terminal .piloto { width: .6em; height: .6em; box-shadow: none; }
 .chip-terminal.delante { color: #b9ffcf; border-color: rgba(157,255,184,.45); }
+/* waiting, or else ⚑ pending, outlines the chip even in front (the closed selector above the portrait always is) */
+.chip-terminal.urgente { border-color: #ffb000; }
+.chip-terminal.pendiente { border-color: var(--pendiente); }
 .chip-terminal.minimizada { color: var(--crema-tenue); background: #171512; box-shadow: inset 0 1px 3px #000; }
 .chip-terminal:hover { border-color: #c9bd9f; }
 
