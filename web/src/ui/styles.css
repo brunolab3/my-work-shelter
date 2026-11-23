@@ -529,7 +529,10 @@ a.miniatura:hover img { box-shadow: 0 0 0 1px #ffc96b, 0 0 10px rgba(255,179,71,
 .vt-pestana.activa { color: #b9ffcf; background: #06120c; }
 .vt-pestana-nombre { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .vt-pestana-x, .vt-nueva { font: 600 12px var(--t-mono); line-height: 1; color: var(--crema-tenue); background: transparent; border: 0; border-radius: 3px; padding: 1px 5px; cursor: pointer; }
+/* the × at the tab's right edge: right after a short name («Menu», «New job») it sat mid-tab, where a click meant to
+   switch to it closed it */
 .vt-pestana-x { visibility: hidden; }
+.vt-pestana .vt-pestana-x { margin-left: auto; }
 .vt-pestana:hover .vt-pestana-x, .vt-pestana.activa .vt-pestana-x { visibility: visible; }
 .vt-pestana-x:hover, .vt-nueva:hover { color: #1b1a17; background: #c9bd9f; }
 .vt-nueva { align-self: center; padding: 2px 7px; }
