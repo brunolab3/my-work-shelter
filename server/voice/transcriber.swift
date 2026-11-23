@@ -5,18 +5,18 @@
 // Salida: una línea JSON por evento en stdout:
 //   {"t":"listo"}                       ya escucha (la primera vez puede tardar: baja el modelo del idioma)
 //   {"t":"descargando"}                 bajando el modelo del idioma (solo la primera vez)
-//   {"t":"parcial","texto":"…"}         lo transcrito hasta ahora (lo último aún puede cambiar)
-//   {"t":"final","texto":"…"}           el texto definitivo, al terminar
-//   {"t":"error","texto":"…"}
+//   {"t":"parcial","text":"…"}          what has been transcribed so far (the last words may still change)
+//   {"t":"final","text":"…"}            the definitive text, at the end
+//   {"t":"error","text":"…"}
 import Foundation
 import Speech
 import AVFoundation
 
 setvbuf(stdout, nil, _IOLBF, 0)
 let salida = FileHandle.standardOutput
-func emitir(_ t: String, _ texto: String? = nil) {
+func emitir(_ t: String, _ text: String? = nil) {
   var d: [String: String] = ["t": t]
-  if let texto { d["texto"] = texto }
+  if let text { d["text"] = text }
   if let j = try? JSONSerialization.data(withJSONObject: d), var linea = String(data: j, encoding: .utf8) {
     linea += "\n"
     salida.write(linea.data(using: .utf8)!)

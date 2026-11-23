@@ -32,6 +32,7 @@ try {
   console.log(`→ ${e.text}`);
   if (e.state !== 'final') fail(`el dictado ha fallado: ${e.text}`);
   if (partial.length < 3) fail('no ha ido transcribiendo en vivo');
+  if (partial.some(x => !x.text)) fail('partials without text: server/voice/transcriber.swift and server/voice.ts disagree on the JSON key');
   const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[^a-z ]/g, '').replace(/\s+/g, ' ').trim();
   const words = norm(PHRASE).split(' '), spoken = new Set(norm(e.text ?? '').split(' '));
   const accuracy = words.filter(p => spoken.has(p)).length / words.length;
