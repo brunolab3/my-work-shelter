@@ -226,6 +226,12 @@ html, body { margin: 0; height: 100%; background: var(--fondo); overflow: hidden
 .ayuda-composer .consola-x { margin-left: 0; }
 .atajos-composer { margin-left: auto; cursor: help; border-bottom: 1px dotted currentColor; white-space: nowrap; }
 .atajos-composer:hover, .atajos-composer:focus-visible { color: var(--fosforo); outline: none; }
+/* the ⌨'s panel: upwards over the conversation, right-aligned with the composer line (its containing block) so it never leaves the intercom */
+.ayuda-composer { position: relative; }
+.atajos-panel { display: none; position: absolute; right: 0; bottom: 100%; z-index: 30; box-sizing: border-box; max-width: 100%; width: max-content; margin: 0 0 .3em; padding: .5em .7em; white-space: normal; cursor: default; background: #0b120b; border: 1px solid var(--fosforo-tenue); border-radius: 4px; box-shadow: 0 6px 24px #000c; color: var(--fosforo); }
+.atajos-composer:hover .atajos-panel, .atajos-composer:focus-visible .atajos-panel { display: block; }
+.atajos-panel > span { display: block; padding: .12em 0; }
+.atajos-panel kbd { margin: 0 .5em 0 0; }
 .opciones-consola { list-style: none; margin: .3em 0 .8em; padding: 0; }
 .opciones-consola li { display: flex; gap: .6em; align-items: baseline; padding: .18em .3em; cursor: pointer; border-radius: 2px; }
 .opciones-consola li .cursor { width: 1em; color: var(--fosforo); }

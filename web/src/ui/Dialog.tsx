@@ -1230,7 +1230,8 @@ const laterDone = (x: ScheduledMessage) => t(x.afterTurn ? 'windows.scheduleAfte
 // ends), then one-click presets (schedulePresets) or any date and time; `pick` sends the draft for then (action
 // `programados.ventana` with `when`, checked on the server like schedule_message). It opens upwards, over the conversation
 // The composer's bottom line: only what it needs as buttons (schedule first, then the day's last window: both send it
-// later); every shortcut is in the ⌨'s tooltip. It wraps instead of clipping when the intercom is narrow.
+// later); every shortcut is in the ⌨'s panel, shown on hover or keyboard focus (a native title barely shows in Electron).
+// It wraps instead of clipping when the intercom is narrow.
 function ComposerHelp({ send, shortcuts, sendLater, armed, afterTurn }: { send: string; shortcuts: string; sendLater: (when?: string) => void; armed: string | false; afterTurn?: boolean }) {
   return (
     <p className="ayuda-consola ayuda-composer">
@@ -1238,7 +1239,11 @@ function ComposerHelp({ send, shortcuts, sendLater, armed, afterTurn }: { send: 
       <ScheduleAt pick={sendLater} afterTurn={afterTurn} />
       <button className="consola-x" onClick={() => sendLater()} title={`${t('windows.nextWindowHint')} (⌥ Enter)`}>⏳ {t('windows.nextWindow')}</button>
       {armed && <span className="urgente">{armed}</span>}
-      <span className="atajos-composer" tabIndex={0} title={shortcuts} aria-label={shortcuts}>⌨ {t('windows.shortcuts')}</span>
+      <span className="atajos-composer" tabIndex={0} aria-label={shortcuts.replace(/[[\]]/g, '')}>⌨ {t('windows.shortcuts')}
+        <span className="atajos-panel" aria-hidden>
+          {shortcuts.split(/\n| · /).map((x, i) => <span key={i}>{x.split(/(\[[^\]]+\])/).map((p, j) => p.startsWith('[') ? <kbd key={j}>{p.slice(1, -1)}</kbd> : p)}</span>)}
+        </span>
+      </span>
     </p>
   );
 }
