@@ -7,7 +7,7 @@ import path from 'node:path';
 import { cwdBeforeRelocation, lastActivity, projectFolder } from './repos.ts';
 import { mcpReview } from './compare.ts';
 import { SELF_GATED } from './mcpServers.ts';
-import { pushOf } from '../shared/preflight.ts';
+import { mergeOf } from '../shared/preflight.ts';
 import { COMPACT_URGE } from '../shared/compact.ts';
 import { handMadeWorktree, newWorktreeOf, taskWorktreeIn, worktreeTask, ghCreateOf, githubRepoOf, isOriginalRepo, ORIGINAL_REPO } from '../shared/tasks.ts';
 import { gh } from './git.ts';
@@ -294,11 +294,12 @@ export class Sessions extends EventEmitter {
       // tarea) y se retoma ahí: si no, al relanzarla (tras interrumpirla o reiniciar el juego) volvería a la copia principal
       hooks: {
         CwdChanged: [{ hooks: [async (h: any) => { const w = worktreeRoot(h.new_cwd); if (w && (w !== x.r.worktree || w !== x.r.cwd)) { x.r.worktree = w; x.r.cwd = w; this.play(x); } return {}; }] }],
-        // la puerta del pre-flight: un `git push` desde el worktree de una tarea sin el compare validado en su commit (o,
-        // salvo en borrador, sin la lista «antes de subir» contestada) le pregunta antes al Supervisor; con un no, se
-        // deniega con lo que falta. Un hook y no canUseTool: así vale en todos los modos de permisos
+        // the pre-flight gate: a `git merge` or `gh pr merge` from a task worktree without the compare validated at its
+        // commit (or, unless a draft, without the «before pushing» list answered) asks the Overseer first; a no denies it
+        // with what's missing. Pushes don't ask: the pre-flight is checked before merging. A hook, not canUseTool, so it
+        // holds in every permission mode
         PreToolUse: [
-          { matcher: 'Bash', hooks: [async (h: any) => this.pushGate(x, String(h?.tool_input?.command ?? ''))] },
+          { matcher: 'Bash', hooks: [async (h: any) => this.mergeGate(x, String(h?.tool_input?.command ?? ''))] },
           // worktrees come from send_to_room with a task key: `git worktree add` from a main copy is denied. One task,
           // one worktree: creating another for a task that already has one is denied, with the path of the one it has
           { matcher: 'Bash', hooks: [async (h: any) => {
@@ -348,17 +349,17 @@ export class Sessions extends EventEmitter {
     return { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'ask', permissionDecisionReason: t('server.originalRepoNobodyReads', { repo: ORIGINAL_REPO }) } };
   }
 
-  private async pushGate(x: Session, cmd: string): Promise<Record<string, unknown>> {
-    const push = pushOf(cmd);
-    if (!push || !this.resolver.preflight) return {};
+  private async mergeGate(x: Session, cmd: string): Promise<Record<string, unknown>> {
+    const merge = mergeOf(cmd);
+    if (!merge || !this.resolver.preflight) return {};
     const base = x.r.worktree ?? x.r.cwd;
-    const cwd = push.cwd ? path.resolve(base, push.cwd.replace(/^~(?=\/|$)/, os.homedir())) : base;
+    const cwd = merge.cwd ? path.resolve(base, merge.cwd.replace(/^~(?=\/|$)/, os.homedir())) : base;
     const g = await this.resolver.preflight.puerta(cwd).catch(() => null);
     if (!g || !g.missing.length) return {};
-    const si = await this.confirm(x, t('server.preflightGateTitle', { clave: g.key, rama: g.branch ?? '', head: (g.head ?? '').slice(0, 7) }),
+    const si = await this.confirm(x, t('server.preflightMergeTitle', { clave: g.key, rama: g.branch ?? '', head: (g.head ?? '').slice(0, 7) }),
       [{ type: 'texto', text: g.missing.map(f => '• ' + f).join('\n') }, { type: 'codigo', text: cmd, language: 'bash' }]);
     if (si) return {};
-    return { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: t('server.preflightGateDenied', { que: g.missing.join('; ') }) } };
+    return { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: t('server.preflightMergeDenied', { que: g.missing.join('; ') }) } };
   }
 
   private trust(cwd: string) { return trust(cwd, undefined, this.resolver.trustedFolders?.(), this.resolver.clonedFolders?.()); }

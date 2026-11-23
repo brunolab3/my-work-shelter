@@ -89,17 +89,8 @@ function Window({ v, repos, path }: { v: WindowGit; repos: Repo[]; path: string 
   }, [v.minimized, refresh]);
 
   // acción de git con su aviso; al acabar, el estado se relee
-  const act = useCallback(async <T,>(name: string, data: Record<string, unknown>, what: string, ok?: string | ((r: T) => string), noGate = false): Promise<T | undefined> => {
+  const act = useCallback(async <T,>(name: string, data: Record<string, unknown>, what: string, ok?: string | ((r: T) => string)): Promise<T | undefined> => {
     if (!path) return;
-    // la puerta del pre-flight (server/preflight.ts): subir desde el worktree de una tarea sin el compare validado en su
-    // commit (o sin la lista contestada) pregunta antes, como en las conversaciones
-    if (!noGate && name === 'sincronizar' && (data.what === 'push' || data.what === 'sync')) {
-      const g = await client.action<{ key: string; missing: string[] } | null>('preflight.puerta', { path }).catch(() => null);
-      if (g?.missing.length) return new Promise<T | undefined>(res => setConfirm({
-        text: <>{t('windows.preflightGate', { clave: g.key })}<br />{g.missing.map(f => <span key={f}>• {f}<br /></span>)}</>,
-        button: t('windows.pushAnyway'), si: () => { act<T>(name, data, what, ok, true).then(res); }, no: () => res(undefined),
-      }));
-    }
     setBusy(what); windowGit.set({ busy: true });
     try {
       const r = await client.action<T>('git.' + name, { path, ...data }, 200_000);

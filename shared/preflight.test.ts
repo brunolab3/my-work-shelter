@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { blockersBetween } from './deploy';
-import { checklistCell, checklistFromClaudeMd, compareCell, conflictsCell, gateMissing, mergeReady, preflightTask, pushOf, taskHasPRs, reviewCell, syncCell, type CompareRecord, type LocalBranch, type RoomRepo } from './preflight';
+import { checklistCell, checklistFromClaudeMd, compareCell, conflictsCell, gateMissing, mergeOf, mergeReady, preflightTask, pushOf, taskHasPRs, reviewCell, syncCell, type CompareRecord, type LocalBranch, type RoomRepo } from './preflight';
 import type { PRBoard } from './board';
 
 // repos, salas y personas inventados
@@ -192,6 +192,14 @@ describe('la puerta de git push', () => {
     expect(pushOf('git status; git log --oneline')).toBeNull();
     expect(pushOf('echo "git push"')).toBeNull();
     expect(pushOf('gh pr ready 12')).toBeNull();          // decisión del Supervisor: solo git push
+  });
+  it('merging is what asks (git merge, gh pr merge), not pushing', () => {
+    expect(mergeOf('git merge ABC-1-api')).toEqual({ cwd: undefined });
+    expect(mergeOf('cd ../api && git merge --no-ff ABC-1')).toEqual({ cwd: '../api' });
+    expect(mergeOf('gh pr merge 12 --squash')).toEqual({ cwd: undefined });
+    expect(mergeOf('git merge --abort')).toBeNull();
+    expect(mergeOf('git push origin HEAD:main')).toBeNull();
+    expect(pushOf('git merge ABC-1')).toBeNull();
   });
   it('follows `cd` and `sh -c`, so the gate checks the folder that actually pushes', () => {
     expect(pushOf('cd .claude/worktrees/ABC-12-x && git push')).toEqual({ cwd: '.claude/worktrees/ABC-12-x' });

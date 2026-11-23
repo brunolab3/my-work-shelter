@@ -333,11 +333,7 @@ its whole part (with its review threads and CI checks) with `preflight_status`. 
 `server/preflight.ts`, pure `repoChecklist`; files are only read, nothing is run by the game): the "Before pushing / Before
 opening a PR / Pre-flight" section of its CLAUDE.md and AGENTS.md, its check-like skills in `.claude/skills` (review,
 acceptance criteria, tests…; `skill · name`), and its check commands (`package.json` lint/test/typecheck scripts,
-`Makefile` targets, `pre-commit`), which the dweller runs and answers like the rest. The gate: a `git push` (`pushOf`: also `git -C x push`, after a `cd` or inside `sh -c`, not `--dry-run`; only
-`git push`, by the Overseer's decision) from a task worktree whose compare isn't validated at its HEAD, or (unless the
-PR is a draft) whose list isn't answered, ASKS the Overseer first in the permission dialog (a `PreToolUse` hook in
-`server/sessions.ts`, so it applies in every permission mode, also over Remote Control/Slack); no denies it with what's
-missing. The git client's push and sync do the same check (action `preflight.puerta`).
+`Makefile` targets, `pre-commit`), which the dweller runs and answers like the rest. The gate: a `git merge` or `gh pr merge` (`mergeOf`: also `git -C x merge`, after a `cd` or inside `sh -c`, not `--abort`) run from a task worktree whose compare isn't validated at its HEAD, or (unless the PR is a draft) whose list isn't answered, ASKS the Overseer first in the permission dialog (a `PreToolUse` hook in `server/sessions.ts`, so it applies in every permission mode, also over Remote Control/Slack); no denies it with what's missing. Pushes don't ask: the pre-flight is checked before merging. The git client's push and sync don't check it either (action `preflight.puerta` stays for the QA script).
 QA: `scripts/qa-preflight.mjs` (own server and test shelter; needs the built client).
 
 ## Linear's official MCP for the Planning dweller

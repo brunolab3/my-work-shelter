@@ -196,7 +196,11 @@ export function gateMissing(p: PartPreflight): string[] {
 /** ¿Sube algo esta orden de Bash? `git push` (también con -C, -c o --git-dir delante), en cualquier trozo de la línea,
  *  tras un `cd` o dentro de `sh -c "…"`; no un `--dry-run`. Devuelve la carpeta en la que sube (relativa a la de la
  *  conversación, si un `cd` o un -C la cambian) o null */
-export function pushOf(cmd: string, dir?: string): { cwd?: string } | null {
+export const pushOf = (cmd: string, dir?: string) => gitOf(cmd, dir, 'push');
+/** Does this Bash line merge something? `git merge` (not --abort, --quit or --continue) or `gh pr merge`, in the folder
+ *  it runs in, as pushOf does for pushes */
+export const mergeOf = (cmd: string, dir?: string) => gitOf(cmd, dir, 'merge');
+function gitOf(cmd: string, dir: string | undefined, verb: 'push' | 'merge'): { cwd?: string } | null {
   const join = (a: string | undefined, b: string) => !a || /^[/~]/.test(b) ? b : `${a.replace(/\/+$/, '')}/${b}`;
   let cwd = dir;
   for (const chunk of shellPieces(String(cmd ?? ''))) {
@@ -208,10 +212,11 @@ export function pushOf(cmd: string, dir?: string): { cwd?: string } | null {
     if ((w[i] === 'cd' || w[i] === 'pushd') && w[i + 1] !== '-') { cwd = join(cwd, w[i + 1] ?? '~'); continue; }
     if (/(^|\/)(ba|z)?sh$/.test(w[i] ?? '')) {                                          // sh -c "git push"
       const c = w.findIndex((x, j) => j > i && /^-[a-z]*c$/.test(x));   // -c, -lc
-      const inside = c > 0 ? pushOf(w[c + 1] ?? '', cwd) : null;
+      const inside = c > 0 ? gitOf(w[c + 1] ?? '', cwd, verb) : null;
       if (inside) return inside;
       continue;
     }
+    if (verb === 'merge' && /(^|\/)gh$/.test(w[i] ?? '') && w[i + 1] === 'pr' && w[i + 2] === 'merge') return { cwd };
     if (!/(^|\/)git$/.test(w[i] ?? '')) continue;
     i++;
     let here = cwd;
@@ -220,8 +225,9 @@ export function pushOf(cmd: string, dir?: string): { cwd?: string } | null {
       else if (w[i] === '-c' || w[i] === '--git-dir' || w[i] === '--work-tree') i += 2;
       else i++;
     }
-    if (w[i] !== 'push') continue;
-    if (w.slice(i + 1).some(a => a === '--dry-run' || a === '-n')) continue;
+    if (verb === 'push') {
+      if (w[i] !== 'push' || w.slice(i + 1).some(a => a === '--dry-run' || a === '-n')) continue;
+    } else if (w[i] !== 'merge' || w.slice(i + 1).some(a => a === '--abort' || a === '--quit' || a === '--continue')) continue;
     return { cwd: here };
   }
   return null;
