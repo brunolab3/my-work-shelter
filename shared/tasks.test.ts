@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { TASKS_PALETTE, NO_TASK_COLOR, hasTaskColor, assignedColors, assignColors, textKey, taskColor, pRTask, worktreeTask, taskCaption, remoteName, worktreePRs, newWorktreeOf, taskWorktreeIn, handMadeWorktree, ghCreateOf, githubRepoOf, ORIGINAL_REPO, taskKey, isJiraKey, slugKeyOf, worktreeHasTask, assignedEpics, familyShade } from './tasks';
+import { TASKS_PALETTE, NO_TASK_COLOR, hasTaskColor, assignedColors, assignColors, textKey, taskColor, pRTask, worktreeTask, taskCaption, remoteName, worktreePRs, newWorktreeOf, taskWorktreeIn, handMadeWorktree, ghCreateOf, githubRepoOf, ORIGINAL_REPO, taskKey, isJiraKey, slugKeyOf, worktreeHasTask, assignedEpics, familyShade, colorDistance } from './tasks';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, realpathSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
@@ -58,11 +58,25 @@ describe('tareas y su color', () => {
     expect(new Set(shades).size).toBe(3);
     expect(shades).not.toContain(base);
     expect(taskColor('abc-1')).toBe(taskColor('ABC-1'));
-    expect(familyShade(TASKS_PALETTE[2], 'ABC-1')).toBe(taskColor('ABC-1'));
-    // the family stays near its base hue (±20°)
+    assignedColors.set('ABC-1', TASKS_PALETTE[4]);
+    expect(taskColor('ABC-1')).toBe(familyShade(TASKS_PALETTE[2], 4));
+    // the family stays near its base hue (±45°)
     const hue = (hex: string) => { const n = parseInt(hex.slice(1), 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255; const d = Math.max(r, g, b) - Math.min(r, g, b); return d ? Math.round((Math.max(r, g, b) === r ? ((g - b) / d) % 6 : Math.max(r, g, b) === g ? (b - r) / d + 2 : (r - g) / d + 4) * 60 + 360) % 360 : 0; };
-    const dh = Math.abs(hue(base) - hue(shades[0])); expect(Math.min(dh, 360 - dh)).toBeLessThanOrEqual(22);
+    const dh = Math.abs(hue(base) - hue(shades[0])); expect(Math.min(dh, 360 - dh)).toBeLessThanOrEqual(47);
+    assignedColors.delete('ABC-1');
     assignedEpics.clear(); assignedColors.delete('EPC-1');
+  });
+  it("an epic's tasks look clearly apart, from each other and from the epic's own color, for every palette color", () => {
+    for (const base of TASKS_PALETTE) {
+      const shades = TASKS_PALETTE.map((_, i) => familyShade(base, i));
+      for (const [i, a] of shades.entries()) {
+        expect(colorDistance(a, base)).toBeGreaterThan(15);
+        expect(colorDistance(a, NO_TASK_COLOR)).toBeGreaterThan(15);
+        for (const b of shades.slice(i + 1)) expect(colorDistance(a, b)).toBeGreaterThan(15);
+      }
+      // the first slots, which a fresh epic's tasks take, the most apart
+      for (const [i, a] of shades.slice(0, 4).entries()) for (const b of shades.slice(i + 1, 4)) expect(colorDistance(a, b)).toBeGreaterThan(30);
+    }
   });
   it('sin épica, una tarea conserva su color de la paleta', () => {
     assignedEpics.clear();

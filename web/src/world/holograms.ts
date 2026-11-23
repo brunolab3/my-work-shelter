@@ -413,6 +413,7 @@ export class Holograms {
       const light = f.base?.getObjectByName('luz') as THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial> | undefined;
       if (light) {
         light.visible = !!f.p.root.parent && !f.leaving;
+        light.material.color.copy(f.u.uColor.value);   // the body's tone, also when the task's color arrives after mounting
         // sin nada que hacer, tenue y fija; con una sesión en marcha, más viva y latiendo
         const alive = f.state === 'trabajando' || f.state === 'pensando';
         light.material.opacity = alive ? 0.6 + 0.25 * Math.sin(timeout.value * 3 + f.u.uSemilla.value * 9) : 0.4;

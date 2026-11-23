@@ -158,7 +158,6 @@ export const hasTaskColor = (key: string | undefined): key is string => !!key &&
 export const assignedEpics = new Map<string, string>();
 
 const hashKey = (k: string) => { let h = 2166136261; for (const c of k) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
-const clamp = (x: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, x));
 
 function toHsl(hex: string): [number, number, number] {
   const n = parseInt(hex.slice(1), 16), r = (n >> 16) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
@@ -176,12 +175,40 @@ function toHex(h: number, s: number, l: number): string {
   return `#${f(0)}${f(8)}${f(4)}`;
 }
 
-/** A task's shade within its epic's family: the epic's base color turned a little in hue, saturation and lightness by the
- *  task's key, so the tasks of one epic stay one family and still tell apart */
-export function familyShade(base: string, key: string): string {
-  const h = hashKey(key), [hue, s, l] = toHsl(base);
-  return toHex((hue + (h % 41) - 20 + 360) % 360, clamp(s + ((h >>> 8) % 31) - 15, 35, 100), clamp(l + ((h >>> 16) % 41) - 20, 30, 85));
+// CIE Lab, to measure how far apart two colors look (ΔE, Euclidean in Lab: under ~10 they read as one at a glance)
+function toLab(hex: string): [number, number, number] {
+  const n = parseInt(hex.slice(1), 16), lin = (c: number) => (c /= 255) > 0.04045 ? ((c + 0.055) / 1.055) ** 2.4 : c / 12.92;
+  const r = lin(n >> 16), g = lin((n >> 8) & 255), b = lin(n & 255), f = (t: number) => t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116;
+  const x = f((r * 0.4124 + g * 0.3576 + b * 0.1805) / 0.95047), y = f(r * 0.2126 + g * 0.7152 + b * 0.0722), z = f((r * 0.0193 + g * 0.1192 + b * 0.9505) / 1.08883);
+  return [116 * y - 16, 500 * (x - y), 200 * (y - z)];
 }
+/** How different two colors look (CIE76 ΔE) */
+export const colorDistance = (a: string, b: string) => { const p = toLab(a), q = toLab(b); return Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]); };
+
+const FAMILY_HUE = 45, RED_HUES = 25, FAULT_COLOR = '#ff6a4a';
+const families = new Map<string, string[]>();
+/** An epic's family: one shade per palette slot, all within ±45° of the epic's hue (never red), picked one by one as far
+ *  as possible from the epic's own color, the holograms' cyan, the fault red and the shades before it. So any two tasks of
+ *  an epic (their slots differ: the server spreads them) look clearly apart, the first few the most */
+function family(base: string): string[] {
+  const known = families.get(base); if (known) return known;
+  const [hue] = toHsl(base), pool: string[] = [];
+  for (let dh = -FAMILY_HUE; dh <= FAMILY_HUE; dh += 5) {
+    const h = (hue + dh + 360) % 360;
+    if (h >= RED_HUES && h <= 360 - RED_HUES) for (const l of [40, 50, 60, 70, 80]) for (const s of [65, 100]) pool.push(toHex(h, s, l));
+  }
+  const taken = [base, NO_TASK_COLOR, FAULT_COLOR].map(toLab), labs = pool.map(toLab), out: string[] = [];
+  const gap = (p: number[]) => Math.min(...taken.map(q => Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2])));
+  while (out.length < TASKS_PALETTE.length) {
+    let best = 0; for (let i = 1; i < pool.length; i++) if (gap(labs[i]) > gap(labs[best])) best = i;
+    out.push(pool[best]); taken.push(labs[best]);
+  }
+  families.set(base, out);
+  return out;
+}
+
+/** A task's shade within its epic's family, by its slot (the index of its own palette color) */
+export const familyShade = (base: string, slot: number): string => family(base)[slot % TASKS_PALETTE.length];
 
 /** A task's own color: the assigned one or, until it arrives, one from the palette by its key */
 const baseColor = (k: string) => assignedColors.get(k) || TASKS_PALETTE[hashKey(k) % TASKS_PALETTE.length];
@@ -191,7 +218,7 @@ const baseColor = (k: string) => assignedColors.get(k) || TASKS_PALETTE[hashKey(
 export function taskColor(key: string | undefined): string {
   if (!hasTaskColor(key)) return NO_TASK_COLOR;
   const k = key.toUpperCase(), epic = assignedEpics.get(k);
-  return epic && epic !== k && hasTaskColor(epic) ? familyShade(baseColor(epic.toUpperCase()), k) : baseColor(k);
+  return epic && epic !== k && hasTaskColor(epic) ? familyShade(baseColor(epic.toUpperCase()), Math.max(0, TASKS_PALETTE.indexOf(baseColor(k)))) : baseColor(k);
 }
 
 /** A qué color va cada clave nueva: el menos usado entre las asignadas (y, a igualdad, el primero de la paleta) */
