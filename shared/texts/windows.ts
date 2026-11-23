@@ -212,6 +212,7 @@ export const WINDOWS: Record<string, LocalizedText> = {
   'windows.archive': { es: 'Archivo', en: 'Archive' },
   'windows.profile': { es: 'Ficha', en: 'Profile' },
   'windows.conversation': { es: 'Conversación', en: 'Conversation' },
+  'windows.plusNConversations': { es: '+{n} más', en: '+{n} more' },
   'windows.starting2': { es: 'Arrancando…', en: 'Starting…' },
   'windows.youHaveUnsentTextIn': { es: 'Tienes algo escrito sin enviar en {n} pestañas', en: 'You have unsent text in {n} tabs' },
   'windows.youHaveUnsentTextIn2': { es: 'Tienes algo escrito sin enviar en una pestaña', en: 'You have unsent text in one tab' },

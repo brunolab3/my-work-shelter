@@ -240,7 +240,7 @@ export function Bar() {
         // right above «+N», growing to the left (it sits at the row's end)
         const r = box.current?.querySelector('.barra-fila.com > .barra-mas')?.getBoundingClientRect(); if (!r) return null;
         return (
-          <div className="barra-asomo barra-asomo-mas" style={{ right: innerWidth - r.right, bottom: innerHeight - r.top + 4 }} onMouseEnter={keep} onMouseLeave={leave}>
+          <div className="barra-asomo barra-asomo-mas" style={{ right: innerWidth - r.right, bottom: innerHeight - r.top + 4, '--hueco': `${r.right - 8}px` } as React.CSSProperties} onMouseEnter={keep} onMouseLeave={leave}>
             {hidden.map((g, j) => <Fragment key={g.room}>
               <div className="barra-asomo-grupo">{g.name}</div>
               {talkerRows(g, hidden.some((_, k) => marked(0, views.length + k)) ? marked(0, views.length + j) : j === 0)}
@@ -252,7 +252,7 @@ export function Bar() {
         // one row per intercom panel of the room (its dweller, each hologram), as the selector above the portrait
         const g = rooms.find(x => x.room === peek.id);
         return g ? (
-          <div className="barra-asomo" style={{ left: peek.x, bottom: innerHeight - peek.y + 4 }} onMouseEnter={keep} onMouseLeave={leave}>
+          <div className="barra-asomo" style={{ left: peek.x, bottom: innerHeight - peek.y + 4, '--hueco': `${innerWidth - peek.x - 8}px` } as React.CSSProperties} onMouseEnter={keep} onMouseLeave={leave}>
             {talkerRows(g, true)}
           </div>
         ) : null;

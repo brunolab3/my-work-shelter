@@ -180,11 +180,16 @@ export function TabList({ items, active, activate, close, exit, group, header, f
           <div className={'vt-lista-fila' + (p === sel ? ' sel' : '') + (p.id === active ? ' activa' : '') + (p.state ? ' e-' + p.state : '') + (p.flagged ? ' pendiente' : '') + (flag ? ' con-marca' : '')} onMouseMove={() => setI(k)} onClick={() => activate(p.id)}>
             <input type="checkbox" checked={marked.includes(p.id)} title={t('windows.selectTab')} onClick={e => e.stopPropagation()} onChange={() => setMarked(m => (m.includes(p.id) ? m.filter(x => x !== p.id) : [...m, p.id]))} />
             <span className={'piloto ' + PILOT[p.state ?? 'ociosa']} />
-            <span className="vt-lista-estado">{p.state ? stateLabel(p.state) : ''}</span>
-            <span className="vt-lista-nombre">{p.draft && <DraftMark />}{p.name} <QueuedMark n={p.queued} /></span>
+            {/* the title gets the whole width; under it, its state, task and whose (the header says whose when grouped) */}
+            <span className="vt-lista-cuerpo">
+              <span className="vt-lista-nombre" title={p.name}>{p.draft && <DraftMark />}{p.name} <QueuedMark n={p.queued} /></span>
+              <small className="vt-lista-meta">
+                {p.state && <span className="vt-lista-estado">{stateLabel(p.state)}</span>}
+                {p.task && <span className="vt-lista-tarea"><TaskMark taskKey={p.task} />{p.task}</span>}
+                {!header && (p.who ?? p.room) && <span className="vt-lista-sala">{p.who ?? p.room}</span>}
+              </small>
+            </span>
             {flag && (p.flagged === undefined ? <span className="vt-lista-marca" /> : <button className={'vt-lista-marca' + (p.flagged ? ' marcada' : '')} aria-pressed={p.flagged} title={t(p.flagged ? 'windows.flag.clear' : 'windows.flag.set', { shortcut: FLAG_SHORTCUT })} onClick={e => { e.stopPropagation(); flag(p.id); }}>⚑</button>)}
-            <span className="vt-lista-tarea">{p.task && <><TaskMark taskKey={p.task} />{p.task}</>}</span>
-            <span className="vt-lista-sala">{header ? '' : p.who ?? p.room}</span>
             <span className="vt-lista-cuando">{p.activity}</span>
             <button className="vt-pestana-x" onClick={e => { e.stopPropagation(); close([p.id]); }} title={t('windows.closeTabAtajo', { shortcut: `${CMD}W` })}>×</button>
           </div>

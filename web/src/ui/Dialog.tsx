@@ -351,12 +351,20 @@ export function roomTalkers(room: string, dwellers: DwellerSummary[], copies: Dw
     .map(y => y.q);
 }
 export function TalkerRow({ q, current, sel, option, onClick, onMouseEnter }: { q: Talker; current: boolean; sel?: boolean; option?: boolean; onClick: () => void; onMouseEnter?: () => void }) {
+  // under the name: the most urgent conversation's title, how many more are open and a hologram's uncommitted changes
+  // (the title is the one cut short)
+  const parts = [q.first && (q.first.title || t('windows.conversation')), q.sess.length > 1 && t('windows.plusNConversations', { n: q.sess.length - 1 }),
+    q.x.copy?.changes && t('windows.nChanges', { n: q.x.copy.changes })].filter(Boolean) as string[];
+  const detail = parts.join(' · ');
   return (
-    <button role={option ? 'option' : undefined} aria-selected={option ? current : undefined} onClick={onClick} onMouseEnter={onMouseEnter}
+    <button role={option ? 'option' : undefined} aria-selected={option ? current : undefined} onClick={onClick} onMouseEnter={onMouseEnter} title={detail ? `${q.name}\n${detail}` : q.name}
       className={'barra-asomo-fila' + (q.x.copy ? ' de-copia' : '') + (current ? ' actual' : '') + (sel ? ' sel' : '') + (q.state === 'esperando' ? ' urgente' : '') + (q.state === 'sinLeer' ? ' sin-leer' : '') + (q.state ? ' e-' + q.state : '')}>
       <span className={'piloto ' + (q.state ? PILOT[q.state] : 'apagado')} />
       <TalkerBust x={q.x} />
-      <span className="barra-asomo-titulo">{q.draft && <DraftMark />}<b>{q.name}</b></span>
+      <span className="barra-asomo-cuerpo">
+        <span className="barra-asomo-titulo">{q.draft && <DraftMark />}<b>{q.name}</b></span>
+        {detail && <small className="barra-asomo-detalle">{parts.map((x, i) => <span key={i}>{x}</span>)}</small>}
+      </span>
       <span className="barra-asomo-estado">{q.state ? stateLabel(q.state) : t('windows.noSession')}</span>
       <small className="barra-asomo-cuando">{q.sess.length ? ago(Math.max(...q.sess.map(s => s.updated))) : ''}</small>
     </button>
@@ -367,6 +375,8 @@ export function TalkerRow({ q, current, sel, option, onClick, onMouseEnter }: { 
 // Closed, a chip like the bar's, lit by the most urgent conversation of who you talk to; open, one row per talker as the
 // bar's hover list (TalkerRow). Picking one brings their intercom to the front on their most urgent conversation; their
 // tabs stay in their own strip and in the bar's ⋯ N list (ComTabs)
+/** The width the list has from the chip to the intercom's right edge (the intercom clips what goes past it) */
+const room = (el: HTMLElement | null) => el ? (el.closest('.consola') ?? document.body).getBoundingClientRect().right - el.getBoundingClientRect().left - 12 : 400;
 function WhoSelector({ h }: { h: DwellerSummary }) {
   const dwellers = juego.use(e => e.dwellers), copies = juego.use(e => e.copies);
   const list = intercoms.use(e => e.list);
@@ -413,7 +423,8 @@ function WhoSelector({ h }: { h: DwellerSummary }) {
       </button>
       {/* the list steps aside while a close is being confirmed */}
       {open && !list.some(w => w.confirm) && (
-        <div className="barra-asomo consola-quien-lista" role="listbox" aria-label={t('windows.talkToSomeoneElse')}>
+        <div className="barra-asomo consola-quien-lista" role="listbox" aria-label={t('windows.talkToSomeoneElse')}
+          style={{ '--hueco': `${room(box.current)}px` } as React.CSSProperties}>
           {talkers.map((q, i) => <TalkerRow key={q.x.id} q={q} current={q === me} sel={i === sel} option onClick={() => pick(q)} onMouseEnter={() => setSel(i)} />)}
         </div>
       )}
@@ -471,7 +482,7 @@ export function ComTabs() {
     <button ref={button} className={'vt-todas' + (open ? ' activa' : '')} onClick={() => comList.set(e => ({ open: !e.open }))} title={t('windows.allConversations', { n: items.length, shortcut: LIST_SHORTCUT })}>⋯ {items.length} <FlagMark n={items.filter(p => p.flagged).length} /></button>
     {/* the list steps aside while a close is being confirmed */}
     {open && r && !list.some(w => w.confirm) && createPortal(
-      <div className="barra-lista-com" style={{ left: r.left, bottom: innerHeight - r.top + 4 }}>
+      <div className="barra-lista-com" style={{ left: r.left, bottom: innerHeight - r.top + 4, '--hueco': `${innerWidth - r.left - 8}px` } as React.CSSProperties}>
         <TabList items={items} group active={current?.active ?? ''} activate={go} close={closeTabs} exit={exit} flag={pid => toggleFlag(tabConversation(pid))} header={(p, before) => {
           // the room once, then whose: their bust and name, a hologram's task in its color
           const o = who(p.group!), task = o?.copy ? worktreeTask(o.copy) : undefined;
