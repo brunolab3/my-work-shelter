@@ -3,7 +3,8 @@
 //   last with no header; each card of an epic has the diamond in the epic's color (its own, saved by the server), with
 //   the epic in its tooltip; the others have none;
 // - a holographic copy working REF-236 (epic REF-200): its tag has the diamond, the tag of a copy without an epic doesn't;
-// - its intercom: the tab has the diamond, and the bar's ⋯ N list beside the task's marker.
+// - its intercom: the tab has the diamond, and the bar's ⋯ N list beside the task's marker;
+// - a sibling copy, REF-231, arriving later: the epic's copies end up side by side in task order.
 // Needs the built client (npx vite build). Usage: node scripts/qa-epics.mjs [screenshots-folder]   (SHELTER_PUERTO_QA, 3797)
 import { chromium } from 'playwright';
 import { spawn, execFileSync } from 'node:child_process';
@@ -81,6 +82,28 @@ try {
   const box = await pg.evaluate(() => { const e = [...document.querySelectorAll('.etiqueta.con-tarea')].find(x => x.querySelector('.marca-epica').style.display !== 'none'); const r = e.getBoundingClientRect(); return { x: Math.max(0, r.x - 140), y: Math.max(0, r.y - 60), width: r.width + 280, height: r.height + 180 }; });
   await pg.screenshot({ path: path.join(dir, 'epicas-holograma.png'), clip: box });
   await pg.screenshot({ path: path.join(dir, 'epicas-sala.png') });
+
+  // ---- late copies: REF-240 (no epic), then a sibling, REF-231 (epic REF-200): the epic's copies end up side by side,
+  // REF-231 before REF-236, the others out of their way; the ones that moved walk to their new spot with their
+  // projector (past the shelter's first 30 s: before, they are just put there)
+  await pg.waitForFunction(() => performance.now() > 32000, null, { timeout: 60000 });
+  const add = (id, wt) => pg.evaluate(([s, r, id, wt]) => {
+    const h = window.__shelter.dwellers.find(x => x.room.id === s), now = Date.now();
+    window.__live.set(e => ({ sessions: { ...e.sessions, [id]: { id, dwellerId: h.id.id, roomId: s, cwd: r + '/.claude/worktrees/' + wt, state: 'trabajando', activity: { mode: 'escribir', text: 'editing src/app.ts' }, unread: false, title: wt, pending: 0, helpers: [], tools: 0, turns: 1, created: now, updated: now } } }));
+  }, [s, repo, id, wt]);
+  const row = () => pg.evaluate(s => [...window.__shelter.holograms.figures.values()].filter(f => f.room.id === s).map(f => ({ task: f.task, spot: +f.spot.x.toFixed(2), x: +f.p.root.position.x.toFixed(2), base: +(f.base?.position.x ?? NaN).toFixed(2), ready: f.ready })).sort((a, b) => a.spot - b.spot), s);
+  const walked = new Set();
+  const settled = n => until(async () => { const r = await row(); for (const f of r) if (f.ready && Math.abs(f.x - f.spot) >= 0.1) walked.add(f.task); return r.length === n && r.every(f => f.ready && Math.abs(f.x - f.spot) < 0.1 && Math.abs(f.base - f.spot) < 0.01); }, 40000);
+  await add('qa_loner', 'shelter-REF-240');
+  check(await settled(3), 'REF-240 stands on its projector');
+  console.log('before the sibling:', JSON.stringify(await row())); walked.clear();
+  await add('qa_sibling', 'shelter-REF-231');
+  check(await settled(4), 'the four copies stand on their projectors');
+  const order = (await row()).map(f => f.task);
+  console.log('after:', JSON.stringify(await row()), 'walked:', [...walked].join(', '));
+  const i231 = order.indexOf('REF-231'), i236 = order.indexOf('REF-236');
+  check(i231 >= 0 && i236 === i231 + 1, `the epic's copies side by side in task order (${order.join(', ')})`);
+  await pg.screenshot({ path: path.join(dir, 'epicas-fila.png') });
 
   // ---- its intercom: tab and ⋯ N list
   await pg.evaluate(id => window.dispatchEvent(new CustomEvent('refugio:ir', { detail: { dwellerId: id, talk: true } })), idA);

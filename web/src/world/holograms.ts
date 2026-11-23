@@ -22,11 +22,11 @@ import { SFX } from '../audio/sound';
 import { SHOP } from '@shared/catalog';
 import { t, tIs } from '@shared/language';
 import type { InfoWorktree, SessionSummary } from '@shared/protocol';
-import { taskColor, hasTaskColor, worktreeTask, NO_TASK_COLOR } from '@shared/tasks';
+import { taskColor, hasTaskColor, worktreeTask, assignedEpics, NO_TASK_COLOR } from '@shared/tasks';
 import { jiraBoard, knowTasks, taskEpic, verificationMark, versionColors } from '../ui/tasks';
 import type { DwellerState, DwellerSummary } from '../ui/gameState';
 import { idCopy, branchCaption, copyCaption, pathWorktree } from '../ui/copies';
-import { holoSlot } from './copySpot';
+import { epicOrder, holoSlot } from './copySpot';
 
 const MAX_BY_ROOM = 30;   // alto a propósito: son intangibles, si no caben se solapan sin estorbar
 const COLOR = new THREE.Color(NO_TASK_COLOR), COLOR_FAULT = new THREE.Color('#ff6a4a');
@@ -201,6 +201,32 @@ export class Holograms {
     return new THREE.Vector3(room.group.position.x + x, room.group.position.y, Z_SPOT);
   }
 
+  // ---- copies of the same epic side by side, in task order (`epicOrder`), over the slots the room's copies already
+  // take: checked when a copy comes or goes and when epics arrive from the Jira board; one that must move walks to its
+  // new spot and its projector slides along the edge under it. A room waits while a copy is arriving or talking
+  private unordered = new Set<Room>();
+  private orderedVersion = -1;
+  private arrange() {
+    const v = versionColors.get().v;
+    if (v !== this.orderedVersion) { this.orderedVersion = v; for (const f of this.figures.values()) this.unordered.add(f.room); }
+    for (const room of this.unordered) {
+      const fs = [...this.figures.values()].filter(f => f.room === room);
+      if (fs.some(f => !f.ready || f.assembly || f.talking)) continue;
+      this.unordered.delete(room);
+      const cx = room.group.position.x, snap = performance.now() - this.since < 30000;
+      const xs = epicOrder(fs.map(f => ({ id: f.path, x: f.spot.x - cx, task: f.task, epic: f.task ? assignedEpics.get(f.task.toUpperCase()) : undefined })));
+      for (const f of fs) {
+        const x = cx + xs.get(f.path)!; if (Math.abs(x - f.spot.x) < 1e-3) continue;
+        f.spot.x = x; f.rotation = (Math.sign(cx - x) || 1) * 1.05;
+        // the shelter just opened (the board's epics arrive in its first seconds): already in place, no walk
+        if (snap) { f.p.root.position.x = x; if (f.base) f.base.position.x = x; f.p.root.rotation.y = f.p.goalTurn = f.rotation; continue; }
+        // up and walking (`drive` takes it there): without its laptop or screens until it is back on its projector
+        f.pose = 'pie'; f.laptop.visible = false; f.screens.visible = false;
+        this.makeWay(f);
+      }
+    }
+  }
+
   private async create(w: InfoWorktree, room: Room, author: Dweller, effect = true) {
     const u = holoUniforms(COLOR); u.uOpacity.value = 0; u.uCut.value = -1e4;
     // el mismo aspecto que su autor (modelo, tono, silueta y accesorios), y luego en luz
@@ -214,7 +240,7 @@ export class Holograms {
       lookClock: 3, busyClock: 0, assembly: null, talking: false, chatTurn: 0, tone: COLOR,
     };
     this.taskTone(f); u.uColor.value.copy(f.tone);
-    this.figures.set(w.path, f);
+    this.figures.set(w.path, f); this.unordered.add(room);
     await clone.load();
     if (this.figures.get(w.path) !== f) return;
     const p = f.p;
@@ -394,7 +420,7 @@ export class Holograms {
   }
 
   private remove(f: Copy, already = false) {
-    f.leaving = true; this.figures.delete(f.path); f.p.stop();
+    f.leaving = true; this.figures.delete(f.path); f.p.stop(); this.unordered.add(f.room);
     if (f.assembly) { this.r.motor.scene.remove(f.assembly.tube); f.assembly = null; already = true; }
     const outside = () => { this.r.motor.scene.remove(f.p.root); if (f.base) this.r.motor.scene.remove(f.base); };
     if (already || !f.p.root.parent) { outside(); return; }
@@ -408,8 +434,11 @@ export class Holograms {
 
   update(dt: number) {
     timeout.value += dt;
+    this.arrange();
     for (const f of [...this.figures.values(), ...this.outgoing]) {
       if (f.assembly && !f.leaving) this.stepDelivery(f, dt);
+      // moved to another slot: its projector slides there along the edge
+      if (f.base && !f.assembly && f.base.position.x !== f.spot.x) { const d = f.spot.x - f.base.position.x; f.base.position.x += Math.abs(d) <= dt * 1.6 ? d : Math.sign(d) * dt * 1.6; }
       const light = f.base?.getObjectByName('luz') as THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial> | undefined;
       if (light) {
         light.visible = !!f.p.root.parent && !f.leaving;

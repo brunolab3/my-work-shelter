@@ -56,3 +56,21 @@ export function helperSpots(x: number, others: number[], width: number, robots: 
   const free = HELPER_SPOTS.filter(([dx]) => Math.abs(x + dx) < width / 2 - 0.35 && others.every(o => Math.abs(o - (x + dx)) >= HELPER_CLEAR) && robots.every(o => Math.abs(o - (x + dx)) >= ROBOT_CLEAR));
   return free.length ? free : HELPER_SPOTS.slice(0, 2);
 }
+
+export interface Placed { id: string; x: number; epic?: string; task?: string }
+const byTask = (a: Placed, b: Placed) => (a.task ?? '').localeCompare(b.task ?? '', 'en', { numeric: true }) || a.id.localeCompare(b.id);
+
+/** The room's copies (oldest first) over the slots they already take, each epic's side by side in task order (ABC-7
+ *  before ABC-12): a lone copy keeps its place in the row and an epic's group gathers where its oldest copy stands, so a
+ *  new sibling or an epic that arrives late moves only the copies in between. Already in order, nobody moves. */
+export function epicOrder(copies: Placed[]): Map<string, number> {
+  const groups = new Map<string, Placed[]>();
+  for (const c of copies) if (c.epic) groups.set(c.epic, [...groups.get(c.epic) ?? [], c]);
+  const units = [
+    ...copies.filter(c => (groups.get(c.epic!)?.length ?? 0) < 2).map(c => [c]),
+    ...[...groups.values()].filter(g => g.length > 1).map(g => g.sort(byTask)),
+  ].map(u => ({ u, at: copies.find(c => u.includes(c))!.x }))
+    .sort((a, b) => a.at - b.at || byTask(a.u[0], b.u[0]));
+  const slots = copies.map(c => c.x).sort((a, b) => a - b);
+  return new Map(units.flatMap(({ u }) => u).map((c, i) => [c.id, slots[i]]));
+}
