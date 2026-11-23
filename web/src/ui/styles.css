@@ -821,6 +821,11 @@ span.vt-lista-marca { cursor: default; }
 .ficha-issue.p1 { border-left-color: var(--rojo); } .ficha-issue.p2 { border-left-color: #ffb000; }
 .ficha-issue.sel { background: rgba(157,255,184,.16); outline: 1px solid var(--fosforo); }
 .ficha-issue.arrastrada { opacity: .4; } .ficha-issue .movida { color: var(--fosforo); } .ficha-issue .movida.mal { color: var(--rojo); }
+/* Jira board: scrolls only vertically, as a whole; columns never grow wider than their track */
+.kanban-jira { overflow: hidden auto; scrollbar-width: thin; scrollbar-color: rgba(157,255,184,.35) transparent; }
+.kanban-jira .kanban-col { min-width: 0; min-height: auto; overflow: visible; }
+.kanban-jira .ficha-issue { overflow-wrap: anywhere; }
+.kanban-jira .insignia-pr { display: inline-block; white-space: normal; max-width: 100%; overflow-wrap: anywhere; }
 .kanban-col.soltar { outline: 2px dashed var(--estado, var(--fosforo)); outline-offset: -2px; background: rgba(157,255,184,.06); }
 .mover-jira .opciones-consola { margin: 0 0 .7em; }
 .prs-ficha { display: flex; flex-wrap: wrap; gap: .3em; margin-top: .3em; }

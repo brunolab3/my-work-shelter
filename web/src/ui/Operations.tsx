@@ -325,7 +325,7 @@ export function JiraBoard({ goBack, coordination }: { goBack: () => void; coordi
       {gh?.error && <p className="tenue">{gh.error}</p>}
       {ints.jira?.state === 'demo' && <p className="tenue">{t('panels.jiraInDemoConnectIt')}</p>}
       {(!jira || !gh) && !error && <p className="tenue">{t('panels.readingJiraAndGithub')}</p>}
-      <div ref={kanban} className="kanban" style={{ gridTemplateColumns: `repeat(${Math.max(1, columns.length)}, 1fr)` }}>
+      <div ref={kanban} className="kanban kanban-jira" style={{ gridTemplateColumns: `repeat(${Math.max(1, columns.length)}, minmax(0, 1fr))` }}>
         {columns.map((c, ci) => (
           <div key={c.id} className={'kanban-col' + (COLUMN_COLORS[c.id] ? ' kanban-estado' : '') + (ci === col ? ' activa' : '') + (restsOn === c.id ? ' soltar' : '')} style={{ '--estado': COLUMN_COLORS[c.id] } as React.CSSProperties}
             onDragOver={e => { if (dragged && columnOf(dragged, jiraStatuses) !== c.id) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setOver(c.id); } }}
