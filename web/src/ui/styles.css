@@ -222,6 +222,10 @@ html, body { margin: 0; height: 100%; background: var(--fondo); overflow: hidden
 .pantalla-consola code { font-family: var(--t-mono); background: rgba(157,255,184,.08); padding: 0 .25em; border-radius: 2px; }
 .aviso-consola { color: var(--ambar); text-shadow: 0 0 6px rgba(255,179,71,.5); }
 .ayuda-consola { margin-top: auto !important; padding-top: .5em; font-size: calc(var(--u) * 0.72); color: var(--fosforo-tenue); text-shadow: none; }
+.ayuda-composer { display: flex; flex-wrap: wrap; align-items: center; gap: .3em .6em; }
+.ayuda-composer .consola-x { margin-left: 0; }
+.atajos-composer { margin-left: auto; cursor: help; border-bottom: 1px dotted currentColor; white-space: nowrap; }
+.atajos-composer:hover, .atajos-composer:focus-visible { color: var(--fosforo); outline: none; }
 .opciones-consola { list-style: none; margin: .3em 0 .8em; padding: 0; }
 .opciones-consola li { display: flex; gap: .6em; align-items: baseline; padding: .18em .3em; cursor: pointer; border-radius: 2px; }
 .opciones-consola li .cursor { width: 1em; color: var(--fosforo); }

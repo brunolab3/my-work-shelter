@@ -927,7 +927,7 @@ function New({ h, p, resume, goBack }: { h: DwellerSummary; p: TabCom; resume?: 
           <button className={'chip' + (worktree ? ' on' : '')} onClick={() => setWorktree(true)}>{t('windows.inASeparateWorktree')}</button>
         </div>}
         {error && <p className="aviso-consola">{error}</p>}
-        <p className="ayuda-consola"><kbd>Enter</kbd> {t('windows.start')} <kbd>⌥ Enter</kbd> <button className="consola-x" onClick={() => sendLater()} title={t('windows.nextWindowHint')}>⏳ {t('windows.nextWindow')}</button> <ScheduleAt pick={sendLater} /> <kbd>⇧ Enter</kbd> {t('windows.newLine')} <kbd>{CMD}D</kbd> {t('windows.dictate2')} <kbd>{CMD}U</kbd> {t('windows.attach2')} <kbd>Tab</kbd> {t('windows.options')} <kbd>←→</kbd> {t('menu.select')} <kbd>Esc</kbd> {esc.armed ? <span className="urgente">{t('windows.againGoBackAndDelete')}</span> : t('windows.back2')}</p>
+        <ComposerHelp send={t('windows.start')} shortcuts={t('windows.shortcutsNewHint', { cmd: CMD })} sendLater={sendLater} armed={esc.armed && t('windows.againGoBackAndDelete')} />
       </div>
     </div>
   );
@@ -1075,7 +1075,7 @@ function Session({ h, s, p, exit, onClose }: { h: DwellerSummary; s: SessionSumm
       )}
       {!s.pending && <AttachmentsTray list={p.attachments} remove={removeAttachment(h.id, p.id)} />}
       {!s.pending && <DictationStrip dictation={dictation} />}
-      <p className="ayuda-consola"><kbd>Enter</kbd> {t('windows.send')} <kbd>⌥ Enter</kbd> <button className="consola-x" onClick={() => sendLater()} title={t('windows.nextWindowHint')}>⏳ {t('windows.nextWindow')}</button> <ScheduleAt pick={sendLater} /> <kbd>{CMD}D</kbd> {t('windows.dictate2')} <kbd>{CMD}U</kbd> {t('windows.attach2')} <kbd>Ctrl C</kbd> {t('windows.stop')} <kbd>Esc</kbd> {esc.armed ? <span className="urgente">{t('windows.againDeleteWhatYouWrote')}</span> : text ? t('windows.twiceDeleteWhatYouWrote') : t('windows.backToTheShelterKeeps')} <kbd>{CMD}T</kbd> {t('windows.anotherJob')} <kbd>{CMD}↑↓</kbd> {t('windows.expandMinimize')}</p>
+      <ComposerHelp send={t('windows.send')} shortcuts={t('windows.shortcutsHint', { cmd: CMD })} sendLater={sendLater} armed={esc.armed && t('windows.againDeleteWhatYouWrote')} />
     </div>
   );
 }
@@ -1198,6 +1198,20 @@ const laterDone = (x: ScheduledMessage) => t(x.nextWindow ? 'windows.nextWindowD
 
 // ⏰ Schedule in the composer's help line: one-click presets (schedulePresets) or any date and time; `pick` sends the
 // draft for then (action `programados.ventana` with `when`, checked on the server like schedule_message)
+// The composer's bottom line: only what it needs as buttons (schedule first, then the day's last window: both send it
+// later); every shortcut is in the ⌨'s tooltip. It wraps instead of clipping when the intercom is narrow.
+function ComposerHelp({ send, shortcuts, sendLater, armed }: { send: string; shortcuts: string; sendLater: (when?: string) => void; armed: string | false }) {
+  return (
+    <p className="ayuda-consola ayuda-composer">
+      <span><kbd>Enter</kbd> {send}</span>
+      <ScheduleAt pick={sendLater} />
+      <button className="consola-x" onClick={() => sendLater()} title={`${t('windows.nextWindowHint')} (⌥ Enter)`}>⏳ {t('windows.nextWindow')}</button>
+      {armed && <span className="urgente">{armed}</span>}
+      <span className="atajos-composer" tabIndex={0} title={shortcuts} aria-label={shortcuts}>⌨ {t('windows.shortcuts')}</span>
+    </p>
+  );
+}
+
 function ScheduleAt({ pick }: { pick: (when: string) => void }) {
   const [open, setOpen] = useState(false);
   const [when, setWhen] = useState('');
