@@ -70,8 +70,8 @@ export const forgetLimits = () => sent.clear();
 // each thread's conversation, per room and thread: in memory only, since "Restart the game" closes every conversation
 const threads = new Map<string, string>();
 // conversation follow-ups, per sender conversation and room (`${sesión}>${sala}`): where its last message without key or
-// thread went, and the way back for replies; in memory too
-const followUps = new Map<string, { session: string; answer: boolean }>();
+// thread went, and the way back for replies (with the task key the question came with); in memory too
+const followUps = new Map<string, { session: string; answer: boolean; key?: string }>();
 export const forgetThreads = () => { threads.clear(); followUps.clear(); };
 const threadOf = (h: string) => { const x = h.trim().toLowerCase(); return /^[a-z0-9]+(-[a-z0-9]+)*$/.test(x) && x.length <= 40 ? x : undefined; };
 
@@ -111,14 +111,16 @@ export async function sendToRoom(ctx: CtxRooms, since: string, { room, message, 
   }
   const frame = (k?: string) => [
     tr('prompt.room.from', { sala: origin?.name ?? since, habitante: origin?.dweller?.name ?? '?', tarea: k ? tr('prompt.room.task', { clave: k }) : thread ? tr('prompt.room.thread', { hilo: thread }) : '' }),
-    '', message.trim(), '', ...k ? [tr('prompt.room.outside')] : [], tr('prompt.room.reply', { salaId: since }),
+    '', message.trim(), '', ...k ? [tr('prompt.room.outside')] : [], tr('prompt.room.reply', { salaId: since, clave: k ? tr('prompt.room.replyKey', { clave: k }) : '' }),
   ].join('\n');
   // as the receiver's intercom shows who sent it while it waits in its queue and in its log (also when it was scheduled:
   // a room's dweller wrote it)
   const from: MessageOrigin = { kind: 'room', roomId: since, room: origin?.name ?? since, dweller: origin?.dweller?.name };
   let how: string | undefined, receiver: string | undefined, cwd: string | undefined, inherited: string | undefined;
-  // without key or thread: the conversation that got this one's previous message, or the one that wrote to it
-  const followUp = !k && !thread && fromSession ? followUps.get(`${fromSession}>${target.id}`) : undefined;
+  // without key or thread: the conversation that got this one's previous message, or the one that wrote to it; with the
+  // key the question came with, a reply too (any other key or room is a message to others, routed by its key)
+  const route = !thread && fromSession ? followUps.get(`${fromSession}>${target.id}`) : undefined;
+  const followUp = route && (!k || (route.answer && route.key === k)) ? route : undefined;
   if (followUp && ctx.notify(followUp.session, frame(), from)) { how = tr(followUp.answer ? 'tool.rooms.toReply' : 'tool.rooms.toFollowUp'); receiver = followUp.session; }
   // else, from a conversation in a task worktree: the sender's task, if that room has its conversation or worktree
   // (otherwise its main copy, as before: an unrelated question never makes a worktree there); in its own room only the
@@ -131,7 +133,7 @@ export async function sendToRoom(ctx: CtxRooms, since: string, { room, message, 
   const text = frame(k);
   const open = k ? ctx.sessionOfTask(target.id, k) : undefined;
   // permanent: the sender is that conversation, so no later try can deliver it (a scheduled one is dropped, not retried)
-  if (same && open && open === fromSession) return { ok: false, permanent: true, text: tr('tool.rooms.ownConversation', { clave: k! }) };
+  if (!how && same && open && open === fromSession) return { ok: false, permanent: true, text: tr('tool.rooms.ownConversation', { clave: k! }) };
   // a thread's conversation, while open and never the sender itself (sesiones.enviar queues it if it's busy)
   const ofThread = thread ? threads.get(`${target.id}/${thread}`) : undefined;
   if (how) { /* followed up or replied */ }
@@ -165,7 +167,7 @@ export async function sendToRoom(ctx: CtxRooms, since: string, { room, message, 
   // never the sender's own: recibe can't be it, so neither can a follow-up
   if (fromSession && receiver && receiver !== fromSession) {
     if (!k && !thread) followUps.set(`${fromSession}>${target.id}`, { session: receiver, answer: false });
-    followUps.set(`${receiver}>${since}`, { session: fromSession, answer: true });
+    followUps.set(`${receiver}>${since}`, { session: fromSession, answer: true, key: k });
   }
   if (!same) ctx.messenger(since, [target.id], 'cambio');
   else ctx.delivery?.(target.id, { worktree: cwd, sessionId: receiver });

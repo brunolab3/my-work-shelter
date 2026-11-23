@@ -221,6 +221,37 @@ describe('mensajes entre salas', () => {
     expect(x.fresh.at(-1)).toMatchObject({ roomId: 'pagos', cwd: undefined, worktree: undefined });
   });
 
+  it('with the key the question came with, a reply goes back to the asker; another key or room goes to others', async () => {
+    const x = ctx({ openSessions: { 'pagos/ABC-7': 'pagos-abc7', 'express/ABC-7': 'holo-abc7', 'pagos/ABC-8': 'pagos-abc8' } });
+    await sendToRoom(x.c, 'pagos', { room: 'app-web', message: 'question', key: 'ABC-7' }, 'pagos-main');
+    // the question tells the receiver how to reply: the room and the key
+    expect(x.notified.at(-1)?.text).toContain('room «pagos» y key «ABC-7»');
+    const r = await sendToRoom(x.c, 'express', { room: 'pagos', message: 'answer', key: 'abc-7' }, 'holo-abc7');
+    expect(r.ok).toBe(true);
+    expect(x.notified.at(-1)).toMatchObject({ sessionId: 'pagos-main' });
+    expect(x.notified.at(-1)?.text).not.toContain('ABC-7');
+    expect(r.text).toContain('te escribió');
+    // and the asker's answer with that key comes back to the same conversation
+    await sendToRoom(x.c, 'pagos', { room: 'app-web', message: 'thanks', key: 'ABC-7' }, 'pagos-main');
+    expect(x.notified.at(-1)).toMatchObject({ sessionId: 'holo-abc7' });
+    // another key, or another room with the same key: routed by the key
+    await sendToRoom(x.c, 'express', { room: 'pagos', message: 'other', key: 'ABC-8' }, 'holo-abc7');
+    expect(x.notified.at(-1)).toMatchObject({ sessionId: 'pagos-abc8' });
+    await sendToRoom(x.c, 'express', { room: 'tareas', message: 'c', key: 'ABC-7' }, 'holo-abc7');
+    expect(x.fresh.at(-1)).toMatchObject({ roomId: 'tareas' });
+  });
+
+  it('in its own room, a reply with the task key reaches the main copy that asked, not the sender itself', async () => {
+    const x = ctx({ openSessions: { 'express/ABC-7': 'holo-abc7' } });
+    await sendToRoom(x.c, 'express', { room: 'express', message: 'do it', key: 'ABC-7' }, 'express-main');
+    const r = await sendToRoom(x.c, 'express', { room: 'express', message: 'done', key: 'ABC-7' }, 'holo-abc7');
+    expect(r).toMatchObject({ ok: true });
+    expect(x.notified.at(-1)).toMatchObject({ sessionId: 'express-main' });
+    // without a question to answer, the task's own conversation still can't write to itself
+    forgetThreads();
+    expect(await sendToRoom(x.c, 'express', { room: 'express', message: 'again', key: 'ABC-7' }, 'holo-abc7')).toMatchObject({ ok: false, permanent: true });
+  });
+
   it('without key, from a task worktree to its own room: the task\'s open conversation when it is another one', async () => {
     const x = ctx({ openSessions: { 'express/ABC-7': 'holo-abc7' } });
     x.c.worktreeOfSession = async (_room, sess) => ['holo-abc7', 'holo-otra'].includes(sess) ? { path: '/repos/app-web/.claude/worktrees/shelter-abc-7-bundle-9z9z', branch: 'worktree-shelter-abc-7-bundle-9z9z', local: false } : undefined;
