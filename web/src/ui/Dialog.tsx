@@ -66,17 +66,17 @@ const created = (id: string) => Number(id.slice(1));
 // ---------------------------------------------------------------- lo escrito no se pierde
 // Las pestañas y lo que el Supervisor tiene escrito en ellas (texto y adjuntos ya subidos) se guardan en la página y
 // sobreviven a una recarga («Aplicar los cambios del juego»), a un reinicio del servidor y a que la conversación se
-// cierre sin que él la cierre (sola, al reiniciar, desde fuera): entonces la pestaña se queda con lo escrito, lista
-// para retomar la conversación (Enter). Lo escrito solo se va si él lo borra: enviándolo, con Esc dos veces o
-// cerrando la pestaña tras confirmarlo.
+// cierre sin que él la cierre (sola, al reiniciar, desde fuera): entonces la pestaña se queda, lista para retomar la
+// conversación (Enter), con lo escrito si lo había. Las pestañas se quedan hasta que él las cierra (Esc dos veces o
+// cerrando la pestaña tras confirmarlo, si hay algo escrito).
 const SAVED = 'refugio.intercoms';
 type SavedTab = Pick<TabCom, 'view' | 'draft' | 'attachments' | 'memory'>;
 interface SavedWindow { dwellerId: string; maximized: boolean; known: string[]; active: number; tabs: SavedTab[] }
 function saveIntercoms() {
   const list: SavedWindow[] = [];
   for (const v of intercoms.get().list) {
-    // solo lo que merece volver: las conversaciones y lo que tiene algo escrito
-    const tabs = v.tabs.filter(p => p.view.type === 'sesion' || withText(p));
+    // todas las pestañas: tampoco se pierde una vacía; las que ya no tienen conversación se limpian al cargar
+    const tabs = v.tabs;
     if (!tabs.length) continue;
     list.push({ dwellerId: v.dwellerId, maximized: v.maximized, known: v.known.slice(-60), active: Math.max(0, tabs.findIndex(p => p.id === v.active)),
       tabs: tabs.map(p => ({ view: p.view, draft: p.draft || undefined, memory: p.memory, attachments: readyAttachments(p.attachments).map(a => ({ ...a, view: a.view?.startsWith('blob:') ? undefined : a.view })) })) });
@@ -964,6 +964,12 @@ function Queued({ s, edit }: { s: SessionSummary; edit: (m: QueuedMessage) => vo
     if (!ok) { SFX.notAllowed(); addNotice('aviso', t('windows.queue.tooLate')); return; }
     SFX.click(); then?.();
   };
+  // Enviar ya: interrupts the turn and sends it now (Ctrl C, then this message); the server takes it back from the queue
+  const sendNow = async (m: QueuedMessage) => {
+    const ok = await client.ask<boolean>({ t: 'enviarYa', sessionId: s.id, messageId: m.id }).catch(() => false);
+    if (!ok) { SFX.notAllowed(); addNotice('aviso', t('windows.queue.tooLate')); return; }
+    SFX.click();
+  };
   return (
     <div className="cola-mensajes">
       <div className="cola-titulo">{t('windows.queue.title', { n: queue.length })} <span className="tenue">· {t('windows.queue.hint')}</span></div>
@@ -972,6 +978,7 @@ function Queued({ s, edit }: { s: SessionSummary; edit: (m: QueuedMessage) => vo
           <span className="quien">{originLabel(m.origin)}&gt;</span>
           <span className="cola-texto" title={m.text}>{m.text.replace(/\s+/g, ' ')}{m.attachments?.length ? ` 📎${m.attachments.length}` : ''}</span>
           {withdrawable(m) && <span className="cola-acciones">
+            <button onClick={() => sendNow(m)} title={t('windows.queue.sendNowTitle')}>{t('windows.queue.sendNow')}</button>
             <button onClick={() => withdraw(m, () => edit(m))} title={t('windows.queue.editTitle')}>{t('windows.queue.edit')}</button>
             <button onClick={() => withdraw(m)}>{t('windows.queue.withdraw')}</button>
           </span>}

@@ -49,8 +49,8 @@ export function syncIntercoms({ list, sessions, owner: ownerOf, closing, talking
         return [p];
       }
       if (d && d !== v.dwellerId) return [];                // moved to another window
-      if (!withText(p)) return [];
-      // closed (or lost in a restart) with something typed: the tab stays to resume it with that
+      if (!withText(p) && !p.memory) return [];
+      // closed (or lost in a restart): the tab stays to resume it, with what is typed, until the Overseer closes it
       touched = true;
       return [{ ...p, view: p.memory ? { type: 'nuevo', resume: { ...p.memory, modified: Date.now() } } : { type: 'nuevo' } }];
     });

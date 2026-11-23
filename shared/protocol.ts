@@ -128,6 +128,7 @@ export type ClientMessage =
   | { t: 'empezar'; dwellerId: string; roomId: string; prompt: string; options: WorkOptions; attachments?: string[]; request?: string }
   | { t: 'enviar'; sessionId: string; text: string; attachments?: string[] }   // adjuntos: rutas que ha devuelto la acción «subir»
   | { t: 'retirar'; sessionId: string; messageId: string; request: string }   // take back a queued message of the Overseer's (data: whether it was)
+  | { t: 'enviarYa'; sessionId: string; messageId: string; request: string }   // interrupt the turn and send a queued message of the Overseer's now (data: whether it was)
   | { t: 'responder'; sessionId: string; requestId: string; decision: 'si' | 'siempre' | 'no'; message?: string; responses?: Record<string, string> }
   | { t: 'interrumpir'; sessionId: string }
   | { t: 'cerrarSesion'; sessionId: string }

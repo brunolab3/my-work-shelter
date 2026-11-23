@@ -1289,6 +1289,7 @@ async function handle(ws: WebSocket, m: ClientMessage) {
     case 'cerrarSesion': sessions.close(m.sessionId); break;
     case 'leida': sessions.markRead(m.sessionId); break;
     case 'retirar': send(ws, { t: 'respuesta', request: m.request, data: await sessions.withdraw(m.sessionId, m.messageId).catch(() => false) }); break;
+    case 'enviarYa': send(ws, { t: 'respuesta', request: m.request, data: await sessions.sendNow(m.sessionId, m.messageId).catch(() => false) }); break;
     case 'enUso': inUse.set(ws, new Set(Array.isArray(m.sessions) ? m.sessions.map(String) : [])); break;
     case 'lateral': await sessions.lateral(m.sessionId, m.question); break;
     case 'modoPermisos': await sessions.mode(m.sessionId, m.mode); break;

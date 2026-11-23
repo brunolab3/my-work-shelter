@@ -475,6 +475,19 @@ export class Sessions extends EventEmitter {
     return true;
   }
 
+  /** Enviar ya: takes a queued message back, interrupts the turn (as Ctrl C, which also cancels what else is queued) and
+   *  sends it as a new one once the turn has stopped; false when it was already taken */
+  async sendNow(id: string, messageId: string): Promise<boolean> {
+    const x = this.must(id);
+    const m = x.queue.find(q => q.id === messageId);
+    if (!m || !(await this.withdraw(id, messageId))) return false;
+    await this.interrupt(id);
+    // the turn that was stopped may still be ending: wait for it, so the message starts a turn of its own
+    for (let i = 0; i < 100 && x.alive && ['arrancando', 'trabajando', 'esperando'].includes(x.r.state); i++) await new Promise(r => setTimeout(r, 100));
+    this.send(id, m.text, m.attachments, m.origin);
+    return true;
+  }
+
   // a message the Overseer didn't type (another room, a scheduled one, CI): an idle conversation already past the urge
   // threshold is compacted first, so the new turn and the ones after it don't re-read the whole old context
   deliver(id: string, text: string, origin: MessageOrigin = { kind: 'game' }) {

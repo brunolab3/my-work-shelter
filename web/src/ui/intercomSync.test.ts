@@ -72,4 +72,11 @@ describe('syncIntercoms: closed conversations', () => {
     expect(next[0].tabs.map(p => [p.id, p.view.type, p.draft])).toEqual([['p2', 'nuevo', 'keep me'], ['p3', 'sesion', undefined]]);
     expect(next[0].active).toBe('p2');
   });
+
+  it('a closed one that was noted (its memory) stays to resume even with nothing typed, until the Overseer closes it', () => {
+    const memory = { claudeId: 'c1', title: 'Old', modified: 1, cwd: '/x' } as any;
+    const ana: WindowCom = { dwellerId: 'ana', tabs: [{ id: 'p1', view: { type: 'sesion', sessionId: 's1' }, memory }], active: 'p1', maximized: false, z: 5, known: ['s1'] };
+    const { next } = run([ana], byId(ses('s1', 'ana', 1, { state: 'cerrada' } as any)), 'ana');
+    expect(next[0].tabs).toEqual([{ id: 'p1', view: { type: 'nuevo', resume: { ...memory, modified: expect.any(Number) } }, memory }]);
+  });
 });
