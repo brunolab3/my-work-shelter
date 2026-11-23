@@ -7,6 +7,7 @@ import { t } from '@shared/language';
 import { queuedIn } from '@shared/messageQueue';
 import { flaggedIds, flaggedIn, flagMark } from '@shared/flagged';
 import type { SessionSummary } from '@shared/protocol';
+import { placeTags, type PlacedTag, type TagBox } from './tagPlacement';
 
 // The ✉ n on a dweller or a hologram whose conversations have messages they have not taken yet (shared/messageQueue.ts)
 export function queuedMark(sessions: SessionSummary[]): string | undefined {
@@ -39,7 +40,7 @@ export class TagsLayer {
   root: HTMLDivElement;
   private map = new Map<Dweller | object, { el: HTMLDivElement; name: HTMLSpanElement; detail: HTMLSpanElement; glyph: HTMLSpanElement; prompt: HTMLSpanElement; scheduled: HTMLSpanElement; queued: HTMLSpanElement; flagged: HTMLSpanElement; epic: HTMLSpanElement; key: string }>();
   // where each tag was drawn last frame (screen pixels), to tell which one the pointer is over
-  private drawn: { k: object; x0: number; x1: number; y0: number; y1: number }[] = [];
+  private drawn: PlacedTag[] = [];
   constructor() {
     this.root = document.createElement('div'); this.root.id = 'etiquetas';
     document.body.appendChild(this.root);
@@ -59,7 +60,7 @@ export class TagsLayer {
   update(cam: THREE.PerspectiveCamera, items: { k: object; pos: THREE.Vector3; height: number; name: string; state: string; detail: string; near: boolean; supervisor?: boolean; device?: boolean; prompt?: string; key?: string; farSide?: boolean; aimed?: boolean; color?: string; epic?: { color: string; title: string }; scheduled?: string; queued?: string; flagged?: string }[]) {
     const w = innerWidth, h = innerHeight; const v = new THREE.Vector3();
     const seen = new Set<object>();
-    const placed: { k: object; x0: number; x1: number; y0: number; y1: number }[] = [];
+    const boxes: TagBox[] = [];
     for (const it of items) {
       seen.add(it.k);
       const e = this.map.get(it.k) ?? this.create(it.k);
@@ -80,19 +81,15 @@ export class TagsLayer {
       v.copy(it.pos); v.y += it.height + 0.25; v.project(cam);
       if (v.z > 1) { if (e.el.style.display !== 'none') e.el.style.display = 'none'; continue; }
       if (e.el.style.display) e.el.style.display = '';
-      // las etiquetas que chocan con otra ya colocada suben hasta quedar libres
       if (e.key !== (e as any).measured) { (e as any).measured = e.key; (e as any).width = e.el.offsetWidth; (e as any).height = e.el.offsetHeight; }
-      const an = (e as any).width ?? 80, lh = (e as any).height ?? 20;
-      const sx = (v.x + 1) / 2 * w; let sy = (1 - v.y) / 2 * h;
-      for (let k = 0; k < 4; k++) {
-        const r = { x0: sx - an / 2, x1: sx + an / 2, y0: sy - lh, y1: sy };
-        const choca = placed.find(q => r.x0 < q.x1 && r.x1 > q.x0 && r.y0 < q.y1 && r.y1 > q.y0);
-        if (!choca) break;
-        sy = choca.y0 - 3;
-      }
-      placed.push({ k: it.k, x0: sx - an / 2, x1: sx + an / 2, y0: sy - lh, y1: sy });
-      // solo se toca el DOM si se ha movido de verdad (cada escritura cuesta un recálculo de estilo)
-      const tr = `translate(${sx.toFixed(0)}px, ${sy.toFixed(0)}px) translate(-50%, -100%)`;
+      boxes.push({ k: it.k, x: (v.x + 1) / 2 * w, y: (1 - v.y) / 2 * h, width: (e as any).width ?? 80, height: (e as any).height ?? 20, aimed: it.aimed, lift: it.aimed ? (e as any).lift : undefined });
+    }
+    // tags that collide climb until free; a pointed one stays put under the pointer (tagPlacement.ts)
+    const placed = placeTags(boxes);
+    for (const q of placed) {
+      const e = this.map.get(q.k)!; (e as any).lift = q.lift;
+      // the DOM is only touched if it really moved (each write costs a style recalculation)
+      const tr = `translate(${((q.x0 + q.x1) / 2).toFixed(0)}px, ${q.y1.toFixed(0)}px) translate(-50%, -100%)`;
       if ((e as any).tr !== tr) { (e as any).tr = tr; e.el.style.transform = tr; }
     }
     for (const [k, e] of this.map) if (!seen.has(k)) { e.el.remove(); this.map.delete(k); }
