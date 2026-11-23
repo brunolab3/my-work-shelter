@@ -34,6 +34,8 @@ import { setFlag } from '../shared/flagged.ts';
 import type { JiraTransition, PRBoard } from '../shared/board.ts';
 import { blockersBetween, pRKey } from '../shared/deploy.ts';
 import { TasksCleanup, orphanedConversations } from './taskCleanup.ts';
+import { ReviewRoom, REVIEW_ROOM, REVIEW_ROOM_QUERY } from './reviewRoom.ts';
+import type { ReviewBoard } from '../shared/reviews.ts';
 import { Scheduled, summary } from './scheduled.ts';
 import { LimitResumes, scanStopped, resetMs, stopsWork, UNKNOWN_RESET_MS } from './limitResume.ts';
 import type { UsageWindow } from '../shared/scheduled.ts';
@@ -49,7 +51,7 @@ import { openInDesktop, openInAppClaude, outsideOpen, closeOutside, hookCommand,
 import { tonesForRepeated } from '../shared/recruits.ts';
 import { pRTask, remoteName, taskKey, worktreeHasTask, worktreeTask } from '../shared/tasks.ts';
 import { Store, DATA, folderOf, reposRoot, hideRoom, showRoom, isHideable, roomIdOf } from './state.ts';
-import { infoRepo, suggestions, expand, recentTranscripts, liveSessions, worktreeList, hasBranch, roomStyle, projectType } from './repos.ts';
+import { infoRepo, suggestions, expand, recentTranscripts, liveSessions, worktreeList, hasBranch, roomStyle, projectType, hideWorktreesUnder } from './repos.ts';
 import { Integrations } from './integrations/index.ts';
 import { gameAction, ensurePlayer, growCrops, taskReward } from './game.ts';
 import { generateRecruit } from '../shared/recruits.ts';
@@ -471,6 +473,7 @@ async function takeRoot() {
 async function refreshRepos() {
   const rooms = store.state.rooms.filter(s => s.path);
   await Promise.all(rooms.map(async s => { repos[s.id] = await infoRepo(s.path!); }));
+  reviewCopies();
   // quién trabaja dentro de cada worktree (no se puede desechar con alguien dentro) y quién lo creó
   const authors = authorsWorktree();
   const stale = Object.keys(authors).filter(k => !existsSync(k) || !store.state.dwellers.some(h => h.id === authors[k]));
@@ -520,7 +523,7 @@ setInterval(() => broadcast({ t: 'visitantes', visitors: visitors() }), 15_000).
 const inUse = new Map<WebSocket, Set<string>>();
 setInterval(() => {
   const used = new Set([...inUse.values()].flatMap(x => [...x]));
-  for (const id of orphanedConversations(sessions.list(), used, existsSync)) sessions.close(id);
+  for (const id of orphanedConversations(sessions.list(), used, existsSync, reviewsRoot())) sessions.close(id);
   for (const s of sessions.list()) if ((s.state === 'terminada' || s.state === 'ociosa') && !s.unread && !used.has(s.id) && Date.now() - s.updated > 30 * 60_000) sessions.close(s.id);
   const still = sessions.list().filter(s => (s.state === 'terminada' || s.state === 'ociosa' || s.state === 'error') && !used.has(s.id)).sort((a, b) => a.updated - b.updated);
   const live = sessions.list().filter(s => s.state !== 'cerrada').length;
@@ -785,6 +788,59 @@ const tasksCleanup = new TasksCleanup(DATA, {
 });
 setInterval(() => { tasksCleanup.poll().catch(err => console.error('Limpieza de tareas:', String((err as Error).message).split('\n')[0])); }, 5 * 60_000).unref();
 
+// the Review room (reviewRoom.ts): others' PRs that ask for the Overseer's review, every minute with GitHub connected;
+// each review opened has its folder (its worktrees, hidden from the repos' rooms) and its conversation in the room
+const reviewsRoot = () => { const s = store.state.rooms.find(x => x.id === REVIEW_ROOM); return s ? folderOf(s) : path.join(DATA, 'salas', REVIEW_ROOM); };
+hideWorktreesUnder([reviewsRoot()]);
+let reviewState: { state: ReviewBoard['state']; error?: string } = { state: 'reading' };
+const reviewBoard = (): ReviewBoard => ({ ...reviewState, reviews: reviewState.state === 'ok' ? reviewRoom.reviews() : [] });
+// the started reviews stand in the Review room as holograms: their folders, as that room's worktrees
+function reviewCopies() {
+  const lupe = store.state.dwellers.find(h => h.roomId === REVIEW_ROOM)?.id;
+  repos[REVIEW_ROOM] = { path: reviewsRoot(), exists: true, isGit: false, changes: 0, type: 'generico',
+    worktrees: reviewRoom.startedReviews().filter(r => existsSync(r.folder)).map(r => ({ path: r.folder, branch: '', main: false, changes: 0, advanced: 0, author: lupe, review: { key: r.key, title: r.title, repos: r.repos } })) };
+}
+const reviewRoom = new ReviewRoom(DATA, {
+  connection: connectionGitHub,
+  query: async token => JSON.parse(await (await import('./git.ts')).gh(['api', 'graphql', '-f', 'query=' + REVIEW_ROOM_QUERY], token)),
+  rooms: async () => (await repoRooms()).map(r => ({ id: r.id, path: r.path, repo: r.repo })),
+  root: reviewsRoot,
+  git: (cwd, args) => new Promise((ok, fail) => execFile('git', ['-C', cwd, ...args], { timeout: 120_000, env: gitEnvironment() }, (err, o, e) => err ? fail(new Error(String(e || err.message).trim())) : ok(String(o)))),
+  sessions: () => sessions.list(),
+  open: async (folder, text, tell) => {
+    const o = openInFolder(REVIEW_ROOM, folder);
+    if (o) { if (tell) ctxPlan.notify(o.id, text); return o.id; }
+    const resumed = await resumeInFolder(REVIEW_ROOM, folder, text, 'auto');
+    if (resumed) return resumed;
+    const h = store.state.dwellers.find(x => x.roomId === REVIEW_ROOM);
+    if (!h) throw new Error(t('panels.theRoomSalaHasNo', { sala: t('world.review') }));
+    return startWork(undefined, { t: 'empezar', dwellerId: h.id, roomId: REVIEW_ROOM, prompt: text, options: { cwd: folder, permissions: 'auto' } });
+  },
+  tell: async (folder, text) => {
+    const o = openInFolder(REVIEW_ROOM, folder);
+    if (o) return ctxPlan.notify(o.id, text);
+    return !!(await resumeInFolder(REVIEW_ROOM, folder, text, 'auto'));
+  },
+  jira: async key => {
+    if (!ctxTrackers.connected('jira')) return undefined;
+    const x: any = await integrations.action('tarea', { source: 'jira', key });
+    return x?.title ? { title: x.title, status: x.state, epic: x.epic ? `${x.epic.key} ${x.epic.title}` : undefined, description: x.description } : undefined;
+  },
+  trash: async paths => (await import('./files.ts')).toTrash(paths),
+  ask: (text, yes) => ask(text, { si: t('reviews.removeAnyway'), no: t('reviews.keep') }, async si => { if (si) await yes().catch(e => broadcast({ t: 'aviso', level: 'error', text: String((e as Error).message).split('\n')[0] })); }),
+  notice: text => broadcast({ t: 'aviso', level: 'info', text }),
+  changed: () => { reviewCopies(); broadcast({ t: 'revisiones', board: reviewBoard() }); broadcast({ t: 'repos', repos }); },
+});
+async function pollReviews() {
+  const c = await connectionGitHub();
+  if (!c.real) { if (reviewState.state !== 'off') { reviewState = { state: 'off' }; broadcast({ t: 'revisiones', board: reviewBoard() }); } return; }
+  try { await reviewRoom.poll(); reviewState = { state: 'ok' }; }
+  catch (err) { reviewState = { state: reviewRoom.ready ? 'ok' : 'error', error: String((err as Error).message).split('\n')[0].slice(0, 200) }; console.error('Review room:', reviewState.error); }
+  broadcast({ t: 'revisiones', board: reviewBoard() });
+}
+setTimeout(() => { pollReviews().catch(() => {}); }, 5_000).unref();
+setInterval(() => { pollReviews().catch(() => {}); }, 60_000).unref();
+
 // organizar las salas por tareas (organize.ts): el plan de cada sala de repo y, confirmado, hacerlo
 async function organizeRooms(roomId: string | undefined, apply: boolean) {
   const G = await import('./git.ts');
@@ -1043,6 +1099,9 @@ async function action(name: string, d: Record<string, any> = {}): Promise<unknow
       const a = store.state.settings as any; a.flaggedConversations = setFlag(a.flaggedConversations, id, !!d.on); store.save();
       broadcast({ t: 'estado', state: store.state as any }); return true;
     }
+    case 'revision.tablero': return reviewBoard();
+    case 'revision.abrir': { const k = String(d.key ?? ''); if (!k) throw new Error(t('reviews.notFound', { clave: '—' })); return reviewRoom.open(k); }
+    case 'revision.terminar': return reviewRoom.finish(String(d.key ?? ''));
     case 'verificacion.aprobar': { const k = taskKey(String(d.key ?? '')); return (k && verifications.approve(k)) ?? null; }
     case 'paginas.responder': return pageReviews.respond(d.path, d.state);
     case 'preflight.puerta': { const r = path.resolve(String(d.path ?? '')); if (!gitPath(r)) throw new Error(t('server.thatFolderIsNotA')); return gatePush(r, ctxPreflight); }
@@ -1292,6 +1351,7 @@ async function handle(ws: WebSocket, m: ClientMessage) {
       send(ws, { t: 'visitantes', visitors: visitors() });
       send(ws, { t: 'programados', list: scheduled.list() });
       send(ws, { t: 'verificaciones', states: verificationSummaries() });
+      send(ws, { t: 'revisiones', board: reviewBoard() });
       send(ws, { t: 'limites', limits: planLimits.get() });
       integrations.greet(ws, send);
       for (const t of terminals.openSessions()) terminals.open(t.id, t.cwd, 80, 24, outputOf(ws));

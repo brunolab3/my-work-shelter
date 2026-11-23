@@ -34,7 +34,7 @@ export const SECTORS: Record<IdSector, Sector> = {
 export const SECTORS_ORDER: IdSector[] = ['acceso', 'mando', 'enlace', 'frontend', 'backend', 'critico', 'ocio'];
 
 const SECTOR_TYPE: Record<string, IdSector> = {
-  puerta: 'acceso', discoteca: 'ocio', camara: 'mando', puente: 'mando', comunicaciones: 'enlace', planificacion: 'enlace', logistica: 'enlace', git: 'enlace',
+  puerta: 'acceso', discoteca: 'ocio', camara: 'mando', puente: 'mando', comunicaciones: 'enlace', planificacion: 'enlace', logistica: 'enlace', git: 'enlace', review: 'enlace',
   hidroponia: 'ocio', galeria: 'ocio', chapa: 'ocio',
 };
 /** A stock leisure room (disco, crops, shooting gallery, body shop), by its id */
@@ -64,7 +64,7 @@ export function floorSector(floor: number, floors: number, rooms?: { floor: numb
 const TONES: Record<string, [string, string]> = {
   puerta: ['#8f62c8', '#462c63'],
   camara: ['#26282c', '#111214'], puente: ['#34363b', '#17181a'],
-  comunicaciones: ['#4a86b8', '#244463'], planificacion: ['#3a64a3', '#1d3459'], logistica: ['#33789a', '#173d50'], git: ['#4f6fc0', '#263764'],
+  comunicaciones: ['#4a86b8', '#244463'], planificacion: ['#3a64a3', '#1d3459'], logistica: ['#33789a', '#173d50'], git: ['#4f6fc0', '#263764'], review: ['#5a7fb0', '#2b3f5c'],
   hidroponia: ['#d9802e', '#6b3f16'], discoteca: ['#ec8f2a', '#74450f'], galeria: ['#c8752f', '#633a17'], chapa: ['#e39a45', '#704b1f'],
   [PLANNING_ROOM]: ['#3d6c8f', '#1d3549'],
 };

@@ -70,6 +70,11 @@ describe('orphanedConversations', () => {
   const sess = (id: string, cwd: string, extra: Partial<SessionSummary> = {}) => ({ id, cwd, state: 'terminada', unread: false, ...extra }) as SessionSummary;
   const gone = '/r/express/.claude/worktrees/gone', alive = '/r/express/.claude/worktrees/alive';
   const exists = (path: string) => path !== gone;
+  it('a retired review\'s folder (the Review room) counts as a removed worktree', () => {
+    const root = '/d/salas/review', here = (p: string) => p !== `${root}/ABC-1`;
+    expect(orphanedConversations([sess('a', `${root}/ABC-1`), sess('b', `${root}/ABC-1/web-12`), sess('c', `${root}/ABC-2`), sess('d', '/elsewhere/ABC-1')], new Set(), here, root)).toEqual(['a', 'b']);
+    expect(orphanedConversations([sess('a', `${root}/ABC-1`)], new Set(), here)).toEqual([]);
+  });
   it('closes the idle, read ones of a removed worktree, also from a subfolder', () => {
     const out = orphanedConversations([sess('a', gone), sess('b', gone + '/web', { state: 'ociosa' }), sess('c', alive), sess('d', '/r/express')], new Set(), exists);
     expect(out).toEqual(['a', 'b']);

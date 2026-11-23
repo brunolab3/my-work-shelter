@@ -15,6 +15,7 @@ import { PanelCommunications, PanelPlanning, PanelLogistics, JiraBoard } from '.
 import { PanelActivity } from './Activities';
 import { DeploymentBoard } from './Deploy';
 import { OrganizeRooms } from './Organize';
+import { PanelReview } from './Review';
 import { openSpotify } from './Disco';
 import { PanelBodyshop, MiniPortrait } from './FittingRoom';
 import { lookOf, lookSummary } from '@shared/appearance';
@@ -43,6 +44,7 @@ export function RoomPanels({ panel }: { panel: Panel }) {
     case 'spotify': return <OpenSpotify />;
     case 'chapa': return <PanelBodyshop />;
     case 'organizar': return <OrganizeRooms />;
+    case 'revision': return <PanelReview />;
     default: return <PanelActivity panel={panel} />;
   }
 }

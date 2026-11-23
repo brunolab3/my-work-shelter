@@ -4,7 +4,7 @@
 // ver «a mano» más abajo) hasta que la devuelva a la de serie.
 //   PB (0)  a pie de calle: la puerta, a la izquierda del ascensor
 //   -1      cámara acorazada | Puente de Mando
-//   -2      comunicaciones, agenda | logística, control de versiones, planificación (tipos 'planificacion', 'logistica' y
+//   -2      revisión (others' PRs to review), comunicaciones, agenda | logística, control de versiones, planificación (tipos 'planificacion', 'logistica' y
 //           'git'; la planificación de tareas es la sala de serie SALA_PLANIFICACION, de tipo 'coordinacion')
 //   -3…     los repos, en orden alfabético de izquierda a derecha y repartidos a los dos lados del ascensor
 //           (como mucho REPOS_POR_PLANTA por planta: si hay más, siguen en la planta de debajo)
@@ -21,6 +21,7 @@ const FIXED: Record<string, Gap> = {
   puente: { floor: 1, side: 'der', orden: 0 },
   planificacion: { floor: 2, side: 'izq', orden: 0 },
   comunicaciones: { floor: 2, side: 'izq', orden: 1 },
+  review: { floor: 2, side: 'izq', orden: 2 },
   logistica: { floor: 2, side: 'der', orden: 0 },
   git: { floor: 2, side: 'der', orden: 1 },
 };

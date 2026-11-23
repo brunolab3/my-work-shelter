@@ -102,7 +102,9 @@ export interface InfoRepo {
   example?: boolean;             // copia de un repo de ejemplo del refugio de serie (la clona el juego: al retirarla va a la papelera)
 }
 // autor: el habitante que lo creó (su holograma es una copia de él); sin autor conocido, el refugio elige uno de la sala
-export interface InfoWorktree { path: string; branch: string; main: boolean; changes: number; advanced: number; busy?: string; external?: boolean; author?: string }
+export interface InfoWorktree { path: string; branch: string; main: boolean; changes: number; advanced: number; busy?: string; external?: boolean; author?: string; review?: ReviewCopy }
+/** A started review's hologram in the Review room (shared/reviews.ts): its folder stands in for a worktree */
+export interface ReviewCopy { key: string; title: string; repos: string[] }
 
 // La música del refugio (la discoteca): Spotify web, que suena dentro del juego en su navegador. No pasa por el
 // servidor: el cliente la lee de la página (web/src/ui/Disco.tsx) y la deja en vivo.musica
@@ -172,6 +174,7 @@ export type ServerMessage =
   | { t: 'voz'; id: string; state: 'descargando' | 'listo' | 'parcial' | 'final' | 'error'; text?: string }   // lo transcrito de un dictado
   | { t: 'mensajero'; since: string; a: string[]; reason: 'reparto' | 'cambio' | 'propuesta' | 'revision' | 'ci'; worktree?: string }   // el robot que lleva el plan de sala en sala (o una revisión o un fallo de CI de un PR desde Control de Versiones, en mano al holograma de su worktree)
   | { t: 'entrega'; room: string; worktree?: string; sessionId?: string }   // un mensaje dentro de la misma sala: el habitante se lo da en mano al holograma de la tarea (messenger.ts)
+  | { t: 'revisiones'; board: ReviewBoard }   // the Review room's PRs (server/reviewRoom.ts)
   | { t: 'verificaciones'; states: Record<string, VerificationSummary> }   // each task's production verification (shared/verification.ts)
   | { t: 'limites'; limits: PlanLimits }   // the Claude plan's usage windows (server/planLimits.ts)
   | { t: 'programados'; list: ScheduledMessage[] }   // los mensajes programados pendientes (shared/scheduled.ts)
@@ -181,6 +184,7 @@ export type ServerMessage =
 import type { VerificationSummary } from './verification.ts';
 import type { ScheduledMessage } from './scheduled.ts';
 import type { PlanLimits } from './planLimits.ts';
+import type { ReviewBoard } from './reviews.ts';
 
 // el nombre del juego y, por defecto, del refugio
 export const GAME_NAME = 'work-shelter';

@@ -12,6 +12,7 @@ export const ROOM_INFO: Record<string, string> = {
   planificacion: 'Calendario unificado de Microsoft 365 y Google Calendar: la semana, la agenda de los próximos días y el enlace para unirse a cada reunión.',
   git: 'Control de versiones: el cliente de git de todos los repos del refugio (preparar por archivos, bloques o líneas, commits, historial con su grafo, ramas y cajón), tu matriz de contribuciones de GitHub y tus pull requests. La Octocat vive aquí. G lo abre desde cualquier sitio.',
   logistica: 'Tablero: tus tareas de Jira con sus pull requests y el estado de cada uno. Su habitante usa el MCP oficial de Linear para crear, mover o comentar incidencias, siempre con tu permiso.',
+  review: 'Los PR de otros que esperan tu revisión, en tres columnas: por revisar, cambios pedidos y aprobados. Cada tarea tiene aquí su holograma, que revisa todos sus PR (de cualquier repo) en copias aparte, y nunca publica nada sin tu permiso.',
   hidroponia: 'Los cultivos del refugio, para cuidarlos entre tarea y tarea.',
   galeria: 'Galería de tiro para despejarse un rato. Guarda los récords.',
   discoteca: 'La música para currar, en la planta de ocio. La cabina del DJ abre Spotify, que suena aquí dentro: elige lo que quieras y minimízalo; la pletina de abajo a la izquierda sigue con lo que suena y los mandos.',

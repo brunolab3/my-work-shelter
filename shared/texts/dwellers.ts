@@ -17,6 +17,8 @@ export const DWELLERS: Record<string, LocalizedText> = {
   'dwellers.monaBio': { es: 'Mitad gata, mitad pulpo, toda control de versiones. Con un tentáculo prepara, con otro hace commit y con un tercero ya está haciendo push. Lleva la cuenta de sus contribuciones y no consiente un force push a main.', en: 'Half cat, half octopus, all version control. One tentacle stages, another commits and a third is already pushing. Keeps count of her contributions and won\'t stand a force push to main.' },
   'dwellers.divideAndConquer': { es: 'Divide y Vencerás', en: 'Divide and Conquer' },
   'dwellers.inesBio': { es: 'Parte cualquier tarea en trozos que caben en un repo cada uno. Antes de tocar una línea quiere saber qué repos se enteran.', en: 'Splits any task into pieces that fit in one repo each. Before touching a line she wants to know which repos will notice.' },
+  'dwellers.magnifierInHand': { es: 'Lupa en Mano', en: 'Magnifier in Hand' },
+  'dwellers.lupeBio': { es: 'Lee los PR de los demás línea a línea y con el ticket al lado. Nunca publica un comentario sin que lo firmes tú.', en: 'Reads other people\'s PRs line by line with the ticket beside them. Never posts a comment you haven\'t signed.' },
   'dwellers.ticketCommander': { es: 'Comandante de Tickets', en: 'Ticket Commander' },
   'dwellers.cmdBio': { es: 'Robot pesado reconvertido. Mueve issues como antes movía chatarra.', en: 'Retooled heavy robot. Moves issues the way it used to move scrap.' },
   'dwellers.eternalRefactor': { es: 'Refactor Eterno', en: 'Eternal Refactor' },

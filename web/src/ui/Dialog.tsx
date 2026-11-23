@@ -33,14 +33,14 @@ import { physicsKey } from '../audio/keyboard';
 import { Store } from './store';
 import { useMenu as useMenuBase, Options } from './device';
 import { CMD, MAC, nextZ, windowShortcut, WindowButtons, Tabs, TabList, DraftMark, FlagMark, FLAG_SHORTCUT, TaskMark, Confirmation, nthTab, nextTab, PILOT, stateLabel, type ItemTab, type TabState } from './windows';
-import { sessionOwner, interlocutor, branchCaption, copyCaption, pathWorktree, worktreesKnown } from './copies';
+import { sessionOwner, interlocutor, branchCaption, copyCaption, copyTask, pathWorktree, worktreesKnown } from './copies';
 import { Usage } from './usage';
 import { takeASurface, toClaudeApp } from './surface';
 import { openLink, openPage, pageForSession, pageAnswers, pageNotes, validatePage, revealPage, makeRoomForIntercom, answerPage } from './Browsers';
 import { sessionPages, pendingPages, samePage, livePages, questionInput } from '@shared/sessionPages';
 import { AFTER_TURN, describeWhen, describeWhenShort, localInput, ofConversationView, ofPlace, schedulePresets, type ScheduledMessage } from '@shared/scheduled';
 import type { PRBoard } from '@shared/board';
-import { worktreePRs, worktreeTask, taskColor } from '@shared/tasks';
+import { worktreePRs, taskColor } from '@shared/tasks';
 import { lookOf, lookSignature } from '@shared/appearance';
 import { thumbnail } from '../world/figure/studio';
 import { openPreflight } from './Preflight';
@@ -328,7 +328,7 @@ function TalkerBust({ x }: { x: DwellerSummary }) {
     thumbnail(look, 'torso').then(u => { if (u) busts.set(key, u); if (valid && u) setUrl(u); });
     return () => { valid = false; };
   }, [key]);
-  const task = x.copy ? worktreeTask(x.copy) : undefined;
+  const task = x.copy ? copyTask(x.copy) : undefined;
   useEffect(() => { if (task) knowTasks([task]); }, [task]);
   const tone = x.copy ? taskColor(task) : undefined;
   return <span className={'consola-quien-foto' + (x.copy ? ' holo' : '')} style={tone ? { '--tono': tone } as React.CSSProperties : undefined} aria-hidden>{url && <img src={url} alt="" draggable={false} />}</span>;
@@ -340,7 +340,7 @@ function TalkerBust({ x }: { x: DwellerSummary }) {
 // its most urgent conversation's state and when the latest of them last moved, and how many of them are marked as pending
 // (⚑, flags: shared/flagged.ts); the conversations themselves are the tabs
 /** A talker as the lists name them: a dweller by name, a hologram by its task (or branch) and its author */
-const talkerName = (x: DwellerSummary) => x.copy ? `◇ ${copyCaption(x.copy, worktreeTask(x.copy) ?? branchCaption(x.copy.branch))} · ${x.copy.nameAuthor}` : x.name;
+const talkerName = (x: DwellerSummary) => x.copy ? `◇ ${copyCaption(x.copy, copyTask(x.copy) ?? branchCaption(x.copy.branch))} · ${x.copy.nameAuthor}` : x.name;
 export type Talker = { x: DwellerSummary; sess: SessionSummary[]; first?: SessionSummary; state?: TabState; name: string; draft: boolean; flagged: number };
 export function roomTalkers(room: string, dwellers: DwellerSummary[], copies: DwellerSummary[], list: WindowCom[], sessions: Record<string, SessionSummary>, flags: Set<string>): Talker[] {
   return [...dwellers.filter(x => x.room === room && !x.robot), ...copies.filter(c => c.room === room)].map(x => {
@@ -444,7 +444,7 @@ const VIEW_NAME: Record<string, string> = { menu: t('windows.menu'), nuevo: t('w
 function tabItem(x: TabCom, o: DwellerSummary, sessions: Record<string, SessionSummary>, flags: Set<string>): ItemTab {
   const sx = x.view.type === 'sesion' ? sessions[x.view.sessionId] : undefined, path = pathWorktree(sx?.cwd, worktreesKnown());
   return { id: x.id, name: sx ? sx.title || t('windows.conversation') : x.sessionWait ? t('windows.starting2') : VIEW_NAME[x.view.type] ?? t('windows.menu'), state: x.sessionWait ? 'trabajando' : tabState(sx),
-    title: sx?.title, room: o.nameRoom, task: path ? worktreeTask({ path }) : o.copy ? worktreeTask(o.copy) : undefined, activity: sx ? ago(sx.updated) : undefined, draft: withText(x), queued: queuedIn([sx]) || undefined,
+    title: sx?.title, room: o.nameRoom, task: path ? copyTask(worktreesKnown().find(w => w.path === path) ?? { path }) : o.copy ? copyTask(o.copy) : undefined, activity: sx ? ago(sx.updated) : undefined, draft: withText(x), queued: queuedIn([sx]) || undefined,
     flagged: flagOf(sx ?? resumeOf(x), flags) };
 }
 /** The closed conversation a tab is about to resume, by its Claude Code session id */
@@ -492,7 +492,7 @@ export function ComTabs() {
       <div className="barra-lista-com" style={{ left: r.left, bottom: innerHeight - r.top + 4, '--hueco': `${innerWidth - r.left - 8}px` } as React.CSSProperties}>
         <TabList items={items} group active={current?.active ?? ''} activate={go} close={closeTabs} exit={exit} flag={pid => toggleFlag(tabConversation(pid))} header={(p, before) => {
           // the room once, then whose: their bust and name, a hologram's task in its color
-          const o = who(p.group!), task = o?.copy ? worktreeTask(o.copy) : undefined;
+          const o = who(p.group!), task = o?.copy ? copyTask(o.copy) : undefined;
           return <>
             {p.room !== before?.room && <div className="vt-lista-grupo">{p.room}</div>}
             {o && <div className={'vt-lista-quien' + (o.copy ? ' de-copia' : '') + (o.id === talking ? ' actual' : '')}><TalkerBust x={o} /><b>{p.who}</b>{task && <TaskMark taskKey={task} />}</div>}
@@ -1153,7 +1153,7 @@ function FlagButton({ c, flags }: { c?: Flaggable; flags: Set<string> }) {
 }
 
 function PreflightButton({ copy }: { copy: { path: string; branch: string } }) {
-  const task = worktreeTask(copy);
+  const task = copyTask(copy);
   const withPRs = jiraBoard.use(x => !!task && taskHasPRs(task, x.prs));
   if (!task || !withPRs) return null;
   return <span className="paginas-sesion preflight-copia">

@@ -3,6 +3,7 @@ import type { ClientMessage, ServerMessage, SessionSummary, LogInput, InfoRepo, 
 import type { ScheduledMessage } from '@shared/scheduled';
 import type { VerificationSummary } from '@shared/verification';
 import type { PlanLimits } from '@shared/planLimits';
+import type { ReviewBoard } from '@shared/reviews';
 import { Store } from '../ui/store';
 import { t, roomNameIs } from '@shared/language';
 
@@ -26,12 +27,13 @@ export interface LiveData {
   scheduled: ScheduledMessage[];         // mensajes programados pendientes (server/scheduled.ts)
   verifications: Record<string, VerificationSummary>;   // each task's production verification (server/verifications.ts)
   planLimits: PlanLimits;                // the Claude plan's usage windows (server/planLimits.ts)
+  reviews: ReviewBoard;                  // the Review room's PRs (server/reviewRoom.ts)
 }
 
 // a notice (teletype): its id is its arrival time in ms (plus a fraction, so two never collide)
 export type Notice = { id: number; level: string; text: string; question?: NoticeQuestion };
 
-export const live = new Store<LiveData>({ connected: false, attempts: 0, restarting: false, claudeOk: false, state: null, sessions: {}, entries: {}, partial: {}, repos: {}, visitors: [], notifications: [], events: [], integrations: {}, notices: [], music: null, scheduled: [], verifications: {}, planLimits: {} });
+export const live = new Store<LiveData>({ connected: false, attempts: 0, restarting: false, claudeOk: false, state: null, sessions: {}, entries: {}, partial: {}, repos: {}, visitors: [], notifications: [], events: [], integrations: {}, notices: [], music: null, scheduled: [], verifications: {}, planLimits: {}, reviews: { state: 'reading', reviews: [] } });
 
 // Notices stay until read (the older ones folded into one group: Avisos in web/src/ui/Bridge.tsx), up to the latest
 // MAX_NOTICES; questions don't count and stay until answered
@@ -123,6 +125,7 @@ class Client {
       case 'visitantes': live.set({ visitors: m.visitors }); break;
       case 'programados': live.set({ scheduled: m.list }); break;
       case 'verificaciones': live.set({ verifications: m.states }); break;
+      case 'revisiones': live.set({ reviews: m.board }); break;
       case 'limites': live.set({ planLimits: m.limits }); break;
       case 'notificaciones': live.set({ notifications: m.list }); break;
       case 'eventos': live.set({ events: m.list }); break;

@@ -8,6 +8,7 @@ import { cwdBeforeRelocation, lastActivity, projectFolder } from './repos.ts';
 import { mcpReview } from './compare.ts';
 import { SELF_GATED } from './mcpServers.ts';
 import { mergeOf } from '../shared/preflight.ts';
+import { reviewPostOf } from '../shared/reviews.ts';
 import { COMPACT_URGE } from '../shared/compact.ts';
 import { handMadeWorktree, newWorktreeOf, taskWorktreeIn, worktreeTask, ghCreateOf, githubRepoOf, isOriginalRepo, ORIGINAL_REPO } from '../shared/tasks.ts';
 import { gh } from './git.ts';
@@ -300,6 +301,9 @@ export class Sessions extends EventEmitter {
         // holds in every permission mode
         PreToolUse: [
           { matcher: 'Bash', hooks: [async (h: any) => this.mergeGate(x, String(h?.tool_input?.command ?? ''))] },
+          // posting on a PR (a review, a comment, a reply) always asks the Overseer first, from any conversation: the Review
+          // room's dwellers draft reviews, never publish them on their own
+          { matcher: 'Bash', hooks: [async (h: any) => this.reviewGate(x, String(h?.tool_input?.command ?? ''))] },
           // worktrees come from send_to_room with a task key: `git worktree add` from a main copy is denied. One task,
           // one worktree: creating another for a task that already has one is denied, with the path of the one it has
           { matcher: 'Bash', hooks: [async (h: any) => {
@@ -347,6 +351,13 @@ export class Sessions extends EventEmitter {
     }
     if (!repo || !isOriginalRepo(repo)) return {};
     return { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'ask', permissionDecisionReason: t('server.originalRepoNobodyReads', { repo: ORIGINAL_REPO }) } };
+  }
+
+  private async reviewGate(x: Session, cmd: string): Promise<Record<string, unknown>> {
+    const post = reviewPostOf(cmd);
+    if (!post) return {};
+    if (await this.confirm(x, t('server.reviewPostTitle'), [{ type: 'codigo', text: cmd, language: 'bash' }])) return {};
+    return { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: t('server.reviewPostDenied') } };
   }
 
   private async mergeGate(x: Session, cmd: string): Promise<Record<string, unknown>> {

@@ -29,6 +29,19 @@ describe('estado guardado', () => {
     s.reposRoot = '/tmp/otros'; ensureFolders(s);
     expect(s.rooms.find(x => x.id === 'tareas')!.path).toBe('/tmp/otros');
   });
+  it('the Review room joins a saved shelter next to Communications, with its dweller, also with a hand-made layout', () => {
+    for (const byHand of [false, true]) {
+      const old: any = initialState();
+      old.rooms = old.rooms.filter((s: any) => s.id !== 'review');
+      if (byHand) old.rooms = moveFloor(old.rooms, 1, 2);
+      old.dwellers = old.dwellers.filter((h: any) => h.roomId !== 'review');
+      const s = sanitize(old);
+      expect(addRoomsOfService(s)).toBe(true);
+      const com = s.rooms.find(x => x.id === 'comunicaciones')!, rev = s.rooms.find(x => x.id === 'review')!;
+      expect(rev).toMatchObject({ type: 'review', name: 'Revisión', floor: com.floor, side: com.side, orden: com.orden + 1 });
+      expect(new Set(s.rooms.map(x => `${x.floor}${x.side}${x.orden}`)).size).toBe(s.rooms.length);
+    }
+  });
   it('una disposición movida a mano en el plano se conserva al cargar', () => {
     const e: any = initialState();
     e.rooms = moveFloor(e.rooms, 1, 2);

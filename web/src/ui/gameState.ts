@@ -7,7 +7,8 @@ export type DwellerState = 'durmiendo' | 'ocioso' | 'pensando' | 'trabajando' | 
 export interface DwellerSummary { id: string; name: string; nickname: string; type: string; bio: string; room: string; nameRoom: string; path?: string; folder?: string; state: DwellerState; detail?: string; sessionId?: string; robot?: boolean; copy?: CopyData }
 
 // una copia holográfica (worktree) habla con su propio intercomunicador; trabaja como su autor, dentro del worktree
-export interface CopyData { path: string; branch: string; authorId: string; nameAuthor: string; nicknameAuthor: string; changes: number; advanced: number }
+import type { ReviewCopy } from '@shared/protocol';
+export interface CopyData { path: string; branch: string; authorId: string; nameAuthor: string; nicknameAuthor: string; changes: number; advanced: number; review?: ReviewCopy }
 
 export interface StateUI {
   shelter: string;
@@ -24,7 +25,7 @@ export interface StateUI {
   workIn: { cwd: string; branch: string } | null;   // empezar el próximo trabajo dentro de un worktree
 }
 
-export type Panel = 'plano' | 'ocupados' | 'ayuda' | 'opciones' | 'menu' | 'salir' | 'camara' | 'puerta' | 'inventario' | 'cuaderno' | 'comunicaciones' | 'planificacion' | 'logistica' | 'galeria' | 'hidroponia' | 'bienvenida' | 'despedida' | 'reiniciar' | 'radio' | 'expedicion' | 'sala' | 'generador' | 'terminal' | 'worktree' | 'visitante' | 'git' | 'spotify' | 'chapa' | 'organizar';
+export type Panel = 'plano' | 'ocupados' | 'ayuda' | 'opciones' | 'menu' | 'salir' | 'camara' | 'puerta' | 'inventario' | 'cuaderno' | 'comunicaciones' | 'planificacion' | 'logistica' | 'galeria' | 'hidroponia' | 'bienvenida' | 'despedida' | 'reiniciar' | 'radio' | 'expedicion' | 'sala' | 'generador' | 'terminal' | 'worktree' | 'visitante' | 'git' | 'spotify' | 'chapa' | 'organizar' | 'revision';
 
 export const juego = new Store<StateUI>({
   shelter: GAME_NAME, scrap: 0, dwellers: [], copies: [], unseenNotifications: 0,

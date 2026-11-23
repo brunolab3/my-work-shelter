@@ -71,13 +71,15 @@ export async function leftovers(git: (cwd: string, args: string[]) => Promise<st
 export const scheduledIn = (list: ScheduledMessage[], room: RoomCleanup, w: InfoWorktree) =>
   list.filter(x => { const p = placeOf(x, room.worktrees); return p.roomId === room.id && !!p.worktree && path.resolve(p.worktree) === path.resolve(w.path); });
 
-/** Open conversations whose worktree (.claude/worktrees/<name>) no longer exists, merged and removed by hand or by a
+/** Open conversations whose worktree (.claude/worktrees/<name>, or a review's folder under `reviewsRoot`) no longer exists, merged and removed by hand or by a
  *  session: they close like any other, so their hologram goes with them. Only idle and read ones, and none in use in the
  *  intercom (`used`: on screen, or with something typed or attached); the rest keep their hologram until then */
-export function orphanedConversations(sessions: SessionSummary[], used: Set<string>, exists: (filePath: string) => boolean): string[] {
+export function orphanedConversations(sessions: SessionSummary[], used: Set<string>, exists: (filePath: string) => boolean, reviewsRoot?: string): string[] {
+  const review = reviewsRoot && new RegExp('^(' + path.resolve(reviewsRoot).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '/[^/]+)');
   return sessions.filter(s => {
     if (!['terminada', 'ociosa', 'error'].includes(s.state) || s.unread || used.has(s.id)) return false;
-    const root = /^(.*\/\.claude\/worktrees\/[^/]+)/.exec(s.worktree ?? s.cwd)?.[1];
+    // a retired review's folder (server/reviewRoom.ts) goes the same way
+    const root = /^(.*\/\.claude\/worktrees\/[^/]+)/.exec(s.worktree ?? s.cwd)?.[1] ?? (review ? review.exec(s.worktree ?? s.cwd)?.[1] : undefined);
     return !!root && !exists(root);
   }).map(s => s.id);
 }

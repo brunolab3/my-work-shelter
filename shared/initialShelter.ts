@@ -4,7 +4,7 @@
 import { tonesForRepeated } from './recruits.ts';
 import type { Look } from './appearance.ts';
 import { distribute, PLANNING_ROOM } from './layout.ts';
-export interface InitialRoom { id: string; type: 'repo' | 'coordinacion' | 'comunicaciones' | 'planificacion' | 'logistica' | 'git' | 'puente' | 'camara' | 'puerta' | 'hidroponia' | 'galeria' | 'discoteca' | 'chapa'; name: string; floor: number; side: 'izq' | 'der'; orden: number; variant: string; style?: string }
+export interface InitialRoom { id: string; type: 'repo' | 'coordinacion' | 'comunicaciones' | 'planificacion' | 'logistica' | 'git' | 'puente' | 'camara' | 'puerta' | 'hidroponia' | 'galeria' | 'discoteca' | 'chapa' | 'review'; name: string; floor: number; side: 'izq' | 'der'; orden: number; variant: string; style?: string }
 export interface InitialDweller { id: string; name: string; nickname: string; type: string; bio: string; roomId: string; voice: number; tint?: string; tone?: number; look?: Look }
 
 // el sitio de cada sala (planta, lado, orden) lo decide `distribuir`: aquí solo qué salas hay
@@ -18,6 +18,8 @@ export const INITIAL_ROOMS: InitialRoom[] = distribute<Omit<InitialRoom, 'floor'
   { id: 'logistica', type: 'logistica', name: 'Planificación', variant: 'logistica' },
   // git y GitHub: el cliente de git del refugio para todos los repos, la matriz de contribuciones y los pull requests
   { id: 'git', type: 'git', name: 'Control de Versiones', variant: 'logistica' },
+  // others' PRs that ask for the Overseer's review: one hologram and conversation per task, in worktrees of its own
+  { id: 'review', type: 'review', name: 'Revisión', variant: 'logistica' },
   // planificar tareas de Jira con todos los repos a la vista y repartirlas por salas (tipo 'coordinacion'): su carpeta es
   // la raíz de repos del refugio (la de la cámara acorazada; el servidor la pone)
   { id: PLANNING_ROOM, type: 'coordinacion', name: 'Logística', variant: 'logistica' },
@@ -35,7 +37,7 @@ export const ROOM_SUPERVISOR = 'logistica';
 /** Qué es cada sala especial (por tipo): se lee en el plano y, en mayúsculas, bajo el nombre del cartel */
 export const ROOM_DESCRIPTION: Record<string, string> = {
   puerta: 'Control de acceso', camara: 'Credenciales, llaves y secretos', puente: 'Código del refugio',
-  comunicaciones: 'Email y chats', planificacion: 'Calendario y agenda', logistica: 'Gestión de tableros', git: 'Git y GitHub',
+  comunicaciones: 'Email y chats', planificacion: 'Calendario y agenda', logistica: 'Gestión de tableros', git: 'Git y GitHub', review: 'PR que esperan tu revisión',
   hidroponia: 'Cultivos', galeria: 'Tiro al blanco', discoteca: 'Música para currar', chapa: 'Barbería y ropería', coordinacion: 'Planificar y repartir tareas',
 };
 
@@ -54,6 +56,7 @@ export const INITIAL_DWELLERS: InitialDweller[] = tonesForRepeated([
   H('calixto', 'Calixto', 'Reunión Que Pudo Ser Un Correo', 'Engineer', 'planificacion', 'Tiene el calendario más ordenado del refugio y ningún hueco libre.', 120),
   H('mona', 'Octocat', 'La Octogata', 'Octocat', 'git', 'Mitad gata, mitad pulpo, toda control de versiones. Con un tentáculo prepara, con otro hace commit y con un tercero ya está haciendo push. Lleva la cuenta de sus contribuciones y no consiente un force push a main.', 205),
   H('ines', 'Inés', 'Divide y Vencerás', 'SpaceRanger', PLANNING_ROOM, 'Parte cualquier tarea en trozos que caben en un repo cada uno. Antes de tocar una línea quiere saber qué repos se enteran.', 160),
+  H('lupe', 'Lupe', 'Lupa en Mano', 'Protagonist_A', 'review', 'Lee los PR de los demás línea a línea y con el ticket al lado. Nunca publica un comentario sin que lo firmes tú.', 175),
   H('cmd', 'CM-4', 'Comandante de Tickets', 'Clanker', 'logistica', 'Robot pesado reconvertido. Mueve issues como antes movía chatarra.', 90),
   H('fermin', 'Fermín', 'Refactor Eterno', 'Hiker', 'hidroponia', 'Fue el bedel del refugio hasta que llegó el Arquitecto. Ahora riega lechugas y sigue diciendo que el refugio se mantiene solo. Sigue mintiendo.', 115),
   H('guardian', 'Guardián', 'Portero', '4GTN', 'puerta', 'Vigila la puerta. No deja pasar a nadie sin un package.json.', 80, LOOK_GUARDIAN),

@@ -18,6 +18,7 @@ import { furnishFileMark } from './brand';
 import { furnishProjection } from './video';
 import { furnishCommunications, furnishPlanning, furnishLogistics } from './operations';
 import { furnishDeployment } from './deploy';
+import { furnishReview } from './review';
 import { furnishGate } from './service';
 import { furnishCamera } from './vault';
 import { furnishBridge } from './bridge';
@@ -88,6 +89,7 @@ async function furnished(sec: SavedRoom): Promise<{ f: Furnish; panels?: string[
     case 'galeria': return { f: furnishGallery, panels: ['Wall_5', 'Wall_5', 'Wall_5'] };
     case 'discoteca': return { f: furnishDisco, panels: ['Wall_5', 'Wall_1', 'Wall_5'] };
     case 'chapa': return { f: furnishBodyshop, panels: ['Wall_1', 'Wall_3', 'Wall_1'] };
+    case 'review': return { f: furnishReview, panels: ['Wall_5', 'Wall_3', 'Wall_5'], light: 0.9 };
     default: return { f: furnishWebWorkshop };
   }
 }
@@ -139,11 +141,13 @@ const INTERACTIVE: Record<string, Interactive[]> = {
   hidroponia: [{ id: 'cultivos', x: -1.7, z: 1.3, text: 'Cuidar los cultivos', panel: 'hidroponia' }],
   discoteca: [{ id: 'cabina', x: 0, z: 1.0, text: 'Cabina del DJ: poner música en Spotify', panel: 'spotify' }],
   chapa: [{ id: 'sillon', x: -1.2, z: 1.0, text: 'Sentarse en el sillón: cambiar de aspecto', panel: 'chapa' }],
+  // the room panel and the board, from the screen (or from the corner by the reading table)
+  review: [{ id: 'panel', x: 0, z: 0, text: 'Panel de la sala', panel: 'sala' }, { id: 'revisiones', x: 2.6, z: 1.15, text: 'PR que esperan tu revisión', panel: 'revision' }],
   puente: [{ id: 'generador', x: -3.9, z: 1.1, text: 'Reparar el núcleo de energía', panel: 'generador' }, { id: 'panel', x: 0, z: 0, text: 'Panel de la sala', panel: 'sala' }],
 };
 
 // the stock planning room: the room panel and the deployment screen (from the right-hand console)
 const DEPLOYMENT: Interactive[] = [{ id: 'panel', x: 0, z: 0, text: 'Panel de la sala', panel: 'sala' }, { id: 'despliegue', x: 2.75, z: 1.15, text: 'Plan de despliegue', panel: 'sala', view: 'despliegue' }];
 
-const CODE: Record<string, string> = { comunicaciones: 'CO', planificacion: 'PL', logistica: 'LG', git: 'CV', puente: 'PM', camara: 'CA', puerta: 'PP', hidroponia: 'HI', galeria: 'GT', discoteca: 'DJ', chapa: 'CP' };
+const CODE: Record<string, string> = { comunicaciones: 'CO', planificacion: 'PL', logistica: 'LG', git: 'CV', puente: 'PM', camara: 'CA', puerta: 'PP', hidroponia: 'HI', galeria: 'GT', discoteca: 'DJ', chapa: 'CP', review: 'RV' };
 

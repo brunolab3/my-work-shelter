@@ -22,7 +22,7 @@ export const SCALE_KAYKIT = 0.8; // mobiliario KayKit a la escala de los persona
 export const CHARACTER_HEIGHT = 1.85;
 export const FRAME = 0.45;        // pilares del corte
 
-export type RoomType = 'repo' | 'coordinacion' | 'comunicaciones' | 'planificacion' | 'logistica' | 'git' | 'puente' | 'camara' | 'puerta' | 'hidroponia' | 'galeria' | 'discoteca' | 'chapa';
+export type RoomType = 'repo' | 'coordinacion' | 'comunicaciones' | 'planificacion' | 'logistica' | 'git' | 'puente' | 'camara' | 'puerta' | 'hidroponia' | 'galeria' | 'discoteca' | 'chapa' | 'review';
 export type RoomState = 'sin-sesion' | 'ociosa' | 'trabajando' | 'esperando' | 'alerta' | 'error' | 'terminada';
 
 export interface RoomPoint {

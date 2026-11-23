@@ -47,6 +47,12 @@ export function roomStyle(filePath: string, type: string): 'web' | 'video' | 'ma
   return 'generico';
 }
 
+// Worktrees that belong to no repo room: the Review room's (server/reviewRoom.ts) live under its folder and are left out
+// of every room's list (holograms, task board, task cleanup, one worktree per task)
+let hiddenUnder: string[] = [];
+export const hideWorktreesUnder = (dirs: string[]) => { hiddenUnder = dirs.map(d => path.resolve(d) + path.sep); };
+const hidden = (p: string) => hiddenUnder.some(d => (path.resolve(p) + path.sep).startsWith(d));
+
 // solo la lista (ruta, rama, principal), sin `git status`: al momento aunque el repo sea enorme (los visitantes)
 export async function worktreeList(filePath: string): Promise<InfoWorktree[]> {
   const out = await git(filePath, ['worktree', 'list', '--porcelain']);
@@ -58,7 +64,7 @@ export async function worktreeList(filePath: string): Promise<InfoWorktree[]> {
     else if (l === 'detached' && current) current.branch = t('server.noBranch');
   }
   if (current?.path) list.push(current as InfoWorktree);
-  return list;
+  return list.filter(w => w.main || !hidden(w.path));
 }
 
 export const hasBranch = async (filePath: string, branch: string) => !!(await git(filePath, ['rev-parse', '--verify', '--quiet', `refs/heads/${branch}`])).trim();

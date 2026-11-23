@@ -22,10 +22,10 @@ import { SFX } from '../audio/sound';
 import { SHOP } from '@shared/catalog';
 import { t, tIs } from '@shared/language';
 import type { InfoWorktree, SessionSummary } from '@shared/protocol';
-import { taskColor, hasTaskColor, worktreeTask, assignedEpics, NO_TASK_COLOR } from '@shared/tasks';
+import { taskColor, hasTaskColor, assignedEpics, NO_TASK_COLOR } from '@shared/tasks';
 import { jiraBoard, knowTasks, taskEpic, verificationMark, versionColors } from '../ui/tasks';
 import type { DwellerState, DwellerSummary } from '../ui/gameState';
-import { idCopy, branchCaption, copyCaption, pathWorktree } from '../ui/copies';
+import { idCopy, branchCaption, copyCaption, copyTask, pathWorktree } from '../ui/copies';
 import { epicOrder, holoSlot } from './copySpot';
 
 const MAX_BY_ROOM = 30;   // alto a propósito: son intangibles, si no caben se solapan sin estorbar
@@ -546,7 +546,7 @@ export class Holograms {
   // cada copia, del color de la tarea que trabaja (el mismo que en los tableros): de un vistazo se ve qué tarea tiene
   // sesiones en qué sala
   private taskTone(f: Copy) {
-    const t = worktreeTask(f.w), v = versionColors.get().v;
+    const t = copyTask(f.w), v = versionColors.get().v;
     if (t === f.task && f.versionTone === v) return;
     if (t !== f.task) knowTasks([t]);
     f.task = t; f.versionTone = v; f.tone = holoTone(t);
@@ -560,7 +560,7 @@ export class Holograms {
         bio: t('world.holoCopyBio', { nombre: name, mote: tIs(a?.nickname ?? ''), rama: f.w.branch || f.path }),
         room: f.room.id, nameRoom: f.room.name, path: f.path, folder: f.path, state: f.ready ? f.state : 'ocioso', detail: f.detail, sessionId: f.sessionId,
         robot: author?.p.look?.especie === 'robot',
-        copy: { path: f.path, branch: f.w.branch, authorId: f.authorId, nameAuthor: name, nicknameAuthor: a?.nickname ?? '', changes: f.w.changes, advanced: f.w.advanced },
+        copy: { path: f.path, branch: f.w.branch, authorId: f.authorId, nameAuthor: name, nicknameAuthor: a?.nickname ?? '', changes: f.w.changes, advanced: f.w.advanced, ...(f.w.review ? { review: f.w.review } : {}) },
       };
     });
   }

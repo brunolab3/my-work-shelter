@@ -57,7 +57,7 @@ describe('disposición a mano (obras desde el plano)', () => {
   it('en un hueco libre al final de otra planta, queda pegada a la última sala de ese lado', () => {
     const a = placeRoom(base, 'git', { floor: 3, side: 'der', orden: 5 })!;
     expect(en(a, 'git')).toBe('3der2');
-    expect(a.filter(s => s.floor === 2)).toHaveLength(4);
+    expect(a.filter(s => s.floor === 2)).toHaveLength(5);
     unique(a);
   });
   it('en una franja entre plantas abre una planta nueva y las de debajo bajan una', () => {

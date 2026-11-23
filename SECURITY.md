@@ -23,7 +23,11 @@ It is designed as a local application for a single person on their Mac:
 
 - **Read-only outwards**, with one exception list. The only external writes are: Linear, from the Planning dweller's
   conversation with the official MCP; git push, pull and fetch from the git client, only with the Overseer's button
-  (and a dweller's own `git push`, which goes through the permission dialog and the pre-flight gate); a Jira status
+  (and a dweller's own `git push`, which goes through the permission dialog and the pre-flight gate); a dweller's own
+  post on a PR (`gh pr review`, `gh pr comment`, `gh api` writes to a PR's reviews or comments, GraphQL mutations), which
+  always asks the Overseer first, in every permission mode (`reviewGate` in `server/sessions.ts`; the Review room's
+  dwellers draft reviews, never publish them by themselves; the game itself only reads, plus `git fetch` of the PRs to
+  review); a Jira status
   transition, when the Overseer drags a card on the Jira board and confirms it in the game, or clicks «Move to done» in a
   verified task's pre-flight (only one of the transitions Jira's workflow offers for that issue, re-checked before the
   single `POST /rest/api/3/issue/{key}/transitions`; no dweller tool can do it); and the Slack remote control below, which sends approval requests (secrets masked) and
