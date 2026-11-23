@@ -1188,7 +1188,7 @@ function ScheduledMenu({ h, s, resume }: { h: DwellerSummary; s?: SessionSummary
             <span className="tenue">{target(x)}</span>
             <span className="pagina-nombre">{x.message.replace(/\s+/g, ' ')}</span>
             <button className="consola-x" title={t('windows.scheduledEdit')} onClick={() => setEditing({ id: x.id, when: x.nextWindow ? '' : localInput(x.when), message: x.message })}>✎</button>
-            {x.nextWindow && <button className="consola-x" title={t('windows.scheduledSendNow')} onClick={() => sendNow(x)}>▶</button>}
+            {(x.nextWindow || x.overLimit) && <button className="consola-x" title={t('windows.scheduledSendNow')} onClick={() => sendNow(x)}>▶</button>}
             <button className="consola-x" title={t('windows.scheduledCancel')} onClick={() => cancel(x)}>✕</button>
           </li>}</Fragment>)}</ul>}
     </span>

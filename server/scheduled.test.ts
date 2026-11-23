@@ -47,13 +47,13 @@ describe('mensajes programados: fechas', () => {
 
 // un contexto que apunta las entregas; `falla` hace que la conversación no se pueda retomar
 const SESS: SessionSummary = { id: 's1', dwellerId: 'remi', roomId: 'express', claudeId: 'c-111', cwd: '/r/express', worktree: '/r/wt/abc-1', state: 'trabajando', unread: false, title: 'ABC-1', pendingCount: 0, helpers: [], tools: 0, turns: 1, created: 0, updated: 0 } as SessionSummary;
-function ctx(timer: { t: number }, o: { fails?: boolean; usage?: UsageWindow } = {}) {
+function ctx(timer: { t: number }, o: { fails?: boolean; usage?: UsageWindow; self?: boolean } = {}) {
   const conversations: { claudeId?: string; cwd: string; text: string }[] = [], toRooms: { room: string; key?: string; text: string }[] = [], notices: string[] = [], changes: number[] = [];
   const c: CtxScheduled = {
     session: id => (id === SESS.id ? SESS : undefined),
     rooms: () => [{ id: 'express', name: 'app-web', dweller: {} }, { id: 'pagos', name: 'pagos', dweller: {} }, { id: 'vacia', name: 'vacía' }],
     toConversation: async (x, text) => { if (o.fails) throw new Error('sigue abierta fuera'); conversations.push({ claudeId: x.target.claudeId, cwd: x.target.cwd, text }); return 'nueva'; },
-    toRoom: async (x, text) => { toRooms.push({ room: x.target.room, key: x.target.key, text }); return { ok: true, text: 'ok' }; },
+    toRoom: async (x, text) => { if (o.self && x.target.key) return { ok: false, permanent: true, text: 'ya eres la conversación' }; toRooms.push({ room: x.target.room, key: x.target.key, text }); return { ok: true, text: 'ok' }; },
     changed: l => changes.push(l.length),
     notice: t => notices.push(t),
     now: () => timer.t,
@@ -227,5 +227,19 @@ describe('scheduled messages: the day\'s final 5-hour window', () => {
     expect(p.list()[0].nextWindow).toBeUndefined();
     p.edit(b.id, { when: 'next-window' });
     expect(p.list()[0]).toMatchObject({ nextWindow: true, when: L(13, 23) });
+  });
+});
+
+describe('mensajes programados: entrega fuera del límite', () => {
+  it('una entrega que nunca se podrá hacer (la propia conversación) se quita con aviso, sin retener las demás', async () => {
+    const timer = { t: NOW }, x = ctx(timer, { self: true });
+    const p = new Scheduled(mkdtempSync(path.join(tmpdir(), 'prog-')), x.c);
+    p.defer('express', 's1', { room: 'express', key: 'ABC-1', message: 'a' }, NOW - 2000);
+    p.defer('express', 's1', { room: 'express', message: 'b' }, NOW - 1000);
+    await p.sweep();
+    expect(p.list()).toEqual([]);
+    expect(x.notices).toHaveLength(1);
+    expect(x.notices[0]).toContain('a');
+    expect(x.toRooms).toEqual([{ room: 'express', key: undefined, text: expect.stringContaining('b') }]);
   });
 });

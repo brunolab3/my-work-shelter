@@ -26,7 +26,8 @@ export interface CtxScheduled {
   // la entrega: el id de la conversación que lo recibe (lanza un error si no se pudo: se reintenta)
   toConversation(x: ScheduledMessage & { target: Extract<ScheduledTarget, { type: 'conversacion' }> }, text: string): Promise<string>;
   // `limited`: still over send_to_room's per-minute limit, retried on the next round without a warning
-  toRoom(x: ScheduledMessage & { target: Extract<ScheduledTarget, { type: 'sala' }> }, text: string): Promise<{ ok: boolean; text: string; limited?: boolean }>;
+  // `permanent`: no later try can deliver it (the sender is the receiving conversation): dropped with a notice
+  toRoom(x: ScheduledMessage & { target: Extract<ScheduledTarget, { type: 'sala' }> }, text: string): Promise<{ ok: boolean; text: string; limited?: boolean; permanent?: boolean }>;
   // a sweep at that time (an over-limit message is due within the minute)
   wake?(at: number): void;
   changed(list: ScheduledMessage[]): void;
@@ -199,6 +200,7 @@ export class Scheduled {
       if (x.target.type === 'sala') {
         const r = await this.ctx.toRoom(x as any, this.text(x));
         if (!r.ok && r.limited) return false;
+        if (!r.ok && r.permanent) { this.ctx.notice(t('server.scheduledDropped', { resumen: summary(x.message), error: r.text.split('\n')[0].slice(0, 160) })); this.drop(x); return true; }
         if (!r.ok) error = r.text;
       }
       else await this.ctx.toConversation(x as any, this.text(x));
@@ -207,9 +209,10 @@ export class Scheduled {
       if (!this.failed.has(x.id)) { this.failed.add(x.id); this.ctx.notice(t('server.scheduledRetry', { resumen: summary(x.message), error: error.split('\n')[0].slice(0, 160) })); }
       return false;
     }
-    this.items = this.items.filter(y => y !== x); this.failed.delete(x.id); this.save();
+    this.drop(x);
     return true;
   }
+  private drop(x: ScheduledMessage) { this.items = this.items.filter(y => y !== x); this.failed.delete(x.id); this.save(); }
 
 }
 

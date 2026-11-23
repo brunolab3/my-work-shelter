@@ -85,7 +85,7 @@ const findRoom = (rooms: RoomInfo[], q: string) => { const k = q.trim().toLowerC
 /** `fromSession`: the conversation sending it (in its own room, it can't be the one receiving it). Over the per-minute
  *  limit, or behind other over-limit ones still waiting, it is scheduled for when the window frees up; `scheduled`: it is
  *  one of those, being delivered (`limited` if still over the limit, for the next round) */
-export async function sendToRoom(ctx: CtxRooms, since: string, { room, message, key: taskKeyOf, thread: requestedThread }: { room: string; message: string; key?: string; thread?: string }, fromSession?: string, o: { scheduled?: boolean } = {}): Promise<{ ok: boolean; text: string; limited?: boolean }> {
+export async function sendToRoom(ctx: CtxRooms, since: string, { room, message, key: taskKeyOf, thread: requestedThread }: { room: string; message: string; key?: string; thread?: string }, fromSession?: string, o: { scheduled?: boolean } = {}): Promise<{ ok: boolean; text: string; limited?: boolean; permanent?: boolean }> {
   const rooms = ctx.rooms();
   const origin = rooms.find(s => s.id === since), target = findRoom(rooms, room);
   if (!target) return { ok: false, text: tr('tool.rooms.noRoom', { sala: room, salas: rooms.map(s => `${s.id} (${s.name})`).join(', ') }) };
@@ -100,7 +100,8 @@ export async function sendToRoom(ctx: CtxRooms, since: string, { room, message, 
   const now = ctx.now?.() ?? Date.now(), pair = `${since}>${target.id}`;
   const recent = (sent.get(pair) ?? []).filter(x => now - x < WINDOW);
   const queued = o.scheduled ? [] : ctx.scheduled?.overLimit(since, target.id) ?? [];
-  if (recent.length >= LIMIT || queued.length) {
+  // the limit is between rooms: inside one room (a dweller handing work to its own holograms) nothing waits
+  if (!same && (recent.length >= LIMIT || queued.length)) {
     // the first time with fewer than LIMIT sends in the minute before it, counting the ones already waiting
     const times = [...recent, ...queued].sort((a, b) => a - b);
     const when = Math.max(now, times.length >= LIMIT ? times[times.length - LIMIT] + WINDOW : now);
@@ -127,7 +128,8 @@ export async function sendToRoom(ctx: CtxRooms, since: string, { room, message, 
   }
   const text = frame(k);
   const open = k ? ctx.sessionOfTask(target.id, k) : undefined;
-  if (same && open && open === fromSession) return { ok: false, text: tr('tool.rooms.ownConversation', { clave: k! }) };
+  // permanent: the sender is that conversation, so no later try can deliver it (a scheduled one is dropped, not retried)
+  if (same && open && open === fromSession) return { ok: false, permanent: true, text: tr('tool.rooms.ownConversation', { clave: k! }) };
   // a thread's conversation, while open and never the sender itself (sesiones.enviar queues it if it's busy)
   const ofThread = thread ? threads.get(`${target.id}/${thread}`) : undefined;
   if (how) { /* followed up or replied */ }
