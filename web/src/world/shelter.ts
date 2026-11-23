@@ -18,6 +18,7 @@ import { lookOf, lookSignature, type Look } from '@shared/appearance';
 import { Dweller, type Identity } from './dweller';
 import { TagsLayer, scheduledMark, queuedMark, flaggedMark } from './labels';
 import { Portrait } from './portrait';
+import { chatNudge } from './chatNudge';
 import { Elevator, ELEVATOR_WIDTH } from './elevator';
 import { LightsAssignment } from './lights';
 import { rockFace } from './rock';
@@ -593,41 +594,27 @@ export class Shelter {
   }
 
   // ---- cámara
-  // La rueda amplía hacia lo que hay bajo el ratón (el punto se queda donde está) y la cámara se queda ahí: deja de seguir
-  // al Supervisor hasta que él vuelva a moverse (o se cambie de sala o de vista)
-  private freeCamera = false;
-  // la cámara sigue al Supervisor cuando lo mueve quien juega (teclas); si anda solo (la ruta de un clic) se queda donde
-  // está y se puede arrastrar mientras camina, hasta que se le vuelva a mover a mano o se reencuadre la sala
+  // The camera moves only by hand: dragging, the wheel, walking with the keys (it follows the Overseer while they are
+  // pressed), travel from the map or a list, and the general view. A click route, an elevator ride, a chat or an event
+  // leaves it where it is, until the keys move the Overseer again or a room is framed
   private followsCamera = true;
-  private lastPosSup = new THREE.Vector3();
   private zoomToward(e: WheelEvent) {
     const r = this.motor.renderer.domElement.getBoundingClientRect();
     this.ray.setFromCamera(new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1), this.motor.camera);
     const p = this.ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 0, 1), 0), new THREE.Vector3());
-    // en una charla la rueda acerca o aleja su encuadre (que se recalcula en cada fotograma) hacia lo que hay bajo el
-    // ratón: lo que se corre va al desplazamiento, como lo arrastrado, y se queda hasta que el Supervisor ande
-    if (this.focused || this.copyFocused) {
-      const before = this.zoomChat;
-      this.zoomChat = THREE.MathUtils.clamp(before * Math.exp(e.deltaY * 0.0012), 0.45, 4);
-      if (!p) return;
-      const k = 1 - this.zoomChat / before, c = this.camara.goal.clone().add(this.camara.displacement);
-      this.camara.displacement.x += (p.x - c.x) * k;
-      this.camara.displacement.y += (p.y - c.y) * k;
-      return;
-    }
     const before = this.camara.distance;
     this.camara.zoom(e.deltaY);
     this.viewGeneral = this.camara.distance > this.distRoom * 2.2;
     if (this.mounted || this.activityMode || this.focus || !p) return;
-    // el centro de lo que se ve es el objetivo más lo arrastrado; lo que se corre va al desplazamiento, como en la charla
-    // (sin libre, el seguimiento movería el objetivo y la ampliación se iría del ratón)
+    // the centre of what is seen is the goal plus what was dragged; the shift goes to the displacement, and the camera
+    // stops following (following would move the goal and the zoom would slide away from the mouse)
     const k = 1 - this.camara.distance / before, c = this.camara.goal.clone().add(this.camara.displacement);
     this.camara.displacement.x += (p.x - c.x) * k;
     this.camara.displacement.y += (p.y - c.y) * k;
-    this.freeCamera = true;
+    this.followsCamera = false;
   }
   frameRoom(room: Room) {
-    this.freeCamera = false; this.followsCamera = true;
+    this.followsCamera = true;
     this.camara.frame(new THREE.Vector3(room.group.position.x, room.group.position.y + 2.0, 0), room.width + FRAME * 2 + 1.7, HEIGHT + SLAB * 2 + 0.4);
     this.distRoom = this.camara.distance;
   }
@@ -694,14 +681,6 @@ export class Shelter {
   }
 
   // quien hablaba vuelve a lo suyo (al cambiar de interlocutor sin cerrar el intercomunicador, o al cerrarlo)
-  // una charla nueva se encuadra de cero: lo alejado con la rueda en la anterior (hasta ver todo el refugio) y lo corrido
-  // hacia el ratón no se arrastran a la siguiente (con alguien de otra planta, el encuadre salía lejos y descolocado); se
-  // conserva solo un acercamiento moderado
-  private freshChatFrame() {
-    this.zoomChat = THREE.MathUtils.clamp(this.zoomChat, 0.45, 1);
-    this.camara.displacement.set(0, 0, 0);
-  }
-
   private dropChat() {
     if (this.copyFocused) { this.holograms.finishChat(this.copyFocused); this.copyFocused = null; }
     if (this.focused) { this.focused.waitingAfterChat = 3; this.focused.chatting = false; this.focused = null; }
@@ -713,14 +692,13 @@ export class Shelter {
     this.portrait?.destroy(); this.portrait = null;
     this.labels.root.style.display = '';
     Dweller.still = false;
-    if (this.currentRoom) this.frameRoom(this.currentRoom);
     if (h) { h.waitingAfterChat = 3; h.chatting = false; }
   }
 
   // con `andando` (un clic) la charla se abre ya y el Supervisor va hasta su sitio caminando mientras tanto
   interact(h: Dweller, walking = false) {
     SFX.open();
-    if (this.focused !== h) { this.dropChat(); this.freshChatFrame(); }
+    if (this.focused !== h) this.dropChat();
     // a quien duerme se le despierta: se levanta de la litera para hablar (de tumbado no hay retrato ni encuadre)
     if (h.state === 'durmiendo') { h.change('ocioso'); h.p.inRest = 'Idle_A'; h.p.play('Idle_A', 0.2); }
     this.focused = h; h.chatting = true;
@@ -743,43 +721,23 @@ export class Shelter {
       o.p.goA(dest, false); o.waitingAfterChat = 8;
     }
     this.supervisor.goalTurn = Math.atan2(h.pos.x - this.supervisor.root.position.x, h.pos.z - this.supervisor.root.position.z);
-    this.frameChat(h.p.root.position, h.room, true);
+    this.chatInView(h.p.root.position);
   }
 
-  /** Mientras dura una charla, la cámara sigue al interlocutor y lo deja en el centro de lo que el intercomunicador no
-   *  tapa (la ventana va a la derecha, pero se mide de verdad: puede cambiar de tamaño). De suelo a techo de su sala; si
-   *  hace falta enseñar algo de fuera de la sala para tenerlo a la vista, se enseña: lo importante es verle hacer. */
-  private chatFree = { f: 0.5, measured: -1 };
-  /** Zoom de la rueda sobre el encuadre de la charla (1: de suelo a techo); se queda de una charla a otra */
-  private zoomChat = 1;
-  private frameChat(pos: THREE.Vector3, room: Room, start = false) {
+  /** A chat leaves the camera where it is (and stops it following the Overseer): it only shifts, once, when the person
+   *  would be out of view or under the intercom. The intercom is measured if it is already up; if not, the usual right half. */
+  private chatInView(pos: THREE.Vector3) {
+    this.followsCamera = false;
     const cam = this.motor.camera, fabric = this.motor.renderer.domElement.getBoundingClientRect();
-    // lo que deja libre la ventana (medido cada cuarto de segundo: leer el DOM en cada fotograma fuerza el diseño)
-    if (start || this.timer - this.chatFree.measured > 0.25) {
-      this.chatFree.measured = this.timer;
-      const v = document.querySelector('.consola')?.getBoundingClientRect();
-      const left = v && v.width > 0 && v.width < fabric.width * 0.95 ? (v.left - fabric.left) / fabric.width : 1;
-      // sin ventana aún (se monta un instante después) se supone la de siempre: la mitad derecha
-      this.chatFree.f = THREE.MathUtils.clamp(v ? left : 0.5, 0.3, 1);
-    }
-    const f = this.chatFree.f;
-    const vFov = THREE.MathUtils.degToRad(cam.fov);
-    this.camara.frame(new THREE.Vector3(this.camara.goal.x, room.group.position.y + 1.9, 0), 9.6, 4.4);
-    this.camara.distance = THREE.MathUtils.clamp(this.camara.distance * this.zoomChat, this.camara.minDist * 0.45, this.camara.maxDist);
-    // media anchura vista a la profundidad del interlocutor
+    const v = document.querySelector('.consola')?.getBoundingClientRect();
+    const left = v && v.width > 0 && v.width < fabric.width * 0.95 ? (v.left - fabric.left) / fabric.width : 0.5;
+    const free = THREE.MathUtils.clamp(left, 0.3, 1);
+    // what is seen at the person's depth, around the goal plus what was dragged
     const prof = this.camara.distance * Math.cos(this.camara.elevation) - pos.z;
-    const hw = prof * Math.tan(vFov / 2) * cam.aspect;
-    // el centro del par (interlocutor y Supervisor, más peso al interlocutor) en el centro del hueco libre
-    const sp = this.supervisor.root.position;
-    const focus = Math.abs(sp.y - pos.y) < 1 ? pos.x * 0.7 + sp.x * 0.3 : pos.x;
-    let mx = focus + hw - f * hw;
-    // a ser posible, sin salirse de la sala por la izquierda ni por lo que se ve a la derecha del hueco libre
-    const L = room.group.position.x - room.width / 2 - FRAME, Rr = room.group.position.x + room.width / 2 + FRAME;
-    const minRoom = L + hw, maxRoom = Rr + hw - 2 * hw * f;
-    if (minRoom <= maxRoom) mx = THREE.MathUtils.clamp(mx, minRoom, maxRoom);
-    // pero el interlocutor siempre dentro del hueco libre, con margen
-    mx = THREE.MathUtils.clamp(mx, pos.x + hw - 1.3 * hw * f, pos.x + hw - 0.7 * hw * f);   // entre el 35 % y el 65 % del hueco
-    this.camara.goal.x = mx;
+    const hh = prof * Math.tan(THREE.MathUtils.degToRad(cam.fov) / 2);
+    const c = this.camara.goal.clone().add(this.camara.displacement);
+    const n = chatNudge({ cx: c.x, cy: c.y, hw: hh * cam.aspect, hh, free }, pos.x, pos.y + 0.9);
+    this.camara.goal.x += n.x; this.camara.goal.y += n.y;
   }
 
   // el Supervisor camina hasta su sitio en la charla ya abierta y, al llegar, se vuelve hacia su interlocutor
@@ -790,7 +748,7 @@ export class Shelter {
   // hablar con una copia holográfica: su propio intercomunicador, con su retrato en holograma
   interactCopy(f: Copy, walking = false) {
     SFX.open();
-    if (this.copyFocused !== f) { this.dropChat(); this.freshChatFrame(); }
+    if (this.copyFocused !== f) this.dropChat();
     this.copyFocused = f;
     this.portrait?.destroy(); this.portrait = new Portrait(f.p, 220, 260, true);
     (window as any).__portrait = this.portrait.canvas;
@@ -810,7 +768,7 @@ export class Shelter {
     }
     this.supervisor.goalTurn = Math.atan2(fp.x - sp.x, fp.z - sp.z);
     juego.set({ talkingWith: idCopy(f.path), hint: null });
-    this.frameChat(fp, room, true);
+    this.chatInView(fp);
   }
 
   useDevice(room: Room, it: Interactive, view?: string, here = true) {
@@ -1223,14 +1181,11 @@ export class Shelter {
     this.labels.root.style.visibility = covered ? 'hidden' : '';
     if (!covered) this.labels.update(this.motor.camera, items);
     // cámara
-    if (this.focus && this.focus.until < this.timer) { this.focus = null; if (this.currentRoom) this.frameRoom(this.currentRoom); }
+    // an event's framing (a room being dug, a recruit) stays where it ends: nothing re-frames by itself
+    if (this.focus && this.focus.until < this.timer) this.focus = null;
     if (this.focus && !this.focused && !this.copyFocused) { this.camara.goal.x = this.focus.x; this.camara.goal.y = this.focus.y + 2.0; }
-    else if (this.copyFocused) this.frameChat(this.copyFocused.p.root.position, this.copyFocused.room);
-    else if (this.focused) this.frameChat(this.focused.p.root.position, this.focused.room);
-    else if (this.mounted) { this.camara.goal.x = 0; this.camara.goal.y = sp.y + 2; }
-    else if (this.activityMode) { /* la actividad fija el encuadre */ }
-    else if (!this.followsCamera) { /* anda solo: la cámara se queda donde está */ }
-    else if (this.freeCamera) { if (sp.distanceToSquared(this.lastPosSup) > 1e-4) this.freeCamera = false; }   // ampliada en otro sitio: hasta que él se mueva
+    else if (this.focused || this.copyFocused || this.activityMode || !this.followsCamera) { /* the camera stays where it is */ }
+    else if (this.mounted) { this.camara.goal.x = 0; this.camara.goal.y = sp.y + 2; }   // a ride called with the keys
     else if (!this.viewGeneral && this.currentRoom) {
       // la cámara sigue al Supervisor (también por el rellano y de una sala a otra)
       const near = this.camara.distance < this.distRoom * 0.8;
@@ -1238,10 +1193,8 @@ export class Shelter {
       this.camara.goal.x = sp.x;
       this.camara.goal.y = s.group.position.y + (near ? 1.6 : 2.0);
     }
-    // lo movido a mano arrastrando vuelve solo al encuadre en cuanto se mueve al Supervisor o sube al ascensor; con una charla
-    // abierta se queda donde se deje (la cámara se mueve igual con el intercomunicador abierto que cerrado)
-    if (!this.cameraDragging() && ((this.supervisor.inMovement && this.followsCamera) || this.mounted || this.focus || this.activityMode)) this.camara.displacement.multiplyScalar(Math.exp(-dt * 4));
-    this.lastPosSup.copy(sp);
+    // what was dragged goes back to the framing only when the keys walk the Overseer (or ride the elevator)
+    if (!this.cameraDragging() && (((this.supervisor.inMovement || this.mounted) && this.followsCamera) || this.focus || this.activityMode)) this.camara.displacement.multiplyScalar(Math.exp(-dt * 4));
     this.camara.update(dt);
     this.sky?.update(dt);
     // la sombra del sol y las luces dinámicas siguen al encuadre
