@@ -164,20 +164,35 @@ const prBlockers = new BlockersPR(DATA);
 const taskColors = new TasksColors(DATA);
 const ctxPlan: Pick<CtxAssignment, 'plans' | 'notify' | 'messenger' | 'sessionOfTask'> = {
   plans,
-  // `origin`: who sent it, shown with it in the intercom (the game itself unless said: PR reviews, CI failures, plans)
-  notify: (id: string, text: string, origin: MessageOrigin = { kind: 'game' }) => { try { if (sessions.list().find(s => s.id === id)?.state === 'cerrada') return false; sessions.deliver(id, text, origin); return true; } catch { return false; } },
+  // `origin`: who sent it, shown with it in the intercom (the game itself unless said: PR reviews, CI failures, plans). To
+  // a busy conversation it waits in the scheduled list until its turn ends (never taken mid-turn, where it would
+  // derail what it was doing), then starts a turn of its own; `fromSession`: the conversation that wrote it
+  notify: (id: string, text: string, origin: MessageOrigin = { kind: 'game' }, fromSession?: string) => {
+    try {
+      const s = sessions.list().find(x => x.id === id);
+      if (!s || s.state === 'cerrada') return false;
+      if (busyState(s.state)) {
+        const sender = fromSession ? sessions.list().find(x => x.id === fromSession) : undefined;
+        scheduled.hold({ roomId: s.roomId, sessionId: s.id, claudeId: s.claudeId, cwd: path.resolve(s.worktree ?? s.cwd), title: s.title }, text, origin,
+          origin.kind === 'room' ? { roomId: origin.roomId, sessionId: sender?.id, claudeId: sender?.claudeId } : { roomId: s.roomId });
+        return true;
+      }
+      sessions.deliver(id, text, origin); return true;
+    } catch { return false; }
+  },
   sessionOfTask: (roomId, key) =>
     sessions.list().filter(s => s.roomId === roomId && s.state !== 'cerrada' && worktreeHasTask({ path: s.worktree ?? s.cwd }, key)).sort((a, b) => b.updated - a.updated)[0]?.id,
   messenger: (since, a, reason) => broadcast({ t: 'mensajero', since, a, reason }),
 };
 // mensajes entre salas (roomNotices.ts): a la conversación de la tarea o a una nueva con el habitante, en automático
+const busyState = (state?: string) => ['arrancando', 'trabajando', 'esperando'].includes(state ?? '');
 const ctxRooms: CtxRooms = {
   rooms: () => store.state.rooms.map(s => { const h = store.state.dwellers.find(x => x.roomId === s.id); return { id: s.id, name: roomNameIs(s), dweller: h && { id: h.id, name: h.name } }; }),
   sessionOfTask: (roomId, key) => ctxPlan.sessionOfTask!(roomId, key),
   // de git al momento: un worktree recién creado (por otra conversación) aún no está en `repos`, que se repasa cada 20 s
   worktreeOfTask: async (roomId, key) => { const s = store.state.rooms.find(x => x.id === roomId); return s ? taskWorktree(await worktreeList(folderOf(s)), key) : undefined; },
-  notify: (id, text, origin) => ctxPlan.notify(id, text, origin),
-  busy: id => ['arrancando', 'trabajando', 'esperando'].includes(sessions.list().find(s => s.id === id)?.state ?? ''),
+  notify: (id, text, origin, fromSession) => ctxPlan.notify(id, text, origin, fromSession),
+  busy: id => busyState(sessions.list().find(s => s.id === id)?.state),
   resume: (roomId, cwd, prompt) => resumeInFolder(roomId, cwd, prompt, 'auto'),
   start: async (roomId, dwellerId, prompt, where) => {
     const m: Extract<ClientMessage, { t: 'empezar' }> = { t: 'empezar', dwellerId, roomId, prompt, options: { cwd: where?.cwd, worktree: where?.worktree, permissions: 'auto' } };
@@ -186,7 +201,6 @@ const ctxRooms: CtxRooms = {
     if (m.options.worktree) refreshReposSoon();
     return { id, inWorktree: !!(where?.cwd || m.options.worktree) };
   },
-  messenger: (since, a, reason) => ctxPlan.messenger(since, a, reason),
   delivery: (room, a) => broadcast({ t: 'entrega', room, ...a }),
   notice: text => broadcast({ t: 'aviso', level: 'info', text }),
   scheduled: { schedule: (...a) => scheduled.schedule(...a), ofConversation: id => scheduled.ofConversation(id), defer: (...a) => scheduled.defer(...a), overLimit: (...a) => scheduled.overLimit(...a), cancel: (id, since) => scheduled.cancel(id, since) },
@@ -260,6 +274,8 @@ function pathWorktree(cwd: string) {
 let timerRepos: NodeJS.Timeout | null = null;
 function refreshReposSoon() { if (timerRepos) return; timerRepos = setTimeout(() => { timerRepos = null; refreshRepos().catch(() => {}); }, 400); }
 sessions.on('sesion', () => aimOpen());
+// a turn ended: what waited for it in the scheduled list goes out (scheduled.ts: hold)
+sessions.on('sesion', (s: SessionSummary) => { if (!busyState(s.state)) scheduled.turnEnded({ sessionId: s.id, claudeId: s.claudeId }); });
 // lo que pide aprobación, también al móvil (y su mensaje se recoge en cuanto se responde, aquí o allí)
 sessions.on('sesion', s => { slackRemote.request(s).catch(() => {}); });
 sessions.on('entradas', (sid, entries) => broadcast({ t: 'entradas', sessionId: sid, entries }));
@@ -594,20 +610,24 @@ setInterval(() => { ciFailures.poll().catch(err => console.error('Fallos de CI:'
 // en modo plan) o a su sala como send_to_room. El primer repaso, cuando ya se han leído los worktrees de las salas
 const scheduled: Scheduled = new Scheduled(DATA, {
   session: id => sessions.list().find(s => s.id === id),
+  busy: d => busyState(sessions.list().find(s => s.state !== 'cerrada' && ((d.sessionId && s.id === d.sessionId) || (d.claudeId && s.claudeId === d.claudeId)))?.state),
   rooms: () => ctxRooms.rooms(),
   toConversation: async (x, text) => {
     const d = x.target;
     const open = sessions.list().find(s => s.state !== 'cerrada' && ((d.claudeId && s.claudeId === d.claudeId) || (!d.claudeId && s.id === d.sessionId)));
     let id: string;
-    if (open) { if (!ctxPlan.notify(open.id, text, { kind: 'scheduled' })) throw new Error(t('server.thatConversationIsStillOpen')); id = open.id; }
+    // straight in (not ctxPlan.notify, which would hold it again): scheduled.ts only delivers when it may
+    if (open) { sessions.deliver(open.id, text, x.from ?? { kind: 'scheduled' }); id = open.id; }
     else {
       const room = store.state.rooms.find(s => s.id === d.roomId), h = store.state.dwellers.find(y => y.roomId === d.roomId);
       if (!room || !h) throw new Error(t('server.scheduledNoDweller'));
       // si su worktree ya no está, en la carpeta de la sala y sin retomar (la conversación era de otra carpeta)
       const cwd = existsSync(d.cwd) ? d.cwd : folderOf(room);
       // background work the Overseer left is their own job (the intercom's default mode); a dweller's own reminder, in plan mode
-      id = await startWork(undefined, { t: 'empezar', dwellerId: h.id, roomId: room.id, prompt: text, options: { cwd, permissions: x.overseer ? 'auto' : 'plan', resume: cwd === d.cwd ? d.claudeId : undefined } });
+      id = await startWork(undefined, { t: 'empezar', dwellerId: h.id, roomId: room.id, prompt: text, options: { cwd, permissions: x.overseer || x.from?.kind === 'room' ? 'auto' : 'plan', resume: cwd === d.cwd ? d.claudeId : undefined } });
     }
+    // one that waited for a turn to end was already announced when sent: it just goes in
+    if (x.from) return id;
     const room = store.state.rooms.find(s => s.id === d.roomId);
     broadcast({ t: 'entrega', room: d.roomId, sessionId: id, ...(room && path.resolve(d.cwd) !== path.resolve(folderOf(room)) ? { worktree: d.cwd } : {}) });
     broadcast({ t: 'aviso', level: 'info', text: t('server.scheduledDelivered', { sala: room ? roomNameIs(room) : d.roomId, resumen: summary(x.message) }) });
@@ -1045,7 +1065,10 @@ async function action(name: string, d: Record<string, any> = {}): Promise<unknow
       const sess = d.sessionId ? sessions.list().find(x => x.id === d.sessionId) : undefined, room = e.rooms.find(x => x.id === (sess?.roomId ?? d.roomId));
       if (!room) throw new Error(t('server.thatRoomDoesNotExist'));
       const cwd = sess ? sess.worktree ?? sess.cwd : typeof d.cwd === 'string' && d.cwd ? d.cwd : folderOf(room);
-      return scheduled.scheduleOverseer({ roomId: room.id, sessionId: sess?.id, claudeId: sess?.claudeId ?? (typeof d.claudeId === 'string' ? d.claudeId : undefined), cwd: path.resolve(cwd), title: sess?.title ?? (typeof d.title === 'string' ? d.title : undefined) }, String(d.message ?? ''), typeof d.when === 'string' && d.when ? d.when : undefined);
+      const x = scheduled.scheduleOverseer({ roomId: room.id, sessionId: sess?.id, claudeId: sess?.claudeId ?? (typeof d.claudeId === 'string' ? d.claudeId : undefined), cwd: path.resolve(cwd), title: sess?.title ?? (typeof d.title === 'string' ? d.title : undefined) }, String(d.message ?? ''), typeof d.when === 'string' && d.when ? d.when : undefined);
+      // «When it finishes» to a conversation that is already free goes out now
+      if (x.afterTurn) scheduled.turnEnded({ sessionId: x.origin.sessionId });
+      return x;
     }
     case 'programados.ahora': await scheduled.sendNow(String(d.id ?? '')); return true;
     case 'programados.editar': return scheduled.edit(String(d.id ?? ''), { when: d.when === undefined ? undefined : String(d.when), message: d.message === undefined ? undefined : String(d.message) });

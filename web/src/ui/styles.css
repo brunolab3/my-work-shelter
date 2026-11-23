@@ -297,7 +297,8 @@ html, body { margin: 0; height: 100%; background: var(--fondo); overflow: hidden
 .programados-lista .pagina-nombre { cursor: default; }
 .programados-lista .programado-edicion { flex-direction: column; align-items: stretch; white-space: normal; }
 .programar-hora { position: relative; display: inline-block; }
-.programar-lista { top: auto; bottom: 100%; min-width: 18em; }
+/* upwards, over the conversation: .paginas-lista (declared later) would put it below, past the intercom's bottom */
+.paginas-lista.programar-lista { top: auto; bottom: 100%; min-width: 18em; }
 .programar-lista li { display: flex; align-items: center; gap: .5em; padding: .15em 0; }
 .programar-lista .chip { width: 100%; text-align: left; }
 .programar-lista input { background: #050a05; color: var(--fosforo); border: 1px solid var(--fosforo-tenue); font: inherit; padding: .3em; color-scheme: dark; }

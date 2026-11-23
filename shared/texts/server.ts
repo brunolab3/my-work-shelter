@@ -232,6 +232,7 @@ export const SERVER: Record<string, LocalizedText> = {
   'server.scheduledDelivered': { es: '⏰ Mensaje programado para {sala}: {resumen}', en: '⏰ Scheduled message for {sala}: {resumen}' },
   'server.scheduledDropped': { es: '⏰ No se puede entregar el mensaje programado «{resumen}»: {error}. Lo quito de la lista.', en: '⏰ The scheduled message “{resumen}” can’t be delivered: {error}. I have removed it from the list.' },
   'server.scheduledRetry': { es: '⏰ No he podido entregar el mensaje programado «{resumen}»: {error}. Lo vuelvo a intentar cada minuto.', en: '⏰ I could not deliver the scheduled message “{resumen}”: {error}. I will retry every minute.' },
+  'server.scheduledAfterTurnNoConversation': { es: '«Cuando acabe» es para una conversación abierta.', en: '«When it finishes» is for an open conversation.' },
   'server.scheduledGone': { es: 'Ese mensaje programado ya no está (se entregó o se canceló).', en: 'That scheduled message is gone (delivered or cancelled).' },
   'server.scheduledNoDweller': { es: 'su sala ya no existe o no tiene habitante', en: 'its room no longer exists or has no dweller' },
   'server.scheduledFull': { es: 'Ya hay {n} mensajes programados: cancela alguno antes.', en: 'There are already {n} scheduled messages: cancel one first.' },

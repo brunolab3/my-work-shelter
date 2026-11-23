@@ -4,6 +4,7 @@
 // (para que una fecha mal puesta salte a la vista). Todo en la hora local del Mac.
 import { language } from './language.ts';
 import { worktreeHasTask } from './tasks.ts';
+import type { MessageOrigin } from './protocol.ts';
 
 /** A dónde va: a la propia conversación que lo programó (se retoma por su `claudeId`) o, como send_to_room, a una sala */
 export type ScheduledTarget =
@@ -24,6 +25,12 @@ export interface ScheduledMessage {
   // not urgent: waits for the day's final 5-hour usage window (below); `when` is when it starts
   nextWindow?: true;
   overseer?: true;       // written by the Overseer (the intercom's ⌥Enter), not by a dweller
+  // waits for its target conversation's turn to end, and starts a turn of its own then (never taken mid-turn): `when` is
+  // when it was held. Every message that isn't the Overseer typing (another room, the game, a dated one falling due)
+  // waits like this while that conversation is busy, and the Overseer can pick it in ⏰ Schedule
+  afterTurn?: true;
+  // who sent it, delivered verbatim with them as its sender (another room's dweller, the game, the Overseer)
+  from?: MessageOrigin;
 }
 
 export const SCHEDULE_HOUR = 9;                 // un día sin hora («el lunes») es a las 9:00
@@ -67,13 +74,23 @@ export function describeWhenShort(ms: number, now = Date.now()): string {
   return `${f.toLocaleDateString(locale(), near ? { weekday: 'short' } : { weekday: 'short', day: 'numeric', month: 'short' })} ${time}`;
 }
 
-/** Los que se entregan ya, en orden */
-export const due = (list: ScheduledMessage[], now: number) => list.filter(x => !x.nextWindow && x.when <= now).sort((a, b) => a.when - b.when);
+/** Los que se entregan ya, en orden (the after-turn ones go when their conversation is free: `turnDue`) */
+export const due = (list: ScheduledMessage[], now: number) => list.filter(x => !x.nextWindow && !x.afterTurn && x.when <= now).sort((a, b) => a.when - b.when);
+export const AFTER_TURN = 'after-turn';               // the intercom's «When it finishes» as `when`
+/** The after-turn ones whose conversation is free now (`busy` by game id or Claude Code id), oldest first */
+export const turnDue = (list: ScheduledMessage[], busy: (t: { sessionId?: string; claudeId?: string }) => boolean) =>
+  list.filter(x => x.afterTurn && x.target.type === 'conversacion' && !busy(x.target)).sort((a, b) => a.created - b.created);
+/** Whether one is for that conversation (its target), by game id or Claude Code id */
+export const forTarget = (x: ScheduledMessage, s: { id?: string; claudeId?: string }) =>
+  x.target.type === 'conversacion' && (!!(s.claudeId && x.target.claudeId === s.claudeId) || !!(s.id && x.target.sessionId === s.id));
 export const isLate = (x: ScheduledMessage, now: number) => now - x.when > LATE_AFTER_MS;
 
 /** Los de una conversación (los que programó ella): por su id del juego o por el de Claude Code */
 export const ofConversation = (list: ScheduledMessage[], s: { id?: string; claudeId?: string }) =>
   list.filter(x => (s.claudeId && x.origin.claudeId === s.claudeId) || (s.id && x.origin.sessionId === s.id)).sort((a, b) => a.when - b.when);
+/** What a conversation's intercom lists: what it scheduled, and what waits for its turn to end (from anyone) */
+export const ofConversationView = (list: ScheduledMessage[], s: { id?: string; claudeId?: string }) =>
+  list.filter(x => ofConversation([x], s).length || (x.afterTurn && forTarget(x, s))).sort((a, b) => a.when - b.when);
 
 /** Where a pending message is shown when its conversation isn't open: its room and, inside one of the room's
  *  `worktrees`, that worktree's path. A conversation target goes where its cwd is (the worktree containing it, or the

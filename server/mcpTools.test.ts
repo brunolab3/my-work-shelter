@@ -54,7 +54,7 @@ describe('game MCP tools', () => {
       rooms: () => [{ id: 'a', name: 'A' }, { id: 'b', name: 'Bravo', dweller: { id: 'hb', name: 'Bea' } }],
       sessionOfTask: () => undefined, worktreeOfTask: async () => '/repo/b-wt', notify: () => false,
       start: async (roomId, _d, prompt) => { started.push({ roomId, prompt }); return { id: 's1', inWorktree: true }; },
-      messenger: () => {}, notice: () => {},
+      notice: () => {},
     };
     const r = await call(mcpRooms(ctx, 'a'), 'send_to_room', { room: 'b', message: 'look at the API', key: 'abc-12' });
     expect(r.isError).toBeFalsy();

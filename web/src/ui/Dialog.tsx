@@ -38,7 +38,7 @@ import { Usage } from './usage';
 import { takeASurface, toClaudeApp } from './surface';
 import { openLink, openPage, pageForSession, pageAnswers, pageNotes, validatePage, revealPage, makeRoomForIntercom, answerPage } from './Browsers';
 import { sessionPages, pendingPages, samePage, livePages, questionInput } from '@shared/sessionPages';
-import { describeWhen, describeWhenShort, localInput, ofConversation, ofPlace, schedulePresets, type ScheduledMessage } from '@shared/scheduled';
+import { AFTER_TURN, describeWhen, describeWhenShort, localInput, ofConversationView, ofPlace, schedulePresets, type ScheduledMessage } from '@shared/scheduled';
 import type { PRBoard } from '@shared/board';
 import { worktreePRs, worktreeTask, taskColor } from '@shared/tasks';
 import { lookOf, lookSignature } from '@shared/appearance';
@@ -1100,7 +1100,7 @@ function Session({ h, s, p, exit, onClose }: { h: DwellerSummary; s: SessionSumm
       )}
       {!s.pending && <AttachmentsTray list={p.attachments} remove={removeAttachment(h.id, p.id)} />}
       {!s.pending && <DictationStrip dictation={dictation} />}
-      <ComposerHelp send={t('windows.send')} shortcuts={t('windows.shortcutsHint', { cmd: CMD })} sendLater={sendLater} armed={esc.armed && t('windows.againDeleteWhatYouWrote')} />
+      <ComposerHelp send={t('windows.send')} shortcuts={t('windows.shortcutsHint', { cmd: CMD })} sendLater={sendLater} armed={esc.armed && t('windows.againDeleteWhatYouWrote')} afterTurn />
     </div>
   );
 }
@@ -1170,7 +1170,8 @@ function PagesMenu({ s }: { s: SessionSummary }) {
   return <PagesList sessionId={s.id} claudeId={s.claudeId} entries={entries} base={folderOf(s)} />;
 }
 
-// The scheduled messages (server/scheduled.ts) of what the intercom shows: those the open conversation scheduled; with
+// The scheduled messages (server/scheduled.ts) of what the intercom shows: those the open conversation scheduled and
+// those waiting for its turn to end (from anyone: another room, the game, the Overseer's «When it finishes»); with
 // none open, those of the conversation being resumed or, from the menu, every one of this room or hologram (ofPlace), so
 // they're seen before opening their conversation. When the next one is due and, unfolded, each with ✎ (change the time
 // or the text) and ✕ (cancel it)
@@ -1179,7 +1180,7 @@ function ScheduledMenu({ h, s, resume }: { h: DwellerSummary; s?: SessionSummary
   const worktrees = live.use(e => e.repos[h.room]?.worktrees);
   const conversation = s ?? (resume ? { claudeId: resume } : undefined);
   // the dated ones first, then the background work, pending until the day's final 5-hour window (no time of its own)
-  const mine = useMemo(() => { const l = conversation ? ofConversation(all, conversation) : ofPlace(all, h.room, h.copy?.path, worktrees ?? []); return [...l.filter(x => !x.nextWindow), ...l.filter(x => x.nextWindow)]; },
+  const mine = useMemo(() => { const l = conversation ? ofConversationView(all, conversation) : ofPlace(all, h.room, h.copy?.path, worktrees ?? []); return [...l.filter(x => x.afterTurn), ...l.filter(x => !x.nextWindow && !x.afterTurn), ...l.filter(x => x.nextWindow)]; },
     [all, worktrees, s?.id, s?.claudeId, resume, h.room, h.copy?.path]);
   const [open, setOpen] = useState(false);
   const list = useListAtButton(open);
@@ -1192,12 +1193,15 @@ function ScheduledMenu({ h, s, resume }: { h: DwellerSummary; s?: SessionSummary
     client.action('programados.editar', { id: editing.id, when: editing.when || undefined, message: editing.message })
       .then(() => { setEditing(null); SFX.click(); }).catch(e => { setEditing(x => x && { ...x, error: (e as Error).message }); SFX.notAllowed(); });
   };
+  const here = (x: ScheduledMessage) => !!conversation && x.target.type === 'conversacion' && ((!!s && x.target.sessionId === s.id) || (!!conversation.claudeId && x.target.claudeId === conversation.claudeId));
   const target = (x: ScheduledMessage) => x.target.type === 'sala' ? `→ ${x.target.room}${x.target.key ?? x.target.thread ? ' ' + (x.target.key ?? x.target.thread) : ''}`
-    : conversation ? t('windows.scheduledToThis') : t('windows.scheduledToConversation', { titulo: x.target.title || t('windows.conversation') });
+    : here(x) ? (x.from?.kind === 'room' ? t('windows.scheduledFrom', { sala: x.from.dweller ? `${x.from.room} (${x.from.dweller})` : x.from.room }) : t('windows.scheduledToThis'))
+    : t('windows.scheduledToConversation', { titulo: x.target.title || t('windows.conversation') });
+  const whenShort = (x: ScheduledMessage) => x.afterTurn ? t('windows.scheduledAfterTurn') : x.nextWindow ? t('windows.scheduledWindow') : describeWhenShort(x.when);
   return (
     <span className="paginas-sesion programados-sesion">
       <button className="consola-x" title={t(conversation ? 'windows.scheduledHint' : 'windows.scheduledHintPlace')} onClick={() => { setOpen(x => !x); setEditing(null); SFX.click(); }}>
-        {t(mine.length > 1 ? 'windows.scheduledN' : 'windows.scheduled', { n: mine.length, cuando: mine[0].nextWindow ? t('windows.scheduledWindow') : describeWhenShort(mine[0].when) })}
+        {t(mine.length > 1 ? 'windows.scheduledN' : 'windows.scheduled', { n: mine.length, cuando: whenShort(mine[0]) })}
       </button>
       {open && <ul ref={list} className="paginas-lista programados-lista" onKeyDown={e => { e.stopPropagation(); if (e.key === 'Escape') { setEditing(null); setOpen(false); } }}>{mine.map(x => <Fragment key={x.id}>
         {editing?.id === x.id
@@ -1208,28 +1212,30 @@ function ScheduledMenu({ h, s, resume }: { h: DwellerSummary; s?: SessionSummary
             <span><button className="consola-x" onClick={save}>{t('windows.scheduledSave')}</button> <button className="consola-x" onClick={() => setEditing(null)}>✕</button></span>
           </li>
         : <li title={x.message}>
-            {x.nextWindow ? <span className="tenue" title={t('windows.nextWindowHint') + '\n' + describeWhen(x.when)}>{t('windows.scheduledWindow')}</span>
+            {x.afterTurn ? <span className="tenue" title={t('windows.scheduleAfterTurnHint')}>{t('windows.scheduledAfterTurn')}</span>
+              : x.nextWindow ? <span className="tenue" title={t('windows.nextWindowHint') + '\n' + describeWhen(x.when)}>{t('windows.scheduledWindow')}</span>
               : <span className={x.when < Date.now() ? 'urgente' : ''} title={x.when < Date.now() ? t('windows.scheduledLate') : describeWhen(x.when)}>⏰ {describeWhenShort(x.when)}</span>}
             <span className="tenue">{target(x)}</span>
             <span className="pagina-nombre">{x.message.replace(/\s+/g, ' ')}</span>
-            <button className="consola-x" title={t('windows.scheduledEdit')} onClick={() => setEditing({ id: x.id, when: x.nextWindow ? '' : localInput(x.when), message: x.message })}>✎</button>
-            {(x.nextWindow || x.overLimit) && <button className="consola-x" title={t('windows.scheduledSendNow')} onClick={() => sendNow(x)}>▶</button>}
+            <button className="consola-x" title={t('windows.scheduledEdit')} onClick={() => setEditing({ id: x.id, when: x.nextWindow || x.afterTurn ? '' : localInput(x.when), message: x.message })}>✎</button>
+            {(x.nextWindow || x.overLimit || x.afterTurn) && <button className="consola-x" title={t('windows.scheduledSendNow')} onClick={() => sendNow(x)}>▶</button>}
             <button className="consola-x" title={t('windows.scheduledCancel')} onClick={() => cancel(x)}>✕</button>
           </li>}</Fragment>)}</ul>}
     </span>
   );
 }
-const laterDone = (x: ScheduledMessage) => t(x.nextWindow ? 'windows.nextWindowDone' : 'windows.scheduleAtDone', { cuando: describeWhenShort(x.when) });
+const laterDone = (x: ScheduledMessage) => t(x.afterTurn ? 'windows.scheduleAfterTurnDone' : x.nextWindow ? 'windows.nextWindowDone' : 'windows.scheduleAtDone', { cuando: describeWhenShort(x.when) });
 
-// ⏰ Schedule in the composer's help line: one-click presets (schedulePresets) or any date and time; `pick` sends the
-// draft for then (action `programados.ventana` with `when`, checked on the server like schedule_message)
+// ⏰ Schedule in the composer's help line: in an open conversation «When it finishes» first (AFTER_TURN: when its turn
+// ends), then one-click presets (schedulePresets) or any date and time; `pick` sends the draft for then (action
+// `programados.ventana` with `when`, checked on the server like schedule_message). It opens upwards, over the conversation
 // The composer's bottom line: only what it needs as buttons (schedule first, then the day's last window: both send it
 // later); every shortcut is in the ⌨'s tooltip. It wraps instead of clipping when the intercom is narrow.
-function ComposerHelp({ send, shortcuts, sendLater, armed }: { send: string; shortcuts: string; sendLater: (when?: string) => void; armed: string | false }) {
+function ComposerHelp({ send, shortcuts, sendLater, armed, afterTurn }: { send: string; shortcuts: string; sendLater: (when?: string) => void; armed: string | false; afterTurn?: boolean }) {
   return (
     <p className="ayuda-consola ayuda-composer">
       <span><kbd>Enter</kbd> {send}</span>
-      <ScheduleAt pick={sendLater} />
+      <ScheduleAt pick={sendLater} afterTurn={afterTurn} />
       <button className="consola-x" onClick={() => sendLater()} title={`${t('windows.nextWindowHint')} (⌥ Enter)`}>⏳ {t('windows.nextWindow')}</button>
       {armed && <span className="urgente">{armed}</span>}
       <span className="atajos-composer" tabIndex={0} title={shortcuts} aria-label={shortcuts}>⌨ {t('windows.shortcuts')}</span>
@@ -1237,7 +1243,7 @@ function ComposerHelp({ send, shortcuts, sendLater, armed }: { send: string; sho
   );
 }
 
-function ScheduleAt({ pick }: { pick: (when: string) => void }) {
+function ScheduleAt({ pick, afterTurn }: { pick: (when: string) => void; afterTurn?: boolean }) {
   const [open, setOpen] = useState(false);
   const [when, setWhen] = useState('');
   const box = useRef<HTMLSpanElement>(null);
@@ -1253,6 +1259,7 @@ function ScheduleAt({ pick }: { pick: (when: string) => void }) {
     <span ref={box} className="programar-hora">
       <button className="consola-x" title={t('windows.scheduleAtHint')} onClick={() => { setOpen(x => !x); setWhen(localInput(now + 3_600_000)); SFX.click(); }}>⏰ {t('windows.scheduleAt')}</button>
       {open && <ul className="paginas-lista programar-lista" onKeyDown={e => { e.stopPropagation(); if (e.key === 'Escape') setOpen(false); if (e.key === 'Enter' && (e.target as HTMLElement).tagName === 'INPUT') go(when); }}>
+        {afterTurn && <li><button className="chip" title={t('windows.scheduleAfterTurnHint')} onClick={() => go(AFTER_TURN)}>{t('windows.scheduleAfterTurn')}</button></li>}
         {schedulePresets(now).map(x => <li key={x.key}><button className="chip" onClick={() => go(localInput(x.when))}>{t(PRESET_TEXT[x.key])} <span className="tenue">{describeWhenShort(x.when, now)}</span></button></li>)}
         <li><input type="datetime-local" value={when} min={localInput(now)} onChange={e => setWhen(e.target.value)} /> <button className="consola-x" onClick={() => go(when)}>{t('windows.scheduleAtGo')}</button></li>
       </ul>}

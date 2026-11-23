@@ -1,6 +1,6 @@
 // Mensajes entre salas: cualquier habitante le pasa algo al de otra sala con send_to_room (un servidor MCP en proceso en
 // cada conversación). With a task key (ABC-123, or a descriptive slug outside Jira: preflight-popover), always a
-// conversation with the task's history: its open one (queued if it is busy, for when its turn ends); with none open, the
+// conversation with the task's history: its open one (held for when its turn ends if it is busy, never taken mid-turn); with none open, the
 // last one in the task's worktree, resumed; with none there, a new
 // one in it (and if the room has no worktree for it yet, in a new one with the key in its name, so the task's next
 // messages land there). Sin
@@ -9,7 +9,8 @@
 // worktree to another room that has that task's conversation or worktree, it carries the task's key. With a thread (`cleanup`), to that thread's open conversation in the main copy, so
 // its messages queue there one at a time; request_worktree_cleanup sends a worktree's cleanup through `cleanup`.
 // Also inside the same room: a dweller hands a task (or a part that goes alone) to its worktree's hologram and keeps the
-// Overseer's conversation; he carries it himself, or the messenger robot does if he's busy (web/src/world/messenger.ts),
+// Overseer's conversation; he carries it himself, or the messenger robot does if he's busy (web/src/world/messenger.ts); to another room no robot
+// carries it: it is the sender's own message, attributed to its room and dweller,
 // and never to the sender's own conversation. Para repartir un plan entre varios repos sigue estando assign_work (dispatch.ts).
 import { createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
@@ -31,12 +32,13 @@ export interface CtxRooms {
   // el worktree de la tarea en esa sala (la clave en su rama o en su carpeta), leído de git al momento: uno recién creado
   // aún no está en el último repaso de los repos
   worktreeOfTask(roomId: string, taskKeyOf: string): Promise<string | undefined>;
-  notify(sessionId: string, text: string, origin?: MessageOrigin): boolean;
+  // to a busy conversation it waits for its turn to end (the scheduled list, server/scheduled.ts: hold); `fromSession`:
+  // the conversation that wrote it, whose ⏰ list shows it while it waits
+  notify(sessionId: string, text: string, origin?: MessageOrigin, fromSession?: string): boolean;
   // una conversación nueva con el habitante, en automático: en `cwd`, en un worktree nuevo llamado `worktree` o, sin
   // ninguno, en la carpeta de la sala; `inWorktree` dice si el worktree pedido sigue en pie (falso si la carpeta de la
   // sala no es un repo git y la conversación arrancó en ella)
   start(roomId: string, dwellerId: string, prompt: string, where?: { cwd?: string; worktree?: string }): Promise<{ id: string; inWorktree: boolean }>;
-  messenger(since: string, a: string[], reason: 'cambio'): void;
   // dentro de la misma sala no hay robot: el habitante se lo da en mano al holograma de la conversación que lo recibe
   delivery?(roomId: string, a: { worktree?: string; sessionId?: string }): void;
   notice(text: string): void;
@@ -54,7 +56,7 @@ export interface CtxRooms {
   // production verification plans (verifications.ts): verification_plan and verification_report, for the task of the
   // conversation's worktree (or the key the dweller passes)
   verifications?: { plans: Pick<Verifications, 'get' | 'propose' | 'report'>; taskOfSession(sessionId?: string): string | undefined; conversation?(sessionId?: string): PlanConversation | undefined };
-  // a conversation is busy (starting, working or waiting for the Overseer): a task message then waits in its queue
+  // a conversation is busy (starting, working or waiting for the Overseer): a message then waits for its turn to end
   busy?(sessionId: string): boolean;
   // the last conversation in a folder (none still open outside the game), resumed with `prompt`: its
   // id, or none if there is no such conversation
@@ -113,7 +115,7 @@ export async function sendToRoom(ctx: CtxRooms, since: string, { room, message, 
     tr('prompt.room.from', { sala: origin?.name ?? since, habitante: origin?.dweller?.name ?? '?', tarea: k ? tr('prompt.room.task', { clave: k }) : thread ? tr('prompt.room.thread', { hilo: thread }) : '' }),
     '', message.trim(), '', ...k ? [tr('prompt.room.outside')] : [], tr('prompt.room.reply', { salaId: since, clave: k ? tr('prompt.room.replyKey', { clave: k }) : '' }),
   ].join('\n');
-  // as the receiver's intercom shows who sent it while it waits in its queue and in its log (also when it was scheduled:
+  // as the receiver's intercom shows who sent it while it waits and in its log (also when it was scheduled:
   // a room's dweller wrote it)
   const from: MessageOrigin = { kind: 'room', roomId: since, room: origin?.name ?? since, dweller: origin?.dweller?.name };
   let how: string | undefined, receiver: string | undefined, cwd: string | undefined, inherited: string | undefined;
@@ -121,7 +123,10 @@ export async function sendToRoom(ctx: CtxRooms, since: string, { room, message, 
   // key the question came with, a reply too (any other key or room is a message to others, routed by its key)
   const route = !thread && fromSession ? followUps.get(`${fromSession}>${target.id}`) : undefined;
   const followUp = route && (!k || (route.answer && route.key === k)) ? route : undefined;
-  if (followUp && ctx.notify(followUp.session, frame(), from)) { how = tr(followUp.answer ? 'tool.rooms.toReply' : 'tool.rooms.toFollowUp'); receiver = followUp.session; }
+  // a busy receiver gets it when its turn ends (ctx.notify holds it), never mid-turn
+  let held = false;
+  const notify = (id: string, text: string) => { const busy = !!ctx.busy?.(id); if (!ctx.notify(id, text, from, fromSession)) return false; held = busy; return true; };
+  if (followUp && notify(followUp.session, frame())) { how = tr(followUp.answer ? 'tool.rooms.toReply' : 'tool.rooms.toFollowUp'); receiver = followUp.session; }
   // else, from a conversation in a task worktree: the sender's task, if that room has its conversation or worktree
   // (otherwise its main copy, as before: an unrelated question never makes a worktree there); in its own room only the
   // task's open conversation when it is another one (the worktree is the sender's own, and it can't write to itself)
@@ -134,12 +139,13 @@ export async function sendToRoom(ctx: CtxRooms, since: string, { room, message, 
   const open = k ? ctx.sessionOfTask(target.id, k) : undefined;
   // permanent: the sender is that conversation, so no later try can deliver it (a scheduled one is dropped, not retried)
   if (!how && same && open && open === fromSession) return { ok: false, permanent: true, text: tr('tool.rooms.ownConversation', { clave: k! }) };
-  // a thread's conversation, while open and never the sender itself (sesiones.enviar queues it if it's busy)
+  // a thread's conversation, while open and never the sender itself (held for its turn's end if it's busy)
   const ofThread = thread ? threads.get(`${target.id}/${thread}`) : undefined;
   if (how) { /* followed up or replied */ }
-  // the task's open conversation: sessions.send queues it if it is busy, for when its turn ends
-  else if (open) { const busy = !!ctx.busy?.(open); if (ctx.notify(open, text, from)) { how = tr(busy ? 'tool.rooms.toOpenQueued' : 'tool.rooms.toOpen', { clave: k! }); receiver = open; } }
-  else if (ofThread && ofThread !== fromSession && ctx.notify(ofThread, text, from)) { how = tr('tool.rooms.toThread', { hilo: thread! }); receiver = ofThread; }
+  // the task's open conversation (held for when its turn ends if it is busy)
+  else if (open) { if (notify(open, text)) { how = tr('tool.rooms.toOpen', { clave: k! }); receiver = open; } }
+  else if (ofThread && ofThread !== fromSession && notify(ofThread, text)) { how = tr('tool.rooms.toThread', { hilo: thread! }); receiver = ofThread; }
+  if (how && held) how += tr('tool.rooms.heldForTurn');
   if (!how) {
     cwd = k ? cwd ?? await ctx.worktreeOfTask(target.id, k) : undefined;
     // none open: the last conversation in the task's worktree, with its history
@@ -169,8 +175,9 @@ export async function sendToRoom(ctx: CtxRooms, since: string, { room, message, 
     if (!k && !thread) followUps.set(`${fromSession}>${target.id}`, { session: receiver, answer: false });
     followUps.set(`${receiver}>${since}`, { session: fromSession, answer: true, key: k });
   }
-  if (!same) ctx.messenger(since, [target.id], 'cambio');
-  else ctx.delivery?.(target.id, { worktree: cwd, sessionId: receiver });
+  // sent by the dweller itself, attributed to it in the receiver's intercom: no robot carries it to another room; inside
+  // its own room it hands it to the hologram in person
+  if (same) ctx.delivery?.(target.id, { worktree: cwd, sessionId: receiver });
   const summary = message.trim().replace(/\s+/g, ' ');
   ctx.notice(tr('server.roomMessage', { desde: origin?.name ?? since, a: target.name, resumen: summary.length > 90 ? summary.slice(0, 89) + '…' : summary }));
   return { ok: true, text: tr('tool.rooms.sent', { habitante: target.dweller.name, sala: target.name, como: how }) + (inherited ? ' ' + tr('tool.rooms.inheritedKey', { clave: inherited }) : '') };

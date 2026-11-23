@@ -47,7 +47,7 @@ describe('mensajes programados: fechas', () => {
 
 // un contexto que apunta las entregas; `falla` hace que la conversación no se pueda retomar
 const SESS: SessionSummary = { id: 's1', dwellerId: 'remi', roomId: 'express', claudeId: 'c-111', cwd: '/r/express', worktree: '/r/wt/abc-1', state: 'trabajando', unread: false, title: 'ABC-1', pendingCount: 0, helpers: [], tools: 0, turns: 1, created: 0, updated: 0 } as SessionSummary;
-function ctx(timer: { t: number }, o: { fails?: boolean; usage?: UsageWindow; self?: boolean } = {}) {
+function ctx(timer: { t: number }, o: { fails?: boolean; usage?: UsageWindow; self?: boolean; busy?: Set<string> } = {}) {
   const conversations: { claudeId?: string; cwd: string; text: string }[] = [], toRooms: { room: string; key?: string; text: string }[] = [], notices: string[] = [], changes: number[] = [];
   const c: CtxScheduled = {
     session: id => (id === SESS.id ? SESS : undefined),
@@ -58,6 +58,7 @@ function ctx(timer: { t: number }, o: { fails?: boolean; usage?: UsageWindow; se
     notice: t => notices.push(t),
     now: () => timer.t,
     usage: () => o.usage ?? {},
+    busy: d => !!o.busy && (o.busy.has(d.sessionId ?? '') || o.busy.has(d.claudeId ?? '')),
   };
   return { c, conversations, toRooms, notices, changes };
 }
@@ -241,5 +242,56 @@ describe('mensajes programados: entrega fuera del límite', () => {
     expect(x.notices).toHaveLength(1);
     expect(x.notices[0]).toContain('a');
     expect(x.toRooms).toEqual([{ room: 'express', key: undefined, text: expect.stringContaining('b') }]);
+  });
+
+});
+
+describe('scheduled messages: after the turn', () => {
+  let dir: string;
+  beforeEach(() => { dir = mkdtempSync(path.join(tmpdir(), 'programados-')); setLanguage('en'); });
+
+  it('a message to a busy conversation waits for its turn to end, then goes verbatim, one per turn, from its sender', async () => {
+    const timer = { t: NOW }, busy = new Set(['s1']);
+    const x = ctx(timer, { busy });
+    const p = new Scheduled(dir, x.c);
+    const target = { roomId: 'express', sessionId: 's1', claudeId: 'c-111', cwd: '/r/wt/abc-1', title: 'ABC-1' };
+    const from = { kind: 'room' as const, roomId: 'pagos', room: 'pagos', dweller: 'Gaspar' };
+    const a = p.hold(target, '📨 first', from, { roomId: 'pagos', sessionId: 's9' });
+    p.hold(target, '🚨 CI', { kind: 'game' }, { roomId: 'express' });
+    expect(a).toMatchObject({ afterTurn: true, from });
+    await p.sweep();
+    expect(x.conversations).toEqual([]);
+    // the sender's conversation lists it while it waits
+    expect(p.ofConversation('s9')).toHaveLength(1);
+    // the turn ends: the oldest one goes, as it was written; the next waits for that one's turn
+    busy.clear();
+    p.turnEnded({ sessionId: 's1' });
+    await new Promise(r => setTimeout(r, 5));
+    expect(x.conversations.map(c => c.text)).toEqual(['📨 first']);
+    expect(p.list()).toHaveLength(1);
+    // (here the conversation would be busy again with it; free, the next one goes on the next sweep)
+    await p.sweep();
+    expect(x.conversations.map(c => c.text)).toEqual(['📨 first', '🚨 CI']);
+    expect(p.list()).toEqual([]);
+  });
+
+  it('a dated one falling due while its conversation is busy waits for the turn to end; ▶ sends a held one anyway', async () => {
+    const timer = { t: NOW }, busy = new Set(['s1']);
+    const x = ctx(timer, { busy });
+    const p = new Scheduled(dir, x.c);
+    p.schedule('express', 's1', { when: '2026-11-16', message: 'Monday review' });
+    timer.t = L(16, 9, 1);
+    await p.sweep();
+    expect(x.conversations).toEqual([]);
+    expect(p.list()[0].afterTurn).toBe(true);
+    busy.clear(); await p.sweep();
+    expect(x.conversations).toHaveLength(1);
+    expect(x.conversations[0].text).toContain('Monday review');
+    busy.add('s1');
+    const h = p.scheduleOverseer({ roomId: 'express', sessionId: 's1', claudeId: 'c-111', cwd: '/r/wt/abc-1' }, 'then this', 'after-turn');
+    expect(h).toMatchObject({ afterTurn: true, overseer: true, from: { kind: 'overseer' } });
+    await p.sendNow(h.id);
+    expect(x.conversations.at(-1)!.text).toBe('then this');
+    expect(() => p.scheduleOverseer({ roomId: 'express', cwd: '/r/express' }, 'x', 'after-turn')).toThrow();
   });
 });

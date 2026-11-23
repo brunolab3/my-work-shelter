@@ -16,22 +16,21 @@ const ROOMS = [
 
 // un contexto que apunta lo que se hace: avisos a conversaciones abiertas y conversaciones nuevas
 function ctx(o: { openSessions?: Record<string, string>; closed?: Set<string>; worktrees?: Record<string, string>; fails?: string; timer?: { t: number }; noGit?: boolean; worktreeOfTask?: CtxRooms['worktreeOfTask']; busy?: Set<string>; previous?: Record<string, string> } = {}) {
-  const notified: { sessionId: string; text: string }[] = [], fresh: { roomId: string; dwellerId: string; prompt: string; cwd?: string; worktree?: string }[] = [], messenger: string[][] = [], notices: string[] = [];
-  const resumed: { roomId: string; cwd: string; prompt: string; id: string }[] = [], origins: unknown[] = [];
+  const notified: { sessionId: string; text: string }[] = [], fresh: { roomId: string; dwellerId: string; prompt: string; cwd?: string; worktree?: string }[] = [], notices: string[] = [];
+  const resumed: { roomId: string; cwd: string; prompt: string; id: string }[] = [], origins: unknown[] = [], senders: (string | undefined)[] = [];
   const c: CtxRooms = {
     rooms: () => ROOMS,
     sessionOfTask: (roomId, key) => o.openSessions?.[`${roomId}/${key}`],
     worktreeOfTask: o.worktreeOfTask ?? (async (roomId, key) => o.worktrees?.[`${roomId}/${key}`]),
-    notify: (sessionId, text, origin) => { if (o.closed?.has(sessionId)) return false; notified.push({ sessionId, text }); origins.push(origin); return true; },
+    notify: (sessionId, text, origin, from) => { if (o.closed?.has(sessionId)) return false; notified.push({ sessionId, text }); origins.push(origin); senders.push(from); return true; },
     start: async (roomId, dwellerId, prompt, where) => { if (o.fails) throw new Error(o.fails); fresh.push({ roomId, dwellerId, prompt, cwd: where?.cwd, worktree: where?.worktree }); return { id: fresh.length > 1 ? `nueva-${fresh.length}` : 'nueva', inWorktree: !!(where?.cwd || (where?.worktree && !o.noGit)) }; },
-    messenger: (since, a) => messenger.push([since, ...a]),
     notice: t => notices.push(t),
     now: o.timer && (() => o.timer!.t),
     busy: id => !!o.busy?.has(id),
     // previas: the last conversation in each folder (cwd → its resumed id)
     resume: async (roomId, cwd, prompt) => { const id = o.previous?.[cwd]; if (id) resumed.push({ roomId, cwd, prompt, id }); return id; },
   };
-  return { c, notified, fresh, messenger, notices, resumed, origins };
+  return { c, notified, fresh, notices, resumed, origins, senders };
 }
 
 describe('mensajes entre salas', () => {
@@ -49,7 +48,6 @@ describe('mensajes entre salas', () => {
     expect(x.fresh[0].prompt).toContain('Inés');
     expect(x.fresh[0].prompt).toContain('\nInvestiga los saltos del bloqueo de LTD\n');
     expect(x.fresh[0].prompt).toContain('tareas');
-    expect(x.messenger).toEqual([['tareas', 'express']]);
     expect(x.notices[0]).toContain('Logística → app-web: Investiga los saltos');
   });
 
@@ -90,12 +88,11 @@ describe('mensajes entre salas', () => {
     expect(x.fresh[0]).toMatchObject({ cwd: undefined, worktree: undefined });
   });
 
-  it('dentro de la misma sala: con clave, al holograma de la tarea; sin robot mensajero, pero con aviso', async () => {
+  it('dentro de la misma sala: con clave, al holograma de la tarea, con aviso', async () => {
     const x = ctx({ worktrees: { 'express/ABC-9': '/repos/app-web/.claude/worktrees/abc-9' } });
     const r = await sendToRoom(x.c, 'express', { room: 'express', key: 'ABC-9', message: 'Añade los avisos de CI' }, 'ses-supervisor');
     expect(r.ok).toBe(true);
     expect(x.fresh).toEqual([expect.objectContaining({ roomId: 'express', dwellerId: 'remi', cwd: '/repos/app-web/.claude/worktrees/abc-9' })]);
-    expect(x.messenger).toEqual([]);
     expect(x.notices[0]).toContain('app-web → app-web: Añade los avisos de CI');
     // sin clave, otra conversación en la copia principal de la sala
     const y = ctx();
@@ -291,22 +288,23 @@ describe('mensajes entre salas', () => {
     expect(x.notified[0].sessionId).toBe('ses-tarea');
   });
 
-  it('with a key and its conversation busy: queued in it, framed as an outside request, and the answer says so', async () => {
+  it('with a key and its conversation busy: held for its turn to end, framed as an outside request, from the sender, and the answer says so', async () => {
     const busy = new Set(['ses-tarea']);
     const x = ctx({ openSessions: { 'pagos/ABC-7': 'ses-tarea' }, busy });
     const r = await sendToRoom(x.c, 'express', { room: 'pagos', key: 'ABC-7', message: '¿Qué versión del contrato usas?' }, 'ses-express');
     expect(r.ok).toBe(true);
-    expect(r.text).toContain('en cola');
+    expect(r.text).toContain('espera a que acabe su turno');
     expect(x.fresh).toEqual([]);
     expect(x.notified).toEqual([{ sessionId: 'ses-tarea', text: expect.stringContaining('¿Qué versión del contrato usas?') }]);
     expect(x.notified[0].text).toContain('fuera de lo que estás haciendo');
-    // the receiver's queue shows who sent it
+    // the receiver shows who sent it, and the sender's conversation is passed along (its ⏰ list shows it while it waits)
     expect(x.origins).toEqual([{ kind: 'room', roomId: 'express', room: 'app-web', dweller: 'Remi' }]);
-    // the next one too, to the same conversation; once idle, no longer «queued»
+    expect(x.senders).toEqual(['ses-express']);
+    // the next one too, to the same conversation; once idle, no longer held
     await sendToRoom(x.c, 'express', { room: 'pagos', key: 'ABC-7', message: 'aprobado' }, 'ses-express');
     busy.clear();
     const r3 = await sendToRoom(x.c, 'tareas', { room: 'pagos', key: 'ABC-7', message: 'otra cosa' });
-    expect(r3.text).not.toContain('en cola');
+    expect(r3.text).not.toContain('espera a que acabe');
     expect(x.notified.map(a => a.sessionId)).toEqual(['ses-tarea', 'ses-tarea', 'ses-tarea']);
     // its reply without a key goes back to the sender conversation
     await sendToRoom(x.c, 'pagos', { room: 'express', message: 'Uso la v1' }, 'ses-tarea');

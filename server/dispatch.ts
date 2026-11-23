@@ -18,7 +18,7 @@ export interface CtxAssignment {
   start(roomId: string, prompt: string): Promise<{ sessionId: string; dweller: string }>;
   plans: Plans;
   /** un mensaje a una conversación (del mensajero del refugio); false si ya no está */
-  notify(sessionId: string, text: string, origin?: MessageOrigin): boolean;
+  notify(sessionId: string, text: string, origin?: MessageOrigin, fromSession?: string): boolean;
   /** la conversación abierta de una sala en el worktree de una tarea (su carpeta lleva la clave), si la hay */
   sessionOfTask?(roomId: string, key: string): string | undefined;
   /** el robot mensajero corre con el plan de una sala a otras (solo se ve) */
