@@ -3,7 +3,8 @@ import { mkdtempSync, mkdirSync, writeFileSync, existsSync, realpathSync, rename
 import { execFileSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
-import { finishedTasks, orphanedConversations, leftovers, untracked, scheduledIn, TasksCleanup, type RoomCleanup, type CtxCleanup, type Leftover } from './taskCleanup.ts';
+import { finishedTasks, orphanedConversations, leftovers, untracked, scheduledIn, planOf, verificationHold, conversationIn, TasksCleanup, type RoomCleanup, type CtxCleanup, type Leftover, type FinishedTask } from './taskCleanup.ts';
+import type { CheckpointState, VerificationPlan } from '../shared/verification.ts';
 import type { PRBoard } from '../shared/board.ts';
 import type { InfoWorktree, SessionSummary } from '../shared/protocol.ts';
 import type { ScheduledMessage, ScheduledTarget } from '../shared/scheduled.ts';
@@ -15,6 +16,11 @@ const room = (worktrees: InfoWorktree[]): RoomCleanup => ({
   id: 'express', name: 'Express', path: '/r/express', repo: 'refugio/express',
   worktrees: [{ path: '/r/express', branch: 'main', main: true, changes: 0, advanced: 0 }, ...worktrees],
 });
+
+// a plan with its final checkpoint in `state` (approved unless said otherwise)
+const vplan = (key: string, state: CheckpointState, extra: Partial<VerificationPlan> = {}): VerificationPlan => ({
+  key, version: 1, updated: 0, approved: { version: 1, ts: 0 },
+  points: [{ id: 'final', type: 'final', title: 'final', services: [], live: {}, deadlineHours: 24, state, signals: [] }], ...extra });
 
 const msg = (target: ScheduledTarget): ScheduledMessage =>
   ({ id: 'm1', created: 0, when: 1, requested: '', message: 'prod check', origin: { roomId: 'express' }, target });
@@ -101,6 +107,40 @@ describe('scheduledIn', () => {
   });
 });
 
+describe('verificationHold and planOf', () => {
+  const w = wt('/r/express/.claude/worktrees/shelter-ref-212', 'ref-212-barra');
+  const task = (...prs: PRBoard[]): FinishedTask => ({ task: 'REF-212', prs, worktrees: [w] });
+  const merged = task(pr(42, 'ref-212-barra', 'fusionado'));
+  it('merged without a plan, or with one not approved: waits for it', () => {
+    expect(verificationHold(merged, undefined)).toBe('sin-plan');
+    expect(verificationHold(merged, vplan('REF-212', 'evidenced', { approved: undefined }))).toBe('sin-plan');
+    expect(verificationHold(merged, vplan('REF-212', 'evidenced', { version: 2 }))).toBe('sin-plan');
+  });
+  it('while its final checkpoint is open, it waits; failed, it keeps everything; evidenced or accepted, it goes', () => {
+    for (const s of ['waiting-deploy', 'live', 'waiting-traffic', 'inconclusive'] as const) expect(verificationHold(merged, vplan('REF-212', s))).toBe('abierta');
+    expect(verificationHold(merged, vplan('REF-212', 'failed'))).toBe('fallida');
+    expect(verificationHold(merged, vplan('REF-212', 'evidenced'))).toBeUndefined();
+  });
+  it('PRs all closed without merging: nothing reached production, it goes', () => {
+    expect(verificationHold(task(pr(42, 'ref-212-barra', 'cerrado')), undefined)).toBeUndefined();
+  });
+  it('finds the plan by the worktree\'s task, the task\'s key, a checkpoint for its PR or the conversation that proposed it', () => {
+    const slug = wt('/r/express/.claude/worktrees/shelter-arreglo-barra--ab12', 'worktree-shelter-arreglo-barra--ab12');
+    const t = (w: typeof slug, ...prs: PRBoard[]): FinishedTask => ({ task: 'PR #5', prs, worktrees: [w] });
+    expect(planOf(t(slug, pr(5, slug.branch!, 'fusionado')), slug, { 'arreglo-barra': vplan('arreglo-barra', 'evidenced') })?.key).toBe('arreglo-barra');
+    expect(planOf(merged, w, { 'REF-212': vplan('REF-212', 'live') })?.key).toBe('REF-212');
+    const withPR = vplan('otra', 'live', { points: [{ ...vplan('x', 'live').points[0], id: 'pr', type: 'pr', pr: 'refugio/express#5' }] });
+    expect(planOf(t(wt('/r/x/rapido', 'rapido'), pr(5, 'rapido', 'fusionado')), wt('/r/x/rapido', 'rapido'), { otra: withPR })?.key).toBe('otra');
+    const fromHere = vplan('otra', 'live', { conversation: { roomId: 'express', cwd: '/r/x/rapido/sub' } });
+    expect(planOf(t(wt('/r/x/rapido', 'rapido'), pr(6, 'rapido', 'fusionado')), wt('/r/x/rapido', 'rapido'), { otra: fromHere })?.key).toBe('otra');
+    expect(planOf(merged, w, { otra: vplan('otra', 'live') })).toBeUndefined();
+  });
+  it('the task\'s conversation: the latest in the worktree, closed ones too', () => {
+    const s = [{ id: 'a', cwd: w.path, updated: 1, state: 'cerrada' }, { id: 'b', cwd: w.path + '/sub', updated: 2, state: 'cerrada' }, { id: 'c', cwd: '/r/express', updated: 3, state: 'ociosa' }] as SessionSummary[];
+    expect(conversationIn(s, w)?.id).toBe('b');
+  });
+});
+
 describe('leftovers (git de verdad)', () => {
   it('nada, con todo subido; cambios sin commit, stash de su rama y commits sin subir, sí', async () => {
     const r = repo();
@@ -135,12 +175,17 @@ describe('leftovers (git de verdad)', () => {
 
 describe('TasksCleanup (git de verdad)', () => {
   let removeIt: (() => Promise<void>) | undefined;
-  const ctx = (r: ReturnType<typeof repo>, prs: PRBoard[], ev: string[], sessions: SessionSummary[] = [], scheduled: ScheduledMessage[] = []): CtxCleanup => ({
+  let skipIt: (() => void) | undefined;
+  // verified in production by default: the tests about what's left in the worktree
+  const verified = () => ({ 'REF-212': vplan('REF-212', 'evidenced') });
+  const ctx = (r: ReturnType<typeof repo>, prs: PRBoard[], ev: string[], sessions: SessionSummary[] = [], scheduled: ScheduledMessage[] = [], plans: Record<string, VerificationPlan> = verified()): CtxCleanup => ({
     connection: async () => ({ real: true }),
     prs: async () => prs,
     rooms: async () => [{ id: 'express', name: 'Express', path: r.room, repo: 'refugio/express', worktrees: [{ path: r.room, branch: 'main', main: true, changes: 0, advanced: 0 }, infoWt(r.wt)] }],
     sessions: () => sessions,
     scheduled: () => scheduled,
+    plans: () => plans,
+    noPlan: (_s, x, _w, key, plan, session, skip) => { ev.push(`sin plan ${x.task} ${key} ${plan ? 'sin aprobar' : 'ninguno'} ${session?.id ?? 'nueva'}`); skipIt = skip; },
     git,
     // la papelera de verdad, no: se mueven a una carpeta temporal
     trash: async paths => { const d = mkdtempSync(path.join(os.tmpdir(), 'papelera-')); for (const x of paths) renameSync(x, path.join(d, path.basename(x))); ev.push(`papelera ${paths.map(x => path.relative(r.wt, x)).join(',')}`); },
@@ -222,6 +267,42 @@ describe('TasksCleanup (git de verdad)', () => {
     expect(existsSync(r.wt)).toBe(true);
     await new TasksCleanup(dir, ctx(r, prs, ev)).poll();
     expect(ev.slice(1)).toEqual(['quitado REF-212 shelter-ref-212', 'cambiado']);
+  });
+  it('merged with its final checkpoint open or failed: keeps the worktree, even with its conversation closed; verified, removes it', async () => {
+    const r = repo(), ev: string[] = [], dir = mkdtempSync(path.join(os.tmpdir(), 'limpieza-'));
+    const prs = [pr(42, 'ref-212-barra', 'fusionado')], closed = [{ id: 's1', state: 'cerrada', cwd: r.wt, roomId: 'express', updated: 0 }] as unknown as SessionSummary[];
+    await new TasksCleanup(dir, ctx(r, prs, ev, closed, [], { 'REF-212': vplan('REF-212', 'waiting-traffic') })).poll();
+    await new TasksCleanup(dir, ctx(r, prs, ev, closed, [], { 'REF-212': vplan('REF-212', 'inconclusive') })).poll();
+    await new TasksCleanup(dir, ctx(r, prs, ev, closed, [], { 'REF-212': vplan('REF-212', 'failed') })).poll();
+    expect(ev).toEqual([]);
+    expect(existsSync(r.wt)).toBe(true);
+    const accepted = vplan('REF-212', 'evidenced'); accepted.points[0].note = { text: 'no traffic on weekends, accepted', ts: 1 };
+    await new TasksCleanup(dir, ctx(r, prs, ev, closed, [], { 'REF-212': accepted })).poll();
+    expect(ev).toEqual(['quitado REF-212 shelter-ref-212', 'cambiado']);
+  });
+  it('merged without an approved plan: asks its conversation and the Overseer once and keeps it; told to skip it, removes it', async () => {
+    const r = repo(), ev: string[] = [], dir = mkdtempSync(path.join(os.tmpdir(), 'limpieza-'));
+    const prs = [pr(42, 'ref-212-barra', 'fusionado')], closed = [{ id: 's1', state: 'cerrada', cwd: r.wt, roomId: 'express', updated: 0 }] as unknown as SessionSummary[];
+    await new TasksCleanup(dir, ctx(r, prs, ev, closed, [], {})).poll();
+    await new TasksCleanup(dir, ctx(r, prs, ev, closed, [], {})).poll();
+    expect(ev).toEqual(['sin plan REF-212 REF-212 ninguno s1']);
+    expect(existsSync(r.wt)).toBe(true);
+    // proposed but not approved yet: already asked about this task, so no second time
+    await new TasksCleanup(dir, ctx(r, prs, ev, closed, [], { 'REF-212': vplan('REF-212', 'waiting-deploy', { approved: undefined }) })).poll();
+    expect(ev.length).toBe(1);
+    skipIt!();
+    await new TasksCleanup(dir, ctx(r, prs, ev, closed, [], {})).poll();
+    expect(ev.slice(1)).toEqual(['quitado REF-212 shelter-ref-212', 'cambiado']);
+  });
+  it('without an approved plan and no conversation in it, asks a new one there', async () => {
+    const r = repo(), ev: string[] = [];
+    await new TasksCleanup(mkdtempSync(path.join(os.tmpdir(), 'limpieza-')), ctx(r, [pr(42, 'ref-212-barra', 'fusionado')], ev, [], [], { 'REF-212': vplan('REF-212', 'live', { approved: undefined }) })).poll();
+    expect(ev).toEqual(['sin plan REF-212 REF-212 sin aprobar nueva']);
+  });
+  it('PRs all closed without merging: removes it without a plan', async () => {
+    const r = repo(), ev: string[] = [];
+    await new TasksCleanup(mkdtempSync(path.join(os.tmpdir(), 'limpieza-')), ctx(r, [pr(42, 'ref-212-barra', 'cerrado')], ev, [], [], {})).poll();
+    expect(ev).toEqual(['quitado REF-212 shelter-ref-212', 'cambiado']);
   });
   it('sin GitHub conectado de verdad no hace nada', async () => {
     const r = repo(), ev: string[] = [];

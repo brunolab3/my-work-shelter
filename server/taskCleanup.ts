@@ -9,6 +9,10 @@
 // quita igualmente (y entonces sí, forzando; si para entonces hay una conversación abierta en él, queda aprobado y se
 // quita en cuanto se cierre); en cada vuelta se vuelve a mirar (guardado lo que había, se quita sin preguntar). Cada cinco
 // minutos con GitHub conectado (main.ts); lo ya preguntado y lo aprobado, en DATOS/limpieza-tareas.json.
+// A task with a merged PR waits first for its production verification (verificationHold): while a checkpoint is open, or
+// the final one failed, its worktree and conversations stay, so the rechecks reach the conversation that knows the work.
+// Without an approved plan, its conversation is asked once to propose one and the Overseer told once (they can clean it up
+// without verifying). Tasks whose PRs were all closed without merging don't wait: nothing reached production.
 import { existsSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
 import path from 'node:path';
 import type { PRBoard } from '../shared/board.ts';
@@ -17,6 +21,8 @@ import type { InfoWorktree, SessionSummary } from '../shared/protocol.ts';
 import { branchKey, prsOfName } from './prReviews.ts';
 import { t } from '../shared/language.ts';
 import { placeOf, type ScheduledMessage } from '../shared/scheduled.ts';
+import { pRTask, taskKey, worktreeTask } from '../shared/tasks.ts';
+import { finalCheckpoint, isApproved, prRef, type VerificationPlan } from '../shared/verification.ts';
 
 export interface RoomCleanup { id: string; name: string; path: string; repo?: string; worktrees: InfoWorktree[] }
 export interface FinishedTask { task: string; prs: PRBoard[]; worktrees: InfoWorktree[] }
@@ -44,12 +50,40 @@ export function finishedTasks(room: RoomCleanup, prs: PRBoard[]): FinishedTask[]
   return out.sort((a, b) => a.task.localeCompare(b.task));
 }
 
+const inside = (dir: string, p: string) => (path.resolve(p) + path.sep).startsWith(path.resolve(dir) + path.sep);
+
+/** The verification plan of a finished task's worktree: by the worktree's task, the task's key or its PRs' (as
+ *  verification_plan keys it), then a plan with a checkpoint for one of its PRs or proposed from inside the worktree */
+export function planOf(task: FinishedTask, w: InfoWorktree, plans: Record<string, VerificationPlan>): VerificationPlan | undefined {
+  const keys = [worktreeTask(w), task.task, ...task.prs.map(pRTask)].map(k => taskKey(k)).filter((k): k is string => !!k);
+  const byKey = keys.map(k => plans[k]).find(Boolean);
+  if (byKey) return byKey;
+  const refs = new Set(task.prs.map(p => prRef(p.url)));
+  return Object.values(plans).find(p => p.points.some(c => c.pr && refs.has(c.pr)))
+    ?? Object.values(plans).find(p => p.conversation && inside(w.path, p.conversation.cwd));
+}
+
+/** What keeps a finished task's worktree for its production verification (none: it can go): no approved plan yet, its
+ *  final checkpoint still open, or failed (a fix is likely to follow there). Evidenced, or inconclusive accepted with a
+ *  reason, lets it go; so do PRs all closed without merging */
+export type Hold = 'sin-plan' | 'abierta' | 'fallida';
+export function verificationHold(task: FinishedTask, plan: VerificationPlan | undefined): Hold | undefined {
+  if (!task.prs.some(p => p.state === 'fusionado')) return undefined;
+  if (!plan || !isApproved(plan)) return 'sin-plan';
+  const state = finalCheckpoint(plan)?.state;
+  return state === 'evidenced' ? undefined : state === 'failed' ? 'fallida' : 'abierta';
+}
+
+/** The task's conversation in a worktree: the most recent one there (open or closed, to resume) */
+export const conversationIn = (sessions: SessionSummary[], w: InfoWorktree) =>
+  sessions.filter(s => inside(w.path, s.worktree ?? s.cwd)).sort((a, b) => b.updated - a.updated)[0];
+
 /** Lo que impide quitar un worktree (vacío: se puede quitar). `git` lanza si el comando falla */
 export type Leftover = { type: 'cambios' | 'stash' | 'commits' | 'programados'; n: number } | { type: 'conversacion' };
 export async function leftovers(git: (cwd: string, args: string[]) => Promise<string>, w: InfoWorktree, prs: PRBoard[], sessions: SessionSummary[]): Promise<Leftover[]> {
   const out: Leftover[] = [];
   const dir = path.resolve(w.path);
-  if (sessions.some(s => s.state !== 'cerrada' && (path.resolve(s.worktree ?? s.cwd) + path.sep).startsWith(dir + path.sep))) out.push({ type: 'conversacion' });
+  if (sessions.some(s => s.state !== 'cerrada' && inside(dir, s.worktree ?? s.cwd))) out.push({ type: 'conversacion' });
   const lines = (t: string) => t.split('\n').filter(Boolean);
   const changes = lines(await git(w.path, ['status', '--porcelain', '--untracked-files=no'])).length;
   if (changes) out.push({ type: 'cambios', n: changes });
@@ -97,6 +131,10 @@ export interface CtxCleanup {
   rooms(): Promise<RoomCleanup[]>;
   sessions(): SessionSummary[];
   scheduled(): ScheduledMessage[];                               // los mensajes programados pendientes
+  plans(): Record<string, VerificationPlan>;                     // the verification plans by task key (verifications.ts)
+  /** a merged task without an approved plan (once): ask its conversation (`session`, the latest in the worktree; none:
+   *  a new one there) to propose one and tell the Overseer, who can `skip` it and clean up without verifying */
+  noPlan(roomId: string, task: FinishedTask, w: InfoWorktree, key: string, plan: VerificationPlan | undefined, session: SessionSummary | undefined, skip: () => void): void;
   git(cwd: string, args: string[]): Promise<string>;              // lanza si el comando falla
   trash(paths: string[]): Promise<void>;                       // a la papelera de macOS
   removed(roomId: string, task: FinishedTask, w: InfoWorktree, loose: number): void;   // aviso al Supervisor
@@ -109,13 +147,14 @@ export interface CtxCleanup {
 export class TasksCleanup {
   private notified: string[] = [];
   private approved: string[] = [];   // «sala|ruta» que el Supervisor mandó quitar con una conversación abierta en él
+  private unverified: string[] = [];   // «sala|ruta» the Overseer let go without a verification plan
   private file: string;
   constructor(dir: string, private ctx: CtxCleanup) {
     this.file = path.join(dir, 'limpieza-tareas.json');
     const texts = (x: unknown) => Array.isArray(x) ? x.filter((y: unknown): y is string => typeof y === 'string') : [];
-    try { if (existsSync(this.file)) { const j = JSON.parse(readFileSync(this.file, 'utf8')); this.notified = texts(j.notified); this.approved = texts(j.approved); } } catch {}
+    try { if (existsSync(this.file)) { const j = JSON.parse(readFileSync(this.file, 'utf8')); this.notified = texts(j.notified); this.approved = texts(j.approved); this.unverified = texts(j.unverified); } } catch {}
   }
-  private save() { const tmp = this.file + '.tmp'; writeFileSync(tmp, JSON.stringify({ notified: this.notified.slice(-2000), approved: this.approved }), { mode: 0o600 }); renameSync(tmp, this.file); }
+  private save() { const tmp = this.file + '.tmp'; writeFileSync(tmp, JSON.stringify({ notified: this.notified.slice(-2000), approved: this.approved, unverified: this.unverified }), { mode: 0o600 }); renameSync(tmp, this.file); }
 
   async poll() {
     const c = await this.ctx.connection();
@@ -127,6 +166,19 @@ export class TasksCleanup {
       const approved = `${room.id}|${path.resolve(w.path)}`;
       seen.add(approved);
       try {
+        const plan = planOf(task, w, this.ctx.plans()), hold = this.unverified.includes(approved) ? undefined : verificationHold(task, plan);
+        if (hold) {
+          // without an approved plan, asked once per task (the plan's key, else the worktree's task)
+          const key = plan?.key ?? taskKey(worktreeTask(w)) ?? taskKey(task.task) ?? task.task;
+          const asked = `plan|${room.id}|${key}`;
+          if (hold === 'sin-plan' && !this.notified.includes(asked)) {
+            this.notified.push(asked); notices = true;
+            this.ctx.noPlan(room.id, task, w, key, plan, conversationIn(this.ctx.sessions(), w), () => {
+              if (!this.unverified.includes(approved)) { this.unverified.push(approved); this.save(); }
+            });
+          }
+          continue;
+        }
         const what = await leftovers(this.ctx.git, w, task.prs, this.ctx.sessions());
         const pending = scheduledIn(this.ctx.scheduled(), room, w).length;
         if (pending) what.push({ type: 'programados', n: pending });
@@ -160,8 +212,8 @@ export class TasksCleanup {
       }
     }
     // lo aprobado que ya no está (quitado a mano, PR reabierto) se olvida
-    const remaining = this.approved.filter(x => seen.has(x));
-    if (remaining.length !== this.approved.length) { this.approved = remaining; notices = true; }
+    const remaining = this.approved.filter(x => seen.has(x)), unverified = this.unverified.filter(x => seen.has(x));
+    if (remaining.length !== this.approved.length || unverified.length !== this.unverified.length) { this.approved = remaining; this.unverified = unverified; notices = true; }
     if (notices) this.save();
     if (removed) this.ctx.changed();
   }

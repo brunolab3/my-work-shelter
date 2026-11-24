@@ -754,7 +754,7 @@ setTimeout(() => {
 const preflightToolset = preflightTools(ctxPreflight, (key, worktree, head, item, a) => pageReviews.answer(key, worktree, head, item, a));
 
 // las tareas con todos sus PR fusionados o cerrados (taskCleanup.ts), cada cinco minutos con GitHub conectado: el juego
-// quita solo sus worktrees si no queda otro trabajo en ellos (si queda, avisa de qué)
+// quita solo sus worktrees si no queda otro trabajo en ellos (si queda, avisa de qué), once a merged one is verified in production
 const tasksCleanup = new TasksCleanup(DATA, {
   connection: connectionGitHub,
   prs: async c => {
@@ -768,6 +768,18 @@ const tasksCleanup = new TasksCleanup(DATA, {
   rooms: repoRooms,
   sessions: () => sessions.list(),
   scheduled: () => scheduled.list(),
+  plans: () => verifications.states(),
+  noPlan: (roomId, task, w, key, plan, session, skip) => {
+    const room = store.state.rooms.find(s => s.id === roomId)?.name ?? roomId;
+    // to the conversation that proposed the plan, else the latest in the worktree, else a new one there
+    const c = plan?.conversation ?? (session ? { roomId, sessionId: session.id, claudeId: session.claudeId, cwd: path.resolve(session.worktree ?? session.cwd), title: session.title } : { roomId, cwd: path.resolve(w.path) });
+    scheduled.scheduleGame(c, Date.now(), t(plan ? 'prompt.verification.cleanupUnapproved' : 'prompt.verification.cleanupNoPlan', { clave: key }));
+    ask(t(plan ? 'server.cleanupUnapproved' : 'server.cleanupNoPlan', { tarea: key, sala: room, nombre: path.basename(w.path) }), { si: t('server.cleanupSkipVerification'), no: t('server.cleanupWaitVerification') }, async si => {
+      if (!si) return;
+      skip();
+      tasksCleanup.poll().catch(err => console.error('Limpieza de tareas:', String((err as Error).message).split('\n')[0]));
+    });
+  },
   git: (cwd, args) => new Promise((ok, fail) => execFile('git', ['-C', cwd, ...args], { timeout: 60_000, env: gitEnvironment() }, (err, o, e) => err ? fail(new Error(String(e || err.message).trim())) : ok(String(o)))),
   trash: async paths => (await import('./files.ts')).toTrash(paths),
   removed: (roomId, task, w, loose) => {
