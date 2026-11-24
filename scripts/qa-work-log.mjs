@@ -188,7 +188,7 @@ try {
   await pg.screenshot({ path: path.join(dir, 'planning-shelf.png'), animations: 'disabled', timeout: 15000 }).catch(() => console.log('(no room screenshot: timed out)'));
   // clicked where the shelf is now (the camera may still be settling after the screenshot)
   const opened = () => pg.evaluate(() => { const j = window.__game.get(); return j.panel + ':' + j.panelData?.view; });
-  check(await until(async () => { if (await opened() === 'logistica:trofeos') return true; at = await centre(); await pg.mouse.click(at.x, at.y); await sleep(300); return await opened() === 'logistica:trofeos'; }), 'a click opens the trophies from Planning');
+  check(await until(async () => { if (await opened() === 'logistics:trophies') return true; at = await centre(); await pg.mouse.click(at.x, at.y); await sleep(300); return await opened() === 'logistics:trophies'; }), 'a click opens the trophies from Planning');
   check(await until(async () => /TROFEOS Y CARRERA|TROPHIES AND CAREER/.test(await pg.locator('body').innerText())), 'the Trophies and career panel shows');
   await pg.keyboard.press('Escape');
   check(await until(async () => (await pg.evaluate(() => window.__game.get().panel)) === null), 'Escape goes back to the shelter');
