@@ -56,7 +56,7 @@ export const openSessions = (l: SessionSummary[]) => l.filter(s => s.state !== '
 export const label = (s: SessionSummary, dweller: string) => [dweller, s.title?.trim() || undefined, s.worktree && path.basename(s.worktree)].filter(Boolean).join(' · ');
 const time = (ms: number) => new Date(ms).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' });
 const STATE: Record<string, string> = { starting: 'server.remoteStarting', working: 'server.remoteWorking', waiting: 'server.remoteWaiting', idle: 'server.remoteIdle', error: 'server.remoteStuck' };
-export function stateOf(s: SessionSummary) { return s.state === 'finished' ? t('server.remoteFinishedAt', { hora: time(s.updated) }) : t(STATE[s.state] ?? 'server.remoteIdle'); }
+export function stateOf(s: SessionSummary) { return s.state === 'finished' ? t('server.remoteFinishedAt', { time: time(s.updated) }) : t(STATE[s.state] ?? 'server.remoteIdle'); }
 
 /** Lo que se manda al móvil: cada sala con sus conversaciones abiertas, y un botón de Remote Control por conversación
  *  (y otro para todas). Como mucho 4000 caracteres y 60 conversaciones con botón */
@@ -103,7 +103,7 @@ export function hideSecrets(text: string) {
 export function requestView(pet: PendingRequest, who: string) {
   const parts: string[] = [];
   parts.push(`❓ ${who}`, pet.title + (pet.ofHelper ? ` (${pet.ofHelper})` : ''));
-  if (pet.reason) parts.push(t('server.remoteReason', { motivo: pet.reason }));
+  if (pet.reason) parts.push(t('server.remoteReason', { reason: pet.reason }));
   for (const b of pet.input ?? []) parts.push(b.type === 'path' ? `📄 ${b.text}` : b.type === 'code' ? `────────\n${b.text}\n────────` : b.text);
   if (pet.type === 'plan' && pet.detail) parts.push(pet.detail);
   for (const [k, q] of (pet.questions ?? []).entries()) parts.push(`${k + 1}. ${q.question}\n` + q.options.map((o, j) => `   ${String.fromCharCode(65 + j)}) ${o.label}${o.description ? ` — ${o.description}` : ''}`).join('\n'));

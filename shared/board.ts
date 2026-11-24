@@ -156,9 +156,9 @@ export function planPrompt(t: TaskJira & { description?: string }): string {
   return [
     `${t.key} ${t.title}`,
     '',
-    tr('prompt.plan.intro', { url: t.url, datos: data ? ' · ' + data : '' }),
+    tr('prompt.plan.intro', { url: t.url, data: data ? ' · ' + data : '' }),
     '',
-    t.description?.trim() ? tr('prompt.plan.description', { texto: t.description.trim() }) : tr('prompt.plan.noDescription'),
+    t.description?.trim() ? tr('prompt.plan.description', { text: t.description.trim() }) : tr('prompt.plan.noDescription'),
     '',
     '---',
     tr('prompt.plan.steps'),

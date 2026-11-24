@@ -563,12 +563,12 @@ function Console({ h, v }: { h: DwellerSummary; v: WindowCom }) {
   const written = v.confirm ? v.tabs.filter(x => v.confirm!.includes(x.id) && withText(x)).length : 0;
   const writtenNotice = written ? (written > 1 ? t('windows.youHaveUnsentTextIn', { n: written }) : v.confirm!.length > 1 ? t('windows.youHaveUnsentTextIn2') : t('windows.youHaveUnsentText')) : '';
   return (
-    <div className={'console interactivo' + (high ? ' high' : '') + (v.maximized ? ' maximizada' : '') + (copy ? ' de-copia' : '')} role="dialog" aria-label={t('windows.talkToNombre', { nombre: h.name })}>
+    <div className={'console interactivo' + (high ? ' high' : '') + (v.maximized ? ' maximizada' : '') + (copy ? ' de-copia' : '')} role="dialog" aria-label={t('windows.talkToName', { name: h.name })}>
       <div className="consola-bisel">
         <div className="consola-cabeza" onDoubleClick={e => { if (!(e.target as HTMLElement).closest('button')) toggleMaximize(hid); }}>
           <span className="rejilla" aria-hidden />
           <span className={'pilot ' + (worst?.state ?? 'off')} aria-hidden />
-          <span className="consola-rotulo">{copy ? <>{t('windows.intercom')} · {t('windows.holographicCopyOfAutor', { autor: copy.nameAuthor })} · {copyCaption(copy)} · {h.nameRoom}</> : <>{t('windows.intercom')} · {h.name} · {h.nameRoom}</>}</span>
+          <span className="consola-rotulo">{copy ? <>{t('windows.intercom')} · {t('windows.holographicCopyOfAuthor', { author: copy.nameAuthor })} · {copyCaption(copy)} · {h.nameRoom}</> : <>{t('windows.intercom')} · {h.name} · {h.nameRoom}</>}</span>
           <WindowButtons flag={flagOf(s, flags) === undefined ? undefined : { on: !!flagOf(s, flags), toggle: () => toggleFlag(s) }} takeOut={s ? () => takeTab(hid, p.id) : undefined} wingApp={s ? () => toClaudeApp({ sessionId: s.id }) : undefined} remote={s ? () => takeASurface({ sessions: [s.id], remote: true }) : undefined} takesThat={t('windows.thisConversation')} maximized={v.maximized} minimize={minimizeIntercom} toggleMaximize={() => toggleMaximize(hid)} close={() => askClose(hid)} closesThat={t('windows.theIntercomAndItsConversations')} />
         </div>
         <Tabs items={items} confirming={!!v.confirm} active={v.active} activate={pid => activate(hid, pid)} close={pids => askClose(hid, pids)} onNew={() => newTab(hid)} opensThat={copy ? t('windows.newTabAnotherJobInside') : t('windows.newTabAnotherJobWith')} />
@@ -620,7 +620,7 @@ function Console({ h, v }: { h: DwellerSummary; v: WindowCom }) {
         </div>
         {v.confirm && <Confirmation title={v.confirm.length > 1 ? t('windows.closeTheTabs') : confirming.length ? t('windows.closeThisConversation') : t('windows.closeThisTab')}
           text={confirming.length
-            ? <>{copy ? t('windows.autorSCopy', { autor: copy.nameAuthor }) : h.name} {t('windows.isWorkingOn')} {confirming.length > 1 ? t('windows.nJobs', { n: confirming.length }) : <>«{confirming[0]?.title ?? t('windows.aJob')}»</>}{confirming.some(x => x.state === 'waiting') ? ` ${t('windows.andIsWaitingForYou')}` : ''}. {t('windows.ifYouCloseItIt2')}{writtenNotice ? <> {writtenNotice}: {t('windows.wouldBeDeleted')}</> : null} {t('windows.toLetItCarryOn')}</>
+            ? <>{copy ? t('windows.authorSCopy', { author: copy.nameAuthor }) : h.name} {t('windows.isWorkingOn')} {confirming.length > 1 ? t('windows.nJobs', { n: confirming.length }) : <>«{confirming[0]?.title ?? t('windows.aJob')}»</>}{confirming.some(x => x.state === 'waiting') ? ` ${t('windows.andIsWaitingForYou')}` : ''}. {t('windows.ifYouCloseItIt2')}{writtenNotice ? <> {writtenNotice}: {t('windows.wouldBeDeleted')}</> : null} {t('windows.toLetItCarryOn')}</>
             : <>{writtenNotice}. {t('windows.ifYouCloseItIt3')}</>}
           button={confirming.length ? undefined : t('windows.closeAndDeleteEnter')}
           close={() => closeAlready(hid, v.confirm!)} minimize={() => { update(hid, { confirm: undefined }); minimizeIntercom(); }} cancel={() => update(hid, { confirm: undefined })} />}
@@ -666,7 +666,7 @@ function Menu({ h, go, exit }: { h: DwellerSummary; go: (v: View) => void; exit:
   // revisar la copia (cambios, commits, integrar, desechar) es el aparato de la copia: el intercomunicador baja a la barra
   const toReview = () => { exit(); juego.set({ panel: 'worktree', panelData: { roomId: h.room, device: 'wt:' + copy!.path } }); };
   const options = [
-    { text: copy ? t('windows.startANewJobInside') : t('windows.startANewJob'), hint: t('windows.inCarpeta', { carpeta: (folder ?? t('windows.theirRoom')).replace(/^\/Users\/[^/]+/, '~') }), f: () => go({ type: 'new' }) },
+    { text: copy ? t('windows.startANewJobInside') : t('windows.startANewJob'), hint: t('windows.inFolder', { carpeta: (folder ?? t('windows.theirRoom')).replace(/^\/Users\/[^/]+/, '~') }), f: () => go({ type: 'new' }) },
     { text: t('windows.resumeAPreviousJob'), hint: copy ? t('windows.fromThisWorktree') : t('windows.includingTerminalOnes'), f: () => go({ type: 'history' }) },
     ...(folder ? [{ text: copy ? t('windows.openATerminalInside') : t('windows.openTheirTerminal'), hint: 'T', f: terminal }] : []),
     ...(copy ? [{ text: t('windows.reviewTheCopyChangesCommits'), f: toReview }] : []),
@@ -691,13 +691,13 @@ function Menu({ h, go, exit }: { h: DwellerSummary; go: (v: View) => void; exit:
 function greetingOf(h: DwellerSummary) {
   if (h.copy) {
     const r = branchCaption(h.copy.branch);
-    const phrases = [t('windows.copyOfAutorOnlineHere', { autor: h.copy.nameAuthor, rama: r }), t('windows.iMAutorSCopy', { autor: h.copy.nameAuthor, rama: r }), h.copy.changes ? t('windows.projectionStableBranchRamaWith', { rama: r, n: h.copy.changes }) : t('windows.projectionStableBranchRamaShall', { rama: r })];
+    const phrases = [t('windows.copyOfAuthorOnlineHere', { author: h.copy.nameAuthor, branch: r }), t('windows.iMAutorSCopy', { author: h.copy.nameAuthor, branch: r }), h.copy.changes ? t('windows.projectionStableBranchWith', { branch: r, n: h.copy.changes }) : t('windows.projectionStableBranchShall', { branch: r })];
     return phrases[Math.floor(Math.random() * phrases.length)];
   }
   const phrases = h.robot
     ? [t('windows.unitReadyStateTheTask'), t('windows.diagnosticsCompleteAwaitingOrders'), t('windows.myCircuitsAreAtYour')]
     : h.state === 'sleeping' ? [t('windows.huhWhatOhOverseerI'), t('windows.fiveMoreMinutesOkayOkay')]
-    : [t('windows.whatAreWeDoingToday'), t('windows.tellMeWhatSUp'), t('windows.hereIAmShallWe'), t('windows.allQuietInSalaFor', { sala: h.nameRoom })];
+    : [t('windows.whatAreWeDoingToday'), t('windows.tellMeWhatSUp'), t('windows.hereIAmShallWe'), t('windows.allQuietInRoomFor', { room: h.nameRoom })];
   return phrases[Math.floor(Math.random() * phrases.length)];
 }
 
@@ -900,7 +900,7 @@ function New({ h, p, resume, goBack }: { h: DwellerSummary; p: TabCom; resume?: 
     <div className={'pantalla-consola fosforo formulario' + (onTop ? ' soltando' : '')} {...drop}>
       {resume && (
         <div className="transcripcion-previa">
-          <p className="voice">{t('windows.resumingTituloCuando', { titulo: resume.title, cuando: ago(resume.modified) })}</p>
+          <p className="voice">{t('windows.resumingTitleWhen', { title: resume.title, when: ago(resume.modified) })}</p>
           <div className="lista-desplazable mini">{transcript === null ? <p className="dim">{t('windows.loading')}</p> : transcript.map(e => <Entry key={e.id} e={e} />)}</div>
         </div>
       )}
@@ -934,7 +934,7 @@ function New({ h, p, resume, goBack }: { h: DwellerSummary; p: TabCom; resume?: 
             {fr.values.map(v => <button key={v.value} className={'chip' + (v.value === fr.current ? ' on' : '')} onClick={() => fr.set(v.value)} title={(v as any).hint ? tIs((v as any).hint) : ''}>{tIs(v.text)}</button>)}
           </div>
         ))}
-        {workIn ? <div className="fila-chips"><span className="etq">Worktree</span><span className="chip on">{t('windows.insideTheCopyRama', { rama: workIn.branch })}</span></div> :
+        {workIn ? <div className="fila-chips"><span className="etq">Worktree</span><span className="chip on">{t('windows.insideTheCopyBranch', { branch: workIn.branch })}</span></div> :
         // un worktree solo tiene sentido en una sala de proyecto (las demás trabajan en su carpeta)
         ofProject && <div className={'fila-chips' + (row === 4 ? ' active' : '')} onClick={() => setRow(4)}>
           <span className="etq">Worktree</span>
@@ -1113,7 +1113,7 @@ function Session({ h, s, p, exit, onClose }: { h: DwellerSummary; s: SessionSumm
         {s.state === 'error' && s.error && <div className="ent error">⚠ {s.error}</div>}
         {s.limit && !workingLive && <div className="ent system">⏳ {limitLine(s.limit)}</div>}
         {s.handoff === 'offered' && !workingLive && <div className="ent system notice-handover">
-          <p>{t('windows.handoff.notice', { usados: tokensShort(s.context?.used ?? 0) })}</p>
+          <p>{t('windows.handoff.notice', { used: tokensShort(s.context?.used ?? 0) })}</p>
           <div className="botones-relevo"><button onClick={compact}>{t('windows.compact')}</button><button title={t('windows.handoff.newHint')} onClick={handoff}>{t('windows.handoff.new')}</button></div>
         </div>}
         {s.handoff === 'writing' && <div className="ent system">✎ {t('windows.handoff.writing')}</div>}
@@ -1167,12 +1167,12 @@ const OLDER_AT_PX = 120;
 
 // stopped by the usage limit (server/limitResume.ts): when it resumes, or when the limit renews until it's queued
 const hhmm = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-const limitLine = (l: NonNullable<SessionSummary['limit']>) => l.resumeAt ? t('windows.limitWaiting', { cuando: hhmm(l.resumeAt) }) : t('windows.limitWaitingReset', { cuando: hhmm(l.resetsAt) });
+const limitLine = (l: NonNullable<SessionSummary['limit']>) => l.resumeAt ? t('windows.limitWaiting', { when: hhmm(l.resumeAt) }) : t('windows.limitWaitingReset', { when: hhmm(l.resetsAt) });
 
 // Las páginas de la conversación (planes, informes, comparaciones que ha enlazado): cuáles quedan por revisar, abrirlas
 // (sus notas vuelven a esta conversación) y validar sin notas las que estén bien (shared/sessionPages.ts)
 const PR_STATE: Record<PRBoard['state'], string> = { open: '●', draft: '◌', merged: '✓', closed: '✕' };
-const prStateName = (e: PRBoard['state']) => e === 'open' ? t('windows.prState.abierto') : e === 'draft' ? t('windows.prState.borrador') : e === 'merged' ? t('windows.prState.fusionado') : t('windows.prState.cerrado');
+const prStateName = (e: PRBoard['state']) => e === 'open' ? t('windows.prState.open') : e === 'draft' ? t('windows.prState.draft') : e === 'merged' ? t('windows.prState.merged') : t('windows.prState.closed');
 function WorktreePRs({ copy, roomId }: { copy: { path: string; branch: string }; roomId: string }) {
   const fromBoard = jiraBoard.use(x => x.prs);
   const [read, setRead] = useState<PRBoard[] | null>(null);
@@ -1217,7 +1217,7 @@ function PreflightButton({ copy }: { copy: { path: string; branch: string } }) {
   const withPRs = jiraBoard.use(x => !!task && taskHasPRs(task, x.prs));
   if (!task || !withPRs) return null;
   return <span className="paginas-sesion preflight-copia">
-    <button className="consola-x" title={t('preflight.actionHint')} onClick={e => { SFX.click(); openPreflight(task, e.currentTarget); }}>✈ {t('preflight.action', { clave: task })}</button>
+    <button className="consola-x" title={t('preflight.actionHint')} onClick={e => { SFX.click(); openPreflight(task, e.currentTarget); }}>✈ {t('preflight.action', { key: task })}</button>
   </span>;
 }
 
@@ -1268,7 +1268,7 @@ function ScheduledMenu({ h, s, resume }: { h: DwellerSummary; s?: SessionSummary
   const mine = useMemo(() => tiers(groups.flatMap(g => g.items).sort((a, b) => a.when - b.when)), [groups]);
   const headed = !conversation && !h.copy && groups.some(g => g.worktree || g.task);
   const groupName = (g: { worktree?: string; task?: string }) => {
-    if (g.task) return t('windows.scheduledNewHologram', { clave: g.task });
+    if (g.task) return t('windows.scheduledNewHologram', { key: g.task });
     const w = g.worktree && worktrees?.find(x => x.path === g.worktree);
     return w ? `◇ ${copyCaption(w, copyTask(w) ?? branchCaption(w.branch))}` : t('windows.scheduledMainCopy');
   };
@@ -1286,17 +1286,17 @@ function ScheduledMenu({ h, s, resume }: { h: DwellerSummary; s?: SessionSummary
   const here = (x: ScheduledMessage) => !!conversation && x.target.type === 'conversation' && ((!!s && x.target.sessionId === s.id) || (!!conversation.claudeId && x.target.claudeId === conversation.claudeId));
   const target = (x: ScheduledMessage) => x.target.type === 'room' ? `→ ${x.target.room}${x.target.key ?? x.target.thread ? ' ' + (x.target.key ?? x.target.thread) : ''}`
     : here(x) ? t('windows.scheduledToThis')
-    : t('windows.scheduledToConversation', { titulo: x.target.title || t('windows.conversation') });
+    : t('windows.scheduledToConversation', { title: x.target.title || t('windows.conversation') });
   const pack = (x: ScheduledMessage) => x.pr ? t('windows.scheduledPack', { pr: x.pr.label, n: x.pr.parts.length })
     : x.messages && x.messages.parts.length > 1 ? t('windows.scheduledMessages', { n: x.messages.parts.length }) : undefined;
   const whenShort = (x: ScheduledMessage) => x.afterTurn ? pack(x) || t('windows.scheduledAfterTurn') : x.nextWindow ? t('windows.scheduledWindow') : describeWhenShort(x.when);
   return (
     <span className="paginas-sesion programados-sesion">
       <button className="consola-x" title={t(conversation ? 'windows.scheduledHint' : 'windows.scheduledHintPlace')} onClick={() => { setOpen(x => !x); setEditing(null); SFX.click(); }}>
-        {t(mine.length > 1 ? 'windows.scheduledN' : 'windows.scheduled', { n: mine.length, cuando: whenShort(mine[0]) })}
+        {t(mine.length > 1 ? 'windows.scheduledN' : 'windows.scheduled', { n: mine.length, when: whenShort(mine[0]) })}
       </button>
       {open && <ul ref={list} className="paginas-lista programados-lista" onKeyDown={e => { e.stopPropagation(); if (e.key === 'Escape') { setEditing(null); setOpen(false); } }}>{groups.map(g => <Fragment key={g.worktree ?? (g.task ? 'task:' + g.task : '')}>
-        {headed && <li className="programados-grupo" title={g.task ? t('windows.scheduledNewHologramHint') : undefined}><span>{t('windows.scheduledGroup', { nombre: groupName(g), n: g.items.length })}</span></li>}
+        {headed && <li className="programados-grupo" title={g.task ? t('windows.scheduledNewHologramHint') : undefined}><span>{t('windows.scheduledGroup', { name: groupName(g), n: g.items.length })}</span></li>}
         {g.items.map(x => <Fragment key={x.id}>
         {editing?.id === x.id
         ? <li className="programado-edicion">
@@ -1319,7 +1319,7 @@ function ScheduledMenu({ h, s, resume }: { h: DwellerSummary; s?: SessionSummary
     </span>
   );
 }
-const laterDone = (x: ScheduledMessage) => t(x.afterTurn ? 'windows.scheduleAfterTurnDone' : x.nextWindow ? 'windows.nextWindowDone' : 'windows.scheduleAtDone', { cuando: describeWhenShort(x.when) });
+const laterDone = (x: ScheduledMessage) => t(x.afterTurn ? 'windows.scheduleAfterTurnDone' : x.nextWindow ? 'windows.nextWindowDone' : 'windows.scheduleAtDone', { when: describeWhenShort(x.when) });
 
 // ⏰ Schedule in the composer's help line: in an open conversation «When it finishes» first (AFTER_TURN: when its turn
 // ends), then one-click presets (schedulePresets) or any date and time; `pick` sends the draft for then (action
@@ -1456,7 +1456,7 @@ function PagesList({ sessionId, claudeId, entries, base }: { sessionId: string; 
         const n = inDraft(p.path);
         return <li key={p.path} className={p.answer ? 'dim' : ''}>
           <button className="pagina-nombre" title={p.path} onClick={() => openTarget(p.path)}>{p.name}</button>
-          {updated[p.path] && <span className="dim" title={new Date(updated[p.path]).toLocaleString()}>{t('windows.pageUpdated', { cuando: ago(updated[p.path]) })} · </span>}
+          {updated[p.path] && <span className="dim" title={new Date(updated[p.path]).toLocaleString()}>{t('windows.pageUpdated', { when: ago(updated[p.path]) })} · </span>}
           <span className={p.answer ? '' : 'urgent'}>{p.answer ? '✓ ' + t(p.answer.state === 'notes' ? 'windows.pageNotesSent' : 'windows.pageValidatedState') : '• ' + t('windows.pagePending')}</span>
           {n > 0 && <span className="dim"> · {t('windows.pageDraftNotes', { n })}</span>}
           <button className="consola-x" title={t('windows.showInFinderHint')} onClick={() => revealPage(p.path)}>📁</button>
@@ -1534,7 +1534,7 @@ function Pending({ s, p, tab, hid, exit }: { s: SessionSummary; p: PendingReques
   }, exit);
   return (
     <div className={'peticion ' + p.type}>
-      <div className="peticion-titulo">{p.ofHelper ? t('windows.aHelperNombreAsks', { nombre: p.ofHelper }) : ''}{question ? null : p.title}</div>
+      <div className="peticion-titulo">{p.ofHelper ? t('windows.aHelperNameAsks', { name: p.ofHelper }) : ''}{question ? null : p.title}</div>
       {/* la pregunta es prosa de Claude: en markdown (enlaces que se abren, listas), con su propio scroll si es muy larga */}
       {question && <div className="peticion-pregunta" dangerouslySetInnerHTML={{ __html: markdown(question.question, folderOf(s)) }} />}
       {/* lo que pide una herramienta, siempre en texto plano (plainText.tsx); el plan, que es prosa, en markdown */}

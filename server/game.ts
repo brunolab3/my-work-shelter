@@ -120,6 +120,6 @@ export function gameAction(nombre: string, d: Record<string, any>, almacen: Stor
       return { nueva: true, prize: 15 };
     }
     case 'generador': { cooldown('generador', 120_000); almacen.change(() => { j.records.generador = (j.records.generador ?? 0) + 1; j.scrap += 8; }); return { prize: 8 }; }
-    default: throw new Error(tr('server.unknownAction', { nombre: 'juego.' + nombre }));
+    default: throw new Error(tr('server.unknownAction', { name: 'juego.' + nombre }));
   }
 }

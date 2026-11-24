@@ -56,9 +56,9 @@ function Verification({ taskKey, plan, tracker, approved, moved }: { taskKey: st
     SFX.click(); setError(''); setMoving(true);
     client.action<{ state: string }>('verification.close', { key: taskKey }).then(x => { SFX.shortSuccess(); moved(x.state); }).catch(e => setError((e as Error).message)).finally(() => setMoving(false));
   };
-  const line = tracker && <p className="dim">{t('verification.tracker', { estado: tracker.state })}{' · '}
-    {tracker.test ? t('verification.boardProdCheck', { tablero: tracker.board, prueba: tracker.test }) : t('verification.boardUnset', { tablero: tracker.board })}
-    {tracker.move && <> <button className="boton-taller" disabled={moving} onClick={move}>{t('verification.moveDone', { hecho: tracker.done ?? t('verification.doneColumn') })}</button></>}</p>;
+  const line = tracker && <p className="dim">{t('verification.tracker', { state: tracker.state })}{' · '}
+    {tracker.test ? t('verification.boardProdCheck', { board: tracker.board, test: tracker.test }) : t('verification.boardUnset', { board: tracker.board })}
+    {tracker.move && <> <button className="boton-taller" disabled={moving} onClick={move}>{t('verification.moveDone', { done: tracker.done ?? t('verification.doneColumn') })}</button></>}</p>;
   if (!plan) return <>{line}<p className="dim">{t('verification.none')}</p></>;
   const approve = () => {
     SFX.click(); setError('');
@@ -74,11 +74,11 @@ function Verification({ taskKey, plan, tracker, approved, moved }: { taskKey: st
       const deadline = deadlineOf(c);
       return <div key={c.id} className="pf-point">
         <span className={'pf-' + STATE_MARK[c.state]} title={c.stuck ? t(STATE_TEXT[c.stuck]) : undefined}>{t(STATE_TEXT[c.state])}</span> <b>{c.type === 'final' ? t('verification.final') : c.pr}</b> {c.title !== c.pr ? c.title : ''}
-        <span className="dim">{c.services.length ? ' · ' + t('verification.services', { lista: c.services.map(s => (c.live[s] ? s + ' ✓' : s)).join(', ') }) : ''}
-          {' · '}{deadline ? t('verification.deadline', { cuando: describeWhenShort(deadline) }) : t('verification.deadlineHours', { n: c.deadlineHours })}</span>
-        {c.note && <div className="dim">{t('verification.note', { texto: c.note.text })}</div>}
+        <span className="dim">{c.services.length ? ' · ' + t('verification.services', { list: c.services.map(s => (c.live[s] ? s + ' ✓' : s)).join(', ') }) : ''}
+          {' · '}{deadline ? t('verification.deadline', { when: describeWhenShort(deadline) }) : t('verification.deadlineHours', { n: c.deadlineHours })}</span>
+        {c.note && <div className="dim">{t('verification.note', { text: c.note.text })}</div>}
         <ul>{c.signals.map(x => <li key={x.id} className={'pf-' + (x.state === 'evidenced' ? 'ok' : x.state === 'failed' ? 'bad' : 'none')}
-          title={[t('verification.where', { donde: x.where }), ...(x.base ? [t('verification.baseline', { base: x.base })] : []), ...(x.evidence ? [t('verification.evidence', { texto: x.evidence.text })] : [])].join('\n')}>
+          title={[t('verification.where', { where: x.where }), ...(x.base ? [t('verification.baseline', { base: x.base })] : []), ...(x.evidence ? [t('verification.evidence', { text: x.evidence.text })] : [])].join('\n')}>
           {SIGNAL_MARK[x.state]} <span className="dim">{t(KIND_TEXT[x.type])}:</span> <span className="pf-senal">{x.what}</span></li>)}</ul>
       </div>;
     })}
@@ -155,7 +155,7 @@ function Popover({ taskKey: key, anchor }: { taskKey: string; anchor?: { x: numb
       {r?.error && <p className="dim">{r.error}</p>}
       {!r && !error && <p className="dim">{t('preflight.reading')}</p>}
       {r && reading && <p className="dim">{t('panels.syncingWithGithub')}</p>}
-      {r && !prs.length && <p className="dim">{t('preflight.noPRs', { clave: key })}</p>}
+      {r && !prs.length && <p className="dim">{t('preflight.noPRs', { key: key })}</p>}
       {prs.length > 0 && <div className="pf-lista"><table className="pf-tabla">
         <thead><tr>
           <th /><th>{t('preflight.col.pr')}</th><th>{t('preflight.col.state')}</th><th>{t('preflight.col.ci')}</th><th>{t('preflight.col.review')}</th>
@@ -165,7 +165,7 @@ function Popover({ taskKey: key, anchor }: { taskKey: string; anchor?: { x: numb
           const pr = p.pr!, ready = mergeReady(p);
           const blocker = p.waitsOn.find(l => l.state !== 'merged' && l.url);
           return <tr key={p.id} className={'pf-row' + (n === k ? ' sel' : '') + (ready.state === 'merged' ? ' pf-hecha' : '')} onMouseEnter={() => setI(n)} onClick={() => openPR(p)} title={t('preflight.cellHint.pr')}>
-            <td className={'pf-state pf-' + ready.state} title={ready.missing.join('\n') || t(ready.state === 'merged' ? 'preflight.review.merged' : 'preflight.state.listo')}>{READY[ready.state]}</td>
+            <td className={'pf-state pf-' + ready.state} title={ready.missing.join('\n') || t(ready.state === 'merged' ? 'preflight.review.merged' : 'preflight.state.ready')}>{READY[ready.state]}</td>
             <td className="pf-parte" title={`${shortRef(pr)} · ${pr.title}\n${t('preflight.cellHint.pr')}`}><span className="ident">{shortRef(pr)}</span> {pr.title}</td>
             <td className={'pf-celda pf-' + (pr.state === 'draft' ? 'warning' : 'none')}>{t(STATE[pr.state])}</td>
             <CellView c={p.ci} />
@@ -175,7 +175,7 @@ function Popover({ taskKey: key, anchor }: { taskKey: string; anchor?: { x: numb
           </tr>;
         })}</tbody>
       </table></div>}
-      {r && withoutPR.length > 0 && <p className="dim">{t('preflight.withoutPR', { salas: [...new Set(withoutPR)].join(', ') })}</p>}
+      {r && withoutPR.length > 0 && <p className="dim">{t('preflight.withoutPR', { rooms: [...new Set(withoutPR)].join(', ') })}</p>}
       {r && r.waves.length > 0 && <p className="orden-despliegue"><b>{t('preflight.waves')}</b> {r.waves.map((o, n) => {
         const done = o.every(x => byRef.get(x) === 'merged');
         return <span key={n} className={done ? 'pf-ola-hecha' : undefined}>{n > 0 && ' → '}<b>{n + 1}{done ? ' ✔' : ''}</b> {o.map((x, j) => {

@@ -34,7 +34,7 @@ async function connect(url, onEvent) {
   const cdp = (method, params = {}) => new Promise((ok, ko) => {
     if (ws.readyState !== 1) { ko(new Error(tr('chromeNotThere'))); return; }
     const id = ++n; pending.set(id, { ok, ko, method }); ws.send(JSON.stringify({ id, method, params }));
-    setTimeout(() => { const p = pending.get(id); if (p) { pending.delete(id); p.ko(new Error(tr('noAnswer', { metodo: method }))); } }, 10_000).unref?.();
+    setTimeout(() => { const p = pending.get(id); if (p) { pending.delete(id); p.ko(new Error(tr('noAnswer', { method }))); } }, 10_000).unref?.();
   });
   return { ws, cdp };
 }

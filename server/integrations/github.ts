@@ -50,7 +50,7 @@ class GitHub extends ConnectorBase {
     if (!this.who) this.who = (await this.api('/user', token)).json?.login ?? null;
     const r = await this.api('/notifications?per_page=50', token, this.modified ? { 'If-Modified-Since': this.modified } : {});
     if (r.state !== 304) { this.lastSeen = notificationsOfGitHub(r.json); this.modified = r.headers.get('last-modified'); }
-    this.good(tr('server.connectedAsUnreadNotifications', { cuenta: this.who ?? tr('integrations.yourAccount'), gh: this.ofGh ? tr('integrations.ghSession') : '', ultimas: this.lastSeen.length }));
+    this.good(tr('server.connectedAsUnreadNotifications', { account: this.who ?? tr('integrations.yourAccount'), gh: this.ofGh ? tr('integrations.ghSession') : '', latest: this.lastSeen.length }));
     return { notifications: this.lastSeen, complete: true };
   }
   protected async tryReal(v: Record<string, string>) {
@@ -58,7 +58,7 @@ class GitHub extends ConnectorBase {
       const token = await this.token(v.token);
       const me = (await this.api('/user', token)).json;
       await this.api('/notifications?per_page=1', token);
-      return { ok: true, detail: tr('server.validTokenCanReadIts', { cuenta: me?.login ?? tr('integrations.yourAccount'), gh: this.ofGh ? tr('integrations.ghSession') : '' }) };
+      return { ok: true, detail: tr('server.validTokenCanReadIts', { account: me?.login ?? tr('integrations.yourAccount'), gh: this.ofGh ? tr('integrations.ghSession') : '' }) };
     } catch (e) { return { ok: false, detail: (e as Error).message }; }
   }
 }

@@ -28,7 +28,7 @@ describe('contexto de cada sesión', () => {
     const rooms = Array.from({ length: 30 }, (_, i) => `sala-${i} (Sala del repo ${i})`).join(', ');
     const send = Math.max(...(['es', 'en'] as const).map(i => (TEXTS['tool.rooms.description'][i] ?? '').replace('{salas}', rooms).length));
     const rest = ['tool.param.room', 'tool.rooms.paramMessage', 'tool.rooms.paramPurpose', 'tool.rooms.paramKey', 'tool.rooms.paramThread', 'tool.compare.description', 'tool.compare.paramBase', 'tool.compare.paramUncommitted',
-      'tool.compare.paramFolder', 'tool.preflight.estadoDescription', 'tool.preflight.responderDescription'].reduce((n, k) => n + length(k), 0);
+      'tool.compare.paramFolder', 'tool.preflight.statusDescription', 'tool.preflight.answerDescription'].reduce((n, k) => n + length(k), 0);
     expect(send + rest).toBeLessThanOrEqual(2800);
   });
   it('the claude.ai skills hidden from dwellers use their plugin-qualified name (the plain name is silently ignored)', () => {

@@ -50,7 +50,7 @@ export async function actionWorktree(name: string, d: Record<string, any>, ctx: 
       return true;
     }
     case 'integratePrompt':
-      return t('prompt.merge.worktree', { rama: wt.branch ?? '', ruta: wt.path, base });
-    default: throw new Error(t('server.unknownAction', { nombre: 'worktree.' + name }));
+      return t('prompt.merge.worktree', { branch: wt.branch ?? '', path: wt.path, base });
+    default: throw new Error(t('server.unknownAction', { name: 'worktree.' + name }));
   }
 }

@@ -71,7 +71,7 @@ function preflightTasks(): string[] {
   for (const p of prs) { const k = p.state === 'merged' && pRKey(p); if (k) out.add(k); }
   return [...out].slice(0, 16);
 }
-const preflightAction = (k: string): Action => ({ id: 'preflight:' + k, text: t('preflight.action', { clave: k }), hint: t('preflight.actionHint'), keys: `preflight pre-flight vuelo checks ci sync revision review bloqueos ${k}`, f: () => openPreflight(k) });   // over whatever is open: nothing closes
+const preflightAction = (k: string): Action => ({ id: 'preflight:' + k, text: t('preflight.action', { key: k }), hint: t('preflight.actionHint'), keys: `preflight pre-flight vuelo checks ci sync revision review bloqueos ${k}`, f: () => openPreflight(k) });   // over whatever is open: nothing closes
 function actions(): Action[] {
   const j = juego.get();
   const room = (live.get().state?.rooms ?? []).find((s: any) => s.id === j.currentRoom);
@@ -79,15 +79,15 @@ function actions(): Action[] {
   const withFolder =!!room && (room.path || room.folder || ['bridge', 'git', 'comms', 'calendar', 'logistics'].includes(room.type));
   const toView = sessionInView();
   return [
-    ...(toView ? [{ id: 'app-claude', text: t('panels.continueTituloInTheClaude', { titulo: toView.title || t('windows.thisConversation') }), hint: t('panels.itClosesHere'), keys: 'claude app escritorio desktop abrir sacar', f: () => toClaudeApp({ sessionId: toView.id }) },
-      { id: 'remote-control', text: t('panels.continueTituloOnYourPhone', { titulo: toView.title || t('windows.thisConversation') }), hint: t('panels.itClosesHere'), keys: 'remote control movil móvil phone telefono teléfono mobile', f: () => takeASurface({ sessions: [toView.id], remote: true }) }] : []),
+    ...(toView ? [{ id: 'app-claude', text: t('panels.continueTitleInTheClaude', { title: toView.title || t('windows.thisConversation') }), hint: t('panels.itClosesHere'), keys: 'claude app escritorio desktop abrir sacar', f: () => toClaudeApp({ sessionId: toView.id }) },
+      { id: 'remote-control', text: t('panels.continueTitleOnYourPhone', { title: toView.title || t('windows.thisConversation') }), hint: t('panels.itClosesHere'), keys: 'remote control movil móvil phone telefono teléfono mobile', f: () => takeASurface({ sessions: [toView.id], remote: true }) }] : []),
     { id: 'all-to-phone', text: t('menu.everythingToYourPhone'), hint: t('menu.openConversationsWithRemoteControl'), keys: 'remote control movil móvil phone telefono teléfono mobile superficie todo', f: () => takeASurface({ all: true, remote: true, windowNew: true }) },
     { id: 'waiting', text: t('panels.goToWhoeverIsWaiting'), key: 'Q', keys: 'pendiente permiso pregunta urgente', f: () => { const h = busy([...j.dwellers, ...j.copies]).find(x => x.state === 'waiting' || x.state === 'error'); if (h) goA(h.room, h.id, true); else SFX.notAllowed(); } },
     { id: 'busy', text: t('panels.whoIsBusy'), hint: t('panels.workingWaitingBrokenDown'), key: 'Tab', keys: 'ocupados trabajos estado', f: () => { onShelter(); openPanel('busy'); } },
     { id: 'map', text: t('panels.shelterMap'), hint: t('panels.fastTravelToAnyRoom'), key: 'M', keys: 'mapa viajar salas', f: () => { onShelter(); openPanel('map'); } },
     { id: 'log', text: t('panels.logbookOfAConversation'), hint: t('panels.theFullTranscript'), key: 'R', keys: 'transcripcion historial leer', f: () => { onShelter(); openPanel('log'); } },
-    ...(withFolder ? [{ id: 'terminal', text: t('panels.salaTerminal', { sala: room.name }), hint: t('panels.shellInTheRoomS'), key: 'T', keys: 'terminal shell consola pty', f: () => window.dispatchEvent(new CustomEvent('refugio:terminal', { detail: { roomId: room.id } })) }] : []),
-    ...(room && (room.type === 'repo' || room.type === 'coordination') ? [{ id: 'adapt', text: t('panels.adaptSalaToTheRepo', { sala: room.name }), hint: t('panels.itsDwellerDesignsAScene'), keys: 'decorar decorado escena sala personalizar atrezo', f: () => { onShelter(); adaptRoom(room.id).catch(() => SFX.error()); } }] : []),
+    ...(withFolder ? [{ id: 'terminal', text: t('panels.roomTerminal', { room: room.name }), hint: t('panels.shellInTheRoomS'), key: 'T', keys: 'terminal shell consola pty', f: () => window.dispatchEvent(new CustomEvent('refugio:terminal', { detail: { roomId: room.id } })) }] : []),
+    ...(room && (room.type === 'repo' || room.type === 'coordination') ? [{ id: 'adapt', text: t('panels.adaptRoomToTheRepo', { room: room.name }), hint: t('panels.itsDwellerDesignsAScene'), keys: 'decorar decorado escena sala personalizar atrezo', f: () => { onShelter(); adaptRoom(room.id).catch(() => SFX.error()); } }] : []),
     { id: 'git', text: t('panels.versionControl'), hint: t('panels.changesCommitsBranchesAndGithub'), key: 'G', keys: 'git github commit rama pull push pr', f: () => openGitOfRoom(j.currentRoom) },
     { id: 'comms', text: t('world.communications'), hint: t('panels.emailAndChats'), key: 'N', keys: 'correo mail chats avisos notificaciones tablon', f: () => { onShelter(); goA('comms'); } },
     { id: 'calendar', text: t('world.calendar'), hint: t('panels.calendarAndMeetings'), key: 'C', keys: 'calendario agenda reuniones eventos', f: () => { onShelter(); goA('calendar'); } },
@@ -99,8 +99,8 @@ function actions(): Action[] {
     { id: 'log', text: t('worklog.menu'), hint: t('world.logistics'), keys: 'sync update su bitacora log diario standup hecho tareas pr worktrees', f: () => { onShelter(); goA('logistics'); openPanel('logistics', { view: 'log' }); } },
     { id: 'verify-ladder', text: t('trophies.verify.menu'), hint: t('trophies.verify.hint'), keys: 'verificar escalera carrera nivel career ladder level verify', f: () => { onShelter(); verifyLadder().catch(() => SFX.notAllowed()); } },
     { id: 'trophies', text: t('trophies.menu'), hint: t('panels.planning'), keys: 'trofeos logros carrera escalera career ladder trophies achievements', f: () => { onShelter(); goA('logistics'); openPanel('logistics', { view: 'trophies' }); } },
-    ...(coordination ? [{ id: 'assignment', text: t('panels.planTasksInSala', { sala: coordination.name }), hint: t('panels.analyzeAJiraTaskWith'), keys: 'jira tareas planificar planificacion plan repartir reparto coordinacion worktrees salas', f: () => { onShelter(); goA(coordination.id); openPanel('room', { roomId: coordination.id, view: 'assignment' }); } },
-      { id: 'deployment', text: t('world.deploymentPlan2'), hint: t('panels.yourPrsByStatusAnd', { sala: coordination.name }), keys: 'despliegue deploy desplegar pr prs pull requests bloqueos dependencias orden fusionar merge', f: () => { onShelter(); goA(coordination.id); openPanel('room', { roomId: coordination.id, view: 'deployment' }); } }] : []),
+    ...(coordination ? [{ id: 'assignment', text: t('panels.planTasksInRoom', { room: coordination.name }), hint: t('panels.analyzeAJiraTaskWith'), keys: 'jira tareas planificar planificacion plan repartir reparto coordinacion worktrees salas', f: () => { onShelter(); goA(coordination.id); openPanel('room', { roomId: coordination.id, view: 'assignment' }); } },
+      { id: 'deployment', text: t('world.deploymentPlan2'), hint: t('panels.yourPrsByStatusAnd', { room: coordination.name }), keys: 'despliegue deploy desplegar pr prs pull requests bloqueos dependencias orden fusionar merge', f: () => { onShelter(); goA(coordination.id); openPanel('room', { roomId: coordination.id, view: 'deployment' }); } }] : []),
     ...preflightTasks().map(preflightAction),
     { id: 'music', text: t('panels.music'), hint: t('panels.spotifyAndTheDeck'), key: `${K}J`, keys: 'spotify musica discoteca pletina', f: () => musicShortcut() },
     { id: 'recargar', text: t('menu.reloadTheView'), hint: t('menu.ifTheShelterGoesBlack'), keys: 'negro pantalla recargar reload refrescar', f: () => reloadView() },
@@ -189,7 +189,7 @@ function Window() {
       if (!p) continue;
       const open = Object.values(sessions).find(y => y.state !== 'closed' && ((x.origin.claudeId && y.claudeId === x.origin.claudeId) || y.id === x.origin.sessionId));
       out.push({ id: 'prog:' + x.id, section: t('panels.scheduledMessages'), text: x.message.replace(/\s+/g, ' ').slice(0, 140),
-        hint: t('panels.scheduledFor', { cuando: describeWhenShort(x.when), habitante: h?.name ?? '?', sala: room?.name ?? x.origin.roomId }) + (x.target.type === 'room' ? ' ' + t('panels.scheduledToRoom', { sala: x.target.room }) : ''),
+        hint: t('panels.scheduledFor', { when: describeWhenShort(x.when), dweller: h?.name ?? '?', room: room?.name ?? x.origin.roomId }) + (x.target.type === 'room' ? ' ' + t('panels.scheduledToRoom', { room: x.target.room }) : ''),
         f: () => { if (open) openConversation(open.id); else if (h) { onShelter(); goA(h.room, h.id, true); } }, p: p + 1 });
     }
     // acciones: sin escribir, las recurrentes (las que más usas) delante
@@ -201,8 +201,8 @@ function Window() {
     const typed = words.find(w => /^[a-z][a-z0-9]+-\d+$/.test(w))?.toUpperCase();
     if (typed && taskHasPRs(typed, jiraBoard.get().prs) && !out.some(f => f.id === 'preflight:' + typed)) { const a = preflightAction(typed); out.push({ id: a.id, section: t('windows.actions'), text: a.text, hint: a.hint, f: a.f, p: 4 }); }
     if (searching) {
-      for (const h of dwellers) { const p = score(words, t('windows.talkToNombre', { nombre: h.name }), `${h.nickname} ${h.nameRoom} habitante`); if (p) out.push({ id: 'dweller:' + h.id, section: t('panels.dwellers'), text: t('windows.talkToNombre', { nombre: h.name }), hint: h.nameRoom, f: () => { onShelter(); goA(h.room, h.id, true); }, p }); }
-      for (const s of rooms) { const p = score(words, t('panels.goToSala', { sala: s.name }), `${s.type} sala`); if (p) out.push({ id: 'sala:' + s.id, section: t('panels.searchRooms'), text: t('panels.goToSala', { sala: s.name }), hint: s.path ? s.path.replace(/^\/Users\/[^/]+/, '~') : undefined, f: () => { onShelter(); goA(s.id); }, p }); }
+      for (const h of dwellers) { const p = score(words, t('windows.talkToName', { name: h.name }), `${h.nickname} ${h.nameRoom} habitante`); if (p) out.push({ id: 'dweller:' + h.id, section: t('panels.dwellers'), text: t('windows.talkToName', { name: h.name }), hint: h.nameRoom, f: () => { onShelter(); goA(h.room, h.id, true); }, p }); }
+      for (const s of rooms) { const p = score(words, t('panels.goToRoom', { room: s.name }), `${s.type} sala`); if (p) out.push({ id: 'sala:' + s.id, section: t('panels.searchRooms'), text: t('panels.goToRoom', { room: s.name }), hint: s.path ? s.path.replace(/^\/Users\/[^/]+/, '~') : undefined, f: () => { onShelter(); goA(s.id); }, p }); }
     }
     // con algo escrito, por secciones en el orden de la mejor de cada una
     if (!searching) return out;

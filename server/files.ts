@@ -184,7 +184,7 @@ export async function paste(root: string, d: { origins: unknown; folder: unknown
     const name = d.move ? path.basename(rel) : freeName(folderAbs, path.basename(rel));
     const target = path.join(folderAbs, name);
     if (d.move) {
-      if (existsSync(target)) throw new Error(t('server.thereIsAlreadySomethingCalled3', { nombre: name }));
+      if (existsSync(target)) throw new Error(t('server.thereIsAlreadySomethingCalled3', { name: name }));
       await fs.rename(abs, target).catch(async e => { if (e.code !== 'EXDEV') throw e; await fs.cp(abs, target, { recursive: true, errorOnExist: true, force: false }); await fs.rm(abs, { recursive: true }); });
     } else await fs.cp(abs, target, { recursive: true, errorOnExist: true, force: false, verbatimSymlinks: true });
     done.push(path.posix.join(folder, name));
@@ -261,7 +261,7 @@ export async function filesAction(name: string, d: Record<string, any>, ctx: Ctx
       case 'all': return all(root);
       case 'reveal': return reveal(root, d.rel);
       case 'openInEditor': return openInEditor(root, d.rel);
-      default: throw new Error(t('server.unknownAction', { nombre: 'files.' + name }));
+      default: throw new Error(t('server.unknownAction', { name: 'files.' + name }));
     }
   })();
   if (WRITE.has(name)) ctx.onChange(root);

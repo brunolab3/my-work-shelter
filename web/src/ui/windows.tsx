@@ -63,10 +63,10 @@ export function WindowButtons({ maximized, minimize, toggleMaximize, close, clos
       {flag && <button className={'consola-x boton-marca' + (flag.on ? ' marcada' : '')} onClick={flag.toggle} aria-pressed={flag.on} title={t(flag.on ? 'windows.flag.clear' : 'windows.flag.set', { shortcut: FLAG_SHORTCUT })}>⚑</button>}
       {remote && <button className="consola-x" onClick={remote} title={t('windows.continueOnYourPhone')}>📱</button>}
       {wingApp && <button className="consola-x" onClick={wingApp} title={t('windows.continueThisConversationInThe')}>✳</button>}
-      {takeOut &&<button className="consola-x" onClick={takeOut} title={t('windows.popQueOutToA', { que: takesThat ?? t('windows.thisTab'), shortcut: `${CMD}${MAC ? '⇧' : ''}E` })}>↗</button>}
+      {takeOut &&<button className="consola-x" onClick={takeOut} title={t('windows.popWhatOutToA', { what: takesThat ?? t('windows.thisTab'), shortcut: `${CMD}${MAC ? '⇧' : ''}E` })}>↗</button>}
       <button className="consola-x" onClick={minimize} title={t('windows.minimizeToTheBarBelow', { shortcut: `${CMD}↓` })}>_</button>
-      <button className="consola-x" onClick={toggleMaximize} title={maximized ? t('windows.restoreSizeAtajo', { shortcut: `${CMD}↓` }) : t('windows.expandToFullScreenAtajo', { shortcut: `${CMD}↑` })}>{maximized ? '❐' : '▢'}</button>
-      <button className="consola-x" onClick={close} title={t('windows.closeQue', { que: closesThat }) + (MAC ? ' (⌘⇧W)' : '')}>×</button>
+      <button className="consola-x" onClick={toggleMaximize} title={maximized ? t('windows.restoreSizeShortcut', { shortcut: `${CMD}↓` }) : t('windows.expandToFullScreenShortcut', { shortcut: `${CMD}↑` })}>{maximized ? '❐' : '▢'}</button>
+      <button className="consola-x" onClick={close} title={t('windows.closeWhat', { what: closesThat }) + (MAC ? ' (⌘⇧W)' : '')}>×</button>
     </span>
   );
 }
@@ -79,7 +79,7 @@ const LIST_SHORTCUT = `${CMD}${MAC ? '⇧' : ''}A`;
  *  light); nothing for tasks without one. Repaints with useColorsTasks */
 export function EpicMark({ taskKey }: { taskKey?: string }) {
   const e = taskEpic(taskKey);
-  return e ? <span className="epic-mark" style={{ '--epica': taskColor(e.key) } as React.CSSProperties} title={t('windows.epicOf', { clave: e.key, titulo: e.title })} /> : null;
+  return e ? <span className="epic-mark" style={{ '--epica': taskColor(e.key) } as React.CSSProperties} title={t('windows.epicOf', { key: e.key, title: e.title })} /> : null;
 }
 /** A task's color marker and, if it has one, its epic's */
 export const TaskMark = ({ taskKey, color }: { taskKey?: string; color?: string }) => <><span className="marca-tarea" style={{ '--tarea': color ?? taskColor(taskKey) } as React.CSSProperties} title={taskKey} /><EpicMark taskKey={taskKey} /></>;
@@ -123,7 +123,7 @@ export function Tabs({ items, active, activate, close, onNew, opensThat, list, c
             <span className="vt-pestana-nombre">{p.name}</span>
             <QueuedMark n={p.queued} />
             <FlagMark on={p.flagged} />
-            <button className="vt-pestana-x" onClick={e => { e.stopPropagation(); close([p.id]); }} title={t('windows.closeTabAtajo', { shortcut: `${CMD}W` })}>×</button>
+            <button className="vt-pestana-x" onClick={e => { e.stopPropagation(); close([p.id]); }} title={t('windows.closeTabShortcut', { shortcut: `${CMD}W` })}>×</button>
           </div>
         </React.Fragment>))}
       </div>
@@ -191,7 +191,7 @@ export function TabList({ items, active, activate, close, exit, group, header, f
             </span>
             {flag && (p.flagged === undefined ? <span className="vt-lista-marca" /> : <button className={'vt-lista-marca' + (p.flagged ? ' marcada' : '')} aria-pressed={p.flagged} title={t(p.flagged ? 'windows.flag.clear' : 'windows.flag.set', { shortcut: FLAG_SHORTCUT })} onClick={e => { e.stopPropagation(); flag(p.id); }}>⚑</button>)}
             <span className="vt-lista-cuando">{p.activity}</span>
-            <button className="vt-pestana-x" onClick={e => { e.stopPropagation(); close([p.id]); }} title={t('windows.closeTabAtajo', { shortcut: `${CMD}W` })}>×</button>
+            <button className="vt-pestana-x" onClick={e => { e.stopPropagation(); close([p.id]); }} title={t('windows.closeTabShortcut', { shortcut: `${CMD}W` })}>×</button>
           </div>
         </React.Fragment>))}
         {!views.length && <div className="vt-lista-vacia">{t('windows.noTabsMatch')}</div>}
@@ -200,7 +200,7 @@ export function TabList({ items, active, activate, close, exit, group, header, f
         {nFlagged > 0 && <button className={'consola-x' + (onlyFlagged ? ' active' : '')} aria-pressed={onlyFlagged} onClick={() => { setOnlyFlagged(x => !x); setI(0); }}>{onlyFlagged ? t('windows.flag.all') : t('windows.flag.only', { n: nFlagged })}</button>}
         {button(t('windows.closeSelected', { n: picked.length }), picked)}
         {button(t('windows.closeIdle', { n: idle.length }), idle)}
-        {sel?.task && button(t('windows.closeTask', { tarea: sel.task, n: taskSession.length }), taskSession)}
+        {sel?.task && button(t('windows.closeTask', { task: sel.task, n: taskSession.length }), taskSession)}
         <span className="vt-lista-ayuda">{t('windows.tabListHelp')}</span>
       </div>
     </div>

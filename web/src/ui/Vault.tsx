@@ -146,7 +146,7 @@ function IntegrationView({ card: base, goBack }: { card: IntegrationCard; goBack
   // los campos los define el conector del servidor (nombre, etiqueta, secreto, ayuda); los pasos son de la cámara
   const [def, setDef] = useState<{ fields: IntegrationField[]; values: Record<string, string>; saved: string[] } | null>(null);
   useEffect(() => { client.action<any>('integration.fields', { source: base.id }).then(r => setDef({ fields: r.fields.map((c: any) => ({ id: c.name, label: tIs(c.label) + (c.optional ? t('panels.optional') : ''), secret: c.secret, help: c.help, example: c.example })), values: r.values ?? {}, saved: r.saved ?? [] })).catch(() => {}); }, []);
-  if (!def) return <Device label={t('panels.vaultNombre', { nombre: base.name.toUpperCase() })} width={62} onClose={goBack}><p className="dim">{t('panels.readingTheConfiguration')}</p></Device>;
+  if (!def) return <Device label={t('panels.vaultName', { name: base.name.toUpperCase() })} width={62} onClose={goBack}><p className="dim">{t('panels.readingTheConfiguration')}</p></Device>;
   return <FormIntegration key="f" card={{ ...base, fields: def.fields.length || !base.fields.length ? def.fields : base.fields }} valuesIni={def.values} savedIni={def.saved} goBack={goBack} />;
 }
 
@@ -197,7 +197,7 @@ function FormIntegration({ card, valuesIni, savedIni, goBack }: { card: Integrat
     else if (e.key === 'Escape') { e.preventDefault(); goBack(); }
   };
   return (
-    <Device label={t('panels.vaultNombre', { nombre: card.name.toUpperCase() })} width={62} height onClose={goBack} pilot={st?.state === 'connected' ? 'working' : st?.state === 'error' ? 'error' : 'waiting'}>
+    <Device label={t('panels.vaultName', { name: card.name.toUpperCase() })} width={62} height onClose={goBack} pilot={st?.state === 'connected' ? 'working' : st?.state === 'error' ? 'error' : 'waiting'}>
       <div className="lista-desplazable">
         <p><b>{t('panels.status')}</b> {tIs(INTEGRATION_STATE_SHORT[st?.state ?? 'demo'])}{st?.detail ? <span className="dim"> — {st.detail}</span> : null}{st?.last ? <span className="dim"> · {t('panels.lastRead')} {new Date(st.last).toLocaleTimeString(language() === 'en' ? 'en-GB' : 'es-ES', { hour: '2-digit', minute: '2-digit' })}</span> : null}</p>
         <p className="dim">{t('panels.whatItBringsToThe')} {tIs(card.what)}.</p>
@@ -404,7 +404,7 @@ function SlackRemoteView({ goBack }: { goBack: () => void }) {
   const connect = () => { if (ready) request('slackRemote.connect', { appToken: app, botToken: bot }).then(r => { if (r) { setApp(''); setBot(''); } }); };
   const copy = () => navigator.clipboard.writeText(SLACK_MANIFEST).then(() => { setMsg({ ok: true, text: t('panels.slackRemoteManifestCopied') }); SFX.tick(); }).catch(() => {});
   return (
-    <Device label={t('panels.vaultNombre', { nombre: 'SLACK' })} width={62} onClose={goBack} pilot={st?.paired ? 'working' : st?.connected ? 'waiting' : 'idle'}>
+    <Device label={t('panels.vaultName', { name: 'SLACK' })} width={62} onClose={goBack} pilot={st?.paired ? 'working' : st?.connected ? 'waiting' : 'idle'}>
       <p className="voice">{t('panels.slackRemoteIntro')}</p>
       <p className="dim">{t('panels.slackRemotePrivacy')}</p>
       {st && !st.connected && <>

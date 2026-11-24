@@ -108,7 +108,7 @@ export function logTail(log: string): string {
 export function ciMessage(pr: PRWithCI, blocks: string[], log?: string): string {
   const key = pRKey(pr);
   return [
-    t('prompt.ci.title', { clave: key ? `[${key}] ` : '', numero: pr.number, repo: pr.repo, titulo: pr.title, rama: pr.branch, commit: (pr.head ?? '').slice(0, 10), url: pr.url }),
+    t('prompt.ci.title', { key: key ? `[${key}] ` : '', number: pr.number, repo: pr.repo, title: pr.title, branch: pr.branch, commit: (pr.head ?? '').slice(0, 10), url: pr.url }),
     '',
     ...(pr.failures.length ? pr.failures.slice(0, MAX_CHECKS).map(f => `- **${f.name}**: ${f.url}`) : [t('prompt.ci.noDetail')]),
     ...(pr.failures.length > MAX_CHECKS ? [t('prompt.review.more', { n: pr.failures.length - MAX_CHECKS })] : []),
@@ -172,7 +172,7 @@ export class CIFailures {
       const room = rooms.find(s => s.repo === pr.repo.toLowerCase());
       const wt = room && worktreeOfPR(pr, room);
       const noTarget = () => {
-        if (!this.notified.has(k)) { this.notified.add(k); this.ctx.withoutConversation(t('server.ciNoConversation', { numero: pr.number, repo: pr.repo, rama: pr.branch })); }
+        if (!this.notified.has(k)) { this.notified.add(k); this.ctx.withoutConversation(t('server.ciNoConversation', { number: pr.number, repo: pr.repo, branch: pr.branch })); }
       };
       // nowhere to deliver it: the log isn't fetched (it retries on the next round)
       if (!target && !(room && wt)) { noTarget(); continue; }

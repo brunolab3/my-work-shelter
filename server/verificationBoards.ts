@@ -97,7 +97,7 @@ async function jiraPair(ctx: CtxTrackers, tasks: TaskStatus[], open: string[]): 
     const m = migrateJira(s.boards, tasks.filter(x => x.source === 'jira').map(x => boardOf(x.key)).filter((b): b is string => !!b));
     if (m) {
       pair = m.pair; ctx.save({ jira: pair });
-      if (m.others.length) migrated = t('verification.migratedMixed', { prueba: pair.test ?? '—', hecho: pair.done ?? '—', otros: m.others.join('; ') });
+      if (m.others.length) migrated = t('verification.migratedMixed', { test: pair.test ?? '—', done: pair.done ?? '—', others: m.others.join('; ') });
     }
   }
   const { states, done, error } = await jiraStates(ctx, open);
@@ -145,12 +145,12 @@ export async function startupNotices(ctx: CtxTrackers): Promise<string[]> {
   if (jira.length) {
     const j = await jiraPair(ctx, tasks, jira);
     if (j.migrated) notes.push(j.migrated);
-    if (j.linked.length) notes.push(t('verification.autoLinked', { prueba: j.pair.test ?? '—', hecho: j.pair.done ?? '—' }));
+    if (j.linked.length) notes.push(t('verification.autoLinked', { test: j.pair.test ?? '—', done: j.pair.done ?? '—' }));
     if (!j.pair.test) unset.push(JIRA);
   }
   const boards = ctx.settings().boards;
   unset.push(...openBoards(tasks, 'linear').filter(b => !boards[b]?.test));
-  if (unset.length) notes.push(t('verification.boardsUnset', { tableros: unset.join(', ') }));
+  if (unset.length) notes.push(t('verification.boardsUnset', { boards: unset.join(', ') }));
   return notes;
 }
 
@@ -160,7 +160,7 @@ export function saveBoard(ctx: CtxTrackers, source: unknown, board: unknown, v: 
   const x: BoardStatuses = { ...(clean(v.test) ? { test: clean(v.test) } : {}), ...(clean(v.done) ? { done: clean(v.done) } : {}) };
   if (source === 'jira') { ctx.save({ jira: x }); return x; }
   const b = String(board ?? '').toUpperCase();
-  if (!/^[A-Z][A-Z0-9]{0,19}$/.test(b)) throw new Error(t('verification.badBoard', { tablero: b }));
+  if (!/^[A-Z][A-Z0-9]{0,19}$/.test(b)) throw new Error(t('verification.badBoard', { board: b }));
   ctx.save({ boards: { ...ctx.settings().boards, [b]: x } });
   return x;
 }

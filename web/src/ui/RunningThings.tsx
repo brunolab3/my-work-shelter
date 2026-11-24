@@ -71,7 +71,7 @@ function Lists({ snap }: { snap: RunningSnapshot }) {
     <span className="proceso-mb">{formatMb(snap.helpers.mb)}</span><span /><span />
   </div>);
   return <>
-    <div className="dim">{t('panels.running.total', { total: formatMb(snap.totalMb), umbral: formatMb(memoryThreshold()) })}</div>
+    <div className="dim">{t('panels.running.total', { total: formatMb(snap.totalMb), threshold: formatMb(memoryThreshold()) })}</div>
     <section>
       <h4>{t('panels.running.game')} <span className="dim">{formatMb(snap.gameMb)}</span></h4>
       <WindowReload />
@@ -98,8 +98,8 @@ function Lists({ snap }: { snap: RunningSnapshot }) {
   </>;
 }
 
-const by = (p: DevServer) => p.sessionId != null ? t('panels.running.startedBy', { quien: who(p.sessionId) })
-  : p.parent ? t('panels.running.startedBy', { quien: shortCommand(p.parent.command) }) : undefined;
+const by = (p: DevServer) => p.sessionId != null ? t('panels.running.startedBy', { who: who(p.sessionId) })
+  : p.parent ? t('panels.running.startedBy', { who: shortCommand(p.parent.command) }) : undefined;
 
 // one process: its name (the full command on hover), ports, memory and age; Stop asks once more before stopping
 function Row({ p, name, by, stoppable }: { p: ProcessInfo; name?: string; by?: string; stoppable?: boolean }) {
@@ -114,7 +114,7 @@ function Row({ p, name, by, stoppable }: { p: ProcessInfo; name?: string; by?: s
   return (
     <div className={'proceso' + (stopping ? ' parando' : '')} style={{ paddingLeft: `${(p.depth ?? 0) * 0.9}em` }} title={p.command}>
       <span className="proceso-nombre">{name ?? shortCommand(p.command)}
-        {p.ports?.length ? <span className="dim"> · {t('panels.running.ports', { puertos: p.ports.join(', ') })}</span> : null}
+        {p.ports?.length ? <span className="dim"> · {t('panels.running.ports', { ports: p.ports.join(', ') })}</span> : null}
         {by && <span className="dim"> · {by}</span>}
       </span>
       <span className="proceso-mb">{formatMb(p.mb)}</span>

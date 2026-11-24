@@ -26,7 +26,7 @@ export const slackApi: SlackApi = async (method, params, token, signal) => {
   const r = await fetch(API + method, { method: 'POST', headers: { 'content-type': 'application/json; charset=utf-8', authorization: `Bearer ${token}` }, body: JSON.stringify(params), signal: signal ?? AbortSignal.timeout(20_000) });
   const j: any = await r.json().catch(() => ({}));
   // el error de Slack es un código corto (invalid_auth, not_in_channel…): nunca lleva el token
-  if (!j.ok) throw new Error(t('server.slackRemoteError', { por: String(j.error ?? r.status) }));
+  if (!j.ok) throw new Error(t('server.slackRemoteError', { by: String(j.error ?? r.status) }));
   return j;
 };
 

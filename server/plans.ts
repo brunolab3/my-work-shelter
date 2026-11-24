@@ -64,13 +64,13 @@ export class Plans {
 
 const waitOf = (p: Plan, x: PartOfPlan) => {
   const n = (x.waitA ?? []).map(id => p.parts.find(y => y.roomId === id)?.room ?? id);
-  return n.length ? t('tool.plan.mergesAfter', { salas: n.join(', ') }) : '';
+  return n.length ? t('tool.plan.mergesAfter', { rooms: n.join(', ') }) : '';
 };
 
 /** Cómo lo lee una sala: la versión, el plan entero, quién hace cada parte y lo que ha cambiado */
 export function textPlan(p: Plan, roomId?: string): string {
   return [
-    t('tool.plan.heading', { id: p.id, tarea: p.key ? t('tool.plan.task', { clave: p.key }) : '', version: p.version }),
+    t('tool.plan.heading', { id: p.id, task: p.key ? t('tool.plan.task', { key: p.key }) : '', version: p.version }),
     '',
     t('tool.plan.parts'),
     ...p.parts.map(x => `- ${x.room}: ${x.title}${waitOf(p, x)}${x.roomId === roomId ? t('tool.plan.yours') : ''}`),

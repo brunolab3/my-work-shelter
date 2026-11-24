@@ -49,7 +49,7 @@ export async function furnishBodyshop(ctx: Context) {
   let s = seed * 7919 + 1; const r = () => { s = (s * 16807) % 2147483647; return s / 2147483647; };
 
   // ---- rótulo de neón al fondo, en el centro
-  const matNeon = new THREE.MeshBasicMaterial({ map: textureNeon(tIs('CHAPA Y PINTURA'), t('world.chapa.neonSub'), GREEN), blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, toneMapped: false });
+  const matNeon = new THREE.MeshBasicMaterial({ map: textureNeon(tIs('CHAPA Y PINTURA'), t('world.bodyshop.neonSub'), GREEN), blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, toneMapped: false });
   const neon = new THREE.Mesh(new THREE.PlaneGeometry(3.0, 0.88), matNeon); neon.position.set(-0.1, 3.02, zB + 0.36); neon.userData.isStatic = false; g.add(neon);
 
   // ---- barbería (izquierda): espejo, lavacabezas, sillón giratorio, poste y Fito
@@ -118,8 +118,8 @@ export async function furnishBodyshop(ctx: Context) {
 
   // ---- el puesto: la mesa de corte de la ropería, de pie (un mueble bajo con cajones, a la altura de las manos), con
   // el monitor del catálogo, tela, tijeras y la cinta
-  const pCatalog = new PhosphorScreen(384, 256, GREEN, t('world.chapa.catalog')); pCatalog.speed = 20;
-  pCatalog.write([t('world.chapa.nTorsos', { n: PIECES.filter(p => p.slot === 'torso').length }), t('world.chapa.nHats', { n: PIECES.filter(p => p.slot === 'sombrero').length }), t('world.chapa.nFabrics', { n: FABRICS.length }), t('world.chapa.fittingRoom')]); ctx.room.screens.push(pCatalog);
+  const pCatalog = new PhosphorScreen(384, 256, GREEN, t('world.bodyshop.catalog')); pCatalog.speed = 20;
+  pCatalog.write([t('world.bodyshop.nTorsos', { n: PIECES.filter(p => p.slot === 'torso').length }), t('world.bodyshop.nHats', { n: PIECES.filter(p => p.slot === 'sombrero').length }), t('world.bodyshop.nFabrics', { n: FABRICS.length }), t('world.bodyshop.fittingRoom')]); ctx.room.screens.push(pCatalog);
   await workStation(ctx, { id: 'haircut', x: 4.8, z: 0.2, rotation: -0.9, ofFoot: true, desk: R.furniture('cabinet_medium'), deskScale: 1.12, tex: pCatalog.tex, brightness: 1.0, keyboard: true,
     onTop: [{ path: R.furniture('rug_rectangle_stripes_A'), x: -0.45, z: 0.15, c: { width: 0.62, rot: 0.15 } }, { path: R.tools('scissors'), x: 0.55, z: 0.15, c: { scale: 0.5, ...lying(-0.7) } }, { path: R.tools('rope_bundle_B'), x: -0.7, z: -0.2, c: { scale: K * 0.35 } }] });
 

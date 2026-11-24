@@ -46,7 +46,7 @@ function Inventory() {
     if (p === 0) return inv.length ? inv.map(([k, n]) => {
       const piece = PIECES.find(x => 'pieza:' + x.id === k); const cos = HARVESTS[k.slice(8)];
       const name = tIs(piece?.nombre ?? cos?.nombre ?? k); const value = piece?.valor ?? cos?.valor ?? 1;
-      return { text: <>{name} <span className="dim">×{n}</span></>, hint: t('panels.valorScrapEach', { valor: value }), detail: <><p>{tIs(piece?.texto ?? FRESH_HARVEST)}</p><p className="dim">{t('panels.enterSellOneVSell')}</p></>, f: () => vender(k, 1), f2: () => vender(k, n) };
+      return { text: <>{name} <span className="dim">×{n}</span></>, hint: t('panels.valorScrapEach', { value: value }), detail: <><p>{tIs(piece?.texto ?? FRESH_HARVEST)}</p><p className="dim">{t('panels.enterSellOneVSell')}</p></>, f: () => vender(k, 1), f2: () => vender(k, n) };
     }) : [{ text: <span className="dim">{t('panels.emptyPockets')}</span>, detail: <p className="dim">{t('panels.everyTaskADwellerFinishes')}</p> }];
     if (p === 1) return [
       ...PIECES.map(x => { const has = (j.inventario['pieza:' + x.id] ?? 0) > 0 || (j.views ?? []).includes(x.id); return { text: has ? <>{tIs(x.nombre)} <span className={'rareza ' + x.rarity}>{tIs(x.rarity)}</span></> : <span className="dim">??? <span className={'rareza ' + x.rarity}>{tIs(x.rarity)}</span></span>, detail: has ? <p>{tIs(x.texto)}</p> : <p className="dim">{t('panels.youHavenTFoundIt')}</p>, powerOff: !has }; }),

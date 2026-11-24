@@ -131,11 +131,11 @@ const THAT: Record<string, string> = { CHANGES_REQUESTED: 'prompt.review.changes
 export function reviewMessage(pr: PRWithReview, events: EventPR[]): string {
   const key = branchKey(pr.branch);
   const list = events.slice(0, MAX_EVENTS).map((e, i) => {
-    const what = e.type === 'review' ? t(THAT[e.state ?? ''] ?? 'prompt.review.reviews') : e.type === 'thread' ? t('prompt.review.onLine', { lugar: `${e.file ?? '?'}${e.line ? ':' + e.line : ''}` }) : t('prompt.review.onConversation');
+    const what = e.type === 'review' ? t(THAT[e.state ?? ''] ?? 'prompt.review.reviews') : e.type === 'thread' ? t('prompt.review.onLine', { place: `${e.file ?? '?'}${e.line ? ':' + e.line : ''}` }) : t('prompt.review.onConversation');
     return `${i + 1}. **${e.author}**${e.bot ? ' (bot)' : ''} ${what} (${e.url})${e.body ? '\n' + quote(e.body) : ''}`;
   });
   return [
-    t('prompt.review.title', { clave: key ? `[${key}] ` : '', numero: pr.number, repo: pr.repo, titulo: pr.title, rama: pr.branch, url: pr.url }),
+    t('prompt.review.title', { key: key ? `[${key}] ` : '', number: pr.number, repo: pr.repo, title: pr.title, branch: pr.branch, url: pr.url }),
     '',
     ...list,
     ...(events.length > MAX_EVENTS ? [t('prompt.review.more', { n: events.length - MAX_EVENTS })] : []),
@@ -152,7 +152,7 @@ export function ledgerLines(l?: ReviewLedger): string[] {
   if (!l) return [];
   return [
     ledgerPending(l)
-      ? t('prompt.review.ledger', { hilos: l.unresolved, viejos: l.outdated ? t('prompt.review.ledgerOutdated', { n: l.outdated }) : '', resumenes: l.unansweredSummaries })
+      ? t('prompt.review.ledger', { threads: l.unresolved, old: l.outdated ? t('prompt.review.ledgerOutdated', { n: l.outdated }) : '', summaries: l.unansweredSummaries })
       : t('prompt.review.ledgerClear'),
     t('prompt.review.ledgerRule'),
   ];
@@ -223,9 +223,9 @@ export class ReviewsPR {
       const key = `${pr.repo}#${pr.number}:${fresh.at(-1)!.id}`;
       if (this.notified.has(key)) continue;
       this.notified.add(key);
-      this.ctx.withoutConversation(!room ? t('server.reviewNoRoom', { numero: pr.number, repo: pr.repo })
-        : !wt ? t('server.reviewNoWorktree', { numero: pr.number, repo: pr.repo, rama: pr.branch, sala: room.name })
-        : t('server.reviewCouldNotOpen', { numero: pr.number, repo: pr.repo }));
+      this.ctx.withoutConversation(!room ? t('server.reviewNoRoom', { number: pr.number, repo: pr.repo })
+        : !wt ? t('server.reviewNoWorktree', { number: pr.number, repo: pr.repo, branch: pr.branch, room: room.name })
+        : t('server.reviewCouldNotOpen', { number: pr.number, repo: pr.repo }));
     }
     if (changed) this.save();
   }

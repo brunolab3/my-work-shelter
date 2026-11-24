@@ -45,8 +45,8 @@ function untilMinutes(ts: number, now: number) {
   if (m < 60) return t('panels.inNMin', { n: m });
   // otro día: «mañana a las 10:00» o «en 3 días a las 10:00» (días de calendario, no de 24 h)
   const days = Math.round((new Date(ts).setHours(0, 0, 0, 0) - new Date(now).setHours(0, 0, 0, 0)) / 86400_000);
-  if (days === 1) return t('panels.tomorrowAt', { hora: fmtHour.format(ts) });
-  if (days > 1) return t('panels.inNDaysAt', { n: days, hora: fmtHour.format(ts) });
+  if (days === 1) return t('panels.tomorrowAt', { time: fmtHour.format(ts) });
+  if (days > 1) return t('panels.inNDaysAt', { n: days, time: fmtHour.format(ts) });
   const h = Math.floor(m / 60); return t('panels.inHH', { h }) + (m % 60 ? ' ' + t('panels.nMin', { n: m % 60 }) : '');
 }
 
@@ -120,7 +120,7 @@ export function Hud() {
 // (the worst window, named); hovering or focusing the meter opens each window's chart against pace and its reset.
 const LIMIT_SHORT: Record<string, string> = { five_hour: t('panels.limit.shortFiveHour'), seven_day: t('panels.limit.shortWeekly') };
 const LIMIT_NAME: Record<string, string> = { five_hour: t('panels.limit.nameFiveHour'), seven_day: t('panels.limit.nameWeekly'), seven_day_opus: t('panels.limit.nameWeeklyOpus'), seven_day_sonnet: t('panels.limit.nameWeeklySonnet') };
-const limitName = (w: string) => LIMIT_NAME[w] ?? t('panels.limit.nameOther', { tipo: w });
+const limitName = (w: string) => LIMIT_NAME[w] ?? t('panels.limit.nameOther', { type: w });
 function PlanMeter({ limits, now }: { limits: PlanLimits; now: number }) {
   const types = [...BAR_WINDOWS.filter(w => w === 'five_hour' || limits[w]), ...rejectedWindows(limits).filter(w => !(BAR_WINDOWS as readonly string[]).includes(w))];
   const worst = worstLight(limits, types, now);
@@ -190,7 +190,7 @@ function LimitWindow({ type, l, now }: { type: string; l: PlanLimit | undefined;
       <div className="limite-ventana-cab"><span className={'luz ' + light} /><b>{name}</b></div>
       <div className="dim limite-ventana-cifra">{figure}</div>
       {pts.length ? (
-        <svg className="limite-grafica" viewBox={`0 0 ${CHART_W} ${CHART_H}`} width={CHART_W} height={CHART_H} role="img" aria-label={t('panels.limit.chart', { nombre: name })}>
+        <svg className="limite-grafica" viewBox={`0 0 ${CHART_W} ${CHART_H}`} width={CHART_W} height={CHART_H} role="img" aria-label={t('panels.limit.chart', { name: name })}>
           {known != null && <>
             <line className="ritmo" x1={0} y1={CHART_H} x2={CHART_W} y2={0}><title>{t('panels.limit.paceLine')}</title></line>
             <line className="ritmo yellow" x1={0} y1={CHART_H} x2={CHART_W / PACE_YELLOW} y2={0} />
@@ -200,7 +200,7 @@ function LimitWindow({ type, l, now }: { type: string; l: PlanLimit | undefined;
           <line className="ahora" x1={x(now)} x2={x(now)} y1={0} y2={CHART_H} />
         </svg>
       ) : <div className="dim limite-sin-muestras">{t('panels.limit.noSamples')}</div>}
-      <div className="dim">{reset ? t('panels.limit.resets', { hora: reset.clock, cuando: reset.relative }) : t('panels.limit.noReset')}</div>
+      <div className="dim">{reset ? t('panels.limit.resets', { time: reset.clock, when: reset.relative }) : t('panels.limit.noReset')}</div>
     </div>
   );
 }

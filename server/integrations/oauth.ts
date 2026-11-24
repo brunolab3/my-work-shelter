@@ -49,12 +49,12 @@ export async function listenReturned(op: ReturnedOptions): Promise<Returned> {
   const handle = (req: http.IncomingMessage, res: http.ServerResponse) => {
     const u = new URL(req.url || '/', 'http://localhost');
     if (u.pathname !== path || (!u.searchParams.has('code') && !u.searchParams.has('error'))) { res.writeHead(404); res.end(); return; }
-    if (u.searchParams.get('state') !== state) return page(res, false, op.service, t('integrations.linkExpired'), t('integrations.linkExpiredText', { servicio: op.service }));
+    if (u.searchParams.get('state') !== state) return page(res, false, op.service, t('integrations.linkExpired'), t('integrations.linkExpiredText', { service: op.service }));
     stop();
     const error = u.searchParams.get('error') ? Object.fromEntries(u.searchParams) : undefined;
     op.onBack({ code: u.searchParams.get('code') ?? undefined, error, redirect, verifier })
       .then(p => page(res, p.ok, op.service, p.title, p.text))
-      .catch(e => page(res, false, op.service, t('integrations.couldNotConnectWith', { servicio: op.service }), (e as Error).message));
+      .catch(e => page(res, false, op.service, t('integrations.couldNotConnectWith', { service: op.service }), (e as Error).message));
   };
   const s4 = http.createServer(handle);
   await new Promise<void>((ok, fail) => { s4.once('error', fail); s4.listen(0, '127.0.0.1', () => ok()); });

@@ -81,10 +81,10 @@ export class Scheduled {
     if (a.room?.trim()) {
       const q = a.room.trim().toLowerCase(), rooms = this.ctx.rooms();
       const room = rooms.find(x => x.id.toLowerCase() === q) ?? rooms.find(x => x.name.toLowerCase() === q);
-      if (!room) return { ok: false, text: t('tool.rooms.noRoom', { sala: a.room, salas: rooms.map(x => `${x.id} (${x.name})`).join(', ') }) };
-      if (!room.dweller) return { ok: false, text: t('tool.rooms.noDweller', { sala: room.name }) };
+      if (!room) return { ok: false, text: t('tool.rooms.noRoom', { room: a.room, rooms: rooms.map(x => `${x.id} (${x.name})`).join(', ') }) };
+      if (!room.dweller) return { ok: false, text: t('tool.rooms.noDweller', { room: room.name }) };
       const key = a.key?.trim() ? taskKey(a.key) : undefined;
-      if (a.key?.trim() && !key) return { ok: false, text: t('tool.rooms.badKey', { clave: a.key ?? '' }) };
+      if (a.key?.trim() && !key) return { ok: false, text: t('tool.rooms.badKey', { key: a.key ?? '' }) };
       target = { type: 'room', room: room.id, ...(key ? { key } : {}) };
     } else {
       if (!s) return { ok: false, text: t('tool.schedule.noConversation') };
@@ -93,15 +93,15 @@ export class Scheduled {
     // to a room, at the same time as one of its own still pending for that place: joins it
     const d = target.type === 'room' ? target : undefined;
     const into = d && this.joinable(y => !y.overLimit && !y.afterTurn && sameSala(y.target, d) && sameSender(y.origin, origin) && !!y.nextWindow === next && (next || y.when === w.when));
-    if (into) { this.joinMessage(into, message); return { ok: true, text: t('tool.schedule.doneRoom', { cuando: describeWhen(into.when), id: into.id, sala: a.room ?? '' }) + ' ' + t('tool.rooms.packed', { id: into.id }) }; }
+    if (into) { this.joinMessage(into, message); return { ok: true, text: t('tool.schedule.doneRoom', { when: describeWhen(into.when), id: into.id, room: a.room ?? '' }) + ' ' + t('tool.rooms.packed', { id: into.id }) }; }
     if (ofConversation(this.items, { id: fromSession, claudeId: s?.claudeId }).length >= MAX_PER_CONVERSATION || this.items.length >= MAX_TOTAL)
       return { ok: false, text: t('tool.schedule.limit', { n: MAX_PER_CONVERSATION }) };
     const x: ScheduledMessage = { id: randomUUID().slice(0, 8), created: now, when: w.when, requested: String(a.when), message, origin, target, ...(next ? { nextWindow: true as const } : {}),
       ...(d ? { messages: this.messagesOf(since, message) } : {}) };
     this.items.push(x); this.save();
     const when = describeWhen(x.when);
-    if (next) return { ok: true, text: t(target.type === 'room' ? 'tool.schedule.doneWindowRoom' : 'tool.schedule.doneWindow', { cuando: when, id: x.id, room: a.room ?? '' }) };
-    return { ok: true, text: t(target.type === 'room' ? 'tool.schedule.doneRoom' : 'tool.schedule.done', { cuando: when, id: x.id, room: a.room ?? '' }) + (w.postponed ? ' ' + t('tool.schedule.heldWeekend') : '') };
+    if (next) return { ok: true, text: t(target.type === 'room' ? 'tool.schedule.doneWindowRoom' : 'tool.schedule.doneWindow', { when: when, id: x.id, room: a.room ?? '' }) };
+    return { ok: true, text: t(target.type === 'room' ? 'tool.schedule.doneRoom' : 'tool.schedule.done', { when: when, id: x.id, room: a.room ?? '' }) + (w.postponed ? ' ' + t('tool.schedule.heldWeekend') : '') };
   }
 
   /** One the game itself schedules for a conversation (a production verification recheck, verifications.ts): no date to
@@ -254,8 +254,8 @@ export class Scheduled {
   /** El mensaje que recibe el habitante: cuándo se programó (y si llega tarde) y el texto */
   text(x: ScheduledMessage, now = this.now()) {
     if (x.overLimit || x.from) return x.message;
-    const title = x.overseer ? t('prompt.scheduled.overseer', { creado: describeWhen(x.created) }) : t('prompt.scheduled.title', { creado: describeWhen(x.created) });
-    return [title + (!x.nextWindow && isLate(x, now) ? ' ' + t('prompt.scheduled.late', { cuando: describeWhen(x.when) }) : ''), '', x.message].join('\n');
+    const title = x.overseer ? t('prompt.scheduled.overseer', { created: describeWhen(x.created) }) : t('prompt.scheduled.title', { created: describeWhen(x.created) });
+    return [title + (!x.nextWindow && isLate(x, now) ? ' ' + t('prompt.scheduled.late', { when: describeWhen(x.when) }) : ''), '', x.message].join('\n');
   }
 
   /** Cada minuto y al arrancar: entrega lo vencido */
@@ -297,14 +297,14 @@ export class Scheduled {
       if (x.target.type === 'room') {
         const r = await this.ctx.toRoom(x as any, this.text(x));
         if (!r.ok && r.limited) return false;
-        if (!r.ok && r.permanent) { this.ctx.notice(t('server.scheduledDropped', { resumen: summary(x.message), error: r.text.split('\n')[0].slice(0, 160) })); this.drop(x); return true; }
+        if (!r.ok && r.permanent) { this.ctx.notice(t('server.scheduledDropped', { summary: summary(x.message), error: r.text.split('\n')[0].slice(0, 160) })); this.drop(x); return true; }
         if (!r.ok) error = r.text;
       }
       else await this.ctx.toConversation(x as any, this.text(x));
     } catch (e) { error = (e as Error).message; }
     finally { this.delivering.delete(x.id); }
     if (error) {
-      if (!this.failed.has(x.id)) { this.failed.add(x.id); this.ctx.notice(t('server.scheduledRetry', { resumen: summary(x.message), error: error.split('\n')[0].slice(0, 160) })); }
+      if (!this.failed.has(x.id)) { this.failed.add(x.id); this.ctx.notice(t('server.scheduledRetry', { summary: summary(x.message), error: error.split('\n')[0].slice(0, 160) })); }
       return false;
     }
     this.drop(x);

@@ -220,10 +220,10 @@ export const attachShortcut = (e: React.KeyboardEvent) => (MAC ? e.metaKey && !e
 // 📎 y 🎙, a la derecha de la caja de texto, cada uno con su tecla a la vista (todo se maneja con el teclado); mientras
 // se escucha, la del micrófono es la que termina
 export function InputButtons({ attach, dictation }: { attach: () => void; dictation: ReturnType<typeof useDictation> }) {
-  const title = dictation.state === 'listening' ? t('windows.stopDictatingSpaceOrAtajo', { shortcut: `${MAC ? '⌘' : 'Ctrl+'}D` }) : dictation.state === 'transcribing' ? t('windows.transcribing') : t('windows.dictateAtajoSpaceStops', { shortcut: `${MAC ? '⌘' : 'Ctrl+'}D` });
+  const title = dictation.state === 'listening' ? t('windows.stopDictatingSpaceOrShortcut', { shortcut: `${MAC ? '⌘' : 'Ctrl+'}D` }) : dictation.state === 'transcribing' ? t('windows.transcribing') : t('windows.dictateShortcutSpaceStops', { shortcut: `${MAC ? '⌘' : 'Ctrl+'}D` });
   return (
     <span className="botones-entrada">
-      <button className="boton-entrada" onMouseDown={e => e.preventDefault()} onClick={attach} title={t('windows.attachFilesOrImagesAtajo', { shortcut: `${MAC ? '⌘' : 'Ctrl+'}U` })} aria-label={t('windows.attach')}>
+      <button className="boton-entrada" onMouseDown={e => e.preventDefault()} onClick={attach} title={t('windows.attachFilesOrImagesShortcut', { shortcut: `${MAC ? '⌘' : 'Ctrl+'}U` })} aria-label={t('windows.attach')}>
         <svg viewBox="0 0 24 24" aria-hidden><path d="M20 11.5l-8.2 8.2a5 5 0 01-7.1-7.1l8.6-8.6a3.4 3.4 0 014.8 4.8l-8.6 8.6a1.7 1.7 0 01-2.4-2.4l7.9-7.9" /></svg>
         <kbd>{MAC ? '⌘U' : 'Ctrl+U'}</kbd>
       </button>

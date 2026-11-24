@@ -110,7 +110,7 @@ async function surface(onlyList: boolean) {
   const terms = (await liveTerminals()).filter(x => !x.fuera);
   if (onlyList) {
     console.log(conv.length || terms.length ? t('server.surface.closedLeftThis') : t('server.surface.closedNothingLeft'));
-    for (const a of conv) console.log(t('server.surface.listConversation', { habitante: a.dweller ?? '', titulo: a.title ?? a.claudeId, cwd: a.cwd }));
+    for (const a of conv) console.log(t('server.surface.listConversation', { dweller: a.dweller ?? '', title: a.title ?? a.claudeId, cwd: a.cwd }));
     for (const x of terms) console.log(t('server.surface.listTerminal', { id: x.id + (x.program ? ' · ' + x.program : ''), cwd: x.cwd }));
     return;
   }

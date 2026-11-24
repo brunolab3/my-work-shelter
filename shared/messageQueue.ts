@@ -29,7 +29,7 @@ export const withdrawable = (m: QueuedMessage) => m.origin.kind === 'overseer';
 /** Who sent it, as the intercom shows it before the message */
 export function originLabel(o: MessageOrigin | undefined): string {
   if (!o || o.kind === 'overseer') return t('windows.you');
-  if (o.kind === 'room') return o.dweller ? t('windows.queue.fromRoomDweller', { sala: o.room, habitante: o.dweller }) : o.room;
+  if (o.kind === 'room') return o.dweller ? t('windows.queue.fromRoomDweller', { room: o.room, dweller: o.dweller }) : o.room;
   return t(o.kind === 'scheduled' ? 'windows.queue.scheduled' : 'windows.queue.game');
 }
 

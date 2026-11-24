@@ -106,7 +106,7 @@ export class Integrations {
       }
       case 'refresh': if (!a) throw new Error(t('integrations.unknownSource')); await this.pollOne(a); return a.state();
       case 'forget': if (!a?.action) throw new Error(t('integrations.unknownSource')); { await a.action('forget', d); return this.changeMode(a, 'off'); }
-      default: if (a?.action) return a.action(name, d); throw new Error(t('integrations.unknownAction', { nombre: name }));
+      default: if (a?.action) return a.action(name, d); throw new Error(t('integrations.unknownAction', { name: name }));
     }
   }
 }

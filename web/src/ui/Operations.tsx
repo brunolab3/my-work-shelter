@@ -64,7 +64,7 @@ export function PanelCommunications({ onlySource }: { onlySource?: string } = {}
   }, [list, sel, f]);
   const withoutSee = (fu: string) => all.filter(n => !n.view && (fu === 'all' || n.source === fu)).length;
   return (
-    <Device label={onlySource ? t('panels.planningFuente', { fuente: SOURCES[onlySource].toUpperCase() }) : t('panels.communicationsNoticeBoard')} width={78} height pilot={withoutSee('all') ? 'waiting' : 'idle'}>
+    <Device label={onlySource ? t('panels.planningSource', { source: SOURCES[onlySource].toUpperCase() }) : t('panels.communicationsNoticeBoard')} width={78} height pilot={withoutSee('all') ? 'waiting' : 'idle'}>
       {!onlySource && <div className="pestanas">{filters.map((x, k) => <button key={x} className={'chip' + (k === f ? ' on' : '')} onClick={() => { setF(k); setI(0); }}>{x === 'all' ? t('panels.all') : SOURCES[x]}{withoutSee(x) ? ' · ' + t('panels.nUnseen', { n: withoutSee(x) }) : ''}{x !== 'all' && ints[x]?.state === 'demo' ? ' ' + t('panels.demo') : ''}</button>)}
         <span className="dim derecha">{onlyNew ? t('panels.onlyUnseen') : t('panels.all2')} · {t('panels.nToggles')}</span></div>}
       <div className="feed">
@@ -83,16 +83,16 @@ export function PanelCommunications({ onlySource }: { onlySource?: string } = {}
           {sel ? <>
             <div className="dim">{SOURCES[sel.source]}{sel.channel ? ' · ' + sel.channel : ''} · {fmtDay.format(sel.date)} {fmtHour.format(sel.date)}{sel.demo ? ' · DEMO' : ''}</div>
             <div className="titulo-ficha">{sel.title}</div>
-            {(sel.count ?? 1) > 1 && <p className="dim">{sel.count} {WITH_READ.has(sel.source) ? t('panels.unreadInFuente', { fuente: SOURCES[sel.source] }) : t('panels.messages')}{sel.authors?.length > 1 ? ' · ' + sel.authors.join(', ') : ''}</p>}
+            {(sel.count ?? 1) > 1 && <p className="dim">{sel.count} {WITH_READ.has(sel.source) ? t('panels.unreadInSource', { source: SOURCES[sel.source] }) : t('panels.messages')}{sel.authors?.length > 1 ? ' · ' + sel.authors.join(', ') : ''}</p>}
             {sel.priority === 'high' && <p className="notice-console">{t('panels.highPriority')}</p>}
             {sel.count > (sel.messages?.length ?? 1) && <p className="dim">{t('panels.andNEarlier', { n: sel.count - sel.messages.length })}</p>}
             <ul className="thread">{[...(sel.messages ?? [{ id: sel.id, author: sel.author, text: sel.snippet, date: sel.date }])].reverse().map((m: any) => (
               <li key={m.id}><b>{m.author}</b> <span className="dim">{fmtHour.format(m.date)}</span><p className="fragmento">{m.text}</p></li>))}</ul>
-            {sel.link ? <p className="dim">{isChat(sel) ? t('panels.enterOpensTheConversationIn', { fuente: SOURCES[sel.source] }) : t('panels.enterOpensTheOriginalIn', { fuente: SOURCES[sel.source] })}{WITH_READ.has(sel.source) && !sel.demo ? ' ' + t('panels.onceYouReadItThere') : ''} {t('panels.theBoardIsReadOnly')}</p> : null}
+            {sel.link ? <p className="dim">{isChat(sel) ? t('panels.enterOpensTheConversationIn', { source: SOURCES[sel.source] }) : t('panels.enterOpensTheOriginalIn', { source: SOURCES[sel.source] })}{WITH_READ.has(sel.source) && !sel.demo ? ' ' + t('panels.onceYouReadItThere') : ''} {t('panels.theBoardIsReadOnly')}</p> : null}
           </> : null}
         </div>
       </div>
-      {webs.length > 0 && <div className="botonera abrir-webs"><span className="dim">{t('panels.openHere')}</span>{webs.map((x, k) => <button key={x} className="boton-taller" onClick={() => openBrowser(x)} title={t('panels.openSitioInItsShelter', { sitio: SPOTS[x].name, k: k + 1 })}>{k + 1} · {SPOTS[x].name}</button>)}</div>}
+      {webs.length > 0 && <div className="botonera abrir-webs"><span className="dim">{t('panels.openHere')}</span>{webs.map((x, k) => <button key={x} className="boton-taller" onClick={() => openBrowser(x)} title={t('panels.openSiteInItsShelter', { site: SPOTS[x].name, k: k + 1 })}>{k + 1} · {SPOTS[x].name}</button>)}</div>}
       <Keys><kbd>↑↓</kbd>{t('panels.notices')} {!onlySource && <><kbd>←→</kbd>{t('panels.source')} </>}<kbd>Enter</kbd>{t('panels.openTheOriginal')} <kbd>N</kbd>{t('panels.onlyUnseen2')} <kbd>V</kbd>{t('panels.markAllSeen')} {webs.length > 0 && <><kbd>1–{webs.length}</kbd>{t('panels.openTheWeb')} </>}<kbd>Esc</kbd>{t('menu.close')}</Keys>
     </Device>
   );
@@ -192,7 +192,7 @@ export function PanelLogistics() {
       { text: t('panels.linearMyIssuesByStatus'), f: () => setView('board') },
       { text: t('panels.linearNotices'), f: () => setView('notices') },
     ] : []),
-    ...(commander ? [{ text: t('windows.talkToNombre', { nombre: commander.name }) + (withLinear ? t('panels.createMoveOrCommentOn') : ''), f: () => { closePanel(); goA('logistics', commander.id, true); } }] : []),
+    ...(commander ? [{ text: t('windows.talkToName', { name: commander.name }) + (withLinear ? t('panels.createMoveOrCommentOn') : ''), f: () => { closePanel(); goA('logistics', commander.id, true); } }] : []),
   ];
   const [i, setI] = useState(0);
   useKeys(e => {
@@ -228,7 +228,7 @@ export async function planTask(task: TaskJira, roomId?: string): Promise<string 
   const room = coordinationRooms().find(s => !roomId || s.id === roomId);
   if (!room) return t('panels.thereIsNoLogisticsRoom');
   const h = ((live.get().state?.dwellers ?? []) as any[]).find(x => x.roomId === room.id);
-  if (!h) return t('panels.theRoomSalaHasNo', { sala: room.name });
+  if (!h) return t('panels.theRoomHasNo', { room: room.name });
   // con la descripción, si Jira la da (en DEMO no hay)
   const complete = await client.action<TaskJira & { description?: string }>('integration.task', { source: 'jira', key: task.key }).catch(() => task);
   client.send({ t: 'start', dwellerId: h.id, roomId: room.id, prompt: planPrompt(complete), options: { permissions: 'plan' } });
@@ -285,9 +285,9 @@ export function JiraBoard({ goBack, coordination, onWorkLog }: { goBack: () => v
   const propose = (ta: TaskWithPR | undefined, column: BoardColumn | undefined) => {
     if (!ta || !column || column === columnOf(ta, jiraStatuses) || move) return;
     if (jira?.demo) { setNotice(t('panels.jiraDemoCantMove')); SFX.notAllowed(); return; }
-    setNotice(t('panels.jiraAskingTransitions', { clave: ta.key }));
+    setNotice(t('panels.jiraAskingTransitions', { key: ta.key }));
     client.action<{ transitions: JiraTransition[] }>('integration.transitions', { source: 'jira', key: ta.key, column, current: ta.state }).then(({ transitions }) => {
-      if (!transitions.length) { setNotice(t('panels.jiraNoTransition', { clave: ta.key, estado: ta.state, columna: colName(column) })); SFX.notAllowed(); return; }
+      if (!transitions.length) { setNotice(t('panels.jiraNoTransition', { key: ta.key, state: ta.state, column: colName(column) })); SFX.notAllowed(); return; }
       setNotice(''); setMove({ task: ta, column, options: transitions, k: 0 }); SFX.open();
     }).catch(e => { setNotice(e.message); SFX.notAllowed(); });
   };
@@ -297,7 +297,7 @@ export function JiraBoard({ goBack, coordination, onWorkLog }: { goBack: () => v
     setMove(null); SFX.click();
     setMoved(m => ({ ...m, [ta.key]: { text: t('panels.jiraMoving') } }));
     client.action<{ state: string }>('integration.move', { source: 'jira', key: ta.key, column, id: options[k].id }).then(r => {
-      setMoved(m => ({ ...m, [ta.key]: { text: '✔ ' + t('panels.jiraMovedTo', { estado: r.state }) } }));
+      setMoved(m => ({ ...m, [ta.key]: { text: '✔ ' + t('panels.jiraMovedTo', { state: r.state }) } }));
       SFX.shortSuccess(); setFollow(ta.key); load();
     }).catch(e => { setMoved(m => ({ ...m, [ta.key]: { text: '✗ ' + e.message, fail: true } })); SFX.notAllowed(); });
   };
@@ -349,7 +349,7 @@ export function JiraBoard({ goBack, coordination, onWorkLog }: { goBack: () => v
             onDrop={e => { e.preventDefault(); const ta = dragged; setDragged(null); setOver(null); propose(ta ?? undefined, c.id); }}>
             <h3>{tIs(c.name)} <span className="dim">{c.tareas.length}</span></h3>
             {c.tareas.map((ta, k) => (<React.Fragment key={ta.key}>
-              {ta.epic && ta.epic.key !== c.tareas[k - 1]?.epic?.key && <div className="kanban-epica" title={t('windows.epicOf', { clave: ta.epic.key, titulo: ta.epic.title })}><EpicMark taskKey={ta.key} /><span className="ident">{ta.epic.key}</span> {ta.epic.title}</div>}
+              {ta.epic && ta.epic.key !== c.tareas[k - 1]?.epic?.key && <div className="kanban-epica" title={t('windows.epicOf', { key: ta.epic.key, title: ta.epic.title })}><EpicMark taskKey={ta.key} /><span className="ident">{ta.epic.key}</span> {ta.epic.title}</div>}
               <div className={'card-issue' + (c.id !== 'done' ? ' con-tarea' : '') + (ci === col && k === Math.min(i, c.tareas.length - 1) ? ' sel' : '') + (dragged?.key === ta.key ? ' arrastrada' : '')} style={c.id !== 'done' ? { '--tarea': taskColor(ta.key) } as React.CSSProperties : undefined} onMouseEnter={() => { if (!dragged) { setCol(ci); setI(k); } }} onDoubleClick={() => openOutside(ta.url)}
                 draggable={!move} onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', ta.key); setDragged(ta); }} onDragEnd={() => { setDragged(null); setOver(null); }}>
                 {c.id !== 'done' && <span className="marca-tarea" />}<EpicMark taskKey={ta.key} /><span className="ident">{ta.key}</span> {ta.title}
@@ -364,14 +364,14 @@ export function JiraBoard({ goBack, coordination, onWorkLog }: { goBack: () => v
         ))}
       </div>
       {crossing.withoutTask.length > 0 && <p className="dim">{t('panels.nPrsWithoutAJira', { n: crossing.withoutTask.length })}</p>}
-      {startBy && <div className="botonera"><button className="boton-taller" onClick={() => plan(taskSel)} title={t('panels.planClaveInSalaWith', { clave: taskSel!.key, sala: coord?.name ?? t('panels.theLogisticsRoom') })}>{coord ? t('panels.pPlanClaveInSala', { clave: taskSel!.key, sala: coord.name }) : t('panels.pPlanClaveAndSplit', { clave: taskSel!.key })}</button></div>}
-      {selPrs.length > 0 && <div className="botonera">{selPrs.slice(0, 9).map((p, k) => <button key={p.url} className="boton-taller" onClick={() => openOutside(p.url)} title={p.title}>{k + 1} · {p.repo}#{p.number}</button>)}{withPreflight && <button className="boton-taller" onClick={preflight} title={t('preflight.actionHint')}>{t('preflight.keyF', { clave: taskSel!.key })}</button>}</div>}
+      {startBy && <div className="botonera"><button className="boton-taller" onClick={() => plan(taskSel)} title={t('panels.planKeyInRoomWith', { key: taskSel!.key, room: coord?.name ?? t('panels.theLogisticsRoom') })}>{coord ? t('panels.pPlanKeyInRoom', { key: taskSel!.key, room: coord.name }) : t('panels.pPlanKeyAndSplit', { key: taskSel!.key })}</button></div>}
+      {selPrs.length > 0 && <div className="botonera">{selPrs.slice(0, 9).map((p, k) => <button key={p.url} className="boton-taller" onClick={() => openOutside(p.url)} title={p.title}>{k + 1} · {p.repo}#{p.number}</button>)}{withPreflight && <button className="boton-taller" onClick={preflight} title={t('preflight.actionHint')}>{t('preflight.keyF', { key: taskSel!.key })}</button>}</div>}
       <Keys><kbd>←→</kbd>{t('panels.column')} <kbd>↑↓</kbd>{t('panels.task')} <kbd>⇧←→</kbd>{t('panels.moveTheTask')} <kbd>Enter</kbd>{t('panels.openTheTask')} {selPrs.length > 0 && <><kbd>1–{Math.min(9, selPrs.length)}</kbd>{t('panels.openThePr')} </>}{startBy && <><kbd>P</kbd>{t('panels.planAndSplit')} </>}{withPreflight && <><kbd>F</kbd>{t('preflight.title')} </>}<kbd>T</kbd>{t('panels.allYourPrs')} {onWorkLog && <><kbd>U</kbd>{t('worklog.keyBoard')} </>}<kbd>H</kbd>{showDone ? t('panels.hideDone') : t('panels.showDone')} <kbd>R</kbd>{t('panels.reload')} <kbd>Esc</kbd>{t('menu.back')}</Keys>
       {move && <div className="vt-confirmar mover-jira">
         <div className="vt-confirmar-caja">
           <p><b>{move.task.key}</b>: {move.task.state} → <b>{move.options[move.k].a}</b></p>
           {move.options.length > 1 && <>
-            <p className="dim">{t('panels.jiraSeveralTransitions', { columna: colName(move.column) })}</p>
+            <p className="dim">{t('panels.jiraSeveralTransitions', { column: colName(move.column) })}</p>
             <ul className="opciones-consola">{move.options.map((x, k) => <li key={x.id} className={k === move.k ? 'active' : ''} onClick={() => setMove({ ...move, k })}><span className="cursor">{k === move.k ? '▶' : ' '}</span><span>{x.name === x.a ? x.a : `${x.name} → ${x.a}`}</span></li>)}</ul>
           </>}
           <p className="dim">{t('panels.jiraMoveWrites')}</p>

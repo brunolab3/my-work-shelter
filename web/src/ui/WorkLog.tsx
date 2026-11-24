@@ -92,8 +92,8 @@ export function WorkLog({ goBack, onBoard }: { goBack: () => void; onBoard: () =
                 </div>
                 {expanded && <ul className="bitacora-detalle">
                   {r.prs.map(p => <li key={p.ref} onClick={e => { e.stopPropagation(); openLink(p.url); }} className="link">
-                    ⇄ {p.repo.split('/').pop()}#{p.number} {p.title} — {p.mergedAt ? t('worklog.mergedOn', { fecha: day(p.mergedAt) }) : prStateText(p.state)} · {day(p.updated)}</li>)}
-                  {r.worktrees.map(w => <li key={w.path}>⎇ {w.roomId} · {w.branch ?? w.path.split('/').pop()} — {w.goneAt ? t('worklog.worktreeGone', { fecha: day(w.goneAt) }) : t('worklog.worktreeLive')}</li>)}
+                    ⇄ {p.repo.split('/').pop()}#{p.number} {p.title} — {p.mergedAt ? t('worklog.mergedOn', { date: day(p.mergedAt) }) : prStateText(p.state)} · {day(p.updated)}</li>)}
+                  {r.worktrees.map(w => <li key={w.path}>⎇ {w.roomId} · {w.branch ?? w.path.split('/').pop()} — {w.goneAt ? t('worklog.worktreeGone', { date: day(w.goneAt) }) : t('worklog.worktreeLive')}</li>)}
                   {r.conversations.map(c => <li key={c.claudeId}>💬 {c.title || c.claudeId.slice(0, 8)} · {c.roomId} · {day(c.last)}</li>)}
                 </ul>}
               </li>

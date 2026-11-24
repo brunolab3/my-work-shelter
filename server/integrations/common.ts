@@ -83,7 +83,7 @@ export abstract class ConnectorBase implements Adapter {
 
   protected abstract pollReal(): Promise<Polling>;
   protected abstract tryReal(v: Record<string, string>): Promise<{ ok: boolean; detail: string }>;
-  protected missingConfig() { return t('integrations.missingConfig', { campos: this.config.fields.filter(c => !c.optional && !this.config.has(c.name)).map(c => tIs(c.label)).join(', ') }); }
+  protected missingConfig() { return t('integrations.missingConfig', { fields: this.config.fields.filter(c => !c.optional && !this.config.has(c.name)).map(c => tIs(c.label)).join(', ') }); }
   protected ready() { return this.config.ready(); }
 
   state(): SourceState { return { mode: 'real', state: this.situation.state, detail: this.situation.detail, last: this.last, fields: this.config.publicFields() }; }
@@ -102,7 +102,7 @@ export abstract class ConnectorBase implements Adapter {
   async attempt(input: Record<string, string>) {
     const v = await this.config.combine(input);
     const missing = this.config.missing(v);
-    if (missing.length) return { ok: false, detail: t('integrations.missing', { campos: missing.join(', ') }) };
+    if (missing.length) return { ok: false, detail: t('integrations.missing', { fields: missing.join(', ') }) };
     try { return await this.tryReal(v); } catch (e) { return { ok: false, detail: message(e) }; }
   }
   async configure(input: Record<string, string>) {
@@ -120,7 +120,7 @@ export abstract class ConnectorBase implements Adapter {
     if (name === 'forget') { this.onRestart(); await this.config.forget(); this.restart(); this.notify?.('state'); return this.state(); }
     return this.ownAction(name, d);
   }
-  protected async ownAction(name: string, _d: Record<string, any>): Promise<unknown> { throw new Error(t('integrations.unknownActionFor', { id: this.id, nombre: name })); }
+  protected async ownAction(name: string, _d: Record<string, any>): Promise<unknown> { throw new Error(t('integrations.unknownActionFor', { id: this.id, name: name })); }
 }
 
 // Petición HTTP con tiempo límite. No lanza por estado HTTP (lo interpreta quien llama); sí por red caída.
@@ -130,7 +130,7 @@ export async function ask(url: string, op: { service: string; method?: string; h
   try { r = await fetch(url, { method: op.method ?? 'GET', headers: op.headers, body: op.body, signal: AbortSignal.timeout(op.timeout ?? 20_000), redirect: 'follow' }); }
   catch (e) {
     const cause = (e as any)?.name === 'TimeoutError' ? t('integrations.didNotRespondInTime') : ((e as any)?.cause?.code === 'ENOTFOUND' ? t('integrations.addressNotFound') : (e as any)?.cause?.code || message(e));
-    throw new ErrorSource(t('server.noConnectionToIsThe', { servicio: op.service, causa: cause }), 60_000, 'red');
+    throw new ErrorSource(t('server.noConnectionToIsThe', { service: op.service, cause: cause }), 60_000, 'red');
   }
   const text = await r.text();
   let json: any; try { json = text ? JSON.parse(text) : undefined; } catch { json = undefined; }

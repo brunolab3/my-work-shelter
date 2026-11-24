@@ -9,7 +9,7 @@ export interface HandoffDeps {
   close(id: string): void;
 }
 
-export const handoffPrompt = (summary: string) => t('prompt.handoff.start', { resumen: summary.trim() });
+export const handoffPrompt = (summary: string) => t('prompt.handoff.start', { summary: summary.trim() });
 
 export async function startFromHandoff(d: HandoffDeps, old: SessionSummary, summary: string): Promise<string> {
   const id = await d.start({

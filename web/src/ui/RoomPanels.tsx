@@ -75,7 +75,7 @@ function DoorList({ root, pick, path, github }: { root: string; pick: (path: str
   const items: (ItemMenu & { f: () => void })[] = [
     ...suggestionItems(sugs, pick),
     { text: t('panels.anotherFolderTypeThePath'), hint: t('panels.anyPathOnThisMac'), f: () => path(false) },
-    { text: t('panels.createANewFolderOr'), hint: t('panels.insideRaiz', { raiz: root }), f: () => path(true) },
+    { text: t('panels.createANewFolderOr'), hint: t('panels.insideRoot', { root: root }), f: () => path(true) },
     { text: t('panels.fromGitHub'), hint: t('panels.fromGitHubHint'), f: github },
   ];
   const [i, setI] = useMenu(items.length, k => items[k].f());
@@ -84,7 +84,7 @@ function DoorList({ root, pick, path, github }: { root: string; pick: (path: str
       <p className="voice">{t('panels.everyFolderYouAdmitIs')}</p>
       <p className="dim">{t('panels.suggestionsFrom')} <code>{root}</code> {t('panels.mostRecentFirstTheRoot')}</p>
       <div className="lista-desplazable">
-        {sugs === null ? <p className="dim">{t('panels.readingRaiz', { raiz: root })}</p> : <Options items={items} i={i} setI={setI} onChoose={k => items[k].f()} />}
+        {sugs === null ? <p className="dim">{t('panels.readingRoot', { root: root })}</p> : <Options items={items} i={i} setI={setI} onChoose={k => items[k].f()} />}
       </div>
       <Keys><kbd>↑↓</kbd>{t('menu.select')} <kbd>Enter</kbd>{t('panels.admit')} <kbd>Esc</kbd>{t('menu.close')}</Keys>
     </Device>
@@ -127,7 +127,7 @@ function GitHubList({ goBack, clone, admit }: { goBack: () => void; clone: (repo
   useEffect(() => { ref.current?.focus(); client.action<{ repos: RepoGitHub[]; off?: boolean; error?: string }>('github.repos').then(setData).catch(err => setData({ repos: [], error: (err as Error).message })); }, []);
   useKeys(e => { if (e.code === 'Escape') goBack(); });
   const pick = (r: RepoGitHub) => {
-    if (r.cloned?.room) { SFX.error(); setError(t('panels.githubIsRoom', { sala: r.cloned.room })); return; }
+    if (r.cloned?.room) { SFX.error(); setError(t('panels.githubIsRoom', { room: r.cloned.room })); return; }
     SFX.click();
     if (r.cloned) admit(r.cloned.path, r.cloned.path.split('/').filter(Boolean).pop() ?? r.name); else clone(r.repo, r.name);
   };
@@ -145,7 +145,7 @@ function GitHubList({ goBack, clone, admit }: { goBack: () => void; clone: (repo
     ...(githubRef(text) && !exact ? [{ text: t('panels.githubOpenRef', { repo: text.trim() }), f: open }] : []),
     ...list.map(r => ({
       text: <><b>{r.repo}</b> {(r.isPrivate || r.archived) && <span className="dim">· {[r.isPrivate && t('panels.githubPrivate'), r.archived && t('panels.githubArchived')].filter(Boolean).join(' · ')}</span>}</>,
-      hint: r.cloned ? (r.cloned.room ? t('panels.githubIsRoom', { sala: r.cloned.room }) : t('panels.githubClonedAt', { ruta: r.cloned.corta })) : r.pushed ? t('panels.githubPushed', { cuando: ago(r.pushed) }) : undefined,
+      hint: r.cloned ? (r.cloned.room ? t('panels.githubIsRoom', { room: r.cloned.room }) : t('panels.githubClonedAt', { path: r.cloned.corta })) : r.pushed ? t('panels.githubPushed', { when: ago(r.pushed) }) : undefined,
       powerOff: !!r.cloned?.room,
       f: () => pick(r),
     })),
@@ -205,7 +205,7 @@ function CloneRepo({ repo, name, root, goBack, follow }: { repo: string; name: s
   const pct = clone?.pct ?? 0, bar = '█'.repeat(Math.round(pct / 5)) + '░'.repeat(20 - Math.round(pct / 5));
   return (
     <Device label={t('panels.doorClone', { repo })} pilot={clone ? 'working' : 'idle'} width={56} onClose={clone ? cancel : goBack}>
-      <p>{t('panels.cloneWhere', { raiz: root })}</p>
+      <p>{t('panels.cloneWhere', { root: root })}</p>
       <div className={'linea-entrada' + (clone ? '' : ' active')}>
         <span className="prompt-sim">›</span>
         <input ref={ref} className="campo" value={text} spellCheck={false} disabled={!!clone} onChange={e => { setText(e.target.value); setError(''); }}
@@ -274,10 +274,10 @@ function LinkList({ room, root, pick, other, goBack }: { room: any; root: string
   ];
   const [i, setI] = useMenu(items.length, k => items[k].f(), undefined, goBack);
   return (
-    <Device label={t('panels.roomPanelSalaLink', { sala: room.name })} width={52} onClose={goBack}>
+    <Device label={t('panels.roomPanelRoomLink', { room: room.name })} width={52} onClose={goBack}>
       <p className="dim">{t('panels.pickTheRoomSNew')} <code>{root}</code> {t('panels.mostRecentFirstThoseThat')}</p>
       <div className="lista-desplazable">
-        {sugs === null ? <p className="dim">{t('panels.readingRaiz', { raiz: root })}</p> : <Options items={items} i={i} setI={setI} onChoose={k => items[k].f()} />}
+        {sugs === null ? <p className="dim">{t('panels.readingRoot', { root: root })}</p> : <Options items={items} i={i} setI={setI} onChoose={k => items[k].f()} />}
       </div>
       <Keys><kbd>↑↓</kbd>{t('menu.select')} <kbd>Enter</kbd>{t('panels.continue2')} <kbd>Esc</kbd>{t('menu.back')}</Keys>
     </Device>
@@ -294,7 +294,7 @@ function ConfirmLink({ room, example, path, name, goBack }: { room: any; example
   const items: ItemMenu[] = [{ text: <>{t('panels.link')} <b>{room.name}</b> {t('panels.to')} <b>{name}</b></> }, { text: t('windows.back') }];
   const [i, setI] = useMenu(items.length, k => (k === 0 ? link() : goBack()), undefined, goBack);
   return (
-    <Device label={t('panels.roomPanelSalaLink', { sala: room.name })} width={52} onClose={goBack}>
+    <Device label={t('panels.roomPanelRoomLink', { room: room.name })} width={52} onClose={goBack}>
       <p className="voice">{t('panels.theRoomMovesTo')} <code>{path}</code> {t('panels.andWillBeCalled')} <b>{name}</b>.</p>
       <p className="dim">{t('panels.theirDwellerStaysWithTheir')}{room.decor ? t('panels.theSetDressingIsRemoved') : ''}. {example ? t('panels.theCopyOfTheExample') : t('panels.thePreviousFolderIsLeft')}</p>
       {error && <p className="notice-console">{error}</p>}
@@ -371,7 +371,7 @@ function RoomMenu({ roomId, room, onLink, onDistribute, onDeploy, onOrganize }: 
     ...(ofRepo && repo?.exists !== false ? [{ text: rc?.state === 'on' ? t('panels.turnOffRemoteControl') : t('panels.turnOnRemoteControl'), hint: rc?.state === 'on' ? t('panels.stopsShowingOnClaudeAi') : t('panels.thisRepoSSessionsFrom'), f: async () => {
       const switchOn = rc?.state !== 'on';
       if (switchOn) setNotice(t('panels.turningOnRemoteControl'));
-      try { const r = await client.action<StateRC>('room.remoteControl', { roomId, switchOn }); setRc(r); setNotice(r.detail ?? (r.state === 'on' ? t('panels.onOpenTheCodeTab', { nombre: r.name ?? '' }) : t('panels.off'))); }
+      try { const r = await client.action<StateRC>('room.remoteControl', { roomId, switchOn }); setRc(r); setNotice(r.detail ?? (r.state === 'on' ? t('panels.onOpenTheCodeTab', { name: r.name ?? '' }) : t('panels.off'))); }
       catch (e) { setNotice((e as Error).message); }
     } }] : []),
     ...(rc?.state === 'on' && rc.url ? [{ text: t('panels.openItsRemoteControlOn'), hint: t('panels.inTheBrowser'), f: () => { window.open(rc.url, '_blank'); } }] : []),
@@ -391,7 +391,7 @@ function RoomMenu({ roomId, room, onLink, onDistribute, onDeploy, onOrganize }: 
   ];
   const [i, setI] = useMenu(items.length, k => items[k].f());
   return (
-    <Device label={t('panels.roomPanelSala', { sala: room.name })} width={52}>
+    <Device label={t('panels.roomPanelRoom', { room: room.name })} width={52}>
       <div className="card"><dl>
         <dt>{t('panels.folder')}</dt><dd>{room.path}{repo && repo.exists === false && <span className="notice-console"> · {t('panels.notFoundTheRoomStays')}</span>}</dd>
         {repo?.isGit ? <>
@@ -400,7 +400,7 @@ function RoomMenu({ roomId, room, onLink, onDistribute, onDeploy, onOrganize }: 
         </> : <><dt>git</dt><dd className="dim">{repo?.subrepos?.length ? t('panels.wingWithNRepos', { n: repo.subrepos.length }) : t('panels.notARepo')}</dd></>}
         <dt>{t('panels.type')}</dt><dd>{tIs(REPO_TYPE[repo?.type ?? ''] ?? repo?.type ?? '—')}{repo?.example && <span className="dim"> · {t('panels.exampleRepo')}</span>}</dd>
         <dt>{t('panels.dwellers2')}</dt><dd>{dwellers.map(h => h.name).join(', ') || '—'}</dd>
-        {ofRepo && rc && <><dt>remote control</dt><dd>{rc.state === 'on' ? <>{t('panels.on')} <span className="dim">· {t('panels.nombreOnClaudeAiCode', { nombre: rc.name ?? '' })}</span></> : rc.state === 'off' ? <span className="dim">{t('panels.off2')}</span> : <span className="notice-console">{rc.detail}</span>}</dd></>}
+        {ofRepo && rc && <><dt>remote control</dt><dd>{rc.state === 'on' ? <>{t('panels.on')} <span className="dim">· {t('panels.nameOnClaudeAiCode', { name: rc.name ?? '' })}</span></> : rc.state === 'off' ? <span className="dim">{t('panels.off2')}</span> : <span className="notice-console">{rc.detail}</span>}</dd></>}
         {ofRepo && <><dt>{t('panels.scene')}</dt><dd>{room.decor ? <>{room.decor.summary || t('panels.customSetDressing')} <span className="dim">{t('panels.designedByItsDweller')}</span></> : <span className="dim">{t('panels.theDefaultOneForIts')}</span>}</dd></>}
       </dl></div>
       {notice && <p className="notice-console">{notice}</p>}
@@ -451,7 +451,7 @@ function PanelWorktree() {
   ] : [];
   const [i, setI] = useMenu(items.length, k => items[k].f());
   return (
-    <Device label={dwellers.find(h => h.id === authorId) ? t('panels.holographicCopyOfNombreRama', { nombre: dwellers.find(h => h.id === authorId)!.name, rama: info?.branch ?? '…' }) : t('panels.holographicCopyRama', { rama: info?.branch ?? '…' })} width={60} pilot={info?.busy ? 'error' : info?.state?.length ? 'waiting' : 'working'}>
+    <Device label={dwellers.find(h => h.id === authorId) ? t('panels.holographicCopyOfNameBranch', { name: dwellers.find(h => h.id === authorId)!.name, branch: info?.branch ?? '…' }) : t('panels.holographicCopyBranch', { branch: info?.branch ?? '…' })} width={60} pilot={info?.busy ? 'error' : info?.state?.length ? 'waiting' : 'working'}>
       {!info ? <p className="dim">{error || t('panels.connectingToTheCopy')}</p> : <>
         <div className="card"><dl>
           <dt>{t('panels.path')}</dt><dd>{info.path}</dd>
@@ -465,7 +465,7 @@ function PanelWorktree() {
         {error && <p className="notice-console">{error}</p>}
         {/* el aviso de la confirmación va debajo, para no mover la lista bajo el ratón entre el primer clic y el segundo */}
         <Options items={items} i={i} setI={setI} onChoose={k => items[k].f()} />
-        {confirm && <p className="notice-console">{t('panels.youWillLoseCambiosUncommitted', { cambios: info.state.length, commits: info.commits.length, base: info.base })}{info.ignored.length ? t('panels.andNIgnoredFilesE', { n: info.ignored.length, ej: info.ignored.slice(0, 3).join(', ') }) : ''}.</p>}
+        {confirm && <p className="notice-console">{t('panels.youWillLoseChangesUncommitted', { changes: info.state.length, commits: info.commits.length, base: info.base })}{info.ignored.length ? t('panels.andNIgnoredFilesE', { n: info.ignored.length, eg: info.ignored.slice(0, 3).join(', ') }) : ''}.</p>}
       </>}
       <Keys><kbd>↑↓</kbd>{t('menu.select')} <kbd>Enter</kbd>{t('panels.use')} <kbd>Esc</kbd>{t('menu.close')}</Keys>
     </Device>

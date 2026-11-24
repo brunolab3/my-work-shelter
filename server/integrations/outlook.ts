@@ -84,13 +84,13 @@ class Outlook extends ConnectorBase {
       authorization: (redirect, state, challenge) => `${this.authority}/authorize?` + new URLSearchParams({ client_id: this.client, response_type: 'code', redirect_uri: redirect, response_mode: 'query', scope: SCOPES, state: state, code_challenge: challenge, code_challenge_method: 'S256', prompt: 'select_account' }),
       onClose: () => { this.listener = null; },
       onBack: async ({ code, error, redirect, verifier }) => {
-        if (error || !code) { const m = explainErrorMicrosoft((error ?? {}) as any); this.fail(m); this.notify?.('state'); return { ok: false, title: t('integrations.couldNotConnectWith', { servicio: 'Microsoft' }), text: m }; }
+        if (error || !code) { const m = explainErrorMicrosoft((error ?? {}) as any); this.fail(m); this.notify?.('state'); return { ok: false, title: t('integrations.couldNotConnectWith', { service: 'Microsoft' }), text: m }; }
         try {
           await this.token({ grant_type: 'authorization_code', code: code, redirect_uri: redirect, code_verifier: verifier, scope: SCOPES });
           this.me = null; const me = await this.whoAmI();
-          this.good(t('integrations.connectedAs', { quien: me.name ?? me.email })); this.notify?.('activate');
-          return { ok: true, title: t('integrations.connected'), text: t('server.doneTheShelterCanNow2', { nombre: me.name ? ', ' + me.name : '' }) };
-        } catch (e) { this.fail((e as Error).message); this.notify?.('state'); return { ok: false, title: t('integrations.couldNotConnectWith', { servicio: 'Microsoft' }), text: (e as Error).message }; }
+          this.good(t('integrations.connectedAs', { who: me.name ?? me.email })); this.notify?.('activate');
+          return { ok: true, title: t('integrations.connected'), text: t('server.doneTheShelterCanNow2', { name: me.name ? ', ' + me.name : '' }) };
+        } catch (e) { this.fail((e as Error).message); this.notify?.('state'); return { ok: false, title: t('integrations.couldNotConnectWith', { service: 'Microsoft' }), text: (e as Error).message }; }
       },
     });
     return this.listener.url;
@@ -115,7 +115,7 @@ class Outlook extends ConnectorBase {
       }
       this.lastCalendar = Date.now();
     }
-    this.good(t('server.connectedAsUnreadEmailsIn', { correo: me.name ?? me.email, notificaciones: notifications.length }));
+    this.good(t('server.connectedAsUnreadEmailsIn', { email: me.name ?? me.email, notifications: notifications.length }));
     return { notifications, complete: true, events };   // lo que se lee en Outlook sale del tablón
   }
 
@@ -123,7 +123,7 @@ class Outlook extends ConnectorBase {
     if (!GUID.test(v.clientId ?? '')) return { ok: false, detail: t('server.theApplicationClientIdIs') };
     this.session = await hasSessionMicrosoft();
     if (!this.session) return { ok: true, detail: t('server.applicationIdSavedNowPress') };
-    try { this.access = null; this.me = null; const me = await this.whoAmI(); return { ok: true, detail: t('integrations.connectedAsWithMail', { nombre: me.name ?? '', correo: me.email ?? '' }) }; }
+    try { this.access = null; this.me = null; const me = await this.whoAmI(); return { ok: true, detail: t('integrations.connectedAsWithMail', { name: me.name ?? '', email: me.email ?? '' }) }; }
     catch (e) { return { ok: false, detail: (e as Error).message }; }
   }
   async action(name: string, d: Record<string, any>) {

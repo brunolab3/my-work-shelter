@@ -71,7 +71,7 @@ export class WorkLog {
     const fresh = newlyEarned(evaluate(this.ladder().ladder, l, now), l.notified);
     if (fresh.length) {
       l.notified.push(...fresh.map(x => x.key)); changed = true;
-      src.notify(fresh.length === 1 ? t('trophies.earned', { nombre: fresh[0].name }) : t('trophies.earnedMany', { n: fresh.length, nombres: fresh.map(x => x.name).join(', ') }));
+      src.notify(fresh.length === 1 ? t('trophies.earned', { name: fresh[0].name }) : t('trophies.earnedMany', { n: fresh.length, names: fresh.map(x => x.name).join(', ') }));
     }
     if (changed) this.save();
   }
@@ -112,12 +112,12 @@ export class WorkLog {
     const conversations = Object.values(l.conversations).filter(c => c.last >= since).sort((a, b) => b.last - a.last).slice(0, 60)
       .map(c => `- ${c.task} · ${c.roomId} · «${c.title}» · claudeId ${c.claudeId} · ${c.cwd}`).join('\n');
     const slackAwards = all.filter(a => a.sources.includes('slack')).map(a => a.id);
-    const slack = !slackAwards.length ? '' : t('prompt.medalDigest.slack', { desde: new Date(since).toISOString().slice(0, 10), hasta: new Date(now).toISOString().slice(0, 10), premios: slackAwards.join(', ') });
+    const slack = !slackAwards.length ? '' : t('prompt.medalDigest.slack', { since: new Date(since).toISOString().slice(0, 10), until: new Date(now).toISOString().slice(0, 10), prizes: slackAwards.join(', ') });
     return t('prompt.medalDigest', {
-      requisitos: awards.map(a => `- ${a.id}: ${fileText(a.name)} — ${fileText(a.evidence)} [${a.sources.filter(usable).join(', ')}]`).join('\n'),
+      requirements: awards.map(a => `- ${a.id}: ${fileText(a.name)} — ${fileText(a.evidence)} [${a.sources.filter(usable).join(', ')}]`).join('\n'),
       slack,
-      log: syncText(logRows(l, since)) || '—', conversaciones: conversations || '—',
-      propuestas: Object.values(l.medals).filter(m => m.proposedAt >= since - 7 * 864e5).map(m => `- ${m.award ?? m.requirement}: ${m.text} (${m.state}; ${m.evidence.join(', ')})`).join('\n') || '—',
+      log: syncText(logRows(l, since)) || '—', conversations: conversations || '—',
+      proposals: Object.values(l.medals).filter(m => m.proposedAt >= since - 7 * 864e5).map(m => `- ${m.award ?? m.requirement}: ${m.text} (${m.state}; ${m.evidence.join(', ')})`).join('\n') || '—',
     });
   }
 
@@ -159,19 +159,19 @@ export class WorkLog {
       const levels = Object.entries(q.req.levels ?? {}).map(([k, n]) => `${k} ${n}`).join(', ');
       const measured = q.req.trophies.map(id => trophy.get(id)).filter(x => x && x.rule.kind !== 'awards').map(x => `${x!.rule.id} ${x!.count}/${x!.rule.n}${x!.earnedAt ? ' ✔' : ''}${x!.facts.length ? ' (' + x!.facts.slice(-5).map(f => f.url ?? f.ref).join(', ') + ')' : ''}`);
       const rules = [`${q.count} awards (${levels})${q.level ? ' → ' + q.level : ''}`, ...measured, ...q.medals.map(m => `🏅 ${m.evidence[0]}`)];
-      return `- ${q.req.id}: ${fileText(q.req.text)} — ${q.measured ? t('prompt.ladderVerify.byRules', { estado: q.met ? 'met' : q.progress > 0 ? 'partial' : 'not-met', reglas: rules.join('; ') }) : t('prompt.ladderVerify.yours')}${q.req.evidence ? ' — ' + fileText(q.req.evidence) : ''}`;
+      return `- ${q.req.id}: ${fileText(q.req.text)} — ${q.measured ? t('prompt.ladderVerify.byRules', { state: q.met ? 'met' : q.progress > 0 ? 'partial' : 'not-met', rules: rules.join('; ') }) : t('prompt.ladderVerify.yours')}${q.req.evidence ? ' — ' + fileText(q.req.evidence) : ''}`;
     })].join('\n')).join('\n\n');
     const since = this.progress()?.at ?? now - 90 * 864e5;
     const medals = Object.values(l.medals).filter(m => m.state === 'accepted').map(m => `- ${m.award ?? m.requirement}: ${m.text} (${m.evidence.join(', ')})`).join('\n');
     const conversations = Object.values(l.conversations).filter(c => c.last >= since).sort((a, b) => b.last - a.last).slice(0, 80)
       .map(c => `- ${c.task} · ${c.roomId} · «${c.title}» · claudeId ${c.claudeId} · ${c.cwd}`).join('\n');
-    return t('prompt.ladderVerify', { escalera: steps, medallas: medals || '—', log: syncText(logRows(l, since)) || '—', conversaciones: conversations || '—', archivo: this.ladderFile });
+    return t('prompt.ladderVerify', { ladder: steps, medals: medals || '—', log: syncText(logRows(l, since)) || '—', conversations: conversations || '—', file: this.ladderFile });
   }
 
   /** «Draft my career ladder»: the first message of a plan-mode conversation that asks the Overseer for their
    *  instructions and proposes the ladder file as a plan; the game writes nothing */
   draftPrompt(): string {
-    return t('prompt.ladderDraft', { archivo: this.ladderFile, ejemplo: this.exampleFile, existe: existsSync(this.ladderFile) ? t('prompt.ladderDraft.exists') : '' });
+    return t('prompt.ladderDraft', { file: this.ladderFile, example: this.exampleFile, exists: existsSync(this.ladderFile) ? t('prompt.ladderDraft.exists') : '' });
   }
 
   /** The session's report (ladder_progress), settled by the rules and written as the file's "progress" key only */

@@ -204,8 +204,8 @@ class Discord extends ConnectorBase {
     const text = [...this.ctx.channels].filter(([, c]) => [0, 5, 15].includes(c.type ?? -1));
     const blind = text.filter(([id, c]) => c.visible === false && (!this.ctx.chosen.size || this.ctx.chosen.has(id))).map(([, c]) => '#' + c.name);
     const channels = this.ctx.chosen.size ? tr('integrations.chosenChannels', { n: this.ctx.chosen.size }) : tr('integrations.discordVisibleChannels', { n: text.length - blind.length });
-    return tr(n === 1 ? 'integrations.discordConnectedOne' : 'integrations.discordConnected', { bot: this.app?.name ?? 'work-shelter', n, servidores: [...this.ctx.servers.values()].join(', '), canales: channels })
-      + (blind.length ? tr(blind.length === 1 ? 'integrations.discordBlindOne' : 'integrations.discordBlind', { n: blind.length, canales: blind.slice(0, 8).join(', ') + (blind.length > 8 ? '…' : '') }) : '')
+    return tr(n === 1 ? 'integrations.discordConnectedOne' : 'integrations.discordConnected', { bot: this.app?.name ?? 'work-shelter', n, servers: [...this.ctx.servers.values()].join(', '), channels: channels })
+      + (blind.length ? tr(blind.length === 1 ? 'integrations.discordBlindOne' : 'integrations.discordBlind', { n: blind.length, channels: blind.slice(0, 8).join(', ') + (blind.length > 8 ? '…' : '') }) : '')
       + (this.ctx.content ? '' : tr('integrations.discordWithoutContent'))
       + (this.ctx.me ? '' : tr('integrations.discordSetUserId'));
   }
@@ -217,7 +217,7 @@ class Discord extends ConnectorBase {
     const c = closingDiscord(code);
     if (c.withoutContent) { this.ctx.content = false; this.sessionId = null; }
     if (!c.resume) { this.sessionId = null; this.urlResume = null; this.seq = null; }
-    if (!c.reconnect) { this.reasonFatal = c.message ?? tr('integrations.discordClosed', { codigo: code }); this.fail(this.reasonFatal); this.notify?.('state'); return; }
+    if (!c.reconnect) { this.reasonFatal = c.message ?? tr('integrations.discordClosed', { code: code }); this.fail(this.reasonFatal); this.notify?.('state'); return; }
     if (c.message) this.situation = { state: 'connected', detail: c.message };
     const wait = c.withoutContent ? 1000 : Math.min(60_000, 1000 * 2 ** this.attempts++) + Math.random() * 1000;
     this.reconnection = setTimeout(() => { this.reconnection = null; this.connect().catch(e => this.fail(message(e))); }, wait);
@@ -248,8 +248,8 @@ class Discord extends ConnectorBase {
     if (a.team && !v.usuario) return { ok: false, detail: tr('server.theBotBelongsToA') };
     const servers: any[] = await this.rest('/users/@me/guilds', t);
     const content = grantedContent(a.flags);
-    if (!servers.length) return { ok: false, detail: tr('server.theTokenIsValidBot', { nombre: a.name, id: invitationDiscord(a.id) }) };
-    return { ok: true, detail: tr('server.botIn', { nombre: a.name, name: servers.map(s => s.name).join(', '), texto: content ? tr('integrations.discordContentOn') : tr('integrations.discordContentOff') }) };
+    if (!servers.length) return { ok: false, detail: tr('server.theTokenIsValidBot', { name: a.name, id: invitationDiscord(a.id) }) };
+    return { ok: true, detail: tr('server.botIn', { name: a.name, servers: servers.map(s => s.name).join(', '), text: content ? tr('integrations.discordContentOn') : tr('integrations.discordContentOff') }) };
   }
   protected async ownAction(name: string, d: Record<string, any>) {
     if (name === 'invite') { const a = this.app ?? await this.loadApp(); return { url: invitationDiscord(a.id, d.guild) }; }

@@ -82,7 +82,7 @@ export interface Uniforms { uColor: { value: THREE.Color }; uTiempo: typeof time
 export const holoUniforms = (color: THREE.Color): Uniforms => ({ uColor: { value: color.clone() }, uTiempo: timeout, uOpacity: { value: 1 }, uCut: { value: 1e4 }, uGlitch: { value: 0 }, uSemilla: { value: Math.random() } });
 /** A task's hologram color: its task color or, without one, the stock cyan. */
 // the epic mark on a copy's tag: its color and its tooltip
-const epicTag = (task: string | undefined) => { const e = taskEpic(task); return e ? { color: taskColor(e.key), title: t('windows.epicOf', { clave: e.key, titulo: e.title }) } : undefined; };
+const epicTag = (task: string | undefined) => { const e = taskEpic(task); return e ? { color: taskColor(e.key), title: t('windows.epicOf', { key: e.key, title: e.title }) } : undefined; };
 export const holoTone = (task: string | undefined) => hasTaskColor(task) ? new THREE.Color(taskColor(task)) : COLOR;
 
 /** Turns `o` (a character, a prop) into light with these uniforms; props coupled later need their own call. */
@@ -380,7 +380,7 @@ export class Holograms {
         if (!m || m === 'think') { state = 'thinking'; detail = s.activity?.text ?? t('windows.thinking'); wants = 'hands'; }
         else { state = 'working'; detail = s.activity?.text ?? ''; wants = 'hands'; }
       } else if (s.state === 'waiting') { state = 'waiting'; detail = s.pending?.title ?? t('windows.waitingForYou'); wants = 'standing'; }
-      else if (s.state === 'finished' && s.unread) { state = 'finished'; detail = t('windows.readyTitulo', { titulo: s.title ?? '' }); wants = 'standing'; }
+      else if (s.state === 'finished' && s.unread) { state = 'finished'; detail = t('windows.readyTitle', { title: s.title ?? '' }); wants = 'standing'; }
       else if (s.state === 'error') { state = 'error'; detail = s.error ?? t('windows.fault'); wants = 'rest'; }
       else { detail = s.title ?? ''; wants = 'base'; }
     }
@@ -557,7 +557,7 @@ export class Holograms {
       const name = a?.name ?? t('world.copy');
       return {
         id: idCopy(f.path), name: `${name} ◇ ${copyCaption(f.w)}`, nickname: t('windows.holographicCopy'), type: a?.type ?? '',
-        bio: t('world.holoCopyBio', { nombre: name, mote: tIs(a?.nickname ?? ''), rama: f.w.branch || f.path }),
+        bio: t('world.holoCopyBio', { name: name, nickname: tIs(a?.nickname ?? ''), branch: f.w.branch || f.path }),
         room: f.room.id, nameRoom: f.room.name, path: f.path, folder: f.path, state: f.ready ? f.state : 'idle', detail: f.detail, sessionId: f.sessionId,
         robot: author?.p.look?.especie === 'robot',
         copy: { path: f.path, branch: f.w.branch, authorId: f.authorId, nameAuthor: name, nicknameAuthor: a?.nickname ?? '', changes: f.w.changes, advanced: f.w.advanced, ...(f.w.review ? { review: f.w.review } : {}) },

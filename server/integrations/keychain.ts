@@ -29,10 +29,10 @@ function run(args: string[], input?: string): Promise<{ code: number; output: st
 
 // Mensaje sin el secreto: solo el código y la primera línea de stderr de `security` (que no lo contiene)
 function fail(what: string, r: { code: number; error: string }) {
-  return new Error(t('server.theMacosKeychainCouldNot', { que: what, codigo: r.code, split: r.error ? ': ' + r.error.trim().split('\n')[0] : '' }));
+  return new Error(t('server.theMacosKeychainCouldNot', { what: what, code: r.code, split: r.error ? ': ' + r.error.trim().split('\n')[0] : '' }));
 }
 
-const accountValid = (c: string) => { if (!/^[a-z]+\.[A-Za-z0-9_-]+$/.test(c)) throw new Error(t('integrations.keychainInvalidAccount', { cuenta: c })); };
+const accountValid = (c: string) => { if (!/^[a-z]+\.[A-Za-z0-9_-]+$/.test(c)) throw new Error(t('integrations.keychainInvalidAccount', { account: c })); };
 
 export const keychainMac: Keychain = {
   async read(count) {

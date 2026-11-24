@@ -277,7 +277,7 @@ async function start() {
   fs.mkdirSync(folderLogs, { recursive: true });
   const log = fs.createWriteStream(path.join(folderLogs, 'shelter.log'), { flags: 'a', mode: 0o600 });
   log.write(`\n== ${new Date().toISOString()} ==\n`);
-  if (!fs.existsSync(path.join(root, 'shelter'))) { notice(tr('gameNotFound', { raiz: root }), true); return; }
+  if (!fs.existsSync(path.join(root, 'shelter'))) { notice(tr('gameNotFound', { root }), true); return; }
   const environment = await userEnvironment();
   serverEnvironment = environment;
   // la app lleva su propia copia de Electron: si no es la del repo (p. ej. tras cambiar de versión en package.json), se
@@ -286,7 +286,7 @@ async function start() {
     const handover = require(path.join(root, 'scripts/relaunch-app.cjs'));
     const own = handover.appOf(process.execPath);
     if (handover.hasThatReinstall(own) && !handover.reinstallFailedRecently()) {
-      notice(tr('updatingApp', { de: handover.versionElectron(own), a: handover.versionElectron(path.join(root, 'node_modules/electron/dist/Electron.app')) }));
+      notice(tr('updatingApp', { from: handover.versionElectron(own), to: handover.versionElectron(path.join(root, 'node_modules/electron/dist/Electron.app')) }));
       log.write(`La app lleva otro Electron que el repo: la reinstalo y la vuelvo a abrir.\n`);
       spawn('node', [path.join(root, 'scripts/relaunch-app.cjs'), String(process.pid), own, environment.SHELTER_PUERTO || '3778', process.env.SHELTER_RELEVO_PRUEBA || ''], { cwd: root, env: environment, detached: true, stdio: 'ignore' }).unref();
       if (mainWindow) mainWindow.__exit = true;
@@ -311,7 +311,7 @@ async function start() {
     server = null;
     // «reiniciar» con cambios en la propia app: se vuelve a abrir entera (las terminales siguen en su anfitrión)
     if (code === RELAY_CODE) { log.write('Reinicio con la app entera.\n'); if (mainWindow) mainWindow.__exit = true; app.relaunch(); app.exit(0); return; }
-    if (!origin) notice(tr('couldNotStart', { detalle: last ? ':\n' + last : tr('exitCode', { codigo: code }) }), true);
+    if (!origin) notice(tr('couldNotStart', { detail: last ? ':\n' + last : tr('exitCode', { code }) }), true);
   });
 }
 

@@ -66,8 +66,8 @@ describe('startFromHandoff', () => {
   it('starts the new session with the summary as its first message and closes, never deletes, the old one', async () => {
     const start = vi.fn(async () => 'w2'), close = vi.fn();
     expect(await startFromHandoff({ start, close }, old, '  ## Goal\nShip it  ')).toBe('w2');
-    expect(start).toHaveBeenCalledWith({ dwellerId: 'h1', roomId: 'room', prompt: t('prompt.handoff.start', { resumen: '## Goal\nShip it' }), options: { cwd: '/tmp/wt', model: 'opus', effort: 'high', permissions: 'acceptEdits', worktree: false, handoffFrom: 'w1' } });
-    expect(t('prompt.handoff.start', { resumen: 'X' })).toContain('X');
+    expect(start).toHaveBeenCalledWith({ dwellerId: 'h1', roomId: 'room', prompt: t('prompt.handoff.start', { summary: '## Goal\nShip it' }), options: { cwd: '/tmp/wt', model: 'opus', effort: 'high', permissions: 'acceptEdits', worktree: false, handoffFrom: 'w1' } });
+    expect(t('prompt.handoff.start', { summary: 'X' })).toContain('X');
     expect(close).toHaveBeenCalledWith('w1');
   });
   it('keeps the old one open if the new one cannot start', async () => {

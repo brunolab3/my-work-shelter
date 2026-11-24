@@ -82,7 +82,7 @@ class Slack extends ConnectorBase {
       this.lastSeen.set(id, messages[0].ts); this.activity.set(id, Number(messages[0].ts) * 1000);
       for (const m of messages) { if (m.user) await this.nameOf(m.user); const n = slackNotification(m, id, this.ctx); if (n) notifications.push(n); }
     }
-    this.good(tr('server.connectedToWatching', { slack: this.nameTeam || 'Slack', conversaciones: this.ctx.chosen.size ? tr('integrations.chosenChannels', { n: this.ctx.chosen.size }) : tr('integrations.conversations', { n: ids.length }), menciones: this.ctx.me ? '' : tr('integrations.slackSetMemberId') }));
+    this.good(tr('server.connectedToWatching', { slack: this.nameTeam || 'Slack', conversations: this.ctx.chosen.size ? tr('integrations.chosenChannels', { n: this.ctx.chosen.size }) : tr('integrations.conversations', { n: ids.length }), mentions: this.ctx.me ? '' : tr('integrations.slackSetMemberId') }));
     return { notifications };
   }
   protected async tryReal(v: Record<string, string>) {
@@ -91,7 +91,7 @@ class Slack extends ConnectorBase {
     try {
       const me = await this.call('auth.test', {}, t);
       const n = (await this.call('users.conversations', { types: 'public_channel,private_channel', exclude_archived: 'true', limit: '200' }, t)).channels?.length ?? 0;
-      return { ok: true, detail: tr('integrations.slackValidToken', { equipo: me.team, quien: t.startsWith('xoxb-') ? ` (bot @${me.user})` : ` (${me.user})`, n, invita: n ? '' : tr('integrations.slackInvite') }) };
+      return { ok: true, detail: tr('integrations.slackValidToken', { team: me.team, who: t.startsWith('xoxb-') ? ` (bot @${me.user})` : ` (${me.user})`, n, invites: n ? '' : tr('integrations.slackInvite') }) };
     } catch (e) { return { ok: false, detail: (e as Error).message }; }
   }
   protected async ownAction(name: string, d: Record<string, any>) {

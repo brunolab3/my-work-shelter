@@ -16,9 +16,9 @@ interface WindowSystem { notify?: (id: string, title: string, body: string) => P
 function texts(s: SessionSummary) {
   const p = s.pending!, j = juego.get(), hid = sessionOwner(s, j.copies);
   const h = [...j.dwellers, ...j.copies].find(x => x.id === hid);
-  const title = h ? t('windows.dwellerWaitsForYou', { nombre: h.name, sala: h.nameRoom }) : t('windows.someoneWaitsForYou');
+  const title = h ? t('windows.dwellerWaitsForYou', { name: h.name, room: h.nameRoom }) : t('windows.someoneWaitsForYou');
   const body = p.type === 'question' && p.questions?.[0] ? p.questions[0].question : tIs(p.title);
-  return { title, body: (p.ofHelper ? t('windows.aHelperNombreAsks', { nombre: p.ofHelper }) : '') + body };
+  return { title, body: (p.ofHelper ? t('windows.aHelperNameAsks', { name: p.ofHelper }) : '') + body };
 }
 
 export function watchSystemNotices() {

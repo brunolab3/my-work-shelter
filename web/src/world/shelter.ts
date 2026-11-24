@@ -436,7 +436,7 @@ export class Shelter {
       h.pos.set(x, room.group.position.y, 1.3); h.p.root.visible = true;
       h.p.goA([new THREE.Vector3(room.group.position.x + side * 1.2, room.group.position.y, 1.3)], false, () => { h.p.goalTurn = 0; h.change('idle'); SFX.success(); });
       this.focus = { x: room.group.position.x, y: room.group.position.y, until: this.timer + 5 };
-      juego.set({ hint: { key: '', text: tx('world.recruitMovesIn', { nombre: h.id.name, mote: tIs(h.id.nickname), sala: room.name }) } });
+      juego.set({ hint: { key: '', text: tx('world.recruitMovesIn', { name: h.id.name, nickname: tIs(h.id.nickname), room: room.name }) } });
       setTimeout(() => juego.set({ hint: null }), 5000);
     }, delay * 1000);
   }
@@ -584,7 +584,7 @@ export class Shelter {
         if (!m || m === 'think') h.change('thinking', s.activity?.text ?? tx('windows.thinking'), 'read');
         else h.change('working', s.activity?.text ?? '', m === 'write' ? 'edit' : m === 'terminal' ? 'terminal' : m === 'web' ? 'web' : 'search');
       } else if (s.state === 'waiting') { if (h.state !== 'waiting') SFX.highNotice(); h.change('waiting', s.pending?.title ?? tx('windows.waitingForYou')); }
-      else if (s.state === 'finished' && s.unread) { if (h.state !== 'finished') SFX.success(); h.change('finished', tx('windows.readyTitulo', { titulo: s.title ?? '' })); }
+      else if (s.state === 'finished' && s.unread) { if (h.state !== 'finished') SFX.success(); h.change('finished', tx('windows.readyTitle', { title: s.title ?? '' })); }
       else if (s.state === 'error') { if (h.state !== 'error') SFX.error(); h.change('error', s.error ?? tx('windows.fault')); }
       else h.change('idle', s.title);
       changed = true;

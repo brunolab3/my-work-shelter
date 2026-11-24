@@ -26,7 +26,7 @@ export const readMail: Reader = known => new Promise((ok, ko) => {
   if (process.platform !== 'darwin') return ko(new ErrorSource(t('server.macMailOnlyWorksOn')));
   execFile('/usr/bin/osascript', ['-l', 'JavaScript', READER, String(DAYS), String(MAX), JSON.stringify(known)], { timeout: 45_000, maxBuffer: 4 << 20 }, (err, stdout, stderr) => {
     if (err) return ko(new ErrorSource(explainErrorMail(`${stderr || ''} ${err.message}`), 60_000));
-    try { ok(JSON.parse(String(stdout))); } catch { ko(new ErrorSource(t('integrations.mailUnreadable', { salida: String(stdout).slice(0, 120) }))); }
+    try { ok(JSON.parse(String(stdout))); } catch { ko(new ErrorSource(t('integrations.mailUnreadable', { output: String(stdout).slice(0, 120) }))); }
   });
 });
 
@@ -56,7 +56,7 @@ class Mail extends ConnectorBase {
   protected async pollReal() {
     const { counts, messages } = await this.readAlready();
     const valid = this.filter(), picked = counts.filter(valid);
-    if (!picked.length) throw new ErrorSource(t('server.noMailAccountMatchesThere', { cuentas: this.config.publicFields().cuentas, nombre: counts.map(c => c.nombre).join(', ') }));
+    if (!picked.length) throw new ErrorSource(t('server.noMailAccountMatchesThere', { accounts: this.config.publicFields().cuentas, name: counts.map(c => c.nombre).join(', ') }));
     const nameBy = new Map(picked.map(c => [c.nombre, c]));
     const notifications: Notification[] = [];
     for (const m of messages) {
@@ -65,15 +65,15 @@ class Mail extends ConnectorBase {
       const n = mailNotification(m, c, this.fragments.get(m.id)); if (n) notifications.push(n);
     }
     const live = new Set(messages.map(m => m.id)); for (const id of this.fragments.keys()) if (!live.has(id)) this.fragments.delete(id);
-    this.good(t('server.readingMailUnreadEmailsIn', { elegidas: this.describe(picked), notificaciones: notifications.length, dIAS: DAYS }));
+    this.good(t('server.readingMailUnreadEmailsIn', { chosen: this.describe(picked), notifications: notifications.length, days: DAYS }));
     return { notifications, complete: true };   // lo que se lee en Gmail (y Mail sincroniza) sale del tablón
   }
 
   protected async tryReal(v: Record<string, string>) {
     const { counts } = await this.readAlready();
     const picked = counts.filter(this.filter(v.cuentas ?? ''));
-    if (!picked.length) return { ok: false, detail: t('server.noMailAccountMatchesThere2', { nombre: counts.map(c => c.nombre).join(', ') }) };
-    return { ok: true, detail: t('integrations.mailResponds', { cuentas: this.describe(picked) }) };
+    if (!picked.length) return { ok: false, detail: t('server.noMailAccountMatchesThere2', { name: counts.map(c => c.nombre).join(', ') }) };
+    return { ok: true, detail: t('integrations.mailResponds', { accounts: this.describe(picked) }) };
   }
 }
 

@@ -29,7 +29,7 @@ const short = (p: PRBoard) => `${p.repo.split('/').pop()}#${p.number}`;
 // lo que queda por contestar en sus revisiones (hilos sin resolver, resúmenes sin respuesta); sin nada, no se pinta
 function Ledger({ l }: { l: ReviewLedger }) {
   const parts = [l.unresolved > 0 && `💬 ${t('panels.ledgerThreads', { n: l.unresolved })}`, l.unansweredSummaries > 0 && `✉ ${t('panels.ledgerSummaries', { n: l.unansweredSummaries })}`].filter(Boolean);
-  return <small className="wait" title={t('panels.ledgerTitle', { hilos: l.unresolved, viejos: l.outdated, resumenes: l.unansweredSummaries })}>{parts.join(' · ')}</small>;
+  return <small className="wait" title={t('panels.ledgerTitle', { threads: l.unresolved, old: l.outdated, summaries: l.unansweredSummaries })}>{parts.join(' · ')}</small>;
 }
 
 // en cada columna, los PR de una misma tarea juntos, en un bloque: la tarea va donde va su mejor PR (la primera ola o el
@@ -97,7 +97,7 @@ export function DeploymentBoard({ roomId, goBack }: { roomId: string; goBack: ()
   const preflight = (task: string, since?: Element | null) => { SFX.click(); openPreflight(task, since); };
   const selCard = () => sel && canvas.current?.querySelector(`[data-pr="${CSS.escape(sel.url)}"]`);
   const askPlan = () => {
-    if (!dweller) { setNotice(t('panels.salaHasNoDweller', { sala: room?.name ?? t('panels.theRoom') })); SFX.notAllowed(); return; }
+    if (!dweller) { setNotice(t('panels.roomHasNoDweller', { room: room?.name ?? t('panels.theRoom') })); SFX.notAllowed(); return; }
     if (!prs.some(p => p.state === 'open' || p.state === 'draft')) { setNotice(t('panels.youHaveNoPullRequests')); SFX.notAllowed(); return; }
     client.send({ t: 'start', dwellerId: dweller.id, roomId, prompt: promptDeployment(prs, blockers), options: { permissions: 'plan' } });
     SFX.shortSuccess(); closePanel(); goA(roomId, dweller.id, true);
@@ -192,8 +192,8 @@ export function DeploymentBoard({ roomId, goBack }: { roomId: string; goBack: ()
       {cycle.length > 0 && <p className="notice-console">{t('panels.cyclicBlockersNobodyCanGo')} {cycle.map(short).join(', ')}. {t('panels.removeOneWithX')}</p>}
       {sel && waitA(sel.url).length > 0 && <p className="dim">{short(sel)} {t('panels.waitsFor')} {waitA(sel.url).map(b => `${short(byUrl.get(b.by)!)} (${tIs(REASON[b.reason])})`).join(', ')}.</p>}
       <div className="botonera">
-        {sel && <button className="boton-taller" onClick={e => preflight(pRTask(sel), e.currentTarget)} title={t('preflight.actionHint')}>{t('preflight.keyF', { clave: pRTask(sel) })}</button>}
-        <button className="boton-taller" onClick={askPlan} title={t('panels.handsTheBoardToQuien', { quien: dweller?.name ?? t('panels.theRoomSDweller') })}>{dweller ? t('panels.pAskNombreForThe', { nombre: dweller.name }) : t('panels.pAskForTheDeployment')}</button>
+        {sel && <button className="boton-taller" onClick={e => preflight(pRTask(sel), e.currentTarget)} title={t('preflight.actionHint')}>{t('preflight.keyF', { key: pRTask(sel) })}</button>}
+        <button className="boton-taller" onClick={askPlan} title={t('panels.handsTheBoardToWho', { who: dweller?.name ?? t('panels.theRoomSDweller') })}>{dweller ? t('panels.pAskNameForThe', { name: dweller.name }) : t('panels.pAskForTheDeployment')}</button>
       </div>
       <Keys><kbd>←→</kbd>{t('panels.column')} <kbd>↑↓</kbd>{t('panels.pr')} <kbd>Enter</kbd>{marking ? t('panels.waitsForThisOne') : t('panels.openThePr')} <kbd>B</kbd>{t('panels.markWhichOneItWaits')} <kbd>X</kbd>{t('panels.removeTheMarked')} <kbd>H</kbd>{showMerged ? t('panels.hideMerged') : t('panels.showMerged')} <kbd>P</kbd>{t('panels.deploymentPlan')} <kbd>F</kbd>{t('preflight.title')} <kbd>R</kbd>{t('panels.reload')} <kbd>Esc</kbd>{marking ? t('panels.cancel') : t('menu.back')}</Keys>
     </Device>

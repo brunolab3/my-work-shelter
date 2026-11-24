@@ -62,7 +62,7 @@ export async function furnishHydroponics(ctx: Context) {
   for (const [id, i, dx] of [['bancal', 1, -0.55], ['bancal-2', 0, 0.75]] as const) ctx.room.points.push({ id, type: 'piece', pos: new THREE.Vector3(XB[i] + dx, 0, zB + 2.0), rotation: Math.PI,
     actions: [{ clip: 'Use_Item', utensil: 'wateringCan', onMake: () => { wiggle[i] = 1.5; } }, { clip: 'PickUp', onMake: () => { wiggle[i] = 0.8; } }, { clip: 'Holding_A', utensil: 'magnifier', dur: 4 }] });
   // el puesto de control del cultivo, a la derecha, casi de perfil: mesa con el monitor de riego y la libreta
-  const pWatering = new PhosphorScreen(384, 256, v.screen, t('world.ocio.watering')); pWatering.speed = 22; ctx.room.screens.push(pWatering);
+  const pWatering = new PhosphorScreen(384, 256, v.screen, t('world.leisure.watering')); pWatering.speed = 22; ctx.room.screens.push(pWatering);
   await workStation(ctx, { x: 5.2, z: -0.55, rotation: -1.3, tex: pWatering.tex, brightness: 1.0,
     onTop: [{ path: R.tools('journal_open'), x: 0.55, z: 0.2, c: { scale: K * 0.42, rot: 0.3 } }, { path: R.furniture('cactus_small_B'), x: -0.72, z: -0.15, c: { scale: K * 0.7 } }] });
   // depósito de agua, sacos y cestas de cosecha (en el rincón izquierdo, fuera del pasillo)
@@ -163,7 +163,7 @@ export async function furnishGallery(ctx: Context) {
   const ammoBox = P(R.acc('ammo_crate_withLid'), { pos: [5.3, 0, zB + 0.55], scale: K * 1.1, rot: -0.3 });
   ctx.restsOn(ammoBox, R.acc('ammo_crate'), { pos: [5.3, 0, zB + 0.55], scale: K * 0.95, rot: -0.6 });
   // el puesto del encargado de la galería, casi de perfil contra la pared derecha: mesa con el monitor de récords
-  const pRecords = new PhosphorScreen(384, 256, v.screen, t('world.ocio.records')); pRecords.speed = 20; ctx.room.screens.push(pRecords);
+  const pRecords = new PhosphorScreen(384, 256, v.screen, t('world.leisure.records')); pRecords.speed = 20; ctx.room.screens.push(pRecords);
   await workStation(ctx, { x: 5.25, z: 0.25, rotation: -1.35, tex: pRecords.tex, brightness: 1.0,
     onTop: [{ path: R.sv('Pistol_2'), x: 0.55, z: 0.25, c: { height: 0.1, rotX: -Math.PI / 2, rotZ: 0.5 } }, { path: R.acc('arrow_crossbow'), x: -0.6, z: 0.2, c: { scale: 0.8, rot: 0.3 } }] });
   ctx.room.obstacles.push(new THREE.Box2(new THREE.Vector2(4.8, zB), new THREE.Vector2(6, zB + 1.15)));
@@ -206,7 +206,7 @@ export async function furnishGallery(ctx: Context) {
     targets.forEach((d, i) => { if (!d.userData.fall) d.position.x = [-3.6, -1.2, 1.2, 3.6][i] + Math.sin(t * (0.6 + i * 0.13) + i) * 0.35; rods[i].position.x = d.position.x; });
 
     const r = live.get().state?.jugador?.records ?? {};
-    const records = [tr('world.ocio.shootingPoints', { n: r.tiro ?? 0 }), tr('world.ocio.radioSignals', { n: r.radio ?? 0 }), tr('world.ocio.harvest', { n: r.cosecha ?? 0 })];
+    const records = [tr('world.leisure.shootingPoints', { n: r.tiro ?? 0 }), tr('world.leisure.radioSignals', { n: r.radio ?? 0 }), tr('world.leisure.harvest', { n: r.cosecha ?? 0 })];
     panel.lines = records.map(x => '> ' + x);
     const fr = panel.lines.join('|'); if (fr !== signatureRecords) { signatureRecords = fr; pRecords.lines = []; pRecords.queue = []; pRecords.write(records); }
   });

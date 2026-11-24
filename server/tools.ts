@@ -43,7 +43,7 @@ export function describeTool(name: string, e: Entry, cwd: string): string {
     case 'Glob': return t('server.activity.findingFiles', { q: truncate(s(e.pattern), 50) });
     case 'WebFetch': return t('server.activity.fetching', { url: truncate(s(e.url), 60) });
     case 'WebSearch': return t('server.activity.webSearch', { q: truncate(s(e.query), 50) });
-    case 'Agent': case 'Task': return t('server.activity.sendingHelper', { que: truncate(s(e.description), 60) });
+    case 'Agent': case 'Task': return t('server.activity.sendingHelper', { what: truncate(s(e.description), 60) });
     case 'TodoWrite': return t('server.activity.todos');
     case 'AskUserQuestion': return t('server.activity.question');
     case 'ExitPlanMode': return t('server.activity.plan');
@@ -57,14 +57,14 @@ export function describeTool(name: string, e: Entry, cwd: string): string {
     // las del reparto del trabajo desde la sala de coordinación (server/dispatch.ts)
     case mcpTool(MCP.assignment, 'shelter_rooms'): return t('server.activity.shelterRooms');
     // un mensaje o un encargo al habitante de otra sala (server/roomNotices.ts)
-    case mcpTool(MCP.rooms, 'send_to_room'): return t('server.activity.sendToRoom', { sala: truncate(s(e.room), 30), clave: s(e.key) ? ' (' + s(e.key) + ')' : '' });
-    case mcpTool(MCP.assignment, 'assign_work'): return s(e.key) ? t('server.activity.assignTask', { clave: s(e.key) }) : t('server.activity.assign');
-    case mcpTool(MCP.rooms, 'schedule_message'): return t('server.activity.scheduleMessage', { cuando: truncate(s(e.when), 30) });
+    case mcpTool(MCP.rooms, 'send_to_room'): return t('server.activity.sendToRoom', { room: truncate(s(e.room), 30), key: s(e.key) ? ' (' + s(e.key) + ')' : '' });
+    case mcpTool(MCP.assignment, 'assign_work'): return s(e.key) ? t('server.activity.assignTask', { key: s(e.key) }) : t('server.activity.assign');
+    case mcpTool(MCP.rooms, 'schedule_message'): return t('server.activity.scheduleMessage', { when: truncate(s(e.when), 30) });
     case mcpTool(MCP.rooms, 'verification_plan'): return t('server.activity.verificationPlan');
     case mcpTool(MCP.rooms, 'award_propose'): return t('trophies.medal.activity');
-    case mcpTool(MCP.rooms, 'verification_report'): return t('server.activity.verificationReport', { punto: truncate([s(e.checkpoint), s(e.signal)].filter(Boolean).join(' › '), 40) });
+    case mcpTool(MCP.rooms, 'verification_report'): return t('server.activity.verificationReport', { point: truncate([s(e.checkpoint), s(e.signal)].filter(Boolean).join(' › '), 40) });
     default:
-      return t('server.activity.using', { nombre: name.startsWith('mcp__') ? name.split('__').slice(1).join(' › ') : name });
+      return t('server.activity.using', { name: name.startsWith('mcp__') ? name.split('__').slice(1).join(' › ') : name });
   }
 }
 
@@ -77,7 +77,7 @@ export function permissionTitle(name: string, e: Entry) {
     case 'NotebookEdit': return t('server.permission.notebook');
     case 'WebFetch': return t('server.permission.webFetch');
     case 'WebSearch': return t('server.permission.webSearch');
-    default: return t('server.permission.use', { nombre: name.startsWith('mcp__') ? name.split('__').slice(1).join(' › ') : name });
+    default: return t('server.permission.use', { name: name.startsWith('mcp__') ? name.split('__').slice(1).join(' › ') : name });
   }
 }
 

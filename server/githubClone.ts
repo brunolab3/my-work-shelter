@@ -86,7 +86,7 @@ export function clonedRepos(root: string, rooms: { path?: string; name: string }
  *  a room's and not inside another repo. Returns it resolved, or the reason it can't be */
 export function cloneDestination(filePath: string, root: string, taken: string[]): string {
   const r = path.resolve(root), d = path.resolve(filePath);
-  if (r === path.parse(r).root || !d.startsWith(r + path.sep)) throw new Error(t('server.newFoldersInsideRoot', { raiz: root }));
+  if (r === path.parse(r).root || !d.startsWith(r + path.sep)) throw new Error(t('server.newFoldersInsideRoot', { root: root }));
   const segments = path.relative(r, d).split(path.sep);
   if (segments.some(x => !/^[\w.\-áéíóúñ ]+$/i.test(x) || x === '.' || x === '..' || x.startsWith('.'))) throw new Error(t('server.cloneFolderBadName'));
   if (existsSync(d)) throw new Error(t('server.cloneFolderExists'));
@@ -154,6 +154,6 @@ export function explainClone(output: string): string {
   const lines = output.split(/[\r\n]+/).map(l => l.trim()).filter(Boolean);
   const bad = lines.filter(l => /^(fatal|error|ERROR)\b|denied|could not read/i.test(l));
   const text = (bad.length ? bad : lines.slice(-3)).join(' · ').slice(0, 400);
-  if (/terminal prompts disabled|could not read Username|Authentication failed|Permission denied \(publickey\)|Host key verification failed/i.test(text)) return t('server.cloneNoCredentials', { detalle: text });
+  if (/terminal prompts disabled|could not read Username|Authentication failed|Permission denied \(publickey\)|Host key verification failed/i.test(text)) return t('server.cloneNoCredentials', { detail: text });
   return text || t('server.cloneFailed');
 }

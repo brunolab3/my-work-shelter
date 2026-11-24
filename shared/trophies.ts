@@ -49,11 +49,11 @@ export function parseLadder(text: string): { ladder: Ladder; errors: string[] } 
   const errors: string[] = [], ladder: Ladder = { trophies: [], steps: [], digestRoom: 'logistics' };
   let j: any;
   try { j = JSON.parse(text); } catch (e) { return { ladder, errors: [t('trophies.error.json', { error: String((e as Error).message).slice(0, 120) })] }; }
-  if (j?.digestRoom != null) { if (DIGEST_ROOMS.includes(j.digestRoom)) ladder.digestRoom = j.digestRoom; else errors.push(t('trophies.error.digestRoom', { sala: String(j.digestRoom), salas: DIGEST_ROOMS.join(', ') })); }
+  if (j?.digestRoom != null) { if (DIGEST_ROOMS.includes(j.digestRoom)) ladder.digestRoom = j.digestRoom; else errors.push(t('trophies.error.digestRoom', { room: String(j.digestRoom), rooms: DIGEST_ROOMS.join(', ') })); }
   const isText = (x: unknown): x is FileText => typeof x === 'string' ? !!x.trim() : !!x && typeof x === 'object' && ['es', 'en'].some(k => typeof (x as any)[k] === 'string');
   for (const [i, r] of (Array.isArray(j?.trophies) ? j.trophies : []).entries()) {
     const id = typeof r?.id === 'string' && r.id.trim() ? r.id.trim() : '';
-    const bad = (what: string) => errors.push(t('trophies.error.trophy', { id: id || `#${i + 1}`, que: what }));
+    const bad = (what: string) => errors.push(t('trophies.error.trophy', { id: id || `#${i + 1}`, what: what }));
     if (!id) { bad('id'); continue; }
     if (ladder.trophies.some(x => x.id === id)) { bad(t('trophies.error.repeated')); continue; }
     if (!TROPHY_KINDS.includes(r.kind)) { bad(t('trophies.error.kind', { kind: String(r.kind), kinds: TROPHY_KINDS.join(', ') })); continue; }

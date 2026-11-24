@@ -61,7 +61,7 @@ export class ReviewScreen {
         const lines = Math.max(1, Math.floor((fh - fId - 40) / (fTit * 1.2)));
         splitByWords(g, r.title, w - 28, Math.min(3, lines)).forEach((l, m) => g.fillText(l, x + 16, y + fId + 16 + m * fTit * 1.2));
         g.fillStyle = col + 'aa'; g.font = `500 15px ${SOURCES.mono}`;
-        g.fillText(t('reviews.byAuthor', { autor: [...new Set(r.prs.map(p => p.author))].join(', ') }), x + 16, y + fh - 24);
+        g.fillText(t('reviews.byAuthor', { author: [...new Set(r.prs.map(p => p.author))].join(', ') }), x + 16, y + fh - 24);
       });
       if (more) { const y = y0 + vis.length * (fh + gap); g.fillStyle = col + '1c'; g.fillRect(x, y, w, 34); g.fillStyle = col; g.font = `600 18px ${SOURCES.mono}`; g.fillText(t('world.tex.nMore', { n: more }), x + 14, y + 8); }
     });

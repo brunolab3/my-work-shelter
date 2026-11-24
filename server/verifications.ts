@@ -79,13 +79,13 @@ export class Verifications {
     if ((isClosed(c) || c.state === 'inconclusive') && !c.notified) {
       c.notified = true;
       if (c.state === 'inconclusive') {
-        ctx.schedule(conv, now, t('prompt.verification.inconclusive', { clave: p.key, id: c.id, atascado: t(STATE_TEXT[c.stuck ?? 'waiting-traffic']), plan: planText(p) }));
-        ctx.notify(t('server.verification.inconclusive', { nombre: name, atascado: t(STATE_TEXT[c.stuck ?? 'waiting-traffic']) }), 'warning');
-      } else ctx.notify(t(c.state === 'failed' ? 'server.verification.failed' : 'server.verification.evidenced', { nombre: name }), c.state === 'failed' ? 'warning' : 'info');
+        ctx.schedule(conv, now, t('prompt.verification.inconclusive', { key: p.key, id: c.id, stuck: t(STATE_TEXT[c.stuck ?? 'waiting-traffic']), plan: planText(p) }));
+        ctx.notify(t('server.verification.inconclusive', { name: name, stuck: t(STATE_TEXT[c.stuck ?? 'waiting-traffic']) }), 'warning');
+      } else ctx.notify(t(c.state === 'failed' ? 'server.verification.failed' : 'server.verification.evidenced', { name: name }), c.state === 'failed' ? 'warning' : 'info');
     }
     if (needsRecheck(c) && !(c.scheduled && ctx.pending(c.scheduled))) {
       const n = c.rechecks ?? 0;
-      const id = ctx.schedule(conv, recheckAt(n, now), t('prompt.verification.recheck', { clave: p.key, id: c.id, n: n + 1, plan: planText(p) }));
+      const id = ctx.schedule(conv, recheckAt(n, now), t('prompt.verification.recheck', { key: p.key, id: c.id, n: n + 1, plan: planText(p) }));
       if (id) { c.scheduled = id; c.rechecks = n + 1; }
     }
     return c;
@@ -112,13 +112,13 @@ export const errorText = (r: { error: string; vars?: Record<string, string | num
 /** A plan as the dweller reads it back after each call */
 export function planText(p: VerificationPlan): string {
   return [
-    t('tool.verification.heading', { clave: p.key, version: p.version, aprobado: t(isApproved(p) ? 'verification.approved' : 'verification.unapproved', { version: p.version }) }),
+    t('tool.verification.heading', { key: p.key, version: p.version, approved: t(isApproved(p) ? 'verification.approved' : 'verification.unapproved', { version: p.version }) }),
     ...p.points.flatMap(c => {
       const deadline = deadlineOf(c);
       return [
-        `- ${c.id} (${c.type === 'final' ? t('verification.final') : c.pr}) · ${t(STATE_TEXT[c.state])}${c.services.length ? ' · ' + t('verification.services', { lista: c.services.map(s => (c.live[s] ? s + ' ✓' : s)).join(', ') }) : ''} · ${deadline ? t('verification.deadline', { cuando: describeWhen(deadline) }) : t('verification.deadlineHours', { n: c.deadlineHours })}`,
-        ...(c.note ? [`  ${t('verification.note', { texto: c.note.text })}`] : []),
-        ...c.signals.map(s => `  - ${s.id} · ${t(KIND_TEXT[s.type])} · ${s.state} · ${s.what} · ${t('verification.where', { donde: s.where })}${s.base ? ' · ' + t('verification.baseline', { base: s.base }) : ''}${s.evidence ? ' · ' + t('verification.evidence', { texto: s.evidence.text }) : ''}`),
+        `- ${c.id} (${c.type === 'final' ? t('verification.final') : c.pr}) · ${t(STATE_TEXT[c.state])}${c.services.length ? ' · ' + t('verification.services', { list: c.services.map(s => (c.live[s] ? s + ' ✓' : s)).join(', ') }) : ''} · ${deadline ? t('verification.deadline', { when: describeWhen(deadline) }) : t('verification.deadlineHours', { n: c.deadlineHours })}`,
+        ...(c.note ? [`  ${t('verification.note', { text: c.note.text })}`] : []),
+        ...c.signals.map(s => `  - ${s.id} · ${t(KIND_TEXT[s.type])} · ${s.state} · ${s.what} · ${t('verification.where', { where: s.where })}${s.base ? ' · ' + t('verification.baseline', { base: s.base }) : ''}${s.evidence ? ' · ' + t('verification.evidence', { text: s.evidence.text }) : ''}`),
       ];
     }),
   ].join('\n');

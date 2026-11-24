@@ -71,7 +71,7 @@ class Linear extends ConnectorBase {
     const notifications = linearNotifications(await this.gql(Q.notifications));
     const p = await this.dataMy().catch(() => this.panel);
     const openSessions = p?.myIssues.reduce((n, g) => n + g.issues.length, 0) ?? 0;
-    this.good(t('server.connectedAsOpenIssuesAssigned', { name: this.who?.name ?? '?', linear: this.who?.organization?.name ?? 'Linear', abiertas: openSessions }));
+    this.good(t('server.connectedAsOpenIssuesAssigned', { name: this.who?.name ?? '?', linear: this.who?.organization?.name ?? 'Linear', open: openSessions }));
     return { notifications, complete: true };   // las leídas en Linear ya no vienen
   }
   protected async tryReal(v: Record<string, string>) {
@@ -80,7 +80,7 @@ class Linear extends ConnectorBase {
     const me = j.data?.viewer;
     if (!me) return { ok: false, detail: t('server.linearDidNotReturnYour') };
     this.who = me;
-    return { ok: true, detail: t('server.connectedAsOnTeams', { name: me.name, name2: me.organization?.name, ninguno: (me.teams?.nodes ?? []).map((t: any) => t.key).join(', ') || t('integrations.none') }) };
+    return { ok: true, detail: t('server.connectedAsOnTeams', { name: me.name, name2: me.organization?.name, none: (me.teams?.nodes ?? []).map((t: any) => t.key).join(', ') || t('integrations.none') }) };
   }
   // Paneles (solo lectura): mis issues por estado, ciclo actual por equipo y tablero de un equipo con filtros
   protected async ownAction(name: string, d: Record<string, any>) {
@@ -88,7 +88,7 @@ class Linear extends ConnectorBase {
     if (name === 'board') {
       let team = String(d.team ?? '');
       if (!/^[0-9a-f-]{36}$/i.test(team)) { if (!this.who) this.who = (await this.gql(Q.viewer)).data?.viewer; team = (this.who?.teams?.nodes ?? []).find((t: any) => !d.team || t.key === d.team)?.id ?? ''; }
-      if (!team) throw new Error(t('integrations.linearUnknownTeam', { equipo: d.team ?? '' }));
+      if (!team) throw new Error(t('integrations.linearUnknownTeam', { team: d.team ?? '' }));
       return teamBoard(await this.gql(Q.board, { teamId: team, filter: boardFilter(d) }));
     }
     // a board's (team's) statuses, for picking its prod-check and done ones (production verification)

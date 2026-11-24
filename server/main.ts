@@ -239,7 +239,7 @@ const ctxRooms: CtxRooms = {
       const r = workLog.proposeMedal({ ...m, ...(claudeId ? { conversation: claudeId } : {}) });
       if (!r.ok) return { ok: false, text: r.error };
       const medal = r.medal;
-      ask(t('trophies.medal.ask', { req: medal.award ?? medal.requirement, fuente: t(`trophies.source.${medal.source ?? 'digest'}`), texto: medal.text, pruebas: medal.evidence.join(' · ') }), { si: t('trophies.medal.accept'), no: t('trophies.medal.dismiss') },
+      ask(t('trophies.medal.ask', { req: medal.award ?? medal.requirement, source: t(`trophies.source.${medal.source ?? 'digest'}`), text: medal.text, tests: medal.evidence.join(' · ') }), { si: t('trophies.medal.accept'), no: t('trophies.medal.dismiss') },
         async si => { workLog.decideMedal(medal.id, si); });
       return { ok: true, text: t('tool.medal.proposed', { req: medal.award ?? medal.requirement }) };
     },
@@ -247,8 +247,8 @@ const ctxRooms: CtxRooms = {
       const r = workLog.recordProgress(report);
       if (!r.ok) return { ok: false, text: r.error };
       const level = r.progress.level ?? '—';
-      broadcast({ t: 'notice', level: 'info', text: t('trophies.verify.done', { nivel: level }) });
-      return { ok: true, text: [t('tool.ladder.saved', { nivel: level }),
+      broadcast({ t: 'notice', level: 'info', text: t('trophies.verify.done', { level: level }) });
+      return { ok: true, text: [t('tool.ladder.saved', { level: level }),
         ...(r.overridden.length ? [t('tool.ladder.overridden', { reqs: r.overridden.join(', ') })] : []),
         ...(r.unproven.length ? [t('tool.ladder.unproven', { reqs: r.unproven.join(', ') })] : [])].join('\n') };
     } },
@@ -369,8 +369,8 @@ sessions.on('limit', (i: any) => {
   if (!i || i.status === 'allowed') { lastLimit = ''; return; }
   const key = i.status + i.rateLimitType; if (key === lastLimit) return; lastLimit = key;
   const type = ({ five_hour: t('server.limit.fiveHour'), seven_day: t('server.limit.weekly'), seven_day_opus: t('server.limit.weeklyOpus'), seven_day_sonnet: t('server.limit.weeklySonnet') } as any)[i.rateLimitType] ?? '';
-  const renews = i.resetsAt ? t('server.limit.renews', { cuando: new Date(i.resetsAt * (i.resetsAt < 1e12 ? 1000 : 1)).toLocaleString(locale(), { weekday: 'long', hour: '2-digit', minute: '2-digit' }) }) : '';
-  broadcast({ t: 'notice', level: i.status === 'rejected' ? 'error' : 'warning', text: i.status === 'rejected' ? t('server.limit.reached', { tipo: type, renueva: renews }) : t('server.limit.close', { tipo: type, renueva: renews, pct: i.utilization ? ` (${Math.round(i.utilization * 100)} %)` : '' }) });
+  const renews = i.resetsAt ? t('server.limit.renews', { when: new Date(i.resetsAt * (i.resetsAt < 1e12 ? 1000 : 1)).toLocaleString(locale(), { weekday: 'long', hour: '2-digit', minute: '2-digit' }) }) : '';
+  broadcast({ t: 'notice', level: i.status === 'rejected' ? 'error' : 'warning', text: i.status === 'rejected' ? t('server.limit.reached', { type: type, renews: renews }) : t('server.limit.close', { type: type, renews: renews, pct: i.utilization ? ` (${Math.round(i.utilization * 100)} %)` : '' }) });
 });
 sessions.on('turn', r => {
   readPlanUsage();
@@ -379,7 +379,7 @@ sessions.on('turn', r => {
     const p = taskReward(store, r.turnTools);
     const who = store.state.dwellers.find(x => x.id === r.dwellerId)?.name ?? t('server.someone');
     broadcast({ t: 'state', state: store.state as any });
-    broadcast({ t: 'notice', level: 'info', text: p.pieza ? t('server.taskRewardPiece', { quien: who, n: p.scrap, pieza: tIs(p.pieza.nombre), rareza: tIs(p.pieza.rarity) }) : t('server.taskReward', { quien: who, n: p.scrap }) });
+    broadcast({ t: 'notice', level: 'info', text: p.pieza ? t('server.taskRewardPiece', { quien: who, n: p.scrap, pieza: tIs(p.pieza.nombre), rareza: tIs(p.pieza.rarity) }) : t('server.taskReward', { who: who, n: p.scrap }) });
   }
   const h = store.state.dwellers.find(x => x.id === r.dwellerId); if (h && r.claudeId) { h.lastSession = r.claudeId; store.save(); }
 });
@@ -433,7 +433,7 @@ async function upload(d: Record<string, any>, idsSes: string[]) {
     return { title, command: resumeCommand(d.remote ? { ...r, remote: remoteName(rc.repo, r.title, rc.wt) } : r) };
   });
   if (conv.length && !(await open(conv, !!d.windowNew && !terms.length)))
-    notices.push(t('server.conversationsSavedResume', { comandos: taken.map(r => `claude --resume ${r.claudeId}`).join(', ') }));
+    notices.push(t('server.conversationsSavedResume', { commands: taken.map(r => `claude --resume ${r.claudeId}`).join(', ') }));
   if (d.remote && conv.length) broadcast({ t: 'notice', level: 'info', text: t('server.remoteControlOpened', { app: app || 'iTerm' }) });
   else if (terms.length || conv.length) broadcast({ t: 'notice', level: 'info', text: t('server.surface.toTheSurface', { n: conv.length, m: terms.length, app: app || t('server.surface.yourDesktop') }) });
   for (const a of notices) broadcast({ t: 'notice', level: 'warning', text: a });
@@ -640,7 +640,7 @@ const prReviews = new ReviewsPR(DATA, {
     broadcast({ t: 'messenger', since: 'git', a: [roomId], reason: 'review', worktree });
     // que se vea: si no estás mirando esa conversación, la entrega pasaba desapercibida
     const room = store.state.rooms.find(s => s.id === roomId)?.name ?? roomId, authors = [...new Set(events.map(e => e.author))].join(', ');
-    broadcast({ t: 'notice', level: 'info', text: t('server.newReviewDelivered', { authors, numero: pr.number, repo: pr.repo, sala: room, rama: pr.branch }) });
+    broadcast({ t: 'notice', level: 'info', text: t('server.newReviewDelivered', { authors, number: pr.number, repo: pr.repo, room: room, branch: pr.branch }) });
   },
   withoutConversation: text => broadcast({ t: 'notice', level: 'info', text }),
 });
@@ -662,8 +662,8 @@ const ciFailures = new CIFailures(DATA, {
     broadcast({ t: 'messenger', since: 'git', a: [roomId], reason: 'ci', worktree });
     const room = store.state.rooms.find(s => s.id === roomId)?.name ?? roomId, key = pRKey(pr);
     broadcast({ t: 'notice', level: 'warning', text: t('server.ciFailureDelivered', {
-      clave: key ? `[${key}] ` : '', numero: pr.number, repo: pr.repo, sala: room, rama: pr.branch, checks: pr.failures.map(f => f.name).slice(0, 3).join(', ') || 'CI',
-      bloquea: blocks.length ? t('server.ciFailureBlocks', { prs: blocks.join(', ') }) : '',
+      key: key ? `[${key}] ` : '', number: pr.number, repo: pr.repo, room: room, branch: pr.branch, checks: pr.failures.map(f => f.name).slice(0, 3).join(', ') || 'CI',
+      blocks: blocks.length ? t('server.ciFailureBlocks', { prs: blocks.join(', ') }) : '',
     }) });
   },
   withoutConversation: text => broadcast({ t: 'notice', level: 'info', text }),
@@ -694,7 +694,7 @@ const scheduled: Scheduled = new Scheduled(DATA, {
     if (x.from) return id;
     const room = store.state.rooms.find(s => s.id === d.roomId);
     broadcast({ t: 'delivery', room: d.roomId, sessionId: id, ...(room && path.resolve(d.cwd) !== path.resolve(folderOf(room)) ? { worktree: d.cwd } : {}) });
-    broadcast({ t: 'notice', level: 'info', text: t('server.scheduledDelivered', { sala: room ? roomNameIs(room) : d.roomId, resumen: summary(x.message) }) });
+    broadcast({ t: 'notice', level: 'info', text: t('server.scheduledDelivered', { room: room ? roomNameIs(room) : d.roomId, summary: summary(x.message) }) });
     return id;
   },
   // a send_to_room over the limit keeps its own `important`; one scheduled with schedule_message waits for a busy turn as before
@@ -747,7 +747,7 @@ setTimeout(() => {
   const found = scanStopped(folders).filter(f => !limitResumes.has(f.claudeId) && !live.has(f.claudeId) && !outside.has(f.claudeId.toLowerCase()));
   for (const f of found) limitResumes.add({ claudeId: f.claudeId, cwd: f.cwd, roomId: pathRoom(f.cwd), stoppedAt: f.at, resetsAt: f.resetsAt ?? f.at + UNKNOWN_RESET_MS, permissions: f.permissions });
   const first = limitResumes.list()[0];
-  if (found.length && first) broadcast({ t: 'notice', level: 'info', text: t('server.limitFound', { n: limitResumes.list().length, cuando: new Date(first.resumeAt).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' }) }) });
+  if (found.length && first) broadcast({ t: 'notice', level: 'info', text: t('server.limitFound', { n: limitResumes.list().length, when: new Date(first.resumeAt).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' }) }) });
   const sweep = () => { limitResumes.sweep().catch(err => console.error('Reanudar tras el límite:', String((err as Error).message).split('\n')[0])); };
   sweep(); setInterval(sweep, 30_000).unref();
 }, 20_000).unref();
@@ -836,8 +836,8 @@ const tasksCleanup = new TasksCleanup(DATA, {
     const room = store.state.rooms.find(s => s.id === roomId)?.name ?? roomId;
     // to the conversation that proposed the plan, else the latest in the worktree, else a new one there
     const c = plan?.conversation ?? (session ? { roomId, sessionId: session.id, claudeId: session.claudeId, cwd: path.resolve(session.worktree ?? session.cwd), title: session.title } : { roomId, cwd: path.resolve(w.path) });
-    scheduled.scheduleGame(c, Date.now(), t(plan ? 'prompt.verification.cleanupUnapproved' : 'prompt.verification.cleanupNoPlan', { clave: key }));
-    ask(t(plan ? 'server.cleanupUnapproved' : 'server.cleanupNoPlan', { tarea: key, room: room, nombre: path.basename(w.path) }), { si: t('server.cleanupSkipVerification'), no: t('server.cleanupWaitVerification') }, async si => {
+    scheduled.scheduleGame(c, Date.now(), t(plan ? 'prompt.verification.cleanupUnapproved' : 'prompt.verification.cleanupNoPlan', { key: key }));
+    ask(t(plan ? 'server.cleanupUnapproved' : 'server.cleanupNoPlan', { task: key, room: room, name: path.basename(w.path) }), { si: t('server.cleanupSkipVerification'), no: t('server.cleanupWaitVerification') }, async si => {
       if (!si) return;
       skip();
       tasksCleanup.poll().catch(err => console.error('Limpieza de tareas:', String((err as Error).message).split('\n')[0]));
@@ -847,16 +847,16 @@ const tasksCleanup = new TasksCleanup(DATA, {
   trash: async paths => (await import('./files.ts')).toTrash(paths),
   removed: (roomId, task, w, loose) => {
     const room = store.state.rooms.find(s => s.id === roomId)?.name ?? roomId;
-    const text = t('server.cleanupRemoved', { tarea: task.task, sala: room, nombre: path.basename(w.path), rama: w.branch || '—' });
+    const text = t('server.cleanupRemoved', { task: task.task, room: room, name: path.basename(w.path), branch: w.branch || '—' });
     broadcast({ t: 'notice', level: 'info', text: loose ? `${text} ${t('server.cleanupTrashed', { n: loose })}` : text });
   },
   ask: (roomId, task, w, what, remove) => {
     const room = store.state.rooms.find(s => s.id === roomId)?.name ?? roomId;
     const text = what.map(x => x.type === 'conversation' ? t('server.cleanupLeftOpen') : t(x.type === 'changes' ? 'server.cleanupLeftChanges' : x.type === 'stash' ? 'server.cleanupLeftStash' : x.type === 'scheduled' ? 'server.cleanupLeftScheduled' : 'server.cleanupLeftCommits', { n: x.n })).join(', ');
-    ask(t('server.cleanupLeft', { tarea: task.task, sala: room, ruta: w.path, que: text }), { si: t('server.cleanupRemoveAnyway'), no: t('server.cleanupKeep') }, async si => {
+    ask(t('server.cleanupLeft', { task: task.task, room: room, path: w.path, what: text }), { si: t('server.cleanupRemoveAnyway'), no: t('server.cleanupKeep') }, async si => {
       if (!si) return;
-      const r = await remove().catch(e => { broadcast({ t: 'notice', level: 'error', text: t('server.cleanupCouldNot', { ruta: w.path, error: String((e as Error).message).split('\n')[0].slice(0, 160) }) }); return undefined; });
-      if (r === 'waiting') broadcast({ t: 'notice', level: 'info', text: t('server.cleanupWhenClosed', { ruta: w.path }) });
+      const r = await remove().catch(e => { broadcast({ t: 'notice', level: 'error', text: t('server.cleanupCouldNot', { path: w.path, error: String((e as Error).message).split('\n')[0].slice(0, 160) }) }); return undefined; });
+      if (r === 'waiting') broadcast({ t: 'notice', level: 'info', text: t('server.cleanupWhenClosed', { path: w.path }) });
     });
   },
   changed: () => { refreshRepos().catch(() => {}); },
@@ -888,7 +888,7 @@ const reviewRoom = new ReviewRoom(DATA, {
     const resumed = await resumeInFolder(REVIEW_ROOM, folder, text, 'auto');
     if (resumed) return resumed;
     const h = store.state.dwellers.find(x => x.roomId === REVIEW_ROOM);
-    if (!h) throw new Error(t('panels.theRoomSalaHasNo', { sala: t('world.review') }));
+    if (!h) throw new Error(t('panels.theRoomHasNo', { room: t('world.review') }));
     return startWork(undefined, { t: 'start', dwellerId: h.id, roomId: REVIEW_ROOM, prompt: text, options: { cwd: folder, permissions: 'auto' } });
   },
   tell: async (folder, text) => {
@@ -1011,7 +1011,7 @@ async function action(name: string, d: Record<string, any> = {}): Promise<unknow
       if (!existsSync(filePath)) {
         if (!d.create) throw new Error(t('server.thatFolderDoesNotExist'));
         const root = path.resolve(expand(e.reposRoot));
-        if (!filePath.startsWith(root + path.sep)) throw new Error(t('server.newFoldersInsideRoot', { raiz: e.reposRoot }));
+        if (!filePath.startsWith(root + path.sep)) throw new Error(t('server.newFoldersInsideRoot', { root: e.reposRoot }));
         await createFolder(filePath, !!d.git);
       }
       if (takenFolders(e).includes(filePath)) throw new Error(t('server.thatFolderAlreadyHasA'));
@@ -1172,7 +1172,7 @@ async function action(name: string, d: Record<string, any> = {}): Promise<unknow
       if ('error' in r) throw new Error(t('server.running.notADwellers'));
       const s = sessions.list().find(x => x.id === r.sessionId);
       const who = store.state.dwellers.find(h => h.id === s?.dwellerId)?.name ?? s?.title ?? t('server.running.unknownConversation');
-      broadcast({ t: 'notice', level: 'info', text: t('server.running.stopped', { quien: who, orden: r.command.slice(0, 120), n: r.n }) });
+      broadcast({ t: 'notice', level: 'info', text: t('server.running.stopped', { who: who, order: r.command.slice(0, 120), n: r.n }) });
       return true;
     }
     case 'slackRemote.state': return slackRemote.state();
@@ -1205,7 +1205,7 @@ async function action(name: string, d: Record<string, any> = {}): Promise<unknow
       if (!k || !tr?.move) throw new Error(t('verification.cannotMove'));
       const { transitions } = (await integrations.action('transitions', { source: 'jira', key: k, column: 'done', current: tr.state })) as { transitions?: JiraTransition[] };
       const x = doneTransition((transitions ?? []) as JiraTransition[], tr.done);
-      if (!x) throw new Error(t('verification.noDoneTransition', { estado: tr.done ?? '—' }));
+      if (!x) throw new Error(t('verification.noDoneTransition', { state: tr.done ?? '—' }));
       return integrations.action('move', { source: 'jira', key: k, column: 'done', id: x.id });
     }
     // ⚑ a conversation the Overseer still has to act on (shared/flagged.ts), by its Claude Code session id
@@ -1215,21 +1215,21 @@ async function action(name: string, d: Record<string, any> = {}): Promise<unknow
       broadcast({ t: 'state', state: store.state as any }); return true;
     }
     case 'review.board': return reviewBoard();
-    case 'review.open': { const k = String(d.key ?? ''); if (!k) throw new Error(t('reviews.notFound', { clave: '—' })); return reviewRoom.open(k); }
+    case 'review.open': { const k = String(d.key ?? ''); if (!k) throw new Error(t('reviews.notFound', { key: '—' })); return reviewRoom.open(k); }
     case 'review.finish': return reviewRoom.finish(String(d.key ?? ''));
     case 'workLog.read': return workLog.read(workLogSources);
     case 'workLog.ladder': return workLog.ensureLadder();
     // the Overseer asks for the ladder's verification: one conversation with the dweller of the ladder's room
     case 'ladder.verify': {
       const room = workLog.digestRoom(), h = store.state.dwellers.find(x => x.roomId === room);
-      if (!h) throw new Error(t('panels.theRoomSalaHasNo', { sala: room }));
+      if (!h) throw new Error(t('panels.theRoomHasNo', { room: room }));
       const id = await startWork(undefined, { t: 'start', dwellerId: h.id, roomId: room, prompt: workLog.verifyPrompt(), options: { permissions: 'auto' } });
       return { id, roomId: room, dwellerId: h.id };
     }
     // «Draft my career ladder»: the same dweller, in plan mode (nothing is written until the Overseer approves the plan)
     case 'ladder.draft': {
       const room = workLog.digestRoom(), h = store.state.dwellers.find(x => x.roomId === room);
-      if (!h) throw new Error(t('panels.theRoomSalaHasNo', { sala: room }));
+      if (!h) throw new Error(t('panels.theRoomHasNo', { room: room }));
       const id = await startWork(undefined, { t: 'start', dwellerId: h.id, roomId: room, prompt: workLog.draftPrompt(), options: { permissions: 'plan' } });
       return { id, roomId: room, dwellerId: h.id };
     }
@@ -1299,7 +1299,7 @@ async function action(name: string, d: Record<string, any> = {}): Promise<unknow
       }
       if (name.startsWith('git.')) return (await import('./git.ts')).actionGit(name.slice(4), d, { allowedPath: gitPath, pathsRepos: gitPaths, onChange: () => refreshReposSoon(), github: connectionGitHub, ledger: url => prReviews.ledgerOf(url) });
       if (name.startsWith('files.')) return (await import('./files.ts')).filesAction(name.slice(6), d, { allowedRoots: filesRoots, onChange: () => refreshReposSoon() });
-      throw new Error(t('server.unknownAction', { nombre: name }));
+      throw new Error(t('server.unknownAction', { name: name }));
   }
 }
 
@@ -1364,7 +1364,7 @@ function compileClient() {
   if (compiling) return Promise.reject(new Error(t('server.iAmAlreadyRebuildingThe')));
   return compiling = new Promise((ok, ko) => execFile(process.execPath, [path.join(ROOT, 'scripts', 'fingerprints.cjs'), 'build'], { cwd: ROOT, timeout: 240_000, maxBuffer: 16 * 1024 * 1024 }, (err, _out, errOut) => {
     compiling = null;
-    if (err) { broadcast({ t: 'notice', level: 'error', text: t('server.buildFailed', { detalle: String(errOut || err.message).split('\n').filter(Boolean).slice(-3).join(' · ') }) }); ko(err); return; }
+    if (err) { broadcast({ t: 'notice', level: 'error', text: t('server.buildFailed', { detail: String(errOut || err.message).split('\n').filter(Boolean).slice(-3).join(' · ') }) }); ko(err); return; }
     ok(true);
   }));
 }
@@ -1422,7 +1422,7 @@ function checkServer() {
   return new Promise<void>((ok, ko) => execFile(process.execPath, [...process.execArgv.filter(a => !a.startsWith('--inspect')), path.join(ROOT, 'server', 'main.ts')], { cwd: ROOT, timeout: 60_000, env: { ...process.env, SHELTER_COMPROBAR: '1' } }, (err, _out, errOut) => {
     if (!err) { ok(); return; }
     const detail = String(errOut || err.message).split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('at ')).slice(-4).join(' · ');
-    ko(new Error(t('server.noRestartNewServerFails', { detalle: detail })));
+    ko(new Error(t('server.noRestartNewServerFails', { detail: detail })));
   }));
 }
 
@@ -1467,12 +1467,12 @@ async function startWork(ws: WebSocket | undefined, m: Extract<ClientMessage, { 
   if (live >= e.sessionLimit) {
     // el error sigue yendo a quien lo pidió; además se ofrece subir el límite y, si el Supervisor acepta, se reintenta
     const nuevo = raisedSessionLimit(e.sessionLimit);
-    if (nuevo) ask(t('server.limitQuestion', { vivas: live, limiteSesiones: e.sessionLimit, nuevo }), { si: t('server.limitRaise', { nuevo }), no: t('server.limitDismiss') }, async si => {
+    if (nuevo) ask(t('server.limitQuestion', { live: live, sessionLimit: e.sessionLimit, new: nuevo }), { si: t('server.limitRaise', { new: nuevo }), no: t('server.limitDismiss') }, async si => {
       if (!si) return;
       store.state.sessionLimit = Math.max(store.state.sessionLimit, nuevo); store.save(); broadcast({ t: 'state', state: store.state as any });
       await startWork(undefined, m).catch(err => broadcast({ t: 'notice', level: 'error', text: (err as Error).message }));
     });
-    throw new Error(t('server.thereAreAlreadyLiveSessions', { vivas: live, limiteSesiones: e.sessionLimit }));
+    throw new Error(t('server.thereAreAlreadyLiveSessions', { live: live, sessionLimit: e.sessionLimit }));
   }
   // los worktrees son de las salas de proyecto: el Puente de Mando y las especiales trabajan en su carpeta, salvo el
   // worktree con nombre de una tarea (mensajes entre salas) si su carpeta es un repo git (lo comprueba lo de abajo)
@@ -1481,7 +1481,7 @@ async function startWork(ws: WebSocket | undefined, m: Extract<ClientMessage, { 
   if (typeof m.options.worktree === 'string' && !/^[\w.-]{1,80}$/.test(m.options.worktree)) m.options.worktree = room.type === 'repo';
   if (room.type !== 'repo' && typeof m.options.worktree !== 'string') m.options.worktree = false;
   // en un ala (carpeta con varios repos) no hay un único repo donde crear el worktree: se trabaja en la carpeta
-  if (m.options.worktree && !existsSync(path.join(cwd, '.git'))) { m.options.worktree = false; const notice: ServerMessage = { t: 'notice', level: 'warning', text: t('server.isNotAGitRepo', { nombre: roomNameIs(room) }) }; if (ws) send(ws, notice); else broadcast(notice); }
+  if (m.options.worktree && !existsSync(path.join(cwd, '.git'))) { m.options.worktree = false; const notice: ServerMessage = { t: 'notice', level: 'warning', text: t('server.isNotAGitRepo', { name: roomNameIs(room) }) }; if (ws) send(ws, notice); else broadcast(notice); }
   const r = await sessions.start(m.dwellerId, m.roomId, cwd, m.prompt, m.options, attachments.describe(pathsList(m.attachments)));
   if (m.options.resume && ws) send(ws, { t: 'entries', sessionId: r.id, entries: sessions.logbook(r.id) });
   return r.id;

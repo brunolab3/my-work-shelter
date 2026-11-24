@@ -430,7 +430,7 @@ export async function actionGit(name: string, d: Record<string, any>, ctx: CtxGi
       case 'continue': return continueLast(filePath);
       case 'openFile': return openFile(filePath, d.file);
       case 'sync': return sync(filePath, ['fetch', 'pull', 'push'].includes(d.what) ? d.what : 'sync');
-      default: throw new Error(t('server.unknownAction', { nombre: 'git.' + name }));
+      default: throw new Error(t('server.unknownAction', { name: 'git.' + name }));
     }
   })().finally(() => { if (WRITE.has(name)) ctx.onChange(filePath); });
   return r ?? true;

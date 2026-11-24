@@ -24,7 +24,7 @@ export const readCalendar: Reader = (since, until) => new Promise((ok, ko) => {
   if (process.platform !== 'darwin') return ko(new ErrorSource(t('server.macCalendarOnlyWorksOn')));
   execFile('/usr/bin/osascript', ['-l', 'JavaScript', READER, String(since), String(until)], { timeout: 60_000, maxBuffer: 8 << 20 }, (err, stdout, stderr) => {
     if (err) return ko(new ErrorSource(explainErrorCalendar(`${stderr || ''} ${err.message}`), 120_000));
-    try { ok(JSON.parse(String(stdout))); } catch { ko(new ErrorSource(t('integrations.calendarUnreadable', { salida: String(stdout).slice(0, 120) }))); }
+    try { ok(JSON.parse(String(stdout))); } catch { ko(new ErrorSource(t('integrations.calendarUnreadable', { output: String(stdout).slice(0, 120) }))); }
   });
 });
 
@@ -49,17 +49,17 @@ class Calendar extends ConnectorBase {
   protected async pollReal() {
     const { calendars, events, since, until } = await this.readAlready();
     const valid = this.filter(), chosen = calendars.filter(valid);
-    if (!chosen.length) throw new ErrorSource(t('server.noCalendarIsCalledThere', { calendarios: this.config.publicFields().calendarios, calendarios2: calendars.join(', ') }));
+    if (!chosen.length) throw new ErrorSource(t('server.noCalendarIsCalledThere', { calendars: this.config.publicFields().calendarios, calendars2: calendars.join(', ') }));
     const list = eventsOfCalendarMac(events.filter(e => valid(e.calendario)), since, until);
-    this.good(t(list.length === 1 ? 'integrations.calendarReadingOne' : 'integrations.calendarReading', { calendarios: chosen.join(', '), n: list.length, dias: DAYS }));
+    this.good(t(list.length === 1 ? 'integrations.calendarReadingOne' : 'integrations.calendarReading', { calendars: chosen.join(', '), n: list.length, days: DAYS }));
     return { events: list };
   }
 
   protected async tryReal(v: Record<string, string>) {
     const { calendars } = await this.readAlready();
     const chosen = calendars.filter(this.filter(v.calendarios ?? ''));
-    if (!chosen.length) return { ok: false, detail: t('server.noCalendarMatchesThereAre', { calendarios: calendars.join(', ') }) };
-    return { ok: true, detail: t('integrations.calendarResponds', { calendarios: chosen.join(', ') }) };
+    if (!chosen.length) return { ok: false, detail: t('server.noCalendarMatchesThereAre', { calendars: calendars.join(', ') }) };
+    return { ok: true, detail: t('integrations.calendarResponds', { calendars: chosen.join(', ') }) };
   }
 }
 

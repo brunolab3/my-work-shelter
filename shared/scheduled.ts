@@ -105,7 +105,7 @@ const joined = (title: string, parts: PackPart[]) => (parts.length === 1 ? parts
 export const packText = (label: string, parts: PackPart[]) => joined(t('prompt.packed.title', { pr: label, n: parts.length }), parts);
 /** A sender's packed messages: one as it was; several, under a heading that says later ones may correct earlier ones */
 export const messagesText = (m: NonNullable<ScheduledMessage['messages']>) =>
-  joined(t('prompt.packed.messages', { n: m.parts.length, sala: m.room, habitante: m.dweller ? ` (${m.dweller})` : '' }), m.parts);
+  joined(t('prompt.packed.messages', { n: m.parts.length, room: m.room, dweller: m.dweller ? ` (${m.dweller})` : '' }), m.parts);
 /** Same sender: the same room and the same conversation (by game id or Claude Code id); none without a conversation */
 export const sameSender = (a: ScheduledMessage['origin'], b: ScheduledMessage['origin']) =>
   a.roomId === b.roomId && (!!(a.claudeId && a.claudeId === b.claudeId) || !!(a.sessionId && a.sessionId === b.sessionId));

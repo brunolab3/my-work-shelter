@@ -109,12 +109,12 @@ export class ReviewRoom {
   /** Opens a review (the Overseer's click): its worktrees and its conversation. The conversation's id */
   async open(key: string): Promise<string | undefined> {
     const prs = this.prs.filter(p => reviewKey(p) === key);
-    if (!prs.length && !this.started[key]) throw new Error(t('reviews.notFound', { clave: key }));
+    if (!prs.length && !this.started[key]) throw new Error(t('reviews.notFound', { key: key }));
     if (!this.started[key]) {
       const folder = path.join(this.ctx.root(), reviewFolderName(key));
       mkdirSync(folder, { recursive: true });
       this.started[key] = { folder, prs: {} };
-      for (const p of prs) await this.addPR(key, p).catch(e => this.ctx.notice(t('reviews.couldNotCheckOut', { numero: p.number, repo: p.repo, error: String((e as Error).message).split('\n')[0].slice(0, 160) })));
+      for (const p of prs) await this.addPR(key, p).catch(e => this.ctx.notice(t('reviews.couldNotCheckOut', { number: p.number, repo: p.repo, error: String((e as Error).message).split('\n')[0].slice(0, 160) })));
       this.save();
       this.publish();
     }
@@ -134,11 +134,11 @@ export class ReviewRoom {
   private prompt(key: string, task?: TaskContext): string {
     const s = this.started[key];
     const prs = this.prs.filter(p => s.prs[p.url]);
-    const lines = prs.map(p => t('reviews.promptPR', { repo: p.repo, numero: p.number, titulo: p.title, autor: p.author, url: p.url, base: p.base, rama: p.branch,
-      donde: s.prs[p.url].dir ? path.relative(s.folder, s.prs[p.url].dir!) : t('reviews.promptNoWorktree') }));
-    const jira = task?.title ? t('reviews.promptJira', { clave: key, titulo: task.title, estado: task.status ?? '—', epica: task.epic ?? '—', descripcion: (task.description ?? '').slice(0, 6000) || '—' })
-      : isJiraKey(key) ? t('reviews.promptJiraRead', { clave: key }) : t('reviews.promptNoTask');
-    return t('reviews.prompt', { clave: key, prs: lines.join('\n'), jira });
+    const lines = prs.map(p => t('reviews.promptPR', { repo: p.repo, number: p.number, title: p.title, author: p.author, url: p.url, base: p.base, branch: p.branch,
+      where: s.prs[p.url].dir ? path.relative(s.folder, s.prs[p.url].dir!) : t('reviews.promptNoWorktree') }));
+    const jira = task?.title ? t('reviews.promptJira', { key: key, title: task.title, state: task.status ?? '—', epic: task.epic ?? '—', description: (task.description ?? '').slice(0, 6000) || '—' })
+      : isJiraKey(key) ? t('reviews.promptJiraRead', { key: key }) : t('reviews.promptNoTask');
+    return t('reviews.prompt', { key: key, prs: lines.join('\n'), jira });
   }
 
   /** Its worktree for one PR: fetched from GitHub and detached at its head, in the review's folder */
@@ -167,18 +167,18 @@ export class ReviewRoom {
       if (!was) {
         await this.addPR(key, p).catch(e => {
           s.prs[p.url] = { head: p.head, column, number: p.number, repo: p.repo };
-          this.ctx.notice(t('reviews.couldNotCheckOut', { numero: p.number, repo: p.repo, error: String((e as Error).message).split('\n')[0].slice(0, 160) }));
+          this.ctx.notice(t('reviews.couldNotCheckOut', { number: p.number, repo: p.repo, error: String((e as Error).message).split('\n')[0].slice(0, 160) }));
         });
-        news.push(t('reviews.newPR', { repo: p.repo, numero: p.number, titulo: p.title, url: p.url, donde: s.prs[p.url].dir ? path.relative(s.folder, s.prs[p.url].dir!) : t('reviews.promptNoWorktree') }));
+        news.push(t('reviews.newPR', { repo: p.repo, number: p.number, title: p.title, url: p.url, where: s.prs[p.url].dir ? path.relative(s.folder, s.prs[p.url].dir!) : t('reviews.promptNoWorktree') }));
         changed = true;
         continue;
       }
       if (was.head !== p.head) {
         const moved = was.dir ? await this.moveTo(was.dir, was.head, p) : false;
-        news.push(t(moved || !was.dir ? 'reviews.newCommits' : 'reviews.newCommitsNotMoved', { repo: p.repo, numero: p.number, antes: was.head.slice(0, 7), ahora: p.head.slice(0, 7) }));
+        news.push(t(moved || !was.dir ? 'reviews.newCommits' : 'reviews.newCommitsNotMoved', { repo: p.repo, number: p.number, before: was.head.slice(0, 7), now: p.head.slice(0, 7) }));
         was.head = p.head; changed = true;
       }
-      if (column === 'review' && was.column !== 'review' && p.requested) news.push(t('reviews.requestedAgain', { repo: p.repo, numero: p.number, autor: p.author }));
+      if (column === 'review' && was.column !== 'review' && p.requested) news.push(t('reviews.requestedAgain', { repo: p.repo, number: p.number, author: p.author }));
       if (was.column !== column) { was.column = column; changed = true; }
     }
     // the PRs that left: merged, closed, or no longer asking for this review
@@ -188,10 +188,10 @@ export class ReviewRoom {
       if (x.dir && !(await this.removable(x.dir, x.head, false))) continue;
       if (x.dir) await this.removeDir(x.dir, x.repo);
       delete s.prs[url];
-      news.push(t('reviews.prLeft', { repo: x.repo, numero: x.number }));
+      news.push(t('reviews.prLeft', { repo: x.repo, number: x.number }));
       changed = true;
     }
-    if (news.length) await this.ctx.tell(s.folder, t('reviews.update', { clave: key, cambios: news.map(n => `- ${n}`).join('\n') })).catch(() => false);
+    if (news.length) await this.ctx.tell(s.folder, t('reviews.update', { key: key, changes: news.map(n => `- ${n}`).join('\n') })).catch(() => false);
     return changed;
   }
 
@@ -235,14 +235,14 @@ export class ReviewRoom {
   private async retire(key: string, byHand: boolean): Promise<boolean> {
     const s = this.started[key];
     const approved = this.approved.includes(key);
-    if (this.conversationIn(s.folder)) { if (byHand) this.ctx.notice(t('reviews.closeConversationFirst', { clave: key })); return false; }
+    if (this.conversationIn(s.folder)) { if (byHand) this.ctx.notice(t('reviews.closeConversationFirst', { key: key })); return false; }
     const dirty: string[] = [];
     for (const x of Object.values(s.prs)) if (x.dir && !(await this.removable(x.dir, x.head, approved))) dirty.push(path.basename(x.dir));
     if (dirty.length) {
       const asked = `${key}|${dirty.join(',')}`;
       if (!byHand && this.asked.includes(asked)) return false;
       this.asked.push(asked);
-      this.ctx.ask(t('reviews.workLeft', { clave: key, donde: dirty.join(', ') }), async () => {
+      this.ctx.ask(t('reviews.workLeft', { key: key, where: dirty.join(', ') }), async () => {
         if (!this.started[key]) return;
         this.approved.push(key);
         await this.retire(key, true);
@@ -257,7 +257,7 @@ export class ReviewRoom {
     rmSync(s.folder, { recursive: true, force: true });
     delete this.started[key];
     this.approved = this.approved.filter(k => k !== key);
-    this.ctx.notice(t('reviews.retired', { clave: key }));
+    this.ctx.notice(t('reviews.retired', { key: key }));
     return true;
   }
 

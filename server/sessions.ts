@@ -271,17 +271,17 @@ export class Sessions extends EventEmitter {
     // el worktree de un trabajo nuevo lo crea el juego y la conversación arranca en él; si no puede (no es un repo, git
     // falla), lo intenta Claude Code al arrancar (--worktree)
     if (o.worktree && !o.resume && !o.cwd) {
-      const name = typeof o.worktree === 'string' ? o.worktree : worktreeName(prompt.slice(0, 80) || (attachments[0] ? t('server.lookAt', { nombre: attachments[0].name }) : t('server.newJob')));
+      const name = typeof o.worktree === 'string' ? o.worktree : worktreeName(prompt.slice(0, 80) || (attachments[0] ? t('server.lookAt', { name: attachments[0].name }) : t('server.newJob')));
       try { o = { ...o, cwd: await createWorktree(cwd, name), worktree: undefined }; }
       catch (e) { console.warn('No se pudo crear el worktree; lo creará Claude Code:', (e as Error).message); o = { ...o, worktree: name }; }
     }
     const key = this.keyInSettings(o.cwd || cwd);
-    if (key) throw new Error(t('server.yourClaudeCodeSettingsForce', { clave: key }));
+    if (key) throw new Error(t('server.yourClaudeCodeSettingsForce', { key: key }));
     if (o.resume && [...this.s.values()].some(x => x.alive && x.r.claudeId === o.resume)) throw new Error(t('server.thatConversationIsAlreadyRunning'));
     if (!existsSync(o.cwd || cwd)) throw new Error(t('server.theFolderDoesNotExist', { cwd: o.cwd || cwd }));
     const id = randomUUID();
     const r: SessionSummary = {
-      id, dwellerId, roomId, cwd: o.cwd || cwd, state: 'starting', unread: false, title: prompt.slice(0, 80) || (attachments[0] ? t('server.lookAt', { nombre: attachments[0].name }) : t('server.newJob')),
+      id, dwellerId, roomId, cwd: o.cwd || cwd, state: 'starting', unread: false, title: prompt.slice(0, 80) || (attachments[0] ? t('server.lookAt', { name: attachments[0].name }) : t('server.newJob')),
       pendingCount: 0, helpers: [], tools: 0, turns: 0, model: o.model || undefined, effort: o.effort || undefined,
       permissionMode: o.permissions || 'auto', created: Date.now(), updated: Date.now(), claudeId: o.resume, handoffFrom: o.handoffFrom,
     };
@@ -356,7 +356,7 @@ export class Sessions extends EventEmitter {
     const list = await new Promise<string>(ok => execFile('git', ['-C', cwd, 'worktree', 'list', '--porcelain'], { env: gitEnvironment(), timeout: 10_000 }, (e, o) => ok(e ? '' : String(o))));
     const already = taskWorktreeIn(list, task);
     if (!already) return {};
-    return { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: t('server.oneWorktreePerTask', { tarea: task, ruta: already.path, rama: already.branch ?? '' }) } };
+    return { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: t('server.oneWorktreePerTask', { task: task, path: already.path, branch: already.branch ?? '' }) } };
   }
 
   private async originalRepoGate(x: Session, cmd: string): Promise<Record<string, unknown>> {
@@ -390,10 +390,10 @@ export class Sessions extends EventEmitter {
     const cwd = merge.cwd ? path.resolve(base, merge.cwd.replace(/^~(?=\/|$)/, os.homedir())) : base;
     const g = await this.resolver.preflight.gate(cwd).catch(() => null);
     if (!g || !g.missing.length) return {};
-    const si = await this.confirm(x, t('server.preflightMergeTitle', { clave: g.key, rama: g.branch ?? '', head: (g.head ?? '').slice(0, 7) }),
+    const si = await this.confirm(x, t('server.preflightMergeTitle', { key: g.key, branch: g.branch ?? '', head: (g.head ?? '').slice(0, 7) }),
       [{ type: 'text', text: g.missing.map(f => '• ' + f).join('\n') }, { type: 'code', text: cmd, language: 'bash' }]);
     if (si) return {};
-    return { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: t('server.preflightMergeDenied', { que: g.missing.join('; ') }) } };
+    return { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: t('server.preflightMergeDenied', { what: g.missing.join('; ') }) } };
   }
 
   private trust(cwd: string) { return trust(cwd, undefined, this.resolver.trustedFolders?.(), this.resolver.clonedFolders?.()); }
@@ -544,7 +544,7 @@ export class Sessions extends EventEmitter {
       if (x.q === q) {
         x.alive = false;
         this.emptyPending(x, t('server.sessionEnded'));
-        if (x.queue.length && !x.closing) this.add(x, this.input('system', t('server.queueNotDelivered', { textos: quotedList(x.queue.map(q => q.text)) })));
+        if (x.queue.length && !x.closing) this.add(x, this.input('system', t('server.queueNotDelivered', { texts: quotedList(x.queue.map(q => q.text)) })));
         x.queue = [];
         for (const a of x.helpers.values()) if (a.state === 'working') a.state = 'failed';
         if (x.awaitingBackground && x.r.state === 'working') x.r.state = 'finished';   // el turno ya había acabado bien
@@ -602,7 +602,7 @@ export class Sessions extends EventEmitter {
           if (h && isAgent(h.name)) { const a = x.helpers.get(b.tool_use_id); const res = (m as any).tool_use_result; if (a && res?.status !== 'async_launched') this.helperEnd(x, a.id, b.is_error ? 'failed' : 'done'); }
           if (b.is_error) {
             const txt = typeof b.content === 'string' ? b.content : Array.isArray(b.content) ? b.content.map((y: any) => y.text ?? '').join('\n') : '';
-            const e = this.input('tool', t('server.toolFailed', { herramienta: h?.name ?? t('server.theTool') }), { tool: h?.name, isError: true });
+            const e = this.input('tool', t('server.toolFailed', { tool: h?.name ?? t('server.theTool') }), { tool: h?.name, isError: true });
             // the whole output on disk, the log only its size and first line (server/toolOutputs.ts)
             if (txt.trim()) { try { e.output = this.outputs ? this.outputs.save(r.id, e.id, txt) : undefined; } catch {} if (!e.output) e.detail = txt.slice(0, 2000); }
             this.add(x, e);
@@ -628,9 +628,9 @@ export class Sessions extends EventEmitter {
         if (x.interrupting) { x.interrupting = false; r.state = 'finished'; this.add(x, this.input('system', t('server.interrupted'))); }
         // the SDK may end a turn that only got an API error as a success: the error decides
         else if (x.limitHit !== undefined && (apiError || res.subtype !== 'success' || res.is_error)) this.limitStop(x);
-        else if (apiError) { r.state = 'error'; r.error = apiError.text; this.add(x, this.input('error', t('server.theJobGotStuck', { por: apiError.text }))); }
-        else if (res.subtype === 'success' && !res.is_error) { r.state = 'finished'; x.limitHit = undefined; if (res.result) r.lastText = res.result; this.add(x, this.input('result', t('server.doneInS', { seg }))); }
-        else { r.state = 'error'; const by = (res.errors as string[] | undefined)?.join('\n') || res.result || res.subtype; r.error = by; this.add(x, this.input('error', t('server.theJobGotStuck', { por: by }))); }
+        else if (apiError) { r.state = 'error'; r.error = apiError.text; this.add(x, this.input('error', t('server.theJobGotStuck', { by: apiError.text }))); }
+        else if (res.subtype === 'success' && !res.is_error) { r.state = 'finished'; x.limitHit = undefined; if (res.result) r.lastText = res.result; this.add(x, this.input('result', t('server.doneInS', { sec: seg }))); }
+        else { r.state = 'error'; const by = (res.errors as string[] | undefined)?.join('\n') || res.result || res.subtype; r.error = by; this.add(x, this.input('error', t('server.theJobGotStuck', { by: by }))); }
         r.unread = true; r.activity = undefined; x.partialText = '';
         if (x.pending.length) r.state = 'waiting';
         // con subagentes o terminales aún en segundo plano no ha terminado: sigue trabajando hasta que acaben
@@ -861,7 +861,7 @@ export class Sessions extends EventEmitter {
     const voided = (receipt?.cancelled ?? []).map(u => x.sent.get(u)).filter((t): t is string => !!t);
     const cancelled = new Set(receipt?.cancelled ?? []);
     if (x.queue.some(q => cancelled.has(q.id))) { x.queue = x.queue.filter(q => !cancelled.has(q.id)); this.play(x); }
-    if (voided.length) this.add(x, this.input('system', t('server.notSentDueToInterruption', { textos: quotedList(voided) })));
+    if (voided.length) this.add(x, this.input('system', t('server.notSentDueToInterruption', { texts: quotedList(voided) })));
   }
 
   close(id: string) {
@@ -886,13 +886,13 @@ export class Sessions extends EventEmitter {
   // porque dos Claude Code escribiendo la misma conversación la corromperían.
   async takeOut(id: string, where = t('server.aDesktopTerminal')) {
     const x = this.must(id);
-    if (!x.r.claudeId) throw new Error(t('server.isStillStartingTakeIt', { titulo: x.r.title }));
+    if (!x.r.claudeId) throw new Error(t('server.isStillStartingTakeIt', { title: x.r.title }));
     const busy = () => x.alive && ['starting', 'working', 'waiting'].includes(x.r.state);
     const continueLast = busy();
     if (continueLast) { await this.interrupt(id); await wait(() => !busy(), 10_000); }
     this.add(x, this.input('system', t('server.continuesIn', { where })));
     this.close(id);
-    if (!(await wait(() => !x.alive, 8000))) throw new Error(t('server.isNotFinishingClosingIn', { titulo: x.r.title }));
+    if (!(await wait(() => !x.alive, 8000))) throw new Error(t('server.isNotFinishingClosingIn', { title: x.r.title }));
     return { claudeId: x.r.claudeId, cwd: x.r.cwd, title: x.r.title, dwellerId: x.r.dwellerId, continueLast, model: x.options.model || undefined, effort: x.options.effort || undefined, permissions: x.r.permissionMode };
   }
 

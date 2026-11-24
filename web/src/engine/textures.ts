@@ -466,7 +466,7 @@ export class WeekWhiteboard {
       if (!allDay) { g.textAlign = 'right'; g.fillText(busy ? tx('world.tex.inMeetings', { t: hm(busy) }) : tx('world.tex.noMeetings'), bx + bw, by + bh + 14); g.textAlign = 'left'; }
       const fmt = (t: number) => { const d = new Date(t); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
       g.fillStyle = '#2a2520'; g.font = `600 14px ${SOURCES.mono}`;
-      g.fillText(allDay ? tx('world.tex.noGaps') : tx('world.tex.freeFromTo', { de: fmt(gap[0]), a: fmt(gap[1]) }), bx, by + bh + 42);
+      g.fillText(allDay ? tx('world.tex.noGaps') : tx('world.tex.freeFromTo', { of: fmt(gap[0]), a: fmt(gap[1]) }), bx, by + bh + 42);
     }
     dirty(g, W, H, 0.1, 31);
     this.tex.needsUpdate = true;

@@ -64,7 +64,7 @@ export class Dictations {
       p.stdin!.on('error', () => {});
       p.on('close', code => {
         if (this.d.get(id) === x) { clearTimeout(x.timer); this.d.delete(id); }
-        if (last !== 'final' && last !== 'error' && !p.killed) emit({ state: 'error', text: t('server.voice.cutOff', { codigo: code ? t('server.voice.code', { codigo: code }) : '', error: err.trim() ? `: ${err.trim().split('\n').pop()}` : '' }) });
+        if (last !== 'final' && last !== 'error' && !p.killed) emit({ state: 'error', text: t('server.voice.cutOff', { code: code ? t('server.voice.code', { code: code }) : '', error: err.trim() ? `: ${err.trim().split('\n').pop()}` : '' }) });
       });
       for (const b of x.queue.splice(0)) p.stdin!.write(b);
       if (x.end) p.stdin!.end();

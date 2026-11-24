@@ -290,7 +290,7 @@ function RoomCard({ room, dwellers }: { room: any; dwellers: DwellerSummary[] })
   const desc = ROOM_DESCRIPTION[room.type] ?? (isRepo ? t('panels.repository') + (repo?.type ? ' · ' + repo.type : '') : '');
   return <>
     <div className="titulo-ficha">{room.name} <span className="dim">· {floorCaption(room.floor)}</span></div>
-    {(() => { const sec = sectorOf(room.type, room.id, room.area); return <div className="ficha-sector" style={{ ['--sector' as any]: roomTone(room)[0], ['--tinta' as any]: sec.ink, ['--letra' as any]: sec.letter }}><b>{sec.code}</b>{t('panels.nombreSector', { nombre: tIs(sec.name).toLowerCase() })}</div>; })()}
+    {(() => { const sec = sectorOf(room.type, room.id, room.area); return <div className="ficha-sector" style={{ ['--sector' as any]: roomTone(room)[0], ['--tinta' as any]: sec.ink, ['--letra' as any]: sec.letter }}><b>{sec.code}</b>{t('panels.sectorName', { name: tIs(sec.name).toLowerCase() })}</div>; })()}
     {desc && <div className="ficha-desc">{tIs(desc)}</div>}
     <p className="ficha-info">{tIs(ROOM_INFO[room.type] ?? (isRepo ? REPO_INFO : ''))}</p>
     {data.length > 0 && <dl className="ficha-datos">{data.map(([k, v]) => <React.Fragment key={k}><dt>{sessions.some(x => x.id === k) ? t('panels.context') : tIs(k)}</dt><dd>{v}</dd></React.Fragment>)}</dl>}

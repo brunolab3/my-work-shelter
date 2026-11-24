@@ -76,7 +76,7 @@ export async function localBranches(key: string, prs: PRBoard[], rooms: RoomPR[]
 /** El pre-flight de una tarea, con todo lo del refugio */
 export async function preflightOf(key: string, ctx: CtxPreflight, force = false): Promise<TaskPreflight> {
   const K = taskKey(key);
-  if (!K) throw new Error(t('server.notATaskKey', { clave: key.slice(0, 40) }));
+  if (!K) throw new Error(t('server.notATaskKey', { key: key.slice(0, 40) }));
   const [all, taskPrs, rooms, orden] = await Promise.all([ctx.prs(force), ctx.taskPrs?.(K, force).catch(() => [] as PRBoard[]) ?? [], ctx.rooms(), ctx.orden().catch(() => [] as TaskOrder[])]);
   const gh = { ...all, prs: [...new Map([...taskPrs, ...all.prs].map(p => [p.url, p])).values()] };
   // lo que queda por contestar en sus revisiones, como en el tablero de despliegue
@@ -221,7 +221,7 @@ export function textState(x: { key: string; part: PartPreflight; r: TaskPrefligh
   const missing = gateMissing(p);
   const all = [...x.r.checklist, ...p.repoItems.filter(i => !x.r.checklist.includes(i))];
   return [
-    t('tool.preflight.heading', { clave: x.key, sala: p.room ?? '', rama: p.branch ?? '', head: (p.headLocal ?? '').slice(0, 7) }),
+    t('tool.preflight.heading', { key: x.key, room: p.room ?? '', branch: p.branch ?? '', head: (p.headLocal ?? '').slice(0, 7) }),
     c('Compare', p.compare), c(t('preflight.col.checklist'), p.checklist), c(t('preflight.col.sync'), p.sync), c('CI', p.ci), c(t('preflight.col.review'), p.review), c(t('preflight.col.blockers'), p.blockers),
     '',
     t('tool.preflight.items'),
@@ -230,7 +230,7 @@ export function textState(x: { key: string; part: PartPreflight; r: TaskPrefligh
     ...(p.waitsOn.length ? ['', t('tool.preflight.waits', { prs: p.waitsOn.map(l => `${l.url ? l.ref : l.room} (${linkState(l)})`).join(', ') })] : []),
     ...(p.threads.length ? ['', t('tool.preflight.threads', { n: p.threads.length }), ...p.threads.map(h => `- ${h.file}${h.line ? ':' + h.line : ''} ${h.author}: ${h.text} (${h.url})`)] : []),
     '',
-    missing.length ? t('tool.preflight.missing', { que: missing.join('; ') }) : t('tool.preflight.ready'),
+    missing.length ? t('tool.preflight.missing', { what: missing.join('; ') }) : t('tool.preflight.ready'),
   ].join('\n');
 }
 
@@ -247,10 +247,10 @@ export function preflightTools(ctx: CtxPreflight, save: (key: string, worktree: 
       const items = [...x.r.checklist, ...x.part.repoItems.filter(i => !x.r.checklist.includes(i))];
       const n = Number(item);
       const point = Number.isInteger(n) && n >= 1 && n <= items.length ? items[n - 1] : items.find(i => i.toLowerCase() === String(item).trim().toLowerCase());
-      if (!point) return t('tool.preflight.noSuchItem', { item: String(item).slice(0, 80), lista: items.map((x, i) => `${i + 1}. ${x}`).join(' · ') || '—' });
+      if (!point) return t('tool.preflight.noSuchItem', { item: String(item).slice(0, 80), list: items.map((x, i) => `${i + 1}. ${x}`).join(' · ') || '—' });
       if (state === 'n/a' && !note?.trim()) return t('tool.preflight.naNeedsNote');
       save(x.key, x.part.worktree, x.part.headLocal, point, { state, note });
-      return t('tool.preflight.saved', { item: point, estado: state, head: x.part.headLocal.slice(0, 7) });
+      return t('tool.preflight.saved', { item: point, state: state, head: x.part.headLocal.slice(0, 7) });
     },
   };
 }

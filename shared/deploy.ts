@@ -129,7 +129,7 @@ export function deploymentText(prs: PRBoard[], blockers: Blocker[]): string {
   const line = (p: PRBoard) => {
     const waits = blockers.filter(b => b.from === p.url).map(b => byUrl.get(b.by)).filter(Boolean).map(q => refPR(q!) + (q!.state === 'merged' ? t('prompt.deploy.mergedMark') : ''));
     const beside = links.filter(e => e.a === p.url || e.b === p.url).map(e => byUrl.get(e.a === p.url ? e.b : e.a)!).map(refPR);
-    return t('prompt.deploy.line', { pr: refPR(p), titulo: p.title ?? '', columna: deploymentColumn(p) ?? '', ci: p.checks ? ' · CI ' + p.checks : '', revisiones: p.state !== 'merged' && p.ledger && ledgerPending(p.ledger) ? t('prompt.deploy.ledger', { hilos: p.ledger.unresolved, resumenes: p.ledger.unansweredSummaries }) : '', espera: waits.length ? t('prompt.deploy.waitsFor', { prs: waits.join(', ') }) : '', junto: beside.length ? t('prompt.deploy.sameTask', { clave: pRKey(p) || '', prs: beside.join(', ') }) : '', url: p.url });
+    return t('prompt.deploy.line', { pr: refPR(p), title: p.title ?? '', column: deploymentColumn(p) ?? '', ci: p.checks ? ' · CI ' + p.checks : '', reviews: p.state !== 'merged' && p.ledger && ledgerPending(p.ledger) ? t('prompt.deploy.ledger', { threads: p.ledger.unresolved, summaries: p.ledger.unansweredSummaries }) : '', waits: waits.length ? t('prompt.deploy.waitsFor', { prs: waits.join(', ') }) : '', beside: beside.length ? t('prompt.deploy.sameTask', { key: pRKey(p) || '', prs: beside.join(', ') }) : '', url: p.url });
   };
   return [
     t('prompt.deploy.pending'),

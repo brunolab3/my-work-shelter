@@ -235,7 +235,7 @@ export function Deck() {
       onMouseLeave={() => { deadline.current = setTimeout(() => setAbove(false), 350); }}>
       {inHand && <div className="barra-ayuda pletina-ayuda"><kbd>{t('windows.space')}</kbd> ⏯ <kbd>←→</kbd> ±{SECONDS_STEP} s <kbd>⇧←→</kbd> {t('windows.tracks')} <kbd>↑↓</kbd> {t('windows.volume')} <kbd>{t('windows.enter')}</kbd> Spotify <kbd>Esc</kbd> {t('windows.exit')}</div>}
       <div className="pletina-fila">
-        <button className="pletina-disco" onClick={() => onFront('spotify')} title={t('windows.openSpotifyAtajoJTo', { shortcut: CMD })}><Disco m={m} size="100%" /></button>
+        <button className="pletina-disco" onClick={() => onFront('spotify')} title={t('windows.openSpotifyShortcutJTo', { shortcut: CMD })}><Disco m={m} size="100%" /></button>
         <div className="pletina-cuerpo">
           {open && <div className="pletina-cabeza">
             <span className="pletina-marca">{mark}</span>

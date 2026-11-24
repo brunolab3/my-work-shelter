@@ -139,10 +139,10 @@ export function sanitizeDecor(d: unknown): { decor: Decor | null; notices: strin
   if (!d || typeof d !== 'object') return { decor: null, notices: [tr('tool.decor.check.notAnObject')] };
   const x = d as Record<string, any>;
   const base = from(BASES_DECOR, x.base);
-  if (!base) return { decor: null, notices: [tr('tool.decor.check.baseOneOf', { lista: BASES_DECOR.join(', ') })] };
+  if (!base) return { decor: null, notices: [tr('tool.decor.check.baseOneOf', { list: BASES_DECOR.join(', ') })] };
   const lim = (v: unknown, a: number, b: number, what: string, def?: number) => {
     const n = num(v); if (n === undefined) return def;
-    if (n < a || n > b) notices.push(tr('tool.decor.check.outOfRange', { que: what, n, a, b }));
+    if (n < a || n > b) notices.push(tr('tool.decor.check.outOfRange', { what: what, n, a, b }));
     return Math.round(Math.min(b, Math.max(a, n)) * 1000) / 1000;
   };
   const out: Decor = { version: 1, base };
@@ -150,10 +150,10 @@ export function sanitizeDecor(d: unknown): { decor: Decor | null; notices: strin
   const sub = text(x.subtitle, 24).toUpperCase(); if (sub) out.subtitle = sub;
   if (text(x.subtitle, 400).length > 24) notices.push(tr('tool.decor.check.subtitleFits', { sub }));
   const accent = color(x.accent); if (accent) out.accent = accent; else if (x.accent !== undefined) notices.push(tr('tool.decor.check.accentColor'));
-  const palette = from(DECOR_PALETTES, x.palette); if (palette) out.palette = palette; else if (x.palette !== undefined) notices.push(tr('tool.decor.check.paletteOneOf', { lista: DECOR_PALETTES.join(', ') }));
+  const palette = from(DECOR_PALETTES, x.palette); if (palette) out.palette = palette; else if (x.palette !== undefined) notices.push(tr('tool.decor.check.paletteOneOf', { list: DECOR_PALETTES.join(', ') }));
   if (Array.isArray(x.walls)) {
     const p = x.walls.slice(0, 3).map((w: unknown) => from(DECOR_WALLS, w));
-    if (p.length === 3 && p.every(Boolean)) out.walls = p as [string, string, string]; else notices.push(tr('tool.decor.check.wallsThree', { lista: DECOR_WALLS.join(', ') }));
+    if (p.length === 3 && p.every(Boolean)) out.walls = p as [string, string, string]; else notices.push(tr('tool.decor.check.wallsThree', { list: DECOR_WALLS.join(', ') }));
   }
   const light = lim(x.light, 0.2, 1.4, 'luz'); if (light !== undefined) out.light = light;
   if (x.mirror === true) out.mirror = true;
@@ -184,7 +184,7 @@ export function sanitizeDecor(d: unknown): { decor: Decor | null; notices: strin
     }));
   }
   if (Array.isArray(x.pieces)) {
-    if (x.pieces.length > LIMITS.pieces) notices.push(tr('tool.decor.check.maxPieces', { n: LIMITS.pieces, sobran: x.pieces.length - LIMITS.pieces }));
+    if (x.pieces.length > LIMITS.pieces) notices.push(tr('tool.decor.check.maxPieces', { n: LIMITS.pieces, extra: x.pieces.length - LIMITS.pieces }));
     const pieces: DecorPiece[] = [];
     const index = new Map<number, number>();   // índice pedido → índice guardado (las descartadas no cuentan)
     x.pieces.slice(0, LIMITS.pieces).forEach((p: any, i: number) => {
@@ -209,7 +209,7 @@ export function sanitizeDecor(d: unknown): { decor: Decor | null; notices: strin
   // un texto que no cabe se corta (y se avisa: cortado a media palabra se lee mal)
   const short = (v: unknown, n: number, what: string) => {
     const t = text(v, 400);
-    if (t.length > n) notices.push(tr('tool.decor.check.tooLong', { que: what, t, n: t.length, max: n, corto: t.slice(0, n) }));
+    if (t.length > n) notices.push(tr('tool.decor.check.tooLong', { what: what, t, n: t.length, max: n, short: t.slice(0, n) }));
     return t.slice(0, n).trim();
   };
   // signs, on the back wall and wholly inside it
@@ -243,20 +243,20 @@ export function reviewDecor(d: Decor, size: (p: DecorPiece) => [number, number, 
   const boxes: { i: number; x0: number; x1: number; z0: number; z1: number; height: number }[] = [];
   (d.pieces ?? []).forEach((p, i) => {
     const t = size(p);
-    if (!t) { notices.push(tr('tool.decor.check.notInCatalogue', { i, modelo: p.model })); return; }
+    if (!t) { notices.push(tr('tool.decor.check.notInCatalogue', { i, model: p.model })); return; }
     const [w, h, f] = t; const a = ((p.rotation ?? 0) * Math.PI) / 180;
     const ax = Math.abs(Math.cos(a)) * w + Math.abs(Math.sin(a)) * f, az = Math.abs(Math.sin(a)) * w + Math.abs(Math.cos(a)) * f;
     const x0 = p.x - ax / 2, x1 = p.x + ax / 2, z0 = p.wall ? WALL_Z : p.z - az / 2, z1 = p.wall ? WALL_Z + az : p.z + az / 2;
-    if (x0 < -6 || x1 > 6) notices.push(tr(x0 < -6 ? 'tool.decor.check.outLeft' : 'tool.decor.check.outRight', { i, modelo: p.model, x0: x0.toFixed(2), x1: x1.toFixed(2) }));
-    if (z0 < WALL_Z - 0.05 && !p.wall) notices.push(tr('tool.decor.check.intoBackWall', { i, modelo: p.model, z: z0.toFixed(2) }));
-    if ((p.y ?? 0) + h > 4.43) notices.push(tr('tool.decor.check.throughCeiling', { i, modelo: p.model, y: ((p.y ?? 0) + h).toFixed(2) }));
-    if (p.restsOn === undefined && !p.y && z1 > LIMITS.corridor + 0.15 && h > 0.35) notices.push(tr('tool.decor.check.intoAisle', { i, modelo: p.model, z: z1.toFixed(2), pasillo: LIMITS.corridor }));
-    if (p.y && p.y > 0.05 && !p.wall && p.restsOn === undefined) notices.push(tr('tool.decor.check.floats', { i, modelo: p.model, y: p.y }));
+    if (x0 < -6 || x1 > 6) notices.push(tr(x0 < -6 ? 'tool.decor.check.outLeft' : 'tool.decor.check.outRight', { i, model: p.model, x0: x0.toFixed(2), x1: x1.toFixed(2) }));
+    if (z0 < WALL_Z - 0.05 && !p.wall) notices.push(tr('tool.decor.check.intoBackWall', { i, model: p.model, z: z0.toFixed(2) }));
+    if ((p.y ?? 0) + h > 4.43) notices.push(tr('tool.decor.check.throughCeiling', { i, model: p.model, y: ((p.y ?? 0) + h).toFixed(2) }));
+    if (p.restsOn === undefined && !p.y && z1 > LIMITS.corridor + 0.15 && h > 0.35) notices.push(tr('tool.decor.check.intoAisle', { i, model: p.model, z: z1.toFixed(2), corridor: LIMITS.corridor }));
+    if (p.y && p.y > 0.05 && !p.wall && p.restsOn === undefined) notices.push(tr('tool.decor.check.floats', { i, model: p.model, y: p.y }));
     if (p.restsOn === undefined && !p.y && h > 0.25) boxes.push({ i, x0, x1, z0, z1, height: h });
     // near the back wall and in front of the board: the game leaves it out (web/src/world/rooms/decor.ts)
-    if (board && z0 < WALL_Z + BOARD_CLEAR && coversBoard(board, p.x, (p.y ?? 0) + h / 2, ax, h)) notices.push(tr('tool.decor.check.coversBoard', { que: `pieces[${i}] ${p.model}` }));
+    if (board && z0 < WALL_Z + BOARD_CLEAR && coversBoard(board, p.x, (p.y ?? 0) + h / 2, ax, h)) notices.push(tr('tool.decor.check.coversBoard', { what: `pieces[${i}] ${p.model}` }));
     const obstructs = p.restsOn === undefined ? inTheWay(x0, x1, z0, z1, p.y ?? 0, side) : null;
-    if (obstructs) notices.push(tr(obstructs === 'work' ? 'tool.decor.check.inWorkZone' : 'tool.decor.check.onPanel', { que: `pieces[${i}] ${p.model}` }));
+    if (obstructs) notices.push(tr(obstructs === 'work' ? 'tool.decor.check.inWorkZone' : 'tool.decor.check.onPanel', { what: `pieces[${i}] ${p.model}` }));
   });
   for (let a = 0; a < boxes.length; a++) for (let b = a + 1; b < boxes.length; b++) {
     const A = boxes[a], B = boxes[b];
@@ -264,7 +264,7 @@ export function reviewDecor(d: Decor, size: (p: DecorPiece) => [number, number, 
     if (dx > 0.12 && dz > 0.12) notices.push(tr('tool.decor.check.overlapFloor', { a: A.i, ma: d.pieces![A.i].model, b: B.i, mb: d.pieces![B.i].model, dx: dx.toFixed(2), dz: dz.toFixed(2) }));
   }
   const inWall = (d.signs ?? []).map((c, i) => ({ what: `signs[${i}]`, x: c.x, y: c.y, w: c.width, h: c.width * 720 / 512 }));
-  if (board) for (const c of inWall) if (coversBoard(board, c.x, c.y, c.w, c.h)) notices.push(tr('tool.decor.check.coversBoard', { que: c.what }));
+  if (board) for (const c of inWall) if (coversBoard(board, c.x, c.y, c.w, c.h)) notices.push(tr('tool.decor.check.coversBoard', { what: c.what }));
   for (let a = 0; a < inWall.length; a++) for (let b = a + 1; b < inWall.length; b++) {
     const A = inWall[a], B = inWall[b];
     if (Math.abs(A.x - B.x) < (A.w + B.w) / 2 - 0.05 && Math.abs(A.y - B.y) < (A.h + B.h) / 2 - 0.05) notices.push(tr('tool.decor.check.overlapWall', { a: A.what, b: B.what }));

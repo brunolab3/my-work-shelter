@@ -73,8 +73,8 @@ export function cleanNotes(v: unknown): PageNote[] {
 }
 /** El mensaje a la conversación con las notas de una página */
 export function notesMessage(path: string, notes: PageNote[]) {
-  const line = (n: PageNote, i: number) => n.section ? t('windows.noteItemSection', { n: i + 1, cita: n.quote, seccion: n.section, texto: n.text }) : t('windows.noteItem', { n: i + 1, cita: n.quote, texto: n.text });
-  return [t('windows.notesOnThePage', { ruta: path }), ...notes.map(line)].join('\n\n');
+  const line = (n: PageNote, i: number) => n.section ? t('windows.noteItemSection', { n: i + 1, meeting: n.quote, section: n.section, text: n.text }) : t('windows.noteItem', { n: i + 1, meeting: n.quote, text: n.text });
+  return [t('windows.notesOnThePage', { path: path }), ...notes.map(line)].join('\n\n');
 }
 // Lo que el Supervisor ha hecho con cada página de cada conversación (mandarle notas o validarla): el intercomunicador
 // lista las páginas de la conversación y marca las que quedan por revisar (shared/sessionPages.ts)
@@ -103,7 +103,7 @@ export function answerPage(session: string, path: string, state: PageAnswer['sta
 }
 /** Validar una página sin notas: se le dice a la conversación que siga */
 export function validatePage(session: string, path: string) {
-  if (live.get().sessions[session]) client.send({ t: 'send', sessionId: session, text: t('windows.pageValidated', { ruta: path }) });
+  if (live.get().sessions[session]) client.send({ t: 'send', sessionId: session, text: t('windows.pageValidated', { path: path }) });
   answerPage(session, path, 'validated'); SFX.shortSuccess();
 }
 /** Una página en el Finder, seleccionada (para compartirla desde allí) */
@@ -391,7 +391,7 @@ function BrowserWindow({ v }: { v: WindowNav }) {
   return (
     <div className={'ventana-navegador interactivo' + (v.maximized ? ' maximizada' : '') + (v.minimized ? ' minimizada' : '') + (v.id === 'page' ? ' al-lado' : '')}
       style={{ zIndex: v.maximized ? 200000 + v.z : v.z }} onPointerDown={() => { if (!v.minimized) onFront(v.id); }}
-      onKeyDownCapture={e => windowShortcut(e, actions(v))} role="dialog" aria-label={t('windows.browserNombre', { nombre: s?.name ?? v.id })}>
+      onKeyDownCapture={e => windowShortcut(e, actions(v))} role="dialog" aria-label={t('windows.browserName', { name: s?.name ?? v.id })}>
       <div className="vt-cabeza vn-cabeza" onDoubleClick={e => { if (!(e.target as HTMLElement).closest('button')) toggleMaximize(v.id); }}>
         <span className="rejilla" /><span className={'pilot ' + (v.loading ? 'working' : 'idle')} />
         <span className="vt-titulo">{t('windows.browser')} · {s?.name ?? v.id}</span>
@@ -400,8 +400,8 @@ function BrowserWindow({ v }: { v: WindowNav }) {
           {isLocal(v.id) && v.path && notes.length > 0 && <button className="consola-x vn-notas" onClick={() => { setReview(x => !x); SFX.click(); }} title={session ? t('windows.reviewAndSendNotes') : t('windows.openThePageFromA')}>✎ {t('windows.notesN', { n: notes.length })}</button>}
           {isLocal(v.id) && v.path && !image && session && notes.length === 0 && <button className="consola-x vn-notas" onClick={() => validatePage(session, v.path!)} title={t('windows.validatePageHint')}>✓ {t('windows.validate')}</button>}
           {isLocal(v.id) && !v.path && v.session && <button className="consola-x vn-notas" onClick={() => sendNotes(v)} title={t('windows.sendNotesHint')}>✎ {t('windows.sendNotes')}</button>}
-          <button className="consola-x" onClick={() => { if (isLocal(v.id)) { SFX.notAllowed(); return; } if (isRemote(v.id)) { remoteOrder('navegar', 'atras').catch(() => {}); return; } const w = webviews.get(v.id); if (w?.canGoBack()) w.goBack(); else SFX.notAllowed(); }} title={t('windows.backAtajo', { shortcut: `${CMD}[` })}>◂</button>
-          <button className="consola-x" onClick={() => { if (isLocal(v.id)) setRound(n => n + 1); else if (isRemote(v.id)) remoteOrder('navegar', 'recargar').catch(() => {}); else webviews.get(v.id)?.reload(); }} title={t('windows.reloadAtajo', { shortcut: `${CMD}R` })}>↻</button>
+          <button className="consola-x" onClick={() => { if (isLocal(v.id)) { SFX.notAllowed(); return; } if (isRemote(v.id)) { remoteOrder('navegar', 'atras').catch(() => {}); return; } const w = webviews.get(v.id); if (w?.canGoBack()) w.goBack(); else SFX.notAllowed(); }} title={t('windows.backShortcut', { shortcut: `${CMD}[` })}>◂</button>
+          <button className="consola-x" onClick={() => { if (isLocal(v.id)) setRound(n => n + 1); else if (isRemote(v.id)) remoteOrder('navegar', 'recargar').catch(() => {}); else webviews.get(v.id)?.reload(); }} title={t('windows.reloadShortcut', { shortcut: `${CMD}R` })}>↻</button>
           {isLocal(v.id) && v.path && <button className="consola-x" onClick={() => revealPage(v.path!)} title={t('windows.showInFinderHint')}>📁</button>}
           <button className="consola-x" onClick={() => { window.open(isLocal(v.id) ? new URL(v.url, location.href).href : v.url, '_blank'); SFX.click(); }} title={t('windows.openThisPageInThe')}>↗</button>
         </span>
@@ -509,7 +509,7 @@ function RemoteView({ v }: { v: WindowNav }) {
   return (
     <div className="vn-remota">
       <canvas ref={canvas} className="vn-lienzo" />
-      <textarea ref={field} className="vn-teclas" aria-label={t('windows.nombreKeyboard', { nombre: SPOTS[v.id]?.name ?? v.id })} autoCapitalize="off" autoCorrect="off" spellCheck={false}
+      <textarea ref={field} className="vn-teclas" aria-label={t('windows.nameKeyboard', { name: SPOTS[v.id]?.name ?? v.id })} autoCapitalize="off" autoCorrect="off" spellCheck={false}
         onKeyDown={key('keyDown')} onKeyUp={key('keyUp')}
         onCompositionEnd={e => { if (e.data) remoteOrder('entrada', { kind: 'texto', text: e.data }).catch(() => {}); e.currentTarget.value = ''; }}
         onInput={e => {

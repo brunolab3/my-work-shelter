@@ -84,7 +84,7 @@ export function Loading() {
       <div className="engranaje-carga" aria-hidden />
       <div className="titulo-carga">work-shelter</div>
       <div className="barra-carga"><span style={{ width: `${Math.max(6, p.progreso * 100)}%` }} /></div>
-      <div className="texto-carga">{p.room ? t('panels.poweringUpSala', { sala: p.room }) : t('panels.loweringTheHatch')}</div>
+      <div className="texto-carga">{p.room ? t('panels.poweringUpRoom', { room: p.room }) : t('panels.loweringTheHatch')}</div>
     </div>
   );
 }

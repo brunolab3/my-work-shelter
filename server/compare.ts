@@ -176,7 +176,7 @@ export async function buildCompare(cwd: string, o: { base?: string; uncommitted?
   const { root, base, branch, head, uncommitted, files } = await compareFiles(cwd, o);
   const repo = path.basename(root);
   const title = o.title?.trim() || `${repo} · ${branch}`;
-  const subtitle = t('tool.compare.subtitle', { rama: branch, base }) + (uncommitted ? t('tool.compare.withUncommitted') : '');
+  const subtitle = t('tool.compare.subtitle', { branch: branch, base }) + (uncommitted ? t('tool.compare.withUncommitted') : '');
   const file = path.join(folder, pageName(`${repo}-${branch}`));
   await writePage(file, compareHtml(title, subtitle, files), { ts: Date.now(), parts: [{ worktree: path.resolve(root), branch, head, base }] });
   return { file, base, branch, head, files: files.length, more: files.reduce((n, f) => n + f.more, 0), deletions: files.reduce((n, f) => n + f.deletions, 0) };
@@ -200,8 +200,8 @@ export function mcpReview(cwd: () => string, preflight?: { state(cwd: string): P
     tools: [
       // el pre-flight de su parte de la tarea (server/preflight.ts): leerlo y contestar la lista «antes de subir»
       ...(preflight ? [
-        tool('preflight_status', t('tool.preflight.estadoDescription'), {}, async () => text(await preflight.state(cwd()).catch(e => (e as Error).message))),
-        tool('preflight_answer', t('tool.preflight.responderDescription'),
+        tool('preflight_status', t('tool.preflight.statusDescription'), {}, async () => text(await preflight.state(cwd()).catch(e => (e as Error).message))),
+        tool('preflight_answer', t('tool.preflight.answerDescription'),
           { item: z.string(), status: z.enum(['ok', 'n/a', 'pending']), note: z.string().optional() },
           async a => text(await preflight.respond(cwd(), a.item, a.status === 'pending' ? 'pending' : a.status, a.note).catch(e => (e as Error).message))),
       ] : []),
@@ -212,7 +212,7 @@ export function mcpReview(cwd: () => string, preflight?: { state(cwd: string): P
         async ({ folder, base, uncommitted, head, title }) => {
           try {
             const r = await buildCompare(folder ? await sameRepoWorktree(cwd(), folder) : cwd(), { base, uncommitted, head, title });
-            return { content: [{ type: 'text', text: t('tool.compare.ready', { enlace: pageLink(r.file), rama: r.branch, base: r.base, n: r.files, mas: r.more, menos: r.deletions }) }] };
+            return { content: [{ type: 'text', text: t('tool.compare.ready', { link: pageLink(r.file), branch: r.branch, base: r.base, n: r.files, more: r.more, less: r.deletions }) }] };
           } catch (e) { return { content: [{ type: 'text', text: t('tool.compare.failed', { error: (e as Error).message }) }], isError: true }; }
         }),
     ],

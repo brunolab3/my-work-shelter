@@ -425,7 +425,7 @@ function Window({ v, roots, root }: { v: FilesWindow; roots: Root[]; root: strin
       { text: t('windows.cancel'), f: () => treeRef.current?.focus() },
     ] });
   };
-  const copy = (move: boolean, rel = sel) => { if (rel == null || !root || !rel) return; clipboard = { origins: [{ root, rel }], move }; notify(move ? t('windows.cutNombreAtajoVTo', { nombre: nameOf(rel), shortcut: CMD }) : t('windows.copiedNombreAtajoVTo', { nombre: nameOf(rel), shortcut: CMD })); setMenu(null); };
+  const copy = (move: boolean, rel = sel) => { if (rel == null || !root || !rel) return; clipboard = { origins: [{ root, rel }], move }; notify(move ? t('windows.cutNameShortcutVTo', { name: nameOf(rel), shortcut: CMD }) : t('windows.copiedNameShortcutVTo', { name: nameOf(rel), shortcut: CMD })); setMenu(null); };
   const paste = (folder = selFolder()) => {
     const pp = clipboard; if (!pp || !root) { SFX.notAllowed(); return; }
     setMenu(null);
@@ -442,7 +442,7 @@ function Window({ v, roots, root }: { v: FilesWindow; roots: Root[]; root: strin
   const copyPath = (relative: boolean, rel = sel) => {
     if (rel == null || !root) return;
     const path = relative ? rel || '.' : root.replace(/\/$/, '') + (rel ? '/' + rel : '');
-    navigator.clipboard.writeText(path).then(() => notify(t('windows.pathCopiedRuta', { ruta: path })), () => notify(t('windows.couldNotCopyThePath'), true));
+    navigator.clipboard.writeText(path).then(() => notify(t('windows.pathCopiedPath', { path: path })), () => notify(t('windows.couldNotCopyThePath'), true));
     setMenu(null);
   };
   const outside = (what: 'revelar' | 'openInEditor', rel = sel ?? '') => { if (root) action(what, { root, rel }).catch(e => notify(e.message, true)); setMenu(null); };
@@ -539,8 +539,8 @@ function Window({ v, roots, root }: { v: FilesWindow; roots: Root[]; root: strin
                 {roots.map(r => <option key={r.path} value={r.path}>{r.name}{r.detail ? ` · ${r.detail}` : ''}</option>)}
               </select>
               <span className="ex-botones">
-                <button onClick={() => newer(false)} title={t('windows.newFileAtajo', { shortcut: `${CMD}N` })}>＋</button>
-                <button onClick={() => newer(true)} title={t('windows.newFolderAtajo', { shortcut: `${CMD}⇧N` })}>⊞</button>
+                <button onClick={() => newer(false)} title={t('windows.newFileShortcut', { shortcut: `${CMD}N` })}>＋</button>
+                <button onClick={() => newer(true)} title={t('windows.newFolderShortcut', { shortcut: `${CMD}⇧N` })}>⊞</button>
                 <button onClick={() => { glance(); SFX.tick(); }} title={t('windows.reloadTheFolder')}>⟳</button>
                 <button onClick={() => { updateExpanded(() => new Set()); setSel(null); SFX.tick(); }} title={t('windows.collapseAllFolders')}>⊟</button>
               </span>
@@ -563,7 +563,7 @@ function Window({ v, roots, root }: { v: FilesWindow; roots: Root[]; root: strin
                   {edit && edit.mode !== 'rename' && f.dir && f.open && edit.folder === f.rel && <RowNew level={f.level + 1} dir={edit.mode === 'folder'} confirm={confirmEdit} cancel={() => { setEdit(null); treeRef.current?.focus(); }} />}
                 </React.Fragment>
               ))}
-              {listed[''] && !rows.length && !edit && <div className="gc-limpio">{t('windows.emptyFolderAtajoNCreates', { shortcut: CMD })}</div>}
+              {listed[''] && !rows.length && !edit && <div className="gc-limpio">{t('windows.emptyFolderShortcutNCreates', { shortcut: CMD })}</div>}
               {!listed[''] && <div className="gc-limpio">{t('windows.readingTheFolder')}</div>}
             </div>
             <div className="ex-pista">
@@ -584,7 +584,7 @@ function Window({ v, roots, root }: { v: FilesWindow; roots: Root[]; root: strin
                       <span className="ex-pestana-nombre">{nameOf(p.rel)}</span>
                       {(repeated || p.root !== root) && <span className="ex-pestana-carpeta">{p.root !== root ? (roots.find(r => r.path === p.root)?.name ?? '') + (parentOf(p.rel) ? ' · ' : '') : ''}{parentOf(p.rel).split('/').pop()}</span>}
                       {p.inDisc === 'changed' && <span className="ex-pestana-ojo" title={t('windows.itChangedOnDisk')}>⚠</span>}
-                      <button className="ex-pestana-x" onClick={e => { e.stopPropagation(); closeTab(p.key); }} title={t('windows.closeAtajo', { shortcut: `${CMD}W` })}>{p.dirty ? '●' : '×'}</button>
+                      <button className="ex-pestana-x" onClick={e => { e.stopPropagation(); closeTab(p.key); }} title={t('windows.closeShortcut', { shortcut: `${CMD}W` })}>{p.dirty ? '●' : '×'}</button>
                     </div>
                   );
                 })}
@@ -599,7 +599,7 @@ function Window({ v, roots, root }: { v: FilesWindow; roots: Root[]; root: strin
                   {activeTab?.type === 'image' && <div className="ex-imagen"><img src={activeTab.data} alt={activeTab.rel} /><small>{nameOf(activeTab.rel)} · {sizeLegible(activeTab.resize)}</small></div>}
                   {(activeTab?.type === 'binary' || activeTab?.type === 'large' || activeTab?.type === 'error') && (
                     <div className="gd-vacio">
-                      <p>{activeTab.type === 'binary' ? t('windows.thisIsABinaryFile') : activeTab.type === 'large' ? t('windows.itIsTooLargeTo', { tamano: sizeLegible(activeTab.resize) }) : activeTab.error}</p>
+                      <p>{activeTab.type === 'binary' ? t('windows.thisIsABinaryFile') : activeTab.type === 'large' ? t('windows.itIsTooLargeTo', { size: sizeLegible(activeTab.resize) }) : activeTab.error}</p>
                       {activeTab.type !== 'error' && <p><button className="gc-boton" onClick={() => outside('openInEditor', activeTab.rel)}>{t('windows.openInCursor')}</button> <button className="gc-boton" onClick={() => outside('revelar', activeTab.rel)}>{t('windows.showInFinder')}</button></p>}
                     </div>
                   )}
@@ -613,9 +613,9 @@ function Window({ v, roots, root }: { v: FilesWindow; roots: Root[]; root: strin
                 {activeTab.inDisc === 'deleted' && <span className="ex-estado-alerta">{t('windows.noLongerOnDiskSaving')}</span>}
                 {git[activeTab.rel] && activeTab.root === root && <button className="gc-enlace" onClick={() => openGit({ path: root, view: 'changes' })} title={t('windows.seeItInTheGit')}>git: {TITLE_LETTER[git[activeTab.rel]] ?? git[activeTab.rel]}</button>}
                 <span className="ex-estado-der">
-                  {cursor && activeTab.type === 'text' && <span>{t('windows.lnLineaColCol', { linea: cursor.line, col: cursor.col })}{cursor.sel ? ` (${t('windows.nSelected', { n: cursor.sel })})` : ''}</span>}
+                  {cursor && activeTab.type === 'text' && <span>{t('windows.lnLineColCol', { line: cursor.line, col: cursor.col })}{cursor.sel ? ` (${t('windows.nSelected', { n: cursor.sel })})` : ''}</span>}
                   {activeTab.type === 'text' && models.get(activeTab.key) && <InfoModel m={models.get(activeTab.key)!} mon={mon} />}
-                  <span className={activeTab.dirty ? 'ex-sucio' : 'dim'}>{activeTab.dirty ? t('windows.unsavedAtajoS', { shortcut: CMD }) : t('windows.saved')}</span>
+                  <span className={activeTab.dirty ? 'ex-sucio' : 'dim'}>{activeTab.dirty ? t('windows.unsavedShortcutS', { shortcut: CMD }) : t('windows.saved')}</span>
                 </span>
               </div>
             )}

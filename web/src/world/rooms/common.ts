@@ -801,10 +801,10 @@ export function screenReal(ctx: Context, screen: PhosphorScreen, what: ScreenCon
     else if (!r.exists) lines = [t('panels.folderNotFound')];
     else if (what === 'activity') lines = sess && ['working', 'starting', 'waiting'].includes(sess.state)
       ? [`${who}:`, sess.state === 'waiting' ? t('windows.waitingForYou') : truncate(sess.activity?.text ?? t('windows.thinking'), 30), t('world.screen.nTools', { n: sess.tools ?? 0 }), sess.helpers?.length ? t('windows.nHelpers', { n: sess.helpers.length }) : '']
-      : [t('world.screen.idleLower'), sess ? t('world.screen.lastWork', { titulo: truncate(sess.title ?? '', 22) }) : t('world.screen.noWorkInProgress')];
+      : [t('world.screen.idleLower'), sess ? t('world.screen.lastWork', { title: truncate(sess.title ?? '', 22) }) : t('world.screen.noWorkInProgress')];
     else if (what === 'commit') lines = r.lastCommit ? [r.lastCommit.hash.slice(0, 7) + ' ' + r.lastCommit.author.slice(0, 14), ...linesTwo(r.lastCommit.message, 30), ago(r.lastCommit.date)] : [t('windows.noCommits')];
     else if (what === 'changes') lines = r.isGit ? [`git status · ${r.branch ?? ''}`, r.changes ? t('world.screen.nFilesChanged', { n: r.changes }) : t('world.screen.cleanTree'), `worktrees: ${Math.max(0, (r.worktrees?.length ?? 1) - 1)}`] : [t('world.screen.noGit')];
-    else lines = [r.isGit ? t('world.screen.branchRama', { rama: r.branch }) : t('world.screen.folder'), r.changes ? t('windows.nChanges', { n: r.changes }) : t('panels.clean'), r.type ? tIs(r.type) : ''];
+    else lines = [r.isGit ? t('world.screen.branchName', { branch: r.branch }) : t('world.screen.folder'), r.changes ? t('windows.nChanges', { n: r.changes }) : t('panels.clean'), r.type ? tIs(r.type) : ''];
     lines = lines.filter(Boolean);
     const f = lines.join('|'); if (f === signature) return; signature = f;
     screen.lines = []; screen.queue = []; screen.write(lines);

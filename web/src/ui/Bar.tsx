@@ -186,7 +186,7 @@ export function Bar() {
   const { views, hidden } = comOrder(rooms, outside);
   // the «+N» list opens on hover or click, and by itself while the keyboard is on one of the rooms behind it
   const inHidden = !!sel && validRow(fs, sel.row) === 0 && Math.min(sel.i, fs[0].length - 1) >= views.length;
-  const whoIs = (h: DwellerSummary) => h.copy ? t('windows.autorSHolographicCopyBranch', { autor: h.copy.nameAuthor, rama: h.copy.branch }) : h.name;
+  const whoIs = (h: DwellerSummary) => h.copy ? t('windows.authorSHolographicCopyBranch', { author: h.copy.nameAuthor, branch: h.copy.branch }) : h.name;
   // how many of a room's conversations in its intercoms are marked as pending (⚑, shared/flagged.ts), closed ones too
   const flaggedOf = (g: (typeof rooms)[number]) => flaggedInIntercom(g.coms.flatMap(c => c.v.tabs), sessions, flags);
   // a room's chip: its pilot, the room, its most urgent conversation's state, how many it has open and its ⚑ pending ones
@@ -205,7 +205,7 @@ export function Bar() {
     return (
       <button key={g.room} onMouseEnter={e => { keep(); const r = e.currentTarget.getBoundingClientRect(); setPeek({ id: g.room, x: r.left, y: r.top }); }} onMouseLeave={leave}
         className={kind} onClick={() => { if (open) minimizeIntercom(); else g.open(); }}
-        title={`${g.name}: ${g.coms.map(c => whoIs(c.h)).join(', ')}\n${worst ? `${whoIs(worst.h)} · ${STATE_TEXT[worst.s.state] ?? worst.s.state} · ${worst.s.title || t('windows.conversation')}\n` : ''}${nFlagged ? t(nFlagged > 1 ? 'windows.flag.marksTitle' : 'windows.flag.markTitle', { n: nFlagged }) + '\n' : ''}${drafts.length ? t('windows.unsentDraftWith', { quien: drafts.map(c => whoIs(c.h)).join(', ') }) + '\n' : ''}${open ? t('windows.clickToMinimize') : t('windows.clickToGoBackTo', { nombre: whoIs(g.aTi?.h ?? g.latest.h) })}`}>
+        title={`${g.name}: ${g.coms.map(c => whoIs(c.h)).join(', ')}\n${worst ? `${whoIs(worst.h)} · ${STATE_TEXT[worst.s.state] ?? worst.s.state} · ${worst.s.title || t('windows.conversation')}\n` : ''}${nFlagged ? t(nFlagged > 1 ? 'windows.flag.marksTitle' : 'windows.flag.markTitle', { n: nFlagged }) + '\n' : ''}${drafts.length ? t('windows.unsentDraftWith', { who: drafts.map(c => whoIs(c.h)).join(', ') }) + '\n' : ''}${open ? t('windows.clickToMinimize') : t('windows.clickToGoBackTo', { name: whoIs(g.aTi?.h ?? g.latest.h) })}`}>
         {body}
       </button>
     );

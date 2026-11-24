@@ -107,7 +107,7 @@ export function explainErrorMicrosoft(x: { error?: string; error_description?: s
   if (x.error === 'access_denied' && x.error_subcode === 'cancel') return tr('integrations.msCancelled');
   if (x.error === 'consent_required' || x.suberror === 'consent_required') return tr('integrations.msConsentRequired');
   if (x.error === 'invalid_grant') return tr('integrations.msSessionExpired');
-  return tr('integrations.msResponded', { detalle: desc.split(/\r?\n| Trace ID:/)[0] || x.error || tr('integrations.unknownError') });
+  return tr('integrations.msResponded', { detail: desc.split(/\r?\n| Trace ID:/)[0] || x.error || tr('integrations.unknownError') });
 }
 export function explainErrorGraph(state: number, body: any): string {
   const c = body?.error?.code ?? '';
@@ -115,8 +115,8 @@ export function explainErrorGraph(state: number, body: any): string {
   if (state === 403 || c === 'ErrorAccessDenied') return tr('integrations.msAccessDenied');
   if (c === 'MailboxNotEnabledForRESTAPI' || c === 'MailboxNotSupportedForRESTAPI') return tr('integrations.msMailboxNotExchange');
   if (state === 429) return tr('integrations.msRateLimited');
-  if (state >= 500) return tr('integrations.msBadResponse', { estado: state });
-  return tr('integrations.graphResponded', { estado: state, codigo: c ? ' (' + c + ')' : '', detalle: body?.error?.message ?? tr('integrations.noDetail') });
+  if (state >= 500) return tr('integrations.msBadResponse', { state: state });
+  return tr('integrations.graphResponded', { state: state, code: c ? ' (' + c + ')' : '', detail: body?.error?.message ?? tr('integrations.noDetail') });
 }
 
 // ------------------------------------------------------------------ Discord
@@ -173,7 +173,7 @@ export function textDiscord(m: any, ctx: ContextDiscord): string {
     .replace(/<a?:(\w+):\d+>/g, ':$1:').replace(/<t:(\d+)(?::\w)?>/g, (_, s) => new Date(+s * 1000).toLocaleString(locale(), { timeZone: TIME_ZONE }))
     .replace(/\s+/g, ' ').trim();
   if (!t && m.embeds?.length) t = [m.embeds[0].title, m.embeds[0].description].filter(Boolean).join(' — ');
-  if (!t && m.attachments?.length) t = tr('integrations.attachment', { nombres: m.attachments.map((a: any) => a.filename).join(', ') });
+  if (!t && m.attachments?.length) t = tr('integrations.attachment', { names: m.attachments.map((a: any) => a.filename).join(', ') });
   if (!t && m.sticker_items?.length) t = '(sticker)';
   if (!t && !ctx.content) t = tr('integrations.discordNoContent');
   return truncate(t || tr('integrations.noText'));
@@ -213,7 +213,7 @@ export function closingDiscord(code: number): { reconnect: boolean; resume: bool
     case 4004: return { reconnect: false, resume: false, message: tr('integrations.discordInvalidToken') };
     case 4014: return { reconnect: true, resume: false, withoutContent: true, message: tr('integrations.discordNoContentIntent') };
     case 4013: return { reconnect: false, resume: false, message: tr('integrations.discordIntentsRejected') };
-    case 4010: case 4011: case 4012: return { reconnect: false, resume: false, message: tr('integrations.discordClosedCode', { codigo: code }) };
+    case 4010: case 4011: case 4012: return { reconnect: false, resume: false, message: tr('integrations.discordClosedCode', { code: code }) };
     case 4007: case 4009: return { reconnect: true, resume: false };
     case 1000: case 1001: return { reconnect: true, resume: false };
     default: return { reconnect: true, resume: true };
@@ -224,7 +224,7 @@ export function explainErrorDiscord(state: number, body: any): string {
   if (state === 403 || body?.code === 50001 || body?.code === 50013) return tr('integrations.discordNoAccess');
   if (state === 404 || body?.code === 10003) return tr('integrations.discordNotFound');
   if (state === 429) return tr('integrations.discordRateLimited', { s: Math.ceil(Number(body?.retry_after ?? 5)) });
-  return tr('integrations.discordResponded', { estado: state, detalle: body?.message ?? tr('integrations.noDetail') });
+  return tr('integrations.discordResponded', { state: state, detail: body?.message ?? tr('integrations.noDetail') });
 }
 
 // ------------------------------------------------------------------ Google (Gmail y Calendar)
@@ -278,7 +278,7 @@ export function explainErrorMail(output: string) {
   if (/-1743|not authori[sz]ed|no autorizad/i.test(output)) return tr('integrations.mailNotAllowed');
   if (/-600|isn.t running|no se está ejecutando/i.test(output)) return tr('integrations.mailClosed');
   if (/timed out|ETIMEDOUT|SIGTERM/i.test(output)) return tr('integrations.mailTimeout');
-  return tr('integrations.mailCouldNotRead', { detalle: output.trim().split('\n').pop() || tr('integrations.noDetail') });
+  return tr('integrations.mailCouldNotRead', { detail: output.trim().split('\n').pop() || tr('integrations.noDetail') });
 }
 // ------------------------------------------------------------------ Calendario del Mac (calendar.jxa)
 export interface EventCalendarMac { calendario: string; uid: string; titulo: string; inicio: number; fin: number; allElDay: boolean; lugar?: string; notas?: string; estado?: string; rule?: string; excluded?: number[] }
@@ -361,7 +361,7 @@ export function explainErrorCalendar(output: string) {
   if (/-1743|not authori[sz]ed|no autorizad/i.test(output)) return tr('integrations.calendarNotAllowed');
   if (/-600|isn.t running|no se está ejecutando/i.test(output)) return tr('integrations.calendarClosed');
   if (/timed out|ETIMEDOUT|SIGTERM/i.test(output)) return tr('integrations.calendarTimeout');
-  return tr('integrations.calendarCouldNotRead', { detalle: output.trim().split('\n').pop() || tr('integrations.noDetail') });
+  return tr('integrations.calendarCouldNotRead', { detail: output.trim().split('\n').pop() || tr('integrations.noDetail') });
 }
 
 // Un evento de calendars/primary/events (singleEvents=true). Fuera los cancelados y los que he rechazado
@@ -388,7 +388,7 @@ export function explainErrorOAuthGoogle(x: { error?: string; error_description?:
     case 'redirect_uri_mismatch': return tr('integrations.googleRedirectMismatch');
     case 'invalid_scope': return tr('integrations.googleInvalidScope');
   }
-  return tr('integrations.googleResponded', { detalle: x.error_description || x.error || tr('integrations.unknownError') });
+  return tr('integrations.googleResponded', { detail: x.error_description || x.error || tr('integrations.unknownError') });
 }
 export function explainErrorGoogle(state: number, body: any): string {
   const reason = body?.error?.errors?.[0]?.reason ?? body?.error?.details?.find((d: any) => d.reason)?.reason ?? body?.error?.status ?? '';
@@ -396,8 +396,8 @@ export function explainErrorGoogle(state: number, body: any): string {
   if (/accessNotConfigured|SERVICE_DISABLED/.test(reason)) return tr('integrations.googleApiDisabled');
   if (state === 403 && /insufficient|PERMISSION_DENIED|ACCESS_TOKEN_SCOPE_INSUFFICIENT/i.test(reason + ' ' + (body?.error?.message ?? ''))) return tr('integrations.googleMissingPermissions');
   if (state === 429 || /rateLimitExceeded|userRateLimitExceeded|RESOURCE_EXHAUSTED/.test(reason)) return tr('integrations.googleRateLimited');
-  if (state >= 500) return tr('integrations.googleBadResponse', { estado: state });
-  return tr('integrations.googleRespondedStatus', { estado: state, motivo: reason ? ' (' + reason + ')' : '', detalle: body?.error?.message ?? tr('integrations.noDetail') });
+  if (state >= 500) return tr('integrations.googleBadResponse', { state: state });
+  return tr('integrations.googleRespondedStatus', { state: state, reason: reason ? ' (' + reason + ')' : '', detail: body?.error?.message ?? tr('integrations.noDetail') });
 }
 
 // ------------------------------------------------------------------ GitHub (notificaciones)
@@ -435,8 +435,8 @@ export function explainErrorGitHub(state: number, body: any): string {
   if (state === 401) return tr('integrations.ghTokenRejected');
   if (state === 403 && /rate limit/i.test(body?.message ?? '')) return tr('integrations.ghRateLimited');
   if (state === 403 || state === 404) return tr('integrations.ghCannotReadNotifications');
-  if (state >= 500) return tr('integrations.ghBadResponse', { estado: state });
-  return tr('integrations.ghResponded', { estado: state, detalle: body?.message ?? tr('integrations.noDetail') });
+  if (state >= 500) return tr('integrations.ghBadResponse', { state: state });
+  return tr('integrations.ghResponded', { state: state, detail: body?.message ?? tr('integrations.noDetail') });
 }
 
 // ------------------------------------------------------------------ Slack
@@ -478,7 +478,7 @@ export function slackNotification(m: any, channelId: string, ctx: ContextSlack):
   if (ctx.chosen.size && !ctx.chosen.has(channelId) && priority !== 'high') return null;
   const name = channel?.name ?? '#' + tr('integrations.channel');
   let text = textSlack(m.text, ctx);
-  if (!text && m.files?.length) text = tr('integrations.attachment', { nombres: (m.files as any[]).map(f => f.name ?? f.title ?? tr('integrations.file')).join(', ') });
+  if (!text && m.files?.length) text = tr('integrations.attachment', { names: (m.files as any[]).map(f => f.name ?? f.title ?? tr('integrations.file')).join(', ') });
   return {
     id: `slack-${channelId}-${m.ts}`, source: 'slack', thread: 'slack-' + channelId, channel: name,
     author: ctx.users.get(m.user) ?? m.user_profile?.real_name ?? m.username ?? m.bot_profile?.name ?? tr('integrations.someone'),
@@ -490,12 +490,12 @@ export function explainErrorSlack(error: string, needed?: string): string {
   switch (error) {
     case 'invalid_auth': case 'not_authed': case 'token_revoked': case 'token_expired': case 'account_inactive':
       return tr('integrations.slackTokenRejected');
-    case 'missing_scope': return tr('integrations.slackMissingScope', { necesario: needed ? ' (' + needed + ')' : '' });
+    case 'missing_scope': return tr('integrations.slackMissingScope', { needed: needed ? ' (' + needed + ')' : '' });
     case 'not_in_channel': return tr('integrations.slackNotInChannel');
     case 'channel_not_found': return tr('integrations.slackChannelNotFound');
     case 'ratelimited': return tr('integrations.slackRateLimited');
   }
-  return tr('integrations.slackResponded', { detalle: error || tr('integrations.unknownError') });
+  return tr('integrations.slackResponded', { detail: error || tr('integrations.unknownError') });
 }
 
 // ------------------------------------------------------------------ Linear
@@ -558,8 +558,8 @@ export function explainErrorLinear(state: number, json: any): string | null {
   if (state === 401 || err?.extensions?.code === 'AUTHENTICATION_ERROR' || /authenticat/i.test(err?.message ?? '')) return tr('integrations.linearKeyRejected');
   if (err?.extensions?.code === 'RATELIMITED') return tr('integrations.linearRateLimited');
   if (err?.extensions?.code === 'FORBIDDEN' || state === 403) return tr('integrations.linearForbidden');
-  if (err) return tr('integrations.linearResponded', { detalle: err.message });
-  if (state >= 400) return tr('integrations.linearRespondedHttp', { estado: state });
+  if (err) return tr('integrations.linearResponded', { detail: err.message });
+  if (state >= 400) return tr('integrations.linearRespondedHttp', { state: state });
   return null;
 }
 

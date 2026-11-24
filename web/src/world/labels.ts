@@ -28,7 +28,7 @@ export function scheduledMark(roomId: string, worktree?: string): string | undef
   const { scheduled, repos } = live.get(), minute = Math.floor(Date.now() / 60_000);
   if (!marks || marks.list !== scheduled || marks.repos !== repos || marks.minute !== minute) {
     const m = new Map<string, string>();
-    for (const [k, x] of soonestByPlace(scheduled, id => repos[id]?.worktrees ?? [])) m.set(k, t('world.scheduledMark', { cuando: describeWhenShort(x.when) }));
+    for (const [k, x] of soonestByPlace(scheduled, id => repos[id]?.worktrees ?? [])) m.set(k, t('world.scheduledMark', { when: describeWhenShort(x.when) }));
     marks = { list: scheduled, repos, minute, m };
   }
   return marks.m.get(`${roomId}|${worktree ?? ''}`);

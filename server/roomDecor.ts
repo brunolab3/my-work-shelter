@@ -18,9 +18,9 @@ export interface CtxDecor {
 
 // la guía va en el idioma del juego: se arma al pedirla (current_decor), no al importar
 export const decorGuide = () => t('tool.decor.guide', {
-  pasillo: LIMITS.corridor, paredVista: LIMITS.viewWall, bases: BASES_DECOR.map(b => t('tool.quoted', { v: b }) + ': ' + tIs(DESCRIPTION_BASE[b])).join('. '),
-  paletas: DECOR_PALETTES.join(', '), paredes: DECOR_WALLS.join(', '), gestos: GESTURES.join(', '), lamparas: LIMITS.lamps, piezas: LIMITS.pieces,
-  carteles: LIMITS.signs, simbolos: SIGN_SYMBOLS.join('|'),
+  corridor: LIMITS.corridor, wallView: LIMITS.viewWall, bases: BASES_DECOR.map(b => t('tool.quoted', { v: b }) + ': ' + tIs(DESCRIPTION_BASE[b])).join('. '),
+  palettes: DECOR_PALETTES.join(', '), walls: DECOR_WALLS.join(', '), gestures: GESTURES.join(', '), lamps: LIMITS.lamps, pieces: LIMITS.pieces,
+  signs: LIMITS.signs, symbols: SIGN_SYMBOLS.join('|'),
 });
 
 const num = z.number();
@@ -60,11 +60,11 @@ export function mcpDecor(roomId: string, ctx: CtxDecor) {
           const s = room();
           const b = boardSpot();
           const pn = panelSpot(s.side);
-          const board = t('tool.decor.yourBoard', { x: b.x.toFixed(2), y: b.y.toFixed(2), ancho: b.width.toFixed(2), alto: b.height.toFixed(2) })
-            + '\n' + t('tool.decor.yourPanel', { zona: WORK_ZONE.x, x: pn.x.toFixed(2), z: pn.z.toFixed(2), ancho: pn.width.toFixed(2), fondo: pn.background.toFixed(2) });
-          return text(`${decorGuide()}\n\n${t('tool.decor.yourRoom', { nombre: s.name, ruta: s.path ?? '—' })}\n${board}\n` + (s.decor
+          const board = t('tool.decor.yourBoard', { x: b.x.toFixed(2), y: b.y.toFixed(2), width: b.width.toFixed(2), height: b.height.toFixed(2) })
+            + '\n' + t('tool.decor.yourPanel', { zone: WORK_ZONE.x, x: pn.x.toFixed(2), z: pn.z.toFixed(2), width: pn.width.toFixed(2), background: pn.background.toFixed(2) });
+          return text(`${decorGuide()}\n\n${t('tool.decor.yourRoom', { name: s.name, path: s.path ?? '—' })}\n${board}\n` + (s.decor
             ? `${t('tool.decor.currentDecor')}\n${JSON.stringify(s.decor)}`
-            : t('tool.decor.noDecor', { plantilla: ctx.template(roomId), descripcion: tIs(DESCRIPTION_BASE[ctx.template(roomId) as keyof typeof DESCRIPTION_BASE] ?? '') })));
+            : t('tool.decor.noDecor', { template: ctx.template(roomId), description: tIs(DESCRIPTION_BASE[ctx.template(roomId) as keyof typeof DESCRIPTION_BASE] ?? '') })));
         }, { alwaysLoad: true, annotations: { readOnlyHint: true } }),
       tool('props_catalogue', t('tool.decor.catalogDescription'),
         { search: z.string().optional().describe(t('tool.decor.paramSearch')), pack: z.string().optional().describe(Object.keys(PACKS).join(', ')) },
@@ -78,7 +78,7 @@ export function mcpDecor(roomId: string, ctx: CtxDecor) {
         async ({ decor: decor }) => {
           room();
           const { decor: d, notices } = sanitizeDecor(decor);
-          if (!d) return { ...text(t('tool.decor.notApplied', { avisos: notices.join(' ') })), isError: true };
+          if (!d) return { ...text(t('tool.decor.notApplied', { notices: notices.join(' ') })), isError: true };
           const review = reviewDecor(d, sizeOf, boardSpot(), room().side);
           ctx.save(roomId, d); applied = Date.now();
           return text([t('tool.decor.applied'), ...(notices.length ? [t('tool.decor.fixedOnValidate'), ...notices.map(a => '- ' + a)] : []), ...(review.length ? [t('tool.decor.looksWrong'), ...review.map(a => '- ' + a)] : []), t('tool.decor.lookWithView')].join('\n'));

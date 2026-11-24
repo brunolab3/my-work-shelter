@@ -50,7 +50,7 @@ export function explainErrorJira(state: number, j: any, isWrite = false): string
   if (state === 404) return t('integrations.jiraSiteNotFound');
   if (state === 429) return t('integrations.jiraRateLimited');
   const msg = j?.errorMessages?.[0] ?? Object.values(j?.errors ?? {})[0];
-  return t('integrations.jiraResponded', { estado: state, msg: msg ? ': ' + msg : '' });
+  return t('integrations.jiraResponded', { state: state, msg: msg ? ': ' + msg : '' });
 }
 
 class Jira extends ConnectorBase {
@@ -95,14 +95,14 @@ class Jira extends ConnectorBase {
   protected async pollReal() {
     if (!this.who) this.who = (await this.api('/rest/api/3/myself')).json?.displayName ?? null;
     const p = await this.tasksMy();
-    this.good(t('integrations.jiraConnected', { quien: this.who ?? t('integrations.yourAccount'), n: p.tareas.filter(x => x.category !== 'done').length }));
+    this.good(t('integrations.jiraConnected', { who: this.who ?? t('integrations.yourAccount'), n: p.tareas.filter(x => x.category !== 'done').length }));
     return {};
   }
   protected async tryReal(v: Record<string, string>) {
     const { json, spot } = await this.api('/rest/api/3/myself', v);
     if (!json?.accountId) return { ok: false, detail: t('server.jiraDidNotReturnYour') };
     this.who = json.displayName ?? null;
-    return { ok: true, detail: t('server.connectedAsOn', { displayName: json.displayName, sitio: spot }) };
+    return { ok: true, detail: t('server.connectedAsOn', { displayName: json.displayName, site: spot }) };
   }
   protected async ownAction(name: string, d: Record<string, any>) {
     if (name === 'panel') { const p = await this.tasksMy(!!d.force); return { me: this.who, ...p }; }
@@ -116,7 +116,7 @@ class Jira extends ConnectorBase {
     // a project's statuses, for Jira's prod-check and done ones (production verification)
     if (name === 'boardStates') {
       const board = String(d.board ?? '').toUpperCase();
-      if (!/^[A-Z][A-Z0-9]{1,9}$/.test(board)) throw new Error(t('integrations.jiraInvalidKey', { clave: board }));
+      if (!/^[A-Z][A-Z0-9]{1,9}$/.test(board)) throw new Error(t('integrations.jiraInvalidKey', { key: board }));
       const { json } = await this.api(`/rest/api/3/project/${board}/statuses`);
       const all: any[] = ((json ?? []) as any[]).flatMap(x => x?.statuses ?? []);
       const names = (l: any[]) => [...new Set(l.map(s => String(s?.name ?? '')).filter(Boolean))];
@@ -129,7 +129,7 @@ class Jira extends ConnectorBase {
     if (name === 'move') {
       const { key, column } = moveArgs(d);
       const tr = (await this.transitionsTo(key, column)).find(x => x.id === String(d.id ?? ''));
-      if (!tr) throw new Error(t('integrations.jiraTransitionGone', { clave: key }));
+      if (!tr) throw new Error(t('integrations.jiraTransitionGone', { key: key }));
       await this.api(`/rest/api/3/issue/${key}/transitions`, undefined, { transition: { id: tr.id } }, true);
       // the search index lags a few seconds behind: the cached board takes the new status now
       const ta = this.panel?.tareas.find(x => x.key === key);
@@ -142,7 +142,7 @@ class Jira extends ConnectorBase {
 
 function keyOf(d: Record<string, any>) {
   const key = String(d.key ?? '').toUpperCase();
-  if (!/^[A-Z][A-Z0-9]{1,9}-\d{1,7}$/.test(key)) throw new Error(t('integrations.jiraInvalidKey', { clave: key }));
+  if (!/^[A-Z][A-Z0-9]{1,9}-\d{1,7}$/.test(key)) throw new Error(t('integrations.jiraInvalidKey', { key: key }));
   return key;
 }
 function moveArgs(d: Record<string, any>) {

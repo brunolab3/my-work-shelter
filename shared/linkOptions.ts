@@ -12,7 +12,7 @@ export type LocalKind = 'folder' | 'web' | 'preview' | 'editor' | 'finder';
 export function webLinkOptions(href: string, o: { inside: boolean; spot?: string }): LinkOption[] {
   const email = /^mailto:/i.test(href);
   return [
-    ...(o.inside && !email ? [{ action: 'juego' as const, text: o.spot ? t('windows.linkOpenInSpot', { nombre: o.spot }) : t('windows.linkOpenInGame') }] : []),
+    ...(o.inside && !email ? [{ action: 'juego' as const, text: o.spot ? t('windows.linkOpenInSpot', { name: o.spot }) : t('windows.linkOpenInGame') }] : []),
     { action: 'browser', text: email ? t('windows.linkOpenInMail') : t('windows.linkOpenInBrowser') },
     { action: 'copy', text: email ? t('windows.linkCopyAddress') : t('windows.linkCopy') },
   ];

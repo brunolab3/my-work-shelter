@@ -63,7 +63,7 @@ export function PanelReview() {
                 <span className="marca-tarea" />{r.started && <span title={t('reviews.hologram')}>◉ </span>}<span className="ident">{r.key.includes('#') ? '' : r.key}</span> {r.title}
                 {r.prs.map(p => (
                   <small key={p.url} className="dim fila-pr-revision">
-                    <a href={p.url} onClick={e => { e.preventDefault(); openLink(p.url); }}>{p.repo}#{p.number}</a> · {t('reviews.byAuthor', { autor: p.author })}{p.draft ? ` · ${t('reviews.draft')}` : ''}{p.column !== r.column ? ` · ${t(`reviews.column.${p.column}`)}` : ''}
+                    <a href={p.url} onClick={e => { e.preventDefault(); openLink(p.url); }}>{p.repo}#{p.number}</a> · {t('reviews.byAuthor', { author: p.author })}{p.draft ? ` · ${t('reviews.draft')}` : ''}{p.column !== r.column ? ` · ${t(`reviews.column.${p.column}`)}` : ''}
                   </small>))}
                 {r.missing && <small className="dim">{t('reviews.noRoom')}: {r.missing.join(', ')}</small>}
               </div>))}

@@ -58,7 +58,7 @@ export function linkPath(link: string, home: string): string | null {
 export async function realOfLink(link: string, home: string) {
   const path = linkPath(link, home);
   if (!path) throw new Error(t('server.thatLinkIsNotA'));
-  return fs.realpath(path).catch(() => { throw new Error(t('server.doesNotExist', { ruta: path })); });
+  return fs.realpath(path).catch(() => { throw new Error(t('server.doesNotExist', { path: path })); });
 }
 /** Where openLocal would send it, without opening it (the options of a link, web/src/ui/linkOptions.ts) */
 export async function localKind(real: string): Promise<LocalKind> {

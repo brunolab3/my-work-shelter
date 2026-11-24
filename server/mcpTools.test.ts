@@ -47,7 +47,7 @@ describe('game MCP tools', () => {
 
   // sessions.ts keys each server by its name, so `mcp__<name>__<tool>` is what a session sees: the activity labels must match it
   it('the activity labels name tools the servers really have', () => {
-    const generic = (n: string) => t('server.activity.using', { nombre: n.split('__').slice(1).join(' › ') });
+    const generic = (n: string) => t('server.activity.using', { name: n.split('__').slice(1).join(' › ') });
     const labelled = [...new Set([...allServers(), mcpRooms({ rooms: () => [], scheduled: {}, verifications: {} } as any, 'a', 's1')].flatMap(sv => Object.keys(tools(sv)).map(tl => mcpTool(sv.name as any, tl))))].filter(n => describeTool(n, {}, '/tmp') !== generic(n));
     expect(labelled.sort()).toEqual(['mcp__assignment__assign_work', 'mcp__assignment__shelter_rooms', 'mcp__rooms__schedule_message', 'mcp__rooms__send_to_room', 'mcp__rooms__verification_plan', 'mcp__rooms__verification_report',
       'mcp__shelter__apply_decor', 'mcp__shelter__current_decor', 'mcp__shelter__props_catalogue', 'mcp__shelter__remove_decor', 'mcp__shelter__view_room']);

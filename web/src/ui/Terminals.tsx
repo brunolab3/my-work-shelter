@@ -243,7 +243,7 @@ function WindowTerminal({ v }: { v: WindowTerm }) {
         <WindowButtons takeOut={() => takeASurface({ terminals: [v.active] })} takesThat={t('windows.thisTerminalTheSameOne')} maximized={v.maximized} minimize={() => minimize(v.id)} toggleMaximize={() => toggleMaximize(v.id)} close={() => askClose(v.id)} closesThat={t('windows.theTerminalAndAllIts')} />
       </div>
       {/* in opening order: a program starting does not move its tab */}
-      <Tabs list={list} confirming={!!v.confirm} items={v.tabs.map(p => ({ id: p.id, name: (p.outside ? '↗ ' : '') + (p.program ?? folderName(v.cwd)), state: p.inPrompt ? 'idle' as const : 'working' as const, task: wtTask, title: (p.program ? t('windows.programaRunning', { program: p.program }) : t('windows.atThePrompt')) + (p.outside ? ` · ${t('windows.alsoOpenOnYourDesktop')}` : '') }))}
+      <Tabs list={list} confirming={!!v.confirm} items={v.tabs.map(p => ({ id: p.id, name: (p.outside ? '↗ ' : '') + (p.program ?? folderName(v.cwd)), state: p.inPrompt ? 'idle' as const : 'working' as const, task: wtTask, title: (p.program ? t('windows.programRunning', { program: p.program }) : t('windows.atThePrompt')) + (p.outside ? ` · ${t('windows.alsoOpenOnYourDesktop')}` : '') }))}
         active={v.active} activate={pid => activate(v.id, pid)} close={pids => askClose(v.id, pids)} onNew={() => newTab(v.id)} opensThat={t('windows.newTabInTheSame')} />
       <div className="vt-cuerpo">
         {v.tabs.map(p => <TabTerminal key={p.id} id={p.id} cwd={v.cwd} visible={!v.minimized && p.id === v.active} />)}

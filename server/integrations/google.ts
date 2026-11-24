@@ -108,7 +108,7 @@ class Google extends ConnectorBase {
       throw new ErrorSource(explainErrorOAuthGoogle(r.json ?? { error_description: `HTTP ${r.state}` }), undefined, r.json?.error);
     }
     const missing = r.json.scope ? missingScopes(String(r.json.scope)) : [];
-    if (missing.length) throw new ErrorSource(t('integrations.googleGwsMissingScopes', { faltan: missing.join(', ') }), GWS_RETRY);
+    if (missing.length) throw new ErrorSource(t('integrations.googleGwsMissingScopes', { missing: missing.join(', ') }), GWS_RETRY);
     this.access = { token: r.json.access_token, expires: Date.now() + (Number(r.json.expires_in) || 3600) * 1000 };
     return this.access.token;
   }
@@ -143,13 +143,13 @@ class Google extends ConnectorBase {
       authorization: (redirect, state, challenge) => `${AUTHORIZE}?` + new URLSearchParams({ client_id: this.client, response_type: 'code', redirect_uri: redirect, scope: SCOPES, state: state, code_challenge: challenge, code_challenge_method: 'S256', access_type: 'offline', prompt: 'consent' }),
       onClose: () => { this.listener = null; },
       onBack: async ({ code, error, redirect, verifier }) => {
-        if (error || !code) { const m = explainErrorOAuthGoogle((error ?? {}) as any); this.fail(m); this.notify?.('state'); return { ok: false, title: t('integrations.couldNotConnectWith', { servicio: 'Google' }), text: m }; }
+        if (error || !code) { const m = explainErrorOAuthGoogle((error ?? {}) as any); this.fail(m); this.notify?.('state'); return { ok: false, title: t('integrations.couldNotConnectWith', { service: 'Google' }), text: m }; }
         try {
           await this.token({ grant_type: 'authorization_code', code: code, redirect_uri: redirect, code_verifier: verifier });
           this.email = null; const email = await this.whoAmI();
-          this.good(t('integrations.connectedAs', { quien: email })); this.notify?.('activate');
+          this.good(t('integrations.connectedAs', { who: email })); this.notify?.('activate');
           return { ok: true, title: t('integrations.connected'), text: t('server.doneTheShelterCanNow') };
-        } catch (e) { this.fail((e as Error).message); this.notify?.('state'); return { ok: false, title: t('integrations.couldNotConnectWith', { servicio: 'Google' }), text: (e as Error).message }; }
+        } catch (e) { this.fail((e as Error).message); this.notify?.('state'); return { ok: false, title: t('integrations.couldNotConnectWith', { service: 'Google' }), text: (e as Error).message }; }
       },
     });
     return this.listener.url;
@@ -178,20 +178,20 @@ class Google extends ConnectorBase {
       events = googleEvents(await this.api(`${CALENDAR}?${qc}`));
       this.lastCalendar = Date.now();
     }
-    this.good(t('server.connectedAsUnreadEmailsIn', { correo: email + (this.ofGws ? t('integrations.gwsSession') : ''), notificaciones: notifications.length }));
+    this.good(t('server.connectedAsUnreadEmailsIn', { email: email + (this.ofGws ? t('integrations.gwsSession') : ''), notifications: notifications.length }));
     return { notifications, complete: true, events };   // lo que se lee en Gmail sale del tablón
   }
 
   protected async tryReal(v: Record<string, string>) {
     if (!v.clientId && !v.clientSecret) {
-      try { this.access = null; this.email = null; await this.tokenGws(); return { ok: true, detail: t('integrations.connectedAs', { quien: await this.whoAmI() + t('integrations.gwsSession') }) }; }
+      try { this.access = null; this.email = null; await this.tokenGws(); return { ok: true, detail: t('integrations.connectedAs', { who: await this.whoAmI() + t('integrations.gwsSession') }) }; }
       catch (e) { return { ok: false, detail: (e as Error).message }; }
     }
     if (!v.clientSecret) return { ok: false, detail: WITHOUT_CLIENT() };
     if (!/\.apps\.googleusercontent\.com$/.test(v.clientId ?? '')) return { ok: false, detail: t('server.theClientIdEndsIn') };
     this.session = await hasSessionGoogle();
     if (!this.session) return { ok: true, detail: t('server.oauthClientSavedNowPress') };
-    try { this.access = null; this.email = null; return { ok: true, detail: t('integrations.connectedAs', { quien: await this.whoAmI() }) }; }
+    try { this.access = null; this.email = null; return { ok: true, detail: t('integrations.connectedAs', { who: await this.whoAmI() }) }; }
     catch (e) { return { ok: false, detail: (e as Error).message }; }
   }
   async action(name: string, d: Record<string, any>) {

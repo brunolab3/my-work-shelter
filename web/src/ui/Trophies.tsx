@@ -22,7 +22,7 @@ function TrophyLine({ x }: { x: TrophyState }) {
       <span className="trofeo-icono">{x.earnedAt ? '🏆' : '◌'}</span>
       <b>{fileText(r.name)}</b>
       <span className="dim">{x.count}/{r.n} {t(KIND_TEXT[r.kind])}{r.within ? ' ' + t('trophies.within', { n: r.within }) : ''}</span>
-      {x.earnedAt ? <span className="dim">{t('trophies.earnedOn', { fecha: day(x.earnedAt) })}</span> : <Bar p={x.progress} />}
+      {x.earnedAt ? <span className="dim">{t('trophies.earnedOn', { date: day(x.earnedAt) })}</span> : <Bar p={x.progress} />}
       {x.facts.length > 0 && <span className="trofeo-hechos">{x.facts.slice(-4).map(f => <a key={f.ref} onClick={() => openLink(f.url)}>{f.ref}</a>)}</span>}
     </li>
   );
@@ -31,7 +31,7 @@ function TrophyLine({ x }: { x: TrophyState }) {
 // the level a vertical reached, in its colour, and what it has toward the next
 const LevelTag = ({ q }: { q: RequirementState }) => <>
   <span className={'nivel-trofeo ' + (q.level ?? 'none')}>{q.level ? t(`trophies.level.${q.level}`) : '—'}</span>
-  <span className="dim">{t('trophies.awardsCount', { n: q.count })}{q.next ? ' · ' + t('trophies.toNext', { n: q.next.n, nivel: t(`trophies.level.${q.next.level}`) }) : ''}</span>
+  <span className="dim">{t('trophies.awardsCount', { n: q.count })}{q.next ? ' · ' + t('trophies.toNext', { n: q.next.n, level: t(`trophies.level.${q.next.level}`) }) : ''}</span>
 </>;
 // a vertical's trophy: its cup in the colour of its level, filled toward its top level, and the awards that count
 function VerticalLine({ q }: { q: RequirementState }) {
@@ -55,7 +55,7 @@ function LastVerification({ data }: { data: WorkLogData }) {
   const level = steps.find(s => s.step.id === p.level);
   return (
     <div className="verificacion">
-      <p><b>{t('trophies.verify.last')}</b> · {day(p.at)} · <b className="nivel">{t('trophies.verify.level', { nivel: level ? fileText(level.step.name) : '—' })}</b></p>
+      <p><b>{t('trophies.verify.last')}</b> · {day(p.at)} · <b className="nivel">{t('trophies.verify.level', { level: level ? fileText(level.step.name) : '—' })}</b></p>
       {p.summary && <p className="dim">{p.summary}</p>}
       <ul>{steps.flatMap(s => s.requirements).filter(q => p.requirements[q.req.id]).map(q => { const r = p.requirements[q.req.id]; return (
         <li key={q.req.id} className={'v-' + r.verdict}>
@@ -121,12 +121,12 @@ export function Trophies({ goBack }: { goBack: () => void }) {
       <p className="voice">{t('trophies.intro')}</p>
       {data?.demo && <p className="dim">{t('worklog.demo')}</p>}
       {error && <p className="notice-console">{error}</p>}
-      {data && <p className="dim">{data.ladder.source === 'local' ? t('trophies.sourceLocal', { ruta: data.ladder.file }) : data.ladder.source === 'example' ? t('trophies.sourceExample', { ruta: data.ladder.file, local: data.ladder.local }) : t('trophies.sourceNone', { local: data.ladder.local })}</p>}
+      {data && <p className="dim">{data.ladder.source === 'local' ? t('trophies.sourceLocal', { path: data.ladder.file }) : data.ladder.source === 'example' ? t('trophies.sourceExample', { path: data.ladder.file, local: data.ladder.local }) : t('trophies.sourceNone', { local: data.ladder.local })}</p>}
       {data?.ladder.errors.map((x, k) => <p key={k} className="notice-console">{x}</p>)}
       {!data && !error && <p className="dim">{t('worklog.reading')}</p>}
       {c && c.verticals.length > 0 && <>
         <h3 className="trofeos-seccion">{t('trophies.list')} <span className="dim">{t('trophies.menuHint', { n: won, total: c.verticals.length })}</span></h3>
-        {ready && <p className="listo-pedir">{t('trophies.ready', { paso: fileText(ready.step.name) })}</p>}
+        {ready && <p className="listo-pedir">{t('trophies.ready', { step: fileText(ready.step.name) })}</p>}
         <ul className="trophies">{c.verticals.map(q => <VerticalLine key={q.req.id} q={q} />)}</ul>
       </>}
       {measured.length > 0 && <>

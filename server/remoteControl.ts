@@ -44,7 +44,7 @@ export function state(roomId: string): StateControlRemote {
   const s = readOutput(output(roomId));
   if (s.accept) return { state: 'accept', name: f.name, detail: t('server.theFirstTimeRemoteControl') };
   if (s.withoutTrust) return { state: 'error', name: f.name, detail: t('server.claudeCodeDoesNotTrust') };
-  if (!live(f.pid)) return { state: 'error', name: f.name, detail: s.last ? t('server.remoteStoppedDetail', { detalle: s.last.slice(0, 200) }) : t('server.remoteStopped') };
+  if (!live(f.pid)) return { state: 'error', name: f.name, detail: s.last ? t('server.remoteStoppedDetail', { detail: s.last.slice(0, 200) }) : t('server.remoteStopped') };
   return { state: 'on', name: f.name, url: s.url };
 }
 

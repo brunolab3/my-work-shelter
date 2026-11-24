@@ -127,9 +127,9 @@ export class LimitResumes {
     try {
       const r = await this.ctx.resume(x, t('prompt.limitResume'));
       this.items = this.items.filter(y => y !== x); this.failed.delete(x.claudeId); this.save();
-      if (r === 'ok') this.ctx.notice(t('server.limitResumed', { titulo: x.title || x.claudeId.slice(0, 8), n: this.items.length }));
+      if (r === 'ok') this.ctx.notice(t('server.limitResumed', { title: x.title || x.claudeId.slice(0, 8), n: this.items.length }));
     } catch (e) {
-      if (!this.failed.has(x.claudeId)) { this.failed.add(x.claudeId); this.ctx.notice(t('server.limitResumeRetry', { titulo: x.title || x.claudeId.slice(0, 8), error: String((e as Error).message).split('\n')[0].slice(0, 160) })); }
+      if (!this.failed.has(x.claudeId)) { this.failed.add(x.claudeId); this.ctx.notice(t('server.limitResumeRetry', { title: x.title || x.claudeId.slice(0, 8), error: String((e as Error).message).split('\n')[0].slice(0, 160) })); }
     } finally { this.sweeping = false; }
   }
 }

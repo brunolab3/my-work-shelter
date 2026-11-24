@@ -21,7 +21,7 @@ export function compactNeed(s: Pick<SessionSummary, 'context' | 'state'>): 'no' 
 export function Usage({ s, length, compact }: { s: Pick<SessionSummary, 'context' | 'tokens' | 'state'>; length?: boolean; compact?: () => void }) {
   const c = s.context;
   if (!c && !s.tokens) return null;
-  const title = [c && t('windows.contextUsed', { p: c.percentage, usados: tokensShort(c.used), maximo: tokensShort(c.max) }), s.tokens && t('windows.tokensSpent', { n: tokensShort(s.tokens) })].filter(Boolean).join(' · ');
+  const title = [c && t('windows.contextUsed', { p: c.percentage, used: tokensShort(c.used), maximum: tokensShort(c.max) }), s.tokens && t('windows.tokensSpent', { n: tokensShort(s.tokens) })].filter(Boolean).join(' · ');
   const need = compact ? compactNeed(s) : 'no';
   return (
     <span className={'consumo' + (c ? ' ' + contextLevel(c) : '')} title={title}>

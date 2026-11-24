@@ -149,7 +149,7 @@ export function compareCell(p: { worktree?: string; branch?: string; headLocal?:
   if (valid) return { cell: { mark: 'ok', text: t('preflight.compare.validated', { sha: short(p.headLocal) }) }, file: valid.file };
   const c = theirs[0];
   if (!c) return { cell: { mark: 'bad', text: t('preflight.compare.none') } };
-  if (side(c).head !== p.headLocal) return { cell: { mark: 'warning', text: t('preflight.compare.old', { de: short(side(c).head), head: short(p.headLocal) }) }, file: c.file };
+  if (side(c).head !== p.headLocal) return { cell: { mark: 'warning', text: t('preflight.compare.old', { of: short(side(c).head), head: short(p.headLocal) }) }, file: c.file };
   if (c.answer?.state === 'notes' && c.answer.ts >= c.ts) return { cell: { mark: 'warning', text: t('preflight.compare.notes') }, file: c.file };
   return { cell: { mark: 'warning', text: t('preflight.compare.pending', { sha: short(p.headLocal) }) }, file: c.file };
 }
@@ -188,8 +188,8 @@ export function checklistCell(p: { worktree?: string; headLocal?: string; pr?: P
  *  la lista contestada. El resto (CI, revisión, bloqueos) no frena una subida */
 export function gateMissing(p: PartPreflight): string[] {
   const out: string[] = [];
-  if (p.compare.mark !== 'ok' && p.compare.mark !== 'none') out.push(t('preflight.gate.compare', { que: p.compare.text }));
-  if (p.checklist.mark === 'warning' || p.checklist.mark === 'bad') out.push(t('preflight.gate.checklist', { que: p.checklist.text }));
+  if (p.compare.mark !== 'ok' && p.compare.mark !== 'none') out.push(t('preflight.gate.compare', { what: p.compare.text }));
+  if (p.checklist.mark === 'warning' || p.checklist.mark === 'bad') out.push(t('preflight.gate.checklist', { what: p.checklist.text }));
   return out;
 }
 

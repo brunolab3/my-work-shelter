@@ -50,7 +50,7 @@ export function GitHub({ notify }: { notify: (t: string, error?: boolean) => voi
           <div className="gg-matriz" style={{ gridTemplateColumns: `auto repeat(${weeks}, minmax(0, 1fr))` }} onMouseLeave={() => setAbove(null)}>
             {months.map(x => <span key={'m' + x.col} className="gg-mes" style={{ gridColumn: `${x.col + 2} / span 3` }}>{MONTHS[x.m]}</span>)}
             {DAYS.map((t, i) => t && <span key={t} className="gg-dia" style={{ gridRow: i + 2 }}>{t}</span>)}
-            {d.days.map((x, i) => <span key={x.date} className="gg-celda" style={{ background: GREEN_GITHUB[x.level], gridColumn: Math.floor((i + offset) / 7) + 2, gridRow: ((i + offset) % 7) + 2 }} onMouseEnter={() => setAbove(x)} title={t('windows.nOnFecha', { n: x.n, fecha: x.date })} />)}
+            {d.days.map((x, i) => <span key={x.date} className="gg-celda" style={{ background: GREEN_GITHUB[x.level], gridColumn: Math.floor((i + offset) / 7) + 2, gridRow: ((i + offset) % 7) + 2 }} onMouseEnter={() => setAbove(x)} title={t('windows.nOnDate', { n: x.n, date: x.date })} />)}
           </div>
           <div className="gg-pie">
             <span className="gg-encima">{onTop ? <><b>{onTop.n === 0 ? t('windows.nothing') : onTop.n === 1 ? t('windows.1Contribution') : t('windows.nContributions', { n: onTop.n })}</b> {t('windows.on')} {fmtDay.format(new Date(onTop.date + 'T12:00:00'))}</> : t('windows.hoverOverADayTo')}</span>

@@ -106,14 +106,14 @@ const findRoom = (rooms: RoomInfo[], q: string) => { const k = (LEGACY_ROOM_IDS[
 export async function sendToRoom(ctx: CtxRooms, since: string, { room, message, key: taskKeyOf, thread: requestedThread, important }: { room: string; message: string; key?: string; thread?: string; important?: boolean }, fromSession?: string, o: { scheduled?: boolean } = {}): Promise<{ ok: boolean; text: string; limited?: boolean; permanent?: boolean }> {
   const rooms = ctx.rooms();
   const origin = rooms.find(s => s.id === since), target = findRoom(rooms, room);
-  if (!target) return { ok: false, text: tr('tool.rooms.noRoom', { sala: room, salas: rooms.map(s => `${s.id} (${s.name})`).join(', ') }) };
+  if (!target) return { ok: false, text: tr('tool.rooms.noRoom', { room: room, rooms: rooms.map(s => `${s.id} (${s.name})`).join(', ') }) };
   const same = target.id === since;
-  if (!target.dweller) return { ok: false, text: tr('tool.rooms.noDweller', { sala: target.name }) };
+  if (!target.dweller) return { ok: false, text: tr('tool.rooms.noDweller', { room: target.name }) };
   if (!message.trim()) return { ok: false, text: tr('tool.rooms.empty') };
   let k = taskKeyOf?.trim() ? taskKey(taskKeyOf) : undefined;
-  if (taskKeyOf?.trim() && !k) return { ok: false, text: tr('tool.rooms.badKey', { clave: taskKeyOf ?? '' }) };
+  if (taskKeyOf?.trim() && !k) return { ok: false, text: tr('tool.rooms.badKey', { key: taskKeyOf ?? '' }) };
   const thread = requestedThread?.trim() ? threadOf(requestedThread) : undefined;
-  if (requestedThread?.trim() && !thread) return { ok: false, text: tr('tool.rooms.badThread', { hilo: requestedThread }) };
+  if (requestedThread?.trim() && !thread) return { ok: false, text: tr('tool.rooms.badThread', { thread: requestedThread }) };
   if (k && thread) return { ok: false, text: tr('tool.rooms.keyAndThread') };
   const now = ctx.now?.() ?? Date.now(), pair = `${since}>${target.id}`;
   const recent = (sent.get(pair) ?? []).filter(x => now - x < WINDOW);
@@ -128,8 +128,8 @@ export async function sendToRoom(ctx: CtxRooms, since: string, { room, message, 
     if (recent.length >= LIMIT) return { ok: false, limited: true, text: tr('tool.rooms.limit', { n: LIMIT, sala: target.name }) };
   }
   const frame = (k?: string) => [
-    tr('prompt.room.from', { sala: origin?.name ?? since, habitante: origin?.dweller?.name ?? '?', tarea: k ? tr('prompt.room.task', { clave: k }) : thread ? tr('prompt.room.thread', { hilo: thread }) : '' }),
-    '', message.trim(), '', ...k ? [tr('prompt.room.outside')] : [], tr('prompt.room.reply', { salaId: since, clave: k ? tr('prompt.room.replyKey', { clave: k }) : '' }),
+    tr('prompt.room.from', { room: origin?.name ?? since, dweller: origin?.dweller?.name ?? '?', task: k ? tr('prompt.room.task', { key: k }) : thread ? tr('prompt.room.thread', { thread: thread }) : '' }),
+    '', message.trim(), '', ...k ? [tr('prompt.room.outside')] : [], tr('prompt.room.reply', { roomId: since, key: k ? tr('prompt.room.replyKey', { key: k }) : '' }),
   ].join('\n');
   // as the receiver's intercom shows who sent it while it waits and in its log (also when it was scheduled:
   // a room's dweller wrote it)
@@ -168,8 +168,8 @@ export async function sendToRoom(ctx: CtxRooms, since: string, { room, message, 
     // none open: the last conversation in the task's worktree, with its history
     if (cwd && ctx.resume) {
       try { receiver = await ctx.resume(target.id, cwd, text); }
-      catch (e) { return { ok: false, text: tr('tool.rooms.couldNotStart', { sala: target.name, error: (e as Error).message }) }; }
-      if (receiver) how = tr('tool.rooms.resumed', { clave: k! });
+      catch (e) { return { ok: false, text: tr('tool.rooms.couldNotStart', { room: target.name, error: (e as Error).message }) }; }
+      if (receiver) how = tr('tool.rooms.resumed', { key: k! });
     }
   }
   if (!how) {
@@ -180,11 +180,11 @@ export async function sendToRoom(ctx: CtxRooms, since: string, { room, message, 
       : slugWorktreeName(k, worktreeSuffix(now));
     let inWorktree: boolean;
     try { ({ id: receiver, inWorktree } = await ctx.start(target.id, target.dweller.id, text, cwd ? { cwd } : worktree ? { worktree } : undefined)); }
-    catch (e) { return { ok: false, text: tr('tool.rooms.couldNotStart', { sala: target.name, error: (e as Error).message }) }; }
+    catch (e) { return { ok: false, text: tr('tool.rooms.couldNotStart', { room: target.name, error: (e as Error).message }) }; }
     if (thread) threads.set(`${target.id}/${thread}`, receiver);
     // dónde ha caído de verdad: si no se pudo hacer el worktree, se dice (nunca a la copia principal en silencio)
-    how = cwd ? tr('tool.rooms.inTaskWorktree', { clave: k! }) : thread ? tr('tool.rooms.inNewThread', { hilo: thread }) : !worktree ? tr('tool.rooms.inMainCopy')
-      : inWorktree ? tr('tool.rooms.inNewWorktree', { clave: k!, worktree }) : tr('tool.rooms.inMainCopyNoGit', { clave: k! });
+    how = cwd ? tr('tool.rooms.inTaskWorktree', { key: k! }) : thread ? tr('tool.rooms.inNewThread', { thread: thread }) : !worktree ? tr('tool.rooms.inMainCopy')
+      : inWorktree ? tr('tool.rooms.inNewWorktree', { key: k!, worktree }) : tr('tool.rooms.inMainCopyNoGit', { key: k! });
   }
   sent.set(pair, [...recent, now]);
   // never the sender's own: recibe can't be it, so neither can a follow-up
@@ -196,8 +196,8 @@ export async function sendToRoom(ctx: CtxRooms, since: string, { room, message, 
   // its own room it hands it to the hologram in person
   if (same) ctx.delivery?.(target.id, { worktree: cwd, sessionId: receiver });
   const summary = message.trim().replace(/\s+/g, ' ');
-  ctx.notice(tr('server.roomMessage', { desde: origin?.name ?? since, a: target.name, resumen: summary.length > 90 ? summary.slice(0, 89) + '…' : summary }));
-  return { ok: true, text: tr('tool.rooms.sent', { habitante: target.dweller.name, sala: target.name, como: how }) + (inherited ? ' ' + tr('tool.rooms.inheritedKey', { clave: inherited }) : '') };
+  ctx.notice(tr('server.roomMessage', { since: origin?.name ?? since, a: target.name, summary: summary.length > 90 ? summary.slice(0, 89) + '…' : summary }));
+  return { ok: true, text: tr('tool.rooms.sent', { dweller: target.dweller.name, room: target.name, as: how }) + (inherited ? ' ' + tr('tool.rooms.inheritedKey', { key: inherited }) : '') };
 }
 
 // a worktree's cleanup, written by the game from the sender's cwd and sent through its own room's `cleanup` thread
@@ -216,7 +216,7 @@ export function mcpRooms(ctx: CtxRooms, since: string, fromSession?: string, inW
   return createSdkMcpServer({
     name: MCP.rooms, version: '1.0.0',
     tools: [
-      tool('send_to_room', tr('tool.rooms.description', { salas: rooms.map(s => `${s.id} (${s.name})` + (s.id === since ? tr('tool.rooms.thisRoom') : '')).join(', ') }),
+      tool('send_to_room', tr('tool.rooms.description', { rooms: rooms.map(s => `${s.id} (${s.name})` + (s.id === since ? tr('tool.rooms.thisRoom') : '')).join(', ') }),
         {
           room: z.string().describe(tr('tool.param.room')),
           message: z.string().describe(tr('tool.rooms.paramMessage')),
@@ -238,9 +238,9 @@ export function mcpRooms(ctx: CtxRooms, since: string, fromSession?: string, inW
 
 // mensajes programados (scheduled.ts): para más adelante, a esta misma conversación o a una sala
 function scheduleTools(p: NonNullable<CtxRooms['scheduled']>, since: string, fromSession?: string) {
-  const line = (x: ScheduledMessage) => `- ${x.id} · ${describeWhen(x.when)} · ${x.target.type === 'room' ? tr('tool.schedule.toRoom', { sala: x.target.room + (x.target.key ?? x.target.thread ? ' ' + (x.target.key ?? x.target.thread) : '') }) : tr('tool.schedule.toThis')}: ${x.message.replace(/\s+/g, ' ').slice(0, 160)}`;
+  const line = (x: ScheduledMessage) => `- ${x.id} · ${describeWhen(x.when)} · ${x.target.type === 'room' ? tr('tool.schedule.toRoom', { room: x.target.room + (x.target.key ?? x.target.thread ? ' ' + (x.target.key ?? x.target.thread) : '') }) : tr('tool.schedule.toThis')}: ${x.message.replace(/\s+/g, ' ').slice(0, 160)}`;
   return [
-    tool('schedule_message', tr('tool.schedule.description', { n: MAX_PER_CONVERSATION, dias: MAX_DAYS }),
+    tool('schedule_message', tr('tool.schedule.description', { n: MAX_PER_CONVERSATION, days: MAX_DAYS }),
       {
         when: z.string().describe(tr('tool.schedule.paramWhen')),
         message: z.string().describe(tr('tool.schedule.paramMessage')),
@@ -295,9 +295,9 @@ function verificationTools(v: NonNullable<CtxRooms['verifications']>, fromSessio
     tool('verification_plan', tr('tool.verification.planDescription'),
       { key: z.string().optional().describe(tr('tool.verification.paramKey')), checkpoints: z.array(checkpoint).describe(tr('tool.verification.paramCheckpoints')) },
       async ({ key, checkpoints }) => {
-        const k = taskKeyOf(key); if (!k) return error(key?.trim() ? tr('tool.rooms.badKey', { clave: key }) : tr('tool.verification.noTask'));
+        const k = taskKeyOf(key); if (!k) return error(key?.trim() ? tr('tool.rooms.badKey', { key: key }) : tr('tool.verification.noTask'));
         const r = v.plans.propose(k, { checkpoints: checkpoints as any }, v.conversation?.(fromSession));
-        return r.ok ? text(tr('tool.verification.saved', { clave: k }) + '\n\n' + planText(r.value)) : error(errorText(r));
+        return r.ok ? text(tr('tool.verification.saved', { key: k }) + '\n\n' + planText(r.value)) : error(errorText(r));
       }),
     tool('verification_report', tr('tool.verification.reportDescription'),
       {
@@ -310,9 +310,9 @@ function verificationTools(v: NonNullable<CtxRooms['verifications']>, fromSessio
         hours: z.number().optional().describe(tr('tool.verification.paramHours')),
       },
       async ({ key, ...r }) => {
-        const k = taskKeyOf(key); if (!k) return error(key?.trim() ? tr('tool.rooms.badKey', { clave: key }) : tr('tool.verification.noTask'));
+        const k = taskKeyOf(key); if (!k) return error(key?.trim() ? tr('tool.rooms.badKey', { key: key }) : tr('tool.verification.noTask'));
         const x = v.plans.report(k, r as any);
-        return !x ? error(tr('tool.verification.noPlan', { clave: k })) : x.ok ? text(planText(x.value)) : error(errorText(x));
+        return !x ? error(tr('tool.verification.noPlan', { key: k })) : x.ok ? text(planText(x.value)) : error(errorText(x));
       }),
   ];
 }

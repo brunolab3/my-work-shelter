@@ -67,7 +67,7 @@ export function UsageGraph({ limits, now }: { limits: PlanLimits; now: number })
       </div>
       {!data ? <div className="uso-estado dim">{failed ? t('panels.spend.failed') : t('panels.spend.reading')}</div> : (
         <div className="uso-lienzo">
-          <svg viewBox={`0 0 ${W} ${HGT}`} width={W} height={HGT} role="img" aria-label={t('panels.spend.chart', { vista: name(view) })} onMouseLeave={() => setHover(null)}>
+          <svg viewBox={`0 0 ${W} ${HGT}`} width={W} height={HGT} role="img" aria-label={t('panels.spend.chart', { view: name(view) })} onMouseLeave={() => setHover(null)}>
             {ws != null && <>
               <rect className="uso-ventana" x={ws} y={0} width={Math.max(0, W - ws)} height={HGT - AXIS} />
               <line className="uso-marca" x1={ws} x2={ws} y1={0} y2={HGT - AXIS} />
@@ -92,7 +92,7 @@ export function UsageGraph({ limits, now }: { limits: PlanLimits; now: number })
           </div>}
         </div>
       )}
-      {start != null && lim?.resetsAt && <div className="dim"><i className="uso-muestra ventana" />{t('panels.spend.window', { desde: describeReset(start, now).clock, hasta: describeReset(lim.resetsAt, now).clock })}</div>}
+      {start != null && lim?.resetsAt && <div className="dim"><i className="uso-muestra ventana" />{t('panels.spend.window', { since: describeReset(start, now).clock, until: describeReset(lim.resetsAt, now).clock })}</div>}
       <div className="dim uso-nota">{t('panels.spend.note')}</div>
     </div>
   );
