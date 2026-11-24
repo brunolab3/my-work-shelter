@@ -177,6 +177,8 @@ export const WINDOWS: Record<string, LocalizedText> = {
   'windows.scheduledMessages': { es: '📦 {n} mensajes', en: '📦 {n} messages' },
   'windows.scheduledMessagesHint': { es: 'Mensajes del mismo remitente al mismo destino, juntos en uno mientras esperaban: salen a la vez, en orden, y los últimos pueden corregir a los anteriores', en: 'Messages from the same sender to the same place, packed into one while they waited: they go out together, in order, and later ones may correct earlier ones' },
   'windows.scheduledFrom': { es: 'de {sala}', en: 'from {sala}' },
+  'windows.scheduledFromOverseer': { es: 'del Supervisor', en: 'from the Overseer' },
+  'windows.scheduledFromGame': { es: 'del juego', en: 'from the game' },
   'windows.scheduleMonday': { es: 'El lunes a las 9:00', en: 'Monday 09:00' },
   'windows.nextWindowNoAttachments': { es: 'Los adjuntos no se guardan para más tarde: envíalo ahora o quítalos.', en: 'Attachments are not kept for later: send it now or remove them.' },
   'windows.pageUpdated': { es: 'actualizada {cuando}', en: 'updated {cuando}' },

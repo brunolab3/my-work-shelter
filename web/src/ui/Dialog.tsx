@@ -39,6 +39,7 @@ import { Usage, tokensShort } from './usage';
 import { takeASurface, toClaudeApp } from './surface';
 import { openLink, openPage, pageForSession, pageAnswers, pageNotes, validatePage, revealPage, makeRoomForIntercom, answerPage } from './Browsers';
 import { sessionPages, pendingPages, samePage, livePages, questionInput } from '@shared/sessionPages';
+import { scheduledSender } from './scheduledSender';
 import { AFTER_TURN, byPlace, describeWhen, describeWhenShort, localInput, ofConversationView, ofPlace, schedulePresets, type ScheduledMessage } from '@shared/scheduled';
 import type { PRBoard } from '@shared/board';
 import { worktreePRs, taskColor } from '@shared/tasks';
@@ -1253,6 +1254,7 @@ const tiers = (l: ScheduledMessage[]) => [...l.filter(x => x.afterTurn), ...l.fi
 function ScheduledMenu({ h, s, resume }: { h: DwellerSummary; s?: SessionSummary; resume?: string }) {
   const all = live.use(e => e.scheduled);
   const worktrees = live.use(e => e.repos[h.room]?.worktrees);
+  const rooms: any[] = live.use(e => e.state?.rooms ?? []);
   const conversation = s ?? (resume ? { claudeId: resume } : undefined);
   const groups = useMemo(() => {
     const l = conversation ? [{ worktree: undefined, items: ofConversationView(all, conversation) }]
@@ -1278,7 +1280,7 @@ function ScheduledMenu({ h, s, resume }: { h: DwellerSummary; s?: SessionSummary
   };
   const here = (x: ScheduledMessage) => !!conversation && x.target.type === 'conversacion' && ((!!s && x.target.sessionId === s.id) || (!!conversation.claudeId && x.target.claudeId === conversation.claudeId));
   const target = (x: ScheduledMessage) => x.target.type === 'sala' ? `→ ${x.target.room}${x.target.key ?? x.target.thread ? ' ' + (x.target.key ?? x.target.thread) : ''}`
-    : here(x) ? (x.from?.kind === 'room' ? t('windows.scheduledFrom', { sala: x.from.dweller ? `${x.from.room} (${x.from.dweller})` : x.from.room }) : t('windows.scheduledToThis'))
+    : here(x) ? t('windows.scheduledToThis')
     : t('windows.scheduledToConversation', { titulo: x.target.title || t('windows.conversation') });
   const pack = (x: ScheduledMessage) => x.pr ? t('windows.scheduledPack', { pr: x.pr.label, n: x.pr.parts.length })
     : x.messages && x.messages.parts.length > 1 ? t('windows.scheduledMessages', { n: x.messages.parts.length }) : undefined;
@@ -1302,7 +1304,7 @@ function ScheduledMenu({ h, s, resume }: { h: DwellerSummary; s?: SessionSummary
             {x.afterTurn ? <span className="tenue" title={t(x.pr ? 'windows.scheduledPackHint' : pack(x) ? 'windows.scheduledMessagesHint' : 'windows.scheduleAfterTurnHint')}>{pack(x) || t('windows.scheduledAfterTurn')}</span>
               : x.nextWindow ? <span className="tenue" title={t('windows.nextWindowHint') + '\n' + describeWhen(x.when)}>{t('windows.scheduledWindow')}</span>
               : <span className={x.when < Date.now() ? 'urgente' : ''} title={x.when < Date.now() ? t('windows.scheduledLate') : describeWhen(x.when)}>⏰ {describeWhenShort(x.when)}</span>}
-            <span className="tenue" title={!x.afterTurn && pack(x) ? t('windows.scheduledMessagesHint') : undefined}>{target(x)}{!x.afterTurn && pack(x) ? ` ${pack(x)}` : ''}</span>
+            <span className="tenue" title={!x.afterTurn && pack(x) ? t('windows.scheduledMessagesHint') : undefined}>{scheduledSender(x, id => rooms.find(r => r.id === id)?.name)} · {target(x)}{!x.afterTurn && pack(x) ? ` ${pack(x)}` : ''}</span>
             <span className="pagina-nombre">{x.message.replace(/\s+/g, ' ')}</span>
             <button className="consola-x" title={t('windows.scheduledEdit')} onClick={() => setEditing({ id: x.id, when: x.nextWindow || x.afterTurn ? '' : localInput(x.when), message: x.message })}>✎</button>
             {(x.nextWindow || x.overLimit || x.afterTurn) && <button className="consola-x" title={t('windows.scheduledSendNow')} onClick={() => sendNow(x)}>▶</button>}

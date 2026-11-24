@@ -9,6 +9,7 @@ import { SFX } from '../audio/sound';
 import { Device, Keys, closePanel, useKeys } from './device';
 import { goA } from './Panels';
 import { describeWhenShort, describeWhen } from '@shared/scheduled';
+import { scheduledSender } from './scheduledSender';
 import { openBrowser, openLink, openNotice, SPOTS } from './Browsers';
 import { SOURCES as IDS_SOURCES, ACTIVE_SOURCES, CALENDAR_SOURCES, INFO_SOURCE, active } from '@shared/sources';
 import { PLANNING_ROOM } from '@shared/layout';
@@ -158,7 +159,7 @@ export function PanelPlanning() {
         <ul className="agenda">{scheduled.slice(0, 10).map(x => (
           <li key={x.id} title={x.message}>
             <span className="cuando" title={describeWhen(x.when)}>{describeWhenShort(x.when)}</span>
-            <b>{rooms.find(y => y.id === x.origin.roomId)?.name ?? x.origin.roomId}</b>{x.target.type === 'sala' ? ' ' + t('panels.scheduledToRoom', { sala: x.target.room }) : ''} <span className="tenue">{x.message.replace(/\s+/g, ' ').slice(0, 90)}</span>
+            <b>{scheduledSender(x, id => rooms.find(y => y.id === id)?.name)}</b>{x.target.type === 'sala' ? ' ' + t('panels.scheduledToRoom', { sala: x.target.room }) : ''} <span className="tenue">{x.message.replace(/\s+/g, ' ').slice(0, 90)}</span>
           </li>))}</ul>
       </>}
       <Keys><kbd>←→</kbd>{t('panels.day')} <kbd>↑↓</kbd>{t('panels.event')} <kbd>Enter</kbd>{t('panels.joinOrOpen')} <kbd>A</kbd>{agenda ? t('panels.week') : t('panels.agenda')} <kbd>R</kbd>{t('panels.refresh')} <kbd>Esc</kbd>{t('menu.close')}</Keys>
