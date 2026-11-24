@@ -64,7 +64,7 @@ function create() {
     if (mainWindow.__exit || !origin) return;
     e.preventDefault();
     const r = dialog.showMessageBoxSync(mainWindow, { type: 'question', buttons: [tr('stay'), tr('leaveTheShelter')], defaultId: 0, cancelId: 0, message: tr('leaveTheShelterQ'), detail: tr('allSessionsWillStop') });
-    if (r === 1) { mainWindow.__exit = true; mainWindow.webContents.executeJavaScript("window.__salirRefugio && window.__salirRefugio()").finally(() => setTimeout(() => mainWindow.destroy(), 600)); }
+    if (r === 1) { mainWindow.__exit = true; mainWindow.webContents.executeJavaScript("window.__exitShelter && window.__exitShelter()").finally(() => setTimeout(() => mainWindow.destroy(), 600)); }
   });
 }
 // --- Navegadores del refugio (web/src/ui/Browsers.tsx): cada uno es un <webview> con una sola web dentro ---
@@ -119,11 +119,11 @@ function configureBrowser(v, wc, domains) {
     else if (key === 'BracketLeft' && !k.shift) { e.preventDefault(); if (wc.navigationHistory.canGoBack()) wc.navigationHistory.goBack(); }
     else if (key === 'BracketRight' && !k.shift) { e.preventDefault(); if (wc.navigationHistory.canGoForward()) wc.navigationHistory.goForward(); }
     else if (key === 'Equal' || key === 'Minus' || key === 'Digit0') { e.preventDefault(); wc.setZoomLevel(key === 'Digit0' ? 0 : wc.getZoomLevel() + (key === 'Equal' ? 0.5 : -0.5)); }
-    else if (key === 'KeyJ' && !k.shift) { e.preventDefault(); v.webContents.executeJavaScript('window.__atajoMusica && window.__atajoMusica()').catch(() => {}); }   // la música
-    else if (key === 'KeyK' && !k.shift) { e.preventDefault(); v.webContents.executeJavaScript('window.__atajoBuscador && window.__atajoBuscador()').catch(() => {}); }   // el buscador
+    else if (key === 'KeyJ' && !k.shift) { e.preventDefault(); v.webContents.executeJavaScript('window.__musicShortcut && window.__musicShortcut()').catch(() => {}); }   // la música
+    else if (key === 'KeyK' && !k.shift) { e.preventDefault(); v.webContents.executeJavaScript('window.__searchShortcut && window.__searchShortcut()').catch(() => {}); }   // el buscador
     else if (['KeyM', 'KeyW', 'KeyB'].includes(key)) {
       e.preventDefault();
-      v.webContents.executeJavaScript(`window.__atajoNavegador && window.__atajoNavegador(${wc.id}, ${JSON.stringify({ code: key, key: k.key, shiftKey: !!k.shift })})`).catch(() => {});
+      v.webContents.executeJavaScript(`window.__browserShortcut && window.__browserShortcut(${wc.id}, ${JSON.stringify({ code: key, key: k.key, shiftKey: !!k.shift })})`).catch(() => {});
     }
   });
   wc.on('context-menu', (_e, p) => {
@@ -149,7 +149,7 @@ function panic() {
   mainWindow.hide(); app.hide(); if (app.dock) app.dock.hide();
   if (!origin) return;
   // se lo pide al juego; si la página no contesta (colgada), al servidor con ./shelter superficie
-  const page = mainWindow.webContents.executeJavaScript('window.__superficie ? window.__superficie() : Promise.reject(new Error("sin juego"))');
+  const page = mainWindow.webContents.executeJavaScript('window.__surface ? window.__surface() : Promise.reject(new Error("sin juego"))');
   const deadline = new Promise((_, ko) => setTimeout(() => ko(new Error('el juego no contesta')), 2500));
   Promise.race([page, deadline]).catch(() => {
     const root = path.resolve(__dirname, '..');
