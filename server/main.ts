@@ -1521,8 +1521,9 @@ async function handle(ws: WebSocket, m: ClientMessage) {
       const dir = ofCopy ? path.resolve(String(m.cwd)) : room && folderOf(room);
       const outside = outsideOpen();
       // Claude Code junta en un proyecto las conversaciones de todos los worktrees del repo: la copia solo ve las de
-      // dentro del suyo (las que no dicen dónde se hicieron no son de ningún worktree)
-      const list = dir ? (await sessions.history(dir)).filter(x => !ofCopy || (!!x.cwd && insideOf(path.resolve(x.cwd), dir))) : [];
+      // dentro del suyo (las que no dicen dónde se hicieron no son de ningún worktree), y el habitante, las que no son de
+      // ninguna copia holográfica, corran o no en otra pestaña
+      const list = dir ? ofCopy ? (await sessions.history(dir)).filter(x => !!x.cwd && insideOf(path.resolve(x.cwd), dir)) : (await sessions.history(dir)).filter(x => !(x.cwd && pathWorktree(x.cwd))) : [];
       send(ws, { t: 'respuesta', request: m.request, data: list.map(x => (outside.has(x.claudeId.toLowerCase()) && !x.inProgress ? { ...x, outside: true } : x)) }); break;
     }
     case 'cargarConversacion': { const room = e.rooms.find(s => s.id === m.roomId); const l = room ? await sessions.transcript(m.claudeId, folderOf(room)) : []; send(ws, { t: 'respuesta', request: m.request, data: m.limit ? l.slice(-m.limit) : l }); break; }

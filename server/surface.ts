@@ -19,7 +19,7 @@ const PORT = Number(process.env.SHELTER_PUERTO || 3778);
 const [orden, ...args] = process.argv.slice(2);
 const option = (n: string) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : undefined; };
 // lo que dice por la terminal, en el idioma del refugio (el de su estado guardado; sin él, español)
-try { const i = JSON.parse(readFileSync(path.join(DATA, 'refugio.json'), 'utf8')).idioma; if (isLanguage(i)) setLanguage(i); } catch {}
+try { const i = JSON.parse(readFileSync(path.join(DATA, 'refugio.json'), 'utf8')).language; if (isLanguage(i)) setLanguage(i); } catch {}
 
 // ---------------------------------------------------------------- enganchar una terminal del juego
 // Al salir se dejan las cosas como estaban: sin protocolo de kitty, sin ratón, fuera de la pantalla alternativa

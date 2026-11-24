@@ -20,7 +20,8 @@ export function panelSpot(roomSide: 'izq' | 'der') {
 }
 
 /** Mounts the room panel after the scene (its `code` is the room's number on the nameplate) */
-export const withRoomPanel = (code: string) => (f: Furnish): Furnish => async ctx => { await f(ctx); mountRoomPanel(ctx, code); };
+// mounted even if the room's own furnishing (its decor) fails: the panel is how the Overseer uses the room
+export const withRoomPanel = (code: string) => (f: Furnish): Furnish => async ctx => { try { await f(ctx); } finally { mountRoomPanel(ctx, code); } };
 
 function mountRoomPanel(ctx: Context, code: string) {
   const { g, v, room } = ctx;
