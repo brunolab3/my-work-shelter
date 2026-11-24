@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { emptyLedger, ledgerOf, logRows, mergeConversations, mergePRs, mergeReviews, mergeTasks, mergeWorktrees, prRollup, syncText } from './workLog.ts';
+import { emptyLedger, ledgerOf, logRows, mergeConversations, mergePRs, mergeReviews, mergeTasks, mergeWorktrees, prRollup, rangeStart, syncText } from './workLog.ts';
 import type { PRBoard, TaskJira } from './board.ts';
 import type { ReviewPR } from './reviews.ts';
 
@@ -65,6 +65,22 @@ describe('work log ledger', () => {
   it('reads a broken file as an empty ledger', () => {
     expect(ledgerOf(null)).toEqual(emptyLedger());
     expect(ledgerOf({ tasks: [], notified: 'x' })).toEqual(emptyLedger());
+  });
+});
+
+describe('the 1-working-day range', () => {
+  const at = (y: number, m: number, d: number, h = 10) => new Date(y, m, d, h).getTime();
+  it('starts at midnight of the previous working day: a Monday looks back to Friday, a Tuesday to Monday', () => {
+    expect(rangeStart('day', at(2026, 10, 23))).toBe(at(2026, 10, 20, 0));   // Mon 23 Nov → Fri 20
+    expect(rangeStart('day', at(2026, 10, 24, 15))).toBe(at(2026, 10, 23, 0));   // Tue 24 Nov → Mon 23
+    expect(rangeStart('day', at(2026, 10, 21))).toBe(at(2026, 10, 20, 0));   // Sat 21 Nov → Fri 20
+  });
+
+  it('counts a task by its PRs moving, not by Jira alone', () => {
+    const l = emptyLedger();
+    mergeTasks(l, [task('ABC-1', 'indeterminate', NOW - 9 * D), task('ABC-2', 'indeterminate', NOW - 9 * D)], NOW);
+    mergePRs(l, [pr(5, 'org/api', 'ABC-1-x', 'abierto', { updated: NOW - 9 * D + 1 }), pr(6, 'org/web', 'ABC-2-y', 'abierto', { updated: NOW - 0.5 * D })], NOW);
+    expect(logRows(l, NOW - D).map(r => r.key)).toEqual(['ABC-2']);
   });
 });
 

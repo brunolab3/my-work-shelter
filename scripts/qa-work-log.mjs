@@ -4,8 +4,8 @@
 // - a saved ledger (DATOS/bitacora.json, written before the server starts) is what `bitacora.leer` returns while Jira
 //   and GitHub are not both in DEMO; the example ladder parses without errors and earns «first merge» from its merged PR;
 // - Planning → Sync update: one line per task, keyless tasks last; X expands the PRs, worktrees and conversations
-//   underneath; Tab changes the range; C copies the Markdown (task line, PRs underneath);
-// - Planning's board, opened from the wall: U or its button opens Sync update, Esc goes back to the board;
+//   underneath; Tab changes the range (1 working day first, the default); C copies the Markdown (task line, PRs underneath);
+// - Planning's board, opened from the wall: Board | Sync update on top, U or its Sync update opens it, Esc goes back to the board;
 // - Planning's menu offers «Verify my career ladder»; a verification saved in the ladder's "progress" key shows its level
 //   and each verdict in the panel, and the level on the shelf's plaque;
 // - Planning → Trophies and career: the ladder's two steps, every trophy, first merge earned with its date; a medal the
@@ -84,6 +84,8 @@ try {
   check(await until(async () => /(Verificar mi escalera|Verify my career ladder)/.test(await pg.textContent('.opciones-consola').catch(() => ''))), 'Planning\'s menu: verify my career ladder');
   await pg.evaluate(() => window.__game.set({ panel: null, panelData: null })); await pg.waitForTimeout(200);
   await pg.evaluate(() => window.__game.set({ panel: 'logistica', panelData: { view: 'bitacora' } }));
+  check(/(1 working day|1 día laborable)/.test(await pg.textContent('.bitacora-periodos .activa').catch(() => '')), 'Sync update opens on the last working day');
+  await pg.keyboard.press('Tab');   // → this week, where the fixture's activity is
   check(await until(async () => (await pg.$$('.bitacora-fila')).length === 2), 'two lines: ABC-1 and the slug task');
   const keys = await pg.$$eval('.bitacora-clave', l => l.map(x => x.textContent));
   check(keys[0] === 'ABC-1' && keys[1] === 'preflight-popover', `Jira tasks first, keyless last (${keys.join(', ')})`);
@@ -105,14 +107,14 @@ try {
   // ---- the board opened from the wall: its Sync update entry (U or its button) goes back to the board
   await pg.evaluate(() => window.__game.set({ panel: null, panelData: null })); await pg.waitForTimeout(200);
   await pg.evaluate(() => window.__game.set({ panel: 'logistica', panelData: { view: 'jira' } }));
-  check(await until(async () => /Sync update/.test(await pg.textContent('.kanban-jira ~ .botonera').catch(() => ''))), 'the board offers Sync update');
+  check(await until(async () => /Sync update/.test(await pg.textContent('.modos-planning').catch(() => ''))), 'the board offers Board | Sync update on top');
   check(/U\s*Sync update/.test(await pg.textContent('.ayuda-consola').catch(() => '')), 'and its key, U');
   await pg.waitForTimeout(300); await pg.screenshot({ path: path.join(dir, 'board-sync-update.png'), animations: 'disabled' });
   await pg.keyboard.press('KeyU');
   check(await until(async () => (await pg.$$('.bitacora-fila')).length === 2), 'U opens Sync update from the board');
   await pg.keyboard.press('Escape');
   check(await until(async () => (await pg.$$('.kanban-jira')).length === 1), 'Esc goes back to the board');
-  await pg.click('.kanban-jira ~ .botonera button');
+  await pg.click('.modos-planning button:has-text("Sync update")');
   check(await until(async () => (await pg.$$('.bitacora-fila')).length === 2), 'its button opens it too');
   await pg.keyboard.press('Escape'); await pg.waitForTimeout(200); await pg.keyboard.press('Escape');
   check(await until(async () => !(await pg.evaluate(() => window.__game.get().panel))), 'Esc on the board, opened from the wall, closes it');
@@ -180,12 +182,12 @@ try {
   });
   let at = await centre();
   check(await until(async () => { at = await centre(); await pg.mouse.move(at.x, at.y); return (await pg.evaluate(() => window.__shelter.aimed?.it?.id)) === 'trofeos'; }), 'hovering the shelf aims at the trophies');
-  check(await until(async () => (await pg.locator('body').innerText()).includes('Trofeos y carrera')), 'its label reads «Trofeos y carrera»');
+  check(await until(async () => /Trofeos y carrera|Trophies and career/i.test(await pg.locator('body').innerText())), 'its label reads «Trophies and career» (or in Spanish)');
   await pg.screenshot({ path: path.join(dir, 'planning-shelf.png'), animations: 'disabled', timeout: 15000 }).catch(() => console.log('(no room screenshot: timed out)'));
   // clicked where the shelf is now (the camera may still be settling after the screenshot)
   const opened = () => pg.evaluate(() => { const j = window.__game.get(); return j.panel + ':' + j.panelData?.view; });
   check(await until(async () => { if (await opened() === 'logistica:trofeos') return true; at = await centre(); await pg.mouse.click(at.x, at.y); await sleep(300); return await opened() === 'logistica:trofeos'; }), 'a click opens the trophies from Planning');
-  check(await until(async () => (await pg.locator('body').innerText()).includes('TROFEOS Y CARRERA')), 'the Trophies and career panel shows');
+  check(await until(async () => /TROFEOS Y CARRERA|TROPHIES AND CAREER/.test(await pg.locator('body').innerText())), 'the Trophies and career panel shows');
   await pg.keyboard.press('Escape');
   check(await until(async () => (await pg.evaluate(() => window.__game.get().panel)) === null), 'Escape goes back to the shelter');
 

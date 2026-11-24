@@ -183,21 +183,29 @@ export interface LogRow {
   task?: LogTask;
   prs: LogPR[]; worktrees: LogWorktree[]; conversations: LogConversation[];
   repos: string[];
-  last: number;                         // the last activity of any of its facts
+  last: number;                         // the last activity of any of its facts, Jira's included
+  moved: number;                        // the last movement of its PRs, worktrees or conversations (what the range counts)
 }
-export type LogRange = 'week' | 'twoWeeks' | 'month' | 'all';
-export const LOG_RANGES: LogRange[] = ['week', 'twoWeeks', 'month', 'all'];
-const RANGE_DAYS: Record<LogRange, number> = { week: 7, twoWeeks: 14, month: 30, all: Infinity };
-export const rangeStart = (r: LogRange, now: number) => (RANGE_DAYS[r] === Infinity ? 0 : now - RANGE_DAYS[r] * 864e5);
+export type LogRange = 'day' | 'week' | 'twoWeeks' | 'month' | 'all';
+export const LOG_RANGES: LogRange[] = ['day', 'week', 'twoWeeks', 'month', 'all'];
+const RANGE_DAYS: Record<LogRange, number> = { day: 1, week: 7, twoWeeks: 14, month: 30, all: Infinity };
+/** The last working day starts at midnight of the previous weekday (a Monday's is the Friday before) */
+export function workingDayStart(now: number): number {
+  const d = new Date(now); d.setHours(0, 0, 0, 0);
+  do d.setDate(d.getDate() - 1); while (d.getDay() === 0 || d.getDay() === 6);
+  return d.getTime();
+}
+export const rangeStart = (r: LogRange, now: number) => (r === 'day' ? workingDayStart(now) : RANGE_DAYS[r] === Infinity ? 0 : now - RANGE_DAYS[r] * 864e5);
 
-/** Each task with what was done for it since `since`: a Jira task counts once started (not while only in To do) */
+/** Each task with what was done for it since `since`: a Jira task counts once started (not while only in To do).
+ *  A row is in range when its PRs, worktrees or conversations moved in it; a Jira change alone does not count */
 export function logRows(l: Ledger, since: number): LogRow[] {
   const rows = new Map<string, LogRow>();
-  const row = (key: string) => { let r = rows.get(key); if (!r) rows.set(key, r = { key, jira: isJiraKey(key) && !/^PR-\d+$/i.test(key), prs: [], worktrees: [], conversations: [], repos: [], last: 0 }); return r; };
+  const row = (key: string) => { let r = rows.get(key); if (!r) rows.set(key, r = { key, jira: isJiraKey(key) && !/^PR-\d+$/i.test(key), prs: [], worktrees: [], conversations: [], repos: [], last: 0, moved: 0 }); return r; };
   for (const x of Object.values(l.tasks)) if (x.category !== 'new') { const r = row(x.key); r.task = x; r.last = Math.max(r.last, x.updated); }
-  for (const p of Object.values(l.prs)) { const r = row(p.task); r.prs.push(p); r.last = Math.max(r.last, p.updated, p.mergedAt ?? 0); }
-  for (const w of Object.values(l.worktrees)) { const r = row(w.task); r.worktrees.push(w); r.last = Math.max(r.last, w.last); }
-  for (const c of Object.values(l.conversations)) { const r = row(c.task); r.conversations.push(c); r.last = Math.max(r.last, c.last); }
+  for (const p of Object.values(l.prs)) { const r = row(p.task); r.prs.push(p); r.last = Math.max(r.last, p.updated, p.mergedAt ?? 0); r.moved = Math.max(r.moved, p.updated, p.mergedAt ?? 0); }
+  for (const w of Object.values(l.worktrees)) { const r = row(w.task); r.worktrees.push(w); r.last = Math.max(r.last, w.last); r.moved = Math.max(r.moved, w.last); }
+  for (const c of Object.values(l.conversations)) { const r = row(c.task); r.conversations.push(c); r.last = Math.max(r.last, c.last); r.moved = Math.max(r.moved, c.last); }
   for (const r of rows.values()) {
     r.task ??= l.tasks[r.key];
     r.repos = [...new Set(r.prs.map(p => p.repo))].sort();
@@ -205,7 +213,7 @@ export function logRows(l: Ledger, since: number): LogRow[] {
     r.worktrees.sort((a, b) => Number(!!a.goneAt) - Number(!!b.goneAt) || b.last - a.last);
     r.conversations.sort((a, b) => b.last - a.last);
   }
-  return [...rows.values()].filter(r => r.last >= since).sort((a, b) => Number(b.jira) - Number(a.jira) || b.last - a.last);
+  return [...rows.values()].filter(r => r.moved >= since).sort((a, b) => Number(b.jira) - Number(a.jira) || b.last - a.last);
 }
 
 const PR_STATE: Record<StatePR, string> = { abierto: 'worklog.pr.open', borrador: 'worklog.pr.draft', fusionado: 'worklog.pr.merged', cerrado: 'worklog.pr.closed' };

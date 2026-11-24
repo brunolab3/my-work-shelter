@@ -924,9 +924,9 @@ span.vt-lista-marca { cursor: default; }
 .kanban-jira .ficha-issue { overflow-wrap: anywhere; }
 .kanban-jira .insignia-pr { display: inline-block; white-space: normal; max-width: 100%; overflow-wrap: anywhere; }
 /* Sync update (Planning, WorkLog.tsx): one line per task in its colour, its facts underneath */
-.bitacora-periodos { display: flex; gap: .4em; margin: .3em 0 .5em; }
-.bitacora-periodos button { background: transparent; color: var(--fosforo-tenue); border: 1px solid var(--fosforo-tenue); font: inherit; font-size: .82em; padding: .1em .6em; cursor: pointer; }
-.bitacora-periodos button.activa { color: var(--fondo); background: var(--fosforo); border-color: var(--fosforo); }
+.bitacora-periodos, .modos-planning { display: flex; gap: .4em; margin: .3em 0 .5em; }
+.bitacora-periodos button, .modos-planning button { background: transparent; color: var(--fosforo-tenue); border: 1px solid var(--fosforo-tenue); font: inherit; font-size: .82em; padding: .1em .6em; cursor: pointer; }
+.bitacora-periodos button.activa, .modos-planning button.activa { color: var(--fondo); background: var(--fosforo); border-color: var(--fosforo); }
 .bitacora { list-style: none; margin: 0; padding: 0; overflow: hidden auto; max-height: 62vh; scrollbar-width: thin; }
 .bitacora-grupo { margin: .6em 0 .2em; font-size: .82em; text-transform: uppercase; letter-spacing: .06em; }
 .bitacora-fila { border-left: 3px solid var(--tarea, var(--fosforo-tenue)); padding: .25em .5em; margin-bottom: .25em; background: rgba(157,255,184,.04); cursor: pointer; }

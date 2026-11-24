@@ -21,13 +21,23 @@ export const verifyLadder = () => client.action<{ roomId: string; dwellerId: str
 export const draftLadder = () => client.action<{ roomId: string; dwellerId: string }>('escalera.borrador', {}).then(r => { SFX.shortSuccess(); closePanel(); goA(r.roomId, r.dwellerId, true); });
 
 const day = (ts: number) => new Date(ts).toLocaleDateString(locale(), { day: 'numeric', month: 'short' });
-const RANGE_TEXT: Record<LogRange, string> = { week: 'worklog.range.week', twoWeeks: 'worklog.range.twoWeeks', month: 'worklog.range.month', all: 'worklog.range.all' };
+const RANGE_TEXT: Record<LogRange, string> = { day: 'worklog.range.day', week: 'worklog.range.week', twoWeeks: 'worklog.range.twoWeeks', month: 'worklog.range.month', all: 'worklog.range.all' };
 
-export function WorkLog({ goBack }: { goBack: () => void }) {
+/** The two views of Planning's board, on top of both: the Jira board and Sync update (this log) */
+export function PlanningModes({ active, onBoard, onUpdate }: { active: 'board' | 'update'; onBoard?: () => void; onUpdate?: () => void }) {
+  return (
+    <div className="modos-planning">
+      <button className={active === 'board' ? 'activa' : ''} onClick={() => { if (active !== 'board') { SFX.click(); onBoard?.(); } }}>{t('worklog.mode.board')}</button>
+      <button className={active === 'update' ? 'activa' : ''} onClick={() => { if (active !== 'update') { SFX.click(); onUpdate?.(); } }}>{t('worklog.mode.update')}</button>
+    </div>
+  );
+}
+
+export function WorkLog({ goBack, onBoard }: { goBack: () => void; onBoard: () => void }) {
   const [data, setData] = useState<WorkLogData | null>(null);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
-  const [range, setRange] = useState<LogRange>('week');
+  const [range, setRange] = useState<LogRange>('day');
   const [i, setI] = useState(0);
   const [open, setOpen] = useState<Set<string>>(new Set());
   const load = () => readWorkLog().then(d => { setData(d); setError(''); }).catch(e => setError(e.message));
@@ -55,6 +65,7 @@ export function WorkLog({ goBack }: { goBack: () => void }) {
   let keyless = false;
   return (
     <Device label={`${t('panels.planning')} · ${t('worklog.title')}${data?.demo ? ' · DEMO' : ''}`} width={92} height onClose={goBack}>
+      <PlanningModes active="update" onBoard={onBoard} />
       <p className="voz">{t('worklog.intro')}</p>
       {data?.demo && <p className="tenue">{t('worklog.demo')}</p>}
       {error && <p className="aviso-consola">{error}</p>}
@@ -81,7 +92,7 @@ export function WorkLog({ goBack }: { goBack: () => void }) {
                 </div>
                 {expanded && <ul className="bitacora-detalle">
                   {r.prs.map(p => <li key={p.ref} onClick={e => { e.stopPropagation(); openLink(p.url); }} className="enlace">
-                    ⇄ {p.repo.split('/').pop()}#{p.number} {p.title} — {p.mergedAt ? t('worklog.mergedOn', { fecha: day(p.mergedAt) }) : prStateText(p.state)}</li>)}
+                    ⇄ {p.repo.split('/').pop()}#{p.number} {p.title} — {p.mergedAt ? t('worklog.mergedOn', { fecha: day(p.mergedAt) }) : prStateText(p.state)} · {day(p.updated)}</li>)}
                   {r.worktrees.map(w => <li key={w.path}>⎇ {w.roomId} · {w.branch ?? w.path.split('/').pop()} — {w.goneAt ? t('worklog.worktreeGone', { fecha: day(w.goneAt) }) : t('worklog.worktreeLive')}</li>)}
                   {r.conversations.map(c => <li key={c.claudeId}>💬 {c.title || c.claudeId.slice(0, 8)} · {c.roomId} · {day(c.last)}</li>)}
                 </ul>}

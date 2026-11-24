@@ -20,7 +20,7 @@ import { taskColor, pRTask } from '@shared/tasks';
 import { aimColors, knowTasks, useColorsTasks, jiraBoard } from './tasks';
 import { crossBoard, columnOf, COLUMN_COLORS, COLUMNS, prText, planPrompt, type BoardColumn, type JiraTransition, type PRBoard, type TaskWithPR, type TaskJira } from '@shared/board';
 import { EpicMark } from './windows';
-import { WorkLog, verifyLadder, draftLadder } from './WorkLog';
+import { WorkLog, PlanningModes, verifyLadder, draftLadder } from './WorkLog';
 import { Trophies } from './Trophies';
 
 const SOURCES: Record<string, string> = Object.fromEntries(IDS_SOURCES.map(f => [f, INFO_SOURCE[f].short]));
@@ -203,7 +203,7 @@ export function PanelLogistics() {
     else if (e.code === 'Enter' || e.code === 'KeyE') { SFX.click(); items[i].f(); }
   }, [view, i]);
   if (view === 'jira') return <JiraBoard goBack={onMenu} onWorkLog={() => { setFromBoard(true); setView('bitacora'); }} />;
-  if (view === 'bitacora') return <WorkLog goBack={fromBoard ? () => { setFromBoard(false); setView('jira'); } : onMenu} />;
+  if (view === 'bitacora') return <WorkLog goBack={fromBoard ? () => { setFromBoard(false); setView('jira'); } : onMenu} onBoard={() => { setFromBoard(false); setView('jira'); }} />;
   if (view === 'trofeos') return <Trophies goBack={onMenu} />;
   if (view === 'avisos') return <PanelCommunications onlySource="linear" />;
   if (view === 'tablero') return <BoardLinear goBack={() => setView('menu')} />;
@@ -334,6 +334,7 @@ export function JiraBoard({ goBack, coordination, onWorkLog }: { goBack: () => v
   const demo = jira?.demo || gh?.demo;
   return (
     <Device label={`${coordination ? (coord?.name ?? t('panels.logistics')).toUpperCase() + ' · ' + t('panels.split') : t('panels.planning')} · ${t('panels.myJiraTasks')}${demo ? ' · DEMO' : ''}`} width={96} height onClose={goBack}>
+      {onWorkLog && <PlanningModes active="board" onUpdate={onWorkLog} />}
       {error && <p className="aviso-consola">{error}</p>}
       {notice && <p className="aviso-consola">{notice}</p>}
       {coordination && <p className="voz">{coord ? t('panels.pickATaskToStart') : t('panels.pickATaskToStart2')}</p>}
@@ -364,7 +365,6 @@ export function JiraBoard({ goBack, coordination, onWorkLog }: { goBack: () => v
       </div>
       {crossing.withoutTask.length > 0 && <p className="tenue">{t('panels.nPrsWithoutAJira', { n: crossing.withoutTask.length })}</p>}
       {startBy && <div className="botonera"><button className="boton-taller" onClick={() => plan(taskSel)} title={t('panels.planClaveInSalaWith', { clave: taskSel!.key, sala: coord?.name ?? t('panels.theLogisticsRoom') })}>{coord ? t('panels.pPlanClaveInSala', { clave: taskSel!.key, sala: coord.name }) : t('panels.pPlanClaveAndSplit', { clave: taskSel!.key })}</button></div>}
-      {onWorkLog && <div className="botonera"><button className="boton-taller" onClick={() => { SFX.click(); onWorkLog(); }} title={t('worklog.menu')}>{t('worklog.boardButton')}</button></div>}
       {selPrs.length > 0 && <div className="botonera">{selPrs.slice(0, 9).map((p, k) => <button key={p.url} className="boton-taller" onClick={() => openOutside(p.url)} title={p.title}>{k + 1} · {p.repo}#{p.number}</button>)}{withPreflight && <button className="boton-taller" onClick={preflight} title={t('preflight.actionHint')}>{t('preflight.keyF', { clave: taskSel!.key })}</button>}</div>}
       <Keys><kbd>←→</kbd>{t('panels.column')} <kbd>↑↓</kbd>{t('panels.task')} <kbd>⇧←→</kbd>{t('panels.moveTheTask')} <kbd>Enter</kbd>{t('panels.openTheTask')} {selPrs.length > 0 && <><kbd>1–{Math.min(9, selPrs.length)}</kbd>{t('panels.openThePr')} </>}{startBy && <><kbd>P</kbd>{t('panels.planAndSplit')} </>}{withPreflight && <><kbd>F</kbd>{t('preflight.title')} </>}<kbd>T</kbd>{t('panels.allYourPrs')} {onWorkLog && <><kbd>U</kbd>{t('worklog.keyBoard')} </>}<kbd>H</kbd>{showDone ? t('panels.hideDone') : t('panels.showDone')} <kbd>R</kbd>{t('panels.reload')} <kbd>Esc</kbd>{t('menu.back')}</Keys>
       {move && <div className="vt-confirmar mover-jira">

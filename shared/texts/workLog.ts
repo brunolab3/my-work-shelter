@@ -5,10 +5,12 @@ import type { LocalizedText } from '../language.ts';
 export const WORK_LOG: Record<string, LocalizedText> = {
   // work log
   'worklog.menu': { es: 'Sync update: lo hecho en cada tarea', en: 'Sync update: what was done for each task' },
-  'worklog.boardButton': { es: 'U · Sync update: lo hecho en cada tarea', en: 'U · Sync update: what was done for each task' },
+  'worklog.mode.board': { es: 'Tablero', en: 'Board' },
+  'worklog.mode.update': { es: 'Sync update: lo hecho en cada tarea', en: 'Sync update: what was done for each task' },
   'worklog.keyBoard': { es: 'Sync update', en: 'Sync update' },
   'worklog.title': { es: 'SYNC UPDATE', en: 'SYNC UPDATE' },
   'worklog.intro': { es: 'Una línea por tarea con sus PR, worktrees y conversaciones en todos los repos. Se guarda lo que el juego va viendo desde que existe.', en: 'One line per task with its PRs, worktrees and conversations across every repo. It keeps what the game sees from the day it started recording.' },
+  'worklog.range.day': { es: '1 día laborable', en: '1 working day' },
   'worklog.range.week': { es: 'Esta semana', en: 'This week' },
   'worklog.range.twoWeeks': { es: '2 semanas', en: '2 weeks' },
   'worklog.range.month': { es: '30 días', en: '30 days' },

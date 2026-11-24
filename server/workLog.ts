@@ -25,6 +25,8 @@ export interface WorkLogRead { ledger: Ledger; demo: boolean; ladder: { source: 
 
 export class WorkLog {
   private ledger: Ledger = emptyLedger();
+  private demo = false;                  // both Jira and GitHub in DEMO, as the last remote sweep found them (read() doesn't wait for them)
+  private remoteAt = 0;                  // when read() last started a remote sweep
   private file: string;
   readonly ladderFile: string;
   constructor(dir: string, private exampleFile: string, private now: () => number = Date.now) {
@@ -56,6 +58,7 @@ export class WorkLog {
     let changed = false;
     if (remote) {
       const [jira, prs] = await Promise.all([src.jira().catch(() => null), src.prs().catch(() => null)]);
+      this.demo = !!jira?.demo && !!prs?.demo;
       if (jira && !jira.demo) changed = mergeTasks(l, jira.tareas, now) || changed;
       if (prs && !prs.demo) changed = mergePRs(l, prs.prs, now) || changed;
       const reviews = src.reviews();
@@ -118,17 +121,22 @@ export class WorkLog {
     });
   }
 
-  /** The ledger and the career: with Jira and GitHub both in DEMO, one built from their demo data (not saved) */
+  /** The ledger and the career: with Jira and GitHub both in DEMO, one built from their demo data (not saved). Only in
+   *  DEMO does it ask them again: otherwise the saved ledger is what the sweep keeps, and the panel opens without waiting */
   async read(src: WorkLogSources): Promise<WorkLogRead> {
     const now = this.now();
-    const [jira, prs] = await Promise.all([src.jira().catch(() => null), src.prs().catch(() => null)]);
-    const demo = !!jira?.demo && !!prs?.demo;
-    let ledger = this.ledger;
+    // a remote round in the background, at most once a minute: the DEMO state it finds is what the next read shows
+    if (now - this.remoteAt >= 60_000) { this.remoteAt = now; this.sweep(src, true).catch(() => {}); }
+    let ledger = this.ledger, demo = this.demo;
     if (demo) {
-      ledger = emptyLedger();
-      mergeTasks(ledger, jira!.tareas, now); mergePRs(ledger, prs!.prs, now);
-      const w = src.worktrees(); mergeWorktrees(ledger, w.live, w.rooms, now); mergeConversations(ledger, src.sessions(), now);
-      mergeReviews(ledger, src.reviews() ?? [], now);
+      const [jira, prs] = await Promise.all([src.jira().catch(() => null), src.prs().catch(() => null)]);
+      demo = !!jira?.demo && !!prs?.demo;
+      if (demo) {
+        ledger = emptyLedger();
+        mergeTasks(ledger, jira!.tareas, now); mergePRs(ledger, prs!.prs, now);
+        const w = src.worktrees(); mergeWorktrees(ledger, w.live, w.rooms, now); mergeConversations(ledger, src.sessions(), now);
+        mergeReviews(ledger, src.reviews() ?? [], now);
+      }
     }
     const { source, file, ladder, errors } = this.ladder();
     return { ledger, demo, ladder: { source, file, local: this.ladderFile, errors }, career: evaluate(ladder, ledger, now), ...(source === 'local' ? { progress: this.progress() } : {}) };
