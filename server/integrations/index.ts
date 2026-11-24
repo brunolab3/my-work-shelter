@@ -19,9 +19,9 @@ export class Integrations {
   // Avisos de los conectores reales: difundir su estado, sondear ya (Discord en tiempo real) o pasar a real (OAuth hecho)
   private onNotify(id: Adapter['id'], notice: Notice) {
     const a = this.adapters.find(x => x.id === id); if (!a) return;
-    if (notice === 'estado') this.broadcast({ t: 'integration', id, state: a.state() });
-    else if (notice === 'sondear') this.pollOne(a);
-    else if (notice === 'activar') this.changeMode(a, 'real').catch(() => {});
+    if (notice === 'state') this.broadcast({ t: 'integration', id, state: a.state() });
+    else if (notice === 'poll') this.pollOne(a);
+    else if (notice === 'activate') this.changeMode(a, 'real').catch(() => {});
   }
 
   states(): Record<string, SourceState> { return Object.fromEntries(this.adapters.map(a => [a.id, a.state()])); }

@@ -26,7 +26,7 @@ export type Flaggable = { claudeId?: string; state?: SessionSummary['state'] };
 export const flagOf = (s: Flaggable | undefined, ids: Set<string>) => (s?.claudeId ? ids.has(s.claudeId) : undefined);
 
 /** Whether a conversation counts as pending on its dweller's or hologram's tag: an open one whose session is flagged */
-export const isFlagged = (s: SessionSummary | undefined, ids: Set<string>) => s?.state !== 'cerrada' && flagOf(s, ids) === true;
+export const isFlagged = (s: SessionSummary | undefined, ids: Set<string>) => s?.state !== 'closed' && flagOf(s, ids) === true;
 
 /** How many of these conversations (a dweller's or a hologram's) are pending */
 export const flaggedIn = (sessions: Iterable<SessionSummary | undefined>, ids: Set<string>) => {
@@ -40,7 +40,7 @@ export type FlagTab = { view: { type: string; sessionId?: string; resume?: { cla
 
 /** A tab's conversation for its ⚑: the open or closed one in view, or the Claude Code session id of the one it resumes */
 export const tabFlaggable = (p: FlagTab | undefined, sessions: Record<string, SessionSummary>): Flaggable | undefined =>
-  p?.view.type === 'sesion' ? (p.view.sessionId ? sessions[p.view.sessionId] : undefined) : p?.view.type === 'nuevo' && p.view.resume ? { claudeId: p.view.resume.claudeId } : undefined;
+  p?.view.type === 'session' ? (p.view.sessionId ? sessions[p.view.sessionId] : undefined) : p?.view.type === 'new' && p.view.resume ? { claudeId: p.view.resume.claudeId } : undefined;
 
 /** How many of these intercom tabs hold a pending conversation, closed ones too (in view or about to be resumed), as
  * their tabs show it: what the COM chips and their lists count */

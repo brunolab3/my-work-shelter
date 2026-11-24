@@ -9,23 +9,23 @@ import { branchTask, textKey } from './tasks';
 import { t } from './language';
 import { ledgerPending } from './reviewCount';
 
-export type BlockerReason = 'pila' | 'texto' | 'plan' | 'manual';
+export type BlockerReason = 'stack' | 'text' | 'plan' | 'manual';
 /** `de` espera a `por` (las dos, URL de PR) */
 export interface Blocker { from: string; by: string; reason: BlockerReason }
 export interface BlockerManual { from: string; by: string }
 /** Del plan repartido de una tarea: en ella, lo del repo `repo` («org/repo») espera a lo de los repos `waitsOn` */
 export interface TaskOrder { key: string; repo: string; waitA: string[] }
 
-export type DeploymentColumn = 'borrador' | 'revision' | 'cambios' | 'aprobado' | 'fusionado';
+export type DeploymentColumn = 'draft' | 'review' | 'changes' | 'approved' | 'merged';
 export const DEPLOYMENT_COLUMNS: { id: DeploymentColumn; name: string }[] = [
-  { id: 'borrador', name: 'Borrador' }, { id: 'revision', name: 'En revisión' }, { id: 'cambios', name: 'Piden cambios' },
-  { id: 'aprobado', name: 'Aprobado' }, { id: 'fusionado', name: 'Fusionado' },
+  { id: 'draft', name: 'Borrador' }, { id: 'review', name: 'En revisión' }, { id: 'changes', name: 'Piden cambios' },
+  { id: 'approved', name: 'Aprobado' }, { id: 'merged', name: 'Fusionado' },
 ];
 export function deploymentColumn(p: PRBoard): DeploymentColumn | null {
-  if (p.state === 'cerrado') return null;
-  if (p.state === 'fusionado') return 'fusionado';
-  if (p.state === 'borrador') return 'borrador';
-  return p.review === 'APPROVED' ? 'aprobado' : p.review === 'CHANGES_REQUESTED' ? 'cambios' : 'revision';
+  if (p.state === 'closed') return null;
+  if (p.state === 'merged') return 'merged';
+  if (p.state === 'draft') return 'draft';
+  return p.review === 'APPROVED' ? 'approved' : p.review === 'CHANGES_REQUESTED' ? 'changes' : 'review';
 }
 
 // «org/repo#12» de una referencia escrita en la descripción; sin repo, el del propio PR
@@ -50,11 +50,11 @@ export function dependenciesInText(text: string, repo: string): string[] {
   for (const line of (text ?? '').split('\n')) {
     const item = /^\s*(?:[-*+]|\d+[.)])\s+/.test(line);
     if (list && !item) list = false;
-    if (list) { refs(line); for (const r of line.matchAll(BRANCH)) set('rama:' + r[1]); continue; }
+    if (list) { refs(line); for (const r of line.matchAll(BRANCH)) set('branch:' + r[1]); continue; }
     for (const f of line.split(/(?<=[.!?])\s+(?=[^a-z\s])/)) {
       if (!BLOCKER_PHRASE.test(f) || WITHOUT_ORDER.test(f)) continue;
       const before = out.length;
-      refs(f); for (const r of f.matchAll(BRANCH)) set('rama:' + r[1]);
+      refs(f); for (const r of f.matchAll(BRANCH)) set('branch:' + r[1]);
       if (out.length === before && !item && /:\s*$/.test(f.replace(/[*_`\s]+$/, ''))) list = true;   // «…in production:**»
     }
   }
@@ -73,16 +73,16 @@ export function blockersBetween(prs: PRBoard[], manual: BlockerManual[] = [], or
   const set = (from: string, by: string, reason: BlockerReason) => { if (from !== by && !out.some(b => b.from === from && b.by === by)) out.push({ from, by, reason }); };
   for (const p of prs) {
     // apilado: su base es la rama de otro PR del mismo repo (que no esté ya fusionado: entonces la base ya es la buena)
-    if (p.base) for (const q of prs) if (q !== p && q.repo === p.repo && q.branch === p.base && q.state !== 'cerrado') set(p.url, q.url, 'pila');
+    if (p.base) for (const q of prs) if (q !== p && q.repo === p.repo && q.branch === p.base && q.state !== 'closed') set(p.url, q.url, 'stack');
     for (const ref of p.dependencies ?? []) {
       // por su rama (de cualquier repo del tablero), mejor uno sin cerrar
-      const q = ref.startsWith('rama:') ? prs.filter(x => x !== p && x.branch === ref.slice(5)).sort((a, b) => Number(a.state === 'cerrado') - Number(b.state === 'cerrado'))[0] : byRef.get(ref);
-      if (q) set(p.url, q.url, 'texto');
+      const q = ref.startsWith('branch:') ? prs.filter(x => x !== p && x.branch === ref.slice(7)).sort((a, b) => Number(a.state === 'closed') - Number(b.state === 'closed'))[0] : byRef.get(ref);
+      if (q) set(p.url, q.url, 'text');
     }
     // el orden del plan de su tarea: espera a los PR de la misma tarea en los repos a los que espera el suyo
     const key = pRKey(p);
     for (const o of orden) if (key && o.key.toUpperCase() === key && sameRepo(o.repo, p.repo))
-      for (const q of prs) if (q !== p && q.state !== 'cerrado' && pRKey(q) === key && o.waitA.some(r => sameRepo(r, q.repo))) set(p.url, q.url, 'plan');
+      for (const q of prs) if (q !== p && q.state !== 'closed' && pRKey(q) === key && o.waitA.some(r => sameRepo(r, q.repo))) set(p.url, q.url, 'plan');
   }
   for (const m of manual) if (urls.has(m.from) && urls.has(m.by)) set(m.from, m.by, 'manual');
   return out;
@@ -91,7 +91,7 @@ export function blockersBetween(prs: PRBoard[], manual: BlockerManual[] = [], or
 /** Los PR de una misma tarea en repos distintos que no tienen ningún bloqueo entre ellos (sin cerrar): van enlazados,
  *  sin orden, para que se vea que son la misma tarea (el orden lo pone el plan o se marca a mano) */
 export function taskLinks(prs: PRBoard[], blockers: Blocker[]): { a: string; b: string; key: string }[] {
-  const live = prs.filter(p => p.state !== 'cerrado');
+  const live = prs.filter(p => p.state !== 'closed');
   const out: { a: string; b: string; key: string }[] = [];
   live.forEach((p, i) => {
     const key = pRKey(p); if (!key) return;
@@ -106,7 +106,7 @@ export function taskLinks(prs: PRBoard[], blockers: Blocker[]): { a: string; b: 
  *  bloqueos quedan fuera, en `ciclo`. */
 export function deployWaves(prs: PRBoard[], blockers: Blocker[], withMerged = false): { waves: PRBoard[][]; cycle: PRBoard[] } {
   // with merged ones too (the pre-flight, to show a task's waves complete): every PR but the closed ones
-  const pending = prs.filter(p => p.state === 'abierto' || p.state === 'borrador' || (withMerged && p.state === 'fusionado'));
+  const pending = prs.filter(p => p.state === 'open' || p.state === 'draft' || (withMerged && p.state === 'merged'));
   const live = new Set(pending.map(p => p.url));
   const wait = new Map(pending.map(p => [p.url, new Set(blockers.filter(b => b.from === p.url && live.has(b.by)).map(b => b.by))]));
   const waves: PRBoard[][] = [];
@@ -127,9 +127,9 @@ export function deploymentText(prs: PRBoard[], blockers: Blocker[]): string {
   const { waves, cycle } = deployWaves(prs, blockers);
   const links = taskLinks(prs, blockers);
   const line = (p: PRBoard) => {
-    const waits = blockers.filter(b => b.from === p.url).map(b => byUrl.get(b.by)).filter(Boolean).map(q => refPR(q!) + (q!.state === 'fusionado' ? t('prompt.deploy.mergedMark') : ''));
+    const waits = blockers.filter(b => b.from === p.url).map(b => byUrl.get(b.by)).filter(Boolean).map(q => refPR(q!) + (q!.state === 'merged' ? t('prompt.deploy.mergedMark') : ''));
     const beside = links.filter(e => e.a === p.url || e.b === p.url).map(e => byUrl.get(e.a === p.url ? e.b : e.a)!).map(refPR);
-    return t('prompt.deploy.line', { pr: refPR(p), titulo: p.title ?? '', columna: deploymentColumn(p) ?? '', ci: p.checks ? ' · CI ' + p.checks : '', revisiones: p.state !== 'fusionado' && p.ledger && ledgerPending(p.ledger) ? t('prompt.deploy.ledger', { hilos: p.ledger.unresolved, resumenes: p.ledger.unansweredSummaries }) : '', espera: waits.length ? t('prompt.deploy.waitsFor', { prs: waits.join(', ') }) : '', junto: beside.length ? t('prompt.deploy.sameTask', { clave: pRKey(p) || '', prs: beside.join(', ') }) : '', url: p.url });
+    return t('prompt.deploy.line', { pr: refPR(p), titulo: p.title ?? '', columna: deploymentColumn(p) ?? '', ci: p.checks ? ' · CI ' + p.checks : '', revisiones: p.state !== 'merged' && p.ledger && ledgerPending(p.ledger) ? t('prompt.deploy.ledger', { hilos: p.ledger.unresolved, resumenes: p.ledger.unansweredSummaries }) : '', espera: waits.length ? t('prompt.deploy.waitsFor', { prs: waits.join(', ') }) : '', junto: beside.length ? t('prompt.deploy.sameTask', { clave: pRKey(p) || '', prs: beside.join(', ') }) : '', url: p.url });
   };
   return [
     t('prompt.deploy.pending'),
@@ -137,7 +137,7 @@ export function deploymentText(prs: PRBoard[], blockers: Blocker[]): string {
     ...(cycle.length ? [t('prompt.deploy.cycle'), ...cycle.map(line)] : []),
     '',
     t('prompt.deploy.merged'),
-    ...prs.filter(p => p.state === 'fusionado').map(line),
+    ...prs.filter(p => p.state === 'merged').map(line),
   ].join('\n');
 }
 

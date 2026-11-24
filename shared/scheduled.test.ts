@@ -32,21 +32,21 @@ describe('which way a scheduled message goes', () => {
 
 describe('scheduled messages by room and task', () => {
   it('a conversation target goes to the worktree its cwd is in, or to the room\'s main copy', () => {
-    expect(placeOf(msg({ type: 'conversacion', roomId: 'acme', cwd: WT }), worktrees)).toEqual({ roomId: 'acme', worktree: WT });
-    expect(placeOf(msg({ type: 'conversacion', roomId: 'acme', cwd: WT + '/web' }), worktrees)).toEqual({ roomId: 'acme', worktree: WT });
-    expect(placeOf(msg({ type: 'conversacion', roomId: 'acme', cwd: REPO }), worktrees)).toEqual({ roomId: 'acme', worktree: undefined });
+    expect(placeOf(msg({ type: 'conversation', roomId: 'acme', cwd: WT }), worktrees)).toEqual({ roomId: 'acme', worktree: WT });
+    expect(placeOf(msg({ type: 'conversation', roomId: 'acme', cwd: WT + '/web' }), worktrees)).toEqual({ roomId: 'acme', worktree: WT });
+    expect(placeOf(msg({ type: 'conversation', roomId: 'acme', cwd: REPO }), worktrees)).toEqual({ roomId: 'acme', worktree: undefined });
     // ABC-1 is not ABC-12, nor is a removed worktree anyone's
-    expect(placeOf(msg({ type: 'conversacion', roomId: 'acme', cwd: `${REPO}/.claude/worktrees/ABC-1` }), worktrees).worktree).toBeUndefined();
+    expect(placeOf(msg({ type: 'conversation', roomId: 'acme', cwd: `${REPO}/.claude/worktrees/ABC-1` }), worktrees).worktree).toBeUndefined();
   });
   it('a room target with a key goes to the worktree of that task, if the room has one', () => {
-    expect(placeOf(msg({ type: 'sala', room: 'acme', key: 'ABC-12' }), worktrees)).toEqual({ roomId: 'acme', worktree: WT });
-    expect(placeOf(msg({ type: 'sala', room: 'acme', key: 'tidy-up' }), worktrees).worktree).toBe(`${REPO}/.claude/worktrees/shelter-tidy-up--ab12`);
-    expect(placeOf(msg({ type: 'sala', room: 'acme', key: 'ABC-99' }), worktrees)).toEqual({ roomId: 'acme', task: 'ABC-99' });   // its hologram is still to come
-    expect(placeOf(msg({ type: 'sala', room: 'acme' }), worktrees)).toEqual({ roomId: 'acme', worktree: undefined });
+    expect(placeOf(msg({ type: 'room', room: 'acme', key: 'ABC-12' }), worktrees)).toEqual({ roomId: 'acme', worktree: WT });
+    expect(placeOf(msg({ type: 'room', room: 'acme', key: 'tidy-up' }), worktrees).worktree).toBe(`${REPO}/.claude/worktrees/shelter-tidy-up--ab12`);
+    expect(placeOf(msg({ type: 'room', room: 'acme', key: 'ABC-99' }), worktrees)).toEqual({ roomId: 'acme', task: 'ABC-99' });   // its hologram is still to come
+    expect(placeOf(msg({ type: 'room', room: 'acme' }), worktrees)).toEqual({ roomId: 'acme', worktree: undefined });
   });
   it('ofPlace lists a dweller\'s or a hologram\'s own, soonest first', () => {
-    const a = msg({ type: 'conversacion', roomId: 'acme', cwd: WT }, 300), b = msg({ type: 'sala', room: 'acme', key: 'ABC-12' }, 200);
-    const c = msg({ type: 'sala', room: 'acme' }), d = msg({ type: 'sala', room: 'other' });
+    const a = msg({ type: 'conversation', roomId: 'acme', cwd: WT }, 300), b = msg({ type: 'room', room: 'acme', key: 'ABC-12' }, 200);
+    const c = msg({ type: 'room', room: 'acme' }), d = msg({ type: 'room', room: 'other' });
     const all = [a, b, c, d];
     expect(ofPlace(all, 'acme', WT, worktrees).map(x => x.id)).toEqual([b.id, a.id]);
     expect(ofPlace(all, 'acme', undefined, worktrees).map(x => x.id)).toEqual([c.id]);
@@ -54,9 +54,9 @@ describe('scheduled messages by room and task', () => {
   });
   it('byPlace splits a room\'s list by hologram: the main copy first, with those of a removed worktree', () => {
     const TIDY = `${REPO}/.claude/worktrees/shelter-tidy-up--ab12`;
-    const tidy = msg({ type: 'sala', room: 'acme', key: 'tidy-up' }), abc = msg({ type: 'conversacion', roomId: 'acme', cwd: WT });
-    const gone = msg({ type: 'conversacion', roomId: 'acme', cwd: `${REPO}/.claude/worktrees/ABC-7` }, 50), main = msg({ type: 'sala', room: 'acme' }, 200);
-    const other = msg({ type: 'sala', room: 'other' });
+    const tidy = msg({ type: 'room', room: 'acme', key: 'tidy-up' }), abc = msg({ type: 'conversation', roomId: 'acme', cwd: WT });
+    const gone = msg({ type: 'conversation', roomId: 'acme', cwd: `${REPO}/.claude/worktrees/ABC-7` }, 50), main = msg({ type: 'room', room: 'acme' }, 200);
+    const other = msg({ type: 'room', room: 'other' });
     expect(byPlace([tidy, main, other, abc, gone], 'acme', worktrees).map(g => [g.worktree, g.items.map(x => x.id)]))
       .toEqual([[undefined, [gone.id, main.id]], [WT, [abc.id]], [TIDY, [tidy.id]]]);
     expect(byPlace([other], 'acme', worktrees)).toEqual([]);
@@ -75,14 +75,14 @@ describe('scheduled messages by room and task', () => {
     expect(byPlace(all, 'acme', created).map(g => g.worktree ?? g.task)).toEqual([undefined, WT, ABC99, 'XYZ-1']);
   });
   it('soonestByPlace keeps each room\'s and worktree\'s next one', () => {
-    const a = msg({ type: 'conversacion', roomId: 'acme', cwd: WT }, 300), b = msg({ type: 'sala', room: 'acme', key: 'ABC-12' }, 200);
-    const c = msg({ type: 'sala', room: 'acme' }, 500), d = msg({ type: 'sala', room: 'other' }, 50);
+    const a = msg({ type: 'conversation', roomId: 'acme', cwd: WT }, 300), b = msg({ type: 'room', room: 'acme', key: 'ABC-12' }, 200);
+    const c = msg({ type: 'room', room: 'acme' }, 500), d = msg({ type: 'room', room: 'other' }, 50);
     const m = soonestByPlace([a, b, c, d], room => room === 'acme' ? worktrees : []);
     expect([...m].map(([k, x]) => [k, x.id])).toEqual([[`acme|${WT}`, b.id], ['acme|', c.id], ['other|', d.id]]);
   });
 });
 
-const bg = (id: string, created: number, when: number): ScheduledMessage => ({ ...msg({ type: 'sala', room: 'acme' }, when), id, created, nextWindow: true });
+const bg = (id: string, created: number, when: number): ScheduledMessage => ({ ...msg({ type: 'room', room: 'acme' }, when), id, created, nextWindow: true });
 
 const L = (d: number, h = 0, m = 0) => new Date(2026, 10, d, h, m).getTime();   // local time, November 2026
 
@@ -129,6 +129,6 @@ describe('next-window delivery', () => {
     expect(windowNext([list[2]], 1000, {}, undefined)).toBeUndefined();   // not due yet
   });
   it('dated delivery skips them', () => {
-    expect(due([bg('a', 1, 0), { ...msg({ type: 'sala', room: 'acme' }, 0), id: 'dated' }], 1000).map(x => x.id)).toEqual(['dated']);
+    expect(due([bg('a', 1, 0), { ...msg({ type: 'room', room: 'acme' }, 0), id: 'dated' }], 1000).map(x => x.id)).toEqual(['dated']);
   });
 });

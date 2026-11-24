@@ -13,7 +13,7 @@ const SPANISH_DATA = [
   ...Object.values(HARVESTS).map(h => h.nombre), ...Object.values(NAME_REGION), nameRegion('piel', 'robot'),
 ];
 
-describe('etiquetas', () => {
+describe('labels', () => {
   afterEach(() => setLanguage('es'));
   it('cada texto en español de los mapas tiene su entrada en el catálogo', () => {
     const spanish = new Set(Object.values(TEXTS).map(v => v.es));

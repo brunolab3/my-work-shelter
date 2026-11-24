@@ -8,13 +8,13 @@ const closeWelcome = "window.__cliente.accion('guardar',{parche:{bienvenidaHecha
 const takes = [
   ['general', '', `${closeWelcome};window.__refugio.alternarVista(true)`, 120],
   ['express', 'express', closeWelcome, 50],
-  ['intercomunicador', 'express', `${closeWelcome};window.__refugio.interactuar(window.__refugio.habitantes.find(h=>h.id.id==='remi'))`, 70],
-  ['plano', 'express', `${closeWelcome};setTimeout(()=>window.__juego.set({panel:'plano'}),300)`, 40],
-  ['puerta', 'puerta', closeWelcome, 50],
-  ['logistica', 'logistica', closeWelcome, 50],
-  ['hidroponia', 'hidroponia', closeWelcome, 50],
-  ['comunicaciones', 'comunicaciones', `${closeWelcome};setTimeout(()=>window.__juego.set({panel:'comunicaciones'}),300)`, 40],
-  ['mochila', 'galeria', `${closeWelcome};setTimeout(()=>window.__juego.set({panel:'inventario'}),300)`, 40],
+  ['intercom', 'express', `${closeWelcome};window.__refugio.interactuar(window.__refugio.habitantes.find(h=>h.id.id==='remi'))`, 70],
+  ['map', 'express', `${closeWelcome};setTimeout(()=>window.__juego.set({panel:'plano'}),300)`, 40],
+  ['gate', 'gate', closeWelcome, 50],
+  ['logistics', 'logistics', closeWelcome, 50],
+  ['hydroponics', 'hydroponics', closeWelcome, 50],
+  ['comms', 'comms', `${closeWelcome};setTimeout(()=>window.__juego.set({panel:'comunicaciones'}),300)`, 40],
+  ['backpack', 'gallery', `${closeWelcome};setTimeout(()=>window.__juego.set({panel:'inventario'}),300)`, 40],
 ];
 for (const [name, room, ev, steps] of takes) {
   const png = `_capturas/informe_${name}.png`;

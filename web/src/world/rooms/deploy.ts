@@ -34,12 +34,12 @@ export class DeploymentBoard {
     const byUrl = new Map(prs.map(p => [p.url, p]));
     const { waves, cycle } = deployWaves(prs, blockers);
     const wave = new Map(waves.flatMap((o, k) => o.map(p => [p.url, k + 1] as const)));
-    const pending = (b: Blocker) => byUrl.get(b.by)?.state !== 'fusionado';
+    const pending = (b: Blocker) => byUrl.get(b.by)?.state !== 'merged';
     const blocked = new Set(blockers.filter(pending).map(b => b.from));
     // cabecera
     g.fillStyle = col; g.font = `700 30px ${SOURCES.mono}`; g.shadowColor = col; g.shadowBlur = 10;
     g.fillText(`${t('world.deploy.title')}${demo ? ' · DEMO' : ''}`, 28, 18); g.shadowBlur = 0;
-    const mergeBy = prs.filter(p => p.state === 'abierto' || p.state === 'borrador').length;
+    const mergeBy = prs.filter(p => p.state === 'open' || p.state === 'draft').length;
     g.font = `600 24px ${SOURCES.mono}`; g.textAlign = 'right';
     g.fillStyle = col; g.fillText(t('world.deploy.nToMerge', { n: mergeBy }), W - 28 - (blocked.size ? 230 : 0), 20);
     if (blocked.size) { g.fillStyle = RED; g.fillText(blocked.size === 1 ? t('world.deploy.oneBlocked') : t('world.deploy.nBlocked', { n: blocked.size }), W - 28, 20); }
@@ -72,9 +72,9 @@ export class DeploymentBoard {
         let xd = x + w - 10;
         const o = wave.get(p.url);
         if (o) { const wave = t('world.deploy.wave', { n: o }); g.font = `700 15px ${SOURCES.mono}`; const tw = g.measureText(wave).width + 12; xd -= tw; g.fillStyle = col + '30'; g.fillRect(xd, y + 6, tw, 21); g.fillStyle = col; g.fillText(wave, xd + 6, y + 9); xd -= 6; }
-        if (p.checks && p.state !== 'fusionado') { g.font = `700 16px ${SOURCES.mono}`; g.fillStyle = ci ? RED : p.checks === 'SUCCESS' ? '#5dff8a' : '#ffb000'; const t = ci ? 'CI ✗' : p.checks === 'SUCCESS' ? 'CI ✓' : 'CI …'; xd -= g.measureText(t).width; g.fillText(t, xd, y + 9); }
+        if (p.checks && p.state !== 'merged') { g.font = `700 16px ${SOURCES.mono}`; g.fillStyle = ci ? RED : p.checks === 'SUCCESS' ? '#5dff8a' : '#ffb000'; const t = ci ? 'CI ✗' : p.checks === 'SUCCESS' ? 'CI ✓' : 'CI …'; xd -= g.measureText(t).width; g.fillText(t, xd, y + 9); }
         // lo que queda por contestar en sus revisiones: hilos sin resolver y resúmenes sin respuesta (con cero, nada)
-        if (p.state !== 'fusionado' && p.state !== 'cerrado' && ledgerPending(p.ledger)) {
+        if (p.state !== 'merged' && p.state !== 'closed' && ledgerPending(p.ledger)) {
           const l = p.ledger!, t = [l.unresolved > 0 && `💬${l.unresolved}`, l.unansweredSummaries > 0 && `✉${l.unansweredSummaries}`].filter(Boolean).join(' ');
           g.font = `700 16px ${SOURCES.mono}`; xd -= 10 + g.measureText(t).width; g.fillStyle = '#ffb000'; g.fillText(t, xd, y + 9);
         }
@@ -117,27 +117,27 @@ export async function furnishDeployment(ctx: Context) {
   const board = new DeploymentBoard('#9dffb8');
   const YT = 2.5;
   const frame = new THREE.Mesh(new THREE.BoxGeometry(5.6, 2.6, 0.12), new THREE.MeshStandardMaterial({ color: '#141a16', roughness: 0.5, metalness: 0.5 }));
-  frame.position.set(0, YT, zB + 0.36); g.add(frame); ctx.device('despliegue', frame);
+  frame.position.set(0, YT, zB + 0.36); g.add(frame); ctx.device('deployment', frame);
   const screen = new THREE.Mesh(new THREE.PlaneGeometry(5.3, 2.35), new THREE.MeshStandardMaterial({ map: board.tex, emissiveMap: board.tex, emissive: '#ffffff', emissiveIntensity: 1.0, color: '#000' }));
   screen.position.set(0, YT, zB + 0.43); g.add(screen);
-  screen.userData.interactive = 'despliegue'; screen.userData.view = 'despliegue';   // un clic en la pantalla abre el tablero (shelter.ts, clic)
+  screen.userData.interactive = 'deployment'; screen.userData.view = 'deployment';   // un clic en la pantalla abre el tablero (shelter.ts, clic)
   // on the left, the room's state on a wall monitor (decoration: the room panel is roomPanel.ts) and the planner's desk
   const panel = new PanelRoom(); panel.title = 'LOGÍSTICA'; panel.color = v.screen; ctx.panel = panel;
   await monitorWall(ctx, -4.6, 2.3, 1.1, panel.tex, 1.2, 0.2);
-  const pStation = new PhosphorScreen(384, 256, v.screen); pStation.speed = 24; screenReal(ctx, pStation, 'actividad'); ctx.room.screens.push(pStation);
-  await workStation(ctx, { id: 'puesto', x: -3.05, z: -0.7, rotation: 0.8, tex: pStation.tex, chair: R.furniture('chair_desk_A'),
+  const pStation = new PhosphorScreen(384, 256, v.screen); pStation.speed = 24; screenReal(ctx, pStation, 'activity'); ctx.room.screens.push(pStation);
+  await workStation(ctx, { id: 'workstation', x: -3.05, z: -0.7, rotation: 0.8, tex: pStation.tex, chair: R.furniture('chair_desk_A'),
     onTop: [{ path: R.tools('blueprint'), x: -0.55, z: 0.25, c: { width: 0.45, rot: 0.15 } }, { path: R.furniture('mug_A'), x: 0.7, z: 0.15, c: { scale: K * 0.7 } }] });
   // a la derecha, la consola de pie con el estado de los repos
   const pRepos = new PhosphorScreen(256, 256, v.screen); pRepos.speed = 18; screenReal(ctx, pRepos, 'repo'); ctx.room.screens.push(pRepos);
   const console = await place(g, R.sf('Props_ComputerSmall'), { pos: [3.0, 0, zB + 1.3], height: 1.45, rot: -0.5, isStatic: false });
   overlayScreen(console, /^Black$/, pRepos.tex, { brightness: 1.2, margin: 0.9 });
   ctx.room.obstacles.push(new THREE.Box2(new THREE.Vector2(2.55, zB + 0.8), new THREE.Vector2(3.45, zB + 1.75)));
-  ctx.room.points.push({ id: 'consola', type: 'consola', pos: new THREE.Vector3(2.75, 0, zB + 2.05), rotation: Math.PI - 0.5, clip: 'Working_A' });
+  ctx.room.points.push({ id: 'console', type: 'console', pos: new THREE.Vector3(2.75, 0, zB + 2.05), rotation: Math.PI - 0.5, clip: 'Working_A' });
   // la pieza: la mesa de planos con el holograma del refugio; se reparte el trabajo moviéndolo con las manos
   P(R.sf('Props_Base'), { pos: [0, 0, zB + 1.9], width: 2.6 });
   let impulse = 0; const revive = () => { impulse = 1; };
-  for (const [id, x] of [['mesa', -1.5], ['mesa-2', 1.5]] as const) ctx.room.points.push({ id, type: 'pieza', pos: new THREE.Vector3(x, 0, zB + 2.75), rotation: Math.atan2(-x, -0.85),
-    actions: [{ clip: 'Ranged_Magic_Spellcasting', onMake: revive }, { clip: 'Interact', onMake: revive }, { clip: 'Holding_A', utensil: 'diario', dur: 4 }] });
+  for (const [id, x] of [['desk', -1.5], ['desk-2', 1.5]] as const) ctx.room.points.push({ id, type: 'piece', pos: new THREE.Vector3(x, 0, zB + 2.75), rotation: Math.atan2(-x, -0.85),
+    actions: [{ clip: 'Ranged_Magic_Spellcasting', onMake: revive }, { clip: 'Interact', onMake: revive }, { clip: 'Holding_A', utensil: 'journal', dur: 4 }] });
   const holo = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 1.05, 1.05, 24, 1, true), new THREE.MeshBasicMaterial({ color: '#5dff8a', transparent: true, opacity: 0.1, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
   holo.position.set(0, 0.82, zB + 1.9); g.add(holo);
   const core = new THREE.Mesh(new THREE.OctahedronGeometry(0.24, 0), new THREE.MeshBasicMaterial({ color: new THREE.Color('#9dffb8').multiplyScalar(2), wireframe: true }));
@@ -147,7 +147,7 @@ export async function furnishDeployment(ctx: Context) {
   const locker = P(R.sf('Props_Shelf_Tall'), { pos: [5.45, 0, zB + 0.5], height: 2.3, rot: 0 });
   for (const [k, y] of [0.6, 1.05, 1.5].entries()) ctx.restsOn(locker, R.furniture('book_set'), { pos: [5.4 + (k % 2) * 0.15, 0, zB + 0.5], width: 0.55, rot: k * 0.2 }, { since: y });
   P(R.cy('Computer_Large'), { pos: [4.5, 0, zB + 0.55], height: 2.2, rot: -0.3 });
-  signInWall(g, sign(t('world.poster.logistics'), t('world.poster.logisticsFoot'), '#d2ead8', '#1f4a2c', 'engranaje', seed), 4.1, 2.8, 0.56, 0.78, zB + 0.33, -0.03);
+  signInWall(g, sign(t('world.poster.logistics'), t('world.poster.logisticsFoot'), '#d2ead8', '#1f4a2c', 'gear', seed), 4.1, 2.8, 0.56, 0.78, zB + 0.33, -0.03);
   stain(g, 0, 1.1, 1.2, seed);
   ctx.room.walkZones = [[-1.9, -1.5], [1.5, 2.2]];
   ctx.sparks = new THREE.Vector3(3.0, 1.2, zB + 1.5);

@@ -16,15 +16,15 @@ export interface Variant {
 export const VARIANTS: Record<string, Variant> = {
   taller:   { id: 'taller',   accent: '#c9822f', darkAccent: '#7a4a22', wall: '#6f6b63', darkWall: '#3f3e3a', screen: '#7dffb0' },
   web:      { id: 'web',      accent: '#9a5a2e', darkAccent: '#55321b', wall: '#6a655c', darkWall: '#363431', screen: '#8dffb0' },
-  marca:    { id: 'marca',    accent: '#b34a3c', darkAccent: '#6a2a24', wall: '#6e6963', darkWall: '#3e3b38', screen: '#ffb36b' },
+  brand:    { id: 'brand',    accent: '#b34a3c', darkAccent: '#6a2a24', wall: '#6e6963', darkWall: '#3e3b38', screen: '#ffb36b' },
   video:    { id: 'video',    accent: '#7a5ba8', darkAccent: '#45345f', wall: '#69676b', darkWall: '#3a393f', screen: '#b8a0ff' },
   landing:  { id: 'landing',  accent: '#d1a43a', darkAccent: '#7d5f1f', wall: '#706c63', darkWall: '#403e38', screen: '#ffe28a' },
   comms:    { id: 'comms',    accent: '#4f8a4a', darkAccent: '#2c4f2a', wall: '#6b6b65', darkWall: '#3c3d38', screen: '#9dff8a' },
   plan:     { id: 'plan',     accent: '#3d6aa8', darkAccent: '#223d63', wall: '#6a6b6e', darkWall: '#3a3c40', screen: '#8ac8ff' },
-  logistica: { id: 'logistica', accent: '#a8423f', darkAccent: '#5e2423', wall: '#77736e', darkWall: '#403d3b', screen: '#ff9a7a' },
-  acorazada: { id: 'acorazada', accent: '#a3322b', darkAccent: '#561a16', wall: '#5d6369', darkWall: '#2b2f33', screen: '#8fe3ff', grime: 0.7 },
-  puente:   { id: 'puente',   accent: '#b8913a', darkAccent: '#5e4a1c', wall: '#5b5d5f', darkWall: '#252729', screen: '#7dffa0', grime: 0.7 },
-  neutro:   { id: 'neutro',   accent: '#8a7a5a', darkAccent: '#4f4535', wall: '#6b6863', darkWall: '#3d3b39', screen: '#7dffb0' },
+  logistics: { id: 'logistics', accent: '#a8423f', darkAccent: '#5e2423', wall: '#77736e', darkWall: '#403d3b', screen: '#ff9a7a' },
+  vault: { id: 'vault', accent: '#a3322b', darkAccent: '#561a16', wall: '#5d6369', darkWall: '#2b2f33', screen: '#8fe3ff', grime: 0.7 },
+  bridge:   { id: 'bridge',   accent: '#b8913a', darkAccent: '#5e4a1c', wall: '#5b5d5f', darkWall: '#252729', screen: '#7dffa0', grime: 0.7 },
+  neutral:   { id: 'neutral',   accent: '#8a7a5a', darkAccent: '#4f4535', wall: '#6b6863', darkWall: '#3d3b39', screen: '#7dffb0' },
 };
 
 const c = (h: string) => new THREE.Color(h);
@@ -37,7 +37,7 @@ export function prepareMaterial(m: THREE.Material, pack: string, v?: Variant): T
   const n = sm.name;
   if (pack === 'modular_sci_fi' || pack === 'cyberpunk_pack') {
     sm.metalness = 0.12; sm.roughness = 0.62;
-    const vv = v ?? VARIANTS.neutro;
+    const vv = v ?? VARIANTS.neutral;
     if (n === 'Main' || n === 'Main2') sm.color.copy(c(vv.wall));
     else if (n === 'DarkGrey' || n === 'Grey') sm.color.copy(c(vv.darkWall));
     else if (n === 'Accent' || n === 'Orange') sm.color.copy(c(vv.accent));
@@ -114,6 +114,6 @@ export function withGrime(m: THREE.MeshStandardMaterial, strength = 1) {
         float m = clamp(manchas * 0.28 + churretes * 0.16 + suelo * 0.32 + hollin * 0.3, 0.0, 0.62) * uGrime;
         diffuseColor.rgb *= mix(vec3(1.0), vec3(0.42, 0.36, 0.3), m);`);
   };
-  m.customProgramCacheKey = () => 'mugre2-' + strength;
+  m.customProgramCacheKey = () => 'grime2-' + strength;
   return m;
 }

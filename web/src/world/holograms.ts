@@ -107,9 +107,9 @@ export function holograph(o: THREE.Object3D, u: Uniforms) {
 // ---------------------------------------------------------------- qué worktrees hay y quién trabaja dentro
 // siempre en su proyector: sentado con el portátil (pensando o en reposo con avería), con las pantallas en el aire
 // (trabajando), de pie y quieto (sin nada que hacer) o de pie mirando al frente (te espera, terminó, habla contigo)
-type Pose = 'reposo' | 'portatil' | 'manos' | 'pie' | 'base';
-const IN_PROJECTOR = new Set<Pose>(['reposo', 'portatil', 'manos', 'base']);
-const SEATED_POSES = new Set<Pose | ''>(['reposo', 'portatil', 'base']);   // sentada en el proyector (sin nada que hacer, en 'base')
+type Pose = 'rest' | 'laptop' | 'hands' | 'standing' | 'base';
+const IN_PROJECTOR = new Set<Pose>(['rest', 'laptop', 'hands', 'base']);
+const SEATED_POSES = new Set<Pose | ''>(['rest', 'laptop', 'base']);   // sentada en el proyector (sin nada que hacer, en 'base')
 const WALKING = /^(Walking|Running)/;
 // trabajando no para: de un gesto a otro con las pantallas
 const BUSY = ['Ranged_Magic_Spellcasting_Long', 'Working_A', 'Ranged_Magic_Spellcasting', 'Working_C', 'Working_B', 'Interact'];
@@ -126,7 +126,7 @@ export interface Copy {
   task?: string; tone: THREE.Color; versionTone?: number;         // la tarea del worktree y su color (shared/tasks.ts); sin tarea, el cian de serie
 }
 
-interface Assembly { tube: THREE.Object3D; t: number; phase: 'baja' | 'cae' | 'sube' | 'listo'; mounted: boolean; end: number }
+interface Assembly { tube: THREE.Object3D; t: number; phase: 'low' | 'fall' | 'rise' | 'ready'; mounted: boolean; end: number }
 
 export class Holograms {
   figures = new Map<string, Copy>();
@@ -144,7 +144,7 @@ export class Holograms {
     for (const s of this.r.rooms) for (const w of repos[s.id]?.worktrees ?? []) if (!w.main) out.push({ w, room: s });
     const all = out.map(x => x.w);
     for (const s of Object.values(live.get().sessions) as SessionSummary[]) {
-      if (s.state === 'cerrada') continue;
+      if (s.state === 'closed') continue;
       const path = pathWorktree(s.cwd, all); if (!path || out.some(x => x.w.path === path)) continue;
       const room = this.r.rooms.find(x => x.id === s.roomId); if (!room) continue;
       const w: InfoWorktree = { path, branch: path.split('/').pop() ?? '', main: false, changes: 0, advanced: 0, author: s.dwellerId };
@@ -157,8 +157,8 @@ export class Holograms {
   inWorktree(s: SessionSummary) { return !!pathWorktree(s.cwd, this.worktrees().map(x => x.w)); }
 
   private insideSession(path: string): SessionSummary | undefined {
-    const urg = (s: SessionSummary) => s.state === 'esperando' ? 0 : s.state === 'error' ? 1 : s.state === 'terminada' && s.unread ? 2 : s.state === 'trabajando' || s.state === 'arrancando' ? 3 : 4;
-    return (Object.values(live.get().sessions) as SessionSummary[]).filter(s => s.state !== 'cerrada' && (s.cwd === path || s.cwd?.startsWith(path + '/'))).sort((a, b) => urg(a) - urg(b) || b.updated - a.updated)[0];
+    const urg = (s: SessionSummary) => s.state === 'waiting' ? 0 : s.state === 'error' ? 1 : s.state === 'finished' && s.unread ? 2 : s.state === 'working' || s.state === 'starting' ? 3 : 4;
+    return (Object.values(live.get().sessions) as SessionSummary[]).filter(s => s.state !== 'closed' && (s.cwd === path || s.cwd?.startsWith(path + '/'))).sort((a, b) => urg(a) - urg(b) || b.updated - a.updated)[0];
   }
 
   private authorOf(w: InfoWorktree, room: Room) {
@@ -195,7 +195,7 @@ export class Holograms {
   // ---- a slot along the front edge (`holoSlot`)
   private spot(room: Room, path: string) {
     const others = [...this.figures.values()].filter(f => f.room === room && f.path !== path && !f.leaving).map(f => f.spot.x - room.group.position.x);
-    const workstations = room.points.filter(pt => pt.type !== 'charla').map(pt => ({ x: pt.pos.x, weight: pt.type === 'puesto' || pt.type === 'pieza' ? 300 : pt.type === 'mirar' ? 60 : 200 }));
+    const workstations = room.points.filter(pt => pt.type !== 'chat').map(pt => ({ x: pt.pos.x, weight: pt.type === 'workstation' || pt.type === 'piece' ? 300 : pt.type === 'look' ? 60 : 200 }));
     const devices = (room.interactive ?? []).filter(i => !i.id.startsWith('vis:')).map(i => i.x);
     const x = holoSlot({ width: room.width, side: room.side, workstations, devices, walkZones: room.walkZones ?? [], obstacles: room.obstacles }, others, Z_SPOT, BASE);
     return new THREE.Vector3(room.group.position.x + x, room.group.position.y, Z_SPOT);
@@ -221,7 +221,7 @@ export class Holograms {
         // the shelter just opened (the board's epics arrive in its first seconds): already in place, no walk
         if (snap) { f.p.root.position.x = x; if (f.base) f.base.position.x = x; f.p.root.rotation.y = f.p.goalTurn = f.rotation; continue; }
         // up and walking (`drive` takes it there): without its laptop or screens until it is back on its projector
-        f.pose = 'pie'; f.laptop.visible = false; f.screens.visible = false;
+        f.pose = 'standing'; f.laptop.visible = false; f.screens.visible = false;
         this.makeWay(f);
       }
     }
@@ -235,7 +235,7 @@ export class Holograms {
     const side = Math.sign(room.group.position.x - spot.x) || 1;
     const f: Copy = {
       path: w.path, w, room, authorId: author.id.id, p: clone.p, u, base: null, laptop: new THREE.Group(), screens: new THREE.Group(),
-      spot, rotation: side * 1.05, state: 'ocioso', detail: '', signature: '', pose: '', fromPose: 0, poseWanted: 'reposo', gestureClock: 3, waitingSince: 0,
+      spot, rotation: side * 1.05, state: 'idle', detail: '', signature: '', pose: '', fromPose: 0, poseWanted: 'rest', gestureClock: 3, waitingSince: 0,
       opacity: 0, goalCut: 1e4, leaving: false, ready: false,
       lookClock: 3, busyClock: 0, assembly: null, talking: false, chatTurn: 0, tone: COLOR,
     };
@@ -250,7 +250,7 @@ export class Holograms {
     for (const o of [p.model, f.laptop, f.screens]) holograph(o, u);
     p.contactShadow.visible = false;
     p.root.scale.setScalar(HOLO_SCALE);   // the root's pivot is at the feet: it shrinks standing on its projector
-    p.root.name = 'holograma:' + w.path;
+    p.root.name = 'hologram:' + w.path;
     // recién creada con el refugio ya en marcha: el proyector baja por su tubo, su autor lo monta y ella aparece encima
     const inHot = effect && performance.now() - this.since > 8000;
     if (inHot && f.base) { this.deliver(f, author); return; }
@@ -266,7 +266,7 @@ export class Holograms {
 
   // quien estaba de paseo justo ahí le deja el sitio
   private makeWay(f: Copy) {
-    for (const h of this.r.dwellers) if (h.room === f.room && h.state === 'ocioso' && !h.fixed && !h.busyErrand && Math.abs(h.pos.x - f.spot.x) < 1.1) h.p.goA(this.r.freeGap(f.room));
+    for (const h of this.r.dwellers) if (h.room === f.room && h.state === 'idle' && !h.fixed && !h.busyErrand && Math.abs(h.pos.x - f.spot.x) < 1.1) h.p.goA(this.r.freeGap(f.room));
   }
 
   // ---- la entrega: un tubo baja del techo, suelta el proyector, sube; su autor (si está en la sala y libre) va a
@@ -275,7 +275,7 @@ export class Holograms {
     const base = f.base!, y = f.room.group.position.y;
     let tube: THREE.Object3D;
     try {
-      tube = await place(new THREE.Group(), R.cy('Pipe_2'), { width: 1, rotZ: Math.PI / 2, anchor: 'centro', isStatic: false, shadow: false });
+      tube = await place(new THREE.Group(), R.cy('Pipe_2'), { width: 1, rotZ: Math.PI / 2, anchor: 'center', isStatic: false, shadow: false });
       tube.removeFromParent();
       // metal claro con un brillo del color de su tarea: que se lea contra la pared oscura
       tube.traverse((n: any) => { if (n.isMesh) n.material = new THREE.MeshStandardMaterial({ color: '#b9c2cc', metalness: 0.6, roughness: 0.35, emissive: f.tone, emissiveIntensity: 0.35 }); });
@@ -285,7 +285,7 @@ export class Holograms {
     pivot.position.set(f.spot.x, y + CEILING, f.spot.z); pivot.scale.set(3 * BASE, 0.001, 3 * BASE);   // thick: the projector fits
     base.position.y = y + CEILING; base.visible = false;
     this.r.motor.scene.add(pivot, base);
-    f.assembly = { tube: pivot, t: 0, phase: 'baja', mounted: false, end: 0 };
+    f.assembly = { tube: pivot, t: 0, phase: 'low', mounted: false, end: 0 };
     this.makeWay(f);
     SFX.powerOff();
   }
@@ -294,19 +294,19 @@ export class Holograms {
     const m = f.assembly!, base = f.base!, y = f.room.group.position.y;
     m.t += dt;
     const length = CEILING - 0.9;   // hasta dónde baja el tubo
-    if (m.phase === 'baja') {
+    if (m.phase === 'low') {
       const k = Math.min(1, m.t / 0.7); m.tube.scale.y = Math.max(0.001, length * k * (2 - k));
-      if (k >= 1) { m.phase = 'cae'; m.t = 0; base.visible = true; base.position.y = y + 0.9; }
-    } else if (m.phase === 'cae') {
+      if (k >= 1) { m.phase = 'fall'; m.t = 0; base.visible = true; base.position.y = y + 0.9; }
+    } else if (m.phase === 'fall') {
       const k = Math.min(1, m.t / 0.35); base.position.y = y + 0.9 * (1 - k * k);
       if (k >= 1) {
-        m.phase = 'sube'; m.t = 0; base.position.y = y;
-        audioWorld.action(new THREE.Vector3(f.spot.x, y + 0.2, f.spot.z), 'caja', 0.9, f.room);
+        m.phase = 'rise'; m.t = 0; base.position.y = y;
+        audioWorld.action(new THREE.Vector3(f.spot.x, y + 0.2, f.spot.z), 'box', 0.9, f.room);
         this.callAuthor(f);
       }
-    } else if (m.phase === 'sube') {
+    } else if (m.phase === 'rise') {
       const k = Math.min(1, m.t / 0.6); m.tube.scale.y = Math.max(0.001, length * (1 - k));
-      if (k >= 1) { m.phase = 'listo'; m.t = 0; this.r.motor.scene.remove(m.tube); }
+      if (k >= 1) { m.phase = 'ready'; m.t = 0; this.r.motor.scene.remove(m.tube); }
     } else if (m.mounted || m.t > m.end) this.materialize(f);
   }
 
@@ -318,7 +318,7 @@ export class Holograms {
     const side = Math.sign(author.pos.x - f.spot.x) || 1;
     const beside = new THREE.Vector3(f.spot.x + side * (BASE / 2 + 0.3), f.room.group.position.y, f.spot.z);
     const rotation = Math.atan2(f.spot.x - beside.x, f.spot.z - beside.z);
-    if (author.sendOnErrand(beside, rotation, 'Lockpicking', 'llave', 3.2, () => { if (f.assembly) f.assembly.mounted = true; })) m.end = 25;   // por si no llega nunca
+    if (author.sendOnErrand(beside, rotation, 'Lockpicking', 'wrench', 3.2, () => { if (f.assembly) f.assembly.mounted = true; })) m.end = 25;   // por si no llega nunca
   }
 
   private materialize(f: Copy) {
@@ -330,7 +330,7 @@ export class Holograms {
     SFX.holoAppears();
     this.r.motor.scene.add(p.root);
     p.play('Spawn_Ground', 0, { loop: false });
-    setTimeout(() => { if (f.leaving) return; f.pose = 'pie'; f.fromPose = 0; this.apply(f, true); this.changePose(f, f.poseWanted); f.ready = true; this.r.publish(); }, 1300);
+    setTimeout(() => { if (f.leaving) return; f.pose = 'standing'; f.fromPose = 0; this.apply(f, true); this.changePose(f, f.poseWanted); f.ready = true; this.r.publish(); }, 1300);
   }
 
   private async accessories(p: Character, authorId: string) {
@@ -372,16 +372,16 @@ export class Holograms {
   private apply(f: Copy, force = false): boolean {
     const s = this.insideSession(f.path);
     const m = s?.activity?.mode;
-    let state: DwellerState = 'ocioso', detail = '', wants: Pose = 'base';
+    let state: DwellerState = 'idle', detail = '', wants: Pose = 'base';
     if (s) {
       // pensando también está de faena: de pie con sus pantallas, como trabajando (sentada es no tener nada que hacer)
-      if (s.state === 'arrancando') { state = 'pensando'; detail = t('windows.gettingReady'); wants = 'manos'; }
-      else if (s.state === 'trabajando') {
-        if (!m || m === 'pensar') { state = 'pensando'; detail = s.activity?.text ?? t('windows.thinking'); wants = 'manos'; }
-        else { state = 'trabajando'; detail = s.activity?.text ?? ''; wants = 'manos'; }
-      } else if (s.state === 'esperando') { state = 'esperando'; detail = s.pending?.title ?? t('windows.waitingForYou'); wants = 'pie'; }
-      else if (s.state === 'terminada' && s.unread) { state = 'terminado'; detail = t('windows.readyTitulo', { titulo: s.title ?? '' }); wants = 'pie'; }
-      else if (s.state === 'error') { state = 'error'; detail = s.error ?? t('windows.fault'); wants = 'reposo'; }
+      if (s.state === 'starting') { state = 'thinking'; detail = t('windows.gettingReady'); wants = 'hands'; }
+      else if (s.state === 'working') {
+        if (!m || m === 'think') { state = 'thinking'; detail = s.activity?.text ?? t('windows.thinking'); wants = 'hands'; }
+        else { state = 'working'; detail = s.activity?.text ?? ''; wants = 'hands'; }
+      } else if (s.state === 'waiting') { state = 'waiting'; detail = s.pending?.title ?? t('windows.waitingForYou'); wants = 'standing'; }
+      else if (s.state === 'finished' && s.unread) { state = 'finished'; detail = t('windows.readyTitulo', { titulo: s.title ?? '' }); wants = 'standing'; }
+      else if (s.state === 'error') { state = 'error'; detail = s.error ?? t('windows.fault'); wants = 'rest'; }
       else { detail = s.title ?? ''; wants = 'base'; }
     }
     const signature = [s?.id, state, detail, f.w.changes, f.w.advanced].join('|');
@@ -389,12 +389,12 @@ export class Holograms {
     const before = f.state;
     f.signature = signature; f.state = state; f.detail = detail; f.sessionId = s?.id; f.poseWanted = wants;
     if (state !== before) {
-      if (state === 'terminado') { SFX.success(); f.p.gesture('Waving', 'Idle_A'); f.pose = 'pie'; f.fromPose = timeout.value; f.gestureClock = 8; }
+      if (state === 'finished') { SFX.success(); f.p.gesture('Waving', 'Idle_A'); f.pose = 'standing'; f.fromPose = timeout.value; f.gestureClock = 8; }
       else if (state === 'error') { SFX.holoGlitch(); f.u.uGlitch.value = 1; }
-      else if (state === 'esperando') { SFX.highNotice(); f.waitingSince = performance.now(); }
+      else if (state === 'waiting') { SFX.highNotice(); f.waitingSince = performance.now(); }
     }
     if (state !== 'error') f.u.uGlitch.value = 0;
-    f.opacity = state === 'ocioso' ? 0.6 : 1;
+    f.opacity = state === 'idle' ? 0.6 : 1;
     return state !== before;
   }
 
@@ -402,19 +402,19 @@ export class Holograms {
     const p = f.p; const seated = SEATED_POSES.has(f.pose);
     const sit = SEATED_POSES.has(pose);
     f.pose = pose; f.fromPose = timeout.value;
-    f.laptop.visible = pose === 'portatil' || pose === 'reposo';
-    f.screens.visible = pose === 'manos';
-    if (IN_PROJECTOR.has(pose)) p.goalTurn = f.rotation; else if (pose === 'pie') p.goalTurn = 0;
+    f.laptop.visible = pose === 'laptop' || pose === 'rest';
+    f.screens.visible = pose === 'hands';
+    if (IN_PROJECTOR.has(pose)) p.goalTurn = f.rotation; else if (pose === 'standing') p.goalTurn = 0;
     if (sit) {
       p.inRest = 'Sit_Floor_Idle';
       if (seated || immediate) p.play('Sit_Floor_Idle', immediate ? 0 : 0.35);
       else p.gesture('Sit_Floor_Down', 'Sit_Floor_Idle', 0.25);
     } else {
-      const clip = pose === 'manos' ? BUSY[0] : 'Idle_A';
-      if (pose === 'manos') f.busyClock = 3 + Math.random() * 2;
+      const clip = pose === 'hands' ? BUSY[0] : 'Idle_A';
+      if (pose === 'hands') f.busyClock = 3 + Math.random() * 2;
       p.inRest = clip;
       if (seated && !immediate) p.gesture('Sit_Floor_StandUp', clip, 0.2);
-      else if (pose === 'pie' && f.state === 'esperando' && !f.talking) { p.gesture('Waving', 'Idle_A'); f.gestureClock = 3; }
+      else if (pose === 'standing' && f.state === 'waiting' && !f.talking) { p.gesture('Waving', 'Idle_A'); f.gestureClock = 3; }
       else p.play(clip, immediate ? 0 : 0.3);
     }
   }
@@ -444,7 +444,7 @@ export class Holograms {
         light.visible = !!f.p.root.parent && !f.leaving;
         light.material.color.copy(f.u.uColor.value);   // the body's tone, also when the task's color arrives after mounting
         // sin nada que hacer, tenue y fija; con una sesión en marcha, más viva y latiendo
-        const alive = f.state === 'trabajando' || f.state === 'pensando';
+        const alive = f.state === 'working' || f.state === 'thinking';
         light.material.opacity = alive ? 0.6 + 0.25 * Math.sin(timeout.value * 3 + f.u.uSemilla.value * 9) : 0.4;
       }
       if (!f.p.mixer || !f.p.root.parent) { if (f.leaving && !f.p.root.parent) this.outgoing.delete(f); continue; }
@@ -469,7 +469,7 @@ export class Holograms {
     const p = f.p, pos = p.root.position;
     if (f.talking) {
       if (p.inMovement || WALKING.test(p.currentName)) { p.stop(); p.play(p.inRest, 0.25); }
-      if (f.pose !== 'pie') this.changePose(f, 'pie');
+      if (f.pose !== 'standing') this.changePose(f, 'standing');
       p.goalTurn = f.chatTurn;
       return;
     }
@@ -478,13 +478,13 @@ export class Holograms {
     if (p.inMovement) return;
     const wants = f.poseWanted;
     // entre pensar y trabajar no se levanta y se sienta a cada herramienta: cada postura dura al menos unos segundos
-    const sway = (f.pose === 'portatil' && wants === 'manos') || (f.pose === 'manos' && wants === 'portatil');
+    const sway = (f.pose === 'laptop' && wants === 'hands') || (f.pose === 'hands' && wants === 'laptop');
     if (wants !== f.pose && (!sway || timeout.value - f.fromPose > 6)) this.changePose(f, wants);
-    if (f.state === 'esperando' && f.pose === 'pie') { f.gestureClock -= dt; if (f.gestureClock < 0) { f.gestureClock = 4 + Math.random() * 2; callOut(f.p, f.waitingSince); } }
+    if (f.state === 'waiting' && f.pose === 'standing') { f.gestureClock -= dt; if (f.gestureClock < 0) { f.gestureClock = 4 + Math.random() * 2; callOut(f.p, f.waitingSince); } }
     // terminada: te espera con paciencia, saludando de vez en cuando hasta que la lees
-    if (f.state === 'terminado' && f.pose === 'pie') { f.gestureClock -= dt; if (f.gestureClock < 0) { f.gestureClock = 8 + Math.random() * 5; f.p.gesture('Waving', 'Idle_A'); } }
+    if (f.state === 'finished' && f.pose === 'standing') { f.gestureClock -= dt; if (f.gestureClock < 0) { f.gestureClock = 8 + Math.random() * 5; f.p.gesture('Waving', 'Idle_A'); } }
     // trabajando, muy ocupada: cambia de gesto con las pantallas cada pocos segundos
-    if (f.pose === 'manos') {
+    if (f.pose === 'hands') {
       f.busyClock -= dt;
       if (f.busyClock < 0) { f.busyClock = 3 + Math.random() * 3; const sig = BUSY.filter(c => c !== p.inRest)[Math.floor(Math.random() * (BUSY.length - 1))]; p.inRest = sig; p.play(sig, 0.3); }
     }
@@ -525,7 +525,7 @@ export class Holograms {
   /** El robot mensajero le trae una revisión de su PR (messenger.ts): de pie, se gira hacia él y la recoge; sentada,
    *  trabajando o hablando con el Supervisor, sigue a lo suyo */
   receive(f: Copy, since: THREE.Vector3) {
-    if (f.talking || f.leaving || !f.ready || f.pose !== 'pie') return;
+    if (f.talking || f.leaving || !f.ready || f.pose !== 'standing') return;
     const p = f.p, pos = p.root.position;
     f.lookClock = Math.max(f.lookClock, 4); f.gestureClock = Math.max(f.gestureClock, 3);
     p.goalTurn = Math.atan2(since.x - pos.x, since.z - pos.z);
@@ -535,7 +535,7 @@ export class Holograms {
   /** Las salas con alguna copia pensando o trabajando (sus habitantes se ponen a trabajar también) */
   busyRooms() {
     const rooms = new Set<string>();
-    for (const f of this.figures.values()) if (!f.leaving && (f.state === 'trabajando' || f.state === 'pensando')) rooms.add(f.room.id);
+    for (const f of this.figures.values()) if (!f.leaving && (f.state === 'working' || f.state === 'thinking')) rooms.add(f.room.id);
     return rooms;
   }
 
@@ -558,7 +558,7 @@ export class Holograms {
       return {
         id: idCopy(f.path), name: `${name} ◇ ${copyCaption(f.w)}`, nickname: t('windows.holographicCopy'), type: a?.type ?? '',
         bio: t('world.holoCopyBio', { nombre: name, mote: tIs(a?.nickname ?? ''), rama: f.w.branch || f.path }),
-        room: f.room.id, nameRoom: f.room.name, path: f.path, folder: f.path, state: f.ready ? f.state : 'ocioso', detail: f.detail, sessionId: f.sessionId,
+        room: f.room.id, nameRoom: f.room.name, path: f.path, folder: f.path, state: f.ready ? f.state : 'idle', detail: f.detail, sessionId: f.sessionId,
         robot: author?.p.look?.especie === 'robot',
         copy: { path: f.path, branch: f.w.branch, authorId: f.authorId, nameAuthor: name, nicknameAuthor: a?.nickname ?? '', changes: f.w.changes, advanced: f.w.advanced, ...(f.w.review ? { review: f.w.review } : {}) },
       };
@@ -572,12 +572,12 @@ export class Holograms {
     return [...this.figures.values()].filter(f => f.ready && f.p.mixer).map(f => {
       const picked = f === selected || f === aimed, shown = picked || f === over;
       const git = f.w.changes ? t('windows.nChanges', { n: f.w.changes }) : f.w.advanced ? t('windows.nCommitsToMerge', { n: f.w.advanced }) : t('panels.clean2');
-      const detail = !shown ? '' : f.state === 'ocioso' ? git : f.detail.slice(0, 48);
+      const detail = !shown ? '' : f.state === 'idle' ? git : f.detail.slice(0, 48);
       const author = this.r.dwellers.find(h => h.id.id === f.authorId);
       const scheduled = scheduledMark(f.room.id, f.path), pointed = (f === aimed || f === over) && f !== selected;
       const mine = (Object.values(live.get().sessions) as SessionSummary[]).filter(s => s.cwd === f.path || s.cwd?.startsWith(f.path + '/'));
       const queued = queuedMark(mine), flagged = flaggedMark(mine);
-      return { k: f, scheduled, queued, flagged, pos: f.p.headPoint(), height: 0.2, name: `${author?.id.name ?? t('world.copy')} ◇ ${copyCaption(f.w, f.task ?? branchCaption(f.w.branch))}${verificationMark(f.task) ? ' · ' + verificationMark(f.task) : ''}`, color: hasTaskColor(f.task) ? taskColor(f.task) : undefined, epic: epicTag(f.task), state: f.state, detail, near: picked, farSide: farSide || !shown, prompt: picked ? t('world.talk') : '', key: f === selected ? 'E' : t('world.click'), aimed: pointed, relevant: shown || f.state !== 'ocioso' || !!scheduled || !!queued || !!flagged };
+      return { k: f, scheduled, queued, flagged, pos: f.p.headPoint(), height: 0.2, name: `${author?.id.name ?? t('world.copy')} ◇ ${copyCaption(f.w, f.task ?? branchCaption(f.w.branch))}${verificationMark(f.task) ? ' · ' + verificationMark(f.task) : ''}`, color: hasTaskColor(f.task) ? taskColor(f.task) : undefined, epic: epicTag(f.task), state: f.state, detail, near: picked, farSide: farSide || !shown, prompt: picked ? t('world.talk') : '', key: f === selected ? 'E' : t('world.click'), aimed: pointed, relevant: shown || f.state !== 'idle' || !!scheduled || !!queued || !!flagged };
     }).filter(x => x.relevant);
   }
 }

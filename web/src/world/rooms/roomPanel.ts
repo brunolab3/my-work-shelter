@@ -9,12 +9,12 @@ import { panelSpot as footprint } from '@shared/decor';
 import { canvas, textureOf, SOURCES, sharpCaption } from '../../engine/textures';
 import { box, materialSteel, mat, truncate, COLOR_STATE, STATE_TEXT, type Context, type Furnish } from './common';
 
-const side = (roomSide: 'izq' | 'der') => Math.sign(footprint(roomSide).x);
-const turn = (roomSide: 'izq' | 'der') => -side(roomSide) * 0.4;   // facing the player, turned a little to the middle
+const side = (roomSide: 'left' | 'right') => Math.sign(footprint(roomSide).x);
+const turn = (roomSide: 'left' | 'right') => -side(roomSide) * 0.4;   // facing the player, turned a little to the middle
 
 /** Where the Overseer stands to use the panel (room-local) and where they face: beside it, on the room's side, so they
  *  never hide its screen from the camera */
-export function panelSpot(roomSide: 'izq' | 'der') {
+export function panelSpot(roomSide: 'left' | 'right') {
   const f = footprint(roomSide), x = f.x - side(roomSide) * 1.15, z = f.z + 0.3;
   return { x, z, rotation: Math.atan2(f.x - x, f.z - z), gesture: 'Interact' };
 }
@@ -55,7 +55,7 @@ function mountRoomPanel(ctx: Context, code: string) {
     const name = truncate(room.name, 20); let fn = 44; x2.font = `600 ${fn}px ${SOURCES.mono}`;
     while (x2.measureText(name).width > 480 && fn > 22) { fn -= 2; x2.font = `600 ${fn}px ${SOURCES.mono}`; }
     x2.fillText(name, 256, 272);
-    x2.fillStyle = state === 'trabajando' || state === 'ociosa' ? v.screen : COLOR_STATE[state];
+    x2.fillStyle = state === 'working' || state === 'idle' ? v.screen : COLOR_STATE[state];
     x2.font = `500 30px ${SOURCES.mono}`; x2.fillText(STATE_TEXT[state], 256, 342);
     x2.shadowBlur = 0; x2.fillStyle = 'rgba(0,0,0,0.22)'; for (let y = 84; y < 384; y += 4) x2.fillRect(0, y, 512, 1);
     tex.needsUpdate = true;
@@ -71,5 +71,5 @@ function mountRoomPanel(ctx: Context, code: string) {
   g.add(k); ctx.device('panel', k);
   ctx.room.obstacles.push(new THREE.Box2(new THREE.Vector2(f.x - f.width / 2, f.z - f.background / 2), new THREE.Vector2(f.x + f.width / 2, f.z + f.background / 2)));
   // a spot in front of it, always taken, so no dweller, visitor or copy stands there and hides it (shelter.ts, occupants)
-  ctx.room.points.push({ id: 'panel', type: 'mirar', pos: new THREE.Vector3(f.x, 0, f.z + 0.8), rotation: 0, busy: 'panel' });
+  ctx.room.points.push({ id: 'panel', type: 'look', pos: new THREE.Vector3(f.x, 0, f.z + 0.8), rotation: 0, busy: 'panel' });
 }

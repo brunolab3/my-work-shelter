@@ -70,7 +70,7 @@ class Slack extends ConnectorBase {
     this.ctx.chosen = this.chosen();
     const since = String((Date.now() - 86_400_000) / 1000);
     // los elegidos (o todos), más los directos, por actividad reciente
-    const ids = [...this.ctx.channels].filter(([id, c]) => !this.ctx.chosen.size || this.ctx.chosen.has(id) || c.type === 'directo')
+    const ids = [...this.ctx.channels].filter(([id, c]) => !this.ctx.chosen.size || this.ctx.chosen.has(id) || c.type === 'direct')
       .map(([id]) => id).sort((a, b) => (this.activity.get(b) ?? 0) - (this.activity.get(a) ?? 0)).slice(0, MAX_CHANNELS);
     const notifications: Notification[] = [];
     for (const id of ids) {
@@ -98,7 +98,7 @@ class Slack extends ConnectorBase {
     if (name === 'channels') {   // para el selector de la cámara acorazada, una vez conectado
       this.whenChannels = 0; await this.refreshChannels();
       const el = this.chosen();
-      return [...this.ctx.channels].filter(([, c]) => c.type === 'canal' || c.type === 'privado')
+      return [...this.ctx.channels].filter(([, c]) => c.type === 'channel' || c.type === 'private')
         .map(([id, c]) => ({ id, name: c.name.replace(/^#/, ''), server: this.nameTeam, picked: el.has(id) }))
         .sort((a, b) => a.name.localeCompare(b.name));
     }

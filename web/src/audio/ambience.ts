@@ -29,7 +29,7 @@ const typing = (every: [number, number], vol: number): DetailDef => ({ keys: tru
 // ------------------------------------------------------------------------------------------------ perfiles
 export const PROFILES: Record<string, Profile> = {
   // radio de onda corta con voces y músicas lejanas, teletipo que va y viene, morse, avisos por radio y el módem
-  comunicaciones: {
+  comms: {
     layers: [
       { file: 'amb_onda_corta', vol: 0.2, heightStep: 250 }, { file: 'amb_teletipo', vol: 0.16, cycle: [8, 22, 4, 14] },
       { file: 'amb_oficina', vol: 0.1, underStep: 2500 }, { synth: 'fluorescente', vol: 0.005 },
@@ -42,7 +42,7 @@ export const PROFILES: Record<string, Profile> = {
     ],
   },
   // la agenda: oficina con gente, teléfonos, reloj de pared, impresora, papeles y la cafetera
-  planificacion: {
+  calendar: {
     timer: 0.09, layers: [{ file: 'amb_oficina', vol: 0.36 }, { synth: 'fluorescente', vol: 0.005 }],
     details: [
       { sounds: ['telefono_lejano'], every: [25, 60], vol: 0.14 }, { sounds: ['impresora_1', 'impresora_2'], every: [20, 45], vol: 0.22 },
@@ -51,7 +51,7 @@ export const PROFILES: Record<string, Profile> = {
     ],
   },
   // almacén en marcha: nave, cinta transportadora, carretillas y transpalés, palés, escáner y la radio del almacén
-  logistica: {
+  logistics: {
     echo: 0.15, layers: [{ file: 'amb_almacen', vol: 0.3 }, { file: 'amb_cinta', vol: 0.14, cycle: [20, 45, 8, 20] }, { synth: 'fluorescente', vol: 0.006 }],
     details: [
       { sounds: ['carretilla'], every: [16, 35], vol: 0.26 }, { sounds: ['transpale'], every: [18, 40], vol: 0.22 },
@@ -70,7 +70,7 @@ export const PROFILES: Record<string, Profile> = {
   },
   // puente de mando: actividad de sala de control, megafonía ininteligible, radio, la maqueta holográfica que respira,
   // pitidos de mando, relés y alguna alarma suave a lo lejos
-  puente: {
+  bridge: {
     echo: 0.12,
     layers: [
       { file: 'amb_centro_mando', vol: 0.26 }, { file: 'amb_sala_control', vol: 0.12 }, { synth: 'holograma', vol: 0.018 },
@@ -85,7 +85,7 @@ export const PROFILES: Record<string, Profile> = {
     ],
   },
   // la cámara acorazada: bordón blindado, relojería de los mecanismos, diales, cerrojos y las barreras láser
-  camara: {
+  vault: {
     echo: 0.25, layers: [{ synth: 'bordon', vol: 0.035 }, { file: 'amb_roca', vol: 0.09, underStep: 900 }, { file: 'amb_sala_control', vol: 0.14, underStep: 1200 }],
     details: [
       { sounds: ['relojeria'], every: [6, 14], vol: 0.18 }, { synth: 'ticAcorazada', every: [7, 16], vol: 0.05 },
@@ -95,7 +95,7 @@ export const PROFILES: Record<string, Profile> = {
     ],
   },
   // la puerta del refugio: el viento de la superficie entrando, la compuerta enorme que gime, hidráulica y vapor
-  puerta: {
+  gate: {
     echo: 0.2, layers: [{ file: 'amb_viento', vol: 0.3, underStep: 2200 }, { file: 'amb_generador', vol: 0.09 }, { file: 'amb_hueco', vol: 0.1 }],
     details: [
       { sounds: ['puerta_enorme'], every: [25, 55], vol: 0.22, echo: 0.4 }, { sounds: ['hidraulica_1', 'hidraulica_2'], every: [14, 32], vol: 0.24 },
@@ -118,12 +118,12 @@ export const PROFILES: Record<string, Profile> = {
     ],
   },
   // cultivos: agua corriendo, la bomba, aspersores y goteo
-  hidroponia: {
+  hydroponics: {
     layers: [{ file: 'amb_agua', vol: 0.22 }, { synth: 'bomba', vol: 0.02 }],
     details: [{ sounds: ['aspersor'], every: [14, 32], vol: 0.2 }, { drop: true, every: [3, 9], vol: 0.07 }, { sounds: ['amb_burbujas'], segment: [2, 4], every: [25, 50], vol: 0.12 }],
   },
   // galería de tiro: disparos en las calles de tiro, casquillos por el suelo, el carril de las dianas y la nave con eco
-  galeria: {
+  gallery: {
     echo: 0.45, layers: [{ synth: 'fluorescente', vol: 0.012 }, { file: 'amb_roca', vol: 0.07, underStep: 1200 }, { file: 'amb_almacen', vol: 0.12, underStep: 1500 }],
     details: [
       { sounds: ['disparo_lejano_1', 'disparo_lejano_2', 'disparo_lejano_3'], every: [3, 9], vol: 0.2, var: 0.06, echo: 0.35, burst: [1, 3, 0.35, 0.9] },
@@ -133,12 +133,12 @@ export const PROFILES: Record<string, Profile> = {
     ],
   },
   // la discoteca: con la música de Spotify sonando, el bus de ambiente ya baja (sonido.atenuarAmbiente)
-  discoteca: {
+  disco: {
     layers: [{ synth: 'fluorescente', vol: 0.008 }, { file: 'amb_generador', vol: 0.05, rate: 0.7 }, { file: 'amb_sala_control', vol: 0.14, underStep: 1500 }],
     details: [{ sounds: ['copas'], every: [18, 40], vol: 0.18 }, { sounds: ['copas'], every: [30, 60], vol: 0.12, rate: 1.25 }],
   },
   // Chapa y Pintura: el compresor que arranca y para, aerógrafo, tijeras y maquinilla
-  chapa: {
+  bodyshop: {
     layers: [{ file: 'amb_compresor', vol: 0.2, cycle: [15, 35, 25, 60] }],
     details: [
       { sounds: ['aerografo'], every: [12, 28], vol: 0.2 }, { sounds: ['tijeras_1', 'tijeras_2'], every: [7, 16], vol: 0.28, burst: [2, 4, 0.25, 0.5] },
@@ -155,7 +155,7 @@ export const PROFILES: Record<string, Profile> = {
     layers: [{ synth: 'fluorescente', vol: 0.01 }, { file: 'bucle_ordenador', vol: 0.06, underStep: 2200 }],
     details: [{ sounds: MOUSE, every: [6, 14], vol: 0.12, burst: [1, 2, 0.2, 0.4] }, typing([10, 20], 0.1), { sounds: PAPER, every: [30, 60], vol: 0.1 }, { synth: 'parpadeo', every: [40, 80], vol: 0.02 }],
   },
-  marca: {
+  brand: {
     timer: 0.07, layers: [{ file: 'amb_ventilacion', vol: 0.05, underStep: 1500 }],
     details: [{ sounds: PAPER, every: [6, 14], vol: 0.2 }, { sounds: ['impresora_1', 'impresora_2'], every: [40, 80], vol: 0.18 }, { sounds: ['rpg_bookFlip1'], every: [20, 40], vol: 0.14 }, { sounds: MOUSE, every: [10, 20], vol: 0.1 }],
   },
@@ -163,29 +163,29 @@ export const PROFILES: Record<string, Profile> = {
     layers: [{ file: 'amb_proyector', vol: 0.22 }],
     details: [{ sounds: MOUSE, every: [8, 16], vol: 0.1 }, typing([15, 30], 0.08), { synth: 'reles', every: [20, 40], vol: 0.03 }],
   },
-  banco: {
+  bench: {
     layers: [{ file: 'amb_generador', vol: 0.07, rate: 0.9 }, { synth: 'fluorescente', vol: 0.006 }],
     details: [
       { sounds: ['golpe_metal', 'imp_impactMetal_light_000'], every: [12, 25], vol: 0.12, var: 0.08 }, { sounds: ['clank'], every: [20, 40], vol: 0.12 },
       { sounds: ['engranajes'], every: [25, 50], vol: 0.15 }, { sounds: ['vapor_1', 'vapor_2'], every: [30, 60], vol: 0.1 }, typing([10, 20], 0.08),
     ],
   },
-  fundicion: {
+  foundry: {
     layers: [{ file: 'amb_fuego', vol: 0.28 }],
     details: [
       { sounds: ['yunque_1', 'yunque_2'], every: [6, 14], vol: 0.2, echo: 0.3, burst: [2, 4, 0.45, 0.7] }, { sounds: ['vapor_1', 'vapor_2'], every: [20, 40], vol: 0.15 },
       { sounds: ['golpe_metal'], every: [25, 40], vol: 0.1 }, { sounds: ['sf_explosionCrunch_000'], every: [30, 60], vol: 0.05, rate: 1.8 },
     ],
   },
-  laboratorio: {
+  lab: {
     layers: [{ file: 'amb_burbujas', vol: 0.22 }, { synth: 'fluorescente', vol: 0.006 }],
     details: [{ synth: 'pitidosMando', every: [10, 25], vol: 0.02 }, { sounds: ['copas'], every: [20, 40], vol: 0.08, rate: 1.3 }, { sounds: ['vapor_1', 'vapor_2'], every: [30, 60], vol: 0.08 }, typing([10, 20], 0.08)],
   },
-  estudio: {
+  studio: {
     layers: [{ synth: 'fluorescente', vol: 0.006 }, { file: 'bucle_ordenador', vol: 0.07, underStep: 2500 }],
     details: [typing([5, 12], 0.12), { sounds: MOUSE, every: [5, 12], vol: 0.14, burst: [1, 3, 0.15, 0.4] }, { sounds: ['cafetera'], every: [60, 120], vol: 0.15 }, { sounds: PAPER, every: [40, 80], vol: 0.1 }],
   },
-  archivo: {
+  archive: {
     timer: 0.07, layers: [{ file: 'amb_ventilacion', vol: 0.05, underStep: 1500 }],
     details: [{ sounds: PAPER, every: [6, 14], vol: 0.2 }, { sounds: ['rpg_bookFlip1'], every: [15, 30], vol: 0.15 }, { sounds: ['rpg_bookOpen'], every: [30, 60], vol: 0.12 }, { sounds: ['rpg_metalLatch'], every: [25, 50], vol: 0.1 }],
   },

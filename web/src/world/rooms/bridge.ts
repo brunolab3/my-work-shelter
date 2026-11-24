@@ -24,14 +24,14 @@ export async function furnishBridge(ctx: Context) {
   const focus = new THREE.Sprite(new THREE.SpriteMaterial({ map: textureHalo(), color: CYAN, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.7 }));
   focus.scale.set(1.2, 0.35, 1); focus.position.set(0, 1.34, ZH); g.add(focus);
   const mockup = new Mockup(); mockup.group.position.set(0, YH, ZH); g.add(mockup.group);
-  ctx.room.anchors.push({ type: 'punto', pos: new THREE.Vector3(0, 2.2, ZH + 0.6), intensity: 2.5, color: new THREE.Color(CYAN), distance: 5, priority: 2 });
+  ctx.room.anchors.push({ type: 'point', pos: new THREE.Vector3(0, 2.2, ZH + 0.6), intensity: 2.5, color: new THREE.Color(CYAN), distance: 5, priority: 2 });
   ctx.room.obstacles.push(new THREE.Box2(new THREE.Vector2(-1.45, zB), new THREE.Vector2(1.45, ZH + 1.3)));
   // quien trabaja aquí lo hace de pie junto al estrado, gesticulando hacia la maqueta
-  ctx.room.points.push({ id: 'consola', type: 'consola', pos: new THREE.Vector3(1.55, 0, ZH + 1.05), rotation: -2.25, clip: 'Interact' });
+  ctx.room.points.push({ id: 'console', type: 'console', pos: new THREE.Vector3(1.55, 0, ZH + 1.05), rotation: -2.25, clip: 'Interact' });
   // la pieza: la maqueta holográfica. Se mueve con las manos (la maqueta da un pulso y el cono se aviva), se alza para
   // verla entera o se toca el proyector
   let pulse = 0; const revive = () => { pulse = 1; };
-  for (const [id, x] of [['maqueta', -1.62], ['maqueta-2', 1.62]] as const) ctx.room.points.push({ id, type: 'pieza', pos: new THREE.Vector3(x, 0, ZH + 0.95), rotation: Math.atan2(-x, -0.95),
+  for (const [id, x] of [['mockup', -1.62], ['mockup-2', 1.62]] as const) ctx.room.points.push({ id, type: 'piece', pos: new THREE.Vector3(x, 0, ZH + 0.95), rotation: Math.atan2(-x, -0.95),
     actions: [{ clip: 'Ranged_Magic_Spellcasting', onMake: revive }, { clip: 'Interact', onMake: revive }, { clip: 'Ranged_Magic_Raise', onMake: revive }] });
   // ---- columnas de código a los lados del estrado (el refugio, visto como lo que es)
   const rains: Rain[] = [];
@@ -43,11 +43,11 @@ export async function furnishBridge(ctx: Context) {
     p.position.set(x, 2.0, zB + 0.47); g.add(p);
   }
   // ---- núcleo de energía a la izquierda (el generador del refugio: se repara con E)
-  const core = await P(R.sf('Props_Pod'), { pos: [-4.45, 0, zB + 1.05], height: 3.3, isStatic: false, own: true }); ctx.device('generador', core);
+  const core = await P(R.sf('Props_Pod'), { pos: [-4.45, 0, zB + 1.05], height: 3.3, isStatic: false, own: true }); ctx.device('generator', core);
   const liquid = mountLiquid(core, '#5affc8', g);
   P(R.sf('Details_Pipes_Long'), { pos: [-4.45, 3.3, zB + 0.55], height: 1.1, variant: ctx.vCopper, shadow: false });
-  for (const x of [-3.35, -5.55]) P(R.cy('Cable_Thick'), { pos: [x, HEIGHT, zB + 0.65], height: 1.2, anchor: 'techo', shadow: false });
-  const anchor = { type: 'punto' as const, pos: new THREE.Vector3(-4.45, 1.6, zB + 2.1), intensity: 4, color: new THREE.Color('#5affc8'), distance: 5, priority: 2 };
+  for (const x of [-3.35, -5.55]) P(R.cy('Cable_Thick'), { pos: [x, HEIGHT, zB + 0.65], height: 1.2, anchor: 'ceiling', shadow: false });
+  const anchor = { type: 'point' as const, pos: new THREE.Vector3(-4.45, 1.6, zB + 2.1), intensity: 4, color: new THREE.Color('#5affc8'), distance: 5, priority: 2 };
   ctx.room.anchors.push(anchor);
   ctx.room.obstacles.push(new THREE.Box2(new THREE.Vector2(-6, zB), new THREE.Vector2(-3.4, zB + 2.0)));
   // ---- mesa de planos del Arquitecto (su puesto, de tres cuartos): el plano del refugio, compás, flexo y su monitor con
@@ -56,8 +56,8 @@ export async function furnishBridge(ctx: Context) {
   pRepo.speed = 30; pRepo.write(t('world.bridge.gitLog').split('|'));
   await monitorWall(ctx, 4.35, 2.4, 1.2, pRepo.tex, 1.2);
   ctx.room.screens.push(pRepo);
-  const pMap = new PhosphorScreen(384, 256, v.screen); pMap.speed = 30; screenReal(ctx, pMap, 'actividad'); ctx.room.screens.push(pMap);
-  await workStation(ctx, { id: 'silla', x: 4.25, z: -0.7, rotation: -0.8, desk: R.furniture('table_medium'), deskScale: 0.8, tex: pMap.tex,
+  const pMap = new PhosphorScreen(384, 256, v.screen); pMap.speed = 30; screenReal(ctx, pMap, 'activity'); ctx.room.screens.push(pMap);
+  await workStation(ctx, { id: 'chair', x: 4.25, z: -0.7, rotation: -0.8, desk: R.furniture('table_medium'), deskScale: 0.8, tex: pMap.tex,
     onTop: [{ path: R.tools('blueprint'), x: -0.3, z: 0.38, c: { width: 0.5, rot: 0.12 } }, { path: R.tools('drafting_compass'), x: 0.42, z: 0.38, c: { height: 0.12, rot: 0.8 } }, { path: R.furniture('lamp_desk'), x: 0.45, z: -0.32, c: { height: 0.38, rot: -0.6 } }] });
   // archivo de planos al fondo (cada rollo, en su balda)
   const file = P(R.sf('Props_Shelf'), { pos: [5.6, 0, zB + 0.5], height: 2.0, rot: -Math.PI / 2 });
@@ -65,7 +65,7 @@ export async function furnishBridge(ctx: Context) {
   ctx.restsOn(file, R.tools('map_rolled'), { pos: [5.6, 0, zB + 0.42], height: 0.12, rot: Math.PI / 2 }, { since: 1.5 });
   ctx.restsOn(file, R.tools('map_rolled'), { pos: [5.55, 0, zB + 0.62], height: 0.12, rot: Math.PI / 2 + 0.2 }, { since: 1.5 });
   ctx.room.obstacles.push(new THREE.Box2(new THREE.Vector2(5.1, zB), new THREE.Vector2(6, zB + 1.0)));
-  signInWall(g, sign(t('world.poster.bridge'), t('world.poster.bridgeFoot'), '#e6dcc0', '#5e4a1c', 'ojo', seed), 3.3, 2.85, 0.56, 0.78, zB + 0.33, -0.03);
+  signInWall(g, sign(t('world.poster.bridge'), t('world.poster.bridgeFoot'), '#e6dcc0', '#5e4a1c', 'eye', seed), 3.3, 2.85, 0.56, 0.78, zB + 0.33, -0.03);
 
   const panel = new PanelRoom(); panel.title = 'PUENTE'; panel.color = v.screen; ctx.panel = panel;
   stain(g, 2.2, 1.3, 1.0, seed); stain(g, -3.0, 1.1, 0.9, seed + 4);
@@ -134,9 +134,9 @@ class Mockup {
     const current = world.currentRoom();
     for (const c of this.boxes) {
       if (!c.room) continue;
-      const e = c.room.state; c.mat.color.set(e === 'sin-sesion' || e === 'ociosa' ? CYAN : COLOR_STATE[e]);
-      const late = e === 'esperando' || e === 'error' ? 0.5 + 0.5 * Math.sin(t * 6) : 0;
-      c.mat.opacity = (e === 'sin-sesion' ? 0.07 : e === 'ociosa' ? 0.12 : 0.3) + late * 0.3 + (c.room === current ? 0.12 : 0);
+      const e = c.room.state; c.mat.color.set(e === 'no-session' || e === 'idle' ? CYAN : COLOR_STATE[e]);
+      const late = e === 'waiting' || e === 'error' ? 0.5 + 0.5 * Math.sin(t * 6) : 0;
+      c.mat.opacity = (e === 'no-session' ? 0.07 : e === 'idle' ? 0.12 : 0.3) + late * 0.3 + (c.room === current ? 0.12 : 0);
     }
     const sup = world.supervisor();
     if (sup) { this.point.visible = true; this.point.position.set((sup.position.x - this.cx) * this.scale, (sup.position.y - this.y0) * this.scale + 0.04, 0.2); this.point.scale.setScalar(0.13 + Math.sin(t * 5) * 0.03); }

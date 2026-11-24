@@ -22,7 +22,7 @@ await pg.evaluate(() => window.__ready());
 await pg.waitForFunction(() => window.__live.get().state?.rooms, null, { timeout: 30000 });
 const photo = async (n) => { await pg.screenshot({ path: `${dir}/${n}.png` }); console.log('->', `${dir}/${n}.png`); };
 const wait = (ms) => pg.waitForTimeout(ms);
-let failures = 0; const ok = (c, txt) => { console.log((c ? 'OK   ' : 'FALLO') + ' ' + txt); if (!c) failures++; };
+let failures = 0; const ok = (c, txt) => { console.log((c ? 'OK   ' : 'FAILED') + ' ' + txt); if (!c) failures++; };
 
 await pg.evaluate(async () => { await window.__client.action('save', { patch: { doneWelcome: true } }); window.__game.set({ panel: null, panelData: null }); });
 await pg.evaluate(() => window.dispatchEvent(new CustomEvent('refugio:ir', { detail: { roomId: 'git' } })));
@@ -53,7 +53,7 @@ const ofNear = async (n, d = 6.5, y = 0.8, x = 0) => {
   await pg.evaluate(() => { window.__camQA = null; });
 };
 const state = async (e, ms = 1400) => { await pg.evaluate(e => window.__octocat.change(e, '', 'terminal'), e); await wait(ms); };
-await state('ocioso', 800);
+await state('idle', 800);
 await pg.evaluate(() => { const h = window.__octocat; h.p.stop(); h.p.play('Idle_A', 0); h.p.goalTurn = 0.35; });
 await wait(1200);
 await ofNear('2-de-cerca');
@@ -74,16 +74,16 @@ ok(Math.abs(measured.v - measured.requested) / measured.requested < 0.25, `anda 
 await ofNear('5-andando', 9);
 await wait(2500);
 
-for (const [e, n, ms] of [['trabajando', '6-trabajando', 4500], ['pensando', '7-pensando-silla', 5000], ['esperando', '8-esperando-saludo', 900], ['terminado', '9-terminado-fiesta', 900], ['error', '10-error', 1800]]) {
-  await state(e, ms); await ofNear(n, 9, e === 'pensando' ? 1.1 : 0.8);
+for (const [e, n, ms] of [['working', '6-trabajando', 4500], ['thinking', '7-pensando-silla', 5000], ['waiting', '8-esperando-saludo', 900], ['finished', '9-terminado-fiesta', 900], ['error', '10-error', 1800]]) {
+  await state(e, ms); await ofNear(n, 9, e === 'thinking' ? 1.1 : 0.8);
 }
 // al acabar el gesto vuelve a su pose
-await state('terminado', 3200);
+await state('finished', 3200);
 ok(await pg.evaluate(() => window.__octocat.p.currentName === 'Idle_A'), 'tras la fiesta vuelve a Idle_A');
-await state('ocioso', 600);
+await state('idle', 600);
 
 // el intercomunicador: retrato en vivo
-await pg.evaluate(() => { const r = window.__shelter; r.camara.minDist = 9; r.interact(window.__octocat); });
+await pg.evaluate(() => { const r = window.__shelter; r.camera.minDist = 9; r.interact(window.__octocat); });
 await wait(2500);
 await photo('11-intercom');
 ok(await pg.evaluate(() => !!window.__portrait), 'retrato en el intercomunicador');

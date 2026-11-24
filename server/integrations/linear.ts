@@ -30,13 +30,13 @@ export const Q = {
 };
 
 // Filtros del tablero que el panel puede pedir (sintaxis oficial de IssueFilter)
-export function boardFilter(d: { priority?: 'alta'; label?: string; project?: string; assignedToMe?: boolean; cycle?: 'actual' }) {
+export function boardFilter(d: { priority?: 'high'; label?: string; project?: string; assignedToMe?: boolean; cycle?: 'current' }) {
   const f: Record<string, unknown> = {};
-  if (d.priority === 'alta') f.priority = { lte: 2, neq: 0 };
+  if (d.priority === 'high') f.priority = { lte: 2, neq: 0 };
   if (d.label) f.labels = { some: { name: { eq: d.label } } };
   if (d.project) f.project = { id: { eq: d.project } };
   if (d.assignedToMe) f.assignee = { isMe: { eq: true } };
-  if (d.cycle === 'actual') f.cycle = { isActive: { eq: true } };
+  if (d.cycle === 'current') f.cycle = { isActive: { eq: true } };
   return Object.keys(f).length ? f : undefined;
 }
 

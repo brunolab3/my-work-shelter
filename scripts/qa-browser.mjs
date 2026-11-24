@@ -22,13 +22,13 @@ const box = sel => pg.evaluate(sel => { const r = document.querySelector(sel)?.g
 const inWeb = js => pg.evaluate(js => document.querySelector('.ventana-navegador webview').executeJavaScript(js), js);
 
 // abrir desde el panel de Logística, como lo haría el usuario
-await pg.evaluate(() => window.__game.set({ panel: 'logistica', panelData: null }));
-await pg.waitForSelector('.aparato .opciones-consola li');
-const option = await pg.$$eval('.aparato .opciones-consola li', ls => ls.findIndex(l => l.textContent.includes('Abrir Linear aquí mismo')));
+await pg.evaluate(() => window.__game.set({ panel: 'logistics', panelData: null }));
+await pg.waitForSelector('.device .opciones-consola li');
+const option = await pg.$$eval('.device .opciones-consola li', ls => ls.findIndex(l => l.textContent.includes('Abrir Linear aquí mismo')));
 check(option >= 0, 'el panel de Logística ofrece «Abrir Linear aquí mismo»');
-await pg.click(`.aparato .opciones-consola li:nth-child(${option + 1})`);
+await pg.click(`.device .opciones-consola li:nth-child(${option + 1})`);
 await pg.waitForSelector('.ventana-navegador webview', { state: 'attached', timeout: 15000 });
-check(!(await pg.$('.aparato')), 'el panel se cierra al abrir el navegador');
+check(!(await pg.$('.device')), 'el panel se cierra al abrir el navegador');
 await pg.waitForFunction(() => window.__browsers.browsers.get().list.find(v => v.id === 'linear')?.loading === false, null, { timeout: 30000 }).catch(() => {});
 await wait(1500);
 const v = await state();

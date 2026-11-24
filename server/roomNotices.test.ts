@@ -11,7 +11,7 @@ const ROOMS = [
   { id: 'express', name: 'app-web', dweller: { id: 'remi', name: 'Remi' } },
   { id: 'pagos', name: 'pagos', dweller: { id: 'pilar', name: 'Pilar' } },
   { id: 'tareas', name: 'Logística', dweller: { id: 'ines', name: 'Inés' } },
-  { id: 'vacia', name: 'vacía' },
+  { id: 'empty', name: 'vacía' },
 ];
 
 // un contexto que apunta lo que se hace: avisos a conversaciones abiertas y conversaciones nuevas
@@ -37,7 +37,7 @@ describe('mensajes entre salas', () => {
   beforeEach(() => { forgetLimits(); forgetThreads(); });
 
   it('sin clave, una conversación nueva con el habitante en su copia principal, aunque tenga otra abierta', async () => {
-    const x = ctx({ openSessions: { 'express/ABC-1': 'abierta' } });
+    const x = ctx({ openSessions: { 'express/ABC-1': 'open' } });
     const r = await sendToRoom(x.c, 'tareas', { room: 'app-web', message: '  Investiga los saltos del bloqueo de LTD  ' });
     expect(r.ok).toBe(true);
     expect(x.notified).toEqual([]);
@@ -102,7 +102,7 @@ describe('mensajes entre salas', () => {
 
   it('with a thread: one conversation per room and thread in the main copy, reused while open, never the sender; without one, always new', async () => {
     const closed = new Set<string>(), timer = { t: 1_000_000 };
-    const x = ctx({ closed, timer, openSessions: { 'express/ABC-1': 'abierta' } });
+    const x = ctx({ closed, timer, openSessions: { 'express/ABC-1': 'open' } });
     const r1 = await sendToRoom(x.c, 'express', { room: 'express', message: 'a', thread: 'Cleanup' }, 'holo-a');
     expect(r1.ok).toBe(true);
     expect(x.fresh).toEqual([expect.objectContaining({ roomId: 'express', cwd: undefined, worktree: undefined })]);
@@ -146,7 +146,7 @@ describe('mensajes entre salas', () => {
     expect(x.notified).toEqual([expect.objectContaining({ sessionId: 'nueva' })]);
     expect(r2.text).toContain('mensaje anterior');
     // the receiver replies to the sender's room: to the conversation that wrote, not a new one
-    const r3 = await sendToRoom(x.c, 'pagos', { room: 'app-web', message: 'hecho' }, 'nueva');
+    const r3 = await sendToRoom(x.c, 'pagos', { room: 'app-web', message: 'done' }, 'nueva');
     expect(x.notified.at(-1)?.sessionId).toBe('ses-a');
     expect(r3.text).toContain('te escribió');
     expect(x.fresh).toHaveLength(1);
@@ -311,7 +311,7 @@ describe('mensajes entre salas', () => {
     expect(x.origins).toEqual([{ kind: 'room', roomId: 'express', room: 'app-web', dweller: 'Remi' }]);
     expect(x.senders).toEqual(['ses-express']);
     // the next one too, to the same conversation; once idle, no longer held
-    await sendToRoom(x.c, 'express', { room: 'pagos', key: 'ABC-7', message: 'aprobado', important: true }, 'ses-express');
+    await sendToRoom(x.c, 'express', { room: 'pagos', key: 'ABC-7', message: 'approved', important: true }, 'ses-express');
     busy.clear();
     const r3 = await sendToRoom(x.c, 'tareas', { room: 'pagos', key: 'ABC-7', message: 'otra cosa' });
     expect(r3.text).not.toContain('espera a que acabe');
@@ -330,7 +330,7 @@ describe('mensajes entre salas', () => {
     expect(x.resumed[0].prompt).toContain('fuera de lo que estás haciendo');
     expect(x.fresh).toEqual([]);
     // its replies come back to the sender
-    await sendToRoom(x.c, 'pagos', { room: 'express', message: 'hecho' }, 'retomada');
+    await sendToRoom(x.c, 'pagos', { room: 'express', message: 'done' }, 'retomada');
     expect(x.notified.at(-1)!.sessionId).toBe('ses-express');
     await sendToRoom(x.c, 'express', { room: 'pagos', key: 'ABC-6', message: 'a' });
     expect(x.fresh[0]).toMatchObject({ cwd: '/repos/pagos/.claude/worktrees/ABC-6' });
@@ -358,9 +358,9 @@ describe('mensajes entre salas', () => {
 
   it('rechaza una sala que no existe (con la lista), una sin habitante y una clave que no lo es', async () => {
     const x = ctx();
-    const r = await sendToRoom(x.c, 'express', { room: 'nada', message: 'a' });
+    const r = await sendToRoom(x.c, 'express', { room: 'none', message: 'a' });
     expect(r.ok).toBe(false); expect(r.text).toContain('pagos (pagos)');
-    expect((await sendToRoom(x.c, 'express', { room: 'vacia', message: 'a' })).ok).toBe(false);
+    expect((await sendToRoom(x.c, 'express', { room: 'empty', message: 'a' })).ok).toBe(false);
     expect((await sendToRoom(x.c, 'express', { room: 'pagos', key: 'lo de ayer', message: 'a' })).ok).toBe(false);
     expect(x.fresh).toEqual([]);
   });
@@ -432,8 +432,8 @@ describe('over the per-minute limit', () => {
     const l = x.p.list();
     expect(rs[3].text).toContain(l[0].id);
     expect(l.map(m => [m.message, m.when - t0, m.target])).toEqual([
-      ['Task 4', 60_000, { type: 'sala', room: 'pagos', key: 'ABC-4' }], ['Task 5', 60_000, { type: 'sala', room: 'pagos', key: 'ABC-5' }],
-      ['Task 6', 60_000, { type: 'sala', room: 'pagos', key: 'ABC-6' }], ['Task 7', 120_000, { type: 'sala', room: 'pagos', key: 'ABC-7' }],
+      ['Task 4', 60_000, { type: 'room', room: 'pagos', key: 'ABC-4' }], ['Task 5', 60_000, { type: 'room', room: 'pagos', key: 'ABC-5' }],
+      ['Task 6', 60_000, { type: 'room', room: 'pagos', key: 'ABC-6' }], ['Task 7', 120_000, { type: 'room', room: 'pagos', key: 'ABC-7' }],
     ]);
     // while some wait, a new one queues behind them even with room in the window
     timer.t = t0 + 60_000;
@@ -444,7 +444,7 @@ describe('over the per-minute limit', () => {
     const r = await sendToRoom(x.c, 'tareas', { room: 'pagos', message: 'Then this', thread: 'deps' }, 'yo');
     expect(r.ok).toBe(true);
     expect(x.p.list().map(m => [m.message, m.when - t0])).toEqual([['Task 7', 120_000], ['Then this', 120_000]]);
-    expect(x.p.list()[1].target).toEqual({ type: 'sala', room: 'pagos', thread: 'deps' });
+    expect(x.p.list()[1].target).toEqual({ type: 'room', room: 'pagos', thread: 'deps' });
     // swept early (over the limit still): kept, without a warning
     timer.t = t0 + 119_000;
     x.p['items'].forEach(m => { m.when = timer.t; });
@@ -470,7 +470,7 @@ describe('over the per-minute limit', () => {
     expect(r.text).not.toContain('Se une');
     const r2 = await sendToRoom(x.c, 'tareas', { room: 'pagos', key: 'ABC-9', message: 'Sorry: v2, not v1' }, 'yo');
     expect(r2).toMatchObject({ ok: true, text: expect.stringContaining(`Se une a tu mensaje ${id}`) });
-    await sendToRoom(x.c, 'tareas', { room: 'pagos', key: 'ABC-9', message: 'From another conversation' }, 'otra');
+    await sendToRoom(x.c, 'tareas', { room: 'pagos', key: 'ABC-9', message: 'From another conversation' }, 'other');
     await sendToRoom(x.c, 'tareas', { room: 'pagos', key: 'ABC-8', message: 'Another task' }, 'yo');
     expect(x.p.list().map(m => m.message.split('\n')[0])).toEqual([expect.stringContaining('📦 2 mensajes de la sala «Logística» (Inés)'), 'From another conversation', 'Another task']);
     timer.t = t0 + 60_000; await x.p.sweep();

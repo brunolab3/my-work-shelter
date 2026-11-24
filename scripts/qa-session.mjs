@@ -25,10 +25,10 @@ ws.on('message', raw => {
     const s = m.session; sessionId = s.id;
     if (s.pending && phase === 0) { phase = 1; log('PERMISO:', s.pending.title, '\n' + (s.pending.input ?? []).map(b => b.text).join('\n')); ws.send(JSON.stringify({ t: 'answer', sessionId, requestId: s.pending.id, decision: 'si' })); }
     if (s.activity && s.activity.text !== globalThis.__last) { globalThis.__last = s.activity.text; log('actividad:', s.activity.text); }
-    if (phase === 0 && s.state === 'terminada') log('(no pidió permiso: las reglas del usuario lo permiten)');
-    if (s.state === 'terminada' && phase <= 1) { phase = 2; log('TERMINADA turno 1:', (s.lastText || '').slice(0, 160), '| claudeId', s.claudeId); ws.send(JSON.stringify({ t: 'send', sessionId, text: 'Ahora responde solo: «vale».' })); }
-    else if (s.state === 'terminada' && phase === 2) { phase = 3; log('TERMINADA turno 2:', s.lastText); ws.send(JSON.stringify({ t: 'closeSession', sessionId })); }
-    else if (s.state === 'cerrada') { log('CERRADA. textos en streaming:', texts); ws.close(); process.exit(0); }
+    if (phase === 0 && s.state === 'finished') log('(no pidió permiso: las reglas del usuario lo permiten)');
+    if (s.state === 'finished' && phase <= 1) { phase = 2; log('TERMINADA turno 1:', (s.lastText || '').slice(0, 160), '| claudeId', s.claudeId); ws.send(JSON.stringify({ t: 'send', sessionId, text: 'Ahora responde solo: «vale».' })); }
+    else if (s.state === 'finished' && phase === 2) { phase = 3; log('TERMINADA turno 2:', s.lastText); ws.send(JSON.stringify({ t: 'closeSession', sessionId })); }
+    else if (s.state === 'closed') { log('CERRADA. textos en streaming:', texts); ws.close(); process.exit(0); }
     else if (s.state === 'error') { log('ERROR:', s.error); process.exit(1); }
   } else if (m.t === 'text') texts++;
   else if (m.t === 'notice') log('aviso:', m.text);

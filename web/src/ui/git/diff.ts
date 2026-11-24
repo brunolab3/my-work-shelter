@@ -54,7 +54,7 @@ export const chunksAccepts = (d: DiffFile) => !d.binary && !d.newer && !d.delete
  * Devuelve null si no queda ningún cambio. Los recuentos de cada bloque los rehace `git apply --recount`; los inicios
  * del lado que no se aplica se corrigen con lo que han movido los bloques anteriores del parche.
  */
-export function assemblePatch(d: DiffFile, blocks: number[], direction: 'adelante' | 'atras', picked?: Map<number, Set<number>>): string | null {
+export function assemblePatch(d: DiffFile, blocks: number[], direction: 'forward' | 'back', picked?: Map<number, Set<number>>): string | null {
   const output: string[] = [...d.header];
   let offset = 0, found = false;
   for (const bi of [...blocks].sort((a, b) => a - b)) {
@@ -66,7 +66,7 @@ export function assemblePatch(d: DiffFile, blocks: number[], direction: 'adelant
       if (l.type === '\\') { if (lastInside) out.push(l); continue; }
       if (l.type === ' ' || !sel || sel.has(i)) { out.push(l); lastInside = true; continue; }
       // una línea cambiada que no se ha elegido
-      const left = direction === 'adelante' ? l.type === '-' : l.type === '+';
+      const left = direction === 'forward' ? l.type === '-' : l.type === '+';
       if (left) out.push({ ...l, type: ' ' });
       lastInside = left;
     }
@@ -74,8 +74,8 @@ export function assemblePatch(d: DiffFile, blocks: number[], direction: 'adelant
     if (!deletions && !more) continue;
     found = true;
     const oldN = ctx + deletions, newN = ctx + more;
-    const startOld = direction === 'adelante' ? b.startOld : b.newStart - offset;
-    const newStart = direction === 'adelante' ? b.startOld + offset : b.newStart;
+    const startOld = direction === 'forward' ? b.startOld : b.newStart - offset;
+    const newStart = direction === 'forward' ? b.startOld + offset : b.newStart;
     // un bloque vacío de un lado empieza en la línea anterior (convenio de diff): se respeta el del original
     const vI = oldN === 0 ? Math.max(0, startOld - (b.oldN === 0 ? 0 : 1)) : Math.max(1, startOld);
     const nI = newN === 0 ? Math.max(0, newStart - (b.newN === 0 ? 0 : 1)) : Math.max(1, newStart);

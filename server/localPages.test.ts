@@ -25,7 +25,7 @@ describe('páginas HTML del Mac en el juego', () => {
   it("a link's kind, without opening it: inside the game or not, and where the Mac would open it", async () => {
     expect(await linkKind(path.join(folder, 'mi plan.html') + ':3', '/Users/nadie')).toEqual({ juego: true, mac: 'web' });
     expect(await linkKind(path.join(folder, 'estilo.css'), '/Users/nadie')).toEqual({ juego: false, mac: 'editor' });
-    expect(await linkKind(folder, '/Users/nadie')).toEqual({ juego: false, mac: 'carpeta' });
+    expect(await linkKind(folder, '/Users/nadie')).toEqual({ juego: false, mac: 'folder' });
     await expect(linkKind(path.join(folder, 'falta.html'), '/Users/nadie')).rejects.toThrow();
   });
   it('un enlace a una página da su dirección en el juego (con llave) en vez de abrirla en el Mac', async () => {
@@ -80,7 +80,7 @@ describe('páginas HTML del Mac en el juego', () => {
 describe('images of the Mac in the game', () => {
   const photos = path.join(base, 'fotos'); mkdirSync(photos);
   writeFileSync(path.join(photos, 'captura.png'), 'PNG'); writeFileSync(path.join(photos, 'vecina.png'), 'PNG');
-  writeFileSync(path.join(photos, 'nota.txt'), 'texto'); writeFileSync(path.join(photos, 'foto.heic'), 'HEIC');
+  writeFileSync(path.join(photos, 'nota.txt'), 'text'); writeFileSync(path.join(photos, 'foto.heic'), 'HEIC');
   it('a link to an image opens in the «Página» window, with a key that serves that image only', async () => {
     const { page } = await openLink(path.join(photos, 'captura.png'), '/Users/nadie') as any;
     expect(page).toMatchObject({ title: 'captura.png', path: path.join(realpathSync(photos), 'captura.png') });

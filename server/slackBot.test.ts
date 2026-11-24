@@ -12,20 +12,20 @@ const APP = 'xapp-1-A0123456789-1234567890123-abcdef0123456789abcdef';
 const XOX = 'xox';
 const BOT = XOX + 'b-1234567890-1234567890123-AbCdEfGhIjKlMnOpQrStUvWx';
 const session = (id: string, o: Partial<SessionSummary> = {}): SessionSummary => ({
-  id, dwellerId: 'h1', roomId: 'estudio', cwd: '/x', state: 'trabajando', unread: false, title: 'Arreglar el login',
+  id, dwellerId: 'h1', roomId: 'studio', cwd: '/x', state: 'working', unread: false, title: 'Arreglar el login',
   lastText: 'SECRETO: la clave de la base de datos es hunter2', pendingCount: 0, helpers: [], tools: 0, turns: 1,
   created: 0, updated: Date.parse('2026-11-10T14:05:00'), ...o,
 } as SessionSummary);
-const ROOMS = [{ id: 'estudio', name: 'Estudio' }];
-const PERMISSION: PendingRequest = { id: 'p1', type: 'permiso', tool: 'Bash', title: 'Ejecutar un comando', canAlways: true,
-  input: [{ type: 'codigo', text: 'curl -H "Authorization: Bearer ' + XOX + 'b-1111111111-2222222222-abcdefghij" https://api.example‮/x' }] };
+const ROOMS = [{ id: 'studio', name: 'Estudio' }];
+const PERMISSION: PendingRequest = { id: 'p1', type: 'permission', tool: 'Bash', title: 'Ejecutar un comando', canAlways: true,
+  input: [{ type: 'code', text: 'curl -H "Authorization: Bearer ' + XOX + 'b-1111111111-2222222222-abcdefghij" https://api.example‮/x' }] };
 
 function mount(sessions: SessionSummary[], extra: { delayMs?: number; inUse?: () => boolean; data?: string } = {}) {
   const calls: { method: string; p: any; token: string }[] = [];
   let ts = 100;
   const api: SlackApi = async (method, p, token) => {
     calls.push({ method, p, token });
-    if (method === 'auth.test') return { ok: true, team_id: 'T1', team: 'Refugio', user: 'refugio', user_id: 'UBOT' };
+    if (method === 'auth.test') return { ok: true, team_id: 'T1', team: 'Refugio', user: 'shelter', user_id: 'UBOT' };
     if (method === 'apps.connections.open') return { ok: true, url: 'wss://example.invalid/socket' };
     if (method === 'chat.postMessage') return { ok: true, channel: p.channel, ts: String(ts++) };
     return { ok: true };
@@ -66,7 +66,7 @@ describe('mando a distancia por Slack', () => {
     expect(calls).toEqual([]);
     const st = await sk.connect(APP, BOT);
     expect(calls.slice(0, 2).map(l => [l.method, l.token])).toEqual([['auth.test', BOT], ['apps.connections.open', APP]]);
-    expect(st).toMatchObject({ connected: true, team: 'Refugio', bot: 'refugio', paired: false });
+    expect(st).toMatchObject({ connected: true, team: 'Refugio', bot: 'shelter', paired: false });
     expect(st.code).toMatch(/^[A-Z2-9]{4}-[A-Z2-9]{4}$/);
     expect(await readSecret('slackRemote.appToken')).toBe(APP);
     expect(await readSecret('slackRemote.botToken')).toBe(BOT);
@@ -104,7 +104,7 @@ describe('mando a distancia por Slack', () => {
   });
 
   it('manda la petición en texto plano (invisibles a la vista, secretos tapados) con sí/no, y «sí» la resuelve', async () => {
-    const s = session('a', { state: 'esperando', pending: PERMISSION });
+    const s = session('a', { state: 'waiting', pending: PERMISSION });
     const { sk, calls, answers } = await paired([s]);
     await sk.request(s); await sk.request(s);
     const sent = calls.filter(l => l.method === 'chat.postMessage' && l.p.text.startsWith('❓'));
@@ -128,7 +128,7 @@ describe('mando a distancia por Slack', () => {
   });
 
   it('el chat queda con las decisiones abiertas y el estado siempre abajo: lo resuelto o de una conversación que ya no está se borra', async () => {
-    const a = session('a', { state: 'esperando', pending: PERMISSION }), b = session('b', { state: 'esperando', pending: { ...PERMISSION, id: 'p2' } });
+    const a = session('a', { state: 'waiting', pending: PERMISSION }), b = session('b', { state: 'waiting', pending: { ...PERMISSION, id: 'p2' } });
     const list = [a, b];
     const { sk, calls } = await paired(list);
     await sk.request(a); await sk.request(b);
@@ -146,7 +146,7 @@ describe('mando a distancia por Slack', () => {
 
   it('tras un reinicio, las decisiones que quedaron en el chat se borran y el estado se pone al día donde estaba', async () => {
     const data = mkdtempSync(path.join(os.tmpdir(), 'sk-'));
-    const a = session('a', { state: 'esperando', pending: PERMISSION });
+    const a = session('a', { state: 'waiting', pending: PERMISSION });
     const one = await paired([a], { data });
     await one.sk.request(a);
     one.sk.stop();
@@ -162,13 +162,13 @@ describe('mando a distancia por Slack', () => {
     vi.useFakeTimers();
     try {
       let inUse = false;
-      const a = session('a', { state: 'esperando', pending: PERMISSION }), b = session('b', { state: 'esperando', pending: { ...PERMISSION, id: 'p2' } });
+      const a = session('a', { state: 'waiting', pending: PERMISSION }), b = session('b', { state: 'waiting', pending: { ...PERMISSION, id: 'p2' } });
       const { sk, calls } = await paired([a, b], { delayMs: 180_000, inUse: () => inUse });
       const sent = () => calls.filter(l => l.method === 'chat.postMessage' && l.p.text.startsWith('❓')).map(l => l.p.text);
       await sk.request(a); await sk.request(b);
       await vi.advanceTimersByTimeAsync(179_000);
       expect(sent()).toEqual([]);
-      a.pending = undefined; a.state = 'trabajando';   // respondida en el refugio
+      a.pending = undefined; a.state = 'working';   // respondida en el refugio
       await sk.request(a);
       inUse = true;
       await vi.advanceTimersByTimeAsync(5 * 60_000);
@@ -181,10 +181,10 @@ describe('mando a distancia por Slack', () => {
   });
 
   it('las preguntas se responden de una en una, cambiando los botones del mismo mensaje', async () => {
-    const pet: PendingRequest = { id: 'p3', type: 'pregunta', tool: 'AskUserQuestion', title: 'Tengo una pregunta para ti', canAlways: false, questions: [
+    const pet: PendingRequest = { id: 'p3', type: 'question', tool: 'AskUserQuestion', title: 'Tengo una pregunta para ti', canAlways: false, questions: [
       { question: '¿Qué base?', options: [{ label: 'main' }, { label: 'develop' }] },
       { question: '¿Push?', options: [{ label: 'Sí' }, { label: 'No' }] }] };
-    const s = session('a', { state: 'esperando', pending: pet });
+    const s = session('a', { state: 'waiting', pending: pet });
     const { sk, calls, answers } = await paired([s]);
     await sk.request(s);
     await sk.receive(button('q:1:1'));
@@ -228,7 +228,7 @@ describe('mando a distancia por Slack', () => {
   it('lists open conversations by the minute, then by title, so they stay still while sessions work', () => {
     const m = Date.parse('2026-11-10T14:05:00');
     const l = [session('b', { title: 'Beta', updated: m + 30_000 }), session('a', { title: 'Alpha', updated: m + 1_000 }),
-      session('c', { title: 'Gamma', updated: m + 60_000 }), session('x', { state: 'cerrada', updated: m + 120_000 })];
+      session('c', { title: 'Gamma', updated: m + 60_000 }), session('x', { state: 'closed', updated: m + 120_000 })];
     expect(openSessions(l).map(s => s.id)).toEqual(['c', 'a', 'b']);
   });
 });

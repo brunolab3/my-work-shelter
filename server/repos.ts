@@ -26,25 +26,25 @@ export function projectType(filePath: string): string {
       if (d.astro) return 'web Astro';
       if (d['@sveltejs/kit']) return 'web SvelteKit';
       if (d.vite || d.react) return 'web';
-      if (d.electron) return 'escritorio';
+      if (d.electron) return 'desktop';
       return 'node';
     }
     if (existsSync(path.join(filePath, 'pyproject.toml')) || existsSync(path.join(filePath, 'requirements.txt'))) return 'python';
     if (existsSync(path.join(filePath, 'Cargo.toml'))) return 'rust';
     if (existsSync(path.join(filePath, 'go.mod'))) return 'go';
   } catch {}
-  return 'carpeta';
+  return 'folder';
 }
 
 // Estilo visual de la sala según el repo (lo que usa y cómo se llama): las escenas hechas a mano para los proyectos de
 // vídeo, de diseño y las webs de escaparate; lo demás, la plantilla de su tipo
-export function roomStyle(filePath: string, type: string): 'web' | 'video' | 'marca' | 'landing' | 'generico' {
+export function roomStyle(filePath: string, type: string): 'web' | 'video' | 'brand' | 'landing' | 'generic' {
   const n = path.basename(filePath).toLowerCase();
   if (type === 'vídeo' || /video|film|movie|anima/.test(n)) return 'video';
-  if (type === 'diseño' || /design|brand|marca|tokens|styleguide|ui-?kit|icons/.test(n)) return 'marca';
+  if (type === 'diseño' || /design|brand|marca|tokens|styleguide|ui-?kit|icons/.test(n)) return 'brand';
   if (type === 'web Astro' || /landing|homepage|portfolio|website|showcase/.test(n)) return 'landing';
   if (type.startsWith('web')) return 'web';
-  return 'generico';
+  return 'generic';
 }
 
 // Worktrees that belong to no repo room: the Review room's (server/reviewRoom.ts) live under its folder and are left out
@@ -96,7 +96,7 @@ export async function worktrees(filePath: string): Promise<InfoWorktree[]> {
 export async function infoRepo(rawPath: string): Promise<InfoRepo> {
   const filePath = expand(rawPath);
   const example = isCloneOfExample(filePath) ? { example: true } : {};
-  if (!existsSync(filePath)) return { path: filePath, exists: false, isGit: false, changes: 0, type: 'desconocido', worktrees: [], ...example };
+  if (!existsSync(filePath)) return { path: filePath, exists: false, isGit: false, changes: 0, type: 'unknown', worktrees: [], ...example };
   const isGit = existsSync(path.join(filePath, '.git'));
   const info: InfoRepo = { path: filePath, exists: true, isGit, changes: 0, type: projectType(filePath), worktrees: [], ...example };
   if (!isGit) {
@@ -141,7 +141,7 @@ export function suggestions(root: string, already: string[]): Suggestion[] {
       if (isGit) continue;
       const children = subfolders(p).map(h => ({ h, isGit: existsSync(path.join(h, '.git')) }));
       if (!children.some(x => x.isGit)) continue;
-      for (const x of children) if (!already.includes(x.h) && (x.isGit || projectType(x.h) !== 'carpeta')) out.push(card(x.h, path.basename(p)));
+      for (const x of children) if (!already.includes(x.h) && (x.isGit || projectType(x.h) !== 'folder')) out.push(card(x.h, path.basename(p)));
     }
     return out.sort((a, b) => b.modified - a.modified);
   } catch { return []; }

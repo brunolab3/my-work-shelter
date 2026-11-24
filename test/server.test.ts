@@ -52,7 +52,7 @@ describe('servidor local', () => {
     ws.send(JSON.stringify({ t: 'sideQuestion', sessionId: 'no-existe', question: 'x' }));
     ws.send(JSON.stringify({ t: 'action', name: 'save', request: 'g', data: { patch: { rooms: null, jugador: { scrap: 1e9 } } } }));
     ws.send(JSON.stringify({ t: 'action', name: 'jugador', request: 'j', data: { patch: { scrap: 1e9 } } }));
-    ws.send(JSON.stringify({ t: 'action', name: 'removeRoom', request: 'r', data: { roomId: 'puerta' } }));
+    ws.send(JSON.stringify({ t: 'action', name: 'removeRoom', request: 'r', data: { roomId: 'gate' } }));
     await wait(800);
     expect((await fetch(BASE + '/salud')).ok).toBe(true);
     const states = responses.filter(m => m.t === 'state' || m.t === 'welcome');
@@ -107,15 +107,15 @@ describe('servidor local', () => {
     expect(idA && idB).toBeTruthy();
     const before = responses.filter(m => m.t === 'state').pop().state;
     const dwellerA = before.dwellers.find((h: any) => h.roomId === idA)?.id; expect(dwellerA).toBeTruthy();
-    ask('linkRoom', { roomId: 'puerta', path: folder }, 'servicio');
+    ask('linkRoom', { roomId: 'gate', path: folder }, 'servicio');
     ask('linkRoom', { roomId: idA, path: '/' }, 'raiz');
-    ask('linkRoom', { roomId: idA, path: path.join(folder, 'no-existe') }, 'falta');
+    ask('linkRoom', { roomId: idA, path: path.join(folder, 'no-existe') }, 'missing');
     ask('linkRoom', { roomId: idA, path: folder }, 'vin');
     await wait(1500);
     ask('linkRoom', { roomId: idB, path: folder }, 'repetida');
-    ask('room.removeDecor', { roomId: 'puerta' }, 'quitar');
+    ask('room.removeDecor', { roomId: 'gate' }, 'unstage');
     await wait(600);
-    for (const p of ['servicio', 'raiz', 'falta', 'repetida', 'quitar']) expect(responses.find(m => m.request === p)?.error, p).toBeTruthy();
+    for (const p of ['servicio', 'raiz', 'missing', 'repetida', 'unstage']) expect(responses.find(m => m.request === p)?.error, p).toBeTruthy();
     expect(responses.find(m => m.request === 'vin')?.error).toBeFalsy();
     const last = responses.filter(m => m.t === 'state' || m.t === 'welcome').pop().state;
     const room = last.rooms.find((s: any) => s.id === idA);
@@ -143,14 +143,14 @@ describe('servidor local', () => {
     // una raíz con dos repos de git, una carpeta suelta y un ala (dos repos dentro), y una sala de antes fuera de ella
     const root = mkdtempSync(path.join(tmpdir(), 'refugio-raiz-'));
     for (const r of ['api', 'web', 'ala/uno', 'ala/dos']) { mkdirSync(path.join(root, r), { recursive: true }); execFileSync('git', ['init', '-q'], { cwd: path.join(root, r) }); }
-    mkdirSync(path.join(root, 'notas'));
+    mkdirSync(path.join(root, 'notes'));
     const outside = mkdtempSync(path.join(tmpdir(), 'refugio-fuera-'));
     ask('recruit', { path: outside }, 'fuera'); await wait(800);
     const outsideId = responses.find(m => m.request === 'fuera')?.data?.id; expect(outsideId).toBeTruthy();
     ask('save', { patch: { reposRoot: root } }, 'g'); await wait(2500);
     expect(responses.find(m => m.request === 'g')?.error).toBeFalsy();
     const last = responses.filter(m => m.t === 'state').pop().state;
-    const paths = last.rooms.filter((s: any) => s.type === 'repo' || (s.type === 'coordinacion' && s.id !== 'tareas')).map((s: any) => s.path).sort();
+    const paths = last.rooms.filter((s: any) => s.type === 'repo' || (s.type === 'coordination' && s.id !== 'tareas')).map((s: any) => s.path).sort();
     expect(paths).toEqual(['ala', 'api', 'web'].map(r => path.join(root, r)));
     expect(last.rooms.some((s: any) => s.id === outsideId)).toBe(false);
     expect(last.dwellers.some((h: any) => h.roomId === outsideId)).toBe(false);

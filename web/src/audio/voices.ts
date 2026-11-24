@@ -7,7 +7,7 @@
 import { sound, whiteNoise } from './sound';
 import { BANK, type BenchSpeaker } from './voiceBank';
 
-export type Species = 'humano' | 'robot' | 'gato';
+export type Species = 'human' | 'robot' | 'cat';
 export interface VoiceProfile { f0: number; especie: Species; seed?: string }
 
 const random = (a: number, b: number) => a + Math.random() * (b - a);
@@ -93,13 +93,13 @@ sound.whenReady(() => {
 /** El hablante del banco para una voz: el de tono más parecido (los robots y la Octocat, el que mejor se deja) */
 function speakerOf(p: VoiceProfile): BenchSpeaker | undefined {
   if (!BANK.length) return undefined;
-  const goal = p.especie === 'gato' ? 1e4 : p.f0;
+  const goal = p.especie === 'cat' ? 1e4 : p.f0;
   return [...BANK].sort((a, b) => Math.abs(Math.log(a.f0 / goal)) - Math.abs(Math.log(b.f0 / goal)))[0];
 }
 
 /** Un trozo de voz: qué muestra, cuánto se sube o baja (semitonos), a qué volumen y cuánto silencio deja detrás */
 export interface Piece { file: string; semi: number; vol: number; gap: number }
-export type Exclamation = 'listo' | 'error' | 'pregunta' | 'murmullo' | 'saludo' | 'charla';
+export type Exclamation = 'ready' | 'error' | 'question' | 'murmur' | 'greeting' | 'chat';
 
 // ------------------------------------------------------------------------------------------------ la voz
 /**
@@ -128,7 +128,7 @@ export class Voice {
     this.n = this.speaker ? names(this.speaker) : { s: [], f: [], e: [] };
     // afinado al tono del personaje (sin pasarse: más allá de ±4 semitonos suena a ardilla), con su punto propio
     const own = 1 + (hash(profile.seed ?? String(profile.f0)) - 0.5) * 0.08;
-    const base = this.speaker ? (profile.especie === 'gato' ? 1.3 : profile.f0 / this.speaker.f0) : 1;
+    const base = this.speaker ? (profile.especie === 'cat' ? 1.3 : profile.f0 / this.speaker.f0) : 1;
     this.rate = Math.min(1.35, Math.max(0.8, base)) * own;
 
     this.input = ctx.createGain();
@@ -210,12 +210,12 @@ export class Voice {
     const v = strength, robot = this.profile.especie === 'robot';
     const one = (file: string | null, semi: number, vol: number): Piece[] => (file ? [{ file, semi: robot ? 0 : semi, vol: vol * v, gap: 0.05 }] : []);
     switch (type) {
-      case 'listo': return one(this.exc(['oh', 'risa']), 1.5, 1.05).concat(Math.random() < 0.6 ? one(this.phrase(1.2), 1, 1) : []);
+      case 'ready': return one(this.exc(['oh', 'risa']), 1.5, 1.05).concat(Math.random() < 0.6 ? one(this.phrase(1.2), 1, 1) : []);
       case 'error': return one(this.exc(['uf', 'oh']), -1.5, 1.05).concat(Math.random() < 0.5 ? one(this.phrase(1.2), -1, 0.9) : []);
-      case 'pregunta': { const e = this.exc(['eh']); return e ? one(this.phrase(1), 0, 0.9).concat(one(e, 2, 1)) : this.syllables(3, 1, v).map((p, i, l) => (i === l.length - 1 ? { ...p, semi: p.semi + 4 } : p)); }
-      case 'murmullo': { const e = this.exc(['hmm']); return e ? one(e, -1, 0.7) : one(this.phrase(1.4), -2, 0.6); }
-      case 'saludo': return one(this.phrase(1.1), 1.5, 1);
-      case 'charla': return one(this.phrase(2.2), random(-1, 1), 0.9).concat(Math.random() < 0.4 ? one(this.phrase(1.5), random(-1, 1), 0.85) : []);
+      case 'question': { const e = this.exc(['eh']); return e ? one(this.phrase(1), 0, 0.9).concat(one(e, 2, 1)) : this.syllables(3, 1, v).map((p, i, l) => (i === l.length - 1 ? { ...p, semi: p.semi + 4 } : p)); }
+      case 'murmur': { const e = this.exc(['hmm']); return e ? one(e, -1, 0.7) : one(this.phrase(1.4), -2, 0.6); }
+      case 'greeting': return one(this.phrase(1.1), 1.5, 1);
+      case 'chat': return one(this.phrase(2.2), random(-1, 1), 0.9).concat(Math.random() < 0.4 ? one(this.phrase(1.5), random(-1, 1), 0.85) : []);
     }
   }
 

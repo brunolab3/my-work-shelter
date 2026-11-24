@@ -14,7 +14,7 @@ function git(cwd: string, args: string[], timeout = 15000): Promise<string> {
 interface Ctx { sessions: Sessions; repos: Record<string, InfoRepo>; pathRoom: (r: string) => string | undefined; store: Store; terminals?: { openSessions(): { id: string; cwd: string }[] } }
 
 export function busy(path: string, ctx: Ctx) {
-  return ctx.sessions.list().some(s => s.state !== 'cerrada' && (s.cwd === path || s.cwd.startsWith(path + '/')));
+  return ctx.sessions.list().some(s => s.state !== 'closed' && (s.cwd === path || s.cwd.startsWith(path + '/')));
 }
 
 export async function actionWorktree(name: string, d: Record<string, any>, ctx: Ctx) {

@@ -33,7 +33,7 @@ const ROOMS: RoomPR[] = [
   { id: 'api', name: 'API', path: '/repos/api', branch: 'main', repo: 'refugio/api', worktrees: [{ path: '/repos/api/.claude/worktrees/ref-300', branch: 'feature/REF-300-endpoint' }] },
   { id: 'web', name: 'Web', path: '/repos/web', branch: 'main', repo: 'refugio/web', worktrees: [{ path: '/repos/web/.claude/worktrees/ref-300', branch: 'REF-300-pantalla' }] },
 ];
-const session = (o: Partial<SessionSummary>): SessionSummary => ({ id: 's', dwellerId: 'h', roomId: 'api', cwd: '/repos/api', state: 'esperando', unread: false, title: '', created: 0, updated: 0, ...o } as SessionSummary);
+const session = (o: Partial<SessionSummary>): SessionSummary => ({ id: 's', dwellerId: 'h', roomId: 'api', cwd: '/repos/api', state: 'waiting', unread: false, title: '', created: 0, updated: 0, ...o } as SessionSummary);
 
 describe('fallos de CI', () => {
   it('lee los checks que fallan, con su ejecución de Actions', () => {
@@ -56,7 +56,7 @@ describe('fallos de CI', () => {
       { __typename: 'CheckRun', name: 'e2e', conclusion: 'STALE' },
     ];
     const [x] = ciOfGitHub({ data: { prs: { nodes: [pr({ number: 1, repo: 'refugio/api', branch: 'r', oid: 'o', state: 'FAILURE', contexts })] } } });
-    expect(x.all).toEqual([{ name: 'test', state: 'mal' }, { name: 'deploy', state: 'mal' }, { name: 'docs', state: 'ok' }, { name: 'e2e', state: 'pendiente' }]);
+    expect(x.all).toEqual([{ name: 'test', state: 'bad' }, { name: 'deploy', state: 'bad' }, { name: 'docs', state: 'ok' }, { name: 'e2e', state: 'pending' }]);
   });
 
   it('una vez por PR y commit: un commit nuevo que vuelve a fallar se entrega otra vez', () => {

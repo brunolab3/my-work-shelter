@@ -41,7 +41,7 @@ export function Options({ items, i, setI, onChoose }: { items: ItemMenu[]; i: nu
   return (
     <ul className="opciones-consola" ref={ref}>
       {items.map((it, k) => (
-        <li key={k} className={(k === i ? 'activa' : '') + (it.danger ? ' peligro' : '') + (it.powerOff ? ' apagado' : '') + (it.kind ? ' ' + it.kind : '')} onMouseEnter={() => setI(k)} onClick={e => { if ((e.target as HTMLElement).closest('a')) return; SFX.click(); onChoose(k); }}>
+        <li key={k} className={(k === i ? 'active' : '') + (it.danger ? ' peligro' : '') + (it.powerOff ? ' off' : '') + (it.kind ? ' ' + it.kind : '')} onMouseEnter={() => setI(k)} onClick={e => { if ((e.target as HTMLElement).closest('a')) return; SFX.click(); onChoose(k); }}>
           <span className="cursor">{k === i ? '▶' : ' '}</span><span className="txt">{it.text}</span>{it.hint && <small>{it.hint}</small>}
         </li>
       ))}
@@ -50,15 +50,15 @@ export function Options({ items, i, setI, onChoose }: { items: ItemMenu[]; i: nu
 }
 
 // Carcasa de un aparato centrado en pantalla
-export function Device({ label, pilot = 'ociosa', width, height, children, onClose = closePanel, kind = '' }: { label: React.ReactNode; pilot?: string; width?: number; height?: boolean; children: React.ReactNode; onClose?: () => void; kind?: string }) {
+export function Device({ label, pilot = 'idle', width, height, children, onClose = closePanel, kind = '' }: { label: React.ReactNode; pilot?: string; width?: number; height?: boolean; children: React.ReactNode; onClose?: () => void; kind?: string }) {
   useBlocker();
   useEffect(() => { SFX.open(); }, []);
   return (
-    <div className={'aparato interactivo ' + kind + (height ? ' alto' : '')} role="dialog" style={width ? { width: `min(94vw, calc(var(--u) * ${width}))` } : undefined}>
+    <div className={'device interactivo ' + kind + (height ? ' high' : '')} role="dialog" style={width ? { width: `min(94vw, calc(var(--u) * ${width}))` } : undefined}>
       <div className="consola-bisel">
         <div className="consola-cabeza">
           <span className="rejilla" aria-hidden />
-          <span className={'piloto ' + pilot} aria-hidden />
+          <span className={'pilot ' + pilot} aria-hidden />
           <span className="consola-rotulo">{label}</span>
           <button className="consola-x" onClick={onClose} title={t('panels.closeEsc')}>Esc</button>
         </div>

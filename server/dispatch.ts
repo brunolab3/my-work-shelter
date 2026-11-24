@@ -4,6 +4,7 @@
 // Herramientas del juego en el propio proceso (como roomDecor.ts): un servidor MCP por sesión. Lanzar trabajos
 // siempre lo confirma el Supervisor (el diálogo de permisos), sea cual sea el modo de permisos de la sesión.
 import path from 'node:path';
+import { LEGACY_ROOM_IDS } from '../shared/legacyKeys.ts';
 import { createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
 import type { InputView, MessageOrigin } from '../shared/protocol.ts';
@@ -22,7 +23,7 @@ export interface CtxAssignment {
   /** la conversación abierta de una sala en el worktree de una tarea (su carpeta lleva la clave), si la hay */
   sessionOfTask?(roomId: string, key: string): string | undefined;
   /** el robot mensajero corre con el plan de una sala a otras (solo se ve) */
-  messenger(since: string, a: string[], reason: 'reparto' | 'cambio' | 'propuesta'): void;
+  messenger(since: string, a: string[], reason: 'assignment' | 'change' | 'proposal'): void;
 }
 export interface AssignmentOptions { coordination: string; roomId: string; sessionId?: string; ask: Ask }
 export interface Job { room: string; title: string; instructions: string; waits_on?: string[] }
@@ -32,7 +33,7 @@ const text = (t: string) => ({ content: [{ type: 'text' as const, text: t }] });
 
 /** La sala de un trabajo: por id, por nombre (sin distinguir mayúsculas) o por una ruta dentro de su repo */
 export function findRoom(rooms: AssignmentRoom[], q: string, pathRoom: (r: string) => string | undefined): AssignmentRoom | undefined {
-  const k = q.trim();
+  const k = LEGACY_ROOM_IDS[q.trim()] ?? q.trim();   // an old room id (`puente` …) still reaches its room
   return rooms.find(s => s.id === k) ?? rooms.find(s => s.name.toLowerCase() === k.toLowerCase())
     ?? (path.isAbsolute(k) ? rooms.find(s => s.id === pathRoom(path.resolve(k))) : undefined);
 }
@@ -120,7 +121,7 @@ export function updatePlan(ctx: CtxAssignment, o: AssignmentOptions, { plan, cha
   for (const n of newOrder) n.part!.waitA = n.wait.ids.filter(s => s !== n.part!.roomId);
   ctx.plans.update(p.id, plan, changes);
   if (o.sessionId) { p.coordinationSession = o.sessionId; ctx.plans.save(); }
-  const r = notifyParts(ctx, o.roomId, p, target.map(d => ({ part: d.part!, text: `${heading(p)} ${tr('tool.assign.planChanged', { version: p.version, cambios: (d.a?.message ?? changes).trim() })}` })), 'cambio');
+  const r = notifyParts(ctx, o.roomId, p, target.map(d => ({ part: d.part!, text: `${heading(p)} ${tr('tool.assign.planChanged', { version: p.version, cambios: (d.a?.message ?? changes).trim() })}` })), 'change');
   return { ok: true, text: tr('tool.assign.planAtVersion', { id: p.id, version: p.version, avisos: r }) };
 }
 /** notify_room: un mensaje a la sala de una tarea repartida, por la clave de la tarea, sin cambiar el plan */
@@ -129,7 +130,7 @@ export function notifyRoom(ctx: CtxAssignment, o: AssignmentOptions, { key, room
   if (!p) return { ok: false, text: tr('tool.assign.noPlanFor', { clave: key }) };
   const part = partOf(p, room);
   if (!part) return { ok: false, text: tr('tool.assign.roomNotInPlanParts', { sala: room, id: p.id, partes: p.parts.map(x => x.room).join(', ') }) };
-  return { ok: true, text: notifyParts(ctx, o.roomId, p, [{ part, text: `${heading(p)} ${tr('tool.assign.messageFromLogistics', { mensaje: message.trim() })}` }], 'cambio') };
+  return { ok: true, text: notifyParts(ctx, o.roomId, p, [{ part, text: `${heading(p)} ${tr('tool.assign.messageFromLogistics', { mensaje: message.trim() })}` }], 'change') };
 }
 // los avisos van con la clave de la tarea delante: así cada sala sabe de qué trabajo es (puede llevar varios)
 const heading = (p: Plan) => `📋 [${p.key ?? p.id}]`;
@@ -141,7 +142,7 @@ function waitInPlan(parts: Pick<PartOfPlan, 'roomId' | 'room'>[], names: string[
   return { ids, error: bad.length ? tr('tool.assign.notAPart', { salas: bad.join(', ') }) : undefined };
 }
 // a la conversación de cada parte en su worktree: la anotada al repartir o, si ya no está, la abierta en el worktree de la tarea
-function notifyParts(ctx: Pick<CtxAssignment, 'notify' | 'messenger' | 'sessionOfTask' | 'plans'>, since: string, p: Plan, notices: { part: PartOfPlan; text: string }[], reason: 'cambio'): string {
+function notifyParts(ctx: Pick<CtxAssignment, 'notify' | 'messenger' | 'sessionOfTask' | 'plans'>, since: string, p: Plan, notices: { part: PartOfPlan; text: string }[], reason: 'change'): string {
   const notify = (x: PartOfPlan, t: string) => {
     if (x.sessionId && ctx.notify(x.sessionId, t)) return true;
     const other = p.key ? ctx.sessionOfTask?.(x.roomId, p.key) : undefined;
@@ -177,7 +178,7 @@ export function mcpPlan(ctx: Pick<CtxAssignment, 'plans' | 'notify' | 'messenger
           const p = theirs(id);
           if (!p) return { ...text(tr('tool.plan.none')), isError: true };
           const ok = !!p.coordinationSession && ctx.notify(p.coordinationSession, `${heading(p)} ${tr('tool.plan.proposal', { sala: o.room, version: p.version, propuesta: proposal.trim() })}`);
-          if (ok) ctx.messenger(o.roomId, [p.coordination], 'propuesta');
+          if (ok) ctx.messenger(o.roomId, [p.coordination], 'proposal');
           return ok ? text(tr('tool.plan.proposalSent'))
             : { ...text(tr('tool.plan.planningClosed')), isError: true };
         }, { alwaysLoad: true }),
@@ -202,11 +203,11 @@ export async function dispatch(ctx: CtxAssignment, o: AssignmentOptions, key: st
   const waitOf = (k: number) => waits[k].ids.filter(id => id !== resolved[k].room!.id);
   const nameOf = (id: string) => candidates.find(c => c.roomId === id)?.room ?? id;
   const si = await o.ask(tr(jobs.length === 1 ? 'tool.assign.confirmOne' : 'tool.assign.confirmMany', { n: jobs.length, tarea: key ? tr('tool.assign.confirmOf', { clave: key }) : '' }),
-    resolved.flatMap((r, k) => [{ type: 'ruta' as const, text: `${r.room!.name} · ${r.room!.dweller} · ${r.t.title}${waitOf(k).length ? tr('tool.assign.after', { salas: waitOf(k).map(nameOf).join(', ') }) : ''}` }, { type: 'texto' as const, text: r.t.instructions }]));
+    resolved.flatMap((r, k) => [{ type: 'path' as const, text: `${r.room!.name} · ${r.room!.dweller} · ${r.t.title}${waitOf(k).length ? tr('tool.assign.after', { salas: waitOf(k).map(nameOf).join(', ') }) : ''}` }, { type: 'text' as const, text: r.t.instructions }]));
   if (!si) return { ok: false, text: tr('tool.assign.declined') };
   // el plan compartido se guarda antes de empezar (cada parte lo lee al arrancar) y luego se anota la conversación de cada una
   const plan = textOfPlan.trim() ? ctx.plans.dispatch({ key, coordination: o.roomId, coordinationSession: o.sessionId, text: textOfPlan, parts: resolved.map((r, k) => ({ roomId: r.room!.id, room: r.room!.name, title: r.t.title, ...(waitOf(k).length ? { waitA: waitOf(k) } : {}) })) }) : undefined;
-  ctx.messenger(o.roomId, resolved.map(r => r.room!.id), 'reparto');
+  ctx.messenger(o.roomId, resolved.map(r => r.room!.id), 'assignment');
   const lines: string[] = [];
   for (const [k, r] of resolved.entries()) {
     const others = resolved.filter(x => x !== r).map(x => ({ room: x.room!.name, title: x.t.title }));

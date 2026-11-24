@@ -24,7 +24,7 @@ export async function furnishFileMark(ctx: Context) {
   ctx.restsOn(drawing, R.furniture('lamp_desk'), { pos: [-4.35, 0, zB + 1.0], scale: K * 0.7, rot: 1.2 });
   P(R.furniture('chair_stool_wood'), { pos: [-3.0, 0, zB + 1.9], scale: K });
   ctx.room.obstacles.push(new THREE.Box2(new THREE.Vector2(-4.8, zB + 0.6), new THREE.Vector2(-3.1, zB + 2.2)));
-  ctx.room.points.push({ id: 'consola', type: 'consola', pos: new THREE.Vector3(-3.2, 0, zB + 2.35), rotation: Math.PI + 0.6, clip: 'Working_B' });
+  ctx.room.points.push({ id: 'console', type: 'console', pos: new THREE.Vector3(-3.2, 0, zB + 2.35), rotation: Math.PI + 0.6, clip: 'Working_B' });
   // estanterías de catálogos de color (libros) y botes de pintura
   const library = P(R.home('Bookshelf'), { pos: [-5.35, 0, zB + 0.42], height: 3.4 });
   for (const y of [1.2, 1.7, 2.2]) ctx.restsOn(library, R.furniture('book_set'), { pos: [-5.35, 0, zB + 0.45], scale: K * 1.0 }, { since: y });
@@ -33,7 +33,7 @@ export async function furnishFileMark(ctx: Context) {
   // middle: the dweller's desk (the monitor shows the style guide), under the task board; right, a cabinet and a plant
   const pGuide = new PhosphorScreen(384, 256, v.screen, ' tokens.css'); pGuide.speed = 26;
   screenReal(ctx, pGuide, 'commit'); ctx.room.screens.push(pGuide);
-  await centralDesk(ctx, { id: 'silla', chair: R.furniture('chair_desk_B'), tex: pGuide.tex,
+  await centralDesk(ctx, { id: 'chair', chair: R.furniture('chair_desk_B'), tex: pGuide.tex,
     onTop: [{ path: R.tools('pencil_A_long'), x: 0.55, z: 0.25, c: { scale: K * 0.7, rot: 0.6 } }, { path: R.furniture('pictureframe_standing_B'), x: -0.7, z: -0.25, c: { scale: K * 0.7, rot: 0.3 } }, { path: R.furniture('mug_B'), x: 0.75, z: -0.1, c: { scale: K * 0.7 } }] });
   P(R.furniture('cabinet_medium_decorated'), { pos: [5.3, 0, zB + 0.5], scale: K * 0.75, rot: -Math.PI / 2 });
   P(R.home('Houseplant_8'), { pos: [2.45, 0, zB + 0.5], height: 0.9 });
@@ -43,7 +43,7 @@ export async function furnishFileMark(ctx: Context) {
   const framePanel = aWall(g, await place(g, R.cy('Sign_2'), { pos: [-3.95, 2.45, zB + 0.6], width: 1.4, isStatic: false, own: true }));
   overlayScreen(framePanel, /^Texture_Signs$/, panel.tex, { brightness: 1.2, margin: 0.94 });
   ctx.panel = panel;
-  signInWall(g, sign(t('world.poster.brand'), t('world.poster.brandFoot'), '#e9dfc9', '#b8402e', 'mano', seed), -2.4, 1.85, 0.5, 0.7, zB + 0.33, 0.04);
+  signInWall(g, sign(t('world.poster.brand'), t('world.poster.brandFoot'), '#e9dfc9', '#b8402e', 'hand', seed), -2.4, 1.85, 0.5, 0.7, zB + 0.33, 0.04);
   P(R.resource('Containers_Box_Medium'), { pos: [-2.6, 0, 1.75], scale: K * 0.8, rot: 0.3 });
   stain(g, -2.0, 0.3, 1.2, seed + 7);
   // in front of the wall, the samples table: open brand book, colour samples and a frame with the logo
@@ -57,9 +57,9 @@ export async function furnishFileMark(ctx: Context) {
   // la pieza: el muro de muestras y su mesa. Se coge una muestra, se compara con la lupa contra el muro (que se enciende
   // como una mesa de luz) o se señala en el muro
   let light = 0; const switchOn = () => { light = 1; };
-  ctx.room.points.push({ id: 'muestras', type: 'pieza', pos: new THREE.Vector3(TX - 1.05, 0, -0.1), rotation: Math.PI / 2,
-    actions: [{ clip: 'PickUp' }, { clip: 'Holding_A', utensil: 'lupa', dur: 4, onMake: switchOn }, { clip: 'Interact', onMake: switchOn }] });
-  ctx.room.points.push({ id: 'muro', type: 'pieza', pos: new THREE.Vector3(MX + 0.9, 0, -1.2), rotation: Math.PI + 0.15,
+  ctx.room.points.push({ id: 'samples', type: 'piece', pos: new THREE.Vector3(TX - 1.05, 0, -0.1), rotation: Math.PI / 2,
+    actions: [{ clip: 'PickUp' }, { clip: 'Holding_A', utensil: 'magnifier', dur: 4, onMake: switchOn }, { clip: 'Interact', onMake: switchOn }] });
+  ctx.room.points.push({ id: 'wall', type: 'piece', pos: new THREE.Vector3(MX + 0.9, 0, -1.2), rotation: Math.PI + 0.15,
     actions: [{ clip: 'Interact', onMake: switchOn }, { clip: 'Use_Item' }] });
   ctx.room.walkZones = [[-1.9, -1.3], [1.3, 1.9]];
   ctx.vapor = { pos: new THREE.Vector3(-5.0, 3.15, zB + 0.85), dir: new THREE.Vector3(0.3, 0.9, 0.3) };   // away from the task board
@@ -68,6 +68,6 @@ export async function furnishFileMark(ctx: Context) {
   ctx.onUpdate((dt, t, a) => {
     light = Math.max(0, light - dt * 0.7);
     (wall.material as THREE.MeshStandardMaterial).emissiveIntensity = 0.07 + a * 0.08 + light * 0.3 + Math.sin(t * 0.8) * 0.01;
-    if (ctx.room.state === 'trabajando' && Math.random() < dt * (0.12 + a)) panel.lines.push('> ' + tr('world.brand.log').split('|')[Math.floor(Math.random() * 4)]);
+    if (ctx.room.state === 'working' && Math.random() < dt * (0.12 + a)) panel.lines.push('> ' + tr('world.brand.log').split('|')[Math.floor(Math.random() * 4)]);
   });
 }

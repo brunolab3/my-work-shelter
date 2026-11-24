@@ -36,7 +36,7 @@ describe('contexto de cada sesión', () => {
     for (const n of HIDDEN_SKILLS) expect(n).toMatch(/^anthropic-skills:[a-z-]+$/);
   });
   it('the Command Bridge and the leisure rooms go without the claude.ai work connectors; work rooms keep them', () => {
-    expect(['puente', 'discoteca', 'hidroponia', 'galeria', 'chapa'].every(withoutWorkConnectors)).toBe(true);
-    expect(['logistica', 'tareas', 'comunicaciones', 'planificacion', 'git', 'camara', 'puerta', 'tienda', 'api-pagos'].some(withoutWorkConnectors)).toBe(false);
+    expect(['bridge', 'disco', 'hydroponics', 'gallery', 'bodyshop'].every(withoutWorkConnectors)).toBe(true);
+    expect(['logistics', 'tareas', 'comms', 'calendar', 'git', 'vault', 'gate', 'tienda', 'api-pagos'].some(withoutWorkConnectors)).toBe(false);
   });
 });

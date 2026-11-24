@@ -141,7 +141,7 @@ export class Character {
   private prepareModel() {
     this.model.scale.setScalar(this.scale);
     this.root.add(this.model);
-    this.root.name = 'personaje:' + this.type;
+    this.root.name = 'character:' + this.type;
     this.root.userData.isStatic = false;
     this.factorHip = 0;
     if (this.figure?.large) {

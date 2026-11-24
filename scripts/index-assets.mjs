@@ -19,8 +19,8 @@ for (const r of all.sort()) {
   else if (r.startsWith('kaykit-extra/')) g = r.split('/')[1].replace(/-\d.*$/, '');
   else if (r.startsWith('terceros/')) g = 'terceros';   // modelos de la comunidad (CC-BY), versionados en el repo
   else if (r.includes('Rig_Medium')) g = 'animaciones';
-  else if (r.includes('adventurers-2.0/Assets')) g = 'accesorios';
-  else if (/\/(characters?|Characters)\//.test(r)) g = 'personajes';
+  else if (r.includes('adventurers-2.0/Assets')) g = 'accessories';
+  else if (/\/(characters?|Characters)\//.test(r)) g = 'characters';
   else g = 'props_kaykit';
   (groups[g] ||= []).push(r);
 }

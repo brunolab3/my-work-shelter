@@ -29,7 +29,7 @@ const clamp = THREE.MathUtils.clamp;
 /** Lo que el audio necesita del refugio (shelter.ts se pasa a sí mismo) */
 export interface ViewAudio {
   viewGeneral: boolean; distRoom: number;
-  camara: { goal: THREE.Vector3; distance: number };
+  camera: { goal: THREE.Vector3; distance: number };
   holograms: { figures: Map<string, { p: { root: THREE.Object3D }; room: Room; authorId: string; state: string }> };
 }
 
@@ -42,12 +42,12 @@ const listener = { pos: new THREE.Vector3(), general: false, camX: 0, camY: 0, w
 function insideOf(s: Room, p: THREE.Vector3) { return Math.abs(p.x - s.group.position.x) <= s.width / 2 + FRAME && Math.abs(p.y - s.group.position.y) < FLOOR / 2; }
 
 function setListener(v: ViewAudio) {
-  const sup = world.supervisor(), cam = world.camara();
+  const sup = world.supervisor(), cam = world.camera();
   if (!sup || !cam) return false;
-  listener.general = v.viewGeneral || v.camara.distance > v.distRoom * 1.6;
-  listener.pos.copy(listener.general ? v.camara.goal : sup.position);
-  listener.camX = cam.position.x; listener.camY = cam.position.y; listener.distance = v.camara.distance;
-  listener.widthMiddle = Math.max(4, v.camara.distance * Math.tan(THREE.MathUtils.degToRad(cam.fov / 2)) * cam.aspect);
+  listener.general = v.viewGeneral || v.camera.distance > v.distRoom * 1.6;
+  listener.pos.copy(listener.general ? v.camera.goal : sup.position);
+  listener.camX = cam.position.x; listener.camY = cam.position.y; listener.distance = v.camera.distance;
+  listener.widthMiddle = Math.max(4, v.camera.distance * Math.tan(THREE.MathUtils.degToRad(cam.fov / 2)) * cam.aspect);
   listener.room = listener.general ? null : world.rooms().find(s => insideOf(s, sup.position)) ?? null;
   listener.landing = !listener.general && Math.abs(sup.position.x) <= ELEVATOR_MIDDLE + 0.2;
   listener.ready = true;
@@ -75,11 +75,11 @@ export function hear(pos: THREE.Vector3, room?: Room | null): Heard {
 // ------------------------------------------------------------------------------------------------ perfil de cada sala
 /** El perfil sonoro de una sala: su tipo o, en las de repo, lo que hay montado dentro */
 export function profileOf(s: Room): string {
-  if (s.type !== 'repo' && s.type !== 'coordinacion') return s.type;
+  if (s.type !== 'repo' && s.type !== 'coordination') return s.type;
   const saved = (live.get().state?.rooms ?? []).find((x: any) => x.id === s.id);
   // la escena que tiene montada: la de su decorado (la sala vacía suena a banco de pruebas) o la de serie
   const base: string = saved?.decor?.base ?? baseStock({ type: s.type, style: saved?.style }, live.get().repos[s.id]);
-  return ({ escaparate: 'landing', proyeccion: 'video', tallerWeb: 'web', taller: 'banco', vacia: 'banco' } as Record<string, string>)[base] ?? base;
+  return ({ showcase: 'landing', projection: 'video', tallerWeb: 'web', taller: 'bench', empty: 'bench' } as Record<string, string>)[base] ?? base;
 }
 
 function ambientWeights(): Map<string, Listen> {
@@ -123,7 +123,7 @@ interface Speaker { voice: Voice; pos: () => THREE.Vector3 | null; room: () => R
 const speakers = new Map<string, Speaker>();
 const speaks = new Map<string, { since: number; pause: number }>();   // por hablante: frases y descansos
 
-function speciesOf(h: any): Species { return h.id?.type === 'Octocat' ? 'gato' : h.p?.look?.especie === 'robot' ? 'robot' : 'humano'; }
+function speciesOf(h: any): Species { return h.id?.type === 'Octocat' ? 'cat' : h.p?.look?.especie === 'robot' ? 'robot' : 'human'; }
 const dweller = (id: string) => world.dwellers().find((h: any) => h.id.id === id);
 
 /** El que habla con ese id: un habitante o una copia holográfica (con la voz de su autor) */
@@ -152,7 +152,7 @@ function placeVoice(x: Speaker, immediate = false) {
 /** Dice algo del repertorio (exclamación, murmullo, saludo, charla) con su voz, donde esté */
 function say(id: string, type: Exclamation, strength = 1) {
   const x = speaker(id); if (!x) return;
-  x.voice.mouth = type === 'murmullo' ? 0.25 : 1;
+  x.voice.mouth = type === 'murmur' ? 0.25 : 1;
   x.voice.say(x.voice.piecesOf(type, strength));
 }
 
@@ -206,58 +206,58 @@ function dwellers(now: number) {
     const o = hear(h.pos, h.room);
     let s = consecutive.get(id);
     if (!s) { s = { state: h.state, chore: h.chore ?? '', murmur: now + random(5, 25), snore: now + random(0, 4), chatter: now + random(2, 8), noise: now + random(2, 6), notice: 0, near: false, greeting: 0, keys: new Typist() }; consecutive.set(id, s); continue; }
-    const chore: string = h.chore ?? (h.state === 'trabajando' ? 'teclear' : h.state === 'durmiendo' ? 'dormir' : '');
+    const chore: string = h.chore ?? (h.state === 'working' ? 'type' : h.state === 'sleeping' ? 'dormir' : '');
     const hears = o.g > 0.02;
     // cambios de estado: exclamaciones
     if (h.state !== s.state) {
       if (hears) {
-        if (h.state === 'terminado') exclaim(id, 'listo', s, now);
+        if (h.state === 'finished') exclaim(id, 'ready', s, now);
         else if (h.state === 'error') exclaim(id, 'error', s, now);
-        else if (h.state === 'esperando') exclaim(id, 'pregunta', s, now);
+        else if (h.state === 'waiting') exclaim(id, 'question', s, now);
       }
       s.state = h.state;
     }
     if (chore !== s.chore) {
       // lo que empieza a hacer: celebrar, quejarse de una avería, avisar, un café…
       if (hears) {
-        if (chore === 'celebrar') exclaim(id, 'listo', s, now);
-        else if (chore === 'averia') exclaim(id, 'error', s, now);
-        else if (chore === 'avisar') exclaim(id, 'pregunta', s, now);
-        else if (chore === 'cafe') void sound.play(['cafetera', 'copas'], { bus: 'sfx', vol: 0.12 * o.g, pan: o.pan, underStep: o.underStep, rate: 1.4 });
+        if (chore === 'celebrar') exclaim(id, 'ready', s, now);
+        else if (chore === 'breakdown') exclaim(id, 'error', s, now);
+        else if (chore === 'notify') exclaim(id, 'question', s, now);
+        else if (chore === 'coffee') void sound.play(['cafetera', 'copas'], { bus: 'sfx', vol: 0.12 * o.g, pan: o.pan, underStep: o.underStep, rate: 1.4 });
       }
       s.chore = chore;
     }
     if (h.chatting || !hears) { if (!hears) s.keys.play({ vol: 0, pan: 0 }); continue; }
 
     // tecleo en su puesto: deprisa si trabaja, a ratos si no
-    if (chore === 'teclear') s.keys.play({ vol: (h.state === 'trabajando' ? 0.22 : 0.13) * o.g, pan: o.pan, underStep: Math.min(o.underStep, 5500), slow: h.state !== 'trabajando' });
+    if (chore === 'type') s.keys.play({ vol: (h.state === 'working' ? 0.22 : 0.13) * o.g, pan: o.pan, underStep: Math.min(o.underStep, 5500), slow: h.state !== 'working' });
     // dormir: ronquido suave, solo en su sala
-    if ((chore === 'dormir' || h.state === 'durmiendo') && now > s.snore) {
+    if ((chore === 'dormir' || h.state === 'sleeping') && now > s.snore) {
       s.snore = now + random(3.8, 5.2);
       if (o.g > 0.6) { const p = sound.ctx!.createStereoPanner(); p.pan.value = o.pan; p.connect(sound.output('voces')); snore(sound.ctx!, p, 0.05 * o.g, (h.id.voice || 140) < 150 ? 0.85 : 1.15); setTimeout(() => p.disconnect(), 6000); }
     }
     // hablar solo mientras trabaja o piensa
-    if ((h.state === 'trabajando' || h.state === 'pensando' || chore === 'pensar') && now > s.murmur) {
+    if ((h.state === 'working' || h.state === 'thinking' || chore === 'think') && now > s.murmur) {
       s.murmur = now + random(25, 60);
-      if (o.g > 0.25 && !speakers.get(id)?.voice.pending) say(id, 'murmullo', 0.9);
+      if (o.g > 0.25 && !speakers.get(id)?.voice.pending) say(id, 'murmur', 0.9);
     }
     // charla entre habitantes
     if (chore === 'charlar' && now > s.chatter) {
       s.chatter = now + random(7, 16);
-      if (o.g > 0.2 && !speakers.get(id)?.voice.pending) say(id, 'charla', 0.8);
+      if (o.g > 0.2 && !speakers.get(id)?.voice.pending) say(id, 'chat', 0.8);
     }
     // ruiditos de lo que tiene entre manos
     if (now > s.noise) {
       s.noise = now + random(5, 12);
       const v = o.g;
-      if (chore === 'leer') void sound.play(['papel_1', 'papel_2', 'papel_3', 'rpg_bookFlip1'], { bus: 'sfx', vol: 0.14 * v, pan: o.pan, underStep: o.underStep });
+      if (chore === 'read') void sound.play(['papel_1', 'papel_2', 'papel_3', 'rpg_bookFlip1'], { bus: 'sfx', vol: 0.14 * v, pan: o.pan, underStep: o.underStep });
       else if (chore === 'trastear') void sound.play(['golpe_metal', 'imp_impactMetal_light_000', 'clank', 'engranajes'], { bus: 'sfx', vol: 0.1 * v, var: 0.1, pan: o.pan, underStep: o.underStep });
     }
     // el Supervisor se acerca: un saludo de vez en cuando
     if (sup) {
       const near = Math.abs(sup.position.y - h.pos.y) < 1 && Math.hypot(sup.position.x - h.pos.x, sup.position.z - h.pos.z) < 2.2;
-      if (near && !s.near && h.state === 'ocioso' && chore !== 'dormir' && now - s.greeting > 180 && now - lastGreeting > 25 && Math.random() < 0.45) {
-        s.greeting = now; lastGreeting = now; say(id, 'saludo', 0.9);
+      if (near && !s.near && h.state === 'idle' && chore !== 'dormir' && now - s.greeting > 180 && now - lastGreeting > 25 && Math.random() < 0.45) {
+        s.greeting = now; lastGreeting = now; say(id, 'greeting', 0.9);
       }
       s.near = near;
     }
@@ -268,16 +268,16 @@ function dwellers(now: number) {
 const club = CLUB.length ? new Turntable(CLUB, ACOUSTICS_CLUB) : null;
 const thread = THREAD.length ? new Turntable(THREAD, THREAD_ACOUSTICS) : null;
 const radioStore = CLUB.length ? new Turntable([...THREAD.slice(0, 1), ...CLUB.slice(1, 2), ...THREAD.slice(1)], ACOUSTICS_RADIO) : null;
-const spotify = () => live.get().music?.state === 'sonando';
+const spotify = () => live.get().music?.state === 'playing';
 const BPM_SPOTIFY = 118;
 // el compás de la sala que lo pide (por id o por tipo): con Spotify sonando en la discoteca, a tempo fijo
 registerPulse((room): MusicPulse | null => {
   const type = world.rooms().find(s => s.id === room)?.type ?? room;
-  if (type === 'discoteca') {
+  if (type === 'disco') {
     if (spotify()) { const g = performance.now() / 1000 * BPM_SPOTIFY / 60; return { playing: true, bpm: BPM_SPOTIFY, phase: g % 1, beat: Math.floor(g), energy: 0.7 }; }
     return club && sound.ctx ? club.pulse() : null;
   }
-  if (type === 'chapa') return thread && sound.ctx ? thread.pulse() : null;
+  if (type === 'bodyshop') return thread && sound.ctx ? thread.pulse() : null;
   return null;
 });
 
@@ -286,21 +286,21 @@ let currentView: ViewAudio | null = null;
 let lastInterlocutor: string | null = null;
 const greeted = new Map<string, number>();
 
-export type ActionKind = 'metal' | 'herramienta' | 'papel' | 'caja' | 'agua' | 'vapor' | 'chispa' | 'pitido' | 'cristal' | 'cerrojo' | 'tijeras' | 'spray' | 'raton' | 'golpe';
-const ACTIONS: Record<Exclude<ActionKind, 'pitido'>, { s: string[]; vol: number; rate?: number }> = {
+export type ActionKind = 'metal' | 'tool' | 'paper' | 'box' | 'water' | 'steam' | 'spark' | 'beep' | 'glass' | 'latch' | 'scissors' | 'spray' | 'mouse' | 'hit';
+const ACTIONS: Record<Exclude<ActionKind, 'beep'>, { s: string[]; vol: number; rate?: number }> = {
   metal: { s: ['golpe_metal', 'imp_impactMetal_light_000', 'imp_impactPlate_light_000'], vol: 0.3 },
-  herramienta: { s: ['engranajes', 'clank', 'rpg_metalLatch'], vol: 0.3 },
-  papel: { s: ['papel_1', 'papel_2', 'papel_3', 'rpg_bookFlip1'], vol: 0.35 },
-  caja: { s: ['caja_1', 'caja_2', 'caja_3'], vol: 0.35 },
-  agua: { s: ['aspersor'], vol: 0.3 },
-  vapor: { s: ['vapor_1', 'vapor_2'], vol: 0.3 },
-  chispa: { s: ['sf_explosionCrunch_000'], vol: 0.15, rate: 1.8 },
-  cristal: { s: ['copas'], vol: 0.3, rate: 1.2 },
-  cerrojo: { s: ['cerrojo_1', 'cerrojo_2', 'rpg_metalLatch'], vol: 0.35 },
-  tijeras: { s: ['tijeras_1', 'tijeras_2'], vol: 0.35 },
+  tool: { s: ['engranajes', 'clank', 'rpg_metalLatch'], vol: 0.3 },
+  paper: { s: ['papel_1', 'papel_2', 'papel_3', 'rpg_bookFlip1'], vol: 0.35 },
+  box: { s: ['caja_1', 'caja_2', 'caja_3'], vol: 0.35 },
+  water: { s: ['aspersor'], vol: 0.3 },
+  steam: { s: ['vapor_1', 'vapor_2'], vol: 0.3 },
+  spark: { s: ['sf_explosionCrunch_000'], vol: 0.15, rate: 1.8 },
+  glass: { s: ['copas'], vol: 0.3, rate: 1.2 },
+  latch: { s: ['cerrojo_1', 'cerrojo_2', 'rpg_metalLatch'], vol: 0.35 },
+  scissors: { s: ['tijeras_1', 'tijeras_2'], vol: 0.35 },
   spray: { s: ['aerografo'], vol: 0.3 },
-  raton: { s: ['raton_1', 'raton_2'], vol: 0.3 },
-  golpe: { s: ['yunque_1', 'yunque_2', 'golpe_metal'], vol: 0.3 },
+  mouse: { s: ['raton_1', 'raton_2'], vol: 0.3 },
+  hit: { s: ['yunque_1', 'yunque_2', 'golpe_metal'], vol: 0.3 },
 };
 
 export const audioWorld = {
@@ -311,16 +311,16 @@ export const audioWorld = {
     const weights = ambientWeights();
     mix(weights);
     const none: Listen = { weight: 0, pan: 0, underStep: 20000 };
-    club?.update(weights.get('discoteca') ?? none, spotify());
-    thread?.update(weights.get('chapa') ?? none);
-    radioStore?.update(weights.get('logistica') ?? none);
+    club?.update(weights.get('disco') ?? none, spotify());
+    thread?.update(weights.get('bodyshop') ?? none);
+    radioStore?.update(weights.get('logistics') ?? none);
     const now = performance.now() / 1000;
     dwellers(now);
     // al abrir el intercomunicador de alguien, te saluda (en primer plano; no cada vez)
     const hc = juego.get().talkingWith;
     if (hc !== lastInterlocutor) {
       lastInterlocutor = hc;
-      if (hc && now - (greeted.get(hc) ?? -1e9) > 60 && !speakers.get(hc)?.voice.pending) { greeted.set(hc, now); say(hc, 'saludo'); }
+      if (hc && now - (greeted.get(hc) ?? -1e9) > 60 && !speakers.get(hc)?.voice.pending) { greeted.set(hc, now); say(hc, 'greeting'); }
     }
     for (const [id, x] of speakers) { if (!x.voice.update()) { speakers.delete(id); continue; } placeVoice(x); }
   },
@@ -329,10 +329,10 @@ export const audioWorld = {
    * Que un habitante diga algo de su repertorio con su voz, donde esté: 'listo', 'error', 'pregunta', 'murmullo'
    * (para sí, bajito), 'saludo' o 'charla'. `h` es el Habitante (o su id). No se pisa con lo que ya esté diciendo.
    */
-  say(h: { id: { id: string } } | string, type: Exclamation = 'murmullo') {
+  say(h: { id: { id: string } } | string, type: Exclamation = 'murmur') {
     const id = typeof h === 'string' ? h : h.id.id;
     if (speakers.get(id)?.voice.pending) return;
-    say(id, type, type === 'murmullo' ? 0.9 : 1);
+    say(id, type, type === 'murmur' ? 0.9 : 1);
   },
 
   /**
@@ -343,7 +343,7 @@ export const audioWorld = {
     if (!sound.ctx) return;
     const s = room ?? world.rooms().find(x => insideOf(x, pos)) ?? null;
     const o = hear(pos, s); if (o.g < 0.02) return;
-    if (kind === 'pitido') {
+    if (kind === 'beep') {
       const p = sound.ctx.createStereoPanner(); p.pan.value = o.pan; p.connect(sound.output('sfx'));
       remoteBeeps(sound.ctx, p, 0.04 * vol * o.g); setTimeout(() => p.disconnect(), 3000); return;
     }

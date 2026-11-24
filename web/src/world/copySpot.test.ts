@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { epicOrder, holoSlot, helperSpots, type HoloRoom } from './copySpot';
 
 // 12 m room on the right: slots run -5.1..5.1, the visitor's spot (x = -3.5) blocks -4.9..-2.1
-const room = (width = 12): HoloRoom => ({ width, side: 'der', workstations: [], devices: [], walkZones: [], obstacles: [] });
+const room = (width = 12): HoloRoom => ({ width, side: 'right', workstations: [], devices: [], walkZones: [], obstacles: [] });
 const clearance = (x: number, others: number[]) => Math.min(...others.map(o => Math.abs(o - x)));
 
 describe('holoSlot', () => {

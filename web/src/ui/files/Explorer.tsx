@@ -27,10 +27,10 @@ let loading: Promise<M> | null = null;
 const loadMonaco = () => (loading ??= import('./monaco').then(m => m.monaco));
 
 interface Root { path: string; name: string; roomId: string; detail: string }
-type Type = 'cargando' | 'texto' | 'imagen' | 'binario' | 'grande' | 'error';
-interface Tab { key: string; root: string; rel: string; previous: boolean; type: Type; date: number | null; dirty: boolean; inDisc?: 'cambiado' | 'borrado'; data?: string; error?: string; resize?: number }
+type Type = 'loading' | 'text' | 'image' | 'binary' | 'large' | 'error';
+interface Tab { key: string; root: string; rel: string; previous: boolean; type: Type; date: number | null; dirty: boolean; inDisc?: 'changed' | 'deleted'; data?: string; error?: string; resize?: number }
 interface Confirm { text: React.ReactNode; buttons: { text: string; f: () => void; danger?: boolean }[] }
-interface Edit { mode: 'renombrar' | 'archivo' | 'carpeta'; folder: string; rel?: string }
+interface Edit { mode: 'rename' | 'archive' | 'folder'; folder: string; rel?: string }
 interface Menu { x: number; y: number; rel: string; dir: boolean }
 
 const key = (root: string, rel: string) => root + '\0' + rel;
@@ -128,7 +128,7 @@ function Window({ v, roots, root }: { v: FilesWindow; roots: Root[]; root: strin
   useEffect(() => {
     if (!mon || !host.current) return;
     const ed = mon.editor.create(host.current, {
-      theme: 'refugio', automaticLayout: true, fontFamily: 'Menlo, Monaco, "SF Mono", monospace', fontSize: 13, lineHeight: 20,
+      theme: 'shelter', automaticLayout: true, fontFamily: 'Menlo, Monaco, "SF Mono", monospace', fontSize: 13, lineHeight: 20,
       minimap: { enabled: true, renderCharacters: false }, smoothScrolling: true, cursorSmoothCaretAnimation: 'on', fixedOverflowWidgets: true,
       renderWhitespace: 'selection', bracketPairColorization: { enabled: true }, guides: { bracketPairs: 'active' }, stickyScroll: { enabled: true }, model: null,
     });
@@ -142,7 +142,7 @@ function Window({ v, roots, root }: { v: FilesWindow; roots: Root[]; root: strin
   const inEditor = useRef<string | null>(null);
   useEffect(() => {
     const ed = editor.current; if (!ed) return;
-    const p = activeTab, m = p?.type === 'texto' ? models.get(p.key) : undefined;
+    const p = activeTab, m = p?.type === 'text' ? models.get(p.key) : undefined;
     if (inEditor.current !== (m ? p!.key : null)) {
       if (inEditor.current && models.has(inEditor.current)) views.set(inEditor.current, ed.saveViewState());
       ed.setModel(m ?? null);
@@ -166,7 +166,7 @@ function Window({ v, roots, root }: { v: FilesWindow; roots: Root[]; root: strin
 
   // ---- abrir archivos
   const createModel = (m: M, k: string, rel: string, text: string) => {
-    const uri = m.Uri.from({ scheme: 'archivo', path: `/${++nModel}/${rel}` });
+    const uri = m.Uri.from({ scheme: 'archive', path: `/${++nModel}/${rel}` });
     const model = m.editor.createModel(text, languageOf(nameOf(rel), m.languages.getLanguages()), uri);
     models.set(k, model); saved.set(k, model.getAlternativeVersionId()); keyOf.set(model, k);
     model.onDidChangeContent(() => {
@@ -180,7 +180,7 @@ function Window({ v, roots, root }: { v: FilesWindow; roots: Root[]; root: strin
     try {
       const x = await action<any>('read', { root: r, rel });
       const m = await loadMonaco();
-      if (x.type === 'texto') {
+      if (x.type === 'text') {
         const model = createModel(m, k, rel, x.text);
         if (recoveredText !== undefined && recoveredText !== x.text) model.pushEditOperations([], [{ range: model.getFullModelRange(), text: recoveredText }], () => null);
       }
@@ -195,7 +195,7 @@ function Window({ v, roots, root }: { v: FilesWindow; roots: Root[]; root: strin
     const already = ps.find(p => p.key === k);
     if (already) { if (!o.previous && already.previous) ps = ps.map(p => (p.key === k ? { ...p, previous: false } : p)); }
     else {
-      const tab: Tab = { key: k, root: r, rel, previous: !!o.previous, type: 'cargando', date: null, dirty: false };
+      const tab: Tab = { key: k, root: r, rel, previous: !!o.previous, type: 'loading', date: null, dirty: false };
       // la vista previa que hubiera (sin tocar) deja su sitio
       const old = o.previous ? ps.find(p => p.previous && !p.dirty) : undefined;
       if (old) { models.get(old.key)?.dispose(); models.delete(old.key); views.delete(old.key); ps = ps.map(p => (p === old ? tab : p)); }
@@ -215,7 +215,7 @@ function Window({ v, roots, root }: { v: FilesWindow; roots: Root[]; root: strin
     const r = recovered; recovered = null; if (!r) return;
     for (const p of r.tabs) {
       const k = key(p.root, p.rel);
-      setTabs(ps => (ps.some(x => x.key === k) ? ps : [...ps, { key: k, root: p.root, rel: p.rel, previous: p.previous, type: 'cargando', date: null, dirty: false }]));
+      setTabs(ps => (ps.some(x => x.key === k) ? ps : [...ps, { key: k, root: p.root, rel: p.rel, previous: p.previous, type: 'loading', date: null, dirty: false }]));
       load(p.root, p.rel, k, p.text);
     }
     if (r.active) setActive(r.active);
@@ -262,18 +262,18 @@ function Window({ v, roots, root }: { v: FilesWindow; roots: Root[]; root: strin
   // un archivo abierto que cambia en el disco: si no lo has tocado, se recarga (y se puede deshacer); si sí, se avisa
   const reviewDates = (r: string, dates: Record<string, number | null>) => {
     for (const p of state.current.tabs) {
-      if (p.root !== r || !(p.rel in dates) || p.type === 'cargando') continue;
+      if (p.root !== r || !(p.rel in dates) || p.type === 'loading') continue;
       const f = dates[p.rel];
-      if (f === null) { if (p.inDisc !== 'borrado' && p.date !== null) update(p.key, { inDisc: 'borrado' }); continue; }
+      if (f === null) { if (p.inDisc !== 'deleted' && p.date !== null) update(p.key, { inDisc: 'deleted' }); continue; }
       if (p.date !== null && Math.abs(f - p.date) <= 1) { if (p.inDisc) update(p.key, { inDisc: undefined }); continue; }
-      if (models.has(p.key) && p.dirty) { if (p.inDisc !== 'cambiado') update(p.key, { inDisc: 'cambiado' }); continue; }
+      if (models.has(p.key) && p.dirty) { if (p.inDisc !== 'changed') update(p.key, { inDisc: 'changed' }); continue; }
       reload(p);
     }
   };
   /** Lo del disco, en la pestaña (sustituye el texto con una edición: se puede deshacer). */
   const reload = (p: Tab) => action<any>('read', { root: p.root, rel: p.rel }).then(x => {
     const m = models.get(p.key);
-    if (x.type === 'texto' && m && !m.isDisposed()) {
+    if (x.type === 'text' && m && !m.isDisposed()) {
       if (m.getValue() !== x.text) m.pushEditOperations([], [{ range: m.getFullModelRange(), text: x.text }], () => null);
       saved.set(p.key, m.getAlternativeVersionId());
       update(p.key, { date: x.date, resize: x.resize, dirty: false, inDisc: undefined });
@@ -330,7 +330,7 @@ function Window({ v, roots, root }: { v: FilesWindow; roots: Root[]; root: strin
         }));
       }
       saved.set(k, version);
-      update(k, { date: r.date, dirty: m.getAlternativeVersionId() !== version, inDisc: undefined, previous: false, type: 'texto' });
+      update(k, { date: r.date, dirty: m.getAlternativeVersionId() !== version, inDisc: undefined, previous: false, type: 'text' });
       SFX.tick();
       return true;
     } catch (e: any) { notify(e.message, true); return false; }
@@ -384,20 +384,20 @@ function Window({ v, roots, root }: { v: FilesWindow; roots: Root[]; root: strin
     await glance();
   };
   const selFolder = () => { if (sel == null) return ''; const f = rows.find(x => x.rel === sel); return f?.dir ? sel : parentOf(sel); };
-  const newer = (dir: boolean, folder = selFolder()) => { if (folder) toggle(folder, true); setEdit({ mode: dir ? 'carpeta' : 'archivo', folder }); setMenu(null); };
-  const renameSel = (rel = sel) => { if (rel) { setSel(rel); setEdit({ mode: 'renombrar', folder: parentOf(rel), rel }); setMenu(null); } };
+  const newer = (dir: boolean, folder = selFolder()) => { if (folder) toggle(folder, true); setEdit({ mode: dir ? 'folder' : 'archive', folder }); setMenu(null); };
+  const renameSel = (rel = sel) => { if (rel) { setSel(rel); setEdit({ mode: 'rename', folder: parentOf(rel), rel }); setMenu(null); } };
   const confirmEdit = async (name: string) => {
     const ed = edit; setEdit(null); treeRef.current?.focus();
     if (!ed || !root) return;
-    name = name.trim(); if (!name || (ed.mode === 'renombrar' && name === nameOf(ed.rel!))) return;
+    name = name.trim(); if (!name || (ed.mode === 'rename' && name === nameOf(ed.rel!))) return;
     try {
-      if (ed.mode === 'renombrar') {
+      if (ed.mode === 'rename') {
         const r = await action<{ rel: string }>('rename', { root, rel: ed.rel, name });
         moveTabs(ed.rel!, r.rel); setSel(r.rel);
       } else {
-        const r = await action<{ rel: string }>('create', { root, folder: ed.folder, name, dir: ed.mode === 'carpeta' });
+        const r = await action<{ rel: string }>('create', { root, folder: ed.folder, name, dir: ed.mode === 'folder' });
         setSel(r.rel);
-        if (ed.mode === 'archivo') { await glance(); reveal(r.rel); open(r.rel, { focus: true }); return; }
+        if (ed.mode === 'archive') { await glance(); reveal(r.rel); open(r.rel, { focus: true }); return; }
       }
     } catch (e: any) { notify(e.message, true); }
     await glance();
@@ -445,7 +445,7 @@ function Window({ v, roots, root }: { v: FilesWindow; roots: Root[]; root: strin
     navigator.clipboard.writeText(path).then(() => notify(t('windows.pathCopiedRuta', { ruta: path })), () => notify(t('windows.couldNotCopyThePath'), true));
     setMenu(null);
   };
-  const outside = (what: 'revelar' | 'abrirEnEditor', rel = sel ?? '') => { if (root) action(what, { root, rel }).catch(e => notify(e.message, true)); setMenu(null); };
+  const outside = (what: 'revelar' | 'openInEditor', rel = sel ?? '') => { if (root) action(what, { root, rel }).catch(e => notify(e.message, true)); setMenu(null); };
 
   // ---- teclas del árbol
   const typed = useRef({ text: '', t: 0 });
@@ -526,7 +526,7 @@ function Window({ v, roots, root }: { v: FilesWindow; roots: Root[]; root: strin
       onPointerDown={e => { if (menu && !(e.target as HTMLElement).closest('.gc-menu')) setMenu(null); if (!v.minimized && !(document.activeElement && box.current?.contains(document.activeElement))) onFrontFiles(); }}
       onKeyDownCapture={windowKey} onKeyDown={e => e.stopPropagation()} role="dialog" aria-label={t('windows.files')}>
       <div className="vt-cabeza vn-cabeza" onDoubleClick={e => { if (!(e.target as HTMLElement).closest('button, select')) toggleMaximizeFiles(); }}>
-        <span className="rejilla" /><span className={'piloto ' + (dirty ? 'esperando' : 'ociosa')} />
+        <span className="rejilla" /><span className={'pilot ' + (dirty ? 'waiting' : 'idle')} />
         <span className="vt-titulo">{t('windows.files4')} · {room?.name ?? t('windows.noFolder')}</span>
         <span className="vt-ruta" title={headPath}>{headPath}</span>
         <WindowButtons maximized={v.maximized} minimize={minimizeFiles} toggleMaximize={toggleMaximizeFiles} close={closeFiles} closesThat={t('windows.theFilesWindow')} />
@@ -550,17 +550,17 @@ function Window({ v, roots, root }: { v: FilesWindow; roots: Root[]; root: strin
               onContextMenu={e => { if (e.target === e.currentTarget) { e.preventDefault(); setSel(null); openMenu(e, '', true); } }}
               onDragOver={e => { if (dragging != null && e.target === e.currentTarget) { e.preventDefault(); } }}
               onDrop={e => { if (e.target === e.currentTarget && dragging) { e.preventDefault(); moveA(dragging, ''); } setDragging(null); }}>
-              {edit && edit.mode !== 'renombrar' && edit.folder === '' && <RowNew level={0} dir={edit.mode === 'carpeta'} confirm={confirmEdit} cancel={() => { setEdit(null); treeRef.current?.focus(); }} />}
+              {edit && edit.mode !== 'rename' && edit.folder === '' && <RowNew level={0} dir={edit.mode === 'folder'} confirm={confirmEdit} cancel={() => { setEdit(null); treeRef.current?.focus(); }} />}
               {rows.map(f => (
                 <React.Fragment key={f.rel}>
                   <TreeRow f={f} sel={sel === f.rel} letter={f.dir ? changed.get(f.rel) : git[f.rel]} active={activeTab?.root === root && activeTab?.rel === f.rel}
                     cut={!!clipboard?.move && clipboard.origins.some(o => o.root === root && o.rel === f.rel)}
-                    renaming={edit?.mode === 'renombrar' && edit.rel === f.rel} confirm={confirmEdit} cancel={() => { setEdit(null); treeRef.current?.focus(); }}
+                    renaming={edit?.mode === 'rename' && edit.rel === f.rel} confirm={confirmEdit} cancel={() => { setEdit(null); treeRef.current?.focus(); }}
                     click={ev => { setSel(f.rel); if (f.dir) toggle(f.rel); else open(f.rel, { previous: true }); if (ev.detail === 1) treeRef.current?.focus(); }}
                     clickDouble={() => { if (!f.dir) open(f.rel, { focus: true }); }}
                     menu={ev => { ev.preventDefault(); setSel(f.rel); openMenu(ev, f.rel, f.dir); }}
                     drag={{ start: () => setDragging(f.rel), drop: () => { if (dragging) moveA(dragging, f.dir ? f.rel : parentOf(f.rel)); setDragging(null); }, active: dragging != null && dragging !== f.rel }} />
-                  {edit && edit.mode !== 'renombrar' && f.dir && f.open && edit.folder === f.rel && <RowNew level={f.level + 1} dir={edit.mode === 'carpeta'} confirm={confirmEdit} cancel={() => { setEdit(null); treeRef.current?.focus(); }} />}
+                  {edit && edit.mode !== 'rename' && f.dir && f.open && edit.folder === f.rel && <RowNew level={f.level + 1} dir={edit.mode === 'folder'} confirm={confirmEdit} cancel={() => { setEdit(null); treeRef.current?.focus(); }} />}
                 </React.Fragment>
               ))}
               {listed[''] && !rows.length && !edit && <div className="gc-limpio">{t('windows.emptyFolderAtajoNCreates', { shortcut: CMD })}</div>}
@@ -577,13 +577,13 @@ function Window({ v, roots, root }: { v: FilesWindow; roots: Root[]; root: strin
                 {tabs.map((p, i) => {
                   const repeated = tabs.some(o => o !== p && nameOf(o.rel) === nameOf(p.rel));
                   return (
-                    <div key={p.key} className={'ex-pestana' + (p.key === active ? ' activa' : '') + (p.previous ? ' previa' : '') + (p.inDisc === 'borrado' ? ' borrada' : '') + (p.dirty ? ' sucia' : '')}
+                    <div key={p.key} className={'ex-tab' + (p.key === active ? ' active' : '') + (p.previous ? ' previa' : '') + (p.inDisc === 'deleted' ? ' borrada' : '') + (p.dirty ? ' sucia' : '')}
                       onClick={() => { setActive(p.key); requestAnimationFrame(() => editor.current?.focus()); }} onDoubleClick={() => update(p.key, { previous: false })}
                       onAuxClick={e => { if (e.button === 1) closeTab(p.key); }}
-                      title={`${p.root.replace(/\/$/, '')}/${p.rel}${p.inDisc === 'cambiado' ? '\n' + t('windows.itChangedOnDiskWhile') : p.inDisc === 'borrado' ? '\n' + t('windows.itIsNoLongerOn') : ''}${i < 9 ? `\n${CMD}${i + 1}` : ''}`}>
+                      title={`${p.root.replace(/\/$/, '')}/${p.rel}${p.inDisc === 'changed' ? '\n' + t('windows.itChangedOnDiskWhile') : p.inDisc === 'deleted' ? '\n' + t('windows.itIsNoLongerOn') : ''}${i < 9 ? `\n${CMD}${i + 1}` : ''}`}>
                       <span className="ex-pestana-nombre">{nameOf(p.rel)}</span>
                       {(repeated || p.root !== root) && <span className="ex-pestana-carpeta">{p.root !== root ? (roots.find(r => r.path === p.root)?.name ?? '') + (parentOf(p.rel) ? ' · ' : '') : ''}{parentOf(p.rel).split('/').pop()}</span>}
-                      {p.inDisc === 'cambiado' && <span className="ex-pestana-ojo" title={t('windows.itChangedOnDisk')}>⚠</span>}
+                      {p.inDisc === 'changed' && <span className="ex-pestana-ojo" title={t('windows.itChangedOnDisk')}>⚠</span>}
                       <button className="ex-pestana-x" onClick={e => { e.stopPropagation(); closeTab(p.key); }} title={t('windows.closeAtajo', { shortcut: `${CMD}W` })}>{p.dirty ? '●' : '×'}</button>
                     </div>
                   );
@@ -591,16 +591,16 @@ function Window({ v, roots, root }: { v: FilesWindow; roots: Root[]; root: strin
               </div>
             )}
             <div ref={zoneEditor} className="ex-editor" tabIndex={-1}>
-              <div ref={host} className="ex-monaco" style={{ visibility: activeTab?.type === 'texto' ? 'inherit' : 'hidden' }} />
-              {activeTab?.type !== 'texto' && (
+              <div ref={host} className="ex-monaco" style={{ visibility: activeTab?.type === 'text' ? 'inherit' : 'hidden' }} />
+              {activeTab?.type !== 'text' && (
                 <div className="ex-otro">
                   {!activeTab && <Welcome root={root} loaded={!!mon} />}
-                  {activeTab?.type === 'cargando' && <div className="gd-vacio">{t('windows.opening')}</div>}
-                  {activeTab?.type === 'imagen' && <div className="ex-imagen"><img src={activeTab.data} alt={activeTab.rel} /><small>{nameOf(activeTab.rel)} · {sizeLegible(activeTab.resize)}</small></div>}
-                  {(activeTab?.type === 'binario' || activeTab?.type === 'grande' || activeTab?.type === 'error') && (
+                  {activeTab?.type === 'loading' && <div className="gd-vacio">{t('windows.opening')}</div>}
+                  {activeTab?.type === 'image' && <div className="ex-imagen"><img src={activeTab.data} alt={activeTab.rel} /><small>{nameOf(activeTab.rel)} · {sizeLegible(activeTab.resize)}</small></div>}
+                  {(activeTab?.type === 'binary' || activeTab?.type === 'large' || activeTab?.type === 'error') && (
                     <div className="gd-vacio">
-                      <p>{activeTab.type === 'binario' ? t('windows.thisIsABinaryFile') : activeTab.type === 'grande' ? t('windows.itIsTooLargeTo', { tamano: sizeLegible(activeTab.resize) }) : activeTab.error}</p>
-                      {activeTab.type !== 'error' && <p><button className="gc-boton" onClick={() => outside('abrirEnEditor', activeTab.rel)}>{t('windows.openInCursor')}</button> <button className="gc-boton" onClick={() => outside('revelar', activeTab.rel)}>{t('windows.showInFinder')}</button></p>}
+                      <p>{activeTab.type === 'binary' ? t('windows.thisIsABinaryFile') : activeTab.type === 'large' ? t('windows.itIsTooLargeTo', { tamano: sizeLegible(activeTab.resize) }) : activeTab.error}</p>
+                      {activeTab.type !== 'error' && <p><button className="gc-boton" onClick={() => outside('openInEditor', activeTab.rel)}>{t('windows.openInCursor')}</button> <button className="gc-boton" onClick={() => outside('revelar', activeTab.rel)}>{t('windows.showInFinder')}</button></p>}
                     </div>
                   )}
                 </div>
@@ -609,13 +609,13 @@ function Window({ v, roots, root }: { v: FilesWindow; roots: Root[]; root: strin
             {activeTab && (
               <div className="ex-estado">
                 <span className="ex-estado-ruta">{activeTab.rel}</span>
-                {activeTab.inDisc === 'cambiado' && <span className="ex-estado-alerta">{t('windows.changedOnDiskILl')}</span>}
-                {activeTab.inDisc === 'borrado' && <span className="ex-estado-alerta">{t('windows.noLongerOnDiskSaving')}</span>}
-                {git[activeTab.rel] && activeTab.root === root && <button className="gc-enlace" onClick={() => openGit({ path: root, view: 'cambios' })} title={t('windows.seeItInTheGit')}>git: {TITLE_LETTER[git[activeTab.rel]] ?? git[activeTab.rel]}</button>}
+                {activeTab.inDisc === 'changed' && <span className="ex-estado-alerta">{t('windows.changedOnDiskILl')}</span>}
+                {activeTab.inDisc === 'deleted' && <span className="ex-estado-alerta">{t('windows.noLongerOnDiskSaving')}</span>}
+                {git[activeTab.rel] && activeTab.root === root && <button className="gc-enlace" onClick={() => openGit({ path: root, view: 'changes' })} title={t('windows.seeItInTheGit')}>git: {TITLE_LETTER[git[activeTab.rel]] ?? git[activeTab.rel]}</button>}
                 <span className="ex-estado-der">
-                  {cursor && activeTab.type === 'texto' && <span>{t('windows.lnLineaColCol', { linea: cursor.line, col: cursor.col })}{cursor.sel ? ` (${t('windows.nSelected', { n: cursor.sel })})` : ''}</span>}
-                  {activeTab.type === 'texto' && models.get(activeTab.key) && <InfoModel m={models.get(activeTab.key)!} mon={mon} />}
-                  <span className={activeTab.dirty ? 'ex-sucio' : 'tenue'}>{activeTab.dirty ? t('windows.unsavedAtajoS', { shortcut: CMD }) : t('windows.saved')}</span>
+                  {cursor && activeTab.type === 'text' && <span>{t('windows.lnLineaColCol', { linea: cursor.line, col: cursor.col })}{cursor.sel ? ` (${t('windows.nSelected', { n: cursor.sel })})` : ''}</span>}
+                  {activeTab.type === 'text' && models.get(activeTab.key) && <InfoModel m={models.get(activeTab.key)!} mon={mon} />}
+                  <span className={activeTab.dirty ? 'ex-sucio' : 'dim'}>{activeTab.dirty ? t('windows.unsavedAtajoS', { shortcut: CMD }) : t('windows.saved')}</span>
                 </span>
               </div>
             )}
@@ -636,14 +636,14 @@ function Window({ v, roots, root }: { v: FilesWindow; roots: Root[]; root: strin
           <button onClick={() => copyPath(false, menu.rel)}>{t('windows.copyPath')} <kbd>⌥{CMD}C</kbd></button>
           <button onClick={() => copyPath(true, menu.rel)}>{t('windows.copyRelativePath')} <kbd>⌥⇧{CMD}C</kbd></button>
           <button onClick={() => outside('revelar', menu.rel)}>{t('windows.showInFinder')} <kbd>⌥{CMD}R</kbd></button>
-          <button onClick={() => outside('abrirEnEditor', menu.rel)}>{t('windows.openInCursor')}</button>
+          <button onClick={() => outside('openInEditor', menu.rel)}>{t('windows.openInCursor')}</button>
           {menu.dir && room && <button onClick={() => { setMenu(null); const cwd = root.replace(/\/$/, '') + (menu.rel ? '/' + menu.rel : ''); openTerminalIn('archivos:' + cwd, room.roomId, menu.rel ? `${room.name} / ${nameOf(menu.rel)}` : room.name, cwd); }}>{t('windows.openATerminalHere')}</button>}
           {menu.rel && <><hr />
             <button onClick={() => renameSel(menu.rel)}>{t('windows.rename2')} <kbd>{t('windows.enter')}</kbd></button>
             <button className="peligro" onClick={() => aTrash(menu.rel)}>{t('windows.moveToTrash')} <kbd>{MAC ? '⌘⌫' : t('windows.del')}</kbd></button></>}
         </div>
       )}
-      {confirm && <Question c={confirm} close={() => setConfirm(null)} goBack={() => (editor.current?.getModel() && activeTab?.type === 'texto' ? editor.current.focus() : treeRef.current?.focus())} />}
+      {confirm && <Question c={confirm} close={() => setConfirm(null)} goBack={() => (editor.current?.getModel() && activeTab?.type === 'text' ? editor.current.focus() : treeRef.current?.focus())} />}
     </div>
   );
 
@@ -660,16 +660,16 @@ function TreeRow({ f, sel, letter, active, cut, renaming, confirm, cancel, click
 }) {
   const [onTop, setAbove] = useState(false);
   return (
-    <div data-rel={f.rel} className={'ex-fila' + (sel ? ' sel' : '') + (active ? ' activa' : '') + (f.e.ignored ? ' ignorado' : '') + (cut ? ' cortada' : '') + (letter ? ' l-' + (letter === '?' ? 'N' : letter) : '') + (onTop ? ' destino' : '')}
+    <div data-rel={f.rel} className={'ex-row' + (sel ? ' sel' : '') + (active ? ' activa' : '') + (f.e.ignored ? ' ignorado' : '') + (cut ? ' cortada' : '') + (letter ? ' l-' + (letter === '?' ? 'N' : letter) : '') + (onTop ? ' destino' : '')}
       style={{ paddingLeft: 8 + f.level * 12 }} onClick={click} onDoubleClick={clickDouble} onContextMenu={menu}
       draggable={!renaming} onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', f.rel); drag.start(); }}
       onDragOver={e => { if (drag.active) { e.preventDefault(); setAbove(true); } }} onDragLeave={() => setAbove(false)}
       onDrop={e => { e.preventDefault(); e.stopPropagation(); setAbove(false); drag.drop(); }}
       title={(f.e.link ? t('windows.symbolicLink') + ' · ' : '') + (f.e.ignored ? t('windows.ignoredByGit') + ' · ' : '') + (letter ? (f.dir ? t('windows.hasChangesInside') : TITLE_LETTER[letter] ?? letter) : '') || undefined}>
       {Array.from({ length: f.level }, (_, i) => <span key={i} className="ex-guia" style={{ left: 14 + i * 12 }} />)}
-      <span className={'ex-flecha' + (f.dir ? (f.open ? ' dir abierta' : ' dir') : '')} />
+      <span className={'ex-flecha' + (f.dir ? (f.open ? ' dir open' : ' dir') : '')} />
       {renaming ? <NameField initial={f.name} confirm={confirm} cancel={cancel} />
-        : <span className="ex-nombre">{f.name}{f.e.link ? <i className="tenue"> ↪</i> : null}</span>}
+        : <span className="ex-nombre">{f.name}{f.e.link ? <i className="dim"> ↪</i> : null}</span>}
       {letter && !renaming && <span className="ex-letra">{f.dir ? '•' : letter === '?' ? 'U' : letter}</span>}
     </div>
   );
@@ -677,7 +677,7 @@ function TreeRow({ f, sel, letter, active, cut, renaming, confirm, cancel, click
 
 function RowNew({ level, dir, confirm, cancel }: { level: number; dir: boolean; confirm: (n: string) => void; cancel: () => void }) {
   return (
-    <div className="ex-fila sel" style={{ paddingLeft: 8 + level * 12 }}>
+    <div className="ex-row sel" style={{ paddingLeft: 8 + level * 12 }}>
       <span className={'ex-flecha' + (dir ? ' dir' : '')} />
       <NameField initial="" confirm={confirm} cancel={cancel} placeholder={dir ? t('windows.folderName') : t('windows.fileNameFolderFileWorks')} />
     </div>
@@ -713,9 +713,9 @@ function Welcome({ root, loaded }: { root: string; loaded: boolean }) {
   ];
   return (
     <div className="ex-bienvenida">
-      <p className="tenue">{root}</p>
+      <p className="dim">{root}</p>
       <dl>{shortcuts.map(([k, d]) => <React.Fragment key={k}><dt><kbd>{k}</kbd></dt><dd>{d}</dd></React.Fragment>)}</dl>
-      <p className="tenue">{loaded ? t('windows.insideTheEditorTheUsual') : t('windows.loadingTheEditor')}</p>
+      <p className="dim">{loaded ? t('windows.insideTheEditorTheUsual') : t('windows.loadingTheEditor')}</p>
     </div>
   );
 }
@@ -787,7 +787,7 @@ function OpenFast({ root, recent, close, open, notify }: { root: string; recent:
             </div>
           );
         })}
-        {rels && query && !results.length && <div className="ex-rapido-item tenue">{t('windows.noFileHasThatName')}</div>}
+        {rels && query && !results.length && <div className="ex-rapido-item dim">{t('windows.noFileHasThatName')}</div>}
       </div>
     </div>
   );

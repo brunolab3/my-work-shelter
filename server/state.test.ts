@@ -9,10 +9,10 @@ import { sanitize, initialState, folderOf, ROOMS_FOLDERS, addRoomsOfService, ens
 describe('estado guardado', () => {
   it('una sala de servicio que falte en un refugio guardado entra en su sitio, sin tocar sus repos', () => {
     const old: any = initialState();
-    old.rooms = old.rooms.filter((s: any) => s.id !== 'git').concat([{ id: 'mio', type: 'repo', name: 'mio', path: '/tmp/mio', floor: 3, side: 'izq', orden: 0, variant: 'taller' }]);
+    old.rooms = old.rooms.filter((s: any) => s.id !== 'git').concat([{ id: 'mio', type: 'repo', name: 'mio', path: '/tmp/mio', floor: 3, side: 'left', orden: 0, variant: 'taller' }]);
     const s = sanitize(old);
     expect(addRoomsOfService(s)).toBe(true);
-    expect(s.rooms.find(x => x.id === 'git')).toMatchObject({ type: 'git', name: 'Control de Versiones', floor: 2, side: 'der', orden: 1 });
+    expect(s.rooms.find(x => x.id === 'git')).toMatchObject({ type: 'git', name: 'Control de Versiones', floor: 2, side: 'right', orden: 1 });
     expect(s.rooms.find(x => x.id === 'mio')?.path).toBe('/tmp/mio');
     expect(addRoomsOfService(s)).toBe(false);
   });
@@ -25,7 +25,7 @@ describe('estado guardado', () => {
     expect(addRoomsOfService(s)).toBe(true);
     ensureFolders(s);
     const git = s.rooms.find(x => x.id === 'git')!, tareas = s.rooms.find(x => x.id === 'tareas')!;
-    expect(tareas).toMatchObject({ type: 'coordinacion', name: 'Logística', path: '/tmp/mis-repos', floor: git.floor, side: git.side, orden: git.orden + 1 });
+    expect(tareas).toMatchObject({ type: 'coordination', name: 'Logística', path: '/tmp/mis-repos', floor: git.floor, side: git.side, orden: git.orden + 1 });
     s.reposRoot = '/tmp/otros'; ensureFolders(s);
     expect(s.rooms.find(x => x.id === 'tareas')!.path).toBe('/tmp/otros');
   });
@@ -37,7 +37,7 @@ describe('estado guardado', () => {
       old.dwellers = old.dwellers.filter((h: any) => h.roomId !== 'review');
       const s = sanitize(old);
       expect(addRoomsOfService(s)).toBe(true);
-      const com = s.rooms.find(x => x.id === 'comunicaciones')!, rev = s.rooms.find(x => x.id === 'review')!;
+      const com = s.rooms.find(x => x.id === 'comms')!, rev = s.rooms.find(x => x.id === 'review')!;
       expect(rev).toMatchObject({ type: 'review', name: 'Revisión', floor: com.floor, side: com.side, orden: com.orden + 1 });
       expect(new Set(s.rooms.map(x => `${x.floor}${x.side}${x.orden}`)).size).toBe(s.rooms.length);
     }
@@ -46,8 +46,8 @@ describe('estado guardado', () => {
     const e: any = initialState();
     e.rooms = moveFloor(e.rooms, 1, 2);
     const s = sanitize(JSON.parse(JSON.stringify(e)));
-    expect(s.rooms.find(x => x.id === 'camara')).toMatchObject({ floor: 2, side: 'izq', orden: 0, manual: true });
-    expect(s.rooms.find(x => x.id === 'logistica')).toMatchObject({ floor: 1, side: 'der', orden: 0 });
+    expect(s.rooms.find(x => x.id === 'vault')).toMatchObject({ floor: 2, side: 'left', orden: 0, manual: true });
+    expect(s.rooms.find(x => x.id === 'logistics')).toMatchObject({ floor: 1, side: 'right', orden: 0 });
   });
   it('sin salas no se acepta (el almacén aparta la copia y arranca de cero)', () => {
     expect(() => sanitize({ rooms: null })).toThrow();
@@ -76,45 +76,45 @@ describe('estado guardado', () => {
   });
   it('si falta la discoteca, entra en la planta de ocio, a la izquierda del ascensor (entre los cultivos y él)', () => {
     const old: any = initialState();
-    old.rooms = old.rooms.filter((x: any) => x.id !== 'discoteca');
-    old.dwellers = old.dwellers.filter((h: any) => h.roomId !== 'discoteca');
+    old.rooms = old.rooms.filter((x: any) => x.id !== 'disco');
+    old.dwellers = old.dwellers.filter((h: any) => h.roomId !== 'disco');
     const s = sanitize(JSON.parse(JSON.stringify(old)));
     expect(addRoomsOfService(s)).toBe(true);
     // sin salas de repo de serie, la planta de ocio queda justo debajo de la de planificación
-    const leisure = initialState().rooms.find(x => x.id === 'galeria')!.floor;
+    const leisure = initialState().rooms.find(x => x.id === 'gallery')!.floor;
     expect(leisure).toBe(3);
-    expect(s.rooms.find(x => x.id === 'discoteca')).toMatchObject({ type: 'discoteca', floor: leisure, side: 'izq', orden: 0 });
-    expect(s.rooms.find(x => x.id === 'hidroponia')).toMatchObject({ floor: leisure, side: 'izq', orden: 1 });
-    expect(s.rooms.find(x => x.id === 'galeria')).toMatchObject({ floor: leisure, side: 'der', orden: 0 });
-    expect(sanitize(s).rooms.filter(x => x.type === 'discoteca')).toHaveLength(1);
+    expect(s.rooms.find(x => x.id === 'disco')).toMatchObject({ type: 'disco', floor: leisure, side: 'left', orden: 0 });
+    expect(s.rooms.find(x => x.id === 'hydroponics')).toMatchObject({ floor: leisure, side: 'left', orden: 1 });
+    expect(s.rooms.find(x => x.id === 'gallery')).toMatchObject({ floor: leisure, side: 'right', orden: 0 });
+    expect(sanitize(s).rooms.filter(x => x.type === 'disco')).toHaveLength(1);
   });
   it('respeta el nombre que el jugador haya puesto a una sala', () => {
     const e: any = initialState();
-    e.rooms = e.rooms.map((x: any) => x.id === 'logistica' ? { ...x, name: 'Linear' } : x);
-    expect(sanitize(e).rooms.find(x => x.id === 'logistica')?.name).toBe('Linear');
+    e.rooms = e.rooms.map((x: any) => x.id === 'logistics' ? { ...x, name: 'Linear' } : x);
+    expect(sanitize(e).rooms.find(x => x.id === 'logistics')?.name).toBe('Linear');
   });
   it('la agenda que se llamaba «Planificación» pasa a «Agenda» (la planificación de tareas es otra sala); otro nombre se respeta', () => {
-    const withName = (name: string) => { const e: any = initialState(); e.rooms = e.rooms.map((x: any) => x.type === 'planificacion' ? { ...x, name } : x); return sanitize(e).rooms.find(x => x.type === 'planificacion')?.name; };
+    const withName = (name: string) => { const e: any = initialState(); e.rooms = e.rooms.map((x: any) => x.type === 'calendar' ? { ...x, name } : x); return sanitize(e).rooms.find(x => x.type === 'calendar')?.name; };
     expect(withName('Planificación')).toBe('Agenda');
     expect(withName('Calendario')).toBe('Calendario');
   });
   it('el tablero de tareas que se llamaba «Logística» pasa a «Planificación» y la sala que reparte (y sus alas), al revés; otro nombre se respeta', () => {
     const e: any = initialState();
-    e.rooms = e.rooms.map((x: any) => x.id === 'logistica' ? { ...x, name: 'Logística' } : x.id === 'tareas' ? { ...x, name: 'Planificación' } : x);
+    e.rooms = e.rooms.map((x: any) => x.id === 'logistics' ? { ...x, name: 'Logística' } : x.id === 'tareas' ? { ...x, name: 'Planificación' } : x);
     e.rooms.push({ ...e.rooms.find((x: any) => x.id === 'tareas'), id: 'ala', name: 'Planificación clientes', manual: true, floor: 9 });
     const s = sanitize(e);
     const name = (id: string) => s.rooms.find(x => x.id === id)?.name;
-    expect([name('logistica'), name('tareas'), name('ala')]).toEqual(['Planificación', 'Logística', 'Logística clientes']);
-    expect(sanitize(s).rooms.find(x => x.id === 'logistica')?.name).toBe('Planificación');
+    expect([name('logistics'), name('tareas'), name('ala')]).toEqual(['Planificación', 'Logística', 'Logística clientes']);
+    expect(sanitize(s).rooms.find(x => x.id === 'logistics')?.name).toBe('Planificación');
   });
   it('toda sala tiene carpeta de trabajo: la suya o, en las especiales, una propia fuera del repo del juego', () => {
     const e = initialState();
     // sin salas de repo de serie: la que tiene carpeta propia es el Puente de Mando (el repo del juego)
     expect(e.rooms.some(s => s.type === 'repo')).toBe(false);
-    const repo = e.rooms.find(s => s.type === 'puente')!, logistica = e.rooms.find(s => s.type === 'logistica')!;
+    const repo = e.rooms.find(s => s.type === 'bridge')!, logistica = e.rooms.find(s => s.type === 'logistics')!;
     expect(repo.path).toBeTruthy();
     expect(folderOf(repo)).toBe(repo.path);
-    expect(folderOf(logistica)).toBe(path.join(ROOMS_FOLDERS, 'logistica'));
+    expect(folderOf(logistica)).toBe(path.join(ROOMS_FOLDERS, 'logistics'));
     expect(e.rooms.every(s => !!folderOf(s))).toBe(true);
     expect(folderOf(logistica).startsWith(path.resolve(import.meta.dirname, '..') + path.sep)).toBe(false);
   });
@@ -125,19 +125,19 @@ describe('salas ocultas', () => {
   const withRepos = () => {
     const e = initialState();
     const names = ['alfa', 'beta', 'gamma', 'delta', 'epsilon', 'eta', 'iota', 'kappa', 'zeta'];
-    e.rooms = sanitize({ ...e, rooms: [...e.rooms, ...names.map(n => ({ id: n, type: 'repo', name: n, path: '/tmp/r/' + n, floor: 3, side: 'izq', orden: 0, variant: 'taller' }))] }).rooms;
-    e.dwellers.push({ id: 'h-zeta', name: 'Zoe', nickname: '', type: 'Hiker', bio: '', roomId: 'zeta', voice: 120, look: { type: 'humano' } as any });
+    e.rooms = sanitize({ ...e, rooms: [...e.rooms, ...names.map(n => ({ id: n, type: 'repo', name: n, path: '/tmp/r/' + n, floor: 3, side: 'left', orden: 0, variant: 'taller' }))] }).rooms;
+    e.dwellers.push({ id: 'h-zeta', name: 'Zoe', nickname: '', type: 'Hiker', bio: '', roomId: 'zeta', voice: 120, look: { type: 'human' } as any });
     return e;
   };
   const floors = (e: ReturnType<typeof initialState>) => [...new Set(e.rooms.map(s => s.floor))].sort((a, b) => a - b);
   it('ocultar la única sala de una planta quita la planta: el ocio sube una', () => {
     const e = withRepos();
-    const leisure = e.rooms.find(s => s.type === 'discoteca')!.floor;
+    const leisure = e.rooms.find(s => s.type === 'disco')!.floor;
     expect(e.rooms.find(s => s.id === 'zeta')!.floor).toBe(4);
     expect(hideRoom(e, 'zeta')).toBe(true);
     expect(e.rooms.some(s => s.id === 'zeta')).toBe(false);
     expect(e.dwellers.some(h => h.roomId === 'zeta')).toBe(false);
-    expect(e.rooms.find(s => s.type === 'discoteca')!.floor).toBe(leisure - 1);
+    expect(e.rooms.find(s => s.type === 'disco')!.floor).toBe(leisure - 1);
     expect(floors(e)).toEqual([0, 1, 2, 3, 4]);
   });
   it('con la disposición a mano, ocultar todas las salas de una planta también la quita', () => {
@@ -162,7 +162,7 @@ describe('salas ocultas', () => {
   });
   it('las salas de servicio y la de logística no se ocultan', () => {
     const e = withRepos();
-    expect(hideRoom(e, 'camara')).toBe(false);
+    expect(hideRoom(e, 'vault')).toBe(false);
     expect(hideRoom(e, 'tareas')).toBe(false);
     expect(hideRoom(e, 'no-existe')).toBe(false);
     expect(showRoom(e, 'alfa')).toBe(false);
@@ -178,14 +178,14 @@ describe('ids de las salas vinculadas a otra carpeta', () => {
       { id: 'pagos-mx1', type: 'repo', path: '/otra/pagos' },
       { id: 'gamma', type: 'repo', path: '/r/pagos' },
       { id: 'api-gateway', type: 'repo', path: '/r/api' },
-      { id: 'tareas', type: 'coordinacion', path: '/r' },
+      { id: 'tareas', type: 'coordination', path: '/r' },
       { id: 'git', type: 'git' },
     ])).toEqual({ alfa: 'tienda', beta: 'panel-web', 'api-gateway': 'api' });
   });
   it('el refugio, los planes y la limpieza de tareas cambian juntos el id viejo por el nuevo', () => {
     const dir = mkdtempSync(path.join(os.tmpdir(), 'ids-salas-'));
     const e: any = initialState();
-    e.rooms.push({ id: 'alfa', type: 'repo', name: 'tienda', path: '/r/tienda', floor: 3, side: 'izq', orden: 0, variant: 'taller' });
+    e.rooms.push({ id: 'alfa', type: 'repo', name: 'tienda', path: '/r/tienda', floor: 3, side: 'left', orden: 0, variant: 'taller' });
     e.dwellers.push({ id: 'ana', name: 'Ana', nickname: '', type: 'Hiker', bio: '', roomId: 'alfa', voice: 120 });
     writeFileSync(path.join(dir, 'refugio.json'), JSON.stringify(e));
     writeFileSync(path.join(dir, 'planes.json'), JSON.stringify([{ id: 'ABC-1', coordination: 'tareas', parts: [{ roomId: 'alfa', room: 'tienda', title: 'x', waitA: ['alfa', 'git'] }] }]));

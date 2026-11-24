@@ -13,7 +13,7 @@ import { ledgerPending, type ReviewThread } from './reviewCount';
 import type { TaskTracker, VerificationPlan } from './verification';
 
 /** ✓ listo, ⚠ mirar, ✗ falta, — no aplica */
-export type Mark = 'ok' | 'aviso' | 'mal' | 'nada';
+export type Mark = 'ok' | 'warning' | 'bad' | 'none';
 export interface Cell { mark: Mark; text: string }
 
 /** Una rama de la tarea en el repo de una sala: sacada en un worktree (`worktree`, con sus cambios sin commitear) o
@@ -30,12 +30,12 @@ export interface RoomRepo { id: string; name: string; repo?: string }
 export interface CompareRecord {
   file: string; ts: number;
   parts: { worktree: string; branch: string; head: string; base?: string }[];
-  answer?: { state: 'validada' | 'notas'; ts: number };
+  answer?: { state: 'validated' | 'notes'; ts: number };
 }
 /** Un check de GitHub del último commit de un PR (server/ciFailures.ts) */
-export interface CICheck { name: string; state: 'ok' | 'mal' | 'pendiente' }
+export interface CICheck { name: string; state: 'ok' | 'bad' | 'pending' }
 /** Lo que contesta el habitante a un punto de la lista «antes de subir» del Supervisor, para un commit */
-export interface ChecklistAnswer { state: 'ok' | 'n/a' | 'pendiente'; note?: string; ts: number }
+export interface ChecklistAnswer { state: 'ok' | 'n/a' | 'pending'; note?: string; ts: number }
 export interface PlanPart { roomId: string; room: string; title: string; waitA?: string[] }
 
 /** A qué espera una parte o a quién bloquea: otro PR (de esta tarea o no) o, sin PR aún, una sala del plan */
@@ -83,7 +83,7 @@ export interface PreflightInput {
 }
 
 const sameRepo = (a?: string, b?: string) => !!a && !!b && a.toLowerCase() === b.toLowerCase();
-const live = (p: PRBoard) => p.state === 'abierto' || p.state === 'borrador';
+const live = (p: PRBoard) => p.state === 'open' || p.state === 'draft';
 export const shortRef = (p: Pick<PRBoard, 'repo' | 'number'>) => `${p.repo.split('/').pop()}#${p.number}`;
 
 /** Copia local frente a la cabeza del PR en GitHub */
@@ -91,86 +91,86 @@ export function syncCell(pr: PRBoard | undefined, l: LocalBranch | undefined): C
   const changes = l?.worktree ? l.changes ?? 0 : 0;
   const dirty = changes ? t('preflight.sync.uncommitted', { n: changes }) : '';
   if (!pr || !live(pr)) {
-    if (dirty) return { mark: 'aviso', text: dirty };
-    return { mark: 'nada', text: !pr ? t('preflight.sync.noPR') : t('preflight.sync.closed') };
+    if (dirty) return { mark: 'warning', text: dirty };
+    return { mark: 'none', text: !pr ? t('preflight.sync.noPR') : t('preflight.sync.closed') };
   }
-  if (!l?.head) return { mark: 'nada', text: t('preflight.sync.noLocal') };
-  if (!pr.head || l.head === pr.head) return dirty ? { mark: 'aviso', text: dirty } : { mark: 'ok', text: t('preflight.sync.upToDate') };
+  if (!l?.head) return { mark: 'none', text: t('preflight.sync.noLocal') };
+  if (!pr.head || l.head === pr.head) return dirty ? { mark: 'warning', text: dirty } : { mark: 'ok', text: t('preflight.sync.upToDate') };
   const behind = l.headless ? t('preflight.sync.remoteMissing') : l.behind ? t('preflight.sync.behind', { n: l.behind }) : '';
   const ahead = l.ahead ? t('preflight.sync.ahead', { n: l.ahead }) : '';
   const text = [behind, ahead, dirty].filter(Boolean).join(' · ') || t('preflight.sync.differs');
   // con commits a los dos lados la rama se ha separado: hay que integrar antes de empujar
-  return { mark: (l.headless || l.behind) && l.ahead ? 'mal' : 'aviso', text };
+  return { mark: (l.headless || l.behind) && l.ahead ? 'bad' : 'warning', text };
 }
 
 export function ciCell(pr: PRBoard | undefined): Cell {
-  if (!pr || !live(pr)) return { mark: 'nada', text: '—' };
+  if (!pr || !live(pr)) return { mark: 'none', text: '—' };
   switch (pr.checks) {
     case 'SUCCESS': return { mark: 'ok', text: t('preflight.ci.green') };
-    case 'FAILURE': case 'ERROR': return { mark: 'mal', text: t('preflight.ci.red') };
-    case 'PENDING': case 'EXPECTED': return { mark: 'aviso', text: t('preflight.ci.pending') };
-    default: return { mark: 'nada', text: t('preflight.ci.none') };
+    case 'FAILURE': case 'ERROR': return { mark: 'bad', text: t('preflight.ci.red') };
+    case 'PENDING': case 'EXPECTED': return { mark: 'warning', text: t('preflight.ci.pending') };
+    default: return { mark: 'none', text: t('preflight.ci.none') };
   }
 }
 
 export function reviewCell(pr: PRBoard | undefined): Cell {
-  if (!pr) return { mark: 'nada', text: '—' };
-  if (pr.state === 'fusionado') return { mark: 'ok', text: t('preflight.review.merged') };
-  if (pr.state === 'cerrado') return { mark: 'nada', text: t('preflight.sync.closed') };
-  if (pr.state === 'borrador') return { mark: 'nada', text: t('preflight.review.draft') };
+  if (!pr) return { mark: 'none', text: '—' };
+  if (pr.state === 'merged') return { mark: 'ok', text: t('preflight.review.merged') };
+  if (pr.state === 'closed') return { mark: 'none', text: t('preflight.sync.closed') };
+  if (pr.state === 'draft') return { mark: 'none', text: t('preflight.review.draft') };
   const base: Cell = pr.review === 'APPROVED' ? { mark: 'ok', text: t('preflight.review.approved') }
-    : pr.review === 'CHANGES_REQUESTED' ? { mark: 'mal', text: t('preflight.review.changes') }
-    : pr.review === 'REVIEW_REQUIRED' ? { mark: 'aviso', text: t('preflight.review.waiting') }
-    : { mark: 'nada', text: t('preflight.review.none') };
+    : pr.review === 'CHANGES_REQUESTED' ? { mark: 'bad', text: t('preflight.review.changes') }
+    : pr.review === 'REVIEW_REQUIRED' ? { mark: 'warning', text: t('preflight.review.waiting') }
+    : { mark: 'none', text: t('preflight.review.none') };
   // lo que queda por contestar (shared/reviewCount.ts): un aprobado con hilos abiertos aún no está listo
   const l = pr.ledger;
   if (!l || !ledgerPending(l)) return base;
   const left = [l.unresolved > 0 && t('preflight.review.threads', { n: l.unresolved }), l.unansweredSummaries > 0 && t('preflight.review.summaries', { n: l.unansweredSummaries })].filter(Boolean).join(' · ');
-  return { mark: base.mark === 'mal' ? 'mal' : 'aviso', text: `${base.text} · ${left}` };
+  return { mark: base.mark === 'bad' ? 'bad' : 'warning', text: `${base.text} · ${left}` };
 }
 
 /** Whether GitHub can merge it into its base as it is (its `mergeable`) */
 export function conflictsCell(pr: PRBoard | undefined): Cell {
-  if (!pr || !live(pr)) return { mark: 'nada', text: '—' };
-  if (pr.conflicts === true) return { mark: 'mal', text: t('preflight.conflicts.yes') };
+  if (!pr || !live(pr)) return { mark: 'none', text: '—' };
+  if (pr.conflicts === true) return { mark: 'bad', text: t('preflight.conflicts.yes') };
   if (pr.conflicts === false) return { mark: 'ok', text: t('preflight.conflicts.no') };
-  return { mark: 'nada', text: t('preflight.conflicts.unknown') };
+  return { mark: 'none', text: t('preflight.conflicts.unknown') };
 }
 
 const short = (sha?: string) => (sha ?? '').slice(0, 7);
 /** The compare reviewed at the current commit: a new head makes it stale */
 export function compareCell(p: { worktree?: string; branch?: string; headLocal?: string; pr?: PRBoard }, compares: CompareRecord[]): { cell: Cell; file?: string } {
-  if (p.pr && !live(p.pr)) return { cell: { mark: 'nada', text: '—' } };
-  if (!p.worktree || !p.headLocal) return { cell: { mark: 'nada', text: t('preflight.sync.noLocal') } };
+  if (p.pr && !live(p.pr)) return { cell: { mark: 'none', text: '—' } };
+  if (!p.worktree || !p.headLocal) return { cell: { mark: 'none', text: t('preflight.sync.noLocal') } };
   const theirs = compares.filter(c => c.parts.some(x => x.worktree === p.worktree && x.branch === p.branch)).sort((a, b) => b.ts - a.ts);
   // la validada en este commit, si la hay (de un repo o de la tarea); si no, la más reciente
   const side = (c: CompareRecord) => c.parts.find(x => x.worktree === p.worktree && x.branch === p.branch)!;
-  const valid = theirs.find(c => c.answer?.state === 'validada' && c.answer.ts >= c.ts && side(c).head === p.headLocal);
+  const valid = theirs.find(c => c.answer?.state === 'validated' && c.answer.ts >= c.ts && side(c).head === p.headLocal);
   if (valid) return { cell: { mark: 'ok', text: t('preflight.compare.validated', { sha: short(p.headLocal) }) }, file: valid.file };
   const c = theirs[0];
-  if (!c) return { cell: { mark: 'mal', text: t('preflight.compare.none') } };
-  if (side(c).head !== p.headLocal) return { cell: { mark: 'aviso', text: t('preflight.compare.old', { de: short(side(c).head), head: short(p.headLocal) }) }, file: c.file };
-  if (c.answer?.state === 'notas' && c.answer.ts >= c.ts) return { cell: { mark: 'aviso', text: t('preflight.compare.notes') }, file: c.file };
-  return { cell: { mark: 'aviso', text: t('preflight.compare.pending', { sha: short(p.headLocal) }) }, file: c.file };
+  if (!c) return { cell: { mark: 'bad', text: t('preflight.compare.none') } };
+  if (side(c).head !== p.headLocal) return { cell: { mark: 'warning', text: t('preflight.compare.old', { de: short(side(c).head), head: short(p.headLocal) }) }, file: c.file };
+  if (c.answer?.state === 'notes' && c.answer.ts >= c.ts) return { cell: { mark: 'warning', text: t('preflight.compare.notes') }, file: c.file };
+  return { cell: { mark: 'warning', text: t('preflight.compare.pending', { sha: short(p.headLocal) }) }, file: c.file };
 }
 
 const linkOf = (p: PRBoard, reason: BlockerReason): PartLink => ({ ref: refPR(p), url: p.url, title: p.title, state: p.state, checks: p.checks, reason });
 /** Lo que falta de un PR al que se espera, dicho de él (su CI roja es suya) */
 export function linkState(l: PartLink): string {
   if (!l.url) return t('preflight.blockers.notStarted');
-  if (l.state === 'fusionado') return t('preflight.review.merged');
+  if (l.state === 'merged') return t('preflight.review.merged');
   const ci = l.checks === 'FAILURE' || l.checks === 'ERROR' ? t('preflight.blockers.itsCIRed') : l.checks === 'PENDING' || l.checks === 'EXPECTED' ? t('preflight.ci.pending') : '';
-  return [l.state === 'borrador' ? t('preflight.review.draft') : t('preflight.blockers.open'), ci].filter(Boolean).join(' · ');
+  return [l.state === 'draft' ? t('preflight.review.draft') : t('preflight.blockers.open'), ci].filter(Boolean).join(' · ');
 }
 const linkName = (l: PartLink) => l.url ? l.ref.replace(/^[^/]+\//, '') : l.room ?? l.ref;
 
 export function blockersCell(waitsOn: PartLink[], blocks: PartLink[], inCycle: boolean): Cell {
-  if (inCycle) return { mark: 'mal', text: t('preflight.blockers.cycle') };
-  const pending = waitsOn.filter(l => l.state !== 'fusionado');
-  if (pending.length) return { mark: 'aviso', text: t('preflight.blockers.waitsFor', { prs: pending.map(l => `${linkName(l)} (${linkState(l)})`).join(', ') }) };
-  const live = blocks.filter(l => l.state !== 'fusionado' && l.state !== 'cerrado');
+  if (inCycle) return { mark: 'bad', text: t('preflight.blockers.cycle') };
+  const pending = waitsOn.filter(l => l.state !== 'merged');
+  if (pending.length) return { mark: 'warning', text: t('preflight.blockers.waitsFor', { prs: pending.map(l => `${linkName(l)} (${linkState(l)})`).join(', ') }) };
+  const live = blocks.filter(l => l.state !== 'merged' && l.state !== 'closed');
   if (live.length) return { mark: 'ok', text: t('preflight.blockers.blocks', { prs: live.map(linkName).join(', ') }) };
-  return { mark: waitsOn.length ? 'ok' : 'nada', text: waitsOn.length ? t('preflight.blockers.allMerged') : t('preflight.blockers.none') };
+  return { mark: waitsOn.length ? 'ok' : 'none', text: waitsOn.length ? t('preflight.blockers.allMerged') : t('preflight.blockers.none') };
 }
 
 /** Un punto contestado: ok, o n/a con una nota que diga por qué */
@@ -178,18 +178,18 @@ export const answered = (a?: ChecklistAnswer) => !!a && (a.state === 'ok' || (a.
 export const checklistKey = (worktree: string, head: string) => `${worktree}|${head}`;
 /** La lista «antes de subir» de una parte, en su commit: n/m contestados; un borrador no la necesita (solo el compare) */
 export function checklistCell(p: { worktree?: string; headLocal?: string; pr?: PRBoard }, items: string[], answers: Record<string, ChecklistAnswer> = {}): Cell {
-  if (!items.length || (p.pr && !live(p.pr)) || !p.worktree || !p.headLocal) return { mark: 'nada', text: '—' };
+  if (!items.length || (p.pr && !live(p.pr)) || !p.worktree || !p.headLocal) return { mark: 'none', text: '—' };
   const n = items.filter(i => answered(answers[i])).length;
-  if (p.pr?.state === 'borrador') return { mark: 'nada', text: t('preflight.checklist.draft', { n, m: items.length }) };
-  return { mark: n === items.length ? 'ok' : 'aviso', text: t('preflight.checklist.count', { n, m: items.length, sha: short(p.headLocal) }) };
+  if (p.pr?.state === 'draft') return { mark: 'none', text: t('preflight.checklist.draft', { n, m: items.length }) };
+  return { mark: n === items.length ? 'ok' : 'warning', text: t('preflight.checklist.count', { n, m: items.length, sha: short(p.headLocal) }) };
 }
 
 /** Lo que falta para subir una parte (la puerta de `git push`): el compare validado en su commit y, salvo en borrador,
  *  la lista contestada. El resto (CI, revisión, bloqueos) no frena una subida */
 export function gateMissing(p: PartPreflight): string[] {
   const out: string[] = [];
-  if (p.compare.mark !== 'ok' && p.compare.mark !== 'nada') out.push(t('preflight.gate.compare', { que: p.compare.text }));
-  if (p.checklist.mark === 'aviso' || p.checklist.mark === 'mal') out.push(t('preflight.gate.checklist', { que: p.checklist.text }));
+  if (p.compare.mark !== 'ok' && p.compare.mark !== 'none') out.push(t('preflight.gate.compare', { que: p.compare.text }));
+  if (p.checklist.mark === 'warning' || p.checklist.mark === 'bad') out.push(t('preflight.gate.checklist', { que: p.checklist.text }));
   return out;
 }
 
@@ -294,19 +294,19 @@ export function repoChecklist(f: RepoFiles): string[] {
 /** Whether a PR can be merged now: merged already, ready (open, CI, review, no conflicts and nothing it waits for
  *  still open), or not yet (⚠) or with a problem (✗), with what stops it. Push-only cells (compare, checklist, sync)
  *  don't count here: they are the push gate's (gateMissing) */
-export function mergeReady(p: PartPreflight): { state: 'fusionado' | 'listo' | 'aviso' | 'falta'; missing: string[] } {
-  if (p.pr?.state === 'fusionado') return { state: 'fusionado', missing: [] };
-  if (!p.pr || !live(p.pr)) return { state: 'falta', missing: [p.pr ? t('preflight.sync.closed') : t('preflight.sync.noPR')] };
+export function mergeReady(p: PartPreflight): { state: 'merged' | 'ready' | 'warning' | 'missing'; missing: string[] } {
+  if (p.pr?.state === 'merged') return { state: 'merged', missing: [] };
+  if (!p.pr || !live(p.pr)) return { state: 'missing', missing: [p.pr ? t('preflight.sync.closed') : t('preflight.sync.noPR')] };
   const cells = [p.ci, p.review, p.conflicts, p.blockers];
-  const missing = [...(p.pr.state === 'borrador' ? [t('preflight.review.draft')] : []), ...cells.filter(c => c.mark === 'mal' || c.mark === 'aviso').map(c => c.text)];
-  return { state: cells.some(c => c.mark === 'mal') ? 'falta' : missing.length ? 'aviso' : 'listo', missing };
+  const missing = [...(p.pr.state === 'draft' ? [t('preflight.review.draft')] : []), ...cells.filter(c => c.mark === 'bad' || c.mark === 'warning').map(c => c.text)];
+  return { state: cells.some(c => c.mark === 'bad') ? 'missing' : missing.length ? 'warning' : 'ready', missing };
 }
 
 /** Whether a task has a pre-flight to show: at least one PR of it (open, draft or merged) in any repo, matched as
  *  `preflightTarea` does. Without one there is nothing to merge, so its entry points stay hidden */
 export function taskHasPRs(key: string, prs: Pick<PRBoard, 'branch' | 'title' | 'number' | 'state'>[]): boolean {
   const K = taskKey(key);
-  return !!K && prs.some(p => p.state !== 'cerrado' && pRTask(p) === K);
+  return !!K && prs.some(p => p.state !== 'closed' && pRTask(p) === K);
 }
 
 /** El pre-flight de una tarea: sus partes en todas las salas y el orden en que puede fusionarse */
@@ -314,7 +314,7 @@ export function preflightTask(key: string, d: PreflightInput): TaskPreflight {
   const K = taskKey(key) ?? key.toUpperCase();
   const byUrl = new Map(d.prs.map(p => [p.url, p]));
   // los PR de la tarea (los cerrados sin fusionar ya no cuentan)
-  const taskPrs = d.prs.filter(p => p.state !== 'cerrado' && pRTask(p) === K);
+  const taskPrs = d.prs.filter(p => p.state !== 'closed' && pRTask(p) === K);
   const roomOf = (repo: string) => d.rooms.find(s => sameRepo(s.repo, repo));
   const planOf = (roomId?: string) => d.plan?.find(x => x.roomId === roomId);
   // merged PRs keep their wave: a task that fully landed shows its waves complete
@@ -362,7 +362,7 @@ export function preflightTask(key: string, d: PreflightInput): TaskPreflight {
   for (const x of d.plan ?? []) {
     if (parts.some(p => p.roomId === x.roomId)) continue;
     const room = d.rooms.find(s => s.id === x.roomId);
-    const none: Cell = { mark: 'nada', text: '—' };
+    const none: Cell = { mark: 'none', text: '—' };
     parts.push({ id: 'plan:' + x.roomId, roomId: x.roomId, room: room?.name ?? x.room, repo: room?.repo, plan: x.title, notStarted: true, sync: none, ci: none, review: none, conflicts: none, blockers: none, compare: none, checklist: none, repoItems: [], ciChecks: [], threads: [], waitsOn: [], blocks: [] });
   }
   // lo que dice el plan que espera a una sala que aún no tiene PR: sin PR no hay bloqueo entre PR, pero se espera igual
@@ -380,7 +380,7 @@ export function preflightTask(key: string, d: PreflightInput): TaskPreflight {
   const mine = new Set(taskPrs.map(p => p.url));
   const tail = [...mine];
   // (another task's PR already merged no longer holds anything: it stays out)
-  while (tail.length) { const u = tail.shift()!; for (const b of d.blockers) if (b.from === u && !mine.has(b.by) && byUrl.get(b.by)?.state !== 'fusionado') { mine.add(b.by); tail.push(b.by); } }
+  while (tail.length) { const u = tail.shift()!; for (const b of d.blockers) if (b.from === u && !mine.has(b.by) && byUrl.get(b.by)?.state !== 'merged') { mine.add(b.by); tail.push(b.by); } }
   const ownWaves = waves.map(o => o.filter(p => mine.has(p.url)).map(refPR)).filter(o => o.length);
   return { key: K, color: d.color, title: d.title, parts, waves: ownWaves, cycle: cycle.filter(p => mine.has(p.url)).map(refPR),
     checklist: d.checklist?.items ?? [], ...(d.verification ? { verification: d.verification } : {}), demo: d.demo, error: d.error };

@@ -5,39 +5,39 @@
 // vértice: ondulan, se abren, uno saluda o teclea).
 import * as THREE from 'three';
 
-type Pose = 'quieta' | 'andar' | 'correr' | 'silla' | 'suelo' | 'tumbada' | 'trabajar' | 'sostener';
-type Gesture = 'saludo' | 'fiesta' | 'golpe' | 'tocar' | 'aparecer' | 'sentarse' | 'levantarse' | 'disparo';
+type Pose = 'still' | 'walk' | 'run' | 'chair' | 'floor' | 'lying' | 'work' | 'hold';
+type Gesture = 'greeting' | 'fiesta' | 'hit' | 'touch' | 'spawn' | 'sitDown' | 'levantarse' | 'shot';
 
 // clips de una vez que tienen gesto propio (y su duración); los demás de una vez duran lo de «tocar»
 const GESTURES: Record<string, [Gesture, number]> = {
-  Waving: ['saludo', 1.9], Cheering: ['fiesta', 2.1], Hit_A: ['golpe', 0.75], Hit_B: ['golpe', 0.75], Death_A: ['golpe', 1.2],
-  Interact: ['tocar', 1.3], PickUp: ['tocar', 1.3], Use_Item: ['tocar', 1.3], Spawn_Ground: ['aparecer', 1.25], Spawn_Air: ['aparecer', 1.25],
-  Sit_Floor_Down: ['sentarse', 0.7], Sit_Chair_Down: ['sentarse', 0.7], Sit_Floor_StandUp: ['levantarse', 0.7], Sit_Chair_StandUp: ['levantarse', 0.7],
-  Ranged_1H_Shoot: ['disparo', 0.5], Ranged_2H_Shoot: ['disparo', 0.5],
+  Waving: ['greeting', 1.9], Cheering: ['fiesta', 2.1], Hit_A: ['hit', 0.75], Hit_B: ['hit', 0.75], Death_A: ['hit', 1.2],
+  Interact: ['touch', 1.3], PickUp: ['touch', 1.3], Use_Item: ['touch', 1.3], Spawn_Ground: ['spawn', 1.25], Spawn_Air: ['spawn', 1.25],
+  Sit_Floor_Down: ['sitDown', 0.7], Sit_Chair_Down: ['sitDown', 0.7], Sit_Floor_StandUp: ['levantarse', 0.7], Sit_Chair_StandUp: ['levantarse', 0.7],
+  Ranged_1H_Shoot: ['shot', 0.5], Ranged_2H_Shoot: ['shot', 0.5],
 };
 
 function poseOf(clip: string): Pose {
-  if (/^Running/.test(clip)) return 'correr';
-  if (/^(Walking|Sneaking)/.test(clip)) return 'andar';
-  if (/^(Sit_Chair|Sentado_)/.test(clip)) return 'silla';   // también los compuestos (teclear, leer… sentada)
-  if (/^Sit_Floor/.test(clip)) return 'suelo';
-  if (/^Lie_/.test(clip)) return 'tumbada';
-  if (/^(Working|Hammering|Lockpicking|Chop|Dig|Sawing|Fishing|Interact|PickUp|Use_Item)/.test(clip)) return 'trabajar';
-  if (/^(Holding|Ranged|Melee|Throw|Block)/.test(clip)) return 'sostener';
-  return 'quieta';
+  if (/^Running/.test(clip)) return 'run';
+  if (/^(Walking|Sneaking)/.test(clip)) return 'walk';
+  if (/^(Sit_Chair|Sentado_)/.test(clip)) return 'chair';   // también los compuestos (teclear, leer… sentada)
+  if (/^Sit_Floor/.test(clip)) return 'floor';
+  if (/^Lie_/.test(clip)) return 'lying';
+  if (/^(Working|Hammering|Lockpicking|Chop|Dig|Sawing|Fishing|Interact|PickUp|Use_Item)/.test(clip)) return 'work';
+  if (/^(Holding|Ranged|Melee|Throw|Block)/.test(clip)) return 'hold';
+  return 'still';
 }
 
 // lo que cada pose pide al cuerpo (se funde de una a otra)
 interface Mix { jump: number; tilts: number; sway: number; wave: number; open: number; height: number; squash: number; typing: number; drag: number }
 const POSES: Record<Pose, Mix> = {
-  quieta: { jump: 0, tilts: 0, sway: 0.012, wave: 1, open: 0, height: 0, squash: 0, typing: 0, drag: 0 },
-  andar: { jump: 0.07, tilts: 0.1, sway: 0.07, wave: 0.6, open: 0, height: 0, squash: 0, typing: 0, drag: 1 },
-  correr: { jump: 0.13, tilts: 0.2, sway: 0.05, wave: 0.5, open: 0, height: 0, squash: 0, typing: 0, drag: 1.6 },
-  silla: { jump: 0, tilts: 0.04, sway: 0.01, wave: 0.6, open: -0.15, height: 0.4, squash: 0, typing: 0, drag: 0 },
-  suelo: { jump: 0, tilts: 0, sway: 0.008, wave: 0.5, open: 1, height: 0, squash: 0.14, typing: 0, drag: 0 },
-  tumbada: { jump: 0, tilts: 0, sway: 0, wave: 0.25, open: 1.2, height: 0, squash: 0.2, typing: 0, drag: 0 },
-  trabajar: { jump: 0, tilts: 0.12, sway: 0.01, wave: 0.5, open: 0, height: 0, squash: 0, typing: 1, drag: 0 },
-  sostener: { jump: 0, tilts: 0.03, sway: 0.01, wave: 0.8, open: 0.1, height: 0, squash: 0, typing: 0.3, drag: 0 },
+  still: { jump: 0, tilts: 0, sway: 0.012, wave: 1, open: 0, height: 0, squash: 0, typing: 0, drag: 0 },
+  walk: { jump: 0.07, tilts: 0.1, sway: 0.07, wave: 0.6, open: 0, height: 0, squash: 0, typing: 0, drag: 1 },
+  run: { jump: 0.13, tilts: 0.2, sway: 0.05, wave: 0.5, open: 0, height: 0, squash: 0, typing: 0, drag: 1.6 },
+  chair: { jump: 0, tilts: 0.04, sway: 0.01, wave: 0.6, open: -0.15, height: 0.4, squash: 0, typing: 0, drag: 0 },
+  floor: { jump: 0, tilts: 0, sway: 0.008, wave: 0.5, open: 1, height: 0, squash: 0.14, typing: 0, drag: 0 },
+  lying: { jump: 0, tilts: 0, sway: 0, wave: 0.25, open: 1.2, height: 0, squash: 0.2, typing: 0, drag: 0 },
+  work: { jump: 0, tilts: 0.12, sway: 0.01, wave: 0.5, open: 0, height: 0, squash: 0, typing: 1, drag: 0 },
+  hold: { jump: 0, tilts: 0.03, sway: 0.01, wave: 0.8, open: 0.1, height: 0, squash: 0, typing: 0.3, drag: 0 },
 };
 
 export class AnimOctocat {
@@ -51,8 +51,8 @@ export class AnimOctocat {
   private qParent = new THREE.Quaternion();     // giro del padre de la cabeza respecto al cuerpo: los giros se piden en ejes del cuerpo
   private tentacles: { mesh: THREE.Mesh; base: Float32Array; inv: THREE.Matrix3; ang: Float32Array; prof: Float32Array } | null = null;
   private height0 = 1;                            // altura del modelo (unidades del modelo)
-  private pose: Pose = 'quieta';
-  private m: Mix = { ...POSES.quieta };
+  private pose: Pose = 'still';
+  private m: Mix = { ...POSES.still };
   private gesture: { type: Gesture; dur: number; t: number } | null = null;
   private t = Math.random() * 10;
   private phase = 0;
@@ -60,7 +60,7 @@ export class AnimOctocat {
 
   constructor(model: THREE.Object3D, private scale: number) {
     // el envoltorio: todo lo que trae el modelo cuelga de él (el retrato lo clona igual y le copia la pose)
-    this.body = new THREE.Group(); this.body.name = 'octocat_cuerpo';
+    this.body = new THREE.Group(); this.body.name = 'octocat_body';
     for (const h of [...model.children]) this.body.add(h);
     model.add(this.body);
     this.head = model.getObjectByName('head') ?? null;
@@ -108,10 +108,10 @@ export class AnimOctocat {
   /** Lo que pide el juego con el nombre de un clip de KayKit: una pose en bucle o un gesto de una vez */
   set(clip: string, timeOne: boolean) {
     if (timeOne) {
-      const [type, dur] = GESTURES[clip] ?? ['tocar', 1.3];
+      const [type, dur] = GESTURES[clip] ?? ['touch', 1.3];
       this.gesture = { type, dur, t: 0 };
-      if (type === 'sentarse') this.pose = /Chair/.test(clip) ? 'silla' : 'suelo';
-      else if (type !== 'disparo') this.pose = 'quieta';   // los gestos de KayKit son de pie: se levanta de la silla para saludar
+      if (type === 'sitDown') this.pose = /Chair/.test(clip) ? 'chair' : 'floor';
+      else if (type !== 'shot') this.pose = 'still';   // los gestos de KayKit son de pie: se levanta de la silla para saludar
     } else { this.gesture = null; this.pose = poseOf(clip); }   // en bucle (también «Interact» en un puesto): una pose
   }
 
@@ -122,7 +122,7 @@ export class AnimOctocat {
     for (const c of Object.keys(obj) as (keyof Mix)[]) this.m[c] += (obj[c] - this.m[c]) * k;
     const m = this.m;
     // la marcha: saltitos al ritmo de la velocidad; cada aterrizaje es un paso
-    const gait = this.pose === 'andar' || this.pose === 'correr';
+    const gait = this.pose === 'walk' || this.pose === 'run';
     const rhythm = gait ? 1.7 + Math.min(speed, 3) * 0.75 : 0;
     this.phase += dt * rhythm * Math.PI;
     if (gait) { const p = Math.floor(this.phase / Math.PI); if (p !== this.footstep) { this.footstep = p; this.onStep?.(p & 1); } }
@@ -131,19 +131,19 @@ export class AnimOctocat {
     let sy = 1 - m.squash + Math.sin(t * 2.3) * 0.012 + (gait ? (bounce - 0.5) * 0.05 : 0);
     let rx = m.tilts, rz = Math.sin(this.phase) * m.sway + Math.sin(t * 0.9) * 0.012, ry = 0;
     // cabeza: mira un poco alrededor; al trabajar asiente; dormida, ladeada
-    let cx = Math.sin(t * 0.53) * 0.04 + m.typing * (Math.sin(t * 7) * 0.05 + 0.08), cy = Math.sin(t * 0.37) * 0.12 * (1 - m.typing), cz = Math.sin(t * 0.71) * 0.04 + (this.pose === 'tumbada' ? 0.35 : 0);
+    let cx = Math.sin(t * 0.53) * 0.04 + m.typing * (Math.sin(t * 7) * 0.05 + 0.08), cy = Math.sin(t * 0.37) * 0.12 * (1 - m.typing), cz = Math.sin(t * 0.71) * 0.04 + (this.pose === 'lying' ? 0.35 : 0);
     // gestos de una vez
     let greeting = 0, reach = 0, open = m.open;
     const g = this.gesture;
     if (g) {
       g.t += dt; const f = Math.min(1, g.t / g.dur), sube = Math.sin(Math.PI * f);
       switch (g.type) {
-        case 'saludo': greeting = Math.min(1, sube * 2); cz += Math.sin(g.t * 9) * 0.18 * greeting; y += Math.abs(Math.sin(g.t * 6)) * 0.03 * this.height0 * greeting; break;
+        case 'greeting': greeting = Math.min(1, sube * 2); cz += Math.sin(g.t * 9) * 0.18 * greeting; y += Math.abs(Math.sin(g.t * 6)) * 0.03 * this.height0 * greeting; break;
         case 'fiesta': { const b = Math.abs(Math.sin(f * Math.PI * 3)); y += b * 0.16 * this.height0; ry = f * Math.PI * 2; open += 0.9 * sube; sy += (b - 0.4) * 0.08; cx -= 0.15 * sube; break; }
-        case 'golpe': sy -= 0.16 * sube; rx -= 0.25 * sube; cz += Math.sin(g.t * 30) * 0.12 * sube; open += 0.6 * sube; break;
-        case 'tocar': rx += 0.18 * sube; reach = sube; cx += 0.12 * sube; break;
-        case 'aparecer': { const e = 1 - Math.pow(1 - f, 3); sy *= 0.2 + 0.8 * e + Math.sin(f * Math.PI) * 0.12; y += Math.sin(f * Math.PI) * 0.12 * this.height0; break; }
-        case 'disparo': rx -= 0.1 * sube; break;
+        case 'hit': sy -= 0.16 * sube; rx -= 0.25 * sube; cz += Math.sin(g.t * 30) * 0.12 * sube; open += 0.6 * sube; break;
+        case 'touch': rx += 0.18 * sube; reach = sube; cx += 0.12 * sube; break;
+        case 'spawn': { const e = 1 - Math.pow(1 - f, 3); sy *= 0.2 + 0.8 * e + Math.sin(f * Math.PI) * 0.12; y += Math.sin(f * Math.PI) * 0.12 * this.height0; break; }
+        case 'shot': rx -= 0.1 * sube; break;
         default: break;   // sentarse y levantarse: la pose ya se está fundiendo
       }
       if (g.t >= g.dur) { this.gesture = null; this.onFinish?.(); }

@@ -36,23 +36,23 @@ try {
   await pg.evaluate(async r => { await window.__ready(); await window.__client.action('recruit', { path: r }); await window.__client.action('save', { patch: { doneWelcome: true } }); window.__game.set({ panel: null, panelData: null }); }, repo);
   await pg.waitForFunction(w => window.__game.get().copies.some(c => c.copy?.path === w), wt, { timeout: 90000 });
   const holo = await pg.evaluate(w => window.__game.get().copies.find(c => c.copy?.path === w), wt);
-  console.log('copia', holo.id, holo.room);
+  console.log('copy', holo.id, holo.room);
   await pg.evaluate(([holo, wt, pages]) => {
     const now = Date.now();
     const c = window.__client, orig = c.action.bind(c);
-    const pr = (number, branch, state = 'abierto') => ({ number, title: 'Carrito: parte ' + number, url: `https://github.com/acme/tienda/pull/${number}`, repo: 'acme/tienda', branch, state, updated: 0, base: 'main' });
-    const prs = [pr(7, 'QA-7-carrito'), pr(8, 'QA-7-carrito-2', 'borrador'), pr(6, 'QA-7-base', 'fusionado')];
+    const pr = (number, branch, state = 'open') => ({ number, title: 'Carrito: parte ' + number, url: `https://github.com/acme/tienda/pull/${number}`, repo: 'acme/tienda', branch, state, updated: 0, base: 'main' });
+    const prs = [pr(7, 'QA-7-carrito'), pr(8, 'QA-7-carrito-2', 'draft'), pr(6, 'QA-7-base', 'merged')];
     c.action = (n, d) => n === 'git.prsBoard' ? Promise.resolve({ prs }) : orig(n, d);
     window.__board.set({ prs });
-    const sess = { id: 'qa_s', claudeId: 'qa_c', dwellerId: holo.copy.authorId, roomId: holo.room, cwd: wt, state: 'terminada', activity: null, unread: false, title: 'QA carrito', pending: 0, helpers: [], tools: 0, turns: 1, created: now, updated: now, model: 'claude-opus-5-5' };
+    const sess = { id: 'qa_s', claudeId: 'qa_c', dwellerId: holo.copy.authorId, roomId: holo.room, cwd: wt, state: 'finished', activity: null, unread: false, title: 'QA carrito', pending: 0, helpers: [], tools: 0, turns: 1, created: now, updated: now, model: 'claude-opus-5-5' };
     const entries = pages.map((p, i) => ({ id: 'e' + i, ts: now - i * 1000, type: 'asistente', text: `Plan: [plan ${i + 1}](${p})` }));
-    const prog = (id, h, m) => ({ id, created: now, when: now + h * 3600e3, requested: '', message: m, origin: { roomId: holo.room, sessionId: 'qa_s', claudeId: 'qa_c' }, target: { type: 'conversacion', roomId: holo.room, sessionId: 'qa_s', claudeId: 'qa_c', cwd: wt, title: 'QA carrito' } });
+    const prog = (id, h, m) => ({ id, created: now, when: now + h * 3600e3, requested: '', message: m, origin: { roomId: holo.room, sessionId: 'qa_s', claudeId: 'qa_c' }, target: { type: 'conversation', roomId: holo.room, sessionId: 'qa_s', claudeId: 'qa_c', cwd: wt, title: 'QA carrito' } });
     window.__live.set(e => ({ sessions: { ...e.sessions, qa_s: sess }, entries: { ...e.entries, qa_s: entries }, scheduled: [prog('p1', 20, 'Revisar el carrito el lunes'), prog('p2', 50, 'Mirar CI')] }));
     window.__game.set({ talkingWith: holo.id });
   }, [holo, wt, pages]);
   await pg.waitForSelector('.consola-acciones', { timeout: 15000 });
   await sleep(2500);
-  const side = async n => { const r = await pg.$eval('.consola', e => { const b = e.getBoundingClientRect(); return { x: b.x, y: b.y, width: b.width, height: b.height }; }); await pg.screenshot({ path: `${dir}/${n}.png`, clip: r, timeout: 120000 }); console.log('->', `${dir}/${n}.png`); };
+  const side = async n => { const r = await pg.$eval('.console', e => { const b = e.getBoundingClientRect(); return { x: b.x, y: b.y, width: b.width, height: b.height }; }); await pg.screenshot({ path: `${dir}/${n}.png`, clip: r, timeout: 120000 }); console.log('->', `${dir}/${n}.png`); };
   const buttons = await pg.$$eval('.consola-acciones .consola-x', l => l.map(x => x.textContent).filter(x => !x.startsWith('⚑')));
   check(/📄/.test(buttons[0]) && /⑂/.test(buttons[1]) && /✈/.test(buttons[2]) && /⏰/.test(buttons[3]) && buttons.length === 4, 'pages, PRs, pre-flight and scheduled, in that order: ' + buttons.join(' | '));
   check(await pg.$eval('.consola-acciones', a => a.getBoundingClientRect().top - [...a.parentElement.children].at(-2).getBoundingClientRect().bottom < 30), 'the section sits right under the dweller\'s data');
@@ -60,7 +60,7 @@ try {
   const spot = () => pg.$eval('.paginas-lista', u => {
     const b = u.parentElement.getBoundingClientRect(), l = u.getBoundingClientRect(), z = u.closest('.consola-cuerpo').getBoundingClientRect();
     const inside = l.top >= z.top - 1 && l.bottom <= z.bottom + 1;
-    return Math.abs(l.top - b.bottom) < 3 && Math.abs(l.left - b.left) < 3 ? (inside ? 'debajo' : 'fuera') : l.left >= b.right && l.top <= b.bottom && l.bottom >= b.top ? (inside ? 'derecha' : 'fuera') : 'lejos';
+    return Math.abs(l.top - b.bottom) < 3 && Math.abs(l.left - b.left) < 3 ? (inside ? 'debajo' : 'fuera') : l.left >= b.right && l.top <= b.bottom && l.bottom >= b.top ? (inside ? 'derecha' : 'fuera') : 'far';
   });
   await side('1-cerrado');
   for (const [sel, n] of [['.paginas-principal > .consola-x', '2-paginas'], ['.prs-copia > .consola-x', '3-prs'], ['.programados-sesion > .consola-x', '4-programados']]) {
@@ -79,15 +79,15 @@ try {
   // in a short window and in a normal one, scrolling inside the list when it doesn't fit
   await pg.evaluate(() => {
     const now = Date.now(), wt = window.__live.get().sessions.qa_s.cwd, room = window.__live.get().sessions.qa_s.roomId;
-    const target = { type: 'conversacion', roomId: room, sessionId: 'qa_s', claudeId: 'qa_c', cwd: wt, title: 'QA carrito' };
+    const target = { type: 'conversation', roomId: room, sessionId: 'qa_s', claudeId: 'qa_c', cwd: wt, title: 'QA carrito' };
     const origin = { roomId: room, sessionId: 'qa_s', claudeId: 'qa_c' };
     const prog = (i, extra) => ({ id: 'm' + i, created: now + i, when: now + (i + 1) * 3600e3, requested: '', message: `Mensaje programado número ${i}: revisar el carrito, los tests y el despliegue antes del lunes`, origin, target, ...extra });
     const part = n => ({ kind: 'ci', text: 'CI ' + n });
     window.__live.set(e => ({ ...e, scheduled: [
       prog(0, { afterTurn: true }), prog(1, { afterTurn: true, pr: { url: 'https://github.com/acme/tienda/pull/7', label: 'acme/tienda#7', parts: [part(1), part(2), part(3)] } }),
       prog(2, { afterTurn: true, pr: { url: 'https://github.com/acme/tienda/pull/8', label: 'acme/tienda#8', parts: [part(1)] } }),
-      prog(3, { nextWindow: true }), prog(4, { nextWindow: true }), prog(5, { overLimit: true, target: { type: 'sala', room: 'plataforma-de-pagos', key: 'una-tarea-con-una-clave-bastante-larga' } }),
-      prog(6, {}), prog(7, {}), prog(8, { target: { type: 'sala', room: 'logistica', thread: 'cleanup' } }), prog(9, {}) ] }));
+      prog(3, { nextWindow: true }), prog(4, { nextWindow: true }), prog(5, { overLimit: true, target: { type: 'room', room: 'plataforma-de-pagos', key: 'una-tarea-con-una-clave-bastante-larga' } }),
+      prog(6, {}), prog(7, {}), prog(8, { target: { type: 'room', room: 'logistics', thread: 'cleanup' } }), prog(9, {}) ] }));
   });
   const reachable = () => pg.$eval('.paginas-lista', u => {
     // only the list scrolls (scrollIntoView would also scroll the intercom's clipping box and hide the problem)
@@ -117,8 +117,8 @@ try {
   await pg.setViewportSize({ width: 1600, height: 1000 });
   await pg.evaluate(([holo, wt]) => {
     const now = Date.now(), to = (id, h, target) => ({ id, created: now, when: now + h * 3600e3, requested: '', message: 'Mensaje ' + id, origin: { roomId: holo.room }, target });
-    window.__live.set(e => ({ ...e, sessions: {}, scheduled: [to('w1', 1, { type: 'conversacion', roomId: holo.room, cwd: wt }), to('m1', 2, { type: 'sala', room: holo.room }),
-      to('g1', 3, { type: 'conversacion', roomId: holo.room, cwd: wt.replace(/qa-7$/, 'gone-1') }), to('w2', 4, { type: 'sala', room: holo.room, key: 'QA-7' })] }));
+    window.__live.set(e => ({ ...e, sessions: {}, scheduled: [to('w1', 1, { type: 'conversation', roomId: holo.room, cwd: wt }), to('m1', 2, { type: 'room', room: holo.room }),
+      to('g1', 3, { type: 'conversation', roomId: holo.room, cwd: wt.replace(/qa-7$/, 'gone-1') }), to('w2', 4, { type: 'room', room: holo.room, key: 'QA-7' })] }));
     window.__game.set({ talkingWith: holo.copy.authorId });
   }, [holo, wt]);
   await sleep(1500);

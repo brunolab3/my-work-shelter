@@ -31,7 +31,7 @@ export class Attachments {
   save(name: string, base64: string) {
     const dir = path.join(this.dir, new Date().toISOString().slice(0, 10));
     mkdirSync(dir, { recursive: true });
-    const clean = String(name || 'archivo').replace(/[^\w.\-áéíóúñÁÉÍÓÚÑ ]/g, '_').slice(0, 120) || 'archivo';
+    const clean = String(name || 'archive').replace(/[^\w.\-áéíóúñÁÉÍÓÚÑ ]/g, '_').slice(0, 120) || 'archive';
     const data = Buffer.from(String(base64 || ''), 'base64');
     if (data.length > MAX_FILE) throw new Error(t('server.theFileIsTooBig'));
     const target = path.join(dir, Date.now().toString(36) + '-' + clean);

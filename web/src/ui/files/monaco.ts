@@ -42,7 +42,7 @@ monaco.languages.setMonarchTokensProvider('dotenv', {
 monaco.languages.setLanguageConfiguration('dotenv', { comments: { lineComment: '#' }, autoClosingPairs: [{ open: '"', close: '"' }, { open: "'", close: "'" }] });
 
 // los colores de GitHub del cliente de git
-monaco.editor.defineTheme('refugio', {
+monaco.editor.defineTheme('shelter', {
   base: 'vs-dark', inherit: true, rules: [],
   colors: {
     'editor.background': '#0d1117', 'editorGutter.background': '#0d1117', 'minimap.background': '#0d1117', 'editor.lineHighlightBackground': '#161b22',

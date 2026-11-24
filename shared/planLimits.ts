@@ -42,16 +42,16 @@ export function paceRatio(l: PlanLimit | undefined, type: string, now: number): 
 // the traffic light, from usage against pace: green up to on pace, yellow up to PACE_YELLOW times it, red above or
 // when rejected; grey while the usage (or the window's pace) is unknown, never green
 export const PACE_YELLOW = 1.25;
-export type LimitLight = 'gris' | 'verde' | 'amarillo' | 'rojo';
+export type LimitLight = 'gray' | 'green' | 'yellow' | 'red';
 export function limitLight(l: PlanLimit | undefined, type: string, now: number): LimitLight {
-  if (l?.status === 'rejected') return 'rojo';
+  if (l?.status === 'rejected') return 'red';
   const r = paceRatio(l, type, now);
-  return r == null ? 'gris' : r <= 1 ? 'verde' : r <= PACE_YELLOW ? 'amarillo' : 'rojo';
+  return r == null ? 'gray' : r <= 1 ? 'green' : r <= PACE_YELLOW ? 'yellow' : 'red';
 }
-const RANK: Record<LimitLight, number> = { gris: 0, verde: 1, amarillo: 2, rojo: 3 };
+const RANK: Record<LimitLight, number> = { gray: 0, green: 1, yellow: 2, red: 3 };
 /** The overall light: the worst of the given windows, and which one it is (the first on a tie; grey only when none is known) */
 export function worstLight(ls: PlanLimits, windows: readonly string[], now: number): { light: LimitLight; window: string | null } {
-  let best: { light: LimitLight; window: string | null } = { light: 'gris', window: null };
+  let best: { light: LimitLight; window: string | null } = { light: 'gray', window: null };
   for (const w of windows) { const light = limitLight(ls[w], w, now); if (RANK[light] > RANK[best.light]) best = { light, window: w }; }
   return best;
 }

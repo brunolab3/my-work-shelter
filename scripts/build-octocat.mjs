@@ -74,10 +74,10 @@ const eye = new Uint8Array(N), mouth = new Uint8Array(N);
 const gaps = comps.filter(c => !c.edge && c.n < 6000);
 for (const c of gaps) {
   const width = c.x1 - c.x0 + 1, height = c.y1 - c.y0 + 1;
-  c.type = c.n > 300 && Math.min(width, height) > 14 ? 'ojo' : 'boca';
+  c.type = c.n > 300 && Math.min(width, height) > 14 ? 'eye' : 'mouth';
 }
 console.log('huecos', gaps.map(c => `${c.type}:${c.n}@${c.x0},${c.y0} ${c.x1 - c.x0 + 1}x${c.y1 - c.y0 + 1}`).join(' | '));
-for (let i = 0; i < N; i++) { const c = comps[et[i]]; if (outside[i] && c && !c.edge && c.n < 6000) (c.type === 'ojo' ? eye : mouth)[i] = 1; }
+for (let i = 0; i < N; i++) { const c = comps[et[i]]; if (outside[i] && c && !c.edge && c.n < 6000) (c.type === 'eye' ? eye : mouth)[i] = 1; }
 // la cara crece un poco sobre el negro: en el borde de su isla, los triángulos no muestrean la mota negra de al lado
 for (let pass = 0; pass < +(process.env.GROWS ?? 2); pass++) {
   const prev = face.slice();
@@ -192,7 +192,7 @@ for (const me of root.listMeshes()) for (const p of me.listPrimitives()) {
 for (const me of root.listMeshes()) for (const p of me.listPrimitives()) {
   const pos = p.getAttribute('POSITION'); if (p.getMaterial()?.getBaseColorTexture()) continue;
   const mn = pos.getMin([]), mx = pos.getMax([]);
-  if (mx[0] - mn[0] < 0.1 && pos.getCount() < 500) { const m = p.getMaterial().clone().setName('Boca').setBaseColorFactor([0.41, 0.11, 0.08, 1]).setRoughnessFactor(0.85); p.setMaterial(m); console.log('boca', me.getName(), pos.getCount()); }
+  if (mx[0] - mn[0] < 0.1 && pos.getCount() < 500) { const m = p.getMaterial().clone().setName('Boca').setBaseColorFactor([0.41, 0.11, 0.08, 1]).setRoughnessFactor(0.85); p.setMaterial(m); console.log('mouth', me.getName(), pos.getCount()); }
 }
 // normales suaves: se promedian las de los vértices que comparten posición (las costuras del atlas no se ven)
 if (process.env.SUAVE !== '0') for (const me of root.listMeshes()) for (const p of me.listPrimitives()) {

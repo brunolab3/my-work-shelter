@@ -42,7 +42,7 @@ describe('English mode guards', () => {
   it('room names reach English mode translated, Logistics wings included', () => {
     setLanguage('en');
     try {
-      const names = [...INITIAL_ROOMS, { type: 'coordinacion', name: 'Logística web' }].map(roomNameIs);
+      const names = [...INITIAL_ROOMS, { type: 'coordination', name: 'Logística web' }].map(roomNameIs);
       expect(names.filter(n => spanish.has(n) || n.startsWith('Logística'))).toEqual([]);
       expect(roomNameIs({ type: 'repo', name: 'Logística' })).toBe('Logística');
     } finally { setLanguage('es'); }

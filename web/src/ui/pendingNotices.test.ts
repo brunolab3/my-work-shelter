@@ -2,9 +2,9 @@ import { describe, it, expect } from 'vitest';
 import type { SessionSummary, PendingRequest } from '@shared/protocol';
 import { noticeChanges, dockBadge } from './pendingNotices';
 
-const pet = (id: string): PendingRequest => ({ id, type: 'pregunta', tool: 'AskUserQuestion', title: 'Tengo una pregunta para ti', canAlways: false });
-const sess = (id: string, pending?: PendingRequest, state: SessionSummary['state'] = pending ? 'esperando' : 'trabajando') =>
-  ({ id, dwellerId: 'h', roomId: 'sala', cwd: '/x', state, unread: false, title: 't', pending, pendingCount: 0, helpers: [], tools: 0, turns: 0, created: 0, updated: 0 }) as SessionSummary;
+const pet = (id: string): PendingRequest => ({ id, type: 'question', tool: 'AskUserQuestion', title: 'Tengo una pregunta para ti', canAlways: false });
+const sess = (id: string, pending?: PendingRequest, state: SessionSummary['state'] = pending ? 'waiting' : 'working') =>
+  ({ id, dwellerId: 'h', roomId: 'room', cwd: '/x', state, unread: false, title: 't', pending, pendingCount: 0, helpers: [], tools: 0, turns: 0, created: 0, updated: 0 }) as SessionSummary;
 const ids = (r: { add: SessionSummary[] }) => r.add.map(s => s.id);
 
 describe('avisos de macOS por peticiones pendientes', () => {
@@ -21,7 +21,7 @@ describe('avisos de macOS por peticiones pendientes', () => {
   it('quita el aviso al contestar o cerrar, y una petición nueva sustituye a la anterior', () => {
     const seen = new Map<string, string>();
     noticeChanges({ a: sess('a', pet('p1')), b: sess('b', pet('q1')) }, seen, false);
-    const r = noticeChanges({ a: sess('a', pet('p2')), b: sess('b', pet('q1'), 'cerrada') }, seen, false);
+    const r = noticeChanges({ a: sess('a', pet('p2')), b: sess('b', pet('q1'), 'closed') }, seen, false);
     expect(ids(r)).toEqual(['a']);
     expect(r.remove.sort()).toEqual(['a', 'b']);
     expect(noticeChanges({ a: sess('a') }, seen, false).remove).toEqual(['a']);
@@ -31,10 +31,10 @@ describe('avisos de macOS por peticiones pendientes', () => {
 
 describe('Dock badge', () => {
   it('counts the requests waiting for an answer, queued ones included', () => {
-    expect(dockBadge({ a: { ...sess('a', pet('p1')), pendingCount: 2 }, b: sess('b', pet('p2')), c: sess('c', pet('p3'), 'cerrada') })).toBe('3');
+    expect(dockBadge({ a: { ...sess('a', pet('p1')), pendingCount: 2 }, b: sess('b', pet('p2')), c: sess('c', pet('p3'), 'closed') })).toBe('3');
   });
   it('shows a dot for a finished unread turn, and nothing once read or with nothing waiting', () => {
-    expect(dockBadge({ a: { ...sess('a', undefined, 'terminada'), unread: true }, b: sess('b') })).toBe('•');
-    expect(dockBadge({ a: sess('a', undefined, 'ociosa'), b: sess('b') })).toBe('');
+    expect(dockBadge({ a: { ...sess('a', undefined, 'finished'), unread: true }, b: sess('b') })).toBe('•');
+    expect(dockBadge({ a: sess('a', undefined, 'idle'), b: sess('b') })).toBe('');
   });
 });

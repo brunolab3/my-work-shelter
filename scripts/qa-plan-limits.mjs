@@ -22,7 +22,7 @@ const lim = (status, utilization, inH, lenH = 5) => {
   const samples = utilization == null ? [] : Array.from({ length: Math.floor((now - start) / 600_000) }, (_, i) => [start + i * 600_000, utilization * i * 600_000 / (now - start)]);
   return { status, utilization, resetsAt, updated: now, samples };
 };
-const meter = () => pg.evaluate(() => { const m = document.querySelector('.limites'); return m && { light: m.querySelector('.semaforo')?.innerHTML, items: [...m.querySelectorAll('.limite')].map(x => ({ kind: x.className, text: x.textContent })) }; });
+const meter = () => pg.evaluate(() => { const m = document.querySelector('.limites'); return m && { light: m.querySelector('.semaforo')?.innerHTML, items: [...m.querySelectorAll('.limit')].map(x => ({ kind: x.className, text: x.textContent })) }; });
 const pop = async () => { await pg.hover('.limites'); await pg.waitForTimeout(200); const r = await pg.evaluate(() => document.querySelector('.limites-pop')?.textContent ?? ''); return r; };
 const bar = { clip: { x: 0, y: 0, width: 1600, height: 90 }, timeout: 90_000, animations: 'disabled' };
 
@@ -61,7 +61,7 @@ await pg.mouse.move(10, 500);
 await set({ five_hour: lim('allowed', 42, 2.5), seven_day: lim('allowed', 18, 48, 168) }); await pg.waitForTimeout(300);
 await pg.hover('.limites');
 await pg.waitForSelector('.uso-grafico svg', { timeout: 60000 });
-const graph = () => pg.evaluate(() => { const g = document.querySelector('.uso-grafico'); return g && { text: g.textContent, bars: g.querySelectorAll('.uso-diana').length, window: !!g.querySelector('.uso-marca'), tab: g.querySelector('.uso-vistas .activa')?.textContent }; });
+const graph = () => pg.evaluate(() => { const g = document.querySelector('.uso-grafico'); return g && { text: g.textContent, bars: g.querySelectorAll('.uso-diana').length, window: !!g.querySelector('.uso-marca'), tab: g.querySelector('.uso-vistas .active')?.textContent }; });
 let g = await graph();
 check(g?.bars === 6 && g.window, `spent: 6 hourly bars with the window's start (${JSON.stringify(g)})`);
 await pg.hover('.uso-diana >> nth=4');

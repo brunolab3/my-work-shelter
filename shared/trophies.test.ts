@@ -7,7 +7,7 @@ import type { PRBoard } from './board.ts';
 
 const D = 864e5, NOW = 400 * D;
 const merged = (n: number, at: number, repo = 'org/api', branch = `ABC-${n}-x`): PRBoard & { mergedAt: number } =>
-  ({ number: n, title: `PR ${n}`, url: `u${n}`, repo, branch, state: 'fusionado', updated: at, mergedAt: at });
+  ({ number: n, title: `PR ${n}`, url: `u${n}`, repo, branch, state: 'merged', updated: at, mergedAt: at });
 const rule = (r: Partial<TrophyRule>): TrophyRule => ({ id: 'x', name: 'X', kind: 'prsMerged', n: 1, ...r });
 
 describe('trophies', () => {
@@ -119,7 +119,7 @@ describe('career ladder', () => {
 
 describe('medals', () => {
   const ladder = parseLadder(JSON.stringify({
-    digestRoom: 'comunicaciones',
+    digestRoom: 'comms',
     trophies: [{ id: 'voice', kind: 'awards', requirement: 'voice', n: 2 }, { id: 'bad', kind: 'awards', requirement: 'nope' }],
     steps: [{ id: 'S', requirements: [{ id: 'voice', text: 'Speaks up', evidence: 'asked a teammate to question a task', trophies: ['voice'] }] }],
   }));
@@ -127,7 +127,7 @@ describe('medals', () => {
   it('an awards trophy needs a requirement that takes medals; the digest room is read', () => {
     expect(ladder.ladder.trophies.map(x => x.id)).toEqual(['voice']);
     expect(ladder.errors).toEqual([expect.stringContaining('nope')]);
-    expect(ladder.ladder.digestRoom).toBe('comunicaciones');
+    expect(ladder.ladder.digestRoom).toBe('comms');
     expect(medalRequirements(ladder.ladder).map(q => q.id)).toEqual(['voice']);
     expect(parseLadder(JSON.stringify({ digestRoom: 'bar', trophies: [{ id: 'a', kind: 'prsMerged' }] })).errors).toHaveLength(1);
   });

@@ -45,17 +45,17 @@ describe('listRepos and repoInfo (gh mocked)', () => {
 describe('already cloned', () => {
   it('reads origin from .git/config, not another remote', () => {
     expect(originOf(repoWithOrigin(path.join(base, 'o1'), 'git@github.com:Acme/Web.git'))).toBe('acme/web');
-    expect(originOf(path.join(base, 'nada'))).toBeUndefined();
+    expect(originOf(path.join(base, 'none'))).toBeUndefined();
   });
   it('the rooms, the root\'s repos and those in its group subfolders', () => {
     const root = path.join(base, 'raiz');
     repoWithOrigin(path.join(root, 'web'), 'https://github.com/acme/web.git');
-    repoWithOrigin(path.join(root, 'grupo', 'api'), 'https://github.com/acme/api');
-    repoWithOrigin(path.join(root, 'grupo', 'api', 'deep', 'x'), 'https://github.com/acme/deep');
+    repoWithOrigin(path.join(root, 'group', 'api'), 'https://github.com/acme/api');
+    repoWithOrigin(path.join(root, 'group', 'api', 'deep', 'x'), 'https://github.com/acme/deep');
     const room = repoWithOrigin(path.join(base, 'fuera', 'tools'), 'https://github.com/acme/tools.git');
     const m = clonedRepos(root, [{ path: room, name: 'Tools' }, { name: 'Vault' }]);
     expect(m.get('acme/web')).toMatchObject({ path: path.join(root, 'web') });
-    expect(m.get('acme/api')).toMatchObject({ path: path.join(root, 'grupo', 'api') });
+    expect(m.get('acme/api')).toMatchObject({ path: path.join(root, 'group', 'api') });
     expect(m.get('acme/tools')).toMatchObject({ path: room, room: 'Tools' });
     expect(m.has('acme/deep')).toBe(false);
   });
@@ -74,7 +74,7 @@ describe('the clone\'s folder', () => {
     expect(() => cloneDestination(path.join(root, '..', 'web'), root, [])).toThrow();
     expect(() => cloneDestination(root, root, [])).toThrow();
     expect(() => cloneDestination(path.join(root, 'existe'), root, [])).toThrow();
-    expect(() => cloneDestination(path.join(root, 'sala'), root, [path.join(root, 'sala')])).toThrow();
+    expect(() => cloneDestination(path.join(root, 'room'), root, [path.join(root, 'room')])).toThrow();
     expect(() => cloneDestination(path.join(root, 'unrepo', 'web'), root, [])).toThrow();
     expect(() => cloneDestination(path.join(root, '.oculta'), root, [])).toThrow();
     expect(() => cloneDestination(path.join(root, 'a;b'), root, [])).toThrow();
@@ -95,18 +95,18 @@ describe('the clone', () => {
     expect(explainClone("Cloning into 'x'...\nfatal: repository 'https://github.com/a/b.git/' not found\n")).toMatch(/^fatal: repository/);
   });
   it('clones (a local repo here) into the new folder, creating the group subfolder, and reports it', async () => {
-    const origin = path.join(base, 'origen');
+    const origin = path.join(base, 'origin');
     mkdirSync(origin); execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: origin }); writeFileSync(path.join(origin, 'README.md'), 'hola');
     execFileSync('git', ['add', '.'], { cwd: origin }); execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'x'], { cwd: origin });
     const end: StateClone[] = [];
     const clones = new Clones(undefined, c => end.push(c));
-    const target = path.join(base, 'clones', 'grupo', 'web');
+    const target = path.join(base, 'clones', 'group', 'web');
     const c = clones.start('acme/web', target, origin);
-    expect(c.state).toBe('clonando');
+    expect(c.state).toBe('cloning');
     await new Promise<void>(ok => { const h = setInterval(() => { if (end.length) { clearInterval(h); ok(); } }, 20); });
-    expect(clones.check(c.id)).toMatchObject({ state: 'hecho', path: target, pct: 100 });
+    expect(clones.check(c.id)).toMatchObject({ state: 'done', path: target, pct: 100 });
     expect(existsSync(path.join(target, 'README.md'))).toBe(true);
-    expect(end[0].state).toBe('hecho');
+    expect(end[0].state).toBe('done');
   });
   it('a failed clone carries git\'s error', async () => {
     const end: StateClone[] = [];

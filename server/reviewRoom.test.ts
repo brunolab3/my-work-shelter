@@ -118,7 +118,7 @@ describe('ReviewRoom', () => {
     const s = setup(), x = room(s);
     await x.r.poll(); await x.r.open('ABC-1');
     const folder = path.join(s.root, 'ABC-1'), dir = path.join(folder, 'web-12');
-    x.setSessions([{ id: 'sess-1', state: 'ociosa', cwd: folder } as SessionSummary]);
+    x.setSessions([{ id: 'sess-1', state: 'idle', cwd: folder } as SessionSummary]);
     x.set(empty);
     await x.r.poll();
     expect(existsSync(dir)).toBe(true);

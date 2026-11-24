@@ -21,7 +21,7 @@ await pg.evaluate(() => window.__ready());
 await pg.waitForFunction(() => window.__live.get().state?.rooms, null, { timeout: 30000 });
 const photo = async (n) => { await pg.screenshot({ path: `${dir}/${n}.png` }); console.log('->', `${dir}/${n}.png`); };
 const wait = (ms) => pg.waitForTimeout(ms);
-let failures = 0; const ok = (c, txt) => { console.log((c ? 'OK   ' : 'FALLO') + ' ' + txt); if (!c) failures++; };
+let failures = 0; const ok = (c, txt) => { console.log((c ? 'OK   ' : 'FAILED') + ' ' + txt); if (!c) failures++; };
 
 // el repo de prueba, con sala
 await pg.evaluate(async r => { const rooms = window.__live.get().state.rooms; if (!rooms.some(s => s.path === r)) await window.__client.action('recruit', { path: r }); }, repo);
@@ -36,7 +36,7 @@ await photo('1-sala');
 ok(await pg.evaluate(() => window.__game.get().dwellers.some(h => h.id === 'mona' && h.room === 'git')), 'La Octocat vive en Control de Versiones');
 
 // el cliente
-await pg.evaluate(r => window.__git.openGit({ path: r, view: 'cambios' }), repo);
+await pg.evaluate(r => window.__git.openGit({ path: r, view: 'changes' }), repo);
 await wait(1500);
 await photo('2-cambios');
 const files = await pg.$$eval('.gc-seccion li', ls => ls.map(l => l.textContent));
@@ -50,7 +50,7 @@ ok(await pg.waitForFunction(() => [...document.querySelectorAll('.gc-seccion.pre
 // del bloque que queda, una línea suelta
 await pg.click('.gc-seccion.cambios li:has-text("app.js")');
 await pg.waitForFunction(() => document.querySelectorAll('.gd-bloque').length === 1 && !document.querySelector('.gd-botones button:disabled'), null, { timeout: 10000 });
-await pg.click('.gd-l.mas .gd-n >> nth=0');
+await pg.click('.gd-l.plus .gd-n >> nth=0');
 await wait(200);
 await photo('4-linea-elegida');
 await pg.click('.gd-eleccion button:has-text("Preparar")');

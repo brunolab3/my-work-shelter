@@ -41,7 +41,7 @@ export const SPOTS: Record<string, Spot> = {
   // aquí se ve y se maneja; minimizado, la pletina (Disco.tsx) lo controla
   spotify: { id: 'spotify', name: 'Spotify', start: 'https://open.spotify.com/', domains: ['spotify.com'], remote: true },
   // los planes, informes y comparaciones en HTML que enlazan los habitantes: dentro, no en la app del Mac para los .html
-  pagina: { id: 'pagina', get name() { return t('windows.page'); }, start: 'about:blank', domains: [], local: true },
+  page: { id: 'page', get name() { return t('windows.page'); }, start: 'about:blank', domains: [], local: true },
   // any other web a reply links, opened inside from its options (linkOptions.ts)
   web: { id: 'web', get name() { return t('windows.web'); }, start: 'about:blank', domains: [], loose: true },
 };
@@ -104,7 +104,7 @@ export function answerPage(session: string, path: string, state: PageAnswer['sta
 /** Validar una página sin notas: se le dice a la conversación que siga */
 export function validatePage(session: string, path: string) {
   if (live.get().sessions[session]) client.send({ t: 'send', sessionId: session, text: t('windows.pageValidated', { ruta: path }) });
-  answerPage(session, path, 'validada'); SFX.shortSuccess();
+  answerPage(session, path, 'validated'); SFX.shortSuccess();
 }
 /** Una página en el Finder, seleccionada (para compartirla desde allí) */
 export function revealPage(path: string) {
@@ -169,14 +169,14 @@ export function openPage(url: string, title: string, session?: string, path?: st
   if (session) lastPage.set(session, { url, title, path });
   // a la izquierda, al lado del intercomunicador (a la derecha): si este estaba ampliado, deja sitio
   dispatchEvent(new CustomEvent('refugio:pagina-al-lado'));
-  const already = win('pagina');
+  const already = win('page');
   if (already) {
     // la misma página: solo al frente (sin recargarla); otra, en su sitio
-    if (already.url === url) update('pagina', { title, session: session ?? already.session, path: path ?? already.path, minimized: false }); else update('pagina', { url, title, session, path, minimized: false });
-    onFront('pagina'); return;
+    if (already.url === url) update('page', { title, session: session ?? already.session, path: path ?? already.path, minimized: false }); else update('page', { url, title, session, path, minimized: false });
+    onFront('page'); return;
   }
-  create('pagina', url, false, false, title);
-  update('pagina', { session, path });
+  create('page', url, false, false, title);
+  update('page', { session, path });
   SFX.open();
 }
 // la última página que abrió cada conversación: al volver a su pestaña, vuelve la suya
@@ -185,16 +185,16 @@ const lastPage = new Map<string, { url: string; title: string; path?: string }>(
  *  esa conversación. Si tenía una abierta, vuelve esa; si la de la ventana es de otra, se minimiza (no se pierde: está
  *  en la barra y en «📄 Páginas»). Una página abierta sin conversación se queda como está. */
 export function pageForSession(session?: string) {
-  const v = win('pagina'); if (!v || v.minimized || !v.session || v.session === session) return;
+  const v = win('page'); if (!v || v.minimized || !v.session || v.session === session) return;
   const theirs = session ? lastPage.get(session) : undefined;
-  if (theirs && theirs.url !== v.url) update('pagina', { ...theirs, session });
-  else { dropFocus('pagina'); update('pagina', { minimized: true }); }
+  if (theirs && theirs.url !== v.url) update('page', { ...theirs, session });
+  else { dropFocus('page'); update('page', { minimized: true }); }
 }
 /** Al abrir un intercomunicador sin ampliar: lo ampliado que lo taparía deja sitio. La ventana «Página» vuelve a su
  *  sitio de la izquierda (se ven las dos); un navegador ampliado se minimiza */
 export function makeRoomForIntercom() {
   for (const v of browsers.get().list) if (v.maximized && !v.minimized) {
-    if (v.id === 'pagina') update(v.id, { maximized: false }); else { dropFocus(v.id); update(v.id, { minimized: true, maximized: false }); }
+    if (v.id === 'page') update(v.id, { maximized: false }); else { dropFocus(v.id); update(v.id, { minimized: true, maximized: false }); }
   }
 }
 /** Una página que sirve otro programa de este Mac (no el juego): se ve en la ventana «Página» */
@@ -307,10 +307,10 @@ function BrowserWindow({ v }: { v: WindowNav }) {
     const path = v.path;
     const texts = { note: '✎ ' + t('windows.note'), save: t('windows.save'), cancel: t('windows.cancel'), deleteMessage: t('windows.delete'), placeholder: t('windows.whatShouldChangeHere') };
     const listen = (e: MessageEvent) => {
-      if (e.source !== frame.current?.contentWindow || e.data?.shelter !== 'notas') return;
-      if (e.data.type === 'hola') frame.current?.contentWindow?.postMessage({ shelter: 'notas', type: 'restaurar', texts, notes: pageNotes.get()[path] ?? [], scroll: scrollOf.get(path) ?? 0 }, '*');
+      if (e.source !== frame.current?.contentWindow || e.data?.shelter !== 'notes') return;
+      if (e.data.type === 'hola') frame.current?.contentWindow?.postMessage({ shelter: 'notes', type: 'restore', texts, notes: pageNotes.get()[path] ?? [], scroll: scrollOf.get(path) ?? 0 }, '*');
       else if (e.data.type === 'scroll' && typeof e.data.y === 'number') scrollOf.set(path, e.data.y);
-      else if (e.data.type === 'enlace') {
+      else if (e.data.type === 'link') {
         // a link of the page: like one of a reply, at the pointer (the <iframe>'s coordinates are its own)
         const target = pageLinkTarget(e.data.href, path), r = frame.current?.getBoundingClientRect();
         if (target && r) followLink(target, { x: r.left + (Number(e.data.x) || 0), y: r.top + (Number(e.data.y) || 0), menu: !!e.data.menu, session: v.session ?? sessionThatLinked(path) });
@@ -342,13 +342,13 @@ function BrowserWindow({ v }: { v: WindowNav }) {
   const clearNotes = () => {
     const path = v.path; if (!path) return;
     pageNotes.set(x => { const y = { ...x }; delete y[path]; return y; });
-    frame.current?.contentWindow?.postMessage({ shelter: 'notas', type: 'limpiar' }, '*');
+    frame.current?.contentWindow?.postMessage({ shelter: 'notes', type: 'clear' }, '*');
     setReview(false); setDiscard(false);
   };
   const sendPageNotes = () => {
     if (!session || !v.path || !notes.length) return;
     client.send({ t: 'send', sessionId: session, text: notesMessage(v.path, notes) });
-    answerPage(session, v.path, 'notas');
+    answerPage(session, v.path, 'notes');
     clearNotes(); SFX.shortSuccess();
   };
   // sin la conversación que la enlazó (de otra sesión del juego): se copian para pegarlas donde se quiera y se quitan
@@ -389,11 +389,11 @@ function BrowserWindow({ v }: { v: WindowNav }) {
   const image = isLocal(v.id) && !!v.path && IMAGE_FILE.test(v.path);
   const [realSize, setRealSize] = React.useState(false);
   return (
-    <div className={'ventana-navegador interactivo' + (v.maximized ? ' maximizada' : '') + (v.minimized ? ' minimizada' : '') + (v.id === 'pagina' ? ' al-lado' : '')}
+    <div className={'ventana-navegador interactivo' + (v.maximized ? ' maximizada' : '') + (v.minimized ? ' minimizada' : '') + (v.id === 'page' ? ' al-lado' : '')}
       style={{ zIndex: v.maximized ? 200000 + v.z : v.z }} onPointerDown={() => { if (!v.minimized) onFront(v.id); }}
       onKeyDownCapture={e => windowShortcut(e, actions(v))} role="dialog" aria-label={t('windows.browserNombre', { nombre: s?.name ?? v.id })}>
       <div className="vt-cabeza vn-cabeza" onDoubleClick={e => { if (!(e.target as HTMLElement).closest('button')) toggleMaximize(v.id); }}>
-        <span className="rejilla" /><span className={'piloto ' + (v.loading ? 'trabajando' : 'ociosa')} />
+        <span className="rejilla" /><span className={'pilot ' + (v.loading ? 'working' : 'idle')} />
         <span className="vt-titulo">{t('windows.browser')} · {s?.name ?? v.id}</span>
         <span className="vt-ruta" title={v.url}>{page}</span>
         <span className="vn-mandos">
@@ -411,10 +411,10 @@ function BrowserWindow({ v }: { v: WindowNav }) {
         {isRemote(v.id) && <RemoteView v={v} />}
         {/* sin allow-same-origin: la página no ve el juego (el servidor además la manda con su propia cabecera sandbox) */}
         {toReview && notes.length > 0 && <div className="vn-lista-notas">
-          <ol>{notes.map(n => <li key={n.id}><div className="tenue">«{n.quote.length > 160 ? n.quote.slice(0, 160) + '…' : n.quote}»{n.section ? ` · ${n.section}` : ''}</div><div>{n.text}</div></li>)}</ol>
+          <ol>{notes.map(n => <li key={n.id}><div className="dim">«{n.quote.length > 160 ? n.quote.slice(0, 160) + '…' : n.quote}»{n.section ? ` · ${n.section}` : ''}</div><div>{n.text}</div></li>)}</ol>
           <div className="botonera">
             <button className="boton-taller" onClick={() => { setReview(false); setDiscard(false); }}>{t('windows.cancel')}</button>
-            <button className={'boton-taller' + (discard ? ' urgente' : '')} title={t('windows.discardNotesHint')} onClick={() => { if (discard) { clearNotes(); SFX.click(); } else setDiscard(true); }}>{discard ? t('windows.discardNotesSure') : t('windows.discardNotes')}</button>
+            <button className={'boton-taller' + (discard ? ' urgent' : '')} title={t('windows.discardNotesHint')} onClick={() => { if (discard) { clearNotes(); SFX.click(); } else setDiscard(true); }}>{discard ? t('windows.discardNotesSure') : t('windows.discardNotes')}</button>
             {session
               ? <button className="boton-taller" onClick={sendPageNotes}>{t('windows.sendToTheConversation')}</button>
               : <button className="boton-taller" title={t('windows.copyNotesHint')} onClick={copyPageNotes}>📋 {t('windows.copyNotes')}</button>}

@@ -49,14 +49,14 @@ export interface RemoteDeps {
   inUse?: () => boolean;
 }
 
-const ICON: Record<string, string> = { arrancando: '🟡', trabajando: '🟢', esperando: '⏳', terminada: '✅', ociosa: '⚪', error: '🔴' };
-export const openSessions = (l: SessionSummary[]) => l.filter(s => s.state !== 'cerrada').sort((a, b) => recentFirst(sessionRecency(a), sessionRecency(b)));
+const ICON: Record<string, string> = { starting: '🟡', working: '🟢', waiting: '⏳', finished: '✅', idle: '⚪', error: '🔴' };
+export const openSessions = (l: SessionSummary[]) => l.filter(s => s.state !== 'closed').sort((a, b) => recentFirst(sessionRecency(a), sessionRecency(b)));
 
 // lo único de cada conversación que sale hacia el móvil: habitante y título (y el worktree, si lo hay)
 export const label = (s: SessionSummary, dweller: string) => [dweller, s.title?.trim() || undefined, s.worktree && path.basename(s.worktree)].filter(Boolean).join(' · ');
 const time = (ms: number) => new Date(ms).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' });
-const STATE: Record<string, string> = { arrancando: 'server.remoteStarting', trabajando: 'server.remoteWorking', esperando: 'server.remoteWaiting', ociosa: 'server.remoteIdle', error: 'server.remoteStuck' };
-export function stateOf(s: SessionSummary) { return s.state === 'terminada' ? t('server.remoteFinishedAt', { hora: time(s.updated) }) : t(STATE[s.state] ?? 'server.remoteIdle'); }
+const STATE: Record<string, string> = { starting: 'server.remoteStarting', working: 'server.remoteWorking', waiting: 'server.remoteWaiting', idle: 'server.remoteIdle', error: 'server.remoteStuck' };
+export function stateOf(s: SessionSummary) { return s.state === 'finished' ? t('server.remoteFinishedAt', { hora: time(s.updated) }) : t(STATE[s.state] ?? 'server.remoteIdle'); }
 
 /** Lo que se manda al móvil: cada sala con sus conversaciones abiertas, y un botón de Remote Control por conversación
  *  (y otro para todas). Como mucho 4000 caracteres y 60 conversaciones con botón */
@@ -104,7 +104,7 @@ export function requestView(pet: PendingRequest, who: string) {
   const parts: string[] = [];
   parts.push(`❓ ${who}`, pet.title + (pet.ofHelper ? ` (${pet.ofHelper})` : ''));
   if (pet.reason) parts.push(t('server.remoteReason', { motivo: pet.reason }));
-  for (const b of pet.input ?? []) parts.push(b.type === 'ruta' ? `📄 ${b.text}` : b.type === 'codigo' ? `────────\n${b.text}\n────────` : b.text);
+  for (const b of pet.input ?? []) parts.push(b.type === 'path' ? `📄 ${b.text}` : b.type === 'code' ? `────────\n${b.text}\n────────` : b.text);
   if (pet.type === 'plan' && pet.detail) parts.push(pet.detail);
   for (const [k, q] of (pet.questions ?? []).entries()) parts.push(`${k + 1}. ${q.question}\n` + q.options.map((o, j) => `   ${String.fromCharCode(65 + j)}) ${o.label}${o.description ? ` — ${o.description}` : ''}`).join('\n'));
   const { text, hidden } = hideSecrets(visible(parts.join('\n\n')));
@@ -116,12 +116,12 @@ export function requestView(pet: PendingRequest, who: string) {
 export function requestButtons(pet: PendingRequest, k: string, step: number, revisable: boolean, sessionId: string): Rows {
   const rc = [{ text: t('server.remoteContinueOnPhone'), data: `rc:${sessionId}` }];
   if (!revisable) return [rc];
-  if (pet.type === 'pregunta') {
+  if (pet.type === 'question') {
     const q = pet.questions?.[step];
     if (!q || q.multiSelect || !q.options.length) return [rc];
     return [...q.options.map((o, j) => [{ text: `${String.fromCharCode(65 + j)}) ${o.label}`.slice(0, 60), data: `q:${k}:${j}` }]), rc];
   }
-  const si = pet.type === 'plan' ? 'server.remoteApprovePlan' : pet.type === 'confianza' ? 'server.remoteTrustOnce' : 'server.remoteYes';
+  const si = pet.type === 'plan' ? 'server.remoteApprovePlan' : pet.type === 'trust' ? 'server.remoteTrustOnce' : 'server.remoteYes';
   const no = pet.type === 'plan' ? 'server.remoteKeepPlanning' : 'server.remoteNo';
   return [[{ text: t(si), data: `ok:${k}` }, { text: t(no), data: `no:${k}` }], rc];
 }
@@ -214,7 +214,7 @@ export abstract class RemoteBot<R> {
    *  se mandó ya no está pendiente (respondido en el refugio o en otro mando, cancelado o cerrada), su mensaje se recoge
    *  en una línea, y lo que aún esperaba ya no sale */
   async request(s: SessionSummary) {
-    for (const [id, w] of this.waiting) if (w.sessionId === s.id && (s.pending?.id !== id || s.state === 'cerrada')) {
+    for (const [id, w] of this.waiting) if (w.sessionId === s.id && (s.pending?.id !== id || s.state === 'closed')) {
       clearTimeout(w.timer);
       this.waiting.delete(id);
     }
@@ -225,14 +225,14 @@ export abstract class RemoteBot<R> {
     let removed = false;
     for (const [k, e] of this.sent) {
       const x = live.get(e.sessionId);
-      if (x && x.pending?.id === e.pet.id && x.state !== 'cerrada') continue;
+      if (x && x.pending?.id === e.pet.id && x.state !== 'closed') continue;
       this.sent.delete(k); removed = true;
       await this.removeMessage(e, t('server.remoteAnsweredElsewhere'));
     }
     if (removed) this.persist();
     this.refreshState();
     const pet = s.pending;
-    if (!pet || s.state === 'cerrada' || !this.approves() || this.waiting.has(pet.id) || [...this.sent.values()].some(e => e.pet.id === pet.id)) return;
+    if (!pet || s.state === 'closed' || !this.approves() || this.waiting.has(pet.id) || [...this.sent.values()].some(e => e.pet.id === pet.id)) return;
     if (this.d.delayMs) this.wait(s.id, pet.id, this.d.delayMs);
     else await this.send(s, pet);
   }
@@ -242,7 +242,7 @@ export abstract class RemoteBot<R> {
     const timer = setTimeout(() => {
       this.waiting.delete(petId);
       const s = this.d.sessions().find(x => x.id === sessionId);
-      if (!s?.pending || s.pending.id !== petId || s.state === 'cerrada' || !this.ready() || !this.approves()) return;
+      if (!s?.pending || s.pending.id !== petId || s.state === 'closed' || !this.ready() || !this.approves()) return;
       if (this.d.inUse?.()) { this.wait(sessionId, petId, RECHECK_MS); return; }
       this.send(s, s.pending).catch(() => {});
     }, ms);
@@ -285,7 +285,7 @@ export abstract class RemoteBot<R> {
     const e = this.sent.get(k);
     const sess = e && this.d.sessions().find(s => s.id === e.sessionId);
     // solo vale mientras siga siendo la petición pendiente de esa conversación (nada de botones viejos)
-    if (!e || !sess || sess.state === 'cerrada' || sess.pending?.id !== e.pet.id || !e.revisable) {
+    if (!e || !sess || sess.state === 'closed' || sess.pending?.id !== e.pet.id || !e.revisable) {
       await notice(t('server.remoteNoLongerPending'));
       return;
     }

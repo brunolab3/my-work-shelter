@@ -8,7 +8,7 @@ export interface Changes { add: SessionSummary[]; remove: string[] }
 export function noticeChanges(sessions: Record<string, SessionSummary>, seen: Map<string, string>, inForeground: boolean): Changes {
   const add: SessionSummary[] = [], remove: string[] = [];
   for (const s of Object.values(sessions)) {
-    const p = s.state !== 'cerrada' ? s.pending : undefined;
+    const p = s.state !== 'closed' ? s.pending : undefined;
     if (!p) continue;
     if (seen.get(s.id) === p.id) continue;
     if (seen.has(s.id)) remove.push(s.id);   // otra petición en la misma conversación: sustituye a la anterior
@@ -17,7 +17,7 @@ export function noticeChanges(sessions: Record<string, SessionSummary>, seen: Ma
   }
   for (const id of [...seen.keys()]) {
     const s = sessions[id];
-    if (s?.pending && s.state !== 'cerrada') continue;
+    if (s?.pending && s.state !== 'closed') continue;
     seen.delete(id); remove.push(id);
   }
   return { add, remove };
@@ -26,8 +26,8 @@ export function noticeChanges(sessions: Record<string, SessionSummary>, seen: Ma
 // Dock badge (systemNotices.ts): the number of requests waiting for your answer (questions, permissions, plans);
 // without any, a dot while a conversation has finished its turn unread; empty when nothing waits for you
 export function dockBadge(sessions: Record<string, SessionSummary>): string {
-  const openSessions = Object.values(sessions).filter(s => s.state !== 'cerrada');
+  const openSessions = Object.values(sessions).filter(s => s.state !== 'closed');
   const requests = openSessions.reduce((n, s) => n + (s.pending ? Math.max(1, s.pendingCount) : 0), 0);
   if (requests) return String(requests);
-  return openSessions.some(s => s.state === 'terminada' && s.unread) ? '•' : '';
+  return openSessions.some(s => s.state === 'finished' && s.unread) ? '•' : '';
 }

@@ -34,10 +34,10 @@ export const CI_QUERY = `query {
 const FAILING = new Set(['FAILURE', 'ERROR']);
 const RUN_FAILED = new Set(['FAILURE', 'TIMED_OUT', 'STARTUP_FAILURE', 'ACTION_REQUIRED']);
 const RUN_OK = new Set(['SUCCESS', 'NEUTRAL', 'SKIPPED']);
-const WORST: Record<CICheck['state'], number> = { ok: 0, pendiente: 1, mal: 2 };
+const WORST: Record<CICheck['state'], number> = { ok: 0, pending: 1, bad: 2 };
 /** A check run for the pre-flight: a cancelled one doesn't pass (it gets no CI message either: it's often superseded),
  *  a stale one is waiting */
-const checkRunState = (conclusion?: string): CICheck['state'] => !conclusion ? 'pendiente' : RUN_FAILED.has(conclusion) || conclusion === 'CANCELLED' ? 'mal' : RUN_OK.has(conclusion) ? 'ok' : 'pendiente';
+const checkRunState = (conclusion?: string): CICheck['state'] => !conclusion ? 'pending' : RUN_FAILED.has(conclusion) || conclusion === 'CANCELLED' ? 'bad' : RUN_OK.has(conclusion) ? 'ok' : 'pending';
 /** El id de la ejecución de Actions de un enlace (…/actions/runs/123/job/456) */
 export const runOfUrl = (url: string) => { const m = /\/actions\/runs\/(\d+)/.exec(url); return m ? Number(m[1]) : undefined; };
 
@@ -48,7 +48,7 @@ export function ciOfGitHub(j: any): PRWithCI[] {
     const failures: FailedCheck[] = [], all: CICheck[] = [];
     for (const c of commit?.statusCheckRollup?.contexts?.nodes ?? []) {
       // todos, para el pre-flight (cada check, una línea): bien, mal o aún en marcha
-      const r = c?.__typename === 'CheckRun' ? checkRunState(c.conclusion) : c?.__typename === 'StatusContext' ? (FAILING.has(c.state) ? 'mal' : c.state === 'SUCCESS' ? 'ok' : 'pendiente') : undefined;
+      const r = c?.__typename === 'CheckRun' ? checkRunState(c.conclusion) : c?.__typename === 'StatusContext' ? (FAILING.has(c.state) ? 'bad' : c.state === 'SUCCESS' ? 'ok' : 'pending') : undefined;
       const name = String(c?.name ?? c?.context ?? '');
       // two checks with the same name (one per workflow): the worst one shows
       const already = all.find(x => x.name === name);
@@ -62,7 +62,7 @@ export function ciOfGitHub(j: any): PRWithCI[] {
     const repo = n.repository?.nameWithOwner ?? '';
     return {
       number: n.number, title: n.title ?? '', url: n.url ?? '', repo, branch: n.headRefName ?? '',
-      state: n.isDraft ? 'borrador' : 'abierto', review: n.reviewDecision ?? undefined,
+      state: n.isDraft ? 'draft' : 'open', review: n.reviewDecision ?? undefined,
       checks: commit?.statusCheckRollup?.state ?? undefined, updated: Date.parse(n.updatedAt ?? '') || 0,
       base: n.baseRefName ?? undefined, head: n.headRefOid ?? commit?.oid ?? undefined,
       dependencies: dependenciesInText(`${n.title ?? ''}\n${n.body ?? ''}`, repo), failures, all,
@@ -89,7 +89,7 @@ export function blockedBy(pr: PRBoard, prs: PRBoard[], blockers: Blocker[]): str
     for (const b of blockers) if (b.by === by && !seen.has(b.from)) {
       seen.add(b.from); tail.push(b.from);
       const q = byUrl.get(b.from);
-      if (q && (q.state === 'abierto' || q.state === 'borrador')) out.push(refPR(q));
+      if (q && (q.state === 'open' || q.state === 'draft')) out.push(refPR(q));
     }
   }
   return out;

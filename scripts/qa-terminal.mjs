@@ -25,13 +25,13 @@ await pg.evaluate(async () => { await window.__ready(); });
 const wait = ms => pg.waitForTimeout(ms);
 // lo que se ve en la pestaña activa de la terminal
 const screen = () => pg.evaluate(() => [...document.querySelectorAll('.ventana-terminal .vt-xterm')].filter(x => x.offsetParent).flatMap(x => [...x.querySelectorAll('.xterm-rows > div')]).map(d => d.textContent).join('\n'));
-const tabs = () => pg.evaluate(() => [...document.querySelectorAll('.ventana-terminal .vt-pestana')].map(p => p.textContent.replace('×', '').trim()));
+const tabs = () => pg.evaluate(() => [...document.querySelectorAll('.ventana-terminal .vt-tab')].map(p => p.textContent.replace('×', '').trim()));
 const focus = () => pg.evaluate(() => [...document.querySelectorAll('.ventana-terminal .vt-xterm')].find(x => x.offsetParent)?.querySelector('textarea')?.focus());
 const until = async (f, ms = 20000) => { const t = Date.now(); while (Date.now() - t < ms) { const p = await screen(); if (f(p)) return p; await wait(250); } return await screen(); };
 let failures = 0;
 const check = (ok, text) => { console.log((ok ? 'OK   ' : 'FALLO ') + text); if (!ok) failures++; };
 
-await pg.evaluate(() => window.dispatchEvent(new CustomEvent('refugio:terminal', { detail: { roomId: 'puente' } })));
+await pg.evaluate(() => window.dispatchEvent(new CustomEvent('refugio:terminal', { detail: { roomId: 'bridge' } })));
 await pg.waitForSelector('.ventana-terminal .xterm-rows');
 await until(p => /[%$#❯>]\s*$/m.test(p), 8000);
 await pg.click('.ventana-terminal .vt-cuerpo');
@@ -69,7 +69,7 @@ await until(x => /[%$#❯>]\s*$/m.test(x), 8000);
 await pg.keyboard.type('echo PESTANA-$((1+1)); sleep 300\n', { delay: 8 });
 p = await until(x => /^PESTANA-2/m.test(x), 5000);
 check(/^PESTANA-2/m.test(p), 'la pestaña nueva tiene su propio shell');
-await pg.waitForFunction(() => /sleep/.test(document.querySelector('.vt-pestana.activa')?.textContent ?? ''), null, { timeout: 4000 }).catch(() => {});
+await pg.waitForFunction(() => /sleep/.test(document.querySelector('.vt-tab.active')?.textContent ?? ''), null, { timeout: 4000 }).catch(() => {});
 check(/sleep/.test((await tabs())[1] ?? ''), 'la pestaña dice qué corre dentro (sleep)');
 await pg.keyboard.press('Meta+1'); await wait(500);
 p = await screen();
@@ -109,7 +109,7 @@ process.stdin.setRawMode(true); process.stdin.on('data', d => { process.stdout.w
   await until(x => /LISTO-MODOS/.test(x), 10000);
   const id0 = await pg.evaluate(() => document.querySelector('.ventana-terminal')?.getBoundingClientRect().toJSON());
   await pg.click('.boton-reiniciar');
-  await pg.waitForSelector('.aparato, .opciones', { timeout: 5000 }).catch(() => {});
+  await pg.waitForSelector('.device, .opciones', { timeout: 5000 }).catch(() => {});
   await pg.getByText(/^Reiniciar (el juego|y cortar)/).click();
   await pg.waitForEvent('framenavigated', { timeout: 60000 });
   await pg.waitForFunction(() => typeof window.__ready === 'function', null, { timeout: 60000 });

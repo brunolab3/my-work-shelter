@@ -24,7 +24,7 @@ export function uploadFiles(files: FileList | File[] | null | undefined, add: (a
     const id = 'a' + (++nAttachment);
     const image = f.type.startsWith('image/') || IS_IMAGE.test(f.name);
     // las capturas pegadas llegan como «image.png»: mejor un nombre que diga qué es y cuándo
-    const name = /^image\.(png|jpe?g|gif|webp|tiff?)$/i.test(f.name) ? `captura-${new Date().toTimeString().slice(0, 8).replace(/:/g, '')}.${f.name.split('.').pop()}` : f.name || 'archivo';
+    const name = /^image\.(png|jpe?g|gif|webp|tiff?)$/i.test(f.name) ? `captura-${new Date().toTimeString().slice(0, 8).replace(/:/g, '')}.${f.name.split('.').pop()}` : f.name || 'archive';
     const view = image && /^image\/(png|jpeg|gif|webp|bmp)$/.test(f.type) ? URL.createObjectURL(f) : undefined;
     add({ id, name, image, view });
     if (f.size > 20 * 1024 * 1024) { change(id, { error: t('windows.over20Mb') }); SFX.notAllowed(); continue; }
@@ -51,7 +51,7 @@ export function AttachmentsTray({ list, remove }: { list?: AttachmentLocal[]; re
   return (
     <div className="bandeja-adjuntos">
       {list.map(a => (
-        <span key={a.id} className={'adjunto' + (a.error ? ' fallo' : !a.path ? ' subiendo' : '')} title={a.error ? `${a.name}: ${a.error}` : a.path ? a.name : `${a.name} · ${t('windows.uploading')}`}>
+        <span key={a.id} className={'adjunto' + (a.error ? ' failed' : !a.path ? ' subiendo' : '')} title={a.error ? `${a.name}: ${a.error}` : a.path ? a.name : `${a.name} · ${t('windows.uploading')}`}>
           {a.view ? <img src={a.view} alt="" /> : <span className="icono-adjunto" aria-hidden>{a.image ? '▣' : '▤'}</span>}
           <span className="nombre-adjunto">{a.name}</span>
           {a.error ? <span className="estado-adjunto">⚠</span> : !a.path ? <span className="estado-adjunto girando">◐</span> : null}
@@ -69,7 +69,7 @@ export function SentAttachments({ list }: { list: Attachment[] }) {
 function SentAttachment({ a }: { a: Attachment }) {
   const [view, setView] = useState(views.get(a.path));
   useEffect(() => { if (a.image && !view) client.action<string>('attachment.thumbnail', { path: a.path }).then(v => { views.set(a.path, v); setView(v); }).catch(() => {}); }, [a.path]);
-  const open = () => { client.action('attachment.open', { path: a.path }).catch(e => { SFX.notAllowed(); addNotice('aviso', (e as Error).message); }); SFX.click(); };
+  const open = () => { client.action('attachment.open', { path: a.path }).catch(e => { SFX.notAllowed(); addNotice('warning', (e as Error).message); }); SFX.click(); };
   return (
     <button className={'adjunto' + (view ? ' con-vista' : '')} onClick={open} title={`${a.name} · ${t('windows.open')}`}>
       {view ? <img src={view} alt={a.name} /> : <span className="icono-adjunto" aria-hidden>{a.image ? '▣' : '▤'}</span>}
@@ -89,7 +89,7 @@ const LANGUAGE_KEY = 'refugio.dictado.idioma';
 export function dictationLanguage() { try { const v = localStorage.getItem(LANGUAGE_KEY); if (v && DICTATION_LANGUAGES.some(x => x.value === v)) return v; } catch {} return 'es-ES'; }
 export function setLanguageDictation(v: string) { try { localStorage.setItem(LANGUAGE_KEY, v); } catch {} }
 
-export type DictationState = 'apagado' | 'escuchando' | 'transcribiendo';
+export type DictationState = 'off' | 'listening' | 'transcribing';
 
 // une lo dictado con lo que había a cada lado del cursor, con un espacio donde haga falta
 function union(before: string, said: string, after: string) {
@@ -106,7 +106,7 @@ interface Dictating {
 }
 
 export function useDictation({ area, text, setText, onSend }: { area: React.RefObject<HTMLTextAreaElement | null>; text: string; setText: (t: string) => void; onSend: (t: string) => void }) {
-  const [state, setState] = useState<DictationState>('apagado');
+  const [state, setState] = useState<DictationState>('off');
   const [level, setLevel] = useState(0);
   const [notice, setNotice] = useState('');
   const r = useRef<Dictating | null>(null);
@@ -116,7 +116,7 @@ export function useDictation({ area, text, setText, onSend }: { area: React.RefO
   const finish = (final: string | null) => {
     const x = r.current; if (!x) return;
     x.stop?.(); x.remove?.(); clearTimeout(x.deadline); r.current = null;
-    setState('apagado'); setLevel(0);
+    setState('off'); setLevel(0);
     if (final === null) { fns.current.setText(x.original); return; }
     const t = union(x.before, final, x.after);
     fns.current.setText(t);
@@ -130,12 +130,12 @@ export function useDictation({ area, text, setText, onSend }: { area: React.RefO
     setNotice('');
     const el = area.current, tx = textRef.current;
     const start = el?.selectionStart ?? tx.length, end = el?.selectionEnd ?? tx.length;
-    const x: Dictating = { id: 'voz' + Date.now().toString(36), before: tx.slice(0, start), after: tx.slice(end), original: tx, said: '', send: false };
+    const x: Dictating = { id: 'voice' + Date.now().toString(36), before: tx.slice(0, start), after: tx.slice(end), original: tx, said: '', send: false };
     r.current = x;
-    setState('escuchando'); SFX.toggle();
+    setState('listening'); SFX.toggle();
     x.remove = client.listen(m => {
       if (m.t !== 'voice' || m.id !== x.id || r.current !== x) return;
-      if (m.state === 'parcial') { x.said = m.text ?? ''; fns.current.setText(union(x.before, x.said, x.after)); }
+      if (m.state === 'partial') { x.said = m.text ?? ''; fns.current.setText(union(x.before, x.said, x.after)); }
       else if (m.state === 'final') finish(m.text ?? x.said);
       else if (m.state === 'error') { setNotice(m.text || t('windows.dictationFailed')); SFX.error(); finish(x.said || null); }
     });
@@ -186,11 +186,11 @@ export function useDictation({ area, text, setText, onSend }: { area: React.RefO
     if (!x.stop) { if (!x.submit) x.endOnOpen = true; return; }   // aún abriendo el micrófono, o ya transcribiendo
     x.submit?.(); x.stop();
     client.send({ t: 'voiceEnd', id: x.id });
-    setState('transcribiendo'); setLevel(0); SFX.click();
+    setState('transcribing'); setLevel(0); SFX.click();
     x.deadline = window.setTimeout(() => { if (r.current === x) finish(x.said); }, 15_000);
   };
   const cancel = () => { const x = r.current; if (!x) return; client.send({ t: 'voiceCancel', id: x.id }); finish(null); SFX.close(); };
-  const toggle = () => (r.current ? (state === 'escuchando' ? finishDictation() : undefined) : start());
+  const toggle = () => (r.current ? (state === 'listening' ? finishDictation() : undefined) : start());
   // al irse (minimizar, cambiar de pestaña) no queda nada escuchando
   useEffect(() => () => { const x = r.current; if (x) { client.send({ t: 'voiceCancel', id: x.id }); x.stop?.(); x.remove?.(); r.current = null; } }, []);
 
@@ -200,18 +200,18 @@ export function useDictation({ area, text, setText, onSend }: { area: React.RefO
     if (dictateShortcut(e)) {
       e.preventDefault();
       if (e.repeat) return true;
-      if (!r.current) start(); else if (state === 'escuchando') finishDictation();
+      if (!r.current) start(); else if (state === 'listening') finishDictation();
       return true;
     }
     if (!r.current) return false;
     if (e.key === 'Escape') { e.preventDefault(); cancel(); return true; }
-    if (e.code === 'Space' && !e.metaKey && !e.ctrlKey && !e.altKey) { e.preventDefault(); if (!e.repeat && state === 'escuchando') finishDictation(); return true; }
+    if (e.code === 'Space' && !e.metaKey && !e.ctrlKey && !e.altKey) { e.preventDefault(); if (!e.repeat && state === 'listening') finishDictation(); return true; }
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); finishDictation(true); return true; }
     if ((e.metaKey || e.ctrlKey) && /^[cvaxz]$/i.test(e.key)) return false;
     if (e.key.length === 1 || e.key === 'Backspace' || e.key === 'Delete') e.preventDefault();   // mientras se dicta, el texto lo pone la voz
     return true;
   };
-  return { state, level, notice, setNotice, toggle, finish: finishDictation, cancel, key, active: state !== 'apagado' };
+  return { state, level, notice, setNotice, toggle, finish: finishDictation, cancel, key, active: state !== 'off' };
 }
 
 export const dictateShortcut = (e: React.KeyboardEvent) => (MAC ? e.metaKey && !e.ctrlKey : e.ctrlKey) && !e.shiftKey && !e.altKey && e.code === 'KeyD';
@@ -220,16 +220,16 @@ export const attachShortcut = (e: React.KeyboardEvent) => (MAC ? e.metaKey && !e
 // 📎 y 🎙, a la derecha de la caja de texto, cada uno con su tecla a la vista (todo se maneja con el teclado); mientras
 // se escucha, la del micrófono es la que termina
 export function InputButtons({ attach, dictation }: { attach: () => void; dictation: ReturnType<typeof useDictation> }) {
-  const title = dictation.state === 'escuchando' ? t('windows.stopDictatingSpaceOrAtajo', { shortcut: `${MAC ? '⌘' : 'Ctrl+'}D` }) : dictation.state === 'transcribiendo' ? t('windows.transcribing') : t('windows.dictateAtajoSpaceStops', { shortcut: `${MAC ? '⌘' : 'Ctrl+'}D` });
+  const title = dictation.state === 'listening' ? t('windows.stopDictatingSpaceOrAtajo', { shortcut: `${MAC ? '⌘' : 'Ctrl+'}D` }) : dictation.state === 'transcribing' ? t('windows.transcribing') : t('windows.dictateAtajoSpaceStops', { shortcut: `${MAC ? '⌘' : 'Ctrl+'}D` });
   return (
     <span className="botones-entrada">
       <button className="boton-entrada" onMouseDown={e => e.preventDefault()} onClick={attach} title={t('windows.attachFilesOrImagesAtajo', { shortcut: `${MAC ? '⌘' : 'Ctrl+'}U` })} aria-label={t('windows.attach')}>
         <svg viewBox="0 0 24 24" aria-hidden><path d="M20 11.5l-8.2 8.2a5 5 0 01-7.1-7.1l8.6-8.6a3.4 3.4 0 014.8 4.8l-8.6 8.6a1.7 1.7 0 01-2.4-2.4l7.9-7.9" /></svg>
         <kbd>{MAC ? '⌘U' : 'Ctrl+U'}</kbd>
       </button>
-      <button className={'boton-entrada microfono ' + dictation.state} onMouseDown={e => e.preventDefault()} onClick={dictation.toggle} title={title} aria-label={t('windows.dictate')} disabled={dictation.state === 'transcribiendo'}>
+      <button className={'boton-entrada microfono ' + dictation.state} onMouseDown={e => e.preventDefault()} onClick={dictation.toggle} title={title} aria-label={t('windows.dictate')} disabled={dictation.state === 'transcribing'}>
         <svg viewBox="0 0 24 24" aria-hidden><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5.5 11a6.5 6.5 0 0013 0M12 17.5V21M8.5 21h7" /></svg>
-        <kbd>{dictation.state === 'escuchando' ? t('windows.space') : MAC ? '⌘D' : 'Ctrl+D'}</kbd>
+        <kbd>{dictation.state === 'listening' ? t('windows.space') : MAC ? '⌘D' : 'Ctrl+D'}</kbd>
       </button>
     </span>
   );
@@ -237,14 +237,14 @@ export function InputButtons({ attach, dictation }: { attach: () => void; dictat
 
 // la tira de debajo de la caja mientras se dicta (y el aviso si algo falla)
 export function DictationStrip({ dictation }: { dictation: ReturnType<typeof useDictation> }) {
-  if (!dictation.active) return dictation.notice ? <p className="aviso-consola aviso-dictado" onClick={() => dictation.setNotice('')}>{dictation.notice}</p> : null;
+  if (!dictation.active) return dictation.notice ? <p className="notice-console notice-dictado" onClick={() => dictation.setNotice('')}>{dictation.notice}</p> : null;
   const barras = 8, full = Math.round(dictation.level * barras);
   return (
     <div className={'tira-dictado ' + dictation.state}>
       <span className="piloto-voz" aria-hidden />
-      <b>{dictation.state === 'escuchando' ? t('windows.listening') : t('windows.transcribing2')}</b>
-      {dictation.state === 'escuchando' && <span className="vumetro" aria-hidden>{Array.from({ length: barras }, (_, i) => <i key={i} className={i < full ? 'on' : ''} />)}</span>}
-      <span className="tenue"><kbd>{t('windows.space')}</kbd> {t('windows.finish')} <kbd>Enter</kbd> {t('windows.send')} <kbd>Esc</kbd> {t('windows.discard')}</span>
+      <b>{dictation.state === 'listening' ? t('windows.listening') : t('windows.transcribing2')}</b>
+      {dictation.state === 'listening' && <span className="vumetro" aria-hidden>{Array.from({ length: barras }, (_, i) => <i key={i} className={i < full ? 'on' : ''} />)}</span>}
+      <span className="dim"><kbd>{t('windows.space')}</kbd> {t('windows.finish')} <kbd>Enter</kbd> {t('windows.send')} <kbd>Esc</kbd> {t('windows.discard')}</span>
     </div>
   );
 }

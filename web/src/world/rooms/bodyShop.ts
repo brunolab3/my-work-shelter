@@ -41,7 +41,7 @@ function outfit(r: () => number): Look {
   const pieces: Look['pieces'] = { torso: torso.id, brazos: same('brazos').id, piernas: (r() < 0.6 ? same('piernas') : pick(from('piernas'))).id };
   if (r() < 0.45) pieces.sombrero = pick(from('sombrero').filter(p => !p.breakdown)).id;
   if (r() < 0.25) pieces.espalda = pick(from('espalda')).id;
-  return { especie: 'humano', pieces, colors: { piel: '#cdbfa6', ...(r() < 0.6 ? { torso1: pick(FABRICS) } : {}), ...(r() < 0.4 ? { piernas1: pick(FABRICS) } : {}) } };
+  return { especie: 'human', pieces, colors: { piel: '#cdbfa6', ...(r() < 0.6 ? { torso1: pick(FABRICS) } : {}), ...(r() < 0.4 ? { piernas1: pick(FABRICS) } : {}) } };
 }
 
 export async function furnishBodyshop(ctx: Context) {
@@ -69,12 +69,12 @@ export async function furnishBodyshop(ctx: Context) {
   P(R.home('Light_Floor1'), { pos: [-5.45, 0, zB + 1.2], height: 1.75 });
   ctx.room.obstacles.push(new THREE.Box2(new THREE.Vector2(-5.9, zB), new THREE.Vector2(-2.0, zB + 0.95)));
   // Fito corta junto al sillón, tijeras en mano
-  ctx.room.points.push({ id: 'tijeras', type: 'aficion', pos: new THREE.Vector3(xS + 0.95, 0, zB + 1.35), rotation: -1.1, clip: 'Holding_B', utensil: 'tijeras', gesture: { clip: 'Use_Item', every: 6 } });
+  ctx.room.points.push({ id: 'scissors', type: 'hobby', pos: new THREE.Vector3(xS + 0.95, 0, zB + 1.35), rotation: -1.1, clip: 'Holding_B', utensil: 'scissors', gesture: { clip: 'Use_Item', every: 6 } });
   // la pieza: el sillón del barbero. Se le da media vuelta (gira), se repasa con las tijeras o se ajusta su palanca
   let turn = 0; const rotate = () => { turn = 1; };
-  ctx.room.points.push({ id: 'sillon', type: 'pieza', pos: new THREE.Vector3(xS - 0.85, 0, zB + 1.5), rotation: Math.PI / 2 - 0.2,
-    actions: [{ clip: 'Interact', onMake: rotate }, { clip: 'Use_Item', utensil: 'tijeras' }, { clip: 'Working_C', utensil: 'llave', onMake: rotate }] });
-  signInWall(g, sign(t('world.poster.bodyShop'), t('world.poster.bodyShopFoot'), '#e2efe6', '#1f4a3a', 'mano', seed), -1.55, 2.0, 0.5, 0.7, zB + 0.33, 0.02);
+  ctx.room.points.push({ id: 'sillon', type: 'piece', pos: new THREE.Vector3(xS - 0.85, 0, zB + 1.5), rotation: Math.PI / 2 - 0.2,
+    actions: [{ clip: 'Interact', onMake: rotate }, { clip: 'Use_Item', utensil: 'scissors' }, { clip: 'Working_C', utensil: 'wrench', onMake: rotate }] });
+  signInWall(g, sign(t('world.poster.bodyShop'), t('world.poster.bodyShopFoot'), '#e2efe6', '#1f4a3a', 'hand', seed), -1.55, 2.0, 0.5, 0.7, zB + 0.33, 0.02);
 
   // ---- ropería (derecha): escaparate de maniquíes sobre una tarima, sombrerera y cabina de prueba
   const platform = new THREE.Mesh(new THREE.BoxGeometry(3.3, 0.14, 1.0), new THREE.MeshStandardMaterial({ color: '#3a2c22', roughness: 0.6 }));
@@ -83,7 +83,7 @@ export async function furnishBodyshop(ctx: Context) {
   ctx.room.obstacles.push(new THREE.Box2(new THREE.Vector2(0.75, zB), new THREE.Vector2(4.15, zB + 1.4)));
   const mannequins: { p: Character | null; x: number }[] = [1.35, 2.45, 3.55].map(x => ({ p: null, x }));
   const dress = async (m: { p: Character | null; x: number }) => {
-    const p = new Character('maniqui', outfit(r)); p.inRest = 'Idle_A'; p.mannequin = true;
+    const p = new Character('mannequin', outfit(r)); p.inRest = 'Idle_A'; p.mannequin = true;
     await p.load();
     p.play('Idle_A', 0); p.mixer.update(0.2);
     p.root.position.set(m.x, 0.17, zB + 0.85); p.root.rotation.y = (m.x - 2.45) * -0.25; p.goalTurn = p.root.rotation.y;
@@ -95,7 +95,7 @@ export async function furnishBodyshop(ctx: Context) {
 
   // sombrerera: baldas en la pared con sombreros de verdad del probador, dos en cada una
   const shelves = [1.4, 2.0, 2.6], xB = 4.95;
-  const racks = await Promise.all(shelves.map(y => place(g, R.furniture('shelf_B_large'), { pos: [xB, y - 0.2 * K, zB + 0.33], scale: K * 0.85, anchor: 'atras' })));
+  const racks = await Promise.all(shelves.map(y => place(g, R.furniture('shelf_B_large'), { pos: [xB, y - 0.2 * K, zB + 0.33], scale: K * 0.85, anchor: 'back' })));
   for (const e of racks) aWall(g, e);
   // la cara de arriba de cada balda, medida ahora (los sombreros llegan después, cuando la sala ya está fusionada)
   const yHat = racks.map((e, i) => [-0.42, 0.42].map(dx => surface(e, g, xB + dx, zB + 0.52) ?? shelves[i]));
@@ -114,13 +114,13 @@ export async function furnishBodyshop(ctx: Context) {
     g.add(o);   // cada sombrero, apoyado en su balda (la altura medida)
   });
   ctx.room.obstacles.push(new THREE.Box2(new THREE.Vector2(4.2, zB), new THREE.Vector2(5.9, zB + 0.75)));
-  signInWall(g, sign(t('world.poster.wardrobe'), t('world.poster.wardrobeFoot'), '#efe4c8', '#2d4f3f', 'engranaje', seed + 3), 0.45, 2.15, 0.48, 0.66, zB + 0.33, -0.02);
+  signInWall(g, sign(t('world.poster.wardrobe'), t('world.poster.wardrobeFoot'), '#efe4c8', '#2d4f3f', 'gear', seed + 3), 0.45, 2.15, 0.48, 0.66, zB + 0.33, -0.02);
 
   // ---- el puesto: la mesa de corte de la ropería, de pie (un mueble bajo con cajones, a la altura de las manos), con
   // el monitor del catálogo, tela, tijeras y la cinta
   const pCatalog = new PhosphorScreen(384, 256, GREEN, t('world.chapa.catalog')); pCatalog.speed = 20;
   pCatalog.write([t('world.chapa.nTorsos', { n: PIECES.filter(p => p.slot === 'torso').length }), t('world.chapa.nHats', { n: PIECES.filter(p => p.slot === 'sombrero').length }), t('world.chapa.nFabrics', { n: FABRICS.length }), t('world.chapa.fittingRoom')]); ctx.room.screens.push(pCatalog);
-  await workStation(ctx, { id: 'corte', x: 4.8, z: 0.2, rotation: -0.9, ofFoot: true, desk: R.furniture('cabinet_medium'), deskScale: 1.12, tex: pCatalog.tex, brightness: 1.0, keyboard: true,
+  await workStation(ctx, { id: 'haircut', x: 4.8, z: 0.2, rotation: -0.9, ofFoot: true, desk: R.furniture('cabinet_medium'), deskScale: 1.12, tex: pCatalog.tex, brightness: 1.0, keyboard: true,
     onTop: [{ path: R.furniture('rug_rectangle_stripes_A'), x: -0.45, z: 0.15, c: { width: 0.62, rot: 0.15 } }, { path: R.tools('scissors'), x: 0.55, z: 0.15, c: { scale: 0.5, ...lying(-0.7) } }, { path: R.tools('rope_bundle_B'), x: -0.7, z: -0.2, c: { scale: K * 0.35 } }] });
 
   // ---- vida: el poste gira, el neón zumba y el escaparate se cambia de ropa de vez en cuando
@@ -136,7 +136,7 @@ export async function furnishBodyshop(ctx: Context) {
   });
 
   // ---- luz: cálida de barbería en el sillón, fría de escaparate en los maniquíes
-  ctx.room.anchors.push({ type: 'foco', pos: new THREE.Vector3(2.45, 4.1, 0.6), goal: new THREE.Vector3(2.45, 0.9, zB + 0.85), intensity: 30, color: new THREE.Color('#dfeaff'), angle: 0.6, penumbra: 0.5, distance: 7, priority: 1.2 });
+  ctx.room.anchors.push({ type: 'spot', pos: new THREE.Vector3(2.45, 4.1, 0.6), goal: new THREE.Vector3(2.45, 0.9, zB + 0.85), intensity: 30, color: new THREE.Color('#dfeaff'), angle: 0.6, penumbra: 0.5, distance: 7, priority: 1.2 });
   ctx.lamps = [{ x: -3.3, z: 0.6, o: { intensity: 48, shadow: true, corta: true } }, { x: 0.2, z: 1.0, o: { intensity: 36, color: '#ffe2b8', corta: true } }];
   stain(g, -2.2, 1.4, 0.9, seed);
   ctx.room.walkZones = [[-1.6, 0.6], [0.8, 3.2]];

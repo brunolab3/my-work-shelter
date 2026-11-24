@@ -41,8 +41,8 @@ export class LightsAssignment {
       candidates.push({ a, s, d });
     }
     candidates.sort((x, y) => x.d - y.d);
-    const spotlights = candidates.filter(c => c.a.type === 'foco');
-    const points = candidates.filter(c => c.a.type === 'punto');
+    const spotlights = candidates.filter(c => c.a.type === 'spot');
+    const points = candidates.filter(c => c.a.type === 'point');
     // el foco con sombra va a la lámpara con sombra más cercana
     const withShadow = spotlights.find(c => c.a.shadow) ?? spotlights[0];
     const chosen = [withShadow, ...spotlights.filter(c => c !== withShadow)].filter(Boolean).slice(0, this.spotlights.length);

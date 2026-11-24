@@ -46,7 +46,7 @@ export function migrateDataFolder(dir: string) {
 try { if (existsSync(DATA) && !process.env.SHELTER_COMPROBAR) renameRoomIds(DATA); } catch (e) { console.error('Ids de salas:', e); }
 
 /** El id de la sala de una carpeta: su nombre en minúsculas, sin tildes ni símbolos (addRoom en main.ts) */
-export function roomIdOf(filePath: string) { return path.basename(filePath).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9-]/g, '-') || 'sala'; }
+export function roomIdOf(filePath: string) { return path.basename(filePath).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9-]/g, '-') || 'room'; }
 /** { viejo: nuevo } para las salas de repo cuyo id no sale de su carpeta (sin quitarle el suyo a otra sala) */
 export function relinkedIds(rooms: { id: string; type: string; path?: string }[]): Record<string, string> {
   const used = new Set(rooms.map(s => s.id)), out: Record<string, string> = {};
@@ -131,12 +131,12 @@ function repairMixedState(dir: string) {
 
 export interface SavedRoom {
   id: string;
-  type: 'repo' | 'coordinacion' | 'comunicaciones' | 'planificacion' | 'logistica' | 'git' | 'puente' | 'camara' | 'puerta' | 'hidroponia' | 'galeria' | 'discoteca' | 'chapa' | 'review';
+  type: 'repo' | 'coordination' | 'comms' | 'calendar' | 'logistics' | 'git' | 'bridge' | 'vault' | 'gate' | 'hydroponics' | 'gallery' | 'disco' | 'bodyshop' | 'review';
   name: string;
   path?: string;                // carpeta (salas de repo, coordinación, Puente de Mando)
   folder?: string;             // carpeta de trabajo: la ruta o, en las especiales, una propia (no se guarda a mano: carpetaDe)
   floor: number;               // 0 = planta baja (a pie de calle); 1 = -1…  Lo calcula `distribuir`
-  side: 'izq' | 'der';          // a qué lado del ascensor
+  side: 'left' | 'right';          // a qué lado del ascensor
   orden: number;                // posición en su lado (0 = junto al ascensor)
   manual?: boolean;             // su sitio lo ha puesto el Supervisor desde el plano (disposición a mano)
   variant: string;             // paleta
@@ -183,7 +183,7 @@ export function rootReposDefault() {
 export function initialState(): ShelterState {
   const gameRoot = path.resolve(import.meta.dirname, '..');
   // sin salas de repo: las trae la raíz de repos al elegirla en la bienvenida
-  const rooms: SavedRoom[] = INITIAL_ROOMS.map(x => ({ ...x, path: x.type === 'puente' ? gameRoot : undefined }));
+  const rooms: SavedRoom[] = INITIAL_ROOMS.map(x => ({ ...x, path: x.type === 'bridge' ? gameRoot : undefined }));
   const dwellers: SavedDweller[] = INITIAL_DWELLERS.map(h => ({ ...h }));
   const defaultRoot = rootReposDefault();
   for (const s of rooms) if (s.id === PLANNING_ROOM) s.path = reposRoot({ reposRoot: defaultRoot });
@@ -262,9 +262,9 @@ export class Store {
 // nombres de antes: la agenda se llamaba «Planificación»; y el tablero de tareas (tipo 'logistica') y la sala que
 // planifica y reparte (tipo 'coordinacion', y sus alas) llevaban el nombre la una de la otra
 function savedName(type: string, name: string): string {
-  if (type === 'planificacion' && name === 'Planificación') return 'Agenda';
-  if (type === 'logistica' && name === 'Logística') return 'Planificación';
-  if (type === 'coordinacion' && (name === 'Planificación' || name.startsWith('Planificación '))) return 'Logística' + name.slice('Planificación'.length);
+  if (type === 'calendar' && name === 'Planificación') return 'Agenda';
+  if (type === 'logistics' && name === 'Logística') return 'Planificación';
+  if (type === 'coordination' && (name === 'Planificación' || name.startsWith('Planificación '))) return 'Logística' + name.slice('Planificación'.length);
   return name;
 }
 
@@ -274,8 +274,8 @@ export function sanitize(e: any): ShelterState {
   const arr = (v: unknown) => (Array.isArray(v) ? v : null);
   const str = (v: unknown, def: string) => (typeof v === 'string' ? v : def);
   // el sitio de cada sala se recalcula (así un refugio de antes se recoloca al cargar), salvo si se movió a mano en el plano
-  const read = (arr(e.rooms) ?? []).filter((x: any) => x && typeof x.id === 'string' && typeof x.type === 'string' && Number.isInteger(x.floor) && x.floor >= 0 && (x.side === 'izq' || x.side === 'der') && Number.isInteger(x.orden) && x.orden >= 0)
-    .map((x: any) => ({ id: x.id, type: x.type, name: savedName(x.type, str(x.name, x.id)), path: typeof x.path === 'string' ? x.path : undefined, floor: x.floor, side: x.side, orden: x.orden, ...(x.manual === true ? { manual: true } : {}), variant: str(x.variant, 'neutro'), style: typeof x.style === 'string' ? x.style : undefined,
+  const read = (arr(e.rooms) ?? []).filter((x: any) => x && typeof x.id === 'string' && typeof x.type === 'string' && Number.isInteger(x.floor) && x.floor >= 0 && (x.side === 'left' || x.side === 'right') && Number.isInteger(x.orden) && x.orden >= 0)
+    .map((x: any) => ({ id: x.id, type: x.type, name: savedName(x.type, str(x.name, x.id)), path: typeof x.path === 'string' ? x.path : undefined, floor: x.floor, side: x.side, orden: x.orden, ...(x.manual === true ? { manual: true } : {}), variant: str(x.variant, 'neutral'), style: typeof x.style === 'string' ? x.style : undefined,
       // el área de un repo de antes sale de su tipo de proyecto (luego se cambia en el panel de la sala)
       ...(isRoomOfRepo(x.type) && x.id !== PLANNING_ROOM ? { area: isArea(x.area) ? x.area : areaByType(typeof x.path === 'string' ? projectType(x.path) : '') } : {}),
       ...(isRoomOfRepo(x.type) && x.decor ? { decor: sanitizeDecor(x.decor).decor ?? undefined } : {}) }) as SavedRoom);
@@ -333,7 +333,7 @@ export function showRoom(e: ShelterState, id: string): boolean {
   e.hidden = e.hidden!.filter(x => x !== o);
   // su carpeta ya volvió a ser sala por otro camino (la Puerta): se queda esa
   if (e.rooms.some(s => s.id === id || s.path === o.room.path)) return true;
-  e.rooms = distribute([...e.rooms, { ...o.room, floor: 0, side: 'izq', orden: 0 }]);
+  e.rooms = distribute([...e.rooms, { ...o.room, floor: 0, side: 'left', orden: 0 }]);
   for (const h of o.dwellers) if (!e.dwellers.some(x => x.id === h.id)) e.dwellers.push(h);
   return true;
 }

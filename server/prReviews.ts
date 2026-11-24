@@ -17,7 +17,7 @@ import { recentFirst, sessionRecency } from '../shared/recent.ts';
 import { worktreeTask } from '../shared/tasks.ts';
 import { withoutNothingThatMake as nothingToDo, cleanBody, reviewLedger, openThreads, ledgerPending, type ReviewLedger, type ReviewThread } from '../shared/reviewCount.ts';
 
-export interface EventPR { id: string; type: 'revision' | 'hilo' | 'comentario'; author: string; bot?: boolean; body: string; url: string; date: number; state?: string; file?: string; line?: number }
+export interface EventPR { id: string; type: 'review' | 'thread' | 'comment'; author: string; bot?: boolean; body: string; url: string; date: number; state?: string; file?: string; line?: number }
 export interface PRWithReview { number: number; title: string; url: string; repo: string; branch: string; events: EventPR[]; ledger: ReviewLedger; threads: ReviewThread[] }
 // `visited`: the branches each worktree has had checked out and when (repos.ts: branchesVisited)
 export interface RoomPR { id: string; name: string; path: string; branch?: string; worktrees: { path: string; branch: string; visited?: Record<string, number> }[]; repo?: string }
@@ -50,15 +50,15 @@ export function reviewsOfGitHub(j: any): { me: string; prs: PRWithReview[] } {
     for (const r of n.reviews?.nodes ?? []) {
       if (!r?.id || !other(r.author) || !['CHANGES_REQUESTED', 'COMMENTED', 'APPROVED'].includes(r.state)) continue;
       if (r.state !== 'CHANGES_REQUESTED' && nothingToDo(text(r.body))) continue;   // sus comentarios en el código llegan por los hilos
-      events.push({ id: r.id, type: 'revision', author: r.author.login, ...bot(r.author), body: text(r.body), url: r.url ?? n.url, date: date(r.submittedAt), state: r.state });
+      events.push({ id: r.id, type: 'review', author: r.author.login, ...bot(r.author), body: text(r.body), url: r.url ?? n.url, date: date(r.submittedAt), state: r.state });
     }
     for (const h of n.reviewThreads?.nodes ?? []) {
       if (!h || h.isResolved) continue;
       for (const c of h.comments?.nodes ?? []) if (c?.id && other(c.author) && !nothingToDo(text(c.body)))
-        events.push({ id: c.id, type: 'hilo', author: c.author.login, ...bot(c.author), body: text(c.body), url: c.url ?? n.url, date: date(c.createdAt), file: h.path ?? undefined, line: h.line ?? undefined });
+        events.push({ id: c.id, type: 'thread', author: c.author.login, ...bot(c.author), body: text(c.body), url: c.url ?? n.url, date: date(c.createdAt), file: h.path ?? undefined, line: h.line ?? undefined });
     }
     for (const c of n.comments?.nodes ?? []) if (c?.id && other(c.author) && !nothingToDo(text(c.body)))
-      events.push({ id: c.id, type: 'comentario', author: c.author.login, ...bot(c.author), body: text(c.body), url: c.url ?? n.url, date: date(c.createdAt) });
+      events.push({ id: c.id, type: 'comment', author: c.author.login, ...bot(c.author), body: text(c.body), url: c.url ?? n.url, date: date(c.createdAt) });
     events.sort((a, b) => a.date - b.date);
     return { number: n.number, title: n.title ?? '', url: n.url ?? '', repo: n.repository?.nameWithOwner ?? '', branch: n.headRefName ?? '', events, ledger: reviewLedger(n, me), threads: openThreads(n, me) };
   });
@@ -92,7 +92,7 @@ export function homeOfBranch(branch: string, room: RoomPR): { path: string; bran
  *  without one, the worktree on its branch or that had it last, or with the PR's number in its name (shelter-pr-12-13) */
 export function sessionOfPR(pr: { repo: string; branch: string; number?: number; title?: string }, rooms: RoomPR[], sessions: SessionSummary[]): { session: SessionSummary; room: RoomPR } | undefined {
   const ofRepo = rooms.filter(s => s.repo && s.repo === pr.repo.toLowerCase());
-  const open = sessions.filter(s => s.state !== 'cerrada').sort((a, b) => recentFirst(sessionRecency(a), sessionRecency(b)))
+  const open = sessions.filter(s => s.state !== 'closed').sort((a, b) => recentFirst(sessionRecency(a), sessionRecency(b)))
     .flatMap(s => { const room = ofRepo.find(x => x.id === s.roomId); return room ? [{ s, room, where: path.resolve(s.worktree ?? s.cwd) }] : []; });
   const main = (x: (typeof open)[number]) => x.where === path.resolve(x.room.path);
   const worktreeOf = (x: (typeof open)[number]) => x.room.worktrees.find(w => path.resolve(w.path) === x.where) ?? { path: x.where, branch: undefined as string | undefined };
@@ -131,7 +131,7 @@ const THAT: Record<string, string> = { CHANGES_REQUESTED: 'prompt.review.changes
 export function reviewMessage(pr: PRWithReview, events: EventPR[]): string {
   const key = branchKey(pr.branch);
   const list = events.slice(0, MAX_EVENTS).map((e, i) => {
-    const what = e.type === 'revision' ? t(THAT[e.state ?? ''] ?? 'prompt.review.reviews') : e.type === 'hilo' ? t('prompt.review.onLine', { lugar: `${e.file ?? '?'}${e.line ? ':' + e.line : ''}` }) : t('prompt.review.onConversation');
+    const what = e.type === 'review' ? t(THAT[e.state ?? ''] ?? 'prompt.review.reviews') : e.type === 'thread' ? t('prompt.review.onLine', { lugar: `${e.file ?? '?'}${e.line ? ':' + e.line : ''}` }) : t('prompt.review.onConversation');
     return `${i + 1}. **${e.author}**${e.bot ? ' (bot)' : ''} ${what} (${e.url})${e.body ? '\n' + quote(e.body) : ''}`;
   });
   return [

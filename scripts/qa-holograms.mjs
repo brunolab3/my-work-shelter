@@ -21,15 +21,15 @@ const check = () => pg.evaluate(() => [...window.__shelter.holograms.figures.val
 const near = () => pg.evaluate(() => {
   const r = window.__shelter; const f = [...r.holograms.figures.values()][0]; if (!f) return;
   r.supervisor.root.position.set(f.spot.x - 3.5, r.currentRoom.group.position.y, 1.2);
-  r.activityMode = true; r.camara.goal.set(f.spot.x - 0.4, f.spot.y + 1.1, 0); r.camara.distance = 11; r.camara.immediate();
+  r.activityMode = true; r.camera.goal.set(f.spot.x - 0.4, f.spot.y + 1.1, 0); r.camera.distance = 11; r.camera.immediate();
 });
 const photo = async suffix => { const path = suffix ? output.replace('.png', `_${suffix}.png`) : output; await pg.screenshot({ path: path }); console.log('->', path, JSON.stringify(await check()), JSON.stringify(await pg.evaluate(() => window.__shelter.dwellers.filter(h => h.room === window.__shelter.currentRoom).map(h => [h.id.id, h.state, +h.pos.x.toFixed(2), +h.pos.z.toFixed(2)])))); };
 
 if (opt.ayudantes) {
-  const helpers = (k, n) => Array.from({ length: n }, (_, i) => ({ id: `${k}_${i}`, description: `QA helper ${i}`, state: 'trabajando', mode: i % 2 ? 'escribir' : 'leer', tools: 2 }));
+  const helpers = (k, n) => Array.from({ length: n }, (_, i) => ({ id: `${k}_${i}`, description: `QA helper ${i}`, state: 'working', mode: i % 2 ? 'write' : 'read', tools: 2 }));
   await pg.evaluate(([a, b, c]) => {
     const r = window.__shelter, s = r.currentRoom, h = r.dwellers.find(x => x.room === s), now = Date.now();
-    const sess = (id, cwd, helpers) => ({ id, dwellerId: h.id.id, roomId: s.id, cwd, state: 'trabajando', activity: { mode: 'escribir', text: 'QA' }, unread: false, title: 'QA', pending: 0, helpers, tools: 3, turns: 1, created: now, updated: now });
+    const sess = (id, cwd, helpers) => ({ id, dwellerId: h.id.id, roomId: s.id, cwd, state: 'working', activity: { mode: 'write', text: 'QA' }, unread: false, title: 'QA', pending: 0, helpers, tools: 3, turns: 1, created: now, updated: now });
     window.__live.set(e => ({ sessions: { ...e.sessions, qa_a: sess('qa_a', s.path + '/.claude/worktrees/shelter-FAN-101', a), qa_b: sess('qa_b', s.path + '/.claude/worktrees/shelter-FAN-202', b), qa_m: sess('qa_m', s.path, c) } }));
   }, [helpers('a', 4), helpers('b', 2), helpers('m', 2)]);
   for (let i = 0; i < 400; i++) {
@@ -37,7 +37,7 @@ if (opt.ayudantes) {
     if (ready >= 8 && i > 60) break;
     await steps(1); await new Promise(r => setTimeout(r, 20));
   }
-  await pg.evaluate(() => { const r = window.__shelter; r.activityMode = true; r.camara.goal.set(r.currentRoom.group.position.x, r.currentRoom.group.position.y + 1.4, 0); r.camara.distance = 26; r.camara.immediate(); });
+  await pg.evaluate(() => { const r = window.__shelter; r.activityMode = true; r.camera.goal.set(r.currentRoom.group.position.x, r.currentRoom.group.position.y + 1.4, 0); r.camera.distance = 26; r.camera.immediate(); });
   await steps(60); await photo('ayudantes');
   console.log(JSON.stringify(await pg.evaluate(() => [...window.__shelter.helpers.robots.values()].map(rb => [rb.a.id, rb.holo?.path.split('/').pop() ?? 'main', +rb.p.root.position.x.toFixed(2), +rb.p.root.position.z.toFixed(2), +rb.p.root.scale.x.toFixed(3)]))));
 } else if (opt.nacer) {
@@ -46,7 +46,7 @@ if (opt.ayudantes) {
   await new Promise(r => setTimeout(r, 9000));
   await pg.evaluate(() => {
     const r = window.__shelter; const s = r.currentRoom; const h = r.dwellers.find(x => x.room === s);
-    window.__live.set(e => ({ sessions: { ...e.sessions, qa_spawn: { id: 'qa_nacer', dwellerId: h.id.id, roomId: s.id, cwd: s.path + '/.claude/worktrees/shelter-qa', state: 'trabajando', activity: { mode: 'escribir', text: 'editando src/app.ts' }, unread: false, title: 'QA', pending: 0, helpers: [], tools: 3, turns: 1, created: Date.now(), updated: Date.now() } } }));
+    window.__live.set(e => ({ sessions: { ...e.sessions, qa_spawn: { id: 'qa_nacer', dwellerId: h.id.id, roomId: s.id, cwd: s.path + '/.claude/worktrees/shelter-qa', state: 'working', activity: { mode: 'write', text: 'editando src/app.ts' }, unread: false, title: 'QA', pending: 0, helpers: [], tools: 3, turns: 1, created: Date.now(), updated: Date.now() } } }));
   });
   // with __noLoop the loop is stepped by hand: step it until the copy is in the scene
   let inScene = false;
@@ -55,7 +55,7 @@ if (opt.ayudantes) {
     if (!inScene) { await steps(1); await new Promise(r => setTimeout(r, 20)); }
   }
   if (!inScene) { console.log('FALLO: the hologram never appeared'); await b.close(); process.exit(1); }
-  await pg.evaluate(() => { const r = window.__shelter; r.activityMode = true; r.camara.goal.set(r.currentRoom.group.position.x, r.currentRoom.group.position.y + 1.6, 0); r.camara.distance = 16; r.camara.immediate(); });
+  await pg.evaluate(() => { const r = window.__shelter; r.activityMode = true; r.camera.goal.set(r.currentRoom.group.position.x, r.currentRoom.group.position.y + 1.6, 0); r.camera.distance = 16; r.camera.immediate(); });
   for (const [k, n] of [[0, 4], [1, 10], [2, 14], [3, 30], [4, 60], [5, 120]]) { await steps(n); if (k === 1) await new Promise(r => setTimeout(r, 1500)); await photo('nacer' + k); }
   // y al desechar el worktree, se desvanece
   await pg.evaluate(() => window.__live.set(e => ({ sessions: Object.fromEntries(Object.entries(e.sessions).filter(([k]) => k !== 'qa_nacer')) })));
@@ -65,7 +65,7 @@ if (opt.ayudantes) {
 } else {
   await pg.waitForFunction(() => window.__shelter?.holograms?.figures?.size > 0 && [...window.__shelter.holograms.figures.values()].every(f => f.ready), null, { timeout: 30000 }).catch(() => logs.push('SIN HOLOGRAMAS'));
   if (opt.eval) await pg.evaluate(opt.eval);
-  if (opt.cerca || opt.estados) await near();
+  if (opt.near || opt.estados) await near();
   await steps(+(opt.pasos || 40));
   await photo('');
   if (opt.estados) {
@@ -75,11 +75,11 @@ if (opt.ayudantes) {
       window.__live.set(e => ({ sessions: state ? { ...e.sessions, qa_holo: s } : Object.fromEntries(Object.entries(e.sessions).filter(([k]) => k !== 'qa_holo')) }));
     }, [state, extra]);
     for (const [name, state, extra, n] of [
-      ['pensando', 'trabajando', { activity: { mode: 'pensar', text: 'pensando…' } }, 80],
-      ['trabajando', 'trabajando', { activity: { mode: 'escribir', text: 'editando server/main.ts' } }, 160],
-      ['esperando', 'esperando', { pending: { title: 'permiso: git push' } }, 60],
-      ['terminado', 'terminada', { unread: true }, 30],
-      ['averia', 'error', { error: 'se cortó la conexión' }, 40],
+      ['thinking', 'working', { activity: { mode: 'think', text: 'pensando…' } }, 80],
+      ['working', 'working', { activity: { mode: 'write', text: 'editando server/main.ts' } }, 160],
+      ['waiting', 'waiting', { pending: { title: 'permiso: git push' } }, 60],
+      ['finished', 'finished', { unread: true }, 30],
+      ['breakdown', 'error', { error: 'se cortó la conexión' }, 40],
       ['sinsesion', null, {}, 80],
     ]) { await session(state, extra); await steps(n); await photo(name); }
   }

@@ -19,7 +19,7 @@ describe('tiempo', () => {
   });
 });
 
-describe('texto', () => {
+describe('text', () => {
   it('sanea HTML y entidades', () => {
     expect(N.htmlText('<p><a class="o_mail_redirect">@Irene</a> PDF &amp; <b>notas</b></p>')).toBe('@Irene PDF & notas');
     expect(N.htmlText('<script>alert(1)</script><p>hola&nbsp;&#241;&#xE1;</p>')).toBe('hola ñá');
@@ -36,7 +36,7 @@ describe('Outlook (Microsoft Graph)', () => {
   it('correo no leído → notificaciones con prioridad', () => {
     const ns = N.mailsToNotifications(fx('messages_unread.json'), me);
     expect(ns).toHaveLength(4);
-    expect(ns.map(n => n.priority)).toEqual(['alta', 'media', 'alta', 'baja']);   // importancia alta, marcado, mención @Irene, boletín
+    expect(ns.map(n => n.priority)).toEqual(['high', 'media', 'high', 'low']);   // importancia alta, marcado, mención @Irene, boletín
     expect(ns[0]).toMatchObject({ source: 'outlook', author: 'Bruno Esteve', title: 'URGENTE: caída del entorno de staging', date: Date.parse('2026-10-10T08:52:17Z') });
     expect(ns[0].link).toMatch(/^https:\/\/outlook\.office365\.com\/owa\/\?ItemID=.*&ispopout=0$/);
     expect(ns[1].title).toContain('con adjunto');
@@ -44,7 +44,7 @@ describe('Outlook (Microsoft Graph)', () => {
   });
   it('usa mentionsPreview de beta si llega', () => {
     const ns = N.mailsToNotifications(fx('messages_unread_beta.json'), {});
-    expect(ns[2].priority).toBe('alta');
+    expect(ns[2].priority).toBe('high');
   });
   it('delta: ignora borrados y leídos', () => {
     const ns = N.mailsToNotifications(fx('messages_delta.json'), me);
@@ -111,20 +111,20 @@ describe('Discord', () => {
   });
   it('mención de usuario y rol → alta, con menciones legibles y enlace', () => {
     const n = N.discordNotification(fx('message_create.json').d, ctx())!;
-    expect(n).toMatchObject({ source: 'discord', priority: 'alta', author: 'Bruno Esteve', channel: '#despliegues', link: 'https://discord.com/channels/1186246479052931073/1206510000537731085/1558400497751293969' });
+    expect(n).toMatchObject({ source: 'discord', priority: 'high', author: 'Bruno Esteve', channel: '#despliegues', link: 'https://discord.com/channels/1186246479052931073/1206510000537731085/1558400497751293969' });
     expect(n.snippet).toBe('@Irene Valdés @plataforma staging vuelve a dar 502 tras el despliegue de las 10:30. ¿Lo miramos antes de la demo?');
   });
   it('respuesta a un mensaje mío → alta', () => {
-    expect(N.discordNotification(fx('message_create_reply.json').d, ctx())!.priority).toBe('alta');
+    expect(N.discordNotification(fx('message_create_reply.json').d, ctx())!.priority).toBe('high');
   });
   it('mensajes REST: @everyone media, normal baja; canales elegidos filtran salvo menciones', () => {
     const c = ctx();
     const ms = fx('channel_messages.json').map((m: any) => N.discordNotification(m, c));
-    expect(ms.map((n: any) => n?.priority)).toEqual(['alta', 'baja', 'media']);
+    expect(ms.map((n: any) => n?.priority)).toEqual(['high', 'low', 'media']);
     expect(ms[0].link).toContain('/1186246479052931073/');   // guild deducido del canal
     c.chosen = new Set(['1186246982369411082']);   // solo #general
     const filtered = fx('channel_messages.json').map((m: any) => N.discordNotification(m, c));
-    expect(filtered.map((n: any) => n?.priority ?? null)).toEqual(['alta', null, null]);
+    expect(filtered.map((n: any) => n?.priority ?? null)).toEqual(['high', null, null]);
   });
   it('ignora mensajes propios y del bot; sin MESSAGE_CONTENT degrada con aviso', () => {
     const c = ctx();
@@ -133,7 +133,7 @@ describe('Discord', () => {
     expect(N.discordNotification({ ...m, author: { id: c.bot } }, c)).toBeNull();
     c.content = false;
     const n = N.discordNotification({ ...m, content: '' }, c)!;
-    expect(n.priority).toBe('alta');
+    expect(n.priority).toBe('high');
     expect(n.snippet).toMatch(/Message Content Intent/);
   });
   it('canales para el taller: texto, anuncios y foros, ordenados por categoría', () => {
@@ -155,9 +155,9 @@ describe('Google', () => {
   it('Gmail: solo sin leer; remitente legible; prioridad por IMPORTANT y categoría; entidades del fragmento', () => {
     const ns = ms.map(N.gmailNotification).filter(Boolean) as any[];
     expect(ns.map(n => n.id)).toEqual(['google-18f2a1b3c4d5e6f7', 'google-18f2a1b3c4d5e6f8']);
-    expect(ns[0]).toMatchObject({ author: 'Irene Valdés', title: 'Reunión del jueves', priority: 'alta', channel: 'Recibidos', thread: 'google-18f2a1b3c4d5e6f0', link: 'https://mail.google.com/mail/u/0/#inbox/18f2a1b3c4d5e6f0', date: 1791622800000 });
+    expect(ns[0]).toMatchObject({ author: 'Irene Valdés', title: 'Reunión del jueves', priority: 'high', channel: 'Recibidos', thread: 'google-18f2a1b3c4d5e6f0', link: 'https://mail.google.com/mail/u/0/#inbox/18f2a1b3c4d5e6f0', date: 1791622800000 });
     expect(ns[0].snippet).toContain('la sala & el proyector');
-    expect(ns[1]).toMatchObject({ author: 'ofertas@tienda.example', priority: 'baja', channel: 'Promociones' });
+    expect(ns[1]).toMatchObject({ author: 'ofertas@tienda.example', priority: 'low', channel: 'Promociones' });
     expect(N.senderName(undefined)).toBe('Remitente desconocido');
   });
   it('Calendar: hora con desfase, día completo, sin cancelados ni rechazados, videollamada de Meet o en la descripción', () => {
@@ -182,7 +182,7 @@ describe('GitHub', () => {
   it('notificaciones: sin leídas; prioridad por motivo; enlace web; id que cambia con cada actualización', () => {
     const ns = N.notificationsOfGitHub(fx('github_notifications.json'));
     expect(ns.map(n => n.thread)).toEqual(['github-1001', 'github-1002', 'github-1003', 'github-1004']);
-    expect(ns.map(n => n.priority)).toEqual(['alta', 'baja', 'media', 'media']);
+    expect(ns.map(n => n.priority)).toEqual(['high', 'low', 'media', 'media']);
     expect(ns[0]).toMatchObject({ title: 'PR · Carrito persistente entre sesiones', snippet: 'te piden revisión', channel: 'refugio/tienda-web', link: 'https://github.com/refugio/tienda-web/pull/42' });
     expect(ns[0].id).toBe('github-1001-' + Date.parse('2026-10-10T08:00:00Z'));
     expect(ns[1].link).toBe('https://github.com/refugio/guia-de-estilo/releases');
@@ -206,17 +206,17 @@ describe('Slack', () => {
   };
   it('canales legibles: público, privado, directo y grupo', () => {
     const c = ctx();
-    expect([...c.channels.values()]).toEqual([{ name: '#general', type: 'canal' }, { name: '#equipo-web', type: 'privado' }, { name: '@Bruno Esteve', type: 'directo' }, { name: 'irene, bruno, yo', type: 'grupo' }]);
+    expect([...c.channels.values()]).toEqual([{ name: '#general', type: 'channel' }, { name: '#equipo-web', type: 'private' }, { name: '@Bruno Esteve', type: 'direct' }, { name: 'irene, bruno, yo', type: 'group' }]);
   });
   it('mensajes: menciones y formato legibles; sin propios ni de sistema; prioridad; adjuntos', () => {
     const c = ctx();
     const ns = data.mensajes.map((m: any) => N.slackNotification(m, 'C0000GENERAL', c)).filter(Boolean) as any[];
     expect(ns).toHaveLength(3);
-    expect(ns[0]).toMatchObject({ author: 'Irene Valdés', priority: 'alta', channel: '#general', thread: 'slack-C0000GENERAL', link: 'https://app.slack.com/client/T0000EQUIPO/C0000GENERAL', date: 1791622800000 });
+    expect(ns[0]).toMatchObject({ author: 'Irene Valdés', priority: 'high', channel: '#general', thread: 'slack-C0000GENERAL', link: 'https://app.slack.com/client/T0000EQUIPO/C0000GENERAL', date: 1791622800000 });
     expect(ns[0].snippet).toBe('@usuario ¿revisas el PR antes de las 12? & avisa en #general');
     expect(ns[1]).toMatchObject({ priority: 'media', snippet: '@here despliegue a las 17:00' });
     expect(ns[2].snippet).toBe('(adjunto: plano.pdf)');
-    expect(N.slackNotification(data.mensajes[1], 'D0000DIRECTO', c)!.priority).toBe('alta');
+    expect(N.slackNotification(data.mensajes[1], 'D0000DIRECTO', c)!.priority).toBe('high');
   });
   it('canales elegidos filtran salvo lo que va para mí', () => {
     const c = ctx(); c.chosen = new Set(['G0000PRIVADO']);
@@ -233,7 +233,7 @@ describe('Linear', () => {
   it('notificaciones: sin leídas, archivadas ni pospuestas; prioridad por tipo; hilo por issue', () => {
     const ns = N.linearNotifications(fx('linear_notifications.json'), Date.parse('2026-10-10T10:00:00Z'));
     expect(ns.map(n => n.id)).toEqual(['linear-n-0001-asignada', 'linear-n-0002-mencion', 'linear-n-0004-estado']);
-    expect(ns.map(n => n.priority)).toEqual(['alta', 'alta', 'baja']);
+    expect(ns.map(n => n.priority)).toEqual(['high', 'high', 'low']);
     expect(ns[1].snippet).toBe('Nerea Calvo te ha mencionado: «@irene ¿revisas el plan de rollback antes del jueves? Te dejo el documento.»');
     expect(ns[1].title).toBe('PLAT-142 · Migrar la cola de notificaciones a SQS');
     expect(ns[1].thread).toMatch(/^linear-/);
@@ -267,7 +267,7 @@ describe('Linear', () => {
 describe('Tablón por conversación', () => {
   const m = (id: string, thread: string | undefined, date: number, extra: Record<string, unknown> = {}) => ({ id, thread, source: 'slack' as const, author: 'Vanesa', title: 'Vanesa', snippet: 'msg ' + id, date, priority: 'media' as const, ...extra });
   it('junta los mensajes de un hilo: cara el más reciente, cuántos, autores y prioridad de lo pendiente', () => {
-    const g = N.groupNotices([m('a', 'slack-1', 1), m('b', 'slack-1', 3, { author: 'Ana', priority: 'alta', view: true }), m('c', 'slack-1', 2), m('d', 'slack-2', 5, { unread: 40 }), m('e', undefined, 4)]);
+    const g = N.groupNotices([m('a', 'slack-1', 1), m('b', 'slack-1', 3, { author: 'Ana', priority: 'high', view: true }), m('c', 'slack-1', 2), m('d', 'slack-2', 5, { unread: 40 }), m('e', undefined, 4)]);
     expect(g.map(c => c.id)).toEqual(['slack-2#d', 'e#e', 'slack-1#b']);
     const [two, , one] = g;
     expect(one).toMatchObject({ thread: 'slack-1', author: 'Ana', count: 3, ids: ['b', 'c', 'a'], authors: ['Ana', 'Vanesa'], view: false, priority: 'media' });
@@ -283,7 +283,7 @@ describe('Mail del Mac (mail.jxa)', () => {
   const { cuentas: counts, mensajes: messages } = fx('mail_jxa.json');
   it('Gmail: enlace al correo en la cuenta de esa dirección; hilo por asunto sin «Re:»; bandera → alta', () => {
     const n = N.mailNotification(messages[0], counts[0])!;
-    expect(n).toMatchObject({ id: 'mail-CAF-1a2b3c@mail.gmail.com', source: 'mail', channel: 'Google', author: 'Nerea Calvo', title: 'Re: Plan de pruebas de la versión 5', priority: 'alta', date: 1794211200000, snippet: 'Le he echado un ojo. Te dejo dos comentarios en la wiki.' });
+    expect(n).toMatchObject({ id: 'mail-CAF-1a2b3c@mail.gmail.com', source: 'mail', channel: 'Google', author: 'Nerea Calvo', title: 'Re: Plan de pruebas de la versión 5', priority: 'high', date: 1794211200000, snippet: 'Le he echado un ojo. Te dejo dos comentarios en la wiki.' });
     expect(n.link).toBe('https://mail.google.com/mail/?authuser=irene.valdes%40taller.example#search/rfc822msgid%3ACAF-1a2b3c%40mail.gmail.com');
     expect(N.mailNotification(messages[2], counts[0])!.thread).toBe(n.thread);   // la respuesta y el original, una conversación
   });

@@ -22,8 +22,8 @@ import { browsers, SPOTS, pageTitle, onFront as navOnFront, minimize as navMinim
 import { windowGit, onFrontGit, minimizeGit, closeGit } from './git/window';
 import { filesWindow, onFrontFiles, minimizeFiles, closeFiles } from './files/window';
 
-const STATE_TEXT: Record<string, string> = { arrancando: t('windows.starting'), trabajando: t('windows.working'), esperando: t('windows.waitingForYou'), error: t('windows.fault'), terminada: t('windows.finished'), ociosa: t('windows.ready') };
-const URGENCY: Record<string, number> = { esperando: 0, error: 1, trabajando: 2, arrancando: 2, terminada: 3, ociosa: 4 };
+const STATE_TEXT: Record<string, string> = { starting: t('windows.starting'), working: t('windows.working'), waiting: t('windows.waitingForYou'), error: t('windows.fault'), finished: t('windows.finished'), idle: t('windows.ready') };
+const URGENCY: Record<string, number> = { waiting: 0, error: 1, working: 2, starting: 2, finished: 3, idle: 4 };
 
 // the intercoms grouped by room: one chip per room, opening the one with the most recent conversation (or the last
 // one in front); its hover list holds one row per intercom panel of the room (its dweller, each hologram)
@@ -32,7 +32,7 @@ export function comRooms(list: WindowCom[], sessions: Record<string, SessionSumm
   const rooms = new Map<string, { room: string; name: string; coms: Com[] }>();
   for (const v of list) {
     const h = who(v.dwellerId); if (!h) continue;
-    const sess = v.tabs.map(p => (p.view.type === 'sesion' ? sessions[p.view.sessionId] : undefined)).filter(Boolean) as SessionSummary[];
+    const sess = v.tabs.map(p => (p.view.type === 'session' ? sessions[p.view.sessionId] : undefined)).filter(Boolean) as SessionSummary[];
     const g = rooms.get(h.room) ?? { room: h.room, name: h.nameRoom, coms: [] };
     g.coms.push({ v, h, sess }); rooms.set(h.room, g);
   }
@@ -41,7 +41,7 @@ export function comRooms(list: WindowCom[], sessions: Record<string, SessionSumm
     const latest = [...g.coms].sort((a, b) => last(b) - last(a) || b.v.z - a.v.z)[0];
     const sess = g.coms.flatMap(c => c.sess.map(s => ({ s, h: c.h }))).sort((a, b) => (URGENCY[a.s.state] ?? 5) - (URGENCY[b.s.state] ?? 5) || recentFirst(sessionRecency(a.s), sessionRecency(b.s)));
     // what a click opens: the conversation with something for you (waiting, failed, unread), on its tab; else the latest
-    const aTi = sess.find(x => x.s.state === 'esperando' || x.s.state === 'error' || (x.s.state === 'terminada' && x.s.unread));
+    const aTi = sess.find(x => x.s.state === 'waiting' || x.s.state === 'error' || (x.s.state === 'finished' && x.s.unread));
     return { ...g, latest, sess, aTi, open: () => (aTi ? openConversation(aTi.s.id) : restoreIntercom(latest.v.dwellerId)) };
   });
 }
@@ -56,7 +56,7 @@ function comOrder<T extends { room: string }>(rooms: T[], outside: string[]) {
 }
 // which rooms are most relevant to keep in view: waiting, failed, unread, then the rest in order
 const roomRank = (g: ReturnType<typeof comRooms>[number]) =>
-  g.aTi ? ({ esperando: 0, error: 1 } as Record<string, number>)[g.aTi.s.state] ?? 2 : 3;
+  g.aTi ? ({ waiting: 0, error: 1 } as Record<string, number>)[g.aTi.s.state] ?? 2 : 3;
 
 interface Item { key: string; isOpen: boolean; open: () => void; minimize: () => void; close: () => void }
 // las dos filas tal como se ven (las usan el ratón y el teclado)
@@ -196,9 +196,9 @@ export function Bar() {
     const h = g.coms.find(c => c.v.dwellerId === talking)?.h ?? g.aTi?.h ?? g.latest.h;
     // something typed and not sent in one of its intercoms other than the one in front
     const drafts = g.coms.filter(c => c.v.dwellerId !== talking && c.v.tabs.some(withText));
-    const kind = 'chip-terminal' + (h.copy ? ' de-copia' : '') + (open ? ' delante' : ' minimizada') + (worst?.s.state === 'esperando' ? ' urgente' : nFlagged ? ' pendiente' : '') + (mark ? ' marcado' : '');
+    const kind = 'chip-terminal' + (h.copy ? ' de-copia' : '') + (open ? ' delante' : ' minimizada') + (worst?.s.state === 'waiting' ? ' urgente' : nFlagged ? ' pendiente' : '') + (mark ? ' marcado' : '');
     const body = <>
-      <span className={'piloto ' + sessionPilot(worst?.s)} />
+      <span className={'pilot ' + sessionPilot(worst?.s)} />
       {g.name}{worst ? <small> · {STATE_TEXT[worst.s.state] ?? worst.s.state}</small> : null}{g.sess.length > 1 ? <small> ({g.sess.length})</small> : null}{nFlagged ? <> <FlagMark on n={nFlagged > 1 ? nFlagged : undefined} /></> : null}{drafts.length ? <span className="marca-borrador"> ✎</span> : null}
     </>;
     if (measure) return <button key={g.room} tabIndex={-1} data-sala={g.room} className={kind}>{body}</button>;
@@ -226,17 +226,17 @@ export function Bar() {
           <span className="barra-tipo" title={t('windows.intercoms')}>COM</span>
           {views.map((g, i) => chip(g, marked(0, i)))}
           {hidden.length > 0 && (
-            <button className={'chip-terminal barra-mas minimizada' + (hidden.some(g => g.sess[0]?.s.state === 'esperando') ? ' urgente' : hidden.some(g => flaggedOf(g)) ? ' pendiente' : '') + (inHidden ? ' marcado' : '')}
+            <button className={'chip-terminal barra-mas minimizada' + (hidden.some(g => g.sess[0]?.s.state === 'waiting') ? ' urgent' : hidden.some(g => flaggedOf(g)) ? ' pending' : '') + (inHidden ? ' marcado' : '')}
               onMouseEnter={e => { keep(); const r = e.currentTarget.getBoundingClientRect(); setPeek({ id: '+', x: r.left, y: r.top }); }} onMouseLeave={leave}
               onClick={e => { const r = e.currentTarget.getBoundingClientRect(); setPeek(a => (a?.id === '+' ? null : { id: '+', x: r.left, y: r.top })); }}
               title={t('windows.moreRooms', { n: hidden.length })}>
-              <span className={'piloto ' + sessionPilot(hidden[0].sess[0]?.s)} />+{hidden.length}
+              <span className={'pilot ' + sessionPilot(hidden[0].sess[0]?.s)} />+{hidden.length}
             </button>
           )}
           {/* a hidden copy of every chip, to measure what fits */}
           <div ref={measured} className="barra-medida" aria-hidden>
             {rooms.map(g => chip(g, false, true))}
-            <button tabIndex={-1} className="chip-terminal barra-mas"><span className="piloto" />+{rooms.length}</button>
+            <button tabIndex={-1} className="chip-terminal barra-mas"><span className="pilot" />+{rooms.length}</button>
           </div>
           <ComTabs />
         </div>
@@ -271,7 +271,7 @@ export function Bar() {
               <button key={v.id} className={'chip-terminal' + (v.minimized ? ' minimizada' : '') + (v.id === ahead ? ' delante' : '') + (marked(1, i) ? ' marcado' : '')}
                 onClick={() => (v.minimized || v.id !== ahead ? onFront(v.id) : minimize(v.id))}
                 title={`${v.cwd}\n${v.minimized ? t('windows.clickToOpen') : v.id === ahead ? t('windows.clickToMinimize2') : t('windows.clickToBringToFront')}`}>
-                <span className={'piloto ' + (inRunning.length ? 'trabajando' : 'ociosa')} />
+                <span className={'pilot ' + (inRunning.length ? 'working' : 'idle')} />
                 {v.title}{inRunning.length ? ` · ${inRunning.map(p => p.program).join(', ')}` : ''}{v.tabs.length > 1 ? <small> ({v.tabs.length})</small> : null}
               </button>
             );
@@ -287,7 +287,7 @@ export function Bar() {
               <button key={v.id} className={'chip-terminal' + (v.minimized ? ' minimizada' : ' delante') + (marked(2, i) ? ' marcado' : '')}
                 onClick={() => (v.minimized ? navOnFront(v.id) : navMinimize(v.id))}
                 title={`${v.title}\n${v.url}\n${v.minimized ? t('windows.clickToOpen2') : t('windows.clickToMinimize')}`}>
-                <span className={'piloto ' + (v.loading ? 'trabajando' : 'ociosa')} />
+                <span className={'pilot ' + (v.loading ? 'working' : 'idle')} />
                 {name}{page ? <small> · {page.length > 40 ? page.slice(0, 39) + '…' : page}</small> : null}
               </button>
             );
@@ -299,7 +299,7 @@ export function Bar() {
           <span className="barra-tipo" title={t('world.gitClient')}>GIT</span>
           <button className={'chip-terminal' + (git.minimized ? ' minimizada' : ' delante') + (marked(3, 0) ? ' marcado' : '')}
             onClick={() => (git.minimized ? onFrontGit() : minimizeGit())} title={`${git.path ?? ''}\n${git.minimized ? t('windows.clickToOpen2') : t('windows.clickToMinimize')}`}>
-            <span className={'piloto ' + (git.busy ? 'trabajando' : 'ociosa')} />
+            <span className={'pilot ' + (git.busy ? 'working' : 'idle')} />
             {git.path?.split('/').pop() ?? 'git'}{(() => { const r = Object.values(repos).find(x => x.path === git.path); return r?.branch ? <small> · {r.branch}{r.changes ? ` · ${t('windows.nChanges', { n: r.changes })}` : ''}</small> : null; })()}
           </button>
         </div>
@@ -309,7 +309,7 @@ export function Bar() {
           <span className="barra-tipo" title={t('windows.files')}>ARCH</span>
           <button className={'chip-terminal' + (arch.minimized ? ' minimizada' : ' delante') + (marked(4, 0) ? ' marcado' : '')}
             onClick={() => (arch.minimized ? onFrontFiles() : minimizeFiles())} title={`${arch.root ?? ''}\n${arch.minimized ? t('windows.clickToOpen2') : t('windows.clickToMinimize')}`}>
-            <span className="piloto ociosa" />
+            <span className="pilot idle" />
             {arch.root?.replace(/\/$/, '').split('/').pop() ?? t('windows.files2')}
           </button>
         </div>

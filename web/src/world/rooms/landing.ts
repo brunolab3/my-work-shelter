@@ -55,14 +55,14 @@ export async function furnishShowcase(ctx: Context) {
   let flare = 0;
   const play = () => { flare = 1; };
   const towardTotem = (x: number, z: number) => Math.atan2(cx - x, zB + 1.3 - z);
-  ctx.room.points.push({ id: 'totem', type: 'pieza', pos: new THREE.Vector3(cx + 0.62, 0, zB + 2.4), rotation: towardTotem(cx + 0.62, zB + 2.4),
-    actions: [{ clip: 'Interact', onMake: play }, { clip: 'Holding_A', utensil: 'diario', dur: 4 }, { clip: 'Use_Item', onMake: play }] });
-  ctx.room.points.push({ id: 'totem-2', type: 'pieza', pos: new THREE.Vector3(cx - 0.62, 0, zB + 2.4), rotation: towardTotem(cx - 0.62, zB + 2.4),
+  ctx.room.points.push({ id: 'totem', type: 'piece', pos: new THREE.Vector3(cx + 0.62, 0, zB + 2.4), rotation: towardTotem(cx + 0.62, zB + 2.4),
+    actions: [{ clip: 'Interact', onMake: play }, { clip: 'Holding_A', utensil: 'journal', dur: 4 }, { clip: 'Use_Item', onMake: play }] });
+  ctx.room.points.push({ id: 'totem-2', type: 'piece', pos: new THREE.Vector3(cx - 0.62, 0, zB + 2.4), rotation: towardTotem(cx - 0.62, zB + 2.4),
     actions: [{ clip: 'Interact', onMake: play }, { clip: 'Waving' }] });
   // the design desk in the middle, under the task board: monitor with the changes, keyboard, pencils and a cactus
   const pDesign = new PhosphorScreen(384, 256, v.screen); pDesign.speed = 30;
-  screenReal(ctx, pDesign, 'cambios'); ctx.room.screens.push(pDesign);
-  await centralDesk(ctx, { id: 'silla', tex: pDesign.tex,
+  screenReal(ctx, pDesign, 'changes'); ctx.room.screens.push(pDesign);
+  await centralDesk(ctx, { id: 'chair', tex: pDesign.tex,
     onTop: [{ path: R.furniture('cup_pencils'), x: 0.72, z: -0.22, c: { scale: K * 0.6 } }, { path: R.furniture('cactus_small_A'), x: -0.72, z: -0.2, c: { scale: K * 0.7 } }, { path: R.furniture('mug_A'), x: -0.6, z: 0.24, c: { scale: K * 0.7, rot: 0.5 } }] });
   P(R.home('Houseplant_6'), { pos: [-5.5, 0, zB + 0.6], height: 1.1 });
   P(R.furniture('shelf_B_large_decorated'), { pos: [-2.55, 2.45, zB + 0.35], scale: K * 0.8 }).then(o => aWall(g, o));
@@ -71,11 +71,11 @@ export async function furnishShowcase(ctx: Context) {
   P(R.furniture('table_low_decorated'), { pos: [4.0, 0, 0.45], scale: K * 0.8, rot: -0.15 });
   P(R.furniture('lamp_standing'), { pos: [5.6, 0, zB + 0.6], scale: K });
   ctx.room.obstacles.push(new THREE.Box2(new THREE.Vector2(2.9, zB), new THREE.Vector2(6, zB + 1.9)), new THREE.Box2(new THREE.Vector2(3.2, 0.0), new THREE.Vector2(4.8, 0.95)));
-  ctx.room.points.push({ id: 'sofa', type: 'silla', pos: new THREE.Vector3(4.0, 0.05, zB + 1.25), rotation: -0.15, clip: 'Sit_Chair_Idle' });
-  signInWall(g, sign(t('world.poster.growth'), t('world.poster.growthFoot'), '#f0d98a', '#2a1c08', 'rayo', seed), 3.2, 2.6, 0.6, 0.84, zB + 0.33, -0.03);
+  ctx.room.points.push({ id: 'sofa', type: 'chair', pos: new THREE.Vector3(4.0, 0.05, zB + 1.25), rotation: -0.15, clip: 'Sit_Chair_Idle' });
+  signInWall(g, sign(t('world.poster.growth'), t('world.poster.growthFoot'), '#f0d98a', '#2a1c08', 'bolt', seed), 3.2, 2.6, 0.6, 0.84, zB + 0.33, -0.03);
   // the brand's mascot on its plinth: a statue, polished by hand
   P(R.sf('Props_Statue'), { pos: [2.55, 0, zB + 0.55], height: 1.6, rot: -0.3 });
-  ctx.room.points.push({ id: 'consola', type: 'consola', pos: new THREE.Vector3(2.0, 0, zB + 1.4), rotation: 0.5, clip: 'Working_A' });
+  ctx.room.points.push({ id: 'console', type: 'console', pos: new THREE.Vector3(2.0, 0, zB + 1.4), rotation: 0.5, clip: 'Working_A' });
   // panel de estado de la sala (encima del sofá)
   const panel = new PanelRoom(); panel.title = 'ESCAPARATE'; panel.color = v.screen;
   const framePanel = aWall(g, await place(g, R.cy('Sign_2'), { pos: [4.5, 3.25, zB + 0.6], width: 1.55, isStatic: false, own: true }));
@@ -95,6 +95,6 @@ export async function furnishShowcase(ctx: Context) {
     rotation += dt * (0.35 + a * 1.2); totem.rotation.y = Math.sin(rotation * 0.5) * 0.22;   // el tótem oscila hacia uno y otro lado del escaparate
     flare = Math.max(0, flare - dt * 1.5);
     for (const m of matsTotem) m.emissiveIntensity = 0.6 + flare * 1.4;
-    if (ctx.room.state === 'trabajando' && Math.random() < dt * (0.12 + a)) panel.lines.push('> ' + tr('world.landing.log').split('|')[Math.floor(Math.random() * 4)]);
+    if (ctx.room.state === 'working' && Math.random() < dt * (0.12 + a)) panel.lines.push('> ' + tr('world.landing.log').split('|')[Math.floor(Math.random() * 4)]);
   });
 }

@@ -16,7 +16,7 @@ const wait = ms => pg.waitForTimeout(ms);
 let failures = 0;
 const check = (ok, text) => { console.log((ok ? 'OK   ' : 'FALLO ') + text); if (!ok) failures++; };
 const loose = () => pg.evaluate(() => [...document.querySelectorAll('.teletipos > .teletipo')].map(e => e.textContent));
-const group = () => pg.evaluate(() => { const g = document.querySelector('.teletipo.grupo'); return g && { text: g.textContent, kind: g.className, list: [...document.querySelectorAll('.teletipos-grupo .lista .teletipo')].map(e => e.textContent) }; });
+const group = () => pg.evaluate(() => { const g = document.querySelector('.teletipo.group'); return g && { text: g.textContent, kind: g.className, list: [...document.querySelectorAll('.teletipos-grupo .lista .teletipo')].map(e => e.textContent) }; });
 // `edad`: how long ago it arrived (the id is the arrival time)
 const set = list => pg.evaluate(list => window.__live.set(v => ({ notices: [...v.notices, ...list.map(([level, text, age = 0, question]) => ({ id: Date.now() - age + Math.random(), level, text, question }))] })), list);
 
@@ -25,7 +25,7 @@ await pg.waitForFunction(() => typeof window.__ready === 'function', null, { tim
 await pg.evaluate(async () => { await window.__ready(); window.__game.set({ panel: null, panelData: null }); window.__live.set({ notices: [] }); });
 
 // ---- old ones fold, new ones and questions stay on their own
-await set([['info', 'Repo fever2 synced', 60000], ['aviso', 'Jira token expires in 3 days', 50000], ['info', 'Slack reconnected', 40000], ['info', 'Spotify paused', 30000],
+await set([['info', 'Repo fever2 synced', 60000], ['warning', 'Jira token expires in 3 days', 50000], ['info', 'Slack reconnected', 40000], ['info', 'Spotify paused', 30000],
   ['info', 'Room puente: question', 20000, { id: 'q1', si: 'Yes', no: 'No' }], ['info', 'Calendar refreshed', 0]]);
 await wait(300);
 let g = await group();
@@ -43,7 +43,7 @@ await wait(200);
 check(/ error/.test((await group()).kind), 'an old error turns the slot red');
 
 // ---- unfold, dismiss one, read all
-await pg.click('.teletipo.grupo'); await wait(300);
+await pg.click('.teletipo.group'); await wait(300);
 g = await group();
 check(g.list.length === 6 && /▾/.test(g.text), `clicking the slot unfolds the 6 (${g.list.length})`);
 await pg.screenshot({ path: `${dir}/2-desplegados.png`, clip: { x: 0, y: 0, width: 700, height: 560 } });
@@ -54,13 +54,13 @@ check(await pg.evaluate(() => !window.__live.get().notices.some(a => /Slack/.tes
 // maximized row layout: open a terminal-like maximized window by class and check the slot unfolds below
 await pg.evaluate(() => { const d = document.createElement('div'); d.className = 'maximizada qa-falsa'; d.style.display = 'none'; document.getElementById('ui').appendChild(d); });
 await wait(200);
-const box = await pg.evaluate(() => { const r = document.querySelector('.teletipos').getBoundingClientRect(), l = document.querySelector('.teletipos-grupo .lista').getBoundingClientRect(), q = document.querySelector('.teletipos > .teletipo.pregunta').getBoundingClientRect(); return { row: r.left > 300, listBelow: l.top > 10, questionBeside: q.left > l.left && q.top < l.top }; });
+const box = await pg.evaluate(() => { const r = document.querySelector('.teletipos').getBoundingClientRect(), l = document.querySelector('.teletipos-grupo .lista').getBoundingClientRect(), q = document.querySelector('.teletipos > .teletipo.question').getBoundingClientRect(); return { row: r.left > 300, listBelow: l.top > 10, questionBeside: q.left > l.left && q.top < l.top }; });
 check(box.row && box.listBelow && box.questionBeside, 'maximized: one row, the unfolded list drops below the slot, the question beside it ' + JSON.stringify(box));
 await pg.screenshot({ path: `${dir}/3-ampliada.png`, clip: { x: 300, y: 0, width: 1300, height: 360 } });
 await pg.evaluate(() => document.querySelector('.qa-falsa').remove());
-await pg.click('.teletipo.grupo .leer-todos'); await wait(300);
+await pg.click('.teletipo.group .leer-todos'); await wait(300);
 check(!(await group()) && (await loose()).length === 1, '"read all" dismisses them all; the question stays');
-await pg.click('.teletipo.pregunta button >> nth=0').catch(() => {}); await wait(200);
+await pg.click('.teletipo.question button >> nth=0').catch(() => {}); await wait(200);
 check((await loose()).length === 0, 'answering the question removes it');
 await pg.screenshot({ path: `${dir}/4-leidos.png`, clip: { x: 0, y: 0, width: 700, height: 360 } });
 

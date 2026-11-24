@@ -84,13 +84,13 @@ class Outlook extends ConnectorBase {
       authorization: (redirect, state, challenge) => `${this.authority}/authorize?` + new URLSearchParams({ client_id: this.client, response_type: 'code', redirect_uri: redirect, response_mode: 'query', scope: SCOPES, state: state, code_challenge: challenge, code_challenge_method: 'S256', prompt: 'select_account' }),
       onClose: () => { this.listener = null; },
       onBack: async ({ code, error, redirect, verifier }) => {
-        if (error || !code) { const m = explainErrorMicrosoft((error ?? {}) as any); this.fail(m); this.notify?.('estado'); return { ok: false, title: t('integrations.couldNotConnectWith', { servicio: 'Microsoft' }), text: m }; }
+        if (error || !code) { const m = explainErrorMicrosoft((error ?? {}) as any); this.fail(m); this.notify?.('state'); return { ok: false, title: t('integrations.couldNotConnectWith', { servicio: 'Microsoft' }), text: m }; }
         try {
           await this.token({ grant_type: 'authorization_code', code: code, redirect_uri: redirect, code_verifier: verifier, scope: SCOPES });
           this.me = null; const me = await this.whoAmI();
-          this.good(t('integrations.connectedAs', { quien: me.name ?? me.email })); this.notify?.('activar');
+          this.good(t('integrations.connectedAs', { quien: me.name ?? me.email })); this.notify?.('activate');
           return { ok: true, title: t('integrations.connected'), text: t('server.doneTheShelterCanNow2', { nombre: me.name ? ', ' + me.name : '' }) };
-        } catch (e) { this.fail((e as Error).message); this.notify?.('estado'); return { ok: false, title: t('integrations.couldNotConnectWith', { servicio: 'Microsoft' }), text: (e as Error).message }; }
+        } catch (e) { this.fail((e as Error).message); this.notify?.('state'); return { ok: false, title: t('integrations.couldNotConnectWith', { servicio: 'Microsoft' }), text: (e as Error).message }; }
       },
     });
     return this.listener.url;
@@ -136,7 +136,7 @@ class Outlook extends ConnectorBase {
       if (d.open !== false) execFile('/usr/bin/open', [url], () => {});   // navegador del sistema (sesión de Microsoft ya abierta)
       return { url };
     }
-    if (name === 'disconnect') { await eraseSecret(SESSION_ACCOUNT); this.session = false; this.restart(); this.notify?.('estado'); return this.state(); }
+    if (name === 'disconnect') { await eraseSecret(SESSION_ACCOUNT); this.session = false; this.restart(); this.notify?.('state'); return this.state(); }
     return super.ownAction(name, d);
   }
   stop() { super.stop(); this.listener?.stop(); }

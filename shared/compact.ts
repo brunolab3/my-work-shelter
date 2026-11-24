@@ -17,13 +17,13 @@ export function autoCompactWindow(v: unknown): number | undefined {
 
 // when to offer «Compact»: tokens first; the percentage stays for small windows (40 % / 60 % of a 200k window come
 // before 150k / 300k)
-export function compactLevel(c: { used: number; percentage: number }): 'bajo' | 'medio' | 'alto' {
-  return c.used >= COMPACT_URGE || c.percentage >= 60 ? 'alto' : c.used >= COMPACT_SUGGEST || c.percentage >= 40 ? 'medio' : 'bajo';
+export function compactLevel(c: { used: number; percentage: number }): 'low' | 'medium' | 'high' {
+  return c.used >= COMPACT_URGE || c.percentage >= 60 ? 'high' : c.used >= COMPACT_SUGGEST || c.percentage >= 40 ? 'medium' : 'low';
 }
 
 // the bar's colour: the same tokens, with its own percentage levels (amber from 60 %, red from 85 %)
-export function contextLevel(c: { used: number; percentage: number }): 'bajo' | 'medio' | 'alto' {
-  return c.used >= COMPACT_URGE || c.percentage >= 85 ? 'alto' : c.used >= COMPACT_SUGGEST || c.percentage >= 60 ? 'medio' : 'bajo';
+export function contextLevel(c: { used: number; percentage: number }): 'low' | 'medium' | 'high' {
+  return c.used >= COMPACT_URGE || c.percentage >= 85 ? 'high' : c.used >= COMPACT_SUGGEST || c.percentage >= 60 ? 'medium' : 'low';
 }
 
 // From how much context the intercom suggests a new session with a handoff instead of carrying on (vault setting,

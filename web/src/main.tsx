@@ -32,7 +32,7 @@ async function loadSources() {
 }
 
 const sources = loadSources();
-const motor = new Engine(document.getElementById('mundo')!);
+const motor = new Engine(document.getElementById('world')!);
 (window as any).__engine = motor;
 import('./world/animations').then(m => { (window as any).__anim = m; });   // QA: componer y probar clips desde la página
 (window as any).__THREE = THREE;   // para la QA (rayos, cajas)

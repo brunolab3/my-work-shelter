@@ -7,24 +7,24 @@
 // en y = 4,43; z de -2,3 (pared del fondo) a 2,3 (borde del corte). La franja z > 0,8 es el pasillo por donde se anda.
 
 import { t as tr } from './language.ts';
-export const BASES_DECOR = ['vacia', 'estudio', 'laboratorio', 'fundicion', 'archivo', 'taller', 'tallerWeb', 'escaparate', 'marca', 'proyeccion'] as const;
+export const BASES_DECOR = ['empty', 'studio', 'lab', 'foundry', 'archive', 'taller', 'tallerWeb', 'showcase', 'brand', 'projection'] as const;
 export type BaseDecor = typeof BASES_DECOR[number];
 /** Qué trae cada base (lo leen el habitante y el panel de la sala) */
 export const DESCRIPTION_BASE: Record<BaseDecor, string> = {
-  vacia: 'sala vacía: solo paredes, suelo, tuberías del techo, la zona de trabajo del centro y lo que pongas tú (la pieza, con un sitio por defecto si no lo das)',
-  estudio: 'estudio (la plantilla de los repos web y Node): rack de servidores con pilotos y rincón con sofá',
-  laboratorio: 'laboratorio (la de Python): terrario de cristal en el centro, mesa de pruebas con fregadero e invernadero de bandejas',
-  fundicion: 'fundición (la de Rust y Go): forja de ladrillo con campana y chimenea, yunque sobre tocón, crisol y tina de temple',
-  archivo: 'archivo (la de las carpetas sin código): estantería alta de cajas, fichero con terminal y mesa de consulta',
+  empty: 'sala vacía: solo paredes, suelo, tuberías del techo, la zona de trabajo del centro y lo que pongas tú (la pieza, con un sitio por defecto si no lo das)',
+  studio: 'estudio (la plantilla de los repos web y Node): rack de servidores con pilotos y rincón con sofá',
+  lab: 'laboratorio (la de Python): terrario de cristal en el centro, mesa de pruebas con fregadero e invernadero de bandejas',
+  foundry: 'fundición (la de Rust y Go): forja de ladrillo con campana y chimenea, yunque sobre tocón, crisol y tina de temple',
+  archive: 'archivo (la de las carpetas sin código): estantería alta de cajas, fichero con terminal y mesa de consulta',
   taller: 'banco de pruebas genérico: banco de herramientas, armario de servidores y la gran pantalla del repo',
   tallerWeb: 'taller web hecho a mano: puestos de trabajo, tablón de corcho, tanque de líquido burbujeante y pilotos',
-  escaparate: 'escaparate: tótem con la landing en una tarima con focos de exposición y sofá de pruebas de usuario',
-  marca: 'archivo de marca: muro de muestras de color y logotipos, mesa de dibujo con planos, estanterías de catálogos y botes de pintura',
-  proyeccion: 'sala de proyección: cine con pantalla grande, telón y butacas, y cabina de montaje con proyector, foco y rack de render',
+  showcase: 'escaparate: tótem con la landing en una tarima con focos de exposición y sofá de pruebas de usuario',
+  brand: 'archivo de marca: muro de muestras de color y logotipos, mesa de dibujo con planos, estanterías de catálogos y botes de pintura',
+  projection: 'sala de proyección: cine con pantalla grande, telón y butacas, y cabina de montaje con proyector, foco y rack de render',
 };
 export const DECOR_WALLS = ['Wall_1', 'Wall_2', 'Wall_3', 'Wall_4', 'Wall_5', 'Wall_Empty'] as const;
-export const DECOR_PALETTES = ['taller', 'web', 'marca', 'video', 'landing', 'comms', 'plan', 'logistica', 'acorazada', 'puente', 'neutro'] as const;
-export const SIGN_SYMBOLS = ['engranaje', 'ojo', 'rayo', 'mano'] as const;
+export const DECOR_PALETTES = ['taller', 'web', 'brand', 'video', 'landing', 'comms', 'plan', 'logistics', 'vault', 'bridge', 'neutral'] as const;
+export const SIGN_SYMBOLS = ['gear', 'eye', 'bolt', 'hand'] as const;
 /** Gestos que el habitante hace en la pieza protagonista o en su afición (clips de KayKit) */
 export const GESTURES = ['Interact', 'Use_Item', 'Holding_A', 'Holding_B', 'Working_A', 'Working_B', 'Working_C', 'PickUp', 'Hammering', 'Cheering', 'Waving', 'Idle_A'] as const;
 /** Packs del atrezo, con la carpeta de cada uno dentro de assets/ (los mismos prefijos que R en web/src/engine/assets.ts):
@@ -76,7 +76,7 @@ export interface Decor {
   light?: number;              // 0,2 (penumbra) a 1,4 (muy iluminada)
   mirror?: boolean;          // la base, reflejada de izquierda a derecha
   // en la sala vacía: dónde va cada cosa imprescindible (en las demás bases ya la trae la base); board and desk are fixed
-  workstation?: { screen?: 'monitor' | 'doble' | 'ordenador'; desk?: string };   // the dweller's desk (always at DESK, in the work zone)
+  workstation?: { screen?: 'monitor' | 'dual' | 'computer'; desk?: string };   // the dweller's desk (always at DESK, in the work zone)
   piece?: DecorPoint;     // dónde se pone el habitante a usar la pieza protagonista
   hobby?: DecorPoint;   // un rincón suyo (opcional)
   lamps?: { x: number; z: number; color?: string; intensity?: number }[];
@@ -115,10 +115,10 @@ export const coversBoard = (b: BoardSpot, x: number, y: number, w: number, h: nu
  *  corner of the entrance side (the lift's: right in the left-hand rooms, left in the right-hand ones), the same in
  *  every room. `panelSpot` is its footprint on the floor (centre and size): scenes and dressings keep clear of it */
 export interface FloorSpot { x: number; z: number; width: number; background: number }
-export function panelSpot(side: 'izq' | 'der'): FloorSpot { return { x: (side === 'izq' ? 1 : -1) * 5.3, z: 0.5, width: 0.9, background: 0.8 }; }
+export function panelSpot(side: 'left' | 'right'): FloorSpot { return { x: (side === 'left' ? 1 : -1) * 5.3, z: 0.5, width: 0.9, background: 0.8 }; }
 const onFloor = (f: FloorSpot, x0: number, x1: number, z0: number, z1: number) => x1 > f.x - f.width / 2 && x0 < f.x + f.width / 2 && z1 > f.z - f.background / 2 && z0 < f.z + f.background / 2;
 /** Whether a piece on the floor (its box) gets in the way of the work zone or of the room panel: the game leaves it out */
-export function inTheWay(x0: number, x1: number, z0: number, z1: number, y0: number, side?: 'izq' | 'der') {
+export function inTheWay(x0: number, x1: number, z0: number, z1: number, y0: number, side?: 'left' | 'right') {
   if (y0 < 3.4 && x1 > -WORK_ZONE.x + 0.05 && x0 < WORK_ZONE.x - 0.05 && z0 < LIMITS.corridor) return 'work';
   if (side && y0 < 1.6 && onFloor(panelSpot(side), x0, x1, z0, z1)) return 'panel';
   return null;
@@ -170,12 +170,12 @@ export function sanitizeDecor(d: unknown): { decor: Decor | null; notices: strin
   if (x.repoScreen !== undefined || (x.workstation && (x.workstation.x !== undefined || x.workstation.z !== undefined))) notices.push(tr('tool.decor.check.workZoneFixed'));
   if (x.workstation && typeof x.workstation === 'object') {
     const workstation: NonNullable<Decor['workstation']> = {};
-    const screen = from(['monitor', 'doble', 'ordenador'] as const, x.workstation.screen); if (screen) workstation.screen = screen;
+    const screen = from(['monitor', 'dual', 'computer'] as const, x.workstation.screen); if (screen) workstation.screen = screen;
     if (x.workstation.desk !== undefined) { if (isModelProps(x.workstation.desk)) workstation.desk = x.workstation.desk; else notices.push(tr('tool.decor.check.deskModel')); }
     if (Object.keys(workstation).length) out.workstation = workstation;
   }
-  const pz = point(x.piece, 'pieza'); if (pz) out.piece = pz;
-  const hobby = point(x.hobby, 'aficion'); if (hobby) out.hobby = hobby;
+  const pz = point(x.piece, 'piece'); if (pz) out.piece = pz;
+  const hobby = point(x.hobby, 'hobby'); if (hobby) out.hobby = hobby;
   if (Array.isArray(x.lamps)) {
     if (x.lamps.length > LIMITS.lamps) notices.push(tr('tool.decor.check.maxLamps', { n: LIMITS.lamps }));
     out.lamps = x.lamps.slice(0, LIMITS.lamps).filter((l: any) => l && typeof l === 'object').map((l: any, i: number) => ({
@@ -238,7 +238,7 @@ export function sanitizeDecor(d: unknown): { decor: Decor | null; notices: strin
  *  pisan o que tapan el tablero de tareas (`tablero`: boardSpot de la sala), y piezas en la zona de trabajo o encima del
  *  panel de la sala (`lado`: el de la sala, panelSpot). `tam` da el tamaño (ancho, alto, fondo) de cada modelo en metros a
  *  la escala pedida. */
-export function reviewDecor(d: Decor, size: (p: DecorPiece) => [number, number, number] | null, board?: BoardSpot, side?: 'izq' | 'der'): string[] {
+export function reviewDecor(d: Decor, size: (p: DecorPiece) => [number, number, number] | null, board?: BoardSpot, side?: 'left' | 'right'): string[] {
   const notices: string[] = [];
   const boxes: { i: number; x0: number; x1: number; z0: number; z1: number; height: number }[] = [];
   (d.pieces ?? []).forEach((p, i) => {
@@ -269,7 +269,7 @@ export function reviewDecor(d: Decor, size: (p: DecorPiece) => [number, number, 
     const A = inWall[a], B = inWall[b];
     if (Math.abs(A.x - B.x) < (A.w + B.w) / 2 - 0.05 && Math.abs(A.y - B.y) < (A.h + B.h) / 2 - 0.05) notices.push(tr('tool.decor.check.overlapWall', { a: A.what, b: B.what }));
   }
-  if (d.base === 'vacia' && !(d.pieces ?? []).length) notices.push(tr('tool.decor.check.emptyRoom'));
+  if (d.base === 'empty' && !(d.pieces ?? []).length) notices.push(tr('tool.decor.check.emptyRoom'));
   return notices;
 }
 
@@ -281,17 +281,17 @@ export function decorSignature(d: Decor | null | undefined) {
 }
 
 /** Plantilla de serie de una sala de recluta según el tipo de su repo (InfoRepo.tipo, server/repos.ts → tipoProyecto) */
-export function templateOf(type: string | undefined, isGit?: boolean): 'fundicion' | 'laboratorio' | 'estudio' | 'archivo' | 'taller' {
+export function templateOf(type: string | undefined, isGit?: boolean): 'foundry' | 'lab' | 'studio' | 'archive' | 'taller' {
   const t = (type ?? '').toLowerCase();
-  if (t === 'rust' || t === 'go') return 'fundicion';
-  if (t === 'python') return 'laboratorio';
-  if (t.startsWith('web') || t === 'node' || t === 'escritorio') return 'estudio';
-  if (t === 'carpeta' || isGit === false) return 'archivo';
+  if (t === 'rust' || t === 'go') return 'foundry';
+  if (t === 'python') return 'lab';
+  if (t.startsWith('web') || t === 'node' || t === 'desktop') return 'studio';
+  if (t === 'folder' || isGit === false) return 'archive';
   return 'taller';
 }
 /** La escena que lleva una sala de repo sin decorado: la de su estilo o, si no tiene uno propio, la de su tipo de repo */
 export function baseStock(s: { type: string; style?: string }, repo?: { type?: string; isGit?: boolean }): BaseDecor {
-  if (s.type === 'coordinacion') return 'archivo';
-  const styleBy: Record<string, BaseDecor> = { landing: 'escaparate', marca: 'marca', video: 'proyeccion', tallerWeb: 'tallerWeb', estudio: 'estudio', laboratorio: 'laboratorio', fundicion: 'fundicion', archivo: 'archivo', taller: 'taller' };
+  if (s.type === 'coordination') return 'archive';
+  const styleBy: Record<string, BaseDecor> = { landing: 'showcase', brand: 'brand', video: 'projection', tallerWeb: 'tallerWeb', studio: 'studio', lab: 'lab', foundry: 'foundry', archive: 'archive', taller: 'taller' };
   return styleBy[s.style ?? ''] ?? templateOf(repo?.type, repo?.isGit);
 }

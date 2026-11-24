@@ -57,9 +57,9 @@ export function trophyShelf(ctx: Context, x0: number, y0: number, scale = 1) {
   // the whole shelf is the click target and the device's measured zone (shelter.ts: a piece with userData.interactive
   // opens that device with its view)
   const hit = new THREE.Mesh(new THREE.BoxGeometry(W, yTop - y0 + 0.5, 0.24), new THREE.MeshBasicMaterial({ visible: false }));
-  hit.position.set(x0, (y0 + yTop) / 2 + 0.05, zWall + 0.12); hit.userData.interactive = 'trofeos'; hit.userData.view = 'trofeos'; group.add(hit);
+  hit.position.set(x0, (y0 + yTop) / 2 + 0.05, zWall + 0.12); hit.userData.interactive = 'trophies'; hit.userData.view = 'trophies'; group.add(hit);
   group.scale.setScalar(scale); group.position.set(x0, y0, zWall).multiplyScalar(1 - scale);   // grown around (x0, y0, the wall)
-  ctx.g.add(group); ctx.device('trofeos', hit);
+  ctx.g.add(group); ctx.device('trophies', hit);
   let signature = '', earned: THREE.Mesh[] = [];
   // a cup not yet won fills in with its progress (awards collected): fainter the further it is
   const ghosts = cups.map(() => ghost.clone());

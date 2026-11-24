@@ -95,7 +95,7 @@ export async function furnishProjection(ctx: Context) {
   const zP = zB + 0.47;
   // marco: un cartel del pack, ensanchado, con la cara en negro mate
   const yUp = imgY + imgH / 2, yBelow = stripY - stripH / 2;
-  const frame = await place(g, R.cy('Sign_1'), { pos: [cx, (yUp + yBelow) / 2, zB + 0.38], width: imgW + 0.3, anchor: 'centro', own: true, shadow: false });
+  const frame = await place(g, R.cy('Sign_1'), { pos: [cx, (yUp + yBelow) / 2, zB + 0.38], width: imgW + 0.3, anchor: 'center', own: true, shadow: false });
   frame.scale.y = (yUp - yBelow + 0.26) / frame.userData.size.y;
   repaint(frame, { Texture_Signs: '#0b0a0d', Grey: '#2a2527' }, 0.7);
   const largeCanvas = new THREE.Mesh(new THREE.PlaneGeometry(imgW, imgH), new THREE.MeshStandardMaterial({ map: photos[0], emissiveMap: photos[0], emissive: '#ffffff', emissiveIntensity: 0.78, color: '#000' }));
@@ -106,7 +106,7 @@ export async function furnishProjection(ctx: Context) {
   // telón a los dos lados (cortina del pack en terciopelo granate)
   for (const s of [-1, 1]) ps.push(place(g, R.home('Curtains_Single'), { pos: [cx + s * (imgW / 2 + 0.42), 0, zB + 0.42], height: 4.0, own: true }).then(o => { o.scale.x *= 0.62; repaint(o, { Couch_Blue: '#5c1724', LightMetal: '#8c6a3c' }, 0.95); }));
   // la pantalla tiñe un poco la sala (luz de relleno del color del fotograma)
-  ctx.room.anchors.push({ type: 'punto', pos: new THREE.Vector3(cx, 2.6, zB + 1.5), intensity: 6, color: new THREE.Color('#e7a6c8'), distance: 5, priority: 1 });
+  ctx.room.anchors.push({ type: 'point', pos: new THREE.Vector3(cx, 2.6, zB + 1.5), intensity: 6, color: new THREE.Color('#e7a6c8'), distance: 5, priority: 1 });
 
   // butacas: dos filas rectas encaradas a la pantalla (de espaldas a cámara); the back one, of two
   const STEP = 0.8;
@@ -118,22 +118,22 @@ export async function furnishProjection(ctx: Context) {
     new THREE.Box2(new THREE.Vector2(cx - 2 * STEP - 0.05, -1.05), new THREE.Vector2(cx + 2 * STEP + 0.05, -0.05)),
     new THREE.Box2(new THREE.Vector2(cx - STEP - 0.05, 0.25), new THREE.Vector2(cx + STEP + 0.05, 1.22)));
   // the dweller, in a seat of the back row, watching the screen
-  ctx.room.points.push({ id: 'butaca', type: 'aficion', pos: new THREE.Vector3(cx + 0.5 * STEP, 0.05, 0.68), rotation: Math.PI, clip: 'Sit_Chair_Idle' });
+  ctx.room.points.push({ id: 'butaca', type: 'hobby', pos: new THREE.Vector3(cx + 0.5 * STEP, 0.05, 0.68), rotation: Math.PI, clip: 'Sit_Chair_Idle' });
   // latas de película apiladas junto al telón
   for (let i = 0; i < 3; i++) P(R.sv('Can_Closed'), { pos: [-5.55 + (i % 2) * 0.05, i * 0.1, zB + 1.15], height: 0.1, width: 0.42, rot: i * 0.7, variant: v });
 
   // ================================================================ PROJECTION BOOTH AND EDITING (middle and right)
   // proyector colgado del techo (beside the task board): cuerpo (caja del pack), objetivo apuntando a la pantalla y dos bobinas que giran
   const PX = -2.15, PY = 3.6, PZ = zB + 1.35;
-  P(R.cy('Support_Short'), { pos: [PX + 0.05, HEIGHT, PZ], height: HEIGHT - PY - 0.2, anchor: 'techo', shadow: false });
+  P(R.cy('Support_Short'), { pos: [PX + 0.05, HEIGHT, PZ], height: HEIGHT - PY - 0.2, anchor: 'ceiling', shadow: false });
   ps.push(place(g, R.sf('Props_Crate'), { pos: [PX, PY - 0.22, PZ], height: 0.42, own: true, shadow: false }).then(o => { o.scale.x *= 1.35; repaint(o, { '*': '#2c2a2e' }, 0.6); }));
-  const lens = await place(g, R.sf('Details_Cylinder'), { pos: [PX - 0.42, PY - 0.02, PZ], height: 0.2, rotZ: Math.PI / 2, anchor: 'centro', shadow: false, own: true });
+  const lens = await place(g, R.sf('Details_Cylinder'), { pos: [PX - 0.42, PY - 0.02, PZ], height: 0.2, rotZ: Math.PI / 2, anchor: 'center', shadow: false, own: true });
   repaint(lens, { '*': '#141316' }, 0.4);
   const eye = new THREE.Mesh(new THREE.CircleGeometry(0.075, 20), new THREE.MeshBasicMaterial({ color: new THREE.Color('#fff2dc').multiplyScalar(2.2) }));
   eye.position.set(PX - 0.53, PY - 0.02, PZ); eye.rotation.y = -Math.PI / 2; g.add(eye);
   const coils: THREE.Object3D[] = [];
   for (const [dx, r] of [[-0.2, 0.46], [0.25, 0.4]] as const) {
-    const b = await place(g, R.sf('Details_Output'), { pos: [PX + dx, PY + 0.2 + r / 2, PZ], width: r, anchor: 'centro', isStatic: false, own: true, shadow: false });
+    const b = await place(g, R.sf('Details_Output'), { pos: [PX + dx, PY + 0.2 + r / 2, PZ], width: r, anchor: 'center', isStatic: false, own: true, shadow: false });
     b.scale.z *= 2; repaint(b, { '*': '#7c7678' }, 0.35); coils.push(b);
   }
   // haz: del objetivo a la pantalla (dos capas para que tenga borde suave) y motas dentro
@@ -144,7 +144,7 @@ export async function furnishProjection(ctx: Context) {
   const specks = beamSpecks(apex, corner); g.add(specks.points);
 
   // luz rasante sobre la parte alta de la pared de la cabina (que no quede en negro)
-  ctx.room.anchors.push({ type: 'foco', pos: new THREE.Vector3(2.4, 4.1, zB + 1.7), goal: new THREE.Vector3(2.4, 2.6, zB), intensity: 14, color: new THREE.Color('#ffd2a0'), angle: 0.9, penumbra: 0.8, distance: 6, priority: 0 });
+  ctx.room.anchors.push({ type: 'spot', pos: new THREE.Vector3(2.4, 4.1, zB + 1.7), goal: new THREE.Vector3(2.4, 2.6, zB), intensity: 14, color: new THREE.Color('#ffd2a0'), angle: 0.9, penumbra: 0.8, distance: 6, priority: 0 });
   // cámara de cine en su trípode (tres mástiles de celosía del pack como patas), con las bobinas arriba y el objetivo hacia la sala
   const TX = 2.65, TZ = zB + 1.3, LEG = 1.4, OPENS = 0.2;
   for (const ang of [0.3, 0.3 + 2.1, 0.3 + 4.2]) ps.push(place(g, R.cy('Antenna_1'), { pos: [TX + Math.sin(ang) * LEG * Math.sin(OPENS), 0, TZ + Math.cos(ang) * LEG * Math.sin(OPENS)], height: LEG, own: true }).then(o => {
@@ -152,9 +152,9 @@ export async function furnishProjection(ctx: Context) {
   }));
   const head = new THREE.Group(); head.position.set(TX, LEG * Math.cos(OPENS) - 0.02, TZ); head.rotation.y = 0.55; g.add(head);
   ps.push(place(head, R.sf('Props_Crate'), { pos: [0, 0, 0], height: 0.34, own: true, shadow: false }).then(o => { o.scale.x *= 1.45; repaint(o, { '*': '#232125' }, 0.55); }));
-  ps.push(place(head, R.sf('Details_Cylinder'), { pos: [-0.4, 0.17, 0], height: 0.18, rotZ: Math.PI / 2, anchor: 'centro', own: true, shadow: false }).then(o => repaint(o, { '*': '#121114' }, 0.35)));
+  ps.push(place(head, R.sf('Details_Cylinder'), { pos: [-0.4, 0.17, 0], height: 0.18, rotZ: Math.PI / 2, anchor: 'center', own: true, shadow: false }).then(o => repaint(o, { '*': '#121114' }, 0.35)));
   for (const [dx, r] of [[-0.12, 0.34], [0.2, 0.3]] as const) {
-    const b = await place(head, R.sf('Details_Output'), { pos: [dx, 0.34 + r / 2 - 0.02, 0], width: r, anchor: 'centro', isStatic: false, own: true, shadow: false });
+    const b = await place(head, R.sf('Details_Output'), { pos: [dx, 0.34 + r / 2 - 0.02, 0], width: r, anchor: 'center', isStatic: false, own: true, shadow: false });
     b.scale.z *= 2; repaint(b, { '*': '#6c6668' }, 0.35); coils.push(b);
   }
   head.userData.isStatic = false;
@@ -166,22 +166,22 @@ export async function furnishProjection(ctx: Context) {
   // piloto de grabación) o se ajusta el objetivo con la llave
   let rolling = 0; const roll = () => { rolling = 2.5; };
   const cameraToward = (x: number, z: number) => Math.atan2(TX - x, TZ - z);
-  ctx.room.points.push({ id: 'camara', type: 'pieza', pos: new THREE.Vector3(TX + 0.72, 0, TZ + 0.55), rotation: cameraToward(TX + 0.72, TZ + 0.55),
-    actions: [{ clip: 'Interact', onMake: roll }, { clip: 'Working_B', onMake: roll }, { clip: 'Use_Item', utensil: 'llave' }] });
+  ctx.room.points.push({ id: 'vault', type: 'piece', pos: new THREE.Vector3(TX + 0.72, 0, TZ + 0.55), rotation: cameraToward(TX + 0.72, TZ + 0.55),
+    actions: [{ clip: 'Interact', onMake: roll }, { clip: 'Working_B', onMake: roll }, { clip: 'Use_Item', utensil: 'wrench' }] });
 
   // the editing desk, in the middle under the task board: two monitors (render and preview), keyboard, the mug and the
   // clapperboard. It's the desk of whoever works in the room
   const MX = 3.6;   // the «RENDERING» sign, over the right-hand side
   const pRender = new PhosphorScreen(384, 256, v.screen, ' render --final'); pRender.speed = 24;
-  screenReal(ctx, pRender, 'actividad'); ctx.room.screens.push(pRender);
-  const workstation = await centralDesk(ctx, { id: 'montaje', screen: 'doble', tex: pRender.tex, brightness: 0.55, colorDesk: '#8c7466',
+  screenReal(ctx, pRender, 'activity'); ctx.room.screens.push(pRender);
+  const workstation = await centralDesk(ctx, { id: 'editing', screen: 'dual', tex: pRender.tex, brightness: 0.55, colorDesk: '#8c7466',
     onTop: [{ path: R.furniture('mug_A'), x: -0.78, z: 0.22, c: { scale: K * 0.75 } }] });
   for (const m of workstation.monitors) m.traverse((n: any) => { if (n.isMesh && !n.material.emissiveMap) { n.material = n.material.clone(); n.material.color.set('#34333a'); n.material.roughness = 0.6; } });
   const previous = screenFrontal(workstation.monitors[1], photos[1], { width: 0.84, height: 0.66, cy: 0.6, dz: -0.02 }, 0.45);
   const clapperboard = lean(await place(workstation.group, R.cy('Sign_Small_1'), { pos: [0.72, workstation.height, 0.12], width: 0.3, rot: -0.5, isStatic: false, own: true }), workstation.desk);
   repaint(clapperboard, { '*': '#16161a' }, 0.7);
   overlayScreen(clapperboard, /^Texture_Signs$/, clapperboardTexture(), { brightness: 0.18, margin: 0.96 });
-  ctx.room.points.push({ id: 'consola', type: 'consola', pos: new THREE.Vector3(4.15, 0, zB + 1.75), rotation: Math.PI - 0.5, clip: 'Working_A' });
+  ctx.room.points.push({ id: 'console', type: 'console', pos: new THREE.Vector3(4.15, 0, zB + 1.75), rotation: Math.PI - 0.5, clip: 'Working_A' });
 
   // rack de render: dos torres de módulos del pack (cajas con rejilla, como unidades de rack) con sus pilotos
   const pilots: ((t: number, a: number) => void)[] = [];
@@ -196,7 +196,7 @@ export async function furnishProjection(ctx: Context) {
       if (n !== 1) { const leds = new THREE.Group(); leds.position.set(x + 0.02, box3.min.y + 0.24, box3.max.z + 0.01); leds.scale.set(1.5, 0.9, 1); leds.userData.isStatic = false; g.add(leds); pilots.push(mountPilots(leds, new THREE.Vector3(0, 0, 0), v.screen)); }
     }
   }
-  P(R.cy('Cable_Thick'), { pos: [5.05, HEIGHT, zB + 0.75], height: 1.1, anchor: 'techo', shadow: false });
+  P(R.cy('Cable_Thick'), { pos: [5.05, HEIGHT, zB + 0.75], height: 1.1, anchor: 'ceiling', shadow: false });
   ctx.room.obstacles.push(new THREE.Box2(new THREE.Vector2(4.1, zB), new THREE.Vector2(6.0, zB + 1.15)));
   // banda alta solo sobre el rack (el resto de la pared es de la pantalla y los carteles)
   await highBand(ctx, { gauge: 4.35, valves: [5.7], segments: [[5.3, 1.7]] });
@@ -211,7 +211,7 @@ export async function furnishProjection(ctx: Context) {
   const framePanel = aWall(g, await place(g, R.cy('Sign_2'), { pos: [5.1, 2.5, zB + 0.5], width: 1.2, isStatic: false, own: true }));
   overlayScreen(framePanel, /^Texture_Signs$/, panel.tex, { brightness: 0.9, margin: 0.94 });
   ctx.panel = panel;
-  signInWall(g, sign(t('world.poster.productions'), t('world.poster.productionsFoot'), '#d8c8f0', '#3a2a5a', 'ojo', seed), 3.55, 2.35, 0.55, 0.77, zB + 0.33, 0.03);
+  signInWall(g, sign(t('world.poster.productions'), t('world.poster.productionsFoot'), '#d8c8f0', '#3a2a5a', 'eye', seed), 3.55, 2.35, 0.55, 0.77, zB + 0.33, 0.03);
 
   await Promise.all(ps);
   stain(g, 1.2, 1.0, 1.0, seed + 5);
@@ -222,7 +222,7 @@ export async function furnishProjection(ctx: Context) {
 
   let k = 0, tChange = 0, on = false;
   ctx.onUpdate((dt, t, a) => {
-    const working = ctx.room.state === 'trabajando';
+    const working = ctx.room.state === 'working';
     line.update(dt, working ? 1 + a * 3 : 0.15);
     tChange += dt;
     if (tChange > (working ? 2.2 : 6)) {

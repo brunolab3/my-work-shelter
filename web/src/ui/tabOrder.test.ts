@@ -6,7 +6,7 @@ const ids = (l: { id: string }[]) => l.map(x => x.id).join(' ');
 
 describe('groupTabs', () => {
   it('keeps each group where its first tab is and the order inside it, whatever the state', () => {
-    const l = [tab('a', 'ociosa', 'x'), tab('b', 'esperando', 'y'), tab('c', 'trabajando', 'x'), tab('d', 'sinLeer', 'z'), tab('e', 'error', 'y')];
+    const l = [tab('a', 'idle', 'x'), tab('b', 'waiting', 'y'), tab('c', 'working', 'x'), tab('d', 'unread', 'z'), tab('e', 'error', 'y')];
     expect(ids(groupTabs(l))).toBe('a c b e d');
   });
   it('nests: by talker, then by room, each room where its first tab is and its talkers in order inside it', () => {
@@ -26,9 +26,9 @@ describe('talkerFirst', () => {
   const MIN = 60_000;
   const q = (id: string, state?: TabState, minute = 0, name = id) => ({ id, state, when: state ? 1_000 * MIN + minute * MIN : 0, name });
   it('orders by state (waiting, unread, failed, working, ready), then by the minute, then by name; those without a conversation last, as given', () => {
-    const l = [q('zeta'), q('lista', 'ociosa', 9), q('obrera', 'trabajando', 1), q('alfa'), q('espera', 'esperando', 0), q('rota', 'error', 5),
-      q('nueva', 'sinLeer', 2), q('b-vieja', 'ociosa', 3), q('a-vieja', 'ociosa', 3), q('urge', 'esperando', 4)];
-    expect(ids([...l].sort(talkerFirst))).toBe('urge espera nueva rota obrera lista a-vieja b-vieja zeta alfa');
+    const l = [q('zeta'), q('lista', 'idle', 9), q('obrera', 'working', 1), q('alfa'), q('wait', 'waiting', 0), q('rota', 'error', 5),
+      q('nueva', 'unread', 2), q('b-vieja', 'idle', 3), q('a-vieja', 'idle', 3), q('urge', 'waiting', 4)];
+    expect(ids([...l].sort(talkerFirst))).toBe('urge wait nueva rota obrera lista a-vieja b-vieja zeta alfa');
   });
 });
 

@@ -118,7 +118,7 @@ class Client {
         for (const id of Object.keys(live.get().entries)) if (sessions[id]) loadLog(id); else dropLog(id);
         break;
       }
-      case 'session': live.set(e => ({ sessions: { ...e.sessions, [m.session.id]: m.session }, partial: m.session.state !== 'trabajando' && m.session.state !== 'arrancando' ? { ...e.partial, [m.session.id]: '' } : e.partial })); break;
+      case 'session': live.set(e => ({ sessions: { ...e.sessions, [m.session.id]: m.session }, partial: m.session.state !== 'working' && m.session.state !== 'starting' ? { ...e.partial, [m.session.id]: '' } : e.partial })); break;
       // a closed conversation leaves the client's memory: reopened, it is read again from its transcript
       case 'sessionRemoved': live.set(e => { const s = { ...e.sessions }; delete s[m.sessionId]; return { sessions: s }; }); dropLog(m.sessionId); break;
       case 'entries': live.set(e => ({ ...held(e, m.sessionId, [...(e.entries[m.sessionId] ?? []), ...m.entries], MAX_HELD), partial: m.entries.some(x => x.type === 'asistente') ? { ...e.partial, [m.sessionId]: '' } : e.partial })); break;

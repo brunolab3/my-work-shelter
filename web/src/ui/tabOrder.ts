@@ -1,8 +1,8 @@
 // Order of a window's tabs (windows.tsx): the order they were opened in, never by state; ⌘1…⌘9 and ⌃Tab follow it.
 import { recentFirst, type Recency } from '@shared/recent';
 
-export type TabState = 'esperando' | 'sinLeer' | 'error' | 'trabajando' | 'ociosa';
-const RANK: Record<TabState, number> = { esperando: 0, sinLeer: 1, error: 2, trabajando: 3, ociosa: 4 };
+export type TabState = 'waiting' | 'unread' | 'error' | 'working' | 'idle';
+const RANK: Record<TabState, number> = { waiting: 0, unread: 1, error: 2, working: 3, idle: 4 };
 
 /** With «group by room», each group where its first tab is, keeping the order inside it (by `grupo`, or by `clave`). */
 export function groupTabs<T extends { group?: string }>(items: T[], key: (x: T) => string = x => x.group ?? ''): T[] {

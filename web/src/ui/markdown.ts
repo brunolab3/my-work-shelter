@@ -25,7 +25,7 @@ DOMPurify.addHook('afterSanitizeAttributes', (node: any) => {
   const href = node.getAttribute('href');
   if (isPathLocal(href)) { node.setAttribute('data-local', href); node.setAttribute('title', href); node.removeAttribute('target'); return; }
   node.setAttribute('target', '_blank'); node.setAttribute('rel', 'noopener noreferrer');
-  if (/^(https?|mailto):/i.test(href)) node.setAttribute('data-enlace', '');
+  if (/^(https?|mailto):/i.test(href)) node.setAttribute('data-link', '');
 });
 // an image of the Mac in a reply (`![](/Users/…/shot.png)`): the game doesn't serve it at that path, so it waits for its
 // thumbnail (below)
@@ -41,7 +41,7 @@ export function markdown(text: string, base?: string): string {
   const html = marked.parse(relativeLinks(text ?? '', base), { async: false }) as string;
   const clean = withThumbnails(DOMPurify.sanitize(html, { USE_PROFILES: { html: true }, ALLOWED_URI_REGEXP: URI_ALLOWED }));
   // envolver los bloques de código para añadir «copiar»
-  return clean.replace(/<pre><code([^>]*)>/g, '<div class="codigo"><button class="copiar" data-copiar tabindex="-1">' + t('windows.copy') + '</button><pre><code$1>').replace(/<\/code><\/pre>/g, '</code></pre></div>');
+  return clean.replace(/<pre><code([^>]*)>/g, '<div class="code"><button class="copy" data-copiar tabindex="-1">' + t('windows.copy') + '</button><pre><code$1>').replace(/<\/code><\/pre>/g, '</code></pre></div>');
 }
 
 // Thumbnails of the Mac's images a reply links or embeds: a small picture after the link (or in place of the embed),

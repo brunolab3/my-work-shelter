@@ -18,7 +18,7 @@ let failures = 0;
 const check = (ok, text) => { console.log(ok ? '  ✓' : '  ✗', text); if (!ok) failures++; };
 const session = (id, extra) => pg.evaluate(([id, extra]) => {
   const r = window.__shelter, s = r.currentRoom, h = r.dwellers.find(x => x.room === s);
-  const base = { id, dwellerId: h.id.id, roomId: s.id, cwd: s.path, state: 'trabajando', activity: { mode: 'escribir', text: 'editando src/app.ts' }, unread: false, title: 'QA ' + id, pending: 0, helpers: [], tools: 3, turns: 1, created: Date.now(), updated: Date.now() };
+  const base = { id, dwellerId: h.id.id, roomId: s.id, cwd: s.path, state: 'working', activity: { mode: 'write', text: 'editando src/app.ts' }, unread: false, title: 'QA ' + id, pending: 0, helpers: [], tools: 3, turns: 1, created: Date.now(), updated: Date.now() };
   const sess = { ...base, ...(window.__live.get().sessions[id] ?? {}), ...extra };
   if (typeof sess.cwd === 'string' && sess.cwd.startsWith('WT:')) sess.cwd = s.path + '/.claude/worktrees/' + sess.cwd.slice(3);
   window.__live.set(e => ({ sessions: { ...e.sessions, [id]: sess } }));
@@ -30,9 +30,9 @@ await pg.evaluate(() => { const r = window.__shelter; const s = r.rooms.find(x =
 await steps(5);
 // en los primeros segundos tras cargar, las copias aparecen ya en su sitio: se espera
 await new Promise(r => setTimeout(r, 9000));
-const { author, path } = await session('qa_a', { cwd: 'WT:shelter-qa-a', state: 'esperando', pending: { id: 'p1', type: 'permiso', title: 'permiso: git push' } });
+const { author, path } = await session('qa_a', { cwd: 'WT:shelter-qa-a', state: 'waiting', pending: { id: 'p1', type: 'permission', title: 'permiso: git push' } });
 const idA = 'holo:' + path + '/.claude/worktrees/shelter-qa-a';
-console.log('autor', author, 'sala', path);
+console.log('autor', author, 'room', path);
 // el bucle va a mano: se avanza hasta que la copia llega a su sitio
 const thatUntil = async (f, arg, max = 600) => { for (let i = 0; i < max; i++) { if (await pg.evaluate(f, arg)) return true; await steps(2); await new Promise(r => setTimeout(r, 20)); } return false; };
 check(await thatUntil(id => window.__shelter.holograms.ofId(id)?.ready, idA), 'la copia se materializa y llega a su sitio');
@@ -45,7 +45,7 @@ let e = await pg.evaluate(([id, author]) => {
 console.log('   ', JSON.stringify(e));
 check(e.copies.includes(idA), 'la copia sale en juego.copias');
 check(e.windows?.some(([id]) => id === idA) && !e.windows.some(([id]) => id === author), 'su conversación va en la ventana de la copia, no en la del autor');
-check(e.strip === 'esperando' && e.stateAuthor !== 'esperando', 'el aviso es de la copia, no se le cuelga al autor');
+check(e.strip === 'waiting' && e.stateAuthor !== 'waiting', 'el aviso es de la copia, no se le cuelga al autor');
 
 console.log('2) con el autor al lado, E habla con quien está más cerca');
 // the author right beside the copy; the Overseer just behind it (beside it, in a crowded room, would be another copy)
@@ -70,7 +70,7 @@ await pg.keyboard.press('Escape'); await steps(5);
 await pg.evaluate(author => { window.__shelter.dwellers.find(x => x.id.id === author).fixed = false; }, author);
 
 console.log('3) un trabajo del habitante que se muda a un worktree: la conversación sigue con la copia');
-await session('qa_b', { cwd: path, state: 'trabajando' });
+await session('qa_b', { cwd: path, state: 'working' });
 await steps(2);
 await pg.evaluate(author => window.dispatchEvent(new CustomEvent('refugio:ir', { detail: { roomId: window.__shelter.currentRoom.id, dwellerId: author, talk: true } })), author);
 await steps(10);
@@ -88,14 +88,14 @@ await pg.keyboard.press('Escape'); await steps(5);
 
 console.log('4) with nothing to do, the copy stays seated on its projector');
 // el worktree simulado solo existe por su sesión: se queda, ya leída y sin nada en marcha
-await session('qa_a', { state: 'terminada', unread: false, pending: undefined, activity: undefined });
+await session('qa_a', { state: 'finished', unread: false, pending: undefined, activity: undefined });
 await pg.evaluate(id => { const r = window.__shelter, f = r.holograms.ofId(id); r.supervisor.root.position.set(f.spot.x + 6, r.currentRoom.group.position.y, 0.2); f.walkClock = 0; }, idA);
 const route = [];
 for (let k = 0; k < 12; k++) { await steps(25); route.push(await pg.evaluate(id => { const f = window.__shelter.holograms.ofId(id); return [+f.p.root.position.x.toFixed(2), +f.p.root.position.z.toFixed(2), f.pose, f.p.currentName]; }, idA)); }
 console.log('   ', JSON.stringify(route));
 const xs = route.map(r => r[0]);
 check(Math.max(...xs) - Math.min(...xs) < 0.05 && route.every(r => r[2] === 'base'), 'stays on its projector');
-await photo('quieta');
+await photo('still');
 
 console.log(logs.filter(l => /PAGEERROR|Error/.test(l)).slice(0, 10).join('\n'));
 await b.close();

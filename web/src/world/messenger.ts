@@ -27,7 +27,7 @@ export class Messengers {
 
   private room(id: string) { return this.r.rooms.find(s => s.id === id); }
   // la puerta del lado del ascensor y el rellano frente al hueco, en la planta de una sala
-  private puerta(s: Room) { const side = s.side === 'izq' ? 1 : -1; return new THREE.Vector3(s.group.position.x + side * (s.width / 2 + 0.3), s.group.position.y, 1.5); }
+  private gate(s: Room) { const side = s.side === 'left' ? 1 : -1; return new THREE.Vector3(s.group.position.x + side * (s.width / 2 + 0.3), s.group.position.y, 1.5); }
   private gap(s: Room) { return new THREE.Vector3(0, s.group.position.y, 1.5); }
   private run(p: Character, points: THREE.Vector3[]) { return new Promise<void>(ok => p.goA(points, true, ok)); }
   private gesture(p: Character, clip: string) { return new Promise<void>(ok => p.gesture(clip, () => { p.play('Idle_A'); ok(); })); }
@@ -40,10 +40,10 @@ export class Messengers {
     const { p, v } = await this.robot(new THREE.Vector3(origin.group.position.x, origin.group.position.y, 1.6));
     let here = origin;
     for (const s of targets) {
-      await this.run(p, [this.puerta(here), this.gap(here)]);
+      await this.run(p, [this.gate(here), this.gap(here)]);
       // por el hueco del ascensor, a la planta de la siguiente sala
       if (s.group.position.y !== here.group.position.y) { p.root.position.copy(this.gap(s)); }
-      await this.run(p, [this.puerta(s)]);
+      await this.run(p, [this.gate(s)]);
       const receptor = worktree ? this.receptor(s, worktree) : undefined;
       if (receptor) await this.approach(p, s, receptor.root);
       else { await this.run(p, [new THREE.Vector3(s.group.position.x, s.group.position.y, 1.6)]); p.goalTurn = 0; }
@@ -63,7 +63,7 @@ export class Messengers {
     await p.load();
     p.root.scale.multiplyScalar(0.55);
     p.gait = { walk: 'Walking_C', run: 'Running_A', walkRhythm: 1.9, runRhythm: 1.2 };
-    p.couple('mano', { path: R.tools('blueprint_stacked'), bone: 'handslotl', scale: 0.5, rot: [0.3, Math.PI, 0] });
+    p.couple('hand', { path: R.tools('blueprint_stacked'), bone: 'handslotl', scale: 0.5, rot: [0.3, Math.PI, 0] });
     p.root.position.copy(at);
     this.r.motor.scene.add(p.root);
     SFX.clank();
@@ -71,8 +71,8 @@ export class Messengers {
     return { p, v };
   }
   private async leave(p: Character, v: Trip, here: Room) {
-    p.drop('mano');
-    await this.run(p, [this.puerta(here), this.gap(here)]);
+    p.drop('hand');
+    await this.run(p, [this.gate(here), this.gap(here)]);
     this.r.motor.scene.remove(p.root);
     this.trips.delete(v);
   }

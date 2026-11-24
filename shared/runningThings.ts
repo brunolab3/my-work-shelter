@@ -19,9 +19,9 @@ export const RUNNING_REFRESH_MS = 4000;
 /** The chip's threshold, chosen in Options (MB): amber from 75 % of it, red over it */
 export const MEMORY_THRESHOLDS = [4096, 6144, 8192, 12288, 16384];
 export const DEFAULT_MEMORY_THRESHOLD = 8192;
-export function memoryLight(totalMb: number | undefined, thresholdMb: number): 'gris' | 'verde' | 'amarillo' | 'rojo' {
-  if (totalMb == null) return 'gris';
-  return totalMb > thresholdMb ? 'rojo' : totalMb > thresholdMb * 0.75 ? 'amarillo' : 'verde';
+export function memoryLight(totalMb: number | undefined, thresholdMb: number): 'gray' | 'green' | 'yellow' | 'red' {
+  if (totalMb == null) return 'gray';
+  return totalMb > thresholdMb ? 'red' : totalMb > thresholdMb * 0.75 ? 'yellow' : 'green';
 }
 export const formatMb = (mb: number) => mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${Math.round(mb)} MB`;
 

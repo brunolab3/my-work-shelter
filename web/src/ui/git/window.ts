@@ -5,9 +5,9 @@ import { Store } from '../store';
 import { SFX } from '../../audio/sound';
 import { nextZ } from '../windows';
 
-export type ViewGit = 'cambios' | 'historial' | 'ramas' | 'github' | 'prs';
+export type ViewGit = 'changes' | 'history' | 'branches' | 'github' | 'prs';
 export interface WindowGit { open: boolean; minimized: boolean; maximized: boolean; z: number; path: string | null; view: ViewGit; busy: boolean }
-export const windowGit = new Store<WindowGit>({ open: false, minimized: false, maximized: false, z: 0, path: null, view: 'cambios', busy: false });
+export const windowGit = new Store<WindowGit>({ open: false, minimized: false, maximized: false, z: 0, path: null, view: 'changes', busy: false });
 
 const REMEMBERED = 'refugio.git';
 const LAST = 'refugio.git.ruta';
@@ -29,5 +29,5 @@ export function toggleMaximizeGit() { windowGit.set(v => ({ maximized: !v.maximi
 addEventListener('pagehide', () => { try { const { open, minimized, maximized, path, view } = windowGit.get(); sessionStorage.setItem(REMEMBERED, JSON.stringify({ open, minimized, maximized, path, view })); } catch {} });
 try {
   const r = JSON.parse(sessionStorage.getItem(REMEMBERED) || 'null'); sessionStorage.removeItem(REMEMBERED);
-  if (r?.open) windowGit.set({ open: true, minimized: !!r.minimized, maximized: !!r.maximized, path: typeof r.path === 'string' ? r.path : null, view: ['cambios', 'historial', 'ramas', 'github', 'prs'].includes(r.view) ? r.view : 'cambios', z: nextZ() });
+  if (r?.open) windowGit.set({ open: true, minimized: !!r.minimized, maximized: !!r.maximized, path: typeof r.path === 'string' ? r.path : null, view: ['changes', 'history', 'branches', 'github', 'prs'].includes(r.view) ? r.view : 'changes', z: nextZ() });
 } catch {}

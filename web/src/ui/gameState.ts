@@ -2,7 +2,7 @@
 import { Store } from './store';
 import { GAME_NAME } from '@shared/protocol';
 
-export type DwellerState = 'durmiendo' | 'ocioso' | 'pensando' | 'trabajando' | 'esperando' | 'terminado' | 'error';
+export type DwellerState = 'sleeping' | 'idle' | 'thinking' | 'working' | 'waiting' | 'finished' | 'error';
 
 export interface DwellerSummary { id: string; name: string; nickname: string; type: string; bio: string; room: string; nameRoom: string; path?: string; folder?: string; state: DwellerState; detail?: string; sessionId?: string; robot?: boolean; copy?: CopyData }
 
@@ -25,7 +25,7 @@ export interface StateUI {
   workIn: { cwd: string; branch: string } | null;   // empezar el próximo trabajo dentro de un worktree
 }
 
-export type Panel = 'plano' | 'ocupados' | 'ayuda' | 'opciones' | 'menu' | 'salir' | 'camara' | 'puerta' | 'inventario' | 'cuaderno' | 'comunicaciones' | 'planificacion' | 'logistica' | 'galeria' | 'hidroponia' | 'bienvenida' | 'despedida' | 'reiniciar' | 'radio' | 'expedicion' | 'sala' | 'generador' | 'terminal' | 'worktree' | 'visitante' | 'git' | 'spotify' | 'chapa' | 'organizar' | 'revision';
+export type Panel = 'map' | 'busy' | 'help' | 'options' | 'menu' | 'exit' | 'vault' | 'gate' | 'inventory' | 'log' | 'comms' | 'calendar' | 'logistics' | 'gallery' | 'hydroponics' | 'welcome' | 'farewell' | 'restart' | 'radio' | 'expedicion' | 'room' | 'generator' | 'terminal' | 'worktree' | 'visitor' | 'git' | 'spotify' | 'bodyshop' | 'organize' | 'review';
 
 export const juego = new Store<StateUI>({
   shelter: GAME_NAME, scrap: 0, dwellers: [], copies: [], unseenNotifications: 0,

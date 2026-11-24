@@ -9,7 +9,7 @@ const EXAMPLE = path.join(import.meta.dirname, '..', 'docs', 'ladder.example.jso
 const D = 864e5, NOW = 400 * D;
 const sources = (over: Partial<WorkLogSources> = {}, notices: string[] = []): WorkLogSources => ({
   jira: async () => ({ tareas: [{ key: 'ABC-1', title: 'Thing', url: 'u', state: 'Done', category: 'done', updated: NOW - D } as TaskJira] }),
-  prs: async () => ({ prs: [{ number: 5, title: 'ABC-1 thing', url: 'p', repo: 'org/api', branch: 'ABC-1-thing', state: 'fusionado', updated: NOW - D, mergedAt: NOW - D } as PRBoard] }),
+  prs: async () => ({ prs: [{ number: 5, title: 'ABC-1 thing', url: 'p', repo: 'org/api', branch: 'ABC-1-thing', state: 'merged', updated: NOW - D, mergedAt: NOW - D } as PRBoard] }),
   worktrees: () => ({ rooms: ['api'], live: [{ path: '/r/api/.claude/worktrees/abc-1-thing', roomId: 'api', branch: 'ABC-1-thing' }] }),
   sessions: () => [],
   reviews: () => null,
@@ -69,7 +69,7 @@ describe('Friday digest', () => {
     expect(prompt).toMatch(/award_propose/);
     expect(prompt).toMatch(/aligner: .*— .*\[github, digest\]/);
     expect(w.digest()).toBeUndefined();
-    expect(w.digestRoom()).toBe('logistica');
+    expect(w.digestRoom()).toBe('logistics');
     expect(prompt).toMatch(/thanked/);   // the example's Slack award: the session searches with its own connector, or skips it
     expect(prompt).toMatch(/(no Slack connector, skip|no tienes un conector de Slack)/);
     const r = w.proposeMedal({ award: 'voice', source: 'digest', text: 'Asked Ana to challenge the spec', evidence: ['conversation abc'] });

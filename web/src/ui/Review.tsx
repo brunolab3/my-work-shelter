@@ -49,25 +49,25 @@ export function PanelReview() {
   }, [columns, col, i, sel]);
   return (
     <Device label={t('reviews.title').toUpperCase()} width={96} height onClose={closePanel}>
-      {notice && <p className="aviso-consola">{notice}</p>}
-      {board.state === 'off' && <p className="voz">{t('reviews.noGithub')}</p>}
-      {board.state === 'reading' && <p className="tenue">{t('reviews.reading')}</p>}
-      {board.error && <p className="tenue">{board.error}</p>}
+      {notice && <p className="notice-console">{notice}</p>}
+      {board.state === 'off' && <p className="voice">{t('reviews.noGithub')}</p>}
+      {board.state === 'reading' && <p className="dim">{t('reviews.reading')}</p>}
+      {board.error && <p className="dim">{board.error}</p>}
       <div className="kanban kanban-jira" style={{ gridTemplateColumns: `repeat(${columns.length}, minmax(0, 1fr))` }}>
         {columns.map((c, ci) => (
-          <div key={c.id} className={'kanban-col' + (ci === col ? ' activa' : '')}>
-            <h3>{t(`reviews.column.${c.id}`)} <span className="tenue">{c.list.length}</span></h3>
+          <div key={c.id} className={'kanban-col' + (ci === col ? ' active' : '')}>
+            <h3>{t(`reviews.column.${c.id}`)} <span className="dim">{c.list.length}</span></h3>
             {c.list.map((r, k) => (
-              <div key={r.key} className={'ficha-issue con-tarea' + (ci === col && k === Math.min(i, c.list.length - 1) ? ' sel' : '')} style={{ '--tarea': taskColor(r.key) } as React.CSSProperties}
+              <div key={r.key} className={'card-issue con-tarea' + (ci === col && k === Math.min(i, c.list.length - 1) ? ' sel' : '')} style={{ '--tarea': taskColor(r.key) } as React.CSSProperties}
                 onMouseEnter={() => { setCol(ci); setI(k); }} onDoubleClick={() => open(r)}>
                 <span className="marca-tarea" />{r.started && <span title={t('reviews.hologram')}>◉ </span>}<span className="ident">{r.key.includes('#') ? '' : r.key}</span> {r.title}
                 {r.prs.map(p => (
-                  <small key={p.url} className="tenue fila-pr-revision">
+                  <small key={p.url} className="dim fila-pr-revision">
                     <a href={p.url} onClick={e => { e.preventDefault(); openLink(p.url); }}>{p.repo}#{p.number}</a> · {t('reviews.byAuthor', { autor: p.author })}{p.draft ? ` · ${t('reviews.draft')}` : ''}{p.column !== r.column ? ` · ${t(`reviews.column.${p.column}`)}` : ''}
                   </small>))}
-                {r.missing && <small className="tenue">{t('reviews.noRoom')}: {r.missing.join(', ')}</small>}
+                {r.missing && <small className="dim">{t('reviews.noRoom')}: {r.missing.join(', ')}</small>}
               </div>))}
-            {!c.list.length && <p className="tenue">{t('reviews.empty')}</p>}
+            {!c.list.length && <p className="dim">{t('reviews.empty')}</p>}
           </div>
         ))}
       </div>

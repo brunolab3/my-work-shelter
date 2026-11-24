@@ -9,7 +9,7 @@ import { t, tIs } from '../shared/language.ts';
 import { MCP } from './mcpServers.ts';
 
 export interface CtxDecor {
-  room(id: string): { id: string; name: string; type: string; path?: string; style?: string; side: 'izq' | 'der'; decor?: Decor } | undefined;
+  room(id: string): { id: string; name: string; type: string; path?: string; style?: string; side: 'left' | 'right'; decor?: Decor } | undefined;
   /** la plantilla que lleva la sala sin decorado (fundición, laboratorio…) */
   template(id: string): string;
   save(id: string, d: Decor | null): void;
@@ -29,7 +29,7 @@ const decorSchema = () => z.object({
   base: z.enum(BASES_DECOR),
   summary: z.string().optional(), subtitle: z.string().optional(), accent: z.string().optional().describe('#rrggbb'),
   palette: z.enum(DECOR_PALETTES).optional(), walls: z.array(z.enum(DECOR_WALLS)).length(3).optional(), light: num.optional(), mirror: z.boolean().optional(),
-  workstation: z.object({ screen: z.enum(['monitor', 'doble', 'ordenador']).optional(), desk: z.string().optional() }).optional(),
+  workstation: z.object({ screen: z.enum(['monitor', 'dual', 'computer']).optional(), desk: z.string().optional() }).optional(),
   piece: pointSchema.optional(), hobby: pointSchema.optional(),
   lamps: z.array(z.object({ x: num, z: num, color: z.string().optional(), intensity: num.optional() })).optional(),
   pieces: z.array(z.object({

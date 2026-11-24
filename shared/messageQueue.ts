@@ -36,6 +36,6 @@ export function originLabel(o: MessageOrigin | undefined): string {
 /** How many messages wait in these conversations (a tab's, a dweller's or a hologram's) */
 export const queuedIn = (sessions: Iterable<SessionSummary | undefined>) => {
   let n = 0;
-  for (const s of sessions) if (s && s.state !== 'cerrada') n += s.queue?.length ?? 0;
+  for (const s of sessions) if (s && s.state !== 'closed') n += s.queue?.length ?? 0;
   return n;
 };

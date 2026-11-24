@@ -76,25 +76,25 @@ export async function furnishReview(ctx: Context) {
   const screenBoard = new ReviewScreen('#9fd0ff');
   const YT = 2.5;
   const frame = new THREE.Mesh(new THREE.BoxGeometry(5.6, 2.6, 0.12), new THREE.MeshStandardMaterial({ color: '#141820', roughness: 0.5, metalness: 0.5 }));
-  frame.position.set(0, YT, zB + 0.36); g.add(frame); ctx.device('revisiones', frame);
+  frame.position.set(0, YT, zB + 0.36); g.add(frame); ctx.device('reviews', frame);
   const screen = new THREE.Mesh(new THREE.PlaneGeometry(5.3, 2.35), new THREE.MeshStandardMaterial({ map: screenBoard.tex, emissiveMap: screenBoard.tex, emissive: '#ffffff', emissiveIntensity: 1.0, color: '#000' }));
   screen.position.set(0, YT, zB + 0.43); g.add(screen);
-  screen.userData.interactive = 'revisiones';   // a click on the screen opens the board (shelter.ts, click)
+  screen.userData.interactive = 'reviews';   // a click on the screen opens the board (shelter.ts, click)
   ctx.room.userData.reviewScreen = screenBoard;
   // on the left, the reviewer's desk
-  const pStation = new PhosphorScreen(384, 256, v.screen); pStation.speed = 22; screenReal(ctx, pStation, 'actividad'); ctx.room.screens.push(pStation);
-  await workStation(ctx, { id: 'puesto', x: -3.05, z: -0.7, rotation: 0.8, tex: pStation.tex, chair: R.furniture('chair_desk_A'),
+  const pStation = new PhosphorScreen(384, 256, v.screen); pStation.speed = 22; screenReal(ctx, pStation, 'activity'); ctx.room.screens.push(pStation);
+  await workStation(ctx, { id: 'workstation', x: -3.05, z: -0.7, rotation: 0.8, tex: pStation.tex, chair: R.furniture('chair_desk_A'),
     onTop: [{ path: R.furniture('book_set'), x: -0.55, z: 0.2, c: { width: 0.4, rot: 0.2 } }, { path: R.furniture('mug_A'), x: 0.7, z: 0.15, c: { scale: K * 0.7 } }] });
   // the piece: the reading table, where printed diffs are read side by side
   P(R.furniture('table_medium'), { pos: [0, 0, zB + 1.9], width: 2.2 });
-  for (const [id, x] of [['mesa', -1.4], ['mesa-2', 1.4]] as const) ctx.room.points.push({ id, type: 'pieza', pos: new THREE.Vector3(x, 0, zB + 2.7), rotation: Math.atan2(-x, -0.8),
-    actions: [{ clip: 'Interact' }, { clip: 'Holding_A', utensil: 'diario', dur: 4 }] });
+  for (const [id, x] of [['desk', -1.4], ['desk-2', 1.4]] as const) ctx.room.points.push({ id, type: 'piece', pos: new THREE.Vector3(x, 0, zB + 2.7), rotation: Math.atan2(-x, -0.8),
+    actions: [{ clip: 'Interact' }, { clip: 'Holding_A', utensil: 'journal', dur: 4 }] });
   ctx.room.obstacles.push(new THREE.Box2(new THREE.Vector2(-1.2, zB + 1.2), new THREE.Vector2(1.2, zB + 2.6)));
   // the right: shelf with folders and the house sign
   const shelf = P(R.sf('Props_Shelf_Tall'), { pos: [5.45, 0, zB + 0.5], height: 2.3, rot: 0 });
   for (const [k, y] of [0.6, 1.05, 1.5].entries()) ctx.restsOn(shelf, R.furniture('book_set'), { pos: [5.4 + (k % 2) * 0.15, 0, zB + 0.5], width: 0.55, rot: k * 0.2 }, { since: y });
   ctx.room.obstacles.push(new THREE.Box2(new THREE.Vector2(4.9, zB), new THREE.Vector2(6, zB + 1.1)));
-  signInWall(g, sign(t('world.poster.review'), t('world.poster.reviewFoot'), '#d2e2ee', '#1f3550', 'engranaje', seed), 4.1, 2.8, 0.56, 0.78, zB + 0.33, -0.03);
+  signInWall(g, sign(t('world.poster.review'), t('world.poster.reviewFoot'), '#d2e2ee', '#1f3550', 'gear', seed), 4.1, 2.8, 0.56, 0.78, zB + 0.33, -0.03);
   stain(g, 0, 1.1, 1.2, seed);
   ctx.room.walkZones = [[-1.9, -1.5], [1.5, 2.2]];
   ctx.lamps = [{ x: -4.2, z: 0.6, o: { intensity: 80 } }, { x: 0, z: 0.9, o: { intensity: 105, shadow: true, corta: true } }, { x: 4.2, z: 0.6, o: { intensity: 80 } }];

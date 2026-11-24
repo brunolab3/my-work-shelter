@@ -28,7 +28,7 @@ export function materialPaintable(base: THREE.MeshStandardMaterial, colors: THRE
           if (r > 0) { vec4 c = uColors[r];
             if (c.w > 0.5) { float l = dot(diffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722)); diffuseColor.rgb = c.rgb * clamp(l / max(uRef[r], 0.004), 0.3, 1.8); } } }`);
   };
-  m.customProgramCacheKey = () => 'figura-pintable';
+  m.customProgramCacheKey = () => 'paintable-figure';
   m.userData.uRef = uRef; m.userData.own = true;
   return m;
 }
@@ -74,19 +74,19 @@ export async function mountFigure(a: Look, o: { mannequin?: boolean } = {}): Pro
   const hat = pieces.find(([r]) => r === 'sombrero')?.[1];
   const visible = pieces.filter(([r]) => !(hat?.hairLid && r === 'pelo') && !(hat?.faceLid && (r === 'barba' || r === 'cejas')));
   // lo de la cabeza se adapta a la forma de la cara elegida, y el pelo se mete bajo el sombrero
-  const face = a.especie === 'humano' && a.pieces.cara ? PIECE.get(a.pieces.cara)?.source : undefined;
-  const list: { r: Slot | 'craneo'; t: PieceChunk }[] = [];
+  const face = a.especie === 'human' && a.pieces.cara ? PIECE.get(a.pieces.cara)?.source : undefined;
+  const list: { r: Slot | 'skull'; t: PieceChunk }[] = [];
   const hair = visible.find(([r]) => r === 'pelo')?.[1];
   const done = await Promise.all(visible.map(async ([r, p]) => (await chunks(p, { face, hat, hair })).map(t => ({ r, t }))));
   for (const h of done) list.push(...h);
   // el cráneo que tapa los huecos de la cara (con su forma: tampoco asoma bajo una capucha, y sin él se vería por dentro
   // de la cabeza por debajo de la peluca); un maniquí de escaparate lleva el liso, sin cara
-  if (face || o.mannequin) for (const c of await skull(face, hat, hair)) list.push({ r: 'craneo', t: c });
+  if (face || o.mannequin) for (const c of await skull(face, hat, hair)) list.push({ r: 'skull', t: c });
 
   // colores por defecto: la piel, la de la cara; el pelo, el del peinado (o la barba, o las cejas) para que todo case
   const fallback: Partial<Record<Region, string>> = {};
   const hex = (c: [number, number, number] | null | undefined) => (c ? '#' + new THREE.Color().setRGB(c[0] / 255, c[1] / 255, c[2] / 255, THREE.SRGBColorSpace).getHexString() : undefined);
-  if (a.especie === 'humano') {
+  if (a.especie === 'human') {
     const face = a.pieces.cara ? await source(PIECE.get(a.pieces.cara)!.source) : null;
     fallback.piel = hex(face?.skin);
     for (const r of ['pelo', 'barba', 'cejas'] as Slot[]) {

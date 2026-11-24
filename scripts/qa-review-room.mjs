@@ -58,7 +58,7 @@ try {
 
   // ---- the room
   const rooms = await pg.evaluate(() => window.__live.get().state.rooms.map(s => ({ id: s.id, type: s.type, floor: s.floor, side: s.side, orden: s.orden })));
-  const rev = rooms.find(s => s.id === 'review'), com = rooms.find(s => s.id === 'comunicaciones');
+  const rev = rooms.find(s => s.id === 'review'), com = rooms.find(s => s.id === 'comms');
   check(rev?.type === 'review' && rev.floor === com.floor && rev.side === com.side && rev.orden === com.orden + 1, `the Review room stands next to Communications (${JSON.stringify(rev)})`);
   check(await pg.evaluate(() => window.__live.get().state.dwellers.some(h => h.roomId === 'review')), 'it has its dweller');
   check(await until(() => pg.evaluate(() => window.__live.get().reviews.state === 'off')), 'without GitHub the board says it is off');
@@ -82,7 +82,7 @@ try {
   check(await until(async () => (await pg.$$eval('.fila-buscador .txt', f => f.map(x => x.textContent))).some(x => /\(1\)/.test(x ?? ''))), '⌘K offers «PRs to review (1)»');
   await pg.$$eval('.fila-buscador', f => f.find(x => /\(1\)/.test(x.querySelector('.txt')?.textContent ?? ''))?.click());
   check(await until(() => pg.$$eval('.kanban-col', c => c.length === 3)), 'the board opens with three columns');
-  const cols = await pg.$$eval('.kanban-col', c => c.map(x => x.querySelectorAll('.ficha-issue').length));
+  const cols = await pg.$$eval('.kanban-col', c => c.map(x => x.querySelectorAll('.card-issue').length));
   check(JSON.stringify(cols) === '[1,1,1]', `one card in each column (${JSON.stringify(cols)})`);
   check(await pg.$$eval('.kanban-col:first-child .fila-pr-revision', f => f.length === 2), 'the task card lists both PRs');
   check(!(await pg.$$eval('.botonera button', bs => bs.some(x => /Done with this review|Terminar revisión/.test(x.textContent ?? '')))), 'X is not offered before the review starts');
@@ -94,7 +94,7 @@ try {
   // ---- the started review's hologram, in the Review room and not in the repo's
   const publish = async () => pg.evaluate(([bd, folder]) => {
     window.__live.set({ reviews: bd });
-    window.__live.set(e => ({ repos: { ...e.repos, review: { path: folder.replace(/\/QA-7$/, ''), exists: true, isGit: false, changes: 0, type: 'generico', worktrees: [{ path: folder, branch: '', main: false, changes: 0, advanced: 0, review: { key: 'QA-7', title: 'Cart totals with taxes', repos: ['acme/web', 'acme/api'] } }] } } }));
+    window.__live.set(e => ({ repos: { ...e.repos, review: { path: folder.replace(/\/QA-7$/, ''), exists: true, isGit: false, changes: 0, type: 'generic', worktrees: [{ path: folder, branch: '', main: false, changes: 0, advanced: 0, review: { key: 'QA-7', title: 'Cart totals with taxes', repos: ['acme/web', 'acme/api'] } }] } } }));
   }, [board(true), FOLDER]);
   await publish();
   const copy = () => pg.evaluate(f => window.__game.get().copies.find(c => c.id === 'holo:' + f), FOLDER);

@@ -33,7 +33,7 @@ function readPage(e: any): MusicState | null {
   const title = text(e.title);
   const cover = text(e.cover);
   return {
-    state: !title ? 'parada' : e.playing === true ? 'sonando' : 'pausa',
+    state: !title ? 'stopped' : e.playing === true ? 'playing' : 'paused',
     hint: title ? { title, artist: text(e.artist), album: text(e.album), duration: number(e.duration, 86400), cover: cover.startsWith('https://i.scdn.co/') ? cover : undefined } : undefined,
     position: number(e.position, 86400), measured: Date.now(), volume: Math.round(number(e.volume, 1) * 100), silence: false, seek: e.seek === true,
   };
@@ -68,17 +68,17 @@ if (IN_ELECTRON) {
   });
 }
 // con música, el zumbido del refugio baja
-live.subscribe(() => sound.dimAmbient(live.get().music?.state === 'sonando'));
+live.subscribe(() => sound.dimAmbient(live.get().music?.state === 'playing'));
 
 // la posición avanza sola mientras suena
 function nowPosition(m: MusicState | null) {
   if (!m) return 0;
-  const p = m.state === 'sonando' ? m.position + (Date.now() - m.measured) / 1000 : m.position;
+  const p = m.state === 'playing' ? m.position + (Date.now() - m.measured) / 1000 : m.position;
   return Math.max(0, m.hint?.duration ? Math.min(m.hint.duration, p) : p);
 }
 function usePosition(m: MusicState | null) {
   const [, setT] = useState(0);
-  useEffect(() => { if (m?.state !== 'sonando') return; const i = setInterval(() => setT(x => x + 1), 500); return () => clearInterval(i); }, [m?.state]);
+  useEffect(() => { if (m?.state !== 'playing') return; const i = setInterval(() => setT(x => x + 1), 500); return () => clearInterval(i); }, [m?.state]);
   return nowPosition(m);
 }
 const mmss = (s: number) => { s = Math.max(0, Math.floor(s)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
@@ -97,7 +97,7 @@ function Disco({ m, size }: { m: MusicState | null; size: string }) {
   const c = m?.hint?.cover;
   // un disco de vinilo a 33⅓ rpm con la carátula de etiqueta; el brillo no gira con él
   return (
-    <div className={'disco-vinilo' + (m?.state === 'sonando' ? ' girando' : '')} style={{ width: size, height: size }} aria-hidden>
+    <div className={'disco-vinilo' + (m?.state === 'playing' ? ' girando' : '')} style={{ width: size, height: size }} aria-hidden>
       <div className="disco-giro"><div className="disco-etiqueta" style={c ? { backgroundImage: `url("${c}")` } : undefined} /></div>
       <div className="disco-brillo" />
       <div className="disco-eje" />
@@ -115,7 +115,7 @@ function Progress({ m, pos }: { m: MusicState; pos: number }) {
   return (
     <div className="musica-progreso">
       <span>{mmss(check)}</span>
-      <div className={'musica-barra' + (can ? ' saltable' : '') + (drag !== null ? ' arrastrando' : '')} title={can ? t('windows.clickOrDragToJump') : undefined}
+      <div className={'music-bar' + (can ? ' saltable' : '') + (drag !== null ? ' arrastrando' : '')} title={can ? t('windows.clickOrDragToJump') : undefined}
         onPointerDown={e => { if (!can) return; e.currentTarget.setPointerCapture(e.pointerId); setDrag(toSeconds(e)); }}
         onPointerMove={e => { if (drag !== null) setDrag(toSeconds(e)); }}
         onPointerUp={e => {
@@ -132,11 +132,11 @@ function Progress({ m, pos }: { m: MusicState; pos: number }) {
 }
 
 function Controls({ m }: { m: MusicState }) {
-  const playing = m.state === 'sonando';
+  const playing = m.state === 'playing';
   return (
     <div className="musica-mandos">
       <button className="musica-boton" onClick={() => { void send('previoustrack'); SFX.click(); }} title={t('windows.previousTrack')}>{I.previous}</button>
-      <button className="musica-boton principal" onClick={() => { void send('alternar'); SFX.click(); }} title={playing ? t('windows.pause') : t('windows.play')}>{playing ? I.pause : I.sonar}</button>
+      <button className="musica-boton principal" onClick={() => { void send('toggle'); SFX.click(); }} title={playing ? t('windows.pause') : t('windows.play')}>{playing ? I.pause : I.sonar}</button>
       <button className="musica-boton" onClick={() => { void send('nexttrack'); SFX.click(); }} title={t('windows.nextTrack')}>{I.next}</button>
     </div>
   );
@@ -194,7 +194,7 @@ if (IN_ELECTRON) addEventListener('keydown', e => {
   if (cmdJ || e.code === 'Escape') exitCommand();
   else if (e.code === 'Enter' || e.code === 'KeyE') { exitCommand(false); onFront('spotify'); }
   else if (!m) SFX.notAllowed();
-  else if (e.code === 'Space' || e.code === 'KeyK') { void send('alternar'); SFX.click(); }
+  else if (e.code === 'Space' || e.code === 'KeyK') { void send('toggle'); SFX.click(); }
   else if ((e.code === 'ArrowLeft' || e.code === 'ArrowRight') && e.shiftKey) { void send(e.code === 'ArrowLeft' ? 'previoustrack' : 'nexttrack'); SFX.click(); }
   else if (e.code === 'ArrowLeft' || e.code === 'ArrowRight') {
     if (!m.seek || !m.hint?.duration) { SFX.notAllowed(); return; }
@@ -226,11 +226,11 @@ export function Deck() {
   if (!visible) return null;
   const open = onTop || inHand;
   const p = m?.hint;
-  const playing = m?.state === 'sonando';
-  const mark = playing ? 'SONANDO' : m?.state === 'pausa' ? 'PAUSA' : 'SPOTIFY';
+  const playing = m?.state === 'playing';
+  const mark = playing ? 'SONANDO' : m?.state === 'paused' ? 'PAUSA' : 'SPOTIFY';
   const d = p?.duration ?? 0;
   return (
-    <div ref={box} className={'pletina interactivo' + (open ? ' abierta' : ' compacta') + (playing ? ' sonando' : '') + (inHand ? ' en-mano' : '')} role="region" aria-label={t('windows.musicPlayer')}
+    <div ref={box} className={'pletina interactivo' + (open ? ' open' : ' compacta') + (playing ? ' playing' : '') + (inHand ? ' en-mano' : '')} role="region" aria-label={t('windows.musicPlayer')}
       onMouseEnter={() => { if (deadline.current) clearTimeout(deadline.current); setAbove(true); }}
       onMouseLeave={() => { deadline.current = setTimeout(() => setAbove(false), 350); }}>
       {inHand && <div className="barra-ayuda pletina-ayuda"><kbd>{t('windows.space')}</kbd> ⏯ <kbd>←→</kbd> ±{SECONDS_STEP} s <kbd>⇧←→</kbd> {t('windows.tracks')} <kbd>↑↓</kbd> {t('windows.volume')} <kbd>{t('windows.enter')}</kbd> Spotify <kbd>Esc</kbd> {t('windows.exit')}</div>}
@@ -245,7 +245,7 @@ export function Deck() {
           </div>}
           {p ? <>
             <div className="pletina-titulo" title={`${p.title} — ${p.artist}`}><span>{p.title}</span></div>
-            <div className="pletina-artista">{p.artist}{open && p.album ? <span className="tenue"> · {p.album}</span> : null}</div>
+            <div className="pletina-artista">{p.artist}{open && p.album ? <span className="dim"> · {p.album}</span> : null}</div>
             {open && <><Progress m={m!} pos={pos} /><div className="pletina-pie"><Controls m={m!} /><Volume m={m!} /></div></>}
           </> : <>
             <div className="pletina-titulo"><span>{t('windows.nothingPlaying')}</span></div>

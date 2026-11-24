@@ -67,7 +67,7 @@ describe('what is running', () => {
     expect(snap().totalMb).toBeCloseTo(kb / 1024);
   });
   it('colours the chip by the threshold', () => {
-    expect([memoryLight(undefined, 8192), memoryLight(6000, 8192), memoryLight(6500, 8192), memoryLight(9000, 8192)]).toEqual(['gris', 'verde', 'amarillo', 'rojo']);
+    expect([memoryLight(undefined, 8192), memoryLight(6000, 8192), memoryLight(6500, 8192), memoryLight(9000, 8192)]).toEqual(['gray', 'green', 'yellow', 'red']);
   });
   it('stops only what a dweller started, with what that started; never its claude, the game or anything else', () => {
     const rows = parseProcs(PS);

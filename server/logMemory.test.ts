@@ -12,7 +12,7 @@ const entry = (i: number) => ({ id: `m${i}-0`, ts: 1000 + i, type: 'asistente' a
 
 function session(outputs?: ToolOutputs) {
   const sess = new Sessions({ pathRoom: () => undefined }, undefined, outputs) as any;
-  const r: any = { id: 'w1', dwellerId: 'h1', roomId: 'sala', cwd: '/tmp', state: 'trabajando', unread: false, title: 'Trabajo', pending: 0, helpers: [], tools: 0, turns: 0, claudeId: 'c1' };
+  const r: any = { id: 'w1', dwellerId: 'h1', roomId: 'room', cwd: '/tmp', state: 'working', unread: false, title: 'Trabajo', pending: 0, helpers: [], tools: 0, turns: 0, claudeId: 'c1' };
   const x: any = { r, alive: true, closing: false, interrupting: false, sent: new Map(), pending: [], queue: [], unsent: new Set(), withdrawn: new Set(), entries: [], tools: new Map(), helpers: new Map(), taskAHelper: new Map(), background: new Set(), awaitingBackground: false, commands: [], stderr: '', options: {}, partialText: '', shipments: Promise.resolve() };
   sess.s.set('w1', x);
   return { sess, x, r };

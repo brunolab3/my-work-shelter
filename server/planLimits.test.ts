@@ -37,7 +37,7 @@ describe('plan limits', () => {
     vi.useFakeTimers(); vi.setSystemTime(NOW);
     const p = new PlanLimitsStore();
     const changes = vi.fn(), renewed = vi.fn();
-    p.on('cambio', changes); p.on('renovado', renewed);
+    p.on('change', changes); p.on('renewed', renewed);
     p.fromEvent({ status: 'rejected', rateLimitType: 'five_hour', utilization: 1, resetsAt: (NOW + H) / 1000 });
     p.fromEvent({ status: 'rejected', rateLimitType: 'five_hour', utilization: 1, resetsAt: (NOW + H) / 1000 });
     expect(changes).toHaveBeenCalledTimes(1);

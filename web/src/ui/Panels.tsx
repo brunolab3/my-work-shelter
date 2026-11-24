@@ -35,15 +35,15 @@ const fromMenu = () => juego.get().panelData?.since === 'menu';
 const goBack = () => { if (fromMenu()) { SFX.close(); openPanel('menu'); } else closePanel(); };
 export const goA = (roomId: string, dwellerId?: string, talk = false) => window.dispatchEvent(new CustomEvent('refugio:ir', { detail: { roomId, dwellerId, talk } }));
 
-const URGENCY: Record<string, number> = { esperando: 0, error: 1, terminado: 2, trabajando: 3, pensando: 3 };
+const URGENCY: Record<string, number> = { waiting: 0, error: 1, finished: 2, working: 3, thinking: 3 };
 /** El cliente de git: en una sala de repo, con su repo; en las demás, con el último que usaste */
 export function openGitOfRoom(roomId: string) {
   const r = live.get().repos[roomId];
-  openGit(r?.isGit ? { path: r.path, view: 'cambios' } : {});
+  openGit(r?.isGit ? { path: r.path, view: 'changes' } : {});
 }
 // el puesto de Control de Versiones no es un aparato: abre la ventana del cliente en sus cambios (y el de la matriz, en GitHub)
 function OpenGit() {
-  useEffect(() => { const d = juego.get().panelData; juego.set({ panel: null, panelData: null }); openGit({ view: d?.device === 'matriz' ? 'github' : 'cambios' }); }, []);
+  useEffect(() => { const d = juego.get().panelData; juego.set({ panel: null, panelData: null }); openGit({ view: d?.device === 'matrix' ? 'github' : 'changes' }); }, []);
   return null;
 }
 
@@ -56,12 +56,12 @@ export function Panels() {
     const j = juego.get();
     if (j.talkingWith || j.panel) return false;
     const shortcuts: Record<string, () => void> = {
-      KeyM: () => openPanel('plano'), Tab: () => openPanel('ocupados'), F1: () => openPanel('ayuda'),
-      KeyI: () => openPanel('inventario'), Escape: () => openPanel('menu'), KeyR: () => openPanel('cuaderno'),
-      KeyQ: () => { const h = busy([...j.dwellers, ...j.copies]).find(x => x.state === 'esperando' || x.state === 'error'); if (h) goA(h.room, h.id, true); else SFX.notAllowed(); },
-      KeyN: () => goA('comunicaciones'), KeyC: () => goA('planificacion'), KeyL: () => goA('logistica'),
+      KeyM: () => openPanel('map'), Tab: () => openPanel('busy'), F1: () => openPanel('help'),
+      KeyI: () => openPanel('inventory'), Escape: () => openPanel('menu'), KeyR: () => openPanel('log'),
+      KeyQ: () => { const h = busy([...j.dwellers, ...j.copies]).find(x => x.state === 'waiting' || x.state === 'error'); if (h) goA(h.room, h.id, true); else SFX.notAllowed(); },
+      KeyN: () => goA('comms'), KeyC: () => goA('calendar'), KeyL: () => goA('logistics'),
       KeyG: () => openGitOfRoom(j.currentRoom),
-      KeyP: () => openPanel('chapa'),
+      KeyP: () => openPanel('bodyshop'),
     };
     const f = shortcuts[e.code]; if (!f) return false;
     f(); return true;
@@ -69,20 +69,20 @@ export function Panels() {
   // cerrar la pestaña con trabajo en marcha avisa
   useEffect(() => {
     if (/Electron/.test(navigator.userAgent)) return; // la ventana propia ya pregunta al cerrar
-    const f = (ev: BeforeUnloadEvent) => { if (Object.values(live.get().sessions).some(s => s.state === 'trabajando' || s.state === 'esperando')) { ev.preventDefault(); ev.returnValue = ''; } };
+    const f = (ev: BeforeUnloadEvent) => { if (Object.values(live.get().sessions).some(s => s.state === 'working' || s.state === 'waiting')) { ev.preventDefault(); ev.returnValue = ''; } };
     addEventListener('beforeunload', f); return () => removeEventListener('beforeunload', f);
   }, []);
   if (!panel) return null;
   switch (panel) {
-    case 'plano': return <FloorPlan />;
-    case 'ocupados': return <Busy />;
-    case 'ayuda': return <Help />;
-    case 'opciones': return <GameOptions />;
+    case 'map': return <FloorPlan />;
+    case 'busy': return <Busy />;
+    case 'help': return <Help />;
+    case 'options': return <GameOptions />;
     case 'menu': return <MenuGame />;
-    case 'salir': return <Exit />;
-    case 'reiniciar': return <Restart />;
-    case 'despedida': return <Farewell />;
-    case 'bienvenida': return <Welcome />;
+    case 'exit': return <Exit />;
+    case 'restart': return <Restart />;
+    case 'farewell': return <Farewell />;
+    case 'welcome': return <Welcome />;
     case 'git': return <OpenGit />;
     default: return <RoomPanels panel={panel} />;
   }
@@ -110,12 +110,12 @@ function FloorPlan() {
   const floors = Math.max(0, ...rooms.map(s => s.floor)) + 1;
   // editando, un hueco libre más a cada lado para poder alargar cualquier planta
   const orders = Math.max(1, ...rooms.map(s => s.orden)) + (edit ? 2 : 1);
-  const columns: { side: 'izq' | 'der'; orden: number }[] = [...Array.from({ length: orders }, (_, k) => ({ side: 'izq' as const, orden: orders - 1 - k })), ...Array.from({ length: orders }, (_, k) => ({ side: 'der' as const, orden: k }))];
-  const roomIn = (p: number, c: { side: 'izq' | 'der'; orden: number }) => rooms.find(s => s.floor === p && s.side === c.side && s.orden === c.orden);
+  const columns: { side: 'left' | 'right'; orden: number }[] = [...Array.from({ length: orders }, (_, k) => ({ side: 'left' as const, orden: orders - 1 - k })), ...Array.from({ length: orders }, (_, k) => ({ side: 'right' as const, orden: k }))];
+  const roomIn = (p: number, c: { side: 'left' | 'right'; orden: number }) => rooms.find(s => s.floor === p && s.side === c.side && s.orden === c.orden);
   const [curId, setCurId] = useState<string>((rooms.find(s => s.id === current) ?? rooms[0])?.id ?? '');
   const sel = rooms.find(s => s.id === curId);
   // flechas: a la sala vecina de la misma planta, o a la más cercana (en horizontal) de la planta con salas de arriba o de abajo
-  const xOf = (s: any) => (s.side === 'izq' ? -(s.orden + 0.5) : s.orden + 0.5);
+  const xOf = (s: any) => (s.side === 'left' ? -(s.orden + 0.5) : s.orden + 0.5);
   const move = (dc: number, dp: number) => {
     if (!sel) { if (rooms[0]) setCurId(rooms[0].id); return; }
     let cands: any[] = [];
@@ -156,7 +156,7 @@ function FloorPlan() {
   }, [curId, rooms, edit, byHand]);
   const roomState = (id: string) => {
     const hs = dwellers.filter(h => h.room === id);
-    return hs.some(h => h.state === 'error') ? 'error' : hs.some(h => h.state === 'esperando') ? 'esperando' : hs.some(h => h.state === 'trabajando' || h.state === 'pensando') ? 'trabajando' : hs.some(h => h.state === 'terminado') ? 'terminado' : 'ocioso';
+    return hs.some(h => h.state === 'error') ? 'error' : hs.some(h => h.state === 'waiting') ? 'waiting' : hs.some(h => h.state === 'working' || h.state === 'thinking') ? 'working' : hs.some(h => h.state === 'finished') ? 'finished' : 'idle';
   };
   const selHs = sel ? dwellers.filter(h => h.room === sel.id) : [];
   // el plano es una foto del corte de verdad, de frente, con las salas como zonas que se eligen
@@ -187,7 +187,7 @@ function FloorPlan() {
     </>;
   };
   return (
-    <Device label={t('panels.shelterMapFastTravel')} width={84} height kind="plano">
+    <Device label={t('panels.shelterMapFastTravel')} width={84} height kind="map">
       <div className="plano-cuerpo">
         {photo && !edit ? <div className="plano-caja" ref={box}>
           <div className="plano-foto" style={{ width: fw, height: fh }}>
@@ -209,8 +209,8 @@ function FloorPlan() {
           {Array.from({ length: floors + (edit ? 1 : 0) }, (_, p) => {
             // editando, encima de cada planta (menos la PB) y al fondo, una franja que abre una planta nueva ahí
             const strip = edit && p >= 1 && (
-              <div key={'n' + p} className={'plano-nueva' + (restsOn === 'n' + p ? ' sobre' : '') + (ofRoom ? ' activa' : '')} style={{ gridColumn: `1 / span ${orders * 2 + 2}` }}
-                {...droppable('n' + p, !!ofRoom, () => works({ roomId: ofRoom, floor: p, side: 'der', orden: 0, newFloor: true }))}>
+              <div key={'n' + p} className={'map-new' + (restsOn === 'n' + p ? ' sobre' : '') + (ofRoom ? ' active' : '')} style={{ gridColumn: `1 / span ${orders * 2 + 2}` }}
+                {...droppable('n' + p, !!ofRoom, () => works({ roomId: ofRoom, floor: p, side: 'right', orden: 0, newFloor: true }))}>
                 {ofRoom ? t('panels.newFloorP', { p: floorCaption(p) }) : ''}
               </div>
             );
@@ -219,7 +219,7 @@ function FloorPlan() {
             return (
               <React.Fragment key={p}>
                 {strip}
-                <div className={'plano-planta' + (edit && p >= 1 ? ' movible' : '') + (restsOn === 'p' + p ? ' sobre' : '')} title={edit && p >= 1 ? t('panels.dragTheFloorToAnother') : tIs(sector.name)} style={{ ['--sector' as any]: sector.color, ['--tinta' as any]: sector.ink, ['--letra' as any]: sector.letter }}
+                <div className={'map-floor' + (edit && p >= 1 ? ' movible' : '') + (restsOn === 'p' + p ? ' sobre' : '')} title={edit && p >= 1 ? t('panels.dragTheFloorToAnother') : tIs(sector.name)} style={{ ['--sector' as any]: sector.color, ['--tinta' as any]: sector.ink, ['--letra' as any]: sector.letter }}
                   {...draggable(p >= 1 ? { floor: p } : null)} {...droppable('p' + p, ofFloor >= 1 && p >= 1 && p !== ofFloor, () => works({ from: ofFloor, a: p }))}>
                   {floorCaption(p)}<b>{sector.code}</b>
                 </div>
@@ -227,28 +227,28 @@ function FloorPlan() {
                   const s = roomIn(p, c);
                   const key = `${p}${c.side}${c.orden}`;
                   const cell = (
-                    <div key={k} className={'plano-celda' + (s ? ' ' + roomState(s.id) : ' vacia') + (s && s.id === curId ? ' cur' : '') + (s?.id === current ? ' aqui' : '') + (s && s.id === ofRoom ? ' moviendo' : '') + (restsOn === key ? ' sobre' : '') + (edit && p >= 1 && ofRoom ? ' hueco' : '')}
+                    <div key={k} className={'map-cell' + (s ? ' ' + roomState(s.id) : ' vacia') + (s && s.id === curId ? ' cur' : '') + (s?.id === current ? ' aqui' : '') + (s && s.id === ofRoom ? ' moviendo' : '') + (restsOn === key ? ' sobre' : '') + (edit && p >= 1 && ofRoom ? ' hueco' : '')}
                       style={s ? { ['--acento' as any]: roomTone(s)[0] } : undefined}
-                      {...draggable(s && s.type !== 'puerta' ? { room: s.id } : null)}
+                      {...draggable(s && s.type !== 'gate' ? { room: s.id } : null)}
                       {...droppable(key, !!ofRoom && p >= 1 && s?.id !== ofRoom, () => works({ roomId: ofRoom, floor: p, side: c.side, orden: c.orden }))}
                       onMouseEnter={() => s && setCurId(s.id)} onClick={() => { if (s && !edit) { setCurId(s.id); pick(s); } }}>
                       {s && content(s)}
                     </div>
                   );
-                  return c.side === 'der' && c.orden === 0 ? <React.Fragment key={k}><div className={'plano-ascensor' + (p === 0 ? ' arriba' : '')}>{p === floors - 1 ? '' : '▮'}</div>{cell}</React.Fragment> : cell;
+                  return c.side === 'right' && c.orden === 0 ? <React.Fragment key={k}><div className={'plano-ascensor' + (p === 0 ? ' arriba' : '')}>{p === floors - 1 ? '' : '▮'}</div>{cell}</React.Fragment> : cell;
                 })}
               </React.Fragment>
             );
           })}
         </div>}
         <div className="plano-ficha">
-          {sel ? <RoomCard key={sel.id} room={sel} dwellers={selHs} /> : <div className="tenue">{t('panels.hoverOverARoomOr')}</div>}
+          {sel ? <RoomCard key={sel.id} room={sel} dwellers={selHs} /> : <div className="dim">{t('panels.hoverOverARoomOr')}</div>}
         </div>
       </div>
       <div className="plano-leyenda">{SECTORS_ORDER.map(k => SECTORS[k]).map(x => <span key={x.id} style={{ ['--sector' as any]: x.color, ['--tinta' as any]: x.ink, ['--letra' as any]: x.letter }}><b>{x.code}</b>{tIs(x.name)}<i>{tIs(x.motto)}</i></span>)}</div>
       <div className="botonera plano-obras">
-        <button className={'boton-taller' + (edit ? ' activa' : '')} onClick={toggleEdit}>{edit ? t('panels.done') : t('panels.edit')}</button>
-        {edit && <span className="tenue">{t('panels.dragARoomToAnother')}</span>}
+        <button className={'boton-taller' + (edit ? ' active' : '')} onClick={toggleEdit}>{edit ? t('panels.done') : t('panels.edit')}</button>
+        {edit && <span className="dim">{t('panels.dragARoomToAnother')}</span>}
         {edit && byHand && <button className="boton-taller" onClick={stock}>{t('panels.defaultLayout')}</button>}
       </div>
       {edit
@@ -258,7 +258,7 @@ function FloorPlan() {
   );
 }
 
-const ROOM_KEY: Record<string, string> = { comunicaciones: 'N', planificacion: 'C', logistica: 'L', chapa: 'P' };
+const ROOM_KEY: Record<string, string> = { comms: 'N', calendar: 'C', logistics: 'L', bodyshop: 'P' };
 const ago = (ts: number) => { const m = Math.round((Date.now() - ts) / 60000); return m < 60 ? t('windows.nMinAgo', { n: Math.max(1, m) }) : m < 2880 ? t('windows.nHAgo', { n: Math.round(m / 60) }) : t('windows.nDaysAgo', { n: Math.round(m / 1440) }); };
 function RoomCard({ room, dwellers }: { room: any; dwellers: DwellerSummary[] }) {
   const repo = live.use(e => e.repos[room.id]);
@@ -266,55 +266,55 @@ function RoomCard({ room, dwellers }: { room: any; dwellers: DwellerSummary[] })
   const events = live.use(e => e.events);
   const ints = live.use(e => e.integrations);
   const music = live.use(e => e.music);
-  const sessions = Object.values(live.use(e => e.sessions)).filter(x => x.roomId === room.id && x.state !== 'cerrada' && (x.context || x.tokens));
-  const isRepo = room.type === 'repo' || room.type === 'coordinacion';
+  const sessions = Object.values(live.use(e => e.sessions)).filter(x => x.roomId === room.id && x.state !== 'closed' && (x.context || x.tokens));
+  const isRepo = room.type === 'repo' || room.type === 'coordination';
   const data: [string, React.ReactNode][] = [];
   if (room.path) data.push(['Carpeta', <code>{room.path.replace(/^\/Users\/[^/]+/, '~')}</code>]);
   // consumo de cada conversación abierta de la sala (contexto ocupado y tokens)
-  for (const x of sessions) data.push([x.id, <><span className="tenue">{x.title || t('panels.conversation')}</span> <Usage s={x} length /></>]);
-  if (repo?.exists === false) data.push(['Aviso', <span className="aviso-consola">{t('panels.folderNotFound')}</span>]);
+  for (const x of sessions) data.push([x.id, <><span className="dim">{x.title || t('panels.conversation')}</span> <Usage s={x} length /></>]);
+  if (repo?.exists === false) data.push(['Aviso', <span className="notice-console">{t('panels.folderNotFound')}</span>]);
   else if (repo) {
     if (repo.branch) data.push(['Rama', repo.branch]);
     if (repo.isGit) data.push(['Cambios', repo.changes ? t('panels.nUncommitted', { n: repo.changes }) : t('panels.clean')]);
-    if (repo.lastCommit) data.push(['Último commit', <><span className="una-linea" title={repo.lastCommit.message}>{repo.lastCommit.message}</span><span className="tenue">{ago(repo.lastCommit.date)}</span></>]);
+    if (repo.lastCommit) data.push(['Último commit', <><span className="una-linea" title={repo.lastCommit.message}>{repo.lastCommit.message}</span><span className="dim">{ago(repo.lastCommit.date)}</span></>]);
     const capsules = repo.worktrees.filter(w => !w.main);
     if (capsules.length) data.push(['Copias', capsules.map(w => w.branch || t('windows.noBranch')).join(', ')]);
     if (repo.subrepos?.length) data.push(['Repos dentro', repo.subrepos.join(', ')]);
   }
-  if (room.type === 'comunicaciones') { const n = notices.filter((x: any) => !x.view).length; data.push(['Avisos', n ? t('panels.nUnseen', { n }) : t('panels.allRead')]); }
-  if (room.type === 'planificacion') { const ev = events.filter((x: any) => x.end > Date.now()).sort((a: any, b: any) => a.start - b.start)[0]; data.push(['Próxima', ev ? <>{ev.title} <span className="tenue">· {new Date(ev.start).toLocaleString((language() === 'en' ? 'en-GB' : 'es-ES'), { weekday: 'short', hour: '2-digit', minute: '2-digit' })}</span></> : t('panels.nothingOnTheAgenda')]); }
-  if (room.type === 'logistica') data.push(['Jira', tIs(INTEGRATION_STATE[ints.jira?.state ?? 'demo'])], ...(ints.linear ? [['Linear', tIs(INTEGRATION_STATE[ints.linear.state ?? 'demo'])] as [string, string]] : []));
-  if (room.type === 'discoteca') data.push(['Sonando', music?.hint && music.state !== 'parada' ? <>{music.hint.title} <span className="tenue">· {music.hint.artist}{music.state === 'pausa' ? t('panels.paused') : ''}</span></> : t('panels.nothing')]);
-  if (room.type === 'camara') { const ids = ACTIVE_SOURCES; data.push(['Integraciones', t('panels.nOfTotalConnected', { n: ids.filter(f => ints[f]?.state === 'conectada').length, total: ids.length })]); }
+  if (room.type === 'comms') { const n = notices.filter((x: any) => !x.view).length; data.push(['Avisos', n ? t('panels.nUnseen', { n }) : t('panels.allRead')]); }
+  if (room.type === 'calendar') { const ev = events.filter((x: any) => x.end > Date.now()).sort((a: any, b: any) => a.start - b.start)[0]; data.push(['Próxima', ev ? <>{ev.title} <span className="dim">· {new Date(ev.start).toLocaleString((language() === 'en' ? 'en-GB' : 'es-ES'), { weekday: 'short', hour: '2-digit', minute: '2-digit' })}</span></> : t('panels.nothingOnTheAgenda')]); }
+  if (room.type === 'logistics') data.push(['Jira', tIs(INTEGRATION_STATE[ints.jira?.state ?? 'demo'])], ...(ints.linear ? [['Linear', tIs(INTEGRATION_STATE[ints.linear.state ?? 'demo'])] as [string, string]] : []));
+  if (room.type === 'disco') data.push(['Sonando', music?.hint && music.state !== 'stopped' ? <>{music.hint.title} <span className="dim">· {music.hint.artist}{music.state === 'paused' ? t('panels.paused') : ''}</span></> : t('panels.nothing')]);
+  if (room.type === 'vault') { const ids = ACTIVE_SOURCES; data.push(['Integraciones', t('panels.nOfTotalConnected', { n: ids.filter(f => ints[f]?.state === 'connected').length, total: ids.length })]); }
   if (ROOM_KEY[room.type]) data.push(['Atajo', <><kbd>{ROOM_KEY[room.type]}</kbd> {t('panels.fromAnywhere')}</>]);
   const desc = ROOM_DESCRIPTION[room.type] ?? (isRepo ? t('panels.repository') + (repo?.type ? ' · ' + repo.type : '') : '');
   return <>
-    <div className="titulo-ficha">{room.name} <span className="tenue">· {floorCaption(room.floor)}</span></div>
+    <div className="titulo-ficha">{room.name} <span className="dim">· {floorCaption(room.floor)}</span></div>
     {(() => { const sec = sectorOf(room.type, room.id, room.area); return <div className="ficha-sector" style={{ ['--sector' as any]: roomTone(room)[0], ['--tinta' as any]: sec.ink, ['--letra' as any]: sec.letter }}><b>{sec.code}</b>{t('panels.nombreSector', { nombre: tIs(sec.name).toLowerCase() })}</div>; })()}
     {desc && <div className="ficha-desc">{tIs(desc)}</div>}
     <p className="ficha-info">{tIs(ROOM_INFO[room.type] ?? (isRepo ? REPO_INFO : ''))}</p>
     {data.length > 0 && <dl className="ficha-datos">{data.map(([k, v]) => <React.Fragment key={k}><dt>{sessions.some(x => x.id === k) ? t('panels.context') : tIs(k)}</dt><dd>{v}</dd></React.Fragment>)}</dl>}
     <div className="ficha-seccion">{t('panels.dwellers')}</div>
-    <ul className="plano-hab">{dwellers.map(h => <li key={h.id} className={h.state}><b>{h.name}</b> <span className="tenue">{tIs(h.state)}</span> {h.detail && <span className="det">{h.detail}</span>}</li>)}{!dwellers.length && <li className="tenue">{t('panels.nobodyLivesHere')}</li>}</ul>
+    <ul className="plano-hab">{dwellers.map(h => <li key={h.id} className={h.state}><b>{h.name}</b> <span className="dim">{tIs(h.state)}</span> {h.detail && <span className="det">{h.detail}</span>}</li>)}{!dwellers.length && <li className="dim">{t('panels.nobodyLivesHere')}</li>}</ul>
   </>;
 }
 
 // ---------------------------------------------------------------- qué pasa ahora: ocupados, notificaciones, próximo evento
-const STATE_TEXT: Record<string, string> = { esperando: 'te espera', error: 'avería', terminado: 'terminó, sin leer', trabajando: 'trabajando', pensando: 'pensando' };
+const STATE_TEXT: Record<string, string> = { waiting: 'te espera', error: 'avería', finished: 'terminó, sin leer', working: 'trabajando', thinking: 'pensando' };
 function Busy() {
   // las copias holográficas (worktrees) cuentan como uno más: tienen su propio intercomunicador
   const hs = busy(juego.use(e => [...e.dwellers, ...e.copies]));
   const notices = live.use(e => e.notifications).filter((n: any) => !n.view);
   const events = live.use(e => e.events).filter((ev: any) => ev.end > Date.now()).slice(0, 3);
   const items: (ItemMenu & { f: () => void })[] = [
-    ...hs.map(h => ({ text: <><span className={'glifo-estado ' + h.state} /> <b>{h.name}</b> <span className="tenue">· {h.nameRoom}</span></>, hint: <>{tIs(STATE_TEXT[h.state])}{h.detail ? ' — ' + h.detail : ''}</>, kind: h.state, f: () => { closePanel(); goA(h.room, h.id, h.state !== 'trabajando' && h.state !== 'pensando'); } })),
-    { text: <>{t('world.communications')} <span className="tenue">· {t('panels.nUnseen', { n: notices.length })}</span></>, hint: notices[0] ? `${notices[0].author}: ${notices[0].title}` : t('panels.nothingNew'), f: () => { closePanel(); goA('comunicaciones'); } },
-    { text: <>{t('world.calendar')} <span className="tenue">· {events.length ? t('panels.nextEvent') : t('panels.noEvents')}</span></>, hint: events[0] ? `${new Date(events[0].start).toLocaleTimeString((language() === 'en' ? 'en-GB' : 'es-ES'), { hour: '2-digit', minute: '2-digit' })} ${events[0].title}` : '', f: () => { closePanel(); goA('planificacion'); } },
+    ...hs.map(h => ({ text: <><span className={'glifo-estado ' + h.state} /> <b>{h.name}</b> <span className="dim">· {h.nameRoom}</span></>, hint: <>{tIs(STATE_TEXT[h.state])}{h.detail ? ' — ' + h.detail : ''}</>, kind: h.state, f: () => { closePanel(); goA(h.room, h.id, h.state !== 'working' && h.state !== 'thinking'); } })),
+    { text: <>{t('world.communications')} <span className="dim">· {t('panels.nUnseen', { n: notices.length })}</span></>, hint: notices[0] ? `${notices[0].author}: ${notices[0].title}` : t('panels.nothingNew'), f: () => { closePanel(); goA('comms'); } },
+    { text: <>{t('world.calendar')} <span className="dim">· {events.length ? t('panels.nextEvent') : t('panels.noEvents')}</span></>, hint: events[0] ? `${new Date(events[0].start).toLocaleTimeString((language() === 'en' ? 'en-GB' : 'es-ES'), { hour: '2-digit', minute: '2-digit' })} ${events[0].title}` : '', f: () => { closePanel(); goA('calendar'); } },
   ];
   const [i, setI] = useMenu(items.length, k => items[k].f(), e => (e.code === 'Tab' ? (closePanel(), true) : undefined));
   return (
-    <Device label={t('panels.whatSHappeningNow')} width={46} pilot={hs.some(h => h.state === 'esperando') ? 'esperando' : hs.length ? 'trabajando' : 'ociosa'}>
-      {!hs.length && <p className="tenue">{t('panels.nobodyIsWorkingRightNow')}</p>}
+    <Device label={t('panels.whatSHappeningNow')} width={46} pilot={hs.some(h => h.state === 'waiting') ? 'waiting' : hs.length ? 'working' : 'idle'}>
+      {!hs.length && <p className="dim">{t('panels.nobodyIsWorkingRightNow')}</p>}
       <Options items={items} i={i} setI={setI} onChoose={k => items[k].f()} />
       <Keys><kbd>↑↓</kbd>{t('menu.select')} <kbd>Enter</kbd>{t('panels.goAndTalkIfThey')} <kbd>Q</kbd>{t('panels.inTheShelterGoTo')} <kbd>Esc</kbd>{t('menu.close')}</Keys>
     </Device>
@@ -355,7 +355,7 @@ const WINDOW_CONTROLS: [string, string][] = [
 const SURFACE_CONTROLS: [string, string][] = [
   ['⇧⌥⌘Esc', 'tecla de pánico, desde cualquier app: el juego desaparece (ventana, Dock y sonido) y todo lo abierto sale a una ventana de iTerm. Otra vez (o abrir la app): vuelve como estaba'],
   ['↗ · ⌘⇧E', 'saca solo la pestaña activa de un intercomunicador o de una terminal'],
-  ['conversaciones', 'se cierran aquí y siguen fuera con claude --resume, en su carpeta y con sus permisos; si estaban trabajando, se interrumpen y fuera se les pide que sigan'],
+  ['conversations', 'se cierran aquí y siguen fuera con claude --resume, en su carpeta y con sus permisos; si estaban trabajando, se interrumpen y fuera se les pide que sigan'],
   ['volver a traerlas', '/exit en iTerm y «Retomar un trabajo anterior» en el habitante; mientras sigan abiertas fuera, el archivo las marca con ↗ y no se retoman aquí (si cerraste la pestaña sin /exit, Enter dos veces en el archivo fuerza el cierre)'],
   ['terminales', 'son la misma (el mismo shell, con lo que tenga en marcha) aquí y fuera; mientras esté fuera manda su tamaño y sobrevive aunque cierres el juego'],
   ['si el juego se cae', 'a los 20 s sin ventana (sin pasar por «Salir»), todo sale solo a tu escritorio'],
@@ -381,10 +381,10 @@ function Help() {
           <h3>{t('world.gitClient')}</h3><dl className="tabla-teclas">{CONTROLS_GIT.map(([k, v]) => <React.Fragment key={k}><dt>{tIs(k)}</dt><dd>{tIs(v)}</dd></React.Fragment>)}</dl>
           <h3>{t('panels.signals')}</h3>
           <dl className="tabla-teclas">
-            <dt><span className="glifo-estado esperando" /> {t('panels.amber')}</dt><dd>{t('panels.waitingForYouPermissionQuestion')}</dd>
-            <dt><span className="glifo-estado terminado" /> {t('panels.green')}</dt><dd>{t('panels.finishedAndYouHavenT')}</dd>
+            <dt><span className="glifo-estado waiting" /> {t('panels.amber')}</dt><dd>{t('panels.waitingForYouPermissionQuestion')}</dd>
+            <dt><span className="glifo-estado finished" /> {t('panels.green')}</dt><dd>{t('panels.finishedAndYouHavenT')}</dd>
             <dt><span className="glifo-estado error" /> {t('panels.red')}</dt><dd>{t('panels.breakdownTheSessionFailed')}</dd>
-            <dt><span className="glifo-estado trabajando" /> {t('panels.phosphor')}</dt><dd>{t('panels.workingTheScreensTheSteam')}</dd>
+            <dt><span className="glifo-estado working" /> {t('panels.phosphor')}</dt><dd>{t('panels.workingTheScreensTheSteam')}</dd>
             <dt>{t('panels.littleRobots')}</dt><dd>{t('panels.helpersSubagentsInTheRoom')}</dd>
             <dt>DEMO</dt><dd>{t('panels.thatIntegrationShowsSimulatedData')}</dd>
             <dt>{t('panels.deck')}</dt><dd>{t('panels.bottomLeftWithSpotifyMinimized')}</dd>
@@ -401,7 +401,7 @@ function GameOptions() {
   const [, refresh] = useState(0);
   const au = sound.settings;
   const pct = ['0 %', '10 %', '20 %', '30 %', '40 %', '50 %', '60 %', '70 %', '80 %', '90 %', '100 %'];
-  const vol = (k: string) => ({ lbl: t(({ master: 'menu.masterVolume', ambiente: 'menu.ambience', musica: 'menu.roomMusic', sfx: 'menu.effects', ui: 'menu.interface', voces: 'menu.dwellerChatter', teclado: 'menu.typingYourKeyboard' } as any)[k]), values: pct, current: Math.round((au as any)[k] * 10), set: (n: number) => { sound.save({ [k]: n / 10 }); refresh(x => x + 1); SFX.tick(); } });
+  const vol = (k: string) => ({ lbl: t(({ master: 'menu.masterVolume', ambient: 'menu.ambience', music: 'menu.roomMusic', sfx: 'menu.effects', ui: 'menu.interface', voces: 'menu.dwellerChatter', keyboard: 'menu.typingYourKeyboard' } as any)[k]), values: pct, current: Math.round((au as any)[k] * 10), set: (n: number) => { sound.save({ [k]: n / 10 }); refresh(x => x + 1); SFX.tick(); } });
   const rows: Row[] = [
     // cambiar de idioma recarga la vista: los carteles de las salas se pintan al montarlas
     { lbl: t('menu.language') + (language() === 'es' ? ' · Language' : ''), values: LANGUAGES.map(x => x.text), current: Math.max(0, LANGUAGES.findIndex(x => x.value === language())), set: k => { const v = LANGUAGES[k].value; if (v === language()) return; setLanguage(v); client.action('language', { language: v }).catch(() => {}).finally(reloadView); } },
@@ -426,13 +426,13 @@ function GameOptions() {
     <Device label={t('menu.optionsSavedInThisBrowser')} width={44} onClose={goBack}>
       <ul className="opciones-consola filas-ajuste">
         {rows.map((f, k) => (
-          <li key={f.lbl} className={k === i ? 'activa' : ''} onMouseEnter={() => setI(k)}>
+          <li key={f.lbl} className={k === i ? 'active' : ''} onMouseEnter={() => setI(k)}>
             <span className="cursor">{k === i ? '▶' : ' '}</span><span className="txt">{f.lbl}</span>
             <span className="selector"><button onClick={() => f.set(Math.max(0, f.current - 1))}>◀</button><b>{f.values[f.current]}</b><button onClick={() => f.set(Math.min(f.values.length - 1, f.current + 1))}>▶</button></span>
           </li>
         ))}
       </ul>
-      <p className="tenue">{t('menu.credentialsTheReposRootThe')}</p>
+      <p className="dim">{t('menu.credentialsTheReposRootThe')}</p>
       <Keys><kbd>↑↓</kbd>{t('menu.select')} <kbd>←→</kbd>{t('menu.change')} <kbd>Esc</kbd>{t(fromMenu() ? 'menu.back' : 'menu.close')}</Keys>
     </Device>
   );
@@ -446,11 +446,11 @@ function MenuGame() {
   const items: (ItemMenu & { f: () => void })[] = [
     { text: t('menu.backToTheShelter'), hint: 'Esc', f: closePanel },
     { text: t('menu.searchConversationsActionsAndRooms'), hint: `${MAC_K}K`, f: () => { closePanel(); openSearch(); } },
-    { text: t('menu.options'), hint: t('menu.soundAndLanguage'), f: sub('opciones') },
-    { text: t('menu.keyboardShortcuts'), hint: 'F1', f: sub('ayuda') },
+    { text: t('menu.options'), hint: t('menu.soundAndLanguage'), f: sub('options') },
+    { text: t('menu.keyboardShortcuts'), hint: 'F1', f: sub('help') },
     { text: t('menu.reloadTheView'), hint: t('menu.ifTheShelterGoesBlack'), f: () => { SFX.click(); reloadView(); } },
-    { text: t('menu.restartTheGame'), hint: t('menu.appliesServerChangesTerminalsKeep'), f: sub('reiniciar') },
-    { text: t('menu.leaveTheShelter'), hint: t('menu.surfacePhoneOrClose'), danger: true, f: sub('salir') },
+    { text: t('menu.restartTheGame'), hint: t('menu.appliesServerChangesTerminalsKeep'), f: sub('restart') },
+    { text: t('menu.leaveTheShelter'), hint: t('menu.surfacePhoneOrClose'), danger: true, f: sub('exit') },
   ];
   const [i, setI] = useMenu(items.length, k => items[k].f());
   return (
@@ -464,21 +464,21 @@ function MenuGame() {
 // ---------------------------------------------------------------- salir
 // la única salida del menú: pregunta cómo se sale (lo abierto sigue en el escritorio o en el móvil, o se cierra todo)
 function Exit() {
-  const liveCount = Object.values(live.use(e => e.sessions)).filter(s => s.state !== 'cerrada').length;
+  const liveCount = Object.values(live.use(e => e.sessions)).filter(s => s.state !== 'closed').length;
   const terms = openTerminals.use(e => e.list.length);
   const hasAny = liveCount + terms > 0;
   const items: (ItemMenu & { f: () => void })[] = [
     { text: t('menu.stay'), f: goBack },
     { text: t('menu.goToTheSurface'), hint: t(hasAny ? 'menu.everythingOpenToYourDesktop' : 'menu.nothingOpenToTakeOut'), powerOff: !hasAny, f: () => { if (!hasAny) { SFX.notAllowed(); return; } closePanel(); takeASurface({ all: true }); } },
     { text: t('menu.everythingToYourPhone'), hint: t(liveCount ? 'menu.openConversationsWithRemoteControl' : 'menu.noOpenConversations'), powerOff: !liveCount, f: () => { if (!liveCount) { SFX.notAllowed(); return; } closePanel(); takeASurface({ all: true, remote: true, windowNew: true }); } },
-    { text: liveCount ? (liveCount === 1 ? t('menu.leaveAndStopTheLive') : t('menu.leaveAndStopTheN', { n: liveCount })) : t('menu.leaveTheShelter'), danger: true, f: () => { SFX.powerOff(); client.send({ t: 'quit' }); openPanel('despedida'); } },
+    { text: liveCount ? (liveCount === 1 ? t('menu.leaveAndStopTheLive') : t('menu.leaveAndStopTheN', { n: liveCount })) : t('menu.leaveTheShelter'), danger: true, f: () => { SFX.powerOff(); client.send({ t: 'quit' }); openPanel('farewell'); } },
   ];
   const pick = (k: number) => items[k].f();
   const [i, setI] = useMenu(items.length, pick, undefined, goBack);
   return (
-    <Device label={t('menu.mainHatch')} width={46} pilot={liveCount ? 'esperando' : 'ociosa'} onClose={goBack}>
-      <p className="voz">{t('menu.howDoYouLeaveOverseer')}</p>
-      {liveCount > 0 && <p className="aviso-consola">{t(liveCount === 1 ? 'menu.thereIs1LiveSession' : 'menu.thereAreNLiveSessions', { n: liveCount })}</p>}
+    <Device label={t('menu.mainHatch')} width={46} pilot={liveCount ? 'waiting' : 'idle'} onClose={goBack}>
+      <p className="voice">{t('menu.howDoYouLeaveOverseer')}</p>
+      {liveCount > 0 && <p className="notice-console">{t(liveCount === 1 ? 'menu.thereIs1LiveSession' : 'menu.thereAreNLiveSessions', { n: liveCount })}</p>}
       <Options items={items} i={i} setI={setI} onChoose={pick} />
       <Keys><kbd>↑↓</kbd>{t('menu.select')} <kbd>Enter</kbd>{t('menu.confirm')} <kbd>Esc</kbd>{t('menu.stay2')}</Keys>
     </Device>
@@ -486,7 +486,7 @@ function Exit() {
 }
 // reinicio desde la regleta: servidor y ventana, sin cerrar las terminales (para aplicar cambios hechos al juego)
 function Restart() {
-  const liveCount = Object.values(live.use(e => e.sessions)).filter(s => ['arrancando', 'trabajando', 'esperando'].includes(s.state)).length;
+  const liveCount = Object.values(live.use(e => e.sessions)).filter(s => ['starting', 'working', 'waiting'].includes(s.state)).length;
   const [state, setState] = useState<{ inProgress?: boolean; error?: string }>({});
   const items: ItemMenu[] = [{ text: t('panels.continue') }, { text: state.inProgress ? t('panels.restarting') : liveCount ? (liveCount === 1 ? t('panels.restartAndCutTheRunning') : t('panels.restartAndCutTheN', { n: liveCount })) : t('menu.restartTheGame'), danger: liveCount > 0 }];
   const pick = (k: number) => {
@@ -497,12 +497,12 @@ function Restart() {
   };
   const [i, setI] = useMenu(2, pick, undefined, goBack);
   return (
-    <Device label={t('panels.restart')} onClose={goBack} width={40} pilot={state.error ? 'error' : liveCount ? 'esperando' : 'ociosa'}>
-      <p className="voz">{t('panels.restartTheGameOverseer')}</p>
+    <Device label={t('panels.restart')} onClose={goBack} width={40} pilot={state.error ? 'error' : liveCount ? 'waiting' : 'idle'}>
+      <p className="voice">{t('panels.restartTheGameOverseer')}</p>
       <p>{t('panels.theServerRestartsWithAny')}</p>
-      {liveCount > 0 && <p className="aviso-consola">{liveCount === 1 ? t('panels.1DwellerIsWorkingOr') : t('panels.nDwellersAreWorkingOr', { n: liveCount })}</p>}
-      {state.inProgress && <p className="aviso-consola">{t('panels.checkingTheNewCodeAnd')}</p>}
-      {state.error && <p className="aviso-consola">{state.error}</p>}
+      {liveCount > 0 && <p className="notice-console">{liveCount === 1 ? t('panels.1DwellerIsWorkingOr') : t('panels.nDwellersAreWorkingOr', { n: liveCount })}</p>}
+      {state.inProgress && <p className="notice-console">{t('panels.checkingTheNewCodeAnd')}</p>}
+      {state.error && <p className="notice-console">{state.error}</p>}
       <Options items={items} i={i} setI={setI} onChoose={pick} />
       <Keys><kbd>↑↓</kbd>{t('menu.select')} <kbd>Enter</kbd>{t('menu.confirm')} <kbd>Esc</kbd>{t('panels.continue2')}</Keys>
     </Device>
@@ -510,5 +510,5 @@ function Restart() {
 }
 function Farewell() {
   useEffect(() => { keyboard.blocked = true; document.title = t('panels.workShelterSealed'); }, []);
-  return <div className="despedida interactivo"><div className="placa-despedida">{t('panels.theShelterIsSealed')}<small>{t('panels.seeYouSoonOverseerTo')} <code>./shelter</code></small></div></div>;
+  return <div className="farewell interactivo"><div className="placa-despedida">{t('panels.theShelterIsSealed')}<small>{t('panels.seeYouSoonOverseerTo')} <code>./shelter</code></small></div></div>;
 }

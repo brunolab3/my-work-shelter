@@ -184,11 +184,11 @@ describe('taskWorktreeIn', () => {
     const env = { ...process.env, GIT_CONFIG_GLOBAL: '/dev/null', GIT_AUTHOR_NAME: 'P', GIT_AUTHOR_EMAIL: 'p@refugio.example', GIT_COMMITTER_NAME: 'P', GIT_COMMITTER_EMAIL: 'p@refugio.example' };
     const g = (...a: string[]) => execFileSync('git', ['-C', d, ...a], { encoding: 'utf8', env });
     g('init', '-q', '-b', 'ABC-1-en-la-principal'); writeFileSync(path.join(d, 'a'), 'a'); g('add', '.'); g('commit', '-qm', 'a');
-    g('worktree', 'add', '-q', '-b', 'feature/ABC-2-x', path.join(d, '.claude', 'worktrees', 'otra'));
+    g('worktree', 'add', '-q', '-b', 'feature/ABC-2-x', path.join(d, '.claude', 'worktrees', 'other'));
     g('worktree', 'add', '-q', '-b', 'suelta', path.join(d, '.claude', 'worktrees', 'shelter-abc-3'));
     g('worktree', 'add', '-q', '-b', 'worktree-shelter-holo-front-edge--a1b2', path.join(d, '.claude', 'worktrees', 'shelter-holo-front-edge--a1b2'));
     const list = g('worktree', 'list', '--porcelain');
-    expect(taskWorktreeIn(list, 'abc-2')).toEqual({ path: path.join(d, '.claude', 'worktrees', 'otra'), branch: 'feature/ABC-2-x' });
+    expect(taskWorktreeIn(list, 'abc-2')).toEqual({ path: path.join(d, '.claude', 'worktrees', 'other'), branch: 'feature/ABC-2-x' });
     expect(taskWorktreeIn(list, 'ABC-3')?.branch).toBe('suelta');
     expect(taskWorktreeIn(list, 'ABC-1')).toBeUndefined();
     expect(taskWorktreeIn(list, 'ABC-9')).toBeUndefined();

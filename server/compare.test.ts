@@ -13,7 +13,7 @@ function repo() {
   g('init', '-q', '-b', 'main');
   writeFileSync(path.join(d, 'a.ts'), 'const a = 1;\nconst b = 2;\n'); g('add', '.'); g('commit', '-qm', 'base');
   g('checkout', '-qb', 'tarea');
-  writeFileSync(path.join(d, 'a.ts'), 'const a = 1;\nconst b = "<script>3</script>";\n'); writeFileSync(path.join(d, 'nuevo.md'), '# hola\n'); g('add', '.'); g('commit', '-qm', 'cambio');
+  writeFileSync(path.join(d, 'a.ts'), 'const a = 1;\nconst b = "<script>3</script>";\n'); writeFileSync(path.join(d, 'nuevo.md'), '# hola\n'); g('add', '.'); g('commit', '-qm', 'change');
   writeFileSync(path.join(d, 'a.ts'), 'const a = 1;\nconst b = "<script>3</script>";\nconst c = 4;\n');   // sin commit
   writeFileSync(path.join(d, 'suelto.ts'), 'export const x = 1;\n');   // nuevo, aún sin seguir
   return d;
@@ -39,17 +39,17 @@ describe('comparación de cambios', () => {
   });
   it('otra copia del mismo repo se puede comparar desde la conversación; una carpeta que no es su worktree, no', async () => {
     const d = repo();
-    const copy = path.join(mkdtempSync(path.join(os.tmpdir(), 'copia-')), 'otra');
-    execFileSync('git', ['worktree', 'add', '-q', '-b', 'otra', copy, 'main'], { cwd: d });
+    const copy = path.join(mkdtempSync(path.join(os.tmpdir(), 'copia-')), 'other');
+    execFileSync('git', ['worktree', 'add', '-q', '-b', 'other', copy, 'main'], { cwd: d });
     expect(await sameRepoWorktree(d, copy)).toBe(realpathSync(copy));
     await expect(sameRepoWorktree(d, os.tmpdir())).rejects.toThrow();
     await expect(sameRepoWorktree(copy, d)).resolves.toBe(realpathSync(d));
-    expect((await buildCompare(await sameRepoWorktree(d, copy))).branch).toBe('otra');
+    expect((await buildCompare(await sameRepoWorktree(d, copy))).branch).toBe('other');
   });
   it('another branch or commit of the same repo as head, from a copy on another branch: only its commits, named by itself in the sidecar', async () => {
     const d = repo();
-    const copy = path.join(mkdtempSync(path.join(os.tmpdir(), 'copia-')), 'otra');
-    execFileSync('git', ['worktree', 'add', '-q', '-b', 'otra', copy, 'main'], { cwd: d });
+    const copy = path.join(mkdtempSync(path.join(os.tmpdir(), 'copia-')), 'other');
+    execFileSync('git', ['worktree', 'add', '-q', '-b', 'other', copy, 'main'], { cwd: d });
     const sha = execFileSync('git', ['rev-parse', 'tarea'], { cwd: d }).toString().trim();
     const byBranch = await buildCompare(copy, { head: 'tarea' });
     expect([byBranch.base, byBranch.branch, byBranch.head, byBranch.files, byBranch.more]).toEqual(['main', 'tarea', sha, 2, 2]);
@@ -74,8 +74,8 @@ describe('comparación de cambios', () => {
 describe('cleaning compares', () => {
   it('a compare goes once every worktree it covers is removed; one still in use stays', async () => {
     const d = repo(), folder = mkdtempSync(path.join(os.tmpdir(), 'compares-'));
-    const copy = path.join(mkdtempSync(path.join(os.tmpdir(), 'copia-')), 'otra');
-    execFileSync('git', ['worktree', 'add', '-q', '-b', 'otra', copy, 'main'], { cwd: d });
+    const copy = path.join(mkdtempSync(path.join(os.tmpdir(), 'copia-')), 'other');
+    execFileSync('git', ['worktree', 'add', '-q', '-b', 'other', copy, 'main'], { cwd: d });
     const alive = await buildCompare(d, {}, folder), removed = await buildCompare(copy, {}, folder);
     execFileSync('git', ['worktree', 'remove', copy], { cwd: d });
     await cleanCompares(14, [folder]);

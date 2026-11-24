@@ -76,7 +76,7 @@ export abstract class ConnectorBase implements Adapter {
   intervalMs = 60_000;
   error?: string;
   notify?: (a: Notice) => void;
-  protected situation: { state: 'conectada' | 'error' | 'sin-configurar'; detail?: string } = { state: 'sin-configurar' };
+  protected situation: { state: 'connected' | 'error' | 'not-configured'; detail?: string } = { state: 'not-configured' };
   protected last?: number;
   protected waitUntil = 0;   // límite de peticiones: no se vuelve a pedir hasta entonces
   constructor(protected store: Store, readonly config: ConfigSource) {}
@@ -87,11 +87,11 @@ export abstract class ConnectorBase implements Adapter {
   protected ready() { return this.config.ready(); }
 
   state(): SourceState { return { mode: 'real', state: this.situation.state, detail: this.situation.detail, last: this.last, fields: this.config.publicFields() }; }
-  protected good(detail?: string) { this.situation = { state: 'conectada', detail }; this.error = undefined; }
+  protected good(detail?: string) { this.situation = { state: 'connected', detail }; this.error = undefined; }
   protected fail(detail: string) { this.situation = { state: 'error', detail }; this.error = detail; }
 
   async poll() {
-    if (!this.ready()) { this.situation = { state: 'sin-configurar', detail: this.missingConfig() }; return {}; }
+    if (!this.ready()) { this.situation = { state: 'not-configured', detail: this.missingConfig() }; return {}; }
     if (Date.now() < this.waitUntil) return {};
     try { const r = await this.pollReal(); this.last = Date.now(); return r; }
     catch (e) {
@@ -112,12 +112,12 @@ export abstract class ConnectorBase implements Adapter {
     if (r.ok) this.good(r.detail); else this.fail(r.detail);
     return r;
   }
-  restart() { this.config.forgetCache(); this.waitUntil = 0; this.situation = { state: 'sin-configurar' }; this.error = undefined; this.onRestart(); }
+  restart() { this.config.forgetCache(); this.waitUntil = 0; this.situation = { state: 'not-configured' }; this.error = undefined; this.onRestart(); }
   protected onRestart() {}
   stop() { this.onRestart(); }
   async action(name: string, d: Record<string, any>): Promise<unknown> {
     if (name === 'fields') return this.config.description();
-    if (name === 'forget') { this.onRestart(); await this.config.forget(); this.restart(); this.notify?.('estado'); return this.state(); }
+    if (name === 'forget') { this.onRestart(); await this.config.forget(); this.restart(); this.notify?.('state'); return this.state(); }
     return this.ownAction(name, d);
   }
   protected async ownAction(name: string, _d: Record<string, any>): Promise<unknown> { throw new Error(t('integrations.unknownActionFor', { id: this.id, nombre: name })); }

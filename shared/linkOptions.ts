@@ -2,10 +2,10 @@
 // click runs directly (a right click shows them all). Inside the game first whenever it can be seen there.
 import { t } from './language.ts';
 
-export type LinkAction = 'juego' | 'navegador' | 'mac' | 'finder' | 'copiar';
+export type LinkAction = 'juego' | 'browser' | 'mac' | 'finder' | 'copy';
 export interface LinkOption { action: LinkAction; text: string }
 // where the server would open a file of the Mac (server/open.ts, localKind)
-export type LocalKind = 'carpeta' | 'web' | 'vista' | 'editor' | 'finder';
+export type LocalKind = 'folder' | 'web' | 'preview' | 'editor' | 'finder';
 
 /** A web link: inside (its site's browser, the «Web» window or, for a page another program serves on this Mac, the
  *  «Página» one) when it can, the system browser (or mail) and copying it */
@@ -13,13 +13,13 @@ export function webLinkOptions(href: string, o: { inside: boolean; spot?: string
   const email = /^mailto:/i.test(href);
   return [
     ...(o.inside && !email ? [{ action: 'juego' as const, text: o.spot ? t('windows.linkOpenInSpot', { nombre: o.spot }) : t('windows.linkOpenInGame') }] : []),
-    { action: 'navegador', text: email ? t('windows.linkOpenInMail') : t('windows.linkOpenInBrowser') },
-    { action: 'copiar', text: email ? t('windows.linkCopyAddress') : t('windows.linkCopy') },
+    { action: 'browser', text: email ? t('windows.linkOpenInMail') : t('windows.linkOpenInBrowser') },
+    { action: 'copy', text: email ? t('windows.linkCopyAddress') : t('windows.linkCopy') },
   ];
 }
 
 const ON_MAC: Record<LocalKind, string | null> = {
-  carpeta: 'windows.linkOpenInFinder', web: 'windows.linkOpenWithDefaultApp', vista: 'windows.linkOpenInPreview', editor: 'windows.linkOpenInEditor', finder: null,
+  folder: 'windows.linkOpenInFinder', web: 'windows.linkOpenWithDefaultApp', preview: 'windows.linkOpenInPreview', editor: 'windows.linkOpenInEditor', finder: null,
 };
 /** A file of the Mac (null: it isn't there): in the game (a page or an image), where the Mac opens it without running
  *  anything, revealed in Finder and copying its path */
@@ -28,8 +28,8 @@ export function fileLinkOptions(type: { juego: boolean; mac: LocalKind } | null)
   return [
     ...(type?.juego ? [{ action: 'juego' as const, text: t('windows.linkOpenInGame') }] : []),
     ...(onMac ? [{ action: 'mac' as const, text: t(onMac) }] : []),
-    ...(type && type.mac !== 'carpeta' ? [{ action: 'finder' as const, text: t('windows.linkRevealInFinder') }] : []),
-    { action: 'copiar', text: t('windows.linkCopyPath') },
+    ...(type && type.mac !== 'folder' ? [{ action: 'finder' as const, text: t('windows.linkRevealInFinder') }] : []),
+    { action: 'copy', text: t('windows.linkCopyPath') },
   ];
 }
 

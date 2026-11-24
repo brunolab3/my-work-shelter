@@ -25,7 +25,7 @@ function repo(base: string, name: string) {
   return { remote, path: filePath };
 }
 const pr = (repo: string, number: number, branch: string, head: string, extra: Partial<PRBoard> = {}): PRBoard =>
-  ({ number, title: 'PR ' + number, url: `https://github.com/${repo}/pull/${number}`, repo, branch, state: 'abierto', updated: 0, base: 'main', checks: 'SUCCESS', review: 'REVIEW_REQUIRED', head, ...extra });
+  ({ number, title: 'PR ' + number, url: `https://github.com/${repo}/pull/${number}`, repo, branch, state: 'open', updated: 0, base: 'main', checks: 'SUCCESS', review: 'REVIEW_REQUIRED', head, ...extra });
 
 describe('pre-flight con git de verdad', () => {
   it('una tarea en dos repos: sincronía local frente a la cabeza del PR (un bot empujó, cambios sin commitear) y el bloqueo entre ellos', async () => {
@@ -43,7 +43,7 @@ describe('pre-flight con git de verdad', () => {
     // web: el worktree de la tarea al día con su PR, pero con un archivo sin commitear
     const wtWeb = path.join(base, 'wt', 'web-abc-7');
     sh(web.path, 'worktree', 'add', '-q', '-b', 'ABC-7-pantalla', wtWeb);
-    const webHead = commit(wtWeb, 'pantalla.txt', 'pantalla');
+    const webHead = commit(wtWeb, 'pantalla.txt', 'screen');
     writeFileSync(path.join(wtWeb, 'pantalla.txt'), 'a medias');
     // otra tarea en web: no sale
     sh(web.path, 'branch', 'ABC-8-otra');
@@ -71,7 +71,7 @@ describe('pre-flight con git de verdad', () => {
       prs: async () => ({ prs }), rooms: async () => rooms, manual: () => [], orden: async () => [],
       plan: () => [{ roomId: 'api', room: 'API', title: 'El contrato' }, { roomId: 'web', room: 'Web', title: 'La pantalla', waitA: ['api'] }],
       color: () => '#4dabff', git, compares: () => reviewed.compares(),
-      ciChecks: url => url.endsWith('/1') ? [{ name: 'build', state: 'mal' as const }, { name: 'lint', state: 'ok' as const }] : undefined,
+      ciChecks: url => url.endsWith('/1') ? [{ name: 'build', state: 'bad' as const }, { name: 'lint', state: 'ok' as const }] : undefined,
       checklist: () => ({ items: ['Compare revisado', 'Pruebas con datos reales'], answers: k => reviewed.checklistOf(k) }),
       reviews: url => url.endsWith('/2') ? { ledger: { unresolved: 1, outdated: 0, unansweredSummaries: 0 }, threads: [{ file: 'pantalla.txt', line: 1, author: 'revisora', text: '¿Seguro?', url: url + '#discussion_r1', outdated: false }] } : {},
     };
@@ -80,27 +80,27 @@ describe('pre-flight con git de verdad', () => {
     const reviewed = new PageReviews(data, folder);
     const cmp = await buildCompare(wtWeb, { base: 'main' }, folder);
     expect(JSON.parse(readFileSync(cmp.file.replace(/\.html$/, '.json'), 'utf8')).parts).toEqual([{ worktree: wtWeb, branch: 'ABC-7-pantalla', head: webHead, base: 'main' }]);
-    expect(reviewed.respond(cmp.file, 'validada')).toBe(true);
-    expect(reviewed.respond(path.join(base, 'otra.html'), 'validada')).toBe(false);   // fuera de la carpeta, no cuenta
+    expect(reviewed.respond(cmp.file, 'validated')).toBe(true);
+    expect(reviewed.respond(path.join(base, 'otra.html'), 'validated')).toBe(false);   // fuera de la carpeta, no cuenta
     const r = await preflightOf('abc-7', ctx);
     expect(r.key).toBe('ABC-7');
     expect(r.color).toBe('#4dabff');
     const pApi = r.parts.find(p => p.roomId === 'api')!, pWeb = r.parts.find(p => p.roomId === 'web')!;
-    expect([pApi.sync.mark, pApi.ci.mark, pApi.plan]).toEqual(['aviso', 'mal', 'El contrato']);
-    expect([pWeb.sync.mark, pWeb.ci.mark, pWeb.blockers.mark]).toEqual(['aviso', 'ok', 'aviso']);   // la CI roja es de api
+    expect([pApi.sync.mark, pApi.ci.mark, pApi.plan]).toEqual(['warning', 'bad', 'El contrato']);
+    expect([pWeb.sync.mark, pWeb.ci.mark, pWeb.blockers.mark]).toEqual(['warning', 'ok', 'warning']);   // la CI roja es de api
     expect(pWeb.waitsOn.map(l => l.ref)).toEqual(['acme/api#1']);
     expect(r.waves).toEqual([['acme/api#1'], ['acme/web#2']]);
     expect(r.parts.some(p => p.pr?.number === 3)).toBe(false);
-    expect(pApi.ciChecks.map(c => `${c.name}:${c.state}`)).toEqual(['build:mal', 'lint:ok']);   // cada check de su PR
-    expect([pWeb.compare.mark, pApi.compare.mark]).toEqual(['ok', 'mal']);
+    expect(pApi.ciChecks.map(c => `${c.name}:${c.state}`)).toEqual(['build:bad', 'lint:ok']);   // cada check de su PR
+    expect([pWeb.compare.mark, pApi.compare.mark]).toEqual(['ok', 'bad']);
     expect(pWeb.review.text).toMatch(/1/);                // el hilo sin resolver, en la revisión
     expect(pWeb.threads.map(h => `${h.file}:${h.line} ${h.author}`)).toEqual(['pantalla.txt:1 revisora']);
     // un commit nuevo deja vieja la validación
     sh(wtWeb, 'commit', '-qam', 'otro paso');
-    expect((await preflightOf('ABC-7', ctx)).parts.find(p => p.roomId === 'web')!.compare.mark).toBe('aviso');
+    expect((await preflightOf('ABC-7', ctx)).parts.find(p => p.roomId === 'web')!.compare.mark).toBe('warning');
     // a new compare at the new commit, validated, counts again
     const cmp2 = await buildCompare(wtWeb, { base: 'main' }, folder);
-    expect(reviewed.respond(cmp2.file, 'validada')).toBe(true);
+    expect(reviewed.respond(cmp2.file, 'validated')).toBe(true);
     expect((await preflightOf('ABC-7', ctx)).parts.find(p => p.roomId === 'web')!.compare.mark).toBe('ok');
 
     // fase 3: la lista «antes de subir» y la puerta de git push, desde la carpeta del worktree
@@ -156,7 +156,7 @@ describe('cachedTaskPRs', () => {
 
 describe('preflightOf with a task merged weeks ago', () => {
   it('its PRs come from the task search when the board no longer has them', async () => {
-    const old = pr('acme/api', 7, 'ABC-3-viejo', 'h7', { state: 'fusionado' });
+    const old = pr('acme/api', 7, 'ABC-3-viejo', 'h7', { state: 'merged' });
     const ctx: CtxPreflight = {
       prs: async () => ({ prs: [] }), taskPrs: async () => [old], rooms: async () => [], manual: () => [], orden: async () => [],
       plan: () => undefined, color: () => undefined, compares: async () => [], reviews: () => ({}), ciChecks: () => undefined,

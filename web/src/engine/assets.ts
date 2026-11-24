@@ -91,7 +91,7 @@ export interface Placement extends ModelOptions {
   rotX?: number; rotZ?: number;
   scale?: number;               // escala uniforme directa
   height?: number; width?: number; background?: number; // o ajustar por una dimensión real (tras girar 0)
-  anchor?: 'base' | 'origen' | 'centro' | 'techo' | 'atras';
+  anchor?: 'base' | 'origin' | 'center' | 'ceiling' | 'back';
   name?: string;
   isStatic?: boolean;            // se puede fusionar con el resto de la sala
 }
@@ -107,13 +107,13 @@ export async function place(parent: THREE.Object3D, path: string, c: Placement =
   if (c.height) s = c.height / size.y; else if (c.width) s = c.width / size.x; else if (c.background) s = c.background / size.z;
   obj.scale.multiplyScalar(s);
   const anchor = c.anchor ?? 'base';
-  if (anchor !== 'origen') {
+  if (anchor !== 'origin') {
     const cx = (box.min.x + box.max.x) / 2 * s, cz = (box.min.z + box.max.z) / 2 * s;
     let y = -box.min.y * s;
-    if (anchor === 'centro') y = -(box.min.y + box.max.y) / 2 * s;
-    if (anchor === 'techo') y = -box.max.y * s;
-    obj.position.set(obj.position.x * s - cx, obj.position.y * s + y, obj.position.z * s - (anchor === 'atras' ? box.min.z * s : cz));
-    if (anchor === 'atras') obj.position.x = obj.position.x; // apoyado contra la pared (z mínima en 0)
+    if (anchor === 'center') y = -(box.min.y + box.max.y) / 2 * s;
+    if (anchor === 'ceiling') y = -box.max.y * s;
+    obj.position.set(obj.position.x * s - cx, obj.position.y * s + y, obj.position.z * s - (anchor === 'back' ? box.min.z * s : cz));
+    if (anchor === 'back') obj.position.x = obj.position.x; // apoyado contra la pared (z mínima en 0)
   }
   if (c.pos) wrapper.position.set(...c.pos);
   wrapper.rotation.set(c.rotX ?? 0, c.rot ?? 0, c.rotZ ?? 0);

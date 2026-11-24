@@ -38,7 +38,7 @@ export async function compareBase(cwd: string, requested?: string): Promise<stri
 }
 
 interface Line { type: ' ' | '+' | '-' | '@'; text: string; old?: number; newer?: number }
-interface FileDiff { path: string; before?: string; state: 'nuevo' | 'borrado' | 'renombrado' | 'cambiado'; binary: boolean; more: number; deletions: number; lines: Line[]; truncated: boolean }
+interface FileDiff { path: string; before?: string; state: 'new' | 'deleted' | 'renamed' | 'changed'; binary: boolean; more: number; deletions: number; lines: Line[]; truncated: boolean }
 
 /** Un diff unificado de git, por archivos y líneas (con sus números a cada lado) */
 export function parseDiff(diff: string): FileDiff[] {
@@ -46,12 +46,12 @@ export function parseDiff(diff: string): FileDiff[] {
   for (const l of diff.split('\n')) {
     if (l.startsWith('diff --git ')) {
       const m = /^diff --git a\/(.*) b\/(.*)$/.exec(l);
-      f = { path: m?.[2] ?? l.slice(11), state: 'cambiado', binary: false, more: 0, deletions: 0, lines: [], truncated: false }; files.push(f); continue;
+      f = { path: m?.[2] ?? l.slice(11), state: 'changed', binary: false, more: 0, deletions: 0, lines: [], truncated: false }; files.push(f); continue;
     }
     if (!f) continue;
-    if (l.startsWith('new file mode')) f.state = 'nuevo';
-    else if (l.startsWith('deleted file mode')) f.state = 'borrado';
-    else if (l.startsWith('rename from ')) { f.state = 'renombrado'; f.before = l.slice(12); }
+    if (l.startsWith('new file mode')) f.state = 'new';
+    else if (l.startsWith('deleted file mode')) f.state = 'deleted';
+    else if (l.startsWith('rename from ')) { f.state = 'renamed'; f.before = l.slice(12); }
     else if (l.startsWith('rename to ')) f.path = l.slice(10);
     else if (l.startsWith('Binary files ')) f.binary = true;
     else if (l.startsWith('@@')) {
@@ -71,7 +71,7 @@ export function parseDiff(diff: string): FileDiff[] {
 
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const anchor = (path: string) => 'f-' + path.replace(/[^a-zA-Z0-9]+/g, '-');
-const STATE: Record<FileDiff['state'], string> = { nuevo: 'nuevo', borrado: 'borrado', renombrado: 'renombrado', cambiado: '' };
+const STATE: Record<FileDiff['state'], string> = { new: 'nuevo', deleted: 'borrado', renamed: 'renombrado', changed: '' };
 
 /** La página: resumen, índice de archivos y cada archivo con sus líneas (data-seccion: la nota dice de qué archivo es) */
 export function compareHtml(title: string, subtitle: string, files: FileDiff[]): string {
@@ -193,7 +193,7 @@ export async function sameRepoWorktree(cwd: string, folder: string): Promise<str
 }
 
 /** La herramienta del habitante, en la carpeta de su conversación (la del worktree, si trabaja en uno) */
-export function mcpReview(cwd: () => string, preflight?: { state(cwd: string): Promise<string>; respond(cwd: string, item: string, state: 'ok' | 'n/a' | 'pendiente', note?: string): Promise<string> }) {
+export function mcpReview(cwd: () => string, preflight?: { state(cwd: string): Promise<string>; respond(cwd: string, item: string, state: 'ok' | 'n/a' | 'pending', note?: string): Promise<string> }) {
   const text = (text: string) => ({ content: [{ type: 'text' as const, text }] });
   return createSdkMcpServer({
     name: MCP.review, version: '1.0.0',
@@ -203,7 +203,7 @@ export function mcpReview(cwd: () => string, preflight?: { state(cwd: string): P
         tool('preflight_status', t('tool.preflight.estadoDescription'), {}, async () => text(await preflight.state(cwd()).catch(e => (e as Error).message))),
         tool('preflight_answer', t('tool.preflight.responderDescription'),
           { item: z.string(), status: z.enum(['ok', 'n/a', 'pending']), note: z.string().optional() },
-          async a => text(await preflight.respond(cwd(), a.item, a.status === 'pending' ? 'pendiente' : a.status, a.note).catch(e => (e as Error).message))),
+          async a => text(await preflight.respond(cwd(), a.item, a.status === 'pending' ? 'pending' : a.status, a.note).catch(e => (e as Error).message))),
       ] : []),
       tool('compare_changes', t('tool.compare.description'),
         { base: z.string().optional().describe(t('tool.compare.paramBase')), uncommitted: z.boolean().optional().describe(t('tool.compare.paramUncommitted')),

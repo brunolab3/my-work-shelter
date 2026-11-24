@@ -16,8 +16,8 @@ import { box, materialSteel, type Context } from './common';
 
 const W = 1280;
 const INK = '#dcf2e2', DIM = '#8fae9c', BACKGROUND = '#07110b', CARD = '#0f1d14';
-const SESSION_COLOR: Record<SessionMark, string> = { esperando: '#ffb000', error: '#ff5a4a', trabajando: '#5dff8a', listo: '#7fd4ff', abierta: '#8aa79a' };
-const PR_COLOR: Record<PRRollup, string> = { ci: '#ff5a4a', conflictos: '#ff5a4a', cambios: '#ff9a3a', revision: '#ffd24a', aprobado: '#5dff8a', borrador: '#8a9a90', fusionado: '#b48cff', cerrado: '#7a7a7a' };
+const SESSION_COLOR: Record<SessionMark, string> = { waiting: '#ffb000', error: '#ff5a4a', working: '#5dff8a', ready: '#7fd4ff', open: '#8aa79a' };
+const PR_COLOR: Record<PRRollup, string> = { ci: '#ff5a4a', conflicts: '#ff5a4a', changes: '#ff9a3a', review: '#ffd24a', approved: '#5dff8a', draft: '#8a9a90', merged: '#b48cff', closed: '#7a7a7a' };
 
 /** What a row says and how it's labelled when pointed at */
 export interface ShownRow extends BoardRow { title?: string; color: string }
@@ -41,8 +41,8 @@ export class TaskBoard {
     const wts = rows.filter(r => !r.main);
     g.fillStyle = col; g.font = `700 40px ${SOURCES.mono}`; g.shadowColor = col; g.shadowBlur = 10;
     g.fillText(t('world.taskBoard.title'), 28, 16); g.shadowBlur = 0;
-    const waiting = rows.filter(r => r.session === 'esperando').length, working = rows.filter(r => r.session === 'trabajando').length;
-    const count = [waiting && [t('world.taskBoard.nWaiting', { n: waiting }), SESSION_COLOR.esperando], working && [t('world.taskBoard.nWorking', { n: working }), SESSION_COLOR.trabajando], [t('world.taskBoard.nWorktrees', { n: wts.length }), DIM]].filter(Boolean) as [string, string][];
+    const waiting = rows.filter(r => r.session === 'waiting').length, working = rows.filter(r => r.session === 'working').length;
+    const count = [waiting && [t('world.taskBoard.nWaiting', { n: waiting }), SESSION_COLOR.waiting], working && [t('world.taskBoard.nWorking', { n: working }), SESSION_COLOR.working], [t('world.taskBoard.nWorktrees', { n: wts.length }), DIM]].filter(Boolean) as [string, string][];
     g.font = `600 30px ${SOURCES.mono}`; g.textAlign = 'right';
     let xr = W - 28; for (const [txt, c] of count.reverse()) { g.fillStyle = c; g.fillText(txt, xr, 22); xr -= g.measureText(txt).width + 28; }
     g.textAlign = 'left';
@@ -58,7 +58,7 @@ export class TaskBoard {
       const y = y0 + i * (fh + gap), x = 20, w = W - 40;
       this.rows.push({ row: r, y0: y, y1: y + fh });
       g.fillStyle = CARD; g.fillRect(x, y, w, fh);
-      g.strokeStyle = r.session === 'esperando' ? SESSION_COLOR.esperando : r.color + '88'; g.lineWidth = r.session === 'esperando' ? 4 : 2; g.strokeRect(x + 1, y + 1, w - 2, fh - 2);
+      g.strokeStyle = r.session === 'waiting' ? SESSION_COLOR.waiting : r.color + '88'; g.lineWidth = r.session === 'waiting' ? 4 : 2; g.strokeRect(x + 1, y + 1, w - 2, fh - 2);
       g.fillStyle = r.color; g.fillRect(x, y, 12, fh);
       // badges on the right of the first line: the PRs' state, then the conversation's (the most urgent, outermost)
       const l1 = y + fh * 0.5 - f1 - 2, l2 = y + fh * 0.5 + 6;

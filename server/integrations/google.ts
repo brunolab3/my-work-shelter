@@ -143,13 +143,13 @@ class Google extends ConnectorBase {
       authorization: (redirect, state, challenge) => `${AUTHORIZE}?` + new URLSearchParams({ client_id: this.client, response_type: 'code', redirect_uri: redirect, scope: SCOPES, state: state, code_challenge: challenge, code_challenge_method: 'S256', access_type: 'offline', prompt: 'consent' }),
       onClose: () => { this.listener = null; },
       onBack: async ({ code, error, redirect, verifier }) => {
-        if (error || !code) { const m = explainErrorOAuthGoogle((error ?? {}) as any); this.fail(m); this.notify?.('estado'); return { ok: false, title: t('integrations.couldNotConnectWith', { servicio: 'Google' }), text: m }; }
+        if (error || !code) { const m = explainErrorOAuthGoogle((error ?? {}) as any); this.fail(m); this.notify?.('state'); return { ok: false, title: t('integrations.couldNotConnectWith', { servicio: 'Google' }), text: m }; }
         try {
           await this.token({ grant_type: 'authorization_code', code: code, redirect_uri: redirect, code_verifier: verifier });
           this.email = null; const email = await this.whoAmI();
-          this.good(t('integrations.connectedAs', { quien: email })); this.notify?.('activar');
+          this.good(t('integrations.connectedAs', { quien: email })); this.notify?.('activate');
           return { ok: true, title: t('integrations.connected'), text: t('server.doneTheShelterCanNow') };
-        } catch (e) { this.fail((e as Error).message); this.notify?.('estado'); return { ok: false, title: t('integrations.couldNotConnectWith', { servicio: 'Google' }), text: (e as Error).message }; }
+        } catch (e) { this.fail((e as Error).message); this.notify?.('state'); return { ok: false, title: t('integrations.couldNotConnectWith', { servicio: 'Google' }), text: (e as Error).message }; }
       },
     });
     return this.listener.url;
@@ -204,7 +204,7 @@ class Google extends ConnectorBase {
       if (d.open !== false) execFile('/usr/bin/open', [url], () => {});   // navegador del sistema
       return { url };
     }
-    if (name === 'disconnect') { await eraseSecret(SESSION_ACCOUNT); this.session = false; this.restart(); this.notify?.('estado'); return this.state(); }
+    if (name === 'disconnect') { await eraseSecret(SESSION_ACCOUNT); this.session = false; this.restart(); this.notify?.('state'); return this.state(); }
     return super.ownAction(name, d);
   }
   stop() { super.stop(); this.listener?.stop(); }

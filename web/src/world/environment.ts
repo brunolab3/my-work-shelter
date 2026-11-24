@@ -17,7 +17,7 @@ function rust(o: THREE.Object3D, tone = '#7a5236', lightTogether = false) {
       mat = m.material.clone(); const l = mat.color.getHSL({ h: 0, s: 0, l: 0 }).l;
       mat.color = new THREE.Color(tone).multiplyScalar(0.4 + l * 0.3); mat.roughness = 0.9; mat.metalness = 0.2;
       mat.emissive = mat.color.clone().lerp(new THREE.Color('#ff9a50'), 0.25); mat.emissiveIntensity = 0.3; mat.map = null;
-      rusted.set(m.material.uuid + tone + lightTogether, exterior(mat, lightTogether ? 'junto-luz' : 'pieza'));
+      rusted.set(m.material.uuid + tone + lightTogether, exterior(mat, lightTogether ? 'near-light' : 'piece'));
     }
     m.material = mat;
   });
@@ -39,8 +39,8 @@ function light(o: THREE.Object3D, k = 0.35, tone = '#ffb070') {
 }
 
 // materiales de las luces de fuera, compartidos (el entorno se rehace al cambiar la disposición)
-const LANTERN = exterior(new THREE.MeshBasicMaterial({ color: '#ffc87a' }), 'farol');
-const PILOT = exterior(new THREE.MeshBasicMaterial({ color: '#ff3020' }), 'piloto');
+const LANTERN = exterior(new THREE.MeshBasicMaterial({ color: '#ffc87a' }), 'lantern');
+const PILOT = exterior(new THREE.MeshBasicMaterial({ color: '#ff3020' }), 'pilot');
 let texPool: THREE.Texture | null = null;
 const POOL = () => {
   if (!texPool) {
@@ -53,16 +53,16 @@ const POOL = () => {
 };
 let matPool: THREE.MeshBasicMaterial | null = null;
 function puddle(g: THREE.Object3D, x: number, y: number, z: number, radio: number) {
-  matPool ??= exterior(new THREE.MeshBasicMaterial({ color: '#ffa850', map: POOL(), transparent: true, opacity: 0.75, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }), 'poza');
+  matPool ??= exterior(new THREE.MeshBasicMaterial({ color: '#ffa850', map: POOL(), transparent: true, opacity: 0.75, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }), 'pool');
   const m = new THREE.Mesh(new THREE.PlaneGeometry(radio * 2, radio * 2), matPool); m.rotation.x = -Math.PI / 2; m.position.set(x, y, z); m.renderOrder = 2; g.add(m);
 }
 
 export async function buildEnvironment(o: {
   z: number; xLeft: number; xRight: number; rightOf: (floor: number) => number; yFloor: (p: number) => number; floors: number;
   floor: number; gaps: THREE.Box2[];
-  puerta?: { x0: number; x1: number; ceiling: number };   // la sala de la puerta, en la calle: su rótulo va en el tejado
+  gate?: { x0: number; x1: number; ceiling: number };   // la sala de la puerta, en la calle: su rótulo va en el tejado
 }) {
-  const g = new THREE.Group(); g.name = 'entorno';
+  const g = new THREE.Group(); g.name = 'environment';
   const ps: Promise<unknown>[] = [];
   const z = o.z;
   // vetas de mineral medio enterradas en la cara de corte
@@ -98,14 +98,14 @@ export async function buildEnvironment(o: {
   const sup = o.floor;
   // faroles: apagados de día, encendidos de noche (sky.ts); el bloom les da el halo
   const lantern = () => new THREE.Mesh(new THREE.SphereGeometry(0.11, 10, 8), LANTERN);
-  if (o.puerta) {
-    const { x0, x1, ceiling } = o.puerta; const xc = (x0 + x1) / 2;
+  if (o.gate) {
+    const { x0, x1, ceiling } = o.gate; const xc = (x0 + x1) / 2;
     const c42 = document.createElement('canvas'); c42.width = 512; c42.height = 160; const x42 = c42.getContext('2d')!;
     x42.fillStyle = '#d9a52b'; x42.fillRect(0, 0, 512, 160); x42.fillStyle = '#1c1a17'; x42.fillRect(0, 0, 512, 10); x42.fillRect(0, 150, 512, 10);
     let tl = 112; x42.font = `900 ${tl}px "Big Shoulders Display", Impact, sans-serif`; while (x42.measureText('WORK-SHELTER').width > 480 && tl > 60) { tl -= 4; x42.font = `900 ${tl}px "Big Shoulders Display", Impact, sans-serif`; }
     x42.textAlign = 'center'; x42.textBaseline = 'middle'; x42.fillText('WORK-SHELTER', 256, 86);
     const t42 = new THREE.CanvasTexture(c42); t42.colorSpace = THREE.SRGBColorSpace;
-    const label = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 1.3), exterior(new THREE.MeshStandardMaterial({ map: t42, emissive: '#ffffff', emissiveMap: t42, emissiveIntensity: 0.35, roughness: 0.8 }), 'rotulo'));
+    const label = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 1.3), exterior(new THREE.MeshStandardMaterial({ map: t42, emissive: '#ffffff', emissiveMap: t42, emissiveIntensity: 0.35, roughness: 0.8 }), 'label'));
     label.position.set(xc, ceiling + 1.15, z - 1.2); g.add(label);
     const iron = new THREE.MeshStandardMaterial({ color: '#3a3430', roughness: 0.7, metalness: 0.5 });
     for (const dx of [-1.6, 1.6]) { const leg = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.55, 0.1), iron); leg.position.set(xc + dx, ceiling + 0.27, z - 1.25); g.add(leg); }

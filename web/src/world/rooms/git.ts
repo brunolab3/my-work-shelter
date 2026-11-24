@@ -118,7 +118,7 @@ export async function furnishGit(ctx: Context) {
   const matrix = new Matrix();
   const XM = 0.3, YM = 2.55, AM = 6.3, HM = AM * Matrix.H / Matrix.W;
   const frame = new THREE.Mesh(new THREE.BoxGeometry(AM + 0.24, HM + 0.24, 0.12), new THREE.MeshStandardMaterial({ color: '#15181c', roughness: 0.5, metalness: 0.55 }));
-  frame.position.set(XM, YM, zB + 0.36); g.add(frame); ctx.device('matriz', frame);
+  frame.position.set(XM, YM, zB + 0.36); g.add(frame); ctx.device('matrix', frame);
   const screen = new THREE.Mesh(new THREE.PlaneGeometry(AM, HM), new THREE.MeshStandardMaterial({ map: matrix.tex, emissiveMap: matrix.tex, emissive: '#ffffff', emissiveIntensity: 1.0, color: '#000' }));
   screen.position.set(XM, YM, zB + 0.43); g.add(screen);
   // el barrido de luz que recorre la matriz y el cuadro de hoy, latiendo
@@ -126,7 +126,7 @@ export async function furnishGit(ctx: Context) {
   sweep.position.set(XM, YM + HM * 0.06, zB + 0.45); sweep.renderOrder = 3; g.add(sweep);
   const today = new THREE.Sprite(new THREE.SpriteMaterial({ map: textureHalo(), color: GREEN, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0 }));
   today.scale.setScalar(0.24); today.renderOrder = 3; g.add(today);
-  ctx.room.anchors.push({ type: 'punto', pos: new THREE.Vector3(XM, YM, zB + 1.3), intensity: 2.2, color: new THREE.Color('#3ad15a'), distance: 4.5, priority: 2 });
+  ctx.room.anchors.push({ type: 'point', pos: new THREE.Vector3(XM, YM, zB + 1.3), intensity: 2.2, color: new THREE.Color('#3ad15a'), distance: 4.5, priority: 2 });
   // ---- estrado con el grafo de commits en holograma
   const ZE = zB + 1.85;
   P(R.sf('Props_Base'), { pos: [XM, 0, ZE], width: 2.2 });
@@ -134,20 +134,20 @@ export async function furnishGit(ctx: Context) {
   const cone = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.2, 0.95, 24, 1, true), new THREE.MeshBasicMaterial({ color: GREEN, transparent: true, opacity: 0.07, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
   cone.position.set(XM, 0.42 + 0.47, ZE); g.add(cone);
   ctx.room.obstacles.push(new THREE.Box2(new THREE.Vector2(XM - 1.15, zB), new THREE.Vector2(XM + 1.15, ZE + 0.9)));
-  ctx.room.points.push({ id: 'consola', type: 'consola', pos: new THREE.Vector3(XM + 1.6, 0, ZE + 0.75), rotation: -2.2, clip: 'Interact' });
+  ctx.room.points.push({ id: 'console', type: 'console', pos: new THREE.Vector3(XM + 1.6, 0, ZE + 0.75), rotation: -2.2, clip: 'Interact' });
   // la pieza: el estrado con el grafo. Se toca un commit (el grafo destella de abajo arriba), se alza la rama para verla
   // entera o se repasa el historial en el diario
   const heartbeat = () => graph.heartbeat();
-  for (const [id, dx] of [['grafo', -1.45], ['grafo-2', 1.45]] as const) ctx.room.points.push({ id, type: 'pieza', pos: new THREE.Vector3(XM + dx, 0, ZE + 1.05), rotation: Math.atan2(-dx, -1.05),
-    actions: [{ clip: 'Interact', onMake: heartbeat }, { clip: 'Ranged_Magic_Raise', onMake: heartbeat }, { clip: 'Holding_A', utensil: 'diario', dur: 4 }] });
+  for (const [id, dx] of [['graph', -1.45], ['graph-2', 1.45]] as const) ctx.room.points.push({ id, type: 'piece', pos: new THREE.Vector3(XM + dx, 0, ZE + 1.05), rotation: Math.atan2(-dx, -1.05),
+    actions: [{ clip: 'Interact', onMake: heartbeat }, { clip: 'Ranged_Magic_Raise', onMake: heartbeat }, { clip: 'Holding_A', utensil: 'journal', dur: 4 }] });
   // ---- izquierda: el puesto del cliente de git y la flota de repos en la pared
   const fleet = new ListScreen(tr('world.git.shelterRepos'), 640, 400, v.screen);
-  ctx.device('cliente', await monitorWall(ctx, -4.45, 2.45, 1.3, fleet.tex, 1.15));
+  ctx.device('client', await monitorWall(ctx, -4.45, 2.45, 1.3, fleet.tex, 1.15));
   // el puesto del cliente de git, de tres cuartos: mesa con el terminal (los últimos commits del refugio), teclado y taza
   const console = new PhosphorScreen(256, 256, v.screen); console.speed = 22; console.write(['$ git status', tr('world.git.readingRepos')]); ctx.room.screens.push(console);
-  const stationGit = await workStation(ctx, { id: 'silla', x: -3.95, z: -0.7, rotation: 0.8, screen: 'ordenador', tex: console.tex,
+  const stationGit = await workStation(ctx, { id: 'chair', x: -3.95, z: -0.7, rotation: 0.8, screen: 'computer', tex: console.tex,
     onTop: [{ path: R.furniture('mug_A'), x: -0.72, z: 0.2, c: { scale: K * 0.7 } }, { path: R.furniture('cup_pencils'), x: 0.75, z: -0.22, c: { scale: K * 0.55 } }] });
-  ctx.device('cliente', stationGit.desk);
+  ctx.device('client', stationGit.desk);
   const shelf = P(R.sf('Props_Shelf'), { pos: [-5.6, 0, zB + 0.75], height: 2.0, rot: Math.PI / 2 });
   // baldas a 0,32 / 0,81 / 1,30: cada caja, en la suya
   for (let i = 0; i < 6; i++) ctx.restsOn(shelf, R.resource(['Containers_Box_Small', 'Containers_Crate_Small_Grey'][i % 2]), { pos: [-5.62, 0, zB + 0.45 + (i % 2) * 0.55], width: 0.34, rot: (i * 0.4) % 0.8 - 0.4 }, { since: [0.7, 1.2, 1.7][Math.floor(i / 2)] });
@@ -159,7 +159,7 @@ export async function furnishGit(ctx: Context) {
   const drawer = P(R.sf('Props_Crate'), { pos: [4.2, 0, zB + 0.75], height: 0.7, rot: 0.3 });
   ctx.restsOn(drawer, R.sv('Battery_Big'), { pos: [4.2, 0, zB + 0.72], height: 0.45, rot: -0.4 });
   ctx.room.obstacles.push(new THREE.Box2(new THREE.Vector2(3.7, zB), new THREE.Vector2(6, zB + 1.5)));
-  signInWall(g, sign(t('world.poster.versionControl'), t('world.poster.versionControlFoot'), '#d9e6f2', '#1f3a5a', 'mano', seed), 3.85, 2.85, 0.5, 0.7, zB + 0.33, -0.03);
+  signInWall(g, sign(t('world.poster.versionControl'), t('world.poster.versionControlFoot'), '#d9e6f2', '#1f3a5a', 'hand', seed), 3.85, 2.85, 0.5, 0.7, zB + 0.33, -0.03);
 
   const panel = new PanelRoom(); panel.title = 'VERSIONES'; panel.color = v.screen; ctx.panel = panel;
   stain(g, -1.6, 1.2, 0.9, seed); stain(g, 2.6, 0.9, 0.8, seed + 3);

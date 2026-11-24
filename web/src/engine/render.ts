@@ -60,7 +60,7 @@ export class Engine {
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.autoUpdate = false;   // las actualiza paso() con su ritmo
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    this.renderer.domElement.className = 'lienzo3d';
+    this.renderer.domElement.className = 'canvas3d';
     container.appendChild(this.renderer.domElement);
     // si macOS le quita el contexto de WebGL a la página (la GPU se reinicia, falta memoria) el refugio se queda en
     // negro aunque todo siga funcionando: si no vuelve solo en unos segundos, se recarga la vista

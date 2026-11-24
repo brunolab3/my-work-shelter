@@ -71,15 +71,15 @@ export function WindowButtons({ maximized, minimize, toggleMaximize, close, clos
   );
 }
 
-export const PILOT: Record<TabState, string> = { esperando: 'esperando', sinLeer: 'terminada', error: 'error', trabajando: 'trabajando', ociosa: 'ociosa' };
-export const stateLabel = (e: TabState) => ({ esperando: t('windows.waitingForYou'), sinLeer: t('windows.tabUnread'), error: t('windows.fault'), trabajando: t('windows.working'), ociosa: t('windows.tabIdle') })[e];
+export const PILOT: Record<TabState, string> = { waiting: 'waiting', unread: 'finished', error: 'error', working: 'working', idle: 'idle' };
+export const stateLabel = (e: TabState) => ({ waiting: t('windows.waitingForYou'), unread: t('windows.tabUnread'), error: t('windows.fault'), working: t('windows.working'), idle: t('windows.tabIdle') })[e];
 const LIST_SHORTCUT = `${CMD}${MAC ? '⇧' : ''}A`;
 /** ✎ on a tab, a list row or a talker with something typed and not sent: quieter than the state flags */
 /** A task's epic, beside its color marker: a small diamond in the epic's color (not round, so it's never taken for a state
  *  light); nothing for tasks without one. Repaints with useColorsTasks */
 export function EpicMark({ taskKey }: { taskKey?: string }) {
   const e = taskEpic(taskKey);
-  return e ? <span className="marca-epica" style={{ '--epica': taskColor(e.key) } as React.CSSProperties} title={t('windows.epicOf', { clave: e.key, titulo: e.title })} /> : null;
+  return e ? <span className="epic-mark" style={{ '--epica': taskColor(e.key) } as React.CSSProperties} title={t('windows.epicOf', { clave: e.key, titulo: e.title })} /> : null;
 }
 /** A task's color marker and, if it has one, its epic's */
 export const TaskMark = ({ taskKey, color }: { taskKey?: string; color?: string }) => <><span className="marca-tarea" style={{ '--tarea': color ?? taskColor(taskKey) } as React.CSSProperties} title={taskKey} /><EpicMark taskKey={taskKey} /></>;
@@ -105,7 +105,7 @@ export function Tabs({ items, active, activate, close, onNew, opensThat, list, c
   useEffect(() => { knowTasks(tareas.split(' ')); }, [tareas]);
   // with many tabs the strip scrolls (also with the wheel) and the active one stays in view
   useEffect(() => {
-    const c = strip.current, el = c?.querySelector<HTMLElement>('.vt-pestana.activa');
+    const c = strip.current, el = c?.querySelector<HTMLElement>('.vt-tab.active');
     if (!c || !el) return;
     if (el.offsetLeft < c.scrollLeft) c.scrollLeft = el.offsetLeft - 8;
     else if (el.offsetLeft + el.offsetWidth > c.scrollLeft + c.clientWidth) c.scrollLeft = el.offsetLeft + el.offsetWidth - c.clientWidth + 8;
@@ -114,10 +114,10 @@ export function Tabs({ items, active, activate, close, onNew, opensThat, list, c
     <div className="vt-pestanas">
       <div className="vt-pestanas-tira" ref={strip} onWheel={e => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) e.currentTarget.scrollLeft += e.deltaY; }}>
         {items.map((p, i) => (<React.Fragment key={p.id}>
-          <div className={'vt-pestana' + (p.id === active ? ' activa' : '') + (p.state ? ' e-' + p.state : '') + (p.flagged ? ' pendiente' : '') + (p.task ? ' con-tarea' : '')} style={p.task ? { '--tarea': taskColor(p.task) } as React.CSSProperties : undefined}
+          <div className={'vt-tab' + (p.id === active ? ' active' : '') + (p.state ? ' e-' + p.state : '') + (p.flagged ? ' pending' : '') + (p.task ? ' con-tarea' : '')} style={p.task ? { '--tarea': taskColor(p.task) } as React.CSSProperties : undefined}
             onClick={() => activate(p.id)} onAuxClick={e => { if (e.button === 1) close([p.id]); }}
             title={[p.title || p.name, p.state && stateLabel(p.state), p.draft && t('windows.unsentDraft'), p.queued && t('windows.queue.markTitle', { n: p.queued }), p.flagged && t('windows.flag.markTitle'), p.who, p.task, i < 9 ? `${CMD}${i + 1}` : ''].filter(Boolean).join(' · ')}>
-            <span className={'piloto ' + PILOT[p.state ?? 'ociosa']} />
+            <span className={'pilot ' + PILOT[p.state ?? 'idle']} />
             {p.draft && <DraftMark />}
             <EpicMark taskKey={p.task} />
             <span className="vt-pestana-nombre">{p.name}</span>
@@ -128,7 +128,7 @@ export function Tabs({ items, active, activate, close, onNew, opensThat, list, c
         </React.Fragment>))}
       </div>
       {onNew && <button className="vt-nueva" onClick={onNew} title={`${opensThat} (${CMD}T)`}>+</button>}
-      {list && items.length > 1 && <button className={'vt-todas' + (open ? ' activa' : '')} onClick={() => setOpen(x => !x)} title={t('windows.allTabs', { n: items.length, shortcut: LIST_SHORTCUT })}>⋯ {items.length}</button>}
+      {list && items.length > 1 && <button className={'vt-todas' + (open ? ' active' : '')} onClick={() => setOpen(x => !x)} title={t('windows.allTabs', { n: items.length, shortcut: LIST_SHORTCUT })}>⋯ {items.length}</button>}
       {/* the list steps aside while a close is being confirmed */}
       {open && !confirming && <TabList items={items} active={active} activate={id => { activate(id); setOpen(false); }} close={close} exit={() => setOpen(false)} />}
     </div>
@@ -152,7 +152,7 @@ export function TabList({ items, active, activate, close, exit, group, header, f
   const sel = views[Math.min(i, views.length - 1)];
   const openSessions = new Set(items.map(p => p.id));
   const picked = marked.filter(id => openSessions.has(id));
-  const idle = items.filter(p => p.state === 'ociosa').map(p => p.id);
+  const idle = items.filter(p => p.state === 'idle').map(p => p.id);
   const taskSession = sel?.task ? items.filter(p => p.task === sel.task).map(p => p.id) : [];
   // on closing, the keyboard goes back where it was (the terminal, the intercom's text box)
   const [before] = useState(() => document.activeElement as HTMLElement | null);   // before the filter takes it
@@ -161,7 +161,7 @@ export function TabList({ items, active, activate, close, exit, group, header, f
     const outside = (e: PointerEvent) => { const el = e.target as HTMLElement; if (!box.current?.contains(el) && !el.closest?.('.vt-todas, .vt-confirmar')) exit(); };
     addEventListener('pointerdown', outside, true); return () => removeEventListener('pointerdown', outside, true);
   }, []);
-  useEffect(() => { box.current?.querySelector('.vt-lista-fila.sel')?.scrollIntoView({ block: 'nearest' }); }, [i, q]);
+  useEffect(() => { box.current?.querySelector('.vt-list-row.sel')?.scrollIntoView({ block: 'nearest' }); }, [i, q]);
   const key = (e: React.KeyboardEvent) => {
     const k = e.key;
     if (k !== 'Escape' && k !== 'ArrowDown' && k !== 'ArrowUp' && !(k === 'Enter' && sel)) return;
@@ -177,9 +177,9 @@ export function TabList({ items, active, activate, close, exit, group, header, f
       <div className="vt-lista-filas">
         {views.map((p, k) => (<React.Fragment key={p.id}>
           {group && p.group !== views[k - 1]?.group && (header ? header(p, views[k - 1]) : <div className="vt-lista-grupo">{p.group}</div>)}
-          <div className={'vt-lista-fila' + (p === sel ? ' sel' : '') + (p.id === active ? ' activa' : '') + (p.state ? ' e-' + p.state : '') + (p.flagged ? ' pendiente' : '') + (flag ? ' con-marca' : '')} onMouseMove={() => setI(k)} onClick={() => activate(p.id)}>
+          <div className={'vt-list-row' + (p === sel ? ' sel' : '') + (p.id === active ? ' active' : '') + (p.state ? ' e-' + p.state : '') + (p.flagged ? ' pending' : '') + (flag ? ' con-marca' : '')} onMouseMove={() => setI(k)} onClick={() => activate(p.id)}>
             <input type="checkbox" checked={marked.includes(p.id)} title={t('windows.selectTab')} onClick={e => e.stopPropagation()} onChange={() => setMarked(m => (m.includes(p.id) ? m.filter(x => x !== p.id) : [...m, p.id]))} />
-            <span className={'piloto ' + PILOT[p.state ?? 'ociosa']} />
+            <span className={'pilot ' + PILOT[p.state ?? 'idle']} />
             {/* the title gets the whole width; under it, its state, task and whose (the header says whose when grouped) */}
             <span className="vt-lista-cuerpo">
               <span className="vt-lista-nombre" title={p.name}>{p.draft && <DraftMark />}{p.name} <QueuedMark n={p.queued} /></span>
@@ -197,7 +197,7 @@ export function TabList({ items, active, activate, close, exit, group, header, f
         {!views.length && <div className="vt-lista-vacia">{t('windows.noTabsMatch')}</div>}
       </div>
       <div className="vt-lista-pie">
-        {nFlagged > 0 && <button className={'consola-x' + (onlyFlagged ? ' activa' : '')} aria-pressed={onlyFlagged} onClick={() => { setOnlyFlagged(x => !x); setI(0); }}>{onlyFlagged ? t('windows.flag.all') : t('windows.flag.only', { n: nFlagged })}</button>}
+        {nFlagged > 0 && <button className={'consola-x' + (onlyFlagged ? ' active' : '')} aria-pressed={onlyFlagged} onClick={() => { setOnlyFlagged(x => !x); setI(0); }}>{onlyFlagged ? t('windows.flag.all') : t('windows.flag.only', { n: nFlagged })}</button>}
         {button(t('windows.closeSelected', { n: picked.length }), picked)}
         {button(t('windows.closeIdle', { n: idle.length }), idle)}
         {sel?.task && button(t('windows.closeTask', { tarea: sel.task, n: taskSession.length }), taskSession)}

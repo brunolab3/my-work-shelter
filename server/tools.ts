@@ -17,11 +17,11 @@ export const isAgent = (n: string) => n === 'Agent' || n === 'Task';
 
 export function toolMode(name: string, e: Entry): Activity['mode'] {
   if (WEB.has(name)) return 'web';
-  if (READING.has(name) || name.startsWith('mcp__')) return 'leer';
-  if (WRITING.has(name)) return 'escribir';
-  if (name === 'Bash') return ONLY_READING.test(s(e.command)) ? 'leer' : 'terminal';
-  if (isAgent(name) || name === 'AskUserQuestion' || name === 'ExitPlanMode') return 'pensar';
-  return 'escribir';
+  if (READING.has(name) || name.startsWith('mcp__')) return 'read';
+  if (WRITING.has(name)) return 'write';
+  if (name === 'Bash') return ONLY_READING.test(s(e.command)) ? 'read' : 'terminal';
+  if (isAgent(name) || name === 'AskUserQuestion' || name === 'ExitPlanMode') return 'think';
+  return 'write';
 }
 
 function corta(p: string, cwd: string) {
@@ -92,17 +92,17 @@ const truncated = (x: string, n: number) => (x.length > n ? x.slice(0, n) + '\n'
 // Vista previa exacta de lo que la herramienta va a hacer, en texto plano (ver VistaEntrada en shared/protocol.ts)
 export function describeInput(name: string, e: Entry): InputView[] {
   switch (name) {
-    case 'Bash': return [{ type: 'codigo', language: 'bash', text: s(e.command) }];
-    case 'Edit': return [{ type: 'ruta', text: s(e.file_path) }, { type: 'diff', text: diff(s(e.old_string), s(e.new_string)) }];
+    case 'Bash': return [{ type: 'code', language: 'bash', text: s(e.command) }];
+    case 'Edit': return [{ type: 'path', text: s(e.file_path) }, { type: 'diff', text: diff(s(e.old_string), s(e.new_string)) }];
     case 'MultiEdit': {
       const ed = Array.isArray(e.edits) ? (e.edits as Entry[]) : [];
-      return [{ type: 'ruta', text: s(e.file_path) }, { type: 'texto', text: t('server.nEdits', { n: ed.length }) + (ed.length > MAX_EDITS ? t('server.firstEditsShown', { n: MAX_EDITS }) : '') },
+      return [{ type: 'path', text: s(e.file_path) }, { type: 'text', text: t('server.nEdits', { n: ed.length }) + (ed.length > MAX_EDITS ? t('server.firstEditsShown', { n: MAX_EDITS }) : '') },
         { type: 'diff', text: ed.slice(0, MAX_EDITS).map(x => diff(s(x.old_string), s(x.new_string))).join('\n…\n') }];
     }
-    case 'Write': return [{ type: 'ruta', text: s(e.file_path) }, { type: 'codigo', text: truncated(s(e.content), MAX_CONTENT) }];
-    case 'WebFetch': return [{ type: 'ruta', text: s(e.url) }, ...(s(e.prompt) ? [{ type: 'texto' as const, text: s(e.prompt) }] : [])];
-    case 'WebSearch': return [{ type: 'texto', text: t('server.quoted', { v: s(e.query) }) }];
-    default: return [{ type: 'codigo', language: 'json', text: truncated(JSON.stringify(e, null, 2) ?? '', MAX_JSON) }];
+    case 'Write': return [{ type: 'path', text: s(e.file_path) }, { type: 'code', text: truncated(s(e.content), MAX_CONTENT) }];
+    case 'WebFetch': return [{ type: 'path', text: s(e.url) }, ...(s(e.prompt) ? [{ type: 'text' as const, text: s(e.prompt) }] : [])];
+    case 'WebSearch': return [{ type: 'text', text: t('server.quoted', { v: s(e.query) }) }];
+    default: return [{ type: 'code', language: 'json', text: truncated(JSON.stringify(e, null, 2) ?? '', MAX_JSON) }];
   }
 }
 

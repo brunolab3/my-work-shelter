@@ -73,12 +73,12 @@ try {
   const ask = (m) => new Promise(ok => { const request = 'q' + (++n); pending.set(request, ok); send({ ...m, request }); });
   const action = (name, data) => ask({ t: 'action', name, data });
   send({ t: 'hello', version: 'qa' });
-  const welcome = await until(() => received.find(m => m.t === 'welcome'), 10000, 'bienvenida');
+  const welcome = await until(() => received.find(m => m.t === 'welcome'), 10000, 'welcome');
   // una sala especial sin repo (su carpeta está dentro de los datos temporales): nada de lo que pase toca un repo
-  const dw = welcome.state.dwellers.find(h => welcome.state.rooms.some(s => s.id === h.roomId && !s.path && s.type !== 'puente'));
+  const dw = welcome.state.dwellers.find(h => welcome.state.rooms.some(s => s.id === h.roomId && !s.path && s.type !== 'bridge'));
   const room = welcome.state.rooms.find(s => s.id === dw.roomId);
   const folder = room.folder ?? path.join(DATA, 'salas', room.id);
-  log('sala', room.id, 'habitante', dw.name, 'claude', welcome.claudeOk);
+  log('room', room.id, 'dweller', dw.name, 'claude', welcome.claudeOk);
 
   // 1. terminal
   const tid = 'sala:' + room.id;
@@ -104,13 +104,13 @@ try {
   // 2 y 3. conversación
   if (withSession && welcome.claudeOk) {
     const sid = (await ask({ t: 'start', dwellerId: dw.id, roomId: room.id, prompt: 'Responde solo con la palabra: superficie', options: { model: 'haiku', permissions: 'acceptEdits' } })).data;
-    const sess = await until(() => { const s = received.filter(m => m.t === 'session' && m.session.id === sid).at(-1)?.session; return s && s.state === 'terminada' && s.claudeId ? s : null; }, 90000, 'la conversación termina');
+    const sess = await until(() => { const s = received.filter(m => m.t === 'session' && m.session.id === sid).at(-1)?.session; return s && s.state === 'finished' && s.claudeId ? s : null; }, 90000, 'la conversación termina');
     log('conversación', sess.claudeId, '→', (sess.lastText || '').slice(0, 40));
     const r2 = await action('surface.takeOut', { sessions: [sid] });
     check(!r2.error && r2.data.sessions === 1, 'sacar una conversación responde 1 conversación');
     const a2 = notes().at(-1);
     check(a2?.items[0].command === `cd '${sess.cwd}' && claude --resume ${sess.claudeId} --model 'haiku' --permission-mode acceptEdits`, 'se abriría `claude --resume` en su carpeta: ' + a2?.items[0].command);
-    await until(() => received.some(m => m.t === 'session' && m.session.id === sid && m.session.state === 'cerrada'), 10000, 'cerrada en el juego');
+    await until(() => received.some(m => m.t === 'session' && m.session.id === sid && m.session.state === 'closed'), 10000, 'cerrada en el juego');
     check(true, 'la conversación se cierra en el juego');
     // un `claude --resume <id>` fuera (de mentira): el refugio no deja retomarla
     fake = spawn('/bin/bash', ['-c', `exec -a "claude --resume ${sess.claudeId}" sleep 60`], { stdio: 'ignore' });
@@ -122,7 +122,7 @@ try {
     fake.kill('SIGKILL'); fake = null;
     // a mitad de trabajo (esperando un permiso): se interrumpe aquí y fuera se le pide que siga
     const sid2 = (await ask({ t: 'start', dwellerId: dw.id, roomId: room.id, prompt: 'Ejecuta con la herramienta Bash exactamente: sleep 1 && echo listo. Luego responde «hecho».', options: { model: 'haiku', permissions: 'default' } })).data;
-    const sess2 = await until(() => { const s = received.filter(m => m.t === 'session' && m.session.id === sid2).at(-1)?.session; return s && s.claudeId && (s.state === 'esperando' || s.state === 'trabajando') ? s : null; }, 90000, 'la segunda conversación trabaja o espera');
+    const sess2 = await until(() => { const s = received.filter(m => m.t === 'session' && m.session.id === sid2).at(-1)?.session; return s && s.claudeId && (s.state === 'waiting' || s.state === 'working') ? s : null; }, 90000, 'la segunda conversación trabaja o espera');
     log('segunda conversación', sess2.state);
     const r4 = await action('surface.takeOut', { sessions: [sid2] });
     const a4 = notes().at(-1);

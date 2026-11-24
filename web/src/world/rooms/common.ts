@@ -22,8 +22,8 @@ export const SCALE_KAYKIT = 0.8; // mobiliario KayKit a la escala de los persona
 export const CHARACTER_HEIGHT = 1.85;
 export const FRAME = 0.45;        // pilares del corte
 
-export type RoomType = 'repo' | 'coordinacion' | 'comunicaciones' | 'planificacion' | 'logistica' | 'git' | 'puente' | 'camara' | 'puerta' | 'hidroponia' | 'galeria' | 'discoteca' | 'chapa' | 'review';
-export type RoomState = 'sin-sesion' | 'ociosa' | 'trabajando' | 'esperando' | 'alerta' | 'error' | 'terminada';
+export type RoomType = 'repo' | 'coordination' | 'comms' | 'calendar' | 'logistics' | 'git' | 'bridge' | 'vault' | 'gate' | 'hydroponics' | 'gallery' | 'disco' | 'bodyshop' | 'review';
+export type RoomState = 'no-session' | 'idle' | 'working' | 'waiting' | 'alert' | 'error' | 'finished';
 
 export interface RoomPoint {
   id: string;
@@ -33,7 +33,7 @@ export interface RoomPoint {
   //   alguna de sus `acciones` (clip de KayKit y, si se quiere, lo que pasa en la sala al hacerlo: chispas, una pantalla…)
   // 'patrulla': parada de la ronda de un guardia (la Puerta Principal y la Cámara acorazada no tienen mesa: sus habitantes
   //   vigilan); en el suelo libre, con `giro` hacia lo que se vigila en esa parada. Van en el orden de la ronda.
-  type: 'consola' | 'silla' | 'cama' | 'banco' | 'estante' | 'mirar' | 'charla' | 'puerta' | 'aficion' | 'puesto' | 'pieza' | 'patrulla';
+  type: 'console' | 'chair' | 'cama' | 'bench' | 'estante' | 'look' | 'chat' | 'gate' | 'hobby' | 'workstation' | 'piece' | 'patrol';
   desk?: number;
   ofFoot?: boolean;                    // puesto de pie (banco de trabajo, mesa de mezclas): sin silla
   actions?: { clip: string; dur?: number; utensil?: string; onMake?: () => void }[];
@@ -60,13 +60,13 @@ export interface Room {
   progreso: number;                  // 0..1 barra del panel de la sala
   update(dt: number, t: number): void;
   setState(e: RoomState, text?: string): void;
-  writeScreen(who: 'mesa' | 'panel', lines: string | string[]): void;
-  setIcon(type: 'listo' | 'espera' | 'error' | null): void;
+  writeScreen(who: 'desk' | 'panel', lines: string | string[]): void;
+  setIcon(type: 'ready' | 'wait' | 'error' | null): void;
   effects?: { dust: Dust; vapor: Steam; sparks: Sparks };
   userData: Record<string, any>;
   walkZones?: [number, number][];  // tramos de x por los que se puede deambular
   anchors: LightAnchor[];                // lámparas y piezas que emiten luz (las enciende el reparto global)
-  floor: number; side: 'izq' | 'der'; orden: number;
+  floor: number; side: 'left' | 'right'; orden: number;
   name: string; path?: string; area?: string;   // area: la de un repo (shared/sectors.ts)
   interactive?: Interactive[];      // aparatos que el Supervisor usa con E (abren un panel)
 }
@@ -76,7 +76,7 @@ export interface Room {
 // También lo leen el audio del mundo (quién habla o teclea y dónde) y quien necesite la cámara.
 // habitantes: los Habitante (dweller.ts) sin importar el tipo (evita el ciclo): id.id, id.voz, pos, estado, sala,
 // p.aspecto?.especie y `quehacer` (lo que hace ahora: 'teclear', 'leer', 'pieza', 'pasear', 'charlar'…)
-export const world: { rooms: () => Room[]; supervisor: () => THREE.Object3D | null; currentRoom: () => Room | null; dwellers: () => any[]; camara: () => THREE.PerspectiveCamera | null } = { rooms: () => [], supervisor: () => null, currentRoom: () => null, dwellers: () => [], camara: () => null };
+export const world: { rooms: () => Room[]; supervisor: () => THREE.Object3D | null; currentRoom: () => Room | null; dwellers: () => any[]; camera: () => THREE.PerspectiveCamera | null } = { rooms: () => [], supervisor: () => null, currentRoom: () => null, dwellers: () => [], camera: () => null };
 
 // x, z: donde se pone el Supervisor para usarlo; zonas: lo que se ve del aparato (cajas en coordenadas de la sala, las
 // mide la escena con ctx.aparato): pasar el ratón por encima lo rotula y un clic lo usa
@@ -87,7 +87,7 @@ export interface Interactive { id: string; x: number; z: number; text: string; p
 // (y `userData.vista`, la vista con la que se abre)
 
 export interface LightAnchor {
-  type: 'foco' | 'punto';
+  type: 'spot' | 'point';
   pos: THREE.Vector3; goal?: THREE.Vector3;
   intensity: number; color: THREE.Color; shadow?: boolean;
   angle?: number; penumbra?: number; distance?: number;
@@ -96,21 +96,21 @@ export interface LightAnchor {
   level?: number;   // multiplica la intensidad (lámparas de techo según el estado de la sala; sin él, 1)
 }
 
-export const COLOR_STATE: Record<RoomState, string> = { 'sin-sesion': '#3a3a3a', ociosa: '#6fe08f', trabajando: '#5dff8a', esperando: '#ffb000', alerta: '#ff7a1a', error: '#ff2a1a', terminada: '#5dff8a' };
-export const STATE_TEXT: Record<RoomState, string> = { 'sin-sesion': t('world.screen.off'), ociosa: t('world.screen.idle'), trabajando: t('world.screen.working'), esperando: t('world.screen.waiting'), alerta: t('world.screen.attention'), error: t('world.screen.fault'), terminada: t('world.screen.done') };
+export const COLOR_STATE: Record<RoomState, string> = { 'no-session': '#3a3a3a', idle: '#6fe08f', working: '#5dff8a', waiting: '#ffb000', alert: '#ff7a1a', error: '#ff2a1a', finished: '#5dff8a' };
+export const STATE_TEXT: Record<RoomState, string> = { 'no-session': t('world.screen.off'), idle: t('world.screen.idle'), working: t('world.screen.working'), waiting: t('world.screen.waiting'), alert: t('world.screen.attention'), error: t('world.screen.fault'), finished: t('world.screen.done') };
 
 // ---------------------------------------------------------------- materiales de carcasa
 const matCache: Record<string, THREE.Material> = {};
 export function mat<T extends THREE.Material>(key: string, f: () => T): T { return (matCache[key] ??= f()) as T; }
 
 export function materialRock(tone = 0) {
-  return mat('roca' + tone, () => new THREE.MeshStandardMaterial({ color: new THREE.Color('#2b2520').offsetHSL(0, 0, tone * 0.02), roughness: 0.95, metalness: 0, flatShading: true }));
+  return mat('rock' + tone, () => new THREE.MeshStandardMaterial({ color: new THREE.Color('#2b2520').offsetHSL(0, 0, tone * 0.02), roughness: 0.95, metalness: 0, flatShading: true }));
 }
 export function materialSoil() {
-  return mat('tierra', () => { const t = strataTexture(); t.wrapT = THREE.ClampToEdgeWrapping; return new THREE.MeshStandardMaterial({ map: t, color: '#ffffff', roughness: 1, metalness: 0 }); });
+  return mat('earth', () => { const t = strataTexture(); t.wrapT = THREE.ClampToEdgeWrapping; return new THREE.MeshStandardMaterial({ map: t, color: '#ffffff', roughness: 1, metalness: 0 }); });
 }
-export function materialSteel(tone = '#3b3936') { return mat('acero' + tone, () => new THREE.MeshStandardMaterial({ color: tone, roughness: 0.55, metalness: 0.35 })); }
-export function materialConcrete() { return mat('hormigon', () => new THREE.MeshStandardMaterial({ color: '#4a4641', roughness: 0.92, metalness: 0.02 })); }
+export function materialSteel(tone = '#3b3936') { return mat('steel' + tone, () => new THREE.MeshStandardMaterial({ color: tone, roughness: 0.55, metalness: 0.35 })); }
+export function materialConcrete() { return mat('concrete', () => new THREE.MeshStandardMaterial({ color: '#4a4641', roughness: 0.92, metalness: 0.02 })); }
 
 export function box(w: number, h: number, d: number, m: THREE.Material, x: number, y: number, z: number, shadow = false) {
   const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
@@ -121,7 +121,7 @@ export function frame(g: THREE.Group, width: number) {
   const zF = BACKGROUND / 2;
   const steel = materialSteel('#2b2a27');
   g.add(box(width + FRAME * 2, SLAB * 0.62, 0.7, steel, 0, HEIGHT + SLAB * 0.31, zF - 0.1));
-  const strip = mat('franja', () => { const t = dangerStrip(); t.repeat.set(10, 1); return new THREE.MeshStandardMaterial({ map: t, roughness: 0.7, metalness: 0.1 }); });
+  const strip = mat('stripe', () => { const t = dangerStrip(); t.repeat.set(10, 1); return new THREE.MeshStandardMaterial({ map: t, roughness: 0.7, metalness: 0.1 }); });
   const edge = box(width + FRAME * 2, 0.16, 0.42, strip, 0, -0.08, zF + 0.05);
   edge.material = [steel, steel, strip, steel, strip, steel] as any;
   g.add(edge);
@@ -162,7 +162,7 @@ export async function rockFace(parent: THREE.Group, x0: number, x1: number, y0: 
     p.set(x0 + r() * (x1 - x0), y0 + r() * (y1 - y0));
     const size = 0.8 + Math.pow(r(), 2) * 2.4;
     if (gaps.some(b => b.clone().expandByScalar(size * 0.7 + 0.3).containsPoint(p))) continue;
-    ps.push(place(parent, R.rock(types[Math.floor(r() * types.length)]), { pos: [p.x, p.y, z - size * 0.12], height: size, anchor: 'centro', rot: r() * 6.28, rotX: Math.PI / 2 * (r() < 0.5 ? 1 : -1) + (r() - 0.5) * 0.4, shadow: false }).then(o => {
+    ps.push(place(parent, R.rock(types[Math.floor(r() * types.length)]), { pos: [p.x, p.y, z - size * 0.12], height: size, anchor: 'center', rot: r() * 6.28, rotX: Math.PI / 2 * (r() < 0.5 ? 1 : -1) + (r() - 0.5) * 0.4, shadow: false }).then(o => {
       o.scale.z *= 0.55; o.position.z -= size * 0.15; // medio hundida en la cara
       const tone = Math.round(r() * 4) - 2;
       o.traverse((m: any) => { if (m.isMesh) m.material = materialRock(tone); });
@@ -204,13 +204,13 @@ export function matHalo(w: number, h: number, m: number) {
 export async function walls(g: THREE.Group, width: number, v: Variant, panels: string[], steps: { left: boolean; right: boolean } = { left: false, right: false }) {
   const n = Math.round(width / MODULE);
   const ps: Promise<unknown>[] = [];
-  for (let i = 0; i < n; i++) ps.push(place(g, R.sf(panels[i % panels.length]), { pos: [-width / 2 + MODULE * (i + 0.5), 0, -BACKGROUND / 2], anchor: 'atras', variant: v, shadow: false, height: HEIGHT }).then(o => { o.userData.wall = true; }));
+  for (let i = 0; i < n; i++) ps.push(place(g, R.sf(panels[i % panels.length]), { pos: [-width / 2 + MODULE * (i + 0.5), 0, -BACKGROUND / 2], anchor: 'back', variant: v, shadow: false, height: HEIGHT }).then(o => { o.userData.wall = true; }));
   // laterales lisos; si hay paso hacia la sala vecina o el ascensor, el tramo delantero queda abierto (se cruza por delante)
   const vl: Variant = { ...v, id: v.id + '-lat' };
   for (const s of [-1, 1]) {
     const open = s < 0 ? steps.left : steps.right;
     const length = open ? BACKGROUND / 2 + 0.3 : BACKGROUND + 0.2;
-    ps.push(place(g, R.sf('Wall_Empty'), { pos: [s * (width / 2 + 0.02), 0, -BACKGROUND / 2 + 0.25], rot: -s * Math.PI / 2, anchor: 'atras', variant: vl, shadow: false, height: HEIGHT }).then(o => { o.scale.x = length / MODULE; o.position.z += (length - MODULE) / 2 * 0 + (length - MODULE) / 2; o.scale.z = 0.35; }));
+    ps.push(place(g, R.sf('Wall_Empty'), { pos: [s * (width / 2 + 0.02), 0, -BACKGROUND / 2 + 0.25], rot: -s * Math.PI / 2, anchor: 'back', variant: vl, shadow: false, height: HEIGHT }).then(o => { o.scale.x = length / MODULE; o.position.z += (length - MODULE) / 2 * 0 + (length - MODULE) / 2; o.scale.z = 0.35; }));
     ps.push(place(g, R.sf('Column_Slim'), { pos: [s * (width / 2 - 0.3), 0, -BACKGROUND / 2 + 0.32], height: HEIGHT, variant: v, shadow: false }));
     if (open) ps.push(place(g, R.sf('Column_1'), { pos: [s * (width / 2 - 0.05), 0, -BACKGROUND / 2 + length + 0.05], height: HEIGHT, variant: v, shadow: false }));
   }
@@ -220,7 +220,7 @@ export async function walls(g: THREE.Group, width: number, v: Variant, panels: s
 export async function floor(g: THREE.Group, width: number, v: Variant, seed: number) {
   const r = random(seed);
   // chapas de ~1,15 m con juntas oscuras bien marcadas; franja de paso delantera de rejilla; línea pintada mate entre ambas
-  const vs: Variant = { ...v, id: v.id + '-suelo', wall: '#3e4043', darkWall: '#121314', accent: '#7d6a3e', darkAccent: '#1a1814', grime: 0.16 };
+  const vs: Variant = { ...v, id: v.id + '-floor', wall: '#3e4043', darkWall: '#121314', accent: '#7d6a3e', darkAccent: '#1a1814', grime: 0.16 };
   const vr: Variant = { ...v, id: v.id + '-rejilla', wall: '#3a3936', darkWall: '#0f0f0e', accent: '#5b5246', darkAccent: '#151412', grime: 0.15 };
   const L = 1.15, E = L / 2; // escala de la loseta de 2 m
   const nx = Math.ceil(width / L), bodyshopRows = 3;
@@ -234,7 +234,7 @@ export async function floor(g: THREE.Group, width: number, v: Variant, seed: num
     }
     // franja de paso: rejilla (losetas de rejilla del kit puestas en el suelo)
     // (las losetas de techo tienen el detalle hacia abajo: se voltean para que la rejilla mire arriba)
-    ps.push(place(g, R.sf('RoofTile_Vents'), { pos: [x, 0.0, z0 + L * bodyshopRows + (BACKGROUND - L * bodyshopRows) / 2], scale: E, variant: vr, shadow: false, own: true, rotX: Math.PI, anchor: 'techo' }).then(o => {
+    ps.push(place(g, R.sf('RoofTile_Vents'), { pos: [x, 0.0, z0 + L * bodyshopRows + (BACKGROUND - L * bodyshopRows) / 2], scale: E, variant: vr, shadow: false, own: true, rotX: Math.PI, anchor: 'ceiling' }).then(o => {
       o.scale.z *= (BACKGROUND - L * bodyshopRows) / L;
       o.traverse((m: any) => { if (m.isMesh) { m.material.color.multiplyScalar(0.42); m.material.roughness = 0.75; m.material.metalness = 0.35; } });
     }));
@@ -244,7 +244,7 @@ export async function floor(g: THREE.Group, width: number, v: Variant, seed: num
   for (let i = 1; i < nx; i++) g.add(box(0.035, 0.012, L * bodyshopRows, join, -width / 2 + L * i, 0.006, z0 + L * bodyshopRows / 2));
   for (let j = 1; j <= bodyshopRows; j++) g.add(box(width, 0.012, 0.035, join, 0, 0.006, z0 + L * j));
   // línea pintada (amarillo gastado, mate) entre la chapa y la rejilla
-  const line = new THREE.Mesh(new THREE.PlaneGeometry(width - 0.5, 0.13), mat('linea', () => { const { c, g: gg } = canvas(1024, 32); gg.fillStyle = '#9c7b2c'; gg.fillRect(0, 0, 1024, 32); dirty(gg, 1024, 32, 0.7, 2); for (let k = 0; k < 40; k++) { gg.clearRect(Math.random() * 1024, Math.random() * 32, 4 + Math.random() * 30, 2 + Math.random() * 6); } return new THREE.MeshStandardMaterial({ map: textureOf(c), roughness: 1, metalness: 0, transparent: true, polygonOffset: true, polygonOffsetFactor: -2 }); }));
+  const line = new THREE.Mesh(new THREE.PlaneGeometry(width - 0.5, 0.13), mat('line', () => { const { c, g: gg } = canvas(1024, 32); gg.fillStyle = '#9c7b2c'; gg.fillRect(0, 0, 1024, 32); dirty(gg, 1024, 32, 0.7, 2); for (let k = 0; k < 40; k++) { gg.clearRect(Math.random() * 1024, Math.random() * 32, 4 + Math.random() * 30, 2 + Math.random() * 6); } return new THREE.MeshStandardMaterial({ map: textureOf(c), roughness: 1, metalness: 0, transparent: true, polygonOffset: true, polygonOffsetFactor: -2 }); }));
   line.rotation.x = -Math.PI / 2; line.position.set(0, 0.014, z0 + L * bodyshopRows + 0.1); line.receiveShadow = true; g.add(line);
   // desgaste: la zona de paso, más clara y pulida
   const wear = new THREE.Mesh(new THREE.PlaneGeometry(width - 1.2, 0.9), mat('desgaste', () => { const { c, g: gg } = canvas(512, 64); const gr = gg.createLinearGradient(0, 0, 0, 64); gr.addColorStop(0, 'rgba(255,240,220,0)'); gr.addColorStop(0.5, 'rgba(255,240,220,0.10)'); gr.addColorStop(1, 'rgba(255,240,220,0)'); gg.fillStyle = gr; gg.fillRect(0, 0, 512, 64); dirty(gg, 512, 64, 0.2, 5); return new THREE.MeshStandardMaterial({ map: textureOf(c), transparent: true, depthWrite: false, roughness: 0.4, metalness: 0.3, polygonOffset: true, polygonOffsetFactor: -1 }); }));
@@ -268,8 +268,8 @@ export function lamp(g: THREE.Group, room: Room, x: number, z: number, opts: { i
   const color = opts.color ?? '#ffbe73';
   // «corta»: cuelga pegada al techo para no cruzarse por delante de la pantalla o el cartel protagonista
   const low = opts.corta ? 0.42 : 0.95;
-  room.anchors.push({ type: 'foco', pos: new THREE.Vector3(x, HEIGHT - low, z), goal: new THREE.Vector3(opts.goal?.[0] ?? x, 0, opts.goal?.[1] ?? z - 0.25), intensity: opts.intensity ?? 100, color: new THREE.Color(color), shadow: !!opts.shadow, angle: 0.72, penumbra: 0.65, distance: 10 });
-  const pr = place(g, R.home('Light_Ceiling1'), { pos: [x, HEIGHT, z], height: opts.corta ? 0.45 : 1.0, anchor: 'techo', shadow: false });
+  room.anchors.push({ type: 'spot', pos: new THREE.Vector3(x, HEIGHT - low, z), goal: new THREE.Vector3(opts.goal?.[0] ?? x, 0, opts.goal?.[1] ?? z - 0.25), intensity: opts.intensity ?? 100, color: new THREE.Color(color), shadow: !!opts.shadow, angle: 0.72, penumbra: 0.65, distance: 10 });
+  const pr = place(g, R.home('Light_Ceiling1'), { pos: [x, HEIGHT, z], height: opts.corta ? 0.45 : 1.0, anchor: 'ceiling', shadow: false });
   const bulbMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(color).multiplyScalar(5) });
   const bulb = new THREE.Mesh(new THREE.SphereGeometry(opts.corta ? 0.07 : 0.1, 12, 8), bulbMat);
   bulb.position.set(x, HEIGHT - low, z); bulb.userData.isStatic = false; g.add(bulb);
@@ -279,7 +279,7 @@ export function lamp(g: THREE.Group, room: Room, x: number, z: number, opts: { i
   return pr;
 }
 function matPoolFalse(color: string) {
-  return mat('pozaFalsa' + color, () => {
+  return mat('fakePool' + color, () => {
     const { c, g } = canvas(128, 128); const gr = g.createRadialGradient(64, 64, 0, 64, 64, 64);
     gr.addColorStop(0, 'rgba(255,255,255,0.55)'); gr.addColorStop(0.55, 'rgba(255,255,255,0.18)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
     g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
@@ -318,14 +318,14 @@ export function plateYBeacon(g: THREE.Group, room: Room, name: string, sub: stri
     x.fillStyle = '#16140f'; x.fillRect(16, 16, 150, 56);
     let tl = 44; x.font = `800 ${tl}px ${SOURCES.title}`; while (x.measureText(nameSec).width > 140 && tl > 18) { tl -= 2; x.font = `800 ${tl}px ${SOURCES.title}`; }
     x.fillStyle = sec.letter; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(nameSec, 91, 46);
-    if (sec.id === 'acceso') {
+    if (sec.id === 'access') {
       x.save(); x.beginPath(); x.rect(16, H - 46, 150, 30); x.clip(); x.fillStyle = '#16140f';
       for (let i = -2; i < 9; i++) { x.beginPath(); x.moveTo(16 + i * 26, H - 16); x.lineTo(29 + i * 26, H - 16); x.lineTo(59 + i * 26, H - 46); x.lineTo(46 + i * 26, H - 46); x.fill(); }
       x.restore();
     }
     // el desgaste va debajo de las letras: encima las salpicaba de motas y, reducida a la placa en pantalla, se leía mal
     dirty(x, W, H, 0.22, name.length + 3);
-    x.fillStyle = sec.ink; let tn = 96; x.font = `900 ${tn}px ${SOURCES.title}`; while (x.measureText(number).width > 118 && tn > 50) { tn -= 6; x.font = `900 ${tn}px ${SOURCES.title}`; } x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(number, 91, sec.id === 'acceso' ? 136 : 150);
+    x.fillStyle = sec.ink; let tn = 96; x.font = `900 ${tn}px ${SOURCES.title}`; while (x.measureText(number).width > 118 && tn > 50) { tn -= 6; x.font = `900 ${tn}px ${SOURCES.title}`; } x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(number, 91, sec.id === 'access' ? 136 : 150);
     x.textAlign = 'left';
     let size = 124; x.font = `800 ${size}px ${SOURCES.title}`;
     while (x.measureText(name).width > W - 225 && size > 40) { size -= 4; x.font = `800 ${size}px ${SOURCES.title}`; }
@@ -573,7 +573,7 @@ export interface StationOptions {
   x: number; z: number; rotation: number; id?: string;
   desk?: string; deskScale?: number; colorDesk?: string;
   chair?: string | null; chairScale?: number;
-  screen?: 'monitor' | 'ordenador' | 'doble' | null;   // el monitor del pack de muebles o el ordenador del pack sci-fi
+  screen?: 'monitor' | 'computer' | 'dual' | null;   // el monitor del pack de muebles o el ordenador del pack sci-fi
   tex?: THREE.Texture; brightness?: number;                    // lo que se ve en el monitor
   keyboard?: boolean;
   onTop?: { path: string; x: number; z: number; c?: Placement }[];   // lo demás del tablero (taza, lámpara, libros…), en el marco del puesto
@@ -586,7 +586,7 @@ export const centralDesk = (ctx: Context, o: Omit<StationOptions, 'x' | 'z' | 'r
 
 export async function workStation(ctx: Context, o: StationOptions): Promise<Station> {
   const { g, K } = ctx;
-  const group = new THREE.Group(); group.position.set(o.x, 0, o.z); group.rotation.y = o.rotation; group.name = 'puesto'; g.add(group);
+  const group = new THREE.Group(); group.position.set(o.x, 0, o.z); group.rotation.y = o.rotation; group.name = 'workstation'; g.add(group);
   const desk = await place(group, o.desk ?? R.furniture('desk'), { scale: K * (o.deskScale ?? 0.85), variant: ctx.v, own: !!o.colorDesk });
   if (o.colorDesk) desk.traverse((n: any) => { if (n.isMesh) { n.material.color.set(o.colorDesk); n.material.needsUpdate = true; } });
   const t = desk.userData.size as THREE.Vector3;
@@ -598,11 +598,11 @@ export async function workStation(ctx: Context, o: StationOptions): Promise<Stat
   };
   const monitors: THREE.Object3D[] = [];
   const zScreen = -background * 0.45;
-  if (o.screen === 'ordenador') monitors.push(await deskOver(R.sf('Props_ComputerSmall'), 0, zScreen, { height: 0.72 }, false));
-  else if (o.screen === 'doble') for (const s of [-1, 1]) monitors.push(await deskOver(R.furniture('monitor'), s * t.x * 0.2, zScreen, { scale: K * 0.62, rot: -s * 0.18 }, false));
+  if (o.screen === 'computer') monitors.push(await deskOver(R.sf('Props_ComputerSmall'), 0, zScreen, { height: 0.72 }, false));
+  else if (o.screen === 'dual') for (const s of [-1, 1]) monitors.push(await deskOver(R.furniture('monitor'), s * t.x * 0.2, zScreen, { scale: K * 0.62, rot: -s * 0.18 }, false));
   else if (o.screen !== null) monitors.push(await deskOver(R.furniture('monitor'), 0, zScreen, { scale: K * 0.68 }, false));
   const monitor = monitors[0] ?? null;
-  if (monitor && o.tex && o.screen !== 'ordenador') screenFrontal(monitor, o.tex, { width: 0.84, height: 0.66, cy: 0.6, dz: -0.02 }, o.brightness ?? 1.1);
+  if (monitor && o.tex && o.screen !== 'computer') screenFrontal(monitor, o.tex, { width: 0.84, height: 0.66, cy: 0.6, dz: -0.02 }, o.brightness ?? 1.1);
   else if (monitor && o.tex) overlayScreen(monitor, /^Black$/, o.tex, { brightness: o.brightness ?? 1.2, margin: 0.9 });
   if (o.keyboard !== false) { await deskOver(R.furniture('keyboard'), 0, background * 0.35, { scale: K * 0.8 }); await deskOver(R.furniture('mouse'), t.x * 0.22, background * 0.4, { scale: K * 0.8 }); }
   for (const e of o.onTop ?? []) await deskOver(e.path, e.x, e.z, e.c ?? {});
@@ -616,7 +616,7 @@ export async function workStation(ctx: Context, o: StationOptions): Promise<Stat
   const corner = [[-t.x / 2 * k, -background * k], [t.x / 2 * k, -background * k], [-t.x / 2 * k, background * k], [t.x / 2 * k, background * k]].map(([a, b]) => group.localToWorld(new THREE.Vector3(a, 0, b)).sub(g.getWorldPosition(new THREE.Vector3())));
   ctx.room.obstacles.push(new THREE.Box2(new THREE.Vector2(Math.min(...corner.map(p => p.x)), Math.min(...corner.map(p => p.z))), new THREE.Vector2(Math.max(...corner.map(p => p.x)), Math.max(...corner.map(p => p.z)))));
   const seat = group.localToWorld(new THREE.Vector3(0, 0, o.ofFoot ? background + 0.32 : zChair)).sub(g.getWorldPosition(new THREE.Vector3()));
-  const point: RoomPoint = { id: o.id ?? 'puesto', type: 'puesto', pos: seat, rotation: o.rotation + Math.PI, desk: +height.toFixed(3), clip: o.ofFoot ? 'Working_A' : 'Sit_Chair_Idle', ...(o.ofFoot ? { ofFoot: true } : {}) };
+  const point: RoomPoint = { id: o.id ?? 'workstation', type: 'workstation', pos: seat, rotation: o.rotation + Math.PI, desk: +height.toFixed(3), clip: o.ofFoot ? 'Working_A' : 'Sit_Chair_Idle', ...(o.ofFoot ? { ofFoot: true } : {}) };
   ctx.room.points.push(point);
   return { group, desk, height, background, monitor, monitors, point };
 }
@@ -626,7 +626,7 @@ export interface RoomOptions {
   id: string; type: RoomType; name: string; subtitle: string; number: string; branch?: string;
   variant: Variant; seed: number; panels?: string[];
   steps?: { left: boolean; right: boolean };
-  floor: number; side: 'izq' | 'der'; orden: number; path?: string; area?: string;
+  floor: number; side: 'left' | 'right'; orden: number; path?: string; area?: string;
 }
 
 export interface Context {
@@ -652,7 +652,7 @@ export type Furnish = (ctx: Context) => Promise<void>;
 export async function createRoom(o: RoomOptions, furnish: Furnish): Promise<Room> {
   const v = o.variant; const width = 3 * MODULE;
   const g = new THREE.Group(); g.name = 'sala:' + o.id;
-  const room = { id: o.id, type: o.type, group: g, width, variant: v, points: [], obstacles: [], screens: [], lights: [], activity: 0, state: 'ociosa', progreso: 0, userData: {}, anchors: [], floor: o.floor, side: o.side, orden: o.orden, name: o.name, path: o.path, area: o.area,
+  const room = { id: o.id, type: o.type, group: g, width, variant: v, points: [], obstacles: [], screens: [], lights: [], activity: 0, state: 'idle', progreso: 0, userData: {}, anchors: [], floor: o.floor, side: o.side, orden: o.orden, name: o.name, path: o.path, area: o.area,
     update: () => {}, setState: () => {}, writeScreen: () => {}, setIcon: () => {} } as unknown as Room;
   const zB = -BACKGROUND / 2; const K = SCALE_KAYKIT;
   frame(g, width);
@@ -670,15 +670,15 @@ export async function createRoom(o: RoomOptions, furnish: Furnish): Promise<Room
       ps.push(p); return p;
     },
     wait: async () => { await Promise.all(ps); },
-    vCopper: { ...v, id: v.id + '-cobre', accent: '#b06a35', darkAccent: '#6a3b1c' },
-    vDark: { ...v, id: v.id + '-oscuro', accent: '#3b302a', darkAccent: '#241d18' },
+    vCopper: { ...v, id: v.id + '-copper', accent: '#b06a35', darkAccent: '#6a3b1c' },
+    vDark: { ...v, id: v.id + '-dark', accent: '#3b302a', darkAccent: '#241d18' },
     onUpdate: f => updaters.push(f), onState: f => onStates.push(f),
     device: (id, piece) => { devicePieces.push([id, piece]); },
   };
   // techo común: bandeja de tuberías y cables que caen
   for (let x = -width / 2 + 1.8; x < width / 2 - 1; x += 3.5) ctx.P(R.sf('Pipes'), { pos: [x, HEIGHT - 0.3, zB + 0.62], width: 3.5, shadow: false });
   const rr = random(o.seed + 5);
-  for (const x of [-5.2, -2.6, 1.2, 3.4, 5.4]) ctx.P(R.cy(rr() > 0.5 ? 'Cable_Long' : 'Cable_Small'), { pos: [x + (rr() - 0.5) * 0.4, HEIGHT, zB + 0.7 + rr() * 0.3], height: 0.4 + rr() * 0.35, anchor: 'techo', shadow: false });   // cortos: nunca cuelgan por delante de una pantalla o un cartel
+  for (const x of [-5.2, -2.6, 1.2, 3.4, 5.4]) ctx.P(R.cy(rr() > 0.5 ? 'Cable_Long' : 'Cable_Small'), { pos: [x + (rr() - 0.5) * 0.4, HEIGHT, zB + 0.7 + rr() * 0.3], height: 0.4 + rr() * 0.35, anchor: 'ceiling', shadow: false });   // cortos: nunca cuelgan por delante de una pantalla o un cartel
   await furnish(ctx);
   await Promise.all(ps);
   const plaque = plateYBeacon(g, room, o.name, o.subtitle, o.number, v, o.branch);
@@ -701,27 +701,27 @@ export async function createRoom(o: RoomOptions, furnish: Furnish): Promise<Room
   const panel = ctx.panel;
   room.setState = (e, text) => {
     room.state = e;
-    if (panel) { panel.state = STATE_TEXT[e]; panel.color = e === 'trabajando' || e === 'ociosa' ? v.screen : COLOR_STATE[e]; if (text) panel.lines.push('> ' + text); }
-    const col = new THREE.Color(e === 'sin-sesion' ? '#222' : COLOR_STATE[e]);
+    if (panel) { panel.state = STATE_TEXT[e]; panel.color = e === 'working' || e === 'idle' ? v.screen : COLOR_STATE[e]; if (text) panel.lines.push('> ' + text); }
+    const col = new THREE.Color(e === 'no-session' ? '#222' : COLOR_STATE[e]);
     const mb = room.userData.matBeacon as THREE.MeshStandardMaterial | undefined; if (mb) mb.emissive.copy(col);
     room.userData.beaconLight?.color.copy(col); room.userData.beam?.color.copy(col);
     // lámparas de techo: apagadas en reposo, a tope trabajando (sin sesiones, encendidas como siempre)
-    room.userData.lightLevel = e === 'ociosa' ? 0 : e === 'trabajando' ? 1.35 : 1;
+    room.userData.lightLevel = e === 'idle' ? 0 : e === 'working' ? 1.35 : 1;
     for (const f of onStates) f(e);
-    room.setIcon(e === 'terminada' ? 'listo' : e === 'esperando' ? 'espera' : e === 'error' ? 'error' : null);
+    room.setIcon(e === 'finished' ? 'ready' : e === 'waiting' ? 'wait' : e === 'error' ? 'error' : null);
   };
   room.setIcon = (type) => {
     const ic = room.userData.icon as THREE.Sprite;
-    const mark = type === 'listo' ? ['✓', '#5dff8a'] : type === 'espera' ? ['?', '#ffb000'] : type === 'error' ? ['!', '#ff2a1a'] : null;
+    const mark = type === 'ready' ? ['✓', '#5dff8a'] : type === 'wait' ? ['?', '#ffb000'] : type === 'error' ? ['!', '#ff2a1a'] : null;
     ic.visible = !!mark;
     if (mark) { (ic.material as THREE.SpriteMaterial).map = iconTexture(mark[0], mark[1]); (ic.material as THREE.SpriteMaterial).needsUpdate = true; }
   };
-  room.writeScreen = (who, lines) => { if (who === 'mesa' && room.screens[0]) room.screens[0].write(lines); else panel?.lines.push(...([] as string[]).concat(lines)); };
-  room.setState('ociosa');
+  room.writeScreen = (who, lines) => { if (who === 'desk' && room.screens[0]) room.screens[0].write(lines); else panel?.lines.push(...([] as string[]).concat(lines)); };
+  room.setState('idle');
   room.update = (dt, t) => {
     const a = room.activity;
     for (const p of room.screens) p.update(dt, t);
-    if (panel) { panel.progreso = room.state === 'trabajando' ? (room.progreso || (t * 0.04) % 1) : room.state === 'terminada' ? 1 : room.progreso; panel.update(t); }
+    if (panel) { panel.progreso = room.state === 'working' ? (room.progreso || (t * 0.04) % 1) : room.state === 'finished' ? 1 : room.progreso; panel.update(t); }
     for (const f of updaters) f(dt, t, a);
     const lamps = room.userData.lamps as { anchor: LightAnchor; bulb: THREE.MeshBasicMaterial; color: THREE.Color }[] | undefined;
     if (lamps) for (const l of lamps) {
@@ -730,9 +730,9 @@ export async function createRoom(o: RoomOptions, furnish: Furnish): Promise<Room
     }
     dust.update(dt, t); vapor.update(dt); sparks.update(dt);
     const lb = room.userData.beaconLight; const mb = room.userData.matBeacon as THREE.MeshStandardMaterial | undefined;
-    const pulse = room.state === 'esperando' ? (Math.sin(t * Math.PI * 2) > 0 ? 1 : 0.15) : room.state === 'error' ? 0.5 + 0.5 * Math.sin(t * Math.PI) : room.state === 'sin-sesion' ? 0 : 0.6;
+    const pulse = room.state === 'waiting' ? (Math.sin(t * Math.PI * 2) > 0 ? 1 : 0.15) : room.state === 'error' ? 0.5 + 0.5 * Math.sin(t * Math.PI) : room.state === 'no-session' ? 0 : 0.6;
     if (lb) lb.intensity = pulse * 2.5; if (mb) mb.emissiveIntensity = 0.3 + pulse * 3;
-    const hz = room.userData.beam; const spinning = room.state === 'esperando' || room.state === 'error';
+    const hz = room.userData.beam; const spinning = room.state === 'waiting' || room.state === 'error';
     if (hz) { hz.intensity = spinning ? 60 : 0; if (spinning) { const an = t * Math.PI * 2 * 0.8; hz.target.position.set(Math.cos(an) * 6, -1.5, -BACKGROUND + Math.sin(an) * 2); } }
     const ic = room.userData.icon as THREE.Sprite; if (ic?.visible) ic.position.y = HEIGHT + SLAB * 0.31 + Math.sin(t * 2.4) * 0.06;
     steamNext -= dt; vapor.active = steamNext < 0; if (steamNext < -1.6) steamNext = 8 + Math.random() * 7;
@@ -754,7 +754,7 @@ export async function highBand(ctx: Context, o: { timer?: number; gauge?: number
   for (const x0 of o.valves ?? [-2.4, 2.9]) {
     const [cx, l] = segments.reduce((a, b) => Math.abs(b[0] - x0) < Math.abs(a[0] - x0) ? b : a);
     const x = THREE.MathUtils.clamp(x0, cx - l / 2 + 0.35, cx + l / 2 - 0.35);
-    ctx.P(R.sf('Details_Cylinder'), { pos: [x, 3.31, zB + 0.7], height: 0.16, rotX: Math.PI / 2, anchor: 'centro', variant: ctx.vCopper, shadow: false });
+    ctx.P(R.sf('Details_Cylinder'), { pos: [x, 3.31, zB + 0.7], height: 0.16, rotX: Math.PI / 2, anchor: 'center', variant: ctx.vCopper, shadow: false });
     valves.push(await place(g, R.sf('Details_Output'), { pos: [x, 3.08, zB + 0.8], width: 0.42, variant: ctx.vCopper, shadow: false, isStatic: false }));
   }
   let onInput: Gauge | null = null, timer: Clock | null = null;
@@ -773,7 +773,7 @@ export async function monitorWall(ctx: Context, x: number, y: number, scale: num
 
 // Pantallas de las salas de repo con datos de verdad (nada inventado): el estado del repo, lo que hace ahora
 // quien trabaja en la sala o el último commit. Se reescriben solo cuando cambia lo que muestran.
-export type ScreenContent = 'repo' | 'actividad' | 'commit' | 'cambios';
+export type ScreenContent = 'repo' | 'activity' | 'commit' | 'changes';
 /** Recorta en la última palabra que quepa y añade «…» (nunca corta a media palabra). */
 export function truncate(text: string, n: number) {
   const t = (text ?? '').trim(); if (t.length <= n) return t;
@@ -793,17 +793,17 @@ export function screenReal(ctx: Context, screen: PhosphorScreen, what: ScreenCon
     wait -= dt; if (wait > 0) return; wait = 1.5;
     const v = live.get() as any;
     const r = v.repos[ctx.room.id];
-    const sess = Object.values(v.sessions).filter((s: any) => s.roomId === ctx.room.id && s.state !== 'cerrada').sort((a: any, b: any) => b.updated - a.updated)[0] as any;
+    const sess = Object.values(v.sessions).filter((s: any) => s.roomId === ctx.room.id && s.state !== 'closed').sort((a: any, b: any) => b.updated - a.updated)[0] as any;
     const who = sess ? (v.state?.dwellers ?? []).find((h: any) => h.id === sess.dwellerId)?.name ?? t('world.screen.someone') : '';
     const ago = (ms: number) => { const h = Math.round((Date.now() - ms) / 3600_000); return h < 1 ? t('world.screen.aWhileAgo') : h < 48 ? t('windows.nHAgo', { n: h }) : t('windows.nDaysAgo', { n: Math.round(h / 24) }); };
     let lines: string[];
     if (!r) lines = [t('world.screen.readingRepo')];
     else if (!r.exists) lines = [t('panels.folderNotFound')];
-    else if (what === 'actividad') lines = sess && ['trabajando', 'arrancando', 'esperando'].includes(sess.state)
-      ? [`${who}:`, sess.state === 'esperando' ? t('windows.waitingForYou') : truncate(sess.activity?.text ?? t('windows.thinking'), 30), t('world.screen.nTools', { n: sess.tools ?? 0 }), sess.helpers?.length ? t('windows.nHelpers', { n: sess.helpers.length }) : '']
+    else if (what === 'activity') lines = sess && ['working', 'starting', 'waiting'].includes(sess.state)
+      ? [`${who}:`, sess.state === 'waiting' ? t('windows.waitingForYou') : truncate(sess.activity?.text ?? t('windows.thinking'), 30), t('world.screen.nTools', { n: sess.tools ?? 0 }), sess.helpers?.length ? t('windows.nHelpers', { n: sess.helpers.length }) : '']
       : [t('world.screen.idleLower'), sess ? t('world.screen.lastWork', { titulo: truncate(sess.title ?? '', 22) }) : t('world.screen.noWorkInProgress')];
     else if (what === 'commit') lines = r.lastCommit ? [r.lastCommit.hash.slice(0, 7) + ' ' + r.lastCommit.author.slice(0, 14), ...linesTwo(r.lastCommit.message, 30), ago(r.lastCommit.date)] : [t('windows.noCommits')];
-    else if (what === 'cambios') lines = r.isGit ? [`git status · ${r.branch ?? ''}`, r.changes ? t('world.screen.nFilesChanged', { n: r.changes }) : t('world.screen.cleanTree'), `worktrees: ${Math.max(0, (r.worktrees?.length ?? 1) - 1)}`] : [t('world.screen.noGit')];
+    else if (what === 'changes') lines = r.isGit ? [`git status · ${r.branch ?? ''}`, r.changes ? t('world.screen.nFilesChanged', { n: r.changes }) : t('world.screen.cleanTree'), `worktrees: ${Math.max(0, (r.worktrees?.length ?? 1) - 1)}`] : [t('world.screen.noGit')];
     else lines = [r.isGit ? t('world.screen.branchRama', { rama: r.branch }) : t('world.screen.folder'), r.changes ? t('windows.nChanges', { n: r.changes }) : t('panels.clean'), r.type ? tIs(r.type) : ''];
     lines = lines.filter(Boolean);
     const f = lines.join('|'); if (f === signature) return; signature = f;

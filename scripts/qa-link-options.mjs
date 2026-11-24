@@ -30,7 +30,7 @@ async function open(electron) {
   // a reply as the intercom draws it (same markdown())
   await pg.evaluate(async dir => {
     const { markdown } = await import('/src/ui/markdown.ts');
-    const box = document.createElement('div'); box.id = 'qa-respuesta'; box.className = 'consola interactivo';
+    const box = document.createElement('div'); box.id = 'qa-respuesta'; box.className = 'console interactivo';
     box.style.cssText = 'position:fixed;right:20px;top:80px;width:560px;z-index:999999;background:#0b0d0a;padding:12px;color:#cfe';
     box.innerHTML = `<div class="ent asistente">${markdown([
       `The plan: ${dir}/plan.html — the code: ${dir}/codigo.ts — the folder: ${dir}/ — [a missing one](${dir}/falta.html)`,
@@ -41,7 +41,7 @@ async function open(electron) {
   }, dir);
   return { pg, errors, ctx };
 }
-const list = pg => pg.evaluate(() => { const c = document.querySelector('.opciones-enlace'); return c ? { title: c.querySelector('.oe-titulo')?.textContent, options: [...c.querySelectorAll('.oe-opcion')].map(b => b.dataset.accion), defaultOpt: c.querySelector('.oe-defecto')?.dataset.accion, focus: document.activeElement?.dataset?.accion, notice: c.querySelector('.oe-aviso')?.textContent ?? null } : null; });
+const list = pg => pg.evaluate(() => { const c = document.querySelector('.opciones-enlace'); return c ? { title: c.querySelector('.oe-title')?.textContent, options: [...c.querySelectorAll('.oe-option')].map(b => b.dataset.accion), defaultOpt: c.querySelector('.oe-defecto')?.dataset.accion, focus: document.activeElement?.dataset?.accion, notice: c.querySelector('.oe-notice')?.textContent ?? null } : null; });
 const until = async (pg, f, ms = 8000) => { const t = Date.now(); while (Date.now() - t < ms) { if (await f()) return true; await pg.waitForTimeout(150); } return false; };
 const menu = (pg, href) => pg.click(link(href), { button: 'right' });
 const link = href => `#qa-respuesta a[data-local="${href}"]:not(.miniatura), #qa-respuesta a[href="${href}"]`;

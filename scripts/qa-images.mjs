@@ -31,7 +31,7 @@ await pg.evaluate(async () => { await window.__ready(); window.__game.set({ pane
 // a reply as the intercom draws it (same markdown())
 await pg.evaluate(async dir => {
   const { markdown } = await import('/src/ui/markdown.ts');
-  const box = document.createElement('div'); box.id = 'qa-respuesta'; box.className = 'consola interactivo';
+  const box = document.createElement('div'); box.id = 'qa-respuesta'; box.className = 'console interactivo';
   box.style.cssText = 'position:fixed;right:20px;top:80px;width:520px;z-index:999999;background:#0b0d0a;padding:12px;color:#cfe';
   box.innerHTML = `<div class="ent asistente">${markdown(`Here it is: ![the capture](${dir}/gradiente.png)\n\nAlso as a link: ${dir}/gradiente.png and [a missing one](${dir}/falta.png).\n\n\`${dir}/gradiente.png\` in code stays code.`)}</div>`;
   document.body.append(box);

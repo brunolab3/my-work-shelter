@@ -11,7 +11,7 @@
 import type { SessionSummary, HistoryElement } from '@shared/protocol';
 import type { AttachmentLocal } from './inputLine';
 
-export type View = { type: 'menu' } | { type: 'nuevo'; resume?: HistoryElement } | { type: 'historial' } | { type: 'visitantes' } | { type: 'ficha' } | { type: 'sesion'; sessionId: string };
+export type View = { type: 'menu' } | { type: 'new'; resume?: HistoryElement } | { type: 'history' } | { type: 'visitors' } | { type: 'card' } | { type: 'session'; sessionId: string };
 // memory: the tab's conversation (to resume it with what was typed if it closes without the Overseer closing it)
 export interface TabCom { id: string; view: View; draft?: string; attachments?: AttachmentLocal[]; reason?: { request: string; text: string }; sessionWait?: boolean; memory?: HistoryElement }
 export interface WindowCom { dwellerId: string; tabs: TabCom[]; active: string; maximized: boolean; z: number; known: string[]; confirm?: string[] }
@@ -19,9 +19,9 @@ export interface WindowCom { dwellerId: string; tabs: TabCom[]; active: string; 
 export const readyAttachments = (l?: AttachmentLocal[]) => (l ?? []).filter(a => a.path && !a.error);
 export const withText = (p: TabCom) => !!p.draft?.trim() || readyAttachments(p.attachments).length > 0;
 /** The tab of a conversation that closed by itself, to resume it (one picked from the archive has no memory) */
-const closedHere = (p: TabCom) => p.view.type === 'nuevo' && !!p.view.resume && p.memory?.claudeId === p.view.resume.claudeId;
+const closedHere = (p: TabCom) => p.view.type === 'new' && !!p.view.resume && p.memory?.claudeId === p.view.resume.claudeId;
 /** No conversation, nothing typed and no attachment (ready or still uploading): leaving it loses nothing */
-export const unused = (p: TabCom) => p.view.type !== 'sesion' && !closedHere(p) && !p.sessionWait && !p.draft?.trim() && !(p.attachments ?? []).some(a => !a.error);
+export const unused = (p: TabCom) => p.view.type !== 'session' && !closedHere(p) && !p.sessionWait && !p.draft?.trim() && !(p.attachments ?? []).some(a => !a.error);
 
 /** What is in view: the intercom in front and its tab */
 export interface InView { talking: string | null; active?: string }
@@ -56,24 +56,24 @@ export function syncIntercoms({ list, sessions, owner: ownerOf, closing, talking
   let changed = false, handoff: string | null = null;
   const liveByDweller = new Map<string, SessionSummary[]>(), owner = new Map<string, string>();
   const moved = new Map<string, TabCom>();   // tabs of conversations that move to another window (a copy)
-  for (const s of Object.values(sessions)) if (s.state !== 'cerrada' && !closing.has(s.id)) { const d = ownerOf(s); owner.set(s.id, d); liveByDweller.set(d, [...(liveByDweller.get(d) ?? []), s]); }
+  for (const s of Object.values(sessions)) if (s.state !== 'closed' && !closing.has(s.id)) { const d = ownerOf(s); owner.set(s.id, d); liveByDweller.set(d, [...(liveByDweller.get(d) ?? []), s]); }
   const successor = new Map<string, SessionSummary>();
   for (const s of Object.values(sessions)) if (s.handoffFrom && owner.has(s.id)) successor.set(s.handoffFrom, s);
-  for (const v of list) for (const p of v.tabs) if (p.view.type === 'sesion' && owner.has(p.view.sessionId) && owner.get(p.view.sessionId) !== v.dwellerId) moved.set(p.view.sessionId, p);
+  for (const v of list) for (const p of v.tabs) if (p.view.type === 'session' && owner.has(p.view.sessionId) && owner.get(p.view.sessionId) !== v.dwellerId) moved.set(p.view.sessionId, p);
   // the conversation in view in the intercom in front, if it moves: it is followed to its new window
   const front = list.find(v => v.dwellerId === talking), inView = front?.tabs.find(p => p.id === front.active);
-  const followed = inView?.view.type === 'sesion' && moved.has(inView.view.sessionId) ? inView.view.sessionId : undefined;
+  const followed = inView?.view.type === 'session' && moved.has(inView.view.sessionId) ? inView.view.sessionId : undefined;
   let next = list.map(v => {
     let touched = false;
     let tabs = v.tabs.flatMap((p): TabCom[] => {
-      if (p.view.type !== 'sesion') return [p];
+      if (p.view.type !== 'session') return [p];
       const after = successor.get(p.view.sessionId);
-      if (after && owner.get(after.id) === v.dwellerId && !v.tabs.some(q => q.view.type === 'sesion' && q.view.sessionId === after.id)) {
+      if (after && owner.get(after.id) === v.dwellerId && !v.tabs.some(q => q.view.type === 'session' && q.view.sessionId === after.id)) {
         touched = true;
-        return [{ ...p, view: { type: 'sesion', sessionId: after.id }, memory: undefined }];
+        return [{ ...p, view: { type: 'session', sessionId: after.id }, memory: undefined }];
       }
       const s = sessions[p.view.sessionId], d = owner.get(p.view.sessionId);
-      if (s && s.state !== 'cerrada' && d === v.dwellerId) {
+      if (s && s.state !== 'closed' && d === v.dwellerId) {
         // note which conversation it is, in case it later closes with something typed
         if (s.claudeId && (p.memory?.claudeId !== s.claudeId || p.memory.title !== s.title)) { touched = true; return [{ ...p, memory: { claudeId: s.claudeId, title: s.title, modified: s.updated, cwd: s.cwd } }]; }
         return [p];
@@ -83,7 +83,7 @@ export function syncIntercoms({ list, sessions, owner: ownerOf, closing, talking
       // closed (or lost in a restart) with something typed, or noted: the tab stays to resume it until the Overseer
       // closes it
       touched = true;
-      return [{ ...p, view: p.memory ? { type: 'nuevo', resume: { ...p.memory, modified: Date.now() } } : { type: 'nuevo' } }];
+      return [{ ...p, view: p.memory ? { type: 'new', resume: { ...p.memory, modified: Date.now() } } : { type: 'new' } }];
     });
     if (v === front && followed && !tabs.some(p => p.id === front.active)) handoff = owner.get(followed)!;
     const known = new Set(v.known);
@@ -92,10 +92,10 @@ export function syncIntercoms({ list, sessions, owner: ownerOf, closing, talking
       if (known.has(s.id) && !moved.has(s.id)) continue;
       if (tabs.some(p => p.sessionWait)) continue;   // a tab of this window is opening it
       known.add(s.id);
-      if (tabs.some(p => p.view.type === 'sesion' && p.view.sessionId === s.id)) continue;
+      if (tabs.some(p => p.view.type === 'session' && p.view.sessionId === s.id)) continue;
       // a new tab, quietly at the end: the one in view stays, unless this is the followed conversation
       const id = newId(), m = moved.get(s.id);
-      tabs = [...tabs, { ...m, id, view: { type: 'sesion', sessionId: s.id } }];
+      tabs = [...tabs, { ...m, id, view: { type: 'session', sessionId: s.id } }];
       if (s.id === followed) active = id;
     }
     if (!touched && tabs.length === v.tabs.length && known.size === v.known.length && active === v.active) return v;
@@ -110,7 +110,7 @@ export function syncIntercoms({ list, sessions, owner: ownerOf, closing, talking
   }).filter(Boolean) as WindowCom[];
   for (const [hid, sess] of liveByDweller) if (!next.some(v => v.dwellerId === hid)) {
     changed = true;
-    const tabs: TabCom[] = sess.sort((a, b) => a.created - b.created).map(s => ({ ...moved.get(s.id), id: newId(), view: { type: 'sesion', sessionId: s.id } }));
+    const tabs: TabCom[] = sess.sort((a, b) => a.created - b.created).map(s => ({ ...moved.get(s.id), id: newId(), view: { type: 'session', sessionId: s.id } }));
     const i = followed ? sess.findIndex(s => s.id === followed) : -1;
     next = [...next, { dwellerId: hid, tabs, active: tabs[i >= 0 ? i : tabs.length - 1].id, maximized: false, z: nextZ(), known: sess.map(s => s.id) }];
   }

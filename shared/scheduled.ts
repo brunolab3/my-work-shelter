@@ -8,8 +8,8 @@ import type { MessageOrigin } from './protocol.ts';
 
 /** A dónde va: a la propia conversación que lo programó (se retoma por su `claudeId`) o, como send_to_room, a una sala */
 export type ScheduledTarget =
-  | { type: 'conversacion'; roomId: string; sessionId?: string; claudeId?: string; cwd: string; title?: string }
-  | { type: 'sala'; room: string; key?: string; thread?: string };
+  | { type: 'conversation'; roomId: string; sessionId?: string; claudeId?: string; cwd: string; title?: string }
+  | { type: 'room'; room: string; key?: string; thread?: string };
 
 export interface ScheduledMessage {
   id: string;
@@ -90,7 +90,7 @@ export const AFTER_TURN = 'after-turn';               // the intercom's «When i
 /** The after-turn ones whose conversation is free now (`busy` by game id or Claude Code id), oldest first; a PR's pack
  *  also waits for its checks to finish (`settled`), at most PACK_MAX_MS since it was first held */
 export const turnDue = (list: ScheduledMessage[], busy: (t: { sessionId?: string; claudeId?: string }) => boolean, settled: (url: string) => boolean = () => true, now = Date.now()) =>
-  list.filter(x => x.afterTurn && x.target.type === 'conversacion' && !busy(x.target) && (!x.pr || settled(x.pr.url) || now - x.created >= PACK_MAX_MS)).sort((a, b) => a.created - b.created);
+  list.filter(x => x.afterTurn && x.target.type === 'conversation' && !busy(x.target) && (!x.pr || settled(x.pr.url) || now - x.created >= PACK_MAX_MS)).sort((a, b) => a.created - b.created);
 export const PACK_MAX_MS = 30 * 60_000;   // a check stuck running doesn't hold a PR's notices longer than this
 
 /** A notice added to a PR's pack: the same text is not repeated, a CI failure replaces the earlier one (that of an older
@@ -111,15 +111,15 @@ export const sameSender = (a: ScheduledMessage['origin'], b: ScheduledMessage['o
   a.roomId === b.roomId && (!!(a.claudeId && a.claudeId === b.claudeId) || !!(a.sessionId && a.sessionId === b.sessionId));
 /** Whether one is for that conversation (its target), by game id or Claude Code id */
 export const forTarget = (x: ScheduledMessage, s: { id?: string; claudeId?: string }) =>
-  x.target.type === 'conversacion' && (!!(s.claudeId && x.target.claudeId === s.claudeId) || !!(s.id && x.target.sessionId === s.id));
+  x.target.type === 'conversation' && (!!(s.claudeId && x.target.claudeId === s.claudeId) || !!(s.id && x.target.sessionId === s.id));
 /** Which way one goes for the conversation whose list it is (`here`; with none, the place it is listed at, whose list
  *  holds what goes to it: ofPlace): `in` arrives there, `out` leaves it for another room or conversation, `self` is a
  *  reminder that conversation wrote to itself (it arrives, but nobody else sent it). The Overseer's, another room's
  *  and the game's messages arrive, even when scheduled from this conversation's intercom */
 export function scheduledDirection(x: ScheduledMessage, here?: { id?: string; claudeId?: string }): 'in' | 'out' | 'self' {
-  const d = x.target, to = here ?? (d.type === 'conversacion' ? { id: d.sessionId, claudeId: d.claudeId } : undefined);
+  const d = x.target, to = here ?? (d.type === 'conversation' ? { id: d.sessionId, claudeId: d.claudeId } : undefined);
   if (here && !forTarget(x, here)) return 'out';
-  const own = !x.from && !x.overseer && !!to && d.type === 'conversacion' && ofConversation([x], to).length > 0;
+  const own = !x.from && !x.overseer && !!to && d.type === 'conversation' && ofConversation([x], to).length > 0;
   return own ? 'self' : 'in';
 }
 export const isLate = (x: ScheduledMessage, now: number) => now - x.when > LATE_AFTER_MS;
@@ -137,7 +137,7 @@ export const ofConversationView = (list: ScheduledMessage[], s: { id?: string; c
  *  hologram still to come (`task`: its worktree is created on delivery); else the main copy */
 export function placeOf(x: ScheduledMessage, worktrees: { path: string; branch?: string; main?: boolean }[]): { roomId: string; worktree?: string; task?: string } {
   const ws = worktrees.filter(w => !w.main), d = x.target;
-  if (d.type === 'sala') {
+  if (d.type === 'room') {
     const worktree = d.key ? ws.find(w => worktreeHasTask(w, d.key!))?.path : undefined;
     return { roomId: d.room, ...(worktree ? { worktree } : d.key ? { task: d.key } : {}) };
   }
@@ -164,7 +164,7 @@ export function byPlace(list: ScheduledMessage[], roomId: string, worktrees: { p
 export function soonestByPlace(list: ScheduledMessage[], worktreesOf: (roomId: string) => { path: string; branch?: string; main?: boolean }[]): Map<string, ScheduledMessage> {
   const out = new Map<string, ScheduledMessage>();
   for (const x of list) {
-    const p = placeOf(x, worktreesOf(x.target.type === 'sala' ? x.target.room : x.target.roomId)), k = `${p.roomId}|${p.worktree ?? ''}`;
+    const p = placeOf(x, worktreesOf(x.target.type === 'room' ? x.target.room : x.target.roomId)), k = `${p.roomId}|${p.worktree ?? ''}`;
     const already = out.get(k); if (!already || x.when < already.when) out.set(k, x);
   }
   return out;

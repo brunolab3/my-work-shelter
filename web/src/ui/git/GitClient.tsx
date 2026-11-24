@@ -26,7 +26,7 @@ interface StateGit {
   staged: FileGit[]; changes: FileGit[]; conflicts: FileGit[];
   operation: 'merge' | 'rebase' | 'cherry-pick' | 'revert' | null; truncated: boolean; lastMessage: string; remote: string[]; drawer: number;
 }
-type Group = 'preparados' | 'cambios' | 'conflictos';
+type Group = 'staged' | 'changes' | 'conflicts';
 interface Choice { group: Group; path: string }
 interface Repo { path: string; name: string; roomId: string; detail: string; changes: number; worktree?: boolean }
 
@@ -69,7 +69,7 @@ function Window({ v, repos, path }: { v: WindowGit; repos: Repo[]; path: string 
   const [confirm, setConfirm] = useState<{ text: React.ReactNode; button: string; si: () => void; no?: () => void } | null>(null);
   const [sel, setSel] = useState<Choice | null>(null);
   const [parallel, setParallel] = useState(() => localStorage.getItem('refugio.git.paralelo') === '1');
-  const [folded, setFolded] = useState<Record<Group, boolean>>({ preparados: false, cambios: false, conflictos: false });
+  const [folded, setFolded] = useState<Record<Group, boolean>>({ staged: false, changes: false, conflicts: false });
   const box = useRef<HTMLDivElement>(null);
 
   const notify = useCallback((text: string, error = false) => { setNotice({ text, error, id: Date.now() }); if (error) SFX.error(); }, []);
@@ -101,12 +101,12 @@ function Window({ v, repos, path }: { v: WindowGit; repos: Repo[]; path: string 
   }, [path, refresh, notify]);
 
   // la elección sigue al archivo si cambia de grupo (al prepararlo, sigue viéndose su diff en preparados)
-  const groups: Record<Group, FileGit[]> = { conflictos: state?.conflicts ?? [], preparados: state?.staged ?? [], cambios: state?.changes ?? [] };
-  const list: Choice[] = (['conflictos', 'preparados', 'cambios'] as Group[]).flatMap(g => (folded[g] ? [] : groups[g].map(a => ({ group: g, path: a.path }))));
+  const groups: Record<Group, FileGit[]> = { conflicts: state?.conflicts ?? [], staged: state?.staged ?? [], changes: state?.changes ?? [] };
+  const list: Choice[] = (['conflicts', 'staged', 'changes'] as Group[]).flatMap(g => (folded[g] ? [] : groups[g].map(a => ({ group: g, path: a.path }))));
   useEffect(() => {
     if (!state) return;
     if (sel && groups[sel.group].some(a => a.path === sel.path)) return;
-    const other = sel && (['preparados', 'cambios', 'conflictos'] as Group[]).find(g => groups[g].some(a => a.path === sel.path));
+    const other = sel && (['staged', 'changes', 'conflicts'] as Group[]).find(g => groups[g].some(a => a.path === sel.path));
     setSel(other ? { group: other, path: sel!.path } : list[0] ?? null);
   }, [state]);
   const fileSel = sel ? groups[sel.group].find(a => a.path === sel.path) : undefined;
@@ -123,8 +123,8 @@ function Window({ v, repos, path }: { v: WindowGit; repos: Repo[]; path: string 
     });
   };
   const applyPatch = (patch: string, what: PatchThat, howMuch: string) => {
-    const go = () => act('patch', { patch, mode: what }, t('windows.applying'), what === 'preparar' ? t('windows.stagedQue', { que: howMuch }) : what === 'quitar' ? t('windows.unstagedQue', { que: howMuch }) : t('windows.discardedQue', { que: howMuch }));
-    if (what === 'descartar') setConfirm({ text: <>{t('windows.discard3')} {howMuch} {t('windows.from')} <b>{sel?.path}</b>? {t('windows.thisCannotBeUndone')}</>, button: t('windows.discard4'), si: go }); else go();
+    const go = () => act('patch', { patch, mode: what }, t('windows.applying'), what === 'stage' ? t('windows.stagedQue', { que: howMuch }) : what === 'unstage' ? t('windows.unstagedQue', { que: howMuch }) : t('windows.discardedQue', { que: howMuch }));
+    if (what === 'discard') setConfirm({ text: <>{t('windows.discard3')} {howMuch} {t('windows.from')} <b>{sel?.path}</b>? {t('windows.thisCannotBeUndone')}</>, button: t('windows.discard4'), si: go }); else go();
   };
   const openFile = (a: FileGit) => act('openFile', { file: a.path }, t('windows.opening'));
 
@@ -133,12 +133,12 @@ function Window({ v, repos, path }: { v: WindowGit; repos: Repo[]; path: string 
   const listKey = (e: React.KeyboardEvent) => {
     if (e.key === 'ArrowDown' || e.key === 'j') { e.preventDefault(); move(1); }
     else if (e.key === 'ArrowUp' || e.key === 'k') { e.preventDefault(); move(-1); }
-    else if (e.key === ' ' && fileSel && sel) { e.preventDefault(); (sel.group === 'preparados' ? remove : stage)([fileSel]); }
-    else if ((e.key === 'Delete' || e.key === 'Backspace') && fileSel && sel?.group === 'cambios') { e.preventDefault(); discard([fileSel]); }
+    else if (e.key === ' ' && fileSel && sel) { e.preventDefault(); (sel.group === 'staged' ? remove : stage)([fileSel]); }
+    else if ((e.key === 'Delete' || e.key === 'Backspace') && fileSel && sel?.group === 'changes') { e.preventDefault(); discard([fileSel]); }
     else if (e.key === 'Enter' && fileSel) { e.preventDefault(); openFile(fileSel); }
   };
 
-  const actions = { maximized: v.maximized, closeTab: closeGit, closeWindow: closeGit, minimize: minimizeGit, toggleMaximize: toggleMaximizeGit, goTab: (n: number) => { const vs: ViewGit[] = ['cambios', 'historial', 'ramas', 'github', 'prs']; if (vs[n - 1]) windowGit.set({ view: vs[n - 1] }); }, moveTab: () => {} };
+  const actions = { maximized: v.maximized, closeTab: closeGit, closeWindow: closeGit, minimize: minimizeGit, toggleMaximize: toggleMaximizeGit, goTab: (n: number) => { const vs: ViewGit[] = ['changes', 'history', 'branches', 'github', 'prs']; if (vs[n - 1]) windowGit.set({ view: vs[n - 1] }); }, moveTab: () => {} };
   const total = (state?.staged.length ?? 0) + (state?.changes.length ?? 0) + (state?.conflicts.length ?? 0);
   const signature = state ? `${state.head}|${state.branch}|${total}|${state.ahead}|${state.behind}` : '';
 
@@ -148,7 +148,7 @@ function Window({ v, repos, path }: { v: WindowGit; repos: Repo[]; path: string 
       onKeyDownCapture={e => { if (windowShortcut(e, actions)) return; if (e.key === 'Escape' && confirm) { e.preventDefault(); const c = confirm; setConfirm(null); c.no?.(); } }}
       onKeyDown={e => e.stopPropagation()} role="dialog" aria-label={t('world.gitClient')}>
       <div className="vt-cabeza vn-cabeza" onDoubleClick={e => { if (!(e.target as HTMLElement).closest('button, select')) toggleMaximizeGit(); }}>
-        <span className="rejilla" /><span className={'piloto ' + (busy ? 'trabajando' : total ? 'esperando' : 'ociosa')} />
+        <span className="rejilla" /><span className={'pilot ' + (busy ? 'working' : total ? 'waiting' : 'idle')} />
         <span className="vt-titulo">GIT · {repo?.name ?? t('windows.noRepo')}</span>
         <span className="vt-ruta" title={path ?? ''}>{busy || path}</span>
         <WindowButtons maximized={v.maximized} minimize={minimizeGit} toggleMaximize={toggleMaximizeGit} close={closeGit} closesThat={t('windows.theGitClient')} />
@@ -174,7 +174,7 @@ function Window({ v, repos, path }: { v: WindowGit; repos: Repo[]; path: string 
             <div className="gc-archivos" tabIndex={0} onKeyDown={listKey}>
               {errorState && <div className="gd-aviso">{errorState}</div>}
               {state?.truncated && <div className="gd-aviso">{t('windows.thereAreTooManyFiles')}</div>}
-              {(['conflictos', 'preparados', 'cambios'] as Group[]).map(g => groups[g].length > 0 || g === 'cambios' ? (
+              {(['conflicts', 'staged', 'changes'] as Group[]).map(g => groups[g].length > 0 || g === 'changes' ? (
                 <Section key={g} group={g} files={groups[g]} folded={folded[g]} fold={() => setFolded(p => ({ ...p, [g]: !p[g] }))} sel={sel} pick={a => setSel({ group: g, path: a.path })}
                   stage={stage} remove={remove} discard={discard} open={openFile} busy={!!busy} />
               ) : null)}
@@ -184,8 +184,8 @@ function Window({ v, repos, path }: { v: WindowGit; repos: Repo[]; path: string 
           </aside>
           <main className="gc-principal">
             <div className="gc-pestanas">
-              {([['cambios', t('windows.changes')], ['historial', t('windows.history')], ['ramas', t('windows.branchesStash')], ['github', 'GitHub'], ['prs', 'Pull requests']] as [ViewGit, string][]).map(([id, txt], i) => (
-                <button key={id} className={'gc-pestana' + (v.view === id ? ' activa' : '')} onClick={() => { windowGit.set({ view: id }); SFX.tick(); }} title={`${txt} (${CMD}${i + 1})`}>{txt}{id === 'ramas' && state?.drawer ? <small> · {t('windows.nInTheStash', { n: state.drawer })}</small> : null}</button>
+              {([['changes', t('windows.changes')], ['history', t('windows.history')], ['branches', t('windows.branchesStash')], ['github', 'GitHub'], ['prs', 'Pull requests']] as [ViewGit, string][]).map(([id, txt], i) => (
+                <button key={id} className={'gc-pestana' + (v.view === id ? ' active' : '')} onClick={() => { windowGit.set({ view: id }); SFX.tick(); }} title={`${txt} (${CMD}${i + 1})`}>{txt}{id === 'branches' && state?.drawer ? <small> · {t('windows.nInTheStash', { n: state.drawer })}</small> : null}</button>
               ))}
               <span className="gc-pestanas-der">
                 <button className={'gc-boton' + (parallel ? ' on' : '')} onClick={() => { setParallel(p => { localStorage.setItem('refugio.git.paralelo', p ? '0' : '1'); return !p; }); SFX.toggle(); }} title={t('windows.unifiedOrSideBySide')}>{parallel ? t('windows.sideBySide') : t('windows.unified')}</button>
@@ -194,11 +194,11 @@ function Window({ v, repos, path }: { v: WindowGit; repos: Repo[]; path: string 
               </span>
             </div>
             <div className="gc-vista">
-              {v.view === 'cambios' && (fileSel && sel
+              {v.view === 'changes' && (fileSel && sel
                 ? <DiffFile path={path} file={fileSel} group={sel.group} signature={signature} parallel={parallel} busy={!!busy} apply={applyPatch} stage={stage} remove={remove} discard={discard} open={openFile} notify={notify} />
                 : <div className="gd-vacio">{state ? (total ? t('windows.pickAFileOnThe') : t('windows.nothingToShowNoChanges')) : t('windows.readingTheRepo')}</div>)}
-              {v.view === 'historial' && <HistoryView path={path} signature={signature} parallel={parallel} notify={notify} />}
-              {v.view === 'ramas' && <Branches path={path} state={state} signature={signature} busy={!!busy} act={act} confirm={setConfirm} notify={notify} />}
+              {v.view === 'history' && <HistoryView path={path} signature={signature} parallel={parallel} notify={notify} />}
+              {v.view === 'branches' && <Branches path={path} state={state} signature={signature} busy={!!busy} act={act} confirm={setConfirm} notify={notify} />}
               {v.view === 'github' && <GitHub notify={notify} />}
               {v.view === 'prs' && <PullRequests notify={notify} />}
             </div>
@@ -224,13 +224,13 @@ type Make = <T>(name: string, data: Record<string, unknown>, what: string, ok?: 
 
 // ---------------------------------------------------------------- rama y sincronización
 function Branch({ state, busy, act }: { state: StateGit | null; busy: boolean; act: Make }) {
-  if (!state) return <div className="gc-rama tenue">{t('windows.reading')}</div>;
+  if (!state) return <div className="gc-rama dim">{t('windows.reading')}</div>;
   const withoutRemote = !state.remote.length;
   const sync = !state.upstream ? (state.branch && !withoutRemote ? t('windows.publishRama', { rama: state.branch }) : null) : state.ahead || state.behind ? `${t('windows.sync')}${state.behind ? ` ↓${state.behind}` : ''}${state.ahead ? ` ↑${state.ahead}` : ''}` : null;
   return (
     <div className="gc-rama">
       <span className="gc-rama-nombre" title={state.upstream ? t('windows.tracksUpstream', { upstream: state.upstream }) : withoutRemote ? t('windows.noRemote') : t('windows.noRemoteBranchYet')}>⎇ {state.branch ?? t('windows.detachedHeadHash', { hash: state.head?.slice(0, 7) ?? t('windows.noCommits') })}</span>
-      {state.upstream && <span className="gc-ab" title={t('windows.adelanteToPushAtrasTo', { adelante: state.ahead, atras: state.behind, upstream: state.upstream })}>{state.behind ? <i className="baja">↓{state.behind}</i> : null}{state.ahead ? <i className="sube">↑{state.ahead}</i> : null}</span>}
+      {state.upstream && <span className="gc-ab" title={t('windows.adelanteToPushAtrasTo', { adelante: state.ahead, atras: state.behind, upstream: state.upstream })}>{state.behind ? <i className="low">↓{state.behind}</i> : null}{state.ahead ? <i className="rise">↑{state.ahead}</i> : null}</span>}
       <span className="gc-fila-botones">
         {!withoutRemote && <button className="gc-boton icono" disabled={busy} onClick={() => act('sync', { what: 'fetch' }, t('windows.fetchingFromTheRemote'), t('windows.remoteUpToDate'))} title={t('windows.fetchGetWhatIsNew')}>⟳</button>}
         {state.upstream && <button className="gc-boton icono" disabled={busy} onClick={() => act('sync', { what: 'pull' }, 'Pull…', t('windows.pullDone'))} title={t('windows.pullDownloadAndMergeWhat')}>↓</button>}
@@ -290,16 +290,16 @@ function Section({ group, files, folded, fold, sel, pick, stage, remove, discard
   group: Group; files: FileGit[]; folded: boolean; fold: () => void; sel: Choice | null; pick: (a: FileGit) => void; busy: boolean;
   stage: (a: FileGit[]) => void; remove: (a: FileGit[]) => void; discard: (a: FileGit[]) => void; open: (a: FileGit) => void;
 }) {
-  const title = group === 'preparados' ? t('windows.staged') : group === 'conflictos' ? t('windows.conflicts') : t('windows.changes');
+  const title = group === 'staged' ? t('windows.staged') : group === 'conflicts' ? t('windows.conflicts') : t('windows.changes');
   return (
     <section className={'gc-seccion ' + group}>
       <header onClick={fold}>
         <span className="gc-plegar">{folded ? '▸' : '▾'}</span>
         <span className="gc-seccion-titulo">{title}</span>
         <span className="gc-seccion-botones" onClick={e => e.stopPropagation()}>
-          {group === 'preparados' && files.length > 0 && <button disabled={busy} onClick={() => remove(files)} title={t('windows.unstageAll')}>−</button>}
-          {group === 'cambios' && files.length > 0 && <><button disabled={busy} onClick={() => discard(files)} title={t('windows.discardAllChanges')}>↶</button><button disabled={busy} onClick={() => stage(files)} title={t('windows.stageAll')}>+</button></>}
-          {group === 'conflictos' && files.length > 0 && <button disabled={busy} onClick={() => stage(files)} title={t('windows.markAllAsResolvedStage')}>✓</button>}
+          {group === 'staged' && files.length > 0 && <button disabled={busy} onClick={() => remove(files)} title={t('windows.unstageAll')}>−</button>}
+          {group === 'changes' && files.length > 0 && <><button disabled={busy} onClick={() => discard(files)} title={t('windows.discardAllChanges')}>↶</button><button disabled={busy} onClick={() => stage(files)} title={t('windows.stageAll')}>+</button></>}
+          {group === 'conflicts' && files.length > 0 && <button disabled={busy} onClick={() => stage(files)} title={t('windows.markAllAsResolvedStage')}>✓</button>}
         </span>
         <span className="gc-cuenta">{files.length}</span>
       </header>
@@ -309,16 +309,16 @@ function Section({ group, files, folded, fold, sel, pick, stage, remove, discard
             const parts = a.path.split('/'), name = parts.pop(), folder = parts.join('/');
             const active = sel?.group === group && sel.path === a.path;
             return (
-              <li key={a.path} className={active ? 'activa' : ''} onClick={() => pick(a)} onDoubleClick={() => open(a)} ref={el => { if (active) el?.scrollIntoView({ block: 'nearest' }); }} title={`${a.origin ? a.origin + ' → ' : ''}${a.path} · ${LETTER[a.letter] ?? a.letter}`}>
+              <li key={a.path} className={active ? 'active' : ''} onClick={() => pick(a)} onDoubleClick={() => open(a)} ref={el => { if (active) el?.scrollIntoView({ block: 'nearest' }); }} title={`${a.origin ? a.origin + ' → ' : ''}${a.path} · ${LETTER[a.letter] ?? a.letter}`}>
                 <span className={'gc-nombre' + (a.letter === 'D' ? ' tachado' : '')}>{name}</span>
                 <span className="gc-carpeta">{folder}</span>
                 <span className="gc-botones-archivo" onClick={e => e.stopPropagation()}>
                   {a.letter !== 'D' && <button onClick={() => open(a)} title={t('windows.openInTheEditorEnter')}>↗</button>}
-                  {group === 'cambios' && <button disabled={busy} onClick={() => discard([a])} title={t('windows.discardTheChangesDel')}>↶</button>}
-                  {group === 'preparados' ? <button disabled={busy} onClick={() => remove([a])} title={t('windows.unstageSpace')}>−</button>
-                    : <button disabled={busy} onClick={() => stage([a])} title={group === 'conflictos' ? t('windows.markAsResolved') : t('windows.stageSpace')}>{group === 'conflictos' ? '✓' : '+'}</button>}
+                  {group === 'changes' && <button disabled={busy} onClick={() => discard([a])} title={t('windows.discardTheChangesDel')}>↶</button>}
+                  {group === 'staged' ? <button disabled={busy} onClick={() => remove([a])} title={t('windows.unstageSpace')}>−</button>
+                    : <button disabled={busy} onClick={() => stage([a])} title={group === 'conflicts' ? t('windows.markAsResolved') : t('windows.stageSpace')}>{group === 'conflicts' ? '✓' : '+'}</button>}
                 </span>
-                <span className={'gc-letra l-' + (a.letter === '?' ? 'U' : a.letter)}>{a.letter === '?' ? 'U' : group === 'conflictos' ? '!' : a.letter}</span>
+                <span className={'gc-letra l-' + (a.letter === '?' ? 'U' : a.letter)}>{a.letter === '?' ? 'U' : group === 'conflicts' ? '!' : a.letter}</span>
               </li>
             );
           })}
@@ -338,27 +338,27 @@ function DiffFile({ path, file, group, signature, parallel, busy, apply, stage, 
   const key = `${path}|${group}|${file.path}|${whole}`;
   useEffect(() => {
     let live = true;
-    client.action<any>('git.diff', { path, file: file.path, origin: file.origin, prepared: group === 'preparados', withoutFollow: file.letter === '?', context: whole ? 100000 : 3 })
+    client.action<any>('git.diff', { path, file: file.path, origin: file.origin, prepared: group === 'staged', withoutFollow: file.letter === '?', context: whole ? 100000 : 3 })
       .then(d => { if (live) setDiff(x => (x && x.key === key && x.text === d.text ? x : { ...d, key })); }).catch(e => { if (live) notify(e.message, true); });
     return () => { live = false; };
   }, [key, signature]);
-  const mode = group === 'preparados' ? 'preparados' : 'cambios';
+  const mode = group === 'staged' ? 'staged' : 'changes';
   return (
     <div className="gc-diff">
       <div className="gc-diff-cab">
         <span className={'gc-letra l-' + (file.letter === '?' ? 'U' : file.letter)}>{file.letter === '?' ? 'U' : file.letter}</span>
-        <span className="gc-diff-ruta">{file.origin ? <><span className="tenue">{file.origin} → </span>{file.path}</> : file.path}</span>
-        <span className="tenue">{group === 'preparados' ? t('windows.stagedIndexLastCommit') : group === 'conflictos' ? t('windows.conflicted') : file.letter === '?' ? t('windows.newUntracked') : t('windows.workingCopyStaged')}</span>
+        <span className="gc-diff-ruta">{file.origin ? <><span className="dim">{file.origin} → </span>{file.path}</> : file.path}</span>
+        <span className="dim">{group === 'staged' ? t('windows.stagedIndexLastCommit') : group === 'conflicts' ? t('windows.conflicted') : file.letter === '?' ? t('windows.newUntracked') : t('windows.workingCopyStaged')}</span>
         <span className="gc-fila-botones">
           <button className={'gc-boton' + (whole ? ' on' : '')} onClick={() => setWhole(x => !x)} title={t('windows.showTheWholeFileAround')}>{whole ? t('windows.wholeFile') : t('windows.changesOnly')}</button>
           {file.letter !== 'D' && <button className="gc-boton" onClick={() => open(file)}>{t('windows.open2')}</button>}
-          {group === 'cambios' && <button className="gc-boton" disabled={busy} onClick={() => discard([file])}>{t('windows.discard2')}</button>}
-          {group === 'preparados' ? <button className="gc-boton" disabled={busy} onClick={() => remove([file])}>{t('windows.unstage')}</button>
-            : <button className="gc-boton principal" disabled={busy} onClick={() => stage([file])}>{group === 'conflictos' ? t('windows.resolved') : t('windows.stage')}</button>}
+          {group === 'changes' && <button className="gc-boton" disabled={busy} onClick={() => discard([file])}>{t('windows.discard2')}</button>}
+          {group === 'staged' ? <button className="gc-boton" disabled={busy} onClick={() => remove([file])}>{t('windows.unstage')}</button>
+            : <button className="gc-boton principal" disabled={busy} onClick={() => stage([file])}>{group === 'conflicts' ? t('windows.resolved') : t('windows.stage')}</button>}
         </span>
       </div>
       <div className="gc-diff-cuerpo">
-        {diff && diff.key === key ? <DiffViewer text={diff.text} binary={diff.binary} truncated={diff.truncated} mode={group === 'conflictos' ? 'commit' : mode} parallel={parallel} busy={busy} onApply={apply} /> : <div className="gd-vacio">{t('windows.readingTheDiff')}</div>}
+        {diff && diff.key === key ? <DiffViewer text={diff.text} binary={diff.binary} truncated={diff.truncated} mode={group === 'conflicts' ? 'commit' : mode} parallel={parallel} busy={busy} onApply={apply} /> : <div className="gd-vacio">{t('windows.readingTheDiff')}</div>}
       </div>
     </div>
   );
@@ -386,11 +386,11 @@ function Branches({ path, state, signature, busy, act, confirm, notify }: { path
     if (ok === undefined) confirm({ text: <>{t('windows.theBranch')} <b>{r.name}</b> {t('windows.hasCommitsThatAreOn')}</>, button: t('windows.deleteAnyway'), si: () => act('deleteBranch', { name: r.name, force: true }, t('windows.deleting'), t('windows.branchNombreDeleted', { nombre: r.name })) });
   } });
   const row = (r: BranchGit) => (
-    <li key={(r.remote ? 'r:' : 'l:') + r.name} className={r.current ? 'actual' : ''}>
+    <li key={(r.remote ? 'r:' : 'l:') + r.name} className={r.current ? 'current' : ''}>
       <span className="gr-nombre" title={r.name}>{r.current ? '● ' : ''}{r.name}</span>
-      <span className="gr-ab">{r.lost ? <i className="tenue">{t('windows.remoteDeleted')}</i> : <>{r.behind ? <i className="baja">↓{r.behind}</i> : null}{r.ahead ? <i className="sube">↑{r.ahead}</i> : null}</>}</span>
+      <span className="gr-ab">{r.lost ? <i className="dim">{t('windows.remoteDeleted')}</i> : <>{r.behind ? <i className="low">↓{r.behind}</i> : null}{r.ahead ? <i className="rise">↑{r.ahead}</i> : null}</>}</span>
       <span className="gr-asunto" title={r.subject}>{r.subject}</span>
-      <span className="tenue gr-cuando">{ago(r.date)}</span>
+      <span className="dim gr-cuando">{ago(r.date)}</span>
       <span className="gc-fila-botones">
         {!r.current && <button className="gc-boton" disabled={busy} onClick={() => act('switchBranch', { branch: r.name, remote: r.remote }, t('windows.switchingBranch'), t('windows.nowOnRama', { rama: r.remote ? r.name.split('/').slice(1).join('/') : r.name }))}>{t('windows.switch')}</button>}
         {!r.current && !r.remote && <button className="gc-boton icono" disabled={busy} onClick={() => deleteMessage(r)} title={t('windows.deleteTheBranch2')}>🗑</button>}
@@ -406,13 +406,13 @@ function Branches({ path, state, signature, busy, act, confirm, notify }: { path
       </div>
       <div className="gr-columnas">
         <section>
-          <h4>{t('windows.localBranches')} <span className="tenue">({local.length})</span></h4>
-          <ul className="gr-lista">{local.map(row)}{branches && !local.length && <li className="tenue">{t('windows.none')}</li>}</ul>
-          {remotes.length > 0 && <><h4>{t('windows.remotes')} <span className="tenue">({remotes.length})</span></h4><ul className="gr-lista">{remotes.map(row)}</ul></>}
+          <h4>{t('windows.localBranches')} <span className="dim">({local.length})</span></h4>
+          <ul className="gr-lista">{local.map(row)}{branches && !local.length && <li className="dim">{t('windows.none')}</li>}</ul>
+          {remotes.length > 0 && <><h4>{t('windows.remotes')} <span className="dim">({remotes.length})</span></h4><ul className="gr-lista">{remotes.map(row)}</ul></>}
         </section>
         <section>
-          <h4>{t('windows.stash')} <span className="tenue">(stash · {drawer.length})</span></h4>
-          <p className="tenue">{t('windows.setAsideYourHalfDone')}</p>
+          <h4>{t('windows.stash')} <span className="dim">(stash · {drawer.length})</span></h4>
+          <p className="dim">{t('windows.setAsideYourHalfDone')}</p>
           <div className="gc-herramientas">
             <input className="gc-filtro" placeholder={t('windows.noteOptional')} value={note} onChange={e => setNote(e.target.value)} />
             <button className="gc-boton principal" disabled={busy || !hasChanges} onClick={async () => { if (await act('stashSave', { message: note.trim() }, t('windows.savingToTheStash'), t('windows.changesSavedToTheStash')) !== undefined) setNote(''); }}>{t('windows.stashChanges')}</button>
@@ -422,7 +422,7 @@ function Branches({ path, state, signature, busy, act, confirm, notify }: { path
               <li key={c.ref}>
                 <span className="gr-nombre">{c.ref.replace('stash@', '#').replace(/[{}]/g, '')}</span>
                 <span className="gr-asunto" title={c.subject}>{c.subject}</span>
-                <span className="tenue gr-cuando">{ago(c.date)}</span>
+                <span className="dim gr-cuando">{ago(c.date)}</span>
                 <span className="gc-fila-botones">
                   <button className="gc-boton principal" disabled={busy} onClick={() => act('stashPop', { ref: c.ref }, t('windows.poppingFromTheStash'), t('windows.changesReturnedToTheWorking'))} title={t('windows.applyItAndRemoveIt')}>{t('windows.pop')}</button>
                   <button className="gc-boton" disabled={busy} onClick={() => act('stashPop', { ref: c.ref, keep: true }, t('windows.applying'), t('windows.appliedStillInTheStash'))} title={t('windows.applyItAndKeepIt')}>{t('windows.apply')}</button>
@@ -430,7 +430,7 @@ function Branches({ path, state, signature, busy, act, confirm, notify }: { path
                 </span>
               </li>
             ))}
-            {!drawer.length && <li className="tenue">{t('windows.theStashIsEmpty')}</li>}
+            {!drawer.length && <li className="dim">{t('windows.theStashIsEmpty')}</li>}
           </ul>
         </section>
       </div>

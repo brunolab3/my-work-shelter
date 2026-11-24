@@ -18,7 +18,7 @@ const keyOf = (p: PRBoard) => branchKey(p.branch) ?? jiraKeys(p.title)[0];
 
 /** Los PR abiertos de un repo, por tarea: misma clave o apilados entre sí; dentro, de la base hacia arriba */
 export function groupByTask(prs: PRBoard[]): TaskGroup[] {
-  const open = prs.filter(p => p.state === 'abierto' || p.state === 'borrador');
+  const open = prs.filter(p => p.state === 'open' || p.state === 'draft');
   const parent = new Map(open.map(p => [p.url, p.url]));
   const root = (u: string): string => { const q = parent.get(u)!; return q === u ? u : root(q); };
   const union = (a: string, b: string) => { const x = root(a), y = root(b); if (x !== y) parent.set(y, x); };
@@ -65,7 +65,7 @@ export interface OrganizeStep {
   session?: string;                     // conversación ya abierta ahí (no se empieza otra)
 }
 export function roomPlan(room: { path: string; branch?: string; worktrees: InfoWorktree[] }, groups: TaskGroup[], sessions: SessionSummary[]): OrganizeStep[] {
-  const openSessions = sessions.filter(s => s.state !== 'cerrada');
+  const openSessions = sessions.filter(s => s.state !== 'closed');
   const inside = (filePath: string) => openSessions.find(s => { const d = path.resolve(s.worktree ?? s.cwd); return d === filePath || d.startsWith(filePath + path.sep); });
   return groups.map(group => {
     const wt = taskWorktree(group, room.worktrees);

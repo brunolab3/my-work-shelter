@@ -4,10 +4,10 @@ import * as THREE from 'three';
 import { Character } from '../character';
 import type { Look, Slot } from '@shared/appearance';
 
-export type Focus = 'cara' | 'cabeza' | 'torso' | 'piernas' | 'cuerpo' | 'espalda';
+export type Focus = 'cara' | 'cabeza' | 'torso' | 'piernas' | 'body' | 'espalda';
 export const FOCUS: Record<Slot | 'colores', Focus> = {
   cara: 'cara', cejas: 'cara', pelo: 'cabeza', barba: 'cara', cabeza: 'cabeza', sombrero: 'cabeza', gafas: 'cara',
-  torso: 'torso', brazos: 'torso', piernas: 'piernas', espalda: 'espalda', complemento: 'cuerpo', colores: 'cuerpo',
+  torso: 'torso', brazos: 'torso', piernas: 'piernas', espalda: 'espalda', complemento: 'body', colores: 'body',
 };
 
 export class Studio {
@@ -39,7 +39,7 @@ export class Studio {
   private turn = 0;
   async set(a: Look, clipRest = 'Idle_A') {
     const n = ++this.turn;
-    const p = new Character('probador', a); p.inRest = clipRest;
+    const p = new Character('fitting', a); p.inRest = clipRest;
     await p.load();
     if (n !== this.turn) { release(p); return false; }
     p.contactShadow.visible = false;

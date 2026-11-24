@@ -51,7 +51,7 @@ function attach(id: string, socket: string) {
       let m: any; try { m = JSON.parse(rest.slice(0, i)); } catch { m = null; } rest = rest.slice(i + 1);
       if (m?.ev === 'datos') output.write(m.datos);
       else if (m?.ev === 'fin') finish(0, t('server.surface.terminalEnded'));
-      else if (m?.ev === 'error') finish(1, m.texto);
+      else if (m?.ev === 'error') finish(1, m.text);
     }
   });
   s.on('error', e => finish(1, t('server.surface.cannotFindShelter', { error: (e as NodeJS.ErrnoException).code ?? e.message })));
@@ -68,10 +68,10 @@ function askOnServer(name: string, data: Record<string, unknown>) {
   return new Promise<any>((ok, ko) => {
     const ws = new WebSocket(`ws://127.0.0.1:${PORT}/ws?t=${encodeURIComponent(token)}`, { origin: origin });
     const timer = setTimeout(() => { ws.terminate(); ko(new Error(t('server.theShelterIsNotResponding'))); }, 60_000);
-    ws.on('open', () => ws.send(JSON.stringify({ t: 'action', name, data, request: 'superficie' })));
+    ws.on('open', () => ws.send(JSON.stringify({ t: 'action', name, data, request: 'surface' })));
     ws.on('message', raw => {
       let m: any; try { m = JSON.parse(String(raw)); } catch { return; }
-      if (m.t !== 'response' || m.request !== 'superficie') return;
+      if (m.t !== 'response' || m.request !== 'surface') return;
       clearTimeout(timer); ws.close();
       if (m.error) ko(new Error(m.error)); else ok(m.data);
     });
@@ -126,6 +126,6 @@ async function surface(onlyList: boolean) {
 if (orden === 'enganchar') {
   if (!args[0] || args[0].startsWith('--')) { console.error(t('server.surface.usageHook')); process.exit(2); }
   attach(args[0], option('--socket') ?? SOCKET_TERMINALS);
-} else if (orden === 'superficie') {
+} else if (orden === 'surface') {
   surface(args.includes('--lista')).then(() => process.exit(0), e => { console.error((e as Error).message); process.exit(1); });
 } else { console.error(t('server.surface.usage')); process.exit(2); }

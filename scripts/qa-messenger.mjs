@@ -10,7 +10,7 @@ import { withToken } from './token.mjs';
 const args = process.argv.slice(2);
 const [url, out] = args.filter(a => !a.startsWith('--'));
 const opt = Object.fromEntries(args.filter(a => a.startsWith('--')).map(a => { const [k, ...v] = a.slice(2).split('='); return [k, v.length ? v.join('=') : true]; }));
-const from = opt.from ?? 'puente', to = opt.to ?? 'fever2';
+const from = opt.from ?? 'bridge', to = opt.to ?? 'fever2';
 const b = await chromium.launch({ args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist'] });
 const pg = await b.newPage({ viewport: { width: 1600, height: 900 } });
 pg.on('pageerror', e => console.log('PAGEERROR', e.message));
@@ -20,7 +20,7 @@ await pg.evaluate(async () => { await window.__ready(); window.__game.set({ pane
 await pg.evaluate(from => {
   const r = window.__shelter, s = r.rooms.find(x => x.id === from);
   r.supervisor.root.position.set(s.group.position.x - 3, s.group.position.y, 1.2);
-  r.activityMode = true; r.camara.goal.set(s.group.position.x, s.group.position.y + 1.4, 0); r.camara.distance = 14; r.camara.immediate();
+  r.activityMode = true; r.camera.goal.set(s.group.position.x, s.group.position.y + 1.4, 0); r.camera.distance = 14; r.camera.immediate();
 }, from);
 if (opt.chat) await pg.evaluate(from => { const r = window.__shelter; r.interact(r.dwellers.find(x => x.room.id === from)); }, from);
 await new Promise(r => setTimeout(r, 2500));

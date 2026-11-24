@@ -12,7 +12,7 @@ import { openLink, openPRsGitHub } from '../Browsers';
 import { t } from '@shared/language';
 
 interface PRReview { number: number; title: string; url: string; repo: string; draft: boolean; updated: number }
-const STATE: Record<PRBoard['state'], string> = { abierto: '', borrador: 'tenue', fusionado: 'fusionado', cerrado: 'mal' };
+const STATE: Record<PRBoard['state'], string> = { open: '', draft: 'dim', merged: 'merged', closed: 'bad' };
 
 export function PullRequests({ notify }: { notify: (t: string, error?: boolean) => void }) {
   const [mine, setMine] = useState<{ prs: PRBoard[]; demo?: boolean; error?: string } | null>(null);
@@ -31,15 +31,15 @@ export function PullRequests({ notify }: { notify: (t: string, error?: boolean) 
   const prs = useMemo(() => crossBoard(tareas, mine?.prs ?? []).prs, [tareas, mine]);
   useColorsTasks();
   useEffect(() => knowTasks(prs.map(pRTask)), [prs]);
-  const open = prs.filter(p => p.state === 'abierto' || p.state === 'borrador');
-  const closed = prs.filter(p => p.state === 'fusionado' || p.state === 'cerrado');
+  const open = prs.filter(p => p.state === 'open' || p.state === 'draft');
+  const closed = prs.filter(p => p.state === 'merged' || p.state === 'closed');
   return (
     <div className="gg">
       <div className="gg-hoja">
         <div className="gg-cab">
           <div className="gg-quien">
-            <div className="gg-usuario">Pull requests{mine?.demo ? <span className="tenue"> · DEMO</span> : null}</div>
-            <div className="tenue">{t('windows.thoseWaitingForYourReview')}</div>
+            <div className="gg-usuario">Pull requests{mine?.demo ? <span className="dim"> · DEMO</span> : null}</div>
+            <div className="dim">{t('windows.thoseWaitingForYourReview')}</div>
           </div>
           <span className="gg-mandos">
             <button className="gc-boton" onClick={() => openPRsGitHub()} title={t('windows.githubComPullsYoursThose')}>github.com/pulls ↗</button>
@@ -51,16 +51,16 @@ export function PullRequests({ notify }: { notify: (t: string, error?: boolean) 
         {mine && (
           <div className="gg-prs gg-prs-col">
             <section>
-              <h4>{t('windows.awaitingYourReview')} <span className="tenue">({toReview?.total ?? '…'})</span></h4>
+              <h4>{t('windows.awaitingYourReview')} <span className="dim">({toReview?.total ?? '…'})</span></h4>
               <ul>
                 {(toReview?.list ?? []).map(p => (
                   <li key={p.url} onClick={() => openLink(p.url)} title={p.url}>
                     <span className="gg-pr-texto"><span className="gg-pr-titulo">{p.title}</span><span className="gg-pr-repo">{p.repo}#{p.number}</span></span>
-                    {p.draft && <span className="gg-pr-estado tenue">{t('windows.draft')}</span>}
-                    <span className="gg-pr-cuando tenue">{ago(p.updated)}</span>
+                    {p.draft && <span className="gg-pr-estado dim">{t('windows.draft')}</span>}
+                    <span className="gg-pr-cuando dim">{ago(p.updated)}</span>
                   </li>
                 ))}
-                {toReview && !toReview.list.length && <li className="tenue">{t('windows.nobodyHasAskedYouFor')}</li>}
+                {toReview && !toReview.list.length && <li className="dim">{t('windows.nobodyHasAskedYouFor')}</li>}
               </ul>
             </section>
             <List title={t('windows.yourOpenOnes')} list={open} empty={t('windows.youHaveNoneOpen')} />
@@ -75,21 +75,21 @@ export function PullRequests({ notify }: { notify: (t: string, error?: boolean) 
 function List({ title, list, empty }: { title: string; list: PRWithTask[]; empty: string }) {
   return (
     <section>
-      <h4>{title} <span className="tenue">({list.length})</span></h4>
+      <h4>{title} <span className="dim">({list.length})</span></h4>
       <ul>
         {list.map(p => {
           const fail = p.review === 'CHANGES_REQUESTED' || p.checks === 'FAILURE' || p.checks === 'ERROR';
-          const good = p.state === 'abierto' && p.review === 'APPROVED' && p.checks !== 'FAILURE' && p.checks !== 'ERROR';
+          const good = p.state === 'open' && p.review === 'APPROVED' && p.checks !== 'FAILURE' && p.checks !== 'ERROR';
           return (
             <li key={p.url} onClick={() => openLink(p.url)} title={p.url}>
               <TaskMark taskKey={pRTask(p)} /><span className="gg-pr-texto"><span className="gg-pr-titulo">{p.title}</span><span className="gg-pr-repo">{p.repo}#{p.number}{p.base && p.base !== 'main' && p.base !== 'master' ? <> · {t('windows.intoBase', { base: p.base })}</> : null}</span></span>
               {p.tareas.map(t => <button key={t.key} className="gg-pr-tarea" style={{ color: taskColor(t.key), borderColor: taskColor(t.key) + '88' }} onClick={e => { e.stopPropagation(); openLink(t.url); }} title={`${t.title} · ${t.state}`}>{t.key}</button>)}
-              <span className={'gg-pr-estado ' + (fail ? 'mal' : good ? 'ok' : STATE[p.state])}>{prText(p)}</span>
-              <span className="gg-pr-cuando tenue">{ago(p.updated)}</span>
+              <span className={'gg-pr-estado ' + (fail ? 'bad' : good ? 'ok' : STATE[p.state])}>{prText(p)}</span>
+              <span className="gg-pr-cuando dim">{ago(p.updated)}</span>
             </li>
           );
         })}
-        {!list.length && <li className="tenue">{empty}</li>}
+        {!list.length && <li className="dim">{empty}</li>}
       </ul>
     </section>
   );

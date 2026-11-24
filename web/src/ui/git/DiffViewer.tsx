@@ -6,8 +6,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { t } from '@shared/language';
 import { readDiff, assemblePatch, chunksAccepts, inParallel, linePairs, changeInLine, type Block, type Line } from './diff';
 
-export type ModeDiff = 'cambios' | 'preparados' | 'commit';
-export type PatchThat = 'preparar' | 'quitar' | 'descartar';
+export type ModeDiff = 'changes' | 'staged' | 'commit';
+export type PatchThat = 'stage' | 'unstage' | 'discard';
 interface Props { text: string; binary?: boolean; truncated?: boolean; mode: ModeDiff; parallel: boolean; busy?: boolean; onApply?: (patch: string, what: PatchThat, howMuch: string) => void }
 
 const MAX_LINES = 4000;
@@ -37,7 +37,7 @@ export function DiffViewer({ text, binary, truncated, mode, parallel, busy, onAp
     anchor.current = { b, i };
   };
   const apply = (blocks: number[], what: PatchThat, howMuch: string, sel?: Map<number, Set<number>>) => {
-    const p = assemblePatch(d, blocks, what === 'preparar' ? 'adelante' : 'atras', sel);
+    const p = assemblePatch(d, blocks, what === 'stage' ? 'forward' : 'back', sel);
     if (p && onApply) onApply(p, what, howMuch);
   };
   const applyChosen = (what: PatchThat) => apply([...picked.keys()], what, nChosen === 1 ? t('windows.1Line') : t('windows.nLines', { n: nChosen }), picked);
@@ -58,9 +58,9 @@ export function DiffViewer({ text, binary, truncated, mode, parallel, busy, onAp
               <span className="gd-arroba">@@ −{b.startOld},{b.oldN} +{b.newStart},{b.newN} @@</span>
               <span className="gd-contexto">{b.context}</span>
               {chunks && <span className="gd-botones">
-                {mode === 'cambios' && <button disabled={busy} onClick={() => apply([bi], 'descartar', t('windows.theHunk'))} title={t('windows.revertsThisHunkInThe')}>{t('windows.discardHunk')}</button>}
-                {mode === 'cambios' && <button disabled={busy} className="principal" onClick={() => apply([bi], 'preparar', t('windows.theHunk'))} title={t('windows.stageThisHunkForThe')}>{t('windows.stageHunk')}</button>}
-                {mode === 'preparados' && <button disabled={busy} onClick={() => apply([bi], 'quitar', t('windows.theHunk'))} title={t('windows.removesItFromTheStaged')}>{t('windows.unstageHunk')}</button>}
+                {mode === 'changes' && <button disabled={busy} onClick={() => apply([bi], 'discard', t('windows.theHunk'))} title={t('windows.revertsThisHunkInThe')}>{t('windows.discardHunk')}</button>}
+                {mode === 'changes' && <button disabled={busy} className="principal" onClick={() => apply([bi], 'stage', t('windows.theHunk'))} title={t('windows.stageThisHunkForThe')}>{t('windows.stageHunk')}</button>}
+                {mode === 'staged' && <button disabled={busy} onClick={() => apply([bi], 'unstage', t('windows.theHunk'))} title={t('windows.removesItFromTheStaged')}>{t('windows.unstageHunk')}</button>}
               </span>}
             </header>
             {parallel ? <Parallel b={b} bi={bi} picked={picked.get(bi)} pick={pick} cut={cut ? b.lines.length + remaining : undefined} />
@@ -72,9 +72,9 @@ export function DiffViewer({ text, binary, truncated, mode, parallel, busy, onAp
       {chunks && nChosen > 0 && (
         <div className="gd-eleccion">
           <span>{nChosen === 1 ? t('windows.1LineSelected') : t('windows.nLinesSelected', { n: nChosen })}</span>
-          {mode === 'cambios' && <button disabled={busy} className="principal" onClick={() => applyChosen('preparar')}>{t('windows.stage')}</button>}
-          {mode === 'cambios' && <button disabled={busy} onClick={() => applyChosen('descartar')}>{t('windows.discard2')}</button>}
-          {mode === 'preparados' && <button disabled={busy} onClick={() => applyChosen('quitar')}>{t('windows.unstage')}</button>}
+          {mode === 'changes' && <button disabled={busy} className="principal" onClick={() => applyChosen('stage')}>{t('windows.stage')}</button>}
+          {mode === 'changes' && <button disabled={busy} onClick={() => applyChosen('discard')}>{t('windows.discard2')}</button>}
+          {mode === 'staged' && <button disabled={busy} onClick={() => applyChosen('unstage')}>{t('windows.unstage')}</button>}
           <button onClick={() => setChosen(new Map())} title={t('windows.clearSelection')}>×</button>
         </div>
       )}
@@ -90,7 +90,7 @@ function LocalizedText({ l, other }: { l: Line; other?: Line }) {
   const [a, z] = l.type === '-' ? c.a : c.b;
   return <>{l.text.slice(0, a)}<mark>{l.text.slice(a, z)}</mark>{l.text.slice(z)}</>;
 }
-const KIND: Record<string, string> = { '+': 'mas', '-': 'menos', ' ': 'ctx', '\\': 'nota' };
+const KIND: Record<string, string> = { '+': 'plus', '-': 'minus', ' ': 'ctx', '\\': 'note' };
 
 interface PropsBlock { b: Block; bi: number; picked?: Set<number>; pick: (b: number, i: number, segment: boolean) => void; cut?: number }
 function Unified({ b, bi, picked, pick, cut }: PropsBlock) {

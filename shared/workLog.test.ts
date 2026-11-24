@@ -14,8 +14,8 @@ describe('work log ledger', () => {
     const l = emptyLedger();
     expect(mergeTasks(l, [task('ABC-1', 'indeterminate')], NOW)).toBe(true);
     expect(mergeTasks(l, [task('ABC-1', 'indeterminate')], NOW + 1000)).toBe(false);
-    expect(mergePRs(l, [pr(5, 'org/api', 'ABC-1-x', 'abierto')], NOW)).toBe(true);
-    expect(mergePRs(l, [pr(5, 'org/api', 'ABC-1-x', 'abierto')], NOW + 1000)).toBe(false);
+    expect(mergePRs(l, [pr(5, 'org/api', 'ABC-1-x', 'open')], NOW)).toBe(true);
+    expect(mergePRs(l, [pr(5, 'org/api', 'ABC-1-x', 'open')], NOW + 1000)).toBe(false);
   });
 
   it('dates a task done when it moves to done, and clears it when reopened', () => {
@@ -32,7 +32,7 @@ describe('work log ledger', () => {
 
   it("takes GitHub's merge date, and keeps a PR the sources no longer return", () => {
     const l = emptyLedger();
-    mergePRs(l, [pr(5, 'org/api', 'ABC-1-x', 'fusionado', { mergedAt: NOW - 2 * D })], NOW);
+    mergePRs(l, [pr(5, 'org/api', 'ABC-1-x', 'merged', { mergedAt: NOW - 2 * D })], NOW);
     mergePRs(l, [], NOW + D);
     expect(l.prs['org/api#5']).toMatchObject({ task: 'ABC-1', mergedAt: NOW - 2 * D });
   });
@@ -79,7 +79,7 @@ describe('the 1-working-day range', () => {
   it('counts a task by its PRs moving, not by Jira alone', () => {
     const l = emptyLedger();
     mergeTasks(l, [task('ABC-1', 'indeterminate', NOW - 9 * D), task('ABC-2', 'indeterminate', NOW - 9 * D)], NOW);
-    mergePRs(l, [pr(5, 'org/api', 'ABC-1-x', 'abierto', { updated: NOW - 9 * D + 1 }), pr(6, 'org/web', 'ABC-2-y', 'abierto', { updated: NOW - 0.5 * D })], NOW);
+    mergePRs(l, [pr(5, 'org/api', 'ABC-1-x', 'open', { updated: NOW - 9 * D + 1 }), pr(6, 'org/web', 'ABC-2-y', 'open', { updated: NOW - 0.5 * D })], NOW);
     expect(logRows(l, NOW - D).map(r => r.key)).toEqual(['ABC-2']);
   });
 });
@@ -87,7 +87,7 @@ describe('the 1-working-day range', () => {
 describe('work log rows', () => {
   const l = emptyLedger();
   mergeTasks(l, [task('ABC-1', 'done', NOW - D), task('ABC-2', 'new', NOW - D), task('ABC-3', 'indeterminate', NOW - 40 * D)], NOW);
-  mergePRs(l, [pr(5, 'org/api', 'ABC-1-x', 'fusionado'), pr(6, 'org/web', 'feature/ABC-1-y', 'abierto'), pr(7, 'org/web', 'tidy', 'abierto')], NOW);
+  mergePRs(l, [pr(5, 'org/api', 'ABC-1-x', 'merged'), pr(6, 'org/web', 'feature/ABC-1-y', 'open'), pr(7, 'org/web', 'tidy', 'open')], NOW);
   mergeWorktrees(l, [{ path: '/r/web/.claude/worktrees/shelter-preflight-popover--ab12', roomId: 'web', branch: 'worktree-shelter-preflight-popover--ab12' }], ['web'], NOW);
 
   it('one row per task with its facts; to-do tasks and old ones out of range; keyless last', () => {

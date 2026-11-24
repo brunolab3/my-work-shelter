@@ -6,17 +6,17 @@ const actions = (l: { action: string }[]) => l.map(o => o.action);
 
 describe("a link's options", () => {
   it('a web: inside first when the game can show it, then the browser and copying', () => {
-    expect(actions(webLinkOptions('https://example.com/a', { inside: true }))).toEqual(['juego', 'navegador', 'copiar']);
-    expect(actions(webLinkOptions('http://example.com/a', { inside: false }))).toEqual(['navegador', 'copiar']);
-    expect(actions(webLinkOptions('mailto:ana@example.com', { inside: true }))).toEqual(['navegador', 'copiar']);
+    expect(actions(webLinkOptions('https://example.com/a', { inside: true }))).toEqual(['juego', 'browser', 'copy']);
+    expect(actions(webLinkOptions('http://example.com/a', { inside: false }))).toEqual(['browser', 'copy']);
+    expect(actions(webLinkOptions('mailto:ana@example.com', { inside: true }))).toEqual(['browser', 'copy']);
   });
   it('a file of the Mac: the game for pages and images, then where the Mac opens it, Finder and its path', () => {
-    expect(actions(fileLinkOptions({ juego: true, mac: 'web' }))).toEqual(['juego', 'mac', 'finder', 'copiar']);
-    expect(actions(fileLinkOptions({ juego: false, mac: 'editor' }))).toEqual(['mac', 'finder', 'copiar']);
+    expect(actions(fileLinkOptions({ juego: true, mac: 'web' }))).toEqual(['juego', 'mac', 'finder', 'copy']);
+    expect(actions(fileLinkOptions({ juego: false, mac: 'editor' }))).toEqual(['mac', 'finder', 'copy']);
     // a folder opens in Finder (no «reveal» besides); something that could run, only revealed
-    expect(actions(fileLinkOptions({ juego: false, mac: 'carpeta' }))).toEqual(['mac', 'copiar']);
-    expect(actions(fileLinkOptions({ juego: false, mac: 'finder' }))).toEqual(['finder', 'copiar']);
-    expect(actions(fileLinkOptions(null))).toEqual(['copiar']);
+    expect(actions(fileLinkOptions({ juego: false, mac: 'folder' }))).toEqual(['mac', 'copy']);
+    expect(actions(fileLinkOptions({ juego: false, mac: 'finder' }))).toEqual(['finder', 'copy']);
+    expect(actions(fileLinkOptions(null))).toEqual(['copy']);
   });
   it('copies the address of a mail link and the path of a file:// one', () => {
     expect(copyText('mailto:ana@example.com?subject=x')).toBe('ana@example.com');

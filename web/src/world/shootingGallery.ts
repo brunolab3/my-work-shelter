@@ -18,7 +18,7 @@ export class Gallery {
   get dianas(): THREE.Object3D[] { return this.sala?.userData.targets ?? []; }
 
   empezar(weaponId: string) {
-    const sala = this.r.rooms.find(s => s.type === 'galeria'); if (!sala) return false;
+    const sala = this.r.rooms.find(s => s.type === 'gallery'); if (!sala) return false;
     this.sala = sala; this.weaponId = weaponId; this.activa = true;
     this.r.goARoom(sala.id, true);
     const sup = this.r.supervisor;
@@ -27,7 +27,7 @@ export class Gallery {
     const a = weaponData(weaponId); const handsTwo = weaponId !== 'ballesta';
     if (a.ruta) sup.couple('arma', { path: a.ruta, bone: 'handslotr', scale: 1 });
     sup.inRest = handsTwo ? 'Ranged_2H_Aiming' : 'Ranged_1H_Aiming'; sup.play(sup.inRest, 0.25);
-    this.r.camara.frame(new THREE.Vector3(sala.group.position.x, sala.group.position.y + 1.7, 0), 11.5, 4.2);
+    this.r.camera.frame(new THREE.Vector3(sala.group.position.x, sala.group.position.y + 1.7, 0), 11.5, 4.2);
     if (!this.muzzleFlash) { this.muzzleFlash = new THREE.PointLight('#ffcf8a', 0, 5, 2); this.r.motor.scene.add(this.muzzleFlash); }
     this.r.activityMode = true;
     return true;

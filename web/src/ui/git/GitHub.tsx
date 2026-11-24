@@ -35,8 +35,8 @@ export function GitHub({ notify }: { notify: (t: string, error?: boolean) => voi
       <div className="gg-hoja">
         <div className="gg-cab">
           <div className="gg-quien">
-            <div className="gg-usuario">{d.user ? <>@{d.user}{d.name ? <span className="tenue"> · {d.name}</span> : null}</> : t('windows.yourCommitsInTheShelter')}</div>
-            <div className="tenue">{d.source === 'github' ? t('windows.nContributionsInTheLast', { n: d.total.toLocaleString(LOC) }) : t('windows.nCommitsInTheLast', { n: d.total.toLocaleString(LOC) })}</div>
+            <div className="gg-usuario">{d.user ? <>@{d.user}{d.name ? <span className="dim"> · {d.name}</span> : null}</> : t('windows.yourCommitsInTheShelter')}</div>
+            <div className="dim">{d.source === 'github' ? t('windows.nContributionsInTheLast', { n: d.total.toLocaleString(LOC) }) : t('windows.nCommitsInTheLast', { n: d.total.toLocaleString(LOC) })}</div>
           </div>
           <span className="gg-mandos">
             {d.user && !d.demo && <button className="gc-boton" onClick={() => open(`https://github.com/${d.user}`)}>{t('windows.openYourProfile')}</button>}
@@ -60,7 +60,7 @@ export function GitHub({ notify }: { notify: (t: string, error?: boolean) => voi
         <div className="gg-cifras">
           <div><small>{t('windows.today')}</small><b>{d.days.at(-1)?.n ?? 0}</b></div>
           <div><small>{t('windows.last7Days')}</small><b>{d.days.slice(-7).reduce((s, x) => s + x.n, 0)}</b></div>
-          <div><small>{t('windows.currentStreak')}</small><b className={current ? 'verde' : ''}>{current === 1 ? t('windows.nDay', { n: current }) : t('windows.nDays', { n: current })}</b></div>
+          <div><small>{t('windows.currentStreak')}</small><b className={current ? 'green' : ''}>{current === 1 ? t('windows.nDay', { n: current }) : t('windows.nDays', { n: current })}</b></div>
           <div><small>{t('windows.bestStreak')}</small><b>{best === 1 ? t('windows.nDay', { n: best }) : t('windows.nDays', { n: best })}</b></div>
           <div><small>{t('windows.bestDay')}</small><b>{max.n}</b>{max.date && <small>{new Date(max.date + 'T12:00:00').toLocaleDateString(LOC, { day: 'numeric', month: 'short' })}</small>}</div>
         </div>

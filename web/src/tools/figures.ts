@@ -5,7 +5,7 @@ import { dismantleHead, strips, HEAD_KINDS, numTris } from '../world/figure/brea
 import { SETTINGS } from '../world/figure/overrides';
 
 const q = new URLSearchParams(location.search);
-const mode = q.get('modo') || 'clases';
+const mode = q.get('mode') || 'classes';
 const S = +(q.get('s') || 180);
 const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
 renderer.setSize(S, S); renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -22,8 +22,8 @@ async function figures() {
   const { mountFigure } = await import('../world/figure/assembly');
   const { STOCK, lookOnRandom, sanitizeLook } = await import('@shared/appearance');
   const g = document.getElementById('g')!;
-  let seed = +(q.get('semilla') || 7); const r = () => { seed ^= seed << 13; seed ^= seed >>> 17; seed ^= seed << 5; return ((seed >>> 0) % 100000) / 100000; };
-  const requests = (q.get('aspectos') ?? '').split(',').filter(Boolean).flatMap(x => x.startsWith('azar') ? Array.from({ length: +(x.split(':')[1] || 8) }, (_, i) => ['azar' + i, lookOnRandom(r, x.startsWith('azarr') ? 'robot' : 'humano')] as const)
+  let seed = +(q.get('seed') || 7); const r = () => { seed ^= seed << 13; seed ^= seed >>> 17; seed ^= seed << 5; return ((seed >>> 0) % 100000) / 100000; };
+  const requests = (q.get('looks') ?? '').split(',').filter(Boolean).flatMap(x => x.startsWith('random') ? Array.from({ length: +(x.split(':')[1] || 8) }, (_, i) => ['random' + i, lookOnRandom(r, x.startsWith('azarr') ? 'robot' : 'human')] as const)
     : x.startsWith('{') ? [[x, sanitizeLook(JSON.parse(decodeURIComponent(x)))!] as const] : [[x, STOCK[x]] as const]);
   if (q.get('json')) requests.splice(0, requests.length, ...JSON.parse(q.get('json')!).map((a: any, i: number) => ['j' + i, sanitizeLook(a)!] as const));
   const H = +(q.get('h') || 300);
@@ -37,7 +37,7 @@ async function figures() {
     } else { const f = await mountFigure(a); o = f.model; o.scale.setScalar(1.85 / f.modelHeight); }
     scene.add(o); o.rotation.y = +(q.get('rot') || 0.35);
     o.updateMatrixWorld(true);
-    const near = q.get('cerca');
+    const near = q.get('near');
     if (near) { cam.position.set(0, 1.55, 2.2); cam.lookAt(0, 1.45, 0); } else { cam.position.set(0, 1.1, 6.2); cam.lookAt(0, 0.95, 0); }
     renderer.render(scene, cam); scene.remove(o);
     const div = document.createElement('div'); div.className = 'c';
@@ -49,7 +49,7 @@ async function figures() {
 }
 
 (window as any).__ready = async () => {
-  if (q.get('aspectos') || q.get('json')) return figures();
+  if (q.get('looks') || q.get('json')) return figures();
   INDEX = (await (await fetch('/assets/indice.json')).json()).characters;
   const list = (q.get('f') || '').split(',').filter(Boolean);
   const g = document.getElementById('g')!;
@@ -67,9 +67,9 @@ async function figures() {
         return `${i} n${c.tris.length} c(${c.center.toArray().map(v => v.toFixed(2)).join(',')}) [${tints}] => ${[...cl.entries()].map(e => e.join(':')).join(' ')}`; }) }; }
     const geo = m.geometry.clone();
     const n = numTris(geo), idx: number[] = [];
-    const want = mode === 'clases' ? null : mode.split('+');
+    const want = mode === 'classes' ? null : mode.split('+');
     for (let t = 0; t < n; t++) if (!want || want.includes(HEAD_KINDS[des.kind[t]])) idx.push(geo.index!.getX(t * 3), geo.index!.getX(t * 3 + 1), geo.index!.getX(t * 3 + 2));
-    if (mode === 'clases') {
+    if (mode === 'classes') {
       const nv = geo.attributes.position.count, col = new Float32Array(nv * 3);
       for (let t = 0; t < n; t++) { const c = new THREE.Color(COLORS[des.kind[t]]); for (let k = 0; k < 3; k++) { const i = geo.index!.getX(t * 3 + k); col.set([c.r, c.g, c.b], i * 3); } }
       geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
@@ -78,8 +78,8 @@ async function figures() {
     geo.setIndex(idx); m.geometry = geo;
     scene.add(o); o.updateMatrixWorld(true);
     const header = o.getObjectByName('head'); const p = header ? header.getWorldPosition(new THREE.Vector3()) : new THREE.Vector3(0, 1.7, 0);
-    const view = q.get('vista') || 'frente';
-    const ang = view === 'lado' ? Math.PI / 2 : view === 'atras' ? Math.PI : view === 'tres' ? 0.6 : 0;
+    const view = q.get('preview') || 'front';
+    const ang = view === 'side' ? Math.PI / 2 : view === 'back' ? Math.PI : view === 'three' ? 0.6 : 0;
     cam.position.set(p.x + Math.sin(ang) * 4.2, p.y + 0.55, p.z + Math.cos(ang) * 4.2); cam.lookAt(p.x, p.y + 0.5, p.z);
     renderer.render(scene, cam); scene.remove(o);
     const div = document.createElement('div'); div.className = 'c';

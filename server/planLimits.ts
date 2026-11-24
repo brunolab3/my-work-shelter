@@ -58,8 +58,8 @@ export class PlanLimitsStore extends EventEmitter {
       const timer = setTimeout(() => this.renew(type), Math.max(0, l.resetsAt - this.now()));
       timer.unref?.(); this.timers.set(type, timer);
     }
-    if (prev?.status === 'rejected' && l.status !== 'rejected') this.emit('renovado', type);
-    if (!prev || prev.status !== l.status || prev.utilization !== l.utilization || prev.resetsAt !== l.resetsAt) this.emit('cambio', this.get());
+    if (prev?.status === 'rejected' && l.status !== 'rejected') this.emit('renewed', type);
+    if (!prev || prev.status !== l.status || prev.utilization !== l.utilization || prev.resetsAt !== l.resetsAt) this.emit('change', this.get());
   }
 
   // the window's reset time has come: a new window starts empty

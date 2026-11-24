@@ -16,6 +16,7 @@
 // carries it: it is the sender's own message, attributed to its room and dweller,
 // and never to the sender's own conversation. Para repartir un plan entre varios repos sigue estando assign_work (dispatch.ts).
 import { createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk';
+import { LEGACY_ROOM_IDS } from '../shared/legacyKeys.ts';
 import { z } from 'zod';
 import path from 'node:path';
 import { t as tr } from '../shared/language.ts';
@@ -95,7 +96,8 @@ export function taskWorktree(worktrees: InfoWorktree[], taskKeyOf: string): stri
   return worktrees.find(w => !w.main && worktreeHasTask(w, taskKeyOf))?.path;
 }
 
-const findRoom = (rooms: RoomInfo[], q: string) => { const k = q.trim().toLowerCase(); return rooms.find(s => s.id.toLowerCase() === k) ?? rooms.find(s => s.name.toLowerCase() === k); };
+// old room ids (`puente` …) still reach their room: transcripts, notes and habits name them
+const findRoom = (rooms: RoomInfo[], q: string) => { const k = (LEGACY_ROOM_IDS[q.trim().toLowerCase()] ?? q.trim()).toLowerCase(); return rooms.find(s => s.id.toLowerCase() === k) ?? rooms.find(s => s.name.toLowerCase() === k); };
 
 /** `fromSession`: the conversation sending it (in its own room, it can't be the one receiving it). Over the per-minute
  *  limit, or behind other over-limit ones still waiting, it is scheduled for when the window frees up; `scheduled`: it is
@@ -236,7 +238,7 @@ export function mcpRooms(ctx: CtxRooms, since: string, fromSession?: string, inW
 
 // mensajes programados (scheduled.ts): para más adelante, a esta misma conversación o a una sala
 function scheduleTools(p: NonNullable<CtxRooms['scheduled']>, since: string, fromSession?: string) {
-  const line = (x: ScheduledMessage) => `- ${x.id} · ${describeWhen(x.when)} · ${x.target.type === 'sala' ? tr('tool.schedule.toRoom', { sala: x.target.room + (x.target.key ?? x.target.thread ? ' ' + (x.target.key ?? x.target.thread) : '') }) : tr('tool.schedule.toThis')}: ${x.message.replace(/\s+/g, ' ').slice(0, 160)}`;
+  const line = (x: ScheduledMessage) => `- ${x.id} · ${describeWhen(x.when)} · ${x.target.type === 'room' ? tr('tool.schedule.toRoom', { sala: x.target.room + (x.target.key ?? x.target.thread ? ' ' + (x.target.key ?? x.target.thread) : '') }) : tr('tool.schedule.toThis')}: ${x.message.replace(/\s+/g, ' ').slice(0, 160)}`;
   return [
     tool('schedule_message', tr('tool.schedule.description', { n: MAX_PER_CONVERSATION, dias: MAX_DAYS }),
       {

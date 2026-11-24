@@ -26,9 +26,9 @@ try {
   const speaks = Date.now();
   d.finish('qa');
   const e = await end;
-  const partial = events.filter(x => x.state === 'parcial');
-  console.log(`listo a los ${times.listo} ms; primer parcial a los ${times.parcial} ms; ${partial.length} parciales mientras se hablaba; final ${Date.now() - speaks} ms después de terminar`);
-  if ((times.parcial ?? 1e9) > 3000) fail('tarda demasiado en empezar a transcribir');
+  const partial = events.filter(x => x.state === 'partial');
+  console.log(`listo a los ${times.ready} ms; primer parcial a los ${times.partial} ms; ${partial.length} parciales mientras se hablaba; final ${Date.now() - speaks} ms después de terminar`);
+  if ((times.partial ?? 1e9) > 3000) fail('tarda demasiado en empezar a transcribir');
   console.log(`→ ${e.text}`);
   if (e.state !== 'final') fail(`el dictado ha fallado: ${e.text}`);
   if (partial.length < 3) fail('no ha ido transcribiendo en vivo');

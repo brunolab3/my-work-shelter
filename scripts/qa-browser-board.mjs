@@ -26,16 +26,16 @@ const HOST = { outlook: /(^|\.)(cloud\.microsoft|office\.com|office365\.com|micr
 const until = async (f, ms = 25000) => { for (let t = 0; t < ms; t += 300) { if (await f()) return true; await wait(300); } return false; };
 
 // el tablón, con avisos de todas las fuentes
-await pg.evaluate(() => window.__game.set({ panel: 'comunicaciones', panelData: null }));
-await pg.waitForSelector('.aparato .feed-lista li');
+await pg.evaluate(() => window.__game.set({ panel: 'comms', panelData: null }));
+await pg.waitForSelector('.device .feed-lista li');
 const buttons = await pg.$$eval('.abrir-webs button', bs => bs.map(b => b.textContent));
 check(buttons.join('|') === '1 · Outlook|2 · Discord|3 · Slack|4 · GitHub|5 · Linear', `botones «Abrir aquí» (${buttons.join(', ')})`);
 
 for (const source of ['outlook', 'discord', 'slack', 'github', 'linear']) {
   await pg.evaluate(() => { window.__browsers.browsers.set({ list: [] }); window.__outside = []; });
   // filtro de la fuente (→ hasta su pestaña) y Enter en el primer aviso
-  const k = await pg.$$eval('.aparato .pestanas .chip', (cs, n) => cs.findIndex(c => c.textContent.startsWith(n)), NAME[source]);
-  await pg.click(`.aparato .pestanas .chip:nth-child(${k + 1})`);
+  const k = await pg.$$eval('.device .pestanas .chip', (cs, n) => cs.findIndex(c => c.textContent.startsWith(n)), NAME[source]);
+  await pg.click(`.device .pestanas .chip:nth-child(${k + 1})`);
   const notice = await pg.evaluate(f => window.__live.get().notifications.find(n => n.source === f), source);
   await pg.keyboard.press('Enter');
   await until(async () => (await list()).some(v => v.id === source && !v.loading));

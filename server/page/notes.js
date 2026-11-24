@@ -7,19 +7,19 @@
 (() => {
   if (window.__refugioNotas) return;
   window.__refugioNotas = true;
-  const post = m => parent.postMessage(Object.assign({ shelter: 'notas' }, m), '*');
+  const post = m => parent.postMessage(Object.assign({ shelter: 'notes' }, m), '*');
   let notes = [];
   let texts = null;   // llegan del juego con las notas guardadas (en el idioma del juego)
   const ranks = new Map();
   const mark = typeof Highlight === 'function' && CSS.highlights ? new Highlight() : null;
-  if (mark) CSS.highlights.set('refugio-nota', mark);
+  if (mark) CSS.highlights.set('shelter-note', mark);
   const style = document.createElement('style');
   style.textContent = '::highlight(refugio-nota){background:rgba(255,196,0,.38);color:inherit}';
   (document.head || document.documentElement).appendChild(style);
 
   // la interfaz, en su propia raíz de sombra: el CSS de la página no la toca ni ella a la página
   const host = document.createElement('div');
-  host.id = 'refugio-notas';
+  host.id = 'shelter-notes';
   host.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:2147483647';
   const root = host.attachShadow({ mode: 'closed' });
   root.innerHTML = `<style>
@@ -35,10 +35,10 @@
     [hidden]{display:none}
   </style>
   <button class="boton" hidden></button>
-  <button class="boton mas" hidden>+</button>
+  <button class="boton plus" hidden>+</button>
   <div class="caja" hidden><div class="cita"></div><textarea></textarea>
     <div class="fila"><button class="borrar"></button><button class="no"></button><button class="si"></button></div></div>`;
-  const button = root.querySelector('.boton:not(.mas)'), more = root.querySelector('.mas'), box = root.querySelector('.caja'), area = root.querySelector('textarea');
+  const button = root.querySelector('.boton:not(.plus)'), more = root.querySelector('.plus'), box = root.querySelector('.caja'), area = root.querySelector('textarea');
   const citaEl = root.querySelector('.cita'), bBorrar = root.querySelector('.borrar'), bNo = root.querySelector('.no'), bSi = root.querySelector('.si');
   const mount = () => { if (!host.isConnected) (document.body || document.documentElement).appendChild(host); };
 
@@ -77,11 +77,11 @@
   function section(rank) {
     const el = rank.startContainer.nodeType === 1 ? rank.startContainer : rank.startContainer.parentElement;
     const inside = el && el.closest('[data-seccion]');
-    if (inside) return fold(inside.getAttribute('data-seccion') || '').slice(0, 300);
+    if (inside) return fold(inside.getAttribute('data-section') || '').slice(0, 300);
     const cand = [...document.querySelectorAll('h1,h2,h3,h4,h5,h6,[data-seccion]')].filter(h => !h.closest('#refugio-notas'));
     let best = null;
     for (const h of cand) if (h.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING || h.contains(el)) best = h;
-    return best ? fold(best.getAttribute('data-seccion') || best.textContent || '').slice(0, 300) : '';
+    return best ? fold(best.getAttribute('data-section') || best.textContent || '').slice(0, 300) : '';
   }
   function pintar() {
     ranks.clear(); if (mark) mark.clear();
@@ -155,7 +155,7 @@
     if (!a || e.defaultPrevented || e.composedPath().includes(host) || (type === 'click' && e.button !== 0)) return;
     if (a.hash && a.href.split('#')[0] === location.href.split('#')[0]) return;   // an anchor of this page
     e.preventDefault();
-    post({ type: 'enlace', href: a.getAttribute('href'), x: e.clientX, y: e.clientY, menu: type === 'contextmenu' });
+    post({ type: 'link', href: a.getAttribute('href'), x: e.clientX, y: e.clientY, menu: type === 'contextmenu' });
   });
   // en una comparación (filas con número de línea, td.n), como en GitHub: «+» al pasar por una línea y una nota en ella
   let row = null;
@@ -175,7 +175,7 @@
     // desde el primer texto del código (sin el signo + o −): así se sabe cuál de las líneas iguales es
     const w = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT, { acceptNode: t => (t.parentElement.closest('.s') || !t.data.trim() ? NodeFilter.FILTER_SKIP : NodeFilter.FILTER_ACCEPT) });
     const first = w.nextNode(); if (first) r.setStart(first, first.data.search(/\S/));
-    const line = lineaDe(row), own = row.getAttribute('data-seccion');
+    const line = lineaDe(row), own = row.getAttribute('data-section');
     const quote = fold(r.toString()).slice(0, 2000) || '(' + line + ')';
     more.hidden = true;
     open({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), quote, section: (own ? fold(own) : (section(r) + ':' + line)).slice(0, 300), start: offsetDe(r), text: '' }, row.getBoundingClientRect());
@@ -224,9 +224,9 @@
 
   // del juego: las notas guardadas de esta página y los textos; «limpiar», cuando ya se han mandado
   addEventListener('message', e => {
-    if (e.source !== parent || !e.data || e.data.shelter !== 'notas') return;
-    if (e.data.type === 'restaurar') { texts = e.data.texts || texts; notes = Array.isArray(e.data.notes) ? e.data.notes : []; pintar(); if (e.data.scroll > 0) volverA(Number(e.data.scroll)); }
-    else if (e.data.type === 'limpiar') { notes = []; close(); pintar(); }
+    if (e.source !== parent || !e.data || e.data.shelter !== 'notes') return;
+    if (e.data.type === 'restore') { texts = e.data.texts || texts; notes = Array.isArray(e.data.notes) ? e.data.notes : []; pintar(); if (e.data.scroll > 0) volverA(Number(e.data.scroll)); }
+    else if (e.data.type === 'clear') { notes = []; close(); pintar(); }
     else if (e.data.type === 'find') find(String(e.data.query || ''), e.data.dir < 0 ? -1 : 1, !!e.data.again);
     else if (e.data.type === 'findClear') findClear();
   });

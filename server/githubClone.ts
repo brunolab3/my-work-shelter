@@ -107,7 +107,7 @@ export function progressOf(output: string): { line: string; pct?: number } {
   return { line: line.slice(0, 160), pct: pct === undefined ? undefined : Math.min(100, Number(pct)) };
 }
 
-export type StateClone = { id: string; repo: string; path: string; state: 'clonando' | 'hecho' | 'error' | 'cancelado'; line: string; pct?: number; error?: string };
+export type StateClone = { id: string; repo: string; path: string; state: 'cloning' | 'done' | 'error' | 'cancelled'; line: string; pct?: number; error?: string };
 
 /** The clones in progress (one at a time per folder): started, read by the panel and cancelled */
 export class Clones {
@@ -115,19 +115,19 @@ export class Clones {
   constructor(private launch: (args: string[], cwd: string, env: NodeJS.ProcessEnv) => ChildProcess = (args, cwd, env) => spawn('git', args, { cwd, env, stdio: ['ignore', 'ignore', 'pipe'] }), private onFinish: (c: StateClone) => void = () => {}) {}
 
   start(repo: string, target: string, url: string): StateClone {
-    if ([...this.list.values()].some(c => c.state === 'clonando' && c.path === target)) throw new Error(t('server.cloneFolderExists'));
+    if ([...this.list.values()].some(c => c.state === 'cloning' && c.path === target)) throw new Error(t('server.cloneFolderExists'));
     mkdirSync(path.dirname(target), { recursive: true });
     // no prompts (they'd hang with nobody to answer), and no ssh host-key or password questions either
     const env = gitEnvironment({ GIT_TERMINAL_PROMPT: '0', GCM_INTERACTIVE: 'never', ...(process.env.GIT_SSH_COMMAND ? {} : { GIT_SSH_COMMAND: 'ssh -o BatchMode=yes' }) });
-    const c: StateClone & { proc?: ChildProcess; output: string } = { id: randomUUID(), repo, path: target, state: 'clonando', line: t('server.cloneStarting'), output: '' };
+    const c: StateClone & { proc?: ChildProcess; output: string } = { id: randomUUID(), repo, path: target, state: 'cloning', line: t('server.cloneStarting'), output: '' };
     this.list.set(c.id, c);
     const proc = this.launch(['clone', '--progress', '--', url, target], path.dirname(target), env);
     c.proc = proc;
     proc.stderr?.on('data', (b: Buffer) => { c.output = (c.output + b.toString()).slice(-8000); const p = progressOf(c.output); if (p.line) { c.line = p.line; c.pct = p.pct; } });
     const end = (code: number | null, err?: Error) => {
-      if (c.state !== 'clonando') return;
+      if (c.state !== 'cloning') return;
       c.proc = undefined;
-      if (code === 0 && existsSync(target)) { c.state = 'hecho'; c.pct = 100; }
+      if (code === 0 && existsSync(target)) { c.state = 'done'; c.pct = 100; }
       else { c.state = 'error'; c.error = err?.message ?? explainClone(c.output); }
       this.onFinish(this.check(c.id)!);
     };
@@ -143,8 +143,8 @@ export class Clones {
   }
   cancel(id: string) {
     const c = this.list.get(id);
-    if (!c || c.state !== 'clonando') return false;
-    c.state = 'cancelado'; c.proc?.kill('SIGTERM');   // git removes the half-made folder when it's interrupted
+    if (!c || c.state !== 'cloning') return false;
+    c.state = 'cancelled'; c.proc?.kill('SIGTERM');   // git removes the half-made folder when it's interrupted
     return true;
   }
 }

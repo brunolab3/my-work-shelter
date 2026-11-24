@@ -39,8 +39,8 @@ describe('sessionPages', () => {
     { type: 'asistente', text: 'Plan cambiado: /Users/ana/r/plan.html', ts: 30 },
   ];
   it('las que enlaza el habitante, la última primero; contestadas solo si es después de la última vez que se enlazó', () => {
-    const l = sessionPages(entries, { '/Users/ana/r/plan.html': { state: 'notas', ts: 25 }, [CMP]: { state: 'validada', ts: 21 } });
-    expect(l.map(p => [p.name, p.ts, p.answer?.state])).toEqual([['plan.html', 30, undefined], ['repo-rama.html', 20, 'validada']]);
+    const l = sessionPages(entries, { '/Users/ana/r/plan.html': { state: 'notes', ts: 25 }, [CMP]: { state: 'validated', ts: 21 } });
+    expect(l.map(p => [p.name, p.ts, p.answer?.state])).toEqual([['plan.html', 30, undefined], ['repo-rama.html', 20, 'validated']]);
     expect(pendingPages(l).map(p => p.name)).toEqual(['plan.html']);
   });
   it('las quitadas de la lista no salen, salvo que se vuelvan a enlazar después', () => {
@@ -66,7 +66,7 @@ describe('livePages', () => {
       { type: 'asistente', text: '/Users/ana/r/antigua.html', ts: now - 40 * day },
       { type: 'asistente', text: '/Users/ana/r/.claude/worktrees/x/plan.html', ts: now - day },
       { type: 'asistente', text: '/Users/ana/r/nueva.html', ts: now - day },
-    ], { '/Users/ana/r/revisada.html': { state: 'validada', ts: now - 19 * day } });
+    ], { '/Users/ana/r/revisada.html': { state: 'validated', ts: now - 19 * day } });
     expect(livePages(l, null, now).map(p => p.name).sort()).toEqual(['nueva.html', 'plan.html', 'vieja.html']);
     expect(livePages(l, new Set(['/Users/ana/r/nueva.html']), now).map(p => p.name)).toEqual(['nueva.html']);
   });

@@ -14,7 +14,7 @@ const DIR = path.join(DATA, 'control-remoto');
 const card = (roomId: string) => path.join(DIR, `${roomId.replace(/[^\w-]/g, '_')}.json`);
 const registry = (roomId: string) => path.join(DIR, `${roomId.replace(/[^\w-]/g, '_')}.log`);
 
-export interface StateControlRemote { state: 'apagado' | 'encendido' | 'aceptar' | 'error'; detail?: string; url?: string; name?: string }
+export interface StateControlRemote { state: 'off' | 'on' | 'accept' | 'error'; detail?: string; url?: string; name?: string }
 interface Card { pid: number; cwd: string; name: string; since: number }
 
 const read = (roomId: string): Card | null => { try { return JSON.parse(readFileSync(card(roomId), 'utf8')); } catch { return null; } };
@@ -40,12 +40,12 @@ export function readOutput(text: string): { accept?: boolean; withoutTrust?: boo
 
 export function state(roomId: string): StateControlRemote {
   const f = read(roomId);
-  if (!f) return { state: 'apagado' };
+  if (!f) return { state: 'off' };
   const s = readOutput(output(roomId));
-  if (s.accept) return { state: 'aceptar', name: f.name, detail: t('server.theFirstTimeRemoteControl') };
+  if (s.accept) return { state: 'accept', name: f.name, detail: t('server.theFirstTimeRemoteControl') };
   if (s.withoutTrust) return { state: 'error', name: f.name, detail: t('server.claudeCodeDoesNotTrust') };
   if (!live(f.pid)) return { state: 'error', name: f.name, detail: s.last ? t('server.remoteStoppedDetail', { detalle: s.last.slice(0, 200) }) : t('server.remoteStopped') };
-  return { state: 'encendido', name: f.name, url: s.url };
+  return { state: 'on', name: f.name, url: s.url };
 }
 
 export async function switchOn(roomId: string, cwd: string, roomName: string): Promise<StateControlRemote> {
@@ -68,11 +68,11 @@ export async function switchOn(roomId: string, cwd: string, roomName: string): P
   for (let t = 0; t < 40; t++) {
     await new Promise(ok => setTimeout(ok, 200));
     const e = state(roomId);
-    if (e.state !== 'encendido' || e.url) break;
+    if (e.state !== 'on' || e.url) break;
   }
   const e = state(roomId);
   // si pide aceptar o no arranca, no se deja colgado esperando una respuesta que no llegará
-  if (e.state !== 'encendido') shutDown(roomId);
+  if (e.state !== 'on') shutDown(roomId);
   return e;
 }
 

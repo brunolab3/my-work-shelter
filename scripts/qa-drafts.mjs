@@ -24,27 +24,27 @@ const load = async () => {
   await pg.evaluate(async () => { await window.__ready(); window.__game.set({ panel: null, panelData: null }); });
 };
 const talk = h => pg.evaluate(h => window.dispatchEvent(new CustomEvent('refugio:ir', { detail: { roomId: h.room, dwellerId: h.id, talk: true } })), h);
-const options = () => pg.evaluate(() => [...document.querySelectorAll('.consola .opciones-consola li')].map(l => l.textContent.replace('▶', '').trim()));
+const options = () => pg.evaluate(() => [...document.querySelectorAll('.console .opciones-consola li')].map(l => l.textContent.replace('▶', '').trim()));
 const chooseMenu = async text => { const i = (await options()).findIndex(o => o.startsWith(text)); for (let k = 0; k < i; k++) await pg.keyboard.press('ArrowDown'); await pg.keyboard.press('Enter'); await wait(400); };
-const field = () => pg.evaluate(() => document.querySelector('.consola textarea')?.value ?? null);
-const tabs = () => pg.evaluate(() => [...document.querySelectorAll('.consola .vt-pestana')].map(p => p.textContent.replace('×', '').trim()));
+const field = () => pg.evaluate(() => document.querySelector('.console textarea')?.value ?? null);
+const tabs = () => pg.evaluate(() => [...document.querySelectorAll('.console .vt-tab')].map(p => p.textContent.replace('×', '').trim()));
 
 await load();
-const h = await pg.evaluate(() => { const hs = window.__game.get().dwellers; return hs.find(h => h.path && h.room !== 'puente' && !h.robot) ?? hs.find(h => h.path); });
+const h = await pg.evaluate(() => { const hs = window.__game.get().dwellers; return hs.find(h => h.path && h.room !== 'bridge' && !h.robot) ?? hs.find(h => h.path); });
 console.log('Habitante:', h.name, '·', h.nameRoom);
 await talk(h);
-await pg.waitForSelector('.consola .opciones-consola');
+await pg.waitForSelector('.console .opciones-consola');
 await chooseMenu('Empezar');
 await pg.keyboard.type('Responde solo con la frase: el refugio aguanta.', { delay: 2 });
 await pg.keyboard.press('Tab'); await pg.keyboard.press('ArrowLeft');   // Haiku
 await pg.keyboard.press('Enter');
-check(await until(async () => (await pg.$('.consola .sesion')) !== null, 20000), 'el trabajo arranca y se ve la conversación');
-const sessionId = await pg.evaluate(id => Object.values(window.__live.get().sessions).find(s => s.dwellerId === id && s.state !== 'cerrada')?.id, h.id);
-check(await until(async () => pg.evaluate(id => ['terminada', 'ociosa'].includes(window.__live.get().sessions[id]?.state), sessionId), 90000), 'el trabajo termina');
-await until(async () => pg.evaluate(() => /aguanta/i.test(document.querySelector('.consola .ent.asistente')?.textContent ?? '')), 10000);
+check(await until(async () => (await pg.$('.console .session')) !== null, 20000), 'el trabajo arranca y se ve la conversación');
+const sessionId = await pg.evaluate(id => Object.values(window.__live.get().sessions).find(s => s.dwellerId === id && s.state !== 'closed')?.id, h.id);
+check(await until(async () => pg.evaluate(id => ['finished', 'idle'].includes(window.__live.get().sessions[id]?.state), sessionId), 90000), 'el trabajo termina');
+await until(async () => pg.evaluate(() => /aguanta/i.test(document.querySelector('.console .ent.asistente')?.textContent ?? '')), 10000);
 
 // ---- ⌘C copia lo seleccionado en la conversación
-await pg.evaluate(() => { const el = document.querySelector('.consola .ent.asistente'); (document.activeElement)?.blur?.(); const r = document.createRange(); r.selectNodeContents(el); const s = getSelection(); s.removeAllRanges(); s.addRange(r); });
+await pg.evaluate(() => { const el = document.querySelector('.console .ent.asistente'); (document.activeElement)?.blur?.(); const r = document.createRange(); r.selectNodeContents(el); const s = getSelection(); s.removeAllRanges(); s.addRange(r); });
 await pg.keyboard.down('Meta'); await wait(80);
 const after = await pg.evaluate(() => ({ sel: getSelection().toString(), focus: document.activeElement?.tagName }));
 check(/aguanta/i.test(after.sel) && after.focus !== 'TEXTAREA', `pulsar ⌘ no se lleva la selección al campo (foco: ${after.focus})`);
@@ -57,8 +57,8 @@ await pg.keyboard.type('Esto es un borrador largo de la conversación', { delay:
 check((await field())?.startsWith('Esto es un borrador'), 'escribir fuera del campo lleva a él');
 
 // ---- Esc con algo escrito: a la primera no se borra; a la segunda, sí (y se reescribe)
-await pg.focus('.consola textarea'); await pg.keyboard.press('Escape'); await wait(150);
-check((await field())?.startsWith('Esto es un borrador') && await pg.isVisible('.consola'), 'Esc con algo escrito no lo borra a la primera');
+await pg.focus('.console textarea'); await pg.keyboard.press('Escape'); await wait(150);
+check((await field())?.startsWith('Esto es un borrador') && await pg.isVisible('.console'), 'Esc con algo escrito no lo borra a la primera');
 await pg.keyboard.press('Escape'); await wait(150);
 check((await field()) === '', 'Esc otra vez, enseguida, sí lo borra');
 await pg.keyboard.type('Esto es un borrador largo de la conversación', { delay: 2 });
@@ -72,19 +72,19 @@ await wait(500);
 // ---- recargar la página («Aplicar los cambios del juego»): todo sigue
 await load();
 await talk(h);
-await pg.waitForSelector('.consola');
+await pg.waitForSelector('.console');
 await until(async () => (await tabs()).length === 2, 8000);
 check((await tabs()).length === 2, `tras recargar, las dos pestañas siguen (${(await tabs()).join(' | ')})`);
 check((await field()) === 'Un trabajo nuevo que aún no he lanzado', 'y el trabajo nuevo sin lanzar conserva lo escrito');
-check(await pg.evaluate(() => document.querySelectorAll(".consola .vt-pestana .marca-borrador").length === 2), "las dos pestañas con algo escrito llevan ✎");
+check(await pg.evaluate(() => document.querySelectorAll(".console .vt-tab .marca-borrador").length === 2), "las dos pestañas con algo escrito llevan ✎");
 await pg.keyboard.press('Meta+1'); await wait(400);
-check(await pg.$('.consola .sesion') !== null && (await field()) === 'Esto es un borrador largo de la conversación', 'y la conversación conserva su borrador');
+check(await pg.$('.console .session') !== null && (await field()) === 'Esto es un borrador largo de la conversación', 'y la conversación conserva su borrador');
 
 // ---- la conversación se cierra sin que el Supervisor la cierre (sola, al reiniciar, desde fuera)
 await pg.evaluate(id => window.__client.send({ t: 'closeSession', sessionId: id }), sessionId);
-await until(async () => (await pg.$('.consola .transcripcion-previa')) !== null, 8000);
-check(await pg.$('.consola .transcripcion-previa') !== null && (await field()) === 'Esto es un borrador largo de la conversación', 'cerrada sola, la pestaña se queda para retomarla con lo escrito');
-await load(); await talk(h); await pg.waitForSelector('.consola'); await wait(800);
+await until(async () => (await pg.$('.console .transcripcion-previa')) !== null, 8000);
+check(await pg.$('.console .transcripcion-previa') !== null && (await field()) === 'Esto es un borrador largo de la conversación', 'cerrada sola, la pestaña se queda para retomarla con lo escrito');
+await load(); await talk(h); await pg.waitForSelector('.console'); await wait(800);
 check((await tabs()).length === 2, 'y sigue ahí tras otra recarga');
 
 // ---- cerrar a mano una pestaña con algo escrito pregunta
@@ -94,7 +94,7 @@ await pg.keyboard.press('Escape'); await wait(300);
 check(!(await pg.isVisible('.vt-confirmar')) && (await tabs()).length === 2 && !!(await field()), 'Esc cancela y lo escrito sigue');
 // limpieza: se borra a propósito
 await pg.keyboard.press('Meta+Shift+w'); await wait(300); await pg.keyboard.press('Enter'); await wait(500);
-check(!(await pg.isVisible('.consola')), 'cerrar y borrarlo, confirmado, cierra');
+check(!(await pg.isVisible('.console')), 'cerrar y borrarlo, confirmado, cierra');
 
 check(!errors.length, 'sin errores en la página' + (errors.length ? ': ' + errors.join(' · ') : ''));
 await b.close();

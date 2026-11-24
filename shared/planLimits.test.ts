@@ -22,38 +22,38 @@ describe('usage traffic light (usage against pace)', () => {
   it("Bruno's examples", () => {
     // the 5-hour window at 60 % in its first hour: pace 20 %, ratio 3 → red
     expect(paceRatio(at('five_hour', 60, H), 'five_hour', NOW)).toBeCloseTo(3);
-    expect(limitLight(at('five_hour', 60, H), 'five_hour', NOW)).toBe('rojo');
+    expect(limitLight(at('five_hour', 60, H), 'five_hour', NOW)).toBe('red');
     // the weekly one at 50 % on day 1: pace 1/7, ratio 3.5 → red
     expect(paceRatio(at('seven_day', 50, D), 'seven_day', NOW)).toBeCloseTo(3.5);
-    expect(limitLight(at('seven_day', 50, D), 'seven_day', NOW)).toBe('rojo');
+    expect(limitLight(at('seven_day', 50, D), 'seven_day', NOW)).toBe('red');
     // at 50 % on day 6: pace 6/7, ratio ≈ 0.58 → green
     expect(paceRatio(at('seven_day', 50, 6 * D), 'seven_day', NOW)).toBeCloseTo(0.583, 2);
-    expect(limitLight(at('seven_day', 50, 6 * D), 'seven_day', NOW)).toBe('verde');
+    expect(limitLight(at('seven_day', 50, 6 * D), 'seven_day', NOW)).toBe('green');
   });
 
   it('green up to on pace, yellow up to 1.25 times it, red above', () => {
     expect(PACE_YELLOW).toBe(1.25);
-    expect(limitLight(at('five_hour', 50, 2.5 * H), 'five_hour', NOW)).toBe('verde');      // ratio 1
-    expect(limitLight(at('five_hour', 55, 2.5 * H), 'five_hour', NOW)).toBe('amarillo');   // 1.1
-    expect(limitLight(at('five_hour', 62.5, 2.5 * H), 'five_hour', NOW)).toBe('amarillo'); // 1.25
-    expect(limitLight(at('five_hour', 63, 2.5 * H), 'five_hour', NOW)).toBe('rojo');       // 1.26
-    expect(limitLight(at('five_hour', 0, 0), 'five_hour', NOW)).toBe('verde');             // nothing used yet
+    expect(limitLight(at('five_hour', 50, 2.5 * H), 'five_hour', NOW)).toBe('green');      // ratio 1
+    expect(limitLight(at('five_hour', 55, 2.5 * H), 'five_hour', NOW)).toBe('yellow');   // 1.1
+    expect(limitLight(at('five_hour', 62.5, 2.5 * H), 'five_hour', NOW)).toBe('yellow'); // 1.25
+    expect(limitLight(at('five_hour', 63, 2.5 * H), 'five_hour', NOW)).toBe('red');       // 1.26
+    expect(limitLight(at('five_hour', 0, 0), 'five_hour', NOW)).toBe('green');             // nothing used yet
   });
 
   it('rejected is red, unknown is grey (never green)', () => {
-    expect(limitLight(at('five_hour', null, H, 'rejected'), 'five_hour', NOW)).toBe('rojo');
-    expect(limitLight(at('seven_day', 10, 6 * D, 'rejected'), 'seven_day', NOW)).toBe('rojo');
-    expect(limitLight(at('five_hour', null, H), 'five_hour', NOW)).toBe('gris');
-    expect(limitLight(undefined, 'five_hour', NOW)).toBe('gris');
+    expect(limitLight(at('five_hour', null, H, 'rejected'), 'five_hour', NOW)).toBe('red');
+    expect(limitLight(at('seven_day', 10, 6 * D, 'rejected'), 'seven_day', NOW)).toBe('red');
+    expect(limitLight(at('five_hour', null, H), 'five_hour', NOW)).toBe('gray');
+    expect(limitLight(undefined, 'five_hour', NOW)).toBe('gray');
     // used but with no reset time there is no pace to compare with
-    expect(limitLight({ status: 'allowed', utilization: 30, resetsAt: null, updated: NOW }, 'five_hour', NOW)).toBe('gris');
+    expect(limitLight({ status: 'allowed', utilization: 30, resetsAt: null, updated: NOW }, 'five_hour', NOW)).toBe('gray');
   });
 
   it('the overall light is the worst of the shown windows, named', () => {
     const ls = { five_hour: at('five_hour', 10, 4 * H), seven_day: at('seven_day', 50, D) };
-    expect(worstLight(ls, ['five_hour', 'seven_day'], NOW)).toEqual({ light: 'rojo', window: 'seven_day' });
-    expect(worstLight(ls, ['five_hour'], NOW)).toEqual({ light: 'verde', window: 'five_hour' });
-    expect(worstLight({}, ['five_hour'], NOW)).toEqual({ light: 'gris', window: null });
+    expect(worstLight(ls, ['five_hour', 'seven_day'], NOW)).toEqual({ light: 'red', window: 'seven_day' });
+    expect(worstLight(ls, ['five_hour'], NOW)).toEqual({ light: 'green', window: 'five_hour' });
+    expect(worstLight({}, ['five_hour'], NOW)).toEqual({ light: 'gray', window: null });
   });
 });
 

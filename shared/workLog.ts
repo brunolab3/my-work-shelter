@@ -77,8 +77,8 @@ export function mergePRs(l: Ledger, prs: (PRBoard & { mergedAt?: number })[], no
   let changed = false;
   for (const p of prs) {
     if (!p.repo || !p.number) continue;
-    const ref = prRef(p), prev = l.prs[ref], merged = p.state === 'fusionado';
-    const mergedAt = merged ? p.mergedAt ?? prev?.mergedAt ?? (prev && prev.state !== 'fusionado' ? now : p.updated || now) : undefined;
+    const ref = prRef(p), prev = l.prs[ref], merged = p.state === 'merged';
+    const mergedAt = merged ? p.mergedAt ?? prev?.mergedAt ?? (prev && prev.state !== 'merged' ? now : p.updated || now) : undefined;
     changed = put(l.prs, ref, {
       ref, url: p.url, title: p.title, repo: p.repo, number: p.number, branch: p.branch, task: pRTask(p), state: p.state,
       seen: prev?.seen ?? now, updated: p.updated || prev?.updated || now, ...(mergedAt ? { mergedAt } : {}),
@@ -216,13 +216,13 @@ export function logRows(l: Ledger, since: number): LogRow[] {
   return [...rows.values()].filter(r => r.moved >= since).sort((a, b) => Number(b.jira) - Number(a.jira) || b.last - a.last);
 }
 
-const PR_STATE: Record<StatePR, string> = { abierto: 'worklog.pr.open', borrador: 'worklog.pr.draft', fusionado: 'worklog.pr.merged', cerrado: 'worklog.pr.closed' };
+const PR_STATE: Record<StatePR, string> = { open: 'worklog.pr.open', draft: 'worklog.pr.draft', merged: 'worklog.pr.merged', closed: 'worklog.pr.closed' };
 export const prStateText = (s: StatePR) => t(PR_STATE[s]);
 /** «2 merged · 1 open» */
 export function prRollup(prs: LogPR[]): string {
   const n = new Map<StatePR, number>();
   for (const p of prs) n.set(p.state, (n.get(p.state) ?? 0) + 1);
-  return (['fusionado', 'abierto', 'borrador', 'cerrado'] as StatePR[]).filter(s => n.get(s)).map(s => `${n.get(s)} ${prStateText(s)}`).join(' · ');
+  return (['merged', 'open', 'draft', 'closed'] as StatePR[]).filter(s => n.get(s)).map(s => `${n.get(s)} ${prStateText(s)}`).join(' · ');
 }
 
 /** The sync update: one line per task and its PRs underneath, as Markdown to paste */

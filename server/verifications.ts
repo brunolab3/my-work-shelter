@@ -20,7 +20,7 @@ export interface CtxRecheck {
   schedule(c: PlanConversation, when: number, message: string): string | undefined;
   pending(id: string): boolean;
   cancel(id: string): void;
-  notify(text: string, level: 'info' | 'aviso'): void;
+  notify(text: string, level: 'info' | 'warning'): void;
 }
 
 const MAX_PLANS = 100;
@@ -80,8 +80,8 @@ export class Verifications {
       c.notified = true;
       if (c.state === 'inconclusive') {
         ctx.schedule(conv, now, t('prompt.verification.inconclusive', { clave: p.key, id: c.id, atascado: t(STATE_TEXT[c.stuck ?? 'waiting-traffic']), plan: planText(p) }));
-        ctx.notify(t('server.verification.inconclusive', { nombre: name, atascado: t(STATE_TEXT[c.stuck ?? 'waiting-traffic']) }), 'aviso');
-      } else ctx.notify(t(c.state === 'failed' ? 'server.verification.failed' : 'server.verification.evidenced', { nombre: name }), c.state === 'failed' ? 'aviso' : 'info');
+        ctx.notify(t('server.verification.inconclusive', { nombre: name, atascado: t(STATE_TEXT[c.stuck ?? 'waiting-traffic']) }), 'warning');
+      } else ctx.notify(t(c.state === 'failed' ? 'server.verification.failed' : 'server.verification.evidenced', { nombre: name }), c.state === 'failed' ? 'warning' : 'info');
     }
     if (needsRecheck(c) && !(c.scheduled && ctx.pending(c.scheduled))) {
       const n = c.rechecks ?? 0;

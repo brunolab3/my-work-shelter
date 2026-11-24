@@ -22,11 +22,11 @@ live.subscribe(() => {
   if (Object.keys(p).some(k => (j as any)[k] !== p[k] && JSON.stringify((j as any)[k]) !== JSON.stringify(p[k]))) juego.set(p);
   // llegada de notificaciones: sonido según la prioridad más alta de las nuevas
   const fresh = unseen.filter((n: any) => !views.has(n.id));
-  if (fresh.length && !first) { const high = fresh.some((n: any) => n.priority === 'alta'), media = fresh.some((n: any) => n.priority === 'media'); high ? SFX.highNotice() : media ? SFX.noticeMedia() : SFX.lowNotice(); }
+  if (fresh.length && !first) { const high = fresh.some((n: any) => n.priority === 'high'), media = fresh.some((n: any) => n.priority === 'media'); high ? SFX.highNotice() : media ? SFX.noticeMedia() : SFX.lowNotice(); }
   if (v.notifications.length) first = false;
   views = new Set(v.notifications.map((n: any) => n.id));
   // primer arranque
-  if (e && !e.doneWelcome && !j.panel && !shownWelcome) { shownWelcome = true; juego.set({ panel: 'bienvenida' }); }
+  if (e && !e.doneWelcome && !j.panel && !shownWelcome) { shownWelcome = true; juego.set({ panel: 'welcome' }); }
 });
 let shownWelcome = false;
 
@@ -35,7 +35,7 @@ let shownWelcome = false;
 // most severe level) until read: clicking the slot unfolds them, clicking one dismisses it, "read all" dismisses them all.
 // Questions are never folded: they stay on their own until answered (the answer goes to the server: aviso.responder).
 const freshFor = (a: Notice) => (a.level === 'error' ? 9000 : 5000);
-const SEVERITY = ['error', 'aviso'];
+const SEVERITY = ['error', 'warning'];
 export function Notices() {
   const notices = live.use(e => e.notices);
   const [now, setNow] = useState(Date.now());
@@ -51,13 +51,13 @@ export function Notices() {
   const remove = (...ids: number[]) => live.set(e => ({ notices: e.notices.filter(a => !ids.includes(a.id)) }));
   const respond = (a: Notice, si: boolean) => { client.action('notice.answer', { id: a.question!.id, si }).catch(() => SFX.notAllowed()); SFX.click(); remove(a.id); };
   const one = (a: Notice) => a.question
-    ? <div key={a.id} className={'teletipo interactivo pregunta ' + a.level}>{a.text}<div className="botonera"><button className="boton-taller" onClick={() => respond(a, false)}>{a.question.no}</button><button className="boton-taller peligro" onClick={() => respond(a, true)}>{a.question.si}</button></div></div>
+    ? <div key={a.id} className={'teletipo interactivo question ' + a.level}>{a.text}<div className="botonera"><button className="boton-taller" onClick={() => respond(a, false)}>{a.question.no}</button><button className="boton-taller peligro" onClick={() => respond(a, true)}>{a.question.si}</button></div></div>
     : <div key={a.id} className={'teletipo interactivo ' + a.level} title={a.text} onClick={() => remove(a.id)}>{a.text}</div>;
   const level = SEVERITY.find(n => stale.some(a => a.level === n)) ?? 'info';
   // mousedown is cancelled so that dismissing or answering one leaves the focus in what you were typing
   return <div className="teletipos" onMouseDown={e => e.preventDefault()}>
-    {stale.length > 0 && <div className={'teletipos-grupo' + (open ? ' abierto' : '')}>
-      <div className={'teletipo interactivo grupo ' + level} title={t(open ? 'panels.noticesFold' : 'panels.noticesUnfold')} onClick={() => { SFX.click(); setOpen(!open); }}>
+    {stale.length > 0 && <div className={'teletipos-grupo' + (open ? ' open' : '')}>
+      <div className={'teletipo interactivo group ' + level} title={t(open ? 'panels.noticesFold' : 'panels.noticesUnfold')} onClick={() => { SFX.click(); setOpen(!open); }}>
         {(open ? '▾ ' : '▸ ') + t('panels.earlierNotices', { n: stale.length })}
         {open && <button className="leer-todos" onClick={e => { e.stopPropagation(); SFX.click(); remove(...stale.map(a => a.id)); }}>{t('panels.readAllNotices')}</button>}
       </div>
@@ -110,8 +110,8 @@ export function Welcome() {
   const enter = async () => {
     await client.action('save', { patch: { doneWelcome: true, name: name.trim() || GAME_NAME, reposRoot: root.trim() || '~', supervisor: { ...(e?.supervisor ?? {}), character: CHARACTERS[k], look: null } } });
     SFX.success();
-    window.dispatchEvent(new CustomEvent('refugio:ir', { detail: { roomId: 'camara' } }));
-    juego.set({ panel: 'camara', panelData: null });
+    window.dispatchEvent(new CustomEvent('refugio:ir', { detail: { roomId: 'vault' } }));
+    juego.set({ panel: 'vault', panelData: null });
   };
   useKeys(ev => {
     if (focus === 0 && (ev.code === 'ArrowLeft' || ev.code === 'KeyA')) change(-1);
@@ -124,22 +124,22 @@ export function Welcome() {
   useEffect(() => { if (focus === 1) refN.current?.focus(); else if (focus === 2) refR.current?.focus(); else (document.activeElement as HTMLElement)?.blur?.(); }, [focus]);
   return (
     <Device label={t('panels.welcomeOverseerRegistration')} width={52} onClose={enter}>
-      <p className="voz">{t('panels.theSurfaceHasBeenSilent')}</p>
-      <div className={'fila-chips' + (focus === 0 ? ' activa' : '')} onClick={() => setFocus(0)}>
+      <p className="voice">{t('panels.theSurfaceHasBeenSilent')}</p>
+      <div className={'fila-chips' + (focus === 0 ? ' active' : '')} onClick={() => setFocus(0)}>
         <span className="etq">{t('panels.yourLook')}</span>
         <button className="chip" onClick={() => change(-1)}>◀</button><b className="eleccion">{tIs(LOOK[CHARACTERS[k]])}</b><button className="chip" onClick={() => change(1)}>▶</button>
-        <span className="tenue">{t('panels.shownBehindInTheShelter')} <kbd>P</kbd>{t('panels.inChromePaintEverythingCan')}</span>
+        <span className="dim">{t('panels.shownBehindInTheShelter')} <kbd>P</kbd>{t('panels.inChromePaintEverythingCan')}</span>
       </div>
-      <label className={'campo-taller' + (focus === 1 ? ' activa' : '')} onClick={() => setFocus(1)}>
+      <label className={'campo-taller' + (focus === 1 ? ' active' : '')} onClick={() => setFocus(1)}>
         <span className="etq">{t('panels.shelterName2')}</span>
         <input ref={refN} value={name} onChange={ev => setName(ev.target.value)} onKeyDown={ev => { if (ev.key === 'Enter') { ev.preventDefault(); enter(); } else if (ev.key === 'ArrowUp') { ev.preventDefault(); setFocus(0); } else if (ev.key === 'ArrowDown') { ev.preventDefault(); setFocus(2); } }} spellCheck={false} />
       </label>
-      <label className={'campo-taller' + (focus === 2 ? ' activa' : '')} onClick={() => setFocus(2)}>
+      <label className={'campo-taller' + (focus === 2 ? ' active' : '')} onClick={() => setFocus(2)}>
         <span className="etq">{t('panels.welcomeReposRoot')}</span>
         <input ref={refR} value={root} onChange={ev => setRoot(ev.target.value)} onKeyDown={ev => { if (ev.key === 'Enter') { ev.preventDefault(); enter(); } else if (ev.key === 'ArrowUp') { ev.preventDefault(); setFocus(1); } else if (ev.key === 'ArrowDown') { ev.preventDefault(); setFocus(3); } }} spellCheck={false} placeholder="~/Developer" />
       </label>
-      <p className="tenue">{t('panels.welcomeReposRootHint')}</p>
-      <div className="botonera"><button className={'boton-taller' + (focus === 3 ? ' activa' : '')} onClick={enter}>{t('panels.openTheShelter')}</button></div>
+      <p className="dim">{t('panels.welcomeReposRootHint')}</p>
+      <div className="botonera"><button className={'boton-taller' + (focus === 3 ? ' active' : '')} onClick={enter}>{t('panels.openTheShelter')}</button></div>
       <Keys><kbd>←→</kbd>{t('panels.look')} <kbd>↑↓</kbd>{t('panels.move')} <kbd>Enter</kbd>{t('panels.openTheShelterThen')} <kbd>F1</kbd>{t('panels.showsAllTheControls')}</Keys>
     </Device>
   );

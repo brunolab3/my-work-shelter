@@ -145,7 +145,7 @@ async function act(p: Piece): Promise<PieceChunk[]> {
   if (p.breakdown) {
     if (!f.head) return [];
     const { mesh, d, atlas } = f.head;
-    const kinds: HeadKind[] = p.slot === 'cara' ? ['cara', 'ojos'] : p.slot === 'sombrero' ? ['gorro'] : [p.slot as HeadKind];
+    const kinds: HeadKind[] = p.slot === 'cara' ? ['cara', 'eyes'] : p.slot === 'sombrero' ? ['cap'] : [p.slot as HeadKind];
     const ks = kinds.map(c => HEAD_KINDS.indexOf(c));
     const tris: number[] = []; for (let t = 0; t < d.kind.length; t++) if (ks.includes(d.kind[t])) tris.push(t);
     if (!tris.length) return [];
@@ -319,7 +319,7 @@ async function scalpLeather(face: string): Promise<PieceChunk[]> {
   const f = await source(face), h = await mold(face), g = await genericSkull();
   if (!f.head || !h) return skull();
   const { mesh, d } = f.head, geo0 = mesh.geometry, P = geo0.attributes.position, uv = geo0.attributes.uv;
-  const K = { cara: HEAD_KINDS.indexOf('cara'), eyes: HEAD_KINDS.indexOf('ojos'), cejas: HEAD_KINDS.indexOf('cejas') };
+  const K = { cara: HEAD_KINDS.indexOf('cara'), eyes: HEAD_KINDS.indexOf('eyes'), cejas: HEAD_KINDS.indexOf('cejas') };
   const large = components(geo0).filter(c => c.tris.length >= 120 && Math.abs(c.center.x) < 0.1);
   const vert = (t: number, k: number) => (geo0.index ? geo0.index.getX(t * 3 + k) : t * 3 + k);
   const key = (i: number) => P.getX(i).toFixed(4) + ',' + P.getY(i).toFixed(4) + ',' + P.getZ(i).toFixed(4);

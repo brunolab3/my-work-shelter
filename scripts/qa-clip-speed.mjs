@@ -6,7 +6,7 @@ await pg.addInitScript('window.__noLoop = true;');
 await pg.goto(withToken('' + (process.env.URL || 'http://127.0.0.1:5173/') + ''));
 await pg.evaluate(async () => { await window.__ready(); });
 console.log(JSON.stringify(await pg.evaluate(() => {
-  const r = window.__shelter; const s = r.supervisor; const V = r.camara.goal.constructor;
+  const r = window.__shelter; const s = r.supervisor; const V = r.camera.goal.constructor;
   const out = {};
   for (const c of ['Walking_A', 'Walking_B', 'Walking_C', 'Running_A', 'Running_B']) {
     s.stop(); s.root.position.set(0, 0, 1.5); s.root.rotation.y = Math.PI / 2; s.goalTurn = Math.PI / 2;

@@ -50,7 +50,7 @@ function untilMinutes(ts: number, now: number) {
   const h = Math.floor(m / 60); return t('panels.inHH', { h }) + (m % 60 ? ' ' + t('panels.nMin', { n: m % 60 }) : '');
 }
 
-function Counter({ icon, n, text, shortcut, level }: { icon: React.ReactNode; n: number | string; text: string; shortcut: string; level?: 'urgente' | 'apagado' | 'error' | 'pronto' | 'inminente' | '' }) {
+function Counter({ icon, n, text, shortcut, level }: { icon: React.ReactNode; n: number | string; text: string; shortcut: string; level?: 'urgent' | 'off' | 'error' | 'pronto' | 'inminente' | '' }) {
   return (
     <div className={'contador ' + (level || '')} title={`${text} (${shortcut})`}>
       <span className="icono">{icon}</span>
@@ -65,8 +65,8 @@ export function Hud() {
   const now = useNow();
   const e = juego.use(s => s);
   const all = [...e.dwellers, ...e.copies];   // con las copias holográficas
-  const working = all.filter(h => h.state === 'trabajando' || h.state === 'pensando').length;
-  const waiting = all.filter(h => h.state === 'esperando').length;
+  const working = all.filter(h => h.state === 'working' || h.state === 'thinking').length;
+  const waiting = all.filter(h => h.state === 'waiting').length;
   const errors = all.filter(h => h.state === 'error').length;
   const connected = live.use(x => x.connected);
   const restarting = live.use(x => x.restarting);
@@ -76,21 +76,21 @@ export function Hud() {
   return (
     <>
     <div ref={bar} className="regleta">
-      <span className="tirante izq" /><span className="tirante der" />
+      <span className="tirante left" /><span className="tirante right" />
       <div className="seg placa-refugio">
         <span className="nombre" title={e.shelter}>{e.shelter}</span>
       </div>
-      <div className="seg fosforo hora">
+      <div className="seg fosforo hour">
         <span className="hh">{fmtHour.format(now)}</span>
         <span className="fecha">{fmtDate.format(now)}</span>
       </div>
-      {!connected && <div className="seg fosforo sin-enlace" title={t('panels.theLinkToTheShelter')}><span className="piloto error" /> <span className="txt">{t('panels.noLinkRetrying')}</span></div>}
+      {!connected && <div className="seg fosforo sin-enlace" title={t('panels.theLinkToTheShelter')}><span className="pilot error" /> <span className="txt">{t('panels.noLinkRetrying')}</span></div>}
       <div className={'seg fosforo contadores' + (connected ? '' : ' viejos')}>
-        <Counter icon={Icon.gear} n={working} text={t('windows.working')} shortcut="Tab" level={working ? '' : 'apagado'} />
-        <Counter icon={Icon.notice} n={waiting} text={t('panels.waitingForYou')} shortcut="Q" level={waiting ? 'urgente' : 'apagado'} />
+        <Counter icon={Icon.gear} n={working} text={t('windows.working')} shortcut="Tab" level={working ? '' : 'off'} />
+        <Counter icon={Icon.notice} n={waiting} text={t('panels.waitingForYou')} shortcut="Q" level={waiting ? 'urgent' : 'off'} />
         {errors > 0 && <Counter icon={Icon.error} n={errors} text={t('panels.brokenDown')} shortcut="Q" level="error" />}
-        <Counter icon={Icon.restsOn} n={e.unseenNotifications} text={t('panels.unseen')} shortcut="N" level={e.unseenNotifications ? '' : 'apagado'} />
-        <Counter icon={Icon.timer} n={next ? untilMinutes(next.start, now) : '—'} text={next ? next.title : t('panels.noEvents')} shortcut="C" level={next ? urgency(next, now) : 'apagado'} />
+        <Counter icon={Icon.restsOn} n={e.unseenNotifications} text={t('panels.unseen')} shortcut="N" level={e.unseenNotifications ? '' : 'off'} />
+        <Counter icon={Icon.timer} n={next ? untilMinutes(next.start, now) : '—'} text={next ? next.title : t('panels.noEvents')} shortcut="C" level={next ? urgency(next, now) : 'off'} />
       </div>
       <PlanMeter limits={live.use(x => x.planLimits)} now={now} />
       <RunningThings />
@@ -100,10 +100,10 @@ export function Hud() {
       {/* las dos puertas de todo lo demás, con su tecla a la vista: el buscador (⌘K) y el menú del juego (Esc) */}
       <div className="seg puertas">
         <button className="boton-puerta" onClick={() => openSearch()} title={t('panels.searchConversationsActionsDwellersAnd')}>
-          <span className="tecla">{MAC ? '⌘K' : 'Ctrl+K'}</span><span className="etiqueta">{t('panels.search')}</span>
+          <span className="tecla">{MAC ? '⌘K' : 'Ctrl+K'}</span><span className="label">{t('panels.search')}</span>
         </button>
         <button className="boton-puerta" onClick={() => { if (juego.get().talkingWith) minimizeIntercom(); juego.set({ panel: 'menu', panelData: null }); }} title={t('panels.gameMenuOptionsShortcutsRestart')}>
-          <span className="tecla">Esc</span><span className="etiqueta">{t('panels.menu')}</span>
+          <span className="tecla">Esc</span><span className="label">{t('panels.menu')}</span>
         </button>
       </div>
     </div>
@@ -154,7 +154,7 @@ function PlanMeter({ limits, now }: { limits: PlanLimits; now: number }) {
       {types.map(w => {
         const l = limits[w], rejected = l?.status === 'rejected';
         return (
-          <span key={w} className={'limite ' + limitLight(l, w, now) + (rejected ? ' agotado' : '')}>
+          <span key={w} className={'limit ' + limitLight(l, w, now) + (rejected ? ' agotado' : '')}>
             <span className="txt">{LIMIT_SHORT[w] ?? t('panels.limit.shortOther')}</span>
             <span className="n">{rejected ? t('panels.limit.reached') : l?.utilization == null ? '—' : Math.round(l.utilization) + '%'}</span>
           </span>
@@ -188,19 +188,19 @@ function LimitWindow({ type, l, now }: { type: string; l: PlanLimit | undefined;
   return (
     <div className={'limite-ventana ' + light}>
       <div className="limite-ventana-cab"><span className={'luz ' + light} /><b>{name}</b></div>
-      <div className="tenue limite-ventana-cifra">{figure}</div>
+      <div className="dim limite-ventana-cifra">{figure}</div>
       {pts.length ? (
         <svg className="limite-grafica" viewBox={`0 0 ${CHART_W} ${CHART_H}`} width={CHART_W} height={CHART_H} role="img" aria-label={t('panels.limit.chart', { nombre: name })}>
           {known != null && <>
             <line className="ritmo" x1={0} y1={CHART_H} x2={CHART_W} y2={0}><title>{t('panels.limit.paceLine')}</title></line>
-            <line className="ritmo amarillo" x1={0} y1={CHART_H} x2={CHART_W / PACE_YELLOW} y2={0} />
+            <line className="ritmo yellow" x1={0} y1={CHART_H} x2={CHART_W / PACE_YELLOW} y2={0} />
           </>}
           <polygon className="area" points={`${x(pts[0][0]).toFixed(1)},${CHART_H} ${line} ${x(pts[pts.length - 1][0]).toFixed(1)},${CHART_H}`} />
           <polyline className="trazo" points={line} />
           <line className="ahora" x1={x(now)} x2={x(now)} y1={0} y2={CHART_H} />
         </svg>
-      ) : <div className="tenue limite-sin-muestras">{t('panels.limit.noSamples')}</div>}
-      <div className="tenue">{reset ? t('panels.limit.resets', { hora: reset.clock, cuando: reset.relative }) : t('panels.limit.noReset')}</div>
+      ) : <div className="dim limite-sin-muestras">{t('panels.limit.noSamples')}</div>}
+      <div className="dim">{reset ? t('panels.limit.resets', { hora: reset.clock, cuando: reset.relative }) : t('panels.limit.noReset')}</div>
     </div>
   );
 }
@@ -250,7 +250,7 @@ function Restarting() {
   const [slow, setSlow] = useState(false);
   useEffect(() => { const t = setTimeout(() => setSlow(true), 25_000); return () => clearTimeout(t); }, []);
   return (
-    <div className="despedida interactivo">
+    <div className="farewell interactivo">
       <div className="placa-despedida">{t('panels.restarting')}
         <small>{slow ? t('panels.theServerIsTakingA') : t('panels.terminalsStayOpenILl')}</small>
       </div>

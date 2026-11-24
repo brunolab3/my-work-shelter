@@ -59,13 +59,13 @@ export function UsageGraph({ limits, now }: { limits: PlanLimits; now: number })
     <div className="uso-grafico">
       <div className="limites-pop-titulo">{t('panels.spend.title')}</div>
       <div className="uso-vistas" role="tablist">
-        {(['hours', 'days'] as View[]).map(v => <button key={v} role="tab" aria-selected={view === v} className={view === v ? 'activa' : ''} onClick={() => pick(v)}>{name(v)}</button>)}
+        {(['hours', 'days'] as View[]).map(v => <button key={v} role="tab" aria-selected={view === v} className={view === v ? 'active' : ''} onClick={() => pick(v)}>{name(v)}</button>)}
       </div>
       <div className="uso-leyenda">
         <span><i className="uso-muestra nuevos" />{t('panels.spend.fresh')} <b>{fmtTokens.format(totals.fresh)}</b></span>
         <span><i className="uso-muestra cache" />{t('panels.spend.cacheRead')} <b>{fmtTokens.format(totals.cacheRead)}</b></span>
       </div>
-      {!data ? <div className="uso-estado tenue">{failed ? t('panels.spend.failed') : t('panels.spend.reading')}</div> : (
+      {!data ? <div className="uso-estado dim">{failed ? t('panels.spend.failed') : t('panels.spend.reading')}</div> : (
         <div className="uso-lienzo">
           <svg viewBox={`0 0 ${W} ${HGT}`} width={W} height={HGT} role="img" aria-label={t('panels.spend.chart', { vista: name(view) })} onMouseLeave={() => setHover(null)}>
             {ws != null && <>
@@ -77,7 +77,7 @@ export function UsageGraph({ limits, now }: { limits: PlanLimits; now: number })
               const x = i * slot + GAP, base = HGT - AXIS;
               // a non-zero figure shows at least a sliver; the 2 px gap between the two fills
               const hf = b.fresh ? Math.max(2, y(b.fresh)) : 0, hc = b.cacheRead ? Math.max(2, y(b.cacheRead)) : 0;
-              return <g key={b.start} className={hover === i ? 'activa' : ''}>
+              return <g key={b.start} className={hover === i ? 'active' : ''}>
                 {hf > 0 && <rect className="uso-barra nuevos" x={x} y={base - hf} width={bw} height={hf} />}
                 {hc > 0 && <rect className="uso-barra cache" x={x} y={base - hf - (hf ? GAP : 0) - hc} width={bw} height={hc} />}
                 <text className="uso-eje" x={x + bw / 2} y={HGT - 4} textAnchor="middle">{view === 'hours' ? fmtHour.format(b.start) : fmtDay.format(b.start)}</text>
@@ -92,8 +92,8 @@ export function UsageGraph({ limits, now }: { limits: PlanLimits; now: number })
           </div>}
         </div>
       )}
-      {start != null && lim?.resetsAt && <div className="tenue"><i className="uso-muestra ventana" />{t('panels.spend.window', { desde: describeReset(start, now).clock, hasta: describeReset(lim.resetsAt, now).clock })}</div>}
-      <div className="tenue uso-nota">{t('panels.spend.note')}</div>
+      {start != null && lim?.resetsAt && <div className="dim"><i className="uso-muestra ventana" />{t('panels.spend.window', { desde: describeReset(start, now).clock, hasta: describeReset(lim.resetsAt, now).clock })}</div>}
+      <div className="dim uso-nota">{t('panels.spend.note')}</div>
     </div>
   );
 }

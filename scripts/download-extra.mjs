@@ -46,7 +46,7 @@ for (const f of SOURCES) {
   });
   for (let i = 0; i < queue.length; i += 16) {
     const res = await Promise.all(queue.slice(i, i + 16).map(([u, a]) => download(u, a).then(r => [a, r])));
-    for (const [a, r] of res) { if (r.startsWith('FALLO')) failures.push(a + ' ' + r); else ok++; }
+    for (const [a, r] of res) { if (r.startsWith('FAILED')) failures.push(a + ' ' + r); else ok++; }
   }
   console.log(`${f.repo}@${f.commit.slice(0, 7)}: ${queue.length} archivos`);
 }

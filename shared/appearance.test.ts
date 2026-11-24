@@ -11,7 +11,7 @@ describe('catálogo de piezas', () => {
   it('ids únicos, de personajes que existen, y mucha variedad', () => {
     expect(new Set(PIECES.map(p => p.id)).size).toBe(PIECES.length);
     for (const p of PIECES) expect(SOURCES[p.source], p.id).toBeTruthy();
-    const n = (r: string, e: 'humano' | 'robot' = 'humano') => piecesOf(r as any, e).length;
+    const n = (r: string, e: 'human' | 'robot' = 'human') => piecesOf(r as any, e).length;
     expect(n('cara')).toBeGreaterThanOrEqual(25);
     expect(n('pelo')).toBeGreaterThanOrEqual(20);
     expect(n('cejas')).toBeGreaterThanOrEqual(15);
@@ -29,13 +29,13 @@ describe('catálogo de piezas', () => {
 
 describe('validación de aspectos', () => {
   it('quita lo que no existe, lo de otra especie o ranura y los colores que no son #rrggbb', () => {
-    const a = sanitizeLook({ especie: 'humano', pieces: { cara: 'cara.NoExiste', pelo: 'torso.Knight', torso: 'torso.Knight', cabeza: 'cabeza.Robot_One' }, colors: { piel: 'rojo', pelo: '#A0B0C0', light: 'url(x)' } })!;
+    const a = sanitizeLook({ especie: 'human', pieces: { cara: 'cara.NoExiste', pelo: 'torso.Knight', torso: 'torso.Knight', cabeza: 'cabeza.Robot_One' }, colors: { piel: 'red', pelo: '#A0B0C0', light: 'url(x)' } })!;
     expect(a.pieces.cara).toBeTruthy(); expect(a.pieces.cara).not.toBe('cara.NoExiste');   // obligatoria: la primera
     expect(a.pieces.pelo).toBeUndefined(); expect(a.pieces.cabeza).toBeUndefined();
     expect(a.pieces.torso).toBe('torso.Knight');
     expect(a.colors).toEqual({ pelo: '#a0b0c0' });
   });
-  it('lo que no es un objeto no vale', () => { expect(sanitizeLook(null)).toBeNull(); expect(sanitizeLook('humano')).toBeNull(); });
+  it('lo que no es un objeto no vale', () => { expect(sanitizeLook(null)).toBeNull(); expect(sanitizeLook('human')).toBeNull(); });
   it('el esqueleto grande manda: con un torso de Clanker, brazos y piernas de su tamaño', () => {
     const r = setPiece(structuredClone(STOCK.Robot_Two), 'torso', 'torso.Clanker');
     expect(r.pieces.brazos).toBe('brazos.Clanker'); expect(r.pieces.piernas).toBe('piernas.Clanker');
@@ -61,7 +61,7 @@ describe('aspectos de los habitantes', () => {
   });
   it('al azar: siempre válido, de su especie y variado', () => {
     const seen = new Set<string>();
-    for (let s = 1; s < 60; s++) for (const e of ['humano', 'robot'] as const) {
+    for (let s = 1; s < 60; s++) for (const e of ['human', 'robot'] as const) {
       const a = lookOnRandom(random(s * 31 + 7), e);
       expect(lookSignature(sanitizeLook(a)!)).toBe(lookSignature(a));
       for (const r of REQUIRED) if ((e === 'robot' ? SLOTS_ROBOT : HUMAN_SLOTS).includes(r)) expect(a.pieces[r], r).toBeTruthy();
@@ -82,5 +82,5 @@ describe('aspectos de los habitantes', () => {
 });
 
 // (un aspecto de ejemplo con todo puesto también sale bien por el resumen)
-const full: Look = { especie: 'humano', pieces: { cara: 'cara.Hiker', pelo: 'pelo.Mage', barba: 'barba.Ranger', torso: 'torso.Knight', brazos: 'brazos.Knight', piernas: 'piernas.Knight', sombrero: 'sombrero.Witch.Hat', gafas: 'gafas.Driver.Sunglasses' }, colors: {} };
+const full: Look = { especie: 'human', pieces: { cara: 'cara.Hiker', pelo: 'pelo.Mage', barba: 'barba.Ranger', torso: 'torso.Knight', brazos: 'brazos.Knight', piernas: 'piernas.Knight', sombrero: 'sombrero.Witch.Hat', gafas: 'gafas.Driver.Sunglasses' }, colors: {} };
 it('resumen de un aspecto', () => { expect(lookSummary(full)).toBe('humano: melena lisa, perilla, armadura, sombrero de bruja, gafas de sol'); });

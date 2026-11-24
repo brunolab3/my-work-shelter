@@ -6,14 +6,14 @@ export const SETTINGS: Record<string, Settings> = {
   Knight: { hair: [[218, 174, 126]] },
   ToySoldier: { tintsFace: [[200, 54, 63]] },   // los coloretes son de la cara, no del bigote
   // gorras: la visera, las orejeras y la chapa son gorro; lo que asoma por debajo, pelo
-  Protagonist_A: { comp: { 1: 'gorro', 3: 'gorro', 6: 'gorro', 12: 'gorro' } },
-  Protagonist_B: { comp: { 1: 'gorro', 3: 'gorro', 17: 'gorro', 18: 'gorro' } },
+  Protagonist_A: { comp: { 1: 'cap', 3: 'cap', 6: 'cap', 12: 'cap' } },
+  Protagonist_B: { comp: { 1: 'cap', 3: 'cap', 17: 'cap', 18: 'cap' } },
   // capuchas y cintas
-  Cleric: { comp: { 0: 'gorro', 1: 'gorro', 8: 'gorro', 9: 'gorro' } },
-  Rogue_Hooded: { comp: { 0: 'gorro' } },
-  Druid: { tintsCap: [[103, 108, 12]], comp: { 1: 'gorro', 2: 'gorro', 3: 'gorro' } },
-  Marksman: { comp: { 0: 'gorro', 1: 'gorro', 3: 'cejas', 5: 'cejas' } },   // (sus cejas no salen pares: una tiene más triángulos)
-  Survivalist: { comp: { 1: 'gorro' } },
+  Cleric: { comp: { 0: 'cap', 1: 'cap', 8: 'cap', 9: 'cap' } },
+  Rogue_Hooded: { comp: { 0: 'cap' } },
+  Druid: { tintsCap: [[103, 108, 12]], comp: { 1: 'cap', 2: 'cap', 3: 'cap' } },
+  Marksman: { comp: { 0: 'cap', 1: 'cap', 3: 'cejas', 5: 'cejas' } },   // (sus cejas no salen pares: una tiene más triángulos)
+  Survivalist: { comp: { 1: 'cap' } },
   // la peluca del payaso, los lazos de la chica mágica y el antifaz del héroe
   Clown: { hairIsCap: true, tintsFace: [[222, 213, 202], [99, 160, 208]] },   // el blanco y los rombos de los ojos, maquillaje
   MagicalGirl: { tintsCap: [[216, 43, 42]] },

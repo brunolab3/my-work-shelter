@@ -3,21 +3,21 @@
 import { describe, expect, it } from 'vitest';
 import { Sessions } from './sessions.ts';
 
-function session(state = 'trabajando') {
+function session(state = 'working') {
   const sess = new Sessions({ pathRoom: () => undefined }) as any;
-  const r: any = { id: 'w1', dwellerId: 'h1', roomId: 'sala', cwd: '/tmp', state, unread: false, title: 'Trabajo', pendingCount: 0, helpers: [], tools: 0, turns: 0 };
+  const r: any = { id: 'w1', dwellerId: 'h1', roomId: 'room', cwd: '/tmp', state, unread: false, title: 'Trabajo', pendingCount: 0, helpers: [], tools: 0, turns: 0 };
   const metered: any[] = [], cancelled: string[] = [];
   const x: any = { r, alive: true, closing: false, interrupting: false, sent: new Map(), pending: [], queue: [], unsent: new Set(), withdrawn: new Set(), entries: [], tools: new Map(), helpers: new Map(), taskAHelper: new Map(), background: new Set(), awaitingBackground: false, commands: [], stderr: '', options: {}, partialText: '', shipments: Promise.resolve() };
   x.input = { meter: (m: any) => metered.push(m), remove: () => false };
   x.q = { cancelAsyncMessage: async (uuid: string) => { cancelled.push(uuid); return true; }, getContextUsage: async () => undefined };
   sess.s.set('w1', x);
   const summaries: any[] = [];
-  sess.on('sesion', (s: any) => summaries.push(s));
+  sess.on('session', (s: any) => summaries.push(s));
   const lifecycle = (uuid: string, st: string) => sess.handle(x, { type: 'command_lifecycle', command_uuid: uuid, state: st, uuid: crypto.randomUUID(), session_id: 'c1' });
   const users = () => x.entries.filter((e: any) => e.type === 'usuario');
   return { sess, x, r, metered, cancelled, summaries, lifecycle, users };
 }
-const ROOM = { kind: 'room', roomId: 'puente', room: 'Command Bridge', dweller: 'Néstor' } as const;
+const ROOM = { kind: 'room', roomId: 'bridge', room: 'Command Bridge', dweller: 'Néstor' } as const;
 
 describe('the queue of a busy conversation', () => {
   it('a message to a working conversation waits in its queue, with who sent it, and moves into the log when taken', async () => {
@@ -38,7 +38,7 @@ describe('the queue of a busy conversation', () => {
   });
 
   it('to an idle conversation it goes straight into the log; the Overseer\'s own carry no origin', async () => {
-    const s = session('terminada');
+    const s = session('finished');
     s.sess.send('w1', 'Next step');
     expect(s.r.queue).toBeUndefined();
     expect(s.users()).toEqual([expect.objectContaining({ text: 'Next step' })]);
@@ -90,6 +90,6 @@ describe('the queue of a busy conversation', () => {
     s.x.q = q;
     await s.sess.consume(s.x, q);
     expect(s.r.queue).toBeUndefined();
-    expect(s.x.entries.at(-1)).toEqual(expect.objectContaining({ type: 'sistema', text: expect.stringContaining('Lost one') }));
+    expect(s.x.entries.at(-1)).toEqual(expect.objectContaining({ type: 'system', text: expect.stringContaining('Lost one') }));
   });
 });

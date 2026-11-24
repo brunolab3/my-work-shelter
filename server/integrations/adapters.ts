@@ -3,7 +3,7 @@
 import type { Store } from '../state.ts';
 import { demoNotifications, demoEvents, demoPanelLinear, demoBoardLinear, demoPanelJira } from './demo.ts';
 
-export type Priority = 'baja' | 'media' | 'alta';
+export type Priority = 'low' | 'media' | 'high';
 // Sources (order, names and what each brings) live in shared/sources.ts; their real connector, in CONNECTORS (export crear)
 import { SOURCES, ACTIVE_SOURCES, CALENDAR_SOURCES, type SourceId } from '../../shared/sources.ts';
 import { t } from '../../shared/language.ts';
@@ -23,12 +23,12 @@ export interface CalendarEvent {
   place?: string; videollamada?: string; link?: string; organizer?: string; demo?: boolean;
 }
 export interface SourceState {
-  mode: 'off' | 'demo' | 'real'; state: 'demo' | 'conectada' | 'error' | 'sin-configurar'; detail?: string; last?: number; fields?: Record<string, string>;
+  mode: 'off' | 'demo' | 'real'; state: 'demo' | 'connected' | 'error' | 'not-configured'; detail?: string; last?: number; fields?: Record<string, string>;
 }
 
 // Avisos del conector real a las integraciones: 'estado' (difundir su estado), 'sondear' (hay datos nuevos ya, p. ej.
 // un mensaje del Gateway de Discord) y 'activar' (se completó la conexión fuera de la cámara acorazada, p. ej. el OAuth de Microsoft o Google)
-export type Notice = 'estado' | 'sondear' | 'activar';
+export type Notice = 'state' | 'poll' | 'activate';
 
 export interface Adapter {
   id: SourceId;
@@ -69,9 +69,9 @@ class SourceAdapter implements Adapter {
   }
   state(): SourceState {
     if (this.mode === 'demo') return { mode: 'demo', state: 'demo', detail: t('server.simulatedDataDemoSetIt'), last: this.last };
-    if (this.mode === 'off') return { mode: 'off', state: 'sin-configurar', detail: t('server.sourceOffConnectIt') };
+    if (this.mode === 'off') return { mode: 'off', state: 'not-configured', detail: t('server.sourceOffConnectIt') };
     if (this.real) { const e = this.real.state(); return { ...e, mode: 'real', last: e.last ?? this.last }; }
-    return { mode: 'real', state: this.error ? 'error' : 'sin-configurar', detail: this.error, last: this.last };
+    return { mode: 'real', state: this.error ? 'error' : 'not-configured', detail: this.error, last: this.last };
   }
   async poll() {
     // apagada: no lee nada (ni toca el conector real); lo que hubiera de ella se vacía

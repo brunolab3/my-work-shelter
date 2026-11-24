@@ -3,7 +3,7 @@ import { applyLifecycle, takeConsumed, withdrawable, originLabel, queuedIn } fro
 import type { QueuedMessage, SessionSummary } from './protocol.ts';
 
 const msg = (id: string, origin: QueuedMessage['origin'] = { kind: 'overseer' }): QueuedMessage => ({ id, ts: 0, text: `texto ${id}`, origin });
-const queue = [msg('a'), msg('b', { kind: 'room', roomId: 'puente', room: 'Command Bridge', dweller: 'Néstor' }), msg('c', { kind: 'scheduled' })];
+const queue = [msg('a'), msg('b', { kind: 'room', roomId: 'bridge', room: 'Command Bridge', dweller: 'Néstor' }), msg('c', { kind: 'scheduled' })];
 
 describe('the queue of a busy conversation', () => {
   it('a message leaves the queue for the log when Claude Code starts it, in its own place', () => {
@@ -39,7 +39,7 @@ describe('the queue of a busy conversation', () => {
     expect(originLabel(undefined)).toBe('TÚ');
   });
   it("counts what waits in open conversations, never a closed one's", () => {
-    const s = (queue: QueuedMessage[] | undefined, state: SessionSummary['state'] = 'trabajando') => ({ state, queue }) as SessionSummary;
-    expect(queuedIn([s([msg('a'), msg('b')]), s(undefined), undefined, s([msg('c')], 'cerrada')])).toBe(2);
+    const s = (queue: QueuedMessage[] | undefined, state: SessionSummary['state'] = 'working') => ({ state, queue }) as SessionSummary;
+    expect(queuedIn([s([msg('a'), msg('b')]), s(undefined), undefined, s([msg('c')], 'closed')])).toBe(2);
   });
 });

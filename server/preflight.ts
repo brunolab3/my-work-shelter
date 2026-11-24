@@ -43,7 +43,7 @@ const quiet = (p: Promise<string>) => p.then(s => s.trim()).catch(() => '');
  *  rama de uno de sus PR, y las ramas locales de sus PR que no están sacadas en ninguno; cada una frente a su PR */
 export async function localBranches(key: string, prs: PRBoard[], rooms: RoomPR[], git: Git): Promise<LocalBranch[]> {
   const K = taskKey(key) ?? key;
-  const taskPrs = prs.filter(p => p.state !== 'cerrado' && pRTask(p) === K);
+  const taskPrs = prs.filter(p => p.state !== 'closed' && pRTask(p) === K);
   const out: LocalBranch[] = [];
   await Promise.all(rooms.map(async s => {
     const theirs = taskPrs.filter(p => sameRepo(p.repo, s.repo));
@@ -143,7 +143,7 @@ export function cachedPRs(read: () => Promise<DataPRs>, ttl = 60_000) {
  *  (DATOS/preflight.json) para atarlo al commit de la página (su `<página>.json`, server/compare.ts). El cliente sigue
  *  llevando la suya por conversación (Browsers.tsx): esta es la que cuenta para el pre-flight */
 export class PageReviews {
-  private answers: Record<string, { state: 'validada' | 'notas'; ts: number }> = {};
+  private answers: Record<string, { state: 'validated' | 'notes'; ts: number }> = {};
   // lo que contesta el habitante a la lista «antes de subir»: por tarea, `${worktree}|${head}` y punto
   private checklist: Record<string, Record<string, Record<string, ChecklistAnswer>>> = {};
   private file: string;
@@ -165,7 +165,7 @@ export class PageReviews {
   respond(filePath: unknown, state: unknown): boolean {
     const r = path.resolve(String(filePath ?? ''));
     if (path.dirname(r) !== path.resolve(this.folder) || !r.endsWith('.html') || !existsSync(r.replace(/\.html$/, '.json'))) return false;
-    if (state !== 'validada' && state !== 'notas') return false;
+    if (state !== 'validated' && state !== 'notes') return false;
     this.answers[r] = { state, ts: Date.now() };
     this.save();
     return true;
@@ -226,7 +226,7 @@ export function textState(x: { key: string; part: PartPreflight; r: TaskPrefligh
     '',
     t('tool.preflight.items'),
     ...(all.length ? all.map((it, i) => { const a = p.answers?.[it]; return `${i + 1}. [${answered(a) ? a!.state : a?.state ?? ' '}] ${it}${a?.note ? ` — ${a.note}` : ''}`; }) : [t('tool.preflight.noItems')]),
-    ...(p.ciChecks.length ? ['', t('tool.preflight.ciChecks'), ...p.ciChecks.map(c => `- ${{ ok: '✓', mal: '✗', pendiente: '…' }[c.state]} ${c.name}`)] : []),
+    ...(p.ciChecks.length ? ['', t('tool.preflight.ciChecks'), ...p.ciChecks.map(c => `- ${{ ok: '✓', bad: '✗', pending: '…' }[c.state]} ${c.name}`)] : []),
     ...(p.waitsOn.length ? ['', t('tool.preflight.waits', { prs: p.waitsOn.map(l => `${l.url ? l.ref : l.room} (${linkState(l)})`).join(', ') })] : []),
     ...(p.threads.length ? ['', t('tool.preflight.threads', { n: p.threads.length }), ...p.threads.map(h => `- ${h.file}${h.line ? ':' + h.line : ''} ${h.author}: ${h.text} (${h.url})`)] : []),
     '',

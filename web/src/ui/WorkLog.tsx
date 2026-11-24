@@ -27,8 +27,8 @@ const RANGE_TEXT: Record<LogRange, string> = { day: 'worklog.range.day', week: '
 export function PlanningModes({ active, onBoard, onUpdate }: { active: 'board' | 'update'; onBoard?: () => void; onUpdate?: () => void }) {
   return (
     <div className="modos-planning">
-      <button className={active === 'board' ? 'activa' : ''} onClick={() => { if (active !== 'board') { SFX.click(); onBoard?.(); } }}>{t('worklog.mode.board')}</button>
-      <button className={active === 'update' ? 'activa' : ''} onClick={() => { if (active !== 'update') { SFX.click(); onUpdate?.(); } }}>{t('worklog.mode.update')}</button>
+      <button className={active === 'board' ? 'active' : ''} onClick={() => { if (active !== 'board') { SFX.click(); onBoard?.(); } }}>{t('worklog.mode.board')}</button>
+      <button className={active === 'update' ? 'active' : ''} onClick={() => { if (active !== 'update') { SFX.click(); onUpdate?.(); } }}>{t('worklog.mode.update')}</button>
     </div>
   );
 }
@@ -66,20 +66,20 @@ export function WorkLog({ goBack, onBoard }: { goBack: () => void; onBoard: () =
   return (
     <Device label={`${t('panels.planning')} · ${t('worklog.title')}${data?.demo ? ' · DEMO' : ''}`} width={92} height onClose={goBack}>
       <PlanningModes active="update" onBoard={onBoard} />
-      <p className="voz">{t('worklog.intro')}</p>
-      {data?.demo && <p className="tenue">{t('worklog.demo')}</p>}
-      {error && <p className="aviso-consola">{error}</p>}
-      {notice && <p className="aviso-consola">{notice}</p>}
-      <div className="bitacora-periodos">{LOG_RANGES.map(r => <button key={r} className={r === range ? 'activa' : ''} onClick={() => { setRange(r); setI(0); }}>{t(RANGE_TEXT[r])}</button>)}</div>
-      {!data && !error && <p className="tenue">{t('worklog.reading')}</p>}
-      {data && !rows.length && <p className="tenue">{t('worklog.empty')}</p>}
-      <ul className="bitacora">
+      <p className="voice">{t('worklog.intro')}</p>
+      {data?.demo && <p className="dim">{t('worklog.demo')}</p>}
+      {error && <p className="notice-console">{error}</p>}
+      {notice && <p className="notice-console">{notice}</p>}
+      <div className="bitacora-periodos">{LOG_RANGES.map(r => <button key={r} className={r === range ? 'active' : ''} onClick={() => { setRange(r); setI(0); }}>{t(RANGE_TEXT[r])}</button>)}</div>
+      {!data && !error && <p className="dim">{t('worklog.reading')}</p>}
+      {data && !rows.length && <p className="dim">{t('worklog.empty')}</p>}
+      <ul className="log">
         {rows.map((r, k) => {
           const head = !r.jira && !keyless; if (!r.jira) keyless = true;
           const expanded = open.has(r.key);
           return (
             <React.Fragment key={r.key}>
-              {head && <li className="bitacora-grupo tenue">{t('worklog.noJira')}</li>}
+              {head && <li className="bitacora-grupo dim">{t('worklog.noJira')}</li>}
               <li className={'bitacora-fila' + (k === i ? ' sel' : '')} style={{ '--tarea': taskColor(r.key) } as React.CSSProperties}
                 onMouseEnter={() => setI(k)} onClick={() => toggle(r.key)} onDoubleClick={() => enter(r)}>
                 <div className="bitacora-linea">
@@ -87,11 +87,11 @@ export function WorkLog({ goBack, onBoard }: { goBack: () => void; onBoard: () =
                   <b className="bitacora-clave">{r.key}</b>
                   <span className="bitacora-titulo">{r.task?.title ?? r.prs[0]?.title ?? ''}</span>
                   {r.task && <span className={'bitacora-estado c-' + r.task.category}>{r.task.state}</span>}
-                  {r.prs.length > 0 && <span className="tenue">{prRollup(r.prs)}</span>}
-                  {r.repos.length > 0 && <span className="tenue bitacora-repos">{r.repos.map(x => x.split('/').pop()).join(', ')}</span>}
+                  {r.prs.length > 0 && <span className="dim">{prRollup(r.prs)}</span>}
+                  {r.repos.length > 0 && <span className="dim bitacora-repos">{r.repos.map(x => x.split('/').pop()).join(', ')}</span>}
                 </div>
                 {expanded && <ul className="bitacora-detalle">
-                  {r.prs.map(p => <li key={p.ref} onClick={e => { e.stopPropagation(); openLink(p.url); }} className="enlace">
+                  {r.prs.map(p => <li key={p.ref} onClick={e => { e.stopPropagation(); openLink(p.url); }} className="link">
                     ⇄ {p.repo.split('/').pop()}#{p.number} {p.title} — {p.mergedAt ? t('worklog.mergedOn', { fecha: day(p.mergedAt) }) : prStateText(p.state)} · {day(p.updated)}</li>)}
                   {r.worktrees.map(w => <li key={w.path}>⎇ {w.roomId} · {w.branch ?? w.path.split('/').pop()} — {w.goneAt ? t('worklog.worktreeGone', { fecha: day(w.goneAt) }) : t('worklog.worktreeLive')}</li>)}
                   {r.conversations.map(c => <li key={c.claudeId}>💬 {c.title || c.claudeId.slice(0, 8)} · {c.roomId} · {day(c.last)}</li>)}

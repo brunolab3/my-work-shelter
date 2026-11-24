@@ -52,15 +52,15 @@ export async function furnishHydroponics(ctx: Context) {
     }
     planters.push({ x, z: zB + 1.15, especie, floors });
     phases.push(floors);
-    ctx.room.anchors.push({ type: 'punto', pos: new THREE.Vector3(x, 2.0, zB + 1.3), intensity: 3.2, color: new THREE.Color('#ff6ad8'), distance: 2.6, priority: i === 1 ? 1 : 0 });
+    ctx.room.anchors.push({ type: 'point', pos: new THREE.Vector3(x, 2.0, zB + 1.3), intensity: 3.2, color: new THREE.Color('#ff6ad8'), distance: 2.6, priority: i === 1 ? 1 : 0 });
   }
   ctx.room.obstacles.push(new THREE.Box2(new THREE.Vector2(-5.05, zB), new THREE.Vector2(4.25, zB + 1.75)));
-  ctx.room.points.push({ id: 'consola', type: 'consola', pos: new THREE.Vector3(-2.1, 0, zB + 2.25), rotation: Math.PI, clip: 'Working_C' });
-  ctx.room.points.push({ id: 'riego', type: 'aficion', pos: new THREE.Vector3(1.3, 0, zB + 2.2), rotation: Math.PI, clip: 'Holding_A', utensil: 'regadera', gesture: { clip: 'Interact', every: 4 } });
+  ctx.room.points.push({ id: 'console', type: 'console', pos: new THREE.Vector3(-2.1, 0, zB + 2.25), rotation: Math.PI, clip: 'Working_C' });
+  ctx.room.points.push({ id: 'watering', type: 'hobby', pos: new THREE.Vector3(1.3, 0, zB + 2.2), rotation: Math.PI, clip: 'Holding_A', utensil: 'wateringCan', gesture: { clip: 'Interact', every: 4 } });
   // la pieza: los bancales. Se riega (las plantas se mecen), se cosecha o se mira una hoja con la lupa
   const wiggle = [0, 0, 0];
-  for (const [id, i, dx] of [['bancal', 1, -0.55], ['bancal-2', 0, 0.75]] as const) ctx.room.points.push({ id, type: 'pieza', pos: new THREE.Vector3(XB[i] + dx, 0, zB + 2.0), rotation: Math.PI,
-    actions: [{ clip: 'Use_Item', utensil: 'regadera', onMake: () => { wiggle[i] = 1.5; } }, { clip: 'PickUp', onMake: () => { wiggle[i] = 0.8; } }, { clip: 'Holding_A', utensil: 'lupa', dur: 4 }] });
+  for (const [id, i, dx] of [['bancal', 1, -0.55], ['bancal-2', 0, 0.75]] as const) ctx.room.points.push({ id, type: 'piece', pos: new THREE.Vector3(XB[i] + dx, 0, zB + 2.0), rotation: Math.PI,
+    actions: [{ clip: 'Use_Item', utensil: 'wateringCan', onMake: () => { wiggle[i] = 1.5; } }, { clip: 'PickUp', onMake: () => { wiggle[i] = 0.8; } }, { clip: 'Holding_A', utensil: 'magnifier', dur: 4 }] });
   // el puesto de control del cultivo, a la derecha, casi de perfil: mesa con el monitor de riego y la libreta
   const pWatering = new PhosphorScreen(384, 256, v.screen, t('world.ocio.watering')); pWatering.speed = 22; ctx.room.screens.push(pWatering);
   await workStation(ctx, { x: 5.2, z: -0.55, rotation: -1.3, tex: pWatering.tex, brightness: 1.0,
@@ -73,7 +73,7 @@ export async function furnishHydroponics(ctx: Context) {
   P(R.tools('bucket_metal'), { pos: [-4.85, 0, 1.25], scale: K * 0.6 });
   ctx.restsOn(null, R.tools('trowel'), { pos: [-5.15, 0, 1.45], scale: K * 0.6, ...lying(0.7) });
   ctx.room.obstacles.push(new THREE.Box2(new THREE.Vector2(-6, 0.6), new THREE.Vector2(-4.5, 1.7)));
-  signInWall(g, sign(t('world.poster.farming'), t('world.poster.farmingFoot'), '#d6ecc8', '#2c4f2a', 'mano', seed), -5.2, 2.6, 0.56, 0.78, zB + 0.33, 0.03);
+  signInWall(g, sign(t('world.poster.farming'), t('world.poster.farmingFoot'), '#d6ecc8', '#2c4f2a', 'hand', seed), -5.2, 2.6, 0.56, 0.78, zB + 0.33, 0.03);
   const panel = new PanelRoom(); panel.title = 'CULTIVOS'; panel.color = v.screen; ctx.panel = panel;
   stain(g, 1.6, 1.0, 1.1, seed);
   ctx.room.walkZones = [[-1.4, 0.8], [2.4, 3.6]];
@@ -116,9 +116,9 @@ export async function furnishGallery(ctx: Context) {
   const yRail = new THREE.Box3().setFromObject(rail).min.y, yAxis = 1.37;
   // el raíl, colgado del techo por tres soportes (no flota)
   { const railUp = new THREE.Box3().setFromObject(rail).max.y;
-    for (const x of [-4.2, 0, 4.2]) P(R.cy('Support_Short'), { pos: [x, HEIGHT, zB + 0.75], height: HEIGHT - railUp + 0.02, anchor: 'techo', shadow: false }); }
+    for (const x of [-4.2, 0, 4.2]) P(R.cy('Support_Short'), { pos: [x, HEIGHT, zB + 0.75], height: HEIGHT - railUp + 0.02, anchor: 'ceiling', shadow: false }); }
   for (const [i, x] of [-3.6, -1.2, 1.2, 3.6].entries()) {
-    const d = await place(g, R.acc(i % 2 ? 'shield_round_color' : 'shield_round_barbarian'), { pos: [x, yAxis, zB + 0.8], scale: K * 1.0, anchor: 'centro', isStatic: false, own: true });
+    const d = await place(g, R.acc(i % 2 ? 'shield_round_color' : 'shield_round_barbarian'), { pos: [x, yAxis, zB + 0.8], scale: K * 1.0, anchor: 'center', isStatic: false, own: true });
     targets.push(d);
     const rod = new THREE.Group(); rod.position.x = x; rod.userData.isStatic = false; g.add(rod);
     rod.add(box(0.035, yRail - yAxis, 0.035, materialSteel('#3a3833'), 0, (yRail + yAxis) / 2, zB + 0.74));
@@ -168,14 +168,14 @@ export async function furnishGallery(ctx: Context) {
     onTop: [{ path: R.sv('Pistol_2'), x: 0.55, z: 0.25, c: { height: 0.1, rotX: -Math.PI / 2, rotZ: 0.5 } }, { path: R.acc('arrow_crossbow'), x: -0.6, z: 0.2, c: { scale: 0.8, rot: 0.3 } }] });
   ctx.room.obstacles.push(new THREE.Box2(new THREE.Vector2(4.8, zB), new THREE.Vector2(6, zB + 1.15)));
   ctx.room.obstacles.push(new THREE.Box2(new THREE.Vector2(-4.7, -0.95), new THREE.Vector2(4.7, -0.15)), new THREE.Box2(new THREE.Vector2(-6, zB), new THREE.Vector2(6, zB + 0.6)));
-  ctx.room.anchors.push({ type: 'punto', pos: new THREE.Vector3(-5.0, 2.2, zB + 0.9), intensity: 12, color: new THREE.Color('#ffd9a0'), distance: 2.4, priority: 2 });
+  ctx.room.anchors.push({ type: 'point', pos: new THREE.Vector3(-5.0, 2.2, zB + 0.9), intensity: 12, color: new THREE.Color('#ffd9a0'), distance: 2.4, priority: 2 });
   // la tiradora tira de perfil, cruzando su calle, a una diana de práctica de pie: desde la cámara del corte se lee
   // (las dianas del fondo son las del juego de tiro del jugador). Cada disparo, un virote vuela y se queda clavado.
   const XT = 2.08, YT = 1.0, ZT = 0.3;
   g.add(box(0.06, YT - 0.2, 0.06, materialSteel('#3a3833'), XT, (YT - 0.2) / 2, ZT));
   g.add(box(0.5, 0.05, 0.3, materialSteel('#3a3833'), XT, 0.025, ZT));
   const practice = await place(g, R.acc('shield_round_color'), { pos: [XT, YT - 0.46, ZT], scale: K * 1.1, rot: -0.55, isStatic: false, own: true });
-  const bolt = await place(g, R.acc('arrow_crossbow'), { pos: [0, 0, 0], scale: 0.9, rot: Math.PI / 2, anchor: 'centro', isStatic: false });
+  const bolt = await place(g, R.acc('arrow_crossbow'), { pos: [0, 0, 0], scale: 0.9, rot: Math.PI / 2, anchor: 'center', isStatic: false });
   bolt.visible = false;
   let flight = -1, nailed = 0, trembles = 0, wait = 0;
   const XD = 0.85;   // la boca de la ballesta
@@ -191,11 +191,11 @@ export async function furnishGallery(ctx: Context) {
   ctx.room.obstacles.push(new THREE.Box2(new THREE.Vector2(XT - 0.3, ZT - 0.25), new THREE.Vector2(XT + 0.3, ZT + 0.25)));
   // la pieza: la diana de práctica. Se arranca el virote clavado, se recoloca la diana (tiembla) o se miran los impactos
   // de cerca
-  ctx.room.points.push({ id: 'diana', type: 'pieza', pos: new THREE.Vector3(XT + 0.55, 0, ZT + 0.5), rotation: Math.atan2(-0.55, -0.5),
-    actions: [{ clip: 'PickUp', onMake: () => { nailed = 0; bolt.visible = false; trembles = 0.3; } }, { clip: 'Interact', onMake: () => { trembles = 0.5; } }, { clip: 'Holding_A', utensil: 'lupa', dur: 3 }] });
-  ctx.room.points.push({ id: 'tirador', type: 'aficion', pos: new THREE.Vector3(0.58, 0, ZT), rotation: Math.PI / 2, clip: 'Ranged_1H_Aiming', utensil: 'ballesta',
+  ctx.room.points.push({ id: 'diana', type: 'piece', pos: new THREE.Vector3(XT + 0.55, 0, ZT + 0.5), rotation: Math.atan2(-0.55, -0.5),
+    actions: [{ clip: 'PickUp', onMake: () => { nailed = 0; bolt.visible = false; trembles = 0.3; } }, { clip: 'Interact', onMake: () => { trembles = 0.5; } }, { clip: 'Holding_A', utensil: 'magnifier', dur: 3 }] });
+  ctx.room.points.push({ id: 'tirador', type: 'hobby', pos: new THREE.Vector3(0.58, 0, ZT), rotation: Math.PI / 2, clip: 'Ranged_1H_Aiming', utensil: 'ballesta',
     gesture: { clip: 'Ranged_1H_Shooting', every: 2.6, onMake: () => { wait = 0.2; nailed = 0; setTimeout(() => SFX.shot(0.35), 200); } } });   // el virote sale cuando el clip suelta la cuerda
-  signInWall(g, sign(t('world.poster.shooting'), t('world.poster.shootingFoot'), '#ead2c8', '#5e2423', 'ojo', seed), 5.0, 2.7, 0.56, 0.78, zB + 0.33, -0.03);
+  signInWall(g, sign(t('world.poster.shooting'), t('world.poster.shootingFoot'), '#ead2c8', '#5e2423', 'eye', seed), 5.0, 2.7, 0.56, 0.78, zB + 0.33, -0.03);
   const panel = new PanelRoom(); panel.title = 'RÉCORDS'; panel.color = v.screen; ctx.panel = panel;
   stain(g, 0, 1.2, 1.4, seed);
   ctx.room.walkZones = [[-2.0, 2.4]];

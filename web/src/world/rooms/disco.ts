@@ -20,11 +20,11 @@ import { mountDancers, type Rhythm } from './dancers';
 const BPM = 118;
 const NEON = ['#ff3fb4', '#3fe0ff', '#ffb347', '#9b5bff'];
 const music = (): MusicState | null => live.get().music;
-const playing = () => music()?.state === 'sonando';
+const playing = () => music()?.state === 'playing';
 // el pulso de la sala: lo que diga el motor de audio y, si no dice nada pero suena Spotify, el tempo fijo
 let clockSpotify = 0;
 function rhythm(dt = 0): Rhythm {
-  const p = musicPulse('discoteca');
+  const p = musicPulse('disco');
   if (p.playing) return { playing: true, bpm: p.bpm || BPM, pulse: p.beat + p.phase, energy: p.energy };
   if (playing()) { clockSpotify += dt * BPM / 60; return { playing: true, bpm: BPM, pulse: clockSpotify, energy: 0.7 }; }
   return { playing: false, bpm: BPM, pulse: clockSpotify, energy: 0 };
@@ -51,7 +51,7 @@ class ScreenDJ {
     if (playing() ? this.timer <= 0 : k !== this.key) { this.timer = 1 / 12; this.key = k; this.draw(t); }
   }
   draw(t: number) {
-    const { g } = this; const W = 1024, H = 448; const m = music(); const p = m?.hint; const liveAlready = m?.state === 'sonando';
+    const { g } = this; const W = 1024, H = 448; const m = music(); const p = m?.hint; const liveAlready = m?.state === 'playing';
     g.fillStyle = '#05040a'; g.fillRect(0, 0, W, H);
     if (!p) {
       // local cerrado: el logotipo del club
@@ -127,7 +127,7 @@ export async function furnishDisco(ctx: Context) {
   // ---- cabina: mostrador oscuro, dos platos, mesa de mezclas y los cascos
   const xs = [-0.65, 0.65];
   const yHead = 0.95;   // a la altura de la cintura del DJ: se le ve pinchar
-  const counter = await place(g, R.kitchen('kitchencounter_straight_B'), { pos: [0, 0, zB + 1.15], height: yHead, own: true }); ctx.device('cabina', counter);
+  const counter = await place(g, R.kitchen('kitchencounter_straight_B'), { pos: [0, 0, zB + 1.15], height: yHead, own: true }); ctx.device('cabin', counter);
   { const t = counter.userData.size as THREE.Vector3; counter.scale.set(2.7 / t.x, 1, 0.62 / t.z);
     counter.traverse((n: any) => { if (n.isMesh) { n.material.color.multiplyScalar(0.12).lerp(new THREE.Color('#150f1a'), 0.7); n.material.roughness = 0.45; n.material.metalness = 0.4; } }); }
   const yBoard = surface(counter, g, 0.9, zB + 1.15) ?? yHead;   // el tablero, medido: platos y mesa de mezclas, apoyados
@@ -150,7 +150,7 @@ export async function furnishDisco(ctx: Context) {
   ctx.room.obstacles.push(new THREE.Box2(new THREE.Vector2(-1.4, zB + 0.84), new THREE.Vector2(1.4, zB + 1.5)));   // el mostrador; detrás, el sitio del DJ
   // el puesto: la cabina. El DJ pincha de pie detrás de ella, de cara a la pista (y a la cámara): se le ven las manos
   // en los platos
-  ctx.room.points.push({ id: 'platos', type: 'puesto', ofFoot: true, desk: +yBoard.toFixed(3), pos: new THREE.Vector3(0, 0, zB + 0.6), rotation: 0, clip: 'Working_B' });
+  ctx.room.points.push({ id: 'platos', type: 'workstation', ofFoot: true, desk: +yBoard.toFixed(3), pos: new THREE.Vector3(0, 0, zB + 0.6), rotation: 0, clip: 'Working_B' });
   // la pieza: la mesa de mezclas, desde el costado de la cabina: se saca un disco de la caja, se le da al cue (la franja y
   // los pilotos destellan) o se celebra el drop
   let cue = 0; const giveCue = () => { cue = 1; };
@@ -159,7 +159,7 @@ export async function furnishDisco(ctx: Context) {
   for (let k = 0; k < 6; k++) ctx.restsOn(discs, R.furniture('book_single'), { pos: [1.86 + k * 0.055, 0, zB + 0.6], height: 0.3, rot: Math.PI / 2 + (k % 2) * 0.08, own: true }, { since: 2 })
     .then(o => o.traverse((n: any) => { if (n.isMesh) n.material.color.set(NEON[k % NEON.length]).multiplyScalar(0.35); }));
   ctx.room.obstacles.push(new THREE.Box2(new THREE.Vector2(1.7, zB), new THREE.Vector2(2.35, zB + 0.95)));
-  ctx.room.points.push({ id: 'mezclas', type: 'pieza', pos: new THREE.Vector3(1.75, 0, zB + 1.45), rotation: -Math.PI / 2 - 0.35,
+  ctx.room.points.push({ id: 'mezclas', type: 'piece', pos: new THREE.Vector3(1.75, 0, zB + 1.45), rotation: -Math.PI / 2 - 0.35,
     actions: [{ clip: 'PickUp' }, { clip: 'Interact', onMake: giveCue }, { clip: 'Cheering', onMake: giveCue }] });
 
   // ---- altavoces a los lados de la pantalla
@@ -213,15 +213,15 @@ export async function furnishDisco(ctx: Context) {
   ctx.restsOn(nightstand, R.furniture('cup'), { pos: [4.9, 0, zB + 1.68], scale: K * 0.9, rot: 1.2 });
   P(R.home('Light_Floor3'), { pos: [5.65, 0, zB + 0.5], height: 1.9 });
   ctx.room.obstacles.push(new THREE.Box2(new THREE.Vector2(3.7, zB), new THREE.Vector2(5.8, zB + 2.0)));
-  signInWall(g, sign(t('world.poster.disco'), t('world.poster.discoFoot'), '#f2d6ea', '#5a1a48', 'rayo', seed), 4.6, 2.75, 0.56, 0.78, zB + 0.33, -0.02);
+  signInWall(g, sign(t('world.poster.disco'), t('world.poster.discoFoot'), '#f2d6ea', '#5a1a48', 'bolt', seed), 4.6, 2.75, 0.56, 0.78, zB + 0.33, -0.02);
 
   // ---- luz: focos de colores sobre la pista que laten con la música; la sala, en penumbra
   const spotlights = [
-    { type: 'foco' as const, pos: new THREE.Vector3(-2.2, HEIGHT - 0.3, 1.2), goal: new THREE.Vector3(-0.8, 0, zB + 2.3), intensity: 0, color: new THREE.Color(NEON[0]), angle: 0.45, penumbra: 0.4, distance: 8, priority: 1.5 },
-    { type: 'foco' as const, pos: new THREE.Vector3(2.2, HEIGHT - 0.3, 1.2), goal: new THREE.Vector3(0.8, 0, zB + 2.3), intensity: 0, color: new THREE.Color(NEON[1]), angle: 0.45, penumbra: 0.4, distance: 8, priority: 1.5 },
+    { type: 'spot' as const, pos: new THREE.Vector3(-2.2, HEIGHT - 0.3, 1.2), goal: new THREE.Vector3(-0.8, 0, zB + 2.3), intensity: 0, color: new THREE.Color(NEON[0]), angle: 0.45, penumbra: 0.4, distance: 8, priority: 1.5 },
+    { type: 'spot' as const, pos: new THREE.Vector3(2.2, HEIGHT - 0.3, 1.2), goal: new THREE.Vector3(0.8, 0, zB + 2.3), intensity: 0, color: new THREE.Color(NEON[1]), angle: 0.45, penumbra: 0.4, distance: 8, priority: 1.5 },
   ];
   ctx.room.anchors.push(...spotlights);
-  ctx.room.anchors.push({ type: 'punto', pos: new THREE.Vector3(0, 1.6, zB + 1.0), intensity: 2.5, color: new THREE.Color('#ff7ad1'), distance: 4, priority: 0.5 });
+  ctx.room.anchors.push({ type: 'point', pos: new THREE.Vector3(0, 1.6, zB + 1.0), intensity: 2.5, color: new THREE.Color('#ff7ad1'), distance: 4, priority: 0.5 });
   // (ninguna en el centro: ahí cuelga la bola)
   ctx.lamps = [{ x: -3.9, z: 0.5, o: { intensity: 38, color: '#ff8ad8', corta: true } }, { x: -1.7, z: 1.2, o: { intensity: 50, shadow: true, corta: true } }, { x: 3.9, z: 0.5, o: { intensity: 38, color: '#8ae4ff', corta: true } }];
 
@@ -283,7 +283,7 @@ export async function furnishDisco(ctx: Context) {
     matNeon.opacity = fail ? 0.25 : 0.9 + 0.1 * Math.sin(t * 50);
     // el panel de la sala: lo que suena
     const m = music();
-    const lines = m?.hint ? [`> ${m.hint.title}`.slice(0, 34), `> ${m.hint.artist}`.slice(0, 34), m.state === 'sonando' ? tr('world.disco.playingLine') : tr('world.disco.pausedLine')] : [tr('world.disco.offLine'), tr('world.disco.putMusicLine')];
-    const f = lines.join('|'); if (f !== signaturePanel) { signaturePanel = f; panel.lines = lines; panel.state = m?.state === 'sonando' ? tr('world.disco.live') : tr('world.disco.closed'); }
+    const lines = m?.hint ? [`> ${m.hint.title}`.slice(0, 34), `> ${m.hint.artist}`.slice(0, 34), m.state === 'playing' ? tr('world.disco.playingLine') : tr('world.disco.pausedLine')] : [tr('world.disco.offLine'), tr('world.disco.putMusicLine')];
+    const f = lines.join('|'); if (f !== signaturePanel) { signaturePanel = f; panel.lines = lines; panel.state = m?.state === 'playing' ? tr('world.disco.live') : tr('world.disco.closed'); }
   });
 }

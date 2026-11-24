@@ -97,7 +97,7 @@ describe('game MCP tools', () => {
     const s = mcpReview(() => '/tmp/wt', { state: async () => '', respond: async (cwd, item, state, note) => { got.push([cwd, item, state, note]); return 'ok'; } });
     await call(s, 'preflight_answer', { item: '2', status: 'pending', note: 'later' });
     await call(s, 'preflight_answer', { item: '3', status: 'n/a', note: 'no UI' });
-    expect(got).toEqual([['/tmp/wt', '2', 'pendiente', 'later'], ['/tmp/wt', '3', 'n/a', 'no UI']]);
+    expect(got).toEqual([['/tmp/wt', '2', 'pending', 'later'], ['/tmp/wt', '3', 'n/a', 'no UI']]);
   });
 });
 

@@ -34,7 +34,7 @@ export function scheduledMark(roomId: string, worktree?: string): string | undef
   return marks.m.get(`${roomId}|${worktree ?? ''}`);
 }
 
-const GLYPH: Record<string, string> = { durmiendo: 'z', ocioso: '·', pensando: '…', trabajando: '⚙', esperando: '?', terminado: '✓', error: '✕' };
+const GLYPH: Record<string, string> = { sleeping: 'z', idle: '·', thinking: '…', working: '⚙', waiting: '?', finished: '✓', error: '✕' };
 
 export class TagsLayer {
   root: HTMLDivElement;
@@ -42,18 +42,18 @@ export class TagsLayer {
   // where each tag was drawn last frame (screen pixels), to tell which one the pointer is over
   private drawn: PlacedTag[] = [];
   constructor() {
-    this.root = document.createElement('div'); this.root.id = 'etiquetas';
+    this.root = document.createElement('div'); this.root.id = 'labels';
     document.body.appendChild(this.root);
   }
   private create(k: object) {
-    const el = document.createElement('div'); el.className = 'etiqueta';
-    const glyph = document.createElement('span'); glyph.className = 'glifo';
-    const name = document.createElement('span'); const detail = document.createElement('span'); detail.className = 'detalle';
+    const el = document.createElement('div'); el.className = 'label';
+    const glyph = document.createElement('span'); glyph.className = 'glyph';
+    const name = document.createElement('span'); const detail = document.createElement('span'); detail.className = 'detail';
     const prompt = document.createElement('span'); prompt.className = 'prompt';
-    const scheduled = document.createElement('span'); scheduled.className = 'programado';
-    const queued = document.createElement('span'); queued.className = 'en-cola';
-    const flagged = document.createElement('span'); flagged.className = 'pendiente';
-    const epic = document.createElement('span'); epic.className = 'marca-epica';
+    const scheduled = document.createElement('span'); scheduled.className = 'scheduled';
+    const queued = document.createElement('span'); queued.className = 'queued';
+    const flagged = document.createElement('span'); flagged.className = 'pending';
+    const epic = document.createElement('span'); epic.className = 'epic-mark';
     el.append(glyph, epic, name, scheduled, queued, flagged, detail, prompt); this.root.appendChild(el);
     const e = { el, name, detail, glyph, prompt, scheduled, queued, flagged, epic, key: '' }; this.map.set(k, e); return e;
   }
@@ -67,7 +67,7 @@ export class TagsLayer {
       const key = (it.color ?? '') + '|' + it.state + '|' + it.name + '|' + it.detail + '|' + it.near + '|' + it.prompt + '|' + it.key + '|' + it.farSide + '|' + it.aimed + '|' + (it.scheduled ?? '') + '|' + (it.queued ?? '') + '|' + (it.flagged ?? '') + '|' + (it.epic ? it.epic.color + it.epic.title : '');
       if (key !== e.key) {
         e.key = key;
-        e.el.className = 'etiqueta ' + it.state + (it.supervisor ? ' supervisor' : '') + (it.device ? ' de-aparato' : '') + (it.near ? ' cerca' : '') + (it.farSide && !it.aimed ? ' solo-glifo' : '');
+        e.el.className = 'label ' + it.state + (it.supervisor ? ' supervisor' : '') + (it.device ? ' de-aparato' : '') + (it.near ? ' near' : '') + (it.farSide && !it.aimed ? ' solo-glifo' : '');
         e.prompt.innerHTML = it.prompt ? `<span class="tecla">${it.key ?? 'E'}</span> ${it.prompt}` : ''; e.prompt.style.display = it.prompt ? '' : 'none';
         e.glyph.textContent = it.supervisor ? '★' : it.device ? '⚙' : GLYPH[it.state] ?? '·';
         e.el.style.setProperty('--tarea', it.color ?? 'transparent'); e.el.classList.toggle('con-tarea', !!it.color);   // la copia de una tarea, con su color

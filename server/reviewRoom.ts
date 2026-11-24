@@ -211,7 +211,7 @@ export class ReviewRoom {
   }
 
   private conversationIn(dir: string) {
-    return this.ctx.sessions().some(x => x.state !== 'cerrada' && inside(dir, x.worktree ?? x.cwd));
+    return this.ctx.sessions().some(x => x.state !== 'closed' && inside(dir, x.worktree ?? x.cwd));
   }
   /** Whether a worktree (or the review's folder) can go now: no open conversation in it and nothing changed in it (or
    *  the Overseer said so) */

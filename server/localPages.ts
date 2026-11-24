@@ -91,7 +91,7 @@ export async function openLink(link: string, home: string, outside = false): Pro
 export async function linkKind(link: string, home: string): Promise<{ juego: boolean; mac: LocalKind }> {
   const real = await realOfLink(link, home);
   const mac = await localKind(real);
-  return { juego: mac !== 'carpeta' && (OF_PAGE.test(real) || IMAGE_FILE.test(real)) && (await fs.stat(real)).isFile(), mac };
+  return { juego: mac !== 'folder' && (OF_PAGE.test(real) || IMAGE_FILE.test(real)) && (await fs.stat(real)).isFile(), mac };
 }
 
 /** The thumbnail of an image a reply links: its address in the game, or null if the link isn't an image of the Mac */

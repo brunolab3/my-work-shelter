@@ -48,6 +48,6 @@ export function rockFace(x0: number, x1: number, y0: number, y1: number, z: numb
         float brillo = (1.0 - smoothstep(0.0, mix(3.2, 1.8, arriba), dmin)) * 0.22;
         totalEmissiveRadiance += vec3(1.0, 0.62, 0.32) * brillo * brillo * 0.5;`);
   };
-  const m = new THREE.Mesh(geo, mat); m.position.z = z; m.receiveShadow = true; m.name = 'roca';
+  const m = new THREE.Mesh(geo, mat); m.position.z = z; m.receiveShadow = true; m.name = 'rock';
   return m;
 }

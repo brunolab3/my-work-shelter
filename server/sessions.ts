@@ -90,8 +90,8 @@ export interface RoomsResolver {
   // el pre-flight de la tarea (server/preflight.ts): las herramientas del habitante y la puerta de `git push`
   preflight?: {
     state(cwd: string): Promise<string>;
-    respond(cwd: string, item: string, state: 'ok' | 'n/a' | 'pendiente', note?: string): Promise<string>;
-    puerta(cwd: string): Promise<{ key: string; branch?: string; head?: string; missing: string[] } | null>;
+    respond(cwd: string, item: string, state: 'ok' | 'n/a' | 'pending', note?: string): Promise<string>;
+    gate(cwd: string): Promise<{ key: string; branch?: string; head?: string; missing: string[] } | null>;
   };
   // carpetas que el Supervisor ha marcado de confianza en el juego (ver confianza())
   trustedFolders?(): string[]; trust?(filePath: string): void; clonedFolders?(): string[];
@@ -152,16 +152,16 @@ export function projectConfig(cwd: string) {
   const dir = path.resolve(cwd);
   return [...CONFIG_PROJECT.filter(f => existsSync(path.join(dir, f))), ...(localOfRepo(dir) ? ['.claude/settings.local.json'] : [])];
 }
-export function trust(cwd: string, fileClaude = path.join(process.env.CLAUDE_CONFIG_DIR || os.homedir(), '.claude.json'), trusted: string[] = [], limits: string[] = []): 'sin-config' | 'confiada' | 'sin-confianza' {
+export function trust(cwd: string, fileClaude = path.join(process.env.CLAUDE_CONFIG_DIR || os.homedir(), '.claude.json'), trusted: string[] = [], limits: string[] = []): 'no-config' | 'confiada' | 'no-trust' {
   const dir = path.resolve(cwd);
-  if (!projectConfig(dir).length) return 'sin-config';
+  if (!projectConfig(dir).length) return 'no-config';
   if ([GAME_ROOT, ...FOLDERS_OF_GAME].some(r => dir === r || dir.startsWith(r + path.sep))) return 'confiada';
   let projects: Record<string, any> = {};
   try { projects = JSON.parse(readFileSync(fileClaude, 'utf8')).projects ?? {}; } catch {}
   const inGame = new Set(trusted.map(c => path.resolve(c))), boundaries = new Set(limits.map(c => path.resolve(c)));
   for (let d = dir; ; d = path.dirname(d)) {
     if (projects[d]?.hasTrustDialogAccepted === true || inGame.has(d)) return 'confiada';
-    if (path.dirname(d) === d || boundaries.has(d)) return 'sin-confianza';
+    if (path.dirname(d) === d || boundaries.has(d)) return 'no-trust';
   }
 }
 
@@ -220,23 +220,23 @@ export class Sessions extends EventEmitter {
     const u = this.lastEmission.get(x.r.id);
     if (u && u.key === key) return;
     const now = Date.now();
-    const emit = () => { const e = this.lastEmission.get(x.r.id); if (e) e.timer = undefined; this.lastEmission.set(x.r.id, { t: Date.now(), key: signature(), queue: x.queue.map(m => m.id).join() }); this.emit('sesion', { ...x.r, helpers: x.r.helpers.map(a => ({ ...a })) }); };
+    const emit = () => { const e = this.lastEmission.get(x.r.id); if (e) e.timer = undefined; this.lastEmission.set(x.r.id, { t: Date.now(), key: signature(), queue: x.queue.map(m => m.id).join() }); this.emit('session', { ...x.r, helpers: x.r.helpers.map(a => ({ ...a })) }); };
     // los cambios de estado salen al momento (and the queue's, which the log's entries follow at once); los de
     // actividad, como mucho 8 por segundo
     if (!u || u.key.split(',')[0] !== key.split(',')[0] || u.queue !== queue || now - u.t > 125) { if (u?.timer) clearTimeout(u.timer); emit(); }
     else if (!u.timer) u.timer = setTimeout(emit, 125);
   }
   private input(type: LogInput['type'], text: string, extra: Partial<LogInput> = {}): LogInput { return { id: randomUUID(), ts: Date.now(), type, text, ...extra }; }
-  private add(x: Session, e: LogInput) { x.entries.push(e); if (x.entries.length > MAX_ENTRIES) { x.entries.splice(0, x.entries.length - MAX_ENTRIES); x.olderOnDisk = true; } this.emit('entradas', x.r.id, [e]); }
+  private add(x: Session, e: LogInput) { x.entries.push(e); if (x.entries.length > MAX_ENTRIES) { x.entries.splice(0, x.entries.length - MAX_ENTRIES); x.olderOnDisk = true; } this.emit('entries', x.r.id, [e]); }
 
   // a turn stopped by the usage limit is not an error: it waits for the reset and resumes on its own (limitResume.ts)
   private lastReset?: number;
   private limitStop(x: Session) {
     const resetsAt = x.limitHit || this.lastReset || Date.now() + UNKNOWN_RESET_MS;
     x.limitHit = undefined;
-    x.r.state = 'ociosa'; x.r.error = undefined; x.r.unread = true; x.r.limit = { resetsAt };
-    this.add(x, this.input('sistema', t('server.limitStopped')));
-    this.emit('paradaLimite', { ...x.r, stoppedAt: Date.now() });
+    x.r.state = 'idle'; x.r.error = undefined; x.r.unread = true; x.r.limit = { resetsAt };
+    this.add(x, this.input('system', t('server.limitStopped')));
+    this.emit('limitStopped', { ...x.r, stoppedAt: Date.now() });
   }
   /** When the queue will resume it (shown in the intercom) */
   limitAt(claudeId: string, resumeAt: number) {
@@ -281,7 +281,7 @@ export class Sessions extends EventEmitter {
     if (!existsSync(o.cwd || cwd)) throw new Error(t('server.theFolderDoesNotExist', { cwd: o.cwd || cwd }));
     const id = randomUUID();
     const r: SessionSummary = {
-      id, dwellerId, roomId, cwd: o.cwd || cwd, state: 'arrancando', unread: false, title: prompt.slice(0, 80) || (attachments[0] ? t('server.lookAt', { nombre: attachments[0].name }) : t('server.newJob')),
+      id, dwellerId, roomId, cwd: o.cwd || cwd, state: 'starting', unread: false, title: prompt.slice(0, 80) || (attachments[0] ? t('server.lookAt', { nombre: attachments[0].name }) : t('server.newJob')),
       pendingCount: 0, helpers: [], tools: 0, turns: 0, model: o.model || undefined, effort: o.effort || undefined,
       permissionMode: o.permissions || 'auto', created: Date.now(), updated: Date.now(), claudeId: o.resume, handoffFrom: o.handoffFrom,
     };
@@ -289,10 +289,10 @@ export class Sessions extends EventEmitter {
     this.s.set(id, x);
     if (o.resume) {
       try { const all = await this.transcript(o.resume, r.cwd); x.entries = all.slice(-RESUMED_ENTRIES); x.olderOnDisk = all.length > RESUMED_ENTRIES; } catch {}
-      x.entries.push(this.input('sistema', t('server.conversationResumed')));
+      x.entries.push(this.input('system', t('server.conversationResumed')));
       try { const info = await getSessionInfo(o.resume, { dir: r.cwd }); if (info) r.title = info.customTitle || info.summary || r.title; } catch {}
     }
-    if (this.trust(r.cwd) === 'sin-confianza') this.askTrust(x, o.resume);
+    if (this.trust(r.cwd) === 'no-trust') this.askTrust(x, o.resume);
     else this.launch(x, o.resume).catch(e => console.error('No se pudo lanzar la sesión:', e));
     if (prompt.trim() || attachments.length) { this.add(x, this.input('usuario', prompt, attachments.length ? { attachments } : {})); this.enqueue(x, prompt, attachments); }
     this.play(x);
@@ -305,7 +305,7 @@ export class Sessions extends EventEmitter {
       cwd: x.r.cwd,
       // la configuración de proyecto de una carpeta que no es de confianza (hooks, MCP, permisos) solo se carga si el
       // Supervisor lo ha dicho al empezar: ver confianza()
-      settingSources: this.trust(x.r.cwd) === 'sin-confianza' && !x.loadProject ? ['user'] : ['user', 'project', 'local'],
+      settingSources: this.trust(x.r.cwd) === 'no-trust' && !x.loadProject ? ['user'] : ['user', 'project', 'local'],
       pathToClaudeCodeExecutable: this.claude,
       model: x.r.model || undefined,
       effort: (o.effort || undefined) as Options['effort'],
@@ -340,7 +340,7 @@ export class Sessions extends EventEmitter {
           { matcher: 'EnterWorktree', hooks: [async (h: any) => this.oneWorktree(x, undefined, String(h?.tool_input?.name ?? ''))] },
         ],
       },
-      systemPrompt: { type: 'preset', preset: 'claude_code', append: ANNEX + (x.r.roomId === 'puente' ? ' ' + bridgeAnnex() : x.r.roomId === 'git' ? ' ' + annexGit(this.resolver.reposOfShelter?.() ?? []) : '') },
+      systemPrompt: { type: 'preset', preset: 'claude_code', append: ANNEX + (x.r.roomId === 'bridge' ? ' ' + bridgeAnnex() : x.r.roomId === 'git' ? ' ' + annexGit(this.resolver.reposOfShelter?.() ?? []) : '') },
       ...(x.r.roomId === 'git' ? { additionalDirectories: this.resolver.reposOfShelter?.() ?? [] } : {}),
       includePartialMessages: true,
       settings: { skillOverrides: Object.fromEntries(HIDDEN_SKILLS.map(n => [n, 'off' as const])), ...(this.resolver.autoCompactWindow?.() ? { autoCompactWindow: this.resolver.autoCompactWindow() } : {}), ...(withoutWorkConnectors(x.r.roomId) ? { disableClaudeAiConnectors: true } : {}) },
@@ -379,7 +379,7 @@ export class Sessions extends EventEmitter {
   private async reviewGate(x: Session, cmd: string): Promise<Record<string, unknown>> {
     const post = reviewPostOf(cmd);
     if (!post) return {};
-    if (await this.confirm(x, t('server.reviewPostTitle'), [{ type: 'codigo', text: cmd, language: 'bash' }])) return {};
+    if (await this.confirm(x, t('server.reviewPostTitle'), [{ type: 'code', text: cmd, language: 'bash' }])) return {};
     return { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: t('server.reviewPostDenied') } };
   }
 
@@ -388,10 +388,10 @@ export class Sessions extends EventEmitter {
     if (!merge || !this.resolver.preflight) return {};
     const base = x.r.worktree ?? x.r.cwd;
     const cwd = merge.cwd ? path.resolve(base, merge.cwd.replace(/^~(?=\/|$)/, os.homedir())) : base;
-    const g = await this.resolver.preflight.puerta(cwd).catch(() => null);
+    const g = await this.resolver.preflight.gate(cwd).catch(() => null);
     if (!g || !g.missing.length) return {};
     const si = await this.confirm(x, t('server.preflightMergeTitle', { clave: g.key, rama: g.branch ?? '', head: (g.head ?? '').slice(0, 7) }),
-      [{ type: 'texto', text: g.missing.map(f => '• ' + f).join('\n') }, { type: 'codigo', text: cmd, language: 'bash' }]);
+      [{ type: 'text', text: g.missing.map(f => '• ' + f).join('\n') }, { type: 'code', text: cmd, language: 'bash' }]);
     if (si) return {};
     return { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: t('server.preflightMergeDenied', { que: g.missing.join('; ') }) } };
   }
@@ -404,11 +404,11 @@ export class Sessions extends EventEmitter {
     const queue = new Queue<SDKUserMessage>();
     x.input = queue; x.trustWaiting = true;
     const pet: PendingRequest = {
-      id: randomUUID(), type: 'confianza', tool: 'confianza', canAlways: true,
+      id: randomUUID(), type: 'trust', tool: 'trust', canAlways: true,
       title: t('server.trustThisFolder'),
       input: [
-        { type: 'texto', text: t('server.itCanRunCommandsWithout') },
-        ...projectConfig(x.r.cwd).map(f => ({ type: 'ruta' as const, text: path.join(x.r.cwd, f) })),
+        { type: 'text', text: t('server.itCanRunCommandsWithout') },
+        ...projectConfig(x.r.cwd).map(f => ({ type: 'path' as const, text: path.join(x.r.cwd, f) })),
       ],
     };
     const follow = (load: boolean) => {
@@ -416,9 +416,9 @@ export class Sessions extends EventEmitter {
       if (!x.closing) this.launch(x, resume, queue).catch(e => console.error('No se pudo lanzar la sesión:', e));
     };
     x.pending.push({ pet, input: {}, resolver: r => follow(r.behavior === 'allow') });
-    this.add(x, this.input('sistema', `❓ ${pet.title}`));
+    this.add(x, this.input('system', `❓ ${pet.title}`));
     this.refreshPending(x);
-    this.emit('espera', { ...x.r });
+    this.emit('wait', { ...x.r });
   }
 
   private async launch(x: Session, resume?: string, queue = new Queue<SDKUserMessage>()) {
@@ -426,7 +426,7 @@ export class Sessions extends EventEmitter {
     // the game's self-gated servers as allow rules: in auto mode the classifier runs before canUseTool, and would judge them
     const options: Options = { ...this.optionsBase(x, resume), canUseTool: this.canUse(x), allowedTools: SELF_GATED.map(s => `mcp__${s}`) };
     // el habitante de Planificación (el tablero de tareas) trabaja con el MCP oficial de Linear (la clave, si la hay, va por el entorno)
-    if (x.r.roomId === 'logistica' && active('linear')) {
+    if (x.r.roomId === 'logistics' && active('linear')) {
       try { const { mcpLinear, environmentMcpLinear } = await import('./integrations/linear.ts'); options.mcpServers = { ...(options.mcpServers ?? {}), ...(await mcpLinear()) }; options.env = { ...options.env, ...(await environmentMcpLinear()) }; }
       catch (e) { console.warn('MCP de Linear no disponible:', (e as Error).message); }
     }
@@ -470,18 +470,18 @@ export class Sessions extends EventEmitter {
   // queue, seen in the intercom, until Claude Code takes it (lifecycle()); otherwise it goes straight into the log
   send(id: string, text: string, attachments: Attachment[] = [], origin: MessageOrigin = { kind: 'overseer' }) {
     const x = this.must(id);
-    if (x.r.state === 'cerrada') throw new Error(t('server.thatConversationIsClosedResume'));
+    if (x.r.state === 'closed') throw new Error(t('server.thatConversationIsClosedResume'));
     if (text.trim() === '/stop') return this.interrupt(id);
-    const busy = x.trustWaiting || (x.alive && ['arrancando', 'trabajando', 'esperando'].includes(x.r.state));
+    const busy = x.trustWaiting || (x.alive && ['starting', 'working', 'waiting'].includes(x.r.state));
     if (!x.alive && !x.trustWaiting) this.launch(x, x.r.claudeId).catch(e => console.error('No se pudo reanudar la sesión:', e));
     x.textInTurn = x.askHeld = false;
     // replying is carrying on: the new-session notice goes
     if (x.r.handoff === 'offered') x.r.handoff = undefined;
-    if (x.r.limit) { x.r.limit = undefined; if (x.r.claudeId) this.emit('limiteSigue', x.r.claudeId); }
+    if (x.r.limit) { x.r.limit = undefined; if (x.r.claudeId) this.emit('limitCleared', x.r.claudeId); }
     const uuid = this.enqueue(x, text, attachments);
     if (busy) x.queue.push({ id: uuid, ts: Date.now(), text, origin, ...attachments.length ? { attachments } : {} });
     else this.add(x, this.logged(text, origin, attachments));
-    x.r.state = x.pending.length ? 'esperando' : 'trabajando'; x.r.unread = false;
+    x.r.state = x.pending.length ? 'waiting' : 'working'; x.r.unread = false;
     this.play(x);
   }
   private logged(text: string, origin: MessageOrigin, attachments?: Attachment[]) {
@@ -519,7 +519,7 @@ export class Sessions extends EventEmitter {
     if (!m || !(await this.withdraw(id, messageId))) return false;
     await this.interrupt(id);
     // the turn that was stopped may still be ending: wait for it, so the message starts a turn of its own
-    for (let i = 0; i < 100 && x.alive && ['arrancando', 'trabajando', 'esperando'].includes(x.r.state); i++) await new Promise(r => setTimeout(r, 100));
+    for (let i = 0; i < 100 && x.alive && ['starting', 'working', 'waiting'].includes(x.r.state); i++) await new Promise(r => setTimeout(r, 100));
     this.send(id, m.text, m.attachments, m.origin);
     return true;
   }
@@ -528,7 +528,7 @@ export class Sessions extends EventEmitter {
   // threshold is compacted first, so the new turn and the ones after it don't re-read the whole old context
   deliver(id: string, text: string, origin: MessageOrigin = { kind: 'game' }) {
     const x = this.must(id);
-    if (['terminada', 'ociosa'].includes(x.r.state) && (x.r.context?.used ?? 0) >= COMPACT_URGE) this.send(id, '/compact', [], { kind: 'game' });
+    if (['finished', 'idle'].includes(x.r.state) && (x.r.context?.used ?? 0) >= COMPACT_URGE) this.send(id, '/compact', [], { kind: 'game' });
     this.send(id, text, [], origin);
   }
 
@@ -544,14 +544,14 @@ export class Sessions extends EventEmitter {
       if (x.q === q) {
         x.alive = false;
         this.emptyPending(x, t('server.sessionEnded'));
-        if (x.queue.length && !x.closing) this.add(x, this.input('sistema', t('server.queueNotDelivered', { textos: quotedList(x.queue.map(q => q.text)) })));
+        if (x.queue.length && !x.closing) this.add(x, this.input('system', t('server.queueNotDelivered', { textos: quotedList(x.queue.map(q => q.text)) })));
         x.queue = [];
-        for (const a of x.helpers.values()) if (a.state === 'trabajando') a.state = 'fallo';
-        if (x.awaitingBackground && x.r.state === 'trabajando') x.r.state = 'terminada';   // el turno ya había acabado bien
+        for (const a of x.helpers.values()) if (a.state === 'working') a.state = 'failed';
+        if (x.awaitingBackground && x.r.state === 'working') x.r.state = 'finished';   // el turno ya había acabado bien
         this.forgetBackground(x);
-        if (x.closing) { x.r.state = 'cerrada'; setTimeout(() => { this.s.delete(x.r.id); this.emit('fuera', x.r.id); }, 30_000).unref(); }
-        else if (x.r.state !== 'terminada' && x.r.state !== 'ociosa' && x.limitHit !== undefined) this.limitStop(x);
-        else if (x.r.state !== 'terminada' && x.r.state !== 'ociosa') { x.r.state = 'error'; x.r.unread = true; x.r.error ??= t('server.sessionStoppedUnexpectedly'); }
+        if (x.closing) { x.r.state = 'closed'; setTimeout(() => { this.s.delete(x.r.id); this.emit('fuera', x.r.id); }, 30_000).unref(); }
+        else if (x.r.state !== 'finished' && x.r.state !== 'idle' && x.limitHit !== undefined) this.limitStop(x);
+        else if (x.r.state !== 'finished' && x.r.state !== 'idle') { x.r.state = 'error'; x.r.unread = true; x.r.error ??= t('server.sessionStoppedUnexpectedly'); }
         x.r.activity = undefined;
         this.play(x);
       }
@@ -568,15 +568,15 @@ export class Sessions extends EventEmitter {
         // los fragmentos de texto viajan aparte (evento 'texto'); el resumen solo se emite si cambia la actividad
         const ev = (m as any).event;
         if ((m as any).parent_tool_use_id) return;
-        if (ev?.type === 'content_block_delta' && ev.delta?.type === 'text_delta') { x.partialText += ev.delta.text; if (ev.delta.text.trim()) x.textInTurn = true; this.emit('texto', r.id, ev.delta.text); }
-        else if (ev?.type === 'content_block_delta' && ev.delta?.type === 'thinking_delta') { if (r.activity?.mode !== 'pensar') { r.activity = { tool: '', text: t('windows.thinking'), mode: 'pensar' }; this.play(x); } }
+        if (ev?.type === 'content_block_delta' && ev.delta?.type === 'text_delta') { x.partialText += ev.delta.text; if (ev.delta.text.trim()) x.textInTurn = true; this.emit('text', r.id, ev.delta.text); }
+        else if (ev?.type === 'content_block_delta' && ev.delta?.type === 'thinking_delta') { if (r.activity?.mode !== 'think') { r.activity = { tool: '', text: t('windows.thinking'), mode: 'think' }; this.play(x); } }
         return;
       }
       case 'assistant': {
         const parent = m.parent_tool_use_id;
         for (const b of ((m.message?.content ?? []) as any[])) {
           if (b.type === 'text' && !parent && String(b.text).trim()) { x.partialText = ''; x.textInTurn = true; this.add(x, this.input('asistente', b.text)); r.lastText = b.text; }
-          else if (b.type === 'thinking' && !parent) r.activity = { tool: '', text: t('windows.thinking'), mode: 'pensar' };
+          else if (b.type === 'thinking' && !parent) r.activity = { tool: '', text: t('windows.thinking'), mode: 'think' };
           else if (b.type === 'tool_use') this.onUseTool(x, b.id, b.name, b.input ?? {}, parent);
         }
         if ((m as any).error && !parent) {
@@ -588,7 +588,7 @@ export class Sessions extends EventEmitter {
         }
         // un turno que empieza sin que lo mande el intercomunicador (lo que quedaba en cola, el aviso de una tarea en
         // segundo plano) también es trabajar: si no, se ve parado y Ctrl+C no lo para
-        if (!parent && ['arrancando', 'terminada', 'ociosa', 'error'].includes(r.state)) r.state = 'trabajando';
+        if (!parent && ['starting', 'finished', 'idle', 'error'].includes(r.state)) r.state = 'working';
         if (!parent) this.stopAwaiting(x);
         break;
       }
@@ -599,10 +599,10 @@ export class Sessions extends EventEmitter {
         for (const b of c as any[]) {
           if (b.type !== 'tool_result') continue;
           const h = x.tools.get(b.tool_use_id);
-          if (h && isAgent(h.name)) { const a = x.helpers.get(b.tool_use_id); const res = (m as any).tool_use_result; if (a && res?.status !== 'async_launched') this.helperEnd(x, a.id, b.is_error ? 'fallo' : 'hecho'); }
+          if (h && isAgent(h.name)) { const a = x.helpers.get(b.tool_use_id); const res = (m as any).tool_use_result; if (a && res?.status !== 'async_launched') this.helperEnd(x, a.id, b.is_error ? 'failed' : 'done'); }
           if (b.is_error) {
             const txt = typeof b.content === 'string' ? b.content : Array.isArray(b.content) ? b.content.map((y: any) => y.text ?? '').join('\n') : '';
-            const e = this.input('herramienta', t('server.toolFailed', { herramienta: h?.name ?? t('server.theTool') }), { tool: h?.name, isError: true });
+            const e = this.input('tool', t('server.toolFailed', { herramienta: h?.name ?? t('server.theTool') }), { tool: h?.name, isError: true });
             // the whole output on disk, the log only its size and first line (server/toolOutputs.ts)
             if (txt.trim()) { try { e.output = this.outputs ? this.outputs.save(r.id, e.id, txt) : undefined; } catch {} if (!e.output) e.detail = txt.slice(0, 2000); }
             this.add(x, e);
@@ -625,16 +625,16 @@ export class Sessions extends EventEmitter {
         const seg = Math.round((res.duration_ms ?? 0) / 1000);
         const interrupted = x.interrupting;
         const apiError = x.apiErrorInTurn; x.apiErrorInTurn = undefined;
-        if (x.interrupting) { x.interrupting = false; r.state = 'terminada'; this.add(x, this.input('sistema', t('server.interrupted'))); }
+        if (x.interrupting) { x.interrupting = false; r.state = 'finished'; this.add(x, this.input('system', t('server.interrupted'))); }
         // the SDK may end a turn that only got an API error as a success: the error decides
         else if (x.limitHit !== undefined && (apiError || res.subtype !== 'success' || res.is_error)) this.limitStop(x);
         else if (apiError) { r.state = 'error'; r.error = apiError.text; this.add(x, this.input('error', t('server.theJobGotStuck', { por: apiError.text }))); }
-        else if (res.subtype === 'success' && !res.is_error) { r.state = 'terminada'; x.limitHit = undefined; if (res.result) r.lastText = res.result; this.add(x, this.input('resultado', t('server.doneInS', { seg }))); }
+        else if (res.subtype === 'success' && !res.is_error) { r.state = 'finished'; x.limitHit = undefined; if (res.result) r.lastText = res.result; this.add(x, this.input('result', t('server.doneInS', { seg }))); }
         else { r.state = 'error'; const by = (res.errors as string[] | undefined)?.join('\n') || res.result || res.subtype; r.error = by; this.add(x, this.input('error', t('server.theJobGotStuck', { por: by }))); }
         r.unread = true; r.activity = undefined; x.partialText = '';
-        if (x.pending.length) r.state = 'esperando';
+        if (x.pending.length) r.state = 'waiting';
         // con subagentes o terminales aún en segundo plano no ha terminado: sigue trabajando hasta que acaben
-        else if (r.state === 'terminada' && !interrupted && x.background.size) { r.state = 'trabajando'; r.unread = false; x.awaitingBackground = true; }
+        else if (r.state === 'finished' && !interrupted && x.background.size) { r.state = 'working'; r.unread = false; x.awaitingBackground = true; }
         if (r.handoff === 'writing') {
           r.handoff = undefined;
           if (r.state !== 'error' && !interrupted && res.result?.trim()) this.emit('handoff', { ...r }, String(res.result));
@@ -643,13 +643,13 @@ export class Sessions extends EventEmitter {
         // la recompensa del refugio solo cuenta las herramientas de este turno y nunca un turno interrumpido o fallido
         const ofCurrent = interrupted || r.state === 'error' || r.limit ? 0 : r.tools - (x.toolsOnStartTurn ?? 0);
         x.toolsOnStartTurn = r.tools;
-        this.emit('turno', { ...r, turnTools: ofCurrent });
+        this.emit('turn', { ...r, turnTools: ofCurrent });
         break;
       }
       case 'rate_limit_event': {
         const i = (m as any).rate_limit_info;
         if (stopsWork(i)) { this.lastReset = resetMs(i.resetsAt) ?? this.lastReset; x.limitHit = this.lastReset ?? 0; }
-        this.emit('limite', i);
+        this.emit('limit', i);
         break;
       }
     }
@@ -670,7 +670,7 @@ export class Sessions extends EventEmitter {
   // has ended (never mid-turn: the measure after a result lands when the state is already settled)
   private offerHandoff(x: Session) {
     const r = x.r, h = this.resolver.handoff;
-    if (!h || !r.claudeId || r.handoff || !['terminada', 'ociosa'].includes(r.state) || x.pending.length || x.queue.length) return;
+    if (!h || !r.claudeId || r.handoff || !['finished', 'idle'].includes(r.state) || x.pending.length || x.queue.length) return;
     if (!handoffDue(r.context, h.threshold()) || h.offered(r.claudeId)) return;
     r.handoff = 'offered'; h.mark(r.claudeId);
   }
@@ -679,7 +679,7 @@ export class Sessions extends EventEmitter {
    *  game starts the new session with it (the `handoff` event) and closes this one */
   handoff(id: string) {
     const x = this.must(id);
-    if (!['terminada', 'ociosa', 'error'].includes(x.r.state) || x.pending.length) throw new Error(t('server.handoffBusy'));
+    if (!['finished', 'idle', 'error'].includes(x.r.state) || x.pending.length) throw new Error(t('server.handoffBusy'));
     this.send(id, t('prompt.handoff.write'), [], { kind: 'game' });
     x.r.handoff = 'writing'; this.play(x);
   }
@@ -706,14 +706,14 @@ export class Sessions extends EventEmitter {
         }
         r.claudeId = m.session_id; r.cwd = m.cwd; r.model = m.model; r.permissionMode = m.permissionMode;
         r.worktree = worktreeRoot(m.cwd) ?? r.worktree;
-        if (r.state === 'arrancando') r.state = 'trabajando';
+        if (r.state === 'starting') r.state = 'working';
         this.measureContext(x);   // al retomar una conversación ya llega con contexto
-        x.q?.supportedCommands().then(cs => { x.commands = cs.map(c => ({ name: c.name, description: c.description, hint: c.argumentHint || undefined })); this.emit('comandos', r.id, x.commands); }).catch(() => {});
+        x.q?.supportedCommands().then(cs => { x.commands = cs.map(c => ({ name: c.name, description: c.description, hint: c.argumentHint || undefined })); this.emit('commands', r.id, x.commands); }).catch(() => {});
         break;
       case 'task_started': this.helperStart(x, m.tool_use_id ?? m.task_id, m.task_id, m.description, m.subagent_type); break;
       case 'task_progress': { const a = x.helpers.get(m.tool_use_id ?? x.taskAHelper.get(m.task_id) ?? ''); if (a) { if (m.last_tool_name) a.lastTool = a.lastTool ?? m.last_tool_name; if (m.usage?.tool_uses) a.tools = Math.max(a.tools, m.usage.tool_uses); } break; }
-      case 'task_notification': { const id = m.tool_use_id ?? x.taskAHelper.get(m.task_id); if (id) this.helperEnd(x, id, m.status === 'completed' ? 'hecho' : 'fallo'); break; }
-      case 'task_updated': { const st = m.patch?.status; const id = x.taskAHelper.get(m.task_id); if (id && ['completed', 'failed', 'killed'].includes(st)) this.helperEnd(x, id, st === 'completed' ? 'hecho' : 'fallo'); break; }
+      case 'task_notification': { const id = m.tool_use_id ?? x.taskAHelper.get(m.task_id); if (id) this.helperEnd(x, id, m.status === 'completed' ? 'done' : 'failed'); break; }
+      case 'task_updated': { const st = m.patch?.status; const id = x.taskAHelper.get(m.task_id); if (id && ['completed', 'failed', 'killed'].includes(st)) this.helperEnd(x, id, st === 'completed' ? 'done' : 'failed'); break; }
       case 'background_tasks_changed': {
         x.background = new Set(((m.tasks ?? []) as { task_id: string; ambient?: boolean }[]).filter(t => !t.ambient).map(t => t.task_id));
         r.background = x.background.size || undefined;
@@ -721,15 +721,15 @@ export class Sessions extends EventEmitter {
         // no lo retoma enseguida se da por terminado aquí
         clearTimeout(x.backgroundTimer);
         if (!x.background.size && x.awaitingBackground) x.backgroundTimer = setTimeout(() => {
-          if (!x.awaitingBackground || x.background.size || r.state !== 'trabajando') return;
-          x.awaitingBackground = false; r.state = 'terminada'; r.unread = true; this.play(x);
+          if (!x.awaitingBackground || x.background.size || r.state !== 'working') return;
+          x.awaitingBackground = false; r.state = 'finished'; r.unread = true; this.play(x);
         }, 5000).unref();
         break;
       }
-      case 'session_state_changed': if (m.state === 'running' && r.state !== 'esperando') r.state = 'trabajando'; break;
-      case 'compact_boundary': this.add(x, this.input('sistema', t('server.conversationCompacted'))); this.measureContext(x); break;
-      case 'local_command_output': this.add(x, this.input('sistema', String(m.content ?? ''))); break;
-      case 'commands_changed': x.commands = (m.commands ?? []).map((c: any) => ({ name: c.name, description: c.description, hint: c.argumentHint || undefined })); this.emit('comandos', r.id, x.commands); break;
+      case 'session_state_changed': if (m.state === 'running' && r.state !== 'waiting') r.state = 'working'; break;
+      case 'compact_boundary': this.add(x, this.input('system', t('server.conversationCompacted'))); this.measureContext(x); break;
+      case 'local_command_output': this.add(x, this.input('system', String(m.content ?? ''))); break;
+      case 'commands_changed': x.commands = (m.commands ?? []).map((c: any) => ({ name: c.name, description: c.description, hint: c.argumentHint || undefined })); this.emit('commands', r.id, x.commands); break;
     }
   }
 
@@ -744,26 +744,26 @@ export class Sessions extends EventEmitter {
         const filePath = toolPath(name, e, r.cwd);
         const room = filePath ? this.resolver.pathRoom(filePath) : undefined;
         if (room) a.roomId = room;
-        if (toolMode(name, e) === 'escribir' || toolMode(name, e) === 'terminal') a.mode = 'escribir';
+        if (toolMode(name, e) === 'write' || toolMode(name, e) === 'terminal') a.mode = 'write';
         a.lastTool = text; a.tools += 1;
       }
-      this.add(x, this.input('herramienta', text, { tool: name, helper: parent }));
+      this.add(x, this.input('tool', text, { tool: name, helper: parent }));
     } else {
       r.activity = { tool: name, text, mode: toolMode(name, e) };
-      this.add(x, this.input('herramienta', text, { tool: name }));
+      this.add(x, this.input('tool', text, { tool: name }));
     }
     if (isAgent(name)) this.helperStart(x, id, undefined, String(e.description ?? t('server.helpingOut')), e.subagent_type as string | undefined);
-    this.emit('herramienta', r.id, r.roomId);
+    this.emit('tool', r.id, r.roomId);
   }
 
   private helperStart(x: Session, id: string, task: string | undefined, description: string, type?: string) {
     if (task) x.taskAHelper.set(task, id);
     const already = x.helpers.get(id);
     if (already) { if (type) already.type = type; return; }
-    x.helpers.set(id, { id, description, type, state: 'trabajando', mode: 'leer', roomId: x.r.roomId, tools: 0 });
+    x.helpers.set(id, { id, description, type, state: 'working', mode: 'read', roomId: x.r.roomId, tools: 0 });
   }
-  private helperEnd(x: Session, id: string, state: 'hecho' | 'fallo') {
-    const a = x.helpers.get(id); if (!a || a.state !== 'trabajando') return;
+  private helperEnd(x: Session, id: string, state: 'done' | 'failed') {
+    const a = x.helpers.get(id); if (!a || a.state !== 'working') return;
     a.state = state;
     setTimeout(() => { x.helpers.delete(id); this.play(x); }, 8000).unref();
   }
@@ -781,37 +781,37 @@ export class Sessions extends EventEmitter {
       const id = randomUUID();
       const ofHelper = op.agentID ? [...x.helpers.values()].find(a => a.id === op.agentID || x.taskAHelper.get(op.agentID!) === a.id)?.description ?? t('server.aHelper') : undefined;
       let pet: PendingRequest;
-      if (name === 'AskUserQuestion') pet = { id, type: 'pregunta', tool: name, title: t('server.iHaveAQuestion'), questions: (e.questions as Question[]) ?? [], canAlways: false, ofHelper };
+      if (name === 'AskUserQuestion') pet = { id, type: 'question', tool: name, title: t('server.iHaveAQuestion'), questions: (e.questions as Question[]) ?? [], canAlways: false, ofHelper };
       else if (name === 'ExitPlanMode') pet = { id, type: 'plan', tool: name, title: t('server.myPlanIsReady'), detail: String(e.plan ?? ''), canAlways: false, ofHelper };
-      else pet = { id, type: 'permiso', tool: name, title: permissionTitle(name, e), input: describeInput(name, e), reason: op.decisionReason || undefined, canAlways: Boolean(op.suggestions?.length) && !op.suppressAlwaysAllowRule, ofHelper };
+      else pet = { id, type: 'permission', tool: name, title: permissionTitle(name, e), input: describeInput(name, e), reason: op.decisionReason || undefined, canAlways: Boolean(op.suggestions?.length) && !op.suppressAlwaysAllowRule, ofHelper };
       const p: Pending = { pet, input: e, suggestions: op.suggestions, resolver };
       x.pending.push(p);
       op.signal.addEventListener('abort', () => { const i = x.pending.indexOf(p); if (i >= 0) { x.pending.splice(i, 1); resolver({ behavior: 'deny', message: t('server.cancelled') }); this.refreshPending(x); } });
-      this.add(x, this.input('sistema', `❓ ${pet.title}`));
+      this.add(x, this.input('system', `❓ ${pet.title}`));
       this.refreshPending(x);
-      this.emit('espera', { ...x.r });
+      this.emit('wait', { ...x.r });
     });
   }
 
   /** Una confirmación del Supervisor que piden las herramientas del juego (sí o no), en el diálogo de permisos */
   private confirm(x: Session, title: string, input: InputView[]): Promise<boolean> {
     return new Promise(res => {
-      const pet: PendingRequest = { id: randomUUID(), type: 'permiso', tool: 'refugio', title, input, canAlways: false };
+      const pet: PendingRequest = { id: randomUUID(), type: 'permission', tool: 'shelter', title, input, canAlways: false };
       x.pending.push({ pet, input: {}, resolver: r => res(r.behavior === 'allow') });
-      this.add(x, this.input('sistema', `❓ ${title}`));
+      this.add(x, this.input('system', `❓ ${title}`));
       this.refreshPending(x);
-      this.emit('espera', { ...x.r });
+      this.emit('wait', { ...x.r });
     });
   }
 
   private refreshPending(x: Session) {
-    if (x.pending.length) { x.r.state = 'esperando'; x.r.unread = true; }
-    else if (x.r.state === 'esperando') x.r.state = x.alive ? 'trabajando' : 'error';
+    if (x.pending.length) { x.r.state = 'waiting'; x.r.unread = true; }
+    else if (x.r.state === 'waiting') x.r.state = x.alive ? 'working' : 'error';
     this.play(x);
   }
   private emptyPending(x: Session, message: string) { for (const p of x.pending.splice(0)) p.resolver({ behavior: 'deny', message: message }); }
 
-  respond(id: string, requestId: string, decision: 'si' | 'siempre' | 'no', message?: string, responses?: Record<string, string>) {
+  respond(id: string, requestId: string, decision: 'si' | 'always' | 'no', message?: string, responses?: Record<string, string>) {
     const x = this.must(id);
     const i = x.pending.findIndex(p => p.pet.id === requestId);
     if (i < 0) return;
@@ -820,35 +820,35 @@ export class Sessions extends EventEmitter {
     if (decision === 'no') {
       const by = message?.trim();
       p.resolver({ behavior: 'deny', message: by || (type === 'plan' ? t('server.userWantsToKeepPlanning') : t('server.userSaidNo')) });
-      this.add(x, this.input('usuario', type === 'confianza' ? t('server.noWorkWithoutFolderConfig') : by ? `🚫 ${by}` : t('server.no')));
-    } else if (type === 'confianza') {
-      if (decision === 'siempre') this.resolver.trust?.(x.r.cwd);
+      this.add(x, this.input('usuario', type === 'trust' ? t('server.noWorkWithoutFolderConfig') : by ? `🚫 ${by}` : t('server.no')));
+    } else if (type === 'trust') {
+      if (decision === 'always') this.resolver.trust?.(x.r.cwd);
       p.resolver({ behavior: 'allow', updatedInput: {} });
-      this.add(x, this.input('usuario', decision === 'siempre' ? t('server.trustAlways') : t('server.trustOnce')));
-    } else if (type === 'pregunta') {
+      this.add(x, this.input('usuario', decision === 'always' ? t('server.trustAlways') : t('server.trustOnce')));
+    } else if (type === 'question') {
       p.resolver({ behavior: 'allow', updatedInput: { ...p.input, answers: responses ?? {} } });
       this.add(x, this.input('usuario', Object.entries(responses ?? {}).map(([q, a]) => `**${q}** → ${a}`).join('\n') || t('server.answered'), { question: true }));
     } else if (type === 'plan') {
       p.resolver({ behavior: 'allow', updatedInput: p.input });
-      const mode = decision === 'siempre' ? 'acceptEdits' : 'auto';
+      const mode = decision === 'always' ? 'acceptEdits' : 'auto';
       x.q?.setPermissionMode(mode as any).catch(() => {});
       x.r.permissionMode = mode;
       this.add(x, this.input('usuario', mode === 'acceptEdits' ? t('server.planApprovedAcceptEdits') : t('server.planApproved')));
     } else {
-      p.resolver({ behavior: 'allow', updatedInput: p.input, updatedPermissions: decision === 'siempre' ? (p.suggestions as any) : undefined });
-      this.add(x, this.input('usuario', decision === 'siempre' ? t('server.yesAlways') : t('server.yes')));
+      p.resolver({ behavior: 'allow', updatedInput: p.input, updatedPermissions: decision === 'always' ? (p.suggestions as any) : undefined });
+      this.add(x, this.input('usuario', decision === 'always' ? t('server.yesAlways') : t('server.yes')));
     }
     this.refreshPending(x);
   }
 
   async interrupt(id: string) {
     const x = this.must(id);
-    if (!x.alive || (x.r.state !== 'trabajando' && x.r.state !== 'esperando' && x.r.state !== 'arrancando')) return;
+    if (!x.alive || (x.r.state !== 'working' && x.r.state !== 'waiting' && x.r.state !== 'starting')) return;
     // sin turno en marcha, solo con tareas en segundo plano: parar es pararlas (no llegará ningún «result»)
     if (x.awaitingBackground) {
       this.stopAwaiting(x);
       await Promise.all([...x.background].map(id => x.q?.stopTask(id).catch(() => {})));
-      x.r.state = 'terminada'; this.add(x, this.input('sistema', t('server.interrupted'))); this.play(x);
+      x.r.state = 'finished'; this.add(x, this.input('system', t('server.interrupted'))); this.play(x);
       return;
     }
     x.interrupting = true;
@@ -861,14 +861,14 @@ export class Sessions extends EventEmitter {
     const voided = (receipt?.cancelled ?? []).map(u => x.sent.get(u)).filter((t): t is string => !!t);
     const cancelled = new Set(receipt?.cancelled ?? []);
     if (x.queue.some(q => cancelled.has(q.id))) { x.queue = x.queue.filter(q => !cancelled.has(q.id)); this.play(x); }
-    if (voided.length) this.add(x, this.input('sistema', t('server.notSentDueToInterruption', { textos: quotedList(voided) })));
+    if (voided.length) this.add(x, this.input('system', t('server.notSentDueToInterruption', { textos: quotedList(voided) })));
   }
 
   close(id: string) {
     const x = this.s.get(id); if (!x) return;
     x.closing = true; this.emptyPending(x, t('server.sessionClosed'));
     if (x.alive) { x.input?.close(); try { x.q?.close(); } catch {} }
-    else { x.r.state = 'cerrada'; this.play(x); setTimeout(() => { this.s.delete(id); this.emit('fuera', id); }, 1000).unref(); }
+    else { x.r.state = 'closed'; this.play(x); setTimeout(() => { this.s.delete(id); this.emit('fuera', id); }, 1000).unref(); }
   }
   // the Overseer closing a conversation also stops what it started (dev servers, watchers, test runs), found while its
   // `claude` still lives; not when the game closes one (idle, a removed worktree), goes to the surface or restarts
@@ -876,7 +876,7 @@ export class Sessions extends EventEmitter {
     const x = this.s.get(id); if (!x) return;
     const procs = x.alive && !x.closing ? await processesOf(id).catch(() => []) : [];
     stopProcesses(procs);
-    if (procs.length) this.add(x, this.input('sistema', t('server.stoppedItsProcesses', { n: procs.length })));
+    if (procs.length) this.add(x, this.input('system', t('server.stoppedItsProcesses', { n: procs.length })));
     this.close(id);
   }
   closeAll() { for (const x of this.s.values()) this.close(x.r.id); }
@@ -887,16 +887,16 @@ export class Sessions extends EventEmitter {
   async takeOut(id: string, where = t('server.aDesktopTerminal')) {
     const x = this.must(id);
     if (!x.r.claudeId) throw new Error(t('server.isStillStartingTakeIt', { titulo: x.r.title }));
-    const busy = () => x.alive && ['arrancando', 'trabajando', 'esperando'].includes(x.r.state);
+    const busy = () => x.alive && ['starting', 'working', 'waiting'].includes(x.r.state);
     const continueLast = busy();
     if (continueLast) { await this.interrupt(id); await wait(() => !busy(), 10_000); }
-    this.add(x, this.input('sistema', t('server.continuesIn', { where })));
+    this.add(x, this.input('system', t('server.continuesIn', { where })));
     this.close(id);
     if (!(await wait(() => !x.alive, 8000))) throw new Error(t('server.isNotFinishingClosingIn', { titulo: x.r.title }));
     return { claudeId: x.r.claudeId, cwd: x.r.cwd, title: x.r.title, dwellerId: x.r.dwellerId, continueLast, model: x.options.model || undefined, effort: x.options.effort || undefined, permissions: x.r.permissionMode };
   }
 
-  markRead(id: string) { const x = this.s.get(id); if (!x) return; x.r.unread = false; if (x.r.state === 'terminada') x.r.state = 'ociosa'; this.play(x); }
+  markRead(id: string) { const x = this.s.get(id); if (!x) return; x.r.unread = false; if (x.r.state === 'finished') x.r.state = 'idle'; this.play(x); }
 
   async mode(id: string, mode: string) { const x = this.must(id); try { await x.q?.setPermissionMode(mode as any); x.r.permissionMode = mode; this.play(x); } catch {} }
 
@@ -968,7 +968,7 @@ export class Sessions extends EventEmitter {
         c.forEach((b: any, k: number) => {
           const id = `${m.uuid}-${k}`;
           if (b.type === 'text' && b.text?.trim()) out.push(this.input('asistente', b.text, { id, ts }));
-          else if (b.type === 'tool_use' && b.name) out.push(this.input('herramienta', describeTool(b.name, b.input ?? {}, dir), { id, tool: b.name, ts }));
+          else if (b.type === 'tool_use' && b.name) out.push(this.input('tool', describeTool(b.name, b.input ?? {}, dir), { id, tool: b.name, ts }));
         });
       }
     }

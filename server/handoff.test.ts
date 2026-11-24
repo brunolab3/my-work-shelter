@@ -7,7 +7,7 @@ import { t } from '../shared/language.ts';
 
 function session(used: number, offered = new Set<string>()) {
   const sess = new Sessions({ pathRoom: () => undefined, handoff: { threshold: () => 250_000, offered: id => offered.has(id), mark: id => { offered.add(id); } } }) as any;
-  const r: any = { id: 'w1', dwellerId: 'h1', roomId: 'sala', cwd: '/tmp/wt', claudeId: 'c1', state: 'trabajando', unread: false, title: 'Trabajo', pending: 0, helpers: [], tools: 0, turns: 0, model: 'opus', permissionMode: 'auto' };
+  const r: any = { id: 'w1', dwellerId: 'h1', roomId: 'room', cwd: '/tmp/wt', claudeId: 'c1', state: 'working', unread: false, title: 'Trabajo', pending: 0, helpers: [], tools: 0, turns: 0, model: 'opus', permissionMode: 'auto' };
   const sent: string[] = [];
   const x = { r, alive: true, closing: false, interrupting: false, sent: new Map(), pending: [], queue: [], unsent: new Set(), withdrawn: new Set(), entries: [], tools: new Map(), helpers: new Map(), taskAHelper: new Map(), background: new Set(), awaitingBackground: false, commands: [], stderr: '', options: {}, partialText: '', shipments: Promise.resolve(),
     input: { meter: (m: any) => sent.push(m.message.content) },
@@ -62,11 +62,11 @@ describe('new-session suggestion', () => {
 });
 
 describe('startFromHandoff', () => {
-  const old: any = { id: 'w1', dwellerId: 'h1', roomId: 'sala', cwd: '/tmp/wt', model: 'opus', effort: 'high', permissionMode: 'acceptEdits' };
+  const old: any = { id: 'w1', dwellerId: 'h1', roomId: 'room', cwd: '/tmp/wt', model: 'opus', effort: 'high', permissionMode: 'acceptEdits' };
   it('starts the new session with the summary as its first message and closes, never deletes, the old one', async () => {
     const start = vi.fn(async () => 'w2'), close = vi.fn();
     expect(await startFromHandoff({ start, close }, old, '  ## Goal\nShip it  ')).toBe('w2');
-    expect(start).toHaveBeenCalledWith({ dwellerId: 'h1', roomId: 'sala', prompt: t('prompt.handoff.start', { resumen: '## Goal\nShip it' }), options: { cwd: '/tmp/wt', model: 'opus', effort: 'high', permissions: 'acceptEdits', worktree: false, handoffFrom: 'w1' } });
+    expect(start).toHaveBeenCalledWith({ dwellerId: 'h1', roomId: 'room', prompt: t('prompt.handoff.start', { resumen: '## Goal\nShip it' }), options: { cwd: '/tmp/wt', model: 'opus', effort: 'high', permissions: 'acceptEdits', worktree: false, handoffFrom: 'w1' } });
     expect(t('prompt.handoff.start', { resumen: 'X' })).toContain('X');
     expect(close).toHaveBeenCalledWith('w1');
   });

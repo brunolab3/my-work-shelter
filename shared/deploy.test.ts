@@ -3,7 +3,7 @@ import { blockersBetween, deploymentColumn, dependenciesInText, taskLinks, deplo
 import type { PRBoard } from './board';
 
 const pr = (number: number, extra: Partial<PRBoard> = {}): PRBoard =>
-  ({ number, title: 'PR ' + number, url: 'https://github.com/o/r/pull/' + number, repo: 'o/r', branch: 'rama-' + number, base: 'main', state: 'abierto', updated: 0, ...extra });
+  ({ number, title: 'PR ' + number, url: 'https://github.com/o/r/pull/' + number, repo: 'o/r', branch: 'rama-' + number, base: 'main', state: 'open', updated: 0, ...extra });
 
 describe('dependenciasEnTexto', () => {
   it('lee «depends on», «bloqueado por» y enlaces, con o sin repo, y no toma un # suelto', () => {
@@ -31,13 +31,13 @@ describe('dependenciasEnTexto por frases', () => {
       'Can only be merged after refugio/api#42 is live.',
       'Fixes #99.',
     ].join('\n');
-    expect(dependenciesInText(t, 'refugio/web').sort()).toEqual(['refugio/web#17', 'rama:feature/ABC-16-saltar-filas', 'rama:feature/ABC-15-contratos', 'refugio/web#30', 'rama:ABC-20-migracion', 'refugio/api#40', 'refugio/api#41', 'refugio/api#42'].sort());
+    expect(dependenciesInText(t, 'refugio/web').sort()).toEqual(['refugio/web#17', 'branch:feature/ABC-16-saltar-filas', 'branch:feature/ABC-15-contratos', 'refugio/web#30', 'branch:ABC-20-migracion', 'refugio/api#40', 'refugio/api#41', 'refugio/api#42'].sort());
   });
 
   it('una rama nombrada en la descripción bloquea con el PR de esa rama, aunque sea de otro repo', () => {
     const api = pr(1, { repo: 'refugio/api', url: 'https://github.com/refugio/api/pull/1', branch: 'feature/ABC-15-contratos' });
     const web = pr(2, { repo: 'refugio/web', url: 'https://github.com/refugio/web/pull/2', branch: 'ABC-15-pantalla', dependencies: dependenciesInText('Merge order: `feature/ABC-15-contratos` must be merged first.', 'refugio/web') });
-    expect(blockersBetween([api, web])).toEqual([{ from: web.url, by: api.url, reason: 'texto' }]);
+    expect(blockersBetween([api, web])).toEqual([{ from: web.url, by: api.url, reason: 'text' }]);
   });
 });
 
@@ -45,26 +45,26 @@ describe('bloqueosEntre', () => {
   it('apilado (base = rama de otro PR), por la descripción y a mano; lo que apunta fuera del tablero no cuenta', () => {
     const a = pr(1), b = pr(2, { base: 'rama-1' }), c = pr(3, { dependencies: ['o/r#2', 'o/r#99'] }), d = pr(4, { repo: 'o/web', url: 'https://github.com/o/web/pull/4' });
     const bs = blockersBetween([a, b, c, d], [{ from: d.url, by: a.url }, { from: d.url, by: 'https://github.com/o/r/pull/99' }]);
-    expect(bs.map(x => [x.from.split('/').pop(), x.by.split('/').pop(), x.reason])).toEqual([['2', '1', 'pila'], ['3', '2', 'texto'], ['4', '1', 'manual']]);
+    expect(bs.map(x => [x.from.split('/').pop(), x.by.split('/').pop(), x.reason])).toEqual([['2', '1', 'stack'], ['3', '2', 'text'], ['4', '1', 'manual']]);
   });
 });
 
 describe('olasDespliegue', () => {
   it('cada ola espera a las anteriores; lo fusionado ya no bloquea y un ciclo queda aparte', () => {
-    const f = pr(1, { state: 'fusionado' }), a = pr(2), b = pr(3, { dependencies: ['o/r#1', 'o/r#2'] }), c = pr(4, { dependencies: ['o/r#3'] });
+    const f = pr(1, { state: 'merged' }), a = pr(2), b = pr(3, { dependencies: ['o/r#1', 'o/r#2'] }), c = pr(4, { dependencies: ['o/r#3'] });
     const x = pr(5, { dependencies: ['o/r#6'] }), y = pr(6, { dependencies: ['o/r#5'] });
     const prs = [f, a, b, c, x, y];
     const r = deployWaves(prs, blockersBetween(prs));
     expect(r.waves.map(o => o.map(p => p.number))).toEqual([[2], [3], [4]]);
     expect(r.cycle.map(p => p.number)).toEqual([5, 6]);
-    expect(promptDeployment(prs, blockersBetween(prs))).toContain('Ola 2:\n- o/r#3 «PR 3» · revision · espera a o/r#1 (fusionado), o/r#2');
+    expect(promptDeployment(prs, blockersBetween(prs))).toContain('Ola 2:\n- o/r#3 «PR 3» · review · espera a o/r#1 (fusionado), o/r#2');
   });
 });
 
 describe('columnaDespliegue', () => {
   it('por estado y revisión; los cerrados sin fusionar, fuera', () => {
-    expect([pr(1, { state: 'borrador' }), pr(2), pr(3, { review: 'CHANGES_REQUESTED' }), pr(4, { review: 'APPROVED' }), pr(5, { state: 'fusionado' }), pr(6, { state: 'cerrado' })].map(deploymentColumn))
-      .toEqual(['borrador', 'revision', 'cambios', 'aprobado', 'fusionado', null]);
+    expect([pr(1, { state: 'draft' }), pr(2), pr(3, { review: 'CHANGES_REQUESTED' }), pr(4, { review: 'APPROVED' }), pr(5, { state: 'merged' }), pr(6, { state: 'closed' })].map(deploymentColumn))
+      .toEqual(['draft', 'review', 'changes', 'approved', 'merged', null]);
   });
 });
 
@@ -93,7 +93,7 @@ describe('misma tarea en repos distintos', () => {
   it('el plan lleva lo que queda por contestar en las revisiones de cada PR abierto; con cero, nada', () => {
     const withReviews = pr(1, { ledger: { unresolved: 3, outdated: 0, unansweredSummaries: 1 } }), clean = pr(2, { ledger: { unresolved: 0, outdated: 0, unansweredSummaries: 0 } });
     const text = promptDeployment([withReviews, clean], []);
-    expect(text).toContain('o/r#1 «PR 1» · revision · revisiones por contestar: 3 hilos sin resolver, 1 resúmenes sin respuesta');
+    expect(text).toContain('o/r#1 «PR 1» · review · revisiones por contestar: 3 hilos sin resolver, 1 resúmenes sin respuesta');
     expect(text.split('\n').find(l => l.includes('o/r#2'))).not.toContain('revisiones por contestar');
   });
 });

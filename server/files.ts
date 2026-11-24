@@ -112,9 +112,9 @@ async function dates(root: string, open: unknown) {
 
 // ---------------------------------------------------------------- leer y guardar
 export type Reading =
-  | { type: 'texto'; text: string; date: number; resize: number }
-  | { type: 'imagen'; data: string; date: number; resize: number }
-  | { type: 'binario' | 'grande'; date: number; resize: number };
+  | { type: 'text'; text: string; date: number; resize: number }
+  | { type: 'image'; data: string; date: number; resize: number }
+  | { type: 'binary' | 'large'; date: number; resize: number };
 
 export async function read(root: string, rel: string): Promise<Reading> {
   const abs = await inside(root, relSafe(rel));
@@ -122,13 +122,13 @@ export async function read(root: string, rel: string): Promise<Reading> {
   if (st.isDirectory()) throw new Error(t('server.itIsAFolder'));
   const date = st.mtimeMs, resize = st.size, mime = IMAGES[path.extname(abs).toLowerCase()];
   if (mime) {
-    if (resize > MAX_IMAGE) return { type: 'grande', date, resize };
-    return { type: 'imagen', data: `data:${mime};base64,` + (await fs.readFile(abs)).toString('base64'), date, resize };
+    if (resize > MAX_IMAGE) return { type: 'large', date, resize };
+    return { type: 'image', data: `data:${mime};base64,` + (await fs.readFile(abs)).toString('base64'), date, resize };
   }
-  if (resize > MAX_TEXT) return { type: 'grande', date, resize };
+  if (resize > MAX_TEXT) return { type: 'large', date, resize };
   const b = await fs.readFile(abs);
-  if (b.subarray(0, 8000).includes(0)) return { type: 'binario', date, resize };
-  return { type: 'texto', text: b.toString('utf8'), date, resize };
+  if (b.subarray(0, 8000).includes(0)) return { type: 'binary', date, resize };
+  return { type: 'text', text: b.toString('utf8'), date, resize };
 }
 
 /** Guarda el texto. Si el archivo ha cambiado en el disco desde que se leyó (`fecha`), no lo pisa salvo que se fuerce. */
@@ -243,7 +243,7 @@ export async function openInEditor(root: string, rel: unknown) { await openEdito
 
 // ---------------------------------------------------------------- despacho
 export interface CtxFiles { allowedRoots: () => string[]; onChange: (root: string) => void }
-const WRITE = new Set(['guardar', 'crear', 'renombrar', 'pegar', 'papelera']);
+const WRITE = new Set(['save', 'create', 'rename', 'paste', 'trash']);
 
 export async function filesAction(name: string, d: Record<string, any>, ctx: CtxFiles): Promise<unknown> {
   const allowed = ctx.allowedRoots();

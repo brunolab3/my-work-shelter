@@ -2,7 +2,7 @@
 // cabezas, cuerpos, brazos, piernas y complementos de todos los personajes del pack, y pintado por regiones.
 // Lo comparten el servidor (valida lo guardado) y el cliente (monta la figura y el probador).
 
-export type Species = 'humano' | 'robot';
+export type Species = 'human' | 'robot';
 export type Slot = 'cara' | 'cejas' | 'pelo' | 'barba' | 'cabeza' | 'sombrero' | 'gafas' | 'torso' | 'brazos' | 'piernas' | 'espalda' | 'complemento';
 /** Regiones de color (índice del pintado en la figura; 0 = sin tocar) */
 export const REGIONS = ['', 'piel', 'pelo', 'torso1', 'torso2', 'torso3', 'piernas1', 'piernas2', 'piernas3', 'cabeza1', 'cabeza2', 'sombrero1', 'sombrero2', 'espalda1', 'espalda2', 'luz'] as const;
@@ -98,7 +98,7 @@ const id = (slot: Slot, source: string, extra = '') => `${slot}.${source}${extra
 function piece(slot: Slot, source: string, name: string, o: Partial<Piece> = {}) {
   const extra = o.meshes && ['sombrero', 'gafas', 'espalda', 'complemento'].includes(slot) ? o.meshes[0] : '';
   // lo de la cara (rostro, cejas, pelo y barba) es de humano; sombreros, gafas, mochilas y capas, de cualquiera
-  P.push({ id: id(slot, source, extra), name, slot, source, especie: o.especie ?? (['cara', 'cejas', 'pelo', 'barba'].includes(slot) ? 'humano' : 'ambos'), ...o });
+  P.push({ id: id(slot, source, extra), name, slot, source, especie: o.especie ?? (['cara', 'cejas', 'pelo', 'barba'].includes(slot) ? 'human' : 'ambos'), ...o });
 }
 const header = (slot: Slot, source: string, name: string, o: Partial<Piece> = {}) => piece(slot, source, name, { breakdown: true, ...o });
 // (la ropa de los humanos también la llevan los robots: con la chapa donde el humano enseña la piel)
@@ -305,7 +305,7 @@ export function fits(p: Piece, pieces: Partial<Record<Slot, string>>) {
 // ---------------------------------------------------------------- aspectos de serie (los modelos de KayKit tal cual)
 const H = (f: string, extra: Partial<Record<Slot, string>> = {}): Look => {
   const has = (r: Slot) => PIECE.has(id(r, f)) ? id(r, f) : '';
-  return { especie: 'humano', pieces: { cara: has('cara'), cejas: has('cejas'), pelo: has('pelo'), barba: has('barba'), torso: has('torso'), brazos: has('brazos'), piernas: has('piernas'), ...extra }, colors: {} };
+  return { especie: 'human', pieces: { cara: has('cara'), cejas: has('cejas'), pelo: has('pelo'), barba: has('barba'), torso: has('torso'), brazos: has('brazos'), piernas: has('piernas'), ...extra }, colors: {} };
 };
 const R = (f: string, extra: Partial<Record<Slot, string>> = {}): Look => ({ especie: 'robot', pieces: { cabeza: id('cabeza', f), torso: id('torso', f), brazos: id('brazos', f), piernas: id('piernas', f), ...extra }, colors: {} });
 /** El aspecto de cada modelo de KayKit tal y como venía (los habitantes sin aspecto propio y los reclutas de la Puerta) */
@@ -333,7 +333,7 @@ const HEX = /^#[0-9a-f]{6}$/i;
 export function sanitizeLook(a: unknown): Look | null {
   if (!a || typeof a !== 'object') return null;
   const x = a as any;
-  const especie: Species = x.especie === 'robot' ? 'robot' : 'humano';
+  const especie: Species = x.especie === 'robot' ? 'robot' : 'human';
   const slots = especie === 'robot' ? SLOTS_ROBOT : HUMAN_SLOTS;
   const pieces: Partial<Record<Slot, string>> = {};
   for (const r of slots) {
@@ -385,7 +385,7 @@ export function lookOnRandom(r: () => number, especie: Species): Look {
     } else if (r() < (prob[rr] ?? 0.2)) pieces[rr] = pick(list).id;
   }
   const colors: Partial<Record<Region, string>> = {};
-  if (especie === 'humano') {
+  if (especie === 'human') {
     colors.piel = pick(SKINS); colors.pelo = pick(r() < 0.8 ? HAIRS.slice(0, 10) : HAIRS);
     if (r() < 0.5) colors.torso1 = pick(FABRICS);
     if (r() < 0.4) colors.piernas1 = pick(FABRICS);

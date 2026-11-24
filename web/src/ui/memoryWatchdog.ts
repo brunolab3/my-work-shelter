@@ -25,7 +25,7 @@ export interface ReloadInput { mb: number | null; limit: number; sessions: Recor
  *  or in progress or an attachment is still uploading (it would not survive the reload) */
 export function reloadButton({ mb, limit, sessions, intercoms }: ReloadInput): { show: boolean; reason?: string } {
   if (!limit || mb == null || !(mb > limit)) return { show: false };
-  if (Object.values(sessions).some(s => s.state === 'trabajando' || s.state === 'arrancando')) return { show: true, reason: 'menu.memoryReloadTurnRunning' };
+  if (Object.values(sessions).some(s => s.state === 'working' || s.state === 'starting')) return { show: true, reason: 'menu.memoryReloadTurnRunning' };
   if (intercoms.some(v => v.tabs.some(p => (p.attachments ?? []).some(a => !a.path && !a.error)))) return { show: true, reason: 'menu.memoryReloadUploading' };
   return { show: true };
 }

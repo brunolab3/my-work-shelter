@@ -41,7 +41,7 @@ function answer(min = 5) {
   };
 }
 
-const session = (o: Partial<SessionSummary>): SessionSummary => ({ id: 's', dwellerId: 'h', roomId: 'express', cwd: '/repos/express', state: 'ociosa', unread: false, title: '', pendingCount: 0, helpers: [], tools: 0, turns: 0, created: 0, updated: 0, ...o });
+const session = (o: Partial<SessionSummary>): SessionSummary => ({ id: 's', dwellerId: 'h', roomId: 'express', cwd: '/repos/express', state: 'idle', unread: false, title: '', pendingCount: 0, helpers: [], tools: 0, turns: 0, created: 0, updated: 0, ...o });
 const ROOMS: RoomPR[] = [
   { id: 'express', name: 'Express', path: '/repos/express', branch: 'main', repo: 'refugio/express', worktrees: [
     { path: '/repos/express/.claude/worktrees/rutas', branch: 'feature/REF-212-barra-final' },
@@ -60,7 +60,7 @@ describe('revisiones de PR', () => {
     // el del bot, marcado y sin sus marcas HTML
     expect(prs[0].events.find(e => e.id === 'I1')).toMatchObject({ bot: true, body: 'CI failed: el checkout no carga' });
     expect(reviewMessage(prs[0], prs[0].events)).toContain('**informe-ci** (bot) ');
-    expect(prs[0].events.find(e => e.id === 'C1')).toMatchObject({ type: 'hilo', author: 'ana-revisa', file: 'lib/router.js', line: 12 });
+    expect(prs[0].events.find(e => e.id === 'C1')).toMatchObject({ type: 'thread', author: 'ana-revisa', file: 'lib/router.js', line: 12 });
   });
 
   it('un visto bueno o un agradecimiento no pide nada; una pregunta o un cambio, sí', () => {
@@ -83,7 +83,7 @@ describe('revisiones de PR', () => {
     const otherRepo = session({ id: 'otro', roomId: 'otro', cwd: '/repos/otro', updated: 10 });
     expect(sessionOfPR(pr, ROOMS, [ofTask, inBranch, otherRepo])?.session.id).toBe('rama');
     expect(sessionOfPR(pr, ROOMS, [ofTask, otherRepo])?.session.id).toBe('tarea');
-    expect(sessionOfPR(pr, ROOMS, [{ ...inBranch, state: 'cerrada' }, otherRepo])).toBeUndefined();
+    expect(sessionOfPR(pr, ROOMS, [{ ...inBranch, state: 'closed' }, otherRepo])).toBeUndefined();
     // la carpeta principal de la sala, si está en la rama del PR
     expect(sessionOfPR({ ...pr, branch: 'main' }, ROOMS, [session({ id: 'principal' })])?.session.id).toBe('principal');
   });

@@ -44,9 +44,9 @@ const ROOM_WIDTH = 12;
 const loadingAcc = new WeakMap<Character, Set<string>>();
 const ROOM_STEP = ROOM_WIDTH + FRAME * 2;
 
-export function xRoom(side: 'izq' | 'der', orden: number) {
+export function xRoom(side: 'left' | 'right', orden: number) {
   const d = ELEVATOR_WIDTH / 2 + FRAME + FRAME + ROOM_WIDTH / 2 + orden * ROOM_STEP;
-  return side === 'izq' ? -d : d;
+  return side === 'left' ? -d : d;
 }
 export const yRoom = (floor: number) => -floor * FLOOR;
 // la calle está a la altura de la planta baja (un pelo por debajo de su suelo): se entra y se sale por la puerta
@@ -54,7 +54,7 @@ export const STREET = -0.1;
 
 export class Shelter {
   motor: Engine;
-  camara: ShelterCamera;
+  camera: ShelterCamera;
   rooms: Room[] = [];
   dwellers: Dweller[] = [];
   supervisor!: Character;
@@ -76,7 +76,7 @@ export class Shelter {
   private copyFocused: Copy | null = null;
   portrait: Portrait | null = null;
   loadProgress = 0;
-  galeria = new Gallery(this);
+  gallery = new Gallery(this);
   helpers = new Helpers(this);
   messengers = new Messengers(this);
   visitors = new Visitors(this);
@@ -87,9 +87,9 @@ export class Shelter {
 
   constructor(motor: Engine) {
     this.motor = motor;
-    this.camara = new ShelterCamera(motor.camera);
+    this.camera = new ShelterCamera(motor.camera);
     this.assignment = new LightsAssignment(motor.scene, 6, 3);
-    world.rooms = () => this.rooms; world.supervisor = () => this.supervisor?.root ?? null; world.currentRoom = () => this.currentRoom; world.dwellers = () => this.dwellers; world.camara = () => motor.camera;
+    world.rooms = () => this.rooms; world.supervisor = () => this.supervisor?.root ?? null; world.currentRoom = () => this.currentRoom; world.dwellers = () => this.dwellers; world.camera = () => motor.camera;
     // las copias holográficas son intangibles: no cuentan como ocupantes (se pasea a través de ellas)
     Dweller.occupants = () => [...this.dwellers.map(h => h.p.root), ...(this.supervisor ? [this.supervisor.root] : [])];
     this.ready = this.build();
@@ -128,7 +128,7 @@ export class Shelter {
       const h = this.dwellers.find(x => x.id.id === dwellerId);
       if (h) {
         const sp = this.supervisor.root.position; sp.x = h.pos.x + (h.pos.x > (this.currentRoom?.group.position.x ?? 0) ? -1.3 : 1.3); sp.z = Math.min(1.6, h.pos.z + 0.6);
-        this.camara.immediate();
+        this.camera.immediate();
         if (talk) this.interact(h);
       }
     });
@@ -144,7 +144,7 @@ export class Shelter {
       this.mouse = this.ndc(e);
       if (!below || !last || !(e.buttons & 1)) return;
       if (!dragging && Math.hypot(e.clientX - below.x, e.clientY - below.y) >= 6) { dragging = true; canvas.style.cursor = 'grabbing'; this.aimed = null; }
-      if (dragging) { this.camara.drag(e.clientX - last.x, e.clientY - last.y, canvas.clientHeight); last = { x: e.clientX, y: e.clientY }; }
+      if (dragging) { this.camera.drag(e.clientX - last.x, e.clientY - last.y, canvas.clientHeight); last = { x: e.clientX, y: e.clientY }; }
     });
     this.cameraDragging = () => dragging;
     canvas.addEventListener('pointerleave', () => { this.mouse = null; });
@@ -206,16 +206,16 @@ export class Shelter {
     for (const id of dwellers) {
       const h = await this.addDweller(id); if (!h) continue;
       // sin sesión nadie «trabaja»: los estados de trabajo solo los pone una sesión real (o la demo con ?ciclo)
-      h.change('ocioso');
+      h.change('idle');
       h.initialHobby();   // quien vive en una sala con afición (galería, proyección, hidroponía) empieza practicándola
       if (h.p.path.length) { const end = h.p.path[h.p.path.length - 1]; h.p.root.position.copy(end); const cb = h.p.onArrive; h.p.path = []; h.p.onArrive = null; cb?.(); }
     }
     bootAmbient();
     if (this.currentRoom) this.supervisor.root.position.copy(this.freeGap(this.currentRoom));
-    const q = new URLSearchParams(location.search).get('sala'); if (q) this.goARoom(q, true);
+    const q = new URLSearchParams(location.search).get('room'); if (q) this.goARoom(q, true);
     this.publish();
     this.syncSessions();
-    if (new URLSearchParams(location.search).has('ciclo')) this.cycleDemo();
+    if (new URLSearchParams(location.search).has('cycle')) this.cycleDemo();
     this.built = true;
     this.syncHolograms(); this.applyAccessories();
     this.layoutSignature = this.signatureOf(live.get().state);
@@ -234,7 +234,7 @@ export class Shelter {
   private stepsOf(sec: SavedRoom, saved: SavedRoom[]) {
     // el lado que mira al ascensor siempre tiene paso; el otro, solo si hay sala vecina
     const exists = (o: number) => saved.some(s => s.floor === sec.floor && s.side === sec.side && s.orden === o);
-    return sec.side === 'izq' ? { left: exists(sec.orden + 1), right: true } : { left: true, right: exists(sec.orden + 1) };
+    return sec.side === 'left' ? { left: exists(sec.orden + 1), right: true } : { left: true, right: exists(sec.orden + 1) };
   }
   private numberOf(sec: SavedRoom, saved: SavedRoom[]) { const i = saved.filter(s => s.type === 'repo').sort(alphabeticalOrder).findIndex(s => s.id === sec.id); return i + 1; }   // en orden alfabético, como van en la planta
   // (con si su carpeta existe: un repo de ejemplo que termina de clonarse cambia su cartel; y con su carpeta y su
@@ -262,12 +262,12 @@ export class Shelter {
     this.motor.scene.add(this.rock);
     this.embedStones(gaps);
     this.closeGap();
-    const puerta = this.rooms.find(x => x.type === 'puerta' && x.floor === 0);
+    const puerta = this.rooms.find(x => x.type === 'gate' && x.floor === 0);
     const inStreet = puerta ? { x0: puerta.group.position.x - puerta.width / 2 - FRAME, x1: puerta.group.position.x + puerta.width / 2 + FRAME, ceiling: HEIGHT + SLAB * 0.62 } : undefined;
     const signature = JSON.stringify([xLeft, xRight, this.floors, inStreet, [0, 1].map(rightOf)]);
     if (signature !== this.environmentSignature) {
       this.environmentSignature = signature;
-      buildEnvironment({ z: BACKGROUND / 2 + 0.25, xLeft, xRight, rightOf, yFloor: yRoom, floors: this.floors, floor: STREET, gaps, puerta: inStreet }).then(g => {
+      buildEnvironment({ z: BACKGROUND / 2 + 0.25, xLeft, xRight, rightOf, yFloor: yRoom, floors: this.floors, floor: STREET, gaps, gate: inStreet }).then(g => {
         if (this.environmentSignature !== signature) return;
         if (this.environment) this.motor.scene.remove(this.environment);
         this.environment = g; this.motor.scene.add(g);
@@ -285,14 +285,14 @@ export class Shelter {
     const sides: [number, number][] = [];
     for (let p = 0; p < this.floors; p++) for (const s of [-1, 1]) if (!this.hasRoomTogether(s, p)) sides.push([p, s]);
     const signature = JSON.stringify(sides); if (signature === this.closuresSignature) return; this.closuresSignature = signature;
-    const g = new THREE.Group(); g.name = 'cierres-ascensor';
-    const v = VARIANTS.neutro, vl = { ...v, id: v.id + '-lat' }, length = BACKGROUND + 0.2;
+    const g = new THREE.Group(); g.name = 'elevator-shutters';
+    const v = VARIANTS.neutral, vl = { ...v, id: v.id + '-lat' }, length = BACKGROUND + 0.2;
     const ps: Promise<unknown>[] = [];
     for (const [p, s] of sides) {
       // cara de dentro (mira a la cabina) y cara de fuera (mira a la calle o a la roca), como el tabique de una sala;
       // el pilar del corte las enmarca por delante
       for (const [x, rotation] of [[s * (ELEVATOR_WIDTH / 2 + 0.02), -s], [s * (ELEVATOR_WIDTH / 2 + FRAME - 0.02), s]])
-        ps.push(place(g, R.sf('Wall_Empty'), { pos: [x, yRoom(p), -BACKGROUND / 2 + 0.25], rot: rotation * Math.PI / 2, anchor: 'atras', variant: vl, shadow: false, height: HEIGHT }).then(o => { o.scale.x = length / MODULE; o.position.z += (length - MODULE) / 2; o.scale.z = 0.35; }));
+        ps.push(place(g, R.sf('Wall_Empty'), { pos: [x, yRoom(p), -BACKGROUND / 2 + 0.25], rot: rotation * Math.PI / 2, anchor: 'back', variant: vl, shadow: false, height: HEIGHT }).then(o => { o.scale.x = length / MODULE; o.position.z += (length - MODULE) / 2; o.scale.z = 0.35; }));
     }
     await Promise.all(ps);
     if (this.closuresSignature !== signature) return;
@@ -305,7 +305,7 @@ export class Shelter {
   private stones: THREE.Group | null = null;
   private async embedStones(gaps: THREE.Box2[]) {
     if (this.stones) { this.motor.scene.remove(this.stones); this.stones = null; }
-    const g = new THREE.Group(); g.name = 'piedras'; this.stones = g;
+    const g = new THREE.Group(); g.name = 'stones'; this.stones = g;
     let seed = 4242; const r = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
     const xs = this.rooms.map(s => s.group.position.x);
     const xa = Math.min(...xs, 0) - 26, xb = Math.max(...xs, 0) + 26, already = yRoom(this.floors - 1) - 14, yb = STREET - 0.6;
@@ -320,7 +320,7 @@ export class Shelter {
       ps.push(place(g, R.rock((r() < 0.25 ? 'Rock_Moss_' : 'Rock_') + (1 + Math.floor(r() * 7))), { pos: [x, y, BACKGROUND / 2 + 0.2], height: t, rot: r() * 6.28, shadow: false }).then(o => {
         o.scale.z *= 0.32; o.rotation.x = (r() - 0.5) * 0.5;
         // materiales compartidos por nombre: así la fusión las junta en pocas llamadas de dibujo
-        o.traverse((n: any) => { if (n.isMesh) { const k = n.material.name || 'roca'; let m: any = matsStone.get(k); if (!m) { m = n.material.clone(); m.color.multiplyScalar(0.5).lerp(new THREE.Color("#5a4030"), 0.55); m.emissive = new THREE.Color('#2a1a10'); m.emissiveIntensity = 0.35; matsStone.set(k, m); } n.material = m; } });
+        o.traverse((n: any) => { if (n.isMesh) { const k = n.material.name || 'rock'; let m: any = matsStone.get(k); if (!m) { m = n.material.clone(); m.color.multiplyScalar(0.5).lerp(new THREE.Color("#5a4030"), 0.55); m.emissive = new THREE.Color('#2a1a10'); m.emissiveIntensity = 0.35; matsStone.set(k, m); } n.material = m; } });
       }));
     }
     await Promise.all(ps);
@@ -337,7 +337,7 @@ export class Shelter {
     const segments = room.walkZones ?? [[-3, 3]]; const [a, b] = segments[Math.floor(Math.random() * segments.length)];
     h.p.root.position.set(room.group.position.x + a + Math.random() * (b - a), room.group.position.y, 1.2);
     this.dwellers.push(h);
-    h.p.onStep = () => SFX.step(THREE.MathUtils.clamp((h.pos.x - this.camara.goal.x) / 10, -1, 1), 0.08);
+    h.p.onStep = () => SFX.step(THREE.MathUtils.clamp((h.pos.x - this.camera.goal.x) / 10, -1, 1), 0.08);
     return h;
   }
   private removeRoom(s: Room) {
@@ -381,7 +381,7 @@ export class Shelter {
     const newDweller: Dweller[] = [];
     for (const hg of e.dwellers as any[]) if (!this.dwellers.some(h => h.id.id === hg.id)) {
       const h = await this.addDweller({ id: hg.id, name: hg.name, nickname: hg.nickname, type: hg.type, bio: hg.bio, voice: hg.voice, tint: hg.tint, tone: hg.tone, look: hg.look, roomId: hg.roomId });
-      if (h) { h.change('ocioso'); h.waitingAfterChat = 14; if (fresh.includes(h.room)) h.p.root.visible = false; newDweller.push(h); }
+      if (h) { h.change('idle'); h.waitingAfterChat = 14; if (fresh.includes(h.room)) h.p.root.visible = false; newDweller.push(h); }
     }
     for (const room of fresh) this.dig(room, newDweller.filter(h => h.room === room));
     for (const h of newDweller) if (!fresh.includes(h.room)) this.recruitArrival(h, h.room, 0);
@@ -398,7 +398,7 @@ export class Shelter {
     const pivot = new THREE.Group(); pivot.position.set(x, y, 0); plug.position.set(-x, -y, 0); pivot.add(plug); this.motor.scene.add(pivot);
     const dust = new Steam(new THREE.Vector3(x, y + 1.5, BACKGROUND / 2 + 0.6), 26, new THREE.Vector3(0, 0.5, 0.6));
     const sparks = new Sparks(); this.motor.scene.add(dust.group, sparks.group);
-    const puerta = this.rooms.find(s => s.type === 'puerta');
+    const puerta = this.rooms.find(s => s.type === 'gate');
     const t0 = this.timer + (puerta && recruits.length ? 4.2 : 0);
     if (puerta && recruits.length) { this.focus = { x: puerta.group.position.x, y: puerta.group.position.y, until: t0 }; puerta.userData.openGate?.(); SFX.roomGate(); SFX.clank(); }
     juego.set({ hint: { key: '', text: `Excavando «${room.name}»…` } });
@@ -418,7 +418,7 @@ export class Shelter {
       pivot.scale.set(Math.max(0.001, 1 - k * k), 1, 1);
       dust.active = k < 1; dust.origin.set(x + (Math.random() - 0.5) * w * (1 - k), y + 0.5 + Math.random() * 2.8, BACKGROUND / 2 + 0.5);
       dust.update(dt); sparks.update(dt);
-      beat -= dt; if (beat <= 0 && k < 1) { beat = 0.35 + Math.random() * 0.3; SFX.dig(); sparks.burst(new THREE.Vector3(x + (Math.random() - 0.5) * w * (1 - k), y + 0.4 + Math.random() * 2.5, BACKGROUND / 2 + 0.4), 10); this.camara.temblor = Math.max(this.camara.temblor, 0.22); }
+      beat -= dt; if (beat <= 0 && k < 1) { beat = 0.35 + Math.random() * 0.3; SFX.dig(); sparks.burst(new THREE.Vector3(x + (Math.random() - 0.5) * w * (1 - k), y + 0.4 + Math.random() * 2.5, BACKGROUND / 2 + 0.4), 10); this.camera.temblor = Math.max(this.camera.temblor, 0.22); }
       if (t > 6.5) {
         end = true; this.tareas = this.tareas.filter(f => f !== tick); this.motor.scene.remove(pivot, dust.group, sparks.group); plug.traverse((o: any) => o.geometry?.dispose());
         juego.set({ hint: null });
@@ -432,9 +432,9 @@ export class Shelter {
   // el recluta entra en su sala por el paso del lado del ascensor y se presenta
   private recruitArrival(h: Dweller, room: Room, delay: number) {
     setTimeout(() => {
-      const side = room.side === 'izq' ? 1 : -1; const x = room.group.position.x + side * (room.width / 2 + 0.2);
+      const side = room.side === 'left' ? 1 : -1; const x = room.group.position.x + side * (room.width / 2 + 0.2);
       h.pos.set(x, room.group.position.y, 1.3); h.p.root.visible = true;
-      h.p.goA([new THREE.Vector3(room.group.position.x + side * 1.2, room.group.position.y, 1.3)], false, () => { h.p.goalTurn = 0; h.change('ocioso'); SFX.success(); });
+      h.p.goA([new THREE.Vector3(room.group.position.x + side * 1.2, room.group.position.y, 1.3)], false, () => { h.p.goalTurn = 0; h.change('idle'); SFX.success(); });
       this.focus = { x: room.group.position.x, y: room.group.position.y, until: this.timer + 5 };
       juego.set({ hint: { key: '', text: tx('world.recruitMovesIn', { nombre: h.id.name, mote: tIs(h.id.nickname), sala: room.name }) } });
       setTimeout(() => juego.set({ hint: null }), 5000);
@@ -500,7 +500,7 @@ export class Shelter {
     this.supervisor = sup;
     this.currentRoom = room;
     this.frameRoom(room);
-    this.camara.immediate();
+    this.camera.immediate();
   }
 
   // viaje rápido: lleva al Supervisor a una sala (desde el plano, la lista de ocupados o la URL de QA)
@@ -509,14 +509,14 @@ export class Shelter {
     this.supervisor.stop(); this.mounted = false;
     this.supervisor.root.position.copy(this.freeGap(s));
     this.currentRoom = s; this.viewGeneral = false; this.frameRoom(s);
-    if (immediate) this.camara.immediate();
+    if (immediate) this.camera.immediate();
     if (this.elevator) this.elevator.call(s.floor);
     this.publish();
   }
 
   // sitio libre en la franja delantera de una sala: a 0,9 m o más de cualquier habitante, ayudante u obstáculo
   freeGap(s: Room, preferred = 1.5) {
-    const occupants = [...this.dwellers.map(h => h.pos), ...s.points.filter(pt => pt.busy || pt.type === 'aficion' || pt.type === 'pieza' || pt.type === 'puesto').map(pt => pt.pos.clone().add(s.group.position)), ...[...this.helpers.robots.values()].map(r => r.p.root.position), ...[...this.visitors.figures.values()].map(f => f.p.root.position), ...this.holograms.positions()];
+    const occupants = [...this.dwellers.map(h => h.pos), ...s.points.filter(pt => pt.busy || pt.type === 'hobby' || pt.type === 'piece' || pt.type === 'workstation').map(pt => pt.pos.clone().add(s.group.position)), ...[...this.helpers.robots.values()].map(r => r.p.root.position), ...[...this.visitors.figures.values()].map(f => f.p.root.position), ...this.holograms.positions()];
     const cx = s.group.position.x, y = s.group.position.y;
     for (const dx of [preferred, -preferred, 3, -3, 2.2, -2.2, 4.5, -4.5, 3.8, -3.8, 5.2, -5.2, 0.8, -0.8, 0]) for (const z of [1.35, 1.7, 0.9]) {   // el centro, lo último: ahí está la pieza de la sala
       const p = new THREE.Vector3(cx + dx, y, z);
@@ -536,12 +536,12 @@ export class Shelter {
     // el habitante de la primera sala de repo (ya no hay salas de serie con habitante fijo)
     const sender = this.dwellers.find(h => h.room.type === 'repo'); if (!sender) return;
     this.stepsDemo = [
-      [9, () => sender.change('pensando', 'leyendo src/componentes/Cabecera.tsx', 'leer')],
-      [8, () => sender.change('trabajando', 'editando Cabecera.tsx', 'editar')],
-      [8, () => sender.change('trabajando', 'npm test', 'terminal')],
-      [7, () => { sender.change('esperando', 'permiso: git push'); SFX.highNotice(); }],
-      [6, () => { sender.change('terminado', 'listo: 3 archivos'); SFX.success(); juego.set(e => ({ scrap: e.scrap + 15 })); }],
-      [6, () => sender.change('trabajando', 'npm run build', 'terminal')],
+      [9, () => sender.change('thinking', 'leyendo src/componentes/Cabecera.tsx', 'read')],
+      [8, () => sender.change('working', 'editando Cabecera.tsx', 'edit')],
+      [8, () => sender.change('working', 'npm test', 'terminal')],
+      [7, () => { sender.change('waiting', 'permiso: git push'); SFX.highNotice(); }],
+      [6, () => { sender.change('finished', 'listo: 3 archivos'); SFX.success(); juego.set(e => ({ scrap: e.scrap + 15 })); }],
+      [6, () => sender.change('working', 'npm run build', 'terminal')],
     ];
     this.clockDemo = this.stepsDemo[0][0];
   }
@@ -554,9 +554,9 @@ export class Shelter {
   // ---- sesiones reales → habitantes
   // con varios trabajos a la vez (pestañas del intercomunicador), el habitante enseña el más urgente
   private sessionOf(h: Dweller): SessionSummary | undefined {
-    const urgency = (s: SessionSummary) => s.state === 'esperando' ? 0 : s.state === 'error' ? 1 : s.state === 'terminada' && s.unread ? 2 : s.state === 'trabajando' || s.state === 'arrancando' ? 3 : 4;
+    const urgency = (s: SessionSummary) => s.state === 'waiting' ? 0 : s.state === 'error' ? 1 : s.state === 'finished' && s.unread ? 2 : s.state === 'working' || s.state === 'starting' ? 3 : 4;
     // lo que se hace dentro de un worktree lo enseña su copia holográfica, no el habitante
-    return Object.values(live.get().sessions).filter(s => s.dwellerId === h.id.id && s.state !== 'cerrada' && !this.holograms.inWorktree(s)).sort((a, b) => urgency(a) - urgency(b) || b.updated - a.updated)[0];
+    return Object.values(live.get().sessions).filter(s => s.dwellerId === h.id.id && s.state !== 'closed' && !this.holograms.inWorktree(s)).sort((a, b) => urgency(a) - urgency(b) || b.updated - a.updated)[0];
   }
   private signatures = new Map<string, string>();
   // each dweller's ✉ n (queuedMark): messages its conversations outside worktrees have not taken yet; and its ⚑
@@ -572,21 +572,21 @@ export class Shelter {
       if (q) this.queued.set(h.id.id, q); else this.queued.delete(h.id.id);
       if (fl) this.flagged.set(h.id.id, fl); else this.flagged.delete(h.id.id);
       const s = this.sessionOf(h);
-      const signature = s ? [s.id, s.state, s.unread, s.activity?.mode, s.activity?.text].join('|') : 'sin';
+      const signature = s ? [s.id, s.state, s.unread, s.activity?.mode, s.activity?.text].join('|') : 'none';
       if (this.signatures.get(h.id.id) === signature) continue;
       const was = this.signatures.has(h.id.id);
       this.signatures.set(h.id.id, signature);
       h.sessionId = s?.id;
-      if (!s) { if (was && h.state !== 'durmiendo' && h.state !== 'ocioso') h.change('ocioso'); changed = true; continue; }
+      if (!s) { if (was && h.state !== 'sleeping' && h.state !== 'idle') h.change('idle'); changed = true; continue; }
       const m = s.activity?.mode;
-      if (s.state === 'arrancando') h.change('pensando', tx('windows.gettingReady'), 'leer');
-      else if (s.state === 'trabajando') {
-        if (!m || m === 'pensar') h.change('pensando', s.activity?.text ?? tx('windows.thinking'), 'leer');
-        else h.change('trabajando', s.activity?.text ?? '', m === 'escribir' ? 'editar' : m === 'terminal' ? 'terminal' : m === 'web' ? 'web' : 'buscar');
-      } else if (s.state === 'esperando') { if (h.state !== 'esperando') SFX.highNotice(); h.change('esperando', s.pending?.title ?? tx('windows.waitingForYou')); }
-      else if (s.state === 'terminada' && s.unread) { if (h.state !== 'terminado') SFX.success(); h.change('terminado', tx('windows.readyTitulo', { titulo: s.title ?? '' })); }
+      if (s.state === 'starting') h.change('thinking', tx('windows.gettingReady'), 'read');
+      else if (s.state === 'working') {
+        if (!m || m === 'think') h.change('thinking', s.activity?.text ?? tx('windows.thinking'), 'read');
+        else h.change('working', s.activity?.text ?? '', m === 'write' ? 'edit' : m === 'terminal' ? 'terminal' : m === 'web' ? 'web' : 'search');
+      } else if (s.state === 'waiting') { if (h.state !== 'waiting') SFX.highNotice(); h.change('waiting', s.pending?.title ?? tx('windows.waitingForYou')); }
+      else if (s.state === 'finished' && s.unread) { if (h.state !== 'finished') SFX.success(); h.change('finished', tx('windows.readyTitulo', { titulo: s.title ?? '' })); }
       else if (s.state === 'error') { if (h.state !== 'error') SFX.error(); h.change('error', s.error ?? tx('windows.fault')); }
-      else h.change('ocioso', s.title);
+      else h.change('idle', s.title);
       changed = true;
       h.room.activity = Math.min(1, 0.25 + (s.tools % 40) / 40 * 0.75);
     }
@@ -602,21 +602,21 @@ export class Shelter {
     const r = this.motor.renderer.domElement.getBoundingClientRect();
     this.ray.setFromCamera(new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1), this.motor.camera);
     const p = this.ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 0, 1), 0), new THREE.Vector3());
-    const before = this.camara.distance;
-    this.camara.zoom(e.deltaY);
-    this.viewGeneral = this.camara.distance > this.distRoom * 2.2;
+    const before = this.camera.distance;
+    this.camera.zoom(e.deltaY);
+    this.viewGeneral = this.camera.distance > this.distRoom * 2.2;
     if (this.mounted || this.activityMode || this.focus || !p) return;
     // the centre of what is seen is the goal plus what was dragged; the shift goes to the displacement, and the camera
     // stops following (following would move the goal and the zoom would slide away from the mouse)
-    const k = 1 - this.camara.distance / before, c = this.camara.goal.clone().add(this.camara.displacement);
-    this.camara.displacement.x += (p.x - c.x) * k;
-    this.camara.displacement.y += (p.y - c.y) * k;
+    const k = 1 - this.camera.distance / before, c = this.camera.goal.clone().add(this.camera.displacement);
+    this.camera.displacement.x += (p.x - c.x) * k;
+    this.camera.displacement.y += (p.y - c.y) * k;
     this.followsCamera = false;
   }
   frameRoom(room: Room) {
     this.followsCamera = true;
-    this.camara.frame(new THREE.Vector3(room.group.position.x, room.group.position.y + 2.0, 0), room.width + FRAME * 2 + 1.7, HEIGHT + SLAB * 2 + 0.4);
-    this.distRoom = this.camara.distance;
+    this.camera.frame(new THREE.Vector3(room.group.position.x, room.group.position.y + 2.0, 0), room.width + FRAME * 2 + 1.7, HEIGHT + SLAB * 2 + 0.4);
+    this.distRoom = this.camera.distance;
   }
   /** Foto del corte del refugio, de frente, para el plano: la imagen y dónde cae cada sala (en 0..1). */
   mapSnapshot() {
@@ -662,7 +662,7 @@ export class Shelter {
       const width = Math.max(...xs) - Math.min(...xs) + ROOM_WIDTH + 6;
       const above = HEIGHT + SLAB + 4.2, below = yRoom(this.floors - 1) - SLAB - 0.8;
       const height = (above - below) * 1.04;
-      this.camara.frame(new THREE.Vector3((Math.max(...xs) + Math.min(...xs)) / 2, (above + below) / 2 + height * 0.03, 0), width, height);
+      this.camera.frame(new THREE.Vector3((Math.max(...xs) + Math.min(...xs)) / 2, (above + below) / 2 + height * 0.03, 0), width, height);
     } else if (this.currentRoom) this.frameRoom(this.currentRoom);
   }
 
@@ -675,7 +675,7 @@ export class Shelter {
     const fp = f.p.root.position, sp = this.supervisor.root.position;
     if (Math.abs(sp.y - fp.y) > 1 || Math.hypot(sp.x - fp.x, sp.z - fp.z) > 2.2) {
       sp.set(fp.x + (fp.x > f.room.group.position.x ? -1.3 : 1.3), f.room.group.position.y, Math.min(1.6, fp.z + 0.4));
-      this.camara.immediate();
+      this.camera.immediate();
     }
     if (talk) this.interactCopy(f);
   }
@@ -700,7 +700,7 @@ export class Shelter {
     SFX.open();
     if (this.focused !== h) this.dropChat();
     // a quien duerme se le despierta: se levanta de la litera para hablar (de tumbado no hay retrato ni encuadre)
-    if (h.state === 'durmiendo') { h.change('ocioso'); h.p.inRest = 'Idle_A'; h.p.play('Idle_A', 0.2); }
+    if (h.state === 'sleeping') { h.change('idle'); h.p.inRest = 'Idle_A'; h.p.play('Idle_A', 0.2); }
     this.focused = h; h.chatting = true;
     this.portrait?.destroy(); this.portrait = new Portrait(h.p);
     (window as any).__portrait = this.portrait.canvas;
@@ -729,15 +729,15 @@ export class Shelter {
   private chatInView(pos: THREE.Vector3) {
     this.followsCamera = false;
     const cam = this.motor.camera, fabric = this.motor.renderer.domElement.getBoundingClientRect();
-    const v = document.querySelector('.consola')?.getBoundingClientRect();
+    const v = document.querySelector('.console')?.getBoundingClientRect();
     const left = v && v.width > 0 && v.width < fabric.width * 0.95 ? (v.left - fabric.left) / fabric.width : 0.5;
     const free = THREE.MathUtils.clamp(left, 0.3, 1);
     // what is seen at the person's depth, around the goal plus what was dragged
-    const prof = this.camara.distance * Math.cos(this.camara.elevation) - pos.z;
+    const prof = this.camera.distance * Math.cos(this.camera.elevation) - pos.z;
     const hh = prof * Math.tan(THREE.MathUtils.degToRad(cam.fov) / 2);
-    const c = this.camara.goal.clone().add(this.camara.displacement);
+    const c = this.camera.goal.clone().add(this.camera.displacement);
     const n = chatNudge({ cx: c.x, cy: c.y, hw: hh * cam.aspect, hh, free }, pos.x, pos.y + 0.9);
-    this.camara.goal.x += n.x; this.camara.goal.y += n.y;
+    this.camera.goal.x += n.x; this.camera.goal.y += n.y;
   }
 
   // el Supervisor camina hasta su sitio en la charla ya abierta y, al llegar, se vuelve hacia su interlocutor
@@ -828,14 +828,14 @@ export class Shelter {
   private ray = new THREE.Raycaster();
   private mouse: THREE.Vector2 | null = null;
   private cameraDragging = () => false;
-  aimed: { type: 'habitante'; h: Dweller } | { type: 'copia'; f: Copy } | { type: 'aparato'; room: Room; it: Interactive; view?: string } | { type: 'fila'; room: Room; row: ShownRow; pos: THREE.Vector3 } | { type: 'ascensor'; floor: number } | null = null;
+  aimed: { type: 'dweller'; h: Dweller } | { type: 'copy'; f: Copy } | { type: 'device'; room: Room; it: Interactive; view?: string } | { type: 'row'; room: Room; row: ShownRow; pos: THREE.Vector3 } | { type: 'elevator'; floor: number } | null = null;
   private ndc(e: PointerEvent) {
     const r = this.motor.renderer.domElement.getBoundingClientRect();
     return new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
   }
   // lo que hay bajo el puntero: un habitante, una copia o un aparato (su columna, del suelo a la pared del fondo);
   // si no, el punto del suelo (para ir andando)
-  private log(ndc: THREE.Vector2): { type: 'habitante'; h: Dweller } | { type: 'copia'; f: Copy } | { type: 'aparato'; room: Room; it: Interactive; view?: string } | { type: 'fila'; room: Room; row: ShownRow; pos: THREE.Vector3 } | { type: 'ascensor'; floor: number } | { type: 'suelo'; p: THREE.Vector3; room?: Room; floor: number } | null {
+  private log(ndc: THREE.Vector2): { type: 'dweller'; h: Dweller } | { type: 'copy'; f: Copy } | { type: 'device'; room: Room; it: Interactive; view?: string } | { type: 'row'; room: Room; row: ShownRow; pos: THREE.Vector3 } | { type: 'elevator'; floor: number } | { type: 'floor'; p: THREE.Vector3; room?: Room; floor: number } | null {
     this.ray.setFromCamera(ndc, this.motor.camera);
     const play = (box: THREE.Box3) => { const p = this.ray.ray.intersectBox(box, new THREE.Vector3()); return p ? p.distanceTo(this.ray.ray.origin) : Infinity; };
     const body = (c: THREE.Vector3, k = 1) => new THREE.Box3(new THREE.Vector3(c.x - 0.45 * k, c.y, c.z - 0.45 * k), new THREE.Vector3(c.x + 0.45 * k, c.y + 1.9 * k, c.z + 0.45 * k));
@@ -871,7 +871,7 @@ export class Shelter {
     if (onBoard?.uv && onBoard.distance < tmin && onBoard.distance <= tap + 0.05) {
       const room = this.rooms.find(s => s.userData.taskBoard?.mesh === onBoard.object);
       const row = room && (room.userData.taskBoard.board as TaskBoard).rowAt(onBoard.uv);
-      if (room && row) return { type: 'fila', room, row, pos: onBoard.point.clone() };
+      if (room && row) return { type: 'row', room, row, pos: onBoard.point.clone() };
     }
     // ¿las puertas del ascensor?
     let elevator: number | null = null;
@@ -882,9 +882,9 @@ export class Shelter {
     }
     // gana lo que está delante: quien se pone ante el tablón tapa el tablón; el DJ, tras su cabina, no la tapa (la
     // columna de un aparato sin medir es solo aproximada: ahí quien esté dentro gana siempre)
-    if (tmin <= tap || !measured) { if (copy) return { type: 'copia', f: copy }; if (best) return { type: 'habitante', h: best }; }
-    if (device) return { type: 'aparato', ...device };
-    if (elevator !== null) return { type: 'ascensor', floor: elevator };
+    if (tmin <= tap || !measured) { if (copy) return { type: 'copy', f: copy }; if (best) return { type: 'dweller', h: best }; }
+    if (device) return { type: 'device', ...device };
+    if (elevator !== null) return { type: 'elevator', floor: elevator };
     // ¿el suelo de alguna sala o del rellano? (junto al punto de un aparato, ese aparato; en el rellano, el ascensor)
     for (let floor = 0; floor < this.floors; floor++) {
       const y = yRoom(floor); const p = this.ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -y), new THREE.Vector3());
@@ -892,9 +892,9 @@ export class Shelter {
       const room = this.rooms.find(s => s.floor === floor && Math.abs(p.x - s.group.position.x) <= s.width / 2);
       if (!room && Math.abs(p.x) > ELEVATOR_WIDTH / 2) continue;
       const it = room?.interactive?.find(i => Math.hypot(room.group.position.x + i.x - p.x, i.z - p.z) < 1.0);
-      if (it && room) return { type: 'aparato', room, it };
-      if (!room && this.elevator) return { type: 'ascensor', floor };
-      return { type: 'suelo', p, room, floor };
+      if (it && room) return { type: 'device', room, it };
+      if (!room && this.elevator) return { type: 'elevator', floor };
+      return { type: 'floor', p, room, floor };
     }
     return null;
   }
@@ -905,14 +905,14 @@ export class Shelter {
     const j = juego.get(); if (j.panel || !this.supervisor) return;
     const a = this.log(this.ndc(e)); if (!a) return;
     if (j.talkingWith) {
-      if ((a.type !== 'habitante' && a.type !== 'copia' && a.type !== 'aparato' && a.type !== 'fila') || (a.type === 'habitante' && a.h === this.focused) || (a.type === 'copia' && a.f === this.copyFocused)) return;
+      if ((a.type !== 'dweller' && a.type !== 'copy' && a.type !== 'device' && a.type !== 'row') || (a.type === 'dweller' && a.h === this.focused) || (a.type === 'copy' && a.f === this.copyFocused)) return;
       SFX.close(); juego.set({ talkingWith: null, workIn: null }); this.dialogEnd();   // como minimizarIntercom (ui/Dialog.tsx)
     }
     // la charla se abre con el clic; el Supervisor llega andando por detrás
-    if (a.type === 'copia') { SFX.click(); this.interactCopy(a.f, true); return; }
-    if (a.type === 'habitante') { SFX.click(); this.interact(a.h, true); return; }
-    if (a.type === 'fila') { SFX.click(); this.talkFromBoard(a.room, a.row); return; }
-    if (a.type === 'aparato') {
+    if (a.type === 'copy') { SFX.click(); this.interactCopy(a.f, true); return; }
+    if (a.type === 'dweller') { SFX.click(); this.interact(a.h, true); return; }
+    if (a.type === 'row') { SFX.click(); this.talkFromBoard(a.room, a.row); return; }
+    if (a.type === 'device') {
       // al punto del aparato (desde ahí se usa), no a donde cayó el rayo
       const { room, it } = a; const target = new THREE.Vector3(room.group.position.x + it.x, room.group.position.y, THREE.MathUtils.clamp(it.z, -BACKGROUND / 2 + 0.6, BACKGROUND / 2 - 0.5));
       target.x = THREE.MathUtils.clamp(target.x, room.group.position.x - room.width / 2 + 0.6, room.group.position.x + room.width / 2 - 0.6);
@@ -920,7 +920,7 @@ export class Shelter {
       SFX.click(); this.useDevice(room, it, a.view, false);
       this.goAPoint(target, () => { if (juego.get().panelData?.device === it.id) this.tapDevice(room, it); }); return;
     }
-    if (a.type === 'ascensor') { this.goAPoint(new THREE.Vector3(0, yRoom(a.floor), 0.35)); SFX.click(); return; }
+    if (a.type === 'elevator') { this.goAPoint(new THREE.Vector3(0, yRoom(a.floor), 0.35)); SFX.click(); return; }
     const { p, room, floor } = a;
     const target = new THREE.Vector3(p.x, yRoom(floor), THREE.MathUtils.clamp(p.z, -BACKGROUND / 2 + 0.6, BACKGROUND / 2 - 0.5));
     if (room) target.x = THREE.MathUtils.clamp(target.x, room.group.position.x - room.width / 2 + 0.6, room.group.position.x + room.width / 2 - 0.6);
@@ -951,9 +951,9 @@ export class Shelter {
     if (this.cameraDragging()) return;
     const a = this.mouse && !j.panel && this.supervisor && !this.mounted ? this.log(this.mouse) : null;
     // con una charla abierta solo cuentan otro interlocutor (el clic cambia de charla) y los aparatos; lo demás no hace nada
-    const other = a && (a.type === 'aparato' || a.type === 'fila' || (a.type === 'habitante' && a.h !== this.focused) || (a.type === 'copia' && a.f !== this.copyFocused));
-    const newer = a && a.type !== 'suelo' && (!j.talkingWith || other) ? a : null;
-    const same = (x: typeof this.aimed, y: typeof this.aimed) => x === y || (!!x && !!y && x.type === y.type && (x.type === 'habitante' ? x.h === (y as any).h : x.type === 'copia' ? x.f === (y as any).f : x.type === 'ascensor' ? x.floor === (y as any).floor : x.type === 'fila' ? x.room === (y as any).room && x.row.path === (y as any).row.path : x.it === (y as any).it));
+    const other = a && (a.type === 'device' || a.type === 'row' || (a.type === 'dweller' && a.h !== this.focused) || (a.type === 'copy' && a.f !== this.copyFocused));
+    const newer = a && a.type !== 'floor' && (!j.talkingWith || other) ? a : null;
+    const same = (x: typeof this.aimed, y: typeof this.aimed) => x === y || (!!x && !!y && x.type === y.type && (x.type === 'dweller' ? x.h === (y as any).h : x.type === 'copy' ? x.f === (y as any).f : x.type === 'elevator' ? x.floor === (y as any).floor : x.type === 'row' ? x.room === (y as any).room && x.row.path === (y as any).row.path : x.it === (y as any).it));
     if (!same(newer, this.aimed)) { this.aimed = newer; if (newer) SFX.hover(); this.motor.renderer.domElement.style.cursor = newer ? 'pointer' : ''; }
   }
 
@@ -986,10 +986,10 @@ export class Shelter {
     const ef = new Map(this.dwellers.map(h => [h, { state: h.state, detail: h.detail, sessionId: h.sessionId }]));
     for (const s of this.rooms) {
       const hs = [...this.dwellers.filter(h => h.room === s).map(h => ({ id: h.id, ...ef.get(h)! })), ...copies.filter(c => c.room === s.id).map(c => ({ id: { name: c.name }, state: c.state, detail: c.detail ?? '', sessionId: c.sessionId }))];
-      const e = hs.some(h => h.state === 'error') ? 'error' : hs.some(h => h.state === 'esperando') ? 'esperando' : hs.some(h => h.state === 'trabajando' || h.state === 'pensando') ? 'trabajando' : hs.some(h => h.state === 'terminado') ? 'terminada' : hs.length ? 'ociosa' : 'sin-sesion';
-      const who = hs.find(h => h.state !== 'ocioso' && h.state !== 'durmiendo');
+      const e = hs.some(h => h.state === 'error') ? 'error' : hs.some(h => h.state === 'waiting') ? 'waiting' : hs.some(h => h.state === 'working' || h.state === 'thinking') ? 'working' : hs.some(h => h.state === 'finished') ? 'finished' : hs.length ? 'idle' : 'no-session';
+      const who = hs.find(h => h.state !== 'idle' && h.state !== 'sleeping');
       if (e !== s.state) s.setState(e as any, who ? `${who.id.name}: ${who.detail}` : undefined);
-      s.setIcon(hs.some(h => h.state === 'error') ? 'error' : hs.some(h => h.state === 'esperando') ? 'espera' : hs.some(h => h.state === 'terminado') ? 'listo' : null);
+      s.setIcon(hs.some(h => h.state === 'error') ? 'error' : hs.some(h => h.state === 'waiting') ? 'wait' : hs.some(h => h.state === 'finished') ? 'ready' : null);
     }
     const roomsServ: any[] = live.get().state?.rooms ?? [];
     juego.set({ dwellers: this.dwellers.map(h => ({ id: h.id.id, name: h.id.name, nickname: h.id.nickname, type: h.id.type, bio: h.id.bio, room: h.room.id, nameRoom: h.room.name, path: roomsServ.find(x => x.id === h.room.id)?.path ?? h.room.path, folder: roomsServ.find(x => x.id === h.room.id)?.folder ?? roomsServ.find(x => x.id === h.room.id)?.path ?? h.room.path, state: ef.get(h)!.state, detail: ef.get(h)!.detail, sessionId: ef.get(h)!.sessionId, robot: h.p.look?.especie === 'robot' })), copies, currentRoom: this.currentRoom?.id ?? '' });
@@ -1099,7 +1099,7 @@ export class Shelter {
     } else { this.supStill = 0; this.supChange = 5 + Math.random() * 5; }
     this.timer += dt;
     for (const f of this.tareas) f(dt);
-    this.galeria.actualizar(dt);
+    this.gallery.actualizar(dt);
     this.helpers.update(dt);
     this.messengers.update(dt);
     this.visitors.update(dt);
@@ -1114,11 +1114,11 @@ export class Shelter {
     audioWorld.update(dt, this);   // ambiente de cada sala, voces y tecleo de los habitantes
     // las salas cercanas se animan a pleno ritmo; las lejanas, de vez en cuando
     // de lejos (vista general) ninguna sala necesita animarse a pleno ritmo: se reparten en turnos de 4
-    const farAll = this.camara.distance > this.distRoom * 1.6;
+    const farAll = this.camera.distance > this.distRoom * 1.6;
     this.motor.frozenShadows = farAll;   // de lejos, sombras congeladas
     this.roomsTurn = (this.roomsTurn + 1) % 4;
     this.rooms.forEach((s, i) => {
-      const d = Math.hypot(s.group.position.x - this.camara.goal.x, s.group.position.y - this.camara.goal.y);
+      const d = Math.hypot(s.group.position.x - this.camera.goal.x, s.group.position.y - this.camera.goal.y);
       if (d < 18 && !farAll) s.update(dt, t);
       else if (this.roomsTurn === i % 4) s.update(dt * 4, t);
     });
@@ -1148,57 +1148,57 @@ export class Shelter {
     if (best !== this.nearest) { this.nearest = best; if (best) SFX.hover(); }
     this.updateAimed();
     const aim = this.aimed;
-    const aimH = aim?.type === 'habitante' ? aim.h : null, aimC = aim?.type === 'copia' ? aim.f : null;
+    const aimH = aim?.type === 'dweller' ? aim.h : null, aimC = aim?.type === 'copy' ? aim.f : null;
     // etiquetas (solo las de salas a la vista)
-    const farSide = this.camara.distance > this.distRoom * 1.45;
-    const visible = this.dwellers.filter(h => Math.abs(h.pos.x - this.camara.goal.x) < this.camara.distance * 0.45 && Math.abs(h.pos.y - this.camara.goal.y) < this.camara.distance * 0.3);
+    const farSide = this.camera.distance > this.distRoom * 1.45;
+    const visible = this.dwellers.filter(h => Math.abs(h.pos.x - this.camera.goal.x) < this.camera.distance * 0.45 && Math.abs(h.pos.y - this.camera.goal.y) < this.camera.distance * 0.3);
     // menos chips sobre las piezas: solo se rotula a quien pide atención, trabaja o está junto al Supervisor
     // y a quien tiene un mensaje programado pendiente (su ⏰, scheduledMark)
-    const relevant = (h: Dweller) => h === this.nearest || h === aimH || !['ocioso', 'durmiendo'].includes(h.state) || Math.abs(h.pos.x - sp.x) < 2.2 || !!scheduledMark(h.room.id) || this.queued.has(h.id.id) || this.flagged.has(h.id.id);
-    const items: any[] = visible.filter(relevant).map(h => ({ k: h, scheduled: scheduledMark(h.room.id), queued: this.queued.get(h.id.id), flagged: this.flagged.get(h.id.id), pos: h.p.headPoint(), height: 0.2, name: h.id.name, state: h.state, detail: h === this.nearest && h.state !== 'ocioso' && h.state !== 'durmiendo' ? h.detail : '', near: h === this.nearest || h === aimH, farSide, prompt: h === this.nearest || h === aimH ? tx('world.talk') : '', key: h === this.nearest ? 'E' : tx('world.click'), aimed: h === aimH }));
+    const relevant = (h: Dweller) => h === this.nearest || h === aimH || !['idle', 'sleeping'].includes(h.state) || Math.abs(h.pos.x - sp.x) < 2.2 || !!scheduledMark(h.room.id) || this.queued.has(h.id.id) || this.flagged.has(h.id.id);
+    const items: any[] = visible.filter(relevant).map(h => ({ k: h, scheduled: scheduledMark(h.room.id), queued: this.queued.get(h.id.id), flagged: this.flagged.get(h.id.id), pos: h.p.headPoint(), height: 0.2, name: h.id.name, state: h.state, detail: h === this.nearest && h.state !== 'idle' && h.state !== 'sleeping' ? h.detail : '', near: h === this.nearest || h === aimH, farSide, prompt: h === this.nearest || h === aimH ? tx('world.talk') : '', key: h === this.nearest ? 'E' : tx('world.click'), aimed: h === aimH }));
     // los visitantes son aparatos que se rotulan en su propio letrero (nunca un segundo encima ni sobre el Supervisor)
     const visitor = (it?: Interactive | null) => !!it?.id.startsWith('vis:');
     const nearDevice = visitor(this.nearDevice?.it) ? null : this.nearDevice;
-    items.push(...this.visitors.labels(farSide, this.nearDevice?.it.id, aim?.type === 'aparato' ? aim.it.id : undefined).filter(x => Math.abs(x.pos.x - this.camara.goal.x) < this.camara.distance * 0.45 && Math.abs(x.pos.y - this.camara.goal.y) < this.camara.distance * 0.3));
+    items.push(...this.visitors.labels(farSide, this.nearDevice?.it.id, aim?.type === 'device' ? aim.it.id : undefined).filter(x => Math.abs(x.pos.x - this.camera.goal.x) < this.camera.distance * 0.45 && Math.abs(x.pos.y - this.camera.goal.y) < this.camera.distance * 0.3));
     // what the pointer is over for the holograms' and helpers' tags: the figure, or its tag as drawn last frame
     const pointer = this.mouse && !juego.get().panel && !this.cameraDragging() ? this.mouse : null;
     const canvas = pointer && this.motor.renderer.domElement.getBoundingClientRect();
     const overTag = pointer && canvas ? this.labels.at(canvas.left + (pointer.x + 1) / 2 * canvas.width, canvas.top + (1 - pointer.y) / 2 * canvas.height) : undefined;
     if (pointer) this.ray.setFromCamera(pointer, this.motor.camera);
     const overHelper = (pointer ? this.helpers.at(this.ray.ray) : undefined) ?? overTag;
-    items.push(...this.holograms.labels(farSide, this.nearby, aimC, overTag).filter(x => Math.abs(x.pos.x - this.camara.goal.x) < this.camara.distance * 0.45 && Math.abs(x.pos.y - this.camara.goal.y) < this.camara.distance * 0.3));
-    items.push(...this.helpers.labels(overHelper).filter(x => Math.abs(x.pos.x - this.camara.goal.x) < this.camara.distance * 0.45 && Math.abs(x.pos.y - this.camara.goal.y) < this.camara.distance * 0.3));
-    items.push({ k: this.supervisor, pos: this.supervisor.headPoint(), height: 0.2, name: nearDevice ? nearDevice.it.text : tx('world.you'), state: 'ocioso', detail: '', near: !!nearDevice, farSide, prompt: nearDevice ? tx('world.use') : '', supervisor: true });
+    items.push(...this.holograms.labels(farSide, this.nearby, aimC, overTag).filter(x => Math.abs(x.pos.x - this.camera.goal.x) < this.camera.distance * 0.45 && Math.abs(x.pos.y - this.camera.goal.y) < this.camera.distance * 0.3));
+    items.push(...this.helpers.labels(overHelper).filter(x => Math.abs(x.pos.x - this.camera.goal.x) < this.camera.distance * 0.45 && Math.abs(x.pos.y - this.camera.goal.y) < this.camera.distance * 0.3));
+    items.push({ k: this.supervisor, pos: this.supervisor.headPoint(), height: 0.2, name: nearDevice ? nearDevice.it.text : tx('world.you'), state: 'idle', detail: '', near: !!nearDevice, farSide, prompt: nearDevice ? tx('world.use') : '', supervisor: true });
     // el aparato apuntado con el ratón (si no es el que ya está a mano), encima de su sitio
-    if (aim?.type === 'aparato' && aim.it !== this.nearDevice?.it && !visitor(aim.it)) items.push({ k: aim.it, pos: this.deviceOver(aim.room, aim.it), height: 0, name: aim.it.text, state: 'ocioso', detail: '', near: true, farSide, prompt: tx('world.use'), key: tx('world.click'), device: true, aimed: true });
-    if (aim?.type === 'fila') items.push({ k: 'fila:' + aim.row.path, pos: aim.pos, height: 0, name: this.rowCaption(aim.room, aim.row), state: 'ocioso', detail: '', near: true, farSide, prompt: tx('world.talk'), key: tx('world.click'), device: true, aimed: true });
+    if (aim?.type === 'device' && aim.it !== this.nearDevice?.it && !visitor(aim.it)) items.push({ k: aim.it, pos: this.deviceOver(aim.room, aim.it), height: 0, name: aim.it.text, state: 'idle', detail: '', near: true, farSide, prompt: tx('world.use'), key: tx('world.click'), device: true, aimed: true });
+    if (aim?.type === 'row') items.push({ k: 'row:' + aim.row.path, pos: aim.pos, height: 0, name: this.rowCaption(aim.room, aim.row), state: 'idle', detail: '', near: true, farSide, prompt: tx('world.talk'), key: tx('world.click'), device: true, aimed: true });
     // el aviso de un aparato va sobre el Supervisor: nunca encima de la pantalla o el cartel que se usa
-    if (aim?.type === 'ascensor' && !(inLanding && aim.floor === floor)) items.push({ k: this.elevator, pos: new THREE.Vector3(0, yRoom(aim.floor) + 3.2, 1), height: 0, name: tx('world.elevator'), state: 'ocioso', detail: '', near: true, farSide, prompt: tx('world.go'), key: tx('world.click'), device: true, aimed: true });
-    else if (inLanding && !this.mounted && this.elevator) items.push({ k: this.elevator, pos: new THREE.Vector3(0, sp.y + 3.2, 1), height: 0, name: tx('world.elevator'), state: 'ocioso', detail: '', near: true, farSide, prompt: tx('world.wSUpAndDown') });
+    if (aim?.type === 'elevator' && !(inLanding && aim.floor === floor)) items.push({ k: this.elevator, pos: new THREE.Vector3(0, yRoom(aim.floor) + 3.2, 1), height: 0, name: tx('world.elevator'), state: 'idle', detail: '', near: true, farSide, prompt: tx('world.go'), key: tx('world.click'), device: true, aimed: true });
+    else if (inLanding && !this.mounted && this.elevator) items.push({ k: this.elevator, pos: new THREE.Vector3(0, sp.y + 3.2, 1), height: 0, name: tx('world.elevator'), state: 'idle', detail: '', near: true, farSide, prompt: tx('world.wSUpAndDown') });
     // de lejos solo se rotula lo que pide atención (te espera, terminó sin leer, avería) y a ti
-    if (farSide) for (let i = items.length - 1; i >= 0; i--) if (!items[i].supervisor && !items[i].aimed && !['esperando', 'terminado', 'error'].includes(items[i].state)) items.splice(i, 1);
+    if (farSide) for (let i = items.length - 1; i >= 0; i--) if (!items[i].supervisor && !items[i].aimed && !['waiting', 'finished', 'error'].includes(items[i].state)) items.splice(i, 1);
     const covered = !!juego.get().panel;
     this.labels.root.style.visibility = covered ? 'hidden' : '';
     if (!covered) this.labels.update(this.motor.camera, items);
     // cámara
     // an event's framing (a room being dug, a recruit) stays where it ends: nothing re-frames by itself
     if (this.focus && this.focus.until < this.timer) this.focus = null;
-    if (this.focus && !this.focused && !this.copyFocused) { this.camara.goal.x = this.focus.x; this.camara.goal.y = this.focus.y + 2.0; }
+    if (this.focus && !this.focused && !this.copyFocused) { this.camera.goal.x = this.focus.x; this.camera.goal.y = this.focus.y + 2.0; }
     else if (this.focused || this.copyFocused || this.activityMode || !this.followsCamera) { /* the camera stays where it is */ }
-    else if (this.mounted) { this.camara.goal.x = 0; this.camara.goal.y = sp.y + 2; }   // a ride called with the keys
+    else if (this.mounted) { this.camera.goal.x = 0; this.camera.goal.y = sp.y + 2; }   // a ride called with the keys
     else if (!this.viewGeneral && this.currentRoom) {
       // la cámara sigue al Supervisor (también por el rellano y de una sala a otra)
-      const near = this.camara.distance < this.distRoom * 0.8;
+      const near = this.camera.distance < this.distRoom * 0.8;
       const s = this.currentRoom;
-      this.camara.goal.x = sp.x;
-      this.camara.goal.y = s.group.position.y + (near ? 1.6 : 2.0);
+      this.camera.goal.x = sp.x;
+      this.camera.goal.y = s.group.position.y + (near ? 1.6 : 2.0);
     }
     // what was dragged goes back to the framing only when the keys walk the Overseer (or ride the elevator)
-    if (!this.cameraDragging() && (((this.supervisor.inMovement || this.mounted) && this.followsCamera) || this.focus || this.activityMode)) this.camara.displacement.multiplyScalar(Math.exp(-dt * 4));
-    this.camara.update(dt);
+    if (!this.cameraDragging() && (((this.supervisor.inMovement || this.mounted) && this.followsCamera) || this.focus || this.activityMode)) this.camera.displacement.multiplyScalar(Math.exp(-dt * 4));
+    this.camera.update(dt);
     this.sky?.update(dt);
     // la sombra del sol y las luces dinámicas siguen al encuadre
-    const c = this.camara.goal;
+    const c = this.camera.goal;
     this.sun.position.set(c.x - 6, c.y + 12, 16); this.sun.target.position.set(c.x, c.y - 2, 0);
     this.assignment.update([...this.rooms, ...(this.elevator ? [{ anchors: this.elevator.anchors, group: this.elevator.car } as any] : [])], c, dt);
   }

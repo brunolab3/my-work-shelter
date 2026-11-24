@@ -49,7 +49,7 @@ export class WorkLog {
       try { text = readFileSync(file, 'utf8'); } catch (e) { return { source, file, ...parseLadder(''), errors: [String((e as Error).message)] }; }
       return { source, file, ...parseLadder(text) };
     }
-    return { source: 'none', file: this.ladderFile, ladder: { trophies: [], steps: [], digestRoom: 'logistica' }, errors: [] };
+    return { source: 'none', file: this.ladderFile, ladder: { trophies: [], steps: [], digestRoom: 'logistics' }, errors: [] };
   }
 
   /** Merges what the sources hold now. `remote`: also Jira and GitHub (the local parts are cheap and go every time) */

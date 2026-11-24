@@ -102,13 +102,13 @@ const GUIDES: Record<SourceId, { what: string; steps: React.ReactNode[] }> = {
 };
 export const INTEGRATIONS: IntegrationCard[] = ACTIVE_SOURCES.map(id => ({ id, name: tIs(INFO_SOURCE[id].name), ...GUIDES[id], fields: [] }));
 
-type View = { type: 'menu' } | { type: 'integracion'; id: string } | { type: 'slackRemote' } | { type: 'refugio' } | { type: 'salas' } | { type: 'supervisor' } | { type: 'reset' };
+type View = { type: 'menu' } | { type: 'integration'; id: string } | { type: 'slackRemote' } | { type: 'shelter' } | { type: 'salas' } | { type: 'supervisor' } | { type: 'reset' };
 
 export function PanelCamera() {
   const [view, setView] = useState<View>({ type: 'menu' });
-  if (view.type === 'integracion') return <IntegrationView card={INTEGRATIONS.find(f => f.id === view.id)!} goBack={() => setView({ type: 'menu' })} />;
+  if (view.type === 'integration') return <IntegrationView card={INTEGRATIONS.find(f => f.id === view.id)!} goBack={() => setView({ type: 'menu' })} />;
   if (view.type === 'slackRemote') return <SlackRemoteView goBack={() => setView({ type: 'menu' })} />;
-  if (view.type === 'refugio') return <ShelterView goBack={() => setView({ type: 'menu' })} />;
+  if (view.type === 'shelter') return <ShelterView goBack={() => setView({ type: 'menu' })} />;
   if (view.type === 'salas') return <RoomsView goBack={() => setView({ type: 'menu' })} />;
   if (view.type === 'supervisor') return <ViewSupervisor goBack={() => setView({ type: 'menu' })} />;
   if (view.type === 'reset') return <ViewReset goBack={() => setView({ type: 'menu' })} />;
@@ -121,21 +121,21 @@ function MenuCamera({ go }: { go: (v: View) => void }) {
   // el mando a distancia de Slack no es una fuente de avisos (no lee nada): tiene su propio estado
   const [sk, setSk] = useState<SlackRemoteState | null>(null);
   useEffect(() => { client.action<SlackRemoteState>('slackRemote.state').then(setSk).catch(() => {}); }, []);
-  const skPilot = sk?.paired ? 'conectada' : sk?.connected ? 'demo' : 'sin-configurar';
+  const skPilot = sk?.paired ? 'connected' : sk?.connected ? 'demo' : 'not-configured';
   const items: (ItemMenu & { f: () => void })[] = [
-    ...INTEGRATIONS.map(f => { const st = ints[f.id]; return { text: <><span className={'piloto-mini ' + (st?.state ?? 'demo')} /> {f.name}</>, hint: tIs(INTEGRATION_STATE_SHORT[st?.state ?? 'demo']) + (st?.detail && st.state === 'error' ? ' — ' + st.detail : ''), f: () => go({ type: 'integracion', id: f.id }) }; }),
+    ...INTEGRATIONS.map(f => { const st = ints[f.id]; return { text: <><span className={'piloto-mini ' + (st?.state ?? 'demo')} /> {f.name}</>, hint: tIs(INTEGRATION_STATE_SHORT[st?.state ?? 'demo']) + (st?.detail && st.state === 'error' ? ' — ' + st.detail : ''), f: () => go({ type: 'integration', id: f.id }) }; }),
     { text: <><span className={'piloto-mini ' + skPilot} /> {t('panels.slackRemoteMenu')}</>, hint: sk?.paired ? t('panels.slackRemoteVaultPaired') : sk?.connected ? t('panels.slackRemoteVaultNotPaired') : t('panels.slackRemoteVaultHint'), f: () => go({ type: 'slackRemote' }) },
-    { text: t('panels.theShelterNameReposRoot'), f: () => go({ type: 'refugio' }) },
+    { text: t('panels.theShelterNameReposRoot'), f: () => go({ type: 'shelter' }) },
     { text: t('panels.shelterRooms'), hint: hidden ? t('panels.shelterRoomsHint', { n: hidden }) : undefined, f: () => go({ type: 'salas' }) },
     { text: t('panels.overseerSOutfit'), f: () => go({ type: 'supervisor' }) },
-    { text: t('panels.optionsSoundAndDictationLanguage'), hint: 'Esc', f: () => juego.set({ panel: 'opciones' }) },
-    { text: t('menu.keyboardShortcuts'), hint: 'F1', f: () => juego.set({ panel: 'ayuda' }) },
+    { text: t('panels.optionsSoundAndDictationLanguage'), hint: 'Esc', f: () => juego.set({ panel: 'options' }) },
+    { text: t('menu.keyboardShortcuts'), hint: 'F1', f: () => juego.set({ panel: 'help' }) },
     { text: t('panels.resetTheShelter'), danger: true, f: () => go({ type: 'reset' }) },
   ];
   const [i, setI] = useMenu(items.length, k => items[k].f());
   return (
     <Device label={t('panels.vault')} width={54}>
-      <p className="voz">{t('panels.keysCredentialsAndSettingsHanzo')}</p>
+      <p className="voice">{t('panels.keysCredentialsAndSettingsHanzo')}</p>
       <Options items={items} i={i} setI={setI} onChoose={k => items[k].f()} />
       <Keys><kbd>↑↓</kbd>{t('menu.select')} <kbd>Enter</kbd>{t('windows.open')} <kbd>Esc</kbd>{t('menu.close')}</Keys>
     </Device>
@@ -146,7 +146,7 @@ function IntegrationView({ card: base, goBack }: { card: IntegrationCard; goBack
   // los campos los define el conector del servidor (nombre, etiqueta, secreto, ayuda); los pasos son de la cámara
   const [def, setDef] = useState<{ fields: IntegrationField[]; values: Record<string, string>; saved: string[] } | null>(null);
   useEffect(() => { client.action<any>('integration.fields', { source: base.id }).then(r => setDef({ fields: r.fields.map((c: any) => ({ id: c.name, label: tIs(c.label) + (c.optional ? t('panels.optional') : ''), secret: c.secret, help: c.help, example: c.example })), values: r.values ?? {}, saved: r.saved ?? [] })).catch(() => {}); }, []);
-  if (!def) return <Device label={t('panels.vaultNombre', { nombre: base.name.toUpperCase() })} width={62} onClose={goBack}><p className="tenue">{t('panels.readingTheConfiguration')}</p></Device>;
+  if (!def) return <Device label={t('panels.vaultNombre', { nombre: base.name.toUpperCase() })} width={62} onClose={goBack}><p className="dim">{t('panels.readingTheConfiguration')}</p></Device>;
   return <FormIntegration key="f" card={{ ...base, fields: def.fields.length || !base.fields.length ? def.fields : base.fields }} valuesIni={def.values} savedIni={def.saved} goBack={goBack} />;
 }
 
@@ -161,10 +161,10 @@ function FormIntegration({ card, valuesIni, savedIni, goBack }: { card: Integrat
   const real = st?.mode === 'real';
   const oauth = INFO_SOURCE[card.id].oauth;
   const actions = [
-    ...(card.fields.length ? [{ id: 'probar', text: t('panels.testConnection') }, { id: 'guardar', text: t('windows.save') }] : []),
-    ...(oauth ? [{ id: 'conectar', text: st?.state === 'conectada' ? t('panels.switchAccount') : t('panels.connectWithOauth', { oauth: oauth ?? '' }) }, ...(st?.state === 'conectada' ? [{ id: 'desconectar', text: t('panels.signOut') }] : [])] : []),
-    ...(INFO_SOURCE[card.id].channels && st?.state === 'conectada' ? [{ id: 'canales', text: t('panels.chooseChannels') }] : []),
-    { id: 'modo', text: real ? t('panels.switchToDemo') : t('panels.useRealData') },
+    ...(card.fields.length ? [{ id: 'test', text: t('panels.testConnection') }, { id: 'save', text: t('windows.save') }] : []),
+    ...(oauth ? [{ id: 'connect', text: st?.state === 'connected' ? t('panels.switchAccount') : t('panels.connectWithOauth', { oauth: oauth ?? '' }) }, ...(st?.state === 'connected' ? [{ id: 'disconnect', text: t('panels.signOut') }] : [])] : []),
+    ...(INFO_SOURCE[card.id].channels && st?.state === 'connected' ? [{ id: 'canales', text: t('panels.chooseChannels') }] : []),
+    { id: 'mode', text: real ? t('panels.switchToDemo') : t('panels.useRealData') },
     // apagada (como empieza un refugio nuevo): también se puede probar con datos DEMO
     ...(st?.mode === 'off' ? [{ id: 'demo', text: t('panels.switchToDemo') }] : []),
   ];
@@ -174,11 +174,11 @@ function FormIntegration({ card, valuesIni, savedIni, goBack }: { card: Integrat
   const act = async (id: string) => {
     setBusy(true); setMsg(null);
     try {
-      if (id === 'probar') { const r: any = await client.action('integration.test', { source: card.id, fields: sentFields() }); setMsg({ ok: r.ok, text: r.detail }); r.ok ? SFX.shortSuccess() : SFX.error(); }
-      else if (id === 'guardar') { const r: any = await client.action('integration.save', { source: card.id, fields: sentFields() }); setMsg({ ok: r.ok, text: r.detail }); r.ok ? SFX.shortSuccess() : SFX.error(); if (r.ok) setValues(v => Object.fromEntries(Object.entries(v).map(([k, x]) => [k, card.fields.find(c => c.id === k)?.secret ? '' : x]))); }
-      else if (id === 'conectar') { await client.action('integration.connect', { source: card.id }); setMsg({ ok: true, text: t('panels.oauthHasBeenOpenedIn', { oauth: oauth ?? '' }) }); }
-      else if (id === 'desconectar') { await client.action('integration.disconnect', { source: card.id }); setMsg({ ok: true, text: t('panels.signedOut') }); }
-      else if (id === 'modo') { await client.action('integration.mode', { source: card.id, mode: real ? 'demo' : 'real' }); SFX.toggle(); }
+      if (id === 'test') { const r: any = await client.action('integration.test', { source: card.id, fields: sentFields() }); setMsg({ ok: r.ok, text: r.detail }); r.ok ? SFX.shortSuccess() : SFX.error(); }
+      else if (id === 'save') { const r: any = await client.action('integration.save', { source: card.id, fields: sentFields() }); setMsg({ ok: r.ok, text: r.detail }); r.ok ? SFX.shortSuccess() : SFX.error(); if (r.ok) setValues(v => Object.fromEntries(Object.entries(v).map(([k, x]) => [k, card.fields.find(c => c.id === k)?.secret ? '' : x]))); }
+      else if (id === 'connect') { await client.action('integration.connect', { source: card.id }); setMsg({ ok: true, text: t('panels.oauthHasBeenOpenedIn', { oauth: oauth ?? '' }) }); }
+      else if (id === 'disconnect') { await client.action('integration.disconnect', { source: card.id }); setMsg({ ok: true, text: t('panels.signedOut') }); }
+      else if (id === 'mode') { await client.action('integration.mode', { source: card.id, mode: real ? 'demo' : 'real' }); SFX.toggle(); }
       else if (id === 'demo') { await client.action('integration.mode', { source: card.id, mode: 'demo' }); SFX.toggle(); }
       else if (id === 'canales') { setChannels(await client.action<any[]>('integration.channels', { source: card.id })); }
     } catch (e) { setMsg({ ok: false, text: (e as Error).message }); SFX.error(); }
@@ -197,29 +197,29 @@ function FormIntegration({ card, valuesIni, savedIni, goBack }: { card: Integrat
     else if (e.key === 'Escape') { e.preventDefault(); goBack(); }
   };
   return (
-    <Device label={t('panels.vaultNombre', { nombre: card.name.toUpperCase() })} width={62} height onClose={goBack} pilot={st?.state === 'conectada' ? 'trabajando' : st?.state === 'error' ? 'error' : 'esperando'}>
+    <Device label={t('panels.vaultNombre', { nombre: card.name.toUpperCase() })} width={62} height onClose={goBack} pilot={st?.state === 'connected' ? 'working' : st?.state === 'error' ? 'error' : 'waiting'}>
       <div className="lista-desplazable">
-        <p><b>{t('panels.status')}</b> {tIs(INTEGRATION_STATE_SHORT[st?.state ?? 'demo'])}{st?.detail ? <span className="tenue"> — {st.detail}</span> : null}{st?.last ? <span className="tenue"> · {t('panels.lastRead')} {new Date(st.last).toLocaleTimeString(language() === 'en' ? 'en-GB' : 'es-ES', { hour: '2-digit', minute: '2-digit' })}</span> : null}</p>
-        <p className="tenue">{t('panels.whatItBringsToThe')} {tIs(card.what)}.</p>
+        <p><b>{t('panels.status')}</b> {tIs(INTEGRATION_STATE_SHORT[st?.state ?? 'demo'])}{st?.detail ? <span className="dim"> — {st.detail}</span> : null}{st?.last ? <span className="dim"> · {t('panels.lastRead')} {new Date(st.last).toLocaleTimeString(language() === 'en' ? 'en-GB' : 'es-ES', { hour: '2-digit', minute: '2-digit' })}</span> : null}</p>
+        <p className="dim">{t('panels.whatItBringsToThe')} {tIs(card.what)}.</p>
         <h3>{t('panels.stepByStep')}</h3>
         <ol className="pasos">{card.steps.map((p, k) => <li key={k}>{p}</li>)}</ol>
         {card.fields.length > 0 && <h3>{t('panels.details')}</h3>}
         {card.fields.map((c, k) => (
-          <label key={c.id} className={'campo-taller' + (focus === k ? ' activa' : '')} onClick={() => setFocus(k)}>
+          <label key={c.id} className={'campo-taller' + (focus === k ? ' active' : '')} onClick={() => setFocus(k)}>
             <span className="etq">{c.label}{c.secret && <small> · {t('panels.toTheKeychain')}</small>}</span>
             <input ref={el => { refs.current[k] = el; }} type={c.secret ? 'password' : 'text'} value={values[c.id] ?? ''} placeholder={c.secret ? (saved[c.id] ? t('panels.savedTypeToChangeIt') : '') : c.example ? tIs(c.example) : ''} spellCheck={false} autoComplete="off"
               onFocus={() => setFocus(k)} onChange={e => setValues(v => ({ ...v, [c.id]: e.target.value }))} onKeyDown={e => fieldKey(e, k)} />
-            {c.help && <small className="tenue">{tIs(c.help)}</small>}
+            {c.help && <small className="dim">{tIs(c.help)}</small>}
           </label>
         ))}
-        <div className="botonera">{actions.map((a, k) => <button key={a.id} className={'boton-taller' + (focus === card.fields.length + k ? ' activa' : '')} disabled={busy} onMouseEnter={() => setFocus(card.fields.length + k)} onClick={() => act(a.id)}>{a.text}</button>)}</div>
-        {msg && <p className={msg.ok ? '' : 'aviso-consola'}>{msg.ok ? '✓ ' : '✗ '}{msg.text}</p>}
+        <div className="botonera">{actions.map((a, k) => <button key={a.id} className={'boton-taller' + (focus === card.fields.length + k ? ' active' : '')} disabled={busy} onMouseEnter={() => setFocus(card.fields.length + k)} onClick={() => act(a.id)}>{a.text}</button>)}</div>
+        {msg && <p className={msg.ok ? '' : 'notice-console'}>{msg.ok ? '✓ ' : '✗ '}{msg.text}</p>}
         {channels && <div className="selector-canales">
           <h3>{t('panels.channelsBeingWatched')}</h3>
-          {channels.map((c, k) => <label key={String(c.id)} className="chip-canal"><input type="checkbox" checked={c.picked} onChange={e => setChannels(cs => cs!.map((x, j) => (j === k ? { ...x, picked: e.target.checked } : x)))} /> {c.server ? <span className="tenue">{c.server} · </span> : null}#{c.name}</label>)}
+          {channels.map((c, k) => <label key={String(c.id)} className="chip-canal"><input type="checkbox" checked={c.picked} onChange={e => setChannels(cs => cs!.map((x, j) => (j === k ? { ...x, picked: e.target.checked } : x)))} /> {c.server ? <span className="dim">{c.server} · </span> : null}#{c.name}</label>)}
           <div className="botonera"><button className="boton-taller" onClick={async () => { const ids = channels.filter(c => c.picked).map(c => String(c.id)).join(','); const r: any = await client.action('integration.save', { source: card.id, fields: { channels: ids } }); setMsg({ ok: r.ok, text: r.ok ? t('panels.channelsSaved') : r.detail }); setChannels(null); }}>{t('panels.saveChannels')}</button><button className="boton-taller" onClick={() => setChannels(null)}>{t('windows.cancel')}</button></div>
         </div>}
-        {(card.id === 'jira' || card.id === 'linear') && st?.state === 'conectada' && <BoardStatusesView source={card.id} />}
+        {(card.id === 'jira' || card.id === 'linear') && st?.state === 'connected' && <BoardStatusesView source={card.id} />}
       </div>
       <Keys><kbd>↑↓</kbd>{t('panels.move')} <kbd>Enter</kbd>{t('panels.nextPress')} <kbd>Esc</kbd>{t('menu.back')}</Keys>
     </Device>
@@ -242,22 +242,22 @@ function BoardStatusesView({ source }: { source: 'jira' | 'linear' }) {
     } catch (e) { setMsg((e as Error).message); SFX.error(); }
   };
   const options = (b: BoardSetup, current?: string) => [...new Set([...(current ? [current] : []), ...b.states])];
-  const linked = (b: BoardSetup, k: 'test' | 'done') => b.linked?.includes(k) && <small className="tenue"> {t('verification.vault.linked')}</small>;
+  const linked = (b: BoardSetup, k: 'test' | 'done') => b.linked?.includes(k) && <small className="dim"> {t('verification.vault.linked')}</small>;
   return <div className="estados-tablero">
     <h3>{t('verification.vault.title')}</h3>
-    <p className="tenue">{t(source === 'jira' ? 'verification.vault.hintJira' : 'verification.vault.hint')}</p>
-    {!boards && !msg && <p className="tenue">{t('preflight.reading')}</p>}
-    {boards && !boards.length && <p className="tenue">{t('verification.vault.noBoards')}</p>}
+    <p className="dim">{t(source === 'jira' ? 'verification.vault.hintJira' : 'verification.vault.hint')}</p>
+    {!boards && !msg && <p className="dim">{t('preflight.reading')}</p>}
+    {boards && !boards.length && <p className="dim">{t('verification.vault.noBoards')}</p>}
     {boards?.map(b => <div key={b.board} className="fila-tablero">
       <b>{b.board}</b>
       <label>{t('verification.vault.prodCheck')} <select value={b.test ?? ''} onChange={e => set(b, { test: e.target.value })}>
         <option value="">—</option>{options(b, b.test).map(x => <option key={x} value={x}>{x}</option>)}</select>{linked(b, 'test')}</label>
       <label>{t('verification.vault.done')} <select value={b.done ?? ''} onChange={e => set(b, { done: e.target.value })}>
         <option value="">—</option>{options(b, b.done).map(x => <option key={x} value={x}>{x}</option>)}</select>{linked(b, 'done')}</label>
-      {b.notes?.map(n => <small key={n} className="tenue">{n}</small>)}
-      {b.error && <small className="aviso-consola">{b.error}</small>}
+      {b.notes?.map(n => <small key={n} className="dim">{n}</small>)}
+      {b.error && <small className="notice-console">{b.error}</small>}
     </div>)}
-    {msg && <p className="tenue">{msg}</p>}
+    {msg && <p className="dim">{msg}</p>}
   </div>;
 }
 
@@ -291,7 +291,7 @@ function ShelterView({ goBack }: { goBack: () => void }) {
   return (
     <Device label={t('panels.vaultWorkShelter')} width={50} onClose={goBack}>
       {fields.map(([k, lbl], i) => (
-        <label key={k} className={'campo-taller' + (focus === i ? ' activa' : '')}>
+        <label key={k} className={'campo-taller' + (focus === i ? ' active' : '')}>
           <span className="etq">{lbl}</span>
           <input ref={el => { refs.current[i] = el; }} value={v[k]} spellCheck={false} onFocus={() => setFocus(i)} onChange={ev => setV(x => ({ ...x, [k]: ev.target.value }))}
             onKeyDown={ev => { if (ev.key === 'Enter') { ev.preventDefault(); if (i === fields.length - 1) save(); else setFocus(i + 1); } else if (ev.key === 'ArrowDown' || ev.key === 'Tab') { ev.preventDefault(); setFocus((i + 1) % fields.length); } else if (ev.key === 'ArrowUp') { ev.preventDefault(); setFocus((i - 1 + fields.length) % fields.length); } else if (ev.key === 'Escape') { ev.preventDefault(); goBack(); } }} />
@@ -302,10 +302,10 @@ function ShelterView({ goBack }: { goBack: () => void }) {
         <span className="etq">{t('preflight.vault.checklist')}</span>
         <textarea rows={6} value={list ?? ''} disabled={list === null} spellCheck={false} placeholder={t('preflight.vault.placeholder')}
           onChange={ev => setList(ev.target.value)} onKeyDown={ev => { ev.stopPropagation(); if (ev.key === 'Escape') { ev.preventDefault(); goBack(); } else if (ev.key === 'Enter' && (ev.metaKey || ev.ctrlKey)) { ev.preventDefault(); saveList(); } }} />
-        <span className="tenue">{t('preflight.vault.hint')}</span>
+        <span className="dim">{t('preflight.vault.hint')}</span>
       </label>
       <div className="botonera"><button className="boton-taller" onClick={saveList} disabled={list === null}>{t('preflight.vault.save')}</button></div>
-      {msg && <p className="aviso-consola">{msg}</p>}
+      {msg && <p className="notice-console">{msg}</p>}
       <Keys><kbd>Enter</kbd>{t('panels.nextOnTheLastOne')} <kbd>Esc</kbd>{t('menu.back')}</Keys>
     </Device>
   );
@@ -328,9 +328,9 @@ function RoomsView({ goBack }: { goBack: () => void }) {
   const [i, setI] = useMenu(items.length, change, undefined, goBack);
   return (
     <Device label={t('panels.vaultRooms')} width={54} onClose={goBack}>
-      <p className="tenue">{t('panels.vaultRoomsIntro')}</p>
-      {list.length ? <Options items={items} i={i} setI={setI} onChoose={change} /> : <p className="tenue">{t('panels.vaultRoomsNone')}</p>}
-      {msg && <p className="aviso-consola">{msg}</p>}
+      <p className="dim">{t('panels.vaultRoomsIntro')}</p>
+      {list.length ? <Options items={items} i={i} setI={setI} onChoose={change} /> : <p className="dim">{t('panels.vaultRoomsNone')}</p>}
+      {msg && <p className="notice-console">{msg}</p>}
       <Keys><kbd>↑↓</kbd>{t('menu.select')} <kbd>Enter</kbd>{t('panels.toggle')} <kbd>Esc</kbd>{t('menu.back')}</Keys>
     </Device>
   );
@@ -342,14 +342,14 @@ function ViewSupervisor({ goBack }: { goBack: () => void }) {
   const outfits: string[] = jugador?.outfit ?? [];
   const items: (ItemMenu & { f: () => void })[] = [
     // el aspecto entero (humano o robot, cara, pelo, ropa, colores) se cambia en el probador de Chapa y Pintura
-    { text: <>{t('panels.changeLookIn')} <b>{t('world.bodyShop')}</b></>, hint: t('panels.pFromAnywhere'), f: () => juego.set({ panel: 'chapa', panelData: { who: 'supervisor' } }) },
+    { text: <>{t('panels.changeLookIn')} <b>{t('world.bodyShop')}</b></>, hint: t('panels.pFromAnywhere'), f: () => juego.set({ panel: 'bodyshop', panelData: { who: 'supervisor' } }) },
     ...outfits.filter(a => SHOP.some(x => x.id === a && x.tipo === 'accesorio')).map(a => ({ text: <>{sup.accessories?.includes(a) ? '☑' : '☐'} {tIs(SHOP.find(x => x.id === a)?.nombre ?? a)}</>, hint: t('panels.shopAccessory'), f: () => client.action('juego.equipar', { article: a, who: 'supervisor' }).then(() => SFX.toggle()).catch(() => SFX.notAllowed()) })),
   ];
   const [i, setI] = useMenu(items.length, k => items[k].f(), undefined, goBack);
   return (
     <Device label={t('panels.vaultOverseerSOutfit')} width={44} onClose={goBack}>
       <Options items={items} i={i} setI={setI} onChoose={k => items[k].f()} />
-      {!outfits.length && <p className="tenue">{t('panels.accessoriesAreBoughtWithScrap')}</p>}
+      {!outfits.length && <p className="dim">{t('panels.accessoriesAreBoughtWithScrap')}</p>}
       <Keys><kbd>↑↓</kbd>{t('menu.select')} <kbd>Enter</kbd>{t('panels.putItOn')} <kbd>Esc</kbd>{t('menu.back')}</Keys>
     </Device>
   );
@@ -366,8 +366,8 @@ function ViewReset({ goBack }: { goBack: () => void }) {
   const [i, setI] = useMenu(2, pick, undefined, goBack);
   return (
     <Device label={t('panels.vaultReset')} width={44} pilot="error" onClose={goBack}>
-      <p className="aviso-consola">{t('panels.allSessionsAreStoppedAnd')}</p>
-      <p className="tenue">{t('panels.noFolderOrRepoIs')}</p>
+      <p className="notice-console">{t('panels.allSessionsAreStoppedAnd')}</p>
+      <p className="dim">{t('panels.noFolderOrRepoIs')}</p>
       <Options items={items} i={i} setI={setI} onChoose={pick} />
     </Device>
   );
@@ -404,20 +404,20 @@ function SlackRemoteView({ goBack }: { goBack: () => void }) {
   const connect = () => { if (ready) request('slackRemote.connect', { appToken: app, botToken: bot }).then(r => { if (r) { setApp(''); setBot(''); } }); };
   const copy = () => navigator.clipboard.writeText(SLACK_MANIFEST).then(() => { setMsg({ ok: true, text: t('panels.slackRemoteManifestCopied') }); SFX.tick(); }).catch(() => {});
   return (
-    <Device label={t('panels.vaultNombre', { nombre: 'SLACK' })} width={62} onClose={goBack} pilot={st?.paired ? 'trabajando' : st?.connected ? 'esperando' : 'ociosa'}>
-      <p className="voz">{t('panels.slackRemoteIntro')}</p>
-      <p className="tenue">{t('panels.slackRemotePrivacy')}</p>
+    <Device label={t('panels.vaultNombre', { nombre: 'SLACK' })} width={62} onClose={goBack} pilot={st?.paired ? 'working' : st?.connected ? 'waiting' : 'idle'}>
+      <p className="voice">{t('panels.slackRemoteIntro')}</p>
+      <p className="dim">{t('panels.slackRemotePrivacy')}</p>
       {st && !st.connected && <>
         <ol className="pasos">
           <li>{t('panels.slackRemoteStep1')} <button className="boton-taller" onClick={copy}>{t('panels.slackRemoteCopyManifest')}</button></li>
           <li>{t('panels.slackRemoteStep2')}</li>
           <li>{t('panels.slackRemoteStep3')}</li>
         </ol>
-        <label className="campo-taller activa">
+        <label className="campo-taller active">
           <span className="etq">{t('panels.slackRemoteAppToken')}<small> · {t('panels.toTheKeychain')}</small></span>
           <input type="password" value={app} spellCheck={false} autoComplete="off" autoFocus placeholder="xapp-…" onChange={e => setApp(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') connect(); }} />
         </label>
-        <label className="campo-taller activa">
+        <label className="campo-taller active">
           <span className="etq">{t('panels.slackRemoteBotToken')}<small> · {t('panels.toTheKeychain')}</small></span>
           <input type="password" value={bot} spellCheck={false} autoComplete="off" placeholder="xoxb-…" onChange={e => setBot(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') connect(); }} />
         </label>
@@ -427,14 +427,14 @@ function SlackRemoteView({ goBack }: { goBack: () => void }) {
         <p><b>{t('panels.status')}</b> {st.paired ? t('panels.slackRemotePairedWith', { bot: '@' + st.bot, team: st.team ?? '' }) : t('panels.slackRemoteWaitingPairing', { bot: '@' + st.bot, team: st.team ?? '' })}</p>
         {!st.paired && (st.code
           ? <p>{t('panels.slackRemoteSendCode', { bot: '@' + st.bot })} <b className="codigo-emparejar">{st.code}</b></p>
-          : <p className="aviso-consola">{t('panels.slackRemoteCodeExpired')}</p>)}
+          : <p className="notice-console">{t('panels.slackRemoteCodeExpired')}</p>)}
         <div className="botonera">
           {st.paired && <button className="boton-taller" disabled={busy} onClick={() => request('slackRemote.approve', { si: !st.approve })}>{st.approve ? t('panels.slackRemoteApprovalsOn') : t('panels.slackRemoteApprovalsOff')}</button>}
           <button className="boton-taller" disabled={busy} onClick={() => request('slackRemote.pair')}>{st.paired ? t('panels.slackRemotePairAgain') : t('panels.slackRemoteNewCode')}</button>
           <button className="boton-taller" disabled={busy} onClick={() => request('slackRemote.disconnect')}>{t('panels.slackRemoteDisconnect')}</button>
         </div>
       </>}
-      {msg && <p className={msg.ok ? '' : 'aviso-consola'}>{msg.text}</p>}
+      {msg && <p className={msg.ok ? '' : 'notice-console'}>{msg.text}</p>}
       <Keys><kbd>Esc</kbd>{t('menu.back')}</Keys>
     </Device>
   );

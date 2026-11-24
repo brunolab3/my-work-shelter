@@ -33,7 +33,7 @@ function ChooseClient({ pick }: { pick: (q: string) => void }) {
   const items = [
     { text: <><b>{t('world.you')}</b> · {sup?.name ?? t('panels.overseer')}</>, hint: tIs(lookOf({ type: sup?.character, look: sup?.look }).especie), q: 'supervisor', powerOff: false },
     ...dwellers.map(h => ({
-      text: <>{h.name} <span className="tenue">«{tIs(h.nickname)}»</span></>,
+      text: <>{h.name} <span className="dim">«{tIs(h.nickname)}»</span></>,
       hint: h.type === 'Octocat' ? t('panels.itIsWhatItIs') : rooms.find(s => s.id === h.roomId)?.name ?? '',
       q: h.id, powerOff: h.type === 'Octocat',
     })),
@@ -42,7 +42,7 @@ function ChooseClient({ pick }: { pick: (q: string) => void }) {
   const [i, setI] = useMenu(items.length, ok);
   return (
     <Device label={t('panels.chromePaintBarberShopAnd')} width={40} height>
-      <p className="voz">{t('panels.fitoSlipsTheScissorsInto')}</p>
+      <p className="voice">{t('panels.fitoSlipsTheScissorsInto')}</p>
       <div className="lista-desplazable"><Options items={items} i={i} setI={setI} onChoose={ok} /></div>
       <Keys><kbd>↑↓</kbd>{t('menu.select')} <kbd>Enter</kbd>{t('panels.toTheChair')} <kbd>Esc</kbd>{t('windows.exit')}</Keys>
     </Device>
@@ -93,7 +93,7 @@ function FittingRoom({ who, goBack }: { who: string; goBack: () => void }) {
     catch (e: any) { SFX.notAllowed(); juego.set({ hint: { key: '', text: String(e?.message ?? e) } }); setSaving(false); }
   };
   const otherSpecies = () => {
-    const especie = a.especie === 'robot' ? 'humano' : 'robot';
+    const especie = a.especie === 'robot' ? 'human' : 'robot';
     const n = speciesBy.current[especie] ?? structuredClone(especie === 'robot' ? STOCK.Robot_Two : STOCK.Hiker);
     change(n); setCat(0); SFX.toggle();
   };
@@ -121,7 +121,7 @@ function FittingRoom({ who, goBack }: { who: string; goBack: () => void }) {
     if (e.code === 'KeyR') { random(sh ? slot : undefined); SFX.toggle(); return true; }
     if (e.code === 'KeyH') { otherSpecies(); return true; }
     if (e.code === 'KeyO') { change(structuredClone(stock)); SFX.toggle(); return true; }
-    if (e.code === 'Comma' || e.code === 'Period') { window.dispatchEvent(new CustomEvent('probador:girar', { detail: e.code === 'Comma' ? -0.4 : 0.4 })); return true; }
+    if (e.code === 'Comma' || e.code === 'Period') { window.dispatchEvent(new CustomEvent('fitting:rotate', { detail: e.code === 'Comma' ? -0.4 : 0.4 })); return true; }
     if (zone === 'piezas') {
       const n = options.length;
       const move = (k: number) => { if (k < 0 || k >= n) return false; choosePiece(k); return true; };
@@ -149,13 +149,13 @@ function FittingRoom({ who, goBack }: { who: string; goBack: () => void }) {
   const piece = a.pieces[slot as Slot] ? PIECE.get(a.pieces[slot as Slot]!) : null;
   return (
     <Device label={<>{t('panels.chromePaint')} · <b>{name.toUpperCase()}</b></>} width={74} height kind="aparato-probador" onClose={exit}>
-      <div className="probador">
+      <div className="fitting">
         <div className="probador-vista">
           <Preview look={a} focus={focus === 'cara' ? 'cabeza' : focus} onMount={(rg, pd) => { setRegions(rg); setDefault(pd); }} />
           <div className="probador-especie">
-            <button className={'chip' + (a.especie === 'humano' ? ' activo' : '')} onClick={() => a.especie !== 'humano' && otherSpecies()}>{t('panels.human')}</button>
+            <button className={'chip' + (a.especie === 'human' ? ' activo' : '')} onClick={() => a.especie !== 'human' && otherSpecies()}>{t('panels.human')}</button>
             <button className={'chip' + (a.especie === 'robot' ? ' activo' : '')} onClick={() => a.especie !== 'robot' && otherSpecies()}>{t('panels.robot')}</button>
-            <span className="tenue"><kbd>H</kbd></span>
+            <span className="dim"><kbd>H</kbd></span>
           </div>
           <div className="probador-acciones">
             <button className="chip" onClick={() => random()} title={t('panels.randomizeAllR')}>⚄ {t('panels.random')}</button>
@@ -166,9 +166,9 @@ function FittingRoom({ who, goBack }: { who: string; goBack: () => void }) {
         <div className="probador-panel">
           <div className="probador-pestanas">
             {cats.map((c, k) => (
-              <button key={c} className={'pestana-probador' + (k === cat ? ' activa' : '')} onClick={() => { setCat(k); SFX.tick(); }}>
+              <button key={c} className={'pestana-probador' + (k === cat ? ' active' : '')} onClick={() => { setCat(k); SFX.tick(); }}>
                 {c === 'colores' ? t('panels.colors') : tIs(SLOT_NAME[c])}
-                {c !== 'colores' && a.pieces[c] && <i className="puesto" />}
+                {c !== 'colores' && a.pieces[c] && <i className="workstation" />}
               </button>
             ))}
           </div>
@@ -176,18 +176,18 @@ function FittingRoom({ who, goBack }: { who: string; goBack: () => void }) {
             <>
               <div className="probador-titulo">
                 <h3>{tIs(SLOT_NAME[slot])}</h3>
-                <span className="tenue">{t('panels.nOptions', { n: options.length - (REQUIRED.includes(slot) ? 0 : 1) })} · {piece ? <b className="ambar">{tIs(piece.name)}</b> : t('panels.nothing')}</span>
+                <span className="dim">{t('panels.nOptions', { n: options.length - (REQUIRED.includes(slot) ? 0 : 1) })} · {piece ? <b className="ambar">{tIs(piece.name)}</b> : t('panels.nothing')}</span>
               </div>
-              <div className={'probador-rejilla' + (zone === 'piezas' ? ' activa' : '')}>
+              <div className={'probador-rejilla' + (zone === 'piezas' ? ' active' : '')}>
                 {options.map((p, k) => (
-                  <Cell key={p?.id ?? 'nada'} piece={p} slot={slot} look={a} focus={focus}
+                  <Cell key={p?.id ?? 'none'} piece={p} slot={slot} look={a} focus={focus}
                     cursor={zone === 'piezas' && k === cur} setting={k === setting} onChoose={() => { setZone('piezas'); choosePiece(k); }} />
                 ))}
               </div>
             </>
           )}
           {rows.length > 0 && (
-            <div className={'probador-colores' + (zone === 'colores' ? ' activa' : '') + (slot === 'colores' ? ' todos' : '')}>
+            <div className={'fitting-colors' + (zone === 'colores' ? ' active' : '') + (slot === 'colores' ? ' todos' : '')}>
               {slot === 'colores' && <h3>{t('panels.colors')}</h3>}
               {rows.map((r, k) => (
                 <RowColor key={r} region={r} especie={a.especie} value={a.colors[r]} fallback={fallback[r]}
@@ -225,21 +225,21 @@ function Cell({ piece, slot, look, focus, cursor, setting, onChoose }: { piece: 
   }, [lookSignature(withPiece), focus]);
   useEffect(() => { if (cursor) ref.current?.scrollIntoView({ block: 'nearest' }); }, [cursor]);
   return (
-    <button ref={ref} className={'celda-probador' + (cursor ? ' cursor' : '') + (setting ? ' puesta' : '')} onClick={() => { SFX.click(); onChoose(); }}>
-      <span className="foto">{url ? <img src={url} alt="" draggable={false} /> : <span className="cargando" />}{!piece && <span className="nada">∅</span>}</span>
+    <button ref={ref} className={'fitting-cell' + (cursor ? ' cursor' : '') + (setting ? ' puesta' : '')} onClick={() => { SFX.click(); onChoose(); }}>
+      <span className="foto">{url ? <img src={url} alt="" draggable={false} /> : <span className="loading" />}{!piece && <span className="none">∅</span>}</span>
       <span className="nombre">{piece ? tIs(piece.name) : t('windows.nothing')}</span>
     </button>
   );
 }
 
 // ---------------------------------------------------------------- una región de color con su paleta
-function RowColor({ region, especie, value, fallback, active, onSet }: { region: Region; especie: 'humano' | 'robot'; value?: string; fallback?: string; active: boolean; onSet: (c: string | null) => void }) {
+function RowColor({ region, especie, value, fallback, active, onSet }: { region: Region; especie: 'human' | 'robot'; value?: string; fallback?: string; active: boolean; onSet: (c: string | null) => void }) {
   const pal = paletteOf(region, especie);
   const own = !!value && !pal.includes(value);
   return (
-    <div className={'fila-color' + (active ? ' activa' : '')}>
+    <div className={'fila-color' + (active ? ' active' : '')}>
       <span className="etq">{tIs(nameRegion(region, especie))}</span>
-      <div className="muestras">
+      <div className="samples">
         <button className={'muestra original' + (!value ? ' elegida' : '')} style={{ background: fallback ?? 'transparent' }} title={t('panels.thePieceSOwn')} onClick={() => onSet(null)}>↺</button>
         {pal.map(c => <button key={c} className={'muestra' + (value === c ? ' elegida' : '')} style={{ background: c }} onClick={() => onSet(c)} />)}
         <label className={'muestra libre' + (own ? ' elegida' : '')} style={own ? { background: value } : undefined} title={t('panels.anotherColor')}>
@@ -272,8 +272,8 @@ function Preview({ look, focus, onMount }: { look: Look; focus: Focus; onMount: 
     const above = () => { x0 = null; };
     const rotate = (ev: any) => { e.rotation += ev.detail; };
     div.addEventListener('pointerdown', below); div.addEventListener('pointermove', onMove); div.addEventListener('pointerup', above);
-    window.addEventListener('probador:girar', rotate);
-    return () => { cancelAnimationFrame(raf); ro.disconnect(); window.removeEventListener('probador:girar', rotate); e.destroy(); cv.remove(); };
+    window.addEventListener('fitting:rotate', rotate);
+    return () => { cancelAnimationFrame(raf); ro.disconnect(); window.removeEventListener('fitting:rotate', rotate); e.destroy(); cv.remove(); };
   }, []);
   // montar la figura nueva (un instante después: al pasar rápido por las opciones no se monta cada una)
   useEffect(() => {
@@ -286,12 +286,12 @@ function Preview({ look, focus, onMount }: { look: Look; focus: Focus; onMount: 
     return () => { valid = false; clearTimeout(tm); };
   }, [lookSignature(look)]);
   useEffect(() => { const e = studio.current; if (!e) return; if (focus !== 'espalda' && e.rotation > 2) e.rotation = 0.35; e.frame(focus); }, [focus]);
-  return <div className={'probador-lienzo' + (loading ? ' cargando' : '')} ref={box}><span className="pista-giro">{t('panels.dragToRotate')}</span></div>;
+  return <div className={'probador-lienzo' + (loading ? ' loading' : '')} ref={box}><span className="pista-giro">{t('panels.dragToRotate')}</span></div>;
 }
 
 /** Una foto de cuerpo entero de un aspecto (la ficha del recluta) */
 export function MiniPortrait({ look }: { look: Look }) {
   const [url, setUrl] = useState<string | null>(null);
-  useEffect(() => { let v = true; setUrl(null); thumbnail(look, 'cuerpo').then(u => { if (v && u) setUrl(u); }); return () => { v = false; }; }, [lookSignature(look)]);
-  return <div className="retratillo">{url ? <img src={url} alt="" /> : <span className="cargando" />}</div>;
+  useEffect(() => { let v = true; setUrl(null); thumbnail(look, 'body').then(u => { if (v && u) setUrl(u); }); return () => { v = false; }; }, [lookSignature(look)]);
+  return <div className="retratillo">{url ? <img src={url} alt="" /> : <span className="loading" />}</div>;
 }

@@ -100,7 +100,7 @@ class Discord extends ConnectorBase {
         for (const m of list) { const n = discordNotification({ ...m, guild_id: m.guild_id ?? this.ctx.channels.get(id)?.guild }, this.ctx); if (n && n.date >= since) this.queue.push(n); }
       } catch (e) { if (e instanceof ErrorSource && e.retryIn) await new Promise(r => setTimeout(r, e.retryIn)); }
     }
-    if (this.queue.length) this.notify?.('sondear');
+    if (this.queue.length) this.notify?.('poll');
   }
 
   // ------------------------------------------------ Gateway
@@ -109,7 +109,7 @@ class Discord extends ConnectorBase {
     if (this.ws || this.reconnection) return;
     this.stopped = false;
     const token = await this.config.secret('token');
-    if (!token) { this.situation = { state: 'sin-configurar', detail: tr('server.theBotTokenIsMissing') }; return; }
+    if (!token) { this.situation = { state: 'not-configured', detail: tr('server.theBotTokenIsMissing') }; return; }
     if (!this.app) {
       const a = await this.loadApp(token);
       this.app = a; this.ctx.bot = a.id; this.ctx.content = grantedContent(a.flags);
@@ -117,7 +117,7 @@ class Discord extends ConnectorBase {
     }
     this.ctx.chosen = this.chosen();
     const resume = !!(this.sessionId && this.urlResume);
-    if (this.situation.state !== 'conectada') this.situation = { state: 'sin-configurar', detail: tr('server.connectingToTheDiscordGateway') };
+    if (this.situation.state !== 'connected') this.situation = { state: 'not-configured', detail: tr('server.connectingToTheDiscordGateway') };
     const ws = new WebSocket(resume ? `${this.urlResume}/?v=10&encoding=json` : GATEWAY, { handshakeTimeout: 20_000 });
     this.ws = ws;
     ws.on('message', data => { try { this.onMessage(JSON.parse(String(data)), token, resume); } catch (e) { console.error('[discord] mensaje del Gateway no válido:', message(e)); } });
@@ -138,7 +138,7 @@ class Discord extends ConnectorBase {
       }
       case 11: this.ackPending = false; break;
       case 1: this.beat(true); break;
-      case 7: this.ws?.close(4900, 'reconectar'); break;   // Reconnect: cerrar y reanudar
+      case 7: this.ws?.close(4900, 'reconnect'); break;   // Reconnect: cerrar y reanudar
       case 9: {   // Invalid Session: d=true se puede reanudar; si no, Identify nuevo tras una espera
         if (!p.d) { this.sessionId = null; this.urlResume = null; this.seq = null; }
         setTimeout(() => this.ws?.close(4901, 'invalid session'), 1000 + Math.random() * 4000);
@@ -162,10 +162,10 @@ class Discord extends ConnectorBase {
         if (d.user?.id) this.ctx.bot = d.user.id;
         for (const g of d.guilds ?? []) if (!this.ctx.servers.has(g.id)) this.ctx.servers.set(g.id, g.name ?? 'servidor');
         this.good(this.connectedText());
-        this.notify?.('estado');
+        this.notify?.('state');
         setTimeout(() => { this.refreshRoles().then(() => this.fill()).catch(() => {}); }, 3000);   // tras los GUILD_CREATE
         break;
-      case 'RESUMED': this.attempts = 0; this.good(this.connectedText()); this.notify?.('estado'); break;
+      case 'RESUMED': this.attempts = 0; this.good(this.connectedText()); this.notify?.('state'); break;
       case 'GUILD_CREATE': case 'GUILD_UPDATE':
         if (d.unavailable) break;
         this.ctx.servers.set(d.id, d.name);
@@ -194,7 +194,7 @@ class Discord extends ConnectorBase {
       case 'MESSAGE_CREATE': {
         const c = this.ctx.channels.get(d.channel_id); if (c) c.last = d.id;
         const n = discordNotification(d, this.ctx);
-        if (n) { this.queue.push(n); if (this.queue.length > 300) this.queue.splice(0, this.queue.length - 300); this.notify?.('sondear'); }
+        if (n) { this.queue.push(n); if (this.queue.length > 300) this.queue.splice(0, this.queue.length - 300); this.notify?.('poll'); }
         break;
       }
     }
@@ -217,8 +217,8 @@ class Discord extends ConnectorBase {
     const c = closingDiscord(code);
     if (c.withoutContent) { this.ctx.content = false; this.sessionId = null; }
     if (!c.resume) { this.sessionId = null; this.urlResume = null; this.seq = null; }
-    if (!c.reconnect) { this.reasonFatal = c.message ?? tr('integrations.discordClosed', { codigo: code }); this.fail(this.reasonFatal); this.notify?.('estado'); return; }
-    if (c.message) this.situation = { state: 'conectada', detail: c.message };
+    if (!c.reconnect) { this.reasonFatal = c.message ?? tr('integrations.discordClosed', { codigo: code }); this.fail(this.reasonFatal); this.notify?.('state'); return; }
+    if (c.message) this.situation = { state: 'connected', detail: c.message };
     const wait = c.withoutContent ? 1000 : Math.min(60_000, 1000 * 2 ** this.attempts++) + Math.random() * 1000;
     this.reconnection = setTimeout(() => { this.reconnection = null; this.connect().catch(e => this.fail(message(e))); }, wait);
   }

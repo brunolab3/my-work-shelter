@@ -16,24 +16,24 @@ const escapeHtml = (s: string) => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<'
 
 export const localPathLinks: MarkedExtension = {
   extensions: [{
-    name: 'enlaceConEspacios',
+    name: 'linkWithSpaces',
     level: 'inline',
     start: src => { const i = src.search(/\[[^\]\n]*\]\((?:\/Users\/|~\/|file:\/\/\/|\/(?:private\/)?tmp\/|\/(?:private\/)?var\/folders\/)/); return i < 0 ? undefined : i; },
     tokenizer(src) {
       if (this.lexer.state.inLink) return undefined;
       const m = LINK_WITH_SPACES.exec(src);
       if (!m || !m[2].includes(' ') || PAGE_WITH_SPACES.exec(m[2])?.[0] !== m[2]) return undefined;
-      return { type: 'enlaceConEspacios', raw: m[0], href: m[2], text: m[1] || m[2] };
+      return { type: 'linkWithSpaces', raw: m[0], href: m[2], text: m[1] || m[2] };
     },
     renderer: token => `<a href="${escapeHtml(encodeURI((token as Tokens.Generic).href))}">${escapeHtml((token as Tokens.Generic).text)}</a>`,
   }, {
-    name: 'rutaLocal',
+    name: 'localPath',
     level: 'inline',
     start: src => { const i = src.search(START); return i < 0 ? undefined : i; },
     tokenizer(src) {
       if (this.lexer.state.inLink) return undefined;
       const path = PAGE_WITH_SPACES.exec(src)?.[0] ?? PATH.exec(src)?.[0].replace(/[.,;:!?]+$/, '');
-      return path ? { type: 'rutaLocal', raw: path, href: path } : undefined;
+      return path ? { type: 'localPath', raw: path, href: path } : undefined;
     },
     renderer: token => `<a href="${escapeHtml(encodeURI((token as Tokens.Generic).href))}">${escapeHtml(token.raw)}</a>`,
   }],

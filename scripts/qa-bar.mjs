@@ -22,13 +22,13 @@ const marked = () => pg.evaluate(() => { const m = document.querySelector('.barr
 const covers = (x, y, sel) => pg.evaluate(([x, y, sel]) => !!document.elementFromPoint(x, y)?.closest(sel), [x, y, sel]);
 const goTalk = h => pg.evaluate(h => window.dispatchEvent(new CustomEvent('refugio:ir', { detail: { roomId: h.room, dwellerId: h.id, talk: true } })), h);
 const hs = await pg.evaluate(() => window.__game.get().dwellers.map(h => ({ id: h.id, room: h.room, path: h.path, name: h.name })));
-const withFolder = hs.filter(h => h.path && h.room !== 'puente'), withoutRepo = hs.find(h => !h.path);
+const withFolder = hs.filter(h => h.path && h.room !== 'bridge'), withoutRepo = hs.find(h => !h.path);
 const rooms = [...new Set(hs.filter(h => h.path).map(h => h.room))].slice(0, 2);
 
 // dos terminales minimizadas y un intercomunicador minimizado
 for (const s of rooms) { await pg.evaluate(s => window.dispatchEvent(new CustomEvent('refugio:terminal', { detail: { roomId: s } })), s); await wait(1500); await pg.keyboard.press('Meta+m'); await wait(300); }
-await goTalk(withFolder[0]); await pg.waitForSelector('.consola .opciones-consola');
-check((await pg.evaluate(() => [...document.querySelectorAll('.consola .opciones-consola li')].map(l => l.textContent))).some(t => t.includes('Abrir su terminal')), `${withFolder[0].name} (sala de repo) ofrece su terminal`);
+await goTalk(withFolder[0]); await pg.waitForSelector('.console .opciones-consola');
+check((await pg.evaluate(() => [...document.querySelectorAll('.console .opciones-consola li')].map(l => l.textContent))).some(t => t.includes('Abrir su terminal')), `${withFolder[0].name} (sala de repo) ofrece su terminal`);
 await pg.keyboard.press('Meta+ArrowDown'); await wait(500);
 check((await row('com')).length === 1 && (await row('term')).length === 2, 'dos filas: arriba el intercomunicador, abajo las dos terminales');
 const rows = await pg.evaluate(() => [...document.querySelectorAll('.barra-ventanas .barra-fila')].map(f => f.getBoundingClientRect().top));
@@ -51,13 +51,13 @@ check(await pg.isVisible('.barra-ventanas.seleccionando') && (await marked())?.s
 await pg.keyboard.press('Escape'); await wait(300);
 check(!(await pg.isVisible('.barra-ventanas.seleccionando')) && await pg.evaluate(() => !!document.activeElement?.closest('.ventana-terminal')), 'Esc sale y el foco vuelve a la terminal (no le llega el Esc)');
 await pg.keyboard.press('Meta+b'); await pg.keyboard.press('ArrowUp'); await pg.keyboard.press('Enter'); await wait(1500);
-check(await pg.isVisible('.consola') && await pg.evaluate(id => window.__game.get().talkingWith === id, withFolder[0].id), '↑ e Intro vuelven con el habitante del intercomunicador');
+check(await pg.isVisible('.console') && await pg.evaluate(id => window.__game.get().talkingWith === id, withFolder[0].id), '↑ e Intro vuelven con el habitante del intercomunicador');
 
 // pantalla completa de verdad
 await pg.keyboard.press('Meta+ArrowUp'); await wait(500);
-const r = await pg.evaluate(() => document.querySelector('.consola')?.getBoundingClientRect().toJSON());
+const r = await pg.evaluate(() => document.querySelector('.console')?.getBoundingClientRect().toJSON());
 check(r && r.x === 0 && r.y === 0 && r.width === 1600 && r.height === 1000, `⌘↑: el intercomunicador ocupa toda la ventana (${r && [r.x, r.y, r.width, r.height].join(',')})`);
-check(await covers(800, 30, '.consola') && await covers(60, 980, '.consola'), 'tapa la regleta y la barra');
+check(await covers(800, 30, '.console') && await covers(60, 980, '.console'), 'tapa la regleta y la barra');
 await pg.screenshot({ path: `${dir}/qa-barra-ampliado.png` });
 await pg.keyboard.press('Meta+b'); await wait(300);
 check(await covers(60, 980, '.barra-ventanas'), 'con ⌘B la barra sale por encima');
@@ -73,8 +73,8 @@ await pg.keyboard.press('Meta+ArrowDown'); await wait(300);
 
 // sala especial (sin repo): también tiene terminal, en su carpeta de trabajo propia
 if (withoutRepo) {
-  await goTalk(withoutRepo); await pg.waitForSelector('.consola .opciones-consola');
-  const ops = await pg.evaluate(() => [...document.querySelectorAll('.consola .opciones-consola li')].map(l => l.textContent.replace('▶', '').trim()));
+  await goTalk(withoutRepo); await pg.waitForSelector('.console .opciones-consola');
+  const ops = await pg.evaluate(() => [...document.querySelectorAll('.console .opciones-consola li')].map(l => l.textContent.replace('▶', '').trim()));
   check(ops.some(t => t.startsWith('Abrir su terminal')), `${withoutRepo.name} (sala especial) ofrece su terminal`);
   await pg.keyboard.press('t'); await wait(1500);
   const cwd = await pg.evaluate(() => [...document.querySelectorAll('.ventana-terminal')].filter(v => v.style.display !== 'none').sort((a, b) => +b.style.zIndex - +a.style.zIndex)[0]?.querySelector('.vt-ruta')?.textContent ?? '');   // la de delante

@@ -83,19 +83,19 @@ export function roomCaption(name: string, sub: string, color: string, number: st
 
 // Cartel de propaganda del refugio (tipográfico, con desgaste). Las líneas, en una lista o en un texto del catálogo
 // con un renglón por línea
-export function sign(text: string[] | string, pie: string, background: string, ink: string, symbol: 'engranaje' | 'ojo' | 'rayo' | 'mano' = 'engranaje', seed = 1) {
+export function sign(text: string[] | string, pie: string, background: string, ink: string, symbol: 'gear' | 'eye' | 'bolt' | 'hand' = 'gear', seed = 1) {
   const W = 512, H = 720;
   const { c, g } = canvas(W, H);
   g.fillStyle = background; g.fillRect(0, 0, W, H);
   g.strokeStyle = ink; g.lineWidth = 10; g.strokeRect(22, 22, W - 44, H - 44);
   // símbolo
   g.save(); g.translate(W / 2, 250); g.fillStyle = ink; g.strokeStyle = ink;
-  if (symbol === 'engranaje') {
+  if (symbol === 'gear') {
     for (let i = 0; i < 12; i++) { g.rotate(Math.PI / 6); g.fillRect(-18, -150, 36, 50); }
     g.beginPath(); g.arc(0, 0, 112, 0, 7); g.fill(); g.fillStyle = background; g.beginPath(); g.arc(0, 0, 52, 0, 7); g.fill();
-  } else if (symbol === 'ojo') {
+  } else if (symbol === 'eye') {
     g.beginPath(); g.ellipse(0, 0, 150, 80, 0, 0, 7); g.fill(); g.fillStyle = background; g.beginPath(); g.arc(0, 0, 55, 0, 7); g.fill(); g.fillStyle = ink; g.beginPath(); g.arc(0, 0, 26, 0, 7); g.fill();
-  } else if (symbol === 'rayo') {
+  } else if (symbol === 'bolt') {
     g.beginPath(); g.moveTo(30, -150); g.lineTo(-70, 20); g.lineTo(0, 20); g.lineTo(-30, 150); g.lineTo(80, -30); g.lineTo(10, -30); g.closePath(); g.fill();
   } else {
     g.fillRect(-60, -40, 120, 150); for (let i = 0; i < 4; i++) g.fillRect(-60 + i * 31, -130, 26, 100); g.fillRect(60, -10, 50, 26);

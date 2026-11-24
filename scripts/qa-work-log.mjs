@@ -35,8 +35,8 @@ const now = Date.now(), D = 864e5;
 writeFileSync(path.join(DATA, 'bitacora.json'), JSON.stringify({
   tasks: { 'ABC-1': { key: 'ABC-1', title: 'Checkout retries', url: 'https://jira.example/browse/ABC-1', state: 'Done', category: 'done', seen: now - 5 * D, updated: now - D, doneAt: now - D } },
   prs: {
-    'org/api#5': { ref: 'org/api#5', url: 'https://github.com/org/api/pull/5', title: 'ABC-1 retry the payment', repo: 'org/api', number: 5, branch: 'ABC-1-retries', task: 'ABC-1', state: 'fusionado', seen: now - 4 * D, updated: now - 2 * D, mergedAt: now - 2 * D },
-    'org/web#9': { ref: 'org/web#9', url: 'https://github.com/org/web/pull/9', title: 'ABC-1 retry banner', repo: 'org/web', number: 9, branch: 'ABC-1-banner', task: 'ABC-1', state: 'abierto', seen: now - 3 * D, updated: now - D },
+    'org/api#5': { ref: 'org/api#5', url: 'https://github.com/org/api/pull/5', title: 'ABC-1 retry the payment', repo: 'org/api', number: 5, branch: 'ABC-1-retries', task: 'ABC-1', state: 'merged', seen: now - 4 * D, updated: now - 2 * D, mergedAt: now - 2 * D },
+    'org/web#9': { ref: 'org/web#9', url: 'https://github.com/org/web/pull/9', title: 'ABC-1 retry banner', repo: 'org/web', number: 9, branch: 'ABC-1-banner', task: 'ABC-1', state: 'open', seen: now - 3 * D, updated: now - D },
   },
   worktrees: {
     '/r/api/.claude/worktrees/abc-1-retries': { path: '/r/api/.claude/worktrees/abc-1-retries', roomId: 'api', branch: 'ABC-1-retries', task: 'ABC-1', seen: now - 4 * D, last: now - D, goneAt: now - D },
@@ -80,11 +80,11 @@ try {
   check(r.career.trophies.find(x => x.rule.id === 'cross-repo')?.earnedAt === now - D, 'a task across repos: ABC-1 done with PRs in api and web, earned when it was done');
 
   // ---- Planning's menu offers the verification; → Sync update
-  await pg.evaluate(() => window.__game.set({ panel: 'logistica', panelData: null }));
+  await pg.evaluate(() => window.__game.set({ panel: 'logistics', panelData: null }));
   check(await until(async () => /(Verificar mi escalera|Verify my career ladder)/.test(await pg.textContent('.opciones-consola').catch(() => ''))), 'Planning\'s menu: verify my career ladder');
   await pg.evaluate(() => window.__game.set({ panel: null, panelData: null })); await pg.waitForTimeout(200);
-  await pg.evaluate(() => window.__game.set({ panel: 'logistica', panelData: { view: 'bitacora' } }));
-  check(/(1 working day|1 día laborable)/.test(await pg.textContent('.bitacora-periodos .activa').catch(() => '')), 'Sync update opens on the last working day');
+  await pg.evaluate(() => window.__game.set({ panel: 'logistics', panelData: { view: 'log' } }));
+  check(/(1 working day|1 día laborable)/.test(await pg.textContent('.bitacora-periodos .active').catch(() => '')), 'Sync update opens on the last working day');
   await pg.keyboard.press('Tab');   // → this week, where the fixture's activity is
   check(await until(async () => (await pg.$$('.bitacora-fila')).length === 2), 'two lines: ABC-1 and the slug task');
   const keys = await pg.$$eval('.bitacora-clave', l => l.map(x => x.textContent));
@@ -101,12 +101,12 @@ try {
   const text = await pg.evaluate(() => navigator.clipboard.readText()).catch(() => '');
   check(copied && /\n {2}- api#5 ABC-1 retry the payment/.test(text), 'C copies the Markdown: the task, its PRs underneath');
   await pg.keyboard.press('Tab'); await pg.keyboard.press('Tab'); await pg.keyboard.press('Tab');   // → All
-  check(/Todo|All/.test(await pg.textContent('.bitacora-periodos .activa')), 'Tab moves through the ranges');
+  check(/Todo|All/.test(await pg.textContent('.bitacora-periodos .active')), 'Tab moves through the ranges');
   await pg.keyboard.press('Escape');
 
   // ---- the board opened from the wall: its Sync update entry (U or its button) goes back to the board
   await pg.evaluate(() => window.__game.set({ panel: null, panelData: null })); await pg.waitForTimeout(200);
-  await pg.evaluate(() => window.__game.set({ panel: 'logistica', panelData: { view: 'jira' } }));
+  await pg.evaluate(() => window.__game.set({ panel: 'logistics', panelData: { view: 'jira' } }));
   check(await until(async () => /Sync update/.test(await pg.textContent('.modos-planning').catch(() => ''))), 'the board offers Board | Sync update on top');
   check(/U\s*Sync update/.test(await pg.textContent('.ayuda-consola').catch(() => '')), 'and its key, U');
   await pg.waitForTimeout(300); await pg.screenshot({ path: path.join(dir, 'board-sync-update.png'), animations: 'disabled' });
@@ -120,7 +120,7 @@ try {
   check(await until(async () => !(await pg.evaluate(() => window.__game.get().panel))), 'Esc on the board, opened from the wall, closes it');
 
   // ---- Planning → Trophies and career
-  await pg.evaluate(() => window.__game.set({ panel: 'logistica', panelData: { view: 'trofeos' } }));
+  await pg.evaluate(() => window.__game.set({ panel: 'logistics', panelData: { view: 'trophies' } }));
   check(await until(async () => (await pg.$$('.trofeo.vertical')).length === 7), 'one trophy per measured requirement of the example, on top');
   check((await pg.$$('.trofeo:not(.vertical)')).length === 6, 'and its six measured trophies');
   check((await pg.$$('.escalon')).length === 2, 'the two example steps');
@@ -143,7 +143,7 @@ try {
   // a broken ladder of the Overseer's: its error, read again with R
   writeFileSync(path.join(DATA, 'escalera.json'), '{ "trophies": [ nope');
   await pg.keyboard.press('KeyR');
-  check(await until(async () => /JSON/.test((await pg.$$eval('.aviso-consola', l => l.map(x => x.textContent).join(' ')))) ), 'a broken ladder shows its error');
+  check(await until(async () => /JSON/.test((await pg.$$eval('.notice-console', l => l.map(x => x.textContent).join(' ')))) ), 'a broken ladder shows its error');
   await pg.evaluate(() => window.__client.action('workLog.ladder', {}));
   check(readFileSync(path.join(DATA, 'escalera.json'), 'utf8').includes('nope'), 'an existing ladder is never overwritten from the example');
   writeFileSync(path.join(DATA, 'escalera.json'), readFileSync(path.join(ROOT, 'docs', 'ladder.example.json'), 'utf8'));
@@ -169,7 +169,7 @@ try {
 
   // ---- Planning's shelf
   await open('?sala=logistica');
-  const shelf = () => pg.evaluate(() => window.__shelter.rooms.find(s => s.id === 'logistica')?.userData.trophyShelf?.shown());
+  const shelf = () => pg.evaluate(() => window.__shelter.rooms.find(s => s.id === 'logistics')?.userData.trophyShelf?.shown());
   check(await until(async () => (await shelf())?.cups === 7), 'the shelf has one cup per vertical');
   const s = await shelf();
   check(s?.earned >= 1 && s?.levels.includes('bronze'), `won ones in the colour of their level (${s?.levels})`);
@@ -178,12 +178,12 @@ try {
   await pg.screenshot({ path: path.join(dir, 'planning-room.png'), animations: 'disabled', timeout: 15000 }).catch(() => console.log('(no room screenshot: timed out)'));
   // the shelf's zone on screen: hover reads its own label, a click opens Trophies and career, Escape back to the shelter
   const centre = () => pg.evaluate(() => {
-    const r = window.__shelter, s = r.rooms.find(x => x.id === 'logistica'), z = s.interactive.find(i => i.id === 'trofeos').zones[0];
+    const r = window.__shelter, s = r.rooms.find(x => x.id === 'logistics'), z = s.interactive.find(i => i.id === 'trophies').zones[0];
     const c = z.getCenter(r.supervisor.root.position.clone()).add(s.group.position); c.project(window.__engine.camera);
     const lz = document.querySelector('canvas').getBoundingClientRect(); return { x: lz.left + (c.x + 1) / 2 * lz.width, y: lz.top + (1 - c.y) / 2 * lz.height };
   });
   let at = await centre();
-  check(await until(async () => { at = await centre(); await pg.mouse.move(at.x, at.y); return (await pg.evaluate(() => window.__shelter.aimed?.it?.id)) === 'trofeos'; }), 'hovering the shelf aims at the trophies');
+  check(await until(async () => { at = await centre(); await pg.mouse.move(at.x, at.y); return (await pg.evaluate(() => window.__shelter.aimed?.it?.id)) === 'trophies'; }), 'hovering the shelf aims at the trophies');
   check(await until(async () => /Trofeos y carrera|Trophies and career/i.test(await pg.locator('body').innerText())), 'its label reads «Trophies and career» (or in Spanish)');
   await pg.screenshot({ path: path.join(dir, 'planning-shelf.png'), animations: 'disabled', timeout: 15000 }).catch(() => console.log('(no room screenshot: timed out)'));
   // clicked where the shelf is now (the camera may still be settling after the screenshot)

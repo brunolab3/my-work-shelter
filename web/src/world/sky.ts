@@ -107,13 +107,13 @@ function mix(keys: KeyLin[], alt: number, out: KeyLin) {
 /** suelo y piezas (polvo y óxido); `lejos`: colinas del fondo, con bruma del color del horizonte; `junto-luz`: lo que
  * alumbra la farola de noche; `farol`: el cristal de una lámpara (MeshBasic); `rotulo`: el cartel; `poza`: luz falsa
  * en el suelo (aditiva); `piloto`: luz roja que parpadea */
-export type Paper = 'pieza' | 'lejos' | 'junto-luz' | 'farol' | 'rotulo' | 'poza' | 'piloto';
+export type Paper = 'piece' | 'far' | 'near-light' | 'lantern' | 'label' | 'pool' | 'pilot';
 interface Entry { paper: Paper; color: THREE.Color; k: number; opacity: number }
 const registry = new Map<THREE.Material, Entry>();
 const pilots = new Set<THREE.Material>();
 export function exterior<M extends THREE.Material>(mat: M, paper: Paper): M {
   if (!registry.has(mat)) { const m = mat as any; registry.set(mat, { paper, color: m.color?.clone() ?? new THREE.Color(), k: m.emissiveIntensity ?? 1, opacity: m.opacity ?? 1 }); }
-  if (paper === 'piloto') pilots.add(mat);
+  if (paper === 'pilot') pilots.add(mat);
   if (currentSky) currentSky.retouch(mat);
   return mat;
 }
@@ -185,7 +185,7 @@ export class Sky {
   group = new THREE.Group();
   private mat: THREE.ShaderMaterial;
   private stars: THREE.Points;
-  private camara: THREE.PerspectiveCamera;
+  private camera: THREE.PerspectiveCamera;
   private scene: THREE.Scene;
   private z: number;
   private fixed: Date | null = null;
@@ -202,8 +202,8 @@ export class Sky {
 
   /** `y`: altura de la calle (el borde inferior del cielo); `z`: plano del cielo, detrás de las colinas */
   constructor(motor: { camera: THREE.PerspectiveCamera; scene: THREE.Scene }, y: number, z = -40) {
-    this.camara = motor.camera; this.scene = motor.scene; this.z = z;
-    this.group.name = 'cielo'; this.group.position.set(0, y, z);
+    this.camera = motor.camera; this.scene = motor.scene; this.z = z;
+    this.group.name = 'sky'; this.group.position.set(0, y, z);
     const u = (v: any) => ({ value: v });
     this.mat = new THREE.ShaderMaterial({
       vertexShader: VERT, fragmentShader: FRAG, depthWrite: false,
@@ -221,7 +221,7 @@ export class Sky {
     this.group.add(plane);
     this.stars = this.createStars(); this.group.add(this.stars);
     // reloj: ?hora=HH:MM fija la hora (QA)
-    const q = new URLSearchParams(location.search).get('hora'); if (q) this.fixed = Sky.read(q);
+    const q = new URLSearchParams(location.search).get('hour'); if (q) this.fixed = Sky.read(q);
     currentSky = this;
     (window as any).__sky = {
       pin: (h: string | null) => { this.fixed = h == null ? null : Sky.read(h); this.compute(); return this.info(); },
@@ -311,10 +311,10 @@ export class Sky {
     const r = registry.get(m); if (!r) return;
     const a = m as any, mz = this.mix;
     switch (r.paper) {
-      case 'farol': a.color.copy(OFF_LANTERN).lerp(LIT_LANTERN, this.lamps); break;
-      case 'poza': a.opacity = r.opacity * this.lamps; m.visible = this.lamps > 0.01; break;
-      case 'piloto': break;   // lo lleva el parpadeo
-      case 'rotulo':
+      case 'lantern': a.color.copy(OFF_LANTERN).lerp(LIT_LANTERN, this.lamps); break;
+      case 'pool': a.opacity = r.opacity * this.lamps; m.visible = this.lamps > 0.01; break;
+      case 'pilot': break;   // lo lleva el parpadeo
+      case 'label':
         a.color.copy(r.color).multiply(mz.albedo);
         a.emissiveIntensity = r.k * (0.55 + 0.45 * mz.k) + this.lamps * 0.75;
         break;
@@ -324,10 +324,10 @@ export class Sky {
         a.color.copy(r.color).multiply(mz.albedo).multiplyScalar(ALBEDO);
         a.emissive.copy(r.color).multiply(mz.tint).multiplyScalar(1.6).add(this.c.copy(mz.tint).multiplyScalar(0.035));
         a.emissiveIntensity = r.k * (mz.k + this.lightMoon);
-        if (r.paper === 'lejos') {
+        if (r.paper === 'far') {
           // bruma: las colinas del fondo se acercan al color del horizonte
           a.color.multiplyScalar(0.8); a.emissive.lerp(this.c.copy(mz.sky[0]).multiplyScalar(0.5), 0.3); a.emissiveIntensity *= 1.1;
-        } else if (r.paper === 'junto-luz' && this.lamps > 0) {
+        } else if (r.paper === 'near-light' && this.lamps > 0) {
           a.emissive.add(this.c.copy(STREETLIGHT_LIGHT).multiplyScalar(0.06 * this.lamps));
         }
       }
@@ -338,7 +338,7 @@ export class Sky {
   update(dt: number) {
     this.t += dt; this.wait -= dt;
     if (this.wait <= 0) { this.wait = 0.25; this.compute(); }
-    const cam = this.camara;
+    const cam = this.camera;
     const farSide = Math.max(10, cam.position.z - this.z);
     const width = farSide * Math.tan(THREE.MathUtils.degToRad(cam.fov / 2)) * cam.aspect;   // medio ancho visible en el plano
     const scale = farSide / 148;   // tamaño aparente del sol y la luna constante con el zoom (148: la vista general)

@@ -12,13 +12,13 @@ await pg.waitForFunction(() => window.__shelter?.dwellers?.length > 0 && window.
 await new Promise(r => setTimeout(r, 2500));
 await pg.evaluate(p => { window.__game.set({ panel: null }); if (p) eval(p);
   const r = window.__shelter; const h = r.dwellers.find(x => x.room === r.currentRoom); window.__h = h;
-  if (window.__move) { h.change('esperando'); h.change('ocioso'); h.pos.x = r.currentRoom.group.position.x + 4.5; h.pos.z = 1.3; } r.interact(h);
+  if (window.__move) { h.change('waiting'); h.change('idle'); h.pos.x = r.currentRoom.group.position.x + 4.5; h.pos.z = 1.3; } r.interact(h);
 }, prep);
 const info = () => pg.evaluate(() => { const h = window.__h; return `${h.state}/${h.chore} ${h.p.currentName} x=${(h.pos.x - h.room.group.position.x).toFixed(1)} habla=${h.talking}`; });
 await new Promise(r => setTimeout(r, 1500)); await pg.screenshot({ path: output.replace('.png', '_0.png') }); console.log(0, await info());
 await pg.evaluate(() => {
   const h = window.__h, s = h.room;
-  window.__live.set(e => ({ sessions: { ...e.sessions, qa: { id: 'qa', dwellerId: h.id.id, roomId: s.id, cwd: s.path, state: 'trabajando', activity: { mode: 'escribir', text: 'editando src/app.ts' }, unread: false, title: 'QA', pending: 0, helpers: [], tools: 3, turns: 1, created: Date.now(), updated: Date.now() } } }));
+  window.__live.set(e => ({ sessions: { ...e.sessions, qa: { id: 'qa', dwellerId: h.id.id, roomId: s.id, cwd: s.path, state: 'working', activity: { mode: 'write', text: 'editando src/app.ts' }, unread: false, title: 'QA', pending: 0, helpers: [], tools: 3, turns: 1, created: Date.now(), updated: Date.now() } } }));
   let n = 0; window.__text = setInterval(() => { window.__live.set(e => ({ partial: { ...e.partial, qa: (e.partial.qa ?? '') + 'bla ' } })); if (++n > 80) clearInterval(window.__text); }, 90);
 });
 for (let i = 1; i <= 4; i++) { await new Promise(r => setTimeout(r, 2500)); await pg.screenshot({ path: output.replace('.png', `_${i}.png`) }); console.log(i, await info()); }

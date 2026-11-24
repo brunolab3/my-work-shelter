@@ -32,13 +32,13 @@ export function RequestView({ blocks, reason }: { blocks: InputView[]; reason?: 
   return (
     <div className="peticion-detalle">
       {blocks.map((b, k) => {
-        if (b.type === 'ruta') return <p key={k} className="vista-ruta"><b><Visible t={b.text} /></b></p>;
-        if (b.type === 'texto') return <p key={k} className="vista-texto"><Visible t={b.text} /></p>;
+        if (b.type === 'path') return <p key={k} className="vista-path"><b><Visible t={b.text} /></b></p>;
+        if (b.type === 'text') return <p key={k} className="vista-text"><Visible t={b.text} /></p>;
         return (
-          <div key={k} className="codigo">
-            <button className="copiar" data-copiar tabIndex={-1}>{tr('windows.copy')}</button>
+          <div key={k} className="code">
+            <button className="copy" data-copiar tabIndex={-1}>{tr('windows.copy')}</button>
             <pre className={'vista-' + b.type}><code>{b.type === 'diff'
-              ? b.text.split('\n').map((l, i) => <span key={i} className={l.startsWith('+ ') ? 'diff-mas' : l.startsWith('- ') ? 'diff-menos' : 'diff-nota'}><Visible t={l} />{'\n'}</span>)
+              ? b.text.split('\n').map((l, i) => <span key={i} className={l.startsWith('+ ') ? 'diff-mas' : l.startsWith('- ') ? 'diff-minus' : 'diff-note'}><Visible t={l} />{'\n'}</span>)
               : <Visible t={b.text} />}</code></pre>
           </div>
         );

@@ -67,47 +67,47 @@ function preflightTasks(): string[] {
   const out = new Set<string>();
   const prs = jiraBoard.get().prs;
   for (const c of juego.get().copies) { const k = c.copy && worktreeTask(c.copy); if (k && taskHasPRs(k, prs)) out.add(k); }
-  for (const p of prs) { const k = (p.state === 'abierto' || p.state === 'borrador') && pRKey(p); if (k) out.add(k); }
-  for (const p of prs) { const k = p.state === 'fusionado' && pRKey(p); if (k) out.add(k); }
+  for (const p of prs) { const k = (p.state === 'open' || p.state === 'draft') && pRKey(p); if (k) out.add(k); }
+  for (const p of prs) { const k = p.state === 'merged' && pRKey(p); if (k) out.add(k); }
   return [...out].slice(0, 16);
 }
 const preflightAction = (k: string): Action => ({ id: 'preflight:' + k, text: t('preflight.action', { clave: k }), hint: t('preflight.actionHint'), keys: `preflight pre-flight vuelo checks ci sync revision review bloqueos ${k}`, f: () => openPreflight(k) });   // over whatever is open: nothing closes
 function actions(): Action[] {
   const j = juego.get();
   const room = (live.get().state?.rooms ?? []).find((s: any) => s.id === j.currentRoom);
-  const coordination = ((live.get().state?.rooms ?? []) as any[]).find(s => s.type === 'coordinacion' && s.path);
-  const withFolder =!!room && (room.path || room.folder || ['puente', 'git', 'comunicaciones', 'planificacion', 'logistica'].includes(room.type));
+  const coordination = ((live.get().state?.rooms ?? []) as any[]).find(s => s.type === 'coordination' && s.path);
+  const withFolder =!!room && (room.path || room.folder || ['bridge', 'git', 'comms', 'calendar', 'logistics'].includes(room.type));
   const toView = sessionInView();
   return [
     ...(toView ? [{ id: 'app-claude', text: t('panels.continueTituloInTheClaude', { titulo: toView.title || t('windows.thisConversation') }), hint: t('panels.itClosesHere'), keys: 'claude app escritorio desktop abrir sacar', f: () => toClaudeApp({ sessionId: toView.id }) },
       { id: 'remote-control', text: t('panels.continueTituloOnYourPhone', { titulo: toView.title || t('windows.thisConversation') }), hint: t('panels.itClosesHere'), keys: 'remote control movil móvil phone telefono teléfono mobile', f: () => takeASurface({ sessions: [toView.id], remote: true }) }] : []),
-    { id: 'todo-al-movil', text: t('menu.everythingToYourPhone'), hint: t('menu.openConversationsWithRemoteControl'), keys: 'remote control movil móvil phone telefono teléfono mobile superficie todo', f: () => takeASurface({ all: true, remote: true, windowNew: true }) },
-    { id: 'esperan', text: t('panels.goToWhoeverIsWaiting'), key: 'Q', keys: 'pendiente permiso pregunta urgente', f: () => { const h = busy([...j.dwellers, ...j.copies]).find(x => x.state === 'esperando' || x.state === 'error'); if (h) goA(h.room, h.id, true); else SFX.notAllowed(); } },
-    { id: 'ocupados', text: t('panels.whoIsBusy'), hint: t('panels.workingWaitingBrokenDown'), key: 'Tab', keys: 'ocupados trabajos estado', f: () => { onShelter(); openPanel('ocupados'); } },
-    { id: 'plano', text: t('panels.shelterMap'), hint: t('panels.fastTravelToAnyRoom'), key: 'M', keys: 'mapa viajar salas', f: () => { onShelter(); openPanel('plano'); } },
-    { id: 'cuaderno', text: t('panels.logbookOfAConversation'), hint: t('panels.theFullTranscript'), key: 'R', keys: 'transcripcion historial leer', f: () => { onShelter(); openPanel('cuaderno'); } },
+    { id: 'all-to-phone', text: t('menu.everythingToYourPhone'), hint: t('menu.openConversationsWithRemoteControl'), keys: 'remote control movil móvil phone telefono teléfono mobile superficie todo', f: () => takeASurface({ all: true, remote: true, windowNew: true }) },
+    { id: 'waiting', text: t('panels.goToWhoeverIsWaiting'), key: 'Q', keys: 'pendiente permiso pregunta urgente', f: () => { const h = busy([...j.dwellers, ...j.copies]).find(x => x.state === 'waiting' || x.state === 'error'); if (h) goA(h.room, h.id, true); else SFX.notAllowed(); } },
+    { id: 'busy', text: t('panels.whoIsBusy'), hint: t('panels.workingWaitingBrokenDown'), key: 'Tab', keys: 'ocupados trabajos estado', f: () => { onShelter(); openPanel('busy'); } },
+    { id: 'map', text: t('panels.shelterMap'), hint: t('panels.fastTravelToAnyRoom'), key: 'M', keys: 'mapa viajar salas', f: () => { onShelter(); openPanel('map'); } },
+    { id: 'log', text: t('panels.logbookOfAConversation'), hint: t('panels.theFullTranscript'), key: 'R', keys: 'transcripcion historial leer', f: () => { onShelter(); openPanel('log'); } },
     ...(withFolder ? [{ id: 'terminal', text: t('panels.salaTerminal', { sala: room.name }), hint: t('panels.shellInTheRoomS'), key: 'T', keys: 'terminal shell consola pty', f: () => window.dispatchEvent(new CustomEvent('refugio:terminal', { detail: { roomId: room.id } })) }] : []),
-    ...(room && (room.type === 'repo' || room.type === 'coordinacion') ? [{ id: 'adaptar', text: t('panels.adaptSalaToTheRepo', { sala: room.name }), hint: t('panels.itsDwellerDesignsAScene'), keys: 'decorar decorado escena sala personalizar atrezo', f: () => { onShelter(); adaptRoom(room.id).catch(() => SFX.error()); } }] : []),
+    ...(room && (room.type === 'repo' || room.type === 'coordination') ? [{ id: 'adapt', text: t('panels.adaptSalaToTheRepo', { sala: room.name }), hint: t('panels.itsDwellerDesignsAScene'), keys: 'decorar decorado escena sala personalizar atrezo', f: () => { onShelter(); adaptRoom(room.id).catch(() => SFX.error()); } }] : []),
     { id: 'git', text: t('panels.versionControl'), hint: t('panels.changesCommitsBranchesAndGithub'), key: 'G', keys: 'git github commit rama pull push pr', f: () => openGitOfRoom(j.currentRoom) },
-    { id: 'comunicaciones', text: t('world.communications'), hint: t('panels.emailAndChats'), key: 'N', keys: 'correo mail chats avisos notificaciones tablon', f: () => { onShelter(); goA('comunicaciones'); } },
-    { id: 'planificacion', text: t('world.calendar'), hint: t('panels.calendarAndMeetings'), key: 'C', keys: 'calendario agenda reuniones eventos', f: () => { onShelter(); goA('planificacion'); } },
-    { id: 'organizar', text: t('panels.organizeTheRoomsByTasks'), hint: t('panels.aWorktreeAndAConversation'), keys: 'organizar worktree worktrees tareas pr prs pull requests salas sesiones stack apilados', f: () => { onShelter(); openPanel('organizar'); } },
+    { id: 'comms', text: t('world.communications'), hint: t('panels.emailAndChats'), key: 'N', keys: 'correo mail chats avisos notificaciones tablon', f: () => { onShelter(); goA('comms'); } },
+    { id: 'calendar', text: t('world.calendar'), hint: t('panels.calendarAndMeetings'), key: 'C', keys: 'calendario agenda reuniones eventos', f: () => { onShelter(); goA('calendar'); } },
+    { id: 'organize', text: t('panels.organizeTheRoomsByTasks'), hint: t('panels.aWorktreeAndAConversation'), keys: 'organizar worktree worktrees tareas pr prs pull requests salas sesiones stack apilados', f: () => { onShelter(); openPanel('organize'); } },
     { id: 'prs', text: t('panels.pullRequests'), hint: t('panels.yourPrsAndThoseAwaiting'), keys: 'pr prs pull requests revisiones review github', f: () => openGit({ view: 'prs' }) },
-    { id: 'revision', text: t('reviews.boardAction', { n: live.get().reviews.reviews.filter(r => r.column === 'review').length }), hint: t('reviews.goToRoomHint'), keys: 'revision revisar review reviews pr prs pull requests otros aprobar cambios', f: () => { onShelter(); goA('review'); openPanel('revision', { roomId: 'review' }); } },
-    { id: 'sala-revision', text: t('reviews.goToRoom'), hint: t('world.prsAwaitingYourReview'), keys: 'revision review sala hologramas', f: () => { onShelter(); goA('review'); } },
-    { id: 'logistica', text: t('world.planning'), hint: t('panels.jiraBoard'), key: 'L', keys: 'jira linear tareas issues tablero', f: () => { onShelter(); goA('logistica'); } },
-    { id: 'bitacora', text: t('worklog.menu'), hint: t('world.planning'), keys: 'sync update su bitacora log diario standup hecho tareas pr worktrees', f: () => { onShelter(); goA('logistica'); openPanel('logistica', { view: 'bitacora' }); } },
-    { id: 'verificar-escalera', text: t('trophies.verify.menu'), hint: t('trophies.verify.hint'), keys: 'verificar escalera carrera nivel career ladder level verify', f: () => { onShelter(); verifyLadder().catch(() => SFX.notAllowed()); } },
-    { id: 'trofeos', text: t('trophies.menu'), hint: t('panels.planning'), keys: 'trofeos logros carrera escalera career ladder trophies achievements', f: () => { onShelter(); goA('logistica'); openPanel('logistica', { view: 'trofeos' }); } },
-    ...(coordination ? [{ id: 'reparto', text: t('panels.planTasksInSala', { sala: coordination.name }), hint: t('panels.analyzeAJiraTaskWith'), keys: 'jira tareas planificar planificacion plan repartir reparto coordinacion worktrees salas', f: () => { onShelter(); goA(coordination.id); openPanel('sala', { roomId: coordination.id, view: 'reparto' }); } },
-      { id: 'despliegue', text: t('world.deploymentPlan2'), hint: t('panels.yourPrsByStatusAnd', { sala: coordination.name }), keys: 'despliegue deploy desplegar pr prs pull requests bloqueos dependencias orden fusionar merge', f: () => { onShelter(); goA(coordination.id); openPanel('sala', { roomId: coordination.id, view: 'despliegue' }); } }] : []),
+    { id: 'review', text: t('reviews.boardAction', { n: live.get().reviews.reviews.filter(r => r.column === 'review').length }), hint: t('reviews.goToRoomHint'), keys: 'revision revisar review reviews pr prs pull requests otros aprobar cambios', f: () => { onShelter(); goA('review'); openPanel('review', { roomId: 'review' }); } },
+    { id: 'review-room', text: t('reviews.goToRoom'), hint: t('world.prsAwaitingYourReview'), keys: 'revision review sala hologramas', f: () => { onShelter(); goA('review'); } },
+    { id: 'logistics', text: t('world.planning'), hint: t('panels.jiraBoard'), key: 'L', keys: 'jira linear tareas issues tablero', f: () => { onShelter(); goA('logistics'); } },
+    { id: 'log', text: t('worklog.menu'), hint: t('world.planning'), keys: 'sync update su bitacora log diario standup hecho tareas pr worktrees', f: () => { onShelter(); goA('logistics'); openPanel('logistics', { view: 'log' }); } },
+    { id: 'verify-ladder', text: t('trophies.verify.menu'), hint: t('trophies.verify.hint'), keys: 'verificar escalera carrera nivel career ladder level verify', f: () => { onShelter(); verifyLadder().catch(() => SFX.notAllowed()); } },
+    { id: 'trophies', text: t('trophies.menu'), hint: t('panels.planning'), keys: 'trofeos logros carrera escalera career ladder trophies achievements', f: () => { onShelter(); goA('logistics'); openPanel('logistics', { view: 'trophies' }); } },
+    ...(coordination ? [{ id: 'assignment', text: t('panels.planTasksInSala', { sala: coordination.name }), hint: t('panels.analyzeAJiraTaskWith'), keys: 'jira tareas planificar planificacion plan repartir reparto coordinacion worktrees salas', f: () => { onShelter(); goA(coordination.id); openPanel('room', { roomId: coordination.id, view: 'assignment' }); } },
+      { id: 'deployment', text: t('world.deploymentPlan2'), hint: t('panels.yourPrsByStatusAnd', { sala: coordination.name }), keys: 'despliegue deploy desplegar pr prs pull requests bloqueos dependencias orden fusionar merge', f: () => { onShelter(); goA(coordination.id); openPanel('room', { roomId: coordination.id, view: 'deployment' }); } }] : []),
     ...preflightTasks().map(preflightAction),
-    { id: 'musica', text: t('panels.music'), hint: t('panels.spotifyAndTheDeck'), key: `${K}J`, keys: 'spotify musica discoteca pletina', f: () => musicShortcut() },
+    { id: 'music', text: t('panels.music'), hint: t('panels.spotifyAndTheDeck'), key: `${K}J`, keys: 'spotify musica discoteca pletina', f: () => musicShortcut() },
     { id: 'recargar', text: t('menu.reloadTheView'), hint: t('menu.ifTheShelterGoesBlack'), keys: 'negro pantalla recargar reload refrescar', f: () => reloadView() },
-    { id: 'barra', text: t('panels.openWindows'), hint: t('panels.theBarAtTheBottom'), key: `${K}B`, keys: 'barra ventanas minimizadas', f: () => enterBar() },
-    { id: 'chapa', text: t('world.bodyShop'), hint: t('panels.changeYourLookOrA'), key: 'P', keys: 'aspecto ropa pelo probador personaje', f: () => { onShelter(); openPanel('chapa'); } },
-    { id: 'inventario', text: t('panels.inventoryAndShop'), key: 'I', keys: 'tienda chatarra accesorios guia', f: () => { onShelter(); openPanel('inventario'); } },
-    { id: 'camara', text: t('world.vault'), hint: t('panels.credentialsIntegrationsAndShelterSettings'), keys: 'credenciales claves integraciones ajustes llavero limite sesiones raiz repos atuendo', f: () => { onShelter(); goA('camara'); openPanel('camara'); } },
+    { id: 'bar', text: t('panels.openWindows'), hint: t('panels.theBarAtTheBottom'), key: `${K}B`, keys: 'barra ventanas minimizadas', f: () => enterBar() },
+    { id: 'bodyshop', text: t('world.bodyShop'), hint: t('panels.changeYourLookOrA'), key: 'P', keys: 'aspecto ropa pelo probador personaje', f: () => { onShelter(); openPanel('bodyshop'); } },
+    { id: 'inventory', text: t('panels.inventoryAndShop'), key: 'I', keys: 'tienda chatarra accesorios guia', f: () => { onShelter(); openPanel('inventory'); } },
+    { id: 'vault', text: t('world.vault'), hint: t('panels.credentialsIntegrationsAndShelterSettings'), keys: 'credenciales claves integraciones ajustes llavero limite sesiones raiz repos atuendo', f: () => { onShelter(); goA('vault'); openPanel('vault'); } },
     { id: 'web-linear', text: t('panels.openLinear'), hint: t('panels.web'), keys: 'navegador web', f: () => openBrowser('linear') },
     { id: 'web-outlook', text: t('panels.openOutlook'), hint: t('panels.web'), keys: 'navegador web correo mail', f: () => openBrowser('outlook') },
     { id: 'web-discord', text: t('panels.openDiscord'), hint: t('panels.web'), keys: 'navegador web chat', f: () => openBrowser('discord') },
@@ -136,8 +136,8 @@ const uses = (): Record<string, number> => { try { return JSON.parse(localStorag
 function log(id: string) { try { const u = uses(); u[id] = (u[id] ?? 0) + 1; localStorage.setItem(USES, JSON.stringify(u)); } catch {} }
 
 interface Row { id: string; section: string; text: string; hint?: string; key?: string; state?: string; f: () => void; p: number }
-const STATE_ORDER: Record<string, number> = { esperando: 0, error: 1, trabajando: 2, arrancando: 2, terminada: 3, ociosa: 4 };
-const TXT_STATE: Record<string, string> = { esperando: 'te espera', error: 'avería', trabajando: 'trabajando', arrancando: 'arrancando', terminada: 'terminado', ociosa: 'listo' };
+const STATE_ORDER: Record<string, number> = { waiting: 0, error: 1, working: 2, starting: 2, finished: 3, idle: 4 };
+const TXT_STATE: Record<string, string> = { waiting: 'te espera', error: 'avería', working: 'trabajando', starting: 'arrancando', finished: 'terminado', idle: 'listo' };
 
 export function Search() {
   const open = search.use(e => e.open);
@@ -163,11 +163,11 @@ function Window() {
     const nameOf = (hid: string) => [...dwellers, ...copies].find(h => h.id === hid);
     const out: Row[] = [];
     // conversaciones abiertas: las que te esperan, delante
-    const openSessions = Object.values(sessions).filter(s => s.state !== 'cerrada').sort((a, b) => (STATE_ORDER[a.state] ?? 5) - (STATE_ORDER[b.state] ?? 5) || recentFirst(sessionRecency(a), sessionRecency(b)));
+    const openSessions = Object.values(sessions).filter(s => s.state !== 'closed').sort((a, b) => (STATE_ORDER[a.state] ?? 5) - (STATE_ORDER[b.state] ?? 5) || recentFirst(sessionRecency(a), sessionRecency(b)));
     for (const s of openSessions as SessionSummary[]) {
       const h = nameOf(sessionOwner(s));
       const p = score(words, s.title, `${h?.name ?? ''} ${h?.nameRoom ?? ''} conversacion chat`);
-      if (p) out.push({ id: 'ses:' + s.id, section: t('panels.searchOpenConversations'), text: s.title || t('windows.conversation'), hint: `${h?.name ?? '?'} · ${h?.nameRoom ?? ''}`, state: s.state, f: () => openConversation(s.id), p: p + 2 });
+      if (p) out.push({ id: 'sess:' + s.id, section: t('panels.searchOpenConversations'), text: s.title || t('windows.conversation'), hint: `${h?.name ?? '?'} · ${h?.nameRoom ?? ''}`, state: s.state, f: () => openConversation(s.id), p: p + 2 });
     }
     // recientes del archivo (las que no están abiertas ya)
     const liveIds = new Set(openSessions.map(s => s.claudeId).filter(Boolean));
@@ -179,7 +179,7 @@ function Window() {
       if (!p || (!searching && n >= 6)) continue;
       n++;
       out.push({ id: 'rec:' + r.claudeId, section: t('panels.searchRecentConversations'), text: r.title, hint: `${h?.name ?? ''} · ${h?.nameRoom ?? ''} · ${ago(r.modified)}${r.outside ? ' · ' + t('windows.openOnYourDesktop') : ''}`,
-        f: () => { if (r.outside) { SFX.notAllowed(); addNotice('aviso', t('panels.thatConversationIsStillOpen')); return; } onShelter(); resumeConversation(r.dwellerId, r); }, p });
+        f: () => { if (r.outside) { SFX.notAllowed(); addNotice('warning', t('panels.thatConversationIsStillOpen')); return; } onShelter(); resumeConversation(r.dwellerId, r); }, p });
     }
     // mensajes programados (server/scheduled.ts): cuándo, quién y a dónde; Enter abre la conversación que lo
     // programó si sigue abierta o, si no, lleva con su habitante (cancelarlos o cambiarlos, en su intercomunicador)
@@ -187,9 +187,9 @@ function Window() {
       const room = rooms.find(y => y.id === x.origin.roomId), h = dwellers.find(y => y.room === x.origin.roomId);
       const p = score(words, x.message, `${h?.name ?? ''} ${room?.name ?? ''} ${describeWhen(x.when)} programado programados mensaje recordatorio scheduled reminder`);
       if (!p) continue;
-      const open = Object.values(sessions).find(y => y.state !== 'cerrada' && ((x.origin.claudeId && y.claudeId === x.origin.claudeId) || y.id === x.origin.sessionId));
+      const open = Object.values(sessions).find(y => y.state !== 'closed' && ((x.origin.claudeId && y.claudeId === x.origin.claudeId) || y.id === x.origin.sessionId));
       out.push({ id: 'prog:' + x.id, section: t('panels.scheduledMessages'), text: x.message.replace(/\s+/g, ' ').slice(0, 140),
-        hint: t('panels.scheduledFor', { cuando: describeWhenShort(x.when), habitante: h?.name ?? '?', sala: room?.name ?? x.origin.roomId }) + (x.target.type === 'sala' ? ' ' + t('panels.scheduledToRoom', { sala: x.target.room }) : ''),
+        hint: t('panels.scheduledFor', { cuando: describeWhenShort(x.when), habitante: h?.name ?? '?', sala: room?.name ?? x.origin.roomId }) + (x.target.type === 'room' ? ' ' + t('panels.scheduledToRoom', { sala: x.target.room }) : ''),
         f: () => { if (open) openConversation(open.id); else if (h) { onShelter(); goA(h.room, h.id, true); } }, p: p + 1 });
     }
     // acciones: sin escribir, las recurrentes (las que más usas) delante
@@ -201,7 +201,7 @@ function Window() {
     const typed = words.find(w => /^[a-z][a-z0-9]+-\d+$/.test(w))?.toUpperCase();
     if (typed && taskHasPRs(typed, jiraBoard.get().prs) && !out.some(f => f.id === 'preflight:' + typed)) { const a = preflightAction(typed); out.push({ id: a.id, section: t('windows.actions'), text: a.text, hint: a.hint, f: a.f, p: 4 }); }
     if (searching) {
-      for (const h of dwellers) { const p = score(words, t('windows.talkToNombre', { nombre: h.name }), `${h.nickname} ${h.nameRoom} habitante`); if (p) out.push({ id: 'hab:' + h.id, section: t('panels.dwellers'), text: t('windows.talkToNombre', { nombre: h.name }), hint: h.nameRoom, f: () => { onShelter(); goA(h.room, h.id, true); }, p }); }
+      for (const h of dwellers) { const p = score(words, t('windows.talkToNombre', { nombre: h.name }), `${h.nickname} ${h.nameRoom} habitante`); if (p) out.push({ id: 'dweller:' + h.id, section: t('panels.dwellers'), text: t('windows.talkToNombre', { nombre: h.name }), hint: h.nameRoom, f: () => { onShelter(); goA(h.room, h.id, true); }, p }); }
       for (const s of rooms) { const p = score(words, t('panels.goToSala', { sala: s.name }), `${s.type} sala`); if (p) out.push({ id: 'sala:' + s.id, section: t('panels.searchRooms'), text: t('panels.goToSala', { sala: s.name }), hint: s.path ? s.path.replace(/^\/Users\/[^/]+/, '~') : undefined, f: () => { onShelter(); goA(s.id); }, p }); }
     }
     // con algo escrito, por secciones en el orden de la mejor de cada una
@@ -212,8 +212,8 @@ function Window() {
   }, [q, sessions, recent, dwellers, copies, rooms, scheduled]);
 
   useEffect(() => { setI(0); }, [q]);
-  useEffect(() => { list.current?.querySelector('.fila-buscador.activa')?.scrollIntoView({ block: 'nearest' }); }, [i]);
-  const pick = (k: number) => { const f = rows[k]; if (!f) { SFX.notAllowed(); return; } log(f.id.startsWith('ses:') || f.id.startsWith('rec:') ? 'conversaciones' : f.id); closeSearch(false); SFX.click(); f.f(); };
+  useEffect(() => { list.current?.querySelector('.fila-buscador.active')?.scrollIntoView({ block: 'nearest' }); }, [i]);
+  const pick = (k: number) => { const f = rows[k]; if (!f) { SFX.notAllowed(); return; } log(f.id.startsWith('sess:') || f.id.startsWith('rec:') ? 'conversations' : f.id); closeSearch(false); SFX.click(); f.f(); };
 
   return (
     <div className="fondo-buscador interactivo" onMouseDown={e => { if (e.target === e.currentTarget) closeSearch(); }}>
@@ -237,17 +237,17 @@ function Window() {
           {rows.map((f, k) => (
             <div key={f.id}>
               {(k === 0 || rows[k - 1].section !== f.section) && <div className="seccion-buscador">{f.section}{f.section === t('panels.searchRecentConversations') && recent === null ? ' · ' + t('panels.searching') : ''}</div>}
-              <div className={'fila-buscador' + (k === i ? ' activa' : '')} onMouseMove={() => { if (k !== i) setI(k); }} onClick={() => pick(k)}>
-                {f.state && <span className={'piloto ' + (f.state === 'esperando' ? 'esperando' : f.state === 'error' ? 'error' : f.state === 'trabajando' || f.state === 'arrancando' ? 'trabajando' : 'ociosa')} />}
+              <div className={'fila-buscador' + (k === i ? ' active' : '')} onMouseMove={() => { if (k !== i) setI(k); }} onClick={() => pick(k)}>
+                {f.state && <span className={'pilot ' + (f.state === 'waiting' ? 'waiting' : f.state === 'error' ? 'error' : f.state === 'working' || f.state === 'starting' ? 'working' : 'idle')} />}
                 <span className="txt">{f.text}</span>
                 {f.hint && <span className="pista">{f.hint}{f.state ? ` · ${tIs(TXT_STATE[f.state] ?? f.state)}` : ''}</span>}
                 {f.key && <span className="tecla">{f.key}</span>}
               </div>
             </div>
           ))}
-          {!rows.length && <p className="tenue vacio-buscador">{t('panels.nothingForQTryAnother', { q })}</p>}
+          {!rows.length && <p className="dim vacio-buscador">{t('panels.nothingForQTryAnother', { q })}</p>}
         </div>
-        <div className="ayuda-consola"><kbd>↑↓</kbd> {t('menu.select')} <kbd>Enter</kbd> {t('windows.open')} <kbd>Esc</kbd> {t('menu.close')} <span className="tenue">· {t('panels.gameStuffOptionsRestartQuit')}</span> <kbd>Esc</kbd></div>
+        <div className="ayuda-consola"><kbd>↑↓</kbd> {t('menu.select')} <kbd>Enter</kbd> {t('windows.open')} <kbd>Esc</kbd> {t('menu.close')} <span className="dim">· {t('panels.gameStuffOptionsRestartQuit')}</span> <kbd>Esc</kbd></div>
       </div>
     </div>
   );

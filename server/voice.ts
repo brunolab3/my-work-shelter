@@ -13,7 +13,7 @@ import { t } from '../shared/language.ts';
 const SOURCE = path.join(import.meta.dirname, 'voice', 'transcriber.swift');
 const MAX_MS = 5 * 60_000;   // un dictado no dura más de cinco minutos
 
-export type VoiceEvent = { state: 'descargando' | 'listo' | 'parcial' | 'final' | 'error'; text?: string };
+export type VoiceEvent = { state: 'descargando' | 'ready' | 'partial' | 'final' | 'error'; text?: string };
 
 let compiling: Promise<string> | null = null;
 // el transcriptor compilado de este código (por su huella): si no está, se compila (una sola vez aunque lo pidan varios)

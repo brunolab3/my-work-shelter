@@ -61,11 +61,11 @@ export function mailPriority(m: any, me: MicrosoftMe = {}): Priority {
   const view = String(m.bodyPreview ?? '');
   const name = me.name?.trim();
   const mentioned = m.mentionsPreview?.isMentioned === true || (!!name && (view.includes('@' + name) || view.includes('@' + name.split(/\s+/)[0] + ' ')));
-  if (m.importance === 'high' || mentioned) return 'alta';
+  if (m.importance === 'high' || mentioned) return 'high';
   const email = me.email?.toLowerCase();
   const direct = !!email && (m.toRecipients ?? []).some((r: any) => dir(r).address?.toLowerCase() === email);
   if (m.flag?.flagStatus === 'flagged' || (direct && m.inferenceClassification !== 'other' && m.importance !== 'low')) return 'media';
-  return 'baja';
+  return 'low';
 }
 export function emailNotification(m: any, me: MicrosoftMe = {}): Notification | null {
   if (!m?.id || m['@removed'] || m.isRead === true) return null;
@@ -158,10 +158,10 @@ export function canSeeDiscord(channel: any, guild: any, memberId?: string): bool
 export const contextDiscordEmpty = (): ContextDiscord => ({ myRoles: new Set(), content: true, channels: new Map(), roles: new Map(), servers: new Map(), chosen: new Set() });
 
 export function priorityDiscord(m: any, ctx: ContextDiscord): Priority {
-  if (ctx.me && ((m.mentions ?? []).some((u: any) => u.id === ctx.me) || (m.type === 19 && m.referenced_message?.author?.id === ctx.me))) return 'alta';
-  if ((m.mention_roles ?? []).some((r: string) => ctx.myRoles.has(r))) return 'alta';
+  if (ctx.me && ((m.mentions ?? []).some((u: any) => u.id === ctx.me) || (m.type === 19 && m.referenced_message?.author?.id === ctx.me))) return 'high';
+  if ((m.mention_roles ?? []).some((r: string) => ctx.myRoles.has(r))) return 'high';
   if (m.mention_everyone) return 'media';
-  return 'baja';
+  return 'low';
 }
 const userName = (u: any, member?: any) => member?.nick || u?.global_name || u?.username || tr('integrations.someone');
 export function textDiscord(m: any, ctx: ContextDiscord): string {
@@ -188,7 +188,7 @@ export function discordNotification(m: any, ctx: ContextDiscord): Notification |
   const parent = channel?.parent ? ctx.channels.get(channel.parent) : undefined;
   const priority = priorityDiscord(m, ctx);
   const picked = !ctx.chosen.size || ctx.chosen.has(m.channel_id) || (!!channel?.parent && ctx.chosen.has(channel.parent));
-  if (!picked && priority !== 'alta') return null;
+  if (!picked && priority !== 'high') return null;
   const guild = m.guild_id ?? channel?.guild ?? '@me';
   const channelName = channel ? (parent ? `#${parent.name} › ${channel.name}` : '#' + channel.name) : '#canal';
   const author = userName(m.author, m.member);
@@ -243,7 +243,7 @@ export function gmailNotification(m: any): Notification | null {
   if (!m?.id || !labels.includes('UNREAD')) return null;
   const cats = categoryGmail(), category = labels.map(e => cats[e]).find(Boolean);
   const important = labels.includes('IMPORTANT');
-  const priority: Priority = important && !category ? 'alta' : important || labels.includes('STARRED') ? 'media' : 'baja';
+  const priority: Priority = important && !category ? 'high' : important || labels.includes('STARRED') ? 'media' : 'low';
   const date = Number(m.internalDate) || Date.parse(headerGmail(m, 'Date') ?? '');
   return {
     id: 'google-' + m.id, source: 'google', thread: 'google-' + (m.threadId ?? m.id), channel: category ?? tr('integrations.inbox'),
@@ -271,7 +271,7 @@ export function mailNotification(m: MessageMail, count?: AccountMail, snippet?: 
     id: 'mail-' + id, source: 'mail', thread: `mail-${m.cuenta}-${threadSubject(subject) || id}`, channel: m.cuenta || tr('integrations.inbox'),
     author: senderName(m.remitente), title: subject || tr('integrations.noSubject'),
     snippet: truncate(String(snippet ?? m.texto ?? '').replace(/\s+/g, ' ').trim()), date: Number(m.fecha) || Date.now(),
-    priority: m.marcado ? 'alta' : 'media', link,
+    priority: m.marcado ? 'high' : 'media', link,
   };
 }
 export function explainErrorMail(output: string) {
@@ -420,7 +420,7 @@ export function urlWebGitHub(api?: string | null, repo?: string): string {
 export function notificationOfGitHub(n: any): Notification | null {
   if (!n?.id || n.unread === false) return null;
   const reason = String(n.reason ?? '');
-  const priority: Priority = ['mention', 'team_mention', 'review_requested', 'assign', 'security_alert', 'approval_requested'].includes(reason) ? 'alta' : reason === 'subscribed' ? 'baja' : 'media';
+  const priority: Priority = ['mention', 'team_mention', 'review_requested', 'assign', 'security_alert', 'approval_requested'].includes(reason) ? 'high' : reason === 'subscribed' ? 'low' : 'media';
   const type = typeGithub()[n.subject?.type] ?? n.subject?.type ?? tr('integrations.ghNotice');
   const date = Date.parse(n.updated_at ?? '');
   return {
@@ -440,7 +440,7 @@ export function explainErrorGitHub(state: number, body: any): string {
 }
 
 // ------------------------------------------------------------------ Slack
-export interface ChannelSlack { name: string; type: 'canal' | 'privado' | 'directo' | 'grupo' }
+export interface ChannelSlack { name: string; type: 'channel' | 'private' | 'direct' | 'group' }
 export interface ContextSlack {
   me?: string; bot?: string; team?: string;
   channels: Map<string, ChannelSlack>; users: Map<string, string>;
@@ -449,9 +449,9 @@ export interface ContextSlack {
 export const contextSlackEmpty = (): ContextSlack => ({ channels: new Map(), users: new Map(), chosen: new Set() });
 // Un canal de conversations.list / users.conversations → nombre legible y tipo
 export function slackChannel(c: any, users: Map<string, string> = new Map()): ChannelSlack {
-  if (c.is_im) return { name: '@' + (users.get(c.user) ?? c.user ?? tr('integrations.direct')), type: 'directo' };
-  if (c.is_mpim) return { name: String(c.name ?? tr('integrations.group')).replace(/^mpdm-/, '').replace(/-1$/, '').split('--').join(', '), type: 'grupo' };
-  return { name: '#' + (c.name ?? c.id), type: c.is_private ? 'privado' : 'canal' };
+  if (c.is_im) return { name: '@' + (users.get(c.user) ?? c.user ?? tr('integrations.direct')), type: 'direct' };
+  if (c.is_mpim) return { name: String(c.name ?? tr('integrations.group')).replace(/^mpdm-/, '').replace(/-1$/, '').split('--').join(', '), type: 'group' };
+  return { name: '#' + (c.name ?? c.id), type: c.is_private ? 'private' : 'channel' };
 }
 // Formato de Slack (<@U1>, <#C1|general>, <!here>, <https://x|texto>, &amp;) → texto plano legible
 export function textSlack(t: string, ctx: ContextSlack): string {
@@ -464,9 +464,9 @@ export function textSlack(t: string, ctx: ContextSlack): string {
 }
 export function prioritySlack(m: any, channel: ChannelSlack | undefined, ctx: ContextSlack): Priority {
   const t = String(m.text ?? '');
-  if (channel?.type === 'directo' || (ctx.me && t.includes(`<@${ctx.me}`))) return 'alta';
-  if (/<!(here|channel|everyone)/.test(t) || channel?.type === 'grupo') return 'media';
-  return 'baja';
+  if (channel?.type === 'direct' || (ctx.me && t.includes(`<@${ctx.me}`))) return 'high';
+  if (/<!(here|channel|everyone)/.test(t) || channel?.type === 'group') return 'media';
+  return 'low';
 }
 const SUBTYPES_SLACK = new Set([undefined, 'thread_broadcast', 'file_share', 'bot_message', 'me_message']);
 // Un mensaje de conversations.history. null = propio, del propio bot, de sistema (alguien entra o sale) o fuera de los elegidos sin mención
@@ -475,7 +475,7 @@ export function slackNotification(m: any, channelId: string, ctx: ContextSlack):
   if ((ctx.me && m.user === ctx.me) || (ctx.bot && m.bot_id === ctx.bot)) return null;
   const channel = ctx.channels.get(channelId);
   const priority = prioritySlack(m, channel, ctx);
-  if (ctx.chosen.size && !ctx.chosen.has(channelId) && priority !== 'alta') return null;
+  if (ctx.chosen.size && !ctx.chosen.has(channelId) && priority !== 'high') return null;
   const name = channel?.name ?? '#' + tr('integrations.channel');
   let text = textSlack(m.text, ctx);
   if (!text && m.files?.length) text = tr('integrations.attachment', { nombres: (m.files as any[]).map(f => f.name ?? f.title ?? tr('integrations.file')).join(', ') });
@@ -504,8 +504,8 @@ export function linearNotification(n: any, now = Date.now()): Notification | nul
   if (!n?.id || n.readAt || n.archivedAt || n.issue?.trashed || (n.snoozedUntilAt && Date.parse(n.snoozedUntilAt) > now)) return null;
   const type = String(n.type ?? '');
   const i = n.issue;
-  const priority: Priority = /Mention|AssignedToYou|Urgent/i.test(type) || n.category === 'mentions' || n.category === 'assignments' || i?.priority === 1 ? 'alta'
-    : /Comment|Reaction|Due|SlaHigh/i.test(type) || n.category === 'commentsAndReplies' || n.category === 'reminders' ? 'media' : 'baja';
+  const priority: Priority = /Mention|AssignedToYou|Urgent/i.test(type) || n.category === 'mentions' || n.category === 'assignments' || i?.priority === 1 ? 'high'
+    : /Comment|Reaction|Due|SlaHigh/i.test(type) || n.category === 'commentsAndReplies' || n.category === 'reminders' ? 'media' : 'low';
   const author = n.actor?.name || n.actor?.displayName || n.botActor?.name || 'Linear';
   const body = n.comment?.body ? markdownText(n.comment.body) : '';
   return {
@@ -569,7 +569,7 @@ export function explainErrorLinear(state: number, json: any): string | null {
 // (suena y vuelve a «sin ver»); para marcarla vista se mandan sus ids.
 export interface NoticeMessage { id: string; author: string; text: string; date: number; view: boolean }
 export interface Conversation extends Notification { thread: string; count: number; ids: string[]; authors: string[]; messages: NoticeMessage[] }
-const WEIGHT: Record<Priority, number> = { baja: 0, media: 1, alta: 2 };
+const WEIGHT: Record<Priority, number> = { low: 0, media: 1, high: 2 };
 export function groupNotices(list: Notification[], maxMessages = 8): Conversation[] {
   const groups = new Map<string, Notification[]>();
   for (const n of [...list].sort((a, b) => b.date - a.date)) { const k = n.thread ?? n.id; const g = groups.get(k); if (g) g.push(n); else groups.set(k, [n]); }
@@ -577,7 +577,7 @@ export function groupNotices(list: Notification[], maxMessages = 8): Conversatio
     const face = ns[0], pending = ns.filter(n => !n.view);
     return {
       ...face, id: `${thread}#${face.id}`, thread, view: !pending.length,
-      priority: (pending.length ? pending : ns).reduce<Priority>((p, n) => (WEIGHT[n.priority] > WEIGHT[p] ? n.priority : p), 'baja'),
+      priority: (pending.length ? pending : ns).reduce<Priority>((p, n) => (WEIGHT[n.priority] > WEIGHT[p] ? n.priority : p), 'low'),
       count: Math.max(ns.length, ...ns.map(n => n.unread ?? 0)), ids: ns.map(n => n.id), authors: [...new Set(ns.map(n => n.author))],
       messages: ns.slice(0, maxMessages).map(n => ({ id: n.id, author: n.author, text: n.snippet, date: n.date, view: !!n.view })),
     };

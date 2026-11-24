@@ -17,7 +17,7 @@ function texts(s: SessionSummary) {
   const p = s.pending!, j = juego.get(), hid = sessionOwner(s, j.copies);
   const h = [...j.dwellers, ...j.copies].find(x => x.id === hid);
   const title = h ? t('windows.dwellerWaitsForYou', { nombre: h.name, sala: h.nameRoom }) : t('windows.someoneWaitsForYou');
-  const body = p.type === 'pregunta' && p.questions?.[0] ? p.questions[0].question : tIs(p.title);
+  const body = p.type === 'question' && p.questions?.[0] ? p.questions[0].question : tIs(p.title);
   return { title, body: (p.ofHelper ? t('windows.aHelperNombreAsks', { nombre: p.ofHelper }) : '') + body };
 }
 

@@ -5,7 +5,7 @@
 
 /** Lo que el Supervisor ha hecho con una página: mandarle notas, validarla sin notas o quitarla de la lista (vuelve si
  *  se enlaza otra vez) */
-export interface PageAnswer { state: 'notas' | 'validada' | 'quitada'; ts: number }
+export interface PageAnswer { state: 'notes' | 'validated' | 'quitada'; ts: number }
 export interface SessionPage { path: string; name: string; ts: number; answer?: PageAnswer }
 
 const OF_PAGE = /\.(html?|md|markdown)$/i;
@@ -87,7 +87,7 @@ export const linksPages = (e: { type: string; text: string; question?: boolean }
 /** Una pregunta del habitante aún sin contestar, como entrada para las páginas: lo que enlaza sale ya en la lista, que
  *  es cuando hace falta (la comparación que pide aprobar) */
 export const questionInput = (questions: { question: string; options?: { label: string; description?: string }[] }[], ts: number) =>
-  ({ id: 'pregunta', type: 'asistente' as const, ts, text: questions.map(q => [q.question, ...(q.options ?? []).map(o => o.description ?? '')].join('\n')).join('\n\n') });
+  ({ id: 'question', type: 'asistente' as const, ts, text: questions.map(q => [q.question, ...(q.options ?? []).map(o => o.description ?? '')].join('\n')).join('\n\n') });
 
 /** Las páginas de una conversación (lo que ha escrito el habitante o le ha llegado de otra sala), la enlazada más tarde
  *  primero, con lo que se ha hecho con cada una */

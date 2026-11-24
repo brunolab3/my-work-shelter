@@ -1,13 +1,13 @@
 // Protocolo entre el cliente (juego) y el servidor local (127.0.0.1). JSON sobre WebSocket con discriminante `t`.
 
-export type SessionState = 'arrancando' | 'trabajando' | 'esperando' | 'terminada' | 'ociosa' | 'error' | 'cerrada';
+export type SessionState = 'starting' | 'working' | 'waiting' | 'finished' | 'idle' | 'error' | 'closed';
 
-export interface Activity { tool: string; text: string; mode: 'leer' | 'escribir' | 'pensar' | 'terminal' | 'web' }
+export interface Activity { tool: string; text: string; mode: 'read' | 'write' | 'think' | 'terminal' | 'web' }
 
 export interface Helper {           // subagente → robot ayudante en la sala del repo que toca
   id: string; description: string; type?: string;
-  state: 'trabajando' | 'hecho' | 'fallo';
-  mode: 'leer' | 'escribir';
+  state: 'working' | 'done' | 'failed';
+  mode: 'read' | 'write';
   roomId?: string;                     // repo real al que pertenecen los archivos que toca
   lastTool?: string; tools: number;
 }
@@ -18,11 +18,11 @@ export interface Question { question: string; header?: string; multiSelect?: boo
 // Vista previa de lo que una herramienta pide hacer: SIEMPRE texto plano (el cliente nunca la pasa por markdown ni
 // HTML), para que nada dentro de un comando o de un contenido pueda cerrar su bloque y esconder parte de sí mismo.
 //   ruta: archivo o dirección; codigo: comando, contenido o JSON (con su lenguaje); diff: líneas «- » y «+ »; texto: el resto
-export interface InputView { type: 'ruta' | 'codigo' | 'diff' | 'texto'; text: string; language?: string }
+export interface InputView { type: 'path' | 'code' | 'diff' | 'text'; text: string; language?: string }
 
 export interface PendingRequest {
   id: string;
-  type: 'permiso' | 'pregunta' | 'plan' | 'confianza';   // confianza: cargar o no la configuración de Claude Code de la carpeta
+  type: 'permission' | 'question' | 'plan' | 'trust';   // confianza: cargar o no la configuración de Claude Code de la carpeta
   tool: string;
   title: string;           // frase en español
   input?: InputView[]; // permiso: lo que va a hacer la herramienta, exacto y en texto plano; confianza: lo que trae
@@ -38,7 +38,7 @@ export interface Attachment { path: string; name: string; image: boolean }
 
 export interface LogInput {
   id: string; ts: number;
-  type: 'usuario' | 'asistente' | 'herramienta' | 'sistema' | 'error' | 'resultado' | 'lateral';
+  type: 'usuario' | 'asistente' | 'tool' | 'system' | 'error' | 'result' | 'lateral';
   text: string;
   attachments?: Attachment[];
   tool?: string;
@@ -117,7 +117,7 @@ export interface ReviewCopy { key: string; title: string; repos: string[] }
 // servidor: el cliente la lee de la página (web/src/ui/Disco.tsx) y la deja en vivo.musica
 export interface MusicTrack { title: string; artist: string; album: string; duration: number; cover?: string }
 export interface MusicState {
-  state: 'sonando' | 'pausa' | 'parada';
+  state: 'playing' | 'paused' | 'stopped';
   hint?: MusicTrack;
   position: number;                // segundos, medidos en `medido` (la pletina la adelanta mientras suena)
   measured: number;
@@ -142,7 +142,7 @@ export type ClientMessage =
   | { t: 'send'; sessionId: string; text: string; attachments?: string[] }   // adjuntos: rutas que ha devuelto la acción «subir»
   | { t: 'withdraw'; sessionId: string; messageId: string; request: string }   // take back a queued message of the Overseer's (data: whether it was)
   | { t: 'sendNow'; sessionId: string; messageId: string; request: string }   // interrupt the turn and send a queued message of the Overseer's now (data: whether it was)
-  | { t: 'answer'; sessionId: string; requestId: string; decision: 'si' | 'siempre' | 'no'; message?: string; responses?: Record<string, string> }
+  | { t: 'answer'; sessionId: string; requestId: string; decision: 'si' | 'always' | 'no'; message?: string; responses?: Record<string, string> }
   | { t: 'interrupt'; sessionId: string }
   | { t: 'closeSession'; sessionId: string }
   | { t: 'read'; sessionId: string }
@@ -182,9 +182,9 @@ export type ServerMessage =
   | { t: 'events'; list: unknown[] }
   | { t: 'integration'; id: string; state: unknown }
   | { t: 'state'; state: Record<string, unknown> }
-  | { t: 'notice'; level: 'info' | 'aviso' | 'error'; text: string; question?: NoticeQuestion }   // con pregunta, se queda hasta contestarla
-  | { t: 'voice'; id: string; state: 'descargando' | 'listo' | 'parcial' | 'final' | 'error'; text?: string }   // lo transcrito de un dictado
-  | { t: 'messenger'; since: string; a: string[]; reason: 'reparto' | 'cambio' | 'propuesta' | 'revision' | 'ci'; worktree?: string }   // el robot que lleva el plan de sala en sala (o una revisión o un fallo de CI de un PR desde Control de Versiones, en mano al holograma de su worktree)
+  | { t: 'notice'; level: 'info' | 'warning' | 'error'; text: string; question?: NoticeQuestion }   // con pregunta, se queda hasta contestarla
+  | { t: 'voice'; id: string; state: 'descargando' | 'ready' | 'partial' | 'final' | 'error'; text?: string }   // lo transcrito de un dictado
+  | { t: 'messenger'; since: string; a: string[]; reason: 'assignment' | 'change' | 'proposal' | 'review' | 'ci'; worktree?: string }   // el robot que lleva el plan de sala en sala (o una revisión o un fallo de CI de un PR desde Control de Versiones, en mano al holograma de su worktree)
   | { t: 'delivery'; room: string; worktree?: string; sessionId?: string }   // un mensaje dentro de la misma sala: el habitante se lo da en mano al holograma de la tarea (messenger.ts)
   | { t: 'reviews'; board: ReviewBoard }   // the Review room's PRs (server/reviewRoom.ts)
   | { t: 'verifications'; states: Record<string, VerificationSummary> }   // each task's production verification (shared/verification.ts)

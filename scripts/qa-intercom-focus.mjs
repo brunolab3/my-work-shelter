@@ -20,26 +20,26 @@ await pg.goto(withToken(url0), { waitUntil: 'load' });
 await pg.waitForFunction(() => typeof window.__ready === 'function', null, { timeout: 60000 });
 await pg.evaluate(async () => { await window.__ready(); window.__game.set({ panel: null, panelData: null }); });
 
-const [h, other] = await pg.evaluate(() => { const hs = window.__game.get().dwellers.filter(h => h.path && !h.robot); return [hs.find(h => h.room !== 'puente') ?? hs[0], hs.find(x => x.room !== (hs.find(h => h.room !== 'puente') ?? hs[0]).room)]; });
+const [h, other] = await pg.evaluate(() => { const hs = window.__game.get().dwellers.filter(h => h.path && !h.robot); return [hs.find(h => h.room !== 'bridge') ?? hs[0], hs.find(x => x.room !== (hs.find(h => h.room !== 'bridge') ?? hs[0]).room)]; });
 console.log('Dweller:', h.name, '·', h.nameRoom, '| other:', other?.name ?? '—');
 // a conversation started from outside the intercom, as the server does for room and scheduled messages
 const startOutside = d => pg.evaluate(d => window.__client.ask({ t: 'start', dwellerId: d.id, roomId: d.room, prompt: 'Reply only with: ok.', options: { model: 'haiku' } }), d);
 const state = () => pg.evaluate(() => {
   const talking = window.__game.get().talkingWith, w = window.__intercoms.get().list.find(v => v.dwellerId === talking);
   const a = document.activeElement;
-  return { talking, active: w?.active, tabs: w?.tabs.length ?? 0, focused: a?.tagName === 'TEXTAREA' && !!a.closest('.consola'), field: document.querySelector('.consola textarea')?.value ?? null };
+  return { talking, active: w?.active, tabs: w?.tabs.length ?? 0, focused: a?.tagName === 'TEXTAREA' && !!a.closest('.console'), field: document.querySelector('.console textarea')?.value ?? null };
 });
 
 // one conversation of the dweller, in view, typing in it
 const first = await startOutside(h);
 await pg.evaluate(h => window.dispatchEvent(new CustomEvent('refugio:ir', { detail: { roomId: h.room, dwellerId: h.id, talk: true } })), h);
-check(await until(async () => (await pg.$('.consola .sesion')) !== null, 20000), 'the intercom shows the conversation');
+check(await until(async () => (await pg.$('.console .session')) !== null, 20000), 'the intercom shows the conversation');
 // a fresh shelter asks first whether to trust the folder's Claude Code setup: «No, work without it» (the last option)
-if (await until(async () => (await pg.$('.consola .sesion textarea')) !== null, 5000) === false) {
+if (await until(async () => (await pg.$('.console .session textarea')) !== null, 5000) === false) {
   await pg.keyboard.press('ArrowDown'); await pg.keyboard.press('ArrowDown'); await pg.keyboard.press('Enter');
-  check(await until(async () => (await pg.$('.consola .sesion textarea')) !== null, 20000), 'its composer shows');
+  check(await until(async () => (await pg.$('.console .session textarea')) !== null, 20000), 'its composer shows');
 }
-await pg.focus('.consola .sesion textarea');
+await pg.focus('.console .session textarea');
 await pg.keyboard.type('Half a sentence I am still ', { delay: 2 });
 const before = await state();
 

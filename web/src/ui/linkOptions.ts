@@ -9,11 +9,11 @@ import { webLinkOptions, fileLinkOptions, copyText, type LinkOption, type LinkAc
 import { openPage, openWeb, canOpenInside, isLocalServer, revealPage, urlSpot } from './Browsers';
 
 // la conversación en la que está el enlace (el intercomunicador marca la suya)
-const sessionOfLink = (a: Element) => a.closest('[data-sesion]')?.getAttribute('data-sesion') ?? undefined;
+const sessionOfLink = (a: Element) => a.closest('[data-sesion]')?.getAttribute('data-session') ?? undefined;
 
 // what each option does with a link to a file of the Mac
 function runFile(action: LinkAction, path: string, session?: string) {
-  if (action === 'copiar') return copy(copyText(path));
+  if (action === 'copy') return copy(copyText(path));
   if (action === 'finder') return revealPage(path);
   // in the game: a page or an image in the «Página» window; with `fuera`, where the Mac opens it (server/open.ts)
   client.action('link.local', { path, outside: action === 'mac' })
@@ -22,8 +22,8 @@ function runFile(action: LinkAction, path: string, session?: string) {
 }
 // and with a web one
 function runWeb(action: LinkAction, u: URL, session?: string) {
-  if (action === 'copiar') return copy(copyText(u.href));
-  if (action === 'navegador') { window.open(u.href, '_blank', 'noopener'); SFX.click(); return; }   // Electron: the system's (electron/main.cjs)
+  if (action === 'copy') return copy(copyText(u.href));
+  if (action === 'browser') { window.open(u.href, '_blank', 'noopener'); SFX.click(); return; }   // Electron: the system's (electron/main.cjs)
   if (isLocalServer(u)) openPage(u.href, u.host + u.pathname.replace(/\/$/, ''), session);
   else openWeb(u.href);
 }
@@ -46,13 +46,13 @@ function show(a: HTMLElement | undefined, x: number, y: number, options: LinkOpt
   closeLinkOptions();
   const box = document.createElement('div');
   box.className = 'opciones-enlace interactivo'; box.setAttribute('role', 'menu');
-  const head = document.createElement('div'); head.className = 'oe-titulo'; head.textContent = title.length > 64 ? '…' + title.slice(-63) : title; head.title = title;   // a path's end is what tells it apart
+  const head = document.createElement('div'); head.className = 'oe-title'; head.textContent = title.length > 64 ? '…' + title.slice(-63) : title; head.title = title;   // a path's end is what tells it apart
   box.append(head);
-  if (notice) { const p = document.createElement('div'); p.className = 'oe-aviso'; p.textContent = notice; box.append(p); }
+  if (notice) { const p = document.createElement('div'); p.className = 'oe-notice'; p.textContent = notice; box.append(p); }
   const pick = (i: number) => { const o = options[i]; if (!o) return; closeLinkOptions(); run(o.action); };
   const buttons = options.map((o, i) => {
     const b = document.createElement('button');
-    b.type = 'button'; b.className = 'oe-opcion' + (i === 0 ? ' oe-defecto' : ''); b.setAttribute('role', 'menuitem'); b.dataset.accion = o.action;
+    b.type = 'button'; b.className = 'oe-option' + (i === 0 ? ' oe-defecto' : ''); b.setAttribute('role', 'menuitem'); b.dataset.accion = o.action;
     b.textContent = o.text;
     if (i === 0) { const k = document.createElement('kbd'); k.textContent = '↵'; b.append(k); }
     b.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); pick(i); });
@@ -60,7 +60,7 @@ function show(a: HTMLElement | undefined, x: number, y: number, options: LinkOpt
     return b;
   });
   box.append(...buttons);
-  const pie = document.createElement('div'); pie.className = 'oe-pie'; pie.textContent = t('windows.linkDefaultHint'); box.append(pie);
+  const pie = document.createElement('div'); pie.className = 'oe-footer'; pie.textContent = t('windows.linkDefaultHint'); box.append(pie);
   document.body.append(box);
   // under the line of the link that was clicked (a link can span two lines), or above it if it doesn't fit; inside the
   // window. Without the link (one in a page's <iframe>), under the pointer

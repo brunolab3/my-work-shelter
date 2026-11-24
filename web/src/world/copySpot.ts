@@ -8,7 +8,7 @@
 
 export interface HoloRoom {
   width: number;
-  side: 'izq' | 'der';
+  side: 'left' | 'right';
   workstations: { x: number; weight: number }[];   // where dwellers stand, and how bad hiding them is
   devices: number[];
   walkZones: [number, number][];
@@ -18,12 +18,12 @@ export interface HoloRoom {
 const STEP = 0.3;
 /** X (relative to the room's centre) where a visitor stands: by the lift's doorway, just inside the room panel's
  *  terminal (roomPanel.ts), which keeps the corner */
-export const visitorX = (room: { width: number; side: 'izq' | 'der' }) => (room.side === 'izq' ? 1 : -1) * (room.width / 2 - Math.min(2.5, room.width * 0.275));
+export const visitorX = (room: { width: number; side: 'left' | 'right' }) => (room.side === 'left' ? 1 : -1) * (room.width / 2 - Math.min(2.5, room.width * 0.275));
 const ON_TOP = 0.5;   // closer than this to another copy, they overlap
 
 /** X of the slot (relative to the room's centre) for a new copy, given the X of the room's other copies. */
 export function holoSlot(room: HoloRoom, others: number[], zSpot: number, base: number): number {
-  const farSide = room.side === 'izq' ? -1 : 1, media = room.width / 2 - 0.9;
+  const farSide = room.side === 'left' ? -1 : 1, media = room.width / 2 - 0.9;
   // copies well apart, each in its own slot so you can tell who you talk to; in a full room, as far as fits from the
   // nearest one (not a sum over all: two copies a gap's half away must not outweigh one right on top); on top of one
   // (closer than ON_TOP), only with no other slot left: still below the visitor's spot

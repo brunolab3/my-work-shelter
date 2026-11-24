@@ -51,7 +51,7 @@ export class Helpers {
     if (rb.holo) { holograph(p.model, rb.holo.u); p.contactShadow.visible = false; }
     p.gait = { walk: 'Walking_C', run: 'Running_A', walkRhythm: 1.9, runRhythm: 1.15 };
     // entra por el paso del lado del ascensor
-    const side = room.side === 'izq' ? 1 : -1;
+    const side = room.side === 'left' ? 1 : -1;
     p.root.position.set(room.group.position.x + side * (room.width / 2 + 0.3), room.group.position.y, 1.4);
     this.r.motor.scene.add(p.root);
     SFX.clank();
@@ -89,8 +89,8 @@ export class Helpers {
 
   // a prop in its hand; a hologram's, in light too
   private async hold(rb: Robot, spec: Parameters<Character['couple']>[1]) {
-    await rb.p.couple('mano', spec);
-    const o = rb.p.accessories.get('mano');
+    await rb.p.couple('hand', spec);
+    const o = rb.p.accessories.get('hand');
     if (rb.holo && o) holograph(o, rb.holo.u);
   }
 
@@ -98,13 +98,13 @@ export class Helpers {
     const p = rb.p; const a = rb.a;
     const f = this.copy(rb);
     p.goalTurn = f ? (p.root.position.x > f.spot.x ? -0.5 : 0.5) : rb.gap % 2 ? -0.5 : 0.5;   // a hologram's face it
-    if (a.state === 'hecho') { if (before?.state !== 'hecho') { p.drop('mano'); p.gesture('Cheering', () => this.dismiss(rb)); SFX.shortSuccess(); } return; }
-    if (a.state === 'fallo') { if (before?.state !== 'fallo') { p.drop('mano'); p.gesture('Hit_B', () => this.dismiss(rb)); SFX.error(); if (rb.holo) rb.holo.u.uGlitch.value = 0.6; rb.room.effects?.sparks.burst(p.root.position.clone().sub(rb.room.group.position).add(new THREE.Vector3(0, 0.9, 0)), 16); } return; }
-    if (a.mode === 'escribir') {
-      if (before?.mode !== 'escribir' || !before) { this.hold(rb, { path: R.tools('wrench_A'), bone: 'handslotr', scale: 0.75 }); }
+    if (a.state === 'done') { if (before?.state !== 'done') { p.drop('hand'); p.gesture('Cheering', () => this.dismiss(rb)); SFX.shortSuccess(); } return; }
+    if (a.state === 'failed') { if (before?.state !== 'failed') { p.drop('hand'); p.gesture('Hit_B', () => this.dismiss(rb)); SFX.error(); if (rb.holo) rb.holo.u.uGlitch.value = 0.6; rb.room.effects?.sparks.burst(p.root.position.clone().sub(rb.room.group.position).add(new THREE.Vector3(0, 0.9, 0)), 16); } return; }
+    if (a.mode === 'write') {
+      if (before?.mode !== 'write' || !before) { this.hold(rb, { path: R.tools('wrench_A'), bone: 'handslotr', scale: 0.75 }); }
       p.inRest = 'Working_C'; p.play('Working_C', 0.3);
     } else {
-      if (before?.mode !== 'leer' || !before) this.hold(rb, { path: R.tools('journal_open'), bone: 'handslotl', scale: 0.55, rot: [0.2, Math.PI, 0] });
+      if (before?.mode !== 'read' || !before) this.hold(rb, { path: R.tools('journal_open'), bone: 'handslotl', scale: 0.55, rot: [0.2, Math.PI, 0] });
       p.inRest = 'Holding_A'; p.play('Holding_A', 0.3);
     }
   }
@@ -112,15 +112,15 @@ export class Helpers {
   private relocate(rb: Robot, room: Room) {
     // cambia de repo: sale por un lado y aparece en la otra sala
     rb.room = room; rb.ready = false; rb.gap = this.freeSlot(room, rb.holo?.path);
-    const side = room.side === 'izq' ? 1 : -1;
+    const side = room.side === 'left' ? 1 : -1;
     rb.p.root.position.set(room.group.position.x + side * (room.width / 2 + 0.3), room.group.position.y, 1.4);
     rb.p.goA([this.workstation(rb)], false, () => { rb.ready = true; this.apply(rb); });
   }
 
   private dismiss(rb: Robot) {
     if (rb.leaving) return;
-    rb.leaving = 1; rb.p.drop('mano'); rb.p.inRest = 'Idle_A';
-    const s = rb.room; const side = s.side === 'izq' ? 1 : -1;
+    rb.leaving = 1; rb.p.drop('hand'); rb.p.inRest = 'Idle_A';
+    const s = rb.room; const side = s.side === 'left' ? 1 : -1;
     rb.p.goA([new THREE.Vector3(rb.p.root.position.x, s.group.position.y, 1.5), new THREE.Vector3(s.group.position.x + side * (s.width / 2 + 0.6), s.group.position.y, 1.5)], false, () => {
       this.r.motor.scene.remove(rb.p.root); this.robots.delete(rb.a.id);
     });
@@ -150,7 +150,7 @@ export class Helpers {
   // for the tags: each robot's state glyph; its name and what it does only under the pointer (the robot or its tag)
   labels(over?: object) {
     return [...this.robots.values()].filter(rb => rb.p.mixer && !rb.leaving).map(rb => ({
-      k: rb, pos: rb.p.headPoint(), height: 0.05, name: t('world.helper'), state: rb.a.state === 'fallo' ? 'error' : rb.a.state === 'hecho' ? 'terminado' : rb.a.mode === 'escribir' ? 'trabajando' : 'pensando',
+      k: rb, pos: rb.p.headPoint(), height: 0.05, name: t('world.helper'), state: rb.a.state === 'failed' ? 'error' : rb.a.state === 'done' ? 'finished' : rb.a.mode === 'write' ? 'working' : 'thinking',
       detail: rb === over ? rb.a.description.slice(0, 48) : '', near: false, farSide: rb !== over, aimed: rb === over,
     }));
   }

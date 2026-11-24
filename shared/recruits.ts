@@ -36,7 +36,7 @@ export function generateRecruit(seed: number, used: string[] = [], robot = false
   const n = count(type);
   const tone = n > 0 ? (n * 137 + 20 + Math.floor(r() * 30)) % 360 : undefined;
   // el aspecto, por piezas y al azar (cara, pelo, ropa y colores; o cabeza, chasis y luces): nadie llega repetido
-  const look = lookOnRandom(r, robot ? 'robot' : 'humano');
+  const look = lookOnRandom(r, robot ? 'robot' : 'human');
   return { id, name, nickname: pick(NICKNAMES), type, bio, voice: 80 + Math.floor(r() * 120), ...(tone ? { tone } : {}), look };
 }
 
@@ -67,7 +67,7 @@ export function tonesForRepeated<T extends { id?: string; type: string; tone?: n
  *  recibe uno por piezas al azar, con semilla en su id (el mismo cada vez). Los de LOOK_ORIGINAL se quedan con el suyo
  *  antes que nadie (salvo si es el del Supervisor). La Octocat es como es. Cambia la lista; devuelve si cambió alguien. */
 export function distinctLooks(dwellers: { id: string; type: string; look?: Look }[], supervisor: { character: string; look?: Look }): boolean {
-  const key = (type: string, a?: Look) => (a ? JSON.stringify(a) : 'serie:' + type);
+  const key = (type: string, a?: Look) => (a ? JSON.stringify(a) : 'default:' + type);
   const seen = new Set([key(supervisor.character, supervisor.look)]);
   const orden = [...dwellers.filter(h => LOOK_ORIGINAL.has(h.id)), ...dwellers.filter(h => !LOOK_ORIGINAL.has(h.id))];
   let changed = false;

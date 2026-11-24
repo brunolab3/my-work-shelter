@@ -41,12 +41,12 @@ export type Levels = Partial<Record<Level, number>>;
 export interface Requirement { id: string; text: FileText; trophies: string[]; levels?: Levels; evidence?: FileText }
 export interface Step { id: string; name: FileText; requirements: Requirement[] }
 /** `digestRoom`: the room whose dweller runs the Friday digest (Planning by default; Logistics or Communications) */
-export const DIGEST_ROOMS = ['logistica', 'tareas', 'comunicaciones'] as const;
+export const DIGEST_ROOMS = ['logistics', 'tareas', 'comms'] as const;
 export interface Ladder { trophies: TrophyRule[]; steps: Step[]; digestRoom: typeof DIGEST_ROOMS[number] }
 
 /** The ladder in a file's text, with what is wrong in it (each a line for the panel; bad parts are left out) */
 export function parseLadder(text: string): { ladder: Ladder; errors: string[] } {
-  const errors: string[] = [], ladder: Ladder = { trophies: [], steps: [], digestRoom: 'logistica' };
+  const errors: string[] = [], ladder: Ladder = { trophies: [], steps: [], digestRoom: 'logistics' };
   let j: any;
   try { j = JSON.parse(text); } catch (e) { return { ladder, errors: [t('trophies.error.json', { error: String((e as Error).message).slice(0, 120) })] }; }
   if (j?.digestRoom != null) { if (DIGEST_ROOMS.includes(j.digestRoom)) ladder.digestRoom = j.digestRoom; else errors.push(t('trophies.error.digestRoom', { sala: String(j.digestRoom), salas: DIGEST_ROOMS.join(', ') })); }
@@ -122,7 +122,7 @@ export function trophyFacts(l: Ledger, r: TrophyRule): TrophyFact[] {
     case 'reviewsGiven': out = Object.values(l.reviews).filter(x => (!r.project && !r.issueType) || ok(x.task)).map(x => ({ at: x.at, ref: `${x.repo}#${x.ref.split('#').pop()}`, url: x.url })); break;
     case 'multiRepoTasks': {
       const repos = new Map<string, Set<string>>();
-      for (const p of Object.values(l.prs)) if (p.state !== 'cerrado') { const s = repos.get(p.task) ?? new Set(); s.add(p.repo.toLowerCase()); repos.set(p.task, s); }
+      for (const p of Object.values(l.prs)) if (p.state !== 'closed') { const s = repos.get(p.task) ?? new Set(); s.add(p.repo.toLowerCase()); repos.set(p.task, s); }
       out = tasks.filter(x => x.doneAt && ok(x.key) && (repos.get(x.key)?.size ?? 0) >= (r.repos ?? 2)).map(x => ({ at: x.doneAt!, ref: x.key, url: x.url }));
       break;
     }

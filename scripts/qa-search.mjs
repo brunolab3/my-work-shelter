@@ -25,7 +25,7 @@ const check = (ok, text) => { console.log((ok ? 'OK   ' : 'FALLO ') + text); if 
 const until = async (f, ms = 8000) => { const t = Date.now(); while (Date.now() - t < ms) { if (await f()) return true; await wait(150); } return false; };
 const panel = () => pg.evaluate(() => window.__game.get().panel);
 const options = () => pg.evaluate(() => [...document.querySelectorAll('.opciones-consola li')].map(l => l.textContent.replace('▶', '').trim()));
-const rows = () => pg.evaluate(() => [...document.querySelectorAll('.fila-buscador')].map(f => ({ txt: f.querySelector('.txt')?.textContent, key: f.querySelector('.tecla')?.textContent ?? '', active: f.classList.contains('activa') })));
+const rows = () => pg.evaluate(() => [...document.querySelectorAll('.fila-buscador')].map(f => ({ txt: f.querySelector('.txt')?.textContent, key: f.querySelector('.tecla')?.textContent ?? '', active: f.classList.contains('active') })));
 const sections = () => pg.evaluate(() => [...document.querySelectorAll('.seccion-buscador')].map(s => s.textContent));
 const open = () => pg.isVisible('.buscador');
 const chooseMenu = async text => { const i = (await options()).findIndex(o => o.startsWith(text)); for (let k = 0; k < i; k++) await pg.keyboard.press('ArrowDown'); await pg.keyboard.press('Enter'); await wait(300); };
@@ -41,7 +41,7 @@ const items = await options();
 console.log('   ', items.map(x => x.split(/(?=[A-Z⌘])/)[0]).join(' | '));
 check(['Volver al refugio', 'Buscar', 'Opciones', 'Atajos', 'Reiniciar el juego', 'Salir del refugio'].every(t => items.some(o => o.startsWith(t))), 'con volver, buscar, opciones, atajos, reiniciar y salir');
 await pg.screenshot({ path: path.join(dir, 'menu-juego.png') });
-for (const [name, p] of [['Opciones', 'opciones'], ['Atajos', 'ayuda'], ['Reiniciar el juego', 'reiniciar'], ['Salir del refugio', 'salir']]) {
+for (const [name, p] of [['Opciones', 'options'], ['Atajos', 'help'], ['Reiniciar el juego', 'restart'], ['Salir del refugio', 'exit']]) {
   await chooseMenu(name);
   check((await panel()) === p, `«${name}» abre su aparato`);
   await pg.keyboard.press('Escape');
@@ -64,10 +64,10 @@ const f0 = await rows();
 check(f0.some(f => f.txt === 'Plano del refugio' && f.key === 'M') && f0.some(f => f.txt === 'Control de versiones' && f.key === 'G'), 'las acciones llevan su tecla a la vista');
 console.log('    secciones sin escribir:', (await sections()).join(' | '));
 await pg.screenshot({ path: path.join(dir, 'buscador.png') });
-await pg.keyboard.type('plano');
+await pg.keyboard.type('map');
 check((await rows())[0]?.txt === 'Plano del refugio', 'escribir «plano» deja el plano el primero');
 await pg.keyboard.press('Enter');
-check(await until(async () => (await panel()) === 'plano') && !(await open()), 'Enter lo abre y cierra el buscador');
+check(await until(async () => (await panel()) === 'map') && !(await open()), 'Enter lo abre y cierra el buscador');
 await pg.keyboard.press('Escape'); await wait(300);
 await pg.keyboard.press('Meta+k'); await until(open);
 check((await sections())[0] === 'Acciones recurrentes' || (await sections()).includes('Acciones recurrentes'), 'lo usado pasa a «Acciones recurrentes»');
@@ -77,7 +77,7 @@ check((await rows())[0]?.txt === 'Logística', 'busca sin tildes ni palabras com
 await pg.keyboard.press('Escape');
 check(await until(async () => !(await open())) && (await panel()) === null, 'Esc cierra el buscador (sin abrir el menú)');
 // ir a una sala y hablar con un habitante
-const h = await pg.evaluate(() => window.__game.get().dwellers.find(h => h.room === 'planificacion'));
+const h = await pg.evaluate(() => window.__game.get().dwellers.find(h => h.room === 'calendar'));
 await pg.keyboard.press('Meta+k'); await until(open);
 await pg.keyboard.type(h.name.slice(0, 4).toLowerCase());
 const fh = await rows();
@@ -85,19 +85,19 @@ check(fh.some(f => f.txt === `Hablar con ${h.name}`), `al escribir salen habitan
 const k = fh.findIndex(f => f.txt === `Hablar con ${h.name}`);
 for (let x = 0; x < k; x++) await pg.keyboard.press('ArrowDown');
 await pg.keyboard.press('Enter');
-check(await until(() => pg.isVisible('.consola'), 30000), 'Enter va con él y abre su intercomunicador');
+check(await until(() => pg.isVisible('.console'), 30000), 'Enter va con él y abre su intercomunicador');
 // ⌘K escribiendo en el intercomunicador
-await until(() => pg.isVisible('.consola .opciones-consola'));
+await until(() => pg.isVisible('.console .opciones-consola'));
 await pg.keyboard.press('Enter'); await wait(400);   // trabajo nuevo: el foco en la caja de texto
-await pg.keyboard.type('borrador');
+await pg.keyboard.type('draft');
 await pg.keyboard.press('Meta+k');
 check(await until(open), '⌘K también desde la caja de texto de un intercomunicador');
 await pg.keyboard.press('Escape');
-check(await until(async () => !(await open())) && await pg.evaluate(() => document.activeElement?.tagName === 'TEXTAREA' && document.activeElement.value === 'borrador'), 'al cerrarlo, el foco vuelve a la caja con lo escrito');
+check(await until(async () => !(await open())) && await pg.evaluate(() => document.activeElement?.tagName === 'TEXTAREA' && document.activeElement.value === 'draft'), 'al cerrarlo, el foco vuelve a la caja con lo escrito');
 await pg.keyboard.press('Meta+k'); await until(open);
 await pg.keyboard.type('ir a puente');
 await pg.keyboard.press('Enter');
-check(await until(() => pg.evaluate(() => !window.__game.get().talkingWith && window.__game.get().currentRoom === 'puente'), 30000), '«Ir a Puente de Mando» baja el intercomunicador y lleva a la sala');
+check(await until(() => pg.evaluate(() => !window.__game.get().talkingWith && window.__game.get().currentRoom === 'bridge'), 30000), '«Ir a Puente de Mando» baja el intercomunicador y lleva a la sala');
 
 check(!errors.length, 'sin errores en la página' + (errors.length ? ': ' + errors.join(' | ') : ''));
 await b.close();

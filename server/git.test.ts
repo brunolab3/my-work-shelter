@@ -40,12 +40,12 @@ describe('cliente de git', () => {
     edit();
     const d = readDiff((await G.diff(repo, { file: 'a.txt' })).text);
     expect(d.blocks).toHaveLength(2); expect(chunksAccepts(d)).toBe(true);
-    await G.applyPatch(repo, assemblePatch(d, [1], 'adelante')!, 'preparar');
+    await G.applyPatch(repo, assemblePatch(d, [1], 'forward')!, 'stage');
     expect(sh(repo, 'diff', '--cached')).toContain('+nueva A');
     expect(sh(repo, 'diff', '--cached')).not.toContain('cinco cambiada');
     expect(sh(repo, 'diff')).toContain('+cinco cambiada');
     const p = readDiff((await G.diff(repo, { file: 'a.txt', prepared: true })).text);
-    await G.applyPatch(repo, assemblePatch(p, [0], 'atras')!, 'quitar');
+    await G.applyPatch(repo, assemblePatch(p, [0], 'back')!, 'unstage');
     expect(sh(repo, 'diff', '--cached')).toBe('');
   });
 
@@ -54,13 +54,13 @@ describe('cliente de git', () => {
     const d = readDiff((await G.diff(repo, { file: 'a.txt' })).text);
     // del segundo bloque, solo «nueva B»
     const b = d.blocks[1], iB = b.lines.findIndex(l => l.text === 'nueva B');
-    await G.applyPatch(repo, assemblePatch(d, [1], 'adelante', new Map([[1, new Set([iB])]]))!, 'preparar');
+    await G.applyPatch(repo, assemblePatch(d, [1], 'forward', new Map([[1, new Set([iB])]]))!, 'stage');
     const cached = sh(repo, 'diff', '--cached');
     expect(cached).toContain('+nueva B'); expect(cached).not.toContain('nueva A'); expect(cached).not.toContain('cinco');
     // de lo que queda sin preparar, se descarta la línea cambiada del primer bloque (vuelve a «línea 5»)
     const w = readDiff((await G.diff(repo, { file: 'a.txt' })).text);
     const sel = new Map([[0, new Set(w.blocks[0].lines.flatMap((l, i) => (l.type !== ' ' ? [i] : [])))]]);
-    await G.applyPatch(repo, assemblePatch(w, [0], 'atras', sel)!, 'descartar');
+    await G.applyPatch(repo, assemblePatch(w, [0], 'back', sel)!, 'discard');
     const final = readFileSync(path.join(repo, 'a.txt'), 'utf8');
     expect(final).toContain('línea 5\n'); expect(final).toContain('nueva A\nnueva B');
   });
@@ -112,8 +112,8 @@ describe('cliente de git', () => {
   it('no acepta rutas fuera del repo ni parches raros', async () => {
     await expect(G.diff(repo, { file: '../fuera' })).rejects.toThrow();
     await expect(G.stage(repo, ['/etc/passwd'])).rejects.toThrow();
-    await expect(G.applyPatch(repo, 'rm -rf /', 'preparar')).rejects.toThrow();
-    await expect(G.actionGit('estado', { path: '/tmp' }, { allowedPath: () => false, pathsRepos: () => [], onChange: () => {} })).rejects.toThrow(/no es un repo/);
+    await expect(G.applyPatch(repo, 'rm -rf /', 'stage')).rejects.toThrow();
+    await expect(G.actionGit('state', { path: '/tmp' }, { allowedPath: () => false, pathsRepos: () => [], onChange: () => {} })).rejects.toThrow(/no es un repo/);
   });
 
   it('matriz local: un año de domingo a hoy con tus commits', async () => {
@@ -162,7 +162,7 @@ describe('PR del tablero de Logística', () => {
       node(2, 'OPEN', true, { mergeable: 'CONFLICTING' }), node(3, 'MERGED', false, { mergeable: 'UNKNOWN' }), node(4, 'CLOSED', false), {},
     ] } } });
     expect(prs.map(p => [p.number, p.state, p.review, p.checks, p.branch, p.conflicts])).toEqual([
-      [1, 'abierto', 'APPROVED', 'SUCCESS', 'ABC-1', false], [2, 'borrador', undefined, undefined, 'ABC-2', true], [3, 'fusionado', undefined, undefined, 'ABC-3', undefined], [4, 'cerrado', undefined, undefined, 'ABC-4', undefined],
+      [1, 'open', 'APPROVED', 'SUCCESS', 'ABC-1', false], [2, 'draft', undefined, undefined, 'ABC-2', true], [3, 'merged', undefined, undefined, 'ABC-3', undefined], [4, 'closed', undefined, undefined, 'ABC-4', undefined],
     ]);
     const demo = await G.prsBoard({ real: false });
     expect(demo.demo).toBe(true);

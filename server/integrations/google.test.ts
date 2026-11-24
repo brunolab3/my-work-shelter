@@ -60,7 +60,7 @@ describe('Google with the gws session', () => {
     expect(await g.configure({})).toMatchObject({ ok: true, detail: expect.stringMatching(/irene\.valdes@taller\.example \(sesión de gws\)/) });
     expect(gws.calls[0].args).toEqual(['auth', 'export', '--unmasked']);
     await g.poll(); await g.poll();
-    expect(g.state()).toMatchObject({ state: 'conectada', detail: expect.stringMatching(/sesión de gws/) });
+    expect(g.state()).toMatchObject({ state: 'connected', detail: expect.stringMatching(/sesión de gws/) });
     expect(gws.calls).toHaveLength(1);
     expect(refreshes).toBe(1);
     expect(keychain.data.size).toBe(0);

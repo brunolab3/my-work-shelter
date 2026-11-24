@@ -45,7 +45,7 @@ describe('conversación que Claude Code se llevó de su worktree al repo princip
   it('sin la marca, o con el worktree ya borrado, no cambia nada', () => {
     write([msg(wt, 0), msg(wt, 1)].map(l => JSON.stringify(l)).join('\n') + '\n');
     expect(cwdBeforeRelocation(file())).toBeUndefined();
-    write(relocated([path.join(repo, '.claude', 'worktrees', 'borrado'), path.join(repo, '.claude', 'worktrees', 'borrado')]));
+    write(relocated([path.join(repo, '.claude', 'worktrees', 'deleted'), path.join(repo, '.claude', 'worktrees', 'deleted')]));
     expect(cwdBeforeRelocation(file())).toBeUndefined();
     expect(cwdBeforeRelocation(path.join(root, 'no-existe.jsonl'))).toBeUndefined();
   });
@@ -64,19 +64,19 @@ describe('Main Gate suggestions', () => {
   beforeAll(() => {
     create(dir('dice', 'bowie'), true, 5_000); create(dir('dice', 'crm'), true, 1_000); create(dir('dice', 'docs'));
     create(dir('dice', 'tool')); writeFileSync(dir('dice', 'tool', 'package.json'), '{}'); utimesSync(dir('dice', 'tool'), 2_000, 2_000);
-    create(dir('notas', 'sub'), false); create(dir('notas', 'sub', 'inner'), true);
-    utimesSync(dir('dice'), 3_000, 3_000); utimesSync(dir('notas'), 500, 500);
+    create(dir('notes', 'sub'), false); create(dir('notes', 'sub', 'inner'), true);
+    utimesSync(dir('dice'), 3_000, 3_000); utimesSync(dir('notes'), 500, 500);
     create(dir('api'), true); create(dir('api', 'packages', 'x'), true); utimesSync(dir('api'), 4_000, 4_000);
   });
   it("lists a group's repos and projects one level deep, most recent first, with the group still admittable", () => {
     const s = suggestions(fever, []);
-    expect(s.map(x => (x.group ? x.group + '/' : '') + x.name)).toEqual(['dice/bowie', 'api', 'dice', 'dice/tool', 'dice/crm', 'notas']);
+    expect(s.map(x => (x.group ? x.group + '/' : '') + x.name)).toEqual(['dice/bowie', 'api', 'dice', 'dice/tool', 'dice/crm', 'notes']);
     expect(s.find(x => x.name === 'bowie')).toMatchObject({ path: dir('dice', 'bowie'), isGit: true, group: 'dice' });
     expect(s.find(x => x.name === 'dice')?.group).toBeUndefined();
   });
   it('leaves out the folders that already have a room, but still opens a taken group', () => {
     const s = suggestions(fever, [dir('dice'), dir('dice', 'crm')]);
-    expect(s.map(x => (x.group ? x.group + '/' : '') + x.name)).toEqual(['dice/bowie', 'api', 'dice/tool', 'notas']);
+    expect(s.map(x => (x.group ? x.group + '/' : '') + x.name)).toEqual(['dice/bowie', 'api', 'dice/tool', 'notes']);
   });
 });
 

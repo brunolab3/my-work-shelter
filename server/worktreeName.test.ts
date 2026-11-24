@@ -31,11 +31,11 @@ describe('crearWorktree', () => {
     const { createWorktree } = await import('./sessions.ts');
     const base = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'wt-')));
     const g = (cwd: string, ...a: string[]) => execFileSync('git', ['-c', 'user.name=Prueba', '-c', 'user.email=prueba@example.test', ...a], { cwd, encoding: 'utf8' }).trim();
-    const origin = path.join(base, 'origen'), repo = path.join(base, 'repo');
+    const origin = path.join(base, 'origin'), repo = path.join(base, 'repo');
     execFileSync('git', ['init', '-q', '-b', 'master', origin]); writeFileSync(path.join(origin, 'a.txt'), '1'); g(origin, 'add', '.'); g(origin, 'commit', '-qm', 'uno');
     execFileSync('git', ['clone', '-q', origin, repo]);
     g(origin, 'commit', '-qm', 'dos', '--allow-empty');   // la principal avanza en el remoto: el worktree sale de la traída
-    g(repo, 'checkout', '-qb', 'otra'); g(repo, 'commit', '-qm', 'local', '--allow-empty');
+    g(repo, 'checkout', '-qb', 'other'); g(repo, 'commit', '-qm', 'local', '--allow-empty');
     const filePath = await createWorktree(path.join(repo), 'shelter-abc-1-0000');
     expect(filePath).toBe(path.join(repo, '.claude', 'worktrees', 'shelter-abc-1-0000'));
     expect(g(filePath, 'rev-parse', '--abbrev-ref', 'HEAD')).toBe('worktree-shelter-abc-1-0000');

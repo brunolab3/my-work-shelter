@@ -29,8 +29,8 @@ export class Elevator {
   yOf(floor: number) { return -floor * FLOOR; }
 
   async build() {
-    const g = this.group; g.name = 'ascensor';
-    const v = VARIANTS.neutro;
+    const g = this.group; g.name = 'elevator';
+    const v = VARIANTS.neutral;
     const height = this.floors * FLOOR + 1.5;
     const steel = materialSteel('#2b2a27'), concrete = materialConcrete();
     // hueco: pared trasera de hormigón, pilares del corte, raíles y cables
@@ -59,14 +59,14 @@ export class Elevator {
     await Promise.all(ps);
     mergeStatic(g);
     // cabina
-    const c = this.car; c.name = 'cabina';
+    const c = this.car; c.name = 'cabin';
     const vc = VARIANTS.landing;
     const cps: Promise<unknown>[] = [];
     cps.push(place(c, R.sf('Props_Base'), { pos: [0, 0, 0.3], width: 2.5, variant: vc }));
     for (const [x, z] of [[-1.15, -1.1], [1.15, -1.1], [-1.15, 1.6], [1.15, 1.6]] as const) cps.push(place(c, R.sf('Column_Slim'), { pos: [x, 0, z], height: 3.1, variant: vc }));
     c.add(box(2.6, 0.18, 3.0, materialSteel('#3b3732'), 0, 3.15, 0.25));
     cps.push(place(c, R.cy('Rail_Long'), { pos: [0, 1.0, 1.65], width: 2.3, variant: vc }));
-    cps.push(place(c, R.home('Light_Ceiling1'), { pos: [0, 3.06, 0.3], height: 0.5, anchor: 'techo', shadow: false }));
+    cps.push(place(c, R.home('Light_Ceiling1'), { pos: [0, 3.06, 0.3], height: 0.5, anchor: 'ceiling', shadow: false }));
     await Promise.all(cps);
     // luz interior visible desde lejos: plafón emisivo y resplandor cálido en el fondo de la cabina
     const fixture = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.5), new THREE.MeshBasicMaterial({ color: new THREE.Color('#ffd7a0').multiplyScalar(1.6) }));
@@ -76,7 +76,7 @@ export class Elevator {
     c.userData.isStatic = false;
     g.add(c);
     this.y = this.yOf(0); c.position.y = this.y;
-    this.anchors.push({ type: 'foco', pos: new THREE.Vector3(0, 2.9, 0.3), goal: new THREE.Vector3(0, -3, 0.5), intensity: 70, color: new THREE.Color('#ffd7a0'), angle: 0.9, penumbra: 0.6, distance: 7 });
+    this.anchors.push({ type: 'spot', pos: new THREE.Vector3(0, 2.9, 0.3), goal: new THREE.Vector3(0, -3, 0.5), intensity: 70, color: new THREE.Color('#ffd7a0'), angle: 0.9, penumbra: 0.6, distance: 7 });
     this.paintIndicators();
   }
 
@@ -116,7 +116,7 @@ export class Elevator {
     const p = this.queue.shift(); if (p === undefined) return;
     if (p === this.currentFloor) { this.attend(); return this.next(); }
     this.target = p; this.moving = true; SFX.clank();
-    sound.loop('ascensor', 'amb_generador', { bus: 'sfx', vol: 0.12, rate: 1.25 });
+    sound.loop('elevator', 'amb_generador', { bus: 'sfx', vol: 0.12, rate: 1.25 });
     this.paintIndicators();
   }
 
@@ -139,7 +139,7 @@ export class Elevator {
     const pl = Math.round(-this.y / FLOOR); if (pl !== this.currentFloor) { this.currentFloor = THREE.MathUtils.clamp(pl, 0, this.floors - 1); this.paintIndicators(); }
     if (Math.abs(yObj - this.y) < 0.01 || Math.sign(yObj - this.y) !== dir) {
       this.y = yObj; this.v = 0; this.moving = false; this.currentFloor = this.target;
-      sound.stopLoop('ascensor'); SFX.elevatorDing(); setTimeout(() => SFX.gateElevator(), 250);
+      sound.stopLoop('elevator'); SFX.elevatorDing(); setTimeout(() => SFX.gateElevator(), 250);
       this.paintIndicators(); this.attend(); setTimeout(() => this.next(), 600);
     }
     this.car.position.y = this.y;

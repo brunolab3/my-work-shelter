@@ -35,17 +35,17 @@ try {
   const holo = await pg.evaluate(w => window.__game.get().copies.find(c => c.copy?.path === w), wt);
   const roomName = await pg.evaluate(id => window.__live.get().state.rooms.find(r => r.id === id)?.name, holo.room);
   const rows = async () => { await pg.click('.programados-sesion > .consola-x'); await sleep(400); return pg.$$eval('.programados-lista li:not(.programados-grupo)', l => l.map(x => x.children[0]?.textContent + ' | ' + x.children[2]?.textContent)); };
-  const shot = async n => { const r = await pg.$eval('.consola', e => { const b = e.getBoundingClientRect(); return { x: b.x, y: b.y, width: b.width, height: b.height }; }); await pg.screenshot({ path: `${dir}/${n}.png`, clip: r }); console.log('->', `${dir}/${n}.png`); };
+  const shot = async n => { const r = await pg.$eval('.console', e => { const b = e.getBoundingClientRect(); return { x: b.x, y: b.y, width: b.width, height: b.height }; }); await pg.screenshot({ path: `${dir}/${n}.png`, clip: r }); console.log('->', `${dir}/${n}.png`); };
   const set = (withSession) => pg.evaluate(([holo, wt, withSession]) => {
-    const now = Date.now(), conv = { type: 'conversacion', roomId: holo.room, sessionId: 'qa_s', claudeId: 'qa_c', cwd: wt, title: 'QA carrito' };
+    const now = Date.now(), conv = { type: 'conversation', roomId: holo.room, sessionId: 'qa_s', claudeId: 'qa_c', cwd: wt, title: 'QA carrito' };
     const item = (id, h, message, extra) => ({ id, created: now, when: now + h * 3600e3, requested: '', message, origin: { roomId: holo.room, sessionId: 'qa_s', claudeId: 'qa_c' }, target: conv, ...extra });
     const scheduled = [
       item('o', 1, 'From the Overseer', { from: { kind: 'overseer' }, overseer: true, afterTurn: true }),
       item('r', 2, 'From another room', { from: { kind: 'room', roomId: 'git', room: 'Version Control', dweller: 'Ana' }, afterTurn: true }),
       item('g', 3, 'From the game', { from: { kind: 'game' } }),
-      item('n', 4, 'No sender, to its task', { target: { type: 'sala', room: holo.room, key: 'QA-7' } }),
+      item('n', 4, 'No sender, to its task', { target: { type: 'room', room: holo.room, key: 'QA-7' } }),
       item('s', 5, 'A reminder to itself', {})];
-    const sess = { id: 'qa_s', claudeId: 'qa_c', dwellerId: holo.copy.authorId, roomId: holo.room, cwd: wt, state: 'terminada', activity: null, unread: false, title: 'QA carrito', pending: 0, helpers: [], tools: 0, turns: 1, created: now, updated: now, model: 'claude-opus-5-5' };
+    const sess = { id: 'qa_s', claudeId: 'qa_c', dwellerId: holo.copy.authorId, roomId: holo.room, cwd: wt, state: 'finished', activity: null, unread: false, title: 'QA carrito', pending: 0, helpers: [], tools: 0, turns: 1, created: now, updated: now, model: 'claude-opus-5-5' };
     window.__live.set(e => ({ ...e, sessions: withSession ? { qa_s: sess } : {}, scheduled }));
     window.__game.set({ talkingWith: holo.id });
   }, [holo, wt, withSession]);

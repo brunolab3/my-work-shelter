@@ -116,9 +116,9 @@ export async function discard(filePath: string, files: string[], withoutFollow: 
   if (withoutFollow.length) await batch(filePath, ['clean', '-f', '-q'], withoutFollow.map(safeFile));
 }
 /** Aplica un trozo de diff (bloques o líneas elegidas, armado por el cliente) al índice o a la copia de trabajo. */
-export async function applyPatch(filePath: string, patch: string, mode: 'preparar' | 'quitar' | 'descartar') {
+export async function applyPatch(filePath: string, patch: string, mode: 'stage' | 'unstage' | 'discard') {
   if (!patch.startsWith('diff --git ') || patch.length > MAX_DIFF) throw new Error(t('server.invalidPatch'));
-  const args = ['apply', '--recount', '--whitespace=nowarn', ...(mode === 'descartar' ? ['--reverse'] : ['--cached', ...(mode === 'quitar' ? ['--reverse'] : [])]), '-'];
+  const args = ['apply', '--recount', '--whitespace=nowarn', ...(mode === 'discard' ? ['--reverse'] : ['--cached', ...(mode === 'unstage' ? ['--reverse'] : [])]), '-'];
   await run(filePath, args, { input: patch.endsWith('\n') ? patch : patch + '\n' });
 }
 
@@ -326,7 +326,7 @@ const QUERY_PRS = (since: string) => SEARCH_PRS(`is:pr author:@me archived:false
 export function prsOfGitHub(j: any): PRBoard[] {
   return (j?.data?.prs?.nodes ?? []).filter((n: any) => n?.number).map((n: any): PRBoard => ({
     number: n.number, title: n.title, url: n.url, repo: n.repository?.nameWithOwner ?? '', branch: n.headRefName ?? '',
-    state: n.state === 'MERGED' ? 'fusionado' : n.state === 'CLOSED' ? 'cerrado' : n.isDraft ? 'borrador' : 'abierto',
+    state: n.state === 'MERGED' ? 'merged' : n.state === 'CLOSED' ? 'closed' : n.isDraft ? 'draft' : 'open',
     review: n.reviewDecision ?? undefined, checks: n.commits?.nodes?.[0]?.commit?.statusCheckRollup?.state ?? undefined, updated: Date.parse(n.updatedAt),
     ...(n.mergedAt ? { mergedAt: Date.parse(n.mergedAt) } : {}),
     conflicts: n.mergeable === 'CONFLICTING' ? true : n.mergeable === 'MERGEABLE' ? false : undefined,
@@ -337,12 +337,12 @@ export function demoPRsBoard(): PRBoard[] {
   const pr = (number: number, title: string, repo: string, branch: string, state: PRBoard['state'], hours: number, review?: PRBoard['review'], checks?: PRBoard['checks']): PRBoard =>
     ({ number, title, url: `https://github.com/pulls#demo-${number}`, repo, branch, state, review, checks, updated: Date.now() - hours * 3600_000 });
   return inDemoLanguage([
-    pr(42, 'Rutas con parámetros opcionales', 'refugio/express', 'ref-212-barra-final', 'abierto', 3, 'REVIEW_REQUIRED', 'PENDING'),
-    pr(51, 'Buscar en .zip y .tar.gz', 'refugio/ripgrep', 'feature/REF-240-comprimidos', 'abierto', 5, 'APPROVED', 'SUCCESS'),
-    pr(17, 'REF-236 Reutilizar las conexiones de la sesión', 'refugio/requests', 'sesiones-persistentes', 'abierto', 20, 'CHANGES_REQUESTED', 'FAILURE'),
-    pr(18, 'REF-236 Pruebas de la sesión con proxy', 'refugio/requests', 'ref-236-pruebas', 'borrador', 22, undefined, 'SUCCESS'),
-    pr(39, 'Nuevo router: rutas anidadas', 'refugio/express', 'REF-219-router', 'fusionado', 26),
-    pr(9, 'Ordenar la lista por temas', 'refugio/awesome', 'ordenar-temas', 'abierto', 8, 'REVIEW_REQUIRED', 'SUCCESS'),
+    pr(42, 'Rutas con parámetros opcionales', 'refugio/express', 'ref-212-barra-final', 'open', 3, 'REVIEW_REQUIRED', 'PENDING'),
+    pr(51, 'Buscar en .zip y .tar.gz', 'refugio/ripgrep', 'feature/REF-240-comprimidos', 'open', 5, 'APPROVED', 'SUCCESS'),
+    pr(17, 'REF-236 Reutilizar las conexiones de la sesión', 'refugio/requests', 'sesiones-persistentes', 'open', 20, 'CHANGES_REQUESTED', 'FAILURE'),
+    pr(18, 'REF-236 Pruebas de la sesión con proxy', 'refugio/requests', 'ref-236-pruebas', 'draft', 22, undefined, 'SUCCESS'),
+    pr(39, 'Nuevo router: rutas anidadas', 'refugio/express', 'REF-219-router', 'merged', 26),
+    pr(9, 'Ordenar la lista por temas', 'refugio/awesome', 'ordenar-temas', 'open', 8, 'REVIEW_REQUIRED', 'SUCCESS'),
   ].map(p => ({ ...p, base: p.number === 18 ? 'sesiones-persistentes' : 'main', dependencies: p.number === 42 ? ['refugio/express#39', 'refugio/ripgrep#51'] : [],
     ...(p.number === 17 ? { ledger: { unresolved: 3, outdated: 1, unansweredSummaries: 1 } } : {}), ...(p.number === 9 ? { conflicts: true } : {}) })));   // #18 stacked on #17; #42 waits for #39 and #51; #17 with reviews to answer; #9 with conflicts
 }
@@ -358,7 +358,7 @@ export async function prsBoard(connection: { real: boolean; off?: boolean; token
 const OPEN_QUERY = SEARCH_PRS('is:pr is:open author:@me archived:false sort:updated-desc', 100);
 export async function prsOpen(connection: { real: boolean; off?: boolean; token?: string }): Promise<{ prs: PRBoard[]; demo?: boolean }> {
   if (connection.off) return { prs: [] };
-  if (!connection.real) return { prs: demoPRsBoard().filter(p => p.state === 'abierto' || p.state === 'borrador'), demo: true };
+  if (!connection.real) return { prs: demoPRsBoard().filter(p => p.state === 'open' || p.state === 'draft'), demo: true };
   return { prs: prsOfGitHub(JSON.parse(await gh(['api', 'graphql', '-f', 'query=' + OPEN_QUERY], connection.token))) };
 }
 
@@ -392,7 +392,7 @@ export async function localContributions(paths: string[]): Promise<DataGitHub> {
 
 // ---------------------------------------------------------------- despacho
 export interface CtxGit { allowedPath: (r: string) => boolean; pathsRepos: () => string[]; onChange: (filePath: string) => void; github?: () => Promise<{ real: boolean; token?: string }>; ledger?: (url: string) => ReviewLedger | undefined }
-const WRITE = new Set(['abortar', 'continuar', 'preparar', 'quitar', 'descartar', 'parche', 'commit', 'deshacerCommit', 'cambiarRama', 'crearRama', 'borrarRama', 'cajonGuardar', 'cajonSacar', 'cajonTirar', 'sincronizar']);
+const WRITE = new Set(['abort', 'continue', 'stage', 'unstage', 'discard', 'patch', 'commit', 'undoCommit', 'switchBranch', 'createBranch', 'deleteBranch', 'stashSave', 'stashPop', 'stashDrop', 'sync']);
 
 export async function actionGit(name: string, d: Record<string, any>, ctx: CtxGit): Promise<unknown> {
   if (name === 'github') return github(ctx.pathsRepos(), !!d.force, (await ctx.github?.()) ?? { real: false });
@@ -412,7 +412,7 @@ export async function actionGit(name: string, d: Record<string, any>, ctx: CtxGi
       case 'stage': return stage(filePath, list(d.files));
       case 'unstage': return remove(filePath, list(d.files));
       case 'discard': return discard(filePath, list(d.files), list(d.withoutFollow));
-      case 'patch': return applyPatch(filePath, String(d.patch ?? ''), d.mode === 'unstage' ? 'quitar' : d.mode === 'discard' ? 'descartar' : 'preparar');
+      case 'patch': return applyPatch(filePath, String(d.patch ?? ''), d.mode === 'unstage' ? 'unstage' : d.mode === 'discard' ? 'discard' : 'stage');
       case 'commit': return commit(filePath, d as any);
       case 'undoCommit': return undoCommit(filePath);
       case 'log': return history(filePath, d);

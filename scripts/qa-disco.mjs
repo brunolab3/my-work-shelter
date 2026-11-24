@@ -29,13 +29,13 @@ const spotify = () => pg.evaluate(() => window.__browsers.browsers.get().list.fi
 const spot = await pg.evaluate(() => {
   const ss = window.__shelter.rooms, max = Math.max(...ss.map(s => s.floor));
   const from = id => ss.find(s => s.id === id);
-  return { max, disco: from('discoteca') && { floor: from('discoteca').floor, x: from('discoteca').group.position.x }, cultivos: from('hidroponia')?.group.position.x, galeria: from('galeria')?.group.position.x, pb: ss.filter(s => s.floor === 0).map(s => s.id) };
+  return { max, disco: from('disco') && { floor: from('disco').floor, x: from('disco').group.position.x }, cultivos: from('hydroponics')?.group.position.x, gallery: from('gallery')?.group.position.x, pb: ss.filter(s => s.floor === 0).map(s => s.id) };
 });
 check(spot.disco?.floor === spot.max, `la discoteca está en la última planta (${spot.disco?.floor} de ${spot.max})`);
-check(spot.cultivos < spot.disco?.x && spot.disco?.x < 0 && spot.galeria > 0, 'de izquierda a derecha: cultivos, discoteca, ascensor, galería de tiro');
-check(!spot.pb.includes('discoteca'), `ya no está a pie de calle (PB: ${spot.pb.join(', ')})`);
-await pg.evaluate(() => window.dispatchEvent(new CustomEvent('refugio:ir', { detail: { roomId: 'discoteca' } })));
-await wait(3000); await photo('sala');
+check(spot.cultivos < spot.disco?.x && spot.disco?.x < 0 && spot.gallery > 0, 'de izquierda a derecha: cultivos, discoteca, ascensor, galería de tiro');
+check(!spot.pb.includes('disco'), `ya no está a pie de calle (PB: ${spot.pb.join(', ')})`);
+await pg.evaluate(() => window.dispatchEvent(new CustomEvent('refugio:ir', { detail: { roomId: 'disco' } })));
+await wait(3000); await photo('room');
 
 // la cabina abre Spotify, dentro
 await pg.evaluate(() => window.__game.set({ panel: 'spotify', panelData: null }));
@@ -64,7 +64,7 @@ await pg.click('.ventana-navegador .vt-cabeza button[title^="Minimizar"]');
 await pg.waitForSelector('.pletina', { timeout: 5000 }).catch(() => {});
 await wait(1200);
 const m = await pg.evaluate(() => window.__live.get().music);
-check(m?.state === 'sonando' && m?.hint?.artist === 'Marconi Union' && m?.hint?.duration === 480, `la pletina lee lo que suena (${m?.state} · ${m?.hint?.title?.slice(0, 20)}… · ${m?.hint?.duration}s)`);
+check(m?.state === 'playing' && m?.hint?.artist === 'Marconi Union' && m?.hint?.duration === 480, `la pletina lee lo que suena (${m?.state} · ${m?.hint?.title?.slice(0, 20)}… · ${m?.hint?.duration}s)`);
 check(m?.hint?.cover?.includes('ab67616d0000b273'), 'coge la carátula más grande');
 check(await pg.$eval('.pletina-titulo', e => e.textContent.startsWith('Weightless')).catch(() => false), 'al minimizar Spotify aparece la pletina con el tema');
 const webLive = await inWeb('location.href').catch(() => null);
@@ -76,18 +76,18 @@ check(await pg.$('.pletina.compacta') !== null && await pg.$('.pletina .musica-b
 await photo('pletina-compacta');
 // con el ratón encima, desplegada; al irse, compacta otra vez
 await pg.mouse.move(pl.x + pl.w / 2, pl.y + pl.h / 2); await wait(400);
-check(await pg.$('.pletina.abierta .musica-boton') !== null, 'con el ratón encima se despliega con los mandos');
+check(await pg.$('.pletina.open .musica-boton') !== null, 'con el ratón encima se despliega con los mandos');
 await photo('pletina');
 await pg.click('.pletina .musica-boton[title="Tema siguiente"]');
 await pg.click('.pletina .musica-boton[title="Pausa"]');
 await wait(600);
 // arrastre en la barra de progreso: de un cuarto a tres cuartos
-let r = await box('.pletina .musica-barra');
+let r = await box('.pletina .music-bar');
 await pg.mouse.move(r.x + r.w * 0.25, r.y + r.h / 2); await pg.mouse.down(); await pg.mouse.move(r.x + r.w * 0.5, r.y + r.h / 2, { steps: 4 }); await pg.mouse.move(r.x + r.w * 0.75, r.y + r.h / 2, { steps: 4 }); await pg.mouse.up();
 await wait(1200);
 const done = await inWeb('window.__qa');
 check(done?.length === 3 && done[0] === 'nexttrack' && done[1] === 'pause' && Math.abs(+done[2].split(':')[1] - 360) <= 8, `los mandos llegan a Spotify: siguiente, pausa y saltar arrastrando a los tres cuartos (${JSON.stringify(done)})`);
-check((await pg.evaluate(() => window.__live.get().music?.state)) === 'pausa', 'tras la pausa, la pletina dice PAUSA');
+check((await pg.evaluate(() => window.__live.get().music?.state)) === 'paused', 'tras la pausa, la pletina dice PAUSA');
 // como Spotify de verdad: sin «seekto» en la Media Session, se salta con su barra de progreso (en milisegundos)
 await inWeb(`(() => { navigator.mediaSession.setActionHandler('seekto', null);
   const d = document.createElement('div'); d.setAttribute('data-testid', 'playback-progressbar');
@@ -96,7 +96,7 @@ await inWeb(`(() => { navigator.mediaSession.setActionHandler('seekto', null);
   const dv = document.createElement('div'); dv.setAttribute('data-testid', 'volume-bar');
   const v = document.createElement('input'); v.type = 'range'; v.min = 0; v.max = 1; v.step = 0.01; v.value = 0.8; dv.appendChild(v); document.body.prepend(dv); })()`);
 await wait(1500);
-r = await box('.pletina .musica-barra');
+r = await box('.pletina .music-bar');
 await pg.mouse.click(r.x + r.w * 0.5, r.y + r.h / 2); await wait(1000);
 check((await inWeb('window.__qa'))?.at(-1)?.startsWith('barra:24'), `sin «seekto», salta con la barra de progreso de Spotify (${JSON.stringify((await inWeb('window.__qa'))?.at(-1))})`);
 await pg.mouse.move(900, 300); await wait(800);
@@ -104,10 +104,10 @@ check(await pg.$('.pletina.compacta') !== null, 'al quitar el ratón vuelve a co
 // ⌘J: la pletina en mano, con el teclado
 await inWeb('window.__qa = []');
 await pg.keyboard.press('Meta+KeyJ'); await wait(300);
-check(await pg.$('.pletina.abierta.en-mano .pletina-ayuda') !== null, '⌘J despliega la pletina en mano, con su ayuda');
+check(await pg.$('.pletina.open.en-mano .pletina-ayuda') !== null, '⌘J despliega la pletina en mano, con su ayuda');
 await photo('pletina-en-mano');
 await pg.keyboard.press('Space'); await pg.keyboard.press('Shift+ArrowRight');
-const posBefore = await pg.evaluate(() => { const m = window.__live.get().music; return m.position + (m.state === 'sonando' ? (Date.now() - m.measured) / 1000 : 0); });
+const posBefore = await pg.evaluate(() => { const m = window.__live.get().music; return m.position + (m.state === 'playing' ? (Date.now() - m.measured) / 1000 : 0); });
 await pg.keyboard.press('ArrowLeft');
 const vol0 = (await pg.evaluate(() => window.__live.get().music?.volume)); await pg.keyboard.press('ArrowDown');
 await wait(800);
@@ -115,7 +115,7 @@ const keys = await inWeb('window.__qa');
 const behind = +(keys?.[2] ?? '').split(':')[1];
 check(keys?.[0] === 'play' && keys?.[1] === 'nexttrack' && Math.abs(behind - (posBefore - 10)) <= 5, `Espacio, ⇧→ y ← (10 s atrás desde ${Math.round(posBefore)} s) llegan a Spotify (${JSON.stringify(keys)})`);
 check((await pg.evaluate(() => window.__live.get().music?.volume)) === Math.max(0, vol0 - 10), `↓ baja el volumen (${vol0} → ${await pg.evaluate(() => window.__live.get().music?.volume)})`);
-check((await pg.evaluate(() => window.__game.get().panel)) === null && (await pg.evaluate(() => window.__game.get().currentRoom)) === 'discoteca', 'las teclas no mueven el refugio');
+check((await pg.evaluate(() => window.__game.get().panel)) === null && (await pg.evaluate(() => window.__game.get().currentRoom)) === 'disco', 'las teclas no mueven el refugio');
 await pg.keyboard.press('Enter'); await wait(800);
 check((await spotify())?.minimized === false && !(await pg.$('.pletina')), 'Intro abre Spotify entero');
 await pg.keyboard.press('Meta+KeyJ'); await wait(600);

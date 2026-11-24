@@ -2,9 +2,9 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { setLanguage } from '@shared/language';
 import { directionMark, scheduledSender, scheduledTarget } from './scheduledSender';
 
-const names: Record<string, string> = { puente: 'Command Bridge' };
+const names: Record<string, string> = { bridge: 'Command Bridge' };
 const name = (id: string) => names[id];
-const origin = { roomId: 'puente' };
+const origin = { roomId: 'bridge' };
 
 describe('scheduledSender', () => {
   beforeAll(() => setLanguage('en'));

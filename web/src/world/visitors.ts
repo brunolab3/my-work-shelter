@@ -47,7 +47,7 @@ export class Visitors {
     this.figures.set(room.id, f);
     await p.load();
     p.root.scale.setScalar(SCALE);
-    const side = room.side === 'izq' ? 1 : -1;
+    const side = room.side === 'left' ? 1 : -1;
     p.root.position.set(room.group.position.x + side * (room.width / 2 + 0.4), room.group.position.y, 1.3);
     this.r.motor.scene.add(p.root);
     // (si la sala se volvió a montar mientras cargaba, a la nueva)
@@ -63,7 +63,7 @@ export class Visitors {
   // decorado) es otro objeto sin él, y el robot se quedaría a la vista sin poder usarse
   private label(room: Room) {
     const x = this.workstation(room).x - room.group.position.x;
-    room.interactive = [...(room.interactive ?? []).filter(i => i.id !== 'vis:' + room.id), { id: 'vis:' + room.id, x, z: 1.45, text: t('world.visitorOutside'), panel: 'visitante' }];
+    room.interactive = [...(room.interactive ?? []).filter(i => i.id !== 'vis:' + room.id), { id: 'vis:' + room.id, x, z: 1.45, text: t('world.visitorOutside'), panel: 'visitor' }];
   }
   private relocate(f: Figure, room: Room) {
     f.room = room; this.label(room);
@@ -77,7 +77,7 @@ export class Visitors {
   private leave(f: Figure) {
     this.figures.delete(f.room.id);
     f.room.interactive = (f.room.interactive ?? []).filter(i => i.id !== 'vis:' + f.room.id);
-    const side = f.room.side === 'izq' ? 1 : -1;
+    const side = f.room.side === 'left' ? 1 : -1;
     f.p.goA([new THREE.Vector3(f.room.group.position.x + side * (f.room.width / 2 + 0.6), f.room.group.position.y, 1.3)], false, () => this.r.motor.scene.remove(f.p.root));
   }
 
@@ -87,7 +87,7 @@ export class Visitors {
   labels(farSide: boolean, near?: string, aimed?: string) {
     return [...this.figures.values()].filter(f => f.p.mixer).map(f => {
       const id = 'vis:' + f.room.id, isNear = id === near || id === aimed, n = f.sessions.length;
-      return { k: f, pos: f.p.headPoint(), height: 0.2, name: n > 1 ? `${t('world.visitor')} · ${n}` : t('world.visitor'), state: 'ocioso', detail: isNear ? (n > 1 ? t('world.nSessionsOutside', { n }) : t('world.sessionOpenOutside')) : '', near: isNear, farSide, prompt: isNear ? t('world.seeSessions') : '', key: id === near ? 'E' : t('world.click'), aimed: id === aimed };
+      return { k: f, pos: f.p.headPoint(), height: 0.2, name: n > 1 ? `${t('world.visitor')} · ${n}` : t('world.visitor'), state: 'idle', detail: isNear ? (n > 1 ? t('world.nSessionsOutside', { n }) : t('world.sessionOpenOutside')) : '', near: isNear, farSide, prompt: isNear ? t('world.seeSessions') : '', key: id === near ? 'E' : t('world.click'), aimed: id === aimed };
     });
   }
 }

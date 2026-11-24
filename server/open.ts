@@ -62,15 +62,15 @@ export async function realOfLink(link: string, home: string) {
 }
 /** Where openLocal would send it, without opening it (the options of a link, web/src/ui/linkOptions.ts) */
 export async function localKind(real: string): Promise<LocalKind> {
-  if ((await fs.stat(real)).isDirectory()) return isPackage(real) ? 'finder' : 'carpeta';
-  return OF_BROWSER.test(real) ? 'web' : OF_PREVIEW.test(real) ? 'vista' : OF_TEXT.test(real) ? 'editor' : 'finder';
+  if ((await fs.stat(real)).isDirectory()) return isPackage(real) ? 'finder' : 'folder';
+  return OF_BROWSER.test(real) ? 'web' : OF_PREVIEW.test(real) ? 'preview' : OF_TEXT.test(real) ? 'editor' : 'finder';
 }
 export async function openLocal(link: string, home: string) {
   const real = await realOfLink(link, home);
   const type = await localKind(real);
-  if (type === 'carpeta') launch([real]);
+  if (type === 'folder') launch([real]);
   else if (type === 'web') launch([real]);   // la app que tengas para las páginas web: tu navegador
-  else if (type === 'vista') launch(['-a', 'Preview', real]);
+  else if (type === 'preview') launch(['-a', 'Preview', real]);
   else if (type === 'editor') { const editor = editorOfMac(); launch(editor ? ['-a', editor, real] : ['-t', real]); }
   else launch(['-R', real]);
   return type;

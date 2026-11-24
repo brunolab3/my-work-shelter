@@ -15,18 +15,18 @@ import { ToolText, Visible } from './plainText';
 
 export function PanelActivity({ panel }: { panel: Panel }) {
   switch (panel) {
-    case 'inventario': return <Inventory />;
-    case 'galeria': return <Gallery />;
-    case 'hidroponia': return <Hydroponics />;
+    case 'inventory': return <Inventory />;
+    case 'gallery': return <Gallery />;
+    case 'hydroponics': return <Hydroponics />;
     case 'radio': return <Radio />;
-    case 'generador': return <Generator />;
-    case 'cuaderno': return <Log />;
+    case 'generator': return <Generator />;
+    case 'log': return <Log />;
     default: return <Pending panel={panel} />;
   }
 }
 function Pending({ panel }: { panel: Panel }) {
   useKeys(e => { if (e.code === 'Escape') closePanel(); });
-  return <Device label={panel.toUpperCase()} width={40}><p className="tenue">{t('panels.thisDeviceDoesnTWork')}</p><Keys><kbd>Esc</kbd>{t('menu.close')}</Keys></Device>;
+  return <Device label={panel.toUpperCase()} width={40}><p className="dim">{t('panels.thisDeviceDoesnTWork')}</p><Keys><kbd>Esc</kbd>{t('menu.close')}</Keys></Device>;
 }
 const gameAction = async (n: string, d: Record<string, unknown> = {}) => client.action<any>('juego.' + n, d);
 const usePlayer = () => live.use(e => e.state?.jugador ?? null);
@@ -46,19 +46,19 @@ function Inventory() {
     if (p === 0) return inv.length ? inv.map(([k, n]) => {
       const piece = PIECES.find(x => 'pieza:' + x.id === k); const cos = HARVESTS[k.slice(8)];
       const name = tIs(piece?.nombre ?? cos?.nombre ?? k); const value = piece?.valor ?? cos?.valor ?? 1;
-      return { text: <>{name} <span className="tenue">×{n}</span></>, hint: t('panels.valorScrapEach', { valor: value }), detail: <><p>{tIs(piece?.texto ?? FRESH_HARVEST)}</p><p className="tenue">{t('panels.enterSellOneVSell')}</p></>, f: () => vender(k, 1), f2: () => vender(k, n) };
-    }) : [{ text: <span className="tenue">{t('panels.emptyPockets')}</span>, detail: <p className="tenue">{t('panels.everyTaskADwellerFinishes')}</p> }];
+      return { text: <>{name} <span className="dim">×{n}</span></>, hint: t('panels.valorScrapEach', { valor: value }), detail: <><p>{tIs(piece?.texto ?? FRESH_HARVEST)}</p><p className="dim">{t('panels.enterSellOneVSell')}</p></>, f: () => vender(k, 1), f2: () => vender(k, n) };
+    }) : [{ text: <span className="dim">{t('panels.emptyPockets')}</span>, detail: <p className="dim">{t('panels.everyTaskADwellerFinishes')}</p> }];
     if (p === 1) return [
-      ...PIECES.map(x => { const has = (j.inventario['pieza:' + x.id] ?? 0) > 0 || (j.views ?? []).includes(x.id); return { text: has ? <>{tIs(x.nombre)} <span className={'rareza ' + x.rarity}>{tIs(x.rarity)}</span></> : <span className="tenue">??? <span className={'rareza ' + x.rarity}>{tIs(x.rarity)}</span></span>, detail: has ? <p>{tIs(x.texto)}</p> : <p className="tenue">{t('panels.youHavenTFoundIt')}</p>, powerOff: !has }; }),
-      ...SIGNALS.map(s => { const has = (j.signals ?? []).includes(s.id); return { text: has ? <>📻 {tIs(s.titulo)}</> : <span className="tenue">📻 {t('panels.signalNotPickedUp')}</span>, hint: has ? `${s.frecuencia.toFixed(1)} MHz` : '', detail: has ? <p>{tIs(s.texto)}</p> : <p className="tenue">{t('panels.tuneTheCommunicationsRadio')}</p>, powerOff: !has }; }),
+      ...PIECES.map(x => { const has = (j.inventario['pieza:' + x.id] ?? 0) > 0 || (j.views ?? []).includes(x.id); return { text: has ? <>{tIs(x.nombre)} <span className={'rareza ' + x.rarity}>{tIs(x.rarity)}</span></> : <span className="dim">??? <span className={'rareza ' + x.rarity}>{tIs(x.rarity)}</span></span>, detail: has ? <p>{tIs(x.texto)}</p> : <p className="dim">{t('panels.youHavenTFoundIt')}</p>, powerOff: !has }; }),
+      ...SIGNALS.map(s => { const has = (j.signals ?? []).includes(s.id); return { text: has ? <>📻 {tIs(s.titulo)}</> : <span className="dim">📻 {t('panels.signalNotPickedUp')}</span>, hint: has ? `${s.frecuencia.toFixed(1)} MHz` : '', detail: has ? <p>{tIs(s.texto)}</p> : <p className="dim">{t('panels.tuneTheCommunicationsRadio')}</p>, powerOff: !has }; }),
     ];
     if (p === 2) return SHOP.map(a => {
       const has = (j.tienda ?? []).includes(a.id) || (j.armas ?? []).includes(a.id);
       const workstation = sup?.accessories?.includes(a.id);
       return {
-        text: <>{tIs(a.nombre)} {has && <span className="tenue">· {a.tipo === 'accesorio' ? (workstation ? t('panels.youReWearingIt') : t('panels.yours')) : a.tipo === 'arma' ? (j.arma === a.id ? t('panels.inUse') : t('panels.yours2')) : t('panels.plantable')}</span>}</>,
+        text: <>{tIs(a.nombre)} {has && <span className="dim">· {a.tipo === 'accesorio' ? (workstation ? t('panels.youReWearingIt') : t('panels.yours')) : a.tipo === 'arma' ? (j.arma === a.id ? t('panels.inUse') : t('panels.yours2')) : t('panels.plantable')}</span>}</>,
         hint: has ? '' : t('panels.nScrap', { n: a.price }),
-        detail: <><p>{tIs(a.texto)}</p><p className="tenue">{has ? (a.tipo === 'accesorio' ? t('panels.enterPutItOnOr') : a.tipo === 'arma' ? t('panels.enterUseItInThe') : t('panels.youCanNowPlantIt')) : t('panels.enterBuyPrecioYouHave', { price: a.price, n: j.scrap })}</p></>,
+        detail: <><p>{tIs(a.texto)}</p><p className="dim">{has ? (a.tipo === 'accesorio' ? t('panels.enterPutItOnOr') : a.tipo === 'arma' ? t('panels.enterUseItInThe') : t('panels.youCanNowPlantIt')) : t('panels.enterBuyPrecioYouHave', { price: a.price, n: j.scrap })}</p></>,
         f: () => has ? (a.tipo === 'accesorio' ? equip(a.id, 'supervisor') : a.tipo === 'arma' ? useWeapon(a.id) : undefined) : buy(a.id),
         f2: has && a.tipo === 'accesorio' ? () => setGift(a.id) : undefined,
       };
@@ -94,8 +94,8 @@ function Inventory() {
     <Device label={t('panels.overseerSBackpack')} width={68}>
       <div className="pestanas">{ACTIVITY_TABS.map((x, k) => <button key={x} className={'chip' + (k === p ? ' on' : '')} onClick={() => { setP(k); setI(0); }}>{tIs(x)}</button>)}<span className="derecha chatarra-txt">⚙ {t('panels.nScrap', { n: j.scrap })}</span></div>
       <div className="feed">
-        <ul className="feed-lista lista-desplazable lista-inv">{rows.map((f, k) => <li key={k} className={(k === i ? 'activa' : '') + (f.powerOff ? ' vista' : '')} onMouseEnter={() => setI(k)} onClick={() => f.f?.()} ref={el => { if (k === i) el?.scrollIntoView({ block: 'nearest' }); }}><span className="titulo">{f.text}</span><span className="cuando">{f.hint}</span></li>)}</ul>
-        <div className="feed-detalle">{sel?.detail}{msg && <p className="aviso-consola">{msg}</p>}</div>
+        <ul className="feed-lista lista-desplazable lista-inv">{rows.map((f, k) => <li key={k} className={(k === i ? 'active' : '') + (f.powerOff ? ' preview' : '')} onMouseEnter={() => setI(k)} onClick={() => f.f?.()} ref={el => { if (k === i) el?.scrollIntoView({ block: 'nearest' }); }}><span className="titulo">{f.text}</span><span className="cuando">{f.hint}</span></li>)}</ul>
+        <div className="feed-detalle">{sel?.detail}{msg && <p className="notice-console">{msg}</p>}</div>
       </div>
       {gift && <Gift article={gift} dwellers={dwellers} close={() => setGift(null)} done={(n) => { setGift(null); setMsg(t('panels.nIsNowWearingIt', { n })); }} />}
       <Keys><kbd>←→</kbd>{t('panels.tab')} <kbd>↑↓</kbd>{t('menu.select')} <kbd>Enter</kbd>{p === 0 ? t('panels.sell') : p === 2 ? t('panels.buyPutOn') : t('panels.view')} {p === 0 && <><kbd>V</kbd>{t('panels.sellAll')} </>}{p === 2 && <><kbd>G</kbd>{t('panels.give')} </>}<kbd>Esc</kbd>{t('menu.close')}</Keys>
@@ -103,7 +103,7 @@ function Inventory() {
   );
 }
 function Gift({ article, dwellers, close, done }: { article: string; dwellers: { id: string; name: string; nameRoom: string }[]; close: () => void; done: (n: string) => void }) {
-  const items = dwellers.map(h => ({ text: <><b>{h.name}</b> <span className="tenue">· {h.nameRoom}</span></> }));
+  const items = dwellers.map(h => ({ text: <><b>{h.name}</b> <span className="dim">· {h.nameRoom}</span></> }));
   const pick = async (k: number) => { const h = dwellers[k]; try { await gameAction('equipar', { article, quien: h.id }); SFX.shortSuccess(); done(h.name); } catch (e) { SFX.error(); close(); } };
   const [i, setI] = useMenu(items.length, pick, undefined, close);
   return <div className="sub-aparato"><p>{t('panels.whoDoYouGiveIt')}</p><div className="lista-desplazable mini"><Options items={items} i={i} setI={setI} onChoose={pick} /></div></div>;
@@ -125,8 +125,8 @@ function Gallery() {
   if (phase === 'fin' && res) return <ShootingEnd r={res} other={() => setPhase('jugando')} />;
   return (
     <Device label={t('panels.shootingGallery')} width={46}>
-      <p className="voz">{t('panels.aimAtTheBugsNot')}</p>
-      <p className="tenue">{t('panels.recordNPointsEvery12', { n: j?.records?.tiro ?? 0 })}</p>
+      <p className="voice">{t('panels.aimAtTheBugsNot')}</p>
+      <p className="dim">{t('panels.recordNPointsEvery12', { n: j?.records?.tiro ?? 0 })}</p>
       <Options items={items} i={i} setI={setI} onChoose={k => items[k].f()} />
       <Keys><kbd>↑↓</kbd>{t('menu.select')} <kbd>Enter</kbd>{t('menu.accept')} <kbd>Esc</kbd>{t('windows.exit')}</Keys>
     </Device>
@@ -138,7 +138,7 @@ function ShootingRound({ arma, end }: { arma: string; end: (r: any) => void }) {
   const [flashes, setFlashes] = useState<{ id: number; x: number; text: string }[]>([]);
   const r = (window as any).__shelter;
   useEffect(() => {
-    r?.galeria.start(arma); juego.set({ hint: null });
+    r?.gallery.start(arma); juego.set({ hint: null });
     let ult = performance.now(); let raf = 0;
     const loop = () => {
       const now = performance.now(); const dt = Math.min(0.1, (now - ult) / 1000); ult = now; const s = ref.current;
@@ -152,12 +152,12 @@ function ShootingRound({ arma, end }: { arma: string; end: (r: any) => void }) {
     addEventListener('keydown', below); addEventListener('keyup', above);
     const mouse = (e: MouseEvent) => { ref.current.x = (e.clientX / innerWidth) * 2 - 1; };
     addEventListener('mousemove', mouse);
-    return () => { cancelAnimationFrame(raf); removeEventListener('keydown', below); removeEventListener('keyup', above); removeEventListener('mousemove', mouse); r?.galeria.finish(); };
+    return () => { cancelAnimationFrame(raf); removeEventListener('keydown', below); removeEventListener('keyup', above); removeEventListener('mousemove', mouse); r?.gallery.finish(); };
   }, []);
   const keys = useMemo(() => new Set<string>(), []);
   const fire = () => {
     const s = ref.current; if (s.end || !r) return;
-    const res = r.galeria.fire(s.x); s.shots++;
+    const res = r.gallery.fire(s.x); s.shots++;
     if (res.accuracy) { s.gust++; const extra = s.gust >= 3 ? 5 * (s.gust - 2) : 0; s.points += res.points + extra; s.hits++; setFlashes(d => [...d.slice(-4), { id: Date.now(), x: s.x, text: `+${res.points + extra}${s.gust >= 3 ? ' ' + t('panels.streakN', { n: s.gust }) : ''}` }]); }
     else s.gust = 0;
   };
@@ -171,9 +171,9 @@ function ShootingRound({ arma, end }: { arma: string; end: (r: any) => void }) {
     if (e.code === 'Escape') { ref.current.t = 0; return true; }
     return true;
   });
-  const s = ref.current; const y = r?.galeria.sightHeight() ?? 0;
+  const s = ref.current; const y = r?.gallery.sightHeight() ?? 0;
   return (
-    <div className="ronda-tiro interactivo" onMouseDown={e => { e.preventDefault(); fire(); }}>
+    <div className="round-tiro interactivo" onMouseDown={e => { e.preventDefault(); fire(); }}>
       <div className="marcador-tiro"><span>⏱ {Math.max(0, s.t).toFixed(1)} s</span><b>{s.points}</b><span>{s.hits}/{s.shots} {t('panels.hits')}{s.gust >= 3 ? ' · ' + t('panels.streakN', { n: s.gust }) : ''}</span></div>
       <div className="mira" style={{ left: `${(s.x + 1) / 2 * 100}%`, top: `${(1 - y) / 2 * 100}%` }} />
       {flashes.map(d => <div key={d.id} className="destello-puntos" style={{ left: `${(d.x + 1) / 2 * 100}%`, top: `${(1 - y) / 2 * 100 - 8}%` }}>{d.text}</div>)}
@@ -186,10 +186,10 @@ function ShootingEnd({ r, other }: { r: any; other: () => void }) {
   const pick = (k: number) => (k === 0 ? other() : closePanel());
   const [i, setI] = useMenu(2, pick);
   return (
-    <Device label={t('panels.galleryResult')} width={40} pilot={r.record ? 'trabajando' : 'ociosa'}>
+    <Device label={t('panels.galleryResult')} width={40} pilot={r.record ? 'working' : 'idle'}>
       <div className="titulo-ficha">{t('panels.nPoints', { n: r.points })}</div>
       <p>{t('panels.aHitsOutOfD', { a: r.hits, d: r.shots })}{r.shots ? ` (${Math.round(r.hits / r.shots * 100)} %)` : ''}.</p>
-      {r.record ? <p className="aviso-consola">{t('panels.newShelterRecord')}</p> : <p className="tenue">{t('panels.recordN', { n: r.mejor ?? 0 })}</p>}
+      {r.record ? <p className="notice-console">{t('panels.newShelterRecord')}</p> : <p className="dim">{t('panels.recordN', { n: r.mejor ?? 0 })}</p>}
       <p>+{t('panels.nScrap', { n: r.prize })}</p>
       <Options items={items} i={i} setI={setI} onChoose={pick} />
     </Device>
@@ -222,16 +222,16 @@ function Hydroponics() {
   }, [i, cultivos, picked]);
   return (
     <Device label={t('panels.hydroponicsBeds')} width={56}>
-      <p className="voz">{t('panels.everyToolTheDwellersUse')}</p>
+      <p className="voice">{t('panels.everyToolTheDwellersUse')}</p>
       <ul className="opciones-consola bancales">{cultivos.map((x, k) => (
-        <li key={k} className={k === i ? 'activa' : ''} onMouseEnter={() => setI(k)} onClick={() => { setI(k); harvest(); }}>
+        <li key={k} className={k === i ? 'active' : ''} onMouseEnter={() => setI(k)} onClick={() => { setI(k); harvest(); }}>
           <span className="cursor">{k === i ? '▶' : ' '}</span><span className="txt">{t('panels.bedN', { n: k + 1 })} <b>{tIs(HARVESTS[x.especie]?.nombre ?? '')}</b></span>
           <span className="fases">{[1, 2, 3, 4].map(f => <i key={f} className={f <= x.phase ? 'on' : ''} />)}{x.phase < 4 && <small> {x.progreso}/8</small>}</span>
           <small>{x.phase >= 4 ? t('panels.ripeEnterHarvests') : t('panels.growing')}</small>
         </li>))}</ul>
-      <div className="fila-chips activa"><span className="etq">{t('panels.replantWith')}</span><button className="chip" onClick={() => setChoice(x => ({ ...x, [i]: species[(species.indexOf(picked) - 1 + species.length) % species.length] }))}>◀</button><b className="eleccion">{tIs(HARVESTS[picked]?.nombre ?? '')}</b><button className="chip" onClick={() => setChoice(x => ({ ...x, [i]: species[(species.indexOf(picked) + 1) % species.length] }))}>▶</button>{picked !== c?.especie && <span className="tenue">{t('panels.pPlantNowWhatWas')}</span>}</div>
-      {msg && <p className="aviso-consola">{msg}</p>}
-      <p className="tenue">{t('panels.moreSeedsInTheShop')}</p>
+      <div className="fila-chips active"><span className="etq">{t('panels.replantWith')}</span><button className="chip" onClick={() => setChoice(x => ({ ...x, [i]: species[(species.indexOf(picked) - 1 + species.length) % species.length] }))}>◀</button><b className="eleccion">{tIs(HARVESTS[picked]?.nombre ?? '')}</b><button className="chip" onClick={() => setChoice(x => ({ ...x, [i]: species[(species.indexOf(picked) + 1) % species.length] }))}>▶</button>{picked !== c?.especie && <span className="dim">{t('panels.pPlantNowWhatWas')}</span>}</div>
+      {msg && <p className="notice-console">{msg}</p>}
+      <p className="dim">{t('panels.moreSeedsInTheShop')}</p>
       <Keys><kbd>↑↓</kbd>{t('panels.bed')} <kbd>←→</kbd>{t('panels.species')} <kbd>Enter</kbd>{t('panels.harvest2')} <kbd>P</kbd>{t('panels.plant')} <kbd>Esc</kbd>{t('menu.close')}</Keys>
     </Device>
   );
@@ -278,14 +278,14 @@ function Radio() {
   useKeys(e => { if (e.code === 'Escape') closePanel(); return true; });
   const pct = (x: number) => ((x - 87.5) / (108 - 87.5)) * 100;
   return (
-    <Device label={t('panels.communicationsShortwaveRadio')} width={60} pilot={signal > 0.85 ? 'trabajando' : 'ociosa'}>
+    <Device label={t('panels.communicationsShortwaveRadio')} width={60} pilot={signal > 0.85 ? 'working' : 'idle'}>
       <div className="dial">
-        <div className="escala">{[88, 92, 96, 100, 104].map(m => <span key={m} style={{ left: `${pct(m)}%` }}>{m}</span>)}<span style={{ left: 'auto', right: '4px', transform: 'none' }}>108</span>{SIGNALS.filter(s => capturedList.includes(s.id)).map(s => <i key={s.id} className="marca" style={{ left: `${pct(s.frecuencia)}%` }} />)}</div>
+        <div className="escala">{[88, 92, 96, 100, 104].map(m => <span key={m} style={{ left: `${pct(m)}%` }}>{m}</span>)}<span style={{ left: 'auto', right: '4px', transform: 'none' }}>108</span>{SIGNALS.filter(s => capturedList.includes(s.id)).map(s => <i key={s.id} className="brand" style={{ left: `${pct(s.frecuencia)}%` }} />)}</div>
         <div className="aguja" style={{ left: `${pct(f)}%` }} />
       </div>
-      <div className="lectura-radio"><b>{f.toFixed(1)} MHz</b><span className="medidor"><span style={{ width: `${signal * 100}%` }} /></span><span className="tenue">{signal > 0.85 ? (fixed >= 1.5 ? t('panels.signalPickedUp') : t('panels.tuning')) : signal > 0.3 ? t('panels.somethingSAudible') : t('panels.static')}</span></div>
-      {captured && Math.abs(captured.frecuencia - f) < 0.6 ? <div className="transmision"><div className="titulo-ficha">{tIs(captured.titulo)}</div><p>{tIs(captured.texto)}</p></div> : <p className="tenue">{t('panels.turnTheDialSlowlyAnd')}</p>}
-      <p className="tenue">{t('panels.nOfTotalSignalsIn', { n: capturedList.length, total: SIGNALS.length })}{pending.length ? '' : ' · ' + t('panels.allOfThem')}.</p>
+      <div className="lectura-radio"><b>{f.toFixed(1)} MHz</b><span className="medidor"><span style={{ width: `${signal * 100}%` }} /></span><span className="dim">{signal > 0.85 ? (fixed >= 1.5 ? t('panels.signalPickedUp') : t('panels.tuning')) : signal > 0.3 ? t('panels.somethingSAudible') : t('panels.static')}</span></div>
+      {captured && Math.abs(captured.frecuencia - f) < 0.6 ? <div className="transmision"><div className="titulo-ficha">{tIs(captured.titulo)}</div><p>{tIs(captured.texto)}</p></div> : <p className="dim">{t('panels.turnTheDialSlowlyAnd')}</p>}
+      <p className="dim">{t('panels.nOfTotalSignalsIn', { n: capturedList.length, total: SIGNALS.length })}{pending.length ? '' : ' · ' + t('panels.allOfThem')}.</p>
       <Keys><kbd>←→</kbd>{t('panels.turnTheDial')} (<kbd>Shift</kbd> {t('panels.fast')}) <kbd>Esc</kbd>{t('panels.turnOff')}</Keys>
     </Device>
   );
@@ -312,9 +312,9 @@ function Generator() {
     else if (e.code === 'KeyR') { setState(newPuzzle()); setDone(false); setMoves(0); }
   }, [state, i, done]);
   return (
-    <Device label={t('panels.commandBridgePowerCore')} width={50} pilot={done ? 'trabajando' : 'error'}>
-      <p className="voz">{done ? t('panels.phasesReconnectedInNMoves', { n: moves }) : t('panels.thePhasesAreCrossedEach')}</p>
-      <div className="palancas">{state.map((v, k) => <button key={k} className={'palanca' + (v ? ' on' : '') + (k === i ? ' activa' : '')} onMouseEnter={() => setI(k)} onClick={() => press(k)}><span className="luz" /><span className="mango" /><small>F{k + 1}</small></button>)}</div>
+    <Device label={t('panels.commandBridgePowerCore')} width={50} pilot={done ? 'working' : 'error'}>
+      <p className="voice">{done ? t('panels.phasesReconnectedInNMoves', { n: moves }) : t('panels.thePhasesAreCrossedEach')}</p>
+      <div className="palancas">{state.map((v, k) => <button key={k} className={'lever' + (v ? ' on' : '') + (k === i ? ' active' : '')} onMouseEnter={() => setI(k)} onClick={() => press(k)}><span className="luz" /><span className="mango" /><small>F{k + 1}</small></button>)}</div>
       <Keys><kbd>←→</kbd>{t('panels.lever')} <kbd>Enter</kbd>{t('panels.operate')} <kbd>R</kbd>{t('panels.newWiring')} <kbd>Esc</kbd>{t('menu.close')}</Keys>
     </Device>
   );
@@ -335,12 +335,12 @@ function Log() {
   const recency = (s: SessionSummary) => sessionRecency(s, `${dwellers.find(h => h.id === s.dwellerId)?.name ?? s.dwellerId} ${s.title ?? ''}`);
   const list = Object.values(sessions).sort((a, b) => recentFirst(recency(a), recency(b)));
   const [sel, setSel] = useState<string | null>(requested ?? null);
-  const items = list.map(s => ({ text: <><b>{dwellers.find(h => h.id === s.dwellerId)?.name ?? s.dwellerId}</b> <span className="tenue">· {s.title ?? t('panels.untitled')}</span></>, hint: tIs(s.state) }));
+  const items = list.map(s => ({ text: <><b>{dwellers.find(h => h.id === s.dwellerId)?.name ?? s.dwellerId}</b> <span className="dim">· {s.title ?? t('panels.untitled')}</span></>, hint: tIs(s.state) }));
   const [i, setI] = useMenu(items.length, k => setSel(list[k].id), e => (sel ? false : undefined));
   if (sel) return <Transcript sessionId={sel} goBack={() => (requested ? closePanel() : setSel(null))} />;
   return (
     <Device label={t('panels.logbook')} width={56}>
-      {list.length ? <Options items={items} i={i} setI={setI} onChoose={k => setSel(list[k].id)} /> : <p className="tenue">{t('panels.thereAreNoConversationsIn')}</p>}
+      {list.length ? <Options items={items} i={i} setI={setI} onChoose={k => setSel(list[k].id)} /> : <p className="dim">{t('panels.thereAreNoConversationsIn')}</p>}
       <Keys><kbd>↑↓</kbd>{t('menu.select')} <kbd>Enter</kbd>{t('windows.open')} <kbd>Esc</kbd>{t('menu.close')}</Keys>
     </Device>
   );
@@ -358,8 +358,8 @@ function Transcript({ sessionId, goBack }: { sessionId: string; goBack: () => vo
   });
   return (
     <Device label={t('panels.logbookFullTranscript')} width={72} height onClose={goBack}>
-      <div ref={box} className="lienzo cuaderno lista-desplazable">
-        {ents === null ? <p className="tenue">{t('panels.openingTheLogbook')}</p> : ents.map((x, k) => <InputC key={k} e={x} />)}
+      <div ref={box} className="lienzo log lista-desplazable">
+        {ents === null ? <p className="dim">{t('panels.openingTheLogbook')}</p> : ents.map((x, k) => <InputC key={k} e={x} />)}
       </div>
       <Keys><kbd>↑↓</kbd> <kbd>{t('panels.pgupPgdn')}</kbd>{t('panels.scroll')} <kbd>{t('panels.homeEnd')}</kbd> <kbd>Esc</kbd>{t('menu.back')}</Keys>
     </Device>
@@ -369,6 +369,6 @@ function InputC({ e }: { e: LogInput }) {
   const x: any = e;
   if (x.type === 'usuario') return <div className="ent usuario"><span className="quien">{t('world.you')} › </span>{x.text}</div>;
   if (x.type === 'asistente') return <div className="ent" dangerouslySetInnerHTML={{ __html: markdown(x.text ?? '') }} />;
-  if (x.type === 'herramienta') return <div className={'ent herramienta' + (x.isError ? ' error' : '') + (x.helper ? ' de-ayudante' : '')}>⚙ <ToolText t={String(x.text ?? '')} /> {x.detail && <code><Visible t={String(x.detail).slice(0, 400)} /></code>}{x.output && <code><Visible t={String(x.output.first)} /></code>}</div>;
-  return <div className={'ent ' + (x.type ?? 'sistema')}>{x.text}</div>;
+  if (x.type === 'tool') return <div className={'ent tool' + (x.isError ? ' error' : '') + (x.helper ? ' de-ayudante' : '')}>⚙ <ToolText t={String(x.text ?? '')} /> {x.detail && <code><Visible t={String(x.detail).slice(0, 400)} /></code>}{x.output && <code><Visible t={String(x.output.first)} /></code>}</div>;
+  return <div className={'ent ' + (x.type ?? 'system')}>{x.text}</div>;
 }

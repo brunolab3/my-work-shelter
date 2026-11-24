@@ -46,12 +46,12 @@ describe('mensajes programados: fechas', () => {
 });
 
 // un contexto que apunta las entregas; `falla` hace que la conversación no se pueda retomar
-const SESS: SessionSummary = { id: 's1', dwellerId: 'remi', roomId: 'express', claudeId: 'c-111', cwd: '/r/express', worktree: '/r/wt/abc-1', state: 'trabajando', unread: false, title: 'ABC-1', pendingCount: 0, helpers: [], tools: 0, turns: 1, created: 0, updated: 0 } as SessionSummary;
+const SESS: SessionSummary = { id: 's1', dwellerId: 'remi', roomId: 'express', claudeId: 'c-111', cwd: '/r/express', worktree: '/r/wt/abc-1', state: 'working', unread: false, title: 'ABC-1', pendingCount: 0, helpers: [], tools: 0, turns: 1, created: 0, updated: 0 } as SessionSummary;
 function ctx(timer: { t: number }, o: { fails?: boolean; usage?: UsageWindow; self?: boolean; busy?: Set<string>; running?: Set<string> } = {}) {
   const conversations: { claudeId?: string; cwd: string; text: string }[] = [], toRooms: { room: string; key?: string; text: string }[] = [], notices: string[] = [], changes: number[] = [];
   const c: CtxScheduled = {
     session: id => (id === SESS.id ? SESS : undefined),
-    rooms: () => [{ id: 'express', name: 'app-web', dweller: {} }, { id: 'pagos', name: 'pagos', dweller: {} }, { id: 'vacia', name: 'vacía' }],
+    rooms: () => [{ id: 'express', name: 'app-web', dweller: {} }, { id: 'pagos', name: 'pagos', dweller: {} }, { id: 'empty', name: 'vacía' }],
     toConversation: async (x, text) => { if (o.fails) throw new Error('sigue abierta fuera'); conversations.push({ claudeId: x.target.claudeId, cwd: x.target.cwd, text }); return 'nueva'; },
     toRoom: async (x, text) => { if (o.self && x.target.key) return { ok: false, permanent: true, text: 'ya eres la conversación' }; toRooms.push({ room: x.target.room, key: x.target.key, text }); return { ok: true, text: 'ok' }; },
     changed: l => changes.push(l.length),
@@ -75,7 +75,7 @@ describe('mensajes programados: almacén y entrega', () => {
     const r = p.schedule('express', 's1', { when: '2026-11-16', message: 'Review with Ana: two-step design; tracker comment.' });
     expect(r.ok).toBe(true);
     expect(r.text).toContain('09:00');
-    expect(p.list()[0]).toMatchObject({ when: L(16, 9), target: { type: 'conversacion', roomId: 'express', claudeId: 'c-111', cwd: '/r/wt/abc-1' } });
+    expect(p.list()[0]).toMatchObject({ when: L(16, 9), target: { type: 'conversation', roomId: 'express', claudeId: 'c-111', cwd: '/r/wt/abc-1' } });
     expect(JSON.parse(readFileSync(path.join(dir, 'mensajes-programados.json'), 'utf8')).items).toHaveLength(1);
 
     await p.sweep();
@@ -110,9 +110,9 @@ describe('mensajes programados: almacén y entrega', () => {
     const x = ctx(timer);
     const p = new Scheduled(dir, x.c);
     expect(p.schedule('express', 's1', { when: '2026-11-16T11:00', message: 'Check the API', room: 'pagos', key: 'abc-2' }).ok).toBe(true);
-    expect(p.list()[0].target).toEqual({ type: 'sala', room: 'pagos', key: 'ABC-2' });
+    expect(p.list()[0].target).toEqual({ type: 'room', room: 'pagos', key: 'ABC-2' });
     expect(p.schedule('express', 's1', { when: '2026-11-17', message: 'x', room: 'pagos', key: 'Preflight-Popover' }).ok).toBe(true);
-    expect(p.list()[1].target).toEqual({ type: 'sala', room: 'pagos', key: 'preflight-popover' });
+    expect(p.list()[1].target).toEqual({ type: 'room', room: 'pagos', key: 'preflight-popover' });
     timer.t = L(16, 11);
     await p.sweep();
     expect(x.toRooms).toEqual([{ room: 'pagos', key: 'ABC-2', text: expect.stringContaining('Check the API') }]);
@@ -123,9 +123,9 @@ describe('mensajes programados: almacén y entrega', () => {
     const p = new Scheduled(dir, ctx({ t: NOW }).c);
     expect(p.schedule('express', 's1', { when: 'Monday', message: 'x' }).ok).toBe(false);
     expect(p.schedule('express', 's1', { when: '2026-11-16', message: '  ' }).ok).toBe(false);
-    expect(p.schedule('express', 's1', { when: '2026-11-16', message: 'x', room: 'vacia' }).ok).toBe(false);
+    expect(p.schedule('express', 's1', { when: '2026-11-16', message: 'x', room: 'empty' }).ok).toBe(false);
     expect(p.schedule('express', 's1', { when: '2026-11-16', message: 'x', room: 'pagos', key: 'not a key!' }).ok).toBe(false);
-    expect(p.schedule('express', 'otra', { when: '2026-11-16', message: 'x' }).ok).toBe(false);   // sin conversación conocida
+    expect(p.schedule('express', 'other', { when: '2026-11-16', message: 'x' }).ok).toBe(false);   // sin conversación conocida
     for (let i = 0; i < 10; i++) expect(p.schedule('express', 's1', { when: '2026-11-16', message: 'x' + i }).ok).toBe(true);
     const r = p.schedule('express', 's1', { when: '2026-11-16', message: 'once' });
     expect(r.ok).toBe(false);
@@ -149,9 +149,9 @@ describe('mensajes programados: almacén y entrega', () => {
     p.schedule('express', 's1', { when: '2026-11-16', message: 'a' });
     const id = p.list()[0].id;
     expect(p.ofConversation('s1').map(x => x.id)).toEqual([id]);
-    expect(p.ofConversation('otra')).toEqual([]);
+    expect(p.ofConversation('other')).toEqual([]);
     expect(ofConversation(p.list(), { claudeId: 'c-111' })).toHaveLength(1);   // tras reiniciar, por su id de Claude Code
-    expect(p.cancel(id, 'otra')).toBe(false);
+    expect(p.cancel(id, 'other')).toBe(false);
     expect(p.edit(id, { when: '2026-11-21T10:00', message: ' b ' })).toMatchObject({ when: L(23, 9), message: 'b' });   // sábado → lunes
     expect(() => p.edit(id, { when: '2026-11-01' })).toThrow();
     expect(p.cancel(id)).toBe(true);
@@ -401,10 +401,10 @@ describe('scheduled messages: a sender\'s messages packed', () => {
     expect(x.toRooms).toHaveLength(2);
     expect(x.toRooms[0].text).toMatch(/Deploy on Monday[^]*Not Monday: Tuesday/);
     // the Overseer's edit makes it their own: nothing joins it
-    const e = p.list().find(y => y.target.type === 'sala')!;
+    const e = p.list().find(y => y.target.type === 'room')!;
     p.edit(e.id, { message: 'later, after the release' });
     p.schedule('express', 's1', { when: '2026-11-17', message: 'and this', room: 'pagos', key: 'ABC-1' });
-    expect(p.list().filter(y => y.target.type === 'sala').map(y => y.message)).toEqual(['later, after the release', 'and this']);
+    expect(p.list().filter(y => y.target.type === 'room').map(y => y.message)).toEqual(['later, after the release', 'and this']);
   });
 
   it('over the limit: joins the pending one for that place, but not while it is being delivered', async () => {

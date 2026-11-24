@@ -26,7 +26,7 @@ ws.on('message', async raw => {
     room ??= state.rooms.find(x => x.type === 'repo')?.id;
     const s = state.rooms.find(x => x.id === room); const h = state.dwellers.find(x => x.roomId === room);
     if (!s || !h) { log('No hay sala o habitante', room); process.exit(1); }
-    log(`sala ${s.name} (${s.path}), habitante ${h.name}, decorado antes: ${s.decor ? s.decor.base : 'ninguno'}`);
+    log(`sala ${s.name} (${s.path}), habitante ${h.name}, decorado antes: ${s.decor ? s.decor.base : 'none'}`);
     const prompt = await ask('room.adaptPrompt');
     ws.send(JSON.stringify({ t: 'start', dwellerId: h.id, roomId: room, prompt, options: { model, permissions: 'default' } }));
   } else if (m.t === 'session' && m.session.roomId === room) {
@@ -34,11 +34,11 @@ ws.on('message', async raw => {
     if (s.activity && s.activity.text !== last) { last = s.activity.text; log('·', last); }
     if (s.pending) {
       const cmd = String((s.pending.input ?? []).map(b => b.text).join(' '));
-      const si = s.pending.type === 'permiso' && (s.pending.tool !== 'Bash' || READ_ONLY.test(cmd.trim()));
+      const si = s.pending.type === 'permission' && (s.pending.tool !== 'Bash' || READ_ONLY.test(cmd.trim()));
       log(si ? 'PERMISO (sí):' : 'PERMISO (no):', s.pending.title, cmd.slice(0, 120));
       ws.send(JSON.stringify({ t: 'answer', sessionId, requestId: s.pending.id, decision: si ? 'si' : 'no', ...(si ? {} : { message: 'En esta prueba solo se lee el repo.' }) }));
     }
-    if ((s.state === 'terminada' || s.state === 'error') && !end) {
+    if ((s.state === 'finished' || s.state === 'error') && !end) {
       end = true;
       log(s.state.toUpperCase(), s.error ?? '', '\n' + (s.lastText ?? '').slice(0, 600));
       await new Promise(r => setTimeout(r, 800));

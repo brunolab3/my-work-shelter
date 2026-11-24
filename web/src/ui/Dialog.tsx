@@ -92,27 +92,27 @@ if (typeof window !== 'undefined') {
 let useSignature = '';
 function notifyInUse() {
   const talking = juego.get().talkingWith, ids = new Set<string>();
-  for (const v of intercoms.get().list) for (const p of v.tabs) if (p.view.type === 'sesion' && (withText(p) || (v.dwellerId === talking && p.id === v.active))) ids.add(p.view.sessionId);
+  for (const v of intercoms.get().list) for (const p of v.tabs) if (p.view.type === 'session' && (withText(p) || (v.dwellerId === talking && p.id === v.active))) ids.add(p.view.sessionId);
   const f = [...ids].sort().join('|'); if (f === useSignature) return;
   useSignature = f; client.send({ t: 'inUse', sessions: [...ids] });
 }
-const liveSessions = (hid: string) => Object.values(live.get().sessions).filter(s => sessionOwner(s) === hid && s.state !== 'cerrada' && !closingSessions.has(s.id));
+const liveSessions = (hid: string) => Object.values(live.get().sessions).filter(s => sessionOwner(s) === hid && s.state !== 'closed' && !closingSessions.has(s.id));
 const closingSessions = new Set<string>();   // sesiones que se han mandado cerrar (no vuelven a abrir pestaña)
-const inRunning = (s?: SessionSummary) => !!s && (s.state === 'arrancando' || s.state === 'trabajando' || s.state === 'esperando');
+const inRunning = (s?: SessionSummary) => !!s && (s.state === 'starting' || s.state === 'working' || s.state === 'waiting');
 /** A talker's place among those with something for you: waiting first, then marked as pending, then by urgency */
-const reviewRank = (q: Talker) => q.state === 'esperando' ? 0 : q.flagged ? 1 : 2 + (q.first ? urgency(q.first) : 5);
-const urgency = (s: SessionSummary) => s.state === 'esperando' ? 0 : s.state === 'error' ? 1 : s.state === 'terminada' && s.unread ? 2 : inRunning(s) ? 3 : 4;
+const reviewRank = (q: Talker) => q.state === 'waiting' ? 0 : q.flagged ? 1 : 2 + (q.first ? urgency(q.first) : 5);
+const urgency = (s: SessionSummary) => s.state === 'waiting' ? 0 : s.state === 'error' ? 1 : s.state === 'finished' && s.unread ? 2 : inRunning(s) ? 3 : 4;
 /** Its state on the tabs (windows.tsx): unread is not the same as read */
-const tabState = (s?: SessionSummary): TabState | undefined => !s ? undefined : s.state === 'esperando' ? 'esperando' : s.state === 'error' ? 'error' : s.state === 'terminada' && s.unread ? 'sinLeer' : inRunning(s) ? 'trabajando' : 'ociosa';
-export const sessionPilot = (s?: SessionSummary) => !s ? 'ociosa' : s.state === 'esperando' ? 'esperando' : s.state === 'error' ? 'error' : inRunning(s) ? 'trabajando' : 'ociosa';
-const sessionOf = (p: TabCom) => (p.view.type === 'sesion' ? live.get().sessions[p.view.sessionId] : undefined);
+const tabState = (s?: SessionSummary): TabState | undefined => !s ? undefined : s.state === 'waiting' ? 'waiting' : s.state === 'error' ? 'error' : s.state === 'finished' && s.unread ? 'unread' : inRunning(s) ? 'working' : 'idle';
+export const sessionPilot = (s?: SessionSummary) => !s ? 'idle' : s.state === 'waiting' ? 'waiting' : s.state === 'error' ? 'error' : inRunning(s) ? 'working' : 'idle';
+const sessionOf = (p: TabCom) => (p.view.type === 'session' ? live.get().sessions[p.view.sessionId] : undefined);
 
 const win = (hid: string) => intercoms.get().list.find(v => v.dwellerId === hid);
 /** La conversación de la pestaña a la vista en el intercomunicador abierto (para el buscador). */
 export function sessionInView(): SessionSummary | undefined {
   const hid = juego.get().talkingWith, v = hid ? win(hid) : undefined, p = v?.tabs.find(x => x.id === v.active);
   const s = p && sessionOf(p);
-  return s && s.state !== 'cerrada' ? s : undefined;
+  return s && s.state !== 'closed' ? s : undefined;
 }
 function update(hid: string, f: Partial<WindowCom> | ((v: WindowCom) => Partial<WindowCom>)) {
   intercoms.set(e => ({ list: e.list.map(v => (v.dwellerId === hid ? { ...v, ...(typeof f === 'function' ? f(v) : f) } : v)) }));
@@ -137,7 +137,7 @@ function openIntercomWindow(hid: string, maximized: boolean) {
   let v = win(hid);
   if (!v) {
     const sess = liveSessions(hid).sort((a, b) => a.created - b.created);
-    const tabs: TabCom[] = sess.length ? sess.map(s => ({ id: newId(), view: { type: 'sesion', sessionId: s.id } })) : [{ id: newId(), view: { type: juego.get().workIn ? 'nuevo' : 'menu' } }];
+    const tabs: TabCom[] = sess.length ? sess.map(s => ({ id: newId(), view: { type: 'session', sessionId: s.id } })) : [{ id: newId(), view: { type: juego.get().workIn ? 'new' : 'menu' } }];
     const first = [...sess].sort((a, b) => urgency(a) - urgency(b) || b.updated - a.updated)[0];
     v = { dwellerId: hid, tabs, active: tabs[first ? sess.indexOf(first) : 0].id, maximized: maximized, z: nextZ(), known: sess.map(s => s.id) };
     intercoms.set(e => ({ list: [...e.list, v!] }));
@@ -146,7 +146,7 @@ function openIntercomWindow(hid: string, maximized: boolean) {
     if (!sess.length) return;
   } else update(hid, { z: nextZ() });
   // «trabajar dentro de la copia» (worktree) llega con el worktree elegido: pestaña de trabajo nuevo
-  if (juego.get().workIn) newTab(hid, { type: 'nuevo' });
+  if (juego.get().workIn) newTab(hid, { type: 'new' });
 }
 function resumeLastOfCopy(hid: string, pid: string) {
   const c = interlocutor(hid);
@@ -155,7 +155,7 @@ function resumeLastOfCopy(hid: string, pid: string) {
     const last = list.filter(x => !x.outside).sort((a, b) => b.modified - a.modified)[0];
     if (!last) return;
     const p = win(hid)?.tabs.find(x => x.id === pid);
-    if (p?.view.type === 'menu') setTab(hid, pid, { view: { type: 'nuevo', resume: last } });
+    if (p?.view.type === 'menu') setTab(hid, pid, { view: { type: 'new', resume: last } });
   }).catch(() => {});
 }
 function newTab(hid: string, view: View = { type: 'menu' }) {
@@ -196,24 +196,24 @@ export function restoreIntercom(hid: string) {
 }
 // Desde el buscador (⌘K): una conversación abierta, en su pestaña y con su habitante a la vista
 export function openConversation(sessionId: string) {
-  const s = live.get().sessions[sessionId]; if (!s || s.state === 'cerrada') return;
+  const s = live.get().sessions[sessionId]; if (!s || s.state === 'closed') return;
   const hid = sessionOwner(s);
   sync();   // la ventana y la pestaña de cada trabajo vivo existen siempre
   const v = win(hid);
-  const t = v?.tabs.find(p => p.view.type === 'sesion' && p.view.sessionId === sessionId);
+  const t = v?.tabs.find(p => p.view.type === 'session' && p.view.sessionId === sessionId);
   if (v && t) update(hid, { active: t.id, z: nextZ() });
-  else if (v) newTab(hid, { type: 'sesion', sessionId });
+  else if (v) newTab(hid, { type: 'session', sessionId });
   restoreIntercom(hid);
 }
 // …o una del archivo: si sigue viva, a ella; si no, a una pestaña para retomarla (Enter y sigue)
 export function resumeConversation(hid: string, el: HistoryElement) {
-  const alive = Object.values(live.get().sessions).find(x => x.claudeId === el.claudeId && x.state !== 'cerrada');
+  const alive = Object.values(live.get().sessions).find(x => x.claudeId === el.claudeId && x.state !== 'closed');
   if (alive) { openConversation(alive.id); return; }
-  if (win(hid)) newTab(hid, { type: 'nuevo', resume: el });
+  if (win(hid)) newTab(hid, { type: 'new', resume: el });
   else {
     // la ventana nueva lleva también los trabajos vivos del habitante, pero delante la que se retoma
     const sess = liveSessions(hid).sort((a, b) => a.created - b.created), id = newId();
-    const tabs: TabCom[] = [...sess.map(x => ({ id: newId(), view: { type: 'sesion' as const, sessionId: x.id } })), { id, view: { type: 'nuevo', resume: el } }];
+    const tabs: TabCom[] = [...sess.map(x => ({ id: newId(), view: { type: 'session' as const, sessionId: x.id } })), { id, view: { type: 'new', resume: el } }];
     intercoms.set(e => ({ list: [...e.list, { dwellerId: hid, tabs, active: id, maximized: false, z: nextZ(), known: sess.map(x => x.id) }] }));
   }
   restoreIntercom(hid);
@@ -222,14 +222,14 @@ export function resumeConversation(hid: string, el: HistoryElement) {
 // de esas sesiones (la más reciente arriba); cada una se retoma ahí (la de un worktree pasa sola a su holograma)
 export function claimVisitors(roomId: string) {
   const dwellers = juego.get().dwellers.filter(h => h.room === roomId);
-  const h = dwellers.find(x => x.state === 'ocioso' || x.state === 'durmiendo' || x.state === 'terminado') ?? dwellers[0];
+  const h = dwellers.find(x => x.state === 'idle' || x.state === 'sleeping' || x.state === 'finished') ?? dwellers[0];
   if (!h) { SFX.notAllowed(); return; }
-  const v = win(h.id), already = v?.tabs.find(x => x.view.type === 'visitantes');
+  const v = win(h.id), already = v?.tabs.find(x => x.view.type === 'visitors');
   if (already) update(h.id, { active: already.id });
-  else if (v) newTab(h.id, { type: 'visitantes' });
+  else if (v) newTab(h.id, { type: 'visitors' });
   else {
     const sess = liveSessions(h.id).sort((a, b) => a.created - b.created), id = newId();
-    const tabs: TabCom[] = [...sess.map(x => ({ id: newId(), view: { type: 'sesion' as const, sessionId: x.id } })), { id, view: { type: 'visitantes' } }];
+    const tabs: TabCom[] = [...sess.map(x => ({ id: newId(), view: { type: 'session' as const, sessionId: x.id } })), { id, view: { type: 'visitors' } }];
     intercoms.set(e => ({ list: [...e.list, { dwellerId: h.id, tabs, active: id, maximized: false, z: nextZ(), known: sess.map(x => x.id) }] }));
   }
   restoreIntercom(h.id);
@@ -240,10 +240,10 @@ function resumeHere(h: DwellerSummary, pid: string, el: HistoryElement) {
   setTab(hid, pid, { sessionWait: true });
   client.ask<string>({ t: 'start', dwellerId: h.copy?.authorId ?? hid, roomId: h.room, prompt: '', options: { resume: el.claudeId, cwd: el.cwd } })
     .then(sessionId => {
-      update(hid, v => ({ known: [...v.known, sessionId], tabs: v.tabs.filter(x => x.id === pid || !(x.view.type === 'sesion' && x.view.sessionId === sessionId)).map(x => (x.id === pid ? { ...x, sessionWait: false, view: { type: 'sesion', sessionId } } : x)) }));
+      update(hid, v => ({ known: [...v.known, sessionId], tabs: v.tabs.filter(x => x.id === pid || !(x.view.type === 'session' && x.view.sessionId === sessionId)).map(x => (x.id === pid ? { ...x, sessionWait: false, view: { type: 'session', sessionId } } : x)) }));
       sync();
     })
-    .catch(() => { SFX.error(); setTab(hid, pid, { sessionWait: false, view: { type: 'nuevo', resume: el } }); });
+    .catch(() => { SFX.error(); setTab(hid, pid, { sessionWait: false, view: { type: 'new', resume: el } }); });
   SFX.shortSuccess();
 }
 function toggleMaximize(hid: string) { update(hid, v => ({ maximized: !v.maximized })); SFX.click(); }
@@ -343,7 +343,7 @@ export type Talker = { x: DwellerSummary; sess: SessionSummary[]; first?: Sessio
 export function roomTalkers(room: string, dwellers: DwellerSummary[], copies: DwellerSummary[], list: WindowCom[], sessions: Record<string, SessionSummary>, flags: Set<string>): Talker[] {
   return [...dwellers.filter(x => x.room === room), ...copies.filter(c => c.room === room)].map(x => {
     const tabs = list.find(w => w.dwellerId === x.id)?.tabs ?? [];
-    const sess = tabs.map(p => p.view.type === 'sesion' ? sessions[p.view.sessionId] : undefined).filter(Boolean) as SessionSummary[];
+    const sess = tabs.map(p => p.view.type === 'session' ? sessions[p.view.sessionId] : undefined).filter(Boolean) as SessionSummary[];
     const first = [...sess].sort((a, b) => urgency(a) - urgency(b) || b.updated - a.updated)[0];
     const name = talkerName(x);
     return { x, sess, first, state: tabState(first), name, draft: tabs.some(withText), flagged: flaggedInIntercom(tabs, sessions, flags) };
@@ -359,8 +359,8 @@ export function TalkerRow({ q, current, sel, option, onClick, onMouseEnter }: { 
   const detail = parts.join(' · ');
   return (
     <button role={option ? 'option' : undefined} aria-selected={option ? current : undefined} onClick={onClick} onMouseEnter={onMouseEnter} title={detail ? `${q.name}\n${detail}` : q.name}
-      className={'barra-asomo-fila' + (q.x.copy ? ' de-copia' : '') + (current ? ' actual' : '') + (sel ? ' sel' : '') + (q.state === 'esperando' ? ' urgente' : q.flagged ? ' pendiente' : '') + (q.state === 'sinLeer' ? ' sin-leer' : '') + (q.state ? ' e-' + q.state : '')}>
-      <span className={'piloto ' + (q.state ? PILOT[q.state] : 'apagado')} />
+      className={'bar-peek-row' + (q.x.copy ? ' de-copia' : '') + (current ? ' actual' : '') + (sel ? ' sel' : '') + (q.state === 'waiting' ? ' urgent' : q.flagged ? ' pending' : '') + (q.state === 'unread' ? ' sin-leer' : '') + (q.state ? ' e-' + q.state : '')}>
+      <span className={'pilot ' + (q.state ? PILOT[q.state] : 'off')} />
       <TalkerBust x={q.x} />
       <span className="barra-asomo-cuerpo">
         <span className="barra-asomo-titulo">{q.draft && <DraftMark />}<b>{q.name}</b>{q.flagged ? <> <FlagMark on n={q.flagged > 1 ? q.flagged : undefined} /></> : null}</span>
@@ -378,7 +378,7 @@ export function TalkerRow({ q, current, sel, option, onClick, onMouseEnter }: { 
 // bar's hover list (TalkerRow). Picking one brings their intercom to the front on their most urgent conversation; their
 // tabs stay in their own strip and in the bar's ⋯ N list (ComTabs)
 /** The width the list has from the chip to the intercom's right edge (the intercom clips what goes past it) */
-const room = (el: HTMLElement | null) => el ? (el.closest('.consola') ?? document.body).getBoundingClientRect().right - el.getBoundingClientRect().left - 12 : 400;
+const room = (el: HTMLElement | null) => el ? (el.closest('.console') ?? document.body).getBoundingClientRect().right - el.getBoundingClientRect().left - 12 : 400;
 function WhoSelector({ h }: { h: DwellerSummary }) {
   const dwellers = juego.use(e => e.dwellers), copies = juego.use(e => e.copies);
   const list = intercoms.use(e => e.list);
@@ -397,15 +397,15 @@ function WhoSelector({ h }: { h: DwellerSummary }) {
   const me = talkers.find(q => q.x.id === h.id) ?? talkers[0];
   // the others with something for you (waiting, unread, failed or marked as pending), most urgent first, pending after
   // waiting: the chip says so while closed, in the colour of the first
-  const toReview = talkers.filter(q => q !== me && (q.state === 'esperando' || q.state === 'sinLeer' || q.state === 'error' || q.flagged))
+  const toReview = talkers.filter(q => q !== me && (q.state === 'waiting' || q.state === 'unread' || q.state === 'error' || q.flagged))
     .sort((a, b) => reviewRank(a) - reviewRank(b));
-  const tone = (q: Talker | undefined) => q?.state === 'esperando' ? ' urgente' : q?.flagged ? ' pendiente' : '';
+  const tone = (q: Talker | undefined) => q?.state === 'waiting' ? ' urgent' : q?.flagged ? ' pending' : '';
   // and, quieter, the others with something typed and not sent
   const drafts = talkers.filter(q => q !== me && q.draft);
   const pick = (q: Talker) => {
     setOpen(false);
     if (q === me) return;
-    const pid = q.first && list.find(w => w.dwellerId === q.x.id)?.tabs.find(p => p.view.type === 'sesion' && p.view.sessionId === q.first!.id)?.id;
+    const pid = q.first && list.find(w => w.dwellerId === q.x.id)?.tabs.find(p => p.view.type === 'session' && p.view.sessionId === q.first!.id)?.id;
     if (pid) goTab(pid); else restoreIntercom(q.x.id);
   };
   const openTarget = () => { setSel(Math.max(0, talkers.indexOf(me))); setOpen(x => !x); };
@@ -418,12 +418,12 @@ function WhoSelector({ h }: { h: DwellerSummary }) {
   };
   return (
     <div className="consola-quien" ref={box} onKeyDown={key}>
-      <button className={'chip-terminal delante' + (h.copy ? ' de-copia' : '') + (tone(me) === ' urgente' ? tone(me) : tone(toReview[0]) || tone(me))} aria-haspopup="listbox" aria-expanded={open}
+      <button className={'chip-terminal delante' + (h.copy ? ' de-copia' : '') + (tone(me) === ' urgent' ? tone(me) : tone(toReview[0]) || tone(me))} aria-haspopup="listbox" aria-expanded={open}
         title={[t('windows.talkToSomeoneElse'), toReview.length ? t('windows.othersToReview', { n: toReview.length }) + ': ' + toReview.map(q => q.name).join(', ') : '', drafts.length ? t('windows.othersWithDraft', { n: drafts.length }) + ': ' + drafts.map(q => q.name).join(', ') : ''].filter(Boolean).join('\n')} onClick={openTarget}>
-        <span className={'piloto ' + (me.state ? PILOT[me.state] : 'apagado')} aria-hidden />
+        <span className={'pilot ' + (me.state ? PILOT[me.state] : 'off')} aria-hidden />
         <TalkerBust x={me.x} />
         <span className="consola-quien-nombre">{me.name}</span>
-        {toReview.length > 0 && <span className={'consola-quien-aviso ' + (toReview[0].state === 'esperando' || !toReview[0].flagged ? 'e-' + toReview[0].state : 'pendiente')} aria-label={t('windows.othersToReview', { n: toReview.length })}>+{toReview.length}</span>}
+        {toReview.length > 0 && <span className={'consola-quien-aviso ' + (toReview[0].state === 'waiting' || !toReview[0].flagged ? 'e-' + toReview[0].state : 'pending')} aria-label={t('windows.othersToReview', { n: toReview.length })}>+{toReview.length}</span>}
         {drafts.length > 0 && <span className="marca-borrador" aria-label={t('windows.othersWithDraft', { n: drafts.length })}>✎</span>}
         <span className="tipo">▾</span>
       </button>
@@ -438,11 +438,11 @@ function WhoSelector({ h }: { h: DwellerSummary }) {
   );
 }
 
-const VIEW_NAME: Record<string, string> = { menu: t('windows.menu'), nuevo: t('windows.newJob'), historial: t('windows.archive'), ficha: t('windows.profile'), visitantes: t('world.visitors') };
+const VIEW_NAME: Record<string, string> = { menu: t('windows.menu'), new: t('windows.newJob'), history: t('windows.archive'), card: t('windows.profile'), visitors: t('world.visitors') };
 /** A tab of `o`'s intercom as the strip and the list show it; flags: the conversations marked as pending */
 function tabItem(x: TabCom, o: DwellerSummary, sessions: Record<string, SessionSummary>, flags: Set<string>): ItemTab {
-  const sx = x.view.type === 'sesion' ? sessions[x.view.sessionId] : undefined, path = pathWorktree(sx?.cwd, worktreesKnown());
-  return { id: x.id, name: sx ? sx.title || t('windows.conversation') : x.sessionWait ? t('windows.starting2') : VIEW_NAME[x.view.type] ?? t('windows.menu'), state: x.sessionWait ? 'trabajando' : tabState(sx),
+  const sx = x.view.type === 'session' ? sessions[x.view.sessionId] : undefined, path = pathWorktree(sx?.cwd, worktreesKnown());
+  return { id: x.id, name: sx ? sx.title || t('windows.conversation') : x.sessionWait ? t('windows.starting2') : VIEW_NAME[x.view.type] ?? t('windows.menu'), state: x.sessionWait ? 'working' : tabState(sx),
     title: sx?.title, room: o.nameRoom, task: path ? copyTask(worktreesKnown().find(w => w.path === path) ?? { path }) : o.copy ? copyTask(o.copy) : undefined, activity: sx ? ago(sx.updated) : undefined, draft: withText(x), queued: queuedIn([sx]) || undefined,
     flagged: flagOf(tabFlaggable(x, sessions), flags) };
 }
@@ -474,7 +474,7 @@ export function ComTabs() {
   // by room, and in it by whose they are (its dweller, each hologram), each where its first-opened tab is
   const items = groupTabs(groupTabs(list.flatMap(w => {
     const o = who(w.dwellerId); if (!o) return [];
-    return w.tabs.filter(x => w === current || x.view.type === 'sesion' || x.sessionWait).map((x): ItemTab => ({ ...tabItem(x, o, sessions, flags),
+    return w.tabs.filter(x => w === current || x.view.type === 'session' || x.sessionWait).map((x): ItemTab => ({ ...tabItem(x, o, sessions, flags),
       group: o.id, who: talkerName(o) }));
   }).sort((a, b) => created(a.id) - created(b.id))), x => x.room ?? '');
   if (items.length < 2) return null;
@@ -483,7 +483,7 @@ export function ComTabs() {
   // above the bar, from its left edge
   const r = open ? button.current?.closest('.barra-ventanas')?.getBoundingClientRect() : undefined;
   return <>
-    <button ref={button} className={'vt-todas' + (open ? ' activa' : '')} onClick={() => comList.set(e => ({ open: !e.open }))} title={t('windows.allConversations', { n: items.length, shortcut: LIST_SHORTCUT })}>⋯ {items.length} <FlagMark n={items.filter(p => p.flagged).length} /></button>
+    <button ref={button} className={'vt-todas' + (open ? ' active' : '')} onClick={() => comList.set(e => ({ open: !e.open }))} title={t('windows.allConversations', { n: items.length, shortcut: LIST_SHORTCUT })}>⋯ {items.length} <FlagMark n={items.filter(p => p.flagged).length} /></button>
     {/* the list steps aside while a close is being confirmed */}
     {open && r && !list.some(w => w.confirm) && createPortal(
       <div className="barra-lista-com" style={{ left: r.left, bottom: innerHeight - r.top + 4, '--hueco': `${innerWidth - r.left - 8}px` } as React.CSSProperties}>
@@ -492,7 +492,7 @@ export function ComTabs() {
           const o = who(p.group!), task = o?.copy ? copyTask(o.copy) : undefined;
           return <>
             {p.room !== before?.room && <div className="vt-lista-grupo">{p.room}</div>}
-            {o && <div className={'vt-lista-quien' + (o.copy ? ' de-copia' : '') + (o.id === talking ? ' actual' : '')}><TalkerBust x={o} /><b>{p.who}</b>{task && <TaskMark taskKey={task} />}</div>}
+            {o && <div className={'vt-list-who' + (o.copy ? ' de-copia' : '') + (o.id === talking ? ' current' : '')}><TalkerBust x={o} /><b>{p.who}</b>{task && <TaskMark taskKey={task} />}</div>}
           </>;
         }} />
       </div>, document.body)}
@@ -523,7 +523,7 @@ function Console({ h, v }: { h: DwellerSummary; v: WindowCom }) {
   const repo = live.use(e => e.repos[h.room]);
   const copy = h.copy;
   const p = v.tabs.find(x => x.id === v.active) ?? v.tabs[0];
-  const s = p?.view.type === 'sesion' ? sessions[p.view.sessionId] : undefined;
+  const s = p?.view.type === 'session' ? sessions[p.view.sessionId] : undefined;
   const hid = h.id;
   // the strip holds this intercom's own conversations, in the order they were opened; the others' are reached from the
   // selector and the bar, whose ⋯ N lists them all (ComTabs)
@@ -554,20 +554,20 @@ function Console({ h, v }: { h: DwellerSummary; v: WindowCom }) {
   if (!p) return null;
   const go = (view: View) => goView(hid, p.id, view);
   const onMenu = () => go({ type: 'menu' });
-  const view = p.view.type === 'sesion' && !s ? { type: 'menu' as const } : p.view;
+  const view = p.view.type === 'session' && !s ? { type: 'menu' as const } : p.view;
   // the conversation in view, open or closed: its summary, or the one being resumed
-  const conversation: Flaggable | undefined = s ?? (view.type === 'nuevo' && view.resume ? { claudeId: view.resume.claudeId } : undefined);
-  const high = v.maximized || view.type === 'sesion' || view.type === 'nuevo' || view.type === 'historial' || view.type === 'visitantes';
+  const conversation: Flaggable | undefined = s ?? (view.type === 'new' && view.resume ? { claudeId: view.resume.claudeId } : undefined);
+  const high = v.maximized || view.type === 'session' || view.type === 'new' || view.type === 'history' || view.type === 'visitors';
   const worst = v.tabs.map(sessionOf).filter(Boolean).sort((a, b) => urgency(a!) - urgency(b!))[0];
   const confirming = v.confirm ? v.tabs.filter(x => v.confirm!.includes(x.id)).map(sessionOf).filter(inRunning) as SessionSummary[] : [];
   const written = v.confirm ? v.tabs.filter(x => v.confirm!.includes(x.id) && withText(x)).length : 0;
   const writtenNotice = written ? (written > 1 ? t('windows.youHaveUnsentTextIn', { n: written }) : v.confirm!.length > 1 ? t('windows.youHaveUnsentTextIn2') : t('windows.youHaveUnsentText')) : '';
   return (
-    <div className={'consola interactivo' + (high ? ' alta' : '') + (v.maximized ? ' maximizada' : '') + (copy ? ' de-copia' : '')} role="dialog" aria-label={t('windows.talkToNombre', { nombre: h.name })}>
+    <div className={'console interactivo' + (high ? ' high' : '') + (v.maximized ? ' maximizada' : '') + (copy ? ' de-copia' : '')} role="dialog" aria-label={t('windows.talkToNombre', { nombre: h.name })}>
       <div className="consola-bisel">
         <div className="consola-cabeza" onDoubleClick={e => { if (!(e.target as HTMLElement).closest('button')) toggleMaximize(hid); }}>
           <span className="rejilla" aria-hidden />
-          <span className={'piloto ' + (worst?.state ?? 'apagado')} aria-hidden />
+          <span className={'pilot ' + (worst?.state ?? 'off')} aria-hidden />
           <span className="consola-rotulo">{copy ? <>{t('windows.intercom')} · {t('windows.holographicCopyOfAutor', { autor: copy.nameAuthor })} · {copyCaption(copy)} · {h.nameRoom}</> : <>{t('windows.intercom')} · {h.name} · {h.nameRoom}</>}</span>
           <WindowButtons flag={flagOf(s, flags) === undefined ? undefined : { on: !!flagOf(s, flags), toggle: () => toggleFlag(s) }} takeOut={s ? () => takeTab(hid, p.id) : undefined} wingApp={s ? () => toClaudeApp({ sessionId: s.id }) : undefined} remote={s ? () => takeASurface({ sessions: [s.id], remote: true }) : undefined} takesThat={t('windows.thisConversation')} maximized={v.maximized} minimize={minimizeIntercom} toggleMaximize={() => toggleMaximize(hid)} close={() => askClose(hid)} closesThat={t('windows.theIntercomAndItsConversations')} />
         </div>
@@ -594,33 +594,33 @@ function Console({ h, v }: { h: DwellerSummary; v: WindowCom }) {
                 ones; each hidden with nothing, and the whole section with none (CSS `:has`) */}
             <div className="consola-acciones" role="group" aria-label={t('windows.actions')}>
               <div className="consola-acciones-titulo" aria-hidden>{t('windows.actions')}</div>
-              {s ? <PagesMenu key={s.id} s={s} /> : view.type === 'nuevo' && view.resume ? <ResumePages key={view.resume.claudeId} roomId={h.room} claudeId={view.resume.claudeId} /> : null}
+              {s ? <PagesMenu key={s.id} s={s} /> : view.type === 'new' && view.resume ? <ResumePages key={view.resume.claudeId} roomId={h.room} claudeId={view.resume.claudeId} /> : null}
               <FlagButton c={conversation} flags={flags} />
               {copy ? <WorktreePRs copy={copy} roomId={h.room} /> : null}
               {copy ? <PreflightButton copy={copy} /> : null}
               {/* with `key`: each conversation with its own list (nothing from the previous tab while its own arrives) */}
-              <ScheduledMenu key={'p' + (s?.id ?? (view.type === 'nuevo' ? view.resume?.claudeId : '') ?? '')} h={h} s={s} resume={view.type === 'nuevo' ? view.resume?.claudeId : undefined} />
+              <ScheduledMenu key={'p' + (s?.id ?? (view.type === 'new' ? view.resume?.claudeId : '') ?? '')} h={h} s={s} resume={view.type === 'new' ? view.resume?.claudeId : undefined} />
             </div>
           </aside>
           <div className="consola-pestana" key={p.id}>
             {!connected ? <WithoutConnection /> : !claudeOk ? <WithoutClaude /> :
-              p.sessionWait ? <div className="pantalla-consola fosforo"><p className="voz">{t('windows.startingTheJob')}</p></div> :
+              p.sessionWait ? <div className="pantalla-consola fosforo"><p className="voice">{t('windows.startingTheJob')}</p></div> :
               view.type === 'menu' ? <Menu h={h} go={go} exit={() => exit(hid)} /> :
-              view.type === 'nuevo' ? <New h={h} p={p} resume={view.resume} goBack={onMenu} /> :
-              view.type === 'visitantes' ? <Visitors h={h} goBack={onMenu} resume={el => resumeHere(h, p.id, el)} /> :
-              view.type === 'historial' ? <HistoryView h={h} goBack={onMenu} pick={el => {
-                const already = Object.values(live.get().sessions).find(x => x.claudeId === el.claudeId && x.state !== 'cerrada');
-                if (already) { const t = v.tabs.find(x => x.view.type === 'sesion' && x.view.sessionId === already.id); if (t) activate(hid, t.id); else go({ type: 'sesion', sessionId: already.id }); }
+              view.type === 'new' ? <New h={h} p={p} resume={view.resume} goBack={onMenu} /> :
+              view.type === 'visitors' ? <Visitors h={h} goBack={onMenu} resume={el => resumeHere(h, p.id, el)} /> :
+              view.type === 'history' ? <HistoryView h={h} goBack={onMenu} pick={el => {
+                const already = Object.values(live.get().sessions).find(x => x.claudeId === el.claudeId && x.state !== 'closed');
+                if (already) { const t = v.tabs.find(x => x.view.type === 'session' && x.view.sessionId === already.id); if (t) activate(hid, t.id); else go({ type: 'session', sessionId: already.id }); }
                 else if (el.inProgress) SFX.notAllowed();
-                else go({ type: 'nuevo', resume: el });
+                else go({ type: 'new', resume: el });
               }} /> :
-              view.type === 'ficha' ? <Card h={h} goBack={onMenu} /> :
+              view.type === 'card' ? <Card h={h} goBack={onMenu} /> :
               s ? <Session h={h} s={s} p={p} exit={() => exit(hid)} onClose={() => { closingSessions.add(s.id); client.send({ t: 'closeSession', sessionId: s.id }); onMenu(); }} /> : null}
           </div>
         </div>
         {v.confirm && <Confirmation title={v.confirm.length > 1 ? t('windows.closeTheTabs') : confirming.length ? t('windows.closeThisConversation') : t('windows.closeThisTab')}
           text={confirming.length
-            ? <>{copy ? t('windows.autorSCopy', { autor: copy.nameAuthor }) : h.name} {t('windows.isWorkingOn')} {confirming.length > 1 ? t('windows.nJobs', { n: confirming.length }) : <>«{confirming[0]?.title ?? t('windows.aJob')}»</>}{confirming.some(x => x.state === 'esperando') ? ` ${t('windows.andIsWaitingForYou')}` : ''}. {t('windows.ifYouCloseItIt2')}{writtenNotice ? <> {writtenNotice}: {t('windows.wouldBeDeleted')}</> : null} {t('windows.toLetItCarryOn')}</>
+            ? <>{copy ? t('windows.autorSCopy', { autor: copy.nameAuthor }) : h.name} {t('windows.isWorkingOn')} {confirming.length > 1 ? t('windows.nJobs', { n: confirming.length }) : <>«{confirming[0]?.title ?? t('windows.aJob')}»</>}{confirming.some(x => x.state === 'waiting') ? ` ${t('windows.andIsWaitingForYou')}` : ''}. {t('windows.ifYouCloseItIt2')}{writtenNotice ? <> {writtenNotice}: {t('windows.wouldBeDeleted')}</> : null} {t('windows.toLetItCarryOn')}</>
             : <>{writtenNotice}. {t('windows.ifYouCloseItIt3')}</>}
           button={confirming.length ? undefined : t('windows.closeAndDeleteEnter')}
           close={() => closeAlready(hid, v.confirm!)} minimize={() => { update(hid, { confirm: undefined }); minimizeIntercom(); }} cancel={() => update(hid, { confirm: undefined })} />}
@@ -637,7 +637,7 @@ function LivePortrait() {
 }
 
 function StateChip({ s }: { s?: SessionSummary }) {
-  const st: Record<string, [string, string]> = { arrancando: [t('windows.starting'), 'trab'], trabajando: [t('windows.working'), 'trab'], esperando: [t('windows.waitingForYou'), 'esp'], terminada: [t('windows.finished'), 'fin'], ociosa: [t('windows.ready'), 'fin'], error: [t('windows.fault'), 'err'], cerrada: [t('windows.closed'), 'oci'] };
+  const st: Record<string, [string, string]> = { starting: [t('windows.starting'), 'work'], working: [t('windows.working'), 'work'], waiting: [t('windows.waitingForYou'), 'esp'], finished: [t('windows.finished'), 'fin'], idle: [t('windows.ready'), 'fin'], error: [t('windows.fault'), 'err'], closed: [t('windows.closed'), 'oci'] };
   if (!s) return <span className="chip-estado oci">{t('windows.noSession')}</span>;
   const [txt, cls] = st[s.state] ?? [s.state, 'oci'];
   return <span className={'chip-estado ' + cls}>{txt}</span>;
@@ -645,10 +645,10 @@ function StateChip({ s }: { s?: SessionSummary }) {
 
 function WithoutConnection() {
   const attempts = live.use(e => e.attempts);
-  return <div className="pantalla-consola fosforo"><p className="aviso-consola">{t('windows.noLinkToTheShelter')}{'.'.repeat(1 + (attempts % 3))}</p><p className="tenue">{t('windows.ifYouClosedItReopen')} <code>./shelter</code>.</p></div>;
+  return <div className="pantalla-consola fosforo"><p className="notice-console">{t('windows.noLinkToTheShelter')}{'.'.repeat(1 + (attempts % 3))}</p><p className="dim">{t('windows.ifYouClosedItReopen')} <code>./shelter</code>.</p></div>;
 }
 function WithoutClaude() {
-  return <div className="pantalla-consola fosforo"><p className="aviso-consola">{t('windows.iCanTFindClaude')}</p><p>{t('windows.theDwellersWorkWithYour')} (<code>claude</code> {t('windows.inATerminalThen')} <code>/login</code>) {t('windows.andReopenTheShelter')}</p></div>;
+  return <div className="pantalla-consola fosforo"><p className="notice-console">{t('windows.iCanTFindClaude')}</p><p>{t('windows.theDwellersWorkWithYour')} (<code>claude</code> {t('windows.inATerminalThen')} <code>/login</code>) {t('windows.andReopenTheShelter')}</p></div>;
 }
 
 // ---------------------------------------------------------------- menús con teclado: Esc (y ←) es «atrás»
@@ -666,13 +666,13 @@ function Menu({ h, go, exit }: { h: DwellerSummary; go: (v: View) => void; exit:
   // revisar la copia (cambios, commits, integrar, desechar) es el aparato de la copia: el intercomunicador baja a la barra
   const toReview = () => { exit(); juego.set({ panel: 'worktree', panelData: { roomId: h.room, device: 'wt:' + copy!.path } }); };
   const options = [
-    { text: copy ? t('windows.startANewJobInside') : t('windows.startANewJob'), hint: t('windows.inCarpeta', { carpeta: (folder ?? t('windows.theirRoom')).replace(/^\/Users\/[^/]+/, '~') }), f: () => go({ type: 'nuevo' }) },
-    { text: t('windows.resumeAPreviousJob'), hint: copy ? t('windows.fromThisWorktree') : t('windows.includingTerminalOnes'), f: () => go({ type: 'historial' }) },
+    { text: copy ? t('windows.startANewJobInside') : t('windows.startANewJob'), hint: t('windows.inCarpeta', { carpeta: (folder ?? t('windows.theirRoom')).replace(/^\/Users\/[^/]+/, '~') }), f: () => go({ type: 'new' }) },
+    { text: t('windows.resumeAPreviousJob'), hint: copy ? t('windows.fromThisWorktree') : t('windows.includingTerminalOnes'), f: () => go({ type: 'history' }) },
     ...(folder ? [{ text: copy ? t('windows.openATerminalInside') : t('windows.openTheirTerminal'), hint: 'T', f: terminal }] : []),
     ...(copy ? [{ text: t('windows.reviewTheCopyChangesCommits'), f: toReview }] : []),
-    { text: t('windows.viewTheirProfile'), f: () => go({ type: 'ficha' }) },
+    { text: t('windows.viewTheirProfile'), f: () => go({ type: 'card' }) },
     // su aspecto se cambia en el probador de Chapa y Pintura (la Octocat es como es)
-    ...(!copy && h.type !== 'Octocat' ? [{ text: t('windows.changeTheirLook'), hint: t('world.bodyShop'), f: () => { exit(); juego.set({ panel: 'chapa', panelData: { who: h.id } }); } }] : []),
+    ...(!copy && h.type !== 'Octocat' ? [{ text: t('windows.changeTheirLook'), hint: t('world.bodyShop'), f: () => { exit(); juego.set({ panel: 'bodyshop', panelData: { who: h.id } }); } }] : []),
     { text: t('menu.backToTheShelter'), hint: 'Esc', f: exit },
   ];
   const items = options;
@@ -681,7 +681,7 @@ function Menu({ h, go, exit }: { h: DwellerSummary; go: (v: View) => void; exit:
   const greeting = useMemo(() => greetingOf(h), [h.id]);
   return (
     <div className="pantalla-consola fosforo">
-      <p className="voz">{greeting}</p>
+      <p className="voice">{greeting}</p>
       <Options items={items} i={i} setI={setI} onChoose={pick} />
       <p className="ayuda-consola"><kbd>↑↓</kbd> {t('menu.select')} <kbd>Enter</kbd> {t('menu.accept')} <kbd>Esc</kbd> {t('menu.backToTheShelter2')} <kbd>{CMD}T</kbd> {t('windows.anotherTab')}</p>
     </div>
@@ -696,7 +696,7 @@ function greetingOf(h: DwellerSummary) {
   }
   const phrases = h.robot
     ? [t('windows.unitReadyStateTheTask'), t('windows.diagnosticsCompleteAwaitingOrders'), t('windows.myCircuitsAreAtYour')]
-    : h.state === 'durmiendo' ? [t('windows.huhWhatOhOverseerI'), t('windows.fiveMoreMinutesOkayOkay')]
+    : h.state === 'sleeping' ? [t('windows.huhWhatOhOverseerI'), t('windows.fiveMoreMinutesOkayOkay')]
     : [t('windows.whatAreWeDoingToday'), t('windows.tellMeWhatSUp'), t('windows.hereIAmShallWe'), t('windows.allQuietInSalaFor', { sala: h.nameRoom })];
   return phrases[Math.floor(Math.random() * phrases.length)];
 }
@@ -706,7 +706,7 @@ function Card({ h, goBack }: { h: DwellerSummary; goBack: () => void }) {
   const [i, setI] = useMenu(1, () => goBack(), goBack);
   const c = h.copy;
   if (c) return (
-    <div className="pantalla-consola fosforo ficha">
+    <div className="pantalla-consola fosforo card">
       <dl>
         <dt>{t('windows.copyOf')}</dt><dd>{c.nameAuthor} «{tIs(c.nicknameAuthor)}»</dd>
         <dt>{t('windows.room')}</dt><dd>{h.nameRoom}</dd>
@@ -719,12 +719,12 @@ function Card({ h, goBack }: { h: DwellerSummary; goBack: () => void }) {
     </div>
   );
   return (
-    <div className="pantalla-consola fosforo ficha">
+    <div className="pantalla-consola fosforo card">
       <dl>
         <dt>{t('windows.name')}</dt><dd>{h.name} «{tIs(h.nickname)}»</dd>
         <dt>{t('windows.room')}</dt><dd>{h.nameRoom}{h.folder ?? h.path ? <> · <code>{h.folder ?? h.path}</code></> : null}</dd>
         {repo?.branch && <><dt>{t('windows.branch2')}</dt><dd>{repo.branch} · {t('windows.nUncommittedChanges', { n: repo.changes })}</dd></>}
-        {repo?.lastCommit && <><dt>{t('windows.lastCommit')}</dt><dd>{repo.lastCommit.message} <span className="tenue">({ago(repo.lastCommit.date)})</span></dd></>}
+        {repo?.lastCommit && <><dt>{t('windows.lastCommit')}</dt><dd>{repo.lastCommit.message} <span className="dim">({ago(repo.lastCommit.date)})</span></dd></>}
         <dt>{t('windows.status')}</dt><dd>{tIs(h.state)}{h.detail ? ' · ' + h.detail : ''}</dd>
         <dt>{t('windows.record')}</dt><dd>{trBio(h.bio)}</dd>
       </dl>
@@ -761,8 +761,8 @@ function HistoryView({ h, goBack, pick }: { h: DwellerSummary; goBack: () => voi
   const [i, setI] = useMenu(items.length, onChoose, goBack);
   return (
     <div className="pantalla-consola fosforo">
-      <p className="voz">{list === null ? t('windows.searchingTheArchive') : list.length ? (h.copy ? t('windows.thisIsWhatIsIn') : t('windows.thisIsWhatIsIn2')) : t('windows.thereAreNoPreviousConversations')}</p>
-      {error && <p className="aviso-consola">{error}</p>}
+      <p className="voice">{list === null ? t('windows.searchingTheArchive') : list.length ? (h.copy ? t('windows.thisIsWhatIsIn') : t('windows.thisIsWhatIsIn2')) : t('windows.thereAreNoPreviousConversations')}</p>
+      {error && <p className="notice-console">{error}</p>}
       <div className="lista-desplazable"><Options items={items} i={i} setI={setI} onChoose={onChoose} /></div>
       <p className="ayuda-consola"><kbd>↑↓</kbd> {t('menu.select')} <kbd>Enter</kbd> {t('windows.resume')} <kbd>Esc</kbd> <kbd>←</kbd> {t('windows.back2')}</p>
     </div>
@@ -800,11 +800,11 @@ function Visitors({ h, goBack, resume }: { h: DwellerSummary; goBack: () => void
     client.action<number>('surface.forceClose', { claudeId: el.claudeId }).then(() => resume({ ...el, outside: false })).catch(e => { SFX.error(); setError((e as Error).message); });
   };
   const [i, setI] = useMenu(items.length, onChoose, goBack);
-  if (!file) return <div className="pantalla-consola fosforo"><p className="voz">{t('windows.lookingForVisitors')}</p></div>;
+  if (!file) return <div className="pantalla-consola fosforo"><p className="voice">{t('windows.lookingForVisitors')}</p></div>;
   return (
     <div className="pantalla-consola fosforo">
-      <p className="voz">{list.length ? t('windows.visitorSessionsHere') : t('windows.noVisitorSessions')}</p>
-      {error && <p className="aviso-consola">{error}</p>}
+      <p className="voice">{list.length ? t('windows.visitorSessionsHere') : t('windows.noVisitorSessions')}</p>
+      {error && <p className="notice-console">{error}</p>}
       <div className="lista-desplazable"><Options items={items} i={i} setI={setI} onChoose={onChoose} /></div>
       <p className="ayuda-consola"><kbd>↑↓</kbd> {t('menu.select')} <kbd>Enter</kbd> {t('windows.resumeHere')} <kbd>Esc</kbd> <kbd>←</kbd> {t('windows.back2')}</p>
     </div>
@@ -861,7 +861,7 @@ function New({ h, p, resume, goBack }: { h: DwellerSummary; p: TabCom; resume?: 
     const inside = h.copy ? workIn : juego.get().workIn;
     client.ask<string>({ t: 'start', dwellerId: h.copy?.authorId ?? hid, roomId: h.room, prompt: txt.trim(), attachments: paths, options: { model, effort, permissions, worktree: inside || !ofProject ? false : worktree, resume: resume?.claudeId, cwd: resume?.cwd ?? inside?.cwd } })
       .then(sessionId => {
-        update(hid, v => ({ known: [...v.known, sessionId], tabs: v.tabs.filter(x => x.id === pid || !(x.view.type === 'sesion' && x.view.sessionId === sessionId)).map(x => (x.id === pid ? { ...x, sessionWait: false, draft: undefined, attachments: undefined, view: { type: 'sesion', sessionId } } : x)) }));
+        update(hid, v => ({ known: [...v.known, sessionId], tabs: v.tabs.filter(x => x.id === pid || !(x.view.type === 'session' && x.view.sessionId === sessionId)).map(x => (x.id === pid ? { ...x, sessionWait: false, draft: undefined, attachments: undefined, view: { type: 'session', sessionId } } : x)) }));
         sync();
       })
       .catch(e => { setTab(hid, pid, { sessionWait: false }); SFX.error(); setError((e as Error).message); });
@@ -900,14 +900,14 @@ function New({ h, p, resume, goBack }: { h: DwellerSummary; p: TabCom; resume?: 
     <div className={'pantalla-consola fosforo formulario' + (onTop ? ' soltando' : '')} {...drop}>
       {resume && (
         <div className="transcripcion-previa">
-          <p className="voz">{t('windows.resumingTituloCuando', { titulo: resume.title, cuando: ago(resume.modified) })}</p>
-          <div className="lista-desplazable mini">{transcript === null ? <p className="tenue">{t('windows.loading')}</p> : transcript.map(e => <Entry key={e.id} e={e} />)}</div>
+          <p className="voice">{t('windows.resumingTituloCuando', { titulo: resume.title, cuando: ago(resume.modified) })}</p>
+          <div className="lista-desplazable mini">{transcript === null ? <p className="dim">{t('windows.loading')}</p> : transcript.map(e => <Entry key={e.id} e={e} />)}</div>
         </div>
       )}
-      <p className="voz">{resume ? t('windows.whatDoIDoWith') : t('windows.whatNeedsDoing')}</p>
+      <p className="voice">{resume ? t('windows.whatDoIDoWith') : t('windows.whatNeedsDoing')}</p>
       {/* la caja de texto ocupa la mitad superior; las opciones, la inferior */}
       <div className="formulario-escribir">
-        <div className={'linea-entrada' + (row === 0 ? ' activa' : '')}>
+        <div className={'linea-entrada' + (row === 0 ? ' active' : '')}>
           <span className="prompt-sim">&gt;</span>
           <textarea ref={area} value={text} rows={3} readOnly={dictation.active} placeholder={resume ? t('windows.optionalAddAnInstructionOr') : t('windows.describeTheJobAsIn')}
             onFocus={() => setRow(0)}
@@ -929,19 +929,19 @@ function New({ h, p, resume, goBack }: { h: DwellerSummary; p: TabCom; resume?: 
       </div>
       <div className="formulario-opciones">
         {rows.map((fr, k) => (
-          <div key={fr.name} className={'fila-chips' + (row === k + 1 ? ' activa' : '')} onClick={() => setRow(k + 1)}>
+          <div key={fr.name} className={'fila-chips' + (row === k + 1 ? ' active' : '')} onClick={() => setRow(k + 1)}>
             <span className="etq">{fr.name}</span>
             {fr.values.map(v => <button key={v.value} className={'chip' + (v.value === fr.current ? ' on' : '')} onClick={() => fr.set(v.value)} title={(v as any).hint ? tIs((v as any).hint) : ''}>{tIs(v.text)}</button>)}
           </div>
         ))}
         {workIn ? <div className="fila-chips"><span className="etq">Worktree</span><span className="chip on">{t('windows.insideTheCopyRama', { rama: workIn.branch })}</span></div> :
         // un worktree solo tiene sentido en una sala de proyecto (las demás trabajan en su carpeta)
-        ofProject && <div className={'fila-chips' + (row === 4 ? ' activa' : '')} onClick={() => setRow(4)}>
+        ofProject && <div className={'fila-chips' + (row === 4 ? ' active' : '')} onClick={() => setRow(4)}>
           <span className="etq">Worktree</span>
           <button className={'chip' + (!worktree ? ' on' : '')} onClick={() => setWorktree(false)}>{t('windows.inTheMainCopy')}</button>
           <button className={'chip' + (worktree ? ' on' : '')} onClick={() => setWorktree(true)}>{t('windows.inASeparateWorktree')}</button>
         </div>}
-        {error && <p className="aviso-consola">{error}</p>}
+        {error && <p className="notice-console">{error}</p>}
         <ComposerHelp send={t('windows.start')} shortcuts={t('windows.shortcutsNewHint', { cmd: CMD })} sendLater={sendLater} armed={esc.armed && t('windows.againGoBackAndDelete')} />
       </div>
     </div>
@@ -957,7 +957,7 @@ const folderOf = (s: SessionSummary) => s.worktree ?? s.cwd;
 function Entry({ e, base, sessionId }: { e: LogInput; base?: string; sessionId?: string }) {
   if (e.type === 'asistente' || e.type === 'lateral') return <div className={'ent ' + e.type} dangerouslySetInnerHTML={{ __html: markdown(e.text, base) }} />;
   if (e.type === 'usuario') return <div className={'ent usuario' + (e.origin ? ' de-fuera' : '')}><span className="quien">{originLabel(e.origin)}&gt;</span> <span dangerouslySetInnerHTML={{ __html: markdown(e.text, base) }} />{e.attachments?.length ? <SentAttachments list={e.attachments} /> : null}</div>;
-  if (e.type === 'herramienta') return <div className={'ent herramienta' + (e.isError ? ' error' : '') + (e.helper ? ' de-ayudante' : '')}>{e.helper ? '  ⚙ ' : '⚙ '}<span><ToolText t={e.text} /></span>{e.detail && <pre className="detalle-err">{e.detail}</pre>}{e.output && sessionId && <OutputView o={e.output} sessionId={sessionId} id={e.id} tool={e.tool} />}</div>;
+  if (e.type === 'tool') return <div className={'ent tool' + (e.isError ? ' error' : '') + (e.helper ? ' de-ayudante' : '')}>{e.helper ? '  ⚙ ' : '⚙ '}<span><ToolText t={e.text} /></span>{e.detail && <pre className="detalle-err">{e.detail}</pre>}{e.output && sessionId && <OutputView o={e.output} sessionId={sessionId} id={e.id} tool={e.tool} />}</div>;
   if (e.type === 'error') return <div className="ent error" dangerouslySetInnerHTML={{ __html: markdown(e.text) }} />;
   return <div className={'ent ' + e.type}>{e.text}</div>;
 }
@@ -975,11 +975,11 @@ function OutputView({ o, sessionId, id, tool }: { o: ToolOutput; sessionId: stri
     if (x == null) throw new Error('gone');
     setText(x); return x;
   };
-  const toggle = () => { SFX.click(); if (open) { setOpen(false); return; } whole().then(() => setOpen(true)).catch(() => { SFX.notAllowed(); addNotice('aviso', t('windows.output.gone')); }); };
-  const copy = () => whole().then(x => navigator.clipboard.writeText(x)).then(() => SFX.shortSuccess()).catch(() => { SFX.notAllowed(); addNotice('aviso', t('windows.output.gone')); });
+  const toggle = () => { SFX.click(); if (open) { setOpen(false); return; } whole().then(() => setOpen(true)).catch(() => { SFX.notAllowed(); addNotice('warning', t('windows.output.gone')); }); };
+  const copy = () => whole().then(x => navigator.clipboard.writeText(x)).then(() => SFX.shortSuccess()).catch(() => { SFX.notAllowed(); addNotice('warning', t('windows.output.gone')); });
   return <div className="salida-herramienta">
     <button className="consola-x salida-linea" aria-expanded={open} title={t(open ? 'windows.output.hide' : 'windows.output.show')} onClick={toggle}>
-      {open ? '▾' : '▸'} {tool ?? ''} · {sizeLabel(o.size)} · <span className="tenue">{o.first}</span>
+      {open ? '▾' : '▸'} {tool ?? ''} · {sizeLabel(o.size)} · <span className="dim">{o.first}</span>
     </button>
     <button className="consola-x" title={t('windows.output.copyHint')} onClick={copy}>⧉ {t('windows.output.copy')}</button>
     {open && text != null && <pre className="detalle-err">{text}</pre>}
@@ -992,18 +992,18 @@ function Queued({ s, edit }: { s: SessionSummary; edit: (m: QueuedMessage) => vo
   const queue = s.queue ?? [];
   const withdraw = async (m: QueuedMessage, then?: () => void) => {
     const ok = await client.ask<boolean>({ t: 'withdraw', sessionId: s.id, messageId: m.id }).catch(() => false);
-    if (!ok) { SFX.notAllowed(); addNotice('aviso', t('windows.queue.tooLate')); return; }
+    if (!ok) { SFX.notAllowed(); addNotice('warning', t('windows.queue.tooLate')); return; }
     SFX.click(); then?.();
   };
   // Enviar ya: interrupts the turn and sends it now (Ctrl C, then this message); the server takes it back from the queue
   const sendNow = async (m: QueuedMessage) => {
     const ok = await client.ask<boolean>({ t: 'sendNow', sessionId: s.id, messageId: m.id }).catch(() => false);
-    if (!ok) { SFX.notAllowed(); addNotice('aviso', t('windows.queue.tooLate')); return; }
+    if (!ok) { SFX.notAllowed(); addNotice('warning', t('windows.queue.tooLate')); return; }
     SFX.click();
   };
   return (
     <div className="cola-mensajes">
-      <div className="cola-titulo">{t('windows.queue.title', { n: queue.length })} <span className="tenue">· {t('windows.queue.hint')}</span></div>
+      <div className="cola-titulo">{t('windows.queue.title', { n: queue.length })} <span className="dim">· {t('windows.queue.hint')}</span></div>
       {queue.map(m => (
         <div key={m.id} className={'cola-mensaje' + (m.origin.kind !== 'overseer' ? ' de-fuera' : '')}>
           <span className="quien">{originLabel(m.origin)}&gt;</span>
@@ -1031,9 +1031,9 @@ function Session({ h, s, p, exit, onClose }: { h: DwellerSummary; s: SessionSumm
   const canvas = useRef<HTMLDivElement>(null);
   const area = useRef<HTMLTextAreaElement>(null);
   const pinned = useRef(true);
-  const workingLive = s.state === 'trabajando' || s.state === 'arrancando';
+  const workingLive = s.state === 'working' || s.state === 'starting';
   // al verla, la respuesta queda leída
-  useEffect(() => { if (s.unread && (s.state === 'terminada' || s.state === 'error')) client.send({ t: 'read', sessionId: s.id }); }, [s.unread, s.state]);
+  useEffect(() => { if (s.unread && (s.state === 'finished' || s.state === 'error')) client.send({ t: 'read', sessionId: s.id }); }, [s.unread, s.state]);
   useEffect(() => { loadLog(s.id); }, [s.id]);
   useEffect(() => { const el = canvas.current; if (el && pinned.current) el.scrollTop = el.scrollHeight; }, [entries.length, partial, s.pending?.id]);
   // older pages as the Overseer reaches the top (shared/logPages.ts), with what was in view kept in place; back at the
@@ -1082,10 +1082,10 @@ function Session({ h, s, p, exit, onClose }: { h: DwellerSummary; s: SessionSumm
   // ⌥Enter: background work for this conversation in the day's final 5-hour window or, with `when` (⏰ Schedule), at that time (server/scheduled.ts)
   const sendLater = (when?: string) => {
     if (!text.trim() || text.trim().startsWith('/')) { SFX.notAllowed(); return; }
-    if (p.attachments?.length) { SFX.notAllowed(); addNotice('aviso', t('windows.nextWindowNoAttachments')); return; }
+    if (p.attachments?.length) { SFX.notAllowed(); addNotice('warning', t('windows.nextWindowNoAttachments')); return; }
     client.action<ScheduledMessage>('scheduled.window', { sessionId: s.id, message: text, when })
       .then(x => { setText(''); SFX.shortSuccess(); addNotice('info', laterDone(x)); })
-      .catch(e => { SFX.error(); addNotice('aviso', (e as Error).message); });
+      .catch(e => { SFX.error(); addNotice('warning', (e as Error).message); });
   };
   useEffect(() => keyboard.listen(e => {
     if ((e.ctrlKey && (e.code === 'ArrowUp' || e.code === 'KeyW')) || e.code === 'PageUp') { scroll(-1); return true; }
@@ -1100,23 +1100,23 @@ function Session({ h, s, p, exit, onClose }: { h: DwellerSummary; s: SessionSumm
   const dictation = useDictation({ area, text, setText, onSend: send });
   const esc = useEscDouble();
   const [onTop, drop] = useDrop(f => attach(h.id, p.id, f));
-  const lineState = s.state === 'arrancando' ? t('windows.gettingReady') : s.activity ? s.activity.text : workingLive && s.background ? t('windows.waitingNInBackground', { n: s.background }) : workingLive ? t('windows.thinking') : '';
-  const helpers = s.helpers.filter(a => a.state === 'trabajando').length;
+  const lineState = s.state === 'starting' ? t('windows.gettingReady') : s.activity ? s.activity.text : workingLive && s.background ? t('windows.waitingNInBackground', { n: s.background }) : workingLive ? t('windows.thinking') : '';
+  const helpers = s.helpers.filter(a => a.state === 'working').length;
   return (
-    <div className={'pantalla-consola fosforo sesion' + (onTop ? ' soltando' : '')} data-sesion={s.id} {...drop}>
-      <div className="titulo-sesion">{s.title}{s.worktree ? <span className="tenue"> · worktree</span> : null}</div>
+    <div className={'pantalla-consola fosforo session' + (onTop ? ' soltando' : '')} data-sesion={s.id} {...drop}>
+      <div className="titulo-sesion">{s.title}{s.worktree ? <span className="dim"> · worktree</span> : null}</div>
       <div className="lienzo" ref={canvas} onScroll={e => onScroll(e.currentTarget)}>
-        {entries.length > 0 && <div className="ent sistema tenue cuaderno-inicio">{older ? (loadingOlder ? t('windows.log.loadingOlder') : t('windows.log.scrollForOlder')) : t('windows.log.start')}</div>}
-        {(s.pending ? entries.filter((e, i) => !(e.type === 'sistema' && e.text.startsWith('❓')) && !(e.type === 'herramienta' && i >= entries.length - 3)) : entries).map(e => <Entry key={e.id} e={e} base={folderOf(s)} sessionId={s.id} />)}
-        {partial && workingLive && <div className="ent asistente parcial" dangerouslySetInnerHTML={{ __html: markdown(partial, folderOf(s)) + '<span class="cursor-escribe">▌</span>' }} />}
+        {entries.length > 0 && <div className="ent system dim cuaderno-inicio">{older ? (loadingOlder ? t('windows.log.loadingOlder') : t('windows.log.scrollForOlder')) : t('windows.log.start')}</div>}
+        {(s.pending ? entries.filter((e, i) => !(e.type === 'system' && e.text.startsWith('❓')) && !(e.type === 'tool' && i >= entries.length - 3)) : entries).map(e => <Entry key={e.id} e={e} base={folderOf(s)} sessionId={s.id} />)}
+        {partial && workingLive && <div className="ent asistente partial" dangerouslySetInnerHTML={{ __html: markdown(partial, folderOf(s)) + '<span class="cursor-escribe">▌</span>' }} />}
         {s.pending && <Pending s={s} p={s.pending} tab={p} hid={h.id} exit={exit} />}
         {s.state === 'error' && s.error && <div className="ent error">⚠ {s.error}</div>}
-        {s.limit && !workingLive && <div className="ent sistema">⏳ {limitLine(s.limit)}</div>}
-        {s.handoff === 'offered' && !workingLive && <div className="ent sistema aviso-relevo">
+        {s.limit && !workingLive && <div className="ent system">⏳ {limitLine(s.limit)}</div>}
+        {s.handoff === 'offered' && !workingLive && <div className="ent system notice-handover">
           <p>{t('windows.handoff.notice', { usados: tokensShort(s.context?.used ?? 0) })}</p>
           <div className="botones-relevo"><button onClick={compact}>{t('windows.compact')}</button><button title={t('windows.handoff.newHint')} onClick={handoff}>{t('windows.handoff.new')}</button></div>
         </div>}
-        {s.handoff === 'writing' && <div className="ent sistema">✎ {t('windows.handoff.writing')}</div>}
+        {s.handoff === 'writing' && <div className="ent system">✎ {t('windows.handoff.writing')}</div>}
       </div>
       {!!s.queue?.length && <Queued s={s} edit={m => {
         // back to the composer, after whatever is being written, with its attachments
@@ -1125,16 +1125,16 @@ function Session({ h, s, p, exit, onClose }: { h: DwellerSummary; s: SessionSumm
         area.current?.focus();
       }} />}
       {!s.pending && <div className="linea-estado">
-        {workingLive ? <span className="girando">◐</span> : s.state === 'esperando' ? <span className="urgente">?</span> : s.state === 'terminada' ? <span>✓</span> : <span>·</span>}
-        <span className="txt"><ToolText t={lineState || (s.limit ? limitLine(s.limit) : s.state === 'terminada' || s.state === 'ociosa' ? t('windows.doneYouCanReplyOpen') : '')} /></span>
-        {helpers > 0 && <span className="tenue"> · {helpers > 1 ? t('windows.nHelpers', { n: helpers }) : t('windows.nHelper', { n: helpers })}</span>}
-        {s.lateral && !s.lateral.answer && <span className="tenue"> · {t('windows.sideQuestion')}</span>}
+        {workingLive ? <span className="girando">◐</span> : s.state === 'waiting' ? <span className="urgent">?</span> : s.state === 'finished' ? <span>✓</span> : <span>·</span>}
+        <span className="txt"><ToolText t={lineState || (s.limit ? limitLine(s.limit) : s.state === 'finished' || s.state === 'idle' ? t('windows.doneYouCanReplyOpen') : '')} /></span>
+        {helpers > 0 && <span className="dim"> · {helpers > 1 ? t('windows.nHelpers', { n: helpers }) : t('windows.nHelper', { n: helpers })}</span>}
+        {s.lateral && !s.lateral.answer && <span className="dim"> · {t('windows.sideQuestion')}</span>}
         <Usage s={s} compact={compact} />
-        <span className="modo">{tIs(PERMISSION_MODES.find(m => m.value === s.permissionMode)?.text ?? s.permissionMode ?? '')}</span>
+        <span className="mode">{tIs(PERMISSION_MODES.find(m => m.value === s.permissionMode)?.text ?? s.permissionMode ?? '')}</span>
       </div>}
       {!s.pending && (
-        <div className="linea-entrada activa">
-          {suggestions.length > 0 && <ul className="sugerencias">{suggestions.map((c, k) => <li key={c.name} className={k === selCmd ? 'activa' : ''} onMouseDown={ev => { ev.preventDefault(); setText('/' + c.name + ' '); }}><b>/{c.name}</b> <span>{c.description}</span></li>)}</ul>}
+        <div className="linea-entrada active">
+          {suggestions.length > 0 && <ul className="sugerencias">{suggestions.map((c, k) => <li key={c.name} className={k === selCmd ? 'active' : ''} onMouseDown={ev => { ev.preventDefault(); setText('/' + c.name + ' '); }}><b>/{c.name}</b> <span>{c.description}</span></li>)}</ul>}
           <span className="prompt-sim">&gt;</span>
           <textarea ref={area} value={text} rows={2} readOnly={dictation.active} placeholder={workingLive ? t('windows.addSomethingWhileItWorks') : t('windows.replyDictateWithDOr')}
             onChange={e => { setText(e.target.value); setSelCmd(0); }}
@@ -1171,8 +1171,8 @@ const limitLine = (l: NonNullable<SessionSummary['limit']>) => l.resumeAt ? t('w
 
 // Las páginas de la conversación (planes, informes, comparaciones que ha enlazado): cuáles quedan por revisar, abrirlas
 // (sus notas vuelven a esta conversación) y validar sin notas las que estén bien (shared/sessionPages.ts)
-const PR_STATE: Record<PRBoard['state'], string> = { abierto: '●', borrador: '◌', fusionado: '✓', cerrado: '✕' };
-const prStateName = (e: PRBoard['state']) => e === 'abierto' ? t('windows.prState.abierto') : e === 'borrador' ? t('windows.prState.borrador') : e === 'fusionado' ? t('windows.prState.fusionado') : t('windows.prState.cerrado');
+const PR_STATE: Record<PRBoard['state'], string> = { open: '●', draft: '◌', merged: '✓', closed: '✕' };
+const prStateName = (e: PRBoard['state']) => e === 'open' ? t('windows.prState.abierto') : e === 'draft' ? t('windows.prState.borrador') : e === 'merged' ? t('windows.prState.fusionado') : t('windows.prState.cerrado');
 function WorktreePRs({ copy, roomId }: { copy: { path: string; branch: string }; roomId: string }) {
   const fromBoard = jiraBoard.use(x => x.prs);
   const [read, setRead] = useState<PRBoard[] | null>(null);
@@ -1185,18 +1185,18 @@ function WorktreePRs({ copy, roomId }: { copy: { path: string; branch: string };
   const [open, setOpen] = useState(false);
   const list = useListAtButton(open);
   if (!prs.length) return null;
-  const openCount = prs.filter(p => p.state === 'abierto' || p.state === 'borrador').length;
+  const openCount = prs.filter(p => p.state === 'open' || p.state === 'draft').length;
   // like the pages: a button with the count and, on click, the whole list at the button
   return <span className="paginas-sesion prs-copia">
     <button className="consola-x" title={t('windows.taskPRsHint')} onClick={() => { setOpen(x => !x); SFX.click(); }}>
       ⑂ {t('windows.pullRequests')} ({openCount < prs.length ? `${openCount}/${prs.length}` : prs.length})
     </button>
     {open && <ul ref={list} className="paginas-lista">{prs.map(p => <li key={p.url} className={'pr-' + p.state}>
-      <span className="pr-marca" title={prStateName(p.state)}>{PR_STATE[p.state]}</span>
+      <span className="pr-brand" title={prStateName(p.state)}>{PR_STATE[p.state]}</span>
       <button className="pagina-nombre" title={`${p.repo}#${p.number} · ${p.branch}\n${p.title}`} onClick={() => { openLink(p.url); setOpen(false); }}>#{p.number} {p.title}</button>
-      <span className="tenue">{prStateName(p.state)}</span>
-      {p.checks === 'FAILURE' || p.checks === 'ERROR' ? <span className="pr-mal">✕ CI</span> : null}
-      {p.review === 'APPROVED' ? <span className="pr-bien">✓</span> : p.review === 'CHANGES_REQUESTED' ? <span className="pr-mal">±</span> : null}
+      <span className="dim">{prStateName(p.state)}</span>
+      {p.checks === 'FAILURE' || p.checks === 'ERROR' ? <span className="pr-bad">✕ CI</span> : null}
+      {p.review === 'APPROVED' ? <span className="pr-bien">✓</span> : p.review === 'CHANGES_REQUESTED' ? <span className="pr-bad">±</span> : null}
     </li>)}</ul>}
   </span>;
 }
@@ -1237,7 +1237,7 @@ function PagesMenu({ s }: { s: SessionSummary }) {
   const fromLog = useLinkEntries({ sessionId: s.id }, s.id);
   const log = useMemo(() => { const ids = new Set((held ?? []).map(e => e.id)); return [...fromLog.filter(e => !ids.has(e.id)), ...(held ?? [])]; }, [held, fromLog]);
   // con la pregunta que espera respuesta: lo que enlaza (la comparación que pide aprobar) ya sale
-  const questions = s.pending?.type === 'pregunta' ? s.pending.questions : undefined;
+  const questions = s.pending?.type === 'question' ? s.pending.questions : undefined;
   const since = useMemo(() => Date.now(), [s.pending?.id]);
   const entries = useMemo(() => [...(log ?? []), ...(questions?.length ? [questionInput(questions, since)] : [])], [log, questions, since]);
   return <PagesList sessionId={s.id} claudeId={s.claudeId} entries={entries} base={folderOf(s)} />;
@@ -1283,8 +1283,8 @@ function ScheduledMenu({ h, s, resume }: { h: DwellerSummary; s?: SessionSummary
     client.action('scheduled.edit', { id: editing.id, when: editing.when || undefined, message: editing.message })
       .then(() => { setEditing(null); SFX.click(); }).catch(e => { setEditing(x => x && { ...x, error: (e as Error).message }); SFX.notAllowed(); });
   };
-  const here = (x: ScheduledMessage) => !!conversation && x.target.type === 'conversacion' && ((!!s && x.target.sessionId === s.id) || (!!conversation.claudeId && x.target.claudeId === conversation.claudeId));
-  const target = (x: ScheduledMessage) => x.target.type === 'sala' ? `→ ${x.target.room}${x.target.key ?? x.target.thread ? ' ' + (x.target.key ?? x.target.thread) : ''}`
+  const here = (x: ScheduledMessage) => !!conversation && x.target.type === 'conversation' && ((!!s && x.target.sessionId === s.id) || (!!conversation.claudeId && x.target.claudeId === conversation.claudeId));
+  const target = (x: ScheduledMessage) => x.target.type === 'room' ? `→ ${x.target.room}${x.target.key ?? x.target.thread ? ' ' + (x.target.key ?? x.target.thread) : ''}`
     : here(x) ? t('windows.scheduledToThis')
     : t('windows.scheduledToConversation', { titulo: x.target.title || t('windows.conversation') });
   const pack = (x: ScheduledMessage) => x.pr ? t('windows.scheduledPack', { pr: x.pr.label, n: x.pr.parts.length })
@@ -1302,15 +1302,15 @@ function ScheduledMenu({ h, s, resume }: { h: DwellerSummary; s?: SessionSummary
         ? <li className="programado-edicion">
             <input type="datetime-local" value={editing.when} onChange={e => setEditing({ ...editing, when: e.target.value, error: undefined })} />
             <textarea rows={4} value={editing.message} onChange={e => setEditing({ ...editing, message: e.target.value, error: undefined })} />
-            {editing.error && <span className="pr-mal">{editing.error}</span>}
+            {editing.error && <span className="pr-bad">{editing.error}</span>}
             <span><button className="consola-x" onClick={save}>{t('windows.scheduledSave')}</button> <button className="consola-x" onClick={() => setEditing(null)}>✕</button></span>
           </li>
         : <li title={x.message}>
             {(m => <span className={m.className} title={m.hint}>{m.text}</span>)(directionMark(scheduledDirection(x, conversation)))}
-            {x.afterTurn ? <span className="tenue" title={t(x.pr ? 'windows.scheduledPackHint' : pack(x) ? 'windows.scheduledMessagesHint' : 'windows.scheduleAfterTurnHint')}>{pack(x) || t('windows.scheduledAfterTurn')}</span>
-              : x.nextWindow ? <span className="tenue" title={t('windows.nextWindowHint') + '\n' + describeWhen(x.when)}>{t('windows.scheduledWindow')}</span>
-              : <span className={x.when < Date.now() ? 'urgente' : ''} title={x.when < Date.now() ? t('windows.scheduledLate') : describeWhen(x.when)}>⏰ {describeWhenShort(x.when)}</span>}
-            <span className="tenue" title={!x.afterTurn && pack(x) ? t('windows.scheduledMessagesHint') : undefined}>{scheduledSender(x, id => rooms.find(r => r.id === id)?.name)} · {target(x)}{!x.afterTurn && pack(x) ? ` ${pack(x)}` : ''}</span>
+            {x.afterTurn ? <span className="dim" title={t(x.pr ? 'windows.scheduledPackHint' : pack(x) ? 'windows.scheduledMessagesHint' : 'windows.scheduleAfterTurnHint')}>{pack(x) || t('windows.scheduledAfterTurn')}</span>
+              : x.nextWindow ? <span className="dim" title={t('windows.nextWindowHint') + '\n' + describeWhen(x.when)}>{t('windows.scheduledWindow')}</span>
+              : <span className={x.when < Date.now() ? 'urgent' : ''} title={x.when < Date.now() ? t('windows.scheduledLate') : describeWhen(x.when)}>⏰ {describeWhenShort(x.when)}</span>}
+            <span className="dim" title={!x.afterTurn && pack(x) ? t('windows.scheduledMessagesHint') : undefined}>{scheduledSender(x, id => rooms.find(r => r.id === id)?.name)} · {target(x)}{!x.afterTurn && pack(x) ? ` ${pack(x)}` : ''}</span>
             <span className="pagina-nombre">{x.message.replace(/\s+/g, ' ')}</span>
             <button className="consola-x" title={t('windows.scheduledEdit')} onClick={() => setEditing({ id: x.id, when: x.nextWindow || x.afterTurn ? '' : localInput(x.when), message: x.message })}>✎</button>
             {(x.nextWindow || x.overLimit || x.afterTurn) && <button className="consola-x" title={t('windows.scheduledSendNow')} onClick={() => sendNow(x)}>▶</button>}
@@ -1333,7 +1333,7 @@ function ComposerHelp({ send, shortcuts, sendLater, armed, afterTurn }: { send: 
       <span><kbd>Enter</kbd> {send}</span>
       <ScheduleAt pick={sendLater} afterTurn={afterTurn} />
       <button className="consola-x" onClick={() => sendLater()} title={`${t('windows.nextWindowHint')} (⌥ Enter)`}>⏳ {t('windows.nextWindow')}</button>
-      {armed && <span className="urgente">{armed}</span>}
+      {armed && <span className="urgent">{armed}</span>}
       <span className="atajos-composer" tabIndex={0} aria-label={shortcuts.replace(/[[\]]/g, '')}>⌨ {t('windows.shortcuts')}
         <span className="atajos-panel" aria-hidden>
           {shortcuts.split(/\n| · /).map((x, i) => <span key={i}>{x.split(/(\[[^\]]+\])/).map((p, j) => p.startsWith('[') ? <kbd key={j}>{p.slice(1, -1)}</kbd> : p)}</span>)}
@@ -1360,7 +1360,7 @@ function ScheduleAt({ pick, afterTurn }: { pick: (when: string) => void; afterTu
       <button className="consola-x" title={t('windows.scheduleAtHint')} onClick={() => { setOpen(x => !x); setWhen(localInput(now + 3_600_000)); SFX.click(); }}>⏰ {t('windows.scheduleAt')}</button>
       {open && <ul className="paginas-lista programar-lista" onKeyDown={e => { e.stopPropagation(); if (e.key === 'Escape') setOpen(false); if (e.key === 'Enter' && (e.target as HTMLElement).tagName === 'INPUT') go(when); }}>
         {afterTurn && <li><button className="chip" title={t('windows.scheduleAfterTurnHint')} onClick={() => go(AFTER_TURN)}>{t('windows.scheduleAfterTurn')}</button></li>}
-        {schedulePresets(now).map(x => <li key={x.key}><button className="chip" onClick={() => go(localInput(x.when))}>{t(PRESET_TEXT[x.key])} <span className="tenue">{describeWhenShort(x.when, now)}</span></button></li>)}
+        {schedulePresets(now).map(x => <li key={x.key}><button className="chip" onClick={() => go(localInput(x.when))}>{t(PRESET_TEXT[x.key])} <span className="dim">{describeWhenShort(x.when, now)}</span></button></li>)}
         <li><input type="datetime-local" value={when} min={localInput(now)} onChange={e => setWhen(e.target.value)} /> <button className="consola-x" onClick={() => go(when)}>{t('windows.scheduleAtGo')}</button></li>
       </ul>}
     </span>
@@ -1436,7 +1436,7 @@ function PagesList({ sessionId, claudeId, entries, base }: { sessionId: string; 
       if (stillAlive) { setExist(new Set(Object.keys(m))); setUpdated(m); }
     }).catch(() => {});
     return () => { stillAlive = false; };
-  }, [paths, open && 'abierto']);
+  }, [paths, open && 'open']);
   // las más recientes arriba: enlazadas o reescritas (un plan rehecho sube aunque no se vuelva a enlazar)
   const latest = (p: { path: string; ts: number }) => Math.max(p.ts, updated[p.path] ?? 0);
   const pages = livePages(all, existing).sort((a, b) => latest(b) - latest(a) || a.path.localeCompare(b.path));
@@ -1449,16 +1449,16 @@ function PagesList({ sessionId, claudeId, entries, base }: { sessionId: string; 
   const inDraft = (path: string) => Object.entries(drafts).find(([k]) => samePage(k, path))?.[1].length ?? 0;
   return (
     <span className="paginas-sesion paginas-principal">
-      <button className={'consola-x' + (pending ? ' urgente' : '')} title={t('windows.pagesHint')} onClick={() => { setOpen(x => !x); SFX.click(); }}>
+      <button className={'consola-x' + (pending ? ' urgent' : '')} title={t('windows.pagesHint')} onClick={() => { setOpen(x => !x); SFX.click(); }}>
         📄 {t('windows.pages')} {pending ? `· ${pending} ${t('windows.pagePending')}` : `(${pages.length})`}
       </button>
       {open && <ul ref={list} className="paginas-lista">{pages.map(p => {
         const n = inDraft(p.path);
-        return <li key={p.path} className={p.answer ? 'tenue' : ''}>
+        return <li key={p.path} className={p.answer ? 'dim' : ''}>
           <button className="pagina-nombre" title={p.path} onClick={() => openTarget(p.path)}>{p.name}</button>
-          {updated[p.path] && <span className="tenue" title={new Date(updated[p.path]).toLocaleString()}>{t('windows.pageUpdated', { cuando: ago(updated[p.path]) })} · </span>}
-          <span className={p.answer ? '' : 'urgente'}>{p.answer ? '✓ ' + t(p.answer.state === 'notas' ? 'windows.pageNotesSent' : 'windows.pageValidatedState') : '• ' + t('windows.pagePending')}</span>
-          {n > 0 && <span className="tenue"> · {t('windows.pageDraftNotes', { n })}</span>}
+          {updated[p.path] && <span className="dim" title={new Date(updated[p.path]).toLocaleString()}>{t('windows.pageUpdated', { cuando: ago(updated[p.path]) })} · </span>}
+          <span className={p.answer ? '' : 'urgent'}>{p.answer ? '✓ ' + t(p.answer.state === 'notes' ? 'windows.pageNotesSent' : 'windows.pageValidatedState') : '• ' + t('windows.pagePending')}</span>
+          {n > 0 && <span className="dim"> · {t('windows.pageDraftNotes', { n })}</span>}
           <button className="consola-x" title={t('windows.showInFinderHint')} onClick={() => revealPage(p.path)}>📁</button>
           {!p.answer && n === 0 && <button className="consola-x" title={t('windows.validatePageHint')} onClick={() => { validatePage(s.id, p.path); setOpen(false); }}>✓ {t('windows.validate')}</button>}
           <button className="consola-x" title={t('windows.removePageHint')} onClick={() => { answerPage(s.id, p.path, 'quitada'); SFX.click(); }}>✕</button>
@@ -1482,7 +1482,7 @@ function useDrop(onDrop: (f: FileList) => void) {
 const OWN_COMMANDS: Command[] = [
   { name: 'btw', description: t('windows.sideQuestionWithoutInterruptingThe'), hint: t('windows.question') },
   { name: 'stop', description: t('windows.stopWhatItIsDoing') },
-  { name: 'cuaderno', description: t('windows.openTheConversationNotebookR') },
+  { name: 'log', description: t('windows.openTheConversationNotebookR') },
   { name: 'cerrar', description: t('windows.closeThisConversationItStays') },
 ];
 const COMMANDS_BASE: Command[] = [
@@ -1498,27 +1498,27 @@ function Pending({ s, p, tab, hid, exit }: { s: SessionSummary; p: PendingReques
   const setReason = (t: string | null) => { setReason0(t); setTab(hid, tab.id, { reason: t === null ? undefined : { request: p.id, text: t } }); };
   const [responses, setResponses] = useState<Record<string, string>>({});
   const [qi, setPq] = useState(0);
-  const respond = (decision: 'si' | 'siempre' | 'no', message?: string, answer?: Record<string, string>) => { client.send({ t: 'answer', sessionId: s.id, requestId: p.id, decision, message, responses: answer }); SFX.click(); };
+  const respond = (decision: 'si' | 'always' | 'no', message?: string, answer?: Record<string, string>) => { client.send({ t: 'answer', sessionId: s.id, requestId: p.id, decision, message, responses: answer }); SFX.click(); };
   let items: { text: React.ReactNode; hint?: React.ReactNode; danger?: boolean; kind?: string; f: () => void }[] = [];
-  const question = p.type === 'pregunta' ? p.questions?.[qi] : undefined;
-  if (p.type === 'permiso') items = [
+  const question = p.type === 'question' ? p.questions?.[qi] : undefined;
+  if (p.type === 'permission') items = [
     { text: t('windows.yes'), f: () => respond('si') },
-    ...(p.canAlways ? [{ text: t('windows.yesAndDonTAsk'), f: () => respond('siempre') }] : []),
+    ...(p.canAlways ? [{ text: t('windows.yesAndDonTAsk'), f: () => respond('always') }] : []),
     { text: t('windows.noAndILlTell'), danger: true, f: () => setReason('') },
   ];
-  else if (p.type === 'confianza') items = [
+  else if (p.type === 'trust') items = [
     { text: t('windows.yesLoadItThisTime'), f: () => respond('si') },
-    { text: t('windows.yesAndDonTAsk2'), f: () => respond('siempre') },
+    { text: t('windows.yesAndDonTAsk2'), f: () => respond('always') },
     { text: t('windows.noWorkWithoutIt'), danger: true, f: () => respond('no') },
   ];
   else if (p.type === 'plan') items = [
     { text: t('windows.approveThePlan'), hint: t('windows.willAskPermissionToEdit'), f: () => respond('si') },
-    { text: t('windows.approveAndLetItEdit'), f: () => respond('siempre') },
+    { text: t('windows.approveAndLetItEdit'), f: () => respond('always') },
     { text: t('windows.keepPlanningILlTell'), danger: true, f: () => setReason('') },
   ];
   else if (question) items = [
     // las respuestas de una pregunta pueden ser largas o llevar enlaces: enteras, en varias líneas (clase «larga»)
-    ...question.options.map(o => ({ text: o.label, hint: o.description ? <span dangerouslySetInnerHTML={{ __html: markdownLine(o.description, folderOf(s)) }} /> : undefined, kind: 'larga', f: () => { const r = { ...responses, [question.question]: o.label }; setResponses(r); if (qi + 1 < (p.questions?.length ?? 0)) setPq(qi + 1); else respond('si', undefined, r); } })),
+    ...question.options.map(o => ({ text: o.label, hint: o.description ? <span dangerouslySetInnerHTML={{ __html: markdownLine(o.description, folderOf(s)) }} /> : undefined, kind: 'long', f: () => { const r = { ...responses, [question.question]: o.label }; setResponses(r); if (qi + 1 < (p.questions?.length ?? 0)) setPq(qi + 1); else respond('si', undefined, r); } })),
     { text: t('windows.somethingElse'), f: () => setReason('') },
     { text: t('windows.skipTheQuestion'), danger: true, f: () => respond('no', t('prompt.userPreferredNotToAnswer')) },
   ];
@@ -1538,14 +1538,14 @@ function Pending({ s, p, tab, hid, exit }: { s: SessionSummary; p: PendingReques
       {/* la pregunta es prosa de Claude: en markdown (enlaces que se abren, listas), con su propio scroll si es muy larga */}
       {question && <div className="peticion-pregunta" dangerouslySetInnerHTML={{ __html: markdown(question.question, folderOf(s)) }} />}
       {/* lo que pide una herramienta, siempre en texto plano (plainText.tsx); el plan, que es prosa, en markdown */}
-      {(p.type === 'permiso' || p.type === 'confianza') && (p.input?.length || p.reason) ? <RequestView blocks={p.input ?? []} reason={p.reason} /> : null}
+      {(p.type === 'permission' || p.type === 'trust') && (p.input?.length || p.reason) ? <RequestView blocks={p.input ?? []} reason={p.reason} /> : null}
       {p.type === 'plan' && p.detail && <div className="peticion-detalle" dangerouslySetInnerHTML={{ __html: markdown(p.detail, folderOf(s)) }} />}
       {reason === null ? <Options items={items} i={i} setI={setI} onChoose={k => items[k]?.f()} /> : (
-        <div className="linea-entrada activa">
+        <div className="linea-entrada active">
           <span className="prompt-sim">&gt;</span>
-          <textarea autoFocus rows={2} value={reason} placeholder={p.type === 'pregunta' ? t('windows.yourAnswer') : t('windows.tellItWhyOrEnter')} onChange={e => setReason(e.target.value)}
+          <textarea autoFocus rows={2} value={reason} placeholder={p.type === 'question' ? t('windows.yourAnswer') : t('windows.tellItWhyOrEnter')} onChange={e => setReason(e.target.value)}
             onKeyDown={e => {
-              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (p.type === 'pregunta' && question) { const r = { ...responses, [question.question]: reason }; if (qi + 1 < (p.questions?.length ?? 0)) { setResponses(r); setPq(qi + 1); setReason(null); } else respond('si', undefined, r); } else respond('no', reason); }
+              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (p.type === 'question' && question) { const r = { ...responses, [question.question]: reason }; if (qi + 1 < (p.questions?.length ?? 0)) { setResponses(r); setPq(qi + 1); setReason(null); } else respond('si', undefined, r); } else respond('no', reason); }
               if (e.key === 'Escape') { e.preventDefault(); setReason(null); }
               e.stopPropagation();
             }} />

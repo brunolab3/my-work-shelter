@@ -101,8 +101,8 @@ export function tintSame(a: [number, number, number], b: [number, number, number
 }
 
 // ---------------------------------------------------------------- cabezas humanas
-export type HeadKind = 'cara' | 'ojos' | 'cejas' | 'pelo' | 'barba' | 'gorro';
-export const HEAD_KINDS: HeadKind[] = ['cara', 'ojos', 'cejas', 'pelo', 'barba', 'gorro'];
+export type HeadKind = 'cara' | 'eyes' | 'cejas' | 'pelo' | 'barba' | 'cap';
+export const HEAD_KINDS: HeadKind[] = ['cara', 'eyes', 'cejas', 'pelo', 'barba', 'cap'];
 export interface Settings {
   /** componentes (por su orden de tamaño) que van a una clase a la fuerza */
   comp?: Partial<Record<number, HeadKind>>;
@@ -164,7 +164,7 @@ export function dismantleHead(m: Mesh, settings: Settings = {}): HeadBreakdown {
     .sort((p, q) => q[0].center.z - p[0].center.z)[0];
   const mark = (c: Component | undefined, k: number) => { if (c) for (const t of c.tris) kind[t] = k; };
   const I = (c: HeadKind) => HEAD_KINDS.indexOf(c);
-  if (eyes) { mark(eyes[0], I('ojos')); mark(eyes[1], I('ojos')); }
+  if (eyes) { mark(eyes[0], I('eyes')); mark(eyes[1], I('eyes')); }
   if (eyebrows) { mark(eyebrows[0], I('cejas')); mark(eyebrows[1], I('cejas')); }
   // piel: las franjas de orejas y nariz (las de la cara de esa cabeza)
   const skins = new Set<number>();
@@ -189,7 +189,7 @@ export function dismantleHead(m: Mesh, settings: Settings = {}): HeadBreakdown {
       if (isSkin(f) || c === nose || c === ears?.[0] || c === ears?.[1]) { kind[t] = I('cara'); continue; }
       centerTri(g, t, center);
       const hair = isHair(f);
-      if (settings.allCap && !hair) { kind[t] = I('gorro'); continue; }
+      if (settings.allCap && !hair) { kind[t] = I('cap'); continue; }
       // boca y mejillas pintadas: lo que no es pelo en la zona de la boca se queda en la cara
       const mouthZone = Math.abs(center.x) < 0.2 && center.z > 0.3 && center.y < eyesY - 0.02 && center.y > eyesY - 0.32;
       if (!hair && mouthZone) { kind[t] = I('cara'); continue; }
@@ -197,7 +197,7 @@ export function dismantleHead(m: Mesh, settings: Settings = {}): HeadBreakdown {
       const beard = !settings.withoutBeard && center.y < underBeard && center.z > 0.12 && Math.abs(center.x) < 0.36;
       if (settings.tintsFace?.some(c => f >= 0 && tintSame(m.atlas!.color[f], c))) { kind[t] = I('cara'); continue; }
       const cap = (settings.hairIsCap && hair) || (!!settings.tintsCap?.length && settings.tintsCap.some(c => f >= 0 && tintSame(m.atlas!.color[f], c)) && !hair);
-      kind[t] = cap ? I('gorro') : beard ? I('barba') : I('pelo');
+      kind[t] = cap ? I('cap') : beard ? I('barba') : I('pelo');
     }
   });
   for (let t = 0; t < n; t++) if (kind[t] === 255) kind[t] = I('cara');

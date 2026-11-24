@@ -35,4 +35,4 @@ export const HIDDEN_SKILLS = ['anthropic-skills:built-in-browser', 'anthropic-sk
 // Rooms whose dwellers don't need the user's claude.ai work connectors (Jira, Datadog, Slack…): the Command Bridge works
 // on the game's own code and the leisure floor is for fun. Turned off there with disableClaudeAiConnectors, which saves
 // their tool lists in every conversation of those rooms; the other rooms keep them.
-export const withoutWorkConnectors = (roomId: string) => roomId === 'puente' || isLeisureRoom(roomId);
+export const withoutWorkConnectors = (roomId: string) => roomId === 'bridge' || isLeisureRoom(roomId);

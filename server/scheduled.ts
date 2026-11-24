@@ -29,10 +29,10 @@ export interface CtxScheduled {
   // a conversation is busy (a turn running, waiting for the Overseer): by game id or, closed, by Claude Code id
   busy?(target: { sessionId?: string; claudeId?: string }): boolean;
   // la entrega: el id de la conversación que lo recibe (lanza un error si no se pudo: se reintenta)
-  toConversation(x: ScheduledMessage & { target: Extract<ScheduledTarget, { type: 'conversacion' }> }, text: string): Promise<string>;
+  toConversation(x: ScheduledMessage & { target: Extract<ScheduledTarget, { type: 'conversation' }> }, text: string): Promise<string>;
   // `limited`: still over send_to_room's per-minute limit, retried on the next round without a warning
   // `permanent`: no later try can deliver it (the sender is the receiving conversation): dropped with a notice
-  toRoom(x: ScheduledMessage & { target: Extract<ScheduledTarget, { type: 'sala' }> }, text: string): Promise<{ ok: boolean; text: string; limited?: boolean; permanent?: boolean }>;
+  toRoom(x: ScheduledMessage & { target: Extract<ScheduledTarget, { type: 'room' }> }, text: string): Promise<{ ok: boolean; text: string; limited?: boolean; permanent?: boolean }>;
   // a sweep at that time (an over-limit message is due within the minute)
   wake?(at: number): void;
   changed(list: ScheduledMessage[]): void;
@@ -85,13 +85,13 @@ export class Scheduled {
       if (!room.dweller) return { ok: false, text: t('tool.rooms.noDweller', { sala: room.name }) };
       const key = a.key?.trim() ? taskKey(a.key) : undefined;
       if (a.key?.trim() && !key) return { ok: false, text: t('tool.rooms.badKey', { clave: a.key ?? '' }) };
-      target = { type: 'sala', room: room.id, ...(key ? { key } : {}) };
+      target = { type: 'room', room: room.id, ...(key ? { key } : {}) };
     } else {
       if (!s) return { ok: false, text: t('tool.schedule.noConversation') };
-      target = { type: 'conversacion', roomId: s.roomId, sessionId: s.id, claudeId: s.claudeId, cwd: path.resolve(s.worktree ?? s.cwd), title: s.title };
+      target = { type: 'conversation', roomId: s.roomId, sessionId: s.id, claudeId: s.claudeId, cwd: path.resolve(s.worktree ?? s.cwd), title: s.title };
     }
     // to a room, at the same time as one of its own still pending for that place: joins it
-    const d = target.type === 'sala' ? target : undefined;
+    const d = target.type === 'room' ? target : undefined;
     const into = d && this.joinable(y => !y.overLimit && !y.afterTurn && sameSala(y.target, d) && sameSender(y.origin, origin) && !!y.nextWindow === next && (next || y.when === w.when));
     if (into) { this.joinMessage(into, message); return { ok: true, text: t('tool.schedule.doneRoom', { cuando: describeWhen(into.when), id: into.id, sala: a.room ?? '' }) + ' ' + t('tool.rooms.packed', { id: into.id }) }; }
     if (ofConversation(this.items, { id: fromSession, claudeId: s?.claudeId }).length >= MAX_PER_CONVERSATION || this.items.length >= MAX_TOTAL)
@@ -100,8 +100,8 @@ export class Scheduled {
       ...(d ? { messages: this.messagesOf(since, message) } : {}) };
     this.items.push(x); this.save();
     const when = describeWhen(x.when);
-    if (next) return { ok: true, text: t(target.type === 'sala' ? 'tool.schedule.doneWindowRoom' : 'tool.schedule.doneWindow', { cuando: when, id: x.id, sala: a.room ?? '' }) };
-    return { ok: true, text: t(target.type === 'sala' ? 'tool.schedule.doneRoom' : 'tool.schedule.done', { cuando: when, id: x.id, sala: a.room ?? '' }) + (w.postponed ? ' ' + t('tool.schedule.heldWeekend') : '') };
+    if (next) return { ok: true, text: t(target.type === 'room' ? 'tool.schedule.doneWindowRoom' : 'tool.schedule.doneWindow', { cuando: when, id: x.id, room: a.room ?? '' }) };
+    return { ok: true, text: t(target.type === 'room' ? 'tool.schedule.doneRoom' : 'tool.schedule.done', { cuando: when, id: x.id, room: a.room ?? '' }) + (w.postponed ? ' ' + t('tool.schedule.heldWeekend') : '') };
   }
 
   /** One the game itself schedules for a conversation (a production verification recheck, verifications.ts): no date to
@@ -111,7 +111,7 @@ export class Scheduled {
     if (this.items.length >= MAX_TOTAL) return undefined;
     const now = this.now(), w = holdWeekend(Math.max(when, now));
     const x: ScheduledMessage = { id: randomUUID().slice(0, 8), created: now, when: w, requested: new Date(w).toISOString(), message: message.slice(0, MAX_TEXT),
-      origin: { roomId: c.roomId, sessionId: c.sessionId, claudeId: c.claudeId }, target: { type: 'conversacion', ...c } };
+      origin: { roomId: c.roomId, sessionId: c.sessionId, claudeId: c.claudeId }, target: { type: 'conversation', ...c } };
     this.items.push(x); this.save();
     return x.id;
   }
@@ -120,7 +120,7 @@ export class Scheduled {
    *  still waiting for that place takes it instead (`joinMessage`), and goes at its own time */
   defer(since: string, fromSession: string | undefined, a: { room: string; key?: string; thread?: string; message: string; important?: boolean }, when: number): ScheduledMessage | undefined {
     const s = fromSession ? this.ctx.session(fromSession) : undefined;
-    const target: ScheduledTarget = { type: 'sala', room: a.room, ...(a.key ? { key: a.key } : {}), ...(a.thread ? { thread: a.thread } : {}) };
+    const target: ScheduledTarget = { type: 'room', room: a.room, ...(a.key ? { key: a.key } : {}), ...(a.thread ? { thread: a.thread } : {}) };
     const origin = { roomId: since, sessionId: fromSession, claudeId: s?.claudeId };
     const into = this.joinable(y => !!y.overLimit && sameSala(y.target, target) && sameSender(y.origin, origin));
     if (into) { if (a.important) into.important = true; return this.joinMessage(into, a.message); }
@@ -132,7 +132,7 @@ export class Scheduled {
     return x;
   }
   /** When the pending over-limit messages from one room to another go out */
-  overLimit(since: string, roomId: string) { return this.items.filter(x => x.overLimit && x.origin.roomId === since && x.target.type === 'sala' && x.target.room === roomId).map(x => x.when); }
+  overLimit(since: string, roomId: string) { return this.items.filter(x => x.overLimit && x.origin.roomId === since && x.target.type === 'room' && x.target.room === roomId).map(x => x.when); }
   pending(id: string) { return this.items.some(x => x.id === id); }
 
   /** The Overseer's composer in the intercom (⌥Enter, ⏳ or ⏰ Schedule): to a conversation (an open one, one to resume,
@@ -152,7 +152,7 @@ export class Scheduled {
     if (!next && (c.sessionId || c.claudeId) && ofConversation(this.items, { id: c.sessionId, claudeId: c.claudeId }).length >= MAX_PER_CONVERSATION)
       throw new Error(t('tool.schedule.limit', { n: MAX_PER_CONVERSATION }));
     const x: ScheduledMessage = { id: randomUUID().slice(0, 8), created: now, when: w.when, requested: next ? NEXT_WINDOW : requested, message: m.slice(0, MAX_TEXT),
-      origin: { roomId: c.roomId, sessionId: c.sessionId, claudeId: c.claudeId }, target: { type: 'conversacion', ...c }, ...(next ? { nextWindow: true as const } : {}), overseer: true };
+      origin: { roomId: c.roomId, sessionId: c.sessionId, claudeId: c.claudeId }, target: { type: 'conversation', ...c }, ...(next ? { nextWindow: true as const } : {}), overseer: true };
     this.items.push(x); this.save();
     return x;
   }
@@ -169,7 +169,7 @@ export class Scheduled {
       if (into) return this.joinMessage(into, message);
     }
     const x: ScheduledMessage = { id: randomUUID().slice(0, 8), created: now, when: now, requested: AFTER_TURN, message: message.slice(0, MAX_TEXT),
-      origin, target: { type: 'conversacion', ...c }, afterTurn: true, from, ...(from.kind === 'overseer' ? { overseer: true as const } : {}),
+      origin, target: { type: 'conversation', ...c }, afterTurn: true, from, ...(from.kind === 'overseer' ? { overseer: true as const } : {}),
       ...(from.kind === 'room' ? { messages: { room: from.room, dweller: from.dweller, parts: [{ kind: 'message' as const, text: message }] } } : {}) };
     this.items.push(x); this.save();
     return x;
@@ -207,7 +207,7 @@ export class Scheduled {
   }
   /** A turn ended: what waited for it goes out (on the next tick, after the turn's last event) */
   turnEnded(target: { sessionId?: string; claudeId?: string }) {
-    if (!this.items.some(x => x.afterTurn && (x.target.type === 'conversacion') && ((target.sessionId && x.target.sessionId === target.sessionId) || (target.claudeId && x.target.claudeId === target.claudeId)))) return;
+    if (!this.items.some(x => x.afterTurn && (x.target.type === 'conversation') && ((target.sessionId && x.target.sessionId === target.sessionId) || (target.claudeId && x.target.claudeId === target.claudeId)))) return;
     setTimeout(() => { this.sweep().catch(() => {}); }, 0);
   }
 
@@ -236,7 +236,7 @@ export class Scheduled {
     const x = this.items.find(y => y.id === id);
     if (!x) throw new Error(t('server.scheduledGone'));
     if (c.when !== undefined && isAfterTurn(c.when)) {
-      if (x.target.type !== 'conversacion') throw new Error(t('server.scheduledAfterTurnNoConversation'));
+      if (x.target.type !== 'conversation') throw new Error(t('server.scheduledAfterTurnNoConversation'));
       delete x.nextWindow; x.afterTurn = true; x.when = this.now(); x.requested = AFTER_TURN;
     }
     else if (c.when !== undefined && isNextWindow(c.when)) { x.nextWindow = true; x.when = finalWindowStart(this.now(), this.usage()); x.requested = NEXT_WINDOW; }
@@ -267,7 +267,7 @@ export class Scheduled {
     try {
       for (const x of due(this.items, this.now())) {
         if (!this.items.includes(x)) continue;   // cancelado mientras se entregaba otro
-        const pair = x.overLimit && x.target.type === 'sala' ? `${x.origin.roomId}>${x.target.room}` : undefined;
+        const pair = x.overLimit && x.target.type === 'room' ? `${x.origin.roomId}>${x.target.room}` : undefined;
         if (pair && held.has(pair)) continue;
         if (!(await this.deliver(x)) && pair) held.add(pair);
       }
@@ -278,7 +278,7 @@ export class Scheduled {
       const busy = (s: { sessionId?: string; claudeId?: string }) => !!this.ctx.busy?.(s);
       const started = new Set<string>();
       for (const y of turnDue(this.items, busy, url => this.ctx.settled?.(url) ?? true, now)) {
-        const d = y.target as Extract<ScheduledTarget, { type: 'conversacion' }>, k = d.claudeId ?? d.sessionId ?? '';
+        const d = y.target as Extract<ScheduledTarget, { type: 'conversation' }>, k = d.claudeId ?? d.sessionId ?? '';
         if (started.has(k) || !this.items.includes(y) || busy(d)) continue;
         started.add(k);
         await this.deliver(y);
@@ -291,10 +291,10 @@ export class Scheduled {
   private async deliver(x: ScheduledMessage, now = false): Promise<boolean> {
     let error: string | undefined;
     // a dated one falling due while its conversation is busy waits for its turn to end too (▶ sends it anyway)
-    if (!now && !x.afterTurn && x.target.type === 'conversacion' && this.ctx.busy?.(x.target)) { x.afterTurn = true; this.save(); return false; }
+    if (!now && !x.afterTurn && x.target.type === 'conversation' && this.ctx.busy?.(x.target)) { x.afterTurn = true; this.save(); return false; }
     this.delivering.add(x.id);
     try {
-      if (x.target.type === 'sala') {
+      if (x.target.type === 'room') {
         const r = await this.ctx.toRoom(x as any, this.text(x));
         if (!r.ok && r.limited) return false;
         if (!r.ok && r.permanent) { this.ctx.notice(t('server.scheduledDropped', { resumen: summary(x.message), error: r.text.split('\n')[0].slice(0, 160) })); this.drop(x); return true; }
@@ -314,12 +314,12 @@ export class Scheduled {
 
 }
 
-const sameSala = (a: ScheduledTarget, b: ScheduledTarget) => a.type === 'sala' && b.type === 'sala' && a.room === b.room && a.key === b.key && a.thread === b.thread;
+const sameSala = (a: ScheduledTarget, b: ScheduledTarget) => a.type === 'room' && b.type === 'room' && a.room === b.room && a.key === b.key && a.thread === b.thread;
 const isNextWindow = (when: unknown) => typeof when === 'string' && when.trim().toLowerCase() === NEXT_WINDOW;
 const isAfterTurn = (when: unknown) => typeof when === 'string' && when.trim().toLowerCase() === AFTER_TURN;
 export const summary = (s: string) => { const r = s.trim().replace(/\s+/g, ' '); return r.length > 90 ? r.slice(0, 89) + '…' : r; };
 
 function valid(x: any): x is ScheduledMessage {
   return x && typeof x.id === 'string' && Number.isFinite(x.when) && typeof x.message === 'string' && x.origin && typeof x.origin.roomId === 'string'
-    && x.target && (x.target.type === 'sala' ? typeof x.target.room === 'string' : x.target.type === 'conversacion' && typeof x.target.roomId === 'string' && typeof x.target.cwd === 'string');
+    && x.target && (x.target.type === 'room' ? typeof x.target.room === 'string' : x.target.type === 'conversation' && typeof x.target.roomId === 'string' && typeof x.target.cwd === 'string');
 }

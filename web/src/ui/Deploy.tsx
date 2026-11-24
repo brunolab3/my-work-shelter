@@ -17,7 +17,7 @@ import { knowTasks, useColorsTasks, verificationMark } from './tasks';
 import { ledgerPending, type ReviewLedger } from '@shared/reviewCount';
 import { DEPLOYMENT_COLUMNS, blockersBetween, deploymentColumn, taskLinks, deployWaves, promptDeployment, refPR, type Blocker, type BlockerManual, type TaskOrder } from '@shared/deploy';
 
-const REASON: Record<Blocker['reason'], string> = { pila: 'apilado', texto: 'lo dice el PR', plan: 'el plan de la tarea', manual: 'marcado aquí' };
+const REASON: Record<Blocker['reason'], string> = { stack: 'apilado', text: 'lo dice el PR', plan: 'el plan de la tarea', manual: 'marcado aquí' };
 type DataGH = { prs: PRBoard[]; demo?: boolean; error?: string };
 interface Memory { gh?: DataGH; manual?: BlockerManual[]; orden?: TaskOrder[] }
 const MEMORY = 'refugio:despliegue';
@@ -29,7 +29,7 @@ const short = (p: PRBoard) => `${p.repo.split('/').pop()}#${p.number}`;
 // lo que queda por contestar en sus revisiones (hilos sin resolver, resúmenes sin respuesta); sin nada, no se pinta
 function Ledger({ l }: { l: ReviewLedger }) {
   const parts = [l.unresolved > 0 && `💬 ${t('panels.ledgerThreads', { n: l.unresolved })}`, l.unansweredSummaries > 0 && `✉ ${t('panels.ledgerSummaries', { n: l.unansweredSummaries })}`].filter(Boolean);
-  return <small className="espera" title={t('panels.ledgerTitle', { hilos: l.unresolved, viejos: l.outdated, resumenes: l.unansweredSummaries })}>{parts.join(' · ')}</small>;
+  return <small className="wait" title={t('panels.ledgerTitle', { hilos: l.unresolved, viejos: l.outdated, resumenes: l.unansweredSummaries })}>{parts.join(' · ')}</small>;
 }
 
 // en cada columna, los PR de una misma tarea juntos, en un bloque: la tarea va donde va su mejor PR (la primera ola o el
@@ -75,7 +75,7 @@ export function DeploymentBoard({ roomId, goBack }: { roomId: string; goBack: ()
   const { waves, cycle } = useMemo(() => deployWaves(prs, blockers), [prs, blockers]);
   const wave = useMemo(() => new Map(waves.flatMap((o, k) => o.map(p => [p.url, k + 1] as const))), [waves]);
   const byUrl = useMemo(() => new Map(prs.map(p => [p.url, p])), [prs]);
-  const columns = DEPLOYMENT_COLUMNS.filter(c => showMerged || c.id !== 'fusionado')
+  const columns = DEPLOYMENT_COLUMNS.filter(c => showMerged || c.id !== 'merged')
     .map(c => ({ ...c, prs: byTask(prs.filter(p => deploymentColumn(p) === c.id).sort((a, b) => (wave.get(a.url) ?? 99) - (wave.get(b.url) ?? 99) || b.updated - a.updated)) }));
   const sel: PRBoard | undefined = columns[col]?.prs[Math.min(i, (columns[col]?.prs.length ?? 1) - 1)];
   const waitA = (u: string) => blockers.filter(b => b.from === u);
@@ -98,7 +98,7 @@ export function DeploymentBoard({ roomId, goBack }: { roomId: string; goBack: ()
   const selCard = () => sel && canvas.current?.querySelector(`[data-pr="${CSS.escape(sel.url)}"]`);
   const askPlan = () => {
     if (!dweller) { setNotice(t('panels.salaHasNoDweller', { sala: room?.name ?? t('panels.theRoom') })); SFX.notAllowed(); return; }
-    if (!prs.some(p => p.state === 'abierto' || p.state === 'borrador')) { setNotice(t('panels.youHaveNoPullRequests')); SFX.notAllowed(); return; }
+    if (!prs.some(p => p.state === 'open' || p.state === 'draft')) { setNotice(t('panels.youHaveNoPullRequests')); SFX.notAllowed(); return; }
     client.send({ t: 'start', dwellerId: dweller.id, roomId, prompt: promptDeployment(prs, blockers), options: { permissions: 'plan' } });
     SFX.shortSuccess(); closePanel(); goA(roomId, dweller.id, true);
   };
@@ -131,7 +131,7 @@ export function DeploymentBoard({ roomId, goBack }: { roomId: string; goBack: ()
         if (a.x1 <= z.x0) { const m = (a.x1 + z.x0) / 2; d = `M${a.x1},${a.y} C${m},${a.y} ${m},${z.y} ${z.x0 - 4},${z.y}`; }
         else if (z.x1 <= a.x0) { const m = (a.x0 + z.x1) / 2; d = `M${a.x0},${a.y} C${m},${a.y} ${m},${z.y} ${z.x1 + 4},${z.y}`; }
         else { const x = Math.max(a.x1, z.x1), s = 26; d = `M${a.x1},${a.y} C${x + s},${a.y} ${x + s},${z.y} ${z.x1 + 4},${z.y}`; }   // en la misma columna, por fuera
-        return [{ d, b, active: byUrl.get(b.by)?.state !== 'fusionado' }];
+        return [{ d, b, active: byUrl.get(b.by)?.state !== 'merged' }];
       });
       // solo si cambian (medir no debe volver a pintar sin motivo)
       setArrows(v => v.length === fresh.length && v.every((f, k) => f.d === fresh[k].d && f.active === fresh[k].active) ? v : fresh);
@@ -145,52 +145,52 @@ export function DeploymentBoard({ roomId, goBack }: { roomId: string; goBack: ()
   const inSel = (b: Blocker) => !!sel && (b.from === sel.url || b.by === sel.url);
   return (
     <Device label={`${(room?.name ?? t('panels.logistics')).toUpperCase()} · ${t('world.deploymentPlan')}${gh?.demo ? ' · DEMO' : ''}`} width={110} height onClose={goBack}>
-      {notice && <p className="aviso-consola" onClick={() => setNotice('')}>{notice}</p>}
-      {gh?.error && <p className="tenue">{gh.error}</p>}
-      {!gh && <p className="tenue">{t('panels.readingYourGithubPullRequests')}</p>}
-      {gh && reading && <p className="tenue">{t('panels.syncingWithGithub')}</p>}
-      {marking && <p className="voz">{t('panels.whichPrDoes')} <b>{short(byUrl.get(marking)!)}</b>? {t('panels.waitForPickItAnd')}</p>}
+      {notice && <p className="notice-console" onClick={() => setNotice('')}>{notice}</p>}
+      {gh?.error && <p className="dim">{gh.error}</p>}
+      {!gh && <p className="dim">{t('panels.readingYourGithubPullRequests')}</p>}
+      {gh && reading && <p className="dim">{t('panels.syncingWithGithub')}</p>}
+      {marking && <p className="voice">{t('panels.whichPrDoes')} <b>{short(byUrl.get(marking)!)}</b>? {t('panels.waitForPickItAnd')}</p>}
       <div ref={canvas} className="kanban kanban-despliegue" style={{ gridTemplateColumns: `repeat(${Math.max(1, columns.length)}, 1fr)` }}>
         <svg className="flechas-despliegue" aria-hidden>
           <defs>
-            <marker id="punta-bloqueo" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="var(--rojo)" /></marker>
-            <marker id="punta-hecho" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#b48cff" /></marker>
+            <marker id="head-blocker" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="var(--rojo)" /></marker>
+            <marker id="head-done" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#b48cff" /></marker>
           </defs>
-          {arrows.map(f => <path key={f.b.from + '>' + f.b.by} d={f.d} className={'flecha' + (f.active ? '' : ' hecha') + (f.b.reason === 'manual' ? ' manual' : '') + (inSel(f.b) ? ' sel' : '')} markerEnd={`url(#${f.active ? 'punta-bloqueo' : 'punta-hecho'})`} />)}
+          {arrows.map(f => <path key={f.b.from + '>' + f.b.by} d={f.d} className={'flecha' + (f.active ? '' : ' hecha') + (f.b.reason === 'manual' ? ' manual' : '') + (inSel(f.b) ? ' sel' : '')} markerEnd={`url(#${f.active ? 'head-blocker' : 'head-done'})`} />)}
         </svg>
         {columns.map((c, ci) => (
-          <div key={c.id} className={'kanban-col' + (ci === col ? ' activa' : '')}>
-            <h3>{tIs(c.name)} <span className="tenue">{c.prs.length}</span></h3>
+          <div key={c.id} className={'kanban-col' + (ci === col ? ' active' : '')}>
+            <h3>{tIs(c.name)} <span className="dim">{c.prs.length}</span></h3>
             {blocks(c.prs).map(b => (
               <div key={b.task} className={'bloque-tarea' + (b.prs.length > 1 ? ' varios' : '')} style={{ '--tarea': taskColor(b.task) } as React.CSSProperties}>
-                {b.prs.length > 1 && <div className="bloque-tarea-cab"><span className="marca-tarea" />{b.task} <span className="tenue">· {b.prs.length}</span><button className="consola-x bloque-tarea-preflight" title={t('preflight.open')} onClick={e => { e.stopPropagation(); preflight(b.task, e.currentTarget); }}>✈ {t('preflight.title')}</button></div>}
+                {b.prs.length > 1 && <div className="bloque-tarea-cab"><span className="marca-tarea" />{b.task} <span className="dim">· {b.prs.length}</span><button className="consola-x bloque-tarea-preflight" title={t('preflight.open')} onClick={e => { e.stopPropagation(); preflight(b.task, e.currentTarget); }}>✈ {t('preflight.title')}</button></div>}
             {b.prs.map(p => {
               const k = c.prs.indexOf(p);
               const waits = waitA(p.url), blk = blocksOf(p.url);
-              const pending = waits.filter(b => byUrl.get(b.by)?.state !== 'fusionado');
+              const pending = waits.filter(b => byUrl.get(b.by)?.state !== 'merged');
               const beside = links.filter(e => e.a === p.url || e.b === p.url).map(e => byUrl.get(e.a === p.url ? e.b : e.a)!);
               return (
-                <div key={p.url} data-pr={p.url} style={{ '--tarea': taskColor(pRTask(p)) } as React.CSSProperties} className={'ficha-issue ficha-pr con-tarea' + (ci === col && k === Math.min(i, c.prs.length - 1) ? ' sel' : '') + relation(p.url) + (marking === p.url ? ' marcando' : '') + (pending.length ? ' bloqueada' : '')}
+                <div key={p.url} data-pr={p.url} style={{ '--tarea': taskColor(pRTask(p)) } as React.CSSProperties} className={'card-issue ficha-pr con-tarea' + (ci === col && k === Math.min(i, c.prs.length - 1) ? ' sel' : '') + relation(p.url) + (marking === p.url ? ' marcando' : '') + (pending.length ? ' bloqueada' : '')}
                   onMouseEnter={() => { setCol(ci); setI(k); }} onClick={() => { if (marking) mark(marking, p.url); }} onDoubleClick={() => !marking && openLink(p.url)} title={`${refPR(p)} · ${trTextPR(p)}`}>
                   <span className="marca-tarea" title={pRTask(p)} /><span className="ident">{short(p)}</span>{wave.has(p.url) && <span className="ola" title={t('panels.deploymentWaveGoesAfterThe')}>{t('panels.waveN', { n: wave.get(p.url) ?? 0 })}</span>} {p.title}
-                  <small className="tenue">{trTextPR(p)}</small>
-                  {p.state === 'fusionado' && verificationMark(pRTask(p), refPR(p)) && <small className="tenue" title={t('verification.title')}>{verificationMark(pRTask(p), refPR(p))}</small>}
-                  {p.state !== 'fusionado' && p.state !== 'cerrado' && ledgerPending(p.ledger) && <Ledger l={p.ledger!} />}
-                  {waits.length > 0 && <small className={pending.length ? 'espera' : 'tenue'}>⛔ {t('panels.waitsFor')} {waits.map(b => <span key={b.by} title={tIs(REASON[b.reason])}>{short(byUrl.get(b.by)!)}{byUrl.get(b.by)?.state === 'fusionado' ? ' ✓' : ''} </span>)}</small>}
-                  {blk.length > 0 && <small className="tenue">→ {t('panels.blocks')} {blk.map(b => short(byUrl.get(b.from)!)).join(', ')}</small>}
-                  {beside.length > 0 && <small className="tenue" title={t('panels.sameTaskInAnotherRepo')}>⋯ {t('panels.sameTaskAs')} {beside.map(short).join(', ')}</small>}
+                  <small className="dim">{trTextPR(p)}</small>
+                  {p.state === 'merged' && verificationMark(pRTask(p), refPR(p)) && <small className="dim" title={t('verification.title')}>{verificationMark(pRTask(p), refPR(p))}</small>}
+                  {p.state !== 'merged' && p.state !== 'closed' && ledgerPending(p.ledger) && <Ledger l={p.ledger!} />}
+                  {waits.length > 0 && <small className={pending.length ? 'wait' : 'dim'}>⛔ {t('panels.waitsFor')} {waits.map(b => <span key={b.by} title={tIs(REASON[b.reason])}>{short(byUrl.get(b.by)!)}{byUrl.get(b.by)?.state === 'merged' ? ' ✓' : ''} </span>)}</small>}
+                  {blk.length > 0 && <small className="dim">→ {t('panels.blocks')} {blk.map(b => short(byUrl.get(b.from)!)).join(', ')}</small>}
+                  {beside.length > 0 && <small className="dim" title={t('panels.sameTaskInAnotherRepo')}>⋯ {t('panels.sameTaskAs')} {beside.map(short).join(', ')}</small>}
                 </div>
               );
             })}
               </div>
             ))}
-            {!c.prs.length && <p className="tenue">—</p>}
+            {!c.prs.length && <p className="dim">—</p>}
           </div>
         ))}
       </div>
       {waves.length > 0 && <p className="orden-despliegue"><b>{t('panels.order')}</b> {waves.map((o, k) => <span key={k}>{k > 0 && ' → '}<b>{k + 1}</b> {o.map(short).join(', ')}</span>)}</p>}
-      {cycle.length > 0 && <p className="aviso-consola">{t('panels.cyclicBlockersNobodyCanGo')} {cycle.map(short).join(', ')}. {t('panels.removeOneWithX')}</p>}
-      {sel && waitA(sel.url).length > 0 && <p className="tenue">{short(sel)} {t('panels.waitsFor')} {waitA(sel.url).map(b => `${short(byUrl.get(b.by)!)} (${tIs(REASON[b.reason])})`).join(', ')}.</p>}
+      {cycle.length > 0 && <p className="notice-console">{t('panels.cyclicBlockersNobodyCanGo')} {cycle.map(short).join(', ')}. {t('panels.removeOneWithX')}</p>}
+      {sel && waitA(sel.url).length > 0 && <p className="dim">{short(sel)} {t('panels.waitsFor')} {waitA(sel.url).map(b => `${short(byUrl.get(b.by)!)} (${tIs(REASON[b.reason])})`).join(', ')}.</p>}
       <div className="botonera">
         {sel && <button className="boton-taller" onClick={e => preflight(pRTask(sel), e.currentTarget)} title={t('preflight.actionHint')}>{t('preflight.keyF', { clave: pRTask(sel) })}</button>}
         <button className="boton-taller" onClick={askPlan} title={t('panels.handsTheBoardToQuien', { quien: dweller?.name ?? t('panels.theRoomSDweller') })}>{dweller ? t('panels.pAskNombreForThe', { nombre: dweller.name }) : t('panels.pAskForTheDeployment')}</button>

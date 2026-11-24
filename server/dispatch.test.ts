@@ -10,7 +10,7 @@ import { jiraKeys } from '../shared/board.ts';
 const ROOMS: AssignmentRoom[] = [
   { id: 'api', name: 'api', path: '/raiz/api', dweller: 'Remi', inIsWing: true },
   { id: 'web', name: 'Web', path: '/raiz/web', dweller: 'Lola', inIsWing: true },
-  { id: 'vacia', name: 'vacia', path: '/raiz/vacia', inIsWing: true },
+  { id: 'empty', name: 'empty', path: '/raiz/vacia', inIsWing: true },
 ];
 const pathRoom = (r: string) => ROOMS.find(s => r === s.path || r.startsWith(s.path + '/'))?.id;
 function ctxFake(fail: string[] = [], closed: string[] = []) {
@@ -32,7 +32,10 @@ describe('buscarSala', () => {
     expect(findRoom(ROOMS, 'api', pathRoom)?.id).toBe('api');
     expect(findRoom(ROOMS, 'web', pathRoom)?.id).toBe('web');
     expect(findRoom(ROOMS, '/raiz/web/src', pathRoom)?.id).toBe('web');
-    expect(findRoom(ROOMS, 'otra', pathRoom)).toBeUndefined();
+    expect(findRoom(ROOMS, 'other', pathRoom)).toBeUndefined();
+  });
+  it('an old built-in room id still reaches its room', () => {
+    expect(findRoom([...ROOMS, { id: 'bridge', name: 'Puente de Mando' } as AssignmentRoom], 'puente', pathRoom)?.id).toBe('bridge');
   });
 });
 
@@ -68,8 +71,8 @@ describe('repartir', () => {
   });
   it('una sala que no existe, sin habitante o repetida: no pregunta ni empieza nada', async () => {
     for (const jobs of [
-      [{ room: 'api', title: 'a', instructions: 'a' }, { room: 'nada', title: 'b', instructions: 'b' }],
-      [{ room: 'vacia', title: 'a', instructions: 'a' }],
+      [{ room: 'api', title: 'a', instructions: 'a' }, { room: 'none', title: 'b', instructions: 'b' }],
+      [{ room: 'empty', title: 'a', instructions: 'a' }],
       [{ room: 'api', title: 'a', instructions: 'a' }, { room: '/raiz/api', title: 'b', instructions: 'b' }],
     ]) {
       const { ctx, started } = ctxFake(); const p = ask(true);
@@ -116,7 +119,7 @@ describe('plan compartido', () => {
   });
   it('sin salas afectadas avisa a todas; una sala que no está en el plan no cambia nada', async () => {
     const { ctx, notices } = await dispatched();
-    expect(updatePlan(ctx, OPTION, { id: 'ABC-12', plan: 'x', changes: 'c', affected: [{ room: 'vacia', message: 'm' }] }).ok).toBe(false);
+    expect(updatePlan(ctx, OPTION, { id: 'ABC-12', plan: 'x', changes: 'c', affected: [{ room: 'empty', message: 'm' }] }).ok).toBe(false);
     expect(ctx.plans.get('ABC-12')!.version).toBe(1);
     updatePlan(ctx, OPTION, { plan: 'x', changes: 'c' });
     expect(notices.map(a => a.sessionId)).toEqual(['s-api', 's-web']);
@@ -155,9 +158,9 @@ describe('orden de fusión entre partes (espera_a)', () => {
 
   it('esperar a una sala que no es parte del plan no reparte nada', async () => {
     const { ctx, started } = ctxFake();
-    const r = await dispatch(ctx, OPTION, 'ABC-12', [{ room: 'web', title: 'Formulario', instructions: 'frontend', waits_on: ['vacia'] }], 'El plan');
+    const r = await dispatch(ctx, OPTION, 'ABC-12', [{ room: 'web', title: 'Formulario', instructions: 'frontend', waits_on: ['empty'] }], 'El plan');
     expect(r.ok).toBe(false);
-    expect(r.text).toContain('«vacia» no es una parte del plan');
+    expect(r.text).toContain('«empty» no es una parte del plan');
     expect(started).toEqual([]);
   });
 
@@ -168,7 +171,7 @@ describe('orden de fusión entre partes (espera_a)', () => {
     expect(ctx.plans.get('ABC-12')!.parts.find(x => x.roomId === 'api')!.waitA).toEqual(['web']);
     expect(updatePlan(ctx, OPTION, { plan: 'v3', changes: 'sin orden', orden: [{ room: 'api', waits_on: [] }] }).ok).toBe(true);
     expect(ctx.plans.get('ABC-12')!.parts.find(x => x.roomId === 'api')!.waitA).toEqual([]);
-    const fail = updatePlan(ctx, OPTION, { plan: 'v4', changes: 'x', orden: [{ room: 'api', waits_on: ['otra'] }] });
+    const fail = updatePlan(ctx, OPTION, { plan: 'v4', changes: 'x', orden: [{ room: 'api', waits_on: ['other'] }] });
     expect(fail.ok).toBe(false);
     expect(ctx.plans.get('ABC-12')!.version).toBe(3);
   });

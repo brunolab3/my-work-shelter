@@ -16,7 +16,7 @@ const scalePack = (id: string) => (PACKS[id.split('/')[0]]?.folder.startsWith('k
 
 export async function furnishDecor(ctx: Context, d: Decor, base: Furnish | null) {
   if (base) await base(ctx); else await mountEmpty(ctx, d);
-  if (d.piece && base) piecePoint(ctx, d.piece, 'pieza-decorado');
+  if (d.piece && base) piecePoint(ctx, d.piece, 'piece-decor');
   if (d.hobby) hobbyPoint(ctx, d.hobby);
   await Promise.all([mountPieces(ctx, d.pieces ?? []), ...(d.signs ?? []).map((c, i) => mountSign(ctx, c, i))]);
   if (d.lamps?.length) ctx.lamps = d.lamps.map(l => ({ x: l.x, z: l.z, o: { intensity: l.intensity ?? 80, ...(l.color ? { color: l.color } : {}), goal: [l.x, l.z - 0.6] as [number, number] } }));
@@ -32,7 +32,7 @@ async function mountEmpty(ctx: Context, d: Decor) {
   // the dweller's desk, in the middle under the board (the dressing only chooses how it looks)
   const pu = d.workstation ?? {};
   const pStation = new PhosphorScreen(384, 256, v.screen); pStation.speed = 30;
-  screenReal(ctx, pStation, 'actividad'); ctx.room.screens.push(pStation);
+  screenReal(ctx, pStation, 'activity'); ctx.room.screens.push(pStation);
   const desk = pu.desk ? propsPath(pu.desk) : null;
   await centralDesk(ctx, { tex: pStation.tex, screen: pu.screen ?? 'monitor', ...(desk ? { desk } : {}) }).catch(async () => {
     await centralDesk(ctx, { tex: pStation.tex });   // la mesa pedida no carga: la de siempre
@@ -40,7 +40,7 @@ async function mountEmpty(ctx: Context, d: Decor) {
   // the centrepiece: the dweller goes to it (by default on the left; the task board brightens when it's used)
   const screen = ctx.room.userData.taskBoard?.mesh as THREE.Mesh | undefined;
   const mat = screen?.material as THREE.MeshStandardMaterial | undefined;
-  piecePoint(ctx, d.piece ?? { x: -3.6, z: zB + 1.3, rotation: 180 }, 'pieza', () => { if (mat) mat.emissiveIntensity = 1.45; });
+  piecePoint(ctx, d.piece ?? { x: -3.6, z: zB + 1.3, rotation: 180 }, 'piece', () => { if (mat) mat.emissiveIntensity = 1.45; });
   if (mat) ctx.onUpdate(dt => { mat.emissiveIntensity = Math.max(0.95, mat.emissiveIntensity - dt * 0.4); });
   const panel = new PanelRoom(); panel.title = d.subtitle ?? 'TALLER'; panel.color = v.screen; ctx.panel = panel;
   stain(g, -2.0, 1.1, 1.1, ctx.seed);
@@ -52,12 +52,12 @@ async function mountEmpty(ctx: Context, d: Decor) {
 
 function piecePoint(ctx: Context, p: DecorPoint, id: string, onMake?: () => void) {
   const gestures = p.gestures?.length ? p.gestures : ['Interact', 'Holding_A', 'Use_Item'];
-  ctx.room.points.push({ id, type: 'pieza', pos: new THREE.Vector3(p.x, 0, p.z), rotation: (p.rotation ?? 180) * G,
-    actions: gestures.map(clip => ({ clip, ...(clip === 'Holding_A' ? { utensil: 'diario', dur: 4 } : {}), ...(onMake && (clip === 'Interact' || clip === 'Use_Item') ? { onMake } : {}) })) } as RoomPoint);
+  ctx.room.points.push({ id, type: 'piece', pos: new THREE.Vector3(p.x, 0, p.z), rotation: (p.rotation ?? 180) * G,
+    actions: gestures.map(clip => ({ clip, ...(clip === 'Holding_A' ? { utensil: 'journal', dur: 4 } : {}), ...(onMake && (clip === 'Interact' || clip === 'Use_Item') ? { onMake } : {}) })) } as RoomPoint);
 }
 function hobbyPoint(ctx: Context, p: DecorPoint) {
   const [clip = 'Idle_A', other] = p.gestures ?? [];
-  ctx.room.points.push({ id: 'aficion-decorado', type: 'aficion', pos: new THREE.Vector3(p.x, 0, p.z), rotation: (p.rotation ?? 180) * G, clip, ...(other ? { gesture: { clip: other, every: 5 } } : {}) });
+  ctx.room.points.push({ id: 'hobby-decor', type: 'hobby', pos: new THREE.Vector3(p.x, 0, p.z), rotation: (p.rotation ?? 180) * G, clip, ...(other ? { gesture: { clip: other, every: 5 } } : {}) });
 }
 
 // ---------------------------------------------------------------- el atrezo
@@ -92,7 +92,7 @@ async function mountPieces(ctx: Context, pieces: DecorPiece[]) {
       const tb = ctx.board;
       if (tb && box3.min.z < zB + BOARD_CLEAR && coversBoard(tb, (box3.min.x + box3.max.x) / 2, (box3.min.y + box3.max.y) / 2, box3.max.x - box3.min.x - 0.08, box3.max.y - box3.min.y - 0.08)) { o.removeFromParent(); return null; }
       // lo que brilla da un poco de luz de verdad alrededor (pocas: las reparte el juego con las demás)
-      if (p.light && lights < 6) { lights++; ctx.room.anchors.push({ type: 'punto', pos: box3.getCenter(new THREE.Vector3()), intensity: 2.4, color: new THREE.Color(p.light), distance: 3.5, priority: 1 }); }
+      if (p.light && lights < 6) { lights++; ctx.room.anchors.push({ type: 'point', pos: box3.getCenter(new THREE.Vector3()), intensity: 2.4, color: new THREE.Color(p.light), distance: 3.5, priority: 1 }); }
       // lo que está en el suelo y abulta es un obstáculo para quien anda por la sala
       if (!support && !p.y && box3.max.y - box3.min.y > 0.3) ctx.room.obstacles.push(new THREE.Box2(new THREE.Vector2(box3.min.x, box3.min.z), new THREE.Vector2(box3.max.x, box3.max.z)));
       return o;
@@ -104,6 +104,6 @@ async function mountPieces(ctx: Context, pieces: DecorPiece[]) {
 async function mountSign(ctx: Context, c: NonNullable<Decor['signs']>[number], i: number) {
   const height = c.width * 720 / 512;
   if (ctx.board && coversBoard(ctx.board, c.x, c.y, c.width, height)) return;
-  const m = signInWall(ctx.g, sign(c.lines.length ? c.lines : [' '], c.title, c.background ?? '#e3d9c0', c.ink ?? '#3a2a1e', c.symbol ?? 'engranaje', ctx.seed + i * 7), c.x, c.y, c.width, height, ctx.zB + 0.33, (c.rotation ?? 0) * G);
+  const m = signInWall(ctx.g, sign(c.lines.length ? c.lines : [' '], c.title, c.background ?? '#e3d9c0', c.ink ?? '#3a2a1e', c.symbol ?? 'gear', ctx.seed + i * 7), c.x, c.y, c.width, height, ctx.zB + 0.33, (c.rotation ?? 0) * G);
   aWall(ctx.g, m, 0.012);
 }

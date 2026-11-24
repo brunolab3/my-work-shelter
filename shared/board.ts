@@ -15,7 +15,7 @@ export interface TaskJira {
 }
 /** A task's epic: its key and summary, and its own color from the tasks' palette (assigned with them) */
 export interface Epic { key: string; title: string; color?: string }
-export type StatePR = 'abierto' | 'borrador' | 'fusionado' | 'cerrado';
+export type StatePR = 'open' | 'draft' | 'merged' | 'closed';
 export interface PRBoard {
   number: number; title: string; url: string; repo: string; branch: string; state: StatePR;
   review?: 'APPROVED' | 'CHANGES_REQUESTED' | 'REVIEW_REQUIRED';
@@ -49,23 +49,23 @@ export function jiraKeys(text: string, projects: Set<string> = new Set()): strin
 // los PR de la tarea son informativos (salen en su ficha; su estado, en el plan de despliegue de Logística) y nunca
 // la cambian de columna. Prod check: Jira's prod-check status, linked by the game or picked in the vault (production
 // verification, server/verificationBoards.ts; one for all its projects), by that setting only; without one, nothing is there.
-export type BoardColumn = 'porHacer' | 'enCurso' | 'bloqueado' | 'revision' | 'prodCheck' | 'hecho';
+export type BoardColumn = 'toDo' | 'inProgress' | 'blocked' | 'review' | 'prodCheck' | 'done';
 export const COLUMNS: { id: BoardColumn; name: string }[] = [
-  { id: 'porHacer', name: 'Por hacer' }, { id: 'bloqueado', name: 'Bloqueado' }, { id: 'enCurso', name: 'En curso' },
-  { id: 'revision', name: 'En revisión' }, { id: 'prodCheck', name: 'Prueba en producción' }, { id: 'hecho', name: 'Hecho' },
+  { id: 'toDo', name: 'Por hacer' }, { id: 'blocked', name: 'Bloqueado' }, { id: 'inProgress', name: 'En curso' },
+  { id: 'review', name: 'En revisión' }, { id: 'prodCheck', name: 'Prueba en producción' }, { id: 'done', name: 'Hecho' },
 ];
 // El color de las columnas que tienen que distinguirse de un vistazo (las fichas llevan el de su tarea): verde en curso,
 // azul en revisión, violeta prod check, rojo bloqueado
-export const COLUMN_COLORS: Partial<Record<BoardColumn, string>> = { enCurso: '#5fd98a', revision: '#5aa8ff', prodCheck: '#c18cff', bloqueado: '#ff5a4a' };
+export const COLUMN_COLORS: Partial<Record<BoardColumn, string>> = { inProgress: '#5fd98a', review: '#5aa8ff', prodCheck: '#c18cff', blocked: '#ff5a4a' };
 export const isBlockedState = (state: string) => /block|bloque|impediment|on[ -]?hold|en espera/i.test(state);
 /** Jira's prod-check status (settings.verificationJira: one for all its projects), if one is set */
 export const prodCheckOf = (jira?: BoardStatuses) => jira?.test;
 export function columnOfState(state: string, category: Category, prodCheck?: string): BoardColumn {
   if (sameStatus(state, prodCheck)) return 'prodCheck';
-  if (category === 'done') return 'hecho';
-  if (isBlockedState(state)) return 'bloqueado';
-  if (category === 'new') return 'porHacer';
-  return /review|revisi/i.test(state) ? 'revision' : 'enCurso';
+  if (category === 'done') return 'done';
+  if (isBlockedState(state)) return 'blocked';
+  if (category === 'new') return 'toDo';
+  return /review|revisi/i.test(state) ? 'review' : 'inProgress';
 }
 export const columnOf = (t: TaskJira, jira?: BoardStatuses) => columnOfState(t.state, t.category, prodCheckOf(jira));
 
@@ -104,7 +104,7 @@ export function crossBoard(tareas: TaskJira[], prs: PRBoard[], jira?: BoardStatu
   });
   const withPR: TaskWithPR[] = tareas.map(t => ({ ...t, prs: withKeys.filter(p => p.keys.includes(t.key)) }));
   return {
-    columns: COLUMNS.map(c => ({ ...c, tareas: byEpic(withPR.filter(t => columnOf(t, jira) === c.id && (c.id !== 'hecho' || now - t.updated <= DONE_DAYS * 864e5))) })),
+    columns: COLUMNS.map(c => ({ ...c, tareas: byEpic(withPR.filter(t => columnOf(t, jira) === c.id && (c.id !== 'done' || now - t.updated <= DONE_DAYS * 864e5))) })),
     prs: withKeys,
     withoutTask: withKeys.filter(p => !p.tareas.length),
   };
@@ -112,9 +112,9 @@ export function crossBoard(tareas: TaskJira[], prs: PRBoard[], jira?: BoardStatu
 
 // Texto corto del estado de un PR, para la ficha: «abierto · aprobado · CI ✓»
 export function prText(p: PRBoard): string {
-  const state = { abierto: 'abierto', borrador: 'borrador', fusionado: 'fusionado', cerrado: 'cerrado' }[p.state];
-  const rev = p.state === 'abierto' && p.review ? { APPROVED: 'aprobado', CHANGES_REQUESTED: 'piden cambios', REVIEW_REQUIRED: 'esperando revisión' }[p.review] : '';
-  const ci = p.state === 'abierto' || p.state === 'borrador' ? (p.checks === 'SUCCESS' ? 'CI ✓' : p.checks === 'FAILURE' || p.checks === 'ERROR' ? 'CI ✗' : p.checks ? 'CI …' : '') : '';
+  const state = { open: 'abierto', draft: 'borrador', merged: 'fusionado', closed: 'cerrado' }[p.state];
+  const rev = p.state === 'open' && p.review ? { APPROVED: 'aprobado', CHANGES_REQUESTED: 'piden cambios', REVIEW_REQUIRED: 'esperando revisión' }[p.review] : '';
+  const ci = p.state === 'open' || p.state === 'draft' ? (p.checks === 'SUCCESS' ? 'CI ✓' : p.checks === 'FAILURE' || p.checks === 'ERROR' ? 'CI ✗' : p.checks ? 'CI …' : '') : '';
   return [state, rev, ci].filter(Boolean).join(' · ');
 }
 

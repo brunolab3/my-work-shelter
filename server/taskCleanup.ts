@@ -40,7 +40,7 @@ export function finishedTasks(room: RoomCleanup, prs: PRBoard[]): FinishedTask[]
   const others = room.worktrees.filter(w => !w.main && !w.external);
   const out: FinishedTask[] = [];
   for (const [task, list] of byTask) {
-    if (list.some(p => p.state === 'abierto' || p.state === 'borrador')) continue;
+    if (list.some(p => p.state === 'open' || p.state === 'draft')) continue;
     const branches = new Set(list.map(p => p.branch)), key = keyOf(list[0])?.toLowerCase();
     const worktrees = others.filter(w => branches.has(w.branch)
       || (key && path.basename(w.path).toLowerCase().includes(key))
@@ -66,12 +66,12 @@ export function planOf(task: FinishedTask, w: InfoWorktree, plans: Record<string
 /** What keeps a finished task's worktree for its production verification (none: it can go): no approved plan yet, its
  *  final checkpoint still open, or failed (a fix is likely to follow there). Evidenced, or inconclusive accepted with a
  *  reason, lets it go; so do PRs all closed without merging */
-export type Hold = 'sin-plan' | 'abierta' | 'fallida';
+export type Hold = 'no-plan' | 'open' | 'fallida';
 export function verificationHold(task: FinishedTask, plan: VerificationPlan | undefined): Hold | undefined {
-  if (!task.prs.some(p => p.state === 'fusionado')) return undefined;
-  if (!plan || !isApproved(plan)) return 'sin-plan';
+  if (!task.prs.some(p => p.state === 'merged')) return undefined;
+  if (!plan || !isApproved(plan)) return 'no-plan';
   const state = finalCheckpoint(plan)?.state;
-  return state === 'evidenced' ? undefined : state === 'failed' ? 'fallida' : 'abierta';
+  return state === 'evidenced' ? undefined : state === 'failed' ? 'fallida' : 'open';
 }
 
 /** The task's conversation in a worktree: the most recent one there (open or closed, to resume) */
@@ -79,14 +79,14 @@ export const conversationIn = (sessions: SessionSummary[], w: InfoWorktree) =>
   sessions.filter(s => inside(w.path, s.worktree ?? s.cwd)).sort((a, b) => b.updated - a.updated)[0];
 
 /** Lo que impide quitar un worktree (vacío: se puede quitar). `git` lanza si el comando falla */
-export type Leftover = { type: 'cambios' | 'stash' | 'commits' | 'programados'; n: number } | { type: 'conversacion' };
+export type Leftover = { type: 'changes' | 'stash' | 'commits' | 'scheduled'; n: number } | { type: 'conversation' };
 export async function leftovers(git: (cwd: string, args: string[]) => Promise<string>, w: InfoWorktree, prs: PRBoard[], sessions: SessionSummary[]): Promise<Leftover[]> {
   const out: Leftover[] = [];
   const dir = path.resolve(w.path);
-  if (sessions.some(s => s.state !== 'cerrada' && inside(dir, s.worktree ?? s.cwd))) out.push({ type: 'conversacion' });
+  if (sessions.some(s => s.state !== 'closed' && inside(dir, s.worktree ?? s.cwd))) out.push({ type: 'conversation' });
   const lines = (t: string) => t.split('\n').filter(Boolean);
   const changes = lines(await git(w.path, ['status', '--porcelain', '--untracked-files=no'])).length;
-  if (changes) out.push({ type: 'cambios', n: changes });
+  if (changes) out.push({ type: 'changes', n: changes });
   // el stash es del repo entero: cuentan los guardados en esta rama («WIP on rama:» u «On rama:»)
   const stash = w.branch ? lines(await git(w.path, ['stash', 'list', '--format=%gs'])).filter(l => l.startsWith(`WIP on ${w.branch}:`) || l.startsWith(`On ${w.branch}:`)).length : 0;
   if (stash) out.push({ type: 'stash', n: stash });
@@ -111,7 +111,7 @@ export const scheduledIn = (list: ScheduledMessage[], room: RoomCleanup, w: Info
 export function orphanedConversations(sessions: SessionSummary[], used: Set<string>, exists: (filePath: string) => boolean, reviewsRoot?: string): string[] {
   const review = reviewsRoot && new RegExp('^(' + path.resolve(reviewsRoot).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '/[^/]+)');
   return sessions.filter(s => {
-    if (!['terminada', 'ociosa', 'error'].includes(s.state) || s.unread || used.has(s.id)) return false;
+    if (!['finished', 'idle', 'error'].includes(s.state) || s.unread || used.has(s.id)) return false;
     // a retired review's folder (server/reviewRoom.ts) goes the same way
     const root = /^(.*\/\.claude\/worktrees\/[^/]+)/.exec(s.worktree ?? s.cwd)?.[1] ?? (review ? review.exec(s.worktree ?? s.cwd)?.[1] : undefined);
     return !!root && !exists(root);
@@ -140,7 +140,7 @@ export interface CtxCleanup {
   removed(roomId: string, task: FinishedTask, w: InfoWorktree, loose: number): void;   // aviso al Supervisor
   /** pregunta al Supervisor (una vez) si lo quita igualmente; `quitar` lo hace, si dice que sí ('esperando': hay una
    *  conversación abierta en él, se quitará al cerrarla) */
-  ask(roomId: string, task: FinishedTask, w: InfoWorktree, what: Leftover[], remove: () => Promise<'quitado' | 'esperando' | undefined>): void;
+  ask(roomId: string, task: FinishedTask, w: InfoWorktree, what: Leftover[], remove: () => Promise<'removed' | 'waiting' | undefined>): void;
   changed(): void;                                               // los worktrees de las salas han cambiado
 }
 
@@ -171,7 +171,7 @@ export class TasksCleanup {
           // without an approved plan, asked once per task (the plan's key, else the worktree's task)
           const key = plan?.key ?? taskKey(worktreeTask(w)) ?? taskKey(task.task) ?? task.task;
           const asked = `plan|${room.id}|${key}`;
-          if (hold === 'sin-plan' && !this.notified.includes(asked)) {
+          if (hold === 'no-plan' && !this.notified.includes(asked)) {
             this.notified.push(asked); notices = true;
             this.ctx.noPlan(room.id, task, w, key, plan, conversationIn(this.ctx.sessions(), w), () => {
               if (!this.unverified.includes(approved)) { this.unverified.push(approved); this.save(); }
@@ -181,8 +181,8 @@ export class TasksCleanup {
         }
         const what = await leftovers(this.ctx.git, w, task.prs, this.ctx.sessions());
         const pending = scheduledIn(this.ctx.scheduled(), room, w).length;
-        if (pending) what.push({ type: 'programados', n: pending });
-        if (what.some(x => x.type === 'conversacion')) continue;   // se espera a que se cierre
+        if (pending) what.push({ type: 'scheduled', n: pending });
+        if (what.some(x => x.type === 'conversation')) continue;   // se espera a que se cierre
         const force = this.approved.includes(approved);
         if (!what.length || force) {
           await this.remove(room, task, w, force);
@@ -199,13 +199,13 @@ export class TasksCleanup {
           const list = await this.ctx.git(room.path, ['worktree', 'list', '--porcelain']);
           if (!list.split('\n').includes('worktree ' + w.path)) return undefined;
           // con una conversación abierta en él (p. ej. la de preguntarle qué queda), se quita en cuanto se cierre
-          if ((await leftovers(this.ctx.git, w, task.prs, this.ctx.sessions())).some(x => x.type === 'conversacion')) {
+          if ((await leftovers(this.ctx.git, w, task.prs, this.ctx.sessions())).some(x => x.type === 'conversation')) {
             if (!this.approved.includes(approved)) { this.approved.push(approved); this.save(); }
-            return 'esperando';
+            return 'waiting';
           }
           await this.remove(room, task, w, true);
           this.ctx.changed();
-          return 'quitado';
+          return 'removed';
         });
       } catch (e) {
         console.error(`Limpieza de ${w.path}:`, String((e as Error).message).split('\n')[0]);

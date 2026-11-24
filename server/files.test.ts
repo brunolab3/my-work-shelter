@@ -37,7 +37,7 @@ describe('archivos del refugio', () => {
 
   it('lee y guarda (también lo que git ignora), sin pisar lo que ha cambiado en el disco', async () => {
     const l = await act('read', { rel: '.env' });
-    expect(l).toMatchObject({ type: 'texto', text: 'CLAVE=1\n' });
+    expect(l).toMatchObject({ type: 'text', text: 'CLAVE=1\n' });
     const g = await act('save', { rel: '.env', text: 'CLAVE=2\n', date: l.date });
     expect(g.conflict).toBe(false);
     expect(readFileSync(path.join(root, '.env'), 'utf8')).toBe('CLAVE=2\n');
@@ -52,7 +52,7 @@ describe('archivos del refugio', () => {
   it('distingue binarios e imágenes', async () => {
     writeFileSync(path.join(root, 'b.bin'), Buffer.from([1, 0, 2]));
     writeFileSync(path.join(root, 'p.png'), Buffer.from([137, 80, 78, 71]));
-    expect((await act('read', { rel: 'b.bin' })).type).toBe('binario');
+    expect((await act('read', { rel: 'b.bin' })).type).toBe('binary');
     expect((await act('read', { rel: 'p.png' })).data).toMatch(/^data:image\/png;base64,/);
   });
 
