@@ -45,6 +45,7 @@ export const MENU: Record<string, LocalizedText> = {
   'menu.logPageSize': { es: 'Mensajes al abrir una conversación', en: 'Messages loaded per conversation' },
   'menu.dictationLanguage': { es: 'Idioma del dictado', en: 'Dictation language' },
   'menu.memoryLimit': { es: 'Ofrecer recargar si la memoria pasa de', en: 'Offer a reload when memory exceeds' },
+  'menu.memoryThreshold': { es: 'Memoria de la app en rojo a partir de', en: 'App memory turns red above' },
   'menu.memoryLimitNever': { es: 'Nunca', en: 'Never' },
   'menu.memoryReloadNow': { es: 'Recargar ahora', en: 'Reload now' },
   'menu.memoryReloadKeeps': { es: 'lo escrito y adjuntado en los intercomunicadores se conserva', en: 'what is typed and attached in the intercoms is kept' },

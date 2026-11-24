@@ -32,14 +32,20 @@ export function descendants(rows: PsRow[], root: number, own = process.pid): PsR
 
 /** Of `own`'s direct children, the one whose environment (`ps -E`) carries the conversation's mark. */
 export function markedChild(envs: string, sessionId: string): number | undefined {
-  const mark = `${CONVERSATION_MARK}=${sessionId}`;
+  for (const [pid, id] of markedChildren(envs)) if (id === sessionId) return pid;
+}
+/** Every process in a `ps -E` listing that carries a conversation's mark → that conversation's id. */
+export function markedChildren(envs: string): Map<number, string> {
+  const r = new Map<number, string>(), prefix = `${CONVERSATION_MARK}=`;
   for (const l of envs.split('\n')) {
     const m = /^\s*(\d+)\s(.*)$/.exec(l);
-    if (m && m[2].split(/\s+/).includes(mark)) return Number(m[1]);
+    const mark = m?.[2].split(/\s+/).find(w => w.startsWith(prefix));
+    if (mark && !r.has(Number(m![1]))) r.set(Number(m![1]), mark.slice(prefix.length));
   }
+  return r;
 }
 
-const ps = (args: string[]) => new Promise<string>(ok => execFile('ps', args, { maxBuffer: 32 * 1024 * 1024, timeout: 5000 }, (_e, out) => ok(String(out ?? ''))));
+export const ps = (args: string[]) => new Promise<string>(ok => execFile('ps', args, { maxBuffer: 32 * 1024 * 1024, timeout: 5000 }, (_e, out) => ok(String(out ?? ''))));
 
 /** The processes the conversation's `claude` started (its descendants), now. Empty if it can't be found. */
 export async function processesOf(sessionId: string, own = process.pid): Promise<PsRow[]> {

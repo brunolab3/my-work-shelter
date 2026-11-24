@@ -69,6 +69,7 @@ import { REMOTE_DELAY_MS, type RemoteDeps } from './remoteBot.ts';
 import { sanitizeLook, TYPES_STOCK } from '../shared/appearance.ts';
 import { t } from '../shared/language.ts';
 import { planLimits } from './planLimits.ts';
+import { runningThings, stopDwellerProcess } from './runningThings.ts';
 
 // reinicio desde el juego: antes de apagar el servidor viejo se carga el nuevo con esta variable para ver que arranca
 // (un error de sintaxis o una importación rota se detectan aquí y el juego sigue en marcha)
@@ -962,6 +963,8 @@ async function organizeRooms(roomId: string | undefined, apply: boolean) {
 }
 
 // ---------------------------------------------------------------- acciones (peticiones con respuesta)
+// a dweller's `claude` by the Claude session it resumes (server/runningThings.ts: those started before the mark)
+const sessionOfClaude = (claudeId: string) => sessions.list().find(s => s.claudeId === claudeId)?.id;
 async function action(name: string, d: Record<string, any> = {}): Promise<unknown> {
   const e = store.state;
   switch (name) {
@@ -1151,6 +1154,16 @@ async function action(name: string, d: Record<string, any> = {}): Promise<unknow
     case 'superficie.sacar': return exitASurface(d);
     case 'superficie.appClaude': return toClaudeApp(d);
     case 'presencia': lastUse = d.active ? Date.now() : 0; return true;
+    // the top bar's memory chip (web/src/ui/RunningThings.tsx): read only while its popover is open
+    case 'procesos': return runningThings(sessionOfClaude);
+    case 'procesos.parar': {
+      const r = await stopDwellerProcess(Number(d.pid), sessionOfClaude);
+      if ('error' in r) throw new Error(t('server.running.notADwellers'));
+      const s = sessions.list().find(x => x.id === r.sessionId);
+      const who = store.state.dwellers.find(h => h.id === s?.dwellerId)?.name ?? s?.title ?? t('server.running.unknownConversation');
+      broadcast({ t: 'aviso', level: 'info', text: t('server.running.stopped', { quien: who, orden: r.command.slice(0, 120), n: r.n }) });
+      return true;
+    }
     case 'slackRemote.estado': return slackRemote.state();
     case 'slackRemote.conectar': return slackRemote.connect(String(d.appToken ?? ''), String(d.botToken ?? ''));
     case 'slackRemote.emparejar': return slackRemote.pair();

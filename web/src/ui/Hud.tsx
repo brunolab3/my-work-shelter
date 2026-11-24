@@ -11,6 +11,7 @@ import { minimizeIntercom } from './Dialog';
 import { MAC } from './windows';
 import { openLink, openNotice } from './Browsers';
 import { useKeys } from './device';
+import { RunningThings } from './RunningThings';
 import { keyboard } from '../engine/keyboard';
 import { SFX } from '../audio/sound';
 import { nextEvent, urgency, alertDue, type MeetingEvent } from '@shared/meeting';
@@ -88,6 +89,7 @@ export function Hud() {
         <Counter icon={Icon.timer} n={next ? untilMinutes(next.start, now) : '—'} text={next ? next.title : t('panels.noEvents')} shortcut="C" level={next ? urgency(next, now) : 'apagado'} />
       </div>
       <PlanMeter limits={live.use(x => x.planLimits)} now={now} />
+      <RunningThings />
       <div className="seg fosforo chatarra" title={t('panels.scrapEarnedWithEveryFinished')}>
         <span className="icono">{Icon.nut}</span><span className="n">{e.scrap.toLocaleString(LOC)}</span>
       </div>

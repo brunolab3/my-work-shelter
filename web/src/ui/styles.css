@@ -129,6 +129,30 @@ html, body { margin: 0; height: 100%; background: var(--fondo); overflow: hidden
 .limite-grafica .ritmo { stroke: var(--crema-tenue); stroke-width: 1; stroke-dasharray: 3 3; opacity: .6; }
 .limite-grafica .ritmo.amarillo { stroke: var(--ambar); opacity: .45; }
 .limite-grafica .ahora { stroke: var(--crema-tenue); stroke-width: 1; opacity: .35; }
+/* the memory chip and what is running (RunningThings.tsx): coloured by the threshold in Options (memoryLight) */
+.procesos { display: flex; align-items: center; gap: calc(var(--u) * 0.3); }
+.procesos .luz { width: calc(var(--u) * 0.8); height: calc(var(--u) * 0.8); }
+.procesos .txt { font: 500 calc(var(--u) * 0.9) var(--t-mono); }
+.procesos .n { font: calc(var(--u) * 1.45) var(--t-crt); line-height: 1; }
+.procesos .n.gris { color: var(--fosforo-tenue); text-shadow: none; }
+.procesos .n.amarillo { color: var(--ambar); text-shadow: 0 0 6px rgba(255,179,71,.55); }
+.procesos .n.rojo { color: var(--rojo); text-shadow: 0 0 6px rgba(255,90,74,.55); }
+.procesos:focus-visible { outline: 1px solid var(--fosforo-tenue); outline-offset: 2px; }
+.procesos-pop { position: fixed; z-index: 60; display: flex; flex-direction: column; gap: .7em; padding: .7em .9em; width: 460px; max-height: 70vh; overflow-y: auto; background: var(--fosforo-fondo); color: var(--crema); border: 1px solid var(--canto); box-shadow: 0 6px 18px rgba(0,0,0,.6); font: 12px var(--t-mono); }
+.procesos-pop .tenue { color: var(--crema-tenue); }
+.procesos-pop-titulo { font: 13px var(--t-rotulo); letter-spacing: .06em; text-transform: uppercase; color: var(--crema-tenue); }
+.procesos-pop section { display: flex; flex-direction: column; gap: .15em; }
+.procesos-pop h4 { margin: 0 0 .2em; font: 12px var(--t-rotulo); letter-spacing: .05em; text-transform: uppercase; border-bottom: 1px solid var(--canto); }
+.proceso { display: grid; grid-template-columns: 1fr 5.5em 6em 5.5em; gap: .5em; align-items: center; }
+.proceso.parando { opacity: .5; }
+.proceso-de { margin-top: .3em; color: var(--ambar); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.proceso-nombre { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.proceso-mb { text-align: right; }
+.proceso-parar { font: 11px var(--t-mono); color: var(--crema); background: transparent; border: 1px solid var(--canto); padding: .1em .4em; cursor: pointer; }
+.proceso-parar:hover, .proceso-parar:focus-visible { border-color: var(--crema-tenue); }
+.proceso-parar.confirmar { color: var(--rojo); border-color: var(--rojo); }
+.proceso-recarga .boton-puerta:disabled { opacity: .5; cursor: default; color: var(--crema); }
+.proceso-recarga { display: flex; flex-wrap: wrap; align-items: center; gap: .5em; padding: .3em 0; color: var(--ambar); }
 @keyframes reunion-pulso { 50% { text-shadow: 0 0 2px rgba(255,90,74,.3); opacity: .55; } }
 /* a meeting about to start (Hud.tsx): a box over everything, above the intercom and maximised terminals */
 .reunion-velo { position: fixed; inset: 0; z-index: 270000; background: rgba(6,4,3,.6); }
