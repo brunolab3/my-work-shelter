@@ -4,7 +4,9 @@
 // Overseer may be typing there, and only what he does (a click, ⌘K, talking to a dweller) changes what is in front.
 // The one exception follows the Overseer: when the conversation he is looking at moves to a worktree, its tab (with
 // what he had typed) moves to the copy's window, in front there, and the intercom switches to that copy (`handoff`).
-// Tabs of closed conversations go, unless something is typed in them: they stay to resume it with that.
+// Tabs of closed conversations go, unless something is typed in them or they are in view: they stay to resume it.
+// Tabs with no conversation (a new job, the archive, the menu, a closed one to resume) go once the Overseer leaves
+// them, unless something is typed or attached in them (`dropLeft`).
 import type { SessionSummary, HistoryElement } from '@shared/protocol';
 import type { AttachmentLocal } from './inputLine';
 
@@ -15,6 +17,24 @@ export interface WindowCom { dwellerId: string; tabs: TabCom[]; active: string; 
 
 export const readyAttachments = (l?: AttachmentLocal[]) => (l ?? []).filter(a => a.path && !a.error);
 export const withText = (p: TabCom) => !!p.draft?.trim() || readyAttachments(p.attachments).length > 0;
+/** No conversation, nothing typed and no attachment (ready or still uploading): leaving it loses nothing */
+export const unused = (p: TabCom) => p.view.type !== 'sesion' && !p.sessionWait && !p.draft?.trim() && !(p.attachments ?? []).some(a => !a.error);
+
+/** What is in view: the intercom in front and its tab */
+export interface InView { talking: string | null; active?: string }
+/** The intercoms after the Overseer left a tab (another tab, or the intercom itself): an unused one he left goes, and
+ *  so do every unused tab of an intercom he left and that intercom if none remain; `list` itself when nothing goes */
+export function dropLeft(list: WindowCom[], before: InView, now: InView): WindowCom[] {
+  if (!before.talking || (before.talking === now.talking && before.active === now.active)) return list;
+  const v = list.find(x => x.dwellerId === before.talking); if (!v) return list;
+  const sameWindow = before.talking === now.talking;
+  const tabs = v.tabs.filter(p => !unused(p) || (sameWindow ? p.id !== before.active || p.id === now.active : false));
+  if (tabs.length === v.tabs.length) return list;
+  if (!tabs.length) return list.filter(x => x !== v);
+  const confirm = v.confirm?.filter(id => tabs.some(p => p.id === id));
+  const active = tabs.some(p => p.id === v.active) ? v.active : tabs[Math.min(Math.max(0, v.tabs.findIndex(p => p.id === v.active)), tabs.length - 1)].id;
+  return list.map(x => (x === v ? { ...v, tabs, active, confirm: confirm?.length ? confirm : undefined } : x));
+}
 
 export interface SyncInput {
   list: WindowCom[];
@@ -49,8 +69,9 @@ export function syncIntercoms({ list, sessions, owner: ownerOf, closing, talking
         return [p];
       }
       if (d && d !== v.dwellerId) return [];                // moved to another window
-      if (!withText(p) && !p.memory) return [];
-      // closed (or lost in a restart): the tab stays to resume it, with what is typed, until the Overseer closes it
+      if (!withText(p) && !(p.memory && v === front && p.id === v.active)) return [];
+      // closed (or lost in a restart) with something typed, or in view: the tab stays to resume it until the Overseer
+      // closes it (or, empty, leaves it: dropLeft)
       touched = true;
       return [{ ...p, view: p.memory ? { type: 'nuevo', resume: { ...p.memory, modified: Date.now() } } : { type: 'nuevo' } }];
     });
