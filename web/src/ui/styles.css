@@ -101,11 +101,34 @@ html, body { margin: 0; height: 100%; background: var(--fondo); overflow: hidden
 .limite { display: flex; align-items: baseline; gap: calc(var(--u) * 0.3); }
 .limite .txt { font: 500 calc(var(--u) * 0.9) var(--t-mono); }
 .limite .n { font: calc(var(--u) * 1.45) var(--t-crt); line-height: 1; }
-.limite.desconocido { color: var(--fosforo-tenue); text-shadow: none; }
-.limite.medio { color: var(--ambar); text-shadow: 0 0 6px rgba(255,179,71,.55); }
-.limite.alto, .limite.agotado { color: var(--rojo); text-shadow: 0 0 6px rgba(255,90,74,.55); }
+.limite.gris { color: var(--fosforo-tenue); text-shadow: none; }
+.limite.amarillo { color: var(--ambar); text-shadow: 0 0 6px rgba(255,179,71,.55); }
+.limite.rojo { color: var(--rojo); text-shadow: 0 0 6px rgba(255,90,74,.55); }
 .limite.agotado .n { animation: reunion-pulso .9s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .limite.agotado .n { animation: none; } }
+.limites:focus-visible { outline: 1px solid var(--fosforo-tenue); outline-offset: 2px; }
+/* the traffic light: the worst window's colour by usage against pace (shared/planLimits.ts limitLight), grey while unknown */
+.semaforo { display: flex; align-items: center; gap: calc(var(--u) * 0.3); }
+.semaforo .txt { font: 500 calc(var(--u) * 0.9) var(--t-mono); }
+.semaforo .luz { width: calc(var(--u) * 0.8); height: calc(var(--u) * 0.8); }
+.luz { display: inline-block; flex: none; width: .7em; height: .7em; border-radius: 50%; background: var(--canto); box-shadow: inset 0 1px 2px #000; }
+.luz.verde { background: var(--fosforo); box-shadow: 0 0 8px var(--fosforo); }
+.luz.amarillo { background: var(--ambar); box-shadow: 0 0 8px var(--ambar); }
+.luz.rojo { background: var(--rojo); box-shadow: 0 0 8px var(--rojo); }
+/* its popover: each window's chart and reset (LimitWindow in Hud.tsx) */
+.limites-pop { position: fixed; z-index: 60; display: flex; flex-direction: column; gap: .8em; padding: .7em .9em; width: 240px; background: var(--fosforo-fondo); color: var(--crema); border: 1px solid var(--canto); box-shadow: 0 6px 18px rgba(0,0,0,.6); font: 12px var(--t-mono); pointer-events: none; }
+.limites-pop .tenue { color: var(--crema-tenue); }
+.limites-pop-titulo { font: 13px var(--t-rotulo); letter-spacing: .06em; text-transform: uppercase; color: var(--crema-tenue); }
+.limite-ventana { display: flex; flex-direction: column; gap: .3em; --serie: var(--fosforo-tenue); }
+.limite-ventana.verde { --serie: var(--fosforo); } .limite-ventana.amarillo { --serie: var(--ambar); } .limite-ventana.rojo { --serie: var(--rojo); }
+.limite-ventana-cab { display: flex; align-items: center; gap: .5em; }
+.limite-ventana-cifra { margin-bottom: .2em; }
+.limite-grafica { display: block; overflow: visible; border-bottom: 1px solid var(--canto); }
+.limite-grafica .trazo { fill: none; stroke: var(--serie); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.limite-grafica .area { fill: var(--serie); opacity: .15; }
+.limite-grafica .ritmo { stroke: var(--crema-tenue); stroke-width: 1; stroke-dasharray: 3 3; opacity: .6; }
+.limite-grafica .ritmo.amarillo { stroke: var(--ambar); opacity: .45; }
+.limite-grafica .ahora { stroke: var(--crema-tenue); stroke-width: 1; opacity: .35; }
 @keyframes reunion-pulso { 50% { text-shadow: 0 0 2px rgba(255,90,74,.3); opacity: .55; } }
 /* a meeting about to start (Hud.tsx): a box over everything, above the intercom and maximised terminals */
 .reunion-velo { position: fixed; inset: 0; z-index: 270000; background: rgba(6,4,3,.6); }

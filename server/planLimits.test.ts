@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { PlanLimitsStore } from './planLimits.ts';
-import { limitLevel, rejectedWindows } from '../shared/planLimits.ts';
+import { rejectedWindows } from '../shared/planLimits.ts';
 
 const NOW = 1_800_000_000_000, H = 3_600_000;
 const iso = (ms: number) => new Date(ms).toISOString();
@@ -11,7 +11,7 @@ describe('plan limits', () => {
   it('an event: utilization 0-1 to percent, resetsAt seconds to ms; without a figure the last one holds', () => {
     const p = new PlanLimitsStore(() => NOW);
     p.fromEvent({ status: 'allowed_warning', rateLimitType: 'five_hour', utilization: 0.83, resetsAt: (NOW + H) / 1000 });
-    expect(p.get().five_hour).toEqual({ status: 'allowed_warning', utilization: 83, resetsAt: NOW + H, updated: NOW });
+    expect(p.get().five_hour).toEqual({ status: 'allowed_warning', utilization: 83, resetsAt: NOW + H, updated: NOW, samples: [[NOW, 83]] });
     p.fromEvent({ status: 'rejected', rateLimitType: 'five_hour' });
     expect(p.get().five_hour).toMatchObject({ status: 'rejected', utilization: 83, resetsAt: NOW + H });
     // the rejection lifts: a new window, its figure unknown
@@ -47,15 +47,31 @@ describe('plan limits', () => {
     expect(changes).toHaveBeenCalledTimes(2);
   });
 
-  it('levels for the top bar', () => {
+  it('keeps the window\'s samples, at most one a minute, and drops them when the window resets', () => {
+    let now = NOW;
+    const p = new PlanLimitsStore(() => now);
+    p.fromUsage({ five_hour: { utilization: 10, resets_at: iso(NOW + 2 * H) } });
+    now += 30_000; p.fromUsage({ five_hour: { utilization: 12, resets_at: iso(NOW + 2 * H) } });
+    now += 60_000; p.fromUsage({ five_hour: { utilization: 15, resets_at: iso(NOW + 2 * H) } });
+    now += 10_000; p.fromEvent({ status: 'allowed', rateLimitType: 'five_hour', utilization: 0.2 });
+    expect(p.get().five_hour.samples).toEqual([[NOW, 10], [NOW + 90_000, 15], [NOW + 100_000, 20]]);
+    // what get() hands out is a copy
+    p.get().five_hour.samples!.push([0, 0]);
+    expect(p.get().five_hour.samples).toHaveLength(3);
+    // another reset time: a new window, its samples start over
+    now += H; p.fromUsage({ five_hour: { utilization: 2, resets_at: iso(NOW + 7 * H) } });
+    expect(p.get().five_hour.samples).toEqual([[now, 2]]);
+    // a rejection lifting without a figure: a new window with none yet
+    p.fromEvent({ status: 'rejected', rateLimitType: 'seven_day', utilization: 1, resetsAt: (NOW + 50 * H) / 1000 });
+    p.fromEvent({ status: 'allowed', rateLimitType: 'seven_day' });
+    expect(p.get().seven_day.samples).toEqual([]);
+    // the reset time comes: renewed to 0 %, its samples only that
+    p.renew('five_hour');
+    expect(p.get().five_hour.samples).toEqual([[now, 0]]);
+  });
+
+  it('the windows that have stopped Claude', () => {
     const l = (status: any, utilization: number | null) => ({ status, utilization, resetsAt: null, updated: 0 });
-    expect(limitLevel(undefined)).toBe('desconocido');
-    expect(limitLevel(l('allowed', null))).toBe('desconocido');
-    expect(limitLevel(l('allowed', 20))).toBe('bajo');
-    expect(limitLevel(l('allowed_warning', 50))).toBe('medio');
-    expect(limitLevel(l('allowed', 75))).toBe('medio');
-    expect(limitLevel(l('allowed', 92))).toBe('alto');
-    expect(limitLevel(l('rejected', null))).toBe('agotado');
     expect(rejectedWindows({ a: l('rejected', 100), b: l('allowed', 2) })).toEqual(['a']);
   });
 });

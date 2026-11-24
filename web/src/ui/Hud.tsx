@@ -2,6 +2,7 @@
 // con la placa del refugio, la hora real, los contadores de «qué pasa ahora» en ventanas de fósforo (con su tecla
 // siempre a la vista) y las dos puertas de lo demás: el buscador (⌘K) y el menú del juego (Esc), que lleva el reinicio.
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { juego } from './gameState';
 import { t, language } from '@shared/language';
 import { live } from '../net/client';
@@ -13,7 +14,7 @@ import { useKeys } from './device';
 import { keyboard } from '../engine/keyboard';
 import { SFX } from '../audio/sound';
 import { nextEvent, urgency, alertDue, type MeetingEvent } from '@shared/meeting';
-import { BAR_WINDOWS, limitLevel, rejectedWindows, type PlanLimits } from '@shared/planLimits';
+import { BAR_WINDOWS, PACE_YELLOW, describeReset, limitLight, rejectedWindows, windowPace, windowStart, worstLight, type PlanLimit, type PlanLimits } from '@shared/planLimits';
 
 const LOC = language() === 'en' ? 'en-GB' : 'es-ES';
 const fmtHour = new Intl.DateTimeFormat(LOC, { hour: '2-digit', minute: '2-digit' });
@@ -108,28 +109,74 @@ export function Hud() {
 }
 
 // The Claude plan's usage (server/planLimits.ts): the 5-hour window, the weekly one once known and any other window
-// that has stopped Claude; green, amber from 70 %, red from 90 % and «LIMIT» when rejected. The tooltip has the resets.
+// that has stopped Claude, coloured by usage against the share of the window passed (limitLight): green on pace or
+// behind, amber up to 1.25 times it, red above and «LIMIT» when rejected, grey while unknown. First the overall light
+// (the worst window, named); hovering or focusing the meter opens each window's chart against pace and its reset.
 const LIMIT_SHORT: Record<string, string> = { five_hour: t('panels.limit.shortFiveHour'), seven_day: t('panels.limit.shortWeekly') };
 const LIMIT_NAME: Record<string, string> = { five_hour: t('panels.limit.nameFiveHour'), seven_day: t('panels.limit.nameWeekly'), seven_day_opus: t('panels.limit.nameWeeklyOpus'), seven_day_sonnet: t('panels.limit.nameWeeklySonnet') };
+const limitName = (w: string) => LIMIT_NAME[w] ?? t('panels.limit.nameOther', { tipo: w });
 function PlanMeter({ limits, now }: { limits: PlanLimits; now: number }) {
   const types = [...BAR_WINDOWS.filter(w => w === 'five_hour' || limits[w]), ...rejectedWindows(limits).filter(w => !(BAR_WINDOWS as readonly string[]).includes(w))];
-  const line = (w: string) => {
-    const l = limits[w], name = LIMIT_NAME[w] ?? t('panels.limit.nameOther', { tipo: w });
-    if (!l || limitLevel(l) === 'desconocido') return `${name}: ${t('panels.limit.unknown')}`;
-    const parts = [l.utilization != null && t('panels.limit.used', { p: Math.round(l.utilization) }), l.status === 'rejected' && t('panels.limit.reachedHint'), l.resetsAt && t('panels.limit.renews', { cuando: untilMinutes(l.resetsAt, now) })];
-    return `${name}: ${parts.filter(Boolean).join(' · ')}`;
-  };
+  const worst = worstLight(limits, types, now);
+  const box = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+  const r = open ? box.current?.getBoundingClientRect() : undefined;
   return (
-    <div className="seg fosforo limites" title={[t('panels.limit.title'), ...types.map(line)].join('\n')}>
+    <div ref={box} className="seg fosforo limites" tabIndex={0} aria-label={t('panels.limit.title')}
+      onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)} onFocus={() => setOpen(true)} onBlur={() => setOpen(false)}>
+      <span className="semaforo" title={t('panels.limit.light')}>
+        <span className={'luz ' + worst.light} />
+        <span className="txt">{worst.window ? LIMIT_SHORT[worst.window] ?? t('panels.limit.shortOther') : ''}</span>
+      </span>
       {types.map(w => {
-        const l = limits[w], level = limitLevel(l);
+        const l = limits[w], rejected = l?.status === 'rejected';
         return (
-          <span key={w} className={'limite ' + level}>
+          <span key={w} className={'limite ' + limitLight(l, w, now) + (rejected ? ' agotado' : '')}>
             <span className="txt">{LIMIT_SHORT[w] ?? t('panels.limit.shortOther')}</span>
-            <span className="n">{level === 'agotado' ? t('panels.limit.reached') : level === 'desconocido' ? '—' : Math.round(l.utilization!) + '%'}</span>
+            <span className="n">{rejected ? t('panels.limit.reached') : l?.utilization == null ? '—' : Math.round(l.utilization) + '%'}</span>
           </span>
         );
       })}
+      {r && createPortal(
+        <div className="limites-pop" role="tooltip" style={{ top: r.bottom + 6, right: Math.max(8, innerWidth - r.right) }}>
+          <div className="limites-pop-titulo">{t('panels.limit.title')}</div>
+          {types.map(w => <LimitWindow key={w} type={w} l={limits[w]} now={now} />)}
+        </div>, document.body)}
+    </div>
+  );
+}
+
+// one window in the popover: its name and figure, the utilization chart over the window's time against the pace
+// line (and the amber one at PACE_YELLOW times it), and the reset
+const CHART_W = 240, CHART_H = 56;
+function LimitWindow({ type, l, now }: { type: string; l: PlanLimit | undefined; now: number }) {
+  const light = limitLight(l, type, now), name = limitName(type), pace = windowPace(type, l?.resetsAt ?? null, now);
+  const figure = l?.status === 'rejected' ? t('panels.limit.reachedHint') : l?.utilization == null ? t('panels.limit.unknown')
+    : pace != null ? t('panels.limit.usedVsPace', { p: Math.round(l.utilization), q: Math.round(pace * 100) }) : t('panels.limit.used', { p: Math.round(l.utilization) });
+  const reset = l?.resetsAt ? describeReset(l.resetsAt, now) : null;
+  const samples = l?.samples ?? [];
+  // x: from the window's start to its reset (or, unknown, over the samples to now); y: 0-100 %
+  const known = windowStart(type, l?.resetsAt ?? null), end = l?.resetsAt ?? now, start = known ?? samples[0]?.[0] ?? now - 3_600_000;
+  const x = (ms: number) => ((Math.min(Math.max(ms, start), end) - start) / Math.max(1, end - start)) * CHART_W;
+  const y = (u: number) => CHART_H - (Math.min(100, Math.max(0, u)) / 100) * CHART_H;
+  const pts = [...samples, ...(l?.utilization != null && samples.length ? [[now, l.utilization] as [number, number]] : [])];
+  const line = pts.map(([at, u]) => `${x(at).toFixed(1)},${y(u).toFixed(1)}`).join(' ');
+  return (
+    <div className={'limite-ventana ' + light}>
+      <div className="limite-ventana-cab"><span className={'luz ' + light} /><b>{name}</b></div>
+      <div className="tenue limite-ventana-cifra">{figure}</div>
+      {pts.length ? (
+        <svg className="limite-grafica" viewBox={`0 0 ${CHART_W} ${CHART_H}`} width={CHART_W} height={CHART_H} role="img" aria-label={t('panels.limit.chart', { nombre: name })}>
+          {known != null && <>
+            <line className="ritmo" x1={0} y1={CHART_H} x2={CHART_W} y2={0}><title>{t('panels.limit.paceLine')}</title></line>
+            <line className="ritmo amarillo" x1={0} y1={CHART_H} x2={CHART_W / PACE_YELLOW} y2={0} />
+          </>}
+          <polygon className="area" points={`${x(pts[0][0]).toFixed(1)},${CHART_H} ${line} ${x(pts[pts.length - 1][0]).toFixed(1)},${CHART_H}`} />
+          <polyline className="trazo" points={line} />
+          <line className="ahora" x1={x(now)} x2={x(now)} y1={0} y2={CHART_H} />
+        </svg>
+      ) : <div className="tenue limite-sin-muestras">{t('panels.limit.noSamples')}</div>}
+      <div className="tenue">{reset ? t('panels.limit.resets', { hora: reset.clock, cuando: reset.relative }) : t('panels.limit.noReset')}</div>
     </div>
   );
 }

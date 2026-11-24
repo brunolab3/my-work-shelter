@@ -1,9 +1,10 @@
 // The Claude plan's usage limits: the latest known state of each window (5-hour, weekly…), from two read-only sources
 // with the player's own login: the SDK's `rate_limit_event` (sessions.ts, 'limite') and the /usage data a live session
-// can read (`Sessions.planUsage`). Events: 'cambio' (the whole state, for the top bar) and 'renovado' (a window that
+// can read (`Sessions.planUsage`). Each window also keeps its utilization samples (at most one a minute, in memory) for
+// the top bar's chart, dropped when the window resets. Events: 'cambio' (the whole state, for the top bar) and 'renovado' (a window that
 // was rejected has renewed: what was stopped by it can go on).
 import { EventEmitter } from 'node:events';
-import type { LimitStatus, PlanLimit, PlanLimits } from '../shared/planLimits.ts';
+import { addSample, type LimitStatus, type PlanLimit, type PlanLimits } from '../shared/planLimits.ts';
 
 // rate_limit_event's info (SDKRateLimitInfo): utilization 0-1, resetsAt in seconds (ms tolerated)
 export interface LimitEvent { status: LimitStatus; rateLimitType?: string; utilization?: number; resetsAt?: number }
@@ -21,7 +22,7 @@ export class PlanLimitsStore extends EventEmitter {
   private timers = new Map<string, NodeJS.Timeout>();
   constructor(private now: () => number = Date.now) { super(); }
 
-  get(): PlanLimits { return { ...this.w }; }
+  get(): PlanLimits { return Object.fromEntries(Object.entries(this.w).map(([k, l]) => [k, { ...l, samples: [...(l.samples ?? [])] }])); }
 
   fromEvent(i: LimitEvent | null | undefined) {
     if (!i?.status || !i.rateLimitType) return;
@@ -30,7 +31,7 @@ export class PlanLimitsStore extends EventEmitter {
     // without a figure the last one holds, except once a rejection lifts (a new window)
     const lifted = prev?.status === 'rejected' && i.status !== 'rejected';
     const utilization = i.utilization != null ? Math.round(i.utilization * 1000) / 10 : prev && !lifted ? prev.utilization : null;
-    this.set(i.rateLimitType, { status: i.status, utilization, resetsAt, updated: this.now() });
+    this.set(i.rateLimitType, { status: i.status, utilization, resetsAt, updated: this.now() }, lifted);
   }
 
   fromUsage(rl: UsageLimits) {
@@ -45,8 +46,12 @@ export class PlanLimitsStore extends EventEmitter {
     }
   }
 
-  private set(type: string, l: PlanLimit) {
+  private set(type: string, l: PlanLimit, newWindow = false) {
     const prev = this.w[type];
+    // another reset time is another window: its samples start over
+    const fresh = newWindow || !prev || (prev.resetsAt != null && l.resetsAt != null && !sameWindow(prev.resetsAt, l.resetsAt));
+    const samples = fresh ? [] : prev.samples ?? [];
+    l.samples = l.utilization != null ? addSample(samples, l.updated, l.utilization, type, l.resetsAt ?? prev?.resetsAt ?? null) : samples;
     this.w[type] = l;
     clearTimeout(this.timers.get(type)); this.timers.delete(type);
     if (l.resetsAt != null) {
@@ -60,7 +65,7 @@ export class PlanLimitsStore extends EventEmitter {
   // the window's reset time has come: a new window starts empty
   renew(type: string) {
     if (!this.w[type]) return;
-    this.set(type, { status: 'allowed', utilization: 0, resetsAt: null, updated: this.now() });
+    this.set(type, { status: 'allowed', utilization: 0, resetsAt: null, updated: this.now() }, true);
   }
 }
 
