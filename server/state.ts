@@ -161,7 +161,7 @@ export interface ShelterState {
   supervisor: { character: string; name: string; accessories: string[]; look?: Look };
   reposRoot: string;
   sessionLimit: number;
-  language?: Language;              // el de los textos del juego (shared/language.ts); sin él, español
+  language?: Language;              // el de los textos del juego (shared/language.ts); sin él, inglés
   rooms: SavedRoom[];
   dwellers: SavedDweller[];
   hidden?: HiddenRoom[];       // salas de repo que el Supervisor ha quitado del juego (Cámara acorazada → Salas)
@@ -259,12 +259,12 @@ export class Store {
 
 // El estado guardado se valida campo a campo: lo que no cuadra se descarta o vuelve a su valor inicial.
 // Si falta lo imprescindible (salas), se lanza y el almacén aparta la copia y arranca de cero.
-// nombres de antes: la agenda se llamaba «Planificación»; y el tablero de tareas (tipo 'logistica') y la sala que
-// planifica y reparte (tipo 'coordinacion', y sus alas) llevaban el nombre la una de la otra
+// nombres de antes: la agenda se llamó «Planificación» o «Agenda» y el tablero y la sala que reparte llevaron cada uno
+// el nombre del otro («Logística» y «Planificación»); ahora son «Calendar», «Logistics» y «Planning» (y las alas de esta)
 function savedName(type: string, name: string): string {
-  if (type === 'calendar' && name === 'Planificación') return 'Agenda';
-  if (type === 'logistics' && name === 'Logística') return 'Planificación';
-  if (type === 'coordination' && (name === 'Planificación' || name.startsWith('Planificación '))) return 'Logística' + name.slice('Planificación'.length);
+  if (type === 'calendar' && ['Planificación', 'Agenda', 'Calendario'].includes(name)) return 'Calendar';
+  if (type === 'logistics' && ['Logística', 'Planificación'].includes(name)) return 'Logistics';
+  if (type === 'coordination' && /^(Planificación|Logística|Planning)( |$)/.test(name)) return 'Planning' + name.replace(/^(Planificación|Logística|Planning)/, '');
   return name;
 }
 

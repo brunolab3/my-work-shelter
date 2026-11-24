@@ -43,7 +43,7 @@ const TEXTS = {
   chromeDidNotStart: { es: 'Chrome no ha arrancado.', en: 'Chrome did not start.' },
 };
 
-let file = null, current = 'es';
+let file = null, current = 'en';
 // where the language is remembered (userData): read once the app is ready
 function load(dir) { file = path.join(dir, 'idioma.json'); try { const v = JSON.parse(fs.readFileSync(file, 'utf8')).language; if (v === 'es' || v === 'en') current = v; } catch {} }
 function setLanguage(i) {

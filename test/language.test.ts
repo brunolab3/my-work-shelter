@@ -39,11 +39,14 @@ describe('English mode guards', () => {
   });
 
   // the room tools (send_to_room) and the remote control list rooms through roomNameIs, not their saved Spanish name
-  it('room names reach English mode translated, Logistics wings included', () => {
+  it('room names reach English mode translated, Planning wings included', () => {
     setLanguage('en');
     try {
-      const names = [...INITIAL_ROOMS, { type: 'coordination', name: 'Logística web' }].map(roomNameIs);
-      expect(names.filter(n => spanish.has(n) || n.startsWith('Logística'))).toEqual([]);
+      const names = [...INITIAL_ROOMS, { type: 'coordination', name: 'Planning web' }].map(roomNameIs);
+      // Calendar, Logistics and Planning are the same in both languages
+      const spanishOnly = new Set(Object.values(TEXTS).filter(v => v.es !== v.en).map(v => v.es));
+      expect(names.filter(n => spanishOnly.has(n))).toEqual([]);
+      expect(names).toContain('Planning web');
       expect(roomNameIs({ type: 'repo', name: 'Logística' })).toBe('Logística');
     } finally { setLanguage('es'); }
   });
@@ -85,8 +88,7 @@ const ALLOWED: [string, RegExp][] = [
   ['shared/language.ts', /^Español$/],                    // the language picker: each language in its own name
   ['shared/deploy.ts', /bloquead/],                 // regex that reads Spanish and English PR bodies
   ['server/integrations/normalize.ts', /^[¡¿]$/],     // HTML entities
-  ['server/state.ts', /^Planificación $/],             // migration of saved room names (data keys)
-  ['server/main.ts', /^Logística $/],                   // Logistics wings are saved as 'Logística <folder>' (roomNameIs)
+  ['server/state.ts', /^(Planificación|Logística)$/],  // migration of saved room names from before (savedName)
   ['server/repos.ts', /^diseño$/],                      // project type key, shown with tIs()
   ['server/git.ts', /^(Rutas con parámetros|REF-236 )/], // GitHub demo profile and PRs (DEMO data, before connecting)
   ['shared/recruits.ts', /^[A-ZÁÉÍÓÚ][a-záéíóúñ]+$/],   // recruits' first names

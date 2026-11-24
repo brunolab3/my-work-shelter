@@ -14,7 +14,8 @@ export const isLanguage = (x: unknown): x is Language => x === 'es' || x === 'en
 
 // el navegador lo recuerda; el servidor lo toma del estado del refugio (estado.idioma) al cargarlo y con la acción `idioma`
 const store = () => (typeof window !== 'undefined' ? window.localStorage : undefined);
-let current: Language = (() => { try { const v = store()?.getItem(LANGUAGE_KEY); return isLanguage(v) ? v : 'es'; } catch { return 'es'; } })();
+const DEFAULT_LANGUAGE: Language = 'en';
+let current: Language = (() => { try { const v = store()?.getItem(LANGUAGE_KEY); return isLanguage(v) ? v : DEFAULT_LANGUAGE; } catch { return DEFAULT_LANGUAGE; } })();
 export const language = () => current;
 export function setLanguage(i: Language) { current = i; try { store()?.setItem(LANGUAGE_KEY, i); } catch {} }
 
@@ -44,10 +45,10 @@ export function trBio(bio: string): string {
 // Locale for dates and numbers in the chosen language
 export const locale = () => (current === 'en' ? 'en-GB' : 'es-ES');
 
-// A room's name as shown: a repo room's is its folder's; the service rooms and the Logistics wings ('Logística',
-// 'Logística <folder>') keep theirs as Spanish data
+// A room's name as shown: a repo room's is its folder's; the service rooms and the Planning wings ('Planning',
+// 'Planning <folder>') keep theirs as they are
 export function roomNameIs(s: { type: string; name: string }): string {
   if (s.type === 'repo') return s.name;
-  const m = /^Logística( .+)?$/.exec(s.name);
-  return m ? tIs('Logística') + (m[1] ?? '') : tIs(s.name);
+  const m = /^Planning( .+)?$/.exec(s.name);
+  return m ? 'Planning' + (m[1] ?? '') : tIs(s.name);
 }

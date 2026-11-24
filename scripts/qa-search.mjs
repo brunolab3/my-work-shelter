@@ -72,8 +72,8 @@ await pg.keyboard.press('Escape'); await wait(300);
 await pg.keyboard.press('Meta+k'); await until(open);
 check((await sections())[0] === 'Acciones recurrentes' || (await sections()).includes('Acciones recurrentes'), 'lo usado pasa a «Acciones recurrentes»');
 check((await rows()).find(f => f.txt === 'Plano del refugio') && (await sections()).indexOf('Acciones recurrentes') < (await sections()).indexOf('Acciones'), 'y va delante de las demás acciones');
-await pg.keyboard.type('logist');
-check((await rows())[0]?.txt === 'Logística', 'busca sin tildes ni palabras completas («logist» → Logística)');
+await pg.keyboard.type('plann');
+check((await rows())[0]?.txt === 'Planning', 'busca sin tildes ni palabras completas («plann» → Planning)');
 await pg.keyboard.press('Escape');
 check(await until(async () => !(await open())) && (await panel()) === null, 'Esc cierra el buscador (sin abrir el menú)');
 // ir a una sala y hablar con un habitante
