@@ -73,6 +73,8 @@ export interface CtxRooms {
 }
 
 // sin bucles: como mucho LIMITE mensajes por minuto de una sala a otra
+// what a dweller's send_to_room is for: status, acknowledgments and "done" notes have no option, so they aren't sent
+export const PURPOSES = ['job', 'result', 'blocker', 'question'] as const;
 const LIMIT = 3, WINDOW = 60_000;
 const sent = new Map<string, number[]>();
 export const forgetLimits = () => sent.clear();
@@ -209,6 +211,8 @@ export function mcpRooms(ctx: CtxRooms, since: string, fromSession?: string, inW
         {
           room: z.string().describe(tr('tool.param.room')),
           message: z.string().describe(tr('tool.rooms.paramMessage')),
+          // required and without a status option: a message only for one of these (the rule is in the description)
+          purpose: z.enum(PURPOSES).describe(tr('tool.rooms.paramPurpose')),
           key: z.string().optional().describe(tr('tool.rooms.paramKey')),
           thread: z.string().optional().describe(tr('tool.rooms.paramThread')),
         },

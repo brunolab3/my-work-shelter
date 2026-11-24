@@ -34,7 +34,12 @@ describe('game MCP tools', () => {
     expect(all.map(([n]) => n).sort()).toEqual(['apply_decor', 'assign_work', 'compare_changes', 'current_decor', 'notify_room', 'preflight_answer', 'preflight_status',
       'propose_plan_change', 'props_catalogue', 'read_plan', 'remove_decor', 'request_worktree_cleanup', 'send_to_room', 'shared_plan', 'shelter_rooms', 'update_plan', 'view_room']);
     const byName = Object.fromEntries(all);
-    expect(params(byName.send_to_room)).toEqual(['room', 'message', 'key', 'thread']);
+    expect(params(byName.send_to_room)).toEqual(['room', 'message', 'purpose', 'key', 'thread']);
+    // only a job, a result, a blocker or a question: required, and status is not an option
+    const purpose = byName.send_to_room.inputSchema.shape.purpose;
+    expect(purpose.isOptional()).toBe(false);
+    expect(purpose.options).toEqual(['job', 'result', 'blocker', 'question']);
+    expect(purpose.safeParse('status').success).toBe(false);
     expect(params(byName.request_worktree_cleanup)).toEqual(['note']);
     expect(params(byName.assign_work)).toEqual(['key', 'plan', 'jobs', 'room', 'title', 'instructions', 'wait_for']);
     expect(all.flatMap(([n, x]) => params(x).filter(p => SPANISH.test(p)).map(p => `${n}.${p}`))).toEqual([]);
@@ -56,7 +61,7 @@ describe('game MCP tools', () => {
       start: async (roomId, _d, prompt) => { started.push({ roomId, prompt }); return { id: 's1', inWorktree: true }; },
       notice: () => {},
     };
-    const r = await call(mcpRooms(ctx, 'a'), 'send_to_room', { room: 'b', message: 'look at the API', key: 'abc-12' });
+    const r = await call(mcpRooms(ctx, 'a'), 'send_to_room', { room: 'b', message: 'look at the API', purpose: 'job', key: 'abc-12' });
     expect(r.isError).toBeFalsy();
     expect(started).toHaveLength(1);
     expect(started[0].roomId).toBe('b');
