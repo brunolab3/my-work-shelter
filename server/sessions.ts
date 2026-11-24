@@ -549,7 +549,7 @@ export class Sessions extends EventEmitter {
         for (const a of x.helpers.values()) if (a.state === 'working') a.state = 'failed';
         if (x.awaitingBackground && x.r.state === 'working') x.r.state = 'finished';   // el turno ya había acabado bien
         this.forgetBackground(x);
-        if (x.closing) { x.r.state = 'closed'; setTimeout(() => { this.s.delete(x.r.id); this.emit('fuera', x.r.id); }, 30_000).unref(); }
+        if (x.closing) { x.r.state = 'closed'; setTimeout(() => { this.s.delete(x.r.id); this.emit('removed', x.r.id); }, 30_000).unref(); }
         else if (x.r.state !== 'finished' && x.r.state !== 'idle' && x.limitHit !== undefined) this.limitStop(x);
         else if (x.r.state !== 'finished' && x.r.state !== 'idle') { x.r.state = 'error'; x.r.unread = true; x.r.error ??= t('server.sessionStoppedUnexpectedly'); }
         x.r.activity = undefined;
@@ -868,7 +868,7 @@ export class Sessions extends EventEmitter {
     const x = this.s.get(id); if (!x) return;
     x.closing = true; this.emptyPending(x, t('server.sessionClosed'));
     if (x.alive) { x.input?.close(); try { x.q?.close(); } catch {} }
-    else { x.r.state = 'closed'; this.play(x); setTimeout(() => { this.s.delete(id); this.emit('fuera', id); }, 1000).unref(); }
+    else { x.r.state = 'closed'; this.play(x); setTimeout(() => { this.s.delete(id); this.emit('removed', id); }, 1000).unref(); }
   }
   // the Overseer closing a conversation also stops what it started (dev servers, watchers, test runs), found while its
   // `claude` still lives; not when the game closes one (idle, a removed worktree), goes to the surface or restarts

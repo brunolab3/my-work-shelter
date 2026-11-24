@@ -114,10 +114,10 @@ export async function applyPlan(ctx: CtxOrganize, room: { id: string; path: stri
         mkdirSync(path.dirname(p.path), { recursive: true });
         await ctx.git(room.path, (await exists(r0)) ? ['worktree', 'add', p.path, r0] : ['worktree', 'add', '--track', '-b', r0, p.path, `origin/${r0}`]);
       }
-      if (p.session) { out.push(p.create ? t('server.organize.hasConversation', { name: name }) : t('server.organize.hasConversationIn', { name: name, carpeta: path.basename(p.path) })); continue; }
+      if (p.session) { out.push(p.create ? t('server.organize.hasConversation', { name: name }) : t('server.organize.hasConversationIn', { name: name, folder: path.basename(p.path) })); continue; }
       if (remain() <= 0) { out.push(t(p.create ? 'server.organize.createdNoSession' : 'server.organize.readyNoSession', { name: name })); continue; }
       await ctx.start(room.id, p.path, promptTask(p.group, repo));
-      out.push(p.create ? t('server.organize.startedNew', { name: name }) : p.main ? t('server.organize.startedMain', { name: name }) : t('server.organize.startedIn', { name: name, carpeta: path.basename(p.path) }));
+      out.push(p.create ? t('server.organize.startedNew', { name: name }) : p.main ? t('server.organize.startedMain', { name: name }) : t('server.organize.startedIn', { name: name, folder: path.basename(p.path) }));
     } catch (e) {
       out.push(t('server.organize.failed', { name: name, error: String((e as Error).message).split('\n')[0].slice(0, 160) }));
     }

@@ -338,7 +338,7 @@ sessions.on('handoff', (old: SessionSummary, summary: string) => {
   startFromHandoff({ start: m => startWork(undefined, { t: 'start', ...m }), close: id => sessions.close(id) }, old, summary)
     .catch(err => broadcast({ t: 'notice', level: 'error', text: t('server.handoffFailed', { error: (err as Error).message }) }));
 });
-sessions.on('fuera', sid => { toolOutputs.drop(sid); broadcast({ t: 'sessionRemoved', sessionId: sid }); });
+sessions.on('removed', sid => { toolOutputs.drop(sid); broadcast({ t: 'sessionRemoved', sessionId: sid }); });
 sessions.on('tool', () => {
   const before = store.state.jugador.cultivos.map(c => c.phase).join();
   store.state.jugador.toolsCalls++; growCrops(store); store.save();
@@ -417,7 +417,7 @@ async function upload(d: Record<string, any>, idsSes: string[]) {
   // primero las terminales (al momento); las conversaciones que trabajan tardan un poco en pararse
   const terms: ItemDesktop[] = [];
   if (idsTerm.length && !terminals.outsideAccepts()) notices.push(t('server.oldTerminalsCannotGoOut'));
-  else for (const id of idsTerm) { const term = terminals.openSessions().find(x => x.id === id); if (term) terms.push({ title: t('server.surface.terminalTitle', { carpeta: roomOf(term.cwd) }), command: hookCommand(SHELTER, SOCKET_TERMINALS, id) }); }
+  else for (const id of idsTerm) { const term = terminals.openSessions().find(x => x.id === id); if (term) terms.push({ title: t('server.surface.terminalTitle', { folder: roomOf(term.cwd) }), command: hookCommand(SHELTER, SOCKET_TERMINALS, id) }); }
   let app = '';
   const open = async (items: ItemDesktop[], windowNew: boolean) => { try { app = await openInDesktop(items, { windowNew }); return true; } catch (e) { notices.push((e as Error).message); return false; } };
   if (terms.length) await open(terms, !!d.windowNew);

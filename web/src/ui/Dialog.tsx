@@ -666,7 +666,7 @@ function Menu({ h, go, exit }: { h: DwellerSummary; go: (v: View) => void; exit:
   // revisar la copia (cambios, commits, integrar, desechar) es el aparato de la copia: el intercomunicador baja a la barra
   const toReview = () => { exit(); juego.set({ panel: 'worktree', panelData: { roomId: h.room, device: 'wt:' + copy!.path } }); };
   const options = [
-    { text: copy ? t('windows.startANewJobInside') : t('windows.startANewJob'), hint: t('windows.inFolder', { carpeta: (folder ?? t('windows.theirRoom')).replace(/^\/Users\/[^/]+/, '~') }), f: () => go({ type: 'new' }) },
+    { text: copy ? t('windows.startANewJobInside') : t('windows.startANewJob'), hint: t('windows.inFolder', { folder: (folder ?? t('windows.theirRoom')).replace(/^\/Users\/[^/]+/, '~') }), f: () => go({ type: 'new' }) },
     { text: t('windows.resumeAPreviousJob'), hint: copy ? t('windows.fromThisWorktree') : t('windows.includingTerminalOnes'), f: () => go({ type: 'history' }) },
     ...(folder ? [{ text: copy ? t('windows.openATerminalInside') : t('windows.openTheirTerminal'), hint: 'T', f: terminal }] : []),
     ...(copy ? [{ text: t('windows.reviewTheCopyChangesCommits'), f: toReview }] : []),
@@ -691,7 +691,7 @@ function Menu({ h, go, exit }: { h: DwellerSummary; go: (v: View) => void; exit:
 function greetingOf(h: DwellerSummary) {
   if (h.copy) {
     const r = branchCaption(h.copy.branch);
-    const phrases = [t('windows.copyOfAuthorOnlineHere', { author: h.copy.nameAuthor, branch: r }), t('windows.iMAutorSCopy', { author: h.copy.nameAuthor, branch: r }), h.copy.changes ? t('windows.projectionStableBranchWith', { branch: r, n: h.copy.changes }) : t('windows.projectionStableBranchShall', { branch: r })];
+    const phrases = [t('windows.copyOfAuthorOnlineHere', { author: h.copy.nameAuthor, branch: r }), t('windows.iMAuthorSCopy', { author: h.copy.nameAuthor, branch: r }), h.copy.changes ? t('windows.projectionStableBranchWith', { branch: r, n: h.copy.changes }) : t('windows.projectionStableBranchShall', { branch: r })];
     return phrases[Math.floor(Math.random() * phrases.length)];
   }
   const phrases = h.robot

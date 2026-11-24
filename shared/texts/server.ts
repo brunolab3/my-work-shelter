@@ -331,12 +331,12 @@ export const SERVER: Record<string, LocalizedText> = {
   'server.couldNotDiscardCopy': { es: 'No he podido desechar la copia: {error}', en: 'I could not discard the copy: {error}' },
   // organizar la sala por tareas (server/organize.ts)
   'server.organize.hasConversation': { es: '{name}: ya tiene su conversación.', en: '{name}: it already has its conversation.' },
-  'server.organize.hasConversationIn': { es: '{name}: ya tiene su conversación en {carpeta}.', en: '{name}: it already has its conversation in {carpeta}.' },
+  'server.organize.hasConversationIn': { es: '{name}: ya tiene su conversación en {folder}.', en: '{name}: it already has its conversation in {folder}.' },
   'server.organize.createdNoSession': { es: '{name}: worktree creado; la conversación no empieza (límite de sesiones vivas): ábrela desde su copia holográfica.', en: '{name}: worktree created; the conversation does not start (live sessions limit): open it from its holographic copy.' },
   'server.organize.readyNoSession': { es: '{name}: worktree listo; la conversación no empieza (límite de sesiones vivas): ábrela desde su copia holográfica.', en: '{name}: worktree ready; the conversation does not start (live sessions limit): open it from its holographic copy.' },
   'server.organize.startedNew': { es: '{name}: worktree nuevo y conversación empezada.', en: '{name}: new worktree and conversation started.' },
   'server.organize.startedMain': { es: '{name}: en la copia principal y conversación empezada.', en: '{name}: in the main copy and conversation started.' },
-  'server.organize.startedIn': { es: '{name}: en {carpeta} y conversación empezada.', en: '{name}: in {carpeta} and conversation started.' },
+  'server.organize.startedIn': { es: '{name}: en {folder} y conversación empezada.', en: '{name}: in {folder} and conversation started.' },
   'server.organize.failed': { es: '{name}: no se pudo ({error}).', en: '{name}: it could not be done ({error}).' },
   // ./shelter superficie y ./shelter enganchar (server/surface.ts)
   'server.surface.needsATerminal': { es: 'enganchar necesita una terminal de verdad.', en: 'enganchar needs a real terminal.' },
@@ -351,7 +351,7 @@ export const SERVER: Record<string, LocalizedText> = {
   'server.surface.closedNothingLeft': { es: 'El refugio no está abierto y no quedó nada abierto.', en: 'The shelter is not open and nothing was left open.' },
   'server.surface.listConversation': { es: '  conversación  {dweller} · {title}  ({cwd})', en: '  conversation  {dweller} · {title}  ({cwd})' },
   'server.surface.listTerminal': { es: '  terminal      {id}  ({cwd})', en: '  terminal      {id}  ({cwd})' },
-  'server.surface.terminalTitle': { es: 'Terminal · {carpeta}', en: 'Terminal · {carpeta}' },
+  'server.surface.terminalTitle': { es: 'Terminal · {folder}', en: 'Terminal · {folder}' },
   'server.surface.dweller': { es: 'Habitante', en: 'Dweller' },
   'server.surface.conversation': { es: 'Conversación', en: 'Conversation' },
   'server.surface.usageHook': { es: 'Uso: ./shelter enganchar <id> [--socket ruta]', en: 'Usage: ./shelter enganchar <id> [--socket path]' },

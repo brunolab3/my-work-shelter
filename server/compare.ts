@@ -188,7 +188,7 @@ export async function sameRepoWorktree(cwd: string, folder: string): Promise<str
   const requested = await real(path.resolve(cwd, folder));
   const list = await gitOr(cwd, ['worktree', 'list', '--porcelain']);
   const copies = await Promise.all(list.split('\n').filter(l => l.startsWith('worktree ')).map(l => real(l.slice(9))));
-  if (!copies.includes(requested)) throw new Error(t('tool.compare.notAWorktree', { carpeta: requested }));
+  if (!copies.includes(requested)) throw new Error(t('tool.compare.notAWorktree', { folder: requested }));
   return requested;
 }
 

@@ -149,7 +149,7 @@ export const TOOLS: Record<string, LocalizedText> = {
   'tool.compare.ready': { es: 'Página lista: {link} — {branch} frente a {base}: {n} archivos, +{more} −{less}. Enlázala así en tu respuesta para que el Supervisor la abra en el juego.', en: 'Page ready: {link} — {branch} against {base}: {n} files, +{more} −{less}. Link it like this in your reply so the Overseer can open it in the game.' },
   'tool.compare.failed': { es: 'No se pudo generar: {error}', en: 'Could not generate it: {error}' },
   'tool.compare.paramFolder': { es: 'Otro worktree del mismo repo que comparar (ruta absoluta); si no, la carpeta de esta conversación', en: 'Another worktree of the same repo to compare (absolute path); otherwise, this conversation\'s folder' },
-  'tool.compare.notAWorktree': { es: '«{carpeta}» no es un worktree de este repo (git worktree list).', en: '“{carpeta}” is not a worktree of this repo (git worktree list).' },
+  'tool.compare.notAWorktree': { es: '«{folder}» no es un worktree de este repo (git worktree list).', en: '“{folder}” is not a worktree of this repo (git worktree list).' },
   'tool.compare.noSuchBase': { es: 'No existe «{base}» en este repo.', en: '“{base}” does not exist in this repo.' },
   'tool.compare.noBase': { es: 'No encuentro con qué comparar: dime la base (una rama o un commit).', en: 'I cannot find what to compare against: tell me the base (a branch or a commit).' },
   'tool.compare.binary': { es: 'Archivo binario.', en: 'Binary file.' },

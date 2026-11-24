@@ -308,7 +308,7 @@ function BrowserWindow({ v }: { v: WindowNav }) {
     const texts = { note: '✎ ' + t('windows.note'), save: t('windows.save'), cancel: t('windows.cancel'), deleteMessage: t('windows.delete'), placeholder: t('windows.whatShouldChangeHere') };
     const listen = (e: MessageEvent) => {
       if (e.source !== frame.current?.contentWindow || e.data?.shelter !== 'notes') return;
-      if (e.data.type === 'hola') frame.current?.contentWindow?.postMessage({ shelter: 'notes', type: 'restore', texts, notes: pageNotes.get()[path] ?? [], scroll: scrollOf.get(path) ?? 0 }, '*');
+      if (e.data.type === 'hello') frame.current?.contentWindow?.postMessage({ shelter: 'notes', type: 'restore', texts, notes: pageNotes.get()[path] ?? [], scroll: scrollOf.get(path) ?? 0 }, '*');
       else if (e.data.type === 'scroll' && typeof e.data.y === 'number') scrollOf.set(path, e.data.y);
       else if (e.data.type === 'link') {
         // a link of the page: like one of a reply, at the pointer (the <iframe>'s coordinates are its own)

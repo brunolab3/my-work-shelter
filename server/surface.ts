@@ -115,7 +115,7 @@ async function surface(onlyList: boolean) {
     return;
   }
   const items: ItemDesktop[] = [
-    ...terms.map(x => ({ title: t('server.surface.terminalTitle', { carpeta: path.basename(x.cwd) }), command: hookCommand(path.join(ROOT, 'shelter'), SOCKET_TERMINALS, x.id) })),
+    ...terms.map(x => ({ title: t('server.surface.terminalTitle', { folder: path.basename(x.cwd) }), command: hookCommand(path.join(ROOT, 'shelter'), SOCKET_TERMINALS, x.id) })),
     ...conv.map(a => ({ title: `${a.dweller ?? t('server.surface.dweller')} · ${a.title ?? t('server.surface.conversation')}`, command: resumeCommand({ claudeId: a.claudeId, cwd: a.cwd, permissions: a.permissions }) })),
   ];
   if (!items.length) { console.log(t('server.surface.closedNothingLeft')); return; }

@@ -230,6 +230,6 @@
     else if (e.data.type === 'find') find(String(e.data.query || ''), e.data.dir < 0 ? -1 : 1, !!e.data.again);
     else if (e.data.type === 'findClear') findClear();
   });
-  const hola = () => post({ type: 'hola' });
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', hola); else hola();
+  const hello = () => post({ type: 'hello' });
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', hello); else hello();
 })();
