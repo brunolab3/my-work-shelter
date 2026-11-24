@@ -116,7 +116,7 @@ html, body { margin: 0; height: 100%; background: var(--fondo); overflow: hidden
 .luz.amarillo { background: var(--ambar); box-shadow: 0 0 8px var(--ambar); }
 .luz.rojo { background: var(--rojo); box-shadow: 0 0 8px var(--rojo); }
 /* its popover: each window's chart and reset (LimitWindow in Hud.tsx) */
-.limites-pop { position: fixed; z-index: 60; display: flex; flex-direction: column; gap: .8em; padding: .7em .9em; width: 240px; background: var(--fosforo-fondo); color: var(--crema); border: 1px solid var(--canto); box-shadow: 0 6px 18px rgba(0,0,0,.6); font: 12px var(--t-mono); pointer-events: none; }
+.limites-pop { position: fixed; z-index: 60; display: flex; flex-direction: column; gap: .8em; padding: .7em .9em; width: 272px; background: var(--fosforo-fondo); color: var(--crema); border: 1px solid var(--canto); box-shadow: 0 6px 18px rgba(0,0,0,.6); font: 12px var(--t-mono); }
 .limites-pop .tenue { color: var(--crema-tenue); }
 .limites-pop-titulo { font: 13px var(--t-rotulo); letter-spacing: .06em; text-transform: uppercase; color: var(--crema-tenue); }
 .limite-ventana { display: flex; flex-direction: column; gap: .3em; --serie: var(--fosforo-tenue); }
@@ -153,6 +153,34 @@ html, body { margin: 0; height: 100%; background: var(--fondo); overflow: hidden
 .proceso-parar.confirmar { color: var(--rojo); border-color: var(--rojo); }
 .proceso-recarga .boton-puerta:disabled { opacity: .5; cursor: default; color: var(--crema); }
 .proceso-recarga { display: flex; flex-wrap: wrap; align-items: center; gap: .5em; padding: .3em 0; color: var(--ambar); }
+/* the tokens spent, in the same popover (UsageGraph.tsx): new tokens bright, cache reads dim, the current window
+   shaded in amber */
+.uso-grafico { display: flex; flex-direction: column; gap: .4em; border-top: 1px solid var(--canto); padding-top: .7em; }
+.uso-vistas { display: flex; gap: 4px; }
+.uso-vistas button { font: 11px var(--t-mono); color: var(--crema-tenue); background: transparent; border: 1px solid var(--canto); padding: 2px 8px; cursor: pointer; }
+.uso-vistas button.activa { color: var(--fosforo-fondo); background: var(--fosforo); border-color: var(--fosforo); }
+.uso-vistas button:focus-visible { outline: 1px solid var(--fosforo); outline-offset: 1px; }
+.uso-leyenda { display: flex; flex-wrap: wrap; column-gap: 12px; color: var(--crema-tenue); font-size: 11px; }
+.uso-leyenda span { white-space: nowrap; }
+.uso-leyenda b, .uso-tip b { color: var(--crema); font-weight: 600; }
+.uso-muestra { display: inline-block; width: 9px; height: 9px; margin-right: 5px; vertical-align: -1px; border-radius: 2px; }
+.uso-muestra.nuevos { background: var(--fosforo); }
+.uso-muestra.cache { background: var(--fosforo-tenue); }
+.uso-muestra.ventana { background: rgba(255,179,71,.25); border: 1px dashed var(--ambar); box-sizing: border-box; }
+.uso-lienzo { position: relative; }
+.uso-lienzo svg { display: block; overflow: visible; }
+.uso-barra.nuevos { fill: var(--fosforo); }
+.uso-barra.cache { fill: var(--fosforo-tenue); }
+.uso-grafico g.activa .uso-barra { filter: brightness(1.25); }
+.uso-base { stroke: var(--canto); stroke-width: 1; }
+.uso-eje { fill: var(--crema-tenue); font: 9px var(--t-mono); }
+.uso-ventana { fill: rgba(255,179,71,.12); }
+.uso-marca { stroke: var(--ambar); stroke-width: 1.5; stroke-dasharray: 3 2; }
+.uso-diana { fill: transparent; }
+.uso-tip { position: absolute; top: 0; width: 170px; box-sizing: border-box; padding: 5px 7px; pointer-events: none; background: var(--acero-2); border: 1px solid var(--canto); line-height: 1.5; font-size: 11px; }
+.uso-tip-cuando { color: var(--crema); font-weight: 600; }
+.uso-estado { height: 100px; display: flex; align-items: center; justify-content: center; }
+.uso-nota { font-size: 10px; opacity: .8; }
 @keyframes reunion-pulso { 50% { text-shadow: 0 0 2px rgba(255,90,74,.3); opacity: .55; } }
 /* a meeting about to start (Hud.tsx): a box over everything, above the intercom and maximised terminals */
 .reunion-velo { position: fixed; inset: 0; z-index: 270000; background: rgba(6,4,3,.6); }

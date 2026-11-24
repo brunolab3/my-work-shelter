@@ -70,6 +70,7 @@ import { sanitizeLook, TYPES_STOCK } from '../shared/appearance.ts';
 import { t } from '../shared/language.ts';
 import { planLimits } from './planLimits.ts';
 import { runningThings, stopDwellerProcess } from './runningThings.ts';
+import { usageSpend } from './usageSpend.ts';
 
 // reinicio desde el juego: antes de apagar el servidor viejo se carga el nuevo con esta variable para ver que arranca
 // (un error de sintaxis o una importación rota se detectan aquí y el juego sigue en marcha)
@@ -347,6 +348,9 @@ function readPlanUsage() {
   sessions.planUsage().then(rl => planLimits.fromUsage(rl)).catch(() => {});
 }
 setInterval(readPlanUsage, 5 * 60_000).unref();
+// the tokens spent, on hover over that meter (server/usageSpend.ts): the first read of the transcripts is the long one,
+// so it is done once the game has started
+setTimeout(() => usageSpend.buckets().catch(() => {}), 20_000).unref();
 // límites de uso del plan de Claude: el refugio avisa (una vez por estado) en vez de callarlo
 let lastLimit = '';
 // the plan's 5-hour window as the sessions report it: next-window messages wait for it to end (scheduled.ts)
@@ -1182,6 +1186,7 @@ async function action(name: string, d: Record<string, any> = {}): Promise<unknow
     case 'sala.organizar': return organizeRooms(d.roomId ? String(d.roomId) : undefined, !!d.apply);
     case 'tareas.colores': return taskColors.colors(d.keys);
     case 'despliegue.bloqueos': return prBlockers.all();
+    case 'uso.gasto': return usageSpend.buckets();
     case 'preflight.tarea': return preflightOf(String(d.key ?? ''), ctxPreflight, !!d.force);
     case 'preflight.checklist': return checklistItems();
     case 'verificacion.tableros': return boardsSetup(ctxTrackers, (['jira', 'linear'] as const).find(f => f === d.source) as Tracker | undefined);

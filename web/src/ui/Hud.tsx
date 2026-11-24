@@ -3,6 +3,7 @@
 // siempre a la vista) y las dos puertas de lo demás: el buscador (⌘K) y el menú del juego (Esc), que lleva el reinicio.
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { UsageGraph } from './UsageGraph';
 import { juego } from './gameState';
 import { t, language } from '@shared/language';
 import { live } from '../net/client';
@@ -123,9 +124,26 @@ function PlanMeter({ limits, now }: { limits: PlanLimits; now: number }) {
   const box = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const r = open ? box.current?.getBoundingClientRect() : undefined;
+  // the popover takes the pointer and focus too (the spend graph's tabs and bars): while open, a pointer moving outside
+  // both closes it (leave events across the portal are unreliable), after a short delay so it can cross the gap; with
+  // the keyboard, focus moving into it keeps it open (React focus events bubble here from the portal)
+  const closing = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const show = () => { clearTimeout(closing.current); setOpen(true); };
+  const hide = () => { clearTimeout(closing.current); closing.current = setTimeout(() => setOpen(false), 200); };
+  useEffect(() => () => clearTimeout(closing.current), []);
+  useEffect(() => {
+    if (!open) return;
+    const move = (e: PointerEvent) => {
+      const el = e.target as Element | null;
+      if (box.current?.contains(el) || el?.closest?.('.limites-pop')) clearTimeout(closing.current);
+      else hide();
+    };
+    document.addEventListener('pointermove', move, true);
+    return () => document.removeEventListener('pointermove', move, true);
+  }, [open]);
   return (
     <div ref={box} className="seg fosforo limites" tabIndex={0} aria-label={t('panels.limit.title')}
-      onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)} onFocus={() => setOpen(true)} onBlur={() => setOpen(false)}>
+      onMouseEnter={show} onFocus={show} onBlur={e => { if (!(e.relatedTarget as Element | null)?.closest?.('.limites, .limites-pop')) hide(); }}>
       <span className="semaforo" title={t('panels.limit.light')}>
         <span className={'luz ' + worst.light} />
         <span className="txt">{worst.window ? LIMIT_SHORT[worst.window] ?? t('panels.limit.shortOther') : ''}</span>
@@ -140,9 +158,10 @@ function PlanMeter({ limits, now }: { limits: PlanLimits; now: number }) {
         );
       })}
       {r && createPortal(
-        <div className="limites-pop" role="tooltip" style={{ top: r.bottom + 6, right: Math.max(8, innerWidth - r.right) }}>
+        <div className="limites-pop" role="dialog" aria-label={t('panels.limit.title')} style={{ top: r.bottom + 6, right: Math.max(8, innerWidth - r.right) }}>
           <div className="limites-pop-titulo">{t('panels.limit.title')}</div>
           {types.map(w => <LimitWindow key={w} type={w} l={limits[w]} now={now} />)}
+          <UsageGraph limits={limits} now={now} />
         </div>, document.body)}
     </div>
   );

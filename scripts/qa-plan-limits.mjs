@@ -1,6 +1,7 @@
 // QA of the plan's usage meter in the top bar (PlanMeter in web/src/ui/Hud.tsx): the traffic light by usage against
 // the share of the window passed (grey unknown, green, amber, red, «LIMIT» when rejected), the weekly window once known
-// and the popover on hover with each window's chart and reset. Limits are injected into the page store (no Claude sessions).
+// and the popover on hover with each window's chart and reset, and the tokens spent (UsageGraph.tsx, read from the real
+// transcripts by the server). Limits are injected into the page store (no Claude sessions).
 // Usage: node scripts/qa-plan-limits.mjs [url] [screenshots-dir]   (with a test shelter: SHELTER_DATOS=/tmp/x npm run dev)
 import { chromium } from 'playwright';
 import { mkdirSync } from 'node:fs';
@@ -40,7 +41,7 @@ await set({ five_hour: lim('allowed', 42, 2.5), seven_day: lim('allowed', 18, 48
 m = await meter();
 check(m?.items.length === 2 && /verde/.test(m.items[0].kind) && /42%/.test(m.items[0].text) && /18%/.test(m.items[1].text) && /luz verde/.test(m.light), `green, with the weekly window (${JSON.stringify(m)})`);
 let p = await pop();
-check(/42 %/.test(p) && /50 %/.test(p) && /(resets|se renueva)/.test(p) && (await pg.locator('.limites-pop svg').count()) === 2, `popover: usage vs pace, reset, a chart per window (${p})`);
+check(/42 %/.test(p) && /50 %/.test(p) && /(resets|se renueva)/.test(p) && (await pg.locator('.limites-pop .limite-grafica').count()) === 2, `popover: usage vs pace, reset, a chart per window (${p})`);
 await pg.screenshot({ path: `${dir}/2-verde-pop.png`, clip: { x: 1000, y: 0, width: 600, height: 420 }, timeout: 90_000, animations: 'disabled' });
 await pg.mouse.move(10, 500);
 // 5 h: 55 % at half (1.1, amber); weekly: 50 % on day 1 (3.5, red): the overall light is the weekly one
@@ -54,6 +55,27 @@ check(m?.items.length === 3 && /agotado/.test(m.items[0].kind) && /LIMIT|LÍMITE
 p = await pop();
 check(/Opus/.test(p), `popover names the weekly Opus window (${p})`);
 await pg.screenshot({ path: `${dir}/4-agotado-pop.png`, clip: { x: 1000, y: 0, width: 600, height: 560 }, timeout: 90_000, animations: 'disabled' });
+// the tokens spent: 5 h by hour with the window's start, a bar's tooltip, 7 days by day; it stays while the pointer is
+// in the popover, goes once it leaves, and keyboard focus opens it too
+await pg.mouse.move(10, 500);
+await set({ five_hour: lim('allowed', 42, 2.5), seven_day: lim('allowed', 18, 48, 168) }); await pg.waitForTimeout(300);
+await pg.hover('.limites');
+await pg.waitForSelector('.uso-grafico svg', { timeout: 60000 });
+const graph = () => pg.evaluate(() => { const g = document.querySelector('.uso-grafico'); return g && { text: g.textContent, bars: g.querySelectorAll('.uso-diana').length, window: !!g.querySelector('.uso-marca'), tab: g.querySelector('.uso-vistas .activa')?.textContent }; });
+let g = await graph();
+check(g?.bars === 6 && g.window, `spent: 6 hourly bars with the window's start (${JSON.stringify(g)})`);
+await pg.hover('.uso-diana >> nth=4');
+check(await pg.locator('.uso-tip').count() === 1, 'spent: a bar\'s tooltip on hover');
+const popBox = async () => { const r = await pg.locator('.limites-pop').boundingBox(); return { clip: { x: r.x - 10, y: 0, width: r.width + 20, height: r.y + r.height + 10 }, timeout: 90_000, animations: 'disabled' }; };
+await pg.screenshot({ path: `${dir}/5-gasto-horas.png`, ...(await popBox()) });
+await pg.click('.uso-vistas button >> nth=1');
+g = await graph();
+check(g?.bars === 8 && g.window, `spent: 7 days by day, 8 daily bars (${JSON.stringify(g)})`);
+await pg.screenshot({ path: `${dir}/6-gasto-dias.png`, ...(await popBox()) });
+await pg.mouse.move(800, 600);
+check(await pg.waitForSelector('.limites-pop', { state: 'detached', timeout: 3000 }).then(() => true, () => false), 'gone once the pointer leaves');
+await pg.focus('.limites'); await pg.waitForTimeout(100);
+check(await pg.locator('.uso-grafico').count() === 1, 'keyboard focus opens it too');
 check(!errors.length, `no page errors ${errors.join(' | ')}`);
 await b.close();
 console.log(failures ? `${failures} fallos` : 'Todo bien'); process.exit(failures ? 1 : 0);
