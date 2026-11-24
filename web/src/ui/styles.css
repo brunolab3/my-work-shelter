@@ -301,6 +301,8 @@ html, body { margin: 0; height: 100%; background: var(--fondo); overflow: hidden
 .consola-acciones .paginas-sesion { position: relative; width: 100%; }
 .programados-lista li { gap: .6em; }
 .programados-lista .pagina-nombre { cursor: default; }
+.programados-lista .programados-grupo { color: #8f8670; font-weight: 700; padding-top: .4em; }
+.programados-lista .programados-grupo > span { flex: 0 1 auto; }
 .programados-lista .programado-edicion { flex-direction: column; align-items: stretch; white-space: normal; }
 .programar-hora { position: relative; display: inline-block; }
 /* upwards, over the conversation: .paginas-lista (declared later) would put it below, past the intercom's bottom */

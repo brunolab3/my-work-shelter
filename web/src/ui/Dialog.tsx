@@ -38,7 +38,7 @@ import { Usage } from './usage';
 import { takeASurface, toClaudeApp } from './surface';
 import { openLink, openPage, pageForSession, pageAnswers, pageNotes, validatePage, revealPage, makeRoomForIntercom, answerPage } from './Browsers';
 import { sessionPages, pendingPages, samePage, livePages, questionInput } from '@shared/sessionPages';
-import { AFTER_TURN, describeWhen, describeWhenShort, localInput, ofConversationView, ofPlace, schedulePresets, type ScheduledMessage } from '@shared/scheduled';
+import { AFTER_TURN, byPlace, describeWhen, describeWhenShort, localInput, ofConversationView, ofPlace, schedulePresets, type ScheduledMessage } from '@shared/scheduled';
 import type { PRBoard } from '@shared/board';
 import { worktreePRs, taskColor } from '@shared/tasks';
 import { lookOf, lookSignature } from '@shared/appearance';
@@ -1179,18 +1179,30 @@ function PagesMenu({ s }: { s: SessionSummary }) {
   return <PagesList sessionId={s.id} claudeId={s.claudeId} entries={entries} base={folderOf(s)} />;
 }
 
+// the after-turn ones first, then the dated ones, then the background work, pending until the day's final 5-hour window
+const tiers = (l: ScheduledMessage[]) => [...l.filter(x => x.afterTurn), ...l.filter(x => !x.nextWindow && !x.afterTurn), ...l.filter(x => x.nextWindow)];
+
 // The scheduled messages (server/scheduled.ts) of what the intercom shows: those the open conversation scheduled and
 // those waiting for its turn to end (from anyone: another room, the game, the Overseer's «When it finishes»); with
 // none open, those of the conversation being resumed or, from the menu, every one of this room or hologram (ofPlace), so
-// they're seen before opening their conversation. When the next one is due and, unfolded, each with ✎ (change the time
-// or the text) and ✕ (cancel it)
+// they're seen before opening their conversation; the room's dweller's lists the whole room, under a heading per
+// hologram (byPlace: the main copy first) once one of its worktrees has some. When the next one is due and, unfolded,
+// each with ✎ (change the time or the text) and ✕ (cancel it)
 function ScheduledMenu({ h, s, resume }: { h: DwellerSummary; s?: SessionSummary; resume?: string }) {
   const all = live.use(e => e.scheduled);
   const worktrees = live.use(e => e.repos[h.room]?.worktrees);
   const conversation = s ?? (resume ? { claudeId: resume } : undefined);
-  // the dated ones first, then the background work, pending until the day's final 5-hour window (no time of its own)
-  const mine = useMemo(() => { const l = conversation ? ofConversationView(all, conversation) : ofPlace(all, h.room, h.copy?.path, worktrees ?? []); return [...l.filter(x => x.afterTurn), ...l.filter(x => !x.nextWindow && !x.afterTurn), ...l.filter(x => x.nextWindow)]; },
-    [all, worktrees, s?.id, s?.claudeId, resume, h.room, h.copy?.path]);
+  const groups = useMemo(() => {
+    const l = conversation ? [{ worktree: undefined, items: ofConversationView(all, conversation) }]
+      : h.copy ? [{ worktree: h.copy.path, items: ofPlace(all, h.room, h.copy.path, worktrees ?? []) }] : byPlace(all, h.room, worktrees ?? []);
+    return l.map(g => ({ ...g, items: tiers(g.items) }));
+  }, [all, worktrees, s?.id, s?.claudeId, resume, h.room, h.copy?.path]);
+  const mine = useMemo(() => tiers(groups.flatMap(g => g.items).sort((a, b) => a.when - b.when)), [groups]);
+  const headed = !conversation && !h.copy && groups.some(g => g.worktree);
+  const groupName = (path: string | undefined) => {
+    const w = path && worktrees?.find(x => x.path === path);
+    return w ? `◇ ${copyCaption(w, copyTask(w) ?? branchCaption(w.branch))}` : t('windows.scheduledMainCopy');
+  };
   const [open, setOpen] = useState(false);
   const list = useListAtButton(open);
   const [editing, setEditing] = useState<{ id: string; when: string; message: string; error?: string } | null>(null);
@@ -1213,7 +1225,9 @@ function ScheduledMenu({ h, s, resume }: { h: DwellerSummary; s?: SessionSummary
       <button className="consola-x" title={t(conversation ? 'windows.scheduledHint' : 'windows.scheduledHintPlace')} onClick={() => { setOpen(x => !x); setEditing(null); SFX.click(); }}>
         {t(mine.length > 1 ? 'windows.scheduledN' : 'windows.scheduled', { n: mine.length, cuando: whenShort(mine[0]) })}
       </button>
-      {open && <ul ref={list} className="paginas-lista programados-lista" onKeyDown={e => { e.stopPropagation(); if (e.key === 'Escape') { setEditing(null); setOpen(false); } }}>{mine.map(x => <Fragment key={x.id}>
+      {open && <ul ref={list} className="paginas-lista programados-lista" onKeyDown={e => { e.stopPropagation(); if (e.key === 'Escape') { setEditing(null); setOpen(false); } }}>{groups.map(g => <Fragment key={g.worktree ?? ''}>
+        {headed && <li className="programados-grupo"><span>{t('windows.scheduledGroup', { nombre: groupName(g.worktree), n: g.items.length })}</span></li>}
+        {g.items.map(x => <Fragment key={x.id}>
         {editing?.id === x.id
         ? <li className="programado-edicion">
             <input type="datetime-local" value={editing.when} onChange={e => setEditing({ ...editing, when: e.target.value, error: undefined })} />
@@ -1230,7 +1244,7 @@ function ScheduledMenu({ h, s, resume }: { h: DwellerSummary; s?: SessionSummary
             <button className="consola-x" title={t('windows.scheduledEdit')} onClick={() => setEditing({ id: x.id, when: x.nextWindow || x.afterTurn ? '' : localInput(x.when), message: x.message })}>✎</button>
             {(x.nextWindow || x.overLimit || x.afterTurn) && <button className="consola-x" title={t('windows.scheduledSendNow')} onClick={() => sendNow(x)}>▶</button>}
             <button className="consola-x" title={t('windows.scheduledCancel')} onClick={() => cancel(x)}>✕</button>
-          </li>}</Fragment>)}</ul>}
+          </li>}</Fragment>)}</Fragment>)}</ul>}
     </span>
   );
 }

@@ -123,6 +123,13 @@ export function placeOf(x: ScheduledMessage, worktrees: { path: string; branch?:
 export const ofPlace = (list: ScheduledMessage[], roomId: string, worktree: string | undefined, worktrees: { path: string; branch?: string; main?: boolean }[]) =>
   list.filter(x => { const p = placeOf(x, worktrees); return p.roomId === roomId && p.worktree === worktree; }).sort((a, b) => a.when - b.when);
 
+/** A room's general list split by place: its main copy first (with those whose worktree is gone), then each of its
+ *  `worktrees` that has some, in that order; soonest first within each. Empty places are left out */
+export function byPlace(list: ScheduledMessage[], roomId: string, worktrees: { path: string; branch?: string; main?: boolean }[]): { worktree?: string; items: ScheduledMessage[] }[] {
+  const places: (string | undefined)[] = [undefined, ...worktrees.filter(w => !w.main).map(w => w.path)];
+  return places.map(worktree => ({ worktree, items: ofPlace(list, roomId, worktree, worktrees) })).filter(g => g.items.length);
+}
+
 /** The soonest pending message of each room and worktree, keyed `salaId|worktree` (`salaId|` for the room's main copy):
  *  the ⏰ on its dweller or hologram in the shelter */
 export function soonestByPlace(list: ScheduledMessage[], worktreesOf: (roomId: string) => { path: string; branch?: string; main?: boolean }[]): Map<string, ScheduledMessage> {

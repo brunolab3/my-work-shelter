@@ -2,7 +2,8 @@
 // with its own server in a test shelter and Playwright: the four buttons in order of importance right under the
 // dweller's data; each list opens right below its button in a normal and a maximized intercom, and to its right over the
 // conversation in a short window when there's no room below for a few rows; never outside the intercom, and with ten
-// scheduled ones (⏳, 📦, next window, to other rooms) every row's buttons reachable. Screenshots of each.
+// scheduled ones (⏳, 📦, next window, to other rooms) every row's buttons reachable; the room's dweller's ⏰ list grouped
+// by hologram. Screenshots of each.
 // Needs the built client (npx vite build). Usage: node scripts/qa-intercom-actions.mjs [screenshots-folder]   (SHELTER_PUERTO_QA, 3797)
 import { chromium } from 'playwright';
 import { spawn, execFileSync } from 'node:child_process';
@@ -112,5 +113,18 @@ try {
     await side(`10${n}-muchos-programados-fin`);
     await pg.click('.programados-sesion > .consola-x'); await sleep(200);
   }
+  // the room's dweller lists the whole room by hologram: the main copy first (with one of a removed worktree), then the task
+  await pg.setViewportSize({ width: 1600, height: 1000 });
+  await pg.evaluate(([holo, wt]) => {
+    const now = Date.now(), to = (id, h, target) => ({ id, created: now, when: now + h * 3600e3, requested: '', message: 'Mensaje ' + id, origin: { roomId: holo.room }, target });
+    window.__live.set(e => ({ ...e, sessions: {}, scheduled: [to('w1', 1, { type: 'conversacion', roomId: holo.room, cwd: wt }), to('m1', 2, { type: 'sala', room: holo.room }),
+      to('g1', 3, { type: 'conversacion', roomId: holo.room, cwd: wt.replace(/qa-7$/, 'gone-1') }), to('w2', 4, { type: 'sala', room: holo.room, key: 'QA-7' })] }));
+    window.__game.set({ talkingWith: holo.copy.authorId });
+  }, [holo, wt]);
+  await sleep(1500);
+  await pg.click('.programados-sesion > .consola-x'); await sleep(400);
+  const rows = await pg.$$eval('.programados-lista li', l => l.map(x => x.classList.contains('programados-grupo') ? '# ' + x.textContent : x.querySelector('.pagina-nombre')?.textContent));
+  check(JSON.stringify(rows) === JSON.stringify(['# Main copy · 2', 'Mensaje m1', 'Mensaje g1', '# ◇ QA-7 · 2', 'Mensaje w1', 'Mensaje w2']) || JSON.stringify(rows) === JSON.stringify(['# Copia principal · 2', 'Mensaje m1', 'Mensaje g1', '# ◇ QA-7 · 2', 'Mensaje w1', 'Mensaje w2']), 'the room\'s list by hologram, main copy first: ' + JSON.stringify(rows));
+  await side('11-sala-por-holograma');
 } finally { await b.close(); server.kill(); }
 process.exit(failures ? 1 : 0);

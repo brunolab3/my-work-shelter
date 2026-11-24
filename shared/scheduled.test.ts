@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { placeOf, ofPlace, soonestByPlace, nextWindowStart, finalWindowStart, schedulePresets, localInput, windowNext, due, WINDOW_GAP_MS, type ScheduledMessage, type ScheduledTarget } from './scheduled.ts';
+import { placeOf, ofPlace, byPlace, soonestByPlace, nextWindowStart, finalWindowStart, schedulePresets, localInput, windowNext, due, WINDOW_GAP_MS, type ScheduledMessage, type ScheduledTarget } from './scheduled.ts';
 
 const REPO = '/repos/acme';
 const WT = `${REPO}/.claude/worktrees/ABC-12`;
@@ -28,6 +28,15 @@ describe('scheduled messages by room and task', () => {
     expect(ofPlace(all, 'acme', WT, worktrees).map(x => x.id)).toEqual([b.id, a.id]);
     expect(ofPlace(all, 'acme', undefined, worktrees).map(x => x.id)).toEqual([c.id]);
     expect(ofPlace(all, 'other', undefined, []).map(x => x.id)).toEqual([d.id]);
+  });
+  it('byPlace splits a room\'s list by hologram: the main copy first, with those of a removed worktree', () => {
+    const TIDY = `${REPO}/.claude/worktrees/shelter-tidy-up--ab12`;
+    const tidy = msg({ type: 'sala', room: 'acme', key: 'tidy-up' }), abc = msg({ type: 'conversacion', roomId: 'acme', cwd: WT });
+    const gone = msg({ type: 'conversacion', roomId: 'acme', cwd: `${REPO}/.claude/worktrees/ABC-7` }, 50), main = msg({ type: 'sala', room: 'acme' }, 200);
+    const other = msg({ type: 'sala', room: 'other' });
+    expect(byPlace([tidy, main, other, abc, gone], 'acme', worktrees).map(g => [g.worktree, g.items.map(x => x.id)]))
+      .toEqual([[undefined, [gone.id, main.id]], [WT, [abc.id]], [TIDY, [tidy.id]]]);
+    expect(byPlace([other], 'acme', worktrees)).toEqual([]);
   });
   it('soonestByPlace keeps each room\'s and worktree\'s next one', () => {
     const a = msg({ type: 'conversacion', roomId: 'acme', cwd: WT }, 300), b = msg({ type: 'sala', room: 'acme', key: 'ABC-12' }, 200);
