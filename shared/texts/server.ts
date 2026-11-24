@@ -314,6 +314,7 @@ export const SERVER: Record<string, LocalizedText> = {
   'server.notSentDueToInterruption': { es: 'Sin enviar por la interrupción (mándalo otra vez si quieres): {textos}', en: 'Not sent because of the interruption (send it again if you want): {textos}' },
   'server.quoted': { es: '«{v}»', en: '“{v}”' },
   'server.sessionClosed': { es: 'Sesión cerrada.', en: 'Session closed.' },
+  'server.stoppedItsProcesses': { es: 'Parados {n} procesos que había arrancado.', en: 'Stopped {n} processes it had started.' },
   'server.aDesktopTerminal': { es: 'una terminal de tu escritorio', en: 'a terminal on your desktop' },
   'server.theClaudeApp': { es: 'la app de Claude', en: 'the Claude app' },
   'server.couldNotAnswerSideQuestion': { es: 'No he podido responder la pregunta lateral: {error}', en: 'I could not answer the side question: {error}' },

@@ -1381,7 +1381,7 @@ async function handle(ws: WebSocket, m: ClientMessage) {
     case 'vozCancelar': dictations.cancel(String(m.id)); break;
     case 'responder': sessions.respond(m.sessionId, m.requestId, m.decision, m.message, m.responses); break;
     case 'interrumpir': await sessions.interrupt(m.sessionId); break;
-    case 'cerrarSesion': sessions.close(m.sessionId); break;
+    case 'cerrarSesion': await sessions.closeAndStop(m.sessionId); break;
     case 'leida': sessions.markRead(m.sessionId); break;
     case 'retirar': send(ws, { t: 'respuesta', request: m.request, data: await sessions.withdraw(m.sessionId, m.messageId).catch(() => false) }); break;
     case 'enviarYa': send(ws, { t: 'respuesta', request: m.request, data: await sessions.sendNow(m.sessionId, m.messageId).catch(() => false) }); break;

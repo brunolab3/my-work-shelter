@@ -26,6 +26,7 @@ import { ROOMS_FOLDERS } from './state.ts';
 import { active } from '../shared/sources.ts';
 import { describeTool, describeInput, permissionTitle, toolMode, toolPath, isAgent } from './tools.ts';
 import { t } from '../shared/language.ts';
+import { CONVERSATION_MARK, processesOf, stopProcesses } from './sessionProcesses.ts';
 import { resetMs, stopsWork, UNKNOWN_RESET_MS } from './limitResume.ts';
 import { ANNEX, bridgeAnnex, annexGit, HIDDEN_SKILLS, withoutWorkConnectors } from './annex.ts';
 
@@ -321,7 +322,7 @@ export class Sessions extends EventEmitter {
       ...(x.r.roomId === 'git' ? { additionalDirectories: this.resolver.reposOfShelter?.() ?? [] } : {}),
       includePartialMessages: true,
       settings: { skillOverrides: Object.fromEntries(HIDDEN_SKILLS.map(n => [n, 'off' as const])), ...(this.resolver.autoCompactWindow?.() ? { autoCompactWindow: this.resolver.autoCompactWindow() } : {}), ...(withoutWorkConnectors(x.r.roomId) ? { disableClaudeAiConnectors: true } : {}) },
-      env: cleanEnvironment(),
+      env: { ...cleanEnvironment(), [CONVERSATION_MARK]: x.r.id },
       stderr: d => { x.stderr = (x.stderr + d).slice(-4000); },
     };
   }
@@ -818,6 +819,15 @@ export class Sessions extends EventEmitter {
     x.closing = true; this.emptyPending(x, t('server.sessionClosed'));
     if (x.alive) { x.input?.close(); try { x.q?.close(); } catch {} }
     else { x.r.state = 'cerrada'; this.play(x); setTimeout(() => { this.s.delete(id); this.emit('fuera', id); }, 1000).unref(); }
+  }
+  // the Overseer closing a conversation also stops what it started (dev servers, watchers, test runs), found while its
+  // `claude` still lives; not when the game closes one (idle, a removed worktree), goes to the surface or restarts
+  async closeAndStop(id: string) {
+    const x = this.s.get(id); if (!x) return;
+    const procs = x.alive && !x.closing ? await processesOf(id).catch(() => []) : [];
+    stopProcesses(procs);
+    if (procs.length) this.add(x, this.input('sistema', t('server.stoppedItsProcesses', { n: procs.length })));
+    this.close(id);
   }
   closeAll() { for (const x of this.s.values()) this.close(x.r.id); }
 
