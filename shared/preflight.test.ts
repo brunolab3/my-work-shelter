@@ -158,6 +158,11 @@ describe('compareCell', () => {
     expect(compareCell(part, [{ file: '/c/a.html', ts: 10, parts: [{ worktree: '/r/api', branch: 'ABC-1-api', head: 'h2' }], answer: { state: 'validada', ts: 5 } }]).cell.mark).toBe('aviso');
     expect(compareCell(part, [{ file: '/c/a.html', ts: 10, parts: [{ worktree: '/r/api', branch: 'ABC-1-api', head: 'h2' }], answer: { state: 'notas', ts: 11 } }]).cell.text).toMatch(/notas/);
   });
+  it('a validated compare of another head (compare_changes head) only counts for the branch and commit it compared', () => {
+    expect(compareCell(part, [validated('/r/api', 'other-branch', 'h2')]).cell.mark).toBe('mal');
+    expect(compareCell(part, [validated('/r/api', 'h2h2h2h2h2h2', 'h2')]).cell.mark).toBe('mal');   // a commit, named by itself
+    expect(compareCell(part, [validated('/r/api', 'ABC-1-api', 'h1')]).cell.mark).toBe('aviso');
+  });
   it('una comparación de varios repos, validada, vale para cada parte en su commit', () => {
     const task: CompareRecord = { file: '/c/tarea-ABC-1.html', ts: 3, parts: [{ worktree: '/r/api', branch: 'ABC-1-api', head: 'h2' }, { worktree: '/r/web', branch: 'ABC-1-web', head: 'w1' }], answer: { state: 'validada', ts: 4 } };
     expect(compareCell(part, [validated('/r/api', 'ABC-1-api', 'h1', 8), task]).cell.mark).toBe('ok');

@@ -1,6 +1,6 @@
 // La página de comparación para revisar cambios con notas (compare.ts): con un repo de verdad
 import { describe, expect, it } from 'vitest';
-import { buildCompare, cleanCompares, parseDiff, COMPARES_FOLDER, sameRepoWorktree } from './compare.ts';
+import { buildCompare, cleanCompares, parseDiff, COMPARES_FOLDER, sameRepoWorktree, sidecarOf } from './compare.ts';
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
@@ -45,6 +45,24 @@ describe('comparación de cambios', () => {
     await expect(sameRepoWorktree(d, os.tmpdir())).rejects.toThrow();
     await expect(sameRepoWorktree(copy, d)).resolves.toBe(realpathSync(d));
     expect((await buildCompare(await sameRepoWorktree(d, copy))).branch).toBe('otra');
+  });
+  it('another branch or commit of the same repo as head, from a copy on another branch: only its commits, named by itself in the sidecar', async () => {
+    const d = repo();
+    const copy = path.join(mkdtempSync(path.join(os.tmpdir(), 'copia-')), 'otra');
+    execFileSync('git', ['worktree', 'add', '-q', '-b', 'otra', copy, 'main'], { cwd: d });
+    const sha = execFileSync('git', ['rev-parse', 'tarea'], { cwd: d }).toString().trim();
+    const byBranch = await buildCompare(copy, { head: 'tarea' });
+    expect([byBranch.base, byBranch.branch, byBranch.head, byBranch.files, byBranch.more]).toEqual(['main', 'tarea', sha, 2, 2]);
+    expect(JSON.parse(readFileSync(sidecarOf(byBranch.file), 'utf8')).parts).toEqual([{ worktree: realpathSync(copy), branch: 'tarea', head: sha, base: 'main' }]);
+    const byCommit = await buildCompare(copy, { head: sha });
+    expect([byCommit.branch, byCommit.head, byCommit.more]).toEqual([sha.slice(0, 12), sha, 2]);
+    expect(JSON.parse(readFileSync(sidecarOf(byCommit.file), 'utf8')).parts[0]).toMatchObject({ branch: sha.slice(0, 12), head: sha });
+  });
+  it('an unknown head, or uncommitted changes with a head other than HEAD, is said', async () => {
+    const d = repo();
+    await expect(buildCompare(d, { head: 'no-existe' })).rejects.toThrow(/no-existe/);
+    await expect(buildCompare(d, { head: 'main', uncommitted: true })).rejects.toThrow(/main/);
+    expect((await buildCompare(d, { head: 'HEAD', uncommitted: false })).more).toBe(2);
   });
 
   it('los números de línea de cada lado', () => {

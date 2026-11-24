@@ -139,15 +139,21 @@ const taskFinished = async (sidecar: string) => {
   return Array.isArray(parts) && parts.length > 0 && parts.every(p => typeof p?.worktree === 'string' && !existsSync(p.worktree));
 };
 
-/** Lo que lleva un repo (o worktree) frente a su base, por archivos, con la cabeza (HEAD) en la que se mira */
-export async function compareFiles(cwd: string, o: { base?: string; uncommitted?: boolean } = {}) {
+/** What a repo (or worktree) carries against its base, by files, at the head looked at: its HEAD, or another branch or
+ *  commit of the same repo (`head`), so a branch is compared from the main copy without opening a worktree for it */
+export async function compareFiles(cwd: string, o: { base?: string; uncommitted?: boolean; head?: string } = {}) {
   const root = (await git(cwd, ['rev-parse', '--show-toplevel'])).trim();
+  const other = !!o.head && o.head !== 'HEAD';
+  if (other && o.uncommitted) throw new Error(t('tool.compare.uncommittedOtherHead', { head: o.head! }));
+  const ref = other ? o.head! : 'HEAD';
+  const head = await gitOr(root, ['rev-parse', '--verify', '--quiet', ref + '^{commit}']);
+  if (other && !head) throw new Error(t('tool.compare.noSuchHead', { head: ref }));
   const base = await compareBase(root, o.base);
-  const since = (await gitOr(root, ['merge-base', base, 'HEAD'])) || base;
-  const branch = (await gitOr(root, ['rev-parse', '--abbrev-ref', 'HEAD'])) || 'HEAD';
-  const head = await gitOr(root, ['rev-parse', 'HEAD']);
-  const uncommitted = o.uncommitted !== false;
-  const diff = await git(root, ['diff', '--no-color', '--no-ext-diff', '--no-textconv', '-M', '--unified=3', since, ...(uncommitted ? [] : ['HEAD']), '--']);
+  const since = (await gitOr(root, ['merge-base', base, ref])) || base;
+  // its name: the branch's, or the commit itself (never the checkout's branch, so the pre-flight gate only takes it for that branch)
+  const branch = (await gitOr(root, ['rev-parse', '--abbrev-ref', ref])) || (other ? head.slice(0, 12) : 'HEAD');
+  const uncommitted = !other && o.uncommitted !== false;
+  const diff = await git(root, ['diff', '--no-color', '--no-ext-diff', '--no-textconv', '-M', '--unified=3', since, ...(uncommitted ? [] : [head || 'HEAD']), '--']);
   // los archivos nuevos que git aún no sigue también cuentan (si no, lo recién creado no saldría)
   let extra = '';
   if (uncommitted) for (const f of (await gitOr(root, ['ls-files', '--others', '--exclude-standard', '-z'])).split('\0').filter(Boolean).slice(0, 100)) extra += await newFileDiff(root, f);
@@ -166,7 +172,7 @@ async function writePage(file: string, html: string, sidecar: CompareSidecar) {
 const pageName = (s: string) => s.replace(/[^a-zA-Z0-9._-]+/g, '-').slice(0, 100) + '.html';
 
 /** Genera la página de un repo y devuelve dónde ha quedado */
-export async function buildCompare(cwd: string, o: { base?: string; uncommitted?: boolean; title?: string } = {}, folder = COMPARES_FOLDER) {
+export async function buildCompare(cwd: string, o: { base?: string; uncommitted?: boolean; head?: string; title?: string } = {}, folder = COMPARES_FOLDER) {
   const { root, base, branch, head, uncommitted, files } = await compareFiles(cwd, o);
   const repo = path.basename(root);
   const title = o.title?.trim() || `${repo} · ${branch}`;
@@ -200,11 +206,12 @@ export function mcpReview(cwd: () => string, preflight?: { state(cwd: string): P
           async a => text(await preflight.respond(cwd(), a.item, a.status === 'pending' ? 'pendiente' : a.status, a.note).catch(e => (e as Error).message))),
       ] : []),
       tool('compare_changes', t('tool.compare.description'),
-        { base: z.string().optional().describe(t('tool.compare.paramBase')), uncommitted: z.boolean().optional().describe(t('tool.compare.paramUncommitted')), title: z.string().optional(),
+        { base: z.string().optional().describe(t('tool.compare.paramBase')), uncommitted: z.boolean().optional().describe(t('tool.compare.paramUncommitted')),
+          head: z.string().optional().describe(t('tool.compare.paramHead')), title: z.string().optional(),
           folder: z.string().optional().describe(t('tool.compare.paramFolder')) },
-        async ({ folder, base, uncommitted, title }) => {
+        async ({ folder, base, uncommitted, head, title }) => {
           try {
-            const r = await buildCompare(folder ? await sameRepoWorktree(cwd(), folder) : cwd(), { base, uncommitted: uncommitted, title: title });
+            const r = await buildCompare(folder ? await sameRepoWorktree(cwd(), folder) : cwd(), { base, uncommitted, head, title });
             return { content: [{ type: 'text', text: t('tool.compare.ready', { enlace: pageLink(r.file), rama: r.branch, base: r.base, n: r.files, mas: r.more, menos: r.deletions }) }] };
           } catch (e) { return { content: [{ type: 'text', text: t('tool.compare.failed', { error: (e as Error).message }) }], isError: true }; }
         }),
