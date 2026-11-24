@@ -135,7 +135,7 @@ const INTERACTIVE: Record<string, Interactive[]> = {
   camara: [{ id: 'escaner', x: 2.6, z: 1.0, text: 'Integraciones y ajustes', panel: 'camara' }],
   comunicaciones: [{ id: 'tablon', x: 0.2, z: 1.1, text: 'Leer los avisos', panel: 'comunicaciones' }, { id: 'radio', x: -4.4, z: 1.0, text: 'Sintonizar la radio', panel: 'radio' }],
   planificacion: [{ id: 'calendario', x: 0, z: 1.0, text: 'Ver el calendario', panel: 'planificacion' }],
-  logistica: [{ id: 'tablero', x: -3.55, z: 1.15, text: 'Tablero de tareas', panel: 'logistica' }],   // desde la consola de la izquierda: el aviso no tapa el tablero
+  logistica: [{ id: 'tablero', x: -3.55, z: 1.15, text: 'Tablero de tareas', panel: 'logistica' }, { id: 'trofeos', x: 3.6, z: 1.15, text: 'Trofeos y carrera', panel: 'logistica', view: 'trofeos' }],   // desde la consola de la izquierda: el aviso no tapa el tablero
   git: [{ id: 'cliente', x: -4.3, z: 1.1, text: 'Cliente de git', panel: 'git' }, { id: 'matriz', x: 0.3, z: 1.2, text: 'Tus contribuciones en GitHub', panel: 'git' }],
   galeria: [{ id: 'tiro', x: -1.2, z: 0.5, text: 'Coger un arma y tirar', panel: 'galeria' }],
   hidroponia: [{ id: 'cultivos', x: -1.7, z: 1.3, text: 'Cuidar los cultivos', panel: 'hidroponia' }],

@@ -109,4 +109,12 @@ describe('ladder verification', () => {
     writeFileSync(w.ladderFile, '{ broken');
     expect(w.recordProgress({ requirements: [] }).ok).toBe(false);
   });
+  it('the ladder draft prompt names the file and the example, and asks to build on a file that exists, writing nothing', () => {
+    const dir = mkdtempSync(path.join(os.tmpdir(), 'worklog-')), w = new WorkLog(dir, EXAMPLE, () => NOW);
+    const first = w.draftPrompt();
+    expect(first).toContain(w.ladderFile); expect(first).toContain(EXAMPLE);
+    expect(existsSync(w.ladderFile)).toBe(false);
+    w.ensureLadder();
+    expect(w.draftPrompt().length).toBeGreaterThan(first.length);   // + read it first and propose changes on top of it
+  });
 });

@@ -1219,6 +1219,13 @@ async function action(name: string, d: Record<string, any> = {}): Promise<unknow
       const id = await startWork(undefined, { t: 'empezar', dwellerId: h.id, roomId: room, prompt: workLog.verifyPrompt(), options: { permissions: 'auto' } });
       return { id, roomId: room, dwellerId: h.id };
     }
+    // «Draft my career ladder»: the same dweller, in plan mode (nothing is written until the Overseer approves the plan)
+    case 'escalera.borrador': {
+      const room = workLog.digestRoom(), h = store.state.dwellers.find(x => x.roomId === room);
+      if (!h) throw new Error(t('panels.theRoomSalaHasNo', { sala: room }));
+      const id = await startWork(undefined, { t: 'empezar', dwellerId: h.id, roomId: room, prompt: workLog.draftPrompt(), options: { permissions: 'plan' } });
+      return { id, roomId: room, dwellerId: h.id };
+    }
     case 'medalla.decidir': return workLog.decideMedal(String(d.id ?? ''), d.accept === true) ?? null;
     case 'medalla.meter': { const r = workLog.enterMedal({ award: String(d.award ?? ''), text: String(d.text ?? ''), evidence: [String(d.evidence ?? '')] }); if (!r.ok) throw new Error(r.error); return r.medal; }
     case 'verificacion.aprobar': { const k = taskKey(String(d.key ?? '')); return (k && verifications.approve(k)) ?? null; }

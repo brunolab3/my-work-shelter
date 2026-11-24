@@ -157,6 +157,12 @@ export class WorkLog {
     return t('prompt.ladderVerify', { escalera: steps, medallas: medals || '—', log: syncText(logRows(l, since)) || '—', conversaciones: conversations || '—', archivo: this.ladderFile });
   }
 
+  /** «Draft my career ladder»: the first message of a plan-mode conversation that asks the Overseer for their
+   *  instructions and proposes the ladder file as a plan; the game writes nothing */
+  draftPrompt(): string {
+    return t('prompt.ladderDraft', { archivo: this.ladderFile, ejemplo: this.exampleFile, existe: existsSync(this.ladderFile) ? t('prompt.ladderDraft.exists') : '' });
+  }
+
   /** The session's report (ladder_progress), settled by the rules and written as the file's "progress" key only */
   recordProgress(report: SessionReport): { ok: true; progress: LadderProgress; overridden: string[]; unproven: string[] } | { ok: false; error: string } {
     let text: string;

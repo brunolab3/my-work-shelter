@@ -20,7 +20,8 @@ import { taskColor, pRTask } from '@shared/tasks';
 import { aimColors, knowTasks, useColorsTasks, jiraBoard } from './tasks';
 import { crossBoard, columnOf, COLUMN_COLORS, COLUMNS, prText, planPrompt, type BoardColumn, type JiraTransition, type PRBoard, type TaskWithPR, type TaskJira } from '@shared/board';
 import { EpicMark } from './windows';
-import { WorkLog, verifyLadder } from './WorkLog';
+import { WorkLog, verifyLadder, draftLadder } from './WorkLog';
+import { Trophies } from './Trophies';
 
 const SOURCES: Record<string, string> = Object.fromEntries(IDS_SOURCES.map(f => [f, INFO_SOURCE[f].short]));
 const LOC = language() === 'en' ? 'en-GB' : 'es-ES';
@@ -173,16 +174,19 @@ export function PanelLogistics() {
   const commander = juego.use(e => e.dwellers.find(h => h.room === 'logistica'));
   const withLinear = active('linear');
   const direct0 = juego.get().panelData?.view;
-  const [view, setView] = useState<'jira' | 'tablero' | 'menu' | 'avisos' | 'bitacora'>(() => (direct0 === 'jira' || direct0 === 'bitacora' ? direct0 : 'menu'));   // clic en la pantalla de la pared: directo al tablero
-  // abierto directamente (la pantalla de la pared, ⌘K): al cerrarlo se vuelve al refugio, no al menú de la consola
-  const [direct] = useState(() => direct0 === 'jira' || direct0 === 'bitacora');
+  const opensDirect = direct0 === 'jira' || direct0 === 'bitacora' || direct0 === 'trofeos';
+  const [view, setView] = useState<'jira' | 'tablero' | 'menu' | 'avisos' | 'bitacora' | 'trofeos'>(() => (opensDirect ? direct0 : 'menu'));   // a click on the wall screen or the trophy shelf: straight to it
+  // opened directly (the wall screen, the shelf, ⌘K): closing it goes back to the shelter, not to the console's menu
+  const [direct] = useState(opensDirect);
   const onMenu = () => (direct ? closePanel() : setView('menu'));
   const [fromBoard, setFromBoard] = useState(false);   // Sync update opened from the board goes back to it
   const [notice, setNotice] = useState('');
   const items = [
     { text: t('panels.boardMyJiraTasksAnd'), f: () => setView('jira') },
     { text: t('worklog.menu'), f: () => setView('bitacora') },
+    { text: '🏆 ' + t('trophies.menu'), f: () => setView('trofeos') },
     { text: t('trophies.verify.menu'), f: () => { setNotice(''); verifyLadder().catch(e => { SFX.notAllowed(); setNotice(e.message); }); } },
+    { text: t('trophies.draft.menu'), f: () => { setNotice(''); draftLadder().catch(e => { SFX.notAllowed(); setNotice(e.message); }); } },
     ...(withLinear ? [
       { text: t('panels.openLinearRightHere'), f: () => { closePanel(); openBrowser('linear'); } },
       { text: t('panels.linearMyIssuesByStatus'), f: () => setView('tablero') },
@@ -200,6 +204,7 @@ export function PanelLogistics() {
   }, [view, i]);
   if (view === 'jira') return <JiraBoard goBack={onMenu} onWorkLog={() => { setFromBoard(true); setView('bitacora'); }} />;
   if (view === 'bitacora') return <WorkLog goBack={fromBoard ? () => { setFromBoard(false); setView('jira'); } : onMenu} />;
+  if (view === 'trofeos') return <Trophies goBack={onMenu} />;
   if (view === 'avisos') return <PanelCommunications onlySource="linear" />;
   if (view === 'tablero') return <BoardLinear goBack={() => setView('menu')} />;
   return (

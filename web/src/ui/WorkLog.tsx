@@ -17,6 +17,8 @@ export interface WorkLogData { ledger: Ledger; demo: boolean; ladder: { source: 
 export const readWorkLog = () => client.action<WorkLogData>('bitacora.leer', {});
 /** The Overseer asks for the ladder's verification: a conversation with Planning's dweller, opened to follow it */
 export const verifyLadder = () => client.action<{ roomId: string; dwellerId: string }>('escalera.verificar', {}).then(r => { SFX.shortSuccess(); closePanel(); goA(r.roomId, r.dwellerId, true); });
+// a plan-mode conversation with that dweller: it asks for the Overseer's instructions and proposes the ladder as a plan
+export const draftLadder = () => client.action<{ roomId: string; dwellerId: string }>('escalera.borrador', {}).then(r => { SFX.shortSuccess(); closePanel(); goA(r.roomId, r.dwellerId, true); });
 
 const day = (ts: number) => new Date(ts).toLocaleDateString(locale(), { day: 'numeric', month: 'short' });
 const RANGE_TEXT: Record<LogRange, string> = { week: 'worklog.range.week', twoWeeks: 'worklog.range.twoWeeks', month: 'worklog.range.month', all: 'worklog.range.all' };

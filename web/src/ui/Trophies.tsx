@@ -98,7 +98,7 @@ export function Trophies({ goBack }: { goBack: () => void }) {
   const byId = new Map((c?.trophies ?? []).map(x => [x.rule.id, x]));
   const earned = (c?.trophies ?? []).filter(x => x.earnedAt).length;
   return (
-    <Device label={`${t('panels.vault')} · ${t('trophies.title')}${data?.demo ? ' · DEMO' : ''}`} width={84} height onClose={goBack}>
+    <Device label={`${t('panels.planning')} · ${t('trophies.title')}${data?.demo ? ' · DEMO' : ''}`} width={84} height onClose={goBack}>
       <p className="voz">{t('trophies.intro')}</p>
       {data?.demo && <p className="tenue">{t('worklog.demo')}</p>}
       {error && <p className="aviso-consola">{error}</p>}

@@ -1,5 +1,5 @@
 // QA of the work log and trophies (shared/workLog.ts, shared/trophies.ts, server/workLog.ts; panels WorkLog.tsx in
-// Planning and Trophies.tsx in the Vault; the trophy shelf in web/src/world/rooms/vault.ts), with its own server in a
+// Planning and Trophies.tsx; the trophy shelf in web/src/world/rooms/trophyShelf.ts), with its own server in a
 // test shelter and Playwright:
 // - a saved ledger (DATOS/bitacora.json, written before the server starts) is what `bitacora.leer` returns while Jira
 //   and GitHub are not both in DEMO; the example ladder parses without errors and earns «first merge» from its merged PR;
@@ -8,12 +8,13 @@
 // - Planning's board, opened from the wall: U or its button opens Sync update, Esc goes back to the board;
 // - Planning's menu offers «Verify my career ladder»; a verification saved in the ladder's "progress" key shows its level
 //   and each verdict in the panel, and the level on the shelf's plaque;
-// - Vault → Trophies and career: the ladder's two steps, every trophy, first merge earned with its date; a medal the
+// - Planning → Trophies and career: the ladder's two steps, every trophy, first merge earned with its date; a medal the
 //   Friday digest proposed waits for the Overseer, A accepts it and it fills one medal of its trophy; M enters one by
 //   hand (it counts at once);
 // - a broken DATOS/escalera.json: the error line in the panel (R reads it again), never a crash;
 // - Jira and GitHub in DEMO: a sample log, marked DEMO, not saved;
-// - the Vault's shelf: one cup per trophy, the earned ones gold; a screenshot of the room.
+// - Planning's shelf: one cup per trophy, the earned ones gold; hovering it reads «Trophies and career», a click opens
+//   the panel and Escape goes back to the shelter; a screenshot of the room with the label.
 // Needs the built client (npx vite build). Usage: node scripts/qa-work-log.mjs [screenshots-folder]   (SHELTER_PUERTO_QA, 3795)
 import { chromium } from 'playwright';
 import { spawn } from 'node:child_process';
@@ -116,8 +117,8 @@ try {
   await pg.keyboard.press('Escape'); await pg.waitForTimeout(200); await pg.keyboard.press('Escape');
   check(await until(async () => !(await pg.evaluate(() => window.__game.get().panel))), 'Esc on the board, opened from the wall, closes it');
 
-  // ---- Vault → Trophies and career
-  await pg.evaluate(() => window.__game.set({ panel: 'camara', panelData: { view: 'trofeos' } }));
+  // ---- Planning → Trophies and career
+  await pg.evaluate(() => window.__game.set({ panel: 'logistica', panelData: { view: 'trofeos' } }));
   check(await until(async () => (await pg.$$('.trofeo')).length === 9), 'the nine example trophies');
   check((await pg.$$('.escalon')).length === 2, 'the two example steps');
   check(/Primer merge|First merge/.test(await pg.textContent('.trofeo.ganado').catch(() => '')), 'first merge shows as earned');
@@ -162,15 +163,31 @@ try {
   check(Object.keys(r.ledger.tasks).length > 0, `DEMO: a sample log with the demo tasks (${Object.keys(r.ledger.tasks).length})`);
   check(!readFileSync(path.join(DATA, 'bitacora.json'), 'utf8').includes('REF-'), 'DEMO data never reaches the saved ledger');
 
-  // ---- the Vault's shelf
-  await open('?sala=camara');
-  const shelf = () => pg.evaluate(() => window.__shelter.rooms.find(s => s.id === 'camara')?.userData.trophyShelf?.shown());
+  // ---- Planning's shelf
+  await open('?sala=logistica');
+  const shelf = () => pg.evaluate(() => window.__shelter.rooms.find(s => s.id === 'logistica')?.userData.trophyShelf?.shown());
   check(await until(async () => (await shelf())?.cups === 9), 'the shelf has one cup per trophy');
   const s = await shelf();
   check(s?.earned >= 1, `earned ones in gold (${s?.earned})`);
   check(/ENGINEER I/.test(s?.plaque ?? ''), `the plaque shows the level (${s?.plaque})`);
   await sleep(4000);
-  await pg.screenshot({ path: path.join(dir, 'vault-shelf.png'), animations: 'disabled', timeout: 15000 }).catch(() => console.log('(no room screenshot: timed out)'));
+  await pg.screenshot({ path: path.join(dir, 'planning-room.png'), animations: 'disabled', timeout: 15000 }).catch(() => console.log('(no room screenshot: timed out)'));
+  // the shelf's zone on screen: hover reads its own label, a click opens Trophies and career, Escape back to the shelter
+  const centre = () => pg.evaluate(() => {
+    const r = window.__shelter, s = r.rooms.find(x => x.id === 'logistica'), z = s.interactive.find(i => i.id === 'trofeos').zones[0];
+    const c = z.getCenter(r.supervisor.root.position.clone()).add(s.group.position); c.project(window.__engine.camera);
+    const lz = document.querySelector('canvas').getBoundingClientRect(); return { x: lz.left + (c.x + 1) / 2 * lz.width, y: lz.top + (1 - c.y) / 2 * lz.height };
+  });
+  let at = await centre();
+  check(await until(async () => { at = await centre(); await pg.mouse.move(at.x, at.y); return (await pg.evaluate(() => window.__shelter.aimed?.it?.id)) === 'trofeos'; }), 'hovering the shelf aims at the trophies');
+  check(await until(async () => (await pg.locator('body').innerText()).includes('Trofeos y carrera')), 'its label reads «Trofeos y carrera»');
+  await pg.screenshot({ path: path.join(dir, 'planning-shelf.png'), animations: 'disabled', timeout: 15000 }).catch(() => console.log('(no room screenshot: timed out)'));
+  // clicked where the shelf is now (the camera may still be settling after the screenshot)
+  const opened = () => pg.evaluate(() => { const j = window.__game.get(); return j.panel + ':' + j.panelData?.view; });
+  check(await until(async () => { if (await opened() === 'logistica:trofeos') return true; at = await centre(); await pg.mouse.click(at.x, at.y); await sleep(300); return await opened() === 'logistica:trofeos'; }), 'a click opens the trophies from Planning');
+  check(await until(async () => (await pg.locator('body').innerText()).includes('TROFEOS Y CARRERA')), 'the Trophies and career panel shows');
+  await pg.keyboard.press('Escape');
+  check(await until(async () => (await pg.evaluate(() => window.__game.get().panel)) === null), 'Escape goes back to the shelter');
 
   check(!errors.length, `no page errors${errors.length ? ': ' + errors.join(' | ') : ''}`);
 } finally {

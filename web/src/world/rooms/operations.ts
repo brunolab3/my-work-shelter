@@ -5,6 +5,7 @@ import { place, R } from '../../engine/assets';
 import { sign, PhosphorScreen, PanelRoom, ListScreen, WeekWhiteboard, Clock, KanbanBoard, canvas, textureOf, SOURCES } from '../../engine/textures';
 import { overlayScreen, screenFrontal } from '../util3d';
 import { signInWall, stain, highBand, monitorWall, workStation, box, materialSteel, HEIGHT, type Context } from './common';
+import { trophyShelf } from './trophyShelf';
 import { live, client } from '../../net/client';
 import { crossBoard, COLUMN_COLORS, type TaskWithPR, type TaskJira } from '@shared/board';
 import { taskColor, pRTask } from '@shared/tasks';
@@ -201,6 +202,8 @@ export async function furnishLogistics(ctx: Context) {
   ctx.restsOn(ammo, R.acc('ammo_crate'), { pos: [-4.3, 0, zB + 0.45], scale: K * 0.9, rot: -0.2 });
   const chest = P(R.sf('Props_Chest'), { pos: [5.25, 0, zB + 1.2], height: 0.8, rot: -0.2 });
   ctx.restsOn(chest, R.sv('FlareGun'), { pos: [5.25, 0, zB + 1.2], height: 0.12, rotX: -Math.PI / 2, rotZ: 0.6 });
+  // the trophy shelf, on the wall right of the board, above the console (a click opens Trophies and career)
+  trophyShelf(ctx, 3.6, 1.95, 1.35);
   signInWall(g, sign(tr('world.poster.planning'), tr('world.poster.planningFoot'), '#ead2c8', '#5e2423', 'engranaje', seed), -5.0, 2.7, 0.56, 0.78, zB + 0.33, 0.03);
   const panel = new PanelRoom(); panel.title = 'TABLEROS'; panel.color = v.screen; ctx.panel = panel;
   stain(g, 0, 1.1, 1.2, seed);
