@@ -332,7 +332,7 @@ function TalkerBust({ x }: { x: DwellerSummary }) {
   return <span className={'consola-quien-foto' + (x.copy ? ' holo' : '')} style={tone ? { '--tono': tone } as React.CSSProperties : undefined} aria-hidden>{url && <img src={url} alt="" draggable={false} />}</span>;
 }
 
-// The room's talkers (its dwellers and its worktrees' holographic copies; by state, then most recent conversation first
+// The room's talkers (its dwellers, robot-looking ones too, and its worktrees' holographic copies; by state, then most recent conversation first
 // (talkerFirst), those without one last, dwellers before holograms), each with its intercom panel's open conversations
 // and the most urgent one: the selector above the portrait and the bar's hover lists (Bar.tsx) show one row each, with
 // its most urgent conversation's state and when the latest of them last moved, and how many of them are marked as pending
@@ -341,7 +341,7 @@ function TalkerBust({ x }: { x: DwellerSummary }) {
 const talkerName = (x: DwellerSummary) => x.copy ? `◇ ${copyCaption(x.copy, copyTask(x.copy) ?? branchCaption(x.copy.branch))} · ${x.copy.nameAuthor}` : x.name;
 export type Talker = { x: DwellerSummary; sess: SessionSummary[]; first?: SessionSummary; state?: TabState; name: string; draft: boolean; flagged: number };
 export function roomTalkers(room: string, dwellers: DwellerSummary[], copies: DwellerSummary[], list: WindowCom[], sessions: Record<string, SessionSummary>, flags: Set<string>): Talker[] {
-  return [...dwellers.filter(x => x.room === room && !x.robot), ...copies.filter(c => c.room === room)].map(x => {
+  return [...dwellers.filter(x => x.room === room), ...copies.filter(c => c.room === room)].map(x => {
     const tabs = list.find(w => w.dwellerId === x.id)?.tabs ?? [];
     const sess = tabs.map(p => p.view.type === 'sesion' ? sessions[p.view.sessionId] : undefined).filter(Boolean) as SessionSummary[];
     const first = [...sess].sort((a, b) => urgency(a) - urgency(b) || b.updated - a.updated)[0];
@@ -372,7 +372,8 @@ export function TalkerRow({ q, current, sel, option, onClick, onMouseEnter }: { 
   );
 }
 
-// Above the portrait, by the tabs: whom else to talk to in the room (its dwellers and its worktrees' holographic copies).
+// Above the portrait, by the tabs: whom else to talk to in the room (its dwellers and its worktrees' holographic copies),
+// shown even when the room's own dweller is its only talker (Planning, with no holograms), so it always opens on a row.
 // Closed, a chip like the bar's, lit by the most urgent conversation of who you talk to; open, one row per talker as the
 // bar's hover list (TalkerRow). Picking one brings their intercom to the front on their most urgent conversation; their
 // tabs stay in their own strip and in the bar's ⋯ N list (ComTabs)
@@ -392,7 +393,7 @@ function WhoSelector({ h }: { h: DwellerSummary }) {
     addEventListener('pointerdown', outside, true); return () => removeEventListener('pointerdown', outside, true);
   }, [open]);
   const talkers = roomTalkers(h.room, dwellers, copies, list, sessions, flags);
-  if (talkers.length < 2) return null;
+  if (!talkers.length) return null;
   const me = talkers.find(q => q.x.id === h.id) ?? talkers[0];
   // the others with something for you (waiting, unread, failed or marked as pending), most urgent first, pending after
   // waiting: the chip says so while closed, in the colour of the first
