@@ -67,6 +67,7 @@ html, body { margin: 0; height: 100%; background: var(--fondo); overflow: hidden
   border: 1px solid #000; border-radius: 3px;
   box-shadow: inset 0 1px 0 #5a544a, inset 0 -2px 0 #0b0a09, 0 calc(var(--u) * 0.5) calc(var(--u) * 1.4) rgba(0,0,0,.65);
   font-size: var(--u); white-space: nowrap; pointer-events: auto;
+  width: max-content; /* its own width is what fitBar.ts measures against the room it has */
 }
 .regleta::before, .regleta::after { /* remaches de los extremos */
   content: ""; position: absolute; top: 50%; width: 7px; height: 7px; margin-top: -3.5px; border-radius: 50%;
@@ -993,13 +994,22 @@ span.vt-lista-marca { cursor: default; }
 .aparato:not(.alto) .lista-desplazable { max-height: 58vh; }
 .selector-canales { border-top: 1px solid rgba(157,255,184,.2); margin-top: .6em; padding-top: .4em; }
 .chip-canal { display: inline-flex; gap: .35em; align-items: center; margin: 0 .8em .35em 0; font-size: .86em; cursor: pointer; }
-/* regleta estrecha (ventanas de 1200-1400 px): los contadores apagados se quedan en su número */
-@media (max-width: 1400px) {
-  .contador.apagado .txt { display: none; }
-  .contador .txt { max-width: 9em; }
-  .regleta .seg { padding: 0 calc(var(--u) * 0.4); }
+/* the top bar compacts itself to what fits (fitBar.ts measures it and sets data-compacto, 0 = everything): first the
+   idle counters keep only their number, then every counter and the date, then the chips' secondary labels (the running
+   chip and the light keep their dot and figure, the doors their key), then the counters' keys and a shorter shelter
+   name. Dropped labels are only hidden from view: tooltips and screen readers keep the full text. */
+.regleta[data-compacto="1"] .contador.apagado .txt,
+.regleta[data-compacto="2"] :is(.contador .txt, .hora .fecha),
+.regleta[data-compacto="3"] :is(.contador .txt, .hora .fecha, .procesos .txt, .semaforo .txt, .boton-puerta .etiqueta, .sin-enlace .txt),
+.regleta[data-compacto="4"] :is(.contador .txt, .hora .fecha, .procesos .txt, .semaforo .txt, .boton-puerta .etiqueta, .sin-enlace .txt, .contador .tecla) {
+  position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
 }
-@media (max-width: 1250px) { .contador .txt { display: none; } .hora .fecha { display: none; } }
+.regleta:not([data-compacto="0"]) .contador .txt { max-width: 9em; }
+.regleta:not([data-compacto="0"]) .seg { padding: 0 calc(var(--u) * 0.4); }
+.regleta:is([data-compacto="3"], [data-compacto="4"]) .contadores { gap: calc(var(--u) * 0.7) !important; }
+.regleta:is([data-compacto="3"], [data-compacto="4"]) .limites { gap: calc(var(--u) * 0.5) !important; }
+.regleta[data-compacto="4"] .seg { padding: 0 calc(var(--u) * 0.3); }
+.regleta[data-compacto="4"] .placa-refugio .nombre { display: inline-block; font-size: calc(var(--u) * 1.3); max-width: 9em; overflow: hidden; text-overflow: ellipsis; }
 .fila-chips .etq { white-space: nowrap; width: auto; min-width: 6.5em; }
 /* plano en corte: cada sala con su color de acento como luz interior, suelo marcado y el hueco del ascensor como pozo */
 .plano-celda:not(.vacia) { background: linear-gradient(180deg, color-mix(in srgb, var(--acento) 26%, #0b0d0a) 0%, #0b0d0a 70%); box-shadow: inset 0 -5px 0 color-mix(in srgb, var(--acento) 55%, #000); border-color: color-mix(in srgb, var(--acento) 60%, #222); }

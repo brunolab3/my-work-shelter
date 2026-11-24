@@ -13,6 +13,7 @@ import { MAC } from './windows';
 import { openLink, openNotice } from './Browsers';
 import { useKeys } from './device';
 import { RunningThings } from './RunningThings';
+import { useFitBar } from './fitBar';
 import { keyboard } from '../engine/keyboard';
 import { SFX } from '../audio/sound';
 import { nextEvent, urgency, alertDue, type MeetingEvent } from '@shared/meeting';
@@ -70,18 +71,20 @@ export function Hud() {
   const connected = live.use(x => x.connected);
   const restarting = live.use(x => x.restarting);
   const next = nextEvent(live.use(x => x.events) as MeetingEvent[], now);
+  const bar = useRef<HTMLDivElement>(null);
+  useFitBar(bar);
   return (
     <>
-    <div className="regleta">
+    <div ref={bar} className="regleta">
       <span className="tirante izq" /><span className="tirante der" />
       <div className="seg placa-refugio">
-        <span className="nombre">{e.shelter}</span>
+        <span className="nombre" title={e.shelter}>{e.shelter}</span>
       </div>
       <div className="seg fosforo hora">
         <span className="hh">{fmtHour.format(now)}</span>
         <span className="fecha">{fmtDate.format(now)}</span>
       </div>
-      {!connected && <div className="seg fosforo sin-enlace" title={t('panels.theLinkToTheShelter')}><span className="piloto error" /> {t('panels.noLinkRetrying')}</div>}
+      {!connected && <div className="seg fosforo sin-enlace" title={t('panels.theLinkToTheShelter')}><span className="piloto error" /> <span className="txt">{t('panels.noLinkRetrying')}</span></div>}
       <div className={'seg fosforo contadores' + (connected ? '' : ' viejos')}>
         <Counter icon={Icon.gear} n={working} text={t('windows.working')} shortcut="Tab" level={working ? '' : 'apagado'} />
         <Counter icon={Icon.notice} n={waiting} text={t('panels.waitingForYou')} shortcut="Q" level={waiting ? 'urgente' : 'apagado'} />
@@ -97,10 +100,10 @@ export function Hud() {
       {/* las dos puertas de todo lo demás, con su tecla a la vista: el buscador (⌘K) y el menú del juego (Esc) */}
       <div className="seg puertas">
         <button className="boton-puerta" onClick={() => openSearch()} title={t('panels.searchConversationsActionsDwellersAnd')}>
-          <span className="tecla">{MAC ? '⌘K' : 'Ctrl+K'}</span>{t('panels.search')}
+          <span className="tecla">{MAC ? '⌘K' : 'Ctrl+K'}</span><span className="etiqueta">{t('panels.search')}</span>
         </button>
         <button className="boton-puerta" onClick={() => { if (juego.get().talkingWith) minimizeIntercom(); juego.set({ panel: 'menu', panelData: null }); }} title={t('panels.gameMenuOptionsShortcutsRestart')}>
-          <span className="tecla">Esc</span>{t('panels.menu')}
+          <span className="tecla">Esc</span><span className="etiqueta">{t('panels.menu')}</span>
         </button>
       </div>
     </div>
