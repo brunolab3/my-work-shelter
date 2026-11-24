@@ -1250,7 +1250,8 @@ const tiers = (l: ScheduledMessage[]) => [...l.filter(x => x.afterTurn), ...l.fi
 // those waiting for its turn to end (from anyone: another room, the game, the Overseer's «When it finishes»); with
 // none open, those of the conversation being resumed or, from the menu, every one of this room or hologram (ofPlace), so
 // they're seen before opening their conversation; the room's dweller's lists the whole room, under a heading per
-// hologram (byPlace: the main copy first) once one of its worktrees has some. When the next one is due and, unfolded,
+// hologram (byPlace: the main copy first) once one of its worktrees has some, and one per task whose hologram is still
+// to come (a message to the room with a key that has no worktree yet: it moves to that hologram once it appears). When the next one is due and, unfolded,
 // each with ✎ (change the time or the text) and ✕ (cancel it)
 function ScheduledMenu({ h, s, resume }: { h: DwellerSummary; s?: SessionSummary; resume?: string }) {
   const all = live.use(e => e.scheduled);
@@ -1258,16 +1259,17 @@ function ScheduledMenu({ h, s, resume }: { h: DwellerSummary; s?: SessionSummary
   const rooms: any[] = live.use(e => e.state?.rooms ?? []);
   const conversation = s ?? (resume ? { claudeId: resume } : undefined);
   const groups = useMemo(() => {
-    const l = conversation ? [{ worktree: undefined, items: ofConversationView(all, conversation) }]
+    const l: { worktree?: string; task?: string; items: ScheduledMessage[] }[] = conversation ? [{ items: ofConversationView(all, conversation) }]
       : h.copy ? [{ worktree: h.copy.path, items: ofPlace(all, h.room, h.copy.path, worktrees ?? []) }] : byPlace(all, h.room, worktrees ?? []);
     // what arrives here (from others, then its own reminders) before what it sends elsewhere, so they don't interleave
     const rank = { in: 0, self: 1, out: 2 };
     return l.map(g => ({ ...g, items: tiers(g.items).sort((a, b) => rank[scheduledDirection(a, conversation)] - rank[scheduledDirection(b, conversation)]) }));
   }, [all, worktrees, s?.id, s?.claudeId, resume, h.room, h.copy?.path]);
   const mine = useMemo(() => tiers(groups.flatMap(g => g.items).sort((a, b) => a.when - b.when)), [groups]);
-  const headed = !conversation && !h.copy && groups.some(g => g.worktree);
-  const groupName = (path: string | undefined) => {
-    const w = path && worktrees?.find(x => x.path === path);
+  const headed = !conversation && !h.copy && groups.some(g => g.worktree || g.task);
+  const groupName = (g: { worktree?: string; task?: string }) => {
+    if (g.task) return t('windows.scheduledNewHologram', { clave: g.task });
+    const w = g.worktree && worktrees?.find(x => x.path === g.worktree);
     return w ? `◇ ${copyCaption(w, copyTask(w) ?? branchCaption(w.branch))}` : t('windows.scheduledMainCopy');
   };
   const [open, setOpen] = useState(false);
@@ -1293,8 +1295,8 @@ function ScheduledMenu({ h, s, resume }: { h: DwellerSummary; s?: SessionSummary
       <button className="consola-x" title={t(conversation ? 'windows.scheduledHint' : 'windows.scheduledHintPlace')} onClick={() => { setOpen(x => !x); setEditing(null); SFX.click(); }}>
         {t(mine.length > 1 ? 'windows.scheduledN' : 'windows.scheduled', { n: mine.length, cuando: whenShort(mine[0]) })}
       </button>
-      {open && <ul ref={list} className="paginas-lista programados-lista" onKeyDown={e => { e.stopPropagation(); if (e.key === 'Escape') { setEditing(null); setOpen(false); } }}>{groups.map(g => <Fragment key={g.worktree ?? ''}>
-        {headed && <li className="programados-grupo"><span>{t('windows.scheduledGroup', { nombre: groupName(g.worktree), n: g.items.length })}</span></li>}
+      {open && <ul ref={list} className="paginas-lista programados-lista" onKeyDown={e => { e.stopPropagation(); if (e.key === 'Escape') { setEditing(null); setOpen(false); } }}>{groups.map(g => <Fragment key={g.worktree ?? (g.task ? 'task:' + g.task : '')}>
+        {headed && <li className="programados-grupo" title={g.task ? t('windows.scheduledNewHologramHint') : undefined}><span>{t('windows.scheduledGroup', { nombre: groupName(g), n: g.items.length })}</span></li>}
         {g.items.map(x => <Fragment key={x.id}>
         {editing?.id === x.id
         ? <li className="programado-edicion">

@@ -1,6 +1,6 @@
 // QA of the scheduled messages' sender (web/src/ui/scheduledSender.ts) in the intercom's ⏰ list: with a conversation
 // open and in a hologram's list with none, every row marks its direction (↙ in, ↗ out, ↻ reminder) and names who sent it (the Overseer, another room's dweller, the game,
-// or the room that scheduled it) before its target. Own server in a test shelter and Playwright; screenshots of both.
+// or the room that scheduled it) before its target; the room's dweller lists a task with no worktree yet under its own section. Own server in a test shelter and Playwright; screenshots of both.
 // Needs the built client (npx vite build). Usage: node scripts/qa-scheduled-sender.mjs [screenshots-folder]   (SHELTER_PUERTO_QA, 3798)
 import { chromium } from 'playwright';
 import { spawn, execFileSync } from 'node:child_process';
@@ -62,5 +62,20 @@ try {
   await set(false); await pg.waitForSelector('.programados-sesion', { timeout: 15000 }); await sleep(1500);
   got = await rows(); check(JSON.stringify(got) === JSON.stringify(expected('→ “QA carrito”', false)), 'hologram list without a conversation: ' + JSON.stringify(got));
   await shot('2-holograma-remitente');
+  // the room's dweller: a message to a task with no worktree yet gets its own «◇ key · new hologram» section, after the
+  // hologram's, received from whoever sent it
+  await pg.click('.programados-sesion > .consola-x'); await pg.evaluate(() => { window.__game.set({ talkingWith: null }); window.__intercoms.set({ list: [] }); }); await sleep(500);
+  await pg.evaluate(holo => {
+    const now = Date.now(), dweller = window.__game.get().dwellers.find(h => h.room === holo.room);
+    const msg = { id: 'k', created: now, when: now + 2 * 3600e3, requested: '', message: 'For a task to come', origin: { roomId: 'git', claudeId: 'qa_g' }, from: { kind: 'room', roomId: 'git', room: 'Version Control', dweller: 'Ana' }, target: { type: 'sala', room: holo.room, key: 'QA-9' } };
+    window.__live.set(e => ({ ...e, scheduled: [...e.scheduled, msg] }));
+    window.__game.set({ talkingWith: dweller.id });
+  }, holo);
+  await pg.waitForSelector('.programados-sesion', { timeout: 15000 }); await sleep(1500);
+  await pg.click('.programados-sesion > .consola-x'); await sleep(400);
+  const heads = await pg.$$eval('.programados-lista li.programados-grupo', l => l.map(x => x.textContent));
+  const last = await pg.$$eval('.programados-lista li', l => [l.at(-2)?.textContent, l.at(-1)?.children[0]?.textContent + ' | ' + l.at(-1)?.children[2]?.textContent]);
+  check(heads.at(-1) === '◇ QA-9 · new hologram · 1' && last[0] === heads.at(-1) && last[1] === `↙ in | from Version Control (Ana) · → ${holo.room} QA-9`, 'dweller list, task with no hologram yet: ' + JSON.stringify({ heads, last }));
+  await shot('3-holograma-nuevo');
 } finally { await b.close(); server.kill(); }
 process.exit(failures ? 1 : 0);

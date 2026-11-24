@@ -41,7 +41,7 @@ describe('scheduled messages by room and task', () => {
   it('a room target with a key goes to the worktree of that task, if the room has one', () => {
     expect(placeOf(msg({ type: 'sala', room: 'acme', key: 'ABC-12' }), worktrees)).toEqual({ roomId: 'acme', worktree: WT });
     expect(placeOf(msg({ type: 'sala', room: 'acme', key: 'tidy-up' }), worktrees).worktree).toBe(`${REPO}/.claude/worktrees/shelter-tidy-up--ab12`);
-    expect(placeOf(msg({ type: 'sala', room: 'acme', key: 'ABC-99' }), worktrees)).toEqual({ roomId: 'acme', worktree: undefined });
+    expect(placeOf(msg({ type: 'sala', room: 'acme', key: 'ABC-99' }), worktrees)).toEqual({ roomId: 'acme', task: 'ABC-99' });   // its hologram is still to come
     expect(placeOf(msg({ type: 'sala', room: 'acme' }), worktrees)).toEqual({ roomId: 'acme', worktree: undefined });
   });
   it('ofPlace lists a dweller\'s or a hologram\'s own, soonest first', () => {
@@ -60,6 +60,19 @@ describe('scheduled messages by room and task', () => {
     expect(byPlace([tidy, main, other, abc, gone], 'acme', worktrees).map(g => [g.worktree, g.items.map(x => x.id)]))
       .toEqual([[undefined, [gone.id, main.id]], [WT, [abc.id]], [TIDY, [tidy.id]]]);
     expect(byPlace([other], 'acme', worktrees)).toEqual([]);
+  });
+  it('a room target whose task has no worktree yet gets its own section after the worktrees, and moves once it appears', () => {
+    const main = msg({ type: 'sala', room: 'acme' }), abc = msg({ type: 'conversacion', roomId: 'acme', cwd: WT });
+    const later = msg({ type: 'sala', room: 'acme', key: 'ABC-99' }, 400), soon = msg({ type: 'sala', room: 'acme', key: 'XYZ-1' }, 300);
+    const again = { ...msg({ type: 'sala', room: 'acme', key: 'ABC-99' }, 500), origin: { roomId: 'git', claudeId: 'c7' }, from: { kind: 'room' as const, roomId: 'git', room: 'Version Control' } };
+    const all = [later, main, again, abc, soon];
+    expect(byPlace(all, 'acme', worktrees).map(g => [g.worktree ?? g.task, g.items.map(x => x.id)]))
+      .toEqual([[undefined, [main.id]], [WT, [abc.id]], ['XYZ-1', [soon.id]], ['ABC-99', [later.id, again.id]]]);
+    expect(ofPlace(all, 'acme', undefined, worktrees).map(x => x.id)).toEqual([main.id]);   // not in the main copy's
+    expect(ofPlace(all, 'acme', undefined, worktrees, 'ABC-99').map(x => x.id)).toEqual([later.id, again.id]);
+    expect(scheduledDirection(again)).toBe('in');
+    const ABC99 = `${REPO}/.claude/worktrees/ABC-99`, created = [...worktrees, { path: ABC99, branch: 'ABC-99-x', main: false }];
+    expect(byPlace(all, 'acme', created).map(g => g.worktree ?? g.task)).toEqual([undefined, WT, ABC99, 'XYZ-1']);
   });
   it('soonestByPlace keeps each room\'s and worktree\'s next one', () => {
     const a = msg({ type: 'conversacion', roomId: 'acme', cwd: WT }, 300), b = msg({ type: 'sala', room: 'acme', key: 'ABC-12' }, 200);

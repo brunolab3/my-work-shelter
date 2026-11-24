@@ -131,22 +131,30 @@ export const ofConversationView = (list: ScheduledMessage[], s: { id?: string; c
 
 /** Where a pending message is shown when its conversation isn't open: its room and, inside one of the room's
  *  `worktrees`, that worktree's path. A conversation target goes where its cwd is (the worktree containing it, or the
- *  room's main copy); a room target with a key, to the worktree of that task if the room has one; else the main copy */
-export function placeOf(x: ScheduledMessage, worktrees: { path: string; branch?: string; main?: boolean }[]): { roomId: string; worktree?: string } {
+ *  room's main copy); a room target with a key, to the worktree of that task if the room has one, else to that task's
+ *  hologram still to come (`task`: its worktree is created on delivery); else the main copy */
+export function placeOf(x: ScheduledMessage, worktrees: { path: string; branch?: string; main?: boolean }[]): { roomId: string; worktree?: string; task?: string } {
   const ws = worktrees.filter(w => !w.main), d = x.target;
-  if (d.type === 'sala') return { roomId: d.room, worktree: d.key ? ws.find(w => worktreeHasTask(w, d.key!))?.path : undefined };
+  if (d.type === 'sala') {
+    const worktree = d.key ? ws.find(w => worktreeHasTask(w, d.key!))?.path : undefined;
+    return { roomId: d.room, ...(worktree ? { worktree } : d.key ? { task: d.key } : {}) };
+  }
   const cwd = d.cwd.replace(/\/+$/, '');
   return { roomId: d.roomId, worktree: ws.find(w => { const r = w.path.replace(/\/+$/, ''); return cwd === r || cwd.startsWith(r + '/'); })?.path };
 }
-/** The ones shown on a room's dweller (`worktree` undefined) or on one of its worktrees' holograms, soonest first */
-export const ofPlace = (list: ScheduledMessage[], roomId: string, worktree: string | undefined, worktrees: { path: string; branch?: string; main?: boolean }[]) =>
-  list.filter(x => { const p = placeOf(x, worktrees); return p.roomId === roomId && p.worktree === worktree; }).sort((a, b) => a.when - b.when);
+/** The ones shown on a room's dweller (`worktree` undefined) or on one of its worktrees' holograms, soonest first; with
+ *  `task`, those for that task's hologram still to come */
+export const ofPlace = (list: ScheduledMessage[], roomId: string, worktree: string | undefined, worktrees: { path: string; branch?: string; main?: boolean }[], task?: string) =>
+  list.filter(x => { const p = placeOf(x, worktrees); return p.roomId === roomId && p.worktree === worktree && p.task === task; }).sort((a, b) => a.when - b.when);
 
 /** A room's general list split by place: its main copy first (with those whose worktree is gone), then each of its
- *  `worktrees` that has some, in that order; soonest first within each. Empty places are left out */
-export function byPlace(list: ScheduledMessage[], roomId: string, worktrees: { path: string; branch?: string; main?: boolean }[]): { worktree?: string; items: ScheduledMessage[] }[] {
+ *  `worktrees` that has some, in that order, then each task whose hologram is still to come (`task`), soonest first;
+ *  soonest first within each. Empty places are left out */
+export function byPlace(list: ScheduledMessage[], roomId: string, worktrees: { path: string; branch?: string; main?: boolean }[]): { worktree?: string; task?: string; items: ScheduledMessage[] }[] {
   const places: (string | undefined)[] = [undefined, ...worktrees.filter(w => !w.main).map(w => w.path)];
-  return places.map(worktree => ({ worktree, items: ofPlace(list, roomId, worktree, worktrees) })).filter(g => g.items.length);
+  const tasks = [...new Set([...list].sort((a, b) => a.when - b.when).map(x => placeOf(x, worktrees)).filter(p => p.roomId === roomId && p.task).map(p => p.task!))];
+  return [...places.map(worktree => ({ worktree, items: ofPlace(list, roomId, worktree, worktrees) })),
+    ...tasks.map(task => ({ task, items: ofPlace(list, roomId, undefined, worktrees, task) }))].filter(g => g.items.length);
 }
 
 /** The soonest pending message of each room and worktree, keyed `salaId|worktree` (`salaId|` for the room's main copy):

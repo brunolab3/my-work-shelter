@@ -149,6 +149,8 @@ export const WINDOWS: Record<string, LocalizedText> = {
   'windows.scheduledToThis': { es: 'aquí', en: 'here' },
   'windows.scheduledMainCopy': { es: 'Copia principal', en: 'Main copy' },
   'windows.scheduledGroup': { es: '{nombre} · {n}', en: '{nombre} · {n}' },
+  'windows.scheduledNewHologram': { es: '◇ {clave} · holograma nuevo', en: '◇ {clave} · new hologram' },
+  'windows.scheduledNewHologramHint': { es: 'Para una tarea que aún no tiene holograma: su worktree se crea al entregarlo, y entonces pasa a su sección', en: 'For a task with no hologram yet: its worktree is created on delivery, and then they move to its section' },
   'windows.scheduledHintPlace': { es: 'Mensajes programados para esta sala o tarea, aunque su conversación no esté abierta: el juego los entrega a su hora', en: 'Messages scheduled for this room or task, even with their conversation closed: the game delivers them on time' },
   'windows.scheduledToConversation': { es: '→ «{titulo}»', en: '→ “{titulo}”' },
   'windows.scheduledCancel': { es: 'Cancelar este mensaje programado', en: 'Cancel this scheduled message' },
