@@ -27,7 +27,7 @@ ws.on('message', async raw => {
     const s = state.rooms.find(x => x.id === room); const h = state.dwellers.find(x => x.roomId === room);
     if (!s || !h) { log('No hay sala o habitante', room); process.exit(1); }
     log(`sala ${s.name} (${s.path}), habitante ${h.name}, decorado antes: ${s.decor ? s.decor.base : 'ninguno'}`);
-    const prompt = await ask('sala.promptAdaptar');
+    const prompt = await ask('room.adaptPrompt');
     ws.send(JSON.stringify({ t: 'empezar', dwellerId: h.id, roomId: room, prompt, options: { model, permissions: 'default' } }));
   } else if (m.t === 'sesion' && m.session.roomId === room) {
     const s = m.session; sessionId = s.id;

@@ -48,7 +48,7 @@ Security › Automation.
 ## For whoever touches the code
 
 `server/desktop.ts` (commands and AppleScript), `server/surface.ts` (`./shelter superficie` and `enganchar`),
-the `superficie.sacar` action in `server/main.ts`, `Sessions.sacar` in `server/sessions.ts`, the outside clients of
+the `surface.takeOut` action in `server/main.ts`, `Sessions.sacar` in `server/sessions.ts`, the outside clients of
 the host in `server/terminalHost.ts` and the panic key in `electron/main.cjs`. QA:
 `node scripts/qa-surface.mjs` (own server on 3793; `SHELTER_ESCRITORIO_PRUEBA` logs what it would open instead of
 opening windows).
@@ -58,7 +58,7 @@ opening windows).
 The ✳ button in the intercom (or "Continue … in the Claude app" in ⌘K) closes the conversation in the shelter and
 opens it in the Claude desktop app with its link `claude://resume?session=<id>`, which imports it into its list (it
 reads the same transcript in `~/.claude/projects`). To bring it back, "Resume a previous job" on its dweller (closing
-it in the app first, so it isn't written in two places). Server: `superficie.appClaude` (`server/main.ts`) and
+it in the app first, so it isn't written in two places). Server: `surface.claudeApp` (`server/main.ts`) and
 `openInAppClaude` (`server/desktop.ts`; with `SHELTER_ESCRITORIO_PRUEBA` it logs the link instead of opening it).
 
 ## Remote Control for a room
@@ -79,7 +79,7 @@ without one, `<repo>:<title>`; `remoteName` in `shared/tasks.ts`): it keeps runn
 name, from the Claude app on your phone or claude.ai/code. While open outside it's a visitor in its room: bring it
 back from the robot. "Everything to your phone" (Esc → Leave the shelter, or ⌘K) does the same with every open conversation, in a new
 window; terminals stay in the game. As when going to the surface, the conversation closes in the shelter first. It
-needs the Mac awake. Server: `superficie.sacar` with `remoto` (`server/main.ts`) and `resumeCommand`
+needs the Mac awake. Server: `surface.takeOut` with `remoto` (`server/main.ts`) and `resumeCommand`
 (`server/desktop.ts`).
 
 ## Slack remote control

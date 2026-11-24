@@ -29,7 +29,7 @@ export function UsageGraph({ limits, now }: { limits: PlanLimits; now: number })
   const [hover, setHover] = useState<number | null>(null);
   useEffect(() => {
     let on = true;
-    const read = () => client.action<SpendBuckets>('uso.gasto').then(b => { if (on) { last = b; setData(b); setFailed(false); } }).catch(() => on && setFailed(true));
+    const read = () => client.action<SpendBuckets>('usage.spend').then(b => { if (on) { last = b; setData(b); setFailed(false); } }).catch(() => on && setFailed(true));
     read();
     const i = setInterval(read, 60_000);
     return () => { on = false; clearInterval(i); };

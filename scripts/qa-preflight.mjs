@@ -54,24 +54,24 @@ try {
   pg.on('pageerror', e => errors.push(e.message));
   await pg.goto(withToken(`http://127.0.0.1:${PORT}`), { waitUntil: 'load' });
   await pg.waitForFunction(() => typeof window.__ready === 'function', null, { timeout: 60000 });
-  await pg.evaluate(async r => { await window.__ready(); await window.__client.action('reclutar', { path: r }); await window.__client.action('guardar', { patch: { doneWelcome: true } }); window.__game.set({ panel: null, panelData: null }); }, repo);
+  await pg.evaluate(async r => { await window.__ready(); await window.__client.action('recruit', { path: r }); await window.__client.action('save', { patch: { doneWelcome: true } }); window.__game.set({ panel: null, panelData: null }); }, repo);
   const until = async (f, ms = 15000) => { const t = Date.now(); while (Date.now() - t < ms) { if (await f()) return true; await pg.waitForTimeout(200); } return false; };
 
   // ---- la acción de verdad: la parte del worktree, sin PR
   let real = null;
-  await until(async () => { real = await pg.evaluate(() => window.__client.action('preflight.tarea', { key: 'qa-7' }).catch(e => ({ error: e.message }))); return real?.parts?.length > 0; });
+  await until(async () => { real = await pg.evaluate(() => window.__client.action('preflight.task', { key: 'qa-7' }).catch(e => ({ error: e.message }))); return real?.parts?.length > 0; });
   const p = real?.parts?.[0];
   check(real?.key === 'QA-7' && real.parts.length === 1, `preflight.tarea da la tarea con una parte (${JSON.stringify(real?.parts?.map(x => x.branch) ?? real)})`);
   check(p?.worktree === wt && p?.branch === 'QA-7-carrito' && !p?.pr, 'la parte es el worktree de la tarea, sin PR');
   check(p?.sync?.mark === 'aviso' && /1/.test(p?.sync?.text ?? ''), `sincronía ⚠ por el archivo sin commitear (${p?.sync?.text})`);
-  check(await pg.evaluate(() => window.__client.action('preflight.tarea', { key: 'rm -rf' }).then(() => false, () => true)), 'una clave que no lo es, rechazada');
+  check(await pg.evaluate(() => window.__client.action('preflight.task', { key: 'rm -rf' }).then(() => false, () => true)), 'una clave que no lo es, rechazada');
 
   // ---- fase 3: la lista y la puerta
-  await pg.evaluate(() => window.__client.action('guardar', { patch: { checklistPreflight: ['Compare revisado', 'Pruebas con datos reales'] } }));
+  await pg.evaluate(() => window.__client.action('save', { patch: { checklistPreflight: ['Compare revisado', 'Pruebas con datos reales'] } }));
   check(JSON.stringify(await pg.evaluate(() => window.__client.action('preflight.checklist'))) === '["Compare revisado","Pruebas con datos reales"]', 'la lista guardada vuelve tal cual');
-  const puerta = await pg.evaluate(w => window.__client.action('preflight.puerta', { path: w }), wt);
+  const puerta = await pg.evaluate(w => window.__client.action('preflight.gate', { path: w }), wt);
   check(puerta?.key === 'QA-7' && puerta.missing.length === 2, `la puerta de push dice lo que falta (${puerta?.missing?.join(' | ')})`);
-  check(await pg.evaluate(() => window.__client.action('preflight.puerta', { path: '/etc' }).then(() => false, () => true)), 'la puerta no mira carpetas que no son del refugio');
+  check(await pg.evaluate(() => window.__client.action('preflight.gate', { path: '/etc' }).then(() => false, () => true)), 'la puerta no mira carpetas que no son del refugio');
 
   // ---- the box with the real task, from ⌘K: only offered once the task has a PR
   const offered = async key => (await pg.$$eval('.fila-buscador .txt', f => f.map(x => x.textContent))).includes('Pre-flight ' + key);
@@ -95,7 +95,7 @@ try {
     const c = window.__client, orig = c.action.bind(c);
     const pr = (repo, number, branch, state = 'abierto') => ({ number, title: 'PR ' + number, url: `https://github.com/${repo}/pull/${number}`, repo, branch, state, updated: 0, base: 'main' });
     const prs = [pr('acme/tienda', 7, 'QA-7-algo'), pr('acme/api', 1, 'QA-9-parte-1'), pr('acme/api', 5, 'QA-11-a', 'fusionado')];
-    c.action = (n, d) => n === 'git.prsTablero' ? Promise.resolve({ prs }) : orig(n, d);
+    c.action = (n, d) => n === 'git.prsBoard' ? Promise.resolve({ prs }) : orig(n, d);
     window.__board.set({ prs });
   });
   check(await preflightK('QA-7'), '⌘K offers «Pre-flight QA-7» once a PR names it');
@@ -135,9 +135,9 @@ try {
     const tracker = { source: 'jira', state: 'Prod check', board: 'QA', test: 'Prod check', done: 'Done', inProdCheck: true, move: true };
     const landed = { key: 'QA-11', color: '#b48cff', title: 'Ya fusionada', parts: [merged(m1), merged(m2, true)], waves: [['acme/api#5'], ['acme/web#6']], cycle: [], checklist: [], verification, tracker };
     window.__qaVerif = [];
-    c.action = (n, d) => n === 'preflight.tarea' && String(d?.key).toUpperCase() === 'QA-9' ? Promise.resolve(answer) : n === 'preflight.tarea' && String(d?.key).toUpperCase() === 'QA-11' ? Promise.resolve(landed)
-      : n === 'verificacion.aprobar' ? (window.__qaVerif.push(n), Promise.resolve({ ...verification, approved: { version: 2, ts: 2 } }))
-      : n === 'verificacion.cerrar' ? (window.__qaVerif.push(n), Promise.resolve({ key: 'QA-11', state: 'Done', category: 'done' })) : orig(n, d);
+    c.action = (n, d) => n === 'preflight.task' && String(d?.key).toUpperCase() === 'QA-9' ? Promise.resolve(answer) : n === 'preflight.task' && String(d?.key).toUpperCase() === 'QA-11' ? Promise.resolve(landed)
+      : n === 'verification.approve' ? (window.__qaVerif.push(n), Promise.resolve({ ...verification, approved: { version: 2, ts: 2 } }))
+      : n === 'verification.close' ? (window.__qaVerif.push(n), Promise.resolve({ key: 'QA-11', state: 'Done', category: 'done' })) : orig(n, d);
     window.__game.set({ panel: 'ayuda', panelData: null });
   });
   await pg.waitForSelector('.aparato');
@@ -178,7 +178,7 @@ try {
     const c = window.__client, orig = c.action.bind(c);
     const task = (key, category, state) => ({ key, title: 'Tarea ' + key, url: 'https://jira.example/browse/' + key, state, category, updated: Date.now() });
     const tareas = [task('QA-5', 'new', 'To Do'), task('QA-9', 'indeterminate', 'In Progress')];
-    c.action = (n, d) => n === 'integracion.panel' && d?.source === 'jira' ? Promise.resolve({ tareas }) : orig(n, d);
+    c.action = (n, d) => n === 'integration.panel' && d?.source === 'jira' ? Promise.resolve({ tareas }) : orig(n, d);
     window.__game.set({ panel: 'logistica', panelData: { view: 'jira' } });
   });
   const legend = () => pg.textContent('.aparato kbd:last-of-type >> xpath=..').catch(() => '');

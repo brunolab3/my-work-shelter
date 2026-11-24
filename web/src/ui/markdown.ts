@@ -74,7 +74,7 @@ const thumbnails = new Map<string, Promise<string | null>>();
 const thumbnailUrl = (path: string) => {
   let p = thumbnails.get(path);
   if (!p) {
-    thumbnails.set(path, p = client.action<string | null>('enlace.miniatura', { path }).then(u => (typeof u === 'string' && u.startsWith('/pagina/') ? u : null), () => null));
+    thumbnails.set(path, p = client.action<string | null>('link.thumbnail', { path }).then(u => (typeof u === 'string' && u.startsWith('/pagina/') ? u : null), () => null));
     p.then(u => { if (!u) setTimeout(() => thumbnails.delete(path), 10_000); });
   }
   return p;

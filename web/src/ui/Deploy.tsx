@@ -60,10 +60,10 @@ export function DeploymentBoard({ roomId, goBack }: { roomId: string; goBack: ()
   const load = () => {
     setReading(true);
     // con error, se queda lo que había (y se dice por qué no está al día)
-    client.action<DataGH>('git.prsTablero', {}).then(g => { setGh(g); if (!g.error) remember({ gh: g }); })
+    client.action<DataGH>('git.prsBoard', {}).then(g => { setGh(g); if (!g.error) remember({ gh: g }); })
       .catch(e => setGh(v => ({ prs: v?.prs ?? [], demo: v?.demo, error: e.message }))).finally(() => setReading(false));
-    client.action<BlockerManual[]>('despliegue.bloqueos').then(m => { setManual(m); remember({ manual: m }); }).catch(() => {});
-    client.action<TaskOrder[]>('despliegue.orden').then(o => { setOrder(o); remember({ orden: o }); }).catch(() => {});
+    client.action<BlockerManual[]>('deploy.blockers').then(m => { setManual(m); remember({ manual: m }); }).catch(() => {});
+    client.action<TaskOrder[]>('deploy.order').then(o => { setOrder(o); remember({ orden: o }); }).catch(() => {});
   };
   useEffect(() => { load(); }, []);
 
@@ -85,12 +85,12 @@ export function DeploymentBoard({ roomId, goBack }: { roomId: string; goBack: ()
     setMarking(null);
     if (from === by) return;
     const already = manual.some(b => b.from === from && b.by === by);
-    try { const m = await client.action<BlockerManual[]>('despliegue.bloquear', { from, by, remove: already }); setManual(m); remember({ manual: m }); SFX.toggle(); dispatchEvent(new Event('refugio:despliegue')); }
+    try { const m = await client.action<BlockerManual[]>('deploy.block', { from, by, remove: already }); setManual(m); remember({ manual: m }); SFX.toggle(); dispatchEvent(new Event('refugio:despliegue')); }
     catch (e) { setNotice((e as Error).message); SFX.notAllowed(); }
   };
   const removeManual = async (from: string) => {
     let l = manual;
-    for (const b of manual.filter(b => b.from === from)) l = await client.action<BlockerManual[]>('despliegue.bloquear', { from, by: b.by, remove: true }).catch(() => l);
+    for (const b of manual.filter(b => b.from === from)) l = await client.action<BlockerManual[]>('deploy.block', { from, by: b.by, remove: true }).catch(() => l);
     setManual(l); remember({ manual: l }); SFX.toggle(); dispatchEvent(new Event('refugio:despliegue'));
   };
   // the pre-flight of a PR's task: a box over the board, anchored to what opened it (the selected card, with F)

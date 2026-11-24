@@ -57,7 +57,7 @@ describe('Linear', () => {
     expect(l.state().detail).toMatch(/5 issues abiertas/);
     const panel: any = await l.action!('panel', {});
     expect(panel.cycles[0].cycle.number).toBe(34);
-    const board: any = await l.action!('tablero', { team: 'PLAT', priority: 'alta' });
+    const board: any = await l.action!('board', { team: 'PLAT', priority: 'alta' });
     expect(board.team).toBe('PLAT');
     const body = JSON.parse(String((fetch as any).mock.calls.at(-1)[1].body));
     expect(body.variables).toMatchObject({ teamId: 'a3f9c1d2-5e6b-4c7d-8e9f-0a1b2c3d4e5f', filter: { priority: { lte: 2, neq: 0 } } });
@@ -99,10 +99,10 @@ describe('Microsoft 365 (Outlook)', () => {
   });
   it('sin ID de cliente lo pide; con él pero sin sesión pide conectar; nunca trae un ID de cliente de serie', async () => {
     const o = createOutlook(fakeStore());
-    expect(((await o.action!('campos', {})) as any).fields.map((c: any) => c.name)).toEqual(['clientId', 'tenant']);
+    expect(((await o.action!('fields', {})) as any).fields.map((c: any) => c.name)).toEqual(['clientId', 'tenant']);
     await o.poll();
     expect(o.state()).toMatchObject({ state: 'sin-configurar', detail: expect.stringMatching(/ID de aplicación/) });
-    await expect(o.action!('conectar', { open: false })).rejects.toThrow(/ID de aplicación/);
+    await expect(o.action!('connect', { open: false })).rejects.toThrow(/ID de aplicación/);
     expect((await o.attempt({ clientId: 'no-es-un-guid' })).ok).toBe(false);
     const c = createOutlook(storeWithMicrosoft());
     await c.poll();
@@ -113,14 +113,14 @@ describe('Microsoft 365 (Outlook)', () => {
     const a = storeWithMicrosoft();
     const o = createOutlook(a);
     const notices: string[] = []; o.notify = x => notices.push(x);
-    const { url } = await o.action!('conectar', { open: false }) as { url: string };
+    const { url } = await o.action!('connect', { open: false }) as { url: string };
     const q = new URL(url).searchParams;
     expect(url.startsWith('https://login.microsoftonline.com/common/oauth2/v2.0/authorize?')).toBe(true);
     expect(q.get('client_id')).toBe(CLIENT_MS);
     expect(q.get('redirect_uri')).toMatch(/^http:\/\/localhost:\d+$/);
     expect(q.get('code_challenge_method')).toBe('S256');
     expect(q.get('scope')).toBe('openid profile offline_access User.Read Mail.Read Calendars.Read');   // solo lectura
-    expect(await o.action!('conectar', { open: false })).toEqual({ url });   // una sola escucha a la vez
+    expect(await o.action!('connect', { open: false })).toEqual({ url });   // una sola escucha a la vez
     expect(await navigate(`${q.get('redirect_uri')}/?code=x&state=inventado`)).toMatch(/caducado/);
     const html = await navigate(`${q.get('redirect_uri')}/?code=CODIGO&state=${q.get('state')}`);
     expect(html).toMatch(/Puedes volver a work-shelter/);
@@ -145,7 +145,7 @@ describe('Microsoft 365 (Outlook)', () => {
   });
   it('error de consentimiento en el retorno', async () => {
     const o = createOutlook(storeWithMicrosoft());
-    const { url } = await o.action!('conectar', { open: false }) as { url: string };
+    const { url } = await o.action!('connect', { open: false }) as { url: string };
     const q = new URL(url).searchParams;
     expect(await navigate(`${q.get('redirect_uri')}/?error=access_denied&error_subcode=cancel&error_description=AADSTS65004%3A+User+declined&state=${q.get('state')}`)).toMatch(/no concedió/);
     expect(o.state().state).toBe('error');
@@ -181,7 +181,7 @@ describe('Google', () => {
     const g = createGoogle(a);
     expect((await g.attempt({ clientId: 'no-vale', clientSecret: 'x' })).ok).toBe(false);
     expect(await g.configure({ clientId: '123-abc.apps.googleusercontent.com', clientSecret: 'GOCSPX-FAKE' })).toMatchObject({ ok: true, detail: expect.stringMatching(/Conectar con Google/) });
-    const { url } = await g.action!('conectar', { open: false }) as { url: string };
+    const { url } = await g.action!('connect', { open: false }) as { url: string };
     const q = new URL(url).searchParams;
     expect(url.startsWith('https://accounts.google.com/o/oauth2/v2/auth?')).toBe(true);
     expect(q.get('scope')).toBe('https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/calendar.readonly');
@@ -244,7 +244,7 @@ describe('Slack', () => {
     const r1 = await s.poll();
     expect(r1.notifications!.map(n => n.priority)).toEqual(['alta', 'media', 'baja']);   // mención a mí, @here, adjunto
     expect((await s.poll()).notifications).toHaveLength(0);   // desde el último visto
-    const channels: any = await s.action!('canales', {});
+    const channels: any = await s.action!('channels', {});
     expect(channels.map((c: any) => c.name)).toEqual(['equipo-web', 'general']);
   });
 });
@@ -384,30 +384,30 @@ describe('Jira', () => {
     const j = createJira(fakeStore());
     await j.configure({ sitio: 'taller.atlassian.net', correo: 'ana@taller.example', token: 'tok-bueno' });
     await j.action!('panel', { force: true });
-    const r: any = await j.action!('transiciones', { key: 'tal-7', column: 'hecho', current: 'En revisión' });
+    const r: any = await j.action!('transitions', { key: 'tal-7', column: 'hecho', current: 'En revisión' });
     expect(r.transitions.map((x: any) => [x.id, x.a])).toEqual([['31', 'Hecho'], ['32', 'Descartada']]);
-    expect(((await j.action!('transiciones', { key: 'TAL-7', column: 'porHacer' })) as any).transitions).toEqual([]);
-    await expect(j.action!('transiciones', { key: 'TAL-7', column: 'Done' })).rejects.toThrow(/columna no es del tablero/);
-    await expect(j.action!('mover', { key: '../myself', column: 'hecho', id: '31' })).rejects.toThrow(/Clave de Jira no válida/);
+    expect(((await j.action!('transitions', { key: 'TAL-7', column: 'porHacer' })) as any).transitions).toEqual([]);
+    await expect(j.action!('transitions', { key: 'TAL-7', column: 'Done' })).rejects.toThrow(/columna no es del tablero/);
+    await expect(j.action!('move', { key: '../myself', column: 'hecho', id: '31' })).rejects.toThrow(/Clave de Jira no válida/);
     // an id Jira doesn't offer towards that column is never posted
     const before = (fetch as any).mock.calls.length;
-    await expect(j.action!('mover', { key: 'TAL-7', column: 'enCurso', id: '31' })).rejects.toThrow(/ya no ofrece ese cambio/);
+    await expect(j.action!('move', { key: 'TAL-7', column: 'enCurso', id: '31' })).rejects.toThrow(/ya no ofrece ese cambio/);
     expect((fetch as any).mock.calls.slice(before).every((c: any) => c[1].method === 'GET')).toBe(true);
-    expect(await j.action!('mover', { key: 'TAL-7', column: 'hecho', id: '32' })).toEqual({ key: 'TAL-7', state: 'Descartada', category: 'done' });
+    expect(await j.action!('move', { key: 'TAL-7', column: 'hecho', id: '32' })).toEqual({ key: 'TAL-7', state: 'Descartada', category: 'done' });
     const [url, init] = (fetch as any).mock.calls.at(-1);
     expect([url, init.method, JSON.parse(init.body)]).toEqual(['https://taller.atlassian.net/rest/api/3/issue/TAL-7/transitions', 'POST', { transition: { id: '32' } }]);
     // the cached board already has the new status (Jira's search lags behind)
     expect(((await j.action!('panel', {})) as any).tareas.find((x: any) => x.key === 'TAL-7')).toMatchObject({ state: 'Descartada', category: 'done' });
-    await expect(j.action!('mover', { key: 'TAL-9', column: 'hecho', id: '31' })).rejects.toThrow(/Transicionar incidencias/);
+    await expect(j.action!('move', { key: 'TAL-9', column: 'hecho', id: '31' })).rejects.toThrow(/Transicionar incidencias/);
   });
   it("the prod-check column: only transitions to Jira's prod-check status", async () => {
     const a = fakeStore();
     const j = createJira(a);
     await j.configure({ sitio: 'taller.atlassian.net', correo: 'ana@taller.example', token: 'tok-bueno' });
-    const ids = async (column: string) => ((await j.action!('transiciones', { key: 'TAL-7', column })) as any).transitions.map((x: any) => x.id);
+    const ids = async (column: string) => ((await j.action!('transitions', { key: 'TAL-7', column })) as any).transitions.map((x: any) => x.id);
     expect(await ids('prodCheck')).toEqual([]);
     // a project's statuses, with those in the done category (the game links Jira's pair from them)
-    expect(await j.action!('estadosTablero', { board: 'tal' })).toEqual({ states: ['Por hacer', 'Prueba en producción', 'Hecho', 'Descartada'], done: ['Hecho', 'Descartada'] });
+    expect(await j.action!('boardStates', { board: 'tal' })).toEqual({ states: ['Por hacer', 'Prueba en producción', 'Hecho', 'Descartada'], done: ['Hecho', 'Descartada'] });
     (a.state.settings as any).verificationJira = { test: 'Descartada' };
     expect(await ids('prodCheck')).toEqual(['32']);
     expect(await ids('hecho')).toEqual(['31']);

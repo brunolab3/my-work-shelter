@@ -88,24 +88,24 @@ export class Integrations {
   async action(name: string, d: Record<string, any>) {
     const a = this.adapters.find(x => x.id === d.source);
     switch (name) {
-      case 'marcarVista': {
+      case 'markSeen': {
         const ids: string[] = d.ids ?? [d.id];
         this.store.change(e => { for (const id of ids) if (!e.viewsNotifications.includes(id)) e.viewsNotifications.push(id); e.viewsNotifications = e.viewsNotifications.slice(-3000); });
         for (const n of this.messages) if (ids.includes(n.id)) n.view = true;
         this.publish(); return true;
       }
-      case 'estados': return this.states();
-      case 'probar': if (!a) throw new Error(t('integrations.unknownSource')); return a.attempt(d.fields ?? {});
+      case 'states': return this.states();
+      case 'test': if (!a) throw new Error(t('integrations.unknownSource')); return a.attempt(d.fields ?? {});
       // Guardar: datos públicos al estado y secretos al llavero; si la prueba pasa, la fuente pasa a real (d.activar=false lo evita)
-      case 'guardar': if (!a) throw new Error(t('integrations.unknownSource')); { const r = await a.configure(d.fields ?? {}); if (r.ok && d.activate !== false) await this.changeMode(a, 'real'); else this.broadcast({ t: 'integracion', id: a.id, state: a.state() }); return r; }
-      case 'modo': {
+      case 'save': if (!a) throw new Error(t('integrations.unknownSource')); { const r = await a.configure(d.fields ?? {}); if (r.ok && d.activate !== false) await this.changeMode(a, 'real'); else this.broadcast({ t: 'integracion', id: a.id, state: a.state() }); return r; }
+      case 'mode': {
         if (!a) throw new Error(t('integrations.unknownSource'));
         const mode = d.mode === 'real' ? 'real' : d.mode === 'off' ? 'off' : 'demo';
         this.store.change(e => { const r = e.integrations[a.id] ??= { mode }; r.options = { ...r.options, demoChosen: mode === 'demo' || undefined }; });
         return this.changeMode(a, mode);
       }
-      case 'refrescar': if (!a) throw new Error(t('integrations.unknownSource')); await this.pollOne(a); return a.state();
-      case 'olvidar': if (!a?.action) throw new Error(t('integrations.unknownSource')); { await a.action('olvidar', d); return this.changeMode(a, 'off'); }
+      case 'refresh': if (!a) throw new Error(t('integrations.unknownSource')); await this.pollOne(a); return a.state();
+      case 'forget': if (!a?.action) throw new Error(t('integrations.unknownSource')); { await a.action('forget', d); return this.changeMode(a, 'off'); }
       default: if (a?.action) return a.action(name, d); throw new Error(t('integrations.unknownAction', { nombre: name }));
     }
   }

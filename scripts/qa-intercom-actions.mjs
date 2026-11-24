@@ -33,7 +33,7 @@ try {
   pg.on('pageerror', e => check(false, 'page error: ' + e.message));
   await pg.goto(withToken(`http://127.0.0.1:${PORT}`), { waitUntil: 'load' });
   await pg.waitForFunction(() => typeof window.__ready === 'function', null, { timeout: 60000 });
-  await pg.evaluate(async r => { await window.__ready(); await window.__client.action('reclutar', { path: r }); await window.__client.action('guardar', { patch: { doneWelcome: true } }); window.__game.set({ panel: null, panelData: null }); }, repo);
+  await pg.evaluate(async r => { await window.__ready(); await window.__client.action('recruit', { path: r }); await window.__client.action('save', { patch: { doneWelcome: true } }); window.__game.set({ panel: null, panelData: null }); }, repo);
   await pg.waitForFunction(w => window.__game.get().copies.some(c => c.copy?.path === w), wt, { timeout: 90000 });
   const holo = await pg.evaluate(w => window.__game.get().copies.find(c => c.copy?.path === w), wt);
   console.log('copia', holo.id, holo.room);
@@ -42,7 +42,7 @@ try {
     const c = window.__client, orig = c.action.bind(c);
     const pr = (number, branch, state = 'abierto') => ({ number, title: 'Carrito: parte ' + number, url: `https://github.com/acme/tienda/pull/${number}`, repo: 'acme/tienda', branch, state, updated: 0, base: 'main' });
     const prs = [pr(7, 'QA-7-carrito'), pr(8, 'QA-7-carrito-2', 'borrador'), pr(6, 'QA-7-base', 'fusionado')];
-    c.action = (n, d) => n === 'git.prsTablero' ? Promise.resolve({ prs }) : orig(n, d);
+    c.action = (n, d) => n === 'git.prsBoard' ? Promise.resolve({ prs }) : orig(n, d);
     window.__board.set({ prs });
     const sess = { id: 'qa_s', claudeId: 'qa_c', dwellerId: holo.copy.authorId, roomId: holo.room, cwd: wt, state: 'terminada', activity: null, unread: false, title: 'QA carrito', pending: 0, helpers: [], tools: 0, turns: 1, created: now, updated: now, model: 'claude-opus-5-5' };
     const entries = pages.map((p, i) => ({ id: 'e' + i, ts: now - i * 1000, type: 'asistente', text: `Plan: [plan ${i + 1}](${p})` }));

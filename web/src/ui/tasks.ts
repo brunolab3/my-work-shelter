@@ -35,7 +35,7 @@ export function knowTasks(keys: (string | undefined)[]) {
   if (!queue.size || timer) return;
   timer = setTimeout(() => {
     timer = null; const batch = [...queue]; queue.clear();
-    client.action<Record<string, string>>('tareas.colores', { keys: batch }).then(m => {
+    client.action<Record<string, string>>('tasks.colors', { keys: batch }).then(m => {
       for (const [k, c] of Object.entries(m ?? {})) assignedColors.set(k, c);
       versionColors.set(e => ({ v: e.v + 1 }));
     }).catch(() => { for (const k of batch) requested.delete(k); });
@@ -62,7 +62,7 @@ export const taskTitle = (key: string | undefined) => key ? jiraBoard.get().tare
 let prsAsked: { when: number; p: Promise<PRBoard[]> } | null = null;
 export function myPRs(): Promise<PRBoard[]> {
   if (!prsAsked || Date.now() - prsAsked.when > 120_000) {
-    const p = client.action<any>('git.prsTablero', {}).then(d => { const prs: PRBoard[] = d?.demo ? [] : d?.prs ?? []; if (!d?.demo) jiraBoard.set({ prs }); return prs; }).catch(() => { prsAsked = null; return [] as PRBoard[]; });
+    const p = client.action<any>('git.prsBoard', {}).then(d => { const prs: PRBoard[] = d?.demo ? [] : d?.prs ?? []; if (!d?.demo) jiraBoard.set({ prs }); return prs; }).catch(() => { prsAsked = null; return [] as PRBoard[]; });
     prsAsked = { when: Date.now(), p };
   }
   return prsAsked.p;

@@ -38,7 +38,7 @@ try {
   pg.on('pageerror', e => errors.push(e.message));
   await pg.goto(withToken(`http://127.0.0.1:${PORT}`), { waitUntil: 'load' });
   await pg.waitForFunction(() => typeof window.__ready === 'function', null, { timeout: 60000 });
-  await pg.evaluate(async r => { await window.__ready(); await window.__client.action('reclutar', { path: r }); await window.__client.action('integracion.modo', { source: 'jira', mode: 'demo' }); await window.__client.action('guardar', { patch: { doneWelcome: true } }); window.__game.set({ panel: null, panelData: null }); }, repo);
+  await pg.evaluate(async r => { await window.__ready(); await window.__client.action('recruit', { path: r }); await window.__client.action('integration.mode', { source: 'jira', mode: 'demo' }); await window.__client.action('save', { patch: { doneWelcome: true } }); window.__game.set({ panel: null, panelData: null }); }, repo);
   const until = async (f, ms = 15000) => { const t = Date.now(); while (Date.now() - t < ms) { if (await f()) return true; await pg.waitForTimeout(200); } return false; };
 
   // ---- the board
@@ -58,7 +58,7 @@ try {
   check(/REF-200/.test(todo[0]?.header ?? '') && todo[1]?.key === 'REF-231' && todo.at(-1)?.key === 'REF-244' && !todo.some(r => r.header && !/REF-\d+/.test(r.header)), 'To do: the epic group first, tasks without one last with no header');
   const withEpic = board.flatMap(c => c.rows).filter(f => f.key && f.epic);
   check(withEpic.length >= 3 && new Set(board.flatMap(c => c.rows).filter(f => f.epic && /REF-200/.test(f.epic)).map(f => f.color)).size === 1, 'every card of an epic has its diamond, in one color per epic');
-  const colors = await pg.evaluate(() => window.__client.action('tareas.colores', { keys: ['REF-200', 'REF-210'] }));
+  const colors = await pg.evaluate(() => window.__client.action('tasks.colors', { keys: ['REF-200', 'REF-210'] }));
   check(colors['REF-200'] && colors['REF-210'] && colors['REF-200'] !== colors['REF-210'], `each epic has its own saved color (${JSON.stringify(colors)})`);
   await pg.waitForTimeout(400); await pg.screenshot({ path: path.join(dir, 'epicas-tablero.png'), animations: 'disabled' });
   await pg.keyboard.press('Escape');

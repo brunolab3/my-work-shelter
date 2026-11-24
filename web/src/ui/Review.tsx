@@ -18,7 +18,7 @@ export const REVIEW_ROOM = 'review';
 
 /** Opens a review (its copies and conversation) and goes to talk to its hologram once it stands in the room */
 export async function openReview(key: string): Promise<void> {
-  await client.action('revision.abrir', { key });
+  await client.action('review.open', { key });
   closePanel();
   for (let k = 0; k < 60; k++) {
     const folder = live.get().reviews.reviews.find(r => r.key === key)?.folder;
@@ -36,7 +36,7 @@ export function PanelReview() {
   const [notice, setNotice] = useState('');
   const sel: Review | undefined = columns[col]?.list[Math.min(i, (columns[col]?.list.length ?? 1) - 1)];
   const open = (r?: Review) => { if (!r) return; SFX.click(); setNotice(t('reviews.reading')); openReview(r.key).catch(e => { setNotice(e.message); SFX.notAllowed(); }); };
-  const done = (r?: Review) => { if (!r?.started) return; SFX.click(); client.action('revision.terminar', { key: r.key }).then(() => setNotice('')).catch(e => { setNotice(e.message); SFX.notAllowed(); }); };
+  const done = (r?: Review) => { if (!r?.started) return; SFX.click(); client.action('review.finish', { key: r.key }).then(() => setNotice('')).catch(e => { setNotice(e.message); SFX.notAllowed(); }); };
   useKeys(e => {
     if (e.code === 'Escape') closePanel();
     else if (e.code === 'ArrowRight' || e.code === 'KeyD') { setCol(c => Math.min(columns.length - 1, c + 1)); setI(0); SFX.tick(); }

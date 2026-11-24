@@ -22,9 +22,9 @@ export function PullRequests({ notify }: { notify: (t: string, error?: boolean) 
   const read = (force = false) => {
     setLoading(true);
     Promise.all([
-      client.action<any>('git.prsTablero', {}).then(setMine).catch(e => notify(e.message, true)),
+      client.action<any>('git.prsBoard', {}).then(setMine).catch(e => notify(e.message, true)),
       client.action<any>('git.github', { force }).then(d => setReview({ list: d.prs?.toReview ?? [], total: d.prs?.nReview ?? 0 })).catch(() => setReview({ list: [], total: 0 })),
-      client.action<any>('integracion.panel', { source: 'jira', force }).then(d => { aimColors(d.tareas ?? []); setTasks(d.tareas ?? []); }).catch(() => {}),
+      client.action<any>('integration.panel', { source: 'jira', force }).then(d => { aimColors(d.tareas ?? []); setTasks(d.tareas ?? []); }).catch(() => {}),
     ]).finally(() => setLoading(false));
   };
   useEffect(() => read(), []);

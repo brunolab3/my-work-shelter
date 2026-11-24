@@ -252,8 +252,8 @@ class Discord extends ConnectorBase {
     return { ok: true, detail: tr('server.botIn', { nombre: a.name, name: servers.map(s => s.name).join(', '), texto: content ? tr('integrations.discordContentOn') : tr('integrations.discordContentOff') }) };
   }
   protected async ownAction(name: string, d: Record<string, any>) {
-    if (name === 'invitacion') { const a = this.app ?? await this.loadApp(); return { url: invitationDiscord(a.id, d.guild) }; }
-    if (name === 'canales') {   // para el selector de la cámara acorazada, una vez conectado
+    if (name === 'invite') { const a = this.app ?? await this.loadApp(); return { url: invitationDiscord(a.id, d.guild) }; }
+    if (name === 'channels') {   // para el selector de la cámara acorazada, una vez conectado
       const el = this.chosen();
       const servers: any[] = await this.rest('/users/@me/guilds');
       const out: any[] = [];

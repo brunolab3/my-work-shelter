@@ -33,7 +33,7 @@ const disco = (rel) => readFileSync(path.join(repo, rel), 'utf8');
 const sel = () => pg.evaluate(() => document.querySelector('.ex-fila.sel')?.dataset.rel ?? null);
 const tabs = () => pg.$$eval('.ex-pestana', ps => ps.map(p => p.querySelector('.ex-pestana-nombre').textContent + (p.classList.contains('sucia') ? '●' : '') + (p.classList.contains('previa') ? '(previa)' : '') + (p.classList.contains('activa') ? '*' : '')));
 
-await pg.evaluate(async r => { const rooms = window.__live.get().state.rooms; if (!rooms.some(s => s.path === r)) await window.__client.action('reclutar', { path: r }); await window.__client.action('guardar', { patch: { doneWelcome: true } }); window.__game.set({ panel: null, panelData: null }); }, repo);
+await pg.evaluate(async r => { const rooms = window.__live.get().state.rooms; if (!rooms.some(s => s.path === r)) await window.__client.action('recruit', { path: r }); await window.__client.action('save', { patch: { doneWelcome: true } }); window.__game.set({ panel: null, panelData: null }); }, repo);
 await wait(2500);
 
 // se abre desde el cliente de git (▤ Archivos); aquí, directamente con la carpeta de la sala

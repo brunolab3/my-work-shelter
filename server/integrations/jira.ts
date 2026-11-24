@@ -107,14 +107,14 @@ class Jira extends ConnectorBase {
   protected async ownAction(name: string, d: Record<string, any>) {
     if (name === 'panel') { const p = await this.tasksMy(!!d.force); return { me: this.who, ...p }; }
     // una tarea con su descripción (en texto), para planificarla desde la sala de coordinación
-    if (name === 'tarea') {
+    if (name === 'task') {
       const key = keyOf(d);
       const { json, spot } = await this.api(`/rest/api/3/issue/${key}?fields=${[...FIELDS, 'description'].join(',')}`);
       const [task] = jiraTasks({ issues: [json] }, spot);
       return { ...task, description: textOfADF(json?.fields?.description) };
     }
     // a project's statuses, for Jira's prod-check and done ones (production verification)
-    if (name === 'estadosTablero') {
+    if (name === 'boardStates') {
       const board = String(d.board ?? '').toUpperCase();
       if (!/^[A-Z][A-Z0-9]{1,9}$/.test(board)) throw new Error(t('integrations.jiraInvalidKey', { clave: board }));
       const { json } = await this.api(`/rest/api/3/project/${board}/statuses`);
@@ -124,9 +124,9 @@ class Jira extends ConnectorBase {
       return { states: names(all), done: names(all.filter(s => s?.statusCategory?.key === 'done')) };
     }
     // the transitions that would take a task to a board column (the board's confirmation lists them)
-    if (name === 'transiciones') { const { key, column } = moveArgs(d); return { transitions: await this.transitionsTo(key, column, d.current) }; }
+    if (name === 'transitions') { const { key, column } = moveArgs(d); return { transitions: await this.transitionsTo(key, column, d.current) }; }
     // the one external write: the transition the Overseer confirmed, checked again against what Jira offers now
-    if (name === 'mover') {
+    if (name === 'move') {
       const { key, column } = moveArgs(d);
       const tr = (await this.transitionsTo(key, column)).find(x => x.id === String(d.id ?? ''));
       if (!tr) throw new Error(t('integrations.jiraTransitionGone', { clave: key }));

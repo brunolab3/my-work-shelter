@@ -160,9 +160,9 @@ export async function furnishDeployment(ctx: Context) {
     if (colors !== versionColors.get().v) { colors = versionColors.get().v; paint(); }   // llegan los colores de las tareas
     if (t - last > 120 || view !== version) {
       last = t; view = version;
-      client.action<any>('git.prsTablero', {}).then(p => { prs = p.prs ?? []; demo = !!p.demo; knowTasks(prs.map(pRTask)); paint(); }).catch(() => {});
-      client.action<BlockerManual[]>('despliegue.bloqueos').then(l => { manual = l ?? []; paint(); }).catch(() => {});
-      client.action<TaskOrder[]>('despliegue.orden').then(l => { orden = l ?? []; paint(); }).catch(() => {});
+      client.action<any>('git.prsBoard', {}).then(p => { prs = p.prs ?? []; demo = !!p.demo; knowTasks(prs.map(pRTask)); paint(); }).catch(() => {});
+      client.action<BlockerManual[]>('deploy.blockers').then(l => { manual = l ?? []; paint(); }).catch(() => {});
+      client.action<TaskOrder[]>('deploy.order').then(l => { orden = l ?? []; paint(); }).catch(() => {});
     }
     impulse = Math.max(0, impulse - dt * 0.8);
     core.rotation.y += dt * (0.8 + impulse * 5); core.rotation.x += dt * 0.3;

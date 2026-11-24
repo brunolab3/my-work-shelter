@@ -24,7 +24,7 @@ try {
   await pg.addInitScript(() => localStorage.setItem('refugio.idioma', 'en'));
   await pg.goto(withToken(`http://127.0.0.1:${PORT}`), { waitUntil: 'load' });
   await pg.waitForFunction(() => typeof window.__ready === 'function', null, { timeout: 60000 });
-  await pg.evaluate(async () => { await window.__ready(); await window.__client.action('guardar', { patch: { doneWelcome: true } }); window.__game.set({ panel: null, panelData: null }); });
+  await pg.evaluate(async () => { await window.__ready(); await window.__client.action('save', { patch: { doneWelcome: true } }); window.__game.set({ panel: null, panelData: null }); });
   await pg.waitForFunction(() => window.__game.get().dwellers.some(d => d.room === 'logistica'), null, { timeout: 60000 });
   const cm = await pg.evaluate(() => window.__game.get().dwellers.find(d => d.room === 'logistica'));
   check(cm.robot, `Planning's dweller looks like a robot: ${cm.name}`);

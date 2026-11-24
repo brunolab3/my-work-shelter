@@ -99,7 +99,7 @@ function liveTerminals(): Promise<{ id: string; cwd: string; program?: string; f
 async function surface(onlyList: boolean) {
   if (await liveServer()) {
     if (onlyList) { console.log(t('server.surface.shelterIsOpen')); return; }
-    const r = await askOnServer('superficie.sacar', { all: true, windowNew: true });
+    const r = await askOnServer('surface.takeOut', { all: true, windowNew: true });
     console.log(r.sessions || r.terminals ? t('server.surface.toTheSurface', { n: r.sessions, m: r.terminals, app: r.app || t('server.surface.yourDesktop') }) : t('server.surface.nothingWasOpen'));
     for (const a of r.notices ?? []) console.log('· ' + a);
     return;

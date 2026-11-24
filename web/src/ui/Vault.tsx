@@ -120,7 +120,7 @@ function MenuCamera({ go }: { go: (v: View) => void }) {
   const hidden = live.use(e => e.state?.hidden?.length ?? 0);
   // el mando a distancia de Slack no es una fuente de avisos (no lee nada): tiene su propio estado
   const [sk, setSk] = useState<SlackRemoteState | null>(null);
-  useEffect(() => { client.action<SlackRemoteState>('slackRemote.estado').then(setSk).catch(() => {}); }, []);
+  useEffect(() => { client.action<SlackRemoteState>('slackRemote.state').then(setSk).catch(() => {}); }, []);
   const skPilot = sk?.paired ? 'conectada' : sk?.connected ? 'demo' : 'sin-configurar';
   const items: (ItemMenu & { f: () => void })[] = [
     ...INTEGRATIONS.map(f => { const st = ints[f.id]; return { text: <><span className={'piloto-mini ' + (st?.state ?? 'demo')} /> {f.name}</>, hint: tIs(INTEGRATION_STATE_SHORT[st?.state ?? 'demo']) + (st?.detail && st.state === 'error' ? ' — ' + st.detail : ''), f: () => go({ type: 'integracion', id: f.id }) }; }),
@@ -145,7 +145,7 @@ function MenuCamera({ go }: { go: (v: View) => void }) {
 function IntegrationView({ card: base, goBack }: { card: IntegrationCard; goBack: () => void }) {
   // los campos los define el conector del servidor (nombre, etiqueta, secreto, ayuda); los pasos son de la cámara
   const [def, setDef] = useState<{ fields: IntegrationField[]; values: Record<string, string>; saved: string[] } | null>(null);
-  useEffect(() => { client.action<any>('integracion.campos', { source: base.id }).then(r => setDef({ fields: r.fields.map((c: any) => ({ id: c.name, label: tIs(c.label) + (c.optional ? t('panels.optional') : ''), secret: c.secret, help: c.help, example: c.example })), values: r.values ?? {}, saved: r.saved ?? [] })).catch(() => {}); }, []);
+  useEffect(() => { client.action<any>('integration.fields', { source: base.id }).then(r => setDef({ fields: r.fields.map((c: any) => ({ id: c.name, label: tIs(c.label) + (c.optional ? t('panels.optional') : ''), secret: c.secret, help: c.help, example: c.example })), values: r.values ?? {}, saved: r.saved ?? [] })).catch(() => {}); }, []);
   if (!def) return <Device label={t('panels.vaultNombre', { nombre: base.name.toUpperCase() })} width={62} onClose={goBack}><p className="tenue">{t('panels.readingTheConfiguration')}</p></Device>;
   return <FormIntegration key="f" card={{ ...base, fields: def.fields.length || !base.fields.length ? def.fields : base.fields }} valuesIni={def.values} savedIni={def.saved} goBack={goBack} />;
 }
@@ -174,13 +174,13 @@ function FormIntegration({ card, valuesIni, savedIni, goBack }: { card: Integrat
   const act = async (id: string) => {
     setBusy(true); setMsg(null);
     try {
-      if (id === 'probar') { const r: any = await client.action('integracion.probar', { source: card.id, fields: sentFields() }); setMsg({ ok: r.ok, text: r.detail }); r.ok ? SFX.shortSuccess() : SFX.error(); }
-      else if (id === 'guardar') { const r: any = await client.action('integracion.guardar', { source: card.id, fields: sentFields() }); setMsg({ ok: r.ok, text: r.detail }); r.ok ? SFX.shortSuccess() : SFX.error(); if (r.ok) setValues(v => Object.fromEntries(Object.entries(v).map(([k, x]) => [k, card.fields.find(c => c.id === k)?.secret ? '' : x]))); }
-      else if (id === 'conectar') { await client.action('integracion.conectar', { source: card.id }); setMsg({ ok: true, text: t('panels.oauthHasBeenOpenedIn', { oauth: oauth ?? '' }) }); }
-      else if (id === 'desconectar') { await client.action('integracion.desconectar', { source: card.id }); setMsg({ ok: true, text: t('panels.signedOut') }); }
-      else if (id === 'modo') { await client.action('integracion.modo', { source: card.id, mode: real ? 'demo' : 'real' }); SFX.toggle(); }
-      else if (id === 'demo') { await client.action('integracion.modo', { source: card.id, mode: 'demo' }); SFX.toggle(); }
-      else if (id === 'canales') { setChannels(await client.action<any[]>('integracion.canales', { source: card.id })); }
+      if (id === 'probar') { const r: any = await client.action('integration.test', { source: card.id, fields: sentFields() }); setMsg({ ok: r.ok, text: r.detail }); r.ok ? SFX.shortSuccess() : SFX.error(); }
+      else if (id === 'guardar') { const r: any = await client.action('integration.save', { source: card.id, fields: sentFields() }); setMsg({ ok: r.ok, text: r.detail }); r.ok ? SFX.shortSuccess() : SFX.error(); if (r.ok) setValues(v => Object.fromEntries(Object.entries(v).map(([k, x]) => [k, card.fields.find(c => c.id === k)?.secret ? '' : x]))); }
+      else if (id === 'conectar') { await client.action('integration.connect', { source: card.id }); setMsg({ ok: true, text: t('panels.oauthHasBeenOpenedIn', { oauth: oauth ?? '' }) }); }
+      else if (id === 'desconectar') { await client.action('integration.disconnect', { source: card.id }); setMsg({ ok: true, text: t('panels.signedOut') }); }
+      else if (id === 'modo') { await client.action('integration.mode', { source: card.id, mode: real ? 'demo' : 'real' }); SFX.toggle(); }
+      else if (id === 'demo') { await client.action('integration.mode', { source: card.id, mode: 'demo' }); SFX.toggle(); }
+      else if (id === 'canales') { setChannels(await client.action<any[]>('integration.channels', { source: card.id })); }
     } catch (e) { setMsg({ ok: false, text: (e as Error).message }); SFX.error(); }
     setBusy(false);
   };
@@ -217,7 +217,7 @@ function FormIntegration({ card, valuesIni, savedIni, goBack }: { card: Integrat
         {channels && <div className="selector-canales">
           <h3>{t('panels.channelsBeingWatched')}</h3>
           {channels.map((c, k) => <label key={String(c.id)} className="chip-canal"><input type="checkbox" checked={c.picked} onChange={e => setChannels(cs => cs!.map((x, j) => (j === k ? { ...x, picked: e.target.checked } : x)))} /> {c.server ? <span className="tenue">{c.server} · </span> : null}#{c.name}</label>)}
-          <div className="botonera"><button className="boton-taller" onClick={async () => { const ids = channels.filter(c => c.picked).map(c => String(c.id)).join(','); const r: any = await client.action('integracion.guardar', { source: card.id, fields: { channels: ids } }); setMsg({ ok: r.ok, text: r.ok ? t('panels.channelsSaved') : r.detail }); setChannels(null); }}>{t('panels.saveChannels')}</button><button className="boton-taller" onClick={() => setChannels(null)}>{t('windows.cancel')}</button></div>
+          <div className="botonera"><button className="boton-taller" onClick={async () => { const ids = channels.filter(c => c.picked).map(c => String(c.id)).join(','); const r: any = await client.action('integration.save', { source: card.id, fields: { channels: ids } }); setMsg({ ok: r.ok, text: r.ok ? t('panels.channelsSaved') : r.detail }); setChannels(null); }}>{t('panels.saveChannels')}</button><button className="boton-taller" onClick={() => setChannels(null)}>{t('windows.cancel')}</button></div>
         </div>}
         {(card.id === 'jira' || card.id === 'linear') && st?.state === 'conectada' && <BoardStatusesView source={card.id} />}
       </div>
@@ -233,11 +233,11 @@ type BoardSetup = { source: string; board: string; states: string[]; test?: stri
 function BoardStatusesView({ source }: { source: 'jira' | 'linear' }) {
   const [boards, setBoards] = useState<BoardSetup[] | null>(null);
   const [msg, setMsg] = useState('');
-  useEffect(() => { client.action<BoardSetup[]>('verificacion.tableros', { source }).then(setBoards).catch(e => setMsg((e as Error).message)); }, [source]);
+  useEffect(() => { client.action<BoardSetup[]>('verification.boards', { source }).then(setBoards).catch(e => setMsg((e as Error).message)); }, [source]);
   const set = async (b: BoardSetup, c: { test?: string; done?: string }) => {
     const v = { test: b.test, done: b.done, ...c };
     try {
-      await client.action('verificacion.tablero', { source: b.source, board: b.board, ...v }); SFX.shortSuccess();
+      await client.action('verification.board', { source: b.source, board: b.board, ...v }); SFX.shortSuccess();
       setBoards(l => l!.map(x => (x === b ? { ...x, ...v, linked: x.linked?.filter(k => !(k in c)) } : x))); setMsg(t('panels.saved'));
     } catch (e) { setMsg((e as Error).message); SFX.error(); }
   };
@@ -278,7 +278,7 @@ function ShelterView({ goBack }: { goBack: () => void }) {
     // the new-session suggestion, also in thousands; 0 turns it off
     const h = parseInt(v.handoff);
     const handoffAt = h === 0 ? 0 : Number.isFinite(h) ? h * 1000 : HANDOFF_DEFAULT;
-    try { await client.action('guardar', { patch: { name: v.name.trim() || GAME_NAME, reposRoot: v.reposRoot.trim() || '~', sessionLimit: lim, autoCompactWindow: autoCompact, handoffAt } }); SFX.shortSuccess(); setMsg(t('panels.saved')); } catch (err) { setMsg((err as Error).message); }
+    try { await client.action('save', { patch: { name: v.name.trim() || GAME_NAME, reposRoot: v.reposRoot.trim() || '~', sessionLimit: lim, autoCompactWindow: autoCompact, handoffAt } }); SFX.shortSuccess(); setMsg(t('panels.saved')); } catch (err) { setMsg((err as Error).message); }
   };
   useKeys(ev => { if (ev.code === 'Escape') goBack(); });
   // la lista «antes de subir» del pre-flight (la primera vez, la de tu ~/.claude/CLAUDE.md): un punto por línea
@@ -286,7 +286,7 @@ function ShelterView({ goBack }: { goBack: () => void }) {
   useEffect(() => { client.action<string[]>('preflight.checklist').then(l => setList(l.join('\n'))).catch(() => setList('')); }, []);
   const saveList = async () => {
     if (list === null) return;
-    try { await client.action('guardar', { patch: { checklistPreflight: list.split('\n').map(x => x.trim()).filter(Boolean) } }); SFX.shortSuccess(); setMsg(t('panels.saved')); } catch (err) { setMsg((err as Error).message); }
+    try { await client.action('save', { patch: { checklistPreflight: list.split('\n').map(x => x.trim()).filter(Boolean) } }); SFX.shortSuccess(); setMsg(t('panels.saved')); } catch (err) { setMsg((err as Error).message); }
   };
   return (
     <Device label={t('panels.vaultWorkShelter')} width={50} onClose={goBack}>
@@ -322,7 +322,7 @@ function RoomsView({ goBack }: { goBack: () => void }) {
   ].sort(alphabeticalOrder);
   const change = async (k: number) => {
     const s = list[k]; if (!s) return;
-    try { await client.action(s.hidden ? 'sala.mostrar' : 'sala.ocultar', { roomId: s.id }); SFX.toggle(); setMsg(''); } catch (err) { SFX.notAllowed(); setMsg((err as Error).message); }
+    try { await client.action(s.hidden ? 'room.show' : 'room.hide', { roomId: s.id }); SFX.toggle(); setMsg(''); } catch (err) { SFX.notAllowed(); setMsg((err as Error).message); }
   };
   const items: ItemMenu[] = list.map(s => ({ text: <>{s.hidden ? '☐' : '☑'} {s.name}</>, hint: s.path }));
   const [i, setI] = useMenu(items.length, change, undefined, goBack);
@@ -361,7 +361,7 @@ function ViewReset({ goBack }: { goBack: () => void }) {
   const pick = async (k: number) => {
     if (k === 0) return goBack();
     if (!step) { setStep(1); return; }
-    await client.action('reiniciarRefugio'); SFX.powerOff(); setTimeout(() => location.reload(), 600);
+    await client.action('restartShelter'); SFX.powerOff(); setTimeout(() => location.reload(), 600);
   };
   const [i, setI] = useMenu(2, pick, undefined, goBack);
   return (
@@ -396,12 +396,12 @@ function SlackRemoteView({ goBack }: { goBack: () => void }) {
   };
   // mientras se espera el emparejado, se mira cada pocos segundos si ya ha llegado el código por mensaje directo
   useEffect(() => {
-    client.action('slackRemote.estado').then((r: any) => setSt(r)).catch(() => {});
-    const id = setInterval(() => client.action('slackRemote.estado').then((r: any) => setSt(r)).catch(() => {}), 3000);
+    client.action('slackRemote.state').then((r: any) => setSt(r)).catch(() => {});
+    const id = setInterval(() => client.action('slackRemote.state').then((r: any) => setSt(r)).catch(() => {}), 3000);
     return () => clearInterval(id);
   }, []);
   const ready = !!app.trim() && !!bot.trim();
-  const connect = () => { if (ready) request('slackRemote.conectar', { appToken: app, botToken: bot }).then(r => { if (r) { setApp(''); setBot(''); } }); };
+  const connect = () => { if (ready) request('slackRemote.connect', { appToken: app, botToken: bot }).then(r => { if (r) { setApp(''); setBot(''); } }); };
   const copy = () => navigator.clipboard.writeText(SLACK_MANIFEST).then(() => { setMsg({ ok: true, text: t('panels.slackRemoteManifestCopied') }); SFX.tick(); }).catch(() => {});
   return (
     <Device label={t('panels.vaultNombre', { nombre: 'SLACK' })} width={62} onClose={goBack} pilot={st?.paired ? 'trabajando' : st?.connected ? 'esperando' : 'ociosa'}>
@@ -429,9 +429,9 @@ function SlackRemoteView({ goBack }: { goBack: () => void }) {
           ? <p>{t('panels.slackRemoteSendCode', { bot: '@' + st.bot })} <b className="codigo-emparejar">{st.code}</b></p>
           : <p className="aviso-consola">{t('panels.slackRemoteCodeExpired')}</p>)}
         <div className="botonera">
-          {st.paired && <button className="boton-taller" disabled={busy} onClick={() => request('slackRemote.aprobar', { si: !st.approve })}>{st.approve ? t('panels.slackRemoteApprovalsOn') : t('panels.slackRemoteApprovalsOff')}</button>}
-          <button className="boton-taller" disabled={busy} onClick={() => request('slackRemote.emparejar')}>{st.paired ? t('panels.slackRemotePairAgain') : t('panels.slackRemoteNewCode')}</button>
-          <button className="boton-taller" disabled={busy} onClick={() => request('slackRemote.desconectar')}>{t('panels.slackRemoteDisconnect')}</button>
+          {st.paired && <button className="boton-taller" disabled={busy} onClick={() => request('slackRemote.approve', { si: !st.approve })}>{st.approve ? t('panels.slackRemoteApprovalsOn') : t('panels.slackRemoteApprovalsOff')}</button>}
+          <button className="boton-taller" disabled={busy} onClick={() => request('slackRemote.pair')}>{st.paired ? t('panels.slackRemotePairAgain') : t('panels.slackRemoteNewCode')}</button>
+          <button className="boton-taller" disabled={busy} onClick={() => request('slackRemote.disconnect')}>{t('panels.slackRemoteDisconnect')}</button>
         </div>
       </>}
       {msg && <p className={msg.ok ? '' : 'aviso-consola'}>{msg.text}</p>}

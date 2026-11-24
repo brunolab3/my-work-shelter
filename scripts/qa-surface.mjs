@@ -88,7 +88,7 @@ try {
   await until(() => received.some(m => m.t === 'terminalDatos' && m.id === tid), 10000, 'terminal abierta').catch(e => { console.log(received.filter(m => m.t !== 'bienvenida').map(m => JSON.stringify(m).slice(0, 200))); throw e; });
   send({ t: 'terminalEntrada', id: tid, data: 'export MARCA=refugio-$((40+2))\r' });
   await sleep(500);
-  const r1 = await action('superficie.sacar', { terminals: [tid] });
+  const r1 = await action('surface.takeOut', { terminals: [tid] });
   check(!r1.error && r1.data.terminals === 1, 'sacar una terminal responde 1 terminal');
   const a1 = notes().at(-1);
   check(a1 && /enganchar 'sala:/.test(a1.items[0].command) && a1.items[0].command.includes(SOCKET), 'se abriría `./shelter enganchar` con su socket');
@@ -106,7 +106,7 @@ try {
     const sid = (await ask({ t: 'empezar', dwellerId: dw.id, roomId: room.id, prompt: 'Responde solo con la palabra: superficie', options: { model: 'haiku', permissions: 'acceptEdits' } })).data;
     const sess = await until(() => { const s = received.filter(m => m.t === 'sesion' && m.session.id === sid).at(-1)?.session; return s && s.state === 'terminada' && s.claudeId ? s : null; }, 90000, 'la conversación termina');
     log('conversación', sess.claudeId, '→', (sess.lastText || '').slice(0, 40));
-    const r2 = await action('superficie.sacar', { sessions: [sid] });
+    const r2 = await action('surface.takeOut', { sessions: [sid] });
     check(!r2.error && r2.data.sessions === 1, 'sacar una conversación responde 1 conversación');
     const a2 = notes().at(-1);
     check(a2?.items[0].command === `cd '${sess.cwd}' && claude --resume ${sess.claudeId} --model 'haiku' --permission-mode acceptEdits`, 'se abriría `claude --resume` en su carpeta: ' + a2?.items[0].command);
@@ -124,7 +124,7 @@ try {
     const sid2 = (await ask({ t: 'empezar', dwellerId: dw.id, roomId: room.id, prompt: 'Ejecuta con la herramienta Bash exactamente: sleep 1 && echo listo. Luego responde «hecho».', options: { model: 'haiku', permissions: 'default' } })).data;
     const sess2 = await until(() => { const s = received.filter(m => m.t === 'sesion' && m.session.id === sid2).at(-1)?.session; return s && s.claudeId && (s.state === 'esperando' || s.state === 'trabajando') ? s : null; }, 90000, 'la segunda conversación trabaja o espera');
     log('segunda conversación', sess2.state);
-    const r4 = await action('superficie.sacar', { sessions: [sid2] });
+    const r4 = await action('surface.takeOut', { sessions: [sid2] });
     const a4 = notes().at(-1);
     check(!r4.error && r4.data.sessions === 1 && a4.items[0].command.includes(`--resume ${sess2.claudeId}`) && a4.items[0].command.includes('Sigue con lo que estabas haciendo'), 'a mitad de trabajo: se interrumpe y fuera se le pide que siga');
   } else log('(sin conversación real)');

@@ -54,7 +54,7 @@ function Verification({ taskKey, plan, tracker, approved, moved }: { taskKey: st
   // the tracker's status: its board's prod-check one (picked in the vault) and, once verified, the workflow's move to done
   const move = () => {
     SFX.click(); setError(''); setMoving(true);
-    client.action<{ state: string }>('verificacion.cerrar', { key: taskKey }).then(x => { SFX.shortSuccess(); moved(x.state); }).catch(e => setError((e as Error).message)).finally(() => setMoving(false));
+    client.action<{ state: string }>('verification.close', { key: taskKey }).then(x => { SFX.shortSuccess(); moved(x.state); }).catch(e => setError((e as Error).message)).finally(() => setMoving(false));
   };
   const line = tracker && <p className="tenue">{t('verification.tracker', { estado: tracker.state })}{' · '}
     {tracker.test ? t('verification.boardProdCheck', { tablero: tracker.board, prueba: tracker.test }) : t('verification.boardUnset', { tablero: tracker.board })}
@@ -62,7 +62,7 @@ function Verification({ taskKey, plan, tracker, approved, moved }: { taskKey: st
   if (!plan) return <>{line}<p className="tenue">{t('verification.none')}</p></>;
   const approve = () => {
     SFX.click(); setError('');
-    client.action<VerificationPlan | null>('verificacion.aprobar', { key: taskKey }).then(p => { if (p) approved(p); }).catch(e => setError((e as Error).message));
+    client.action<VerificationPlan | null>('verification.approve', { key: taskKey }).then(p => { if (p) approved(p); }).catch(e => setError((e as Error).message));
   };
   const ok = isApproved(plan);
   return <div className="pf-verificacion">
@@ -102,7 +102,7 @@ function Popover({ taskKey: key, anchor }: { taskKey: string; anchor?: { x: numb
   useColorsTasks();
   const load = (force = false) => {
     setReading(true); setError('');
-    client.action<TaskPreflight>('preflight.tarea', { key, force }).then(setR).catch(e => setError((e as Error).message)).finally(() => setReading(false));
+    client.action<TaskPreflight>('preflight.task', { key, force }).then(setR).catch(e => setError((e as Error).message)).finally(() => setReading(false));
   };
   useEffect(() => { SFX.open(); load(); }, []);
   // back in the window (from GitHub), the latest: a review or a merge changes the row

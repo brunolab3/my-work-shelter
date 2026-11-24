@@ -50,7 +50,7 @@ export function PanelCommunications({ onlySource }: { onlySource?: string } = {}
   const [i, setI] = useState(0);
   const list = useMemo(() => all.filter(n => (filters[f] === 'todas' || n.source === filters[f]) && (!onlyNew || !n.view)), [all, f, onlyNew]);
   const sel = list[Math.min(i, list.length - 1)];
-  useEffect(() => { if (sel && !sel.view) { const tm = setTimeout(() => client.action('integracion.marcarVista', { ids: sel.ids ?? [sel.id] }).catch(() => {}), 1200); return () => clearTimeout(tm); } }, [sel?.id]);
+  useEffect(() => { if (sel && !sel.view) { const tm = setTimeout(() => client.action('integration.markSeen', { ids: sel.ids ?? [sel.id] }).catch(() => {}), 1200); return () => clearTimeout(tm); } }, [sel?.id]);
   useKeys(e => {
     if (e.code === 'Escape') closePanel();
     else if (e.code === 'ArrowDown' || e.code === 'KeyS') { setI(x => Math.min(list.length - 1, x + 1)); SFX.tick(); }
@@ -59,7 +59,7 @@ export function PanelCommunications({ onlySource }: { onlySource?: string } = {}
     else if (e.code === 'ArrowLeft' || e.code === 'KeyA') { setF(x => (x - 1 + filters.length) % filters.length); setI(0); SFX.tick(); }
     else if ((e.code === 'Enter' || e.code === 'KeyE') && sel) openNotice(sel);
     else if (e.code === 'KeyN') { setOnlyNew(x => !x); setI(0); SFX.toggle(); }
-    else if (e.code === 'KeyV') { client.action('integracion.marcarVista', { ids: list.filter(n => !n.view).flatMap(n => n.ids ?? [n.id]) }); SFX.shortSuccess(); }
+    else if (e.code === 'KeyV') { client.action('integration.markSeen', { ids: list.filter(n => !n.view).flatMap(n => n.ids ?? [n.id]) }); SFX.shortSuccess(); }
     else if (/^Digit[1-9]$/.test(e.code) && webs[+e.code.slice(5) - 1]) openBrowser(webs[+e.code.slice(5) - 1]);
   }, [list, sel, f]);
   const withoutSee = (fu: string) => all.filter(n => !n.view && (fu === 'todas' || n.source === fu)).length;
@@ -114,7 +114,7 @@ export function PanelPlanning() {
   const next = events.filter(ev => ev.end > now).sort((a, b) => a.start - b.start)[0];
   const [agenda, setAgenda] = useState(false);
   const [notice, setNotice] = useState('');
-  const refresh = async () => { setNotice(t('panels.readingCalendars')); await Promise.all(CALENDAR_SOURCES.map(f => client.action('integracion.refrescar', { source: f }).catch(() => {}))); setNotice(t('panels.upToDate')); SFX.shortSuccess(); };
+  const refresh = async () => { setNotice(t('panels.readingCalendars')); await Promise.all(CALENDAR_SOURCES.map(f => client.action('integration.refresh', { source: f }).catch(() => {}))); setNotice(t('panels.upToDate')); SFX.shortSuccess(); };
   useKeys(e => {
     if (e.code === 'Escape') closePanel();
     else if (e.code === 'KeyA') { setAgenda(x => !x); SFX.toggle(); }
@@ -230,7 +230,7 @@ export async function planTask(task: TaskJira, roomId?: string): Promise<string 
   const h = ((live.get().state?.dwellers ?? []) as any[]).find(x => x.roomId === room.id);
   if (!h) return t('panels.theRoomSalaHasNo', { sala: room.name });
   // con la descripción, si Jira la da (en DEMO no hay)
-  const complete = await client.action<TaskJira & { description?: string }>('integracion.tarea', { source: 'jira', key: task.key }).catch(() => task);
+  const complete = await client.action<TaskJira & { description?: string }>('integration.task', { source: 'jira', key: task.key }).catch(() => task);
   client.send({ t: 'empezar', dwellerId: h.id, roomId: room.id, prompt: planPrompt(complete), options: { permissions: 'plan' } });
   SFX.shortSuccess(); closePanel(); goA(room.id, h.id, true);
   return null;
@@ -267,8 +267,8 @@ export function JiraBoard({ goBack, coordination, onWorkLog }: { goBack: () => v
   const [restsOn, setOver] = useState<BoardColumn | null>(null);
   const [follow, setFollow] = useState<string | null>(null);   // the moved card keeps the selection in its new column
   const load = (force = false) => {
-    client.action<any>('integracion.panel', { source: 'jira', force }).then(d => { aimColors(d.tareas ?? []); setJira(d); setError(''); jiraBoard.set({ tareas: d.tareas ?? [] }); }).catch(e => setError(e.message));
-    client.action<any>('git.prsTablero', {}).then(d => { setGh(d); jiraBoard.set({ prs: d?.prs ?? [] }); }).catch(e => setGh({ prs: [], error: e.message }));
+    client.action<any>('integration.panel', { source: 'jira', force }).then(d => { aimColors(d.tareas ?? []); setJira(d); setError(''); jiraBoard.set({ tareas: d.tareas ?? [] }); }).catch(e => setError(e.message));
+    client.action<any>('git.prsBoard', {}).then(d => { setGh(d); jiraBoard.set({ prs: d?.prs ?? [] }); }).catch(e => setGh({ prs: [], error: e.message }));
   };
   useEffect(() => { load(); }, []);
   const crossing = useMemo(() => crossBoard(jira?.tareas ?? [], gh?.prs ?? [], jiraStatuses), [jira, gh, jiraStatuses]);
@@ -286,7 +286,7 @@ export function JiraBoard({ goBack, coordination, onWorkLog }: { goBack: () => v
     if (!ta || !column || column === columnOf(ta, jiraStatuses) || move) return;
     if (jira?.demo) { setNotice(t('panels.jiraDemoCantMove')); SFX.notAllowed(); return; }
     setNotice(t('panels.jiraAskingTransitions', { clave: ta.key }));
-    client.action<{ transitions: JiraTransition[] }>('integracion.transiciones', { source: 'jira', key: ta.key, column, current: ta.state }).then(({ transitions }) => {
+    client.action<{ transitions: JiraTransition[] }>('integration.transitions', { source: 'jira', key: ta.key, column, current: ta.state }).then(({ transitions }) => {
       if (!transitions.length) { setNotice(t('panels.jiraNoTransition', { clave: ta.key, estado: ta.state, columna: colName(column) })); SFX.notAllowed(); return; }
       setNotice(''); setMove({ task: ta, column, options: transitions, k: 0 }); SFX.open();
     }).catch(e => { setNotice(e.message); SFX.notAllowed(); });
@@ -296,7 +296,7 @@ export function JiraBoard({ goBack, coordination, onWorkLog }: { goBack: () => v
     const { task: ta, column, options, k } = move;
     setMove(null); SFX.click();
     setMoved(m => ({ ...m, [ta.key]: { text: t('panels.jiraMoving') } }));
-    client.action<{ state: string }>('integracion.mover', { source: 'jira', key: ta.key, column, id: options[k].id }).then(r => {
+    client.action<{ state: string }>('integration.move', { source: 'jira', key: ta.key, column, id: options[k].id }).then(r => {
       setMoved(m => ({ ...m, [ta.key]: { text: '✔ ' + t('panels.jiraMovedTo', { estado: r.state }) } }));
       SFX.shortSuccess(); setFollow(ta.key); load();
     }).catch(e => { setMoved(m => ({ ...m, [ta.key]: { text: '✗ ' + e.message, fail: true } })); SFX.notAllowed(); });
@@ -394,9 +394,9 @@ function BoardLinear({ goBack }: { goBack: () => void }) {
   const [col, setCol] = useState(0); const [i, setI] = useState(0);
   const [project, setProject] = useState<string | null>(null);
   const [onlyUrgent, setOnlyUrgent] = useState(false);
-  const load = (force = false) => client.action<any>('integracion.panel', { source: 'linear', force }).then(d => { setData(d); setError(''); }).catch(e => setError(e.message));
+  const load = (force = false) => client.action<any>('integration.panel', { source: 'linear', force }).then(d => { setData(d); setError(''); }).catch(e => setError(e.message));
   useEffect(() => { load(); }, []);
-  const loadTeam = () => client.action<any>('integracion.tablero', { source: 'linear', team: (data?.cycles ?? [])[0]?.team }).then(d => { setTeam(d); setError(''); }).catch(e => setError(e.message));
+  const loadTeam = () => client.action<any>('integration.board', { source: 'linear', team: (data?.cycles ?? [])[0]?.team }).then(d => { setTeam(d); setError(''); }).catch(e => setError(e.message));
   useEffect(() => { if (showTeam && !team) loadTeam(); }, [showTeam]);
   const source: any[] = showTeam ? (team?.columns ?? []).map((c: any) => ({ type: c.id, name: c.name, issues: c.issues })) : (data?.myIssues ?? []);
   const groups: any[] = source.map((g: any) => ({ ...g, issues: g.issues.filter((x: any) => (!project || x.project === project) && (!onlyUrgent || (x.priority > 0 && x.priority <= 2))) }));

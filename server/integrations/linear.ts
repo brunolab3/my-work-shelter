@@ -85,14 +85,14 @@ class Linear extends ConnectorBase {
   // Paneles (solo lectura): mis issues por estado, ciclo actual por equipo y tablero de un equipo con filtros
   protected async ownAction(name: string, d: Record<string, any>) {
     if (name === 'panel') { const p = await this.dataMy(!!d.force); return { me: this.who, ...p }; }
-    if (name === 'tablero') {
+    if (name === 'board') {
       let team = String(d.team ?? '');
       if (!/^[0-9a-f-]{36}$/i.test(team)) { if (!this.who) this.who = (await this.gql(Q.viewer)).data?.viewer; team = (this.who?.teams?.nodes ?? []).find((t: any) => !d.team || t.key === d.team)?.id ?? ''; }
       if (!team) throw new Error(t('integrations.linearUnknownTeam', { equipo: d.team ?? '' }));
       return teamBoard(await this.gql(Q.board, { teamId: team, filter: boardFilter(d) }));
     }
     // a board's (team's) statuses, for picking its prod-check and done ones (production verification)
-    if (name === 'estadosTablero') {
+    if (name === 'boardStates') {
       const j = await this.gql(Q.teamStates, { key: String(d.board ?? '').toUpperCase() });
       const nodes: any[] = j?.data?.teams?.nodes?.[0]?.states?.nodes ?? [];
       return { states: [...nodes].sort((a, b) => (a.position ?? 0) - (b.position ?? 0)).map(x => String(x.name ?? '')).filter(Boolean) };

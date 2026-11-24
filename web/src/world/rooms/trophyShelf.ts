@@ -74,7 +74,7 @@ export function trophyShelf(ctx: Context, x0: number, y0: number, scale = 1) {
     levels = list.map(x => x.level);
     paint(earned.length, list.length, level);
   };
-  const read = () => { client.action<{ career: CareerState; progress?: LadderProgress }>('bitacora.leer', {}).then(d => show(d?.career, d?.progress)).catch(() => {}); };
+  const read = () => { client.action<{ career: CareerState; progress?: LadderProgress }>('workLog.read', {}).then(d => show(d?.career, d?.progress)).catch(() => {}); };
   // read from the frame loop, not a timer: a room rebuilt leaves nothing running behind
   let lastRead = -Infinity;
   ctx.onUpdate((_dt, t) => {

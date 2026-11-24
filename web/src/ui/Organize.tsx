@@ -16,7 +16,7 @@ export function OrganizeRooms({ roomId, goBack = closePanel }: { roomId?: string
   const [data, setData] = useState<{ demo?: boolean; rooms: Row[] } | null>(null);
   const [state, setState] = useState<'plan' | 'haciendo' | 'hecho'>('plan');
   const [error, setError] = useState('');
-  useEffect(() => { client.action<any>('sala.organizar', { roomId, apply: false }, 60_000).then(setData).catch(e => setError(e.message)); }, [roomId]);
+  useEffect(() => { client.action<any>('room.organize', { roomId, apply: false }, 60_000).then(setData).catch(e => setError(e.message)); }, [roomId]);
   const withTasks = (data?.rooms ?? []).filter(s => s.steps.length);
   useColorsTasks();
   useEffect(() => knowTasks(withTasks.flatMap(s => s.steps.map(p => p.task.replace(/^PR #/, 'PR-')))), [data]);
@@ -24,7 +24,7 @@ export function OrganizeRooms({ roomId, goBack = closePanel }: { roomId?: string
   const act = () => {
     if (!makeThat || state !== 'plan' || data?.demo) { SFX.notAllowed(); return; }
     setState('haciendo'); SFX.click();
-    client.action<any>('sala.organizar', { roomId, apply: true }, 180_000).then(d => { setData(d); setState('hecho'); SFX.shortSuccess(); }).catch(e => { setError(e.message); setState('plan'); SFX.notAllowed(); });
+    client.action<any>('room.organize', { roomId, apply: true }, 180_000).then(d => { setData(d); setState('hecho'); SFX.shortSuccess(); }).catch(e => { setError(e.message); setState('plan'); SFX.notAllowed(); });
   };
   useKeys(e => {
     if (e.code === 'Escape') goBack();

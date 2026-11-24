@@ -30,7 +30,7 @@ try {
   await pg.addInitScript(() => localStorage.setItem('refugio.idioma', 'en'));
   await pg.goto(withToken(`http://127.0.0.1:${PORT}`), { waitUntil: 'load' });
   await pg.waitForFunction(() => typeof window.__ready === 'function', null, { timeout: 60000 });
-  await pg.evaluate(async r => { await window.__ready(); await window.__client.action('reclutar', { path: r }); await window.__client.action('guardar', { patch: { doneWelcome: true } }); window.__game.set({ panel: null, panelData: null }); }, repo);
+  await pg.evaluate(async r => { await window.__ready(); await window.__client.action('recruit', { path: r }); await window.__client.action('save', { patch: { doneWelcome: true } }); window.__game.set({ panel: null, panelData: null }); }, repo);
   await pg.waitForFunction(w => window.__game.get().copies.some(c => c.copy?.path === w), wt, { timeout: 90000 });
   const holo = await pg.evaluate(w => window.__game.get().copies.find(c => c.copy?.path === w), wt);
   const roomName = await pg.evaluate(id => window.__live.get().state.rooms.find(r => r.id === id)?.name, holo.room);

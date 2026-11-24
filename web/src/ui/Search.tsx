@@ -155,7 +155,7 @@ function Window() {
   const copies = juego.use(e => e.copies);
   const rooms: any[] = live.use(e => e.state?.rooms ?? []);
   const scheduled = live.use(e => e.scheduled);
-  useEffect(() => { input.current?.focus(); client.action<RecentConversation[]>('conversaciones.recientes', { limit: 20 }).then(r => { recentLast = r; setRecent(r); }).catch(() => setRecent(x => x ?? [])); }, []);
+  useEffect(() => { input.current?.focus(); client.action<RecentConversation[]>('conversations.recent', { limit: 20 }).then(r => { recentLast = r; setRecent(r); }).catch(() => setRecent(x => x ?? [])); }, []);
 
   const rows = useMemo<Row[]>(() => {
     const words = normal(q).split(/\s+/).filter(Boolean);

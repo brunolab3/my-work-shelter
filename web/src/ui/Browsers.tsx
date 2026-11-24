@@ -93,7 +93,7 @@ pageAnswers.subscribe(() => { try { localStorage.setItem(ANSWERS, JSON.stringify
 export const answersKey = (session: string) => live.get().sessions[session]?.claudeId ?? session;
 export function answerPage(session: string, path: string, state: PageAnswer['state']) {
   // el servidor ata la de las comparaciones a su commit (pre-flight, server/preflight.ts); las demás páginas las ignora
-  if (state !== 'quitada') client.action('paginas.responder', { path, state }).catch(() => {});
+  if (state !== 'quitada') client.action('pages.answer', { path, state }).catch(() => {});
   session = answersKey(session);
   pageAnswers.set(x => {
     const y = { ...x }, theirs = Object.fromEntries(Object.entries(y[session] ?? {}).filter(([k]) => !samePage(k, path)));
@@ -108,7 +108,7 @@ export function validatePage(session: string, path: string) {
 }
 /** Una página en el Finder, seleccionada (para compartirla desde allí) */
 export function revealPage(path: string) {
-  client.action('enlace.revelar', { path }).then(() => SFX.click()).catch(() => SFX.notAllowed());
+  client.action('link.reveal', { path }).then(() => SFX.click()).catch(() => SFX.notAllowed());
 }
 /** La conversación que enlazó una página la última vez (una página abierta sin saber de qué conversación: sus notas
  *  van a esa) */
@@ -326,7 +326,7 @@ function BrowserWindow({ v }: { v: WindowNav }) {
   useEffect(() => {
     if (!isLocal(v.id) || !v.path || v.minimized) return;
     const path = v.path;
-    const watch = () => client.action<Record<string, number>>('paginas.actualizadas', { paths: [path] }).then(m => {
+    const watch = () => client.action<Record<string, number>>('pages.updated', { paths: [path] }).then(m => {
       const now = m?.[path], before = changed.current;
       if (now && before?.path === path && now !== before.t) setRound(x => x + 1);
       if (now) changed.current = { path, t: now };

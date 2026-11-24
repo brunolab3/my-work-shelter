@@ -27,7 +27,7 @@ describe('archivos del refugio', () => {
   it('lista con carpetas primero, marca lo ignorado y los cambios de git', async () => {
     writeFileSync(path.join(root, 'src/app.ts'), 'export const a = 2;\n');
     writeFileSync(path.join(root, 'src/nuevo.ts'), '');
-    const v = await act('vistazo', { folders: ['', 'src'] });
+    const v = await act('peek', { folders: ['', 'src'] });
     expect(v.listed[''].map((e: any) => e.name)).toEqual(['node_modules', 'src', '.env', '.gitignore', 'README.md']);
     expect(v.listed[''].find((e: any) => e.name === '.env').ignored).toBe(true);
     expect(v.listed[''].find((e: any) => e.name === 'node_modules').ignored).toBe(true);
@@ -36,52 +36,52 @@ describe('archivos del refugio', () => {
   });
 
   it('lee y guarda (también lo que git ignora), sin pisar lo que ha cambiado en el disco', async () => {
-    const l = await act('leer', { rel: '.env' });
+    const l = await act('read', { rel: '.env' });
     expect(l).toMatchObject({ type: 'texto', text: 'CLAVE=1\n' });
-    const g = await act('guardar', { rel: '.env', text: 'CLAVE=2\n', date: l.date });
+    const g = await act('save', { rel: '.env', text: 'CLAVE=2\n', date: l.date });
     expect(g.conflict).toBe(false);
     expect(readFileSync(path.join(root, '.env'), 'utf8')).toBe('CLAVE=2\n');
     // alguien lo toca por fuera
     writeFileSync(path.join(root, '.env'), 'CLAVE=3\n'); utimesSync(path.join(root, '.env'), new Date(), new Date(Date.now() + 5000));
-    expect((await act('guardar', { rel: '.env', text: 'CLAVE=4\n', date: g.date })).conflict).toBe(true);
+    expect((await act('save', { rel: '.env', text: 'CLAVE=4\n', date: g.date })).conflict).toBe(true);
     expect(readFileSync(path.join(root, '.env'), 'utf8')).toBe('CLAVE=3\n');
-    expect((await act('guardar', { rel: '.env', text: 'CLAVE=4\n', date: g.date, force: true })).conflict).toBe(false);
+    expect((await act('save', { rel: '.env', text: 'CLAVE=4\n', date: g.date, force: true })).conflict).toBe(false);
     expect(readFileSync(path.join(root, '.env'), 'utf8')).toBe('CLAVE=4\n');
   });
 
   it('distingue binarios e imágenes', async () => {
     writeFileSync(path.join(root, 'b.bin'), Buffer.from([1, 0, 2]));
     writeFileSync(path.join(root, 'p.png'), Buffer.from([137, 80, 78, 71]));
-    expect((await act('leer', { rel: 'b.bin' })).type).toBe('binario');
-    expect((await act('leer', { rel: 'p.png' })).data).toMatch(/^data:image\/png;base64,/);
+    expect((await act('read', { rel: 'b.bin' })).type).toBe('binario');
+    expect((await act('read', { rel: 'p.png' })).data).toMatch(/^data:image\/png;base64,/);
   });
 
   it('no sale de la raíz: ni con .. ni con enlaces ni con otra carpeta', async () => {
-    await expect(act('leer', { rel: '../x' })).rejects.toThrow(/no válida/);
+    await expect(act('read', { rel: '../x' })).rejects.toThrow(/no válida/);
     const outside = mkdtempSync(path.join(os.tmpdir(), 'shelter-fuera-'));
     writeFileSync(path.join(outside, 'secreto'), 'x');
     symlinkSync(outside, path.join(root, 'enlace'));
-    await expect(act('leer', { rel: 'enlace/secreto' })).rejects.toThrow(/sale de la carpeta/);
-    await expect(act('guardar', { rel: 'enlace/otro', text: 'x' })).rejects.toThrow(/sale de la carpeta/);
-    await expect(filesAction('leer', { root: outside, rel: 'secreto' }, { allowedRoots: () => [root], onChange: () => {} })).rejects.toThrow(/ninguna sala/);
+    await expect(act('read', { rel: 'enlace/secreto' })).rejects.toThrow(/sale de la carpeta/);
+    await expect(act('save', { rel: 'enlace/otro', text: 'x' })).rejects.toThrow(/sale de la carpeta/);
+    await expect(filesAction('read', { root: outside, rel: 'secreto' }, { allowedRoots: () => [root], onChange: () => {} })).rejects.toThrow(/ninguna sala/);
   });
 
   it('crea, renombra, pega (con nombre libre) y mueve', async () => {
-    expect((await act('crear', { folder: 'src', name: 'lib/util.ts' })).rel).toBe('src/lib/util.ts');
-    await expect(act('crear', { folder: 'src', name: 'app.ts' })).rejects.toThrow(/Ya hay/);
-    expect((await act('renombrar', { rel: 'src/lib', name: 'comun' })).rel).toBe('src/comun');
+    expect((await act('create', { folder: 'src', name: 'lib/util.ts' })).rel).toBe('src/lib/util.ts');
+    await expect(act('create', { folder: 'src', name: 'app.ts' })).rejects.toThrow(/Ya hay/);
+    expect((await act('rename', { rel: 'src/lib', name: 'comun' })).rel).toBe('src/comun');
     expect(existsSync(path.join(root, 'src/comun/util.ts'))).toBe(true);
-    expect((await act('pegar', { folder: 'src', origins: [{ root, rel: 'src/app.ts' }] })).rels).toEqual(['src/app copy.ts']);
-    expect((await act('pegar', { folder: 'src', origins: [{ root, rel: 'src/app.ts' }] })).rels).toEqual(['src/app copy 2.ts']);
-    expect((await act('pegar', { folder: '', origins: [{ root, rel: '.env' }] })).rels).toEqual(['.env copy']);
-    expect((await act('pegar', { folder: 'src/comun', origins: [{ root, rel: 'README.md' }], move: true })).rels).toEqual(['src/comun/README.md']);
+    expect((await act('paste', { folder: 'src', origins: [{ root, rel: 'src/app.ts' }] })).rels).toEqual(['src/app copy.ts']);
+    expect((await act('paste', { folder: 'src', origins: [{ root, rel: 'src/app.ts' }] })).rels).toEqual(['src/app copy 2.ts']);
+    expect((await act('paste', { folder: '', origins: [{ root, rel: '.env' }] })).rels).toEqual(['.env copy']);
+    expect((await act('paste', { folder: 'src/comun', origins: [{ root, rel: 'README.md' }], move: true })).rels).toEqual(['src/comun/README.md']);
     expect(existsSync(path.join(root, 'README.md'))).toBe(false);
-    await expect(act('pegar', { folder: 'src/comun', origins: [{ root, rel: 'src' }], move: true })).rejects.toThrow(/sí misma/);
+    await expect(act('paste', { folder: 'src/comun', origins: [{ root, rel: 'src' }], move: true })).rejects.toThrow(/sí misma/);
   });
 
   it('para ⌘P: lo de git, lo nuevo y los archivos ignorados sueltos (no las carpetas ignoradas)', async () => {
     writeFileSync(path.join(root, 'src/nuevo.ts'), '');
-    const { rels } = await act('todos');
+    const { rels } = await act('all');
     expect(rels.sort()).toEqual(['.env', '.gitignore', 'README.md', 'src/app.ts', 'src/nuevo.ts']);
   });
 });

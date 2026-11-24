@@ -16,7 +16,7 @@ function runFile(action: LinkAction, path: string, session?: string) {
   if (action === 'copiar') return copy(copyText(path));
   if (action === 'finder') return revealPage(path);
   // in the game: a page or an image in the «Página» window; with `fuera`, where the Mac opens it (server/open.ts)
-  client.action('enlace.local', { path, outside: action === 'mac' })
+  client.action('link.local', { path, outside: action === 'mac' })
     .then((r: any) => { if (r?.page) openPage(r.page.url, r.page.title, session, r.page.path); else SFX.click(); })
     .catch(() => SFX.notAllowed());
 }
@@ -81,7 +81,7 @@ export function followLink(target: { path: string } | { href: string }, o: { x: 
     menu ? show(anchor, x, y, options, title, run) : run(options[0].action);
   if ('path' in target) {
     const { path } = target;
-    client.action<{ juego: boolean; mac: LocalKind }>('enlace.tipo', { path })
+    client.action<{ juego: boolean; mac: LocalKind }>('link.kind', { path })
       .then(type => pick(fileLinkOptions(type), copyText(path), x => runFile(x, path, session)),
         () => show(anchor, x, y, fileLinkOptions(null), copyText(path), x => runFile(x, path, session), t('windows.linkMissing')));
     return;

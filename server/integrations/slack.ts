@@ -95,7 +95,7 @@ class Slack extends ConnectorBase {
     } catch (e) { return { ok: false, detail: (e as Error).message }; }
   }
   protected async ownAction(name: string, d: Record<string, any>) {
-    if (name === 'canales') {   // para el selector de la cámara acorazada, una vez conectado
+    if (name === 'channels') {   // para el selector de la cámara acorazada, una vez conectado
       this.whenChannels = 0; await this.refreshChannels();
       const el = this.chosen();
       return [...this.ctx.channels].filter(([, c]) => c.type === 'canal' || c.type === 'privado')

@@ -116,8 +116,8 @@ export abstract class ConnectorBase implements Adapter {
   protected onRestart() {}
   stop() { this.onRestart(); }
   async action(name: string, d: Record<string, any>): Promise<unknown> {
-    if (name === 'campos') return this.config.description();
-    if (name === 'olvidar') { this.onRestart(); await this.config.forget(); this.restart(); this.notify?.('estado'); return this.state(); }
+    if (name === 'fields') return this.config.description();
+    if (name === 'forget') { this.onRestart(); await this.config.forget(); this.restart(); this.notify?.('estado'); return this.state(); }
     return this.ownAction(name, d);
   }
   protected async ownAction(name: string, _d: Record<string, any>): Promise<unknown> { throw new Error(t('integrations.unknownActionFor', { id: this.id, nombre: name })); }

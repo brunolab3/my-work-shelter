@@ -453,7 +453,7 @@ function toggleFlag(s: Flaggable | undefined) {
   const on = flagOf(s, flaggedIds(live.get().state?.settings));
   if (on === undefined) { SFX.notAllowed(); return; }
   SFX.tick();
-  client.action('conversacion.pendiente', { claudeId: s!.claudeId, on: !on }).catch(e => { SFX.error(); addNotice('error', (e as Error).message); });
+  client.action('conversation.pending', { claudeId: s!.claudeId, on: !on }).catch(e => { SFX.error(); addNotice('error', (e as Error).message); });
 }
 /** The conversation of a tab, open or closed (shown, or about to be resumed), for its ⚑ */
 const tabConversation = (pid: string): Flaggable | undefined => { const p = intercoms.get().list.flatMap(w => w.tabs).find(x => x.id === pid); return tabFlaggable(p, live.get().sessions); };
@@ -754,7 +754,7 @@ function HistoryView({ h, goBack, pick }: { h: DwellerSummary; goBack: () => voi
     if (!el.outside) return pick(el);
     if (force !== k) { SFX.notAllowed(); setForce(k); setError(t('windows.thatConversationIsStillOpen')); return; }
     setForce(-1); setError(t('windows.forcingClose'));
-    client.action<number>('superficie.forzarCierre', { claudeId: el.claudeId })
+    client.action<number>('surface.forceClose', { claudeId: el.claudeId })
       .then(() => { setError(''); pick({ ...el, outside: false }); })
       .catch(e => { SFX.error(); setError((e as Error).message); });
   };
@@ -780,7 +780,7 @@ function Visitors({ h, goBack, resume }: { h: DwellerSummary; goBack: () => void
   // la lista del último aviso del servidor puede ir hasta 15 s atrasada: se pide al momento y, hasta tenerla con sus
   // títulos, se enseña «cargando» (no media lista que luego crece)
   const [fresh, setFresh] = useState(false);
-  useEffect(() => { client.action<Visitor[]>('visitantes').then(v => live.set({ visitors: v })).catch(() => {}).finally(() => setFresh(true)); }, []);
+  useEffect(() => { client.action<Visitor[]>('visitors').then(v => live.set({ visitors: v })).catch(() => {}).finally(() => setFresh(true)); }, []);
   const dirs = [...new Set(visits.map(v => v.worktree ?? ''))].sort().join('|');
   useEffect(() => {
     if (!fresh) return;
@@ -797,7 +797,7 @@ function Visitors({ h, goBack, resume }: { h: DwellerSummary; goBack: () => void
     const el = list[k];
     if (!el.outside) return resume(el);
     setError(t('windows.forcingClose'));
-    client.action<number>('superficie.forzarCierre', { claudeId: el.claudeId }).then(() => resume({ ...el, outside: false })).catch(e => { SFX.error(); setError((e as Error).message); });
+    client.action<number>('surface.forceClose', { claudeId: el.claudeId }).then(() => resume({ ...el, outside: false })).catch(e => { SFX.error(); setError((e as Error).message); });
   };
   const [i, setI] = useMenu(items.length, onChoose, goBack);
   if (!file) return <div className="pantalla-consola fosforo"><p className="voz">{t('windows.lookingForVisitors')}</p></div>;
@@ -876,7 +876,7 @@ function New({ h, p, resume, goBack }: { h: DwellerSummary; p: TabCom; resume?: 
     const inside = h.copy ? workIn : juego.get().workIn;
     if (!inside && !resume && ofProject && worktree) { SFX.notAllowed(); setError(t('windows.nextWindowNoWorktree')); return; }
     setError('');
-    client.action<ScheduledMessage>('programados.ventana', { roomId: h.room, cwd: resume?.cwd ?? inside?.cwd, claudeId: resume?.claudeId, title: resume?.title, message: text, when })
+    client.action<ScheduledMessage>('scheduled.window', { roomId: h.room, cwd: resume?.cwd ?? inside?.cwd, claudeId: resume?.claudeId, title: resume?.title, message: text, when })
       .then(x => { setText(''); SFX.shortSuccess(); addNotice('info', laterDone(x)); })
       .catch(e => { SFX.error(); setError((e as Error).message); });
   };
@@ -965,7 +965,7 @@ function Entry({ e, base, sessionId }: { e: LogInput; base?: string; sessionId?:
 // A failed tool's output, folded to one line (tool, size, first line): the whole text stays on disk
 // (server/toolOutputs.ts) until it is opened or copied
 const sizeLabel = (n: number) => n < 1024 ? `${n} B` : n < 1024 * 1024 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`;
-const readOutput = (sessionId: string, id: string) => client.action<string | null>('salida.leer', { sessionId, id });
+const readOutput = (sessionId: string, id: string) => client.action<string | null>('output.read', { sessionId, id });
 function OutputView({ o, sessionId, id, tool }: { o: ToolOutput; sessionId: string; id: string; tool?: string }) {
   const [text, setText] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
@@ -1065,7 +1065,7 @@ function Session({ h, s, p, exit, onClose }: { h: DwellerSummary; s: SessionSumm
   const interrupt = () => { client.send({ t: 'interrumpir', sessionId: s.id }); SFX.click(); };
   const compact = () => { client.send({ t: 'enviar', sessionId: s.id, text: '/compact' }); pinned.current = true; SFX.click(); };
   // the handoff notice's other choice (server/sessions.ts: handoff()): the new session starts once the summary is written
-  const handoff = () => { pinned.current = true; client.action('sesion.relevo', { sessionId: s.id }).then(() => SFX.click()).catch(e => { SFX.error(); addNotice('error', (e as Error).message); }); };
+  const handoff = () => { pinned.current = true; client.action('session.handoff', { sessionId: s.id }).then(() => SFX.click()).catch(e => { SFX.error(); addNotice('error', (e as Error).message); }); };
   const send = (raw = text) => {
     const t = raw.trim();
     if (uploading(p.attachments)) { SFX.notAllowed(); return; }
@@ -1083,7 +1083,7 @@ function Session({ h, s, p, exit, onClose }: { h: DwellerSummary; s: SessionSumm
   const sendLater = (when?: string) => {
     if (!text.trim() || text.trim().startsWith('/')) { SFX.notAllowed(); return; }
     if (p.attachments?.length) { SFX.notAllowed(); addNotice('aviso', t('windows.nextWindowNoAttachments')); return; }
-    client.action<ScheduledMessage>('programados.ventana', { sessionId: s.id, message: text, when })
+    client.action<ScheduledMessage>('scheduled.window', { sessionId: s.id, message: text, when })
       .then(x => { setText(''); SFX.shortSuccess(); addNotice('info', laterDone(x)); })
       .catch(e => { SFX.error(); addNotice('aviso', (e as Error).message); });
   };
@@ -1227,7 +1227,7 @@ function useLinkEntries(data: { sessionId: string } | { roomId: string; claudeId
   const [l, setL] = useState<LogInput[]>([]);
   useEffect(() => {
     let stillAlive = true;
-    client.action<LogInput[]>('cuaderno.enlaces', data).then(x => { if (stillAlive) setL(Array.isArray(x) ? x : []); }).catch(() => {});
+    client.action<LogInput[]>('log.links', data).then(x => { if (stillAlive) setL(Array.isArray(x) ? x : []); }).catch(() => {});
     return () => { stillAlive = false; };
   }, [key]);
   return l;
@@ -1276,11 +1276,11 @@ function ScheduledMenu({ h, s, resume }: { h: DwellerSummary; s?: SessionSummary
   const list = useListAtButton(open);
   const [editing, setEditing] = useState<{ id: string; when: string; message: string; error?: string } | null>(null);
   if (!mine.length) return null;
-  const cancel = (x: ScheduledMessage) => { client.action('programados.cancelar', { id: x.id }).then(() => SFX.click()).catch(() => SFX.notAllowed()); };
-  const sendNow = (x: ScheduledMessage) => { client.action('programados.ahora', { id: x.id }).then(() => SFX.click()).catch(() => SFX.notAllowed()); };
+  const cancel = (x: ScheduledMessage) => { client.action('scheduled.cancel', { id: x.id }).then(() => SFX.click()).catch(() => SFX.notAllowed()); };
+  const sendNow = (x: ScheduledMessage) => { client.action('scheduled.now', { id: x.id }).then(() => SFX.click()).catch(() => SFX.notAllowed()); };
   const save = () => {
     if (!editing) return;
-    client.action('programados.editar', { id: editing.id, when: editing.when || undefined, message: editing.message })
+    client.action('scheduled.edit', { id: editing.id, when: editing.when || undefined, message: editing.message })
       .then(() => { setEditing(null); SFX.click(); }).catch(e => { setEditing(x => x && { ...x, error: (e as Error).message }); SFX.notAllowed(); });
   };
   const here = (x: ScheduledMessage) => !!conversation && x.target.type === 'conversacion' && ((!!s && x.target.sessionId === s.id) || (!!conversation.claudeId && x.target.claudeId === conversation.claudeId));
@@ -1430,7 +1430,7 @@ function PagesList({ sessionId, claudeId, entries, base }: { sessionId: string; 
   useEffect(() => {
     if (!paths) return;
     let stillAlive = true;
-    client.action('paginas.actualizadas', { paths: paths.split('\n') }).then((l: any) => {
+    client.action('pages.updated', { paths: paths.split('\n') }).then((l: any) => {
       const m = l && typeof l === 'object' ? l as Record<string, number> : {};
       for (const r of paths.split('\n')) pageTimes.set(r, m[r] ?? null);
       if (stillAlive) { setExist(new Set(Object.keys(m))); setUpdated(m); }
@@ -1443,7 +1443,7 @@ function PagesList({ sessionId, claudeId, entries, base }: { sessionId: string; 
   if (!pages.length) return null;
   const pending = pendingPages(pages).length;
   const openTarget = (path: string) => {
-    client.action('enlace.local', { path }).then((r: any) => { if (r?.page) openPage(r.page.url, r.page.title, alive ? s.id : undefined, r.page.path); else SFX.click(); }).catch(() => SFX.notAllowed());
+    client.action('link.local', { path }).then((r: any) => { if (r?.page) openPage(r.page.url, r.page.title, alive ? s.id : undefined, r.page.path); else SFX.click(); }).catch(() => SFX.notAllowed());
     setOpen(false);
   };
   const inDraft = (path: string) => Object.entries(drafts).find(([k]) => samePage(k, path))?.[1].length ?? 0;

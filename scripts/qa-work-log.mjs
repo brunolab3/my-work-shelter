@@ -63,12 +63,12 @@ try {
   const open = async (url = '') => {
     await pg.goto(withToken(`http://127.0.0.1:${PORT}/${url}`), { waitUntil: 'load' });
     await pg.waitForFunction(() => typeof window.__ready === 'function', null, { timeout: 60000 });
-    await pg.evaluate(async () => { await window.__ready(); await window.__client.action('guardar', { patch: { doneWelcome: true } }); window.__game.set({ panel: null, panelData: null }); });
+    await pg.evaluate(async () => { await window.__ready(); await window.__client.action('save', { patch: { doneWelcome: true } }); window.__game.set({ panel: null, panelData: null }); });
   };
   await open();
   const until = async (f, ms = 15000) => { const t = Date.now(); while (Date.now() - t < ms) { if (await f()) return true; await pg.waitForTimeout(200); } return false; };
-  const read = () => pg.evaluate(() => window.__client.action('bitacora.leer', {}));
-  const mode = (source, m) => pg.evaluate(([source, m]) => window.__client.action('integracion.modo', { source, mode: m }), [source, m]);
+  const read = () => pg.evaluate(() => window.__client.action('workLog.read', {}));
+  const mode = (source, m) => pg.evaluate(([source, m]) => window.__client.action('integration.mode', { source, mode: m }), [source, m]);
   await mode('jira', 'off');
 
   // ---- the saved ledger and the example ladder
@@ -144,7 +144,7 @@ try {
   writeFileSync(path.join(DATA, 'escalera.json'), '{ "trophies": [ nope');
   await pg.keyboard.press('KeyR');
   check(await until(async () => /JSON/.test((await pg.$$eval('.aviso-consola', l => l.map(x => x.textContent).join(' ')))) ), 'a broken ladder shows its error');
-  await pg.evaluate(() => window.__client.action('bitacora.escalera', {}));
+  await pg.evaluate(() => window.__client.action('workLog.ladder', {}));
   check(readFileSync(path.join(DATA, 'escalera.json'), 'utf8').includes('nope'), 'an existing ladder is never overwritten from the example');
   writeFileSync(path.join(DATA, 'escalera.json'), readFileSync(path.join(ROOT, 'docs', 'ladder.example.json'), 'utf8'));
   await pg.keyboard.press('KeyR');

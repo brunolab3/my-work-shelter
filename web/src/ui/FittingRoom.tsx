@@ -89,7 +89,7 @@ function FittingRoom({ who, goBack }: { who: string; goBack: () => void }) {
   const exit = () => { attempt(original); goBack(); };
   const save = async () => {
     if (saving) return; setSaving(true);
-    try { await client.action('aspecto.guardar', { who, look: a }); SFX.success(); goBack(); }
+    try { await client.action('look.save', { who, look: a }); SFX.success(); goBack(); }
     catch (e: any) { SFX.notAllowed(); juego.set({ hint: { key: '', text: String(e?.message ?? e) } }); setSaving(false); }
   };
   const otherSpecies = () => {

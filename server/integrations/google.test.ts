@@ -65,7 +65,7 @@ describe('Google with the gws session', () => {
     expect(refreshes).toBe(1);
     expect(keychain.data.size).toBe(0);
     expect(JSON.stringify(a.state)).not.toMatch(/GOCSPX|GWS-REFRESH|ya29/);
-    await expect(g.action!('conectar', { open: false })).rejects.toThrow(/gws auth login/);
+    await expect(g.action!('connect', { open: false })).rejects.toThrow(/gws auth login/);
   });
 
   it('gws not signed in: clear error, and no new gws run every minute', async () => {

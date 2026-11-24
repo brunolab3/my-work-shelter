@@ -119,7 +119,7 @@ function Window({ v, roots, root }: { v: FilesWindow; roots: Root[]; root: strin
 
   const notify = useCallback((text: string, error = false) => { setNotice({ text, error, id: Date.now() }); if (error) SFX.error(); }, []);
   useEffect(() => { if (notice) { const t = setTimeout(() => setNotice(a => (a?.id === notice.id ? null : a)), notice.error ? 9000 : 3500); return () => clearTimeout(t); } }, [notice]);
-  const action = useCallback(<T,>(name: string, data: Record<string, unknown>) => client.action<T>('archivos.' + name, data, 60_000), []);
+  const action = useCallback(<T,>(name: string, data: Record<string, unknown>) => client.action<T>('files.' + name, data, 60_000), []);
   const activeTab = tabs.find(p => p.key === active) ?? null;
   const update = (k: string, p: Partial<Tab>) => setTabs(ps => ps.map(x => (x.key === k ? { ...x, ...p } : x)));
 
@@ -178,7 +178,7 @@ function Window({ v, roots, root }: { v: FilesWindow; roots: Root[]; root: strin
   };
   const load = async (r: string, rel: string, k: string, recoveredText?: string) => {
     try {
-      const x = await action<any>('leer', { root: r, rel });
+      const x = await action<any>('read', { root: r, rel });
       const m = await loadMonaco();
       if (x.type === 'texto') {
         const model = createModel(m, k, rel, x.text);
@@ -242,7 +242,7 @@ function Window({ v, roots, root }: { v: FilesWindow; roots: Root[]; root: strin
     const { root: r, expanded: ex, tabs: ps } = state.current; if (!r) return;
     const n = ++requested.current;
     try {
-      const x = await action<{ listed: Record<string, Entry[] | null>; git?: Record<string, string>; dates: Record<string, number | null> }>('vistazo', {
+      const x = await action<{ listed: Record<string, Entry[] | null>; git?: Record<string, string>; dates: Record<string, number | null> }>('peek', {
         root: r, folders: o.folders ?? ['', ...ex], git: o.git ?? true, open: o.folders ? [] : ps.filter(p => p.root === r).map(p => p.rel),
       });
       if (state.current.root !== r) return;
@@ -257,7 +257,7 @@ function Window({ v, roots, root }: { v: FilesWindow; roots: Root[]; root: strin
   const watchOther = useCallback(async () => {
     const rootBy = new Map<string, string[]>();
     for (const p of state.current.tabs) if (p.root !== state.current.root && p.date != null) rootBy.set(p.root, [...(rootBy.get(p.root) ?? []), p.rel]);
-    for (const [r, rels] of rootBy) action<any>('vistazo', { root: r, folders: [], git: false, open: rels }).then(x => reviewDates(r, x.dates), () => {});
+    for (const [r, rels] of rootBy) action<any>('peek', { root: r, folders: [], git: false, open: rels }).then(x => reviewDates(r, x.dates), () => {});
   }, [action]);
   // un archivo abierto que cambia en el disco: si no lo has tocado, se recarga (y se puede deshacer); si sí, se avisa
   const reviewDates = (r: string, dates: Record<string, number | null>) => {
@@ -271,7 +271,7 @@ function Window({ v, roots, root }: { v: FilesWindow; roots: Root[]; root: strin
     }
   };
   /** Lo del disco, en la pestaña (sustituye el texto con una edición: se puede deshacer). */
-  const reload = (p: Tab) => action<any>('leer', { root: p.root, rel: p.rel }).then(x => {
+  const reload = (p: Tab) => action<any>('read', { root: p.root, rel: p.rel }).then(x => {
     const m = models.get(p.key);
     if (x.type === 'texto' && m && !m.isDisposed()) {
       if (m.getValue() !== x.text) m.pushEditOperations([], [{ range: m.getFullModelRange(), text: x.text }], () => null);
@@ -318,7 +318,7 @@ function Window({ v, roots, root }: { v: FilesWindow; roots: Root[]; root: strin
     if (!p || !m) return true;
     const version = m.getAlternativeVersionId();
     try {
-      const r = await action<{ conflict: boolean; date: number }>('guardar', { root: p.root, rel: p.rel, text: m.getValue(), date: p.date ?? undefined, force });
+      const r = await action<{ conflict: boolean; date: number }>('save', { root: p.root, rel: p.rel, text: m.getValue(), date: p.date ?? undefined, force });
       if (r.conflict) {
         return await new Promise<boolean>(ok => setConfirm({
           text: <><b>{nameOf(p.rel)}</b> {t('windows.hasChangedOnDiskSince')}</>,
@@ -392,10 +392,10 @@ function Window({ v, roots, root }: { v: FilesWindow; roots: Root[]; root: strin
     name = name.trim(); if (!name || (ed.mode === 'renombrar' && name === nameOf(ed.rel!))) return;
     try {
       if (ed.mode === 'renombrar') {
-        const r = await action<{ rel: string }>('renombrar', { root, rel: ed.rel, name });
+        const r = await action<{ rel: string }>('rename', { root, rel: ed.rel, name });
         moveTabs(ed.rel!, r.rel); setSel(r.rel);
       } else {
-        const r = await action<{ rel: string }>('crear', { root, folder: ed.folder, name, dir: ed.mode === 'carpeta' });
+        const r = await action<{ rel: string }>('create', { root, folder: ed.folder, name, dir: ed.mode === 'carpeta' });
         setSel(r.rel);
         if (ed.mode === 'archivo') { await glance(); reveal(r.rel); open(r.rel, { focus: true }); return; }
       }
@@ -421,7 +421,7 @@ function Window({ v, roots, root }: { v: FilesWindow; roots: Root[]; root: strin
     const f = rows.find(x => x.rel === rel);
     setMenu(null);
     setConfirm({ text: <>{f?.dir ? t('windows.moveTheFolder') : t('windows.move')} <b>{rel}</b> {t('windows.toTheTrashYouCan')}</>, buttons: [
-      { text: t('windows.moveToTrash'), danger: true, f: () => { const i = rows.findIndex(x => x.rel === rel); after(() => action('papelera', { root, rels: [rel] })).then(() => { setSel(rows[i + 1]?.rel ?? rows[i - 1]?.rel ?? null); treeRef.current?.focus(); }); } },
+      { text: t('windows.moveToTrash'), danger: true, f: () => { const i = rows.findIndex(x => x.rel === rel); after(() => action('trash', { root, rels: [rel] })).then(() => { setSel(rows[i + 1]?.rel ?? rows[i - 1]?.rel ?? null); treeRef.current?.focus(); }); } },
       { text: t('windows.cancel'), f: () => treeRef.current?.focus() },
     ] });
   };
@@ -430,14 +430,14 @@ function Window({ v, roots, root }: { v: FilesWindow; roots: Root[]; root: strin
     const pp = clipboard; if (!pp || !root) { SFX.notAllowed(); return; }
     setMenu(null);
     after(async () => {
-      const r = await action<{ rels: string[] }>('pegar', { root, folder, origins: pp.origins, move: pp.move });
+      const r = await action<{ rels: string[] }>('paste', { root, folder, origins: pp.origins, move: pp.move });
       if (pp.move) { pp.origins.forEach((o, i) => r.rels[i] && moveTabs(o.rel, r.rels[i], o.root)); clipboard = null; }
       if (r.rels[0]) { if (folder) toggle(folder, true); setSel(r.rels[0]); }
     });
   };
   const moveA = (rel: string, folder: string) => {
     if (!root || parentOf(rel) === folder || under(folder, rel)) return;
-    after(async () => { const r = await action<{ rels: string[] }>('pegar', { root, folder, origins: [{ root, rel }], move: true }); if (r.rels[0]) { moveTabs(rel, r.rels[0]); if (folder) toggle(folder, true); setSel(r.rels[0]); } });
+    after(async () => { const r = await action<{ rels: string[] }>('paste', { root, folder, origins: [{ root, rel }], move: true }); if (r.rels[0]) { moveTabs(rel, r.rels[0]); if (folder) toggle(folder, true); setSel(r.rels[0]); } });
   };
   const copyPath = (relative: boolean, rel = sel) => {
     if (rel == null || !root) return;
@@ -743,7 +743,7 @@ function askList(root: string): Promise<string[]> {
   const c = lists.get(root); if (c && Date.now() - c.ts < 15_000) return Promise.resolve(c.rels);
   let p = asking.get(root);
   if (!p) {
-    p = client.action<{ rels: string[] }>('archivos.todos', { root }, 60_000).then(r => { lists.set(root, { rels: r.rels, ts: Date.now() }); return r.rels; }).finally(() => asking.delete(root));
+    p = client.action<{ rels: string[] }>('files.all', { root }, 60_000).then(r => { lists.set(root, { rels: r.rels, ts: Date.now() }); return r.rels; }).finally(() => asking.delete(root));
     asking.set(root, p);
   }
   return p;

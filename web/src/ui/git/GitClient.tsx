@@ -77,7 +77,7 @@ function Window({ v, repos, path }: { v: WindowGit; repos: Repo[]; path: string 
 
   const refresh = useCallback(() => {
     if (!path) return Promise.resolve();
-    return client.action<StateGit>('git.estado', { path }).then(e => { if (e.path === path) { setState(e); setErrorState(''); } }).catch(e => setErrorState(e.message));
+    return client.action<StateGit>('git.status', { path }).then(e => { if (e.path === path) { setState(e); setErrorState(''); } }).catch(e => setErrorState(e.message));
   }, [path]);
   useEffect(() => { setState(null); setSel(null); setErrorState(''); refresh(); }, [path]);
   // mientras está a la vista, el estado se relee cada 3 s (y al volver a la ventana)
@@ -112,21 +112,21 @@ function Window({ v, repos, path }: { v: WindowGit; repos: Repo[]; path: string 
   const fileSel = sel ? groups[sel.group].find(a => a.path === sel.path) : undefined;
 
   // ---- acciones sobre archivos
-  const stage = (as: FileGit[]) => act('preparar', { files: as.map(a => a.path) }, t('windows.staging'));
-  const remove = (as: FileGit[]) => act('quitar', { files: as.map(a => a.path) }, t('windows.unstaging'));
+  const stage = (as: FileGit[]) => act('stage', { files: as.map(a => a.path) }, t('windows.staging'));
+  const remove = (as: FileGit[]) => act('unstage', { files: as.map(a => a.path) }, t('windows.unstaging'));
   const discard = (as: FileGit[]) => {
     if (!as.length) return;
     const fresh = as.filter(a => a.letter === '?'), consecutive = as.filter(a => a.letter !== '?');
     setConfirm({
       text: <>{t('windows.discard3')} {as.length === 1 ? <b>{as[0].path}</b> : <b>{t('windows.nFiles', { n: as.length })}</b>}?{fresh.length ? <> {fresh.length === as.length ? (as.length === 1 ? t('windows.itIsNewItWill') : t('windows.theyAreNewTheyWill')) : t('windows.nAreNewAndWill', { n: fresh.length })}.</> : ` ${t('windows.itGoesBackToHow')}`} {t('windows.thisCannotBeUndone')}</>,
-      button: t('windows.discard4'), si: () => act('descartar', { files: consecutive.map(a => a.path), withoutFollow: fresh.map(a => a.path) }, t('windows.discarding'), t('windows.discarded')),
+      button: t('windows.discard4'), si: () => act('discard', { files: consecutive.map(a => a.path), withoutFollow: fresh.map(a => a.path) }, t('windows.discarding'), t('windows.discarded')),
     });
   };
   const applyPatch = (patch: string, what: PatchThat, howMuch: string) => {
-    const go = () => act('parche', { patch, mode: what }, t('windows.applying'), what === 'preparar' ? t('windows.stagedQue', { que: howMuch }) : what === 'quitar' ? t('windows.unstagedQue', { que: howMuch }) : t('windows.discardedQue', { que: howMuch }));
+    const go = () => act('patch', { patch, mode: what }, t('windows.applying'), what === 'preparar' ? t('windows.stagedQue', { que: howMuch }) : what === 'quitar' ? t('windows.unstagedQue', { que: howMuch }) : t('windows.discardedQue', { que: howMuch }));
     if (what === 'descartar') setConfirm({ text: <>{t('windows.discard3')} {howMuch} {t('windows.from')} <b>{sel?.path}</b>? {t('windows.thisCannotBeUndone')}</>, button: t('windows.discard4'), si: go }); else go();
   };
-  const openFile = (a: FileGit) => act('abrirArchivo', { file: a.path }, t('windows.opening'));
+  const openFile = (a: FileGit) => act('openFile', { file: a.path }, t('windows.opening'));
 
   // ---- teclas: ↑↓ por los archivos, Espacio prepara o quita, Supr descarta, Intro abre en el editor
   const move = (step: number) => { if (!list.length) return; const i = sel ? list.findIndex(x => x.group === sel.group && x.path === sel.path) : -1; setSel(list[Math.max(0, Math.min(list.length - 1, i + step))]); SFX.tick(); };
@@ -165,8 +165,8 @@ function Window({ v, repos, path }: { v: WindowGit; repos: Repo[]; path: string 
                 <b>{OPERATION[state.operation]}</b>
                 <span>{state.conflicts.length ? (state.conflicts.length === 1 ? t('windows.resolveTheConflictStageIt') : t('windows.resolveTheNConflictsStage', { n: state.conflicts.length })) : t('windows.stageWhatYouResolvedAnd')} {state.operation === 'merge' ? t('windows.commit') : t('windows.continue')}</span>
                 <span className="gc-fila-botones">
-                  {state.operation !== 'merge' && <button className="gc-boton principal" disabled={!!busy || !!state.conflicts.length} onClick={() => act('continuar', {}, t('windows.continuing'), t('windows.done'))}>{t('windows.continue2')}</button>}
-                  <button className="gc-boton" disabled={!!busy} onClick={() => setConfirm({ text: <>{t('windows.abort')} {OPERATION[state.operation!].toLowerCase()}? {t('windows.everythingGoesBackToHow')}</>, button: t('windows.abort2'), si: () => act('abortar', {}, t('windows.aborting'), t('windows.aborted')) })}>{t('windows.abort2')}</button>
+                  {state.operation !== 'merge' && <button className="gc-boton principal" disabled={!!busy || !!state.conflicts.length} onClick={() => act('continue', {}, t('windows.continuing'), t('windows.done'))}>{t('windows.continue2')}</button>}
+                  <button className="gc-boton" disabled={!!busy} onClick={() => setConfirm({ text: <>{t('windows.abort')} {OPERATION[state.operation!].toLowerCase()}? {t('windows.everythingGoesBackToHow')}</>, button: t('windows.abort2'), si: () => act('abort', {}, t('windows.aborting'), t('windows.aborted')) })}>{t('windows.abort2')}</button>
                 </span>
               </div>
             )}
@@ -232,11 +232,11 @@ function Branch({ state, busy, act }: { state: StateGit | null; busy: boolean; a
       <span className="gc-rama-nombre" title={state.upstream ? t('windows.tracksUpstream', { upstream: state.upstream }) : withoutRemote ? t('windows.noRemote') : t('windows.noRemoteBranchYet')}>⎇ {state.branch ?? t('windows.detachedHeadHash', { hash: state.head?.slice(0, 7) ?? t('windows.noCommits') })}</span>
       {state.upstream && <span className="gc-ab" title={t('windows.adelanteToPushAtrasTo', { adelante: state.ahead, atras: state.behind, upstream: state.upstream })}>{state.behind ? <i className="baja">↓{state.behind}</i> : null}{state.ahead ? <i className="sube">↑{state.ahead}</i> : null}</span>}
       <span className="gc-fila-botones">
-        {!withoutRemote && <button className="gc-boton icono" disabled={busy} onClick={() => act('sincronizar', { what: 'fetch' }, t('windows.fetchingFromTheRemote'), t('windows.remoteUpToDate'))} title={t('windows.fetchGetWhatIsNew')}>⟳</button>}
-        {state.upstream && <button className="gc-boton icono" disabled={busy} onClick={() => act('sincronizar', { what: 'pull' }, 'Pull…', t('windows.pullDone'))} title={t('windows.pullDownloadAndMergeWhat')}>↓</button>}
-        {!withoutRemote && state.branch && <button className="gc-boton icono" disabled={busy} onClick={() => act('sincronizar', { what: 'push' }, 'Push…', t('windows.pushDone'))} title={state.upstream ? t('windows.pushUploadYourCommits') : t('windows.pushPublishTheBranchTo')}>↑</button>}
+        {!withoutRemote && <button className="gc-boton icono" disabled={busy} onClick={() => act('sync', { what: 'fetch' }, t('windows.fetchingFromTheRemote'), t('windows.remoteUpToDate'))} title={t('windows.fetchGetWhatIsNew')}>⟳</button>}
+        {state.upstream && <button className="gc-boton icono" disabled={busy} onClick={() => act('sync', { what: 'pull' }, 'Pull…', t('windows.pullDone'))} title={t('windows.pullDownloadAndMergeWhat')}>↓</button>}
+        {!withoutRemote && state.branch && <button className="gc-boton icono" disabled={busy} onClick={() => act('sync', { what: 'push' }, 'Push…', t('windows.pushDone'))} title={state.upstream ? t('windows.pushUploadYourCommits') : t('windows.pushPublishTheBranchTo')}>↑</button>}
       </span>
-      {sync && <button className="gc-boton ancho" disabled={busy} onClick={() => act('sincronizar', { what: 'sync' }, t('windows.syncing'), t('windows.synced'))}>{sync}</button>}
+      {sync && <button className="gc-boton ancho" disabled={busy} onClick={() => act('sync', { what: 'sync' }, t('windows.syncing'), t('windows.synced'))}>{sync}</button>}
     </div>
   );
 }
@@ -256,9 +256,9 @@ function CommitBox({ path, state, busy, act, notify }: { path: string; state: St
     const r = await act<{ hash: string }>('commit', { message: msg, amend: !!o.amend, all: all && !o.amend }, o.amend ? t('windows.amending') : t('windows.committing'), x => (o.amend ? t('windows.amendedHash', { hash: x.hash }) : t('windows.committedHash', { hash: x.hash })) + (state?.branch ? ' ' + t('windows.onRama', { rama: state.branch }) : '') + '.');
     if (!r) return;
     change(''); SFX.success();
-    if (o.push) await act('sincronizar', { what: 'push' }, 'Push…', t('windows.commitPushed'));
+    if (o.push) await act('sync', { what: 'push' }, 'Push…', t('windows.commitPushed'));
   };
-  const undo = async () => { setMenu(false); const r = await act<{ message: string }>('deshacerCommit', {}, t('windows.undoingTheCommit'), t('windows.lastCommitUndoneItsChanges')); if (r?.message && !msg.trim()) change(r.message); };
+  const undo = async () => { setMenu(false); const r = await act<{ message: string }>('undoCommit', {}, t('windows.undoingTheCommit'), t('windows.lastCommitUndoneItsChanges')); if (r?.message && !msg.trim()) change(r.message); };
   return (
     <div className="gc-commit">
       <div className="gc-commit-caja">
@@ -373,17 +373,17 @@ function Branches({ path, state, signature, busy, act, confirm, notify }: { path
   const [note, setNote] = useState('');
   const [filter, setFilter] = useState('');
   useEffect(() => {
-    client.action<BranchGit[]>('git.ramas', { path }).then(setBranches).catch(e => notify(e.message, true));
-    client.action<any[]>('git.cajon', { path }).then(setDrawer).catch(() => {});
+    client.action<BranchGit[]>('git.branches', { path }).then(setBranches).catch(e => notify(e.message, true));
+    client.action<any[]>('git.stash', { path }).then(setDrawer).catch(() => {});
   }, [path, signature]);
   const q = filter.trim().toLowerCase();
   const local = (branches ?? []).filter(r => !r.remote && (!q || r.name.toLowerCase().includes(q)));
   const remotes = (branches ?? []).filter(r => r.remote && (!q || r.name.toLowerCase().includes(q)));
   const hasChanges = !!state && (state.staged.length + state.changes.length) > 0;
-  const create = async () => { if (!newBranch.trim()) return; const r = await act('crearRama', { name: newBranch.trim() }, t('windows.creatingTheBranch'), t('windows.branchNombreCreatedYouAre', { nombre: newBranch.trim() })); if (r !== undefined) setNew(''); };
+  const create = async () => { if (!newBranch.trim()) return; const r = await act('createBranch', { name: newBranch.trim() }, t('windows.creatingTheBranch'), t('windows.branchNombreCreatedYouAre', { nombre: newBranch.trim() })); if (r !== undefined) setNew(''); };
   const deleteMessage = (r: BranchGit) => confirm({ text: <>{t('windows.deleteTheBranch')} <b>{r.name}</b>?{r.upstream ? '' : ` ${t('windows.itIsNotOnAny')}`}</>, button: t('windows.delete'), si: async () => {
-    const ok = await act('borrarRama', { name: r.name }, t('windows.deleting'), t('windows.branchNombreDeleted', { nombre: r.name }));
-    if (ok === undefined) confirm({ text: <>{t('windows.theBranch')} <b>{r.name}</b> {t('windows.hasCommitsThatAreOn')}</>, button: t('windows.deleteAnyway'), si: () => act('borrarRama', { name: r.name, force: true }, t('windows.deleting'), t('windows.branchNombreDeleted', { nombre: r.name })) });
+    const ok = await act('deleteBranch', { name: r.name }, t('windows.deleting'), t('windows.branchNombreDeleted', { nombre: r.name }));
+    if (ok === undefined) confirm({ text: <>{t('windows.theBranch')} <b>{r.name}</b> {t('windows.hasCommitsThatAreOn')}</>, button: t('windows.deleteAnyway'), si: () => act('deleteBranch', { name: r.name, force: true }, t('windows.deleting'), t('windows.branchNombreDeleted', { nombre: r.name })) });
   } });
   const row = (r: BranchGit) => (
     <li key={(r.remote ? 'r:' : 'l:') + r.name} className={r.current ? 'actual' : ''}>
@@ -392,7 +392,7 @@ function Branches({ path, state, signature, busy, act, confirm, notify }: { path
       <span className="gr-asunto" title={r.subject}>{r.subject}</span>
       <span className="tenue gr-cuando">{ago(r.date)}</span>
       <span className="gc-fila-botones">
-        {!r.current && <button className="gc-boton" disabled={busy} onClick={() => act('cambiarRama', { branch: r.name, remote: r.remote }, t('windows.switchingBranch'), t('windows.nowOnRama', { rama: r.remote ? r.name.split('/').slice(1).join('/') : r.name }))}>{t('windows.switch')}</button>}
+        {!r.current && <button className="gc-boton" disabled={busy} onClick={() => act('switchBranch', { branch: r.name, remote: r.remote }, t('windows.switchingBranch'), t('windows.nowOnRama', { rama: r.remote ? r.name.split('/').slice(1).join('/') : r.name }))}>{t('windows.switch')}</button>}
         {!r.current && !r.remote && <button className="gc-boton icono" disabled={busy} onClick={() => deleteMessage(r)} title={t('windows.deleteTheBranch2')}>🗑</button>}
       </span>
     </li>
@@ -415,7 +415,7 @@ function Branches({ path, state, signature, busy, act, confirm, notify }: { path
           <p className="tenue">{t('windows.setAsideYourHalfDone')}</p>
           <div className="gc-herramientas">
             <input className="gc-filtro" placeholder={t('windows.noteOptional')} value={note} onChange={e => setNote(e.target.value)} />
-            <button className="gc-boton principal" disabled={busy || !hasChanges} onClick={async () => { if (await act('cajonGuardar', { message: note.trim() }, t('windows.savingToTheStash'), t('windows.changesSavedToTheStash')) !== undefined) setNote(''); }}>{t('windows.stashChanges')}</button>
+            <button className="gc-boton principal" disabled={busy || !hasChanges} onClick={async () => { if (await act('stashSave', { message: note.trim() }, t('windows.savingToTheStash'), t('windows.changesSavedToTheStash')) !== undefined) setNote(''); }}>{t('windows.stashChanges')}</button>
           </div>
           <ul className="gr-lista">
             {drawer.map(c => (
@@ -424,9 +424,9 @@ function Branches({ path, state, signature, busy, act, confirm, notify }: { path
                 <span className="gr-asunto" title={c.subject}>{c.subject}</span>
                 <span className="tenue gr-cuando">{ago(c.date)}</span>
                 <span className="gc-fila-botones">
-                  <button className="gc-boton principal" disabled={busy} onClick={() => act('cajonSacar', { ref: c.ref }, t('windows.poppingFromTheStash'), t('windows.changesReturnedToTheWorking'))} title={t('windows.applyItAndRemoveIt')}>{t('windows.pop')}</button>
-                  <button className="gc-boton" disabled={busy} onClick={() => act('cajonSacar', { ref: c.ref, keep: true }, t('windows.applying'), t('windows.appliedStillInTheStash'))} title={t('windows.applyItAndKeepIt')}>{t('windows.apply')}</button>
-                  <button className="gc-boton icono" disabled={busy} onClick={() => confirm({ text: <>{t('windows.drop')} <b>{c.subject}</b> {t('windows.fromTheStashItWill')}</>, button: t('windows.drop2'), si: () => act('cajonTirar', { ref: c.ref }, t('windows.dropping'), t('windows.dropped')) })} title={t('windows.dropItDrop')}>🗑</button>
+                  <button className="gc-boton principal" disabled={busy} onClick={() => act('stashPop', { ref: c.ref }, t('windows.poppingFromTheStash'), t('windows.changesReturnedToTheWorking'))} title={t('windows.applyItAndRemoveIt')}>{t('windows.pop')}</button>
+                  <button className="gc-boton" disabled={busy} onClick={() => act('stashPop', { ref: c.ref, keep: true }, t('windows.applying'), t('windows.appliedStillInTheStash'))} title={t('windows.applyItAndKeepIt')}>{t('windows.apply')}</button>
+                  <button className="gc-boton icono" disabled={busy} onClick={() => confirm({ text: <>{t('windows.drop')} <b>{c.subject}</b> {t('windows.fromTheStashItWill')}</>, button: t('windows.drop2'), si: () => act('stashDrop', { ref: c.ref }, t('windows.dropping'), t('windows.dropped')) })} title={t('windows.dropItDrop')}>🗑</button>
                 </span>
               </li>
             ))}

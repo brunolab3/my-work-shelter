@@ -58,7 +58,7 @@ await pg.keyboard.press('Escape'); await wait(200);
 // ---- buscador en el refugio
 await pg.keyboard.press('Meta+k');
 check(await until(open), '⌘K abre el buscador');
-const nRec = await pg.evaluate(() => window.__client.action('conversaciones.recientes', { limit: 20 }).then(r => r.length));
+const nRec = await pg.evaluate(() => window.__client.action('conversations.recent', { limit: 20 }).then(r => r.length));
 check(nRec === 0 || await until(async () => (await sections()).includes('Conversaciones recientes'), 20000), `trae las conversaciones recientes de todas las salas (${nRec})`);
 const f0 = await rows();
 check(f0.some(f => f.txt === 'Plano del refugio' && f.key === 'M') && f0.some(f => f.txt === 'Control de versiones' && f.key === 'G'), 'las acciones llevan su tecla a la vista');

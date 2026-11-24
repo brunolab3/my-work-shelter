@@ -251,17 +251,17 @@ export async function filesAction(name: string, d: Record<string, any>, ctx: Ctx
   const root = rootOf(String(d.root ?? ''));
   const r = await (async () => {
     switch (name) {
-      case 'vistazo': return glance(root, d);
-      case 'leer': return read(root, d.rel);
-      case 'guardar': return save(root, d as any);
-      case 'crear': return create(root, d as any);
-      case 'renombrar': return rename(root, d as any);
-      case 'pegar': return paste(root, d as any, rootOf);
-      case 'papelera': return moveToTrash(root, d.rels);
-      case 'todos': return all(root);
-      case 'revelar': return reveal(root, d.rel);
-      case 'abrirEnEditor': return openInEditor(root, d.rel);
-      default: throw new Error(t('server.unknownAction', { nombre: 'archivos.' + name }));
+      case 'peek': return glance(root, d);
+      case 'read': return read(root, d.rel);
+      case 'save': return save(root, d as any);
+      case 'create': return create(root, d as any);
+      case 'rename': return rename(root, d as any);
+      case 'paste': return paste(root, d as any, rootOf);
+      case 'trash': return moveToTrash(root, d.rels);
+      case 'all': return all(root);
+      case 'reveal': return reveal(root, d.rel);
+      case 'openInEditor': return openInEditor(root, d.rel);
+      default: throw new Error(t('server.unknownAction', { nombre: 'files.' + name }));
     }
   })();
   if (WRITE.has(name)) ctx.onChange(root);

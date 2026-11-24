@@ -898,7 +898,7 @@ const reviewRoom = new ReviewRoom(DATA, {
   },
   jira: async key => {
     if (!ctxTrackers.connected('jira')) return undefined;
-    const x: any = await integrations.action('tarea', { source: 'jira', key });
+    const x: any = await integrations.action('task', { source: 'jira', key });
     return x?.title ? { title: x.title, status: x.state, epic: x.epic ? `${x.epic.key} ${x.epic.title}` : undefined, description: x.description } : undefined;
   },
   trash: async paths => (await import('./files.ts')).toTrash(paths),
@@ -979,7 +979,7 @@ const sessionOfClaude = (claudeId: string) => sessions.list().find(s => s.claude
 async function action(name: string, d: Record<string, any> = {}): Promise<unknown> {
   const e = store.state;
   switch (name) {
-    case 'sugerencias': return suggestions(e.reposRoot, takenFolders(e));
+    case 'suggestions': return suggestions(e.reposRoot, takenFolders(e));
     // «From GitHub…»: your repos (with the integration connected) and where each one is already cloned
     case 'github.repos': {
       const c = await ghConnected(), already = clonedRepos(expand(e.reposRoot), [...e.rooms, ...(e.hidden ?? []).map(o => o.room)]);
@@ -996,16 +996,16 @@ async function action(name: string, d: Record<string, any> = {}): Promise<unknow
       const info = c.gh ? await repoInfo(c.gh, repo) : { repo, name: repo.split('/')[1], isPrivate: false, archived: false, description: '', pushed: 0 };
       return { ...info, cloned: already.get(info.repo.toLowerCase()) };
     }
-    case 'github.clonar': {
+    case 'github.clone': {
       const repo = repoRef(String(d.repo ?? ''));
       if (!repo) throw new Error(t('server.githubRepoBadRef'));
       const target = cloneDestination(expand(String(d.path ?? '')), expand(e.reposRoot), takenFolders(e));
       const protocol = await (await import('./git.ts')).gh(['config', 'get', 'git_protocol', '-h', 'github.com']).catch(() => '');
       return clones.start(repo, target, cloneUrl(repo, protocol));
     }
-    case 'github.clon': { const c = clones.check(String(d.id)); if (!c) throw new Error(t('server.cloneFailed')); return c; }
-    case 'github.cancelar': return clones.cancel(String(d.id));
-    case 'reclutar': {
+    case 'github.cloneStatus': { const c = clones.check(String(d.id)); if (!c) throw new Error(t('server.cloneFailed')); return c; }
+    case 'github.cancel': return clones.cancel(String(d.id));
+    case 'recruit': {
       const filePath = path.resolve(expand(String(d.path || '')));
       if (filePath === path.parse(filePath).root || filePath === os.homedir()) throw new Error(t('server.thatFolderIsTooBroad'));
       if (!existsSync(filePath)) {
@@ -1020,7 +1020,7 @@ async function action(name: string, d: Record<string, any> = {}): Promise<unknow
       broadcast({ t: 'estado', state: store.state as any }); broadcast({ t: 'repos', repos });
       return { id };
     }
-    case 'retirarSala': {
+    case 'removeRoom': {
       const sr = e.rooms.find(s => s.id === d.roomId);
       if (!sr) throw new Error(t('server.thatRoomDoesNotExist'));
       if ((sr.type !== 'repo' && sr.type !== 'coordinacion') || sr.id === PLANNING_ROOM) throw new Error(t('server.theShelterSServiceRooms'));
@@ -1033,7 +1033,7 @@ async function action(name: string, d: Record<string, any> = {}): Promise<unknow
     }
     // ocultar una sala de repo la saca del juego (la planta que se queda vacía desaparece) sin olvidarla: vuelve, con su
     // habitante y su escena, desde la cámara acorazada (Salas del refugio)
-    case 'sala.ocultar': {
+    case 'room.hide': {
       const sr = e.rooms.find(s => s.id === d.roomId);
       if (!sr) throw new Error(t('server.thatRoomDoesNotExist'));
       if (!isHideable(sr)) throw new Error(t('server.serviceRoomsCannotBeHidden'));
@@ -1044,7 +1044,7 @@ async function action(name: string, d: Record<string, any> = {}): Promise<unknow
       broadcast({ t: 'estado', state: store.state as any }); broadcast({ t: 'repos', repos });
       return true;
     }
-    case 'sala.mostrar': {
+    case 'room.show': {
       let done = false;
       store.change(x => { done = showRoom(x, String(d.roomId)); });
       if (!done) throw new Error(t('server.thatRoomDoesNotExist'));
@@ -1055,7 +1055,7 @@ async function action(name: string, d: Record<string, any> = {}): Promise<unknow
     }
     // la sala pasa a otra carpeta (un repo tuyo): conserva su sitio, su habitante y su aspecto; la escena vuelve a la
     // plantilla de su nuevo tipo de repo (luego el habitante la puede adaptar)
-    case 'vincularSala': {
+    case 'linkRoom': {
       const sr = e.rooms.find(s => s.id === d.roomId);
       if (!sr || !isRoomOfRepo(sr.type)) throw new Error(t('server.onlyRepoRoomsCanBe'));
       if (sr.id === PLANNING_ROOM) throw new Error(t('server.theLogisticsRoomSFolder'));
@@ -1088,7 +1088,7 @@ async function action(name: string, d: Record<string, any> = {}): Promise<unknow
     }
     // obras desde el plano: arrastrar una sala a un hueco (o a una planta nueva) o una planta entera a otra altura, o
     // volver a la disposición de serie
-    case 'refugio.mover': {
+    case 'shelter.move': {
       let done = false;
       store.change(x => {
         const fresh = d.roomId
@@ -1100,15 +1100,15 @@ async function action(name: string, d: Record<string, any> = {}): Promise<unknow
       broadcast({ t: 'estado', state: store.state as any });
       return true;
     }
-    case 'refugio.disposicionDeSerie': { store.change(x => { x.rooms = defaultLayout(x.rooms); }); broadcast({ t: 'estado', state: store.state as any }); return true; }
+    case 'shelter.defaultLayout': { store.change(x => { x.rooms = defaultLayout(x.rooms); }); broadcast({ t: 'estado', state: store.state as any }); return true; }
     // idioma de los textos (shared/language.ts): el cliente lo elige en Opciones y el servidor lo usa en sus avisos
-    case 'idioma': {
+    case 'language': {
       if (!isLanguage(d.language)) throw new Error(t('server.unknownLanguage'));
       setLanguage(d.language); store.change(x => { x.language = d.language; });
       return true;
     }
     // el área de un repo (frontend, backend o crítico): su sector y su color
-    case 'sala.area': {
+    case 'room.area': {
       const sr = e.rooms.find(s => s.id === d.roomId);
       if (!sr || !isRoomOfRepo(sr.type) || sr.id === PLANNING_ROOM) throw new Error(t('server.onlyRepoRoomsHaveAn'));
       if (!isArea(d.area)) throw new Error(t('server.unknownArea'));
@@ -1116,10 +1116,10 @@ async function action(name: string, d: Record<string, any> = {}): Promise<unknow
       broadcast({ t: 'estado', state: store.state as any });
       return true;
     }
-    case 'sala.promptAdaptar': return adaptPrompt();
-    case 'sala.quitarDecorado': { if (!ctxDecor.room(String(d.roomId))) throw new Error(t('server.thatRoomDoesNotExist')); ctxDecor.save(String(d.roomId), null); return true; }
-    case 'abrirEn': return openIn(String(d.app), String(d.path));
-    case 'guardar': {
+    case 'room.adaptPrompt': return adaptPrompt();
+    case 'room.removeDecor': { if (!ctxDecor.room(String(d.roomId))) throw new Error(t('server.thatRoomDoesNotExist')); ctxDecor.save(String(d.roomId), null); return true; }
+    case 'openIn': return openIn(String(d.app), String(d.path));
+    case 'save': {
       const before = { root: reposRoot(e), welcome: e.doneWelcome };
       store.change(x => applySettings(x, d.patch ?? {})); broadcast({ t: 'estado', state: store.state as any });
       // la raíz elegida (otra, o la de la bienvenida al entrar) trae sus repos
@@ -1127,7 +1127,7 @@ async function action(name: string, d: Record<string, any> = {}): Promise<unknow
       if (typeof d.patch?.reposRoot === 'string') refreshReposSoon();
       return true;
     }   // la sala de planificación cambia de carpeta con la raíz
-    case 'aspecto.guardar': {
+    case 'look.save': {
       // el aspecto que se elige en Chapa y Pintura: del Supervisor o de un habitante (la Octocat no se cambia)
       const a = d.look === null ? null : sanitizeLook(d.look);
       if (d.look !== null && !a) throw new Error(t('server.thatLookIsNotValid'));
@@ -1140,16 +1140,16 @@ async function action(name: string, d: Record<string, any> = {}): Promise<unknow
       broadcast({ t: 'estado', state: store.state as any });
       return true;
     }
-    case 'reiniciarRefugio': { sessions.closeAll(); terminals.closeAll(); store.restart(); await refreshRepos(); broadcast({ t: 'estado', state: store.state as any }); return true; }
+    case 'restartShelter': { sessions.closeAll(); terminals.closeAll(); store.restart(); await refreshRepos(); broadcast({ t: 'estado', state: store.state as any }); return true; }
     // al abrir la lista de un visitante: al momento (con los worktrees al día), no la del último aviso (cada 15 s).
     // Solo `git worktree list`: el repaso entero de los repos (`git status` en cada uno) tardaba segundos en los grandes
-    case 'visitantes': {
+    case 'visitors': {
       const rooms = store.state.rooms.filter(s => s.path && s.type !== 'puente');
       const wts = new Map(await Promise.all(rooms.map(async s => [s.id, (await worktreeList(s.path!)).filter(w => !w.main).map(w => w.path)] as const)));
       const v = visitors(wts); broadcast({ t: 'visitantes', visitors: v }); return v;
     }
     // el buscador (⌘K): las últimas conversaciones de cada sala con habitante, juntas y de la más reciente a la más vieja
-    case 'conversaciones.recientes': {
+    case 'conversations.recent': {
       const outside = outsideOpen();
       const lists = await Promise.all(e.rooms.map(async s => {
         const h = e.dwellers.find(x => x.roomId === s.id);
@@ -1160,14 +1160,14 @@ async function action(name: string, d: Record<string, any> = {}): Promise<unknow
       }));
       return lists.flat().sort((a, b) => b.modified - a.modified).slice(0, Math.min(40, Number(d.limit) || 20));
     }
-    case 'aplicarCliente': return applyClient();
-    case 'reiniciarJuego': return restartGame();
-    case 'superficie.sacar': return exitASurface(d);
-    case 'superficie.appClaude': return toClaudeApp(d);
-    case 'presencia': lastUse = d.active ? Date.now() : 0; return true;
+    case 'applyClient': return applyClient();
+    case 'restartGame': return restartGame();
+    case 'surface.takeOut': return exitASurface(d);
+    case 'surface.claudeApp': return toClaudeApp(d);
+    case 'presence': lastUse = d.active ? Date.now() : 0; return true;
     // the top bar's memory chip (web/src/ui/RunningThings.tsx): read only while its popover is open
-    case 'procesos': return runningThings(sessionOfClaude);
-    case 'procesos.parar': {
+    case 'processes': return runningThings(sessionOfClaude);
+    case 'processes.stop': {
       const r = await stopDwellerProcess(Number(d.pid), sessionOfClaude);
       if ('error' in r) throw new Error(t('server.running.notADwellers'));
       const s = sessions.list().find(x => x.id === r.sessionId);
@@ -1175,13 +1175,13 @@ async function action(name: string, d: Record<string, any> = {}): Promise<unknow
       broadcast({ t: 'aviso', level: 'info', text: t('server.running.stopped', { quien: who, orden: r.command.slice(0, 120), n: r.n }) });
       return true;
     }
-    case 'slackRemote.estado': return slackRemote.state();
-    case 'slackRemote.conectar': return slackRemote.connect(String(d.appToken ?? ''), String(d.botToken ?? ''));
-    case 'slackRemote.emparejar': return slackRemote.pair();
-    case 'slackRemote.aprobar': return slackRemote.setApprove(!!d.si);
-    case 'slackRemote.desconectar': return slackRemote.disconnect();
+    case 'slackRemote.state': return slackRemote.state();
+    case 'slackRemote.connect': return slackRemote.connect(String(d.appToken ?? ''), String(d.botToken ?? ''));
+    case 'slackRemote.pair': return slackRemote.pair();
+    case 'slackRemote.approve': return slackRemote.setApprove(!!d.si);
+    case 'slackRemote.disconnect': return slackRemote.disconnect();
     // Remote Control de la sala (`claude remote-control` en su carpeta): sesiones desde claude.ai/code y el móvil
-    case 'sala.controlRemoto': {
+    case 'room.remoteControl': {
       const sr = e.rooms.find(s => s.id === d.roomId);
       if (!sr || !isRoomOfRepo(sr.type) || !sr.path) throw new Error(t('server.remoteControlOnlyWorksIn'));
       if (d.switchOn === undefined) return controlRemoto.state(sr.id);
@@ -1190,72 +1190,72 @@ async function action(name: string, d: Record<string, any> = {}): Promise<unknow
     }
     // organizar salas de repo por tareas: un worktree y una conversación por tarea con PR abiertos (organize.ts).
     // Sin aplicar, solo el plan; con aplicar, lo hace (el Supervisor lo ha confirmado en el panel)
-    case 'sala.organizar': return organizeRooms(d.roomId ? String(d.roomId) : undefined, !!d.apply);
-    case 'tareas.colores': return taskColors.colors(d.keys);
-    case 'despliegue.bloqueos': return prBlockers.all();
-    case 'uso.gasto': return usageSpend.buckets();
-    case 'preflight.tarea': return preflightOf(String(d.key ?? ''), ctxPreflight, !!d.force);
+    case 'room.organize': return organizeRooms(d.roomId ? String(d.roomId) : undefined, !!d.apply);
+    case 'tasks.colors': return taskColors.colors(d.keys);
+    case 'deploy.blockers': return prBlockers.all();
+    case 'usage.spend': return usageSpend.buckets();
+    case 'preflight.task': return preflightOf(String(d.key ?? ''), ctxPreflight, !!d.force);
     case 'preflight.checklist': return checklistItems();
-    case 'verificacion.tableros': return boardsSetup(ctxTrackers, (['jira', 'linear'] as const).find(f => f === d.source) as Tracker | undefined);
-    case 'verificacion.tablero': return saveBoard(ctxTrackers, d.source, d.board, d);
+    case 'verification.boards': return boardsSetup(ctxTrackers, (['jira', 'linear'] as const).find(f => f === d.source) as Tracker | undefined);
+    case 'verification.board': return saveBoard(ctxTrackers, d.source, d.board, d);
     // the workflow's own transition to the done status, once the task is verified (the Overseer's click in the pre-flight)
-    case 'verificacion.cerrar': {
+    case 'verification.close': {
       const k = taskKey(String(d.key ?? '')), p = k ? verifications.get(k) : undefined;
       const tr = k ? await taskTracker(ctxTrackers, k, !!p && finalCheckpoint(p)?.state === 'evidenced') : undefined;
       if (!k || !tr?.move) throw new Error(t('verification.cannotMove'));
-      const { transitions } = (await integrations.action('transiciones', { source: 'jira', key: k, column: 'hecho', current: tr.state })) as { transitions?: JiraTransition[] };
+      const { transitions } = (await integrations.action('transitions', { source: 'jira', key: k, column: 'hecho', current: tr.state })) as { transitions?: JiraTransition[] };
       const x = doneTransition((transitions ?? []) as JiraTransition[], tr.done);
       if (!x) throw new Error(t('verification.noDoneTransition', { estado: tr.done ?? '—' }));
-      return integrations.action('mover', { source: 'jira', key: k, column: 'hecho', id: x.id });
+      return integrations.action('move', { source: 'jira', key: k, column: 'hecho', id: x.id });
     }
     // ⚑ a conversation the Overseer still has to act on (shared/flagged.ts), by its Claude Code session id
-    case 'conversacion.pendiente': {
+    case 'conversation.pending': {
       const id = String(d.claudeId ?? ''); if (!id) throw new Error(t('server.isStillStartingFlag'));
       const a = store.state.settings as any; a.flaggedConversations = setFlag(a.flaggedConversations, id, !!d.on); store.save();
       broadcast({ t: 'estado', state: store.state as any }); return true;
     }
-    case 'revision.tablero': return reviewBoard();
-    case 'revision.abrir': { const k = String(d.key ?? ''); if (!k) throw new Error(t('reviews.notFound', { clave: '—' })); return reviewRoom.open(k); }
-    case 'revision.terminar': return reviewRoom.finish(String(d.key ?? ''));
-    case 'bitacora.leer': return workLog.read(workLogSources);
-    case 'bitacora.escalera': return workLog.ensureLadder();
+    case 'review.board': return reviewBoard();
+    case 'review.open': { const k = String(d.key ?? ''); if (!k) throw new Error(t('reviews.notFound', { clave: '—' })); return reviewRoom.open(k); }
+    case 'review.finish': return reviewRoom.finish(String(d.key ?? ''));
+    case 'workLog.read': return workLog.read(workLogSources);
+    case 'workLog.ladder': return workLog.ensureLadder();
     // the Overseer asks for the ladder's verification: one conversation with the dweller of the ladder's room
-    case 'escalera.verificar': {
+    case 'ladder.verify': {
       const room = workLog.digestRoom(), h = store.state.dwellers.find(x => x.roomId === room);
       if (!h) throw new Error(t('panels.theRoomSalaHasNo', { sala: room }));
       const id = await startWork(undefined, { t: 'empezar', dwellerId: h.id, roomId: room, prompt: workLog.verifyPrompt(), options: { permissions: 'auto' } });
       return { id, roomId: room, dwellerId: h.id };
     }
     // «Draft my career ladder»: the same dweller, in plan mode (nothing is written until the Overseer approves the plan)
-    case 'escalera.borrador': {
+    case 'ladder.draft': {
       const room = workLog.digestRoom(), h = store.state.dwellers.find(x => x.roomId === room);
       if (!h) throw new Error(t('panels.theRoomSalaHasNo', { sala: room }));
       const id = await startWork(undefined, { t: 'empezar', dwellerId: h.id, roomId: room, prompt: workLog.draftPrompt(), options: { permissions: 'plan' } });
       return { id, roomId: room, dwellerId: h.id };
     }
-    case 'medalla.decidir': return workLog.decideMedal(String(d.id ?? ''), d.accept === true) ?? null;
-    case 'medalla.meter': { const r = workLog.enterMedal({ award: String(d.award ?? ''), text: String(d.text ?? ''), evidence: [String(d.evidence ?? '')] }); if (!r.ok) throw new Error(r.error); return r.medal; }
-    case 'verificacion.aprobar': { const k = taskKey(String(d.key ?? '')); return (k && verifications.approve(k)) ?? null; }
-    case 'paginas.responder': return pageReviews.respond(d.path, d.state);
-    case 'preflight.puerta': { const r = path.resolve(String(d.path ?? '')); if (!gitPath(r)) throw new Error(t('server.thatFolderIsNotA')); return gatePush(r, ctxPreflight); }
-    case 'despliegue.bloquear': return prBlockers.mark(d.from, d.by, !!d.remove);
+    case 'medal.decide': return workLog.decideMedal(String(d.id ?? ''), d.accept === true) ?? null;
+    case 'medal.add': { const r = workLog.enterMedal({ award: String(d.award ?? ''), text: String(d.text ?? ''), evidence: [String(d.evidence ?? '')] }); if (!r.ok) throw new Error(r.error); return r.medal; }
+    case 'verification.approve': { const k = taskKey(String(d.key ?? '')); return (k && verifications.approve(k)) ?? null; }
+    case 'pages.answer': return pageReviews.respond(d.path, d.state);
+    case 'preflight.gate': { const r = path.resolve(String(d.path ?? '')); if (!gitPath(r)) throw new Error(t('server.thatFolderIsNotA')); return gatePush(r, ctxPreflight); }
+    case 'deploy.block': return prBlockers.mark(d.from, d.by, !!d.remove);
     // el orden entre repos de cada tarea repartida (la parte de una sala espera a la de otra: plans.ts), por repo de GitHub
-    case 'despliegue.orden': return tasksOrder(plans.all(), id => { const s = e.rooms.find(x => x.id === id); return s?.path ? roomRepo(s.path) : Promise.resolve(undefined); });
-    case 'superficie.forzarCierre': return closeOutside(String(d.claudeId ?? ''));
+    case 'deploy.order': return tasksOrder(plans.all(), id => { const s = e.rooms.find(x => x.id === id); return s?.path ? roomRepo(s.path) : Promise.resolve(undefined); });
+    case 'surface.forceClose': return closeOutside(String(d.claudeId ?? ''));
     case 'repo': { const room = e.rooms.find(s => s.id === d.roomId); if (!room?.path) throw new Error(t('server.roomWithoutAFolder')); return repos[room.id] = await infoRepo(room.path); }
     // archivo adjuntado en el intercomunicador: se copia a DATOS/uploads (se limpian a la semana) y se devuelve su ruta
-    case 'subir': return attachments.save(String(d.name || ''), String(d.data || ''));
-    case 'adjunto.miniatura': return attachments.thumbnail(String(d.path || ''));
+    case 'upload': return attachments.save(String(d.name || ''), String(d.data || ''));
+    case 'attachment.thumbnail': return attachments.thumbnail(String(d.path || ''));
     // un adjunto del cuaderno: imágenes y PDF en Vista Previa, texto en el editor de texto, lo demás en el Finder (open.ts)
     // un enlace a un archivo del Mac en una respuesta (web/src/ui/markdown.ts): sin ejecutar nada (open.ts)
-    case 'aviso.responder': { const f = questions.get(String(d.id ?? '')); questions.delete(String(d.id ?? '')); if (f) await f(!!d.si); return true; }
+    case 'notice.answer': { const f = questions.get(String(d.id ?? '')); questions.delete(String(d.id ?? '')); if (f) await f(!!d.si); return true; }
     // mensajes programados (scheduled.ts): el Supervisor los cancela o les cambia la hora o el texto
     // «New session with a handoff» in the intercom's notice (sessions.ts: handoff())
-    case 'sesion.relevo': sessions.handoff(String(d.sessionId ?? '')); return true;
-    case 'programados.cancelar': return scheduled.cancel(String(d.id ?? ''));
+    case 'session.handoff': sessions.handoff(String(d.sessionId ?? '')); return true;
+    case 'scheduled.cancel': return scheduled.cancel(String(d.id ?? ''));
     // the Overseer's ⌥Enter / ⏰ Schedule in the intercom (`when`: a time, or by default the day's final 5-hour window): to its
     // conversation (`sessionId`), the one being resumed, or a new one
-    case 'programados.ventana': {
+    case 'scheduled.window': {
       const sess = d.sessionId ? sessions.list().find(x => x.id === d.sessionId) : undefined, room = e.rooms.find(x => x.id === (sess?.roomId ?? d.roomId));
       if (!room) throw new Error(t('server.thatRoomDoesNotExist'));
       const cwd = sess ? sess.worktree ?? sess.cwd : typeof d.cwd === 'string' && d.cwd ? d.cwd : folderOf(room);
@@ -1264,29 +1264,29 @@ async function action(name: string, d: Record<string, any> = {}): Promise<unknow
       if (x.afterTurn) scheduled.turnEnded({ sessionId: x.origin.sessionId });
       return x;
     }
-    case 'programados.ahora': await scheduled.sendNow(String(d.id ?? '')); return true;
-    case 'programados.editar': return scheduled.edit(String(d.id ?? ''), { when: d.when === undefined ? undefined : String(d.when), message: d.message === undefined ? undefined : String(d.message) });
-    case 'paginas.existen': return existingPages(d.paths, os.homedir());
-    case 'salida.leer': return toolOutputs.read(String(d.sessionId ?? ''), String(d.id ?? ''));
+    case 'scheduled.now': await scheduled.sendNow(String(d.id ?? '')); return true;
+    case 'scheduled.edit': return scheduled.edit(String(d.id ?? ''), { when: d.when === undefined ? undefined : String(d.when), message: d.message === undefined ? undefined : String(d.message) });
+    case 'pages.exist': return existingPages(d.paths, os.homedir());
+    case 'output.read': return toolOutputs.read(String(d.sessionId ?? ''), String(d.id ?? ''));
     // the entries of a conversation that can link pages (shared/sessionPages.ts), the whole log's: a live one's or, by
     // room and claudeId, a closed one's transcript. The intercom holds only a page of the log
-    case 'cuaderno.enlaces': {
+    case 'log.links': {
       const room = d.roomId ? store.state.rooms.find(s => s.id === d.roomId) : undefined;
       const all: LogInput[] = d.sessionId ? (await sessions.page(String(d.sessionId), Number.MAX_SAFE_INTEGER)).entries : room && d.claudeId ? await sessions.transcript(String(d.claudeId), folderOf(room)) : [];
       return all.filter(linksPages).map(({ id, ts, type, text, question }) => ({ id, ts, type, text, ...(question ? { question } : {}) }));
     }
-    case 'paginas.actualizadas': return pagesUpdated(d.paths, os.homedir());
-    case 'enlace.local': return openLink(String(d.path ?? ''), os.homedir(), d.outside === true);
-    case 'enlace.tipo': return linkKind(String(d.path ?? ''), os.homedir());
-    case 'enlace.miniatura': return imageThumbnail(String(d.path ?? ''), os.homedir());
-    case 'enlace.revelar': return revealLocal(String(d.path ?? ''), os.homedir());
-    case 'adjunto.abrir': { const r = String(d.path || ''); if (!attachments.own(r)) throw new Error(t('server.thatAttachmentIsGoneThey')); await openAttachment(attachments.dir, path.resolve(r)); return true; }
+    case 'pages.updated': return pagesUpdated(d.paths, os.homedir());
+    case 'link.local': return openLink(String(d.path ?? ''), os.homedir(), d.outside === true);
+    case 'link.kind': return linkKind(String(d.path ?? ''), os.homedir());
+    case 'link.thumbnail': return imageThumbnail(String(d.path ?? ''), os.homedir());
+    case 'link.reveal': return revealLocal(String(d.path ?? ''), os.homedir());
+    case 'attachment.open': { const r = String(d.path || ''); if (!attachments.own(r)) throw new Error(t('server.thatAttachmentIsGoneThey')); await openAttachment(attachments.dir, path.resolve(r)); return true; }
     default:
-      if (name.startsWith('integracion.')) {
+      if (name.startsWith('integration.')) {
         const r: any = await integrations.action(name.slice(12), d);
         // Logística reparte los colores de las tareas: al leer el tablero de Jira, cada tarea recibe el suyo (o conserva
         // el que tenía) y viaja con ella; los demás tableros, las pantallas y los hologramas usan ese mismo
-        if (name === 'integracion.panel' && d.source === 'jira' && Array.isArray(r?.tareas)) {
+        if (name === 'integration.panel' && d.source === 'jira' && Array.isArray(r?.tareas)) {
           return { ...r, tareas: taskColors.paint(r.tareas) };
         }
         return r;
@@ -1294,11 +1294,11 @@ async function action(name: string, d: Record<string, any> = {}): Promise<unknow
       if (name.startsWith('juego.')) { const r = gameAction(name.slice(6), d, store); broadcast({ t: 'estado', state: store.state as any }); return r; }
       if (name.startsWith('worktree.')) {
         const r = await (await import('./worktrees.ts')).actionWorktree(name.slice(9), d, { sessions, repos, pathRoom, store, terminals });
-        if (name === 'worktree.desechar') await refreshRepos().catch(() => {});   // todas las ventanas apagan el holograma ya
+        if (name === 'worktree.discard') await refreshRepos().catch(() => {});   // todas las ventanas apagan el holograma ya
         return r;
       }
       if (name.startsWith('git.')) return (await import('./git.ts')).actionGit(name.slice(4), d, { allowedPath: gitPath, pathsRepos: gitPaths, onChange: () => refreshReposSoon(), github: connectionGitHub, ledger: url => prReviews.ledgerOf(url) });
-      if (name.startsWith('archivos.')) return (await import('./files.ts')).filesAction(name.slice(9), d, { allowedRoots: filesRoots, onChange: () => refreshReposSoon() });
+      if (name.startsWith('files.')) return (await import('./files.ts')).filesAction(name.slice(6), d, { allowedRoots: filesRoots, onChange: () => refreshReposSoon() });
       throw new Error(t('server.unknownAction', { nombre: name }));
   }
 }

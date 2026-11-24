@@ -396,7 +396,7 @@ const WRITE = new Set(['abortar', 'continuar', 'preparar', 'quitar', 'descartar'
 
 export async function actionGit(name: string, d: Record<string, any>, ctx: CtxGit): Promise<unknown> {
   if (name === 'github') return github(ctx.pathsRepos(), !!d.force, (await ctx.github?.()) ?? { real: false });
-  if (name === 'prsTablero') {
+  if (name === 'prsBoard') {
     // con lo que queda por contestar en sus revisiones, de la última vuelta de prReviews.ts
     const r = await prsBoard((await ctx.github?.()) ?? { real: false });
     if (r.demo || !ctx.ledger) return r;
@@ -407,29 +407,29 @@ export async function actionGit(name: string, d: Record<string, any>, ctx: CtxGi
   const list = (v: unknown) => (Array.isArray(v) ? v.map(String) : []);
   const r = await (async () => {
     switch (name) {
-      case 'estado': return state(filePath);
+      case 'status': return state(filePath);
       case 'diff': return diff(filePath, d as any);
-      case 'preparar': return stage(filePath, list(d.files));
-      case 'quitar': return remove(filePath, list(d.files));
-      case 'descartar': return discard(filePath, list(d.files), list(d.withoutFollow));
-      case 'parche': return applyPatch(filePath, String(d.patch ?? ''), d.mode === 'quitar' ? 'quitar' : d.mode === 'descartar' ? 'descartar' : 'preparar');
+      case 'stage': return stage(filePath, list(d.files));
+      case 'unstage': return remove(filePath, list(d.files));
+      case 'discard': return discard(filePath, list(d.files), list(d.withoutFollow));
+      case 'patch': return applyPatch(filePath, String(d.patch ?? ''), d.mode === 'unstage' ? 'quitar' : d.mode === 'discard' ? 'descartar' : 'preparar');
       case 'commit': return commit(filePath, d as any);
-      case 'deshacerCommit': return undoCommit(filePath);
-      case 'historial': return history(filePath, d);
-      case 'detalle': return detailCommit(filePath, d.hash);
+      case 'undoCommit': return undoCommit(filePath);
+      case 'log': return history(filePath, d);
+      case 'detail': return detailCommit(filePath, d.hash);
       case 'diffCommit': return diffCommit(filePath, d.hash, d.file, d.origin);
-      case 'ramas': return branches(filePath);
-      case 'cambiarRama': return switchBranch(filePath, d as any);
-      case 'crearRama': return createBranch(filePath, d as any);
-      case 'borrarRama': return deleteBranch(filePath, d as any);
-      case 'cajon': return drawer(filePath);
-      case 'cajonGuardar': return saveInDrawer(filePath, d);
-      case 'cajonSacar': return takeOfDrawer(filePath, d as any);
-      case 'cajonTirar': return throwOfDrawer(filePath, d as any);
-      case 'abortar': return abort(filePath);
-      case 'continuar': return continueLast(filePath);
-      case 'abrirArchivo': return openFile(filePath, d.file);
-      case 'sincronizar': return sync(filePath, ['fetch', 'pull', 'push'].includes(d.what) ? d.what : 'sync');
+      case 'branches': return branches(filePath);
+      case 'switchBranch': return switchBranch(filePath, d as any);
+      case 'createBranch': return createBranch(filePath, d as any);
+      case 'deleteBranch': return deleteBranch(filePath, d as any);
+      case 'stash': return drawer(filePath);
+      case 'stashSave': return saveInDrawer(filePath, d);
+      case 'stashPop': return takeOfDrawer(filePath, d as any);
+      case 'stashDrop': return throwOfDrawer(filePath, d as any);
+      case 'abort': return abort(filePath);
+      case 'continue': return continueLast(filePath);
+      case 'openFile': return openFile(filePath, d.file);
+      case 'sync': return sync(filePath, ['fetch', 'pull', 'push'].includes(d.what) ? d.what : 'sync');
       default: throw new Error(t('server.unknownAction', { nombre: 'git.' + name }));
     }
   })().finally(() => { if (WRITE.has(name)) ctx.onChange(filePath); });

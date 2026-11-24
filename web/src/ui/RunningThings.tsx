@@ -37,9 +37,9 @@ export function RunningThings() {
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
   const closing = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const poll = useMemo(() => pollWhileOpen(() => client.action<RunningSnapshot>('procesos').then(setSnap), RUNNING_REFRESH_MS), []);
+  const poll = useMemo(() => pollWhileOpen(() => client.action<RunningSnapshot>('processes').then(setSnap), RUNNING_REFRESH_MS), []);
   // once when the game loads, so the chip has a figure; afterwards only while open
-  useEffect(() => { client.action<RunningSnapshot>('procesos').then(setSnap).catch(() => {}); return () => poll.close(); }, [poll]);
+  useEffect(() => { client.action<RunningSnapshot>('processes').then(setSnap).catch(() => {}); return () => poll.close(); }, [poll]);
   useEffect(() => { if (open) poll.open(); else poll.close(); }, [open, poll]);
   // the popover has buttons: moving onto it keeps it open
   const show = () => { clearTimeout(closing.current); setOpen(true); };
@@ -109,7 +109,7 @@ function Row({ p, name, by, stoppable }: { p: ProcessInfo; name?: string; by?: s
   const stop = () => {
     if (!confirm) { setConfirm(true); SFX.tick(); return; }
     setConfirm(false); setStopping(true);
-    client.action('procesos.parar', { pid: p.pid }).catch(e => { setStopping(false); addNotice('error', (e as Error).message); });
+    client.action('processes.stop', { pid: p.pid }).catch(e => { setStopping(false); addNotice('error', (e as Error).message); });
   };
   return (
     <div className={'proceso' + (stopping ? ' parando' : '')} style={{ paddingLeft: `${(p.depth ?? 0) * 0.9}em` }} title={p.command}>

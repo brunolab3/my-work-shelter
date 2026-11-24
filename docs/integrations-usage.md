@@ -54,7 +54,7 @@ website) leaves the board. Discord and Slack have no read state for a bot: they 
 |---|---|
 | `campos` | Returns `{ campos, valores, guardados }`: field definitions, current public values and which secrets are saved (without their value). |
 | `probar` | `{ campos }` → `{ ok, detalle }`. An empty secret means "use the saved one". |
-| `guardar` | `{ campos, activar? }` → saves (public values to the state, secrets to the keychain), tests and, if it passes, switches the source to real (unless `activar: false`). |
+| `save` | `{ campos, activar? }` → saves (public values to the state, secrets to the keychain), tests and, if it passes, switches the source to real (unless `activar: false`). |
 | `modo` | `{ modo: 'off' \| 'demo' \| 'real' }`. |
 | `refrescar` | Polls now. |
 | `olvidar` | Deletes the secrets from the keychain and the fields, and turns the source off. |
@@ -189,7 +189,7 @@ on the board (below). It brings no notices to the board
 
 Action `panel` (`{ forzar? }`) → `{ yo, tareas }` with `POST /rest/api/3/search/jql` and
 `assignee = currentUser() AND (statusCategory != Done OR updated >= -14d)`. The board's PRs come from GitHub with `gh`
-(action `git.prsTablero`: yours, updated in the last two weeks, with review and CI) and are matched with the tasks in
+(action `git.prsBoard`: yours, updated in the last two weeks, with review and CI) and are matched with the tasks in
 the client by the Jira key in the branch or title (`cruzarTablero` in `shared/board.ts`).
 
 Action `tarea` (`{ clave }`) → the task with its description as text (`textoDeADF`), for planning it.
@@ -244,7 +244,7 @@ sent anywhere) and checked every minute and on start: whatever fell due while th
 start, marked as late. What can't be delivered (the conversation is open outside, the session limit) stays and is
 retried every minute, with one notice. At most 10 pending per conversation, 60 days ahead, no recurring schedules. The
 intercom shows "⏰ n scheduled · when" under the portrait (✎ changes time or text, ✕ cancels; actions
-`programados.editar` and `programados.cancelar`), and ⌘K and the Calendar list them all.
+`scheduled.edit` and `scheduled.cancel`), and ⌘K and the Calendar list them all.
 
 **Shared plan.** `assign_work` saves the whole plan (`server/plans.ts`, `DATOS/planes.json`, with versions and
 history); Logistics rereads it with `read_plan` and each part with `shared_plan` (MCP `plan` in the rooms that have
@@ -266,7 +266,7 @@ conversations than the live-session limit.
 
 **Each task's color.** Each task (Jira key; without one, `PR-<number>`) has a color from a 16-color palette
 (`shared/tasks.ts`) handed out by Planning: when reading the Jira board, the server gives each task its own and it
-travels with it (`server/taskColors.ts`, `DATOS/colores-tareas.json`; non-Jira ones, with the `tareas.colores`
+travels with it (`server/taskColors.ts`, `DATOS/colores-tareas.json`; non-Jira ones, with the `tasks.colors`
 action): a new task gets the least used among those seen in the last two weeks. It's the same on the Jira board, the
 deployment board, the Pull requests tab, organise, the Planning and Logistics screens and the hologram (and label) of
 the copy working the task, and visitors from that worktree wear it too: at a glance you see which task has sessions in
@@ -304,7 +304,7 @@ the plan in plan mode without touching the repos. The list of your PRs and those
 Control (Pull requests tab of the git client; T from the Jira board).
 
 **Pre-flight of a task** (`shared/preflight.ts`, `server/preflight.ts`, `web/src/ui/Preflight.tsx`,
-action `preflight.tarea`). A small floating box per Jira key, over whatever is open and anchored to what opened it (it
+action `preflight.task`). A small floating box per Jira key, over whatever is open and anchored to what opened it (it
 is not a panel: nothing closes or resizes; Esc or a click outside closes it and leaves everything as it was), that answers
 "can each PR of this task be merged now?": one row per PR of the task in every repo (the board's PRs, all open ones and
 your PRs naming the key in their title or body at any age, so a task merged weeks ago still shows; read from GitHub at
@@ -318,13 +318,13 @@ PR; clicking its blockers, the PR it waits for. Below, the rooms of the task sti
 (merged PRs struck through, ready ones ✓, a wave all merged ✔; a task with everything merged says it has landed). Ways in: F or the ✈ on a task block in the Deployment plan, ✈ in a copy's
 intercom (under its PR list) and ⌘K "Pre-flight ABC-123" (the tasks of your copies, open PRs and recently merged ones, slugs included, or a Jira key typed);
 the last two only for a task with at least one open, draft or merged PR among your PRs (`taskHasPRs`, on the list
-`git.prsTablero` already gives the board and the intercom; no extra GitHub read).
+`git.prsBoard` already gives the board and the intercom; no extra GitHub read).
 
 **The push gate** uses the same model per part (also worktrees without a PR), but none of it is shown in the window:
 sync (local HEAD of its branch vs the PR's head on GitHub, without fetching, plus uncommitted changes), compare and
 checklist. Compare: each compare page (`compare_changes`, `server/compare.ts`) writes a `<page>.json` beside it with
 the worktree, branch and HEAD sha of each part; validating it or sending notes (in the page window or the intercom's
-«📄 Pages») is saved on the server (action `paginas.responder`, `DATOS/preflight.json`, `PageReviews` in
+«📄 Pages») is saved on the server (action `pages.answer`, `DATOS/preflight.json`, `PageReviews` in
 `server/preflight.ts`), so it counts only while its HEAD is the validated one. Checklist: the Overseer's own
 "before pushing" items, in the Vault (Shelter settings; pre-filled ONCE from the "Before pushing" section of
 `~/.claude/CLAUDE.md`, `checklistFromClaudeMd`; saved in `ajustes.checklistPreflight`), answered by the dweller per
@@ -333,7 +333,7 @@ its whole part (with its review threads and CI checks) with `preflight_status`. 
 `server/preflight.ts`, pure `repoChecklist`; files are only read, nothing is run by the game): the "Before pushing / Before
 opening a PR / Pre-flight" section of its CLAUDE.md and AGENTS.md, its check-like skills in `.claude/skills` (review,
 acceptance criteria, tests…; `skill · name`), and its check commands (`package.json` lint/test/typecheck scripts,
-`Makefile` targets, `pre-commit`), which the dweller runs and answers like the rest. The gate: a `git merge` or `gh pr merge` (`mergeOf`: also `git -C x merge`, after a `cd` or inside `sh -c`, not `--abort`) run from a task worktree whose compare isn't validated at its HEAD, or (unless the PR is a draft) whose list isn't answered, ASKS the Overseer first in the permission dialog (a `PreToolUse` hook in `server/sessions.ts`, so it applies in every permission mode, also over Remote Control/Slack); no denies it with what's missing. Pushes don't ask: the pre-flight is checked before merging. The git client's push and sync don't check it either (action `preflight.puerta` stays for the QA script).
+`Makefile` targets, `pre-commit`), which the dweller runs and answers like the rest. The gate: a `git merge` or `gh pr merge` (`mergeOf`: also `git -C x merge`, after a `cd` or inside `sh -c`, not `--abort`) run from a task worktree whose compare isn't validated at its HEAD, or (unless the PR is a draft) whose list isn't answered, ASKS the Overseer first in the permission dialog (a `PreToolUse` hook in `server/sessions.ts`, so it applies in every permission mode, also over Remote Control/Slack); no denies it with what's missing. Pushes don't ask: the pre-flight is checked before merging. The git client's push and sync don't check it either (action `preflight.gate` stays for the QA script).
 QA: `scripts/qa-preflight.mjs` (own server and test shelter; needs the built client).
 
 ## Linear's official MCP for the Planning dweller

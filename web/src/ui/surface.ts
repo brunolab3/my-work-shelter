@@ -6,7 +6,7 @@ import { SFX } from '../audio/sound';
 // `remoto`: las conversaciones salen con Remote Control (se siguen también desde el móvil)
 export function takeASurface(what: { sessions?: string[]; terminals?: string[]; all?: boolean; remote?: boolean; windowNew?: boolean }) {
   SFX.click();
-  client.action('superficie.sacar', what).catch((e: Error) => {
+  client.action('surface.takeOut', what).catch((e: Error) => {
     SFX.notAllowed();
     addNotice('error', e.message);
   });
@@ -15,7 +15,7 @@ export function takeASurface(what: { sessions?: string[]; terminals?: string[]; 
 // A la app de Claude: la conversación (abierta, que se cierra aquí antes, o del archivo) sigue en su lista
 export function toClaudeApp(what: { sessionId?: string; claudeId?: string }) {
   SFX.click();
-  client.action('superficie.appClaude', what).catch((e: Error) => {
+  client.action('surface.claudeApp', what).catch((e: Error) => {
     SFX.notAllowed();
     addNotice('error', e.message);
   });

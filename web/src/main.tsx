@@ -47,10 +47,10 @@ Object.assign(window as any, { __game: juego, __client: client, __live: live, __
 (window as any).__exitShelter = () => new Promise<void>(ok => { client.send({ t: 'salir' }); setTimeout(ok, 300); });
 // tecla de pánico (Electron): lo abierto sale a tu escritorio. Contesta al momento; si no hay conexión, Electron se lo
 // pide al servidor por su cuenta (./shelter superficie)
-(window as any).__surface = () => { if (!live.get().connected) return Promise.reject(new Error(t('windows.noConnection'))); client.action('superficie.sacar', { all: true, windowNew: true }).catch(() => {}); return Promise.resolve(true); };
+(window as any).__surface = () => { if (!live.get().connected) return Promise.reject(new Error(t('windows.noConnection'))); client.action('surface.takeOut', { all: true, windowNew: true }).catch(() => {}); return Promise.resolve(true); };
 motor.start();
 // fuera de primer plano el motor deja de pintar y la interfaz deja de animarse
 watchFirstMap(active => motor.onChangeFirstMap(active));
-watchPresence(active => { client.action('presencia', { active }).catch(() => {}); });
+watchPresence(active => { client.action('presence', { active }).catch(() => {}); });
 watchSystemNotices();
 watchMemory();

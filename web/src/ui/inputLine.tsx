@@ -29,7 +29,7 @@ export function uploadFiles(files: FileList | File[] | null | undefined, add: (a
     add({ id, name, image, view });
     if (f.size > 20 * 1024 * 1024) { change(id, { error: t('windows.over20Mb') }); SFX.notAllowed(); continue; }
     new Promise<string>((ok, ko) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1] ?? ''); r.onerror = () => ko(r.error); r.readAsDataURL(f); })
-      .then(data => client.action<string>('subir', { name, data }, 120_000))
+      .then(data => client.action<string>('upload', { name, data }, 120_000))
       .then(path => { if (view) views.set(path, view); change(id, { path }); })
       .catch(e => { change(id, { error: (e as Error).message || t('windows.couldNotUpload') }); SFX.error(); });
   }
@@ -68,8 +68,8 @@ export function SentAttachments({ list }: { list: Attachment[] }) {
 }
 function SentAttachment({ a }: { a: Attachment }) {
   const [view, setView] = useState(views.get(a.path));
-  useEffect(() => { if (a.image && !view) client.action<string>('adjunto.miniatura', { path: a.path }).then(v => { views.set(a.path, v); setView(v); }).catch(() => {}); }, [a.path]);
-  const open = () => { client.action('adjunto.abrir', { path: a.path }).catch(e => { SFX.notAllowed(); addNotice('aviso', (e as Error).message); }); SFX.click(); };
+  useEffect(() => { if (a.image && !view) client.action<string>('attachment.thumbnail', { path: a.path }).then(v => { views.set(a.path, v); setView(v); }).catch(() => {}); }, [a.path]);
+  const open = () => { client.action('attachment.open', { path: a.path }).catch(e => { SFX.notAllowed(); addNotice('aviso', (e as Error).message); }); SFX.click(); };
   return (
     <button className={'adjunto' + (view ? ' con-vista' : '')} onClick={open} title={`${a.name} · ${t('windows.open')}`}>
       {view ? <img src={view} alt={a.name} /> : <span className="icono-adjunto" aria-hidden>{a.image ? '▣' : '▤'}</span>}

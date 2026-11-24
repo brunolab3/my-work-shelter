@@ -195,16 +195,16 @@ class Google extends ConnectorBase {
     catch (e) { return { ok: false, detail: (e as Error).message }; }
   }
   async action(name: string, d: Record<string, any>) {
-    if (name === 'olvidar') await eraseSecret(SESSION_ACCOUNT);
+    if (name === 'forget') await eraseSecret(SESSION_ACCOUNT);
     return super.action(name, d);
   }
   protected async ownAction(name: string, d: Record<string, any>) {
-    if (name === 'conectar') {
+    if (name === 'connect') {
       const url = await this.startSession();
       if (d.open !== false) execFile('/usr/bin/open', [url], () => {});   // navegador del sistema
       return { url };
     }
-    if (name === 'desconectar') { await eraseSecret(SESSION_ACCOUNT); this.session = false; this.restart(); this.notify?.('estado'); return this.state(); }
+    if (name === 'disconnect') { await eraseSecret(SESSION_ACCOUNT); this.session = false; this.restart(); this.notify?.('estado'); return this.state(); }
     return super.ownAction(name, d);
   }
   stop() { super.stop(); this.listener?.stop(); }

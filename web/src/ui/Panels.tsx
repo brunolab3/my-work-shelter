@@ -105,7 +105,7 @@ function FloorPlan() {
   const nextArea = (s: any) => {
     if (!hasArea(s)) { SFX.notAllowed(); return; }
     const area = AREAS[(AREAS.indexOf(sectorOf(s.type, s.id, s.area).id as any) + 1) % AREAS.length];
-    client.action('sala.area', { roomId: s.id, area }).then(() => SFX.toggle()).catch(() => SFX.notAllowed());
+    client.action('room.area', { roomId: s.id, area }).then(() => SFX.toggle()).catch(() => SFX.notAllowed());
   };
   const floors = Math.max(0, ...rooms.map(s => s.floor)) + 1;
   // editando, un hueco libre más a cada lado para poder alargar cualquier planta
@@ -126,8 +126,8 @@ function FloorPlan() {
   };
   const pick = (s = sel) => { if (!s) return; closePanel(); goA(s.id); };
   const byHand = rooms.some(s => s.manual);
-  const works = (d: Record<string, unknown>) => client.action('refugio.mover', d).then(() => SFX.toggle()).catch(() => SFX.notAllowed());
-  const stock = () => client.action('refugio.disposicionDeSerie').then(() => SFX.toggle()).catch(() => SFX.notAllowed());
+  const works = (d: Record<string, unknown>) => client.action('shelter.move', d).then(() => SFX.toggle()).catch(() => SFX.notAllowed());
+  const stock = () => client.action('shelter.defaultLayout').then(() => SFX.toggle()).catch(() => SFX.notAllowed());
   const toggleEdit = () => { setEdit(x => !x); setDrag(null); SFX.toggle(); };
   // arrastrar y soltar: `destino` describe dónde caería lo arrastrado; la clave sirve para resaltarlo
   const droppable = (key: string, can: boolean, onDrop: () => void) => !edit || !can ? {} : {
@@ -404,7 +404,7 @@ function GameOptions() {
   const vol = (k: string) => ({ lbl: t(({ master: 'menu.masterVolume', ambiente: 'menu.ambience', musica: 'menu.roomMusic', sfx: 'menu.effects', ui: 'menu.interface', voces: 'menu.dwellerChatter', teclado: 'menu.typingYourKeyboard' } as any)[k]), values: pct, current: Math.round((au as any)[k] * 10), set: (n: number) => { sound.save({ [k]: n / 10 }); refresh(x => x + 1); SFX.tick(); } });
   const rows: Row[] = [
     // cambiar de idioma recarga la vista: los carteles de las salas se pintan al montarlas
-    { lbl: t('menu.language') + (language() === 'es' ? ' · Language' : ''), values: LANGUAGES.map(x => x.text), current: Math.max(0, LANGUAGES.findIndex(x => x.value === language())), set: k => { const v = LANGUAGES[k].value; if (v === language()) return; setLanguage(v); client.action('idioma', { language: v }).catch(() => {}).finally(reloadView); } },
+    { lbl: t('menu.language') + (language() === 'es' ? ' · Language' : ''), values: LANGUAGES.map(x => x.text), current: Math.max(0, LANGUAGES.findIndex(x => x.value === language())), set: k => { const v = LANGUAGES[k].value; if (v === language()) return; setLanguage(v); client.action('language', { language: v }).catch(() => {}).finally(reloadView); } },
     vol('master'), vol('ambiente'), vol('musica'), vol('sfx'), vol('ui'), vol('voces'), vol('teclado'),
     { lbl: t('menu.mute'), values: [t('menu.no'), t('menu.yes')], current: au.silence ? 1 : 0, set: k => { sound.save({ silence: k === 1 }); refresh(x => x + 1); } },
     // fotogramas por segundo del refugio: en automático, menos cuando nada se mueve (gasta bastante menos CPU)
@@ -493,7 +493,7 @@ function Restart() {
     if (k === 0) { goBack(); return; }
     if (state.inProgress) return;
     setState({ inProgress: true }); SFX.powerOff();
-    client.action('reiniciarJuego').catch((e: Error) => { setState({ error: e.message }); SFX.notAllowed(); });
+    client.action('restartGame').catch((e: Error) => { setState({ error: e.message }); SFX.notAllowed(); });
   };
   const [i, setI] = useMenu(2, pick, undefined, goBack);
   return (

@@ -83,7 +83,7 @@ export function migrateJira(boards: Record<string, BoardStatuses>, projects: str
 
 /** The statuses of the Jira projects of your open tasks, all together, with those in the done category */
 async function jiraStates(ctx: CtxTrackers, projects: string[]): Promise<{ states: string[]; done: string[]; error?: string }> {
-  const r = await Promise.all(projects.map(board => ctx.action('estadosTablero', { source: 'jira', board }).then(x => ({ x }), e => ({ x: null, error: (e as Error).message }))));
+  const r = await Promise.all(projects.map(board => ctx.action('boardStates', { source: 'jira', board }).then(x => ({ x }), e => ({ x: null, error: (e as Error).message }))));
   const all = (k: 'states' | 'done') => [...new Map(r.flatMap(y => (y.x?.[k] ?? []) as string[]).map(s => [s.toLowerCase(), s])).values()];
   return { states: all('states'), done: all('done'), ...(r.every(y => 'error' in y) && r.length ? { error: (r[0] as { error: string }).error } : {}) };
 }
@@ -129,7 +129,7 @@ export async function boardsSetup(ctx: CtxTrackers, source?: Tracker): Promise<B
     const boards = ctx.settings().boards;
     out.push(...await Promise.all(openBoards(tasks, 'linear').map(async board => {
       const b = { source: 'linear' as const, board, ...boards[board] };
-      try { return { ...b, states: (await ctx.action('estadosTablero', { source: 'linear', board }))?.states ?? [] }; }
+      try { return { ...b, states: (await ctx.action('boardStates', { source: 'linear', board }))?.states ?? [] }; }
       catch (e) { return { ...b, states: [], error: (e as Error).message }; }
     })));
   }

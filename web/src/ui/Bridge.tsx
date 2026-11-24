@@ -49,7 +49,7 @@ export function Notices() {
   const stale = notices.filter(a => !a.question && !fresh(a));
   useEffect(() => { if (!stale.length) setOpen(false); }, [stale.length]);
   const remove = (...ids: number[]) => live.set(e => ({ notices: e.notices.filter(a => !ids.includes(a.id)) }));
-  const respond = (a: Notice, si: boolean) => { client.action('aviso.responder', { id: a.question!.id, si }).catch(() => SFX.notAllowed()); SFX.click(); remove(a.id); };
+  const respond = (a: Notice, si: boolean) => { client.action('notice.answer', { id: a.question!.id, si }).catch(() => SFX.notAllowed()); SFX.click(); remove(a.id); };
   const one = (a: Notice) => a.question
     ? <div key={a.id} className={'teletipo interactivo pregunta ' + a.level}>{a.text}<div className="botonera"><button className="boton-taller" onClick={() => respond(a, false)}>{a.question.no}</button><button className="boton-taller peligro" onClick={() => respond(a, true)}>{a.question.si}</button></div></div>
     : <div key={a.id} className={'teletipo interactivo ' + a.level} title={a.text} onClick={() => remove(a.id)}>{a.text}</div>;
@@ -108,7 +108,7 @@ export function Welcome() {
   // el Supervisor del refugio, detrás, se viste con cada uno (el aspecto entero se cambia luego en Chapa y Pintura)
   const change = (d: number) => { const n = (k + d + CHARACTERS.length) % CHARACTERS.length; setK(n); SFX.tick(); window.dispatchEvent(new CustomEvent('refugio:probar', { detail: { who: 'supervisor', look: STOCK[CHARACTERS[n]] } })); };
   const enter = async () => {
-    await client.action('guardar', { patch: { doneWelcome: true, name: name.trim() || GAME_NAME, reposRoot: root.trim() || '~', supervisor: { ...(e?.supervisor ?? {}), character: CHARACTERS[k], look: null } } });
+    await client.action('save', { patch: { doneWelcome: true, name: name.trim() || GAME_NAME, reposRoot: root.trim() || '~', supervisor: { ...(e?.supervisor ?? {}), character: CHARACTERS[k], look: null } } });
     SFX.success();
     window.dispatchEvent(new CustomEvent('refugio:ir', { detail: { roomId: 'camara' } }));
     juego.set({ panel: 'camara', panelData: null });

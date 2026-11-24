@@ -119,7 +119,7 @@ export async function furnishGate(ctx: Context) {
     const dx = roll * 3.3;
     tug = Math.max(0, tug - dt * 1.6);
     pivot.position.x = XP + dx; pivot.position.z = zB + 0.62 + exit * 0.5; pivot.rotation.z = -dx / R0 + Math.sin(tug * 18) * tug * 0.04;
-    tSuggestion -= dt; if (tSuggestion <= 0) { tSuggestion = 20; import('../../net/client').then(({ client }) => client.action<any[]>('sugerencias').then(s => { suggestions = s ?? []; }).catch(() => {})); }
+    tSuggestion -= dt; if (tSuggestion <= 0) { tSuggestion = 20; import('../../net/client').then(({ client }) => client.action<any[]>('suggestions').then(s => { suggestions = s ?? []; }).catch(() => {})); }
     recruits.set(suggestions.slice(0, 9).map(s => ({ label: s.isGit ? 'REPO' : tr('world.door.folder'), text: s.name })));
   });
 }

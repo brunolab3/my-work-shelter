@@ -25,7 +25,7 @@ export async function actionWorktree(name: string, d: Record<string, any>, ctx: 
   if (!wt || wt.main) throw new Error(t('server.iCannotFindThatWorktree'));
   const base = ctx.repos[room.id]?.worktrees.find(w => w.main)?.branch || 'main';
   switch (name) {
-    case 'inspeccionar': {
+    case 'inspect': {
       const [state, ignored, log] = await Promise.all([
         git(wt.path, ['status', '--short']),
         git(wt.path, ['status', '--porcelain', '--ignored', '--untracked-files=normal']).then(o => o.split('\n').filter(l => l.startsWith('!! ')).map(l => l.slice(3))),
@@ -33,7 +33,7 @@ export async function actionWorktree(name: string, d: Record<string, any>, ctx: 
       ]);
       return { path: wt.path, branch: wt.branch, base, state: state.split('\n').filter(Boolean), ignored, commits: log.split('\n').filter(Boolean), busy: busy(wt.path, ctx) };
     }
-    case 'desechar': {
+    case 'discard': {
       if (busy(wt.path, ctx)) throw new Error(t('server.someoneIsWorkingInThere'));
       if (ctx.terminals?.openSessions().some(t => t.cwd === wt.path || t.cwd.startsWith(wt.path + '/'))) throw new Error(t('server.thereIsATerminalOpen'));
       // Claude Code deja bloqueados los worktrees que crea: se desbloquea y se fuerza dos veces (git lo exige con candado)
@@ -49,7 +49,7 @@ export async function actionWorktree(name: string, d: Record<string, any>, ctx: 
       if (wt.branch) await git(room.path, ['branch', d.force ? '-D' : '-d', wt.branch]).catch(() => '');
       return true;
     }
-    case 'promptIntegrar':
+    case 'integratePrompt':
       return t('prompt.merge.worktree', { rama: wt.branch ?? '', ruta: wt.path, base });
     default: throw new Error(t('server.unknownAction', { nombre: 'worktree.' + name }));
   }

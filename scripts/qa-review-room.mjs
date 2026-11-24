@@ -53,7 +53,7 @@ try {
   pg.on('pageerror', e => errors.push(e.message));
   await pg.goto(withToken(`http://127.0.0.1:${PORT}`), { waitUntil: 'load' });
   await pg.waitForFunction(() => typeof window.__ready === 'function', null, { timeout: 60000 });
-  await pg.evaluate(async r => { await window.__ready(); await window.__client.action('reclutar', { path: r }); await window.__client.action('guardar', { patch: { doneWelcome: true } }); window.__game.set({ panel: null, panelData: null }); }, repo);
+  await pg.evaluate(async r => { await window.__ready(); await window.__client.action('recruit', { path: r }); await window.__client.action('save', { patch: { doneWelcome: true } }); window.__game.set({ panel: null, panelData: null }); }, repo);
   const until = async (f, ms = 15000) => { const t = Date.now(); while (Date.now() - t < ms) { if (await f()) return true; await pg.waitForTimeout(200); } return false; };
 
   // ---- the room
@@ -75,7 +75,7 @@ try {
   // ---- the board, from ⌘K
   const opened = [];
   await pg.exposeFunction('__qaOpened', k => opened.push(k));
-  await pg.evaluate(() => { const orig = window.__client.action.bind(window.__client); window.__client.action = (n, d) => n === 'revision.abrir' ? (window.__qaOpened(d.key), Promise.resolve('s1')) : orig(n, d); });
+  await pg.evaluate(() => { const orig = window.__client.action.bind(window.__client); window.__client.action = (n, d) => n === 'review.open' ? (window.__qaOpened(d.key), Promise.resolve('s1')) : orig(n, d); });
   await pg.keyboard.press('Meta+KeyK');
   await pg.waitForSelector('.buscador input');
   await pg.keyboard.type('review');

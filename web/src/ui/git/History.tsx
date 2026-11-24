@@ -23,7 +23,7 @@ export function HistoryView({ path, signature, parallel, notify }: { path: strin
   useEffect(() => { setData(null); setSel(null); }, [path]);
   useEffect(() => {
     let live = true;
-    client.action<{ commits: CommitGit[]; more: boolean }>('git.historial', { path, all, n }).then(d => { if (live) setData(d); }).catch(e => notify(e.message, true));
+    client.action<{ commits: CommitGit[]; more: boolean }>('git.log', { path, all, n }).then(d => { if (live) setData(d); }).catch(e => notify(e.message, true));
     return () => { live = false; };
   }, [path, all, n, signature]);
   const rows = useMemo(() => lanes(data?.commits ?? []), [data]);
@@ -78,7 +78,7 @@ function DetailCommit({ path, hash, parallel, notify, close }: { path: string; h
   const [d, setD] = useState<Detail | null>(null);
   const [file, setFile] = useState<Detail['files'][number] | null>(null);
   const [diff, setDiff] = useState<{ text: string; binary: boolean; truncated: boolean } | null>(null);
-  useEffect(() => { setD(null); setFile(null); client.action<Detail>('git.detalle', { path, hash }).then(x => { setD(x); setFile(x.files[0] ?? null); }).catch(e => notify(e.message, true)); }, [path, hash]);
+  useEffect(() => { setD(null); setFile(null); client.action<Detail>('git.detail', { path, hash }).then(x => { setD(x); setFile(x.files[0] ?? null); }).catch(e => notify(e.message, true)); }, [path, hash]);
   useEffect(() => { setDiff(null); if (file) client.action<any>('git.diffCommit', { path, hash, file: file.path, origin: file.origin }).then(setDiff).catch(e => notify(e.message, true)); }, [file?.path, hash]);
   if (!d) return <div className="gh-detalle"><div className="gd-vacio">{t('windows.readingTheCommit')}</div></div>;
   const [subject, ...body] = d.message.split('\n');

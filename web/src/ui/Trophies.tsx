@@ -71,7 +71,7 @@ function LastVerification({ data }: { data: WorkLogData }) {
 function EnterMedal({ awards, done, cancel }: { awards: TrophyRule[]; done: () => void; cancel: () => void }) {
   const [award, setAward] = useState(awards[0]?.id ?? ''), [text, setText] = useState(''), [evidence, setEvidence] = useState(''), [error, setError] = useState('');
   if (!awards.length) return <p className="tenue">{t('trophies.medal.enterNone')}</p>;
-  const save = () => client.action('medalla.meter', { award, text, evidence }).then(() => { SFX.click(); done(); }).catch(e => { SFX.notAllowed(); setError(e.message); });
+  const save = () => client.action('medal.add', { award, text, evidence }).then(() => { SFX.click(); done(); }).catch(e => { SFX.notAllowed(); setError(e.message); });
   const keys = (e: React.KeyboardEvent) => { if (e.key === 'Enter') { e.preventDefault(); save(); } else if (e.key === 'Escape') { e.preventDefault(); cancel(); } };
   return (
     <div className="medalla-mano" onKeyDown={keys}>
@@ -90,7 +90,7 @@ export function Trophies({ goBack }: { goBack: () => void }) {
   const load = () => readWorkLog().then(d => { setData(d); setError(''); }).catch(e => setError(e.message));
   useEffect(() => { load(); }, []);
   // the Overseer's own ladder: made from the example the first time, then opened to edit (R reads it again)
-  const openFile = () => client.action<string>('bitacora.escalera', {}).then(file => client.action('enlace.local', { path: file })).then(load).catch(e => setError(e.message));
+  const openFile = () => client.action<string>('workLog.ladder', {}).then(file => client.action('link.local', { path: file })).then(load).catch(e => setError(e.message));
   // medals the Friday digest proposed: the Overseer accepts (A) or dismisses (D) the selected one (↑↓)
   const medals: Medal[] = Object.values(data?.ledger.medals ?? {}).filter(m => m.state !== 'dismissed').sort((a, b) => Number(b.state === 'proposed') - Number(a.state === 'proposed') || b.proposedAt - a.proposedAt);
   const proposed = medals.filter(m => m.state === 'proposed');
@@ -98,7 +98,7 @@ export function Trophies({ goBack }: { goBack: () => void }) {
   const [entering, setEntering] = useState(false);
   const awards = (data?.career.trophies ?? []).map(x => x.rule).filter(r => r.kind === 'awards');
   const byHand = awards.filter(r => (r.sources ?? DEFAULT_SOURCES).includes('manual'));
-  const decide = (m: Medal | undefined, accept: boolean) => { if (!m || data?.demo) return; SFX.click(); client.action('medalla.decidir', { id: m.id, accept }).then(load).catch(e => setError(e.message)); };
+  const decide = (m: Medal | undefined, accept: boolean) => { if (!m || data?.demo) return; SFX.click(); client.action('medal.decide', { id: m.id, accept }).then(load).catch(e => setError(e.message)); };
   useKeys(e => {
     if (e.code === 'Escape') goBack();
     else if (e.code === 'KeyR') { load(); SFX.click(); }

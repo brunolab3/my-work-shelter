@@ -71,7 +71,7 @@ function Gate() {
 }
 function DoorList({ root, pick, path, github }: { root: string; pick: (path: string, name: string) => void; path: (create: boolean) => void; github: () => void }) {
   const [sugs, setSuggestions] = useState<Suggestion[] | null>(null);
-  useEffect(() => { client.action<Suggestion[]>('sugerencias').then(setSuggestions).catch(() => setSuggestions([])); }, []);
+  useEffect(() => { client.action<Suggestion[]>('suggestions').then(setSuggestions).catch(() => setSuggestions([])); }, []);
   const items: (ItemMenu & { f: () => void })[] = [
     ...suggestionItems(sugs, pick),
     { text: t('panels.anotherFolderTypeThePath'), hint: t('panels.anyPathOnThisMac'), f: () => path(false) },
@@ -188,18 +188,18 @@ function CloneRepo({ repo, name, root, goBack, follow }: { repo: string; name: s
   useEffect(() => { ref.current?.focus(); }, []);
   useEffect(() => {
     if (clone?.state !== 'clonando') return;
-    const h = setInterval(() => client.action<StateClone>('github.clon', { id: clone.id }).then(c => {
+    const h = setInterval(() => client.action<StateClone>('github.cloneStatus', { id: clone.id }).then(c => {
       if (c.state === 'hecho') { clearInterval(h); SFX.shortSuccess(); follow(c.path); }
       else if (c.state === 'clonando') setClone(c);
       else { clearInterval(h); SFX.error(); setClone(null); setError(c.error ?? ''); setTimeout(() => ref.current?.focus()); }
     }).catch(() => {}), 500);
     return () => clearInterval(h);
   }, [clone?.id, clone?.state]);
-  const cancel = () => { if (clone) client.action('github.cancelar', { id: clone.id }).catch(() => {}); setClone(null); setTimeout(() => ref.current?.focus()); };
+  const cancel = () => { if (clone) client.action('github.cancel', { id: clone.id }).catch(() => {}); setClone(null); setTimeout(() => ref.current?.focus()); };
   useKeys(e => { if (e.code === 'Escape') { if (clone) cancel(); else goBack(); } });
   const start = async () => {
     if (clone || !text.trim()) return; setError('');
-    try { setClone(await client.action<StateClone>('github.clonar', { repo, path: text.trim() })); SFX.click(); }
+    try { setClone(await client.action<StateClone>('github.clone', { repo, path: text.trim() })); SFX.click(); }
     catch (err) { SFX.error(); setError((err as Error).message); }
   };
   const pct = clone?.pct ?? 0, bar = '█'.repeat(Math.round(pct / 5)) + '░'.repeat(20 - Math.round(pct / 5));
@@ -231,7 +231,7 @@ function CardNewRecruit({ path, name, create, git, goBack }: { path: string; nam
   const r = useMemo(() => generateRecruit(seed, used, false, types), [seed]);
   const admit = async () => {
     if (sending) return; setSending(true); setError('');
-    try { await client.action('reclutar', { path, create, git, dweller: { ...r, roomId: '' } }); SFX.shortSuccess(); closePanel(); }
+    try { await client.action('recruit', { path, create, git, dweller: { ...r, roomId: '' } }); SFX.shortSuccess(); closePanel(); }
     catch (err) { SFX.error(); setError((err as Error).message); setSending(false); }
   };
   const items: ItemMenu[] = [{ text: <>{t('panels.digOutTheRoom')} <b>{name}</b> {t('panels.andWelcomeThem')}</> }, { text: t('panels.sendInAnotherRecruit'), hint: 'R' }, { text: t('windows.back') }];
@@ -267,7 +267,7 @@ function LinkRoom({ room, example, goBack }: { room: any; example: boolean; goBa
 }
 function LinkList({ room, root, pick, other, goBack }: { room: any; root: string; pick: (path: string, name: string) => void; other: () => void; goBack: () => void }) {
   const [sugs, setSuggestions] = useState<Suggestion[] | null>(null);
-  useEffect(() => { client.action<Suggestion[]>('sugerencias').then(setSuggestions).catch(() => setSuggestions([])); }, []);
+  useEffect(() => { client.action<Suggestion[]>('suggestions').then(setSuggestions).catch(() => setSuggestions([])); }, []);
   const items: (ItemMenu & { f: () => void })[] = [
     ...suggestionItems(sugs, pick),
     { text: t('panels.anotherFolderTypeThePath'), hint: t('panels.anyPathOnThisMac'), f: other },
@@ -288,7 +288,7 @@ function ConfirmLink({ room, example, path, name, goBack }: { room: any; example
   const [sending, setSending] = useState(false);
   const link = async () => {
     if (sending) return; setSending(true); setError('');
-    try { await client.action('vincularSala', { roomId: room.id, path }); SFX.shortSuccess(); closePanel(); }
+    try { await client.action('linkRoom', { roomId: room.id, path }); SFX.shortSuccess(); closePanel(); }
     catch (e) { SFX.error(); setError((e as Error).message); setSending(false); }
   };
   const items: ItemMenu[] = [{ text: <>{t('panels.link')} <b>{room.name}</b> {t('panels.to')} <b>{name}</b></> }, { text: t('windows.back') }];
@@ -311,7 +311,7 @@ function ConfirmLink({ room, example, path, name, goBack }: { room: any; example
 export async function adaptRoom(roomId: string) {
   const h = juego.get().dwellers.find(x => x.room === roomId && !x.copy);
   if (!h) { SFX.notAllowed(); return; }
-  const prompt = await client.action<string>('sala.promptAdaptar');
+  const prompt = await client.action<string>('room.adaptPrompt');
   client.send({ t: 'empezar', dwellerId: h.id, roomId, prompt, options: {} });
   closePanel(); goA(roomId, h.id, true);
 }
@@ -347,13 +347,13 @@ function RoomMenu({ roomId, room, onLink, onDistribute, onDeploy, onOrganize }: 
   // la sala de planificación de serie va con la raíz de repos: ni se vincula a otra carpeta ni se retira
   const movable = ofRepo && room.id !== PLANNING_ROOM;
   const [rc, setRc] = useState<StateRC | null>(null);
-  useEffect(() => { if (ofRepo) client.action<StateRC>('sala.controlRemoto', { roomId }).then(setRc).catch(() => {}); }, [roomId, ofRepo]);
-  const open =(app: string) => client.action('abrirEn', { app, path: room.path }).then(() => setNotice(t('panels.opened'))).catch(e => setNotice(e.message));
+  useEffect(() => { if (ofRepo) client.action<StateRC>('room.remoteControl', { roomId }).then(setRc).catch(() => {}); }, [roomId, ofRepo]);
+  const open =(app: string) => client.action('openIn', { app, path: room.path }).then(() => setNotice(t('panels.opened'))).catch(e => setNotice(e.message));
   const inDevelopment = location.port === '5173';
   const items: (ItemMenu & { f: () => void })[] = [
     ...(room.type === 'puente' ? [{ text: t('panels.applyTheGameSChanges'), hint: inDevelopment ? t('panels.inDevelopmentTheyApplyThemselves') : t('panels.recompilesAndReloadsWithoutCutting'), f: async () => {
       if (inDevelopment) { setNotice(t('panels.withTheDevelopmentServerVite')); return; }
-      try { await client.action('aplicarCliente'); setNotice(t('panels.recompilingTheShelterWillReload')); } catch (e) { setNotice((e as Error).message); }
+      try { await client.action('applyClient'); setNotice(t('panels.recompilingTheShelterWillReload')); } catch (e) { setNotice((e as Error).message); }
     } }] : []),
     ...(room.type === 'coordinacion' && dwellers[0] ? [{ text: <>{t('panels.jiraTasksPlanWith')} <b>{dwellers[0].name}</b> {t('panels.andSplitThemAcrossRooms')}</>, hint: t('panels.eachRepoInItsWorktree'), f: onDistribute }] : []),
     ...(room.type === 'coordinacion' ? [{ text: t('panels.deploymentPlanYourPullRequests'), hint: t('panels.theOrderInWhichThey'), f: onDeploy }] : []),
@@ -366,27 +366,27 @@ function RoomMenu({ roomId, room, onLink, onDistribute, onDeploy, onOrganize }: 
     ...(repo?.worktrees ?? []).filter(w => !w.main).map(w => ({ text: <>{t('panels.holographicCopy')} <b>{w.branch || t('windows.noBranch')}</b> <span className="tenue">(worktree)</span></>, hint: w.busy ? t('panels.insideX', { x: w.busy }) : w.changes ? t('windows.nChanges', { n: w.changes }) : w.advanced ? t('windows.nCommits', { n: w.advanced }) : t('panels.clean2'), f: () => juego.set({ panel: 'worktree', panelData: { roomId, device: 'wt:' + w.path } }) })),
     ...(ofRepo && dwellers[0] && repo?.exists !== false ? [{ text: <>{t('panels.adaptTheRoomToThe')} <b>{dwellers[0].name}</b> {t('panels.designASceneForIt')}</>, hint: room.decor ? t('panels.orTouchUpTheOne') : t('panels.readsTheRepoAndDecorates'), f: () => adaptRoom(roomId).catch(e => setNotice((e as Error).message)) }] : []),
     ...(ofRepo && room.decor ? [{ text: t('panels.backToTheDefaultScene'), hint: t('panels.removesTheSetDressing'), f: async () => {
-      try { await client.action('sala.quitarDecorado', { roomId }); setNotice(t('panels.theRoomGoesBackTo')); } catch (e) { setNotice((e as Error).message); }
+      try { await client.action('room.removeDecor', { roomId }); setNotice(t('panels.theRoomGoesBackTo')); } catch (e) { setNotice((e as Error).message); }
     } }] : []),
     ...(ofRepo && repo?.exists !== false ? [{ text: rc?.state === 'encendido' ? t('panels.turnOffRemoteControl') : t('panels.turnOnRemoteControl'), hint: rc?.state === 'encendido' ? t('panels.stopsShowingOnClaudeAi') : t('panels.thisRepoSSessionsFrom'), f: async () => {
       const switchOn = rc?.state !== 'encendido';
       if (switchOn) setNotice(t('panels.turningOnRemoteControl'));
-      try { const r = await client.action<StateRC>('sala.controlRemoto', { roomId, switchOn }); setRc(r); setNotice(r.detail ?? (r.state === 'encendido' ? t('panels.onOpenTheCodeTab', { nombre: r.name ?? '' }) : t('panels.off'))); }
+      try { const r = await client.action<StateRC>('room.remoteControl', { roomId, switchOn }); setRc(r); setNotice(r.detail ?? (r.state === 'encendido' ? t('panels.onOpenTheCodeTab', { nombre: r.name ?? '' }) : t('panels.off'))); }
       catch (e) { setNotice((e as Error).message); }
     } }] : []),
     ...(rc?.state === 'encendido' && rc.url ? [{ text: t('panels.openItsRemoteControlOn'), hint: t('panels.inTheBrowser'), f: () => { window.open(rc.url, '_blank'); } }] : []),
     // el área del repo decide su sector y su color (verde frontend, amarillo backend, rojo críticos): Enter pasa a la siguiente
     ...(movable ? [{ text: <>{t('panels.repoArea')} <b style={{ color: sectorOf(room.type, room.id, room.area).letter }}>{tIs(sectorOf(room.type, room.id, room.area).name).toLowerCase()}</b></>, hint: 'Enter: ' + AREAS.map(a => tIs(SECTORS[a].name).toLowerCase()).join(' → '), f: async () => {
       const area = AREAS[(AREAS.indexOf(sectorOf(room.type, room.id, room.area).id as any) + 1) % AREAS.length];
-      try { await client.action('sala.area', { roomId, area }); SFX.click(); } catch (e) { setNotice((e as Error).message); }
+      try { await client.action('room.area', { roomId, area }); SFX.click(); } catch (e) { setNotice((e as Error).message); }
     } }] : []),
     ...(movable ? [{ text: t('panels.linkTheRoomToAnother'), hint: t('panels.oneOfYourReposThe'), f: onLink }] : []),
     ...(movable ? [{ text: t('panels.hideTheRoom'), hint: t('panels.hideTheRoomHint'), f: async () => {
-      try { await client.action('sala.ocultar', { roomId }); closePanel(); } catch (e) { setNotice((e as Error).message); }
+      try { await client.action('room.hide', { roomId }); closePanel(); } catch (e) { setNotice((e as Error).message); }
     } }] : []),
     ...(movable ? [{ text: confirm ? t('panels.surePressEnterAgainTo') : t('panels.removeTheRoomFromThe'), hint: repo?.example ? t('panels.theExampleRepoSCopy') : t('panels.theFolderIsLeftUntouched'), danger: true, f: async () => {
       if (!confirm) { setConfirm(true); return; }
-      try { await client.action('retirarSala', { roomId }); closePanel(); } catch (e) { setNotice((e as Error).message); setConfirm(false); }
+      try { await client.action('removeRoom', { roomId }); closePanel(); } catch (e) { setNotice((e as Error).message); setConfirm(false); }
     } }] : []),
   ];
   const [i, setI] = useMenu(items.length, k => items[k].f());
@@ -420,7 +420,7 @@ function PanelWorktree() {
   const [info, setInfo] = useState<any>(null);
   const [error, setError] = useState('');
   const [confirm, setConfirm] = useState(false);
-  const load = () => client.action<any>('worktree.inspeccionar', { path }).then(setInfo).catch(e => setError(e.message));
+  const load = () => client.action<any>('worktree.inspect', { path }).then(setInfo).catch(e => setError(e.message));
   useEffect(() => { load(); }, [path]);
   // el worktree es una copia de su autor: él trabaja dentro e integra; si no es de esta sala, quien esté libre
   const authorId = live.use(e => e.repos?.[roomId]?.worktrees?.find((w: any) => w.path === path)?.author);
@@ -435,7 +435,7 @@ function PanelWorktree() {
     { text: t('windows.openATerminalInside'), f: async () => { const { openTerminalIn } = await import('./Terminals'); closePanel(); openTerminalIn('wt:' + path, roomId, `${room?.name ?? ''} · ${info.branch}`, path); } },
     ...(copy || free ? [{ text: copy ? <>{t('panels.workInsideWithTheCopy')}</> : <>{t('panels.workInsideWith')} <b>{free!.name}</b></>, hint: t('panels.newSessionInThisWorktree'), f: () => { juego.set({ workIn: { cwd: path, branch: info.branch } }); closePanel(); goA(roomId, copy?.id ?? free!.id, true); } }] : []),
     ...(free ? [{ text: <>{t('panels.mergeHave')} <b>{free.name}</b> {t('panels.mergeTheBranchAndClean')}</>, hint: t('panels.intoBaseWithTheirPermissions', { base: info.base }), f: async () => {
-      const prompt = await client.action<string>('worktree.promptIntegrar', { path });
+      const prompt = await client.action<string>('worktree.integratePrompt', { path });
       client.send({ t: 'empezar', dwellerId: free.id, roomId, prompt, options: {} });
       closePanel(); goA(roomId, free.id, true);
     } }] : []),
@@ -443,7 +443,7 @@ function PanelWorktree() {
       if (info.busy) { SFX.notAllowed(); return; }
       if (!confirm) { setConfirm(true); return; }
       try {
-        await client.action('worktree.desechar', { path, force: info.state.length > 0 || info.commits.length > 0 }); SFX.powerOff(); closePanel();
+        await client.action('worktree.discard', { path, force: info.state.length > 0 || info.commits.length > 0 }); SFX.powerOff(); closePanel();
         // el holograma se apaga ya, sin esperar al próximo repaso de los repos
         client.action<InfoRepo>('repo', { roomId }).then(r => live.set(e => ({ repos: { ...e.repos, [roomId]: r } }))).catch(() => {});
       } catch (e) { setError((e as Error).message); setConfirm(false); }

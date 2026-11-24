@@ -8,7 +8,7 @@ function ctx(s: TrackerSettings = { jira: { test: 'Prod check', done: 'Done' }, 
   return {
     s, asked, settings: () => s, save: p => { Object.assign(s, p); }, connected: f => f === 'jira' || f === 'linear',
     action: async (name, d) => {
-      if (name === 'estadosTablero') { asked.push(`${d.source}:${d.board}`); if (d.source === 'linear') return { states: ['Todo', 'QA', 'Done'] }; const x = states[String(d.board)]; if (!x) throw new Error('no project'); return x; }
+      if (name === 'boardStates') { asked.push(`${d.source}:${d.board}`); if (d.source === 'linear') return { states: ['Todo', 'QA', 'Done'] }; const x = states[String(d.board)]; if (!x) throw new Error('no project'); return x; }
       if (name === 'panel' && d.source === 'jira') return { tareas: [{ key: 'ABC-1', state: 'PROD CHECK', category: 'indeterminate' }, { key: 'XY-2', state: 'In progress', category: 'indeterminate' }] };
       if (name === 'panel') return { myIssues: [{ issues: [{ identifier: 'ENG-3', state: { name: 'QA' } }] }] };
       return {};

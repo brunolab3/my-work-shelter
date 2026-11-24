@@ -217,8 +217,8 @@ export async function furnishLogistics(ctx: Context) {
     // la pone al día al momento
     if (t - lastReading > 60) {
       lastReading = t;
-      client.action<any>('integracion.panel', { source: 'jira' }).then(p => { aimColors(p.tareas ?? []); knowTasks((p.tareas ?? []).map((t: TaskJira) => t.key)); jiraBoard.set({ tareas: p.tareas ?? [] }); }).catch(() => {});
-      client.action<any>('git.prsTablero', {}).then(p => { knowTasks((p.prs ?? []).map(pRTask)); jiraBoard.set({ prs: p.prs ?? [] }); }).catch(() => {});
+      client.action<any>('integration.panel', { source: 'jira' }).then(p => { aimColors(p.tareas ?? []); knowTasks((p.tareas ?? []).map((t: TaskJira) => t.key)); jiraBoard.set({ tareas: p.tareas ?? [] }); }).catch(() => {});
+      client.action<any>('git.prsBoard', {}).then(p => { knowTasks((p.prs ?? []).map(pRTask)); jiraBoard.set({ prs: p.prs ?? [] }); }).catch(() => {});
     }
     const { tareas, prs } = jiraBoard.get();
     const jiraStatuses = live.get().state?.settings?.verificationJira;   // Jira's prod-check status (its column)
