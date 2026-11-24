@@ -39,8 +39,8 @@ import { Usage, tokensShort } from './usage';
 import { takeASurface, toClaudeApp } from './surface';
 import { openLink, openPage, pageForSession, pageAnswers, pageNotes, validatePage, revealPage, makeRoomForIntercom, answerPage } from './Browsers';
 import { sessionPages, pendingPages, samePage, livePages, questionInput } from '@shared/sessionPages';
-import { scheduledSender } from './scheduledSender';
-import { AFTER_TURN, byPlace, describeWhen, describeWhenShort, localInput, ofConversationView, ofPlace, schedulePresets, type ScheduledMessage } from '@shared/scheduled';
+import { directionMark, scheduledSender } from './scheduledSender';
+import { AFTER_TURN, byPlace, describeWhen, describeWhenShort, localInput, ofConversationView, ofPlace, scheduledDirection, schedulePresets, type ScheduledMessage } from '@shared/scheduled';
 import type { PRBoard } from '@shared/board';
 import { worktreePRs, taskColor } from '@shared/tasks';
 import { lookOf, lookSignature } from '@shared/appearance';
@@ -1260,7 +1260,9 @@ function ScheduledMenu({ h, s, resume }: { h: DwellerSummary; s?: SessionSummary
   const groups = useMemo(() => {
     const l = conversation ? [{ worktree: undefined, items: ofConversationView(all, conversation) }]
       : h.copy ? [{ worktree: h.copy.path, items: ofPlace(all, h.room, h.copy.path, worktrees ?? []) }] : byPlace(all, h.room, worktrees ?? []);
-    return l.map(g => ({ ...g, items: tiers(g.items) }));
+    // what arrives here (from others, then its own reminders) before what it sends elsewhere, so they don't interleave
+    const rank = { in: 0, self: 1, out: 2 };
+    return l.map(g => ({ ...g, items: tiers(g.items).sort((a, b) => rank[scheduledDirection(a, conversation)] - rank[scheduledDirection(b, conversation)]) }));
   }, [all, worktrees, s?.id, s?.claudeId, resume, h.room, h.copy?.path]);
   const mine = useMemo(() => tiers(groups.flatMap(g => g.items).sort((a, b) => a.when - b.when)), [groups]);
   const headed = !conversation && !h.copy && groups.some(g => g.worktree);
@@ -1302,6 +1304,7 @@ function ScheduledMenu({ h, s, resume }: { h: DwellerSummary; s?: SessionSummary
             <span><button className="consola-x" onClick={save}>{t('windows.scheduledSave')}</button> <button className="consola-x" onClick={() => setEditing(null)}>✕</button></span>
           </li>
         : <li title={x.message}>
+            {(m => <span className={m.className} title={m.hint}>{m.text}</span>)(directionMark(scheduledDirection(x, conversation)))}
             {x.afterTurn ? <span className="tenue" title={t(x.pr ? 'windows.scheduledPackHint' : pack(x) ? 'windows.scheduledMessagesHint' : 'windows.scheduleAfterTurnHint')}>{pack(x) || t('windows.scheduledAfterTurn')}</span>
               : x.nextWindow ? <span className="tenue" title={t('windows.nextWindowHint') + '\n' + describeWhen(x.when)}>{t('windows.scheduledWindow')}</span>
               : <span className={x.when < Date.now() ? 'urgente' : ''} title={x.when < Date.now() ? t('windows.scheduledLate') : describeWhen(x.when)}>⏰ {describeWhenShort(x.when)}</span>}

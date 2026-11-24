@@ -1,11 +1,34 @@
 import { describe, it, expect } from 'vitest';
-import { placeOf, ofPlace, byPlace, soonestByPlace, nextWindowStart, finalWindowStart, schedulePresets, localInput, windowNext, due, WINDOW_GAP_MS, type ScheduledMessage, type ScheduledTarget } from './scheduled.ts';
+import { placeOf, ofPlace, byPlace, soonestByPlace, nextWindowStart, finalWindowStart, schedulePresets, localInput, windowNext, due, scheduledDirection, WINDOW_GAP_MS, type ScheduledMessage, type ScheduledTarget } from './scheduled.ts';
 
 const REPO = '/repos/acme';
 const WT = `${REPO}/.claude/worktrees/ABC-12`;
 const worktrees = [{ path: REPO, branch: 'main', main: true }, { path: WT, branch: 'ABC-12-fix', main: false }, { path: `${REPO}/.claude/worktrees/shelter-tidy-up--ab12`, branch: 'x', main: false }];
 let n = 0;
 const msg = (target: ScheduledTarget, when = 100): ScheduledMessage => ({ id: 'm' + ++n, created: 0, when, requested: '', message: 'hi', origin: { roomId: 'acme', claudeId: 'c1' }, target });
+
+describe('which way a scheduled message goes', () => {
+  const here = { id: 's1', claudeId: 'c1' };
+  const toHere: ScheduledTarget = { type: 'conversacion', roomId: 'acme', sessionId: 's1', claudeId: 'c1', cwd: REPO };
+  const from = (origin: ScheduledMessage['origin'], target: ScheduledTarget, extra: Partial<ScheduledMessage> = {}) => ({ ...msg(target), origin, ...extra });
+  it('in a conversation: what it sends elsewhere goes out, what comes to it arrives', () => {
+    expect(scheduledDirection(msg({ type: 'sala', room: 'git', key: 'ABC-12' }), here)).toBe('out');
+    expect(scheduledDirection(msg({ type: 'conversacion', roomId: 'acme', claudeId: 'c2', cwd: WT }), here)).toBe('out');
+    expect(scheduledDirection(from({ roomId: 'git', claudeId: 'c9' }, toHere, { from: { kind: 'room', roomId: 'git', room: 'Version Control' }, afterTurn: true }), here)).toBe('in');
+    expect(scheduledDirection(from({ roomId: 'acme' }, toHere, { from: { kind: 'game' } }), here)).toBe('in');
+  });
+  it('a reminder it wrote to itself is its own; the Overseer\'s draft for later arrives, by either id', () => {
+    expect(scheduledDirection(msg(toHere), here)).toBe('self');
+    expect(scheduledDirection(msg(toHere), { id: 's1' })).toBe('in');   // origin only has the Claude Code id
+    expect(scheduledDirection(msg(toHere), { claudeId: 'c1' })).toBe('self');
+    expect(scheduledDirection({ ...msg(toHere), overseer: true, from: { kind: 'overseer' } }, here)).toBe('in');
+  });
+  it('in a place\'s list (what goes to it): a reminder by the target conversation itself, else it arrives', () => {
+    expect(scheduledDirection(msg(toHere))).toBe('self');
+    expect(scheduledDirection(from({ roomId: 'git', claudeId: 'c9' }, toHere))).toBe('in');
+    expect(scheduledDirection(msg({ type: 'sala', room: 'acme', key: 'ABC-12' }))).toBe('in');
+  });
+});
 
 describe('scheduled messages by room and task', () => {
   it('a conversation target goes to the worktree its cwd is in, or to the room\'s main copy', () => {

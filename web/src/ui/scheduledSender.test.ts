@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { setLanguage } from '@shared/language';
-import { scheduledSender } from './scheduledSender';
+import { directionMark, scheduledSender, scheduledTarget } from './scheduledSender';
 
 const names: Record<string, string> = { puente: 'Command Bridge' };
 const name = (id: string) => names[id];
@@ -28,5 +28,21 @@ describe('scheduledSender', () => {
     expect(scheduledSender({ origin, from: { kind: 'overseer' } }, name)).toBe('del Supervisor');
     expect(scheduledSender({ origin, from: { kind: 'game' } }, name)).toBe('del juego');
     setLanguage('en');
+  });
+});
+
+describe('direction marks and targets', () => {
+  beforeAll(() => setLanguage('en'));
+  it('marks each direction with its own text, tooltip and colour class', () => {
+    expect(directionMark('out')).toMatchObject({ text: '↗ out', className: 'programado-dir dir-out' });
+    expect(directionMark('in')).toMatchObject({ text: '↙ in', className: 'programado-dir dir-in' });
+    expect(directionMark('self').text).toBe('↻ reminder');
+    expect(directionMark('self').hint).toMatch(/itself/);
+  });
+  it('names where it goes: a room with its key or thread, or a room\'s conversation', () => {
+    expect(scheduledTarget({ target: { type: 'sala', room: 'git', key: 'ABC-1' } }, name)).toBe('git ABC-1');
+    expect(scheduledTarget({ target: { type: 'sala', room: 'git', thread: 'cleanup' } }, name)).toBe('git cleanup');
+    expect(scheduledTarget({ target: { type: 'conversacion', roomId: 'puente', cwd: '/x', title: 'Fix' } }, name)).toBe('Command Bridge “Fix”');
+    expect(scheduledTarget({ target: { type: 'conversacion', roomId: 'gone', cwd: '/x' } }, name)).toBe('gone “Conversation”');
   });
 });

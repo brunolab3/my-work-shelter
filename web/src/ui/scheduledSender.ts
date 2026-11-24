@@ -3,9 +3,22 @@
 import { t } from '@shared/language';
 import type { ScheduledMessage } from '@shared/scheduled';
 
+export type Direction = 'in' | 'out' | 'self';
+
 export function scheduledSender(x: Pick<ScheduledMessage, 'from' | 'overseer' | 'origin'>, roomName: (id: string) => string | undefined): string {
   if (x.from?.kind === 'room') return t('windows.scheduledFrom', { sala: x.from.dweller ? `${x.from.room} (${x.from.dweller})` : x.from.room });
   if (x.from?.kind === 'overseer' || x.overseer) return t('windows.scheduledFromOverseer');
   if (x.from?.kind === 'game') return t('windows.scheduledFromGame');
   return t('windows.scheduledFrom', { sala: roomName(x.origin.roomId) ?? x.origin.roomId });
+}
+
+/** The mark of a row in the ⏰ lists (direction from scheduledDirection): ↗ sent from here, ↙ arriving here, ↻ a reminder
+ *  to itself; its tooltip says which, and the class gives each its colour */
+export const directionMark = (d: Direction) => ({ text: t(`windows.scheduledDir.${d}`), hint: t(`windows.scheduledDir.${d}Hint`), className: `programado-dir dir-${d}` });
+
+/** Where it goes, for lists with no «here» (Planning's): a room (and its task or thread), or a room's conversation */
+export function scheduledTarget(x: Pick<ScheduledMessage, 'target'>, roomName: (id: string) => string | undefined): string {
+  const d = x.target;
+  if (d.type === 'sala') return `${d.room}${d.key ?? d.thread ? ' ' + (d.key ?? d.thread) : ''}`;
+  return t('windows.scheduledToRoomConversation', { sala: roomName(d.roomId) ?? d.roomId, titulo: d.title || t('windows.conversation') });
 }

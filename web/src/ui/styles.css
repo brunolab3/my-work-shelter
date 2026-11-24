@@ -379,6 +379,10 @@ html, body { margin: 0; height: 100%; background: var(--fondo); overflow: hidden
 .programados-lista .pagina-nombre { cursor: default; }
 .programados-lista .programados-grupo { color: #8f8670; font-weight: 700; padding-top: .4em; }
 .programados-lista .programados-grupo > span { flex: 0 1 auto; }
+.programados-lista .programado-dir { flex: none; padding: 0 .35em; border: 1px solid currentColor; border-radius: 3px; font-size: .85em; }
+.programados-lista .dir-in { color: #7fd39a; }
+.programados-lista .dir-out { color: var(--ambar); }
+.programados-lista .dir-self { color: #9ab8e0; }
 .programados-lista .programado-edicion { flex-direction: column; align-items: stretch; white-space: normal; }
 .programar-hora { position: relative; display: inline-block; }
 /* upwards, over the conversation: .paginas-lista (declared later) would put it below, past the intercom's bottom */

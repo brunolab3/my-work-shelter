@@ -110,6 +110,16 @@ export const sameSender = (a: ScheduledMessage['origin'], b: ScheduledMessage['o
 /** Whether one is for that conversation (its target), by game id or Claude Code id */
 export const forTarget = (x: ScheduledMessage, s: { id?: string; claudeId?: string }) =>
   x.target.type === 'conversacion' && (!!(s.claudeId && x.target.claudeId === s.claudeId) || !!(s.id && x.target.sessionId === s.id));
+/** Which way one goes for the conversation whose list it is (`here`; with none, the place it is listed at, whose list
+ *  holds what goes to it: ofPlace): `in` arrives there, `out` leaves it for another room or conversation, `self` is a
+ *  reminder that conversation wrote to itself (it arrives, but nobody else sent it). The Overseer's, another room's
+ *  and the game's messages arrive, even when scheduled from this conversation's intercom */
+export function scheduledDirection(x: ScheduledMessage, here?: { id?: string; claudeId?: string }): 'in' | 'out' | 'self' {
+  const d = x.target, to = here ?? (d.type === 'conversacion' ? { id: d.sessionId, claudeId: d.claudeId } : undefined);
+  if (here && !forTarget(x, here)) return 'out';
+  const own = !x.from && !x.overseer && !!to && d.type === 'conversacion' && ofConversation([x], to).length > 0;
+  return own ? 'self' : 'in';
+}
 export const isLate = (x: ScheduledMessage, now: number) => now - x.when > LATE_AFTER_MS;
 
 /** Los de una conversación (los que programó ella): por su id del juego o por el de Claude Code */
