@@ -8,7 +8,7 @@ import { Device, Keys, useKeys } from './device';
 import { openLink } from './Browsers';
 import { fileText, type TrophyKind, type TrophyState } from '@shared/trophies';
 import type { Medal } from '@shared/workLog';
-import { readWorkLog, type WorkLogData } from './WorkLog';
+import { readWorkLog, verifyLadder, type WorkLogData } from './WorkLog';
 
 const day = (ts: number) => new Date(ts).toLocaleDateString(locale(), { day: 'numeric', month: 'short', year: 'numeric' });
 const KIND_TEXT: Record<TrophyKind, string> = { prsMerged: 'trophies.kind.prsMerged', tasksDone: 'trophies.kind.tasksDone', reviewsGiven: 'trophies.kind.reviewsGiven', multiRepoTasks: 'trophies.kind.multiRepoTasks', verifiedInProd: 'trophies.kind.verifiedInProd', awards: 'trophies.kind.awards' };
@@ -26,6 +26,27 @@ function TrophyLine({ x }: { x: TrophyState }) {
         : <Bar p={x.progress} />}
       {x.facts.length > 0 && <span className="trofeo-hechos">{x.facts.slice(-4).map(f => <a key={f.ref} onClick={() => openLink(f.url)}>{f.ref}</a>)}</span>}
     </li>
+  );
+}
+
+const VERDICT_TEXT = { met: 'trophies.verify.met', partial: 'trophies.verify.partial', 'not-met': 'trophies.verify.notMet' } as const;
+// the last verification the Overseer asked for (the ladder file's "progress" key): level, summary, and each verdict
+function LastVerification({ data }: { data: WorkLogData }) {
+  const p = data.progress;
+  if (!p) return <p className="tenue">{t('trophies.verify.none')}</p>;
+  const steps = data.career.steps;
+  const level = steps.find(s => s.step.id === p.level);
+  return (
+    <div className="verificacion">
+      <p><b>{t('trophies.verify.last')}</b> · {day(p.at)} · <b className="nivel">{t('trophies.verify.level', { nivel: level ? fileText(level.step.name) : '—' })}</b></p>
+      {p.summary && <p className="tenue">{p.summary}</p>}
+      <ul>{steps.flatMap(s => s.requirements).filter(q => p.requirements[q.req.id]).map(q => { const r = p.requirements[q.req.id]; return (
+        <li key={q.req.id} className={'v-' + r.verdict}>
+          <span>{r.verdict === 'met' ? '✔' : r.verdict === 'partial' ? '◐' : '○'} {fileText(q.req.text)}</span>
+          <span className="tenue">{t(VERDICT_TEXT[r.verdict])} · {t(r.byRules ? 'trophies.verify.byRules' : 'trophies.verify.bySession')}{r.notes ? ' — ' + r.notes : ''}</span>
+          {r.evidence.length > 0 && <span className="trofeo-hechos">{r.evidence.slice(0, 6).map((x, k) => /^https?:/.test(x) ? <a key={k} onClick={() => openLink(x)}>{x.replace(/^https?:\/\/(www\.)?/, '').slice(0, 36)}</a> : <span key={k} className="tenue">{x} </span>)}</span>}
+        </li>); })}</ul>
+    </div>
   );
 }
 
@@ -47,6 +68,7 @@ export function Trophies({ goBack }: { goBack: () => void }) {
     else if (e.code === 'KeyO') { openFile(); SFX.click(); }
     else if (e.code === 'ArrowDown' || e.code === 'KeyS') setMi(x => Math.min(x + 1, Math.max(0, proposed.length - 1)));
     else if (e.code === 'ArrowUp' || e.code === 'KeyW') setMi(x => Math.max(0, x - 1));
+    else if (e.code === 'KeyV') verifyLadder().catch(x => { SFX.notAllowed(); setError(x.message); });
     else if (e.code === 'KeyA') decide(proposed[mi], true);
     else if (e.code === 'KeyD') decide(proposed[mi], false);
     else return false;
@@ -64,6 +86,7 @@ export function Trophies({ goBack }: { goBack: () => void }) {
       {!data && !error && <p className="tenue">{t('worklog.reading')}</p>}
       {c && c.steps.length > 0 && <>
         <h3 className="trofeos-seccion">{t('trophies.career')}</h3>
+        <LastVerification data={data!} />
         <ol className="escalera">
           {c.steps.map(s => (
             <li key={s.step.id} className={'escalon' + (s.complete ? ' cumplido' : '') + (c.current === s.step.id ? ' actual' : '')}>
@@ -93,7 +116,7 @@ export function Trophies({ goBack }: { goBack: () => void }) {
               : <span className="tenue">{t('trophies.medal.accepted')} {m.decidedAt ? day(m.decidedAt) : ''}</span>}
           </li>))}</ul>
       </>}
-      <Keys>{proposed.length > 0 && <><kbd>↑↓</kbd><kbd>A</kbd><kbd>D</kbd>{t('trophies.keyMedal')} </>}<kbd>O</kbd>{t('trophies.keyOpenFile')} <kbd>R</kbd>{t('panels.refresh')} <kbd>Esc</kbd>{t('menu.close')}</Keys>
+      <Keys>{proposed.length > 0 && <><kbd>↑↓</kbd><kbd>A</kbd><kbd>D</kbd>{t('trophies.keyMedal')} </>}<kbd>V</kbd>{t('trophies.keyVerify')} <kbd>O</kbd>{t('trophies.keyOpenFile')} <kbd>R</kbd>{t('panels.refresh')} <kbd>Esc</kbd>{t('menu.close')}</Keys>
     </Device>
   );
 }

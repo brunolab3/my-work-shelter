@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import { digestDue, evaluate, medalRequirements, newlyEarned, parseLadder, trophyState, type TrophyRule } from './trophies.ts';
+import { digestDue, evaluate, medalRequirements, newlyEarned, parseLadder, progressOf, settleProgress, trophyState, withProgress, type TrophyRule } from './trophies.ts';
 import { decideMedal, emptyLedger, mergePRs, mergeTasks, mergeVerified, proposeMedal } from './workLog.ts';
 import type { PRBoard } from './board.ts';
 
@@ -119,5 +119,42 @@ describe('medals', () => {
     expect(digestDue(at('2026-11-24T12:00'), at('2026-11-27T09:00'))).toBe(true);
     expect(digestDue(at('2026-11-27T09:01'), at('2026-11-30T10:00'))).toBe(false);   // done this Friday
     expect(digestDue(at('2026-11-27T09:01'), at('2026-12-04T09:30'))).toBe(true);
+  });
+});
+
+describe('ladder verification', () => {
+  const text = JSON.stringify({
+    note: 'mine', trophies: [{ id: 'a', kind: 'prsMerged', n: 1 }, { id: 'b', kind: 'prsMerged', n: 3 }],
+    steps: [
+      { id: 'L1', requirements: [{ id: 'ships', trophies: ['a'] }, { id: 'people', trophies: [] }] },
+      { id: 'L2', requirements: [{ id: 'volume', trophies: ['b'] }] },
+    ],
+  }, null, 4);
+  const { ladder } = parseLadder(text);
+  const l = emptyLedger(); mergePRs(l, [merged(1, NOW - D)], NOW);
+  const career = evaluate(ladder, l, NOW);
+
+  it('the rules decide what they measure; the session the rest, only with evidence; the level is the last step fully met', () => {
+    const r = settleProgress(ladder, career, { level: 'L2', summary: 'Close to L2', requirements: [
+      { id: 'ships', verdict: 'not-met' }, { id: 'people', verdict: 'met', evidence: ['https://slack/t/1'] }, { id: 'volume', verdict: 'met', evidence: ['x'] },
+    ] }, NOW);
+    expect(r.overridden).toEqual(['ships', 'volume']);
+    expect(r.progress.requirements.ships).toMatchObject({ verdict: 'met', byRules: true, evidence: ['u1'] });
+    expect(r.progress.requirements.volume).toMatchObject({ verdict: 'partial', byRules: true });
+    expect(r.progress.requirements.people).toMatchObject({ verdict: 'met', byRules: false });
+    expect(r.progress.level).toBe('L1');
+    const bare = settleProgress(ladder, career, { requirements: [{ id: 'people', verdict: 'met' }] }, NOW);
+    expect(bare.unproven).toEqual(['people']);
+    expect(bare.progress.level).toBeUndefined();
+  });
+
+  it('writes only the "progress" key, keeping the rest and the indent', () => {
+    const { progress } = settleProgress(ladder, career, { requirements: [] }, NOW);
+    const out = withProgress(text, progress);
+    expect(out.startsWith('{\n    "note": "mine"')).toBe(true);
+    const j = JSON.parse(out);
+    expect({ ...j, progress: undefined }).toEqual({ ...JSON.parse(text), progress: undefined });
+    expect(progressOf(j)?.at).toBe(NOW);
+    expect(progressOf({ progress: { at: 'x' } })).toBeUndefined();
   });
 });

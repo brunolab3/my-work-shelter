@@ -867,6 +867,11 @@ span.vt-lista-marca { cursor: default; }
 .trofeo-icono { width: 1.4em; text-align: center; }
 .trofeo-hechos a { margin-right: .5em; font-size: .85em; color: var(--fosforo-tenue); cursor: pointer; }
 .trofeo-hechos a:hover { color: var(--fosforo); }
+.verificacion { margin: 0 0 .6em; padding: .4em .6em; border: 1px solid var(--fosforo-tenue); }
+.verificacion .nivel { color: var(--ambar); }
+.verificacion ul { list-style: none; margin: .3em 0 0; padding: 0; font-size: .88em; }
+.verificacion li { display: flex; gap: .6em; flex-wrap: wrap; align-items: baseline; }
+.verificacion li.v-met > span:first-child { color: var(--fosforo); }
 .trofeo-medallas { letter-spacing: .15em; } .trofeo-medallas span:not(.llena) { color: var(--fosforo-tenue); }
 .medallas { list-style: none; margin: 0; padding: 0; }
 .medallas li { display: flex; gap: .6em; align-items: center; flex-wrap: wrap; padding: .25em .4em; font-size: .9em; border-left: 3px solid transparent; }

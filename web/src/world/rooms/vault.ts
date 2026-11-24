@@ -9,7 +9,7 @@ import { sign, PanelRoom, canvas, textureOf, dangerStrip, SOURCES } from '../../
 import { overlayScreen } from '../util3d';
 import { signInWall, stain, highBand, monitorWall, materialSteel, textureHalo, world, box, HEIGHT, STATE_TEXT, COLOR_STATE, type Context } from './common';
 import { live, client } from '../../net/client';
-import type { CareerState } from '@shared/trophies';
+import { fileText, type CareerState, type LadderProgress } from '@shared/trophies';
 import { ACTIVE_SOURCES } from '@shared/sources';
 
 const SOURCES_INT: string[] = [...ACTIVE_SOURCES];   // una caja por fuente (el orden de la cámara acorazada)
@@ -193,7 +193,7 @@ function trophyShelf(x0: number, zWall: number) {
   for (const dx of [-W / 2 + 0.03, W / 2 - 0.03]) group.add(box(0.03, levels[1] - levels[0] + 0.1, 0.2, plank, x0 + dx, (levels[0] + levels[1]) / 2, zWall + 0.1));
   // the cup: a lathe profile on a small plinth
   const profile = [[0, 0], [0.045, 0], [0.045, 0.02], [0.014, 0.03], [0.012, 0.07], [0.03, 0.085], [0.05, 0.13], [0.055, 0.15], [0.05, 0.15], [0.044, 0.135], [0.026, 0.093], [0, 0.088]].map(([a, b]) => new THREE.Vector2(a, b));
-  const cupGeo = new THREE.LatheGeometry(profile, 18);
+  const cupGeo = new THREE.LatheGeometry(profile, 18); cupGeo.scale(1.35, 1.35, 1.35);
   const gold = new THREE.MeshStandardMaterial({ color: '#e8b84a', metalness: 0.85, roughness: 0.28, emissive: new THREE.Color('#5a3a00'), emissiveIntensity: 0.35 });
   const ghost = new THREE.MeshStandardMaterial({ color: '#8a9aa0', metalness: 0.2, roughness: 0.6, transparent: true, opacity: 0.22, depthWrite: false });
   const cups: THREE.Mesh[] = [];
@@ -202,13 +202,21 @@ function trophyShelf(x0: number, zWall: number) {
     m.position.set(x0 + (k % PER_ROW - (PER_ROW - 1) / 2) * CUP_STEP, levels[Math.floor(k / PER_ROW)] + 0.018, zWall + 0.11);
     m.visible = false; group.add(m); cups.push(m);
   }
-  const { c, g: gg } = canvas(256, 48), tex = textureOf(c);
-  const plaque = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.094), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.45, metalness: 0.6 }));
+  // medals toward a trophy (kind awards): small gold discs leaning in front of its cup, one per accepted medal
+  const discGeo = new THREE.CylinderGeometry(0.032, 0.032, 0.008, 16); discGeo.rotateX(Math.PI / 2 - 0.35);
+  const medals = cups.map(cup => Array.from({ length: 5 }, (_, j) => {
+    const d = new THREE.Mesh(discGeo, gold); d.position.set(cup.position.x - 0.084 + j * 0.042, cup.position.y + 0.03, cup.position.z + 0.075); d.visible = false; group.add(d); return d;
+  }));
+  const { c, g: gg } = canvas(512, 64), tex = textureOf(c);
+  const plaque = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.0875), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.45, metalness: 0.6 }));
   plaque.position.set(x0, levels[0] - 0.09, zWall + 0.005); group.add(plaque);
-  const paint = (n: number, total: number) => {
-    gg.fillStyle = '#b8913a'; gg.fillRect(0, 0, 256, 48); gg.strokeStyle = '#5e4a1c'; gg.lineWidth = 5; gg.strokeRect(3, 3, 250, 42);
-    gg.fillStyle = '#231a0c'; gg.font = `800 22px ${SOURCES.mono}`; gg.textAlign = 'center'; gg.textBaseline = 'middle';
-    gg.fillText(`${tr('trophies.shelf').toUpperCase()} ${n}/${total}`, 128, 25); tex.needsUpdate = true;
+  let plaqueText = '';
+  const paint = (n: number, total: number, level?: string) => {
+    gg.fillStyle = '#b8913a'; gg.fillRect(0, 0, 512, 64); gg.strokeStyle = '#5e4a1c'; gg.lineWidth = 6; gg.strokeRect(3, 3, 506, 58);
+    gg.fillStyle = '#231a0c'; gg.textAlign = 'center'; gg.textBaseline = 'middle';
+    const label = `${(level ?? tr('trophies.shelf')).toUpperCase()} · ${n}/${total}`;   // the level of the last verification, once there is one
+    let px = 34; do { gg.font = `800 ${px}px ${SOURCES.mono}`; } while (gg.measureText(label).width > 480 && --px > 12);   // shrink to fit
+    gg.fillText(label, 256, 34); tex.needsUpdate = true; plaqueText = label;
   };
   paint(0, 0);
   // the whole shelf is the click target (shelter.ts: a piece with userData.interactive opens that device with its view)
@@ -217,17 +225,19 @@ function trophyShelf(x0: number, zWall: number) {
   let signature = '', earned: THREE.Mesh[] = [];
   // a cup not yet earned fills in with its progress (medals collected, PRs merged…): fainter the further it is
   const ghosts = cups.map(() => ghost.clone());
-  const show = (career: CareerState | undefined) => {
-    const list = (career?.trophies ?? []).slice(0, cups.length).map(x => ({ won: !!x.earnedAt, p: Math.round(x.progress * 10) / 10 }));
-    const f = JSON.stringify(list); if (f === signature) return; signature = f;
+  const show = (career: CareerState | undefined, progress?: LadderProgress) => {
+    const step = career?.steps.find(s => s.step.id === progress?.level)?.step, level = step ? fileText(step.name) : undefined;
+    const list = (career?.trophies ?? []).slice(0, cups.length).map(x => ({ won: !!x.earnedAt, p: Math.round(x.progress * 10) / 10, medals: x.rule.kind === 'awards' && !x.earnedAt ? Math.min(x.count, 5) : 0 }));
+    const f = JSON.stringify([list, level]); if (f === signature) return; signature = f;
     cups.forEach((m, k) => { m.visible = k < list.length; m.material = list[k]?.won ? gold : ghosts[k]; ghosts[k].opacity = 0.18 + 0.5 * (list[k]?.p ?? 0); });
+    medals.forEach((row, k) => row.forEach((d, j) => { d.visible = j < (list[k]?.medals ?? 0); }));
     earned = cups.filter((m, k) => list[k]?.won);
-    paint(list.filter(x => x.won).length, career?.trophies.length ?? 0);
+    paint(list.filter(x => x.won).length, career?.trophies.length ?? 0, level);
   };
-  const read = () => { client.action<{ career: CareerState }>('bitacora.leer', {}).then(d => show(d?.career)).catch(() => {}); };
+  const read = () => { client.action<{ career: CareerState; progress?: LadderProgress }>('bitacora.leer', {}).then(d => show(d?.career, d?.progress)).catch(() => {}); };
   // read from the frame loop, not a timer: a room rebuilt leaves nothing running behind
   let lastRead = -Infinity;
-  return { group, shown: () => ({ cups: cups.filter(m => m.visible).length, earned: earned.length }), update: (t: number) => {
+  return { group, shown: () => ({ cups: cups.filter(m => m.visible).length, earned: earned.length, medals: medals.flat().filter(d => d.visible).length, plaque: plaqueText }), update: (t: number) => {
     if (t - lastRead > 300) { lastRead = t; read(); }
     for (const [k, m] of earned.entries()) m.rotation.y = Math.sin(t * 0.4 + k) * 0.25;
   } };

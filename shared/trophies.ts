@@ -159,3 +159,53 @@ export function digestDue(last: number | undefined, now: number): boolean {
 
 /** Trophies earned and not yet announced */
 export const newlyEarned = (c: CareerState, notified: string[]) => c.trophies.filter(x => x.earnedAt !== undefined && !notified.includes(x.rule.id));
+
+// ---------------------------------------------------------------- the ladder's verification (asked by the Overseer)
+// A session checks each requirement against the work and reports with ladder_progress; the game settles it here and
+// writes only the file's "progress" key. The trophy rules are the source of truth: where a requirement has trophies,
+// its verdict is theirs (the session's is overridden); the session judges only those no trophy measures, with evidence.
+export type Verdict = 'met' | 'partial' | 'not-met';
+export const VERDICTS: Verdict[] = ['met', 'partial', 'not-met'];
+export interface RequirementProgress { verdict: Verdict; evidence: string[]; notes?: string; byRules: boolean }
+export interface LadderProgress { at: number; level?: string; summary?: string; requirements: Record<string, RequirementProgress> }
+export interface SessionReport { level?: string; summary?: string; requirements: { id: string; verdict: string; evidence?: string[]; notes?: string }[] }
+
+/** The verification as the game keeps it: the rules' verdicts, the session's for the rest, and the level reached (the
+ *  last step of an unbroken run from the first whose requirements are all met). `overridden`: where the session
+ *  disagreed with the rules; `unproven`: what it called met or partial without evidence (kept as not met) */
+export function settleProgress(ladder: Ladder, career: CareerState, report: SessionReport, now: number): { progress: LadderProgress; overridden: string[]; unproven: string[] } {
+  const said = new Map(report.requirements.map(r => [r.id.trim(), r]));
+  const trophy = new Map(career.trophies.map(x => [x.rule.id, x]));
+  const requirements: Record<string, RequirementProgress> = {}, overridden: string[] = [], unproven: string[] = [];
+  for (const st of career.steps) for (const q of st.requirements) {
+    if (requirements[q.req.id]) continue;
+    const s = said.get(q.req.id), evidence = [...new Set((s?.evidence ?? []).map(x => x.trim()).filter(Boolean))];
+    const notes = s?.notes?.trim() || undefined;
+    if (q.measured) {
+      const verdict: Verdict = q.met ? 'met' : q.progress > 0 ? 'partial' : 'not-met';
+      if (s && s.verdict !== verdict) overridden.push(q.req.id);
+      const facts = q.req.trophies.flatMap(id => trophy.get(id)?.facts ?? []).map(f => f.url ?? f.ref);
+      requirements[q.req.id] = { verdict, evidence: [...new Set([...facts, ...evidence])].slice(0, 12), ...(notes ? { notes } : {}), byRules: true };
+    } else {
+      let verdict: Verdict = VERDICTS.includes(s?.verdict as Verdict) ? s!.verdict as Verdict : 'not-met';
+      if (verdict !== 'not-met' && !evidence.length) { unproven.push(q.req.id); verdict = 'not-met'; }
+      requirements[q.req.id] = { verdict, evidence: evidence.slice(0, 12), ...(notes ? { notes } : {}), byRules: false };
+    }
+  }
+  let level: string | undefined;
+  for (const s of ladder.steps) { if (s.requirements.length && s.requirements.every(q => requirements[q.id]?.verdict === 'met')) level = s.id; else break; }
+  return { progress: { at: now, ...(level ? { level } : {}), ...(report.summary?.trim() ? { summary: report.summary.trim().slice(0, 600) } : {}), requirements }, overridden, unproven };
+}
+
+/** The "progress" key as read back from the file (a broken one is none) */
+export function progressOf(j: any): LadderProgress | undefined {
+  const p = j?.progress;
+  if (!p || typeof p !== 'object' || typeof p.at !== 'number' || !p.requirements || typeof p.requirements !== 'object') return undefined;
+  return p as LadderProgress;
+}
+/** The file's text with only its "progress" key set (every other key kept as it was, in its order; the file's indent) */
+export function withProgress(text: string, progress: LadderProgress): string {
+  const j = JSON.parse(text);
+  const indent = /^\{\r?\n(\t| +)"/.exec(text)?.[1] ?? '  ';
+  return JSON.stringify({ ...j, progress }, null, indent) + '\n';
+}

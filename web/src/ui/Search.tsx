@@ -25,6 +25,7 @@ import { enter as enterBar } from './Bar';
 import { adaptRoom } from './RoomPanels';
 import { describeWhen, describeWhenShort } from '@shared/scheduled';
 import { openPreflight } from './Preflight';
+import { verifyLadder } from './WorkLog';
 import { jiraBoard } from './tasks';
 import { worktreeTask } from '@shared/tasks';
 import { pRKey } from '@shared/deploy';
@@ -96,6 +97,7 @@ function actions(): Action[] {
     { id: 'sala-revision', text: t('reviews.goToRoom'), hint: t('world.prsAwaitingYourReview'), keys: 'revision review sala hologramas', f: () => { onShelter(); goA('review'); } },
     { id: 'logistica', text: t('world.planning'), hint: t('panels.jiraBoard'), key: 'L', keys: 'jira linear tareas issues tablero', f: () => { onShelter(); goA('logistica'); } },
     { id: 'bitacora', text: t('worklog.menu'), hint: t('world.planning'), keys: 'sync update su bitacora log diario standup hecho tareas pr worktrees', f: () => { onShelter(); goA('logistica'); openPanel('logistica', { view: 'bitacora' }); } },
+    { id: 'verificar-escalera', text: t('trophies.verify.menu'), hint: t('trophies.verify.hint'), keys: 'verificar escalera carrera nivel career ladder level verify', f: () => { onShelter(); verifyLadder().catch(() => SFX.notAllowed()); } },
     { id: 'trofeos', text: t('trophies.menu'), hint: t('world.vault'), keys: 'trofeos logros carrera escalera career ladder trophies achievements', f: () => { onShelter(); goA('camara'); openPanel('camara', { view: 'trofeos' }); } },
     ...(coordination ? [{ id: 'reparto', text: t('panels.planTasksInSala', { sala: coordination.name }), hint: t('panels.analyzeAJiraTaskWith'), keys: 'jira tareas planificar planificacion plan repartir reparto coordinacion worktrees salas', f: () => { onShelter(); goA(coordination.id); openPanel('sala', { roomId: coordination.id, view: 'reparto' }); } },
       { id: 'despliegue', text: t('world.deploymentPlan2'), hint: t('panels.yourPrsByStatusAnd', { sala: coordination.name }), keys: 'despliegue deploy desplegar pr prs pull requests bloqueos dependencias orden fusionar merge', f: () => { onShelter(); goA(coordination.id); openPanel('sala', { roomId: coordination.id, view: 'despliegue' }); } }] : []),

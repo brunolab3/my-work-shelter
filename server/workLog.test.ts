@@ -76,3 +76,23 @@ describe('Friday digest', () => {
     expect(new WorkLog(dir, EXAMPLE, () => now).digest()).toBeUndefined();   // saved: not due again after a restart
   });
 });
+
+describe('ladder verification', () => {
+  it('builds the prompt from the rules and the log, and records the settled result in the file only under "progress"', async () => {
+    const dir = mkdtempSync(path.join(os.tmpdir(), 'worklog-'));
+    const w = new WorkLog(dir, EXAMPLE, () => NOW);
+    await w.sweep(sources(), true);
+    const prompt = w.verifyPrompt();
+    expect(prompt).toMatch(/ladder_progress/);
+    expect(prompt).toMatch(/delivers: .*first-merge 1\/1 ✔/);
+    const before = JSON.parse(readFileSync(w.ladderFile, 'utf8'));
+    const r = w.recordProgress({ summary: 'ok', requirements: [{ id: 'mentoring', verdict: 'met', evidence: ['https://slack.example/t/2'] }] });
+    expect(r.ok).toBe(true);
+    const after = JSON.parse(readFileSync(w.ladderFile, 'utf8'));
+    expect({ ...after, progress: undefined }).toEqual({ ...before, progress: undefined });
+    expect(after.progress.requirements.mentoring).toMatchObject({ verdict: 'met', byRules: false });
+    expect((await w.read(sources())).progress?.summary).toBe('ok');
+    writeFileSync(w.ladderFile, '{ broken');
+    expect(w.recordProgress({ requirements: [] }).ok).toBe(false);
+  });
+});

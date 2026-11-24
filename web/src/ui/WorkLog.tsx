@@ -4,16 +4,19 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { t, locale } from '@shared/language';
 import { client } from '../net/client';
 import { SFX } from '../audio/sound';
-import { Device, Keys, useKeys } from './device';
+import { Device, Keys, closePanel, useKeys } from './device';
+import { goA } from './Panels';
 import { openLink } from './Browsers';
 import { openPreflight } from './Preflight';
 import { taskColor } from '@shared/tasks';
 import { knowTasks, useColorsTasks } from './tasks';
 import { logRows, prRollup, prStateText, rangeStart, syncText, LOG_RANGES, type Ledger, type LogRange, type LogRow } from '@shared/workLog';
-import type { CareerState } from '@shared/trophies';
+import type { CareerState, LadderProgress } from '@shared/trophies';
 
-export interface WorkLogData { ledger: Ledger; demo: boolean; ladder: { source: 'local' | 'example' | 'none'; file: string; local: string; errors: string[] }; career: CareerState }
+export interface WorkLogData { ledger: Ledger; demo: boolean; ladder: { source: 'local' | 'example' | 'none'; file: string; local: string; errors: string[] }; career: CareerState; progress?: LadderProgress }
 export const readWorkLog = () => client.action<WorkLogData>('bitacora.leer', {});
+/** The Overseer asks for the ladder's verification: a conversation with Planning's dweller, opened to follow it */
+export const verifyLadder = () => client.action<{ roomId: string; dwellerId: string }>('escalera.verificar', {}).then(r => { SFX.shortSuccess(); closePanel(); goA(r.roomId, r.dwellerId, true); });
 
 const day = (ts: number) => new Date(ts).toLocaleDateString(locale(), { day: 'numeric', month: 'short' });
 const RANGE_TEXT: Record<LogRange, string> = { week: 'worklog.range.week', twoWeeks: 'worklog.range.twoWeeks', month: 'worklog.range.month', all: 'worklog.range.all' };

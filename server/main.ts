@@ -230,6 +230,15 @@ const ctxRooms: CtxRooms = {
       ask(t('trophies.medal.ask', { req: medal.requirement, texto: medal.text, pruebas: medal.evidence.join(' · ') }), { si: t('trophies.medal.accept'), no: t('trophies.medal.dismiss') },
         async si => { workLog.decideMedal(medal.id, si); });
       return { ok: true, text: t('tool.medal.proposed', { req: medal.requirement }) };
+    },
+    progress: report => {
+      const r = workLog.recordProgress(report);
+      if (!r.ok) return { ok: false, text: r.error };
+      const level = r.progress.level ?? '—';
+      broadcast({ t: 'aviso', level: 'info', text: t('trophies.verify.done', { nivel: level }) });
+      return { ok: true, text: [t('tool.ladder.saved', { nivel: level }),
+        ...(r.overridden.length ? [t('tool.ladder.overridden', { reqs: r.overridden.join(', ') })] : []),
+        ...(r.unproven.length ? [t('tool.ladder.unproven', { reqs: r.unproven.join(', ') })] : [])].join('\n') };
     } },
   worktreeOfSession: async (roomId, sid) => {
     const s = store.state.rooms.find(x => x.id === roomId), sess = sessions.list().find(x => x.id === sid), cwd = sess && (sess.worktree ?? sess.cwd);
@@ -1166,6 +1175,13 @@ async function action(name: string, d: Record<string, any> = {}): Promise<unknow
     case 'revision.terminar': return reviewRoom.finish(String(d.key ?? ''));
     case 'bitacora.leer': return workLog.read(workLogSources);
     case 'bitacora.escalera': return workLog.ensureLadder();
+    // the Overseer asks for the ladder's verification: one conversation with the dweller of the ladder's room
+    case 'escalera.verificar': {
+      const room = workLog.digestRoom(), h = store.state.dwellers.find(x => x.roomId === room);
+      if (!h) throw new Error(t('panels.theRoomSalaHasNo', { sala: room }));
+      const id = await startWork(undefined, { t: 'empezar', dwellerId: h.id, roomId: room, prompt: workLog.verifyPrompt(), options: { permissions: 'auto' } });
+      return { id, roomId: room, dwellerId: h.id };
+    }
     case 'medalla.decidir': return workLog.decideMedal(String(d.id ?? ''), d.accept === true) ?? null;
     case 'verificacion.aprobar': { const k = taskKey(String(d.key ?? '')); return (k && verifications.approve(k)) ?? null; }
     case 'paginas.responder': return pageReviews.respond(d.path, d.state);

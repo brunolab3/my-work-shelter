@@ -19,7 +19,7 @@ import { taskColor, pRTask } from '@shared/tasks';
 import { aimColors, knowTasks, useColorsTasks, jiraBoard } from './tasks';
 import { crossBoard, columnOf, COLUMN_COLORS, COLUMNS, prText, planPrompt, type BoardColumn, type JiraTransition, type PRBoard, type TaskWithPR, type TaskJira } from '@shared/board';
 import { EpicMark } from './windows';
-import { WorkLog } from './WorkLog';
+import { WorkLog, verifyLadder } from './WorkLog';
 
 const SOURCES: Record<string, string> = Object.fromEntries(IDS_SOURCES.map(f => [f, INFO_SOURCE[f].short]));
 const LOC = language() === 'en' ? 'en-GB' : 'es-ES';
@@ -176,9 +176,11 @@ export function PanelLogistics() {
   // abierto directamente (la pantalla de la pared, ⌘K): al cerrarlo se vuelve al refugio, no al menú de la consola
   const [direct] = useState(() => direct0 === 'jira' || direct0 === 'bitacora');
   const onMenu = () => (direct ? closePanel() : setView('menu'));
+  const [notice, setNotice] = useState('');
   const items = [
     { text: t('panels.boardMyJiraTasksAnd'), f: () => setView('jira') },
     { text: t('worklog.menu'), f: () => setView('bitacora') },
+    { text: t('trophies.verify.menu'), f: () => { setNotice(''); verifyLadder().catch(e => { SFX.notAllowed(); setNotice(e.message); }); } },
     ...(withLinear ? [
       { text: t('panels.openLinearRightHere'), f: () => { closePanel(); openBrowser('linear'); } },
       { text: t('panels.linearMyIssuesByStatus'), f: () => setView('tablero') },
@@ -201,6 +203,7 @@ export function PanelLogistics() {
   return (
     <Device label={t('panels.planning')} width={56} pilot={st?.state === 'conectada' ? 'trabajando' : 'esperando'}>
       <p className="voz">{withLinear ? t('panels.theBoardsShowWhatJira') : t('panels.theBoardShowsYourJira')}</p>
+      {notice && <p className="aviso-consola">{notice}</p>}
       <ul className="opciones-consola">{items.map((it, k) => <li key={k} className={k === i ? 'activa' : ''} onMouseEnter={() => setI(k)} onClick={() => it.f()}><span className="cursor">{k === i ? '▶' : ' '}</span><span>{it.text}</span></li>)}</ul>
       <Keys><kbd>↑↓</kbd>{t('menu.select')} <kbd>Enter</kbd>{t('panels.use')} <kbd>Esc</kbd>{t('menu.close')}</Keys>
     </Device>

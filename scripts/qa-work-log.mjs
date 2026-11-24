@@ -5,6 +5,8 @@
 //   and GitHub are not both in DEMO; the example ladder parses without errors and earns «first merge» from its merged PR;
 // - Planning → Sync update: one line per task, keyless tasks last; X expands the PRs, worktrees and conversations
 //   underneath; Tab changes the range; C copies the Markdown (task line, PRs underneath);
+// - Planning's menu offers «Verify my career ladder»; a verification saved in the ladder's "progress" key shows its level
+//   and each verdict in the panel, and the level on the shelf's plaque;
 // - Vault → Trophies and career: the ladder's two steps, every trophy, first merge earned with its date; a medal the
 //   Friday digest proposed waits for the Overseer, A accepts it and it fills one medal of its trophy;
 // - a broken DATOS/escalera.json: the error line in the panel (R reads it again), never a crash;
@@ -74,7 +76,10 @@ try {
   check(first?.earnedAt === now - 2 * D, 'first merge is earned at the PR\'s merge date');
   check(r.career.trophies.find(x => x.rule.id === 'cross-repo')?.earnedAt === now - D, 'a task across repos: ABC-1 done with PRs in api and web, earned when it was done');
 
-  // ---- Planning → Sync update
+  // ---- Planning's menu offers the verification; → Sync update
+  await pg.evaluate(() => window.__game.set({ panel: 'logistica', panelData: null }));
+  check(await until(async () => /(Verificar mi escalera|Verify my career ladder)/.test(await pg.textContent('.opciones-consola').catch(() => ''))), 'Planning\'s menu: verify my career ladder');
+  await pg.evaluate(() => window.__game.set({ panel: null, panelData: null })); await pg.waitForTimeout(200);
   await pg.evaluate(() => window.__game.set({ panel: 'logistica', panelData: { view: 'bitacora' } }));
   check(await until(async () => (await pg.$$('.bitacora-fila')).length === 2), 'two lines: ABC-1 and the slug task');
   const keys = await pg.$$eval('.bitacora-clave', l => l.map(x => x.textContent));
@@ -116,6 +121,14 @@ try {
   await pg.keyboard.press('KeyR');
   r = await read();
   check(r.ladder.source === 'local' && !r.ladder.errors.length, `the Overseer's own ladder, once valid (${r.ladder.source})`);
+  check(/V/.test(await pg.textContent('.ayuda-consola')) && /(Sin verificar|Not verified)/.test(await pg.textContent('body')), 'not verified yet: V offers it');
+  // a verification as the game writes it (ladder_progress → only the file's "progress" key)
+  const ladderFile = path.join(DATA, 'escalera.json'), lj = JSON.parse(readFileSync(ladderFile, 'utf8'));
+  writeFileSync(ladderFile, JSON.stringify({ ...lj, progress: { at: now, level: 'L1', summary: 'L1 reached; L2 needs volume.', requirements: { delivers: { verdict: 'met', evidence: ['https://github.com/org/api/pull/5'], byRules: true }, mentoring: { verdict: 'partial', evidence: ['https://slack.example/t/3'], notes: 'paired with a new joiner', byRules: false } } } }, null, 2));
+  await pg.keyboard.press('KeyR');
+  check(await until(async () => /(Nivel|Level): Engineer I/.test(await pg.textContent('.verificacion').catch(() => ''))), 'the last verification: its level');
+  check((await pg.$$('.verificacion li')).length === 2 && /(juzgado por la sesión|judged by the session)/.test(await pg.textContent('.verificacion')), 'each verdict, by the rules or by the session');
+  await pg.waitForTimeout(300); await pg.screenshot({ path: path.join(dir, 'trophies-verified.png'), animations: 'disabled' });
   await pg.keyboard.press('Escape');
 
   // ---- both in DEMO: a sample log, not saved
@@ -131,6 +144,7 @@ try {
   check(await until(async () => (await shelf())?.cups === 8), 'the shelf has one cup per trophy');
   const s = await shelf();
   check(s?.earned >= 1, `earned ones in gold (${s?.earned})`);
+  check(/ENGINEER I/.test(s?.plaque ?? ''), `the plaque shows the level (${s?.plaque})`);
   await sleep(4000);
   await pg.screenshot({ path: path.join(dir, 'vault-shelf.png'), animations: 'disabled', timeout: 15000 }).catch(() => console.log('(no room screenshot: timed out)'));
 

@@ -56,8 +56,13 @@ export interface CtxRooms {
   // production verification plans (verifications.ts): verification_plan and verification_report, for the task of the
   // conversation's worktree (or the key the dweller passes)
   verifications?: { plans: Pick<Verifications, 'get' | 'propose' | 'report'>; taskOfSession(sessionId?: string): string | undefined; conversation?(sessionId?: string): PlanConversation | undefined };
-  // the Friday digest's medals (workLog.ts): award_propose, offered only in the room that runs the digest
-  medals?: { room(): string; propose(sessionId: string | undefined, m: { requirement: string; text: string; evidence: string[]; task?: string }): { ok: boolean; text: string } };
+  // the career ladder (workLog.ts): the Friday digest's medals (award_propose) and the verification the Overseer asks
+  // for (ladder_progress), offered only in the room that runs them
+  medals?: {
+    room(): string;
+    propose(sessionId: string | undefined, m: { requirement: string; text: string; evidence: string[]; task?: string }): { ok: boolean; text: string };
+    progress(r: { level?: string; summary?: string; requirements: { id: string; verdict: string; evidence?: string[]; notes?: string }[] }): { ok: boolean; text: string };
+  };
   // a conversation is busy (starting, working or waiting for the Overseer): a message then waits for its turn to end
   busy?(sessionId: string): boolean;
   // the last conversation in a folder (none still open outside the game), resumed with `prompt`: its
@@ -210,7 +215,7 @@ export function mcpRooms(ctx: CtxRooms, since: string, fromSession?: string, inW
         async ({ room, message, key, thread }) => { const r = await sendToRoom(ctx, since, { room: room, message: message, key: key, thread: thread }, fromSession); return r.ok ? text(r.text) : { ...text(r.text), isError: true }; }, { alwaysLoad: true }),
       ...(ctx.scheduled ? scheduleTools(ctx.scheduled, since, fromSession) : []),
       ...(ctx.verifications ? verificationTools(ctx.verifications, fromSession) : []),
-      ...(ctx.medals?.room() === since ? [medalTool(ctx.medals, fromSession)] : []),
+      ...(ctx.medals?.room() === since ? [medalTool(ctx.medals, fromSession), progressTool(ctx.medals)] : []),
       ...inWorktree ? [tool('request_worktree_cleanup', tr('tool.cleanup.description'), { note: z.string().optional().describe(tr('tool.cleanup.paramNote')) },
         async ({ note }) => { const r = await requestCleanup(ctx, since, fromSession, note); return r.ok ? text(r.text) : { ...text(r.text), isError: true }; }, { alwaysLoad: true })] : [],
     ],
@@ -246,6 +251,18 @@ function medalTool(m: NonNullable<CtxRooms['medals']>, fromSession?: string) {
       task: z.string().optional().describe(tr('tool.medal.paramTask')),
     },
     async a => { const r = m.propose(fromSession, a); return r.ok ? text(r.text) : { ...text(r.text), isError: true }; });
+}
+
+// the ladder's verification: the session's verdicts, which the game settles by the trophy rules and writes as the
+// ladder file's "progress" key (the session never edits the file)
+function progressTool(m: NonNullable<CtxRooms['medals']>) {
+  return tool('ladder_progress', tr('tool.ladder.description'),
+    {
+      level: z.string().optional().describe(tr('tool.ladder.paramLevel')),
+      summary: z.string().optional().describe(tr('tool.ladder.paramSummary')),
+      requirements: z.array(z.object({ id: z.string(), verdict: z.enum(['met', 'partial', 'not-met']), evidence: z.array(z.string()).optional(), notes: z.string().optional() })).describe(tr('tool.ladder.paramRequirements')),
+    },
+    async a => { const r = m.progress(a); return r.ok ? text(r.text) : { ...text(r.text), isError: true }; });
 }
 
 // production verification (verifications.ts): the plan before the merge, the evidence after the deploy

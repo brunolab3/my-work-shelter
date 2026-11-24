@@ -9,7 +9,7 @@ import { t } from '../shared/language.ts';
 import type { PRBoard, TaskJira } from '../shared/board.ts';
 import type { ReviewPR } from '../shared/reviews.ts';
 import { decideMedal, emptyLedger, ledgerOf, logRows, mergeConversations, mergePRs, mergeReviews, mergeTasks, mergeVerified, mergeWorktrees, proposeMedal, syncText, type Ledger, type Medal } from '../shared/workLog.ts';
-import { digestDue, evaluate, fileText, medalRequirements, newlyEarned, parseLadder, type CareerState } from '../shared/trophies.ts';
+import { digestDue, evaluate, fileText, medalRequirements, newlyEarned, parseLadder, progressOf, settleProgress, withProgress, type CareerState, type LadderProgress, type SessionReport } from '../shared/trophies.ts';
 
 export interface WorkLogSources {
   jira(): Promise<{ tareas: TaskJira[]; demo?: boolean } | null>;        // null: Jira off or failing
@@ -21,7 +21,7 @@ export interface WorkLogSources {
   notify(text: string): void;
 }
 export type LadderSource = 'local' | 'example' | 'none';
-export interface WorkLogRead { ledger: Ledger; demo: boolean; ladder: { source: LadderSource; file: string; local: string; errors: string[] }; career: CareerState }
+export interface WorkLogRead { ledger: Ledger; demo: boolean; ladder: { source: LadderSource; file: string; local: string; errors: string[] }; career: CareerState; progress?: LadderProgress }
 
 export class WorkLog {
   private ledger: Ledger = emptyLedger();
@@ -117,6 +117,39 @@ export class WorkLog {
       mergeReviews(ledger, src.reviews() ?? [], now);
     }
     const { source, file, ladder, errors } = this.ladder();
-    return { ledger, demo, ladder: { source, file, local: this.ladderFile, errors }, career: evaluate(ladder, ledger, now) };
+    return { ledger, demo, ladder: { source, file, local: this.ladderFile, errors }, career: evaluate(ladder, ledger, now), ...(source === 'local' ? { progress: this.progress() } : {}) };
+  }
+
+  /** The last verification, as the Overseer's file holds it */
+  progress(): LadderProgress | undefined {
+    try { return progressOf(JSON.parse(readFileSync(this.ladderFile, 'utf8'))); } catch { return undefined; }
+  }
+
+  /** The first message of a ladder verification (the Overseer asks for it): the ladder with each requirement's state by
+   *  the rules, the accepted medals, and the work since the last verification (90 days the first time) */
+  verifyPrompt(): string {
+    this.ensureLadder();
+    const now = this.now(), { ladder, errors } = this.ladder(), l = this.ledger;
+    if (!ladder.steps.length) throw new Error(errors[0] ?? t('trophies.error.empty'));
+    const career = evaluate(ladder, l, now), trophy = new Map(career.trophies.map(x => [x.rule.id, x]));
+    const steps = career.steps.map(st => [`## ${st.step.id} · ${fileText(st.step.name)}`, ...st.requirements.map(q => {
+      const rules = q.req.trophies.map(id => { const x = trophy.get(id)!; return `${id} ${x.count}/${x.rule.n}${x.earnedAt ? ' ✔' : ''}${x.facts.length ? ' (' + x.facts.slice(-5).map(f => f.url ?? f.ref).join(', ') + ')' : ''}`; });
+      return `- ${q.req.id}: ${fileText(q.req.text)} — ${q.measured ? t('prompt.ladderVerify.byRules', { estado: q.met ? 'met' : q.progress > 0 ? 'partial' : 'not-met', reglas: rules.join('; ') }) : t('prompt.ladderVerify.yours')}${q.req.evidence ? ' — ' + fileText(q.req.evidence) : ''}`;
+    })].join('\n')).join('\n\n');
+    const since = this.progress()?.at ?? now - 90 * 864e5;
+    const medals = Object.values(l.medals).filter(m => m.state === 'accepted').map(m => `- ${m.requirement}: ${m.text} (${m.evidence.join(', ')})`).join('\n');
+    const conversations = Object.values(l.conversations).filter(c => c.last >= since).sort((a, b) => b.last - a.last).slice(0, 80)
+      .map(c => `- ${c.task} · ${c.roomId} · «${c.title}» · claudeId ${c.claudeId} · ${c.cwd}`).join('\n');
+    return t('prompt.ladderVerify', { escalera: steps, medallas: medals || '—', log: syncText(logRows(l, since)) || '—', conversaciones: conversations || '—', archivo: this.ladderFile });
+  }
+
+  /** The session's report (ladder_progress), settled by the rules and written as the file's "progress" key only */
+  recordProgress(report: SessionReport): { ok: true; progress: LadderProgress; overridden: string[]; unproven: string[] } | { ok: false; error: string } {
+    let text: string;
+    try { text = readFileSync(this.ladderFile, 'utf8'); JSON.parse(text); } catch (e) { return { ok: false, error: t('trophies.error.json', { error: String((e as Error).message).slice(0, 120) }) }; }
+    const { ladder } = parseLadder(text);
+    const r = settleProgress(ladder, evaluate(ladder, this.ledger, this.now()), report, this.now());
+    const tmp = this.ladderFile + '.tmp'; writeFileSync(tmp, withProgress(text, r.progress)); renameSync(tmp, this.ladderFile);
+    return { ok: true, ...r };
   }
 }
