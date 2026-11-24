@@ -134,7 +134,7 @@ export function useDictation({ area, text, setText, onSend }: { area: React.RefO
     r.current = x;
     setState('escuchando'); SFX.toggle();
     x.remove = client.listen(m => {
-      if (m.t !== 'voz' || m.id !== x.id || r.current !== x) return;
+      if (m.t !== 'voice' || m.id !== x.id || r.current !== x) return;
       if (m.state === 'parcial') { x.said = m.text ?? ''; fns.current.setText(union(x.before, x.said, x.after)); }
       else if (m.state === 'final') finish(m.text ?? x.said);
       else if (m.state === 'error') { setNotice(m.text || t('windows.dictationFailed')); SFX.error(); finish(x.said || null); }
@@ -151,7 +151,7 @@ export function useDictation({ area, text, setText, onSend }: { area: React.RefO
       SFX.error(); finish(null); return;
     }
     if (r.current !== x) { flow.getTracks().forEach(t => t.stop()); return; }
-    client.send({ t: 'vozEmpezar', id: x.id, language: dictationLanguage() });
+    client.send({ t: 'voiceStart', id: x.id, language: dictationLanguage() });
     // a 16 kHz (el contexto remuestrea el micrófono), en trozos de ~0,25 s de PCM de 16 bits
     const ctx = new AudioContext({ sampleRate: 16000 });
     const source = ctx.createMediaStreamSource(flow);
@@ -162,7 +162,7 @@ export function useDictation({ area, text, setText, onSend }: { area: React.RefO
       const all = new Int16Array(n); let o = 0; for (const p of pend) { all.set(p, o); o += p.length; }
       pend = []; n = 0;
       const b = new Uint8Array(all.buffer); let s = ''; for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode(...b.subarray(i, i + 0x8000));
-      client.send({ t: 'vozAudio', id: x.id, data: btoa(s) });
+      client.send({ t: 'voiceAudio', id: x.id, data: btoa(s) });
     };
     proc.onaudioprocess = ev => {
       const f = ev.inputBuffer.getChannelData(0);
@@ -185,14 +185,14 @@ export function useDictation({ area, text, setText, onSend }: { area: React.RefO
     x.send = x.send || send;
     if (!x.stop) { if (!x.submit) x.endOnOpen = true; return; }   // aún abriendo el micrófono, o ya transcribiendo
     x.submit?.(); x.stop();
-    client.send({ t: 'vozFin', id: x.id });
+    client.send({ t: 'voiceEnd', id: x.id });
     setState('transcribiendo'); setLevel(0); SFX.click();
     x.deadline = window.setTimeout(() => { if (r.current === x) finish(x.said); }, 15_000);
   };
-  const cancel = () => { const x = r.current; if (!x) return; client.send({ t: 'vozCancelar', id: x.id }); finish(null); SFX.close(); };
+  const cancel = () => { const x = r.current; if (!x) return; client.send({ t: 'voiceCancel', id: x.id }); finish(null); SFX.close(); };
   const toggle = () => (r.current ? (state === 'escuchando' ? finishDictation() : undefined) : start());
   // al irse (minimizar, cambiar de pestaña) no queda nada escuchando
-  useEffect(() => () => { const x = r.current; if (x) { client.send({ t: 'vozCancelar', id: x.id }); x.stop?.(); x.remove?.(); r.current = null; } }, []);
+  useEffect(() => () => { const x = r.current; if (x) { client.send({ t: 'voiceCancel', id: x.id }); x.stop?.(); x.remove?.(); r.current = null; } }, []);
 
   // teclas, desde la caja de texto: ⌘D empieza (y termina); mientras se dicta, Espacio termina, Enter termina y envía y
   // Esc descarta

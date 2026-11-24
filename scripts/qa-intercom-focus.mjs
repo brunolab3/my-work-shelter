@@ -23,7 +23,7 @@ await pg.evaluate(async () => { await window.__ready(); window.__game.set({ pane
 const [h, other] = await pg.evaluate(() => { const hs = window.__game.get().dwellers.filter(h => h.path && !h.robot); return [hs.find(h => h.room !== 'puente') ?? hs[0], hs.find(x => x.room !== (hs.find(h => h.room !== 'puente') ?? hs[0]).room)]; });
 console.log('Dweller:', h.name, '·', h.nameRoom, '| other:', other?.name ?? '—');
 // a conversation started from outside the intercom, as the server does for room and scheduled messages
-const startOutside = d => pg.evaluate(d => window.__client.ask({ t: 'empezar', dwellerId: d.id, roomId: d.room, prompt: 'Reply only with: ok.', options: { model: 'haiku' } }), d);
+const startOutside = d => pg.evaluate(d => window.__client.ask({ t: 'start', dwellerId: d.id, roomId: d.room, prompt: 'Reply only with: ok.', options: { model: 'haiku' } }), d);
 const state = () => pg.evaluate(() => {
   const talking = window.__game.get().talkingWith, w = window.__intercoms.get().list.find(v => v.dwellerId === talking);
   const a = document.activeElement;
@@ -74,7 +74,7 @@ await pg.keyboard.press('Meta+1'); await wait(400);
 check((await state()).field?.startsWith('Half a sentence'), '⌘1 comes back to the text');
 
 // cleanup
-for (const id of [first, second, third].filter(Boolean)) await pg.evaluate(id => window.__client.send({ t: 'cerrarSesion', sessionId: id }), id);
+for (const id of [first, second, third].filter(Boolean)) await pg.evaluate(id => window.__client.send({ t: 'closeSession', sessionId: id }), id);
 await pg.keyboard.press('Meta+Shift+w'); await wait(300); await pg.keyboard.press('Enter'); await wait(500);
 check(!errors.length, 'no page errors' + (errors.length ? ': ' + errors.join(' · ') : ''));
 await b.close();

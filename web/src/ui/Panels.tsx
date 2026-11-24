@@ -471,7 +471,7 @@ function Exit() {
     { text: t('menu.stay'), f: goBack },
     { text: t('menu.goToTheSurface'), hint: t(hasAny ? 'menu.everythingOpenToYourDesktop' : 'menu.nothingOpenToTakeOut'), powerOff: !hasAny, f: () => { if (!hasAny) { SFX.notAllowed(); return; } closePanel(); takeASurface({ all: true }); } },
     { text: t('menu.everythingToYourPhone'), hint: t(liveCount ? 'menu.openConversationsWithRemoteControl' : 'menu.noOpenConversations'), powerOff: !liveCount, f: () => { if (!liveCount) { SFX.notAllowed(); return; } closePanel(); takeASurface({ all: true, remote: true, windowNew: true }); } },
-    { text: liveCount ? (liveCount === 1 ? t('menu.leaveAndStopTheLive') : t('menu.leaveAndStopTheN', { n: liveCount })) : t('menu.leaveTheShelter'), danger: true, f: () => { SFX.powerOff(); client.send({ t: 'salir' }); openPanel('despedida'); } },
+    { text: liveCount ? (liveCount === 1 ? t('menu.leaveAndStopTheLive') : t('menu.leaveAndStopTheN', { n: liveCount })) : t('menu.leaveTheShelter'), danger: true, f: () => { SFX.powerOff(); client.send({ t: 'quit' }); openPanel('despedida'); } },
   ];
   const pick = (k: number) => items[k].f();
   const [i, setI] = useMenu(items.length, pick, undefined, goBack);

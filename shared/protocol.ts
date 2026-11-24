@@ -132,62 +132,66 @@ export interface Visitor { claudeId: string; roomId: string; cwd: string; title:
 // ---------------------------------------------------------------- mensajes
 export interface WorkOptions { model?: string; effort?: string; permissions?: string; worktree?: boolean | string; resume?: string; cwd?: string; handoffFrom?: string }
 
+/** The handshake and the reload of the client from before the English message names: a tab still running it after
+ *  «Restart the game» greets with `hola` and is told to reload, in the words it understands */
+export const LEGACY_WIRE = { hello: 'hola', reload: 'recargar' } as const;
+
 export type ClientMessage =
-  | { t: 'hola'; version: string }
-  | { t: 'empezar'; dwellerId: string; roomId: string; prompt: string; options: WorkOptions; attachments?: string[]; request?: string }
-  | { t: 'enviar'; sessionId: string; text: string; attachments?: string[] }   // adjuntos: rutas que ha devuelto la acción «subir»
-  | { t: 'retirar'; sessionId: string; messageId: string; request: string }   // take back a queued message of the Overseer's (data: whether it was)
-  | { t: 'enviarYa'; sessionId: string; messageId: string; request: string }   // interrupt the turn and send a queued message of the Overseer's now (data: whether it was)
-  | { t: 'responder'; sessionId: string; requestId: string; decision: 'si' | 'siempre' | 'no'; message?: string; responses?: Record<string, string> }
-  | { t: 'interrumpir'; sessionId: string }
-  | { t: 'cerrarSesion'; sessionId: string }
-  | { t: 'leida'; sessionId: string }
-  | { t: 'enUso'; sessions: string[] }   // las que el Supervisor está viendo o tienen algo suyo escrito: no se cierran solas
-  | { t: 'lateral'; sessionId: string; question: string }
-  | { t: 'modoPermisos'; sessionId: string; mode: string }
-  | { t: 'historial'; roomId: string; cwd?: string; request: string }   // cwd: un worktree de la sala (el archivo de una copia holográfica)
-  | { t: 'cargarConversacion'; roomId: string; claudeId: string; limit?: number; request: string }   // limit: only the last ones
-  | { t: 'cuaderno'; sessionId: string; request: string }
-  | { t: 'cuadernoPagina'; sessionId: string; limit: number; before?: { id: string; ts: number }; request: string }   // a page of the log (shared/logPages.ts): LogPage
-  | { t: 'comandos'; sessionId?: string; roomId?: string; request: string }
-  | { t: 'terminalAbrir'; id: string; cwd: string; cols: number; rows: number }
-  | { t: 'terminalEntrada'; id: string; data: string }
-  | { t: 'terminalTamano'; id: string; cols: number; rows: number }
-  | { t: 'terminalCerrar'; id: string }
-  | { t: 'estadoGuardar'; patch: Record<string, unknown> }
-  | { t: 'salir' }
+  | { t: 'hello'; version: string }
+  | { t: 'start'; dwellerId: string; roomId: string; prompt: string; options: WorkOptions; attachments?: string[]; request?: string }
+  | { t: 'send'; sessionId: string; text: string; attachments?: string[] }   // adjuntos: rutas que ha devuelto la acción «subir»
+  | { t: 'withdraw'; sessionId: string; messageId: string; request: string }   // take back a queued message of the Overseer's (data: whether it was)
+  | { t: 'sendNow'; sessionId: string; messageId: string; request: string }   // interrupt the turn and send a queued message of the Overseer's now (data: whether it was)
+  | { t: 'answer'; sessionId: string; requestId: string; decision: 'si' | 'siempre' | 'no'; message?: string; responses?: Record<string, string> }
+  | { t: 'interrupt'; sessionId: string }
+  | { t: 'closeSession'; sessionId: string }
+  | { t: 'read'; sessionId: string }
+  | { t: 'inUse'; sessions: string[] }   // las que el Supervisor está viendo o tienen algo suyo escrito: no se cierran solas
+  | { t: 'sideQuestion'; sessionId: string; question: string }
+  | { t: 'permissionMode'; sessionId: string; mode: string }
+  | { t: 'history'; roomId: string; cwd?: string; request: string }   // cwd: un worktree de la sala (el archivo de una copia holográfica)
+  | { t: 'loadConversation'; roomId: string; claudeId: string; limit?: number; request: string }   // limit: only the last ones
+  | { t: 'log'; sessionId: string; request: string }
+  | { t: 'logPage'; sessionId: string; limit: number; before?: { id: string; ts: number }; request: string }   // a page of the log (shared/logPages.ts): LogPage
+  | { t: 'commands'; sessionId?: string; roomId?: string; request: string }
+  | { t: 'terminalOpen'; id: string; cwd: string; cols: number; rows: number }
+  | { t: 'terminalInput'; id: string; data: string }
+  | { t: 'terminalResize'; id: string; cols: number; rows: number }
+  | { t: 'terminalClose'; id: string }
+  | { t: 'saveState'; patch: Record<string, unknown> }
+  | { t: 'quit' }
   // dictado (server/voice.ts): audio PCM de 16 bits, 16 kHz, mono, en base64, por trozos; vozFin, transcribir lo que queda
-  | { t: 'vozEmpezar'; id: string; language?: string }
-  | { t: 'vozAudio'; id: string; data: string }
-  | { t: 'vozFin'; id: string }
-  | { t: 'vozCancelar'; id: string }
-  | { t: 'accion'; name: string; data?: Record<string, unknown>; request?: string };
+  | { t: 'voiceStart'; id: string; language?: string }
+  | { t: 'voiceAudio'; id: string; data: string }
+  | { t: 'voiceEnd'; id: string }
+  | { t: 'voiceCancel'; id: string }
+  | { t: 'action'; name: string; data?: Record<string, unknown>; request?: string };
 
 export type ServerMessage =
-  | { t: 'bienvenida'; versionClaude?: string; claudeOk: boolean; state: Record<string, unknown>; sessions: SessionSummary[]; repos: Record<string, InfoRepo>; demo: boolean }
-  | { t: 'sesion'; session: SessionSummary }
-  | { t: 'sesionFuera'; sessionId: string }
-  | { t: 'entradas'; sessionId: string; entries: LogInput[] }
-  | { t: 'texto'; sessionId: string; delta: string }   // narración en streaming
-  | { t: 'respuesta'; request: string; data?: unknown; error?: string }
+  | { t: 'welcome'; versionClaude?: string; claudeOk: boolean; state: Record<string, unknown>; sessions: SessionSummary[]; repos: Record<string, InfoRepo>; demo: boolean }
+  | { t: 'session'; session: SessionSummary }
+  | { t: 'sessionRemoved'; sessionId: string }
+  | { t: 'entries'; sessionId: string; entries: LogInput[] }
+  | { t: 'text'; sessionId: string; delta: string }   // narración en streaming
+  | { t: 'response'; request: string; data?: unknown; error?: string }
   | { t: 'repos'; repos: Record<string, InfoRepo> }
-  | { t: 'visitantes'; visitors: Visitor[] }
-  | { t: 'terminalDatos'; id: string; data: string; repaint?: boolean }
-  | { t: 'terminalEstado'; id: string; inPrompt: boolean; program?: string; live: boolean; outside?: number }   // fuera: terminales de tu escritorio enganchadas a esta
-  | { t: 'notificaciones'; list: unknown[] }
-  | { t: 'eventos'; list: unknown[] }
-  | { t: 'integracion'; id: string; state: unknown }
-  | { t: 'estado'; state: Record<string, unknown> }
-  | { t: 'aviso'; level: 'info' | 'aviso' | 'error'; text: string; question?: NoticeQuestion }   // con pregunta, se queda hasta contestarla
-  | { t: 'voz'; id: string; state: 'descargando' | 'listo' | 'parcial' | 'final' | 'error'; text?: string }   // lo transcrito de un dictado
-  | { t: 'mensajero'; since: string; a: string[]; reason: 'reparto' | 'cambio' | 'propuesta' | 'revision' | 'ci'; worktree?: string }   // el robot que lleva el plan de sala en sala (o una revisión o un fallo de CI de un PR desde Control de Versiones, en mano al holograma de su worktree)
-  | { t: 'entrega'; room: string; worktree?: string; sessionId?: string }   // un mensaje dentro de la misma sala: el habitante se lo da en mano al holograma de la tarea (messenger.ts)
-  | { t: 'revisiones'; board: ReviewBoard }   // the Review room's PRs (server/reviewRoom.ts)
-  | { t: 'verificaciones'; states: Record<string, VerificationSummary> }   // each task's production verification (shared/verification.ts)
-  | { t: 'limites'; limits: PlanLimits }   // the Claude plan's usage windows (server/planLimits.ts)
-  | { t: 'programados'; list: ScheduledMessage[] }   // los mensajes programados pendientes (shared/scheduled.ts)
-  | { t: 'recargar' }
-  | { t: 'reiniciando' };
+  | { t: 'visitors'; visitors: Visitor[] }
+  | { t: 'terminalData'; id: string; data: string; repaint?: boolean }
+  | { t: 'terminalState'; id: string; inPrompt: boolean; program?: string; live: boolean; outside?: number }   // fuera: terminales de tu escritorio enganchadas a esta
+  | { t: 'notifications'; list: unknown[] }
+  | { t: 'events'; list: unknown[] }
+  | { t: 'integration'; id: string; state: unknown }
+  | { t: 'state'; state: Record<string, unknown> }
+  | { t: 'notice'; level: 'info' | 'aviso' | 'error'; text: string; question?: NoticeQuestion }   // con pregunta, se queda hasta contestarla
+  | { t: 'voice'; id: string; state: 'descargando' | 'listo' | 'parcial' | 'final' | 'error'; text?: string }   // lo transcrito de un dictado
+  | { t: 'messenger'; since: string; a: string[]; reason: 'reparto' | 'cambio' | 'propuesta' | 'revision' | 'ci'; worktree?: string }   // el robot que lleva el plan de sala en sala (o una revisión o un fallo de CI de un PR desde Control de Versiones, en mano al holograma de su worktree)
+  | { t: 'delivery'; room: string; worktree?: string; sessionId?: string }   // un mensaje dentro de la misma sala: el habitante se lo da en mano al holograma de la tarea (messenger.ts)
+  | { t: 'reviews'; board: ReviewBoard }   // the Review room's PRs (server/reviewRoom.ts)
+  | { t: 'verifications'; states: Record<string, VerificationSummary> }   // each task's production verification (shared/verification.ts)
+  | { t: 'limits'; limits: PlanLimits }   // the Claude plan's usage windows (server/planLimits.ts)
+  | { t: 'scheduled'; list: ScheduledMessage[] }   // los mensajes programados pendientes (shared/scheduled.ts)
+  | { t: 'reload' }
+  | { t: 'restarting' };
 
 import type { VerificationSummary } from './verification.ts';
 import type { ScheduledMessage } from './scheduled.ts';

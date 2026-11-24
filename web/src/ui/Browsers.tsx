@@ -103,7 +103,7 @@ export function answerPage(session: string, path: string, state: PageAnswer['sta
 }
 /** Validar una página sin notas: se le dice a la conversación que siga */
 export function validatePage(session: string, path: string) {
-  if (live.get().sessions[session]) client.send({ t: 'enviar', sessionId: session, text: t('windows.pageValidated', { ruta: path }) });
+  if (live.get().sessions[session]) client.send({ t: 'send', sessionId: session, text: t('windows.pageValidated', { ruta: path }) });
   answerPage(session, path, 'validada'); SFX.shortSuccess();
 }
 /** Una página en el Finder, seleccionada (para compartirla desde allí) */
@@ -347,7 +347,7 @@ function BrowserWindow({ v }: { v: WindowNav }) {
   };
   const sendPageNotes = () => {
     if (!session || !v.path || !notes.length) return;
-    client.send({ t: 'enviar', sessionId: session, text: notesMessage(v.path, notes) });
+    client.send({ t: 'send', sessionId: session, text: notesMessage(v.path, notes) });
     answerPage(session, v.path, 'notas');
     clearNotes(); SFX.shortSuccess();
   };
@@ -432,7 +432,7 @@ function BrowserWindow({ v }: { v: WindowNav }) {
 function sendNotes(v: WindowNav) {
   if (!v.session) return;
   const url = v.url.startsWith('/') ? new URL(v.url, location.href).href : v.url;
-  client.send({ t: 'enviar', sessionId: v.session, text: t('windows.iLeftNotesOnThe', { url }) });
+  client.send({ t: 'send', sessionId: v.session, text: t('windows.iLeftNotesOnThe', { url }) });
   SFX.click();
 }
 

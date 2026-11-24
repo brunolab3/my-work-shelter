@@ -68,10 +68,10 @@ function askOnServer(name: string, data: Record<string, unknown>) {
   return new Promise<any>((ok, ko) => {
     const ws = new WebSocket(`ws://127.0.0.1:${PORT}/ws?t=${encodeURIComponent(token)}`, { origin: origin });
     const timer = setTimeout(() => { ws.terminate(); ko(new Error(t('server.theShelterIsNotResponding'))); }, 60_000);
-    ws.on('open', () => ws.send(JSON.stringify({ t: 'accion', name, data, request: 'superficie' })));
+    ws.on('open', () => ws.send(JSON.stringify({ t: 'action', name, data, request: 'superficie' })));
     ws.on('message', raw => {
       let m: any; try { m = JSON.parse(String(raw)); } catch { return; }
-      if (m.t !== 'respuesta' || m.request !== 'superficie') return;
+      if (m.t !== 'response' || m.request !== 'superficie') return;
       clearTimeout(timer); ws.close();
       if (m.error) ko(new Error(m.error)); else ok(m.data);
     });

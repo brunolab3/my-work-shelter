@@ -19,7 +19,7 @@ export class Integrations {
   // Avisos de los conectores reales: difundir su estado, sondear ya (Discord en tiempo real) o pasar a real (OAuth hecho)
   private onNotify(id: Adapter['id'], notice: Notice) {
     const a = this.adapters.find(x => x.id === id); if (!a) return;
-    if (notice === 'estado') this.broadcast({ t: 'integracion', id, state: a.state() });
+    if (notice === 'estado') this.broadcast({ t: 'integration', id, state: a.state() });
     else if (notice === 'sondear') this.pollOne(a);
     else if (notice === 'activar') this.changeMode(a, 'real').catch(() => {});
   }
@@ -27,9 +27,9 @@ export class Integrations {
   states(): Record<string, SourceState> { return Object.fromEntries(this.adapters.map(a => [a.id, a.state()])); }
 
   greet(ws: WebSocket, send: (ws: WebSocket, m: ServerMessage) => void) {
-    send(ws, { t: 'notificaciones', list: this.notifications });
-    send(ws, { t: 'eventos', list: this.events });
-    for (const [id, state] of Object.entries(this.states())) send(ws, { t: 'integracion', id, state });
+    send(ws, { t: 'notifications', list: this.notifications });
+    send(ws, { t: 'events', list: this.events });
+    for (const [id, state] of Object.entries(this.states())) send(ws, { t: 'integration', id, state });
   }
 
   private async pollOne(a: Adapter) {
@@ -37,9 +37,9 @@ export class Integrations {
       const r = await a.poll();
       if (r.complete || r.notifications?.length) this.receive(a.id, r.notifications ?? [], !!r.complete);
       if (r.read?.length) this.read(a.id, r.read);
-      if (r.events) { this.events = [...this.events.filter(e => e.source !== a.id), ...r.events].sort((x, y) => x.start - y.start); this.broadcast({ t: 'eventos', list: this.events }); }
+      if (r.events) { this.events = [...this.events.filter(e => e.source !== a.id), ...r.events].sort((x, y) => x.start - y.start); this.broadcast({ t: 'events', list: this.events }); }
     } catch (e) { a.error = (e as Error).message; }
-    this.broadcast({ t: 'integracion', id: a.id, state: a.state() });
+    this.broadcast({ t: 'integration', id: a.id, state: a.state() });
   }
 
   start() {
@@ -54,7 +54,7 @@ export class Integrations {
     this.store.change(e => { e.integrations[a.id] = { ...(e.integrations[a.id] ?? {}), mode }; });
     a.restart();
     this.messages = this.messages.filter(n => n.source !== a.id); this.events = this.events.filter(n => n.source !== a.id);
-    this.publish(); this.broadcast({ t: 'eventos', list: this.events });
+    this.publish(); this.broadcast({ t: 'events', list: this.events });
     await this.pollOne(a);
     return a.state();
   }
@@ -82,7 +82,7 @@ export class Integrations {
     const list = groupNotices(this.messages), json = JSON.stringify(list);
     if (json === this.lastBroadcast) return;
     this.lastBroadcast = json; this.notifications = list;
-    this.broadcast({ t: 'notificaciones', list });
+    this.broadcast({ t: 'notifications', list });
   }
 
   async action(name: string, d: Record<string, any>) {
@@ -97,7 +97,7 @@ export class Integrations {
       case 'states': return this.states();
       case 'test': if (!a) throw new Error(t('integrations.unknownSource')); return a.attempt(d.fields ?? {});
       // Guardar: datos públicos al estado y secretos al llavero; si la prueba pasa, la fuente pasa a real (d.activar=false lo evita)
-      case 'save': if (!a) throw new Error(t('integrations.unknownSource')); { const r = await a.configure(d.fields ?? {}); if (r.ok && d.activate !== false) await this.changeMode(a, 'real'); else this.broadcast({ t: 'integracion', id: a.id, state: a.state() }); return r; }
+      case 'save': if (!a) throw new Error(t('integrations.unknownSource')); { const r = await a.configure(d.fields ?? {}); if (r.ok && d.activate !== false) await this.changeMode(a, 'real'); else this.broadcast({ t: 'integration', id: a.id, state: a.state() }); return r; }
       case 'mode': {
         if (!a) throw new Error(t('integrations.unknownSource'));
         const mode = d.mode === 'real' ? 'real' : d.mode === 'off' ? 'off' : 'demo';

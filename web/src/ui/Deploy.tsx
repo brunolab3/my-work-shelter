@@ -99,7 +99,7 @@ export function DeploymentBoard({ roomId, goBack }: { roomId: string; goBack: ()
   const askPlan = () => {
     if (!dweller) { setNotice(t('panels.salaHasNoDweller', { sala: room?.name ?? t('panels.theRoom') })); SFX.notAllowed(); return; }
     if (!prs.some(p => p.state === 'abierto' || p.state === 'borrador')) { setNotice(t('panels.youHaveNoPullRequests')); SFX.notAllowed(); return; }
-    client.send({ t: 'empezar', dwellerId: dweller.id, roomId, prompt: promptDeployment(prs, blockers), options: { permissions: 'plan' } });
+    client.send({ t: 'start', dwellerId: dweller.id, roomId, prompt: promptDeployment(prs, blockers), options: { permissions: 'plan' } });
     SFX.shortSuccess(); closePanel(); goA(roomId, dweller.id, true);
   };
 

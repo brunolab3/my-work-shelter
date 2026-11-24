@@ -348,7 +348,7 @@ function Log() {
 function Transcript({ sessionId, goBack }: { sessionId: string; goBack: () => void }) {
   const [ents, setEntries] = useState<LogInput[] | null>(null);
   const box = useRef<HTMLDivElement>(null);
-  useEffect(() => { client.ask<LogInput[]>({ t: 'cuaderno', sessionId }).then(setEntries).catch(() => setEntries([])); }, [sessionId]);
+  useEffect(() => { client.ask<LogInput[]>({ t: 'log', sessionId }).then(setEntries).catch(() => setEntries([])); }, [sessionId]);
   useEffect(() => { if (box.current) box.current.scrollTop = box.current.scrollHeight; }, [ents]);
   useKeys(e => {
     if (e.code === 'Escape' || e.code === 'KeyR') goBack();

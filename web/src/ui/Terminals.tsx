@@ -36,7 +36,7 @@ interface WindowTerm {
 export const terminals = new Store<{ list: WindowTerm[] }>({ list: [] });
 
 const xterms = new Map<string, { t: Terminal; fit: FitAddon }>();
-const input = (id: string, data: string) => client.send({ t: 'terminalEntrada', id, data });
+const input = (id: string, data: string) => client.send({ t: 'terminalInput', id, data });
 const windowOf = (tabId: string) => tabId.replace(/::\d+$/, '');
 const number = (tabId: string) => Number(/::(\d+)$/.exec(tabId)?.[1] ?? 1);
 const folderName = (cwd: string) => cwd.split('/').filter(Boolean).pop() ?? cwd;
@@ -113,7 +113,7 @@ export function askClose(id: string, ids?: string[]) {
   if (v.tabs.some(p => which.includes(p.id) && !p.inPrompt)) { onFront(id); update(id, { confirm: which }); SFX.lowNotice(); return; }
   closeAlready(which);
 }
-function closeAlready(ids: string[]) { for (const pid of ids) { client.send({ t: 'terminalCerrar', id: pid }); removeTab(pid); } SFX.close(); }
+function closeAlready(ids: string[]) { for (const pid of ids) { client.send({ t: 'terminalClose', id: pid }); removeTab(pid); } SFX.close(); }
 function cancelClosing(id: string) { update(id, { confirm: undefined }); focus(id); }
 function removeTab(pid: string) {
   xterms.get(pid)?.t.dispose(); xterms.delete(pid); kitty.delete(pid); repaint.delete(pid); pending.delete(pid);
@@ -180,7 +180,7 @@ function recover(pid: string) {
 
 // mensajes del servidor: datos (también de terminales que sobreviven a una recarga) y estado
 client.listen(m => {
-  if (m.t === 'terminalDatos') {
+  if (m.t === 'terminalData') {
     if (!win(windowOf(m.id))?.tabs.some(p => p.id === m.id)) {
       recover(m.id);
       pending.set(m.id, m.repaint ? m.data : (pending.get(m.id) ?? '') + m.data);
@@ -190,7 +190,7 @@ client.listen(m => {
       if (x) { if (m.repaint) repaint.get(m.id)?.(m.data); else x.t.write(m.data); }
       else pending.set(m.id, m.repaint ? m.data : (pending.get(m.id) ?? '') + m.data);
     }
-  } else if (m.t === 'terminalEstado') {
+  } else if (m.t === 'terminalState') {
     // el shell ha terminado (exit, o se cerró desde otra pestaña): la pestaña se va, y la ventana con la última
     if (!m.live) { if (removeTab(m.id)) SFX.close(); return; }
     const vid = windowOf(m.id);
@@ -314,11 +314,11 @@ function TabTerminal({ id, cwd, visible }: { id: string; cwd: string; visible: b
       if (!box.current?.offsetParent) return;
       try { fit.fit(); } catch { return; }
       const k = `${t.cols}x${t.rows}`; if (k === last) return; last = k;
-      client.send({ t: 'terminalTamano', id, cols: t.cols, rows: t.rows });
+      client.send({ t: 'terminalResize', id, cols: t.cols, rows: t.rows });
     };
     requestAnimationFrame(() => {
       if (box.current?.offsetParent) { try { fit.fit(); } catch {} last = `${t.cols}x${t.rows}`; }
-      client.send({ t: 'terminalAbrir', id, cwd, cols: t.cols, rows: t.rows });
+      client.send({ t: 'terminalOpen', id, cwd, cols: t.cols, rows: t.rows });
     });
     const ro = new ResizeObserver(() => adjust.current()); ro.observe(box.current!);
     return () => { ro.disconnect(); };

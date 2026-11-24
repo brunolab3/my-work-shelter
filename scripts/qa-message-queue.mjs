@@ -24,7 +24,7 @@ await pg.evaluate(async () => { await window.__ready(); window.__game.set({ pane
 const h = await pg.evaluate(id => window.__game.get().dwellers.find(h => h.id === id), dwellerId);
 console.log('Dweller:', h.name, '·', h.nameRoom);
 // a run before may have left its conversation open: the intercom would open on it instead of the menu
-await pg.evaluate(id => { for (const s of Object.values(window.__live.get().sessions)) if (s.dwellerId === id && s.state !== 'cerrada') window.__client.send({ t: 'cerrarSesion', sessionId: s.id }); }, dwellerId);
+await pg.evaluate(id => { for (const s of Object.values(window.__live.get().sessions)) if (s.dwellerId === id && s.state !== 'cerrada') window.__client.send({ t: 'closeSession', sessionId: s.id }); }, dwellerId);
 await wait(1500);
 await pg.evaluate(h => window.dispatchEvent(new CustomEvent('refugio:ir', { detail: { roomId: h.room, dwellerId: h.id, talk: true } })), h);
 await pg.waitForSelector('.consola .opciones-consola');
@@ -41,7 +41,7 @@ const session = () => pg.evaluate(id => window.__live.get().sessions[id], sessio
 // a folder with its own Claude Code config asks for trust first: without it (only your user settings)
 await until(async () => (await session())?.pending?.type === 'confianza' || (await session())?.activity, 20000);
 const trust = (await session())?.pending;
-if (trust?.type === 'confianza') await pg.evaluate(([sessionId, requestId]) => window.__client.send({ t: 'responder', sessionId, requestId, decision: 'no' }), [sessionId, trust.id]);
+if (trust?.type === 'confianza') await pg.evaluate(([sessionId, requestId]) => window.__client.send({ t: 'answer', sessionId, requestId, decision: 'no' }), [sessionId, trust.id]);
 check(await until(async () => (await session())?.activity?.mode === 'terminal', 60000), 'it is running its first command');
 if ((await session())?.pending) { console.log('It waits for you:', (await session()).pending.title, '— answer it (or pick a dweller whose folder needs no permission) and run again'); process.exit(1); }
 

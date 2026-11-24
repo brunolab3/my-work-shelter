@@ -36,13 +36,13 @@ describe('a conversation log held by pages', () => {
 
   it('a closed conversation leaves the client: entries, older mark and streaming text', () => {
     live.set({ entries: { s1: disk.slice(-5) }, older: { s1: true }, partial: { s1: 'typing' } });
-    receive({ t: 'sesionFuera', sessionId: 's1' });
+    receive({ t: 'sessionRemoved', sessionId: 's1' });
     expect([live.get().entries.s1, live.get().older.s1, live.get().partial.s1]).toEqual([undefined, undefined, undefined]);
   });
 
   it('live entries beyond what is held cut the oldest and mark them as loadable', () => {
     live.set({ entries: { s1: [] }, older: {} });
-    receive({ t: 'entradas', sessionId: 's1', entries: Array.from({ length: 1600 }, (_, i) => entry(i)) });
+    receive({ t: 'entries', sessionId: 's1', entries: Array.from({ length: 1600 }, (_, i) => entry(i)) });
     expect([live.get().entries.s1.length, live.get().older.s1]).toEqual([1500, true]);
   });
 });

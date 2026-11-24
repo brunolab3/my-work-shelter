@@ -187,7 +187,7 @@ function onText(sessionId: string, delta: string) {
   if (x.voice.pending > 0.25) return;
   x.voice.mouth = 1; x.voice.say(x.voice.textPieces(txt, foreground ? 2.2 : 1.8)); t.accumulated = '';
 }
-client.listen(m => { if (m.t === 'texto') onText(m.sessionId, m.delta); });
+client.listen(m => { if (m.t === 'text') onText(m.sessionId, m.delta); });
 
 // ------------------------------------------------------------------------------------------------ habitantes
 interface Tracking { state: string; chore: string; murmur: number; snore: number; chatter: number; noise: number; notice: number; near: boolean; greeting: number; keys: Typist }

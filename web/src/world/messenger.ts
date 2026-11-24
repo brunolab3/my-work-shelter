@@ -20,8 +20,8 @@ export class Messengers {
   private trips = new Set<Trip>();
   constructor(private r: Shelter) {
     client.listen(m => {
-      if (m.t === 'mensajero') this.exit(m.since, m.a, m.worktree).catch(() => {});
-      else if (m.t === 'entrega') this.delivered(m.room, m.worktree, m.sessionId).catch(() => {});
+      if (m.t === 'messenger') this.exit(m.since, m.a, m.worktree).catch(() => {});
+      else if (m.t === 'delivery') this.delivered(m.room, m.worktree, m.sessionId).catch(() => {});
     });
   }
 

@@ -94,7 +94,7 @@ function notifyInUse() {
   const talking = juego.get().talkingWith, ids = new Set<string>();
   for (const v of intercoms.get().list) for (const p of v.tabs) if (p.view.type === 'sesion' && (withText(p) || (v.dwellerId === talking && p.id === v.active))) ids.add(p.view.sessionId);
   const f = [...ids].sort().join('|'); if (f === useSignature) return;
-  useSignature = f; client.send({ t: 'enUso', sessions: [...ids] });
+  useSignature = f; client.send({ t: 'inUse', sessions: [...ids] });
 }
 const liveSessions = (hid: string) => Object.values(live.get().sessions).filter(s => sessionOwner(s) === hid && s.state !== 'cerrada' && !closingSessions.has(s.id));
 const closingSessions = new Set<string>();   // sesiones que se han mandado cerrar (no vuelven a abrir pestaña)
@@ -151,7 +151,7 @@ function openIntercomWindow(hid: string, maximized: boolean) {
 function resumeLastOfCopy(hid: string, pid: string) {
   const c = interlocutor(hid);
   if (!c?.copy) return;
-  client.ask<HistoryElement[]>({ t: 'historial', roomId: c.room, cwd: c.copy.path }).then(list => {
+  client.ask<HistoryElement[]>({ t: 'history', roomId: c.room, cwd: c.copy.path }).then(list => {
     const last = list.filter(x => !x.outside).sort((a, b) => b.modified - a.modified)[0];
     if (!last) return;
     const p = win(hid)?.tabs.find(x => x.id === pid);
@@ -238,7 +238,7 @@ export function claimVisitors(roomId: string) {
 function resumeHere(h: DwellerSummary, pid: string, el: HistoryElement) {
   const hid = h.id;
   setTab(hid, pid, { sessionWait: true });
-  client.ask<string>({ t: 'empezar', dwellerId: h.copy?.authorId ?? hid, roomId: h.room, prompt: '', options: { resume: el.claudeId, cwd: el.cwd } })
+  client.ask<string>({ t: 'start', dwellerId: h.copy?.authorId ?? hid, roomId: h.room, prompt: '', options: { resume: el.claudeId, cwd: el.cwd } })
     .then(sessionId => {
       update(hid, v => ({ known: [...v.known, sessionId], tabs: v.tabs.filter(x => x.id === pid || !(x.view.type === 'sesion' && x.view.sessionId === sessionId)).map(x => (x.id === pid ? { ...x, sessionWait: false, view: { type: 'sesion', sessionId } } : x)) }));
       sync();
@@ -257,7 +257,7 @@ export function askClose(hid: string, ids?: string[]) {
 }
 function closeAlready(hid: string, ids: string[]) {
   const v = win(hid); if (!v) return;
-  for (const p of v.tabs) if (ids.includes(p.id)) { const s = sessionOf(p); if (s) { closingSessions.add(s.id); client.send({ t: 'cerrarSesion', sessionId: s.id }); } }
+  for (const p of v.tabs) if (ids.includes(p.id)) { const s = sessionOf(p); if (s) { closingSessions.add(s.id); client.send({ t: 'closeSession', sessionId: s.id }); } }
   const rest = v.tabs.filter(p => !ids.includes(p.id));
   SFX.close();
   if (!rest.length) { intercoms.set(e => ({ list: e.list.filter(x => x.dwellerId !== hid) })); if (juego.get().talkingWith === hid) minimizeIntercom(); return; }
@@ -285,7 +285,7 @@ function sync() {
   if (handoff) setTimeout(() => restoreIntercom(handoff));
 }
 live.subscribe(() => { if (!live.get().connected) onDay = false; sync(); });
-client.listen(m => { if (m.t === 'bienvenida') { onDay = true; useSignature = ''; sync(); notifyInUse(); } });
+client.listen(m => { if (m.t === 'welcome') { onDay = true; useSignature = ''; sync(); notifyInUse(); } });
 intercoms.subscribe(notifyInUse); juego.subscribe(notifyInUse);
 // a tab with nothing in it and no conversation goes once the Overseer leaves it (for another tab or out of the intercom)
 const inView = (): InView => { const talking = juego.get().talkingWith; return { talking, active: talking ? win(talking)?.active : undefined }; };
@@ -615,7 +615,7 @@ function Console({ h, v }: { h: DwellerSummary; v: WindowCom }) {
                 else go({ type: 'nuevo', resume: el });
               }} /> :
               view.type === 'ficha' ? <Card h={h} goBack={onMenu} /> :
-              s ? <Session h={h} s={s} p={p} exit={() => exit(hid)} onClose={() => { closingSessions.add(s.id); client.send({ t: 'cerrarSesion', sessionId: s.id }); onMenu(); }} /> : null}
+              s ? <Session h={h} s={s} p={p} exit={() => exit(hid)} onClose={() => { closingSessions.add(s.id); client.send({ t: 'closeSession', sessionId: s.id }); onMenu(); }} /> : null}
           </div>
         </div>
         {v.confirm && <Confirmation title={v.confirm.length > 1 ? t('windows.closeTheTabs') : confirming.length ? t('windows.closeThisConversation') : t('windows.closeThisTab')}
@@ -742,7 +742,7 @@ export function ago(when: number) {
 function HistoryView({ h, goBack, pick }: { h: DwellerSummary; goBack: () => void; pick: (el: HistoryElement) => void }) {
   const [list, setList] = useState<HistoryElement[] | null>(null);
   const [error, setError] = useState('');
-  useEffect(() => { client.ask<HistoryElement[]>({ t: 'historial', roomId: h.room, cwd: h.copy?.path }).then(setList).catch(e => setError(e.message)); }, [h.room, h.copy?.path]);
+  useEffect(() => { client.ask<HistoryElement[]>({ t: 'history', roomId: h.room, cwd: h.copy?.path }).then(setList).catch(e => setError(e.message)); }, [h.room, h.copy?.path]);
   const flags = useFlags();
   const items = [...(list ?? []).map(el => ({ text: (flags.has(el.claudeId) ? t('windows.flag.mark') + ' ' : '') + (el.outside ? '↗ ' : '') + el.title, hint: `${ago(el.modified)}${el.branch ? ' · ' + el.branch : ''}${el.inProgress ? ` · ${t('windows.inProgress')}` : ''}${el.outside ? ` · ${t('windows.openOnYourDesktop')}` : ''}` })), { text: t('windows.back'), hint: 'Esc' }];
   // la que sigue abierta en tu escritorio no se retoma aquí a la vez (se corrompería): primero /exit allí o, si la
@@ -784,7 +784,7 @@ function Visitors({ h, goBack, resume }: { h: DwellerSummary; goBack: () => void
   const dirs = [...new Set(visits.map(v => v.worktree ?? ''))].sort().join('|');
   useEffect(() => {
     if (!fresh) return;
-    Promise.all(dirs.split('|').map(d => client.ask<HistoryElement[]>({ t: 'historial', roomId: h.room, cwd: d || undefined }).catch(() => [])))
+    Promise.all(dirs.split('|').map(d => client.ask<HistoryElement[]>({ t: 'history', roomId: h.room, cwd: d || undefined }).catch(() => [])))
       .then(ls => setArchive(new Map(ls.flat().map(x => [x.claudeId, x]))));
   }, [h.room, dirs, fresh]);
   const list: HistoryElement[] = visits.map(v => {
@@ -843,7 +843,7 @@ function New({ h, p, resume, goBack }: { h: DwellerSummary; p: TabCom; resume?: 
   const esc = useEscDouble();
   const behind = () => esc.press(!!text.trim(), goBack);
   useEffect(() => { area.current?.focus(); }, []);
-  useEffect(() => { if (resume) client.ask<LogInput[]>({ t: 'cargarConversacion', roomId: h.room, claudeId: resume.claudeId, limit: RESUME_PREVIEW }).then(setTranscript).catch(() => setTranscript([])); }, [resume?.claudeId]);
+  useEffect(() => { if (resume) client.ask<LogInput[]>({ t: 'loadConversation', roomId: h.room, claudeId: resume.claudeId, limit: RESUME_PREVIEW }).then(setTranscript).catch(() => setTranscript([])); }, [resume?.claudeId]);
   const rows = [
     { name: t('windows.model'), values: MODELS, current: model, set: setModel },
     { name: t('windows.effort'), values: EFFORTS, current: effort, set: setEffort },
@@ -859,7 +859,7 @@ function New({ h, p, resume, goBack }: { h: DwellerSummary; p: TabCom; resume?: 
     const hid = h.id, pid = p.id;
     setTab(hid, pid, { sessionWait: true });
     const inside = h.copy ? workIn : juego.get().workIn;
-    client.ask<string>({ t: 'empezar', dwellerId: h.copy?.authorId ?? hid, roomId: h.room, prompt: txt.trim(), attachments: paths, options: { model, effort, permissions, worktree: inside || !ofProject ? false : worktree, resume: resume?.claudeId, cwd: resume?.cwd ?? inside?.cwd } })
+    client.ask<string>({ t: 'start', dwellerId: h.copy?.authorId ?? hid, roomId: h.room, prompt: txt.trim(), attachments: paths, options: { model, effort, permissions, worktree: inside || !ofProject ? false : worktree, resume: resume?.claudeId, cwd: resume?.cwd ?? inside?.cwd } })
       .then(sessionId => {
         update(hid, v => ({ known: [...v.known, sessionId], tabs: v.tabs.filter(x => x.id === pid || !(x.view.type === 'sesion' && x.view.sessionId === sessionId)).map(x => (x.id === pid ? { ...x, sessionWait: false, draft: undefined, attachments: undefined, view: { type: 'sesion', sessionId } } : x)) }));
         sync();
@@ -991,13 +991,13 @@ function OutputView({ o, sessionId, id, tool }: { o: ToolOutput; sessionId: stri
 function Queued({ s, edit }: { s: SessionSummary; edit: (m: QueuedMessage) => void }) {
   const queue = s.queue ?? [];
   const withdraw = async (m: QueuedMessage, then?: () => void) => {
-    const ok = await client.ask<boolean>({ t: 'retirar', sessionId: s.id, messageId: m.id }).catch(() => false);
+    const ok = await client.ask<boolean>({ t: 'withdraw', sessionId: s.id, messageId: m.id }).catch(() => false);
     if (!ok) { SFX.notAllowed(); addNotice('aviso', t('windows.queue.tooLate')); return; }
     SFX.click(); then?.();
   };
   // Enviar ya: interrupts the turn and sends it now (Ctrl C, then this message); the server takes it back from the queue
   const sendNow = async (m: QueuedMessage) => {
-    const ok = await client.ask<boolean>({ t: 'enviarYa', sessionId: s.id, messageId: m.id }).catch(() => false);
+    const ok = await client.ask<boolean>({ t: 'sendNow', sessionId: s.id, messageId: m.id }).catch(() => false);
     if (!ok) { SFX.notAllowed(); addNotice('aviso', t('windows.queue.tooLate')); return; }
     SFX.click();
   };
@@ -1033,7 +1033,7 @@ function Session({ h, s, p, exit, onClose }: { h: DwellerSummary; s: SessionSumm
   const pinned = useRef(true);
   const workingLive = s.state === 'trabajando' || s.state === 'arrancando';
   // al verla, la respuesta queda leída
-  useEffect(() => { if (s.unread && (s.state === 'terminada' || s.state === 'error')) client.send({ t: 'leida', sessionId: s.id }); }, [s.unread, s.state]);
+  useEffect(() => { if (s.unread && (s.state === 'terminada' || s.state === 'error')) client.send({ t: 'read', sessionId: s.id }); }, [s.unread, s.state]);
   useEffect(() => { loadLog(s.id); }, [s.id]);
   useEffect(() => { const el = canvas.current; if (el && pinned.current) el.scrollTop = el.scrollHeight; }, [entries.length, partial, s.pending?.id]);
   // older pages as the Overseer reaches the top (shared/logPages.ts), with what was in view kept in place; back at the
@@ -1059,11 +1059,11 @@ function Session({ h, s, p, exit, onClose }: { h: DwellerSummary; s: SessionSumm
   // a page that doesn't fill the intercom has no scroll to reach the top with: the next one comes on its own
   useEffect(() => { const el = canvas.current; if (el && el.scrollHeight <= el.clientHeight) askOlder(el); }, [entries.length, older, loadingOlder]);
   useEffect(() => { if (!s.pending) area.current?.focus(); }, [s.pending?.id]);
-  useEffect(() => { if (text.startsWith('/') && !commands.length) client.ask<Command[]>({ t: 'comandos', sessionId: s.id }).then(c => setCommands(c?.length ? c : COMMANDS_BASE)).catch(() => setCommands(COMMANDS_BASE)); }, [text]);
+  useEffect(() => { if (text.startsWith('/') && !commands.length) client.ask<Command[]>({ t: 'commands', sessionId: s.id }).then(c => setCommands(c?.length ? c : COMMANDS_BASE)).catch(() => setCommands(COMMANDS_BASE)); }, [text]);
   const suggestions = text.startsWith('/') && !text.includes(' ') ? [...OWN_COMMANDS, ...commands].filter(c => c.name.toLowerCase().startsWith(text.slice(1).toLowerCase())).slice(0, 8) : [];
   const scroll = (d: number) => { const el = canvas.current; if (el) { el.scrollTop += d * el.clientHeight * 0.8; onScroll(el); } };
-  const interrupt = () => { client.send({ t: 'interrumpir', sessionId: s.id }); SFX.click(); };
-  const compact = () => { client.send({ t: 'enviar', sessionId: s.id, text: '/compact' }); pinned.current = true; SFX.click(); };
+  const interrupt = () => { client.send({ t: 'interrupt', sessionId: s.id }); SFX.click(); };
+  const compact = () => { client.send({ t: 'send', sessionId: s.id, text: '/compact' }); pinned.current = true; SFX.click(); };
   // the handoff notice's other choice (server/sessions.ts: handoff()): the new session starts once the summary is written
   const handoff = () => { pinned.current = true; client.action('session.handoff', { sessionId: s.id }).then(() => SFX.click()).catch(e => { SFX.error(); addNotice('error', (e as Error).message); }); };
   const send = (raw = text) => {
@@ -1071,12 +1071,12 @@ function Session({ h, s, p, exit, onClose }: { h: DwellerSummary; s: SessionSumm
     if (uploading(p.attachments)) { SFX.notAllowed(); return; }
     const paths = listsPaths(p.attachments);
     if (!t && !paths.length) return;
-    if (paths.length && (!t || !t.startsWith('/'))) { client.send({ t: 'enviar', sessionId: s.id, text: t, attachments: paths }); setTab(h.id, p.id, { attachments: undefined }); }
-    else if (t === '/stop' || t === '/parar') client.send({ t: 'interrumpir', sessionId: s.id });
-    else if (t.startsWith('/btw ')) client.send({ t: 'lateral', sessionId: s.id, question: t.slice(5) });
+    if (paths.length && (!t || !t.startsWith('/'))) { client.send({ t: 'send', sessionId: s.id, text: t, attachments: paths }); setTab(h.id, p.id, { attachments: undefined }); }
+    else if (t === '/stop' || t === '/parar') client.send({ t: 'interrupt', sessionId: s.id });
+    else if (t.startsWith('/btw ')) client.send({ t: 'sideQuestion', sessionId: s.id, question: t.slice(5) });
     else if (t === '/cuaderno') window.dispatchEvent(new CustomEvent('refugio:cuaderno', { detail: { sessionId: s.id } }));
     else if (t === '/cerrar') { setText(''); onClose(); return; }
-    else client.send({ t: 'enviar', sessionId: s.id, text: t });
+    else client.send({ t: 'send', sessionId: s.id, text: t });
     setText(''); pinned.current = true; SFX.shortSuccess();
   };
   // ⌥Enter: background work for this conversation in the day's final 5-hour window or, with `when` (⏰ Schedule), at that time (server/scheduled.ts)
@@ -1498,7 +1498,7 @@ function Pending({ s, p, tab, hid, exit }: { s: SessionSummary; p: PendingReques
   const setReason = (t: string | null) => { setReason0(t); setTab(hid, tab.id, { reason: t === null ? undefined : { request: p.id, text: t } }); };
   const [responses, setResponses] = useState<Record<string, string>>({});
   const [qi, setPq] = useState(0);
-  const respond = (decision: 'si' | 'siempre' | 'no', message?: string, answer?: Record<string, string>) => { client.send({ t: 'responder', sessionId: s.id, requestId: p.id, decision, message, responses: answer }); SFX.click(); };
+  const respond = (decision: 'si' | 'siempre' | 'no', message?: string, answer?: Record<string, string>) => { client.send({ t: 'answer', sessionId: s.id, requestId: p.id, decision, message, responses: answer }); SFX.click(); };
   let items: { text: React.ReactNode; hint?: React.ReactNode; danger?: boolean; kind?: string; f: () => void }[] = [];
   const question = p.type === 'pregunta' ? p.questions?.[qi] : undefined;
   if (p.type === 'permiso') items = [

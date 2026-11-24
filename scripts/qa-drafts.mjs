@@ -81,7 +81,7 @@ await pg.keyboard.press('Meta+1'); await wait(400);
 check(await pg.$('.consola .sesion') !== null && (await field()) === 'Esto es un borrador largo de la conversación', 'y la conversación conserva su borrador');
 
 // ---- la conversación se cierra sin que el Supervisor la cierre (sola, al reiniciar, desde fuera)
-await pg.evaluate(id => window.__client.send({ t: 'cerrarSesion', sessionId: id }), sessionId);
+await pg.evaluate(id => window.__client.send({ t: 'closeSession', sessionId: id }), sessionId);
 await until(async () => (await pg.$('.consola .transcripcion-previa')) !== null, 8000);
 check(await pg.$('.consola .transcripcion-previa') !== null && (await field()) === 'Esto es un borrador largo de la conversación', 'cerrada sola, la pestaña se queda para retomarla con lo escrito');
 await load(); await talk(h); await pg.waitForSelector('.consola'); await wait(800);

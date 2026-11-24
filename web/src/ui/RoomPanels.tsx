@@ -312,7 +312,7 @@ export async function adaptRoom(roomId: string) {
   const h = juego.get().dwellers.find(x => x.room === roomId && !x.copy);
   if (!h) { SFX.notAllowed(); return; }
   const prompt = await client.action<string>('room.adaptPrompt');
-  client.send({ t: 'empezar', dwellerId: h.id, roomId, prompt, options: {} });
+  client.send({ t: 'start', dwellerId: h.id, roomId, prompt, options: {} });
   closePanel(); goA(roomId, h.id, true);
 }
 
@@ -436,7 +436,7 @@ function PanelWorktree() {
     ...(copy || free ? [{ text: copy ? <>{t('panels.workInsideWithTheCopy')}</> : <>{t('panels.workInsideWith')} <b>{free!.name}</b></>, hint: t('panels.newSessionInThisWorktree'), f: () => { juego.set({ workIn: { cwd: path, branch: info.branch } }); closePanel(); goA(roomId, copy?.id ?? free!.id, true); } }] : []),
     ...(free ? [{ text: <>{t('panels.mergeHave')} <b>{free.name}</b> {t('panels.mergeTheBranchAndClean')}</>, hint: t('panels.intoBaseWithTheirPermissions', { base: info.base }), f: async () => {
       const prompt = await client.action<string>('worktree.integratePrompt', { path });
-      client.send({ t: 'empezar', dwellerId: free.id, roomId, prompt, options: {} });
+      client.send({ t: 'start', dwellerId: free.id, roomId, prompt, options: {} });
       closePanel(); goA(roomId, free.id, true);
     } }] : []),
     { text: info.busy ? t('panels.discardNoSomeoneIsWorking') : confirm ? t('panels.againEnterOrClickDelete') : t('panels.discardTheCopyTurnsOff'), danger: true, powerOff: info.busy, f: async () => {

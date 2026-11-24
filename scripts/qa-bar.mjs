@@ -80,10 +80,10 @@ if (withoutRepo) {
   const cwd = await pg.evaluate(() => [...document.querySelectorAll('.ventana-terminal')].filter(v => v.style.display !== 'none').sort((a, b) => +b.style.zIndex - +a.style.zIndex)[0]?.querySelector('.vt-ruta')?.textContent ?? '');   // la de delante
   check(cwd.includes('/salas/' + withoutRepo.room), 'T la abre en su carpeta propia: ' + cwd);
   const id = 'sala:' + withoutRepo.room;
-  await pg.evaluate(id => window.__client.send({ t: 'terminalCerrar', id }), id);
+  await pg.evaluate(id => window.__client.send({ t: 'terminalClose', id }), id);
 }
 // limpieza: se cierran las terminales de la prueba
-for (const s of rooms) await pg.evaluate(s => window.__client.send({ t: 'terminalCerrar', id: 'sala:' + s }), s);
+for (const s of rooms) await pg.evaluate(s => window.__client.send({ t: 'terminalClose', id: 'sala:' + s }), s);
 check(!errors.length, 'sin errores en la página' + (errors.length ? ': ' + errors.join(' | ') : ''));
 await b.close();
 process.exit(failures ? 1 : 0);

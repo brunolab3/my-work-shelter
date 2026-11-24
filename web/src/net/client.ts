@@ -77,7 +77,7 @@ class Client {
       // tras un reinicio, el cliente nuevo (si lo hay) entra recargando; las terminales se reenganchan solas
       if (live.get().restarting) { location.reload(); return; }
       live.set({ connected: true, attempts: 0 });
-      this.send({ t: 'hola', version: '0.1' });
+      this.send({ t: 'hello', version: '0.1' });
       for (const m of this.queue.splice(0)) ws.send(m);
     };
     ws.onmessage = ev => { try { this.receive(JSON.parse(ev.data)); } catch (e) { console.error(e); } };
@@ -104,13 +104,13 @@ class Client {
       setTimeout(() => { if (this.pending.delete(request)) ko(new Error(t('windows.theShelterIsNotResponding'))); }, wait);
     });
   }
-  action<T = unknown>(name: string, data?: Record<string, unknown>, wait?: number) { return this.ask<T>({ t: 'accion', name, data }, wait); }
+  action<T = unknown>(name: string, data?: Record<string, unknown>, wait?: number) { return this.ask<T>({ t: 'action', name, data }, wait); }
 
   listen(f: Listener) { this.listeners.add(f); return () => { this.listeners.delete(f); }; }
 
   private receive(m: ServerMessage) {
     switch (m.t) {
-      case 'bienvenida': {
+      case 'welcome': {
         const sessions: Record<string, SessionSummary> = {}; for (const s of m.sessions) sessions[s.id] = s;
         live.set({ claudeOk: m.claudeOk, versionClaude: m.versionClaude, state: shownState(m.state), sessions, repos: m.repos });
         // tras un corte, los cuadernos abiertos se vuelven a pedir enteros (lo que llegó durante el corte no se pierde)
@@ -118,26 +118,26 @@ class Client {
         for (const id of Object.keys(live.get().entries)) if (sessions[id]) loadLog(id); else dropLog(id);
         break;
       }
-      case 'sesion': live.set(e => ({ sessions: { ...e.sessions, [m.session.id]: m.session }, partial: m.session.state !== 'trabajando' && m.session.state !== 'arrancando' ? { ...e.partial, [m.session.id]: '' } : e.partial })); break;
+      case 'session': live.set(e => ({ sessions: { ...e.sessions, [m.session.id]: m.session }, partial: m.session.state !== 'trabajando' && m.session.state !== 'arrancando' ? { ...e.partial, [m.session.id]: '' } : e.partial })); break;
       // a closed conversation leaves the client's memory: reopened, it is read again from its transcript
-      case 'sesionFuera': live.set(e => { const s = { ...e.sessions }; delete s[m.sessionId]; return { sessions: s }; }); dropLog(m.sessionId); break;
-      case 'entradas': live.set(e => ({ ...held(e, m.sessionId, [...(e.entries[m.sessionId] ?? []), ...m.entries], MAX_HELD), partial: m.entries.some(x => x.type === 'asistente') ? { ...e.partial, [m.sessionId]: '' } : e.partial })); break;
-      case 'texto': live.set(e => ({ partial: { ...e.partial, [m.sessionId]: (e.partial[m.sessionId] ?? '') + m.delta } })); break;
-      case 'respuesta': { const p = this.pending.get(m.request); if (p) { this.pending.delete(m.request); m.error ? p.ko(new Error(m.error)) : p.ok(m.data); } break; }
+      case 'sessionRemoved': live.set(e => { const s = { ...e.sessions }; delete s[m.sessionId]; return { sessions: s }; }); dropLog(m.sessionId); break;
+      case 'entries': live.set(e => ({ ...held(e, m.sessionId, [...(e.entries[m.sessionId] ?? []), ...m.entries], MAX_HELD), partial: m.entries.some(x => x.type === 'asistente') ? { ...e.partial, [m.sessionId]: '' } : e.partial })); break;
+      case 'text': live.set(e => ({ partial: { ...e.partial, [m.sessionId]: (e.partial[m.sessionId] ?? '') + m.delta } })); break;
+      case 'response': { const p = this.pending.get(m.request); if (p) { this.pending.delete(m.request); m.error ? p.ko(new Error(m.error)) : p.ok(m.data); } break; }
       case 'repos': live.set({ repos: m.repos }); break;
-      case 'visitantes': live.set({ visitors: m.visitors }); break;
-      case 'programados': live.set({ scheduled: m.list }); break;
-      case 'verificaciones': live.set({ verifications: m.states }); break;
-      case 'revisiones': live.set({ reviews: m.board }); break;
-      case 'limites': live.set({ planLimits: m.limits }); break;
-      case 'notificaciones': live.set({ notifications: m.list }); break;
-      case 'eventos': live.set({ events: m.list }); break;
-      case 'integracion': live.set(e => ({ integrations: { ...e.integrations, [m.id]: m.state } })); break;
-      case 'estado': live.set({ state: shownState(m.state) }); break;
+      case 'visitors': live.set({ visitors: m.visitors }); break;
+      case 'scheduled': live.set({ scheduled: m.list }); break;
+      case 'verifications': live.set({ verifications: m.states }); break;
+      case 'reviews': live.set({ reviews: m.board }); break;
+      case 'limits': live.set({ planLimits: m.limits }); break;
+      case 'notifications': live.set({ notifications: m.list }); break;
+      case 'events': live.set({ events: m.list }); break;
+      case 'integration': live.set(e => ({ integrations: { ...e.integrations, [m.id]: m.state } })); break;
+      case 'state': live.set({ state: shownState(m.state) }); break;
       // los que preguntan no se pierden entre los demás: se quedan hasta contestarlos
-      case 'aviso': addNotice(m.level, m.text, m.question); break;
-      case 'recargar': location.reload(); break;
-      case 'reiniciando': live.set({ restarting: true }); break;
+      case 'notice': addNotice(m.level, m.text, m.question); break;
+      case 'reload': location.reload(); break;
+      case 'restarting': live.set({ restarting: true }); break;
     }
     for (const f of this.listeners) f(m);
   }
@@ -165,7 +165,7 @@ const wholeLogs = new Set<string>();
 export function loadLog(id: string) {
   if (wholeLogs.has(id)) return;
   wholeLogs.add(id);
-  client.ask<LogPage<LogInput>>({ t: 'cuadernoPagina', sessionId: id, limit: logPageSize() })
+  client.ask<LogPage<LogInput>>({ t: 'logPage', sessionId: id, limit: logPageSize() })
     .then(p => live.set(e => ({ entries: { ...e.entries, [id]: withLatest(p.entries, e.entries[id] ?? []) }, older: { ...e.older, [id]: p.more } })))
     .catch(() => wholeLogs.delete(id));
 }
@@ -176,7 +176,7 @@ export async function loadOlder(id: string): Promise<boolean> {
   if (!first || !live.get().older[id] || loadingOlder.has(id)) return false;
   loadingOlder.add(id);
   try {
-    const p = await client.ask<LogPage<LogInput>>({ t: 'cuadernoPagina', sessionId: id, limit: logPageSize(), before: { id: first.id, ts: first.ts } });
+    const p = await client.ask<LogPage<LogInput>>({ t: 'logPage', sessionId: id, limit: logPageSize(), before: { id: first.id, ts: first.ts } });
     live.set(e => ({ entries: { ...e.entries, [id]: prependOlder(e.entries[id] ?? [], p.entries) }, older: { ...e.older, [id]: p.more } }));
     return true;
   } catch { return false; } finally { loadingOlder.delete(id); }

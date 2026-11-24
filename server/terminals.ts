@@ -63,7 +63,7 @@ export class Terminals {
       if (this.dropped) return;
       if (this.renewing) { this.renewing = false; this.version = 0; setTimeout(() => this.connect(true, 0), 150); return; }
       // el anfitrión se ha caído: sus terminales se han ido con él
-      for (const [id, x] of [...this.t]) { this.t.delete(id); for (const o of x.listeners) o({ t: 'terminalEstado', id, inPrompt: true, live: false }); }
+      for (const [id, x] of [...this.t]) { this.t.delete(id); for (const o of x.listeners) o({ t: 'terminalState', id, inPrompt: true, live: false }); }
       setTimeout(() => this.connect(true, 0), 300);
     });
   }
@@ -86,14 +86,14 @@ export class Terminals {
           this.state(x.id, true);
         }
         break;
-      case 'datos': { const x = this.t.get(m.id); if (!x) return; x.buffer = (x.buffer + m.datos).slice(-60_000); for (const o of x.listeners) o({ t: 'terminalDatos', id: m.id, data: m.datos }); break; }
+      case 'datos': { const x = this.t.get(m.id); if (!x) return; x.buffer = (x.buffer + m.datos).slice(-60_000); for (const o of x.listeners) o({ t: 'terminalData', id: m.id, data: m.datos }); break; }
       case 'modos': { const x = this.t.get(m.id); if (x) x.suffix = String(m.suffix ?? ''); break; }
-      case 'fin': { const x = this.t.get(m.id); if (!x) return; this.t.delete(m.id); for (const o of x.listeners) o({ t: 'terminalEstado', id: m.id, inPrompt: true, live: false }); this.renewSiEmpty(); break; }
+      case 'fin': { const x = this.t.get(m.id); if (!x) return; this.t.delete(m.id); for (const o of x.listeners) o({ t: 'terminalState', id: m.id, inPrompt: true, live: false }); this.renewSiEmpty(); break; }
       // alguien ha abierto (o cerrado) esta terminal en el escritorio
       case 'fuera': { const x = this.t.get(m.id); if (!x) return; x.outside = Number(m.n) || 0; this.notifyState(m.id, x); break; }
       case 'error': {
         const x = this.t.get(m.id); if (!x) return; this.t.delete(m.id);
-        for (const o of x.listeners) { o({ t: 'aviso', level: 'error', text: t('server.couldNotOpenTerminal', { error: m.texto }) }); o({ t: 'terminalEstado', id: m.id, inPrompt: true, live: false }); }
+        for (const o of x.listeners) { o({ t: 'notice', level: 'error', text: t('server.couldNotOpenTerminal', { error: m.texto }) }); o({ t: 'terminalState', id: m.id, inPrompt: true, live: false }); }
         break;
       }
       case 'primerPlano': { const f = this.requests.get(m.peticion); if (f) { this.requests.delete(m.peticion); f(m.fg ?? null); } break; }
@@ -106,7 +106,7 @@ export class Terminals {
     // varias pestañas: cada una recibe la salida (y al engancharse, lo que ya había)
     if (already) { if (!already.listeners.has(send)) { already.listeners.add(send); this.repaint(id, already, send); } this.state(id, true); return; }
     const dir = path.resolve(cwd);
-    if (!existsSync(dir) || !this.allowed(dir)) { send({ t: 'terminalEstado', id, inPrompt: true, live: false }); send({ t: 'aviso', level: 'error', text: t('server.iCannotOpenATerminal', { dir }) }); return; }
+    if (!existsSync(dir) || !this.allowed(dir)) { send({ t: 'terminalState', id, inPrompt: true, live: false }); send({ t: 'notice', level: 'error', text: t('server.iCannotOpenATerminal', { dir }) }); return; }
     const env: Record<string, string> = {};
     for (const [k, v] of Object.entries(process.env)) if (v !== undefined && !FOREIGN.test(k)) env[k] = v;
     env.TERM = 'xterm-256color'; env.COLORTERM = 'truecolor'; env.LANG = env.LANG || 'es_ES.UTF-8';
@@ -120,7 +120,7 @@ export class Terminals {
   // un empujón para que el programa de primer plano vuelva a dibujarse
   private repaint(id: string, x: Term, o: Listener) {
     if (!x.buffer && !x.suffix) return;
-    o({ t: 'terminalDatos', id, data: x.buffer + x.suffix, repaint: true });
+    o({ t: 'terminalData', id, data: x.buffer + x.suffix, repaint: true });
     this.op({ op: 'empujar', id });
   }
 
@@ -139,7 +139,7 @@ export class Terminals {
     if (force || key !== t.last) { t.last = key; this.notifyState(id, t); }
     return inPrompt;
   }
-  private notifyState(id: string, t: Term) { for (const o of t.listeners) o({ t: 'terminalEstado', id, inPrompt: t.inPrompt ?? true, program: t.program, live: true, outside: t.outside }); }
+  private notifyState(id: string, t: Term) { for (const o of t.listeners) o({ t: 'terminalState', id, inPrompt: t.inPrompt ?? true, program: t.program, live: true, outside: t.outside }); }
   // anfitrión viejo: se le pide que se vaya y se lanza uno nuevo (solo sin terminales: no se pierde nada)
   private renew() { if (!this.s || this.renewing) return; this.renewing = true; this.s.write(JSON.stringify({ op: 'apagar' }) + '\n'); }
   private renewSiEmpty() { if (this.version === 1 && !this.t.size) this.renew(); }
@@ -149,7 +149,7 @@ export class Terminals {
   close(id: string) {
     const t = this.t.get(id); if (!t) return;
     this.t.delete(id); this.op({ op: 'cerrar', id });
-    for (const o of t.listeners) o({ t: 'terminalEstado', id, inPrompt: true, live: false });
+    for (const o of t.listeners) o({ t: 'terminalState', id, inPrompt: true, live: false });
     this.renewSiEmpty();
   }
   drop(send: Listener) { for (const t of this.t.values()) t.listeners.delete(send); }

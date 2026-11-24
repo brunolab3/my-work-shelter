@@ -48,14 +48,14 @@ describe('servidor local', () => {
   it('mensajes hostiles no lo tumban ni reescriben el estado', async () => {
     const ws = await open(`?t=${token}`) as WebSocket;
     const responses: any[] = []; ws.on('message', d => responses.push(JSON.parse(String(d))));
-    ws.send(JSON.stringify({ t: 'hola', version: 'prueba' }));
-    ws.send(JSON.stringify({ t: 'lateral', sessionId: 'no-existe', question: 'x' }));
-    ws.send(JSON.stringify({ t: 'accion', name: 'guardar', request: 'g', data: { patch: { rooms: null, jugador: { scrap: 1e9 } } } }));
-    ws.send(JSON.stringify({ t: 'accion', name: 'jugador', request: 'j', data: { patch: { scrap: 1e9 } } }));
-    ws.send(JSON.stringify({ t: 'accion', name: 'retirarSala', request: 'r', data: { roomId: 'puerta' } }));
+    ws.send(JSON.stringify({ t: 'hello', version: 'prueba' }));
+    ws.send(JSON.stringify({ t: 'sideQuestion', sessionId: 'no-existe', question: 'x' }));
+    ws.send(JSON.stringify({ t: 'action', name: 'save', request: 'g', data: { patch: { rooms: null, jugador: { scrap: 1e9 } } } }));
+    ws.send(JSON.stringify({ t: 'action', name: 'jugador', request: 'j', data: { patch: { scrap: 1e9 } } }));
+    ws.send(JSON.stringify({ t: 'action', name: 'removeRoom', request: 'r', data: { roomId: 'puerta' } }));
     await wait(800);
     expect((await fetch(BASE + '/salud')).ok).toBe(true);
-    const states = responses.filter(m => m.t === 'estado' || m.t === 'bienvenida');
+    const states = responses.filter(m => m.t === 'state' || m.t === 'welcome');
     const last = states[states.length - 1].state;
     expect(last.rooms.length).toBeGreaterThan(5);
     expect(last.jugador.scrap).toBeLessThan(1e9);
@@ -63,10 +63,17 @@ describe('servidor local', () => {
     expect(responses.find(m => m.request === 'r')?.error).toBeTruthy();
     ws.close();
   });
+  it('a tab with the client from before the English message names is told to reload', async () => {
+    const ws = await open(`?t=${token}`) as WebSocket;
+    const got = new Promise<any>(ok => ws.once('message', d => ok(JSON.parse(String(d)))));
+    ws.send(JSON.stringify({ t: 'hola', version: '0.1' }));
+    expect(await got).toEqual({ t: 'recargar' });
+    ws.close();
+  });
   it('no recluta la raíz ni el hogar, y al retirar una sala cierra sus terminales', async () => {
     const ws = await open(`?t=${token}`) as WebSocket;
     const responses: any[] = []; ws.on('message', d => responses.push(JSON.parse(String(d))));
-    const ask = (name: string, data: any, request: string) => ws.send(JSON.stringify({ t: 'accion', name, request, data }));
+    const ask = (name: string, data: any, request: string) => ws.send(JSON.stringify({ t: 'action', name, request, data }));
     ask('recruit', { path: '/' }, 'raiz'); ask('recruit', { path: '~' }, 'hogar');
     const folder = mkdtempSync(path.join(tmpdir(), 'refugio-recluta-'));
     ask('recruit', { path: folder }, 'rec');
@@ -74,14 +81,14 @@ describe('servidor local', () => {
     expect(responses.find(m => m.request === 'raiz')?.error).toBeTruthy();
     expect(responses.find(m => m.request === 'hogar')?.error).toBeTruthy();
     const id = responses.find(m => m.request === 'rec')?.data?.id; expect(id).toBeTruthy();
-    ws.send(JSON.stringify({ t: 'terminalAbrir', id: 'prueba-term', cwd: folder, cols: 80, rows: 24 }));
+    ws.send(JSON.stringify({ t: 'terminalOpen', id: 'prueba-term', cwd: folder, cols: 80, rows: 24 }));
     await wait(800);
     ask('removeRoom', { roomId: id }, 'ret'); await wait(800);
     expect(responses.find(m => m.request === 'ret')?.error).toBeFalsy();
     const before = responses.length;
-    ws.send(JSON.stringify({ t: 'terminalEntrada', id: 'prueba-term', data: 'echo VIVA-$((6*7))\r' }));
+    ws.send(JSON.stringify({ t: 'terminalInput', id: 'prueba-term', data: 'echo VIVA-$((6*7))\r' }));
     await wait(800);
-    expect(responses.slice(before).some(m => m.t === 'terminalDatos' && /VIVA-42/.test(m.data))).toBe(false);
+    expect(responses.slice(before).some(m => m.t === 'terminalData' && /VIVA-42/.test(m.data))).toBe(false);
     const repos = responses.filter(m => m.t === 'repos').pop()?.repos ?? {};
     expect(Object.keys(repos)).not.toContain(id);
     ws.close(); rmSync(folder, { recursive: true, force: true });
@@ -89,8 +96,8 @@ describe('servidor local', () => {
   it('vincula una sala de repo a otra carpeta: conserva sitio y habitante, y la escena vuelve a la de su tipo', async () => {
     const ws = await open(`?t=${token}`) as WebSocket;
     const responses: any[] = []; ws.on('message', d => responses.push(JSON.parse(String(d))));
-    const ask = (name: string, data: any, request: string) => ws.send(JSON.stringify({ t: 'accion', name, request, data }));
-    ws.send(JSON.stringify({ t: 'hola', version: 'prueba' }));
+    const ask = (name: string, data: any, request: string) => ws.send(JSON.stringify({ t: 'action', name, request, data }));
+    ws.send(JSON.stringify({ t: 'hello', version: 'prueba' }));
     const folder = mkdtempSync(path.join(tmpdir(), 'refugio-vincular-'));
     writeFileSync(path.join(folder, 'Cargo.toml'), '[package]\nname = "x"\n');
     // dos salas de repo propias (el refugio nuevo no trae ninguna)
@@ -98,7 +105,7 @@ describe('servidor local', () => {
     ask('recruit', { path: a }, 'ra'); ask('recruit', { path: b }, 'rb'); await wait(1200);
     const idA = responses.find(m => m.request === 'ra')?.data?.id, idB = responses.find(m => m.request === 'rb')?.data?.id;
     expect(idA && idB).toBeTruthy();
-    const before = responses.filter(m => m.t === 'estado').pop().state;
+    const before = responses.filter(m => m.t === 'state').pop().state;
     const dwellerA = before.dwellers.find((h: any) => h.roomId === idA)?.id; expect(dwellerA).toBeTruthy();
     ask('linkRoom', { roomId: 'puerta', path: folder }, 'servicio');
     ask('linkRoom', { roomId: idA, path: '/' }, 'raiz');
@@ -110,7 +117,7 @@ describe('servidor local', () => {
     await wait(600);
     for (const p of ['servicio', 'raiz', 'falta', 'repetida', 'quitar']) expect(responses.find(m => m.request === p)?.error, p).toBeTruthy();
     expect(responses.find(m => m.request === 'vin')?.error).toBeFalsy();
-    const last = responses.filter(m => m.t === 'estado' || m.t === 'bienvenida').pop().state;
+    const last = responses.filter(m => m.t === 'state' || m.t === 'welcome').pop().state;
     const room = last.rooms.find((s: any) => s.id === idA);
     expect(room).toMatchObject({ path: folder, name: path.basename(folder), type: 'repo' });
     expect(room.decor).toBeUndefined();
@@ -123,13 +130,13 @@ describe('servidor local', () => {
   it('un refugio nuevo empieza sin salas de repo ni datos DEMO, y la raíz elegida trae sus repos y retira las de fuera', async () => {
     const ws = await open(`?t=${token}`) as WebSocket;
     const responses: any[] = []; ws.on('message', d => responses.push(JSON.parse(String(d))));
-    const ask = (name: string, data: any, request: string) => ws.send(JSON.stringify({ t: 'accion', name, request, data }));
-    ws.send(JSON.stringify({ t: 'hola', version: 'prueba' })); await wait(600);
-    const initial = responses.find(m => m.t === 'bienvenida').state;
+    const ask = (name: string, data: any, request: string) => ws.send(JSON.stringify({ t: 'action', name, request, data }));
+    ws.send(JSON.stringify({ t: 'hello', version: 'prueba' })); await wait(600);
+    const initial = responses.find(m => m.t === 'welcome').state;
     expect(initial.rooms.filter((s: any) => s.type === 'repo')).toEqual([]);
     // ni datos de prueba ni fuentes que lean solas (Mail y Calendario del Mac, GitHub con gh): todas apagadas
     expect(new Set(Object.values(initial.integrations).map((i: any) => i.mode))).toEqual(new Set(['off']));
-    expect(responses.filter(m => m.t === 'notificaciones').pop()?.list ?? []).toEqual([]);
+    expect(responses.filter(m => m.t === 'notifications').pop()?.list ?? []).toEqual([]);
     ask('git.prsBoard', {}, 'prs'); await wait(600);
     expect(responses.find(m => m.request === 'prs')?.data).toMatchObject({ prs: [] });
     expect(responses.find(m => m.request === 'prs')?.data?.demo).toBeFalsy();
@@ -142,7 +149,7 @@ describe('servidor local', () => {
     const outsideId = responses.find(m => m.request === 'fuera')?.data?.id; expect(outsideId).toBeTruthy();
     ask('save', { patch: { reposRoot: root } }, 'g'); await wait(2500);
     expect(responses.find(m => m.request === 'g')?.error).toBeFalsy();
-    const last = responses.filter(m => m.t === 'estado').pop().state;
+    const last = responses.filter(m => m.t === 'state').pop().state;
     const paths = last.rooms.filter((s: any) => s.type === 'repo' || (s.type === 'coordinacion' && s.id !== 'tareas')).map((s: any) => s.path).sort();
     expect(paths).toEqual(['ala', 'api', 'web'].map(r => path.join(root, r)));
     expect(last.rooms.some((s: any) => s.id === outsideId)).toBe(false);

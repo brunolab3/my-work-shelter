@@ -231,7 +231,7 @@ export async function planTask(task: TaskJira, roomId?: string): Promise<string 
   if (!h) return t('panels.theRoomSalaHasNo', { sala: room.name });
   // con la descripción, si Jira la da (en DEMO no hay)
   const complete = await client.action<TaskJira & { description?: string }>('integration.task', { source: 'jira', key: task.key }).catch(() => task);
-  client.send({ t: 'empezar', dwellerId: h.id, roomId: room.id, prompt: planPrompt(complete), options: { permissions: 'plan' } });
+  client.send({ t: 'start', dwellerId: h.id, roomId: room.id, prompt: planPrompt(complete), options: { permissions: 'plan' } });
   SFX.shortSuccess(); closePanel(); goA(room.id, h.id, true);
   return null;
 }

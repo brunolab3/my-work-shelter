@@ -13,30 +13,30 @@ const data = process.env.SHELTER_DATOS || path.join(import.meta.dirname, '..', '
 const token = readFileSync(path.join(data, 'token'), 'utf8').trim();
 const ws = new WebSocket(`ws://127.0.0.1:${port}/ws?t=${token}`, { headers: { Origin: `http://127.0.0.1:${port}` } });
 const t0 = Date.now(); const log = (...a) => console.log(`+${((Date.now() - t0) / 1000).toFixed(0)}s`, ...a);
-const ask = (name, data) => new Promise((ok, fail) => { const request = Math.random().toString(36).slice(2); waiting.set(request, { ok, fail }); ws.send(JSON.stringify({ t: 'accion', name, data, request })); });
+const ask = (name, data) => new Promise((ok, fail) => { const request = Math.random().toString(36).slice(2); waiting.set(request, { ok, fail }); ws.send(JSON.stringify({ t: 'action', name, data, request })); });
 const waiting = new Map();
 let state = null, sessionId = null, last = '', end = false;
 const READ_ONLY = /^(ls|cat|head|tail|wc|find|tree|git (log|status|show|ls-files|diff)|grep|rg)\b/;
-ws.on('open', () => ws.send(JSON.stringify({ t: 'hola', version: 'qa' })));
+ws.on('open', () => ws.send(JSON.stringify({ t: 'hello', version: 'qa' })));
 ws.on('message', async raw => {
   const m = JSON.parse(String(raw));
-  if (m.t === 'respuesta') { const e = waiting.get(m.request); waiting.delete(m.request); if (e) m.error ? e.fail(new Error(m.error)) : e.ok(m.data); return; }
-  if (m.t === 'bienvenida' || m.t === 'estado') state = m.state;
-  if (m.t === 'bienvenida') {
+  if (m.t === 'response') { const e = waiting.get(m.request); waiting.delete(m.request); if (e) m.error ? e.fail(new Error(m.error)) : e.ok(m.data); return; }
+  if (m.t === 'welcome' || m.t === 'state') state = m.state;
+  if (m.t === 'welcome') {
     room ??= state.rooms.find(x => x.type === 'repo')?.id;
     const s = state.rooms.find(x => x.id === room); const h = state.dwellers.find(x => x.roomId === room);
     if (!s || !h) { log('No hay sala o habitante', room); process.exit(1); }
     log(`sala ${s.name} (${s.path}), habitante ${h.name}, decorado antes: ${s.decor ? s.decor.base : 'ninguno'}`);
     const prompt = await ask('room.adaptPrompt');
-    ws.send(JSON.stringify({ t: 'empezar', dwellerId: h.id, roomId: room, prompt, options: { model, permissions: 'default' } }));
-  } else if (m.t === 'sesion' && m.session.roomId === room) {
+    ws.send(JSON.stringify({ t: 'start', dwellerId: h.id, roomId: room, prompt, options: { model, permissions: 'default' } }));
+  } else if (m.t === 'session' && m.session.roomId === room) {
     const s = m.session; sessionId = s.id;
     if (s.activity && s.activity.text !== last) { last = s.activity.text; log('·', last); }
     if (s.pending) {
       const cmd = String((s.pending.input ?? []).map(b => b.text).join(' '));
       const si = s.pending.type === 'permiso' && (s.pending.tool !== 'Bash' || READ_ONLY.test(cmd.trim()));
       log(si ? 'PERMISO (sí):' : 'PERMISO (no):', s.pending.title, cmd.slice(0, 120));
-      ws.send(JSON.stringify({ t: 'responder', sessionId, requestId: s.pending.id, decision: si ? 'si' : 'no', ...(si ? {} : { message: 'En esta prueba solo se lee el repo.' }) }));
+      ws.send(JSON.stringify({ t: 'answer', sessionId, requestId: s.pending.id, decision: si ? 'si' : 'no', ...(si ? {} : { message: 'En esta prueba solo se lee el repo.' }) }));
     }
     if ((s.state === 'terminada' || s.state === 'error') && !end) {
       end = true;
@@ -45,10 +45,10 @@ ws.on('message', async raw => {
       const d = state.rooms.find(x => x.id === room)?.decor;
       if (!d) { log('FALLO: la sala no tiene decorado'); process.exit(1); }
       log(`decorado: base ${d.base}, ${d.pieces?.length ?? 0} piezas, ${d.signs?.length ?? 0} carteles, ${d.screens?.length ?? 0} pantallas · «${d.subtitle ?? ''}» · ${d.summary ?? ''}`);
-      ws.send(JSON.stringify({ t: 'cerrarSesion', sessionId }));
+      ws.send(JSON.stringify({ t: 'closeSession', sessionId }));
       if (photo) execFileSync('node', [path.join(import.meta.dirname, 'capture.mjs'), `http://127.0.0.1:${port}/?sala=${room}`, photo, '1280', '720', '--pasos=40', "--eval=window.__juego.set({panel:null});document.getElementById('ui').style.visibility='hidden'"], { stdio: 'inherit', env: process.env });
       process.exit(0);
     }
-  } else if (m.t === 'aviso') log('aviso:', m.text);
+  } else if (m.t === 'notice') log('aviso:', m.text);
 });
 setTimeout(() => { log('TIEMPO AGOTADO'); process.exit(2); }, 20 * 60_000);

@@ -67,13 +67,13 @@ try {
   const received = [];
   let n = 0;
   const pending = new Map();
-  ws.on('message', raw => { const m = JSON.parse(String(raw)); received.push(m); if (m.t === 'respuesta' && pending.has(m.request)) { const f = pending.get(m.request); pending.delete(m.request); f(m); } });
+  ws.on('message', raw => { const m = JSON.parse(String(raw)); received.push(m); if (m.t === 'response' && pending.has(m.request)) { const f = pending.get(m.request); pending.delete(m.request); f(m); } });
   await new Promise(ok => ws.on('open', ok));
   const send = m => ws.send(JSON.stringify(m));
   const ask = (m) => new Promise(ok => { const request = 'q' + (++n); pending.set(request, ok); send({ ...m, request }); });
-  const action = (name, data) => ask({ t: 'accion', name, data });
-  send({ t: 'hola', version: 'qa' });
-  const welcome = await until(() => received.find(m => m.t === 'bienvenida'), 10000, 'bienvenida');
+  const action = (name, data) => ask({ t: 'action', name, data });
+  send({ t: 'hello', version: 'qa' });
+  const welcome = await until(() => received.find(m => m.t === 'welcome'), 10000, 'bienvenida');
   // una sala especial sin repo (su carpeta está dentro de los datos temporales): nada de lo que pase toca un repo
   const dw = welcome.state.dwellers.find(h => welcome.state.rooms.some(s => s.id === h.roomId && !s.path && s.type !== 'puente'));
   const room = welcome.state.rooms.find(s => s.id === dw.roomId);
@@ -84,45 +84,45 @@ try {
   const tid = 'sala:' + room.id;
   // la carpeta de una sala especial se crea al trabajar en ella; aquí se crea a mano
   (await import('node:fs')).mkdirSync(folder, { recursive: true });
-  send({ t: 'terminalAbrir', id: tid, cwd: folder, cols: 90, rows: 26 });
-  await until(() => received.some(m => m.t === 'terminalDatos' && m.id === tid), 10000, 'terminal abierta').catch(e => { console.log(received.filter(m => m.t !== 'bienvenida').map(m => JSON.stringify(m).slice(0, 200))); throw e; });
-  send({ t: 'terminalEntrada', id: tid, data: 'export MARCA=refugio-$((40+2))\r' });
+  send({ t: 'terminalOpen', id: tid, cwd: folder, cols: 90, rows: 26 });
+  await until(() => received.some(m => m.t === 'terminalData' && m.id === tid), 10000, 'terminal abierta').catch(e => { console.log(received.filter(m => m.t !== 'welcome').map(m => JSON.stringify(m).slice(0, 200))); throw e; });
+  send({ t: 'terminalInput', id: tid, data: 'export MARCA=refugio-$((40+2))\r' });
   await sleep(500);
   const r1 = await action('surface.takeOut', { terminals: [tid] });
   check(!r1.error && r1.data.terminals === 1, 'sacar una terminal responde 1 terminal');
   const a1 = notes().at(-1);
   check(a1 && /enganchar 'sala:/.test(a1.items[0].command) && a1.items[0].command.includes(SOCKET), 'se abriría `./shelter enganchar` con su socket');
   const outside = hookOutside(a1.items[0].command);
-  await until(() => received.some(m => m.t === 'terminalEstado' && m.id === tid && m.outside === 1), 10000, 'el juego sabe que está fuera').catch(e => { console.log('FUERA:', JSON.stringify(outside.text().slice(-600))); throw e; });
+  await until(() => received.some(m => m.t === 'terminalState' && m.id === tid && m.outside === 1), 10000, 'el juego sabe que está fuera').catch(e => { console.log('FUERA:', JSON.stringify(outside.text().slice(-600))); throw e; });
   check(true, 'el juego marca la terminal como abierta en el escritorio');
   outside.write('echo "$MARCA"\r');
   await until(() => outside.text().includes('refugio-42'), 8000, 'el shell de fuera es el mismo');
   check(true, 'fuera se escribe en el mismo shell (ve la variable del juego)');
-  await until(() => received.some(m => m.t === 'terminalDatos' && m.id === tid && String(m.data).includes('refugio-42')), 5000, 'el juego ve lo de fuera');
+  await until(() => received.some(m => m.t === 'terminalData' && m.id === tid && String(m.data).includes('refugio-42')), 5000, 'el juego ve lo de fuera');
   check(true, 'el juego ve lo que se escribe fuera');
 
   // 2 y 3. conversación
   if (withSession && welcome.claudeOk) {
-    const sid = (await ask({ t: 'empezar', dwellerId: dw.id, roomId: room.id, prompt: 'Responde solo con la palabra: superficie', options: { model: 'haiku', permissions: 'acceptEdits' } })).data;
-    const sess = await until(() => { const s = received.filter(m => m.t === 'sesion' && m.session.id === sid).at(-1)?.session; return s && s.state === 'terminada' && s.claudeId ? s : null; }, 90000, 'la conversación termina');
+    const sid = (await ask({ t: 'start', dwellerId: dw.id, roomId: room.id, prompt: 'Responde solo con la palabra: superficie', options: { model: 'haiku', permissions: 'acceptEdits' } })).data;
+    const sess = await until(() => { const s = received.filter(m => m.t === 'session' && m.session.id === sid).at(-1)?.session; return s && s.state === 'terminada' && s.claudeId ? s : null; }, 90000, 'la conversación termina');
     log('conversación', sess.claudeId, '→', (sess.lastText || '').slice(0, 40));
     const r2 = await action('surface.takeOut', { sessions: [sid] });
     check(!r2.error && r2.data.sessions === 1, 'sacar una conversación responde 1 conversación');
     const a2 = notes().at(-1);
     check(a2?.items[0].command === `cd '${sess.cwd}' && claude --resume ${sess.claudeId} --model 'haiku' --permission-mode acceptEdits`, 'se abriría `claude --resume` en su carpeta: ' + a2?.items[0].command);
-    await until(() => received.some(m => m.t === 'sesion' && m.session.id === sid && m.session.state === 'cerrada'), 10000, 'cerrada en el juego');
+    await until(() => received.some(m => m.t === 'session' && m.session.id === sid && m.session.state === 'cerrada'), 10000, 'cerrada en el juego');
     check(true, 'la conversación se cierra en el juego');
     // un `claude --resume <id>` fuera (de mentira): el refugio no deja retomarla
     fake = spawn('/bin/bash', ['-c', `exec -a "claude --resume ${sess.claudeId}" sleep 60`], { stdio: 'ignore' });
     await sleep(300);
-    const hist = await ask({ t: 'historial', roomId: room.id });
+    const hist = await ask({ t: 'history', roomId: room.id });
     check(hist.data.some(x => x.claudeId === sess.claudeId && x.outside), 'el archivo la marca como abierta en el escritorio');
-    const r3 = await ask({ t: 'empezar', dwellerId: dw.id, roomId: room.id, prompt: '', options: { resume: sess.claudeId } });
+    const r3 = await ask({ t: 'start', dwellerId: dw.id, roomId: room.id, prompt: '', options: { resume: sess.claudeId } });
     check(!!r3.error && /escritorio/.test(r3.error), 'no deja retomarla mientras siga fuera');
     fake.kill('SIGKILL'); fake = null;
     // a mitad de trabajo (esperando un permiso): se interrumpe aquí y fuera se le pide que siga
-    const sid2 = (await ask({ t: 'empezar', dwellerId: dw.id, roomId: room.id, prompt: 'Ejecuta con la herramienta Bash exactamente: sleep 1 && echo listo. Luego responde «hecho».', options: { model: 'haiku', permissions: 'default' } })).data;
-    const sess2 = await until(() => { const s = received.filter(m => m.t === 'sesion' && m.session.id === sid2).at(-1)?.session; return s && s.claudeId && (s.state === 'esperando' || s.state === 'trabajando') ? s : null; }, 90000, 'la segunda conversación trabaja o espera');
+    const sid2 = (await ask({ t: 'start', dwellerId: dw.id, roomId: room.id, prompt: 'Ejecuta con la herramienta Bash exactamente: sleep 1 && echo listo. Luego responde «hecho».', options: { model: 'haiku', permissions: 'default' } })).data;
+    const sess2 = await until(() => { const s = received.filter(m => m.t === 'session' && m.session.id === sid2).at(-1)?.session; return s && s.claudeId && (s.state === 'esperando' || s.state === 'trabajando') ? s : null; }, 90000, 'la segunda conversación trabaja o espera');
     log('segunda conversación', sess2.state);
     const r4 = await action('surface.takeOut', { sessions: [sid2] });
     const a4 = notes().at(-1);
@@ -131,8 +131,8 @@ try {
 
   // 4. el juego se cae: otra terminal abierta y el cliente se va sin «Salir»
   const tid2 = tid + '::2';
-  send({ t: 'terminalAbrir', id: tid2, cwd: folder, cols: 90, rows: 26 });
-  await until(() => received.some(m => m.t === 'terminalDatos' && m.id === tid2), 10000, 'segunda terminal');
+  send({ t: 'terminalOpen', id: tid2, cwd: folder, cols: 90, rows: 26 });
+  await until(() => received.some(m => m.t === 'terminalData' && m.id === tid2), 10000, 'segunda terminal');
   const before = notes().length;
   ws.terminate();
   log('cliente fuera; espero el margen de 20 s…');
