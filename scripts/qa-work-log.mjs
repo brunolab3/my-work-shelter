@@ -5,6 +5,7 @@
 //   and GitHub are not both in DEMO; the example ladder parses without errors and earns «first merge» from its merged PR;
 // - Planning → Sync update: one line per task, keyless tasks last; X expands the PRs, worktrees and conversations
 //   underneath; Tab changes the range; C copies the Markdown (task line, PRs underneath);
+// - Planning's board, opened from the wall: U or its button opens Sync update, Esc goes back to the board;
 // - Planning's menu offers «Verify my career ladder»; a verification saved in the ladder's "progress" key shows its level
 //   and each verdict in the panel, and the level on the shelf's plaque;
 // - Vault → Trophies and career: the ladder's two steps, every trophy, first merge earned with its date; a medal the
@@ -99,6 +100,21 @@ try {
   await pg.keyboard.press('Tab'); await pg.keyboard.press('Tab'); await pg.keyboard.press('Tab');   // → All
   check(/Todo|All/.test(await pg.textContent('.bitacora-periodos .activa')), 'Tab moves through the ranges');
   await pg.keyboard.press('Escape');
+
+  // ---- the board opened from the wall: its Sync update entry (U or its button) goes back to the board
+  await pg.evaluate(() => window.__game.set({ panel: null, panelData: null })); await pg.waitForTimeout(200);
+  await pg.evaluate(() => window.__game.set({ panel: 'logistica', panelData: { view: 'jira' } }));
+  check(await until(async () => /Sync update/.test(await pg.textContent('.kanban-jira ~ .botonera').catch(() => ''))), 'the board offers Sync update');
+  check(/U\s*Sync update/.test(await pg.textContent('.ayuda-consola').catch(() => '')), 'and its key, U');
+  await pg.waitForTimeout(300); await pg.screenshot({ path: path.join(dir, 'board-sync-update.png'), animations: 'disabled' });
+  await pg.keyboard.press('KeyU');
+  check(await until(async () => (await pg.$$('.bitacora-fila')).length === 2), 'U opens Sync update from the board');
+  await pg.keyboard.press('Escape');
+  check(await until(async () => (await pg.$$('.kanban-jira')).length === 1), 'Esc goes back to the board');
+  await pg.click('.kanban-jira ~ .botonera button');
+  check(await until(async () => (await pg.$$('.bitacora-fila')).length === 2), 'its button opens it too');
+  await pg.keyboard.press('Escape'); await pg.waitForTimeout(200); await pg.keyboard.press('Escape');
+  check(await until(async () => !(await pg.evaluate(() => window.__game.get().panel))), 'Esc on the board, opened from the wall, closes it');
 
   // ---- Vault → Trophies and career
   await pg.evaluate(() => window.__game.set({ panel: 'camara', panelData: { view: 'trofeos' } }));

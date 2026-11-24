@@ -176,6 +176,7 @@ export function PanelLogistics() {
   // abierto directamente (la pantalla de la pared, ⌘K): al cerrarlo se vuelve al refugio, no al menú de la consola
   const [direct] = useState(() => direct0 === 'jira' || direct0 === 'bitacora');
   const onMenu = () => (direct ? closePanel() : setView('menu'));
+  const [fromBoard, setFromBoard] = useState(false);   // Sync update opened from the board goes back to it
   const [notice, setNotice] = useState('');
   const items = [
     { text: t('panels.boardMyJiraTasksAnd'), f: () => setView('jira') },
@@ -196,8 +197,8 @@ export function PanelLogistics() {
     else if (e.code === 'ArrowUp' || e.code === 'KeyW') setI(x => (x - 1 + items.length) % items.length);
     else if (e.code === 'Enter' || e.code === 'KeyE') { SFX.click(); items[i].f(); }
   }, [view, i]);
-  if (view === 'jira') return <JiraBoard goBack={onMenu} />;
-  if (view === 'bitacora') return <WorkLog goBack={onMenu} />;
+  if (view === 'jira') return <JiraBoard goBack={onMenu} onWorkLog={() => { setFromBoard(true); setView('bitacora'); }} />;
+  if (view === 'bitacora') return <WorkLog goBack={fromBoard ? () => { setFromBoard(false); setView('jira'); } : onMenu} />;
   if (view === 'avisos') return <PanelCommunications onlySource="linear" />;
   if (view === 'tablero') return <BoardLinear goBack={() => setView('menu')} />;
   return (
@@ -240,7 +241,7 @@ const KIND_PR: Record<PRBoard['state'], string> = { abierto: 'pr-abierto', borra
 export const trTextPR = (p: PRBoard) => prText(p).split(' · ').map(x => tIs(x)).join(' · ');
 const prBadge = (p: PRBoard) => <span className={'insignia-pr ' + KIND_PR[p.state] + (p.state === 'abierto' && p.review === 'CHANGES_REQUESTED' ? ' pr-cambios' : '') + (p.checks === 'FAILURE' || p.checks === 'ERROR' ? ' pr-ci-mal' : '')} title={`${p.repo}#${p.number} · ${trTextPR(p)}`}>#{p.number} {trTextPR(p)}</span>;
 // coordinacion: el tablero abierto desde una sala de coordinación (P planifica ahí; si no, en la primera que haya)
-export function JiraBoard({ goBack, coordination }: { goBack: () => void; coordination?: string }) {
+export function JiraBoard({ goBack, coordination, onWorkLog }: { goBack: () => void; coordination?: string; onWorkLog?: () => void }) {
   const ints = live.use(e => e.integrations);
   const sessions = live.use(e => e.sessions);
   const rooms: any[] = live.use(e => e.state?.rooms ?? []);
@@ -322,7 +323,8 @@ export function JiraBoard({ goBack, coordination }: { goBack: () => void; coordi
     else if (e.code === 'KeyR') { load(true); SFX.click(); }
     else if (e.code === 'KeyP' && startBy) plan(taskSel);
     else if (e.code === 'KeyF' && withPreflight) preflight();
-  }, [columns, col, i, taskSel, selPrs, startBy, withPreflight, coord?.id, move, jira]);
+    else if (e.code === 'KeyU' && onWorkLog) { SFX.click(); onWorkLog(); }
+  }, [columns, col, i, taskSel, selPrs, startBy, withPreflight, coord?.id, move, jira, onWorkLog]);
   const demo = jira?.demo || gh?.demo;
   return (
     <Device label={`${coordination ? (coord?.name ?? t('panels.logistics')).toUpperCase() + ' · ' + t('panels.split') : t('panels.planning')} · ${t('panels.myJiraTasks')}${demo ? ' · DEMO' : ''}`} width={96} height onClose={goBack}>
@@ -356,8 +358,9 @@ export function JiraBoard({ goBack, coordination }: { goBack: () => void; coordi
       </div>
       {crossing.withoutTask.length > 0 && <p className="tenue">{t('panels.nPrsWithoutAJira', { n: crossing.withoutTask.length })}</p>}
       {startBy && <div className="botonera"><button className="boton-taller" onClick={() => plan(taskSel)} title={t('panels.planClaveInSalaWith', { clave: taskSel!.key, sala: coord?.name ?? t('panels.theLogisticsRoom') })}>{coord ? t('panels.pPlanClaveInSala', { clave: taskSel!.key, sala: coord.name }) : t('panels.pPlanClaveAndSplit', { clave: taskSel!.key })}</button></div>}
+      {onWorkLog && <div className="botonera"><button className="boton-taller" onClick={() => { SFX.click(); onWorkLog(); }} title={t('worklog.menu')}>{t('worklog.boardButton')}</button></div>}
       {selPrs.length > 0 && <div className="botonera">{selPrs.slice(0, 9).map((p, k) => <button key={p.url} className="boton-taller" onClick={() => openOutside(p.url)} title={p.title}>{k + 1} · {p.repo}#{p.number}</button>)}{withPreflight && <button className="boton-taller" onClick={preflight} title={t('preflight.actionHint')}>{t('preflight.keyF', { clave: taskSel!.key })}</button>}</div>}
-      <Keys><kbd>←→</kbd>{t('panels.column')} <kbd>↑↓</kbd>{t('panels.task')} <kbd>⇧←→</kbd>{t('panels.moveTheTask')} <kbd>Enter</kbd>{t('panels.openTheTask')} {selPrs.length > 0 && <><kbd>1–{Math.min(9, selPrs.length)}</kbd>{t('panels.openThePr')} </>}{startBy && <><kbd>P</kbd>{t('panels.planAndSplit')} </>}{withPreflight && <><kbd>F</kbd>{t('preflight.title')} </>}<kbd>T</kbd>{t('panels.allYourPrs')} <kbd>H</kbd>{showDone ? t('panels.hideDone') : t('panels.showDone')} <kbd>R</kbd>{t('panels.reload')} <kbd>Esc</kbd>{t('menu.back')}</Keys>
+      <Keys><kbd>←→</kbd>{t('panels.column')} <kbd>↑↓</kbd>{t('panels.task')} <kbd>⇧←→</kbd>{t('panels.moveTheTask')} <kbd>Enter</kbd>{t('panels.openTheTask')} {selPrs.length > 0 && <><kbd>1–{Math.min(9, selPrs.length)}</kbd>{t('panels.openThePr')} </>}{startBy && <><kbd>P</kbd>{t('panels.planAndSplit')} </>}{withPreflight && <><kbd>F</kbd>{t('preflight.title')} </>}<kbd>T</kbd>{t('panels.allYourPrs')} {onWorkLog && <><kbd>U</kbd>{t('worklog.keyBoard')} </>}<kbd>H</kbd>{showDone ? t('panels.hideDone') : t('panels.showDone')} <kbd>R</kbd>{t('panels.reload')} <kbd>Esc</kbd>{t('menu.back')}</Keys>
       {move && <div className="vt-confirmar mover-jira">
         <div className="vt-confirmar-caja">
           <p><b>{move.task.key}</b>: {move.task.state} → <b>{move.options[move.k].a}</b></p>
