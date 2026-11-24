@@ -11,7 +11,8 @@ export interface GameProcess extends ProcessInfo { part: GamePart }
 export interface DwellerProcess extends ProcessInfo { sessionId: string; children: ProcessInfo[] }
 /** a server listening on a local port; by: the dweller whose `claude` it descends from, if any; parent: who started it */
 export interface DevServer extends ProcessInfo { sessionId?: string; parent?: { pid: number; command: string } }
-export interface RunningSnapshot { at: number; game: GameProcess[]; dwellers: DwellerProcess[]; devServers: DevServer[]; totalMb: number }
+/** game: its processes but the helpers, which go as one line (helpers: how many and their memory); gameMb: the section's total, helpers included */
+export interface RunningSnapshot { at: number; game: GameProcess[]; helpers: { count: number; mb: number }; gameMb: number; dwellers: DwellerProcess[]; devServers: DevServer[]; totalMb: number }
 
 /** While the popover is open it asks again every this many ms; closed, never */
 export const RUNNING_REFRESH_MS = 4000;

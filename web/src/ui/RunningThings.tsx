@@ -17,7 +17,7 @@ import { SFX } from '../audio/sound';
 
 const PART: Record<GamePart, string> = {
   server: t('panels.running.part.server'), supervisor: t('panels.running.part.supervisor'), main: t('panels.running.part.main'),
-  renderer: t('panels.running.part.renderer'), gpu: t('panels.running.part.gpu'), terminals: t('panels.running.part.terminals'), helper: t('panels.running.part.helper'),
+  renderer: t('panels.running.part.renderer'), gpu: t('panels.running.part.gpu'), terminals: t('panels.running.part.terminals'), helper: '',
 };
 
 function dwellerName(sessionId: string) {
@@ -63,13 +63,19 @@ export function RunningThings() {
 }
 
 function Lists({ snap }: { snap: RunningSnapshot }) {
-  const gameMb = snap.game.reduce((s, p) => s + p.mb, 0);
+  // the helpers as one line, where their memory puts it among the game's processes
+  const helpersAt = snap.game.findIndex(p => p.mb < snap.helpers.mb);
+  const gameRows = snap.game.map(p => <Row key={p.pid} p={p} name={PART[p.part]} />);
+  if (snap.helpers.count) gameRows.splice(helpersAt < 0 ? gameRows.length : helpersAt, 0, <div key="helpers" className="proceso">
+    <span className="proceso-nombre">{t('panels.running.helpers', { n: snap.helpers.count })}</span>
+    <span className="proceso-mb">{formatMb(snap.helpers.mb)}</span><span /><span />
+  </div>);
   return <>
     <div className="tenue">{t('panels.running.total', { total: formatMb(snap.totalMb), umbral: formatMb(memoryThreshold()) })}</div>
     <section>
-      <h4>{t('panels.running.game')} <span className="tenue">{formatMb(gameMb)}</span></h4>
+      <h4>{t('panels.running.game')} <span className="tenue">{formatMb(snap.gameMb)}</span></h4>
       <WindowReload />
-      {snap.game.map(p => <Row key={p.pid} p={p} name={PART[p.part]} />)}
+      {gameRows}
     </section>
     <section>
       <h4>{t('panels.running.claude')} <span className="tenue">{formatMb(snap.dwellers.reduce((s, d) => s + d.mb, 0))}</span></h4>

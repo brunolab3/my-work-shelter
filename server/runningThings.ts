@@ -100,9 +100,13 @@ export function groupRunning(rows: ProcRow[], listeners: Map<number, number[]>, 
     devServers.push({ ...info(p), ...(owner.has(pid) ? { sessionId: owner.get(pid) } : {}), ...(parent && parent.pid > 1 ? { parent: { pid: parent.pid, command: parent.command } } : {}) });
   }
 
-  const totalMb = game.reduce((s, p) => s + p.mb, 0) + dwellers.reduce((s, d) => s + d.mb + d.children.reduce((t, c) => t + c.mb, 0), 0);
+  // the helpers as one line: how many and their memory
+  const helperRows = game.filter(p => p.part === 'helper');
+  const helpers = { count: helperRows.length, mb: helperRows.reduce((s, p) => s + p.mb, 0) };
+  const gameMb = game.reduce((s, p) => s + p.mb, 0);
+  const totalMb = gameMb + dwellers.reduce((s, d) => s + d.mb + d.children.reduce((t, c) => t + c.mb, 0), 0);
   const weight = (d: DwellerProcess) => d.mb + d.children.reduce((t, c) => t + c.mb, 0);
-  return { at: now, game: bySize(game), dwellers: dwellers.sort((a, b) => weight(b) - weight(a)), devServers: bySize(devServers), totalMb };
+  return { at: now, game: bySize(game.filter(p => p.part !== 'helper')), helpers, gameMb, dwellers: dwellers.sort((a, b) => weight(b) - weight(a)), devServers: bySize(devServers), totalMb };
 }
 
 const lsof = () => new Promise<string>(ok => execFile('/usr/sbin/lsof', ['-nP', '-iTCP', '-sTCP:LISTEN', '-Fpn', '-w'], { maxBuffer: 8 * 1024 * 1024, timeout: 5000 }, (_e, out) => ok(String(out ?? ''))));

@@ -38,12 +38,19 @@ describe('what is running', () => {
   });
   it('the game: the server, its launchers up to the app and the app’s helpers, largest first; not ps itself', () => {
     const g = snap().game;
-    expect(g.map(p => [p.pid, p.part])).toEqual([[101, 'renderer'], [100, 'main'], [102, 'gpu'], [500, 'server'], [610, 'helper'], [800, 'terminals'], [104, 'supervisor'], [103, 'helper']]);
+    expect(g.map(p => [p.pid, p.part])).toEqual([[101, 'renderer'], [100, 'main'], [102, 'gpu'], [500, 'server'], [800, 'terminals'], [104, 'supervisor']]);
     expect(g.find(p => p.pid === 500)?.ports).toEqual([3778]);
   });
+  it('the helpers as one line: their count and memory, in the section’s total', () => {
+    const s = snap();
+    expect(s.helpers.count).toBe(2);
+    expect(s.helpers.mb).toBeCloseTo((20480 + 400) / 1024);
+    expect(s.gameMb).toBeCloseTo([512000, 2048000, 204800, 400, 4000, 153600, 20480, 5120].reduce((a, b) => a + b) / 1024);
+  });
   it('without the app, only the supervisor above the server', () => {
-    const g = groupRunning(parseProcs(PS), new Map(), { ...ctx, app: undefined }, 1).game;
-    expect(g.map(p => p.pid).sort()).toEqual([104, 500, 610, 800]);
+    const s = groupRunning(parseProcs(PS), new Map(), { ...ctx, app: undefined }, 1);
+    expect(s.game.map(p => p.pid).sort()).toEqual([104, 500, 800]);
+    expect(s.helpers.count).toBe(1);
   });
   it('each dweller with its descendants as a tree, siblings largest first; heaviest dweller first', () => {
     const d = snap().dwellers;

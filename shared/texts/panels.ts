@@ -1370,7 +1370,7 @@ export const PANELS: Record<string, LocalizedText> = {
   'panels.running.part.renderer': { es: 'Ventana (render)', en: 'Window (renderer)' },
   'panels.running.part.gpu': { es: 'GPU', en: 'GPU' },
   'panels.running.part.terminals': { es: 'Terminales del juego', en: 'Game terminals' },
-  'panels.running.part.helper': { es: 'Auxiliar', en: 'Helper' },
+  'panels.running.helpers': { es: 'Auxiliares · {n}', en: 'Helpers · {n}' },
   'panels.running.window': { es: 'La ventana del juego usa {mb}', en: 'The game window uses {mb}' },
   'panels.running.ports': { es: 'puerto {puertos}', en: 'port {puertos}' },
   'panels.running.startedBy': { es: 'de {quien}', en: 'by {quien}' },
