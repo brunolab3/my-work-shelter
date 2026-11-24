@@ -969,6 +969,18 @@ span.vt-lista-marca { cursor: default; }
 .medallas li.proposed { border-left-color: var(--ambar); }
 .medallas li.sel { background: rgba(255,179,71,.1); }
 .medallas li b { color: var(--ambar); }
+/* the medals as a carpet hanging under the trophies: a red cloth with one tile per medal */
+.medallas.alfombra { display: flex; flex-wrap: wrap; gap: .4em; padding: .5em; background: repeating-linear-gradient(45deg, #5a1414 0 6px, #4c1010 6px 12px); border: 1px solid #7a2a2a; border-top: 3px solid #8a6a2a; }
+.medallas.alfombra li { flex: 1 1 18em; max-width: 26em; background: rgba(0,0,0,.35); border-left-width: 3px; }
+/* a vertical trophy's level, by its colour */
+.nivel-trofeo { padding: 0 .5em; border: 1px solid currentColor; border-radius: .6em; font-size: .85em; }
+.nivel-trofeo.ninguno { color: var(--fosforo-tenue); }
+.nivel-trofeo.bronze, .trofeo.vertical.bronze b { color: #d08a4a; }
+.nivel-trofeo.silver, .trofeo.vertical.silver b { color: #d6dde2; }
+.nivel-trofeo.gold, .trofeo.vertical.gold b { color: #f2c94c; }
+.trofeo.vertical.bronze .trofeo-icono { filter: sepia(1) saturate(1.6) hue-rotate(-15deg) brightness(.8); }
+.trofeo.vertical.silver .trofeo-icono { filter: grayscale(1) brightness(1.3); }
+.listo-pedir { color: var(--fosforo); border: 1px solid var(--fosforo); padding: .3em .6em; margin: .3em 0; }
 .medalla-botones button { background: transparent; color: var(--fosforo); border: 1px solid var(--fosforo-tenue); font: inherit; font-size: .85em; padding: 0 .6em; margin-right: .3em; cursor: pointer; }
 .medalla-botones button:hover { background: rgba(157,255,184,.12); }
 .medalla-mano { display: flex; gap: .5em; align-items: center; flex-wrap: wrap; margin: .3em 0 .6em; font-size: .9em; }

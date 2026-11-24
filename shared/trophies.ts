@@ -1,10 +1,12 @@
 // Trophies and the career ladder, derived from the work log's ledger (shared/workLog.ts) on every read, never saved.
 // The ladder file (the Overseer's DATOS/escalera.json, else docs/ladder.example.json; read by server/workLog.ts)
-// defines the trophies (a built-in kind with a threshold and filters) and the steps, each requirement satisfied by
-// trophies. Nothing is set by hand: a trophy is earned when its facts reach the threshold, and stays earned.
+// defines the awards (medal kinds, `kind: awards`), the measured trophies (a built-in kind with a threshold and
+// filters) and the steps. Each requirement is a vertical's trophy: it counts awards (accepted medals of the awards it
+// lists or that name it, and the trophies it lists once earned, another requirement's included) and reaches the
+// levels its file sets (bronze, silver, gold: how many awards each needs); it is won at its lowest level.
 // Pure: used by the client, the server and the tests.
 import { language, t } from './language.ts';
-import type { Ledger } from './workLog.ts';
+import type { Ledger, Medal } from './workLog.ts';
 
 export const TROPHY_KINDS = ['prsMerged', 'tasksDone', 'reviewsGiven', 'multiRepoTasks', 'verifiedInProd', 'awards'] as const;
 export type TrophyKind = typeof TROPHY_KINDS[number];
@@ -29,8 +31,14 @@ export type AwardSource = typeof AWARD_SOURCES[number];
 export const DEFAULT_SOURCES: AwardSource[] = ['github', 'digest', 'manual'];
 /** An award: a trophy of kind `awards`, filled by medals proposed for it with evidence from one of its sources */
 export interface Award { id: string; name: FileText; requirement?: string; evidence: FileText; sources: AwardSource[] }
-/** `evidence`: what the Friday digest looks for, for the awards trophies that belong to it and say none of their own */
-export interface Requirement { id: string; text: FileText; trophies: string[]; mode: 'all' | 'any'; evidence?: FileText }
+/** A vertical trophy's levels: how many awards each needs (set per trophy in the file; any of them may be left out) */
+export const LEVELS = ['bronze', 'silver', 'gold'] as const;
+export type Level = typeof LEVELS[number];
+export type Levels = Partial<Record<Level, number>>;
+/** A requirement is its vertical's trophy. `trophies`: the awards, measured trophies and other requirements that count
+ *  toward it by rule (any award whose `requirement` names it counts too); `levels`: none, judged by people.
+ *  `evidence`: what the Friday digest looks for, for the awards that belong to it and say none of their own */
+export interface Requirement { id: string; text: FileText; trophies: string[]; levels?: Levels; evidence?: FileText }
 export interface Step { id: string; name: FileText; requirements: Requirement[] }
 /** `digestRoom`: the room whose dweller runs the Friday digest (Planning by default; Logistics or Communications) */
 export const DIGEST_ROOMS = ['logistica', 'tareas', 'comunicaciones'] as const;
@@ -68,7 +76,8 @@ export function parseLadder(text: string): { ladder: Ladder; errors: string[] } 
     });
     if (Array.isArray(r.sources) && r.sources.some((x: unknown) => !AWARD_SOURCES.includes(x as AwardSource))) bad(t('trophies.error.sources', { sources: AWARD_SOURCES.join(', ') }));
   }
-  const known = new Set(ladder.trophies.map(x => x.id));
+  const reqIds = new Set<string>((Array.isArray(j?.steps) ? j.steps : []).flatMap((s: any) => Array.isArray(s?.requirements) ? s.requirements : []).map((q: any) => typeof q?.id === 'string' ? q.id.trim() : '').filter(Boolean));
+  const known = new Set([...ladder.trophies.map(x => x.id), ...reqIds]);
   for (const [i, s] of (Array.isArray(j?.steps) ? j.steps : []).entries()) {
     const id = typeof s?.id === 'string' && s.id.trim() ? s.id.trim() : `#${i + 1}`;
     const requirements: Requirement[] = [];
@@ -76,7 +85,15 @@ export function parseLadder(text: string): { ladder: Ladder; errors: string[] } 
       const rid = typeof q?.id === 'string' && q.id.trim() ? q.id.trim() : `${id}.${k + 1}`;
       const list: string[] = (Array.isArray(q?.trophies) ? q.trophies : []).filter((x: unknown): x is string => typeof x === 'string');
       for (const x of list.filter(x => !known.has(x))) errors.push(t('trophies.error.unknownTrophy', { req: rid, id: x }));
-      requirements.push({ id: rid, text: isText(q?.text) ? q.text : rid, trophies: list.filter(x => known.has(x)), mode: q?.mode === 'any' ? 'any' : 'all', ...(isText(q?.evidence) ? { evidence: q.evidence } : {}) });
+      const trophies = list.filter(x => known.has(x) && x !== rid);
+      // levels: increasing whole counts; a file from before levels gets one, gold, where its old `mode` was met
+      let levels: Levels | undefined;
+      if (q?.levels != null) {
+        const given = LEVELS.filter(k => q.levels?.[k] != null).map(k => [k, Number(q.levels[k])] as const);
+        if (given.length && given.every(([, n], k) => Number.isInteger(n) && n >= 1 && (!k || n > given[k - 1][1]))) levels = Object.fromEntries(given);
+        else errors.push(t('trophies.error.levels', { req: rid }));
+      } else if (trophies.length) levels = { gold: q?.mode === 'any' ? 1 : trophies.length };
+      requirements.push({ id: rid, text: isText(q?.text) ? q.text : rid, trophies, ...(levels ? { levels } : {}), ...(isText(q?.evidence) ? { evidence: q.evidence } : {}) });
     }
     ladder.steps.push({ id, name: isText(s?.name) ? s.name : id, requirements });
   }
@@ -133,27 +150,64 @@ export function trophyState(l: Ledger, r: TrophyRule, now: number): TrophyState 
   return { rule: r, count: counting.length, progress: earnedAt !== undefined ? 1 : Math.min(counting.length / r.n, 0.99), ...(earnedAt !== undefined ? { earnedAt } : {}), facts: counting };
 }
 
-export interface RequirementState { req: Requirement; progress: number; met: boolean; measured: boolean }
+/** A requirement as its vertical's trophy: the awards it counts (`medals` accepted, `won` trophies), its level and
+ *  the next one. `met`: won (its lowest level reached); `progress`: toward its top level */
+export interface RequirementState {
+  req: Requirement; progress: number; met: boolean; measured: boolean;
+  count: number; level?: Level; next?: { level: Level; n: number }; wonAt?: number;
+  medals: Medal[]; won: string[]; facts: TrophyFact[];
+}
 export interface StepState { step: Step; requirements: RequirementState[]; progress: number; complete: boolean }
-export interface CareerState { trophies: TrophyState[]; steps: StepState[]; current?: string }
+/** `verticals`: each measured requirement once, as its trophy; `ready`: the last step of an unbroken run from the first
+ *  whose trophies are all won (ready to ask for it) */
+export interface CareerState { trophies: TrophyState[]; verticals: RequirementState[]; steps: StepState[]; current?: string; ready?: string }
 
 /** Every trophy and every step of the ladder with its progress; `current`: the first step not yet complete */
 export function evaluate(ladder: Ladder, l: Ledger, now: number): CareerState {
   const trophies = ladder.trophies.map(r => trophyState(l, r, now));
   const by = new Map(trophies.map(x => [x.rule.id, x]));
+  const reqs = new Map<string, Requirement>();
+  for (const s of ladder.steps) for (const q of s.requirements) if (!reqs.has(q.id)) reqs.set(q.id, q);
+  const accepted = Object.values(l.medals ?? {}).filter(m => m.state === 'accepted');
+  const done = new Map<string, RequirementState>(), visiting = new Set<string>();
+  const vertical = (q: Requirement): RequirementState | undefined => {
+    if (done.has(q.id)) return done.get(q.id);
+    if (visiting.has(q.id)) return undefined;   // a ring of requirements counting each other: the inner one doesn't count
+    visiting.add(q.id);
+    let st: RequirementState = { req: q, progress: 0, met: false, measured: false, count: 0, medals: [], won: [], facts: [] };
+    if (q.levels) {
+      // the awards that count: those it lists, and any whose requirement is this one (old medals name only that)
+      const awards = new Set(ladder.trophies.filter(x => x.kind === 'awards' && (q.trophies.includes(x.id) || x.requirement === q.id)).map(x => x.id));
+      const medals = accepted.filter(m => (m.award ? awards.has(m.award) : m.requirement === q.id));
+      const won: { id: string; at: number }[] = [];
+      let partial = 0;   // measured trophies on their way fill the cup a little, without counting as awards yet
+      for (const id of q.trophies) {
+        const x = by.get(id);
+        if (x) { if (x.rule.kind !== 'awards') { if (x.earnedAt !== undefined) won.push({ id, at: x.earnedAt }); else partial += x.progress; } continue; }
+        const other = reqs.get(id), o = other && vertical(other);
+        if (o?.wonAt !== undefined) won.push({ id, at: o.wonAt });
+      }
+      const facts: TrophyFact[] = [
+        ...medals.map(m => ({ at: m.decidedAt ?? m.proposedAt, ref: m.text.slice(0, 40), ...(m.evidence[0] ? { url: m.evidence[0] } : {}) })),
+        ...won.map(w => ({ at: w.at, ref: fileText(by.get(w.id)?.rule.name ?? reqs.get(w.id)?.text) || w.id })),
+      ].sort((a, b) => a.at - b.at);
+      const steps = LEVELS.filter(k => q.levels![k] !== undefined).map(k => ({ level: k, n: q.levels![k]! }));
+      const count = facts.length, reached = steps.filter(x => count >= x.n), top = steps[steps.length - 1].n;
+      const level = reached[reached.length - 1]?.level, next = steps.find(x => count < x.n);
+      st = { ...st, measured: true, count, progress: next ? Math.min((count + partial) / top, 0.99) : 1, met: !!level, ...(level ? { level, wonAt: facts[steps[0].n - 1].at } : {}), ...(next ? { next } : {}), medals, won: won.map(w => w.id), facts };
+    }
+    visiting.delete(q.id); done.set(q.id, st);
+    return st;
+  };
   const steps = ladder.steps.map((step): StepState => {
-    const requirements = step.requirements.map((req): RequirementState => {
-      const states = req.trophies.map(id => by.get(id)!).filter(Boolean);
-      if (!states.length) return { req, progress: 0, met: false, measured: false };   // judged by people, not by the game
-      const ps = states.map(s => s.progress);
-      const progress = req.mode === 'any' ? Math.max(...ps) : Math.min(...ps);
-      return { req, progress, met: progress >= 1, measured: true };
-    });
+    const requirements = step.requirements.map(q => vertical(q)!);
     const measured = requirements.filter(r => r.measured);
     const progress = measured.length ? measured.filter(r => r.met).length / measured.length : 0;
     return { step, requirements, progress, complete: measured.length > 0 && measured.every(r => r.met) };
   });
-  return { trophies, steps, current: steps.find(s => !s.complete)?.step.id };
+  let ready: string | undefined;
+  for (const s of steps) { if (s.complete) ready = s.step.id; else break; }
+  return { trophies, verticals: [...done.values()].filter(x => x.measured), steps, current: steps.find(s => !s.complete)?.step.id, ...(ready ? { ready } : {}) };
 }
 
 /** The requirements with `evidence` (what their awards look for when they say none), unique by id */
@@ -182,8 +236,14 @@ export function digestDue(last: number | undefined, now: number): boolean {
   return d.getTime() > last;
 }
 
-/** Trophies earned and not yet announced */
-export const newlyEarned = (c: CareerState, notified: string[]) => c.trophies.filter(x => x.earnedAt !== undefined && !notified.includes(x.rule.id));
+/** Trophies earned and levels reached not yet announced: a measured trophy by its id, a vertical's level as `id@level`
+ *  (awards are medals, accepted by the Overseer: not announced) */
+export function newlyEarned(c: CareerState, notified: string[]): { key: string; name: string }[] {
+  return [
+    ...c.trophies.filter(x => x.rule.kind !== 'awards' && x.earnedAt !== undefined).map(x => ({ key: x.rule.id, name: fileText(x.rule.name) })),
+    ...c.verticals.filter(x => x.level).map(x => ({ key: `${x.req.id}@${x.level}`, name: `${fileText(x.req.text)} (${t(`trophies.level.${x.level}`)})` })),
+  ].filter(x => !notified.includes(x.key));
+}
 
 // ---------------------------------------------------------------- the ladder's verification (asked by the Overseer)
 // A session checks each requirement against the work and reports with ladder_progress; the game settles it here and
@@ -209,7 +269,7 @@ export function settleProgress(ladder: Ladder, career: CareerState, report: Sess
     if (q.measured) {
       const verdict: Verdict = q.met ? 'met' : q.progress > 0 ? 'partial' : 'not-met';
       if (s && s.verdict !== verdict) overridden.push(q.req.id);
-      const facts = q.req.trophies.flatMap(id => trophy.get(id)?.facts ?? []).map(f => f.url ?? f.ref);
+      const facts = [...q.medals.map(m => m.evidence[0]), ...q.won.flatMap(id => trophy.get(id)?.facts.map(f => f.url ?? f.ref) ?? [])].filter(Boolean);
       requirements[q.req.id] = { verdict, evidence: [...new Set([...facts, ...evidence])].slice(0, 12), ...(notes ? { notes } : {}), byRules: true };
     } else {
       let verdict: Verdict = VERDICTS.includes(s?.verdict as Verdict) ? s!.verdict as Verdict : 'not-met';

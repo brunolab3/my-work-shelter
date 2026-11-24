@@ -70,8 +70,8 @@ export class WorkLog {
     changed = mergeConversations(l, src.sessions(), now) || changed;
     const fresh = newlyEarned(evaluate(this.ladder().ladder, l, now), l.notified);
     if (fresh.length) {
-      l.notified.push(...fresh.map(x => x.rule.id)); changed = true;
-      src.notify(fresh.length === 1 ? t('trophies.earned', { nombre: fileText(fresh[0].rule.name) }) : t('trophies.earnedMany', { n: fresh.length, nombres: fresh.map(x => fileText(x.rule.name)).join(', ') }));
+      l.notified.push(...fresh.map(x => x.key)); changed = true;
+      src.notify(fresh.length === 1 ? t('trophies.earned', { nombre: fresh[0].name }) : t('trophies.earnedMany', { n: fresh.length, nombres: fresh.map(x => x.name).join(', ') }));
     }
     if (changed) this.save();
   }
@@ -155,7 +155,10 @@ export class WorkLog {
     if (!ladder.steps.length) throw new Error(errors[0] ?? t('trophies.error.empty'));
     const career = evaluate(ladder, l, now), trophy = new Map(career.trophies.map(x => [x.rule.id, x]));
     const steps = career.steps.map(st => [`## ${st.step.id} · ${fileText(st.step.name)}`, ...st.requirements.map(q => {
-      const rules = q.req.trophies.map(id => { const x = trophy.get(id)!; return `${id} ${x.count}/${x.rule.n}${x.earnedAt ? ' ✔' : ''}${x.facts.length ? ' (' + x.facts.slice(-5).map(f => f.url ?? f.ref).join(', ') + ')' : ''}`; });
+      // its awards against its levels, then each measured trophy it lists with its count and facts
+      const levels = Object.entries(q.req.levels ?? {}).map(([k, n]) => `${k} ${n}`).join(', ');
+      const measured = q.req.trophies.map(id => trophy.get(id)).filter(x => x && x.rule.kind !== 'awards').map(x => `${x!.rule.id} ${x!.count}/${x!.rule.n}${x!.earnedAt ? ' ✔' : ''}${x!.facts.length ? ' (' + x!.facts.slice(-5).map(f => f.url ?? f.ref).join(', ') + ')' : ''}`);
+      const rules = [`${q.count} awards (${levels})${q.level ? ' → ' + q.level : ''}`, ...measured, ...q.medals.map(m => `🏅 ${m.evidence[0]}`)];
       return `- ${q.req.id}: ${fileText(q.req.text)} — ${q.measured ? t('prompt.ladderVerify.byRules', { estado: q.met ? 'met' : q.progress > 0 ? 'partial' : 'not-met', reglas: rules.join('; ') }) : t('prompt.ladderVerify.yours')}${q.req.evidence ? ' — ' + fileText(q.req.evidence) : ''}`;
     })].join('\n')).join('\n\n');
     const since = this.progress()?.at ?? now - 90 * 864e5;

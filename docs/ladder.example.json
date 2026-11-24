@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "digestRoom": "logistica",
   "trophies": [
     {
@@ -65,8 +65,7 @@
         "en": "Aligns the solution with product and engineering"
       },
       "kind": "awards",
-      "requirement": "alignment",
-      "n": 3
+      "requirement": "alignment"
     },
     {
       "id": "voice",
@@ -75,8 +74,7 @@
         "en": "Gives others a voice"
       },
       "kind": "awards",
-      "requirement": "voice",
-      "n": 3
+      "requirement": "voice"
     },
     {
       "id": "thanked",
@@ -85,7 +83,6 @@
         "en": "Recognised by other teams"
       },
       "kind": "awards",
-      "n": 2,
       "evidence": {
         "es": "Alguien de otro equipo le agradeció o reconoció algo concreto (ayuda, una herramienta, una revisión)",
         "en": "Someone from another team thanked or recognised them for something concrete (help, a tool, a review)"
@@ -110,7 +107,11 @@
           "trophies": [
             "first-merge",
             "quarter"
-          ]
+          ],
+          "levels": {
+            "bronze": 1,
+            "gold": 2
+          }
         },
         {
           "id": "reviews",
@@ -120,7 +121,10 @@
           },
           "trophies": [
             "reviewer"
-          ]
+          ],
+          "levels": {
+            "gold": 1
+          }
         }
       ]
     },
@@ -138,7 +142,10 @@
             "cross-repo",
             "prod-proof"
           ],
-          "mode": "any"
+          "levels": {
+            "bronze": 1,
+            "gold": 2
+          }
         },
         {
           "id": "volume",
@@ -148,7 +155,10 @@
           },
           "trophies": [
             "ten-merges"
-          ]
+          ],
+          "levels": {
+            "gold": 1
+          }
         },
         {
           "id": "alignment",
@@ -162,7 +172,12 @@
           },
           "trophies": [
             "aligner"
-          ]
+          ],
+          "levels": {
+            "bronze": 1,
+            "silver": 2,
+            "gold": 3
+          }
         },
         {
           "id": "voice",
@@ -176,7 +191,12 @@
           },
           "trophies": [
             "voice"
-          ]
+          ],
+          "levels": {
+            "bronze": 1,
+            "silver": 2,
+            "gold": 3
+          }
         },
         {
           "id": "recognised",
@@ -186,7 +206,11 @@
           },
           "trophies": [
             "thanked"
-          ]
+          ],
+          "levels": {
+            "bronze": 1,
+            "gold": 2
+          }
         },
         {
           "id": "mentoring",

@@ -53,19 +53,55 @@ describe('career ladder', () => {
     expect(c.current).toBe('L1');
     const l2 = c.steps.find(s => s.step.id === 'L2')!;
     expect(l2.requirements.find(r => r.req.id === 'mentoring')).toMatchObject({ measured: false, met: false });
-    expect(newlyEarned(c, []).map(x => x.rule.id)).toEqual(['first-merge']);
-    expect(newlyEarned(c, ['first-merge'])).toEqual([]);
+    expect(newlyEarned(c, []).map(x => x.key)).toEqual(['first-merge', 'delivers@bronze']);
+    expect(newlyEarned(c, ['first-merge', 'delivers@bronze'])).toEqual([]);
   });
 
-  it('requirements: all takes the slowest trophy, any the fastest', () => {
+  it('a requirement is its vertical\'s trophy: it counts awards and reaches the levels its file sets', () => {
+    const { ladder, errors } = parseLadder(JSON.stringify({
+      trophies: [
+        { id: 'a', kind: 'prsMerged', n: 1 }, { id: 'b', kind: 'prsMerged', n: 4 },
+        { id: 'plan', kind: 'awards', requirement: 'process', evidence: 'a plan first' }, { id: 'risk', kind: 'awards', requirement: 'impact', evidence: 'a risk review' },
+      ],
+      steps: [{ id: 'S', requirements: [
+        { id: 'process', trophies: ['plan', 'a', 'b'], levels: { bronze: 1, silver: 2, gold: 3 } },
+        { id: 'impact', trophies: ['process'], levels: { gold: 2 } },   // another's trophy counts once won; risk names it
+        { id: 'people', trophies: [] },
+      ] }],
+    }));
+    expect(errors).toEqual([]);
+    const l = emptyLedger(); mergePRs(l, [merged(1, NOW - D)], NOW);
+    let c = evaluate(ladder, l, NOW), [process, impact, people] = c.steps[0].requirements;
+    expect(process).toMatchObject({ count: 1, level: 'bronze', met: true, next: { level: 'silver', n: 2 }, won: ['a'] });
+    expect(process.progress).toBeCloseTo(1.25 / 3);   // b's 1/4 fills a little
+    expect(impact).toMatchObject({ count: 1, met: false, won: ['process'] });
+    expect(people).toMatchObject({ measured: false });
+    expect(c.verticals.map(x => x.req.id)).toEqual(['process', 'impact']);
+    expect(c.ready).toBeUndefined();
+    const medal = (id: string, award: string, at: number) => { l.medals[id] = { id, award, requirement: '', text: id, evidence: ['https://e/' + id], state: 'accepted', proposedAt: at, decidedAt: at }; };
+    medal('m1', 'plan', NOW); medal('m2', 'risk', NOW + 1); medal('m3', 'gone', NOW + 2);   // an award no longer in the file counts nowhere
+    l.medals.old = { id: 'old', requirement: 'process', text: 'before awards', evidence: ['x'], state: 'accepted', proposedAt: NOW };
+    c = evaluate(ladder, l, NOW + 3); [process, impact] = c.steps[0].requirements;
+    expect(process).toMatchObject({ count: 3, level: 'gold', progress: 1 });
+    expect(process.next).toBeUndefined();
+    expect(impact).toMatchObject({ count: 2, level: 'gold', wonAt: NOW + 1 });
+    expect(c.ready).toBe('S');
+    expect(newlyEarned(c, ['a']).map(x => x.key)).toEqual(['process@gold', 'impact@gold']);
+  });
+
+  it('levels: increasing whole counts; a file from before them gets gold where its mode was met; rings count nothing', () => {
+    const bad = parseLadder(JSON.stringify({ trophies: [{ id: 'a', kind: 'prsMerged' }], steps: [{ id: 'S', requirements: [{ id: 'r', trophies: ['a'], levels: { bronze: 2, gold: 2 } }] }] }));
+    expect(bad.errors).toEqual([expect.stringContaining('r')]);
     const { ladder } = parseLadder(JSON.stringify({
       trophies: [{ id: 'a', kind: 'prsMerged', n: 1 }, { id: 'b', kind: 'prsMerged', n: 4 }],
-      steps: [{ id: 'S', requirements: [{ id: 'all', trophies: ['a', 'b'] }, { id: 'any', trophies: ['a', 'b'], mode: 'any' }] }],
+      steps: [{ id: 'S', requirements: [{ id: 'all', trophies: ['a', 'b'] }, { id: 'any', trophies: ['a', 'b'], mode: 'any' }, { id: 'x', trophies: ['y'], levels: { gold: 1 } }, { id: 'y', trophies: ['x'], levels: { gold: 1 } }] }],
     }));
+    expect(ladder.steps[0].requirements.map(q => q.levels)).toEqual([{ gold: 2 }, { gold: 1 }, { gold: 1 }, { gold: 1 }]);
     const l = emptyLedger(); mergePRs(l, [merged(1, NOW - D)], NOW);
-    const [all, any] = evaluate(ladder, l, NOW).steps[0].requirements;
-    expect(all).toMatchObject({ progress: 0.25, met: false });
-    expect(any).toMatchObject({ progress: 1, met: true });
+    const [all, any, x, y] = evaluate(ladder, l, NOW).steps[0].requirements;
+    expect(all).toMatchObject({ met: false, count: 1 });
+    expect(any).toMatchObject({ met: true, level: 'gold' });
+    expect([x.met, y.met]).toEqual([false, false]);
   });
 
   it('reports what is wrong and leaves it out', () => {

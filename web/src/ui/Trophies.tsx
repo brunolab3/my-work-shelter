@@ -1,12 +1,13 @@
-// The Vault's «Trophies and career» panel: the career ladder's steps with each requirement's progress, and every
-// trophy earned or on its way (shared/trophies.ts, derived by the server from the work log on each read).
+// Planning's «Trophies and career» panel: each vertical's trophy on top, coloured by the level it reached (bronze,
+// silver, gold) with its progress to the next, the medals as a carpet under them, then the career ladder's steps
+// (shared/trophies.ts, derived by the server from the work log on each read).
 import React, { useEffect, useState } from 'react';
 import { t, locale } from '@shared/language';
 import { client } from '../net/client';
 import { SFX } from '../audio/sound';
 import { Device, Keys, useKeys } from './device';
 import { openLink } from './Browsers';
-import { DEFAULT_SOURCES, fileText, type TrophyKind, type TrophyRule, type TrophyState } from '@shared/trophies';
+import { DEFAULT_SOURCES, fileText, type RequirementState, type TrophyKind, type TrophyRule, type TrophyState } from '@shared/trophies';
 import type { Medal } from '@shared/workLog';
 import { readWorkLog, verifyLadder, type WorkLogData } from './WorkLog';
 
@@ -21,10 +22,26 @@ function TrophyLine({ x }: { x: TrophyState }) {
       <span className="trofeo-icono">{x.earnedAt ? '🏆' : '◌'}</span>
       <b>{fileText(r.name)}</b>
       <span className="tenue">{x.count}/{r.n} {t(KIND_TEXT[r.kind])}{r.within ? ' ' + t('trophies.within', { n: r.within }) : ''}</span>
-      {x.earnedAt ? <span className="tenue">{t('trophies.earnedOn', { fecha: day(x.earnedAt) })}</span>
-        : r.kind === 'awards' && r.n <= 12 ? <span className="trofeo-medallas">{Array.from({ length: r.n }, (_, k) => <span key={k} className={k < x.count ? 'llena' : ''}>{k < x.count ? '🏅' : '○'}</span>)}</span>   // medals fill up toward the trophy
-        : <Bar p={x.progress} />}
+      {x.earnedAt ? <span className="tenue">{t('trophies.earnedOn', { fecha: day(x.earnedAt) })}</span> : <Bar p={x.progress} />}
       {x.facts.length > 0 && <span className="trofeo-hechos">{x.facts.slice(-4).map(f => <a key={f.ref} onClick={() => openLink(f.url)}>{f.ref}</a>)}</span>}
+    </li>
+  );
+}
+
+// the level a vertical reached, in its colour, and what it has toward the next
+const LevelTag = ({ q }: { q: RequirementState }) => <>
+  <span className={'nivel-trofeo ' + (q.level ?? 'ninguno')}>{q.level ? t(`trophies.level.${q.level}`) : '—'}</span>
+  <span className="tenue">{t('trophies.awardsCount', { n: q.count })}{q.next ? ' · ' + t('trophies.toNext', { n: q.next.n, nivel: t(`trophies.level.${q.next.level}`) }) : ''}</span>
+</>;
+// a vertical's trophy: its cup in the colour of its level, filled toward its top level, and the awards that count
+function VerticalLine({ q }: { q: RequirementState }) {
+  return (
+    <li className={'trofeo vertical' + (q.level ? ' ganado ' + q.level : '')} title={q.facts.map(f => f.ref).join(', ')}>
+      <span className="trofeo-icono">{q.level ? '🏆' : '◌'}</span>
+      <b>{fileText(q.req.text)}</b>
+      <LevelTag q={q} />
+      <Bar p={q.progress} />
+      <span className="trofeo-medallas">{q.medals.map(m => <span key={m.id} className="llena medalla" title={m.text}>🏅</span>)}{q.won.map(id => <span key={id} className="llena" title={id}>🏆</span>)}</span>
     </li>
   );
 }
@@ -67,11 +84,6 @@ function EnterMedal({ awards, done, cancel }: { awards: TrophyRule[]; done: () =
   );
 }
 
-// an award trophy as its medals: filled toward its n, as in the trophy list
-const medalsOf = (x: TrophyState) => x.rule.kind === 'awards' && x.rule.n <= 12
-  ? <span className="trofeo-medallas">{Array.from({ length: x.rule.n }, (_, k) => <span key={k} className={k < x.count ? 'llena' : ''}>{k < x.count ? '🏅' : '○'}</span>)}</span>
-  : <span className="tenue">🏅 {x.count}/{x.rule.n}</span>;
-
 export function Trophies({ goBack }: { goBack: () => void }) {
   const [data, setData] = useState<WorkLogData | null>(null);
   const [error, setError] = useState('');
@@ -101,7 +113,9 @@ export function Trophies({ goBack }: { goBack: () => void }) {
   }, [data, mi]);
   const c = data?.career;
   const byId = new Map((c?.trophies ?? []).map(x => [x.rule.id, x]));
-  const earned = (c?.trophies ?? []).filter(x => x.earnedAt).length;
+  const measured = (c?.trophies ?? []).filter(x => x.rule.kind !== 'awards');
+  const won = (c?.verticals ?? []).filter(x => x.met).length;
+  const ready = c?.steps.find(s => s.step.id === c.ready);
   return (
     <Device label={`${t('panels.planning')} · ${t('trophies.title')}${data?.demo ? ' · DEMO' : ''}`} width={84} height onClose={goBack}>
       <p className="voz">{t('trophies.intro')}</p>
@@ -110,15 +124,20 @@ export function Trophies({ goBack }: { goBack: () => void }) {
       {data && <p className="tenue">{data.ladder.source === 'local' ? t('trophies.sourceLocal', { ruta: data.ladder.file }) : data.ladder.source === 'example' ? t('trophies.sourceExample', { ruta: data.ladder.file, local: data.ladder.local }) : t('trophies.sourceNone', { local: data.ladder.local })}</p>}
       {data?.ladder.errors.map((x, k) => <p key={k} className="aviso-consola">{x}</p>)}
       {!data && !error && <p className="tenue">{t('worklog.reading')}</p>}
-      {c && c.trophies.length > 0 && <>
-        <h3 className="trofeos-seccion">{t('trophies.list')} <span className="tenue">{t('trophies.menuHint', { n: earned, total: c.trophies.length })}</span></h3>
-        <ul className="trofeos">{[...c.trophies].sort((a, b) => Number(!!b.earnedAt) - Number(!!a.earnedAt) || b.progress - a.progress).map(x => <TrophyLine key={x.rule.id} x={x} />)}</ul>
+      {c && c.verticals.length > 0 && <>
+        <h3 className="trofeos-seccion">{t('trophies.list')} <span className="tenue">{t('trophies.menuHint', { n: won, total: c.verticals.length })}</span></h3>
+        {ready && <p className="listo-pedir">{t('trophies.ready', { paso: fileText(ready.step.name) })}</p>}
+        <ul className="trofeos">{c.verticals.map(q => <VerticalLine key={q.req.id} q={q} />)}</ul>
+      </>}
+      {measured.length > 0 && <>
+        <h3 className="trofeos-seccion">{t('trophies.special')}</h3>
+        <ul className="trofeos">{[...measured].sort((a, b) => Number(!!b.earnedAt) - Number(!!a.earnedAt) || b.progress - a.progress).map(x => <TrophyLine key={x.rule.id} x={x} />)}</ul>
       </>}
       {(medals.length > 0 || entering) && <>
         <h3 className="trofeos-seccion">{t('trophies.medals')}</h3>
         <p className="tenue">{t('trophies.medalsIntro')}</p>
         {entering && <EnterMedal awards={byHand} done={() => { setEntering(false); load(); }} cancel={() => setEntering(false)} />}
-        <ul className="medallas">{medals.map(m => (
+        <ul className="medallas alfombra">{medals.map(m => (
           <li key={m.id} className={m.state + (m.state === 'proposed' && proposed[mi]?.id === m.id ? ' sel' : '')}>
             <span>{m.state === 'accepted' ? '🏅' : '○'}</span>
             <b>{m.award ? fileText(byId.get(m.award)?.rule.name) || m.award : m.requirement}</b> <span>{m.text}</span>
@@ -138,7 +157,7 @@ export function Trophies({ goBack }: { goBack: () => void }) {
               <ul>{s.requirements.map(q => (
                 <li key={q.req.id} className={q.met ? 'cumplido' : ''}>
                   <span>{q.met ? '✔' : q.measured ? '○' : '·'} {fileText(q.req.text)}</span>
-                  {q.measured ? <><Bar p={q.progress} /> <span className="tenue">{q.req.mode === 'any' && q.req.trophies.length > 1 ? t('trophies.anyOf') + ' ' : ''}{q.req.trophies.map(id => (byId.get(id)?.rule.kind === 'awards' ? medalsOf(byId.get(id)!) : (byId.get(id)?.earnedAt ? '🏆 ' : '') + fileText(byId.get(id)?.rule.name))).reduce<React.ReactNode[]>((all, x, k) => [...all, k ? ', ' : '', x], [])}</span></>
+                  {q.measured ? <><Bar p={q.progress} /> <LevelTag q={q} /></>
                     : <span className="tenue">{t('trophies.unmeasured')}</span>}
                 </li>))}</ul>
             </li>))}
