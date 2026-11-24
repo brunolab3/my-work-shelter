@@ -221,6 +221,16 @@ const ctxRooms: CtxRooms = {
   verifications: { plans: verifications,
     conversation: id => { const s = id ? sessions.list().find(x => x.id === id) : undefined; return s && { roomId: s.roomId, sessionId: s.id, claudeId: s.claudeId, cwd: path.resolve(s.worktree ?? s.cwd), title: s.title }; },
     taskOfSession: id => { const s = id ? sessions.list().find(x => x.id === id) : undefined; return s ? worktreeTask({ path: s.worktree ?? s.cwd }) : undefined; } },
+  medals: { room: () => workLog.digestRoom(),
+    propose: (sid, m) => {
+      const claudeId = sid ? sessions.list().find(x => x.id === sid)?.claudeId : undefined;
+      const r = workLog.proposeMedal({ ...m, ...(claudeId ? { conversation: claudeId } : {}) });
+      if (!r.ok) return { ok: false, text: r.error };
+      const medal = r.medal;
+      ask(t('trophies.medal.ask', { req: medal.requirement, texto: medal.text, pruebas: medal.evidence.join(' · ') }), { si: t('trophies.medal.accept'), no: t('trophies.medal.dismiss') },
+        async si => { workLog.decideMedal(medal.id, si); });
+      return { ok: true, text: t('tool.medal.proposed', { req: medal.requirement }) };
+    } },
   worktreeOfSession: async (roomId, sid) => {
     const s = store.state.rooms.find(x => x.id === roomId), sess = sessions.list().find(x => x.id === sid), cwd = sess && (sess.worktree ?? sess.cwd);
     if (!s || !cwd) return undefined;
@@ -883,7 +893,14 @@ const workLogSources: WorkLogSources = {
   notify: text => broadcast({ t: 'aviso', level: 'info', text }),
 };
 let workLogRound = 0;
-const sweepWorkLog = () => { workLog.sweep(workLogSources, workLogRound++ % 5 === 0).catch(err => console.error('Bitácora:', String((err as Error).message).split('\n')[0])); };
+const sweepWorkLog = () => {
+  workLog.sweep(workLogSources, workLogRound++ % 5 === 0).then(() => {
+    // the Friday digest: one conversation a week with the dweller of the ladder's digestRoom (Planning by default), which proposes medals with award_propose
+    const room = workLog.digestRoom(), h = store.state.dwellers.find(x => x.roomId === room);
+    const prompt = h ? workLog.digest() : undefined;
+    if (prompt && h) startWork(undefined, { t: 'empezar', dwellerId: h.id, roomId: room, prompt, options: { permissions: 'auto' } }).catch(err => console.error('Medallas:', String((err as Error).message).split('\n')[0]));
+  }).catch(err => console.error('Bitácora:', String((err as Error).message).split('\n')[0]));
+};
 setTimeout(() => { sweepWorkLog(); setInterval(sweepWorkLog, 60_000).unref(); }, 45_000).unref();
 
 // organizar las salas por tareas (organize.ts): el plan de cada sala de repo y, confirmado, hacerlo
@@ -1149,6 +1166,7 @@ async function action(name: string, d: Record<string, any> = {}): Promise<unknow
     case 'revision.terminar': return reviewRoom.finish(String(d.key ?? ''));
     case 'bitacora.leer': return workLog.read(workLogSources);
     case 'bitacora.escalera': return workLog.ensureLadder();
+    case 'medalla.decidir': return workLog.decideMedal(String(d.id ?? ''), d.accept === true) ?? null;
     case 'verificacion.aprobar': { const k = taskKey(String(d.key ?? '')); return (k && verifications.approve(k)) ?? null; }
     case 'paginas.responder': return pageReviews.respond(d.path, d.state);
     case 'preflight.puerta': { const r = path.resolve(String(d.path ?? '')); if (!gitPath(r)) throw new Error(t('server.thatFolderIsNotA')); return gatePush(r, ctxPreflight); }

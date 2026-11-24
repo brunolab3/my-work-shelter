@@ -6,7 +6,7 @@
 import { language, t } from './language.ts';
 import type { Ledger } from './workLog.ts';
 
-export const TROPHY_KINDS = ['prsMerged', 'tasksDone', 'reviewsGiven', 'multiRepoTasks', 'verifiedInProd'] as const;
+export const TROPHY_KINDS = ['prsMerged', 'tasksDone', 'reviewsGiven', 'multiRepoTasks', 'verifiedInProd', 'awards'] as const;
 export type TrophyKind = typeof TROPHY_KINDS[number];
 /** The file's own text: a plain string or one per language */
 export type FileText = string | { es?: string; en?: string };
@@ -18,16 +18,21 @@ export interface TrophyRule {
   since?: number;                        // only facts from that date (ms)
   project?: string; issueType?: string;  // only tasks of that Jira project (key prefix) or issue type
   repos?: number;                        // multiRepoTasks: at least this many repos (2 by default)
+  requirement?: string;                  // awards: the requirement whose accepted medals it counts
 }
-export interface Requirement { id: string; text: FileText; trophies: string[]; mode: 'all' | 'any' }
+/** `evidence`: what the Friday digest looks for to propose a medal for it (only requirements with one take medals) */
+export interface Requirement { id: string; text: FileText; trophies: string[]; mode: 'all' | 'any'; evidence?: FileText }
 export interface Step { id: string; name: FileText; requirements: Requirement[] }
-export interface Ladder { trophies: TrophyRule[]; steps: Step[] }
+/** `digestRoom`: the room whose dweller runs the Friday digest (Planning by default; Logistics or Communications) */
+export const DIGEST_ROOMS = ['logistica', 'tareas', 'comunicaciones'] as const;
+export interface Ladder { trophies: TrophyRule[]; steps: Step[]; digestRoom: typeof DIGEST_ROOMS[number] }
 
 /** The ladder in a file's text, with what is wrong in it (each a line for the panel; bad parts are left out) */
 export function parseLadder(text: string): { ladder: Ladder; errors: string[] } {
-  const errors: string[] = [], ladder: Ladder = { trophies: [], steps: [] };
+  const errors: string[] = [], ladder: Ladder = { trophies: [], steps: [], digestRoom: 'logistica' };
   let j: any;
   try { j = JSON.parse(text); } catch (e) { return { ladder, errors: [t('trophies.error.json', { error: String((e as Error).message).slice(0, 120) })] }; }
+  if (j?.digestRoom != null) { if (DIGEST_ROOMS.includes(j.digestRoom)) ladder.digestRoom = j.digestRoom; else errors.push(t('trophies.error.digestRoom', { sala: String(j.digestRoom), salas: DIGEST_ROOMS.join(', ') })); }
   const isText = (x: unknown): x is FileText => typeof x === 'string' ? !!x.trim() : !!x && typeof x === 'object' && ['es', 'en'].some(k => typeof (x as any)[k] === 'string');
   for (const [i, r] of (Array.isArray(j?.trophies) ? j.trophies : []).entries()) {
     const id = typeof r?.id === 'string' && r.id.trim() ? r.id.trim() : '';
@@ -46,6 +51,7 @@ export function parseLadder(text: string): { ladder: Ladder; errors: string[] } 
       ...(within ? { within: Number(within) } : {}), ...(since !== undefined ? { since } : {}),
       ...(typeof r.project === 'string' ? { project: r.project.toUpperCase() } : {}), ...(typeof r.issueType === 'string' ? { issueType: r.issueType } : {}),
       ...(Number.isInteger(r.repos) && r.repos > 1 ? { repos: r.repos } : {}),
+      ...(r.kind === 'awards' ? { requirement: String(r.requirement ?? '') } : {}),
     });
   }
   const known = new Set(ladder.trophies.map(x => x.id));
@@ -56,10 +62,14 @@ export function parseLadder(text: string): { ladder: Ladder; errors: string[] } 
       const rid = typeof q?.id === 'string' && q.id.trim() ? q.id.trim() : `${id}.${k + 1}`;
       const list: string[] = (Array.isArray(q?.trophies) ? q.trophies : []).filter((x: unknown): x is string => typeof x === 'string');
       for (const x of list.filter(x => !known.has(x))) errors.push(t('trophies.error.unknownTrophy', { req: rid, id: x }));
-      requirements.push({ id: rid, text: isText(q?.text) ? q.text : rid, trophies: list.filter(x => known.has(x)), mode: q?.mode === 'any' ? 'any' : 'all' });
+      requirements.push({ id: rid, text: isText(q?.text) ? q.text : rid, trophies: list.filter(x => known.has(x)), mode: q?.mode === 'any' ? 'any' : 'all', ...(isText(q?.evidence) ? { evidence: q.evidence } : {}) });
     }
     ladder.steps.push({ id, name: isText(s?.name) ? s.name : id, requirements });
   }
+  // an awards trophy counts the medals of a requirement that takes them
+  const withEvidence = new Set(medalRequirements(ladder).map(q => q.id));
+  for (const x of ladder.trophies.filter(x => x.kind === 'awards' && !withEvidence.has(x.requirement!))) errors.push(t('trophies.error.awards', { id: x.id, req: x.requirement || '—' }));
+  ladder.trophies = ladder.trophies.filter(x => x.kind !== 'awards' || withEvidence.has(x.requirement!));
   if (!ladder.trophies.length && !errors.length) errors.push(t('trophies.error.empty'));
   return { ladder, errors };
 }
@@ -85,6 +95,7 @@ export function trophyFacts(l: Ledger, r: TrophyRule): TrophyFact[] {
       break;
     }
     case 'verifiedInProd': out = tasks.filter(x => x.verifiedAt && ok(x.key)).map(x => ({ at: x.verifiedAt!, ref: x.key, url: x.url })); break;
+    case 'awards': out = Object.values(l.medals ?? {}).filter(m => m.state === 'accepted' && m.requirement === r.requirement).map(m => ({ at: m.decidedAt ?? m.proposedAt, ref: m.text.slice(0, 40), url: m.evidence[0] })); break;
   }
   return out.filter(f => r.since === undefined || f.at >= r.since).sort((a, b) => a.at - b.at);
 }
@@ -127,6 +138,23 @@ export function evaluate(ladder: Ladder, l: Ledger, now: number): CareerState {
     return { step, requirements, progress, complete: measured.length > 0 && measured.every(r => r.met) };
   });
   return { trophies, steps, current: steps.find(s => !s.complete)?.step.id };
+}
+
+/** The requirements that take medals (those with `evidence`), unique by id */
+export function medalRequirements(ladder: Ladder): Requirement[] {
+  const out = new Map<string, Requirement>();
+  for (const s of ladder.steps) for (const q of s.requirements) if (q.evidence && !out.has(q.id)) out.set(q.id, q);
+  return [...out.values()];
+}
+
+/** The Friday digest is due: the last Friday 09:00 (local time) came after the last one started. The first time
+ *  (`last` undefined) it isn't: it starts on the next Friday, not on the day this shipped */
+export function digestDue(last: number | undefined, now: number): boolean {
+  if (last === undefined) return false;
+  const d = new Date(now); d.setHours(9, 0, 0, 0);
+  d.setDate(d.getDate() - ((d.getDay() - 5 + 7) % 7));   // back to Friday
+  if (d.getTime() > now) d.setDate(d.getDate() - 7);
+  return d.getTime() > last;
 }
 
 /** Trophies earned and not yet announced */

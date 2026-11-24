@@ -5,7 +5,8 @@
 //   and GitHub are not both in DEMO; the example ladder parses without errors and earns «first merge» from its merged PR;
 // - Planning → Sync update: one line per task, keyless tasks last; X expands the PRs, worktrees and conversations
 //   underneath; Tab changes the range; C copies the Markdown (task line, PRs underneath);
-// - Vault → Trophies and career: the ladder's two steps, every trophy, first merge earned with its date;
+// - Vault → Trophies and career: the ladder's two steps, every trophy, first merge earned with its date; a medal the
+//   Friday digest proposed waits for the Overseer, A accepts it and it fills one medal of its trophy;
 // - a broken DATOS/escalera.json: the error line in the panel (R reads it again), never a crash;
 // - Jira and GitHub in DEMO: a sample log, marked DEMO, not saved;
 // - the Vault's shelf: one cup per trophy, the earned ones gold; a screenshot of the room.
@@ -38,6 +39,7 @@ writeFileSync(path.join(DATA, 'bitacora.json'), JSON.stringify({
   },
   conversations: { c1: { claudeId: 'c1', title: 'Retry the payment', roomId: 'api', cwd: '/r/api/.claude/worktrees/abc-1-retries', task: 'ABC-1', seen: now - 4 * D, last: now - 2 * D } },
   reviews: {}, notified: ['first-merge'],
+  medals: { m1: { id: 'm1', requirement: 'voice', text: 'Asked Ana to challenge the spec', evidence: ['https://slack.example/t/1'], state: 'proposed', proposedAt: now - D } },
 }));
 
 const server = spawn(process.execPath, ['--import', 'tsx', 'server/main.ts'], { cwd: ROOT, env: { ...process.env, SHELTER_DATOS: DATA, SHELTER_PUERTO: String(PORT), SHELTER_SALIR_SIN_CLIENTES: '1' }, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -94,10 +96,15 @@ try {
 
   // ---- Vault → Trophies and career
   await pg.evaluate(() => window.__game.set({ panel: 'camara', panelData: { view: 'trofeos' } }));
-  check(await until(async () => (await pg.$$('.trofeo')).length === 6), 'the six example trophies');
+  check(await until(async () => (await pg.$$('.trofeo')).length === 8), 'the eight example trophies');
   check((await pg.$$('.escalon')).length === 2, 'the two example steps');
   check(/Primer merge|First merge/.test(await pg.textContent('.trofeo.ganado').catch(() => '')), 'first merge shows as earned');
-  check((await pg.$$('.escalon ul li')).length === 5, 'every requirement under its step');
+  check((await pg.$$('.escalon ul li')).length === 7, 'every requirement under its step');
+  check((await pg.$$('.medallas li.proposed')).length === 1, 'the proposed medal, waiting for the Overseer');
+  check((await pg.$$('.trofeo-medallas .llena')).length === 0, 'its trophy has no medal yet');
+  await pg.keyboard.press('KeyA');
+  check(await until(async () => (await pg.$$('.medallas li.accepted')).length === 1), 'A accepts it');
+  check(await until(async () => (await pg.$$('.trofeo-medallas .llena')).length === 1), 'and it fills one medal of «Gives others a voice»');
   await pg.waitForTimeout(300); await pg.screenshot({ path: path.join(dir, 'trophies.png'), animations: 'disabled' });
   // a broken ladder of the Overseer's: its error, read again with R
   writeFileSync(path.join(DATA, 'escalera.json'), '{ "trophies": [ nope');
@@ -121,7 +128,7 @@ try {
   // ---- the Vault's shelf
   await open('?sala=camara');
   const shelf = () => pg.evaluate(() => window.__shelter.rooms.find(s => s.id === 'camara')?.userData.trophyShelf?.shown());
-  check(await until(async () => (await shelf())?.cups === 6), 'the shelf has one cup per trophy');
+  check(await until(async () => (await shelf())?.cups === 8), 'the shelf has one cup per trophy');
   const s = await shelf();
   check(s?.earned >= 1, `earned ones in gold (${s?.earned})`);
   await sleep(4000);

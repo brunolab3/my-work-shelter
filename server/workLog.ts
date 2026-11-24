@@ -8,8 +8,8 @@ import path from 'node:path';
 import { t } from '../shared/language.ts';
 import type { PRBoard, TaskJira } from '../shared/board.ts';
 import type { ReviewPR } from '../shared/reviews.ts';
-import { emptyLedger, ledgerOf, mergeConversations, mergePRs, mergeReviews, mergeTasks, mergeVerified, mergeWorktrees, type Ledger } from '../shared/workLog.ts';
-import { evaluate, fileText, newlyEarned, parseLadder, type CareerState } from '../shared/trophies.ts';
+import { decideMedal, emptyLedger, ledgerOf, logRows, mergeConversations, mergePRs, mergeReviews, mergeTasks, mergeVerified, mergeWorktrees, proposeMedal, syncText, type Ledger, type Medal } from '../shared/workLog.ts';
+import { digestDue, evaluate, fileText, medalRequirements, newlyEarned, parseLadder, type CareerState } from '../shared/trophies.ts';
 
 export interface WorkLogSources {
   jira(): Promise<{ tareas: TaskJira[]; demo?: boolean } | null>;        // null: Jira off or failing
@@ -47,7 +47,7 @@ export class WorkLog {
       try { text = readFileSync(file, 'utf8'); } catch (e) { return { source, file, ...parseLadder(''), errors: [String((e as Error).message)] }; }
       return { source, file, ...parseLadder(text) };
     }
-    return { source: 'none', file: this.ladderFile, ladder: { trophies: [], steps: [] }, errors: [] };
+    return { source: 'none', file: this.ladderFile, ladder: { trophies: [], steps: [], digestRoom: 'logistica' }, errors: [] };
   }
 
   /** Merges what the sources hold now. `remote`: also Jira and GitHub (the local parts are cheap and go every time) */
@@ -71,6 +71,37 @@ export class WorkLog {
       src.notify(fresh.length === 1 ? t('trophies.earned', { nombre: fileText(fresh[0].rule.name) }) : t('trophies.earnedMany', { n: fresh.length, nombres: fresh.map(x => fileText(x.rule.name)).join(', ') }));
     }
     if (changed) this.save();
+  }
+
+  /** A medal the Friday digest proposes (award_propose): saved as proposed, for the Overseer to accept or dismiss */
+  proposeMedal(m: Parameters<typeof proposeMedal>[1]): ReturnType<typeof proposeMedal> {
+    const r = proposeMedal(this.ledger, m, medalRequirements(this.ladder().ladder).map(q => q.id), this.now());
+    if (r.ok) this.save();
+    return r;
+  }
+  decideMedal(id: string, accept: boolean): Medal | undefined {
+    const m = decideMedal(this.ledger, id, accept, this.now());
+    if (m) this.save();
+    return m;
+  }
+  /** The room whose dweller runs the Friday digest (and the only one offered award_propose) */
+  digestRoom(): string { return this.ladder().ladder.digestRoom; }
+  /** The Friday digest's first message when it is due (once a week, Friday from 09:00), else none. Only with requirements
+   *  that take medals; the first sweep just starts the count, so the first one is the next Friday */
+  digest(): string | undefined {
+    const l = this.ledger, now = this.now(), reqs = medalRequirements(this.ladder().ladder);
+    if (!reqs.length) return undefined;
+    if (l.digestAt === undefined) { l.digestAt = now; this.save(); return undefined; }
+    if (!digestDue(l.digestAt, now)) return undefined;
+    l.digestAt = now; this.save();
+    const since = now - 7 * 864e5;
+    const conversations = Object.values(l.conversations).filter(c => c.last >= since).sort((a, b) => b.last - a.last).slice(0, 60)
+      .map(c => `- ${c.task} · ${c.roomId} · «${c.title}» · claudeId ${c.claudeId} · ${c.cwd}`).join('\n');
+    return t('prompt.medalDigest', {
+      requisitos: reqs.map(q => `- ${q.id}: ${fileText(q.text)} — ${fileText(q.evidence)}`).join('\n'),
+      log: syncText(logRows(l, since)) || '—', conversaciones: conversations || '—',
+      propuestas: Object.values(l.medals).filter(m => m.proposedAt >= since - 7 * 864e5).map(m => `- ${m.requirement}: ${m.text} (${m.state})`).join('\n') || '—',
+    });
   }
 
   /** The ledger and the career: with Jira and GitHub both in DEMO, one built from their demo data (not saved) */

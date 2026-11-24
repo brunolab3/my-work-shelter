@@ -23,18 +23,27 @@ export interface LogWorktree { path: string; roomId: string; branch?: string; ta
 export interface LogConversation { claudeId: string; title: string; roomId: string; cwd: string; task: string; seen: number; last: number }
 /** Another's PR the Overseer reviewed (seen in the Review room's reads) */
 export interface LogReview { ref: string; url: string; title: string; repo: string; author: string; task?: string; at: number }
+/** A medal toward a ladder requirement with no PR behind it (aligning with leads, getting others to speak up…): proposed
+ *  with its evidence by the Friday digest (Planning's dweller, award_propose), counted only once the Overseer accepts it */
+export interface Medal {
+  id: string; requirement: string; text: string; evidence: string[];   // links: a conversation, a PR comment, a thread
+  task?: string; conversation?: string;                                 // the proposing conversation (claudeId)
+  state: 'proposed' | 'accepted' | 'dismissed'; proposedAt: number; decidedAt?: number;
+}
 export interface Ledger {
   tasks: Record<string, LogTask>; prs: Record<string, LogPR>; worktrees: Record<string, LogWorktree>;
   conversations: Record<string, LogConversation>; reviews: Record<string, LogReview>;
+  medals: Record<string, Medal>;
   notified: string[];                  // trophies already announced
+  digestAt?: number;                   // the last Friday digest started (shared/trophies.ts, digestDue)
 }
 
-export const emptyLedger = (): Ledger => ({ tasks: {}, prs: {}, worktrees: {}, conversations: {}, reviews: {}, notified: [] });
+export const emptyLedger = (): Ledger => ({ tasks: {}, prs: {}, worktrees: {}, conversations: {}, reviews: {}, medals: {}, notified: [] });
 /** A ledger read from disk: whatever is missing or of the wrong shape starts empty */
 export function ledgerOf(j: any): Ledger {
   const rec = (x: any) => (x && typeof x === 'object' && !Array.isArray(x) ? x : {});
-  return { tasks: rec(j?.tasks), prs: rec(j?.prs), worktrees: rec(j?.worktrees), conversations: rec(j?.conversations), reviews: rec(j?.reviews),
-    notified: Array.isArray(j?.notified) ? j.notified.filter((x: unknown) => typeof x === 'string') : [] };
+  return { tasks: rec(j?.tasks), prs: rec(j?.prs), worktrees: rec(j?.worktrees), conversations: rec(j?.conversations), reviews: rec(j?.reviews), medals: rec(j?.medals),
+    notified: Array.isArray(j?.notified) ? j.notified.filter((x: unknown) => typeof x === 'string') : [], ...(typeof j?.digestAt === 'number' ? { digestAt: j.digestAt } : {}) };
 }
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
@@ -120,6 +129,25 @@ export function mergeVerified(l: Ledger, keys: string[], now: number): boolean {
   let changed = false;
   for (const k of keys) { const x = l.tasks[k.toUpperCase()]; if (x && !x.verifiedAt) { x.verifiedAt = now; changed = true; } }
   return changed;
+}
+
+/** A medal proposed: a requirement of the ladder that takes medals, one line, at least one evidence link */
+export function proposeMedal(l: Ledger, m: { requirement: string; text: string; evidence: string[]; task?: string; conversation?: string }, requirements: string[], now: number): { ok: true; medal: Medal } | { ok: false; error: string } {
+  const requirement = m.requirement.trim(), text = m.text.trim().replace(/\s+/g, ' ');
+  const evidence = [...new Set(m.evidence.map(x => x.trim()).filter(Boolean))];
+  if (!requirements.includes(requirement)) return { ok: false, error: t('trophies.medal.badRequirement', { req: requirement, reqs: requirements.join(', ') || '—' }) };
+  if (!text) return { ok: false, error: t('trophies.medal.noText') };
+  if (!evidence.length) return { ok: false, error: t('trophies.medal.noEvidence') };
+  const id = `m${now.toString(36)}${Object.keys(l.medals).length.toString(36)}`;
+  const medal: Medal = { id, requirement, text: text.slice(0, 300), evidence: evidence.slice(0, 8), ...(m.task ? { task: m.task } : {}), ...(m.conversation ? { conversation: m.conversation } : {}), state: 'proposed', proposedAt: now };
+  l.medals[id] = medal;
+  return { ok: true, medal };
+}
+/** The Overseer's word on a proposed medal (a decided one stays as it is) */
+export function decideMedal(l: Ledger, id: string, accept: boolean, now: number): Medal | undefined {
+  const m = l.medals[id]; if (!m || m.state !== 'proposed') return undefined;
+  m.state = accept ? 'accepted' : 'dismissed'; m.decidedAt = now;
+  return m;
 }
 
 // ---------------------------------------------------------------- the log: one row per task

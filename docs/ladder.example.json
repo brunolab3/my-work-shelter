@@ -1,22 +1,175 @@
 {
   "version": 1,
+  "digestRoom": "logistica",
   "trophies": [
-    { "id": "first-merge", "name": { "es": "Primer merge", "en": "First merge" }, "kind": "prsMerged", "n": 1 },
-    { "id": "ten-merges", "name": { "es": "10 PR fusionados", "en": "10 PRs merged" }, "kind": "prsMerged", "n": 10 },
-    { "id": "quarter", "name": { "es": "8 tareas hechas en un trimestre", "en": "8 tasks done in a quarter" }, "kind": "tasksDone", "n": 8, "within": "90d" },
-    { "id": "reviewer", "name": { "es": "15 revisiones hechas", "en": "15 reviews given" }, "kind": "reviewsGiven", "n": 15 },
-    { "id": "cross-repo", "name": { "es": "Una tarea en varios repos", "en": "A task across repos" }, "kind": "multiRepoTasks", "n": 1, "repos": 2 },
-    { "id": "prod-proof", "name": { "es": "Verificado en producción", "en": "Verified in production" }, "kind": "verifiedInProd", "n": 3 }
+    {
+      "id": "first-merge",
+      "name": {
+        "es": "Primer merge",
+        "en": "First merge"
+      },
+      "kind": "prsMerged",
+      "n": 1
+    },
+    {
+      "id": "ten-merges",
+      "name": {
+        "es": "10 PR fusionados",
+        "en": "10 PRs merged"
+      },
+      "kind": "prsMerged",
+      "n": 10
+    },
+    {
+      "id": "quarter",
+      "name": {
+        "es": "8 tareas hechas en un trimestre",
+        "en": "8 tasks done in a quarter"
+      },
+      "kind": "tasksDone",
+      "n": 8,
+      "within": "90d"
+    },
+    {
+      "id": "reviewer",
+      "name": {
+        "es": "15 revisiones hechas",
+        "en": "15 reviews given"
+      },
+      "kind": "reviewsGiven",
+      "n": 15
+    },
+    {
+      "id": "cross-repo",
+      "name": {
+        "es": "Una tarea en varios repos",
+        "en": "A task across repos"
+      },
+      "kind": "multiRepoTasks",
+      "n": 1,
+      "repos": 2
+    },
+    {
+      "id": "prod-proof",
+      "name": {
+        "es": "Verificado en producción",
+        "en": "Verified in production"
+      },
+      "kind": "verifiedInProd",
+      "n": 3
+    },
+    {
+      "id": "aligner",
+      "name": {
+        "es": "Alinea la solución con producto e ingeniería",
+        "en": "Aligns the solution with product and engineering"
+      },
+      "kind": "awards",
+      "requirement": "alignment",
+      "n": 3
+    },
+    {
+      "id": "voice",
+      "name": {
+        "es": "Da voz a otros",
+        "en": "Gives others a voice"
+      },
+      "kind": "awards",
+      "requirement": "voice",
+      "n": 3
+    }
   ],
   "steps": [
-    { "id": "L1", "name": "Engineer I", "requirements": [
-      { "id": "delivers", "text": { "es": "Entrega tareas acotadas de principio a fin", "en": "Delivers scoped tasks end to end" }, "trophies": ["first-merge", "quarter"] },
-      { "id": "reviews", "text": { "es": "Participa en las revisiones de código", "en": "Takes part in code review" }, "trophies": ["reviewer"] }
-    ]},
-    { "id": "L2", "name": "Engineer II", "requirements": [
-      { "id": "ownership", "text": { "es": "Lleva cambios entre servicios", "en": "Owns changes across services" }, "trophies": ["cross-repo", "prod-proof"], "mode": "any" },
-      { "id": "volume", "text": { "es": "Entrega con constancia", "en": "Delivers steadily" }, "trophies": ["ten-merges"] },
-      { "id": "mentoring", "text": { "es": "Ayuda a otros a crecer (lo juzgan personas)", "en": "Helps others grow (judged by people)" }, "trophies": [] }
-    ]}
+    {
+      "id": "L1",
+      "name": "Engineer I",
+      "requirements": [
+        {
+          "id": "delivers",
+          "text": {
+            "es": "Entrega tareas acotadas de principio a fin",
+            "en": "Delivers scoped tasks end to end"
+          },
+          "trophies": [
+            "first-merge",
+            "quarter"
+          ]
+        },
+        {
+          "id": "reviews",
+          "text": {
+            "es": "Participa en las revisiones de código",
+            "en": "Takes part in code review"
+          },
+          "trophies": [
+            "reviewer"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "L2",
+      "name": "Engineer II",
+      "requirements": [
+        {
+          "id": "ownership",
+          "text": {
+            "es": "Lleva cambios entre servicios",
+            "en": "Owns changes across services"
+          },
+          "trophies": [
+            "cross-repo",
+            "prod-proof"
+          ],
+          "mode": "any"
+        },
+        {
+          "id": "volume",
+          "text": {
+            "es": "Entrega con constancia",
+            "en": "Delivers steadily"
+          },
+          "trophies": [
+            "ten-merges"
+          ]
+        },
+        {
+          "id": "alignment",
+          "text": {
+            "es": "Busca la mejor solución con los líderes de producto e ingeniería",
+            "en": "Works out the best solution with product and engineering leads"
+          },
+          "evidence": {
+            "es": "Habló con los líderes de producto o ingeniería (reunión, hilo, comentario) antes de construir y eso cambió o confirmó la solución",
+            "en": "Talked with product or engineering leads (meeting, thread, comment) before building, and it changed or confirmed the solution"
+          },
+          "trophies": [
+            "aligner"
+          ]
+        },
+        {
+          "id": "voice",
+          "text": {
+            "es": "Anima a otros a opinar en lugar de seguir tareas a ciegas",
+            "en": "Gets others to speak up instead of blindly following tasks"
+          },
+          "evidence": {
+            "es": "Preguntó o animó a alguien del equipo a cuestionar una tarea o a proponer otra cosa, y quedó por escrito",
+            "en": "Asked or encouraged a teammate to question a task or propose something else, in writing"
+          },
+          "trophies": [
+            "voice"
+          ]
+        },
+        {
+          "id": "mentoring",
+          "text": {
+            "es": "Ayuda a otros a crecer (lo juzgan personas)",
+            "en": "Helps others grow (judged by people)"
+          },
+          "trophies": []
+        }
+      ]
+    }
   ]
 }

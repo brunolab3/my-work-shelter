@@ -56,6 +56,8 @@ export interface CtxRooms {
   // production verification plans (verifications.ts): verification_plan and verification_report, for the task of the
   // conversation's worktree (or the key the dweller passes)
   verifications?: { plans: Pick<Verifications, 'get' | 'propose' | 'report'>; taskOfSession(sessionId?: string): string | undefined; conversation?(sessionId?: string): PlanConversation | undefined };
+  // the Friday digest's medals (workLog.ts): award_propose, offered only in the room that runs the digest
+  medals?: { room(): string; propose(sessionId: string | undefined, m: { requirement: string; text: string; evidence: string[]; task?: string }): { ok: boolean; text: string } };
   // a conversation is busy (starting, working or waiting for the Overseer): a message then waits for its turn to end
   busy?(sessionId: string): boolean;
   // the last conversation in a folder (none still open outside the game), resumed with `prompt`: its
@@ -208,6 +210,7 @@ export function mcpRooms(ctx: CtxRooms, since: string, fromSession?: string, inW
         async ({ room, message, key, thread }) => { const r = await sendToRoom(ctx, since, { room: room, message: message, key: key, thread: thread }, fromSession); return r.ok ? text(r.text) : { ...text(r.text), isError: true }; }, { alwaysLoad: true }),
       ...(ctx.scheduled ? scheduleTools(ctx.scheduled, since, fromSession) : []),
       ...(ctx.verifications ? verificationTools(ctx.verifications, fromSession) : []),
+      ...(ctx.medals?.room() === since ? [medalTool(ctx.medals, fromSession)] : []),
       ...inWorktree ? [tool('request_worktree_cleanup', tr('tool.cleanup.description'), { note: z.string().optional().describe(tr('tool.cleanup.paramNote')) },
         async ({ note }) => { const r = await requestCleanup(ctx, since, fromSession, note); return r.ok ? text(r.text) : { ...text(r.text), isError: true }; }, { alwaysLoad: true })] : [],
     ],
@@ -231,6 +234,18 @@ function scheduleTools(p: NonNullable<CtxRooms['scheduled']>, since: string, fro
     tool('cancel_scheduled', tr('tool.schedule.cancelDescription'), { id: z.string().describe(tr('tool.schedule.paramId')) },
       async ({ id }) => (p.cancel(id.trim(), fromSession ?? '') ? text(tr('tool.schedule.cancelled', { id })) : { ...text(tr('tool.schedule.notFound', { id })), isError: true })),
   ];
+}
+
+// a medal toward a ladder requirement, proposed with its evidence (the Overseer accepts or dismisses it)
+function medalTool(m: NonNullable<CtxRooms['medals']>, fromSession?: string) {
+  return tool('award_propose', tr('tool.medal.description'),
+    {
+      requirement: z.string().describe(tr('tool.medal.paramRequirement')),
+      text: z.string().describe(tr('tool.medal.paramText')),
+      evidence: z.array(z.string()).describe(tr('tool.medal.paramEvidence')),
+      task: z.string().optional().describe(tr('tool.medal.paramTask')),
+    },
+    async a => { const r = m.propose(fromSession, a); return r.ok ? text(r.text) : { ...text(r.text), isError: true }; });
 }
 
 // production verification (verifications.ts): the plan before the merge, the evidence after the deploy

@@ -182,7 +182,7 @@ export async function furnishCamera(ctx: Context) {
 }
 
 // ---- trophy shelf on the wall above the scanner (shared/trophies.ts): one cup per trophy of the ladder, gold once
-// earned, a faint outline until then, and a brass plaque with the count. A click on it opens the Trophies and career
+// earned, a faint outline filling in with its progress until then, and a brass plaque with the count. A click on it opens the Trophies and career
 // panel (the scanner's device, view `trofeos`). Read again every five minutes; rebuilt only when what it shows changes.
 const PER_ROW = 5, ROWS_SHELF = 2, CUP_STEP = 0.21;
 function trophyShelf(x0: number, zWall: number) {
@@ -215,12 +215,14 @@ function trophyShelf(x0: number, zWall: number) {
   const hit = new THREE.Mesh(new THREE.BoxGeometry(W, levels[1] - levels[0] + 0.5, 0.24), new THREE.MeshBasicMaterial({ visible: false }));
   hit.position.set(x0, (levels[0] + levels[1]) / 2 + 0.05, zWall + 0.12); hit.userData.interactive = 'escaner'; hit.userData.view = 'trofeos'; group.add(hit);
   let signature = '', earned: THREE.Mesh[] = [];
+  // a cup not yet earned fills in with its progress (medals collected, PRs merged…): fainter the further it is
+  const ghosts = cups.map(() => ghost.clone());
   const show = (career: CareerState | undefined) => {
-    const list = (career?.trophies ?? []).slice(0, cups.length).map(x => !!x.earnedAt);
-    const f = list.join(); if (f === signature) return; signature = f;
-    cups.forEach((m, k) => { m.visible = k < list.length; m.material = list[k] ? gold : ghost; });
-    earned = cups.filter((m, k) => list[k]);
-    paint(list.filter(Boolean).length, career?.trophies.length ?? 0);
+    const list = (career?.trophies ?? []).slice(0, cups.length).map(x => ({ won: !!x.earnedAt, p: Math.round(x.progress * 10) / 10 }));
+    const f = JSON.stringify(list); if (f === signature) return; signature = f;
+    cups.forEach((m, k) => { m.visible = k < list.length; m.material = list[k]?.won ? gold : ghosts[k]; ghosts[k].opacity = 0.18 + 0.5 * (list[k]?.p ?? 0); });
+    earned = cups.filter((m, k) => list[k]?.won);
+    paint(list.filter(x => x.won).length, career?.trophies.length ?? 0);
   };
   const read = () => { client.action<{ career: CareerState }>('bitacora.leer', {}).then(d => show(d?.career)).catch(() => {}); };
   // read from the frame loop, not a timer: a room rebuilt leaves nothing running behind

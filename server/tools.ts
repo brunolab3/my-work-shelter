@@ -61,6 +61,7 @@ export function describeTool(name: string, e: Entry, cwd: string): string {
     case mcpTool(MCP.assignment, 'assign_work'): return s(e.key) ? t('server.activity.assignTask', { clave: s(e.key) }) : t('server.activity.assign');
     case mcpTool(MCP.rooms, 'schedule_message'): return t('server.activity.scheduleMessage', { cuando: truncate(s(e.when), 30) });
     case mcpTool(MCP.rooms, 'verification_plan'): return t('server.activity.verificationPlan');
+    case mcpTool(MCP.rooms, 'award_propose'): return t('trophies.medal.activity');
     case mcpTool(MCP.rooms, 'verification_report'): return t('server.activity.verificationReport', { punto: truncate([s(e.checkpoint), s(e.signal)].filter(Boolean).join(' › '), 40) });
     default:
       return t('server.activity.using', { nombre: name.startsWith('mcp__') ? name.split('__').slice(1).join(' › ') : name });

@@ -57,3 +57,22 @@ describe('WorkLog', () => {
     expect(r.ladder.errors).toEqual([expect.stringContaining("nope")]);
   });
 });
+
+describe('Friday digest', () => {
+  it('starts counting on the first sweep, then writes the prompt each Friday with the ladder\'s medal requirements', () => {
+    const dir = mkdtempSync(path.join(os.tmpdir(), 'worklog-'));
+    let now = new Date('2026-11-24T12:00').getTime();
+    const w = new WorkLog(dir, EXAMPLE, () => now);
+    expect(w.digest()).toBeUndefined();
+    now = new Date('2026-11-27T09:05').getTime();
+    const prompt = w.digest() ?? '';
+    expect(prompt).toMatch(/award_propose/);
+    expect(prompt).toMatch(/alignment: .*—/);
+    expect(w.digest()).toBeUndefined();
+    expect(w.digestRoom()).toBe('logistica');
+    const r = w.proposeMedal({ requirement: 'voice', text: 'Asked Ana to challenge the spec', evidence: ['https://slack.example/t/1'] });
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(w.decideMedal(r.medal.id, true)?.state).toBe('accepted');
+    expect(new WorkLog(dir, EXAMPLE, () => now).digest()).toBeUndefined();   // saved: not due again after a restart
+  });
+});

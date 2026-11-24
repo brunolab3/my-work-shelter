@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import { evaluate, newlyEarned, parseLadder, trophyState, type TrophyRule } from './trophies.ts';
-import { emptyLedger, mergePRs, mergeTasks, mergeVerified } from './workLog.ts';
+import { digestDue, evaluate, medalRequirements, newlyEarned, parseLadder, trophyState, type TrophyRule } from './trophies.ts';
+import { decideMedal, emptyLedger, mergePRs, mergeTasks, mergeVerified, proposeMedal } from './workLog.ts';
 import type { PRBoard } from './board.ts';
 
 const D = 864e5, NOW = 400 * D;
@@ -78,5 +78,46 @@ describe('career ladder', () => {
     expect(ladder.steps[0].requirements[0].trophies).toEqual(['a']);
     expect(errors).toHaveLength(5);
     expect(parseLadder('{}').errors).toHaveLength(1);
+  });
+});
+
+describe('medals', () => {
+  const ladder = parseLadder(JSON.stringify({
+    digestRoom: 'comunicaciones',
+    trophies: [{ id: 'voice', kind: 'awards', requirement: 'voice', n: 2 }, { id: 'bad', kind: 'awards', requirement: 'nope' }],
+    steps: [{ id: 'S', requirements: [{ id: 'voice', text: 'Speaks up', evidence: 'asked a teammate to question a task', trophies: ['voice'] }] }],
+  }));
+
+  it('an awards trophy needs a requirement that takes medals; the digest room is read', () => {
+    expect(ladder.ladder.trophies.map(x => x.id)).toEqual(['voice']);
+    expect(ladder.errors).toEqual([expect.stringContaining('nope')]);
+    expect(ladder.ladder.digestRoom).toBe('comunicaciones');
+    expect(medalRequirements(ladder.ladder).map(q => q.id)).toEqual(['voice']);
+    expect(parseLadder(JSON.stringify({ digestRoom: 'bar', trophies: [{ id: 'a', kind: 'prsMerged' }] })).errors).toHaveLength(1);
+  });
+
+  it('proposed medals count only once accepted, and fill the trophy', () => {
+    const l = emptyLedger();
+    expect(proposeMedal(l, { requirement: 'other', text: 'x', evidence: ['u'] }, ['voice'], NOW).ok).toBe(false);
+    expect(proposeMedal(l, { requirement: 'voice', text: 'x', evidence: [' '] }, ['voice'], NOW).ok).toBe(false);
+    const a = proposeMedal(l, { requirement: 'voice', text: 'Asked Ana to challenge the spec', evidence: ['https://slack/x'] }, ['voice'], NOW);
+    const b = proposeMedal(l, { requirement: 'voice', text: 'Pushed back in planning', evidence: ['conversation abc'] }, ['voice'], NOW + 1);
+    if (!a.ok || !b.ok) throw new Error('not proposed');
+    const rule = ladder.ladder.trophies[0];
+    expect(trophyState(l, rule, NOW).count).toBe(0);
+    decideMedal(l, a.medal.id, true, NOW + 10);
+    expect(trophyState(l, rule, NOW + 10)).toMatchObject({ count: 1, progress: 0.5 });
+    decideMedal(l, b.medal.id, false, NOW + 20);
+    expect(decideMedal(l, b.medal.id, true, NOW + 30)).toBeUndefined();   // decided stays decided
+    expect(trophyState(l, rule, NOW + 30).earnedAt).toBeUndefined();
+  });
+
+  it('the Friday digest is due once each Friday from 09:00, never on the first sweep', () => {
+    const at = (s: string) => new Date(s).getTime();
+    expect(digestDue(undefined, at('2026-11-27T10:00'))).toBe(false);
+    expect(digestDue(at('2026-11-24T12:00'), at('2026-11-27T08:59'))).toBe(false);   // Tuesday → Friday before 9
+    expect(digestDue(at('2026-11-24T12:00'), at('2026-11-27T09:00'))).toBe(true);
+    expect(digestDue(at('2026-11-27T09:01'), at('2026-11-30T10:00'))).toBe(false);   // done this Friday
+    expect(digestDue(at('2026-11-27T09:01'), at('2026-12-04T09:30'))).toBe(true);
   });
 });
