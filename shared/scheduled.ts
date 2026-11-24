@@ -34,9 +34,12 @@ export interface ScheduledMessage {
   // the game's CI failures and reviews of one PR (server/scheduled.ts: pack): one pending message per PR and conversation,
   // its parts merged into `message`, held while that PR's checks still run (`turnDue`)
   pr?: { url: string; label: string; parts: PackPart[] };
+  // a room's messages from one conversation to one place (server/scheduled.ts: joinMessage): while pending, the same
+  // sender's next ones to the same place join it, under one heading, so a correction goes with what it corrects
+  messages?: { room: string; dweller?: string; parts: PackPart[] };
 }
-/** One notice about a PR: its CI failing on a commit, or new reviews */
-export interface PackPart { kind: 'ci' | 'review'; text: string }
+/** One notice about a PR (its CI failing on a commit, or new reviews), or one of a sender's messages */
+export interface PackPart { kind: 'ci' | 'review' | 'message'; text: string }
 
 export const SCHEDULE_HOUR = 9;                 // un día sin hora («el lunes») es a las 9:00
 export const MAX_PER_CONVERSATION = 10;
@@ -96,8 +99,14 @@ export function mergePart(parts: PackPart[], p: PackPart): PackPart[] {
   return ci >= 0 ? parts.map((x, i) => (i === ci ? p : x)) : [...parts, p];
 }
 /** The pack's text: a single notice as it was; several, under a heading, in the order they came */
-export const packText = (label: string, parts: PackPart[]) =>
-  parts.length === 1 ? parts[0].text : [t('prompt.packed.title', { pr: label, n: parts.length }), ...parts.map(x => x.text)].join('\n\n---\n\n');
+const joined = (title: string, parts: PackPart[]) => (parts.length === 1 ? parts[0].text : [title, ...parts.map(x => x.text)].join('\n\n---\n\n'));
+export const packText = (label: string, parts: PackPart[]) => joined(t('prompt.packed.title', { pr: label, n: parts.length }), parts);
+/** A sender's packed messages: one as it was; several, under a heading that says later ones may correct earlier ones */
+export const messagesText = (m: NonNullable<ScheduledMessage['messages']>) =>
+  joined(t('prompt.packed.messages', { n: m.parts.length, sala: m.room, habitante: m.dweller ? ` (${m.dweller})` : '' }), m.parts);
+/** Same sender: the same room and the same conversation (by game id or Claude Code id); none without a conversation */
+export const sameSender = (a: ScheduledMessage['origin'], b: ScheduledMessage['origin']) =>
+  a.roomId === b.roomId && (!!(a.claudeId && a.claudeId === b.claudeId) || !!(a.sessionId && a.sessionId === b.sessionId));
 /** Whether one is for that conversation (its target), by game id or Claude Code id */
 export const forTarget = (x: ScheduledMessage, s: { id?: string; claudeId?: string }) =>
   x.target.type === 'conversacion' && (!!(s.claudeId && x.target.claudeId === s.claudeId) || !!(s.id && x.target.sessionId === s.id));

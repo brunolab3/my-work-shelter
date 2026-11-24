@@ -174,6 +174,8 @@ export const WINDOWS: Record<string, LocalizedText> = {
   'windows.scheduledAfterTurn': { es: '⏳ al acabar', en: '⏳ when it finishes' },
   'windows.scheduledPack': { es: '📦 {pr} ({n})', en: '📦 {pr} ({n})' },
   'windows.scheduledPackHint': { es: 'Los avisos de CI y revisiones de este PR, juntos en uno: sale cuando acabe su turno y la CI del PR haya terminado (como mucho, media hora esperando a la CI)', en: 'This PR\'s CI and review notices, packed into one: it goes when its turn ends and the PR\'s CI has finished (waiting at most half an hour for the CI)' },
+  'windows.scheduledMessages': { es: '📦 {n} mensajes', en: '📦 {n} messages' },
+  'windows.scheduledMessagesHint': { es: 'Mensajes del mismo remitente al mismo destino, juntos en uno mientras esperaban: salen a la vez, en orden, y los últimos pueden corregir a los anteriores', en: 'Messages from the same sender to the same place, packed into one while they waited: they go out together, in order, and later ones may correct earlier ones' },
   'windows.scheduledFrom': { es: 'de {sala}', en: 'from {sala}' },
   'windows.scheduleMonday': { es: 'El lunes a las 9:00', en: 'Monday 09:00' },
   'windows.nextWindowNoAttachments': { es: 'Los adjuntos no se guardan para más tarde: envíalo ahora o quítalos.', en: 'Attachments are not kept for later: send it now or remove them.' },

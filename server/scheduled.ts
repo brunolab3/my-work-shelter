@@ -7,12 +7,13 @@
 // warning once. "Not urgent" ones (`when: "next-window"`, the intercom's ⌥Enter) wait for the plan's final 5-hour
 // usage window of the day and go out one at a time, a few minutes apart (`windowNext` in shared/scheduled.ts).
 // The game's CI failures and reviews of a PR pack into one message per PR and conversation (`pack`), released together
-// once its checks finish. The text stays on the Mac: it never goes anywhere.
+// once its checks finish; a room's messages from one conversation to one place pack the same way while they wait
+// (`joinMessage`). The text stays on the Mac: it never goes anywhere.
 import { existsSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { t } from '../shared/language.ts';
-import { checkWhen, describeWhen, due, forTarget, holdWeekend, isLate, finalWindowStart, mergePart, ofConversation, packText, turnDue, windowNext, MAX_PER_CONVERSATION, MAX_DAYS, NEXT_WINDOW, AFTER_TURN, type PackPart, type ScheduledMessage, type ScheduledTarget, type UsageWindow } from '../shared/scheduled.ts';
+import { checkWhen, describeWhen, due, forTarget, holdWeekend, isLate, finalWindowStart, mergePart, messagesText, ofConversation, packText, sameSender, turnDue, windowNext, MAX_PER_CONVERSATION, MAX_DAYS, NEXT_WINDOW, AFTER_TURN, type PackPart, type ScheduledMessage, type ScheduledTarget, type UsageWindow } from '../shared/scheduled.ts';
 import type { MessageOrigin, SessionSummary } from '../shared/protocol.ts';
 import { taskKey } from '../shared/tasks.ts';
 
@@ -50,6 +51,7 @@ export class Scheduled {
   private sweeping = false;
   private again = false;   // a sweep asked for while one ran (a turn ended): one more after it
   private lastWindow: number | undefined;   // the last next-window delivery (or attempt): the next one is spaced from it
+  private delivering = new Set<string>();   // being delivered: nothing joins them any more
   constructor(dir: string, private ctx: CtxScheduled) {
     this.file = path.join(dir, 'mensajes-programados.json');
     try { if (existsSync(this.file)) { const j = JSON.parse(readFileSync(this.file, 'utf8')); if (Array.isArray(j?.items)) this.items = j.items.filter(valid); } } catch {}
@@ -75,8 +77,6 @@ export class Scheduled {
     if (!w.ok) return { ok: false, text: whenError(w.error, String(a.when ?? '')) };
     const s = fromSession ? this.ctx.session(fromSession) : undefined;
     const origin = { roomId: since, sessionId: fromSession, claudeId: s?.claudeId };
-    if (ofConversation(this.items, { id: fromSession, claudeId: s?.claudeId }).length >= MAX_PER_CONVERSATION || this.items.length >= MAX_TOTAL)
-      return { ok: false, text: t('tool.schedule.limit', { n: MAX_PER_CONVERSATION }) };
     let target: ScheduledTarget;
     if (a.room?.trim()) {
       const q = a.room.trim().toLowerCase(), rooms = this.ctx.rooms();
@@ -90,7 +90,14 @@ export class Scheduled {
       if (!s) return { ok: false, text: t('tool.schedule.noConversation') };
       target = { type: 'conversacion', roomId: s.roomId, sessionId: s.id, claudeId: s.claudeId, cwd: path.resolve(s.worktree ?? s.cwd), title: s.title };
     }
-    const x: ScheduledMessage = { id: randomUUID().slice(0, 8), created: now, when: w.when, requested: String(a.when), message, origin, target, ...(next ? { nextWindow: true as const } : {}) };
+    // to a room, at the same time as one of its own still pending for that place: joins it
+    const d = target.type === 'sala' ? target : undefined;
+    const into = d && this.joinable(y => !y.overLimit && !y.afterTurn && sameSala(y.target, d) && sameSender(y.origin, origin) && !!y.nextWindow === next && (next || y.when === w.when));
+    if (into) { this.joinMessage(into, message); return { ok: true, text: t('tool.schedule.doneRoom', { cuando: describeWhen(into.when), id: into.id, sala: a.room ?? '' }) + ' ' + t('tool.rooms.packed', { id: into.id }) }; }
+    if (ofConversation(this.items, { id: fromSession, claudeId: s?.claudeId }).length >= MAX_PER_CONVERSATION || this.items.length >= MAX_TOTAL)
+      return { ok: false, text: t('tool.schedule.limit', { n: MAX_PER_CONVERSATION }) };
+    const x: ScheduledMessage = { id: randomUUID().slice(0, 8), created: now, when: w.when, requested: String(a.when), message, origin, target, ...(next ? { nextWindow: true as const } : {}),
+      ...(d ? { messages: this.messagesOf(since, message) } : {}) };
     this.items.push(x); this.save();
     const when = describeWhen(x.when);
     if (next) return { ok: true, text: t(target.type === 'sala' ? 'tool.schedule.doneWindowRoom' : 'tool.schedule.doneWindow', { cuando: when, id: x.id, sala: a.room ?? '' }) };
@@ -109,13 +116,18 @@ export class Scheduled {
     return x.id;
   }
   /** A send_to_room over its per-minute limit (roomNotices.ts): the same room, key or thread and text, delivered at
-   *  `when` with no weekend hold. Counts towards the conversation's list; none when it is full */
+   *  `when` with no weekend hold. Counts towards the conversation's list; none when it is full. One of the same sender's
+   *  still waiting for that place takes it instead (`joinMessage`), and goes at its own time */
   defer(since: string, fromSession: string | undefined, a: { room: string; key?: string; thread?: string; message: string }, when: number): ScheduledMessage | undefined {
     const s = fromSession ? this.ctx.session(fromSession) : undefined;
+    const target: ScheduledTarget = { type: 'sala', room: a.room, ...(a.key ? { key: a.key } : {}), ...(a.thread ? { thread: a.thread } : {}) };
+    const origin = { roomId: since, sessionId: fromSession, claudeId: s?.claudeId };
+    const into = this.joinable(y => !!y.overLimit && sameSala(y.target, target) && sameSender(y.origin, origin));
+    if (into) return this.joinMessage(into, a.message);
     if (ofConversation(this.items, { id: fromSession, claudeId: s?.claudeId }).length >= MAX_PER_CONVERSATION || this.items.length >= MAX_TOTAL) return undefined;
     const now = this.now();
     const x: ScheduledMessage = { id: randomUUID().slice(0, 8), created: now, when, requested: new Date(when).toISOString(), message: a.message.slice(0, MAX_TEXT),
-      origin: { roomId: since, sessionId: fromSession, claudeId: s?.claudeId }, target: { type: 'sala', room: a.room, ...(a.key ? { key: a.key } : {}), ...(a.thread ? { thread: a.thread } : {}) }, overLimit: true };
+      origin, target, overLimit: true, messages: this.messagesOf(since, a.message) };
     this.items.push(x); this.save(); this.ctx.wake?.(when);
     return x;
   }
@@ -148,11 +160,17 @@ export class Scheduled {
   /** A message to a busy conversation (ctxPlan.notify, server/main.ts) or the Overseer's «When it finishes»: held until
    *  its turn ends, then delivered verbatim from `from` as a turn of its own. `origin`: who wrote it (the sending room
    *  and conversation, whose ⏰ list shows it too); the receiver's room for the game's own notices. No per-conversation
-   *  limit: the game never drops a message for that */
+   *  limit: the game never drops a message for that. Another room's, while one of the same sender's waits for that
+   *  conversation, joins it (`joinMessage`) */
   hold(c: { roomId: string; sessionId?: string; claudeId?: string; cwd: string; title?: string }, message: string, from: MessageOrigin, origin: ScheduledMessage['origin']): ScheduledMessage {
     const now = this.now();
+    if (from.kind === 'room') {
+      const into = this.joinable(y => !!y.afterTurn && y.from?.kind === 'room' && forTarget(y, { id: c.sessionId, claudeId: c.claudeId }) && sameSender(y.origin, origin));
+      if (into) return this.joinMessage(into, message);
+    }
     const x: ScheduledMessage = { id: randomUUID().slice(0, 8), created: now, when: now, requested: AFTER_TURN, message: message.slice(0, MAX_TEXT),
-      origin, target: { type: 'conversacion', ...c }, afterTurn: true, from, ...(from.kind === 'overseer' ? { overseer: true as const } : {}) };
+      origin, target: { type: 'conversacion', ...c }, afterTurn: true, from, ...(from.kind === 'overseer' ? { overseer: true as const } : {}),
+      ...(from.kind === 'room' ? { messages: { room: from.room, dweller: from.dweller, parts: [{ kind: 'message' as const, text: message }] } } : {}) };
     this.items.push(x); this.save();
     return x;
   }
@@ -169,6 +187,21 @@ export class Scheduled {
     }
     x.pr!.parts = mergePart(x.pr!.parts, part);
     x.message = packText(x.pr!.label, x.pr!.parts).slice(0, MAX_TEXT);
+    this.failed.delete(x.id); this.save();
+    return x;
+  }
+  /** A pending message of a sender's that a later one may join: one with its `messages` (not edited since) that isn't
+   *  being delivered */
+  private joinable(f: (y: ScheduledMessage) => boolean) { return this.items.find(y => y.messages && !this.delivering.has(y.id) && f(y)); }
+  private messagesOf(roomId: string, text: string): NonNullable<ScheduledMessage['messages']> {
+    const r = this.ctx.rooms().find(x => x.id === roomId);
+    return { room: r?.name ?? roomId, dweller: (r?.dweller as { name?: string } | undefined)?.name, parts: [{ kind: 'message', text }] };
+  }
+  /** A sender's later message to the same place, added to its pending one after the others (the same text once): it
+   *  keeps that one's place and time, and they go as one turn */
+  private joinMessage(x: ScheduledMessage, text: string): ScheduledMessage {
+    x.messages!.parts = mergePart(x.messages!.parts, { kind: 'message', text });
+    x.message = messagesText(x.messages!).slice(0, MAX_TEXT);
     this.failed.delete(x.id); this.save();
     return x;
   }
@@ -212,8 +245,8 @@ export class Scheduled {
       if (!w.ok) throw new Error(whenError(w.error, String(c.when)));
       delete x.nextWindow; delete x.afterTurn; x.when = w.when; x.requested = String(c.when);
     }
-    // their own text: no longer merged with later notices of that PR
-    if (c.message !== undefined) { const m = String(c.message).trim(); if (!m) throw new Error(t('tool.rooms.empty')); if (m !== x.message) delete x.pr; x.message = m.slice(0, MAX_TEXT); }
+    // their own text: no longer merged with later notices of that PR or messages of that sender
+    if (c.message !== undefined) { const m = String(c.message).trim(); if (!m) throw new Error(t('tool.rooms.empty')); if (m !== x.message) { delete x.pr; delete x.messages; } x.message = m.slice(0, MAX_TEXT); }
     this.failed.delete(id); this.save();
     return x;
   }
@@ -259,6 +292,7 @@ export class Scheduled {
     let error: string | undefined;
     // a dated one falling due while its conversation is busy waits for its turn to end too (▶ sends it anyway)
     if (!now && !x.afterTurn && x.target.type === 'conversacion' && this.ctx.busy?.(x.target)) { x.afterTurn = true; this.save(); return false; }
+    this.delivering.add(x.id);
     try {
       if (x.target.type === 'sala') {
         const r = await this.ctx.toRoom(x as any, this.text(x));
@@ -268,6 +302,7 @@ export class Scheduled {
       }
       else await this.ctx.toConversation(x as any, this.text(x));
     } catch (e) { error = (e as Error).message; }
+    finally { this.delivering.delete(x.id); }
     if (error) {
       if (!this.failed.has(x.id)) { this.failed.add(x.id); this.ctx.notice(t('server.scheduledRetry', { resumen: summary(x.message), error: error.split('\n')[0].slice(0, 160) })); }
       return false;
@@ -279,6 +314,7 @@ export class Scheduled {
 
 }
 
+const sameSala = (a: ScheduledTarget, b: ScheduledTarget) => a.type === 'sala' && b.type === 'sala' && a.room === b.room && a.key === b.key && a.thread === b.thread;
 const isNextWindow = (when: unknown) => typeof when === 'string' && when.trim().toLowerCase() === NEXT_WINDOW;
 const isAfterTurn = (when: unknown) => typeof when === 'string' && when.trim().toLowerCase() === AFTER_TURN;
 export const summary = (s: string) => { const r = s.trim().replace(/\s+/g, ' '); return r.length > 90 ? r.slice(0, 89) + '…' : r; };

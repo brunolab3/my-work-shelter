@@ -1218,7 +1218,8 @@ function ScheduledMenu({ h, s, resume }: { h: DwellerSummary; s?: SessionSummary
   const target = (x: ScheduledMessage) => x.target.type === 'sala' ? `→ ${x.target.room}${x.target.key ?? x.target.thread ? ' ' + (x.target.key ?? x.target.thread) : ''}`
     : here(x) ? (x.from?.kind === 'room' ? t('windows.scheduledFrom', { sala: x.from.dweller ? `${x.from.room} (${x.from.dweller})` : x.from.room }) : t('windows.scheduledToThis'))
     : t('windows.scheduledToConversation', { titulo: x.target.title || t('windows.conversation') });
-  const pack = (x: ScheduledMessage) => x.pr && t('windows.scheduledPack', { pr: x.pr.label, n: x.pr.parts.length });
+  const pack = (x: ScheduledMessage) => x.pr ? t('windows.scheduledPack', { pr: x.pr.label, n: x.pr.parts.length })
+    : x.messages && x.messages.parts.length > 1 ? t('windows.scheduledMessages', { n: x.messages.parts.length }) : undefined;
   const whenShort = (x: ScheduledMessage) => x.afterTurn ? pack(x) || t('windows.scheduledAfterTurn') : x.nextWindow ? t('windows.scheduledWindow') : describeWhenShort(x.when);
   return (
     <span className="paginas-sesion programados-sesion">
@@ -1236,10 +1237,10 @@ function ScheduledMenu({ h, s, resume }: { h: DwellerSummary; s?: SessionSummary
             <span><button className="consola-x" onClick={save}>{t('windows.scheduledSave')}</button> <button className="consola-x" onClick={() => setEditing(null)}>✕</button></span>
           </li>
         : <li title={x.message}>
-            {x.afterTurn ? <span className="tenue" title={t(x.pr ? 'windows.scheduledPackHint' : 'windows.scheduleAfterTurnHint')}>{pack(x) || t('windows.scheduledAfterTurn')}</span>
+            {x.afterTurn ? <span className="tenue" title={t(x.pr ? 'windows.scheduledPackHint' : pack(x) ? 'windows.scheduledMessagesHint' : 'windows.scheduleAfterTurnHint')}>{pack(x) || t('windows.scheduledAfterTurn')}</span>
               : x.nextWindow ? <span className="tenue" title={t('windows.nextWindowHint') + '\n' + describeWhen(x.when)}>{t('windows.scheduledWindow')}</span>
               : <span className={x.when < Date.now() ? 'urgente' : ''} title={x.when < Date.now() ? t('windows.scheduledLate') : describeWhen(x.when)}>⏰ {describeWhenShort(x.when)}</span>}
-            <span className="tenue">{target(x)}</span>
+            <span className="tenue" title={!x.afterTurn && pack(x) ? t('windows.scheduledMessagesHint') : undefined}>{target(x)}{!x.afterTurn && pack(x) ? ` ${pack(x)}` : ''}</span>
             <span className="pagina-nombre">{x.message.replace(/\s+/g, ' ')}</span>
             <button className="consola-x" title={t('windows.scheduledEdit')} onClick={() => setEditing({ id: x.id, when: x.nextWindow || x.afterTurn ? '' : localInput(x.when), message: x.message })}>✎</button>
             {(x.nextWindow || x.overLimit || x.afterTurn) && <button className="consola-x" title={t('windows.scheduledSendNow')} onClick={() => sendNow(x)}>▶</button>}

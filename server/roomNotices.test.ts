@@ -452,9 +452,28 @@ describe('over the per-minute limit', () => {
     expect(x.fresh.at(-1)!.prompt).toContain('\nNow\n');
   });
 
+  it('the same conversation\'s next ones to a place still waiting join it and go out together; other senders or keys apart', async () => {
+    const t0 = 1_000_000, timer = { t: t0 }, x = withScheduled(timer);
+    for (let i = 1; i <= 3; i++) await sendToRoom(x.c, 'tareas', { room: 'pagos', key: `ABC-${i}`, message: `Task ${i}` }, 'yo');
+    const r = await sendToRoom(x.c, 'tareas', { room: 'pagos', key: 'ABC-9', message: 'Use v1' }, 'yo');
+    const id = x.p.list()[0].id;
+    expect(r.text).not.toContain('Se une');
+    const r2 = await sendToRoom(x.c, 'tareas', { room: 'pagos', key: 'ABC-9', message: 'Sorry: v2, not v1' }, 'yo');
+    expect(r2).toMatchObject({ ok: true, text: expect.stringContaining(`Se une a tu mensaje ${id}`) });
+    await sendToRoom(x.c, 'tareas', { room: 'pagos', key: 'ABC-9', message: 'From another conversation' }, 'otra');
+    await sendToRoom(x.c, 'tareas', { room: 'pagos', key: 'ABC-8', message: 'Another task' }, 'yo');
+    expect(x.p.list().map(m => m.message.split('\n')[0])).toEqual([expect.stringContaining('📦 2 mensajes de la sala «Logística» (Inés)'), 'From another conversation', 'Another task']);
+    timer.t = t0 + 60_000; await x.p.sweep();
+    // one turn, framed once as from Logística, with both in order
+    const got = x.fresh.filter(f => f.prompt.includes('Use v1'));
+    expect(got).toHaveLength(1);
+    expect(got[0].prompt).toMatch(/Logística[^]*📦 2 mensajes[^]*Use v1[^]*Sorry: v2, not v1/);
+    expect(x.fresh.filter(f => f.prompt.includes('From another conversation'))).toHaveLength(1);
+  });
+
   it("with the conversation's scheduled list full, today's error", async () => {
     const timer = { t: 1_000_000 }, x = withScheduled(timer);
-    for (let i = 0; i < 10; i++) x.p.defer('tareas', 'yo', { room: 'express', message: 'x' }, timer.t + 3_600_000);
+    for (let i = 0; i < 10; i++) x.p.defer('tareas', 'yo', { room: 'express', key: `ABC-${i}`, message: 'x' }, timer.t + 3_600_000);
     for (let i = 0; i < 3; i++) expect((await sendToRoom(x.c, 'tareas', { room: 'pagos', message: `m${i}` }, 'yo')).ok).toBe(true);
     const r = await sendToRoom(x.c, 'tareas', { room: 'pagos', message: 'one too many' }, 'yo');
     expect(r).toMatchObject({ ok: false, limited: true });

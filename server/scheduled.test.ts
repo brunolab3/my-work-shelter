@@ -351,3 +351,81 @@ describe('scheduled messages: a PR\'s notices packed', () => {
     expect(x.conversations.map(c => c.text)).toEqual(['just look at the lint job', '🔎 b']);
   });
 });
+
+describe('scheduled messages: a sender\'s messages packed', () => {
+  let dir: string;
+  beforeEach(() => { dir = mkdtempSync(path.join(tmpdir(), 'programados-')); setLanguage('en'); });
+  const target = { roomId: 'express', sessionId: 's1', claudeId: 'c-111', cwd: '/r/wt/abc-1', title: 'ABC-1' };
+  const from = { kind: 'room' as const, roomId: 'pagos', room: 'pagos', dweller: 'Gaspar' };
+
+  it('held for a busy conversation: the same sender\'s next ones join it, in order, under one heading; other senders and targets never mix', async () => {
+    const timer = { t: NOW }, busy = new Set(['s1', 's2']);
+    const x = ctx(timer, { busy });
+    const p = new Scheduled(dir, x.c);
+    const a = p.hold(target, '📨 use v1', from, { roomId: 'pagos', sessionId: 's9' });
+    p.hold(target, '🚨 CI', { kind: 'game' }, { roomId: 'express' });
+    p.hold(target, '📨 another conversation of pagos', from, { roomId: 'pagos', sessionId: 's8' });
+    p.hold({ ...target, sessionId: 's2', claudeId: 'c-222' }, '📨 to someone else', from, { roomId: 'pagos', sessionId: 's9' });
+    timer.t += 60_000;
+    expect(p.hold(target, '📨 sorry, v2', from, { roomId: 'pagos', sessionId: 's9' }).id).toBe(a.id);
+    p.hold(target, '📨 sorry, v2', from, { roomId: 'pagos', sessionId: 's9' });
+    expect(p.list()).toHaveLength(4);
+    const packed = p.list().find(y => y.id === a.id)!;
+    expect(packed.messages!.parts.map(y => y.text)).toEqual(['📨 use v1', '📨 sorry, v2']);
+    expect(packed.message).toBe([
+      '📦 2 messages from the “pagos” room (Gaspar), packed while they waited (in the order they were written): later ones may correct or replace earlier ones.',
+      '📨 use v1', '📨 sorry, v2'].join('\n\n---\n\n'));
+    // it keeps its place: first out when the turn ends, as one turn
+    busy.delete('s1'); await p.sweep();
+    expect(x.conversations.map(c => c.text)).toEqual([packed.message]);
+    // delivered: a new one starts a new pending message
+    busy.add('s1');
+    expect(p.hold(target, '📨 one more', from, { roomId: 'pagos', sessionId: 's9' }).message).toBe('📨 one more');
+  });
+
+  it('scheduled to a room: joins the same sender\'s one for that place at the same time; another time, key or edited text stays apart', async () => {
+    const timer = { t: NOW };
+    const x = ctx(timer);
+    const p = new Scheduled(dir, x.c);
+    const r1 = p.schedule('express', 's1', { when: '2026-11-16', message: 'Deploy on Monday', room: 'pagos', key: 'ABC-1' });
+    const r2 = p.schedule('express', 's1', { when: '2026-11-16', message: 'Not Monday: Tuesday', room: 'pagos', key: 'ABC-1' });
+    const id = p.list()[0].id;
+    expect(r2).toMatchObject({ ok: true, text: expect.stringContaining(`joins your message ${id}`) });
+    expect(r1.text).not.toContain('joins');
+    p.schedule('express', 's1', { when: '2026-11-17', message: 'later', room: 'pagos', key: 'ABC-1' });
+    p.schedule('express', 's1', { when: '2026-11-16', message: 'other task', room: 'pagos', key: 'ABC-2' });
+    p.schedule('express', 's1', { when: '2026-11-16', message: 'to myself' });
+    expect(p.list()).toHaveLength(4);
+    expect(p.list().find(y => y.id === id)!.message).toContain('📦 2 messages from the “app-web” room');
+    timer.t = L(16, 9, 1); await p.sweep();
+    expect(x.toRooms).toHaveLength(2);
+    expect(x.toRooms[0].text).toMatch(/Deploy on Monday[^]*Not Monday: Tuesday/);
+    // the Overseer's edit makes it their own: nothing joins it
+    const e = p.list().find(y => y.target.type === 'sala')!;
+    p.edit(e.id, { message: 'later, after the release' });
+    p.schedule('express', 's1', { when: '2026-11-17', message: 'and this', room: 'pagos', key: 'ABC-1' });
+    expect(p.list().filter(y => y.target.type === 'sala').map(y => y.message)).toEqual(['later, after the release', 'and this']);
+  });
+
+  it('over the limit: joins the pending one for that place, but not while it is being delivered', async () => {
+    const timer = { t: NOW };
+    const x = ctx(timer);
+    let release!: () => void;
+    x.c.toRoom = async (m, text) => { await new Promise<void>(r => { release = r; }); x.toRooms.push({ room: m.target.room, key: m.target.key, text }); return { ok: true, text: 'ok' }; };
+    const p = new Scheduled(dir, x.c);
+    const a = p.defer('express', 's1', { room: 'pagos', thread: 'deps', message: 'bump zod' }, NOW + 60_000)!;
+    expect(p.defer('express', 's1', { room: 'pagos', thread: 'deps', message: 'and vitest' }, NOW + 120_000)).toBe(a);
+    p.defer('express', 's1', { room: 'pagos', message: 'no thread' }, NOW + 120_000);
+    p.defer('express', undefined, { room: 'pagos', thread: 'deps', message: 'no conversation' }, NOW + 120_000);
+    expect(p.list()).toHaveLength(3);
+    expect(a.when).toBe(NOW + 60_000);
+    timer.t = NOW + 60_000;
+    const sweeping = p.sweep();
+    await new Promise(r => setTimeout(r, 0));
+    const b = p.defer('express', 's1', { room: 'pagos', thread: 'deps', message: 'too late to join' }, NOW + 180_000);
+    expect(b).not.toBe(a);
+    release(); await sweeping;
+    expect(x.toRooms[0].text).toMatch(/bump zod[^]*and vitest/);
+    expect(x.toRooms[0].text).not.toContain('too late');
+  });
+});

@@ -6,8 +6,10 @@
 // messages land there). Sin
 // clave, una conversación nueva con el habitante en su copia principal; the same conversation's next messages to that room
 // continue in it while it is open, and its replies come back to the conversation that wrote; from a conversation in a task
-// worktree to another room that has that task's conversation or worktree, it carries the task's key. With a thread (`cleanup`), to that thread's open conversation in the main copy, so
-// its messages queue there one at a time; request_worktree_cleanup sends a worktree's cleanup through `cleanup`.
+// worktree to another room that has that task's conversation or worktree, it carries the task's key. While one is
+// waiting (held for a busy receiver's turn, over the per-minute limit, scheduled), the same conversation's next ones to
+// the same place join it and go out together (server/scheduled.ts: joinMessage). With a thread (`cleanup`), to that
+// thread's open conversation in the main copy, so different senders' messages queue there one at a time; request_worktree_cleanup sends a worktree's cleanup through `cleanup`.
 // Also inside the same room: a dweller hands a task (or a part that goes alone) to its worktree's hologram and keeps the
 // Overseer's conversation; he carries it himself, or the messenger robot does if he's busy (web/src/world/messenger.ts); to another room no robot
 // carries it: it is the sender's own message, attributed to its room and dweller,
@@ -117,7 +119,7 @@ export async function sendToRoom(ctx: CtxRooms, since: string, { room, message, 
     const times = [...recent, ...queued].sort((a, b) => a - b);
     const when = Math.max(now, times.length >= LIMIT ? times[times.length - LIMIT] + WINDOW : now);
     const x = o.scheduled ? undefined : ctx.scheduled?.defer(since, fromSession, { room: target.id, key: k, thread, message: message.trim() }, when);
-    if (x) return { ok: true, text: tr('tool.rooms.deferred', { n: LIMIT, sala: target.name, cuando: describeWhen(x.when), id: x.id }) };
+    if (x) return { ok: true, text: tr('tool.rooms.deferred', { n: LIMIT, sala: target.name, cuando: describeWhen(x.when), id: x.id }) + ((x.messages?.parts.length ?? 0) > 1 ? ' ' + tr('tool.rooms.packed', { id: x.id }) : '') };
     if (recent.length >= LIMIT) return { ok: false, limited: true, text: tr('tool.rooms.limit', { n: LIMIT, sala: target.name }) };
   }
   const frame = (k?: string) => [
