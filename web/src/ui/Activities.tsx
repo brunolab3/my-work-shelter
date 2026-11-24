@@ -369,6 +369,6 @@ function InputC({ e }: { e: LogInput }) {
   const x: any = e;
   if (x.type === 'usuario') return <div className="ent usuario"><span className="quien">{t('world.you')} › </span>{x.text}</div>;
   if (x.type === 'asistente') return <div className="ent" dangerouslySetInnerHTML={{ __html: markdown(x.text ?? '') }} />;
-  if (x.type === 'herramienta') return <div className={'ent herramienta' + (x.isError ? ' error' : '') + (x.helper ? ' de-ayudante' : '')}>⚙ <ToolText t={String(x.text ?? '')} /> {x.detail && <code><Visible t={String(x.detail).slice(0, 400)} /></code>}</div>;
+  if (x.type === 'herramienta') return <div className={'ent herramienta' + (x.isError ? ' error' : '') + (x.helper ? ' de-ayudante' : '')}>⚙ <ToolText t={String(x.text ?? '')} /> {x.detail && <code><Visible t={String(x.detail).slice(0, 400)} /></code>}{x.output && <code><Visible t={String(x.output.first)} /></code>}</div>;
   return <div className={'ent ' + (x.type ?? 'sistema')}>{x.text}</div>;
 }

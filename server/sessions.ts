@@ -22,6 +22,8 @@ import { query, listSessions, getSessionMessages, getSessionInfo, type Query, ty
 import type { SessionSummary, LogInput, PendingRequest, Helper, WorkOptions, HistoryElement, Command, Question, Attachment, InputView, MessageOrigin, QueuedMessage } from '../shared/protocol.ts';
 import { applyLifecycle, takeConsumed, withdrawable } from '../shared/messageQueue.ts';
 import { separateAttachments, type Attachments } from './attachments.ts';
+import type { ToolOutputs } from './toolOutputs.ts';
+import { logPage, type LogCursor, type LogPage } from '../shared/logPages.ts';
 import { ROOMS_FOLDERS } from './state.ts';
 import { active } from '../shared/sources.ts';
 import { describeTool, describeInput, permissionTitle, toolMode, toolPath, isAgent } from './tools.ts';
@@ -54,6 +56,8 @@ interface Session {
   // the input yet; withdrawn: taken back by the Overseer before reaching it
   queue: QueuedMessage[]; unsent: Set<string>; withdrawn: Set<string>;
   entries: LogInput[];
+  // older entries than those in memory are in its transcript on disk (resumed, or cut at MAX_ENTRIES): page() reads them
+  olderOnDisk?: boolean;
   tools: Map<string, { name: string }>;
   helpers: Map<string, Helper>;
   taskAHelper: Map<string, string>;
@@ -130,6 +134,10 @@ export function cleanEnvironment(): Record<string, string> {
 // A repo cloned from GitHub by the game (`limites`) is a boundary: only trust in that folder or inside it counts, not a
 // trusted folder above it (the repos root, say), since its config arrived from elsewhere.
 const GAME_ROOT = path.resolve(import.meta.dirname, '..');
+// a live session keeps its latest log entries in memory (older ones: its transcript, Sessions.page); a resumed one starts
+// with the last RESUMED_ENTRIES of its transcript
+const MAX_ENTRIES = 1500, RESUMED_ENTRIES = 800;
+const TRANSCRIPT_CACHE_MS = 60_000;
 // lo que puede traer instrucciones u órdenes de terceros (no .claude/worktrees)
 const CONFIG_PROJECT = ['.claude/settings.json', '.claude/CLAUDE.md', '.claude/rules', '.claude/commands', '.claude/agents', '.claude/hooks', '.claude/skills', '.claude/output-styles', '.mcp.json', 'CLAUDE.md', 'CLAUDE.local.md'];
 const FOLDERS_OF_GAME = [ROOMS_FOLDERS];
@@ -195,7 +203,7 @@ export class Sessions extends EventEmitter {
   private s = new Map<string, Session>();
   claude = pathClaude();
   version = versionClaude(this.claude);
-  constructor(private resolver: RoomsResolver, private attachments?: Attachments) { super(); }
+  constructor(private resolver: RoomsResolver, private attachments?: Attachments, private outputs?: ToolOutputs) { super(); }
 
   list() { return [...this.s.values()].map(x => x.r); }
   get(id: string) { return this.s.get(id); }
@@ -219,7 +227,7 @@ export class Sessions extends EventEmitter {
     else if (!u.timer) u.timer = setTimeout(emit, 125);
   }
   private input(type: LogInput['type'], text: string, extra: Partial<LogInput> = {}): LogInput { return { id: randomUUID(), ts: Date.now(), type, text, ...extra }; }
-  private add(x: Session, e: LogInput) { x.entries.push(e); if (x.entries.length > 1500) x.entries.splice(0, x.entries.length - 1500); this.emit('entradas', x.r.id, [e]); }
+  private add(x: Session, e: LogInput) { x.entries.push(e); if (x.entries.length > MAX_ENTRIES) { x.entries.splice(0, x.entries.length - MAX_ENTRIES); x.olderOnDisk = true; } this.emit('entradas', x.r.id, [e]); }
 
   // a turn stopped by the usage limit is not an error: it waits for the reset and resumes on its own (limitResume.ts)
   private lastReset?: number;
@@ -236,6 +244,17 @@ export class Sessions extends EventEmitter {
   }
 
   logbook(id: string) { return this.must(id).entries; }
+  /** A page of the log (shared/logPages.ts): from memory and, past its start, from the transcript on disk */
+  async page(id: string, limit: number, before?: LogCursor): Promise<LogPage<LogInput>> {
+    const x = this.must(id);
+    const p = logPage(x.entries, limit, before);
+    if (p.more || !x.olderOnDisk || !x.r.claudeId) return p;
+    if (p.entries.length >= limit) return { entries: p.entries, more: true };
+    const from = p.entries[0] ?? before ?? x.entries[0];
+    const disk = await this.transcript(x.r.claudeId, x.r.cwd).catch(() => [] as LogInput[]);
+    const d = logPage(disk, limit - p.entries.length, from);
+    return { entries: [...d.entries, ...p.entries], more: d.more };
+  }
   commands(id: string) { return this.must(id).commands; }
 
   // el init (que dice qué credencial se usa) no llega hasta el primer mensaje: antes de lanzar se mira que ningún
@@ -269,7 +288,7 @@ export class Sessions extends EventEmitter {
     const x: Session = { r, alive: false, closing: false, interrupting: false, sent: new Map(), pending: [], queue: [], unsent: new Set(), withdrawn: new Set(), entries: [], tools: new Map(), helpers: new Map(), taskAHelper: new Map(), background: new Set(), awaitingBackground: false, commands: [], stderr: '', options: o, partialText: '', shipments: Promise.resolve() };
     this.s.set(id, x);
     if (o.resume) {
-      try { x.entries = await this.transcript(o.resume, r.cwd); } catch {}
+      try { const all = await this.transcript(o.resume, r.cwd); x.entries = all.slice(-RESUMED_ENTRIES); x.olderOnDisk = all.length > RESUMED_ENTRIES; } catch {}
       x.entries.push(this.input('sistema', t('server.conversationResumed')));
       try { const info = await getSessionInfo(o.resume, { dir: r.cwd }); if (info) r.title = info.customTitle || info.summary || r.title; } catch {}
     }
@@ -583,7 +602,10 @@ export class Sessions extends EventEmitter {
           if (h && isAgent(h.name)) { const a = x.helpers.get(b.tool_use_id); const res = (m as any).tool_use_result; if (a && res?.status !== 'async_launched') this.helperEnd(x, a.id, b.is_error ? 'fallo' : 'hecho'); }
           if (b.is_error) {
             const txt = typeof b.content === 'string' ? b.content : Array.isArray(b.content) ? b.content.map((y: any) => y.text ?? '').join('\n') : '';
-            this.add(x, this.input('herramienta', t('server.toolFailed', { herramienta: h?.name ?? t('server.theTool') }), { tool: h?.name, detail: txt.slice(0, 2000), isError: true }));
+            const e = this.input('herramienta', t('server.toolFailed', { herramienta: h?.name ?? t('server.theTool') }), { tool: h?.name, isError: true });
+            // the whole output on disk, the log only its size and first line (server/toolOutputs.ts)
+            if (txt.trim()) { try { e.output = this.outputs ? this.outputs.save(r.id, e.id, txt) : undefined; } catch {} if (!e.output) e.detail = txt.slice(0, 2000); }
+            this.add(x, e);
           }
         }
         break;
@@ -919,7 +941,19 @@ export class Sessions extends EventEmitter {
     })).sort((a, b) => b.modified - a.modified);
   }
 
-  async transcript(claudeId: string, dir: string): Promise<LogInput[]> {
+  // the last transcript read, for a while: paging up a long conversation reads it once, not once per page
+  private lastTranscript?: { key: string; at: number; entries: Promise<LogInput[]> };
+  /** A conversation's whole log, read from its transcript on disk; each entry's id comes from its message, the same in
+   *  every reading (older pages follow on from the entries held) */
+  transcript(claudeId: string, dir: string): Promise<LogInput[]> {
+    const key = `${claudeId}\n${dir}`, now = Date.now();
+    if (this.lastTranscript?.key === key && now - this.lastTranscript.at < TRANSCRIPT_CACHE_MS) return this.lastTranscript.entries;
+    const entries = this.readTranscript(claudeId, dir);
+    this.lastTranscript = { key, at: now, entries };
+    entries.catch(() => { if (this.lastTranscript?.entries === entries) this.lastTranscript = undefined; });
+    return entries;
+  }
+  private async readTranscript(claudeId: string, dir: string): Promise<LogInput[]> {
     const msgs = await getSessionMessages(claudeId, { dir });
     // cada mensaje con su hora real, no la de ahora: las páginas que enlazó y ya se revisaron no vuelven a quedar
     // pendientes al retomarla (shared/sessionPages.ts)
@@ -929,15 +963,16 @@ export class Sessions extends EventEmitter {
       if (m.parent_tool_use_id) continue;
       const c = (m.message as any)?.content;
       const ts = times.get(m.uuid) ?? Date.now();
-      if (m.type === 'user') { const t = userText(c); if (t) { const { text, attachments } = separateAttachments(t); out.push(this.input('usuario', text, { ts, ...(attachments.length ? { attachments } : {}) })); } }
+      if (m.type === 'user') { const t = userText(c); if (t) { const { text, attachments } = separateAttachments(t); out.push(this.input('usuario', text, { id: m.uuid, ts, ...(attachments.length ? { attachments } : {}) })); } }
       else if (m.type === 'assistant' && Array.isArray(c)) {
-        for (const b of c) {
-          if (b.type === 'text' && b.text?.trim()) out.push(this.input('asistente', b.text, { ts }));
-          else if (b.type === 'tool_use' && b.name) out.push(this.input('herramienta', describeTool(b.name, b.input ?? {}, dir), { tool: b.name, ts }));
-        }
+        c.forEach((b: any, k: number) => {
+          const id = `${m.uuid}-${k}`;
+          if (b.type === 'text' && b.text?.trim()) out.push(this.input('asistente', b.text, { id, ts }));
+          else if (b.type === 'tool_use' && b.name) out.push(this.input('herramienta', describeTool(b.name, b.input ?? {}, dir), { id, tool: b.name, ts }));
+        });
       }
     }
-    return out.slice(-800);
+    return out;
   }
 }
 

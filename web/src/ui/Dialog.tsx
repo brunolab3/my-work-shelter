@@ -18,13 +18,14 @@
 //   un worktree, su pestaña pasa a la ventana de la copia, y si se estaba viendo, se sigue con la copia.
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { SessionSummary, LogInput, HistoryElement, Command, PendingRequest, Visitor, QueuedMessage } from '@shared/protocol';
+import type { SessionSummary, LogInput, ToolOutput, HistoryElement, Command, PendingRequest, Visitor, QueuedMessage } from '@shared/protocol';
 import { originLabel, queuedIn, withdrawable } from '@shared/messageQueue';
 import { flaggedIds, flagOf, flaggedInIntercom, tabFlaggable, type Flaggable } from '@shared/flagged';
 import { MODELS, EFFORTS, PERMISSION_MODES } from '@shared/protocol';
 import { t, tIs, trBio } from '@shared/language';
 import { juego, type DwellerSummary } from './gameState';
-import { live, client, loadLog, addNotice } from '../net/client';
+import { live, client, loadLog, loadOlder, trimLog, addNotice } from '../net/client';
+import { scrollAfterPrepend } from '@shared/logPages';
 import { markdown, markdownLine } from './markdown';
 import { RequestView, ToolText } from './plainText';
 import { keyboard } from '../engine/keyboard';
@@ -840,7 +841,7 @@ function New({ h, p, resume, goBack }: { h: DwellerSummary; p: TabCom; resume?: 
   const esc = useEscDouble();
   const behind = () => esc.press(!!text.trim(), goBack);
   useEffect(() => { area.current?.focus(); }, []);
-  useEffect(() => { if (resume) client.ask<LogInput[]>({ t: 'cargarConversacion', roomId: h.room, claudeId: resume.claudeId }).then(setTranscript).catch(() => setTranscript([])); }, [resume?.claudeId]);
+  useEffect(() => { if (resume) client.ask<LogInput[]>({ t: 'cargarConversacion', roomId: h.room, claudeId: resume.claudeId, limit: RESUME_PREVIEW }).then(setTranscript).catch(() => setTranscript([])); }, [resume?.claudeId]);
   const rows = [
     { name: t('windows.model'), values: MODELS, current: model, set: setModel },
     { name: t('windows.effort'), values: EFFORTS, current: effort, set: setEffort },
@@ -898,7 +899,7 @@ function New({ h, p, resume, goBack }: { h: DwellerSummary; p: TabCom; resume?: 
       {resume && (
         <div className="transcripcion-previa">
           <p className="voz">{t('windows.resumingTituloCuando', { titulo: resume.title, cuando: ago(resume.modified) })}</p>
-          <div className="lista-desplazable mini">{transcript === null ? <p className="tenue">{t('windows.loading')}</p> : transcript.slice(-12).map(e => <Entry key={e.id} e={e} />)}</div>
+          <div className="lista-desplazable mini">{transcript === null ? <p className="tenue">{t('windows.loading')}</p> : transcript.map(e => <Entry key={e.id} e={e} />)}</div>
         </div>
       )}
       <p className="voz">{resume ? t('windows.whatDoIDoWith') : t('windows.whatNeedsDoing')}</p>
@@ -945,15 +946,42 @@ function New({ h, p, resume, goBack }: { h: DwellerSummary; p: TabCom; resume?: 
   );
 }
 
+// how many of its last entries a conversation to resume shows (read from its transcript)
+const RESUME_PREVIEW = 12;
+
 // ---------------------------------------------------------------- conversación viva
 // la carpeta de una conversación (su worktree, si trabaja en uno): ahí apuntan las rutas relativas de sus respuestas
 const folderOf = (s: SessionSummary) => s.worktree ?? s.cwd;
-function Entry({ e, base }: { e: LogInput; base?: string }) {
+function Entry({ e, base, sessionId }: { e: LogInput; base?: string; sessionId?: string }) {
   if (e.type === 'asistente' || e.type === 'lateral') return <div className={'ent ' + e.type} dangerouslySetInnerHTML={{ __html: markdown(e.text, base) }} />;
   if (e.type === 'usuario') return <div className={'ent usuario' + (e.origin ? ' de-fuera' : '')}><span className="quien">{originLabel(e.origin)}&gt;</span> <span dangerouslySetInnerHTML={{ __html: markdown(e.text, base) }} />{e.attachments?.length ? <SentAttachments list={e.attachments} /> : null}</div>;
-  if (e.type === 'herramienta') return <div className={'ent herramienta' + (e.isError ? ' error' : '') + (e.helper ? ' de-ayudante' : '')}>{e.helper ? '  ⚙ ' : '⚙ '}<span><ToolText t={e.text} /></span>{e.detail && <pre className="detalle-err">{e.detail}</pre>}</div>;
+  if (e.type === 'herramienta') return <div className={'ent herramienta' + (e.isError ? ' error' : '') + (e.helper ? ' de-ayudante' : '')}>{e.helper ? '  ⚙ ' : '⚙ '}<span><ToolText t={e.text} /></span>{e.detail && <pre className="detalle-err">{e.detail}</pre>}{e.output && sessionId && <OutputView o={e.output} sessionId={sessionId} id={e.id} tool={e.tool} />}</div>;
   if (e.type === 'error') return <div className="ent error" dangerouslySetInnerHTML={{ __html: markdown(e.text) }} />;
   return <div className={'ent ' + e.type}>{e.text}</div>;
+}
+
+// A failed tool's output, folded to one line (tool, size, first line): the whole text stays on disk
+// (server/toolOutputs.ts) until it is opened or copied
+const sizeLabel = (n: number) => n < 1024 ? `${n} B` : n < 1024 * 1024 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`;
+const readOutput = (sessionId: string, id: string) => client.action<string | null>('salida.leer', { sessionId, id });
+function OutputView({ o, sessionId, id, tool }: { o: ToolOutput; sessionId: string; id: string; tool?: string }) {
+  const [text, setText] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+  const whole = async (): Promise<string> => {
+    if (text != null) return text;
+    const x = await readOutput(sessionId, id);
+    if (x == null) throw new Error('gone');
+    setText(x); return x;
+  };
+  const toggle = () => { SFX.click(); if (open) { setOpen(false); return; } whole().then(() => setOpen(true)).catch(() => { SFX.notAllowed(); addNotice('aviso', t('windows.output.gone')); }); };
+  const copy = () => whole().then(x => navigator.clipboard.writeText(x)).then(() => SFX.shortSuccess()).catch(() => { SFX.notAllowed(); addNotice('aviso', t('windows.output.gone')); });
+  return <div className="salida-herramienta">
+    <button className="consola-x salida-linea" aria-expanded={open} title={t(open ? 'windows.output.hide' : 'windows.output.show')} onClick={toggle}>
+      {open ? '▾' : '▸'} {tool ?? ''} · {sizeLabel(o.size)} · <span className="tenue">{o.first}</span>
+    </button>
+    <button className="consola-x" title={t('windows.output.copyHint')} onClick={copy}>⧉ {t('windows.output.copy')}</button>
+    {open && text != null && <pre className="detalle-err">{text}</pre>}
+  </div>;
 }
 
 // What was sent to this conversation while it was busy and it has not taken yet (shared/messageQueue.ts), oldest first:
@@ -991,6 +1019,8 @@ function Queued({ s, edit }: { s: SessionSummary; edit: (m: QueuedMessage) => vo
 
 function Session({ h, s, p, exit, onClose }: { h: DwellerSummary; s: SessionSummary; p: TabCom; exit: () => void; onClose: () => void }) {
   const entries = live.use(e => e.entries[s.id]) ?? [];
+  const older = live.use(e => !!e.older[s.id]);
+  const [loadingOlder, setLoadingOlder] = useState(false);
   const partial = live.use(e => e.partial[s.id]) ?? '';
   const [text, setText0] = useState(p.draft ?? '');
   const setText = (t: string | ((x: string) => string)) => setText0(x => { const n = typeof t === 'function' ? t(x) : t; setTab(h.id, p.id, { draft: n }); return n; });
@@ -1004,10 +1034,32 @@ function Session({ h, s, p, exit, onClose }: { h: DwellerSummary; s: SessionSumm
   useEffect(() => { if (s.unread && (s.state === 'terminada' || s.state === 'error')) client.send({ t: 'leida', sessionId: s.id }); }, [s.unread, s.state]);
   useEffect(() => { loadLog(s.id); }, [s.id]);
   useEffect(() => { const el = canvas.current; if (el && pinned.current) el.scrollTop = el.scrollHeight; }, [entries.length, partial, s.pending?.id]);
+  // older pages as the Overseer reaches the top (shared/logPages.ts), with what was in view kept in place; back at the
+  // bottom, only the latest page stays held
+  const beforeOlder = useRef<{ top: number; height: number } | null>(null);
+  useLayoutEffect(() => {
+    const el = canvas.current, b = beforeOlder.current;
+    if (!el || !b) return;
+    beforeOlder.current = null;
+    el.scrollTop = scrollAfterPrepend(b.top, b.height, el.scrollHeight);
+  }, [entries[0]?.id]);
+  const askOlder = (el: HTMLDivElement) => {
+    if (el.scrollTop >= OLDER_AT_PX || !older || loadingOlder) return;
+    setLoadingOlder(true);
+    beforeOlder.current = { top: el.scrollTop, height: el.scrollHeight };
+    loadOlder(s.id).then(got => { if (!got) beforeOlder.current = null; }).finally(() => setLoadingOlder(false));
+  };
+  const onScroll = (el: HTMLDivElement) => {
+    pinned.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 4;
+    if (pinned.current) trimLog(s.id);
+    askOlder(el);
+  };
+  // a page that doesn't fill the intercom has no scroll to reach the top with: the next one comes on its own
+  useEffect(() => { const el = canvas.current; if (el && el.scrollHeight <= el.clientHeight) askOlder(el); }, [entries.length, older, loadingOlder]);
   useEffect(() => { if (!s.pending) area.current?.focus(); }, [s.pending?.id]);
   useEffect(() => { if (text.startsWith('/') && !commands.length) client.ask<Command[]>({ t: 'comandos', sessionId: s.id }).then(c => setCommands(c?.length ? c : COMMANDS_BASE)).catch(() => setCommands(COMMANDS_BASE)); }, [text]);
   const suggestions = text.startsWith('/') && !text.includes(' ') ? [...OWN_COMMANDS, ...commands].filter(c => c.name.toLowerCase().startsWith(text.slice(1).toLowerCase())).slice(0, 8) : [];
-  const scroll = (d: number) => { const el = canvas.current; if (el) { el.scrollTop += d * el.clientHeight * 0.8; pinned.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 4; } };
+  const scroll = (d: number) => { const el = canvas.current; if (el) { el.scrollTop += d * el.clientHeight * 0.8; onScroll(el); } };
   const interrupt = () => { client.send({ t: 'interrumpir', sessionId: s.id }); SFX.click(); };
   const compact = () => { client.send({ t: 'enviar', sessionId: s.id, text: '/compact' }); pinned.current = true; SFX.click(); };
   // the handoff notice's other choice (server/sessions.ts: handoff()): the new session starts once the summary is written
@@ -1051,8 +1103,9 @@ function Session({ h, s, p, exit, onClose }: { h: DwellerSummary; s: SessionSumm
   return (
     <div className={'pantalla-consola fosforo sesion' + (onTop ? ' soltando' : '')} data-sesion={s.id} {...drop}>
       <div className="titulo-sesion">{s.title}{s.worktree ? <span className="tenue"> · worktree</span> : null}</div>
-      <div className="lienzo" ref={canvas} onScroll={e => { const el = e.currentTarget; pinned.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 4; }}>
-        {(s.pending ? entries.filter((e, i) => !(e.type === 'sistema' && e.text.startsWith('❓')) && !(e.type === 'herramienta' && i >= entries.length - 3)) : entries).map(e => <Entry key={e.id} e={e} base={folderOf(s)} />)}
+      <div className="lienzo" ref={canvas} onScroll={e => onScroll(e.currentTarget)}>
+        {entries.length > 0 && <div className="ent sistema tenue cuaderno-inicio">{older ? (loadingOlder ? t('windows.log.loadingOlder') : t('windows.log.scrollForOlder')) : t('windows.log.start')}</div>}
+        {(s.pending ? entries.filter((e, i) => !(e.type === 'sistema' && e.text.startsWith('❓')) && !(e.type === 'herramienta' && i >= entries.length - 3)) : entries).map(e => <Entry key={e.id} e={e} base={folderOf(s)} sessionId={s.id} />)}
         {partial && workingLive && <div className="ent asistente parcial" dangerouslySetInnerHTML={{ __html: markdown(partial, folderOf(s)) + '<span class="cursor-escribe">▌</span>' }} />}
         {s.pending && <Pending s={s} p={s.pending} tab={p} hid={h.id} exit={exit} />}
         {s.state === 'error' && s.error && <div className="ent error">⚠ {s.error}</div>}
@@ -1106,6 +1159,9 @@ function Session({ h, s, p, exit, onClose }: { h: DwellerSummary; s: SessionSumm
     </div>
   );
 }
+
+// how close to the top the next older page is asked for
+const OLDER_AT_PX = 120;
 
 // stopped by the usage limit (server/limitResume.ts): when it resumes, or when the limit renews until it's queued
 const hhmm = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -1163,8 +1219,21 @@ function PreflightButton({ copy }: { copy: { path: string; branch: string } }) {
   </span>;
 }
 
+// the log's entries that can link pages, read from the whole log (the intercom holds only a page of it) and kept only
+// while a conversation is in view
+function useLinkEntries(data: { sessionId: string } | { roomId: string; claudeId: string }, key: string) {
+  const [l, setL] = useState<LogInput[]>([]);
+  useEffect(() => {
+    let stillAlive = true;
+    client.action<LogInput[]>('cuaderno.enlaces', data).then(x => { if (stillAlive) setL(Array.isArray(x) ? x : []); }).catch(() => {});
+    return () => { stillAlive = false; };
+  }, [key]);
+  return l;
+}
 function PagesMenu({ s }: { s: SessionSummary }) {
-  const log = live.use(e => e.entries[s.id]);
+  const held = live.use(e => e.entries[s.id]);
+  const fromLog = useLinkEntries({ sessionId: s.id }, s.id);
+  const log = useMemo(() => { const ids = new Set((held ?? []).map(e => e.id)); return [...fromLog.filter(e => !ids.has(e.id)), ...(held ?? [])]; }, [held, fromLog]);
   // con la pregunta que espera respuesta: lo que enlaza (la comparación que pide aprobar) ya sale
   const questions = s.pending?.type === 'pregunta' ? s.pending.questions : undefined;
   const since = useMemo(() => Date.now(), [s.pending?.id]);
@@ -1293,15 +1362,8 @@ const PRESET_TEXT = { in1h: 'windows.scheduleIn1h', in3h: 'windows.scheduleIn3h'
 
 // Una conversación por retomar (cerrada o perdida en un reinicio): sus páginas salen igual, leídas de su transcripción;
 // abrirlas, validarlas o quitarlas no le escribe nada (al retomarla, lo hecho sigue contado)
-const resumeLogs = new Map<string, Promise<LogInput[]>>();
 function ResumePages({ roomId, claudeId }: { roomId: string; claudeId: string }) {
-  const [entries, setEntries] = useState<LogInput[]>([]);
-  useEffect(() => {
-    let p = resumeLogs.get(claudeId);
-    if (!p) { p = client.ask<LogInput[]>({ t: 'cargarConversacion', roomId, claudeId }).catch(() => { resumeLogs.delete(claudeId); return []; }); resumeLogs.set(claudeId, p); }
-    let stillAlive = true; p.then(l => { if (stillAlive) setEntries(l); });
-    return () => { stillAlive = false; };
-  }, [roomId, claudeId]);
+  const entries = useLinkEntries({ roomId, claudeId }, `${roomId}\n${claudeId}`);
   return <PagesList sessionId={claudeId} claudeId={claudeId} entries={entries} />;
 }
 

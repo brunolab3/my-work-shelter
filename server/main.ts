@@ -8,7 +8,10 @@ import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { execFile, execFileSync, spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { WebSocketServer, type WebSocket } from 'ws';
-import { GAME_NAME, type ClientMessage, type ServerMessage, type InfoRepo, type Visitor, type SessionSummary, type MessageOrigin } from '../shared/protocol.ts';
+import { GAME_NAME, type ClientMessage, type ServerMessage, type InfoRepo, type Visitor, type SessionSummary, type MessageOrigin, type LogInput } from '../shared/protocol.ts';
+import { DEFAULT_LOG_PAGE } from '../shared/logPages.ts';
+import { linksPages } from '../shared/sessionPages.ts';
+import { ToolOutputs } from './toolOutputs.ts';
 import { Sessions } from './sessions.ts';
 import { Attachments } from './attachments.ts';
 import { openAttachment, isPackage, revealLocal } from './open.ts';
@@ -248,6 +251,9 @@ const ctxRooms: CtxRooms = {
     return w && { path: w.path, branch: w.branch, local: await hasBranch(w.path, 'local') };
   },
 };
+// failed tools' full outputs, on disk while their session lives (server/toolOutputs.ts)
+const toolOutputs = new ToolOutputs(path.join(DATA, 'salidas'));
+toolOutputs.clear();
 const sessions = new Sessions({
   pathRoom, reposOfShelter: () => gitPaths(), mcpRoom: id => (ctxDecor.room(id) ? mcpDecor(id, ctxDecor) : undefined),
   mcpAssignment: (id, ask, sid) => { const s = store.state.rooms.find(x => x.id === id && x.type === 'coordinacion' && x.path); return s ? mcpAssignment(ctxAssignment(s.path!), { coordination: roomNameIs(s), roomId: s.id, sessionId: sid, ask }) : undefined; },
@@ -263,7 +269,7 @@ const sessions = new Sessions({
     offered: id => (((store.state.settings as any).handoffOffered ?? []) as string[]).includes(id),
     mark: id => { const a = store.state.settings as any; a.handoffOffered = [...(a.handoffOffered ?? []), id].slice(-300); store.save(); },
   },
-}, attachments);
+}, attachments, toolOutputs);
 // trusted and cloned folders that no longer exist (removed worktrees, deleted clones) are dropped at startup, so the lists don't keep growing
 for (const k of ['trustedFolders', 'clonedFolders']) { const a = store.state.settings as any; if (Array.isArray(a[k])) { const live = a[k].filter((r: unknown) => typeof r === 'string' && existsSync(r)); if (live.length !== a[k].length) { a[k] = live; store.save(); } } }
 // clones from GitHub at the Main Gate: once done, the folder is a trust boundary (sessions.ts, confianza())
@@ -324,7 +330,7 @@ sessions.on('handoff', (old: SessionSummary, summary: string) => {
   startFromHandoff({ start: m => startWork(undefined, { t: 'empezar', ...m }), close: id => sessions.close(id) }, old, summary)
     .catch(err => broadcast({ t: 'aviso', level: 'error', text: t('server.handoffFailed', { error: (err as Error).message }) }));
 });
-sessions.on('fuera', sid => broadcast({ t: 'sesionFuera', sessionId: sid }));
+sessions.on('fuera', sid => { toolOutputs.drop(sid); broadcast({ t: 'sesionFuera', sessionId: sid }); });
 sessions.on('herramienta', () => {
   const before = store.state.jugador.cultivos.map(c => c.phase).join();
   store.state.jugador.toolsCalls++; growCrops(store); store.save();
@@ -1229,6 +1235,14 @@ async function action(name: string, d: Record<string, any> = {}): Promise<unknow
     case 'programados.ahora': await scheduled.sendNow(String(d.id ?? '')); return true;
     case 'programados.editar': return scheduled.edit(String(d.id ?? ''), { when: d.when === undefined ? undefined : String(d.when), message: d.message === undefined ? undefined : String(d.message) });
     case 'paginas.existen': return existingPages(d.paths, os.homedir());
+    case 'salida.leer': return toolOutputs.read(String(d.sessionId ?? ''), String(d.id ?? ''));
+    // the entries of a conversation that can link pages (shared/sessionPages.ts), the whole log's: a live one's or, by
+    // room and claudeId, a closed one's transcript. The intercom holds only a page of the log
+    case 'cuaderno.enlaces': {
+      const room = d.roomId ? store.state.rooms.find(s => s.id === d.roomId) : undefined;
+      const all: LogInput[] = d.sessionId ? (await sessions.page(String(d.sessionId), Number.MAX_SAFE_INTEGER)).entries : room && d.claudeId ? await sessions.transcript(String(d.claudeId), folderOf(room)) : [];
+      return all.filter(linksPages).map(({ id, ts, type, text, question }) => ({ id, ts, type, text, ...(question ? { question } : {}) }));
+    }
     case 'paginas.actualizadas': return pagesUpdated(d.paths, os.homedir());
     case 'enlace.local': return openLink(String(d.path ?? ''), os.homedir(), d.outside === true);
     case 'enlace.tipo': return linkKind(String(d.path ?? ''), os.homedir());
@@ -1486,8 +1500,9 @@ async function handle(ws: WebSocket, m: ClientMessage) {
       const list = dir ? (await sessions.history(dir)).filter(x => !ofCopy || (!!x.cwd && insideOf(path.resolve(x.cwd), dir))) : [];
       send(ws, { t: 'respuesta', request: m.request, data: list.map(x => (outside.has(x.claudeId.toLowerCase()) && !x.inProgress ? { ...x, outside: true } : x)) }); break;
     }
-    case 'cargarConversacion': { const room = e.rooms.find(s => s.id === m.roomId); send(ws, { t: 'respuesta', request: m.request, data: room ? await sessions.transcript(m.claudeId, folderOf(room)) : [] }); break; }
+    case 'cargarConversacion': { const room = e.rooms.find(s => s.id === m.roomId); const l = room ? await sessions.transcript(m.claudeId, folderOf(room)) : []; send(ws, { t: 'respuesta', request: m.request, data: m.limit ? l.slice(-m.limit) : l }); break; }
     case 'cuaderno': send(ws, { t: 'respuesta', request: m.request, data: sessions.logbook(m.sessionId) }); break;
+    case 'cuadernoPagina': try { send(ws, { t: 'respuesta', request: m.request, data: await sessions.page(m.sessionId, Math.min(1000, Number(m.limit) || DEFAULT_LOG_PAGE), m.before) }); } catch (err) { send(ws, { t: 'respuesta', request: m.request, error: (err as Error).message }); } break;
     case 'comandos': send(ws, { t: 'respuesta', request: m.request, data: m.sessionId ? sessions.commands(m.sessionId) : [] }); break;
     case 'terminalAbrir': terminals.open(m.id, m.cwd, m.cols, m.rows, outputOf(ws)); break;
     case 'terminalEntrada': terminals.input(m.id, m.data); break;

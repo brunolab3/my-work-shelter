@@ -4,7 +4,8 @@
 // También las teclas globales del refugio abierto.
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { juego, type Panel, type DwellerSummary } from './gameState';
-import { live, client } from '../net/client';
+import { live, client, logPageSize, setLogPageSize } from '../net/client';
+import { LOG_PAGE_SIZES } from '@shared/logPages';
 import { keyboard } from '../engine/keyboard';
 import { SFX, sound } from '../audio/sound';
 import { Device, Options, Keys, closePanel, useMenu, useKeys, type ItemMenu } from './device';
@@ -406,6 +407,8 @@ function GameOptions() {
     { lbl: t('menu.mute'), values: [t('menu.no'), t('menu.yes')], current: au.silence ? 1 : 0, set: k => { sound.save({ silence: k === 1 }); refresh(x => x + 1); } },
     // fotogramas por segundo del refugio: en automático, menos cuando nada se mueve (gasta bastante menos CPU)
     { lbl: t('menu.frameRate'), values: [t('menu.frameRateAuto'), '60 fps', '30 fps'], current: FRAME_RATES.indexOf(frameRate()), set: k => { setFrameRate(FRAME_RATES[k]); refresh(x => x + 1); SFX.tick(); } },
+    // the latest messages an intercom opens a conversation with; older ones load when scrolling up (shared/logPages.ts)
+    { lbl: t('menu.logPageSize'), values: LOG_PAGE_SIZES.map(String), current: Math.max(0, LOG_PAGE_SIZES.indexOf(logPageSize())), set: k => { setLogPageSize(LOG_PAGE_SIZES[k]); refresh(x => x + 1); SFX.tick(); } },
     { lbl: t('menu.dictationLanguage'), values: DICTATION_LANGUAGES.map(x => x.text), current: Math.max(0, DICTATION_LANGUAGES.findIndex(x => x.value === dictationLanguage())), set: k => { setLanguageDictation(DICTATION_LANGUAGES[k].value); refresh(x => x + 1); SFX.tick(); } },
     // over it, the indicator's memory row offers «Reload now» (memoryWatchdog.ts); only in the game's own window
     ...(hasMemoryWatch() ? [{ lbl: t('menu.memoryLimit'), values: MEMORY_LIMITS.map(mb => mb ? `${mb / 1024} GB` : t('menu.memoryLimitNever')), current: Math.max(0, MEMORY_LIMITS.indexOf(memoryLimit())), set: (k: number) => { setMemoryLimit(MEMORY_LIMITS[k]); refresh(x => x + 1); SFX.tick(); } }] : []),

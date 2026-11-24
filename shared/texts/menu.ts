@@ -42,6 +42,7 @@ export const MENU: Record<string, LocalizedText> = {
   'menu.yes': { es: 'sí', en: 'yes' },
   'menu.frameRate': { es: 'Fotogramas por segundo', en: 'Frame rate' },
   'menu.frameRateAuto': { es: 'Auto (ahorra CPU)', en: 'Auto (saves CPU)' },
+  'menu.logPageSize': { es: 'Mensajes al abrir una conversación', en: 'Messages loaded per conversation' },
   'menu.dictationLanguage': { es: 'Idioma del dictado', en: 'Dictation language' },
   'menu.memoryLimit': { es: 'Ofrecer recargar si la memoria pasa de', en: 'Offer a reload when memory exceeds' },
   'menu.memoryLimitNever': { es: 'Nunca', en: 'Never' },

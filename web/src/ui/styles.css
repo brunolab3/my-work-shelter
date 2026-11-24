@@ -401,6 +401,10 @@ a.miniatura:hover img { box-shadow: 0 0 0 1px #ffc96b, 0 0 10px rgba(255,179,71,
 .ent.usuario a { color: #ffe2a8; }
 .cursor-escribe { animation: latido 1s steps(2) infinite; }
 .detalle-err { white-space: pre-wrap; font-size: .85em; color: #ffb39a; margin: .2em 0 0; max-height: 10em; overflow: auto; }
+.salida-herramienta { display: flex; flex-wrap: wrap; gap: .3em; align-items: baseline; margin: .15em 0 0 1.2em; }
+.salida-herramienta .salida-linea { flex: 1 1 0; min-width: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.salida-herramienta .detalle-err { flex-basis: 100%; max-height: 24em; }
+.cuaderno-inicio { text-align: center; font-size: .85em; }
 .codigo { position: relative; margin: .4em 0 .7em; }
 .codigo pre { margin: 0; padding: .6em .75em; background: rgba(0,0,0,.45); border: 1px solid rgba(157,255,184,.18); border-radius: 3px; overflow: auto; font-size: .9em; line-height: 1.4; }
 .codigo pre code { background: none; padding: 0; }

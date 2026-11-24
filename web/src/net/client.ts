@@ -5,6 +5,7 @@ import type { VerificationSummary } from '@shared/verification';
 import type { PlanLimits } from '@shared/planLimits';
 import type { ReviewBoard } from '@shared/reviews';
 import { Store } from '../ui/store';
+import { DEFAULT_LOG_PAGE, LOG_PAGE_SIZES, prependOlder, trimToLatest, withLatest, type LogPage } from '@shared/logPages';
 import { t, roomNameIs } from '@shared/language';
 
 export interface LiveData {
@@ -15,7 +16,8 @@ export interface LiveData {
   versionClaude?: string;
   state: any | null;                       // EstadoRefugio del servidor
   sessions: Record<string, SessionSummary>;
-  entries: Record<string, LogInput[]>;
+  entries: Record<string, LogInput[]>;    // the page(s) of each open conversation's log held here (loadLog, loadOlder)
+  older: Record<string, boolean>;          // its older entries not held, asked for when scrolling to the top
   partial: Record<string, string>;          // narración en streaming por sesión
   repos: Record<string, InfoRepo>;
   visitors: Visitor[];
@@ -33,7 +35,7 @@ export interface LiveData {
 // a notice (teletype): its id is its arrival time in ms (plus a fraction, so two never collide)
 export type Notice = { id: number; level: string; text: string; question?: NoticeQuestion };
 
-export const live = new Store<LiveData>({ connected: false, attempts: 0, restarting: false, claudeOk: false, state: null, sessions: {}, entries: {}, partial: {}, repos: {}, visitors: [], notifications: [], events: [], integrations: {}, notices: [], music: null, scheduled: [], verifications: {}, planLimits: {}, reviews: { state: 'reading', reviews: [] } });
+export const live = new Store<LiveData>({ connected: false, attempts: 0, restarting: false, claudeOk: false, state: null, sessions: {}, entries: {}, older: {}, partial: {}, repos: {}, visitors: [], notifications: [], events: [], integrations: {}, notices: [], music: null, scheduled: [], verifications: {}, planLimits: {}, reviews: { state: 'reading', reviews: [] } });
 
 // Notices stay until read (the older ones folded into one group: Avisos in web/src/ui/Bridge.tsx), up to the latest
 // MAX_NOTICES; questions don't count and stay until answered
@@ -113,12 +115,13 @@ class Client {
         live.set({ claudeOk: m.claudeOk, versionClaude: m.versionClaude, state: shownState(m.state), sessions, repos: m.repos });
         // tras un corte, los cuadernos abiertos se vuelven a pedir enteros (lo que llegó durante el corte no se pierde)
         wholeLogs.clear();
-        for (const id of Object.keys(live.get().entries)) if (sessions[id]) loadLog(id);
+        for (const id of Object.keys(live.get().entries)) if (sessions[id]) loadLog(id); else dropLog(id);
         break;
       }
       case 'sesion': live.set(e => ({ sessions: { ...e.sessions, [m.session.id]: m.session }, partial: m.session.state !== 'trabajando' && m.session.state !== 'arrancando' ? { ...e.partial, [m.session.id]: '' } : e.partial })); break;
-      case 'sesionFuera': live.set(e => { const s = { ...e.sessions }; delete s[m.sessionId]; return { sessions: s }; }); break;
-      case 'entradas': live.set(e => ({ entries: { ...e.entries, [m.sessionId]: [...(e.entries[m.sessionId] ?? []), ...m.entries].slice(-1500) }, partial: m.entries.some(x => x.type === 'asistente') ? { ...e.partial, [m.sessionId]: '' } : e.partial })); break;
+      // a closed conversation leaves the client's memory: reopened, it is read again from its transcript
+      case 'sesionFuera': live.set(e => { const s = { ...e.sessions }; delete s[m.sessionId]; return { sessions: s }; }); dropLog(m.sessionId); break;
+      case 'entradas': live.set(e => ({ ...held(e, m.sessionId, [...(e.entries[m.sessionId] ?? []), ...m.entries], MAX_HELD), partial: m.entries.some(x => x.type === 'asistente') ? { ...e.partial, [m.sessionId]: '' } : e.partial })); break;
       case 'texto': live.set(e => ({ partial: { ...e.partial, [m.sessionId]: (e.partial[m.sessionId] ?? '') + m.delta } })); break;
       case 'respuesta': { const p = this.pending.get(m.request); if (p) { this.pending.delete(m.request); m.error ? p.ko(new Error(m.error)) : p.ok(m.data); } break; }
       case 'repos': live.set({ repos: m.repos }); break;
@@ -142,12 +145,53 @@ class Client {
 
 export const client = new Client();
 
-// El cuaderno entero de una conversación se pide una vez (y otra tras cada corte): lo que llega suelto por 'entradas'
-// antes de pedirlo es solo la cola (al recargar la página con una conversación trabajando), no todo el historial. La
-// respuesta lo sustituye entero: el servidor la da con todo lo enviado antes, y lo de después se suma detrás
+// A conversation's log is held by pages (shared/logPages.ts): its latest page is asked for once (and again after each
+// disconnection), older ones when the Overseer scrolls to the top, and back at the bottom only the latest page stays.
+// What arrives through 'entradas' meanwhile is kept after it. Page size: an option, saved in this browser
+const PAGE_KEY = 'refugio.paginaCuaderno';
+const MAX_HELD = 1500;
+export function logPageSize(): number {
+  try { const n = Number(localStorage.getItem(PAGE_KEY)); if (LOG_PAGE_SIZES.includes(n)) return n; } catch {}
+  return DEFAULT_LOG_PAGE;
+}
+export function setLogPageSize(n: number) { try { localStorage.setItem(PAGE_KEY, String(n)); } catch {} }
+
+// a conversation's held entries, at most `keep` (the older ones cut can be asked for again)
+const held = (e: LiveData, id: string, list: LogInput[], keep: number) => {
+  const t = trimToLatest(list, keep);
+  return { entries: { ...e.entries, [id]: t.entries }, older: t.trimmed && !e.older[id] ? { ...e.older, [id]: true } : e.older };
+};
 const wholeLogs = new Set<string>();
 export function loadLog(id: string) {
   if (wholeLogs.has(id)) return;
   wholeLogs.add(id);
-  client.ask<any[]>({ t: 'cuaderno', sessionId: id }).then(list => live.set(e => ({ entries: { ...e.entries, [id]: list } }))).catch(() => wholeLogs.delete(id));
+  client.ask<LogPage<LogInput>>({ t: 'cuadernoPagina', sessionId: id, limit: logPageSize() })
+    .then(p => live.set(e => ({ entries: { ...e.entries, [id]: withLatest(p.entries, e.entries[id] ?? []) }, older: { ...e.older, [id]: p.more } })))
+    .catch(() => wholeLogs.delete(id));
+}
+const loadingOlder = new Set<string>();
+/** The page before the oldest entry held, put above it; false if there was nothing to ask for */
+export async function loadOlder(id: string): Promise<boolean> {
+  const first = live.get().entries[id]?.[0];
+  if (!first || !live.get().older[id] || loadingOlder.has(id)) return false;
+  loadingOlder.add(id);
+  try {
+    const p = await client.ask<LogPage<LogInput>>({ t: 'cuadernoPagina', sessionId: id, limit: logPageSize(), before: { id: first.id, ts: first.ts } });
+    live.set(e => ({ entries: { ...e.entries, [id]: prependOlder(e.entries[id] ?? [], p.entries) }, older: { ...e.older, [id]: p.more } }));
+    return true;
+  } catch { return false; } finally { loadingOlder.delete(id); }
+}
+/** Back at the bottom: only the latest page stays held */
+export function trimLog(id: string) {
+  const list = live.get().entries[id];
+  if (list && list.length > logPageSize() * 2) live.set(e => held(e, id, e.entries[id] ?? [], logPageSize()));
+}
+function dropLog(id: string) {
+  wholeLogs.delete(id);
+  live.set(e => {
+    if (!(id in e.entries) && !(id in e.partial)) return {};
+    const entries = { ...e.entries }, older = { ...e.older }, partial = { ...e.partial };
+    delete entries[id]; delete older[id]; delete partial[id];
+    return { entries, older, partial };
+  });
 }

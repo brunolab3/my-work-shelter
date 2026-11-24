@@ -43,11 +43,14 @@ export interface LogInput {
   attachments?: Attachment[];
   tool?: string;
   detail?: string;
+  output?: ToolOutput;     // herramienta: a failed tool's output, kept on disk (server/toolOutputs.ts): read when opened
   helper?: string;
   isError?: boolean;
   question?: boolean;      // usuario: la respuesta a una pregunta del habitante (lleva sus preguntas: pueden enlazar páginas)
   origin?: MessageOrigin;   // usuario: who sent it when it was not the Overseer typing (another room, a scheduled message, the game)
 }
+
+export interface ToolOutput { size: number; first: string }   // bytes and the first line
 
 // who sent a message to a conversation: the Overseer, another room's dweller (send_to_room, the cleanup thread), a
 // scheduled message, or the game itself (PR reviews, CI failures, plan notices)
@@ -143,8 +146,9 @@ export type ClientMessage =
   | { t: 'lateral'; sessionId: string; question: string }
   | { t: 'modoPermisos'; sessionId: string; mode: string }
   | { t: 'historial'; roomId: string; cwd?: string; request: string }   // cwd: un worktree de la sala (el archivo de una copia holográfica)
-  | { t: 'cargarConversacion'; roomId: string; claudeId: string; request: string }
+  | { t: 'cargarConversacion'; roomId: string; claudeId: string; limit?: number; request: string }   // limit: only the last ones
   | { t: 'cuaderno'; sessionId: string; request: string }
+  | { t: 'cuadernoPagina'; sessionId: string; limit: number; before?: { id: string; ts: number }; request: string }   // a page of the log (shared/logPages.ts): LogPage
   | { t: 'comandos'; sessionId?: string; roomId?: string; request: string }
   | { t: 'terminalAbrir'; id: string; cwd: string; cols: number; rows: number }
   | { t: 'terminalEntrada'; id: string; data: string }
