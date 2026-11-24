@@ -1529,3 +1529,15 @@ html.en-segundo-plano *, html.en-segundo-plano *::before, html.en-segundo-plano 
 .bloque-tarea-cab { display: flex; align-items: center; gap: .4em; font: 600 .78em var(--t-mono); color: var(--tarea); letter-spacing: .04em; margin: .1em 0 .3em; }
 .bloque-tarea-preflight { margin-left: auto; font-size: .95em; color: var(--tarea); }
 .bloque-tarea-cab .marca-tarea { width: .6em; height: .6em; border-radius: 50%; background: var(--tarea); display: inline-block; }
+
+/* ⌘F: the find bar, at the top right of what it searches (web/src/ui/FindBar.tsx) */
+.barra-buscar, .pantalla-consola > .barra-buscar { position: absolute; top: 6px; right: 16px; z-index: 30; display: flex; align-items: center; gap: 5px; padding: 4px 6px; background: #1d1a14; border: 1px solid #c9a24a; border-radius: 6px; box-shadow: 0 4px 16px #000a; color: #f3e3b5; text-shadow: none; font: 400 calc(var(--u) * 0.72)/1.3 var(--t-mono); }
+.barra-buscar input { width: 16em; background: #0f0d0a; color: #f3e3b5; border: 1px solid #6b5a33; border-radius: 4px; padding: 3px 6px; font: inherit; outline: none; }
+.barra-buscar input:focus { border-color: #c9a24a; }
+.barra-buscar .consola-x { margin-left: 0; padding: 1px 6px; }
+.barra-buscar .consola-x:disabled { opacity: .45; cursor: default; }
+.barra-buscar-cuenta { min-width: 3.5em; text-align: right; color: #c9b98a; white-space: nowrap; }
+.barra-buscar-cuenta.vacia { color: #f0a090; }
+.barra-buscar-parcial { color: #8a8070; white-space: nowrap; cursor: help; }
+::highlight(refugio-buscar) { background-color: rgba(255,196,0,.35); color: inherit; }
+::highlight(refugio-buscar-actual) { background-color: #ff9632; color: #000; }

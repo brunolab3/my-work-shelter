@@ -187,11 +187,48 @@
   addEventListener('scroll', () => { clearTimeout(avisoScroll); avisoScroll = setTimeout(() => post({ type: 'scroll', y: scrollY }), 150); });
   const volverA = y => { const go = () => scrollTo(0, y); go(); if (document.readyState !== 'complete') addEventListener('load', go, { once: true }); setTimeout(go, 400); setTimeout(go, 1200); };
 
+  // ⌘F from the game (web/src/ui/FindBar.tsx): the matches of a text in the page, marked like the notes and with the
+  // same matching as matchOffsets in web/src/ui/findText.ts; the game is told how many there are and which is current
+  const findAll = mark ? new Highlight() : null, findNow = mark ? new Highlight() : null;
+  if (findAll) { findNow.priority = 1; CSS.highlights.set('refugio-buscar', findAll); CSS.highlights.set('refugio-buscar-actual', findNow); }
+  style.textContent += '::highlight(refugio-buscar){background:rgba(255,196,0,.35);color:inherit}::highlight(refugio-buscar-actual){background:#ff9632;color:#000}';
+  let found = [], foundAt = -1, foundQuery = '';
+  function matches(q) {
+    const nodes = [], shown = new Map();
+    const visible = el => { if (!shown.has(el)) shown.set(el, !el.closest('script,style,noscript,#refugio-notas') && (el.checkVisibility ? el.checkVisibility() : true)); return shown.get(el); };
+    const w = document.createTreeWalker(document.body || document.documentElement, NodeFilter.SHOW_TEXT, { acceptNode: n => (n.parentElement && visible(n.parentElement) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT) });
+    let text = '', n;
+    while ((n = w.nextNode())) { nodes.push([n, text.length]); text += n.data; }
+    const low = text.toLowerCase(), lq = q.toLowerCase(), same = low.length === text.length && lq.length === q.length;
+    const hay = same ? low : text, needle = same ? lq : q, out = [];
+    const at = k => { let lo = 0, hi = nodes.length - 1; while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (nodes[mid][1] <= k) lo = mid; else hi = mid - 1; } return nodes[lo]; };
+    for (let i = hay.indexOf(needle); i >= 0 && out.length < 1000; i = hay.indexOf(needle, i + needle.length)) {
+      const a = at(i), b = at(i + q.length - 1), r = document.createRange();
+      r.setStart(a[0], i - a[1]); r.setEnd(b[0], i + q.length - b[1]); out.push(r);
+    }
+    return out;
+  }
+  function find(q, dir, again) {
+    if (!again || q !== foundQuery) { foundQuery = q; found = q ? matches(q) : []; foundAt = -1; if (findAll) { findAll.clear(); for (const r of found) findAll.add(r); } }
+    foundAt = !found.length ? -1 : foundAt < 0 ? (dir > 0 ? 0 : found.length - 1) : (foundAt + dir + found.length) % found.length;
+    if (findNow) findNow.clear();
+    const r = found[foundAt];
+    if (r) {
+      if (findNow) findNow.add(r);
+      const box = r.getBoundingClientRect();
+      if (box.top < 0 || box.bottom > innerHeight) scrollBy(0, box.top - innerHeight / 3);
+    }
+    post({ type: 'found', n: found.length, i: foundAt });
+  }
+  function findClear() { found = []; foundAt = -1; foundQuery = ''; if (findAll) { findAll.clear(); findNow.clear(); } }
+
   // del juego: las notas guardadas de esta página y los textos; «limpiar», cuando ya se han mandado
   addEventListener('message', e => {
     if (e.source !== parent || !e.data || e.data.shelter !== 'notas') return;
     if (e.data.type === 'restaurar') { texts = e.data.texts || texts; notes = Array.isArray(e.data.notes) ? e.data.notes : []; pintar(); if (e.data.scroll > 0) volverA(Number(e.data.scroll)); }
     else if (e.data.type === 'limpiar') { notes = []; close(); pintar(); }
+    else if (e.data.type === 'find') find(String(e.data.query || ''), e.data.dir < 0 ? -1 : 1, !!e.data.again);
+    else if (e.data.type === 'findClear') findClear();
   });
   const hola = () => post({ type: 'hola' });
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', hola); else hola();

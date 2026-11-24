@@ -315,7 +315,11 @@ async function start() {
   });
 }
 
-const buildMenu = () => Menu.setApplicationMenu(Menu.buildFromTemplate([{ label: 'work-shelter', submenu: [{ role: 'about', label: tr('about') }, { type: 'separator' }, { label: tr('goToTheSurface'), accelerator: PANIC, registerAccelerator: false, click: panic }, { type: 'separator' }, { role: 'reload', label: tr('reload') }, { role: 'toggleDevTools', label: tr('devTools') }, { role: 'togglefullscreen', label: tr('fullScreen') }, { type: 'separator' }, { role: 'quit', label: tr('quit') }] }, { role: 'editMenu', label: tr('edit') }]));
+// ⌘F (web/src/ui/FindBar.tsx): the game takes it itself when the focus is in its own page; with the focus in a browser's
+// <webview> or the «Página» <iframe> the key doesn't reach the game, so this menu item, which macOS only gets when the
+// page there didn't take ⌘F (Slack, Google Docs keep theirs), asks the game to open its find bar on it
+const find = () => { if (mainWindow && !mainWindow.isDestroyed() && origin) mainWindow.webContents.executeJavaScript('window.__findShortcut && window.__findShortcut()').catch(() => {}); };
+const buildMenu = () => Menu.setApplicationMenu(Menu.buildFromTemplate([{ label: 'work-shelter', submenu: [{ role: 'about', label: tr('about') }, { type: 'separator' }, { label: tr('goToTheSurface'), accelerator: PANIC, registerAccelerator: false, click: panic }, { type: 'separator' }, { role: 'reload', label: tr('reload') }, { role: 'toggleDevTools', label: tr('devTools') }, { role: 'togglefullscreen', label: tr('fullScreen') }, { type: 'separator' }, { role: 'quit', label: tr('quit') }] }, { label: tr('edit'), submenu: [{ role: 'undo', label: tr('undo') }, { role: 'redo', label: tr('redo') }, { type: 'separator' }, { role: 'cut', label: tr('cut') }, { role: 'copy', label: tr('copy') }, { role: 'paste', label: tr('paste') }, { role: 'pasteAndMatchStyle', label: tr('pastePlain') }, { role: 'delete', label: tr('delete') }, { role: 'selectAll', label: tr('selectAll') }, { type: 'separator' }, { label: tr('find'), accelerator: 'CmdOrCtrl+F', click: find }] }]));
 buildMenu();
 // the game reports its language on every load (Options → Language reloads it): menus follow at once
 ipcMain.handle('idioma', (e, i) => { if (ipcOfGame(e) && texts.setLanguage(i)) buildMenu(); });

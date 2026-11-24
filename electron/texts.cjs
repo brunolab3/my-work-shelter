@@ -19,6 +19,8 @@ const TEXTS = {
   paste: { es: 'Pegar', en: 'Paste' },
   pastePlain: { es: 'Pegar sin formato', en: 'Paste without formatting' },
   selectAll: { es: 'Seleccionar todo', en: 'Select all' },
+  delete: { es: 'Eliminar', en: 'Delete' },
+  find: { es: 'Buscar…', en: 'Find…' },
   back: { es: 'Atrás', en: 'Back' },
   reload: { es: 'Recargar', en: 'Reload' },
   openPageInSystemBrowser: { es: 'Abrir esta página en el navegador del sistema', en: 'Open this page in the system browser' },

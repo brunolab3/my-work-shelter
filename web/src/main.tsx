@@ -19,6 +19,7 @@ import { filesWindow, openFiles } from './ui/files/window';
 import { Notices, Loading, RoomsLoading } from './ui/Bridge';
 import { Deck } from './ui/Disco';
 import { Search } from './ui/Search';
+import { FindBar } from './ui/FindBar';
 import { PreflightPopover } from './ui/Preflight';
 import { client, live } from './net/client';
 import { juego } from './ui/gameState';
@@ -38,7 +39,7 @@ import('./world/animations').then(m => { (window as any).__anim = m; });   // QA
 let shelter: Shelter;
 const ready = sources.then(() => { shelter = new Shelter(motor); (window as any).__shelter = shelter; return shelter.ready; });
 (window as any).__ready = () => ready;
-createRoot(document.getElementById('ui')!).render(<><Hud /><Dialog /><Panels /><Terminals /><Browsers /><GitClient /><Explorer /><div className="columna-izquierda"><Deck /><Bar /></div><Notices /><Search /><PreflightPopover /><RoomsLoading /><Loading /></>);
+createRoot(document.getElementById('ui')!).render(<><Hud /><Dialog /><Panels /><Terminals /><Browsers /><GitClient /><Explorer /><div className="columna-izquierda"><Deck /><Bar /></div><Notices /><Search /><FindBar /><PreflightPopover /><RoomsLoading /><Loading /></>);
 client.connect();
 // Electron's menus and dialogs in the game's language (electron/texts.cjs); changing it reloads the page
 (window as any).shelterVentana?.setLanguage?.(language())?.catch?.(() => {});
