@@ -118,16 +118,16 @@ export class Scheduled {
   /** A send_to_room over its per-minute limit (roomNotices.ts): the same room, key or thread and text, delivered at
    *  `when` with no weekend hold. Counts towards the conversation's list; none when it is full. One of the same sender's
    *  still waiting for that place takes it instead (`joinMessage`), and goes at its own time */
-  defer(since: string, fromSession: string | undefined, a: { room: string; key?: string; thread?: string; message: string }, when: number): ScheduledMessage | undefined {
+  defer(since: string, fromSession: string | undefined, a: { room: string; key?: string; thread?: string; message: string; important?: boolean }, when: number): ScheduledMessage | undefined {
     const s = fromSession ? this.ctx.session(fromSession) : undefined;
     const target: ScheduledTarget = { type: 'sala', room: a.room, ...(a.key ? { key: a.key } : {}), ...(a.thread ? { thread: a.thread } : {}) };
     const origin = { roomId: since, sessionId: fromSession, claudeId: s?.claudeId };
     const into = this.joinable(y => !!y.overLimit && sameSala(y.target, target) && sameSender(y.origin, origin));
-    if (into) return this.joinMessage(into, a.message);
+    if (into) { if (a.important) into.important = true; return this.joinMessage(into, a.message); }
     if (ofConversation(this.items, { id: fromSession, claudeId: s?.claudeId }).length >= MAX_PER_CONVERSATION || this.items.length >= MAX_TOTAL) return undefined;
     const now = this.now();
     const x: ScheduledMessage = { id: randomUUID().slice(0, 8), created: now, when, requested: new Date(when).toISOString(), message: a.message.slice(0, MAX_TEXT),
-      origin, target, overLimit: true, messages: this.messagesOf(since, a.message) };
+      origin, target, overLimit: true, ...(a.important ? { important: true as const } : {}), messages: this.messagesOf(since, a.message) };
     this.items.push(x); this.save(); this.ctx.wake?.(when);
     return x;
   }

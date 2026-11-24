@@ -22,6 +22,8 @@ export interface ScheduledMessage {
   target: ScheduledTarget;
   // a send_to_room over its per-minute limit (server/roomNotices.ts): delivered verbatim, as if sent then
   overLimit?: true;
+  // that send_to_room was `important`: to a busy receiver it still waits for its turn to end
+  important?: true;
   // not urgent: waits for the day's final 5-hour usage window (below); `when` is when it starts
   nextWindow?: true;
   overseer?: true;       // written by the Overseer (the intercom's ⌥Enter), not by a dweller

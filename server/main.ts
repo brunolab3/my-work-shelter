@@ -211,7 +211,13 @@ const ctxRooms: CtxRooms = {
   sessionOfTask: (roomId, key) => ctxPlan.sessionOfTask!(roomId, key),
   // de git al momento: un worktree recién creado (por otra conversación) aún no está en `repos`, que se repasa cada 20 s
   worktreeOfTask: async (roomId, key) => { const s = store.state.rooms.find(x => x.id === roomId); return s ? taskWorktree(await worktreeList(folderOf(s)), key) : undefined; },
-  notify: (id, text, origin, fromSession) => ctxPlan.notify(id, text, origin, fromSession),
+  // not important: into a busy conversation's queue now, as the Overseer's (sessions.deliver), never held
+  notify: (id, text, origin, fromSession, now) => {
+    if (!now) return ctxPlan.notify(id, text, origin, fromSession);
+    const s = sessions.list().find(x => x.id === id);
+    if (!s || s.state === 'cerrada') return false;
+    try { sessions.deliver(id, text, origin); return true; } catch { return false; }
+  },
   busy: id => busyState(sessions.list().find(s => s.id === id)?.state),
   resume: (roomId, cwd, prompt) => resumeInFolder(roomId, cwd, prompt, 'auto'),
   start: async (roomId, dwellerId, prompt, where) => {
@@ -691,7 +697,8 @@ const scheduled: Scheduled = new Scheduled(DATA, {
     broadcast({ t: 'aviso', level: 'info', text: t('server.scheduledDelivered', { sala: room ? roomNameIs(room) : d.roomId, resumen: summary(x.message) }) });
     return id;
   },
-  toRoom: (x, text) => sendToRoom(ctxRooms, x.origin.roomId, { room: x.target.room, key: x.target.key, thread: x.target.thread, message: text }, x.origin.sessionId, { scheduled: true }),
+  // a send_to_room over the limit keeps its own `important`; one scheduled with schedule_message waits for a busy turn as before
+  toRoom: (x, text) => sendToRoom(ctxRooms, x.origin.roomId, { room: x.target.room, key: x.target.key, thread: x.target.thread, message: text, important: x.overLimit ? x.important : true }, x.origin.sessionId, { scheduled: true }),
   wake: at => { setTimeout(() => { scheduled.sweep().catch(() => {}); }, Math.max(0, at - Date.now()) + 1_000).unref(); },
   changed: list => broadcast({ t: 'programados', list }),
   notice: text => broadcast({ t: 'aviso', level: 'aviso', text }),

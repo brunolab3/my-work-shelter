@@ -1,6 +1,7 @@
 // Mensajes entre salas: cualquier habitante le pasa algo al de otra sala con send_to_room (un servidor MCP en proceso en
 // cada conversación). With a task key (ABC-123, or a descriptive slug outside Jira: preflight-popover), always a
-// conversation with the task's history: its open one (held for when its turn ends if it is busy, never taken mid-turn); with none open, the
+// conversation with the task's history: its open one (if it is busy, an `important` one is held for when its turn ends;
+// any other goes into its queue now, as the Overseer's do); with none open, the
 // last one in the task's worktree, resumed; with none there, a new
 // one in it (and if the room has no worktree for it yet, in a new one with the key in its name, so the task's next
 // messages land there). Sin
@@ -35,8 +36,8 @@ export interface CtxRooms {
   // aún no está en el último repaso de los repos
   worktreeOfTask(roomId: string, taskKeyOf: string): Promise<string | undefined>;
   // to a busy conversation it waits for its turn to end (the scheduled list, server/scheduled.ts: hold); `fromSession`:
-  // the conversation that wrote it, whose ⏰ list shows it while it waits
-  notify(sessionId: string, text: string, origin?: MessageOrigin, fromSession?: string): boolean;
+  // the conversation that wrote it, whose ⏰ list shows it while it waits; `now`: into its queue at once, never held
+  notify(sessionId: string, text: string, origin?: MessageOrigin, fromSession?: string, now?: boolean): boolean;
   // una conversación nueva con el habitante, en automático: en `cwd`, en un worktree nuevo llamado `worktree` o, sin
   // ninguno, en la carpeta de la sala; `inWorktree` dice si el worktree pedido sigue en pie (falso si la carpeta de la
   // sala no es un repo git y la conversación arrancó en ella)
@@ -51,7 +52,7 @@ export interface CtxRooms {
     ofConversation(sessionId?: string): ScheduledMessage[];
     // a send_to_room over the per-minute limit, scheduled for `when` (none if the conversation's list is full), and when
     // the pending ones from one room to another go out
-    defer(since: string, fromSession: string | undefined, a: { room: string; key?: string; thread?: string; message: string }, when: number): ScheduledMessage | undefined;
+    defer(since: string, fromSession: string | undefined, a: { room: string; key?: string; thread?: string; message: string; important?: boolean }, when: number): ScheduledMessage | undefined;
     overLimit(since: string, roomId: string): number[];
     cancel(id: string, fromSession?: string): boolean;
   };
@@ -98,8 +99,9 @@ const findRoom = (rooms: RoomInfo[], q: string) => { const k = q.trim().toLowerC
 
 /** `fromSession`: the conversation sending it (in its own room, it can't be the one receiving it). Over the per-minute
  *  limit, or behind other over-limit ones still waiting, it is scheduled for when the window frees up; `scheduled`: it is
- *  one of those, being delivered (`limited` if still over the limit, for the next round) */
-export async function sendToRoom(ctx: CtxRooms, since: string, { room, message, key: taskKeyOf, thread: requestedThread }: { room: string; message: string; key?: string; thread?: string }, fromSession?: string, o: { scheduled?: boolean } = {}): Promise<{ ok: boolean; text: string; limited?: boolean; permanent?: boolean }> {
+ *  one of those, being delivered (`limited` if still over the limit, for the next round). `important`: to a busy
+ *  receiver it waits for its turn to end; without it, it goes into its queue now */
+export async function sendToRoom(ctx: CtxRooms, since: string, { room, message, key: taskKeyOf, thread: requestedThread, important }: { room: string; message: string; key?: string; thread?: string; important?: boolean }, fromSession?: string, o: { scheduled?: boolean } = {}): Promise<{ ok: boolean; text: string; limited?: boolean; permanent?: boolean }> {
   const rooms = ctx.rooms();
   const origin = rooms.find(s => s.id === since), target = findRoom(rooms, room);
   if (!target) return { ok: false, text: tr('tool.rooms.noRoom', { sala: room, salas: rooms.map(s => `${s.id} (${s.name})`).join(', ') }) };
@@ -119,7 +121,7 @@ export async function sendToRoom(ctx: CtxRooms, since: string, { room, message, 
     // the first time with fewer than LIMIT sends in the minute before it, counting the ones already waiting
     const times = [...recent, ...queued].sort((a, b) => a - b);
     const when = Math.max(now, times.length >= LIMIT ? times[times.length - LIMIT] + WINDOW : now);
-    const x = o.scheduled ? undefined : ctx.scheduled?.defer(since, fromSession, { room: target.id, key: k, thread, message: message.trim() }, when);
+    const x = o.scheduled ? undefined : ctx.scheduled?.defer(since, fromSession, { room: target.id, key: k, thread, message: message.trim(), important }, when);
     if (x) return { ok: true, text: tr('tool.rooms.deferred', { n: LIMIT, sala: target.name, cuando: describeWhen(x.when), id: x.id }) + ((x.messages?.parts.length ?? 0) > 1 ? ' ' + tr('tool.rooms.packed', { id: x.id }) : '') };
     if (recent.length >= LIMIT) return { ok: false, limited: true, text: tr('tool.rooms.limit', { n: LIMIT, sala: target.name }) };
   }
@@ -135,9 +137,10 @@ export async function sendToRoom(ctx: CtxRooms, since: string, { room, message, 
   // key the question came with, a reply too (any other key or room is a message to others, routed by its key)
   const route = !thread && fromSession ? followUps.get(`${fromSession}>${target.id}`) : undefined;
   const followUp = route && (!k || (route.answer && route.key === k)) ? route : undefined;
-  // a busy receiver gets it when its turn ends (ctx.notify holds it), never mid-turn
+  // an important one gets to a busy receiver when its turn ends (ctx.notify holds it), never mid-turn; any other goes
+  // into its queue now
   let held = false;
-  const notify = (id: string, text: string) => { const busy = !!ctx.busy?.(id); if (!ctx.notify(id, text, from, fromSession)) return false; held = busy; return true; };
+  const notify = (id: string, text: string) => { const busy = !!important && !!ctx.busy?.(id); if (!ctx.notify(id, text, from, fromSession, !important)) return false; held = busy; return true; };
   if (followUp && notify(followUp.session, frame())) { how = tr(followUp.answer ? 'tool.rooms.toReply' : 'tool.rooms.toFollowUp'); receiver = followUp.session; }
   // else, from a conversation in a task worktree: the sender's task, if that room has its conversation or worktree
   // (otherwise its main copy, as before: an unrelated question never makes a worktree there); in its own room only the
@@ -151,10 +154,10 @@ export async function sendToRoom(ctx: CtxRooms, since: string, { room, message, 
   const open = k ? ctx.sessionOfTask(target.id, k) : undefined;
   // permanent: the sender is that conversation, so no later try can deliver it (a scheduled one is dropped, not retried)
   if (!how && same && open && open === fromSession) return { ok: false, permanent: true, text: tr('tool.rooms.ownConversation', { clave: k! }) };
-  // a thread's conversation, while open and never the sender itself (held for its turn's end if it's busy)
+  // a thread's conversation, while open and never the sender itself (if important, held for its turn's end if it's busy)
   const ofThread = thread ? threads.get(`${target.id}/${thread}`) : undefined;
   if (how) { /* followed up or replied */ }
-  // the task's open conversation (held for when its turn ends if it is busy)
+  // the task's open conversation (if important, held for when its turn ends if it is busy)
   else if (open) { if (notify(open, text)) { how = tr('tool.rooms.toOpen', { clave: k! }); receiver = open; } }
   else if (ofThread && ofThread !== fromSession && notify(ofThread, text)) { how = tr('tool.rooms.toThread', { hilo: thread! }); receiver = ofThread; }
   if (how && held) how += tr('tool.rooms.heldForTurn');
@@ -196,11 +199,12 @@ export async function sendToRoom(ctx: CtxRooms, since: string, { room, message, 
 }
 
 // a worktree's cleanup, written by the game from the sender's cwd and sent through its own room's `cleanup` thread
+// (important: a busy cleanup conversation finishes the one it is on first)
 export async function requestCleanup(ctx: CtxRooms, since: string, fromSession: string | undefined, note?: string): Promise<{ ok: boolean; text: string }> {
   const wt = fromSession ? await ctx.worktreeOfSession?.(since, fromSession) : undefined;
   if (!wt) return { ok: false, text: tr('tool.cleanup.notInWorktree') };
   const message = [tr('prompt.cleanup.request', { ruta: wt.path, rama: wt.branch, merge: wt.local ? tr('prompt.cleanup.mergeLocal', { rama: wt.branch }) : '' }), note?.trim() ?? ''].filter(Boolean).join('\n\n');
-  return sendToRoom(ctx, since, { room: since, message, thread: 'cleanup' }, fromSession);
+  return sendToRoom(ctx, since, { room: since, message, thread: 'cleanup', important: true }, fromSession);
 }
 
 const text = (s: string) => ({ content: [{ type: 'text' as const, text: s }] });
@@ -218,8 +222,9 @@ export function mcpRooms(ctx: CtxRooms, since: string, fromSession?: string, inW
           purpose: z.enum(PURPOSES).describe(tr('tool.rooms.paramPurpose')),
           key: z.string().optional().describe(tr('tool.rooms.paramKey')),
           thread: z.string().optional().describe(tr('tool.rooms.paramThread')),
+          important: z.boolean().optional().describe(tr('tool.rooms.paramImportant')),
         },
-        async ({ room, message, key, thread }) => { const r = await sendToRoom(ctx, since, { room: room, message: message, key: key, thread: thread }, fromSession); return r.ok ? text(r.text) : { ...text(r.text), isError: true }; }, { alwaysLoad: true }),
+        async ({ room, message, key, thread, important }) => { const r = await sendToRoom(ctx, since, { room: room, message: message, key: key, thread: thread, important: important }, fromSession); return r.ok ? text(r.text) : { ...text(r.text), isError: true }; }, { alwaysLoad: true }),
       ...(ctx.scheduled ? scheduleTools(ctx.scheduled, since, fromSession) : []),
       ...(ctx.verifications ? verificationTools(ctx.verifications, fromSession) : []),
       ...(ctx.medals?.room() === since ? [medalTool(ctx.medals, fromSession), progressTool(ctx.medals)] : []),

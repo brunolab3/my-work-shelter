@@ -34,7 +34,7 @@ describe('game MCP tools', () => {
     expect(all.map(([n]) => n).sort()).toEqual(['apply_decor', 'assign_work', 'compare_changes', 'current_decor', 'notify_room', 'preflight_answer', 'preflight_status',
       'propose_plan_change', 'props_catalogue', 'read_plan', 'remove_decor', 'request_worktree_cleanup', 'send_to_room', 'shared_plan', 'shelter_rooms', 'update_plan', 'view_room']);
     const byName = Object.fromEntries(all);
-    expect(params(byName.send_to_room)).toEqual(['room', 'message', 'purpose', 'key', 'thread']);
+    expect(params(byName.send_to_room)).toEqual(['room', 'message', 'purpose', 'key', 'thread', 'important']);
     // only a job, an answer, a result, a blocker or a question: required, and status is not an option
     const purpose = byName.send_to_room.inputSchema.shape.purpose;
     expect(purpose.isOptional()).toBe(false);

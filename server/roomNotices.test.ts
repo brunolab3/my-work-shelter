@@ -17,12 +17,12 @@ const ROOMS = [
 // un contexto que apunta lo que se hace: avisos a conversaciones abiertas y conversaciones nuevas
 function ctx(o: { openSessions?: Record<string, string>; closed?: Set<string>; worktrees?: Record<string, string>; fails?: string; timer?: { t: number }; noGit?: boolean; worktreeOfTask?: CtxRooms['worktreeOfTask']; busy?: Set<string>; previous?: Record<string, string> } = {}) {
   const notified: { sessionId: string; text: string }[] = [], fresh: { roomId: string; dwellerId: string; prompt: string; cwd?: string; worktree?: string }[] = [], notices: string[] = [];
-  const resumed: { roomId: string; cwd: string; prompt: string; id: string }[] = [], origins: unknown[] = [], senders: (string | undefined)[] = [];
+  const resumed: { roomId: string; cwd: string; prompt: string; id: string }[] = [], origins: unknown[] = [], senders: (string | undefined)[] = [], nows: (boolean | undefined)[] = [];
   const c: CtxRooms = {
     rooms: () => ROOMS,
     sessionOfTask: (roomId, key) => o.openSessions?.[`${roomId}/${key}`],
     worktreeOfTask: o.worktreeOfTask ?? (async (roomId, key) => o.worktrees?.[`${roomId}/${key}`]),
-    notify: (sessionId, text, origin, from) => { if (o.closed?.has(sessionId)) return false; notified.push({ sessionId, text }); origins.push(origin); senders.push(from); return true; },
+    notify: (sessionId, text, origin, from, now) => { if (o.closed?.has(sessionId)) return false; notified.push({ sessionId, text }); origins.push(origin); senders.push(from); nows.push(now); return true; },
     start: async (roomId, dwellerId, prompt, where) => { if (o.fails) throw new Error(o.fails); fresh.push({ roomId, dwellerId, prompt, cwd: where?.cwd, worktree: where?.worktree }); return { id: fresh.length > 1 ? `nueva-${fresh.length}` : 'nueva', inWorktree: !!(where?.cwd || (where?.worktree && !o.noGit)) }; },
     notice: t => notices.push(t),
     now: o.timer && (() => o.timer!.t),
@@ -30,7 +30,7 @@ function ctx(o: { openSessions?: Record<string, string>; closed?: Set<string>; w
     // previas: the last conversation in each folder (cwd → its resumed id)
     resume: async (roomId, cwd, prompt) => { const id = o.previous?.[cwd]; if (id) resumed.push({ roomId, cwd, prompt, id }); return id; },
   };
-  return { c, notified, fresh, notices, resumed, origins, senders };
+  return { c, notified, fresh, notices, resumed, origins, senders, nows };
 }
 
 describe('mensajes entre salas', () => {
@@ -288,10 +288,20 @@ describe('mensajes entre salas', () => {
     expect(x.notified[0].sessionId).toBe('ses-tarea');
   });
 
-  it('with a key and its conversation busy: held for its turn to end, framed as an outside request, from the sender, and the answer says so', async () => {
+  it('to a busy receiver: an important one is held for its turn to end; any other goes into its queue at once', async () => {
+    const x = ctx({ openSessions: { 'pagos/ABC-8': 'ses-tarea' }, busy: new Set(['ses-tarea']) });
+    const held = await sendToRoom(x.c, 'express', { room: 'pagos', key: 'ABC-8', message: 'para después', important: true }, 'ses-express');
+    expect(held.text).toContain('espera a que acabe su turno');
+    const now = await sendToRoom(x.c, 'tareas', { room: 'pagos', key: 'ABC-8', message: 'ya' });
+    expect(now.text).not.toContain('espera a que acabe');
+    expect(x.notified.map(a => a.sessionId)).toEqual(['ses-tarea', 'ses-tarea']);
+    expect(x.nows).toEqual([false, true]);
+  });
+
+  it('with a key, important and its conversation busy: held for its turn to end, framed as an outside request, from the sender, and the answer says so', async () => {
     const busy = new Set(['ses-tarea']);
     const x = ctx({ openSessions: { 'pagos/ABC-7': 'ses-tarea' }, busy });
-    const r = await sendToRoom(x.c, 'express', { room: 'pagos', key: 'ABC-7', message: '¿Qué versión del contrato usas?' }, 'ses-express');
+    const r = await sendToRoom(x.c, 'express', { room: 'pagos', key: 'ABC-7', message: '¿Qué versión del contrato usas?', important: true }, 'ses-express');
     expect(r.ok).toBe(true);
     expect(r.text).toContain('espera a que acabe su turno');
     expect(x.fresh).toEqual([]);
@@ -301,7 +311,7 @@ describe('mensajes entre salas', () => {
     expect(x.origins).toEqual([{ kind: 'room', roomId: 'express', room: 'app-web', dweller: 'Remi' }]);
     expect(x.senders).toEqual(['ses-express']);
     // the next one too, to the same conversation; once idle, no longer held
-    await sendToRoom(x.c, 'express', { room: 'pagos', key: 'ABC-7', message: 'aprobado' }, 'ses-express');
+    await sendToRoom(x.c, 'express', { room: 'pagos', key: 'ABC-7', message: 'aprobado', important: true }, 'ses-express');
     busy.clear();
     const r3 = await sendToRoom(x.c, 'tareas', { room: 'pagos', key: 'ABC-7', message: 'otra cosa' });
     expect(r3.text).not.toContain('espera a que acabe');
