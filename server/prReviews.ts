@@ -182,7 +182,7 @@ export class ReviewsPR {
   private threads = new Map<string, ReviewThread[]>();   // los hilos sin resolver, por URL del PR: los lista el pre-flight
   threadsOf(url: string): ReviewThread[] | undefined { return this.threads.get(url); }
   constructor(dir: string, private ctx: CtxReviews) {
-    this.file = path.join(dir, 'revisiones-pr.json');
+    this.file = path.join(dir, 'pr-reviews.json');
     try { if (existsSync(this.file)) { const j = JSON.parse(readFileSync(this.file, 'utf8')); this.since = Number(j.since) || 0; this.bots = !!j.bots; this.seen = Array.isArray(j.seen) ? j.seen.filter((x: unknown) => typeof x === 'string') : []; } } catch {}
   }
   private save() { const tmp = this.file + '.tmp'; writeFileSync(tmp, JSON.stringify({ since: this.since, bots: this.bots, seen: this.seen.slice(-3000) }), { mode: 0o600 }); renameSync(tmp, this.file); }

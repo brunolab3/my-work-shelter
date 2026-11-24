@@ -101,14 +101,14 @@ export class Shelter {
       if ((e.code === 'KeyE' || e.code === 'Enter') && this.nearby) { this.interactCopy(this.nearby); return true; }
       if ((e.code === 'KeyE' || e.code === 'Enter') && this.nearDevice) { this.useDevice(this.nearDevice.room, this.nearDevice.it); return true; }
       // la terminal de la sala, en su carpeta de trabajo (las especiales también tienen una)
-      if (e.code === 'KeyT' && this.currentRoom && (this.currentRoom.path || live.get().state?.rooms?.some((s: any) => s.id === this.currentRoom!.id && s.folder))) { window.dispatchEvent(new CustomEvent('refugio:terminal', { detail: { roomId: this.currentRoom.id } })); return true; }
+      if (e.code === 'KeyT' && this.currentRoom && (this.currentRoom.path || live.get().state?.rooms?.some((s: any) => s.id === this.currentRoom!.id && s.folder))) { window.dispatchEvent(new CustomEvent('shelter:terminal', { detail: { roomId: this.currentRoom.id } })); return true; }
       // Espacio: el Supervisor salta (también andando)
       if (e.code === 'Space' && this.supervisor && !this.mounted) { this.supervisor.seek(); return true; }
       if (e.code === 'KeyZ' || e.code === 'Minus' || e.code === 'Equal') { this.toggleView(e.code === 'Equal' ? false : e.code === 'Minus' ? true : !this.viewGeneral); return true; }
     });
-    window.addEventListener('refugio:fin-dialogo', () => this.dialogEnd());
+    window.addEventListener('shelter:dialog-end', () => this.dialogEnd());
     // el probador enseña el aspecto que se está eligiendo sobre el propio personaje (sin guardar todavía)
-    window.addEventListener('refugio:probar', (e: any) => { const { who, look } = e.detail ?? {}; const p = who === 'supervisor' ? this.supervisor : this.dwellers.find(h => h.id.id === who)?.p; if (p && look) p.changeLook(look); });
+    window.addEventListener('shelter:try-on', (e: any) => { const { who, look } = e.detail ?? {}; const p = who === 'supervisor' ? this.supervisor : this.dwellers.find(h => h.id.id === who)?.p; if (p && look) p.changeLook(look); });
     live.subscribe(() => { if (this.built) this.syncHolograms(); });
     let signatureAcc = '';
     live.subscribe(() => { const e = live.get().state; if (!e || !this.built) return; const f = JSON.stringify([e.supervisor?.accessories, e.dwellers?.map((h: any) => h.accessories)]); if (f !== signatureAcc) { signatureAcc = f; this.applyAccessories(); } });
@@ -121,7 +121,7 @@ export class Shelter {
       this.dressDwellers();
     });
     // viaje rápido desde el plano o la lista de ocupados; con `hablar`, abre el diálogo con ese habitante
-    window.addEventListener('refugio:ir', (ev: any) => {
+    window.addEventListener('shelter:go', (ev: any) => {
       const { roomId, dwellerId, talk } = ev.detail ?? {};
       if (isCopy(dwellerId)) { this.goACopy(dwellerId, talk); return; }
       this.goARoom(roomId);
@@ -185,7 +185,7 @@ export class Shelter {
     for (const sec of orden) {
       const room = await this.mountRoom(sec, saved);
       this.loadProgress = ++n / orden.length;
-      window.dispatchEvent(new CustomEvent('refugio:carga', { detail: { progreso: this.loadProgress, room: sec.name } }));
+      window.dispatchEvent(new CustomEvent('shelter:load', { detail: { progreso: this.loadProgress, room: sec.name } }));
       if (sec.id === ROOM_SUPERVISOR || (!this.supervisor && n === 1)) await this.prepareSupervisor(room);
     }
     this.elevator = new Elevator(this.floors);

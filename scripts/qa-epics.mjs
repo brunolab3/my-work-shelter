@@ -66,7 +66,7 @@ try {
 
   // ---- a copy working REF-236 and one without an epic, in the recruited room
   const s = await pg.evaluate(r => window.__shelter.rooms.find(x => x.path === r)?.id, repo);
-  await pg.evaluate(id => window.dispatchEvent(new CustomEvent('refugio:ir', { detail: { roomId: id } })), s);
+  await pg.evaluate(id => window.dispatchEvent(new CustomEvent('shelter:go', { detail: { roomId: id } })), s);
   await pg.waitForTimeout(3000);
   await pg.evaluate(([s, r]) => {
     const h = window.__shelter.dwellers.find(x => x.room.id === s), now = Date.now();
@@ -106,7 +106,7 @@ try {
   await pg.screenshot({ path: path.join(dir, 'epicas-fila.png') });
 
   // ---- its intercom: tab and ⋯ N list
-  await pg.evaluate(id => window.dispatchEvent(new CustomEvent('refugio:ir', { detail: { dwellerId: id, talk: true } })), idA);
+  await pg.evaluate(id => window.dispatchEvent(new CustomEvent('shelter:go', { detail: { dwellerId: id, talk: true } })), idA);
   check(await until(async () => !!(await pg.$('.vt-tab .epic-mark'))), 'the tab of the REF-236 conversation has the diamond');
   check(/REF-200/.test(await pg.getAttribute('.vt-tab .epic-mark', 'title').catch(() => '')), 'its tooltip names the epic');
   await pg.waitForTimeout(400); await pg.screenshot({ path: path.join(dir, 'epicas-pestana.png') });

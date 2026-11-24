@@ -62,7 +62,7 @@ They only touch their own room's dressing, so they don't ask for permission. The
 
 A set dressing is data, never code. The format and its validation are in `shared/decor.ts`. The server validates it
 on receiving it and when loading the state: it trims what's outside the room, drops models not in the catalogue and
-cleans the texts. It's saved in the room, in `refugio.json`.
+cleans the texts. It's saved in the room, in `shelter.json`.
 
 The client builds it in `web/src/world/rooms/decor.ts`. A model that fails to load is skipped: a broken piece never
 leaves the room half-built.

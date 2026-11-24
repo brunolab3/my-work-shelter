@@ -1,4 +1,4 @@
-// The work log's ledger (model in shared/workLog.ts), saved in DATOS/bitacora.json, and the career ladder file. Every
+// The work log's ledger (model in shared/workLog.ts), saved in DATOS/work-log.json, and the career ladder file. Every
 // sweep merges what the game already reads (Jira board, your PRs, the rooms' worktrees, the conversations, the Review
 // room's PRs, production verifications): nothing new is asked outside. With Jira and GitHub both in DEMO the log shows
 // a ledger built from the demo data, never saved. Trophies are derived on read (shared/trophies.ts); one newly earned
@@ -30,8 +30,8 @@ export class WorkLog {
   private file: string;
   readonly ladderFile: string;
   constructor(dir: string, private exampleFile: string, private now: () => number = Date.now) {
-    this.file = path.join(dir, 'bitacora.json');
-    this.ladderFile = path.join(dir, 'escalera.json');
+    this.file = path.join(dir, 'work-log.json');
+    this.ladderFile = path.join(dir, 'ladder.json');
     try { if (existsSync(this.file)) this.ledger = ledgerOf(JSON.parse(readFileSync(this.file, 'utf8'))); } catch {}
   }
   private save() { const tmp = this.file + '.tmp'; writeFileSync(tmp, JSON.stringify(this.ledger), { mode: 0o600 }); renameSync(tmp, this.file); }

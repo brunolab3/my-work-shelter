@@ -34,7 +34,7 @@ const spot = await pg.evaluate(() => {
 check(spot.disco?.floor === spot.max, `la discoteca está en la última planta (${spot.disco?.floor} de ${spot.max})`);
 check(spot.cultivos < spot.disco?.x && spot.disco?.x < 0 && spot.gallery > 0, 'de izquierda a derecha: cultivos, discoteca, ascensor, galería de tiro');
 check(!spot.pb.includes('disco'), `ya no está a pie de calle (PB: ${spot.pb.join(', ')})`);
-await pg.evaluate(() => window.dispatchEvent(new CustomEvent('refugio:ir', { detail: { roomId: 'disco' } })));
+await pg.evaluate(() => window.dispatchEvent(new CustomEvent('shelter:go', { detail: { roomId: 'disco' } })));
 await wait(3000); await photo('room');
 
 // la cabina abre Spotify, dentro
@@ -127,7 +127,7 @@ await pg.click('.pletina .pista-atajo'); await wait(400);
 check(await pg.$('.pletina.en-mano') !== null && await pg.$('.pletina .pista-atajo') === null, 'su tecla ⌘J (a la derecha) hace lo mismo que el atajo y se oculta mientras está en mano');
 await pg.keyboard.press('Escape'); await pg.mouse.move(900, 300); await wait(500);
 // desde otra sala, encima de todo
-await pg.evaluate(() => window.dispatchEvent(new CustomEvent('refugio:ir', { detail: { roomId: 'git' } })));
+await pg.evaluate(() => window.dispatchEvent(new CustomEvent('shelter:go', { detail: { roomId: 'git' } })));
 await wait(2500); await photo('pletina-otra-sala');
 await pg.click('.pletina-disco'); await wait(800);
 check((await spotify())?.minimized === false && !(await pg.$('.pletina')), 'el disco de la pletina trae Spotify delante y la pletina se aparta');

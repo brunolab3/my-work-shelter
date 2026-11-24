@@ -86,7 +86,7 @@ function actions(): Action[] {
     { id: 'busy', text: t('panels.whoIsBusy'), hint: t('panels.workingWaitingBrokenDown'), key: 'Tab', keys: 'ocupados trabajos estado', f: () => { onShelter(); openPanel('busy'); } },
     { id: 'map', text: t('panels.shelterMap'), hint: t('panels.fastTravelToAnyRoom'), key: 'M', keys: 'mapa viajar salas', f: () => { onShelter(); openPanel('map'); } },
     { id: 'log', text: t('panels.logbookOfAConversation'), hint: t('panels.theFullTranscript'), key: 'R', keys: 'transcripcion historial leer', f: () => { onShelter(); openPanel('log'); } },
-    ...(withFolder ? [{ id: 'terminal', text: t('panels.roomTerminal', { room: room.name }), hint: t('panels.shellInTheRoomS'), key: 'T', keys: 'terminal shell consola pty', f: () => window.dispatchEvent(new CustomEvent('refugio:terminal', { detail: { roomId: room.id } })) }] : []),
+    ...(withFolder ? [{ id: 'terminal', text: t('panels.roomTerminal', { room: room.name }), hint: t('panels.shellInTheRoomS'), key: 'T', keys: 'terminal shell consola pty', f: () => window.dispatchEvent(new CustomEvent('shelter:terminal', { detail: { roomId: room.id } })) }] : []),
     ...(room && (room.type === 'repo' || room.type === 'coordination') ? [{ id: 'adapt', text: t('panels.adaptRoomToTheRepo', { room: room.name }), hint: t('panels.itsDwellerDesignsAScene'), keys: 'decorar decorado escena sala personalizar atrezo', f: () => { onShelter(); adaptRoom(room.id).catch(() => SFX.error()); } }] : []),
     { id: 'git', text: t('panels.versionControl'), hint: t('panels.changesCommitsBranchesAndGithub'), key: 'G', keys: 'git github commit rama pull push pr', f: () => openGitOfRoom(j.currentRoom) },
     { id: 'comms', text: t('world.communications'), hint: t('panels.emailAndChats'), key: 'N', keys: 'correo mail chats avisos notificaciones tablon', f: () => { onShelter(); goA('comms'); } },
@@ -131,7 +131,7 @@ function score(q: string[], title: string, rest = ''): number {
   }
   return p;
 }
-const USES = 'refugio.buscador.usos';
+const USES = 'shelter.search.uses';
 const uses = (): Record<string, number> => { try { return JSON.parse(localStorage.getItem(USES) || '{}'); } catch { return {}; } };
 function log(id: string) { try { const u = uses(); u[id] = (u[id] ?? 0) + 1; localStorage.setItem(USES, JSON.stringify(u)); } catch {} }
 

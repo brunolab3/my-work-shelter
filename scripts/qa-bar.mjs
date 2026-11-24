@@ -20,13 +20,13 @@ const check = (ok, text) => { console.log((ok ? 'OK   ' : 'FALLO ') + text); if 
 const row = c => pg.evaluate(c => [...document.querySelectorAll(`.barra-ventanas .${c} .chip-terminal`)].map(x => x.textContent.trim()), c);
 const marked = () => pg.evaluate(() => { const m = document.querySelector('.barra-ventanas .chip-terminal.marcado'); return m ? (m.closest('.com') ? 'com:' : 'term:') + m.textContent.trim() : null; });
 const covers = (x, y, sel) => pg.evaluate(([x, y, sel]) => !!document.elementFromPoint(x, y)?.closest(sel), [x, y, sel]);
-const goTalk = h => pg.evaluate(h => window.dispatchEvent(new CustomEvent('refugio:ir', { detail: { roomId: h.room, dwellerId: h.id, talk: true } })), h);
+const goTalk = h => pg.evaluate(h => window.dispatchEvent(new CustomEvent('shelter:go', { detail: { roomId: h.room, dwellerId: h.id, talk: true } })), h);
 const hs = await pg.evaluate(() => window.__game.get().dwellers.map(h => ({ id: h.id, room: h.room, path: h.path, name: h.name })));
 const withFolder = hs.filter(h => h.path && h.room !== 'bridge'), withoutRepo = hs.find(h => !h.path);
 const rooms = [...new Set(hs.filter(h => h.path).map(h => h.room))].slice(0, 2);
 
 // dos terminales minimizadas y un intercomunicador minimizado
-for (const s of rooms) { await pg.evaluate(s => window.dispatchEvent(new CustomEvent('refugio:terminal', { detail: { roomId: s } })), s); await wait(1500); await pg.keyboard.press('Meta+m'); await wait(300); }
+for (const s of rooms) { await pg.evaluate(s => window.dispatchEvent(new CustomEvent('shelter:terminal', { detail: { roomId: s } })), s); await wait(1500); await pg.keyboard.press('Meta+m'); await wait(300); }
 await goTalk(withFolder[0]); await pg.waitForSelector('.console .opciones-consola');
 check((await pg.evaluate(() => [...document.querySelectorAll('.console .opciones-consola li')].map(l => l.textContent))).some(t => t.includes('Abrir su terminal')), `${withFolder[0].name} (sala de repo) ofrece su terminal`);
 await pg.keyboard.press('Meta+ArrowDown'); await wait(500);

@@ -21,7 +21,7 @@ const b = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-un
 try {
   const pg = await b.newPage({ viewport: { width: 1600, height: 1000 } });
   pg.on('pageerror', e => check(false, 'page error: ' + e.message));
-  await pg.addInitScript(() => localStorage.setItem('refugio.idioma', 'en'));
+  await pg.addInitScript(() => localStorage.setItem('shelter.language', 'en'));
   await pg.goto(withToken(`http://127.0.0.1:${PORT}`), { waitUntil: 'load' });
   await pg.waitForFunction(() => typeof window.__ready === 'function', null, { timeout: 60000 });
   await pg.evaluate(async () => { await window.__ready(); await window.__client.action('save', { patch: { doneWelcome: true } }); window.__game.set({ panel: null, panelData: null }); });

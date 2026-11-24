@@ -17,7 +17,7 @@ import { knowTasks, versionColors } from '../../ui/tasks';
 
 // el tablero del panel avisa al cambiar un bloqueo a mano: la pantalla lo relee sin esperar a la próxima lectura
 let version = 0;
-addEventListener('refugio:despliegue', () => { version++; });
+addEventListener('shelter:deploy', () => { version++; });
 
 const short = (p: PRBoard) => `${p.repo.split('/').pop()}#${p.number}`;
 

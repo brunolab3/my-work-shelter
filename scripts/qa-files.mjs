@@ -38,7 +38,7 @@ await wait(2500);
 
 // se abre desde el cliente de git (▤ Archivos); aquí, directamente con la carpeta de la sala
 const roomId = await pg.evaluate(r => window.__live.get().state.rooms.find(s => s.path === r).id, repo);
-await pg.evaluate(id => window.dispatchEvent(new CustomEvent('refugio:ir', { detail: { roomId: id } })), roomId);
+await pg.evaluate(id => window.dispatchEvent(new CustomEvent('shelter:go', { detail: { roomId: id } })), roomId);
 await until(id => window.__shelter.currentRoom?.id === id, roomId, 60000);
 await wait(1500);
 await pg.evaluate(r => window.__files.openFiles({ root: r }), repo);

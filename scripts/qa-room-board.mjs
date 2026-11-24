@@ -22,7 +22,7 @@ const check = (ok, text) => { console.log(ok ? '  ✓' : '  ✗', text); if (!ok
 const room = await pg.evaluate(requested => {
   const r = window.__shelter, repos = window.__live.get().repos;
   const s = r.rooms.find(x => requested ? x.id === requested : (repos[x.id]?.worktrees ?? []).filter(w => !w.main).length >= 2);
-  if (s) window.dispatchEvent(new CustomEvent('refugio:ir', { detail: { roomId: s.id } }));
+  if (s) window.dispatchEvent(new CustomEvent('shelter:go', { detail: { roomId: s.id } }));
   return s && { id: s.id, path: s.path, wts: repos[s.id].worktrees.filter(w => !w.main).map(w => w.path) };
 }, requestedRoom);
 if (!room) { console.log('No repo room with two worktrees'); process.exit(1); }

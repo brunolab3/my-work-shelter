@@ -29,7 +29,7 @@ const chooseMenu = async text => { const i = (await options()).findIndex(o => o.
 // un habitante de una sala con carpeta, sin trabajos
 const h = await pg.evaluate(() => { const hs = window.__game.get().dwellers; const vs = Object.values(window.__live.get().sessions); return hs.find(h => h.path && h.room !== 'bridge' && !h.robot && !vs.some(s => s.dwellerId === h.id && s.state !== 'closed')) ?? hs.find(h => h.path); });
 console.log('Habitante:', h.name, '·', h.nameRoom);
-await pg.evaluate(h => window.dispatchEvent(new CustomEvent('refugio:ir', { detail: { roomId: h.room, dwellerId: h.id, talk: true } })), h);
+await pg.evaluate(h => window.dispatchEvent(new CustomEvent('shelter:go', { detail: { roomId: h.room, dwellerId: h.id, talk: true } })), h);
 await pg.waitForSelector('.console .opciones-consola');
 check((await tabs()).length === 1, 'al hablar se abre el intercomunicador con una pestaña');
 
@@ -106,7 +106,7 @@ check(await until(async () => (await sessionsOf(h.id)).length === 0, 8000), 'y l
 // ---- una sala especial (Logística) también trabaja: en su carpeta propia, sin opción de worktree
 const lg = await pg.evaluate(() => window.__game.get().dwellers.find(h => h.room === 'logistics'));
 if (lg) {
-  await pg.evaluate(h => window.dispatchEvent(new CustomEvent('refugio:ir', { detail: { roomId: h.room, dwellerId: h.id, talk: true } })), lg);
+  await pg.evaluate(h => window.dispatchEvent(new CustomEvent('shelter:go', { detail: { roomId: h.room, dwellerId: h.id, talk: true } })), lg);
   await pg.waitForSelector('.console .opciones-consola');
   await chooseMenu('Empezar');
   check(!(await pg.evaluate(() => [...document.querySelectorAll('.console .fila-chips .etq')].some(x => x.textContent === 'Worktree'))), `${lg.name} (Logística): sin opción de worktree`);

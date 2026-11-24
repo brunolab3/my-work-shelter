@@ -260,7 +260,7 @@ const ctxRooms: CtxRooms = {
   },
 };
 // failed tools' full outputs, on disk while their session lives (server/toolOutputs.ts)
-const toolOutputs = new ToolOutputs(path.join(DATA, 'salidas'));
+const toolOutputs = new ToolOutputs(path.join(DATA, 'outputs'));
 toolOutputs.clear();
 const sessions = new Sessions({
   pathRoom, reposOfShelter: () => gitPaths(), mcpRoom: id => (ctxDecor.room(id) ? mcpDecor(id, ctxDecor) : undefined),
@@ -392,7 +392,7 @@ function aimOpen() {
     openTimer = null;
     if (switchingOff) return;
     const list = sessions.list().filter(s => s.state !== 'closed' && s.claudeId).map(s => ({ claudeId: s.claudeId, cwd: s.cwd, title: s.title, dweller: store.state.dwellers.find(h => h.id === s.dwellerId)?.name, state: s.state, permissions: s.permissionMode }));
-    try { writeFileSync(path.join(DATA, 'abiertas.json'), JSON.stringify(list), { mode: 0o600 }); } catch {}
+    try { writeFileSync(path.join(DATA, 'open-sessions.json'), JSON.stringify(list), { mode: 0o600 }); } catch {}
   }, 1000);
 }
 
@@ -917,7 +917,7 @@ setTimeout(() => { pollReviews().catch(() => {}); }, 5_000).unref();
 setInterval(() => { pollReviews().catch(() => {}); }, 60_000).unref();
 
 // the work log and trophies (workLog.ts): every minute the rooms' worktrees and the conversations, every five also
-// what Jira and GitHub already gave the boards, merged into DATOS/bitacora.json; read by the Sync update panel (Planning)
+// what Jira and GitHub already gave the boards, merged into DATOS/work-log.json; read by the Sync update panel (Planning)
 // and the trophies' panel and shelf (Vault)
 const workLog = new WorkLog(DATA, path.join(ROOT, 'docs', 'ladder.example.json'));
 const workLogSources: WorkLogSources = {
@@ -1641,7 +1641,7 @@ function shutDown(reason: string) {
   console.log(`\nApagando el refugio (${reason})…`);
   // cada paso por separado: si uno falla (p. ej. no se puede guardar), el resto se hace igual y el proceso sale
   // al salir de verdad no queda nada abierto (para `./shelter superficie`, si luego no hay refugio)
-  for (const step of [() => sessions.closeAll(), () => dictations.stopAll(), () => writeFileSync(path.join(DATA, 'abiertas.json'), '[]'), () => terminals.shutDown(), () => integrations.stop(), () => slackRemote.stop(), () => store.saveAlready(), () => broadcast({ t: 'notice', level: 'info', text: t('server.workShelterHasClosedSee') })])
+  for (const step of [() => sessions.closeAll(), () => dictations.stopAll(), () => writeFileSync(path.join(DATA, 'open-sessions.json'), '[]'), () => terminals.shutDown(), () => integrations.stop(), () => slackRemote.stop(), () => store.saveAlready(), () => broadcast({ t: 'notice', level: 'info', text: t('server.workShelterHasClosedSee') })])
     try { step(); } catch (e) { console.error('Al apagar:', (e as Error).message); }
   setTimeout(() => process.exit(0), 1200);
 }

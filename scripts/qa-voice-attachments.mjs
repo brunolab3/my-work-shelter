@@ -66,7 +66,7 @@ const similar = t => { const p = norm(PHRASE).split(' '), d = new Set(norm(t).sp
 // el de Planificación: trabaja en una carpeta propia del refugio (no toca ningún repo)
 const h = await pg.evaluate(() => window.__game.get().dwellers.find(h => h.room === 'calendar'));
 console.log('Habitante:', h.name, '·', h.nameRoom);
-await pg.evaluate(h => window.dispatchEvent(new CustomEvent('refugio:ir', { detail: { roomId: h.room, dwellerId: h.id, talk: true } })), h);
+await pg.evaluate(h => window.dispatchEvent(new CustomEvent('shelter:go', { detail: { roomId: h.room, dwellerId: h.id, talk: true } })), h);
 await pg.waitForSelector('.console .opciones-consola').catch(async e => { await pg.screenshot({ path: path.join(dir, 'adjuntos-sin-consola.png') }); throw e; });
 await chooseMenu('Empezar');
 

@@ -12,7 +12,7 @@ mkdirSync(dir, { recursive: true });
 const b = await chromium.launch({ args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist'] });
 const pg = await b.newPage({ viewport: { width: 1600, height: 900 } });
 const errors = []; pg.on('pageerror', e => errors.push(e.message));
-await pg.addInitScript(() => localStorage.setItem('refugio.idioma', 'en'));
+await pg.addInitScript(() => localStorage.setItem('shelter.language', 'en'));
 await pg.goto(withToken(url), { waitUntil: 'load' });
 await pg.waitForFunction(() => typeof window.__ready === 'function', null, { timeout: 60000 });
 await pg.evaluate(async () => { await window.__ready(); window.__game.set({ panel: 'gate', panelData: null }); });

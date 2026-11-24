@@ -32,7 +32,7 @@ const state = () => pg.evaluate(() => {
 
 // one conversation of the dweller, in view, typing in it
 const first = await startOutside(h);
-await pg.evaluate(h => window.dispatchEvent(new CustomEvent('refugio:ir', { detail: { roomId: h.room, dwellerId: h.id, talk: true } })), h);
+await pg.evaluate(h => window.dispatchEvent(new CustomEvent('shelter:go', { detail: { roomId: h.room, dwellerId: h.id, talk: true } })), h);
 check(await until(async () => (await pg.$('.console .session')) !== null, 20000), 'the intercom shows the conversation');
 // a fresh shelter asks first whether to trust the folder's Claude Code setup: «No, work without it» (the last option)
 if (await until(async () => (await pg.$('.console .session textarea')) !== null, 5000) === false) {

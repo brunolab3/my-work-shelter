@@ -23,7 +23,7 @@ const load = async () => {
   await pg.waitForFunction(() => typeof window.__ready === 'function', null, { timeout: 60000 });
   await pg.evaluate(async () => { await window.__ready(); window.__game.set({ panel: null, panelData: null }); });
 };
-const talk = h => pg.evaluate(h => window.dispatchEvent(new CustomEvent('refugio:ir', { detail: { roomId: h.room, dwellerId: h.id, talk: true } })), h);
+const talk = h => pg.evaluate(h => window.dispatchEvent(new CustomEvent('shelter:go', { detail: { roomId: h.room, dwellerId: h.id, talk: true } })), h);
 const options = () => pg.evaluate(() => [...document.querySelectorAll('.console .opciones-consola li')].map(l => l.textContent.replace('▶', '').trim()));
 const chooseMenu = async text => { const i = (await options()).findIndex(o => o.startsWith(text)); for (let k = 0; k < i; k++) await pg.keyboard.press('ArrowDown'); await pg.keyboard.press('Enter'); await wait(400); };
 const field = () => pg.evaluate(() => document.querySelector('.console textarea')?.value ?? null);

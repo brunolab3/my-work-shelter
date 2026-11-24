@@ -59,7 +59,7 @@ interface WindowNav { id: string; url: string; title: string; loading: boolean; 
 // Notas del Supervisor en las páginas de /pagina/ (las marca server/page/notes.js dentro de la página): se guardan
 // aquí, por archivo, hasta mandarlas a la conversación
 export interface PageNote { id: string; quote: string; section?: string; text: string; start?: number | null }
-const NOTES = 'refugio.notasPaginas';
+const NOTES = 'shelter.pageNotes';
 export const pageNotes = new Store<Record<string, PageNote[]>>((() => { try { return JSON.parse(localStorage.getItem(NOTES) || '{}'); } catch { return {}; } })());
 pageNotes.subscribe(() => { try { localStorage.setItem(NOTES, JSON.stringify(pageNotes.get())); } catch {} });
 const str = (v: unknown, max: number) => (typeof v === 'string' ? v.slice(0, max) : '');
@@ -78,7 +78,7 @@ export function notesMessage(path: string, notes: PageNote[]) {
 }
 // Lo que el Supervisor ha hecho con cada página de cada conversación (mandarle notas o validarla): el intercomunicador
 // lista las páginas de la conversación y marca las que quedan por revisar (shared/sessionPages.ts)
-const ANSWERS = 'refugio.respuestasPaginas';
+const ANSWERS = 'shelter.pageAnswers';
 // por dónde iba cada página (ruta → px), para volver ahí al recargarla
 const scrollOf = new Map<string, number>();
 // (las de más de un mes se olvidan: esas páginas ya no salen en la lista)
@@ -168,7 +168,7 @@ export function openBrowser(spotId: string, url?: string) {
 export function openPage(url: string, title: string, session?: string, path?: string) {
   if (session) lastPage.set(session, { url, title, path });
   // a la izquierda, al lado del intercomunicador (a la derecha): si este estaba ampliado, deja sitio
-  dispatchEvent(new CustomEvent('refugio:pagina-al-lado'));
+  dispatchEvent(new CustomEvent('shelter:page-beside'));
   const already = win('page');
   if (already) {
     // la misma página: solo al frente (sin recargarla); otra, en su sitio
@@ -270,7 +270,7 @@ const actions = (v: WindowNav) => ({
 };
 
 // tras una recarga (aplicar cambios del juego, reiniciar), los navegadores vuelven como estaban y en su página
-const REMEMBERED = 'refugio.navegadores';
+const REMEMBERED = 'shelter.browsers';
 addEventListener('pagehide', () => {
   try { sessionStorage.setItem(REMEMBERED, JSON.stringify(browsers.get().list.map(({ id, url, title, minimized, maximized, z, session, path }) => ({ id, url, title, minimized, maximized, z, session, path })))); } catch {}
 });

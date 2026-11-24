@@ -44,8 +44,11 @@ const TEXTS = {
 };
 
 let file = null, current = 'en';
-// where the language is remembered (userData): read once the app is ready
-function load(dir) { file = path.join(dir, 'idioma.json'); try { const v = JSON.parse(fs.readFileSync(file, 'utf8')).language; if (v === 'es' || v === 'en') current = v; } catch {} }
+// where the language is remembered (userData): read once the app is ready; before language.json it was idioma.json
+function load(dir) {
+  file = path.join(dir, 'language.json');
+  for (const f of [file, path.join(dir, 'idioma.json')]) try { const v = JSON.parse(fs.readFileSync(f, 'utf8')).language; if (v === 'es' || v === 'en') { current = v; return; } } catch {}
+}
 function setLanguage(i) {
   if ((i !== 'es' && i !== 'en') || i === current) return false;
   current = i; if (file) try { fs.writeFileSync(file, JSON.stringify({ language: i })); } catch {}

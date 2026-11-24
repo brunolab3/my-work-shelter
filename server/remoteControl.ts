@@ -1,7 +1,7 @@
 // Remote Control por sala: un `claude remote-control` en la carpeta de la sala, para abrir y seguir sesiones de ese
 // proyecto desde claude.ai/code o la app de Claude del móvil (corren en este Mac). Es un proceso aparte (detached):
 // sobrevive a los reinicios del servidor y a cerrar el juego; se apaga desde el panel de la sala o al retirarla.
-// Lo que está encendido se apunta en DATOS/control-remoto/<sala>.json (y su salida, en <sala>.log); al arrancar, el
+// Lo que está encendido se apunta en DATOS/remote-control/<sala>.json (y su salida, en <sala>.log); al arrancar, el
 // servidor vuelve a encender lo apuntado si se había caído.
 import path from 'node:path';
 import { spawn, execFileSync } from 'node:child_process';
@@ -10,7 +10,7 @@ import { DATA } from './state.ts';
 import { cleanEnvironment, pathClaude } from './sessions.ts';
 import { t } from '../shared/language.ts';
 
-const DIR = path.join(DATA, 'control-remoto');
+const DIR = path.join(DATA, 'remote-control');
 const card = (roomId: string) => path.join(DIR, `${roomId.replace(/[^\w-]/g, '_')}.json`);
 const registry = (roomId: string) => path.join(DIR, `${roomId.replace(/[^\w-]/g, '_')}.log`);
 

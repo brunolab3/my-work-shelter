@@ -26,7 +26,7 @@ console.log('Dweller:', h.name, '·', h.nameRoom);
 // a run before may have left its conversation open: the intercom would open on it instead of the menu
 await pg.evaluate(id => { for (const s of Object.values(window.__live.get().sessions)) if (s.dwellerId === id && s.state !== 'closed') window.__client.send({ t: 'closeSession', sessionId: s.id }); }, dwellerId);
 await wait(1500);
-await pg.evaluate(h => window.dispatchEvent(new CustomEvent('refugio:ir', { detail: { roomId: h.room, dwellerId: h.id, talk: true } })), h);
+await pg.evaluate(h => window.dispatchEvent(new CustomEvent('shelter:go', { detail: { roomId: h.room, dwellerId: h.id, talk: true } })), h);
 await pg.waitForSelector('.console .opciones-consola');
 const options = await pg.evaluate(() => [...document.querySelectorAll('.console .opciones-consola li')].map(l => l.textContent.replace('▶', '').trim()));
 const i = options.findIndex(o => /^(Empezar|Start)/.test(o));

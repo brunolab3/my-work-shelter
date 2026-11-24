@@ -40,7 +40,7 @@ describe('WorkLog', () => {
     const demo = sources({ jira: async () => ({ tareas: [{ key: 'REF-1', title: 'Demo', url: 'u', state: 'Done', category: 'done', updated: NOW } as TaskJira], demo: true }),
       prs: async () => ({ prs: [], demo: true }), worktrees: () => ({ rooms: [], live: [] }) });
     await w.sweep(demo, true);
-    expect(existsSync(path.join(dir, 'bitacora.json'))).toBe(false);
+    expect(existsSync(path.join(dir, 'work-log.json'))).toBe(false);
     const r = await w.read(demo);
     expect(r.demo).toBe(true);
     expect(Object.keys(r.ledger.tasks)).toEqual(['REF-1']);
@@ -84,7 +84,7 @@ describe('Friday digest', () => {
     const slack = { award: 'thanked', source: 'slack' as const, text: 'Thanked by Platform for the CI template', evidence: ['https://fever.slack.com/archives/C01/p1764000000123456'], date: '2026-11-23' };
     expect(w.proposeMedal({ ...slack, evidence: ['Thanks Bruno, the CI template saved us a week'] }).ok).toBe(false);
     expect(w.proposeMedal(slack).ok).toBe(true);
-    const saved: any = Object.values(JSON.parse(readFileSync(path.join(dir, 'bitacora.json'), 'utf8')).medals)[0];
+    const saved: any = Object.values(JSON.parse(readFileSync(path.join(dir, 'work-log.json'), 'utf8')).medals)[0];
     expect(Object.keys(saved).sort()).toEqual(['award', 'date', 'evidence', 'id', 'proposedAt', 'requirement', 'source', 'state', 'text']);
     expect(saved.state).toBe('proposed');
   });

@@ -68,7 +68,7 @@ function Window({ v, repos, path }: { v: WindowGit; repos: Repo[]; path: string 
   const [notice, setNotice] = useState<{ text: string; error: boolean; id: number } | null>(null);
   const [confirm, setConfirm] = useState<{ text: React.ReactNode; button: string; si: () => void; no?: () => void } | null>(null);
   const [sel, setSel] = useState<Choice | null>(null);
-  const [parallel, setParallel] = useState(() => localStorage.getItem('refugio.git.paralelo') === '1');
+  const [parallel, setParallel] = useState(() => localStorage.getItem('shelter.git.parallel') === '1');
   const [folded, setFolded] = useState<Record<Group, boolean>>({ staged: false, changes: false, conflicts: false });
   const box = useRef<HTMLDivElement>(null);
 
@@ -188,7 +188,7 @@ function Window({ v, repos, path }: { v: WindowGit; repos: Repo[]; path: string 
                 <button key={id} className={'gc-pestana' + (v.view === id ? ' active' : '')} onClick={() => { windowGit.set({ view: id }); SFX.tick(); }} title={`${txt} (${CMD}${i + 1})`}>{txt}{id === 'branches' && state?.drawer ? <small> · {t('windows.nInTheStash', { n: state.drawer })}</small> : null}</button>
               ))}
               <span className="gc-pestanas-der">
-                <button className={'gc-boton' + (parallel ? ' on' : '')} onClick={() => { setParallel(p => { localStorage.setItem('refugio.git.paralelo', p ? '0' : '1'); return !p; }); SFX.toggle(); }} title={t('windows.unifiedOrSideBySide')}>{parallel ? t('windows.sideBySide') : t('windows.unified')}</button>
+                <button className={'gc-boton' + (parallel ? ' on' : '')} onClick={() => { setParallel(p => { localStorage.setItem('shelter.git.parallel', p ? '0' : '1'); return !p; }); SFX.toggle(); }} title={t('windows.unifiedOrSideBySide')}>{parallel ? t('windows.sideBySide') : t('windows.unified')}</button>
                 <button className="gc-boton" onClick={() => openFiles({ root: path, ...(fileSel && fileSel.letter !== 'D' ? { rel: fileSel.path } : {}) })} title={t('windows.browseAndEditTheFiles')}>{t('windows.files3')}</button>
                 {repo && <button className="gc-boton" onClick={() => openTerminalIn('git:' + path, repo.roomId, repo.name, path)} title={t('windows.openAShelterTerminalIn')}>{t('windows.terminal2')}</button>}
               </span>

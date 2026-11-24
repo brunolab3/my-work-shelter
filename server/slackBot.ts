@@ -85,7 +85,7 @@ export class SlackRemote extends RemoteBot<Ref> {
     super(d);
     this.api = d.api ?? slackApi;
     this.open = d.open ?? openWs;
-    this.file = path.join(d.data, 'slack-mando.json');
+    this.file = path.join(d.data, 'slack-remote.json');
     try { this.c = JSON.parse(readFileSync(this.file, 'utf8')); } catch { this.c = {}; }
   }
   private save() { try { writeFileSync(this.file, JSON.stringify(this.c), { mode: 0o600 }); } catch {} this.d.onChange?.(); }

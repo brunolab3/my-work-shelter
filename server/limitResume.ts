@@ -1,6 +1,6 @@
 // Conversations stopped by the Claude usage limit resume on their own once it renews: a few minutes past `resetsAt`,
 // one at a time a few minutes apart (most recently stopped first) so they don't burn the fresh window at once, and the
-// whole queue waits again if a new `rejected` arrives. Saved in DATOS/reanudar-limite.json and resumed by Claude Code
+// whole queue waits again if a new `rejected` arrives. Saved in DATOS/limit-resume.json and resumed by Claude Code
 // id in its folder, so it survives "Restart the game". Conversations already stopped by a limit before this existed
 // (or whose queue was lost) are picked up from their transcript: its last message is the limit error.
 import { existsSync, readFileSync, writeFileSync, renameSync, readdirSync, statSync, openSync, readSync, closeSync } from 'node:fs';
@@ -90,7 +90,7 @@ export class LimitResumes {
   private failed = new Set<string>();
   private sweeping = false;
   constructor(dir: string, private ctx: CtxLimitResume) {
-    this.file = path.join(dir, 'reanudar-limite.json');
+    this.file = path.join(dir, 'limit-resume.json');
     try { if (existsSync(this.file)) { const j = JSON.parse(readFileSync(this.file, 'utf8')); if (Array.isArray(j?.items)) this.items = j.items.filter(valid); } } catch {}
   }
   private now() { return this.ctx.now?.() ?? Date.now(); }

@@ -26,7 +26,7 @@ const key = async (k, n = 1) => { for (let i = 0; i < n; i++) { await pg.keyboar
 let failures = 0; const ok = (c, txt) => { console.log((c ? 'OK   ' : 'FAILED') + ' ' + txt); if (!c) failures++; };
 
 await pg.evaluate(async () => { await window.__client.action('save', { patch: { doneWelcome: true } }); await window.__client.action('look.save', { who: 'supervisor', look: null }); window.__game.set({ panel: null, panelData: null }); });
-const go = async (id) => { await pg.evaluate(id => window.dispatchEvent(new CustomEvent('refugio:ir', { detail: { roomId: id } })), id); await pg.waitForFunction(id => window.__shelter.currentRoom?.id === id, id, { timeout: 60000 }).catch(() => {}); await wait(3500); };
+const go = async (id) => { await pg.evaluate(id => window.dispatchEvent(new CustomEvent('shelter:go', { detail: { roomId: id } })), id); await pg.waitForFunction(id => window.__shelter.currentRoom?.id === id, id, { timeout: 60000 }).catch(() => {}); await wait(3500); };
 
 // ---- todos del mismo tamaño
 await wait(4000);

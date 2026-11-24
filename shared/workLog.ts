@@ -1,5 +1,5 @@
 // The work log ("Sync update" panel in Planning) and the trophies' facts: a ledger of what was done for each task, saved
-// by server/workLog.ts in DATOS/bitacora.json. The game's sources forget (Jira and PRs read two weeks back, finished
+// by server/workLog.ts in DATOS/work-log.json. The game's sources forget (Jira and PRs read two weeks back, finished
 // worktrees are removed), so every read is merged in here: a newer read updates a fact, a missing one is never
 // deleted, a worktree no longer there is marked gone. Trophies and the career ladder are derived from it on read
 // (shared/trophies.ts). Pure: used by the client, the server and the tests.

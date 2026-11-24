@@ -289,7 +289,7 @@ and the Linear MCP setup for Claude Code and Codex: [`docs/integrations-usage.md
 
 ## Data
 
-- Shelter state: `.data/refugio.json` in the game folder (`~/.work-shelter-public` if you installed with the command
+- Shelter state: `.data/shelter.json` in the game folder (`~/.work-shelter-public` if you installed with the command
   above): rooms, layout, dwellers, settings, language, progress, records, seen notices. Resetting the shelter from the
   Vault doesn't touch your folders or your credentials.
 - Special rooms' folders (and example repos from older versions): `~/Library/Application Support/work-shelter-public/`.

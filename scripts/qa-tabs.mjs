@@ -36,7 +36,7 @@ await pg.evaluate(([h, h2, T, E]) => {
   if (h2) ['Deploy notes', 'Bump SDK', 'Flaky e2e'].forEach((title, i) => one('qa-tab-b' + i, h2, title, ['idle', 'waiting', 'working'][i], i, h2.path));
   window.__live.set(e => ({ sessions: { ...e.sessions, ...sessions } }));
 }, [h, h2, TITLES, STATES]);
-await pg.evaluate(h => window.dispatchEvent(new CustomEvent('refugio:ir', { detail: { roomId: h.room, dwellerId: h.id, talk: true } })), h);
+await pg.evaluate(h => window.dispatchEvent(new CustomEvent('shelter:go', { detail: { roomId: h.room, dwellerId: h.id, talk: true } })), h);
 await pg.waitForSelector('.console .vt-tab');
 await until(async () => (await tabs()).length >= 16);
 await wait(600);
@@ -161,7 +161,7 @@ if (h2 && peek.length) {
 }
 
 // ---- a terminal with many tabs
-await pg.evaluate(s => window.dispatchEvent(new CustomEvent('refugio:terminal', { detail: { roomId: s } })), h.room);
+await pg.evaluate(s => window.dispatchEvent(new CustomEvent('shelter:terminal', { detail: { roomId: s } })), h.room);
 await pg.waitForSelector('.ventana-terminal .vt-tab'); await wait(800);
 const n0 = await pg.evaluate(() => document.querySelectorAll('.ventana-terminal .vt-tab').length);   // its tabs outlive the page
 for (let i = 0; i < 13; i++) { await pg.keyboard.press('Meta+t'); await wait(250); }

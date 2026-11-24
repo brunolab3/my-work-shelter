@@ -1,7 +1,7 @@
 // QA of the work log and trophies (shared/workLog.ts, shared/trophies.ts, server/workLog.ts; panels WorkLog.tsx in
 // Planning and Trophies.tsx; the trophy shelf in web/src/world/rooms/trophyShelf.ts), with its own server in a
 // test shelter and Playwright:
-// - a saved ledger (DATOS/bitacora.json, written before the server starts) is what `bitacora.leer` returns while Jira
+// - a saved ledger (DATOS/work-log.json, written before the server starts) is what `bitacora.leer` returns while Jira
 //   and GitHub are not both in DEMO; the example ladder parses without errors and earns «first merge» from its merged PR;
 // - Planning → Sync update: one line per task, keyless tasks last; X expands the PRs, worktrees and conversations
 //   underneath; Tab changes the range (1 working day first, the default); C copies the Markdown (task line, PRs underneath);
@@ -11,7 +11,7 @@
 // - Planning → Trophies and career: a trophy per vertical on top (delivers in bronze from first merge), the measured
 //   trophies, the ladder's two steps; a medal the Friday digest proposed waits on the carpet, A accepts it and it fills
 //   one medal of its vertical's trophy; M enters one by hand (it counts at once);
-// - a broken DATOS/escalera.json: the error line in the panel (R reads it again), never a crash;
+// - a broken DATOS/ladder.json: the error line in the panel (R reads it again), never a crash;
 // - Jira and GitHub in DEMO: a sample log, marked DEMO, not saved;
 // - Planning's shelf: one cup per vertical, the won ones in their level's colour, the medals on the red cloth below; hovering it reads «Trophies and career», a click opens
 //   the panel and Escape goes back to the shelter; a screenshot of the room with the label.
@@ -32,7 +32,7 @@ process.env.SHELTER_DATOS = DATA;
 
 // the saved ledger: ABC-1 done with two PRs in two repos (one merged) and a removed worktree; a slug task with a live one
 const now = Date.now(), D = 864e5;
-writeFileSync(path.join(DATA, 'bitacora.json'), JSON.stringify({
+writeFileSync(path.join(DATA, 'work-log.json'), JSON.stringify({
   tasks: { 'ABC-1': { key: 'ABC-1', title: 'Checkout retries', url: 'https://jira.example/browse/ABC-1', state: 'Done', category: 'done', seen: now - 5 * D, updated: now - D, doneAt: now - D } },
   prs: {
     'org/api#5': { ref: 'org/api#5', url: 'https://github.com/org/api/pull/5', title: 'ABC-1 retry the payment', repo: 'org/api', number: 5, branch: 'ABC-1-retries', task: 'ABC-1', state: 'merged', seen: now - 4 * D, updated: now - 2 * D, mergedAt: now - 2 * D },
@@ -141,18 +141,18 @@ try {
   check(await until(async () => (await pg.$$('.trofeo-medallas .medalla')).length === 2), 'and it fills a medal of its trophy');
   await pg.waitForTimeout(300); await pg.screenshot({ path: path.join(dir, 'trophies.png'), animations: 'disabled' });
   // a broken ladder of the Overseer's: its error, read again with R
-  writeFileSync(path.join(DATA, 'escalera.json'), '{ "trophies": [ nope');
+  writeFileSync(path.join(DATA, 'ladder.json'), '{ "trophies": [ nope');
   await pg.keyboard.press('KeyR');
   check(await until(async () => /JSON/.test((await pg.$$eval('.notice-console', l => l.map(x => x.textContent).join(' ')))) ), 'a broken ladder shows its error');
   await pg.evaluate(() => window.__client.action('workLog.ladder', {}));
-  check(readFileSync(path.join(DATA, 'escalera.json'), 'utf8').includes('nope'), 'an existing ladder is never overwritten from the example');
-  writeFileSync(path.join(DATA, 'escalera.json'), readFileSync(path.join(ROOT, 'docs', 'ladder.example.json'), 'utf8'));
+  check(readFileSync(path.join(DATA, 'ladder.json'), 'utf8').includes('nope'), 'an existing ladder is never overwritten from the example');
+  writeFileSync(path.join(DATA, 'ladder.json'), readFileSync(path.join(ROOT, 'docs', 'ladder.example.json'), 'utf8'));
   await pg.keyboard.press('KeyR');
   r = await read();
   check(r.ladder.source === 'local' && !r.ladder.errors.length, `the Overseer's own ladder, once valid (${r.ladder.source})`);
   check(/V/.test(await pg.textContent('.ayuda-consola')) && /(Sin verificar|Not verified)/.test(await pg.textContent('body')), 'not verified yet: V offers it');
   // a verification as the game writes it (ladder_progress → only the file's "progress" key)
-  const ladderFile = path.join(DATA, 'escalera.json'), lj = JSON.parse(readFileSync(ladderFile, 'utf8'));
+  const ladderFile = path.join(DATA, 'ladder.json'), lj = JSON.parse(readFileSync(ladderFile, 'utf8'));
   writeFileSync(ladderFile, JSON.stringify({ ...lj, progress: { at: now, level: 'L1', summary: 'L1 reached; L2 needs volume.', requirements: { delivers: { verdict: 'met', evidence: ['https://github.com/org/api/pull/5'], byRules: true }, mentoring: { verdict: 'partial', evidence: ['https://slack.example/t/3'], notes: 'paired with a new joiner', byRules: false } } } }, null, 2));
   await pg.keyboard.press('KeyR');
   check(await until(async () => /(Nivel|Level): Engineer I/.test(await pg.textContent('.verificacion').catch(() => ''))), 'the last verification: its level');
@@ -165,7 +165,7 @@ try {
   await mode('jira', 'demo'); await mode('github', 'demo');
   check(await until(async () => (r = await read()).demo, 80000), 'both in DEMO: the log says so');
   check(Object.keys(r.ledger.tasks).length > 0, `DEMO: a sample log with the demo tasks (${Object.keys(r.ledger.tasks).length})`);
-  check(!readFileSync(path.join(DATA, 'bitacora.json'), 'utf8').includes('REF-'), 'DEMO data never reaches the saved ledger');
+  check(!readFileSync(path.join(DATA, 'work-log.json'), 'utf8').includes('REF-'), 'DEMO data never reaches the saved ledger');
 
   // ---- Planning's shelf
   await open('?sala=logistica');

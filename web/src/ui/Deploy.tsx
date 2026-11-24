@@ -20,7 +20,7 @@ import { DEPLOYMENT_COLUMNS, blockersBetween, deploymentColumn, taskLinks, deplo
 const REASON: Record<Blocker['reason'], string> = { stack: 'apilado', text: 'lo dice el PR', plan: 'el plan de la tarea', manual: 'marcado aquí' };
 type DataGH = { prs: PRBoard[]; demo?: boolean; error?: string };
 interface Memory { gh?: DataGH; manual?: BlockerManual[]; orden?: TaskOrder[] }
-const MEMORY = 'refugio:despliegue';
+const MEMORY = 'shelter.deploy';
 let memory: Memory = (() => { try { return JSON.parse(localStorage.getItem(MEMORY) || '{}'); } catch { return {}; } })();
 function remember(r: Memory) { memory = { ...memory, ...r }; try { localStorage.setItem(MEMORY, JSON.stringify(memory)); } catch {} }
 
@@ -85,13 +85,13 @@ export function DeploymentBoard({ roomId, goBack }: { roomId: string; goBack: ()
     setMarking(null);
     if (from === by) return;
     const already = manual.some(b => b.from === from && b.by === by);
-    try { const m = await client.action<BlockerManual[]>('deploy.block', { from, by, remove: already }); setManual(m); remember({ manual: m }); SFX.toggle(); dispatchEvent(new Event('refugio:despliegue')); }
+    try { const m = await client.action<BlockerManual[]>('deploy.block', { from, by, remove: already }); setManual(m); remember({ manual: m }); SFX.toggle(); dispatchEvent(new Event('shelter:deploy')); }
     catch (e) { setNotice((e as Error).message); SFX.notAllowed(); }
   };
   const removeManual = async (from: string) => {
     let l = manual;
     for (const b of manual.filter(b => b.from === from)) l = await client.action<BlockerManual[]>('deploy.block', { from, by: b.by, remove: true }).catch(() => l);
-    setManual(l); remember({ manual: l }); SFX.toggle(); dispatchEvent(new Event('refugio:despliegue'));
+    setManual(l); remember({ manual: l }); SFX.toggle(); dispatchEvent(new Event('shelter:deploy'));
   };
   // the pre-flight of a PR's task: a box over the board, anchored to what opened it (the selected card, with F)
   const preflight = (task: string, since?: Element | null) => { SFX.click(); openPreflight(task, since); };

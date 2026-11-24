@@ -8,7 +8,7 @@
 // work left, so they aren't lost with it. Con una conversación abierta, espera a que se cierre. Si queda trabajo, pregunta una vez al Supervisor si lo
 // quita igualmente (y entonces sí, forzando; si para entonces hay una conversación abierta en él, queda aprobado y se
 // quita en cuanto se cierre); en cada vuelta se vuelve a mirar (guardado lo que había, se quita sin preguntar). Cada cinco
-// minutos con GitHub conectado (main.ts); lo ya preguntado y lo aprobado, en DATOS/limpieza-tareas.json.
+// minutos con GitHub conectado (main.ts); lo ya preguntado y lo aprobado, en DATOS/task-cleanup.json.
 // A task with a merged PR waits first for its production verification (verificationHold): while a checkpoint is open, or
 // the final one failed, its worktree and conversations stay, so the rechecks reach the conversation that knows the work.
 // Without an approved plan, its conversation is asked once to propose one and the Overseer told once (they can clean it up
@@ -150,7 +150,7 @@ export class TasksCleanup {
   private unverified: string[] = [];   // «sala|ruta» the Overseer let go without a verification plan
   private file: string;
   constructor(dir: string, private ctx: CtxCleanup) {
-    this.file = path.join(dir, 'limpieza-tareas.json');
+    this.file = path.join(dir, 'task-cleanup.json');
     const texts = (x: unknown) => Array.isArray(x) ? x.filter((y: unknown): y is string => typeof y === 'string') : [];
     try { if (existsSync(this.file)) { const j = JSON.parse(readFileSync(this.file, 'utf8')); this.notified = texts(j.notified); this.approved = texts(j.approved); this.unverified = texts(j.unverified); } } catch {}
   }

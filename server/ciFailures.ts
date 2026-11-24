@@ -4,7 +4,7 @@
 // el PR, el commit, los checks que fallan con su enlace y la cola del log de lo que falló (`gh run view --log-failed`).
 // Una tarea puede tener PR en varios repos con bloqueos entre ellos (shared/deploy.ts): el mensaje lleva la clave
 // de la tarea y los PR que esperan al que falla («bloquea: org/b#12»); esos no fallan por ello y no reciben nada.
-// Una vez por PR y commit (DATOS/fallos-ci.json). La primera vez solo se apunta lo que ya fallaba: no llega de golpe
+// Una vez por PR y commit (DATOS/ci-failures.json). La primera vez solo se apunta lo que ya fallaba: no llega de golpe
 // la CI rota de antes de existir esto; un PR nuevo, o un commit nuevo, que falla, sí.
 // Solo lectura hacia GitHub: el habitante propone un plan y el Supervisor lo aprueba antes de tocar nada.
 import { existsSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
@@ -138,7 +138,7 @@ export class CIFailures {
   private notified = new Set<string>();
   private file: string;
   constructor(dir: string, private ctx: CtxCI) {
-    this.file = path.join(dir, 'fallos-ci.json');
+    this.file = path.join(dir, 'ci-failures.json');
     try { if (existsSync(this.file)) { const j = JSON.parse(readFileSync(this.file, 'utf8')); this.started = !!j.started; this.delivered = Array.isArray(j.delivered) ? j.delivered.filter((x: unknown) => typeof x === 'string') : []; } } catch {}
   }
   private save() { const tmp = this.file + '.tmp'; writeFileSync(tmp, JSON.stringify({ started: this.started, delivered: this.delivered.slice(-2000) }), { mode: 0o600 }); renameSync(tmp, this.file); }

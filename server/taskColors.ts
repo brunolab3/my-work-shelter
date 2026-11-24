@@ -12,7 +12,7 @@ export class TasksColors {
   private t: Record<string, { i: number; seen: number }> = {};
   private file: string;
   constructor(dir: string) {
-    this.file = path.join(dir, 'colores-tareas.json');
+    this.file = path.join(dir, 'task-colors.json');
     try { if (existsSync(this.file)) for (const [k, v] of Object.entries(JSON.parse(readFileSync(this.file, 'utf8')) as Record<string, any>)) if (isKey(k) && Number.isInteger(v?.i) && v.i >= 0 && v.i < TASKS_PALETTE.length) this.t[k] = { i: v.i, seen: Number(v.seen) || 0 }; } catch {}
   }
   private save() { const tmp = this.file + '.tmp'; writeFileSync(tmp, JSON.stringify(this.t), { mode: 0o600 }); renameSync(tmp, this.file); }

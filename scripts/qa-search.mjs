@@ -18,7 +18,7 @@ pg.on('pageerror', e => errors.push(e.message));
 await pg.goto(withToken(url0), { waitUntil: 'load' });
 await pg.waitForFunction(() => typeof window.__ready === 'function', null, { timeout: 60000 });
 await pg.evaluate(async () => { await window.__ready(); window.__game.set({ panel: null, panelData: null }); });
-await pg.evaluate(() => localStorage.removeItem('refugio.buscador.usos'));
+await pg.evaluate(() => localStorage.removeItem('shelter.search.uses'));
 const wait = ms => pg.waitForTimeout(ms);
 let failures = 0;
 const check = (ok, text) => { console.log((ok ? 'OK   ' : 'FALLO ') + text); if (!ok) failures++; };

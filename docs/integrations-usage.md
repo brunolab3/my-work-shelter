@@ -17,7 +17,7 @@ guides for getting each credential are also inside the game (Vault → the sourc
 - **Secrets only in the macOS keychain** (`server/integrations/keychain.ts`): service `work-shelter-public`, account
   `<source>.<field>` (`linear.apiKey`, `discord.token`, `slack.token`, `github.token`, `google.clientSecret`,
   `outlook.refreshToken`, `google.refreshToken`). They're written with `security -i` (the command goes through stdin,
-  so the secret doesn't show in `ps`) and in base64. `.data/refugio.json` only holds the non-secret data
+  so the secret doesn't show in `ps`) and in base64. `.data/shelter.json` only holds the non-secret data
   (`integraciones.<source>.campos`) and the **names** of the saved secrets (`integraciones.<source>.secretos`). No
   secrets in git, logs or error messages. Its limitation (other processes of your user can read them):
   [`SECURITY.md`](../SECURITY.md#known-risks).
@@ -239,14 +239,14 @@ conversation can't send a message to itself. `assign_work` is only for implement
 local time; a day without a time means 09:00, and anything due on Saturday or Sunday is held to Monday at 09:00. Without
 `room` it comes back to the same conversation: the open one or, if it was closed, resumed by its Claude Code id in its
 folder (worktree) in plan mode (if the worktree is gone, a new conversation in the room's folder); with `room` (and
-`key`), it is delivered like `send_to_room` at that time. They are saved in `DATOS/mensajes-programados.json` (never
+`key`), it is delivered like `send_to_room` at that time. They are saved in `DATOS/scheduled-messages.json` (never
 sent anywhere) and checked every minute and on start: whatever fell due while the game was closed arrives on the next
 start, marked as late. What can't be delivered (the conversation is open outside, the session limit) stays and is
 retried every minute, with one notice. At most 10 pending per conversation, 60 days ahead, no recurring schedules. The
 intercom shows "⏰ n scheduled · when" under the portrait (✎ changes time or text, ✕ cancels; actions
 `scheduled.edit` and `scheduled.cancel`), and ⌘K and the Calendar list them all.
 
-**Shared plan.** `assign_work` saves the whole plan (`server/plans.ts`, `DATOS/planes.json`, with versions and
+**Shared plan.** `assign_work` saves the whole plan (`server/plans.ts`, `DATOS/plans.json`, with versions and
 history); Logistics rereads it with `read_plan` and each part with `shared_plan` (MCP `plan` in the rooms that have
 a part). From Logistics, `update_plan` issues a new version and sends a message to the conversation of each affected
 room (with `affected`, only to those and with what concerns each), and `notify_room` sends a message without changing
@@ -266,7 +266,7 @@ conversations than the live-session limit.
 
 **Each task's color.** Each task (Jira key; without one, `PR-<number>`) has a color from a 16-color palette
 (`shared/tasks.ts`) handed out by Planning: when reading the Jira board, the server gives each task its own and it
-travels with it (`server/taskColors.ts`, `DATOS/colores-tareas.json`; non-Jira ones, with the `tasks.colors`
+travels with it (`server/taskColors.ts`, `DATOS/task-colors.json`; non-Jira ones, with the `tasks.colors`
 action): a new task gets the least used among those seen in the last two weeks. It's the same on the Jira board, the
 deployment board, the Pull requests tab, organise, the Planning and Logistics screens and the hologram (and label) of
 the copy working the task, and visitors from that worktree wear it too: at a glance you see which task has sessions in
@@ -282,7 +282,7 @@ review; if the task has no worktree, a notice says so (it's rare: the room needs
 proposes a plan (what to fix and what to reply) and touches nothing until the Overseer approves it. Each delivery shows
 a visible notice (who reviewed, which PR, which room and branch) and the messenger robot carries it from Version
 Control to the hologram of that worktree (to the dweller, if it's the main copy). Anything from before connecting
-isn't sent; what's delivered is recorded in `revisiones-pr.json` (data folder).
+isn't sent; what's delivered is recorded in `pr-reviews.json` (data folder).
 
 **CI failures on your PRs, to the same conversation** (`server/ciFailures.ts`). Also every minute, the checks of the
 latest commit of your open PRs are read; when a PR's CI fails (FAILURE or ERROR) on its current head, ONE message goes
@@ -290,7 +290,7 @@ to the conversation of that PR's worktree, found and opened just like reviews: t
 failing checks with their links and the tail of `gh run view --log-failed`. If other PRs wait for it (stacked, "depends
 on" in their description, the task's plan order or a manual blocker from the deployment plan, also across repos), the
 message and the notice say "blocks: org/repo#12"; those PRs are not failing and get nothing. Once per PR and commit
-(`fallos-ci.json`); the first poll only records what was already failing, so old red CI isn't flooded in. Read-only.
+(`ci-failures.json`); the first poll only records what was already failing, so old red CI isn't flooded in. Read-only.
 
 **Deployment plan.** On the big screen of the Logistics room (its stock scene, without a dressing:
 `web/src/world/rooms/deploy.ts`; a click on it opens it), in the room panel or with ⌘K "Deployment plan": your PRs
@@ -299,7 +299,7 @@ they can be merged in, by waves (`shared/deploy.ts`, `web/src/ui/Deploy.tsx`). I
 same task are grouped in a block of the task's color (headed by the key and the count when there are several), placed
 where its best PR goes. A PR waits for another if it's stacked on top (its base is the other's branch), if its title
 or description says so ("depends on #12", "blocked by org/repo#7", the PR link) or if you mark it with B (saved in
-`DATOS/bloqueos-pr.json`, `server/prBlocks.ts`; X removes it). P hands the board to the room's dweller, who proposes
+`DATOS/pr-blocks.json`, `server/prBlocks.ts`; X removes it). P hands the board to the room's dweller, who proposes
 the plan in plan mode without touching the repos. The list of your PRs and those awaiting your review is in Version
 Control (Pull requests tab of the git client; T from the Jira board).
 

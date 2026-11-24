@@ -1,7 +1,7 @@
 // Scheduled messages: with schedule_message (MCP `rooms`, roomNotices.ts) a dweller leaves a message for later («let's
 // review it on Monday and answer everything») and the game delivers it at that time. Without a room it comes back to the
 // same conversation: the open one or, if it was closed, resumed by its Claude Code id in its folder (in plan mode), with
-// all its context; with a room (and key), it is delivered like send_to_room. Saved in DATOS/mensajes-programados.json and
+// all its context; with a room (and key), it is delivered like send_to_room. Saved in DATOS/scheduled-messages.json and
 // checked every minute and on start: what fell due with the game closed is delivered on return, marked «late».
 // What can't be delivered (the conversation is still open outside, the sessions limit) is retried on the next round,
 // warning once. "Not urgent" ones (`when: "next-window"`, the intercom's ⌥Enter) wait for the plan's final 5-hour
@@ -53,7 +53,7 @@ export class Scheduled {
   private lastWindow: number | undefined;   // the last next-window delivery (or attempt): the next one is spaced from it
   private delivering = new Set<string>();   // being delivered: nothing joins them any more
   constructor(dir: string, private ctx: CtxScheduled) {
-    this.file = path.join(dir, 'mensajes-programados.json');
+    this.file = path.join(dir, 'scheduled-messages.json');
     try { if (existsSync(this.file)) { const j = JSON.parse(readFileSync(this.file, 'utf8')); if (Array.isArray(j?.items)) this.items = j.items.filter(valid); } } catch {}
   }
   private now() { return this.ctx.now?.() ?? Date.now(); }

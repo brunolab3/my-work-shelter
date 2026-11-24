@@ -3,7 +3,7 @@
 //   ./shelter superficie --lista   qué hay abierto, sin abrir nada
 //   ./shelter enganchar <id> [--socket ruta]   esta terminal pasa a ser la del juego con ese id (el mismo PTY)
 // Con el juego en marcha se lo pide al servidor (que cierra cada conversación antes de retomarla fuera). Si el
-// refugio entero se ha caído, retoma las conversaciones que había abiertas (DATOS/abiertas.json) y engancha las
+// refugio entero se ha caído, retoma las conversaciones que había abiertas (DATOS/open-sessions.json) y engancha las
 // terminales que sigan vivas en su anfitrión.
 import net from 'node:net';
 import path from 'node:path';
@@ -19,7 +19,7 @@ const PORT = Number(process.env.SHELTER_PUERTO || 3778);
 const [orden, ...args] = process.argv.slice(2);
 const option = (n: string) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : undefined; };
 // lo que dice por la terminal, en el idioma del refugio (el de su estado guardado; sin él, español)
-try { const i = JSON.parse(readFileSync(path.join(DATA, 'refugio.json'), 'utf8')).language; if (isLanguage(i)) setLanguage(i); } catch {}
+try { const i = JSON.parse(readFileSync(path.join(DATA, 'shelter.json'), 'utf8')).language; if (isLanguage(i)) setLanguage(i); } catch {}
 
 // ---------------------------------------------------------------- enganchar una terminal del juego
 // Al salir se dejan las cosas como estaban: sin protocolo de kitty, sin ratón, fuera de la pantalla alternativa
@@ -82,7 +82,7 @@ function askOnServer(name: string, data: Record<string, unknown>) {
 // ---------------------------------------------------------------- sin refugio
 interface Open { claudeId: string; cwd: string; title?: string; dweller?: string; state?: string; permissions?: string }
 function openInDisc(): Open[] {
-  try { const l = JSON.parse(readFileSync(path.join(DATA, 'abiertas.json'), 'utf8')); return Array.isArray(l) ? l.filter(x => x && typeof x.claudeId === 'string' && typeof x.cwd === 'string') : []; } catch { return []; }
+  try { const l = JSON.parse(readFileSync(path.join(DATA, 'open-sessions.json'), 'utf8')); return Array.isArray(l) ? l.filter(x => x && typeof x.claudeId === 'string' && typeof x.cwd === 'string') : []; } catch { return []; }
 }
 function liveTerminals(): Promise<{ id: string; cwd: string; program?: string; fuera: number }[]> {
   return new Promise(ok => {

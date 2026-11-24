@@ -1,4 +1,4 @@
-// The tasks' production verification plans (model in shared/verification.ts), saved in DATOS/verificaciones.json by task
+// The tasks' production verification plans (model in shared/verification.ts), saved in DATOS/verifications.json by task
 // key: the dweller writes them with verification_plan and verification_report (MCP `rooms`, roomNotices.ts) and the
 // Overseer approves them in the pre-flight. The game queries nothing itself: the evidence is what the dweller found with
 // its own observability connector. Deadlines are checked whenever a plan is read. Every few minutes (repasar, main.ts)
@@ -29,7 +29,7 @@ export class Verifications {
   private plans: Record<string, VerificationPlan> = {};
   private file: string;
   constructor(dir: string, private now: () => number = Date.now, private changed: (key: string) => void = () => {}) {
-    this.file = path.join(dir, 'verificaciones.json');
+    this.file = path.join(dir, 'verifications.json');
     try {
       if (existsSync(this.file)) {
         const j = JSON.parse(readFileSync(this.file, 'utf8'))?.plans ?? {};

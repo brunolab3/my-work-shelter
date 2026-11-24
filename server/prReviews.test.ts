@@ -182,7 +182,7 @@ describe('revisiones de PR', () => {
   it('al empezar a entregar lo de bots, los que ya había no se mandan de golpe; los nuevos, sí', async () => {
     const dir = mkdtempSync(path.join(os.tmpdir(), 'revisiones-'));
     // un refugio de antes: ya miraba desde T0 - 60 min, sin bots
-    writeFileSync(path.join(dir, 'revisiones-pr.json'), JSON.stringify({ since: T0 - 120 * 60_000, seen: ['R1', 'R6', 'C1', 'I2'] }));
+    writeFileSync(path.join(dir, 'pr-reviews.json'), JSON.stringify({ since: T0 - 120 * 60_000, seen: ['R1', 'R6', 'C1', 'I2'] }));
     let json: any = answer(-60);
     const deliveries: string[] = [];
     const ctx: CtxReviews = {

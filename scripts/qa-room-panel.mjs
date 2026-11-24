@@ -33,7 +33,7 @@ let first = null;
 for (const s of rooms.filter(r => !only.length || only.includes(r.id))) {
   // the Overseer at the room panel, facing it (or, without one, in the middle of the room)
   await pg.evaluate(id => {
-    window.__game.set({ panel: null, panelData: null }); window.dispatchEvent(new CustomEvent('refugio:ir', { detail: { roomId: id } }));
+    window.__game.set({ panel: null, panelData: null }); window.dispatchEvent(new CustomEvent('shelter:go', { detail: { roomId: id } }));
     const r = window.__shelter, s = r.rooms.find(x => x.id === id), it = s.interactive?.find(i => i.id === 'panel'), sp = r.supervisor;
     sp.root.position.x = s.group.position.x + (it?.x ?? 0); if (it) { sp.root.position.z = it.z; sp.goalTurn = it.rotation ?? Math.PI; sp.root.rotation.y = sp.goalTurn; }
     r.frameRoom(s); r.followsCamera = false;   // the whole room in the picture, not centred on the Overseer

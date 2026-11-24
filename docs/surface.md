@@ -66,7 +66,7 @@ it in the app first, so it isn't written in two places). Server: `surface.claude
 In a repo room's panel, "Turn on Remote Control" leaves a `claude remote-control --permission-mode auto` running in
 its folder, named "<room> · work-shelter": from the Code tab of the Claude app on your phone or from claude.ai/code you
 open sessions on that repo that run on this Mac. It's a separate process (`server/remoteControl.ts`): it survives
-restarting or closing the game, is recorded in `DATOS/control-remoto/` and, when the server starts, is turned back on
+restarting or closing the game, is recorded in `DATOS/remote-control/` and, when the server starts, is turned back on
 if it had died; it's turned off from the same panel or when the room is retired or relinked. The first time, Claude
 Code asks you to accept Remote Control: the game detects it, stops it and explains how to accept it once in the
 room's terminal. Intercom conversations don't show up there (they go through the SDK, without Remote Control).

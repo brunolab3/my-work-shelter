@@ -9,7 +9,7 @@ import { TEXTS } from './texts.ts';
 export type Language = 'es' | 'en';
 export type LocalizedText = { es: string; en?: string };
 export const LANGUAGES: { value: Language; text: string }[] = [{ value: 'es', text: 'Español' }, { value: 'en', text: 'English' }];
-export const LANGUAGE_KEY = 'refugio.idioma';
+export const LANGUAGE_KEY = 'shelter.language';
 export const isLanguage = (x: unknown): x is Language => x === 'es' || x === 'en';
 
 // el navegador lo recuerda; el servidor lo toma del estado del refugio (estado.idioma) al cargarlo y con la acción `idioma`

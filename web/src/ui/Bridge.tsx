@@ -74,8 +74,8 @@ export function Loading() {
   const [removed, setRemoved] = useState(false);
   useEffect(() => {
     const f = (e: any) => { setP(e.detail); if (e.detail.progreso > 0) setTimeout(() => setOutside(true), 250); };
-    addEventListener('refugio:carga', f);
-    return () => removeEventListener('refugio:carga', f);
+    addEventListener('shelter:load', f);
+    return () => removeEventListener('shelter:load', f);
   }, []);
   useEffect(() => { if (outside) { const t = setTimeout(() => setRemoved(true), 900); return () => clearTimeout(t); } }, [outside]);
   if (removed) return null;
@@ -91,7 +91,7 @@ export function Loading() {
 // el resto de salas aparece por partes con el refugio ya a la vista: un indicador discreto
 export function RoomsLoading() {
   const [p, setP] = useState(0);
-  useEffect(() => { const f = (e: any) => setP(e.detail.progreso); addEventListener('refugio:carga', f); return () => removeEventListener('refugio:carga', f); }, []);
+  useEffect(() => { const f = (e: any) => setP(e.detail.progreso); addEventListener('shelter:load', f); return () => removeEventListener('shelter:load', f); }, []);
   if (p >= 1 || p === 0) return null;
   return <div className="carga-salas">{t('panels.poweringUpRooms')} · {Math.round(p * 100)} %</div>;
 }
@@ -106,11 +106,11 @@ export function Welcome() {
   const [root, setRoot] = useState(e?.reposRoot ?? '~');
   const [focus, setFocus] = useState(0);
   // el Supervisor del refugio, detrás, se viste con cada uno (el aspecto entero se cambia luego en Chapa y Pintura)
-  const change = (d: number) => { const n = (k + d + CHARACTERS.length) % CHARACTERS.length; setK(n); SFX.tick(); window.dispatchEvent(new CustomEvent('refugio:probar', { detail: { who: 'supervisor', look: STOCK[CHARACTERS[n]] } })); };
+  const change = (d: number) => { const n = (k + d + CHARACTERS.length) % CHARACTERS.length; setK(n); SFX.tick(); window.dispatchEvent(new CustomEvent('shelter:try-on', { detail: { who: 'supervisor', look: STOCK[CHARACTERS[n]] } })); };
   const enter = async () => {
     await client.action('save', { patch: { doneWelcome: true, name: name.trim() || GAME_NAME, reposRoot: root.trim() || '~', supervisor: { ...(e?.supervisor ?? {}), character: CHARACTERS[k], look: null } } });
     SFX.success();
-    window.dispatchEvent(new CustomEvent('refugio:ir', { detail: { roomId: 'vault' } }));
+    window.dispatchEvent(new CustomEvent('shelter:go', { detail: { roomId: 'vault' } }));
     juego.set({ panel: 'vault', panelData: null });
   };
   useKeys(ev => {

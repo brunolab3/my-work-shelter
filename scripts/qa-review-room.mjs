@@ -64,7 +64,7 @@ try {
   check(await until(() => pg.evaluate(() => window.__live.get().reviews.state === 'off')), 'without GitHub the board says it is off');
 
   // ---- the wall screen
-  await pg.evaluate(() => window.dispatchEvent(new CustomEvent('refugio:ir', { detail: { roomId: 'review' } })));
+  await pg.evaluate(() => window.dispatchEvent(new CustomEvent('shelter:go', { detail: { roomId: 'review' } })));
   await pg.evaluate(bd => window.__live.set({ reviews: bd }), board(false));
   const shown = () => pg.evaluate(() => window.__shelter.rooms.find(s => s.id === 'review')?.userData.reviewScreen?.shown());
   check(await until(async () => (await shown())?.[1]?.length === 3), 'the wall screen paints the reviews');

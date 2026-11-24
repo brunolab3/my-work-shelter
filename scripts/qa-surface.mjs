@@ -16,7 +16,7 @@ import { createHash } from 'node:crypto';
 const ROOT = path.resolve(import.meta.dirname, '..');
 const PORT = Number(process.env.SHELTER_PUERTO_QA || 3793);
 const DATA = mkdtempSync(path.join(os.tmpdir(), 'ws-superficie-'));
-const NOTES = path.join(DATA, 'escritorio.jsonl');
+const NOTES = path.join(DATA, 'desktop.jsonl');
 const SOCKET = path.join(os.tmpdir(), `work-shelter-${createHash('sha1').update(path.resolve(DATA)).digest('hex').slice(0, 10)}.sock`);
 const withSession = !process.argv.includes('--sin-sesion');
 const t0 = Date.now(); const log = (...a) => console.log(`+${((Date.now() - t0) / 1000).toFixed(1)}s`, ...a);

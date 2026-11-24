@@ -36,7 +36,7 @@ const still = async () => { let ant = ''; for (let i = 0; i < 60; i++) { const p
 // sin panel ni conversación abiertos (un clic que cae en quien está delante del aparato abre la charla)
 // y las ventanas que abre un aparato (el cliente de git, Spotify), minimizadas con ⌘M hasta que se vea el lienzo
 const close = async () => {
-  await pg.evaluate(() => { if (window.__game.get().talkingWith) window.dispatchEvent(new CustomEvent('refugio:fin-dialogo')); window.__game.set({ panel: null, panelData: null, talkingWith: null }); });
+  await pg.evaluate(() => { if (window.__game.get().talkingWith) window.dispatchEvent(new CustomEvent('shelter:dialog-end')); window.__game.set({ panel: null, panelData: null, talkingWith: null }); });
   for (let i = 0; i < 4; i++) {
     const x = pg.locator('button.consola-x[title^="Cerrar"]'); if (!(await x.count())) break;
     await x.first().click(); await wait(400);
@@ -47,7 +47,7 @@ await pg.evaluate(() => { const r = window.__shelter, use = r.useDevice.bind(r);
 const devices = await pg.evaluate(() => window.__shelter.rooms.filter(s => s.type !== 'repo' && s.type !== 'coordination').flatMap(s => (s.interactive ?? []).filter(i => !i.id.startsWith('vis:')).map(i => ({ room: s.id, id: i.id }))));
 await wait(3000); await still();   // la entrada al refugio
 for (const a of devices) {
-  await pg.evaluate(id => { window.__game.set({ panel: null, panelData: null }); window.dispatchEvent(new CustomEvent('refugio:ir', { detail: { roomId: id } })); }, a.room);
+  await pg.evaluate(id => { window.__game.set({ panel: null, panelData: null }); window.dispatchEvent(new CustomEvent('shelter:go', { detail: { roomId: id } })); }, a.room);
   await wait(500); await still();
   let c = await center(a.room, a.id);
   const ok = await until(async () => { c = await center(a.room, a.id); await pg.mouse.move(c.x, c.y); return (await pg.evaluate(() => { const aim = window.__shelter.aimed; return aim?.type === 'device' ? aim.it.id : null; })) === a.id; }, 10000);
@@ -67,7 +67,7 @@ for (const a of devices) {
 // un habitante: «Clic Hablar»
 const h = await pg.evaluate(() => {
   const r = window.__shelter, x = r.dwellers.find(h => h.p.root.visible); if (!x) return null;
-  window.dispatchEvent(new CustomEvent('refugio:ir', { detail: { roomId: x.room.id } }));
+  window.dispatchEvent(new CustomEvent('shelter:go', { detail: { roomId: x.room.id } }));
   return x.id.name;
 });
 if (h) {

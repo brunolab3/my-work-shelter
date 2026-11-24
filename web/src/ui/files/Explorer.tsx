@@ -47,7 +47,7 @@ let clipboard: { origins: { root: string; rel: string }[]; move: boolean } | nul
 let nModel = 0;
 
 // carpetas desplegadas de cada raíz (se recuerdan entre sesiones)
-const EXPANDED = 'refugio.archivos.expandidos';
+const EXPANDED = 'shelter.files.expanded';
 const expandedOf = (() => {
   let all: Record<string, string[]> = {};
   try { all = JSON.parse(localStorage.getItem(EXPANDED) || '{}'); } catch {}
@@ -58,7 +58,7 @@ const expandedOf = (() => {
 })();
 
 // tras una recarga (aplicar cambios del juego, reiniciar), vuelve como estaba, con lo que no se había guardado
-const REMEMBERED = 'refugio.archivos';
+const REMEMBERED = 'shelter.files';
 interface Memory { open: boolean; minimized: boolean; maximized: boolean; root: string | null; tabs: { root: string; rel: string; previous: boolean; text?: string }[]; active: string | null }
 let currentMemory: () => Memory | null = () => null;
 let recovered: Memory | null = null;

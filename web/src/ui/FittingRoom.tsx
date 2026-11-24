@@ -78,7 +78,7 @@ function FittingRoom({ who, goBack }: { who: string; goBack: () => void }) {
   useEffect(() => { setCur(Math.max(0, setting)); setZone(slot === 'colores' ? 'colores' : 'piezas'); setRow(0); }, [slot, a.especie]);
 
   // el personaje del refugio se viste a la vez (sin guardar)
-  const attempt = (x: Look) => window.dispatchEvent(new CustomEvent('refugio:probar', { detail: { who, look: x } }));
+  const attempt = (x: Look) => window.dispatchEvent(new CustomEvent('shelter:try-on', { detail: { who, look: x } }));
   const change = (n: Look, sound = true) => {
     if (lookSignature(n) === lookSignature(a)) return;
     history.current.push(a); if (history.current.length > 80) history.current.shift();

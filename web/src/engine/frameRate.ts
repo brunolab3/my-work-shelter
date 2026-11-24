@@ -5,7 +5,7 @@
 
 export type FrameRate = 'auto' | '60' | '30';
 export const FRAME_RATES: FrameRate[] = ['auto', '60', '30'];
-const KEY = 'refugio.ritmo';
+const KEY = 'shelter.frameRate';
 
 let current: FrameRate = (() => {
   try { const v = localStorage.getItem(KEY); if (FRAME_RATES.includes(v as FrameRate)) return v as FrameRate; } catch {}

@@ -76,7 +76,7 @@ describe('mensajes programados: almacén y entrega', () => {
     expect(r.ok).toBe(true);
     expect(r.text).toContain('09:00');
     expect(p.list()[0]).toMatchObject({ when: L(16, 9), target: { type: 'conversation', roomId: 'express', claudeId: 'c-111', cwd: '/r/wt/abc-1' } });
-    expect(JSON.parse(readFileSync(path.join(dir, 'mensajes-programados.json'), 'utf8')).items).toHaveLength(1);
+    expect(JSON.parse(readFileSync(path.join(dir, 'scheduled-messages.json'), 'utf8')).items).toHaveLength(1);
 
     await p.sweep();
     expect(x.conversations).toEqual([]);   // aún no toca
@@ -156,7 +156,7 @@ describe('mensajes programados: almacén y entrega', () => {
     expect(() => p.edit(id, { when: '2026-11-01' })).toThrow();
     expect(p.cancel(id)).toBe(true);
     expect(p.list()).toEqual([]);
-    expect(existsSync(path.join(dir, 'mensajes-programados.json'))).toBe(true);
+    expect(existsSync(path.join(dir, 'scheduled-messages.json'))).toBe(true);
   });
 });
 

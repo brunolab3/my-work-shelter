@@ -9,8 +9,8 @@ export type ViewGit = 'changes' | 'history' | 'branches' | 'github' | 'prs';
 export interface WindowGit { open: boolean; minimized: boolean; maximized: boolean; z: number; path: string | null; view: ViewGit; busy: boolean }
 export const windowGit = new Store<WindowGit>({ open: false, minimized: false, maximized: false, z: 0, path: null, view: 'changes', busy: false });
 
-const REMEMBERED = 'refugio.git';
-const LAST = 'refugio.git.ruta';
+const REMEMBERED = 'shelter.git';
+const LAST = 'shelter.git.path';
 export const lastPath = () => { try { return localStorage.getItem(LAST); } catch { return null; } };
 export function choosePath(path: string) { windowGit.set({ path }); try { localStorage.setItem(LAST, path); } catch {} }
 

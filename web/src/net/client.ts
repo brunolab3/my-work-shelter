@@ -53,8 +53,8 @@ export function addNotice(level: string, text: string, question?: NoticeQuestion
 // (window.__SHELTER_TOKEN solo existe si se arranca Vite con SHELTER_TOKEN_EN_PAGINA=1, para QA a sabiendas.)
 function tokenShelter(): string {
   const m = /[#&]t=([0-9a-f]+)/.exec(location.hash);
-  if (m) { try { sessionStorage.setItem('refugio.token', m[1]); } catch {} history.replaceState(null, '', location.pathname + location.search); return m[1]; }
-  try { const t = sessionStorage.getItem('refugio.token'); if (t) return t; } catch {}
+  if (m) { try { sessionStorage.setItem('shelter.token', m[1]); } catch {} history.replaceState(null, '', location.pathname + location.search); return m[1]; }
+  try { const t = sessionStorage.getItem('shelter.token'); if (t) return t; } catch {}
   return (window as any).__SHELTER_TOKEN ?? '';
 }
 
@@ -148,7 +148,7 @@ export const client = new Client();
 // A conversation's log is held by pages (shared/logPages.ts): its latest page is asked for once (and again after each
 // disconnection), older ones when the Overseer scrolls to the top, and back at the bottom only the latest page stays.
 // What arrives through 'entradas' meanwhile is kept after it. Page size: an option, saved in this browser
-const PAGE_KEY = 'refugio.paginaCuaderno';
+const PAGE_KEY = 'shelter.logPage';
 const MAX_HELD = 1500;
 export function logPageSize(): number {
   try { const n = Number(localStorage.getItem(PAGE_KEY)); if (LOG_PAGE_SIZES.includes(n)) return n; } catch {}

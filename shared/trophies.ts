@@ -1,5 +1,5 @@
 // Trophies and the career ladder, derived from the work log's ledger (shared/workLog.ts) on every read, never saved.
-// The ladder file (the Overseer's DATOS/escalera.json, else docs/ladder.example.json; read by server/workLog.ts)
+// The ladder file (the Overseer's DATOS/ladder.json, else docs/ladder.example.json; read by server/workLog.ts)
 // defines the awards (medal kinds, `kind: awards`), the measured trophies (a built-in kind with a threshold and
 // filters) and the steps. Each requirement is a vertical's trophy: it counts awards (accepted medals of the awards it
 // lists or that name it, and the trophies it lists once earned, another requirement's included) and reaches the

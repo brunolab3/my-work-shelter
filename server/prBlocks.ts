@@ -14,7 +14,7 @@ export class BlockersPR {
   private list: BlockerManual[] = [];
   private file: string;
   constructor(dir: string) {
-    this.file = path.join(dir, 'bloqueos-pr.json');
+    this.file = path.join(dir, 'pr-blocks.json');
     try { if (existsSync(this.file)) this.list = (JSON.parse(readFileSync(this.file, 'utf8')) as BlockerManual[]).filter(b => isPR(b?.from) && isPR(b?.by)); } catch { this.list = []; }
   }
   private save() { const tmp = this.file + '.tmp'; writeFileSync(tmp, JSON.stringify(this.list), { mode: 0o600 }); renameSync(tmp, this.file); }

@@ -63,7 +63,7 @@ export class ReviewRoom {
   private read = false;                      // GitHub answered at least once
   private file: string;
   constructor(dir: string, private ctx: CtxReviewRoom) {
-    this.file = path.join(dir, 'revisiones.json');
+    this.file = path.join(dir, 'reviews.json');
     try {
       if (existsSync(this.file)) {
         const j = JSON.parse(readFileSync(this.file, 'utf8'));

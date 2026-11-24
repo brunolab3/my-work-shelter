@@ -33,7 +33,7 @@ class Sound {
 
   constructor() {
     let a = SETTINGS_DEF;
-    try { a = { ...SETTINGS_DEF, ...JSON.parse(localStorage.getItem('refugio.audio') || '{}') }; } catch {}
+    try { a = { ...SETTINGS_DEF, ...JSON.parse(localStorage.getItem('shelter.audio') || '{}') }; } catch {}
     this.settings = a;
     const start = () => { this.start(); removeEventListener('pointerdown', start); removeEventListener('keydown', start); };
     if (typeof addEventListener === 'function') { addEventListener('pointerdown', start); addEventListener('keydown', start); }   // (en las pruebas no hay ventana)
@@ -65,7 +65,7 @@ class Sound {
 
   save(a: Partial<SettingsAudio>) {
     Object.assign(this.settings, a);
-    try { localStorage.setItem('refugio.audio', JSON.stringify(this.settings)); } catch {}
+    try { localStorage.setItem('shelter.audio', JSON.stringify(this.settings)); } catch {}
     this.applySettings();
   }
   applySettings() {

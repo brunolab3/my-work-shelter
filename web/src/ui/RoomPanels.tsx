@@ -359,7 +359,7 @@ function RoomMenu({ roomId, room, onLink, onDistribute, onDeploy, onOrganize }: 
     ...(room.type === 'coordination' ? [{ text: t('panels.deploymentPlanYourPullRequests'), hint: t('panels.theOrderInWhichThey'), f: onDeploy }] : []),
     ...(room.type === 'repo' && repo?.isGit && dwellers[0] ? [{ text: <>{t('panels.organizeByTasksAWorktree')} <b>{dwellers[0].name}</b> {t('panels.perTask')}</>, hint: t('panels.withUnmergedPrs'), f: onOrganize }] : []),
     ...(repo?.isGit ? [{ text: t('panels.openInTheGitClient'), hint: repo.changes ? t('panels.nChangesG', { n: repo.changes }) : 'G', f: () => { closePanel(); openGit({ path: repo.path, view: 'changes' }); } }] : []),
-    { text: t('panels.openTheRoomSTerminal'), hint: 'T', f: () => { closePanel(); window.dispatchEvent(new CustomEvent('refugio:terminal', { detail: { roomId } })); } },
+    { text: t('panels.openTheRoomSTerminal'), hint: 'T', f: () => { closePanel(); window.dispatchEvent(new CustomEvent('shelter:terminal', { detail: { roomId } })); } },
     { text: t('panels.openInFinder'), f: () => open('finder') },
     { text: t('panels.openInTheEditor'), f: () => open('editor') },
     { text: t('panels.openInTerminalApp'), f: () => open('terminal') },

@@ -14,7 +14,7 @@ export function pollWhileOpen(read: () => Promise<unknown>, everyMs: number) {
   };
 }
 
-const KEY = 'refugio.memoryThreshold';
+const KEY = 'shelter.memoryThreshold';
 let threshold = (() => {
   try { const v = Number(localStorage.getItem(KEY)); if (MEMORY_THRESHOLDS.includes(v)) return v; } catch {}
   return DEFAULT_MEMORY_THRESHOLD;

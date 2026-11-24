@@ -56,7 +56,7 @@ import { syncIntercoms, dropLeft, savedIntercoms, restoredIntercoms, readyAttach
 export { withText, type WindowCom };
 export const intercoms = new Store<{ list: WindowCom[] }>({ list: [] });
 
-const PREFERENCES = 'refugio.trabajo';
+const PREFERENCES = 'shelter.work';
 function prefs() { try { return JSON.parse(localStorage.getItem(PREFERENCES) || '{}'); } catch { return {}; } }
 
 // ---------------------------------------------------------------- ventanas y pestañas
@@ -73,7 +73,7 @@ const created = (id: string) => Number(id.slice(1));
 // cerrando la pestaña tras confirmarlo, si hay algo escrito).
 // Tabs with nothing in them and no conversation are not kept: they go once he leaves them (dropLeft), and a reload
 // doesn't bring them back.
-const SAVED = 'refugio.intercoms';
+const SAVED = 'shelter.intercoms';
 /** Writes the intercoms to the page's storage now (also before the memory watchdog reloads: memoryReload.ts) */
 export function saveIntercoms() {
   try { localStorage.setItem(SAVED, JSON.stringify(savedIntercoms(intercoms.get().list))); } catch {}
@@ -181,7 +181,7 @@ const removeAttachment = (hid: string, pid: string) => (id: string) => { changeA
 // volver al refugio sin cerrar nada: la ventana queda en la barra
 export function minimizeIntercom() {
   if (!juego.get().talkingWith) return;
-  SFX.close(); juego.set({ talkingWith: null, workIn: null }); window.dispatchEvent(new CustomEvent('refugio:fin-dialogo'));
+  SFX.close(); juego.set({ talkingWith: null, workIn: null }); window.dispatchEvent(new CustomEvent('shelter:dialog-end'));
 }
 // Esc arriba del todo: con trabajos (o algo escrito), minimizar; sin ellos no queda nada que guardar y se cierra
 function exit(hid: string) {
@@ -192,7 +192,7 @@ function exit(hid: string) {
 // desde la barra: se vuelve con el habitante (viaje rápido) y la ventana aparece como estaba
 export function restoreIntercom(hid: string) {
   const h = interlocutor(hid); if (!h) return;
-  window.dispatchEvent(new CustomEvent('refugio:ir', { detail: { roomId: h.room, dwellerId: hid, talk: true } }));
+  window.dispatchEvent(new CustomEvent('shelter:go', { detail: { roomId: h.room, dwellerId: hid, talk: true } }));
 }
 // Desde el buscador (⌘K): una conversación abierta, en su pestaña y con su habitante a la vista
 export function openConversation(sessionId: string) {
@@ -659,7 +659,7 @@ function Menu({ h, go, exit }: { h: DwellerSummary; go: (v: View) => void; exit:
   // trabajo y terminal van en la carpeta de trabajo de su sala (las especiales tienen una propia); los de una copia, en su worktree
   const folder = h.folder ?? h.path, copy = h.copy;
   const terminal = async () => {
-    if (!copy) { window.dispatchEvent(new CustomEvent('refugio:terminal', { detail: { roomId: h.room } })); return; }
+    if (!copy) { window.dispatchEvent(new CustomEvent('shelter:terminal', { detail: { roomId: h.room } })); return; }
     const { openTerminalIn } = await import('./Terminals');
     openTerminalIn('wt:' + copy.path, h.room, `${h.nameRoom} · ${copy.branch}`, copy.path);
   };
@@ -1074,7 +1074,7 @@ function Session({ h, s, p, exit, onClose }: { h: DwellerSummary; s: SessionSumm
     if (paths.length && (!t || !t.startsWith('/'))) { client.send({ t: 'send', sessionId: s.id, text: t, attachments: paths }); setTab(h.id, p.id, { attachments: undefined }); }
     else if (t === '/stop' || t === '/parar') client.send({ t: 'interrupt', sessionId: s.id });
     else if (t.startsWith('/btw ')) client.send({ t: 'sideQuestion', sessionId: s.id, question: t.slice(5) });
-    else if (t === '/cuaderno') window.dispatchEvent(new CustomEvent('refugio:cuaderno', { detail: { sessionId: s.id } }));
+    else if (t === '/cuaderno') window.dispatchEvent(new CustomEvent('shelter:log', { detail: { sessionId: s.id } }));
     else if (t === '/cerrar') { setText(''); onClose(); return; }
     else client.send({ t: 'send', sessionId: s.id, text: t });
     setText(''); pinned.current = true; SFX.shortSuccess();
@@ -1557,7 +1557,7 @@ function Pending({ s, p, tab, hid, exit }: { s: SessionSummary; p: PendingReques
 
 // una página que se abre al lado (Browsers.tsx): si el intercomunicador a la vista está ampliado, vuelve a la derecha
 // para que se vean los dos
-if (typeof window !== 'undefined') addEventListener('refugio:pagina-al-lado', () => {
+if (typeof window !== 'undefined') addEventListener('shelter:page-beside', () => {
   const hid = juego.get().talkingWith, v = hid ? win(hid) : undefined;
   if (v?.maximized) update(hid!, { maximized: false });
 });

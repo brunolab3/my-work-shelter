@@ -29,7 +29,7 @@ await wait(2500);
 // la sala: matriz, holograma y la Octocat
 await pg.evaluate(async () => { await window.__client.action('save', { patch: { doneWelcome: true } }); window.__game.set({ panel: null, panelData: null }); });
 await wait(500);
-await pg.evaluate(() => window.dispatchEvent(new CustomEvent('refugio:ir', { detail: { roomId: 'git' } })));
+await pg.evaluate(() => window.dispatchEvent(new CustomEvent('shelter:go', { detail: { roomId: 'git' } })));
 await pg.waitForFunction(() => window.__shelter.currentRoom?.id === 'git', null, { timeout: 60000 }).catch(() => {});
 await wait(4000);
 await photo('1-sala');

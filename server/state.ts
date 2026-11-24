@@ -1,8 +1,8 @@
-// Estado persistente del refugio (en local, en .data/refugio.json): salas, habitantes, disposición, ajustes,
+// Estado persistente del refugio (en local, en .data/shelter.json): salas, habitantes, disposición, ajustes,
 // progreso del jugador, récords, notificaciones vistas. Las credenciales NO van aquí (llavero de macOS).
-import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { migrateKeys, MIGRATION_STEP } from '../shared/migrateKeys.ts';
-import { LEGACY_KEYS } from '../shared/legacyKeys.ts';
+import { LEGACY_KEYS, LEGACY_DATA_FILES } from '../shared/legacyKeys.ts';
 import path from 'node:path';
 import os from 'node:os';
 import { INITIAL_ROOMS, INITIAL_DWELLERS } from '../shared/initialShelter.ts';
@@ -17,7 +17,7 @@ import { areaByType, isArea, type RepoArea } from '../shared/sectors.ts';
 import { isLanguage, type Language } from '../shared/language.ts';
 
 export const DATA = path.resolve(process.env.SHELTER_DATOS || path.join(import.meta.dirname, '..', '.data'));
-/** The .json files of the data folder, subfolders included (compares/, control-remoto/), relative to it; not bin/ */
+/** The .json files of the data folder, subfolders included (compares/, remote-control/ and, before its rename, control-remoto/), relative to it; not bin/ */
 export function jsonFiles(dir: string, sub = ''): string[] {
   return readdirSync(path.join(dir, sub), { withFileTypes: true }).flatMap(e => e.isDirectory() ? (sub === '' && e.name === 'bin' ? [] : jsonFiles(dir, path.join(sub, e.name))) : e.name.endsWith('.json') ? [path.join(sub, e.name)] : []);
 }
@@ -26,19 +26,26 @@ export function jsonFiles(dir: string, sub = ''): string[] {
 // La comprobación de «Reiniciar el juego» (SHELTER_COMPROBAR) carga este módulo con el servidor viejo aún en marcha: si
 // migrara aquí, el viejo guardaría después su estado con las claves de antes encima
 try { if (!process.env.SHELTER_COMPROBAR) migrateDataFolder(DATA); } catch (e) { console.error('Migración de claves:', e); }
-/** Brings the data folder's saved files up to the last key-migration step (`.claves-en-paso` holds the last one done;
- *  `.claves-en` without a number is the first), leaving a `.antes-de-ingles-N` copy of each file */
+/** Brings the data folder's saved files up to the last key-migration step (`.keys-step` holds the last one done; before
+ *  it, `.claves-en-paso`, and `.claves-en` without a number is the first), leaving a `.before-english-N` copy of each
+ *  file; then gives the files and folders their English names (LEGACY_DATA_FILES) */
 export function migrateDataFolder(dir: string) {
   if (!existsSync(dir)) return;
-  const mark = path.join(dir, '.claves-en'), mark2 = path.join(dir, '.claves-en-paso');
-  const done = existsSync(mark2) ? Number(readFileSync(mark2, 'utf8')) || 1 : existsSync(mark) ? 1 : 0;
+  const mark = path.join(dir, '.keys-step'), mark2 = path.join(dir, '.claves-en-paso'), mark1 = path.join(dir, '.claves-en');
+  const done = existsSync(mark) ? Number(readFileSync(mark, 'utf8')) || 1 : existsSync(mark2) ? Number(readFileSync(mark2, 'utf8')) || 1 : existsSync(mark1) ? 1 : 0;
   if (done === 1) repairMixedState(dir);
-  if (done >= MIGRATION_STEP) return;
-  for (const n of jsonFiles(dir)) {
-    const f = path.join(dir, n);
-    try { const old = readFileSync(f, 'utf8'); writeFileSync(`${f}.antes-de-ingles-${done + 1}`, old, { mode: 0o600 }); writeFileSync(f, JSON.stringify(migrateKeys(JSON.parse(old), done), null, 2), { mode: 0o600 }); } catch (e) { console.error('No se pudo migrar ' + n + ':', e); }
+  if (done < MIGRATION_STEP) {
+    for (const n of jsonFiles(dir)) {
+      const f = path.join(dir, n);
+      try { const old = readFileSync(f, 'utf8'); writeFileSync(`${f}.before-english-${done + 1}`, old, { mode: 0o600 }); writeFileSync(f, JSON.stringify(migrateKeys(JSON.parse(old), done), null, 2), { mode: 0o600 }); } catch (e) { console.error('Could not migrate ' + n + ':', e); }
+    }
   }
-  writeFileSync(mark2, String(MIGRATION_STEP));
+  if (done < MIGRATION_STEP || existsSync(mark2) || existsSync(mark1)) { writeFileSync(mark, String(MIGRATION_STEP)); rmSync(mark2, { force: true }); rmSync(mark1, { force: true }); }
+  // a file is renamed only while its new name is free: never over what a newer server already saved
+  for (const [old, now] of Object.entries(LEGACY_DATA_FILES)) {
+    const a = path.join(dir, old), b = path.join(dir, now);
+    if (existsSync(a) && !existsSync(b)) try { renameSync(a, b); } catch (e) { console.error(`Could not rename ${old}:`, e); }
+  }
 }
 // una sala de repo vinculada a otra carpeta conservaba el id de la de antes, y los
 // habitantes ven ese id al mandarse mensajes: al arrancar toma el de su carpeta (no en la comprobación del reinicio, por lo
@@ -62,7 +69,7 @@ export function relinkedIds(rooms: { id: string; type: string; path?: string }[]
 }
 // el refugio, los planes repartidos y la limpieza de tareas guardan ids de sala: los tres se ponen al día juntos
 export function renameRoomIds(dir: string) {
-  const f = path.join(dir, 'refugio.json');
+  const f = path.join(dir, 'shelter.json');
   if (!existsSync(f)) return;
   const e = JSON.parse(readFileSync(f, 'utf8'));
   const hidden: any[] = Array.isArray(e.hidden) ? e.hidden : [];
@@ -73,7 +80,7 @@ export function renameRoomIds(dir: string) {
   for (const s of e.rooms ?? []) s.id = n(s.id);
   for (const h of e.dwellers ?? []) h.roomId = n(h.roomId);
   for (const o of hidden) { if (o?.room) o.room.id = n(o.room.id); for (const h of o?.dwellers ?? []) h.roomId = n(h.roomId); }
-  const fp = path.join(dir, 'planes.json'), fl = path.join(dir, 'limpieza-tareas.json');
+  const fp = path.join(dir, 'plans.json'), fl = path.join(dir, 'task-cleanup.json');
   if (existsSync(fp)) {
     const plans = JSON.parse(readFileSync(fp, 'utf8'));
     for (const p of Array.isArray(plans) ? plans : []) { p.coordination = n(p.coordination); for (const x of p.parts ?? []) { x.roomId = n(x.roomId); if (Array.isArray(x.waitA)) x.waitA = x.waitA.map(n); } }
@@ -94,7 +101,7 @@ export function renameRoomIds(dir: string) {
 // a sus valores por defecto). Se rehace una vez: cada par viejo/nuevo se junta (listas unidas, contadores al máximo,
 // objetos combinados; si no, el nuevo) y lo que falta, la paleta y el decorado de cada sala salen de la copia de antes
 function repairMixedState(dir: string) {
-  const f = path.join(dir, 'refugio.json'), copy = f + '.antes-de-ingles';
+  const f = path.join(dir, 'refugio.json'), copy = f + '.antes-de-ingles';   // before the file renames
   if (!existsSync(f) || !existsSync(copy)) return;
   const cur = JSON.parse(readFileSync(f, 'utf8'));
   const hasLegacy = (x: any): boolean => Array.isArray(x) ? x.some(hasLegacy) : !!x && typeof x === 'object' && Object.entries(x).some(([k, v]) => Object.hasOwn(LEGACY_KEYS, k) || hasLegacy(v));
@@ -228,7 +235,7 @@ export function ensureFolders(e: ShelterState) {
 
 export class Store {
   state: ShelterState;
-  private file = path.join(DATA, 'refugio.json');
+  private file = path.join(DATA, 'shelter.json');
   private pending: NodeJS.Timeout | null = null;
   constructor() {
     // los datos del refugio (estado, token, adjuntos, transcripciones…), solo para tu usuario; también si ya existían

@@ -1,4 +1,4 @@
-// A failed tool's full output, kept on disk (DATA/salidas/<session>/<entry>.txt) instead of in the log: the entry carries
+// A failed tool's full output, kept on disk (DATA/outputs/<session>/<entry>.txt) instead of in the log: the entry carries
 // only its size and first line (`LogInput.output`), and the intercom reads the whole text when the Overseer opens it or
 // copies it (action `salida.leer`). A session's outputs go when it leaves; all of them on start (sessions don't survive
 // a restart, and a resumed transcript has no outputs).

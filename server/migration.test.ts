@@ -47,10 +47,11 @@ describe('saved data from step 2 (before the third pass to English identifiers)'
     const dir = step2Folder();
     migrateDataFolder(dir);
     const read = (n: string) => JSON.parse(readFileSync(path.join(dir, n), 'utf8'));
-    expect(readFileSync(path.join(dir, '.claves-en-paso'), 'utf8')).toBe(String(MIGRATION_STEP));
-    expect(existsSync(path.join(dir, 'compares/abc.json.antes-de-ingles-3'))).toBe(true);
+    expect(readFileSync(path.join(dir, '.keys-step'), 'utf8')).toBe(String(MIGRATION_STEP));
+    expect(['.claves-en', '.claves-en-paso', 'refugio.json', 'control-remoto'].filter(n => existsSync(path.join(dir, n)))).toEqual([]);
+    expect(existsSync(path.join(dir, 'compares/abc.json.before-english-3'))).toBe(true);
 
-    const raw = read('refugio.json');
+    const raw = read('shelter.json');
     expect(raw.jugador).toEqual(jugador);
     expect(raw.integrations.jira).toEqual({ mode: 'real', secrets: ['token'], fields: { sitio: 'acme.atlassian.net', correo: 'ana@acme.example' } });
     expect(raw.integrations.calendario.options).toEqual({ calendarios: 'Trabajo' });
@@ -71,15 +72,15 @@ describe('saved data from step 2 (before the third pass to English identifiers)'
     expect(s.dwellers.find(h => h.id === 'ana')).toMatchObject({ name: 'Ana', nickname: 'A', roomId: 'tienda', voice: 1 });
     expect(raw.dwellers[0].look).toEqual({ especie: 'human', pieces: { cabeza: 'cabeza1', gafas: 'gafas2' }, colors: { pelo: '#111111', cabeza1: '#222222' } });
 
-    expect(read('planes.json')[0]).toMatchObject({ key: 'ABC-1', title: 'x', text: 'plan', coordination: 'tienda', parts: [{ roomId: 'tienda', room: 'tienda', title: 'y', sessionId: 's1' }], history: [{ version: 1, date: 1, changes: 'z' }] });
-    expect(read('abiertas.json')[0]).toEqual({ claudeId: 'c1', cwd: '/r/tienda', title: 't', dweller: 'Ana', state: 'idle', permissions: 'default' });
-    expect(read('limpieza-tareas.json')).toEqual({ notified: ['tienda|ABC-1|/r/tienda/wt|cambios1'], approved: [] });
+    expect(read('plans.json')[0]).toMatchObject({ key: 'ABC-1', title: 'x', text: 'plan', coordination: 'tienda', parts: [{ roomId: 'tienda', room: 'tienda', title: 'y', sessionId: 's1' }], history: [{ version: 1, date: 1, changes: 'z' }] });
+    expect(read('open-sessions.json')[0]).toEqual({ claudeId: 'c1', cwd: '/r/tienda', title: 't', dweller: 'Ana', state: 'idle', permissions: 'default' });
+    expect(read('task-cleanup.json')).toEqual({ notified: ['tienda|ABC-1|/r/tienda/wt|cambios1'], approved: [] });
     expect(read('compares/abc.json')).toEqual({ ts: 1, parts: [{ worktree: '/r/tienda/wt', branch: 'feature/abc', head: 'h', base: 'b' }] });
-    expect(read('control-remoto/tienda.json')).toEqual({ pid: 1, cwd: '/r/tienda', name: 'tienda', since: 5 });
+    expect(read('remote-control/tienda.json')).toEqual({ pid: 1, cwd: '/r/tienda', name: 'tienda', since: 5 });
 
-    const after = readFileSync(path.join(dir, 'refugio.json'), 'utf8');
+    const after = readFileSync(path.join(dir, 'shelter.json'), 'utf8');
     migrateDataFolder(dir);
-    expect(readFileSync(path.join(dir, 'refugio.json'), 'utf8')).toBe(after);
+    expect(readFileSync(path.join(dir, 'shelter.json'), 'utf8')).toBe(after);
   });
 
   it('the browser storage takes the same step', () => {
@@ -89,6 +90,21 @@ describe('saved data from step 2 (before the third pass to English identifiers)'
   it('never renames a key that is data: room, dweller and source ids', () => {
     const ids = [...INITIAL_ROOMS.map(r => r.id), ...INITIAL_DWELLERS.map(h => h.id), ...SOURCES];
     expect(ids.filter(id => Object.hasOwn(LEGACY_KEYS_3, id))).toEqual([]);
+  });
+});
+
+describe('data file names', () => {
+  it('Spanish names move to the English ones, never over a file a newer server already saved', () => {
+    const dir = mkdtempSync(path.join(os.tmpdir(), 'shelter-files-'));
+    writeFileSync(path.join(dir, '.keys-step'), String(MIGRATION_STEP));
+    writeFileSync(path.join(dir, 'planes.json'), '[1]'); writeFileSync(path.join(dir, 'bitacora.json'), '{"old":1}'); writeFileSync(path.join(dir, 'work-log.json'), '{"new":1}');
+    mkdirSync(path.join(dir, 'salidas/s1'), { recursive: true }); writeFileSync(path.join(dir, 'salidas/s1/a.txt'), 'out');
+    migrateDataFolder(dir);
+    expect(readFileSync(path.join(dir, 'plans.json'), 'utf8')).toBe('[1]');
+    expect(readFileSync(path.join(dir, 'work-log.json'), 'utf8')).toBe('{"new":1}');
+    expect(existsSync(path.join(dir, 'bitacora.json'))).toBe(true);
+    expect(readFileSync(path.join(dir, 'outputs/s1/a.txt'), 'utf8')).toBe('out');
+    expect(existsSync(path.join(dir, 'planes.json')) || existsSync(path.join(dir, 'salidas'))).toBe(false);
   });
 });
 
@@ -113,7 +129,7 @@ describe('saved data from step 3 (before the English string values)', () => {
     migrateDataFolder(dir);
     const read = (n: string) => JSON.parse(readFileSync(path.join(dir, n), 'utf8'));
 
-    const raw = read('refugio.json');
+    const raw = read('shelter.json');
     expect(raw.rooms.map((r: any) => [r.id, r.type, r.side, r.variant])).toEqual([['bridge', 'bridge', 'right', 'bridge'], ['tareas', 'coordination', 'left', 'logistics'], ['nada', 'repo', 'left', 'workshop']]);
     expect(raw.rooms[0].style).toBe('generic');
     expect(raw.rooms[0].decor).toEqual({ version: 1, base: 'empty', palette: 'vault', workstation: { screen: 'dual' }, signs: [{ x: 0, y: 2, width: 1, title: 'NADA', symbol: 'eye' }] });
@@ -121,16 +137,16 @@ describe('saved data from step 3 (before the English string values)', () => {
     expect(raw.dwellers.map((h: any) => h.roomId)).toEqual(['bridge', 'nada']);
     expect(raw.dwellers[0].look).toEqual({ especie: 'human', pieces: { pelo: 'pelo.Engineer' }, colors: { piel: '#c08060' } });
     expect(raw.jugador).toEqual(jugador);
-    expect(read('abiertas.json').map((x: any) => x.state)).toEqual(['working', 'waiting']);
-    expect(read('bitacora.json')).toEqual({ conversations: { c1: { roomId: 'vault' } }, prs: { u: { state: 'merged' } } });
-    expect(read('escalera.json').digestRoom).toBe('logistics');
-    expect(read('planes.json')[0]).toMatchObject({ coordination: 'tareas', parts: [{ roomId: 'comms', room: 'comms' }] });
-    expect(read('mensajes-programados.json').items[0]).toEqual({ target: { type: 'conversation', roomId: 'gate' }, origin: { roomId: 'nada' } });
+    expect(read('open-sessions.json').map((x: any) => x.state)).toEqual(['working', 'waiting']);
+    expect(read('work-log.json')).toEqual({ conversations: { c1: { roomId: 'vault' } }, prs: { u: { state: 'merged' } } });
+    expect(read('ladder.json').digestRoom).toBe('logistics');
+    expect(read('plans.json')[0]).toMatchObject({ coordination: 'tareas', parts: [{ roomId: 'comms', room: 'comms' }] });
+    expect(read('scheduled-messages.json').items[0]).toEqual({ target: { type: 'conversation', roomId: 'gate' }, origin: { roomId: 'nada' } });
     expect(read('preflight.json').checklist.a.b.c.state).toBe('pending');
-    expect(existsSync(path.join(dir, 'refugio.json.antes-de-ingles-4'))).toBe(true);
+    expect(existsSync(path.join(dir, 'refugio.json.before-english-4'))).toBe(true);
 
-    const after = readFileSync(path.join(dir, 'refugio.json'), 'utf8');
+    const after = readFileSync(path.join(dir, 'shelter.json'), 'utf8');
     migrateDataFolder(dir);
-    expect(readFileSync(path.join(dir, 'refugio.json'), 'utf8')).toBe(after);
+    expect(readFileSync(path.join(dir, 'shelter.json'), 'utf8')).toBe(after);
   });
 });

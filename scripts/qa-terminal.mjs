@@ -31,7 +31,7 @@ const until = async (f, ms = 20000) => { const t = Date.now(); while (Date.now()
 let failures = 0;
 const check = (ok, text) => { console.log((ok ? 'OK   ' : 'FALLO ') + text); if (!ok) failures++; };
 
-await pg.evaluate(() => window.dispatchEvent(new CustomEvent('refugio:terminal', { detail: { roomId: 'bridge' } })));
+await pg.evaluate(() => window.dispatchEvent(new CustomEvent('shelter:terminal', { detail: { roomId: 'bridge' } })));
 await pg.waitForSelector('.ventana-terminal .xterm-rows');
 await until(p => /[%$#❯>]\s*$/m.test(p), 8000);
 await pg.click('.ventana-terminal .vt-cuerpo');

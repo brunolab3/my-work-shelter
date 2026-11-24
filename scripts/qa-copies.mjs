@@ -26,7 +26,7 @@ const session = (id, extra) => pg.evaluate(([id, extra]) => {
 }, [id, extra]);
 
 // en una sala con repo y con alguien dentro
-await pg.evaluate(() => { const r = window.__shelter; const s = r.rooms.find(x => x.path && r.dwellers.some(h => h.room === x)); window.dispatchEvent(new CustomEvent('refugio:ir', { detail: { roomId: s.id } })); });
+await pg.evaluate(() => { const r = window.__shelter; const s = r.rooms.find(x => x.path && r.dwellers.some(h => h.room === x)); window.dispatchEvent(new CustomEvent('shelter:go', { detail: { roomId: s.id } })); });
 await steps(5);
 // en los primeros segundos tras cargar, las copias aparecen ya en su sitio: se espera
 await new Promise(r => setTimeout(r, 9000));
@@ -72,7 +72,7 @@ await pg.evaluate(author => { window.__shelter.dwellers.find(x => x.id.id === au
 console.log('3) un trabajo del habitante que se muda a un worktree: la conversación sigue con la copia');
 await session('qa_b', { cwd: path, state: 'working' });
 await steps(2);
-await pg.evaluate(author => window.dispatchEvent(new CustomEvent('refugio:ir', { detail: { roomId: window.__shelter.currentRoom.id, dwellerId: author, talk: true } })), author);
+await pg.evaluate(author => window.dispatchEvent(new CustomEvent('shelter:go', { detail: { roomId: window.__shelter.currentRoom.id, dwellerId: author, talk: true } })), author);
 await steps(10);
 check(await pg.evaluate(author => window.__game.get().talkingWith === author, author), 'hablando con el autor');
 await session('qa_b', { cwd: 'WT:shelter-qa-b' });

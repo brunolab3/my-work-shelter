@@ -8,7 +8,7 @@ import { nextZ } from '../windows';
 export interface FilesWindow { isOpen: boolean; minimized: boolean; maximized: boolean; z: number; root: string | null; open: { rel: string; line?: number } | null }
 export const filesWindow = new Store<FilesWindow>({ isOpen: false, minimized: false, maximized: false, z: 0, root: null, open: null });
 
-const LAST = 'refugio.archivos.raiz';
+const LAST = 'shelter.files.root';
 export const lastRoot = () => { try { return localStorage.getItem(LAST); } catch { return null; } };
 export function chooseRoot(root: string) { filesWindow.set({ root }); try { localStorage.setItem(LAST, root); } catch {} }
 

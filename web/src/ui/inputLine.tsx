@@ -85,7 +85,7 @@ export const DICTATION_LANGUAGES = [
   { value: 'en-GB', text: 'English (UK)' }, { value: 'fr-FR', text: 'Français' }, { value: 'de-DE', text: 'Deutsch' },
   { value: 'it-IT', text: 'Italiano' }, { value: 'pt-PT', text: 'Português (Portugal)' }, { value: 'pt-BR', text: 'Português (Brasil)' },
 ];
-const LANGUAGE_KEY = 'refugio.dictado.idioma';
+const LANGUAGE_KEY = 'shelter.dictation.language';
 export function dictationLanguage() { try { const v = localStorage.getItem(LANGUAGE_KEY); if (v && DICTATION_LANGUAGES.some(x => x.value === v)) return v; } catch {} return 'es-ES'; }
 export function setLanguageDictation(v: string) { try { localStorage.setItem(LANGUAGE_KEY, v); } catch {} }
 

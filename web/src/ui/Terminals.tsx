@@ -141,7 +141,7 @@ export function openTerminalIn(id: string, roomId: string, title: string, cwd: s
 
 // tras una recarga o un reinicio, cada ventana vuelve donde estaba, con sus pestañas y como estaba
 interface Remembered { roomId: string; title: string; cwd: string; tabs: string[]; active: string; minimized: boolean; maximized: boolean; x: number; y: number; w: number; h: number }
-const REMEMBERED = 'refugio.terminales';
+const REMEMBERED = 'shelter.terminals';
 const remembered: Record<string, Remembered> = (() => {
   try { const l = JSON.parse(sessionStorage.getItem(REMEMBERED) || '[]'); sessionStorage.removeItem(REMEMBERED); return Object.fromEntries(l.filter((v: any) => Array.isArray(v.tabs)).map((v: any) => [v.id, v])); } catch { return {}; }
 })();
@@ -201,7 +201,7 @@ client.listen(m => {
 });
 const pending = new Map<string, string>();
 const repaint = new Map<string, (data: string) => void>();
-window.addEventListener('refugio:terminal', (e: any) => openTerminal(e.detail.roomId));
+window.addEventListener('shelter:terminal', (e: any) => openTerminal(e.detail.roomId));
 
 // ---------------------------------------------------------------- interfaz
 export function Terminals() {

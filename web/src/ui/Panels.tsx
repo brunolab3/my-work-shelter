@@ -33,7 +33,7 @@ export const openPanel = (panel: Panel, panelData: any = null) => { juego.set({ 
 // lo que se abre desde el menú de Esc vuelve a él al salir (Esc o ×); abierto con su tecla, se cierra sin más
 const fromMenu = () => juego.get().panelData?.since === 'menu';
 const goBack = () => { if (fromMenu()) { SFX.close(); openPanel('menu'); } else closePanel(); };
-export const goA = (roomId: string, dwellerId?: string, talk = false) => window.dispatchEvent(new CustomEvent('refugio:ir', { detail: { roomId, dwellerId, talk } }));
+export const goA = (roomId: string, dwellerId?: string, talk = false) => window.dispatchEvent(new CustomEvent('shelter:go', { detail: { roomId, dwellerId, talk } }));
 
 const URGENCY: Record<string, number> = { waiting: 0, error: 1, finished: 2, working: 3, thinking: 3 };
 /** El cliente de git: en una sala de repo, con su repo; en las demás, con el último que usaste */

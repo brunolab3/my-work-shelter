@@ -9,7 +9,7 @@ import type { WindowCom } from './intercomSync';
 /** Limits offered in Options, in MB (0: never offer the reload) */
 export const MEMORY_LIMITS = [0, 1024, 1536, 2048, 3072, 4096];
 const DEFAULT_LIMIT = 2048;
-const KEY = 'refugio.memoryLimit';
+const KEY = 'shelter.memoryLimit';
 
 let current = (() => {
   try { const v = localStorage.getItem(KEY); if (v !== null && MEMORY_LIMITS.includes(Number(v))) return Number(v); } catch {}

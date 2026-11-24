@@ -22,7 +22,7 @@ export class Plans {
   private plans: Plan[] = [];
   private file: string;
   constructor(dir: string) {
-    this.file = path.join(dir, 'planes.json');
+    this.file = path.join(dir, 'plans.json');
     try { if (existsSync(this.file)) this.plans = (JSON.parse(readFileSync(this.file, 'utf8')) as Plan[]).filter(p => p && typeof p.id === 'string' && typeof p.text === 'string'); } catch { this.plans = []; }
   }
   save() { const tmp = this.file + '.tmp'; writeFileSync(tmp, JSON.stringify(this.plans, null, 1), { mode: 0o600 }); renameSync(tmp, this.file); }
