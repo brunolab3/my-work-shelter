@@ -79,7 +79,7 @@ export function profileOf(s: Room): string {
   const saved = (live.get().state?.rooms ?? []).find((x: any) => x.id === s.id);
   // la escena que tiene montada: la de su decorado (la sala vacía suena a banco de pruebas) o la de serie
   const base: string = saved?.decor?.base ?? baseStock({ type: s.type, style: saved?.style }, live.get().repos[s.id]);
-  return ({ showcase: 'landing', projection: 'video', tallerWeb: 'web', taller: 'bench', empty: 'bench' } as Record<string, string>)[base] ?? base;
+  return ({ showcase: 'landing', projection: 'video', webWorkshop: 'web', workshop: 'bench', empty: 'bench' } as Record<string, string>)[base] ?? base;
 }
 
 function ambientWeights(): Map<string, Listen> {

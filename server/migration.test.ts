@@ -60,7 +60,7 @@ describe('saved data from step 2 (before the third pass to English identifiers)'
     const s = sanitize(raw);
     expect(s.name).toBe('Refugio QA');
     expect(s.reposRoot).toBe('/r');
-    expect(s.rooms.find(r => r.id === 'tienda')).toMatchObject({ type: 'repo', name: 'tienda', path: '/r/tienda', side: 'left', variant: 'taller' });
+    expect(s.rooms.find(r => r.id === 'tienda')).toMatchObject({ type: 'repo', name: 'tienda', path: '/r/tienda', side: 'left', variant: 'workshop' });
     const decor = s.rooms.find(r => r.id === 'tienda')!.decor!;
     expect(decor).toMatchObject({ summary: 'una tienda', subtitle: 'TIENDA', accent: '#ff0000', workstation: { screen: 'dual' } });
     const saved = raw.rooms[0].decor;   // as saved (sanitize drops a model that is not in the catalogue)
@@ -114,7 +114,7 @@ describe('saved data from step 3 (before the English string values)', () => {
     const read = (n: string) => JSON.parse(readFileSync(path.join(dir, n), 'utf8'));
 
     const raw = read('refugio.json');
-    expect(raw.rooms.map((r: any) => [r.id, r.type, r.side, r.variant])).toEqual([['bridge', 'bridge', 'right', 'bridge'], ['tareas', 'coordination', 'left', 'logistics'], ['nada', 'repo', 'left', 'taller']]);
+    expect(raw.rooms.map((r: any) => [r.id, r.type, r.side, r.variant])).toEqual([['bridge', 'bridge', 'right', 'bridge'], ['tareas', 'coordination', 'left', 'logistics'], ['nada', 'repo', 'left', 'workshop']]);
     expect(raw.rooms[0].style).toBe('generic');
     expect(raw.rooms[0].decor).toEqual({ version: 1, base: 'empty', palette: 'vault', workstation: { screen: 'dual' }, signs: [{ x: 0, y: 2, width: 1, title: 'NADA', symbol: 'eye' }] });
     expect(raw.rooms[2].area).toBe('critical');

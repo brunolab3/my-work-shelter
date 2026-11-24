@@ -163,7 +163,7 @@ function FormIntegration({ card, valuesIni, savedIni, goBack }: { card: Integrat
   const actions = [
     ...(card.fields.length ? [{ id: 'test', text: t('panels.testConnection') }, { id: 'save', text: t('windows.save') }] : []),
     ...(oauth ? [{ id: 'connect', text: st?.state === 'connected' ? t('panels.switchAccount') : t('panels.connectWithOauth', { oauth: oauth ?? '' }) }, ...(st?.state === 'connected' ? [{ id: 'disconnect', text: t('panels.signOut') }] : [])] : []),
-    ...(INFO_SOURCE[card.id].channels && st?.state === 'connected' ? [{ id: 'canales', text: t('panels.chooseChannels') }] : []),
+    ...(INFO_SOURCE[card.id].channels && st?.state === 'connected' ? [{ id: 'channels', text: t('panels.chooseChannels') }] : []),
     { id: 'mode', text: real ? t('panels.switchToDemo') : t('panels.useRealData') },
     // apagada (como empieza un refugio nuevo): también se puede probar con datos DEMO
     ...(st?.mode === 'off' ? [{ id: 'demo', text: t('panels.switchToDemo') }] : []),
@@ -180,7 +180,7 @@ function FormIntegration({ card, valuesIni, savedIni, goBack }: { card: Integrat
       else if (id === 'disconnect') { await client.action('integration.disconnect', { source: card.id }); setMsg({ ok: true, text: t('panels.signedOut') }); }
       else if (id === 'mode') { await client.action('integration.mode', { source: card.id, mode: real ? 'demo' : 'real' }); SFX.toggle(); }
       else if (id === 'demo') { await client.action('integration.mode', { source: card.id, mode: 'demo' }); SFX.toggle(); }
-      else if (id === 'canales') { setChannels(await client.action<any[]>('integration.channels', { source: card.id })); }
+      else if (id === 'channels') { setChannels(await client.action<any[]>('integration.channels', { source: card.id })); }
     } catch (e) { setMsg({ ok: false, text: (e as Error).message }); SFX.error(); }
     setBusy(false);
   };

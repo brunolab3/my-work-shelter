@@ -125,7 +125,7 @@ const attachments = new Attachments(DATA);
 // el decorado de las salas de repo, para las herramientas de su habitante («Adaptar la sala al repo», roomDecor.ts)
 const ctxDecor: CtxDecor = {
   room: id => store.state.rooms.find(s => s.id === id && isRoomOfRepo(s.type)),
-  template: id => { const s = store.state.rooms.find(x => x.id === id); return s ? baseStock(s, repos[id]) : 'taller'; },
+  template: id => { const s = store.state.rooms.find(x => x.id === id); return s ? baseStock(s, repos[id]) : 'workshop'; },
   save: (id, d) => {
     store.change(x => { const s = x.rooms.find(y => y.id === id); if (!s) return; if (d) s.decor = d; else delete s.decor; });
     broadcast({ t: 'state', state: store.state as any });

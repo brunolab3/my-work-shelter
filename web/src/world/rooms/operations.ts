@@ -236,7 +236,7 @@ export async function furnishLogistics(ctx: Context) {
       rewrite(pMine, counts); rewrite(pIssues, totals);
     } else {
       const ns: any[] = (live.get().notifications ?? []).filter((n: any) => n.source === 'linear');
-      const cards = ns.map(n => ({ id: n.channel ?? 'REF', title: (/«([^»]+)»/.exec(n.snippet ?? '')?.[1]) ?? n.snippet ?? n.title, priority: n.priority === 'high' ? 1 : n.priority === 'media' ? 2 : 3, txt: n.snippet ?? '' }));
+      const cards = ns.map(n => ({ id: n.channel ?? 'REF', title: (/«([^»]+)»/.exec(n.snippet ?? '')?.[1]) ?? n.snippet ?? n.title, priority: n.priority === 'high' ? 1 : n.priority === 'medium' ? 2 : 3, txt: n.snippet ?? '' }));
       const col = (re: RegExp) => cards.filter(f => re.test(f.txt));
       board.set([
         { name: tIs('Por hacer'), cards: col(/asignad|nueva|creado/i) },

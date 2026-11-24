@@ -14,7 +14,7 @@ export interface Variant {
 
 // paredes en el valor del taller web (luma interior ~65): las claras dejaban las salas planas y quemadas
 export const VARIANTS: Record<string, Variant> = {
-  taller:   { id: 'taller',   accent: '#c9822f', darkAccent: '#7a4a22', wall: '#6f6b63', darkWall: '#3f3e3a', screen: '#7dffb0' },
+  workshop:   { id: 'workshop',   accent: '#c9822f', darkAccent: '#7a4a22', wall: '#6f6b63', darkWall: '#3f3e3a', screen: '#7dffb0' },
   web:      { id: 'web',      accent: '#9a5a2e', darkAccent: '#55321b', wall: '#6a655c', darkWall: '#363431', screen: '#8dffb0' },
   brand:    { id: 'brand',    accent: '#b34a3c', darkAccent: '#6a2a24', wall: '#6e6963', darkWall: '#3e3b38', screen: '#ffb36b' },
   video:    { id: 'video',    accent: '#7a5ba8', darkAccent: '#45345f', wall: '#69676b', darkWall: '#3a393f', screen: '#b8a0ff' },

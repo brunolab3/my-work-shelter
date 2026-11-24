@@ -7,7 +7,7 @@
 // en y = 4,43; z de -2,3 (pared del fondo) a 2,3 (borde del corte). La franja z > 0,8 es el pasillo por donde se anda.
 
 import { t as tr } from './language.ts';
-export const BASES_DECOR = ['empty', 'studio', 'lab', 'foundry', 'archive', 'taller', 'tallerWeb', 'showcase', 'brand', 'projection'] as const;
+export const BASES_DECOR = ['empty', 'studio', 'lab', 'foundry', 'archive', 'workshop', 'webWorkshop', 'showcase', 'brand', 'projection'] as const;
 export type BaseDecor = typeof BASES_DECOR[number];
 /** Qué trae cada base (lo leen el habitante y el panel de la sala) */
 export const DESCRIPTION_BASE: Record<BaseDecor, string> = {
@@ -16,14 +16,14 @@ export const DESCRIPTION_BASE: Record<BaseDecor, string> = {
   lab: 'laboratorio (la de Python): terrario de cristal en el centro, mesa de pruebas con fregadero e invernadero de bandejas',
   foundry: 'fundición (la de Rust y Go): forja de ladrillo con campana y chimenea, yunque sobre tocón, crisol y tina de temple',
   archive: 'archivo (la de las carpetas sin código): estantería alta de cajas, fichero con terminal y mesa de consulta',
-  taller: 'banco de pruebas genérico: banco de herramientas, armario de servidores y la gran pantalla del repo',
-  tallerWeb: 'taller web hecho a mano: puestos de trabajo, tablón de corcho, tanque de líquido burbujeante y pilotos',
+  workshop: 'banco de pruebas genérico: banco de herramientas, armario de servidores y la gran pantalla del repo',
+  webWorkshop: 'taller web hecho a mano: puestos de trabajo, tablón de corcho, tanque de líquido burbujeante y pilotos',
   showcase: 'escaparate: tótem con la landing en una tarima con focos de exposición y sofá de pruebas de usuario',
   brand: 'archivo de marca: muro de muestras de color y logotipos, mesa de dibujo con planos, estanterías de catálogos y botes de pintura',
   projection: 'sala de proyección: cine con pantalla grande, telón y butacas, y cabina de montaje con proyector, foco y rack de render',
 };
 export const DECOR_WALLS = ['Wall_1', 'Wall_2', 'Wall_3', 'Wall_4', 'Wall_5', 'Wall_Empty'] as const;
-export const DECOR_PALETTES = ['taller', 'web', 'brand', 'video', 'landing', 'comms', 'plan', 'logistics', 'vault', 'bridge', 'neutral'] as const;
+export const DECOR_PALETTES = ['workshop', 'web', 'brand', 'video', 'landing', 'comms', 'plan', 'logistics', 'vault', 'bridge', 'neutral'] as const;
 export const SIGN_SYMBOLS = ['gear', 'eye', 'bolt', 'hand'] as const;
 /** Gestos que el habitante hace en la pieza protagonista o en su afición (clips de KayKit) */
 export const GESTURES = ['Interact', 'Use_Item', 'Holding_A', 'Holding_B', 'Working_A', 'Working_B', 'Working_C', 'PickUp', 'Hammering', 'Cheering', 'Waving', 'Idle_A'] as const;
@@ -281,17 +281,17 @@ export function decorSignature(d: Decor | null | undefined) {
 }
 
 /** Plantilla de serie de una sala de recluta según el tipo de su repo (InfoRepo.tipo, server/repos.ts → tipoProyecto) */
-export function templateOf(type: string | undefined, isGit?: boolean): 'foundry' | 'lab' | 'studio' | 'archive' | 'taller' {
+export function templateOf(type: string | undefined, isGit?: boolean): 'foundry' | 'lab' | 'studio' | 'archive' | 'workshop' {
   const t = (type ?? '').toLowerCase();
   if (t === 'rust' || t === 'go') return 'foundry';
   if (t === 'python') return 'lab';
   if (t.startsWith('web') || t === 'node' || t === 'desktop') return 'studio';
   if (t === 'folder' || isGit === false) return 'archive';
-  return 'taller';
+  return 'workshop';
 }
 /** La escena que lleva una sala de repo sin decorado: la de su estilo o, si no tiene uno propio, la de su tipo de repo */
 export function baseStock(s: { type: string; style?: string }, repo?: { type?: string; isGit?: boolean }): BaseDecor {
   if (s.type === 'coordination') return 'archive';
-  const styleBy: Record<string, BaseDecor> = { landing: 'showcase', brand: 'brand', video: 'projection', tallerWeb: 'tallerWeb', studio: 'studio', lab: 'lab', foundry: 'foundry', archive: 'archive', taller: 'taller' };
+  const styleBy: Record<string, BaseDecor> = { landing: 'showcase', brand: 'brand', video: 'projection', webWorkshop: 'webWorkshop', studio: 'studio', lab: 'lab', foundry: 'foundry', archive: 'archive', taller: 'workshop' };
   return styleBy[s.style ?? ''] ?? templateOf(repo?.type, repo?.isGit);
 }

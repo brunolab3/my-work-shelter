@@ -66,12 +66,12 @@ export function planOf(task: FinishedTask, w: InfoWorktree, plans: Record<string
 /** What keeps a finished task's worktree for its production verification (none: it can go): no approved plan yet, its
  *  final checkpoint still open, or failed (a fix is likely to follow there). Evidenced, or inconclusive accepted with a
  *  reason, lets it go; so do PRs all closed without merging */
-export type Hold = 'no-plan' | 'open' | 'fallida';
+export type Hold = 'no-plan' | 'open' | 'failed';
 export function verificationHold(task: FinishedTask, plan: VerificationPlan | undefined): Hold | undefined {
   if (!task.prs.some(p => p.state === 'merged')) return undefined;
   if (!plan || !isApproved(plan)) return 'no-plan';
   const state = finalCheckpoint(plan)?.state;
-  return state === 'evidenced' ? undefined : state === 'failed' ? 'fallida' : 'open';
+  return state === 'evidenced' ? undefined : state === 'failed' ? 'failed' : 'open';
 }
 
 /** The task's conversation in a worktree: the most recent one there (open or closed, to resume) */

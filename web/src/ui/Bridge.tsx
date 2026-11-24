@@ -22,7 +22,7 @@ live.subscribe(() => {
   if (Object.keys(p).some(k => (j as any)[k] !== p[k] && JSON.stringify((j as any)[k]) !== JSON.stringify(p[k]))) juego.set(p);
   // llegada de notificaciones: sonido según la prioridad más alta de las nuevas
   const fresh = unseen.filter((n: any) => !views.has(n.id));
-  if (fresh.length && !first) { const high = fresh.some((n: any) => n.priority === 'high'), media = fresh.some((n: any) => n.priority === 'media'); high ? SFX.highNotice() : media ? SFX.noticeMedia() : SFX.lowNotice(); }
+  if (fresh.length && !first) { const high = fresh.some((n: any) => n.priority === 'high'), media = fresh.some((n: any) => n.priority === 'medium'); high ? SFX.highNotice() : media ? SFX.noticeMedia() : SFX.lowNotice(); }
   if (v.notifications.length) first = false;
   views = new Set(v.notifications.map((n: any) => n.id));
   // primer arranque

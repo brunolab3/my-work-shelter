@@ -36,7 +36,7 @@ describe('Outlook (Microsoft Graph)', () => {
   it('correo no leído → notificaciones con prioridad', () => {
     const ns = N.mailsToNotifications(fx('messages_unread.json'), me);
     expect(ns).toHaveLength(4);
-    expect(ns.map(n => n.priority)).toEqual(['high', 'media', 'high', 'low']);   // importancia alta, marcado, mención @Irene, boletín
+    expect(ns.map(n => n.priority)).toEqual(['high', 'medium', 'high', 'low']);   // importancia alta, marcado, mención @Irene, boletín
     expect(ns[0]).toMatchObject({ source: 'outlook', author: 'Bruno Esteve', title: 'URGENTE: caída del entorno de staging', date: Date.parse('2026-10-10T08:52:17Z') });
     expect(ns[0].link).toMatch(/^https:\/\/outlook\.office365\.com\/owa\/\?ItemID=.*&ispopout=0$/);
     expect(ns[1].title).toContain('con adjunto');
@@ -120,7 +120,7 @@ describe('Discord', () => {
   it('mensajes REST: @everyone media, normal baja; canales elegidos filtran salvo menciones', () => {
     const c = ctx();
     const ms = fx('channel_messages.json').map((m: any) => N.discordNotification(m, c));
-    expect(ms.map((n: any) => n?.priority)).toEqual(['high', 'low', 'media']);
+    expect(ms.map((n: any) => n?.priority)).toEqual(['high', 'low', 'medium']);
     expect(ms[0].link).toContain('/1186246479052931073/');   // guild deducido del canal
     c.chosen = new Set(['1186246982369411082']);   // solo #general
     const filtered = fx('channel_messages.json').map((m: any) => N.discordNotification(m, c));
@@ -182,7 +182,7 @@ describe('GitHub', () => {
   it('notificaciones: sin leídas; prioridad por motivo; enlace web; id que cambia con cada actualización', () => {
     const ns = N.notificationsOfGitHub(fx('github_notifications.json'));
     expect(ns.map(n => n.thread)).toEqual(['github-1001', 'github-1002', 'github-1003', 'github-1004']);
-    expect(ns.map(n => n.priority)).toEqual(['high', 'low', 'media', 'media']);
+    expect(ns.map(n => n.priority)).toEqual(['high', 'low', 'medium', 'medium']);
     expect(ns[0]).toMatchObject({ title: 'PR · Carrito persistente entre sesiones', snippet: 'te piden revisión', channel: 'refugio/tienda-web', link: 'https://github.com/refugio/tienda-web/pull/42' });
     expect(ns[0].id).toBe('github-1001-' + Date.parse('2026-10-10T08:00:00Z'));
     expect(ns[1].link).toBe('https://github.com/refugio/guia-de-estilo/releases');
@@ -214,7 +214,7 @@ describe('Slack', () => {
     expect(ns).toHaveLength(3);
     expect(ns[0]).toMatchObject({ author: 'Irene Valdés', priority: 'high', channel: '#general', thread: 'slack-C0000GENERAL', link: 'https://app.slack.com/client/T0000EQUIPO/C0000GENERAL', date: 1791622800000 });
     expect(ns[0].snippet).toBe('@usuario ¿revisas el PR antes de las 12? & avisa en #general');
-    expect(ns[1]).toMatchObject({ priority: 'media', snippet: '@here despliegue a las 17:00' });
+    expect(ns[1]).toMatchObject({ priority: 'medium', snippet: '@here despliegue a las 17:00' });
     expect(ns[2].snippet).toBe('(adjunto: plano.pdf)');
     expect(N.slackNotification(data.mensajes[1], 'D0000DIRECTO', c)!.priority).toBe('high');
   });
@@ -265,12 +265,12 @@ describe('Linear', () => {
 });
 
 describe('Tablón por conversación', () => {
-  const m = (id: string, thread: string | undefined, date: number, extra: Record<string, unknown> = {}) => ({ id, thread, source: 'slack' as const, author: 'Vanesa', title: 'Vanesa', snippet: 'msg ' + id, date, priority: 'media' as const, ...extra });
+  const m = (id: string, thread: string | undefined, date: number, extra: Record<string, unknown> = {}) => ({ id, thread, source: 'slack' as const, author: 'Vanesa', title: 'Vanesa', snippet: 'msg ' + id, date, priority: 'medium' as const, ...extra });
   it('junta los mensajes de un hilo: cara el más reciente, cuántos, autores y prioridad de lo pendiente', () => {
     const g = N.groupNotices([m('a', 'slack-1', 1), m('b', 'slack-1', 3, { author: 'Ana', priority: 'high', view: true }), m('c', 'slack-1', 2), m('d', 'slack-2', 5, { unread: 40 }), m('e', undefined, 4)]);
     expect(g.map(c => c.id)).toEqual(['slack-2#d', 'e#e', 'slack-1#b']);
     const [two, , one] = g;
-    expect(one).toMatchObject({ thread: 'slack-1', author: 'Ana', count: 3, ids: ['b', 'c', 'a'], authors: ['Ana', 'Vanesa'], view: false, priority: 'media' });
+    expect(one).toMatchObject({ thread: 'slack-1', author: 'Ana', count: 3, ids: ['b', 'c', 'a'], authors: ['Ana', 'Vanesa'], view: false, priority: 'medium' });
     expect(one.messages.map(x => x.text)).toEqual(['msg b', 'msg c', 'msg a']);
     expect(two.count).toBe(40);   // lo que cuenta la fuente, aunque se traigan menos
   });
@@ -289,7 +289,7 @@ describe('Mail del Mac (mail.jxa)', () => {
   });
   it('otra cuenta: se abre en Mail (message:), sin asunto, sin bandera → media', () => {
     const n = N.mailNotification(messages[1], counts[1])!;
-    expect(n).toMatchObject({ id: 'mail-abc-77@correo.example', title: '(sin asunto)', author: 'biblioteca@ayuntamiento.example', priority: 'media' });
+    expect(n).toMatchObject({ id: 'mail-abc-77@correo.example', title: '(sin asunto)', author: 'biblioteca@ayuntamiento.example', priority: 'medium' });
     expect(n.link).toBe('message://%3Cabc-77%40correo.example%3E');
     expect(N.isGmail(counts[1])).toBe(false);
   });

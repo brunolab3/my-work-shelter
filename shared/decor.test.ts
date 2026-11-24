@@ -28,7 +28,7 @@ describe('decorado de una sala', () => {
     expect(decor!.pieces!.map(p => p.restsOn)).toEqual([undefined, 0, undefined]);
   });
   it('los textos van en una línea, sin caracteres invisibles ni de control, y recortados', () => {
-    const { decor } = sanitizeDecor({ base: 'taller', subtitle: 'la fragua‮ de\u0007 datos con un nombre larguísimo', signs: [{ x: 0, y: 2, width: 0.6, title: 'T', lines: ['UNO\nDOS', 'X'.repeat(40)] }] });
+    const { decor } = sanitizeDecor({ base: 'workshop', subtitle: 'la fragua‮ de\u0007 datos con un nombre larguísimo', signs: [{ x: 0, y: 2, width: 0.6, title: 'T', lines: ['UNO\nDOS', 'X'.repeat(40)] }] });
     expect(decor!.subtitle).toBe('LA FRAGUA DE DATOS CON U');
     expect(decor!.signs![0].lines).toEqual(['UNO DOS', 'XXXXXXXXXXXX']);
     expect(sanitizeDecor({ base: 'empty', signs: [{ x: 0, y: 2, width: 0.6, title: 'T', lines: ['PR BIENVENIDOS'] }] }).notices.join(' ')).toMatch(/signs\[0\]\.lineas\[0\].*caben 12/);
@@ -83,7 +83,7 @@ describe('decorado de una sala', () => {
     expect(baseStock({ type: 'repo', style: 'generic' }, { type: 'python' })).toBe('lab');
     expect(baseStock({ type: 'coordination' })).toBe('archive');
     expect(templateOf('folder', true)).toBe('archive');
-    expect(templateOf('vídeo', true)).toBe('taller');
+    expect(templateOf('vídeo', true)).toBe('workshop');
   });
   it('la firma cambia con el decorado', () => {
     const a = sanitizeDecor({ base: 'empty', light: 1 }).decor, b = sanitizeDecor({ base: 'empty', light: 0.9 }).decor;

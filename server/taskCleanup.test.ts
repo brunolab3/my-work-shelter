@@ -118,7 +118,7 @@ describe('verificationHold and planOf', () => {
   });
   it('while its final checkpoint is open, it waits; failed, it keeps everything; evidenced or accepted, it goes', () => {
     for (const s of ['waiting-deploy', 'live', 'waiting-traffic', 'inconclusive'] as const) expect(verificationHold(merged, vplan('REF-212', s))).toBe('open');
-    expect(verificationHold(merged, vplan('REF-212', 'failed'))).toBe('fallida');
+    expect(verificationHold(merged, vplan('REF-212', 'failed'))).toBe('failed');
     expect(verificationHold(merged, vplan('REF-212', 'evidenced'))).toBeUndefined();
   });
   it('PRs all closed without merging: nothing reached production, it goes', () => {

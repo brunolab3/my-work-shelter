@@ -9,7 +9,7 @@ import { sanitize, initialState, folderOf, ROOMS_FOLDERS, addRoomsOfService, ens
 describe('estado guardado', () => {
   it('una sala de servicio que falte en un refugio guardado entra en su sitio, sin tocar sus repos', () => {
     const old: any = initialState();
-    old.rooms = old.rooms.filter((s: any) => s.id !== 'git').concat([{ id: 'mio', type: 'repo', name: 'mio', path: '/tmp/mio', floor: 3, side: 'left', orden: 0, variant: 'taller' }]);
+    old.rooms = old.rooms.filter((s: any) => s.id !== 'git').concat([{ id: 'mio', type: 'repo', name: 'mio', path: '/tmp/mio', floor: 3, side: 'left', orden: 0, variant: 'workshop' }]);
     const s = sanitize(old);
     expect(addRoomsOfService(s)).toBe(true);
     expect(s.rooms.find(x => x.id === 'git')).toMatchObject({ type: 'git', name: 'Control de Versiones', floor: 2, side: 'right', orden: 1 });
@@ -126,7 +126,7 @@ describe('salas ocultas', () => {
   const withRepos = () => {
     const e = initialState();
     const names = ['alfa', 'beta', 'gamma', 'delta', 'epsilon', 'eta', 'iota', 'kappa', 'zeta'];
-    e.rooms = sanitize({ ...e, rooms: [...e.rooms, ...names.map(n => ({ id: n, type: 'repo', name: n, path: '/tmp/r/' + n, floor: 3, side: 'left', orden: 0, variant: 'taller' }))] }).rooms;
+    e.rooms = sanitize({ ...e, rooms: [...e.rooms, ...names.map(n => ({ id: n, type: 'repo', name: n, path: '/tmp/r/' + n, floor: 3, side: 'left', orden: 0, variant: 'workshop' }))] }).rooms;
     e.dwellers.push({ id: 'h-zeta', name: 'Zoe', nickname: '', type: 'Hiker', bio: '', roomId: 'zeta', voice: 120, look: { type: 'human' } as any });
     return e;
   };
@@ -186,7 +186,7 @@ describe('ids de las salas vinculadas a otra carpeta', () => {
   it('el refugio, los planes y la limpieza de tareas cambian juntos el id viejo por el nuevo', () => {
     const dir = mkdtempSync(path.join(os.tmpdir(), 'ids-salas-'));
     const e: any = initialState();
-    e.rooms.push({ id: 'alfa', type: 'repo', name: 'tienda', path: '/r/tienda', floor: 3, side: 'left', orden: 0, variant: 'taller' });
+    e.rooms.push({ id: 'alfa', type: 'repo', name: 'tienda', path: '/r/tienda', floor: 3, side: 'left', orden: 0, variant: 'workshop' });
     e.dwellers.push({ id: 'ana', name: 'Ana', nickname: '', type: 'Hiker', bio: '', roomId: 'alfa', voice: 120 });
     writeFileSync(path.join(dir, 'refugio.json'), JSON.stringify(e));
     writeFileSync(path.join(dir, 'planes.json'), JSON.stringify([{ id: 'ABC-1', coordination: 'tareas', parts: [{ roomId: 'alfa', room: 'tienda', title: 'x', waitA: ['alfa', 'git'] }] }]));

@@ -242,7 +242,7 @@ describe('Slack', () => {
     expect(await s.configure({ token: 'xoxp-bueno' })).toMatchObject({ ok: true, detail: expect.stringMatching(/Taller Ejemplo/) });
     expect(JSON.stringify(a.state)).not.toContain('xoxp-bueno');
     const r1 = await s.poll();
-    expect(r1.notifications!.map(n => n.priority)).toEqual(['high', 'media', 'low']);   // mención a mí, @here, adjunto
+    expect(r1.notifications!.map(n => n.priority)).toEqual(['high', 'medium', 'low']);   // mención a mí, @here, adjunto
     expect((await s.poll()).notifications).toHaveLength(0);   // desde el último visto
     const channels: any = await s.action!('channels', {});
     expect(channels.map((c: any) => c.name)).toEqual(['equipo-web', 'general']);

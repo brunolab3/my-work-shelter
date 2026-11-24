@@ -41,8 +41,8 @@ const BASES: Record<BaseDecor, { f: Furnish | null; panels?: string[]; sub: stri
   lab: { f: furnishLaboratory, panels: TEMPLATE_PANELS.lab, sub: TEMPLATE_SUBTITLE.lab },
   foundry: { f: furnishFoundry, panels: TEMPLATE_PANELS.foundry, sub: TEMPLATE_SUBTITLE.foundry },
   archive: { f: furnishFile, panels: TEMPLATE_PANELS.archive, sub: TEMPLATE_SUBTITLE.archive },
-  taller: { f: furnishGeneric, panels: TEMPLATE_PANELS.bench, sub: TEMPLATE_SUBTITLE.bench },
-  tallerWeb: { f: furnishWebWorkshop, sub: 'TALLER WEB' },
+  workshop: { f: furnishGeneric, panels: TEMPLATE_PANELS.bench, sub: TEMPLATE_SUBTITLE.bench },
+  webWorkshop: { f: furnishWebWorkshop, sub: 'TALLER WEB' },
   showcase: { f: furnishShowcase, panels: ['Wall_1', 'Wall_3', 'Wall_1'], sub: 'ESCAPARATE', light: 0.15 },
   brand: { f: furnishFileMark, panels: ['Wall_3', 'Wall_1', 'Wall_2'], sub: 'ARCHIVO DE MARCA', light: 0.55 },
   projection: { f: furnishProjection, panels: ['Wall_5', 'Wall_1', 'Wall_3'], sub: 'SALA DE PROYECCIÓN', light: 0.75 },
@@ -59,7 +59,7 @@ function infoRepo(id: string, wait = 2500): Promise<{ type?: string; isGit?: boo
     const timer = setTimeout(() => end(undefined), wait);
   });
 }
-const withStyleOwn = (sec: SavedRoom) => sec.type === 'coordination' || baseStock(sec, { type: '?' }) !== 'taller';
+const withStyleOwn = (sec: SavedRoom) => sec.type === 'coordination' || baseStock(sec, { type: '?' }) !== 'workshop';
 /** La escena de una sala de repo: la base de su decorado o la de serie */
 export async function roomBase(sec: SavedRoom): Promise<BaseDecor> {
   return sec.decor?.base ?? baseStock(sec, withStyleOwn(sec) ? undefined : await infoRepo(sec.id));

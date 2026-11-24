@@ -74,4 +74,4 @@ export function roomTone(s: { type: string; id?: string; area?: string }): [stri
 }
 
 /** Paleta base (paredes y pantallas) de un repo según su estilo: el acento lo pone el sector */
-export const STYLE_PALETTE: Record<string, string> = { web: 'web', landing: 'landing', brand: 'brand', video: 'video', studio: 'web', lab: 'comms', foundry: 'logistics', archive: 'taller', generic: 'taller' };
+export const STYLE_PALETTE: Record<string, string> = { web: 'web', landing: 'landing', brand: 'brand', video: 'video', studio: 'web', lab: 'comms', foundry: 'logistics', archive: 'workshop', generic: 'workshop' };

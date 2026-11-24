@@ -3,7 +3,7 @@
 import type { Store } from '../state.ts';
 import { demoNotifications, demoEvents, demoPanelLinear, demoBoardLinear, demoPanelJira } from './demo.ts';
 
-export type Priority = 'low' | 'media' | 'high';
+export type Priority = 'low' | 'medium' | 'high';
 // Sources (order, names and what each brings) live in shared/sources.ts; their real connector, in CONNECTORS (export crear)
 import { SOURCES, ACTIVE_SOURCES, CALENDAR_SOURCES, type SourceId } from '../../shared/sources.ts';
 import { t } from '../../shared/language.ts';
