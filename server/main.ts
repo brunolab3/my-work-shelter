@@ -52,7 +52,7 @@ import { openInDesktop, openInAppClaude, outsideOpen, closeOutside, hookCommand,
 import { tonesForRepeated } from '../shared/recruits.ts';
 import { pRTask, remoteName, taskKey, worktreeHasTask, worktreeTask } from '../shared/tasks.ts';
 import { Store, DATA, folderOf, reposRoot, hideRoom, showRoom, isHideable, roomIdOf } from './state.ts';
-import { infoRepo, suggestions, expand, recentTranscripts, liveSessions, worktreeList, hasBranch, roomStyle, projectType, hideWorktreesUnder } from './repos.ts';
+import { infoRepo, suggestions, expand, recentTranscripts, liveSessions, worktreeList, hasBranch, branchesVisited, roomStyle, projectType, hideWorktreesUnder } from './repos.ts';
 import { Integrations } from './integrations/index.ts';
 import { gameAction, ensurePlayer, growCrops, taskReward } from './game.ts';
 import { generateRecruit } from '../shared/recruits.ts';
@@ -594,9 +594,11 @@ async function resumeInFolder(roomId: string, cwd: string, text: string, permiss
 const remote = new Map<string, string | undefined>();
 const roomRepo = (filePath: string) => remote.has(filePath) ? Promise.resolve(remote.get(filePath))
   : new Promise<string | undefined>(ok => execFile('git', ['-C', filePath, 'remote', 'get-url', 'origin'], { timeout: 6000, env: gitEnvironment() }, (err, out) => { const r = err ? undefined : remoteRepo(String(out)); if (!err) remote.set(filePath, r); ok(r); }));
-// las salas de repo git, con sus worktrees y su repo de GitHub (owner/nombre)
+// las salas de repo git, con sus worktrees (and the branches each one had: a PR goes to the worktree that made it) y su
+// repo de GitHub (owner/nombre)
 const repoRooms = () => Promise.all(store.state.rooms.filter(s => s.type === 'repo' && s.path && repos[s.id]?.isGit).map(async s => ({
-  id: s.id, name: s.name, path: s.path!, branch: repos[s.id]?.branch, worktrees: repos[s.id]?.worktrees ?? [], repo: await roomRepo(s.path!),
+  id: s.id, name: s.name, path: s.path!, branch: repos[s.id]?.branch, repo: await roomRepo(s.path!),
+  worktrees: await Promise.all((repos[s.id]?.worktrees ?? []).map(async w => (w.main ? w : { ...w, visited: await branchesVisited(w.path) }))),
 })));
 const prReviews = new ReviewsPR(DATA, {
   connection: connectionGitHub,

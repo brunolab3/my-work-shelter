@@ -14,11 +14,13 @@ import type { SessionSummary } from '../shared/protocol.ts';
 import { t } from '../shared/language.ts';
 import type { PackPart } from '../shared/scheduled.ts';
 import { recentFirst, sessionRecency } from '../shared/recent.ts';
+import { worktreeTask } from '../shared/tasks.ts';
 import { withoutNothingThatMake as nothingToDo, cleanBody, reviewLedger, openThreads, ledgerPending, type ReviewLedger, type ReviewThread } from '../shared/reviewCount.ts';
 
 export interface EventPR { id: string; type: 'revision' | 'hilo' | 'comentario'; author: string; bot?: boolean; body: string; url: string; date: number; state?: string; file?: string; line?: number }
 export interface PRWithReview { number: number; title: string; url: string; repo: string; branch: string; events: EventPR[]; ledger: ReviewLedger; threads: ReviewThread[] }
-export interface RoomPR { id: string; name: string; path: string; branch?: string; worktrees: { path: string; branch: string }[]; repo?: string }
+// `visited`: the branches each worktree has had checked out and when (repos.ts: branchesVisited)
+export interface RoomPR { id: string; name: string; path: string; branch?: string; worktrees: { path: string; branch: string; visited?: Record<string, number> }[]; repo?: string }
 
 export const REVIEWS_QUERY = `query {
   viewer { login }
@@ -73,8 +75,17 @@ export const branchKey = (branch: string) => /(?:^|[^a-z0-9])([a-z][a-z0-9]+-\d+
 /** Los números de PR que lleva el nombre de un worktree de una tarea sin clave (shelter-pr-12-13: organize.ts) */
 export const prsOfName = (name: string) => (/(?:^|-)pr-((?:\d+-?)+)$/i.exec(name)?.[1] ?? '').split('-').filter(Boolean).map(Number);
 
-/** La conversación abierta que trabaja en la rama de un PR: en un worktree (o la carpeta) de la sala de su repo con esa
- *  rama; si no, una de esa sala en un worktree con la clave de la tarea en el nombre. La más reciente */
+/** The worktree of a room where a PR's branch is checked out or, if none, the one that had it last: that PR's task, even
+ *  when its branch carries another task's key (a PR made in one task's worktree for another ticket) */
+export function homeOfBranch(branch: string, room: RoomPR): { path: string; branch: string } | undefined {
+  const others = room.worktrees.filter(w => path.resolve(w.path) !== path.resolve(room.path));
+  return others.find(w => w.branch === branch)
+    ?? others.filter(w => w.visited?.[branch]).sort((a, b) => b.visited![branch] - a.visited![branch])[0];
+}
+
+/** The open conversation working on a PR's branch: in a worktree (or the folder) of its repo's room on that branch; if
+ *  none, the worktree that had that branch is the task's, and only a conversation of that task gets it; else, one of that
+ *  room in a worktree with the task's key (or the PR's number) in its name. The most recent */
 export function sessionOfPR(pr: { repo: string; branch: string; number?: number }, rooms: RoomPR[], sessions: SessionSummary[]): { session: SessionSummary; room: RoomPR } | undefined {
   const ofRepo = rooms.filter(s => s.repo && s.repo === pr.repo.toLowerCase());
   const openSessions = sessions.filter(s => s.state !== 'cerrada').sort((a, b) => recentFirst(sessionRecency(a), sessionRecency(b)));
@@ -83,11 +94,23 @@ export function sessionOfPR(pr: { repo: string; branch: string; number?: number 
     return room.worktrees.find(w => path.resolve(w.path) === where)?.branch ?? (where === path.resolve(room.path) ? room.branch : undefined);
   };
   for (const s of openSessions) { const room = ofRepo.find(x => x.id === s.roomId); if (room && branchOf(s, room) === pr.branch) return { session: s, room }; }
-  const key = branchKey(pr.branch)?.toLowerCase();
-  if (key) for (const s of openSessions) {
-    const room = ofRepo.find(x => x.id === s.roomId);
-    if (room && path.basename(s.worktree ?? s.cwd).toLowerCase().includes(key)) return { session: s, room };
+  // a conversation in a worktree of that task (exact key: ABC-1 isn't ABC-12)
+  const ofTask = (room: RoomPR, key: string) => openSessions.find(x => {
+    if (x.roomId !== room.id) return false;
+    const w = path.resolve(x.worktree ?? x.cwd);
+    return w !== path.resolve(room.path) && worktreeTask(room.worktrees.find(y => path.resolve(y.path) === w) ?? { path: w }) === key;
+  });
+  // the branch's worktree: its conversation or another of its task, never one of the task its branch's key names (undefined:
+  // the callers resume one in that worktree, worktreeOfPR)
+  for (const room of ofRepo) {
+    const home = homeOfBranch(pr.branch, room);
+    if (!home) continue;
+    const task = worktreeTask(home);
+    const s = openSessions.find(x => x.roomId === room.id && path.resolve(x.worktree ?? x.cwd) === path.resolve(home.path)) ?? (task ? ofTask(room, task) : undefined);
+    return s && { session: s, room };
   }
+  const key = branchKey(pr.branch);
+  if (key) for (const room of ofRepo) { const s = ofTask(room, key); if (s) return { session: s, room }; }
   // sin clave: el worktree de su tarea lleva su número en el nombre (shelter-pr-12-13)
   for (const s of openSessions) {
     const room = ofRepo.find(x => x.id === s.roomId);
@@ -96,13 +119,13 @@ export function sessionOfPR(pr: { repo: string; branch: string; number?: number 
   return undefined;
 }
 
-/** El worktree de la tarea de un PR en la sala de su repo: con su rama, con su clave o con su número en el nombre (si
- *  su rama está en la copia principal, la copia principal) */
+/** El worktree de la tarea de un PR en la sala de su repo: con su rama (o el último que la tuvo: homeOfBranch), con su
+ *  clave o con su número en el nombre (si su rama está en la copia principal, la copia principal) */
 export function worktreeOfPR(pr: { branch: string; number: number; title?: string }, room: RoomPR): string | undefined {
   const others = room.worktrees.filter(w => path.resolve(w.path) !== path.resolve(room.path));
-  const key = (branchKey(pr.branch) ?? (pr.title ? branchKey(pr.title) : undefined))?.toLowerCase();
-  return others.find(w => w.branch === pr.branch)?.path
-    ?? (key ? others.find(w => path.basename(w.path).toLowerCase().includes(key))?.path : undefined)
+  const key = branchKey(pr.branch) ?? (pr.title ? branchKey(pr.title) : undefined);
+  return homeOfBranch(pr.branch, room)?.path
+    ?? (key ? others.find(w => worktreeTask(w) === key)?.path : undefined)
     ?? others.find(w => prsOfName(path.basename(w.path)).includes(pr.number))?.path
     ?? (room.branch === pr.branch ? room.path : undefined);
 }

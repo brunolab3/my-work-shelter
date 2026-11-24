@@ -7,7 +7,7 @@ import path from 'node:path';
 const root = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'reubicada-')));
 const before = process.env.CLAUDE_CONFIG_DIR;
 process.env.CLAUDE_CONFIG_DIR = path.join(root, 'claude');
-const { cwdBeforeRelocation, projectFolder, suggestions } = await import('./repos.ts');
+const { cwdBeforeRelocation, projectFolder, suggestions, visitedOfReflog } = await import('./repos.ts');
 const { listSessions } = await import('@anthropic-ai/claude-agent-sdk');
 
 const ID = '0f8a2c1e-4b6d-4e2f-9a1b-3c5d7e9f1a2b';
@@ -77,5 +77,18 @@ describe('Main Gate suggestions', () => {
   it('leaves out the folders that already have a room, but still opens a taken group', () => {
     const s = suggestions(fever, [dir('dice'), dir('dice', 'crm')]);
     expect(s.map(x => (x.group ? x.group + '/' : '') + x.name)).toEqual(['dice/bowie', 'api', 'dice/tool', 'notas']);
+  });
+});
+
+describe('branches a worktree had (HEAD reflog)', () => {
+  it('each branch checked out, from or to, with the last time it was there', () => {
+    const out = [
+      'HEAD@{300}\tcheckout: moving from feature/B2BI-16924-3b to feature/B2BI-16867-6a',
+      'HEAD@{250}\tcommit: B2BI-16924 - Warn when an explicit pack sells after its first day',
+      'HEAD@{200}\tcheckout: moving from feature/B2BI-16867-6b to feature/B2BI-16924-3b',
+      'HEAD@{100}\tcheckout: moving from worktree-x to feature/B2BI-16867-6b',
+    ].join('\n');
+    expect(visitedOfReflog(out)).toEqual({ 'feature/B2BI-16924-3b': 300, 'feature/B2BI-16867-6a': 300, 'feature/B2BI-16867-6b': 200, 'worktree-x': 100 });
+    expect(visitedOfReflog('')).toEqual({});
   });
 });

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { reviewsOfGitHub, withoutNothingThatMake, remoteRepo, branchKey, sessionOfPR, reviewMessage, ReviewsPR, type RoomPR, type CtxReviews } from './prReviews.ts';
+import { reviewsOfGitHub, withoutNothingThatMake, remoteRepo, branchKey, sessionOfPR, worktreeOfPR, reviewMessage, ReviewsPR, type RoomPR, type CtxReviews } from './prReviews.ts';
 import type { SessionSummary } from '../shared/protocol.ts';
 import { readFileSync } from 'node:fs';
 
@@ -86,6 +86,30 @@ describe('revisiones de PR', () => {
     expect(sessionOfPR(pr, ROOMS, [{ ...inBranch, state: 'cerrada' }, otherRepo])).toBeUndefined();
     // la carpeta principal de la sala, si está en la rama del PR
     expect(sessionOfPR({ ...pr, branch: 'main' }, ROOMS, [session({ id: 'principal' })])?.session.id).toBe('principal');
+  });
+
+  it("a PR made in one task's worktree with another task's key goes to the worktree that had its branch, not the key's", () => {
+    // B2BI-16867's worktree made B2BI-16924-3b and moved on to another branch; B2BI-16924 has its own worktree and conversation
+    const room: RoomPR = { id: 'fz', name: 'fz', path: '/repos/fz', branch: 'master', repo: 'feverup/fz', worktrees: [
+      { path: '/repos/fz', branch: 'master' },
+      { path: '/repos/fz/.claude/worktrees/shelter-b2bi-16867-multi', branch: 'feature/B2BI-16867-6a', visited: { 'feature/B2BI-16867-6a': 300, 'feature/B2BI-16924-3b': 300, 'feature/B2BI-16867-6b': 200 } },
+      { path: '/repos/fz/.claude/worktrees/shelter-b2bi-16924-link', branch: 'feature/B2BI-16924-3', visited: { 'feature/B2BI-16924-3': 100 } },
+    ] };
+    const pr = { repo: 'feverup/fz', branch: 'feature/B2BI-16924-3b', number: 19051 };
+    const of16924 = session({ id: '16924', roomId: 'fz', worktree: '/repos/fz/.claude/worktrees/shelter-b2bi-16924-link', updated: 9 });
+    const of16867 = session({ id: '16867', roomId: 'fz', worktree: '/repos/fz/.claude/worktrees/shelter-b2bi-16867-multi', updated: 1 });
+    expect(sessionOfPR(pr, [room], [of16924, of16867])?.session.id).toBe('16867');
+    // no open conversation there: none (the caller resumes one in that worktree), never the other task's
+    expect(sessionOfPR(pr, [room], [of16924])).toBeUndefined();
+    expect(worktreeOfPR(pr, room)).toBe('/repos/fz/.claude/worktrees/shelter-b2bi-16867-multi');
+    // a branch no worktree ever had still goes by its key
+    expect(sessionOfPR({ ...pr, branch: 'feature/B2BI-16924-4' }, [room], [of16924, of16867])?.session.id).toBe('16924');
+    // by the exact key of the worktree's name: not B2BI-1692 for B2BI-16924, nor the 16867 worktree for a B2BI-16867-4 it never had
+    expect(sessionOfPR({ ...pr, branch: 'feature/B2BI-1692-x' }, [room], [of16924, of16867])).toBeUndefined();
+    expect(sessionOfPR({ ...pr, branch: 'feature/B2BI-16867-4' }, [room], [of16924, of16867])?.session.id).toBe('16867');
+    // two worktrees had it: the last one
+    const both = { ...room, worktrees: room.worktrees.map(w => (w.path.endsWith('16924-link') ? { ...w, visited: { ...w.visited, 'feature/B2BI-16924-3b': 400 } } : w)) };
+    expect(sessionOfPR(pr, [both], [of16924, of16867])?.session.id).toBe('16924');
   });
 
   it('el mensaje cita cada comentario y pide un plan antes de tocar nada', () => {

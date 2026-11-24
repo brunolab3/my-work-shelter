@@ -68,7 +68,7 @@ A turn the plan's usage limit stops (a `rate_limit_event` with status `rejected`
 
 ## Reviews of your PRs
 
-Reviews of your PRs (`server/prReviews.ts`, every minute with GitHub connected): what others write on your open PRs goes to the conversation in the PR's worktree. Details: `docs/integrations-usage.md` ("Logistics, tasks and PRs").
+Reviews of your PRs (`server/prReviews.ts`, every minute with GitHub connected): what others write on your open PRs goes to the conversation in the PR's worktree: the one on its branch or, if none, the one that last had it checked out (HEAD's reflog, `branchesVisited` in `server/repos.ts`, `homeOfBranch`), so a PR made in one task's worktree with another ticket's key stays with that task; only a branch no worktree ever had goes by its key (exact, `worktreeTask`). QA: `server/prReviews.test.ts` («another task's key»). Details: `docs/integrations-usage.md` ("Logistics, tasks and PRs").
 
 ## Review room
 

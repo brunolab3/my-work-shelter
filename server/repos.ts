@@ -67,6 +67,19 @@ export async function worktreeList(filePath: string): Promise<InfoWorktree[]> {
   return list.filter(w => w.main || !hidden(w.path));
 }
 
+/** The branches a worktree has had checked out (its HEAD's reflog), each with the last time it was there (unix seconds):
+ *  where a PR's branch was made or worked on after the worktree moved to another (prReviews.ts: homeOfBranch) */
+export const branchesVisited = async (filePath: string) => visitedOfReflog(await git(filePath, ['reflog', '--date=unix', '--format=%gd%x09%gs', '-n', '2000']));
+export function visitedOfReflog(out: string): Record<string, number> {
+  const r: Record<string, number> = {};
+  // newest first: the first time a branch shows up is the last time it was there
+  for (const l of out.split('\n')) {
+    const m = /^[^@]*@\{(\d+)\}\tcheckout: moving from (\S+) to (\S+)$/.exec(l);
+    if (m) { r[m[2]] ??= Number(m[1]); r[m[3]] ??= Number(m[1]); }
+  }
+  return r;
+}
+
 export const hasBranch = async (filePath: string, branch: string) => !!(await git(filePath, ['rev-parse', '--verify', '--quiet', `refs/heads/${branch}`])).trim();
 
 export async function worktrees(filePath: string): Promise<InfoWorktree[]> {
