@@ -21,6 +21,7 @@ export interface PRBoard {
   review?: 'APPROVED' | 'CHANGES_REQUESTED' | 'REVIEW_REQUIRED';
   checks?: 'SUCCESS' | 'FAILURE' | 'ERROR' | 'PENDING' | 'EXPECTED';
   updated: number;
+  mergedAt?: number;          // when GitHub merged it (the work log's trophies count it: shared/workLog.ts)
   head?: string;             // el último commit de su rama en GitHub (server/taskCleanup.ts: lo del worktree ya está ahí)
   base?: string;               // la rama sobre la que va (si es la de otro PR, va apilado encima: shared/deploy.ts)
   dependencies?: string[];

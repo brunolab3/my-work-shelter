@@ -8,6 +8,7 @@ import { live, client } from '../net/client';
 import { SFX } from '../audio/sound';
 import { Device, Options, Keys, closePanel, useMenu, useKeys, type ItemMenu } from './device';
 import { SHOP } from '@shared/catalog';
+import { Trophies } from './Trophies';
 import { INTEGRATION_STATE_SHORT } from '@shared/labels';
 import { GAME_NAME } from '@shared/protocol';
 import { isRoomOfRepo, PLANNING_ROOM, alphabeticalOrder } from '@shared/layout';
@@ -102,10 +103,13 @@ const GUIDES: Record<SourceId, { what: string; steps: React.ReactNode[] }> = {
 };
 export const INTEGRATIONS: IntegrationCard[] = ACTIVE_SOURCES.map(id => ({ id, name: tIs(INFO_SOURCE[id].name), ...GUIDES[id], fields: [] }));
 
-type View = { type: 'menu' } | { type: 'integracion'; id: string } | { type: 'slackRemote' } | { type: 'refugio' } | { type: 'salas' } | { type: 'supervisor' } | { type: 'reset' };
+type View = { type: 'menu' } | { type: 'integracion'; id: string } | { type: 'slackRemote' } | { type: 'refugio' } | { type: 'salas' } | { type: 'supervisor' } | { type: 'reset' } | { type: 'trofeos' };
 
 export function PanelCamera() {
-  const [view, setView] = useState<View>({ type: 'menu' });
+  // the trophy shelf and ⌘K open the trophies straight away: closing them goes back to the shelter, not to the menu
+  const [direct] = useState(() => juego.get().panelData?.view === 'trofeos');
+  const [view, setView] = useState<View>({ type: direct ? 'trofeos' : 'menu' });
+  if (view.type === 'trofeos') return <Trophies goBack={() => (direct ? closePanel() : setView({ type: 'menu' }))} />;
   if (view.type === 'integracion') return <IntegrationView card={INTEGRATIONS.find(f => f.id === view.id)!} goBack={() => setView({ type: 'menu' })} />;
   if (view.type === 'slackRemote') return <SlackRemoteView goBack={() => setView({ type: 'menu' })} />;
   if (view.type === 'refugio') return <ShelterView goBack={() => setView({ type: 'menu' })} />;
@@ -125,6 +129,7 @@ function MenuCamera({ go }: { go: (v: View) => void }) {
   const items: (ItemMenu & { f: () => void })[] = [
     ...INTEGRATIONS.map(f => { const st = ints[f.id]; return { text: <><span className={'piloto-mini ' + (st?.state ?? 'demo')} /> {f.name}</>, hint: tIs(INTEGRATION_STATE_SHORT[st?.state ?? 'demo']) + (st?.detail && st.state === 'error' ? ' — ' + st.detail : ''), f: () => go({ type: 'integracion', id: f.id }) }; }),
     { text: <><span className={'piloto-mini ' + skPilot} /> {t('panels.slackRemoteMenu')}</>, hint: sk?.paired ? t('panels.slackRemoteVaultPaired') : sk?.connected ? t('panels.slackRemoteVaultNotPaired') : t('panels.slackRemoteVaultHint'), f: () => go({ type: 'slackRemote' }) },
+    { text: '🏆 ' + t('trophies.menu'), f: () => go({ type: 'trofeos' }) },
     { text: t('panels.theShelterNameReposRoot'), f: () => go({ type: 'refugio' }) },
     { text: t('panels.shelterRooms'), hint: hidden ? t('panels.shelterRoomsHint', { n: hidden }) : undefined, f: () => go({ type: 'salas' }) },
     { text: t('panels.overseerSOutfit'), f: () => go({ type: 'supervisor' }) },

@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "trophies": [
+    { "id": "first-merge", "name": { "es": "Primer merge", "en": "First merge" }, "kind": "prsMerged", "n": 1 },
+    { "id": "ten-merges", "name": { "es": "10 PR fusionados", "en": "10 PRs merged" }, "kind": "prsMerged", "n": 10 },
+    { "id": "quarter", "name": { "es": "8 tareas hechas en un trimestre", "en": "8 tasks done in a quarter" }, "kind": "tasksDone", "n": 8, "within": "90d" },
+    { "id": "reviewer", "name": { "es": "15 revisiones hechas", "en": "15 reviews given" }, "kind": "reviewsGiven", "n": 15 },
+    { "id": "cross-repo", "name": { "es": "Una tarea en varios repos", "en": "A task across repos" }, "kind": "multiRepoTasks", "n": 1, "repos": 2 },
+    { "id": "prod-proof", "name": { "es": "Verificado en producción", "en": "Verified in production" }, "kind": "verifiedInProd", "n": 3 }
+  ],
+  "steps": [
+    { "id": "L1", "name": "Engineer I", "requirements": [
+      { "id": "delivers", "text": { "es": "Entrega tareas acotadas de principio a fin", "en": "Delivers scoped tasks end to end" }, "trophies": ["first-merge", "quarter"] },
+      { "id": "reviews", "text": { "es": "Participa en las revisiones de código", "en": "Takes part in code review" }, "trophies": ["reviewer"] }
+    ]},
+    { "id": "L2", "name": "Engineer II", "requirements": [
+      { "id": "ownership", "text": { "es": "Lleva cambios entre servicios", "en": "Owns changes across services" }, "trophies": ["cross-repo", "prod-proof"], "mode": "any" },
+      { "id": "volume", "text": { "es": "Entrega con constancia", "en": "Delivers steadily" }, "trophies": ["ten-merges"] },
+      { "id": "mentoring", "text": { "es": "Ayuda a otros a crecer (lo juzgan personas)", "en": "Helps others grow (judged by people)" }, "trophies": [] }
+    ]}
+  ]
+}

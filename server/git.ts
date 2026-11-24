@@ -319,7 +319,7 @@ export function github(paths: string[], force = false, connection: { real: boole
 // tareas de demoPanelJira().
 const SEARCH_PRS = (q: string, n: number) => `query {
   prs: search(query: "${q}", type: ISSUE, first: ${n}) { nodes { ... on PullRequest {
-    number title body url isDraft state updatedAt reviewDecision mergeable headRefName headRefOid baseRefName repository { nameWithOwner }
+    number title body url isDraft state updatedAt mergedAt reviewDecision mergeable headRefName headRefOid baseRefName repository { nameWithOwner }
     commits(last: 1) { nodes { commit { statusCheckRollup { state } } } } } } }
 }`;
 const QUERY_PRS = (since: string) => SEARCH_PRS(`is:pr author:@me archived:false updated:>=${since} sort:updated-desc`, 60);
@@ -328,6 +328,7 @@ export function prsOfGitHub(j: any): PRBoard[] {
     number: n.number, title: n.title, url: n.url, repo: n.repository?.nameWithOwner ?? '', branch: n.headRefName ?? '',
     state: n.state === 'MERGED' ? 'fusionado' : n.state === 'CLOSED' ? 'cerrado' : n.isDraft ? 'borrador' : 'abierto',
     review: n.reviewDecision ?? undefined, checks: n.commits?.nodes?.[0]?.commit?.statusCheckRollup?.state ?? undefined, updated: Date.parse(n.updatedAt),
+    ...(n.mergedAt ? { mergedAt: Date.parse(n.mergedAt) } : {}),
     conflicts: n.mergeable === 'CONFLICTING' ? true : n.mergeable === 'MERGEABLE' ? false : undefined,
     base: n.baseRefName ?? undefined, head: n.headRefOid ?? undefined, dependencies: dependenciesInText(`${n.title ?? ''}\n${n.body ?? ''}`, n.repository?.nameWithOwner ?? ''),
   }));

@@ -13,5 +13,6 @@ import { MEETING } from './texts/meeting.ts';
 import { DWELLERS } from './texts/dwellers.ts';
 import { VERIFICATION } from './texts/verification.ts';
 import { REVIEWS } from './texts/reviews.ts';
+import { WORK_LOG } from './texts/workLog.ts';
 
-export const TEXTS: Record<string, LocalizedText> = { ...MENU, ...WORLD, ...PANELS, ...WINDOWS, ...PROMPTS, ...SERVER, ...TOOLS, ...INTEGRATIONS, ...PREFLIGHT, ...MEETING, ...DWELLERS, ...VERIFICATION, ...REVIEWS };
+export const TEXTS: Record<string, LocalizedText> = { ...MENU, ...WORLD, ...PANELS, ...WINDOWS, ...PROMPTS, ...SERVER, ...TOOLS, ...INTEGRATIONS, ...PREFLIGHT, ...MEETING, ...DWELLERS, ...VERIFICATION, ...REVIEWS, ...WORK_LOG };

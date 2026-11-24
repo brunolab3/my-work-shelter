@@ -832,6 +832,41 @@ span.vt-lista-marca { cursor: default; }
 .kanban-jira .kanban-col { min-width: 0; min-height: auto; overflow: visible; }
 .kanban-jira .ficha-issue { overflow-wrap: anywhere; }
 .kanban-jira .insignia-pr { display: inline-block; white-space: normal; max-width: 100%; overflow-wrap: anywhere; }
+/* Sync update (Planning, WorkLog.tsx): one line per task in its colour, its facts underneath */
+.bitacora-periodos { display: flex; gap: .4em; margin: .3em 0 .5em; }
+.bitacora-periodos button { background: transparent; color: var(--fosforo-tenue); border: 1px solid var(--fosforo-tenue); font: inherit; font-size: .82em; padding: .1em .6em; cursor: pointer; }
+.bitacora-periodos button.activa { color: var(--fondo); background: var(--fosforo); border-color: var(--fosforo); }
+.bitacora { list-style: none; margin: 0; padding: 0; overflow: hidden auto; max-height: 62vh; scrollbar-width: thin; }
+.bitacora-grupo { margin: .6em 0 .2em; font-size: .82em; text-transform: uppercase; letter-spacing: .06em; }
+.bitacora-fila { border-left: 3px solid var(--tarea, var(--fosforo-tenue)); padding: .25em .5em; margin-bottom: .25em; background: rgba(157,255,184,.04); cursor: pointer; }
+.bitacora-fila.sel { background: rgba(157,255,184,.12); }
+.bitacora-linea { display: flex; gap: .6em; align-items: baseline; flex-wrap: wrap; }
+.bitacora-clave { color: var(--tarea, var(--fosforo)); white-space: nowrap; }
+.bitacora-titulo { flex: 1 1 18em; min-width: 0; overflow-wrap: anywhere; }
+.bitacora-estado { font-size: .8em; padding: 0 .4em; border: 1px solid currentColor; white-space: nowrap; }
+.bitacora-estado.c-done { color: #b48cff; } .bitacora-estado.c-indeterminate { color: #5fd98a; }
+.bitacora-repos { font-size: .82em; }
+.bitacora-detalle { list-style: none; margin: .25em 0 .1em 1.6em; padding: 0; font-size: .86em; }
+.bitacora-detalle li { padding: .05em 0; overflow-wrap: anywhere; }
+.bitacora-detalle li.enlace:hover { color: var(--fosforo); text-decoration: underline; }
+/* Trophies and career (Vault, Trophies.tsx) */
+.trofeos-seccion { margin: .8em 0 .3em; font-size: .95em; color: var(--ambar); letter-spacing: .05em; }
+.trofeo-barra { display: inline-block; width: 7em; height: .55em; border: 1px solid var(--fosforo-tenue); vertical-align: middle; }
+.trofeo-barra > span { display: block; height: 100%; background: var(--fosforo); }
+.escalera { margin: 0; padding-left: 1.4em; }
+.escalon { margin-bottom: .5em; }
+.escalon.actual > .escalon-cabeza b { color: var(--ambar); }
+.escalon.cumplido > .escalon-cabeza b { color: var(--fosforo); }
+.escalon ul { list-style: none; margin: .2em 0 0 .4em; padding: 0; font-size: .88em; }
+.escalon ul li { display: flex; gap: .6em; align-items: center; flex-wrap: wrap; }
+.escalon ul li.cumplido > span:first-child { color: var(--fosforo); }
+.trofeos { list-style: none; margin: 0; padding: 0; }
+.trofeo { display: flex; gap: .6em; align-items: center; flex-wrap: wrap; padding: .2em 0; font-size: .9em; opacity: .8; }
+.trofeo.ganado { opacity: 1; }
+.trofeo.ganado b { color: var(--ambar); }
+.trofeo-icono { width: 1.4em; text-align: center; }
+.trofeo-hechos a { margin-right: .5em; font-size: .85em; color: var(--fosforo-tenue); cursor: pointer; }
+.trofeo-hechos a:hover { color: var(--fosforo); }
 .kanban-col.soltar { outline: 2px dashed var(--estado, var(--fosforo)); outline-offset: -2px; background: rgba(157,255,184,.06); }
 .mover-jira .opciones-consola { margin: 0 0 .7em; }
 .prs-ficha { display: flex; flex-wrap: wrap; gap: .3em; margin-top: .3em; }

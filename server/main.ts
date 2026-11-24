@@ -35,6 +35,7 @@ import type { JiraTransition, PRBoard } from '../shared/board.ts';
 import { blockersBetween, pRKey } from '../shared/deploy.ts';
 import { TasksCleanup, orphanedConversations } from './taskCleanup.ts';
 import { ReviewRoom, REVIEW_ROOM, REVIEW_ROOM_QUERY } from './reviewRoom.ts';
+import { WorkLog, type WorkLogSources } from './workLog.ts';
 import type { ReviewBoard } from '../shared/reviews.ts';
 import { Scheduled, summary } from './scheduled.ts';
 import { LimitResumes, scanStopped, resetMs, stopsWork, UNKNOWN_RESET_MS } from './limitResume.ts';
@@ -865,6 +866,26 @@ async function pollReviews() {
 setTimeout(() => { pollReviews().catch(() => {}); }, 5_000).unref();
 setInterval(() => { pollReviews().catch(() => {}); }, 60_000).unref();
 
+// the work log and trophies (workLog.ts): every minute the rooms' worktrees and the conversations, every five also
+// what Jira and GitHub already gave the boards, merged into DATOS/bitacora.json; read by the Sync update panel (Planning)
+// and the trophies' panel and shelf (Vault)
+const workLog = new WorkLog(DATA, path.join(ROOT, 'docs', 'ladder.example.json'));
+const workLogSources: WorkLogSources = {
+  jira: async () => integrations.action('panel', { source: 'jira' }) as any,   // off: it throws, and the sweep skips it
+  prs: async () => prsPreflight(false),
+  worktrees: () => {
+    const rooms = store.state.rooms.filter(s => s.type === 'repo' && repos[s.id]?.isGit);
+    return { rooms: rooms.map(s => s.id), live: rooms.flatMap(s => (repos[s.id]?.worktrees ?? []).filter(w => !w.main).map(w => ({ path: w.path, roomId: s.id, branch: w.branch || undefined }))) };
+  },
+  sessions: () => sessions.list().filter(s => s.roomId !== REVIEW_ROOM),
+  reviews: () => reviewState.state === 'ok' ? reviewRoom.reviews().flatMap(r => r.prs) : null,
+  verified: () => Object.entries(verifications.states()).filter(([, p]) => finalCheckpoint(p)?.state === 'evidenced').map(([k]) => k),
+  notify: text => broadcast({ t: 'aviso', level: 'info', text }),
+};
+let workLogRound = 0;
+const sweepWorkLog = () => { workLog.sweep(workLogSources, workLogRound++ % 5 === 0).catch(err => console.error('Bitácora:', String((err as Error).message).split('\n')[0])); };
+setTimeout(() => { sweepWorkLog(); setInterval(sweepWorkLog, 60_000).unref(); }, 45_000).unref();
+
 // organizar las salas por tareas (organize.ts): el plan de cada sala de repo y, confirmado, hacerlo
 async function organizeRooms(roomId: string | undefined, apply: boolean) {
   const G = await import('./git.ts');
@@ -1126,6 +1147,8 @@ async function action(name: string, d: Record<string, any> = {}): Promise<unknow
     case 'revision.tablero': return reviewBoard();
     case 'revision.abrir': { const k = String(d.key ?? ''); if (!k) throw new Error(t('reviews.notFound', { clave: '—' })); return reviewRoom.open(k); }
     case 'revision.terminar': return reviewRoom.finish(String(d.key ?? ''));
+    case 'bitacora.leer': return workLog.read(workLogSources);
+    case 'bitacora.escalera': return workLog.ensureLadder();
     case 'verificacion.aprobar': { const k = taskKey(String(d.key ?? '')); return (k && verifications.approve(k)) ?? null; }
     case 'paginas.responder': return pageReviews.respond(d.path, d.state);
     case 'preflight.puerta': { const r = path.resolve(String(d.path ?? '')); if (!gitPath(r)) throw new Error(t('server.thatFolderIsNotA')); return gatePush(r, ctxPreflight); }

@@ -19,6 +19,7 @@ import { taskColor, pRTask } from '@shared/tasks';
 import { aimColors, knowTasks, useColorsTasks, jiraBoard } from './tasks';
 import { crossBoard, columnOf, COLUMN_COLORS, COLUMNS, prText, planPrompt, type BoardColumn, type JiraTransition, type PRBoard, type TaskWithPR, type TaskJira } from '@shared/board';
 import { EpicMark } from './windows';
+import { WorkLog } from './WorkLog';
 
 const SOURCES: Record<string, string> = Object.fromEntries(IDS_SOURCES.map(f => [f, INFO_SOURCE[f].short]));
 const LOC = language() === 'en' ? 'en-GB' : 'es-ES';
@@ -170,12 +171,14 @@ export function PanelLogistics() {
   const st = live.use(e => e.integrations.jira);
   const commander = juego.use(e => e.dwellers.find(h => h.room === 'logistica'));
   const withLinear = active('linear');
-  const [view, setView] = useState<'jira' | 'tablero' | 'menu' | 'avisos'>(() => (juego.get().panelData?.view === 'jira' ? 'jira' : 'menu'));   // clic en la pantalla de la pared: directo al tablero
+  const direct0 = juego.get().panelData?.view;
+  const [view, setView] = useState<'jira' | 'tablero' | 'menu' | 'avisos' | 'bitacora'>(() => (direct0 === 'jira' || direct0 === 'bitacora' ? direct0 : 'menu'));   // clic en la pantalla de la pared: directo al tablero
   // abierto directamente (la pantalla de la pared, ⌘K): al cerrarlo se vuelve al refugio, no al menú de la consola
-  const [direct] = useState(() => juego.get().panelData?.view === 'jira');
+  const [direct] = useState(() => direct0 === 'jira' || direct0 === 'bitacora');
   const onMenu = () => (direct ? closePanel() : setView('menu'));
   const items = [
     { text: t('panels.boardMyJiraTasksAnd'), f: () => setView('jira') },
+    { text: t('worklog.menu'), f: () => setView('bitacora') },
     ...(withLinear ? [
       { text: t('panels.openLinearRightHere'), f: () => { closePanel(); openBrowser('linear'); } },
       { text: t('panels.linearMyIssuesByStatus'), f: () => setView('tablero') },
@@ -192,6 +195,7 @@ export function PanelLogistics() {
     else if (e.code === 'Enter' || e.code === 'KeyE') { SFX.click(); items[i].f(); }
   }, [view, i]);
   if (view === 'jira') return <JiraBoard goBack={onMenu} />;
+  if (view === 'bitacora') return <WorkLog goBack={onMenu} />;
   if (view === 'avisos') return <PanelCommunications onlySource="linear" />;
   if (view === 'tablero') return <BoardLinear goBack={() => setView('menu')} />;
   return (
