@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { flaggedIds, setFlag, isFlagged, flaggedIn, flagOf, flagMark, FLAGGED_MAX } from './flagged';
+import { flaggedIds, setFlag, isFlagged, flaggedIn, flaggedInIntercom, flagOf, flagMark, FLAGGED_MAX } from './flagged';
 import type { SessionSummary } from './protocol';
 
 const s = (claudeId: string | undefined, state: SessionSummary['state'] = 'terminada') => ({ claudeId, state }) as SessionSummary;
@@ -50,6 +50,12 @@ describe('conversations marked as pending', () => {
     const after = flaggedIds({ flaggedConversations: setFlag([], 'c', true) });
     expect(isFlagged(s('c', 'cerrada'), after)).toBe(false);
     expect(isFlagged(s('c', 'trabajando'), after)).toBe(true);
+  });
+  it('counts on the COM selectors every flagged conversation in an intercom, a closed one too, while tags skip it', () => {
+    const ids = new Set(['a', 'b']);
+    const tabs = [s('a', 'cerrada'), s('b'), s('z'), s(undefined, 'arrancando'), undefined];
+    expect(flaggedInIntercom(tabs, ids)).toBe(2);
+    expect(flaggedIn(tabs, ids)).toBe(1);
   });
   it('tags show ⚑ for one pending conversation and ⚑ n for several', () => {
     expect(flagMark(0)).toBeUndefined();

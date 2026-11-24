@@ -1,7 +1,7 @@
 // Conversations the Overseer marked as pending (⚑): a reminder that they still have to act on them. Only they set and
 // clear it (sending a message doesn't). Kept in the game's settings by Claude Code session id, so it survives restarts
 // and comes back when the conversation is resumed. Set on open or closed ones; shown on its tab, the ⋯ N list, the
-// archive and, while open, its dweller's or hologram's tag.
+// archive, the COM selectors while in an intercom and, while open, its dweller's or hologram's tag.
 import type { SessionSummary } from './protocol.ts';
 import { t } from './language.ts';
 
@@ -32,6 +32,13 @@ export const isFlagged = (s: SessionSummary | undefined, ids: Set<string>) => s?
 export const flaggedIn = (sessions: Iterable<SessionSummary | undefined>, ids: Set<string>) => {
   let n = 0;
   for (const s of sessions) if (isFlagged(s, ids)) n++;
+  return n;
+};
+
+/** How many conversations open in an intercom are pending, closed ones too: what the COM chips and their lists count */
+export const flaggedInIntercom = (sessions: Iterable<SessionSummary | undefined>, ids: Set<string>) => {
+  let n = 0;
+  for (const s of sessions) if (flagOf(s, ids)) n++;
   return n;
 };
 

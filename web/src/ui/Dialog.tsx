@@ -20,7 +20,7 @@ import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 
 import { createPortal } from 'react-dom';
 import type { SessionSummary, LogInput, HistoryElement, Command, PendingRequest, Visitor, QueuedMessage } from '@shared/protocol';
 import { originLabel, queuedIn, withdrawable } from '@shared/messageQueue';
-import { flaggedIds, flagOf, flaggedIn, type Flaggable } from '@shared/flagged';
+import { flaggedIds, flagOf, flaggedInIntercom, type Flaggable } from '@shared/flagged';
 import { MODELS, EFFORTS, PERMISSION_MODES } from '@shared/protocol';
 import { t, tIs, trBio } from '@shared/language';
 import { juego, type DwellerSummary } from './gameState';
@@ -348,7 +348,7 @@ export function roomTalkers(room: string, dwellers: DwellerSummary[], copies: Dw
     const sess = tabs.map(p => p.view.type === 'sesion' ? sessions[p.view.sessionId] : undefined).filter(Boolean) as SessionSummary[];
     const first = [...sess].sort((a, b) => urgency(a) - urgency(b) || b.updated - a.updated)[0];
     const name = talkerName(x);
-    return { x, sess, first, state: tabState(first), name, draft: tabs.some(withText), flagged: flaggedIn(sess, flags) };
+    return { x, sess, first, state: tabState(first), name, draft: tabs.some(withText), flagged: flaggedInIntercom(sess, flags) };
   }).map(q => ({ q, r: { state: q.state, when: Math.max(0, ...q.sess.map(s => s.updated)), name: q.name, id: q.x.id } }))
     .sort((a, b) => talkerFirst(a.r, b.r))
     .map(y => y.q);

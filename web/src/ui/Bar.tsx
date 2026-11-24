@@ -10,7 +10,7 @@ import { intercoms, type WindowCom, minimizeIntercom, restoreIntercom, sessionPi
 import { juego, type DwellerSummary } from './gameState';
 import type { SessionSummary } from '@shared/protocol';
 import { recentFirst, sessionRecency } from '@shared/recent';
-import { flaggedIn } from '@shared/flagged';
+import { flaggedInIntercom } from '@shared/flagged';
 import { live } from '../net/client';
 import { Store } from './store';
 import { writing } from '../engine/keyboard';
@@ -187,8 +187,8 @@ export function Bar() {
   // the «+N» list opens on hover or click, and by itself while the keyboard is on one of the rooms behind it
   const inHidden = !!sel && validRow(fs, sel.row) === 0 && Math.min(sel.i, fs[0].length - 1) >= views.length;
   const whoIs = (h: DwellerSummary) => h.copy ? t('windows.autorSHolographicCopyBranch', { autor: h.copy.nameAuthor, rama: h.copy.branch }) : h.name;
-  // how many of a room's open conversations are marked as pending (⚑, shared/flagged.ts)
-  const flaggedOf = (g: (typeof rooms)[number]) => flaggedIn(g.sess.map(x => x.s), flags);
+  // how many of a room's conversations in its intercoms are marked as pending (⚑, shared/flagged.ts), closed ones too
+  const flaggedOf = (g: (typeof rooms)[number]) => flaggedInIntercom(g.sess.map(x => x.s), flags);
   // a room's chip: its pilot, the room, its most urgent conversation's state, how many it has open and its ⚑ pending ones
   // (who and what in its title); waiting goes before pending in its colour
   const chip = (g: (typeof rooms)[number], mark: boolean, measure = false) => {
