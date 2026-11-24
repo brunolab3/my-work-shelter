@@ -1297,9 +1297,10 @@ function ResumePages({ roomId, claudeId }: { roomId: string; claudeId: string })
   return <PagesList sessionId={claudeId} claudeId={claudeId} entries={entries} />;
 }
 
-// The action lists (pages, scheduled, PRs) open at their own button: right below it while they fit before the intercom's
-// bottom (or there's more room there than anywhere else), otherwise to its right over the conversation, moved up just
-// enough to end inside the intercom; never taller than it, with scroll
+// The action lists (pages, scheduled, PRs) open at their own button: right below it whenever there's room for a few rows
+// there (or all of them), otherwise to its right over the conversation, moved up just enough to end inside the intercom;
+// never taller nor wider than what's left of it (rows shorten their texts, never their buttons), with scroll. Fitted
+// again when the intercom resizes or the rows change
 function useListAtButton(open: boolean) {
   const ref = useRef<HTMLUListElement>(null);
   useLayoutEffect(() => {
@@ -1308,21 +1309,24 @@ function useListAtButton(open: boolean) {
     const fit = () => {
       const z = zone.getBoundingClientRect(), b = anchor.getBoundingClientRect();
       const k = anchor.offsetWidth ? b.width / anchor.offsetWidth : 1;  // screen px per CSS px (a scaled intercom)
-      const margin = 6, height = (z.height - 2 * margin) / k;
+      const margin = 6, height = (z.height - 2 * margin) / k, few = 160;
+      const width = (left: number) => ({ maxWidth: `${left}px`, minWidth: `min(26em, ${left}px)` });
       Object.assign(ul.style, { maxHeight: 'none', top: '', left: '' });
       const natural = ul.scrollHeight;
       const below = (z.bottom - b.bottom - margin) / k;
-      if (natural <= below || below >= height / 2) {
-        Object.assign(ul.style, { top: '100%', left: '0', maxHeight: `${Math.max(0, below - 3)}px` });
+      if (natural <= below || below >= Math.min(few, height / 2)) {
+        Object.assign(ul.style, { top: '100%', left: '0', maxHeight: `${Math.max(0, below - 3)}px`, ...width((z.right - b.left - margin) / k) });
         return;
       }
       const h = Math.min(natural, height);
       const top = Math.max((z.top + margin - b.top) / k, Math.min(0, (z.bottom - margin - b.top) / k - h));
-      Object.assign(ul.style, { top: `${top}px`, left: `calc(100% + ${margin}px)`, maxHeight: `${height}px` });
+      Object.assign(ul.style, { top: `${top}px`, left: `calc(100% + ${margin}px)`, maxHeight: `${height}px`, ...width((z.right - b.right) / k - 2 * margin) });
     };
     fit();
+    const rows = new MutationObserver(fit);
+    rows.observe(ul, { childList: true, subtree: true, characterData: true });
     addEventListener('resize', fit);
-    return () => removeEventListener('resize', fit);
+    return () => { rows.disconnect(); removeEventListener('resize', fit); };
   }, [open]);
   return ref;
 }

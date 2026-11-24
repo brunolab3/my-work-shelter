@@ -329,6 +329,9 @@ html, body { margin: 0; height: 100%; background: var(--fondo); overflow: hidden
 .paginas-lista .pagina-nombre { flex: 1 1 auto; min-width: 4em; max-width: 24em; overflow: hidden; text-overflow: ellipsis; text-align: left; background: none; border: 0; color: var(--fosforo); font: inherit; cursor: pointer; padding: 0; }
 .paginas-lista .pagina-nombre:hover { text-decoration: underline; }
 .paginas-lista .consola-x { margin-left: 0; }
+/* narrowed to the intercom (useListAtButton): the texts shorten, the buttons and marks stay whole */
+.paginas-lista li > span { flex: 0 1 auto; min-width: 1.5em; overflow: hidden; text-overflow: ellipsis; }
+.paginas-lista li > .consola-x, .paginas-lista li > span:first-child { flex: none; }
 /* a link's options (linkOptions.ts): anchored at the link, above every window */
 .opciones-enlace { position: fixed; z-index: 2147483000; display: flex; flex-direction: column; min-width: 15em; max-width: 30em; padding: .35em; background: #0b120b; border: 1px solid var(--fosforo-tenue); border-radius: 4px; box-shadow: 0 6px 24px #000c; font: 400 calc(var(--u) * 0.75) var(--t-mono); color: var(--fosforo); }
 .opciones-enlace .oe-titulo { padding: .15em .45em .35em; color: var(--fosforo-tenue); font-size: .88em; white-space: nowrap; overflow: hidden; }

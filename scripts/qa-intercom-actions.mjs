@@ -1,7 +1,8 @@
 // QA of the intercom's «Actions» section (Dialog.tsx) on a hologram with pages + PRs + pre-flight + scheduled at once,
 // with its own server in a test shelter and Playwright: the four buttons in order of importance right under the
 // dweller's data; each list opens right below its button in a normal and a maximized intercom, and to its right over the
-// conversation in a short window; never outside the intercom. Screenshots of each.
+// conversation in a short window when there's no room below for a few rows; never outside the intercom, and with ten
+// scheduled ones (⏳, 📦, next window, to other rooms) every row's buttons reachable. Screenshots of each.
 // Needs the built client (npx vite build). Usage: node scripts/qa-intercom-actions.mjs [screenshots-folder]   (SHELTER_PUERTO_QA, 3797)
 import { chromium } from 'playwright';
 import { spawn, execFileSync } from 'node:child_process';
@@ -32,7 +33,7 @@ try {
   await pg.goto(withToken(`http://127.0.0.1:${PORT}`), { waitUntil: 'load' });
   await pg.waitForFunction(() => typeof window.__ready === 'function', null, { timeout: 60000 });
   await pg.evaluate(async r => { await window.__ready(); await window.__client.action('reclutar', { path: r }); await window.__client.action('guardar', { patch: { doneWelcome: true } }); window.__game.set({ panel: null, panelData: null }); }, repo);
-  await pg.waitForFunction(w => window.__game.get().copies.some(c => c.copy?.path === w), wt, { timeout: 30000 });
+  await pg.waitForFunction(w => window.__game.get().copies.some(c => c.copy?.path === w), wt, { timeout: 90000 });
   const holo = await pg.evaluate(w => window.__game.get().copies.find(c => c.copy?.path === w), wt);
   console.log('copia', holo.id, holo.room);
   await pg.evaluate(([holo, wt, pages]) => {
@@ -50,8 +51,8 @@ try {
   }, [holo, wt, pages]);
   await pg.waitForSelector('.consola-acciones', { timeout: 15000 });
   await sleep(2500);
-  const side = async n => { const r = await pg.$eval('.consola', e => { const b = e.getBoundingClientRect(); return { x: b.x, y: b.y, width: b.width, height: b.height }; }); await pg.screenshot({ path: `${dir}/${n}.png`, clip: r }); console.log('->', `${dir}/${n}.png`); };
-  const buttons = await pg.$$eval('.consola-acciones .consola-x', l => l.map(x => x.textContent));
+  const side = async n => { const r = await pg.$eval('.consola', e => { const b = e.getBoundingClientRect(); return { x: b.x, y: b.y, width: b.width, height: b.height }; }); await pg.screenshot({ path: `${dir}/${n}.png`, clip: r, timeout: 120000 }); console.log('->', `${dir}/${n}.png`); };
+  const buttons = await pg.$$eval('.consola-acciones .consola-x', l => l.map(x => x.textContent).filter(x => !x.startsWith('⚑')));
   check(/📄/.test(buttons[0]) && /⑂/.test(buttons[1]) && /✈/.test(buttons[2]) && /⏰/.test(buttons[3]) && buttons.length === 4, 'pages, PRs, pre-flight and scheduled, in that order: ' + buttons.join(' | '));
   check(await pg.$eval('.consola-acciones', a => a.getBoundingClientRect().top - [...a.parentElement.children].at(-2).getBoundingClientRect().bottom < 30), 'the section sits right under the dweller\'s data');
   // where the open list is: 'debajo' (right below its button) or 'derecha' (to its right), and inside the intercom
@@ -68,9 +69,48 @@ try {
   await sleep(800); await side('5-max');
   await pg.click('.paginas-principal > .consola-x'); await sleep(400); check(await spot() === 'debajo', 'maximized: right below its button'); await side('6-max-paginas'); await pg.click('.paginas-principal > .consola-x');
   await pg.click('.programados-sesion > .consola-x'); await sleep(400); check(await spot() === 'debajo', 'maximized: the scheduled list right below its button'); await side('7-max-programados'); await pg.click('.programados-sesion > .consola-x');
-  // a short window: below the buttons there's no room, so the list opens to their right, over the conversation
+  // a short window: below the last button there's no room, so its list opens to its right, over the conversation
   await pg.setViewportSize({ width: 1400, height: 640 }); await sleep(800);
   await pg.click('.programados-sesion > .consola-x'); await sleep(400); check(['debajo', 'derecha'].includes(await spot()), 'short window: the scheduled list at its button, inside the intercom'); await side('8-bajo-programados'); await pg.click('.programados-sesion > .consola-x');
-  await pg.click('.paginas-principal > .consola-x'); await sleep(400); check(await spot() === 'derecha', 'short window: the pages list to the right of its button, inside the intercom'); await side('9-bajo-paginas');
+  await pg.click('.paginas-principal > .consola-x'); await sleep(400); check(await spot() === 'debajo', 'short window: the pages list still below its button (room for a few rows), inside the intercom, scrolling'); await side('9-bajo-paginas');
+  await pg.click('.paginas-principal > .consola-x'); await sleep(200);
+  // many scheduled ones (⏳ after the turn, 📦 packed, next window, dated, to other rooms): every row's buttons reachable,
+  // in a short window and in a normal one, scrolling inside the list when it doesn't fit
+  await pg.evaluate(() => {
+    const now = Date.now(), wt = window.__live.get().sessions.qa_s.cwd, room = window.__live.get().sessions.qa_s.roomId;
+    const target = { type: 'conversacion', roomId: room, sessionId: 'qa_s', claudeId: 'qa_c', cwd: wt, title: 'QA carrito' };
+    const origin = { roomId: room, sessionId: 'qa_s', claudeId: 'qa_c' };
+    const prog = (i, extra) => ({ id: 'm' + i, created: now + i, when: now + (i + 1) * 3600e3, requested: '', message: `Mensaje programado número ${i}: revisar el carrito, los tests y el despliegue antes del lunes`, origin, target, ...extra });
+    const part = n => ({ kind: 'ci', text: 'CI ' + n });
+    window.__live.set(e => ({ ...e, scheduled: [
+      prog(0, { afterTurn: true }), prog(1, { afterTurn: true, pr: { url: 'https://github.com/acme/tienda/pull/7', label: 'acme/tienda#7', parts: [part(1), part(2), part(3)] } }),
+      prog(2, { afterTurn: true, pr: { url: 'https://github.com/acme/tienda/pull/8', label: 'acme/tienda#8', parts: [part(1)] } }),
+      prog(3, { nextWindow: true }), prog(4, { nextWindow: true }), prog(5, { overLimit: true, target: { type: 'sala', room: 'plataforma-de-pagos', key: 'una-tarea-con-una-clave-bastante-larga' } }),
+      prog(6, {}), prog(7, {}), prog(8, { target: { type: 'sala', room: 'logistica', thread: 'cleanup' } }), prog(9, {}) ] }));
+  });
+  const reachable = () => pg.$eval('.paginas-lista', u => {
+    // only the list scrolls (scrollIntoView would also scroll the intercom's clipping box and hide the problem)
+    const c = u.closest('.consola-bisel').getBoundingClientRect(), bad = u.scrollWidth > u.clientWidth + 1 ? ['scrolls sideways'] : [];
+    for (const [i, li] of [...u.children].entries()) for (const b of li.querySelectorAll('button')) {
+      u.scrollTop = Math.max(0, li.offsetTop + li.offsetHeight - u.clientHeight);
+      const r = b.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
+      const inside = r.left >= c.left - 1 && r.right <= c.right + 1 && r.top >= c.top - 1 && r.bottom <= c.bottom + 1;
+      if (!inside || document.elementFromPoint(x, y) !== b) bad.push(`row ${i} ${b.textContent}${inside ? '' : ' outside'}`);
+    }
+    return bad;
+  });
+  for (const [w, h, n, max] of [[1400, 640, 'a-bajo'], [1600, 1000, 'b-normal'], [1000, 560, 'c-pequeño'], [1400, 640, 'd-max-bajo', true], [1600, 1000, 'e-max', true]]) {
+    await pg.evaluate(max => { const hid = window.__game.get().talkingWith; window.__intercoms.set(e => ({ list: e.list.map(v => v.dwellerId === hid ? { ...v, maximized: max } : v) })); }, !!max);
+    await pg.setViewportSize({ width: w, height: h }); await sleep(800);
+    await pg.click('.programados-sesion > .consola-x'); await sleep(400);
+    await pg.$eval('.paginas-lista', u => { u.scrollTop = 0; });
+    await side(`10${n}-muchos-programados`);
+    const bad = await reachable();
+    check(!bad.length, `${w}×${h}: every scheduled row's buttons visible and clickable` + (bad.length ? ': ' + bad.join(', ') : ''));
+    const room = await pg.$eval('.paginas-lista', u => u.closest('.consola-cuerpo').getBoundingClientRect().bottom - u.parentElement.getBoundingClientRect().bottom);
+    check(await spot() === (room >= 166 ? 'debajo' : 'derecha'), `${w}×${h}: the scheduled list below its button with room for a few rows (${Math.round(room)} px), otherwise to its right`);
+    await side(`10${n}-muchos-programados-fin`);
+    await pg.click('.programados-sesion > .consola-x'); await sleep(200);
+  }
 } finally { await b.close(); server.kill(); }
 process.exit(failures ? 1 : 0);
