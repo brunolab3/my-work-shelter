@@ -84,6 +84,10 @@ export interface SessionSummary {
   tokens?: number;               // tokens de la sesión hasta ahora (entrada, salida y caché, todos los modelos)
   context?: { used: number; max: number; percentage: number };   // ventana de contexto ocupada tras el último turno
   lateral?: { question: string; answer?: string; ts: number };
+  // past the handoff threshold (shared/compact.ts): 'offered' while the intercom suggests a new session, 'writing' while
+  // the dweller writes the handoff summary that will start it
+  handoff?: 'offered' | 'writing';
+  handoffFrom?: string;          // the conversation this one took over from with a handoff (its intercom tab follows)
   created: number;
   updated: number;
 }
@@ -123,7 +127,7 @@ export interface MusicState {
 export interface Visitor { claudeId: string; roomId: string; cwd: string; title: string; modified: number; worktree?: string }
 
 // ---------------------------------------------------------------- mensajes
-export interface WorkOptions { model?: string; effort?: string; permissions?: string; worktree?: boolean | string; resume?: string; cwd?: string }
+export interface WorkOptions { model?: string; effort?: string; permissions?: string; worktree?: boolean | string; resume?: string; cwd?: string; handoffFrom?: string }
 
 export type ClientMessage =
   | { t: 'hola'; version: string }

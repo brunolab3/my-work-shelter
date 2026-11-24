@@ -25,3 +25,22 @@ export function compactLevel(c: { used: number; percentage: number }): 'bajo' | 
 export function contextLevel(c: { used: number; percentage: number }): 'bajo' | 'medio' | 'alto' {
   return c.used >= COMPACT_URGE || c.percentage >= 85 ? 'alto' : c.used >= COMPACT_SUGGEST || c.percentage >= 60 ? 'medio' : 'bajo';
 }
+
+// From how much context the intercom suggests a new session with a handoff instead of carrying on (vault setting,
+// in tokens): every turn re-reads the whole context against the plan's limit, so a fresh conversation that starts from a
+// short summary is cheaper than a long one kept alive. Above «Compact» (150k), below the urge (300k) and the auto-compact
+// window (400k), so it comes before either compacts it away; 75 % stands in for it on a small window
+export const HANDOFF_DEFAULT = 250_000;
+export const HANDOFF_PERCENTAGE = 75;
+
+// the vault setting as a threshold: unset means the default, 0 turns the suggestion off (undefined)
+export function handoffThreshold(v: unknown): number | undefined {
+  if (v === 0) return undefined;
+  const n = typeof v === 'number' && Number.isFinite(v) ? v : HANDOFF_DEFAULT;
+  return Math.round(Math.max(AUTO_COMPACT_MIN, Math.min(AUTO_COMPACT_MAX, n)));
+}
+
+// whether a conversation's context has passed the threshold
+export function handoffDue(c: { used: number; percentage: number } | undefined, threshold: number | undefined): boolean {
+  return !!c && threshold !== undefined && (c.used >= threshold || c.percentage >= HANDOFF_PERCENTAGE);
+}

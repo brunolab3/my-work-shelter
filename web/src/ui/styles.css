@@ -419,6 +419,12 @@ a.miniatura:hover img { box-shadow: 0 0 0 1px #ffc96b, 0 0 10px rgba(255,179,71,
 .consumo-compactar:hover { box-shadow: inset 0 0 0 1px currentColor; }
 .consumo-compactar.urgente { animation: compactar-latido 1.6s ease-in-out infinite; }
 @keyframes compactar-latido { 50% { opacity: .55; } }
+/* the new-session suggestion past the handoff threshold (shared/compact.ts), once the turn ends: «Compact» or a handoff */
+.aviso-relevo { border: 1px solid currentColor; padding: .5em .7em; }
+.aviso-relevo p { margin: 0 0 .5em; }
+.botones-relevo { display: flex; gap: .6em; flex-wrap: wrap; }
+.botones-relevo button { padding: .1em .6em; font: inherit; color: inherit; background: none; border: 1px solid currentColor; cursor: pointer; }
+.botones-relevo button:hover { box-shadow: inset 0 0 0 1px currentColor; }
 .linea-estado .modo { margin-left: auto; color: var(--fosforo-tenue); text-shadow: none; font-size: .85em; }
 .linea-estado .urgente { color: #ffb000; }
 .girando { display: inline-block; animation: girar 1s linear infinite; } @keyframes girar { to { transform: rotate(360deg); } }

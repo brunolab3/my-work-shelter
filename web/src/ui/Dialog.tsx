@@ -34,7 +34,7 @@ import { Store } from './store';
 import { useMenu as useMenuBase, Options } from './device';
 import { CMD, MAC, nextZ, windowShortcut, WindowButtons, Tabs, TabList, DraftMark, FlagMark, FLAG_SHORTCUT, TaskMark, Confirmation, nthTab, nextTab, PILOT, stateLabel, type ItemTab, type TabState } from './windows';
 import { sessionOwner, interlocutor, branchCaption, copyCaption, copyTask, pathWorktree, worktreesKnown } from './copies';
-import { Usage } from './usage';
+import { Usage, tokensShort } from './usage';
 import { takeASurface, toClaudeApp } from './surface';
 import { openLink, openPage, pageForSession, pageAnswers, pageNotes, validatePage, revealPage, makeRoomForIntercom, answerPage } from './Browsers';
 import { sessionPages, pendingPages, samePage, livePages, questionInput } from '@shared/sessionPages';
@@ -1024,6 +1024,9 @@ function Session({ h, s, p, exit, onClose }: { h: DwellerSummary; s: SessionSumm
   const suggestions = text.startsWith('/') && !text.includes(' ') ? [...OWN_COMMANDS, ...commands].filter(c => c.name.toLowerCase().startsWith(text.slice(1).toLowerCase())).slice(0, 8) : [];
   const scroll = (d: number) => { const el = canvas.current; if (el) { el.scrollTop += d * el.clientHeight * 0.8; pinned.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 4; } };
   const interrupt = () => { client.send({ t: 'interrumpir', sessionId: s.id }); SFX.click(); };
+  const compact = () => { client.send({ t: 'enviar', sessionId: s.id, text: '/compact' }); pinned.current = true; SFX.click(); };
+  // the handoff notice's other choice (server/sessions.ts: handoff()): the new session starts once the summary is written
+  const handoff = () => { pinned.current = true; client.action('sesion.relevo', { sessionId: s.id }).then(() => SFX.click()).catch(e => { SFX.error(); addNotice('error', (e as Error).message); }); };
   const send = (raw = text) => {
     const t = raw.trim();
     if (uploading(p.attachments)) { SFX.notAllowed(); return; }
@@ -1069,6 +1072,11 @@ function Session({ h, s, p, exit, onClose }: { h: DwellerSummary; s: SessionSumm
         {s.pending && <Pending s={s} p={s.pending} tab={p} hid={h.id} exit={exit} />}
         {s.state === 'error' && s.error && <div className="ent error">⚠ {s.error}</div>}
         {s.limit && !workingLive && <div className="ent sistema">⏳ {limitLine(s.limit)}</div>}
+        {s.handoff === 'offered' && !workingLive && <div className="ent sistema aviso-relevo">
+          <p>{t('windows.handoff.notice', { usados: tokensShort(s.context?.used ?? 0) })}</p>
+          <div className="botones-relevo"><button onClick={compact}>{t('windows.compact')}</button><button title={t('windows.handoff.newHint')} onClick={handoff}>{t('windows.handoff.new')}</button></div>
+        </div>}
+        {s.handoff === 'writing' && <div className="ent sistema">✎ {t('windows.handoff.writing')}</div>}
       </div>
       {!!s.queue?.length && <Queued s={s} edit={m => {
         // back to the composer, after whatever is being written, with its attachments
@@ -1081,7 +1089,7 @@ function Session({ h, s, p, exit, onClose }: { h: DwellerSummary; s: SessionSumm
         <span className="txt"><ToolText t={lineState || (s.limit ? limitLine(s.limit) : s.state === 'terminada' || s.state === 'ociosa' ? t('windows.doneYouCanReplyOpen') : '')} /></span>
         {helpers > 0 && <span className="tenue"> · {helpers > 1 ? t('windows.nHelpers', { n: helpers }) : t('windows.nHelper', { n: helpers })}</span>}
         {s.lateral && !s.lateral.answer && <span className="tenue"> · {t('windows.sideQuestion')}</span>}
-        <Usage s={s} compact={() => { client.send({ t: 'enviar', sessionId: s.id, text: '/compact' }); pinned.current = true; SFX.click(); }} />
+        <Usage s={s} compact={compact} />
         <span className="modo">{tIs(PERMISSION_MODES.find(m => m.value === s.permissionMode)?.text ?? s.permissionMode ?? '')}</span>
       </div>}
       {!s.pending && (

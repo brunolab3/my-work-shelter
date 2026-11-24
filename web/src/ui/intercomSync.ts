@@ -4,6 +4,7 @@
 // Overseer may be typing there, and only what he does (a click, ⌘K, talking to a dweller) changes what is in front.
 // The one exception follows the Overseer: when the conversation he is looking at moves to a worktree, its tab (with
 // what he had typed) moves to the copy's window, in front there, and the intercom switches to that copy (`handoff`).
+// A conversation that took over from another with a handoff (`handoffFrom`) takes that one's tab, with what was typed.
 // Tabs of closed conversations go, unless something is typed in them or they are in view: they stay to resume it.
 // Tabs with no conversation (a new job, the archive, the menu, a closed one to resume) go once the Overseer leaves
 // them, unless something is typed or attached in them (`dropLeft`).
@@ -54,6 +55,8 @@ export function syncIntercoms({ list, sessions, owner: ownerOf, closing, talking
   const liveByDweller = new Map<string, SessionSummary[]>(), owner = new Map<string, string>();
   const moved = new Map<string, TabCom>();   // tabs of conversations that move to another window (a copy)
   for (const s of Object.values(sessions)) if (s.state !== 'cerrada' && !closing.has(s.id)) { const d = ownerOf(s); owner.set(s.id, d); liveByDweller.set(d, [...(liveByDweller.get(d) ?? []), s]); }
+  const successor = new Map<string, SessionSummary>();
+  for (const s of Object.values(sessions)) if (s.handoffFrom && owner.has(s.id)) successor.set(s.handoffFrom, s);
   for (const v of list) for (const p of v.tabs) if (p.view.type === 'sesion' && owner.has(p.view.sessionId) && owner.get(p.view.sessionId) !== v.dwellerId) moved.set(p.view.sessionId, p);
   // the conversation in view in the intercom in front, if it moves: it is followed to its new window
   const front = list.find(v => v.dwellerId === talking), inView = front?.tabs.find(p => p.id === front.active);
@@ -62,6 +65,11 @@ export function syncIntercoms({ list, sessions, owner: ownerOf, closing, talking
     let touched = false;
     let tabs = v.tabs.flatMap((p): TabCom[] => {
       if (p.view.type !== 'sesion') return [p];
+      const after = successor.get(p.view.sessionId);
+      if (after && owner.get(after.id) === v.dwellerId && !v.tabs.some(q => q.view.type === 'sesion' && q.view.sessionId === after.id)) {
+        touched = true;
+        return [{ ...p, view: { type: 'sesion', sessionId: after.id }, memory: undefined }];
+      }
       const s = sessions[p.view.sessionId], d = owner.get(p.view.sessionId);
       if (s && s.state !== 'cerrada' && d === v.dwellerId) {
         // note which conversation it is, in case it later closes with something typed

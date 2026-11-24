@@ -755,6 +755,10 @@ export const WINDOWS: Record<string, LocalizedText> = {
   'windows.compact': { es: 'Compactar', en: 'Compact' },
   'windows.compactHint': { es: 'Compactar la conversación (/compact): la resume para liberar contexto. Mejor entre tareas', en: 'Compact the conversation (/compact): summarises it to free context. Best between tasks' },
   'windows.compactUrgentHint': { es: 'Contexto grande: cada turno lo vuelve a leer entero. Compáctala (/compact) antes de que Claude Code lo haga solo a mitad de tarea', en: 'Large context: every turn re-reads all of it. Compact it (/compact) before Claude Code does it by itself mid-task' },
+  'windows.handoff.notice': { es: 'Conversación larga ({usados} de contexto): cada turno la vuelve a leer entera y eso cuenta contra el límite de tu plan. Compáctala, o sigue en una sesión nueva que empiece con un resumen de traspaso.', en: 'Long conversation ({usados} of context): every turn re-reads all of it, and that counts against your plan\'s limit. Compact it, or carry on in a new session that starts from a handoff summary.' },
+  'windows.handoff.new': { es: 'Sesión nueva con traspaso', en: 'New session with a handoff' },
+  'windows.handoff.newHint': { es: 'Escribe un resumen de traspaso (objetivo, decisiones, pendientes, enlaces) y empieza con él una conversación nueva; esta queda cerrada en el archivo', en: 'Writes a handoff summary (goal, decisions, open items, links) and starts a new conversation with it; this one stays closed in the logbook' },
+  'windows.handoff.writing': { es: 'Escribiendo el resumen de traspaso: la sesión nueva empezará con él.', en: 'Writing the handoff summary: the new session will start with it.' },
   // English mode leftovers (intercom, panels, client)
   'windows.noConnection': { es: 'Sin conexión', en: 'No connection' },
   'windows.noChrome': { es: 'sin Chrome', en: 'no Chrome' },

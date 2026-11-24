@@ -9,7 +9,7 @@ import { mcpReview } from './compare.ts';
 import { SELF_GATED } from './mcpServers.ts';
 import { mergeOf } from '../shared/preflight.ts';
 import { reviewPostOf } from '../shared/reviews.ts';
-import { COMPACT_URGE } from '../shared/compact.ts';
+import { COMPACT_URGE, handoffDue } from '../shared/compact.ts';
 import { handMadeWorktree, newWorktreeOf, taskWorktreeIn, worktreeTask, ghCreateOf, githubRepoOf, isOriginalRepo, ORIGINAL_REPO } from '../shared/tasks.ts';
 import { gh } from './git.ts';
 import { readFileSync } from 'node:fs';
@@ -93,6 +93,9 @@ export interface RoomsResolver {
   trustedFolders?(): string[]; trust?(filePath: string): void; clonedFolders?(): string[];
   // the window Claude Code auto-compacts at (vault setting, shared/compact.ts); undefined: Claude Code's own
   autoCompactWindow?(): number | undefined;
+  // the new-session suggestion (shared/compact.ts): its threshold (undefined: off) and the conversations already offered
+  // one, by Claude Code id, kept across restarts so it is offered once per conversation
+  handoff?: { threshold(): number | undefined; offered(claudeId: string): boolean; mark(claudeId: string): void };
 }
 
 export function pathClaude(): string | undefined {
@@ -261,7 +264,7 @@ export class Sessions extends EventEmitter {
     const r: SessionSummary = {
       id, dwellerId, roomId, cwd: o.cwd || cwd, state: 'arrancando', unread: false, title: prompt.slice(0, 80) || (attachments[0] ? t('server.lookAt', { nombre: attachments[0].name }) : t('server.newJob')),
       pendingCount: 0, helpers: [], tools: 0, turns: 0, model: o.model || undefined, effort: o.effort || undefined,
-      permissionMode: o.permissions || 'auto', created: Date.now(), updated: Date.now(), claudeId: o.resume,
+      permissionMode: o.permissions || 'auto', created: Date.now(), updated: Date.now(), claudeId: o.resume, handoffFrom: o.handoffFrom,
     };
     const x: Session = { r, alive: false, closing: false, interrupting: false, sent: new Map(), pending: [], queue: [], unsent: new Set(), withdrawn: new Set(), entries: [], tools: new Map(), helpers: new Map(), taskAHelper: new Map(), background: new Set(), awaitingBackground: false, commands: [], stderr: '', options: o, partialText: '', shipments: Promise.resolve() };
     this.s.set(id, x);
@@ -453,6 +456,8 @@ export class Sessions extends EventEmitter {
     const busy = x.trustWaiting || (x.alive && ['arrancando', 'trabajando', 'esperando'].includes(x.r.state));
     if (!x.alive && !x.trustWaiting) this.launch(x, x.r.claudeId).catch(e => console.error('No se pudo reanudar la sesión:', e));
     x.textInTurn = x.askHeld = false;
+    // replying is carrying on: the new-session notice goes
+    if (x.r.handoff === 'offered') x.r.handoff = undefined;
     if (x.r.limit) { x.r.limit = undefined; if (x.r.claudeId) this.emit('limiteSigue', x.r.claudeId); }
     const uuid = this.enqueue(x, text, attachments);
     if (busy) x.queue.push({ id: uuid, ts: Date.now(), text, origin, ...attachments.length ? { attachments } : {} });
@@ -608,6 +613,10 @@ export class Sessions extends EventEmitter {
         if (x.pending.length) r.state = 'esperando';
         // con subagentes o terminales aún en segundo plano no ha terminado: sigue trabajando hasta que acaben
         else if (r.state === 'terminada' && !interrupted && x.background.size) { r.state = 'trabajando'; r.unread = false; x.awaitingBackground = true; }
+        if (r.handoff === 'writing') {
+          r.handoff = undefined;
+          if (r.state !== 'error' && !interrupted && res.result?.trim()) this.emit('handoff', { ...r }, String(res.result));
+        }
         this.refreshTitle(x);
         // la recompensa del refugio solo cuenta las herramientas de este turno y nunca un turno interrumpido o fallido
         const ofCurrent = interrupted || r.state === 'error' || r.limit ? 0 : r.tools - (x.toolsOnStartTurn ?? 0);
@@ -630,8 +639,27 @@ export class Sessions extends EventEmitter {
     x.q?.getContextUsage({ detail: 'summary' }).then(c => {
       if (!c?.maxTokens) return;
       x.r.context = { used: c.totalTokens, max: c.maxTokens, percentage: Math.round(c.percentage) };
+      this.offerHandoff(x);
       this.play(x);
     }).catch(() => {});
+  }
+
+  // past the threshold, the intercom suggests a new session with a handoff, once per conversation and only once the turn
+  // has ended (never mid-turn: the measure after a result lands when the state is already settled)
+  private offerHandoff(x: Session) {
+    const r = x.r, h = this.resolver.handoff;
+    if (!h || !r.claudeId || r.handoff || !['terminada', 'ociosa'].includes(r.state) || x.pending.length || x.queue.length) return;
+    if (!handoffDue(r.context, h.threshold()) || h.offered(r.claudeId)) return;
+    r.handoff = 'offered'; h.mark(r.claudeId);
+  }
+
+  /** «New session with a handoff»: the dweller writes the handoff summary in this conversation; when that turn ends the
+   *  game starts the new session with it (the `handoff` event) and closes this one */
+  handoff(id: string) {
+    const x = this.must(id);
+    if (!['terminada', 'ociosa', 'error'].includes(x.r.state) || x.pending.length) throw new Error(t('server.handoffBusy'));
+    this.send(id, t('prompt.handoff.write'), [], { kind: 'game' });
+    x.r.handoff = 'writing'; this.play(x);
   }
 
   // the plan's usage windows, read through any live session (the /usage data, without its transcript scan): a

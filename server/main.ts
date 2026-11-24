@@ -29,7 +29,8 @@ import { ReviewsPR, REVIEWS_QUERY, remoteRepo } from './prReviews.ts';
 import { CIFailures, CI_QUERY } from './ciFailures.ts';
 import { cachedPRs, cachedTaskPRs, preflightOf, PageReviews, gatePush, preflightTools, type CtxPreflight } from './preflight.ts';
 import { checklistFromClaudeMd } from '../shared/preflight.ts';
-import { autoCompactWindow } from '../shared/compact.ts';
+import { autoCompactWindow, handoffThreshold } from '../shared/compact.ts';
+import { startFromHandoff } from './handoff.ts';
 import { setFlag } from '../shared/flagged.ts';
 import type { JiraTransition, PRBoard } from '../shared/board.ts';
 import { blockersBetween, pRKey } from '../shared/deploy.ts';
@@ -257,6 +258,11 @@ const sessions = new Sessions({
   trust: filePath => { const a = store.state.settings as any; a.trustedFolders = [...new Set([...(a.trustedFolders ?? []).filter((r: string) => existsSync(r)), path.resolve(filePath)])]; store.save(); },
   clonedFolders: () => ((store.state.settings as any).clonedFolders ?? []) as string[],
   autoCompactWindow: () => autoCompactWindow((store.state.settings as any).autoCompactWindow),
+  handoff: {
+    threshold: () => handoffThreshold((store.state.settings as any).handoffAt),
+    offered: id => (((store.state.settings as any).handoffOffered ?? []) as string[]).includes(id),
+    mark: id => { const a = store.state.settings as any; a.handoffOffered = [...(a.handoffOffered ?? []), id].slice(-300); store.save(); },
+  },
 }, attachments);
 // trusted and cloned folders that no longer exist (removed worktrees, deleted clones) are dropped at startup, so the lists don't keep growing
 for (const k of ['trustedFolders', 'clonedFolders']) { const a = store.state.settings as any; if (Array.isArray(a[k])) { const live = a[k].filter((r: unknown) => typeof r === 'string' && existsSync(r)); if (live.length !== a[k].length) { a[k] = live; store.save(); } } }
@@ -313,6 +319,11 @@ sessions.on('sesion', (s: SessionSummary) => { if (!busyState(s.state)) schedule
 sessions.on('sesion', s => { slackRemote.request(s).catch(() => {}); });
 sessions.on('entradas', (sid, entries) => broadcast({ t: 'entradas', sessionId: sid, entries }));
 sessions.on('texto', (sid, delta) => broadcast({ t: 'texto', sessionId: sid, delta }));
+// the handoff summary is written: the new session starts from it and the old one closes (server/handoff.ts)
+sessions.on('handoff', (old: SessionSummary, summary: string) => {
+  startFromHandoff({ start: m => startWork(undefined, { t: 'empezar', ...m }), close: id => sessions.close(id) }, old, summary)
+    .catch(err => broadcast({ t: 'aviso', level: 'error', text: t('server.handoffFailed', { error: (err as Error).message }) }));
+});
 sessions.on('fuera', sid => broadcast({ t: 'sesionFuera', sessionId: sid }));
 sessions.on('herramienta', () => {
   const before = store.state.jugador.cultivos.map(c => c.phase).join();
@@ -1201,6 +1212,8 @@ async function action(name: string, d: Record<string, any> = {}): Promise<unknow
     // un enlace a un archivo del Mac en una respuesta (web/src/ui/markdown.ts): sin ejecutar nada (open.ts)
     case 'aviso.responder': { const f = questions.get(String(d.id ?? '')); questions.delete(String(d.id ?? '')); if (f) await f(!!d.si); return true; }
     // mensajes programados (scheduled.ts): el Supervisor los cancela o les cambia la hora o el texto
+    // «New session with a handoff» in the intercom's notice (sessions.ts: handoff())
+    case 'sesion.relevo': sessions.handoff(String(d.sessionId ?? '')); return true;
     case 'programados.cancelar': return scheduled.cancel(String(d.id ?? ''));
     // the Overseer's ⌥Enter / ⏰ Schedule in the intercom (`when`: a time, or by default the day's final 5-hour window): to its
     // conversation (`sessionId`), the one being resumed, or a new one
@@ -1278,6 +1291,8 @@ function applySettings(x: typeof store.state, p: Record<string, any>) {
   if (typeof p.doneWelcome === 'boolean') x.doneWelcome = p.doneWelcome;
   // the window dwellers auto-compact at, in tokens (0: Claude Code's own); it applies to conversations launched afterwards
   if (Number.isFinite(p.autoCompactWindow)) (x.settings as any).autoCompactWindow = p.autoCompactWindow === 0 ? 0 : autoCompactWindow(p.autoCompactWindow);
+  // from how much context the intercom suggests a new session with a handoff, in tokens (0: never)
+  if (Number.isFinite(p.handoffAt)) (x.settings as any).handoffAt = p.handoffAt === 0 ? 0 : handoffThreshold(p.handoffAt);
   // la lista «antes de subir» del pre-flight: un punto por línea
   if (Array.isArray(p.checklistPreflight)) (x.settings as any).checklistPreflight = [...new Set(p.checklistPreflight.filter((i: unknown) => typeof i === 'string').map((i: string) => i.trim().slice(0, 160)).filter(Boolean))].slice(0, 30);
   if (p.supervisor && typeof p.supervisor === 'object') {

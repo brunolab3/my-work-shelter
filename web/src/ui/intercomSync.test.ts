@@ -119,3 +119,17 @@ describe('dropLeft: a tab with no conversation goes once the Overseer leaves it,
     expect(dropLeft([win('ana', [menu('p1')], 'p1')], { talking: 'ana', active: 'p1' }, { talking: 'eva', active: 'e1' })).toEqual([]);
   });
 });
+
+describe('syncIntercoms: a handoff', () => {
+  const ana: WindowCom = { dwellerId: 'ana', tabs: [tab('p0', 's0'), tab('p1', 's1', 'half-typed')], active: 'p1', maximized: false, z: 5, known: ['s0', 's1'] };
+  it('the new session takes the old one\'s tab, in view and with what was typed', () => {
+    const { next } = run([ana], byId(ses('s0', 'ana'), ses('s1', 'ana', 1, { state: 'ociosa' }), ses('s2', 'ana', 2, { handoffFrom: 's1' })), 'ana');
+    expect(next[0].tabs).toEqual([tab('p0', 's0'), { ...tab('p1', 's2', 'half-typed'), memory: undefined }]);
+    expect(next[0].active).toBe('p1');
+  });
+  it('and keeps it once the old one closes', () => {
+    const first = run([ana], byId(ses('s0', 'ana'), ses('s1', 'ana'), ses('s2', 'ana', 2, { handoffFrom: 's1' })), 'ana').next;
+    const { next } = run(first, byId(ses('s0', 'ana'), ses('s1', 'ana', 1, { state: 'cerrada' }), ses('s2', 'ana', 2, { handoffFrom: 's1' })), 'ana');
+    expect(next[0].tabs.map(p => p.view)).toEqual([{ type: 'sesion', sessionId: 's0' }, { type: 'sesion', sessionId: 's2' }]);
+  });
+});

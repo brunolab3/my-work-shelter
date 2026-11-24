@@ -154,6 +154,8 @@ export const SERVER: Record<string, LocalizedText> = {
   'server.theJobGotStuck': { es: 'El trabajo se ha atascado: {por}', en: 'The job got stuck: {por}' },
   'server.thisSessionWasGoingTo': { es: 'Esta sesión iba a usar una clave de API ({apiKeySource}). work-shelter solo trabaja con tu sesión de Claude Code: la he parado. Quita esa clave de tus ajustes o variables de entorno.', en: 'This session was going to use an API key ({apiKeySource}). work-shelter only works with your Claude Code session: I stopped it. Remove that key from your settings or environment variables.' },
   'server.conversationCompacted': { es: '🧹 Conversación compactada', en: '🧹 Conversation compacted' },
+  'server.handoffBusy': { es: 'Espera a que termine el turno para pasar a una sesión nueva', en: 'Wait for the turn to end before moving to a new session' },
+  'server.handoffFailed': { es: 'No se pudo empezar la sesión nueva del traspaso: {error}. La conversación sigue abierta', en: 'Could not start the handoff\'s new session: {error}. The conversation stays open' },
   'server.notStartedYet': { es: 'aún está arrancando', en: 'it is still starting' },
   'server.isStillStartingFlag': { es: 'La conversación aún está arrancando: márcala en un momento.', en: 'The conversation is still starting: mark it in a moment.' },
   'server.isStillStartingTakeIt': { es: '«{titulo}» aún está arrancando: sácala en un momento.', en: '“{titulo}” is still starting: take it out in a moment.' },

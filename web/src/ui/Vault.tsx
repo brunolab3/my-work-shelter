@@ -13,7 +13,7 @@ import { INTEGRATION_STATE_SHORT } from '@shared/labels';
 import { GAME_NAME } from '@shared/protocol';
 import { isRoomOfRepo, PLANNING_ROOM, alphabeticalOrder } from '@shared/layout';
 import { ACTIVE_SOURCES, INFO_SOURCE, type SourceId } from '@shared/sources';
-import { autoCompactWindow, AUTO_COMPACT_DEFAULT } from '@shared/compact';
+import { autoCompactWindow, AUTO_COMPACT_DEFAULT, handoffThreshold, HANDOFF_DEFAULT } from '@shared/compact';
 
 export interface IntegrationField { id: string; label: string; secret?: boolean; help?: string; example?: string }
 export interface IntegrationCard { id: SourceId; name: string; what: string; steps: React.ReactNode[]; fields: IntegrationField[] }
@@ -268,11 +268,11 @@ function BoardStatusesView({ source }: { source: 'jira' | 'linear' }) {
 
 function ShelterView({ goBack }: { goBack: () => void }) {
   const e = live.use(x => x.state);
-  const acw = (e?.settings as { autoCompactWindow?: number } | undefined)?.autoCompactWindow;
-  const [v, setV] = useState({ name: e?.name || GAME_NAME, reposRoot: e?.reposRoot ?? '~', sessionLimit: String(e?.sessionLimit ?? 6), autoCompact: String(acw === 0 ? 0 : (autoCompactWindow(acw) ?? 0) / 1000) });
+  const { autoCompactWindow: acw, handoffAt } = (e?.settings ?? {}) as { autoCompactWindow?: number; handoffAt?: number };
+  const [v, setV] = useState({ name: e?.name || GAME_NAME, reposRoot: e?.reposRoot ?? '~', sessionLimit: String(e?.sessionLimit ?? 6), autoCompact: String(acw === 0 ? 0 : (autoCompactWindow(acw) ?? 0) / 1000), handoff: String((handoffThreshold(handoffAt) ?? 0) / 1000) });
   const [msg, setMsg] = useState('');
   const [focus, setFocus] = useState(0);
-  const fields: [keyof typeof v, string][] = [['name', t('panels.shelterName')], ['reposRoot', t('panels.reposRootDoorSuggestionsAnd')], ['sessionLimit', t('panels.simultaneousSessionLimit')], ['autoCompact', t('panels.autoCompactAt')]];
+  const fields: [keyof typeof v, string][] = [['name', t('panels.shelterName')], ['reposRoot', t('panels.reposRootDoorSuggestionsAnd')], ['sessionLimit', t('panels.simultaneousSessionLimit')], ['autoCompact', t('panels.autoCompactAt')], ['handoff', t('panels.handoffAt')]];
   const refs = useRef<(HTMLInputElement | null)[]>([]);
   useEffect(() => { refs.current[focus]?.focus(); }, [focus]);
   const save = async () => {
@@ -280,7 +280,10 @@ function ShelterView({ goBack }: { goBack: () => void }) {
     // in thousands of tokens; 0 leaves it to Claude Code (near the model's whole window)
     const k = parseInt(v.autoCompact);
     const autoCompact = k === 0 ? 0 : Number.isFinite(k) ? k * 1000 : AUTO_COMPACT_DEFAULT;
-    try { await client.action('guardar', { patch: { name: v.name.trim() || GAME_NAME, reposRoot: v.reposRoot.trim() || '~', sessionLimit: lim, autoCompactWindow: autoCompact } }); SFX.shortSuccess(); setMsg(t('panels.saved')); } catch (err) { setMsg((err as Error).message); }
+    // the new-session suggestion, also in thousands; 0 turns it off
+    const h = parseInt(v.handoff);
+    const handoffAt = h === 0 ? 0 : Number.isFinite(h) ? h * 1000 : HANDOFF_DEFAULT;
+    try { await client.action('guardar', { patch: { name: v.name.trim() || GAME_NAME, reposRoot: v.reposRoot.trim() || '~', sessionLimit: lim, autoCompactWindow: autoCompact, handoffAt } }); SFX.shortSuccess(); setMsg(t('panels.saved')); } catch (err) { setMsg((err as Error).message); }
   };
   useKeys(ev => { if (ev.code === 'Escape') goBack(); });
   // la lista «antes de subir» del pre-flight (la primera vez, la de tu ~/.claude/CLAUDE.md): un punto por línea
