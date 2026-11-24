@@ -8,7 +8,8 @@
 // - Planning's menu offers «Verify my career ladder»; a verification saved in the ladder's "progress" key shows its level
 //   and each verdict in the panel, and the level on the shelf's plaque;
 // - Vault → Trophies and career: the ladder's two steps, every trophy, first merge earned with its date; a medal the
-//   Friday digest proposed waits for the Overseer, A accepts it and it fills one medal of its trophy;
+//   Friday digest proposed waits for the Overseer, A accepts it and it fills one medal of its trophy; M enters one by
+//   hand (it counts at once); the Slack award source shows as off (no Slack connector seen);
 // - a broken DATOS/escalera.json: the error line in the panel (R reads it again), never a crash;
 // - Jira and GitHub in DEMO: a sample log, marked DEMO, not saved;
 // - the Vault's shelf: one cup per trophy, the earned ones gold; a screenshot of the room.
@@ -101,15 +102,23 @@ try {
 
   // ---- Vault → Trophies and career
   await pg.evaluate(() => window.__game.set({ panel: 'camara', panelData: { view: 'trofeos' } }));
-  check(await until(async () => (await pg.$$('.trofeo')).length === 8), 'the eight example trophies');
+  check(await until(async () => (await pg.$$('.trofeo')).length === 9), 'the nine example trophies');
   check((await pg.$$('.escalon')).length === 2, 'the two example steps');
   check(/Primer merge|First merge/.test(await pg.textContent('.trofeo.ganado').catch(() => '')), 'first merge shows as earned');
-  check((await pg.$$('.escalon ul li')).length === 7, 'every requirement under its step');
+  check((await pg.$$('.escalon ul li')).length === 8, 'every requirement under its step');
   check((await pg.$$('.medallas li.proposed')).length === 1, 'the proposed medal, waiting for the Overseer');
   check((await pg.$$('.trofeo-medallas .llena')).length === 0, 'its trophy has no medal yet');
   await pg.keyboard.press('KeyA');
   check(await until(async () => (await pg.$$('.medallas li.accepted')).length === 1), 'A accepts it');
   check(await until(async () => (await pg.$$('.trofeo-medallas .llena')).length === 1), 'and it fills one medal of «Gives others a voice»');
+  check(/(Slack: apagado|Slack: off)/.test(await pg.textContent('body')), 'the Slack source is off until a Slack connector is seen');
+  await pg.keyboard.press('KeyM');
+  await pg.waitForSelector('.medalla-mano input');
+  await pg.fill('.medalla-mano input >> nth=0', 'Aligned the retry design with the payments lead');
+  await pg.fill('.medalla-mano input >> nth=1', 'https://jira.example/browse/ABC-1?focusedCommentId=1');
+  await pg.press('.medalla-mano input >> nth=1', 'Enter');
+  check(await until(async () => (await pg.$$('.medallas li.accepted')).length === 2), 'M enters a medal by hand, accepted at once');
+  check(await until(async () => (await pg.$$('.trofeo-medallas .llena')).length === 2), 'and it fills a medal of its award');
   await pg.waitForTimeout(300); await pg.screenshot({ path: path.join(dir, 'trophies.png'), animations: 'disabled' });
   // a broken ladder of the Overseer's: its error, read again with R
   writeFileSync(path.join(DATA, 'escalera.json'), '{ "trophies": [ nope');
@@ -141,7 +150,7 @@ try {
   // ---- the Vault's shelf
   await open('?sala=camara');
   const shelf = () => pg.evaluate(() => window.__shelter.rooms.find(s => s.id === 'camara')?.userData.trophyShelf?.shown());
-  check(await until(async () => (await shelf())?.cups === 8), 'the shelf has one cup per trophy');
+  check(await until(async () => (await shelf())?.cups === 9), 'the shelf has one cup per trophy');
   const s = await shelf();
   check(s?.earned >= 1, `earned ones in gold (${s?.earned})`);
   check(/ENGINEER I/.test(s?.plaque ?? ''), `the plaque shows the level (${s?.plaque})`);

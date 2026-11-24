@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import { digestDue, evaluate, medalRequirements, newlyEarned, parseLadder, progressOf, settleProgress, trophyState, withProgress, type TrophyRule } from './trophies.ts';
+import { awardsOf, digestDue, evaluate, medalRequirements, newlyEarned, parseLadder, progressOf, settleProgress, trophyState, withProgress, type TrophyRule } from './trophies.ts';
 import { decideMedal, emptyLedger, mergePRs, mergeTasks, mergeVerified, proposeMedal } from './workLog.ts';
 import type { PRBoard } from './board.ts';
 
@@ -97,11 +97,11 @@ describe('medals', () => {
   });
 
   it('proposed medals count only once accepted, and fill the trophy', () => {
-    const l = emptyLedger();
-    expect(proposeMedal(l, { requirement: 'other', text: 'x', evidence: ['u'] }, ['voice'], NOW).ok).toBe(false);
-    expect(proposeMedal(l, { requirement: 'voice', text: 'x', evidence: [' '] }, ['voice'], NOW).ok).toBe(false);
-    const a = proposeMedal(l, { requirement: 'voice', text: 'Asked Ana to challenge the spec', evidence: ['https://slack/x'] }, ['voice'], NOW);
-    const b = proposeMedal(l, { requirement: 'voice', text: 'Pushed back in planning', evidence: ['conversation abc'] }, ['voice'], NOW + 1);
+    const l = emptyLedger(), awards = awardsOf(ladder.ladder), by = { by: 'dweller' as const, slack: false };
+    expect(proposeMedal(l, { award: 'other', source: 'digest', text: 'x', evidence: ['u'] }, awards, NOW, by).ok).toBe(false);
+    expect(proposeMedal(l, { award: 'voice', source: 'digest', text: 'x', evidence: [' '] }, awards, NOW, by).ok).toBe(false);
+    const a = proposeMedal(l, { award: 'voice', source: 'digest', text: 'Asked Ana to challenge the spec', evidence: ['conversation abc'] }, awards, NOW, by);
+    const b = proposeMedal(l, { award: 'voice', source: 'github', text: 'Pushed back in review', evidence: ['https://github.com/org/api/pull/3#discussion_r1'] }, awards, NOW + 1, by);
     if (!a.ok || !b.ok) throw new Error('not proposed');
     const rule = ladder.ladder.trophies[0];
     expect(trophyState(l, rule, NOW).count).toBe(0);
@@ -110,6 +110,62 @@ describe('medals', () => {
     decideMedal(l, b.medal.id, false, NOW + 20);
     expect(decideMedal(l, b.medal.id, true, NOW + 30)).toBeUndefined();   // decided stays decided
     expect(trophyState(l, rule, NOW + 30).earnedAt).toBeUndefined();
+    // old medals (by requirement, no award) still count
+    l.medals.old = { id: 'old', requirement: 'voice', text: 'before awards', evidence: ['x'], state: 'accepted', proposedAt: NOW, decidedAt: NOW + 40 };
+    expect(trophyState(l, rule, NOW + 40).earnedAt).toBe(NOW + 40);
+  });
+});
+
+describe('award sources', () => {
+  const { ladder } = parseLadder(JSON.stringify({
+    trophies: [
+      { id: 'thanks', kind: 'awards', n: 2, evidence: 'thanked by another team', sources: ['slack', 'manual'] },
+      { id: 'simplest', kind: 'awards', n: 1, evidence: 'chose the simplest solution', sources: ['digest', 'manual'] },
+      { id: 'voice', kind: 'awards', requirement: 'voice', n: 1 },
+    ],
+    steps: [{ id: 'S', requirements: [{ id: 'voice', text: 'Speaks up', evidence: 'asked a teammate to question a task', trophies: ['voice', 'thanks', 'simplest'] }] }],
+  }));
+  const awards = awardsOf(ladder);
+  const link = 'https://fever.slack.com/archives/C0123ABC/p1764000000123456';
+  const dweller = (slack: boolean) => ({ by: 'dweller' as const, slack });
+
+  it('an award takes its own evidence or its requirement\'s; sources default to github, digest and manual', () => {
+    expect(awards.map(a => [a.id, a.sources])).toEqual([['thanks', ['slack', 'manual']], ['simplest', ['digest', 'manual']], ['voice', ['github', 'digest', 'manual']]]);
+    expect(awards[2].evidence).toBe('asked a teammate to question a task');
+    expect(parseLadder(JSON.stringify({ trophies: [{ id: 'a', kind: 'awards', sources: ['email'], evidence: 'x' }] })).errors).toEqual([expect.stringContaining('sources')]);
+  });
+
+  it('a medal is proposed only from a source its award allows', () => {
+    const l = emptyLedger();
+    expect(proposeMedal(l, { award: 'simplest', source: 'github', text: 'Dropped the queue', evidence: ['https://github.com/o/r/pull/1'] }, awards, NOW, dweller(true)).ok).toBe(false);
+    expect(proposeMedal(l, { award: 'thanks', source: 'digest', text: 'Thanked', evidence: ['conversation abc'] }, awards, NOW, dweller(true)).ok).toBe(false);
+    expect(proposeMedal(l, { award: 'voice', source: 'github', text: 'Asked in review', evidence: ['conversation abc'] }, awards, NOW, dweller(true)).ok).toBe(false);   // github needs a github link
+    // by hand only the Overseer
+    expect(proposeMedal(l, { award: 'simplest', source: 'manual', text: 'Dropped the queue', evidence: ['note'] }, awards, NOW, dweller(true)).ok).toBe(false);
+    expect(proposeMedal(l, { award: 'simplest', source: 'manual', text: 'Dropped the queue', evidence: ['note'] }, awards, NOW, { by: 'overseer', slack: false }).ok).toBe(true);
+    expect(proposeMedal(l, { award: 'simplest', source: 'digest', text: 'Again', evidence: ['note'] }, awards, NOW, dweller(true)).ok).toBe(false);   // same evidence, same award
+    // Slack: only while a connector is on
+    const slack = { award: 'thanks', source: 'slack' as const, text: 'Platform thanked him for the shared CI template', evidence: [link], date: '2026-11-20T10:00:00Z' };
+    expect(proposeMedal(l, slack, awards, NOW, dweller(false))).toMatchObject({ ok: false, error: expect.stringMatching(/Slack/) });
+    expect(proposeMedal(l, slack, awards, NOW, dweller(true)).ok).toBe(true);
+    expect(Object.values(l.medals).every(m => m.state === 'proposed')).toBe(true);   // nothing granted without acceptance
+  });
+
+  it('a Slack candidate keeps only the permalink, the date, the award and a one-line reason: never the message', () => {
+    const l = emptyLedger(), o = dweller(true);
+    const base = { award: 'thanks', source: 'slack' as const, text: 'Thanked for unblocking the release', date: '2026-11-20T10:00:00Z' };
+    expect(proposeMedal(l, { ...base, evidence: ['Thanks a lot Bruno, you saved the release!'] }, awards, NOW, o).ok).toBe(false);
+    expect(proposeMedal(l, { ...base, evidence: [link, 'Thanks a lot Bruno!'] }, awards, NOW, o).ok).toBe(false);
+    expect(proposeMedal(l, { ...base, text: 'Wrote "you saved the release, thanks"', evidence: [link] }, awards, NOW, o).ok).toBe(false);
+    expect(proposeMedal(l, { ...base, text: 'x'.repeat(161), evidence: [link] }, awards, NOW, o).ok).toBe(false);
+    expect(proposeMedal(l, { ...base, date: 'last week', evidence: [link] }, awards, NOW, o).ok).toBe(false);
+    const r = proposeMedal(l, { ...base, evidence: [link + '?thread_ts=1764000000.123456&cid=C0123ABC'] }, awards, NOW, o);
+    if (!r.ok) throw new Error(r.error);
+    expect(r.medal).toEqual({ id: r.medal.id, award: 'thanks', requirement: 'thanks', source: 'slack', text: base.text, evidence: [link], date: Date.parse(base.date), state: 'proposed', proposedAt: NOW });
+    const thanks = ladder.trophies.find(x => x.id === 'thanks')!;
+    expect(trophyState(l, thanks, NOW).count).toBe(0);
+    decideMedal(l, r.medal.id, true, NOW + 1);
+    expect(trophyState(l, thanks, NOW + 1).count).toBe(1);
   });
 
   it('the Friday digest is due once each Friday from 09:00, never on the first sweep', () => {

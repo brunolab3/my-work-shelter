@@ -67,13 +67,32 @@ describe('Friday digest', () => {
     now = new Date('2026-11-27T09:05').getTime();
     const prompt = w.digest() ?? '';
     expect(prompt).toMatch(/award_propose/);
-    expect(prompt).toMatch(/alignment: .*—/);
+    expect(prompt).toMatch(/aligner: .*— .*\[github, digest\]/);
     expect(w.digest()).toBeUndefined();
     expect(w.digestRoom()).toBe('logistica');
-    const r = w.proposeMedal({ requirement: 'voice', text: 'Asked Ana to challenge the spec', evidence: ['https://slack.example/t/1'] });
+    expect(prompt).toMatch(/Slack (is off|está apagado)/);   // the example has a Slack award, and no connector has been seen
+    const r = w.proposeMedal({ award: 'voice', source: 'digest', text: 'Asked Ana to challenge the spec', evidence: ['conversation abc'] });
     expect(r.ok).toBe(true);
     if (r.ok) expect(w.decideMedal(r.medal.id, true)?.state).toBe('accepted');
     expect(new WorkLog(dir, EXAMPLE, () => now).digest()).toBeUndefined();   // saved: not due again after a restart
+  });
+
+  it('the Slack source is on only while the digest room reports a connected Slack connector', () => {
+    const dir = mkdtempSync(path.join(os.tmpdir(), 'worklog-'));
+    let now = new Date('2026-11-24T12:00').getTime();
+    const w = new WorkLog(dir, EXAMPLE, () => now);
+    const slack = { award: 'thanked', source: 'slack' as const, text: 'Thanked by Platform for the CI template', evidence: ['https://fever.slack.com/archives/C01/p1764000000123456'], date: '2026-11-23' };
+    expect(w.proposeMedal(slack).ok).toBe(false);
+    w.seeConnectors([{ name: 'claude.ai Slack', status: 'needs-auth' }]);
+    expect(w.proposeMedal(slack).ok).toBe(false);
+    w.seeConnectors([{ name: 'claude.ai Slack', status: 'connected' }]);
+    w.digest(); now = new Date('2026-11-27T09:05').getTime();
+    const prompt = new WorkLog(dir, EXAMPLE, () => now).digest() ?? '';   // remembered across a restart
+    expect(prompt).toMatch(/claude\.ai Slack/);
+    expect(prompt).toMatch(/(ONLY the message's permalink|SOLO el enlace permanente)/);
+    expect(w.proposeMedal(slack).ok).toBe(true);
+    const saved: any = Object.values(JSON.parse(readFileSync(path.join(dir, 'bitacora.json'), 'utf8')).medals)[0];
+    expect(Object.keys(saved).sort()).toEqual(['award', 'date', 'evidence', 'id', 'proposedAt', 'requirement', 'source', 'state', 'text']);
   });
 });
 

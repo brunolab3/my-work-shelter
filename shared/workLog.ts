@@ -7,6 +7,7 @@ import { t } from './language.ts';
 import type { Category, PRBoard, StatePR, TaskJira } from './board.ts';
 import type { ReviewPR } from './reviews.ts';
 import { branchTask, pRTask, textKey, worktreeTask, isJiraKey } from './tasks.ts';
+import type { Award, AwardSource } from './trophies.ts';
 
 export interface LogTask {
   key: string; title: string; url?: string; state: string; category: Category; type?: string;
@@ -23,10 +24,13 @@ export interface LogWorktree { path: string; roomId: string; branch?: string; ta
 export interface LogConversation { claudeId: string; title: string; roomId: string; cwd: string; task: string; seen: number; last: number }
 /** Another's PR the Overseer reviewed (seen in the Review room's reads) */
 export interface LogReview { ref: string; url: string; title: string; repo: string; author: string; task?: string; at: number }
-/** A medal toward a ladder requirement with no PR behind it (aligning with leads, getting others to speak up…): proposed
- *  with its evidence by the Friday digest (Planning's dweller, award_propose), counted only once the Overseer accepts it */
+/** A medal toward an award of the ladder (thanks from another team, a practice adopted…): proposed with its evidence by
+ *  the Friday digest (Planning's dweller, award_propose) or entered by the Overseer, counted only once they accept it.
+ *  A Slack one keeps only the permalinks, the message's date and the dweller's one-line reason: never the message */
 export interface Medal {
-  id: string; requirement: string; text: string; evidence: string[];   // links: a conversation, a PR comment, a thread
+  id: string; award?: string; requirement: string;                      // award: the trophy (old medals: only the requirement)
+  source?: AwardSource; text: string; evidence: string[];               // links: a conversation, a PR comment, a permalink
+  date?: number;                                                        // slack: when the message was posted
   task?: string; conversation?: string;                                 // the proposing conversation (claudeId)
   state: 'proposed' | 'accepted' | 'dismissed'; proposedAt: number; decidedAt?: number;
 }
@@ -35,6 +39,7 @@ export interface Ledger {
   conversations: Record<string, LogConversation>; reviews: Record<string, LogReview>;
   medals: Record<string, Medal>;
   notified: string[];                  // trophies already announced
+  slack?: string;                      // the Slack connector the digest room's sessions last reported connected (else off)
   digestAt?: number;                   // the last Friday digest started (shared/trophies.ts, digestDue)
 }
 
@@ -43,7 +48,8 @@ export const emptyLedger = (): Ledger => ({ tasks: {}, prs: {}, worktrees: {}, c
 export function ledgerOf(j: any): Ledger {
   const rec = (x: any) => (x && typeof x === 'object' && !Array.isArray(x) ? x : {});
   return { tasks: rec(j?.tasks), prs: rec(j?.prs), worktrees: rec(j?.worktrees), conversations: rec(j?.conversations), reviews: rec(j?.reviews), medals: rec(j?.medals),
-    notified: Array.isArray(j?.notified) ? j.notified.filter((x: unknown) => typeof x === 'string') : [], ...(typeof j?.digestAt === 'number' ? { digestAt: j.digestAt } : {}) };
+    notified: Array.isArray(j?.notified) ? j.notified.filter((x: unknown) => typeof x === 'string') : [], ...(typeof j?.digestAt === 'number' ? { digestAt: j.digestAt } : {}),
+    ...(typeof j?.slack === 'string' ? { slack: j.slack } : {}) };
 }
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
@@ -131,15 +137,39 @@ export function mergeVerified(l: Ledger, keys: string[], now: number): boolean {
   return changed;
 }
 
-/** A medal proposed: a requirement of the ladder that takes medals, one line, at least one evidence link */
-export function proposeMedal(l: Ledger, m: { requirement: string; text: string; evidence: string[]; task?: string; conversation?: string }, requirements: string[], now: number): { ok: true; medal: Medal } | { ok: false; error: string } {
-  const requirement = m.requirement.trim(), text = m.text.trim().replace(/\s+/g, ' ');
-  const evidence = [...new Set(m.evidence.map(x => x.trim()).filter(Boolean))];
-  if (!requirements.includes(requirement)) return { ok: false, error: t('trophies.medal.badRequirement', { req: requirement, reqs: requirements.join(', ') || '—' }) };
-  if (!text) return { ok: false, error: t('trophies.medal.noText') };
-  if (!evidence.length) return { ok: false, error: t('trophies.medal.noEvidence') };
+// a Slack message's permalink (what a Slack medal keeps of it), without its query
+const SLACK_PERMALINK = /^https:\/\/[a-z0-9-]+(\.enterprise)?\.slack\.com\/archives\/[A-Z0-9]+\/p\d{10,}/;
+export interface MedalProposal { award: string; source: AwardSource; text: string; evidence: string[]; date?: string | number; task?: string; conversation?: string }
+
+/** A medal proposed for an award of the ladder, from one of the sources it allows: one line, at least one evidence link.
+ *  `by`: a dweller can't enter one by hand; `slack`: whether a Slack connector is on (off, no Slack medal). A Slack one
+ *  takes only permalinks, the message's date and a reason in the dweller's words (no quotes) */
+export function proposeMedal(l: Ledger, m: MedalProposal, awards: Award[], now: number, o: { by: 'dweller' | 'overseer'; slack: boolean }): { ok: true; medal: Medal } | { ok: false; error: string } {
+  const award = awards.find(a => a.id === m.award.trim()), text = m.text.trim().replace(/\s+/g, ' ');
+  let evidence = [...new Set(m.evidence.map(x => x.trim()).filter(Boolean))];
+  const no = (error: string) => ({ ok: false as const, error });
+  if (!award) return no(t('trophies.medal.badAward', { award: m.award, awards: awards.map(a => a.id).join(', ') || '—' }));
+  if (!award.sources.includes(m.source)) return no(t('trophies.medal.badSource', { award: award.id, source: m.source, sources: award.sources.join(', ') }));
+  if (m.source === 'manual' && o.by !== 'overseer') return no(t('trophies.medal.manualOnly'));
+  if (!text) return no(t('trophies.medal.noText'));
+  if (!evidence.length) return no(t('trophies.medal.noEvidence'));
+  let date: number | undefined;
+  if (m.source === 'slack') {
+    if (!o.slack) return no(t('trophies.medal.slackOff'));
+    if (evidence.some(x => !SLACK_PERMALINK.test(x))) return no(t('trophies.medal.slackPermalinks'));
+    evidence = [...new Set(evidence.map(x => SLACK_PERMALINK.exec(x)![0]))];
+    if (/["“”«»]/.test(text) || text.length > 160) return no(t('trophies.medal.slackReason'));
+    date = typeof m.date === 'number' ? m.date : Date.parse(String(m.date ?? ''));
+    if (!Number.isFinite(date)) return no(t('trophies.medal.slackDate'));
+  }
+  if (m.source === 'github' && !evidence.some(x => /^https:\/\/github\.com\//.test(x))) return no(t('trophies.medal.githubLink'));
+  // the same evidence for the same award, once
+  if (Object.values(l.medals).some(x => (x.award ?? x.requirement) === award.id && x.evidence.some(e => evidence.includes(e)))) return no(t('trophies.medal.repeated'));
   const id = `m${now.toString(36)}${Object.keys(l.medals).length.toString(36)}`;
-  const medal: Medal = { id, requirement, text: text.slice(0, 300), evidence: evidence.slice(0, 8), ...(m.task ? { task: m.task } : {}), ...(m.conversation ? { conversation: m.conversation } : {}), state: 'proposed', proposedAt: now };
+  const medal: Medal = {
+    id, award: award.id, requirement: award.requirement ?? award.id, source: m.source, text: text.slice(0, 300), evidence: evidence.slice(0, 8),
+    ...(date !== undefined ? { date } : {}), ...(m.task ? { task: m.task } : {}), ...(m.conversation ? { conversation: m.conversation } : {}), state: 'proposed', proposedAt: now,
+  };
   l.medals[id] = medal;
   return { ok: true, medal };
 }

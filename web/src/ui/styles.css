@@ -883,6 +883,9 @@ span.vt-lista-marca { cursor: default; }
 .medallas li b { color: var(--ambar); }
 .medalla-botones button { background: transparent; color: var(--fosforo); border: 1px solid var(--fosforo-tenue); font: inherit; font-size: .85em; padding: 0 .6em; margin-right: .3em; cursor: pointer; }
 .medalla-botones button:hover { background: rgba(157,255,184,.12); }
+.medalla-mano { display: flex; gap: .5em; align-items: center; flex-wrap: wrap; margin: .3em 0 .6em; font-size: .9em; }
+.medalla-mano input, .medalla-mano select { background: transparent; color: var(--fosforo); border: 1px solid var(--fosforo-tenue); font: inherit; padding: .1em .4em; }
+.medalla-mano input { flex: 1 1 14em; }
 .kanban-col.soltar { outline: 2px dashed var(--estado, var(--fosforo)); outline-offset: -2px; background: rgba(157,255,184,.06); }
 .mover-jira .opciones-consola { margin: 0 0 .7em; }
 .prs-ficha { display: flex; flex-wrap: wrap; gap: .3em; margin-top: .3em; }

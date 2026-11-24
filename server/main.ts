@@ -227,9 +227,9 @@ const ctxRooms: CtxRooms = {
       const r = workLog.proposeMedal({ ...m, ...(claudeId ? { conversation: claudeId } : {}) });
       if (!r.ok) return { ok: false, text: r.error };
       const medal = r.medal;
-      ask(t('trophies.medal.ask', { req: medal.requirement, texto: medal.text, pruebas: medal.evidence.join(' · ') }), { si: t('trophies.medal.accept'), no: t('trophies.medal.dismiss') },
+      ask(t('trophies.medal.ask', { req: medal.award ?? medal.requirement, fuente: t(`trophies.source.${medal.source ?? 'digest'}`), texto: medal.text, pruebas: medal.evidence.join(' · ') }), { si: t('trophies.medal.accept'), no: t('trophies.medal.dismiss') },
         async si => { workLog.decideMedal(medal.id, si); });
-      return { ok: true, text: t('tool.medal.proposed', { req: medal.requirement }) };
+      return { ok: true, text: t('tool.medal.proposed', { req: medal.award ?? medal.requirement }) };
     },
     progress: report => {
       const r = workLog.recordProgress(report);
@@ -913,6 +913,9 @@ const sweepWorkLog = () => {
   }).catch(err => console.error('Bitácora:', String((err as Error).message).split('\n')[0]));
 };
 setTimeout(() => { sweepWorkLog(); setInterval(sweepWorkLog, 60_000).unref(); }, 45_000).unref();
+// the digest room's sessions report their MCP servers when they start: the Slack award source is on while the
+// Overseer's own Slack connector is connected there (no Slack token in the game)
+sessions.on('conectores', (roomId: string, servers: { name: string; status: string }[]) => { if (roomId === workLog.digestRoom()) workLog.seeConnectors(servers); });
 
 // organizar las salas por tareas (organize.ts): el plan de cada sala de repo y, confirmado, hacerlo
 async function organizeRooms(roomId: string | undefined, apply: boolean) {
@@ -1185,6 +1188,7 @@ async function action(name: string, d: Record<string, any> = {}): Promise<unknow
       return { id, roomId: room, dwellerId: h.id };
     }
     case 'medalla.decidir': return workLog.decideMedal(String(d.id ?? ''), d.accept === true) ?? null;
+    case 'medalla.meter': { const r = workLog.enterMedal({ award: String(d.award ?? ''), text: String(d.text ?? ''), evidence: [String(d.evidence ?? '')] }); if (!r.ok) throw new Error(r.error); return r.medal; }
     case 'verificacion.aprobar': { const k = taskKey(String(d.key ?? '')); return (k && verifications.approve(k)) ?? null; }
     case 'paginas.responder': return pageReviews.respond(d.path, d.state);
     case 'preflight.puerta': { const r = path.resolve(String(d.path ?? '')); if (!gitPath(r)) throw new Error(t('server.thatFolderIsNotA')); return gatePush(r, ctxPreflight); }

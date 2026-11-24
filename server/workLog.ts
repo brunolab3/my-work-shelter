@@ -8,8 +8,8 @@ import path from 'node:path';
 import { t } from '../shared/language.ts';
 import type { PRBoard, TaskJira } from '../shared/board.ts';
 import type { ReviewPR } from '../shared/reviews.ts';
-import { decideMedal, emptyLedger, ledgerOf, logRows, mergeConversations, mergePRs, mergeReviews, mergeTasks, mergeVerified, mergeWorktrees, proposeMedal, syncText, type Ledger, type Medal } from '../shared/workLog.ts';
-import { digestDue, evaluate, fileText, medalRequirements, newlyEarned, parseLadder, progressOf, settleProgress, withProgress, type CareerState, type LadderProgress, type SessionReport } from '../shared/trophies.ts';
+import { decideMedal, emptyLedger, ledgerOf, logRows, mergeConversations, mergePRs, mergeReviews, mergeTasks, mergeVerified, mergeWorktrees, proposeMedal, syncText, type Ledger, type Medal, type MedalProposal } from '../shared/workLog.ts';
+import { awardsOf, digestDue, evaluate, fileText, newlyEarned, parseLadder, progressOf, settleProgress, withProgress, type CareerState, type LadderProgress, type SessionReport } from '../shared/trophies.ts';
 
 export interface WorkLogSources {
   jira(): Promise<{ tareas: TaskJira[]; demo?: boolean } | null>;        // null: Jira off or failing
@@ -74,10 +74,25 @@ export class WorkLog {
   }
 
   /** A medal the Friday digest proposes (award_propose): saved as proposed, for the Overseer to accept or dismiss */
-  proposeMedal(m: Parameters<typeof proposeMedal>[1]): ReturnType<typeof proposeMedal> {
-    const r = proposeMedal(this.ledger, m, medalRequirements(this.ladder().ladder).map(q => q.id), this.now());
+  proposeMedal(m: MedalProposal): ReturnType<typeof proposeMedal> {
+    const r = proposeMedal(this.ledger, m, awardsOf(this.ladder().ladder), this.now(), { by: 'dweller', slack: !!this.ledger.slack });
     if (r.ok) this.save();
     return r;
+  }
+  /** A medal the Overseer enters by hand (an award whose sources include manual): entering it is accepting it */
+  enterMedal(m: Omit<MedalProposal, 'source'>): ReturnType<typeof proposeMedal> {
+    const r = proposeMedal(this.ledger, { ...m, source: 'manual' }, awardsOf(this.ladder().ladder), this.now(), { by: 'overseer', slack: !!this.ledger.slack });
+    if (r.ok) decideMedal(this.ledger, r.medal.id, true, this.now());
+    if (r.ok) this.save();
+    return r;
+  }
+  /** The MCP servers a session of the digest room started with: the Slack source is on while one named Slack is
+   *  connected (the Overseer's own connector; the game holds no Slack token for it) */
+  seeConnectors(servers: { name: string; status: string }[]): void {
+    const slack = servers.find(x => /slack/i.test(x.name) && x.status === 'connected')?.name;
+    if (slack === this.ledger.slack) return;
+    if (slack) this.ledger.slack = slack; else delete this.ledger.slack;
+    this.save();
   }
   decideMedal(id: string, accept: boolean): Medal | undefined {
     const m = decideMedal(this.ledger, id, accept, this.now());
@@ -86,21 +101,29 @@ export class WorkLog {
   }
   /** The room whose dweller runs the Friday digest (and the only one offered award_propose) */
   digestRoom(): string { return this.ladder().ladder.digestRoom; }
-  /** The Friday digest's first message when it is due (once a week, Friday from 09:00), else none. Only with requirements
-   *  that take medals; the first sweep just starts the count, so the first one is the next Friday */
+  /** The Friday digest's first message when it is due (once a week, Friday from 09:00), else none. Only with awards the
+   *  digest can propose (not only by hand); the first sweep just starts the count, so the first one is the next Friday.
+   *  The Slack part only while a Slack connector is on and some award takes Slack */
   digest(): string | undefined {
-    const l = this.ledger, now = this.now(), reqs = medalRequirements(this.ladder().ladder);
-    if (!reqs.length) return undefined;
+    const l = this.ledger, now = this.now(), all = awardsOf(this.ladder().ladder);
+    const usable = (x: string) => x !== 'manual' && (x !== 'slack' || !!l.slack);
+    const awards = all.filter(a => a.sources.some(usable));
+    if (!awards.length) return undefined;
     if (l.digestAt === undefined) { l.digestAt = now; this.save(); return undefined; }
     if (!digestDue(l.digestAt, now)) return undefined;
     l.digestAt = now; this.save();
     const since = now - 7 * 864e5;
     const conversations = Object.values(l.conversations).filter(c => c.last >= since).sort((a, b) => b.last - a.last).slice(0, 60)
       .map(c => `- ${c.task} · ${c.roomId} · «${c.title}» · claudeId ${c.claudeId} · ${c.cwd}`).join('\n');
+    const slackAwards = all.filter(a => a.sources.includes('slack')).map(a => a.id);
+    const slack = !slackAwards.length ? '' : l.slack
+      ? t('prompt.medalDigest.slack', { conector: l.slack, desde: new Date(since).toISOString().slice(0, 10), hasta: new Date(now).toISOString().slice(0, 10), premios: slackAwards.join(', ') })
+      : t('prompt.medalDigest.slackOff');
     return t('prompt.medalDigest', {
-      requisitos: reqs.map(q => `- ${q.id}: ${fileText(q.text)} — ${fileText(q.evidence)}`).join('\n'),
+      requisitos: awards.map(a => `- ${a.id}: ${fileText(a.name)} — ${fileText(a.evidence)} [${a.sources.filter(usable).join(', ')}]`).join('\n'),
+      slack,
       log: syncText(logRows(l, since)) || '—', conversaciones: conversations || '—',
-      propuestas: Object.values(l.medals).filter(m => m.proposedAt >= since - 7 * 864e5).map(m => `- ${m.requirement}: ${m.text} (${m.state})`).join('\n') || '—',
+      propuestas: Object.values(l.medals).filter(m => m.proposedAt >= since - 7 * 864e5).map(m => `- ${m.award ?? m.requirement}: ${m.text} (${m.state}; ${m.evidence.join(', ')})`).join('\n') || '—',
     });
   }
 
@@ -137,7 +160,7 @@ export class WorkLog {
       return `- ${q.req.id}: ${fileText(q.req.text)} — ${q.measured ? t('prompt.ladderVerify.byRules', { estado: q.met ? 'met' : q.progress > 0 ? 'partial' : 'not-met', reglas: rules.join('; ') }) : t('prompt.ladderVerify.yours')}${q.req.evidence ? ' — ' + fileText(q.req.evidence) : ''}`;
     })].join('\n')).join('\n\n');
     const since = this.progress()?.at ?? now - 90 * 864e5;
-    const medals = Object.values(l.medals).filter(m => m.state === 'accepted').map(m => `- ${m.requirement}: ${m.text} (${m.evidence.join(', ')})`).join('\n');
+    const medals = Object.values(l.medals).filter(m => m.state === 'accepted').map(m => `- ${m.award ?? m.requirement}: ${m.text} (${m.evidence.join(', ')})`).join('\n');
     const conversations = Object.values(l.conversations).filter(c => c.last >= since).sort((a, b) => b.last - a.last).slice(0, 80)
       .map(c => `- ${c.task} · ${c.roomId} · «${c.title}» · claudeId ${c.claudeId} · ${c.cwd}`).join('\n');
     return t('prompt.ladderVerify', { escalera: steps, medallas: medals || '—', log: syncText(logRows(l, since)) || '—', conversaciones: conversations || '—', archivo: this.ladderFile });

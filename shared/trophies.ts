@@ -18,9 +18,18 @@ export interface TrophyRule {
   since?: number;                        // only facts from that date (ms)
   project?: string; issueType?: string;  // only tasks of that Jira project (key prefix) or issue type
   repos?: number;                        // multiRepoTasks: at least this many repos (2 by default)
-  requirement?: string;                  // awards: the requirement whose accepted medals it counts
+  requirement?: string;                  // awards: the ladder requirement it belongs to (medals of old files name it)
+  evidence?: FileText;                   // awards: what the Friday digest looks for (else its requirement's)
+  sources?: AwardSource[];               // awards: where its evidence may come from (DEFAULT_SOURCES if none)
 }
-/** `evidence`: what the Friday digest looks for to propose a medal for it (only requirements with one take medals) */
+/** Where an award's evidence comes from: the Overseer's PRs on GitHub, their own Slack (through their Slack connector,
+ *  only once one is authorized), the week's work log and conversations, or entered by hand by the Overseer */
+export const AWARD_SOURCES = ['github', 'slack', 'digest', 'manual'] as const;
+export type AwardSource = typeof AWARD_SOURCES[number];
+export const DEFAULT_SOURCES: AwardSource[] = ['github', 'digest', 'manual'];
+/** An award: a trophy of kind `awards`, filled by medals proposed for it with evidence from one of its sources */
+export interface Award { id: string; name: FileText; requirement?: string; evidence: FileText; sources: AwardSource[] }
+/** `evidence`: what the Friday digest looks for, for the awards trophies that belong to it and say none of their own */
 export interface Requirement { id: string; text: FileText; trophies: string[]; mode: 'all' | 'any'; evidence?: FileText }
 export interface Step { id: string; name: FileText; requirements: Requirement[] }
 /** `digestRoom`: the room whose dweller runs the Friday digest (Planning by default; Logistics or Communications) */
@@ -51,8 +60,13 @@ export function parseLadder(text: string): { ladder: Ladder; errors: string[] } 
       ...(within ? { within: Number(within) } : {}), ...(since !== undefined ? { since } : {}),
       ...(typeof r.project === 'string' ? { project: r.project.toUpperCase() } : {}), ...(typeof r.issueType === 'string' ? { issueType: r.issueType } : {}),
       ...(Number.isInteger(r.repos) && r.repos > 1 ? { repos: r.repos } : {}),
-      ...(r.kind === 'awards' ? { requirement: String(r.requirement ?? '') } : {}),
+      ...(r.kind === 'awards' ? {
+        ...(typeof r.requirement === 'string' && r.requirement.trim() ? { requirement: r.requirement.trim() } : {}),
+        ...(isText(r.evidence) ? { evidence: r.evidence } : {}),
+        ...(Array.isArray(r.sources) ? { sources: [...new Set(r.sources.filter((x: unknown): x is AwardSource => AWARD_SOURCES.includes(x as AwardSource)))] as AwardSource[] } : {}),
+      } : {}),
     });
+    if (Array.isArray(r.sources) && r.sources.some((x: unknown) => !AWARD_SOURCES.includes(x as AwardSource))) bad(t('trophies.error.sources', { sources: AWARD_SOURCES.join(', ') }));
   }
   const known = new Set(ladder.trophies.map(x => x.id));
   for (const [i, s] of (Array.isArray(j?.steps) ? j.steps : []).entries()) {
@@ -66,10 +80,11 @@ export function parseLadder(text: string): { ladder: Ladder; errors: string[] } 
     }
     ladder.steps.push({ id, name: isText(s?.name) ? s.name : id, requirements });
   }
-  // an awards trophy counts the medals of a requirement that takes them
+  // an award says what evidence to look for, itself or through its requirement
   const withEvidence = new Set(medalRequirements(ladder).map(q => q.id));
-  for (const x of ladder.trophies.filter(x => x.kind === 'awards' && !withEvidence.has(x.requirement!))) errors.push(t('trophies.error.awards', { id: x.id, req: x.requirement || '—' }));
-  ladder.trophies = ladder.trophies.filter(x => x.kind !== 'awards' || withEvidence.has(x.requirement!));
+  const looksFor = (x: TrophyRule) => x.kind !== 'awards' || !!x.evidence || withEvidence.has(x.requirement ?? '');
+  for (const x of ladder.trophies.filter(x => !looksFor(x))) errors.push(t('trophies.error.awards', { id: x.id, req: x.requirement || '—' }));
+  ladder.trophies = ladder.trophies.filter(looksFor);
   if (!ladder.trophies.length && !errors.length) errors.push(t('trophies.error.empty'));
   return { ladder, errors };
 }
@@ -95,7 +110,8 @@ export function trophyFacts(l: Ledger, r: TrophyRule): TrophyFact[] {
       break;
     }
     case 'verifiedInProd': out = tasks.filter(x => x.verifiedAt && ok(x.key)).map(x => ({ at: x.verifiedAt!, ref: x.key, url: x.url })); break;
-    case 'awards': out = Object.values(l.medals ?? {}).filter(m => m.state === 'accepted' && m.requirement === r.requirement).map(m => ({ at: m.decidedAt ?? m.proposedAt, ref: m.text.slice(0, 40), url: m.evidence[0] })); break;
+    // a medal for this award (old ones, from before awards had their own medals: by requirement)
+    case 'awards': out = Object.values(l.medals ?? {}).filter(m => m.state === 'accepted' && (m.award ? m.award === r.id : m.requirement === r.requirement)).map(m => ({ at: m.decidedAt ?? m.proposedAt, ref: m.text.slice(0, 40), url: m.evidence[0] })); break;
   }
   return out.filter(f => r.since === undefined || f.at >= r.since).sort((a, b) => a.at - b.at);
 }
@@ -140,11 +156,20 @@ export function evaluate(ladder: Ladder, l: Ledger, now: number): CareerState {
   return { trophies, steps, current: steps.find(s => !s.complete)?.step.id };
 }
 
-/** The requirements that take medals (those with `evidence`), unique by id */
+/** The requirements with `evidence` (what their awards look for when they say none), unique by id */
 export function medalRequirements(ladder: Ladder): Requirement[] {
   const out = new Map<string, Requirement>();
   for (const s of ladder.steps) for (const q of s.requirements) if (q.evidence && !out.has(q.id)) out.set(q.id, q);
   return [...out.values()];
+}
+
+/** The ladder's awards, each with what to look for and its sources */
+export function awardsOf(ladder: Ladder): Award[] {
+  const reqs = new Map(medalRequirements(ladder).map(q => [q.id, q]));
+  return ladder.trophies.filter(x => x.kind === 'awards').map(x => ({
+    id: x.id, name: x.name, ...(x.requirement ? { requirement: x.requirement } : {}),
+    evidence: x.evidence ?? reqs.get(x.requirement ?? '')?.evidence ?? '', sources: x.sources?.length ? x.sources : DEFAULT_SOURCES,
+  }));
 }
 
 /** The Friday digest is due: the last Friday 09:00 (local time) came after the last one started. The first time

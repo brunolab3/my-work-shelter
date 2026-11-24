@@ -60,7 +60,7 @@ export interface CtxRooms {
   // for (ladder_progress), offered only in the room that runs them
   medals?: {
     room(): string;
-    propose(sessionId: string | undefined, m: { requirement: string; text: string; evidence: string[]; task?: string }): { ok: boolean; text: string };
+    propose(sessionId: string | undefined, m: { award: string; source: 'github' | 'slack' | 'digest'; text: string; evidence: string[]; date?: string; task?: string }): { ok: boolean; text: string };
     progress(r: { level?: string; summary?: string; requirements: { id: string; verdict: string; evidence?: string[]; notes?: string }[] }): { ok: boolean; text: string };
   };
   // a conversation is busy (starting, working or waiting for the Overseer): a message then waits for its turn to end
@@ -241,13 +241,16 @@ function scheduleTools(p: NonNullable<CtxRooms['scheduled']>, since: string, fro
   ];
 }
 
-// a medal toward a ladder requirement, proposed with its evidence (the Overseer accepts or dismisses it)
+// a medal toward an award of the ladder, proposed with evidence from a source it allows (the Overseer accepts or
+// dismisses it; manual ones only the Overseer enters, in the Vault)
 function medalTool(m: NonNullable<CtxRooms['medals']>, fromSession?: string) {
   return tool('award_propose', tr('tool.medal.description'),
     {
-      requirement: z.string().describe(tr('tool.medal.paramRequirement')),
+      award: z.string().describe(tr('tool.medal.paramAward')),
+      source: z.enum(['github', 'slack', 'digest']).describe(tr('tool.medal.paramSource')),
       text: z.string().describe(tr('tool.medal.paramText')),
       evidence: z.array(z.string()).describe(tr('tool.medal.paramEvidence')),
+      date: z.string().optional().describe(tr('tool.medal.paramDate')),
       task: z.string().optional().describe(tr('tool.medal.paramTask')),
     },
     async a => { const r = m.propose(fromSession, a); return r.ok ? text(r.text) : { ...text(r.text), isError: true }; });

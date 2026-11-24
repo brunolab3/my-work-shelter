@@ -77,6 +77,23 @@
       "kind": "awards",
       "requirement": "voice",
       "n": 3
+    },
+    {
+      "id": "thanked",
+      "name": {
+        "es": "Reconocido por otros equipos",
+        "en": "Recognised by other teams"
+      },
+      "kind": "awards",
+      "n": 2,
+      "evidence": {
+        "es": "Alguien de otro equipo le agradeció o reconoció algo concreto (ayuda, una herramienta, una revisión)",
+        "en": "Someone from another team thanked or recognised them for something concrete (help, a tool, a review)"
+      },
+      "sources": [
+        "slack",
+        "manual"
+      ]
     }
   ],
   "steps": [
@@ -159,6 +176,16 @@
           },
           "trophies": [
             "voice"
+          ]
+        },
+        {
+          "id": "recognised",
+          "text": {
+            "es": "Su ayuda se nota fuera del equipo",
+            "en": "Their help is felt outside the team"
+          },
+          "trophies": [
+            "thanked"
           ]
         },
         {

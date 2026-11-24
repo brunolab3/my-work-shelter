@@ -656,6 +656,7 @@ export class Sessions extends EventEmitter {
         }
         r.claudeId = m.session_id; r.cwd = m.cwd; r.model = m.model; r.permissionMode = m.permissionMode;
         r.worktree = worktreeRoot(m.cwd) ?? r.worktree;
+        if (Array.isArray(m.mcp_servers)) this.emit('conectores', r.roomId, m.mcp_servers.map((x: any) => ({ name: String(x?.name ?? ''), status: String(x?.status ?? '') })));
         if (r.state === 'arrancando') r.state = 'trabajando';
         this.measureContext(x);   // al retomar una conversación ya llega con contexto
         x.q?.supportedCommands().then(cs => { x.commands = cs.map(c => ({ name: c.name, description: c.description, hint: c.argumentHint || undefined })); this.emit('comandos', r.id, x.commands); }).catch(() => {});
