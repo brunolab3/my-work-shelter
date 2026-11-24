@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { SessionSummary } from '@shared/protocol';
 import { memoryWatch, reloadButton, type ReloadInput } from './memoryWatchdog';
-import { restoredIntercoms, savedIntercoms, type WindowCom } from './intercomSync';
+import { dropLeft, restoredIntercoms, savedIntercoms, syncIntercoms, type WindowCom } from './intercomSync';
 
 const ses = (id: string, state: string) => ({ id, dwellerId: 'ana', state }) as unknown as SessionSummary;
 const byId = (...l: SessionSummary[]) => Object.fromEntries(l.map(s => [s.id, s]));
@@ -98,5 +98,31 @@ describe('savedIntercoms / restoredIntercoms: drafts survive a reload', () => {
   it('drops empty tabs and windows left with none', () => {
     expect(back[0].tabs.some(p => p.view.type === 'menu')).toBe(false);
     expect(restoredIntercoms('not a list', () => 'x', () => 1)).toEqual([]);
+  });
+});
+
+describe('savedIntercoms / restoredIntercoms: conversations lost in a restart', () => {
+  const memory = (c: string) => ({ claudeId: c, title: c, modified: 1, cwd: '/x' }) as any;
+  const list: WindowCom[] = [
+    { dwellerId: 'ana', maximized: false, z: 3, known: ['s1', 's2', 's3'], active: 'p1', tabs: [
+      { id: 'p1', view: { type: 'sesion', sessionId: 's1' }, memory: memory('c1') },
+      { id: 'p2', view: { type: 'sesion', sessionId: 's2' }, memory: memory('c2') },
+      { id: 'p3', view: { type: 'sesion', sessionId: 's3' } },   // never noted: nothing to resume
+    ] },
+    { dwellerId: 'eva', maximized: false, z: 4, known: ['s4'], active: 'e1', tabs: [{ id: 'e1', view: { type: 'sesion', sessionId: 's4' }, memory: memory('c4') }] },
+  ];
+  const reload = (l: WindowCom[]) => { let n = 0; return restoredIntercoms(JSON.parse(JSON.stringify(savedIntercoms(l))), () => 'n' + (++n), () => 10); };
+  const sync = (l: WindowCom[]) => { let n = 100; return syncIntercoms({ list: l, sessions: {}, owner: s => s.dwellerId, closing: new Set(), talking: 'ana', newId: () => 'm' + (++n), nextZ: () => 20 }).next; };
+  const resumes = (l: WindowCom[]) => l.map(v => [v.dwellerId, v.tabs.map(p => p.view.type === 'nuevo' ? p.view.resume?.claudeId : p.view.type)]);
+
+  it('with no sessions left, every noted one comes back as a tab to resume, in view or not', () => {
+    expect(resumes(sync(reload(list)))).toEqual([['ana', ['c1', 'c2']], ['eva', ['c4']]]);
+  });
+
+  it('leaving them does not drop them, and they survive another reload', () => {
+    const back = sync(reload(list)), [a, b] = back[0].tabs.map(p => p.id);
+    const left = dropLeft(dropLeft(back, { talking: 'ana', active: a }, { talking: 'ana', active: b }), { talking: 'ana', active: b }, { talking: null });
+    expect(left).toBe(back);
+    expect(resumes(sync(reload(left)))).toEqual([['ana', ['c1', 'c2']], ['eva', ['c4']]]);
   });
 });

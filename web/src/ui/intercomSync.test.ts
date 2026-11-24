@@ -80,11 +80,12 @@ describe('syncIntercoms: closed conversations', () => {
     expect(next[0].tabs).toEqual([{ id: 'p1', view: { type: 'nuevo', resume: { ...memory, modified: expect.any(Number) } }, memory }]);
   });
 
-  it('a closed one with nothing typed and not in view goes, even if noted', () => {
+  it('a noted one stays to resume also when not in view (idle close, cap, closed from elsewhere), and leaving it keeps it', () => {
     const memory = { claudeId: 'c1', title: 'Old', modified: 1, cwd: '/x' } as any;
     const ana: WindowCom = { dwellerId: 'ana', tabs: [{ id: 'p1', view: { type: 'sesion', sessionId: 's1' }, memory }, tab('p2', 's2')], active: 'p2', maximized: false, z: 5, known: ['s1', 's2'] };
     const { next } = run([ana], byId(ses('s1', 'ana', 1, { state: 'cerrada' } as any), ses('s2', 'ana', 2)), 'ana');
-    expect(next[0].tabs.map(p => p.id)).toEqual(['p2']);
+    expect(next[0].tabs.map(p => [p.id, p.view.type])).toEqual([['p1', 'nuevo'], ['p2', 'sesion']]);
+    expect(dropLeft(next, { talking: 'ana', active: 'p1' }, { talking: null })).toBe(next);
   });
 });
 
@@ -111,7 +112,7 @@ describe('dropLeft: a tab with no conversation goes once the Overseer leaves it,
     expect(dropLeft(list, { talking: null }, { talking: 'ana', active: 'p2' })).toBe(list);
   });
 
-  it('leaving the intercom drops its empty tabs (a closed conversation to resume too), and the intercom if none remain', () => {
+  it('leaving the intercom drops its empty tabs (one picked from the archive to resume too), and the intercom if none remain', () => {
     const resume = { id: 'p3', view: { type: 'nuevo' as const, resume: { claudeId: 'c1', title: 'Old', modified: 1, cwd: '/x' } as any } };
     const ana = win('ana', [menu('p1'), tab('p2', 's2'), resume], 'p3'), eva = win('eva', [menu('e1')], 'e1');
     const next = dropLeft([ana, eva], { talking: 'ana', active: 'p3' }, { talking: null });

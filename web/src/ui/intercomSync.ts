@@ -5,9 +5,9 @@
 // The one exception follows the Overseer: when the conversation he is looking at moves to a worktree, its tab (with
 // what he had typed) moves to the copy's window, in front there, and the intercom switches to that copy (`handoff`).
 // A conversation that took over from another with a handoff (`handoffFrom`) takes that one's tab, with what was typed.
-// Tabs of closed conversations go, unless something is typed in them or they are in view: they stay to resume it.
-// Tabs with no conversation (a new job, the archive, the menu, a closed one to resume) go once the Overseer leaves
-// them, unless something is typed or attached in them (`dropLeft`).
+// A conversation that closes without the Overseer closing it (a restart, the server's idle close or cap, closed from
+// elsewhere) leaves its tab to resume it until he closes it. Tabs that never had a conversation (a new job, the archive,
+// the menu) go once the Overseer leaves them, unless something is typed or attached in them (`dropLeft`).
 import type { SessionSummary, HistoryElement } from '@shared/protocol';
 import type { AttachmentLocal } from './inputLine';
 
@@ -18,8 +18,10 @@ export interface WindowCom { dwellerId: string; tabs: TabCom[]; active: string; 
 
 export const readyAttachments = (l?: AttachmentLocal[]) => (l ?? []).filter(a => a.path && !a.error);
 export const withText = (p: TabCom) => !!p.draft?.trim() || readyAttachments(p.attachments).length > 0;
+/** The tab of a conversation that closed by itself, to resume it (one picked from the archive has no memory) */
+const closedHere = (p: TabCom) => p.view.type === 'nuevo' && !!p.view.resume && p.memory?.claudeId === p.view.resume.claudeId;
 /** No conversation, nothing typed and no attachment (ready or still uploading): leaving it loses nothing */
-export const unused = (p: TabCom) => p.view.type !== 'sesion' && !p.sessionWait && !p.draft?.trim() && !(p.attachments ?? []).some(a => !a.error);
+export const unused = (p: TabCom) => p.view.type !== 'sesion' && !closedHere(p) && !p.sessionWait && !p.draft?.trim() && !(p.attachments ?? []).some(a => !a.error);
 
 /** What is in view: the intercom in front and its tab */
 export interface InView { talking: string | null; active?: string }
@@ -77,9 +79,9 @@ export function syncIntercoms({ list, sessions, owner: ownerOf, closing, talking
         return [p];
       }
       if (d && d !== v.dwellerId) return [];                // moved to another window
-      if (!withText(p) && !(p.memory && v === front && p.id === v.active)) return [];
-      // closed (or lost in a restart) with something typed, or in view: the tab stays to resume it until the Overseer
-      // closes it (or, empty, leaves it: dropLeft)
+      if (!withText(p) && !p.memory) return [];
+      // closed (or lost in a restart) with something typed, or noted: the tab stays to resume it until the Overseer
+      // closes it
       touched = true;
       return [{ ...p, view: p.memory ? { type: 'nuevo', resume: { ...p.memory, modified: Date.now() } } : { type: 'nuevo' } }];
     });
