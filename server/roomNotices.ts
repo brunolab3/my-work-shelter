@@ -75,8 +75,9 @@ export interface CtxRooms {
 }
 
 // sin bucles: como mucho LIMITE mensajes por minuto de una sala a otra
-// what a dweller's send_to_room is for: status, acknowledgments and "done" notes have no option, so they aren't sent
-export const PURPOSES = ['job', 'result', 'blocker', 'question'] as const;
+// what a dweller's send_to_room is for: a reply someone needs (an answer, a result, a blocker) always goes through;
+// status, acknowledgments and "done" notes have no option, so they aren't sent
+export const PURPOSES = ['job', 'answer', 'result', 'blocker', 'question'] as const;
 const LIMIT = 3, WINDOW = 60_000;
 const sent = new Map<string, number[]>();
 export const forgetLimits = () => sent.clear();

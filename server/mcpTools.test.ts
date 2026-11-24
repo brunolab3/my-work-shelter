@@ -35,10 +35,10 @@ describe('game MCP tools', () => {
       'propose_plan_change', 'props_catalogue', 'read_plan', 'remove_decor', 'request_worktree_cleanup', 'send_to_room', 'shared_plan', 'shelter_rooms', 'update_plan', 'view_room']);
     const byName = Object.fromEntries(all);
     expect(params(byName.send_to_room)).toEqual(['room', 'message', 'purpose', 'key', 'thread']);
-    // only a job, a result, a blocker or a question: required, and status is not an option
+    // only a job, an answer, a result, a blocker or a question: required, and status is not an option
     const purpose = byName.send_to_room.inputSchema.shape.purpose;
     expect(purpose.isOptional()).toBe(false);
-    expect(purpose.options).toEqual(['job', 'result', 'blocker', 'question']);
+    expect(purpose.options).toEqual(['job', 'answer', 'result', 'blocker', 'question']);
     expect(purpose.safeParse('status').success).toBe(false);
     expect(params(byName.request_worktree_cleanup)).toEqual(['note']);
     expect(params(byName.assign_work)).toEqual(['key', 'plan', 'jobs', 'room', 'title', 'instructions', 'wait_for']);
@@ -67,6 +67,29 @@ describe('game MCP tools', () => {
     expect(started[0].roomId).toBe('b');
     expect(started[0].prompt).toContain('look at the API');
     expect(started[0].prompt).toContain('ABC-12');
+  });
+
+  // the restriction is only for messages nobody needs: a reply to the room that asked always goes through
+  it('a room asked a question can always reply with an answer, a result or a blocker', async () => {
+    const got: { id: string; text: string }[] = [];
+    const ctx: CtxRooms = {
+      rooms: () => [{ id: 'a', name: 'Alfa', dweller: { id: 'ha', name: 'Ana' } }, { id: 'b', name: 'Bravo', dweller: { id: 'hb', name: 'Bea' } }],
+      sessionOfTask: () => undefined, worktreeOfTask: async () => undefined,
+      notify: (id, text) => { got.push({ id, text }); return true; },
+      start: async () => ({ id: 'sB', inWorktree: false }),
+      notice: () => {},
+    };
+    expect((await call(mcpRooms(ctx, 'a', 'sA'), 'send_to_room', { room: 'b', message: 'which port?', purpose: 'question' })).isError).toBeFalsy();
+    const b = mcpRooms(ctx, 'b', 'sB');
+    for (const [purpose, message] of [['answer', 'port 8080'], ['result', 'tests pass'], ['blocker', 'no access to the VPN']]) {
+      forgetLimits();
+      const r = await call(b, 'send_to_room', { room: 'a', message, purpose });
+      expect(r.isError).toBeFalsy();
+      expect(got.at(-1)?.id).toBe('sA');
+      expect(got.at(-1)?.text).toContain(message);
+    }
+    const purpose = tools(b).send_to_room.inputSchema.shape.purpose;
+    for (const p of ['status', 'ack']) expect(purpose.safeParse(p).success).toBe(false);
   });
 
   it('preflight_answer maps status and note', async () => {
