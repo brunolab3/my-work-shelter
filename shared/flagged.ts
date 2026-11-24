@@ -35,10 +35,18 @@ export const flaggedIn = (sessions: Iterable<SessionSummary | undefined>, ids: S
   return n;
 };
 
-/** How many conversations open in an intercom are pending, closed ones too: what the COM chips and their lists count */
-export const flaggedInIntercom = (sessions: Iterable<SessionSummary | undefined>, ids: Set<string>) => {
+/** An intercom tab as its flag sees it: a conversation in view (`sesion`) or a closed one about to be resumed (`nuevo`) */
+export type FlagTab = { view: { type: string; sessionId?: string; resume?: { claudeId?: string } } };
+
+/** A tab's conversation for its ⚑: the open or closed one in view, or the Claude Code session id of the one it resumes */
+export const tabFlaggable = (p: FlagTab | undefined, sessions: Record<string, SessionSummary>): Flaggable | undefined =>
+  p?.view.type === 'sesion' ? (p.view.sessionId ? sessions[p.view.sessionId] : undefined) : p?.view.type === 'nuevo' && p.view.resume ? { claudeId: p.view.resume.claudeId } : undefined;
+
+/** How many of these intercom tabs hold a pending conversation, closed ones too (in view or about to be resumed), as
+ * their tabs show it: what the COM chips and their lists count */
+export const flaggedInIntercom = (tabs: Iterable<FlagTab>, sessions: Record<string, SessionSummary>, ids: Set<string>) => {
   let n = 0;
-  for (const s of sessions) if (flagOf(s, ids)) n++;
+  for (const p of tabs) if (flagOf(tabFlaggable(p, sessions), ids)) n++;
   return n;
 };
 

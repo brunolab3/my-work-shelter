@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { flaggedIds, setFlag, isFlagged, flaggedIn, flaggedInIntercom, flagOf, flagMark, FLAGGED_MAX } from './flagged';
+import { flaggedIds, setFlag, isFlagged, flaggedIn, flaggedInIntercom, tabFlaggable, flagOf, flagMark, FLAGGED_MAX } from './flagged';
 import type { SessionSummary } from './protocol';
 
 const s = (claudeId: string | undefined, state: SessionSummary['state'] = 'terminada') => ({ claudeId, state }) as SessionSummary;
@@ -53,9 +53,18 @@ describe('conversations marked as pending', () => {
   });
   it('counts on the COM selectors every flagged conversation in an intercom, a closed one too, while tags skip it', () => {
     const ids = new Set(['a', 'b']);
-    const tabs = [s('a', 'cerrada'), s('b'), s('z'), s(undefined, 'arrancando'), undefined];
-    expect(flaggedInIntercom(tabs, ids)).toBe(2);
-    expect(flaggedIn(tabs, ids)).toBe(1);
+    const list = [s('a', 'cerrada'), s('b'), s('z'), s(undefined, 'arrancando'), undefined];
+    const sessions = Object.fromEntries(list.map((x, i) => [String(i), x])) as Record<string, SessionSummary>;
+    const tabs = list.map((_, i) => ({ view: { type: 'sesion', sessionId: String(i) } }));
+    expect(flaggedInIntercom(tabs, sessions, ids)).toBe(2);
+    expect(flaggedIn(list, ids)).toBe(1);
+  });
+  it('counts on the COM selectors a closed flagged conversation waiting in its tab to be resumed, as its tab shows ⚑', () => {
+    const ids = new Set(['c']);
+    const tabs = [{ view: { type: 'nuevo', resume: { claudeId: 'c' } } }, { view: { type: 'nuevo', resume: { claudeId: '' } } }, { view: { type: 'nuevo' } }, { view: { type: 'menu' } }];
+    expect(tabs.map(p => flagOf(tabFlaggable(p, {}), ids))).toEqual([true, undefined, undefined, undefined]);
+    expect(flaggedInIntercom(tabs, {}, ids)).toBe(1);
+    expect(flaggedInIntercom([{ view: { type: 'sesion', sessionId: 'gone' } }], {}, ids)).toBe(0);
   });
   it('tags show ⚑ for one pending conversation and ⚑ n for several', () => {
     expect(flagMark(0)).toBeUndefined();

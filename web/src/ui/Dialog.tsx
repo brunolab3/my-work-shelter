@@ -20,7 +20,7 @@ import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 
 import { createPortal } from 'react-dom';
 import type { SessionSummary, LogInput, HistoryElement, Command, PendingRequest, Visitor, QueuedMessage } from '@shared/protocol';
 import { originLabel, queuedIn, withdrawable } from '@shared/messageQueue';
-import { flaggedIds, flagOf, flaggedInIntercom, type Flaggable } from '@shared/flagged';
+import { flaggedIds, flagOf, flaggedInIntercom, tabFlaggable, type Flaggable } from '@shared/flagged';
 import { MODELS, EFFORTS, PERMISSION_MODES } from '@shared/protocol';
 import { t, tIs, trBio } from '@shared/language';
 import { juego, type DwellerSummary } from './gameState';
@@ -348,7 +348,7 @@ export function roomTalkers(room: string, dwellers: DwellerSummary[], copies: Dw
     const sess = tabs.map(p => p.view.type === 'sesion' ? sessions[p.view.sessionId] : undefined).filter(Boolean) as SessionSummary[];
     const first = [...sess].sort((a, b) => urgency(a) - urgency(b) || b.updated - a.updated)[0];
     const name = talkerName(x);
-    return { x, sess, first, state: tabState(first), name, draft: tabs.some(withText), flagged: flaggedInIntercom(sess, flags) };
+    return { x, sess, first, state: tabState(first), name, draft: tabs.some(withText), flagged: flaggedInIntercom(tabs, sessions, flags) };
   }).map(q => ({ q, r: { state: q.state, when: Math.max(0, ...q.sess.map(s => s.updated)), name: q.name, id: q.x.id } }))
     .sort((a, b) => talkerFirst(a.r, b.r))
     .map(y => y.q);
@@ -445,10 +445,8 @@ function tabItem(x: TabCom, o: DwellerSummary, sessions: Record<string, SessionS
   const sx = x.view.type === 'sesion' ? sessions[x.view.sessionId] : undefined, path = pathWorktree(sx?.cwd, worktreesKnown());
   return { id: x.id, name: sx ? sx.title || t('windows.conversation') : x.sessionWait ? t('windows.starting2') : VIEW_NAME[x.view.type] ?? t('windows.menu'), state: x.sessionWait ? 'trabajando' : tabState(sx),
     title: sx?.title, room: o.nameRoom, task: path ? copyTask(worktreesKnown().find(w => w.path === path) ?? { path }) : o.copy ? copyTask(o.copy) : undefined, activity: sx ? ago(sx.updated) : undefined, draft: withText(x), queued: queuedIn([sx]) || undefined,
-    flagged: flagOf(sx ?? resumeOf(x), flags) };
+    flagged: flagOf(tabFlaggable(x, sessions), flags) };
 }
-/** The closed conversation a tab is about to resume, by its Claude Code session id */
-const resumeOf = (x: TabCom | undefined) => (x?.view.type === 'nuevo' && x.view.resume ? { claudeId: x.view.resume.claudeId } : undefined);
 /** The conversations marked as pending (shared/flagged.ts), repainting when they change */
 export const useFlags = () => flaggedIds(live.use(e => e.state?.settings));
 /** ⚑ Mark a conversation as pending, or clear it: only the Overseer does (sending to it doesn't) */
@@ -459,7 +457,7 @@ function toggleFlag(s: Flaggable | undefined) {
   client.action('conversacion.pendiente', { claudeId: s!.claudeId, on: !on }).catch(e => { SFX.error(); addNotice('error', (e as Error).message); });
 }
 /** The conversation of a tab, open or closed (shown, or about to be resumed), for its ⚑ */
-const tabConversation = (pid: string): Flaggable | undefined => { const p = intercoms.get().list.flatMap(w => w.tabs).find(x => x.id === pid); return p?.view.type === 'sesion' ? live.get().sessions[p.view.sessionId] : resumeOf(p); };
+const tabConversation = (pid: string): Flaggable | undefined => { const p = intercoms.get().list.flatMap(w => w.tabs).find(x => x.id === pid); return tabFlaggable(p, live.get().sessions); };
 
 // The ⋯ N button at the end of the bar's COM row (Bar.tsx; ⌘⇧A from an intercom): every open conversation of every
 // intercom, by room, to filter, go to one (switching to its intercom) and close. Other intercoms' menus stay out.

@@ -188,7 +188,7 @@ export function Bar() {
   const inHidden = !!sel && validRow(fs, sel.row) === 0 && Math.min(sel.i, fs[0].length - 1) >= views.length;
   const whoIs = (h: DwellerSummary) => h.copy ? t('windows.autorSHolographicCopyBranch', { autor: h.copy.nameAuthor, rama: h.copy.branch }) : h.name;
   // how many of a room's conversations in its intercoms are marked as pending (⚑, shared/flagged.ts), closed ones too
-  const flaggedOf = (g: (typeof rooms)[number]) => flaggedInIntercom(g.sess.map(x => x.s), flags);
+  const flaggedOf = (g: (typeof rooms)[number]) => flaggedInIntercom(g.coms.flatMap(c => c.v.tabs), sessions, flags);
   // a room's chip: its pilot, the room, its most urgent conversation's state, how many it has open and its ⚑ pending ones
   // (who and what in its title); waiting goes before pending in its colour
   const chip = (g: (typeof rooms)[number], mark: boolean, measure = false) => {
