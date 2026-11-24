@@ -67,6 +67,11 @@ function EnterMedal({ awards, done, cancel }: { awards: TrophyRule[]; done: () =
   );
 }
 
+// an award trophy as its medals: filled toward its n, as in the trophy list
+const medalsOf = (x: TrophyState) => x.rule.kind === 'awards' && x.rule.n <= 12
+  ? <span className="trofeo-medallas">{Array.from({ length: x.rule.n }, (_, k) => <span key={k} className={k < x.count ? 'llena' : ''}>{k < x.count ? '🏅' : '○'}</span>)}</span>
+  : <span className="tenue">🏅 {x.count}/{x.rule.n}</span>;
+
 export function Trophies({ goBack }: { goBack: () => void }) {
   const [data, setData] = useState<WorkLogData | null>(null);
   const [error, setError] = useState('');
@@ -105,22 +110,6 @@ export function Trophies({ goBack }: { goBack: () => void }) {
       {data && <p className="tenue">{data.ladder.source === 'local' ? t('trophies.sourceLocal', { ruta: data.ladder.file }) : data.ladder.source === 'example' ? t('trophies.sourceExample', { ruta: data.ladder.file, local: data.ladder.local }) : t('trophies.sourceNone', { local: data.ladder.local })}</p>}
       {data?.ladder.errors.map((x, k) => <p key={k} className="aviso-consola">{x}</p>)}
       {!data && !error && <p className="tenue">{t('worklog.reading')}</p>}
-      {c && c.steps.length > 0 && <>
-        <h3 className="trofeos-seccion">{t('trophies.career')}</h3>
-        <LastVerification data={data!} />
-        <ol className="escalera">
-          {c.steps.map(s => (
-            <li key={s.step.id} className={'escalon' + (s.complete ? ' cumplido' : '') + (c.current === s.step.id ? ' actual' : '')}>
-              <div className="escalon-cabeza"><b>{fileText(s.step.name)}</b> <Bar p={s.progress} /> <span className="tenue">{s.complete ? t('trophies.complete') : c.current === s.step.id ? t('trophies.current') : ''}</span></div>
-              <ul>{s.requirements.map(q => (
-                <li key={q.req.id} className={q.met ? 'cumplido' : ''}>
-                  <span>{q.met ? '✔' : q.measured ? '○' : '·'} {fileText(q.req.text)}</span>
-                  {q.measured ? <><Bar p={q.progress} /> <span className="tenue">{q.req.mode === 'any' && q.req.trophies.length > 1 ? t('trophies.anyOf') + ' ' : ''}{q.req.trophies.map(id => (byId.get(id)?.earnedAt ? '🏆 ' : '') + fileText(byId.get(id)?.rule.name)).join(', ')}</span></>
-                    : <span className="tenue">{t('trophies.unmeasured')}</span>}
-                </li>))}</ul>
-            </li>))}
-        </ol>
-      </>}
       {c && c.trophies.length > 0 && <>
         <h3 className="trofeos-seccion">{t('trophies.list')} <span className="tenue">{t('trophies.menuHint', { n: earned, total: c.trophies.length })}</span></h3>
         <ul className="trofeos">{[...c.trophies].sort((a, b) => Number(!!b.earnedAt) - Number(!!a.earnedAt) || b.progress - a.progress).map(x => <TrophyLine key={x.rule.id} x={x} />)}</ul>
@@ -138,6 +127,22 @@ export function Trophies({ goBack }: { goBack: () => void }) {
             {m.state === 'proposed' ? <span className="medalla-botones"><button onClick={() => decide(m, true)}>{t('trophies.medal.accept')}</button><button onClick={() => decide(m, false)}>{t('trophies.medal.dismiss')}</button></span>
               : <span className="tenue">{t('trophies.medal.accepted')} {m.decidedAt ? day(m.decidedAt) : ''}</span>}
           </li>))}</ul>
+      </>}
+      {c && c.steps.length > 0 && <>
+        <h3 className="trofeos-seccion">{t('trophies.career')}</h3>
+        <LastVerification data={data!} />
+        <ol className="escalera">
+          {c.steps.map(s => (
+            <li key={s.step.id} className={'escalon' + (s.complete ? ' cumplido' : '') + (c.current === s.step.id ? ' actual' : '')}>
+              <div className="escalon-cabeza"><b>{fileText(s.step.name)}</b> <Bar p={s.progress} /> <span className="tenue">{s.complete ? t('trophies.complete') : c.current === s.step.id ? t('trophies.current') : ''}</span></div>
+              <ul>{s.requirements.map(q => (
+                <li key={q.req.id} className={q.met ? 'cumplido' : ''}>
+                  <span>{q.met ? '✔' : q.measured ? '○' : '·'} {fileText(q.req.text)}</span>
+                  {q.measured ? <><Bar p={q.progress} /> <span className="tenue">{q.req.mode === 'any' && q.req.trophies.length > 1 ? t('trophies.anyOf') + ' ' : ''}{q.req.trophies.map(id => (byId.get(id)?.rule.kind === 'awards' ? medalsOf(byId.get(id)!) : (byId.get(id)?.earnedAt ? '🏆 ' : '') + fileText(byId.get(id)?.rule.name))).reduce<React.ReactNode[]>((all, x, k) => [...all, k ? ', ' : '', x], [])}</span></>
+                    : <span className="tenue">{t('trophies.unmeasured')}</span>}
+                </li>))}</ul>
+            </li>))}
+        </ol>
       </>}
       <Keys>{proposed.length > 0 && <><kbd>↑↓</kbd><kbd>A</kbd><kbd>D</kbd>{t('trophies.keyMedal')} </>}{!data?.demo && awards.length > 0 && <><kbd>M</kbd>{t('trophies.keyEnter')} </>}<kbd>V</kbd>{t('trophies.keyVerify')} <kbd>O</kbd>{t('trophies.keyOpenFile')} <kbd>R</kbd>{t('panels.refresh')} <kbd>Esc</kbd>{t('menu.close')}</Keys>
     </Device>
