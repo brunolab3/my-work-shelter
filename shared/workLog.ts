@@ -39,7 +39,6 @@ export interface Ledger {
   conversations: Record<string, LogConversation>; reviews: Record<string, LogReview>;
   medals: Record<string, Medal>;
   notified: string[];                  // trophies already announced
-  slack?: string;                      // the Slack connector the digest room's sessions last reported connected (else off)
   digestAt?: number;                   // the last Friday digest started (shared/trophies.ts, digestDue)
 }
 
@@ -48,8 +47,7 @@ export const emptyLedger = (): Ledger => ({ tasks: {}, prs: {}, worktrees: {}, c
 export function ledgerOf(j: any): Ledger {
   const rec = (x: any) => (x && typeof x === 'object' && !Array.isArray(x) ? x : {});
   return { tasks: rec(j?.tasks), prs: rec(j?.prs), worktrees: rec(j?.worktrees), conversations: rec(j?.conversations), reviews: rec(j?.reviews), medals: rec(j?.medals),
-    notified: Array.isArray(j?.notified) ? j.notified.filter((x: unknown) => typeof x === 'string') : [], ...(typeof j?.digestAt === 'number' ? { digestAt: j.digestAt } : {}),
-    ...(typeof j?.slack === 'string' ? { slack: j.slack } : {}) };
+    notified: Array.isArray(j?.notified) ? j.notified.filter((x: unknown) => typeof x === 'string') : [], ...(typeof j?.digestAt === 'number' ? { digestAt: j.digestAt } : {}) };
 }
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
@@ -142,9 +140,9 @@ const SLACK_PERMALINK = /^https:\/\/[a-z0-9-]+(\.enterprise)?\.slack\.com\/archi
 export interface MedalProposal { award: string; source: AwardSource; text: string; evidence: string[]; date?: string | number; task?: string; conversation?: string }
 
 /** A medal proposed for an award of the ladder, from one of the sources it allows: one line, at least one evidence link.
- *  `by`: a dweller can't enter one by hand; `slack`: whether a Slack connector is on (off, no Slack medal). A Slack one
+ *  `by`: a dweller can't enter one by hand. A Slack one
  *  takes only permalinks, the message's date and a reason in the dweller's words (no quotes) */
-export function proposeMedal(l: Ledger, m: MedalProposal, awards: Award[], now: number, o: { by: 'dweller' | 'overseer'; slack: boolean }): { ok: true; medal: Medal } | { ok: false; error: string } {
+export function proposeMedal(l: Ledger, m: MedalProposal, awards: Award[], now: number, o: { by: 'dweller' | 'overseer' }): { ok: true; medal: Medal } | { ok: false; error: string } {
   const award = awards.find(a => a.id === m.award.trim()), text = m.text.trim().replace(/\s+/g, ' ');
   let evidence = [...new Set(m.evidence.map(x => x.trim()).filter(Boolean))];
   const no = (error: string) => ({ ok: false as const, error });
@@ -155,7 +153,6 @@ export function proposeMedal(l: Ledger, m: MedalProposal, awards: Award[], now: 
   if (!evidence.length) return no(t('trophies.medal.noEvidence'));
   let date: number | undefined;
   if (m.source === 'slack') {
-    if (!o.slack) return no(t('trophies.medal.slackOff'));
     if (evidence.some(x => !SLACK_PERMALINK.test(x))) return no(t('trophies.medal.slackPermalinks'));
     evidence = [...new Set(evidence.map(x => SLACK_PERMALINK.exec(x)![0]))];
     if (/["“”«»]/.test(text) || text.length > 160) return no(t('trophies.medal.slackReason'));

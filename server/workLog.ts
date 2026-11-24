@@ -75,24 +75,16 @@ export class WorkLog {
 
   /** A medal the Friday digest proposes (award_propose): saved as proposed, for the Overseer to accept or dismiss */
   proposeMedal(m: MedalProposal): ReturnType<typeof proposeMedal> {
-    const r = proposeMedal(this.ledger, m, awardsOf(this.ladder().ladder), this.now(), { by: 'dweller', slack: !!this.ledger.slack });
+    const r = proposeMedal(this.ledger, m, awardsOf(this.ladder().ladder), this.now(), { by: 'dweller' });
     if (r.ok) this.save();
     return r;
   }
   /** A medal the Overseer enters by hand (an award whose sources include manual): entering it is accepting it */
   enterMedal(m: Omit<MedalProposal, 'source'>): ReturnType<typeof proposeMedal> {
-    const r = proposeMedal(this.ledger, { ...m, source: 'manual' }, awardsOf(this.ladder().ladder), this.now(), { by: 'overseer', slack: !!this.ledger.slack });
+    const r = proposeMedal(this.ledger, { ...m, source: 'manual' }, awardsOf(this.ladder().ladder), this.now(), { by: 'overseer' });
     if (r.ok) decideMedal(this.ledger, r.medal.id, true, this.now());
     if (r.ok) this.save();
     return r;
-  }
-  /** The MCP servers a session of the digest room started with: the Slack source is on while one named Slack is
-   *  connected (the Overseer's own connector; the game holds no Slack token for it) */
-  seeConnectors(servers: { name: string; status: string }[]): void {
-    const slack = servers.find(x => /slack/i.test(x.name) && x.status === 'connected')?.name;
-    if (slack === this.ledger.slack) return;
-    if (slack) this.ledger.slack = slack; else delete this.ledger.slack;
-    this.save();
   }
   decideMedal(id: string, accept: boolean): Medal | undefined {
     const m = decideMedal(this.ledger, id, accept, this.now());
@@ -103,10 +95,11 @@ export class WorkLog {
   digestRoom(): string { return this.ladder().ladder.digestRoom; }
   /** The Friday digest's first message when it is due (once a week, Friday from 09:00), else none. Only with awards the
    *  digest can propose (not only by hand); the first sweep just starts the count, so the first one is the next Friday.
-   *  The Slack part only while a Slack connector is on and some award takes Slack */
+   *  The Slack part when some award takes Slack: the session searches it with the Overseer's own Slack connector, and
+   *  without one skips those awards and says so (the game holds no Slack token) */
   digest(): string | undefined {
     const l = this.ledger, now = this.now(), all = awardsOf(this.ladder().ladder);
-    const usable = (x: string) => x !== 'manual' && (x !== 'slack' || !!l.slack);
+    const usable = (x: string) => x !== 'manual';
     const awards = all.filter(a => a.sources.some(usable));
     if (!awards.length) return undefined;
     if (l.digestAt === undefined) { l.digestAt = now; this.save(); return undefined; }
@@ -116,9 +109,7 @@ export class WorkLog {
     const conversations = Object.values(l.conversations).filter(c => c.last >= since).sort((a, b) => b.last - a.last).slice(0, 60)
       .map(c => `- ${c.task} · ${c.roomId} · «${c.title}» · claudeId ${c.claudeId} · ${c.cwd}`).join('\n');
     const slackAwards = all.filter(a => a.sources.includes('slack')).map(a => a.id);
-    const slack = !slackAwards.length ? '' : l.slack
-      ? t('prompt.medalDigest.slack', { conector: l.slack, desde: new Date(since).toISOString().slice(0, 10), hasta: new Date(now).toISOString().slice(0, 10), premios: slackAwards.join(', ') })
-      : t('prompt.medalDigest.slackOff');
+    const slack = !slackAwards.length ? '' : t('prompt.medalDigest.slack', { desde: new Date(since).toISOString().slice(0, 10), hasta: new Date(now).toISOString().slice(0, 10), premios: slackAwards.join(', ') });
     return t('prompt.medalDigest', {
       requisitos: awards.map(a => `- ${a.id}: ${fileText(a.name)} — ${fileText(a.evidence)} [${a.sources.filter(usable).join(', ')}]`).join('\n'),
       slack,

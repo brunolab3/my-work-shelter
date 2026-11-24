@@ -913,9 +913,6 @@ const sweepWorkLog = () => {
   }).catch(err => console.error('Bitácora:', String((err as Error).message).split('\n')[0]));
 };
 setTimeout(() => { sweepWorkLog(); setInterval(sweepWorkLog, 60_000).unref(); }, 45_000).unref();
-// the digest room's sessions report their MCP servers when they start: the Slack award source is on while the
-// Overseer's own Slack connector is connected there (no Slack token in the game)
-sessions.on('conectores', (roomId: string, servers: { name: string; status: string }[]) => { if (roomId === workLog.digestRoom()) workLog.seeConnectors(servers); });
 
 // organizar las salas por tareas (organize.ts): el plan de cada sala de repo y, confirmado, hacerlo
 async function organizeRooms(roomId: string | undefined, apply: boolean) {

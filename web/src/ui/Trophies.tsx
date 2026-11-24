@@ -104,7 +104,6 @@ export function Trophies({ goBack }: { goBack: () => void }) {
       {error && <p className="aviso-consola">{error}</p>}
       {data && <p className="tenue">{data.ladder.source === 'local' ? t('trophies.sourceLocal', { ruta: data.ladder.file }) : data.ladder.source === 'example' ? t('trophies.sourceExample', { ruta: data.ladder.file, local: data.ladder.local }) : t('trophies.sourceNone', { local: data.ladder.local })}</p>}
       {data?.ladder.errors.map((x, k) => <p key={k} className="aviso-consola">{x}</p>)}
-      {awards.some(r => r.sources?.includes('slack')) && <p className="tenue">{data!.ledger.slack ? t('trophies.slackOn', { conector: data!.ledger.slack }) : t('trophies.slackOff')}</p>}
       {!data && !error && <p className="tenue">{t('worklog.reading')}</p>}
       {c && c.steps.length > 0 && <>
         <h3 className="trofeos-seccion">{t('trophies.career')}</h3>

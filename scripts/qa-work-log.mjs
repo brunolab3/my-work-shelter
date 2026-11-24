@@ -9,7 +9,7 @@
 //   and each verdict in the panel, and the level on the shelf's plaque;
 // - Vault → Trophies and career: the ladder's two steps, every trophy, first merge earned with its date; a medal the
 //   Friday digest proposed waits for the Overseer, A accepts it and it fills one medal of its trophy; M enters one by
-//   hand (it counts at once); the Slack award source shows as off (no Slack connector seen);
+//   hand (it counts at once);
 // - a broken DATOS/escalera.json: the error line in the panel (R reads it again), never a crash;
 // - Jira and GitHub in DEMO: a sample log, marked DEMO, not saved;
 // - the Vault's shelf: one cup per trophy, the earned ones gold; a screenshot of the room.
@@ -111,7 +111,6 @@ try {
   await pg.keyboard.press('KeyA');
   check(await until(async () => (await pg.$$('.medallas li.accepted')).length === 1), 'A accepts it');
   check(await until(async () => (await pg.$$('.trofeo-medallas .llena')).length === 1), 'and it fills one medal of «Gives others a voice»');
-  check(/(Slack: apagado|Slack: off)/.test(await pg.textContent('body')), 'the Slack source is off until a Slack connector is seen');
   await pg.keyboard.press('KeyM');
   await pg.waitForSelector('.medalla-mano input');
   await pg.fill('.medalla-mano input >> nth=0', 'Aligned the retry design with the payments lead');

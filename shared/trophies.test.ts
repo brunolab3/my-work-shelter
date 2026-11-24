@@ -97,7 +97,7 @@ describe('medals', () => {
   });
 
   it('proposed medals count only once accepted, and fill the trophy', () => {
-    const l = emptyLedger(), awards = awardsOf(ladder.ladder), by = { by: 'dweller' as const, slack: false };
+    const l = emptyLedger(), awards = awardsOf(ladder.ladder), by = { by: 'dweller' as const };
     expect(proposeMedal(l, { award: 'other', source: 'digest', text: 'x', evidence: ['u'] }, awards, NOW, by).ok).toBe(false);
     expect(proposeMedal(l, { award: 'voice', source: 'digest', text: 'x', evidence: [' '] }, awards, NOW, by).ok).toBe(false);
     const a = proposeMedal(l, { award: 'voice', source: 'digest', text: 'Asked Ana to challenge the spec', evidence: ['conversation abc'] }, awards, NOW, by);
@@ -127,7 +127,7 @@ describe('award sources', () => {
   }));
   const awards = awardsOf(ladder);
   const link = 'https://fever.slack.com/archives/C0123ABC/p1764000000123456';
-  const dweller = (slack: boolean) => ({ by: 'dweller' as const, slack });
+  const dweller = () => ({ by: 'dweller' as const });
 
   it('an award takes its own evidence or its requirement\'s; sources default to github, digest and manual', () => {
     expect(awards.map(a => [a.id, a.sources])).toEqual([['thanks', ['slack', 'manual']], ['simplest', ['digest', 'manual']], ['voice', ['github', 'digest', 'manual']]]);
@@ -137,22 +137,21 @@ describe('award sources', () => {
 
   it('a medal is proposed only from a source its award allows', () => {
     const l = emptyLedger();
-    expect(proposeMedal(l, { award: 'simplest', source: 'github', text: 'Dropped the queue', evidence: ['https://github.com/o/r/pull/1'] }, awards, NOW, dweller(true)).ok).toBe(false);
-    expect(proposeMedal(l, { award: 'thanks', source: 'digest', text: 'Thanked', evidence: ['conversation abc'] }, awards, NOW, dweller(true)).ok).toBe(false);
-    expect(proposeMedal(l, { award: 'voice', source: 'github', text: 'Asked in review', evidence: ['conversation abc'] }, awards, NOW, dweller(true)).ok).toBe(false);   // github needs a github link
+    expect(proposeMedal(l, { award: 'simplest', source: 'github', text: 'Dropped the queue', evidence: ['https://github.com/o/r/pull/1'] }, awards, NOW, dweller()).ok).toBe(false);
+    expect(proposeMedal(l, { award: 'thanks', source: 'digest', text: 'Thanked', evidence: ['conversation abc'] }, awards, NOW, dweller()).ok).toBe(false);
+    expect(proposeMedal(l, { award: 'voice', source: 'github', text: 'Asked in review', evidence: ['conversation abc'] }, awards, NOW, dweller()).ok).toBe(false);   // github needs a github link
     // by hand only the Overseer
-    expect(proposeMedal(l, { award: 'simplest', source: 'manual', text: 'Dropped the queue', evidence: ['note'] }, awards, NOW, dweller(true)).ok).toBe(false);
-    expect(proposeMedal(l, { award: 'simplest', source: 'manual', text: 'Dropped the queue', evidence: ['note'] }, awards, NOW, { by: 'overseer', slack: false }).ok).toBe(true);
-    expect(proposeMedal(l, { award: 'simplest', source: 'digest', text: 'Again', evidence: ['note'] }, awards, NOW, dweller(true)).ok).toBe(false);   // same evidence, same award
-    // Slack: only while a connector is on
+    expect(proposeMedal(l, { award: 'simplest', source: 'manual', text: 'Dropped the queue', evidence: ['note'] }, awards, NOW, dweller()).ok).toBe(false);
+    expect(proposeMedal(l, { award: 'simplest', source: 'manual', text: 'Dropped the queue', evidence: ['note'] }, awards, NOW, { by: 'overseer' }).ok).toBe(true);
+    expect(proposeMedal(l, { award: 'simplest', source: 'digest', text: 'Again', evidence: ['note'] }, awards, NOW, dweller()).ok).toBe(false);   // same evidence, same award
     const slack = { award: 'thanks', source: 'slack' as const, text: 'Platform thanked him for the shared CI template', evidence: [link], date: '2026-11-20T10:00:00Z' };
-    expect(proposeMedal(l, slack, awards, NOW, dweller(false))).toMatchObject({ ok: false, error: expect.stringMatching(/Slack/) });
-    expect(proposeMedal(l, slack, awards, NOW, dweller(true)).ok).toBe(true);
+    expect(proposeMedal(l, { ...slack, award: 'simplest' }, awards, NOW, dweller()).ok).toBe(false);   // simplest takes no Slack
+    expect(proposeMedal(l, slack, awards, NOW, dweller()).ok).toBe(true);
     expect(Object.values(l.medals).every(m => m.state === 'proposed')).toBe(true);   // nothing granted without acceptance
   });
 
   it('a Slack candidate keeps only the permalink, the date, the award and a one-line reason: never the message', () => {
-    const l = emptyLedger(), o = dweller(true);
+    const l = emptyLedger(), o = dweller();
     const base = { award: 'thanks', source: 'slack' as const, text: 'Thanked for unblocking the release', date: '2026-11-20T10:00:00Z' };
     expect(proposeMedal(l, { ...base, evidence: ['Thanks a lot Bruno, you saved the release!'] }, awards, NOW, o).ok).toBe(false);
     expect(proposeMedal(l, { ...base, evidence: [link, 'Thanks a lot Bruno!'] }, awards, NOW, o).ok).toBe(false);
