@@ -215,7 +215,7 @@ const ctxRooms: CtxRooms = {
   notify: (id, text, origin, fromSession, now) => {
     if (!now) return ctxPlan.notify(id, text, origin, fromSession);
     const s = sessions.list().find(x => x.id === id);
-    if (!s || s.state === 'cerrada') return false;
+    if (!s || s.state === 'closed') return false;
     try { sessions.deliver(id, text, origin); return true; } catch { return false; }
   },
   busy: id => busyState(sessions.list().find(s => s.id === id)?.state),

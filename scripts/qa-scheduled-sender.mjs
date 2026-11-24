@@ -67,7 +67,7 @@ try {
   await pg.click('.programados-sesion > .consola-x'); await pg.evaluate(() => { window.__game.set({ talkingWith: null }); window.__intercoms.set({ list: [] }); }); await sleep(500);
   await pg.evaluate(holo => {
     const now = Date.now(), dweller = window.__game.get().dwellers.find(h => h.room === holo.room);
-    const msg = { id: 'k', created: now, when: now + 2 * 3600e3, requested: '', message: 'For a task to come', origin: { roomId: 'git', claudeId: 'qa_g' }, from: { kind: 'room', roomId: 'git', room: 'Version Control', dweller: 'Ana' }, target: { type: 'sala', room: holo.room, key: 'QA-9' } };
+    const msg = { id: 'k', created: now, when: now + 2 * 3600e3, requested: '', message: 'For a task to come', origin: { roomId: 'git', claudeId: 'qa_g' }, from: { kind: 'room', roomId: 'git', room: 'Version Control', dweller: 'Ana' }, target: { type: 'room', room: holo.room, key: 'QA-9' } };
     window.__live.set(e => ({ ...e, scheduled: [...e.scheduled, msg] }));
     window.__game.set({ talkingWith: dweller.id });
   }, holo);

@@ -60,7 +60,7 @@ addEventListener('keydown', e => { if (isCmdF(e) && findShortcut()) { e.preventD
 
 // ---------------------------------------------------------------- the intercom: its log's text, marked in place
 const HITS = typeof Highlight === 'function' && typeof CSS !== 'undefined' && CSS.highlights ? { all: new Highlight(), current: new Highlight() } : null;
-if (HITS) { HITS.current.priority = 1; CSS.highlights.set('refugio-buscar', HITS.all); CSS.highlights.set('refugio-buscar-actual', HITS.current); }
+if (HITS) { HITS.current.priority = 1; CSS.highlights.set('shelter-find', HITS.all); CSS.highlights.set('shelter-find-current', HITS.current); }
 
 function textOf(root: HTMLElement) {
   const nodes: { node: Text; start: number }[] = [];
@@ -145,10 +145,10 @@ function webviewRunner(w: Webview): Runner {
 
 // ---------------------------------------------------------------- the «Página» window: asked to the page's notes layer
 function frameRunner(frame: HTMLIFrameElement): Runner {
-  const post = (m: object) => frame.contentWindow?.postMessage({ shelter: 'notas', ...m }, '*');
+  const post = (m: object) => frame.contentWindow?.postMessage({ shelter: 'notes', ...m }, '*');
   let waiting = 0;
   const listen = (e: MessageEvent) => {
-    if (e.source !== frame.contentWindow || e.data?.shelter !== 'notas' || e.data.type !== 'found') return;
+    if (e.source !== frame.contentWindow || e.data?.shelter !== 'notes' || e.data.type !== 'found') return;
     clearTimeout(waiting); report(Number(e.data.n) || 0, Number.isInteger(e.data.i) ? e.data.i : -1);
   };
   addEventListener('message', listen);

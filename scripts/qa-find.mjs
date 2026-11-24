@@ -24,7 +24,7 @@ await pg.waitForFunction(() => typeof window.__ready === 'function', null, { tim
 await pg.evaluate(async () => { await window.__ready(); window.__game.set({ panel: null, panelData: null }); });
 
 const bar = () => pg.evaluate(() => { const x = document.querySelector('.barra-buscar'); return x ? { count: x.querySelector('.barra-buscar-cuenta').textContent, host: x.parentElement.className, focused: document.activeElement === x.querySelector('input') } : null; });
-const marks = () => pg.evaluate(() => ({ all: CSS.highlights.get('refugio-buscar')?.size ?? 0, current: CSS.highlights.get('refugio-buscar-actual')?.size ?? 0 }));
+const marks = () => pg.evaluate(() => ({ all: CSS.highlights.get('shelter-find')?.size ?? 0, current: CSS.highlights.get('shelter-find-current')?.size ?? 0 }));
 
 // ---- the intercom: a conversation's log as the intercom draws it
 await pg.evaluate(() => {
@@ -63,7 +63,7 @@ check(!(await bar()), 'with the focus in a terminal, ⌘F opens nothing');
 await pg.evaluate(() => { document.querySelector('#qa-terminal').remove(); document.querySelector('#qa-consola').remove(); });
 
 // ---- the «Página» window: the page's own text only
-const { page } = await pg.evaluate(link => window.__client.action('enlace.local', { path: link }), `${dir}/plan.md`);
+const { page } = await pg.evaluate(link => window.__client.action('link.local', { path: link }), `${dir}/plan.md`);
 await pg.evaluate(async p => { const { openPage } = await import('/src/ui/Browsers.tsx'); openPage(p.url, p.title, undefined, p.path); }, page);
 check(await until(() => pg.evaluate(() => !!document.querySelector('.ventana-navegador iframe.vn-pagina'))), 'the plan opens in the «Página» window');
 await pg.waitForTimeout(800);
@@ -75,12 +75,12 @@ await pg.keyboard.press('Meta+a'); await pg.keyboard.type('push');
 check(await until(async () => (await bar())?.count === '1/4'), `the page's matches only, not the game's (${(await bar())?.count})`);
 await pg.keyboard.press('ArrowDown');
 check(await until(async () => (await bar())?.count === '2/4'), '↓ goes to the next one in the page');
-const inPage = await pg.frame({ url: /\/pagina\// })?.evaluate(() => ({ all: CSS.highlights.get('refugio-buscar')?.size, current: CSS.highlights.get('refugio-buscar-actual')?.size }));
+const inPage = await pg.frame({ url: /\/pagina\// })?.evaluate(() => ({ all: CSS.highlights.get('shelter-find')?.size, current: CSS.highlights.get('shelter-find-current')?.size }));
 check(inPage?.all === 4 && inPage?.current === 1, `marked inside the page (${JSON.stringify(inPage)})`);
 await pg.keyboard.press('Escape');
 check(await until(async () => !(await bar())), 'Esc closes it');
 check(await pg.evaluate(() => document.activeElement?.tagName === 'IFRAME'), 'and the focus goes back to the page');
-check(await until(async () => (await pg.frame({ url: /\/pagina\// })?.evaluate(() => CSS.highlights.get('refugio-buscar')?.size)) === 0), 'the page\'s marks are cleared');
+check(await until(async () => (await pg.frame({ url: /\/pagina\// })?.evaluate(() => CSS.highlights.get('shelter-find')?.size)) === 0), 'the page\'s marks are cleared');
 
 check(!errors.length, `no page errors ${errors.length ? JSON.stringify(errors) : ''}`);
 await b.close();

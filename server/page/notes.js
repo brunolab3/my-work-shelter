@@ -190,8 +190,8 @@
   // ⌘F from the game (web/src/ui/FindBar.tsx): the matches of a text in the page, marked like the notes and with the
   // same matching as matchOffsets in web/src/ui/findText.ts; the game is told how many there are and which is current
   const findAll = mark ? new Highlight() : null, findNow = mark ? new Highlight() : null;
-  if (findAll) { findNow.priority = 1; CSS.highlights.set('refugio-buscar', findAll); CSS.highlights.set('refugio-buscar-actual', findNow); }
-  style.textContent += '::highlight(refugio-buscar){background:rgba(255,196,0,.35);color:inherit}::highlight(refugio-buscar-actual){background:#ff9632;color:#000}';
+  if (findAll) { findNow.priority = 1; CSS.highlights.set('shelter-find', findAll); CSS.highlights.set('shelter-find-current', findNow); }
+  style.textContent += '::highlight(shelter-find){background:rgba(255,196,0,.35);color:inherit}::highlight(shelter-find-current){background:#ff9632;color:#000}';
   let found = [], foundAt = -1, foundQuery = '';
   function matches(q) {
     const nodes = [], shown = new Map();

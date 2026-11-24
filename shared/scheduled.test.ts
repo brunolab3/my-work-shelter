@@ -9,11 +9,11 @@ const msg = (target: ScheduledTarget, when = 100): ScheduledMessage => ({ id: 'm
 
 describe('which way a scheduled message goes', () => {
   const here = { id: 's1', claudeId: 'c1' };
-  const toHere: ScheduledTarget = { type: 'conversacion', roomId: 'acme', sessionId: 's1', claudeId: 'c1', cwd: REPO };
+  const toHere: ScheduledTarget = { type: 'conversation', roomId: 'acme', sessionId: 's1', claudeId: 'c1', cwd: REPO };
   const from = (origin: ScheduledMessage['origin'], target: ScheduledTarget, extra: Partial<ScheduledMessage> = {}) => ({ ...msg(target), origin, ...extra });
   it('in a conversation: what it sends elsewhere goes out, what comes to it arrives', () => {
-    expect(scheduledDirection(msg({ type: 'sala', room: 'git', key: 'ABC-12' }), here)).toBe('out');
-    expect(scheduledDirection(msg({ type: 'conversacion', roomId: 'acme', claudeId: 'c2', cwd: WT }), here)).toBe('out');
+    expect(scheduledDirection(msg({ type: 'room', room: 'git', key: 'ABC-12' }), here)).toBe('out');
+    expect(scheduledDirection(msg({ type: 'conversation', roomId: 'acme', claudeId: 'c2', cwd: WT }), here)).toBe('out');
     expect(scheduledDirection(from({ roomId: 'git', claudeId: 'c9' }, toHere, { from: { kind: 'room', roomId: 'git', room: 'Version Control' }, afterTurn: true }), here)).toBe('in');
     expect(scheduledDirection(from({ roomId: 'acme' }, toHere, { from: { kind: 'game' } }), here)).toBe('in');
   });
@@ -26,7 +26,7 @@ describe('which way a scheduled message goes', () => {
   it('in a place\'s list (what goes to it): a reminder by the target conversation itself, else it arrives', () => {
     expect(scheduledDirection(msg(toHere))).toBe('self');
     expect(scheduledDirection(from({ roomId: 'git', claudeId: 'c9' }, toHere))).toBe('in');
-    expect(scheduledDirection(msg({ type: 'sala', room: 'acme', key: 'ABC-12' }))).toBe('in');
+    expect(scheduledDirection(msg({ type: 'room', room: 'acme', key: 'ABC-12' }))).toBe('in');
   });
 });
 
@@ -62,9 +62,9 @@ describe('scheduled messages by room and task', () => {
     expect(byPlace([other], 'acme', worktrees)).toEqual([]);
   });
   it('a room target whose task has no worktree yet gets its own section after the worktrees, and moves once it appears', () => {
-    const main = msg({ type: 'sala', room: 'acme' }), abc = msg({ type: 'conversacion', roomId: 'acme', cwd: WT });
-    const later = msg({ type: 'sala', room: 'acme', key: 'ABC-99' }, 400), soon = msg({ type: 'sala', room: 'acme', key: 'XYZ-1' }, 300);
-    const again = { ...msg({ type: 'sala', room: 'acme', key: 'ABC-99' }, 500), origin: { roomId: 'git', claudeId: 'c7' }, from: { kind: 'room' as const, roomId: 'git', room: 'Version Control' } };
+    const main = msg({ type: 'room', room: 'acme' }), abc = msg({ type: 'conversation', roomId: 'acme', cwd: WT });
+    const later = msg({ type: 'room', room: 'acme', key: 'ABC-99' }, 400), soon = msg({ type: 'room', room: 'acme', key: 'XYZ-1' }, 300);
+    const again = { ...msg({ type: 'room', room: 'acme', key: 'ABC-99' }, 500), origin: { roomId: 'git', claudeId: 'c7' }, from: { kind: 'room' as const, roomId: 'git', room: 'Version Control' } };
     const all = [later, main, again, abc, soon];
     expect(byPlace(all, 'acme', worktrees).map(g => [g.worktree ?? g.task, g.items.map(x => x.id)]))
       .toEqual([[undefined, [main.id]], [WT, [abc.id]], ['XYZ-1', [soon.id]], ['ABC-99', [later.id, again.id]]]);

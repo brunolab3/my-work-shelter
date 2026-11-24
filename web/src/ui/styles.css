@@ -1539,5 +1539,5 @@ html.en-segundo-plano *, html.en-segundo-plano *::before, html.en-segundo-plano 
 .barra-buscar-cuenta { min-width: 3.5em; text-align: right; color: #c9b98a; white-space: nowrap; }
 .barra-buscar-cuenta.vacia { color: #f0a090; }
 .barra-buscar-parcial { color: #8a8070; white-space: nowrap; cursor: help; }
-::highlight(refugio-buscar) { background-color: rgba(255,196,0,.35); color: inherit; }
-::highlight(refugio-buscar-actual) { background-color: #ff9632; color: #000; }
+::highlight(shelter-find) { background-color: rgba(255,196,0,.35); color: inherit; }
+::highlight(shelter-find-current) { background-color: #ff9632; color: #000; }

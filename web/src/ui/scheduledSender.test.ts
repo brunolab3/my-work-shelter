@@ -40,9 +40,9 @@ describe('direction marks and targets', () => {
     expect(directionMark('self').hint).toMatch(/itself/);
   });
   it('names where it goes: a room with its key or thread, or a room\'s conversation', () => {
-    expect(scheduledTarget({ target: { type: 'sala', room: 'git', key: 'ABC-1' } }, name)).toBe('git ABC-1');
-    expect(scheduledTarget({ target: { type: 'sala', room: 'git', thread: 'cleanup' } }, name)).toBe('git cleanup');
-    expect(scheduledTarget({ target: { type: 'conversacion', roomId: 'puente', cwd: '/x', title: 'Fix' } }, name)).toBe('Command Bridge “Fix”');
-    expect(scheduledTarget({ target: { type: 'conversacion', roomId: 'gone', cwd: '/x' } }, name)).toBe('gone “Conversation”');
+    expect(scheduledTarget({ target: { type: 'room', room: 'git', key: 'ABC-1' } }, name)).toBe('git ABC-1');
+    expect(scheduledTarget({ target: { type: 'room', room: 'git', thread: 'cleanup' } }, name)).toBe('git cleanup');
+    expect(scheduledTarget({ target: { type: 'conversation', roomId: 'bridge', cwd: '/x', title: 'Fix' } }, name)).toBe('Command Bridge “Fix”');
+    expect(scheduledTarget({ target: { type: 'conversation', roomId: 'gone', cwd: '/x' } }, name)).toBe('gone “Conversation”');
   });
 });

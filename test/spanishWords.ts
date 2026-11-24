@@ -126,7 +126,7 @@ gobierna golpe golpes gorguera gorro gota gotas gracia gracias grado grados graf
 grandes granja granjero graves grebas grenas grosor gruesas grupo grupos guanteletes guantes guarda guardabosques
 guardada guardadas guardado guardados guardan guardando guardar guardarlo guardia guerra guia guias guion guste haber
 habia habilidad habitante habitantes habito habla hablado hablando hablante hablantes hablar hablas habra habs hace
-hacemos hacen hacer hacerla hacerlo hacha hacia haciendo haga hagan hagas hago hasta hay haz hazlo hecha hechas
+hacemos hacen hacer hacerla hacerlo hacha hacia haciendo haga hagan hagas hago hasta  haz hazlo hecha hechas
 hechicero hechizos hecho hemos heredados heroe heroica herr herramienta herramientas hiciste hidroponia hierro hijo
 hilo hilos hinchado historia historial hizo hogueras hola holgura holografiar holografica holograma hologramas
 hombreras hombros hora horas hormas hormigon hornada horno hornos hortalizas hoy hubo hueco huecos huella hueso huesos

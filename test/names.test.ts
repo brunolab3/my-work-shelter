@@ -115,7 +115,7 @@ const ALLOWED: [string, RegExp, string][] = [
   ['web/src/ui/linkOptions.ts', /^accion$/, 'older name'],
   ['web/src/ui/RoomPanels.tsx', /^sugs$/, 'older name'],
   ['web/src/tools/catalog.ts', /^desde$/, 'older name: a query parameter of the catalogue tool'],
-  ['{web/src/ui/Bar.tsx,web/src/ui/Dialog.tsx,web/src/ui/plainText.tsx}', /^data-(sala|sesion|copiar)$/, 'older name: DOM data attributes, with the CSS task'],
+  ['{web/src/ui/Bar.tsx,web/src/ui/Dialog.tsx,web/src/ui/FindBar.tsx,web/src/ui/plainText.tsx}', /^data-(sala|sesion|copiar)$/, 'older name: DOM data attributes, with the CSS task'],
   // tests and QA scripts: test data, made-up names
   ['{test/**,**/*.test.ts,**/*.test.tsx,scripts/**}', /./, 'test data and QA scripts'],
 ];

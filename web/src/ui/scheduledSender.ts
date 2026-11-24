@@ -19,6 +19,6 @@ export const directionMark = (d: Direction) => ({ text: t(`windows.scheduledDir.
 /** Where it goes, for lists with no «here» (Planning's): a room (and its task or thread), or a room's conversation */
 export function scheduledTarget(x: Pick<ScheduledMessage, 'target'>, roomName: (id: string) => string | undefined): string {
   const d = x.target;
-  if (d.type === 'sala') return `${d.room}${d.key ?? d.thread ? ' ' + (d.key ?? d.thread) : ''}`;
+  if (d.type === 'room') return `${d.room}${d.key ?? d.thread ? ' ' + (d.key ?? d.thread) : ''}`;
   return t('windows.scheduledToRoomConversation', { room: roomName(d.roomId) ?? d.roomId, title: d.title || t('windows.conversation') });
 }

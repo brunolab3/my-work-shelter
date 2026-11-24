@@ -124,8 +124,8 @@ export async function sendToRoom(ctx: CtxRooms, since: string, { room, message, 
     const times = [...recent, ...queued].sort((a, b) => a - b);
     const when = Math.max(now, times.length >= LIMIT ? times[times.length - LIMIT] + WINDOW : now);
     const x = o.scheduled ? undefined : ctx.scheduled?.defer(since, fromSession, { room: target.id, key: k, thread, message: message.trim(), important }, when);
-    if (x) return { ok: true, text: tr('tool.rooms.deferred', { n: LIMIT, sala: target.name, cuando: describeWhen(x.when), id: x.id }) + ((x.messages?.parts.length ?? 0) > 1 ? ' ' + tr('tool.rooms.packed', { id: x.id }) : '') };
-    if (recent.length >= LIMIT) return { ok: false, limited: true, text: tr('tool.rooms.limit', { n: LIMIT, sala: target.name }) };
+    if (x) return { ok: true, text: tr('tool.rooms.deferred', { n: LIMIT, room: target.name, when: describeWhen(x.when), id: x.id }) + ((x.messages?.parts.length ?? 0) > 1 ? ' ' + tr('tool.rooms.packed', { id: x.id }) : '') };
+    if (recent.length >= LIMIT) return { ok: false, limited: true, text: tr('tool.rooms.limit', { n: LIMIT, room: target.name }) };
   }
   const frame = (k?: string) => [
     tr('prompt.room.from', { room: origin?.name ?? since, dweller: origin?.dweller?.name ?? '?', task: k ? tr('prompt.room.task', { key: k }) : thread ? tr('prompt.room.thread', { thread: thread }) : '' }),
@@ -155,13 +155,13 @@ export async function sendToRoom(ctx: CtxRooms, since: string, { room, message, 
   const text = frame(k);
   const open = k ? ctx.sessionOfTask(target.id, k) : undefined;
   // permanent: the sender is that conversation, so no later try can deliver it (a scheduled one is dropped, not retried)
-  if (!how && same && open && open === fromSession) return { ok: false, permanent: true, text: tr('tool.rooms.ownConversation', { clave: k! }) };
+  if (!how && same && open && open === fromSession) return { ok: false, permanent: true, text: tr('tool.rooms.ownConversation', { key: k! }) };
   // a thread's conversation, while open and never the sender itself (if important, held for its turn's end if it's busy)
   const ofThread = thread ? threads.get(`${target.id}/${thread}`) : undefined;
   if (how) { /* followed up or replied */ }
   // the task's open conversation (if important, held for when its turn ends if it is busy)
-  else if (open) { if (notify(open, text)) { how = tr('tool.rooms.toOpen', { clave: k! }); receiver = open; } }
-  else if (ofThread && ofThread !== fromSession && notify(ofThread, text)) { how = tr('tool.rooms.toThread', { hilo: thread! }); receiver = ofThread; }
+  else if (open) { if (notify(open, text)) { how = tr('tool.rooms.toOpen', { key: k! }); receiver = open; } }
+  else if (ofThread && ofThread !== fromSession && notify(ofThread, text)) { how = tr('tool.rooms.toThread', { thread: thread! }); receiver = ofThread; }
   if (how && held) how += tr('tool.rooms.heldForTurn');
   if (!how) {
     cwd = k ? cwd ?? await ctx.worktreeOfTask(target.id, k) : undefined;
@@ -205,7 +205,7 @@ export async function sendToRoom(ctx: CtxRooms, since: string, { room, message, 
 export async function requestCleanup(ctx: CtxRooms, since: string, fromSession: string | undefined, note?: string): Promise<{ ok: boolean; text: string }> {
   const wt = fromSession ? await ctx.worktreeOfSession?.(since, fromSession) : undefined;
   if (!wt) return { ok: false, text: tr('tool.cleanup.notInWorktree') };
-  const message = [tr('prompt.cleanup.request', { ruta: wt.path, rama: wt.branch, merge: wt.local ? tr('prompt.cleanup.mergeLocal', { rama: wt.branch }) : '' }), note?.trim() ?? ''].filter(Boolean).join('\n\n');
+  const message = [tr('prompt.cleanup.request', { path: wt.path, branch: wt.branch, merge: wt.local ? tr('prompt.cleanup.mergeLocal', { branch: wt.branch }) : '' }), note?.trim() ?? ''].filter(Boolean).join('\n\n');
   return sendToRoom(ctx, since, { room: since, message, thread: 'cleanup', important: true }, fromSession);
 }
 

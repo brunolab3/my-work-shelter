@@ -160,7 +160,7 @@ export function PanelPlanning() {
         <ul className="agenda">{scheduled.slice(0, 10).map(x => (
           <li key={x.id} title={x.message}>
             <span className="cuando" title={describeWhen(x.when)}>{describeWhenShort(x.when)}</span>
-            <b>{scheduledSender(x, id => rooms.find(y => y.id === id)?.name)}</b> {t('panels.scheduledToRoom', { sala: scheduledTarget(x, id => rooms.find(y => y.id === id)?.name) })} <span className="dim">{x.message.replace(/\s+/g, ' ').slice(0, 90)}</span>
+            <b>{scheduledSender(x, id => rooms.find(y => y.id === id)?.name)}</b> {t('panels.scheduledToRoom', { room: scheduledTarget(x, id => rooms.find(y => y.id === id)?.name) })} <span className="dim">{x.message.replace(/\s+/g, ' ').slice(0, 90)}</span>
           </li>))}</ul>
       </>}
       <Keys><kbd>←→</kbd>{t('panels.day')} <kbd>↑↓</kbd>{t('panels.event')} <kbd>Enter</kbd>{t('panels.joinOrOpen')} <kbd>A</kbd>{agenda ? t('panels.week') : t('panels.agenda')} <kbd>R</kbd>{t('panels.refresh')} <kbd>Esc</kbd>{t('menu.close')}</Keys>
