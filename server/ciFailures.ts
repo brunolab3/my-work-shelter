@@ -14,6 +14,7 @@ import type { PRBoard } from '../shared/board.ts';
 import { dependenciesInText, pRKey, refPR, type Blocker } from '../shared/deploy.ts';
 import { t } from '../shared/language.ts';
 import type { CICheck } from '../shared/preflight.ts';
+import type { PackPart } from '../shared/scheduled.ts';
 import { sessionOfPR, worktreeOfPR, type RoomPR } from './prReviews.ts';
 
 export interface FailedCheck { name: string; url: string; run?: number }
@@ -125,7 +126,7 @@ export interface CtxCI {
   blockers(prs: PRBoard[]): Promise<Blocker[]>;                     // los del tablero de despliegue (manuales y del plan incluidos)
   rooms(): Promise<RoomPR[]>;
   sessions(): SessionSummary[];
-  notify(sessionId: string, text: string): boolean;
+  notify(sessionId: string, text: string, pr: PackPart & { url: string; label: string }): boolean;   // packed per PR (scheduled.ts: pack)
   open(roomId: string, cwd: string, text: string): Promise<boolean>;
   delivered(roomId: string, worktree: string, pr: PRWithCI, blocks: string[]): void;   // robot mensajero y aviso
   withoutConversation(text: string): void;
@@ -181,7 +182,7 @@ export class CIFailures {
       }
       const text = ciMessage(pr, blocks, this.logs.get(k));
       let where: { room: string; wt: string } | undefined;
-      if (target && this.ctx.notify(target.session.id, text)) where = { room: target.room.id, wt: target.session.worktree ?? target.session.cwd };
+      if (target && this.ctx.notify(target.session.id, text, { url: pr.url, label: refPR(pr), kind: 'ci', text })) where = { room: target.room.id, wt: target.session.worktree ?? target.session.cwd };
       else if (room && wt && await this.ctx.open(room.id, wt, text).catch(() => false)) where = { room: room.id, wt };
       else { noTarget(); continue; }   // se reintenta en la siguiente vuelta
       this.logs.delete(k);

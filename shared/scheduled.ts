@@ -2,7 +2,7 @@
 // a su propia conversación o a una sala, y el juego lo entrega a esa hora, también tras reinicios. Aquí lo puro: leer
 // la fecha que pide, aplazar los fines de semana a la mañana del siguiente día laborable y describirla en palabras
 // (para que una fecha mal puesta salte a la vista). Todo en la hora local del Mac.
-import { language } from './language.ts';
+import { language, t } from './language.ts';
 import { worktreeHasTask } from './tasks.ts';
 import type { MessageOrigin } from './protocol.ts';
 
@@ -31,7 +31,12 @@ export interface ScheduledMessage {
   afterTurn?: true;
   // who sent it, delivered verbatim with them as its sender (another room's dweller, the game, the Overseer)
   from?: MessageOrigin;
+  // the game's CI failures and reviews of one PR (server/scheduled.ts: pack): one pending message per PR and conversation,
+  // its parts merged into `message`, held while that PR's checks still run (`turnDue`)
+  pr?: { url: string; label: string; parts: PackPart[] };
 }
+/** One notice about a PR: its CI failing on a commit, or new reviews */
+export interface PackPart { kind: 'ci' | 'review'; text: string }
 
 export const SCHEDULE_HOUR = 9;                 // un día sin hora («el lunes») es a las 9:00
 export const MAX_PER_CONVERSATION = 10;
@@ -77,9 +82,22 @@ export function describeWhenShort(ms: number, now = Date.now()): string {
 /** Los que se entregan ya, en orden (the after-turn ones go when their conversation is free: `turnDue`) */
 export const due = (list: ScheduledMessage[], now: number) => list.filter(x => !x.nextWindow && !x.afterTurn && x.when <= now).sort((a, b) => a.when - b.when);
 export const AFTER_TURN = 'after-turn';               // the intercom's «When it finishes» as `when`
-/** The after-turn ones whose conversation is free now (`busy` by game id or Claude Code id), oldest first */
-export const turnDue = (list: ScheduledMessage[], busy: (t: { sessionId?: string; claudeId?: string }) => boolean) =>
-  list.filter(x => x.afterTurn && x.target.type === 'conversacion' && !busy(x.target)).sort((a, b) => a.created - b.created);
+/** The after-turn ones whose conversation is free now (`busy` by game id or Claude Code id), oldest first; a PR's pack
+ *  also waits for its checks to finish (`settled`), at most PACK_MAX_MS since it was first held */
+export const turnDue = (list: ScheduledMessage[], busy: (t: { sessionId?: string; claudeId?: string }) => boolean, settled: (url: string) => boolean = () => true, now = Date.now()) =>
+  list.filter(x => x.afterTurn && x.target.type === 'conversacion' && !busy(x.target) && (!x.pr || settled(x.pr.url) || now - x.created >= PACK_MAX_MS)).sort((a, b) => a.created - b.created);
+export const PACK_MAX_MS = 30 * 60_000;   // a check stuck running doesn't hold a PR's notices longer than this
+
+/** A notice added to a PR's pack: the same text is not repeated, a CI failure replaces the earlier one (that of an older
+ *  commit) in its place, reviews add up */
+export function mergePart(parts: PackPart[], p: PackPart): PackPart[] {
+  if (parts.some(x => x.text === p.text)) return parts;
+  const ci = p.kind === 'ci' ? parts.findIndex(x => x.kind === 'ci') : -1;
+  return ci >= 0 ? parts.map((x, i) => (i === ci ? p : x)) : [...parts, p];
+}
+/** The pack's text: a single notice as it was; several, under a heading, in the order they came */
+export const packText = (label: string, parts: PackPart[]) =>
+  parts.length === 1 ? parts[0].text : [t('prompt.packed.title', { pr: label, n: parts.length }), ...parts.map(x => x.text)].join('\n\n---\n\n');
 /** Whether one is for that conversation (its target), by game id or Claude Code id */
 export const forTarget = (x: ScheduledMessage, s: { id?: string; claudeId?: string }) =>
   x.target.type === 'conversacion' && (!!(s.claudeId && x.target.claudeId === s.claudeId) || !!(s.id && x.target.sessionId === s.id));

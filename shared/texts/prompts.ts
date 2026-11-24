@@ -51,6 +51,8 @@ export const PROMPTS: Record<string, LocalizedText> = {
   // a conversation stopped by the usage limit, resumed once it renews (server/limitResume.ts)
   'prompt.limitResume': { es: 'El límite de uso de Claude se ha renovado: sigue donde lo dejaste.', en: 'The Claude usage limit has renewed: continue where you left off.' },
   'prompt.scheduled.overseer': { es: '⏳ El Supervisor te dejó esto el {creado} como trabajo de fondo (no urgente; nadie mira ahora: trabaja solo y deja el resultado listo para revisar):', en: '⏳ The Overseer left this for you on {creado} as background work (not urgent; nobody is watching now: work on your own and leave the result ready to review):' },
+  // a PR's CI failures and reviews packed while its conversation was busy or its checks ran (server/scheduled.ts: pack)
+  'prompt.packed.title': { es: '📦 {n} avisos de {pr}, juntados mientras estabas ocupado o su CI seguía en marcha (en el orden en que llegaron):', en: '📦 {n} notices about {pr}, packed while you were busy or its CI was still running (in the order they came):' },
   // revisión nueva de un PR (server/prReviews.ts)
   'prompt.review.title': { es: '🔎 {clave}Revisión nueva en tu PR #{numero} de {repo} («{titulo}»), rama `{rama}`: {url}', en: '🔎 {clave}New review on your PR #{numero} in {repo} (“{titulo}”), branch `{rama}`: {url}' },
   'prompt.review.changesRequested': { es: 'pide cambios', en: 'requests changes' },

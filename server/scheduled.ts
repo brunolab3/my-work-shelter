@@ -5,12 +5,14 @@
 // checked every minute and on start: what fell due with the game closed is delivered on return, marked «late».
 // What can't be delivered (the conversation is still open outside, the sessions limit) is retried on the next round,
 // warning once. "Not urgent" ones (`when: "next-window"`, the intercom's ⌥Enter) wait for the plan's final 5-hour
-// usage window of the day and go out one at a time, a few minutes apart (`windowNext` in shared/scheduled.ts). The text stays on the Mac: it never goes anywhere.
+// usage window of the day and go out one at a time, a few minutes apart (`windowNext` in shared/scheduled.ts).
+// The game's CI failures and reviews of a PR pack into one message per PR and conversation (`pack`), released together
+// once its checks finish. The text stays on the Mac: it never goes anywhere.
 import { existsSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { t } from '../shared/language.ts';
-import { checkWhen, describeWhen, due, holdWeekend, isLate, finalWindowStart, ofConversation, turnDue, windowNext, MAX_PER_CONVERSATION, MAX_DAYS, NEXT_WINDOW, AFTER_TURN, type ScheduledMessage, type ScheduledTarget, type UsageWindow } from '../shared/scheduled.ts';
+import { checkWhen, describeWhen, due, forTarget, holdWeekend, isLate, finalWindowStart, mergePart, ofConversation, packText, turnDue, windowNext, MAX_PER_CONVERSATION, MAX_DAYS, NEXT_WINDOW, AFTER_TURN, type PackPart, type ScheduledMessage, type ScheduledTarget, type UsageWindow } from '../shared/scheduled.ts';
 import type { MessageOrigin, SessionSummary } from '../shared/protocol.ts';
 import { taskKey } from '../shared/tasks.ts';
 
@@ -36,6 +38,7 @@ export interface CtxScheduled {
   notice(text: string): void;
   now?(): number;
   usage?(): UsageWindow;   // the plan's 5-hour window, as the sessions last reported it (none: unknown)
+  settled?(prUrl: string): boolean;   // no check of that PR still running (unknown: settled)
 }
 
 export interface ScheduleArgs { when: string; message: string; room?: string; key?: string }
@@ -153,6 +156,22 @@ export class Scheduled {
     this.items.push(x); this.save();
     return x;
   }
+  /** A CI failure or review of a PR for a conversation that is busy or whose PR's checks still run (main.ts: notifyPR):
+   *  merged into the pending one for that PR and conversation (`mergePart`), which keeps its place in the queue, or held
+   *  as a new one. It goes when the turn ends and the PR's checks have finished (`turnDue`) */
+  pack(c: { roomId: string; sessionId?: string; claudeId?: string; cwd: string; title?: string }, pr: PackPart & { url: string; label: string }, origin: ScheduledMessage['origin']): ScheduledMessage {
+    const part: PackPart = { kind: pr.kind, text: pr.text };
+    const x = this.items.find(y => y.afterTurn && y.pr?.url === pr.url && forTarget(y, { id: c.sessionId, claudeId: c.claudeId }));
+    if (!x) {
+      const y = this.hold(c, pr.text, { kind: 'game' }, origin);
+      y.pr = { url: pr.url, label: pr.label, parts: [part] }; this.save();
+      return y;
+    }
+    x.pr!.parts = mergePart(x.pr!.parts, part);
+    x.message = packText(x.pr!.label, x.pr!.parts).slice(0, MAX_TEXT);
+    this.failed.delete(x.id); this.save();
+    return x;
+  }
   /** A turn ended: what waited for it goes out (on the next tick, after the turn's last event) */
   turnEnded(target: { sessionId?: string; claudeId?: string }) {
     if (!this.items.some(x => x.afterTurn && (x.target.type === 'conversacion') && ((target.sessionId && x.target.sessionId === target.sessionId) || (target.claudeId && x.target.claudeId === target.claudeId)))) return;
@@ -193,7 +212,8 @@ export class Scheduled {
       if (!w.ok) throw new Error(whenError(w.error, String(c.when)));
       delete x.nextWindow; delete x.afterTurn; x.when = w.when; x.requested = String(c.when);
     }
-    if (c.message !== undefined) { const m = String(c.message).trim(); if (!m) throw new Error(t('tool.rooms.empty')); x.message = m.slice(0, MAX_TEXT); }
+    // their own text: no longer merged with later notices of that PR
+    if (c.message !== undefined) { const m = String(c.message).trim(); if (!m) throw new Error(t('tool.rooms.empty')); if (m !== x.message) delete x.pr; x.message = m.slice(0, MAX_TEXT); }
     this.failed.delete(id); this.save();
     return x;
   }
@@ -224,7 +244,7 @@ export class Scheduled {
       // what waited for a turn to end, one per conversation: once delivered, it is busy again and the next one waits
       const busy = (s: { sessionId?: string; claudeId?: string }) => !!this.ctx.busy?.(s);
       const started = new Set<string>();
-      for (const y of turnDue(this.items, busy)) {
+      for (const y of turnDue(this.items, busy, url => this.ctx.settled?.(url) ?? true, now)) {
         const d = y.target as Extract<ScheduledTarget, { type: 'conversacion' }>, k = d.claudeId ?? d.sessionId ?? '';
         if (started.has(k) || !this.items.includes(y) || busy(d)) continue;
         started.add(k);

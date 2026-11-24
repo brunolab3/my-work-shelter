@@ -12,6 +12,7 @@ import { existsSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
 import path from 'node:path';
 import type { SessionSummary } from '../shared/protocol.ts';
 import { t } from '../shared/language.ts';
+import type { PackPart } from '../shared/scheduled.ts';
 import { recentFirst, sessionRecency } from '../shared/recent.ts';
 import { withoutNothingThatMake as nothingToDo, cleanBody, reviewLedger, openThreads, ledgerPending, type ReviewLedger, type ReviewThread } from '../shared/reviewCount.ts';
 
@@ -146,7 +147,7 @@ export interface CtxReviews {
   query(token?: string): Promise<any>;                // el JSON de CONSULTA_REVISIONES
   rooms(): Promise<RoomPR[]>;
   sessions(): SessionSummary[];
-  notify(sessionId: string, text: string): boolean;
+  notify(sessionId: string, text: string, pr: PackPart & { url: string; label: string }): boolean;   // packed per PR (scheduled.ts: pack)
   open(roomId: string, cwd: string, text: string): Promise<boolean>;   // retoma la última conversación de esa carpeta (o empieza una) con el texto
   delivered(roomId: string, worktree: string, pr: PRWithReview, events: EventPR[]): void;   // el robot mensajero sale de Control de Versiones hacia el holograma de ese worktree, y se avisa al Supervisor
   withoutConversation(text: string): void;                   // aviso al Supervisor
@@ -189,7 +190,8 @@ export class ReviewsPR {
     let changed = false;
     for (const { pr, fresh } of pending) {
       const target = sessionOfPR(pr, rooms, sessions);
-      if (target && this.ctx.notify(target.session.id, reviewMessage(pr, fresh))) {
+      const text = reviewMessage(pr, fresh);
+      if (target && this.ctx.notify(target.session.id, text, { url: pr.url, label: `${pr.repo}#${pr.number}`, kind: 'review', text })) {
         this.seen.push(...fresh.map(e => e.id)); changed = true;
         this.ctx.delivered(target.room.id, path.resolve(target.session.worktree ?? target.session.cwd), pr, fresh);
         continue;
@@ -197,7 +199,7 @@ export class ReviewsPR {
       // sin conversación abierta: la del worktree de su tarea (retomada o nueva)
       const room = rooms.find(s => s.repo === pr.repo.toLowerCase());
       const wt = room && worktreeOfPR(pr, room);
-      if (room && wt && await this.ctx.open(room.id, wt, reviewMessage(pr, fresh)).catch(() => false)) {
+      if (room && wt && await this.ctx.open(room.id, wt, text).catch(() => false)) {
         this.seen.push(...fresh.map(e => e.id)); changed = true;
         this.ctx.delivered(room.id, path.resolve(wt), pr, fresh);
         continue;

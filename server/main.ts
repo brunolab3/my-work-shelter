@@ -38,7 +38,7 @@ import { ReviewRoom, REVIEW_ROOM, REVIEW_ROOM_QUERY } from './reviewRoom.ts';
 import type { ReviewBoard } from '../shared/reviews.ts';
 import { Scheduled, summary } from './scheduled.ts';
 import { LimitResumes, scanStopped, resetMs, stopsWork, UNKNOWN_RESET_MS } from './limitResume.ts';
-import type { UsageWindow } from '../shared/scheduled.ts';
+import type { PackPart, UsageWindow } from '../shared/scheduled.ts';
 import { gitEnvironment } from './gitEnv.ts';
 import { Clones, cloneDestination, cloneUrl, clonedRepos, listRepos, repoInfo, repoRef } from './githubClone.ts';
 import { captureRoom } from './roomCapture.ts';
@@ -185,6 +185,17 @@ const ctxPlan: Pick<CtxAssignment, 'plans' | 'notify' | 'messenger' | 'sessionOf
   sessionOfTask: (roomId, key) =>
     sessions.list().filter(s => s.roomId === roomId && s.state !== 'cerrada' && worktreeHasTask({ path: s.worktree ?? s.cwd }, key)).sort((a, b) => b.updated - a.updated)[0]?.id,
   messenger: (since, a, reason) => broadcast({ t: 'mensajero', since, a, reason }),
+};
+// a PR's CI failure or new reviews (ciFailures.ts, prReviews.ts): packed with the others of that PR for that conversation
+// (scheduled.ts: pack), which go together once its turn ends and the PR's checks have finished: at once if both already
+const prSettled = (url: string) => !ciFailures.checksOf(url)?.some(c => c.state === 'pendiente');
+const notifyPR = (id: string, text: string, pr: PackPart & { url: string; label: string }) => {
+  const s = sessions.list().find(x => x.id === id);
+  if (!s || s.state === 'cerrada') return false;
+  try { scheduled.pack({ roomId: s.roomId, sessionId: s.id, claudeId: s.claudeId, cwd: path.resolve(s.worktree ?? s.cwd), title: s.title }, { ...pr, text }, { roomId: s.roomId }); }
+  catch { return false; }
+  scheduled.sweep().catch(() => {});
+  return true;
 };
 // mensajes entre salas (roomNotices.ts): a la conversación de la tarea o a una nueva con el habitante, en automático
 const busyState = (state?: string) => ['arrancando', 'trabajando', 'esperando'].includes(state ?? '');
@@ -572,7 +583,7 @@ const prReviews = new ReviewsPR(DATA, {
   query: async token => JSON.parse(await (await import('./git.ts')).gh(['api', 'graphql', '-f', 'query=' + REVIEWS_QUERY], token)),
   rooms: repoRooms,
   sessions: () => sessions.list(),
-  notify: ctxPlan.notify,
+  notify: notifyPR,
   // sin conversación abierta en el worktree de la tarea: se retoma la última de ahí o se empieza, en modo plan
   open: (roomId, cwd, text) => sendToFolder(roomId, cwd, text, 'plan'),
   delivered: (roomId, worktree, pr, events) => {
@@ -595,7 +606,7 @@ const ciFailures = new CIFailures(DATA, {
   blockers: async prs => blockersBetween(prs, prBlockers.all(), await tasksOrder(plans.all(), roomRepoById)),
   rooms: repoRooms,
   sessions: () => sessions.list(),
-  notify: ctxPlan.notify,
+  notify: notifyPR,
   open: (roomId, cwd, text) => sendToFolder(roomId, cwd, text, 'plan'),
   delivered: (roomId, worktree, pr, blocks) => {
     broadcast({ t: 'mensajero', since: 'git', a: [roomId], reason: 'ci', worktree });
@@ -607,7 +618,7 @@ const ciFailures = new CIFailures(DATA, {
   },
   withoutConversation: text => broadcast({ t: 'aviso', level: 'info', text }),
 });
-setInterval(() => { ciFailures.poll().catch(err => console.error('Fallos de CI:', String((err as Error).message).split('\n')[0])); }, 60_000).unref();
+setInterval(() => { ciFailures.poll().then(() => scheduled.sweep()).catch(err => console.error('Fallos de CI:', String((err as Error).message).split('\n')[0])); }, 60_000).unref();
 
 // mensajes programados (scheduled.ts): cada minuto, lo vencido a su conversación (abierta o retomada en su carpeta,
 // en modo plan) o a su sala como send_to_room. El primer repaso, cuando ya se han leído los worktrees de las salas
@@ -641,6 +652,7 @@ const scheduled: Scheduled = new Scheduled(DATA, {
   changed: list => broadcast({ t: 'programados', list }),
   notice: text => broadcast({ t: 'aviso', level: 'aviso', text }),
   usage: () => usage,
+  settled: prSettled,
 });
 setTimeout(() => {
   const sweep = () => { scheduled.sweep().catch(err => console.error('Mensajes programados:', String((err as Error).message).split('\n')[0])); };

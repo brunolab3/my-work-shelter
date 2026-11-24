@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { mkdtempSync, readFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { parseWhen, holdWeekend, checkWhen, due, isLate, ofConversation, type ScheduledMessage, type UsageWindow } from '../shared/scheduled.ts';
+import { parseWhen, holdWeekend, checkWhen, due, isLate, ofConversation, mergePart, PACK_MAX_MS, type ScheduledMessage, type UsageWindow } from '../shared/scheduled.ts';
 import { Scheduled, type CtxScheduled } from './scheduled.ts';
 import { setLanguage } from '../shared/language.ts';
 import type { SessionSummary } from '../shared/protocol.ts';
@@ -47,7 +47,7 @@ describe('mensajes programados: fechas', () => {
 
 // un contexto que apunta las entregas; `falla` hace que la conversación no se pueda retomar
 const SESS: SessionSummary = { id: 's1', dwellerId: 'remi', roomId: 'express', claudeId: 'c-111', cwd: '/r/express', worktree: '/r/wt/abc-1', state: 'trabajando', unread: false, title: 'ABC-1', pendingCount: 0, helpers: [], tools: 0, turns: 1, created: 0, updated: 0 } as SessionSummary;
-function ctx(timer: { t: number }, o: { fails?: boolean; usage?: UsageWindow; self?: boolean; busy?: Set<string> } = {}) {
+function ctx(timer: { t: number }, o: { fails?: boolean; usage?: UsageWindow; self?: boolean; busy?: Set<string>; running?: Set<string> } = {}) {
   const conversations: { claudeId?: string; cwd: string; text: string }[] = [], toRooms: { room: string; key?: string; text: string }[] = [], notices: string[] = [], changes: number[] = [];
   const c: CtxScheduled = {
     session: id => (id === SESS.id ? SESS : undefined),
@@ -59,6 +59,7 @@ function ctx(timer: { t: number }, o: { fails?: boolean; usage?: UsageWindow; se
     now: () => timer.t,
     usage: () => o.usage ?? {},
     busy: d => !!o.busy && (o.busy.has(d.sessionId ?? '') || o.busy.has(d.claudeId ?? '')),
+    settled: url => !o.running?.has(url),
   };
   return { c, conversations, toRooms, notices, changes };
 }
@@ -293,5 +294,60 @@ describe('scheduled messages: after the turn', () => {
     await p.sendNow(h.id);
     expect(x.conversations.at(-1)!.text).toBe('then this');
     expect(() => p.scheduleOverseer({ roomId: 'express', cwd: '/r/express' }, 'x', 'after-turn')).toThrow();
+  });
+});
+
+describe('scheduled messages: a PR\'s notices packed', () => {
+  let dir: string;
+  beforeEach(() => { dir = mkdtempSync(path.join(tmpdir(), 'programados-')); setLanguage('en'); });
+  const target = { roomId: 'express', sessionId: 's1', claudeId: 'c-111', cwd: '/r/wt/abc-1', title: 'ABC-1' };
+  const A = 'https://github.com/o/r/pull/1', B = 'https://github.com/o/r/pull/2';
+  const part = (url: string, kind: 'ci' | 'review', text: string) => ({ url, label: url.endsWith('1') ? 'o/r#1' : 'o/r#2', kind, text });
+
+  it('merges parts: the same text once, a newer CI failure in place of the older one, reviews added', () => {
+    const ci1 = { kind: 'ci' as const, text: '🚨 commit a' }, rv = { kind: 'review' as const, text: '🔎 cursor' };
+    expect(mergePart([ci1, rv], { kind: 'review', text: '🔎 cursor' })).toEqual([ci1, rv]);
+    expect(mergePart([ci1, rv], { kind: 'ci', text: '🚨 commit b' })).toEqual([{ kind: 'ci', text: '🚨 commit b' }, rv]);
+    expect(mergePart([ci1, rv], { kind: 'review', text: '🔎 Ana' })).toEqual([ci1, rv, { kind: 'review', text: '🔎 Ana' }]);
+  });
+
+  it('one pending message per PR and conversation, keeping its place; it goes once the turn ends and the PR\'s checks finish', async () => {
+    const timer = { t: NOW }, busy = new Set(['s1']), running = new Set([A]);
+    const x = ctx(timer, { busy, running });
+    const p = new Scheduled(dir, x.c);
+    const first = p.pack(target, part(A, 'ci', '🚨 #1 commit a'), { roomId: 'express' });
+    timer.t += 60_000; p.pack(target, part(B, 'review', '🔎 #2 cursor'), { roomId: 'express' });
+    timer.t += 60_000; p.pack(target, part(A, 'review', '🔎 #1 cursor'), { roomId: 'express' });
+    timer.t += 60_000; p.pack(target, part(A, 'ci', '🚨 #1 commit b'), { roomId: 'express' });
+    timer.t += 60_000; p.pack(target, part(A, 'review', '🔎 #1 cursor'), { roomId: 'express' });
+    expect(p.list()).toHaveLength(2);
+    const packed = p.list().find(y => y.id === first.id)!;
+    expect(packed).toMatchObject({ afterTurn: true, from: { kind: 'game' }, created: NOW, pr: { label: 'o/r#1' } });
+    expect(packed.pr!.parts.map(y => y.text)).toEqual(['🚨 #1 commit b', '🔎 #1 cursor']);
+    expect(packed.message).toContain('📦 2 notices about o/r#1');
+    expect(packed.message).not.toContain('commit a');
+    // the turn ends: #2 (settled) goes; #1 waits for its checks
+    busy.clear(); await p.sweep();
+    expect(x.conversations.map(c => c.text)).toEqual(['🔎 #2 cursor']);
+    running.clear(); await p.sweep();
+    expect(x.conversations.at(-1)!.text).toBe(packed.message);
+    expect(p.list()).toEqual([]);
+  });
+
+  it('a check stuck running holds it at most PACK_MAX_MS; the Overseer\'s edit stops the merging', async () => {
+    const timer = { t: NOW }, running = new Set([A]);
+    const x = ctx(timer, { running });
+    const p = new Scheduled(dir, x.c);
+    const a = p.pack(target, part(A, 'ci', '🚨 a'), { roomId: 'express' });
+    p.edit(a.id, { message: 'just look at the lint job' });
+    p.pack(target, part(A, 'review', '🔎 b'), { roomId: 'express' });
+    expect(p.list().map(y => y.message)).toEqual(['just look at the lint job', '🔎 b']);
+    // the edited one is the Overseer's own message now: it goes when the conversation is free; the pack waits for the checks
+    await p.sweep();
+    expect(x.conversations.map(c => c.text)).toEqual(['just look at the lint job']);
+    await p.sweep();
+    expect(x.conversations).toHaveLength(1);
+    timer.t = NOW + PACK_MAX_MS; await p.sweep();
+    expect(x.conversations.map(c => c.text)).toEqual(['just look at the lint job', '🔎 b']);
   });
 });

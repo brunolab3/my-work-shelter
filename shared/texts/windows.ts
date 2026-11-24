@@ -170,6 +170,8 @@ export const WINDOWS: Record<string, LocalizedText> = {
   'windows.scheduleAfterTurnHint': { es: 'Cuando acabe su turno: le llega entonces como un turno propio, sin cortar lo que está haciendo', en: 'When its turn ends: it arrives then as a turn of its own, without cutting into what it is doing' },
   'windows.scheduleAfterTurnDone': { es: '⏰ Le llegará cuando acabe su turno.', en: '⏰ It will get it when its turn ends.' },
   'windows.scheduledAfterTurn': { es: '⏳ al acabar', en: '⏳ when it finishes' },
+  'windows.scheduledPack': { es: '📦 {pr} ({n})', en: '📦 {pr} ({n})' },
+  'windows.scheduledPackHint': { es: 'Los avisos de CI y revisiones de este PR, juntos en uno: sale cuando acabe su turno y la CI del PR haya terminado (como mucho, media hora esperando a la CI)', en: 'This PR\'s CI and review notices, packed into one: it goes when its turn ends and the PR\'s CI has finished (waiting at most half an hour for the CI)' },
   'windows.scheduledFrom': { es: 'de {sala}', en: 'from {sala}' },
   'windows.scheduleMonday': { es: 'El lunes a las 9:00', en: 'Monday 09:00' },
   'windows.nextWindowNoAttachments': { es: 'Los adjuntos no se guardan para más tarde: envíalo ahora o quítalos.', en: 'Attachments are not kept for later: send it now or remove them.' },
