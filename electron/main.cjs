@@ -228,6 +228,17 @@ ipcMain.handle('aviso:quitar', (e, id) => { if (ipcOfGame(e)) removeNotice(id); 
 // Dock badge (dockBadge in web/src/ui/pendingNotices.ts): pending questions as a number, a finished turn as a dot
 ipcMain.handle('insignia', (e, text) => { if (ipcOfGame(e) && app.dock) app.dock.setBadge(String(text ?? '').slice(0, 8)); });
 
+// Window memory (web/src/ui/memoryWatchdog.ts): the game window's renderer memory goes to the page every minute; over
+// the limit chosen in Options the page offers «Reload now», and only that click asks for the reload
+const MEMORY_EVERY = 60_000;
+setInterval(() => {
+  if (!mainWindow || mainWindow.isDestroyed() || !gameOf(mainWindow.webContents.getURL())) return;
+  const pid = mainWindow.webContents.getOSProcessId();
+  const m = app.getAppMetrics().find(x => x.pid === pid);
+  if (m?.memory?.workingSetSize) mainWindow.webContents.send('memoria', m.memory.workingSetSize / 1024);   // KB → MB
+}, MEMORY_EVERY).unref();
+ipcMain.handle('memoria:recargar', e => { if (ipcOfGame(e)) { console.log('Window reloaded from «Reload now» (renderer over its memory limit)'); mainWindow.webContents.reload(); } });
+
 // --- Abierta como aplicación: arranque ---
 
 const BOOT = () => `<!doctype html><meta charset="utf-8"><title>work-shelter</title><style>

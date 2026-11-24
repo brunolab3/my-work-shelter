@@ -50,7 +50,7 @@ import { groupTabs, talkerFirst } from './tabOrder';
 import { jiraBoard, knowTasks, myPRs, useColorsTasks } from './tasks';
 import { type AttachmentLocal, uploadFiles, chooseFiles, uploading, listsPaths, AttachmentsTray, SentAttachments, useDictation, InputButtons, DictationStrip, attachShortcut } from './inputLine';
 
-import { syncIntercoms, dropLeft, readyAttachments, withText, unused, type InView, type View, type TabCom, type WindowCom } from './intercomSync';
+import { syncIntercoms, dropLeft, savedIntercoms, restoredIntercoms, readyAttachments, withText, unused, type InView, type View, type TabCom, type WindowCom } from './intercomSync';
 export { withText, type WindowCom };
 export const intercoms = new Store<{ list: WindowCom[] }>({ list: [] });
 
@@ -72,27 +72,12 @@ const created = (id: string) => Number(id.slice(1));
 // Tabs with nothing in them and no conversation are not kept: they go once he leaves them (dropLeft), and a reload
 // doesn't bring them back.
 const SAVED = 'refugio.intercoms';
-type SavedTab = Pick<TabCom, 'view' | 'draft' | 'attachments' | 'memory'>;
-interface SavedWindow { dwellerId: string; maximized: boolean; known: string[]; active: number; tabs: SavedTab[] }
-function saveIntercoms() {
-  const list: SavedWindow[] = [];
-  for (const v of intercoms.get().list) {
-    // those with a conversation or something in them; the ones whose conversation is gone are cleaned up on load
-    const tabs = v.tabs.filter(p => !unused(p));
-    if (!tabs.length) continue;
-    list.push({ dwellerId: v.dwellerId, maximized: v.maximized, known: v.known.slice(-60), active: Math.max(0, tabs.findIndex(p => p.id === v.active)),
-      tabs: tabs.map(p => ({ view: p.view, draft: p.draft || undefined, memory: p.memory, attachments: readyAttachments(p.attachments).map(a => ({ ...a, view: a.view?.startsWith('blob:') ? undefined : a.view })) })) });
-  }
-  try { localStorage.setItem(SAVED, JSON.stringify(list)); } catch {}
+/** Writes the intercoms to the page's storage now (also before the memory watchdog reloads: memoryReload.ts) */
+export function saveIntercoms() {
+  try { localStorage.setItem(SAVED, JSON.stringify(savedIntercoms(intercoms.get().list))); } catch {}
 }
 function restoreIntercoms(): WindowCom[] {
-  try {
-    const l = JSON.parse(localStorage.getItem(SAVED) || '[]') as SavedWindow[];
-    return l.map(v => ({ ...v, tabs: (v?.tabs ?? []).filter(p => p?.view && !unused(p as TabCom)) })).filter(v => v.dwellerId && v.tabs.length).map(v => {
-      const tabs: TabCom[] = v.tabs.map(p => ({ ...p, id: newId(), attachments: p.attachments?.length ? p.attachments.map((a, i) => ({ ...a, id: `g${nTab}-${i}` })) : undefined }));
-      return { dwellerId: v.dwellerId, maximized: false, known: v.known ?? [], z: nextZ(), tabs, active: (tabs[v.active] ?? tabs[0]).id };
-    });
-  } catch { return []; }
+  try { return restoredIntercoms(JSON.parse(localStorage.getItem(SAVED) || '[]'), newId, nextZ); } catch { return []; }
 }
 if (typeof window !== 'undefined') {
   intercoms.set({ list: restoreIntercoms() });

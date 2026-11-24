@@ -18,6 +18,7 @@ import { ROOM_INFO, REPO_INFO, INTEGRATION_STATE } from '@shared/labels';
 import { openGit } from './git/window';
 import { DICTATION_LANGUAGES, dictationLanguage, setLanguageDictation } from './inputLine';
 import { FRAME_RATES, frameRate, setFrameRate } from '../engine/frameRate';
+import { MEMORY_LIMITS, hasMemoryWatch, memoryLimit, setMemoryLimit } from './memoryWatchdog';
 import { takeASurface } from './surface';
 import { reloadView } from '../engine/render';
 import { Usage } from './usage';
@@ -406,6 +407,8 @@ function GameOptions() {
     // fotogramas por segundo del refugio: en automático, menos cuando nada se mueve (gasta bastante menos CPU)
     { lbl: t('menu.frameRate'), values: [t('menu.frameRateAuto'), '60 fps', '30 fps'], current: FRAME_RATES.indexOf(frameRate()), set: k => { setFrameRate(FRAME_RATES[k]); refresh(x => x + 1); SFX.tick(); } },
     { lbl: t('menu.dictationLanguage'), values: DICTATION_LANGUAGES.map(x => x.text), current: Math.max(0, DICTATION_LANGUAGES.findIndex(x => x.value === dictationLanguage())), set: k => { setLanguageDictation(DICTATION_LANGUAGES[k].value); refresh(x => x + 1); SFX.tick(); } },
+    // over it, the indicator's memory row offers «Reload now» (memoryWatchdog.ts); only in the game's own window
+    ...(hasMemoryWatch() ? [{ lbl: t('menu.memoryLimit'), values: MEMORY_LIMITS.map(mb => mb ? `${mb / 1024} GB` : t('menu.memoryLimitNever')), current: Math.max(0, MEMORY_LIMITS.indexOf(memoryLimit())), set: (k: number) => { setMemoryLimit(MEMORY_LIMITS[k]); refresh(x => x + 1); SFX.tick(); } }] : []),
   ];
   const [i, setI] = useMenu(rows.length, k => { const f = rows[k]; f.set((f.current + 1) % f.values.length); }, e => {
     const f = rows[i]; if (!f) return;

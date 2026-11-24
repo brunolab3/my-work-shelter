@@ -114,3 +114,27 @@ export function syncIntercoms({ list, sessions, owner: ownerOf, closing, talking
   }
   return { next: changed ? next : list, handoff };
 }
+
+// What the page keeps of the intercoms across a reload (saveIntercoms in Dialog.tsx, in localStorage): every tab with a
+// conversation or something in it, with its draft, its uploaded attachments and its conversation
+export type SavedTab = Pick<TabCom, 'view' | 'draft' | 'attachments' | 'memory'>;
+export interface SavedWindow { dwellerId: string; maximized: boolean; known: string[]; active: number; tabs: SavedTab[] }
+export function savedIntercoms(list: WindowCom[]): SavedWindow[] {
+  const out: SavedWindow[] = [];
+  for (const v of list) {
+    // those with a conversation or something in them; the ones whose conversation is gone are cleaned up on load
+    const tabs = v.tabs.filter(p => !unused(p));
+    if (!tabs.length) continue;
+    out.push({ dwellerId: v.dwellerId, maximized: v.maximized, known: v.known.slice(-60), active: Math.max(0, tabs.findIndex(p => p.id === v.active)),
+      tabs: tabs.map(p => ({ view: p.view, draft: p.draft || undefined, memory: p.memory, attachments: readyAttachments(p.attachments).map(a => ({ ...a, view: a.view?.startsWith('blob:') ? undefined : a.view })) })) });
+  }
+  return out;
+}
+/** The intercoms back from what savedIntercoms kept (fresh tab and attachment ids) */
+export function restoredIntercoms(saved: unknown, newId: () => string, nextZ: () => number): WindowCom[] {
+  const l = Array.isArray(saved) ? (saved as SavedWindow[]) : [];
+  return l.map(v => ({ ...v, tabs: (v?.tabs ?? []).filter(p => p?.view && !unused(p as TabCom)) })).filter(v => v.dwellerId && v.tabs.length).map(v => {
+    const tabs: TabCom[] = v.tabs.map(p => { const id = newId(); return { ...p, id, attachments: p.attachments?.length ? p.attachments.map((a, i) => ({ ...a, id: `g${id}-${i}` })) : undefined }; });
+    return { dwellerId: v.dwellerId, maximized: false, known: v.known ?? [], z: nextZ(), tabs, active: (tabs[v.active] ?? tabs[0]).id };
+  });
+}
