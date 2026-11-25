@@ -1,7 +1,8 @@
 // ⌘F: find text in what has focus (findKind in findText.ts), with a small bar at the top right of it. Enter or ↓ goes to
 // the next match, ⇧Enter or ↑ to the previous one, Esc closes and gives the focus back.
-// - The intercom: the conversation in view, only the entries it holds (a page of the log, shared/logPages.ts; scrolling
-//   up brings older ones, and they're searched too). Marked with CSS Custom Highlights, without touching the log's DOM.
+// - The intercom: the whole conversation, counted by the server (Sessions.find: memory, then the transcript on disk). The
+//   entries it holds are marked in place (CSS Custom Highlights, without touching the log's DOM); a match in an entry not
+//   held yet brings in the older pages until it is, as scrolling to the top does. New entries are counted as they come.
 // - A browser («Web» and the work sites, a <webview>): Electron's own findInPage.
 // - The «Página» window (a sandboxed <iframe>): server/page/notes.js finds inside the page and answers by postMessage;
 //   a page another program serves has no notes layer and says it can't be searched.
@@ -10,10 +11,11 @@
 import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Store } from './store';
-import { live } from '../net/client';
+import { live, findInLog, loadOlder } from '../net/client';
 import { t } from '@shared/language';
 import { MAC } from './windows';
-import { FIND_MAX, findKind, keepNear, matchOffsets, stepMatch, type FindKind } from './findText';
+import { FIND_MAX, findKind, matchOffsets, stepMatch, type FindKind } from './findText';
+import { hitAt, indexOfHit, type LogHit, type LogHits } from '@shared/findText';
 
 interface Runner { search(query: string, dir: 1 | -1, again: boolean): void; clear(): void; stop(): void }
 interface FindState { open: boolean; kind: FindKind | null; host: HTMLElement | null; target: HTMLElement | null; query: string; n: number; i: number; unavailable: boolean }
@@ -23,23 +25,28 @@ let runner: Runner | null = null, before: HTMLElement | null = null;
 const input = { el: null as HTMLInputElement | null };
 const report = (n: number, i: number) => finder.set({ n, i, unavailable: false });
 
-const intercomLog = () => document.querySelector<HTMLElement>('.console .session .canvas');
+/** The conversation to search: the one with the focus (its composer is in its window), else the first one on screen */
+function intercomSession(active: Element | null): HTMLElement | null {
+  const own = active?.closest('.console');
+  const pool = [...(own ?? document).querySelectorAll<HTMLElement>(own ? '.session' : '.console .session')];
+  return pool.find(s => s.checkVisibility?.() ?? true) ?? null;
+}
 
 /** ⌘F: opens the bar on what has focus (or back to its field if it's open); false if there's nothing to search there */
 export function findShortcut(): boolean {
   const active = document.activeElement as HTMLElement | null;
   if (finder.get().open && active?.closest('.bar-find')) { input.el?.select(); return true; }
-  const kind = findKind(active, !!intercomLog());
+  const session = intercomSession(active);
+  const kind = findKind(active, !!session);
   if (!kind) return false;
-  const log = intercomLog();
-  const target = kind === 'intercom' ? log : active;
-  const host = kind === 'intercom' ? log?.closest<HTMLElement>('.session') : target?.closest<HTMLElement>('.vn-body');
+  const target = kind === 'intercom' ? session?.querySelector<HTMLElement>('.canvas') ?? null : active;
+  const host = kind === 'intercom' ? session : target?.closest<HTMLElement>('.vn-body');
   if (!target || !host) return false;
   const { open, target: was, query } = finder.get();
   if (open && was === target) { input.el?.focus(); input.el?.select(); return true; }
   closeFind(false);
   before = active && active !== document.body ? active : null;
-  runner = kind === 'intercom' ? domRunner(target) : kind === 'web' ? webviewRunner(target as Webview) : frameRunner(target as HTMLIFrameElement);
+  runner = kind === 'intercom' ? logRunner(host.getAttribute('data-session') ?? '', target) : kind === 'web' ? webviewRunner(target as Webview) : frameRunner(target as HTMLIFrameElement);
   finder.set({ ...CLOSED, open: true, kind, host, target, query });
   if (query) runner.search(query, 1, false);
   return true;
@@ -58,7 +65,7 @@ const isCmdF = (e: KeyboardEvent) => (MAC ? e.metaKey && !e.ctrlKey : e.ctrlKey)
 addEventListener('keydown', e => { if (isCmdF(e) && findShortcut()) { e.preventDefault(); e.stopPropagation(); } }, true);
 (window as any).__findShortcut = findShortcut;
 
-// ---------------------------------------------------------------- the intercom: its log's text, marked in place
+// ---------------------------------------------------------------- the intercom: its whole conversation, marked where held
 const HITS = typeof Highlight === 'function' && typeof CSS !== 'undefined' && CSS.highlights ? { all: new Highlight(), current: new Highlight() } : null;
 if (HITS) { HITS.current.priority = 1; CSS.highlights.set('shelter-find', HITS.all); CSS.highlights.set('shelter-find-current', HITS.current); }
 
@@ -77,47 +84,92 @@ function nodeAt(nodes: { node: Text; start: number }[], at: number) {
   while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (nodes[mid].start <= at) lo = mid; else hi = mid - 1; }
   return nodes[lo];
 }
+function rangeAt(nodes: { node: Text; start: number }[], at: number, len: number) {
+  const a = nodeAt(nodes, at), b = nodeAt(nodes, at + len - 1), r = document.createRange();
+  r.setStart(a.node, at - a.start); r.setEnd(b.node, at + len - b.start);
+  return r;
+}
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+const nextFrame = () => new Promise(r => requestAnimationFrame(() => r(null)));
 
-function domRunner(root: HTMLElement): Runner {
-  let ranges: Range[] = [], offsets: number[] = [], current = -1, query = '';
+function logRunner(sid: string, root: HTMLElement): Runner {
+  let query = '', hits: LogHit[] = [], total = 0, cur: { id: string; k: number } | null = null;
+  let seq = 0, timer = 0, repaint = 0, lastId = live.get().entries[sid]?.at(-1)?.id;
+  const index = () => (cur ? indexOfHit(hits, cur.id, cur.k) : -1);
+  const held = (id: string) => (live.get().entries[sid] ?? []).some(e => e.id === id);
+  const later = (f: () => void, ms: number) => { clearTimeout(timer); timer = window.setTimeout(f, ms); };
+
+  // the marks: every match in the entries held, and the current one (its k-th match in its entry, if it's held)
   const paint = (scroll: boolean) => {
     if (!HITS) return;
-    HITS.current.clear();
-    const r = ranges[current];
-    if (!r) return;
+    HITS.all.clear(); HITS.current.clear();
+    if (!query) return;
+    const all = textOf(root);
+    for (const o of matchOffsets(all.text, query)) HITS.all.add(rangeAt(all.nodes, o, query.length));
+    if (!cur) return;
+    const entry = root.querySelector<HTMLElement>(`[data-entry="${CSS.escape(cur.id)}"]`);
+    const here = entry ? textOf(entry) : null, offs = here ? matchOffsets(here.text, query) : [];
+    if (!here || !offs.length) return;
+    const r = rangeAt(here.nodes, offs[Math.min(cur.k, offs.length - 1)], query.length);
     HITS.current.add(r);
     if (!scroll) return;
     // the log scrolls by itself (scrollIntoView would also move the intercom's frame)
     const box = root.getBoundingClientRect(), at = r.getBoundingClientRect();
     if (at.top < box.top || at.bottom > box.bottom) root.scrollTop += at.top - box.top - box.height / 3;
   };
-  const run = (keepAt?: number) => {
-    HITS?.all.clear();
-    const { text, nodes } = textOf(root);
-    offsets = matchOffsets(text, query);
-    ranges = offsets.map(o => {
-      const a = nodeAt(nodes, o), b = nodeAt(nodes, o + query.length - 1), r = document.createRange();
-      r.setStart(a.node, o - a.start); r.setEnd(b.node, o + query.length - b.start);
-      return r;
-    });
-    for (const r of ranges) HITS?.all.add(r);
-    current = keepAt === undefined ? -1 : keepNear(offsets, keepAt);
+
+  // older pages come in, one at a time, until the entry is held (what scrolling to the top does)
+  const reach = async (id: string, mine: number) => {
+    for (let fails = 0; mine === seq && !held(id) && live.get().older[sid];) {
+      if (await loadOlder(sid)) fails = 0;
+      else if (++fails > 50) return;
+      else await sleep(100);
+    }
   };
-  // new entries (or older ones loaded above) while it's open: searched again, staying on the same match
-  let timer = 0;
-  const observer = new MutationObserver(() => {
-    clearTimeout(timer);
-    timer = window.setTimeout(() => { if (!query) return; run(offsets[current]); paint(false); report(offsets.length, current); }, 250);
-  });
+  const show = async (mine: number, scroll: boolean) => {
+    report(total, index());
+    if (cur) await reach(cur.id, mine);
+    if (mine !== seq) return;
+    await nextFrame();   // the pages that came in are drawn
+    if (mine !== seq) return;
+    paint(scroll);
+    report(total, index());
+  };
+  // the count from the server. `keep`: the match to stay on, when it's still there; else the latest one
+  const refresh = async (keep: { id: string; k: number } | null, scroll: boolean) => {
+    const mine = ++seq;
+    let r: LogHits;
+    try { r = await findInLog(sid, query); } catch { if (mine === seq) finder.set({ unavailable: true }); return; }
+    if (mine !== seq) return;
+    hits = r.hits; total = r.total;
+    cur = keep && indexOfHit(hits, keep.id, keep.k) >= 0 ? keep : total ? hitAt(hits, total - 1) : null;
+    await show(mine, scroll);
+  };
+  const step = (dir: 1 | -1) => {
+    if (!total) return;
+    const mine = ++seq;
+    cur = hitAt(hits, stepMatch(index(), total, dir));
+    void show(mine, true);
+  };
+
+  // the entries held repaint as the log changes (new ones, older ones loaded above)
+  const observer = new MutationObserver(() => { clearTimeout(repaint); repaint = window.setTimeout(() => paint(false), 150); });
   observer.observe(root, { childList: true, subtree: true, characterData: true });
+  // new entries at the bottom change the count (the match stays where it is)
+  const unsub = live.subscribe(() => {
+    const last = live.get().entries[sid]?.at(-1)?.id;
+    if (last === lastId) return;
+    lastId = last;
+    if (query) later(() => void refresh(cur, false), 200);
+  });
   return {
     search(q, dir, again) {
-      if (q !== query || !again) { query = q; run(); }
-      current = stepMatch(current, offsets.length, dir);
-      paint(true); report(offsets.length, current);
+      if (q === query && again) { step(dir); return; }
+      query = q;
+      later(() => void refresh(null, true), 200);
     },
-    clear() { query = ''; offsets = []; ranges = []; current = -1; HITS?.all.clear(); HITS?.current.clear(); report(0, -1); },
-    stop() { clearTimeout(timer); observer.disconnect(); this.clear(); },
+    clear() { query = ''; hits = []; total = 0; cur = null; seq++; clearTimeout(timer); HITS?.all.clear(); HITS?.current.clear(); report(0, -1); },
+    stop() { clearTimeout(timer); clearTimeout(repaint); observer.disconnect(); unsub(); this.clear(); },
   };
 }
 
@@ -168,8 +220,6 @@ const go = (dir: 1 | -1, again = true) => { const q = finder.get().query; if (q 
 export function FindBar() {
   const s = finder.use(e => e);
   const field = useRef<HTMLInputElement>(null);
-  const sessionId = s.kind === 'intercom' ? s.host?.getAttribute('data-session') ?? '' : '';
-  const partial = live.use(e => !!sessionId && !!e.older[sessionId]);
   useEffect(() => { input.el = field.current; if (s.open) { field.current?.focus(); field.current?.select(); } }, [s.open, s.host]);
   // its window closed, minimized or showing something else: the bar goes
   useEffect(() => {
@@ -190,7 +240,6 @@ export function FindBar() {
           else if (e.key === 'Enter' || e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); go(e.key === 'ArrowUp' || (e.key === 'Enter' && e.shiftKey) ? -1 : 1); }
         }} />
       <span className={'bar-find-count' + (s.query && !s.n ? ' empty' : '')}>{count}</span>
-      {partial && <span className="bar-find-partial" title={t('windows.find.loadedOnlyHint')}>{t('windows.find.loadedOnly')}</span>}
       <button className="console-x" onClick={() => go(-1)} disabled={!s.n} title={t('windows.find.previous')}>↑</button>
       <button className="console-x" onClick={() => go(1)} disabled={!s.n} title={t('windows.find.next')}>↓</button>
       <button className="console-x" onClick={() => closeFind()} title={t('windows.find.close')}>×</button>

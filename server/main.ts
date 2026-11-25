@@ -1535,6 +1535,7 @@ async function handle(ws: WebSocket, m: ClientMessage) {
     }
     case 'loadConversation': { const room = e.rooms.find(s => s.id === m.roomId); const l = room ? await sessions.transcript(m.claudeId, folderOf(room)) : []; send(ws, { t: 'response', request: m.request, data: m.limit ? l.slice(-m.limit) : l }); break; }
     case 'log': send(ws, { t: 'response', request: m.request, data: sessions.logbook(m.sessionId) }); break;
+    case 'logFind': try { send(ws, { t: 'response', request: m.request, data: await sessions.find(m.sessionId, String(m.query ?? '')) }); } catch (err) { send(ws, { t: 'response', request: m.request, error: (err as Error).message }); } break;
     case 'logPage': try { send(ws, { t: 'response', request: m.request, data: await sessions.page(m.sessionId, Math.min(1000, Number(m.limit) || DEFAULT_LOG_PAGE), m.before) }); } catch (err) { send(ws, { t: 'response', request: m.request, error: (err as Error).message }); } break;
     case 'commands': send(ws, { t: 'response', request: m.request, data: m.sessionId ? sessions.commands(m.sessionId) : [] }); break;
     case 'terminalOpen': terminals.open(m.id, m.cwd, m.cols, m.rows, outputOf(ws)); break;

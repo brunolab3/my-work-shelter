@@ -153,6 +153,7 @@ export type ClientMessage =
   | { t: 'loadConversation'; roomId: string; claudeId: string; limit?: number; request: string }   // limit: only the last ones
   | { t: 'log'; sessionId: string; request: string }
   | { t: 'logPage'; sessionId: string; limit: number; before?: { id: string; ts: number }; request: string }   // a page of the log (shared/logPages.ts): LogPage
+  | { t: 'logFind'; sessionId: string; query: string; request: string }   // ⌘F: the matches in the whole log (shared/findText.ts): LogHits
   | { t: 'commands'; sessionId?: string; roomId?: string; request: string }
   | { t: 'terminalOpen'; id: string; cwd: string; cols: number; rows: number }
   | { t: 'terminalInput'; id: string; data: string }

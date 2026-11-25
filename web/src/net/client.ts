@@ -6,6 +6,7 @@ import type { PlanLimits } from '@shared/planLimits';
 import type { ReviewBoard } from '@shared/reviews';
 import { Store } from '../ui/store';
 import { DEFAULT_LOG_PAGE, LOG_PAGE_SIZES, prependOlder, trimToLatest, withLatest, type LogPage } from '@shared/logPages';
+import type { LogHits } from '@shared/findText';
 import { t, roomNameIs } from '@shared/language';
 
 export interface LiveData {
@@ -169,6 +170,8 @@ export function loadLog(id: string) {
     .then(p => live.set(e => ({ entries: { ...e.entries, [id]: withLatest(p.entries, e.entries[id] ?? []) }, older: { ...e.older, [id]: p.more } })))
     .catch(() => wholeLogs.delete(id));
 }
+/** ⌘F in a conversation: the matches in its whole log, not only the entries held (Sessions.find on the server) */
+export const findInLog = (id: string, query: string) => client.ask<LogHits>({ t: 'logFind', sessionId: id, query });
 const loadingOlder = new Set<string>();
 /** The page before the oldest entry held, put above it; false if there was nothing to ask for */
 export async function loadOlder(id: string): Promise<boolean> {

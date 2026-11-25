@@ -23,7 +23,8 @@ import type { SessionSummary, LogInput, PendingRequest, Helper, WorkOptions, His
 import { applyLifecycle, takeConsumed, withdrawable } from '../shared/messageQueue.ts';
 import { separateAttachments, type Attachments } from './attachments.ts';
 import type { ToolOutputs } from './toolOutputs.ts';
-import { logPage, type LogCursor, type LogPage } from '../shared/logPages.ts';
+import { logPage, prependOlder, type LogCursor, type LogPage } from '../shared/logPages.ts';
+import { logHits } from '../shared/findText.ts';
 import { ROOMS_FOLDERS } from './state.ts';
 import { active } from '../shared/sources.ts';
 import { describeTool, describeInput, permissionTitle, toolMode, toolPath, isAgent } from './tools.ts';
@@ -254,6 +255,12 @@ export class Sessions extends EventEmitter {
     const disk = await this.transcript(x.r.claudeId, x.r.cwd).catch(() => [] as LogInput[]);
     const d = logPage(disk, limit - p.entries.length, from);
     return { entries: [...d.entries, ...p.entries], more: d.more };
+  }
+  /** ⌘F in an intercom: the matches in the whole log, from memory and, older than that, from the transcript on disk */
+  async find(id: string, query: string) {
+    const x = this.must(id);
+    const older = x.olderOnDisk && x.r.claudeId ? await this.transcript(x.r.claudeId, x.r.cwd).catch(() => [] as LogInput[]) : [];
+    return logHits(prependOlder(x.entries, older), query);
   }
   commands(id: string) { return this.must(id).commands; }
 

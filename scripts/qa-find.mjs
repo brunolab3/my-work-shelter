@@ -1,5 +1,5 @@
 // QA of ⌘F (web/src/ui/FindBar.tsx), with a real keyboard (Playwright), no Claude Code sessions:
-// - The intercom: ⌘F with nothing focused opens the bar on the log in view, counts and marks matches, Enter/⇧Enter/↑↓
+// - The intercom: ⌘F with nothing focused opens the bar on the conversation, counts its whole log (server, answered here), loads the older pages a match is in, Enter/⇧Enter/↑↓
 //   move between them, a new entry is searched too (staying on the same match), Esc closes it and clears the marks.
 // - A field elsewhere (a terminal's) keeps ⌘F: no bar.
 // - The «Página» window: with the focus in its <iframe>, Electron's Edit → Find calls window.__findShortcut (called here
@@ -26,29 +26,54 @@ await pg.evaluate(async () => { await window.__ready(); window.__game.set({ pane
 const bar = () => pg.evaluate(() => { const x = document.querySelector('.bar-find'); return x ? { count: x.querySelector('.bar-find-count').textContent, host: x.parentElement.className, focused: document.activeElement === x.querySelector('input') } : null; });
 const marks = () => pg.evaluate(() => ({ all: CSS.highlights.get('shelter-find')?.size ?? 0, current: CSS.highlights.get('shelter-find-current')?.size ?? 0 }));
 
-// ---- the intercom: a conversation's log as the intercom draws it
+// ---- the intercom: the whole conversation, counted by the server (answered here: 250 entries, 25 of them match, the
+// intercom holds the last 100; the rest come in a page at a time as the bar reaches them)
+const ALL = Array.from({ length: 250 }, (_, i) => ({ id: `e${i}`, ts: 1000 + i, type: 'asistente', text: i % 10 === 0 ? `time to push the branch ${i}` : `nothing here ${i}` }));
 await pg.evaluate(() => {
   const c = document.createElement('div'); c.className = 'console interactive'; c.id = 'qa-consola';
   c.style.cssText = 'position:fixed;right:20px;top:80px;width:620px;height:420px;z-index:999999;display:flex';
-  c.innerHTML = '<div class="screen-console phosphor session" data-session="qa"><div class="canvas">' +
-    Array.from({ length: 40 }, (_, i) => `<div class="ent assistant"><p>Entry ${i}: ${i % 10 === 0 ? 'time to <b>pu</b>sh the branch' : 'nothing here'}</p></div>`).join('') + '</div></div>';
+  c.innerHTML = '<div class="screen-console phosphor session" data-session="qa"><div class="canvas"></div></div>';
   document.body.append(c);
   document.activeElement?.blur?.();
 });
+await pg.evaluate(all => {
+  const live = window.__live, client = window.__client;
+  const draw = () => {
+    const held = live.get().entries.qa ?? [];
+    document.querySelector('#qa-consola .canvas').innerHTML = held.map(e => `<div class="ent assistant" data-entry="${e.id}"><p>${e.text.replace('push', '<b>pu</b>sh')}</p></div>`).join('');
+  };
+  const ask = client.ask.bind(client);
+  client.ask = (m, w) => {
+    if (m.t === 'logFind' && m.sessionId === 'qa') {
+      const q = m.query.toLowerCase(), hits = []; let total = 0;
+      for (const e of all) {
+        const low = e.text.toLowerCase(); let n = 0;
+        for (let p = low.indexOf(q); p >= 0; p = low.indexOf(q, p + q.length)) n++;
+        if (n) { hits.push({ id: e.id, n }); total += n; }
+      }
+      return Promise.resolve({ hits, total });
+    }
+    if (m.t === 'logPage' && m.sessionId === 'qa') {
+      const end = m.before ? all.findIndex(e => e.id === m.before.id) : all.length, start = Math.max(0, end - m.limit);
+      return Promise.resolve({ entries: all.slice(start, end), more: start > 0 });
+    }
+    return ask(m, w);
+  };
+  live.set({ entries: { qa: all.slice(150) }, older: { qa: true } });
+  live.subscribe(draw); draw();
+}, ALL);
 await pg.keyboard.press('Meta+f');
 check(await until(async () => (await bar())?.focused), '⌘F with nothing focused opens the bar on the intercom, its field focused');
 check((await bar())?.host.includes('session'), 'inside the conversation in view');
 await pg.keyboard.type('push');
-check(await until(async () => (await bar())?.count === '1/4'), `counts the matches, across inline tags (${(await bar())?.count})`);
-check((await marks()).all === 4 && (await marks()).current === 1, 'marks them all and the current one');
+check(await until(async () => (await bar())?.count === '25/25'), `counts the whole conversation, newest match first (${(await bar())?.count})`);
+check(await until(async () => { const m = await marks(); return m.all === 10 && m.current === 1; }), `marks the held ones and the current one (${JSON.stringify(await marks())})`);
 await pg.keyboard.press('Enter');
-check((await bar())?.count === '2/4', 'Enter goes to the next one');
-await pg.keyboard.press('Shift+Enter'); await pg.keyboard.press('ArrowUp');
-check((await bar())?.count === '4/4', '⇧Enter and ↑ go back, wrapping around');
-const scrolled = await pg.evaluate(() => document.querySelector('#qa-consola .canvas').scrollTop);
-check(scrolled > 0, `the log scrolls to the current match (${scrolled})`);
-await pg.evaluate(() => { const l = document.querySelector('#qa-consola .canvas'); l.insertAdjacentHTML('afterbegin', '<div class="ent assistant"><p>An older push</p></div>'); });
-check(await until(async () => (await bar())?.count === '5/5'), `an entry loaded above is searched too, on the same match (${(await bar())?.count})`);
+check(await until(async () => (await bar())?.count === '1/25'), `Enter wraps to the first match, in an entry not held yet (${(await bar())?.count})`);
+check(await until(() => pg.evaluate(() => !!document.querySelector('#qa-consola [data-entry="e0"]'))), 'the older pages came in until it is held');
+check(await until(() => pg.evaluate(() => CSS.highlights.get('shelter-find-current')?.size === 1)), 'and it is marked');
+await pg.keyboard.press('ArrowDown');
+check(await until(async () => (await bar())?.count === '2/25'), '↓ goes to the next one');
 await pg.keyboard.press('Meta+a'); await pg.keyboard.type('zzz');
 check(await until(async () => /No matches|Sin resultados/.test((await bar())?.count ?? '')), 'no matches says so');
 await pg.keyboard.press('Escape');
@@ -70,7 +95,7 @@ await pg.waitForTimeout(800);
 await pg.click('.window-browser iframe.vn-page', { position: { x: 200, y: 300 } });
 check(await pg.evaluate(() => document.activeElement?.tagName === 'IFRAME'), 'the focus is in the page');
 check(await pg.evaluate(() => window.__findShortcut()), 'Edit → Find (window.__findShortcut) takes it');
-check(await until(async () => (await bar())?.host.includes('vn-cuerpo')), 'the bar opens on the page window');
+check(await until(async () => (await bar())?.host.includes('vn-body')), 'the bar opens on the page window');
 await pg.keyboard.press('Meta+a'); await pg.keyboard.type('push');
 check(await until(async () => (await bar())?.count === '1/4'), `the page's matches only, not the game's (${(await bar())?.count})`);
 await pg.keyboard.press('ArrowDown');

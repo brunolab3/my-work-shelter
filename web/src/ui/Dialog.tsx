@@ -955,11 +955,12 @@ const RESUME_PREVIEW = 12;
 // la carpeta de una conversación (su worktree, si trabaja en uno): ahí apuntan las rutas relativas de sus respuestas
 const folderOf = (s: SessionSummary) => s.worktree ?? s.cwd;
 function Entry({ e, base, sessionId }: { e: LogInput; base?: string; sessionId?: string }) {
-  if (e.type === 'asistente' || e.type === 'lateral') return <div className={'ent ' + e.type} dangerouslySetInnerHTML={{ __html: markdown(e.text, base) }} />;
-  if (e.type === 'usuario') return <div className={'ent user' + (e.origin ? ' from-outside' : '')}><span className="who">{originLabel(e.origin)}&gt;</span> <span dangerouslySetInnerHTML={{ __html: markdown(e.text, base) }} />{e.attachments?.length ? <SentAttachments list={e.attachments} /> : null}</div>;
-  if (e.type === 'tool') return <div className={'ent tool' + (e.isError ? ' error' : '') + (e.helper ? ' of-helper' : '')}>{e.helper ? '  ⚙ ' : '⚙ '}<span><ToolText t={e.text} /></span>{e.detail && <pre className="detail-err">{e.detail}</pre>}{e.output && sessionId && <OutputView o={e.output} sessionId={sessionId} id={e.id} tool={e.tool} />}</div>;
-  if (e.type === 'error') return <div className="ent error" dangerouslySetInnerHTML={{ __html: markdown(e.text) }} />;
-  return <div className={'ent ' + e.type}>{e.text}</div>;
+  const at = { 'data-entry': e.id };   // ⌘F scrolls to a match by it (FindBar.tsx)
+  if (e.type === 'asistente' || e.type === 'lateral') return <div {...at} className={'ent ' + e.type} dangerouslySetInnerHTML={{ __html: markdown(e.text, base) }} />;
+  if (e.type === 'usuario') return <div {...at} className={'ent user' + (e.origin ? ' from-outside' : '')}><span className="who">{originLabel(e.origin)}&gt;</span> <span dangerouslySetInnerHTML={{ __html: markdown(e.text, base) }} />{e.attachments?.length ? <SentAttachments list={e.attachments} /> : null}</div>;
+  if (e.type === 'tool') return <div {...at} className={'ent tool' + (e.isError ? ' error' : '') + (e.helper ? ' of-helper' : '')}>{e.helper ? '  ⚙ ' : '⚙ '}<span><ToolText t={e.text} /></span>{e.detail && <pre className="detail-err">{e.detail}</pre>}{e.output && sessionId && <OutputView o={e.output} sessionId={sessionId} id={e.id} tool={e.tool} />}</div>;
+  if (e.type === 'error') return <div {...at} className="ent error" dangerouslySetInnerHTML={{ __html: markdown(e.text) }} />;
+  return <div {...at} className={'ent ' + e.type}>{e.text}</div>;
 }
 
 // A failed tool's output, folded to one line (tool, size, first line): the whole text stays on disk

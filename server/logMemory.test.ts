@@ -41,6 +41,14 @@ describe('a conversation log by pages', { timeout: 20_000 }, () => {
     expect(p.entries.map((e: any) => e.id)).toEqual(disk.slice(100, 200).map(e => e.id));
   });
 
+  it('⌘F counts the matches in the whole log: memory, then the transcript on disk', async () => {
+    const { sess, x } = session();
+    const disk = Array.from({ length: 300 }, (_, i) => ({ ...entry(i), text: i % 100 === 0 ? 'push here' : 'nothing' }));
+    sess.transcript = async () => disk;
+    x.entries = disk.slice(-150); x.olderOnDisk = true;
+    expect(await sess.find('w1', 'push')).toEqual({ hits: [{ id: 'm0-0', n: 1 }, { id: 'm100-0', n: 1 }, { id: 'm200-0', n: 1 }], total: 3 });
+  });
+
   it('a conversation all in memory never reads its transcript', async () => {
     const { sess, x } = session();
     sess.transcript = async () => { throw new Error('read'); };

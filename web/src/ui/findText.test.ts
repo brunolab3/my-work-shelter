@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { findKind, keepNear, matchOffsets, stepMatch } from './findText';
+import { findKind, matchOffsets, stepMatch } from './findText';
 
 describe('matchOffsets', () => {
   it('finds every match ignoring case, without overlapping', () => {
@@ -29,16 +29,6 @@ describe('stepMatch', () => {
     expect(stepMatch(0, 3, -1)).toBe(2);
   });
   it('none without matches', () => { expect(stepMatch(0, 0, 1)).toBe(-1); });
-});
-
-describe('keepNear', () => {
-  it('stays on the match where the current one was, or the next one after it', () => {
-    expect(keepNear([5, 20, 40], 20)).toBe(1);
-    expect(keepNear([5, 22, 40], 20)).toBe(1);
-    expect(keepNear([5, 10], 20)).toBe(1);
-    expect(keepNear([5, 10], undefined)).toBe(0);
-    expect(keepNear([], 3)).toBe(-1);
-  });
 });
 
 describe('findKind', () => {

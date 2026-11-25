@@ -138,8 +138,6 @@ export const WINDOWS: Record<string, LocalizedText> = {
   'windows.find.placeholder': { es: 'Buscar', en: 'Find' },
   'windows.find.none': { es: 'Sin resultados', en: 'No matches' },
   'windows.find.unavailable': { es: 'Esta página no se puede buscar', en: 'This page can\'t be searched' },
-  'windows.find.loadedOnly': { es: 'solo lo cargado', en: 'loaded only' },
-  'windows.find.loadedOnlyHint': { es: 'Busca en los mensajes que tiene cargados el intercomunicador; sube hasta arriba para traer los anteriores y se buscan también', en: 'Searches the messages the intercom has loaded; scroll to the top to bring older ones and they are searched too' },
   'windows.find.previous': { es: 'Anterior (⇧Enter o ↑)', en: 'Previous (⇧Enter or ↑)' },
   'windows.find.next': { es: 'Siguiente (Enter o ↓)', en: 'Next (Enter or ↓)' },
   'windows.find.close': { es: 'Cerrar (Esc)', en: 'Close (Esc)' },
