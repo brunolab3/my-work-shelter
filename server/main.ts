@@ -329,14 +329,14 @@ let timerRepos: NodeJS.Timeout | null = null;
 function refreshReposSoon() { if (timerRepos) return; timerRepos = setTimeout(() => { timerRepos = null; refreshRepos().catch(() => {}); }, 400); }
 sessions.on('session', () => aimOpen());
 // a turn ended: what waited for it in the scheduled list goes out (scheduled.ts: hold)
-sessions.on('session', (s: SessionSummary) => { if (!busyState(s.state)) scheduled.turnEnded({ sessionId: s.id, claudeId: s.claudeId }); });
+sessions.on('session', (s: SessionSummary) => { scheduled.learnClaudeId(s.id, s.claudeId); if (!busyState(s.state)) scheduled.turnEnded({ sessionId: s.id, claudeId: s.claudeId }); });
 // lo que pide aprobación, también al móvil (y su mensaje se recoge en cuanto se responde, aquí o allí)
 sessions.on('session', s => { slackRemote.request(s).catch(() => {}); });
 sessions.on('entries', (sid, entries) => broadcast({ t: 'entries', sessionId: sid, entries }));
 sessions.on('text', (sid, delta) => broadcast({ t: 'text', sessionId: sid, delta }));
 // the handoff summary is written: the new session starts from it and the old one closes (server/handoff.ts)
 sessions.on('handoff', (old: SessionSummary, summary: string) => {
-  startFromHandoff({ start: m => startWork(undefined, { t: 'start', ...m }), close: id => sessions.close(id) }, old, summary)
+  startFromHandoff({ start: m => startWork(undefined, { t: 'start', ...m }), close: id => sessions.close(id), moved: (o, id) => scheduled.retarget(o, id) }, old, summary)
     .catch(err => broadcast({ t: 'notice', level: 'error', text: t('server.handoffFailed', { error: (err as Error).message }) }));
 });
 sessions.on('removed', sid => { toolOutputs.drop(sid); broadcast({ t: 'sessionRemoved', sessionId: sid }); });

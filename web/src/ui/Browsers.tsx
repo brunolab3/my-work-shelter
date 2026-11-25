@@ -10,7 +10,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Store } from './store';
 import { client, live } from '../net/client';
-import { pagesInText, samePage, relativeLinks, linksPages, IMAGE_FILE, type PageAnswer } from '@shared/sessionPages';
+import { pagesInText, samePage, relativeLinks, carryAnswers, linksPages, IMAGE_FILE, type PageAnswer } from '@shared/sessionPages';
 import { t } from '@shared/language';
 import { SFX } from '../audio/sound';
 import { nextZ, windowShortcut, WindowButtons, CMD } from './windows';
@@ -100,6 +100,13 @@ export function answerPage(session: string, path: string, state: PageAnswer['sta
     y[session] = { ...theirs, [path]: { state, ts: Date.now() } };
     return y;
   });
+}
+/** A conversation that took over another with a handoff keeps that one's answers (`carryAnswers`), under its own key */
+export function carryPageAnswers(fromKey: string, session: string) {
+  const into = answersKey(session);
+  if (fromKey === into) return;
+  const all = pageAnswers.get(), y = carryAnswers(all[fromKey], all[into]);
+  if (y !== all[into] && Object.keys(y).length) pageAnswers.set({ [into]: y });
 }
 /** Validar una página sin notas: se le dice a la conversación que siga */
 export function validatePage(session: string, path: string) {

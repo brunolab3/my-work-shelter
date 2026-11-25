@@ -11,8 +11,8 @@ export const PROMPTS: Record<string, LocalizedText> = {
     en: 'This conversation is already very long: we will carry on in a new session. Write only the handoff summary it will start with, without doing anything else or touching files. In Markdown and short (about 25 lines at most): the goal, the decisions taken and why, what is still open and the next step, and the links needed (absolute paths to plans and reports, PR and issue URLs, the branch and the worktree). Your reply will be the first message of the new session, which does not see this conversation.',
   },
   'prompt.handoff.start': {
-    es: 'Sigues el trabajo de una conversación anterior que se hizo demasiado larga. Su resumen de traspaso:\n\n{summary}\n\nLee lo que necesites de los enlaces y sigue desde lo pendiente; si algo no queda claro, pregúntame antes de seguir.',
-    en: 'You are taking over the work of an earlier conversation that grew too long. Its handoff summary:\n\n{summary}\n\nRead what you need from the links and carry on from the open items; if something is unclear, ask me before going on.',
+    es: 'Sigues el trabajo de una conversación anterior que se hizo demasiado larga. Su resumen de traspaso:\n\n{summary}\n\nSus mensajes programados ya son tuyos: no los vuelvas a programar. Lee lo que necesites de los enlaces y sigue desde lo pendiente; si algo no queda claro, pregúntame antes de seguir.',
+    en: 'You are taking over the work of an earlier conversation that grew too long. Its handoff summary:\n\n{summary}\n\nIts scheduled messages are already yours: do not schedule them again. Read what you need from the links and carry on from the open items; if something is unclear, ask me before going on.',
   },
   // «Adaptar la sala al repo» (server/roomDecor.ts)
   'prompt.adaptRoom': {

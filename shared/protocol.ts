@@ -91,6 +91,7 @@ export interface SessionSummary {
   // the dweller writes the handoff summary that will start it
   handoff?: 'offered' | 'writing';
   handoffFrom?: string;          // the conversation this one took over from with a handoff (its intercom tab follows)
+  handoffClaudeId?: string;      // that one's Claude Code id: its pages and their answers follow (Dialog.tsx: PagesMenu)
   created: number;
   updated: number;
 }
@@ -130,7 +131,7 @@ export interface MusicState {
 export interface Visitor { claudeId: string; roomId: string; cwd: string; title: string; modified: number; worktree?: string }
 
 // ---------------------------------------------------------------- mensajes
-export interface WorkOptions { model?: string; effort?: string; permissions?: string; worktree?: boolean | string; resume?: string; cwd?: string; handoffFrom?: string }
+export interface WorkOptions { model?: string; effort?: string; permissions?: string; worktree?: boolean | string; resume?: string; cwd?: string; handoffFrom?: string; handoffClaudeId?: string }
 
 /** The handshake and the reload of the client from before the English message names: a tab still running it after
  *  «Restart the game» greets with `hola` and is told to reload, in the words it understands */

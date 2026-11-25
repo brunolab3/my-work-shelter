@@ -429,3 +429,46 @@ describe('scheduled messages: a sender\'s messages packed', () => {
     expect(x.toRooms[0].text).not.toContain('too late');
   });
 });
+
+describe('scheduled messages: a handoff', () => {
+  let dir: string;
+  beforeEach(() => { dir = mkdtempSync(path.join(tmpdir(), 'programados-')); setLanguage('en'); });
+
+  it('what is pending for the old conversation, or that it scheduled, moves to the new one; its Claude Code id is learnt at init', async () => {
+    const timer = { t: NOW };
+    const x = ctx(timer);
+    const p = new Scheduled(dir, x.c);
+    p.schedule('express', 's1', { when: '2026-11-16', message: 'Monday review' });
+    p.schedule('express', 's1', { when: '2026-11-16T11:00', message: 'Check the API', room: 'pagos', key: 'abc-2' });
+    p.scheduleOverseer({ roomId: 'express', claudeId: 'c-111', cwd: '/r/wt/abc-1' }, 'From the Overseer', '2026-11-16T12:00');
+    const other = p.scheduleGame({ roomId: 'express', sessionId: 's9', claudeId: 'c-999', cwd: '/r/express' }, L(16, 9), 'someone else');
+
+    p.retarget(SESS, 's2');
+    const [mine, toRoom, overseer] = [p.list().find(y => y.message === 'Monday review')!, p.list().find(y => y.message === 'Check the API')!, p.list().find(y => y.message === 'From the Overseer')!];
+    expect(mine.target).toMatchObject({ type: 'conversation', sessionId: 's2', cwd: '/r/wt/abc-1' });
+    expect(mine.target).not.toHaveProperty('claudeId');
+    expect(mine.origin).toEqual({ roomId: 'express', sessionId: 's2' });
+    expect(toRoom.origin).toEqual({ roomId: 'express', sessionId: 's2' });
+    expect(toRoom.target).toEqual({ type: 'room', room: 'pagos', key: 'ABC-2' });
+    expect(overseer.target).toMatchObject({ sessionId: 's2' });
+    expect(p.list().find(y => y.id === other)).toMatchObject({ target: { sessionId: 's9', claudeId: 'c-999' }, origin: { sessionId: 's9', claudeId: 'c-999' } });
+    // saved
+    expect(new Scheduled(dir, x.c).list().find(y => y.message === 'Monday review')!.target).toMatchObject({ sessionId: 's2' });
+
+    p.learnClaudeId('s2', 'c-222');
+    expect(p.list().find(y => y.message === 'Monday review')).toMatchObject({ target: { sessionId: 's2', claudeId: 'c-222' }, origin: { sessionId: 's2', claudeId: 'c-222' } });
+    timer.t = L(16, 9, 1);
+    await p.sweep();
+    expect(x.conversations.map(y => y.claudeId)).toEqual(['c-222', 'c-999']);
+  });
+
+  it('nothing to move: nothing saved', () => {
+    const timer = { t: NOW };
+    const x = ctx(timer);
+    const p = new Scheduled(dir, x.c);
+    p.scheduleGame({ roomId: 'express', sessionId: 's9', claudeId: 'c-999', cwd: '/r/express' }, L(16, 9), 'someone else');
+    const n = x.changes.length;
+    p.retarget(SESS, 's2'); p.learnClaudeId('s9', 'c-000');
+    expect(x.changes.length).toBe(n);
+  });
+});

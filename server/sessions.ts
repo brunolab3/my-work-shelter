@@ -290,7 +290,7 @@ export class Sessions extends EventEmitter {
     const r: SessionSummary = {
       id, dwellerId, roomId, cwd: o.cwd || cwd, state: 'starting', unread: false, title: prompt.slice(0, 80) || (attachments[0] ? t('server.lookAt', { name: attachments[0].name }) : t('server.newJob')),
       pendingCount: 0, helpers: [], tools: 0, turns: 0, model: o.model || undefined, effort: o.effort || undefined,
-      permissionMode: o.permissions || 'auto', created: Date.now(), updated: Date.now(), claudeId: o.resume, handoffFrom: o.handoffFrom,
+      permissionMode: o.permissions || 'auto', created: Date.now(), updated: Date.now(), claudeId: o.resume, handoffFrom: o.handoffFrom, handoffClaudeId: o.handoffClaudeId,
     };
     const x: Session = { r, alive: false, closing: false, interrupting: false, sent: new Map(), pending: [], queue: [], unsent: new Set(), withdrawn: new Set(), entries: [], tools: new Map(), helpers: new Map(), taskAHelper: new Map(), background: new Set(), awaitingBackground: false, commands: [], stderr: '', options: o, partialText: '', shipments: Promise.resolve() };
     this.s.set(id, x);

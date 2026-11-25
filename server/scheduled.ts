@@ -211,6 +211,29 @@ export class Scheduled {
     setTimeout(() => { this.sweep().catch(() => {}); }, 0);
   }
 
+  /** A handoff (server/handoff.ts): what is still pending for the old conversation, or that it scheduled, now belongs to
+   *  the new one (by its game id until its Claude Code id arrives: `learnClaudeId`). Delivered ones are gone already */
+  retarget(old: { id: string; claudeId?: string }, newId: string) {
+    const was = (c: { sessionId?: string; claudeId?: string }) => c.sessionId === old.id || (!!old.claudeId && c.claudeId === old.claudeId);
+    let changed = false;
+    for (const x of this.items) {
+      if (x.target.type === 'conversation' && was(x.target)) { x.target = { ...x.target, sessionId: newId }; delete x.target.claudeId; changed = true; }
+      if (was(x.origin)) { x.origin = { ...x.origin, sessionId: newId }; delete x.origin.claudeId; changed = true; }
+    }
+    if (changed) this.save();
+  }
+  /** A conversation's Claude Code id, once it has one: set where it is still missing, so a retargeted message also
+   *  finds it closed (resumed by that id) */
+  learnClaudeId(sessionId: string, claudeId?: string) {
+    if (!claudeId) return;
+    let changed = false;
+    for (const x of this.items) {
+      if (x.target.type === 'conversation' && x.target.sessionId === sessionId && !x.target.claudeId) { x.target.claudeId = claudeId; changed = true; }
+      if (x.origin.sessionId === sessionId && !x.origin.claudeId) { x.origin.claudeId = claudeId; changed = true; }
+    }
+    if (changed) this.save();
+  }
+
   /** ▶ in the intercom's ⏰ list: a next-window message goes out now, without waiting */
   sendNow(id: string) {
     const x = this.items.find(y => y.id === id);

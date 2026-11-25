@@ -101,6 +101,20 @@ export function sessionPages(entries: { type: string; text: string; ts: number; 
   }).filter(p => p.answer?.state !== 'quitada').sort((a, b) => b.ts - a.ts);
 }
 
+/** A handoff (server/handoff.ts): the old conversation's answers carried into the new one's (`into`). An answer the
+ *  new one already gave to that page stays when it is as recent; `into` itself when nothing changes */
+export function carryAnswers(from: Record<string, PageAnswer> | undefined, into: Record<string, PageAnswer> | undefined): Record<string, PageAnswer> {
+  const out = { ...into };
+  let changed = false;
+  for (const [path, r] of Object.entries(from ?? {})) {
+    const key = Object.keys(out).find(k => samePage(k, path));
+    if (key && out[key].ts >= r.ts) continue;
+    if (key) delete out[key];
+    out[path] = r; changed = true;
+  }
+  return changed ? out : into ?? {};
+}
+
 /** Las que se listan: las que siguen en el Mac (`existen`: las rutas que el servidor ha encontrado; sin saberlo aún,
  *  todas), las ya contestadas solo si se enlazaron en las dos últimas semanas y las pendientes durante el mes que se
  *  recuerdan las respuestas (Browsers.tsx). Las de un worktree ya quitado desaparecen solas */

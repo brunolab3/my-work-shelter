@@ -62,11 +62,12 @@ describe('new-session suggestion', () => {
 });
 
 describe('startFromHandoff', () => {
-  const old: any = { id: 'w1', dwellerId: 'h1', roomId: 'room', cwd: '/tmp/wt', model: 'opus', effort: 'high', permissionMode: 'acceptEdits' };
+  const old: any = { id: 'w1', claudeId: 'c-1', dwellerId: 'h1', roomId: 'room', cwd: '/tmp/wt', model: 'opus', effort: 'high', permissionMode: 'acceptEdits' };
   it('starts the new session with the summary as its first message and closes, never deletes, the old one', async () => {
-    const start = vi.fn(async () => 'w2'), close = vi.fn();
-    expect(await startFromHandoff({ start, close }, old, '  ## Goal\nShip it  ')).toBe('w2');
-    expect(start).toHaveBeenCalledWith({ dwellerId: 'h1', roomId: 'room', prompt: t('prompt.handoff.start', { summary: '## Goal\nShip it' }), options: { cwd: '/tmp/wt', model: 'opus', effort: 'high', permissions: 'acceptEdits', worktree: false, handoffFrom: 'w1' } });
+    const start = vi.fn(async () => 'w2'), close = vi.fn(), moved = vi.fn();
+    expect(await startFromHandoff({ start, close, moved }, old, '  ## Goal\nShip it  ')).toBe('w2');
+    expect(moved).toHaveBeenCalledWith(old, 'w2');
+    expect(start).toHaveBeenCalledWith({ dwellerId: 'h1', roomId: 'room', prompt: t('prompt.handoff.start', { summary: '## Goal\nShip it' }), options: { cwd: '/tmp/wt', model: 'opus', effort: 'high', permissions: 'acceptEdits', worktree: false, handoffFrom: 'w1', handoffClaudeId: 'c-1' } });
     expect(t('prompt.handoff.start', { summary: 'X' })).toContain('X');
     expect(close).toHaveBeenCalledWith('w1');
   });

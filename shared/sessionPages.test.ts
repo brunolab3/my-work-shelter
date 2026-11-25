@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { pagesInText, sessionPages, pendingPages, samePage, pageLink, livePages, relativeLinks, questionInput } from './sessionPages.ts';
+import { pagesInText, sessionPages, pendingPages, samePage, pageLink, livePages, relativeLinks, questionInput, carryAnswers } from './sessionPages.ts';
 
 const CMP = '/Users/ana/Library/Application Support/work-shelter-public/comparaciones/repo-rama.html';
 
@@ -119,5 +119,22 @@ describe('páginas que llegan con un encargo de otra sala', () => {
       { type: 'usuario', text: 'mira /Users/ana/r/otra.md', ts: 2 },
     ], {});
     expect(l.map(p => p.path)).toEqual(['/Users/ana/r/plans/03-target.md']);
+  });
+});
+
+describe('a handoff carries the pages over', () => {
+  const old = [{ type: 'asistente', text: 'Plan: /Users/ana/r/plan.html y [c](/Users/ana/r/cmp.html)', ts: 10 }];
+  const mine = [{ type: 'asistente', text: 'Plan cambiado: /Users/ana/r/plan.html y /Users/ana/r/nuevo.md', ts: 30 }];
+  it('the old conversation\'s pages join the new one\'s list, once each', () => {
+    expect(sessionPages([...old, ...mine], {}).map(p => [p.name, p.ts])).toEqual([['plan.html', 30], ['nuevo.md', 30], ['cmp.html', 10]]);
+  });
+  it('their answers carry over; one the new conversation gave as recently stays', () => {
+    const from = { '/Users/ana/r/cmp.html': { state: 'validated' as const, ts: 12 }, '~/r/plan.html': { state: 'notes' as const, ts: 11 }, '/Users/ana/r/x.md': { state: 'quitada' as const, ts: 5 } };
+    const into = { '/Users/ana/r/plan.html': { state: 'validated' as const, ts: 40 } };
+    const y = carryAnswers(from, into);
+    expect(y).toEqual({ '/Users/ana/r/plan.html': { state: 'validated', ts: 40 }, '/Users/ana/r/cmp.html': { state: 'validated', ts: 12 }, '/Users/ana/r/x.md': { state: 'quitada', ts: 5 } });
+    expect(carryAnswers(from, y)).toBe(y);
+    expect(carryAnswers({ '/Users/ana/r/plan.html': { state: 'notes', ts: 50 } }, into)).toEqual({ '/Users/ana/r/plan.html': { state: 'notes', ts: 50 } });
+    expect(sessionPages([...old, ...mine], y).map(p => [p.name, p.answer?.state])).toEqual([['plan.html', 'validated'], ['nuevo.md', undefined], ['cmp.html', 'validated']]);
   });
 });

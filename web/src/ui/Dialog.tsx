@@ -37,7 +37,7 @@ import { CMD, MAC, nextZ, windowShortcut, WindowButtons, Tabs, TabList, DraftMar
 import { sessionOwner, interlocutor, branchCaption, copyCaption, copyTask, pathWorktree, worktreesKnown } from './copies';
 import { Usage, tokensShort } from './usage';
 import { takeASurface, toClaudeApp } from './surface';
-import { openLink, openPage, pageForSession, pageAnswers, pageNotes, validatePage, revealPage, makeRoomForIntercom, answerPage } from './Browsers';
+import { openLink, openPage, pageForSession, pageAnswers, pageNotes, validatePage, revealPage, makeRoomForIntercom, answerPage, carryPageAnswers } from './Browsers';
 import { sessionPages, pendingPages, samePage, livePages, questionInput } from '@shared/sessionPages';
 import { directionMark, scheduledSender } from './scheduledSender';
 import { AFTER_TURN, byPlace, describeWhen, describeWhenShort, localInput, ofConversationView, ofPlace, scheduledDirection, schedulePresets, type ScheduledMessage } from '@shared/scheduled';
@@ -1256,10 +1256,11 @@ function PreflightButton({ copy }: { copy: { path: string; branch: string } }) {
 }
 
 // the log's entries that can link pages, read from the whole log (the intercom holds only a page of it) and kept only
-// while a conversation is in view
+// while a conversation is in view (none with an empty `key`)
 function useLinkEntries(data: { sessionId: string } | { roomId: string; claudeId: string }, key: string) {
   const [l, setL] = useState<LogInput[]>([]);
   useEffect(() => {
+    if (!key) { setL([]); return; }
     let stillAlive = true;
     client.action<LogInput[]>('log.links', data).then(x => { if (stillAlive) setL(Array.isArray(x) ? x : []); }).catch(() => {});
     return () => { stillAlive = false; };
@@ -1269,7 +1270,11 @@ function useLinkEntries(data: { sessionId: string } | { roomId: string; claudeId
 function PagesMenu({ s }: { s: SessionSummary }) {
   const held = live.use(e => e.entries[s.id]);
   const fromLog = useLinkEntries({ sessionId: s.id }, s.id);
-  const log = useMemo(() => { const ids = new Set((held ?? []).map(e => e.id)); return [...fromLog.filter(e => !ids.has(e.id)), ...(held ?? [])]; }, [held, fromLog]);
+  // after a handoff, the old conversation's pages too, from its transcript while it exists, and its answers
+  const old = s.handoffClaudeId;
+  const fromOld = useLinkEntries({ roomId: s.roomId, claudeId: old ?? '' }, old ? `${s.roomId}\n${old}` : '');
+  useEffect(() => { if (old) carryPageAnswers(old, s.id); }, [old, s.id, s.claudeId]);
+  const log = useMemo(() => { const ids = new Set((held ?? []).map(e => e.id)); return [...(old ? fromOld : []), ...fromLog.filter(e => !ids.has(e.id)), ...(held ?? [])]; }, [held, fromLog, fromOld, old]);
   // con la pregunta que espera respuesta: lo que enlaza (la comparación que pide aprobar) ya sale
   const questions = s.pending?.type === 'question' ? s.pending.questions : undefined;
   const since = useMemo(() => Date.now(), [s.pending?.id]);
