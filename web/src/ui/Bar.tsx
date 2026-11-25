@@ -28,7 +28,7 @@ const URGENCY: Record<string, number> = { waiting: 0, error: 1, working: 2, star
 
 // the intercoms grouped by room: one chip per room, opening the one with the most recent conversation (or the last
 // one in front), in the order the Overseer arranged them in the ⋯ N list (shared/roomOrder.ts); its hover list holds
-// one row per intercom panel of the room (its dweller, each hologram)
+// one row per talker of the room (its dweller, each worktree's hologram)
 type Com = { v: WindowCom; h: DwellerSummary; sess: SessionSummary[] };
 export function comRooms(list: WindowCom[], sessions: Record<string, SessionSummary>, who: (id: string) => DwellerSummary | null | undefined, order = roomOrderOf(live.get().state?.settings)) {
   const rooms = new Map<string, { room: string; name: string; coms: Com[] }>();
@@ -212,9 +212,11 @@ export function Bar() {
       </button>
     );
   };
-  // who a room's hover and «+N» lists show: one row per open intercom panel (its dweller, each hologram), as the selector
-  // above the portrait, with the one open now selected, or else the one its chip opens (the most important)
-  const talkersOf = (g: (typeof rooms)[number]) => roomTalkers(g.room, dwellers, copies, coms, sessions, flags).filter(q => g.coms.some(c => c.v.dwellerId === q.x.id));
+  // who a room's hover and «+N» lists show: every talker of the room (its dwellers and each worktree's hologram, with an
+  // intercom panel open or not; those without a conversation last), as the selector above the portrait, with the one
+  // open now selected, or else the one its chip opens (the most important); a click brings that talker's intercom,
+  // opening it if it had none
+  const talkersOf = (g: (typeof rooms)[number]) => roomTalkers(g.room, dwellers, copies, coms, sessions, flags);
   const isOpen = (g: (typeof rooms)[number]) => g.coms.some(c => c.v.dwellerId === talking);
   const selected = (g: (typeof rooms)[number]) => isOpen(g) ? talking : (g.aTi?.h ?? g.latest.h).id;
   const talkerRows = (g: (typeof rooms)[number], sel: boolean) => talkersOf(g).map(q => (
@@ -257,7 +259,7 @@ export function Bar() {
         );
       })()}
       {peek && peek.id !== '+' && (() => {
-        // one row per intercom panel of the room (its dweller, each hologram), as the selector above the portrait
+        // one row per talker of the room (its dweller, each hologram), as the selector above the portrait
         const g = rooms.find(x => x.room === peek.id);
         return g ? (
           <div className="peek-bar" style={{ left: peek.x, bottom: innerHeight - peek.y + 4, '--gap': `${innerWidth - peek.x - 8}px` } as React.CSSProperties} onMouseEnter={keep} onMouseLeave={leave}>
