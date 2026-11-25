@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { blockersBetween } from './deploy';
-import { checklistCell, checklistFromClaudeMd, compareCell, conflictsCell, gateMissing, mergeOf, mergeReady, preflightTask, pushOf, taskHasPRs, reviewCell, syncCell, type CompareRecord, type LocalBranch, type RoomRepo } from './preflight';
+import { checklistCell, checklistFromClaudeMd, compareCell, conflictsCell, gateMissing, mergeLandsInBase, mergeOf, mergeReady, preflightTask, pushOf, taskHasPRs, reviewCell, syncCell, type CompareRecord, type LocalBranch, type RoomRepo } from './preflight';
 import type { PRBoard } from './board';
 
 // repos, salas y personas inventados
@@ -199,12 +199,34 @@ describe('la puerta de git push', () => {
     expect(pushOf('gh pr ready 12')).toBeNull();          // decisión del Supervisor: solo git push
   });
   it('merging is what asks (git merge, gh pr merge), not pushing', () => {
-    expect(mergeOf('git merge ABC-1-api')).toEqual({ cwd: undefined });
-    expect(mergeOf('cd ../api && git merge --no-ff ABC-1')).toEqual({ cwd: '../api' });
-    expect(mergeOf('gh pr merge 12 --squash')).toEqual({ cwd: undefined });
+    expect(mergeOf('git merge ABC-1-api')).toEqual({ cwd: undefined, kind: 'git', refs: ['ABC-1-api'] });
+    expect(mergeOf('cd ../api && git merge --no-ff ABC-1')).toEqual({ cwd: '../api', kind: 'git', refs: ['ABC-1'] });
+    expect(mergeOf('gh pr merge 12 --squash')).toEqual({ cwd: undefined, kind: 'gh', pr: '12', repo: undefined });
     expect(mergeOf('git merge --abort')).toBeNull();
     expect(mergeOf('git push origin HEAD:main')).toBeNull();
     expect(pushOf('git merge ABC-1')).toBeNull();
+  });
+  it('says what a merge merges: git merge refs into the checked-out branch, gh pr merge a PR on GitHub', () => {
+    expect(mergeOf('cd ../web && git merge origin/main')).toEqual({ cwd: '../web', kind: 'git', refs: ['origin/main'] });
+    expect(mergeOf('git -C ../api merge -m "sync main" --no-edit origin/main 2>&1')).toEqual({ cwd: '../api', kind: 'git', refs: ['origin/main'] });
+    expect(mergeOf(`sh -c 'git merge -s ours ABC-1 ABC-2'`)).toEqual({ cwd: undefined, kind: 'git', refs: ['ABC-1', 'ABC-2'] });
+    expect(mergeOf('git merge')).toEqual({ cwd: undefined, kind: 'git', refs: [] });        // its upstream
+    expect(mergeOf('gh pr merge 123 --squash')).toEqual({ cwd: undefined, kind: 'gh', pr: '123', repo: undefined });
+    expect(mergeOf('gh pr merge')).toEqual({ cwd: undefined, kind: 'gh', pr: undefined, repo: undefined });
+    expect(mergeOf('gh pr merge -s -t "feat: x" --delete-branch')).toEqual({ cwd: undefined, kind: 'gh', pr: undefined, repo: undefined });
+    expect(mergeOf('gh pr merge feature/ABC-1 -R org/api --merge')).toEqual({ cwd: undefined, kind: 'gh', pr: 'feature/ABC-1', repo: 'org/api' });
+    expect(mergeOf('cd ../api && gh pr merge --repo=org/api 7')).toEqual({ cwd: '../api', kind: 'gh', pr: '7', repo: 'org/api' });
+  });
+  it('the gate asks only for merges landing in main or the PR base, not for syncing a branch from them', () => {
+    expect(mergeLandsInBase('main', 'main', 'main')).toBe(true);                      // feature/x merged into main
+    expect(mergeLandsInBase('develop', 'main', 'develop')).toBe(true);                // into the PR's base
+    expect(mergeLandsInBase('ABC-1-a', 'main', 'ABC-1-a')).toBe(true);                // a stacked PR into the one below
+    expect(mergeLandsInBase('feature/ABC-1', 'main', 'main')).toBe(false);            // main into the feature branch
+    expect(mergeLandsInBase('ABC-1-b', 'main', 'ABC-1-a')).toBe(false);               // the PR below into a stacked one
+    expect(mergeLandsInBase('local', 'main', 'main')).toBe(false);
+    expect(mergeLandsInBase('master', undefined, undefined)).toBe(true);              // default branch unknown
+    expect(mergeLandsInBase(undefined, 'main', 'main')).toBe(true);                   // detached or unresolved: asks
+    expect(mergeLandsInBase('HEAD', 'main')).toBe(true);
   });
   it('follows `cd` and `sh -c`, so the gate checks the folder that actually pushes', () => {
     expect(pushOf('cd .claude/worktrees/ABC-12-x && git push')).toEqual({ cwd: '.claude/worktrees/ABC-12-x' });

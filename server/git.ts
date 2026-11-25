@@ -253,9 +253,9 @@ export const QUERY = `query {
 }
 fragment pr on PullRequest { number title url isDraft updatedAt reviewDecision repository { nameWithOwner } }`;
 
-export function gh(args: string[], token?: string, timeout = 20_000): Promise<string> {
+export function gh(args: string[], token?: string, timeout = 20_000, cwd?: string): Promise<string> {
   const bin = ['gh', '/opt/homebrew/bin/gh', '/usr/local/bin/gh'];
-  const attempt = (i: number): Promise<string> => new Promise((ok, fail) => execFile(bin[i], args, { env: token ? { ...environment(), GH_TOKEN: token } : environment(), timeout, maxBuffer: 16 * 1024 * 1024 }, (err, out, errOut) => {
+  const attempt = (i: number): Promise<string> => new Promise((ok, fail) => execFile(bin[i], args, { cwd, env: token ? { ...environment(), GH_TOKEN: token } : environment(), timeout, maxBuffer: 16 * 1024 * 1024 }, (err, out, errOut) => {
     if (err && (err as NodeJS.ErrnoException).code === 'ENOENT' && i + 1 < bin.length) return attempt(i + 1).then(ok, fail);
     if (err) return fail(new Error(String(errOut || err.message).trim()));
     ok(String(out));

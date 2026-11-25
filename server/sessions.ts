@@ -7,7 +7,7 @@ import path from 'node:path';
 import { cwdBeforeRelocation, lastActivity, projectFolder } from './repos.ts';
 import { mcpReview } from './compare.ts';
 import { SELF_GATED } from './mcpServers.ts';
-import { mergeOf } from '../shared/preflight.ts';
+import { mergeLandsInBase, mergeOf } from '../shared/preflight.ts';
 import { reviewPostOf } from '../shared/reviews.ts';
 import { COMPACT_URGE, handoffDue } from '../shared/compact.ts';
 import { handMadeWorktree, newWorktreeOf, taskWorktreeIn, worktreeTask, ghCreateOf, githubRepoOf, isOriginalRepo, ORIGINAL_REPO } from '../shared/tasks.ts';
@@ -92,7 +92,7 @@ export interface RoomsResolver {
   preflight?: {
     state(cwd: string): Promise<string>;
     respond(cwd: string, item: string, state: 'ok' | 'n/a' | 'pending', note?: string): Promise<string>;
-    gate(cwd: string): Promise<{ key: string; branch?: string; head?: string; missing: string[] } | null>;
+    gate(cwd: string, branch?: string): Promise<{ key: string; branch?: string; head?: string; base?: string; missing: string[] } | null>;
   };
   // carpetas que el Supervisor ha marcado de confianza en el juego (ver confianza())
   trustedFolders?(): string[]; trust?(filePath: string): void; clonedFolders?(): string[];
@@ -325,7 +325,7 @@ export class Sessions extends EventEmitter {
       // tarea) y se retoma ahí: si no, al relanzarla (tras interrumpirla o reiniciar el juego) volvería a la copia principal
       hooks: {
         CwdChanged: [{ hooks: [async (h: any) => { const w = worktreeRoot(h.new_cwd); if (w && (w !== x.r.worktree || w !== x.r.cwd)) { x.r.worktree = w; x.r.cwd = w; this.play(x); } return {}; }] }],
-        // the pre-flight gate: a `git merge` or `gh pr merge` from a task worktree without the compare validated at its
+        // the pre-flight gate: a `git merge` or `gh pr merge` landing a task's work in its base without the compare validated at its
         // commit (or, unless a draft, without the «before pushing» list answered) asks the Overseer first; a no denies it
         // with what's missing. Pushes don't ask: the pre-flight is checked before merging. A hook, not canUseTool, so it
         // holds in every permission mode
@@ -395,12 +395,34 @@ export class Sessions extends EventEmitter {
     if (!merge || !this.resolver.preflight) return {};
     const base = x.r.worktree ?? x.r.cwd;
     const cwd = merge.cwd ? path.resolve(base, merge.cwd.replace(/^~(?=\/|$)/, os.homedir())) : base;
-    const g = await this.resolver.preflight.gate(cwd).catch(() => null);
-    if (!g || !g.missing.length) return {};
-    const si = await this.confirm(x, t('server.preflightMergeTitle', { key: g.key, branch: g.branch ?? '', head: (g.head ?? '').slice(0, 7) }),
-      [{ type: 'text', text: g.missing.map(f => '• ' + f).join('\n') }, { type: 'code', text: cmd, language: 'bash' }]);
+    const git = (args: string[]) => new Promise<string>(ok => execFile('git', ['-C', cwd, ...args], { env: gitEnvironment(), timeout: 10_000 }, (e, o) => ok(e ? '' : String(o).trim())));
+    let title: string, where: string;
+    let g: Awaited<ReturnType<NonNullable<RoomsResolver['preflight']>['gate']>>;
+    if (merge.kind === 'gh') {
+      // gh pr merge always lands a PR in its base (for a stacked one, the PR below it): it gates when incomplete
+      const args = ['pr', 'view', ...(merge.pr ? [merge.pr] : []), '--json', 'number,baseRefName,headRefName', ...(merge.repo ? ['-R', merge.repo] : [])];
+      const pr = await gh(args, undefined, 10_000, cwd).then(o => JSON.parse(o) as { number?: number; baseRefName?: string; headRefName?: string }).catch(() => null);
+      g = await this.resolver.preflight.gate(cwd, pr?.headRefName).catch(() => null);
+      if (!g || !g.missing.length) return {};
+      const source = pr?.number ? `#${pr.number}${pr.headRefName ? ` (${pr.headRefName})` : ''}` : merge.pr ?? t('server.mergeCurrentPR');
+      title = t('server.preflightMergeTitleRemote', { key: g.key, source, target: pr?.baseRefName ?? t('server.mergeItsBase') });
+      where = t('server.preflightMergeRemote', { repo: merge.repo ?? t('server.mergeThisRepo') });
+    } else {
+      const target = await git(['symbolic-ref', '--quiet', '--short', 'HEAD']);
+      g = await this.resolver.preflight.gate(cwd, merge.refs[0]).catch(() => null);
+      if (!g || !g.missing.length) return {};
+      const defaultBranch = (await git(['symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD'])).replace(/^origin\//, '') || undefined;
+      // only the task's work landing in its base asks: bringing main or the base into a feature branch passes
+      if (!mergeLandsInBase(target || undefined, defaultBranch, g.base)) return {};
+      const source = merge.refs.length ? merge.refs.join(', ') : t('server.mergeUpstream');
+      title = t('server.preflightMergeTitleLocal', { key: g.key, source, target: target || 'HEAD' });
+      where = t('server.preflightMergeLocal', { target: target || 'HEAD' });
+    }
+    const missing = g.missing;
+    const si = await this.confirm(x, title,
+      [{ type: 'text', text: [where, '', ...missing.map(f => '• ' + f)].join('\n') }, { type: 'code', text: cmd, language: 'bash' }]);
     if (si) return {};
-    return { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: t('server.preflightMergeDenied', { what: g.missing.join('; ') }) } };
+    return { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: t('server.preflightMergeDenied', { what: missing.join('; ') }) } };
   }
 
   private trust(cwd: string) { return trust(cwd, undefined, this.resolver.trustedFolders?.(), this.resolver.clonedFolders?.()); }

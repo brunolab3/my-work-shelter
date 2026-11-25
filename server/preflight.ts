@@ -11,7 +11,7 @@ import type { PRBoard } from '../shared/board.ts';
 import { blockersBetween, type BlockerManual, type TaskOrder } from '../shared/deploy.ts';
 import { preflightTask, repoChecklist, answered, checklistKey, gateMissing, linkState, type ChecklistAnswer, type CompareRecord, type PartPreflight, type CICheck, type RepoFiles, type LocalBranch, type PlanPart, type TaskPreflight } from '../shared/preflight.ts';
 import type { ReviewLedger, ReviewThread } from '../shared/reviewCount.ts';
-import { pRTask, taskKey, worktreeTask } from '../shared/tasks.ts';
+import { branchTask, pRTask, taskKey, worktreeTask } from '../shared/tasks.ts';
 import type { RoomPR } from './prReviews.ts';
 import { t } from '../shared/language.ts';
 import type { TaskTracker, VerificationPlan } from '../shared/verification.ts';
@@ -209,10 +209,22 @@ export async function partOfFolder(cwd: string, ctx: CtxPreflight): Promise<{ ke
   return part ? { key: r.key, part, r } : null;
 }
 
-/** La puerta de `git push` en una carpeta: lo que falta (vacío: puede subir; null: no es una parte de tarea) */
-export async function gatePush(cwd: string, ctx: CtxPreflight): Promise<{ key: string; branch?: string; head?: string; missing: string[] } | null> {
-  const x = await partOfFolder(cwd, ctx).catch(() => null);
-  return x && { key: x.key, branch: x.part.branch, head: x.part.headLocal, missing: gateMissing(x.part) };
+/** The task part whose branch is this one (`origin/` dropped), wherever it is checked out: what a merge in a main copy
+ *  merges. Null if the branch names no task or the task has no such part */
+export async function partOfBranch(branch: string, ctx: CtxPreflight): Promise<{ key: string; part: PartPreflight; r: TaskPreflight } | null> {
+  const b = branch.replace(/^(refs\/remotes\/)?origin\//, '');
+  const key = branchTask(b);
+  if (!key) return null;
+  const r = await preflightOf(key, ctx);
+  const part = r.parts.find(p => p.branch === b) ?? r.parts.find(p => p.pr?.branch === b);
+  return part ? { key: r.key, part, r } : null;
+}
+
+/** La puerta de `git push` en una carpeta: lo que falta (vacío: puede subir; null: no es una parte de tarea). With
+ *  `branch`, a folder that is no task part (a main copy) is gated as that branch's part, the one being merged */
+export async function gatePush(cwd: string, ctx: CtxPreflight, branch?: string): Promise<{ key: string; branch?: string; head?: string; base?: string; missing: string[] } | null> {
+  const x = await partOfFolder(cwd, ctx).catch(() => null) ?? (branch ? await partOfBranch(branch, ctx).catch(() => null) : null);
+  return x && { key: x.key, branch: x.part.branch, head: x.part.headLocal, base: x.part.pr?.base, missing: gateMissing(x.part) };
 }
 
 /** Lo que ve el habitante con preflight_status: su parte, cada columna, la lista con lo contestado y los bloqueos */

@@ -268,7 +268,7 @@ const sessions = new Sessions({
   mcpAssignment: (id, ask, sid) => { const s = store.state.rooms.find(x => x.id === id && x.type === 'coordination' && x.path); return s ? mcpAssignment(ctxAssignment(s.path!), { coordination: roomNameIs(s), roomId: s.id, sessionId: sid, ask }) : undefined; },
   mcpRooms: (id, sid, inWorktree) => mcpRooms(ctxRooms, id, sid, inWorktree),
   mcpPlan: id => { const s = store.state.rooms.find(x => x.id === id && x.type === 'repo'); return s && plans.ofRoom(id).length ? mcpPlan(ctxPlan, { roomId: id, room: s.name }) : undefined; },
-  preflight: { state: cwd => preflightToolset.state(cwd), respond: (cwd, item, state, note) => preflightToolset.respond(cwd, item, state, note), gate: cwd => gatePush(cwd, ctxPreflight) },
+  preflight: { state: cwd => preflightToolset.state(cwd), respond: (cwd, item, state, note) => preflightToolset.respond(cwd, item, state, note), gate: (cwd, branch) => gatePush(cwd, ctxPreflight, branch) },
   trustedFolders: () => ((store.state.settings as any).trustedFolders ?? []) as string[],
   trust: filePath => { const a = store.state.settings as any; a.trustedFolders = [...new Set([...(a.trustedFolders ?? []).filter((r: string) => existsSync(r)), path.resolve(filePath)])]; store.save(); },
   clonedFolders: () => ((store.state.settings as any).clonedFolders ?? []) as string[],

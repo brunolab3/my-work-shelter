@@ -196,11 +196,45 @@ export function gateMissing(p: PartPreflight): string[] {
 /** ¿Sube algo esta orden de Bash? `git push` (también con -C, -c o --git-dir delante), en cualquier trozo de la línea,
  *  tras un `cd` o dentro de `sh -c "…"`; no un `--dry-run`. Devuelve la carpeta en la que sube (relativa a la de la
  *  conversación, si un `cd` o un -C la cambian) o null */
-export const pushOf = (cmd: string, dir?: string) => gitOf(cmd, dir, 'push');
+export const pushOf = (cmd: string, dir?: string): { cwd?: string } | null => { const g = gitOf(cmd, dir, 'push'); return g && { cwd: g.cwd }; };
+/** What a merge command merges into what: `git merge` merges `refs` (none: its upstream) into the checked-out branch, only
+ *  in that worktree; `gh pr merge` merges a PR (`pr`: number, URL or branch; none: the current branch's PR) on GitHub */
+export type MergeCommand = { cwd?: string; kind: 'git'; refs: string[] } | { cwd?: string; kind: 'gh'; pr?: string; repo?: string };
 /** Does this Bash line merge something? `git merge` (not --abort, --quit or --continue) or `gh pr merge`, in the folder
- *  it runs in, as pushOf does for pushes */
-export const mergeOf = (cmd: string, dir?: string) => gitOf(cmd, dir, 'merge');
-function gitOf(cmd: string, dir: string | undefined, verb: 'push' | 'merge'): { cwd?: string } | null {
+ *  it runs in, as pushOf does for pushes, and what it merges */
+export function mergeOf(cmd: string, dir?: string): MergeCommand | null {
+  const g = gitOf(cmd, dir, 'merge');
+  if (!g) return null;
+  const args = g.args.filter(a => !/[<>]/.test(a));                               // 2>&1, > log
+  if (!g.gh) {
+    const refs: string[] = [];
+    for (let i = 0; i < args.length; i++) {
+      if (args[i] === '--') { refs.push(...args.slice(i + 1)); break; }
+      if (GIT_MERGE_VALUE.has(args[i])) i++;
+      else if (!args[i].startsWith('-')) refs.push(args[i]);
+    }
+    return { cwd: g.cwd, kind: 'git', refs };
+  }
+  let pr: string | undefined, repo: string | undefined;
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    if (a === '-R' || a === '--repo') repo = args[++i];
+    else if (a.startsWith('--repo=')) repo = a.slice(7);
+    else if (GH_MERGE_VALUE.has(a)) i++;
+    else if (!a.startsWith('-') && pr === undefined) pr = a;
+  }
+  return { cwd: g.cwd, kind: 'gh', pr, repo };
+}
+/** Whether a merge lands the task's work in its base, the only merges the pre-flight gate asks about: into the repo's
+ *  default branch (main or master when unknown) or into the part's PR base. Syncing a feature branch from main or from
+ *  the PR below it doesn't; an unresolved target (detached, unknown) does, to be safe */
+export function mergeLandsInBase(target: string | undefined, defaultBranch?: string, base?: string): boolean {
+  if (!target || target === 'HEAD') return true;
+  return target === base || (defaultBranch ? target === defaultBranch : target === 'main' || target === 'master');
+}
+const GIT_MERGE_VALUE = new Set(['-m', '-F', '-s', '-X', '--message', '--file', '--strategy', '--strategy-option', '--into-name']);
+const GH_MERGE_VALUE = new Set(['-b', '--body', '-F', '--body-file', '-t', '--subject', '-A', '--author-email', '--match-head-commit']);
+function gitOf(cmd: string, dir: string | undefined, verb: 'push' | 'merge'): { cwd?: string; args: string[]; gh?: boolean } | null {
   const join = (a: string | undefined, b: string) => !a || /^[/~]/.test(b) ? b : `${a.replace(/\/+$/, '')}/${b}`;
   let cwd = dir;
   for (const chunk of shellPieces(String(cmd ?? ''))) {
@@ -216,7 +250,7 @@ function gitOf(cmd: string, dir: string | undefined, verb: 'push' | 'merge'): { 
       if (inside) return inside;
       continue;
     }
-    if (verb === 'merge' && /(^|\/)gh$/.test(w[i] ?? '') && w[i + 1] === 'pr' && w[i + 2] === 'merge') return { cwd };
+    if (verb === 'merge' && /(^|\/)gh$/.test(w[i] ?? '') && w[i + 1] === 'pr' && w[i + 2] === 'merge') return { cwd, args: w.slice(i + 3), gh: true };
     if (!/(^|\/)git$/.test(w[i] ?? '')) continue;
     i++;
     let here = cwd;
@@ -228,7 +262,7 @@ function gitOf(cmd: string, dir: string | undefined, verb: 'push' | 'merge'): { 
     if (verb === 'push') {
       if (w[i] !== 'push' || w.slice(i + 1).some(a => a === '--dry-run' || a === '-n')) continue;
     } else if (w[i] !== 'merge' || w.slice(i + 1).some(a => a === '--abort' || a === '--quit' || a === '--continue')) continue;
-    return { cwd: here };
+    return { cwd: here, args: w.slice(i + 1) };
   }
   return null;
 }
