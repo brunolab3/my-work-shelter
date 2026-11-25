@@ -658,6 +658,11 @@ a.thumbnail:hover img { box-shadow: 0 0 0 1px #ffc96b, 0 0 10px rgba(255,179,71,
 .vt-list-filter:focus { border-color: #9dffb8; }
 .vt-list-rows { flex: 1; min-height: 0; overflow-y: auto; padding: 0 4px; }
 .vt-list-group { padding: 6px 8px 2px; font: 700 10px var(--t-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--amber); }
+/* the ⋯ N list of intercoms: a room's header is grabbed to move the room (shared/roomOrder.ts) */
+.vt-list-group.movable { cursor: grab; outline: none; border-top: 2px solid transparent; }
+.vt-list-group.movable:focus-visible { background: color-mix(in srgb, var(--amber) 14%, transparent); }
+.vt-list-group.dragging { opacity: .45; }
+.vt-list-group.drop-target { border-top-color: var(--amber); background: color-mix(in srgb, var(--amber) 10%, transparent); }
 /* the ⋯ N list of intercoms: whose the tabs below are (their bust, name and a hologram's task) */
 .vt-list-who { display: flex; align-items: center; gap: .5em; padding: 4px 8px 2px; font: 12px var(--t-mono); color: var(--cream); }
 .vt-list-who .console-who-photo { width: 1.6em; height: 1.6em; }

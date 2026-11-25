@@ -44,6 +44,7 @@ export const WINDOWS: Record<string, LocalizedText> = {
   'windows.talkToSomeoneElse': { es: 'Hablar con otro de la sala: un habitante o la copia holográfica de una tarea', en: 'Talk to someone else in the room: a dweller or a task\'s holographic copy' },
   'windows.othersToReview': { es: 'Otros de la sala con algo para ti: {n}', en: 'Others in the room with something for you: {n}' },
   'windows.moreRooms': { es: 'Otras {n} salas con conversaciones abiertas', en: '{n} more rooms with open conversations' },
+  'windows.moveRoom': { es: 'Arrastra la sala para moverla en la lista (o ⇧↑ ⇧↓)', en: 'Drag the room to move it in the list (or ⇧↑ ⇧↓)' },
   'windows.tabListHelp': { es: '↑↓ elegir · Intro ir · Esc cerrar', en: '↑↓ choose · Enter go · Esc close' },
   'windows.closeAndEndEnter': { es: 'Cerrar y terminar (Intro)', en: 'Close and end (Enter)' },
   'windows.minimize': { es: 'Minimizar', en: 'Minimize' },

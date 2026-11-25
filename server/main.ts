@@ -35,6 +35,7 @@ import { checklistFromClaudeMd } from '../shared/preflight.ts';
 import { autoCompactWindow, handoffThreshold } from '../shared/compact.ts';
 import { startFromHandoff } from './handoff.ts';
 import { setFlag } from '../shared/flagged.ts';
+import { roomOrderOf } from '../shared/roomOrder.ts';
 import type { JiraTransition, PRBoard } from '../shared/board.ts';
 import { blockersBetween, pRKey } from '../shared/deploy.ts';
 import { TasksCleanup, orphanedConversations } from './taskCleanup.ts';
@@ -1212,6 +1213,11 @@ async function action(name: string, d: Record<string, any> = {}): Promise<unknow
     case 'conversation.pending': {
       const id = String(d.claudeId ?? ''); if (!id) throw new Error(t('server.isStillStartingFlag'));
       const a = store.state.settings as any; a.flaggedConversations = setFlag(a.flaggedConversations, id, !!d.on); store.save();
+      broadcast({ t: 'state', state: store.state as any }); return true;
+    }
+    // the rooms' order in the intercom lists, as the Overseer arranged it (shared/roomOrder.ts)
+    case 'com.roomOrder': {
+      const a = store.state.settings as any; a.comRoomOrder = roomOrderOf({ comRoomOrder: d.order }); store.save();
       broadcast({ t: 'state', state: store.state as any }); return true;
     }
     case 'review.board': return reviewBoard();

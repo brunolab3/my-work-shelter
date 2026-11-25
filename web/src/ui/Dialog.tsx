@@ -49,6 +49,7 @@ import { openPreflight } from './Preflight';
 import { taskHasPRs } from '@shared/preflight';
 import { recentFirst } from '@shared/recent';
 import { groupTabs, talkerFirst } from './tabOrder';
+import { byRoomOrder, moveRoom, roomOrderOf } from '@shared/roomOrder';
 import { jiraBoard, knowTasks, myPRs, useColorsTasks } from './tasks';
 import { type AttachmentLocal, uploadFiles, chooseFiles, uploading, listsPaths, AttachmentsTray, SentAttachments, useDictation, InputButtons, DictationStrip, attachShortcut } from './inputLine';
 
@@ -443,9 +444,11 @@ const VIEW_NAME: Record<string, string> = { menu: t('windows.menu'), new: t('win
 function tabItem(x: TabCom, o: DwellerSummary, sessions: Record<string, SessionSummary>, flags: Set<string>): ItemTab {
   const sx = x.view.type === 'session' ? sessions[x.view.sessionId] : undefined, path = pathWorktree(sx?.cwd, worktreesKnown());
   return { id: x.id, name: sx ? sx.title || t('windows.conversation') : x.sessionWait ? t('windows.starting2') : VIEW_NAME[x.view.type] ?? t('windows.menu'), state: x.sessionWait ? 'working' : tabState(sx),
-    title: sx?.title, room: o.nameRoom, task: path ? copyTask(worktreesKnown().find(w => w.path === path) ?? { path }) : o.copy ? copyTask(o.copy) : undefined, activity: sx ? ago(sx.updated) : undefined, draft: withText(x), queued: queuedIn([sx]) || undefined,
+    title: sx?.title, room: o.nameRoom, roomId: o.room, task: path ? copyTask(worktreesKnown().find(w => w.path === path) ?? { path }) : o.copy ? copyTask(o.copy) : undefined, activity: sx ? ago(sx.updated) : undefined, draft: withText(x), queued: queuedIn([sx]) || undefined,
     flagged: flagOf(tabFlaggable(x, sessions), flags) };
 }
+/** The rooms' order in the intercom lists (shared/roomOrder.ts), repainting when it changes */
+export const useRoomOrder = () => roomOrderOf(live.use(e => e.state?.settings));
 /** The conversations marked as pending (shared/flagged.ts), repainting when they change */
 export const useFlags = () => flaggedIds(live.use(e => e.state?.settings));
 /** ⚑ Mark a conversation as pending, or clear it: only the Overseer does (sending to it doesn't) */
@@ -471,13 +474,30 @@ export function ComTabs() {
   const flags = useFlags();
   const button = useRef<HTMLButtonElement>(null);
   const current = list.find(w => w.dwellerId === talking);
-  // by room, and in it by whose they are (its dweller, each hologram), each where its first-opened tab is
-  const items = groupTabs(groupTabs(list.flatMap(w => {
+  const order = useRoomOrder();
+  // by room, in the order the Overseer arranged them (new rooms after, where their first-opened tab is), and in it by
+  // whose they are (its dweller, each hologram), each where its first-opened tab is
+  const items = byRoomOrder(groupTabs(groupTabs(list.flatMap(w => {
     const o = who(w.dwellerId); if (!o) return [];
     return w.tabs.filter(x => w === current || x.view.type === 'session' || x.sessionWait).map((x): ItemTab => ({ ...tabItem(x, o, sessions, flags),
       group: o.id, who: talkerName(o) }));
-  }).sort((a, b) => created(a.id) - created(b.id))), x => x.room ?? '');
+  }).sort((a, b) => created(a.id) - created(b.id))), x => x.roomId ?? ''), x => x.roomId ?? '', order);
+  // dragging a room's header (or ⇧↑↓ on it) moves the whole room; the drop goes to the room whose rows are under the pointer
+  const [drag, setDrag] = useState<{ room: string; over?: string } | null>(null);
+  const refocus = useRef<string | null>(null);
+  useEffect(() => {
+    if (!refocus.current) return;
+    document.querySelector<HTMLElement>(`.bar-list-com .vt-list-group[data-room="${CSS.escape(refocus.current)}"]`)?.focus(); refocus.current = null;
+  });
   if (items.length < 2) return null;
+  const shown = [...new Set(items.map(p => p.roomId ?? ''))];
+  const move = (room: string, target: string | undefined) => {
+    if (!target || target === room) return;
+    SFX.tick();
+    client.action('com.roomOrder', { order: moveRoom(order, shown, room, target) }).catch(e => { SFX.error(); addNotice('error', (e as Error).message); });
+  };
+  const roomUnder = (y: number) => [...document.querySelectorAll<HTMLElement>('.bar-list-com .vt-list-group[data-room]')]
+    .filter(el => el.getBoundingClientRect().top <= y).at(-1)?.dataset.room;
   const exit = () => comList.set({ open: false });
   const go = (pid: string) => { exit(); goTab(pid); };
   // above the bar, from its left edge
@@ -486,12 +506,23 @@ export function ComTabs() {
     <button ref={button} className={'vt-all' + (open ? ' active' : '')} onClick={() => comList.set(e => ({ open: !e.open }))} title={t('windows.allConversations', { n: items.length, shortcut: LIST_SHORTCUT })}>⋯ {items.length} <FlagMark n={items.filter(p => p.flagged).length} /></button>
     {/* the list steps aside while a close is being confirmed */}
     {open && r && !list.some(w => w.confirm) && createPortal(
-      <div className="bar-list-com" style={{ left: r.left, bottom: innerHeight - r.top + 4, '--gap': `${innerWidth - r.left - 8}px` } as React.CSSProperties}>
+      <div className="bar-list-com" style={{ left: r.left, bottom: innerHeight - r.top + 4, '--gap': `${innerWidth - r.left - 8}px` } as React.CSSProperties}
+        onDragOver={e => { if (!drag) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move'; const over = roomUnder(e.clientY); if (over !== drag.over) setDrag({ ...drag, over }); }}
+        onDrop={e => { if (!drag) return; e.preventDefault(); move(drag.room, roomUnder(e.clientY)); setDrag(null); }}>
         <TabList items={items} group active={current?.active ?? ''} activate={go} close={closeTabs} exit={exit} flag={pid => toggleFlag(tabConversation(pid))} header={(p, before) => {
           // the room once, then whose: their bust and name, a hologram's task in its color
           const o = who(p.group!), task = o?.copy ? copyTask(o.copy) : undefined;
           return <>
-            {p.room !== before?.room && <div className="vt-list-group">{p.room}</div>}
+            {p.roomId !== before?.roomId && <div className={'vt-list-group movable' + (drag?.room === p.roomId ? ' dragging' : drag?.over === p.roomId && drag?.room !== p.roomId ? ' drop-target' : '')}
+              data-room={p.roomId} tabIndex={0} draggable title={t('windows.moveRoom')}
+              onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', p.room ?? ''); setDrag({ room: p.roomId! }); }}
+              onDragEnd={() => setDrag(null)}
+              onKeyDown={e => {
+                const step = !e.shiftKey ? 0 : e.key === 'ArrowUp' || e.key === 'ArrowLeft' ? -1 : e.key === 'ArrowDown' || e.key === 'ArrowRight' ? 1 : 0;
+                if (!step) return;
+                e.preventDefault(); e.stopPropagation(); refocus.current = p.roomId!;
+                move(p.roomId!, shown[shown.indexOf(p.roomId!) + step]);
+              }}>{p.room}</div>}
             {o && <div className={'vt-list-who' + (o.copy ? ' of-copy' : '') + (o.id === talking ? ' current' : '')}><TalkerBust x={o} /><b>{p.who}</b>{task && <TaskMark taskKey={task} />}</div>}
           </>;
         }} />

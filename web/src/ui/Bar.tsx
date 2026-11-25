@@ -6,11 +6,12 @@
 import { Fragment, useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react';
 import { t } from '@shared/language';
 import { terminals, onFront, minimize, askClose as closeTerminal } from './Terminals';
-import { intercoms, type WindowCom, minimizeIntercom, restoreIntercom, sessionPilot, roomTalkers, TalkerRow, ComTabs, withText, openConversation, askClose as closeIntercom, useFlags } from './Dialog';
+import { intercoms, type WindowCom, minimizeIntercom, restoreIntercom, sessionPilot, roomTalkers, TalkerRow, ComTabs, withText, openConversation, askClose as closeIntercom, useFlags, useRoomOrder } from './Dialog';
 import { juego, type DwellerSummary } from './gameState';
 import type { SessionSummary } from '@shared/protocol';
 import { recentFirst, sessionRecency } from '@shared/recent';
 import { flaggedInIntercom } from '@shared/flagged';
+import { byRoomOrder, roomOrderOf } from '@shared/roomOrder';
 import { live } from '../net/client';
 import { Store } from './store';
 import { writing } from '../engine/keyboard';
@@ -26,9 +27,10 @@ const STATE_TEXT: Record<string, string> = { starting: t('windows.starting'), wo
 const URGENCY: Record<string, number> = { waiting: 0, error: 1, working: 2, starting: 2, finished: 3, idle: 4 };
 
 // the intercoms grouped by room: one chip per room, opening the one with the most recent conversation (or the last
-// one in front); its hover list holds one row per intercom panel of the room (its dweller, each hologram)
+// one in front), in the order the Overseer arranged them in the ⋯ N list (shared/roomOrder.ts); its hover list holds
+// one row per intercom panel of the room (its dweller, each hologram)
 type Com = { v: WindowCom; h: DwellerSummary; sess: SessionSummary[] };
-export function comRooms(list: WindowCom[], sessions: Record<string, SessionSummary>, who: (id: string) => DwellerSummary | null | undefined) {
+export function comRooms(list: WindowCom[], sessions: Record<string, SessionSummary>, who: (id: string) => DwellerSummary | null | undefined, order = roomOrderOf(live.get().state?.settings)) {
   const rooms = new Map<string, { room: string; name: string; coms: Com[] }>();
   for (const v of list) {
     const h = who(v.dwellerId); if (!h) continue;
@@ -36,7 +38,7 @@ export function comRooms(list: WindowCom[], sessions: Record<string, SessionSumm
     const g = rooms.get(h.room) ?? { room: h.room, name: h.nameRoom, coms: [] };
     g.coms.push({ v, h, sess }); rooms.set(h.room, g);
   }
-  return [...rooms.values()].map(g => {
+  return byRoomOrder([...rooms.values()], g => g.room, order).map(g => {
     const last = (c: Com) => Math.max(0, ...c.sess.map(s => s.updated));
     const latest = [...g.coms].sort((a, b) => last(b) - last(a) || b.v.z - a.v.z)[0];
     const sess = g.coms.flatMap(c => c.sess.map(s => ({ s, h: c.h }))).sort((a, b) => (URGENCY[a.s.state] ?? 5) - (URGENCY[b.s.state] ?? 5) || recentFirst(sessionRecency(a.s), sessionRecency(b.s)));
@@ -161,7 +163,7 @@ export function Bar() {
   const leave = () => { clearTimeout(timer.current); timer.current = setTimeout(() => setPeek(null), 200); };
   // un clic fuera de la barra la suelta
   useEffect(() => { if (!sel) return; const f = (e: PointerEvent) => { if (!box.current?.contains(e.target as Node)) exit(false); }; addEventListener('pointerdown', f, true); return () => removeEventListener('pointerdown', f, true); }, [!!sel]);
-  const rooms = comRooms(coms, sessions, who);
+  const rooms = comRooms(coms, sessions, who, useRoomOrder());
   // how many COM chips fit: the bar is as wide as its column lets it; the chips are measured in a hidden copy of the row
   useLayoutEffect(() => {
     const m = measured.current, bar = box.current;

@@ -93,7 +93,7 @@ export const FlagMark = ({ on, n }: { on?: boolean; n?: number }) => n ? <span c
 // grupo: with «group by room», tabs of a group sit together under its header; quien: whose it is (another window);
 // borrador: it has unsent text or attachments (DraftMark); queued: messages its conversation has not taken yet (QueuedMark);
 // flagged: marked as pending (FlagMark), undefined where it can't be (not a conversation, or one still starting)
-export interface ItemTab { id: string; name: string; state?: TabState; title?: string; room?: string; task?: string; activity?: string; group?: string; who?: string; draft?: boolean; queued?: number; flagged?: boolean }
+export interface ItemTab { id: string; name: string; state?: TabState; title?: string; room?: string; roomId?: string; task?: string; activity?: string; group?: string; who?: string; draft?: boolean; queued?: number; flagged?: boolean }
 
 // lista: the ⋯ N button and its list in the strip (terminals); intercoms keep theirs in the bar (ComTabs in Dialog.tsx)
 export function Tabs({ items, active, activate, close, onNew, opensThat, list, confirming }: { items: ItemTab[]; active: string; activate: (id: string) => void; close: (ids: string[]) => void; onNew?: () => void; opensThat: string; list?: React.MutableRefObject<(() => void) | null>; confirming?: boolean }) {
