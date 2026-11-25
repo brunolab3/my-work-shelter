@@ -1476,6 +1476,8 @@ html.in-background *, html.in-background *::before, html.in-background *::after 
 .card-pr-compact small { display: inline; flex: none; }
 .card-pr-compact .ci-mark { flex: none; font: 600 .8em var(--t-mono); } .ci-mark.ci-green { color: var(--phosphor); } .ci-mark.ci-red { color: var(--red); } .ci-mark.ci-pending { color: #ffb000; }
 .card-pr-compact .conflicts-mark { flex: none; color: var(--red); }
+.pr-size { color: var(--phosphor-dim); font-family: var(--t-mono); } .pr-size.outsized { color: var(--red); font-weight: 600; }
+.card-pr-compact .pr-size { font-size: .8em; }
 .kanban-expand.compact .kanban-col { min-width: 0; }
 .kanban-expand.compact .task-block-header { margin-bottom: .15em; }
 .order-expand { margin: .4em 0 0; font-size: .9em; }

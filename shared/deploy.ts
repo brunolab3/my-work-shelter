@@ -5,7 +5,7 @@
 // Los PR de una misma tarea en repos distintos sin orden conocido van enlazados («misma tarea»), sin bloquearse.
 // Puro: lo usan el cliente, el servidor y las pruebas.
 import type { PRBoard } from './board';
-import { branchTask, textKey } from './tasks';
+import { branchTask, textKey, pRTask } from './tasks';
 import { t } from './language';
 import { ledgerPending } from './reviewCount';
 
@@ -145,3 +145,29 @@ export function deploymentText(prs: PRBoard[], blockers: Blocker[]): string {
 export function promptDeployment(prs: PRBoard[], blockers: Blocker[]): string {
   return [t('prompt.deploy.title'), '', deploymentText(prs, blockers), '', '---', t('prompt.deploy.steps')].join('\n');
 }
+
+// ---------------------------------------------------------------- size of a PR's diff
+// A PR with the wrong base or head balloons with commits that aren't its own: its size stands out when it is over
+// SIZE_LIMIT changed lines, or over SIZE_FLOOR and SIZE_RATIO times the median of its task's other PRs.
+export const SIZE_LIMIT = 3000, SIZE_FLOOR = 500, SIZE_RATIO = 5;
+/** Lines added plus removed; undefined when GitHub didn't say */
+export const linesOf = (p: Pick<PRBoard, 'additions' | 'deletions'>) => p.additions == null || p.deletions == null ? undefined : p.additions + p.deletions;
+export function outsized(p: PRBoard, prs: PRBoard[]): boolean {
+  const n = linesOf(p);
+  if (n == null) return false;
+  if (n > SIZE_LIMIT) return true;
+  const task = pRTask(p);
+  const others = prs.filter(o => o.url !== p.url && pRTask(o) === task).map(linesOf).filter((x): x is number => x != null).sort((a, b) => a - b);
+  if (!others.length || n <= SIZE_FLOOR) return false;
+  const m = others.length % 2 ? others[others.length >> 1] : (others[others.length / 2 - 1] + others[others.length / 2]) / 2;
+  return n > SIZE_RATIO * Math.max(m, 1);
+}
+const count = (n: number) => n >= 10_000 ? `${Math.round(n / 1000)}k` : n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
+/** «+120 −30» (and «· 4 files» with `files`); empty when GitHub didn't say */
+export function sizeText(p: Pick<PRBoard, 'additions' | 'deletions' | 'changedFiles'>, files = false): string {
+  if (linesOf(p) == null) return '';
+  return `+${count(p.additions!)} −${count(p.deletions!)}` + (files && p.changedFiles != null ? ` · ${t('panels.prSizeFiles', { n: p.changedFiles })}` : '');
+}
+/** The size's tooltip: what it counts and the rule that flags it */
+export const sizeTitle = (p: PRBoard, big: boolean) =>
+  t(big ? 'panels.prSizeOutsized' : 'panels.prSizeTitle', { lines: linesOf(p) ?? 0, files: p.changedFiles ?? '?', limit: SIZE_LIMIT, floor: SIZE_FLOOR, ratio: SIZE_RATIO });

@@ -15,7 +15,8 @@ import { openLink } from './Browsers';
 import { search } from './Search';
 import { jiraBoard, useColorsTasks } from './tasks';
 import { taskColor, taskKey } from '@shared/tasks';
-import { refPR } from '@shared/deploy';
+import { refPR, outsized, sizeText, sizeTitle } from '@shared/deploy';
+import type { PRBoard } from '@shared/board';
 import { linkState, mergeReady, shortRef, type Cell, type PartLink, type PartPreflight, type TaskPreflight } from '@shared/preflight';
 import { deadlineOf, isApproved, KIND_TEXT, STATE_TEXT, type CheckpointState, type TaskTracker, type VerificationPlan } from '@shared/verification';
 import { describeWhenShort } from '@shared/scheduled';
@@ -26,6 +27,14 @@ const STATE: Record<string, string> = { open: 'preflight.blockers.open', draft: 
 
 // the open pre-flight (one at a time) and where it was opened from: the box sits below that, or centred near the top
 const open = new Store<{ key: string | null; anchor?: { x: number; y: number; below: number } }>({ key: null });
+
+// the diff's size, muted; ⚠ and red when out of proportion (shared/deploy.ts: outsized), on the deploy board's cards and the pre-flight's rows
+export function PRSize({ p, prs, files }: { p: PRBoard; prs: PRBoard[]; files?: boolean }) {
+  const text = sizeText(p, files);
+  if (!text) return null;
+  const big = outsized(p, prs);
+  return <small className={'pr-size' + (big ? ' outsized' : '')} title={sizeTitle(p, big)}>{big ? '⚠ ' : ''}{text}</small>;
+}
 
 /** Opens the pre-flight of a task over whatever is open; `desde`: the element it was opened from (the box anchors to it) */
 export function openPreflight(key: string, since?: Element | null) {
@@ -166,7 +175,7 @@ function Popover({ taskKey: key, anchor }: { taskKey: string; anchor?: { x: numb
           const blocker = p.waitsOn.find(l => l.state !== 'merged' && l.url);
           return <tr key={p.id} className={'pf-row' + (n === k ? ' sel' : '') + (ready.state === 'merged' ? ' pf-done' : '')} onMouseEnter={() => setI(n)} onClick={() => openPR(p)} title={t('preflight.cellHint.pr')}>
             <td className={'pf-state pf-' + ready.state} title={ready.missing.join('\n') || t(ready.state === 'merged' ? 'preflight.review.merged' : 'preflight.state.ready')}>{READY[ready.state]}</td>
-            <td className="pf-part" title={`${shortRef(pr)} · ${pr.title}\n${t('preflight.cellHint.pr')}`}><span className="ident">{shortRef(pr)}</span> {pr.title}</td>
+            <td className="pf-part" title={`${shortRef(pr)} · ${pr.title}\n${t('preflight.cellHint.pr')}`}><span className="ident">{shortRef(pr)}</span> <PRSize p={pr} prs={prs.map(x => x.pr!)} /> {pr.title}</td>
             <td className={'pf-cell pf-' + (pr.state === 'draft' ? 'warning' : 'none')}>{t(STATE[pr.state])}</td>
             <CellView c={p.ci} />
             <CellView c={p.review} />

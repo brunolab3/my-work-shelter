@@ -319,7 +319,7 @@ export function github(paths: string[], force = false, connection: { real: boole
 // tareas de demoPanelJira().
 const SEARCH_PRS = (q: string, n: number) => `query {
   prs: search(query: "${q}", type: ISSUE, first: ${n}) { nodes { ... on PullRequest {
-    number title body url isDraft state updatedAt mergedAt reviewDecision mergeable headRefName headRefOid baseRefName repository { nameWithOwner }
+    number title body url isDraft state updatedAt mergedAt reviewDecision mergeable additions deletions changedFiles headRefName headRefOid baseRefName repository { nameWithOwner }
     commits(last: 1) { nodes { commit { statusCheckRollup { state } } } } } } }
 }`;
 const QUERY_PRS = (since: string) => SEARCH_PRS(`is:pr author:@me archived:false updated:>=${since} sort:updated-desc`, 60);
@@ -330,6 +330,7 @@ export function prsOfGitHub(j: any): PRBoard[] {
     review: n.reviewDecision ?? undefined, checks: n.commits?.nodes?.[0]?.commit?.statusCheckRollup?.state ?? undefined, updated: Date.parse(n.updatedAt),
     ...(n.mergedAt ? { mergedAt: Date.parse(n.mergedAt) } : {}),
     conflicts: n.mergeable === 'CONFLICTING' ? true : n.mergeable === 'MERGEABLE' ? false : undefined,
+    ...(typeof n.additions === 'number' && typeof n.deletions === 'number' ? { additions: n.additions, deletions: n.deletions, changedFiles: n.changedFiles ?? undefined } : {}),
     base: n.baseRefName ?? undefined, head: n.headRefOid ?? undefined, dependencies: dependenciesInText(`${n.title ?? ''}\n${n.body ?? ''}`, n.repository?.nameWithOwner ?? ''),
   }));
 }
@@ -344,7 +345,13 @@ export function demoPRsBoard(): PRBoard[] {
     pr(39, 'Nuevo router: rutas anidadas', 'refugio/express', 'REF-219-router', 'merged', 26),
     pr(9, 'Ordenar la lista por temas', 'refugio/awesome', 'ordenar-temas', 'open', 8, 'REVIEW_REQUIRED', 'SUCCESS'),
   ].map(p => ({ ...p, base: p.number === 18 ? 'sesiones-persistentes' : 'main', dependencies: p.number === 42 ? ['refugio/express#39', 'refugio/ripgrep#51'] : [],
+    ...DEMO_SIZES[p.number],
     ...(p.number === 17 ? { ledger: { unresolved: 3, outdated: 1, unansweredSummaries: 1 } } : {}), ...(p.number === 9 ? { conflicts: true } : {}) })));   // #18 stacked on #17; #42 waits for #39 and #51; #17 with reviews to answer; #9 with conflicts
+}
+// lines and files of each demo PR: #18, on its own task with #17, brings in commits that aren't its own (outsized)
+const DEMO_SIZES: Record<number, Pick<PRBoard, 'additions' | 'deletions' | 'changedFiles'>> = {
+  42: { additions: 86, deletions: 12, changedFiles: 4 }, 51: { additions: 240, deletions: 35, changedFiles: 7 }, 17: { additions: 132, deletions: 48, changedFiles: 5 },
+  18: { additions: 4210, deletions: 1873, changedFiles: 96 }, 39: { additions: 410, deletions: 160, changedFiles: 12 }, 9: { additions: 18, deletions: 18, changedFiles: 1 },
 }
 export async function prsBoard(connection: { real: boolean; off?: boolean; token?: string }): Promise<{ prs: PRBoard[]; demo?: boolean; error?: string }> {
   if (connection.off) return { prs: [], error: t('server.git.connectGitHub') };

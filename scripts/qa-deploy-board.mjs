@@ -1,6 +1,7 @@
 // QA of the deploy board's compact view (web/src/ui/Deploy.tsx), with its own server in a test shelter and Playwright:
-// your PRs (git.prsBoard stubbed, as in qa-preflight) in several columns, two of one task; C switches to one line per PR
-// with its ref, a title cut with an ellipsis, CI, the conflicts mark and the ledger counts, the task block and column
+// your PRs (git.prsBoard stubbed, as in qa-preflight) in several columns, two of one task, one of them with an outsized
+// diff (+additions −deletions on every card, ⚠ and its rule in the tooltip on that one); C switches to one line per PR
+// with its ref, a title cut with an ellipsis, the diff's size, CI, the conflicts mark and the ledger counts, the task block and column
 // headers kept; more PRs fit; the choice survives closing and reopening the board; C again goes back.
 // Needs the built client (npx vite build). Usage: node scripts/qa-deploy-board.mjs [screenshots-folder]   (SHELTER_PUERTO_QA, 3795)
 import { chromium } from 'playwright';
@@ -46,8 +47,8 @@ try {
     const ledger = (unresolved, unansweredSummaries) => ({ unresolved, outdated: 0, unansweredSummaries });
     const pr = (repo, number, branch, x = {}) => ({ number, title: `PR ${number}: ${'a rather long title that will not fit on one line of the column '.repeat(2)}`, url: `https://github.com/${repo}/pull/${number}`, repo, branch, state: 'open', updated: number, base: 'main', ...x });
     const prs = [
-      pr('acme/api', 1, 'QA-1-a', { checks: 'SUCCESS', review: 'REVIEW_REQUIRED', conflicts: false }),
-      pr('acme/web', 2, 'QA-1-b', { checks: 'FAILURE', review: 'REVIEW_REQUIRED', conflicts: true, ledger: ledger(2, 1) }),
+      pr('acme/api', 1, 'QA-1-a', { checks: 'SUCCESS', review: 'REVIEW_REQUIRED', conflicts: false, additions: 120, deletions: 30, changedFiles: 4 }),
+      pr('acme/web', 2, 'QA-1-b', { checks: 'FAILURE', review: 'REVIEW_REQUIRED', conflicts: true, ledger: ledger(2, 1), additions: 2400, deletions: 300, changedFiles: 61 }),
       pr('acme/api', 3, 'QA-2-x', { checks: 'PENDING', review: 'CHANGES_REQUESTED', ledger: ledger(1, 0) }),
       pr('acme/api', 4, 'QA-3-y', { state: 'draft' }),
       pr('acme/api', 5, 'QA-4-z', { state: 'merged' }),
@@ -61,6 +62,12 @@ try {
   check(await until(async () => (await pg.$$('.card-pr')).length === 15), 'the board shows the 15 PRs');
   check((await pg.$$('.card-pr-compact')).length === 0, 'normal view by default');
   const height = () => pg.$$eval('.kanban-col', l => Math.max(...l.map(e => e.scrollHeight)));
+  const size = u => pg.$eval(`[data-pr="${u}"]`, e => { const s = e.querySelector('.pr-size'); return { text: s?.textContent, big: s?.classList.contains('outsized'), card: e.title }; });
+  const s1 = await size('https://github.com/acme/api/pull/1'), s2 = await size('https://github.com/acme/web/pull/2');
+  check(/^\+120 −30 · 4 (files|fich\.)$/.test(s1.text) && !s1.big, `api#1 shows its size, muted (${s1.text})`);
+  check(/^⚠ \+2\.4k −300 · 61 (files|fich\.)$/.test(s2.text) && s2.big && /Out-of-proportion|desproporcionado/.test(s2.card), `web#2, far above its task's other PR, is flagged and its card says why (${s2.text})`);
+  check(!(await size('https://github.com/acme/api/pull/4')).text, 'no size when GitHub did not give one');
+  await (await pg.$('.task-block.several')).screenshot({ path: path.join(dir, 'deploy-size.png'), animations: 'disabled' });
   const h0 = await height();
   await pg.waitForTimeout(400); await pg.screenshot({ path: path.join(dir, 'deploy-normal.png'), animations: 'disabled' });
 
@@ -71,6 +78,7 @@ try {
   check(rows.every(r => r.cut), 'the long titles cut with an ellipsis');
   const two = rows.find(r => r.text.includes('web#2'));
   check(/CI ✗/.test(two?.text) && /⚠/.test(two?.text) && /💬 2/.test(two?.text) && /✉ 1/.test(two?.text) && /PR 2/.test(two?.text), `web#2 has red CI, conflicts and the ledger (${two?.text})`);
+  check(/⚠ \+2\.4k −300/.test(two?.text) && /\+120 −30/.test(rows.find(r => r.text.includes('api#1'))?.text), 'the compact rows keep the size and its flag');
   check(/CI ✓/.test(rows.find(r => r.text.includes('api#1'))?.text) && /CI …/.test(rows.find(r => r.text.includes('api#3'))?.text), 'green and pending CI');
   check(!/CI/.test(rows.find(r => r.text.includes('api#5'))?.text), 'no CI on a merged PR');
   check(await pg.$$eval('.task-block.several .task-block-header', l => l.some(e => /QA-1/.test(e.textContent))), 'the QA-1 task block keeps its header');

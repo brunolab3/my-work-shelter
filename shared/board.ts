@@ -26,6 +26,7 @@ export interface PRBoard {
   base?: string;               // la rama sobre la que va (si es la de otro PR, va apilado encima: shared/deploy.ts)
   dependencies?: string[];
   conflicts?: boolean;        // GitHub's mergeable: true = conflicts with its base, false = mergeable, undefined = still computing
+  additions?: number; deletions?: number; changedFiles?: number;   // its diff against its base, from GitHub (size: shared/deploy.ts)
   ledger?: ReviewLedger;       // lo que queda por contestar en sus revisiones (shared/reviewCount.ts; solo los abiertos)     // los PR («org/repo#N», o «rama:<rama>» si los nombra por su rama) de los que dice depender su descripción
 }
 export interface TaskWithPR extends TaskJira { prs: PRBoard[] }

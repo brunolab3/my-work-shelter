@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { blockersBetween, deploymentColumn, dependenciesInText, taskLinks, deployWaves, promptDeployment } from './deploy';
+import { blockersBetween, outsized, sizeText, SIZE_LIMIT, deploymentColumn, dependenciesInText, taskLinks, deployWaves, promptDeployment } from './deploy';
 import type { PRBoard } from './board';
 
 const pr = (number: number, extra: Partial<PRBoard> = {}): PRBoard =>
@@ -95,5 +95,23 @@ describe('misma tarea en repos distintos', () => {
     const text = promptDeployment([withReviews, clean], []);
     expect(text).toContain('o/r#1 «PR 1» · review · revisiones por contestar: 3 hilos sin resolver, 1 resúmenes sin respuesta');
     expect(text.split('\n').find(l => l.includes('o/r#2'))).not.toContain('revisiones por contestar');
+  });
+});
+
+describe('size of a PR', () => {
+  const sized = (number: number, branch: string, additions: number, deletions: number) => pr(number, { branch, additions, deletions, changedFiles: 3 });
+  it('flags one far above its task\'s other PRs, or above the fixed limit; small ones and unknown sizes never', () => {
+    const a = sized(1, 'ABC-1-a', 120, 30), b = sized(2, 'ABC-1-b', 80, 20), wrong = sized(3, 'ABC-1-c', 1400, 200), other = sized(4, 'ABC-2-x', 2000, 900);
+    const prs = [a, b, wrong, other];
+    expect(prs.map(p => outsized(p, prs))).toEqual([false, false, true, false]);   // 1600 > 5 × median(150, 100); ABC-2 alone, under the limit
+    expect(outsized(sized(5, 'ABC-3-x', SIZE_LIMIT, 1), [])).toBe(true);
+    const tiny = [sized(6, 'ABC-4-a', 2, 0), sized(7, 'ABC-4-b', 400, 50)];
+    expect(outsized(tiny[1], tiny)).toBe(false);   // 450: under the floor, however small the others
+    expect(outsized(pr(8, { branch: 'ABC-1-d' }), prs)).toBe(false);
+  });
+  it('reads +additions −deletions, thousands shortened, files on request; nothing when GitHub didn\'t say', () => {
+    expect(sizeText({ additions: 120, deletions: 30, changedFiles: 4 })).toBe('+120 −30');
+    expect(sizeText({ additions: 4210, deletions: 18730, changedFiles: 96 }, true)).toMatch(/^\+4\.2k −19k · 96 /);
+    expect(sizeText({})).toBe('');
   });
 });

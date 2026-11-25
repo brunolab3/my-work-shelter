@@ -11,11 +11,11 @@ import { goA } from './Panels';
 import { openLink } from './Browsers';
 import { type PRBoard } from '@shared/board';
 import { trTextPR } from './Operations';
-import { openPreflight } from './Preflight';
+import { openPreflight, PRSize } from './Preflight';
 import { taskColor, pRTask } from '@shared/tasks';
 import { knowTasks, useColorsTasks, verificationMark } from './tasks';
 import { ledgerPending, type ReviewLedger } from '@shared/reviewCount';
-import { DEPLOYMENT_COLUMNS, blockersBetween, deploymentColumn, taskLinks, deployWaves, promptDeployment, refPR, type Blocker, type BlockerManual, type TaskOrder } from '@shared/deploy';
+import { DEPLOYMENT_COLUMNS, blockersBetween, deploymentColumn, taskLinks, deployWaves, promptDeployment, refPR, outsized, sizeText, sizeTitle, type Blocker, type BlockerManual, type TaskOrder } from '@shared/deploy';
 
 const REASON: Record<Blocker['reason'], string> = { stack: 'apilado', text: 'lo dice el PR', plan: 'el plan de la tarea', manual: 'marcado aquí' };
 type DataGH = { prs: PRBoard[]; demo?: boolean; error?: string };
@@ -186,18 +186,20 @@ export function DeploymentBoard({ roomId, goBack }: { roomId: string; goBack: ()
                 onMouseEnter: () => { setCol(ci); setI(k); }, onClick: () => { if (marking) mark(marking, p.url); }, onDoubleClick: () => !marking && openLink(p.url),
               };
               if (compact) return (
-                <div key={p.url} {...cardProps} title={`${refPR(p)} · ${p.title} · ${trTextPR(p)}`}>
+                <div key={p.url} {...cardProps} title={`${refPR(p)} · ${p.title} · ${trTextPR(p)}` + (sizeText(p) ? `\n${sizeTitle(p, outsized(p, prs))}` : '')}>
                   <span className="mark-task" title={pRTask(p)} /><span className="ident">{short(p)}</span>
                   <span className="compact-title">{p.title}</span>
+                  <PRSize p={p} prs={prs} />
                   <CIMark p={p} />
                   {p.state !== 'merged' && p.state !== 'closed' && p.conflicts && <span className="conflicts-mark" title={t('preflight.conflicts.yes')}>⚠</span>}
                   {p.state !== 'merged' && p.state !== 'closed' && ledgerPending(p.ledger) && <Ledger l={p.ledger!} counts />}
                 </div>
               );
               return (
-                <div key={p.url} {...cardProps} title={`${refPR(p)} · ${trTextPR(p)}`}>
+                <div key={p.url} {...cardProps} title={`${refPR(p)} · ${trTextPR(p)}` + (sizeText(p) ? `\n${sizeTitle(p, outsized(p, prs))}` : '')}>
                   <span className="mark-task" title={pRTask(p)} /><span className="ident">{short(p)}</span>{wave.has(p.url) && <span className="wave" title={t('panels.deploymentWaveGoesAfterThe')}>{t('panels.waveN', { n: wave.get(p.url) ?? 0 })}</span>} {p.title}
                   <small className="dim">{trTextPR(p)}</small>
+                  <PRSize p={p} prs={prs} files />
                   {p.state === 'merged' && verificationMark(pRTask(p), refPR(p)) && <small className="dim" title={t('verification.title')}>{verificationMark(pRTask(p), refPR(p))}</small>}
                   {p.state !== 'merged' && p.state !== 'closed' && ledgerPending(p.ledger) && <Ledger l={p.ledger!} />}
                   {waits.length > 0 && <small className={pending.length ? 'wait' : 'dim'}>⛔ {t('panels.waitsFor')} {waits.map(b => <span key={b.by} title={tIs(REASON[b.reason])}>{short(byUrl.get(b.by)!)}{byUrl.get(b.by)?.state === 'merged' ? ' ✓' : ''} </span>)}</small>}

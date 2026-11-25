@@ -158,12 +158,13 @@ describe('PR del tablero de Logística', () => {
   it('estado, revisión, CI y rama de cada PR; sin GitHub, DEMO que cruza con las tareas de demo de Jira', async () => {
     const node = (number: number, state: string, isDraft: boolean, extra: any = {}) => ({ number, title: 'PR ' + number, url: 'https://github.com/o/r/pull/' + number, isDraft, state, updatedAt: '2026-11-08T10:00:00Z', reviewDecision: null, headRefName: 'ABC-' + number, repository: { nameWithOwner: 'o/r' }, commits: { nodes: [] }, ...extra });
     const prs = G.prsOfGitHub({ data: { prs: { nodes: [
-      node(1, 'OPEN', false, { reviewDecision: 'APPROVED', mergeable: 'MERGEABLE', commits: { nodes: [{ commit: { statusCheckRollup: { state: 'SUCCESS' } } }] } }),
+      node(1, 'OPEN', false, { reviewDecision: 'APPROVED', mergeable: 'MERGEABLE', additions: 10, deletions: 2, changedFiles: 1, commits: { nodes: [{ commit: { statusCheckRollup: { state: 'SUCCESS' } } }] } }),
       node(2, 'OPEN', true, { mergeable: 'CONFLICTING' }), node(3, 'MERGED', false, { mergeable: 'UNKNOWN' }), node(4, 'CLOSED', false), {},
     ] } } });
     expect(prs.map(p => [p.number, p.state, p.review, p.checks, p.branch, p.conflicts])).toEqual([
       [1, 'open', 'APPROVED', 'SUCCESS', 'ABC-1', false], [2, 'draft', undefined, undefined, 'ABC-2', true], [3, 'merged', undefined, undefined, 'ABC-3', undefined], [4, 'closed', undefined, undefined, 'ABC-4', undefined],
     ]);
+    expect([prs[0].additions, prs[0].deletions, prs[0].changedFiles, prs[1].additions]).toEqual([10, 2, 1, undefined]);
     const demo = await G.prsBoard({ real: false });
     expect(demo.demo).toBe(true);
     const { demoPanelJira } = await import('./integrations/demo.ts');
@@ -171,5 +172,7 @@ describe('PR del tablero de Logística', () => {
     const crossing = crossBoard(demoPanelJira().tareas, demo.prs);
     expect(crossing.prs.filter(p => p.tareas.length).length).toBeGreaterThanOrEqual(4);
     expect(crossing.withoutTask.map(p => p.number)).toEqual([9]);
+    const { outsized } = await import('../shared/deploy.ts');
+    expect(demo.prs.filter(p => outsized(p, demo.prs)).map(p => p.number)).toEqual([18]);   // every demo PR has a size; #18 stands out
   });
 });
