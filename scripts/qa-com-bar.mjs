@@ -1,7 +1,7 @@
 // QA of the bar's COM row when many rooms have conversations: compact chips (room · state · count, who and what in the
 // title) and the «+N» chip for those that don't fit, the waiting ones kept in view and the row sticky when switching
 // conversations; its list and each chip's hover, one row per dweller or hologram (bust, name, state; no conversations),
-// the one a click opens selected; the ⋯ N list headed by whose the tabs are; the keyboard goes through them all.
+// the open one selected (else the one a click opens); the ⋯ N list headed by whose the tabs are; the keyboard goes through them all.
 // Conversations are made up in the page (nothing reaches Claude Code).
 // Uso: SHELTER_DATOS=… node scripts/qa-com-bar.mjs <url> [carpeta-capturas]   (a test shelter with several rooms)
 import { chromium } from 'playwright';
@@ -76,14 +76,14 @@ await wait(300);
 const hidden = await pg.evaluate(() => { const v = new Set([...document.querySelectorAll('.bar-row.com > .chip-terminal:not(.barra-mas)')].map(x => x.title.split(':')[0])); return window.__game.get().dwellers.find(h => !h.robot && !v.has(h.nameRoom) && window.__intercoms.get().list.some(w => w.dwellerId === h.id)); });
 check(!!hidden, 'a hidden room to give a hologram');
 if (hidden) {
-  await pg.evaluate(h => {
-    const id = 'holo:/tmp/shelter-qa-task--x1';
-    const copy = { ...h, id, copy: { path: '/tmp/shelter-qa-task--x1', branch: 'qa-task', authorId: h.id, nameAuthor: h.name, nicknameAuthor: h.nickname, changes: 0, advanced: 0 } };
+  const copyOf = { ...hidden, id: 'holo:/tmp/shelter-qa-task--x1', copy: { path: '/tmp/shelter-qa-task--x1', branch: 'qa-task', authorId: hidden.id, nameAuthor: hidden.name, nicknameAuthor: hidden.nickname, changes: 0, advanced: 0 } };
+  await pg.evaluate(([h, copy]) => {
+    const id = copy.id;
     window.__game.set(e => ({ ...e, copies: [...e.copies, copy] }));
     // its intercom before its session, or the game opens one for it first
     window.__intercoms.set(e => ({ list: [...e.list, { dwellerId: id, tabs: [{ id: 'qph', view: { type: 'session', sessionId: 'qah' } }], active: 'qph', maximized: false, z: 99, known: [] }] }));
     window.__live.set(e => ({ ...e, sessions: { ...e.sessions, qah: { id: 'qah', dwellerId: id, roomId: h.room, cwd: '/tmp/shelter-qa-task--x1', state: 'waiting', unread: false, title: 'Hologram', pending: 0, helpers: [], tools: 0, turns: 1, updated: Date.now() } } }));
-  }, hidden);
+  }, [hidden, copyOf]);
   await wait(300);
   await pg.hover('.bar-row.com > .barra-mas'); await wait(500);
   const rows = await pg.evaluate(() => [...document.querySelectorAll('.peek-bar-more .bar-peek-row')].map(x => ({ copy: x.classList.contains('of-copy'), text: x.textContent })));
@@ -95,6 +95,29 @@ if (hidden) {
   check(all.who.length === hs.length + 1 && all.who.every(x => x.bust), `⋯ N: one header with a bust per dweller or hologram (${all.who.length}) over its ${all.rows} tabs`);
   check(all.who.filter(x => x.task).length === 1 && all.who.find(x => x.task)?.copy, '⋯ N: the hologram\'s header carries its task');
   await pg.screenshot({ path: `${dir}/qa-barra-com-todas.png` });
+  // with the dweller's intercom open, not the room's most urgent talker (the waiting hologram): the open one is marked,
+  // in its room's chip hover and in the selector above the portrait, also once the rows re-sort
+  await pg.keyboard.press('Escape'); await pg.mouse.move(400, 100); await wait(300);
+  await pg.evaluate(id => window.__game.set({ talkingWith: id }), hidden.id); await wait(500);
+  const chip = await pg.evaluate(n => [...document.querySelectorAll('.bar-row.com > .chip-terminal:not(.barra-mas)')].findIndex(x => x.title.startsWith(n + ':')), hidden.nameRoom);
+  await pg.hover(chip >= 0 ? `.bar-row.com > .chip-terminal:not(.barra-mas) >> nth=${chip}` : '.bar-row.com > .barra-mas'); await wait(400);
+  const peek = await pg.evaluate(() => [...document.querySelectorAll('.peek-bar .bar-peek-row')].filter(x => x.classList.contains('sel') || x.classList.contains('current')).map(x => ({ name: x.querySelector('b')?.textContent, sel: x.classList.contains('sel'), current: x.classList.contains('current') })));
+  check(peek.length === 1 && peek[0].sel && peek[0].current && peek[0].name === hidden.name, `the room's hover list marks the open intercom, ${hidden.name}: ${JSON.stringify(peek)}`);
+  await pg.mouse.move(400, 100); await wait(300);
+  const marked = () => pg.$$eval('.console .console-who-list .bar-peek-row', l => l.map(x => ({ name: x.querySelector('b')?.textContent, sel: x.classList.contains('sel'), current: x.classList.contains('current') })));
+  await pg.click('.console .console-who > .chip-terminal'); await wait(300);
+  const w0 = await marked();
+  check(w0.length === 2 && w0.findIndex(x => x.sel) === w0.findIndex(x => x.current) && w0.find(x => x.sel)?.name === hidden.name, `the who selector marks the open one: ${JSON.stringify(w0)}`);
+  // the dweller's conversation turns waiting and newest, so it sorts first (the made-up hologram is given back if a refresh dropped it)
+  await pg.evaluate(([id, copy]) => {
+    const sid = window.__intercoms.get().list.find(w => w.dwellerId === id).tabs[0].view.sessionId;
+    window.__live.set(e => ({ ...e, sessions: { ...e.sessions, [sid]: { ...e.sessions[sid], state: 'waiting', updated: Date.now() + 1000 } } }));
+    if (!window.__game.get().copies.some(c => c.id === copy.id)) window.__game.set(e => ({ ...e, copies: [...e.copies, copy] }));
+  }, [hidden.id, copyOf]);
+  await wait(300);
+  const w1 = await marked();
+  check(w1.length === 2 && w1[0].name === hidden.name && w1[0].sel && !w1[1].sel, `and keeps it marked when the rows re-sort: ${JSON.stringify(w1)}`);
+  await pg.screenshot({ path: `${dir}/qa-barra-com-abierto.png` });
 }
 check(!errors.length, 'no page errors' + (errors.length ? ': ' + errors.join(' | ') : ''));
 await b.close();

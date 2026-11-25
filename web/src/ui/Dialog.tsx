@@ -386,7 +386,8 @@ function WhoSelector({ h }: { h: DwellerSummary }) {
   const sessions = live.use(e => e.sessions);
   const flags = useFlags();
   const [open, setOpen] = useState(false);
-  const [sel, setSel] = useState(0);
+  // the row the keyboard or the pointer is on, by talker (the list re-sorts as states change); none: the open one
+  const [selId, setSelId] = useState<string | null>(null);
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
@@ -396,6 +397,7 @@ function WhoSelector({ h }: { h: DwellerSummary }) {
   const talkers = roomTalkers(h.room, dwellers, copies, list, sessions, flags);
   if (!talkers.length) return null;
   const me = talkers.find(q => q.x.id === h.id) ?? talkers[0];
+  const sel = Math.max(0, talkers.findIndex(q => q.x.id === (selId ?? me.x.id)));
   // the others with something for you (waiting, unread, failed or marked as pending), most urgent first, pending after
   // waiting: the chip says so while closed, in the colour of the first
   const toReview = talkers.filter(q => q !== me && (q.state === 'waiting' || q.state === 'unread' || q.state === 'error' || q.flagged))
@@ -409,13 +411,13 @@ function WhoSelector({ h }: { h: DwellerSummary }) {
     const pid = q.first && list.find(w => w.dwellerId === q.x.id)?.tabs.find(p => p.view.type === 'session' && p.view.sessionId === q.first!.id)?.id;
     if (pid) goTab(pid); else restoreIntercom(q.x.id);
   };
-  const openTarget = () => { setSel(Math.max(0, talkers.indexOf(me))); setOpen(x => !x); };
+  const openTarget = () => { setSelId(null); setOpen(x => !x); };
   const key = (e: React.KeyboardEvent) => {
     e.stopPropagation();
     if (!open) return;
     if (e.key === 'Escape') { e.preventDefault(); setOpen(false); }
-    else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); setSel(i => (i + (e.key === 'ArrowDown' ? 1 : -1) + talkers.length) % talkers.length); }
-    else if (e.key === 'Enter') { e.preventDefault(); pick(talkers[Math.min(sel, talkers.length - 1)]); }
+    else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); setSelId(talkers[(sel + (e.key === 'ArrowDown' ? 1 : -1) + talkers.length) % talkers.length].x.id); }
+    else if (e.key === 'Enter') { e.preventDefault(); pick(talkers[sel]); }
   };
   return (
     <div className="console-who" ref={box} onKeyDown={key}>
@@ -432,7 +434,7 @@ function WhoSelector({ h }: { h: DwellerSummary }) {
       {open && !list.some(w => w.confirm) && (
         <div className="peek-bar console-who-list" role="listbox" aria-label={t('windows.talkToSomeoneElse')}
           style={{ '--gap': `${room(box.current)}px` } as React.CSSProperties}>
-          {talkers.map((q, i) => <TalkerRow key={q.x.id} q={q} current={q === me} sel={i === sel} option onClick={() => pick(q)} onMouseEnter={() => setSel(i)} />)}
+          {talkers.map(q => <TalkerRow key={q.x.id} q={q} current={q === me} sel={talkers[sel] === q} option onClick={() => pick(q)} onMouseEnter={() => setSelId(q.x.id)} />)}
         </div>
       )}
     </div>

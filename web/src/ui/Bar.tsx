@@ -213,11 +213,12 @@ export function Bar() {
     );
   };
   // who a room's hover and «+N» lists show: one row per open intercom panel (its dweller, each hologram), as the selector
-  // above the portrait, with the one its chip opens (the most important) selected
+  // above the portrait, with the one open now selected, or else the one its chip opens (the most important)
   const talkersOf = (g: (typeof rooms)[number]) => roomTalkers(g.room, dwellers, copies, coms, sessions, flags).filter(q => g.coms.some(c => c.v.dwellerId === q.x.id));
-  const opener = (g: (typeof rooms)[number]) => (g.aTi?.h ?? g.latest.h).id;
+  const isOpen = (g: (typeof rooms)[number]) => g.coms.some(c => c.v.dwellerId === talking);
+  const selected = (g: (typeof rooms)[number]) => isOpen(g) ? talking : (g.aTi?.h ?? g.latest.h).id;
   const talkerRows = (g: (typeof rooms)[number], sel: boolean) => talkersOf(g).map(q => (
-    <TalkerRow key={q.x.id} q={q} current={q.x.id === talking} sel={sel && q.x.id === opener(g)}
+    <TalkerRow key={q.x.id} q={q} current={q.x.id === talking} sel={sel && q.x.id === selected(g)}
       onClick={() => { setPeek(null); if (q.x.id !== talking) restoreIntercom(q.x.id); }} />
   ));
   return (
@@ -250,7 +251,7 @@ export function Bar() {
           <div className="peek-bar peek-bar-more" style={{ right: innerWidth - r.right, bottom: innerHeight - r.top + 4, '--gap': `${r.right - 8}px` } as React.CSSProperties} onMouseEnter={keep} onMouseLeave={leave}>
             {hidden.map((g, j) => <Fragment key={g.room}>
               <div className="peek-bar-group">{g.name}</div>
-              {talkerRows(g, hidden.some((_, k) => marked(0, views.length + k)) ? marked(0, views.length + j) : j === 0)}
+              {talkerRows(g, hidden.some((_, k) => marked(0, views.length + k)) ? marked(0, views.length + j) : hidden.some(isOpen) ? isOpen(g) : j === 0)}
             </Fragment>)}
           </div>
         );

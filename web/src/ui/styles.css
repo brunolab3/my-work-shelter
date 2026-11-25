@@ -733,6 +733,8 @@ span.vt-list-mark { cursor: default; }
 .chip-terminal .mark-draft { margin-right: 0; }
 .mark-queue { flex: none; font-weight: 600; font-size: .9em; color: var(--amber); }
 .mark-pending { flex: none; font-weight: 600; font-size: .9em; color: var(--pending); }
+/* the talker whose intercom is open now: a green bar on its left edge, whichever row is selected */
+.bar-peek-row.current { box-shadow: inset 3px 0 0 #5dff8a; }
 .bar-peek-row.current b { color: #b9ffcf; }
 .bar-peek-row.of-copy b { color: #58e6ff; }
 .vt-body { position: relative; flex: 1; min-height: 0; padding: 4px 6px 6px; background: #06120c; }
