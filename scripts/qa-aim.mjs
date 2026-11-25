@@ -21,7 +21,7 @@ const wait = ms => pg.waitForTimeout(ms);
 let failures = 0;
 const check = (ok, text) => { console.log((ok ? 'OK   ' : 'FALLO ') + text); if (!ok) failures++; };
 const until = async (f, ms = 8000) => { const t = Date.now(); while (Date.now() - t < ms) { if (await f()) return true; await wait(150); } return false; };
-const signs = () => pg.evaluate(() => [...document.querySelectorAll('#etiquetas .label')].map(e => e.textContent));
+const signs = () => pg.evaluate(() => [...document.querySelectorAll('#labels .label')].map(e => e.textContent));
 // el centro en pantalla de la primera zona de un aparato (o de su columna, si la sala no la mide)
 const center = (roomId, id) => pg.evaluate(([roomId, id]) => {
   const r = window.__shelter, s = r.rooms.find(x => x.id === roomId), it = s.interactive.find(i => i.id === id);

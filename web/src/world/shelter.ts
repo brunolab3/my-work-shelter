@@ -826,6 +826,8 @@ export class Shelter {
   private mouse: THREE.Vector2 | null = null;
   private cameraDragging = () => false;
   aimed: { type: 'dweller'; h: Dweller } | { type: 'copy'; f: Copy } | { type: 'device'; room: Room; it: Interactive; view?: string } | { type: 'row'; room: Room; row: ShownRow; pos: THREE.Vector3 } | { type: 'elevator'; floor: number } | null = null;
+  // the hologram under the pointer even when it can't be aimed (the one being talked to): hovering it shows its full tag
+  private overCopy: Copy | null = null;
   private ndc(e: PointerEvent) {
     const r = this.motor.renderer.domElement.getBoundingClientRect();
     return new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
@@ -948,6 +950,7 @@ export class Shelter {
     if (this.cameraDragging()) return;
     const a = this.mouse && !j.panel && this.supervisor && !this.mounted ? this.log(this.mouse) : null;
     // con una charla abierta solo cuentan otro interlocutor (el clic cambia de charla) y los aparatos; lo demás no hace nada
+    this.overCopy = a?.type === 'copy' ? a.f : null;
     const other = a && (a.type === 'device' || a.type === 'row' || (a.type === 'dweller' && a.h !== this.focused) || (a.type === 'copy' && a.f !== this.copyFocused));
     const newer = a && a.type !== 'floor' && (!j.talkingWith || other) ? a : null;
     const same = (x: typeof this.aimed, y: typeof this.aimed) => x === y || (!!x && !!y && x.type === y.type && (x.type === 'dweller' ? x.h === (y as any).h : x.type === 'copy' ? x.f === (y as any).f : x.type === 'elevator' ? x.floor === (y as any).floor : x.type === 'row' ? x.room === (y as any).room && x.row.path === (y as any).row.path : x.it === (y as any).it));
@@ -1163,7 +1166,9 @@ export class Shelter {
     const overTag = pointer && canvas ? this.labels.at(canvas.left + (pointer.x + 1) / 2 * canvas.width, canvas.top + (1 - pointer.y) / 2 * canvas.height) : undefined;
     if (pointer) this.ray.setFromCamera(pointer, this.motor.camera);
     const overHelper = (pointer ? this.helpers.at(this.ray.ray) : undefined) ?? overTag;
-    items.push(...this.holograms.labels(farSide, this.nearby, aimC, overTag).filter(x => Math.abs(x.pos.x - this.camera.goal.x) < this.camera.distance * 0.45 && Math.abs(x.pos.y - this.camera.goal.y) < this.camera.distance * 0.3));
+    // in a chat no hologram is picked (the one talked to would always show its full tag): only hovering one expands it
+    const chatting = !!(this.focused || this.copyFocused);
+    items.push(...this.holograms.labels(farSide, chatting ? null : this.nearby, aimC, chatting ? overTag ?? this.overCopy ?? undefined : overTag).filter(x => Math.abs(x.pos.x - this.camera.goal.x) < this.camera.distance * 0.45 && Math.abs(x.pos.y - this.camera.goal.y) < this.camera.distance * 0.3));
     items.push(...this.helpers.labels(overHelper).filter(x => Math.abs(x.pos.x - this.camera.goal.x) < this.camera.distance * 0.45 && Math.abs(x.pos.y - this.camera.goal.y) < this.camera.distance * 0.3));
     items.push({ k: this.supervisor, pos: this.supervisor.headPoint(), height: 0.2, name: nearDevice ? nearDevice.it.text : tx('world.you'), state: 'idle', detail: '', near: !!nearDevice, farSide, prompt: nearDevice ? tx('world.use') : '', supervisor: true });
     // el aparato apuntado con el ratón (si no es el que ya está a mano), encima de su sitio
@@ -1175,8 +1180,8 @@ export class Shelter {
     // de lejos solo se rotula lo que pide atención (te espera, terminó sin leer, avería) y a ti
     // (and each hologram's task: which task every worktree is)
     if (farSide) for (let i = items.length - 1; i >= 0; i--) if (!items[i].supervisor && !items[i].aimed && !items[i].task && !['waiting', 'finished', 'error'].includes(items[i].state)) items.splice(i, 1);
-    // in a chat only the holograms' tags stay, as their glyph and task: the conversation's framing is not covered
-    if (this.focused || this.copyFocused) for (let i = items.length - 1; i >= 0; i--) if (items[i].task) { items[i].farSide = true; items[i].aimed = false; items[i].prompt = ''; } else items.splice(i, 1);
+    // in a chat only the holograms' tags stay, as their glyph and task (the full one while hovered): the conversation's framing is not covered
+    if (chatting) for (let i = items.length - 1; i >= 0; i--) if (items[i].task) items[i].prompt = ''; else items.splice(i, 1);
     const covered = !!juego.get().panel;
     this.labels.root.style.visibility = covered ? 'hidden' : '';
     if (!covered) this.labels.update(this.motor.camera, items);
