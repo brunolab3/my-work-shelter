@@ -1459,6 +1459,15 @@ html.in-background *, html.in-background *::before, html.in-background *::after 
 .card-pr.blocks-sel { outline: 1px solid var(--red); }
 .card-pr.wait-sel { outline: 1px solid #ffb000; }
 .card-pr.marking { outline: 2px dashed #ffb000; }
+/* compact view (C): one line per PR, the title cut with an ellipsis */
+.card-pr-compact { display: flex; align-items: center; gap: .4em; padding: .15em .45em; margin-bottom: .2em; white-space: nowrap; }
+.card-pr-compact .mark-task, .card-pr-compact .ident { flex: none; }
+.card-pr-compact .compact-title { flex: 1; min-width: 3em; overflow: hidden; text-overflow: ellipsis; }
+.card-pr-compact small { display: inline; flex: none; }
+.card-pr-compact .ci-mark { flex: none; font: 600 .8em var(--t-mono); } .ci-mark.ci-green { color: var(--phosphor); } .ci-mark.ci-red { color: var(--red); } .ci-mark.ci-pending { color: #ffb000; }
+.card-pr-compact .conflicts-mark { flex: none; color: var(--red); }
+.kanban-expand.compact .kanban-col { min-width: 0; }
+.kanban-expand.compact .task-block-header { margin-bottom: .15em; }
 .order-expand { margin: .4em 0 0; font-size: .9em; }
 /* pre-flight of a task (Preflight.tsx): a small box over whatever is open; the veil only catches the click that closes it */
 .pf-veil { position: fixed; inset: 0; z-index: 260000; background: transparent; }

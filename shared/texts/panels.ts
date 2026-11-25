@@ -722,6 +722,8 @@ export const PANELS: Record<string, LocalizedText> = {
   'panels.removeTheMarked': { es: 'quitar lo marcado', en: 'remove the marked' },
   'panels.hideMerged': { es: 'ocultar fusionados', en: 'hide merged' },
   'panels.showMerged': { es: 'ver fusionados', en: 'show merged' },
+  'panels.compactView': { es: 'vista compacta', en: 'compact view' },
+  'panels.normalView': { es: 'vista normal', en: 'normal view' },
   'panels.deploymentPlan': { es: 'plan de despliegue', en: 'deployment plan' },
   'panels.cancel': { es: 'cancelar', en: 'cancel' },
   'panels.organizeTheRoomByTasks': { es: 'ORGANIZAR LA SALA POR TAREAS', en: 'ORGANIZE THE ROOM BY TASKS' },

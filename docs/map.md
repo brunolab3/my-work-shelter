@@ -86,7 +86,7 @@ Finished tasks (`server/taskCleanup.ts`, every 5 minutes with GitHub connected):
 
 ## Deployment plan
 
-Deployment plan (`web/src/ui/Deploy.tsx`, `shared/deploy.ts`, Logistics' big screen in `web/src/world/rooms/deploy.ts`; manual blockers in `server/prBlocks.ts`). Details: `docs/integrations-usage.md` ("Logistics, tasks and PRs").
+Deployment plan (`web/src/ui/Deploy.tsx`, `shared/deploy.ts`, Logistics' big screen in `web/src/world/rooms/deploy.ts`; manual blockers in `server/prBlocks.ts`). A compact view (C or its button, remembered with the board's other settings; normal by default) puts each PR on one line: ref, title cut with an ellipsis, CI, the conflicts mark and the ledger counts (💬 ✉), keeping the task blocks and column headers. Details: `docs/integrations-usage.md` ("Logistics, tasks and PRs"). QA: `scripts/qa-deploy-board.mjs`.
 
 ## Pre-flight of a task
 

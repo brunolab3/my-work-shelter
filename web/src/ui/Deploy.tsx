@@ -19,7 +19,7 @@ import { DEPLOYMENT_COLUMNS, blockersBetween, deploymentColumn, taskLinks, deplo
 
 const REASON: Record<Blocker['reason'], string> = { stack: 'apilado', text: 'lo dice el PR', plan: 'el plan de la tarea', manual: 'marcado aquí' };
 type DataGH = { prs: PRBoard[]; demo?: boolean; error?: string };
-interface Memory { gh?: DataGH; manual?: BlockerManual[]; orden?: TaskOrder[] }
+interface Memory { gh?: DataGH; manual?: BlockerManual[]; orden?: TaskOrder[]; compact?: boolean }
 const MEMORY = 'shelter.deploy';
 let memory: Memory = (() => { try { return JSON.parse(localStorage.getItem(MEMORY) || '{}'); } catch { return {}; } })();
 function remember(r: Memory) { memory = { ...memory, ...r }; try { localStorage.setItem(MEMORY, JSON.stringify(memory)); } catch {} }
@@ -27,9 +27,17 @@ function remember(r: Memory) { memory = { ...memory, ...r }; try { localStorage.
 const short = (p: PRBoard) => `${p.repo.split('/').pop()}#${p.number}`;
 
 // lo que queda por contestar en sus revisiones (hilos sin resolver, resúmenes sin respuesta); sin nada, no se pinta
-function Ledger({ l }: { l: ReviewLedger }) {
-  const parts = [l.unresolved > 0 && `💬 ${t('panels.ledgerThreads', { n: l.unresolved })}`, l.unansweredSummaries > 0 && `✉ ${t('panels.ledgerSummaries', { n: l.unansweredSummaries })}`].filter(Boolean);
+// (in the compact view, only the counts: the words stay in its tooltip)
+function Ledger({ l, counts }: { l: ReviewLedger; counts?: boolean }) {
+  const parts = [l.unresolved > 0 && `💬 ${counts ? l.unresolved : t('panels.ledgerThreads', { n: l.unresolved })}`, l.unansweredSummaries > 0 && `✉ ${counts ? l.unansweredSummaries : t('panels.ledgerSummaries', { n: l.unansweredSummaries })}`].filter(Boolean);
   return <small className="wait" title={t('panels.ledgerTitle', { threads: l.unresolved, old: l.outdated, summaries: l.unansweredSummaries })}>{parts.join(' · ')}</small>;
+}
+
+// compact view: one line per PR with its CI and conflicts as marks (their words in the tooltip, as in the pre-flight)
+function CIMark({ p }: { p: PRBoard }) {
+  if (p.state !== 'open' && p.state !== 'draft' || !p.checks) return null;
+  const [mark, kind, word] = p.checks === 'SUCCESS' ? ['✓', 'green', t('preflight.ci.green')] : p.checks === 'FAILURE' || p.checks === 'ERROR' ? ['✗', 'red', t('preflight.ci.red')] : ['…', 'pending', t('preflight.ci.pending')];
+  return <span className={'ci-mark ci-' + kind} title={`${t('preflight.col.ci')}: ${word}`}>CI {mark}</span>;
 }
 
 // en cada columna, los PR de una misma tarea juntos, en un bloque: la tarea va donde va su mejor PR (la primera ola o el
@@ -55,6 +63,8 @@ export function DeploymentBoard({ roomId, goBack }: { roomId: string; goBack: ()
   const [reading, setReading] = useState(false);
   const [notice, setNotice] = useState('');
   const [showMerged, setShowMerged] = useState(true);
+  const [compact, setCompact] = useState(memory.compact ?? false);
+  const toggleCompact = () => { setCompact(x => { remember({ compact: !x }); return !x; }); SFX.toggle(); };
   const [col, setCol] = useState(0); const [i, setI] = useState(0);
   const [marking, setMarking] = useState<string | null>(null);   // el PR que espera: se elige a cuál
   const load = () => {
@@ -111,6 +121,7 @@ export function DeploymentBoard({ roomId, goBack }: { roomId: string; goBack: ()
     else if (e.code === 'ArrowUp' || e.code === 'KeyW') { setI(x => Math.max(0, x - 1)); SFX.tick(); }
     else if (e.code === 'Enter' || e.code === 'KeyE' || e.code === 'KeyB') { if (marking && sel) mark(marking, sel.url); else if (e.code === 'KeyB' && sel) { setMarking(sel.url); SFX.click(); } else if (sel) openLink(sel.url); }
     else if (e.code === 'KeyX' && sel) removeManual(sel.url);
+    else if (e.code === 'KeyC' && !e.metaKey && !e.ctrlKey) toggleCompact();
     else if (e.code === 'KeyH') { setShowMerged(x => !x); setCol(0); setI(0); SFX.toggle(); }
     else if (e.code === 'KeyR') { load(); SFX.click(); }
     else if (e.code === 'KeyP') askPlan();
@@ -139,7 +150,7 @@ export function DeploymentBoard({ roomId, goBack }: { roomId: string; goBack: ()
     measure();
     const ro = new ResizeObserver(measure); ro.observe(box);
     return () => ro.disconnect();
-  }, [blockers, showMerged, byUrl]);
+  }, [blockers, showMerged, byUrl, compact]);
 
   const relation = (u: string) => !sel || u === sel.url ? '' : blockers.some(b => b.from === sel.url && b.by === u) ? ' blocks-sel' : blockers.some(b => b.by === sel.url && b.from === u) ? ' wait-sel' : '';
   const inSel = (b: Blocker) => !!sel && (b.from === sel.url || b.by === sel.url);
@@ -150,7 +161,7 @@ export function DeploymentBoard({ roomId, goBack }: { roomId: string; goBack: ()
       {!gh && <p className="dim">{t('panels.readingYourGithubPullRequests')}</p>}
       {gh && reading && <p className="dim">{t('panels.syncingWithGithub')}</p>}
       {marking && <p className="voice">{t('panels.whichPrDoes')} <b>{short(byUrl.get(marking)!)}</b>? {t('panels.waitForPickItAnd')}</p>}
-      <div ref={canvas} className="kanban kanban-expand" style={{ gridTemplateColumns: `repeat(${Math.max(1, columns.length)}, 1fr)` }}>
+      <div ref={canvas} className={'kanban kanban-expand' + (compact ? ' compact' : '')} style={{ gridTemplateColumns: `repeat(${Math.max(1, columns.length)}, 1fr)` }}>
         <svg className="arrows-expand" aria-hidden>
           <defs>
             <marker id="head-blocker" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="var(--red)" /></marker>
@@ -169,9 +180,22 @@ export function DeploymentBoard({ roomId, goBack }: { roomId: string; goBack: ()
               const waits = waitA(p.url), blk = blocksOf(p.url);
               const pending = waits.filter(b => byUrl.get(b.by)?.state !== 'merged');
               const beside = links.filter(e => e.a === p.url || e.b === p.url).map(e => byUrl.get(e.a === p.url ? e.b : e.a)!);
+              const cardProps = {
+                'data-pr': p.url, style: { '--task': taskColor(pRTask(p)) } as React.CSSProperties,
+                className: 'card-issue card-pr with-task' + (compact ? ' card-pr-compact' : '') + (ci === col && k === Math.min(i, c.prs.length - 1) ? ' sel' : '') + relation(p.url) + (marking === p.url ? ' marking' : '') + (pending.length ? ' blocked' : ''),
+                onMouseEnter: () => { setCol(ci); setI(k); }, onClick: () => { if (marking) mark(marking, p.url); }, onDoubleClick: () => !marking && openLink(p.url),
+              };
+              if (compact) return (
+                <div key={p.url} {...cardProps} title={`${refPR(p)} · ${p.title} · ${trTextPR(p)}`}>
+                  <span className="mark-task" title={pRTask(p)} /><span className="ident">{short(p)}</span>
+                  <span className="compact-title">{p.title}</span>
+                  <CIMark p={p} />
+                  {p.state !== 'merged' && p.state !== 'closed' && p.conflicts && <span className="conflicts-mark" title={t('preflight.conflicts.yes')}>⚠</span>}
+                  {p.state !== 'merged' && p.state !== 'closed' && ledgerPending(p.ledger) && <Ledger l={p.ledger!} counts />}
+                </div>
+              );
               return (
-                <div key={p.url} data-pr={p.url} style={{ '--task': taskColor(pRTask(p)) } as React.CSSProperties} className={'card-issue card-pr with-task' + (ci === col && k === Math.min(i, c.prs.length - 1) ? ' sel' : '') + relation(p.url) + (marking === p.url ? ' marking' : '') + (pending.length ? ' blocked' : '')}
-                  onMouseEnter={() => { setCol(ci); setI(k); }} onClick={() => { if (marking) mark(marking, p.url); }} onDoubleClick={() => !marking && openLink(p.url)} title={`${refPR(p)} · ${trTextPR(p)}`}>
+                <div key={p.url} {...cardProps} title={`${refPR(p)} · ${trTextPR(p)}`}>
                   <span className="mark-task" title={pRTask(p)} /><span className="ident">{short(p)}</span>{wave.has(p.url) && <span className="wave" title={t('panels.deploymentWaveGoesAfterThe')}>{t('panels.waveN', { n: wave.get(p.url) ?? 0 })}</span>} {p.title}
                   <small className="dim">{trTextPR(p)}</small>
                   {p.state === 'merged' && verificationMark(pRTask(p), refPR(p)) && <small className="dim" title={t('verification.title')}>{verificationMark(pRTask(p), refPR(p))}</small>}
@@ -192,10 +216,11 @@ export function DeploymentBoard({ roomId, goBack }: { roomId: string; goBack: ()
       {cycle.length > 0 && <p className="notice-console">{t('panels.cyclicBlockersNobodyCanGo')} {cycle.map(short).join(', ')}. {t('panels.removeOneWithX')}</p>}
       {sel && waitA(sel.url).length > 0 && <p className="dim">{short(sel)} {t('panels.waitsFor')} {waitA(sel.url).map(b => `${short(byUrl.get(b.by)!)} (${tIs(REASON[b.reason])})`).join(', ')}.</p>}
       <div className="button-bar">
+        <button className="button-workshop" onClick={toggleCompact}>{compact ? t('panels.normalView') : t('panels.compactView')}</button>
         {sel && <button className="button-workshop" onClick={e => preflight(pRTask(sel), e.currentTarget)} title={t('preflight.actionHint')}>{t('preflight.keyF', { key: pRTask(sel) })}</button>}
         <button className="button-workshop" onClick={askPlan} title={t('panels.handsTheBoardToWho', { who: dweller?.name ?? t('panels.theRoomSDweller') })}>{dweller ? t('panels.pAskNameForThe', { name: dweller.name }) : t('panels.pAskForTheDeployment')}</button>
       </div>
-      <Keys><kbd>←→</kbd>{t('panels.column')} <kbd>↑↓</kbd>{t('panels.pr')} <kbd>Enter</kbd>{marking ? t('panels.waitsForThisOne') : t('panels.openThePr')} <kbd>B</kbd>{t('panels.markWhichOneItWaits')} <kbd>X</kbd>{t('panels.removeTheMarked')} <kbd>H</kbd>{showMerged ? t('panels.hideMerged') : t('panels.showMerged')} <kbd>P</kbd>{t('panels.deploymentPlan')} <kbd>F</kbd>{t('preflight.title')} <kbd>R</kbd>{t('panels.reload')} <kbd>Esc</kbd>{marking ? t('panels.cancel') : t('menu.back')}</Keys>
+      <Keys><kbd>←→</kbd>{t('panels.column')} <kbd>↑↓</kbd>{t('panels.pr')} <kbd>Enter</kbd>{marking ? t('panels.waitsForThisOne') : t('panels.openThePr')} <kbd>B</kbd>{t('panels.markWhichOneItWaits')} <kbd>X</kbd>{t('panels.removeTheMarked')} <kbd>C</kbd>{compact ? t('panels.normalView') : t('panels.compactView')} <kbd>H</kbd>{showMerged ? t('panels.hideMerged') : t('panels.showMerged')} <kbd>P</kbd>{t('panels.deploymentPlan')} <kbd>F</kbd>{t('preflight.title')} <kbd>R</kbd>{t('panels.reload')} <kbd>Esc</kbd>{marking ? t('panels.cancel') : t('menu.back')}</Keys>
     </Device>
   );
 }
