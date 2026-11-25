@@ -1,7 +1,6 @@
 // Guard for names: no new Spanish in identifiers, in strings used as names (ids, actions, message types, states,
 // keys, events, storage keys, file names), in t() placeholders or in file names. Visible text is test/language.test.ts's
-// job: comments, regex literals, strings with spaces and the `es` values of shared/texts are not looked at, nor CSS
-// class names until they move to English (className, querySelector, classList).
+// job: comments, regex literals, strings with spaces and the `es` values of shared/texts are not looked at.
 // What stays in Spanish is in ALLOWED, each with its reason.
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -22,23 +21,6 @@ export function spanishWords(name: string): string[] {
   return words.filter(w => SPANISH_WORDS.has(w.normalize('NFD').replace(/[̀-ͯ]/g, '')));
 }
 
-const SELECTOR_CALLS = new Set(['querySelector', 'querySelectorAll', 'closest', 'matches', 'getElementsByClassName']);
-const CLASS_LIST_CALLS = new Set(['add', 'remove', 'toggle', 'contains', 'replace']);
-// inside className={…}, a selector, a classList call or `x.className = …`: a CSS class (they move to English in their
-// own task)
-function inCss(n: ts.Node): boolean {
-  for (let p: ts.Node | undefined = n.parent; p; p = p.parent) {
-    if (ts.isJsxAttribute(p)) return /^(className|class)$/.test(p.name.getText());
-    if (ts.isCallExpression(p) && ts.isPropertyAccessExpression(p.expression)) {
-      const m = p.expression.name.text;
-      if (SELECTOR_CALLS.has(m) || (CLASS_LIST_CALLS.has(m) && /classList$/.test(p.expression.expression.getText()))) return true;
-    }
-    if (ts.isBinaryExpression(p) && p.operatorToken.kind === ts.SyntaxKind.EqualsToken && /\.className$/.test(p.left.getText())) return true;
-    if (ts.isBlock(p) || ts.isSourceFile(p)) return false;
-  }
-  return false;
-}
-
 type Hit = { file: string; line: number; kind: string; name: string };
 function scan(file: string): Hit[] {
   const src = readFileSync(ROOT + file, 'utf8');
@@ -54,7 +36,7 @@ function scan(file: string): Hit[] {
         // the catalogue: its keys are names; its texts are text, but their {placeholders} are names
         if (ts.isPropertyAssignment(n.parent) && n.parent.name === n) hit(n, 'text key', n.text);
         else for (const m of n.text.matchAll(/\{(\w+)\}/g)) hit(n, 'placeholder', m[1]);
-      } else if (/^[A-Za-z_$][\w.:/@-]*$/.test(n.text) && n.text.length <= 80 && !CATALOGUE.has(n.text) && !inCss(n)) hit(n, 'string', n.text);
+      } else if (/^[A-Za-z_$][\w.:/@-]*$/.test(n.text) && n.text.length <= 80 && !CATALOGUE.has(n.text)) hit(n, 'string', n.text);
     } else if (ts.isJsxAttribute(n) && ts.isIdentifier(n.name)) hit(n, 'identifier', n.name.text);
     ts.forEachChild(n, visit);
   };
@@ -112,10 +94,8 @@ const ALLOWED: [string, RegExp, string][] = [
   ['{web/src/ui/Search.tsx,web/src/ui/Terminals.tsx}', /^sala:$/, 'older name: the prefix of a room\'s id in the finder and the terminals'],
   ['web/src/ui/files/Explorer.tsx', /^archivos:$/, 'older name'],
   ['web/src/ui/files/workers.d.ts', /^(Trabajador|opciones)$/, 'older name'],
-  ['web/src/ui/linkOptions.ts', /^accion$/, 'older name'],
   ['web/src/ui/RoomPanels.tsx', /^sugs$/, 'older name'],
   ['web/src/tools/catalog.ts', /^desde$/, 'older name: a query parameter of the catalogue tool'],
-  ['{web/src/ui/Bar.tsx,web/src/ui/Dialog.tsx,web/src/ui/FindBar.tsx,web/src/ui/plainText.tsx}', /^data-(sala|sesion|copiar)$/, 'older name: DOM data attributes, with the CSS task'],
   // tests and QA scripts: test data, made-up names
   ['{test/**,**/*.test.ts,**/*.test.tsx,scripts/**}', /./, 'test data and QA scripts'],
 ];
