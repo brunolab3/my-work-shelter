@@ -25,6 +25,8 @@ interface Figure { sessions: Visitor[]; p: Character; room: Room; ready: boolean
 
 export class Visitors {
   figures = new Map<string, Figure>();   // por sala
+  // the ones walking out: out of `figures` (the room can get a new one meanwhile) but still animated until they are gone
+  private leaving = new Set<Figure>();
   constructor(private r: Shelter) { live.subscribe(() => this.sync()); }
 
   sync() {
@@ -46,6 +48,8 @@ export class Visitors {
     const f: Figure = { sessions, p, room, ready: false };
     this.figures.set(room.id, f);
     await p.load();
+    // its sessions went away (or came back as another robot) while it loaded: it never comes in
+    if (this.figures.get(room.id) !== f) return;
     p.root.scale.setScalar(SCALE);
     const side = room.side === 'left' ? 1 : -1;
     p.root.position.set(room.group.position.x + side * (room.width / 2 + 0.4), room.group.position.y, 1.3);
@@ -75,13 +79,16 @@ export class Visitors {
   private call(f: Figure) { f.p.seek(() => f.p.gesture('Waving', 'Idle_B')); }
 
   private leave(f: Figure) {
-    this.figures.delete(f.room.id);
+    if (this.figures.get(f.room.id) === f) this.figures.delete(f.room.id);
     f.room.interactive = (f.room.interactive ?? []).filter(i => i.id !== 'vis:' + f.room.id);
     const side = f.room.side === 'left' ? 1 : -1;
-    f.p.goA([new THREE.Vector3(f.room.group.position.x + side * (f.room.width / 2 + 0.6), f.room.group.position.y, 1.3)], false, () => this.r.motor.scene.remove(f.p.root));
+    if (!f.p.mixer) return;   // still loading: create() sees it is gone and never adds it
+    this.leaving.add(f);
+    f.p.goA([new THREE.Vector3(f.room.group.position.x + side * (f.room.width / 2 + 0.6), f.room.group.position.y, 1.3)], false, () => { this.leaving.delete(f); this.r.motor.scene.remove(f.p.root); });
   }
 
-  update(dt: number) { for (const f of this.figures.values()) if (f.p.mixer) f.p.update(dt); }
+  // the leaving ones too: without update they never walked out, and stood by the walkway with no sessions behind them
+  update(dt: number) { for (const f of [...this.figures.values(), ...this.leaving]) if (f.p.mixer) f.p.update(dt); }
 
   // un solo letrero por visitante: a mano (E) o bajo el ratón (clic), con cuántas sesiones hay fuera
   labels(farSide: boolean, near?: string, aimed?: string) {
