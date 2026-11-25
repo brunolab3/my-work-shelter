@@ -1166,9 +1166,10 @@ export class Shelter {
     const overTag = pointer && canvas ? this.labels.at(canvas.left + (pointer.x + 1) / 2 * canvas.width, canvas.top + (1 - pointer.y) / 2 * canvas.height) : undefined;
     if (pointer) this.ray.setFromCamera(pointer, this.motor.camera);
     const overHelper = (pointer ? this.helpers.at(this.ray.ray) : undefined) ?? overTag;
-    // in a chat no hologram is picked (the one talked to would always show its full tag): only hovering one expands it
+    // in a chat no hologram is picked (the one talked to would always show its full tag): only hovering one expands it;
+    // zoomed in on the room (closer than its framing, as the camera's `near`) every hologram shows its compact tag
     const chatting = !!(this.focused || this.copyFocused);
-    items.push(...this.holograms.labels(farSide, chatting ? null : this.nearby, aimC, chatting ? overTag ?? this.overCopy ?? undefined : overTag).filter(x => Math.abs(x.pos.x - this.camera.goal.x) < this.camera.distance * 0.45 && Math.abs(x.pos.y - this.camera.goal.y) < this.camera.distance * 0.3));
+    items.push(...this.holograms.labels(farSide, this.camera.distance < this.distRoom * 0.8, chatting ? null : this.nearby, aimC, chatting ? overTag ?? this.overCopy ?? undefined : overTag).filter(x => Math.abs(x.pos.x - this.camera.goal.x) < this.camera.distance * 0.45 && Math.abs(x.pos.y - this.camera.goal.y) < this.camera.distance * 0.3));
     items.push(...this.helpers.labels(overHelper).filter(x => Math.abs(x.pos.x - this.camera.goal.x) < this.camera.distance * 0.45 && Math.abs(x.pos.y - this.camera.goal.y) < this.camera.distance * 0.3));
     items.push({ k: this.supervisor, pos: this.supervisor.headPoint(), height: 0.2, name: nearDevice ? nearDevice.it.text : tx('world.you'), state: 'idle', detail: '', near: !!nearDevice, farSide, prompt: nearDevice ? tx('world.use') : '', supervisor: true });
     // el aparato apuntado con el ratón (si no es el que ya está a mano), encima de su sitio

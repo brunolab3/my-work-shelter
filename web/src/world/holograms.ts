@@ -566,10 +566,11 @@ export class Holograms {
   }
 
   // a copy's full tag (name, task, detail) only while it is talked to (E), pointed at or its tag is under the pointer
-  // (`over`); otherwise its state's glyph, its marks (⏰ ✉ ⚑) and its task (or branch): many holograms in a room no
-  // longer bury it in text, and each one still says which task it is
-  labels(farSide: boolean, selected: Copy | null, aimed: Copy | null = null, over?: object) {
-    return [...this.figures.values()].filter(f => f.ready && f.p.mixer).map(f => {
+  // (`over`); otherwise, only when the camera is zoomed in on its room (`close`) or it needs the Overseer (waiting,
+  // finished, error, or a ⏰ ✉ ⚑ mark), its compact tag: its state's glyph, its marks and its task (or branch). A
+  // plain hologram has no tag, so a room full of them stays clear
+  labels(farSide: boolean, close: boolean, selected: Copy | null, aimed: Copy | null = null, over?: object) {
+    return [...this.figures.values()].filter(f => f.ready && f.p.mixer).flatMap(f => {
       const picked = f === selected || f === aimed, shown = picked || f === over;
       const git = f.w.changes ? t('windows.nChanges', { n: f.w.changes }) : f.w.advanced ? t('windows.nCommitsToMerge', { n: f.w.advanced }) : t('panels.clean2');
       const detail = !shown ? '' : f.state === 'idle' ? git : f.detail.slice(0, 48);
@@ -577,6 +578,7 @@ export class Holograms {
       const scheduled = scheduledMark(f.room.id, f.path), pointed = (f === aimed || f === over) && f !== selected;
       const mine = (Object.values(live.get().sessions) as SessionSummary[]).filter(s => s.cwd === f.path || s.cwd?.startsWith(f.path + '/'));
       const queued = queuedMark(mine), flagged = flaggedMark(mine);
+      if (!shown && !close && !scheduled && !queued && !flagged && !['waiting', 'finished', 'error'].includes(f.state)) return [];
       return { k: f, scheduled, queued, flagged, pos: f.p.headPoint(), height: 0.2, name: `${author?.id.name ?? t('world.copy')} ◇ ${copyCaption(f.w, f.task ?? branchCaption(f.w.branch))}${verificationMark(f.task) ? ' · ' + verificationMark(f.task) : ''}`, color: hasTaskColor(f.task) ? taskColor(f.task) : undefined, epic: epicTag(f.task), task: f.task ?? branchCaption(f.w.branch), state: f.state, detail, near: picked, farSide: farSide || !shown, prompt: picked ? t('world.talk') : '', key: f === selected ? 'E' : t('world.click'), aimed: pointed };
     });
   }
