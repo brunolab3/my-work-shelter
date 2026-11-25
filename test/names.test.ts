@@ -62,7 +62,6 @@ const ALLOWED: [string, RegExp, string][] = [
   ['web/src/ui/Browsers.tsx', /^persist:navegador$/, 'the in-game browsers\' session partition: renaming it logs every site out'],
   ['{server/terminalHost.ts,server/terminals.ts,server/surface.ts}', /^(hola|filas|bufer|fuera|terminales|salvoFuera|datos|peticion|texto|entrada|empujar|enganchar|tamano|modos|primerPlano|servidor|cerrarTodas)$/, 'terminal host socket messages: the host outlives a restart'],
   ['shared/protocol.ts', /^hola$/, 'LEGACY_WIRE: what a tab from before the English message names sends'],
-  ['server/main.ts', /^servidor$/, 'fingerprint group of scripts/fingerprints.cjs (its export aliases stay)'],
   ['{web/src/ui/Panels.tsx}', /^(ambiente|musica|teclado)$/, 'saved audio bus names (web/src/audio/sound.ts settings)'],
   ['web/src/world/dweller.ts', /^Sentado_\w+$/, 'animation clips of the character assets'],
   // audio and third-party assets: their names are file names

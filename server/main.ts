@@ -84,8 +84,8 @@ const ASSETS = path.join(ROOT, 'assets');
 const GRACE_MS = 20_000;
 // huellas del código (scripts/fingerprints.cjs): /salud dice la de este servidor para que ./shelter sepa si es de antes de
 // los últimos cambios, y el reinicio las usa para recompilar el cliente o volver a abrir la app entera si hace falta
-const fingerprints = createRequire(import.meta.url)('../scripts/fingerprints.cjs') as { fingerprint(group: 'client' | 'servidor' | 'app'): string; clientUpToDate(): boolean };
-const SERVER_FINGERPRINT = fingerprints.fingerprint('servidor');
+const fingerprints = createRequire(import.meta.url)('../scripts/fingerprints.cjs') as { fingerprint(group: 'client' | 'server' | 'app'): string; clientUpToDate(): boolean };
+const SERVER_FINGERPRINT = fingerprints.fingerprint('server');
 // los orígenes del servidor de desarrollo (Vite, 5173) solo con SHELTER_DEV=1: en uso normal, solo el propio refugio
 const DEVELOPMENT = !!process.env.SHELTER_DEV;
 const VITE = Number(process.env.SHELTER_PUERTO_VITE || 5173);   // varios refugios de prueba a la vez, cada uno con su Vite

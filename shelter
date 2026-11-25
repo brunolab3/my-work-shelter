@@ -78,7 +78,7 @@ fi
 # 5. Compilar la interfaz si no existe o su código ha cambiado desde la última compilación (por contenido, no por fechas)
 if ! "$NODE" -e "process.exit(require('./scripts/fingerprints.cjs').clientUpToDate() ? 0 : 1)"; then
   amarillo "Compilando work-shelter…"
-  "$NODE" scripts/fingerprints.cjs compilar || { rojo "Falló la compilación de la interfaz."; exit 1; }
+  "$NODE" scripts/fingerprints.cjs build || { rojo "Falló la compilación de la interfaz."; exit 1; }
 fi
 
 if [ -n "$INSTALAR_APP" ]; then
@@ -91,7 +91,7 @@ PUERTO="${SHELTER_PUERTO:-3778}"
 DATOS="${SHELTER_DATOS:-$RAIZ/.data}"
 # un servidor de antes de los últimos cambios que siga en marcha se pone al día (o se aparta) sin cerrar sus terminales
 if curl -fs "http://127.0.0.1:$PUERTO/salud" >/dev/null 2>&1; then
-  "$NODE" scripts/fingerprints.cjs poner-al-dia "$PUERTO" "$DATOS" >/dev/null || amarillo "No he podido poner al día el refugio que ya estaba abierto."
+  "$NODE" scripts/fingerprints.cjs catch-up "$PUERTO" "$DATOS" >/dev/null || amarillo "No he podido poner al día el refugio que ya estaba abierto."
 fi
 if curl -fs "http://127.0.0.1:$PUERTO/salud" >/dev/null 2>&1; then
   amarillo "Ya hay un work-shelter abierto en el puerto $PUERTO: abro otra ventana."
