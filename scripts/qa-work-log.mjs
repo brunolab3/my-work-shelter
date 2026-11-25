@@ -81,17 +81,17 @@ try {
 
   // ---- Planning's menu offers the verification; → Sync update
   await pg.evaluate(() => window.__game.set({ panel: 'logistics', panelData: null }));
-  check(await until(async () => /(Verificar mi escalera|Verify my career ladder)/.test(await pg.textContent('.opciones-consola').catch(() => ''))), 'Planning\'s menu: verify my career ladder');
+  check(await until(async () => /(Verificar mi escalera|Verify my career ladder)/.test(await pg.textContent('.options-console').catch(() => ''))), 'Planning\'s menu: verify my career ladder');
   await pg.evaluate(() => window.__game.set({ panel: null, panelData: null })); await pg.waitForTimeout(200);
   await pg.evaluate(() => window.__game.set({ panel: 'logistics', panelData: { view: 'log' } }));
-  check(/(1 working day|1 día laborable)/.test(await pg.textContent('.bitacora-periodos .active').catch(() => '')), 'Sync update opens on the last working day');
+  check(/(1 working day|1 día laborable)/.test(await pg.textContent('.work-log-periods .active').catch(() => '')), 'Sync update opens on the last working day');
   await pg.keyboard.press('Tab');   // → this week, where the fixture's activity is
-  check(await until(async () => (await pg.$$('.bitacora-fila')).length === 2), 'two lines: ABC-1 and the slug task');
-  const keys = await pg.$$eval('.bitacora-clave', l => l.map(x => x.textContent));
+  check(await until(async () => (await pg.$$('.work-log-row')).length === 2), 'two lines: ABC-1 and the slug task');
+  const keys = await pg.$$eval('.work-log-key', l => l.map(x => x.textContent));
   check(keys[0] === 'ABC-1' && keys[1] === 'preflight-popover', `Jira tasks first, keyless last (${keys.join(', ')})`);
-  check(/Sin tarea de Jira|Without a Jira task/.test(await pg.textContent('.bitacora-grupo').catch(() => '')), 'the keyless group has its header');
+  check(/Sin tarea de Jira|Without a Jira task/.test(await pg.textContent('.work-log-group').catch(() => '')), 'the keyless group has its header');
   await pg.keyboard.press('KeyX');
-  const detail = await pg.$$eval('.bitacora-fila:first-of-type .bitacora-detalle li, .bitacora-fila .bitacora-detalle li', l => l.map(x => x.textContent));
+  const detail = await pg.$$eval('.work-log-row:first-of-type .work-log-detail li, .work-log-row .work-log-detail li', l => l.map(x => x.textContent));
   check(detail.some(x => /api#5/.test(x)) && detail.some(x => /web#9/.test(x)), 'X expands: both PRs');
   check(detail.some(x => /⎇/.test(x) && /(quitado|removed)/.test(x)), 'the removed worktree, with its date');
   check(detail.some(x => /💬 Retry the payment/.test(x)), 'the conversation');
@@ -101,44 +101,44 @@ try {
   const text = await pg.evaluate(() => navigator.clipboard.readText()).catch(() => '');
   check(copied && /\n {2}- api#5 ABC-1 retry the payment/.test(text), 'C copies the Markdown: the task, its PRs underneath');
   await pg.keyboard.press('Tab'); await pg.keyboard.press('Tab'); await pg.keyboard.press('Tab');   // → All
-  check(/Todo|All/.test(await pg.textContent('.bitacora-periodos .active')), 'Tab moves through the ranges');
+  check(/Todo|All/.test(await pg.textContent('.work-log-periods .active')), 'Tab moves through the ranges');
   await pg.keyboard.press('Escape');
 
   // ---- the board opened from the wall: its Sync update entry (U or its button) goes back to the board
   await pg.evaluate(() => window.__game.set({ panel: null, panelData: null })); await pg.waitForTimeout(200);
   await pg.evaluate(() => window.__game.set({ panel: 'logistics', panelData: { view: 'jira' } }));
-  check(await until(async () => /Sync update/.test(await pg.textContent('.modos-planning').catch(() => ''))), 'the board offers Board | Sync update on top');
-  check(/U\s*Sync update/.test(await pg.textContent('.ayuda-consola').catch(() => '')), 'and its key, U');
+  check(await until(async () => /Sync update/.test(await pg.textContent('.modes-planning').catch(() => ''))), 'the board offers Board | Sync update on top');
+  check(/U\s*Sync update/.test(await pg.textContent('.help-console').catch(() => '')), 'and its key, U');
   await pg.waitForTimeout(300); await pg.screenshot({ path: path.join(dir, 'board-sync-update.png'), animations: 'disabled' });
   await pg.keyboard.press('KeyU');
-  check(await until(async () => (await pg.$$('.bitacora-fila')).length === 2), 'U opens Sync update from the board');
+  check(await until(async () => (await pg.$$('.work-log-row')).length === 2), 'U opens Sync update from the board');
   await pg.keyboard.press('Escape');
   check(await until(async () => (await pg.$$('.kanban-jira')).length === 1), 'Esc goes back to the board');
-  await pg.click('.modos-planning button:has-text("Sync update")');
-  check(await until(async () => (await pg.$$('.bitacora-fila')).length === 2), 'its button opens it too');
+  await pg.click('.modes-planning button:has-text("Sync update")');
+  check(await until(async () => (await pg.$$('.work-log-row')).length === 2), 'its button opens it too');
   await pg.keyboard.press('Escape'); await pg.waitForTimeout(200); await pg.keyboard.press('Escape');
   check(await until(async () => !(await pg.evaluate(() => window.__game.get().panel))), 'Esc on the board, opened from the wall, closes it');
 
   // ---- Planning → Trophies and career
   await pg.evaluate(() => window.__game.set({ panel: 'logistics', panelData: { view: 'trophies' } }));
-  check(await until(async () => (await pg.$$('.trofeo.vertical')).length === 7), 'one trophy per measured requirement of the example, on top');
-  check((await pg.$$('.trofeo:not(.vertical)')).length === 6, 'and its six measured trophies');
-  check((await pg.$$('.escalon')).length === 2, 'the two example steps');
-  check(/Primer merge|First merge/.test(await pg.textContent('.trofeo:not(.vertical).ganado').catch(() => '')), 'first merge shows as earned');
-  check(/(Entrega|Delivers)/.test(await pg.textContent('.trofeo.vertical.bronze').catch(() => '')) && /(bronce|bronze)/.test(await pg.textContent('.trofeo.vertical.bronze .nivel-trofeo')), 'and it wins «delivers» its bronze, in its colour');
-  check((await pg.$$('.escalon ul li')).length === 8, 'every requirement under its step');
-  check((await pg.$$('.medallas.alfombra li.proposed')).length === 1, 'the proposed medal on the carpet under the trophies, waiting for the Overseer');
-  check((await pg.$$('.trofeo-medallas .medalla')).length === 0, 'its trophy has no medal yet');
+  check(await until(async () => (await pg.$$('.trophy.vertical')).length === 7), 'one trophy per measured requirement of the example, on top');
+  check((await pg.$$('.trophy:not(.vertical)')).length === 6, 'and its six measured trophies');
+  check((await pg.$$('.rung')).length === 2, 'the two example steps');
+  check(/Primer merge|First merge/.test(await pg.textContent('.trophy:not(.vertical).earned').catch(() => '')), 'first merge shows as earned');
+  check(/(Entrega|Delivers)/.test(await pg.textContent('.trophy.vertical.bronze').catch(() => '')) && /(bronce|bronze)/.test(await pg.textContent('.trophy.vertical.bronze .level-trophy')), 'and it wins «delivers» its bronze, in its colour');
+  check((await pg.$$('.rung ul li')).length === 8, 'every requirement under its step');
+  check((await pg.$$('.medals.rug li.proposed')).length === 1, 'the proposed medal on the carpet under the trophies, waiting for the Overseer');
+  check((await pg.$$('.trophy-medals .medalla')).length === 0, 'its trophy has no medal yet');
   await pg.keyboard.press('KeyA');
-  check(await until(async () => (await pg.$$('.medallas li.accepted')).length === 1), 'A accepts it');
-  check(await until(async () => (await pg.$$('.trofeo-medallas .medalla')).length === 1), 'and it fills one medal of «Gets others to speak up»');
+  check(await until(async () => (await pg.$$('.medals li.accepted')).length === 1), 'A accepts it');
+  check(await until(async () => (await pg.$$('.trophy-medals .medalla')).length === 1), 'and it fills one medal of «Gets others to speak up»');
   await pg.keyboard.press('KeyM');
-  await pg.waitForSelector('.medalla-mano input');
-  await pg.fill('.medalla-mano input >> nth=0', 'Aligned the retry design with the payments lead');
-  await pg.fill('.medalla-mano input >> nth=1', 'https://jira.example/browse/ABC-1?focusedCommentId=1');
-  await pg.press('.medalla-mano input >> nth=1', 'Enter');
-  check(await until(async () => (await pg.$$('.medallas li.accepted')).length === 2), 'M enters a medal by hand, accepted at once');
-  check(await until(async () => (await pg.$$('.trofeo-medallas .medalla')).length === 2), 'and it fills a medal of its trophy');
+  await pg.waitForSelector('.medal-hand input');
+  await pg.fill('.medal-hand input >> nth=0', 'Aligned the retry design with the payments lead');
+  await pg.fill('.medal-hand input >> nth=1', 'https://jira.example/browse/ABC-1?focusedCommentId=1');
+  await pg.press('.medal-hand input >> nth=1', 'Enter');
+  check(await until(async () => (await pg.$$('.medals li.accepted')).length === 2), 'M enters a medal by hand, accepted at once');
+  check(await until(async () => (await pg.$$('.trophy-medals .medalla')).length === 2), 'and it fills a medal of its trophy');
   await pg.waitForTimeout(300); await pg.screenshot({ path: path.join(dir, 'trophies.png'), animations: 'disabled' });
   // a broken ladder of the Overseer's: its error, read again with R
   writeFileSync(path.join(DATA, 'ladder.json'), '{ "trophies": [ nope');
@@ -150,13 +150,13 @@ try {
   await pg.keyboard.press('KeyR');
   r = await read();
   check(r.ladder.source === 'local' && !r.ladder.errors.length, `the Overseer's own ladder, once valid (${r.ladder.source})`);
-  check(/V/.test(await pg.textContent('.ayuda-consola')) && /(Sin verificar|Not verified)/.test(await pg.textContent('body')), 'not verified yet: V offers it');
+  check(/V/.test(await pg.textContent('.help-console')) && /(Sin verificar|Not verified)/.test(await pg.textContent('body')), 'not verified yet: V offers it');
   // a verification as the game writes it (ladder_progress → only the file's "progress" key)
   const ladderFile = path.join(DATA, 'ladder.json'), lj = JSON.parse(readFileSync(ladderFile, 'utf8'));
   writeFileSync(ladderFile, JSON.stringify({ ...lj, progress: { at: now, level: 'L1', summary: 'L1 reached; L2 needs volume.', requirements: { delivers: { verdict: 'met', evidence: ['https://github.com/org/api/pull/5'], byRules: true }, mentoring: { verdict: 'partial', evidence: ['https://slack.example/t/3'], notes: 'paired with a new joiner', byRules: false } } } }, null, 2));
   await pg.keyboard.press('KeyR');
-  check(await until(async () => /(Nivel|Level): Engineer I/.test(await pg.textContent('.verificacion').catch(() => ''))), 'the last verification: its level');
-  check((await pg.$$('.verificacion li')).length === 2 && /(juzgado por la sesión|judged by the session)/.test(await pg.textContent('.verificacion')), 'each verdict, by the rules or by the session');
+  check(await until(async () => /(Nivel|Level): Engineer I/.test(await pg.textContent('.verification').catch(() => ''))), 'the last verification: its level');
+  check((await pg.$$('.verification li')).length === 2 && /(juzgado por la sesión|judged by the session)/.test(await pg.textContent('.verification')), 'each verdict, by the rules or by the session');
   await pg.waitForTimeout(300); await pg.screenshot({ path: path.join(dir, 'trophies-verified.png'), animations: 'disabled' });
   await pg.keyboard.press('Escape');
 

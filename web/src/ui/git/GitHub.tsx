@@ -21,7 +21,7 @@ export function GitHub({ notify }: { notify: (t: string, error?: boolean) => voi
   const [onTop, setAbove] = useState<{ date: string; n: number } | null>(null);
   const read = (force = false) => { setLoading(true); client.action<Data>('git.github', { force }).then(setD).catch(e => notify(e.message, true)).finally(() => setLoading(false)); };
   useEffect(() => read(), []);
-  if (!d) return <div className="gd-vacio">{loading ? t('windows.askingGithub') : t('windows.noData')}</div>;
+  if (!d) return <div className="gd-empty">{loading ? t('windows.askingGithub') : t('windows.noData')}</div>;
   const offset = d.days.length ? new Date(d.days[0].date + 'T12:00:00').getDay() : 0;
   const weeks = Math.ceil((d.days.length + offset) / 7);
   const { current, best } = streaks(d.days);
@@ -32,32 +32,32 @@ export function GitHub({ notify }: { notify: (t: string, error?: boolean) => voi
   const open = (url: string) => openLink(url);   // en el navegador de GitHub del refugio
   return (
     <div className="gg">
-      <div className="gg-hoja">
-        <div className="gg-cab">
-          <div className="gg-quien">
-            <div className="gg-usuario">{d.user ? <>@{d.user}{d.name ? <span className="dim"> · {d.name}</span> : null}</> : t('windows.yourCommitsInTheShelter')}</div>
+      <div className="gg-sheet">
+        <div className="gg-header">
+          <div className="gg-who">
+            <div className="gg-user">{d.user ? <>@{d.user}{d.name ? <span className="dim"> · {d.name}</span> : null}</> : t('windows.yourCommitsInTheShelter')}</div>
             <div className="dim">{d.source === 'github' ? t('windows.nContributionsInTheLast', { n: d.total.toLocaleString(LOC) }) : t('windows.nCommitsInTheLast', { n: d.total.toLocaleString(LOC) })}</div>
           </div>
-          <span className="gg-mandos">
-            {d.user && !d.demo && <button className="gc-boton" onClick={() => open(`https://github.com/${d.user}`)}>{t('windows.openYourProfile')}</button>}
-            <button className="gc-boton" disabled={loading} onClick={() => read(true)} title={t('windows.askGithubAgainCachedFor')}>{loading ? t('windows.reading') : t('windows.refresh')}</button>
+          <span className="gg-controls">
+            {d.user && !d.demo && <button className="gc-button" onClick={() => open(`https://github.com/${d.user}`)}>{t('windows.openYourProfile')}</button>}
+            <button className="gc-button" disabled={loading} onClick={() => read(true)} title={t('windows.askGithubAgainCachedFor')}>{loading ? t('windows.reading') : t('windows.refresh')}</button>
           </span>
         </div>
-        {d.error && <div className="gd-aviso">{d.error}</div>}
-        <div className="gg-matriz-caja">
+        {d.error && <div className="gd-notice">{d.error}</div>}
+        <div className="gg-matrix-box">
           {/* una sola rejilla para meses, días y celdas: las columnas se reparten el ancho que haya (la celda escala y nunca
               rebosa) y las filas salen de las celdas, que son cuadradas */}
-          <div className="gg-matriz" style={{ gridTemplateColumns: `auto repeat(${weeks}, minmax(0, 1fr))` }} onMouseLeave={() => setAbove(null)}>
-            {months.map(x => <span key={'m' + x.col} className="gg-mes" style={{ gridColumn: `${x.col + 2} / span 3` }}>{MONTHS[x.m]}</span>)}
-            {DAYS.map((t, i) => t && <span key={t} className="gg-dia" style={{ gridRow: i + 2 }}>{t}</span>)}
-            {d.days.map((x, i) => <span key={x.date} className="gg-celda" style={{ background: GREEN_GITHUB[x.level], gridColumn: Math.floor((i + offset) / 7) + 2, gridRow: ((i + offset) % 7) + 2 }} onMouseEnter={() => setAbove(x)} title={t('windows.nOnDate', { n: x.n, date: x.date })} />)}
+          <div className="gg-matrix" style={{ gridTemplateColumns: `auto repeat(${weeks}, minmax(0, 1fr))` }} onMouseLeave={() => setAbove(null)}>
+            {months.map(x => <span key={'m' + x.col} className="gg-month" style={{ gridColumn: `${x.col + 2} / span 3` }}>{MONTHS[x.m]}</span>)}
+            {DAYS.map((t, i) => t && <span key={t} className="gg-day" style={{ gridRow: i + 2 }}>{t}</span>)}
+            {d.days.map((x, i) => <span key={x.date} className="gg-cell" style={{ background: GREEN_GITHUB[x.level], gridColumn: Math.floor((i + offset) / 7) + 2, gridRow: ((i + offset) % 7) + 2 }} onMouseEnter={() => setAbove(x)} title={t('windows.nOnDate', { n: x.n, date: x.date })} />)}
           </div>
-          <div className="gg-pie">
-            <span className="gg-encima">{onTop ? <><b>{onTop.n === 0 ? t('windows.nothing') : onTop.n === 1 ? t('windows.1Contribution') : t('windows.nContributions', { n: onTop.n })}</b> {t('windows.on')} {fmtDay.format(new Date(onTop.date + 'T12:00:00'))}</> : t('windows.hoverOverADayTo')}</span>
-            <span className="gg-leyenda">{t('windows.less')} {GREEN_GITHUB.map(c => <i key={c} style={{ background: c }} />)} {t('windows.more')}</span>
+          <div className="gg-footer">
+            <span className="gg-above">{onTop ? <><b>{onTop.n === 0 ? t('windows.nothing') : onTop.n === 1 ? t('windows.1Contribution') : t('windows.nContributions', { n: onTop.n })}</b> {t('windows.on')} {fmtDay.format(new Date(onTop.date + 'T12:00:00'))}</> : t('windows.hoverOverADayTo')}</span>
+            <span className="gg-legend">{t('windows.less')} {GREEN_GITHUB.map(c => <i key={c} style={{ background: c }} />)} {t('windows.more')}</span>
           </div>
         </div>
-        <div className="gg-cifras">
+        <div className="gg-figures">
           <div><small>{t('windows.today')}</small><b>{d.days.at(-1)?.n ?? 0}</b></div>
           <div><small>{t('windows.last7Days')}</small><b>{d.days.slice(-7).reduce((s, x) => s + x.n, 0)}</b></div>
           <div><small>{t('windows.currentStreak')}</small><b className={current ? 'green' : ''}>{current === 1 ? t('windows.nDay', { n: current }) : t('windows.nDays', { n: current })}</b></div>

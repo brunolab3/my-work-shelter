@@ -14,12 +14,12 @@ export function nextEvent<E extends MeetingEvent>(events: E[], now: number): E |
   return upcoming ?? live.find(e => !e.allDay) ?? live[0] ?? null;
 }
 
-export type Urgency = '' | 'pronto' | 'inminente';
+export type Urgency = '' | 'soon' | 'imminent';
 /** amber (≤10 min) or red (≤3 min) for a timed event not started yet */
 export function urgency(e: MeetingEvent | null, now: number): Urgency {
   if (!e || e.allDay || e.start <= now) return '';
   const missing = e.start - now;
-  return missing <= RED_MS ? 'inminente' : missing <= AMBER_MS ? 'pronto' : '';
+  return missing <= RED_MS ? 'imminent' : missing <= AMBER_MS ? 'soon' : '';
 }
 
 /** whether the 1-minute alert is due for it (once: the caller remembers the dismissed ones) */

@@ -13,7 +13,7 @@ export function Visible({ t }: { t: string }) {
   const out: React.ReactNode[] = []; let i = 0;
   for (const m of t.matchAll(INVISIBLE)) {
     out.push(t.slice(i, m.index));
-    out.push(<mark key={m.index} className="invisible-marcado" title={tr('windows.invisibleOrControlCharacter')}>{mark(m[0])}</mark>);
+    out.push(<mark key={m.index} className="invisible-marked" title={tr('windows.invisibleOrControlCharacter')}>{mark(m[0])}</mark>);
     i = m.index! + 1;
   }
   out.push(t.slice(i));
@@ -30,20 +30,20 @@ export function ToolText({ t }: { t: string }) {
 /** La vista previa de un permiso: ruta, texto, código o diff (líneas − y +), todo en texto plano */
 export function RequestView({ blocks, reason }: { blocks: InputView[]; reason?: string }) {
   return (
-    <div className="peticion-detalle">
+    <div className="request-detail">
       {blocks.map((b, k) => {
-        if (b.type === 'path') return <p key={k} className="vista-path"><b><Visible t={b.text} /></b></p>;
-        if (b.type === 'text') return <p key={k} className="vista-text"><Visible t={b.text} /></p>;
+        if (b.type === 'path') return <p key={k} className="view-path"><b><Visible t={b.text} /></b></p>;
+        if (b.type === 'text') return <p key={k} className="view-text"><Visible t={b.text} /></p>;
         return (
           <div key={k} className="code">
-            <button className="copy" data-copiar tabIndex={-1}>{tr('windows.copy')}</button>
-            <pre className={'vista-' + b.type}><code>{b.type === 'diff'
-              ? b.text.split('\n').map((l, i) => <span key={i} className={l.startsWith('+ ') ? 'diff-mas' : l.startsWith('- ') ? 'diff-minus' : 'diff-note'}><Visible t={l} />{'\n'}</span>)
+            <button className="copy" data-copy tabIndex={-1}>{tr('windows.copy')}</button>
+            <pre className={'view-' + b.type}><code>{b.type === 'diff'
+              ? b.text.split('\n').map((l, i) => <span key={i} className={l.startsWith('+ ') ? 'diff-plus' : l.startsWith('- ') ? 'diff-minus' : 'diff-note'}><Visible t={l} />{'\n'}</span>)
               : <Visible t={b.text} />}</code></pre>
           </div>
         );
       })}
-      {reason && <p className="vista-motivo"><Visible t={reason} /></p>}
+      {reason && <p className="view-reason"><Visible t={reason} /></p>}
     </div>
   );
 }

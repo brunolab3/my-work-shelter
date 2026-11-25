@@ -34,7 +34,7 @@ class FrameRateWatch {
   covered(now: number) {
     if (now - this.coveredAt > 250) {
       this.coveredAt = now;
-      this.coveredCache = [...document.querySelectorAll('.maximizada')].some(el => (el as HTMLElement).getClientRects().length > 0);
+      this.coveredCache = [...document.querySelectorAll('.maximized')].some(el => (el as HTMLElement).getClientRects().length > 0);
     }
     return this.coveredCache;
   }

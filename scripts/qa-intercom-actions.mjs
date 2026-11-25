@@ -50,31 +50,31 @@ try {
     window.__live.set(e => ({ sessions: { ...e.sessions, qa_s: sess }, entries: { ...e.entries, qa_s: entries }, scheduled: [prog('p1', 20, 'Revisar el carrito el lunes'), prog('p2', 50, 'Mirar CI')] }));
     window.__game.set({ talkingWith: holo.id });
   }, [holo, wt, pages]);
-  await pg.waitForSelector('.consola-acciones', { timeout: 15000 });
+  await pg.waitForSelector('.console-actions', { timeout: 15000 });
   await sleep(2500);
   const side = async n => { const r = await pg.$eval('.console', e => { const b = e.getBoundingClientRect(); return { x: b.x, y: b.y, width: b.width, height: b.height }; }); await pg.screenshot({ path: `${dir}/${n}.png`, clip: r, timeout: 120000 }); console.log('->', `${dir}/${n}.png`); };
-  const buttons = await pg.$$eval('.consola-acciones .consola-x', l => l.map(x => x.textContent).filter(x => !x.startsWith('⚑')));
+  const buttons = await pg.$$eval('.console-actions .console-x', l => l.map(x => x.textContent).filter(x => !x.startsWith('⚑')));
   check(/📄/.test(buttons[0]) && /⑂/.test(buttons[1]) && /✈/.test(buttons[2]) && /⏰/.test(buttons[3]) && buttons.length === 4, 'pages, PRs, pre-flight and scheduled, in that order: ' + buttons.join(' | '));
-  check(await pg.$eval('.consola-acciones', a => a.getBoundingClientRect().top - [...a.parentElement.children].at(-2).getBoundingClientRect().bottom < 30), 'the section sits right under the dweller\'s data');
+  check(await pg.$eval('.console-actions', a => a.getBoundingClientRect().top - [...a.parentElement.children].at(-2).getBoundingClientRect().bottom < 30), 'the section sits right under the dweller\'s data');
   // where the open list is: 'debajo' (right below its button) or 'derecha' (to its right), and inside the intercom
-  const spot = () => pg.$eval('.paginas-lista', u => {
-    const b = u.parentElement.getBoundingClientRect(), l = u.getBoundingClientRect(), z = u.closest('.consola-cuerpo').getBoundingClientRect();
+  const spot = () => pg.$eval('.pages-list', u => {
+    const b = u.parentElement.getBoundingClientRect(), l = u.getBoundingClientRect(), z = u.closest('.console-body').getBoundingClientRect();
     const inside = l.top >= z.top - 1 && l.bottom <= z.bottom + 1;
     return Math.abs(l.top - b.bottom) < 3 && Math.abs(l.left - b.left) < 3 ? (inside ? 'debajo' : 'fuera') : l.left >= b.right && l.top <= b.bottom && l.bottom >= b.top ? (inside ? 'derecha' : 'fuera') : 'far';
   });
   await side('1-cerrado');
-  for (const [sel, n] of [['.paginas-principal > .consola-x', '2-paginas'], ['.prs-copia > .consola-x', '3-prs'], ['.programados-sesion > .consola-x', '4-programados']]) {
+  for (const [sel, n] of [['.pages-main > .console-x', '2-paginas'], ['.prs-copia > .console-x', '3-prs'], ['.scheduled-session > .console-x', '4-programados']]) {
     await pg.click(sel); await sleep(400); check(await spot() === 'debajo', n + ': the list opens right below its button'); await side(n); await pg.click(sel); await sleep(200);
   }
   await pg.evaluate(() => { const hid = window.__game.get().talkingWith; window.__intercoms.set(e => ({ list: e.list.map(v => v.dwellerId === hid ? { ...v, maximized: true } : v) })); });
   await sleep(800); await side('5-max');
-  await pg.click('.paginas-principal > .consola-x'); await sleep(400); check(await spot() === 'debajo', 'maximized: right below its button'); await side('6-max-paginas'); await pg.click('.paginas-principal > .consola-x');
-  await pg.click('.programados-sesion > .consola-x'); await sleep(400); check(await spot() === 'debajo', 'maximized: the scheduled list right below its button'); await side('7-max-programados'); await pg.click('.programados-sesion > .consola-x');
+  await pg.click('.pages-main > .console-x'); await sleep(400); check(await spot() === 'debajo', 'maximized: right below its button'); await side('6-max-paginas'); await pg.click('.pages-main > .console-x');
+  await pg.click('.scheduled-session > .console-x'); await sleep(400); check(await spot() === 'debajo', 'maximized: the scheduled list right below its button'); await side('7-max-programados'); await pg.click('.scheduled-session > .console-x');
   // a short window: below the last button there's no room, so its list opens to its right, over the conversation
   await pg.setViewportSize({ width: 1400, height: 640 }); await sleep(800);
-  await pg.click('.programados-sesion > .consola-x'); await sleep(400); check(['debajo', 'derecha'].includes(await spot()), 'short window: the scheduled list at its button, inside the intercom'); await side('8-bajo-programados'); await pg.click('.programados-sesion > .consola-x');
-  await pg.click('.paginas-principal > .consola-x'); await sleep(400); check(await spot() === 'debajo', 'short window: the pages list still below its button (room for a few rows), inside the intercom, scrolling'); await side('9-bajo-paginas');
-  await pg.click('.paginas-principal > .consola-x'); await sleep(200);
+  await pg.click('.scheduled-session > .console-x'); await sleep(400); check(['debajo', 'derecha'].includes(await spot()), 'short window: the scheduled list at its button, inside the intercom'); await side('8-bajo-programados'); await pg.click('.scheduled-session > .console-x');
+  await pg.click('.pages-main > .console-x'); await sleep(400); check(await spot() === 'debajo', 'short window: the pages list still below its button (room for a few rows), inside the intercom, scrolling'); await side('9-bajo-paginas');
+  await pg.click('.pages-main > .console-x'); await sleep(200);
   // many scheduled ones (⏳ after the turn, 📦 packed, next window, dated, to other rooms): every row's buttons reachable,
   // in a short window and in a normal one, scrolling inside the list when it doesn't fit
   await pg.evaluate(() => {
@@ -89,9 +89,9 @@ try {
       prog(3, { nextWindow: true }), prog(4, { nextWindow: true }), prog(5, { overLimit: true, target: { type: 'room', room: 'plataforma-de-pagos', key: 'una-tarea-con-una-clave-bastante-larga' } }),
       prog(6, {}), prog(7, {}), prog(8, { target: { type: 'room', room: 'logistics', thread: 'cleanup' } }), prog(9, {}) ] }));
   });
-  const reachable = () => pg.$eval('.paginas-lista', u => {
+  const reachable = () => pg.$eval('.pages-list', u => {
     // only the list scrolls (scrollIntoView would also scroll the intercom's clipping box and hide the problem)
-    const c = u.closest('.consola-bisel').getBoundingClientRect(), bad = u.scrollWidth > u.clientWidth + 1 ? ['scrolls sideways'] : [];
+    const c = u.closest('.console-bevel').getBoundingClientRect(), bad = u.scrollWidth > u.clientWidth + 1 ? ['scrolls sideways'] : [];
     for (const [i, li] of [...u.children].entries()) for (const b of li.querySelectorAll('button')) {
       u.scrollTop = Math.max(0, li.offsetTop + li.offsetHeight - u.clientHeight);
       const r = b.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
@@ -103,15 +103,15 @@ try {
   for (const [w, h, n, max] of [[1400, 640, 'a-bajo'], [1600, 1000, 'b-normal'], [1000, 560, 'c-pequeño'], [1400, 640, 'd-max-bajo', true], [1600, 1000, 'e-max', true]]) {
     await pg.evaluate(max => { const hid = window.__game.get().talkingWith; window.__intercoms.set(e => ({ list: e.list.map(v => v.dwellerId === hid ? { ...v, maximized: max } : v) })); }, !!max);
     await pg.setViewportSize({ width: w, height: h }); await sleep(800);
-    await pg.click('.programados-sesion > .consola-x'); await sleep(400);
-    await pg.$eval('.paginas-lista', u => { u.scrollTop = 0; });
+    await pg.click('.scheduled-session > .console-x'); await sleep(400);
+    await pg.$eval('.pages-list', u => { u.scrollTop = 0; });
     await side(`10${n}-muchos-programados`);
     const bad = await reachable();
     check(!bad.length, `${w}×${h}: every scheduled row's buttons visible and clickable` + (bad.length ? ': ' + bad.join(', ') : ''));
-    const room = await pg.$eval('.paginas-lista', u => u.closest('.consola-cuerpo').getBoundingClientRect().bottom - u.parentElement.getBoundingClientRect().bottom);
+    const room = await pg.$eval('.pages-list', u => u.closest('.console-body').getBoundingClientRect().bottom - u.parentElement.getBoundingClientRect().bottom);
     check(await spot() === (room >= 166 ? 'debajo' : 'derecha'), `${w}×${h}: the scheduled list below its button with room for a few rows (${Math.round(room)} px), otherwise to its right`);
     await side(`10${n}-muchos-programados-fin`);
-    await pg.click('.programados-sesion > .consola-x'); await sleep(200);
+    await pg.click('.scheduled-session > .console-x'); await sleep(200);
   }
   // the room's dweller lists the whole room by hologram: the main copy first (with one of a removed worktree), then the task
   await pg.setViewportSize({ width: 1600, height: 1000 });
@@ -122,8 +122,8 @@ try {
     window.__game.set({ talkingWith: holo.copy.authorId });
   }, [holo, wt]);
   await sleep(1500);
-  await pg.click('.programados-sesion > .consola-x'); await sleep(400);
-  const rows = await pg.$$eval('.programados-lista li', l => l.map(x => x.classList.contains('programados-grupo') ? '# ' + x.textContent : x.querySelector('.pagina-nombre')?.textContent));
+  await pg.click('.scheduled-session > .console-x'); await sleep(400);
+  const rows = await pg.$$eval('.scheduled-list li', l => l.map(x => x.classList.contains('scheduled-group') ? '# ' + x.textContent : x.querySelector('.page-name')?.textContent));
   check(JSON.stringify(rows) === JSON.stringify(['# Main copy · 2', 'Mensaje m1', 'Mensaje g1', '# ◇ QA-7 · 2', 'Mensaje w1', 'Mensaje w2']) || JSON.stringify(rows) === JSON.stringify(['# Copia principal · 2', 'Mensaje m1', 'Mensaje g1', '# ◇ QA-7 · 2', 'Mensaje w1', 'Mensaje w2']), 'the room\'s list by hologram, main copy first: ' + JSON.stringify(rows));
   await side('11-sala-por-holograma');
 } finally { await b.close(); server.kill(); }

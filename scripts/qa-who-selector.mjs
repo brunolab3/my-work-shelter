@@ -29,17 +29,17 @@ try {
   const cm = await pg.evaluate(() => window.__game.get().dwellers.find(d => d.room === 'logistics'));
   check(cm.robot, `Planning's dweller looks like a robot: ${cm.name}`);
   await pg.evaluate(id => window.__game.set({ talkingWith: id }), cm.id);
-  const CHIP = '.console .consola-quien > .chip-terminal', ROWS = '.console .consola-quien-lista .bar-peek-row';
+  const CHIP = '.console .console-who > .chip-terminal', ROWS = '.console .console-who-list .bar-peek-row';
   const shown = await pg.waitForSelector(CHIP, { timeout: 15000 }).then(() => true, () => false);
   check(shown, 'the who chip shows in Planning\'s intercom');
   if (!shown) throw new Error('no who chip: nothing more to check');
-  check((await pg.textContent(`${CHIP} .consola-quien-nombre`))?.trim() === cm.name, `and names ${cm.name}`);
+  check((await pg.textContent(`${CHIP} .console-who-name`))?.trim() === cm.name, `and names ${cm.name}`);
   await pg.click(CHIP); await sleep(400);
   const rows = await pg.$$eval(ROWS, l => l.map(f => ({ name: f.querySelector('b')?.textContent, current: f.classList.contains('current') })));
   check(rows.length === 1 && rows[0].name === cm.name && rows[0].current, 'clicked, it opens with its one row, the owner, marked as current: ' + JSON.stringify(rows));
   const r = await pg.$eval('.console', e => { const b = e.getBoundingClientRect(); return { x: b.x, y: b.y, width: b.width, height: b.height }; });
   await pg.screenshot({ path: `${dir}/qa-quien-planificacion.png`, clip: r, timeout: 90000 }); console.log('->', `${dir}/qa-quien-planificacion.png`);
   await pg.keyboard.press('Escape'); await sleep(300);
-  check(!(await pg.isVisible('.console .consola-quien-lista')) && await pg.isVisible('.console'), 'Esc closes the list and only the list');
+  check(!(await pg.isVisible('.console .console-who-list')) && await pg.isVisible('.console'), 'Esc closes the list and only the list');
 } finally { await b.close(); server.kill(); }
 process.exit(failures ? 1 : 0);

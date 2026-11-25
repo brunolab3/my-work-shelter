@@ -13,35 +13,35 @@ import { readWorkLog, verifyLadder, type WorkLogData } from './WorkLog';
 
 const day = (ts: number) => new Date(ts).toLocaleDateString(locale(), { day: 'numeric', month: 'short', year: 'numeric' });
 const KIND_TEXT: Record<TrophyKind, string> = { prsMerged: 'trophies.kind.prsMerged', tasksDone: 'trophies.kind.tasksDone', reviewsGiven: 'trophies.kind.reviewsGiven', multiRepoTasks: 'trophies.kind.multiRepoTasks', verifiedInProd: 'trophies.kind.verifiedInProd', awards: 'trophies.kind.awards' };
-const Bar = ({ p }: { p: number }) => <span className="trofeo-barra"><span style={{ width: `${Math.round(p * 100)}%` }} /></span>;
+const Bar = ({ p }: { p: number }) => <span className="trophy-bar"><span style={{ width: `${Math.round(p * 100)}%` }} /></span>;
 
 function TrophyLine({ x }: { x: TrophyState }) {
   const r = x.rule;
   return (
-    <li className={'trofeo' + (x.earnedAt ? ' ganado' : '')} title={x.facts.map(f => f.ref).join(', ')}>
-      <span className="trofeo-icono">{x.earnedAt ? '🏆' : '◌'}</span>
+    <li className={'trophy' + (x.earnedAt ? ' earned' : '')} title={x.facts.map(f => f.ref).join(', ')}>
+      <span className="trophy-icon">{x.earnedAt ? '🏆' : '◌'}</span>
       <b>{fileText(r.name)}</b>
       <span className="dim">{x.count}/{r.n} {t(KIND_TEXT[r.kind])}{r.within ? ' ' + t('trophies.within', { n: r.within }) : ''}</span>
       {x.earnedAt ? <span className="dim">{t('trophies.earnedOn', { date: day(x.earnedAt) })}</span> : <Bar p={x.progress} />}
-      {x.facts.length > 0 && <span className="trofeo-hechos">{x.facts.slice(-4).map(f => <a key={f.ref} onClick={() => openLink(f.url)}>{f.ref}</a>)}</span>}
+      {x.facts.length > 0 && <span className="trophy-done">{x.facts.slice(-4).map(f => <a key={f.ref} onClick={() => openLink(f.url)}>{f.ref}</a>)}</span>}
     </li>
   );
 }
 
 // the level a vertical reached, in its colour, and what it has toward the next
 const LevelTag = ({ q }: { q: RequirementState }) => <>
-  <span className={'nivel-trofeo ' + (q.level ?? 'none')}>{q.level ? t(`trophies.level.${q.level}`) : '—'}</span>
+  <span className={'level-trophy ' + (q.level ?? 'none')}>{q.level ? t(`trophies.level.${q.level}`) : '—'}</span>
   <span className="dim">{t('trophies.awardsCount', { n: q.count })}{q.next ? ' · ' + t('trophies.toNext', { n: q.next.n, level: t(`trophies.level.${q.next.level}`) }) : ''}</span>
 </>;
 // a vertical's trophy: its cup in the colour of its level, filled toward its top level, and the awards that count
 function VerticalLine({ q }: { q: RequirementState }) {
   return (
-    <li className={'trofeo vertical' + (q.level ? ' ganado ' + q.level : '')} title={q.facts.map(f => f.ref).join(', ')}>
-      <span className="trofeo-icono">{q.level ? '🏆' : '◌'}</span>
+    <li className={'trophy vertical' + (q.level ? ' earned ' + q.level : '')} title={q.facts.map(f => f.ref).join(', ')}>
+      <span className="trophy-icon">{q.level ? '🏆' : '◌'}</span>
       <b>{fileText(q.req.text)}</b>
       <LevelTag q={q} />
       <Bar p={q.progress} />
-      <span className="trofeo-medallas">{q.medals.map(m => <span key={m.id} className="llena medalla" title={m.text}>🏅</span>)}{q.won.map(id => <span key={id} className="llena" title={id}>🏆</span>)}</span>
+      <span className="trophy-medals">{q.medals.map(m => <span key={m.id} className="full medalla" title={m.text}>🏅</span>)}{q.won.map(id => <span key={id} className="full" title={id}>🏆</span>)}</span>
     </li>
   );
 }
@@ -54,14 +54,14 @@ function LastVerification({ data }: { data: WorkLogData }) {
   const steps = data.career.steps;
   const level = steps.find(s => s.step.id === p.level);
   return (
-    <div className="verificacion">
-      <p><b>{t('trophies.verify.last')}</b> · {day(p.at)} · <b className="nivel">{t('trophies.verify.level', { level: level ? fileText(level.step.name) : '—' })}</b></p>
+    <div className="verification">
+      <p><b>{t('trophies.verify.last')}</b> · {day(p.at)} · <b className="level">{t('trophies.verify.level', { level: level ? fileText(level.step.name) : '—' })}</b></p>
       {p.summary && <p className="dim">{p.summary}</p>}
       <ul>{steps.flatMap(s => s.requirements).filter(q => p.requirements[q.req.id]).map(q => { const r = p.requirements[q.req.id]; return (
         <li key={q.req.id} className={'v-' + r.verdict}>
           <span>{r.verdict === 'met' ? '✔' : r.verdict === 'partial' ? '◐' : '○'} {fileText(q.req.text)}</span>
           <span className="dim">{t(VERDICT_TEXT[r.verdict])} · {t(r.byRules ? 'trophies.verify.byRules' : 'trophies.verify.bySession')}{r.notes ? ' — ' + r.notes : ''}</span>
-          {r.evidence.length > 0 && <span className="trofeo-hechos">{r.evidence.slice(0, 6).map((x, k) => /^https?:/.test(x) ? <a key={k} onClick={() => openLink(x)}>{x.replace(/^https?:\/\/(www\.)?/, '').slice(0, 36)}</a> : <span key={k} className="dim">{x} </span>)}</span>}
+          {r.evidence.length > 0 && <span className="trophy-done">{r.evidence.slice(0, 6).map((x, k) => /^https?:/.test(x) ? <a key={k} onClick={() => openLink(x)}>{x.replace(/^https?:\/\/(www\.)?/, '').slice(0, 36)}</a> : <span key={k} className="dim">{x} </span>)}</span>}
         </li>); })}</ul>
     </div>
   );
@@ -74,11 +74,11 @@ function EnterMedal({ awards, done, cancel }: { awards: TrophyRule[]; done: () =
   const save = () => client.action('medal.add', { award, text, evidence }).then(() => { SFX.click(); done(); }).catch(e => { SFX.notAllowed(); setError(e.message); });
   const keys = (e: React.KeyboardEvent) => { if (e.key === 'Enter') { e.preventDefault(); save(); } else if (e.key === 'Escape') { e.preventDefault(); cancel(); } };
   return (
-    <div className="medalla-mano" onKeyDown={keys}>
+    <div className="medal-hand" onKeyDown={keys}>
       <label>{t('trophies.medal.enterAward')} <select value={award} onChange={e => setAward(e.target.value)}>{awards.map(a => <option key={a.id} value={a.id}>{fileText(a.name)}</option>)}</select></label>
       <input autoFocus value={text} onChange={e => setText(e.target.value)} placeholder={t('trophies.medal.enterText')} spellCheck={false} />
       <input value={evidence} onChange={e => setEvidence(e.target.value)} placeholder={t('trophies.medal.enterEvidence')} spellCheck={false} />
-      <span className="medalla-botones"><button onClick={save}>{t('trophies.medal.enterSave')}</button><button onClick={cancel}>{t('menu.close')}</button></span>
+      <span className="medal-buttons"><button onClick={save}>{t('trophies.medal.enterSave')}</button><button onClick={cancel}>{t('menu.close')}</button></span>
       {error && <p className="notice-console">{error}</p>}
     </div>
   );
@@ -125,37 +125,37 @@ export function Trophies({ goBack }: { goBack: () => void }) {
       {data?.ladder.errors.map((x, k) => <p key={k} className="notice-console">{x}</p>)}
       {!data && !error && <p className="dim">{t('worklog.reading')}</p>}
       {c && c.verticals.length > 0 && <>
-        <h3 className="trofeos-seccion">{t('trophies.list')} <span className="dim">{t('trophies.menuHint', { n: won, total: c.verticals.length })}</span></h3>
-        {ready && <p className="listo-pedir">{t('trophies.ready', { step: fileText(ready.step.name) })}</p>}
+        <h3 className="trophies-section">{t('trophies.list')} <span className="dim">{t('trophies.menuHint', { n: won, total: c.verticals.length })}</span></h3>
+        {ready && <p className="ready-request">{t('trophies.ready', { step: fileText(ready.step.name) })}</p>}
         <ul className="trophies">{c.verticals.map(q => <VerticalLine key={q.req.id} q={q} />)}</ul>
       </>}
       {measured.length > 0 && <>
-        <h3 className="trofeos-seccion">{t('trophies.special')}</h3>
+        <h3 className="trophies-section">{t('trophies.special')}</h3>
         <ul className="trophies">{[...measured].sort((a, b) => Number(!!b.earnedAt) - Number(!!a.earnedAt) || b.progress - a.progress).map(x => <TrophyLine key={x.rule.id} x={x} />)}</ul>
       </>}
       {(medals.length > 0 || entering) && <>
-        <h3 className="trofeos-seccion">{t('trophies.medals')}</h3>
+        <h3 className="trophies-section">{t('trophies.medals')}</h3>
         <p className="dim">{t('trophies.medalsIntro')}</p>
         {entering && <EnterMedal awards={byHand} done={() => { setEntering(false); load(); }} cancel={() => setEntering(false)} />}
-        <ul className="medallas alfombra">{medals.map(m => (
+        <ul className="medals rug">{medals.map(m => (
           <li key={m.id} className={m.state + (m.state === 'proposed' && proposed[mi]?.id === m.id ? ' sel' : '')}>
             <span>{m.state === 'accepted' ? '🏅' : '○'}</span>
             <b>{m.award ? fileText(byId.get(m.award)?.rule.name) || m.award : m.requirement}</b> <span>{m.text}</span>
             {m.source && <span className="dim">{t(`trophies.source.${m.source}`)}{m.date ? ' · ' + day(m.date) : ''}</span>}
-            <span className="trofeo-hechos">{m.evidence.map((x, k) => /^https?:/.test(x) ? <a key={k} onClick={() => openLink(x)}>{x.replace(/^https?:\/\/(www\.)?/, '').slice(0, 40)}</a> : <span key={k} className="dim">{x} </span>)}</span>
-            {m.state === 'proposed' ? <span className="medalla-botones"><button onClick={() => decide(m, true)}>{t('trophies.medal.accept')}</button><button onClick={() => decide(m, false)}>{t('trophies.medal.dismiss')}</button></span>
+            <span className="trophy-done">{m.evidence.map((x, k) => /^https?:/.test(x) ? <a key={k} onClick={() => openLink(x)}>{x.replace(/^https?:\/\/(www\.)?/, '').slice(0, 40)}</a> : <span key={k} className="dim">{x} </span>)}</span>
+            {m.state === 'proposed' ? <span className="medal-buttons"><button onClick={() => decide(m, true)}>{t('trophies.medal.accept')}</button><button onClick={() => decide(m, false)}>{t('trophies.medal.dismiss')}</button></span>
               : <span className="dim">{t('trophies.medal.accepted')} {m.decidedAt ? day(m.decidedAt) : ''}</span>}
           </li>))}</ul>
       </>}
       {c && c.steps.length > 0 && <>
-        <h3 className="trofeos-seccion">{t('trophies.career')}</h3>
+        <h3 className="trophies-section">{t('trophies.career')}</h3>
         <LastVerification data={data!} />
-        <ol className="escalera">
+        <ol className="ladder">
           {c.steps.map(s => (
-            <li key={s.step.id} className={'escalon' + (s.complete ? ' cumplido' : '') + (c.current === s.step.id ? ' current' : '')}>
-              <div className="escalon-cabeza"><b>{fileText(s.step.name)}</b> <Bar p={s.progress} /> <span className="dim">{s.complete ? t('trophies.complete') : c.current === s.step.id ? t('trophies.current') : ''}</span></div>
+            <li key={s.step.id} className={'rung' + (s.complete ? ' met' : '') + (c.current === s.step.id ? ' current' : '')}>
+              <div className="rung-head"><b>{fileText(s.step.name)}</b> <Bar p={s.progress} /> <span className="dim">{s.complete ? t('trophies.complete') : c.current === s.step.id ? t('trophies.current') : ''}</span></div>
               <ul>{s.requirements.map(q => (
-                <li key={q.req.id} className={q.met ? 'cumplido' : ''}>
+                <li key={q.req.id} className={q.met ? 'met' : ''}>
                   <span>{q.met ? '✔' : q.measured ? '○' : '·'} {fileText(q.req.text)}</span>
                   {q.measured ? <><Bar p={q.progress} /> <LevelTag q={q} /></>
                     : <span className="dim">{t('trophies.unmeasured')}</span>}

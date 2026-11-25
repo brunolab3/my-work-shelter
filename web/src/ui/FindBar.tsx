@@ -23,17 +23,17 @@ let runner: Runner | null = null, before: HTMLElement | null = null;
 const input = { el: null as HTMLInputElement | null };
 const report = (n: number, i: number) => finder.set({ n, i, unavailable: false });
 
-const intercomLog = () => document.querySelector<HTMLElement>('.consola .sesion .lienzo');
+const intercomLog = () => document.querySelector<HTMLElement>('.console .session .canvas');
 
 /** ⌘F: opens the bar on what has focus (or back to its field if it's open); false if there's nothing to search there */
 export function findShortcut(): boolean {
   const active = document.activeElement as HTMLElement | null;
-  if (finder.get().open && active?.closest('.barra-buscar')) { input.el?.select(); return true; }
+  if (finder.get().open && active?.closest('.bar-find')) { input.el?.select(); return true; }
   const kind = findKind(active, !!intercomLog());
   if (!kind) return false;
   const log = intercomLog();
   const target = kind === 'intercom' ? log : active;
-  const host = kind === 'intercom' ? log?.closest<HTMLElement>('.sesion') : target?.closest<HTMLElement>('.vn-cuerpo');
+  const host = kind === 'intercom' ? log?.closest<HTMLElement>('.session') : target?.closest<HTMLElement>('.vn-body');
   if (!target || !host) return false;
   const { open, target: was, query } = finder.get();
   if (open && was === target) { input.el?.focus(); input.el?.select(); return true; }
@@ -65,7 +65,7 @@ if (HITS) { HITS.current.priority = 1; CSS.highlights.set('shelter-find', HITS.a
 function textOf(root: HTMLElement) {
   const nodes: { node: Text; start: number }[] = [];
   const shown = new Map<Element, boolean>();
-  const visible = (el: Element) => { let v = shown.get(el); if (v === undefined) { v = !el.closest('.barra-buscar') && (el.checkVisibility?.() ?? true); shown.set(el, v); } return v; };
+  const visible = (el: Element) => { let v = shown.get(el); if (v === undefined) { v = !el.closest('.bar-find') && (el.checkVisibility?.() ?? true); shown.set(el, v); } return v; };
   const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode: n => (n.parentElement && visible(n.parentElement) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT) });
   let text = '';
   for (let n = w.nextNode() as Text | null; n; n = w.nextNode() as Text | null) { nodes.push({ node: n, start: text.length }); text += n.data; }
@@ -168,7 +168,7 @@ const go = (dir: 1 | -1, again = true) => { const q = finder.get().query; if (q 
 export function FindBar() {
   const s = finder.use(e => e);
   const field = useRef<HTMLInputElement>(null);
-  const sessionId = s.kind === 'intercom' ? s.host?.getAttribute('data-sesion') ?? '' : '';
+  const sessionId = s.kind === 'intercom' ? s.host?.getAttribute('data-session') ?? '' : '';
   const partial = live.use(e => !!sessionId && !!e.older[sessionId]);
   useEffect(() => { input.el = field.current; if (s.open) { field.current?.focus(); field.current?.select(); } }, [s.open, s.host]);
   // its window closed, minimized or showing something else: the bar goes
@@ -181,7 +181,7 @@ export function FindBar() {
   const count = !s.query ? '' : s.unavailable ? t('windows.find.unavailable') : s.n ? `${s.i + 1}/${s.n}${s.n >= FIND_MAX && s.kind !== 'web' ? '+' : ''}` : t('windows.find.none');
   const change = (q: string) => { finder.set({ query: q }); if (q) runner?.search(q, 1, false); else runner?.clear(); };
   return createPortal(
-    <div className="barra-buscar interactivo" role="search" onPointerDown={e => e.stopPropagation()}>
+    <div className="bar-find interactive" role="search" onPointerDown={e => e.stopPropagation()}>
       <input ref={field} value={s.query} placeholder={t('windows.find.placeholder')} aria-label={t('windows.find.placeholder')} spellCheck={false}
         onChange={e => change(e.target.value)}
         onKeyDown={e => {
@@ -189,11 +189,11 @@ export function FindBar() {
           if (e.key === 'Escape') { e.preventDefault(); closeFind(); }
           else if (e.key === 'Enter' || e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); go(e.key === 'ArrowUp' || (e.key === 'Enter' && e.shiftKey) ? -1 : 1); }
         }} />
-      <span className={'barra-buscar-cuenta' + (s.query && !s.n ? ' vacia' : '')}>{count}</span>
-      {partial && <span className="barra-buscar-parcial" title={t('windows.find.loadedOnlyHint')}>{t('windows.find.loadedOnly')}</span>}
-      <button className="consola-x" onClick={() => go(-1)} disabled={!s.n} title={t('windows.find.previous')}>↑</button>
-      <button className="consola-x" onClick={() => go(1)} disabled={!s.n} title={t('windows.find.next')}>↓</button>
-      <button className="consola-x" onClick={() => closeFind()} title={t('windows.find.close')}>×</button>
+      <span className={'bar-find-count' + (s.query && !s.n ? ' empty' : '')}>{count}</span>
+      {partial && <span className="bar-find-partial" title={t('windows.find.loadedOnlyHint')}>{t('windows.find.loadedOnly')}</span>}
+      <button className="console-x" onClick={() => go(-1)} disabled={!s.n} title={t('windows.find.previous')}>↑</button>
+      <button className="console-x" onClick={() => go(1)} disabled={!s.n} title={t('windows.find.next')}>↓</button>
+      <button className="console-x" onClick={() => closeFind()} title={t('windows.find.close')}>×</button>
     </div>,
     s.host,
   );

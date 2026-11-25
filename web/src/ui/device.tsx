@@ -39,9 +39,9 @@ export function Options({ items, i, setI, onChoose }: { items: ItemMenu[]; i: nu
   const ref = useRef<HTMLUListElement>(null);
   useEffect(() => { (ref.current?.children[i] as HTMLElement | undefined)?.scrollIntoView({ block: 'nearest' }); }, [i]);
   return (
-    <ul className="opciones-consola" ref={ref}>
+    <ul className="options-console" ref={ref}>
       {items.map((it, k) => (
-        <li key={k} className={(k === i ? 'active' : '') + (it.danger ? ' peligro' : '') + (it.powerOff ? ' off' : '') + (it.kind ? ' ' + it.kind : '')} onMouseEnter={() => setI(k)} onClick={e => { if ((e.target as HTMLElement).closest('a')) return; SFX.click(); onChoose(k); }}>
+        <li key={k} className={(k === i ? 'active' : '') + (it.danger ? ' danger' : '') + (it.powerOff ? ' off' : '') + (it.kind ? ' ' + it.kind : '')} onMouseEnter={() => setI(k)} onClick={e => { if ((e.target as HTMLElement).closest('a')) return; SFX.click(); onChoose(k); }}>
           <span className="cursor">{k === i ? '▶' : ' '}</span><span className="txt">{it.text}</span>{it.hint && <small>{it.hint}</small>}
         </li>
       ))}
@@ -54,18 +54,18 @@ export function Device({ label, pilot = 'idle', width, height, children, onClose
   useBlocker();
   useEffect(() => { SFX.open(); }, []);
   return (
-    <div className={'device interactivo ' + kind + (height ? ' high' : '')} role="dialog" style={width ? { width: `min(94vw, calc(var(--u) * ${width}))` } : undefined}>
-      <div className="consola-bisel">
-        <div className="consola-cabeza">
-          <span className="rejilla" aria-hidden />
+    <div className={'device interactive ' + kind + (height ? ' high' : '')} role="dialog" style={width ? { width: `min(94vw, calc(var(--u) * ${width}))` } : undefined}>
+      <div className="console-bevel">
+        <div className="console-head">
+          <span className="grid" aria-hidden />
           <span className={'pilot ' + pilot} aria-hidden />
-          <span className="consola-rotulo">{label}</span>
-          <button className="consola-x" onClick={onClose} title={t('panels.closeEsc')}>Esc</button>
+          <span className="console-label">{label}</span>
+          <button className="console-x" onClick={onClose} title={t('panels.closeEsc')}>Esc</button>
         </div>
-        <div className="pantalla-consola fosforo aparato-pantalla">{children}</div>
+        <div className="screen-console phosphor device-screen">{children}</div>
       </div>
     </div>
   );
 }
 
-export function Keys({ children }: { children: React.ReactNode }) { return <p className="ayuda-consola">{children}</p>; }
+export function Keys({ children }: { children: React.ReactNode }) { return <p className="help-console">{children}</p>; }

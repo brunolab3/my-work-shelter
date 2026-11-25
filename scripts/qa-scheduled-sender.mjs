@@ -34,7 +34,7 @@ try {
   await pg.waitForFunction(w => window.__game.get().copies.some(c => c.copy?.path === w), wt, { timeout: 90000 });
   const holo = await pg.evaluate(w => window.__game.get().copies.find(c => c.copy?.path === w), wt);
   const roomName = await pg.evaluate(id => window.__live.get().state.rooms.find(r => r.id === id)?.name, holo.room);
-  const rows = async () => { await pg.click('.programados-sesion > .consola-x'); await sleep(400); return pg.$$eval('.programados-lista li:not(.programados-grupo)', l => l.map(x => x.children[0]?.textContent + ' | ' + x.children[2]?.textContent)); };
+  const rows = async () => { await pg.click('.scheduled-session > .console-x'); await sleep(400); return pg.$$eval('.scheduled-list li:not(.scheduled-group)', l => l.map(x => x.children[0]?.textContent + ' | ' + x.children[2]?.textContent)); };
   const shot = async n => { const r = await pg.$eval('.console', e => { const b = e.getBoundingClientRect(); return { x: b.x, y: b.y, width: b.width, height: b.height }; }); await pg.screenshot({ path: `${dir}/${n}.png`, clip: r }); console.log('->', `${dir}/${n}.png`); };
   const set = (withSession) => pg.evaluate(([holo, wt, withSession]) => {
     const now = Date.now(), conv = { type: 'conversation', roomId: holo.room, sessionId: 'qa_s', claudeId: 'qa_c', cwd: wt, title: 'QA carrito' };
@@ -55,26 +55,26 @@ try {
   const toTask = mark => r(mark, `from ${roomName}`, `→ ${holo.room} QA-7`);
   const expected = (here, open) => [r('↙ in', 'from the Overseer', here), r('↙ in', 'from Version Control (Ana)', here), r('↙ in', 'from the game', here),
     ...(open ? [r('↻ reminder', `from ${roomName}`, here), toTask('↗ out')] : [toTask('↙ in'), r('↻ reminder', `from ${roomName}`, here)])];
-  await set(true); await pg.waitForSelector('.programados-sesion', { timeout: 15000 }); await sleep(1500);
+  await set(true); await pg.waitForSelector('.scheduled-session', { timeout: 15000 }); await sleep(1500);
   let got = await rows(); check(JSON.stringify(got) === JSON.stringify(expected('here', true)), 'intercom with its conversation: ' + JSON.stringify(got));
   await shot('1-intercom-remitente');
-  await pg.click('.programados-sesion > .consola-x'); await pg.evaluate(() => { window.__game.set({ talkingWith: null }); window.__intercoms.set({ list: [] }); }); await sleep(500);   // no resume tab left: its place's list
-  await set(false); await pg.waitForSelector('.programados-sesion', { timeout: 15000 }); await sleep(1500);
+  await pg.click('.scheduled-session > .console-x'); await pg.evaluate(() => { window.__game.set({ talkingWith: null }); window.__intercoms.set({ list: [] }); }); await sleep(500);   // no resume tab left: its place's list
+  await set(false); await pg.waitForSelector('.scheduled-session', { timeout: 15000 }); await sleep(1500);
   got = await rows(); check(JSON.stringify(got) === JSON.stringify(expected('→ “QA carrito”', false)), 'hologram list without a conversation: ' + JSON.stringify(got));
   await shot('2-holograma-remitente');
   // the room's dweller: a message to a task with no worktree yet gets its own «◇ key · new hologram» section, after the
   // hologram's, received from whoever sent it
-  await pg.click('.programados-sesion > .consola-x'); await pg.evaluate(() => { window.__game.set({ talkingWith: null }); window.__intercoms.set({ list: [] }); }); await sleep(500);
+  await pg.click('.scheduled-session > .console-x'); await pg.evaluate(() => { window.__game.set({ talkingWith: null }); window.__intercoms.set({ list: [] }); }); await sleep(500);
   await pg.evaluate(holo => {
     const now = Date.now(), dweller = window.__game.get().dwellers.find(h => h.room === holo.room);
     const msg = { id: 'k', created: now, when: now + 2 * 3600e3, requested: '', message: 'For a task to come', origin: { roomId: 'git', claudeId: 'qa_g' }, from: { kind: 'room', roomId: 'git', room: 'Version Control', dweller: 'Ana' }, target: { type: 'room', room: holo.room, key: 'QA-9' } };
     window.__live.set(e => ({ ...e, scheduled: [...e.scheduled, msg] }));
     window.__game.set({ talkingWith: dweller.id });
   }, holo);
-  await pg.waitForSelector('.programados-sesion', { timeout: 15000 }); await sleep(1500);
-  await pg.click('.programados-sesion > .consola-x'); await sleep(400);
-  const heads = await pg.$$eval('.programados-lista li.programados-grupo', l => l.map(x => x.textContent));
-  const last = await pg.$$eval('.programados-lista li', l => [l.at(-2)?.textContent, l.at(-1)?.children[0]?.textContent + ' | ' + l.at(-1)?.children[2]?.textContent]);
+  await pg.waitForSelector('.scheduled-session', { timeout: 15000 }); await sleep(1500);
+  await pg.click('.scheduled-session > .console-x'); await sleep(400);
+  const heads = await pg.$$eval('.scheduled-list li.scheduled-group', l => l.map(x => x.textContent));
+  const last = await pg.$$eval('.scheduled-list li', l => [l.at(-2)?.textContent, l.at(-1)?.children[0]?.textContent + ' | ' + l.at(-1)?.children[2]?.textContent]);
   check(heads.at(-1) === '◇ QA-9 · new hologram · 1' && last[0] === heads.at(-1) && last[1] === `↙ in | from Version Control (Ana) · → ${holo.room} QA-9`, 'dweller list, task with no hologram yet: ' + JSON.stringify({ heads, last }));
   await shot('3-holograma-nuevo');
 } finally { await b.close(); server.kill(); }

@@ -26,7 +26,7 @@ const RANGE_TEXT: Record<LogRange, string> = { day: 'worklog.range.day', week: '
 /** The two views of Planning's board, on top of both: the Jira board and Sync update (this log) */
 export function PlanningModes({ active, onBoard, onUpdate }: { active: 'board' | 'update'; onBoard?: () => void; onUpdate?: () => void }) {
   return (
-    <div className="modos-planning">
+    <div className="modes-planning">
       <button className={active === 'board' ? 'active' : ''} onClick={() => { if (active !== 'board') { SFX.click(); onBoard?.(); } }}>{t('worklog.mode.board')}</button>
       <button className={active === 'update' ? 'active' : ''} onClick={() => { if (active !== 'update') { SFX.click(); onUpdate?.(); } }}>{t('worklog.mode.update')}</button>
     </div>
@@ -47,7 +47,7 @@ export function WorkLog({ goBack, onBoard }: { goBack: () => void; onBoard: () =
   useEffect(() => knowTasks(rows.map(r => r.key)), [rows]);
   const sel: LogRow | undefined = rows[Math.min(i, rows.length - 1)];
   const toggle = (k: string, v?: boolean) => setOpen(s => { const n = new Set(s); (v ?? !n.has(k)) ? n.add(k) : n.delete(k); return n; });
-  const enter = (r?: LogRow) => { if (!r) return; SFX.click(); if (r.prs.length) openPreflight(r.key, document.querySelector('.bitacora-fila.sel')); else openLink(r.task?.url); };
+  const enter = (r?: LogRow) => { if (!r) return; SFX.click(); if (r.prs.length) openPreflight(r.key, document.querySelector('.work-log-row.sel')); else openLink(r.task?.url); };
   const copy = () => navigator.clipboard.writeText(syncText(rows)).then(() => { setNotice(t('worklog.copied', { n: rows.length })); SFX.shortSuccess(); }).catch(e => { setNotice(String(e?.message ?? e)); SFX.notAllowed(); });
   useKeys(e => {
     if (e.code === 'Escape') goBack();
@@ -70,7 +70,7 @@ export function WorkLog({ goBack, onBoard }: { goBack: () => void; onBoard: () =
       {data?.demo && <p className="dim">{t('worklog.demo')}</p>}
       {error && <p className="notice-console">{error}</p>}
       {notice && <p className="notice-console">{notice}</p>}
-      <div className="bitacora-periodos">{LOG_RANGES.map(r => <button key={r} className={r === range ? 'active' : ''} onClick={() => { setRange(r); setI(0); }}>{t(RANGE_TEXT[r])}</button>)}</div>
+      <div className="work-log-periods">{LOG_RANGES.map(r => <button key={r} className={r === range ? 'active' : ''} onClick={() => { setRange(r); setI(0); }}>{t(RANGE_TEXT[r])}</button>)}</div>
       {!data && !error && <p className="dim">{t('worklog.reading')}</p>}
       {data && !rows.length && <p className="dim">{t('worklog.empty')}</p>}
       <ul className="log">
@@ -79,18 +79,18 @@ export function WorkLog({ goBack, onBoard }: { goBack: () => void; onBoard: () =
           const expanded = open.has(r.key);
           return (
             <React.Fragment key={r.key}>
-              {head && <li className="bitacora-grupo dim">{t('worklog.noJira')}</li>}
-              <li className={'bitacora-fila' + (k === i ? ' sel' : '')} style={{ '--tarea': taskColor(r.key) } as React.CSSProperties}
+              {head && <li className="work-log-group dim">{t('worklog.noJira')}</li>}
+              <li className={'work-log-row' + (k === i ? ' sel' : '')} style={{ '--task': taskColor(r.key) } as React.CSSProperties}
                 onMouseEnter={() => setI(k)} onClick={() => toggle(r.key)} onDoubleClick={() => enter(r)}>
-                <div className="bitacora-linea">
+                <div className="work-log-line">
                   <span className="cursor">{expanded ? '▾' : '▸'}</span>
-                  <b className="bitacora-clave">{r.key}</b>
-                  <span className="bitacora-titulo">{r.task?.title ?? r.prs[0]?.title ?? ''}</span>
-                  {r.task && <span className={'bitacora-estado c-' + r.task.category}>{r.task.state}</span>}
+                  <b className="work-log-key">{r.key}</b>
+                  <span className="work-log-title">{r.task?.title ?? r.prs[0]?.title ?? ''}</span>
+                  {r.task && <span className={'work-log-state c-' + r.task.category}>{r.task.state}</span>}
                   {r.prs.length > 0 && <span className="dim">{prRollup(r.prs)}</span>}
-                  {r.repos.length > 0 && <span className="dim bitacora-repos">{r.repos.map(x => x.split('/').pop()).join(', ')}</span>}
+                  {r.repos.length > 0 && <span className="dim work-log-repos">{r.repos.map(x => x.split('/').pop()).join(', ')}</span>}
                 </div>
-                {expanded && <ul className="bitacora-detalle">
+                {expanded && <ul className="work-log-detail">
                   {r.prs.map(p => <li key={p.ref} onClick={e => { e.stopPropagation(); openLink(p.url); }} className="link">
                     ⇄ {p.repo.split('/').pop()}#{p.number} {p.title} — {p.mergedAt ? t('worklog.mergedOn', { date: day(p.mergedAt) }) : prStateText(p.state)} · {day(p.updated)}</li>)}
                   {r.worktrees.map(w => <li key={w.path}>⎇ {w.roomId} · {w.branch ?? w.path.split('/').pop()} — {w.goneAt ? t('worklog.worktreeGone', { date: day(w.goneAt) }) : t('worklog.worktreeLive')}</li>)}

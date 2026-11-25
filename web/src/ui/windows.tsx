@@ -59,14 +59,14 @@ export function windowShortcut(e: KeyboardEvent | React.KeyboardEvent, a: Window
 export const FLAG_SHORTCUT = `${CMD}${MAC ? '⇧' : ''}P`;
 export function WindowButtons({ maximized, minimize, toggleMaximize, close, closesThat, takeOut, takesThat, wingApp, remote, flag }: { maximized: boolean; minimize: () => void; toggleMaximize: () => void; close: () => void; closesThat: string; takeOut?: () => void; takesThat?: string; wingApp?: () => void; remote?: () => void; flag?: { on: boolean; toggle: () => void } }) {
   return (
-    <span className="botones-ventana">
-      {flag && <button className={'consola-x boton-marca' + (flag.on ? ' marcada' : '')} onClick={flag.toggle} aria-pressed={flag.on} title={t(flag.on ? 'windows.flag.clear' : 'windows.flag.set', { shortcut: FLAG_SHORTCUT })}>⚑</button>}
-      {remote && <button className="consola-x" onClick={remote} title={t('windows.continueOnYourPhone')}>📱</button>}
-      {wingApp && <button className="consola-x" onClick={wingApp} title={t('windows.continueThisConversationInThe')}>✳</button>}
-      {takeOut &&<button className="consola-x" onClick={takeOut} title={t('windows.popWhatOutToA', { what: takesThat ?? t('windows.thisTab'), shortcut: `${CMD}${MAC ? '⇧' : ''}E` })}>↗</button>}
-      <button className="consola-x" onClick={minimize} title={t('windows.minimizeToTheBarBelow', { shortcut: `${CMD}↓` })}>_</button>
-      <button className="consola-x" onClick={toggleMaximize} title={maximized ? t('windows.restoreSizeShortcut', { shortcut: `${CMD}↓` }) : t('windows.expandToFullScreenShortcut', { shortcut: `${CMD}↑` })}>{maximized ? '❐' : '▢'}</button>
-      <button className="consola-x" onClick={close} title={t('windows.closeWhat', { what: closesThat }) + (MAC ? ' (⌘⇧W)' : '')}>×</button>
+    <span className="buttons-window">
+      {flag && <button className={'console-x button-mark' + (flag.on ? ' checked' : '')} onClick={flag.toggle} aria-pressed={flag.on} title={t(flag.on ? 'windows.flag.clear' : 'windows.flag.set', { shortcut: FLAG_SHORTCUT })}>⚑</button>}
+      {remote && <button className="console-x" onClick={remote} title={t('windows.continueOnYourPhone')}>📱</button>}
+      {wingApp && <button className="console-x" onClick={wingApp} title={t('windows.continueThisConversationInThe')}>✳</button>}
+      {takeOut &&<button className="console-x" onClick={takeOut} title={t('windows.popWhatOutToA', { what: takesThat ?? t('windows.thisTab'), shortcut: `${CMD}${MAC ? '⇧' : ''}E` })}>↗</button>}
+      <button className="console-x" onClick={minimize} title={t('windows.minimizeToTheBarBelow', { shortcut: `${CMD}↓` })}>_</button>
+      <button className="console-x" onClick={toggleMaximize} title={maximized ? t('windows.restoreSizeShortcut', { shortcut: `${CMD}↓` }) : t('windows.expandToFullScreenShortcut', { shortcut: `${CMD}↑` })}>{maximized ? '❐' : '▢'}</button>
+      <button className="console-x" onClick={close} title={t('windows.closeWhat', { what: closesThat }) + (MAC ? ' (⌘⇧W)' : '')}>×</button>
     </span>
   );
 }
@@ -79,16 +79,16 @@ const LIST_SHORTCUT = `${CMD}${MAC ? '⇧' : ''}A`;
  *  light); nothing for tasks without one. Repaints with useColorsTasks */
 export function EpicMark({ taskKey }: { taskKey?: string }) {
   const e = taskEpic(taskKey);
-  return e ? <span className="epic-mark" style={{ '--epica': taskColor(e.key) } as React.CSSProperties} title={t('windows.epicOf', { key: e.key, title: e.title })} /> : null;
+  return e ? <span className="epic-mark" style={{ '--epic': taskColor(e.key) } as React.CSSProperties} title={t('windows.epicOf', { key: e.key, title: e.title })} /> : null;
 }
 /** A task's color marker and, if it has one, its epic's */
-export const TaskMark = ({ taskKey, color }: { taskKey?: string; color?: string }) => <><span className="marca-tarea" style={{ '--tarea': color ?? taskColor(taskKey) } as React.CSSProperties} title={taskKey} /><EpicMark taskKey={taskKey} /></>;
+export const TaskMark = ({ taskKey, color }: { taskKey?: string; color?: string }) => <><span className="mark-task" style={{ '--task': color ?? taskColor(taskKey) } as React.CSSProperties} title={taskKey} /><EpicMark taskKey={taskKey} /></>;
 
-export const DraftMark = () => <span className="marca-borrador" title={t('windows.unsentDraft')}>✎</span>;
+export const DraftMark = () => <span className="mark-draft" title={t('windows.unsentDraft')}>✎</span>;
 // messages waiting in the conversation's queue (shared/messageQueue.ts)
-export const QueuedMark = ({ n }: { n?: number }) => n ? <span className="marca-cola" title={t('windows.queue.markTitle', { n })}>{t('windows.queue.mark', { n })}</span> : null;
+export const QueuedMark = ({ n }: { n?: number }) => n ? <span className="mark-queue" title={t('windows.queue.markTitle', { n })}>{t('windows.queue.mark', { n })}</span> : null;
 // a conversation the Overseer marked as pending (shared/flagged.ts); with n, how many of a list are
-export const FlagMark = ({ on, n }: { on?: boolean; n?: number }) => n ? <span className="marca-pendiente" title={t('windows.flag.marksTitle', { n })}>{t('windows.flag.marks', { n })}</span> : on ? <span className="marca-pendiente" title={t('windows.flag.markTitle')}>{t('windows.flag.mark')}</span> : null;
+export const FlagMark = ({ on, n }: { on?: boolean; n?: number }) => n ? <span className="mark-pending" title={t('windows.flag.marksTitle', { n })}>{t('windows.flag.marks', { n })}</span> : on ? <span className="mark-pending" title={t('windows.flag.markTitle')}>{t('windows.flag.mark')}</span> : null;
 
 // grupo: with «group by room», tabs of a group sit together under its header; quien: whose it is (another window);
 // borrador: it has unsent text or attachments (DraftMark); queued: messages its conversation has not taken yet (QueuedMark);
@@ -111,24 +111,24 @@ export function Tabs({ items, active, activate, close, onNew, opensThat, list, c
     else if (el.offsetLeft + el.offsetWidth > c.scrollLeft + c.clientWidth) c.scrollLeft = el.offsetLeft + el.offsetWidth - c.clientWidth + 8;
   }, [active, items.length]);
   return (
-    <div className="vt-pestanas">
-      <div className="vt-pestanas-tira" ref={strip} onWheel={e => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) e.currentTarget.scrollLeft += e.deltaY; }}>
+    <div className="vt-tabs">
+      <div className="vt-tabs-strip" ref={strip} onWheel={e => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) e.currentTarget.scrollLeft += e.deltaY; }}>
         {items.map((p, i) => (<React.Fragment key={p.id}>
-          <div className={'vt-tab' + (p.id === active ? ' active' : '') + (p.state ? ' e-' + p.state : '') + (p.flagged ? ' pending' : '') + (p.task ? ' con-tarea' : '')} style={p.task ? { '--tarea': taskColor(p.task) } as React.CSSProperties : undefined}
+          <div className={'vt-tab' + (p.id === active ? ' active' : '') + (p.state ? ' e-' + p.state : '') + (p.flagged ? ' pending' : '') + (p.task ? ' with-task' : '')} style={p.task ? { '--task': taskColor(p.task) } as React.CSSProperties : undefined}
             onClick={() => activate(p.id)} onAuxClick={e => { if (e.button === 1) close([p.id]); }}
             title={[p.title || p.name, p.state && stateLabel(p.state), p.draft && t('windows.unsentDraft'), p.queued && t('windows.queue.markTitle', { n: p.queued }), p.flagged && t('windows.flag.markTitle'), p.who, p.task, i < 9 ? `${CMD}${i + 1}` : ''].filter(Boolean).join(' · ')}>
             <span className={'pilot ' + PILOT[p.state ?? 'idle']} />
             {p.draft && <DraftMark />}
             <EpicMark taskKey={p.task} />
-            <span className="vt-pestana-nombre">{p.name}</span>
+            <span className="vt-tab-name">{p.name}</span>
             <QueuedMark n={p.queued} />
             <FlagMark on={p.flagged} />
-            <button className="vt-pestana-x" onClick={e => { e.stopPropagation(); close([p.id]); }} title={t('windows.closeTabShortcut', { shortcut: `${CMD}W` })}>×</button>
+            <button className="vt-tab-x" onClick={e => { e.stopPropagation(); close([p.id]); }} title={t('windows.closeTabShortcut', { shortcut: `${CMD}W` })}>×</button>
           </div>
         </React.Fragment>))}
       </div>
-      {onNew && <button className="vt-nueva" onClick={onNew} title={`${opensThat} (${CMD}T)`}>+</button>}
-      {list && items.length > 1 && <button className={'vt-todas' + (open ? ' active' : '')} onClick={() => setOpen(x => !x)} title={t('windows.allTabs', { n: items.length, shortcut: LIST_SHORTCUT })}>⋯ {items.length}</button>}
+      {onNew && <button className="vt-new" onClick={onNew} title={`${opensThat} (${CMD}T)`}>+</button>}
+      {list && items.length > 1 && <button className={'vt-all' + (open ? ' active' : '')} onClick={() => setOpen(x => !x)} title={t('windows.allTabs', { n: items.length, shortcut: LIST_SHORTCUT })}>⋯ {items.length}</button>}
       {/* the list steps aside while a close is being confirmed */}
       {open && !confirming && <TabList items={items} active={active} activate={id => { activate(id); setOpen(false); }} close={close} exit={() => setOpen(false)} />}
     </div>
@@ -158,7 +158,7 @@ export function TabList({ items, active, activate, close, exit, group, header, f
   const [before] = useState(() => document.activeElement as HTMLElement | null);   // before the filter takes it
   useEffect(() => () => { setTimeout(() => { const a = document.activeElement; if (!a || a === document.body) before?.focus(); }); }, []);
   useEffect(() => {
-    const outside = (e: PointerEvent) => { const el = e.target as HTMLElement; if (!box.current?.contains(el) && !el.closest?.('.vt-todas, .vt-confirmar')) exit(); };
+    const outside = (e: PointerEvent) => { const el = e.target as HTMLElement; if (!box.current?.contains(el) && !el.closest?.('.vt-all, .vt-confirm')) exit(); };
     addEventListener('pointerdown', outside, true); return () => removeEventListener('pointerdown', outside, true);
   }, []);
   useEffect(() => { box.current?.querySelector('.vt-list-row.sel')?.scrollIntoView({ block: 'nearest' }); }, [i, q]);
@@ -170,38 +170,38 @@ export function TabList({ items, active, activate, close, exit, group, header, f
     else if (k === 'Enter') activate(sel.id);
     else setI(x => Math.max(0, Math.min(views.length - 1, x + (k === 'ArrowDown' ? 1 : -1))));
   };
-  const button = (text: string, ids: string[]) => ids.length ? <button className="consola-x" onClick={() => { close(ids); setMarked(m => m.filter(x => !ids.includes(x))); }}>{text}</button> : null;
+  const button = (text: string, ids: string[]) => ids.length ? <button className="console-x" onClick={() => { close(ids); setMarked(m => m.filter(x => !ids.includes(x))); }}>{text}</button> : null;
   return (
-    <div className="vt-lista" ref={box} onKeyDown={key}>
-      <input className="vt-lista-filtro" autoFocus value={filter} placeholder={t('windows.filterTabs')} spellCheck={false} onChange={e => { setFilter(e.target.value); setI(0); }} />
-      <div className="vt-lista-filas">
+    <div className="vt-list" ref={box} onKeyDown={key}>
+      <input className="vt-list-filter" autoFocus value={filter} placeholder={t('windows.filterTabs')} spellCheck={false} onChange={e => { setFilter(e.target.value); setI(0); }} />
+      <div className="vt-list-rows">
         {views.map((p, k) => (<React.Fragment key={p.id}>
-          {group && p.group !== views[k - 1]?.group && (header ? header(p, views[k - 1]) : <div className="vt-lista-grupo">{p.group}</div>)}
-          <div className={'vt-list-row' + (p === sel ? ' sel' : '') + (p.id === active ? ' active' : '') + (p.state ? ' e-' + p.state : '') + (p.flagged ? ' pending' : '') + (flag ? ' con-marca' : '')} onMouseMove={() => setI(k)} onClick={() => activate(p.id)}>
+          {group && p.group !== views[k - 1]?.group && (header ? header(p, views[k - 1]) : <div className="vt-list-group">{p.group}</div>)}
+          <div className={'vt-list-row' + (p === sel ? ' sel' : '') + (p.id === active ? ' active' : '') + (p.state ? ' e-' + p.state : '') + (p.flagged ? ' pending' : '') + (flag ? ' with-mark' : '')} onMouseMove={() => setI(k)} onClick={() => activate(p.id)}>
             <input type="checkbox" checked={marked.includes(p.id)} title={t('windows.selectTab')} onClick={e => e.stopPropagation()} onChange={() => setMarked(m => (m.includes(p.id) ? m.filter(x => x !== p.id) : [...m, p.id]))} />
             <span className={'pilot ' + PILOT[p.state ?? 'idle']} />
             {/* the title gets the whole width; under it, its state, task and whose (the header says whose when grouped) */}
-            <span className="vt-lista-cuerpo">
-              <span className="vt-lista-nombre" title={p.name}>{p.draft && <DraftMark />}{p.name} <QueuedMark n={p.queued} /></span>
-              <small className="vt-lista-meta">
-                {p.state && <span className="vt-lista-estado">{stateLabel(p.state)}</span>}
-                {p.task && <span className="vt-lista-tarea"><TaskMark taskKey={p.task} />{p.task}</span>}
-                {!header && (p.who ?? p.room) && <span className="vt-lista-sala">{p.who ?? p.room}</span>}
+            <span className="vt-list-body">
+              <span className="vt-list-name" title={p.name}>{p.draft && <DraftMark />}{p.name} <QueuedMark n={p.queued} /></span>
+              <small className="vt-list-meta">
+                {p.state && <span className="vt-list-state">{stateLabel(p.state)}</span>}
+                {p.task && <span className="vt-list-task"><TaskMark taskKey={p.task} />{p.task}</span>}
+                {!header && (p.who ?? p.room) && <span className="vt-list-room">{p.who ?? p.room}</span>}
               </small>
             </span>
-            {flag && (p.flagged === undefined ? <span className="vt-lista-marca" /> : <button className={'vt-lista-marca' + (p.flagged ? ' marcada' : '')} aria-pressed={p.flagged} title={t(p.flagged ? 'windows.flag.clear' : 'windows.flag.set', { shortcut: FLAG_SHORTCUT })} onClick={e => { e.stopPropagation(); flag(p.id); }}>⚑</button>)}
-            <span className="vt-lista-cuando">{p.activity}</span>
-            <button className="vt-pestana-x" onClick={e => { e.stopPropagation(); close([p.id]); }} title={t('windows.closeTabShortcut', { shortcut: `${CMD}W` })}>×</button>
+            {flag && (p.flagged === undefined ? <span className="vt-list-mark" /> : <button className={'vt-list-mark' + (p.flagged ? ' checked' : '')} aria-pressed={p.flagged} title={t(p.flagged ? 'windows.flag.clear' : 'windows.flag.set', { shortcut: FLAG_SHORTCUT })} onClick={e => { e.stopPropagation(); flag(p.id); }}>⚑</button>)}
+            <span className="vt-list-when">{p.activity}</span>
+            <button className="vt-tab-x" onClick={e => { e.stopPropagation(); close([p.id]); }} title={t('windows.closeTabShortcut', { shortcut: `${CMD}W` })}>×</button>
           </div>
         </React.Fragment>))}
-        {!views.length && <div className="vt-lista-vacia">{t('windows.noTabsMatch')}</div>}
+        {!views.length && <div className="vt-list-empty">{t('windows.noTabsMatch')}</div>}
       </div>
-      <div className="vt-lista-pie">
-        {nFlagged > 0 && <button className={'consola-x' + (onlyFlagged ? ' active' : '')} aria-pressed={onlyFlagged} onClick={() => { setOnlyFlagged(x => !x); setI(0); }}>{onlyFlagged ? t('windows.flag.all') : t('windows.flag.only', { n: nFlagged })}</button>}
+      <div className="vt-list-footer">
+        {nFlagged > 0 && <button className={'console-x' + (onlyFlagged ? ' active' : '')} aria-pressed={onlyFlagged} onClick={() => { setOnlyFlagged(x => !x); setI(0); }}>{onlyFlagged ? t('windows.flag.all') : t('windows.flag.only', { n: nFlagged })}</button>}
         {button(t('windows.closeSelected', { n: picked.length }), picked)}
         {button(t('windows.closeIdle', { n: idle.length }), idle)}
         {sel?.task && button(t('windows.closeTask', { task: sel.task, n: taskSession.length }), taskSession)}
-        <span className="vt-lista-ayuda">{t('windows.tabListHelp')}</span>
+        <span className="vt-list-help">{t('windows.tabListHelp')}</span>
       </div>
     </div>
   );
@@ -212,14 +212,14 @@ export function Confirmation({ title, text, close, minimize, cancel, button = t(
   const si = useRef<HTMLButtonElement>(null);
   useEffect(() => { si.current?.focus(); }, []);
   return (
-    <div className="vt-confirmar" onKeyDown={e => { e.stopPropagation(); if (e.key === 'Escape') { e.preventDefault(); cancel(); } }}>
-      <div className="vt-confirmar-caja">
+    <div className="vt-confirm" onKeyDown={e => { e.stopPropagation(); if (e.key === 'Escape') { e.preventDefault(); cancel(); } }}>
+      <div className="vt-confirm-box">
         <p><b>{title}</b></p>
         <p>{text}</p>
-        <div className="vt-confirmar-botones">
-          <button ref={si} className="consola-x" onClick={close}>{button}</button>
-          <button className="consola-x" onClick={minimize}>{t('windows.minimize')}</button>
-          <button className="consola-x" onClick={cancel}>{t('windows.cancelEsc')}</button>
+        <div className="vt-confirm-buttons">
+          <button ref={si} className="console-x" onClick={close}>{button}</button>
+          <button className="console-x" onClick={minimize}>{t('windows.minimize')}</button>
+          <button className="console-x" onClick={cancel}>{t('windows.cancelEsc')}</button>
         </div>
       </div>
     </div>

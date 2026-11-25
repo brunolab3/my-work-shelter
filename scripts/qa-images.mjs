@@ -31,12 +31,12 @@ await pg.evaluate(async () => { await window.__ready(); window.__game.set({ pane
 // a reply as the intercom draws it (same markdown())
 await pg.evaluate(async dir => {
   const { markdown } = await import('/src/ui/markdown.ts');
-  const box = document.createElement('div'); box.id = 'qa-respuesta'; box.className = 'console interactivo';
+  const box = document.createElement('div'); box.id = 'qa-respuesta'; box.className = 'console interactive';
   box.style.cssText = 'position:fixed;right:20px;top:80px;width:520px;z-index:999999;background:#0b0d0a;padding:12px;color:#cfe';
   box.innerHTML = `<div class="ent asistente">${markdown(`Here it is: ![the capture](${dir}/gradiente.png)\n\nAlso as a link: ${dir}/gradiente.png and [a missing one](${dir}/falta.png).\n\n\`${dir}/gradiente.png\` in code stays code.`)}</div>`;
   document.body.append(box);
 }, dir);
-const state = () => pg.evaluate(() => [...document.querySelectorAll('#qa-respuesta a.miniatura img')].map(i => ({ src: i.getAttribute('src'), w: i.naturalWidth, height: i.getBoundingClientRect().height, width: i.getBoundingClientRect().width })));
+const state = () => pg.evaluate(() => [...document.querySelectorAll('#qa-respuesta a.thumbnail img')].map(i => ({ src: i.getAttribute('src'), w: i.naturalWidth, height: i.getBoundingClientRect().height, width: i.getBoundingClientRect().width })));
 check(await until(async () => (await state()).every(i => i.w > 0) && (await state()).length === 1), `one thumbnail per image, loaded (${JSON.stringify(await state())})`);
 const [mini] = await state();
 check(/^\/pagina\/[0-9a-f]{32}\/gradiente\.png$/.test(mini?.src ?? ''), 'served by the game with its own key');
@@ -46,20 +46,20 @@ check(await pg.evaluate(() => !!document.querySelector('#qa-respuesta code') && 
 await pg.locator('#qa-respuesta').screenshot({ timeout: 120000, path: `${dir}/respuesta.png` });
 
 // a click on the thumbnail: the «Página» window, with the image drawn by the game
-await pg.click('#qa-respuesta a.miniatura');
-const inWindow = () => pg.evaluate(() => { const i = document.querySelector('.ventana-navegador .vn-imagen img'); return i ? { w: i.naturalWidth, src: i.getAttribute('src') } : null; });
+await pg.click('#qa-respuesta a.thumbnail');
+const inWindow = () => pg.evaluate(() => { const i = document.querySelector('.window-browser .vn-image img'); return i ? { w: i.naturalWidth, src: i.getAttribute('src') } : null; });
 check(await until(async () => (await inWindow())?.w === 320), `the thumbnail opens it in the «Página» window (${JSON.stringify(await inWindow())})`);
-check(await pg.evaluate(() => !document.querySelector('.ventana-navegador iframe.vn-pagina')), 'drawn as an image, not in an iframe');
-check(await pg.evaluate(() => !document.querySelector('.ventana-navegador').classList.contains('minimizada')), `the window is in view (${await pg.evaluate(() => document.querySelector('.ventana-navegador').className)})`);
-await until(async () => pg.evaluate(() => getComputedStyle(document.querySelector('.ventana-navegador')).opacity === '1'));   // after its opening fade
+check(await pg.evaluate(() => !document.querySelector('.window-browser iframe.vn-page')), 'drawn as an image, not in an iframe');
+check(await pg.evaluate(() => !document.querySelector('.window-browser').classList.contains('minimized')), `the window is in view (${await pg.evaluate(() => document.querySelector('.window-browser').className)})`);
+await until(async () => pg.evaluate(() => getComputedStyle(document.querySelector('.window-browser')).opacity === '1'));   // after its opening fade
 await pg.screenshot({ timeout: 120000, path: `${dir}/ventana.png` });
-await pg.click('.ventana-navegador .vn-imagen');
-check(await pg.evaluate(() => document.querySelector('.ventana-navegador .vn-imagen')?.classList.contains('real')), 'a click shows it at its own size');
+await pg.click('.window-browser .vn-image');
+check(await pg.evaluate(() => document.querySelector('.window-browser .vn-image')?.classList.contains('real')), 'a click shows it at its own size');
 
 // the link (not the thumbnail) also opens it inside
-await pg.evaluate(() => [...document.querySelectorAll('.ventana-navegador .vn-cabeza button')].find(x => x.textContent === '×').click());
-check(await until(async () => pg.evaluate(() => !document.querySelector('.ventana-navegador'))), 'the window closes');
-await pg.click(`#qa-respuesta a[data-local="${dir}/gradiente.png"]:not(.miniatura)`);
+await pg.evaluate(() => [...document.querySelectorAll('.window-browser .vn-head button')].find(x => x.textContent === '×').click());
+check(await until(async () => pg.evaluate(() => !document.querySelector('.window-browser'))), 'the window closes');
+await pg.click(`#qa-respuesta a[data-local="${dir}/gradiente.png"]:not(.thumbnail)`);
 check(await until(async () => (await inWindow())?.w === 320), 'the link opens it in the «Página» window too');
 check(errors.length === 0, `no page errors ${errors.join(' | ')}`);
 console.log(`Screenshots: ${dir}/respuesta.png ${dir}/ventana.png`);

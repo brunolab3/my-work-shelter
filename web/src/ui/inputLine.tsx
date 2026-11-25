@@ -49,12 +49,12 @@ export const listsPaths = (l?: AttachmentLocal[]) => (l ?? []).filter(a => a.pat
 export function AttachmentsTray({ list, remove }: { list?: AttachmentLocal[]; remove: (id: string) => void }) {
   if (!list?.length) return null;
   return (
-    <div className="bandeja-adjuntos">
+    <div className="attachments-tray">
       {list.map(a => (
-        <span key={a.id} className={'adjunto' + (a.error ? ' failed' : !a.path ? ' subiendo' : '')} title={a.error ? `${a.name}: ${a.error}` : a.path ? a.name : `${a.name} · ${t('windows.uploading')}`}>
-          {a.view ? <img src={a.view} alt="" /> : <span className="icono-adjunto" aria-hidden>{a.image ? '▣' : '▤'}</span>}
-          <span className="nombre-adjunto">{a.name}</span>
-          {a.error ? <span className="estado-adjunto">⚠</span> : !a.path ? <span className="estado-adjunto girando">◐</span> : null}
+        <span key={a.id} className={'attachment' + (a.error ? ' failed' : !a.path ? ' uploading' : '')} title={a.error ? `${a.name}: ${a.error}` : a.path ? a.name : `${a.name} · ${t('windows.uploading')}`}>
+          {a.view ? <img src={a.view} alt="" /> : <span className="icon-attachment" aria-hidden>{a.image ? '▣' : '▤'}</span>}
+          <span className="name-attachment">{a.name}</span>
+          {a.error ? <span className="state-attachment">⚠</span> : !a.path ? <span className="state-attachment spinning">◐</span> : null}
           <button onMouseDown={e => e.preventDefault()} onClick={() => remove(a.id)} title={t('windows.remove')}>×</button>
         </span>
       ))}
@@ -64,16 +64,16 @@ export function AttachmentsTray({ list, remove }: { list?: AttachmentLocal[]; re
 
 // los que ya se mandaron, en el cuaderno: miniatura (pedida al refugio la primera vez) y, con un clic, en su app
 export function SentAttachments({ list }: { list: Attachment[] }) {
-  return <div className="bandeja-adjuntos enviados">{list.map(a => <SentAttachment key={a.path} a={a} />)}</div>;
+  return <div className="attachments-tray sent">{list.map(a => <SentAttachment key={a.path} a={a} />)}</div>;
 }
 function SentAttachment({ a }: { a: Attachment }) {
   const [view, setView] = useState(views.get(a.path));
   useEffect(() => { if (a.image && !view) client.action<string>('attachment.thumbnail', { path: a.path }).then(v => { views.set(a.path, v); setView(v); }).catch(() => {}); }, [a.path]);
   const open = () => { client.action('attachment.open', { path: a.path }).catch(e => { SFX.notAllowed(); addNotice('warning', (e as Error).message); }); SFX.click(); };
   return (
-    <button className={'adjunto' + (view ? ' con-vista' : '')} onClick={open} title={`${a.name} · ${t('windows.open')}`}>
-      {view ? <img src={view} alt={a.name} /> : <span className="icono-adjunto" aria-hidden>{a.image ? '▣' : '▤'}</span>}
-      {!view && <span className="nombre-adjunto">{a.name}</span>}
+    <button className={'attachment' + (view ? ' with-view' : '')} onClick={open} title={`${a.name} · ${t('windows.open')}`}>
+      {view ? <img src={view} alt={a.name} /> : <span className="icon-attachment" aria-hidden>{a.image ? '▣' : '▤'}</span>}
+      {!view && <span className="name-attachment">{a.name}</span>}
     </button>
   );
 }
@@ -222,12 +222,12 @@ export const attachShortcut = (e: React.KeyboardEvent) => (MAC ? e.metaKey && !e
 export function InputButtons({ attach, dictation }: { attach: () => void; dictation: ReturnType<typeof useDictation> }) {
   const title = dictation.state === 'listening' ? t('windows.stopDictatingSpaceOrShortcut', { shortcut: `${MAC ? '⌘' : 'Ctrl+'}D` }) : dictation.state === 'transcribing' ? t('windows.transcribing') : t('windows.dictateShortcutSpaceStops', { shortcut: `${MAC ? '⌘' : 'Ctrl+'}D` });
   return (
-    <span className="botones-entrada">
-      <button className="boton-entrada" onMouseDown={e => e.preventDefault()} onClick={attach} title={t('windows.attachFilesOrImagesShortcut', { shortcut: `${MAC ? '⌘' : 'Ctrl+'}U` })} aria-label={t('windows.attach')}>
+    <span className="buttons-entry">
+      <button className="button-entry" onMouseDown={e => e.preventDefault()} onClick={attach} title={t('windows.attachFilesOrImagesShortcut', { shortcut: `${MAC ? '⌘' : 'Ctrl+'}U` })} aria-label={t('windows.attach')}>
         <svg viewBox="0 0 24 24" aria-hidden><path d="M20 11.5l-8.2 8.2a5 5 0 01-7.1-7.1l8.6-8.6a3.4 3.4 0 014.8 4.8l-8.6 8.6a1.7 1.7 0 01-2.4-2.4l7.9-7.9" /></svg>
         <kbd>{MAC ? '⌘U' : 'Ctrl+U'}</kbd>
       </button>
-      <button className={'boton-entrada microfono ' + dictation.state} onMouseDown={e => e.preventDefault()} onClick={dictation.toggle} title={title} aria-label={t('windows.dictate')} disabled={dictation.state === 'transcribing'}>
+      <button className={'button-entry microphone ' + dictation.state} onMouseDown={e => e.preventDefault()} onClick={dictation.toggle} title={title} aria-label={t('windows.dictate')} disabled={dictation.state === 'transcribing'}>
         <svg viewBox="0 0 24 24" aria-hidden><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5.5 11a6.5 6.5 0 0013 0M12 17.5V21M8.5 21h7" /></svg>
         <kbd>{dictation.state === 'listening' ? t('windows.space') : MAC ? '⌘D' : 'Ctrl+D'}</kbd>
       </button>
@@ -237,13 +237,13 @@ export function InputButtons({ attach, dictation }: { attach: () => void; dictat
 
 // la tira de debajo de la caja mientras se dicta (y el aviso si algo falla)
 export function DictationStrip({ dictation }: { dictation: ReturnType<typeof useDictation> }) {
-  if (!dictation.active) return dictation.notice ? <p className="notice-console notice-dictado" onClick={() => dictation.setNotice('')}>{dictation.notice}</p> : null;
+  if (!dictation.active) return dictation.notice ? <p className="notice-console notice-dictation" onClick={() => dictation.setNotice('')}>{dictation.notice}</p> : null;
   const barras = 8, full = Math.round(dictation.level * barras);
   return (
-    <div className={'tira-dictado ' + dictation.state}>
-      <span className="piloto-voz" aria-hidden />
+    <div className={'strip-dictation ' + dictation.state}>
+      <span className="pilot-voice" aria-hidden />
       <b>{dictation.state === 'listening' ? t('windows.listening') : t('windows.transcribing2')}</b>
-      {dictation.state === 'listening' && <span className="vumetro" aria-hidden>{Array.from({ length: barras }, (_, i) => <i key={i} className={i < full ? 'on' : ''} />)}</span>}
+      {dictation.state === 'listening' && <span className="vu-meter" aria-hidden>{Array.from({ length: barras }, (_, i) => <i key={i} className={i < full ? 'on' : ''} />)}</span>}
       <span className="dim"><kbd>{t('windows.space')}</kbd> {t('windows.finish')} <kbd>Enter</kbd> {t('windows.send')} <kbd>Esc</kbd> {t('windows.discard')}</span>
     </div>
   );

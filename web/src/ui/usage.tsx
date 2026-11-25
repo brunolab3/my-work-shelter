@@ -24,10 +24,10 @@ export function Usage({ s, length, compact }: { s: Pick<SessionSummary, 'context
   const title = [c && t('windows.contextUsed', { p: c.percentage, used: tokensShort(c.used), maximum: tokensShort(c.max) }), s.tokens && t('windows.tokensSpent', { n: tokensShort(s.tokens) })].filter(Boolean).join(' · ');
   const need = compact ? compactNeed(s) : 'no';
   return (
-    <span className={'consumo' + (c ? ' ' + contextLevel(c) : '')} title={title}>
-      {c && <><span className="consumo-barra"><i style={{ width: Math.min(100, c.percentage) + '%' }} /></span>{c.percentage} %</>}
+    <span className={'consumption' + (c ? ' ' + contextLevel(c) : '')} title={title}>
+      {c && <><span className="consumption-bar"><i style={{ width: Math.min(100, c.percentage) + '%' }} /></span>{c.percentage} %</>}
       {length && s.tokens ? <span className="dim"> · {t('windows.nTokens', { n: tokensShort(s.tokens) })}</span> : null}
-      {need !== 'no' && <button className={'consumo-compactar' + (need === 'urgent' ? ' urgent' : '')} title={t(need === 'urgent' ? 'windows.compactUrgentHint' : 'windows.compactHint')} onClick={compact}>{t('windows.compact')}</button>}
+      {need !== 'no' && <button className={'consumption-compact' + (need === 'urgent' ? ' urgent' : '')} title={t(need === 'urgent' ? 'windows.compactUrgentHint' : 'windows.compactHint')} onClick={compact}>{t('windows.compact')}</button>}
     </span>
   );
 }

@@ -56,44 +56,44 @@ export function UsageGraph({ limits, now }: { limits: PlanLimits; now: number })
   const name = (v: View) => t(v === 'hours' ? 'panels.spend.hours' : 'panels.spend.days');
 
   return (
-    <div className="uso-grafico">
-      <div className="limites-pop-titulo">{t('panels.spend.title')}</div>
-      <div className="uso-vistas" role="tablist">
+    <div className="usage-chart">
+      <div className="limits-pop-title">{t('panels.spend.title')}</div>
+      <div className="usage-views" role="tablist">
         {(['hours', 'days'] as View[]).map(v => <button key={v} role="tab" aria-selected={view === v} className={view === v ? 'active' : ''} onClick={() => pick(v)}>{name(v)}</button>)}
       </div>
-      <div className="uso-leyenda">
-        <span><i className="uso-muestra nuevos" />{t('panels.spend.fresh')} <b>{fmtTokens.format(totals.fresh)}</b></span>
-        <span><i className="uso-muestra cache" />{t('panels.spend.cacheRead')} <b>{fmtTokens.format(totals.cacheRead)}</b></span>
+      <div className="usage-legend">
+        <span><i className="usage-sample new" />{t('panels.spend.fresh')} <b>{fmtTokens.format(totals.fresh)}</b></span>
+        <span><i className="usage-sample cache" />{t('panels.spend.cacheRead')} <b>{fmtTokens.format(totals.cacheRead)}</b></span>
       </div>
-      {!data ? <div className="uso-estado dim">{failed ? t('panels.spend.failed') : t('panels.spend.reading')}</div> : (
-        <div className="uso-lienzo">
+      {!data ? <div className="usage-state dim">{failed ? t('panels.spend.failed') : t('panels.spend.reading')}</div> : (
+        <div className="usage-canvas">
           <svg viewBox={`0 0 ${W} ${HGT}`} width={W} height={HGT} role="img" aria-label={t('panels.spend.chart', { view: name(view) })} onMouseLeave={() => setHover(null)}>
             {ws != null && <>
-              <rect className="uso-ventana" x={ws} y={0} width={Math.max(0, W - ws)} height={HGT - AXIS} />
-              <line className="uso-marca" x1={ws} x2={ws} y1={0} y2={HGT - AXIS} />
+              <rect className="usage-window" x={ws} y={0} width={Math.max(0, W - ws)} height={HGT - AXIS} />
+              <line className="usage-mark" x1={ws} x2={ws} y1={0} y2={HGT - AXIS} />
             </>}
-            <line className="uso-base" x1={0} x2={W} y1={HGT - AXIS + 0.5} y2={HGT - AXIS + 0.5} />
+            <line className="usage-base" x1={0} x2={W} y1={HGT - AXIS + 0.5} y2={HGT - AXIS + 0.5} />
             {buckets.map((b, i) => {
               const x = i * slot + GAP, base = HGT - AXIS;
               // a non-zero figure shows at least a sliver; the 2 px gap between the two fills
               const hf = b.fresh ? Math.max(2, y(b.fresh)) : 0, hc = b.cacheRead ? Math.max(2, y(b.cacheRead)) : 0;
               return <g key={b.start} className={hover === i ? 'active' : ''}>
-                {hf > 0 && <rect className="uso-barra nuevos" x={x} y={base - hf} width={bw} height={hf} />}
-                {hc > 0 && <rect className="uso-barra cache" x={x} y={base - hf - (hf ? GAP : 0) - hc} width={bw} height={hc} />}
-                <text className="uso-eje" x={x + bw / 2} y={HGT - 4} textAnchor="middle">{view === 'hours' ? fmtHour.format(b.start) : fmtDay.format(b.start)}</text>
-                <rect className="uso-diana" x={i * slot} y={0} width={slot} height={HGT} onMouseEnter={() => setHover(i)} />
+                {hf > 0 && <rect className="usage-bar new" x={x} y={base - hf} width={bw} height={hf} />}
+                {hc > 0 && <rect className="usage-bar cache" x={x} y={base - hf - (hf ? GAP : 0) - hc} width={bw} height={hc} />}
+                <text className="usage-axis" x={x + bw / 2} y={HGT - 4} textAnchor="middle">{view === 'hours' ? fmtHour.format(b.start) : fmtDay.format(b.start)}</text>
+                <rect className="usage-target" x={i * slot} y={0} width={slot} height={HGT} onMouseEnter={() => setHover(i)} />
               </g>;
             })}
           </svg>
-          {h && <div className="uso-tip" style={{ left: Math.min(W - TIP, Math.max(0, hover! * slot + slot / 2 - TIP / 2)) }}>
-            <div className="uso-tip-cuando">{label(h)}</div>
-            <div><i className="uso-muestra nuevos" />{t('panels.spend.fresh')}: <b>{fmtExact.format(h.fresh)}</b></div>
-            <div><i className="uso-muestra cache" />{t('panels.spend.cacheRead')}: <b>{fmtExact.format(h.cacheRead)}</b></div>
+          {h && <div className="usage-tip" style={{ left: Math.min(W - TIP, Math.max(0, hover! * slot + slot / 2 - TIP / 2)) }}>
+            <div className="usage-tip-when">{label(h)}</div>
+            <div><i className="usage-sample new" />{t('panels.spend.fresh')}: <b>{fmtExact.format(h.fresh)}</b></div>
+            <div><i className="usage-sample cache" />{t('panels.spend.cacheRead')}: <b>{fmtExact.format(h.cacheRead)}</b></div>
           </div>}
         </div>
       )}
-      {start != null && lim?.resetsAt && <div className="dim"><i className="uso-muestra ventana" />{t('panels.spend.window', { since: describeReset(start, now).clock, until: describeReset(lim.resetsAt, now).clock })}</div>}
-      <div className="dim uso-nota">{t('panels.spend.note')}</div>
+      {start != null && lim?.resetsAt && <div className="dim"><i className="usage-sample window" />{t('panels.spend.window', { since: describeReset(start, now).clock, until: describeReset(lim.resetsAt, now).clock })}</div>}
+      <div className="dim usage-note">{t('panels.spend.note')}</div>
     </div>
   );
 }

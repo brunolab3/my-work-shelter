@@ -44,19 +44,19 @@ describe('keepNear', () => {
 describe('findKind', () => {
   const el = (tagName: string, inside: string[] = []) => ({ tagName, closest: (s: string) => (s.split(',').some(x => inside.includes(x.trim())) ? {} : null) });
   it('a browser or the page window with the focus', () => {
-    expect(findKind(el('WEBVIEW', ['.ventana-navegador']), true)).toBe('web');
-    expect(findKind(el('IFRAME', ['.ventana-navegador']), true)).toBe('page');
+    expect(findKind(el('WEBVIEW', ['.window-browser']), true)).toBe('web');
+    expect(findKind(el('IFRAME', ['.window-browser']), true)).toBe('page');
   });
   it('the intercom: its composer or anything in it, or nothing focused while it is on screen', () => {
-    expect(findKind(el('TEXTAREA', ['.consola']), true)).toBe('intercom');
+    expect(findKind(el('TEXTAREA', ['.console']), true)).toBe('intercom');
     expect(findKind(el('BODY'), true)).toBe('intercom');
     expect(findKind(null, true)).toBe('intercom');
     expect(findKind(el('BODY'), false)).toBeNull();
   });
   it('other fields, terminals and editors keep ⌘F', () => {
-    expect(findKind(el('TEXTAREA', ['.ventana-terminal']), true)).toBeNull();
+    expect(findKind(el('TEXTAREA', ['.window-terminal']), true)).toBeNull();
     expect(findKind(el('TEXTAREA', ['.ventana-archivos']), true)).toBeNull();
     expect(findKind(el('INPUT'), true)).toBeNull();
-    expect(findKind(el('TEXTAREA', ['.ventana-navegador']), true)).toBeNull();   // Spotify's keyboard field
+    expect(findKind(el('TEXTAREA', ['.window-browser']), true)).toBeNull();   // Spotify's keyboard field
   });
 });

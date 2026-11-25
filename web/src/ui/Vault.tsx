@@ -123,8 +123,8 @@ function MenuCamera({ go }: { go: (v: View) => void }) {
   useEffect(() => { client.action<SlackRemoteState>('slackRemote.state').then(setSk).catch(() => {}); }, []);
   const skPilot = sk?.paired ? 'connected' : sk?.connected ? 'demo' : 'not-configured';
   const items: (ItemMenu & { f: () => void })[] = [
-    ...INTEGRATIONS.map(f => { const st = ints[f.id]; return { text: <><span className={'piloto-mini ' + (st?.state ?? 'demo')} /> {f.name}</>, hint: tIs(INTEGRATION_STATE_SHORT[st?.state ?? 'demo']) + (st?.detail && st.state === 'error' ? ' — ' + st.detail : ''), f: () => go({ type: 'integration', id: f.id }) }; }),
-    { text: <><span className={'piloto-mini ' + skPilot} /> {t('panels.slackRemoteMenu')}</>, hint: sk?.paired ? t('panels.slackRemoteVaultPaired') : sk?.connected ? t('panels.slackRemoteVaultNotPaired') : t('panels.slackRemoteVaultHint'), f: () => go({ type: 'slackRemote' }) },
+    ...INTEGRATIONS.map(f => { const st = ints[f.id]; return { text: <><span className={'pilot-mini ' + (st?.state ?? 'demo')} /> {f.name}</>, hint: tIs(INTEGRATION_STATE_SHORT[st?.state ?? 'demo']) + (st?.detail && st.state === 'error' ? ' — ' + st.detail : ''), f: () => go({ type: 'integration', id: f.id }) }; }),
+    { text: <><span className={'pilot-mini ' + skPilot} /> {t('panels.slackRemoteMenu')}</>, hint: sk?.paired ? t('panels.slackRemoteVaultPaired') : sk?.connected ? t('panels.slackRemoteVaultNotPaired') : t('panels.slackRemoteVaultHint'), f: () => go({ type: 'slackRemote' }) },
     { text: t('panels.theShelterNameReposRoot'), f: () => go({ type: 'shelter' }) },
     { text: t('panels.shelterRooms'), hint: hidden ? t('panels.shelterRoomsHint', { n: hidden }) : undefined, f: () => go({ type: 'salas' }) },
     { text: t('panels.overseerSOutfit'), f: () => go({ type: 'supervisor' }) },
@@ -198,26 +198,26 @@ function FormIntegration({ card, valuesIni, savedIni, goBack }: { card: Integrat
   };
   return (
     <Device label={t('panels.vaultName', { name: card.name.toUpperCase() })} width={62} height onClose={goBack} pilot={st?.state === 'connected' ? 'working' : st?.state === 'error' ? 'error' : 'waiting'}>
-      <div className="lista-desplazable">
+      <div className="list-scrollable">
         <p><b>{t('panels.status')}</b> {tIs(INTEGRATION_STATE_SHORT[st?.state ?? 'demo'])}{st?.detail ? <span className="dim"> — {st.detail}</span> : null}{st?.last ? <span className="dim"> · {t('panels.lastRead')} {new Date(st.last).toLocaleTimeString(language() === 'en' ? 'en-GB' : 'es-ES', { hour: '2-digit', minute: '2-digit' })}</span> : null}</p>
         <p className="dim">{t('panels.whatItBringsToThe')} {tIs(card.what)}.</p>
         <h3>{t('panels.stepByStep')}</h3>
-        <ol className="pasos">{card.steps.map((p, k) => <li key={k}>{p}</li>)}</ol>
+        <ol className="steps">{card.steps.map((p, k) => <li key={k}>{p}</li>)}</ol>
         {card.fields.length > 0 && <h3>{t('panels.details')}</h3>}
         {card.fields.map((c, k) => (
-          <label key={c.id} className={'campo-taller' + (focus === k ? ' active' : '')} onClick={() => setFocus(k)}>
-            <span className="etq">{c.label}{c.secret && <small> · {t('panels.toTheKeychain')}</small>}</span>
+          <label key={c.id} className={'field-workshop' + (focus === k ? ' active' : '')} onClick={() => setFocus(k)}>
+            <span className="lbl">{c.label}{c.secret && <small> · {t('panels.toTheKeychain')}</small>}</span>
             <input ref={el => { refs.current[k] = el; }} type={c.secret ? 'password' : 'text'} value={values[c.id] ?? ''} placeholder={c.secret ? (saved[c.id] ? t('panels.savedTypeToChangeIt') : '') : c.example ? tIs(c.example) : ''} spellCheck={false} autoComplete="off"
               onFocus={() => setFocus(k)} onChange={e => setValues(v => ({ ...v, [c.id]: e.target.value }))} onKeyDown={e => fieldKey(e, k)} />
             {c.help && <small className="dim">{tIs(c.help)}</small>}
           </label>
         ))}
-        <div className="botonera">{actions.map((a, k) => <button key={a.id} className={'boton-taller' + (focus === card.fields.length + k ? ' active' : '')} disabled={busy} onMouseEnter={() => setFocus(card.fields.length + k)} onClick={() => act(a.id)}>{a.text}</button>)}</div>
+        <div className="button-bar">{actions.map((a, k) => <button key={a.id} className={'button-workshop' + (focus === card.fields.length + k ? ' active' : '')} disabled={busy} onMouseEnter={() => setFocus(card.fields.length + k)} onClick={() => act(a.id)}>{a.text}</button>)}</div>
         {msg && <p className={msg.ok ? '' : 'notice-console'}>{msg.ok ? '✓ ' : '✗ '}{msg.text}</p>}
-        {channels && <div className="selector-canales">
+        {channels && <div className="selector-channels">
           <h3>{t('panels.channelsBeingWatched')}</h3>
-          {channels.map((c, k) => <label key={String(c.id)} className="chip-canal"><input type="checkbox" checked={c.picked} onChange={e => setChannels(cs => cs!.map((x, j) => (j === k ? { ...x, picked: e.target.checked } : x)))} /> {c.server ? <span className="dim">{c.server} · </span> : null}#{c.name}</label>)}
-          <div className="botonera"><button className="boton-taller" onClick={async () => { const ids = channels.filter(c => c.picked).map(c => String(c.id)).join(','); const r: any = await client.action('integration.save', { source: card.id, fields: { channels: ids } }); setMsg({ ok: r.ok, text: r.ok ? t('panels.channelsSaved') : r.detail }); setChannels(null); }}>{t('panels.saveChannels')}</button><button className="boton-taller" onClick={() => setChannels(null)}>{t('windows.cancel')}</button></div>
+          {channels.map((c, k) => <label key={String(c.id)} className="chip-channel"><input type="checkbox" checked={c.picked} onChange={e => setChannels(cs => cs!.map((x, j) => (j === k ? { ...x, picked: e.target.checked } : x)))} /> {c.server ? <span className="dim">{c.server} · </span> : null}#{c.name}</label>)}
+          <div className="button-bar"><button className="button-workshop" onClick={async () => { const ids = channels.filter(c => c.picked).map(c => String(c.id)).join(','); const r: any = await client.action('integration.save', { source: card.id, fields: { channels: ids } }); setMsg({ ok: r.ok, text: r.ok ? t('panels.channelsSaved') : r.detail }); setChannels(null); }}>{t('panels.saveChannels')}</button><button className="button-workshop" onClick={() => setChannels(null)}>{t('windows.cancel')}</button></div>
         </div>}
         {(card.id === 'jira' || card.id === 'linear') && st?.state === 'connected' && <BoardStatusesView source={card.id} />}
       </div>
@@ -243,12 +243,12 @@ function BoardStatusesView({ source }: { source: 'jira' | 'linear' }) {
   };
   const options = (b: BoardSetup, current?: string) => [...new Set([...(current ? [current] : []), ...b.states])];
   const linked = (b: BoardSetup, k: 'test' | 'done') => b.linked?.includes(k) && <small className="dim"> {t('verification.vault.linked')}</small>;
-  return <div className="estados-tablero">
+  return <div className="states-board">
     <h3>{t('verification.vault.title')}</h3>
     <p className="dim">{t(source === 'jira' ? 'verification.vault.hintJira' : 'verification.vault.hint')}</p>
     {!boards && !msg && <p className="dim">{t('preflight.reading')}</p>}
     {boards && !boards.length && <p className="dim">{t('verification.vault.noBoards')}</p>}
-    {boards?.map(b => <div key={b.board} className="fila-tablero">
+    {boards?.map(b => <div key={b.board} className="row-board">
       <b>{b.board}</b>
       <label>{t('verification.vault.prodCheck')} <select value={b.test ?? ''} onChange={e => set(b, { test: e.target.value })}>
         <option value="">—</option>{options(b, b.test).map(x => <option key={x} value={x}>{x}</option>)}</select>{linked(b, 'test')}</label>
@@ -291,20 +291,20 @@ function ShelterView({ goBack }: { goBack: () => void }) {
   return (
     <Device label={t('panels.vaultWorkShelter')} width={50} onClose={goBack}>
       {fields.map(([k, lbl], i) => (
-        <label key={k} className={'campo-taller' + (focus === i ? ' active' : '')}>
-          <span className="etq">{lbl}</span>
+        <label key={k} className={'field-workshop' + (focus === i ? ' active' : '')}>
+          <span className="lbl">{lbl}</span>
           <input ref={el => { refs.current[i] = el; }} value={v[k]} spellCheck={false} onFocus={() => setFocus(i)} onChange={ev => setV(x => ({ ...x, [k]: ev.target.value }))}
             onKeyDown={ev => { if (ev.key === 'Enter') { ev.preventDefault(); if (i === fields.length - 1) save(); else setFocus(i + 1); } else if (ev.key === 'ArrowDown' || ev.key === 'Tab') { ev.preventDefault(); setFocus((i + 1) % fields.length); } else if (ev.key === 'ArrowUp') { ev.preventDefault(); setFocus((i - 1 + fields.length) % fields.length); } else if (ev.key === 'Escape') { ev.preventDefault(); goBack(); } }} />
         </label>
       ))}
-      <div className="botonera"><button className="boton-taller" onClick={save}>{t('windows.save')}</button></div>
-      <label className="campo-taller checklist-preflight">
-        <span className="etq">{t('preflight.vault.checklist')}</span>
+      <div className="button-bar"><button className="button-workshop" onClick={save}>{t('windows.save')}</button></div>
+      <label className="field-workshop checklist-preflight">
+        <span className="lbl">{t('preflight.vault.checklist')}</span>
         <textarea rows={6} value={list ?? ''} disabled={list === null} spellCheck={false} placeholder={t('preflight.vault.placeholder')}
           onChange={ev => setList(ev.target.value)} onKeyDown={ev => { ev.stopPropagation(); if (ev.key === 'Escape') { ev.preventDefault(); goBack(); } else if (ev.key === 'Enter' && (ev.metaKey || ev.ctrlKey)) { ev.preventDefault(); saveList(); } }} />
         <span className="dim">{t('preflight.vault.hint')}</span>
       </label>
-      <div className="botonera"><button className="boton-taller" onClick={saveList} disabled={list === null}>{t('preflight.vault.save')}</button></div>
+      <div className="button-bar"><button className="button-workshop" onClick={saveList} disabled={list === null}>{t('preflight.vault.save')}</button></div>
       {msg && <p className="notice-console">{msg}</p>}
       <Keys><kbd>Enter</kbd>{t('panels.nextOnTheLastOne')} <kbd>Esc</kbd>{t('menu.back')}</Keys>
     </Device>
@@ -408,30 +408,30 @@ function SlackRemoteView({ goBack }: { goBack: () => void }) {
       <p className="voice">{t('panels.slackRemoteIntro')}</p>
       <p className="dim">{t('panels.slackRemotePrivacy')}</p>
       {st && !st.connected && <>
-        <ol className="pasos">
-          <li>{t('panels.slackRemoteStep1')} <button className="boton-taller" onClick={copy}>{t('panels.slackRemoteCopyManifest')}</button></li>
+        <ol className="steps">
+          <li>{t('panels.slackRemoteStep1')} <button className="button-workshop" onClick={copy}>{t('panels.slackRemoteCopyManifest')}</button></li>
           <li>{t('panels.slackRemoteStep2')}</li>
           <li>{t('panels.slackRemoteStep3')}</li>
         </ol>
-        <label className="campo-taller active">
-          <span className="etq">{t('panels.slackRemoteAppToken')}<small> · {t('panels.toTheKeychain')}</small></span>
+        <label className="field-workshop active">
+          <span className="lbl">{t('panels.slackRemoteAppToken')}<small> · {t('panels.toTheKeychain')}</small></span>
           <input type="password" value={app} spellCheck={false} autoComplete="off" autoFocus placeholder="xapp-…" onChange={e => setApp(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') connect(); }} />
         </label>
-        <label className="campo-taller active">
-          <span className="etq">{t('panels.slackRemoteBotToken')}<small> · {t('panels.toTheKeychain')}</small></span>
+        <label className="field-workshop active">
+          <span className="lbl">{t('panels.slackRemoteBotToken')}<small> · {t('panels.toTheKeychain')}</small></span>
           <input type="password" value={bot} spellCheck={false} autoComplete="off" placeholder="xoxb-…" onChange={e => setBot(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') connect(); }} />
         </label>
-        <div className="botonera"><button className="boton-taller" disabled={busy || !ready} onClick={connect}>{t('panels.slackRemoteConnect')}</button></div>
+        <div className="button-bar"><button className="button-workshop" disabled={busy || !ready} onClick={connect}>{t('panels.slackRemoteConnect')}</button></div>
       </>}
       {st?.connected && <>
         <p><b>{t('panels.status')}</b> {st.paired ? t('panels.slackRemotePairedWith', { bot: '@' + st.bot, team: st.team ?? '' }) : t('panels.slackRemoteWaitingPairing', { bot: '@' + st.bot, team: st.team ?? '' })}</p>
         {!st.paired && (st.code
-          ? <p>{t('panels.slackRemoteSendCode', { bot: '@' + st.bot })} <b className="codigo-emparejar">{st.code}</b></p>
+          ? <p>{t('panels.slackRemoteSendCode', { bot: '@' + st.bot })} <b className="code-pair">{st.code}</b></p>
           : <p className="notice-console">{t('panels.slackRemoteCodeExpired')}</p>)}
-        <div className="botonera">
-          {st.paired && <button className="boton-taller" disabled={busy} onClick={() => request('slackRemote.approve', { si: !st.approve })}>{st.approve ? t('panels.slackRemoteApprovalsOn') : t('panels.slackRemoteApprovalsOff')}</button>}
-          <button className="boton-taller" disabled={busy} onClick={() => request('slackRemote.pair')}>{st.paired ? t('panels.slackRemotePairAgain') : t('panels.slackRemoteNewCode')}</button>
-          <button className="boton-taller" disabled={busy} onClick={() => request('slackRemote.disconnect')}>{t('panels.slackRemoteDisconnect')}</button>
+        <div className="button-bar">
+          {st.paired && <button className="button-workshop" disabled={busy} onClick={() => request('slackRemote.approve', { si: !st.approve })}>{st.approve ? t('panels.slackRemoteApprovalsOn') : t('panels.slackRemoteApprovalsOff')}</button>}
+          <button className="button-workshop" disabled={busy} onClick={() => request('slackRemote.pair')}>{st.paired ? t('panels.slackRemotePairAgain') : t('panels.slackRemoteNewCode')}</button>
+          <button className="button-workshop" disabled={busy} onClick={() => request('slackRemote.disconnect')}>{t('panels.slackRemoteDisconnect')}</button>
         </div>
       </>}
       {msg && <p className={msg.ok ? '' : 'notice-console'}>{msg.text}</p>}

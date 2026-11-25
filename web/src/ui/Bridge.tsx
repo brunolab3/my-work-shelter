@@ -51,17 +51,17 @@ export function Notices() {
   const remove = (...ids: number[]) => live.set(e => ({ notices: e.notices.filter(a => !ids.includes(a.id)) }));
   const respond = (a: Notice, si: boolean) => { client.action('notice.answer', { id: a.question!.id, si }).catch(() => SFX.notAllowed()); SFX.click(); remove(a.id); };
   const one = (a: Notice) => a.question
-    ? <div key={a.id} className={'teletipo interactivo question ' + a.level}>{a.text}<div className="botonera"><button className="boton-taller" onClick={() => respond(a, false)}>{a.question.no}</button><button className="boton-taller peligro" onClick={() => respond(a, true)}>{a.question.si}</button></div></div>
-    : <div key={a.id} className={'teletipo interactivo ' + a.level} title={a.text} onClick={() => remove(a.id)}>{a.text}</div>;
+    ? <div key={a.id} className={'teletype interactive question ' + a.level}>{a.text}<div className="button-bar"><button className="button-workshop" onClick={() => respond(a, false)}>{a.question.no}</button><button className="button-workshop danger" onClick={() => respond(a, true)}>{a.question.si}</button></div></div>
+    : <div key={a.id} className={'teletype interactive ' + a.level} title={a.text} onClick={() => remove(a.id)}>{a.text}</div>;
   const level = SEVERITY.find(n => stale.some(a => a.level === n)) ?? 'info';
   // mousedown is cancelled so that dismissing or answering one leaves the focus in what you were typing
-  return <div className="teletipos" onMouseDown={e => e.preventDefault()}>
-    {stale.length > 0 && <div className={'teletipos-grupo' + (open ? ' open' : '')}>
-      <div className={'teletipo interactivo group ' + level} title={t(open ? 'panels.noticesFold' : 'panels.noticesUnfold')} onClick={() => { SFX.click(); setOpen(!open); }}>
+  return <div className="teletypes" onMouseDown={e => e.preventDefault()}>
+    {stale.length > 0 && <div className={'teletypes-group' + (open ? ' open' : '')}>
+      <div className={'teletype interactive group ' + level} title={t(open ? 'panels.noticesFold' : 'panels.noticesUnfold')} onClick={() => { SFX.click(); setOpen(!open); }}>
         {(open ? '▾ ' : '▸ ') + t('panels.earlierNotices', { n: stale.length })}
-        {open && <button className="leer-todos" onClick={e => { e.stopPropagation(); SFX.click(); remove(...stale.map(a => a.id)); }}>{t('panels.readAllNotices')}</button>}
+        {open && <button className="read-all" onClick={e => { e.stopPropagation(); SFX.click(); remove(...stale.map(a => a.id)); }}>{t('panels.readAllNotices')}</button>}
       </div>
-      {open && <div className="lista">{stale.map(one)}</div>}
+      {open && <div className="list">{stale.map(one)}</div>}
     </div>}
     {notices.filter(a => a.question || fresh(a)).map(one)}
   </div>;
@@ -80,11 +80,11 @@ export function Loading() {
   useEffect(() => { if (outside) { const t = setTimeout(() => setRemoved(true), 900); return () => clearTimeout(t); } }, [outside]);
   if (removed) return null;
   return (
-    <div className={'pantalla-carga' + (outside ? ' fuera' : '')}>
-      <div className="engranaje-carga" aria-hidden />
-      <div className="titulo-carga">work-shelter</div>
-      <div className="barra-carga"><span style={{ width: `${Math.max(6, p.progreso * 100)}%` }} /></div>
-      <div className="texto-carga">{p.room ? t('panels.poweringUpRoom', { room: p.room }) : t('panels.loweringTheHatch')}</div>
+    <div className={'screen-loading' + (outside ? ' out' : '')}>
+      <div className="gear-loading" aria-hidden />
+      <div className="title-loading">work-shelter</div>
+      <div className="bar-loading"><span style={{ width: `${Math.max(6, p.progreso * 100)}%` }} /></div>
+      <div className="text-loading">{p.room ? t('panels.poweringUpRoom', { room: p.room }) : t('panels.loweringTheHatch')}</div>
     </div>
   );
 }
@@ -93,7 +93,7 @@ export function RoomsLoading() {
   const [p, setP] = useState(0);
   useEffect(() => { const f = (e: any) => setP(e.detail.progreso); addEventListener('shelter:load', f); return () => removeEventListener('shelter:load', f); }, []);
   if (p >= 1 || p === 0) return null;
-  return <div className="carga-salas">{t('panels.poweringUpRooms')} · {Math.round(p * 100)} %</div>;
+  return <div className="loading-rooms">{t('panels.poweringUpRooms')} · {Math.round(p * 100)} %</div>;
 }
 
 // ---------------------------------------------------------------- bienvenida (primer arranque): lore, Supervisor, nombre,
@@ -125,21 +125,21 @@ export function Welcome() {
   return (
     <Device label={t('panels.welcomeOverseerRegistration')} width={52} onClose={enter}>
       <p className="voice">{t('panels.theSurfaceHasBeenSilent')}</p>
-      <div className={'fila-chips' + (focus === 0 ? ' active' : '')} onClick={() => setFocus(0)}>
-        <span className="etq">{t('panels.yourLook')}</span>
-        <button className="chip" onClick={() => change(-1)}>◀</button><b className="eleccion">{tIs(LOOK[CHARACTERS[k]])}</b><button className="chip" onClick={() => change(1)}>▶</button>
+      <div className={'row-chips' + (focus === 0 ? ' active' : '')} onClick={() => setFocus(0)}>
+        <span className="lbl">{t('panels.yourLook')}</span>
+        <button className="chip" onClick={() => change(-1)}>◀</button><b className="choice">{tIs(LOOK[CHARACTERS[k]])}</b><button className="chip" onClick={() => change(1)}>▶</button>
         <span className="dim">{t('panels.shownBehindInTheShelter')} <kbd>P</kbd>{t('panels.inChromePaintEverythingCan')}</span>
       </div>
-      <label className={'campo-taller' + (focus === 1 ? ' active' : '')} onClick={() => setFocus(1)}>
-        <span className="etq">{t('panels.shelterName2')}</span>
+      <label className={'field-workshop' + (focus === 1 ? ' active' : '')} onClick={() => setFocus(1)}>
+        <span className="lbl">{t('panels.shelterName2')}</span>
         <input ref={refN} value={name} onChange={ev => setName(ev.target.value)} onKeyDown={ev => { if (ev.key === 'Enter') { ev.preventDefault(); enter(); } else if (ev.key === 'ArrowUp') { ev.preventDefault(); setFocus(0); } else if (ev.key === 'ArrowDown') { ev.preventDefault(); setFocus(2); } }} spellCheck={false} />
       </label>
-      <label className={'campo-taller' + (focus === 2 ? ' active' : '')} onClick={() => setFocus(2)}>
-        <span className="etq">{t('panels.welcomeReposRoot')}</span>
+      <label className={'field-workshop' + (focus === 2 ? ' active' : '')} onClick={() => setFocus(2)}>
+        <span className="lbl">{t('panels.welcomeReposRoot')}</span>
         <input ref={refR} value={root} onChange={ev => setRoot(ev.target.value)} onKeyDown={ev => { if (ev.key === 'Enter') { ev.preventDefault(); enter(); } else if (ev.key === 'ArrowUp') { ev.preventDefault(); setFocus(1); } else if (ev.key === 'ArrowDown') { ev.preventDefault(); setFocus(3); } }} spellCheck={false} placeholder="~/Developer" />
       </label>
       <p className="dim">{t('panels.welcomeReposRootHint')}</p>
-      <div className="botonera"><button className={'boton-taller' + (focus === 3 ? ' active' : '')} onClick={enter}>{t('panels.openTheShelter')}</button></div>
+      <div className="button-bar"><button className={'button-workshop' + (focus === 3 ? ' active' : '')} onClick={enter}>{t('panels.openTheShelter')}</button></div>
       <Keys><kbd>←→</kbd>{t('panels.look')} <kbd>↑↓</kbd>{t('panels.move')} <kbd>Enter</kbd>{t('panels.openTheShelterThen')} <kbd>F1</kbd>{t('panels.showsAllTheControls')}</Keys>
     </Device>
   );

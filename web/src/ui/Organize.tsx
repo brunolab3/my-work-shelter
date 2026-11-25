@@ -36,7 +36,7 @@ export function OrganizeRooms({ roomId, goBack = closePanel }: { roomId?: string
       {error && <p className="notice-console">{error}</p>}
       {data?.demo && <p className="dim">{t('panels.demoConnectGithubInThe')}</p>}
       {!data && !error && <p className="dim">{t('panels.readingYourOpenPullRequests')}</p>}
-      <div className="lista-desplazable organize">
+      <div className="list-scrollable organize">
         {withTasks.map(s => (
           <section key={s.roomId}>
             <h3>{s.room} <span className="dim">{s.repo}</span></h3>
@@ -55,7 +55,7 @@ export function OrganizeRooms({ roomId, goBack = closePanel }: { roomId?: string
         {data && !roomId && data.rooms.some(s => !s.steps.length) && <p className="dim">{t('panels.noOpenPrs')} {data.rooms.filter(s => !s.steps.length).map(s => s.room).join(', ')}.</p>}
       </div>
       {state === 'doing' && <p className="dim">{t('panels.creatingWorktreesAndStartingConversations')}</p>}
-      {state === 'plan' && makeThat && !data?.demo && <div className="botonera"><button className="boton-taller" onClick={act}>{t('panels.enterOrganize')}</button></div>}
+      {state === 'plan' && makeThat && !data?.demo && <div className="button-bar"><button className="button-workshop" onClick={act}>{t('panels.enterOrganize')}</button></div>}
       <Keys>{state === 'done' ? <><kbd>Enter</kbd>{t('menu.close')} </> : makeThat && !data?.demo ? <><kbd>Enter</kbd>{t('panels.organize')} </> : null}<kbd>Esc</kbd>{t('menu.back')}</Keys>
     </Device>
   );

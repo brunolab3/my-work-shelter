@@ -59,7 +59,7 @@ app.whenReady().then(async () => {
   await until(async () => (await host('window.__fotos')) > 3, 30000);
   check(chromeLive(), '1 Chrome sin ventana en marcha con su perfil');
   check((await host('window.__fotos')) > 3, `1 llega imagen (${await host('window.__fotos')} fotogramas)`);
-  const canvas = await host(`(()=>{const c=document.querySelector('.vn-lienzo'); const r=c.getBoundingClientRect(); const d=c.getContext('2d').getImageData(0,0,c.width,c.height).data; let distintos=new Set(); for(let i=0;i<d.length;i+=4000) distintos.add(d[i]+','+d[i+1]+','+d[i+2]); return {w:c.width,h:c.height,cssW:r.width,cssH:r.height,x:r.left,y:r.top,colores:distintos.size}})()`);
+  const canvas = await host(`(()=>{const c=document.querySelector('.vn-canvas'); const r=c.getBoundingClientRect(); const d=c.getContext('2d').getImageData(0,0,c.width,c.height).data; let distintos=new Set(); for(let i=0;i<d.length;i+=4000) distintos.add(d[i]+','+d[i+1]+','+d[i+2]); return {w:c.width,h:c.height,cssW:r.width,cssH:r.height,x:r.left,y:r.top,colores:distintos.size}})()`);
   out('      lienzo:', JSON.stringify(canvas));
   check(canvas.w > 0 && canvas.colors > 5, '1 el lienzo enseña la página (no está en blanco)');
   check(Math.abs(canvas.w / (await host('devicePixelRatio')) - canvas.cssW) < 3, `1 la página va a la medida de la ventana (${canvas.w} px de imagen para ${Math.round(canvas.cssW)} px CSS)`);
@@ -99,7 +99,7 @@ app.whenReady().then(async () => {
   check((await host(`document.querySelectorAll('.menu-pausa, .menu-principal').length`)) === 0, '4 las teclas no se las queda el juego');
   // rueda: llega a la página con su sentido (desplazar ya es cosa de Chrome)
   await remote(`window.__ruedas = []; addEventListener('wheel', e => window.__ruedas.push(Math.sign(e.deltaY)), { capture: true, passive: true })`);
-  await host(`window.__ruedasJuego = []; document.querySelector('.vn-lienzo').addEventListener('wheel', e => window.__ruedasJuego.push(Math.sign(e.deltaY)))`);
+  await host(`window.__ruedasJuego = []; document.querySelector('.vn-canvas').addEventListener('wheel', e => window.__ruedasJuego.push(Math.sign(e.deltaY)))`);
   for (let i = 0; i < 4; i++) { w.webContents.sendInputEvent({ type: 'mouseWheel', x: Math.round(canvas.x + canvas.cssW / 2), y: Math.round(canvas.y + 200), deltaX: 0, deltaY: -120, canScroll: true }); await wait(120); }
   await wait(600);
   const inPage = await remote('JSON.stringify(window.__ruedas)'), inGame = await host('JSON.stringify(window.__ruedasJuego)');
@@ -142,7 +142,7 @@ app.whenReady().then(async () => {
 
   // 7
   await sess.cookies.remove('https://open.spotify.com/', 'qa_refugio');
-  await host(`document.querySelector('.ventana-navegador .botones-ventana button:last-child').click()`);
+  await host(`document.querySelector('.window-browser .buttons-window button:last-child').click()`);
   await until(async () => !chromeLive(), 8000);
   check(!chromeLive(), '7 cerrar la ventana cierra Chrome');
   await host(`window.__navegadores.abrirNavegador('spotify')`);
@@ -174,7 +174,7 @@ app.whenReady().then(async () => {
   await tryLogin('«Continuar con Google»', 'https://accounts.spotify.com/es/login/google?continue=https%3A%2F%2Fopen.spotify.com%2F', /accounts\.google\.com/);
   check(chromeLive() && /open\.spotify\.com/.test(String(await remote('location.href'))), '8 Spotify sigue como estaba');
 
-  await host(`window.__navegadores.navegadores.get().lista.some(v => v.id === 'spotify') && document.querySelector('.ventana-navegador .botones-ventana button:last-child').click()`);
+  await host(`window.__navegadores.navegadores.get().lista.some(v => v.id === 'spotify') && document.querySelector('.window-browser .buttons-window button:last-child').click()`);
   await until(async () => !chromeLive(), 8000);
   out(failures ? `${failures} fallo(s)` : 'todo bien');
   app.exit(failures ? 1 : 0);

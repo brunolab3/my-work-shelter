@@ -50,13 +50,13 @@ function untilMinutes(ts: number, now: number) {
   const h = Math.floor(m / 60); return t('panels.inHH', { h }) + (m % 60 ? ' ' + t('panels.nMin', { n: m % 60 }) : '');
 }
 
-function Counter({ icon, n, text, shortcut, level }: { icon: React.ReactNode; n: number | string; text: string; shortcut: string; level?: 'urgent' | 'off' | 'error' | 'pronto' | 'inminente' | '' }) {
+function Counter({ icon, n, text, shortcut, level }: { icon: React.ReactNode; n: number | string; text: string; shortcut: string; level?: 'urgent' | 'off' | 'error' | 'soon' | 'imminent' | '' }) {
   return (
-    <div className={'contador ' + (level || '')} title={`${text} (${shortcut})`}>
-      <span className="icono">{icon}</span>
+    <div className={'counter ' + (level || '')} title={`${text} (${shortcut})`}>
+      <span className="icon">{icon}</span>
       <span className="n">{n}</span>
       <span className="txt">{text}</span>
-      <span className="tecla">{shortcut}</span>
+      <span className="key">{shortcut}</span>
     </div>
   );
 }
@@ -75,17 +75,17 @@ export function Hud() {
   useFitBar(bar);
   return (
     <>
-    <div ref={bar} className="regleta">
-      <span className="tirante left" /><span className="tirante right" />
-      <div className="seg placa-refugio">
-        <span className="nombre" title={e.shelter}>{e.shelter}</span>
+    <div ref={bar} className="power-strip">
+      <span className="cable left" /><span className="cable right" />
+      <div className="seg plate-shelter">
+        <span className="name" title={e.shelter}>{e.shelter}</span>
       </div>
-      <div className="seg fosforo hour">
+      <div className="seg phosphor hour">
         <span className="hh">{fmtHour.format(now)}</span>
-        <span className="fecha">{fmtDate.format(now)}</span>
+        <span className="date">{fmtDate.format(now)}</span>
       </div>
-      {!connected && <div className="seg fosforo sin-enlace" title={t('panels.theLinkToTheShelter')}><span className="pilot error" /> <span className="txt">{t('panels.noLinkRetrying')}</span></div>}
-      <div className={'seg fosforo contadores' + (connected ? '' : ' viejos')}>
+      {!connected && <div className="seg phosphor no-link" title={t('panels.theLinkToTheShelter')}><span className="pilot error" /> <span className="txt">{t('panels.noLinkRetrying')}</span></div>}
+      <div className={'seg phosphor counters' + (connected ? '' : ' old')}>
         <Counter icon={Icon.gear} n={working} text={t('windows.working')} shortcut="Tab" level={working ? '' : 'off'} />
         <Counter icon={Icon.notice} n={waiting} text={t('panels.waitingForYou')} shortcut="Q" level={waiting ? 'urgent' : 'off'} />
         {errors > 0 && <Counter icon={Icon.error} n={errors} text={t('panels.brokenDown')} shortcut="Q" level="error" />}
@@ -94,20 +94,20 @@ export function Hud() {
       </div>
       <PlanMeter limits={live.use(x => x.planLimits)} now={now} />
       <RunningThings />
-      <div className="seg fosforo chatarra" title={t('panels.scrapEarnedWithEveryFinished')}>
-        <span className="icono">{Icon.nut}</span><span className="n">{e.scrap.toLocaleString(LOC)}</span>
+      <div className="seg phosphor scrap" title={t('panels.scrapEarnedWithEveryFinished')}>
+        <span className="icon">{Icon.nut}</span><span className="n">{e.scrap.toLocaleString(LOC)}</span>
       </div>
       {/* las dos puertas de todo lo demás, con su tecla a la vista: el buscador (⌘K) y el menú del juego (Esc) */}
-      <div className="seg puertas">
-        <button className="boton-puerta" onClick={() => openSearch()} title={t('panels.searchConversationsActionsDwellersAnd')}>
-          <span className="tecla">{MAC ? '⌘K' : 'Ctrl+K'}</span><span className="label">{t('panels.search')}</span>
+      <div className="seg doors">
+        <button className="button-door" onClick={() => openSearch()} title={t('panels.searchConversationsActionsDwellersAnd')}>
+          <span className="key">{MAC ? '⌘K' : 'Ctrl+K'}</span><span className="label">{t('panels.search')}</span>
         </button>
-        <button className="boton-puerta" onClick={() => { if (juego.get().talkingWith) minimizeIntercom(); juego.set({ panel: 'menu', panelData: null }); }} title={t('panels.gameMenuOptionsShortcutsRestart')}>
-          <span className="tecla">Esc</span><span className="label">{t('panels.menu')}</span>
+        <button className="button-door" onClick={() => { if (juego.get().talkingWith) minimizeIntercom(); juego.set({ panel: 'menu', panelData: null }); }} title={t('panels.gameMenuOptionsShortcutsRestart')}>
+          <span className="key">Esc</span><span className="label">{t('panels.menu')}</span>
         </button>
       </div>
     </div>
-    {e.demo && <span className="marca-demo" title={t('panels.unconfiguredIntegrationsTheyShowSimulated')}>DEMO</span>}
+    {e.demo && <span className="mark-demo" title={t('panels.unconfiguredIntegrationsTheyShowSimulated')}>DEMO</span>}
     {restarting && <Restarting />}
     <MeetingAlert ev={next} now={now} />
     </>
@@ -138,31 +138,31 @@ function PlanMeter({ limits, now }: { limits: PlanLimits; now: number }) {
     if (!open) return;
     const move = (e: PointerEvent) => {
       const el = e.target as Element | null;
-      if (box.current?.contains(el) || el?.closest?.('.limites-pop')) clearTimeout(closing.current);
+      if (box.current?.contains(el) || el?.closest?.('.limits-pop')) clearTimeout(closing.current);
       else hide();
     };
     document.addEventListener('pointermove', move, true);
     return () => document.removeEventListener('pointermove', move, true);
   }, [open]);
   return (
-    <div ref={box} className="seg fosforo limites" tabIndex={0} aria-label={t('panels.limit.title')}
-      onMouseEnter={show} onFocus={show} onBlur={e => { if (!(e.relatedTarget as Element | null)?.closest?.('.limites, .limites-pop')) hide(); }}>
-      <span className="semaforo" title={t('panels.limit.light')}>
-        <span className={'luz ' + worst.light} />
+    <div ref={box} className="seg phosphor limits" tabIndex={0} aria-label={t('panels.limit.title')}
+      onMouseEnter={show} onFocus={show} onBlur={e => { if (!(e.relatedTarget as Element | null)?.closest?.('.limits, .limits-pop')) hide(); }}>
+      <span className="traffic-light" title={t('panels.limit.light')}>
+        <span className={'light ' + worst.light} />
         <span className="txt">{worst.window ? LIMIT_SHORT[worst.window] ?? t('panels.limit.shortOther') : ''}</span>
       </span>
       {types.map(w => {
         const l = limits[w], rejected = l?.status === 'rejected';
         return (
-          <span key={w} className={'limit ' + limitLight(l, w, now) + (rejected ? ' agotado' : '')}>
+          <span key={w} className={'limit ' + limitLight(l, w, now) + (rejected ? ' exhausted' : '')}>
             <span className="txt">{LIMIT_SHORT[w] ?? t('panels.limit.shortOther')}</span>
             <span className="n">{rejected ? t('panels.limit.reached') : l?.utilization == null ? '—' : Math.round(l.utilization) + '%'}</span>
           </span>
         );
       })}
       {r && createPortal(
-        <div className="limites-pop" role="dialog" aria-label={t('panels.limit.title')} style={{ top: r.bottom + 6, right: Math.max(8, innerWidth - r.right) }}>
-          <div className="limites-pop-titulo">{t('panels.limit.title')}</div>
+        <div className="limits-pop" role="dialog" aria-label={t('panels.limit.title')} style={{ top: r.bottom + 6, right: Math.max(8, innerWidth - r.right) }}>
+          <div className="limits-pop-title">{t('panels.limit.title')}</div>
           {types.map(w => <LimitWindow key={w} type={w} l={limits[w]} now={now} />)}
           <UsageGraph limits={limits} now={now} />
         </div>, document.body)}
@@ -186,18 +186,18 @@ function LimitWindow({ type, l, now }: { type: string; l: PlanLimit | undefined;
   const pts = [...samples, ...(l?.utilization != null && samples.length ? [[now, l.utilization] as [number, number]] : [])];
   const line = pts.map(([at, u]) => `${x(at).toFixed(1)},${y(u).toFixed(1)}`).join(' ');
   return (
-    <div className={'limite-ventana ' + light}>
-      <div className="limite-ventana-cab"><span className={'luz ' + light} /><b>{name}</b></div>
-      <div className="dim limite-ventana-cifra">{figure}</div>
+    <div className={'limit-window ' + light}>
+      <div className="limit-window-header"><span className={'light ' + light} /><b>{name}</b></div>
+      <div className="dim limit-window-figure">{figure}</div>
       {pts.length ? (
-        <svg className="limite-grafica" viewBox={`0 0 ${CHART_W} ${CHART_H}`} width={CHART_W} height={CHART_H} role="img" aria-label={t('panels.limit.chart', { name: name })}>
+        <svg className="limit-chart" viewBox={`0 0 ${CHART_W} ${CHART_H}`} width={CHART_W} height={CHART_H} role="img" aria-label={t('panels.limit.chart', { name: name })}>
           {known != null && <>
-            <line className="ritmo" x1={0} y1={CHART_H} x2={CHART_W} y2={0}><title>{t('panels.limit.paceLine')}</title></line>
-            <line className="ritmo yellow" x1={0} y1={CHART_H} x2={CHART_W / PACE_YELLOW} y2={0} />
+            <line className="rhythm" x1={0} y1={CHART_H} x2={CHART_W} y2={0}><title>{t('panels.limit.paceLine')}</title></line>
+            <line className="rhythm yellow" x1={0} y1={CHART_H} x2={CHART_W / PACE_YELLOW} y2={0} />
           </>}
           <polygon className="area" points={`${x(pts[0][0]).toFixed(1)},${CHART_H} ${line} ${x(pts[pts.length - 1][0]).toFixed(1)},${CHART_H}`} />
-          <polyline className="trazo" points={line} />
-          <line className="ahora" x1={x(now)} x2={x(now)} y1={0} y2={CHART_H} />
+          <polyline className="stroke" points={line} />
+          <line className="now" x1={x(now)} x2={x(now)} y1={0} y2={CHART_H} />
         </svg>
       ) : <div className="dim limite-sin-muestras">{t('panels.limit.noSamples')}</div>}
       <div className="dim">{reset ? t('panels.limit.resets', { time: reset.clock, when: reset.relative }) : t('panels.limit.noReset')}</div>
@@ -232,14 +232,14 @@ function MeetingBox({ ev, now, close }: { ev: MeetingEvent; now: number; close: 
     else if (e.code === 'Enter' && link) join();
   }, [ev], true);
   return <>
-    <div className="reunion-velo interactivo" onPointerDown={e => { e.preventDefault(); e.stopPropagation(); }} />
-    <div ref={box} className="reunion-caja interactivo" role="alertdialog" aria-label={t('meeting.alert')} tabIndex={-1}>
-      <span className="icono">{Icon.timer}</span>
-      <div className="reunion-titulo">{ev.title}</div>
-      <div className="reunion-cuando">{ev.start > now ? t('meeting.startsIn1') : t('meeting.startsNow')}</div>
-      <div className="reunion-botones">
-        {link && <button className="boton-puerta" onClick={join}><span className="tecla">Enter</span>{t('meeting.join')}</button>}
-        <button className="boton-puerta" onClick={discard}><span className="tecla">Esc</span>{t('meeting.dismiss')}</button>
+    <div className="meeting-veil interactive" onPointerDown={e => { e.preventDefault(); e.stopPropagation(); }} />
+    <div ref={box} className="meeting-box interactive" role="alertdialog" aria-label={t('meeting.alert')} tabIndex={-1}>
+      <span className="icon">{Icon.timer}</span>
+      <div className="meeting-title">{ev.title}</div>
+      <div className="meeting-when">{ev.start > now ? t('meeting.startsIn1') : t('meeting.startsNow')}</div>
+      <div className="meeting-buttons">
+        {link && <button className="button-door" onClick={join}><span className="key">Enter</span>{t('meeting.join')}</button>}
+        <button className="button-door" onClick={discard}><span className="key">Esc</span>{t('meeting.dismiss')}</button>
       </div>
     </div>
   </>;
@@ -250,8 +250,8 @@ function Restarting() {
   const [slow, setSlow] = useState(false);
   useEffect(() => { const t = setTimeout(() => setSlow(true), 25_000); return () => clearTimeout(t); }, []);
   return (
-    <div className="farewell interactivo">
-      <div className="placa-despedida">{t('panels.restarting')}
+    <div className="farewell interactive">
+      <div className="plate-farewell">{t('panels.restarting')}
         <small>{slow ? t('panels.theServerIsTakingA') : t('panels.terminalsStayOpenILl')}</small>
       </div>
     </div>

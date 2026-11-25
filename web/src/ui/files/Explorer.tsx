@@ -522,30 +522,30 @@ function Window({ v, roots, root }: { v: FilesWindow; roots: Root[]; root: strin
   const dirty = tabs.filter(p => p.dirty).length;
   const headPath = activeTab ? `${activeTab.root.replace(/\/$/, '')}/${activeTab.rel}` : root ?? '';
   return (
-    <div ref={box} className={'ventana-git ventana-archivos interactivo' + (v.maximized ? ' maximizada' : '') + (v.minimized ? ' minimizada' : '')} style={{ zIndex: v.maximized ? 200000 + v.z : v.z }}
+    <div ref={box} className={'window-git ventana-archivos interactive' + (v.maximized ? ' maximized' : '') + (v.minimized ? ' minimized' : '')} style={{ zIndex: v.maximized ? 200000 + v.z : v.z }}
       onPointerDown={e => { if (menu && !(e.target as HTMLElement).closest('.gc-menu')) setMenu(null); if (!v.minimized && !(document.activeElement && box.current?.contains(document.activeElement))) onFrontFiles(); }}
       onKeyDownCapture={windowKey} onKeyDown={e => e.stopPropagation()} role="dialog" aria-label={t('windows.files')}>
-      <div className="vt-cabeza vn-cabeza" onDoubleClick={e => { if (!(e.target as HTMLElement).closest('button, select')) toggleMaximizeFiles(); }}>
-        <span className="rejilla" /><span className={'pilot ' + (dirty ? 'waiting' : 'idle')} />
-        <span className="vt-titulo">{t('windows.files4')} · {room?.name ?? t('windows.noFolder')}</span>
-        <span className="vt-ruta" title={headPath}>{headPath}</span>
+      <div className="vt-head vn-head" onDoubleClick={e => { if (!(e.target as HTMLElement).closest('button, select')) toggleMaximizeFiles(); }}>
+        <span className="grid" /><span className={'pilot ' + (dirty ? 'waiting' : 'idle')} />
+        <span className="vt-title">{t('windows.files4')} · {room?.name ?? t('windows.noFolder')}</span>
+        <span className="vt-path" title={headPath}>{headPath}</span>
         <WindowButtons maximized={v.maximized} minimize={minimizeFiles} toggleMaximize={toggleMaximizeFiles} close={closeFiles} closesThat={t('windows.theFilesWindow')} />
       </div>
-      {!root ? <div className="gd-vacio">{t('windows.thereIsNoRoomWith')}</div> : (
-        <div className="ex-cuerpo">
-          <aside className="ex-lateral">
-            <div className="ex-lateral-cabeza">
+      {!root ? <div className="gd-empty">{t('windows.thereIsNoRoomWith')}</div> : (
+        <div className="ex-body">
+          <aside className="ex-side">
+            <div className="ex-side-head">
               <select className="gc-repo" value={root} onChange={e => { chooseRoot(e.target.value); treeRef.current?.focus(); }} title={t('windows.folderThatOfEachRoom')}>
                 {roots.map(r => <option key={r.path} value={r.path}>{r.name}{r.detail ? ` · ${r.detail}` : ''}</option>)}
               </select>
-              <span className="ex-botones">
+              <span className="ex-buttons">
                 <button onClick={() => newer(false)} title={t('windows.newFileShortcut', { shortcut: `${CMD}N` })}>＋</button>
                 <button onClick={() => newer(true)} title={t('windows.newFolderShortcut', { shortcut: `${CMD}⇧N` })}>⊞</button>
                 <button onClick={() => { glance(); SFX.tick(); }} title={t('windows.reloadTheFolder')}>⟳</button>
                 <button onClick={() => { updateExpanded(() => new Set()); setSel(null); SFX.tick(); }} title={t('windows.collapseAllFolders')}>⊟</button>
               </span>
             </div>
-            <div ref={treeRef} className={'ex-arbol' + (dragging === '' ? ' destino' : '')} tabIndex={0} onKeyDown={treeKey}
+            <div ref={treeRef} className={'ex-tree' + (dragging === '' ? ' target' : '')} tabIndex={0} onKeyDown={treeKey}
               onFocus={() => { if (sel == null && rows[0]) setSel(rows[0].rel); }}
               onContextMenu={e => { if (e.target === e.currentTarget) { e.preventDefault(); setSel(null); openMenu(e, '', true); } }}
               onDragOver={e => { if (dragging != null && e.target === e.currentTarget) { e.preventDefault(); } }}
@@ -563,28 +563,28 @@ function Window({ v, roots, root }: { v: FilesWindow; roots: Root[]; root: strin
                   {edit && edit.mode !== 'rename' && f.dir && f.open && edit.folder === f.rel && <RowNew level={f.level + 1} dir={edit.mode === 'folder'} confirm={confirmEdit} cancel={() => { setEdit(null); treeRef.current?.focus(); }} />}
                 </React.Fragment>
               ))}
-              {listed[''] && !rows.length && !edit && <div className="gc-limpio">{t('windows.emptyFolderShortcutNCreates', { shortcut: CMD })}</div>}
-              {!listed[''] && <div className="gc-limpio">{t('windows.readingTheFolder')}</div>}
+              {listed[''] && !rows.length && !edit && <div className="gc-clean">{t('windows.emptyFolderShortcutNCreates', { shortcut: CMD })}</div>}
+              {!listed[''] && <div className="gc-clean">{t('windows.readingTheFolder')}</div>}
             </div>
-            <div className="ex-pista">
+            <div className="ex-hint">
               <span><kbd>{CMD}P</kbd> {t('windows.openByName')}</span><span><kbd>{t('windows.enter')}</kbd> {t('windows.rename')}</span><span><kbd>{MAC ? '⌘⌫' : t('windows.del')}</kbd> {t('windows.moveToTrash2')}</span>
             </div>
-            {notice && <div className={'gc-aviso' + (notice.error ? ' error' : '')} onClick={() => setNotice(null)} title={t('windows.clickToDismiss')}>{notice.text}</div>}
+            {notice && <div className={'gc-notice' + (notice.error ? ' error' : '')} onClick={() => setNotice(null)} title={t('windows.clickToDismiss')}>{notice.text}</div>}
           </aside>
-          <main className="ex-principal">
+          <main className="ex-main">
             {tabs.length > 0 && (
-              <div className="ex-pestanas" onDoubleClick={e => { if (e.target === e.currentTarget) newer(false, ''); }}>
+              <div className="ex-tabs" onDoubleClick={e => { if (e.target === e.currentTarget) newer(false, ''); }}>
                 {tabs.map((p, i) => {
                   const repeated = tabs.some(o => o !== p && nameOf(o.rel) === nameOf(p.rel));
                   return (
-                    <div key={p.key} className={'ex-tab' + (p.key === active ? ' active' : '') + (p.previous ? ' previa' : '') + (p.inDisc === 'deleted' ? ' borrada' : '') + (p.dirty ? ' sucia' : '')}
+                    <div key={p.key} className={'ex-tab' + (p.key === active ? ' active' : '') + (p.previous ? ' preview' : '') + (p.inDisc === 'deleted' ? ' deleted' : '') + (p.dirty ? ' dirty' : '')}
                       onClick={() => { setActive(p.key); requestAnimationFrame(() => editor.current?.focus()); }} onDoubleClick={() => update(p.key, { previous: false })}
                       onAuxClick={e => { if (e.button === 1) closeTab(p.key); }}
                       title={`${p.root.replace(/\/$/, '')}/${p.rel}${p.inDisc === 'changed' ? '\n' + t('windows.itChangedOnDiskWhile') : p.inDisc === 'deleted' ? '\n' + t('windows.itIsNoLongerOn') : ''}${i < 9 ? `\n${CMD}${i + 1}` : ''}`}>
-                      <span className="ex-pestana-nombre">{nameOf(p.rel)}</span>
-                      {(repeated || p.root !== root) && <span className="ex-pestana-carpeta">{p.root !== root ? (roots.find(r => r.path === p.root)?.name ?? '') + (parentOf(p.rel) ? ' · ' : '') : ''}{parentOf(p.rel).split('/').pop()}</span>}
-                      {p.inDisc === 'changed' && <span className="ex-pestana-ojo" title={t('windows.itChangedOnDisk')}>⚠</span>}
-                      <button className="ex-pestana-x" onClick={e => { e.stopPropagation(); closeTab(p.key); }} title={t('windows.closeShortcut', { shortcut: `${CMD}W` })}>{p.dirty ? '●' : '×'}</button>
+                      <span className="ex-tab-name">{nameOf(p.rel)}</span>
+                      {(repeated || p.root !== root) && <span className="ex-tab-folder">{p.root !== root ? (roots.find(r => r.path === p.root)?.name ?? '') + (parentOf(p.rel) ? ' · ' : '') : ''}{parentOf(p.rel).split('/').pop()}</span>}
+                      {p.inDisc === 'changed' && <span className="ex-tab-eye" title={t('windows.itChangedOnDisk')}>⚠</span>}
+                      <button className="ex-tab-x" onClick={e => { e.stopPropagation(); closeTab(p.key); }} title={t('windows.closeShortcut', { shortcut: `${CMD}W` })}>{p.dirty ? '●' : '×'}</button>
                     </div>
                   );
                 })}
@@ -593,29 +593,29 @@ function Window({ v, roots, root }: { v: FilesWindow; roots: Root[]; root: strin
             <div ref={zoneEditor} className="ex-editor" tabIndex={-1}>
               <div ref={host} className="ex-monaco" style={{ visibility: activeTab?.type === 'text' ? 'inherit' : 'hidden' }} />
               {activeTab?.type !== 'text' && (
-                <div className="ex-otro">
+                <div className="ex-other">
                   {!activeTab && <Welcome root={root} loaded={!!mon} />}
-                  {activeTab?.type === 'loading' && <div className="gd-vacio">{t('windows.opening')}</div>}
-                  {activeTab?.type === 'image' && <div className="ex-imagen"><img src={activeTab.data} alt={activeTab.rel} /><small>{nameOf(activeTab.rel)} · {sizeLegible(activeTab.resize)}</small></div>}
+                  {activeTab?.type === 'loading' && <div className="gd-empty">{t('windows.opening')}</div>}
+                  {activeTab?.type === 'image' && <div className="ex-image"><img src={activeTab.data} alt={activeTab.rel} /><small>{nameOf(activeTab.rel)} · {sizeLegible(activeTab.resize)}</small></div>}
                   {(activeTab?.type === 'binary' || activeTab?.type === 'large' || activeTab?.type === 'error') && (
-                    <div className="gd-vacio">
+                    <div className="gd-empty">
                       <p>{activeTab.type === 'binary' ? t('windows.thisIsABinaryFile') : activeTab.type === 'large' ? t('windows.itIsTooLargeTo', { size: sizeLegible(activeTab.resize) }) : activeTab.error}</p>
-                      {activeTab.type !== 'error' && <p><button className="gc-boton" onClick={() => outside('openInEditor', activeTab.rel)}>{t('windows.openInCursor')}</button> <button className="gc-boton" onClick={() => outside('revelar', activeTab.rel)}>{t('windows.showInFinder')}</button></p>}
+                      {activeTab.type !== 'error' && <p><button className="gc-button" onClick={() => outside('openInEditor', activeTab.rel)}>{t('windows.openInCursor')}</button> <button className="gc-button" onClick={() => outside('revelar', activeTab.rel)}>{t('windows.showInFinder')}</button></p>}
                     </div>
                   )}
                 </div>
               )}
             </div>
             {activeTab && (
-              <div className="ex-estado">
-                <span className="ex-estado-ruta">{activeTab.rel}</span>
-                {activeTab.inDisc === 'changed' && <span className="ex-estado-alerta">{t('windows.changedOnDiskILl')}</span>}
-                {activeTab.inDisc === 'deleted' && <span className="ex-estado-alerta">{t('windows.noLongerOnDiskSaving')}</span>}
-                {git[activeTab.rel] && activeTab.root === root && <button className="gc-enlace" onClick={() => openGit({ path: root, view: 'changes' })} title={t('windows.seeItInTheGit')}>git: {TITLE_LETTER[git[activeTab.rel]] ?? git[activeTab.rel]}</button>}
-                <span className="ex-estado-der">
+              <div className="ex-state">
+                <span className="ex-state-path">{activeTab.rel}</span>
+                {activeTab.inDisc === 'changed' && <span className="ex-state-alert">{t('windows.changedOnDiskILl')}</span>}
+                {activeTab.inDisc === 'deleted' && <span className="ex-state-alert">{t('windows.noLongerOnDiskSaving')}</span>}
+                {git[activeTab.rel] && activeTab.root === root && <button className="gc-link" onClick={() => openGit({ path: root, view: 'changes' })} title={t('windows.seeItInTheGit')}>git: {TITLE_LETTER[git[activeTab.rel]] ?? git[activeTab.rel]}</button>}
+                <span className="ex-state-right">
                   {cursor && activeTab.type === 'text' && <span>{t('windows.lnLineColCol', { line: cursor.line, col: cursor.col })}{cursor.sel ? ` (${t('windows.nSelected', { n: cursor.sel })})` : ''}</span>}
                   {activeTab.type === 'text' && models.get(activeTab.key) && <InfoModel m={models.get(activeTab.key)!} mon={mon} />}
-                  <span className={activeTab.dirty ? 'ex-sucio' : 'dim'}>{activeTab.dirty ? t('windows.unsavedShortcutS', { shortcut: CMD }) : t('windows.saved')}</span>
+                  <span className={activeTab.dirty ? 'ex-dirty' : 'dim'}>{activeTab.dirty ? t('windows.unsavedShortcutS', { shortcut: CMD }) : t('windows.saved')}</span>
                 </span>
               </div>
             )}
@@ -640,7 +640,7 @@ function Window({ v, roots, root }: { v: FilesWindow; roots: Root[]; root: strin
           {menu.dir && room && <button onClick={() => { setMenu(null); const cwd = root.replace(/\/$/, '') + (menu.rel ? '/' + menu.rel : ''); openTerminalIn('archivos:' + cwd, room.roomId, menu.rel ? `${room.name} / ${nameOf(menu.rel)}` : room.name, cwd); }}>{t('windows.openATerminalHere')}</button>}
           {menu.rel && <><hr />
             <button onClick={() => renameSel(menu.rel)}>{t('windows.rename2')} <kbd>{t('windows.enter')}</kbd></button>
-            <button className="peligro" onClick={() => aTrash(menu.rel)}>{t('windows.moveToTrash')} <kbd>{MAC ? '⌘⌫' : t('windows.del')}</kbd></button></>}
+            <button className="danger" onClick={() => aTrash(menu.rel)}>{t('windows.moveToTrash')} <kbd>{MAC ? '⌘⌫' : t('windows.del')}</kbd></button></>}
         </div>
       )}
       {confirm && <Question c={confirm} close={() => setConfirm(null)} goBack={() => (editor.current?.getModel() && activeTab?.type === 'text' ? editor.current.focus() : treeRef.current?.focus())} />}
@@ -660,17 +660,17 @@ function TreeRow({ f, sel, letter, active, cut, renaming, confirm, cancel, click
 }) {
   const [onTop, setAbove] = useState(false);
   return (
-    <div data-rel={f.rel} className={'ex-row' + (sel ? ' sel' : '') + (active ? ' activa' : '') + (f.e.ignored ? ' ignorado' : '') + (cut ? ' cortada' : '') + (letter ? ' l-' + (letter === '?' ? 'N' : letter) : '') + (onTop ? ' destino' : '')}
+    <div data-rel={f.rel} className={'ex-row' + (sel ? ' sel' : '') + (active ? ' active' : '') + (f.e.ignored ? ' ignored' : '') + (cut ? ' cut' : '') + (letter ? ' l-' + (letter === '?' ? 'N' : letter) : '') + (onTop ? ' target' : '')}
       style={{ paddingLeft: 8 + f.level * 12 }} onClick={click} onDoubleClick={clickDouble} onContextMenu={menu}
       draggable={!renaming} onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', f.rel); drag.start(); }}
       onDragOver={e => { if (drag.active) { e.preventDefault(); setAbove(true); } }} onDragLeave={() => setAbove(false)}
       onDrop={e => { e.preventDefault(); e.stopPropagation(); setAbove(false); drag.drop(); }}
       title={(f.e.link ? t('windows.symbolicLink') + ' · ' : '') + (f.e.ignored ? t('windows.ignoredByGit') + ' · ' : '') + (letter ? (f.dir ? t('windows.hasChangesInside') : TITLE_LETTER[letter] ?? letter) : '') || undefined}>
-      {Array.from({ length: f.level }, (_, i) => <span key={i} className="ex-guia" style={{ left: 14 + i * 12 }} />)}
-      <span className={'ex-flecha' + (f.dir ? (f.open ? ' dir open' : ' dir') : '')} />
+      {Array.from({ length: f.level }, (_, i) => <span key={i} className="ex-guide" style={{ left: 14 + i * 12 }} />)}
+      <span className={'ex-arrow' + (f.dir ? (f.open ? ' dir open' : ' dir') : '')} />
       {renaming ? <NameField initial={f.name} confirm={confirm} cancel={cancel} />
-        : <span className="ex-nombre">{f.name}{f.e.link ? <i className="dim"> ↪</i> : null}</span>}
-      {letter && !renaming && <span className="ex-letra">{f.dir ? '•' : letter === '?' ? 'U' : letter}</span>}
+        : <span className="ex-name">{f.name}{f.e.link ? <i className="dim"> ↪</i> : null}</span>}
+      {letter && !renaming && <span className="ex-letter">{f.dir ? '•' : letter === '?' ? 'U' : letter}</span>}
     </div>
   );
 }
@@ -678,7 +678,7 @@ function TreeRow({ f, sel, letter, active, cut, renaming, confirm, cancel, click
 function RowNew({ level, dir, confirm, cancel }: { level: number; dir: boolean; confirm: (n: string) => void; cancel: () => void }) {
   return (
     <div className="ex-row sel" style={{ paddingLeft: 8 + level * 12 }}>
-      <span className={'ex-flecha' + (dir ? ' dir' : '')} />
+      <span className={'ex-arrow' + (dir ? ' dir' : '')} />
       <NameField initial="" confirm={confirm} cancel={cancel} placeholder={dir ? t('windows.folderName') : t('windows.fileNameFolderFileWorks')} />
     </div>
   );
@@ -694,7 +694,7 @@ function NameField({ initial, confirm, cancel, placeholder }: { initial: string;
     const point = initial.lastIndexOf('.'); i.setSelectionRange(0, point > 0 ? point : initial.length);
   }, []);
   const end = (ok: boolean) => { if (done.current) return; done.current = true; ok ? confirm(ref.current?.value ?? '') : cancel(); };
-  return <input ref={ref} className="ex-campo" defaultValue={initial} placeholder={placeholder} spellCheck={false} onClick={e => e.stopPropagation()}
+  return <input ref={ref} className="ex-field" defaultValue={initial} placeholder={placeholder} spellCheck={false} onClick={e => e.stopPropagation()}
     onKeyDown={e => { e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); end(true); } else if (e.key === 'Escape') { e.preventDefault(); end(false); } }}
     onBlur={() => end(true)} />;
 }
@@ -712,7 +712,7 @@ function Welcome({ root, loaded }: { root: string; loaded: boolean }) {
     [`${t('windows.enter')} · F2`, t('windows.rename')], [`${CMD}N · ${CMD}⇧N`, t('windows.newFileOrFolder')], [`${CMD}C ${CMD}X ${CMD}V`, t('windows.copyCutAndPasteFiles')], [MAC ? '⌘⌫' : t('windows.del'), t('windows.moveToTrash2')],
   ];
   return (
-    <div className="ex-bienvenida">
+    <div className="ex-welcome">
       <p className="dim">{root}</p>
       <dl>{shortcuts.map(([k, d]) => <React.Fragment key={k}><dt><kbd>{k}</kbd></dt><dd>{d}</dd></React.Fragment>)}</dl>
       <p className="dim">{loaded ? t('windows.insideTheEditorTheUsual') : t('windows.loadingTheEditor')}</p>
@@ -724,11 +724,11 @@ function Question({ c, close, goBack }: { c: Confirm; close: () => void; goBack:
   // al irse, el foco vuelve al editor o al árbol (y lo elegido lo puede llevar a otro sitio)
   const press = (f: () => void) => { goBack(); close(); f(); };
   return (
-    <div className="vt-confirmar" onKeyDown={e => { e.stopPropagation(); if (e.key === 'Escape') { e.preventDefault(); const last = c.buttons[c.buttons.length - 1]; press(last.f); } }}>
-      <div className="vt-confirmar-caja">
+    <div className="vt-confirm" onKeyDown={e => { e.stopPropagation(); if (e.key === 'Escape') { e.preventDefault(); const last = c.buttons[c.buttons.length - 1]; press(last.f); } }}>
+      <div className="vt-confirm-box">
         <p>{c.text}</p>
-        <div className="vt-confirmar-botones">
-          {c.buttons.map((b, i) => <button key={b.text} className={'consola-x' + (b.danger ? ' peligro' : '')} autoFocus={i === 0} onClick={() => press(b.f)}>{b.text}{i === 0 ? ` (${t('windows.enter')})` : i === c.buttons.length - 1 ? ' (Esc)' : ''}</button>)}
+        <div className="vt-confirm-buttons">
+          {c.buttons.map((b, i) => <button key={b.text} className={'console-x' + (b.danger ? ' danger' : '')} autoFocus={i === 0} onClick={() => press(b.f)}>{b.text}{i === 0 ? ` (${t('windows.enter')})` : i === c.buttons.length - 1 ? ' (Esc)' : ''}</button>)}
         </div>
       </div>
     </div>
@@ -765,7 +765,7 @@ function OpenFast({ root, recent, close, open, notify }: { root: string; recent:
   const picked = results[Math.min(i, results.length - 1)];
   useEffect(() => { if (inWait && rels) { setInWait(false); if (picked) open(picked.rel, line, column); else SFX.notAllowed(); } }, [inWait, rels]);
   return (
-    <div className="ex-rapido" onKeyDown={e => e.stopPropagation()}>
+    <div className="ex-quick" onKeyDown={e => e.stopPropagation()}>
       <input autoFocus value={text} onChange={e => setText(e.target.value)} spellCheck={false} placeholder={rels ? t('windows.searchNFilesByName', { n: rels.length.toLocaleString(language() === 'en' ? 'en-GB' : 'es-ES') }) : t('windows.readingTheFiles')}
         onBlur={() => setTimeout(() => close(false), 0)}
         onKeyDown={e => {
@@ -775,19 +775,19 @@ function OpenFast({ root, recent, close, open, notify }: { root: string; recent:
           else if (e.key === 'ArrowUp' || (e.ctrlKey && e.code === 'KeyP')) { e.preventDefault(); if (n) setI(x => (x - 1 + n) % n); }
           else if (e.key === 'Enter') { e.preventDefault(); if (!rels && query) setInWait(true); else if (picked) open(picked.rel, line, column); else SFX.notAllowed(); }
         }} />
-      <div ref={list} className="ex-rapido-lista">
+      <div ref={list} className="ex-quick-list">
         {results.map((r, k) => {
           const base = r.rel.lastIndexOf('/') + 1, marks = new Set(r.marks);
           const chunk = (since: number, until: number) => Array.from(r.rel.slice(since, until), (c, j) => (marks.has(since + j) ? <b key={j}>{c}</b> : c));
           return (
-            <div key={r.rel} className={'ex-rapido-item' + (k === i ? ' sel' : '')} onMouseDown={e => { e.preventDefault(); open(r.rel, line, column); }} onMouseMove={() => setI(k)}>
-              <span className="ex-rapido-nombre">{chunk(base, r.rel.length)}</span>
-              <span className="ex-rapido-carpeta">{chunk(0, Math.max(0, base - 1))}</span>
-              {!query && recent.includes(r.rel) && <span className="ex-rapido-reciente">{t('windows.recentlyOpened')}</span>}
+            <div key={r.rel} className={'ex-quick-item' + (k === i ? ' sel' : '')} onMouseDown={e => { e.preventDefault(); open(r.rel, line, column); }} onMouseMove={() => setI(k)}>
+              <span className="ex-quick-name">{chunk(base, r.rel.length)}</span>
+              <span className="ex-quick-folder">{chunk(0, Math.max(0, base - 1))}</span>
+              {!query && recent.includes(r.rel) && <span className="ex-quick-recent">{t('windows.recentlyOpened')}</span>}
             </div>
           );
         })}
-        {rels && query && !results.length && <div className="ex-rapido-item dim">{t('windows.noFileHasThatName')}</div>}
+        {rels && query && !results.length && <div className="ex-quick-item dim">{t('windows.noFileHasThatName')}</div>}
       </div>
     </div>
   );

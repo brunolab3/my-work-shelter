@@ -46,7 +46,7 @@ try {
   check(await until(async () => (await pg.$$('.card-issue')).length >= 5), 'the Jira board shows the demo tasks');
   const board = await pg.evaluate(() => [...document.querySelectorAll('.kanban-col')].map(c => ({
     col: c.querySelector('h3').firstChild.textContent.trim(),
-    rows: [...c.querySelectorAll('.kanban-epica, .card-issue')].map(el => el.classList.contains('kanban-epica')
+    rows: [...c.querySelectorAll('.kanban-epic, .card-issue')].map(el => el.classList.contains('kanban-epic')
       ? { header: el.textContent.trim(), color: el.querySelector('.epic-mark') && getComputedStyle(el.querySelector('.epic-mark')).backgroundColor }
       : { key: el.querySelector('.ident').textContent, epic: el.querySelector('.epic-mark')?.title ?? null, color: el.querySelector('.epic-mark') && getComputedStyle(el.querySelector('.epic-mark')).backgroundColor, task: getComputedStyle(el).borderLeftColor }),
   })));
@@ -76,10 +76,10 @@ try {
   const idA = 'holo:' + repo + '/.claude/worktrees/shelter-REF-236';
   check(await until(() => pg.evaluate(id => !!window.__shelter.holograms.ofId(id)?.ready, idA), 30000), 'the copies materialise');
   await pg.waitForTimeout(1500);
-  const labels = await pg.evaluate(() => [...document.querySelectorAll('.label.con-tarea')].map(e => ({ name: e.textContent, epic: getComputedStyle(e.querySelector('.epic-mark')).display !== 'none' ? e.querySelector('.epic-mark').title : null })));
+  const labels = await pg.evaluate(() => [...document.querySelectorAll('.label.with-task')].map(e => ({ name: e.textContent, epic: getComputedStyle(e.querySelector('.epic-mark')).display !== 'none' ? e.querySelector('.epic-mark').title : null })));
   console.log(JSON.stringify(labels));
   check(labels.some(e => /REF-236|Sesiones/.test(e.name) && /REF-200/.test(e.epic ?? '')) && labels.some(e => /REF-244|terminal/i.test(e.name) && !e.epic), 'the REF-236 copy\'s tag has the epic diamond; REF-244\'s has none');
-  const box = await pg.evaluate(() => { const e = [...document.querySelectorAll('.label.con-tarea')].find(x => x.querySelector('.epic-mark').style.display !== 'none'); const r = e.getBoundingClientRect(); return { x: Math.max(0, r.x - 140), y: Math.max(0, r.y - 60), width: r.width + 280, height: r.height + 180 }; });
+  const box = await pg.evaluate(() => { const e = [...document.querySelectorAll('.label.with-task')].find(x => x.querySelector('.epic-mark').style.display !== 'none'); const r = e.getBoundingClientRect(); return { x: Math.max(0, r.x - 140), y: Math.max(0, r.y - 60), width: r.width + 280, height: r.height + 180 }; });
   await pg.screenshot({ path: path.join(dir, 'epicas-holograma.png'), clip: box });
   await pg.screenshot({ path: path.join(dir, 'epicas-sala.png') });
 
@@ -110,8 +110,8 @@ try {
   check(await until(async () => !!(await pg.$('.vt-tab .epic-mark'))), 'the tab of the REF-236 conversation has the diamond');
   check(/REF-200/.test(await pg.getAttribute('.vt-tab .epic-mark', 'title').catch(() => '')), 'its tooltip names the epic');
   await pg.waitForTimeout(400); await pg.screenshot({ path: path.join(dir, 'epicas-pestana.png') });
-  await pg.click('.vt-todas');
-  check(await until(async () => /REF-200/.test(await pg.getAttribute('.vt-list-row .vt-lista-tarea .epic-mark', 'title').catch(() => '') ?? '')), 'the ⋯ N list has the diamond beside the task\'s marker');
+  await pg.click('.vt-all');
+  check(await until(async () => /REF-200/.test(await pg.getAttribute('.vt-list-row .vt-list-task .epic-mark', 'title').catch(() => '') ?? '')), 'the ⋯ N list has the diamond beside the task\'s marker');
   await pg.waitForTimeout(300); await pg.screenshot({ path: path.join(dir, 'epicas-lista.png') });
   await pg.keyboard.press('Escape');
   check(!errors.length, 'no page errors' + (errors.length ? ': ' + errors.join(' | ') : ''));

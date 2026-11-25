@@ -389,39 +389,39 @@ function BrowserWindow({ v }: { v: WindowNav }) {
   const image = isLocal(v.id) && !!v.path && IMAGE_FILE.test(v.path);
   const [realSize, setRealSize] = React.useState(false);
   return (
-    <div className={'ventana-navegador interactivo' + (v.maximized ? ' maximizada' : '') + (v.minimized ? ' minimizada' : '') + (v.id === 'page' ? ' al-lado' : '')}
+    <div className={'window-browser interactive' + (v.maximized ? ' maximized' : '') + (v.minimized ? ' minimized' : '') + (v.id === 'page' ? ' beside' : '')}
       style={{ zIndex: v.maximized ? 200000 + v.z : v.z }} onPointerDown={() => { if (!v.minimized) onFront(v.id); }}
       onKeyDownCapture={e => windowShortcut(e, actions(v))} role="dialog" aria-label={t('windows.browserName', { name: s?.name ?? v.id })}>
-      <div className="vt-cabeza vn-cabeza" onDoubleClick={e => { if (!(e.target as HTMLElement).closest('button')) toggleMaximize(v.id); }}>
-        <span className="rejilla" /><span className={'pilot ' + (v.loading ? 'working' : 'idle')} />
-        <span className="vt-titulo">{t('windows.browser')} · {s?.name ?? v.id}</span>
-        <span className="vt-ruta" title={v.url}>{page}</span>
-        <span className="vn-mandos">
-          {isLocal(v.id) && v.path && notes.length > 0 && <button className="consola-x vn-notas" onClick={() => { setReview(x => !x); SFX.click(); }} title={session ? t('windows.reviewAndSendNotes') : t('windows.openThePageFromA')}>✎ {t('windows.notesN', { n: notes.length })}</button>}
-          {isLocal(v.id) && v.path && !image && session && notes.length === 0 && <button className="consola-x vn-notas" onClick={() => validatePage(session, v.path!)} title={t('windows.validatePageHint')}>✓ {t('windows.validate')}</button>}
-          {isLocal(v.id) && !v.path && v.session && <button className="consola-x vn-notas" onClick={() => sendNotes(v)} title={t('windows.sendNotesHint')}>✎ {t('windows.sendNotes')}</button>}
-          <button className="consola-x" onClick={() => { if (isLocal(v.id)) { SFX.notAllowed(); return; } if (isRemote(v.id)) { remoteOrder('navegar', 'atras').catch(() => {}); return; } const w = webviews.get(v.id); if (w?.canGoBack()) w.goBack(); else SFX.notAllowed(); }} title={t('windows.backShortcut', { shortcut: `${CMD}[` })}>◂</button>
-          <button className="consola-x" onClick={() => { if (isLocal(v.id)) setRound(n => n + 1); else if (isRemote(v.id)) remoteOrder('navegar', 'recargar').catch(() => {}); else webviews.get(v.id)?.reload(); }} title={t('windows.reloadShortcut', { shortcut: `${CMD}R` })}>↻</button>
-          {isLocal(v.id) && v.path && <button className="consola-x" onClick={() => revealPage(v.path!)} title={t('windows.showInFinderHint')}>📁</button>}
-          <button className="consola-x" onClick={() => { window.open(isLocal(v.id) ? new URL(v.url, location.href).href : v.url, '_blank'); SFX.click(); }} title={t('windows.openThisPageInThe')}>↗</button>
+      <div className="vt-head vn-head" onDoubleClick={e => { if (!(e.target as HTMLElement).closest('button')) toggleMaximize(v.id); }}>
+        <span className="grid" /><span className={'pilot ' + (v.loading ? 'working' : 'idle')} />
+        <span className="vt-title">{t('windows.browser')} · {s?.name ?? v.id}</span>
+        <span className="vt-path" title={v.url}>{page}</span>
+        <span className="vn-controls">
+          {isLocal(v.id) && v.path && notes.length > 0 && <button className="console-x vn-notas" onClick={() => { setReview(x => !x); SFX.click(); }} title={session ? t('windows.reviewAndSendNotes') : t('windows.openThePageFromA')}>✎ {t('windows.notesN', { n: notes.length })}</button>}
+          {isLocal(v.id) && v.path && !image && session && notes.length === 0 && <button className="console-x vn-notas" onClick={() => validatePage(session, v.path!)} title={t('windows.validatePageHint')}>✓ {t('windows.validate')}</button>}
+          {isLocal(v.id) && !v.path && v.session && <button className="console-x vn-notas" onClick={() => sendNotes(v)} title={t('windows.sendNotesHint')}>✎ {t('windows.sendNotes')}</button>}
+          <button className="console-x" onClick={() => { if (isLocal(v.id)) { SFX.notAllowed(); return; } if (isRemote(v.id)) { remoteOrder('navegar', 'atras').catch(() => {}); return; } const w = webviews.get(v.id); if (w?.canGoBack()) w.goBack(); else SFX.notAllowed(); }} title={t('windows.backShortcut', { shortcut: `${CMD}[` })}>◂</button>
+          <button className="console-x" onClick={() => { if (isLocal(v.id)) setRound(n => n + 1); else if (isRemote(v.id)) remoteOrder('navegar', 'recargar').catch(() => {}); else webviews.get(v.id)?.reload(); }} title={t('windows.reloadShortcut', { shortcut: `${CMD}R` })}>↻</button>
+          {isLocal(v.id) && v.path && <button className="console-x" onClick={() => revealPage(v.path!)} title={t('windows.showInFinderHint')}>📁</button>}
+          <button className="console-x" onClick={() => { window.open(isLocal(v.id) ? new URL(v.url, location.href).href : v.url, '_blank'); SFX.click(); }} title={t('windows.openThisPageInThe')}>↗</button>
         </span>
         <WindowButtons maximized={v.maximized} minimize={() => minimize(v.id)} toggleMaximize={() => toggleMaximize(v.id)} close={() => close(v.id)} closesThat={isLocal(v.id) ? t('windows.thePage') : t('windows.theBrowserTheSessionIs')} />
       </div>
-      <div ref={box} className="vn-cuerpo">
+      <div ref={box} className="vn-body">
         {isRemote(v.id) && <RemoteView v={v} />}
         {/* sin allow-same-origin: la página no ve el juego (el servidor además la manda con su propia cabecera sandbox) */}
-        {toReview && notes.length > 0 && <div className="vn-lista-notas">
+        {toReview && notes.length > 0 && <div className="vn-list-notes">
           <ol>{notes.map(n => <li key={n.id}><div className="dim">«{n.quote.length > 160 ? n.quote.slice(0, 160) + '…' : n.quote}»{n.section ? ` · ${n.section}` : ''}</div><div>{n.text}</div></li>)}</ol>
-          <div className="botonera">
-            <button className="boton-taller" onClick={() => { setReview(false); setDiscard(false); }}>{t('windows.cancel')}</button>
-            <button className={'boton-taller' + (discard ? ' urgent' : '')} title={t('windows.discardNotesHint')} onClick={() => { if (discard) { clearNotes(); SFX.click(); } else setDiscard(true); }}>{discard ? t('windows.discardNotesSure') : t('windows.discardNotes')}</button>
+          <div className="button-bar">
+            <button className="button-workshop" onClick={() => { setReview(false); setDiscard(false); }}>{t('windows.cancel')}</button>
+            <button className={'button-workshop' + (discard ? ' urgent' : '')} title={t('windows.discardNotesHint')} onClick={() => { if (discard) { clearNotes(); SFX.click(); } else setDiscard(true); }}>{discard ? t('windows.discardNotesSure') : t('windows.discardNotes')}</button>
             {session
-              ? <button className="boton-taller" onClick={sendPageNotes}>{t('windows.sendToTheConversation')}</button>
-              : <button className="boton-taller" title={t('windows.copyNotesHint')} onClick={copyPageNotes}>📋 {t('windows.copyNotes')}</button>}
+              ? <button className="button-workshop" onClick={sendPageNotes}>{t('windows.sendToTheConversation')}</button>
+              : <button className="button-workshop" title={t('windows.copyNotesHint')} onClick={copyPageNotes}>📋 {t('windows.copyNotes')}</button>}
           </div>
         </div>}
-        {image && <div className={'vn-web vn-imagen' + (realSize ? ' real' : '')} onClick={() => setRealSize(x => !x)}><img src={round ? `${v.url}?v=${round}` : v.url} alt={v.title} /></div>}
-        {isLocal(v.id) && !image && <iframe ref={frame} key={v.url + round} className="vn-web vn-pagina" src={v.url} title={v.title} sandbox={sandboxOf(v.url)} referrerPolicy="no-referrer" />}
+        {image && <div className={'vn-web vn-image' + (realSize ? ' real' : '')} onClick={() => setRealSize(x => !x)}><img src={round ? `${v.url}?v=${round}` : v.url} alt={v.title} /></div>}
+        {isLocal(v.id) && !image && <iframe ref={frame} key={v.url + round} className="vn-web vn-page" src={v.url} title={v.title} sandbox={sandboxOf(v.url)} referrerPolicy="no-referrer" />}
       </div>
     </div>
   );
@@ -507,9 +507,9 @@ function RemoteView({ v }: { v: WindowNav }) {
     remoteOrder('entrada', { kind: 'tecla', type, key: e.key, code: e.code, keyCode: e.keyCode, text, ...mods(e) }).catch(() => {});
   };
   return (
-    <div className="vn-remota">
-      <canvas ref={canvas} className="vn-lienzo" />
-      <textarea ref={field} className="vn-teclas" aria-label={t('windows.nameKeyboard', { name: SPOTS[v.id]?.name ?? v.id })} autoCapitalize="off" autoCorrect="off" spellCheck={false}
+    <div className="vn-remote">
+      <canvas ref={canvas} className="vn-canvas" />
+      <textarea ref={field} className="vn-keys" aria-label={t('windows.nameKeyboard', { name: SPOTS[v.id]?.name ?? v.id })} autoCapitalize="off" autoCorrect="off" spellCheck={false}
         onKeyDown={key('keyDown')} onKeyUp={key('keyUp')}
         onCompositionEnd={e => { if (e.data) remoteOrder('entrada', { kind: 'texto', text: e.data }).catch(() => {}); e.currentTarget.value = ''; }}
         onInput={e => {
@@ -519,7 +519,7 @@ function RemoteView({ v }: { v: WindowNav }) {
           e.currentTarget.value = '';
         }}
         onFocus={() => { const x = win(v.id); if (x && !x.minimized && browsers.get().list.some(o => o.z > x.z)) onFront(v.id); }} />
-      {error && <div className="vn-aviso">{error}</div>}
+      {error && <div className="vn-notice">{error}</div>}
     </div>
   );
 }

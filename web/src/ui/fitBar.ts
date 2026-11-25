@@ -1,5 +1,5 @@
 // The top bar compacts itself by measuring, not by window width: it tries each level from the fullest (0) up and keeps
-// the first one whose width fits the room it has (styles.css `.regleta[data-compacto]` says what each level drops;
+// the first one whose width fits the room it has (styles.css `.regleta[data-compact]` says what each level drops;
 // dropped texts stay for tooltips and screen readers). Set on the element directly, not through React, so measuring
 // every level happens before the next paint and React's re-renders leave it alone.
 import { useLayoutEffect, type RefObject } from 'react';
@@ -26,7 +26,7 @@ export function useFitBar(ref: RefObject<HTMLElement | null>) {
       fitting = true;
       // a margin of one unit (the bar's font size) on each side, so it never touches the window's edges
       const room = parent.clientWidth - 2 * parseFloat(getComputedStyle(el).fontSize || '16');
-      fitLevel(level => { el.dataset.compacto = String(level); }, () => el.offsetWidth, room);
+      fitLevel(level => { el.dataset.compact = String(level); }, () => el.offsetWidth, room);
       fitting = false;
     };
     fit();

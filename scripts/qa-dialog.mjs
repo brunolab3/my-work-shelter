@@ -21,7 +21,7 @@ await pg.keyboard.press('Enter');
 const t0 = Date.now(); let permission = false, end = false;
 while (Date.now() - t0 < 150000 && !end) {
   await pg.waitForTimeout(700);
-  const state = await pg.evaluate(() => ({ request: !!document.querySelector('.peticion'), chip: document.querySelector('.chip-estado')?.textContent, working: !!document.querySelector('.girando') }));
+  const state = await pg.evaluate(() => ({ request: !!document.querySelector('.request'), chip: document.querySelector('.chip-state')?.textContent, working: !!document.querySelector('.spinning') }));
   if (state.working && !globalThis.__work) { globalThis.__work = true; await pg.screenshot({ path: `${output}_3_trabajando.png` }); }
   if (state.request && !permission) { permission = true; await pg.screenshot({ path: `${output}_4_permiso.png` }); await pg.keyboard.press('Enter'); }
   if (state.chip === 'finished' || state.chip === 'en pausa') { end = true; await pg.waitForTimeout(1200); await pg.screenshot({ path: `${output}_5_respuesta.png` }); }

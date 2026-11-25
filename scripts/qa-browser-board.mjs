@@ -20,22 +20,22 @@ const wait = ms => pg.waitForTimeout(ms);
 let failures = 0;
 const check = (ok, text) => { console.log((ok ? 'OK   ' : 'FALLO ') + text); if (!ok) failures++; };
 const list = () => pg.evaluate(() => window.__browsers.browsers.get().list);
-const webOf = (id, js) => pg.evaluate(([id, js]) => { const w = [...document.querySelectorAll('.ventana-navegador')].find(v => v.getAttribute('aria-label') === 'Navegador: ' + id)?.querySelector('webview'); return w ? w.executeJavaScript(js) : null; }, [id, js]);
+const webOf = (id, js) => pg.evaluate(([id, js]) => { const w = [...document.querySelectorAll('.window-browser')].find(v => v.getAttribute('aria-label') === 'Navegador: ' + id)?.querySelector('webview'); return w ? w.executeJavaScript(js) : null; }, [id, js]);
 const NAME = { outlook: 'Outlook', discord: 'Discord', slack: 'Slack', github: 'GitHub', linear: 'Linear' };
 const HOST = { outlook: /(^|\.)(cloud\.microsoft|office\.com|office365\.com|microsoftonline\.com|live\.com)$/, discord: /(^|\.)discord\.com$/, slack: /(^|\.)slack\.com$/, github: /(^|\.)github\.com$/, linear: /(^|\.)linear\.app$/ };
 const until = async (f, ms = 25000) => { for (let t = 0; t < ms; t += 300) { if (await f()) return true; await wait(300); } return false; };
 
 // el tablón, con avisos de todas las fuentes
 await pg.evaluate(() => window.__game.set({ panel: 'comms', panelData: null }));
-await pg.waitForSelector('.device .feed-lista li');
-const buttons = await pg.$$eval('.abrir-webs button', bs => bs.map(b => b.textContent));
+await pg.waitForSelector('.device .feed-list li');
+const buttons = await pg.$$eval('.open-webs button', bs => bs.map(b => b.textContent));
 check(buttons.join('|') === '1 · Outlook|2 · Discord|3 · Slack|4 · GitHub|5 · Linear', `botones «Abrir aquí» (${buttons.join(', ')})`);
 
 for (const source of ['outlook', 'discord', 'slack', 'github', 'linear']) {
   await pg.evaluate(() => { window.__browsers.browsers.set({ list: [] }); window.__outside = []; });
   // filtro de la fuente (→ hasta su pestaña) y Enter en el primer aviso
-  const k = await pg.$$eval('.device .pestanas .chip', (cs, n) => cs.findIndex(c => c.textContent.startsWith(n)), NAME[source]);
-  await pg.click(`.device .pestanas .chip:nth-child(${k + 1})`);
+  const k = await pg.$$eval('.device .tabs .chip', (cs, n) => cs.findIndex(c => c.textContent.startsWith(n)), NAME[source]);
+  await pg.click(`.device .tabs .chip:nth-child(${k + 1})`);
   const notice = await pg.evaluate(f => window.__live.get().notifications.find(n => n.source === f), source);
   await pg.keyboard.press('Enter');
   await until(async () => (await list()).some(v => v.id === source && !v.loading));
@@ -55,7 +55,7 @@ await pg.evaluate(() => { window.__browsers.browsers.set({ list: [] }); window._
 await pg.keyboard.press('Digit3');
 await until(async () => (await list()).some(v => v.id === 'slack'));
 check((await list()).filter(v => !v.minimized).map(v => v.id).join() === 'slack', '3 abre Slack');
-await pg.click('.abrir-webs button:nth-child(3)');
+await pg.click('.open-webs button:nth-child(3)');
 await until(async () => (await list()).some(v => v.id === 'discord'));
 const ahead = (await list()).filter(v => !v.minimized).map(v => v.id);
 check(ahead.join() === 'discord', `el botón «2 · Discord» lo abre y Slack pasa a la barra (a la vista: ${ahead.join(', ')})`);

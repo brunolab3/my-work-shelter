@@ -39,7 +39,7 @@ import('./world/animations').then(m => { (window as any).__anim = m; });   // QA
 let shelter: Shelter;
 const ready = sources.then(() => { shelter = new Shelter(motor); (window as any).__shelter = shelter; return shelter.ready; });
 (window as any).__ready = () => ready;
-createRoot(document.getElementById('ui')!).render(<><Hud /><Dialog /><Panels /><Terminals /><Browsers /><GitClient /><Explorer /><div className="columna-izquierda"><Deck /><Bar /></div><Notices /><Search /><FindBar /><PreflightPopover /><RoomsLoading /><Loading /></>);
+createRoot(document.getElementById('ui')!).render(<><Hud /><Dialog /><Panels /><Terminals /><Browsers /><GitClient /><Explorer /><div className="column-left"><Deck /><Bar /></div><Notices /><Search /><FindBar /><PreflightPopover /><RoomsLoading /><Loading /></>);
 client.connect();
 // Electron's menus and dialogs in the game's language (electron/texts.cjs); changing it reloads the page
 (window as any).shelterVentana?.setLanguage?.(language())?.catch?.(() => {});

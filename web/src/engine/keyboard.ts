@@ -40,7 +40,7 @@ class Keyboard {
 
 export function writing(e: Event) {
   const t = e.target as HTMLElement | null;
-  return !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable || !!t.closest?.('.ventana-terminal, .ventana-navegador, .ventana-git, .ventana-archivos'));
+  return !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable || !!t.closest?.('.window-terminal, .window-browser, .window-git, .ventana-archivos'));
 }
 
 export const keyboard = new Keyboard();

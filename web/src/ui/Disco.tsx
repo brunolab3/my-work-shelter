@@ -97,10 +97,10 @@ function Disco({ m, size }: { m: MusicState | null; size: string }) {
   const c = m?.hint?.cover;
   // un disco de vinilo a 33⅓ rpm con la carátula de etiqueta; el brillo no gira con él
   return (
-    <div className={'disco-vinilo' + (m?.state === 'playing' ? ' girando' : '')} style={{ width: size, height: size }} aria-hidden>
-      <div className="disco-giro"><div className="disco-etiqueta" style={c ? { backgroundImage: `url("${c}")` } : undefined} /></div>
-      <div className="disco-brillo" />
-      <div className="disco-eje" />
+    <div className={'disco-vinyl' + (m?.state === 'playing' ? ' spinning' : '')} style={{ width: size, height: size }} aria-hidden>
+      <div className="disco-spin"><div className="disco-label" style={c ? { backgroundImage: `url("${c}")` } : undefined} /></div>
+      <div className="disco-shine" />
+      <div className="disco-axis" />
     </div>
   );
 }
@@ -113,9 +113,9 @@ function Progress({ m, pos }: { m: MusicState; pos: number }) {
   const toSeconds = (e: React.PointerEvent<HTMLDivElement>) => { const r = e.currentTarget.getBoundingClientRect(); return Math.round(Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * d); };
   const check = drag ?? pos;
   return (
-    <div className="musica-progreso">
+    <div className="music-progress">
       <span>{mmss(check)}</span>
-      <div className={'music-bar' + (can ? ' saltable' : '') + (drag !== null ? ' arrastrando' : '')} title={can ? t('windows.clickOrDragToJump') : undefined}
+      <div className={'music-bar' + (can ? ' skippable' : '') + (drag !== null ? ' dragging' : '')} title={can ? t('windows.clickOrDragToJump') : undefined}
         onPointerDown={e => { if (!can) return; e.currentTarget.setPointerCapture(e.pointerId); setDrag(toSeconds(e)); }}
         onPointerMove={e => { if (drag !== null) setDrag(toSeconds(e)); }}
         onPointerUp={e => {
@@ -134,10 +134,10 @@ function Progress({ m, pos }: { m: MusicState; pos: number }) {
 function Controls({ m }: { m: MusicState }) {
   const playing = m.state === 'playing';
   return (
-    <div className="musica-mandos">
-      <button className="musica-boton" onClick={() => { void send('previoustrack'); SFX.click(); }} title={t('windows.previousTrack')}>{I.previous}</button>
-      <button className="musica-boton principal" onClick={() => { void send('toggle'); SFX.click(); }} title={playing ? t('windows.pause') : t('windows.play')}>{playing ? I.pause : I.sonar}</button>
-      <button className="musica-boton" onClick={() => { void send('nexttrack'); SFX.click(); }} title={t('windows.nextTrack')}>{I.next}</button>
+    <div className="music-controls">
+      <button className="music-button" onClick={() => { void send('previoustrack'); SFX.click(); }} title={t('windows.previousTrack')}>{I.previous}</button>
+      <button className="music-button main" onClick={() => { void send('toggle'); SFX.click(); }} title={playing ? t('windows.pause') : t('windows.play')}>{playing ? I.pause : I.sonar}</button>
+      <button className="music-button" onClick={() => { void send('nexttrack'); SFX.click(); }} title={t('windows.nextTrack')}>{I.next}</button>
     </div>
   );
 }
@@ -149,7 +149,7 @@ function Volume({ m }: { m: MusicState }) {
   const move = (x: number, final = false) => { setV(final ? null : x); if (final || Date.now() - last.current > 120) { last.current = Date.now(); void volume(x); if (final) setTimeout(read, 250); } };
   const val = v ?? m.volume;
   return (
-    <label className="musica-volumen" title={t('windows.volumeVal', { val })}>
+    <label className="music-volume" title={t('windows.volumeVal', { val })}>
       {I.volume}
       <input type="range" min={0} max={100} value={val} onChange={e => move(+e.target.value)} onPointerUp={e => move(+(e.target as HTMLInputElement).value, true)} onKeyUp={e => move(+(e.target as HTMLInputElement).value, true)} />
     </label>
@@ -230,31 +230,31 @@ export function Deck() {
   const mark = playing ? 'SONANDO' : m?.state === 'paused' ? 'PAUSA' : 'SPOTIFY';
   const d = p?.duration ?? 0;
   return (
-    <div ref={box} className={'pletina interactivo' + (open ? ' open' : ' compacta') + (playing ? ' playing' : '') + (inHand ? ' en-mano' : '')} role="region" aria-label={t('windows.musicPlayer')}
+    <div ref={box} className={'deck interactive' + (open ? ' open' : ' compact') + (playing ? ' playing' : '') + (inHand ? ' in-hand' : '')} role="region" aria-label={t('windows.musicPlayer')}
       onMouseEnter={() => { if (deadline.current) clearTimeout(deadline.current); setAbove(true); }}
       onMouseLeave={() => { deadline.current = setTimeout(() => setAbove(false), 350); }}>
-      {inHand && <div className="barra-ayuda pletina-ayuda"><kbd>{t('windows.space')}</kbd> ⏯ <kbd>←→</kbd> ±{SECONDS_STEP} s <kbd>⇧←→</kbd> {t('windows.tracks')} <kbd>↑↓</kbd> {t('windows.volume')} <kbd>{t('windows.enter')}</kbd> Spotify <kbd>Esc</kbd> {t('windows.exit')}</div>}
-      <div className="pletina-fila">
-        <button className="pletina-disco" onClick={() => onFront('spotify')} title={t('windows.openSpotifyShortcutJTo', { shortcut: CMD })}><Disco m={m} size="100%" /></button>
-        <div className="pletina-cuerpo">
-          {open && <div className="pletina-cabeza">
-            <span className="pletina-marca">{mark}</span>
-            <span className="pletina-acciones">
-              <button className="consola-x" onClick={() => onFront('spotify')} title={t('windows.openSpotifyEnter')}>{I.open}</button>
+      {inHand && <div className="bar-help deck-help"><kbd>{t('windows.space')}</kbd> ⏯ <kbd>←→</kbd> ±{SECONDS_STEP} s <kbd>⇧←→</kbd> {t('windows.tracks')} <kbd>↑↓</kbd> {t('windows.volume')} <kbd>{t('windows.enter')}</kbd> Spotify <kbd>Esc</kbd> {t('windows.exit')}</div>}
+      <div className="deck-row">
+        <button className="deck-disc" onClick={() => onFront('spotify')} title={t('windows.openSpotifyShortcutJTo', { shortcut: CMD })}><Disco m={m} size="100%" /></button>
+        <div className="deck-body">
+          {open && <div className="deck-head">
+            <span className="deck-mark">{mark}</span>
+            <span className="deck-actions">
+              <button className="console-x" onClick={() => onFront('spotify')} title={t('windows.openSpotifyEnter')}>{I.open}</button>
             </span>
           </div>}
           {p ? <>
-            <div className="pletina-titulo" title={`${p.title} — ${p.artist}`}><span>{p.title}</span></div>
-            <div className="pletina-artista">{p.artist}{open && p.album ? <span className="dim"> · {p.album}</span> : null}</div>
-            {open && <><Progress m={m!} pos={pos} /><div className="pletina-pie"><Controls m={m!} /><Volume m={m!} /></div></>}
+            <div className="deck-title" title={`${p.title} — ${p.artist}`}><span>{p.title}</span></div>
+            <div className="deck-artist">{p.artist}{open && p.album ? <span className="dim"> · {p.album}</span> : null}</div>
+            {open && <><Progress m={m!} pos={pos} /><div className="deck-footer"><Controls m={m!} /><Volume m={m!} /></div></>}
           </> : <>
-            <div className="pletina-titulo"><span>{t('windows.nothingPlaying')}</span></div>
-            <div className="pletina-artista">{open ? t('windows.openSpotifyAndPickSomething') : `Spotify · ${CMD}J`}</div>
+            <div className="deck-title"><span>{t('windows.nothingPlaying')}</span></div>
+            <div className="deck-artist">{open ? t('windows.openSpotifyAndPickSomething') : `Spotify · ${CMD}J`}</div>
           </>}
         </div>
       </div>
-      {!open && d > 0 && <span className="pletina-raya" style={{ width: `${Math.min(100, (pos / d) * 100)}%` }} />}
-      {!inHand && <button className="tecla pista-atajo" onClick={() => musicShortcut()} title={t('windows.controlTheMusicWithThe', { shortcut: `${CMD}J` })}>{CMD}J</button>}
+      {!open && d > 0 && <span className="deck-stripe" style={{ width: `${Math.min(100, (pos / d) * 100)}%` }} />}
+      {!inHand && <button className="key hint-shortcut" onClick={() => musicShortcut()} title={t('windows.controlTheMusicWithThe', { shortcut: `${CMD}J` })}>{CMD}J</button>}
     </div>
   );
 }

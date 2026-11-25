@@ -9,7 +9,7 @@ import { webLinkOptions, fileLinkOptions, copyText, type LinkOption, type LinkAc
 import { openPage, openWeb, canOpenInside, isLocalServer, revealPage, urlSpot } from './Browsers';
 
 // la conversación en la que está el enlace (el intercomunicador marca la suya)
-const sessionOfLink = (a: Element) => a.closest('[data-sesion]')?.getAttribute('data-session') ?? undefined;
+const sessionOfLink = (a: Element) => a.closest('[data-session]')?.getAttribute('data-session') ?? undefined;
 
 // what each option does with a link to a file of the Mac
 function runFile(action: LinkAction, path: string, session?: string) {
@@ -45,14 +45,14 @@ export function closeLinkOptions(returnFocus = false) {
 function show(a: HTMLElement | undefined, x: number, y: number, options: LinkOption[], title: string, run: (action: LinkAction) => void, notice?: string) {
   closeLinkOptions();
   const box = document.createElement('div');
-  box.className = 'opciones-enlace interactivo'; box.setAttribute('role', 'menu');
+  box.className = 'options-link interactive'; box.setAttribute('role', 'menu');
   const head = document.createElement('div'); head.className = 'oe-title'; head.textContent = title.length > 64 ? '…' + title.slice(-63) : title; head.title = title;   // a path's end is what tells it apart
   box.append(head);
   if (notice) { const p = document.createElement('div'); p.className = 'oe-notice'; p.textContent = notice; box.append(p); }
   const pick = (i: number) => { const o = options[i]; if (!o) return; closeLinkOptions(); run(o.action); };
   const buttons = options.map((o, i) => {
     const b = document.createElement('button');
-    b.type = 'button'; b.className = 'oe-option' + (i === 0 ? ' oe-defecto' : ''); b.setAttribute('role', 'menuitem'); b.dataset.accion = o.action;
+    b.type = 'button'; b.className = 'oe-option' + (i === 0 ? ' oe-default' : ''); b.setAttribute('role', 'menuitem'); b.dataset.action = o.action;
     b.textContent = o.text;
     if (i === 0) { const k = document.createElement('kbd'); k.textContent = '↵'; b.append(k); }
     b.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); pick(i); });
@@ -92,12 +92,12 @@ export function followLink(target: { path: string } | { href: string }, o: { x: 
 
 /** A click on a link of a reply opens it its first way; a right click (`menu`) shows them all. True if it was one of those links */
 export function linkClick(e: MouseEvent, menu = false): boolean {
-  const a = (e.target as HTMLElement).closest?.('a[data-local], a[data-enlace]') as HTMLAnchorElement | null;
+  const a = (e.target as HTMLElement).closest?.('a[data-local], a[data-link]') as HTMLAnchorElement | null;
   if (!a || (!menu && e.button !== 0)) return false;
   e.preventDefault(); e.stopPropagation();
   const session = sessionOfLink(a), path = a.getAttribute('data-local');
   // a thumbnail is the picture itself: it opens it in the game directly
-  if (path && !menu && a.classList.contains('miniatura')) runFile('juego', path, session);
+  if (path && !menu && a.classList.contains('thumbnail')) runFile('juego', path, session);
   else followLink(path ? { path } : { href: a.href }, { x: e.clientX, y: e.clientY, menu, session, anchor: a });
   return true;
 }

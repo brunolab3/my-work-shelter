@@ -45,10 +45,10 @@ const wait = ms => pg.waitForTimeout(ms);
 let failures = 0;
 const check = (ok, text) => { console.log((ok ? 'OK   ' : 'FALLO ') + text); if (!ok) failures++; };
 const until = async (f, ms = 30000) => { const t = Date.now(); while (Date.now() - t < ms) { if (await f()) return true; await wait(250); } return false; };
-const options = () => pg.evaluate(() => [...document.querySelectorAll('.console .opciones-consola li')].map(l => l.textContent.replace('▶', '').trim()));
+const options = () => pg.evaluate(() => [...document.querySelectorAll('.console .options-console li')].map(l => l.textContent.replace('▶', '').trim()));
 const chooseMenu = async text => { const i = (await options()).findIndex(o => o.startsWith(text)); for (let k = 0; k < i; k++) await pg.keyboard.press('ArrowDown'); await pg.keyboard.press('Enter'); await wait(400); };
 const value = () => pg.$eval('.console textarea', t => t.value);
-const trayAttachments = () => pg.evaluate(() => [...document.querySelectorAll('.console .bandeja-adjuntos:not(.enviados) .adjunto')].map(a => ({ kind: a.className, img: !!a.querySelector('img'), name: a.querySelector('.nombre-adjunto')?.textContent })));
+const trayAttachments = () => pg.evaluate(() => [...document.querySelectorAll('.console .attachments-tray:not(.sent) .attachment')].map(a => ({ kind: a.className, img: !!a.querySelector('img'), name: a.querySelector('.name-attachment')?.textContent })));
 const paste = (b64, name, type) => pg.evaluate(([b64, name, type]) => {
   const f = new File([Uint8Array.from(atob(b64), c => c.charCodeAt(0))], name, { type: type });
   const dt = new DataTransfer(); dt.items.add(f);
@@ -56,7 +56,7 @@ const paste = (b64, name, type) => pg.evaluate(([b64, name, type]) => {
 }, [b64, name, type]);
 const drop = (text, name) => pg.evaluate(([text, name]) => {
   const dt = new DataTransfer(); dt.items.add(new File([text], name, { type: 'text/plain' }));
-  const z = document.querySelector('.console .pantalla-consola');
+  const z = document.querySelector('.console .screen-console');
   z.dispatchEvent(new DragEvent('dragover', { dataTransfer: dt, bubbles: true, cancelable: true }));
   z.dispatchEvent(new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true }));
 }, [text, name]);
@@ -67,11 +67,11 @@ const similar = t => { const p = norm(PHRASE).split(' '), d = new Set(norm(t).sp
 const h = await pg.evaluate(() => window.__game.get().dwellers.find(h => h.room === 'calendar'));
 console.log('Habitante:', h.name, '·', h.nameRoom);
 await pg.evaluate(h => window.dispatchEvent(new CustomEvent('shelter:go', { detail: { roomId: h.room, dwellerId: h.id, talk: true } })), h);
-await pg.waitForSelector('.console .opciones-consola').catch(async e => { await pg.screenshot({ path: path.join(dir, 'adjuntos-sin-consola.png') }); throw e; });
+await pg.waitForSelector('.console .options-console').catch(async e => { await pg.screenshot({ path: path.join(dir, 'adjuntos-sin-consola.png') }); throw e; });
 await chooseMenu('Empezar');
 
 // ---- adjuntos en el trabajo nuevo
-check(await pg.isVisible('.console .botones-entrada .microfono') && await pg.isVisible('.console .botones-entrada .boton-entrada'), 'el trabajo nuevo tiene 📎 y 🎙');
+check(await pg.isVisible('.console .buttons-entry .microphone') && await pg.isVisible('.console .buttons-entry .button-entry'), 'el trabajo nuevo tiene 📎 y 🎙');
 await paste(RED, 'image.png', 'image/png');
 await drop('notas de prueba del QA', 'notas.txt');
 check(await until(async () => { const l = await trayAttachments(); return l.length === 2 && l.every(a => !a.kind.includes('subiendo')); }, 15000), 'pegar una captura y soltar un archivo los dejan en la bandeja, subidos');
@@ -80,19 +80,19 @@ check(l0[0]?.img && /^captura-\d{6}\.png$/.test(l0[0]?.name ?? ''), `la captura 
 check(l0[1]?.name === 'notas.txt' && !l0[1]?.img, 'el archivo soltado, con su nombre');
 await pg.screenshot({ path: path.join(dir, 'adjuntos-bandeja.png') });
 // quitar uno
-await pg.click('.console .bandeja-adjuntos .adjunto:nth-child(2) button');
+await pg.click('.console .attachments-tray .attachment:nth-child(2) button');
 check((await trayAttachments()).length === 1, '× lo quita de la bandeja');
 
 // ---- dictado: ⌘D empieza y Espacio termina
 await pg.focus('.console textarea');
 await pg.keyboard.type('Primero: ', { delay: 2 });
 await pg.keyboard.press('Meta+d');
-check(await until(() => pg.isVisible('.console .tira-dictado.listening'), 4000), '⌘D empieza a escuchar (tira y micrófono encendidos)');
+check(await until(() => pg.isVisible('.console .strip-dictation.listening'), 4000), '⌘D empieza a escuchar (tira y micrófono encendidos)');
 check(await until(async () => (await value()).length > 'Primero: '.length + 10, 8000), 'lo dicho va apareciendo mientras se habla');
 await pg.screenshot({ path: path.join(dir, 'dictado-escuchando.png') });
 await wait(3000);
 await pg.keyboard.press('Space');
-check(await until(() => pg.evaluate(() => !document.querySelector('.console .tira-dictado')), 8000), 'Espacio termina (sin escribir un espacio)');
+check(await until(() => pg.evaluate(() => !document.querySelector('.console .strip-dictation')), 8000), 'Espacio termina (sin escribir un espacio)');
 const v1 = await value();
 console.log('   →', JSON.stringify(v1));
 check(v1.startsWith('Primero: ') && similar(v1) > 0.8, 'el texto dictado queda detrás de lo escrito, bien transcrito');
@@ -107,7 +107,7 @@ await pg.fill('.console textarea', 'Mira la imagen adjunta. Responde solo con un
 await pg.keyboard.press('Tab'); await pg.keyboard.press('ArrowLeft');   // modelo: Haiku (el último)
 await pg.keyboard.press('Enter');
 check(await until(() => pg.isVisible('.console .session'), 15000), 'el trabajo arranca y la pestaña pasa a la conversación');
-check(await until(() => pg.isVisible('.console .ent.usuario .bandeja-adjuntos.enviados .adjunto img'), 15000), 'el cuaderno enseña la imagen enviada');
+check(await until(() => pg.isVisible('.console .ent.user .attachments-tray.sent .attachment img'), 15000), 'el cuaderno enseña la imagen enviada');
 const sid = await pg.evaluate(id => Object.values(window.__live.get().sessions).find(s => s.dwellerId === id && s.state !== 'closed')?.id, h.id);
 check(await until(() => pg.evaluate(id => ['finished', 'idle', 'error'].includes(window.__live.get().sessions[id]?.state), sid), 90000), 'el habitante responde');
 const answer = await pg.evaluate(id => window.__live.get().sessions[id]?.lastText ?? '', sid);
@@ -121,7 +121,7 @@ await pg.focus('.console textarea');
 await pg.keyboard.press('Meta+d');
 await wait(5500);
 await pg.keyboard.press('Meta+d');
-check(await until(() => pg.evaluate(() => !document.querySelector('.console .tira-dictado')), 8000), '⌘D otra vez termina');
+check(await until(() => pg.evaluate(() => !document.querySelector('.console .strip-dictation')), 8000), '⌘D otra vez termina');
 const v2 = await value();
 console.log('   →', JSON.stringify(v2));
 check(similar(v2) > 0.8, 'bien transcrito');

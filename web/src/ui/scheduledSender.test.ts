@@ -34,8 +34,8 @@ describe('scheduledSender', () => {
 describe('direction marks and targets', () => {
   beforeAll(() => setLanguage('en'));
   it('marks each direction with its own text, tooltip and colour class', () => {
-    expect(directionMark('out')).toMatchObject({ text: '↗ out', className: 'programado-dir dir-out' });
-    expect(directionMark('in')).toMatchObject({ text: '↙ in', className: 'programado-dir dir-in' });
+    expect(directionMark('out')).toMatchObject({ text: '↗ out', className: 'scheduled-dir dir-out' });
+    expect(directionMark('in')).toMatchObject({ text: '↙ in', className: 'scheduled-dir dir-in' });
     expect(directionMark('self').text).toBe('↻ reminder');
     expect(directionMark('self').hint).toMatch(/itself/);
   });

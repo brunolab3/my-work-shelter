@@ -143,60 +143,60 @@ function Window({ v, repos, path }: { v: WindowGit; repos: Repo[]; path: string 
   const signature = state ? `${state.head}|${state.branch}|${total}|${state.ahead}|${state.behind}` : '';
 
   return (
-    <div ref={box} className={'ventana-git interactivo' + (v.maximized ? ' maximizada' : '') + (v.minimized ? ' minimizada' : '')} style={{ zIndex: v.maximized ? 200000 + v.z : v.z }}
+    <div ref={box} className={'window-git interactive' + (v.maximized ? ' maximized' : '') + (v.minimized ? ' minimized' : '')} style={{ zIndex: v.maximized ? 200000 + v.z : v.z }}
       onPointerDown={() => { if (!v.minimized && !(document.activeElement && box.current?.contains(document.activeElement))) onFrontGit(); }}
       onKeyDownCapture={e => { if (windowShortcut(e, actions)) return; if (e.key === 'Escape' && confirm) { e.preventDefault(); const c = confirm; setConfirm(null); c.no?.(); } }}
       onKeyDown={e => e.stopPropagation()} role="dialog" aria-label={t('world.gitClient')}>
-      <div className="vt-cabeza vn-cabeza" onDoubleClick={e => { if (!(e.target as HTMLElement).closest('button, select')) toggleMaximizeGit(); }}>
-        <span className="rejilla" /><span className={'pilot ' + (busy ? 'working' : total ? 'waiting' : 'idle')} />
-        <span className="vt-titulo">GIT · {repo?.name ?? t('windows.noRepo')}</span>
-        <span className="vt-ruta" title={path ?? ''}>{busy || path}</span>
+      <div className="vt-head vn-head" onDoubleClick={e => { if (!(e.target as HTMLElement).closest('button, select')) toggleMaximizeGit(); }}>
+        <span className="grid" /><span className={'pilot ' + (busy ? 'working' : total ? 'waiting' : 'idle')} />
+        <span className="vt-title">GIT · {repo?.name ?? t('windows.noRepo')}</span>
+        <span className="vt-path" title={path ?? ''}>{busy || path}</span>
         <WindowButtons maximized={v.maximized} minimize={minimizeGit} toggleMaximize={toggleMaximizeGit} close={closeGit} closesThat={t('windows.theGitClient')} />
       </div>
-      {!path ? <div className="gd-vacio">{t('windows.thereIsNoGitRepo')}</div> : (
-        <div className="gc-cuerpo">
-          <aside className="gc-lateral">
+      {!path ? <div className="gd-empty">{t('windows.thereIsNoGitRepo')}</div> : (
+        <div className="gc-body">
+          <aside className="gc-side">
             <select className="gc-repo" value={path} onChange={e => choosePath(e.target.value)} title={t('windows.repoThoseOfTheShelter')}>
               {repos.map(r => <option key={r.path} value={r.path}>{r.name}{r.changes ? ` · ${t('windows.nChanges', { n: r.changes })}` : ''}</option>)}
             </select>
             <Branch state={state} busy={!!busy} act={act} />
             {state?.operation && (
-              <div className="gc-operacion">
+              <div className="gc-operation">
                 <b>{OPERATION[state.operation]}</b>
                 <span>{state.conflicts.length ? (state.conflicts.length === 1 ? t('windows.resolveTheConflictStageIt') : t('windows.resolveTheNConflictsStage', { n: state.conflicts.length })) : t('windows.stageWhatYouResolvedAnd')} {state.operation === 'merge' ? t('windows.commit') : t('windows.continue')}</span>
-                <span className="gc-fila-botones">
-                  {state.operation !== 'merge' && <button className="gc-boton principal" disabled={!!busy || !!state.conflicts.length} onClick={() => act('continue', {}, t('windows.continuing'), t('windows.done'))}>{t('windows.continue2')}</button>}
-                  <button className="gc-boton" disabled={!!busy} onClick={() => setConfirm({ text: <>{t('windows.abort')} {OPERATION[state.operation!].toLowerCase()}? {t('windows.everythingGoesBackToHow')}</>, button: t('windows.abort2'), si: () => act('abort', {}, t('windows.aborting'), t('windows.aborted')) })}>{t('windows.abort2')}</button>
+                <span className="gc-row-buttons">
+                  {state.operation !== 'merge' && <button className="gc-button main" disabled={!!busy || !!state.conflicts.length} onClick={() => act('continue', {}, t('windows.continuing'), t('windows.done'))}>{t('windows.continue2')}</button>}
+                  <button className="gc-button" disabled={!!busy} onClick={() => setConfirm({ text: <>{t('windows.abort')} {OPERATION[state.operation!].toLowerCase()}? {t('windows.everythingGoesBackToHow')}</>, button: t('windows.abort2'), si: () => act('abort', {}, t('windows.aborting'), t('windows.aborted')) })}>{t('windows.abort2')}</button>
                 </span>
               </div>
             )}
             <CommitBox path={path} state={state} busy={!!busy} act={act} notify={notify} />
-            <div className="gc-archivos" tabIndex={0} onKeyDown={listKey}>
-              {errorState && <div className="gd-aviso">{errorState}</div>}
-              {state?.truncated && <div className="gd-aviso">{t('windows.thereAreTooManyFiles')}</div>}
+            <div className="gc-files" tabIndex={0} onKeyDown={listKey}>
+              {errorState && <div className="gd-notice">{errorState}</div>}
+              {state?.truncated && <div className="gd-notice">{t('windows.thereAreTooManyFiles')}</div>}
               {(['conflicts', 'staged', 'changes'] as Group[]).map(g => groups[g].length > 0 || g === 'changes' ? (
                 <Section key={g} group={g} files={groups[g]} folded={folded[g]} fold={() => setFolded(p => ({ ...p, [g]: !p[g] }))} sel={sel} pick={a => setSel({ group: g, path: a.path })}
                   stage={stage} remove={remove} discard={discard} open={openFile} busy={!!busy} />
               ) : null)}
-              {state && !total && <div className="gc-limpio">{t('windows.nothingToCommitTheWorking')}</div>}
+              {state && !total && <div className="gc-clean">{t('windows.nothingToCommitTheWorking')}</div>}
             </div>
-            {notice && <div className={'gc-aviso' + (notice.error ? ' error' : '')} onClick={() => setNotice(null)} title={t('windows.clickToDismiss')}>{notice.text}</div>}
+            {notice && <div className={'gc-notice' + (notice.error ? ' error' : '')} onClick={() => setNotice(null)} title={t('windows.clickToDismiss')}>{notice.text}</div>}
           </aside>
-          <main className="gc-principal">
-            <div className="gc-pestanas">
+          <main className="gc-main">
+            <div className="gc-tabs">
               {([['changes', t('windows.changes')], ['history', t('windows.history')], ['branches', t('windows.branchesStash')], ['github', 'GitHub'], ['prs', 'Pull requests']] as [ViewGit, string][]).map(([id, txt], i) => (
-                <button key={id} className={'gc-pestana' + (v.view === id ? ' active' : '')} onClick={() => { windowGit.set({ view: id }); SFX.tick(); }} title={`${txt} (${CMD}${i + 1})`}>{txt}{id === 'branches' && state?.drawer ? <small> · {t('windows.nInTheStash', { n: state.drawer })}</small> : null}</button>
+                <button key={id} className={'gc-tab' + (v.view === id ? ' active' : '')} onClick={() => { windowGit.set({ view: id }); SFX.tick(); }} title={`${txt} (${CMD}${i + 1})`}>{txt}{id === 'branches' && state?.drawer ? <small> · {t('windows.nInTheStash', { n: state.drawer })}</small> : null}</button>
               ))}
-              <span className="gc-pestanas-der">
-                <button className={'gc-boton' + (parallel ? ' on' : '')} onClick={() => { setParallel(p => { localStorage.setItem('shelter.git.parallel', p ? '0' : '1'); return !p; }); SFX.toggle(); }} title={t('windows.unifiedOrSideBySide')}>{parallel ? t('windows.sideBySide') : t('windows.unified')}</button>
-                <button className="gc-boton" onClick={() => openFiles({ root: path, ...(fileSel && fileSel.letter !== 'D' ? { rel: fileSel.path } : {}) })} title={t('windows.browseAndEditTheFiles')}>{t('windows.files3')}</button>
-                {repo && <button className="gc-boton" onClick={() => openTerminalIn('git:' + path, repo.roomId, repo.name, path)} title={t('windows.openAShelterTerminalIn')}>{t('windows.terminal2')}</button>}
+              <span className="gc-tabs-right">
+                <button className={'gc-button' + (parallel ? ' on' : '')} onClick={() => { setParallel(p => { localStorage.setItem('shelter.git.parallel', p ? '0' : '1'); return !p; }); SFX.toggle(); }} title={t('windows.unifiedOrSideBySide')}>{parallel ? t('windows.sideBySide') : t('windows.unified')}</button>
+                <button className="gc-button" onClick={() => openFiles({ root: path, ...(fileSel && fileSel.letter !== 'D' ? { rel: fileSel.path } : {}) })} title={t('windows.browseAndEditTheFiles')}>{t('windows.files3')}</button>
+                {repo && <button className="gc-button" onClick={() => openTerminalIn('git:' + path, repo.roomId, repo.name, path)} title={t('windows.openAShelterTerminalIn')}>{t('windows.terminal2')}</button>}
               </span>
             </div>
-            <div className="gc-vista">
+            <div className="gc-view">
               {v.view === 'changes' && (fileSel && sel
                 ? <DiffFile path={path} file={fileSel} group={sel.group} signature={signature} parallel={parallel} busy={!!busy} apply={applyPatch} stage={stage} remove={remove} discard={discard} open={openFile} notify={notify} />
-                : <div className="gd-vacio">{state ? (total ? t('windows.pickAFileOnThe') : t('windows.nothingToShowNoChanges')) : t('windows.readingTheRepo')}</div>)}
+                : <div className="gd-empty">{state ? (total ? t('windows.pickAFileOnThe') : t('windows.nothingToShowNoChanges')) : t('windows.readingTheRepo')}</div>)}
               {v.view === 'history' && <HistoryView path={path} signature={signature} parallel={parallel} notify={notify} />}
               {v.view === 'branches' && <Branches path={path} state={state} signature={signature} busy={!!busy} act={act} confirm={setConfirm} notify={notify} />}
               {v.view === 'github' && <GitHub notify={notify} />}
@@ -206,12 +206,12 @@ function Window({ v, repos, path }: { v: WindowGit; repos: Repo[]; path: string 
         </div>
       )}
       {confirm && (
-        <div className="vt-confirmar" onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); const c = confirm; setConfirm(null); c.si(); } }}>
-          <div className="vt-confirmar-caja">
+        <div className="vt-confirm" onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); const c = confirm; setConfirm(null); c.si(); } }}>
+          <div className="vt-confirm-box">
             <p>{confirm.text}</p>
-            <div className="vt-confirmar-botones">
-              <button className="consola-x peligro" autoFocus onClick={() => { const c = confirm; setConfirm(null); c.si(); }}>{confirm.button} ({t('windows.enter')})</button>
-              <button className="consola-x" onClick={() => { const c = confirm; setConfirm(null); c.no?.(); }}>{t('windows.cancelEsc')}</button>
+            <div className="vt-confirm-buttons">
+              <button className="console-x danger" autoFocus onClick={() => { const c = confirm; setConfirm(null); c.si(); }}>{confirm.button} ({t('windows.enter')})</button>
+              <button className="console-x" onClick={() => { const c = confirm; setConfirm(null); c.no?.(); }}>{t('windows.cancelEsc')}</button>
             </div>
           </div>
         </div>
@@ -224,19 +224,19 @@ type Make = <T>(name: string, data: Record<string, unknown>, what: string, ok?: 
 
 // ---------------------------------------------------------------- rama y sincronización
 function Branch({ state, busy, act }: { state: StateGit | null; busy: boolean; act: Make }) {
-  if (!state) return <div className="gc-rama dim">{t('windows.reading')}</div>;
+  if (!state) return <div className="gc-branch dim">{t('windows.reading')}</div>;
   const withoutRemote = !state.remote.length;
   const sync = !state.upstream ? (state.branch && !withoutRemote ? t('windows.publishBranch', { branch: state.branch }) : null) : state.ahead || state.behind ? `${t('windows.sync')}${state.behind ? ` ↓${state.behind}` : ''}${state.ahead ? ` ↑${state.ahead}` : ''}` : null;
   return (
-    <div className="gc-rama">
-      <span className="gc-rama-nombre" title={state.upstream ? t('windows.tracksUpstream', { upstream: state.upstream }) : withoutRemote ? t('windows.noRemote') : t('windows.noRemoteBranchYet')}>⎇ {state.branch ?? t('windows.detachedHeadHash', { hash: state.head?.slice(0, 7) ?? t('windows.noCommits') })}</span>
+    <div className="gc-branch">
+      <span className="gc-branch-name" title={state.upstream ? t('windows.tracksUpstream', { upstream: state.upstream }) : withoutRemote ? t('windows.noRemote') : t('windows.noRemoteBranchYet')}>⎇ {state.branch ?? t('windows.detachedHeadHash', { hash: state.head?.slice(0, 7) ?? t('windows.noCommits') })}</span>
       {state.upstream && <span className="gc-ab" title={t('windows.aheadToPushBehindTo', { ahead: state.ahead, behind: state.behind, upstream: state.upstream })}>{state.behind ? <i className="low">↓{state.behind}</i> : null}{state.ahead ? <i className="rise">↑{state.ahead}</i> : null}</span>}
-      <span className="gc-fila-botones">
-        {!withoutRemote && <button className="gc-boton icono" disabled={busy} onClick={() => act('sync', { what: 'fetch' }, t('windows.fetchingFromTheRemote'), t('windows.remoteUpToDate'))} title={t('windows.fetchGetWhatIsNew')}>⟳</button>}
-        {state.upstream && <button className="gc-boton icono" disabled={busy} onClick={() => act('sync', { what: 'pull' }, 'Pull…', t('windows.pullDone'))} title={t('windows.pullDownloadAndMergeWhat')}>↓</button>}
-        {!withoutRemote && state.branch && <button className="gc-boton icono" disabled={busy} onClick={() => act('sync', { what: 'push' }, 'Push…', t('windows.pushDone'))} title={state.upstream ? t('windows.pushUploadYourCommits') : t('windows.pushPublishTheBranchTo')}>↑</button>}
+      <span className="gc-row-buttons">
+        {!withoutRemote && <button className="gc-button icon" disabled={busy} onClick={() => act('sync', { what: 'fetch' }, t('windows.fetchingFromTheRemote'), t('windows.remoteUpToDate'))} title={t('windows.fetchGetWhatIsNew')}>⟳</button>}
+        {state.upstream && <button className="gc-button icon" disabled={busy} onClick={() => act('sync', { what: 'pull' }, 'Pull…', t('windows.pullDone'))} title={t('windows.pullDownloadAndMergeWhat')}>↓</button>}
+        {!withoutRemote && state.branch && <button className="gc-button icon" disabled={busy} onClick={() => act('sync', { what: 'push' }, 'Push…', t('windows.pushDone'))} title={state.upstream ? t('windows.pushUploadYourCommits') : t('windows.pushPublishTheBranchTo')}>↑</button>}
       </span>
-      {sync && <button className="gc-boton ancho" disabled={busy} onClick={() => act('sync', { what: 'sync' }, t('windows.syncing'), t('windows.synced'))}>{sync}</button>}
+      {sync && <button className="gc-button wide" disabled={busy} onClick={() => act('sync', { what: 'sync' }, t('windows.syncing'), t('windows.synced'))}>{sync}</button>}
     </div>
   );
 }
@@ -261,17 +261,17 @@ function CommitBox({ path, state, busy, act, notify }: { path: string; state: St
   const undo = async () => { setMenu(false); const r = await act<{ message: string }>('undoCommit', {}, t('windows.undoingTheCommit'), t('windows.lastCommitUndoneItsChanges')); if (r?.message && !msg.trim()) change(r.message); };
   return (
     <div className="gc-commit">
-      <div className="gc-commit-caja">
+      <div className="gc-commit-box">
         <textarea value={msg} onChange={e => change(e.target.value)} rows={Math.min(8, Math.max(2, msg.split('\n').length))} spellCheck={false}
           placeholder={state?.branch ? t('windows.messageShortcutEnterToCommit', { shortcut: CMD, branch: state.branch }) : t('windows.messageShortcutEnterToCommit2', { shortcut: CMD })}
           onKeyDown={e => { if (e.key === 'Enter' && (MAC ? e.metaKey : e.ctrlKey)) { e.preventDefault(); commit(); } }} />
-        <button className="gc-ia" disabled title={t('windows.generateTheMessageWithAi')}>✨</button>
+        <button className="gc-ai" disabled title={t('windows.generateTheMessageWithAi')}>✨</button>
       </div>
-      <div className="gc-commit-botones">
-        <button className="gc-boton principal ancho" disabled={!can} onClick={() => commit()} title={all ? t('windows.nothingIsStagedEverythingGets') : t('windows.commitTheStagedChangesShortcut', { shortcut: CMD })}>
+      <div className="gc-commit-buttons">
+        <button className="gc-button main wide" disabled={!can} onClick={() => commit()} title={all ? t('windows.nothingIsStagedEverythingGets') : t('windows.commitTheStagedChangesShortcut', { shortcut: CMD })}>
           ✓ {all ? t('windows.stageAllAndCommit') : 'Commit'}{state?.branch && !all ? <small> {t('windows.onBranch', { branch: state.branch })}</small> : null}
         </button>
-        <button className="gc-boton icono principal" disabled={busy || !state} onClick={() => setMenu(m => !m)} title={t('windows.moreWaysToCommit')}>▾</button>
+        <button className="gc-button icon main" disabled={busy || !state} onClick={() => setMenu(m => !m)} title={t('windows.moreWaysToCommit')}>▾</button>
         {menu && (
           <div className="gc-menu" onMouseLeave={() => setMenu(false)}>
             <button disabled={!can || !state?.remote.length} onClick={() => commit({ push: true })}>{t('windows.commitAndPush')}</button>
@@ -292,16 +292,16 @@ function Section({ group, files, folded, fold, sel, pick, stage, remove, discard
 }) {
   const title = group === 'staged' ? t('windows.staged') : group === 'conflicts' ? t('windows.conflicts') : t('windows.changes');
   return (
-    <section className={'gc-seccion ' + group}>
+    <section className={'gc-section ' + group}>
       <header onClick={fold}>
-        <span className="gc-plegar">{folded ? '▸' : '▾'}</span>
-        <span className="gc-seccion-titulo">{title}</span>
-        <span className="gc-seccion-botones" onClick={e => e.stopPropagation()}>
+        <span className="gc-fold">{folded ? '▸' : '▾'}</span>
+        <span className="gc-section-title">{title}</span>
+        <span className="gc-section-buttons" onClick={e => e.stopPropagation()}>
           {group === 'staged' && files.length > 0 && <button disabled={busy} onClick={() => remove(files)} title={t('windows.unstageAll')}>−</button>}
           {group === 'changes' && files.length > 0 && <><button disabled={busy} onClick={() => discard(files)} title={t('windows.discardAllChanges')}>↶</button><button disabled={busy} onClick={() => stage(files)} title={t('windows.stageAll')}>+</button></>}
           {group === 'conflicts' && files.length > 0 && <button disabled={busy} onClick={() => stage(files)} title={t('windows.markAllAsResolvedStage')}>✓</button>}
         </span>
-        <span className="gc-cuenta">{files.length}</span>
+        <span className="gc-count">{files.length}</span>
       </header>
       {!folded && (
         <ul>
@@ -310,15 +310,15 @@ function Section({ group, files, folded, fold, sel, pick, stage, remove, discard
             const active = sel?.group === group && sel.path === a.path;
             return (
               <li key={a.path} className={active ? 'active' : ''} onClick={() => pick(a)} onDoubleClick={() => open(a)} ref={el => { if (active) el?.scrollIntoView({ block: 'nearest' }); }} title={`${a.origin ? a.origin + ' → ' : ''}${a.path} · ${LETTER[a.letter] ?? a.letter}`}>
-                <span className={'gc-nombre' + (a.letter === 'D' ? ' tachado' : '')}>{name}</span>
-                <span className="gc-carpeta">{folder}</span>
-                <span className="gc-botones-archivo" onClick={e => e.stopPropagation()}>
+                <span className={'gc-name' + (a.letter === 'D' ? ' struck' : '')}>{name}</span>
+                <span className="gc-folder">{folder}</span>
+                <span className="gc-buttons-file" onClick={e => e.stopPropagation()}>
                   {a.letter !== 'D' && <button onClick={() => open(a)} title={t('windows.openInTheEditorEnter')}>↗</button>}
                   {group === 'changes' && <button disabled={busy} onClick={() => discard([a])} title={t('windows.discardTheChangesDel')}>↶</button>}
                   {group === 'staged' ? <button disabled={busy} onClick={() => remove([a])} title={t('windows.unstageSpace')}>−</button>
                     : <button disabled={busy} onClick={() => stage([a])} title={group === 'conflicts' ? t('windows.markAsResolved') : t('windows.stageSpace')}>{group === 'conflicts' ? '✓' : '+'}</button>}
                 </span>
-                <span className={'gc-letra l-' + (a.letter === '?' ? 'U' : a.letter)}>{a.letter === '?' ? 'U' : group === 'conflicts' ? '!' : a.letter}</span>
+                <span className={'gc-letter l-' + (a.letter === '?' ? 'U' : a.letter)}>{a.letter === '?' ? 'U' : group === 'conflicts' ? '!' : a.letter}</span>
               </li>
             );
           })}
@@ -345,20 +345,20 @@ function DiffFile({ path, file, group, signature, parallel, busy, apply, stage, 
   const mode = group === 'staged' ? 'staged' : 'changes';
   return (
     <div className="gc-diff">
-      <div className="gc-diff-cab">
-        <span className={'gc-letra l-' + (file.letter === '?' ? 'U' : file.letter)}>{file.letter === '?' ? 'U' : file.letter}</span>
-        <span className="gc-diff-ruta">{file.origin ? <><span className="dim">{file.origin} → </span>{file.path}</> : file.path}</span>
+      <div className="gc-diff-header">
+        <span className={'gc-letter l-' + (file.letter === '?' ? 'U' : file.letter)}>{file.letter === '?' ? 'U' : file.letter}</span>
+        <span className="gc-diff-path">{file.origin ? <><span className="dim">{file.origin} → </span>{file.path}</> : file.path}</span>
         <span className="dim">{group === 'staged' ? t('windows.stagedIndexLastCommit') : group === 'conflicts' ? t('windows.conflicted') : file.letter === '?' ? t('windows.newUntracked') : t('windows.workingCopyStaged')}</span>
-        <span className="gc-fila-botones">
-          <button className={'gc-boton' + (whole ? ' on' : '')} onClick={() => setWhole(x => !x)} title={t('windows.showTheWholeFileAround')}>{whole ? t('windows.wholeFile') : t('windows.changesOnly')}</button>
-          {file.letter !== 'D' && <button className="gc-boton" onClick={() => open(file)}>{t('windows.open2')}</button>}
-          {group === 'changes' && <button className="gc-boton" disabled={busy} onClick={() => discard([file])}>{t('windows.discard2')}</button>}
-          {group === 'staged' ? <button className="gc-boton" disabled={busy} onClick={() => remove([file])}>{t('windows.unstage')}</button>
-            : <button className="gc-boton principal" disabled={busy} onClick={() => stage([file])}>{group === 'conflicts' ? t('windows.resolved') : t('windows.stage')}</button>}
+        <span className="gc-row-buttons">
+          <button className={'gc-button' + (whole ? ' on' : '')} onClick={() => setWhole(x => !x)} title={t('windows.showTheWholeFileAround')}>{whole ? t('windows.wholeFile') : t('windows.changesOnly')}</button>
+          {file.letter !== 'D' && <button className="gc-button" onClick={() => open(file)}>{t('windows.open2')}</button>}
+          {group === 'changes' && <button className="gc-button" disabled={busy} onClick={() => discard([file])}>{t('windows.discard2')}</button>}
+          {group === 'staged' ? <button className="gc-button" disabled={busy} onClick={() => remove([file])}>{t('windows.unstage')}</button>
+            : <button className="gc-button main" disabled={busy} onClick={() => stage([file])}>{group === 'conflicts' ? t('windows.resolved') : t('windows.stage')}</button>}
         </span>
       </div>
-      <div className="gc-diff-cuerpo">
-        {diff && diff.key === key ? <DiffViewer text={diff.text} binary={diff.binary} truncated={diff.truncated} mode={group === 'conflicts' ? 'commit' : mode} parallel={parallel} busy={busy} onApply={apply} /> : <div className="gd-vacio">{t('windows.readingTheDiff')}</div>}
+      <div className="gc-diff-body">
+        {diff && diff.key === key ? <DiffViewer text={diff.text} binary={diff.binary} truncated={diff.truncated} mode={group === 'conflicts' ? 'commit' : mode} parallel={parallel} busy={busy} onApply={apply} /> : <div className="gd-empty">{t('windows.readingTheDiff')}</div>}
       </div>
     </div>
   );
@@ -387,46 +387,46 @@ function Branches({ path, state, signature, busy, act, confirm, notify }: { path
   } });
   const row = (r: BranchGit) => (
     <li key={(r.remote ? 'r:' : 'l:') + r.name} className={r.current ? 'current' : ''}>
-      <span className="gr-nombre" title={r.name}>{r.current ? '● ' : ''}{r.name}</span>
+      <span className="gr-name" title={r.name}>{r.current ? '● ' : ''}{r.name}</span>
       <span className="gr-ab">{r.lost ? <i className="dim">{t('windows.remoteDeleted')}</i> : <>{r.behind ? <i className="low">↓{r.behind}</i> : null}{r.ahead ? <i className="rise">↑{r.ahead}</i> : null}</>}</span>
-      <span className="gr-asunto" title={r.subject}>{r.subject}</span>
-      <span className="dim gr-cuando">{ago(r.date)}</span>
-      <span className="gc-fila-botones">
-        {!r.current && <button className="gc-boton" disabled={busy} onClick={() => act('switchBranch', { branch: r.name, remote: r.remote }, t('windows.switchingBranch'), t('windows.nowOnBranch', { branch: r.remote ? r.name.split('/').slice(1).join('/') : r.name }))}>{t('windows.switch')}</button>}
-        {!r.current && !r.remote && <button className="gc-boton icono" disabled={busy} onClick={() => deleteMessage(r)} title={t('windows.deleteTheBranch2')}>🗑</button>}
+      <span className="gr-subject" title={r.subject}>{r.subject}</span>
+      <span className="dim gr-when">{ago(r.date)}</span>
+      <span className="gc-row-buttons">
+        {!r.current && <button className="gc-button" disabled={busy} onClick={() => act('switchBranch', { branch: r.name, remote: r.remote }, t('windows.switchingBranch'), t('windows.nowOnBranch', { branch: r.remote ? r.name.split('/').slice(1).join('/') : r.name }))}>{t('windows.switch')}</button>}
+        {!r.current && !r.remote && <button className="gc-button icon" disabled={busy} onClick={() => deleteMessage(r)} title={t('windows.deleteTheBranch2')}>🗑</button>}
       </span>
     </li>
   );
   return (
     <div className="gr">
-      <div className="gc-herramientas">
-        <input className="gc-filtro" placeholder={t('windows.filterBranches')} value={filter} onChange={e => setFilter(e.target.value)} />
-        <input className="gc-filtro" placeholder={t('windows.newBranchFromHere')} value={newBranch} onChange={e => setNew(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') create(); }} />
-        <button className="gc-boton principal" disabled={busy || !newBranch.trim()} onClick={create}>{t('windows.createBranch')}</button>
+      <div className="gc-tools">
+        <input className="gc-filter" placeholder={t('windows.filterBranches')} value={filter} onChange={e => setFilter(e.target.value)} />
+        <input className="gc-filter" placeholder={t('windows.newBranchFromHere')} value={newBranch} onChange={e => setNew(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') create(); }} />
+        <button className="gc-button main" disabled={busy || !newBranch.trim()} onClick={create}>{t('windows.createBranch')}</button>
       </div>
-      <div className="gr-columnas">
+      <div className="gr-columns">
         <section>
           <h4>{t('windows.localBranches')} <span className="dim">({local.length})</span></h4>
-          <ul className="gr-lista">{local.map(row)}{branches && !local.length && <li className="dim">{t('windows.none')}</li>}</ul>
-          {remotes.length > 0 && <><h4>{t('windows.remotes')} <span className="dim">({remotes.length})</span></h4><ul className="gr-lista">{remotes.map(row)}</ul></>}
+          <ul className="gr-list">{local.map(row)}{branches && !local.length && <li className="dim">{t('windows.none')}</li>}</ul>
+          {remotes.length > 0 && <><h4>{t('windows.remotes')} <span className="dim">({remotes.length})</span></h4><ul className="gr-list">{remotes.map(row)}</ul></>}
         </section>
         <section>
           <h4>{t('windows.stash')} <span className="dim">(stash · {drawer.length})</span></h4>
           <p className="dim">{t('windows.setAsideYourHalfDone')}</p>
-          <div className="gc-herramientas">
-            <input className="gc-filtro" placeholder={t('windows.noteOptional')} value={note} onChange={e => setNote(e.target.value)} />
-            <button className="gc-boton principal" disabled={busy || !hasChanges} onClick={async () => { if (await act('stashSave', { message: note.trim() }, t('windows.savingToTheStash'), t('windows.changesSavedToTheStash')) !== undefined) setNote(''); }}>{t('windows.stashChanges')}</button>
+          <div className="gc-tools">
+            <input className="gc-filter" placeholder={t('windows.noteOptional')} value={note} onChange={e => setNote(e.target.value)} />
+            <button className="gc-button main" disabled={busy || !hasChanges} onClick={async () => { if (await act('stashSave', { message: note.trim() }, t('windows.savingToTheStash'), t('windows.changesSavedToTheStash')) !== undefined) setNote(''); }}>{t('windows.stashChanges')}</button>
           </div>
-          <ul className="gr-lista">
+          <ul className="gr-list">
             {drawer.map(c => (
               <li key={c.ref}>
-                <span className="gr-nombre">{c.ref.replace('stash@', '#').replace(/[{}]/g, '')}</span>
-                <span className="gr-asunto" title={c.subject}>{c.subject}</span>
-                <span className="dim gr-cuando">{ago(c.date)}</span>
-                <span className="gc-fila-botones">
-                  <button className="gc-boton principal" disabled={busy} onClick={() => act('stashPop', { ref: c.ref }, t('windows.poppingFromTheStash'), t('windows.changesReturnedToTheWorking'))} title={t('windows.applyItAndRemoveIt')}>{t('windows.pop')}</button>
-                  <button className="gc-boton" disabled={busy} onClick={() => act('stashPop', { ref: c.ref, keep: true }, t('windows.applying'), t('windows.appliedStillInTheStash'))} title={t('windows.applyItAndKeepIt')}>{t('windows.apply')}</button>
-                  <button className="gc-boton icono" disabled={busy} onClick={() => confirm({ text: <>{t('windows.drop')} <b>{c.subject}</b> {t('windows.fromTheStashItWill')}</>, button: t('windows.drop2'), si: () => act('stashDrop', { ref: c.ref }, t('windows.dropping'), t('windows.dropped')) })} title={t('windows.dropItDrop')}>🗑</button>
+                <span className="gr-name">{c.ref.replace('stash@', '#').replace(/[{}]/g, '')}</span>
+                <span className="gr-subject" title={c.subject}>{c.subject}</span>
+                <span className="dim gr-when">{ago(c.date)}</span>
+                <span className="gc-row-buttons">
+                  <button className="gc-button main" disabled={busy} onClick={() => act('stashPop', { ref: c.ref }, t('windows.poppingFromTheStash'), t('windows.changesReturnedToTheWorking'))} title={t('windows.applyItAndRemoveIt')}>{t('windows.pop')}</button>
+                  <button className="gc-button" disabled={busy} onClick={() => act('stashPop', { ref: c.ref, keep: true }, t('windows.applying'), t('windows.appliedStillInTheStash'))} title={t('windows.applyItAndKeepIt')}>{t('windows.apply')}</button>
+                  <button className="gc-button icon" disabled={busy} onClick={() => confirm({ text: <>{t('windows.drop')} <b>{c.subject}</b> {t('windows.fromTheStashItWill')}</>, button: t('windows.drop2'), si: () => act('stashDrop', { ref: c.ref }, t('windows.dropping'), t('windows.dropped')) })} title={t('windows.dropItDrop')}>🗑</button>
                 </span>
               </li>
             ))}

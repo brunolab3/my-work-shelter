@@ -177,39 +177,39 @@ function FloorPlan() {
   const content = (s: any) => {
     const hs = dwellers.filter(x => x.room === s.id);
     return <>
-      <span className="nom">{s.name}</span>
+      <span className="nm">{s.name}</span>
       {edit && hasArea(s) && (() => { const sec = sectorOf(s.type, s.id, s.area); return (
-        <button className="plano-area" title={t('panels.clickToChangeArea')} style={{ ['--sector' as any]: sec.color, ['--tinta' as any]: sec.ink }}
+        <button className="map-area" title={t('panels.clickToChangeArea')} style={{ ['--sector' as any]: sec.color, ['--ink' as any]: sec.ink }}
           draggable={false} onMouseDown={ev => ev.stopPropagation()} onClick={ev => { ev.stopPropagation(); setCurId(s.id); nextArea(s); }}><b>{sec.code}</b>{tIs(sec.name)}</button>
       ); })()}
-      <span className="hab">{hs.map(x => <i key={x.id} className={x.state} title={x.name} />)}</span>
-      {s.id === current && <span className="tu">{t('windows.you')}</span>}
+      <span className="rm">{hs.map(x => <i key={x.id} className={x.state} title={x.name} />)}</span>
+      {s.id === current && <span className="you">{t('windows.you')}</span>}
     </>;
   };
   return (
     <Device label={t('panels.shelterMapFastTravel')} width={84} height kind="map">
-      <div className="plano-cuerpo">
-        {photo && !edit ? <div className="plano-caja" ref={box}>
-          <div className="plano-foto" style={{ width: fw, height: fh }}>
+      <div className="map-body">
+        {photo && !edit ? <div className="map-box" ref={box}>
+          <div className="map-photo" style={{ width: fw, height: fh }}>
             <img src={photo.url} alt="" draggable={false} />
-            {Array.from({ length: floors }, (_, p) => { const h = photo.gaps.find((x: any) => x.floor === p); return h ? <div key={p} className="plano-planta-rotulo" title={tIs(floorSector(p, floors, rooms).name)} style={{ top: `${h.r[1] * 100}%`, height: `${(h.r[3] - h.r[1]) * 100}%`, ['--sector' as any]: floorSector(p, floors, rooms).color, ['--tinta' as any]: floorSector(p, floors, rooms).ink, ['--letra' as any]: floorSector(p, floors, rooms).letter }}>{floorCaption(p)}<b>{floorSector(p, floors, rooms).code}</b></div> : null; })}
+            {Array.from({ length: floors }, (_, p) => { const h = photo.gaps.find((x: any) => x.floor === p); return h ? <div key={p} className="map-floor-label" title={tIs(floorSector(p, floors, rooms).name)} style={{ top: `${h.r[1] * 100}%`, height: `${(h.r[3] - h.r[1]) * 100}%`, ['--sector' as any]: floorSector(p, floors, rooms).color, ['--ink' as any]: floorSector(p, floors, rooms).ink, ['--font' as any]: floorSector(p, floors, rooms).letter }}>{floorCaption(p)}<b>{floorSector(p, floors, rooms).code}</b></div> : null; })}
             {photo.gaps.map((h: any) => {
               const s = rooms.find(x => x.id === h.id); if (!s) return null;
               return (
-                <div key={s.id} className={'plano-zona ' + roomState(s.id) + (s.id === curId ? ' cur' : '') + (s.id === current ? ' aqui' : '')}
-                  style={{ ...pct(h.r), ['--acento' as any]: roomTone(s)[0] }}
+                <div key={s.id} className={'map-zone ' + roomState(s.id) + (s.id === curId ? ' cur' : '') + (s.id === current ? ' aqui' : '')}
+                  style={{ ...pct(h.r), ['--accent' as any]: roomTone(s)[0] }}
                   onMouseEnter={() => setCurId(s.id)} onClick={() => { setCurId(s.id); pick(s); }}>
                   {content(s)}
                 </div>
               );
             })}
           </div>
-        </div> : <div className={'plano-corte' + (edit ? ' editando' : '')} style={{ gridTemplateColumns: `2.2em repeat(${orders}, 1fr) 2.6em repeat(${orders}, 1fr)` }}>
-          <div className="plano-superficie" style={{ gridColumn: `1 / span ${orders * 2 + 2}` }} />
+        </div> : <div className={'map-cut' + (edit ? ' editing' : '')} style={{ gridTemplateColumns: `2.2em repeat(${orders}, 1fr) 2.6em repeat(${orders}, 1fr)` }}>
+          <div className="map-surface" style={{ gridColumn: `1 / span ${orders * 2 + 2}` }} />
           {Array.from({ length: floors + (edit ? 1 : 0) }, (_, p) => {
             // editando, encima de cada planta (menos la PB) y al fondo, una franja que abre una planta nueva ahí
             const strip = edit && p >= 1 && (
-              <div key={'n' + p} className={'map-new' + (restsOn === 'n' + p ? ' sobre' : '') + (ofRoom ? ' active' : '')} style={{ gridColumn: `1 / span ${orders * 2 + 2}` }}
+              <div key={'n' + p} className={'map-new' + (restsOn === 'n' + p ? ' over' : '') + (ofRoom ? ' active' : '')} style={{ gridColumn: `1 / span ${orders * 2 + 2}` }}
                 {...droppable('n' + p, !!ofRoom, () => works({ roomId: ofRoom, floor: p, side: 'right', orden: 0, newFloor: true }))}>
                 {ofRoom ? t('panels.newFloorP', { p: floorCaption(p) }) : ''}
               </div>
@@ -219,7 +219,7 @@ function FloorPlan() {
             return (
               <React.Fragment key={p}>
                 {strip}
-                <div className={'map-floor' + (edit && p >= 1 ? ' movible' : '') + (restsOn === 'p' + p ? ' sobre' : '')} title={edit && p >= 1 ? t('panels.dragTheFloorToAnother') : tIs(sector.name)} style={{ ['--sector' as any]: sector.color, ['--tinta' as any]: sector.ink, ['--letra' as any]: sector.letter }}
+                <div className={'map-floor' + (edit && p >= 1 ? ' movable' : '') + (restsOn === 'p' + p ? ' over' : '')} title={edit && p >= 1 ? t('panels.dragTheFloorToAnother') : tIs(sector.name)} style={{ ['--sector' as any]: sector.color, ['--ink' as any]: sector.ink, ['--font' as any]: sector.letter }}
                   {...draggable(p >= 1 ? { floor: p } : null)} {...droppable('p' + p, ofFloor >= 1 && p >= 1 && p !== ofFloor, () => works({ from: ofFloor, a: p }))}>
                   {floorCaption(p)}<b>{sector.code}</b>
                 </div>
@@ -227,29 +227,29 @@ function FloorPlan() {
                   const s = roomIn(p, c);
                   const key = `${p}${c.side}${c.orden}`;
                   const cell = (
-                    <div key={k} className={'map-cell' + (s ? ' ' + roomState(s.id) : ' vacia') + (s && s.id === curId ? ' cur' : '') + (s?.id === current ? ' aqui' : '') + (s && s.id === ofRoom ? ' moviendo' : '') + (restsOn === key ? ' sobre' : '') + (edit && p >= 1 && ofRoom ? ' hueco' : '')}
-                      style={s ? { ['--acento' as any]: roomTone(s)[0] } : undefined}
+                    <div key={k} className={'map-cell' + (s ? ' ' + roomState(s.id) : ' empty') + (s && s.id === curId ? ' cur' : '') + (s?.id === current ? ' aqui' : '') + (s && s.id === ofRoom ? ' moving' : '') + (restsOn === key ? ' over' : '') + (edit && p >= 1 && ofRoom ? ' gap' : '')}
+                      style={s ? { ['--accent' as any]: roomTone(s)[0] } : undefined}
                       {...draggable(s && s.type !== 'gate' ? { room: s.id } : null)}
                       {...droppable(key, !!ofRoom && p >= 1 && s?.id !== ofRoom, () => works({ roomId: ofRoom, floor: p, side: c.side, orden: c.orden }))}
                       onMouseEnter={() => s && setCurId(s.id)} onClick={() => { if (s && !edit) { setCurId(s.id); pick(s); } }}>
                       {s && content(s)}
                     </div>
                   );
-                  return c.side === 'right' && c.orden === 0 ? <React.Fragment key={k}><div className={'plano-ascensor' + (p === 0 ? ' arriba' : '')}>{p === floors - 1 ? '' : '▮'}</div>{cell}</React.Fragment> : cell;
+                  return c.side === 'right' && c.orden === 0 ? <React.Fragment key={k}><div className={'map-elevator' + (p === 0 ? ' arriba' : '')}>{p === floors - 1 ? '' : '▮'}</div>{cell}</React.Fragment> : cell;
                 })}
               </React.Fragment>
             );
           })}
         </div>}
-        <div className="plano-ficha">
+        <div className="map-card">
           {sel ? <RoomCard key={sel.id} room={sel} dwellers={selHs} /> : <div className="dim">{t('panels.hoverOverARoomOr')}</div>}
         </div>
       </div>
-      <div className="plano-leyenda">{SECTORS_ORDER.map(k => SECTORS[k]).map(x => <span key={x.id} style={{ ['--sector' as any]: x.color, ['--tinta' as any]: x.ink, ['--letra' as any]: x.letter }}><b>{x.code}</b>{tIs(x.name)}<i>{tIs(x.motto)}</i></span>)}</div>
-      <div className="botonera plano-obras">
-        <button className={'boton-taller' + (edit ? ' active' : '')} onClick={toggleEdit}>{edit ? t('panels.done') : t('panels.edit')}</button>
+      <div className="map-legend">{SECTORS_ORDER.map(k => SECTORS[k]).map(x => <span key={x.id} style={{ ['--sector' as any]: x.color, ['--ink' as any]: x.ink, ['--font' as any]: x.letter }}><b>{x.code}</b>{tIs(x.name)}<i>{tIs(x.motto)}</i></span>)}</div>
+      <div className="button-bar map-works">
+        <button className={'button-workshop' + (edit ? ' active' : '')} onClick={toggleEdit}>{edit ? t('panels.done') : t('panels.edit')}</button>
         {edit && <span className="dim">{t('panels.dragARoomToAnother')}</span>}
-        {edit && byHand && <button className="boton-taller" onClick={stock}>{t('panels.defaultLayout')}</button>}
+        {edit && byHand && <button className="button-workshop" onClick={stock}>{t('panels.defaultLayout')}</button>}
       </div>
       {edit
         ? <Keys><kbd>C</kbd>{t('panels.changeArea')} <kbd>O</kbd>{t('windows.finish')} {byHand && <><kbd>N</kbd>{t('panels.defaultLayout2')} </>}<kbd>Esc</kbd>{t('windows.finish')}</Keys>
@@ -276,7 +276,7 @@ function RoomCard({ room, dwellers }: { room: any; dwellers: DwellerSummary[] })
   else if (repo) {
     if (repo.branch) data.push(['Rama', repo.branch]);
     if (repo.isGit) data.push(['Cambios', repo.changes ? t('panels.nUncommitted', { n: repo.changes }) : t('panels.clean')]);
-    if (repo.lastCommit) data.push(['Último commit', <><span className="una-linea" title={repo.lastCommit.message}>{repo.lastCommit.message}</span><span className="dim">{ago(repo.lastCommit.date)}</span></>]);
+    if (repo.lastCommit) data.push(['Último commit', <><span className="one-line" title={repo.lastCommit.message}>{repo.lastCommit.message}</span><span className="dim">{ago(repo.lastCommit.date)}</span></>]);
     const capsules = repo.worktrees.filter(w => !w.main);
     if (capsules.length) data.push(['Copias', capsules.map(w => w.branch || t('windows.noBranch')).join(', ')]);
     if (repo.subrepos?.length) data.push(['Repos dentro', repo.subrepos.join(', ')]);
@@ -289,13 +289,13 @@ function RoomCard({ room, dwellers }: { room: any; dwellers: DwellerSummary[] })
   if (ROOM_KEY[room.type]) data.push(['Atajo', <><kbd>{ROOM_KEY[room.type]}</kbd> {t('panels.fromAnywhere')}</>]);
   const desc = ROOM_DESCRIPTION[room.type] ?? (isRepo ? t('panels.repository') + (repo?.type ? ' · ' + repo.type : '') : '');
   return <>
-    <div className="titulo-ficha">{room.name} <span className="dim">· {floorCaption(room.floor)}</span></div>
-    {(() => { const sec = sectorOf(room.type, room.id, room.area); return <div className="ficha-sector" style={{ ['--sector' as any]: roomTone(room)[0], ['--tinta' as any]: sec.ink, ['--letra' as any]: sec.letter }}><b>{sec.code}</b>{t('panels.sectorName', { name: tIs(sec.name).toLowerCase() })}</div>; })()}
-    {desc && <div className="ficha-desc">{tIs(desc)}</div>}
-    <p className="ficha-info">{tIs(ROOM_INFO[room.type] ?? (isRepo ? REPO_INFO : ''))}</p>
-    {data.length > 0 && <dl className="ficha-datos">{data.map(([k, v]) => <React.Fragment key={k}><dt>{sessions.some(x => x.id === k) ? t('panels.context') : tIs(k)}</dt><dd>{v}</dd></React.Fragment>)}</dl>}
-    <div className="ficha-seccion">{t('panels.dwellers')}</div>
-    <ul className="plano-hab">{dwellers.map(h => <li key={h.id} className={h.state}><b>{h.name}</b> <span className="dim">{tIs(h.state)}</span> {h.detail && <span className="det">{h.detail}</span>}</li>)}{!dwellers.length && <li className="dim">{t('panels.nobodyLivesHere')}</li>}</ul>
+    <div className="title-card">{room.name} <span className="dim">· {floorCaption(room.floor)}</span></div>
+    {(() => { const sec = sectorOf(room.type, room.id, room.area); return <div className="card-sector" style={{ ['--sector' as any]: roomTone(room)[0], ['--ink' as any]: sec.ink, ['--font' as any]: sec.letter }}><b>{sec.code}</b>{t('panels.sectorName', { name: tIs(sec.name).toLowerCase() })}</div>; })()}
+    {desc && <div className="card-desc">{tIs(desc)}</div>}
+    <p className="card-info">{tIs(ROOM_INFO[room.type] ?? (isRepo ? REPO_INFO : ''))}</p>
+    {data.length > 0 && <dl className="card-data">{data.map(([k, v]) => <React.Fragment key={k}><dt>{sessions.some(x => x.id === k) ? t('panels.context') : tIs(k)}</dt><dd>{v}</dd></React.Fragment>)}</dl>}
+    <div className="card-section">{t('panels.dwellers')}</div>
+    <ul className="map-room">{dwellers.map(h => <li key={h.id} className={h.state}><b>{h.name}</b> <span className="dim">{tIs(h.state)}</span> {h.detail && <span className="det">{h.detail}</span>}</li>)}{!dwellers.length && <li className="dim">{t('panels.nobodyLivesHere')}</li>}</ul>
   </>;
 }
 
@@ -307,7 +307,7 @@ function Busy() {
   const notices = live.use(e => e.notifications).filter((n: any) => !n.view);
   const events = live.use(e => e.events).filter((ev: any) => ev.end > Date.now()).slice(0, 3);
   const items: (ItemMenu & { f: () => void })[] = [
-    ...hs.map(h => ({ text: <><span className={'glifo-estado ' + h.state} /> <b>{h.name}</b> <span className="dim">· {h.nameRoom}</span></>, hint: <>{tIs(STATE_TEXT[h.state])}{h.detail ? ' — ' + h.detail : ''}</>, kind: h.state, f: () => { closePanel(); goA(h.room, h.id, h.state !== 'working' && h.state !== 'thinking'); } })),
+    ...hs.map(h => ({ text: <><span className={'glyph-state ' + h.state} /> <b>{h.name}</b> <span className="dim">· {h.nameRoom}</span></>, hint: <>{tIs(STATE_TEXT[h.state])}{h.detail ? ' — ' + h.detail : ''}</>, kind: h.state, f: () => { closePanel(); goA(h.room, h.id, h.state !== 'working' && h.state !== 'thinking'); } })),
     { text: <>{t('world.communications')} <span className="dim">· {t('panels.nUnseen', { n: notices.length })}</span></>, hint: notices[0] ? `${notices[0].author}: ${notices[0].title}` : t('panels.nothingNew'), f: () => { closePanel(); goA('comms'); } },
     { text: <>{t('world.calendar')} <span className="dim">· {events.length ? t('panels.nextEvent') : t('panels.noEvents')}</span></>, hint: events[0] ? `${new Date(events[0].start).toLocaleTimeString((language() === 'en' ? 'en-GB' : 'es-ES'), { hour: '2-digit', minute: '2-digit' })} ${events[0].title}` : '', f: () => { closePanel(); goA('calendar'); } },
   ];
@@ -373,18 +373,18 @@ function Help() {
   useKeys(e => { if (e.code === 'Escape' || e.code === 'F1' || e.code === 'Enter') goBack(); });
   return (
     <Device label={t('panels.overseerSManual')} width={64} height onClose={goBack}>
-      <div className="lista-desplazable ayuda-columnas">
-        <section><h3>{t('panels.inTheShelter')}</h3><dl className="tabla-teclas">{CONTROLS.map(([k, v]) => <React.Fragment key={k}><dt>{tIs(k)}</dt><dd>{tIs(v)}</dd></React.Fragment>)}</dl>
-          <h3>{t('panels.toTheSurfaceOutsideThe')}</h3><dl className="tabla-teclas">{SURFACE_CONTROLS.map(([k, v]) => <React.Fragment key={k}><dt>{tIs(k)}</dt><dd>{tIs(v)}</dd></React.Fragment>)}</dl></section>
-        <section><h3>{t('panels.talkingToADweller')}</h3><dl className="tabla-teclas">{DIALOG_CONTROLS.map(([k, v]) => <React.Fragment key={k}><dt>{tIs(k)}</dt><dd>{tIs(v)}</dd></React.Fragment>)}</dl>
-          <h3>{t('panels.intercomsAndTerminals')}</h3><dl className="tabla-teclas">{WINDOW_CONTROLS.map(([k, v]) => <React.Fragment key={k}><dt>{tIs(k)}</dt><dd>{tIs(v)}</dd></React.Fragment>)}</dl>
-          <h3>{t('world.gitClient')}</h3><dl className="tabla-teclas">{CONTROLS_GIT.map(([k, v]) => <React.Fragment key={k}><dt>{tIs(k)}</dt><dd>{tIs(v)}</dd></React.Fragment>)}</dl>
+      <div className="list-scrollable help-columns">
+        <section><h3>{t('panels.inTheShelter')}</h3><dl className="table-keys">{CONTROLS.map(([k, v]) => <React.Fragment key={k}><dt>{tIs(k)}</dt><dd>{tIs(v)}</dd></React.Fragment>)}</dl>
+          <h3>{t('panels.toTheSurfaceOutsideThe')}</h3><dl className="table-keys">{SURFACE_CONTROLS.map(([k, v]) => <React.Fragment key={k}><dt>{tIs(k)}</dt><dd>{tIs(v)}</dd></React.Fragment>)}</dl></section>
+        <section><h3>{t('panels.talkingToADweller')}</h3><dl className="table-keys">{DIALOG_CONTROLS.map(([k, v]) => <React.Fragment key={k}><dt>{tIs(k)}</dt><dd>{tIs(v)}</dd></React.Fragment>)}</dl>
+          <h3>{t('panels.intercomsAndTerminals')}</h3><dl className="table-keys">{WINDOW_CONTROLS.map(([k, v]) => <React.Fragment key={k}><dt>{tIs(k)}</dt><dd>{tIs(v)}</dd></React.Fragment>)}</dl>
+          <h3>{t('world.gitClient')}</h3><dl className="table-keys">{CONTROLS_GIT.map(([k, v]) => <React.Fragment key={k}><dt>{tIs(k)}</dt><dd>{tIs(v)}</dd></React.Fragment>)}</dl>
           <h3>{t('panels.signals')}</h3>
-          <dl className="tabla-teclas">
-            <dt><span className="glifo-estado waiting" /> {t('panels.amber')}</dt><dd>{t('panels.waitingForYouPermissionQuestion')}</dd>
-            <dt><span className="glifo-estado finished" /> {t('panels.green')}</dt><dd>{t('panels.finishedAndYouHavenT')}</dd>
-            <dt><span className="glifo-estado error" /> {t('panels.red')}</dt><dd>{t('panels.breakdownTheSessionFailed')}</dd>
-            <dt><span className="glifo-estado working" /> {t('panels.phosphor')}</dt><dd>{t('panels.workingTheScreensTheSteam')}</dd>
+          <dl className="table-keys">
+            <dt><span className="glyph-state waiting" /> {t('panels.amber')}</dt><dd>{t('panels.waitingForYouPermissionQuestion')}</dd>
+            <dt><span className="glyph-state finished" /> {t('panels.green')}</dt><dd>{t('panels.finishedAndYouHavenT')}</dd>
+            <dt><span className="glyph-state error" /> {t('panels.red')}</dt><dd>{t('panels.breakdownTheSessionFailed')}</dd>
+            <dt><span className="glyph-state working" /> {t('panels.phosphor')}</dt><dd>{t('panels.workingTheScreensTheSteam')}</dd>
             <dt>{t('panels.littleRobots')}</dt><dd>{t('panels.helpersSubagentsInTheRoom')}</dd>
             <dt>DEMO</dt><dd>{t('panels.thatIntegrationShowsSimulatedData')}</dd>
             <dt>{t('panels.deck')}</dt><dd>{t('panels.bottomLeftWithSpotifyMinimized')}</dd>
@@ -424,7 +424,7 @@ function GameOptions() {
   }, goBack);
   return (
     <Device label={t('menu.optionsSavedInThisBrowser')} width={44} onClose={goBack}>
-      <ul className="opciones-consola filas-ajuste">
+      <ul className="options-console rows-fit">
         {rows.map((f, k) => (
           <li key={f.lbl} className={k === i ? 'active' : ''} onMouseEnter={() => setI(k)}>
             <span className="cursor">{k === i ? '▶' : ' '}</span><span className="txt">{f.lbl}</span>
@@ -510,5 +510,5 @@ function Restart() {
 }
 function Farewell() {
   useEffect(() => { keyboard.blocked = true; document.title = t('panels.workShelterSealed'); }, []);
-  return <div className="farewell interactivo"><div className="placa-despedida">{t('panels.theShelterIsSealed')}<small>{t('panels.seeYouSoonOverseerTo')} <code>./shelter</code></small></div></div>;
+  return <div className="farewell interactive"><div className="plate-farewell">{t('panels.theShelterIsSealed')}<small>{t('panels.seeYouSoonOverseerTo')} <code>./shelter</code></small></div></div>;
 }

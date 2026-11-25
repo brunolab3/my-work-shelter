@@ -58,11 +58,11 @@ export function PanelReview() {
           <div key={c.id} className={'kanban-col' + (ci === col ? ' active' : '')}>
             <h3>{t(`reviews.column.${c.id}`)} <span className="dim">{c.list.length}</span></h3>
             {c.list.map((r, k) => (
-              <div key={r.key} className={'card-issue con-tarea' + (ci === col && k === Math.min(i, c.list.length - 1) ? ' sel' : '')} style={{ '--tarea': taskColor(r.key) } as React.CSSProperties}
+              <div key={r.key} className={'card-issue with-task' + (ci === col && k === Math.min(i, c.list.length - 1) ? ' sel' : '')} style={{ '--task': taskColor(r.key) } as React.CSSProperties}
                 onMouseEnter={() => { setCol(ci); setI(k); }} onDoubleClick={() => open(r)}>
-                <span className="marca-tarea" />{r.started && <span title={t('reviews.hologram')}>◉ </span>}<span className="ident">{r.key.includes('#') ? '' : r.key}</span> {r.title}
+                <span className="mark-task" />{r.started && <span title={t('reviews.hologram')}>◉ </span>}<span className="ident">{r.key.includes('#') ? '' : r.key}</span> {r.title}
                 {r.prs.map(p => (
-                  <small key={p.url} className="dim fila-pr-revision">
+                  <small key={p.url} className="dim row-pr-review">
                     <a href={p.url} onClick={e => { e.preventDefault(); openLink(p.url); }}>{p.repo}#{p.number}</a> · {t('reviews.byAuthor', { author: p.author })}{p.draft ? ` · ${t('reviews.draft')}` : ''}{p.column !== r.column ? ` · ${t(`reviews.column.${p.column}`)}` : ''}
                   </small>))}
                 {r.missing && <small className="dim">{t('reviews.noRoom')}: {r.missing.join(', ')}</small>}
@@ -71,10 +71,10 @@ export function PanelReview() {
           </div>
         ))}
       </div>
-      {sel && <div className="botonera">
-        <button className="boton-taller" onClick={() => open(sel)} title={t('reviews.openHint')}>{sel.started ? t('reviews.continue') : t('reviews.open')}</button>
-        {sel.started && <button className="boton-taller" onClick={() => done(sel)} title={t('reviews.doneHint')}>X · {t('reviews.done')}</button>}
-        {sel.prs.slice(0, 9).map((p, k) => <button key={p.url} className="boton-taller" onClick={() => openLink(p.url)} title={p.title}>{k + 1} · {p.repo}#{p.number}</button>)}
+      {sel && <div className="button-bar">
+        <button className="button-workshop" onClick={() => open(sel)} title={t('reviews.openHint')}>{sel.started ? t('reviews.continue') : t('reviews.open')}</button>
+        {sel.started && <button className="button-workshop" onClick={() => done(sel)} title={t('reviews.doneHint')}>X · {t('reviews.done')}</button>}
+        {sel.prs.slice(0, 9).map((p, k) => <button key={p.url} className="button-workshop" onClick={() => openLink(p.url)} title={p.title}>{k + 1} · {p.repo}#{p.number}</button>)}
       </div>}
       <Keys><kbd>←→</kbd>{t('panels.column')} <kbd>↑↓</kbd>{t('panels.task')} <kbd>Enter</kbd>{t('reviews.open')} {sel?.started && <><kbd>X</kbd>{t('reviews.done')} </>}{sel && <><kbd>1–{Math.min(9, sel.prs.length)}</kbd>{t('reviews.openPR')} </>}<kbd>Esc</kbd>{t('menu.close')}</Keys>
     </Device>

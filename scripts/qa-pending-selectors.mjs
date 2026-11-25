@@ -15,7 +15,7 @@ await pg.evaluate(async () => { await window.__ready(); window.__game.set({ pane
 const wait = ms => pg.waitForTimeout(ms);
 let failures = 0;
 const check = (ok, text) => { console.log((ok ? 'OK   ' : 'FALLO ') + text); if (!ok) failures++; };
-const pendingColor = await pg.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--pendiente').trim());
+const pendingColor = await pg.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--pending').trim());
 const rgb = hex => { const n = parseInt(hex.slice(1), 16); return `rgb(${n >> 16}, ${(n >> 8) & 255}, ${n & 255})`; };
 
 // one intercom per room: a hologram's room (an existing worktree's copy) with its dweller idle and the hologram flagged
@@ -38,7 +38,7 @@ await pg.evaluate(({ hs, copy }) => {
   window.__live.set(e => ({ ...e, sessions: { ...e.sessions, ...sessions }, state: { ...e.state, settings: { ...e.state?.settings, flaggedConversations: ['c1', 'c2', 'ch'] } } }));
 }, { hs, copy });
 await wait(500);
-const chipOf = room => pg.evaluate(name => { const x = [...document.querySelectorAll('.barra-fila.com > .chip-terminal:not(.barra-mas)')].find(c => c.title.startsWith(name + ':')); return x && { urgent: x.classList.contains('urgent'), pending: x.classList.contains('pending'), border: getComputedStyle(x).borderTopColor, text: x.textContent, title: x.title }; }, room);
+const chipOf = room => pg.evaluate(name => { const x = [...document.querySelectorAll('.bar-row.com > .chip-terminal:not(.barra-mas)')].find(c => c.title.startsWith(name + ':')); return x && { urgent: x.classList.contains('urgent'), pending: x.classList.contains('pending'), border: getComputedStyle(x).borderTopColor, text: x.textContent, title: x.title }; }, room);
 const c0 = await chipOf(hs[1].nameRoom), c1 = await chipOf(hs[2].nameRoom);
 check(c0?.pending && !c0.urgent && c0.text.includes('⚑') && c0.border === rgb(pendingColor), `a room with a pending conversation: pending chip with ⚑, in the pending colour (${c0?.text})`);
 check(c0?.title.includes('Pend') || c0?.title.toLowerCase().includes('pending'), 'its title says so');
@@ -46,29 +46,29 @@ check(c1?.urgent && !c1.pending, 'waiting and pending: waiting wins');
 await pg.screenshot({ path: `${dir}/qa-pendiente-barra.png` });
 // the hover list of a room with a flagged hologram: its row in the pending colour, with ⚑
 const c2 = hs[0].nameRoom;
-await pg.hover(`.barra-fila.com > .chip-terminal[title^="${c2}:"]`); await wait(400);
-const rows = await pg.evaluate(() => [...document.querySelectorAll('.barra-asomo:not(.barra-asomo-mas) .bar-peek-row')].map(x => ({ pending: x.classList.contains('pending'), copy: x.classList.contains('de-copia'), color: getComputedStyle(x.querySelector('.barra-asomo-estado')).color, mark: !!x.querySelector('.marca-pendiente') })));
+await pg.hover(`.bar-row.com > .chip-terminal[title^="${c2}:"]`); await wait(400);
+const rows = await pg.evaluate(() => [...document.querySelectorAll('.peek-bar:not(.peek-bar-more) .bar-peek-row')].map(x => ({ pending: x.classList.contains('pending'), copy: x.classList.contains('of-copy'), color: getComputedStyle(x.querySelector('.peek-bar-state')).color, mark: !!x.querySelector('.mark-pending') })));
 check(rows.length === 2 && rows.filter(r => r.pending).length === 1 && rows.find(r => r.pending)?.copy, 'hover: the flagged hologram\'s row is pending, its dweller\'s not');
 check(rows.find(r => r.pending)?.color === rgb(pendingColor) && rows.find(r => r.pending)?.mark, 'hover: its state in the pending colour, with ⚑');
 await pg.screenshot({ path: `${dir}/qa-pendiente-asomo.png` });
 // the selector above the portrait, talking with room 2's dweller: the closed chip pending and the +1 tag in its colour
 await pg.mouse.move(400, 100); await wait(300);
 await pg.evaluate(id => window.__game.set({ talkingWith: id }), hs[0].id); await wait(800);
-const who = await pg.evaluate(() => { const c = document.querySelector('.consola-quien > .chip-terminal'), a = c?.querySelector('.consola-quien-aviso'); return c && { pending: c.classList.contains('pending'), urgent: c.classList.contains('urgent'), border: getComputedStyle(c).borderTopColor, tag: a?.className, tagBg: a && getComputedStyle(a).backgroundColor, title: c.title }; });
+const who = await pg.evaluate(() => { const c = document.querySelector('.console-who > .chip-terminal'), a = c?.querySelector('.console-who-notice'); return c && { pending: c.classList.contains('pending'), urgent: c.classList.contains('urgent'), border: getComputedStyle(c).borderTopColor, tag: a?.className, tagBg: a && getComputedStyle(a).backgroundColor, title: c.title }; });
 check(who?.pending && !who.urgent && who.border === rgb(pendingColor), `closed selector chip: pending, outlined in its colour (${who?.border})`);
 check(who?.tag?.includes('pending') && who.tagBg === rgb(pendingColor), 'its +1 tag in the pending colour');
 await pg.screenshot({ path: `${dir}/qa-pendiente-selector.png` });
 // narrow: everything still fits
 for (const w of [520, 420]) {
   await pg.setViewportSize({ width: w, height: 700 }); await wait(600);
-  const fit = await pg.evaluate(() => { const f = document.querySelector('.barra-fila.com'), c = document.querySelector('.consola-quien > .chip-terminal'); return { row: f.scrollWidth <= f.clientWidth + 1 && f.getBoundingClientRect().right <= innerWidth, chip: !c || c.getBoundingClientRect().right <= innerWidth }; });
+  const fit = await pg.evaluate(() => { const f = document.querySelector('.bar-row.com'), c = document.querySelector('.console-who > .chip-terminal'); return { row: f.scrollWidth <= f.clientWidth + 1 && f.getBoundingClientRect().right <= innerWidth, chip: !c || c.getBoundingClientRect().right <= innerWidth }; });
   check(fit.row && fit.chip, `at ${w}px the COM row and the selector chip fit`);
   await pg.screenshot({ path: `${dir}/qa-pendiente-${w}.png` });
 }
 // «+N»: pending when a hidden room has a pending conversation and none waits
 await pg.evaluate(() => window.__game.set({ talkingWith: null })); await wait(500);
-const more = await pg.evaluate(() => { const m = document.querySelector('.barra-fila.com > .barra-mas'); if (!m) return null; return { pending: m.classList.contains('pending'), urgent: m.classList.contains('urgent'), hidden: window.__intercoms ? null : null }; });
-const hiddenRooms = await pg.evaluate(() => { const v = new Set([...document.querySelectorAll('.barra-fila.com > .chip-terminal:not(.barra-mas)')].map(x => x.title.split(':')[0])); return [...new Set(window.__game.get().dwellers.filter(h => !h.robot).map(h => h.nameRoom))].filter(n => !v.has(n)); });
+const more = await pg.evaluate(() => { const m = document.querySelector('.bar-row.com > .barra-mas'); if (!m) return null; return { pending: m.classList.contains('pending'), urgent: m.classList.contains('urgent'), hidden: window.__intercoms ? null : null }; });
+const hiddenRooms = await pg.evaluate(() => { const v = new Set([...document.querySelectorAll('.bar-row.com > .chip-terminal:not(.barra-mas)')].map(x => x.title.split(':')[0])); return [...new Set(window.__game.get().dwellers.filter(h => !h.robot).map(h => h.nameRoom))].filter(n => !v.has(n)); });
 const flaggedHidden = [hs[0], hs[1], hs[2]].filter(h => hiddenRooms.includes(h.nameRoom)).map(h => h.nameRoom);
 check(!!more, `«+N» at 420px (hidden with something: ${flaggedHidden.join(', ') || 'none'})`);
 if (more) {
@@ -77,7 +77,7 @@ if (more) {
 }
 // with nobody waiting any more, «+N» turns pending if a pending room is behind it
 await pg.evaluate(() => window.__live.set(e => ({ ...e, sessions: { ...e.sessions, qa2: { ...e.sessions.qa2, state: 'idle' } } }))); await wait(500);
-const more2 = await pg.evaluate(() => { const m = document.querySelector('.barra-fila.com > .barra-mas'), v = new Set([...document.querySelectorAll('.barra-fila.com > .chip-terminal:not(.barra-mas)')].map(x => x.title.split(':')[0])); return m && { pending: m.classList.contains('pending'), urgent: m.classList.contains('urgent'), border: getComputedStyle(m).borderTopColor, inView: [...v] }; });
+const more2 = await pg.evaluate(() => { const m = document.querySelector('.bar-row.com > .barra-mas'), v = new Set([...document.querySelectorAll('.bar-row.com > .chip-terminal:not(.barra-mas)')].map(x => x.title.split(':')[0])); return m && { pending: m.classList.contains('pending'), urgent: m.classList.contains('urgent'), border: getComputedStyle(m).borderTopColor, inView: [...v] }; });
 const pendBehind = [hs[0], hs[1], hs[2]].some(h => more2 && !more2.inView.includes(h.nameRoom));
 check(more2 && !more2.urgent && more2.pending === pendBehind && (!pendBehind || more2.border === rgb(pendingColor)), `«+N» with nobody waiting: ${pendBehind ? 'pending, in its colour' : 'not pending (no pending room behind it)'}`);
 await pg.screenshot({ path: `${dir}/qa-pendiente-mas.png` });

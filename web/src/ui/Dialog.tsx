@@ -329,7 +329,7 @@ function TalkerBust({ x }: { x: DwellerSummary }) {
   const task = x.copy ? copyTask(x.copy) : undefined;
   useEffect(() => { if (task) knowTasks([task]); }, [task]);
   const tone = x.copy ? taskColor(task) : undefined;
-  return <span className={'consola-quien-foto' + (x.copy ? ' holo' : '')} style={tone ? { '--tono': tone } as React.CSSProperties : undefined} aria-hidden>{url && <img src={url} alt="" draggable={false} />}</span>;
+  return <span className={'console-who-photo' + (x.copy ? ' holo' : '')} style={tone ? { '--tone': tone } as React.CSSProperties : undefined} aria-hidden>{url && <img src={url} alt="" draggable={false} />}</span>;
 }
 
 // The room's talkers (its dwellers, robot-looking ones too, and its worktrees' holographic copies; by state, then most recent conversation first
@@ -359,15 +359,15 @@ export function TalkerRow({ q, current, sel, option, onClick, onMouseEnter }: { 
   const detail = parts.join(' · ');
   return (
     <button role={option ? 'option' : undefined} aria-selected={option ? current : undefined} onClick={onClick} onMouseEnter={onMouseEnter} title={detail ? `${q.name}\n${detail}` : q.name}
-      className={'bar-peek-row' + (q.x.copy ? ' de-copia' : '') + (current ? ' actual' : '') + (sel ? ' sel' : '') + (q.state === 'waiting' ? ' urgent' : q.flagged ? ' pending' : '') + (q.state === 'unread' ? ' sin-leer' : '') + (q.state ? ' e-' + q.state : '')}>
+      className={'bar-peek-row' + (q.x.copy ? ' of-copy' : '') + (current ? ' current' : '') + (sel ? ' sel' : '') + (q.state === 'waiting' ? ' urgent' : q.flagged ? ' pending' : '') + (q.state === 'unread' ? ' unread' : '') + (q.state ? ' e-' + q.state : '')}>
       <span className={'pilot ' + (q.state ? PILOT[q.state] : 'off')} />
       <TalkerBust x={q.x} />
-      <span className="barra-asomo-cuerpo">
-        <span className="barra-asomo-titulo">{q.draft && <DraftMark />}<b>{q.name}</b>{q.flagged ? <> <FlagMark on n={q.flagged > 1 ? q.flagged : undefined} /></> : null}</span>
-        {detail && <small className="barra-asomo-detalle">{parts.map((x, i) => <span key={i}>{x}</span>)}</small>}
+      <span className="peek-bar-body">
+        <span className="peek-bar-title">{q.draft && <DraftMark />}<b>{q.name}</b>{q.flagged ? <> <FlagMark on n={q.flagged > 1 ? q.flagged : undefined} /></> : null}</span>
+        {detail && <small className="peek-bar-detail">{parts.map((x, i) => <span key={i}>{x}</span>)}</small>}
       </span>
-      <span className="barra-asomo-estado">{q.state ? stateLabel(q.state) : t('windows.noSession')}</span>
-      <small className="barra-asomo-cuando">{q.sess.length ? ago(Math.max(...q.sess.map(s => s.updated))) : ''}</small>
+      <span className="peek-bar-state">{q.state ? stateLabel(q.state) : t('windows.noSession')}</span>
+      <small className="peek-bar-when">{q.sess.length ? ago(Math.max(...q.sess.map(s => s.updated))) : ''}</small>
     </button>
   );
 }
@@ -417,20 +417,20 @@ function WhoSelector({ h }: { h: DwellerSummary }) {
     else if (e.key === 'Enter') { e.preventDefault(); pick(talkers[Math.min(sel, talkers.length - 1)]); }
   };
   return (
-    <div className="consola-quien" ref={box} onKeyDown={key}>
-      <button className={'chip-terminal delante' + (h.copy ? ' de-copia' : '') + (tone(me) === ' urgent' ? tone(me) : tone(toReview[0]) || tone(me))} aria-haspopup="listbox" aria-expanded={open}
+    <div className="console-who" ref={box} onKeyDown={key}>
+      <button className={'chip-terminal front' + (h.copy ? ' of-copy' : '') + (tone(me) === ' urgent' ? tone(me) : tone(toReview[0]) || tone(me))} aria-haspopup="listbox" aria-expanded={open}
         title={[t('windows.talkToSomeoneElse'), toReview.length ? t('windows.othersToReview', { n: toReview.length }) + ': ' + toReview.map(q => q.name).join(', ') : '', drafts.length ? t('windows.othersWithDraft', { n: drafts.length }) + ': ' + drafts.map(q => q.name).join(', ') : ''].filter(Boolean).join('\n')} onClick={openTarget}>
         <span className={'pilot ' + (me.state ? PILOT[me.state] : 'off')} aria-hidden />
         <TalkerBust x={me.x} />
-        <span className="consola-quien-nombre">{me.name}</span>
-        {toReview.length > 0 && <span className={'consola-quien-aviso ' + (toReview[0].state === 'waiting' || !toReview[0].flagged ? 'e-' + toReview[0].state : 'pending')} aria-label={t('windows.othersToReview', { n: toReview.length })}>+{toReview.length}</span>}
-        {drafts.length > 0 && <span className="marca-borrador" aria-label={t('windows.othersWithDraft', { n: drafts.length })}>✎</span>}
-        <span className="tipo">▾</span>
+        <span className="console-who-name">{me.name}</span>
+        {toReview.length > 0 && <span className={'console-who-notice ' + (toReview[0].state === 'waiting' || !toReview[0].flagged ? 'e-' + toReview[0].state : 'pending')} aria-label={t('windows.othersToReview', { n: toReview.length })}>+{toReview.length}</span>}
+        {drafts.length > 0 && <span className="mark-draft" aria-label={t('windows.othersWithDraft', { n: drafts.length })}>✎</span>}
+        <span className="type">▾</span>
       </button>
       {/* the list steps aside while a close is being confirmed */}
       {open && !list.some(w => w.confirm) && (
-        <div className="barra-asomo consola-quien-lista" role="listbox" aria-label={t('windows.talkToSomeoneElse')}
-          style={{ '--hueco': `${room(box.current)}px` } as React.CSSProperties}>
+        <div className="peek-bar console-who-list" role="listbox" aria-label={t('windows.talkToSomeoneElse')}
+          style={{ '--gap': `${room(box.current)}px` } as React.CSSProperties}>
           {talkers.map((q, i) => <TalkerRow key={q.x.id} q={q} current={q === me} sel={i === sel} option onClick={() => pick(q)} onMouseEnter={() => setSel(i)} />)}
         </div>
       )}
@@ -481,18 +481,18 @@ export function ComTabs() {
   const exit = () => comList.set({ open: false });
   const go = (pid: string) => { exit(); goTab(pid); };
   // above the bar, from its left edge
-  const r = open ? button.current?.closest('.barra-ventanas')?.getBoundingClientRect() : undefined;
+  const r = open ? button.current?.closest('.bar-windows')?.getBoundingClientRect() : undefined;
   return <>
-    <button ref={button} className={'vt-todas' + (open ? ' active' : '')} onClick={() => comList.set(e => ({ open: !e.open }))} title={t('windows.allConversations', { n: items.length, shortcut: LIST_SHORTCUT })}>⋯ {items.length} <FlagMark n={items.filter(p => p.flagged).length} /></button>
+    <button ref={button} className={'vt-all' + (open ? ' active' : '')} onClick={() => comList.set(e => ({ open: !e.open }))} title={t('windows.allConversations', { n: items.length, shortcut: LIST_SHORTCUT })}>⋯ {items.length} <FlagMark n={items.filter(p => p.flagged).length} /></button>
     {/* the list steps aside while a close is being confirmed */}
     {open && r && !list.some(w => w.confirm) && createPortal(
-      <div className="barra-lista-com" style={{ left: r.left, bottom: innerHeight - r.top + 4, '--hueco': `${innerWidth - r.left - 8}px` } as React.CSSProperties}>
+      <div className="bar-list-com" style={{ left: r.left, bottom: innerHeight - r.top + 4, '--gap': `${innerWidth - r.left - 8}px` } as React.CSSProperties}>
         <TabList items={items} group active={current?.active ?? ''} activate={go} close={closeTabs} exit={exit} flag={pid => toggleFlag(tabConversation(pid))} header={(p, before) => {
           // the room once, then whose: their bust and name, a hologram's task in its color
           const o = who(p.group!), task = o?.copy ? copyTask(o.copy) : undefined;
           return <>
-            {p.room !== before?.room && <div className="vt-lista-grupo">{p.room}</div>}
-            {o && <div className={'vt-list-who' + (o.copy ? ' de-copia' : '') + (o.id === talking ? ' current' : '')}><TalkerBust x={o} /><b>{p.who}</b>{task && <TaskMark taskKey={task} />}</div>}
+            {p.room !== before?.room && <div className="vt-list-group">{p.room}</div>}
+            {o && <div className={'vt-list-who' + (o.copy ? ' of-copy' : '') + (o.id === talking ? ' current' : '')}><TalkerBust x={o} /><b>{p.who}</b>{task && <TaskMark taskKey={task} />}</div>}
           </>;
         }} />
       </div>, document.body)}
@@ -532,12 +532,12 @@ function Console({ h, v }: { h: DwellerSummary; v: WindowCom }) {
   const orden = useRef(items); orden.current = items;
   useEffect(() => { keyboard.blocked = true; return () => { keyboard.blocked = false; }; }, []);
   // al abrirse, el teclado es suyo: si estaba en una terminal, se suelta
-  useEffect(() => { const a = document.activeElement as HTMLElement | null; if (a?.closest?.('.ventana-terminal')) a.blur(); }, []);
+  useEffect(() => { const a = document.activeElement as HTMLElement | null; if (a?.closest?.('.window-terminal')) a.blur(); }, []);
   // atajos de ventana, también escribiendo (antes que nadie; las terminales, el cliente de git y los archivos llevan los suyos)
   const ref = useRef(v); ref.current = v;
   useEffect(() => {
     const f = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement | null)?.closest?.('.ventana-terminal, .ventana-git')) return;
+      if ((e.target as HTMLElement | null)?.closest?.('.window-terminal, .window-git')) return;
       const w = ref.current;
       windowShortcut(e, {
         maximized: w.maximized, newTab: () => newTab(hid), closeTab: () => askClose(hid, [w.active]), closeWindow: () => askClose(hid),
@@ -563,37 +563,37 @@ function Console({ h, v }: { h: DwellerSummary; v: WindowCom }) {
   const written = v.confirm ? v.tabs.filter(x => v.confirm!.includes(x.id) && withText(x)).length : 0;
   const writtenNotice = written ? (written > 1 ? t('windows.youHaveUnsentTextIn', { n: written }) : v.confirm!.length > 1 ? t('windows.youHaveUnsentTextIn2') : t('windows.youHaveUnsentText')) : '';
   return (
-    <div className={'console interactivo' + (high ? ' high' : '') + (v.maximized ? ' maximizada' : '') + (copy ? ' de-copia' : '')} role="dialog" aria-label={t('windows.talkToName', { name: h.name })}>
-      <div className="consola-bisel">
-        <div className="consola-cabeza" onDoubleClick={e => { if (!(e.target as HTMLElement).closest('button')) toggleMaximize(hid); }}>
-          <span className="rejilla" aria-hidden />
+    <div className={'console interactive' + (high ? ' high' : '') + (v.maximized ? ' maximized' : '') + (copy ? ' of-copy' : '')} role="dialog" aria-label={t('windows.talkToName', { name: h.name })}>
+      <div className="console-bevel">
+        <div className="console-head" onDoubleClick={e => { if (!(e.target as HTMLElement).closest('button')) toggleMaximize(hid); }}>
+          <span className="grid" aria-hidden />
           <span className={'pilot ' + (worst?.state ?? 'off')} aria-hidden />
-          <span className="consola-rotulo">{copy ? <>{t('windows.intercom')} · {t('windows.holographicCopyOfAuthor', { author: copy.nameAuthor })} · {copyCaption(copy)} · {h.nameRoom}</> : <>{t('windows.intercom')} · {h.name} · {h.nameRoom}</>}</span>
+          <span className="console-label">{copy ? <>{t('windows.intercom')} · {t('windows.holographicCopyOfAuthor', { author: copy.nameAuthor })} · {copyCaption(copy)} · {h.nameRoom}</> : <>{t('windows.intercom')} · {h.name} · {h.nameRoom}</>}</span>
           <WindowButtons flag={flagOf(s, flags) === undefined ? undefined : { on: !!flagOf(s, flags), toggle: () => toggleFlag(s) }} takeOut={s ? () => takeTab(hid, p.id) : undefined} wingApp={s ? () => toClaudeApp({ sessionId: s.id }) : undefined} remote={s ? () => takeASurface({ sessions: [s.id], remote: true }) : undefined} takesThat={t('windows.thisConversation')} maximized={v.maximized} minimize={minimizeIntercom} toggleMaximize={() => toggleMaximize(hid)} close={() => askClose(hid)} closesThat={t('windows.theIntercomAndItsConversations')} />
         </div>
         <Tabs items={items} confirming={!!v.confirm} active={v.active} activate={pid => activate(hid, pid)} close={pids => askClose(hid, pids)} onNew={() => newTab(hid)} opensThat={copy ? t('windows.newTabAnotherJobInside') : t('windows.newTabAnotherJobWith')} />
-        <div className="consola-cuerpo">
-          <aside className="consola-lado">
+        <div className="console-body">
+          <aside className="console-side">
             <WhoSelector h={h} />
-            <div className={'retrato-crt' + (copy ? ' holo' : '')}><LivePortrait /></div>
+            <div className={'portrait-crt' + (copy ? ' holo' : '')}><LivePortrait /></div>
             {copy ? <>
-              <div className="consola-nombre">{copy.nameAuthor} <span className="marca-copia">◇</span></div>
-              <div className="consola-mote">{t('windows.holographicCopy')}</div>
+              <div className="console-name">{copy.nameAuthor} <span className="mark-copy">◇</span></div>
+              <div className="console-nickname">{t('windows.holographicCopy')}</div>
               <StateChip s={s} />
-              <div className="consola-dato">{t('windows.branch')} <b>{copy.branch || t('windows.noBranch')}</b></div>
-              <div className="consola-dato">{copy.changes ? t('windows.nChanges', { n: copy.changes }) : t('windows.noChanges')}{copy.advanced ? ` · ${t('windows.nCommitsToMerge', { n: copy.advanced })}` : ''}</div>
+              <div className="console-data">{t('windows.branch')} <b>{copy.branch || t('windows.noBranch')}</b></div>
+              <div className="console-data">{copy.changes ? t('windows.nChanges', { n: copy.changes }) : t('windows.noChanges')}{copy.advanced ? ` · ${t('windows.nCommitsToMerge', { n: copy.advanced })}` : ''}</div>
             </> : <>
-              <div className="consola-nombre">{h.name}</div>
-              <div className="consola-mote">«{tIs(h.nickname)}»</div>
+              <div className="console-name">{h.name}</div>
+              <div className="console-nickname">«{tIs(h.nickname)}»</div>
               <StateChip s={s} />
-              {repo?.branch && <div className="consola-dato">{t('windows.branch')} <b>{repo.branch}</b>{repo.changes ? ` · ${t('windows.nChanges', { n: repo.changes })}` : ''}</div>}
+              {repo?.branch && <div className="console-data">{t('windows.branch')} <b>{repo.branch}</b>{repo.changes ? ` · ${t('windows.nChanges', { n: repo.changes })}` : ''}</div>}
             </>}
-            {s?.model && <div className="consola-dato">{s.model.replace('claude-', '')}</div>}
-            {s && (s.context || s.tokens) ? <div className="consola-dato"><Usage s={s} length /></div> : null}
+            {s?.model && <div className="console-data">{s.model.replace('claude-', '')}</div>}
+            {s && (s.context || s.tokens) ? <div className="console-data"><Usage s={s} length /></div> : null}
             {/* right under the dweller, by importance: pages to review, the ⚑ pending mark, the task's PRs and pre-flight, then the scheduled
                 ones; each hidden with nothing, and the whole section with none (CSS `:has`) */}
-            <div className="consola-acciones" role="group" aria-label={t('windows.actions')}>
-              <div className="consola-acciones-titulo" aria-hidden>{t('windows.actions')}</div>
+            <div className="console-actions" role="group" aria-label={t('windows.actions')}>
+              <div className="console-actions-title" aria-hidden>{t('windows.actions')}</div>
               {s ? <PagesMenu key={s.id} s={s} /> : view.type === 'new' && view.resume ? <ResumePages key={view.resume.claudeId} roomId={h.room} claudeId={view.resume.claudeId} /> : null}
               <FlagButton c={conversation} flags={flags} />
               {copy ? <WorktreePRs copy={copy} roomId={h.room} /> : null}
@@ -602,9 +602,9 @@ function Console({ h, v }: { h: DwellerSummary; v: WindowCom }) {
               <ScheduledMenu key={'p' + (s?.id ?? (view.type === 'new' ? view.resume?.claudeId : '') ?? '')} h={h} s={s} resume={view.type === 'new' ? view.resume?.claudeId : undefined} />
             </div>
           </aside>
-          <div className="consola-pestana" key={p.id}>
+          <div className="console-tab" key={p.id}>
             {!connected ? <WithoutConnection /> : !claudeOk ? <WithoutClaude /> :
-              p.sessionWait ? <div className="pantalla-consola fosforo"><p className="voice">{t('windows.startingTheJob')}</p></div> :
+              p.sessionWait ? <div className="screen-console phosphor"><p className="voice">{t('windows.startingTheJob')}</p></div> :
               view.type === 'menu' ? <Menu h={h} go={go} exit={() => exit(hid)} /> :
               view.type === 'new' ? <New h={h} p={p} resume={view.resume} goBack={onMenu} /> :
               view.type === 'visitors' ? <Visitors h={h} goBack={onMenu} resume={el => resumeHere(h, p.id, el)} /> :
@@ -633,22 +633,22 @@ function Console({ h, v }: { h: DwellerSummary; v: WindowCom }) {
 function LivePortrait() {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => { const c = (window as any).__portrait as HTMLCanvasElement | undefined; if (c && ref.current) ref.current.appendChild(c); }, []);
-  return <div ref={ref} className="retrato-lienzo" />;
+  return <div ref={ref} className="portrait-canvas" />;
 }
 
 function StateChip({ s }: { s?: SessionSummary }) {
-  const st: Record<string, [string, string]> = { starting: [t('windows.starting'), 'work'], working: [t('windows.working'), 'work'], waiting: [t('windows.waitingForYou'), 'esp'], finished: [t('windows.finished'), 'fin'], idle: [t('windows.ready'), 'fin'], error: [t('windows.fault'), 'err'], closed: [t('windows.closed'), 'oci'] };
-  if (!s) return <span className="chip-estado oci">{t('windows.noSession')}</span>;
-  const [txt, cls] = st[s.state] ?? [s.state, 'oci'];
-  return <span className={'chip-estado ' + cls}>{txt}</span>;
+  const st: Record<string, [string, string]> = { starting: [t('windows.starting'), 'work'], working: [t('windows.working'), 'work'], waiting: [t('windows.waitingForYou'), 'hold'], finished: [t('windows.finished'), 'end'], idle: [t('windows.ready'), 'end'], error: [t('windows.fault'), 'err'], closed: [t('windows.closed'), 'rest'] };
+  if (!s) return <span className="chip-state rest">{t('windows.noSession')}</span>;
+  const [txt, cls] = st[s.state] ?? [s.state, 'rest'];
+  return <span className={'chip-state ' + cls}>{txt}</span>;
 }
 
 function WithoutConnection() {
   const attempts = live.use(e => e.attempts);
-  return <div className="pantalla-consola fosforo"><p className="notice-console">{t('windows.noLinkToTheShelter')}{'.'.repeat(1 + (attempts % 3))}</p><p className="dim">{t('windows.ifYouClosedItReopen')} <code>./shelter</code>.</p></div>;
+  return <div className="screen-console phosphor"><p className="notice-console">{t('windows.noLinkToTheShelter')}{'.'.repeat(1 + (attempts % 3))}</p><p className="dim">{t('windows.ifYouClosedItReopen')} <code>./shelter</code>.</p></div>;
 }
 function WithoutClaude() {
-  return <div className="pantalla-consola fosforo"><p className="notice-console">{t('windows.iCanTFindClaude')}</p><p>{t('windows.theDwellersWorkWithYour')} (<code>claude</code> {t('windows.inATerminalThen')} <code>/login</code>) {t('windows.andReopenTheShelter')}</p></div>;
+  return <div className="screen-console phosphor"><p className="notice-console">{t('windows.iCanTFindClaude')}</p><p>{t('windows.theDwellersWorkWithYour')} (<code>claude</code> {t('windows.inATerminalThen')} <code>/login</code>) {t('windows.andReopenTheShelter')}</p></div>;
 }
 
 // ---------------------------------------------------------------- menús con teclado: Esc (y ←) es «atrás»
@@ -680,10 +680,10 @@ function Menu({ h, go, exit }: { h: DwellerSummary; go: (v: View) => void; exit:
   const [i, setI] = useMenu(items.length, pick, exit, e => { if (e.code === 'KeyT' && folder) { terminal(); return true; } return undefined; });
   const greeting = useMemo(() => greetingOf(h), [h.id]);
   return (
-    <div className="pantalla-consola fosforo">
+    <div className="screen-console phosphor">
       <p className="voice">{greeting}</p>
       <Options items={items} i={i} setI={setI} onChoose={pick} />
-      <p className="ayuda-consola"><kbd>↑↓</kbd> {t('menu.select')} <kbd>Enter</kbd> {t('menu.accept')} <kbd>Esc</kbd> {t('menu.backToTheShelter2')} <kbd>{CMD}T</kbd> {t('windows.anotherTab')}</p>
+      <p className="help-console"><kbd>↑↓</kbd> {t('menu.select')} <kbd>Enter</kbd> {t('menu.accept')} <kbd>Esc</kbd> {t('menu.backToTheShelter2')} <kbd>{CMD}T</kbd> {t('windows.anotherTab')}</p>
     </div>
   );
 }
@@ -706,7 +706,7 @@ function Card({ h, goBack }: { h: DwellerSummary; goBack: () => void }) {
   const [i, setI] = useMenu(1, () => goBack(), goBack);
   const c = h.copy;
   if (c) return (
-    <div className="pantalla-consola fosforo card">
+    <div className="screen-console phosphor card">
       <dl>
         <dt>{t('windows.copyOf')}</dt><dd>{c.nameAuthor} «{tIs(c.nicknameAuthor)}»</dd>
         <dt>{t('windows.room')}</dt><dd>{h.nameRoom}</dd>
@@ -719,7 +719,7 @@ function Card({ h, goBack }: { h: DwellerSummary; goBack: () => void }) {
     </div>
   );
   return (
-    <div className="pantalla-consola fosforo card">
+    <div className="screen-console phosphor card">
       <dl>
         <dt>{t('windows.name')}</dt><dd>{h.name} «{tIs(h.nickname)}»</dd>
         <dt>{t('windows.room')}</dt><dd>{h.nameRoom}{h.folder ?? h.path ? <> · <code>{h.folder ?? h.path}</code></> : null}</dd>
@@ -760,11 +760,11 @@ function HistoryView({ h, goBack, pick }: { h: DwellerSummary; goBack: () => voi
   };
   const [i, setI] = useMenu(items.length, onChoose, goBack);
   return (
-    <div className="pantalla-consola fosforo">
+    <div className="screen-console phosphor">
       <p className="voice">{list === null ? t('windows.searchingTheArchive') : list.length ? (h.copy ? t('windows.thisIsWhatIsIn') : t('windows.thisIsWhatIsIn2')) : t('windows.thereAreNoPreviousConversations')}</p>
       {error && <p className="notice-console">{error}</p>}
-      <div className="lista-desplazable"><Options items={items} i={i} setI={setI} onChoose={onChoose} /></div>
-      <p className="ayuda-consola"><kbd>↑↓</kbd> {t('menu.select')} <kbd>Enter</kbd> {t('windows.resume')} <kbd>Esc</kbd> <kbd>←</kbd> {t('windows.back2')}</p>
+      <div className="list-scrollable"><Options items={items} i={i} setI={setI} onChoose={onChoose} /></div>
+      <p className="help-console"><kbd>↑↓</kbd> {t('menu.select')} <kbd>Enter</kbd> {t('windows.resume')} <kbd>Esc</kbd> <kbd>←</kbd> {t('windows.back2')}</p>
     </div>
   );
 }
@@ -800,13 +800,13 @@ function Visitors({ h, goBack, resume }: { h: DwellerSummary; goBack: () => void
     client.action<number>('surface.forceClose', { claudeId: el.claudeId }).then(() => resume({ ...el, outside: false })).catch(e => { SFX.error(); setError((e as Error).message); });
   };
   const [i, setI] = useMenu(items.length, onChoose, goBack);
-  if (!file) return <div className="pantalla-consola fosforo"><p className="voice">{t('windows.lookingForVisitors')}</p></div>;
+  if (!file) return <div className="screen-console phosphor"><p className="voice">{t('windows.lookingForVisitors')}</p></div>;
   return (
-    <div className="pantalla-consola fosforo">
+    <div className="screen-console phosphor">
       <p className="voice">{list.length ? t('windows.visitorSessionsHere') : t('windows.noVisitorSessions')}</p>
       {error && <p className="notice-console">{error}</p>}
-      <div className="lista-desplazable"><Options items={items} i={i} setI={setI} onChoose={onChoose} /></div>
-      <p className="ayuda-consola"><kbd>↑↓</kbd> {t('menu.select')} <kbd>Enter</kbd> {t('windows.resumeHere')} <kbd>Esc</kbd> <kbd>←</kbd> {t('windows.back2')}</p>
+      <div className="list-scrollable"><Options items={items} i={i} setI={setI} onChoose={onChoose} /></div>
+      <p className="help-console"><kbd>↑↓</kbd> {t('menu.select')} <kbd>Enter</kbd> {t('windows.resumeHere')} <kbd>Esc</kbd> <kbd>←</kbd> {t('windows.back2')}</p>
     </div>
   );
 }
@@ -897,17 +897,17 @@ function New({ h, p, resume, goBack }: { h: DwellerSummary; p: TabCom; resume?: 
   const dictation = useDictation({ area, text, setText, onSend: send });
   const [onTop, drop] = useDrop(f => attach(h.id, p.id, f));
   return (
-    <div className={'pantalla-consola fosforo formulario' + (onTop ? ' soltando' : '')} {...drop}>
+    <div className={'screen-console phosphor formulario' + (onTop ? ' dropping' : '')} {...drop}>
       {resume && (
-        <div className="transcripcion-previa">
+        <div className="transcript-preview">
           <p className="voice">{t('windows.resumingTitleWhen', { title: resume.title, when: ago(resume.modified) })}</p>
-          <div className="lista-desplazable mini">{transcript === null ? <p className="dim">{t('windows.loading')}</p> : transcript.map(e => <Entry key={e.id} e={e} />)}</div>
+          <div className="list-scrollable mini">{transcript === null ? <p className="dim">{t('windows.loading')}</p> : transcript.map(e => <Entry key={e.id} e={e} />)}</div>
         </div>
       )}
       <p className="voice">{resume ? t('windows.whatDoIDoWith') : t('windows.whatNeedsDoing')}</p>
       {/* la caja de texto ocupa la mitad superior; las opciones, la inferior */}
-      <div className="formulario-escribir">
-        <div className={'linea-entrada' + (row === 0 ? ' active' : '')}>
+      <div className="form-write">
+        <div className={'line-entry' + (row === 0 ? ' active' : '')}>
           <span className="prompt-sim">&gt;</span>
           <textarea ref={area} value={text} rows={3} readOnly={dictation.active} placeholder={resume ? t('windows.optionalAddAnInstructionOr') : t('windows.describeTheJobAsIn')}
             onFocus={() => setRow(0)}
@@ -927,17 +927,17 @@ function New({ h, p, resume, goBack }: { h: DwellerSummary; p: TabCom; resume?: 
         <AttachmentsTray list={p.attachments} remove={removeAttachment(h.id, p.id)} />
         <DictationStrip dictation={dictation} />
       </div>
-      <div className="formulario-opciones">
+      <div className="form-options">
         {rows.map((fr, k) => (
-          <div key={fr.name} className={'fila-chips' + (row === k + 1 ? ' active' : '')} onClick={() => setRow(k + 1)}>
-            <span className="etq">{fr.name}</span>
+          <div key={fr.name} className={'row-chips' + (row === k + 1 ? ' active' : '')} onClick={() => setRow(k + 1)}>
+            <span className="lbl">{fr.name}</span>
             {fr.values.map(v => <button key={v.value} className={'chip' + (v.value === fr.current ? ' on' : '')} onClick={() => fr.set(v.value)} title={(v as any).hint ? tIs((v as any).hint) : ''}>{tIs(v.text)}</button>)}
           </div>
         ))}
-        {workIn ? <div className="fila-chips"><span className="etq">Worktree</span><span className="chip on">{t('windows.insideTheCopyBranch', { branch: workIn.branch })}</span></div> :
+        {workIn ? <div className="row-chips"><span className="lbl">Worktree</span><span className="chip on">{t('windows.insideTheCopyBranch', { branch: workIn.branch })}</span></div> :
         // un worktree solo tiene sentido en una sala de proyecto (las demás trabajan en su carpeta)
-        ofProject && <div className={'fila-chips' + (row === 4 ? ' active' : '')} onClick={() => setRow(4)}>
-          <span className="etq">Worktree</span>
+        ofProject && <div className={'row-chips' + (row === 4 ? ' active' : '')} onClick={() => setRow(4)}>
+          <span className="lbl">Worktree</span>
           <button className={'chip' + (!worktree ? ' on' : '')} onClick={() => setWorktree(false)}>{t('windows.inTheMainCopy')}</button>
           <button className={'chip' + (worktree ? ' on' : '')} onClick={() => setWorktree(true)}>{t('windows.inASeparateWorktree')}</button>
         </div>}
@@ -956,8 +956,8 @@ const RESUME_PREVIEW = 12;
 const folderOf = (s: SessionSummary) => s.worktree ?? s.cwd;
 function Entry({ e, base, sessionId }: { e: LogInput; base?: string; sessionId?: string }) {
   if (e.type === 'asistente' || e.type === 'lateral') return <div className={'ent ' + e.type} dangerouslySetInnerHTML={{ __html: markdown(e.text, base) }} />;
-  if (e.type === 'usuario') return <div className={'ent usuario' + (e.origin ? ' de-fuera' : '')}><span className="quien">{originLabel(e.origin)}&gt;</span> <span dangerouslySetInnerHTML={{ __html: markdown(e.text, base) }} />{e.attachments?.length ? <SentAttachments list={e.attachments} /> : null}</div>;
-  if (e.type === 'tool') return <div className={'ent tool' + (e.isError ? ' error' : '') + (e.helper ? ' de-ayudante' : '')}>{e.helper ? '  ⚙ ' : '⚙ '}<span><ToolText t={e.text} /></span>{e.detail && <pre className="detalle-err">{e.detail}</pre>}{e.output && sessionId && <OutputView o={e.output} sessionId={sessionId} id={e.id} tool={e.tool} />}</div>;
+  if (e.type === 'usuario') return <div className={'ent user' + (e.origin ? ' from-outside' : '')}><span className="who">{originLabel(e.origin)}&gt;</span> <span dangerouslySetInnerHTML={{ __html: markdown(e.text, base) }} />{e.attachments?.length ? <SentAttachments list={e.attachments} /> : null}</div>;
+  if (e.type === 'tool') return <div className={'ent tool' + (e.isError ? ' error' : '') + (e.helper ? ' of-helper' : '')}>{e.helper ? '  ⚙ ' : '⚙ '}<span><ToolText t={e.text} /></span>{e.detail && <pre className="detail-err">{e.detail}</pre>}{e.output && sessionId && <OutputView o={e.output} sessionId={sessionId} id={e.id} tool={e.tool} />}</div>;
   if (e.type === 'error') return <div className="ent error" dangerouslySetInnerHTML={{ __html: markdown(e.text) }} />;
   return <div className={'ent ' + e.type}>{e.text}</div>;
 }
@@ -977,12 +977,12 @@ function OutputView({ o, sessionId, id, tool }: { o: ToolOutput; sessionId: stri
   };
   const toggle = () => { SFX.click(); if (open) { setOpen(false); return; } whole().then(() => setOpen(true)).catch(() => { SFX.notAllowed(); addNotice('warning', t('windows.output.gone')); }); };
   const copy = () => whole().then(x => navigator.clipboard.writeText(x)).then(() => SFX.shortSuccess()).catch(() => { SFX.notAllowed(); addNotice('warning', t('windows.output.gone')); });
-  return <div className="salida-herramienta">
-    <button className="consola-x salida-linea" aria-expanded={open} title={t(open ? 'windows.output.hide' : 'windows.output.show')} onClick={toggle}>
+  return <div className="output-tool">
+    <button className="console-x output-line" aria-expanded={open} title={t(open ? 'windows.output.hide' : 'windows.output.show')} onClick={toggle}>
       {open ? '▾' : '▸'} {tool ?? ''} · {sizeLabel(o.size)} · <span className="dim">{o.first}</span>
     </button>
-    <button className="consola-x" title={t('windows.output.copyHint')} onClick={copy}>⧉ {t('windows.output.copy')}</button>
-    {open && text != null && <pre className="detalle-err">{text}</pre>}
+    <button className="console-x" title={t('windows.output.copyHint')} onClick={copy}>⧉ {t('windows.output.copy')}</button>
+    {open && text != null && <pre className="detail-err">{text}</pre>}
   </div>;
 }
 
@@ -1002,13 +1002,13 @@ function Queued({ s, edit }: { s: SessionSummary; edit: (m: QueuedMessage) => vo
     SFX.click();
   };
   return (
-    <div className="cola-mensajes">
-      <div className="cola-titulo">{t('windows.queue.title', { n: queue.length })} <span className="dim">· {t('windows.queue.hint')}</span></div>
+    <div className="queue-messages">
+      <div className="queue-title">{t('windows.queue.title', { n: queue.length })} <span className="dim">· {t('windows.queue.hint')}</span></div>
       {queue.map(m => (
-        <div key={m.id} className={'cola-mensaje' + (m.origin.kind !== 'overseer' ? ' de-fuera' : '')}>
-          <span className="quien">{originLabel(m.origin)}&gt;</span>
-          <span className="cola-texto" title={m.text}>{m.text.replace(/\s+/g, ' ')}{m.attachments?.length ? ` 📎${m.attachments.length}` : ''}</span>
-          {withdrawable(m) && <span className="cola-acciones">
+        <div key={m.id} className={'queue-message' + (m.origin.kind !== 'overseer' ? ' from-outside' : '')}>
+          <span className="who">{originLabel(m.origin)}&gt;</span>
+          <span className="queue-text" title={m.text}>{m.text.replace(/\s+/g, ' ')}{m.attachments?.length ? ` 📎${m.attachments.length}` : ''}</span>
+          {withdrawable(m) && <span className="queue-actions">
             <button onClick={() => sendNow(m)} title={t('windows.queue.sendNowTitle')}>{t('windows.queue.sendNow')}</button>
             <button onClick={() => withdraw(m, () => edit(m))} title={t('windows.queue.editTitle')}>{t('windows.queue.edit')}</button>
             <button onClick={() => withdraw(m)}>{t('windows.queue.withdraw')}</button>
@@ -1103,18 +1103,18 @@ function Session({ h, s, p, exit, onClose }: { h: DwellerSummary; s: SessionSumm
   const lineState = s.state === 'starting' ? t('windows.gettingReady') : s.activity ? s.activity.text : workingLive && s.background ? t('windows.waitingNInBackground', { n: s.background }) : workingLive ? t('windows.thinking') : '';
   const helpers = s.helpers.filter(a => a.state === 'working').length;
   return (
-    <div className={'pantalla-consola fosforo session' + (onTop ? ' soltando' : '')} data-sesion={s.id} {...drop}>
-      <div className="titulo-sesion">{s.title}{s.worktree ? <span className="dim"> · worktree</span> : null}</div>
-      <div className="lienzo" ref={canvas} onScroll={e => onScroll(e.currentTarget)}>
-        {entries.length > 0 && <div className="ent system dim cuaderno-inicio">{older ? (loadingOlder ? t('windows.log.loadingOlder') : t('windows.log.scrollForOlder')) : t('windows.log.start')}</div>}
+    <div className={'screen-console phosphor session' + (onTop ? ' dropping' : '')} data-session={s.id} {...drop}>
+      <div className="title-session">{s.title}{s.worktree ? <span className="dim"> · worktree</span> : null}</div>
+      <div className="canvas" ref={canvas} onScroll={e => onScroll(e.currentTarget)}>
+        {entries.length > 0 && <div className="ent system dim notebook-start">{older ? (loadingOlder ? t('windows.log.loadingOlder') : t('windows.log.scrollForOlder')) : t('windows.log.start')}</div>}
         {(s.pending ? entries.filter((e, i) => !(e.type === 'system' && e.text.startsWith('❓')) && !(e.type === 'tool' && i >= entries.length - 3)) : entries).map(e => <Entry key={e.id} e={e} base={folderOf(s)} sessionId={s.id} />)}
-        {partial && workingLive && <div className="ent asistente partial" dangerouslySetInnerHTML={{ __html: markdown(partial, folderOf(s)) + '<span class="cursor-escribe">▌</span>' }} />}
+        {partial && workingLive && <div className="ent asistente partial" dangerouslySetInnerHTML={{ __html: markdown(partial, folderOf(s)) + '<span class="cursor-typing">▌</span>' }} />}
         {s.pending && <Pending s={s} p={s.pending} tab={p} hid={h.id} exit={exit} />}
         {s.state === 'error' && s.error && <div className="ent error">⚠ {s.error}</div>}
         {s.limit && !workingLive && <div className="ent system">⏳ {limitLine(s.limit)}</div>}
         {s.handoff === 'offered' && !workingLive && <div className="ent system notice-handover">
           <p>{t('windows.handoff.notice', { used: tokensShort(s.context?.used ?? 0) })}</p>
-          <div className="botones-relevo"><button onClick={compact}>{t('windows.compact')}</button><button title={t('windows.handoff.newHint')} onClick={handoff}>{t('windows.handoff.new')}</button></div>
+          <div className="buttons-handover"><button onClick={compact}>{t('windows.compact')}</button><button title={t('windows.handoff.newHint')} onClick={handoff}>{t('windows.handoff.new')}</button></div>
         </div>}
         {s.handoff === 'writing' && <div className="ent system">✎ {t('windows.handoff.writing')}</div>}
       </div>
@@ -1124,8 +1124,8 @@ function Session({ h, s, p, exit, onClose }: { h: DwellerSummary; s: SessionSumm
         if (m.attachments?.length) changeAttachments(h.id, p.id, l => [...l, ...m.attachments!.map(a => ({ id: `cola-${m.id}-${a.path}`, name: a.name, image: a.image, path: a.path }))]);
         area.current?.focus();
       }} />}
-      {!s.pending && <div className="linea-estado">
-        {workingLive ? <span className="girando">◐</span> : s.state === 'waiting' ? <span className="urgent">?</span> : s.state === 'finished' ? <span>✓</span> : <span>·</span>}
+      {!s.pending && <div className="line-state">
+        {workingLive ? <span className="spinning">◐</span> : s.state === 'waiting' ? <span className="urgent">?</span> : s.state === 'finished' ? <span>✓</span> : <span>·</span>}
         <span className="txt"><ToolText t={lineState || (s.limit ? limitLine(s.limit) : s.state === 'finished' || s.state === 'idle' ? t('windows.doneYouCanReplyOpen') : '')} /></span>
         {helpers > 0 && <span className="dim"> · {helpers > 1 ? t('windows.nHelpers', { n: helpers }) : t('windows.nHelper', { n: helpers })}</span>}
         {s.lateral && !s.lateral.answer && <span className="dim"> · {t('windows.sideQuestion')}</span>}
@@ -1133,8 +1133,8 @@ function Session({ h, s, p, exit, onClose }: { h: DwellerSummary; s: SessionSumm
         <span className="mode">{tIs(PERMISSION_MODES.find(m => m.value === s.permissionMode)?.text ?? s.permissionMode ?? '')}</span>
       </div>}
       {!s.pending && (
-        <div className="linea-entrada active">
-          {suggestions.length > 0 && <ul className="sugerencias">{suggestions.map((c, k) => <li key={c.name} className={k === selCmd ? 'active' : ''} onMouseDown={ev => { ev.preventDefault(); setText('/' + c.name + ' '); }}><b>/{c.name}</b> <span>{c.description}</span></li>)}</ul>}
+        <div className="line-entry active">
+          {suggestions.length > 0 && <ul className="suggestions">{suggestions.map((c, k) => <li key={c.name} className={k === selCmd ? 'active' : ''} onMouseDown={ev => { ev.preventDefault(); setText('/' + c.name + ' '); }}><b>/{c.name}</b> <span>{c.description}</span></li>)}</ul>}
           <span className="prompt-sim">&gt;</span>
           <textarea ref={area} value={text} rows={2} readOnly={dictation.active} placeholder={workingLive ? t('windows.addSomethingWhileItWorks') : t('windows.replyDictateWithDOr')}
             onChange={e => { setText(e.target.value); setSelCmd(0); }}
@@ -1187,16 +1187,16 @@ function WorktreePRs({ copy, roomId }: { copy: { path: string; branch: string };
   if (!prs.length) return null;
   const openCount = prs.filter(p => p.state === 'open' || p.state === 'draft').length;
   // like the pages: a button with the count and, on click, the whole list at the button
-  return <span className="paginas-sesion prs-copia">
-    <button className="consola-x" title={t('windows.taskPRsHint')} onClick={() => { setOpen(x => !x); SFX.click(); }}>
+  return <span className="pages-session prs-copia">
+    <button className="console-x" title={t('windows.taskPRsHint')} onClick={() => { setOpen(x => !x); SFX.click(); }}>
       ⑂ {t('windows.pullRequests')} ({openCount < prs.length ? `${openCount}/${prs.length}` : prs.length})
     </button>
-    {open && <ul ref={list} className="paginas-lista">{prs.map(p => <li key={p.url} className={'pr-' + p.state}>
+    {open && <ul ref={list} className="pages-list">{prs.map(p => <li key={p.url} className={'pr-' + p.state}>
       <span className="pr-brand" title={prStateName(p.state)}>{PR_STATE[p.state]}</span>
-      <button className="pagina-nombre" title={`${p.repo}#${p.number} · ${p.branch}\n${p.title}`} onClick={() => { openLink(p.url); setOpen(false); }}>#{p.number} {p.title}</button>
+      <button className="page-name" title={`${p.repo}#${p.number} · ${p.branch}\n${p.title}`} onClick={() => { openLink(p.url); setOpen(false); }}>#{p.number} {p.title}</button>
       <span className="dim">{prStateName(p.state)}</span>
       {p.checks === 'FAILURE' || p.checks === 'ERROR' ? <span className="pr-bad">✕ CI</span> : null}
-      {p.review === 'APPROVED' ? <span className="pr-bien">✓</span> : p.review === 'CHANGES_REQUESTED' ? <span className="pr-bad">±</span> : null}
+      {p.review === 'APPROVED' ? <span className="pr-good">✓</span> : p.review === 'CHANGES_REQUESTED' ? <span className="pr-bad">±</span> : null}
     </li>)}</ul>}
   </span>;
 }
@@ -1207,8 +1207,8 @@ function WorktreePRs({ copy, roomId }: { copy: { path: string; branch: string };
 function FlagButton({ c, flags }: { c?: Flaggable; flags: Set<string> }) {
   const on = flagOf(c, flags);
   if (on === undefined) return null;
-  return <span className="paginas-sesion marca-conversacion">
-    <button className={'consola-x boton-marca' + (on ? ' marcada' : '')} aria-pressed={on} title={t(on ? 'windows.flag.clear' : 'windows.flag.set', { shortcut: FLAG_SHORTCUT })} onClick={() => toggleFlag(c)}>⚑ {t(on ? 'windows.flag.buttonOn' : 'windows.flag.button')}</button>
+  return <span className="pages-session marca-conversacion">
+    <button className={'console-x button-mark' + (on ? ' checked' : '')} aria-pressed={on} title={t(on ? 'windows.flag.clear' : 'windows.flag.set', { shortcut: FLAG_SHORTCUT })} onClick={() => toggleFlag(c)}>⚑ {t(on ? 'windows.flag.buttonOn' : 'windows.flag.button')}</button>
   </span>;
 }
 
@@ -1216,8 +1216,8 @@ function PreflightButton({ copy }: { copy: { path: string; branch: string } }) {
   const task = copyTask(copy);
   const withPRs = jiraBoard.use(x => !!task && taskHasPRs(task, x.prs));
   if (!task || !withPRs) return null;
-  return <span className="paginas-sesion preflight-copia">
-    <button className="consola-x" title={t('preflight.actionHint')} onClick={e => { SFX.click(); openPreflight(task, e.currentTarget); }}>✈ {t('preflight.action', { key: task })}</button>
+  return <span className="pages-session preflight-copia">
+    <button className="console-x" title={t('preflight.actionHint')} onClick={e => { SFX.click(); openPreflight(task, e.currentTarget); }}>✈ {t('preflight.action', { key: task })}</button>
   </span>;
 }
 
@@ -1291,19 +1291,19 @@ function ScheduledMenu({ h, s, resume }: { h: DwellerSummary; s?: SessionSummary
     : x.messages && x.messages.parts.length > 1 ? t('windows.scheduledMessages', { n: x.messages.parts.length }) : undefined;
   const whenShort = (x: ScheduledMessage) => x.afterTurn ? pack(x) || t('windows.scheduledAfterTurn') : x.nextWindow ? t('windows.scheduledWindow') : describeWhenShort(x.when);
   return (
-    <span className="paginas-sesion programados-sesion">
-      <button className="consola-x" title={t(conversation ? 'windows.scheduledHint' : 'windows.scheduledHintPlace')} onClick={() => { setOpen(x => !x); setEditing(null); SFX.click(); }}>
+    <span className="pages-session scheduled-session">
+      <button className="console-x" title={t(conversation ? 'windows.scheduledHint' : 'windows.scheduledHintPlace')} onClick={() => { setOpen(x => !x); setEditing(null); SFX.click(); }}>
         {t(mine.length > 1 ? 'windows.scheduledN' : 'windows.scheduled', { n: mine.length, when: whenShort(mine[0]) })}
       </button>
-      {open && <ul ref={list} className="paginas-lista programados-lista" onKeyDown={e => { e.stopPropagation(); if (e.key === 'Escape') { setEditing(null); setOpen(false); } }}>{groups.map(g => <Fragment key={g.worktree ?? (g.task ? 'task:' + g.task : '')}>
-        {headed && <li className="programados-grupo" title={g.task ? t('windows.scheduledNewHologramHint') : undefined}><span>{t('windows.scheduledGroup', { name: groupName(g), n: g.items.length })}</span></li>}
+      {open && <ul ref={list} className="pages-list scheduled-list" onKeyDown={e => { e.stopPropagation(); if (e.key === 'Escape') { setEditing(null); setOpen(false); } }}>{groups.map(g => <Fragment key={g.worktree ?? (g.task ? 'task:' + g.task : '')}>
+        {headed && <li className="scheduled-group" title={g.task ? t('windows.scheduledNewHologramHint') : undefined}><span>{t('windows.scheduledGroup', { name: groupName(g), n: g.items.length })}</span></li>}
         {g.items.map(x => <Fragment key={x.id}>
         {editing?.id === x.id
-        ? <li className="programado-edicion">
+        ? <li className="scheduled-editing">
             <input type="datetime-local" value={editing.when} onChange={e => setEditing({ ...editing, when: e.target.value, error: undefined })} />
             <textarea rows={4} value={editing.message} onChange={e => setEditing({ ...editing, message: e.target.value, error: undefined })} />
             {editing.error && <span className="pr-bad">{editing.error}</span>}
-            <span><button className="consola-x" onClick={save}>{t('windows.scheduledSave')}</button> <button className="consola-x" onClick={() => setEditing(null)}>✕</button></span>
+            <span><button className="console-x" onClick={save}>{t('windows.scheduledSave')}</button> <button className="console-x" onClick={() => setEditing(null)}>✕</button></span>
           </li>
         : <li title={x.message}>
             {(m => <span className={m.className} title={m.hint}>{m.text}</span>)(directionMark(scheduledDirection(x, conversation)))}
@@ -1311,10 +1311,10 @@ function ScheduledMenu({ h, s, resume }: { h: DwellerSummary; s?: SessionSummary
               : x.nextWindow ? <span className="dim" title={t('windows.nextWindowHint') + '\n' + describeWhen(x.when)}>{t('windows.scheduledWindow')}</span>
               : <span className={x.when < Date.now() ? 'urgent' : ''} title={x.when < Date.now() ? t('windows.scheduledLate') : describeWhen(x.when)}>⏰ {describeWhenShort(x.when)}</span>}
             <span className="dim" title={!x.afterTurn && pack(x) ? t('windows.scheduledMessagesHint') : undefined}>{scheduledSender(x, id => rooms.find(r => r.id === id)?.name)} · {target(x)}{!x.afterTurn && pack(x) ? ` ${pack(x)}` : ''}</span>
-            <span className="pagina-nombre">{x.message.replace(/\s+/g, ' ')}</span>
-            <button className="consola-x" title={t('windows.scheduledEdit')} onClick={() => setEditing({ id: x.id, when: x.nextWindow || x.afterTurn ? '' : localInput(x.when), message: x.message })}>✎</button>
-            {(x.nextWindow || x.overLimit || x.afterTurn) && <button className="consola-x" title={t('windows.scheduledSendNow')} onClick={() => sendNow(x)}>▶</button>}
-            <button className="consola-x" title={t('windows.scheduledCancel')} onClick={() => cancel(x)}>✕</button>
+            <span className="page-name">{x.message.replace(/\s+/g, ' ')}</span>
+            <button className="console-x" title={t('windows.scheduledEdit')} onClick={() => setEditing({ id: x.id, when: x.nextWindow || x.afterTurn ? '' : localInput(x.when), message: x.message })}>✎</button>
+            {(x.nextWindow || x.overLimit || x.afterTurn) && <button className="console-x" title={t('windows.scheduledSendNow')} onClick={() => sendNow(x)}>▶</button>}
+            <button className="console-x" title={t('windows.scheduledCancel')} onClick={() => cancel(x)}>✕</button>
           </li>}</Fragment>)}</Fragment>)}</ul>}
     </span>
   );
@@ -1329,13 +1329,13 @@ const laterDone = (x: ScheduledMessage) => t(x.afterTurn ? 'windows.scheduleAfte
 // It wraps instead of clipping when the intercom is narrow.
 function ComposerHelp({ send, shortcuts, sendLater, armed, afterTurn }: { send: string; shortcuts: string; sendLater: (when?: string) => void; armed: string | false; afterTurn?: boolean }) {
   return (
-    <p className="ayuda-consola ayuda-composer">
+    <p className="help-console help-composer">
       <span><kbd>Enter</kbd> {send}</span>
       <ScheduleAt pick={sendLater} afterTurn={afterTurn} />
-      <button className="consola-x" onClick={() => sendLater()} title={`${t('windows.nextWindowHint')} (⌥ Enter)`}>⏳ {t('windows.nextWindow')}</button>
+      <button className="console-x" onClick={() => sendLater()} title={`${t('windows.nextWindowHint')} (⌥ Enter)`}>⏳ {t('windows.nextWindow')}</button>
       {armed && <span className="urgent">{armed}</span>}
-      <span className="atajos-composer" tabIndex={0} aria-label={shortcuts.replace(/[[\]]/g, '')}>⌨ {t('windows.shortcuts')}
-        <span className="atajos-panel" aria-hidden>
+      <span className="shortcuts-composer" tabIndex={0} aria-label={shortcuts.replace(/[[\]]/g, '')}>⌨ {t('windows.shortcuts')}
+        <span className="shortcuts-panel" aria-hidden>
           {shortcuts.split(/\n| · /).map((x, i) => <span key={i}>{x.split(/(\[[^\]]+\])/).map((p, j) => p.startsWith('[') ? <kbd key={j}>{p.slice(1, -1)}</kbd> : p)}</span>)}
         </span>
       </span>
@@ -1356,12 +1356,12 @@ function ScheduleAt({ pick, afterTurn }: { pick: (when: string) => void; afterTu
   const go = (w: string) => { if (!w) { SFX.notAllowed(); return; } setOpen(false); pick(w); };
   const now = Date.now();
   return (
-    <span ref={box} className="programar-hora">
-      <button className="consola-x" title={t('windows.scheduleAtHint')} onClick={() => { setOpen(x => !x); setWhen(localInput(now + 3_600_000)); SFX.click(); }}>⏰ {t('windows.scheduleAt')}</button>
-      {open && <ul className="paginas-lista programar-lista" onKeyDown={e => { e.stopPropagation(); if (e.key === 'Escape') setOpen(false); if (e.key === 'Enter' && (e.target as HTMLElement).tagName === 'INPUT') go(when); }}>
+    <span ref={box} className="schedule-time">
+      <button className="console-x" title={t('windows.scheduleAtHint')} onClick={() => { setOpen(x => !x); setWhen(localInput(now + 3_600_000)); SFX.click(); }}>⏰ {t('windows.scheduleAt')}</button>
+      {open && <ul className="pages-list schedule-list" onKeyDown={e => { e.stopPropagation(); if (e.key === 'Escape') setOpen(false); if (e.key === 'Enter' && (e.target as HTMLElement).tagName === 'INPUT') go(when); }}>
         {afterTurn && <li><button className="chip" title={t('windows.scheduleAfterTurnHint')} onClick={() => go(AFTER_TURN)}>{t('windows.scheduleAfterTurn')}</button></li>}
         {schedulePresets(now).map(x => <li key={x.key}><button className="chip" onClick={() => go(localInput(x.when))}>{t(PRESET_TEXT[x.key])} <span className="dim">{describeWhenShort(x.when, now)}</span></button></li>)}
-        <li><input type="datetime-local" value={when} min={localInput(now)} onChange={e => setWhen(e.target.value)} /> <button className="consola-x" onClick={() => go(when)}>{t('windows.scheduleAtGo')}</button></li>
+        <li><input type="datetime-local" value={when} min={localInput(now)} onChange={e => setWhen(e.target.value)} /> <button className="console-x" onClick={() => go(when)}>{t('windows.scheduleAtGo')}</button></li>
       </ul>}
     </span>
   );
@@ -1382,7 +1382,7 @@ function ResumePages({ roomId, claudeId }: { roomId: string; claudeId: string })
 function useListAtButton(open: boolean) {
   const ref = useRef<HTMLUListElement>(null);
   useLayoutEffect(() => {
-    const ul = ref.current, anchor = ul?.parentElement, zone = ul?.closest('.consola-cuerpo');
+    const ul = ref.current, anchor = ul?.parentElement, zone = ul?.closest('.console-body');
     if (!open || !ul || !anchor || !zone) return;
     const fit = () => {
       const z = zone.getBoundingClientRect(), b = anchor.getBoundingClientRect();
@@ -1448,20 +1448,20 @@ function PagesList({ sessionId, claudeId, entries, base }: { sessionId: string; 
   };
   const inDraft = (path: string) => Object.entries(drafts).find(([k]) => samePage(k, path))?.[1].length ?? 0;
   return (
-    <span className="paginas-sesion paginas-principal">
-      <button className={'consola-x' + (pending ? ' urgent' : '')} title={t('windows.pagesHint')} onClick={() => { setOpen(x => !x); SFX.click(); }}>
+    <span className="pages-session pages-main">
+      <button className={'console-x' + (pending ? ' urgent' : '')} title={t('windows.pagesHint')} onClick={() => { setOpen(x => !x); SFX.click(); }}>
         📄 {t('windows.pages')} {pending ? `· ${pending} ${t('windows.pagePending')}` : `(${pages.length})`}
       </button>
-      {open && <ul ref={list} className="paginas-lista">{pages.map(p => {
+      {open && <ul ref={list} className="pages-list">{pages.map(p => {
         const n = inDraft(p.path);
         return <li key={p.path} className={p.answer ? 'dim' : ''}>
-          <button className="pagina-nombre" title={p.path} onClick={() => openTarget(p.path)}>{p.name}</button>
+          <button className="page-name" title={p.path} onClick={() => openTarget(p.path)}>{p.name}</button>
           {updated[p.path] && <span className="dim" title={new Date(updated[p.path]).toLocaleString()}>{t('windows.pageUpdated', { when: ago(updated[p.path]) })} · </span>}
           <span className={p.answer ? '' : 'urgent'}>{p.answer ? '✓ ' + t(p.answer.state === 'notes' ? 'windows.pageNotesSent' : 'windows.pageValidatedState') : '• ' + t('windows.pagePending')}</span>
           {n > 0 && <span className="dim"> · {t('windows.pageDraftNotes', { n })}</span>}
-          <button className="consola-x" title={t('windows.showInFinderHint')} onClick={() => revealPage(p.path)}>📁</button>
-          {!p.answer && n === 0 && <button className="consola-x" title={t('windows.validatePageHint')} onClick={() => { validatePage(s.id, p.path); setOpen(false); }}>✓ {t('windows.validate')}</button>}
-          <button className="consola-x" title={t('windows.removePageHint')} onClick={() => { answerPage(s.id, p.path, 'quitada'); SFX.click(); }}>✕</button>
+          <button className="console-x" title={t('windows.showInFinderHint')} onClick={() => revealPage(p.path)}>📁</button>
+          {!p.answer && n === 0 && <button className="console-x" title={t('windows.validatePageHint')} onClick={() => { validatePage(s.id, p.path); setOpen(false); }}>✓ {t('windows.validate')}</button>}
+          <button className="console-x" title={t('windows.removePageHint')} onClick={() => { answerPage(s.id, p.path, 'quitada'); SFX.click(); }}>✕</button>
         </li>;
       })}</ul>}
     </span>
@@ -1533,15 +1533,15 @@ function Pending({ s, p, tab, hid, exit }: { s: SessionSummary; p: PendingReques
     if (Date.now() < armed.current) { armed.current = Date.now() + ARMED_MS; return true; }
   }, exit);
   return (
-    <div className={'peticion ' + p.type}>
-      <div className="peticion-titulo">{p.ofHelper ? t('windows.aHelperNameAsks', { name: p.ofHelper }) : ''}{question ? null : p.title}</div>
+    <div className={'request ' + p.type}>
+      <div className="request-title">{p.ofHelper ? t('windows.aHelperNameAsks', { name: p.ofHelper }) : ''}{question ? null : p.title}</div>
       {/* la pregunta es prosa de Claude: en markdown (enlaces que se abren, listas), con su propio scroll si es muy larga */}
-      {question && <div className="peticion-pregunta" dangerouslySetInnerHTML={{ __html: markdown(question.question, folderOf(s)) }} />}
+      {question && <div className="request-question" dangerouslySetInnerHTML={{ __html: markdown(question.question, folderOf(s)) }} />}
       {/* lo que pide una herramienta, siempre en texto plano (plainText.tsx); el plan, que es prosa, en markdown */}
       {(p.type === 'permission' || p.type === 'trust') && (p.input?.length || p.reason) ? <RequestView blocks={p.input ?? []} reason={p.reason} /> : null}
-      {p.type === 'plan' && p.detail && <div className="peticion-detalle" dangerouslySetInnerHTML={{ __html: markdown(p.detail, folderOf(s)) }} />}
+      {p.type === 'plan' && p.detail && <div className="request-detail" dangerouslySetInnerHTML={{ __html: markdown(p.detail, folderOf(s)) }} />}
       {reason === null ? <Options items={items} i={i} setI={setI} onChoose={k => items[k]?.f()} /> : (
-        <div className="linea-entrada active">
+        <div className="line-entry active">
           <span className="prompt-sim">&gt;</span>
           <textarea autoFocus rows={2} value={reason} placeholder={p.type === 'question' ? t('windows.yourAnswer') : t('windows.tellItWhyOrEnter')} onChange={e => setReason(e.target.value)}
             onKeyDown={e => {

@@ -14,7 +14,7 @@ export function scheduledSender(x: Pick<ScheduledMessage, 'from' | 'overseer' | 
 
 /** The mark of a row in the ⏰ lists (direction from scheduledDirection): ↗ sent from here, ↙ arriving here, ↻ a reminder
  *  to itself; its tooltip says which, and the class gives each its colour */
-export const directionMark = (d: Direction) => ({ text: t(`windows.scheduledDir.${d}`), hint: t(`windows.scheduledDir.${d}Hint`), className: `programado-dir dir-${d}` });
+export const directionMark = (d: Direction) => ({ text: t(`windows.scheduledDir.${d}`), hint: t(`windows.scheduledDir.${d}Hint`), className: `scheduled-dir dir-${d}` });
 
 /** Where it goes, for lists with no «here» (Planning's): a room (and its task or thread), or a room's conversation */
 export function scheduledTarget(x: Pick<ScheduledMessage, 'target'>, roomName: (id: string) => string | undefined): string {

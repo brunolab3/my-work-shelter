@@ -38,7 +38,7 @@ const still = async () => { let ant = ''; for (let i = 0; i < 60; i++) { const p
 const close = async () => {
   await pg.evaluate(() => { if (window.__game.get().talkingWith) window.dispatchEvent(new CustomEvent('shelter:dialog-end')); window.__game.set({ panel: null, panelData: null, talkingWith: null }); });
   for (let i = 0; i < 4; i++) {
-    const x = pg.locator('button.consola-x[title^="Cerrar"]'); if (!(await x.count())) break;
+    const x = pg.locator('button.console-x[title^="Cerrar"]'); if (!(await x.count())) break;
     await x.first().click(); await wait(400);
   }
 };

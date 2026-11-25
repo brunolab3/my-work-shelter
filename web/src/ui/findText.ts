@@ -33,8 +33,8 @@ interface Focused { tagName: string; closest(selector: string): unknown }
  *  terminal or editor keeps ⌘F to itself (null) */
 export function findKind(active: Focused | null, intercomShown: boolean): FindKind | null {
   if (!active || active.tagName === 'BODY' || active.tagName === 'HTML') return intercomShown ? 'intercom' : null;
-  if (active.tagName === 'WEBVIEW' && active.closest('.ventana-navegador')) return 'web';
-  if (active.tagName === 'IFRAME' && active.closest('.ventana-navegador')) return 'page';
-  if (active.closest('.consola')) return 'intercom';
+  if (active.tagName === 'WEBVIEW' && active.closest('.window-browser')) return 'web';
+  if (active.tagName === 'IFRAME' && active.closest('.window-browser')) return 'page';
+  if (active.closest('.console')) return 'intercom';
   return null;
 }

@@ -234,18 +234,18 @@ function WindowTerminal({ v }: { v: WindowTerm }) {
   const inRunning = v.confirm ? v.tabs.filter(p => v.confirm!.includes(p.id) && !p.inPrompt) : [];
   const path = pathWorktree(v.cwd, worktreesKnown()), wtTask = path ? worktreeTask({ path }) : undefined;
   return (
-    <div ref={frame} className={'ventana-terminal interactivo' + (v.maximized ? ' maximizada' : '')} style={{ ...style, zIndex: v.maximized ? 200000 + v.z : v.z, display: v.minimized ? 'none' : undefined }}
+    <div ref={frame} className={'window-terminal interactive' + (v.maximized ? ' maximized' : '')} style={{ ...style, zIndex: v.maximized ? 200000 + v.z : v.z, display: v.minimized ? 'none' : undefined }}
       onPointerDown={() => onFront(v.id)} onKeyDownCapture={shortcuts}
       onMouseUp={() => { if (v.maximized) return; const r = frame.current?.getBoundingClientRect(); if (r && (Math.abs(r.width - v.w) > 2 || Math.abs(r.height - v.h) > 2)) update(v.id, { w: r.width, h: r.height }); }}>
-      <div className="vt-cabeza" onPointerDown={drag} onDoubleClick={e => { if (!(e.target as HTMLElement).closest('button')) toggleMaximize(v.id); }}>
-        <span className="rejilla" /><span className={'pilot ' + (v.tabs.some(p => !p.inPrompt) ? 'working' : 'idle')} />
-        <span className="vt-titulo">{t('windows.terminal')} · {v.title}</span><span className="vt-ruta">{v.cwd}{active?.program ? ` · ${active.program}` : ''}{active?.outside ? ` · ${t('windows.alsoOnYourDesktop')}` : ''}</span>
+      <div className="vt-head" onPointerDown={drag} onDoubleClick={e => { if (!(e.target as HTMLElement).closest('button')) toggleMaximize(v.id); }}>
+        <span className="grid" /><span className={'pilot ' + (v.tabs.some(p => !p.inPrompt) ? 'working' : 'idle')} />
+        <span className="vt-title">{t('windows.terminal')} · {v.title}</span><span className="vt-path">{v.cwd}{active?.program ? ` · ${active.program}` : ''}{active?.outside ? ` · ${t('windows.alsoOnYourDesktop')}` : ''}</span>
         <WindowButtons takeOut={() => takeASurface({ terminals: [v.active] })} takesThat={t('windows.thisTerminalTheSameOne')} maximized={v.maximized} minimize={() => minimize(v.id)} toggleMaximize={() => toggleMaximize(v.id)} close={() => askClose(v.id)} closesThat={t('windows.theTerminalAndAllIts')} />
       </div>
       {/* in opening order: a program starting does not move its tab */}
       <Tabs list={list} confirming={!!v.confirm} items={v.tabs.map(p => ({ id: p.id, name: (p.outside ? '↗ ' : '') + (p.program ?? folderName(v.cwd)), state: p.inPrompt ? 'idle' as const : 'working' as const, task: wtTask, title: (p.program ? t('windows.programRunning', { program: p.program }) : t('windows.atThePrompt')) + (p.outside ? ` · ${t('windows.alsoOpenOnYourDesktop')}` : '') }))}
         active={v.active} activate={pid => activate(v.id, pid)} close={pids => askClose(v.id, pids)} onNew={() => newTab(v.id)} opensThat={t('windows.newTabInTheSame')} />
-      <div className="vt-cuerpo">
+      <div className="vt-body">
         {v.tabs.map(p => <TabTerminal key={p.id} id={p.id} cwd={v.cwd} visible={!v.minimized && p.id === v.active} />)}
         {v.confirm && <Confirm v={v} inRunning={inRunning} />}
       </div>

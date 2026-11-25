@@ -74,10 +74,10 @@ try {
   check(await pg.evaluate(() => window.__client.action('preflight.gate', { path: '/etc' }).then(() => false, () => true)), 'la puerta no mira carpetas que no son del refugio');
 
   // ---- the box with the real task, from ⌘K: only offered once the task has a PR
-  const offered = async key => (await pg.$$eval('.fila-buscador .txt', f => f.map(x => x.textContent))).includes('Pre-flight ' + key);
+  const offered = async key => (await pg.$$eval('.row-search .txt', f => f.map(x => x.textContent))).includes('Pre-flight ' + key);
   const preflightK = async key => {
     await pg.keyboard.press('Meta+KeyK');
-    await pg.waitForSelector('.buscador input');
+    await pg.waitForSelector('.search input');
     await pg.keyboard.type(key.toLowerCase());
     const ok = await until(() => offered(key));
     if (key === 'QA-7') await pg.screenshot({ path: path.join(dir, 'preflight-buscador.png'), animations: 'disabled', timeout: 10000 }).catch(() => console.log('(no ⌘K screenshot: timed out)'));
@@ -85,7 +85,7 @@ try {
     return ok;
   };
   await pg.keyboard.press('Meta+KeyK');
-  await pg.waitForSelector('.buscador input');
+  await pg.waitForSelector('.search input');
   await pg.keyboard.type('qa-7');
   await pg.waitForTimeout(800);
   check(!(await offered('QA-7')), '⌘K offers no pre-flight for a task without PRs');
@@ -99,7 +99,7 @@ try {
     window.__board.set({ prs });
   });
   check(await preflightK('QA-7'), '⌘K offers «Pre-flight QA-7» once a PR names it');
-  check(await until(async () => /QA-7/.test(await pg.textContent('.pf-box').catch(() => '')) && !(await pg.isVisible('.pf-tabla')) && /tienda/.test(await pg.textContent('.pf-box'))), 'Enter opens the box: the real action has no GitHub, so no table, and the room working on it is named');
+  check(await until(async () => /QA-7/.test(await pg.textContent('.pf-box').catch(() => '')) && !(await pg.isVisible('.pf-table')) && /tienda/.test(await pg.textContent('.pf-box'))), 'Enter opens the box: the real action has no GitHub, so no table, and the room working on it is named');
   check((await pg.evaluate(() => window.__game.get().panel)) === null, 'it is not a panel');
   await pg.waitForTimeout(600); await pg.screenshot({ path: path.join(dir, 'preflight-real.png'), animations: 'disabled' });
   await pg.keyboard.press('Escape');
@@ -149,22 +149,22 @@ try {
   const size = await pg.$eval('.pf-box', e => { const r = e.getBoundingClientRect(); return { w: Math.round(r.width), h: Math.round(r.height) }; });
   check(size.w < 1600 * 0.6 && size.h < 1000 * 0.75, `a small box (${JSON.stringify(size)})`);
   check((await pg.evaluate(() => window.__game.get().panel)) === 'help' && await pg.$eval('.device', box) === panelBefore, 'the panel underneath stays open, same place and size');
-  check(await pg.$eval('.pf-row.pf-hecha .pf-parte', e => getComputedStyle(e).textDecorationLine.includes('line-through')), 'the merged PR is struck through');
-  check(await pg.$eval('.pf-row .pf-parte', e => e.title.includes('PR de ejemplo') && getComputedStyle(e).textOverflow === 'ellipsis'), 'the PR title truncates, with the full title in its tooltip');
-  const headers = await pg.$$eval('.pf-tabla th', th => th.map(x => x.textContent).join('|'));
+  check(await pg.$eval('.pf-row.pf-done .pf-part', e => getComputedStyle(e).textDecorationLine.includes('line-through')), 'the merged PR is struck through');
+  check(await pg.$eval('.pf-row .pf-part', e => e.title.includes('PR de ejemplo') && getComputedStyle(e).textOverflow === 'ellipsis'), 'the PR title truncates, with the full title in its tooltip');
+  const headers = await pg.$$eval('.pf-table th', th => th.map(x => x.textContent).join('|'));
   check(!/Compare|Checklist|Sincron|Sync/.test(headers) && /Conflict/.test(headers), `no push columns, a conflicts column (${headers})`);
   const states = await pg.$$eval('.pf-state', e => e.map(x => x.textContent));
   check(states.join(' ') === '✔ ✗ ✗ ⚠', `merged ✔, red CI ✗, conflicts ✗, the one that waits ⚠ (not ✗), in merge order (${states.join(' ')})`);
-  check(!(await pg.$$('.pf-hilo')).length && !/carrito\.ts/.test(await pg.textContent('.pf-tabla')), 'no review threads listed, only their count');
+  check(!(await pg.$$('.pf-hilo')).length && !/carrito\.ts/.test(await pg.textContent('.pf-table')), 'no review threads listed, only their count');
   check(/docs/.test(await pg.textContent('.pf-box')), 'the plan part without a PR is named below');
-  check(/1.*api#4.*api#1.*web#3.*2.*web#2/.test(await pg.textContent('.orden-despliegue')) && await pg.$eval('.orden-despliegue .pf-hecha', e => /api#4/.test(e.textContent)), 'merge order, with the merged PR struck through');
+  check(/1.*api#4.*api#1.*web#3.*2.*web#2/.test(await pg.textContent('.order-expand')) && await pg.$eval('.order-expand .pf-done', e => /api#4/.test(e.textContent)), 'merge order, with the merged PR struck through');
   await pg.waitForTimeout(600); await pg.screenshot({ path: path.join(dir, 'preflight-dos-repos.png'), animations: 'disabled' });
   // outside Electron the GitHub window is a new tab (window.open): what matters is which URL it opens
   await pg.evaluate(() => { window.__open = ''; window.open = u => { window.__open = String(u); return null; }; });
-  await pg.click('.pf-row:nth-child(2) .pf-parte');
+  await pg.click('.pf-row:nth-child(2) .pf-part');
   check(await until(async () => (await pg.evaluate(() => window.__open)) === 'https://github.com/acme/api/pull/1'), 'clicking a row opens its PR');
   await pg.evaluate(() => { window.__open = ''; });
-  await pg.click('.pf-row:nth-child(4) td:last-child .pf-boton');
+  await pg.click('.pf-row:nth-child(4) td:last-child .pf-button');
   check(await until(async () => (await pg.evaluate(() => window.__open)) === 'https://github.com/acme/api/pull/1'), 'clicking the blockers of web#2 opens api#1, the PR it waits for');
   await pg.evaluate(() => { window.__open = ''; });
   await pg.keyboard.press('ArrowUp'); await pg.keyboard.press('Enter');
@@ -183,11 +183,11 @@ try {
   });
   const legend = () => pg.textContent('.device kbd:last-of-type >> xpath=..').catch(() => '');
   check(await until(async () => (await pg.$$('.card-issue')).length === 2 && /QA-5/.test(await pg.textContent('.card-issue.sel').catch(() => ''))), 'the Jira board shows both tasks, QA-5 (no PR) selected');
-  check(!/Pre-flight/.test(await legend()) && !(await pg.$('.botonera button:has-text("Pre-flight")')), 'a task without PRs: no F in the legend, no button');
+  check(!/Pre-flight/.test(await legend()) && !(await pg.$('.button-bar button:has-text("Pre-flight")')), 'a task without PRs: no F in the legend, no button');
   await pg.keyboard.press('KeyF'); await pg.waitForTimeout(400);
   check(!(await pg.$('.pf-box')), '…and F does nothing');
   await pg.keyboard.press('ArrowRight'); await pg.keyboard.press('ArrowRight');   // past the empty Blocked column
-  check(await until(async () => /QA-9/.test(await pg.textContent('.card-issue.sel').catch(() => '')) && /Pre-flight/.test(await legend()) && !!(await pg.$('.botonera button:text-matches("Pre-flight.*QA-9")'))), 'QA-9 (with a PR): F in the legend and a «Pre-flight QA-9» button');
+  check(await until(async () => /QA-9/.test(await pg.textContent('.card-issue.sel').catch(() => '')) && /Pre-flight/.test(await legend()) && !!(await pg.$('.button-bar button:text-matches("Pre-flight.*QA-9")'))), 'QA-9 (with a PR): F in the legend and a «Pre-flight QA-9» button');
   await pg.keyboard.press('KeyF');
   check(await until(async () => (await pg.$$('.pf-row')).length === 4), 'F opens the pre-flight of QA-9');
   const near = await pg.evaluate(() => { const a = document.querySelector('.card-issue.sel').getBoundingClientRect(), b = document.querySelector('.pf-box').getBoundingClientRect(); return Math.min(Math.abs(b.top - a.bottom), Math.abs(b.bottom - a.top), Math.abs(b.left - a.right), Math.abs(b.right - a.left)) < 40; });
@@ -196,7 +196,7 @@ try {
   await pg.waitForTimeout(400); await pg.screenshot({ path: path.join(dir, 'preflight-jira.png'), animations: 'disabled' });
   await pg.keyboard.press('Escape');
   check(await until(async () => !(await pg.$('.pf-box'))) && (await pg.evaluate(() => window.__game.get().panel)) === 'logistics', 'Esc closes the box, the board stays');
-  await pg.click('.botonera button:text-matches("Pre-flight.*QA-9")');
+  await pg.click('.button-bar button:text-matches("Pre-flight.*QA-9")');
   check(await until(async () => (await pg.$$('.pf-row')).length === 4), 'the button opens it too');
   await pg.keyboard.press('Escape');
   await until(async () => !(await pg.$('.pf-box')));
@@ -204,19 +204,19 @@ try {
 
   // ---- a task fully merged
   await preflightK('QA-11');
-  check(await until(async () => (await pg.$$('.pf-row.pf-hecha')).length === 2), 'fully merged: both rows struck through');
-  check(await until(async () => (await pg.$$('.orden-despliegue .pf-ola-hecha')).length === 2 && /✔/.test(await pg.textContent('.pf-aterrizada').catch(() => ''))), 'every wave ✔ and «the task has landed»');
+  check(await until(async () => (await pg.$$('.pf-row.pf-done')).length === 2), 'fully merged: both rows struck through');
+  check(await until(async () => (await pg.$$('.order-expand .pf-wave-done')).length === 2 && /✔/.test(await pg.textContent('.pf-landed').catch(() => ''))), 'every wave ✔ and «the task has landed»');
   // production verification: the plan unapproved (v2), its checkpoints' states, the signals' where and evidence in their tooltips
-  check(await until(async () => (await pg.$$('.pf-verificacion .pf-point')).length === 2), 'the verification plan: one row per checkpoint');
-  const verif = await pg.textContent('.pf-verificacion');
+  check(await until(async () => (await pg.$$('.pf-verification .pf-point')).length === 2), 'the verification plan: one row per checkpoint');
+  const verif = await pg.textContent('.pf-verification');
   check(/v2/.test(verif) && /(evidenced|comprobado)/.test(verif) && /(waiting for traffic|esperando tráfico)/.test(verif), 'not approved v2, the PR evidenced, the final waiting for traffic');
   check(await pg.$eval('.pf-point li', e => e.title.includes('«gone»') && e.title.includes('20 a week') && e.title.includes('0 since the deploy')), 'a signal\'s where, baseline and evidence in its tooltip');
   check(/Prod check/.test(verif), 'the tracker\'s status and its board\'s prod-check one');
   await pg.waitForTimeout(400); await pg.screenshot({ path: path.join(dir, 'preflight-verificacion.png'), animations: 'disabled' });
-  await pg.click('.pf-verificacion button:text-matches("Approve|Aprobar")');
-  check(await until(async () => /(approved|aprobado) \(v2\)/.test(await pg.textContent('.pf-verificacion'))), 'approving it: approved (v2), the button gone');
-  await pg.click('.pf-verificacion button:text-matches("Done")');
-  check(await until(async () => /: Done/.test(await pg.textContent('.pf-verificacion')) && !(await pg.$('.pf-verificacion button'))), 'moving it to done: the tracker says Done');
+  await pg.click('.pf-verification button:text-matches("Approve|Aprobar")');
+  check(await until(async () => /(approved|aprobado) \(v2\)/.test(await pg.textContent('.pf-verification'))), 'approving it: approved (v2), the button gone');
+  await pg.click('.pf-verification button:text-matches("Done")');
+  check(await until(async () => /: Done/.test(await pg.textContent('.pf-verification')) && !(await pg.$('.pf-verification button'))), 'moving it to done: the tracker says Done');
   check(JSON.stringify(await pg.evaluate(() => window.__qaVerif)) === '["verificacion.aprobar","verificacion.cerrar"]', 'each through its action');
   await pg.waitForTimeout(400); await pg.screenshot({ path: path.join(dir, 'preflight-aterrizada.png'), animations: 'disabled' });
   await pg.keyboard.press('Escape');

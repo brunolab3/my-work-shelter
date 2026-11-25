@@ -47,15 +47,15 @@ export function RunningThings() {
   const light = memoryLight(snap?.totalMb, memoryThreshold());
   const r = open ? box.current?.getBoundingClientRect() : undefined;
   return (
-    <div ref={box} className="seg fosforo procesos" tabIndex={0} aria-label={t('panels.running.title')}
+    <div ref={box} className="seg phosphor processes" tabIndex={0} aria-label={t('panels.running.title')}
       onMouseEnter={show} onMouseLeave={hide} onFocus={show} onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) hide(); }}>
-      <span className={'luz ' + light} />
+      <span className={'light ' + light} />
       <span className="txt">{t('panels.running.short')}</span>
       <span className={'n ' + light}>{snap ? formatMb(snap.totalMb) : '—'}</span>
       {r && createPortal(
-        <div className="procesos-pop" role="dialog" aria-label={t('panels.running.title')} style={{ top: r.bottom + 6, right: Math.max(8, innerWidth - r.right) }}
+        <div className="processes-pop" role="dialog" aria-label={t('panels.running.title')} style={{ top: r.bottom + 6, right: Math.max(8, innerWidth - r.right) }}
           onMouseEnter={show} onMouseLeave={hide} onFocus={show} onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) hide(); }}>
-          <div className="procesos-pop-titulo">{t('panels.running.title')}</div>
+          <div className="processes-pop-title">{t('panels.running.title')}</div>
           {!snap ? <div className="dim">{t('panels.running.reading')}</div> : <Lists snap={snap} />}
         </div>, document.body)}
     </div>
@@ -66,9 +66,9 @@ function Lists({ snap }: { snap: RunningSnapshot }) {
   // the helpers as one line, where their memory puts it among the game's processes
   const helpersAt = snap.game.findIndex(p => p.mb < snap.helpers.mb);
   const gameRows = snap.game.map(p => <Row key={p.pid} p={p} name={PART[p.part]} />);
-  if (snap.helpers.count) gameRows.splice(helpersAt < 0 ? gameRows.length : helpersAt, 0, <div key="helpers" className="proceso">
-    <span className="proceso-nombre">{t('panels.running.helpers', { n: snap.helpers.count })}</span>
-    <span className="proceso-mb">{formatMb(snap.helpers.mb)}</span><span /><span />
+  if (snap.helpers.count) gameRows.splice(helpersAt < 0 ? gameRows.length : helpersAt, 0, <div key="helpers" className="process">
+    <span className="process-name">{t('panels.running.helpers', { n: snap.helpers.count })}</span>
+    <span className="process-mb">{formatMb(snap.helpers.mb)}</span><span /><span />
   </div>);
   return <>
     <div className="dim">{t('panels.running.total', { total: formatMb(snap.totalMb), threshold: formatMb(memoryThreshold()) })}</div>
@@ -86,7 +86,7 @@ function Lists({ snap }: { snap: RunningSnapshot }) {
       <h4>{t('panels.running.jobs')} <span className="dim">{formatMb(snap.dwellers.reduce((s, d) => s + d.children.reduce((t, c) => t + c.mb, 0), 0))}</span></h4>
       {!snap.dwellers.some(d => d.children.length) && <div className="dim">{t('panels.running.noJobs')}</div>}
       {snap.dwellers.filter(d => d.children.length).map(d => <React.Fragment key={d.pid}>
-        <div className="proceso-de">{who(d.sessionId)}</div>
+        <div className="process-of">{who(d.sessionId)}</div>
         {d.children.map(c => <Row key={c.pid} p={c} stoppable />)}
       </React.Fragment>)}
     </section>
@@ -112,14 +112,14 @@ function Row({ p, name, by, stoppable }: { p: ProcessInfo; name?: string; by?: s
     client.action('processes.stop', { pid: p.pid }).catch(e => { setStopping(false); addNotice('error', (e as Error).message); });
   };
   return (
-    <div className={'proceso' + (stopping ? ' parando' : '')} style={{ paddingLeft: `${(p.depth ?? 0) * 0.9}em` }} title={p.command}>
-      <span className="proceso-nombre">{name ?? shortCommand(p.command)}
+    <div className={'process' + (stopping ? ' stopping' : '')} style={{ paddingLeft: `${(p.depth ?? 0) * 0.9}em` }} title={p.command}>
+      <span className="process-name">{name ?? shortCommand(p.command)}
         {p.ports?.length ? <span className="dim"> · {t('panels.running.ports', { ports: p.ports.join(', ') })}</span> : null}
         {by && <span className="dim"> · {by}</span>}
       </span>
-      <span className="proceso-mb">{formatMb(p.mb)}</span>
+      <span className="process-mb">{formatMb(p.mb)}</span>
       <span className="proceso-edad dim">{formatAge(p.ageS)}</span>
-      {stoppable ? <button className={'proceso-parar' + (confirm ? ' confirm' : '')} disabled={stopping} onClick={stop}>
+      {stoppable ? <button className={'process-stop' + (confirm ? ' confirm' : '')} disabled={stopping} onClick={stop}>
         {stopping ? t('panels.running.stopping') : confirm ? t('panels.running.confirmStop') : t('panels.running.stop')}
       </button> : <span />}
     </div>
@@ -133,9 +133,9 @@ function WindowReload() {
   const b = memoryReloadButton();
   if (!b.show || mb == null) return null;
   return (
-    <div className="proceso-recarga">
+    <div className="process-reload">
       <span>{t('panels.running.window', { mb: formatMb(mb) })}</span>
-      <button className="boton-puerta" disabled={!!b.reason} onClick={() => reloadForMemory()} title={t('menu.memoryReloadKeeps')}>{t('menu.memoryReloadNow')}</button>
+      <button className="button-door" disabled={!!b.reason} onClick={() => reloadForMemory()} title={t('menu.memoryReloadKeeps')}>{t('menu.memoryReloadNow')}</button>
       {b.reason && <span className="dim">{t(b.reason)}</span>}
     </div>
   );

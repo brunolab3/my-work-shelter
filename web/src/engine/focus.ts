@@ -21,7 +21,7 @@ export function watchFirstMap(onChange: (active: boolean) => void) {
   let last: boolean | null = null;
   const watch = () => {
     const active = firstMapNow();
-    document.documentElement.classList.toggle('en-segundo-plano', !active);
+    document.documentElement.classList.toggle('in-background', !active);
     if (active === last) return;
     last = active;
     onChange(active);

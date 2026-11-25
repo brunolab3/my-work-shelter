@@ -31,7 +31,7 @@ const thatUntil = async (f, ms = 10000) => { for (const end = Date.now() + ms; D
 let failures = 0; const ok = (c, txt) => { console.log((c ? 'OK   ' : 'FAILED') + ' ' + txt); if (!c) failures++; };
 const disco = (rel) => readFileSync(path.join(repo, rel), 'utf8');
 const sel = () => pg.evaluate(() => document.querySelector('.ex-row.sel')?.dataset.rel ?? null);
-const tabs = () => pg.$$eval('.ex-tab', ps => ps.map(p => p.querySelector('.ex-pestana-nombre').textContent + (p.classList.contains('sucia') ? '●' : '') + (p.classList.contains('previa') ? '(previa)' : '') + (p.classList.contains('active') ? '*' : '')));
+const tabs = () => pg.$$eval('.ex-tab', ps => ps.map(p => p.querySelector('.ex-tab-name').textContent + (p.classList.contains('dirty') ? '●' : '') + (p.classList.contains('preview') ? '(previa)' : '') + (p.classList.contains('active') ? '*' : '')));
 
 await pg.evaluate(async r => { const rooms = window.__live.get().state.rooms; if (!rooms.some(s => s.path === r)) await window.__client.action('recruit', { path: r }); await window.__client.action('save', { patch: { doneWelcome: true } }); window.__game.set({ panel: null, panelData: null }); }, repo);
 await wait(2500);
@@ -45,21 +45,21 @@ await pg.evaluate(r => window.__files.openFiles({ root: r }), repo);
 ok(await until(() => document.querySelectorAll('.ventana-archivos .ex-row').length >= 4), 'abre la ventana con el árbol');
 ok(await pg.evaluate(r => window.__files.filesWindow.get().root === r, repo), 'con la carpeta de la sala');
 await wait(800);
-const rows = await pg.$$eval('.ex-row', fs => fs.map(f => f.dataset.rel + (f.classList.contains('ignorado') ? ' [ign]' : '') + ([...f.classList].find(c => c.startsWith('l-')) ? ' [' + [...f.classList].find(c => c.startsWith('l-')) + ']' : '')));
+const rows = await pg.$$eval('.ex-row', fs => fs.map(f => f.dataset.rel + (f.classList.contains('ignored') ? ' [ign]' : '') + ([...f.classList].find(c => c.startsWith('l-')) ? ' [' + [...f.classList].find(c => c.startsWith('l-')) + ']' : '')));
 console.log('     árbol:', rows.join(' | '));
 ok(rows[0].startsWith('node_modules') && rows.includes('.env [ign]') && rows.some(f => f.startsWith('src') && f.includes('l-M')), 'carpetas primero, .env y node_modules atenuados, src con cambios dentro');
 await photo('1-arbol');
 
 // teclado en el árbol: escribir salta, → despliega, Espacio abre en vista previa
-ok(await pg.evaluate(() => document.activeElement?.classList.contains('ex-arbol')), 'el árbol tiene el foco al abrir');
+ok(await pg.evaluate(() => document.activeElement?.classList.contains('ex-tree')), 'el árbol tiene el foco al abrir');
 await pg.keyboard.type('s'); ok((await sel()) === 'src', 'escribir «s» salta a src');
 await pg.keyboard.press('ArrowRight');
 ok(await until(() => !!document.querySelector('[data-rel="src/app.ts"]')), '→ despliega src');
 await pg.keyboard.press('ArrowRight'); ok((await sel()) === 'src/lib', '→ otra vez entra (primera fila: src/lib)');
 await pg.keyboard.press('ArrowDown'); ok((await sel()) === 'src/app.ts', '↓ baja');
 await pg.keyboard.press('Space');
-ok(await until(() => !!document.querySelector('.ex-tab.previa.active')), 'Espacio abre en vista previa (cursiva)');
-ok(await pg.evaluate(() => document.activeElement?.classList.contains('ex-arbol')), '…sin dejar el árbol');
+ok(await until(() => !!document.querySelector('.ex-tab.preview.active')), 'Espacio abre en vista previa (cursiva)');
+ok(await pg.evaluate(() => document.activeElement?.classList.contains('ex-tree')), '…sin dejar el árbol');
 await until(() => document.querySelector('.ex-monaco')?.style.visibility === 'inherit' && !!document.querySelector('.monaco-editor .view-lines'), null, 30000);
 await wait(500);
 await photo('2-vista-previa');
@@ -67,19 +67,19 @@ await pg.keyboard.press('ArrowLeft'); ok((await sel()) === 'src', '← sube a la
 
 // ⌘P: abrir por nombre, editar y guardar
 await pg.keyboard.press('Meta+P');
-ok(await until(() => !!document.querySelector('.ex-rapido input')), '⌘P abre la búsqueda por nombre');
+ok(await until(() => !!document.querySelector('.ex-quick input')), '⌘P abre la búsqueda por nombre');
 await pg.keyboard.type('util');
 await wait(300);
 await photo('3-abrir-rapido');
 await pg.keyboard.press('Enter');
-ok(await until(() => document.querySelector('.ex-tab.active .ex-pestana-nombre')?.textContent === 'util.ts'), 'Intro abre util.ts');
+ok(await until(() => document.querySelector('.ex-tab.active .ex-tab-name')?.textContent === 'util.ts'), 'Intro abre util.ts');
 ok(await until(() => document.activeElement?.closest('.monaco-editor') != null), '…con el foco en el editor');
 console.log('     pestañas:', (await tabs()).join(' | '));
 await pg.keyboard.press('Meta+ArrowDown');   // en Monaco, al final del archivo
 await pg.keyboard.type('export const y = 2;\n');
-ok(await until(() => !!document.querySelector('.ex-tab.active.sucia')), 'editar marca la pestaña ● sin guardar');
+ok(await until(() => !!document.querySelector('.ex-tab.active.dirty')), 'editar marca la pestaña ● sin guardar');
 await pg.keyboard.press('Meta+S');
-ok(await until(() => !document.querySelector('.ex-tab.active.sucia')), '⌘S guarda');
+ok(await until(() => !document.querySelector('.ex-tab.active.dirty')), '⌘S guarda');
 ok(disco('src/lib/util.ts').includes('export const y = 2;'), 'el disco tiene el cambio');
 // teclas de Cursor dentro del editor: ⌘D elige la siguiente coincidencia, ⌘/ comenta
 await pg.keyboard.press('Meta+ArrowUp');
@@ -90,8 +90,8 @@ ok(disco('src/lib/util.ts').startsWith('// export const x'), '⌘/ comenta la l�
 
 // el .env
 await pg.keyboard.press('Meta+P'); await pg.keyboard.type('.env'); await wait(200); await pg.keyboard.press('Enter');
-ok(await until(() => document.querySelector('.ex-tab.active .ex-pestana-nombre')?.textContent === '.env'), '⌘P encuentra el .env aunque git lo ignore');
-ok(await until(() => document.querySelector('.ex-estado-der')?.textContent.includes('Variables de entorno')), 'el .env se colorea como variables de entorno');
+ok(await until(() => document.querySelector('.ex-tab.active .ex-tab-name')?.textContent === '.env'), '⌘P encuentra el .env aunque git lo ignore');
+ok(await until(() => document.querySelector('.ex-state-right')?.textContent.includes('Variables de entorno')), 'el .env se colorea como variables de entorno');
 await pg.keyboard.press('Meta+ArrowDown'); await pg.keyboard.type('NUEVA=1\n'); await pg.keyboard.press('Meta+S');
 await wait(500);
 ok(disco('.env').includes('NUEVA=1'), '.env guardado');
@@ -106,10 +106,10 @@ ok((await tabs())[0].endsWith('*'), '⌘1 va a la primera');
 
 // renombrar desde el árbol (Intro), con la pestaña abierta siguiéndolo
 await pg.keyboard.press('Meta+Shift+E');
-ok(await pg.evaluate(() => document.activeElement?.classList.contains('ex-arbol')), '⌘⇧E vuelve al árbol');
+ok(await pg.evaluate(() => document.activeElement?.classList.contains('ex-tree')), '⌘⇧E vuelve al árbol');
 await pg.click('[data-rel="src/lib/util.ts"]');
 await pg.keyboard.press('Enter');
-ok(await until(() => document.activeElement?.classList.contains('ex-campo')), 'Intro renombra (campo en la fila)');
+ok(await until(() => document.activeElement?.classList.contains('ex-field')), 'Intro renombra (campo en la fila)');
 ok(await pg.evaluate(() => { const i = document.activeElement; return i.value.slice(i.selectionStart, i.selectionEnd) === 'util'; }), '…con el nombre sin extensión elegido');
 await pg.keyboard.type('utilidades'); await pg.keyboard.press('Enter');
 ok(await until(() => !!document.querySelector('[data-rel="src/lib/utilidades.ts"]')), 'renombrado en el árbol');
@@ -118,32 +118,32 @@ ok((await tabs()).some(p => p.startsWith('utilidades.ts')), 'la pestaña sigue a
 
 // archivo nuevo con ⌘N en la carpeta elegida, y a la papelera con ⌘⌫
 await pg.keyboard.press('Meta+N');
-ok(await until(() => document.activeElement?.classList.contains('ex-campo')), '⌘N pide el nombre');
+ok(await until(() => document.activeElement?.classList.contains('ex-field')), '⌘N pide el nombre');
 await pg.keyboard.type('nuevo.txt'); await pg.keyboard.press('Enter');
-ok(await until(() => document.querySelector('.ex-tab.active .ex-pestana-nombre')?.textContent === 'nuevo.txt'), 'archivo nuevo creado en src/lib y abierto');
+ok(await until(() => document.querySelector('.ex-tab.active .ex-tab-name')?.textContent === 'nuevo.txt'), 'archivo nuevo creado en src/lib y abierto');
 ok(existsSync(path.join(repo, 'src/lib/nuevo.txt')), 'src/lib/nuevo.txt existe');
 await pg.keyboard.press('Meta+Shift+E');
 ok((await sel()) === 'src/lib/nuevo.txt', 'el árbol lo tiene elegido');
 await pg.keyboard.press('Meta+Backspace');
-ok(await until(() => !!document.querySelector('.ventana-archivos .vt-confirmar')), '⌘⌫ pregunta');
+ok(await until(() => !!document.querySelector('.ventana-archivos .vt-confirm')), '⌘⌫ pregunta');
 await photo('5-papelera');
 await pg.keyboard.press('Enter');
 ok(await until(() => !document.querySelector('[data-rel="src/lib/nuevo.txt"]')), 'a la papelera');
 ok(!existsSync(path.join(repo, 'src/lib/nuevo.txt')), '…y fuera del disco');
-ok(await until(() => !!document.querySelector('.ex-tab.borrada')), 'su pestaña queda tachada (ya no está)');
+ok(await until(() => !!document.querySelector('.ex-tab.deleted')), 'su pestaña queda tachada (ya no está)');
 await pg.keyboard.press('Meta+W');
 
 // cambios en el disco: sin tocar, se recarga; tocado, se avisa y al guardar se pregunta
 await pg.keyboard.press('Meta+P'); await pg.keyboard.type('README'); await wait(200); await pg.keyboard.press('Enter');
-await until(() => document.querySelector('.ex-tab.active .ex-pestana-nombre')?.textContent === 'README.md');
+await until(() => document.querySelector('.ex-tab.active .ex-tab-name')?.textContent === 'README.md');
 const play = (rel, txt) => { writeFileSync(path.join(repo, rel), txt); const t = new Date(Date.now() + 3000); utimesSync(path.join(repo, rel), t, t); };
 play('README.md', '# Cambiado por fuera\n');
 ok(await until(() => document.querySelector('.ex-monaco .view-lines')?.textContent.replace(/\u00a0/g, ' ').includes('Cambiado por fuera'), null, 12000), 'un cambio en el disco se ve solo (sin cambios tuyos)');
 await pg.keyboard.press('Meta+ArrowDown'); await pg.keyboard.type('mío\n');
 play('README.md', '# Otra vez por fuera\n');
-ok(await until(() => !!document.querySelector('.ex-tab.active .ex-pestana-ojo'), null, 12000), 'con cambios tuyos, la pestaña avisa ⚠');
+ok(await until(() => !!document.querySelector('.ex-tab.active .ex-tab-eye'), null, 12000), 'con cambios tuyos, la pestaña avisa ⚠');
 await pg.keyboard.press('Meta+S');
-ok(await until(() => document.querySelector('.ventana-archivos .vt-confirmar')?.textContent.includes('ha cambiado en el disco')), '⌘S pregunta antes de pisarlo');
+ok(await until(() => document.querySelector('.ventana-archivos .vt-confirm')?.textContent.includes('ha cambiado en el disco')), '⌘S pregunta antes de pisarlo');
 await photo('6-conflicto');
 await pg.keyboard.press('Enter');
 ok(await thatUntil(() => disco('README.md').includes('mío')), 'Sobrescribir guarda lo tuyo');
@@ -151,18 +151,18 @@ ok(await thatUntil(() => disco('README.md').includes('mío')), 'Sobrescribir gua
 // cerrar con algo sin guardar pregunta
 await pg.keyboard.type('más\n');
 await pg.keyboard.press('Meta+W');
-ok(await until(() => document.querySelector('.ventana-archivos .vt-confirmar')?.textContent.includes('¿Guardar los cambios')), '⌘W con cambios pregunta');
+ok(await until(() => document.querySelector('.ventana-archivos .vt-confirm')?.textContent.includes('¿Guardar los cambios')), '⌘W con cambios pregunta');
 await pg.keyboard.press('Escape');
-ok(await until(() => !document.querySelector('.ventana-archivos .vt-confirmar')), 'Esc cancela');
+ok(await until(() => !document.querySelector('.ventana-archivos .vt-confirm')), 'Esc cancela');
 await pg.keyboard.press('Meta+Shift+W');
-ok(await until(() => document.querySelector('.ventana-archivos .vt-confirmar')?.textContent.includes('sin guardar')), '⌘⇧W con cambios pregunta');
-await pg.click('.vt-confirmar button:has-text("Cerrar sin guardar")');
+ok(await until(() => document.querySelector('.ventana-archivos .vt-confirm')?.textContent.includes('sin guardar')), '⌘⇧W con cambios pregunta');
+await pg.click('.vt-confirm button:has-text("Cerrar sin guardar")');
 ok(await until(() => !document.querySelector('.ventana-archivos')), 'la ventana se cierra');
 
 // desde el cliente de git
 await pg.evaluate(r => window.__git.openGit({ path: r, view: 'changes' }), repo);
 await wait(1200);
-await pg.click('.ventana-git:not(.ventana-archivos) button:has-text("Archivos")');
+await pg.click('.window-git:not(.ventana-archivos) button:has-text("Archivos")');
 ok(await until(() => !!document.querySelector('.ventana-archivos .ex-tab.active')), 'el botón Archivos del cliente de git abre el archivo elegido');
 await wait(600);
 await photo('7-desde-git');
@@ -170,14 +170,14 @@ await photo('7-desde-git');
 // minimizada no queda nada de ella por encima del refugio (el editor llevaba su propio «visible» y se quedaba congelado)
 const rect = await pg.evaluate(() => { const r = document.querySelector('.ventana-archivos .ex-monaco').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; });
 await pg.click('.ventana-archivos button[title^="Minimizar"]');
-ok(await until(() => !!document.querySelector('.ventana-archivos.minimizada')), 'el botón _ la minimiza');
+ok(await until(() => !!document.querySelector('.ventana-archivos.minimized')), 'el botón _ la minimiza');
 await wait(400);
 const visible = await pg.evaluate(() => [...document.querySelectorAll('.ventana-archivos *')].filter(e => getComputedStyle(e).visibility === 'visible').length);
 ok(visible === 0, `minimizada, nada de dentro se ve (${visible} visibles)`);
 ok(await pg.evaluate(({ x, y }) => !document.elementFromPoint(x, y)?.closest('.ventana-archivos'), rect), 'minimizada, el editor no tapa el refugio');
 await photo('8-minimizada');
 await pg.evaluate(() => window.__files.openFiles());
-ok(await until(() => { const m = document.querySelector('.ventana-archivos:not(.minimizada) .ex-monaco'); return !!m && getComputedStyle(m).visibility === 'visible'; }), 'al volver, el editor se ve');
+ok(await until(() => { const m = document.querySelector('.ventana-archivos:not(.minimized) .ex-monaco'); return !!m && getComputedStyle(m).visibility === 'visible'; }), 'al volver, el editor se ve');
 
 console.log(errors.length ? 'Errores en la página:\n  ' + errors.join('\n  ') : 'Sin errores en la página.');
 console.log(failures ? `${failures} FALLOS` : 'TODO OK');

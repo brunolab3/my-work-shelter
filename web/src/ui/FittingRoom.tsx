@@ -43,7 +43,7 @@ function ChooseClient({ pick }: { pick: (q: string) => void }) {
   return (
     <Device label={t('panels.chromePaintBarberShopAnd')} width={40} height>
       <p className="voice">{t('panels.fitoSlipsTheScissorsInto')}</p>
-      <div className="lista-desplazable"><Options items={items} i={i} setI={setI} onChoose={ok} /></div>
+      <div className="list-scrollable"><Options items={items} i={i} setI={setI} onChoose={ok} /></div>
       <Keys><kbd>↑↓</kbd>{t('menu.select')} <kbd>Enter</kbd>{t('panels.toTheChair')} <kbd>Esc</kbd>{t('windows.exit')}</Keys>
     </Device>
   );
@@ -148,25 +148,25 @@ function FittingRoom({ who, goBack }: { who: string; goBack: () => void }) {
 
   const piece = a.pieces[slot as Slot] ? PIECE.get(a.pieces[slot as Slot]!) : null;
   return (
-    <Device label={<>{t('panels.chromePaint')} · <b>{name.toUpperCase()}</b></>} width={74} height kind="aparato-probador" onClose={exit}>
+    <Device label={<>{t('panels.chromePaint')} · <b>{name.toUpperCase()}</b></>} width={74} height kind="device-fitting" onClose={exit}>
       <div className="fitting">
-        <div className="probador-vista">
+        <div className="fitting-view">
           <Preview look={a} focus={focus === 'cara' ? 'cabeza' : focus} onMount={(rg, pd) => { setRegions(rg); setDefault(pd); }} />
-          <div className="probador-especie">
-            <button className={'chip' + (a.especie === 'human' ? ' activo' : '')} onClick={() => a.especie !== 'human' && otherSpecies()}>{t('panels.human')}</button>
-            <button className={'chip' + (a.especie === 'robot' ? ' activo' : '')} onClick={() => a.especie !== 'robot' && otherSpecies()}>{t('panels.robot')}</button>
+          <div className="fitting-species">
+            <button className={'chip' + (a.especie === 'human' ? ' selected' : '')} onClick={() => a.especie !== 'human' && otherSpecies()}>{t('panels.human')}</button>
+            <button className={'chip' + (a.especie === 'robot' ? ' selected' : '')} onClick={() => a.especie !== 'robot' && otherSpecies()}>{t('panels.robot')}</button>
             <span className="dim"><kbd>H</kbd></span>
           </div>
-          <div className="probador-acciones">
+          <div className="fitting-actions">
             <button className="chip" onClick={() => random()} title={t('panels.randomizeAllR')}>⚄ {t('panels.random')}</button>
             <button className="chip" onClick={undo} title={t('panels.undoZ')}>↶ {t('panels.undo')}</button>
             <button className="chip" onClick={() => change(structuredClone(stock))} title={t('panels.asItCameByDefault')}>{t('panels.default')}</button>
           </div>
         </div>
-        <div className="probador-panel">
-          <div className="probador-pestanas">
+        <div className="fitting-panel">
+          <div className="fitting-tabs">
             {cats.map((c, k) => (
-              <button key={c} className={'pestana-probador' + (k === cat ? ' active' : '')} onClick={() => { setCat(k); SFX.tick(); }}>
+              <button key={c} className={'tab-fitting' + (k === cat ? ' active' : '')} onClick={() => { setCat(k); SFX.tick(); }}>
                 {c === 'colores' ? t('panels.colors') : tIs(SLOT_NAME[c])}
                 {c !== 'colores' && a.pieces[c] && <i className="workstation" />}
               </button>
@@ -174,11 +174,11 @@ function FittingRoom({ who, goBack }: { who: string; goBack: () => void }) {
           </div>
           {slot !== 'colores' && (
             <>
-              <div className="probador-titulo">
+              <div className="fitting-title">
                 <h3>{tIs(SLOT_NAME[slot])}</h3>
-                <span className="dim">{t('panels.nOptions', { n: options.length - (REQUIRED.includes(slot) ? 0 : 1) })} · {piece ? <b className="ambar">{tIs(piece.name)}</b> : t('panels.nothing')}</span>
+                <span className="dim">{t('panels.nOptions', { n: options.length - (REQUIRED.includes(slot) ? 0 : 1) })} · {piece ? <b className="amber">{tIs(piece.name)}</b> : t('panels.nothing')}</span>
               </div>
-              <div className={'probador-rejilla' + (zone === 'piezas' ? ' active' : '')}>
+              <div className={'fitting-grid' + (zone === 'piezas' ? ' active' : '')}>
                 {options.map((p, k) => (
                   <Cell key={p?.id ?? 'none'} piece={p} slot={slot} look={a} focus={focus}
                     cursor={zone === 'piezas' && k === cur} setting={k === setting} onChoose={() => { setZone('piezas'); choosePiece(k); }} />
@@ -187,7 +187,7 @@ function FittingRoom({ who, goBack }: { who: string; goBack: () => void }) {
             </>
           )}
           {rows.length > 0 && (
-            <div className={'fitting-colors' + (zone === 'colores' ? ' active' : '') + (slot === 'colores' ? ' todos' : '')}>
+            <div className={'fitting-colors' + (zone === 'colores' ? ' active' : '') + (slot === 'colores' ? ' all' : '')}>
               {slot === 'colores' && <h3>{t('panels.colors')}</h3>}
               {rows.map((r, k) => (
                 <RowColor key={r} region={r} especie={a.especie} value={a.colors[r]} fallback={fallback[r]}
@@ -225,9 +225,9 @@ function Cell({ piece, slot, look, focus, cursor, setting, onChoose }: { piece: 
   }, [lookSignature(withPiece), focus]);
   useEffect(() => { if (cursor) ref.current?.scrollIntoView({ block: 'nearest' }); }, [cursor]);
   return (
-    <button ref={ref} className={'fitting-cell' + (cursor ? ' cursor' : '') + (setting ? ' puesta' : '')} onClick={() => { SFX.click(); onChoose(); }}>
-      <span className="foto">{url ? <img src={url} alt="" draggable={false} /> : <span className="loading" />}{!piece && <span className="none">∅</span>}</span>
-      <span className="nombre">{piece ? tIs(piece.name) : t('windows.nothing')}</span>
+    <button ref={ref} className={'fitting-cell' + (cursor ? ' cursor' : '') + (setting ? ' worn' : '')} onClick={() => { SFX.click(); onChoose(); }}>
+      <span className="photo">{url ? <img src={url} alt="" draggable={false} /> : <span className="loading" />}{!piece && <span className="none">∅</span>}</span>
+      <span className="name">{piece ? tIs(piece.name) : t('windows.nothing')}</span>
     </button>
   );
 }
@@ -237,12 +237,12 @@ function RowColor({ region, especie, value, fallback, active, onSet }: { region:
   const pal = paletteOf(region, especie);
   const own = !!value && !pal.includes(value);
   return (
-    <div className={'fila-color' + (active ? ' active' : '')}>
-      <span className="etq">{tIs(nameRegion(region, especie))}</span>
+    <div className={'row-color' + (active ? ' active' : '')}>
+      <span className="lbl">{tIs(nameRegion(region, especie))}</span>
       <div className="samples">
-        <button className={'muestra original' + (!value ? ' elegida' : '')} style={{ background: fallback ?? 'transparent' }} title={t('panels.thePieceSOwn')} onClick={() => onSet(null)}>↺</button>
-        {pal.map(c => <button key={c} className={'muestra' + (value === c ? ' elegida' : '')} style={{ background: c }} onClick={() => onSet(c)} />)}
-        <label className={'muestra libre' + (own ? ' elegida' : '')} style={own ? { background: value } : undefined} title={t('panels.anotherColor')}>
+        <button className={'sample original' + (!value ? ' chosen' : '')} style={{ background: fallback ?? 'transparent' }} title={t('panels.thePieceSOwn')} onClick={() => onSet(null)}>↺</button>
+        {pal.map(c => <button key={c} className={'sample' + (value === c ? ' chosen' : '')} style={{ background: c }} onClick={() => onSet(c)} />)}
+        <label className={'sample free' + (own ? ' chosen' : '')} style={own ? { background: value } : undefined} title={t('panels.anotherColor')}>
           +<input type="color" value={value ?? fallback ?? '#808080'} onChange={e => onSet(e.target.value)} />
         </label>
       </div>
@@ -286,12 +286,12 @@ function Preview({ look, focus, onMount }: { look: Look; focus: Focus; onMount: 
     return () => { valid = false; clearTimeout(tm); };
   }, [lookSignature(look)]);
   useEffect(() => { const e = studio.current; if (!e) return; if (focus !== 'espalda' && e.rotation > 2) e.rotation = 0.35; e.frame(focus); }, [focus]);
-  return <div className={'probador-lienzo' + (loading ? ' loading' : '')} ref={box}><span className="pista-giro">{t('panels.dragToRotate')}</span></div>;
+  return <div className={'fitting-canvas' + (loading ? ' loading' : '')} ref={box}><span className="hint-spin">{t('panels.dragToRotate')}</span></div>;
 }
 
 /** Una foto de cuerpo entero de un aspecto (la ficha del recluta) */
 export function MiniPortrait({ look }: { look: Look }) {
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => { let v = true; setUrl(null); thumbnail(look, 'body').then(u => { if (v && u) setUrl(u); }); return () => { v = false; }; }, [lookSignature(look)]);
-  return <div className="retratillo">{url ? <img src={url} alt="" /> : <span className="loading" />}</div>;
+  return <div className="portrait-small">{url ? <img src={url} alt="" /> : <span className="loading" />}</div>;
 }

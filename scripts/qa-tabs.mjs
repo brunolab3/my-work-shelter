@@ -20,7 +20,7 @@ const wait = ms => pg.waitForTimeout(ms);
 let failures = 0;
 const check = (ok, text) => { console.log((ok ? 'OK   ' : 'FALLO ') + text); if (!ok) failures++; };
 const until = async (f, ms = 8000) => { const t = Date.now(); while (Date.now() - t < ms) { if (await f()) return true; await wait(200); } return false; };
-const tabs = () => pg.evaluate(() => [...document.querySelectorAll('.console .vt-tab')].map(p => ({ name: p.querySelector('.vt-pestana-nombre').textContent, state: (p.className.match(/e-(\w+)/) ?? [])[1], active: p.classList.contains('active'), width: p.getBoundingClientRect().width })));
+const tabs = () => pg.evaluate(() => [...document.querySelectorAll('.console .vt-tab')].map(p => ({ name: p.querySelector('.vt-tab-name').textContent, state: (p.className.match(/e-(\w+)/) ?? [])[1], active: p.classList.contains('active'), width: p.getBoundingClientRect().width })));
 const talking = () => pg.evaluate(() => window.__game.get().talkingWith);
 const setLive = (id, extra) => pg.evaluate(([id, extra]) => window.__live.set(e => ({ sessions: { ...e.sessions, [id]: { ...e.sessions[id], ...extra } } })), [id, extra]);
 
@@ -46,8 +46,8 @@ const ps = await tabs();
 const FOREIGN = ['Deploy notes', 'Bump SDK', 'Flaky e2e'];
 check(ps.length >= 16 && !ps.some(p => FOREIGN.includes(p.name)), `the strip has this dweller's conversations only (${ps.length})`);
 check(ps.every(p => p.width >= 80), 'no tab is squeezed below its minimum width: ' + Math.round(Math.min(...ps.map(p => p.width))) + 'px');
-check(await pg.evaluate(() => { const c = document.querySelector('.console .vt-pestanas-tira'); return c.scrollWidth > c.clientWidth; }), 'the strip scrolls sideways');
-const inView = () => pg.evaluate(() => { const c = document.querySelector('.console .vt-pestanas-tira').getBoundingClientRect(), a = document.querySelector('.console .vt-tab.active').getBoundingClientRect(); return a.left >= c.left - 1 && a.right <= c.right + 1; });
+check(await pg.evaluate(() => { const c = document.querySelector('.console .vt-tabs-strip'); return c.scrollWidth > c.clientWidth; }), 'the strip scrolls sideways');
+const inView = () => pg.evaluate(() => { const c = document.querySelector('.console .vt-tabs-strip').getBoundingClientRect(), a = document.querySelector('.console .vt-tab.active').getBoundingClientRect(); return a.left >= c.left - 1 && a.right <= c.right + 1; });
 check(await inView(), 'the active tab is in view');
 await pg.screenshot({ path: `${dir}/qa-pestanas-intercom.png` });
 
@@ -65,7 +65,7 @@ l = await tabs();
 check(l[0].active && await inView(), '⌘1 goes to the first visible tab, and the strip scrolls to it: ' + l[0].name);
 // pick an idle tab, then make it the most urgent: it stays where it is until you switch away
 const idle = (await tabs()).findLast(p => p.state === 'idle');
-await pg.evaluate(n => [...document.querySelectorAll('.console .vt-tab')].find(p => p.querySelector('.vt-pestana-nombre').textContent === n).click(), idle.name); await wait(400);
+await pg.evaluate(n => [...document.querySelectorAll('.console .vt-tab')].find(p => p.querySelector('.vt-tab-name').textContent === n).click(), idle.name); await wait(400);
 const before = (await tabs()).findIndex(p => p.active);
 await setLive('qa-tab-' + TITLES.indexOf(idle.name), { state: 'waiting' }); await wait(400);
 check((await tabs()).findIndex(p => p.active) === before, 'the active tab keeps its place when its state changes');
@@ -73,16 +73,16 @@ await pg.keyboard.press('Meta+1'); await wait(400);
 check((await tabs()).findIndex(p => p.name === idle.name) < before, 'once you switch away it moves up with the waiting ones');
 
 // ---- the ⋯ list: in the bar's COM row, every open intercom conversation by room (⌘⇧A from the intercom)
-const LIST = '.barra-lista-com .vt-lista';
-check(!(await pg.isVisible('.console .vt-todas')) && await pg.isVisible('.barra-ventanas .com .vt-todas'), 'the ⋯ N button is in the bar\'s COM row, not in the intercom strip');
+const LIST = '.bar-list-com .vt-list';
+check(!(await pg.isVisible('.console .vt-all')) && await pg.isVisible('.bar-windows .com .vt-all'), 'the ⋯ N button is in the bar\'s COM row, not in the intercom strip');
 await pg.keyboard.press('Meta+Shift+a'); await wait(400);
 check(await pg.isVisible(LIST), '⌘⇧A opens the list of every conversation');
-const listNames = () => pg.evaluate(() => [...document.querySelectorAll('.barra-lista-com .vt-list-row .vt-lista-nombre')].map(x => x.textContent.replace(/^✎/, '')));
+const listNames = () => pg.evaluate(() => [...document.querySelectorAll('.bar-list-com .vt-list-row .vt-list-name')].map(x => x.textContent.replace(/^✎/, '')));
 const ours = n => TITLES.includes(n) || FOREIGN.includes(n);
 const rows = async () => (await listNames()).filter(ours).length;
 const own = (await tabs()).length;
 check(await rows() === own + (h2 ? FOREIGN.length : 0), `with one row per conversation, the other dweller's too (${await rows()})`);
-check(await pg.evaluate(n => [...document.querySelectorAll('.barra-lista-com .vt-lista-grupo')].some(g => g.textContent === n), h.nameRoom), 'under a header per room');
+check(await pg.evaluate(n => [...document.querySelectorAll('.bar-list-com .vt-list-group')].some(g => g.textContent === n), h.nameRoom), 'under a header per room');
 await pg.screenshot({ path: `${dir}/qa-pestanas-lista.png` });
 const comWidth = await pg.evaluate(L => Math.round(document.querySelector(L).getBoundingClientRect().width), LIST);
 const withThe = TITLES.filter(x => /the/i.test(x));
@@ -90,55 +90,55 @@ await pg.keyboard.type('the', { delay: 10 }); await wait(300);
 check(await rows() === withThe.length, `typing filters: ${await rows()} of ${withThe.length}`);
 await pg.screenshot({ path: `${dir}/qa-pestanas-filtro.png` });
 await pg.keyboard.press('ArrowDown'); await pg.keyboard.press('Enter'); await wait(400);
-const picked = await pg.evaluate(() => document.querySelector('.console .vt-tab.active .vt-pestana-nombre').textContent);
+const picked = await pg.evaluate(() => document.querySelector('.console .vt-tab.active .vt-tab-name').textContent);
 check(!(await pg.isVisible(LIST)) && withThe.includes(picked), '↓ Enter goes to a match and closes the list: ' + picked);
 // close every idle one: none is running, so no question
 const idleCount = (await tabs()).filter(p => p.state === 'idle').length;
 const total = (await tabs()).length;
 await pg.keyboard.press('Meta+Shift+a'); await wait(300);
-await pg.click('.barra-lista-com .vt-lista-pie button:has-text("idle"), .barra-lista-com .vt-lista-pie button:has-text("reposo")'); await wait(500);
-check(!(await pg.isVisible('.console .vt-confirmar')) && (await tabs()).length === total - idleCount, `«close read or idle» closes the ${idleCount} idle ones without asking`);
+await pg.click('.bar-list-com .vt-list-footer button:has-text("idle"), .bar-list-com .vt-list-footer button:has-text("reposo")'); await wait(500);
+check(!(await pg.isVisible('.console .vt-confirm')) && (await tabs()).length === total - idleCount, `«close read or idle» closes the ${idleCount} idle ones without asking`);
 if (!(await pg.isVisible(LIST))) { await pg.keyboard.press('Meta+Shift+a'); await wait(300); }
-await pg.focus('.barra-lista-com .vt-lista-filtro'); await pg.keyboard.press('Escape'); await wait(300);
+await pg.focus('.bar-list-com .vt-list-filter'); await pg.keyboard.press('Escape'); await wait(300);
 check(!(await pg.isVisible(LIST)) && await pg.isVisible('.console'), 'Esc closes the list and only the list');
 // another dweller's conversation: the intercom switches to them, on that tab
 if (h2) {
-  await pg.click('.barra-ventanas .com .vt-todas'); await wait(300);
-  await pg.evaluate(() => [...document.querySelectorAll('.barra-lista-com .vt-list-row')].find(f => f.querySelector('.vt-lista-nombre').textContent === 'Flaky e2e').click());
+  await pg.click('.bar-windows .com .vt-all'); await wait(300);
+  await pg.evaluate(() => [...document.querySelectorAll('.bar-list-com .vt-list-row')].find(f => f.querySelector('.vt-list-name').textContent === 'Flaky e2e').click());
   check(await until(async () => await talking() === h2.id && (await tabs()).find(p => p.active)?.name === 'Flaky e2e'), `clicking ${h2.name}'s row switches the intercom to them, on that conversation`);
-  await pg.click('.barra-ventanas .com .vt-todas'); await wait(300);
-  await pg.evaluate(n => [...document.querySelectorAll('.barra-lista-com .vt-list-row')].find(f => f.querySelector('.vt-lista-nombre').textContent === n).click(), picked);
+  await pg.click('.bar-windows .com .vt-all'); await wait(300);
+  await pg.evaluate(n => [...document.querySelectorAll('.bar-list-com .vt-list-row')].find(f => f.querySelector('.vt-list-name').textContent === n).click(), picked);
   check(await until(async () => await talking() === h.id), 'and back to ' + h.name);
 }
 
 // ---- the selector above the portrait: one row per talker of the room, as the bar's hover list; it switches
-const QL = '.console .consola-quien .consola-quien-lista';
+const QL = '.console .console-who .console-who-list';
 const whoList = () => pg.evaluate(QL => [...document.querySelectorAll(`${QL} .bar-peek-row`)].map(f => ({
-  name: f.querySelector('b').textContent, title: f.querySelector('.barra-asomo-titulo').textContent.replace(/^✎/, ''), state: (f.className.match(/e-(\w+)/) ?? [])[1],
-  photo: !!f.querySelector('.consola-quien-foto'), current: f.classList.contains('current') })), QL);
+  name: f.querySelector('b').textContent, title: f.querySelector('.peek-bar-title').textContent.replace(/^✎/, ''), state: (f.className.match(/e-(\w+)/) ?? [])[1],
+  photo: !!f.querySelector('.console-who-photo'), current: f.classList.contains('current') })), QL);
 if (h2) {
-  await pg.click('.console .consola-quien > .chip-terminal'); await wait(300);
+  await pg.click('.console .console-who > .chip-terminal'); await wait(300);
   const lq = await whoList();
   check(lq.length >= 2 && lq.length === new Set(lq.map(f => f.name)).size && lq.every(f => f.photo), `one row per talker, each with its bust: ${lq.map(f => f.name).join(' | ')}`);
   const row2 = lq.find(f => f.name.startsWith(h2.name));
   check(row2?.state === 'waiting' && row2.title.endsWith('· Bump SDK'), `${h2.name}'s row shows their most urgent conversation, Bump SDK waiting: ` + JSON.stringify(row2));
   check(lq.find(f => f.current)?.name.startsWith(h.name), `${h.name}, in front, is marked`);
-  check(!(await pg.isVisible(`${QL} .vt-pestana-x, ${QL} input`)), 'no tabs to close or select in it');
+  check(!(await pg.isVisible(`${QL} .vt-tab-x, ${QL} input`)), 'no tabs to close or select in it');
   await pg.screenshot({ path: `${dir}/qa-pestanas-selector.png` });
-  const whoWidth = () => pg.evaluate(() => Math.round(document.querySelector('.console .consola-quien > .chip-terminal').getBoundingClientRect().width));
+  const whoWidth = () => pg.evaluate(() => Math.round(document.querySelector('.console .console-who > .chip-terminal').getBoundingClientRect().width));
   const width1 = await whoWidth();
   await pg.keyboard.press('Escape'); await wait(200);
   check(!(await pg.isVisible(QL)) && await pg.isVisible('.console'), 'Esc closes the list and only the list');
-  await pg.click('.console .consola-quien > .chip-terminal'); await wait(200);
+  await pg.click('.console .console-who > .chip-terminal'); await wait(200);
   await pg.mouse.click(5, 5); await wait(200);
   check(!(await pg.isVisible(QL)), 'a click outside closes it');
-  await pg.click('.console .consola-quien > .chip-terminal'); await wait(200);
+  await pg.click('.console .console-who > .chip-terminal'); await wait(200);
   await pg.evaluate(([QL, n]) => [...document.querySelectorAll(`${QL} .bar-peek-row`)].find(f => f.querySelector('b').textContent.startsWith(n)).click(), [QL, h2.name]);
   check(await until(async () => await talking() === h2.id && (await tabs()).find(p => p.active)?.name === 'Bump SDK'), `picking ${h2.name} switches the intercom to them, on their most urgent conversation (Bump SDK)`);
   check((await tabs()).every(p => FOREIGN.includes(p.name)), 'whose strip holds only their conversations');
   check(await whoWidth() === width1, `the selector keeps its width whoever it names: ${width1}px`);
   // by keyboard: arrows to the first dweller, Enter
-  await pg.click('.console .consola-quien > .chip-terminal'); await wait(200);
+  await pg.click('.console .console-who > .chip-terminal'); await wait(200);
   const lq2 = await whoList(), from = lq2.findIndex(f => f.current), a = lq2.findIndex(f => f.name.startsWith(h.name));
   for (let k = 0; k < Math.abs(a - from); k++) await pg.keyboard.press(a > from ? 'ArrowDown' : 'ArrowUp');
   await pg.keyboard.press('Enter');
@@ -147,35 +147,35 @@ if (h2) {
 
 // ---- the bar: one intercom chip per room; hovering it lists one row per open panel (dweller, holograms), as the selector
 await pg.keyboard.press('Meta+ArrowDown'); await wait(400);
-const intercomRooms = await pg.evaluate(() => [...document.querySelectorAll('.barra-ventanas .com .chip-terminal .tipo')].map(x => x.textContent));
+const intercomRooms = await pg.evaluate(() => [...document.querySelectorAll('.bar-windows .com .chip-terminal .type')].map(x => x.textContent));
 check(intercomRooms.length === new Set(intercomRooms).size && intercomRooms.includes(h.nameRoom), 'the bar has one intercom chip per room: ' + intercomRooms.join(', '));
-const chip = pg.locator('.barra-ventanas .com .chip-terminal', { has: pg.locator('.tipo', { hasText: h.nameRoom }) }).first();
+const chip = pg.locator('.bar-windows .com .chip-terminal', { has: pg.locator('.type', { hasText: h.nameRoom }) }).first();
 await chip.hover(); await wait(300);
-const peek = await pg.evaluate(() => [...document.querySelectorAll('.barra-asomo .barra-asomo-titulo b')].map(x => x.textContent));
+const peek = await pg.evaluate(() => [...document.querySelectorAll('.peek-bar .peek-bar-title b')].map(x => x.textContent));
 if (h2) check(peek.length === new Set(peek).size && peek.some(n => n.startsWith(h.name)) && peek.some(n => n.startsWith(h2.name)), `hovering ${h.nameRoom}'s chip lists one row per panel: ` + peek.join(', '));
 await pg.screenshot({ path: `${dir}/qa-pestanas-barra.png` });
 if (h2 && peek.length) {
-  await pg.evaluate(n => [...document.querySelectorAll('.barra-asomo .bar-peek-row')].find(f => f.querySelector('b').textContent.startsWith(n)).click(), h2.name);
+  await pg.evaluate(n => [...document.querySelectorAll('.peek-bar .bar-peek-row')].find(f => f.querySelector('b').textContent.startsWith(n)).click(), h2.name);
   check(await until(async () => await talking() === h2.id), 'clicking one opens that panel: ' + h2.name);
   await pg.keyboard.press('Meta+ArrowDown'); await wait(400);
 }
 
 // ---- a terminal with many tabs
 await pg.evaluate(s => window.dispatchEvent(new CustomEvent('shelter:terminal', { detail: { roomId: s } })), h.room);
-await pg.waitForSelector('.ventana-terminal .vt-tab'); await wait(800);
-const n0 = await pg.evaluate(() => document.querySelectorAll('.ventana-terminal .vt-tab').length);   // its tabs outlive the page
+await pg.waitForSelector('.window-terminal .vt-tab'); await wait(800);
+const n0 = await pg.evaluate(() => document.querySelectorAll('.window-terminal .vt-tab').length);   // its tabs outlive the page
 for (let i = 0; i < 13; i++) { await pg.keyboard.press('Meta+t'); await wait(250); }
 await wait(800);
-const term = await pg.evaluate(() => { const c = document.querySelector('.ventana-terminal .vt-pestanas-tira'); return { n: c.querySelectorAll('.vt-tab').length, scroll: c.scrollWidth > c.clientWidth }; });
+const term = await pg.evaluate(() => { const c = document.querySelector('.window-terminal .vt-tabs-strip'); return { n: c.querySelectorAll('.vt-tab').length, scroll: c.scrollWidth > c.clientWidth }; });
 check(term.n === n0 + 13 && term.scroll, `a terminal with ${term.n} tabs scrolls too`);
 await pg.keyboard.press('Meta+Shift+a'); await wait(300);
-check(await pg.evaluate(() => document.querySelectorAll('.ventana-terminal .vt-list-row').length) === term.n, '⌘⇧A lists the terminal\'s tabs');
+check(await pg.evaluate(() => document.querySelectorAll('.window-terminal .vt-list-row').length) === term.n, '⌘⇧A lists the terminal\'s tabs');
 await pg.screenshot({ path: `${dir}/qa-pestanas-terminal.png` });
 await pg.keyboard.press('Escape'); await wait(200);
 await pg.keyboard.press('Meta+Shift+w'); await wait(400);
-if (await pg.isVisible('.ventana-terminal .vt-confirmar')) await pg.keyboard.press('Enter');
+if (await pg.isVisible('.window-terminal .vt-confirm')) await pg.keyboard.press('Enter');
 await wait(600);
-check(!(await pg.isVisible('.ventana-terminal')), 'and ⌘⇧W closes it with all its tabs');
+check(!(await pg.isVisible('.window-terminal')), 'and ⌘⇧W closes it with all its tabs');
 
 check(!errors.length, 'no page errors' + (errors.length ? ': ' + errors.join(' | ') : ''));
 await b.close();

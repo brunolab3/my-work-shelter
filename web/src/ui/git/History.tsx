@@ -31,28 +31,28 @@ export function HistoryView({ path, signature, parallel, notify }: { path: strin
   const q = filter.trim().toLowerCase();
   const visible = (data?.commits ?? []).map((c, i) => ({ c, f: rows[i] })).filter(({ c }) => !q || c.subject.toLowerCase().includes(q) || c.author.toLowerCase().includes(q) || c.hash.startsWith(q) || c.refs.some(r => r.toLowerCase().includes(q)));
   return (
-    <div className="gh-historial">
-      <div className="gc-herramientas">
-        <input className="gc-filtro" placeholder={t('windows.filterByMessageAuthorHash')} value={filter} onChange={e => setFilter(e.target.value)} />
-        <label className="gc-casilla"><input type="checkbox" checked={all} onChange={e => setAll(e.target.checked)} /> {t('windows.allBranches')}</label>
+    <div className="gh-history">
+      <div className="gc-tools">
+        <input className="gc-filter" placeholder={t('windows.filterByMessageAuthorHash')} value={filter} onChange={e => setFilter(e.target.value)} />
+        <label className="gc-checkbox"><input type="checkbox" checked={all} onChange={e => setAll(e.target.checked)} /> {t('windows.allBranches')}</label>
         <span className="dim">{data ? t('windows.nCommits', { n: `${data.commits.length}${data.more ? '+' : ''}` }) : t('windows.reading2')}</span>
       </div>
-      <div className={'gh-cuerpo' + (sel ? ' con-detalle' : '')}>
-        <div className="gh-lista">
+      <div className={'gh-body' + (sel ? ' with-detail' : '')}>
+        <div className="gh-list">
           {visible.map(({ c, f }) => (
-            <div key={c.hash} className={'gh-fila' + (c.hash === sel ? ' active' : '')} onClick={() => setSel(c.hash === sel ? null : c.hash)}>
+            <div key={c.hash} className={'gh-row' + (c.hash === sel ? ' active' : '')} onClick={() => setSel(c.hash === sel ? null : c.hash)}>
               {!q && <Graph f={f} width={graphWidth} merge={c.parents.length > 1} />}
-              <span className="gh-asunto">
-                {c.refs.map(r => <span key={r} className={'gh-ref' + (r.startsWith('HEAD') ? ' cabeza' : r.startsWith('tag: ') ? ' de-etiqueta' : r.includes('/') && !r.startsWith('HEAD') ? ' remota' : '')}>{r.replace('tag: ', '🏷 ')}</span>)}
+              <span className="gh-subject">
+                {c.refs.map(r => <span key={r} className={'gh-ref' + (r.startsWith('HEAD') ? ' head' : r.startsWith('tag: ') ? ' of-label' : r.includes('/') && !r.startsWith('HEAD') ? ' remote' : '')}>{r.replace('tag: ', '🏷 ')}</span>)}
                 {c.subject}
               </span>
-              <span className="gh-autor">{c.author}</span>
-              <span className="gh-cuando" title={fmtDate.format(c.date)}>{ago(c.date)}</span>
+              <span className="gh-author">{c.author}</span>
+              <span className="gh-when" title={fmtDate.format(c.date)}>{ago(c.date)}</span>
               <span className="gh-hash">{c.hash.slice(0, 7)}</span>
             </div>
           ))}
-          {data && !data.commits.length && <div className="gd-vacio">{t('windows.thisRepoHasNoCommits')}</div>}
-          {data?.more && !q && <button className="gd-todo" onClick={() => setN(x => x + 300)}>{t('windows.loadMoreCommits')}</button>}
+          {data && !data.commits.length && <div className="gd-empty">{t('windows.thisRepoHasNoCommits')}</div>}
+          {data?.more && !q && <button className="gd-all" onClick={() => setN(x => x + 300)}>{t('windows.loadMoreCommits')}</button>}
         </div>
         {sel && <DetailCommit path={path} hash={sel} parallel={parallel} notify={notify} close={() => setSel(null)} />}
       </div>
@@ -64,7 +64,7 @@ function Graph({ f, width, merge }: { f: GraphRow; width: number; merge: boolean
   const x = (k: number) => 6 + k * STEP + STEP / 2, m = HEIGHT / 2;
   const color = (k: number) => COLORS[k % COLORS.length];
   return (
-    <svg className="gh-grafo" width={width} height={HEIGHT} viewBox={`0 0 ${width} ${HEIGHT}`}>
+    <svg className="gh-graph" width={width} height={HEIGHT} viewBox={`0 0 ${width} ${HEIGHT}`}>
       {f.before.map((h, j) => h === null ? null : f.arrive.includes(j)
         ? <path key={'a' + j} d={`M${x(j)} 0 C${x(j)} ${m * 0.7} ${x(f.column)} ${m * 0.3} ${x(f.column)} ${m}`} stroke={color(j)} />
         : <line key={'a' + j} x1={x(j)} y1={0} x2={x(j)} y2={HEIGHT} stroke={color(j)} />)}
@@ -80,31 +80,31 @@ function DetailCommit({ path, hash, parallel, notify, close }: { path: string; h
   const [diff, setDiff] = useState<{ text: string; binary: boolean; truncated: boolean } | null>(null);
   useEffect(() => { setD(null); setFile(null); client.action<Detail>('git.detail', { path, hash }).then(x => { setD(x); setFile(x.files[0] ?? null); }).catch(e => notify(e.message, true)); }, [path, hash]);
   useEffect(() => { setDiff(null); if (file) client.action<any>('git.diffCommit', { path, hash, file: file.path, origin: file.origin }).then(setDiff).catch(e => notify(e.message, true)); }, [file?.path, hash]);
-  if (!d) return <div className="gh-detalle"><div className="gd-vacio">{t('windows.readingTheCommit')}</div></div>;
+  if (!d) return <div className="gh-detail"><div className="gd-empty">{t('windows.readingTheCommit')}</div></div>;
   const [subject, ...body] = d.message.split('\n');
   const copy = () => navigator.clipboard?.writeText(d.hash).then(() => notify(t('windows.hashCopiedHash', { hash: d.hash.slice(0, 10) })));
   return (
-    <div className="gh-detalle">
-      <div className="gh-detalle-cab">
+    <div className="gh-detail">
+      <div className="gh-detail-header">
         <div>
           <b>{subject}</b>
-          {body.join('\n').trim() && <pre className="gh-cuerpo-msg">{body.join('\n').trim()}</pre>}
-          <div className="dim">{d.author} &lt;{d.email}&gt; · {fmtDate.format(d.date)} · <button className="gc-enlace" onClick={copy} title={t('windows.copyTheFullHash')}>{d.hash.slice(0, 10)}</button>{d.parents.length > 1 ? ` · ${t('windows.merge')}` : ''}</div>
+          {body.join('\n').trim() && <pre className="gh-body-msg">{body.join('\n').trim()}</pre>}
+          <div className="dim">{d.author} &lt;{d.email}&gt; · {fmtDate.format(d.date)} · <button className="gc-link" onClick={copy} title={t('windows.copyTheFullHash')}>{d.hash.slice(0, 10)}</button>{d.parents.length > 1 ? ` · ${t('windows.merge')}` : ''}</div>
         </div>
-        <button className="gc-boton icono" onClick={close} title={t('windows.closeDetails')}>×</button>
+        <button className="gc-button icon" onClick={close} title={t('windows.closeDetails')}>×</button>
       </div>
-      <div className="gh-detalle-cuerpo">
-        <ul className="gh-archivos">
+      <div className="gh-detail-body">
+        <ul className="gh-files">
           {d.files.map(a => (
             <li key={a.path} className={a.path === file?.path ? 'active' : ''} onClick={() => setFile(a)} title={a.origin ? `${a.origin} → ${a.path}` : a.path}>
-              <span className={'gc-letra l-' + a.letter}>{a.letter}</span>
-              <span className="gc-nombre">{a.path.split('/').pop()}</span>
+              <span className={'gc-letter l-' + a.letter}>{a.letter}</span>
+              <span className="gc-name">{a.path.split('/').pop()}</span>
               <span className="gh-stat">{a.more === null ? 'bin' : <><i className="plus">+{a.more}</i> <i className="minus">−{a.deletions}</i></>}</span>
             </li>
           ))}
           {!d.files.length && <li className="dim">{t('windows.noFileChanges')}</li>}
         </ul>
-        <div className="gh-diff">{file && (diff ? <DiffViewer text={diff.text} binary={diff.binary} truncated={diff.truncated} mode="commit" parallel={parallel} /> : <div className="gd-vacio">{t('windows.reading')}</div>)}</div>
+        <div className="gh-diff">{file && (diff ? <DiffViewer text={diff.text} binary={diff.binary} truncated={diff.truncated} mode="commit" parallel={parallel} /> : <div className="gd-empty">{t('windows.reading')}</div>)}</div>
       </div>
     </div>
   );

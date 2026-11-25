@@ -83,7 +83,7 @@ function DoorList({ root, pick, path, github }: { root: string; pick: (path: str
     <Device label={t('panels.mainDoorRecruitment')} width={52}>
       <p className="voice">{t('panels.everyFolderYouAdmitIs')}</p>
       <p className="dim">{t('panels.suggestionsFrom')} <code>{root}</code> {t('panels.mostRecentFirstTheRoot')}</p>
-      <div className="lista-desplazable">
+      <div className="list-scrollable">
         {sugs === null ? <p className="dim">{t('panels.readingRoot', { root: root })}</p> : <Options items={items} i={i} setI={setI} onChoose={k => items[k].f()} />}
       </div>
       <Keys><kbd>↑↓</kbd>{t('menu.select')} <kbd>Enter</kbd>{t('panels.admit')} <kbd>Esc</kbd>{t('menu.close')}</Keys>
@@ -102,12 +102,12 @@ function AskPath({ create, root, goBack, follow }: { create: boolean; root: stri
   return (
     <Device label={create ? t('panels.doorNewFolder') : t('panels.doorAnotherFolder')} width={52} onClose={goBack}>
       <p>{create ? t('panels.nameOfTheNewFolder') : t('panels.folderPath')}</p>
-      <div className="linea-entrada active">
+      <div className="line-entry active">
         <span className="prompt-sim">{create ? root.replace(/\/?$/, '/') : '›'}</span>
-        <input ref={ref} className="campo" value={text} onChange={e => setText(e.target.value)} spellCheck={false}
+        <input ref={ref} className="field" value={text} onChange={e => setText(e.target.value)} spellCheck={false}
           onKeyDown={e => { if (e.key === 'Enter' && valid) { e.preventDefault(); SFX.click(); follow(path, git); } else if (e.key === 'Escape') { e.preventDefault(); goBack(); } else if (e.key === 'Tab' && create) { e.preventDefault(); setGit(g => !g); } }} />
       </div>
-      {create && <div className="fila-chips active"><span className="etq">git init</span><button className={'chip' + (git ? ' on' : '')} onClick={() => setGit(true)}>{t('menu.yes')}</button><button className={'chip' + (!git ? ' on' : '')} onClick={() => setGit(false)}>{t('menu.no')}</button></div>}
+      {create && <div className="row-chips active"><span className="lbl">git init</span><button className={'chip' + (git ? ' on' : '')} onClick={() => setGit(true)}>{t('menu.yes')}</button><button className={'chip' + (!git ? ' on' : '')} onClick={() => setGit(false)}>{t('menu.no')}</button></div>}
       <Keys><kbd>Enter</kbd>{t('panels.continue2')} {create && <><kbd>Tab</kbd>{t('panels.gitYesNo')} </>}<kbd>Esc</kbd>{t('menu.back')}</Keys>
     </Device>
   );
@@ -154,9 +154,9 @@ function GitHubList({ goBack, clone, admit }: { goBack: () => void; clone: (repo
   return (
     <Device label={t('panels.doorGitHub')} width={56} onClose={goBack}>
       <p>{t('panels.githubFilter')}</p>
-      <div className="linea-entrada active">
+      <div className="line-entry active">
         <span className="prompt-sim">›</span>
-        <input ref={ref} className="campo" value={text} spellCheck={false} placeholder="owner/name"
+        <input ref={ref} className="field" value={text} spellCheck={false} placeholder="owner/name"
           onChange={e => { setText(e.target.value); setI(0); setError(''); }}
           onKeyDown={e => {
             if (e.key === 'ArrowDown' && items.length) { e.preventDefault(); setI((k + 1) % items.length); SFX.tick(); }
@@ -168,7 +168,7 @@ function GitHubList({ goBack, clone, admit }: { goBack: () => void; clone: (repo
       {data?.off && <p className="dim">{t('panels.githubOff')}</p>}
       {data?.error && <p className="notice-console">{data.error}</p>}
       {error && <p className="notice-console">{error}</p>}
-      <div className="lista-desplazable">
+      <div className="list-scrollable">
         {items.length > 0 && <Options items={items} i={k} setI={setI} onChoose={n => items[n].f()} />}
         {data === null ? <p className="dim">{t('panels.githubReading')}</p> : !items.length && !data.off && <p className="dim">{t('panels.githubNoMatch')}</p>}
       </div>
@@ -206,9 +206,9 @@ function CloneRepo({ repo, name, root, goBack, follow }: { repo: string; name: s
   return (
     <Device label={t('panels.doorClone', { repo })} pilot={clone ? 'working' : 'idle'} width={56} onClose={clone ? cancel : goBack}>
       <p>{t('panels.cloneWhere', { root: root })}</p>
-      <div className={'linea-entrada' + (clone ? '' : ' active')}>
+      <div className={'line-entry' + (clone ? '' : ' active')}>
         <span className="prompt-sim">›</span>
-        <input ref={ref} className="campo" value={text} spellCheck={false} disabled={!!clone} onChange={e => { setText(e.target.value); setError(''); }}
+        <input ref={ref} className="field" value={text} spellCheck={false} disabled={!!clone} onChange={e => { setText(e.target.value); setError(''); }}
           onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); start(); } else if (e.key === 'Escape') { e.preventDefault(); goBack(); } }} />
       </div>
       {clone ? <>
@@ -239,9 +239,9 @@ function CardNewRecruit({ path, name, create, git, goBack }: { path: string; nam
   const [i, setI] = useMenu(items.length, pick, e => { if (e.code === 'KeyR') { setSeed(x => x * 7 + 13); SFX.tick(); return true; } }, goBack);
   return (
     <Device label={t('panels.doorRecruitSheet')} width={50} onClose={goBack}>
-      <div className="card con-retrato">
+      <div className="card with-portrait">
         <MiniPortrait look={lookOf(r)} />
-        <div className="titulo-ficha">{r.name} <span className="mote">«{tIs(r.nickname)}»</span></div>
+        <div className="title-card">{r.name} <span className="nickname">«{tIs(r.nickname)}»</span></div>
         <dl>
           <dt>{t('panels.room')}</dt><dd>{name} <span className="dim">({path}{create ? t('panels.itWillBeCreated') + (git ? t('panels.withGit') : '') : ''})</span></dd>
           <dt>{t('panels.look')}</dt><dd>{trSummary(lookSummary(lookOf(r)))} <span className="dim">{t('panels.inChromePaintYouCan')}</span></dd>
@@ -276,7 +276,7 @@ function LinkList({ room, root, pick, other, goBack }: { room: any; root: string
   return (
     <Device label={t('panels.roomPanelRoomLink', { room: room.name })} width={52} onClose={goBack}>
       <p className="dim">{t('panels.pickTheRoomSNew')} <code>{root}</code> {t('panels.mostRecentFirstThoseThat')}</p>
-      <div className="lista-desplazable">
+      <div className="list-scrollable">
         {sugs === null ? <p className="dim">{t('panels.readingRoot', { root: root })}</p> : <Options items={items} i={i} setI={setI} onChoose={k => items[k].f()} />}
       </div>
       <Keys><kbd>↑↓</kbd>{t('menu.select')} <kbd>Enter</kbd>{t('panels.continue2')} <kbd>Esc</kbd>{t('menu.back')}</Keys>
@@ -458,9 +458,9 @@ function PanelWorktree() {
           <dt>{t('windows.branch')}</dt><dd>{info.branch} <span className="dim">{t('panels.onTopOfBase', { base: info.base })}</span></dd>
           <dt>{t('panels.inside')}</dt><dd>{info.busy ? <span className="notice-console">{t('panels.aSessionIsWorking')}</span> : t('panels.nobody')}</dd>
         </dl></div>
-        <div className="dos-columnas">
-          <div><h3>{t('panels.uncommittedChangesN', { n: info.state.length })}</h3><pre className="lista-git">{info.state.slice(0, 14).join('\n') || '—'}</pre></div>
-          <div><h3>{t('panels.commitsToMergeN', { n: info.commits.length })}</h3><pre className="lista-git">{info.commits.slice(0, 14).join('\n') || '—'}</pre></div>
+        <div className="two-columns">
+          <div><h3>{t('panels.uncommittedChangesN', { n: info.state.length })}</h3><pre className="list-git">{info.state.slice(0, 14).join('\n') || '—'}</pre></div>
+          <div><h3>{t('panels.commitsToMergeN', { n: info.commits.length })}</h3><pre className="list-git">{info.commits.slice(0, 14).join('\n') || '—'}</pre></div>
         </div>
         {error && <p className="notice-console">{error}</p>}
         {/* el aviso de la confirmación va debajo, para no mover la lista bajo el ratón entre el primer clic y el segundo */}

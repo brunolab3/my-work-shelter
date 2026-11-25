@@ -37,8 +37,8 @@ const closePreflight = () => { SFX.close(); open.set({ key: null, anchor: undefi
 const openPR = (p: PartPreflight) => { if (p.pr) openLink(p.pr.url); else SFX.notAllowed(); };
 
 function CellView({ c, onClick, title }: { c: Cell; onClick?: () => void; title?: string }) {
-  return <td className={'pf-celda pf-' + c.mark} title={title}>
-    {onClick ? <button className="pf-boton" onClick={e => { e.stopPropagation(); onClick(); }}><span className="pf-brand">{MARK[c.mark]}</span> {c.text}</button>
+  return <td className={'pf-cell pf-' + c.mark} title={title}>
+    {onClick ? <button className="pf-button" onClick={e => { e.stopPropagation(); onClick(); }}><span className="pf-brand">{MARK[c.mark]}</span> {c.text}</button>
       : <><span className="pf-brand">{MARK[c.mark]}</span>{c.text !== MARK[c.mark] ? ' ' + c.text : ''}</>}
   </td>;
 }
@@ -58,16 +58,16 @@ function Verification({ taskKey, plan, tracker, approved, moved }: { taskKey: st
   };
   const line = tracker && <p className="dim">{t('verification.tracker', { state: tracker.state })}{' · '}
     {tracker.test ? t('verification.boardProdCheck', { board: tracker.board, test: tracker.test }) : t('verification.boardUnset', { board: tracker.board })}
-    {tracker.move && <> <button className="boton-taller" disabled={moving} onClick={move}>{t('verification.moveDone', { done: tracker.done ?? t('verification.doneColumn') })}</button></>}</p>;
+    {tracker.move && <> <button className="button-workshop" disabled={moving} onClick={move}>{t('verification.moveDone', { done: tracker.done ?? t('verification.doneColumn') })}</button></>}</p>;
   if (!plan) return <>{line}<p className="dim">{t('verification.none')}</p></>;
   const approve = () => {
     SFX.click(); setError('');
     client.action<VerificationPlan | null>('verification.approve', { key: taskKey }).then(p => { if (p) approved(p); }).catch(e => setError((e as Error).message));
   };
   const ok = isApproved(plan);
-  return <div className="pf-verificacion">
+  return <div className="pf-verification">
     <p><b>{t('verification.title')}</b> <span className={ok ? 'pf-ok' : 'pf-warning'}>· {t(ok ? 'verification.approved' : 'verification.unapproved', { version: plan.version })}</span>
-      {!ok && <> <button className="boton-taller" onClick={approve} title={t('verification.approveHint')}>{t('verification.approve')}</button></>}</p>
+      {!ok && <> <button className="button-workshop" onClick={approve} title={t('verification.approveHint')}>{t('verification.approve')}</button></>}</p>
     {line}
     {error && <p className="notice-console" onClick={() => setError('')}>{error}</p>}
     {plan.points.map(c => {
@@ -79,7 +79,7 @@ function Verification({ taskKey, plan, tracker, approved, moved }: { taskKey: st
         {c.note && <div className="dim">{t('verification.note', { text: c.note.text })}</div>}
         <ul>{c.signals.map(x => <li key={x.id} className={'pf-' + (x.state === 'evidenced' ? 'ok' : x.state === 'failed' ? 'bad' : 'none')}
           title={[t('verification.where', { where: x.where }), ...(x.base ? [t('verification.baseline', { base: x.base })] : []), ...(x.evidence ? [t('verification.evidence', { text: x.evidence.text })] : [])].join('\n')}>
-          {SIGNAL_MARK[x.state]} <span className="dim">{t(KIND_TEXT[x.type])}:</span> <span className="pf-senal">{x.what}</span></li>)}</ul>
+          {SIGNAL_MARK[x.state]} <span className="dim">{t(KIND_TEXT[x.type])}:</span> <span className="pf-signal">{x.what}</span></li>)}</ul>
       </div>;
     })}
   </div>;
@@ -145,18 +145,18 @@ function Popover({ taskKey: key, anchor }: { taskKey: string; anchor?: { x: numb
   const allMerged = prs.length > 0 && prs.every(p => p.pr!.state === 'merged') && !withoutPR.length;
   return <>
     {/* a click outside only closes it: the whole click (down, up) lands on the veil, nothing underneath gets it */}
-    <div className="pf-velo interactivo" onPointerDown={e => { e.preventDefault(); e.stopPropagation(); }} onClick={e => { e.stopPropagation(); closePreflight(); }} />
-    <div ref={box} className="pf-box interactivo" role="dialog" aria-label={`${t('preflight.title')} ${key}`} tabIndex={-1} style={{ ...spot, '--tarea': color } as React.CSSProperties}>
-      <div className="pf-titulo">
-        <span className="marca-tarea" /><b>✈ {key}</b>{title ? <span className="dim"> · {title}</span> : null}{r?.demo ? <span className="dim"> · DEMO</span> : null}
-        <button className="consola-x" onClick={closePreflight} title={t('panels.closeEsc')}>Esc</button>
+    <div className="pf-veil interactive" onPointerDown={e => { e.preventDefault(); e.stopPropagation(); }} onClick={e => { e.stopPropagation(); closePreflight(); }} />
+    <div ref={box} className="pf-box interactive" role="dialog" aria-label={`${t('preflight.title')} ${key}`} tabIndex={-1} style={{ ...spot, '--task': color } as React.CSSProperties}>
+      <div className="pf-title">
+        <span className="mark-task" /><b>✈ {key}</b>{title ? <span className="dim"> · {title}</span> : null}{r?.demo ? <span className="dim"> · DEMO</span> : null}
+        <button className="console-x" onClick={closePreflight} title={t('panels.closeEsc')}>Esc</button>
       </div>
       {error && <p className="notice-console" onClick={() => setError('')}>{error}</p>}
       {r?.error && <p className="dim">{r.error}</p>}
       {!r && !error && <p className="dim">{t('preflight.reading')}</p>}
       {r && reading && <p className="dim">{t('panels.syncingWithGithub')}</p>}
       {r && !prs.length && <p className="dim">{t('preflight.noPRs', { key: key })}</p>}
-      {prs.length > 0 && <div className="pf-lista"><table className="pf-tabla">
+      {prs.length > 0 && <div className="pf-list"><table className="pf-table">
         <thead><tr>
           <th /><th>{t('preflight.col.pr')}</th><th>{t('preflight.col.state')}</th><th>{t('preflight.col.ci')}</th><th>{t('preflight.col.review')}</th>
           <th>{t('preflight.col.conflicts')}</th><th>{t('preflight.col.blockers')}</th>
@@ -164,10 +164,10 @@ function Popover({ taskKey: key, anchor }: { taskKey: string; anchor?: { x: numb
         <tbody>{prs.map((p, n) => {
           const pr = p.pr!, ready = mergeReady(p);
           const blocker = p.waitsOn.find(l => l.state !== 'merged' && l.url);
-          return <tr key={p.id} className={'pf-row' + (n === k ? ' sel' : '') + (ready.state === 'merged' ? ' pf-hecha' : '')} onMouseEnter={() => setI(n)} onClick={() => openPR(p)} title={t('preflight.cellHint.pr')}>
+          return <tr key={p.id} className={'pf-row' + (n === k ? ' sel' : '') + (ready.state === 'merged' ? ' pf-done' : '')} onMouseEnter={() => setI(n)} onClick={() => openPR(p)} title={t('preflight.cellHint.pr')}>
             <td className={'pf-state pf-' + ready.state} title={ready.missing.join('\n') || t(ready.state === 'merged' ? 'preflight.review.merged' : 'preflight.state.ready')}>{READY[ready.state]}</td>
-            <td className="pf-parte" title={`${shortRef(pr)} · ${pr.title}\n${t('preflight.cellHint.pr')}`}><span className="ident">{shortRef(pr)}</span> {pr.title}</td>
-            <td className={'pf-celda pf-' + (pr.state === 'draft' ? 'warning' : 'none')}>{t(STATE[pr.state])}</td>
+            <td className="pf-part" title={`${shortRef(pr)} · ${pr.title}\n${t('preflight.cellHint.pr')}`}><span className="ident">{shortRef(pr)}</span> {pr.title}</td>
+            <td className={'pf-cell pf-' + (pr.state === 'draft' ? 'warning' : 'none')}>{t(STATE[pr.state])}</td>
             <CellView c={p.ci} />
             <CellView c={p.review} />
             <CellView c={p.conflicts} />
@@ -176,14 +176,14 @@ function Popover({ taskKey: key, anchor }: { taskKey: string; anchor?: { x: numb
         })}</tbody>
       </table></div>}
       {r && withoutPR.length > 0 && <p className="dim">{t('preflight.withoutPR', { rooms: [...new Set(withoutPR)].join(', ') })}</p>}
-      {r && r.waves.length > 0 && <p className="orden-despliegue"><b>{t('preflight.waves')}</b> {r.waves.map((o, n) => {
+      {r && r.waves.length > 0 && <p className="order-expand"><b>{t('preflight.waves')}</b> {r.waves.map((o, n) => {
         const done = o.every(x => byRef.get(x) === 'merged');
-        return <span key={n} className={done ? 'pf-ola-hecha' : undefined}>{n > 0 && ' → '}<b>{n + 1}{done ? ' ✔' : ''}</b> {o.map((x, j) => {
+        return <span key={n} className={done ? 'pf-wave-done' : undefined}>{n > 0 && ' → '}<b>{n + 1}{done ? ' ✔' : ''}</b> {o.map((x, j) => {
           const e = byRef.get(x);
-          return <span key={x} className={e === 'merged' ? 'pf-hecha' : e === 'ready' ? 'pf-ready' : ''}>{j > 0 && ', '}{x.replace(/^[^/]+\//, '')}{e === 'ready' ? ' ✓' : ''}</span>;
+          return <span key={x} className={e === 'merged' ? 'pf-done' : e === 'ready' ? 'pf-ready' : ''}>{j > 0 && ', '}{x.replace(/^[^/]+\//, '')}{e === 'ready' ? ' ✓' : ''}</span>;
         })}</span>;
       })}</p>}
-      {allMerged && <p className="pf-aterrizada">✔ {t('preflight.landed')}</p>}
+      {allMerged && <p className="pf-landed">✔ {t('preflight.landed')}</p>}
       {r && <Verification taskKey={key} plan={r.verification} tracker={r.tracker} approved={p => setR({ ...r, verification: p })} moved={state => setR({ ...r, tracker: r.tracker && { ...r.tracker, state, move: false } })} />}
       {r && r.cycle.length > 0 && <p className="notice-console">{t('preflight.cycle')} {r.cycle.map(x => x.replace(/^[^/]+\//, '')).join(', ')}</p>}
       <Keys><kbd>↑↓</kbd>{t('preflight.keys.row')} <kbd>Enter</kbd>{t('preflight.keys.pr')} <kbd>R</kbd>{t('panels.reload')} <kbd>Esc</kbd>{t('menu.close')}</Keys>

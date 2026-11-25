@@ -63,7 +63,7 @@ await new Promise(r => setTimeout(r, 400)); await steps(10);
 await photo('intercom');
 console.log('   giro de la copia', await pg.evaluate(id => { const f = window.__shelter.holograms.ofId(id); return [+f.p.root.rotation.y.toFixed(2), +f.p.goalTurn.toFixed(2), f.pose, f.p.currentName]; }, idA));
 if (process.env.QA_PORTRAIT) { const png = await pg.evaluate(() => { const R = window.__shelter.portrait; R.r.render(R.scene, R.cam); return [R.canvas.toDataURL(), R.name, R.cam.position.toArray()]; }); console.log('   retrato', png[1], png[2]); }
-const header = await pg.evaluate(() => document.querySelector('.consola-rotulo')?.textContent + ' | ' + document.querySelector('.consola-nombre')?.textContent + ' | retrato holo: ' + !!document.querySelector('.retrato-crt.holo canvas'));
+const header = await pg.evaluate(() => document.querySelector('.console-label')?.textContent + ' | ' + document.querySelector('.console-name')?.textContent + ' | retrato holo: ' + !!document.querySelector('.portrait-crt.holo canvas'));
 console.log('   ', header);
 check(/ · Holo\S/.test(header) && /retrato holo: true/.test(header), 'cabecera de copia y retrato holográfico');
 await pg.keyboard.press('Escape'); await steps(5);

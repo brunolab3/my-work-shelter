@@ -16,7 +16,7 @@ DOMPurify.addHook('uponSanitizeElement', (node: any, data) => {
 });
 
 // los enlaces de una respuesta nunca llevan la ventana del juego a otra página: un clic ofrece cómo abrirlos
-// (linkOptions.ts; `data-enlace` los web y de correo). Los que apuntan a un archivo del Mac («/Users/…/informe.html»,
+// (linkOptions.ts; `data-link` los web y de correo). Los que apuntan a un archivo del Mac («/Users/…/informe.html»,
 // «~/…», «file:///…», `data-local`) no son páginas del juego: los abre el servidor (acción `enlace.local`: una página
 // o una imagen en el juego, código en el editor…; server/open.ts)
 export const isPathLocal = (href: string) => /^file:\/\//i.test(href) || /^~\//.test(href) || (/^\/[^/]/.test(href) && !/^\/(api|ws|assets)\b/.test(href));
@@ -41,7 +41,7 @@ export function markdown(text: string, base?: string): string {
   const html = marked.parse(relativeLinks(text ?? '', base), { async: false }) as string;
   const clean = withThumbnails(DOMPurify.sanitize(html, { USE_PROFILES: { html: true }, ALLOWED_URI_REGEXP: URI_ALLOWED }));
   // envolver los bloques de código para añadir «copiar»
-  return clean.replace(/<pre><code([^>]*)>/g, '<div class="code"><button class="copy" data-copiar tabindex="-1">' + t('windows.copy') + '</button><pre><code$1>').replace(/<\/code><\/pre>/g, '</code></pre></div>');
+  return clean.replace(/<pre><code([^>]*)>/g, '<div class="code"><button class="copy" data-copy tabindex="-1">' + t('windows.copy') + '</button><pre><code$1>').replace(/<\/code><\/pre>/g, '</code></pre></div>');
 }
 
 // Thumbnails of the Mac's images a reply links or embeds: a small picture after the link (or in place of the embed),
@@ -53,8 +53,8 @@ function withThumbnails(html: string): string {
   const box = document.createElement('div'); box.innerHTML = html;
   const views = new Set<string>();
   const thumbnail = (path: string, alt: string) => {
-    const a = document.createElement('a'); a.className = 'miniatura'; a.setAttribute('data-local', path); a.title = path;
-    const img = document.createElement('img'); img.setAttribute('data-miniatura', path); img.alt = alt; a.append(img);
+    const a = document.createElement('a'); a.className = 'thumbnail'; a.setAttribute('data-local', path); a.title = path;
+    const img = document.createElement('img'); img.setAttribute('data-thumbnail', path); img.alt = alt; a.append(img);
     return a;
   };
   for (const el of box.querySelectorAll<HTMLElement>('a[data-local], img[data-local-img]')) {
@@ -80,10 +80,10 @@ const thumbnailUrl = (path: string) => {
   return p;
 };
 // an image that isn't there: the embed keeps its text; the one after a link goes
-const missingThumbnail = (img: HTMLImageElement) => { const a = img.closest('a.miniatura'); if (img.alt) a?.replaceWith(document.createTextNode(`[${t('windows.image')}: ${img.alt}]`)); else a?.remove(); };
+const missingThumbnail = (img: HTMLImageElement) => { const a = img.closest('a.thumbnail'); if (img.alt) a?.replaceWith(document.createTextNode(`[${t('windows.image')}: ${img.alt}]`)); else a?.remove(); };
 function showThumbnail(img: HTMLImageElement) {
-  const path = img.getAttribute('data-miniatura')!;
-  img.removeAttribute('data-miniatura');
+  const path = img.getAttribute('data-thumbnail')!;
+  img.removeAttribute('data-thumbnail');
   thumbnailUrl(path).then(u => {
     if (!u) { missingThumbnail(img); return; }
     // its key is gone (the server restarted): asked once more
@@ -95,8 +95,8 @@ function showThumbnail(img: HTMLImageElement) {
 new MutationObserver(changes => {
   for (const c of changes) for (const n of c.addedNodes) {
     if (!(n instanceof Element)) continue;
-    if (n.matches('img[data-miniatura]')) showThumbnail(n as HTMLImageElement);
-    else n.querySelectorAll<HTMLImageElement>('img[data-miniatura]').forEach(showThumbnail);
+    if (n.matches('img[data-thumbnail]')) showThumbnail(n as HTMLImageElement);
+    else n.querySelectorAll<HTMLImageElement>('img[data-thumbnail]').forEach(showThumbnail);
   }
 }).observe(document.documentElement, { childList: true, subtree: true });
 
@@ -132,7 +132,7 @@ addEventListener('click', e => {
 
 // Delegación: un clic en «copiar» copia el bloque
 addEventListener('click', e => {
-  const b = (e.target as HTMLElement).closest?.('[data-copiar]') as HTMLButtonElement | null;
+  const b = (e.target as HTMLElement).closest?.('[data-copy]') as HTMLButtonElement | null;
   if (!b) return;
   const code = b.parentElement?.querySelector('code')?.textContent ?? '';
   navigator.clipboard?.writeText(code).then(() => { b.textContent = t('windows.copied'); setTimeout(() => (b.textContent = t('windows.copy')), 1200); });

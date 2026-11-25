@@ -212,13 +212,13 @@ function Window() {
   }, [q, sessions, recent, dwellers, copies, rooms, scheduled]);
 
   useEffect(() => { setI(0); }, [q]);
-  useEffect(() => { list.current?.querySelector('.fila-buscador.active')?.scrollIntoView({ block: 'nearest' }); }, [i]);
+  useEffect(() => { list.current?.querySelector('.row-search.active')?.scrollIntoView({ block: 'nearest' }); }, [i]);
   const pick = (k: number) => { const f = rows[k]; if (!f) { SFX.notAllowed(); return; } log(f.id.startsWith('sess:') || f.id.startsWith('rec:') ? 'conversations' : f.id); closeSearch(false); SFX.click(); f.f(); };
 
   return (
-    <div className="fondo-buscador interactivo" onMouseDown={e => { if (e.target === e.currentTarget) closeSearch(); }}>
-      <div className="buscador" role="dialog" aria-label={t('panels.shelterSearch')}>
-        <div className="buscador-cabeza">
+    <div className="search-backdrop interactive" onMouseDown={e => { if (e.target === e.currentTarget) closeSearch(); }}>
+      <div className="search" role="dialog" aria-label={t('panels.shelterSearch')}>
+        <div className="search-head">
           <span className="prompt-sim">&gt;</span>
           <input ref={input} value={q} placeholder={t('panels.searchConversationsActionsDwellersOr')} spellCheck={false}
             onChange={e => setQ(e.target.value)}
@@ -231,23 +231,23 @@ function Window() {
               else if (e.key === 'Enter') { e.preventDefault(); pick(i); }
               e.stopPropagation();
             }} />
-          <span className="tecla">{K}K</span>
+          <span className="key">{K}K</span>
         </div>
-        <div className="buscador-lista" ref={list}>
+        <div className="search-list" ref={list}>
           {rows.map((f, k) => (
             <div key={f.id}>
-              {(k === 0 || rows[k - 1].section !== f.section) && <div className="seccion-buscador">{f.section}{f.section === t('panels.searchRecentConversations') && recent === null ? ' · ' + t('panels.searching') : ''}</div>}
-              <div className={'fila-buscador' + (k === i ? ' active' : '')} onMouseMove={() => { if (k !== i) setI(k); }} onClick={() => pick(k)}>
+              {(k === 0 || rows[k - 1].section !== f.section) && <div className="section-search">{f.section}{f.section === t('panels.searchRecentConversations') && recent === null ? ' · ' + t('panels.searching') : ''}</div>}
+              <div className={'row-search' + (k === i ? ' active' : '')} onMouseMove={() => { if (k !== i) setI(k); }} onClick={() => pick(k)}>
                 {f.state && <span className={'pilot ' + (f.state === 'waiting' ? 'waiting' : f.state === 'error' ? 'error' : f.state === 'working' || f.state === 'starting' ? 'working' : 'idle')} />}
                 <span className="txt">{f.text}</span>
-                {f.hint && <span className="pista">{f.hint}{f.state ? ` · ${tIs(TXT_STATE[f.state] ?? f.state)}` : ''}</span>}
-                {f.key && <span className="tecla">{f.key}</span>}
+                {f.hint && <span className="hint">{f.hint}{f.state ? ` · ${tIs(TXT_STATE[f.state] ?? f.state)}` : ''}</span>}
+                {f.key && <span className="key">{f.key}</span>}
               </div>
             </div>
           ))}
-          {!rows.length && <p className="dim vacio-buscador">{t('panels.nothingForQTryAnother', { q })}</p>}
+          {!rows.length && <p className="dim blank-search">{t('panels.nothingForQTryAnother', { q })}</p>}
         </div>
-        <div className="ayuda-consola"><kbd>↑↓</kbd> {t('menu.select')} <kbd>Enter</kbd> {t('windows.open')} <kbd>Esc</kbd> {t('menu.close')} <span className="dim">· {t('panels.gameStuffOptionsRestartQuit')}</span> <kbd>Esc</kbd></div>
+        <div className="help-console"><kbd>↑↓</kbd> {t('menu.select')} <kbd>Enter</kbd> {t('windows.open')} <kbd>Esc</kbd> {t('menu.close')} <span className="dim">· {t('panels.gameStuffOptionsRestartQuit')}</span> <kbd>Esc</kbd></div>
       </div>
     </div>
   );

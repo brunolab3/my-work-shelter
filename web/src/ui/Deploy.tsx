@@ -141,7 +141,7 @@ export function DeploymentBoard({ roomId, goBack }: { roomId: string; goBack: ()
     return () => ro.disconnect();
   }, [blockers, showMerged, byUrl]);
 
-  const relation = (u: string) => !sel || u === sel.url ? '' : blockers.some(b => b.from === sel.url && b.by === u) ? ' bloquea-sel' : blockers.some(b => b.by === sel.url && b.from === u) ? ' espera-sel' : '';
+  const relation = (u: string) => !sel || u === sel.url ? '' : blockers.some(b => b.from === sel.url && b.by === u) ? ' blocks-sel' : blockers.some(b => b.by === sel.url && b.from === u) ? ' wait-sel' : '';
   const inSel = (b: Blocker) => !!sel && (b.from === sel.url || b.by === sel.url);
   return (
     <Device label={`${(room?.name ?? t('panels.logistics')).toUpperCase()} · ${t('world.deploymentPlan')}${gh?.demo ? ' · DEMO' : ''}`} width={110} height onClose={goBack}>
@@ -150,29 +150,29 @@ export function DeploymentBoard({ roomId, goBack }: { roomId: string; goBack: ()
       {!gh && <p className="dim">{t('panels.readingYourGithubPullRequests')}</p>}
       {gh && reading && <p className="dim">{t('panels.syncingWithGithub')}</p>}
       {marking && <p className="voice">{t('panels.whichPrDoes')} <b>{short(byUrl.get(marking)!)}</b>? {t('panels.waitForPickItAnd')}</p>}
-      <div ref={canvas} className="kanban kanban-despliegue" style={{ gridTemplateColumns: `repeat(${Math.max(1, columns.length)}, 1fr)` }}>
-        <svg className="flechas-despliegue" aria-hidden>
+      <div ref={canvas} className="kanban kanban-expand" style={{ gridTemplateColumns: `repeat(${Math.max(1, columns.length)}, 1fr)` }}>
+        <svg className="arrows-expand" aria-hidden>
           <defs>
-            <marker id="head-blocker" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="var(--rojo)" /></marker>
+            <marker id="head-blocker" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="var(--red)" /></marker>
             <marker id="head-done" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#b48cff" /></marker>
           </defs>
-          {arrows.map(f => <path key={f.b.from + '>' + f.b.by} d={f.d} className={'flecha' + (f.active ? '' : ' hecha') + (f.b.reason === 'manual' ? ' manual' : '') + (inSel(f.b) ? ' sel' : '')} markerEnd={`url(#${f.active ? 'head-blocker' : 'head-done'})`} />)}
+          {arrows.map(f => <path key={f.b.from + '>' + f.b.by} d={f.d} className={'arrow' + (f.active ? '' : ' done') + (f.b.reason === 'manual' ? ' manual' : '') + (inSel(f.b) ? ' sel' : '')} markerEnd={`url(#${f.active ? 'head-blocker' : 'head-done'})`} />)}
         </svg>
         {columns.map((c, ci) => (
           <div key={c.id} className={'kanban-col' + (ci === col ? ' active' : '')}>
             <h3>{tIs(c.name)} <span className="dim">{c.prs.length}</span></h3>
             {blocks(c.prs).map(b => (
-              <div key={b.task} className={'bloque-tarea' + (b.prs.length > 1 ? ' varios' : '')} style={{ '--tarea': taskColor(b.task) } as React.CSSProperties}>
-                {b.prs.length > 1 && <div className="bloque-tarea-cab"><span className="marca-tarea" />{b.task} <span className="dim">· {b.prs.length}</span><button className="consola-x bloque-tarea-preflight" title={t('preflight.open')} onClick={e => { e.stopPropagation(); preflight(b.task, e.currentTarget); }}>✈ {t('preflight.title')}</button></div>}
+              <div key={b.task} className={'task-block' + (b.prs.length > 1 ? ' several' : '')} style={{ '--task': taskColor(b.task) } as React.CSSProperties}>
+                {b.prs.length > 1 && <div className="task-block-header"><span className="mark-task" />{b.task} <span className="dim">· {b.prs.length}</span><button className="console-x task-block-preflight" title={t('preflight.open')} onClick={e => { e.stopPropagation(); preflight(b.task, e.currentTarget); }}>✈ {t('preflight.title')}</button></div>}
             {b.prs.map(p => {
               const k = c.prs.indexOf(p);
               const waits = waitA(p.url), blk = blocksOf(p.url);
               const pending = waits.filter(b => byUrl.get(b.by)?.state !== 'merged');
               const beside = links.filter(e => e.a === p.url || e.b === p.url).map(e => byUrl.get(e.a === p.url ? e.b : e.a)!);
               return (
-                <div key={p.url} data-pr={p.url} style={{ '--tarea': taskColor(pRTask(p)) } as React.CSSProperties} className={'card-issue ficha-pr con-tarea' + (ci === col && k === Math.min(i, c.prs.length - 1) ? ' sel' : '') + relation(p.url) + (marking === p.url ? ' marcando' : '') + (pending.length ? ' bloqueada' : '')}
+                <div key={p.url} data-pr={p.url} style={{ '--task': taskColor(pRTask(p)) } as React.CSSProperties} className={'card-issue card-pr with-task' + (ci === col && k === Math.min(i, c.prs.length - 1) ? ' sel' : '') + relation(p.url) + (marking === p.url ? ' marking' : '') + (pending.length ? ' blocked' : '')}
                   onMouseEnter={() => { setCol(ci); setI(k); }} onClick={() => { if (marking) mark(marking, p.url); }} onDoubleClick={() => !marking && openLink(p.url)} title={`${refPR(p)} · ${trTextPR(p)}`}>
-                  <span className="marca-tarea" title={pRTask(p)} /><span className="ident">{short(p)}</span>{wave.has(p.url) && <span className="ola" title={t('panels.deploymentWaveGoesAfterThe')}>{t('panels.waveN', { n: wave.get(p.url) ?? 0 })}</span>} {p.title}
+                  <span className="mark-task" title={pRTask(p)} /><span className="ident">{short(p)}</span>{wave.has(p.url) && <span className="wave" title={t('panels.deploymentWaveGoesAfterThe')}>{t('panels.waveN', { n: wave.get(p.url) ?? 0 })}</span>} {p.title}
                   <small className="dim">{trTextPR(p)}</small>
                   {p.state === 'merged' && verificationMark(pRTask(p), refPR(p)) && <small className="dim" title={t('verification.title')}>{verificationMark(pRTask(p), refPR(p))}</small>}
                   {p.state !== 'merged' && p.state !== 'closed' && ledgerPending(p.ledger) && <Ledger l={p.ledger!} />}
@@ -188,12 +188,12 @@ export function DeploymentBoard({ roomId, goBack }: { roomId: string; goBack: ()
           </div>
         ))}
       </div>
-      {waves.length > 0 && <p className="orden-despliegue"><b>{t('panels.order')}</b> {waves.map((o, k) => <span key={k}>{k > 0 && ' → '}<b>{k + 1}</b> {o.map(short).join(', ')}</span>)}</p>}
+      {waves.length > 0 && <p className="order-expand"><b>{t('panels.order')}</b> {waves.map((o, k) => <span key={k}>{k > 0 && ' → '}<b>{k + 1}</b> {o.map(short).join(', ')}</span>)}</p>}
       {cycle.length > 0 && <p className="notice-console">{t('panels.cyclicBlockersNobodyCanGo')} {cycle.map(short).join(', ')}. {t('panels.removeOneWithX')}</p>}
       {sel && waitA(sel.url).length > 0 && <p className="dim">{short(sel)} {t('panels.waitsFor')} {waitA(sel.url).map(b => `${short(byUrl.get(b.by)!)} (${tIs(REASON[b.reason])})`).join(', ')}.</p>}
-      <div className="botonera">
-        {sel && <button className="boton-taller" onClick={e => preflight(pRTask(sel), e.currentTarget)} title={t('preflight.actionHint')}>{t('preflight.keyF', { key: pRTask(sel) })}</button>}
-        <button className="boton-taller" onClick={askPlan} title={t('panels.handsTheBoardToWho', { who: dweller?.name ?? t('panels.theRoomSDweller') })}>{dweller ? t('panels.pAskNameForThe', { name: dweller.name }) : t('panels.pAskForTheDeployment')}</button>
+      <div className="button-bar">
+        {sel && <button className="button-workshop" onClick={e => preflight(pRTask(sel), e.currentTarget)} title={t('preflight.actionHint')}>{t('preflight.keyF', { key: pRTask(sel) })}</button>}
+        <button className="button-workshop" onClick={askPlan} title={t('panels.handsTheBoardToWho', { who: dweller?.name ?? t('panels.theRoomSDweller') })}>{dweller ? t('panels.pAskNameForThe', { name: dweller.name }) : t('panels.pAskForTheDeployment')}</button>
       </div>
       <Keys><kbd>←→</kbd>{t('panels.column')} <kbd>↑↓</kbd>{t('panels.pr')} <kbd>Enter</kbd>{marking ? t('panels.waitsForThisOne') : t('panels.openThePr')} <kbd>B</kbd>{t('panels.markWhichOneItWaits')} <kbd>X</kbd>{t('panels.removeTheMarked')} <kbd>H</kbd>{showMerged ? t('panels.hideMerged') : t('panels.showMerged')} <kbd>P</kbd>{t('panels.deploymentPlan')} <kbd>F</kbd>{t('preflight.title')} <kbd>R</kbd>{t('panels.reload')} <kbd>Esc</kbd>{marking ? t('panels.cancel') : t('menu.back')}</Keys>
     </Device>

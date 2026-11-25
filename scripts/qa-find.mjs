@@ -23,21 +23,21 @@ await pg.goto(withToken(url0), { waitUntil: 'load' });
 await pg.waitForFunction(() => typeof window.__ready === 'function', null, { timeout: 60000 });
 await pg.evaluate(async () => { await window.__ready(); window.__game.set({ panel: null, panelData: null }); });
 
-const bar = () => pg.evaluate(() => { const x = document.querySelector('.barra-buscar'); return x ? { count: x.querySelector('.barra-buscar-cuenta').textContent, host: x.parentElement.className, focused: document.activeElement === x.querySelector('input') } : null; });
+const bar = () => pg.evaluate(() => { const x = document.querySelector('.bar-find'); return x ? { count: x.querySelector('.bar-find-count').textContent, host: x.parentElement.className, focused: document.activeElement === x.querySelector('input') } : null; });
 const marks = () => pg.evaluate(() => ({ all: CSS.highlights.get('shelter-find')?.size ?? 0, current: CSS.highlights.get('shelter-find-current')?.size ?? 0 }));
 
 // ---- the intercom: a conversation's log as the intercom draws it
 await pg.evaluate(() => {
-  const c = document.createElement('div'); c.className = 'consola interactivo'; c.id = 'qa-consola';
+  const c = document.createElement('div'); c.className = 'console interactive'; c.id = 'qa-consola';
   c.style.cssText = 'position:fixed;right:20px;top:80px;width:620px;height:420px;z-index:999999;display:flex';
-  c.innerHTML = '<div class="pantalla-consola fosforo sesion" data-sesion="qa"><div class="lienzo">' +
-    Array.from({ length: 40 }, (_, i) => `<div class="ent asistente"><p>Entry ${i}: ${i % 10 === 0 ? 'time to <b>pu</b>sh the branch' : 'nothing here'}</p></div>`).join('') + '</div></div>';
+  c.innerHTML = '<div class="screen-console phosphor session" data-session="qa"><div class="canvas">' +
+    Array.from({ length: 40 }, (_, i) => `<div class="ent assistant"><p>Entry ${i}: ${i % 10 === 0 ? 'time to <b>pu</b>sh the branch' : 'nothing here'}</p></div>`).join('') + '</div></div>';
   document.body.append(c);
   document.activeElement?.blur?.();
 });
 await pg.keyboard.press('Meta+f');
 check(await until(async () => (await bar())?.focused), '⌘F with nothing focused opens the bar on the intercom, its field focused');
-check((await bar())?.host.includes('sesion'), 'inside the conversation in view');
+check((await bar())?.host.includes('session'), 'inside the conversation in view');
 await pg.keyboard.type('push');
 check(await until(async () => (await bar())?.count === '1/4'), `counts the matches, across inline tags (${(await bar())?.count})`);
 check((await marks()).all === 4 && (await marks()).current === 1, 'marks them all and the current one');
@@ -45,9 +45,9 @@ await pg.keyboard.press('Enter');
 check((await bar())?.count === '2/4', 'Enter goes to the next one');
 await pg.keyboard.press('Shift+Enter'); await pg.keyboard.press('ArrowUp');
 check((await bar())?.count === '4/4', '⇧Enter and ↑ go back, wrapping around');
-const scrolled = await pg.evaluate(() => document.querySelector('#qa-consola .lienzo').scrollTop);
+const scrolled = await pg.evaluate(() => document.querySelector('#qa-consola .canvas').scrollTop);
 check(scrolled > 0, `the log scrolls to the current match (${scrolled})`);
-await pg.evaluate(() => { const l = document.querySelector('#qa-consola .lienzo'); l.insertAdjacentHTML('afterbegin', '<div class="ent asistente"><p>An older push</p></div>'); });
+await pg.evaluate(() => { const l = document.querySelector('#qa-consola .canvas'); l.insertAdjacentHTML('afterbegin', '<div class="ent assistant"><p>An older push</p></div>'); });
 check(await until(async () => (await bar())?.count === '5/5'), `an entry loaded above is searched too, on the same match (${(await bar())?.count})`);
 await pg.keyboard.press('Meta+a'); await pg.keyboard.type('zzz');
 check(await until(async () => /No matches|Sin resultados/.test((await bar())?.count ?? '')), 'no matches says so');
@@ -57,7 +57,7 @@ check((await marks()).all === 0 && (await marks()).current === 0, 'and clears th
 check(await pg.evaluate(() => !!document.querySelector('#qa-consola')), 'Esc stays in the bar (the intercom is still there)');
 
 // ---- a field elsewhere keeps ⌘F
-await pg.evaluate(() => { const t = document.createElement('div'); t.className = 'ventana-terminal'; t.id = 'qa-terminal'; t.innerHTML = '<textarea></textarea>'; document.body.append(t); t.querySelector('textarea').focus(); });
+await pg.evaluate(() => { const t = document.createElement('div'); t.className = 'window-terminal'; t.id = 'qa-terminal'; t.innerHTML = '<textarea></textarea>'; document.body.append(t); t.querySelector('textarea').focus(); });
 await pg.keyboard.press('Meta+f'); await pg.waitForTimeout(300);
 check(!(await bar()), 'with the focus in a terminal, ⌘F opens nothing');
 await pg.evaluate(() => { document.querySelector('#qa-terminal').remove(); document.querySelector('#qa-consola').remove(); });
@@ -65,9 +65,9 @@ await pg.evaluate(() => { document.querySelector('#qa-terminal').remove(); docum
 // ---- the «Página» window: the page's own text only
 const { page } = await pg.evaluate(link => window.__client.action('link.local', { path: link }), `${dir}/plan.md`);
 await pg.evaluate(async p => { const { openPage } = await import('/src/ui/Browsers.tsx'); openPage(p.url, p.title, undefined, p.path); }, page);
-check(await until(() => pg.evaluate(() => !!document.querySelector('.ventana-navegador iframe.vn-pagina'))), 'the plan opens in the «Página» window');
+check(await until(() => pg.evaluate(() => !!document.querySelector('.window-browser iframe.vn-page'))), 'the plan opens in the «Página» window');
 await pg.waitForTimeout(800);
-await pg.click('.ventana-navegador iframe.vn-pagina', { position: { x: 200, y: 300 } });
+await pg.click('.window-browser iframe.vn-page', { position: { x: 200, y: 300 } });
 check(await pg.evaluate(() => document.activeElement?.tagName === 'IFRAME'), 'the focus is in the page');
 check(await pg.evaluate(() => window.__findShortcut()), 'Edit → Find (window.__findShortcut) takes it');
 check(await until(async () => (await bar())?.host.includes('vn-cuerpo')), 'the bar opens on the page window');

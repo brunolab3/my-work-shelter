@@ -22,8 +22,8 @@ const set = (id, seg, extra = {}) => pg.evaluate(([id, seg, extra]) => {
     { id, source: 'google', title: 'Sprint planning', start: now + seg * 1000, end: now + seg * 1000 + 1800_000, allDay: false, videollamada: 'https://meet.google.com/abc-defg-hij', ...extra },
   ] });
 }, [id, seg, extra]);
-const slot = () => pg.evaluate(() => { const c = [...document.querySelectorAll('.contador')].find(x => x.querySelector('.tecla')?.textContent === 'C'); return c && { kind: c.className, text: c.textContent }; });
-const box = () => pg.evaluate(() => { const c = document.querySelector('.reunion-caja'); if (!c) return null; const r = c.getBoundingClientRect(); const onTop = document.elementFromPoint(r.x + r.width / 2, r.y + 8); return { text: c.textContent, onTop: !!onTop && c.contains(onTop) }; });
+const slot = () => pg.evaluate(() => { const c = [...document.querySelectorAll('.counter')].find(x => x.querySelector('.key')?.textContent === 'C'); return c && { kind: c.className, text: c.textContent }; });
+const box = () => pg.evaluate(() => { const c = document.querySelector('.meeting-box'); if (!c) return null; const r = c.getBoundingClientRect(); const onTop = document.elementFromPoint(r.x + r.width / 2, r.y + 8); return { text: c.textContent, onTop: !!onTop && c.contains(onTop) }; });
 const bar = { clip: { x: 0, y: 0, width: 1600, height: 90 } };
 
 await pg.goto(withToken(url0), { waitUntil: 'load' });
@@ -33,16 +33,16 @@ await pg.evaluate(async () => { await window.__ready(); window.__game.set({ pane
 await set('m1', 30 * 60);
 await wait(1200);
 let s = await slot();
-check(s && !/pronto|inminente/.test(s.kind) && /Sprint/.test(s.text), `30 min before: plain, and the timed meeting beats the all-day one (${s?.kind} · ${s?.text})`);
+check(s && !/soon|imminent/.test(s.kind) && /Sprint/.test(s.text), `30 min before: plain, and the timed meeting beats the all-day one (${s?.kind} · ${s?.text})`);
 await set('m1', 8 * 60);
 await wait(1200);
 s = await slot();
-check(s && / pronto/.test(s.kind), `8 min before: amber (${s?.kind})`);
+check(s && / soon/.test(s.kind), `8 min before: amber (${s?.kind})`);
 await pg.screenshot({ path: `${dir}/1-ambar.png`, ...bar });
 await set('m1', 2 * 60);
 await wait(1200);
 s = await slot();
-check(s && / inminente/.test(s.kind), `2 min before: red (${s?.kind})`);
+check(s && / imminent/.test(s.kind), `2 min before: red (${s?.kind})`);
 check(!(await box()), 'no box yet');
 await pg.screenshot({ path: `${dir}/2-rojo.png`, ...bar });
 

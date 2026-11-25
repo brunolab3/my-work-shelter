@@ -72,7 +72,7 @@ try {
   const calls = n => pg.evaluate(n => window.__calls.filter(x => x[0] === n).map(x => x[1]), n);
   const col = k => `.kanban-col:nth-child(${k})`;   // 1 Por hacer, 2 Bloqueado, 3 En curso, 4 En revisión, 5 Prueba en producción, 6 Hecho
   const card = key => `.card-issue:has(.ident:text-is("${key}"))`;
-  const confirmation = () => pg.textContent('.mover-jira').catch(() => '');
+  const confirmation = () => pg.textContent('.move-jira').catch(() => '');
   check(await until(async () => (await pg.$$('.card-issue')).length === 3), 'the board shows the three tasks');
 
   await pg.dragAndDrop(card('QA-5'), col(3));
@@ -82,17 +82,17 @@ try {
   check(!(await calls('integration.move')).length, '…and nothing is written yet');
   await pg.waitForTimeout(300); await pg.screenshot({ path: path.join(dir, 'mover-jira-confirmar.png'), animations: 'disabled' });
   await pg.keyboard.press('Escape');
-  check(await until(async () => !(await pg.$('.mover-jira'))) && !(await calls('integration.move')).length && (await pg.evaluate(() => window.__game.get().panel)) === 'logistics', 'Esc cancels: nothing posted, the board stays open');
+  check(await until(async () => !(await pg.$('.move-jira'))) && !(await calls('integration.move')).length && (await pg.evaluate(() => window.__game.get().panel)) === 'logistics', 'Esc cancels: nothing posted, the board stays open');
 
   await pg.dragAndDrop(card('QA-5'), col(3));
-  await until(async () => !!(await pg.$('.mover-jira')));
+  await until(async () => !!(await pg.$('.move-jira')));
   await pg.keyboard.press('Enter');
   check(await until(async () => (await calls('integration.move')).some(d => d.key === 'QA-5' && d.id === '11' && d.column === 'inProgress')), 'Enter posts that transition (id 11)');
-  check(await until(async () => /In Progress/.test(await pg.textContent(`${card('QA-5')} .movida`).catch(() => '')) && !!(await pg.$(`${col(3)} ${card('QA-5')}`))), 'the card says it moved and lands in «En curso»');
+  check(await until(async () => /In Progress/.test(await pg.textContent(`${card('QA-5')} .moved`).catch(() => '')) && !!(await pg.$(`${col(3)} ${card('QA-5')}`))), 'the card says it moved and lands in «En curso»');
   check(await until(async () => /QA-5/.test(await pg.textContent('.card-issue.sel').catch(() => ''))), '…still selected');
 
   await pg.dragAndDrop(card('QA-9'), col(6));
-  check(await until(async () => (await pg.$$('.mover-jira li')).length === 2 && /QA-9: In Progress → Done/.test(await confirmation())), 'QA-9 onto «Hecho»: two transitions lead there, listed to pick');
+  check(await until(async () => (await pg.$$('.move-jira li')).length === 2 && /QA-9: In Progress → Done/.test(await confirmation())), 'QA-9 onto «Hecho»: two transitions lead there, listed to pick');
   await pg.keyboard.press('ArrowDown');
   check(await until(async () => /QA-9: In Progress → Closed/.test(await confirmation())), '↓ picks «Won\'t do → Closed»');
   await pg.waitForTimeout(300); await pg.screenshot({ path: path.join(dir, 'mover-jira-elegir.png'), animations: 'disabled' });
@@ -101,13 +101,13 @@ try {
   check(await until(async () => !!(await pg.$(`${col(6)} ${card('QA-9')}`))), 'QA-9 lands in «Hecho»');
 
   await pg.dragAndDrop(card('QA-12'), col(2));
-  check(await until(async () => /QA-12/.test(await pg.textContent('.notice-console').catch(() => ''))) && !(await pg.$('.mover-jira')), 'a column the workflow doesn\'t reach (Bloqueado): a notice, no confirmation');
+  check(await until(async () => /QA-12/.test(await pg.textContent('.notice-console').catch(() => ''))) && !(await pg.$('.move-jira')), 'a column the workflow doesn\'t reach (Bloqueado): a notice, no confirmation');
 
   const before = (await calls('integration.move')).length;
   await pg.dragAndDrop(card('QA-12'), col(3));
-  await until(async () => !!(await pg.$('.mover-jira')));
+  await until(async () => !!(await pg.$('.move-jira')));
   await pg.keyboard.press('Enter');
-  check(await until(async () => /✗.*403/.test(await pg.textContent(`${card('QA-12')} .movida.bad`).catch(() => ''))) && !!(await pg.$(`${col(1)} ${card('QA-12')}`)), 'a refused move: the card shows the error and stays in «Por hacer»');
+  check(await until(async () => /✗.*403/.test(await pg.textContent(`${card('QA-12')} .moved.bad`).catch(() => ''))) && !!(await pg.$(`${col(1)} ${card('QA-12')}`)), 'a refused move: the card shows the error and stays in «Por hacer»');
   check((await calls('integration.move')).length === before + 1, '…after a single attempt');
   await pg.waitForTimeout(300); await pg.screenshot({ path: path.join(dir, 'mover-jira-error.png'), animations: 'disabled' });
 
@@ -116,8 +116,8 @@ try {
   await pg.keyboard.press('Shift+ArrowRight');
   check(await until(async () => /QA-5: In Progress → Code Review/.test(await confirmation())), '⇧→ on the selected card opens the confirmation for the next column');
   await pg.keyboard.press('Escape');
-  check(await until(async () => !(await pg.$('.mover-jira'))) && (await pg.evaluate(() => window.__game.get().panel)) === 'logistics', 'Esc closes only the confirmation');
-  check(/⇧←→/.test(await pg.textContent('.ayuda-consola').catch(() => '')), 'the legend names ⇧←→');
+  check(await until(async () => !(await pg.$('.move-jira'))) && (await pg.evaluate(() => window.__game.get().panel)) === 'logistics', 'Esc closes only the confirmation');
+  check(/⇧←→/.test(await pg.textContent('.help-console').catch(() => '')), 'the legend names ⇧←→');
   check(!errors.length, 'sin errores en la página' + (errors.length ? ': ' + errors.join(' | ') : ''));
 } catch (e) { failures++; console.error(e); console.log(output.slice(-1500)); }
 finally { await b.close(); server.kill('SIGKILL'); }

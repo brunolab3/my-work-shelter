@@ -20,8 +20,8 @@ describe('nextEvent', () => {
 describe('urgency and the alert', () => {
   it('amber at 10 min, red at 3, nothing once started or all day', () => {
     expect(urgency(ev('a', 11), NOW)).toBe('');
-    expect(urgency(ev('a', 10), NOW)).toBe('pronto');
-    expect(urgency(ev('a', 3), NOW)).toBe('inminente');
+    expect(urgency(ev('a', 10), NOW)).toBe('soon');
+    expect(urgency(ev('a', 3), NOW)).toBe('imminent');
     expect(urgency(ev('a', 0), NOW)).toBe('');
     expect(urgency(ev('a', 2, 60, true), NOW)).toBe('');
   });

@@ -67,16 +67,16 @@ export class TagsLayer {
       const key = (it.color ?? '') + '|' + it.state + '|' + it.name + '|' + it.detail + '|' + it.near + '|' + it.prompt + '|' + it.key + '|' + it.farSide + '|' + it.aimed + '|' + (it.scheduled ?? '') + '|' + (it.queued ?? '') + '|' + (it.flagged ?? '') + '|' + (it.epic ? it.epic.color + it.epic.title : '');
       if (key !== e.key) {
         e.key = key;
-        e.el.className = 'label ' + it.state + (it.supervisor ? ' supervisor' : '') + (it.device ? ' de-aparato' : '') + (it.near ? ' near' : '') + (it.farSide && !it.aimed ? ' solo-glifo' : '');
+        e.el.className = 'label ' + it.state + (it.supervisor ? ' supervisor' : '') + (it.device ? ' of-device' : '') + (it.near ? ' near' : '') + (it.farSide && !it.aimed ? ' glyph-only' : '');
         e.prompt.innerHTML = it.prompt ? `<span class="tecla">${it.key ?? 'E'}</span> ${it.prompt}` : ''; e.prompt.style.display = it.prompt ? '' : 'none';
         e.glyph.textContent = it.supervisor ? '★' : it.device ? '⚙' : GLYPH[it.state] ?? '·';
-        e.el.style.setProperty('--tarea', it.color ?? 'transparent'); e.el.classList.toggle('con-tarea', !!it.color);   // la copia de una tarea, con su color
+        e.el.style.setProperty('--task', it.color ?? 'transparent'); e.el.classList.toggle('with-task', !!it.color);   // la copia de una tarea, con su color
         e.name.textContent = it.name; e.detail.textContent = it.detail; e.detail.style.display = it.detail ? '' : 'none';
         e.scheduled.textContent = it.scheduled ?? ''; e.scheduled.style.display = it.scheduled ? '' : 'none';
         e.queued.textContent = it.queued ?? ''; e.queued.style.display = it.queued ? '' : 'none';
         e.flagged.textContent = it.flagged ?? ''; e.flagged.style.display = it.flagged ? '' : 'none';
         // the copy's task belongs to an epic: a small diamond in the epic's color (shared with the tabs and boards)
-        e.epic.style.display = it.epic ? '' : 'none'; e.epic.style.setProperty('--epica', it.epic?.color ?? 'transparent'); e.epic.title = it.epic?.title ?? '';
+        e.epic.style.display = it.epic ? '' : 'none'; e.epic.style.setProperty('--epic', it.epic?.color ?? 'transparent'); e.epic.title = it.epic?.title ?? '';
       }
       v.copy(it.pos); v.y += it.height + 0.25; v.project(cam);
       if (v.z > 1) { if (e.el.style.display !== 'none') e.el.style.display = 'none'; continue; }

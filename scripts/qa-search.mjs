@@ -24,15 +24,15 @@ let failures = 0;
 const check = (ok, text) => { console.log((ok ? 'OK   ' : 'FALLO ') + text); if (!ok) failures++; };
 const until = async (f, ms = 8000) => { const t = Date.now(); while (Date.now() - t < ms) { if (await f()) return true; await wait(150); } return false; };
 const panel = () => pg.evaluate(() => window.__game.get().panel);
-const options = () => pg.evaluate(() => [...document.querySelectorAll('.opciones-consola li')].map(l => l.textContent.replace('▶', '').trim()));
-const rows = () => pg.evaluate(() => [...document.querySelectorAll('.fila-buscador')].map(f => ({ txt: f.querySelector('.txt')?.textContent, key: f.querySelector('.tecla')?.textContent ?? '', active: f.classList.contains('active') })));
-const sections = () => pg.evaluate(() => [...document.querySelectorAll('.seccion-buscador')].map(s => s.textContent));
-const open = () => pg.isVisible('.buscador');
+const options = () => pg.evaluate(() => [...document.querySelectorAll('.options-console li')].map(l => l.textContent.replace('▶', '').trim()));
+const rows = () => pg.evaluate(() => [...document.querySelectorAll('.row-search')].map(f => ({ txt: f.querySelector('.txt')?.textContent, key: f.querySelector('.key')?.textContent ?? '', active: f.classList.contains('active') })));
+const sections = () => pg.evaluate(() => [...document.querySelectorAll('.section-search')].map(s => s.textContent));
+const open = () => pg.isVisible('.search');
 const chooseMenu = async text => { const i = (await options()).findIndex(o => o.startsWith(text)); for (let k = 0; k < i; k++) await pg.keyboard.press('ArrowDown'); await pg.keyboard.press('Enter'); await wait(300); };
 
 // ---- regleta
-check(!(await pg.$('.boton-reiniciar')), 'la regleta ya no lleva el botón de reiniciar');
-check((await pg.$$eval('.boton-puerta .tecla', t => t.map(x => x.textContent))).join(' ') === '⌘K Esc', 'lleva ⌘K (buscar) y Esc (menú) a la vista');
+check(!(await pg.$('.button-restart')), 'la regleta ya no lleva el botón de reiniciar');
+check((await pg.$$eval('.button-door .key', t => t.map(x => x.textContent))).join(' ') === '⌘K Esc', 'lleva ⌘K (buscar) y Esc (menú) a la vista');
 
 // ---- menú del juego
 await pg.keyboard.press('Escape');
@@ -51,7 +51,7 @@ await pg.keyboard.press('Escape');
 check(await until(async () => (await panel()) === null), 'Esc en el menú vuelve al refugio');
 await pg.keyboard.press('KeyO'); await wait(300);
 check((await panel()) === null, 'la O ya no abre las opciones');
-await pg.click('.boton-puerta:nth-child(2)');
+await pg.click('.button-door:nth-child(2)');
 check(await until(async () => (await panel()) === 'menu'), 'el botón «Esc menú» de la regleta abre el menú');
 await pg.keyboard.press('Escape'); await wait(200);
 
@@ -87,7 +87,7 @@ for (let x = 0; x < k; x++) await pg.keyboard.press('ArrowDown');
 await pg.keyboard.press('Enter');
 check(await until(() => pg.isVisible('.console'), 30000), 'Enter va con él y abre su intercomunicador');
 // ⌘K escribiendo en el intercomunicador
-await until(() => pg.isVisible('.console .opciones-consola'));
+await until(() => pg.isVisible('.console .options-console'));
 await pg.keyboard.press('Enter'); await wait(400);   // trabajo nuevo: el foco en la caja de texto
 await pg.keyboard.type('draft');
 await pg.keyboard.press('Meta+k');

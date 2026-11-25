@@ -39,51 +39,51 @@ ok(await pg.evaluate(() => window.__game.get().dwellers.some(h => h.id === 'mona
 await pg.evaluate(r => window.__git.openGit({ path: r, view: 'changes' }), repo);
 await wait(1500);
 await photo('2-cambios');
-const files = await pg.$$eval('.gc-seccion li', ls => ls.map(l => l.textContent));
+const files = await pg.$$eval('.gc-section li', ls => ls.map(l => l.textContent));
 ok(files.length >= 3, 'lista de archivos: ' + files.join(' | '));
 // app.js: el diff tiene dos bloques; se prepara el segundo
-await pg.click('.gc-seccion.cambios li:has-text("app.js")');
-ok(await pg.waitForFunction(() => document.querySelector('.gc-diff-ruta')?.textContent === 'app.js' && document.querySelectorAll('.gd-bloque').length === 2, null, { timeout: 10000 }).then(() => true, () => false), 'app.js: dos bloques');
+await pg.click('.gc-section.cambios li:has-text("app.js")');
+ok(await pg.waitForFunction(() => document.querySelector('.gc-diff-path')?.textContent === 'app.js' && document.querySelectorAll('.gd-block').length === 2, null, { timeout: 10000 }).then(() => true, () => false), 'app.js: dos bloques');
 await photo('3-diff');
-await pg.click('.gd-bloque:nth-of-type(2) button:has-text("Preparar bloque")');
-ok(await pg.waitForFunction(() => [...document.querySelectorAll('.gc-seccion.preparados li')].some(l => l.textContent.includes('app.js')), null, { timeout: 10000 }).then(() => true, () => false), 'el bloque está preparado');
+await pg.click('.gd-block:nth-of-type(2) button:has-text("Preparar bloque")');
+ok(await pg.waitForFunction(() => [...document.querySelectorAll('.gc-section.preparados li')].some(l => l.textContent.includes('app.js')), null, { timeout: 10000 }).then(() => true, () => false), 'el bloque está preparado');
 // del bloque que queda, una línea suelta
-await pg.click('.gc-seccion.cambios li:has-text("app.js")');
-await pg.waitForFunction(() => document.querySelectorAll('.gd-bloque').length === 1 && !document.querySelector('.gd-botones button:disabled'), null, { timeout: 10000 });
+await pg.click('.gc-section.cambios li:has-text("app.js")');
+await pg.waitForFunction(() => document.querySelectorAll('.gd-block').length === 1 && !document.querySelector('.gd-buttons button:disabled'), null, { timeout: 10000 });
 await pg.click('.gd-l.plus .gd-n >> nth=0');
 await wait(200);
 await photo('4-linea-elegida');
-await pg.click('.gd-eleccion button:has-text("Preparar")');
-ok(await pg.waitForFunction(() => document.querySelector('.gc-aviso')?.textContent.includes('1 línea'), null, { timeout: 10000 }).then(() => true, () => false), 'una línea suelta preparada');
+await pg.click('.gd-choice button:has-text("Preparar")');
+ok(await pg.waitForFunction(() => document.querySelector('.gc-notice')?.textContent.includes('1 línea'), null, { timeout: 10000 }).then(() => true, () => false), 'una línea suelta preparada');
 // en paralelo
 await pg.click('button:has-text("Unificado")');
-await pg.click('.gc-seccion.preparados li:has-text("app.js")');
+await pg.click('.gc-section.preparados li:has-text("app.js")');
 await wait(900);
 await photo('5-paralelo');
 // commit
 await pg.fill('.gc-commit textarea', 'QA: un bloque y una línea');
 await pg.keyboard.press('Meta+Enter');
-ok(await pg.waitForFunction(() => /Commit [0-9a-f]+/.test(document.querySelector('.gc-aviso')?.textContent ?? ''), null, { timeout: 15000 }).then(() => true, () => false), 'commit hecho con ⌘Intro');
+ok(await pg.waitForFunction(() => /Commit [0-9a-f]+/.test(document.querySelector('.gc-notice')?.textContent ?? ''), null, { timeout: 15000 }).then(() => true, () => false), 'commit hecho con ⌘Intro');
 await photo('6-tras-commit');
 // historial
-await pg.click('.gc-pestana:has-text("Historial")');
+await pg.click('.gc-tab:has-text("Historial")');
 await wait(1200);
-await pg.click('.gh-fila >> nth=0');
+await pg.click('.gh-row >> nth=0');
 await wait(1200);
 await photo('7-historial');
-ok(await pg.$$eval('.gh-fila', x => x.length) >= 4, 'historial con grafo');
+ok(await pg.$$eval('.gh-row', x => x.length) >= 4, 'historial con grafo');
 // ramas y GitHub
-await pg.click('.gc-pestana:has-text("Ramas")');
+await pg.click('.gc-tab:has-text("Ramas")');
 await wait(1000);
 await photo('8-ramas');
-await pg.click('.gc-pestana:has-text("GitHub")');
+await pg.click('.gc-tab:has-text("GitHub")');
 await wait(5000);
 await photo('9-github');
-ok(await pg.$$eval('.gg-celda', x => x.length) > 300, 'matriz de contribuciones');
+ok(await pg.$$eval('.gg-cell', x => x.length) > 300, 'matriz de contribuciones');
 // minimizar a la barra
 await pg.evaluate(() => window.__git.windowGit.set({ minimized: true }));
 await wait(600);
-ok(await pg.$('.barra-fila.git') !== null, 'fila GIT en la barra');
+ok(await pg.$('.bar-row.git') !== null, 'fila GIT en la barra');
 await photo('10-barra');
 console.log(errors.length ? 'Errores de la página:\n' + errors.join('\n') : 'Sin errores en la página.');
 await b.close();
