@@ -23,11 +23,11 @@ describe('comparación de cambios', () => {
   it('la rama sin subir frente a la principal, con lo que no está en un commit: archivos, cuentas y nada sin escapar', async () => {
     const r = await buildCompare(repo());
     expect([r.base, r.branch, r.files, r.more, r.deletions]).toEqual(['main', 'tarea', 3, 4, 1]);
-    expect(readFileSync(r.file, 'utf8')).toContain('data-seccion="suelto.ts"');
+    expect(readFileSync(r.file, 'utf8')).toContain('data-section="suelto.ts"');
     expect(path.dirname(r.file)).toBe(COMPARES_FOLDER);
     const html = readFileSync(r.file, 'utf8');
-    expect(html).toContain('data-seccion="a.ts"');
-    expect(html).toContain('data-seccion="a.ts:3"');          // cada línea dice de qué archivo y línea es
+    expect(html).toContain('data-section="a.ts"');
+    expect(html).toContain('data-section="a.ts:3"');          // cada línea dice de qué archivo y línea es
     expect(html).toContain('&lt;script&gt;3&lt;/script&gt;');
     expect(html).not.toContain('<script>3');
     expect(html).toContain('nuevo.md');

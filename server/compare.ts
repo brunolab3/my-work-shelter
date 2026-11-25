@@ -73,22 +73,22 @@ const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
 const anchor = (path: string) => 'f-' + path.replace(/[^a-zA-Z0-9]+/g, '-');
 const STATE: Record<FileDiff['state'], string> = { new: 'nuevo', deleted: 'borrado', renamed: 'renombrado', changed: '' };
 
-/** La página: resumen, índice de archivos y cada archivo con sus líneas (data-seccion: la nota dice de qué archivo es) */
+/** La página: resumen, índice de archivos y cada archivo con sus líneas (data-section: la nota dice de qué archivo es) */
 export function compareHtml(title: string, subtitle: string, files: FileDiff[]): string {
   const more = files.reduce((n, f) => n + f.more, 0), deletions = files.reduce((n, f) => n + f.deletions, 0);
   let total = 0;
   const body = files.map(f => {
     const header = `<h2 class="fh"><a href="#${anchor(f.path)}">${esc(f.before ? `${f.before} → ${f.path}` : f.path)}</a> <span class="cuenta"><b class="mas">+${f.more}</b> <b class="menos">−${f.deletions}</b>${STATE[f.state] ? ` · ${STATE[f.state]}` : ''}</span></h2>`;
-    if (f.binary) return `<section id="${anchor(f.path)}" data-seccion="${esc(f.path)}">${header}<p class="nota">${t('tool.compare.binary')}</p></section>`;
+    if (f.binary) return `<section id="${anchor(f.path)}" data-section="${esc(f.path)}">${header}<p class="nota">${t('tool.compare.binary')}</p></section>`;
     const rows = (total > MAX_LINES ? [] : f.lines).map(l => {
       total++;
       if (l.type === '@') return `<tr class="hunk"><td colspan="3">${esc(l.text)}</td></tr>`;
       const c = l.type === '+' ? 'add' : l.type === '-' ? 'del' : '';
       const line = l.newer ?? l.old;
-      return `<tr class="${c}" data-seccion="${esc(`${f.path}:${line}`)}"><td class="n">${l.old ?? ''}</td><td class="n">${l.newer ?? ''}</td><td class="c"><span class="s">${l.type === ' ' ? ' ' : l.type}</span>${esc(l.text) || ' '}</td></tr>`;
+      return `<tr class="${c}" data-section="${esc(`${f.path}:${line}`)}"><td class="n">${l.old ?? ''}</td><td class="n">${l.newer ?? ''}</td><td class="c"><span class="s">${l.type === ' ' ? ' ' : l.type}</span>${esc(l.text) || ' '}</td></tr>`;
     }).join('');
     const truncation = f.truncated || total > MAX_LINES ? `<p class="nota">${t('tool.compare.truncated')}</p>` : '';
-    return `<section id="${anchor(f.path)}" data-seccion="${esc(f.path)}">${header}<table>${rows}</table>${truncation}</section>`;
+    return `<section id="${anchor(f.path)}" data-section="${esc(f.path)}">${header}<table>${rows}</table>${truncation}</section>`;
   }).join('\n');
   const index = files.map(f => `<li><a href="#${anchor(f.path)}">${esc(f.path)}</a> <b class="mas">+${f.more}</b> <b class="menos">−${f.deletions}</b></li>`).join('');
   return `<!doctype html><html lang="${language()}"><head><meta charset="utf-8"><title>${esc(title)}</title><style>

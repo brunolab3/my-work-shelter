@@ -14,7 +14,7 @@
   const mark = typeof Highlight === 'function' && CSS.highlights ? new Highlight() : null;
   if (mark) CSS.highlights.set('shelter-note', mark);
   const style = document.createElement('style');
-  style.textContent = '::highlight(refugio-nota){background:rgba(255,196,0,.38);color:inherit}';
+  style.textContent = '::highlight(shelter-note){background:rgba(255,196,0,.38);color:inherit}';
   (document.head || document.documentElement).appendChild(style);
 
   // la interfaz, en su propia raíz de sombra: el CSS de la página no la toca ni ella a la página
@@ -31,7 +31,7 @@
     .fila{display:flex;gap:6px;justify-content:flex-end;margin-top:6px}
     .fila button{background:#2b261c;color:#f3e3b5;border:1px solid #6b5a33;border-radius:4px;padding:3px 10px;cursor:pointer}
     .fila .si{border-color:#c9a24a}.fila .borrar{margin-right:auto;color:#f0a090}
-    .mas{padding:0 6px;font-weight:700;line-height:16px;background:#1f6feb;color:#fff;border-color:#388bfd}
+    .plus{padding:0 6px;font-weight:700;line-height:16px;background:#1f6feb;color:#fff;border-color:#388bfd}
     [hidden]{display:none}
   </style>
   <button class="boton" hidden></button>
@@ -45,7 +45,7 @@
   // texto de la página con los espacios plegados, y de dónde sale cada carácter (para volver a encontrar una cita)
   const fold = s => s.replace(/\s+/g, ' ').trim();
   function index() {
-    const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, { acceptNode: n => (n.parentElement && n.parentElement.closest('script,style,noscript,#refugio-notas') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT) });
+    const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, { acceptNode: n => (n.parentElement && n.parentElement.closest('script,style,noscript,#shelter-notes') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT) });
     let text = '', pos = [], space = true, n;
     while ((n = w.nextNode())) {
       const d = n.data;
@@ -73,12 +73,12 @@
     const k = pos.findIndex(([n, o]) => n === rank.startContainer && o >= rank.startOffset);
     return k < 0 ? null : k;
   }
-  // la sección: el encabezado (o lo marcado con data-seccion) anterior más cercano
+  // la sección: el encabezado (o lo marcado con data-section) anterior más cercano
   function section(rank) {
     const el = rank.startContainer.nodeType === 1 ? rank.startContainer : rank.startContainer.parentElement;
-    const inside = el && el.closest('[data-seccion]');
+    const inside = el && el.closest('[data-section]');
     if (inside) return fold(inside.getAttribute('data-section') || '').slice(0, 300);
-    const cand = [...document.querySelectorAll('h1,h2,h3,h4,h5,h6,[data-seccion]')].filter(h => !h.closest('#refugio-notas'));
+    const cand = [...document.querySelectorAll('h1,h2,h3,h4,h5,h6,[data-section]')].filter(h => !h.closest('#shelter-notes'));
     let best = null;
     for (const h of cand) if (h.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING || h.contains(el)) best = h;
     return best ? fold(best.getAttribute('data-section') || best.textContent || '').slice(0, 300) : '';
@@ -195,7 +195,7 @@
   let found = [], foundAt = -1, foundQuery = '';
   function matches(q) {
     const nodes = [], shown = new Map();
-    const visible = el => { if (!shown.has(el)) shown.set(el, !el.closest('script,style,noscript,#refugio-notas') && (el.checkVisibility ? el.checkVisibility() : true)); return shown.get(el); };
+    const visible = el => { if (!shown.has(el)) shown.set(el, !el.closest('script,style,noscript,#shelter-notes') && (el.checkVisibility ? el.checkVisibility() : true)); return shown.get(el); };
     const w = document.createTreeWalker(document.body || document.documentElement, NodeFilter.SHOW_TEXT, { acceptNode: n => (n.parentElement && visible(n.parentElement) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT) });
     let text = '', n;
     while ((n = w.nextNode())) { nodes.push([n, text.length]); text += n.data; }

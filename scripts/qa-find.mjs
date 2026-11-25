@@ -92,6 +92,14 @@ const { page } = await pg.evaluate(link => window.__client.action('link.local', 
 await pg.evaluate(async p => { const { openPage } = await import('/src/ui/Browsers.tsx'); openPage(p.url, p.title, undefined, p.path); }, page);
 check(await until(() => pg.evaluate(() => !!document.querySelector('.window-browser iframe.vn-page'))), 'the plan opens in the «Página» window');
 await pg.waitForTimeout(800);
+// the notes layer's names agree with each other: the id its find and outline skip, the highlight it registers and styles
+// (its host is mounted with the first «✎ Note» button, so a selection brings it in first)
+const layer = await pg.frame({ url: /\/pagina\// })?.evaluate(async () => {
+  getSelection().selectAllChildren(document.querySelector('h1')); document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+  await new Promise(r => setTimeout(r, 100)); getSelection().removeAllRanges();
+  return { host: !!document.getElementById('shelter-notes'), styled: [...document.querySelectorAll('style')].some(s => s.textContent.includes('::highlight(shelter-note)')), registered: CSS.highlights.has('shelter-note') };
+});
+check(layer?.host && layer.styled && layer.registered, `the notes layer is #shelter-notes and styles its shelter-note highlight (${JSON.stringify(layer)})`);
 await pg.click('.window-browser iframe.vn-page', { position: { x: 200, y: 300 } });
 check(await pg.evaluate(() => document.activeElement?.tagName === 'IFRAME'), 'the focus is in the page');
 check(await pg.evaluate(() => window.__findShortcut()), 'Edit → Find (window.__findShortcut) takes it');
