@@ -45,7 +45,8 @@ import type { PRBoard } from '@shared/board';
 import { worktreePRs, taskColor } from '@shared/tasks';
 import { lookOf, lookSignature } from '@shared/appearance';
 import { thumbnail } from '../world/figure/studio';
-import { openPreflight } from './Preflight';
+import { openPreflight, PRSize } from './Preflight';
+import { outsized } from '@shared/deploy';
 import { taskHasPRs } from '@shared/preflight';
 import { recentFirst } from '@shared/recent';
 import { groupTabs, talkerFirst } from './tabOrder';
@@ -1214,8 +1215,10 @@ function WorktreePRs({ copy, roomId }: { copy: { path: string; branch: string };
   useEffect(() => { let stillAlive = true; myPRs().then(l => { if (stillAlive) setRead(l); }); return () => { stillAlive = false; }; }, [branch]);
   const folder: string = live.use(e => ((e.state?.rooms ?? []) as any[]).find(x => x.id === roomId)?.path ?? '');
   // los de la tarea del worktree (todas sus ramas) en el repo de esta sala
-  const prs = useMemo(() => branch ? worktreePRs(fromBoard.length ? fromBoard : read ?? [], { path, branch }, folder) : [],
-    [fromBoard, read, path, branch, folder]);
+  const all = useMemo(() => fromBoard.length ? fromBoard : read ?? [], [fromBoard, read]);
+  const prs = useMemo(() => branch ? worktreePRs(all, { path, branch }, folder) : [], [all, path, branch, folder]);
+  // the diff's size judged as on the deploy board: against its task's other PRs in every repo
+  const big = useMemo(() => prs.filter(p => outsized(p, all)).length, [prs, all]);
   const [open, setOpen] = useState(false);
   const list = useListAtButton(open);
   if (!prs.length) return null;
@@ -1223,12 +1226,13 @@ function WorktreePRs({ copy, roomId }: { copy: { path: string; branch: string };
   // like the pages: a button with the count and, on click, the whole list at the button
   return <span className="pages-session prs-copia">
     <button className="console-x" title={t('windows.taskPRsHint')} onClick={() => { setOpen(x => !x); SFX.click(); }}>
-      ⑂ {t('windows.pullRequests')} ({openCount < prs.length ? `${openCount}/${prs.length}` : prs.length})
+      ⑂ {t('windows.pullRequests')} ({openCount < prs.length ? `${openCount}/${prs.length}` : prs.length}){big ? <span className="pr-size outsized" title={t('windows.taskPRsOutsized', { n: big })}> ⚠</span> : null}
     </button>
     {open && <ul ref={list} className="pages-list">{prs.map(p => <li key={p.url} className={'pr-' + p.state}>
       <span className="pr-brand" title={prStateName(p.state)}>{PR_STATE[p.state]}</span>
       <button className="page-name" title={`${p.repo}#${p.number} · ${p.branch}\n${p.title}`} onClick={() => { openLink(p.url); setOpen(false); }}>#{p.number} {p.title}</button>
       <span className="dim">{prStateName(p.state)}</span>
+      <PRSize p={p} prs={all} />
       {p.checks === 'FAILURE' || p.checks === 'ERROR' ? <span className="pr-bad">✕ CI</span> : null}
       {p.review === 'APPROVED' ? <span className="pr-good">✓</span> : p.review === 'CHANGES_REQUESTED' ? <span className="pr-bad">±</span> : null}
     </li>)}</ul>}

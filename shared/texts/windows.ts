@@ -261,6 +261,7 @@ export const WINDOWS: Record<string, LocalizedText> = {
   'windows.holographicCopy': { es: 'copia holográfica', en: 'holographic copy' },
   'windows.pullRequests': { es: 'Pull requests', en: 'Pull requests' },
   'windows.taskPRsHint': { es: 'Los pull requests de la tarea de esta copia en el repo de la sala (abiertos/todos)', en: 'The pull requests of this copy\'s task in the room\'s repo (open/all)' },
+  'windows.taskPRsOutsized': { es: '{n} con un diff desproporcionado (¿base o rama equivocada?): ábrelos para ver cuál', en: '{n} with an out-of-proportion diff (wrong base or head?): open the list to see which' },
   'windows.prState.open': { es: 'abierto', en: 'open' },
   'windows.prState.draft': { es: 'borrador', en: 'draft' },
   'windows.prState.merged': { es: 'fusionado', en: 'merged' },

@@ -1,4 +1,4 @@
-// QA of the intercom's «Actions» section (Dialog.tsx) on a hologram with pages + PRs + pre-flight + scheduled at once,
+// QA of the intercom's «Actions» section (Dialog.tsx) on a hologram with pages + PRs (with their diff sizes) + pre-flight + scheduled at once,
 // with its own server in a test shelter and Playwright: the four buttons in order of importance right under the
 // dweller's data; each list opens right below its button in a normal and a maximized intercom, and to its right over the
 // conversation in a short window when there's no room below for a few rows; never outside the intercom, and with ten
@@ -40,8 +40,9 @@ try {
   await pg.evaluate(([holo, wt, pages]) => {
     const now = Date.now();
     const c = window.__client, orig = c.action.bind(c);
-    const pr = (number, branch, state = 'open') => ({ number, title: 'Carrito: parte ' + number, url: `https://github.com/acme/tienda/pull/${number}`, repo: 'acme/tienda', branch, state, updated: 0, base: 'main' });
-    const prs = [pr(7, 'QA-7-carrito'), pr(8, 'QA-7-carrito-2', 'draft'), pr(6, 'QA-7-base', 'merged')];
+    const pr = (number, branch, state = 'open', additions = 120, deletions = 30) => ({ number, title: 'Carrito: parte ' + number, url: `https://github.com/acme/tienda/pull/${number}`, repo: 'acme/tienda', branch, state, updated: 0, base: 'main', additions, deletions, changedFiles: 4 });
+    // #8 is outsized (3200 changed lines: over the limit)
+    const prs = [pr(7, 'QA-7-carrito'), pr(8, 'QA-7-carrito-2', 'draft', 2400, 800), pr(6, 'QA-7-base', 'merged')];
     c.action = (n, d) => n === 'git.prsBoard' ? Promise.resolve({ prs }) : orig(n, d);
     window.__board.set({ prs });
     const sess = { id: 'qa_s', claudeId: 'qa_c', dwellerId: holo.copy.authorId, roomId: holo.room, cwd: wt, state: 'finished', activity: null, unread: false, title: 'QA carrito', pending: 0, helpers: [], tools: 0, turns: 1, created: now, updated: now, model: 'claude-opus-5-5' };
@@ -62,9 +63,15 @@ try {
     const inside = l.top >= z.top - 1 && l.bottom <= z.bottom + 1;
     return Math.abs(l.top - b.bottom) < 3 && Math.abs(l.left - b.left) < 3 ? (inside ? 'debajo' : 'fuera') : l.left >= b.right && l.top <= b.bottom && l.bottom >= b.top ? (inside ? 'derecha' : 'fuera') : 'far';
   });
+  check(await pg.$eval('.prs-copia > .console-x', b => !!b.querySelector('.pr-size.outsized') && b.textContent.includes('⚠')), 'the closed PRs button shows ⚠ when one is outsized');
   await side('1-cerrado');
   for (const [sel, n] of [['.pages-main > .console-x', '2-paginas'], ['.prs-copia > .console-x', '3-prs'], ['.scheduled-session > .console-x', '4-programados']]) {
-    await pg.click(sel); await sleep(400); check(await spot() === 'debajo', n + ': the list opens right below its button'); await side(n); await pg.click(sel); await sleep(200);
+    await pg.click(sel); await sleep(400); check(await spot() === 'debajo', n + ': the list opens right below its button'); await side(n);
+    if (n === '3-prs') {
+      const sizes = await pg.$$eval('.pages-list .pr-size', l => l.map(x => (x.classList.contains('outsized') ? '!' : '') + x.textContent));
+      check(sizes.length === 3 && sizes.filter(x => x.startsWith('!⚠')).length === 1 && sizes.some(x => x.includes('+2.4k −800')) && sizes.some(x => x === '+120 −30'), 'each PR row shows its size, the outsized one with ⚠: ' + sizes.join(' | '));
+    }
+    await pg.click(sel); await sleep(200);
   }
   await pg.evaluate(() => { const hid = window.__game.get().talkingWith; window.__intercoms.set(e => ({ list: e.list.map(v => v.dwellerId === hid ? { ...v, maximized: true } : v) })); });
   await sleep(800); await side('5-max');

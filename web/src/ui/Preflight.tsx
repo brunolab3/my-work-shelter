@@ -28,7 +28,7 @@ const STATE: Record<string, string> = { open: 'preflight.blockers.open', draft: 
 // the open pre-flight (one at a time) and where it was opened from: the box sits below that, or centred near the top
 const open = new Store<{ key: string | null; anchor?: { x: number; y: number; below: number } }>({ key: null });
 
-// the diff's size, muted; ⚠ and red when out of proportion (shared/deploy.ts: outsized), on the deploy board's cards and the pre-flight's rows
+// the diff's size, muted; ⚠ and red when out of proportion (shared/deploy.ts: outsized), on the deploy board's cards, the pre-flight's rows and the intercom's PR list
 export function PRSize({ p, prs, files }: { p: PRBoard; prs: PRBoard[]; files?: boolean }) {
   const text = sizeText(p, files);
   if (!text) return null;
