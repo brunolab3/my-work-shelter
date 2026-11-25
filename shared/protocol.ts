@@ -141,8 +141,8 @@ export type ClientMessage =
   | { t: 'hello'; version: string }
   | { t: 'start'; dwellerId: string; roomId: string; prompt: string; options: WorkOptions; attachments?: string[]; request?: string }
   | { t: 'send'; sessionId: string; text: string; attachments?: string[] }   // adjuntos: rutas que ha devuelto la acción «subir»
-  | { t: 'withdraw'; sessionId: string; messageId: string; request: string }   // take back a queued message of the Overseer's (data: whether it was)
-  | { t: 'sendNow'; sessionId: string; messageId: string; request: string }   // interrupt the turn and send a queued message of the Overseer's now (data: whether it was)
+  | { t: 'withdraw'; sessionId: string; messageId: string; request: string }   // take back a queued message of the Overseer's (data: a QueueOutcome, shared/messageQueue.ts)
+  | { t: 'sendNow'; sessionId: string; messageId: string; request: string }   // interrupt the turn and send a queued message of the Overseer's now (data: a QueueOutcome)
   | { t: 'answer'; sessionId: string; requestId: string; decision: 'si' | 'always' | 'no'; message?: string; responses?: Record<string, string> }
   | { t: 'interrupt'; sessionId: string }
   | { t: 'closeSession'; sessionId: string }

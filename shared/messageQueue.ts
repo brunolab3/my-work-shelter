@@ -23,6 +23,11 @@ export function takeConsumed(queue: QueuedMessage[], uuids: readonly string[] | 
   return { queue: queue.filter(m => !ids.has(m.id)), taken: queue.filter(m => ids.has(m.id)) };
 }
 
+/** What became of withdrawing or sending now a queued message: done; Claude Code had already taken it (now in the log);
+ *  no longer in the queue (the Overseer's list was behind); or it could not be taken out (still queued) */
+export type QueueOutcome = 'ok' | 'taken' | 'gone' | 'failed';
+export const QUEUE_FAILURE: Record<Exclude<QueueOutcome, 'ok'>, string> = { taken: 'windows.queue.tooLate', gone: 'windows.queue.gone', failed: 'windows.queue.failed' };
+
 /** Only what the Overseer typed can be withdrawn or edited: another room's message is not theirs to change */
 export const withdrawable = (m: QueuedMessage) => m.origin.kind === 'overseer';
 

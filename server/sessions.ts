@@ -20,7 +20,7 @@ import { gitEnvironment } from './gitEnv.ts';
 import { existsSync, readdirSync } from 'node:fs';
 import { query, listSessions, getSessionMessages, getSessionInfo, type Query, type SDKMessage, type SDKUserMessage, type CanUseTool, type PermissionResult, type Options, type McpSdkServerConfigWithInstance } from '@anthropic-ai/claude-agent-sdk';
 import type { SessionSummary, LogInput, PendingRequest, Helper, WorkOptions, HistoryElement, Command, Question, Attachment, InputView, MessageOrigin, QueuedMessage } from '../shared/protocol.ts';
-import { applyLifecycle, takeConsumed, withdrawable } from '../shared/messageQueue.ts';
+import { applyLifecycle, takeConsumed, withdrawable, type QueueOutcome } from '../shared/messageQueue.ts';
 import { separateAttachments, type Attachments } from './attachments.ts';
 import type { ToolOutputs } from './toolOutputs.ts';
 import { logPage, prependOlder, type LogCursor, type LogPage } from '../shared/logPages.ts';
@@ -526,31 +526,40 @@ export class Sessions extends EventEmitter {
     this.play(x);
   }
 
-  /** Take back a queued message the Overseer wrote, if Claude Code has not taken it yet: whether it was */
-  async withdraw(id: string, messageId: string): Promise<boolean> {
+  /** Take back a queued message the Overseer wrote, if Claude Code has not taken it yet. One Claude Code no longer has
+   *  in its queue was dequeued for the turn (`cancel_async_message` answers false): taken, so it moves into the log, as a
+   *  'started' frame would, instead of staying listed as queued */
+  async withdraw(id: string, messageId: string): Promise<QueueOutcome> {
     const x = this.must(id);
     const m = x.queue.find(q => q.id === messageId);
-    if (!m || !withdrawable(m)) return false;
+    // the Overseer's list is behind: send it again
+    if (!m) { this.lastEmission.delete(x.r.id); this.play(x); return 'gone'; }
+    if (!withdrawable(m)) return 'failed';
     // still being prepared, or still in the input the SDK has not read: never reaches Claude Code; else, from its queue
-    const ok = x.unsent.has(messageId) ? (x.withdrawn.add(messageId), true)
-      : x.input?.remove(u => u.uuid === messageId) || await ((x.q as any)?.cancelAsyncMessage?.(messageId) as Promise<boolean> | undefined)?.catch(() => false);
-    if (!ok) return false;
+    if (x.unsent.has(messageId)) x.withdrawn.add(messageId);
+    else if (!x.input?.remove(u => u.uuid === messageId)) {
+      const cancel = (x.q as any)?.cancelAsyncMessage as ((uuid: string) => Promise<boolean>) | undefined;
+      const cancelled = cancel ? await cancel.call(x.q, messageId).catch(() => undefined) : undefined;
+      if (cancelled === false) { this.lifecycle(x, messageId, 'started'); return 'taken'; }
+      if (!cancelled) return 'failed';
+    }
     x.queue = x.queue.filter(q => q.id !== messageId);
     this.play(x);
-    return true;
+    return 'ok';
   }
 
   /** Enviar ya: takes a queued message back, interrupts the turn (as Ctrl C, which also cancels what else is queued) and
-   *  sends it as a new one once the turn has stopped; false when it was already taken */
-  async sendNow(id: string, messageId: string): Promise<boolean> {
+   *  sends it as a new one once the turn has stopped; otherwise, why not (withdraw()) */
+  async sendNow(id: string, messageId: string): Promise<QueueOutcome> {
     const x = this.must(id);
     const m = x.queue.find(q => q.id === messageId);
-    if (!m || !(await this.withdraw(id, messageId))) return false;
+    const outcome = await this.withdraw(id, messageId);
+    if (!m || outcome !== 'ok') return outcome;
     await this.interrupt(id);
     // the turn that was stopped may still be ending: wait for it, so the message starts a turn of its own
     for (let i = 0; i < 100 && x.alive && ['starting', 'working', 'waiting'].includes(x.r.state); i++) await new Promise(r => setTimeout(r, 100));
     this.send(id, m.text, m.attachments, m.origin);
-    return true;
+    return 'ok';
   }
 
   // a message the Overseer didn't type (another room, a scheduled one, CI): an idle conversation already past the urge

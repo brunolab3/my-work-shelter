@@ -379,7 +379,9 @@ export const WINDOWS: Record<string, LocalizedText> = {
   'windows.queue.sendNow': { es: 'Enviar ya', en: 'Send now' },
   'windows.queue.sendNowTitle': { es: 'Interrumpe el turno (como Ctrl C) y lo envía ya; lo demás de la cola se anula', en: 'Interrupts the turn (like Ctrl C) and sends it now; the rest of the queue is cancelled' },
   'windows.queue.editTitle': { es: 'Retirarlo de la cola y volver a escribirlo', en: 'Take it out of the queue and rewrite it' },
-  'windows.queue.tooLate': { es: 'Ya lo ha cogido: no se puede retirar', en: 'It has already taken it: it can no longer be withdrawn' },
+  'windows.queue.tooLate': { es: 'Ya lo ha cogido: está en la conversación y no se puede retirar ni enviar aparte', en: 'It has already taken it: it is in the conversation now and can no longer be withdrawn or sent apart' },
+  'windows.queue.gone': { es: 'Ya no está en la cola: lo ha cogido o se ha anulado', en: 'It is no longer in the queue: it was taken or cancelled' },
+  'windows.queue.failed': { es: 'No se ha podido sacar de la cola de Claude Code: sigue en cola', en: "Couldn't take it out of Claude Code's queue: it is still queued" },
   'windows.queue.mark': { es: '✉ {n}', en: '✉ {n}' },
   'windows.queue.markTitle': { es: '{n} mensajes en cola', en: '{n} queued messages' },
   // conversations the Overseer marked as pending (shared/flagged.ts): on tabs, the ⋯ N list and tags, like ✉ n

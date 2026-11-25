@@ -49,29 +49,47 @@ describe('the queue of a busy conversation', () => {
     const s = session();
     s.sess.send('w1', 'Never mind');
     const first = s.r.queue[0].id;
-    expect(await s.sess.withdraw('w1', first)).toBe(true);
+    expect(await s.sess.withdraw('w1', first)).toBe('ok');
     await s.x.shipments;
     expect(s.metered).toEqual([]);
     expect(s.cancelled).toEqual([]);
     s.sess.send('w1', 'Changed my mind');
     await s.x.shipments;
     const second = s.r.queue[0].id;
-    expect(await s.sess.withdraw('w1', second)).toBe(true);
+    expect(await s.sess.withdraw('w1', second)).toBe('ok');
     expect(s.cancelled).toEqual([second]);
     expect(s.r.queue).toBeUndefined();
     expect(s.users()).toEqual([]);
   });
 
-  it("another room's message can't be withdrawn, nor one already taken", async () => {
+  it("another room's message can't be withdrawn; one Claude Code already took leaves the queue for the log", async () => {
     const s = session();
     s.sess.send('w1', 'From the bridge', [], ROOM);
-    expect(await s.sess.withdraw('w1', s.r.queue[0].id)).toBe(false);
+    expect(await s.sess.withdraw('w1', s.r.queue[0].id)).toBe('failed');
     s.sess.send('w1', 'Mine');
     await s.x.shipments;
     const mine = s.r.queue[1].id;
-    s.x.q.cancelAsyncMessage = async () => false;   // Claude Code took it in the meantime
-    expect(await s.sess.withdraw('w1', mine)).toBe(false);
-    expect(s.r.queue).toHaveLength(2);
+    s.x.q.cancelAsyncMessage = async () => false;   // Claude Code took it in the meantime, with no frame yet
+    expect(await s.sess.sendNow('w1', mine)).toBe('taken');
+    expect(s.r.queue).toEqual([expect.objectContaining({ text: 'From the bridge' })]);
+    expect(s.users()).toEqual([expect.objectContaining({ text: 'Mine' })]);
+    s.lifecycle(mine, 'started');   // the frame arriving late adds nothing
+    expect(s.users()).toHaveLength(1);
+  });
+
+  it('a stale row (already gone from the queue) is reported and the summary sent again; a cancel that fails keeps it queued', async () => {
+    const s = session();
+    s.sess.send('w1', 'Mine');
+    await s.x.shipments;
+    const id = s.r.queue[0].id;
+    s.x.q.cancelAsyncMessage = async () => { throw new Error('closed'); };
+    expect(await s.sess.sendNow('w1', id)).toBe('failed');
+    expect(s.r.queue).toHaveLength(1);
+    s.lifecycle(id, 'cancelled');
+    const before = s.summaries.length;
+    expect(await s.sess.sendNow('w1', id)).toBe('gone');
+    expect(s.summaries.length).toBe(before + 1);
+    expect(s.summaries.at(-1).queue).toBeUndefined();
   });
 
   it("without lifecycle frames, the turn's result takes what it consumed", async () => {

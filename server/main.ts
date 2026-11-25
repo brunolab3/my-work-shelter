@@ -1522,8 +1522,8 @@ async function handle(ws: WebSocket, m: ClientMessage) {
     case 'interrupt': await sessions.interrupt(m.sessionId); break;
     case 'closeSession': await sessions.closeAndStop(m.sessionId); break;
     case 'read': sessions.markRead(m.sessionId); break;
-    case 'withdraw': send(ws, { t: 'response', request: m.request, data: await sessions.withdraw(m.sessionId, m.messageId).catch(() => false) }); break;
-    case 'sendNow': send(ws, { t: 'response', request: m.request, data: await sessions.sendNow(m.sessionId, m.messageId).catch(() => false) }); break;
+    case 'withdraw': send(ws, { t: 'response', request: m.request, data: await sessions.withdraw(m.sessionId, m.messageId).catch(() => 'failed') }); break;
+    case 'sendNow': send(ws, { t: 'response', request: m.request, data: await sessions.sendNow(m.sessionId, m.messageId).catch(() => 'failed') }); break;
     case 'inUse': inUse.set(ws, new Set(Array.isArray(m.sessions) ? m.sessions.map(String) : [])); break;
     case 'sideQuestion': await sessions.lateral(m.sessionId, m.question); break;
     case 'permissionMode': await sessions.mode(m.sessionId, m.mode); break;

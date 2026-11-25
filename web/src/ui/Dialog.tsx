@@ -19,7 +19,7 @@
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { SessionSummary, LogInput, ToolOutput, HistoryElement, Command, PendingRequest, Visitor, QueuedMessage } from '@shared/protocol';
-import { originLabel, queuedIn, withdrawable } from '@shared/messageQueue';
+import { originLabel, QUEUE_FAILURE, queuedIn, withdrawable, type QueueOutcome } from '@shared/messageQueue';
 import { flaggedIds, flagOf, flaggedInIntercom, tabFlaggable, type Flaggable } from '@shared/flagged';
 import { MODELS, EFFORTS, PERMISSION_MODES } from '@shared/protocol';
 import { t, tIs, trBio } from '@shared/language';
@@ -1025,17 +1025,15 @@ function OutputView({ o, sessionId, id, tool }: { o: ToolOutput; sessionId: stri
 // it moves into the log when Claude Code takes it. What the Overseer wrote can be withdrawn, or taken back to the composer
 function Queued({ s, edit }: { s: SessionSummary; edit: (m: QueuedMessage) => void }) {
   const queue = s.queue ?? [];
-  const withdraw = async (m: QueuedMessage, then?: () => void) => {
-    const ok = await client.ask<boolean>({ t: 'withdraw', sessionId: s.id, messageId: m.id }).catch(() => false);
-    if (!ok) { SFX.notAllowed(); addNotice('warning', t('windows.queue.tooLate')); return; }
+  // what Claude Code already took moves into the log and leaves the list; any failure says why (QueueOutcome)
+  const ask = async (kind: 'withdraw' | 'sendNow', m: QueuedMessage, then?: () => void) => {
+    const r = await client.ask<QueueOutcome>({ t: kind, sessionId: s.id, messageId: m.id }).catch((): QueueOutcome => 'failed');
+    if (r !== 'ok') { SFX.notAllowed(); addNotice('warning', t(QUEUE_FAILURE[r] ?? QUEUE_FAILURE.failed)); return; }
     SFX.click(); then?.();
   };
+  const withdraw = (m: QueuedMessage, then?: () => void) => ask('withdraw', m, then);
   // Enviar ya: interrupts the turn and sends it now (Ctrl C, then this message); the server takes it back from the queue
-  const sendNow = async (m: QueuedMessage) => {
-    const ok = await client.ask<boolean>({ t: 'sendNow', sessionId: s.id, messageId: m.id }).catch(() => false);
-    if (!ok) { SFX.notAllowed(); addNotice('warning', t('windows.queue.tooLate')); return; }
-    SFX.click();
-  };
+  const sendNow = (m: QueuedMessage) => ask('sendNow', m);
   return (
     <div className="queue-messages">
       <div className="queue-title">{t('windows.queue.title', { n: queue.length })} <span className="dim">· {t('windows.queue.hint')}</span></div>
