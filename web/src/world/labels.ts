@@ -38,7 +38,7 @@ const GLYPH: Record<string, string> = { sleeping: 'z', idle: '·', thinking: '�
 
 export class TagsLayer {
   root: HTMLDivElement;
-  private map = new Map<Dweller | object, { el: HTMLDivElement; name: HTMLSpanElement; detail: HTMLSpanElement; glyph: HTMLSpanElement; prompt: HTMLSpanElement; scheduled: HTMLSpanElement; queued: HTMLSpanElement; flagged: HTMLSpanElement; epic: HTMLSpanElement; key: string }>();
+  private map = new Map<Dweller | object, { el: HTMLDivElement; name: HTMLSpanElement; detail: HTMLSpanElement; glyph: HTMLSpanElement; prompt: HTMLSpanElement; scheduled: HTMLSpanElement; queued: HTMLSpanElement; flagged: HTMLSpanElement; epic: HTMLSpanElement; task: HTMLSpanElement; key: string }>();
   // where each tag was drawn last frame (screen pixels), to tell which one the pointer is over
   private drawn: PlacedTag[] = [];
   constructor() {
@@ -54,23 +54,26 @@ export class TagsLayer {
     const queued = document.createElement('span'); queued.className = 'queued';
     const flagged = document.createElement('span'); flagged.className = 'pending';
     const epic = document.createElement('span'); epic.className = 'epic-mark';
-    el.append(glyph, epic, name, scheduled, queued, flagged, detail, prompt); this.root.appendChild(el);
-    const e = { el, name, detail, glyph, prompt, scheduled, queued, flagged, epic, key: '' }; this.map.set(k, e); return e;
+    const task = document.createElement('span'); task.className = 'task';
+    el.append(glyph, epic, task, name, scheduled, queued, flagged, detail, prompt); this.root.appendChild(el);
+    const e = { el, name, detail, glyph, prompt, scheduled, queued, flagged, epic, task, key: '' }; this.map.set(k, e); return e;
   }
-  update(cam: THREE.PerspectiveCamera, items: { k: object; pos: THREE.Vector3; height: number; name: string; state: string; detail: string; near: boolean; supervisor?: boolean; device?: boolean; prompt?: string; key?: string; farSide?: boolean; aimed?: boolean; color?: string; epic?: { color: string; title: string }; scheduled?: string; queued?: string; flagged?: string }[]) {
+  update(cam: THREE.PerspectiveCamera, items: { k: object; pos: THREE.Vector3; height: number; name: string; state: string; detail: string; near: boolean; supervisor?: boolean; device?: boolean; prompt?: string; key?: string; farSide?: boolean; aimed?: boolean; color?: string; epic?: { color: string; title: string }; task?: string; scheduled?: string; queued?: string; flagged?: string }[]) {
     const w = innerWidth, h = innerHeight; const v = new THREE.Vector3();
     const seen = new Set<object>();
     const boxes: TagBox[] = [];
     for (const it of items) {
       seen.add(it.k);
       const e = this.map.get(it.k) ?? this.create(it.k);
-      const key = (it.color ?? '') + '|' + it.state + '|' + it.name + '|' + it.detail + '|' + it.near + '|' + it.prompt + '|' + it.key + '|' + it.farSide + '|' + it.aimed + '|' + (it.scheduled ?? '') + '|' + (it.queued ?? '') + '|' + (it.flagged ?? '') + '|' + (it.epic ? it.epic.color + it.epic.title : '');
+      const key = (it.color ?? '') + '|' + it.state + '|' + it.name + '|' + it.detail + '|' + it.near + '|' + it.prompt + '|' + it.key + '|' + it.farSide + '|' + it.aimed + '|' + (it.scheduled ?? '') + '|' + (it.queued ?? '') + '|' + (it.flagged ?? '') + '|' + (it.epic ? it.epic.color + it.epic.title : '') + '|' + (it.task ?? '');
       if (key !== e.key) {
         e.key = key;
         e.el.className = 'label ' + it.state + (it.supervisor ? ' supervisor' : '') + (it.device ? ' of-device' : '') + (it.near ? ' near' : '') + (it.farSide && !it.aimed ? ' glyph-only' : '');
         e.prompt.innerHTML = it.prompt ? `<span class="tecla">${it.key ?? 'E'}</span> ${it.prompt}` : ''; e.prompt.style.display = it.prompt ? '' : 'none';
         e.glyph.textContent = it.supervisor ? '★' : it.device ? '⚙' : GLYPH[it.state] ?? '·';
         e.el.style.setProperty('--task', it.color ?? 'transparent'); e.el.classList.toggle('with-task', !!it.color);   // la copia de una tarea, con su color
+        // a hologram's task, kept when the tag shrinks to its glyph: which task each worktree is, at a glance
+        e.task.textContent = it.task ?? ''; e.task.style.display = it.task ? '' : 'none';
         e.name.textContent = it.name; e.detail.textContent = it.detail; e.detail.style.display = it.detail ? '' : 'none';
         e.scheduled.textContent = it.scheduled ?? ''; e.scheduled.style.display = it.scheduled ? '' : 'none';
         e.queued.textContent = it.queued ?? ''; e.queued.style.display = it.queued ? '' : 'none';

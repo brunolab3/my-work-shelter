@@ -242,7 +242,10 @@ html, body { margin: 0; height: 100%; background: var(--bg); overflow: hidden; c
 .label .prompt { display: flex; align-items: center; gap: 5px; margin-left: 6px; padding-left: 8px; border-left: 1px solid #4a453d; color: var(--cream); }
 .label.supervisor .glyph { background: var(--amber); }
 
-.label.glyph-only { padding: 2px; } .label.glyph-only > span:not(.glyph):not(.scheduled):not(.queued):not(.pending) { display: none !important; }
+.label.glyph-only { padding: 2px; } .label.glyph-only > span:not(.glyph):not(.scheduled):not(.queued):not(.pending):not(.task):not(.epic-mark) { display: none !important; }
+.label .task { color: var(--cream); font: 600 calc(var(--u) * 0.78) var(--t-mono); max-width: 18em; overflow: hidden; text-overflow: ellipsis; }   /* a hologram's task (holograms.ts), in its colour */
+.label:not(.glyph-only) .task { display: none !important; }   /* the full tag names it already */
+.label.with-task .task { color: var(--task); }
 .label .scheduled { color: var(--amber); font-weight: 600; font-size: .9em; }   /* ⏰ the next scheduled message (scheduledMark) */
 .label .queued { color: var(--amber); font-weight: 600; font-size: .9em; }   /* ✉ n messages its conversations have not taken yet */
 .label .pending { color: var(--pending); font-weight: 600; font-size: .9em; }   /* ⚑ conversations marked as pending (flaggedMark) */

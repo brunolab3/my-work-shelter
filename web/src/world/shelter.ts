@@ -690,7 +690,6 @@ export class Shelter {
     const h = this.focused; this.focused = null;
     if (this.copyFocused) { this.holograms.finishChat(this.copyFocused); this.copyFocused = null; }
     this.portrait?.destroy(); this.portrait = null;
-    this.labels.root.style.display = '';
     Dweller.still = false;
     if (h) { h.waitingAfterChat = 3; h.chatting = false; }
   }
@@ -704,7 +703,6 @@ export class Shelter {
     this.focused = h; h.chatting = true;
     this.portrait?.destroy(); this.portrait = new Portrait(h.p);
     (window as any).__portrait = this.portrait.canvas;
-    this.labels.root.style.display = 'none';
     Dweller.still = true;
     juego.set({ talkingWith: h.id.id, hint: null });
     h.p.stop();
@@ -752,7 +750,6 @@ export class Shelter {
     this.copyFocused = f;
     this.portrait?.destroy(); this.portrait = new Portrait(f.p, 220, 260, true);
     (window as any).__portrait = this.portrait.canvas;
-    this.labels.root.style.display = 'none';
     Dweller.still = true;
     const fp = f.p.root.position, room = f.room;
     const sp = this.supervisor.root.position;
@@ -1176,7 +1173,10 @@ export class Shelter {
     if (aim?.type === 'elevator' && !(inLanding && aim.floor === floor)) items.push({ k: this.elevator, pos: new THREE.Vector3(0, yRoom(aim.floor) + 3.2, 1), height: 0, name: tx('world.elevator'), state: 'idle', detail: '', near: true, farSide, prompt: tx('world.go'), key: tx('world.click'), device: true, aimed: true });
     else if (inLanding && !this.mounted && this.elevator) items.push({ k: this.elevator, pos: new THREE.Vector3(0, sp.y + 3.2, 1), height: 0, name: tx('world.elevator'), state: 'idle', detail: '', near: true, farSide, prompt: tx('world.wSUpAndDown') });
     // de lejos solo se rotula lo que pide atención (te espera, terminó sin leer, avería) y a ti
-    if (farSide) for (let i = items.length - 1; i >= 0; i--) if (!items[i].supervisor && !items[i].aimed && !['waiting', 'finished', 'error'].includes(items[i].state)) items.splice(i, 1);
+    // (and each hologram's task: which task every worktree is)
+    if (farSide) for (let i = items.length - 1; i >= 0; i--) if (!items[i].supervisor && !items[i].aimed && !items[i].task && !['waiting', 'finished', 'error'].includes(items[i].state)) items.splice(i, 1);
+    // in a chat only the holograms' tags stay, as their glyph and task: the conversation's framing is not covered
+    if (this.focused || this.copyFocused) for (let i = items.length - 1; i >= 0; i--) if (items[i].task) { items[i].farSide = true; items[i].aimed = false; items[i].prompt = ''; } else items.splice(i, 1);
     const covered = !!juego.get().panel;
     this.labels.root.style.visibility = covered ? 'hidden' : '';
     if (!covered) this.labels.update(this.motor.camera, items);
