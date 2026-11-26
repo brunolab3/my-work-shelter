@@ -37,14 +37,14 @@ describe('English mode guards', () => {
   });
 
   // the room tools (send_to_room) and the remote control list rooms through roomNameIs, not their saved Spanish name
-  it('room names reach English mode translated, Planning wings included', () => {
+  it('room names reach English mode translated, Logistics wings included', () => {
     setLanguage('en');
     try {
-      const names = [...INITIAL_ROOMS, { type: 'coordination', name: 'Planning web' }].map(roomNameIs);
+      const names = [...INITIAL_ROOMS, { type: 'coordination', name: 'Logistics web' }].map(roomNameIs);
       // Calendar, Logistics and Planning are the same in both languages
       const spanishOnly = new Set(Object.values(TEXTS).filter(v => v.es !== v.en).map(v => v.es));
       expect(names.filter(n => spanishOnly.has(n))).toEqual([]);
-      expect(names).toContain('Planning web');
+      expect(names).toContain('Logistics web');
       expect(roomNameIs({ type: 'repo', name: 'Logística' })).toBe('Logística');
     } finally { setLanguage('es'); }
   });

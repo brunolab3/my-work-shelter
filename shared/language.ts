@@ -45,10 +45,10 @@ export function trBio(bio: string): string {
 // Locale for dates and numbers in the chosen language
 export const locale = () => (current === 'en' ? 'en-GB' : 'es-ES');
 
-// A room's name as shown: a repo room's is its folder's; the service rooms and the Planning wings ('Planning',
-// 'Planning <folder>') keep theirs as they are
+// A room's name as shown: a repo room's is its folder's; the service rooms and the Logistics wings ('Logistics',
+// 'Logistics <folder>') keep theirs as they are
 export function roomNameIs(s: { type: string; name: string }): string {
   if (s.type === 'repo') return s.name;
-  const m = /^Planning( .+)?$/.exec(s.name);
-  return m ? 'Planning' + (m[1] ?? '') : tIs(s.name);
+  const m = /^Logistics( .+)?$/.exec(s.name);
+  return m ? 'Logistics' + (m[1] ?? '') : tIs(s.name);
 }

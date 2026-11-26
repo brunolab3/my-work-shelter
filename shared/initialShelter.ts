@@ -13,16 +13,16 @@ export const INITIAL_ROOMS: InitialRoom[] = distribute<Omit<InitialRoom, 'floor'
   { id: 'vault', type: 'vault', name: 'Cámara acorazada', variant: 'vault' },
   { id: 'bridge', type: 'bridge', name: 'Puente de Mando', variant: 'bridge' },
   { id: 'comms', type: 'comms', name: 'Comunicaciones', variant: 'comms' },
-  // the 'calendar' type is the calendar and 'logistics', the Logistics room (the task board and its pull requests)
+  // the 'calendar' type is the calendar and 'logistics', the Planning room (the Jira board); Logistics is PLANNING_ROOM
   { id: 'calendar', type: 'calendar', name: 'Calendar', variant: 'plan' },
-  { id: 'logistics', type: 'logistics', name: 'Logistics', variant: 'logistics' },
+  { id: 'logistics', type: 'logistics', name: 'Planning', variant: 'logistics' },
   // git y GitHub: el cliente de git del refugio para todos los repos, la matriz de contribuciones y los pull requests
   { id: 'git', type: 'git', name: 'Control de Versiones', variant: 'logistics' },
   // others' PRs that ask for the Overseer's review: one hologram and conversation per task, in worktrees of its own
   { id: 'review', type: 'review', name: 'Revisión', variant: 'logistics' },
   // planificar tareas de Jira con todos los repos a la vista y repartirlas por salas (tipo 'coordinacion'): su carpeta es
   // la raíz de repos del refugio (la de la cámara acorazada; el servidor la pone)
-  { id: PLANNING_ROOM, type: 'coordination', name: 'Planning', variant: 'logistics' },
+  { id: PLANNING_ROOM, type: 'coordination', name: 'Logistics', variant: 'logistics' },
   { id: 'hydroponics', type: 'hydroponics', name: 'Hidroponía', variant: 'comms' },
   // la discoteca, en la planta de ocio entre los cultivos y el ascensor: la música del refugio (Spotify) para currar
   { id: 'disco', type: 'disco', name: 'Discoteca', variant: 'neutral' },

@@ -1446,9 +1446,9 @@ function openIn(app: string, filePath: string) {
 
 // Un habitante puede llevar varios trabajos a la vez (una pestaña del intercomunicador por conversación). Solo
 // limita el máximo de sesiones vivas del refugio.
-// a folder with several repos is a Planning room (it plans and assigns tasks across its repos); if there is one
+// a folder with several repos is a Logistics room (it plans and assigns tasks across its repos); if there is one
 // already, the new one also carries its folder's name
-const wingName = (rooms: { type: string; name: string }[], filePath: string) => rooms.some(s => s.type === 'coordination' && s.name.startsWith('Planning')) ? `Planning ${path.basename(filePath)}` : 'Planning';
+const wingName = (rooms: { type: string; name: string }[], filePath: string) => rooms.some(s => s.type === 'coordination' && s.name.startsWith('Logistics')) ? `Logistics ${path.basename(filePath)}` : 'Logistics';
 const pathsList = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string').slice(0, 20) : []);
 // ws: quien lo pide (sin él, lo lanza el propio refugio: el reparto desde una sala de coordinación)
 async function startWork(ws: WebSocket | undefined, m: Extract<ClientMessage, { t: 'start' }>): Promise<string> {

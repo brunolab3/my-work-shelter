@@ -266,12 +266,13 @@ export class Store {
 
 // El estado guardado se valida campo a campo: lo que no cuadra se descarta o vuelve a su valor inicial.
 // Si falta lo imprescindible (salas), se lanza y el almacén aparta la copia y arranca de cero.
-// nombres de antes: la agenda se llamó «Planificación» o «Agenda» y el tablero y la sala que reparte llevaron cada uno
-// el nombre del otro («Logística» y «Planificación»); ahora son «Calendar», «Logistics» y «Planning» (y las alas de esta)
+// names from before: the calendar was «Planificación» or «Agenda»; the Jira board (type 'logistics') is Planning and the
+// room that plans PRs and splits tasks (type 'coordination', and its wings) is Logistics, but each was saved with the
+// other's name (Logística/Planificación up to 11 Nov 2026, Logistics/Planning from 24 Nov 2026)
 function savedName(type: string, name: string): string {
   if (type === 'calendar' && ['Planificación', 'Agenda', 'Calendario'].includes(name)) return 'Calendar';
-  if (type === 'logistics' && ['Logística', 'Planificación'].includes(name)) return 'Logistics';
-  if (type === 'coordination' && /^(Planificación|Logística|Planning)( |$)/.test(name)) return 'Planning' + name.replace(/^(Planificación|Logística|Planning)/, '');
+  if (type === 'logistics' && ['Logística', 'Planificación', 'Logistics'].includes(name)) return 'Planning';
+  if (type === 'coordination' && /^(Planificación|Logística|Planning)( |$)/.test(name)) return 'Logistics' + name.replace(/^(Planificación|Logística|Planning)/, '');
   return name;
 }
 
