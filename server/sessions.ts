@@ -297,7 +297,7 @@ export class Sessions extends EventEmitter {
     if (o.resume) {
       try { const all = await this.transcript(o.resume, r.cwd); x.entries = all.slice(-RESUMED_ENTRIES); x.olderOnDisk = all.length > RESUMED_ENTRIES; } catch {}
       x.entries.push(this.input('system', t('server.conversationResumed')));
-      try { const info = await getSessionInfo(o.resume, { dir: r.cwd }); if (info) r.title = info.customTitle || info.summary || r.title; } catch {}
+      try { const info = await getSessionInfo(o.resume, lookIn(o.resume, r.cwd)); if (info) r.title = info.customTitle || info.summary || r.title; } catch {}
     }
     if (this.trust(r.cwd) === 'no-trust') this.askTrust(x, o.resume);
     else this.launch(x, o.resume).catch(e => console.error('No se pudo lanzar la sesión:', e));
@@ -992,7 +992,7 @@ export class Sessions extends EventEmitter {
     return entries;
   }
   private async readTranscript(claudeId: string, dir: string): Promise<LogInput[]> {
-    const msgs = await getSessionMessages(claudeId, { dir });
+    const msgs = await getSessionMessages(claudeId, lookIn(claudeId, dir));
     // cada mensaje con su hora real, no la de ahora: las páginas que enlazó y ya se revisaron no vuelven a quedar
     // pendientes al retomarla (shared/sessionPages.ts)
     const times = messageTimes(claudeId, dir);
@@ -1018,9 +1018,8 @@ export class Sessions extends EventEmitter {
  *  se retomó en otra (un worktree), cualquiera que la tenga */
 function messageTimes(claudeId: string, dir: string): Map<string, number> {
   const out = new Map<string, number>();
-  const root = path.dirname(projectFolder(dir));
-  let file = path.join(projectFolder(dir), claudeId + '.jsonl');
-  if (!existsSync(file)) { try { const d = readdirSync(root).find(x => existsSync(path.join(root, x, claudeId + '.jsonl'))); if (d) file = path.join(root, d, claudeId + '.jsonl'); } catch {} }
+  const file = transcriptFile(claudeId, dir);
+  if (!file) return out;
   try {
     for (const line of readFileSync(file, 'utf8').split('\n')) {
       if (!line.includes('"uuid"')) continue;
@@ -1029,6 +1028,18 @@ function messageTimes(claudeId: string, dir: string): Map<string, number> {
   } catch {}
   return out;
 }
+/** A conversation's Claude Code transcript: in `dir`'s project folder or, if it lived elsewhere (a worktree, even one
+ *  since removed), any that has it; none when Claude Code no longer keeps it */
+export function transcriptFile(claudeId: string, dir: string): string | undefined {
+  const file = path.join(projectFolder(dir), claudeId + '.jsonl');
+  if (existsSync(file)) return file;
+  const root = path.dirname(projectFolder(dir));
+  try { const d = readdirSync(root).find(x => existsSync(path.join(root, x, claudeId + '.jsonl'))); if (d) return path.join(root, d, claudeId + '.jsonl'); } catch {}
+  return undefined;
+}
+// the SDK's lookup of a conversation in `dir`, or in every project folder when it lived elsewhere (a removed worktree's,
+// resumed from the room's folder)
+const lookIn = (claudeId: string, dir: string) => existsSync(path.join(projectFolder(dir), claudeId + '.jsonl')) ? { dir } : {};
 
 async function wait(f: () => boolean, ms: number) {
   for (const end = Date.now() + ms; Date.now() < end; await new Promise(r => setTimeout(r, 100))) if (f()) return true;

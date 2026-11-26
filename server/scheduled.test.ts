@@ -3,7 +3,7 @@ import { mkdtempSync, readFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { parseWhen, holdWeekend, checkWhen, due, isLate, ofConversation, mergePart, PACK_MAX_MS, type ScheduledMessage, type UsageWindow } from '../shared/scheduled.ts';
-import { Scheduled, type CtxScheduled } from './scheduled.ts';
+import { Scheduled, deliveryTo, type CtxScheduled } from './scheduled.ts';
 import { setLanguage } from '../shared/language.ts';
 import type { SessionSummary } from '../shared/protocol.ts';
 
@@ -470,5 +470,24 @@ describe('scheduled messages: a handoff', () => {
     const n = x.changes.length;
     p.retarget(SESS, 's2'); p.learnClaudeId('s9', 'c-000');
     expect(x.changes.length).toBe(n);
+  });
+});
+
+describe('scheduled messages: which conversation receives one', () => {
+  const d = { type: 'conversation' as const, roomId: 'express', sessionId: 's1', claudeId: 'c-111', cwd: '/r/wt/abc-1', title: 'ABC-1' };
+  const at = (o: Partial<Parameters<typeof deliveryTo>[1]> = {}) => ({ open: [], exists: () => true, roomFolder: '/r/express', transcript: () => true, ...o });
+
+  it('the open one, by its game id or its Claude Code id', () => {
+    expect(deliveryTo(d, at({ open: [{ id: 's1', claudeId: 'c-other' }] }))).toEqual({ open: 's1' });
+    expect(deliveryTo(d, at({ open: [{ id: 's7', claudeId: 'c-111' }] }))).toEqual({ open: 's7' });
+  });
+  it('closed: resumed by its Claude Code id in its folder or, with that worktree removed, from the room\'s folder', () => {
+    expect(deliveryTo(d, at())).toEqual({ cwd: '/r/wt/abc-1', resume: 'c-111' });
+    // the FIC-4375 recheck: its worktree was gone when it fell due, and it started a new conversation in the main copy
+    expect(deliveryTo(d, at({ exists: dir => dir !== '/r/wt/abc-1' }))).toEqual({ cwd: '/r/express', resume: 'c-111' });
+  });
+  it('a new one only with no Claude Code id or no transcript left', () => {
+    expect(deliveryTo(d, at({ transcript: () => false }))).toEqual({ cwd: '/r/wt/abc-1', fresh: true });
+    expect(deliveryTo({ ...d, claudeId: undefined }, at())).toEqual({ cwd: '/r/wt/abc-1', fresh: true });
   });
 });

@@ -245,6 +245,7 @@ export const SERVER: Record<string, LocalizedText> = {
   'server.roomMessage': { es: '📨 {since} → {a}: {summary}', en: '📨 {since} → {a}: {summary}' },
   // mensajes programados (server/scheduled.ts)
   'server.scheduledDelivered': { es: '⏰ Mensaje programado para {room}: {summary}', en: '⏰ Scheduled message for {room}: {summary}' },
+  'server.scheduledNewConversation': { es: '⏰ Mensaje programado para {room}: {summary}. No he encontrado su conversación «{title}» para retomarla: ha ido a una nueva.', en: '⏰ Scheduled message for {room}: {summary}. I could not find its conversation “{title}” to resume it: it went to a new one.' },
   'server.scheduledDropped': { es: '⏰ No se puede entregar el mensaje programado «{summary}»: {error}. Lo quito de la lista.', en: '⏰ The scheduled message “{summary}” can’t be delivered: {error}. I have removed it from the list.' },
   'server.scheduledRetry': { es: '⏰ No he podido entregar el mensaje programado «{summary}»: {error}. Lo vuelvo a intentar cada minuto.', en: '⏰ I could not deliver the scheduled message “{summary}”: {error}. I will retry every minute.' },
   'server.scheduledAfterTurnNoConversation': { es: '«Cuando acabe» es para una conversación abierta.', en: '«When it finishes» is for an open conversation.' },

@@ -337,6 +337,18 @@ export class Scheduled {
 
 }
 
+/** Where a message to a conversation goes (main.ts: toConversation): the open one, by its game id or its Claude Code id;
+ *  else that conversation resumed by its Claude Code id, in its folder or, with that worktree gone, in the room's
+ *  (Claude Code finds a worktree's conversation from the main copy). A new one only with no id or no transcript left
+ *  (`fresh`: the notice says so) */
+export function deliveryTo(d: Extract<ScheduledTarget, { type: 'conversation' }>, c: { open: { id: string; claudeId?: string }[]; exists(dir: string): boolean; roomFolder: string; transcript(claudeId: string): boolean }):
+  { open: string } | { cwd: string; resume: string } | { cwd: string; fresh: true } {
+  const open = c.open.find(s => (d.sessionId && s.id === d.sessionId) || (d.claudeId && s.claudeId === d.claudeId));
+  if (open) return { open: open.id };
+  const cwd = c.exists(d.cwd) ? d.cwd : c.roomFolder;
+  return d.claudeId && c.transcript(d.claudeId) ? { cwd, resume: d.claudeId } : { cwd, fresh: true };
+}
+
 const sameSala = (a: ScheduledTarget, b: ScheduledTarget) => a.type === 'room' && b.type === 'room' && a.room === b.room && a.key === b.key && a.thread === b.thread;
 const isNextWindow = (when: unknown) => typeof when === 'string' && when.trim().toLowerCase() === NEXT_WINDOW;
 const isAfterTurn = (when: unknown) => typeof when === 'string' && when.trim().toLowerCase() === AFTER_TURN;

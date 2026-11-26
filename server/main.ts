@@ -12,7 +12,7 @@ import { GAME_NAME, LEGACY_WIRE, type ClientMessage, type ServerMessage, type In
 import { DEFAULT_LOG_PAGE } from '../shared/logPages.ts';
 import { linksPages } from '../shared/sessionPages.ts';
 import { ToolOutputs } from './toolOutputs.ts';
-import { Sessions } from './sessions.ts';
+import { Sessions, transcriptFile } from './sessions.ts';
 import { Attachments } from './attachments.ts';
 import { openAttachment, isPackage, revealLocal } from './open.ts';
 import { openLink, linkKind, imageThumbnail, servePage, existingPages, pagesUpdated } from './localPages.ts';
@@ -42,7 +42,7 @@ import { TasksCleanup, orphanedConversations } from './taskCleanup.ts';
 import { ReviewRoom, REVIEW_ROOM, REVIEW_ROOM_QUERY } from './reviewRoom.ts';
 import { WorkLog, type WorkLogSources } from './workLog.ts';
 import type { ReviewBoard } from '../shared/reviews.ts';
-import { Scheduled, summary } from './scheduled.ts';
+import { Scheduled, deliveryTo, summary } from './scheduled.ts';
 import { LimitResumes, scanStopped, resetMs, stopsWork, UNKNOWN_RESET_MS } from './limitResume.ts';
 import type { PackPart, UsageWindow } from '../shared/scheduled.ts';
 import { gitEnvironment } from './gitEnv.ts';
@@ -678,24 +678,23 @@ const scheduled: Scheduled = new Scheduled(DATA, {
   busy: d => busyState(sessions.list().find(s => s.state !== 'closed' && ((d.sessionId && s.id === d.sessionId) || (d.claudeId && s.claudeId === d.claudeId)))?.state),
   rooms: () => ctxRooms.rooms(),
   toConversation: async (x, text) => {
-    const d = x.target;
-    const open = sessions.list().find(s => s.state !== 'closed' && ((d.claudeId && s.claudeId === d.claudeId) || (!d.claudeId && s.id === d.sessionId)));
+    const d = x.target, room = store.state.rooms.find(s => s.id === d.roomId), h = store.state.dwellers.find(y => y.roomId === d.roomId);
+    // the open one, else that conversation resumed (with its worktree gone, from the room's folder); a new one only without its transcript
+    const to = deliveryTo(d, { open: sessions.list().filter(s => s.state !== 'closed'), exists: existsSync, roomFolder: room ? folderOf(room) : d.cwd, transcript: c => !!transcriptFile(c, d.cwd) });
     let id: string;
     // straight in (not ctxPlan.notify, which would hold it again): scheduled.ts only delivers when it may
-    if (open) { sessions.deliver(open.id, text, x.from ?? { kind: 'scheduled' }); id = open.id; }
+    if ('open' in to) { sessions.deliver(to.open, text, x.from ?? { kind: 'scheduled' }); id = to.open; }
     else {
-      const room = store.state.rooms.find(s => s.id === d.roomId), h = store.state.dwellers.find(y => y.roomId === d.roomId);
       if (!room || !h) throw new Error(t('server.scheduledNoDweller'));
-      // si su worktree ya no está, en la carpeta de la sala y sin retomar (la conversación era de otra carpeta)
-      const cwd = existsSync(d.cwd) ? d.cwd : folderOf(room);
       // background work the Overseer left is their own job (the intercom's default mode); a dweller's own reminder, in plan mode
-      id = await startWork(undefined, { t: 'start', dwellerId: h.id, roomId: room.id, prompt: text, options: { cwd, permissions: x.overseer || x.from?.kind === 'room' ? 'auto' : 'plan', resume: cwd === d.cwd ? d.claudeId : undefined } });
+      id = await startWork(undefined, { t: 'start', dwellerId: h.id, roomId: room.id, prompt: text, options: { cwd: to.cwd, permissions: x.overseer || x.from?.kind === 'room' ? 'auto' : 'plan', resume: 'resume' in to ? to.resume : undefined } });
     }
-    // one that waited for a turn to end was already announced when sent: it just goes in
-    if (x.from) return id;
-    const room = store.state.rooms.find(s => s.id === d.roomId);
-    broadcast({ t: 'delivery', room: d.roomId, sessionId: id, ...(room && path.resolve(d.cwd) !== path.resolve(folderOf(room)) ? { worktree: d.cwd } : {}) });
-    broadcast({ t: 'notice', level: 'info', text: t('server.scheduledDelivered', { room: room ? roomNameIs(room) : d.roomId, summary: summary(x.message) }) });
+    const where = room ? roomNameIs(room) : d.roomId, fresh = 'fresh' in to && (d.sessionId || d.claudeId);
+    // one that waited for a turn to end was already announced when sent: it just goes in (unless it had to start anew)
+    if (x.from && !fresh) return id;
+    const cwd = 'open' in to ? d.cwd : to.cwd;
+    broadcast({ t: 'delivery', room: d.roomId, sessionId: id, ...(room && path.resolve(cwd) !== path.resolve(folderOf(room)) ? { worktree: cwd } : {}) });
+    broadcast({ t: 'notice', level: fresh ? 'warning' : 'info', text: t(fresh ? 'server.scheduledNewConversation' : 'server.scheduledDelivered', { room: where, summary: summary(x.message), title: d.title ?? '' }) });
     return id;
   },
   // a send_to_room over the limit keeps its own `important`; one scheduled with schedule_message waits for a busy turn as before
