@@ -15,7 +15,7 @@ const sessionOfLink = (a: Element) => a.closest('[data-session]')?.getAttribute(
 function runFile(action: LinkAction, path: string, session?: string) {
   if (action === 'copy') return copy(copyText(path));
   if (action === 'finder') return revealPage(path);
-  // in the game: a page or an image in the «Página» window; with `fuera`, where the Mac opens it (server/open.ts)
+  // in the game: a page, an image or a text file in the «Página» window; with `fuera`, where the Mac opens it (server/open.ts)
   client.action('link.local', { path, outside: action === 'mac' })
     .then((r: any) => { if (r?.page) openPage(r.page.url, r.page.title, session, r.page.path); else SFX.click(); })
     .catch(() => SFX.notAllowed());

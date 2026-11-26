@@ -4,7 +4,7 @@ import { mkdtempSync, mkdirSync, realpathSync, symlinkSync, writeFileSync } from
 import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
-import { openLink, linkKind, imageThumbnail, servePage, PAGE_CSP, withNotes } from './localPages.ts';
+import { openLink, linkKind, imageThumbnail, servePage, PAGE_CSP, TEXT_CAP, withNotes } from './localPages.ts';
 
 const base = mkdtempSync(path.join(os.tmpdir(), 'paginas-'));
 const folder = path.join(base, 'repo', 'tmp'); mkdirSync(folder, { recursive: true });
@@ -24,7 +24,7 @@ const request = async (path: string) => { const r = await fetch(`http://127.0.0.
 describe('páginas HTML del Mac en el juego', () => {
   it("a link's kind, without opening it: inside the game or not, and where the Mac would open it", async () => {
     expect(await linkKind(path.join(folder, 'mi plan.html') + ':3', '/Users/nadie')).toEqual({ juego: true, mac: 'web' });
-    expect(await linkKind(path.join(folder, 'estilo.css'), '/Users/nadie')).toEqual({ juego: false, mac: 'editor' });
+    expect(await linkKind(path.join(folder, 'estilo.css'), '/Users/nadie')).toEqual({ juego: true, mac: 'editor' });
     expect(await linkKind(folder, '/Users/nadie')).toEqual({ juego: false, mac: 'folder' });
     await expect(linkKind(path.join(folder, 'falta.html'), '/Users/nadie')).rejects.toThrow();
   });
@@ -105,6 +105,41 @@ describe('images of the Mac in the game', () => {
     const lower = (await openLink(path.join(photos, 'informe.html'), '/Users/nadie') as any).page.url.split('/')[2];
     expect(lower).not.toBe(img);
     expect((await request(`/pagina/${lower}/vecina.png`)).status).toBe(200);
+  });
+});
+
+describe('text and code files of the Mac in the game', () => {
+  const code = path.join(base, 'codigo'); mkdirSync(code);
+  writeFileSync(path.join(code, 'app.ts'), 'const a = 1;\nif (a < 2 && "x") {}\n</pre><script>alert(1)</script>\n');
+  writeFileSync(path.join(code, 'informe.html'), '<p>informe</p>');
+  writeFileSync(path.join(code, 'huge.log'), ('a line of a huge log that goes on\n').repeat(Math.ceil(2 * 1024 * 1024 / 34)));
+  it('a .ts link opens in the game (its editor option stays), escaped, numbered, at its line', async () => {
+    expect(await linkKind(path.join(code, 'app.ts'), '/Users/nadie')).toEqual({ juego: true, mac: 'editor' });
+    const { page } = await openLink(path.join(code, 'app.ts') + ':2', '/Users/nadie') as any;
+    expect(page).toMatchObject({ title: 'app.ts', path: path.join(realpathSync(code), 'app.ts') });
+    expect(page.url).toMatch(/^\/pagina\/[0-9a-f]{32}\/app\.ts#L2$/);
+    const p = await request(page.url.split('#')[0]);
+    expect([p.status, p.type, p.csp]).toEqual([200, 'text/html; charset=utf-8', PAGE_CSP]);
+    expect(p.text).toContain('<span class="l" id="L2">if (a &lt; 2 &amp;&amp; &quot;x&quot;) {}</span>');
+    expect(p.text).toContain('&lt;/pre&gt;&lt;script&gt;alert(1)&lt;/script&gt;');
+    expect(p.text).not.toContain('id="L4"');
+    expect(p.text.match(/<script>/g)).toHaveLength(1);   // only the notes layer
+    expect((await request(page.url.replace(/app\.ts.*/, 'informe.html'))).status).toBe(404);   // its key serves that file only
+  });
+  it('an .html link does not change: the page itself, with its folder\'s key', async () => {
+    expect(await linkKind(path.join(code, 'informe.html'), '/Users/nadie')).toEqual({ juego: true, mac: 'web' });
+    const { page } = await openLink(path.join(code, 'informe.html'), '/Users/nadie') as any;
+    expect((await request(page.url)).text.startsWith('<p>informe</p><script>')).toBe(true);
+    expect((await request(page.url.replace('informe.html', 'app.ts'))).text).toBe('const a = 1;\nif (a < 2 && "x") {}\n</pre><script>alert(1)</script>\n');
+  });
+  it('a 2 MB file shows its first lines only, and says so', async () => {
+    const { page } = await openLink(path.join(code, 'huge.log'), '/Users/nadie') as any;
+    const p = await request(page.url);
+    expect(p.status).toBe(200);
+    expect(p.text).toMatch(/<div class="cap">[^<]*512 KB[^<]*2\.0 MB/);
+    expect(p.text.length).toBeLessThan(TEXT_CAP * 3);
+    expect(p.text).not.toContain(`id="L${Math.floor(TEXT_CAP / 34) + 1}"`);
+    expect(p.text).toContain(`<span class="l" id="L${Math.floor(TEXT_CAP / 34)}">a line of a huge log that goes on</span>`);
   });
 });
 

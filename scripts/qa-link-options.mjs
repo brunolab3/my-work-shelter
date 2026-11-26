@@ -1,6 +1,6 @@
 // QA of a link's options in replies and in pages of the «Página» window (web/src/ui/linkOptions.ts): a click on a
 // link opens it its first way; a right click opens a list at it, the in-game option first and marked; Enter takes it, Esc or a click elsewhere
-// closes it; a missing file shows the list with a warning; thumbnails open directly. A second context poses as Electron
+// closes it; a code file opens read-only in the game at its line; a missing file shows the list with a warning; thumbnails open directly. A second context poses as Electron
 // (its user agent) to see the «Open in the game» of a web and its «Web» window (the <webview> itself only loads in Electron).
 // Usage: node scripts/qa-link-options.mjs [url] [screenshots folder]   (with a test shelter: SHELTER_DATOS=/tmp/x npm run dev)
 import { chromium } from 'playwright';
@@ -11,7 +11,7 @@ mkdirSync(screenshots, { recursive: true });
 
 const dir = '/tmp/qa-opciones-enlace-archivos'; mkdirSync(dir, { recursive: true });
 writeFileSync(`${dir}/plan.html`, `<h1>The plan</h1><p><a id=abs href="${dir}/codigo.ts">the code</a> · <a id=rel href="punto.png">a picture</a> · <a id=web href="https://example.com/docs/page">a web</a> · <a id=ancla href="#arriba">up</a></p>`);
-writeFileSync(`${dir}/codigo.ts`, 'export const x = 1;\n');
+writeFileSync(`${dir}/codigo.ts`, 'export const x = 1;\nexport const y = x < 2;\n');
 // a 1×1 PNG
 writeFileSync(`${dir}/punto.png`, Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64'));
 
@@ -33,7 +33,7 @@ async function open(electron) {
     const box = document.createElement('div'); box.id = 'qa-respuesta'; box.className = 'console interactive';
     box.style.cssText = 'position:fixed;right:20px;top:80px;width:560px;z-index:999999;background:#0b0d0a;padding:12px;color:#cfe';
     box.innerHTML = `<div class="ent asistente">${markdown([
-      `The plan: ${dir}/plan.html — the code: ${dir}/codigo.ts — the folder: ${dir}/ — [a missing one](${dir}/falta.html)`,
+      `The plan: ${dir}/plan.html — the code: ${dir}/codigo.ts — its line: ${dir}/codigo.ts:2 — the folder: ${dir}/ — [a missing one](${dir}/falta.html)`,
       `A picture: ${dir}/punto.png`,
       `Webs: [example](https://example.com/docs/page) · [a PR](https://github.com/brunolab3/my-work-shelter/pull/1) · [write](mailto:ana@example.com)`,
     ].join('\n\n'))}</div>`;
@@ -41,7 +41,7 @@ async function open(electron) {
   }, dir);
   return { pg, errors, ctx };
 }
-const list = pg => pg.evaluate(() => { const c = document.querySelector('.options-link'); return c ? { title: c.querySelector('.oe-title')?.textContent, options: [...c.querySelectorAll('.oe-option')].map(b => b.dataset.action), defaultOpt: c.querySelector('.oe-default')?.dataset.action, focus: document.activeElement?.dataset?.accion, notice: c.querySelector('.oe-notice')?.textContent ?? null } : null; });
+const list = pg => pg.evaluate(() => { const c = document.querySelector('.options-link'); return c ? { title: c.querySelector('.oe-title')?.textContent, options: [...c.querySelectorAll('.oe-option')].map(b => b.dataset.action), defaultOpt: c.querySelector('.oe-default')?.dataset.action, focus: document.activeElement?.dataset?.action, notice: c.querySelector('.oe-notice')?.textContent ?? null } : null; });
 const until = async (pg, f, ms = 8000) => { const t = Date.now(); while (Date.now() - t < ms) { if (await f()) return true; await pg.waitForTimeout(150); } return false; };
 const menu = (pg, href) => pg.click(link(href), { button: 'right' });
 const link = href => `#qa-respuesta a[data-local="${href}"]:not(.thumbnail), #qa-respuesta a[href="${href}"]`;
@@ -53,7 +53,7 @@ const page = pg => pg.evaluate(() => [...document.querySelectorAll('.window-brow
   await menu(pg, `${dir}/plan.html`);
   check(await until(pg, async () => !!(await list(pg))), 'a right click on a page link opens its options');
   let l = await list(pg);
-  check(JSON.stringify(l?.options) === '["juego","mac","finder","copiar"]', `a page: game, default app, Finder, copy (${JSON.stringify(l?.options)})`);
+  check(JSON.stringify(l?.options) === '["juego","mac","finder","copy"]', `a page: game, default app, Finder, copy (${JSON.stringify(l?.options)})`);
   check(l?.defaultOpt === 'juego' && l?.focus === 'juego', `«Open in the game» first, marked and focused (${l?.defaultOpt}/${l?.focus})`);
   await pg.waitForTimeout(250);
   await pg.screenshot({ path: `${screenshots}/1-pagina.png`, clip: { x: 900, y: 60, width: 700, height: 420 } });
@@ -74,15 +74,23 @@ const page = pg => pg.evaluate(() => [...document.querySelectorAll('.window-brow
   await menu(pg, `${dir}/codigo.ts`);
   await until(pg, async () => !!(await list(pg)));
   l = await list(pg);
-  check(JSON.stringify(l?.options) === '["mac","finder","copiar"]' && l?.defaultOpt === 'mac', `code: editor first, no game option (${JSON.stringify(l?.options)})`);
+  check(JSON.stringify(l?.options) === '["juego","mac","finder","copy"]' && l?.defaultOpt === 'juego', `code: in the game first, the editor next (${JSON.stringify(l?.options)})`);
   // a click elsewhere closes it
   await pg.mouse.click(200, 700);
   check(!(await list(pg)), 'a click elsewhere closes it');
+  // a code file with a line: read-only in the «Página» window, that line marked
+  await pg.click(link(`${dir}/codigo.ts:2`));
+  const code = pg.frameLocator('.window-browser iframe');
+  check(await code.locator('#L2').waitFor({ timeout: 15000 }).then(() => true, () => false), 'a click on a code link shows it in the game');
+  check(await code.locator('#L2:target').count() === 1 && await code.locator('#L2').textContent() === 'export const y = x < 2;', 'escaped, at its line, marked');
+  await pg.screenshot({ path: `${screenshots}/1b-code.png` });
+  await pg.evaluate(() => [...document.querySelectorAll('.window-browser .vn-head button')].find(x => x.textContent === '×')?.click());
+  await until(pg, async () => !(await page(pg)).length);
 
   await menu(pg, `${dir}/falta.html`);
   await until(pg, async () => !!(await list(pg)));
   l = await list(pg);
-  check(JSON.stringify(l?.options) === '["copiar"]' && !!l?.notice, `a missing file: a warning and only «copy path» (${JSON.stringify(l)})`);
+  check(JSON.stringify(l?.options) === '["copy"]' && !!l?.notice, `a missing file: a warning and only «copy path» (${JSON.stringify(l)})`);
   await pg.screenshot({ path: `${screenshots}/2-falta.png`, clip: { x: 900, y: 60, width: 700, height: 420 } });
   await pg.click('.options-link [data-action="copy"]');
   check(await pg.evaluate(() => navigator.clipboard.readText()) === `${dir}/falta.html`, '«Copy path» copies it');
@@ -91,11 +99,11 @@ const page = pg => pg.evaluate(() => [...document.querySelectorAll('.window-brow
   await menu(pg, 'https://example.com/docs/page');
   await until(pg, async () => !!(await list(pg)));
   l = await list(pg);
-  check(JSON.stringify(l?.options) === '["navegador","copiar"]', `a web outside Electron: browser, copy (${JSON.stringify(l?.options)})`);
+  check(JSON.stringify(l?.options) === '["browser","copy"]', `a web outside Electron: browser, copy (${JSON.stringify(l?.options)})`);
   await pg.keyboard.press('Escape');
   await menu(pg, 'mailto:ana@example.com');
   await until(pg, async () => !!(await list(pg)));
-  check(JSON.stringify((await list(pg))?.options) === '["navegador","copiar"]', 'mail: mail app, copy address');
+  check(JSON.stringify((await list(pg))?.options) === '["browser","copy"]', 'mail: mail app, copy address');
   await pg.click('.options-link [data-action="copy"]');
   check(await pg.evaluate(() => navigator.clipboard.readText()) === 'ana@example.com', '«Copy address» copies the address');
 
@@ -116,12 +124,12 @@ const page = pg => pg.evaluate(() => [...document.querySelectorAll('.window-brow
   let p = await inFrame('#abs', 'right');
   check(await until(pg, async () => !!(await list(pg))), 'a right click on a link of a page opens its options');
   l = await list(pg);
-  check(JSON.stringify(l?.options) === '["mac","finder","copiar"]' && l?.title === `${dir}/codigo.ts`, `an absolute path: the file's options (${JSON.stringify(l)})`);
+  check(JSON.stringify(l?.options) === '["juego","mac","finder","copy"]' && l?.title === `${dir}/codigo.ts`, `an absolute path: the file's options (${JSON.stringify(l)})`);
   check(await atPointer(p), 'at the pointer');
   await pg.keyboard.press('Escape');
   await inFrame('#web', 'right');
   await until(pg, async () => !!(await list(pg)));
-  check(JSON.stringify((await list(pg))?.options) === '["navegador","copiar"]', 'a web of a page: its options');
+  check(JSON.stringify((await list(pg))?.options) === '["browser","copy"]', 'a web of a page: its options');
   await pg.keyboard.press('Escape');
   await inFrame('#rel', 'right');
   await until(pg, async () => !!(await list(pg)));
@@ -155,7 +163,7 @@ const page = pg => pg.evaluate(() => [...document.querySelectorAll('.window-brow
   await menu(pg, 'https://example.com/docs/page');
   await until(pg, async () => !!(await list(pg)));
   let l = await list(pg);
-  check(JSON.stringify(l?.options) === '["juego","navegador","copiar"]' && l?.defaultOpt === 'juego', `a web in Electron: game first (${JSON.stringify(l?.options)})`);
+  check(JSON.stringify(l?.options) === '["juego","browser","copy"]' && l?.defaultOpt === 'juego', `a web in Electron: game first (${JSON.stringify(l?.options)})`);
   await pg.waitForTimeout(250);
   await pg.screenshot({ path: `${screenshots}/3-web.png`, clip: { x: 900, y: 60, width: 700, height: 420 } });
   await pg.keyboard.press('Enter');

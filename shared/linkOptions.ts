@@ -21,7 +21,7 @@ export function webLinkOptions(href: string, o: { inside: boolean; spot?: string
 const ON_MAC: Record<LocalKind, string | null> = {
   folder: 'windows.linkOpenInFinder', web: 'windows.linkOpenWithDefaultApp', preview: 'windows.linkOpenInPreview', editor: 'windows.linkOpenInEditor', finder: null,
 };
-/** A file of the Mac (null: it isn't there): in the game (a page or an image), where the Mac opens it without running
+/** A file of the Mac (null: it isn't there): in the game (a page, an image or text), where the Mac opens it without running
  *  anything, revealed in Finder and copying its path */
 export function fileLinkOptions(type: { juego: boolean; mac: LocalKind } | null): LinkOption[] {
   const onMac = type && ON_MAC[type.mac];

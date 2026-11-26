@@ -35,7 +35,7 @@ export async function openInEditor(root: string, abs: string) {
 // adjuntos: imágenes y PDF en Vista Previa, texto en el editor de texto; lo demás (un .docx, un .zip, un .command…),
 // enseñado en el Finder para que lo abra el Supervisor sabiendo qué es
 const OF_PREVIEW = /\.(png|jpe?g|gif|webp|heic|heif|bmp|tiff?|pdf)$/i;
-const OF_TEXT = /\.(txt|md|markdown|json|jsonl|csv|tsv|log|ya?ml|toml|ini|conf|xml|html?|css|[cm]?[jt]sx?|py|rb|go|rs|java|kt|swift|c|h|cc|cpp|hpp|sh|zsh|sql|diff|patch)$/i;
+export const OF_TEXT = /\.(txt|md|markdown|json|jsonl|csv|tsv|log|ya?ml|toml|ini|conf|xml|html?|css|[cm]?[jt]sx?|py|rb|go|rs|java|kt|swift|c|h|cc|cpp|hpp|sh|zsh|sql|diff|patch)$/i;
 export async function openAttachment(root: string, abs: string) {
   const real = await realInside(root, abs);
   if (!(await fs.stat(real)).isFile()) { launch(['-R', real]); return; }

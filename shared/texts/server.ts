@@ -386,6 +386,7 @@ export const SERVER: Record<string, LocalizedText> = {
   'server.voice.cutOff': { es: 'El dictado se ha cortado{code}{error}.', en: 'Dictation was cut off{code}{error}.' },
   'server.voice.code': { es: ' (código {code})', en: ' (code {code})' },
   'server.doesNotExist': { es: 'No existe: {path}', en: 'It does not exist: {path}' },
+  'server.textPageCapped': { es: 'Archivo grande: se ven sus primeros {shown} de {size}. Ábrelo en el editor para verlo entero.', en: 'Large file: showing its first {shown} of {size}. Open it in the editor to see all of it.' },
   'server.propsNothingFound': { es: 'Nada en el catálogo con eso. Prueba con otra palabra (en inglés: desk, plant, lamp, computer, shelf…) o sin filtro.', en: 'Nothing in the catalogue matches that. Try another word (in English: desk, plant, lamp, computer, shelf…) or no filter.' },
   'server.noBrowserForPhoto': { es: 'no encuentro un navegador con el que hacerla (ni el Chromium de Playwright, «npx playwright install chromium», ni Google Chrome): {error}', en: 'I cannot find a browser to take it with (neither Playwright\'s Chromium, “npx playwright install chromium”, nor Google Chrome): {error}' },
   'server.noBranch': { es: '(sin rama)', en: '(no branch)' },
