@@ -3,7 +3,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { t, tIs, setLanguage } from './language.ts';
 import { TEXTS } from './texts.ts';
-import { MODELS } from './protocol.ts';
+import { MODELS, EFFORTS, PERMISSION_MODES } from './protocol.ts';
 
 describe('idioma', () => {
   afterEach(() => setLanguage('es'));
@@ -49,10 +49,9 @@ describe('idioma', () => {
     const shortcuts = [...panels.matchAll(/const \w*CONTROLS: \[string, string\]\[\] = \[([\s\S]*?)\n\];/g)].flatMap(m => literals(m[1]));
     expect(shortcuts.length).toBeGreaterThan(40);
     expect(untranslated(shortcuts)).toEqual([]);
-    const protocol = readFileSync('shared/protocol.ts', 'utf8');
-    const selectors = [...protocol.matchAll(/export const (?:EFFORTS|PERMISSION_MODES) = \[([\s\S]*?)\n\];/g)].flatMap(m => [...m[1].matchAll(/(?:text|hint): ('(?:\\.|[^'\\])*')/g)].flatMap(x => literals(x[1])));
-    expect(selectors.length).toBeGreaterThan(10);
-    expect(untranslated([...selectors, MODELS[0].text])).toEqual([]);
+    // the intercom's selectors hold text keys, each with its English version (a model's own name is not translated)
+    const selectors = [MODELS[0].text, ...EFFORTS.map(e => e.text), ...PERMISSION_MODES.flatMap(m => [m.text, m.hint])];
+    expect(selectors.filter(k => !TEXTS[k]?.en)).toEqual([]);
     const dir = 'server/integrations';
     const fields = readdirSync(dir).filter(n => /\.ts$/.test(n) && !n.endsWith('.test.ts')).flatMap(n => [...readFileSync(path.join(dir, n), 'utf8').matchAll(/\b(?:label|help): ('(?:\\.|[^'\\])*')/g)].flatMap(x => literals(x[1])));
     expect(fields.length).toBeGreaterThan(20);

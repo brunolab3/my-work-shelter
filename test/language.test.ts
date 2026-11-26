@@ -14,7 +14,6 @@ import { INITIAL_ROOMS, ROOM_DESCRIPTION, INITIAL_DWELLERS } from '../shared/ini
 import { ROOM_INFO, REPO_INFO, INTEGRATION_STATE, INTEGRATION_STATE_SHORT, REPO_TYPE, LOOK, ACTIVITY_TABS, FRESH_HARVEST } from '../shared/labels.ts';
 import { NICKNAMES, ORIGIN, MANIA, ROBOT_ORIGIN } from '../shared/recruits.ts';
 import { SECTORS } from '../shared/sectors.ts';
-import { MODELS, EFFORTS, PERMISSION_MODES } from '../shared/protocol.ts';
 import { COLUMNS } from '../shared/board.ts';
 import { DEPLOYMENT_COLUMNS } from '../shared/deploy.ts';
 
@@ -32,7 +31,6 @@ describe('English mode guards', () => {
       ...Object.values(REPO_TYPE), ...Object.values(LOOK), ...ACTIVITY_TABS, FRESH_HARVEST,
       ...NICKNAMES, ...ORIGIN, ...MANIA, ROBOT_ORIGIN,
       ...Object.values(SECTORS).flatMap(s => [s.name, s.motto]),
-      MODELS[0].text, ...EFFORTS.map(e => e.text), ...PERMISSION_MODES.flatMap(m => [m.text, m.hint]),
       ...COLUMNS.map(c => c.name), ...DEPLOYMENT_COLUMNS.map(c => c.name),
     ];
     expect([...new Set(data.filter(x => !spanish.has(x)))]).toEqual([]);

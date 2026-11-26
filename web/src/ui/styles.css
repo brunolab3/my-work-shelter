@@ -490,6 +490,18 @@ a.thumbnail:hover img { box-shadow: 0 0 0 1px #ffc96b, 0 0 10px rgba(255,179,71,
 .buttons-handover button { padding: .1em .6em; font: inherit; color: inherit; background: none; border: 1px solid currentColor; cursor: pointer; }
 .buttons-handover button:hover { box-shadow: inset 0 0 0 1px currentColor; }
 .line-state .mode { margin-left: auto; color: var(--phosphor-dim); text-shadow: none; font-size: .85em; }
+.line-state.mode-open { overflow: visible; }
+.mode-picker { position: relative; }
+.mode-picker .mode-current { background: none; border: 0; padding: 0; color: inherit; font: inherit; cursor: pointer; }
+.mode-picker .mode-current:hover, .mode-picker .mode-current:focus-visible { color: var(--phosphor); }
+/* upwards from the status line, aligned to its right end */
+.pages-list.mode-list { top: auto; bottom: 100%; left: auto; right: 0; min-width: 22em; font-size: calc(var(--u) * 0.78); }
+.mode-list .chip { width: 100%; text-align: left; }
+.mode-list li.on .chip { color: var(--phosphor); }
+.mode-list .mode-mark { display: inline-block; width: 1.2em; }
+.pages-list.mode-list:has(.mode-confirm) { width: 24em; min-width: 0; }
+.mode-list .mode-confirm { flex-wrap: wrap; }
+.pages-list.mode-list .mode-confirm > span { flex: 1 1 100%; white-space: normal; }
 .line-state .urgent { color: #ffb000; }
 .spinning { display: inline-block; animation: spin 1s linear infinite; } @keyframes spin { to { transform: rotate(360deg); } }
 .suggestions { position: absolute; left: 0; right: 0; bottom: 100%; margin: 0 0 4px; padding: .2em; list-style: none; background: #06120c; border: 1px solid rgba(157,255,184,.4); border-radius: 3px; max-height: 14em; overflow: auto; }

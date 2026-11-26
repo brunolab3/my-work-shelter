@@ -203,23 +203,24 @@ import type { ReviewBoard } from './reviews.ts';
 // el nombre del juego y, por defecto, del refugio
 export const GAME_NAME = 'work-shelter';
 
+// selector texts are text keys (shared/texts/windows.ts), shown with t(); a model's own name is its own text
 export const MODELS = [
-  { value: '', text: 'El de tus ajustes' },
+  { value: '', text: 'windows.modelFromYourSettings' },
   { value: 'opus', text: 'Opus' },
   { value: 'fable', text: 'Fable' },
   { value: 'sonnet', text: 'Sonnet' },
   { value: 'haiku', text: 'Haiku' },
 ];
 export const EFFORTS = [
-  { value: '', text: 'Por defecto' }, { value: 'low', text: 'Bajo' }, { value: 'medium', text: 'Medio' },
-  { value: 'high', text: 'Alto' }, { value: 'xhigh', text: 'Muy alto' }, { value: 'max', text: 'Máximo' },
+  { value: '', text: 'windows.effortDefault' }, { value: 'low', text: 'windows.effortLow' }, { value: 'medium', text: 'windows.effortMedium' },
+  { value: 'high', text: 'windows.effortHigh' }, { value: 'xhigh', text: 'windows.effortVeryHigh' }, { value: 'max', text: 'windows.effortMax' },
 ];
 export const PERMISSION_MODES = [
-  { value: 'default', text: 'Pregúntame', hint: 'Pide permiso antes de editar o ejecutar' },
-  { value: 'acceptEdits', text: 'Edita sin preguntar', hint: 'Acepta ediciones; pregunta antes de ejecutar comandos' },
-  { value: 'plan', text: 'Primero un plan', hint: 'Solo lectura hasta que apruebes un plan' },
-  { value: 'auto', text: 'Automático', hint: 'Decide el clasificador del modo automático' },
-  { value: 'bypassPermissions', text: 'Sin límites', hint: 'Se salta todos los permisos (cuidado)' },
+  { value: 'default', text: 'windows.permAskMe', hint: 'windows.permAskMeHint' },
+  { value: 'acceptEdits', text: 'windows.permEditFreely', hint: 'windows.permEditFreelyHint' },
+  { value: 'plan', text: 'windows.permPlanFirst', hint: 'windows.permPlanFirstHint' },
+  { value: 'auto', text: 'windows.permAuto', hint: 'windows.permAutoHint' },
+  { value: 'bypassPermissions', text: 'windows.permBypass', hint: 'windows.permBypassHint' },
 ];
 
 /** Un aviso que pregunta sí o no al Supervisor (p. ej. quitar un worktree con cambios sin guardar): la respuesta vuelve

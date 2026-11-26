@@ -2,7 +2,7 @@
 import type { LocalizedText } from '../language.ts';
 
 export const WINDOWS: Record<string, LocalizedText> = {
-  // selectores del intercomunicador: modelo, esfuerzo y permisos (shared/protocol.ts, pintados con tIs)
+  // selectores del intercomunicador: modelo, esfuerzo y permisos (shared/protocol.ts, shown with t())
   'windows.modelFromYourSettings': { es: 'El de tus ajustes', en: 'From your settings' },
   'windows.effortDefault': { es: 'Por defecto', en: 'Default' },
   'windows.effortLow': { es: 'Bajo', en: 'Low' },
@@ -20,6 +20,15 @@ export const WINDOWS: Record<string, LocalizedText> = {
   'windows.permAutoHint': { es: 'Decide el clasificador del modo automático', en: 'The auto mode classifier decides' },
   'windows.permBypass': { es: 'Sin límites', en: 'No limits' },
   'windows.permBypassHint': { es: 'Se salta todos los permisos (cuidado)', en: 'Skips every permission (careful)' },
+  // the mode picker of a conversation's status line (ModePicker in Dialog.tsx)
+  'windows.mode.change': { es: 'Modo de permisos: clic o ⇧Tab para cambiarlo', en: 'Permission mode: click or ⇧Tab to change it' },
+  'windows.mode.closed': { es: 'Conversación cerrada: retómala para cambiar su modo', en: 'Closed conversation: resume it to change its mode' },
+  'windows.mode.planNow': { es: 'Desde ahora, solo lectura hasta que apruebes un plan', en: 'Read-only from now until you approve a plan' },
+  'windows.mode.bypassConfirm': { es: '¿Saltarse todos los permisos? Ejecutará y editará sin preguntar', en: 'Skip every permission? It will run and edit without asking' },
+  'windows.mode.bypassYes': { es: 'Sí, sin límites', en: 'Yes, no limits' },
+  'windows.mode.cancel': { es: 'Cancelar', en: 'Cancel' },
+  'windows.mode.refused': { es: 'Claude Code no aceptó el modo «{mode}»: sigue en «{current}»', en: 'Claude Code did not take the mode “{mode}”: it stays in “{current}”' },
+  'windows.mode.shortcut': { es: '[⇧Tab] cambiar el modo de permisos', en: '[⇧Tab] change the permission mode' },
   'windows.theShelterIsNotResponding': { es: 'El refugio no responde.', en: 'The shelter is not responding.' },
   'windows.continueOnYourPhone': { es: 'Seguir en el móvil: sale a la superficie con Remote Control (app de Claude o claude.ai/code; se cierra aquí)', en: 'Continue on your phone: goes to the surface with Remote Control (Claude app or claude.ai/code; closes it here)' },
   'windows.continueThisConversationInThe': { es: 'Seguir esta conversación en la app de Claude (se cierra aquí)', en: 'Continue this conversation in the Claude app (closes it here)' },

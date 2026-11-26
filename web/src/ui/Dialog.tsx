@@ -22,6 +22,7 @@ import type { SessionSummary, LogInput, ToolOutput, HistoryElement, Command, Pen
 import { originLabel, QUEUE_FAILURE, queuedIn, withdrawable, type QueueOutcome } from '@shared/messageQueue';
 import { flaggedIds, flagOf, flaggedInIntercom, tabFlaggable, type Flaggable } from '@shared/flagged';
 import { MODELS, EFFORTS, PERMISSION_MODES } from '@shared/protocol';
+import { confirmsFirst, modeChangeable, modeRows } from './modeMenu';
 import { t, tIs, trBio } from '@shared/language';
 import { juego, type DwellerSummary } from './gameState';
 import { live, client, loadLog, loadOlder, trimLog, addNotice } from '../net/client';
@@ -965,7 +966,7 @@ function New({ h, p, resume, goBack }: { h: DwellerSummary; p: TabCom; resume?: 
         {rows.map((fr, k) => (
           <div key={fr.name} className={'row-chips' + (row === k + 1 ? ' active' : '')} onClick={() => setRow(k + 1)}>
             <span className="lbl">{fr.name}</span>
-            {fr.values.map(v => <button key={v.value} className={'chip' + (v.value === fr.current ? ' on' : '')} onClick={() => fr.set(v.value)} title={(v as any).hint ? tIs((v as any).hint) : ''}>{tIs(v.text)}</button>)}
+            {fr.values.map(v => <button key={v.value} className={'chip' + (v.value === fr.current ? ' on' : '')} onClick={() => fr.set(v.value)} title={(v as any).hint ? t((v as any).hint) : ''}>{t(v.text)}</button>)}
           </div>
         ))}
         {workIn ? <div className="row-chips"><span className="lbl">Worktree</span><span className="chip on">{t('windows.insideTheCopyBranch', { branch: workIn.branch })}</span></div> :
@@ -1130,6 +1131,7 @@ function Session({ h, s, p, exit, onClose }: { h: DwellerSummary; s: SessionSumm
     if (!s.pending && !e.metaKey && !e.ctrlKey && !e.altKey && (e.key.length === 1 || e.key === 'Enter' || e.key === 'Backspace')) { area.current?.focus(); return false; }
     return false;
   }), [s.pending?.id]);
+  const [modeOpen, setModeOpen] = useState(false);
   const dictation = useDictation({ area, text, setText, onSend: send });
   const esc = useEscDouble();
   const [onTop, drop] = useDrop(f => attach(h.id, p.id, f));
@@ -1157,13 +1159,13 @@ function Session({ h, s, p, exit, onClose }: { h: DwellerSummary; s: SessionSumm
         if (m.attachments?.length) changeAttachments(h.id, p.id, l => [...l, ...m.attachments!.map(a => ({ id: `cola-${m.id}-${a.path}`, name: a.name, image: a.image, path: a.path }))]);
         area.current?.focus();
       }} />}
-      {!s.pending && <div className="line-state">
+      {!s.pending && <div className={'line-state' + (modeOpen ? ' mode-open' : '')}>
         {workingLive ? <span className="spinning">◐</span> : s.state === 'waiting' ? <span className="urgent">?</span> : s.state === 'finished' ? <span>✓</span> : <span>·</span>}
         <span className="txt"><ToolText t={lineState || (s.limit ? limitLine(s.limit) : s.state === 'finished' || s.state === 'idle' ? t('windows.doneYouCanReplyOpen') : '')} /></span>
         {helpers > 0 && <span className="dim"> · {helpers > 1 ? t('windows.nHelpers', { n: helpers }) : t('windows.nHelper', { n: helpers })}</span>}
         {s.lateral && !s.lateral.answer && <span className="dim"> · {t('windows.sideQuestion')}</span>}
         <Usage s={s} compact={compact} />
-        <span className="mode">{tIs(PERMISSION_MODES.find(m => m.value === s.permissionMode)?.text ?? s.permissionMode ?? '')}</span>
+        <ModePicker s={s} open={modeOpen} setOpen={setModeOpen} />
       </div>}
       {!s.pending && (
         <div className="line-entry active">
@@ -1178,6 +1180,7 @@ function Session({ h, s, p, exit, onClose }: { h: DwellerSummary; s: SessionSumm
               if (attachShortcut(e)) { e.preventDefault(); chooseFiles(f => attach(h.id, p.id, f)); return; }
               if (suggestions.length && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) { e.preventDefault(); setSelCmd(k => (k + (e.key === 'ArrowDown' ? 1 : -1) + suggestions.length) % suggestions.length); return; }
               if (suggestions.length && e.key === 'Tab') { e.preventDefault(); setText('/' + suggestions[selCmd].name + ' '); return; }
+              if (e.key === 'Tab' && e.shiftKey && modeChangeable(s)) { e.preventDefault(); setModeOpen(true); return; }
               if (e.key === 'Enter' && e.altKey) { e.preventDefault(); sendLater(); return; }
               if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (suggestions.length && text.trim() === text && !text.includes(' ')) setText('/' + suggestions[selCmd].name + ' '); else send(); return; }
               if (e.key === 'Escape') { e.preventDefault(); if (text) esc.press(true, () => setText('')); else exit(); return; }
@@ -1190,7 +1193,7 @@ function Session({ h, s, p, exit, onClose }: { h: DwellerSummary; s: SessionSumm
       )}
       {!s.pending && <AttachmentsTray list={p.attachments} remove={removeAttachment(h.id, p.id)} />}
       {!s.pending && <DictationStrip dictation={dictation} />}
-      <ComposerHelp send={t('windows.send')} shortcuts={t('windows.shortcutsHint', { cmd: CMD })} sendLater={sendLater} armed={esc.armed && t('windows.againDeleteWhatYouWrote')} afterTurn />
+      <ComposerHelp send={t('windows.send')} shortcuts={t('windows.shortcutsHint', { cmd: CMD }) + '\n' + t('windows.mode.shortcut')} sendLater={sendLater} armed={esc.armed && t('windows.againDeleteWhatYouWrote')} afterTurn />
     </div>
   );
 }
@@ -1368,6 +1371,57 @@ const laterDone = (x: ScheduledMessage) => t(x.afterTurn ? 'windows.scheduleAfte
 // The composer's bottom line: only what it needs as buttons (schedule first, then the day's last window: both send it
 // later); every shortcut is in the ⌨'s panel, shown on hover or keyboard focus (a native title barely shows in Electron).
 // It wraps instead of clipping when the intercom is narrow.
+// The conversation's permission mode, at the right of its status line: a click or ⇧Tab in the composer opens the modes
+// (modeRows in ./modeMenu.ts), ↑↓ move, Enter picks, Esc closes; «No limits» asks first. A closed conversation only
+// shows it. Claude Code may refuse a mode (bypassPermissions in a process not started with it): then a notice says so
+function ModePicker({ s, open, setOpen }: { s: SessionSummary; open: boolean; setOpen: (x: boolean) => void }) {
+  const [asking, setAsking] = useState(false);
+  const box = useRef<HTMLSpanElement>(null);
+  const latest = useRef(s); latest.current = s;
+  const name = (m?: string) => t(PERMISSION_MODES.find(x => x.value === m)?.text ?? m ?? '');
+  const close = (refocus = true) => { setOpen(false); setAsking(false); if (refocus) (box.current?.closest('.session')?.querySelector('.line-entry textarea') as HTMLTextAreaElement | null)?.focus(); };
+  useEffect(() => {
+    if (!open) return;
+    (box.current?.querySelector<HTMLButtonElement>('li.on button') ?? box.current?.querySelector<HTMLButtonElement>('li button'))?.focus();
+    const out = (e: MouseEvent) => { if (!box.current?.contains(e.target as Node)) close(false); };
+    document.addEventListener('mousedown', out);
+    return () => document.removeEventListener('mousedown', out);
+  }, [open]);
+  useEffect(() => { if (asking) (box.current?.querySelector('.mode-confirm button') as HTMLButtonElement | null)?.focus(); }, [asking]);
+  if (!modeChangeable(s)) return <span className="mode" title={t('windows.mode.closed')}>{name(s.permissionMode)}</span>;
+  const apply = (mode: string) => {
+    close();
+    if (mode === s.permissionMode) return;
+    client.send({ t: 'permissionMode', sessionId: s.id, mode });
+    SFX.toggle();
+    setTimeout(() => { const now = latest.current; if (now.state !== 'closed' && now.permissionMode !== mode) addNotice('warning', t('windows.mode.refused', { mode: name(mode), current: name(now.permissionMode) })); }, 4000);
+  };
+  const pick = (mode: string) => { if (confirmsFirst(mode, s.permissionMode)) { setAsking(true); SFX.click(); } else apply(mode); };
+  const move = (e: React.KeyboardEvent) => {
+    const buttons = [...(box.current?.querySelectorAll('.mode-list button') ?? [])] as HTMLButtonElement[];
+    const k = buttons.indexOf(document.activeElement as HTMLButtonElement);
+    buttons[(k + (e.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length]?.focus();
+  };
+  return (
+    <span ref={box} className="mode mode-picker">
+      <button className="mode-current" title={t('windows.mode.change')} onClick={() => { if (open) close(); else { setOpen(true); SFX.click(); } }}>{name(s.permissionMode)} ▾</button>
+      {open && <ul className="pages-list mode-list" onKeyDown={e => {
+        e.stopPropagation();
+        if (e.key === 'Escape') { e.preventDefault(); if (asking) setAsking(false); else close(); }
+        else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); move(e); }
+      }}>
+        {asking
+          ? <li className="mode-confirm"><span className="urgent">{t('windows.mode.bypassConfirm')}</span>
+              <button className="console-x" onClick={() => apply('bypassPermissions')}>{t('windows.mode.bypassYes')}</button>
+              <button className="console-x" onClick={() => setAsking(false)}>{t('windows.mode.cancel')}</button></li>
+          : modeRows(s.permissionMode).map(r => <li key={r.value} className={r.current ? 'on' : ''}>
+              <button className="chip" onClick={() => pick(r.value)}><span className="mode-mark">{r.current ? '●' : '○'}</span> {t(r.text)} <span className="dim">{t(r.hint)}</span></button>
+            </li>)}
+      </ul>}
+    </span>
+  );
+}
+
 function ComposerHelp({ send, shortcuts, sendLater, armed, afterTurn }: { send: string; shortcuts: string; sendLater: (when?: string) => void; armed: string | false; afterTurn?: boolean }) {
   return (
     <p className="help-console help-composer">
